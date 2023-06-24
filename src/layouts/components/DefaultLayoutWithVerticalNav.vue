@@ -79,7 +79,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       <VerticalNavLink
         :item="{
           title: '推荐',
-          icon: 'mdi-movie-star',
+          icon: 'mdi-table-star',
           to: '/ranking',
         }"
       />
@@ -87,8 +87,8 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       <VerticalNavLink
         :item="{
           title: '资源搜索',
-          icon: 'mdi-table',
-          to: '/resources',
+          icon: 'mdi-magnify',
+          to: '/resource',
         }"
       />
 
@@ -133,7 +133,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         }"
       />
 
-      <!-- 👉 用户设置 -->
+      <!-- 👉 设置 -->
       <VerticalNavSectionTitle
         :item="{
           heading: '设置',
@@ -143,14 +143,21 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         :item="{
           title: '站点管理',
           icon: 'mdi-web',
-          to: '/sites',
+          to: '/site',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '插件',
+          icon: 'mdi-apps',
+          to: '/plugin',
         }"
       />
       <VerticalNavLink
         :item="{
           title: '设置',
           icon: 'mdi-cog-outline',
-          to: '/account-settings',
+          to: '/account-setting',
         }"
       />
     </template>

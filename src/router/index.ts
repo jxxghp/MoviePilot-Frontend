@@ -23,8 +23,8 @@ const router = createRouter({
           },
         },
         {
-          path: 'resources',
-          component: () => import('../pages/resources.vue'),
+          path: 'resource',
+          component: () => import('../pages/resource.vue'),
           meta: {
             requiresAuth: true,
           },
@@ -58,15 +58,22 @@ const router = createRouter({
           },
         },
         {
-          path: 'sites',
-          component: () => import('../pages/sites.vue'),
+          path: 'site',
+          component: () => import('../pages/site.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'account-settings',
-          component: () => import('../pages/account-settings.vue'),
+          path: 'plugin',
+          component: () => import('../pages/plugin.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'account-setting',
+          component: () => import('../pages/account-setting.vue'),
           meta: {
             requiresAuth: true,
           },
