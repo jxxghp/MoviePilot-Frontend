@@ -1,6 +1,5 @@
-import router from '@/router'
 import axios from 'axios'
-
+import router from '@/router'
 
 // 创建axios实例
 const api = axios.create({
@@ -10,11 +9,10 @@ const api = axios.create({
 // 添加请求拦截器
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token')
-  
+
   // 在请求头中添加token
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`
-  }
+  if (token)
+    config.headers.Authorization = `Bearer ${token}`
 
   return config
 })
@@ -23,14 +21,15 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(response => {
   return response.data
 }, error => {
-  if (! error.response) {
+  if (!error.response) {
     // 请求超时
     return Promise.reject(error)
-  } else if (error.response.status === 403) {
+  }
+  else if (error.response.status === 403) {
     // token验证失败，跳转到登录页面
     router.push('/login')
   }
-  
+
   return Promise.reject(error)
 })
 

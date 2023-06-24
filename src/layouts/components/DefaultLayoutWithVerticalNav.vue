@@ -1,9 +1,5 @@
 <script lang="ts" setup>
-import { useTheme } from 'vuetify'
-
 import VerticalNavSectionTitle from '@/@layouts/components/VerticalNavSectionTitle.vue'
-import upgradeBannerDark from '@images/pro/upgrade-banner-dark.png'
-import upgradeBannerLight from '@images/pro/upgrade-banner-light.png'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
 
@@ -13,12 +9,6 @@ import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 
 // Banner
-
-const vuetifyTheme = useTheme()
-
-const upgradeBanner = computed(() => {
-  return vuetifyTheme.global.name.value === 'light' ? upgradeBannerLight : upgradeBannerDark
-})
 </script>
 
 <template>
@@ -93,7 +83,7 @@ const upgradeBanner = computed(() => {
           to: '/ranking',
         }"
       />
-      
+
       <VerticalNavLink
         :item="{
           title: '资源搜索',
@@ -142,7 +132,7 @@ const upgradeBanner = computed(() => {
           to: '/history',
         }"
       />
-      
+
       <!-- 👉 用户设置 -->
       <VerticalNavSectionTitle
         :item="{

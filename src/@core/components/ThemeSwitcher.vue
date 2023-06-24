@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { ThemeSwitcherTheme } from '@layouts/types';
-import { ref, watch } from 'vue';
-import { useTheme } from 'vuetify';
+import { ref, watch } from 'vue'
+import { useTheme } from 'vuetify'
+import type { ThemeSwitcherTheme } from '@layouts/types'
 
 const props = defineProps<{
   themes: ThemeSwitcherTheme[]
@@ -15,6 +15,7 @@ const { state: currentThemeName, next: getNextThemeName, index: currentThemeInde
 
 const changeTheme = () => {
   const nextTheme = getNextThemeName()
+
   globalTheme.name.value = nextTheme
   savedTheme.value = nextTheme
   localStorage.setItem('theme', nextTheme)
@@ -29,7 +30,6 @@ watch(() => globalTheme.name.value, val => {
 onMounted(() => {
   globalTheme.name.value = savedTheme.value
 })
-
 </script>
 
 <template>
