@@ -11,6 +11,9 @@ const router = createRouter({
         {
           path: 'dashboard',
           component: () => import('../pages/dashboard.vue'),
+          meta: {
+            requiresAuth: true,
+          },
         },
         {
           path: 'ranking',

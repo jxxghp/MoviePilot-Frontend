@@ -93,12 +93,15 @@ onMounted(() => {
   const remember = localStorage.getItem('remember')
 
   // 如果token存在，且保持登录状态为true，则跳转到首页
-  if (token && remember === 'true')
+  if (token && remember === 'true') {
     router.push('/')
-
+  }
+  else {
   // 获取背景图片
-  fetchBackgroundImage()
-})
+    fetchBackgroundImage()
+  }
+},
+)
 </script>
 
 <template>
