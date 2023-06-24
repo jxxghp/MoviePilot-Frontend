@@ -39,7 +39,7 @@ const login = () => {
   formData.append('password', form.value.password);
   // 请求token
   api.post('/login/access-token', formData)
-  .then((response: { access_token: any }) => {
+  .then((response: { access_token: string }) => {
     // 获取token
     const token = response.access_token
     // 将token保存在本地存储中，用于后续请求
@@ -49,7 +49,17 @@ const login = () => {
   })
   .catch((error: any) => {
     // 登录失败，显示错误提示
-    errorMessage.value = '登录失败，请检查用户名和密码是否正确'
+    if (!error.response) {
+      errorMessage.value = '登录失败，请检查网络连接'
+    } else if (error.response.status === 401) {
+      errorMessage.value = '登录失败，请检查用户名和密码是否正确'
+    } else if (error.response.status === 403) {
+      errorMessage.value = '登录失败，您没有权限访问'
+    } else if (error.response.status === 500) {
+      errorMessage.value = '登录失败，服务器错误'
+    } else {
+      errorMessage.value = `登录失败 ${error.response.status}，请检查用户名和密码是否正确`
+    }
   })
 }
 

@@ -23,7 +23,10 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(response => {
   return response.data
 }, error => {
-  if (error.response.status === 403) {
+  if (! error.response) {
+    // 请求超时
+    return Promise.reject(error)
+  } else if (error.response.status === 403) {
     // token验证失败，跳转到登录页面
     router.push('/login')
   }
