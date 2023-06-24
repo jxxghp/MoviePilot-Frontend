@@ -52,15 +52,6 @@ const logout = () => {
             <VListItemTitle>个人中心</VListItemTitle>
           </VListItem>
 
-          <!-- 👉 Settings -->
-          <VListItem link>
-            <template #prepend>
-              <VIcon class="me-2" icon="mdi-cog-outline" size="22" />
-            </template>
-
-            <VListItemTitle>设置</VListItemTitle>
-          </VListItem>
-
           <!-- 👉 FAQ -->
           <VListItem link>
             <template #prepend>
