@@ -141,7 +141,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       />
       <VerticalNavLink
         :item="{
-          title: '站点管理',
+          title: '站点',
           icon: 'mdi-web',
           to: '/site',
         }"
