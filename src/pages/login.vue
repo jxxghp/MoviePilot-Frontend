@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import axios from 'axios'
 import { useTheme } from 'vuetify'
 
 import api from '@/api'
@@ -37,10 +36,8 @@ const login = () => {
   .then((response: { access_token: any }) => {
     // 获取token
     const token = response.access_token
-
     // 将token保存在本地存储中，用于后续请求
     localStorage.setItem('token', token)
-
     // 跳转到首页
     router.push('/')
   })
@@ -49,21 +46,6 @@ const login = () => {
     alert(error)
   })
 }
-
-// 添加请求拦截器
-axios.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // 在请求头中添加token
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => {
-    return Promise.reject(error);
-  }
-);
 
 </script>
 
