@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { useTheme } from 'vuetify'
-import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
 
+import api from '@/api'
+import router from '@/router'
 import logo from '@images/logo.svg?raw'
 import authV1MaskDark from '@images/pages/auth-v1-mask-dark.png'
 import authV1MaskLight from '@images/pages/auth-v1-mask-light.png'
@@ -9,9 +11,9 @@ import authV1Tree2 from '@images/pages/auth-v1-tree-2.png'
 import authV1Tree from '@images/pages/auth-v1-tree.png'
 
 const form = ref({
-  email: '',
+  username: '',
   password: '',
-  remember: false,
+  remember: true,
 })
 
 const vuetifyTheme = useTheme()
@@ -23,6 +25,46 @@ const authThemeMask = computed(() => {
 })
 
 const isPasswordVisible = ref(false)
+
+// 登录获取token事件
+const login = () => {
+  // 用户名密码
+  const formData = new FormData();
+  formData.append('username', form.value.username);
+  formData.append('password', form.value.password);
+  // 请求token
+  api.post('/login/access-token', formData)
+  .then((response: { access_token: any }) => {
+    // 获取token
+    const token = response.access_token
+
+    // 将token保存在本地存储中，用于后续请求
+    localStorage.setItem('token', token)
+
+    // 跳转到首页
+    router.push('/')
+  })
+  .catch((error: any) => {
+    // 登录失败，显示错误提示
+    alert(error)
+  })
+}
+
+// 添加请求拦截器
+axios.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // 在请求头中添加token
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
 </script>
 
 <template>
@@ -54,14 +96,15 @@ const isPasswordVisible = ref(false)
       </VCardText>
 
       <VCardText>
-        <VForm @submit.prevent="() => {}">
+        <VForm @submit.prevent="login">
           <VRow>
-            <!-- email -->
+            <!-- username -->
             <VCol cols="12">
               <VTextField
-                v-model="form.email"
+                v-model="form.username"
                 label="用户名"
-                type="email"
+                type="text"
+                required
               />
             </VCol>
 
@@ -73,6 +116,7 @@ const isPasswordVisible = ref(false)
                 :type="isPasswordVisible ? 'text' : 'password'"
                 :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                 @click:append-inner="isPasswordVisible = !isPasswordVisible"
+                required
               />
 
               <!-- remember me checkbox -->
@@ -80,6 +124,7 @@ const isPasswordVisible = ref(false)
                 <VCheckbox
                   v-model="form.remember"
                   label="保持登录"
+                  required
                 />
               </div>
 
@@ -87,7 +132,6 @@ const isPasswordVisible = ref(false)
               <VBtn
                 block
                 type="submit"
-                to="/"
               >
                 登录
               </VBtn>
