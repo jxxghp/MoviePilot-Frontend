@@ -13,47 +13,43 @@ const router = createRouter({
           component: () => import('../pages/dashboard.vue')
         },
         {
+          path: 'ranking',
+          component: () => import('../pages/ranking.vue'),
+        },
+        {
+          path: 'resources',
+          component: () => import('../pages/resources.vue'),
+        },
+        {
+          path: 'subscribe-movie',
+          component: () => import('../pages/subscribe-movie.vue'),
+        },
+        {
+          path: 'subscribe-tv',
+          component: () => import('../pages/subscribe-tv.vue'),
+        },
+        {
+          path: 'downloading',
+          component: () => import('../pages/downloading.vue'),
+        },
+        {
+          path: 'history',
+          component: () => import('../pages/history.vue'),
+        },
+        {          
+          path: 'sites',
+          component: () => import('../pages/sites.vue'),
+          meta: {
+            requiresAuth: true
+          }
+        },
+        {
           path: 'account-settings',
           component: () => import('../pages/account-settings.vue'),
           meta: {
             requiresAuth: true
           }
-        },
-        {
-          path: 'typography',
-          component: () => import('../pages/typography.vue'),
-          meta: {
-            requiresAuth: true
-          }
-        },
-        {
-          path: 'icons',
-          component: () => import('../pages/icons.vue'),
-          meta: {
-            requiresAuth: true
-          }
-        },
-        {
-          path: 'cards',
-          component: () => import('../pages/cards.vue'),
-          meta: {
-            requiresAuth: true
-          }
-        },
-        {
-          path: 'tables',
-          component: () => import('../pages/tables.vue'),
-          meta: {
-            requiresAuth: true
-          }
-        },
-        {
-          path: 'form-layouts',
-          component: () => import('../pages/form-layouts.vue'),
-          meta: {
-            requiresAuth: true
-          }
-        },
+        }
       ],
     },
     {

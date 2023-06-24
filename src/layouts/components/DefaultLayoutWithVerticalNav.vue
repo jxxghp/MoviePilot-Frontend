@@ -79,81 +79,88 @@ const upgradeBanner = computed(() => {
           to: '/dashboard',
         }"
       />
-      <VerticalNavLink
-        :item="{
-          title: '用户设置',
-          icon: 'mdi-account-cog-outline',
-          to: '/account-settings',
-        }"
-      />
 
-      <!-- 👉 Pages -->
+      <!-- 👉 发现 -->
       <VerticalNavSectionTitle
         :item="{
-          heading: 'Pages',
+          heading: '发现',
         }"
       />
       <VerticalNavLink
         :item="{
-          title: '登录',
-          icon: 'mdi-login',
-          to: '/login',
+          title: '推荐',
+          icon: 'mdi-movie-star',
+          to: '/ranking',
         }"
       />
+      
       <VerticalNavLink
         :item="{
-          title: '注册',
-          icon: 'mdi-account-plus-outline',
-          to: '/register',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '404',
-          icon: 'mdi-information-outline',
-          to: '/no-existence',
-        }"
-      />
-
-      <!-- 👉 User Interface -->
-      <VerticalNavSectionTitle
-        :item="{
-          heading: 'User Interface',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '排版',
-          icon: 'mdi-alpha-t-box-outline',
-          to: '/typography',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '图标',
-          icon: 'mdi-eye-outline',
-          to: '/icons',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '卡片',
-          icon: 'mdi-credit-card-outline',
-          to: '/cards',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '表格',
+          title: '资源搜索',
           icon: 'mdi-table',
-          to: '/tables',
+          to: '/resources',
+        }"
+      />
+
+      <!-- 👉 订阅 -->
+      <VerticalNavSectionTitle
+        :item="{
+          heading: '订阅',
         }"
       />
       <VerticalNavLink
         :item="{
-          title: '表单布局',
-          icon: 'mdi-form-select',
-          to: '/form-layouts',
+          title: '电影',
+          icon: 'mdi-movie-check-outline',
+          to: '/subscribe-movie',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '电视剧',
+          icon: 'mdi-television-classic',
+          to: '/subscribe-tv',
+        }"
+      />
+      <!-- 👉 整理 -->
+      <VerticalNavSectionTitle
+        :item="{
+          heading: '整理',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '正在下载',
+          icon: 'mdi-download-outline',
+          to: '/downloading',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '历史记录',
+          icon: 'mdi-history',
+          to: '/history',
+        }"
+      />
+      
+      <!-- 👉 用户设置 -->
+      <VerticalNavSectionTitle
+        :item="{
+          heading: '设置',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '站点管理',
+          icon: 'mdi-web',
+          to: '/sites',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '设置',
+          icon: 'mdi-cog-outline',
+          to: '/account-settings',
         }"
       />
     </template>
