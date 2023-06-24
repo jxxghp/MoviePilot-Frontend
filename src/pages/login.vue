@@ -1,13 +1,7 @@
 <script setup lang="ts">
-import { useTheme } from 'vuetify'
-
 import api from '@/api'
 import router from '@/router'
 import logo from '@images/logo.svg?raw'
-import authV1MaskDark from '@images/pages/auth-v1-mask-dark.png'
-import authV1MaskLight from '@images/pages/auth-v1-mask-light.png'
-import authV1Tree2 from '@images/pages/auth-v1-tree-2.png'
-import authV1Tree from '@images/pages/auth-v1-tree.png'
 
 const form = ref({
   username: '',
@@ -15,14 +9,26 @@ const form = ref({
   remember: true,
 })
 
-const vuetifyTheme = useTheme()
-
-const authThemeMask = computed(() => {
-  return vuetifyTheme.global.name.value === 'light' ? authV1MaskLight : authV1MaskDark
-})
-
+// 密码输入
 const isPasswordVisible = ref(false)
+
+// 错误信息
 const errorMessage = ref('')
+
+// 背景图片
+const backgroundImageUrl = ref('')
+
+// 获取背景图片
+const fetchBackgroundImage = async () => {
+  api
+    .get('/login/wallpaper')
+    .then((response: any) => {
+      backgroundImageUrl.value = response.message
+    })
+    .catch((error: any) => {
+      console.log(error)
+    })
+}
 
 // 登录获取token事件
 const login = () => {
@@ -89,11 +95,17 @@ onMounted(() => {
   // 如果token存在，且保持登录状态为true，则跳转到首页
   if (token && remember === 'true')
     router.push('/')
+
+  // 获取背景图片
+  fetchBackgroundImage()
 })
 </script>
 
 <template>
-  <div class="auth-wrapper d-flex align-center justify-center pa-4">
+  <div
+    class="auth-wrapper d-flex align-center justify-center pa-4"
+    :style="{ backgroundImage: `url(${backgroundImageUrl})` }"
+  >
     <VCard class="auth-card pa-4 pt-7">
       <VCardItem class="justify-center">
         <template #prepend>
