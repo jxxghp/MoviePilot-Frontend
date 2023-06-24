@@ -44,7 +44,7 @@ const logout = () => {
           <VDivider class="my-2" />
 
           <!-- 👉 Profile -->
-          <VListItem link>
+          <VListItem link to="account-settings">
             <template #prepend>
               <VIcon class="me-2" icon="mdi-account-outline" size="22" />
             </template>
