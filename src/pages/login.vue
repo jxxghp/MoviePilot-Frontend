@@ -67,6 +67,19 @@ const login = () => {
       }
     });
 };
+
+// 自动登录
+onMounted(() => {
+  // 获取token
+  const token = localStorage.getItem("token");
+  // 获取保持登录状态
+  const remember = localStorage.getItem("remember");
+  // 如果token存在，且保持登录状态为true，则跳转到首页
+  if (token && remember === "true") {
+    router.push("/");
+  }
+});
+
 </script>
 
 <template>
