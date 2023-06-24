@@ -94,11 +94,7 @@ onMounted(() => {
 
 <template>
   <div class="auth-wrapper d-flex align-center justify-center pa-4">
-    <VCard
-      class="auth-card pa-4 pt-7"
-      max-width="448"
-      min-width="448"
-    >
+    <VCard class="auth-card pa-4 pt-7">
       <VCardItem class="justify-center">
         <template #prepend>
           <div class="d-flex">
