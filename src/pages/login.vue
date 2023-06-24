@@ -170,24 +170,6 @@ onMounted(() => {
         </VForm>
       </VCardText>
     </VCard>
-
-    <VImg
-      class="auth-footer-start-tree d-none d-md-block"
-      :src="authV1Tree"
-      :width="250"
-    />
-
-    <VImg
-      :src="authV1Tree2"
-      class="auth-footer-end-tree d-none d-md-block"
-      :width="350"
-    />
-
-    <!-- bg img -->
-    <VImg
-      class="auth-footer-mask d-none d-md-block"
-      :src="authThemeMask"
-    />
   </div>
 </template>
 
