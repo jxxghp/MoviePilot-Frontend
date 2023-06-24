@@ -24,9 +24,15 @@ const authThemeMask = computed(() => {
 })
 
 const isPasswordVisible = ref(false)
+const errorMessage = ref('')
 
 // 登录获取token事件
 const login = () => {
+  errorMessage.value = ''
+  if (!form.value.username || !form.value.password) {
+    errorMessage.value = '请输入用户名和密码'
+    return
+  }
   // 用户名密码
   const formData = new FormData();
   formData.append('username', form.value.username);
@@ -43,7 +49,7 @@ const login = () => {
   })
   .catch((error: any) => {
     // 登录失败，显示错误提示
-    alert(error)
+    errorMessage.value = '登录失败，请检查用户名和密码是否正确'
   })
 }
 
@@ -100,6 +106,8 @@ const login = () => {
                 @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 required
               />
+
+              <div v-if="errorMessage" class="text-error mt-1">{{ errorMessage }}</div>
 
               <!-- remember me checkbox -->
               <div class="d-flex align-center justify-space-between flex-wrap mt-1 mb-4">
