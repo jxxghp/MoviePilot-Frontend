@@ -27,7 +27,7 @@ export default defineConfig({
       imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'pinia'],
       vueTemplate: true,
     }),
-    VitePWA({ registerType: 'autoUpdate', injectRegister: 'auto'}),
+    VitePWA({ registerType: 'autoUpdate', injectRegister: 'auto', srcDir: 'public' }),
   ],
   define: { 'process.env': {} },
   resolve: {

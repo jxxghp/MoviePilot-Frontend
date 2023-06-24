@@ -1,0 +1,80 @@
+{
+  "name": "MoviePilot",
+  "short_name": "MoviePilot",
+  "start_url": "./",
+  "icons": [
+    {
+      "src": "./android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./android-chrome-192x192_maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./android-chrome-512x512_maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#1f2937",
+  "background_color": "#1f2937",
+  "display": "standalone",
+  "shortcuts": [
+    {
+      "name": "推荐",
+      "url": "./ranking",
+      "icons": [
+        {
+          "src": "./sparkles-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "电影订阅",
+      "url": "./subscribe-movie",
+      "icons": [
+        {
+          "src": "./clock-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "电视剧订阅",
+      "url": "./subscribe-tv",
+      "icons": [
+        {
+          "src": "./clock-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "设置",
+      "url": "./account-settings",
+      "icons": [
+        {
+          "src": "./cog-icon-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
