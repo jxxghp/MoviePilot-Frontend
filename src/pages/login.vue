@@ -62,8 +62,8 @@ const login = () => {
       const token = response.access_token;
 
       // 更新token和remember状态到Vuex Store
-      store.dispatch('updateToken', token);
-      store.dispatch('updateRemember', form.value.remember);
+      store.dispatch('auth/updateToken', token);
+      store.dispatch('auth/updateRemember', form.value.remember);
 
       // 跳转到首页
       router.push('/')
@@ -90,8 +90,8 @@ const login = () => {
 // 自动登录
 onMounted(() => {
   // 从Vuex Store中获取token和remember状态
-  const token = store.getters.getToken;
-  const remember = store.getters.getRemember;
+  const token = store.state.auth.token;
+  const remember = store.state.auth.remember;
 
   // 如果token存在，且保持登录状态为true，则跳转到首页
   if (token && remember) {

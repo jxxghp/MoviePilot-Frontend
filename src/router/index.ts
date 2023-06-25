@@ -105,7 +105,7 @@ const router = createRouter({
 // 导航守卫
 router.beforeEach((to, from, next) => {
   // 通过 Vuex Store 检查用户是否已登录
-  const isAuthenticated = store.getters.getToken !== null;
+  const isAuthenticated = store.state.auth.token !== null;
   if (to.meta.requiresAuth && !isAuthenticated) {
     // 如果路由需要登录权限且用户未登录，则跳转到登录页面
     next('/login');

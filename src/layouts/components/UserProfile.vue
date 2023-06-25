@@ -9,7 +9,7 @@ const store = useStore();
 // 执行注销操作
 const logout = () => {
   // 清除登录状态信息
-  store.dispatch('clearToken');
+  store.dispatch('auth/clearToken');
 
   // 重定向到登录页面或其他适当的页面
   router.push('/login')
