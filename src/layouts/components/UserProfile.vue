@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import router from '@/router'
-import avatar1 from '@images/avatars/avatar-1.png'
+import router from '@/router';
+import avatar1 from '@images/avatars/avatar-1.png';
+import { useStore } from 'vuex';
+
+// Vuex Store
+const store = useStore();
 
 // 执行注销操作
 const logout = () => {
-  // 清除登录状态信息，例如删除令牌
-  localStorage.removeItem('token')
+  // 清除登录状态信息
+  store.dispatch('clearToken');
 
   // 重定向到登录页面或其他适当的页面
   router.push('/login')

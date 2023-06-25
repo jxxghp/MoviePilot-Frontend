@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import api from '@/api'
-import router from '@/router'
-import logo from '@images/logo.svg?raw'
+import api from '@/api';
+import router from '@/router';
+import logo from '@images/logo.svg?raw';
+import { useStore } from 'vuex';
 
+// Vuex Store
+const store = useStore();
+
+// 表单
 const form = ref({
   username: '',
   password: '',
@@ -54,13 +59,11 @@ const login = () => {
     })
     .then((response: any) => {
       // 获取token
-      const token = response.access_token
+      const token = response.access_token;
 
-      // 将token保存在本地存储中，用于后续请求
-      localStorage.setItem('token', token)
-
-      // 保存保持登录状态
-      localStorage.setItem('remember', form.value.remember.toString())
+      // 更新token和remember状态到Vuex Store
+      store.dispatch('updateToken', token);
+      store.dispatch('updateRemember', form.value.remember);
 
       // 跳转到首页
       router.push('/')
@@ -86,14 +89,12 @@ const login = () => {
 
 // 自动登录
 onMounted(() => {
-  // 获取token
-  const token = localStorage.getItem('token')
-
-  // 获取保持登录状态
-  const remember = localStorage.getItem('remember')
+  // 从Vuex Store中获取token和remember状态
+  const token = store.getters.getToken;
+  const remember = store.getters.getRemember;
 
   // 如果token存在，且保持登录状态为true，则跳转到首页
-  if (token && remember === 'true') {
+  if (token && remember) {
     router.push('/')
   }
   else {
@@ -190,6 +191,7 @@ onMounted(() => {
 
 <style lang="scss">
 @use "@core/scss/pages/page-auth.scss";
+
 .fade-in {
   animation: fadeIn 1s ease-in;
 }
@@ -198,6 +200,7 @@ onMounted(() => {
   0% {
     opacity: 0;
   }
+
   100% {
     opacity: 1;
   }

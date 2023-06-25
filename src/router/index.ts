@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import store from '@/store';
+import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -103,23 +104,15 @@ const router = createRouter({
 
 // 导航守卫
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = checkLoginStatus() // 检查用户是否已登录
+  // 通过 Vuex Store 检查用户是否已登录
+  const isAuthenticated = store.getters.getToken !== null;
   if (to.meta.requiresAuth && !isAuthenticated) {
     // 如果路由需要登录权限且用户未登录，则跳转到登录页面
-    next('/login')
-  }
-  else {
+    next('/login');
+  } else {
     // 否则，允许继续进行路由导航
-    next()
+    next();
   }
 })
-
-// 检查用户登录状态的函数
-function checkLoginStatus() {
-  // 在此处检查用户的登录状态，例如从本地存储中读取令牌或其他登录相关的信息
-  const token = localStorage.getItem('token')
-
-  return !!token // 返回一个布尔值，表示用户是否已登录
-}
 
 export default router
