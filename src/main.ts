@@ -15,10 +15,9 @@ loadFonts()
 // Create vue app
 const app = createApp(App)
 
-// Use plugins
-app.use(vuetify)
-app.use(store)
-app.use(router)
-
-// Mount vue app
-app.mount('#app')
+// Use plugins Mount vue app
+app
+.use(vuetify)
+.use(router)
+.use(store)
+.mount('#app')

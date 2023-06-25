@@ -1,9 +1,6 @@
-import router from '@/router';
-import axios from 'axios';
-import { useStore } from 'vuex';
-
-// Vuex Store
-const store = useStore();
+import router from '@/router'
+import store from '@/store'
+import axios from 'axios'
 
 // 创建axios实例
 const api = axios.create({
