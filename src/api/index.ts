@@ -1,5 +1,9 @@
-import axios from 'axios'
-import router from '@/router'
+import router from '@/router';
+import axios from 'axios';
+import { useStore } from 'vuex';
+
+// Vuex Store
+const store = useStore();
 
 // 创建axios实例
 const api = axios.create({
@@ -8,9 +12,8 @@ const api = axios.create({
 
 // 添加请求拦截器
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-
   // 在请求头中添加token
+  const token = store.state.auth.token
   if (token)
     config.headers.Authorization = `Bearer ${token}`
 
