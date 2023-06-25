@@ -20,7 +20,7 @@ export default defineConfig({
       },
     }),
     Components({
-      dirs: ['src/@components'],
+      dirs: ['src/@/components'],
       dts: true,
     }),
     AutoImport({

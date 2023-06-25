@@ -12,10 +12,10 @@ declare module '@vue/runtime-core' {
     CardStatisticsHorizontal: typeof import('./src/components/cards/CardStatisticsHorizontal.vue')['default']
     CardStatisticsVertical: typeof import('./src/components/cards/CardStatisticsVertical.vue')['default']
     CardStatisticsWithImages: typeof import('./src/components/cards/CardStatisticsWithImages.vue')['default']
-    ErrorHeader: typeof import('./src/@components/ErrorHeader.vue')['default']
-    MoreBtn: typeof import('./src/@components/MoreBtn.vue')['default']
+    ErrorHeader: typeof import('./src/@/components/ErrorHeader.vue')['default']
+    MoreBtn: typeof import('./src/@/components/MoreBtn.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    ThemeSwitcher: typeof import('./src/@components/ThemeSwitcher.vue')['default']
+    ThemeSwitcher: typeof import('./src/@/components/ThemeSwitcher.vue')['default']
   }
 }
