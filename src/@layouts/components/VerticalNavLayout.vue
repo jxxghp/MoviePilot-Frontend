@@ -1,6 +1,6 @@
 <script lang="ts">
-import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
+import { useDisplay } from 'vuetify'
 
 export default defineComponent({
   setup(props, { slots }) {
@@ -76,6 +76,7 @@ export default defineComponent({
         {
           class: [
             'layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid',
+            'layout-navbar-sticky',
             mdAndDown.value && 'layout-overlay-nav',
             route.meta.layoutWrapperClasses,
           ],
@@ -104,6 +105,12 @@ export default defineComponent({
 @use "@layouts/styles/placeholders";
 @use "@layouts/styles/mixins";
 
+.navbar-blur {
+  backdrop-filter: blur(1rem);
+
+  // background-color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
+
 .layout-wrapper.layout-nav-type-vertical {
   // TODO(v2): Check why we need height in vertical nav & min-height in horizontal nav
   block-size: 100%;
@@ -118,7 +125,9 @@ export default defineComponent({
   }
 
   .layout-navbar {
+    position: sticky;
     z-index: variables.$layout-vertical-nav-layout-navbar-z-index;
+    inset-block-start: 0;
 
     .navbar-content-container {
       block-size: variables.$layout-vertical-nav-navbar-height;
