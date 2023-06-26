@@ -20,11 +20,11 @@ export default defineConfig({
       },
     }),
     Components({
-      dirs: ['src/@/components'],
+      dirs: ['src/@core/components'],
       dts: true,
     }),
     AutoImport({
-      imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'pinia'],
+      imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'vuex'],
       vueTemplate: true,
     }),
     VitePWA({ registerType: 'autoUpdate', injectRegister: 'auto', srcDir: 'public' }),
