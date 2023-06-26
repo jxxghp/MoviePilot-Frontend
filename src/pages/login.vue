@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useStore } from 'vuex'
-import api from '@/api'
-import router from '@/router'
-import logo from '@images/logo.svg?raw'
+import api from '@/api';
+import router from '@/router';
+import logo from '@images/logo.svg?raw';
+import { useStore } from 'vuex';
 
 // Vuex Store
 const store = useStore()
