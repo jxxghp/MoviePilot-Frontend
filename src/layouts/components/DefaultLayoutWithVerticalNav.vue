@@ -155,7 +155,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       />
       <VerticalNavLink
         :item="{
-          title: '设置',
+          title: '用户设置',
           icon: 'mdi-cog-outline',
           to: '/account-setting',
         }"
