@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import CardSolid from '@/views/pages/cards/card-basic/CardSolid.vue'
+import SubscribeListView from '@/views/subscribe/SubscribeListView.vue';
+
 </script>
 
 <template>
   <div>
-    <CardSolid />
+    <SubscribeListView type="电影"/>
   </div>
 </template>

@@ -46,3 +46,5 @@ export const formatDateToMonthShort = (value: string, toTimeForCurrentDay = true
 }
 
 export const prefixWithPlus = (value: number) => value > 0 ? `+${value}` : value
+
+export const formatSeason = (value: string) => value ? `S${value.padStart(2, '0')}` : ''
