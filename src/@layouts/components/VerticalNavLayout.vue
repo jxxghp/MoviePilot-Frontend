@@ -15,6 +15,14 @@ export default defineComponent({
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
     syncRef(isOverlayNavActive, isLayoutOverlayVisible)
 
+    const scrollDistance = ref(window.scrollY)
+
+    onMounted(() => {
+      window.addEventListener('scroll', () => {
+        scrollDistance.value = window.scrollY
+      })
+    })
+
     return () => {
       // 👉 Vertical nav
       const verticalNav = h(
@@ -79,6 +87,7 @@ export default defineComponent({
             'layout-navbar-sticky',
             mdAndDown.value && 'layout-overlay-nav',
             route.meta.layoutWrapperClasses,
+            (scrollDistance.value > 20) && 'window-scrolled',
           ],
         },
         [
@@ -104,12 +113,6 @@ export default defineComponent({
 @use "@configured-variables" as variables;
 @use "@layouts/styles/placeholders";
 @use "@layouts/styles/mixins";
-
-.navbar-blur {
-  backdrop-filter: blur(1rem);
-
-  // background-color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-}
 
 .layout-wrapper.layout-nav-type-vertical {
   // TODO(v2): Check why we need height in vertical nav & min-height in horizontal nav
