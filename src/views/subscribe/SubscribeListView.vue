@@ -81,7 +81,7 @@ const getIcon = (type: string) => {
 </script>
 
 <template>
-  <VRow>
+  <VRow v-if="filteredDataList.length > 0">
     <VCol v-for="data in filteredDataList" :key="data.id" cols="12" md="6" lg="4">
       <VCard :image="data.backdrop" class="card-with-overlay">
         <VCardItem>
@@ -131,6 +131,11 @@ const getIcon = (type: string) => {
       </VCard>
     </VCol>
   </VRow>
+  <ErrorHeader v-else
+    error-code="404"
+    error-title="没有订阅⚠️"
+    error-description="通过顶部搜索框搜索或远程发送消息来添加订阅吧。"
+  />
 </template>
 
 <style lang="scss">
