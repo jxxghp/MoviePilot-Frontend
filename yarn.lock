@@ -1462,14 +1462,19 @@
   dependencies:
     "@floating-ui/core" "^1.2.6"
 
-"@fullcalendar/core@^6.1.7":
-  version "6.1.7"
-  resolved "https://registry.yarnpkg.com/@fullcalendar/core/-/core-6.1.7.tgz#83d8b109fbf0deb1d4c3262ca4b2d70e77a287c4"
-  integrity sha512-Hc63ARSyABlNo10B3NkA0z8ndaDmq5MKpcBB2iQsGQyn8N8cyn/x6V284Je1EwDoKsBlbrZAj+j+efBO+QQf5g==
+"@fullcalendar/core@^6.1.8":
+  version "6.1.8"
+  resolved "https://registry.yarnpkg.com/@fullcalendar/core/-/core-6.1.8.tgz#62008f7b2785dc01f0bf8c2f0c853925eab1c03a"
+  integrity sha512-i8JBIvZCWGO9dsMEDcx9bnsQZ9PtGSJdOXGgWbhLaGq2iq41OBdp9g9gM4b/Otv2oK8bL5Gl6CsMmb/HkDtA6Q==
   dependencies:
     preact "~10.12.1"
 
-"@fullcalendar/daygrid@^6.1.7", "@fullcalendar/daygrid@~6.1.7":
+"@fullcalendar/daygrid@^6.1.8":
+  version "6.1.8"
+  resolved "https://registry.yarnpkg.com/@fullcalendar/daygrid/-/daygrid-6.1.8.tgz#2ca4a10892f5e2abeac0f8a8ecc8f07c002a4bf4"
+  integrity sha512-kCZxQFKb9Vqa3CZRX0v7rMSJ2mlTt4gDpyLfiNJKxUAq7W51uKurPaFZWicaXy1ESHVBxKNlbx5uNjBpyu50JQ==
+
+"@fullcalendar/daygrid@~6.1.7":
   version "6.1.7"
   resolved "https://registry.yarnpkg.com/@fullcalendar/daygrid/-/daygrid-6.1.7.tgz#529d5f1989081c5ab9d129fcaf409111b31be976"
   integrity sha512-IB+QdRcs+TeTlsK8qJFtYZ/2GugmXEFC0C00/n1aLT7GLgFn3ueV1GN0EKvXv9HJ5ai8My65mYbSyQizY/Ishw==
@@ -1491,10 +1496,10 @@
   dependencies:
     "@fullcalendar/daygrid" "~6.1.7"
 
-"@fullcalendar/vue3@^6.1.7":
-  version "6.1.7"
-  resolved "https://registry.yarnpkg.com/@fullcalendar/vue3/-/vue3-6.1.7.tgz#7b7cc338e9e652d736ca62ea87783b407b1e2d46"
-  integrity sha512-GGLY9eYF7ahlZkOX7gtRmgZVgVX6B6/01ZH9LSce8bQo/3F0OsnuXdwXaQGMGY6PzJ0ZDcCTcouQjsvmedZJDg==
+"@fullcalendar/vue3@^6.1.8":
+  version "6.1.8"
+  resolved "https://registry.yarnpkg.com/@fullcalendar/vue3/-/vue3-6.1.8.tgz#8d0cb3c8c37c6761857badb77cbf70edc4333dba"
+  integrity sha512-rO7vZnGXyd5djOhpJ9Y33PhnUeJ/1IN1rIVWPWpleh1hboi8kCwVqE47oOwj7NvTEJq1EH8/58UuYtIqRQ73Lg==
 
 "@humanwhocodes/config-array@^0.11.8":
   version "0.11.8"
