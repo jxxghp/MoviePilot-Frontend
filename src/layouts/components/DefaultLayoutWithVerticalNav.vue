@@ -112,6 +112,13 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
           to: '/subscribe-tv',
         }"
       />
+      <VerticalNavLink
+        :item="{
+          title: '日历',
+          icon: 'mdi-calendar',
+          to: '/calendar',
+        }"
+      />
       <!-- 👉 整理 -->
       <VerticalNavSectionTitle
         :item="{

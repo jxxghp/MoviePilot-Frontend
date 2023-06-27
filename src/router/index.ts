@@ -1,5 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
 import store from '@/store'
+import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -40,6 +40,13 @@ const router = createRouter({
         {
           path: 'subscribe-tv',
           component: () => import('../pages/subscribe-tv.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'calendar',
+          component: () => import('../pages/calendar.vue'),
           meta: {
             requiresAuth: true,
           },
