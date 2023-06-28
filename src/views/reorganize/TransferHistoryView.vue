@@ -51,6 +51,7 @@ const headers = [
   { title: "状态", key: "status"},
   { title: "时间", key: "date"},
   { title: "失败原因", key: "errmsg"},
+  { title: "", key: "actions", sortable: false},
 ];
 
 // 数据列表
@@ -83,8 +84,6 @@ const getStatusColor = (status: boolean) => {
 
 // 加载时获取数据
 onMounted(fetchData);
-
-const search = ref("");
 
 </script>
 
@@ -127,9 +126,18 @@ const search = ref("");
       <template #item.errmsg="{ item }">
         {{ item.raw.errmsg }}
       </template>
+      <template #item.actions="{ item }">
+        <MoreBtn />
+      </template>
       <template #no-data>
         没有数据
       </template>
     </VDataTable>
   </VCard>
 </template>
+
+<style type="scss">
+.v-table th {
+  white-space: nowrap;
+}
+</style>

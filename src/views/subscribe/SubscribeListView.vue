@@ -78,12 +78,20 @@ const getIcon = (type: string) => {
     return "mdi-help-circle";
   }
 };
+
+// 计算百分比
+const getPercentage = (total: number, lack: number) => {
+  if (total === 0) {
+    return 0;
+  }
+  return Math.round(((total - lack) / total) * 100);
+};
 </script>
 
 <template>
-  <VRow v-if="filteredDataList.length > 0">
+  <VRow>
     <VCol v-for="data in filteredDataList" :key="data.id" cols="12" md="6" lg="4">
-      <VCard :image="data.backdrop" class="card-with-overlay">
+      <VCard :image="data.backdrop || data.poster" class="card-with-overlay">
         <VCardItem>
           <template #prepend>
             <VIcon
@@ -120,7 +128,7 @@ const getIcon = (type: string) => {
               icon="mdi-progress-clock"
               color="white"
               class="me-1"
-              v-if="data.season"
+              v-if="data.total_episode"
             />
             <span class="text-subtitle-2 text-white" v-if="data.season"
               >{{ (data.total_episode || 0) - (data.lack_episode || 0) }} /
@@ -128,14 +136,16 @@ const getIcon = (type: string) => {
             >
           </div>
         </VCardText>
+
+        <VProgressLinear
+          v-if="data.total_episode || 0 > 0"
+          :model-value="getPercentage(data.total_episode || 0, data.lack_episode || 0)"
+          bg-color="success"
+          color="success"
+        />
       </VCard>
     </VCol>
   </VRow>
-  <ErrorHeader v-else
-    error-code="404"
-    error-title="没有订阅⚠️"
-    error-description="通过顶部搜索框搜索或远程发送消息来添加订阅吧。"
-  />
 </template>
 
 <style lang="scss">
