@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { requiredValidator } from '@/@validators';
 import api from '@/api';
 import router from '@/router';
 import logo from '@images/logo.svg?raw';
+import type { VForm } from 'vuetify/components/VForm';
 import { useStore } from 'vuex';
 
 // Vuex Store
@@ -13,6 +15,7 @@ const form = ref({
   password: '',
   remember: true,
 })
+const refForm = ref<InstanceType<typeof VForm> | null>(null)
 
 // 密码输入
 const isPasswordVisible = ref(false)
@@ -38,9 +41,8 @@ const fetchBackgroundImage = async () => {
 // 登录获取token事件
 const login = () => {
   errorMessage.value = ''
-  if (!form.value.username || !form.value.password) {
-    errorMessage.value = '请输入用户名和密码'
-
+  // 进行表单校验
+  if (refForm.value && !refForm.value.validate()) {
     return
   }
 
@@ -133,7 +135,7 @@ onMounted(() => {
       </VCardText>
 
       <VCardText>
-        <VForm @submit.prevent="login">
+        <VForm @submit.prevent="login" ref="refForm">
           <VRow>
             <!-- username -->
             <VCol cols="12">
@@ -141,7 +143,7 @@ onMounted(() => {
                 v-model="form.username"
                 label="用户名"
                 type="text"
-                required
+                :rules="[requiredValidator]"
               />
             </VCol>
 
@@ -154,7 +156,7 @@ onMounted(() => {
                 :append-inner-icon="
                   isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
                 "
-                required
+                :rules="[requiredValidator]"
                 @click:append-inner="isPasswordVisible = !isPasswordVisible"
               />
 
