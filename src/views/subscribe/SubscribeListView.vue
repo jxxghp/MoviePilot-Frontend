@@ -1,47 +1,7 @@
 <script lang="ts" setup>
 import api from "@/api";
 import { formatSeason } from "@core/utils/formatters";
-
-// 定义订阅字典结构
-interface Subscribe {
-  id: number;
-  // 订阅名称
-  name: string;
-  // 订阅年份
-  year: string;
-  // 订阅类型 电影/电视剧
-  type: string;
-  // 搜索关键字
-  keyword?: string;
-  tmdbid: number;
-  doubanid?: string;
-  // 季号
-  season?: number;
-  // 海报
-  poster?: string;
-  // 背景图
-  backdrop?: string;
-  // 评分
-  vote?: number;
-  // 描述
-  description?: string;
-  // 过滤规则
-  filter?: string;
-  // 包含
-  include?: string;
-  // 排除
-  exclude?: string;
-  // 总集数
-  total_episode?: number;
-  // 开始集数
-  start_episode?: number;
-  // 缺失集数
-  lack_episode?: number;
-  // 附加信息
-  note?: string;
-  // 状态：N-新建， R-订阅中
-  state: string;
-}
+import type { Subscribe } from "@/api/types";
 
 // 输入参数
 const props = defineProps({
