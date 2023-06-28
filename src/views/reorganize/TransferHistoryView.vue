@@ -49,6 +49,7 @@ const headers = [
   { title: "目录", key: "src"},
   { title: "转移方式", key: "mode"},
   { title: "状态", key: "status"},
+  { title: "时间", key: "date"},
   { title: "失败原因", key: "errmsg"},
 ];
 
@@ -88,11 +89,15 @@ const search = ref("");
 </script>
 
 <template>
-  <VCard title="历史记录">
+  <VCard title="历史记录" class="pb-5">
     <VDataTable 
       :headers="headers" 
       :items="dataList"
+      fixed-header
       show-select
+      :items-per-page="25"
+      items-per-page-text="每页条数"
+      page-text="{0}-{1} 共 {2} 条"
     >
       <template #item.title="{ item }">
         <div class="d-flex">
@@ -115,6 +120,9 @@ const search = ref("");
         <VChip :color="getStatusColor(item.raw.status)" size="small">
           {{ item.raw.status ? '成功' : '失败' }}
         </VChip>
+      </template>
+      <template #item.date="{ item }">
+        <small>{{ item.raw.date }}</small>
       </template>
       <template #item.errmsg="{ item }">
         {{ item.raw.errmsg }}
