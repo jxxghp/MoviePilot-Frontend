@@ -42,7 +42,7 @@ const fetchBackgroundImage = async () => {
 const login = () => {
   errorMessage.value = ''
   // 进行表单校验
-  if (refForm.value && !refForm.value.validate()) {
+  if (!form.value.username || !form.value.password) {
     return
   }
 
@@ -135,7 +135,7 @@ onMounted(() => {
       </VCardText>
 
       <VCardText>
-        <VForm @submit.prevent="login" ref="refForm">
+        <VForm @submit.prevent="()=>{}" ref="refForm">
           <VRow>
             <!-- username -->
             <VCol cols="12">
@@ -180,6 +180,7 @@ onMounted(() => {
               <VBtn
                 block
                 type="submit"
+                @click="login"
               >
                 登录
               </VBtn>
