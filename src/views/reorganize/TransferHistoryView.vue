@@ -8,8 +8,8 @@ const headers = [
   { title: "标题", key: "title" },
   { title: "目录", key: "src"},
   { title: "转移方式", key: "mode"},
-  { title: "状态", key: "status"},
   { title: "时间", key: "date"},
+  { title: "状态", key: "status"},
   { title: "失败原因", key: "errmsg"},
   { title: "", key: "actions", sortable: false},
 ];
