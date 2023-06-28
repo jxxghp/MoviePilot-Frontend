@@ -1,27 +1,32 @@
 <script setup lang="ts">
-import CardBasic from '@/views/pages/cards/card-basic/CardBasic.vue'
-import CardNavigation from '@/views/pages/cards/card-basic/CardNavigation.vue'
-import CardSolid from '@/views/pages/cards/card-basic/CardSolid.vue'
+import MediaCardListView from '@/views/discover/MediaCardListView.vue';
 </script>
 
 <template>
   <div>
-    <p class="text-2xl mb-6">
-      Basic Cards
+    <p class="text-2xl font-weight-medium my-5">
+      TMDB电影
     </p>
 
-    <CardBasic />
+    <MediaCardListView apipath="/tmdb/movies"/>
 
-    <p class="text-2xl mb-6 mt-14">
-      Navigation Cards
+    <p class="text-2xl font-weight-medium my-5">
+      TMDB电视剧
     </p>
 
-    <CardNavigation />
+    <MediaCardListView apipath="/tmdb/tvs"/>
 
-    <p class="text-2xl mt-14 mb-6 ">
-      Solid Cards
+    <p class="text-2xl font-weight-medium my-5">
+      豆瓣电影
     </p>
 
-    <CardSolid />
+    <MediaCardListView apipath="/douban/movies"/>
+
+    <p class="text-2xl font-weight-medium my-5">
+      豆瓣电视剧
+    </p>
+
+    <MediaCardListView apipath="/douban/tvs"/>
+
   </div>
 </template>
