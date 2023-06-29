@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from "@/api";
-import { formatSeason } from "@core/utils/formatters";
 import type { Subscribe } from "@/api/types";
+import { formatSeason } from "@core/utils/formatters";
 
 // 输入参数
 const props = defineProps({
@@ -49,63 +49,64 @@ const getPercentage = (total: number, lack: number) => {
 </script>
 
 <template>
-  <VRow>
-    <VCol v-for="data in filteredDataList" :key="data.id" cols="12" md="6" lg="4">
-      <VCard :image="data.backdrop || data.poster" class="card-with-overlay">
-        <VCardItem>
-          <template #prepend>
-            <VIcon
-              size="1.9rem"
-              color="white"
-              :icon="getIcon(data.type)"
-              class="overlay-text"
-            />
-          </template>
-          <VCardTitle class="text-white overlay-text">
-            {{ data.name }} {{ formatSeason(data.season ? data.season.toString() : "") }}
-          </VCardTitle>
-          <template #append>
-            <div class="me-n3">
-              <MoreBtn color="white" class="overlay-text"/>
-            </div>
-          </template>
-        </VCardItem>
-
-        <VCardText class="overlay-text">
-          <p class="clamp-text text-white mb-0">
-            {{ data.description }}
-          </p>
-        </VCardText>
-
-        <VCardText
-          class="d-flex justify-space-between align-center flex-wrap overlay-text"
-        >
-          <div class="d-flex align-center">
-            <IconBtn icon="mdi-star" color="white" class="me-1" />
-            <span class="text-subtitle-2 text-white me-4">{{ data.vote }}</span>
-
-            <IconBtn
-              icon="mdi-progress-clock"
-              color="white"
-              class="me-1"
-              v-if="data.total_episode"
-            />
-            <span class="text-subtitle-2 text-white" v-if="data.season"
-              >{{ (data.total_episode || 0) - (data.lack_episode || 0) }} /
-              {{ data.total_episode }}</span
-            >
+  <div class="grid gap-3 grid-subscribe-card">
+    <VCard v-for="data in filteredDataList" 
+      :key="data.id" 
+      :image="data.backdrop || data.poster" 
+      class="card-with-overlay">
+      <VCardItem>
+        <template #prepend>
+          <VIcon
+            size="1.9rem"
+            color="white"
+            :icon="getIcon(data.type)"
+            class="overlay-text"
+          />
+        </template>
+        <VCardTitle class="text-white overlay-text">
+          {{ data.name }} {{ formatSeason(data.season ? data.season.toString() : "") }}
+        </VCardTitle>
+        <template #append>
+          <div class="me-n3">
+            <MoreBtn color="white" class="overlay-text"/>
           </div>
-        </VCardText>
+        </template>
+      </VCardItem>
 
-        <VProgressLinear
-          v-if="data.total_episode || 0 > 0"
-          :model-value="getPercentage(data.total_episode || 0, data.lack_episode || 0)"
-          bg-color="success"
-          color="success"
-        />
-      </VCard>
-    </VCol>
-  </VRow>
+      <VCardText class="overlay-text">
+        <p class="clamp-text text-white mb-0">
+          {{ data.description }}
+        </p>
+      </VCardText>
+
+      <VCardText
+        class="d-flex justify-space-between align-center flex-wrap overlay-text"
+      >
+        <div class="d-flex align-center">
+          <IconBtn icon="mdi-star" color="white" class="me-1" />
+          <span class="text-subtitle-2 text-white me-4">{{ data.vote }}</span>
+
+          <IconBtn
+            icon="mdi-progress-clock"
+            color="white"
+            class="me-1"
+            v-if="data.total_episode"
+          />
+          <span class="text-subtitle-2 text-white" v-if="data.season"
+            >{{ (data.total_episode || 0) - (data.lack_episode || 0) }} /
+            {{ data.total_episode }}</span
+          >
+        </div>
+      </VCardText>
+
+      <VProgressLinear
+        v-if="data.total_episode || 0 > 0"
+        :model-value="getPercentage(data.total_episode || 0, data.lack_episode || 0)"
+        bg-color="success"
+        color="success"
+      />
+    </VCard>
+  </div>
 </template>
 
 <style lang="scss">
