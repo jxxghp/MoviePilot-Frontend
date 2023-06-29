@@ -10,7 +10,7 @@ const getChipColor = (type: string) => {
   if (type === "电影") {
     return "border-blue-500 bg-blue-600";
   } else if (type === "电视剧") {
-    return " bg-green-500 border-green-600";
+    return " bg-indigo-500 border-indigo-600";
   } else {
     return "border-purple-600 bg-purple-600";
   }
