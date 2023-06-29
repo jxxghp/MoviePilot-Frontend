@@ -39,21 +39,9 @@ onMounted(fetchData);
       <MediaCard 
         :media="data" 
         @click="toggle"
-        class="mx-1" 
-        height="22rem"
-        width="11rem"
+        class="mx-1 media-slide-card" 
         :color="isSelected ? 'primary' : 'grey-lighten-1'"
       >
-        <div class="d-flex fill-height align-center justify-center">
-          <VScaleTransition>
-            <v-icon
-              v-if="isSelected"
-              color="white"
-              size="48"
-              icon="mdi-close-circle-outline"
-            ></v-icon>
-          </VScaleTransition>
-        </div>
       </MediaCard>
     </VSlideGroupItem>
   </VSlideGroup>

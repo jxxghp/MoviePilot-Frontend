@@ -29,10 +29,8 @@ onMounted(fetchData);
 </script>
 
 <template>
-  <VRow>
-    <VCol v-for="data in dataList" :key="data.tmdb_id" cols="6" md="3" lg="2">
-      <MediaCard :media="data">
-      </MediaCard>
-    </VCol>
-  </VRow>
+  <div class="grid gap-3 grid-media-card">
+    <MediaCard v-for="data in dataList" :key="data.tmdb_id" :media="data">
+    </MediaCard>
+  </div>
 </template>

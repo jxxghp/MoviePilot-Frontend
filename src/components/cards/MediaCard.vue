@@ -9,7 +9,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <VResponsive aspect-ratio="1/2" max-width="11rem">
+  <VResponsive aspect-ratio="1/2">
     <VCard>
       <VImg
         :src="props.media?.poster_path"
