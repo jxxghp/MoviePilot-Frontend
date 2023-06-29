@@ -1,5 +1,9 @@
+<script lang="ts" setup>
+const route = useRoute()
+</script>
+
 <template>
   <VApp>
-    <RouterView />
+    <RouterView :key="route.fullPath" />
   </VApp>
 </template>
