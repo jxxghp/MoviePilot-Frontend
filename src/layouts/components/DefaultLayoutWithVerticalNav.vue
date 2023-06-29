@@ -85,35 +85,6 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       />
       <VerticalNavLink
         :item="{
-          title: 'TMDB电影',
-          icon: 'mdi-movie-outline',
-          to: '/browse/tmdb/movies',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: 'TMDB电视剧',
-          icon: 'mdi-television-classic',
-          to: '/browse/tmdb/tvs',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '豆瓣电影',
-          icon: 'mdi-movie-outline',
-          to: '/browse/douban/movies',
-        }"
-      />
-      <VerticalNavLink
-        :item="{
-          title: '豆瓣电视剧',
-          icon: 'mdi-television-classic',
-          to: '/browse/douban/tvs',
-        }"
-      />
-
-      <VerticalNavLink
-        :item="{
           title: '资源搜索',
           icon: 'mdi-magnify',
           to: '/resource',

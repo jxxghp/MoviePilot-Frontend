@@ -33,6 +33,7 @@ const getChipColor = (type: string) => {
         :class="hover.isHovering ? 'on-hover' : ''"
         cover
       >
+        <!-- 类型角标 -->
         <VChip
           variant="elevated" 
           size="small" 
@@ -40,13 +41,16 @@ const getChipColor = (type: string) => {
           class="absolute left-2 top-2 bg-opacity-80 shadow-md text-white font-bold">
             {{ props.media?.type }}
         </VChip>
+        <!-- 评分角标 -->
         <VChip
           variant="elevated" 
-          size="small" 
+          size="small"
+          v-if="props.media?.vote_average"
           :class="getChipColor('')"
           class="absolute right-2 top-2 bg-opacity-80 shadow-md text-white font-bold">
             {{ props.media?.vote_average }}
         </VChip>
+        <!-- 详情 -->
         <VCardText
           class="flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
           v-show="hover.isHovering"

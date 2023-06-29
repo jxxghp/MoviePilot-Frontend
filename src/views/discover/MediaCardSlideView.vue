@@ -30,20 +30,22 @@ onMounted(fetchData);
 
 <template>
   <VSlideGroup
-    show-arrows
+  show-arrows=false
   >
     <VSlideGroupItem v-for="data in dataList" 
       :key="data.tmdb_id"
     >
-      <template v-slot="{ isSelected, toggle }" >
-        <MediaCard
-          :media="data" 
-          @click="toggle"
-          class="mx-2 media-slide-card" 
-          :color="isSelected ? 'primary' : 'grey-lighten-1'"
-        >
-        </MediaCard>
-      </template>
+      <MediaCard
+        :media="data"
+      />
     </VSlideGroupItem>
   </VSlideGroup>
 </template>
+
+<style type="scss">
+.v-slide-group .v-card {
+  block-size: 15rem;
+
+  @apply m-2;
+}
+</style>
