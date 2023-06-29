@@ -29,7 +29,7 @@ onMounted(fetchData);
 </script>
 
 <template>
-  <div class="grid gap-3 grid-media-card">
+  <div class="grid gap-4 grid-media-card">
     <MediaCard v-for="data in dataList" 
       :key="data.tmdb_id" 
       :media="data">

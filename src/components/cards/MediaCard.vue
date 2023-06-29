@@ -29,6 +29,8 @@ const getChipColor = (type: string) => {
       <VImg
         aspect-ratio="2/1"
         :src="props.media?.poster_path"
+        class="h-full w-full object-cover"
+        :class="hover.isHovering ? 'on-hover' : ''"
         cover
       >
         <VChip
@@ -49,7 +51,7 @@ const getChipColor = (type: string) => {
           v-show="hover.isHovering"
         >
           <span class="font-bold">{{ props.media?.year }}</span>
-          <h1 class="text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
+          <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
             {{ props.media?.title }}
           </h1>
           <p class="leading-4 line-clamp-4 overflow-hidden text-ellipsis ...">
@@ -68,7 +70,7 @@ const getChipColor = (type: string) => {
 </template>
 
 <style type="scss">
-.card-img-overlay {
-  box-shadow: 0 0 0 1px #ddd;
+.on-hover img {
+  @apply brightness-50;
 }
 </style>
