@@ -86,6 +86,14 @@ const router = createRouter({
             requiresAuth: true,
           },
         },
+        {
+          path: 'browse/:type',
+          component: () => import('../pages/browse.vue'),
+          props: true,
+          meta: {
+            requiresAuth: true,
+          },
+        },
       ],
     },
     {

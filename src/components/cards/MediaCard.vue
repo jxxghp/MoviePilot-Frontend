@@ -10,9 +10,9 @@ const getChipColor = (type: string) => {
   if (type === "电影") {
     return "border-blue-500 bg-blue-600";
   } else if (type === "电视剧") {
-    return "border-purple-600 bg-purple-600";
+    return " bg-green-500 border-green-600";
   } else {
-    return "gray";
+    return "border-purple-600 bg-purple-600";
   }
 };
 
@@ -43,7 +43,8 @@ const getChipColor = (type: string) => {
         <VChip
           variant="elevated" 
           size="small" 
-          class="absolute right-2 top-2 bg-opacity-80 shadow-md bg-green-500 border-green-600 text-white font-bold">
+          :class="getChipColor(props.media?.type||'')"
+          class="absolute right-2 top-2 bg-opacity-80 shadow-md text-white font-bold">
             {{ props.media?.vote_average }}
         </VChip>
         <VCardText
