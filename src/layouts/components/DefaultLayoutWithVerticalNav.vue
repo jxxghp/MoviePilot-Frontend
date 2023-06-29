@@ -78,9 +78,37 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       />
       <VerticalNavLink
         :item="{
-          title: '推荐',
+          title: '推荐榜单',
           icon: 'mdi-table-star',
           to: '/ranking',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: 'TMDB电影',
+          icon: 'mdi-movie-outline',
+          to: '/browse/tmdb/movies',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: 'TMDB电视剧',
+          icon: 'mdi-television-classic',
+          to: '/browse/tmdb/tvs',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '豆瓣电影',
+          icon: 'mdi-movie-outline',
+          to: '/browse/douban/movies',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
+          title: '豆瓣电视剧',
+          icon: 'mdi-television-classic',
+          to: '/browse/douban/tvs',
         }"
       />
 
