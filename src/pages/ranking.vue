@@ -8,7 +8,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue';
       TMDB流行趋势
     </p>
 
-    <MediaCardSlideView apipath="/tmdb/trending"/>
+    <MediaCardSlideView apipath="tmdb/trending"/>
 
   </div>
 </template>

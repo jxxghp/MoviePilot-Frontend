@@ -87,7 +87,7 @@ const router = createRouter({
           },
         },
         {
-          path: 'browse/:type',
+          path: '/browse/:type+',
           component: () => import('../pages/browse.vue'),
           props: true,
           meta: {

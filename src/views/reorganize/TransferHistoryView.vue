@@ -20,7 +20,7 @@ const dataList = ref<TransferHistory[]>([]);
 // 获取订阅列表数据
 const fetchData = async () => {
   try {
-    dataList.value = await api.get("/history/transfer");
+    dataList.value = await api.get("history/transfer");
   } catch (error) {
     console.error(error);
   }

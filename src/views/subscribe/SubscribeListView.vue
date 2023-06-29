@@ -14,7 +14,7 @@ const dataList = ref<Subscribe[]>([]);
 // 获取订阅列表数据
 const fetchData = async () => {
   try {
-    dataList.value = await api.get("/subscribe");
+    dataList.value = await api.get("subscribe");
   } catch (error) {
     console.error(error);
   }

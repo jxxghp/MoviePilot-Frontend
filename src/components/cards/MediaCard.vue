@@ -43,7 +43,7 @@ const getChipColor = (type: string) => {
         <VChip
           variant="elevated" 
           size="small" 
-          :class="getChipColor(props.media?.type||'')"
+          :class="getChipColor('')"
           class="absolute right-2 top-2 bg-opacity-80 shadow-md text-white font-bold">
             {{ props.media?.vote_average }}
         </VChip>
