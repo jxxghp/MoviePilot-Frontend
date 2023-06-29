@@ -15,6 +15,7 @@ const loading = ref(false);
 
 // 数据列表
 const dataList = ref<MediaInfo[]>([]);
+const currData = ref<MediaInfo[]>([]);
 
 // 获取订阅列表数据
 const fetchData = async () => {
@@ -28,19 +29,20 @@ const fetchData = async () => {
     }
     // 设置加载中
     loading.value = true;
-    const data = await api.get(props.apipath, {
+    currData.value = await api.get(props.apipath, {
       params: {
         page: page.value,
       },
     });
     // 合并数据
-    dataList.value = [...dataList.value, ...data];
+    dataList.value = [...dataList.value, ...currData.value];
     // 页码+1
     page.value++;
-    // 取消加载中
-    loading.value = false;
   } catch (error) {
     console.error(error);
+  } finally {
+    // 取消加载中
+    loading.value = false;
   }
 };
 
