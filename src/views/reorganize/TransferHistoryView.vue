@@ -6,12 +6,12 @@ import { onMounted, ref } from "vue";
 // 表头
 const headers = [
   { title: "标题", key: "title" },
-  { title: "目录", key: "src"},
-  { title: "转移方式", key: "mode"},
-  { title: "时间", key: "date"},
-  { title: "状态", key: "status"},
-  { title: "失败原因", key: "errmsg"},
-  { title: "", key: "actions", sortable: false},
+  { title: "目录", key: "src" },
+  { title: "转移方式", key: "mode" },
+  { title: "时间", key: "date" },
+  { title: "状态", key: "status" },
+  { title: "失败原因", key: "errmsg" },
+  { title: "", key: "actions", sortable: false },
 ];
 
 // 数据列表
@@ -39,18 +39,17 @@ const getIcon = (type: string) => {
 
 // 计算颜色
 const getStatusColor = (status: boolean) => {
-  return status ? 'success' : 'error';
+  return status ? "success" : "error";
 };
 
 // 加载时获取数据
 onMounted(fetchData);
-
 </script>
 
 <template>
   <VCard title="历史记录" class="pb-5">
-    <VDataTable 
-      :headers="headers" 
+    <VDataTable
+      :headers="headers"
       :items="dataList"
       fixed-header
       show-select
@@ -62,7 +61,7 @@ onMounted(fetchData);
         <div class="d-flex">
           <VAvatar><VIcon :icon="getIcon(item.raw.type || '')"></VIcon></VAvatar>
           <div class="d-flex flex-column ms-1 text-high-emphasis">
-            <span class="d-block">
+            <span class="d-block whitespace-nowrap">
               {{ item.raw.title }} {{ item.raw.seasons }}{{ item.raw.episodes }}
             </span>
             <small>{{ item.raw.category }}</small>
@@ -70,14 +69,14 @@ onMounted(fetchData);
         </div>
       </template>
       <template #item.src="{ item }">
-        <small>{{ item.raw.src }} <br>=> {{ item.raw.dest }}</small>
+        <small>{{ item.raw.src }} <br />=> {{ item.raw.dest }}</small>
       </template>
       <template #item.mode="{ item }">
         <VChip variant="outlined" color="primary" size="small">{{ item.raw.mode }}</VChip>
       </template>
       <template #item.status="{ item }">
         <VChip :color="getStatusColor(item.raw.status)" size="small">
-          {{ item.raw.status ? '成功' : '失败' }}
+          {{ item.raw.status ? "成功" : "失败" }}
         </VChip>
       </template>
       <template #item.date="{ item }">
@@ -89,9 +88,7 @@ onMounted(fetchData);
       <template #item.actions="{ item }">
         <MoreBtn />
       </template>
-      <template #no-data>
-        没有数据
-      </template>
+      <template #no-data> 没有数据 </template>
     </VDataTable>
   </VCard>
 </template>

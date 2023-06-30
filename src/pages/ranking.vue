@@ -75,11 +75,10 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
 
   display: inline-flex;
   align-items: center;
+  color: inherit;
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.75rem;
   transition-duration: 0.3s;
-
-  @apply text-gray-600;
 }
 </style>
