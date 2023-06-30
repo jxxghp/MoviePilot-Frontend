@@ -29,11 +29,13 @@ const getChipColor = (type: string) => {
       <VImg
         aspect-ratio="3/2"
         :src="props.media?.poster_path"
-        lazy-src="https://picsum.photos/seed/picsum/200/300"
         class="h-full w-full object-cover"
         :class="hover.isHovering ? 'on-hover' : ''"
         cover
       >
+        <template #placeholder>
+          <div class="relative animate-pulse bg-gray-300 w-full"><div class="w-full" style="padding-bottom: 150%;"></div></div>
+        </template>
         <!-- 类型角标 -->
         <VChip
           variant="elevated" 
