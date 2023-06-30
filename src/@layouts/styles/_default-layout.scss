@@ -14,8 +14,11 @@ body,
   min-height: 100%;
 }
 
-.layout-navbar {
+.layout-vertical-nav, .layout-navbar {
   padding-top: env(safe-area-inset-top);
+}
+
+.layout-vertical-nav {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
