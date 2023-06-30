@@ -4,8 +4,11 @@
 @use "@layouts/styles/mixins";
 @use "@configured-variables" as variables;
 
-html,
-body {
+html {
+  min-height: calc(100% + env(safe-area-inset-top))
+}
+
+body, #app {
   min-block-size: 100%;
 }
 
