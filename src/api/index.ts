@@ -4,7 +4,7 @@ import axios from 'axios'
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: 'api/v1/',
+  baseURL: '/api/v1/',
 })
 
 // 添加请求拦截器
