@@ -30,9 +30,9 @@ const getApiPath = (types: string[] | string) => {
 
 const getTitle = (types: string[] | string) => {
   if (Array.isArray(types)) {
-    return ['发现', titles[types[0]][types[1]]]
+    return ['推荐', titles[types[0]][types[1]]]
   } else {
-    return ["发现"]
+    return ["推荐"]
   }
 };
 

@@ -78,7 +78,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       />
       <VerticalNavLink
         :item="{
-          title: '推荐榜单',
+          title: '推荐',
           icon: 'mdi-table-star',
           to: '/ranking',
         }"
