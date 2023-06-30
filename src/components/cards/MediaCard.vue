@@ -31,8 +31,8 @@ const getChipColor = (type: string) => {
         :width="props.width"
         class="outline-none shadow ring-gray-500"
         :class="{
-          'scale-105 shadow-lg': hover.isHovering,
-          'ring-1 transition duration-300 ': isImageLoaded,
+          'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
+          'ring-1': isImageLoaded,
         }"
       >
         <VImg
@@ -95,11 +95,5 @@ const getChipColor = (type: string) => {
 <style type="scss">
 .on-hover img {
   @apply brightness-50;
-}
-
-.media-slide-card {
-  position: relative;
-  flex: 0 0 auto;
-  max-inline-size: 11rem;
 }
 </style>

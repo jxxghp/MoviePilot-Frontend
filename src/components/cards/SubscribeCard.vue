@@ -4,7 +4,7 @@ import { formatSeason } from "@core/utils/formatters";
 
 // 输入参数
 const props = defineProps({
-  media: Object as PropType<Subscribe>
+  media: Object as PropType<Subscribe>,
 });
 
 // 根据 type 返回不同的图标
@@ -25,28 +25,25 @@ const getPercentage = (total: number, lack: number) => {
   }
   return Math.round(((total - lack) / total) * 100);
 };
-
 </script>
 
 <template>
   <VCard
-    :key="props.media?.id" 
+    :key="props.media?.id"
     :image="props.media?.backdrop || props.media?.poster"
-    class="card-with-overlay">
+    class="card-with-overlay"
+  >
     <VCardItem>
       <template #prepend>
-        <VIcon
-          size="1.9rem"
-          color="white"
-          :icon="getIcon(props.media?.type||'')"
-        />
+        <VIcon size="1.9rem" color="white" :icon="getIcon(props.media?.type || '')" />
       </template>
       <VCardTitle class="text-white">
-        {{ props.media?.name }} {{ formatSeason(props.media?.season ? props.media?.season.toString() : "") }}
+        {{ props.media?.name }}
+        {{ formatSeason(props.media?.season ? props.media?.season.toString() : "") }}
       </VCardTitle>
       <template #append>
         <div class="me-n3">
-          <MoreBtn color="white"/>
+          <MoreBtn color="white" />
         </div>
       </template>
     </VCardItem>
@@ -57,9 +54,7 @@ const getPercentage = (total: number, lack: number) => {
       </p>
     </VCardText>
 
-    <VCardText
-      class="d-flex justify-space-between align-center flex-wrap"
-    >
+    <VCardText class="d-flex justify-space-between align-center flex-wrap">
       <div class="d-flex align-center">
         <IconBtn icon="mdi-star" color="white" class="me-1" />
         <span class="text-subtitle-2 text-white me-4">{{ props.media?.vote }}</span>
@@ -79,7 +74,9 @@ const getPercentage = (total: number, lack: number) => {
 
     <VProgressLinear
       v-if="props.media?.total_episode || 0 > 0"
-      :model-value="getPercentage(props.media?.total_episode || 0, props.media?.lack_episode || 0)"
+      :model-value="
+        getPercentage(props.media?.total_episode || 0, props.media?.lack_episode || 0)
+      "
       bg-color="success"
       color="success"
     />
@@ -87,7 +84,7 @@ const getPercentage = (total: number, lack: number) => {
 </template>
 
 <style lang="scss">
-.card-with-overlay img{
+.card-with-overlay img {
   @apply brightness-50;
 }
 </style>
