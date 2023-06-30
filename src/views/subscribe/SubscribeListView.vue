@@ -27,15 +27,16 @@ onMounted(fetchData);
 const filteredDataList = computed(() => {
   return dataList.value.filter((data) => data.type === props.type);
 });
-
 </script>
 
 <template>
   <div class="grid gap-3 grid-subscribe-card">
-    <SubscribeCard v-for="data in filteredDataList"
-      :key="data.id"
-      :media="data"
-    />
+    <SubscribeCard v-for="data in filteredDataList" :key="data.id" :media="data" />
   </div>
 </template>
 
+<style type="scss">
+.grid-subscribe-card {
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+}
+</style>

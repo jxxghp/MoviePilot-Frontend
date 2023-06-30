@@ -8,8 +8,6 @@ const props = defineProps({
   apipath: String,
 });
 
-console.log(props.apipath)
-
 // 当前页码
 const page = ref(1);
 // 是否加载中
@@ -22,8 +20,8 @@ const currData = ref<MediaInfo[]>([]);
 // 获取订阅列表数据
 const fetchData = async ({ done }) => {
   try {
-    if (!props.apipath){
-      return
+    if (!props.apipath) {
+      return;
     }
     // 如果正在加载中，直接返回
     if (loading.value) {
@@ -45,10 +43,9 @@ const fetchData = async ({ done }) => {
   } finally {
     // 取消加载中
     loading.value = false;
-    done('ok')
+    done("ok");
   }
 };
-
 </script>
 
 <template>
@@ -60,10 +57,13 @@ const fetchData = async ({ done }) => {
   >
     <template #loading />
     <div class="grid gap-4 grid-media-card mx-3">
-      <MediaCard v-for="data in dataList" 
-        :key="data.tmdb_id" 
-        :media="data">
-      </MediaCard>
+      <MediaCard v-for="data in dataList" :key="data.tmdb_id" :media="data"> </MediaCard>
     </div>
   </VInfiniteScroll>
 </template>
+
+<style type="scss">
+.grid-media-card {
+  grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
+}
+</style>

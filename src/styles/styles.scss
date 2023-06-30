@@ -2,17 +2,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-.grid-media-card {
-  grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
-}
-
-.media-slide-card {
-  position: relative;
-  flex: 0 0 auto;
-  max-width: 11rem;
-}
-
-.grid-subscribe-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-}

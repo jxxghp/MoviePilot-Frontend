@@ -14,8 +14,8 @@ const dataList = ref<MediaInfo[]>([]);
 // 获取订阅列表数据
 const fetchData = async () => {
   try {
-    if (!props.apipath){
-      return
+    if (!props.apipath) {
+      return;
     }
     dataList.value = await api.get(props.apipath);
   } catch (error) {
@@ -25,41 +25,24 @@ const fetchData = async () => {
 
 // 加载时获取数据
 onMounted(fetchData);
-
 </script>
 
 <template>
-  <VSlideGroup
-  show-arrows=false
-  >
+  <VSlideGroup show-arrows="false">
     <template #prev>
-      <VBtn
-        class="rounded-circle shadow-none"
-        icon="mdi-chevron-left"
-        color="grey"
-      />
+      <VBtn class="rounded-circle shadow-none" icon="mdi-chevron-left" color="grey" />
     </template>
-    <VSlideGroupItem v-for="data in dataList" 
-      :key="data.tmdb_id"
-    >
-      <MediaCard
-        :media="data"
-      />
+    <VSlideGroupItem v-for="data in dataList" :key="data.tmdb_id">
+      <MediaCard :media="data" height="15rem" width="10rem" />
     </VSlideGroupItem>
     <template #next>
-      <VBtn
-        class="rounded-circle shadow-none"
-        icon="mdi-chevron-right"
-        color="grey"
-      />
+      <VBtn class="rounded-circle shadow-none" icon="mdi-chevron-right" color="grey" />
     </template>
   </VSlideGroup>
 </template>
 
 <style type="scss">
 .v-slide-group .v-card {
-  block-size: 15rem;
-
   @apply m-2;
 }
 
