@@ -10,7 +10,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="tmdb/trending" />
+    <MediaCardSlideView apipath="tmdb/trending" class="mb-3" />
 
     <div class="slider-header">
       <RouterLink to="/browse/tmdb/movies" class="slider-title">
@@ -18,7 +18,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="tmdb/movies" />
+    <MediaCardSlideView apipath="tmdb/movies" class="mb-3" />
 
     <div class="slider-header">
       <RouterLink to="/browse/tmdb/tvs" class="slider-title">
@@ -26,7 +26,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="tmdb/tvs" />
+    <MediaCardSlideView apipath="tmdb/tvs" class="mb-3" />
 
     <div class="slider-header">
       <RouterLink to="/browse/douban/movies" class="slider-title">
@@ -34,7 +34,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="douban/movies" />
+    <MediaCardSlideView apipath="douban/movies" class="mb-3" />
 
     <div class="slider-header">
       <RouterLink to="/browse/douban/tvs" class="slider-title">
@@ -42,7 +42,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="douban/tvs" />
+    <MediaCardSlideView apipath="douban/tvs" class="mb-3" />
 
     <div class="slider-header">
       <RouterLink to="/browse/douban/tv_weekly_chinese" class="slider-title">
@@ -50,7 +50,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="douban/tv_weekly_chinese" />
+    <MediaCardSlideView apipath="douban/tv_weekly_chinese" class="mb-3" />
 
     <div class="slider-header">
       <RouterLink to="/browse/douban/tv_weekly_global" class="slider-title">
@@ -58,7 +58,7 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
         <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
       </RouterLink>
     </div>
-    <MediaCardSlideView apipath="douban/tv_weekly_global" />
+    <MediaCardSlideView apipath="douban/tv_weekly_global" class="mb-3" />
   </div>
 </template>
 
@@ -66,7 +66,8 @@ import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
 .slider-header {
   position: relative;
   display: flex;
-  margin-block: 1.5rem 1rem;
+
+  @apply mb-3;
 }
 
 .slider-title {

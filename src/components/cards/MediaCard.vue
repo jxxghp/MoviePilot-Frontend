@@ -6,6 +6,9 @@ const props = defineProps({
   media: Object as PropType<MediaInfo>
 });
 
+// 图片加载状态
+const isImageLoaded = ref(false);
+
 const getChipColor = (type: string) => {
   if (type === "电影") {
     return "border-blue-500 bg-blue-600";
@@ -23,8 +26,8 @@ const getChipColor = (type: string) => {
   <template #default="hover" >
     <VCard
       v-bind="hover.props"
-      class="outline-none ring-1 transition duration-300 shadow ring-gray-500"
-      :class="hover.isHovering ? 'scale-105 shadow-lg' : ''"
+      class="outline-none shadow ring-gray-500"
+      :class="{ 'scale-105 shadow-lg': hover.isHovering, 'ring-1 transition duration-300 ': isImageLoaded }"
     >
       <VImg
         aspect-ratio="3/2"
@@ -32,6 +35,7 @@ const getChipColor = (type: string) => {
         class="h-full w-full object-cover"
         :class="hover.isHovering ? 'on-hover' : ''"
         cover
+        @load="isImageLoaded = true"
       >
         <template #placeholder>
           <div class="relative animate-pulse bg-gray-300 w-full"><div class="w-full" style="padding-bottom: 150%;"></div></div>
