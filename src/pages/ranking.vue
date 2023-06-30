@@ -1,64 +1,85 @@
 <script setup lang="ts">
-import MediaCardSlideView from "@/views/discover/MediaCardSlideView.vue";
+import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue';
 </script>
 
 <template>
   <div>
-    <div class="slider-header">
-      <RouterLink to="/browse/tmdb/trending" class="slider-title">
-        <span>流行趋势</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="tmdb/trending" class="mb-3" />
+    <MediaCardSlideView apipath="tmdb/trending" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/tmdb/trending" class="slider-title">
+            <span>流行趋势</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
 
-    <div class="slider-header">
-      <RouterLink to="/browse/tmdb/movies" class="slider-title">
-        <span>热门电影</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="tmdb/movies" class="mb-3" />
+    <MediaCardSlideView apipath="tmdb/movies" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/tmdb/movies" class="slider-title">
+            <span>热门电影</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
 
-    <div class="slider-header">
-      <RouterLink to="/browse/tmdb/tvs" class="slider-title">
-        <span>热门电视剧</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="tmdb/tvs" class="mb-3" />
+    <MediaCardSlideView apipath="tmdb/tvs" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/tmdb/tvs" class="slider-title">
+            <span>热门电视剧</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
 
-    <div class="slider-header">
-      <RouterLink to="/browse/douban/movies" class="slider-title">
-        <span>最新电影</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="douban/movies" class="mb-3" />
+    <MediaCardSlideView apipath="douban/movies" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/douban/movies" class="slider-title">
+            <span>最新电影</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
 
-    <div class="slider-header">
-      <RouterLink to="/browse/douban/tvs" class="slider-title">
-        <span>最新电视剧</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="douban/tvs" class="mb-3" />
+    <MediaCardSlideView apipath="douban/tvs" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/douban/tvs" class="slider-title">
+            <span>最新电视剧</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
 
-    <div class="slider-header">
-      <RouterLink to="/browse/douban/tv_weekly_chinese" class="slider-title">
-        <span>国产剧集榜</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="douban/tv_weekly_chinese" class="mb-3" />
+    <MediaCardSlideView apipath="douban/tv_weekly_chinese" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/douban/tv_weekly_chinese" class="slider-title">
+            <span>国产剧集榜</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
 
-    <div class="slider-header">
-      <RouterLink to="/browse/douban/tv_weekly_global" class="slider-title">
-        <span>全球剧集榜</span>
-        <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-      </RouterLink>
-    </div>
-    <MediaCardSlideView apipath="douban/tv_weekly_global" class="mb-3" />
+    <MediaCardSlideView apipath="douban/tv_weekly_global" class="mb-3">
+      <template #title="{ loaded }">
+        <div class="slider-header" v-if="loaded">
+          <RouterLink to="/browse/douban/tv_weekly_global" class="slider-title">
+            <span>全球剧集榜</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
   </div>
 </template>
 

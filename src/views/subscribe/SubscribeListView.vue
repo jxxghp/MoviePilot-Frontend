@@ -8,6 +8,7 @@ const props = defineProps({
   type: String,
 });
 
+
 // 数据列表
 const dataList = ref<Subscribe[]>([]);
 

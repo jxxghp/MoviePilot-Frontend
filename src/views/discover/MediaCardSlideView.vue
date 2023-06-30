@@ -8,6 +8,10 @@ const props = defineProps({
   apipath: String,
 });
 
+
+// 组件加载完成
+const componentLoaded = ref(false);
+
 // 数据列表
 const dataList = ref<MediaInfo[]>([]);
 
@@ -18,6 +22,7 @@ const fetchData = async () => {
       return;
     }
     dataList.value = await api.get(props.apipath);
+    componentLoaded.value = true;
   } catch (error) {
     console.error(error);
   }
@@ -28,6 +33,7 @@ onMounted(fetchData);
 </script>
 
 <template>
+  <slot name="title" :loaded="componentLoaded"></slot>
   <VSlideGroup show-arrows="false">
     <template #prev>
       <VBtn class="rounded-circle shadow-none" icon="mdi-chevron-left" color="grey" />
