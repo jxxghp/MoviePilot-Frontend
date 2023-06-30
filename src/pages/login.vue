@@ -104,7 +104,7 @@ onMounted(() => {
     class="auth-wrapper d-flex align-center justify-center pa-4 fade-in w-full h-full overflow-hidden"
     :style="{ backgroundImage: `url(${backgroundImageUrl})` }"
   >
-    <VCard class="auth-card pa-7" width="25rem">
+    <VCard class="auth-card pa-7 backdrop-blur-xl bg-white/50" width="25rem">
       <VCardItem class="justify-center mb-7">
         <template #prepend>
           <div class="d-flex">
@@ -112,7 +112,7 @@ onMounted(() => {
           </div>
         </template>
 
-        <VCardTitle class="font-weight-semibold text-2xl text-uppercase">
+        <VCardTitle class="font-weight-semibold text-2xl text-uppercase text-gray-700">
           MoviePilot
         </VCardTitle>
       </VCardItem>
