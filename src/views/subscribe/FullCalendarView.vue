@@ -16,17 +16,22 @@ const calendarOptions = {
     list: '列表'
   },
   plugins: [
-          dayGridPlugin,
-          timeGridPlugin,
-          interactionPlugin // needed for dateClick
-        ],
+    dayGridPlugin,
+    timeGridPlugin,
+    interactionPlugin // needed for dateClick
+  ],
   initialView: 'dayGridMonth',
   weekends: false,
   headerToolbar: {
-          left: 'prev,next',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
+    left: 'prev,next',
+    center: 'title',
+    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+  },
+  views: {
+    week: {
+      titleFormat: { day: 'numeric' }
+    }
+  },
   events: [
     { title: 'Meeting', start: new Date() }
   ],
@@ -34,7 +39,7 @@ const calendarOptions = {
 </script>
 
 <template>
-  <FullCalendar :options='calendarOptions' locale="zh-cn"/>
+  <FullCalendar :options='calendarOptions' locale="zh-cn" />
 </template>
 
 <style lang="scss">
@@ -203,7 +208,7 @@ const calendarOptions = {
   padding-inline: 0.25rem;
 }
 
-.v-application .fc tbody[role="rowgroup"] > tr > td[role="presentation"] {
+.v-application .fc tbody[role="rowgroup"]>tr>td[role="presentation"] {
   border: none;
 }
 
@@ -300,5 +305,4 @@ const calendarOptions = {
 .v-layout .v-card[data-v-85990893] {
   overflow: visible;
 }
-
 </style>
