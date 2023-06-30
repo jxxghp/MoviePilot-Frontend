@@ -7,4 +7,5 @@
 
 html {
   box-sizing: border-box;
+  min-height: calc(100% + env(safe-area-inset-top))
 }

@@ -5,11 +5,17 @@
 @use "@configured-variables" as variables;
 
 html {
-  min-height: calc(100% + env(safe-area-inset-top))
+  min-height: calc(100% + env(safe-area-inset-top));
 }
 
-body, #app {
-  min-block-size: 100%;
+body,
+#app,
+.v-application {
+  min-height: 100%;
+}
+
+.layout-vertical-nav, .layout-navbar {
+  padding-top: env(safe-area-inset-top);
 }
 
 .layout-page-content {

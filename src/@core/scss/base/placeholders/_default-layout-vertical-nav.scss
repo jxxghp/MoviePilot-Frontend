@@ -11,7 +11,7 @@
 
   // If navbar is contained => Squeeze navbar content on scroll
   @if variables.$layout-vertical-nav-navbar-is-contained {
-    padding-inline: 1.2rem;
+    padding-inline: 1rem;
   }
 }
 

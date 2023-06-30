@@ -17,7 +17,7 @@ import UserProfile from "@/layouts/components/UserProfile.vue";
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center">
         <!-- 👉 Vertical nav toggle in overlay mode -->
-        <IconBtn class="ms-n3 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
+        <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
         </IconBtn>
 
@@ -29,7 +29,7 @@ import UserProfile from "@/layouts/components/UserProfile.vue";
           </IconBtn>
 
           <span class="d-none d-md-flex align-center text-disabled">
-            <span class="me-3">Search</span>
+            <span class="me-3">搜索</span>
             <span class="meta-key">&#8984;K</span>
           </span>
         </div>

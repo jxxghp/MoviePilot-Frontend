@@ -1,27 +1,27 @@
 <script lang="ts">
-import VerticalNav from '@layouts/components/VerticalNav.vue'
-import { useDisplay } from 'vuetify'
+import VerticalNav from "@layouts/components/VerticalNav.vue";
+import { useDisplay } from "vuetify";
 
 export default defineComponent({
   setup(props, { slots }) {
-    const isOverlayNavActive = ref(false)
-    const isLayoutOverlayVisible = ref(false)
-    const toggleIsOverlayNavActive = useToggle(isOverlayNavActive)
+    const isOverlayNavActive = ref(false);
+    const isLayoutOverlayVisible = ref(false);
+    const toggleIsOverlayNavActive = useToggle(isOverlayNavActive);
 
-    const route = useRoute()
-    const { mdAndDown } = useDisplay()
+    const route = useRoute();
+    const { mdAndDown } = useDisplay();
 
     // ℹ️ This is alternative to below two commented watcher
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
-    syncRef(isOverlayNavActive, isLayoutOverlayVisible)
+    syncRef(isOverlayNavActive, isLayoutOverlayVisible);
 
-    const scrollDistance = ref(window.scrollY)
+    const scrollDistance = ref(window.scrollY);
 
     onMounted(() => {
-      window.addEventListener('scroll', () => {
-        scrollDistance.value = window.scrollY
-      })
-    })
+      window.addEventListener("scroll", () => {
+        scrollDistance.value = window.scrollY;
+      });
+    });
 
     return () => {
       // 👉 Vertical nav
@@ -29,84 +29,63 @@ export default defineComponent({
         VerticalNav,
         { isOverlayNavActive: isOverlayNavActive.value, toggleIsOverlayNavActive },
         {
-          'nav-header': () => slots['vertical-nav-header']?.(),
-          'before-nav-items': () => slots['before-vertical-nav-items']?.(),
-          'default': () => slots['vertical-nav-content']?.(),
-          'after-nav-items': () => slots['after-vertical-nav-items']?.(),
-        },
-      )
+          "nav-header": () => slots["vertical-nav-header"]?.(),
+          "before-nav-items": () => slots["before-vertical-nav-items"]?.(),
+          default: () => slots["vertical-nav-content"]?.(),
+          "after-nav-items": () => slots["after-vertical-nav-items"]?.(),
+        }
+      );
 
       // 👉 Navbar
-      const navbar = h(
-        'header',
-        { class: ['layout-navbar navbar-blur'] },
-        [
-          h(
-            'div',
-            { class: 'navbar-content-container' },
-            slots.navbar?.({
-              toggleVerticalOverlayNavActive: toggleIsOverlayNavActive,
-            }),
-          ),
-        ],
-      )
+      const navbar = h("header", { class: ["layout-navbar navbar-blur"] }, [
+        h(
+          "div",
+          { class: "navbar-content-container" },
+          slots.navbar?.({
+            toggleVerticalOverlayNavActive: toggleIsOverlayNavActive,
+          })
+        ),
+      ]);
 
       const main = h(
-        'main',
-        { class: 'layout-page-content' },
-        h('div', { class: 'page-content-container' }, slots.default?.()),
-      )
+        "main",
+        { class: "layout-page-content" },
+        h("div", { class: "page-content-container" }, slots.default?.())
+      );
 
       // 👉 Footer
-      const footer = h(
-        'footer',
-        { class: 'layout-footer' },
-        [
-          h(
-            'div',
-            { class: 'footer-content-container' },
-            slots.footer?.(),
-          ),
-        ],
-      )
+      const footer = h("footer", { class: "layout-footer" }, [
+        h("div", { class: "footer-content-container" }, slots.footer?.()),
+      ]);
 
       // 👉 Overlay
-      const layoutOverlay = h(
-        'div',
-        {
-          class: ['layout-overlay', { visible: isLayoutOverlayVisible.value }],
-          onClick: () => { isLayoutOverlayVisible.value = !isLayoutOverlayVisible.value },
+      const layoutOverlay = h("div", {
+        class: ["layout-overlay", { visible: isLayoutOverlayVisible.value }],
+        onClick: () => {
+          isLayoutOverlayVisible.value = !isLayoutOverlayVisible.value;
         },
-      )
+      });
 
       return h(
-        'div',
+        "div",
         {
           class: [
-            'layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid',
-            'layout-navbar-sticky',
-            mdAndDown.value && 'layout-overlay-nav',
+            "layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid",
+            "layout-navbar-sticky",
+            mdAndDown.value && "layout-overlay-nav",
             route.meta.layoutWrapperClasses,
-            (scrollDistance.value > 20) && 'window-scrolled',
+            scrollDistance.value > 20 && "window-scrolled",
           ],
         },
         [
           verticalNav,
-          h(
-            'div',
-            { class: 'layout-content-wrapper' },
-            [
-              navbar,
-              main,
-              footer,
-            ],
-          ),
+          h("div", { class: "layout-content-wrapper" }, [navbar, main, footer]),
           layoutOverlay,
-        ],
-      )
-    }
+        ]
+      );
+    };
   },
-})
+});
 </script>
 
 <style lang="scss">

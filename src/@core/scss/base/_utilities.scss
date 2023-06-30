@@ -54,7 +54,7 @@ $card-spacer-content: 16px;
 }
 
 .bg-var-theme-background {
-  background-color: rgba(var(--v-theme-on-background), var(--v-hover-opacity)) !important;
+  background-color: rgba(var(--v-theme-background), var(--v-hover-opacity)) !important;
 }
 
 // [/^bg-light-(\w+)$/, ([, w]) => ({ backgroundColor: `rgba(var(--v-theme-${w}), var(--v-activated-opacity))` })],
