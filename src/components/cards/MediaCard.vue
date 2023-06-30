@@ -27,8 +27,9 @@ const getChipColor = (type: string) => {
       :class="hover.isHovering ? 'scale-105 shadow-lg' : ''"
     >
       <VImg
-        aspect-ratio="2/1"
+        aspect-ratio="3/2"
         :src="props.media?.poster_path"
+        lazy-src="https://picsum.photos/seed/picsum/200/300"
         class="h-full w-full object-cover"
         :class="hover.isHovering ? 'on-hover' : ''"
         cover
