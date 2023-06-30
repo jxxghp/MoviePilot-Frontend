@@ -15,7 +15,7 @@ const titles: { [key: string]: any } = {
   douban: {
     movies: '最新电影',
     tvs: '最新电视剧',
-    tv_weekly_chinese: '国产剧集榜',
+    tv_weekly_chinese: '华语剧集榜',
     tv_weekly_global: '全球剧集榜',
   },
 };

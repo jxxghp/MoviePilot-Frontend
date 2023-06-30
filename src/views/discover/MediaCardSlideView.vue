@@ -32,6 +32,13 @@ onMounted(fetchData);
   <VSlideGroup
   show-arrows=false
   >
+    <template #prev>
+      <VBtn
+        class="rounded-circle shadow-none"
+        icon="mdi-chevron-left"
+        color="grey"
+      />
+    </template>
     <VSlideGroupItem v-for="data in dataList" 
       :key="data.tmdb_id"
     >
@@ -39,6 +46,13 @@ onMounted(fetchData);
         :media="data"
       />
     </VSlideGroupItem>
+    <template #next>
+      <VBtn
+        class="rounded-circle shadow-none"
+        icon="mdi-chevron-right"
+        color="grey"
+      />
+    </template>
   </VSlideGroup>
 </template>
 
@@ -47,5 +61,19 @@ onMounted(fetchData);
   block-size: 15rem;
 
   @apply m-2;
+}
+
+.v-slide-group__prev {
+  @apply absolute right-11;
+
+  z-index: 3;
+  margin-block-start: -40px;
+}
+
+.v-slide-group__next {
+  @apply absolute right-1;
+
+  z-index: 3;
+  margin-block-start: -40px;
 }
 </style>
