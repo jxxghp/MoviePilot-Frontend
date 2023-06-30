@@ -4,7 +4,7 @@ import axios from 'axios'
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api/v1/',
+  baseURL: 'http://127.0.0.1:3001/api/v1/',
 })
 
 // 添加请求拦截器
