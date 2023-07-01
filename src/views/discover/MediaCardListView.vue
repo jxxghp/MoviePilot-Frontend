@@ -6,12 +6,15 @@ import MediaCard from "@/components/cards/MediaCard.vue";
 // 输入参数
 const props = defineProps({
   apipath: String,
+  params: Object as PropType<{ [key: string]: any }>,
 });
 
 // 当前页码
 const page = ref(1);
 // 是否加载中
 const loading = ref(false);
+// 是否加载完成
+const finished = ref(false);
 
 // 数据列表
 const dataList = ref<MediaInfo[]>([]);
@@ -29,15 +32,23 @@ const fetchData = async ({ done }) => {
     }
     // 设置加载中
     loading.value = true;
+    // 参数
+    let params = {
+      page: page.value,
+    };
+    if (props.params) {
+      params = { ...params, ...props.params };
+    }
+
     currData.value = await api.get(props.apipath, {
-      params: {
-        page: page.value,
-      },
+      params: params,
     });
     // 合并数据
     dataList.value = [...dataList.value, ...currData.value];
     // 页码+1
     page.value++;
+    // 标计为完成
+    finished.value = true;
   } catch (error) {
     console.error(error);
   } finally {
@@ -49,6 +60,12 @@ const fetchData = async ({ done }) => {
 </script>
 
 <template>
+  <VProgressCircular
+    class="centered"
+    v-if="!finished"
+    indeterminate
+    color="primary"
+  ></VProgressCircular>
   <VInfiniteScroll
     mode="intersect"
     side="end"
@@ -65,5 +82,12 @@ const fetchData = async ({ done }) => {
 <style type="scss">
 .grid-media-card {
   grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
+}
+
+.centered {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
 }
 </style>

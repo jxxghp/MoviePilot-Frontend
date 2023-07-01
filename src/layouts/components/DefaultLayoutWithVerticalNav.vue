@@ -8,7 +8,23 @@ import Footer from "@/layouts/components/Footer.vue";
 import NavbarThemeSwitcher from "@/layouts/components/NavbarThemeSwitcher.vue";
 import UserProfile from "@/layouts/components/UserProfile.vue";
 
-// Banner
+const router = useRouter();
+
+// 搜索词
+const searchWord = ref<string>("");
+
+// Search
+const search = () => {
+  if (!searchWord.value) {
+    return;
+  }
+  router.push({
+    path: "/browse/media/search",
+    query: {
+      title: searchWord.value,
+    },
+  });
+};
 </script>
 
 <template>
@@ -24,15 +40,27 @@ import UserProfile from "@/layouts/components/UserProfile.vue";
         <!-- 👉 Search -->
         <div class="d-flex align-center cursor-pointer" style="user-select: none">
           <!-- 👉 Search Trigger button -->
-          <IconBtn>
+          <IconBtn class="d-lg-none">
             <VIcon icon="mdi-magnify" />
           </IconBtn>
-
-          <span class="d-none d-md-flex align-center text-disabled">
-            <span class="me-3">搜索</span>
-            <span class="meta-key">&#8984;K</span>
-          </span>
         </div>
+
+        <span class="w-1/5">
+          <VTextField
+            v-model="searchWord"
+            class="d-none d-lg-block text-disabled"
+            density="compact"
+            variant="solo"
+            label="搜索电影、电视剧"
+            append-inner-icon="mdi-magnify"
+            single-line
+            hide-details
+            @click:append-inner="search"
+            @keydown.enter="search"
+            flat
+            rounded
+          />
+        </span>
 
         <VSpacer />
 
