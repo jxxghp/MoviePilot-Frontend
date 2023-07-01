@@ -203,7 +203,7 @@ export default defineComponent({
   background-color: rgb(var(--v-theme-surface), 0.9);
   -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
-  z-index: 1003;
+  z-index: 1002;
   transition: padding 0.2s ease, background-color 0.18s ease;
 }
 </style>
