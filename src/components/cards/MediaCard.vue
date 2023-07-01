@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from "@/api";
+import { doneNProgress, startNProgress } from "@/api/nprogress";
 import { MediaInfo, Subscribe } from "@/api/types";
 
 // 输入参数
@@ -28,6 +29,7 @@ const getChipColor = (type: string) => {
 
 // 添加订阅
 const addSubscribe = async () => {
+  startNProgress();
   try {
     const result: { [key: string]: any } = await api.post("subscribe", {
       name: props.media?.title,
@@ -41,6 +43,7 @@ const addSubscribe = async () => {
   } catch (error) {
     console.error(error);
   }
+  doneNProgress();
 };
 
 // 取消订阅
@@ -84,6 +87,24 @@ const handleSubscribe = () => {
   } else {
     addSubscribe();
   }
+};
+
+// 拼装详情页链接
+const getDetailLink = () => {
+  let link = "";
+  if (props.media?.douban_id) {
+    link = `https://movie.douban.com/subject/${props.media?.douban_id}/`;
+  } else if (props.media?.type === "电影") {
+    link = `https://www.themoviedb.org/movie/${props.media?.tmdb_id}`;
+  } else if (props.media?.type === "电视剧") {
+    link = `https://www.themoviedb.org/tv/${props.media?.tmdb_id}`;
+  }
+  return link;
+};
+
+// 打开详情页
+const openDetailWindow = () => {
+  window.open(getDetailLink(), "_blank");
 };
 
 // 装载时检查是否已订阅
@@ -139,6 +160,7 @@ onMounted(checkSubscribe);
           <VCardText
             class="flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
             v-show="hover.isHovering"
+            @click.stop="openDetailWindow"
           >
             <span class="font-bold">{{ props.media?.year }}</span>
             <h1
@@ -154,7 +176,7 @@ onMounted(checkSubscribe);
               <IconBtn
                 icon="mdi-heart"
                 :color="isSubscribed ? 'error' : 'white'"
-                @click="handleSubscribe"
+                @click.stop="handleSubscribe"
               />
             </div>
           </VCardText>

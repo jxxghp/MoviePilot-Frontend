@@ -1,6 +1,7 @@
 /* eslint-disable import/order */
 import '@/@iconify/icons-bundle'
 import App from '@/App.vue'
+import { configureNProgress, doneNProgress, startNProgress } from '@/api/nprogress'
 import vuetify from '@/plugins/vuetify'
 import { loadFonts } from '@/plugins/webfontloader'
 import router from '@/router'
@@ -8,13 +9,11 @@ import store from '@/store'
 import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
-import NProgress from 'nprogress'
-import 'nprogress/nprogress.css'
 import { createApp } from 'vue'
 loadFonts()
 
 // Nprogress
-NProgress.configure({ showSpinner: false })
+configureNProgress()
 
 // Create vue app
 const app = createApp(App)
@@ -37,11 +36,11 @@ router.beforeEach((to, from, next) => {
   }
   else {
     // 否则，允许继续进行路由导航
-    NProgress.start()
+    startNProgress()
     next()
   }
 })
 
 router.afterEach(() => {
-  NProgress.done()
+  doneNProgress()
 })
