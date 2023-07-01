@@ -34,14 +34,13 @@ onMounted(() => {
 
     <VIcon
       v-if="props.site?.is_active"
-      icon="mdi-check-circle-outline"
+      icon="mdi-check-circle"
       color="success"
-      size="32"
-      class="absolute right-2 top-2 bg-opacity-80 text-white font-bold"
+      class="absolute right-2 top-2"
     >
     </VIcon>
 
-    <VAvatar class="absolute right-5 bottom-5">
+    <VAvatar class="absolute right-5 bottom-5" variant="flat" rounded="0">
       <VImg :src="siteIcon"></VImg>
     </VAvatar>
 
