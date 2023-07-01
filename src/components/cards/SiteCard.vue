@@ -26,7 +26,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard :height="props.height" :width="props.width">
+  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active">
     <VCardItem>
       <VCardTitle>{{ props.site?.name }}</VCardTitle>
       <VCardSubtitle>{{ props.site?.url }}</VCardSubtitle>
@@ -46,25 +46,25 @@ onMounted(() => {
     </VAvatar>
 
     <VCardText class="py-2">
-      <VTooltip text="浏览器仿真">
+      <VTooltip text="浏览器仿真" v-if="props.site?.render">
         <template #activator="{ props }">
           <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-apple-safari" />
         </template>
       </VTooltip>
 
-      <VTooltip text="代理">
+      <VTooltip text="代理" v-if="props.site?.proxy">
         <template #activator="{ props }">
           <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-network-outline" />
         </template>
       </VTooltip>
 
-      <VTooltip text="流控">
+      <VTooltip text="流控" v-if="props.site?.limit_interval">
         <template #activator="{ props }">
           <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
         </template>
       </VTooltip>
 
-      <VTooltip text="过滤">
+      <VTooltip text="过滤" v-if="props.site?.filter">
         <template #activator="{ props }">
           <VIcon
             color="primary"
