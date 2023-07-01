@@ -9,6 +9,15 @@ const props = defineProps({
   params: Object as PropType<{ [key: string]: any }>,
 });
 
+// 判断是否有滚动条
+const hasScroll = () => {
+  return (
+    document.body.scrollHeight -
+      (window.innerHeight || document.documentElement.clientHeight) >
+    2
+  );
+};
+
 // 当前页码
 const page = ref(1);
 // 是否加载中
@@ -20,41 +29,78 @@ const finished = ref(false);
 const dataList = ref<MediaInfo[]>([]);
 const currData = ref<MediaInfo[]>([]);
 
+// 拼装参数
+const getParams = () => {
+  let params = {
+    page: page.value,
+  };
+  if (props.params) {
+    params = { ...params, ...props.params };
+  }
+  return params;
+};
+
 // 获取订阅列表数据
 const fetchData = async ({ done }) => {
+  console.log("entry", props.apipath);
   try {
     if (!props.apipath) {
       return;
     }
     // 如果正在加载中，直接返回
     if (loading.value) {
+      done("ok");
       return;
     }
     // 设置加载中
     loading.value = true;
-    // 参数
-    let params = {
-      page: page.value,
-    };
-    if (props.params) {
-      params = { ...params, ...props.params };
+    // 加载到满屏或者加载出错
+    if (!hasScroll()) {
+      // 加载多次
+      while (!hasScroll()) {
+        // 请求API
+        currData.value = await api.get(props.apipath, {
+          params: getParams(),
+        });
+        // 标计为已请求完成
+        finished.value = true;
+        if (currData.value.length === 0) {
+          // 如果没有数据，跳出
+          done("ok");
+          return;
+        }
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value];
+        // 页码+1
+        page.value++;
+      }
+    } else {
+      // 加载一次
+      // 请求API
+      currData.value = await api.get(props.apipath, {
+        params: getParams(),
+      });
+      // 标计为已请求完成
+      finished.value = true;
+      if (currData.value.length === 0) {
+        // 如果没有数据，跳出
+        done("ok");
+        return;
+      }
+      // 合并数据
+      dataList.value = [...dataList.value, ...currData.value];
+      // 页码+1
+      page.value++;
     }
 
-    currData.value = await api.get(props.apipath, {
-      params: params,
-    });
-    // 合并数据
-    dataList.value = [...dataList.value, ...currData.value];
-    // 页码+1
-    page.value++;
-    // 标计为完成
-    finished.value = true;
-  } catch (error) {
-    console.error(error);
-  } finally {
     // 取消加载中
     loading.value = false;
+    // 返回加载成功
     done("ok");
+  } catch (error) {
+    console.error(error);
+    // 返回加载失败
+    done("error");
   }
 };
 </script>
