@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { MediaInfo } from "@/api/types";
+import api from "@/api";
+import { MediaInfo, Subscribe } from "@/api/types";
 
 // 输入参数
 const props = defineProps({
@@ -11,6 +12,10 @@ const props = defineProps({
 // 图片加载状态
 const isImageLoaded = ref(false);
 
+// 订阅状态
+const isSubscribed = ref(false);
+
+// 角标颜色
 const getChipColor = (type: string) => {
   if (type === "电影") {
     return "border-blue-500 bg-blue-600";
@@ -20,6 +25,69 @@ const getChipColor = (type: string) => {
     return "border-purple-600 bg-purple-600";
   }
 };
+
+// 添加订阅
+const addSubscribe = async () => {
+  try {
+    const result: { [key: string]: any } = await api.post("subscribe", {
+      name: props.media?.title,
+      type: props.media?.type,
+      year: props.media?.year,
+      tmdbid: props.media?.tmdb_id,
+      doubanid: props.media?.douban_id,
+      season: props.media?.season,
+    });
+    isSubscribed.value = result.success || false;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 取消订阅
+const removeSubscribe = async () => {
+  try {
+    let mediaid = props.media?.tmdb_id
+      ? `tmdb:${props.media?.tmdb_id}`
+      : `douban:${props.media?.douban_id}`;
+    const result: { [key: string]: any } = await api.delete(`subscribe/${mediaid}`, {
+      params: {
+        season: props.media?.season,
+      },
+    });
+    isSubscribed.value = !(result.success || false);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 查询是否已订阅
+const checkSubscribe = async () => {
+  try {
+    let mediaid = props.media?.tmdb_id
+      ? `tmdb:${props.media?.tmdb_id}`
+      : `douban:${props.media?.douban_id}`;
+    const result: Subscribe = await api.get(`subscribe/${mediaid}`, {
+      params: {
+        season: props.media?.season,
+      },
+    });
+    isSubscribed.value = !!result.id;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 订阅按钮响应
+const handleSubscribe = () => {
+  if (isSubscribed.value) {
+    removeSubscribe();
+  } else {
+    addSubscribe();
+  }
+};
+
+// 装载时检查是否已订阅
+onMounted(checkSubscribe);
 </script>
 
 <template>
@@ -83,7 +151,11 @@ const getChipColor = (type: string) => {
             </p>
             <div class="flex align-center justify-between">
               <IconBtn icon="mdi-magnify" color="white" />
-              <IconBtn icon="mdi-heart" color="white" />
+              <IconBtn
+                icon="mdi-heart"
+                :color="isSubscribed ? 'error' : 'white'"
+                @click="handleSubscribe"
+              />
             </div>
           </VCardText>
         </VImg>

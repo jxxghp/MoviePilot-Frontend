@@ -42,7 +42,6 @@ const getParams = () => {
 
 // 获取订阅列表数据
 const fetchData = async ({ done }) => {
-  console.log("entry", props.apipath);
   try {
     if (!props.apipath) {
       return;

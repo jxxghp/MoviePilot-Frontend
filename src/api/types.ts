@@ -90,6 +90,8 @@ export interface MediaInfo {
   title?: string
   // 年份
   year?: string
+  // 季号
+  season?: number;
   // TMDB ID
   tmdb_id?: number
   // IMDB ID
