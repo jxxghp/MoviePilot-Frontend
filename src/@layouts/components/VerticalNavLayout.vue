@@ -108,7 +108,7 @@ export default defineComponent({
 
   .layout-navbar {
     position: fixed;
-    width: 100vw;
+    width: calc(100vw - variables.$layout-vertical-nav-width);
     z-index: variables.$layout-vertical-nav-layout-navbar-z-index;
     inset-block-start: 0;
 
@@ -192,6 +192,12 @@ export default defineComponent({
         }
       }
     }
+  }
+}
+
+.layout-wrapper.layout-nav-type-vertical.layout-overlay-nav {
+  .layout-navbar {
+    width: 100vw;
   }
 }
 </style>

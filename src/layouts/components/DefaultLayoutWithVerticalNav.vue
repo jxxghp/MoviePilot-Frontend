@@ -34,7 +34,7 @@ const search = () => {
   <VerticalNavLayout>
     <!-- 👉 navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
-      <div class="d-flex h-100 align-center">
+      <div class="d-flex h-100 align-center mx-1">
         <!-- 👉 Vertical nav toggle in overlay mode -->
         <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
