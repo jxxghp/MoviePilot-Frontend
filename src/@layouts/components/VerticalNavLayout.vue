@@ -191,4 +191,19 @@ export default defineComponent({
     }
   }
 }
+
+// 👉 Window scrolled ios top bar
+.window-scrolled::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0.5rem;
+  height: env(safe-area-inset-top);
+  width: calc(100% - 1rem);
+  background-color: rgb(var(--v-theme-surface), 0.9);
+  -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  z-index: 9999;
+  transition: padding 0.2s ease, background-color 0.18s ease;
+}
 </style>
