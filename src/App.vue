@@ -1,9 +1,15 @@
 <script lang="ts" setup>
 const route = useRoute();
+
+const onRefresh = () => {
+  location.reload();
+};
 </script>
 
 <template>
   <VApp>
-    <RouterView :key="route.fullPath" />
+    <PullRefresh @refresh="onRefresh">
+      <RouterView :key="route.fullPath" />
+    </PullRefresh>
   </VApp>
 </template>
