@@ -73,7 +73,7 @@ const getPercentage = (total: number, lack: number) => {
     </VCardText>
 
     <VProgressLinear
-      v-if="props.media?.total_episode || 0 > 0"
+      v-if="props.media?.lack_episode || 0 > 0"
       :model-value="
         getPercentage(props.media?.total_episode || 0, props.media?.lack_episode || 0)
       "
