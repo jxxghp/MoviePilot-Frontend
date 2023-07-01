@@ -115,3 +115,40 @@ export interface MediaInfo {
   // 二级分类
   category?: string
 }
+
+
+// 站点
+export interface Site {
+  // ID
+    id: number
+    // 站点名称
+    name: string
+    // 站点主域名Key
+    domain: string
+    // 站点地址
+    url: string
+    // 站点优先级
+    pri?:number
+    // RSS地址
+    rss?: string
+    // Cookie
+    cookie?: string
+    // User-Agent
+    ua?: string
+    // 是否使用代理
+    proxy?:number
+    // 过滤规则
+    filter?: string
+    // 是否演染
+    render?:number
+    // 备注
+    note?: string
+    // 流控单位周期
+    limit_interval?:number
+    // 流控次数
+    limit_count?:number
+    // 流控间隔
+    limit_seconds?:number
+    // 是否启用
+    is_active: boolean
+}
