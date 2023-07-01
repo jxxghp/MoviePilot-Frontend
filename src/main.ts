@@ -8,7 +8,6 @@ import store from '@/store'
 import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
-import PullRefresh from 'pull-refresh-vue3'
 import { createApp } from 'vue'
 
 loadFonts()
@@ -21,5 +20,4 @@ app
 .use(vuetify)
 .use(router)
 .use(store)
-.use(PullRefresh)
 .mount('#app')
