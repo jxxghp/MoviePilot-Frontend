@@ -13,6 +13,9 @@ const router = useRouter();
 // 搜索词
 const searchWord = ref<string>("");
 
+// 搜索弹窗
+const searchDialog = ref(false);
+
 // Search
 const search = () => {
   if (!searchWord.value) {
@@ -41,12 +44,14 @@ const search = () => {
         <div class="d-flex align-center cursor-pointer" style="user-select: none">
           <!-- 👉 Search Trigger button -->
           <IconBtn class="d-lg-none">
+            <VDialog v-model="searchDialog" activator="parent" width="auto"> </VDialog>
             <VIcon icon="mdi-magnify" />
           </IconBtn>
         </div>
 
         <span class="w-1/5">
           <VTextField
+            key="search_navbar"
             v-model="searchWord"
             class="d-none d-lg-block text-disabled"
             density="compact"

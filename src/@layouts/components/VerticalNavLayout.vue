@@ -71,10 +71,10 @@ export default defineComponent({
         {
           class: [
             "layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid",
-            "layout-navbar-sticky",
+            "layout-navbar-fixed",
             mdAndDown.value && "layout-overlay-nav",
             route.meta.layoutWrapperClasses,
-            scrollDistance.value > 20 && "window-scrolled",
+            scrollDistance.value && "window-scrolled",
           ],
         },
         [
@@ -107,12 +107,15 @@ export default defineComponent({
   }
 
   .layout-navbar {
-    position: sticky;
+    position: fixed;
+    width: 100vw;
     z-index: variables.$layout-vertical-nav-layout-navbar-z-index;
     inset-block-start: 0;
 
     .navbar-content-container {
-      block-size: variables.$layout-vertical-nav-navbar-height;
+      block-size: calc(
+        env(safe-area-inset-top) + variables.$layout-vertical-nav-navbar-height
+      );
     }
 
     @at-root {
@@ -130,8 +133,8 @@ export default defineComponent({
     }
   }
 
-  &.layout-navbar-sticky .layout-navbar {
-    @extend %layout-navbar-sticky;
+  &.layout-navbar-fixed .layout-navbar {
+    @extend %layout-navbar-fixed;
   }
 
   &.layout-navbar-hidden .layout-navbar {
@@ -202,7 +205,7 @@ export default defineComponent({
   width: calc(100% - 1rem);
   background-color: rgb(var(--v-theme-surface), 0.9);
   -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   z-index: 1002;
   transition: padding 0.2s ease, background-color 0.18s ease;
 }

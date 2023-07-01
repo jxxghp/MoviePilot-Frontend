@@ -14,12 +14,13 @@ body,
   min-height: 100%;
 }
 
-.layout-vertical-nav, .layout-navbar {
+.layout-vertical-nav {
   padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.layout-vertical-nav {
-  padding-bottom: env(safe-area-inset-bottom);
+.navbar-content-container {
+  padding-top: env(safe-area-inset-top);
 }
 
 .layout-page-content {
@@ -29,6 +30,7 @@ body,
 
   // TODO: Use grid gutter variable here
   padding-block: 0.5rem;
+  padding-top: calc(env(safe-area-inset-top) + 70px);
 }
 
 .layout-footer {
