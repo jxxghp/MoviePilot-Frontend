@@ -101,10 +101,10 @@ onMounted(() => {
 
 <template>
   <div
-    class="auth-wrapper d-flex align-center justify-center pa-4 fade-in w-full h-full overflow-hidden"
+    class="auth-wrapper d-flex align-center justify-center pa-4 w-full h-full overflow-hidden"
     :style="{ backgroundImage: `url(${backgroundImageUrl})` }"
   >
-    <VCard class="auth-card pa-7 backdrop-blur-xl bg-white/50" width="25rem">
+    <VCard class="auth-card pa-7 backdrop-blur-xl bg-white/50" width="25rem" theme="light">
       <VCardItem class="justify-center mb-7">
         <template #prepend>
           <div class="d-flex">
@@ -112,7 +112,7 @@ onMounted(() => {
           </div>
         </template>
 
-        <VCardTitle class="font-weight-semibold text-2xl text-uppercase text-gray-700">
+        <VCardTitle class="font-weight-semibold text-2xl text-uppercase">
           MoviePilot
         </VCardTitle>
       </VCardItem>
@@ -164,18 +164,4 @@ onMounted(() => {
 
 <style lang="scss">
 @use "@core/scss/pages/page-auth.scss";
-
-.fade-in {
-  animation: fadeIn 1s ease-in;
-}
-
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
 </style>
