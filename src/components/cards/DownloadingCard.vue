@@ -7,7 +7,7 @@ const props = defineProps({
   info: Object as PropType<DownloadingInfo>,
 });
 
-// 是否显示卡版
+// 是否显示卡片
 const cardState = ref(true);
 
 // 进度条
