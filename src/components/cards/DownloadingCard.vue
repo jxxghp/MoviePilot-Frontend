@@ -49,7 +49,7 @@ const deleteDownload = () => {
 
 <template>
   <VCard :key="props.info?.hash" v-if="cardState">
-    <div class="d-flex justify-space-between flex-nowrap flex-row">
+    <div class="d-flex justify-space-between flex-wrap flex-row">
       <div class="ma-auto pa-5 pe-0" v-if="props.info?.media.image">
         <VImg
           aspect-ratio="2/3"
@@ -61,10 +61,11 @@ const deleteDownload = () => {
 
       <div class="w-full">
         <VCardItem>
-          <VCardTitle>{{ props.info?.media.title || props.info?.name }}</VCardTitle>
+          <VCardTitle>{{ props.info?.media.title || props.info?.name }} {{ props.info?.season_episode }}</VCardTitle>
         </VCardItem>
 
         <VCardText
+          v-if="!props.info?.media.image"
           class="break-all whitespace-normal line-clamp-2 overflow-hidden text-ellipsis ..."
         >
           {{ props.info?.title }}

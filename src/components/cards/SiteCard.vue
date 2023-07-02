@@ -26,7 +26,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active">
+  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active" class="overflow-hidden">
+    <template #image>
+      <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
+        <VImg :src="siteIcon" />
+      </VAvatar>
+    </template>
     <VCardItem>
       <VCardTitle>{{ props.site?.name }}</VCardTitle>
       <VCardSubtitle>{{ props.site?.url }}</VCardSubtitle>
@@ -39,10 +44,6 @@ onMounted(() => {
       class="absolute right-2 top-2"
     >
     </VIcon>
-
-    <VAvatar class="absolute right-5 bottom-5" variant="flat" rounded="0">
-      <VImg :src="siteIcon"></VImg>
-    </VAvatar>
 
     <VCardText class="py-2">
       <VTooltip text="浏览器仿真" v-if="props.site?.render">
