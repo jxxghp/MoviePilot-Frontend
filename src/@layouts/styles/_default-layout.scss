@@ -8,6 +8,12 @@ html {
   min-height: calc(100% + env(safe-area-inset-top));
 }
 
+body {
+  background-color: var(--v-theme-background);
+  overscroll-behavior-y: contain;
+  --webkit-overflow-scrolling: touch;
+}
+
 body,
 #app,
 .v-application {
