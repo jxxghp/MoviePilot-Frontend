@@ -25,6 +25,26 @@ const getPercentage = () => {
   }
   return Math.round((((props.media?.total_episode || 0) - (props.media?.lack_episode || 0)) / (props.media?.total_episode || 1)) * 100);
 };
+
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: '编辑',
+    value: 1,
+    props: {
+      prependIcon: 'mdi-file-edit-outline',
+    },
+  },
+  {
+    title: '删除',
+    value: 2,
+    props: {
+      prependIcon: 'mdi-trash-can-outline',
+      color: 'error',
+    },
+  }
+])
+
 </script>
 
 <template>
@@ -42,7 +62,7 @@ const getPercentage = () => {
       </VCardTitle>
       <template #append>
         <div class="me-n3">
-          <MoreBtn color="white" />
+          <MoreBtn color="white" :menu-list="dropdownItems" />
         </div>
       </template>
     </VCardItem>
