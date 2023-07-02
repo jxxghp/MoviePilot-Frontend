@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import api from "@/api";
 import { Subscribe } from "@/api/types";
 import { formatSeason } from "@core/utils/formatters";
 
@@ -6,6 +7,9 @@ import { formatSeason } from "@core/utils/formatters";
 const props = defineProps({
   media: Object as PropType<Subscribe>,
 });
+
+// 是否显示卡片
+const cardState = ref(true);
 
 // 根据 type 返回不同的图标
 const getIcon = () => {
@@ -23,34 +27,57 @@ const getPercentage = () => {
   if (props.media?.total_episode === 0) {
     return 0;
   }
-  return Math.round((((props.media?.total_episode || 0) - (props.media?.lack_episode || 0)) / (props.media?.total_episode || 1)) * 100);
+  return Math.round(
+    (((props.media?.total_episode || 0) - (props.media?.lack_episode || 0)) /
+      (props.media?.total_episode || 1)) *
+      100
+  );
+};
+
+// 删除订阅
+const removeSubscribe = async () => {
+  try {
+    const result: { [key: string]: any } = await api.delete(
+      `subscribe/${props.media?.id}`
+    );
+    if (result.success) {
+      cardState.value = false;
+    }
+  } catch (e) {
+    console.log(e);
+  }
 };
 
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '编辑',
+    title: "编辑",
     value: 1,
     props: {
-      prependIcon: 'mdi-file-edit-outline',
+      prependIcon: "mdi-file-edit-outline",
     },
   },
   {
-    title: '删除',
+    title: "取消订阅",
     value: 2,
     props: {
-      prependIcon: 'mdi-trash-can-outline',
-      color: 'error',
+      prependIcon: "mdi-trash-can-outline",
+      color: "error",
+      click: removeSubscribe,
     },
-  }
-])
-
+  },
+]);
 </script>
 
 <template>
-  <VCard :key="props.media?.id">
+  <VCard :key="props.media?.id" v-if="cardState">
     <template #image>
-      <VImg :src="props.media?.backdrop || props.media?.poster" aspect-ratio="2/3" cover class="brightness-50" />
+      <VImg
+        :src="props.media?.backdrop || props.media?.poster"
+        aspect-ratio="2/3"
+        cover
+        class="brightness-50"
+      />
     </template>
     <VCardItem>
       <template #prepend>
@@ -62,7 +89,25 @@ const dropdownItems = ref([
       </VCardTitle>
       <template #append>
         <div class="me-n3">
-          <MoreBtn color="white" :menu-list="dropdownItems" />
+          <IconBtn>
+            <VIcon icon="mdi-dots-vertical" />
+            <VMenu activator="parent">
+              <VList>
+                <VListItem
+                  v-for="(item, i) in dropdownItems"
+                  variant="plain"
+                  :base-color="item.props.color"
+                  :key="i"
+                  @click="item.props.click"
+                >
+                  <template #prepend>
+                    <VIcon :icon="item.props.prependIcon"></VIcon>
+                  </template>
+                  <VListItemTitle v-text="item.title"></VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
+          </IconBtn>
         </div>
       </template>
     </VCardItem>
@@ -78,13 +123,24 @@ const dropdownItems = ref([
         <IconBtn icon="mdi-star" color="white" class="me-1" />
         <span class="text-subtitle-2 text-white me-4">{{ props.media?.vote }}</span>
 
-        <IconBtn icon="mdi-progress-clock" color="white" class="me-1" v-if="props.media?.total_episode" />
-        <span class="text-subtitle-2 text-white" v-if="props.media?.season">{{ (props.media?.total_episode || 0) -
-          (props.media?.lack_episode || 0) }} /
-          {{ props.media?.total_episode }}</span>
+        <IconBtn
+          icon="mdi-progress-clock"
+          color="white"
+          class="me-1"
+          v-if="props.media?.total_episode"
+        />
+        <span class="text-subtitle-2 text-white" v-if="props.media?.season"
+          >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
+          {{ props.media?.total_episode }}</span
+        >
       </div>
     </VCardText>
 
-    <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" bg-color="success" color="success" />
+    <VProgressLinear
+      v-if="getPercentage() > 0"
+      :model-value="getPercentage()"
+      bg-color="success"
+      color="success"
+    />
   </VCard>
 </template>

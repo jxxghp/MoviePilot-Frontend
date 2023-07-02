@@ -52,11 +52,14 @@ const removeSubscribe = async () => {
     let mediaid = props.media?.tmdb_id
       ? `tmdb:${props.media?.tmdb_id}`
       : `douban:${props.media?.douban_id}`;
-    const result: { [key: string]: any } = await api.delete(`subscribe/${mediaid}`, {
-      params: {
-        season: props.media?.season,
-      },
-    });
+    const result: { [key: string]: any } = await api.delete(
+      `subscribe/media/${mediaid}`,
+      {
+        params: {
+          season: props.media?.season,
+        },
+      }
+    );
     isSubscribed.value = !(result.success || false);
   } catch (error) {
     console.error(error);
