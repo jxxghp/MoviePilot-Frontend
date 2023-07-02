@@ -21,6 +21,7 @@ const search = () => {
   if (!searchWord.value) {
     return;
   }
+  searchDialog.value = false;
   router.push({
     path: "/browse/media/search",
     query: {
@@ -43,10 +44,33 @@ const search = () => {
         <!-- 👉 Search -->
         <div class="d-flex align-center cursor-pointer" style="user-select: none">
           <!-- 👉 Search Trigger button -->
-          <IconBtn class="d-lg-none">
-            <VDialog v-model="searchDialog" activator="parent" width="auto"> </VDialog>
-            <VIcon icon="mdi-magnify" />
-          </IconBtn>
+          <VDialog
+            v-model="searchDialog"
+            max-width="600"
+            transition="dialog-top-transition"
+          >
+            <!-- Dialog Activator -->
+            <template #activator="{ props }">
+              <IconBtn class="d-lg-none" v-bind="props">
+                <VIcon icon="mdi-magnify" />
+              </IconBtn>
+            </template>
+            <!-- Dialog Content -->
+            <VCard title="搜索">
+              <VCardText>
+                <VRow>
+                  <VCol cols="12">
+                    <VTextField v-model="searchWord" label="电影、电视剧名称" />
+                  </VCol>
+                </VRow>
+              </VCardText>
+
+              <VCardActions>
+                <VSpacer />
+                <VBtn @click="search" @keydown.enter="search"> 搜索 </VBtn>
+              </VCardActions>
+            </VCard>
+          </VDialog>
         </div>
 
         <span class="w-1/5">
