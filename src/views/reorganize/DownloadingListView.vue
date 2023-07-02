@@ -12,6 +12,7 @@ const dataList = ref<DownloadingInfo[]>([])
 const fetchData = async () => {
   try {
     dataList.value = await api.get('download')
+    isRefreshed.value = true
   } catch (error) {
     console.error(error)
   }
@@ -28,7 +29,6 @@ const onRefresh = () => {
   loading.value = true
   fetchData()
   loading.value = false
-  isRefreshed.value = true
 }
 
 // 加载时获取数据
