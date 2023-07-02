@@ -23,7 +23,7 @@ const page = ref(1);
 // 是否加载中
 const loading = ref(false);
 // 是否加载完成
-const finished = ref(false);
+const isRefreshed = ref(false);
 
 // 数据列表
 const dataList = ref<MediaInfo[]>([]);
@@ -62,7 +62,7 @@ const fetchData = async ({ done }) => {
           params: getParams(),
         });
         // 标计为已请求完成
-        finished.value = true;
+        isRefreshed.value = true;
         if (currData.value.length === 0) {
           // 如果没有数据，跳出
           done("ok");
@@ -80,7 +80,7 @@ const fetchData = async ({ done }) => {
         params: getParams(),
       });
       // 标计为已请求完成
-      finished.value = true;
+      isRefreshed.value = true;
       if (currData.value.length === 0) {
         // 如果没有数据，跳出
         done("ok");
@@ -107,7 +107,7 @@ const fetchData = async ({ done }) => {
 <template>
   <VProgressCircular
     class="centered"
-    v-if="!finished"
+    v-if="!isRefreshed"
     indeterminate
     color="primary"
   ></VProgressCircular>
@@ -118,9 +118,16 @@ const fetchData = async ({ done }) => {
     class="overflow-hidden"
   >
     <template #loading />
-    <div class="grid gap-4 grid-media-card mx-3">
+    <div class="grid gap-4 grid-media-card mx-3" v-if="dataList.length > 0">
       <MediaCard v-for="data in dataList" :key="data.tmdb_id" :media="data"> </MediaCard>
     </div>
+    <NoDataFound
+      v-if="dataList.length === 0 && isRefreshed"
+      error-code="500"
+      error-title="出错啦！"
+      error-description="无法获取到媒体信息，请检查网络连接。"
+    >
+    </NoDataFound>
   </VInfiniteScroll>
 </template>
 

@@ -9,6 +9,9 @@ const props = defineProps({
   type: String,
 });
 
+// 是否刷新过
+const isRefreshed = ref(false)
+
 // 数据列表
 const dataList = ref<Subscribe[]>([]);
 
@@ -16,13 +19,14 @@ const dataList = ref<Subscribe[]>([]);
 const fetchData = async () => {
   try {
     dataList.value = await api.get("subscribe");
+    isRefreshed.value = true
   } catch (error) {
     console.error(error);
   }
 };
 
 // 加载时获取数据
-onMounted(fetchData);
+onBeforeMount(fetchData);
 
 // 刷新状态
 const loading = ref(false);
@@ -42,9 +46,17 @@ const filteredDataList = computed(() => {
 
 <template>
   <PullRefresh v-model="loading" @refresh="onRefresh">
-    <div class="grid gap-3 grid-subscribe-card">
+    <div class="grid gap-3 grid-subscribe-card" 
+      v-if="filteredDataList.length > 0">
       <SubscribeCard v-for="data in filteredDataList" :key="data.id" :media="data" />
     </div>
+    <NoDataFound
+      v-if="filteredDataList.length === 0 && isRefreshed"
+      error-code="404"
+      error-title="没有订阅"
+      error-description="请通过搜索添加电影、电视剧订阅。"
+    >
+    </NoDataFound>
   </PullRefresh>
 </template>
 
