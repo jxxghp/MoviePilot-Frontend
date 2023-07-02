@@ -17,7 +17,7 @@ const getPercentage = () => {
 
 // 速度
 const getSpeedText = () => {
-  return `↑${props.info?.upspeed}B/s ↓${props.info?.dlspeed}B/s`;
+  return `↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s`;
 };
 
 // 下载状态

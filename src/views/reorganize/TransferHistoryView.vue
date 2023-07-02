@@ -42,6 +42,25 @@ const getStatusColor = (status: boolean) => {
   return status ? "success" : "error";
 };
 
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: '重新整理',
+    value: 1,
+    props: {
+      prependIcon: 'mdi-redo-variant',
+    },
+  },
+  {
+    title: '删除',
+    value: 2,
+    props: {
+      prependIcon: 'mdi-trash-can-outline',
+      color: 'error',
+    },
+  }
+])
+
 // 加载时获取数据
 onMounted(fetchData);
 </script>
@@ -60,8 +79,8 @@ onMounted(fetchData);
       <template #item.title="{ item }">
         <div class="d-flex">
           <VAvatar><VIcon :icon="getIcon(item.raw.type || '')"></VIcon></VAvatar>
-          <div class="d-flex flex-column ms-1 text-high-emphasis">
-            <span class="d-block whitespace-nowrap">
+          <div class="d-flex flex-column ms-1">
+            <span class="d-block whitespace-nowrap text-high-emphasis">
               {{ item.raw.title }} {{ item.raw.seasons }}{{ item.raw.episodes }}
             </span>
             <small>{{ item.raw.category }}</small>
@@ -86,7 +105,7 @@ onMounted(fetchData);
         {{ item.raw.errmsg }}
       </template>
       <template #item.actions="{ item }">
-        <MoreBtn />
+        <MoreBtn :item-props="true" :menu-list="dropdownItems" />
       </template>
       <template #no-data> 没有数据 </template>
     </VDataTable>
