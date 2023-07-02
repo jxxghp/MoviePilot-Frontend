@@ -25,13 +25,11 @@ const isDownloading = ref(props.info?.state === "downloading" ? true : false);
 
 // 下载状态控制
 const toggleDownload = async () => {
-  let operation = isDownloading.value ? "pause" : "start";
+  let operation = isDownloading.value ? "stop" : "start";
   try {
-    const result: { [key: string]: any } = await api.put(`download/${props.info?.hash}`, {
-      params: {
-        open: operation,
-      },
-    });
+    const result: { [key: string]: any } = await api.put(
+      `download/${props.info?.hash}/${operation}`
+    );
     isDownloading.value = !isDownloading.value;
   } catch (error) {
     console.error(error);
