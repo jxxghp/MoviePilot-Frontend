@@ -9,15 +9,9 @@ html {
 }
 
 body {
-  background: #F4F5FA;
+  background: rgb(var(--v-theme-background));
   overscroll-behavior-y: contain;
   --webkit-overflow-scrolling: touch;
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #28243D;
-  }
 }
 
 body,
