@@ -28,8 +28,8 @@ html {
   border-radius: 50%;
   block-size: 55px;
   inline-size: 55px;
-  inset-block-start: 50%;
-  inset-inline-start: calc(50% - 2rem);
+  inset-block-start: 80%;
+  inset-inline-start: calc(50% - 29px);
 }
 
 .loading .effect-1,
