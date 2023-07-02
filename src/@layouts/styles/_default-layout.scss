@@ -9,9 +9,15 @@ html {
 }
 
 body {
-  background-color: var(--v-theme-background);
+  background: #F4F5FA;
   overscroll-behavior-y: contain;
   --webkit-overflow-scrolling: touch;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #28243D;
+  }
 }
 
 body,
