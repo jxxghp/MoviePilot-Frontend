@@ -154,3 +154,19 @@ export interface Site {
     // 是否启用
     is_active: boolean
 }
+
+
+// 正在下载
+export interface DownloadingInfo {
+    hash?: string
+    title?: string
+    name?: string
+    year?: string
+    season_episode?: string
+    size?: number
+    progress?: number
+    state?: string
+    dlspeed?: string
+    upspeed?: string
+    media: {[key: string]: any}
+  }
