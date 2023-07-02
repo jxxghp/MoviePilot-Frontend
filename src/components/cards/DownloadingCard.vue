@@ -1,10 +1,14 @@
 <script lang="ts" setup>
+import api from "@/api";
 import { DownloadingInfo } from "@/api/types";
 
 // 输入参数
 const props = defineProps({
   info: Object as PropType<DownloadingInfo>,
 });
+
+// 是否显示卡版
+const cardState = ref(true);
 
 // 进度条
 const getPercentage = () => {
@@ -16,28 +20,37 @@ const getSpeedText = () => {
   return `↑${props.info?.upspeed}B/s ↓${props.info?.dlspeed}B/s`;
 };
 
-// 暂述状态
-const isDownloading = () => {
-  return props.info?.state === "downloading";
-};
+// 下载状态
+const isDownloading = ref(props.info?.state === "downloading" ? true : false);
 
 // 下载状态控制
-const toggleDownload = () => {
-  if (isDownloading()) {
-    // 暂停
-  } else {
-    // 开始
+const toggleDownload = async () => {
+  let operation = isDownloading.value ? "pause" : "start";
+  try {
+    const result: { [key: string]: any } = await api.put(`download/${props.info?.hash}`, {
+      params: {
+        open: operation,
+      },
+    });
+    isDownloading.value = !isDownloading.value;
+  } catch (error) {
+    console.error(error);
   }
 };
 
 // 删除下截
 const deleteDownload = () => {
-  // 删除
+  try {
+    api.delete(`download/${props.info?.hash}`);
+    cardState.value = false;
+  } catch (error) {
+    console.error(error);
+  }
 };
 </script>
 
 <template>
-  <VCard :key="props.info?.hash">
+  <VCard :key="props.info?.hash" v-if="cardState">
     <div class="d-flex justify-space-between flex-nowrap flex-row">
       <div class="ma-auto pa-5 pe-0" v-if="props.info?.media.image">
         <VImg
@@ -65,9 +78,9 @@ const deleteDownload = () => {
           <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" />
         </VCardText>
 
-        <VCardActions class="justify-space-t">
+        <VCardActions class="justify-space-between">
           <VBtn @click="toggleDownload">
-            <span class="ms-2">{{ isDownloading() ? "暂停" : "开始" }}</span>
+            <span class="ms-2">{{ isDownloading ? "暂停" : "开始" }}</span>
           </VBtn>
           <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
         </VCardActions>
