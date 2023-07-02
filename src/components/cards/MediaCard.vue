@@ -151,7 +151,7 @@ onMounted(checkSubscribe);
             variant="elevated"
             size="small"
             v-if="props.media?.vote_average"
-            :class="getChipColor('')"
+            :class="getChipColor('rating')"
             class="absolute right-2 top-2 bg-opacity-80 shadow-md text-white font-bold"
           >
             {{ props.media?.vote_average }}

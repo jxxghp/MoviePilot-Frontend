@@ -8,10 +8,10 @@ const props = defineProps({
 });
 
 // 根据 type 返回不同的图标
-const getIcon = (type: string) => {
-  if (type === "电影") {
+const getIcon = () => {
+  if (props.media?.type === "电影") {
     return "mdi-movie";
-  } else if (type === "电视剧") {
+  } else if (props.media?.type === "电视剧") {
     return "mdi-television-classic";
   } else {
     return "mdi-help-circle";
@@ -19,23 +19,22 @@ const getIcon = (type: string) => {
 };
 
 // 计算百分比
-const getPercentage = (total: number, lack: number) => {
-  if (total === 0) {
+const getPercentage = () => {
+  if (props.media?.total_episode === 0) {
     return 0;
   }
-  return Math.round(((total - lack) / total) * 100);
+  return Math.round((((props.media?.total_episode || 0) - (props.media?.lack_episode || 0)) / (props.media?.total_episode || 1)) * 100);
 };
 </script>
 
 <template>
-  <VCard
-    :key="props.media?.id"
-    :image="props.media?.backdrop || props.media?.poster"
-    class="card-with-overlay"
-  >
+  <VCard :key="props.media?.id">
+    <template #image>
+      <VImg :src="props.media?.backdrop || props.media?.poster" aspect-ratio="2/3" cover class="brightness-50" />
+    </template>
     <VCardItem>
       <template #prepend>
-        <VIcon size="1.9rem" color="white" :icon="getIcon(props.media?.type || '')" />
+        <VIcon size="1.9rem" color="white" :icon="getIcon()" />
       </template>
       <VCardTitle class="text-white">
         {{ props.media?.name }}
@@ -59,32 +58,13 @@ const getPercentage = (total: number, lack: number) => {
         <IconBtn icon="mdi-star" color="white" class="me-1" />
         <span class="text-subtitle-2 text-white me-4">{{ props.media?.vote }}</span>
 
-        <IconBtn
-          icon="mdi-progress-clock"
-          color="white"
-          class="me-1"
-          v-if="props.media?.total_episode"
-        />
-        <span class="text-subtitle-2 text-white" v-if="props.media?.season"
-          >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
-          {{ props.media?.total_episode }}</span
-        >
+        <IconBtn icon="mdi-progress-clock" color="white" class="me-1" v-if="props.media?.total_episode" />
+        <span class="text-subtitle-2 text-white" v-if="props.media?.season">{{ (props.media?.total_episode || 0) -
+          (props.media?.lack_episode || 0) }} /
+          {{ props.media?.total_episode }}</span>
       </div>
     </VCardText>
 
-    <VProgressLinear
-      v-if="props.media?.lack_episode || 0 > 0"
-      :model-value="
-        getPercentage(props.media?.total_episode || 0, props.media?.lack_episode || 0)
-      "
-      bg-color="success"
-      color="success"
-    />
+    <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" bg-color="success" color="success" />
   </VCard>
 </template>
-
-<style lang="scss">
-.card-with-overlay img {
-  @apply brightness-50;
-}
-</style>

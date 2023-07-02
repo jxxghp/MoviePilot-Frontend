@@ -12,16 +12,16 @@ const props = defineProps({
 const siteIcon = ref<string>("");
 
 // 查询站点图标
-const getSiteIcon = async (siteid: number) => {
+const getSiteIcon = async () => {
   try {
-    siteIcon.value = (await api.get("site/icon/" + siteid)).data.icon;
+    siteIcon.value = (await api.get("site/icon/" + props.site?.id)).data.icon;
   } catch (error) {
     console.error(error);
   }
 };
 
 onMounted(() => {
-  getSiteIcon(props.site?.id ?? 0);
+  getSiteIcon();
 });
 </script>
 

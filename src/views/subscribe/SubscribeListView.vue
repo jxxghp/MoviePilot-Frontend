@@ -51,5 +51,6 @@ const filteredDataList = computed(() => {
 <style type="scss">
 .grid-subscribe-card {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  padding-block-end: 1rem;
 }
 </style>
