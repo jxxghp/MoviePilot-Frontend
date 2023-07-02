@@ -11,6 +11,13 @@ const props = defineProps({
 // 是否显示卡片
 const cardState = ref(true);
 
+// 图片是否加载完成
+const imageLoaded = ref(false);
+
+const imageLoadHandler = () => {
+  imageLoaded.value = true;
+};
+
 // 根据 type 返回不同的图标
 const getIcon = () => {
   if (props.media?.type === "电影") {
@@ -77,13 +84,14 @@ const dropdownItems = ref([
         aspect-ratio="2/3"
         cover
         class="brightness-50"
+        :on-load="imageLoadHandler"
       />
     </template>
     <VCardItem>
       <template #prepend>
-        <VIcon size="1.9rem" color="white" :icon="getIcon()" />
+        <VIcon size="1.9rem" :class="imageLoaded ? 'text-white':''" :icon="getIcon()" />
       </template>
-      <VCardTitle class="text-white">
+      <VCardTitle :class="imageLoaded ? 'text-white':''">
         {{ props.media?.name }}
         {{ formatSeason(props.media?.season ? props.media?.season.toString() : "") }}
       </VCardTitle>
@@ -113,7 +121,7 @@ const dropdownItems = ref([
     </VCardItem>
 
     <VCardText>
-      <p class="clamp-text text-white mb-0">
+      <p class="clamp-text mb-0"  :class="imageLoaded ? 'text-white':''">
         {{ props.media?.description }}
       </p>
     </VCardText>
@@ -121,7 +129,7 @@ const dropdownItems = ref([
     <VCardText class="d-flex justify-space-between align-center flex-wrap">
       <div class="d-flex align-center">
         <IconBtn icon="mdi-star" color="white" class="me-1" />
-        <span class="text-subtitle-2 text-white me-4">{{ props.media?.vote }}</span>
+        <span class="text-subtitle-2 me-4" :class="imageLoaded ? 'text-white':''">{{ props.media?.vote }}</span>
 
         <IconBtn
           icon="mdi-progress-clock"
@@ -129,7 +137,7 @@ const dropdownItems = ref([
           class="me-1"
           v-if="props.media?.total_episode"
         />
-        <span class="text-subtitle-2 text-white" v-if="props.media?.season"
+        <span class="text-subtitle-2" :class="imageLoaded ? 'text-white':''" v-if="props.media?.season"
           >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
           {{ props.media?.total_episode }}</span
         >
