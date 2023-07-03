@@ -53,7 +53,7 @@ const deleteDownload = () => {
       <div class="ma-auto pa-5 pe-0" v-if="props.info?.media.image">
         <VImg
           aspect-ratio="2/3"
-          width="120"
+          width="100"
           class="rounded shadow-lg"
           :src="props.info?.media.image"
         />
