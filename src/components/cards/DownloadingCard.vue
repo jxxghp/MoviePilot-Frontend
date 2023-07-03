@@ -49,7 +49,7 @@ const deleteDownload = () => {
 
 <template>
   <VCard :key="props.info?.hash" v-if="cardState">
-    <div class="d-flex justify-space-between flex-wrap flex-row">
+    <div class="d-flex justify-space-between flex-nowrap flex-row">
       <div class="ma-auto pa-5 pe-0" v-if="props.info?.media.image">
         <VImg
           aspect-ratio="2/3"
