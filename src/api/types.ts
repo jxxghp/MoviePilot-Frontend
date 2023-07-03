@@ -37,6 +37,8 @@ export interface Subscribe {
   note?: string;
   // 状态：N-新建， R-订阅中
   state: string;
+  // 最后更新时间
+  last_update: string;
 }
 
 // 历史记录

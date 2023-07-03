@@ -39,7 +39,13 @@ const addSubscribe = async () => {
       doubanid: props.media?.douban_id,
       season: props.media?.season,
     });
-    isSubscribed.value = result.success || false;
+    // 订阅状态
+    if (result.success) {
+      // 订阅成功
+      isSubscribed.value = true;
+    } else {
+      // TODO 弹出错误提示
+    }
   } catch (error) {
     console.error(error);
   }
@@ -72,7 +78,7 @@ const checkSubscribe = async () => {
     let mediaid = props.media?.tmdb_id
       ? `tmdb:${props.media?.tmdb_id}`
       : `douban:${props.media?.douban_id}`;
-    const result: Subscribe = await api.get(`subscribe/${mediaid}`, {
+    const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
       params: {
         season: props.media?.season,
       },
@@ -111,7 +117,7 @@ const openDetailWindow = () => {
 };
 
 // 装载时检查是否已订阅
-onMounted(checkSubscribe);
+onBeforeMount(checkSubscribe);
 </script>
 
 <template>
