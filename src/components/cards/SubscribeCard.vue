@@ -14,7 +14,9 @@ const cardState = ref(true);
 // 图片是否加载完成
 const imageLoaded = ref(false);
 
+// 图片加载完成响应
 const imageLoadHandler = () => {
+  console.log(imageLoaded.value);
   imageLoaded.value = true;
 };
 
@@ -39,6 +41,16 @@ const getPercentage = () => {
       (props.media?.total_episode || 1)) *
       100
   );
+};
+
+// 计算文本颜色
+const getTextColor = () => {
+  return imageLoaded.value ? "white" : "";
+};
+
+// 计算文本类
+const getTextClass = () => {
+  return imageLoaded.value ? "text-white" : "";
 };
 
 // 删除订阅
@@ -84,14 +96,14 @@ const dropdownItems = ref([
         aspect-ratio="2/3"
         cover
         class="brightness-50"
-        :on-load="imageLoadHandler"
+        @load="imageLoadHandler"
       />
     </template>
     <VCardItem>
       <template #prepend>
-        <VIcon size="1.9rem" :class="imageLoaded ? 'text-white':''" :icon="getIcon()" />
+        <VIcon size="1.9rem" :color="getTextColor()" :icon="getIcon()" />
       </template>
-      <VCardTitle :class="imageLoaded ? 'text-white':''">
+      <VCardTitle :class="getTextClass()">
         {{ props.media?.name }}
         {{ formatSeason(props.media?.season ? props.media?.season.toString() : "") }}
       </VCardTitle>
@@ -121,23 +133,25 @@ const dropdownItems = ref([
     </VCardItem>
 
     <VCardText>
-      <p class="clamp-text mb-0"  :class="imageLoaded ? 'text-white':''">
+      <p class="clamp-text mb-0" :class="getTextClass()">
         {{ props.media?.description }}
       </p>
     </VCardText>
 
     <VCardText class="d-flex justify-space-between align-center flex-wrap">
       <div class="d-flex align-center">
-        <IconBtn icon="mdi-star" color="white" class="me-1" />
-        <span class="text-subtitle-2 me-4" :class="imageLoaded ? 'text-white':''">{{ props.media?.vote }}</span>
+        <IconBtn icon="mdi-star" :color="getTextColor()" class="me-1" />
+        <span class="text-subtitle-2 me-4" :class="getTextClass()">{{
+          props.media?.vote
+        }}</span>
 
         <IconBtn
           icon="mdi-progress-clock"
-          color="white"
+          :color="getTextColor()"
           class="me-1"
           v-if="props.media?.total_episode"
         />
-        <span class="text-subtitle-2" :class="imageLoaded ? 'text-white':''" v-if="props.media?.season"
+        <span class="text-subtitle-2" :class="getTextClass()" v-if="props.media?.season"
           >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
           {{ props.media?.total_episode }}</span
         >
