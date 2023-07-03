@@ -2,6 +2,7 @@
 import api from "@/api";
 import { doneNProgress, startNProgress } from "@/api/nprogress";
 import { MediaInfo, Subscribe } from "@/api/types";
+import { useToast } from "vue-toast-notification";
 
 // 输入参数
 const props = defineProps({
@@ -9,6 +10,9 @@ const props = defineProps({
   width: String,
   height: String,
 });
+
+// 提示框
+const $toast = useToast();
 
 // 图片加载状态
 const isImageLoaded = ref(false);
@@ -44,7 +48,7 @@ const addSubscribe = async () => {
       // 订阅成功
       isSubscribed.value = true;
     } else {
-      // TODO 弹出错误提示
+      $toast.error(`${props.media?.title} 添加订阅失败：${result.message}！`);
     }
   } catch (error) {
     console.error(error);

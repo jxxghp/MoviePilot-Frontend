@@ -10,6 +10,8 @@ import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
 import { createApp } from 'vue'
+import ToastPlugin from 'vue-toast-notification'
+import 'vue-toast-notification/dist/theme-default.css'
 loadFonts()
 
 // Nprogress
@@ -23,6 +25,7 @@ app
 .use(vuetify)
 .use(router)
 .use(store)
+.use(ToastPlugin)
 .mount('#app')
 
 
