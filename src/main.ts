@@ -12,6 +12,7 @@ import '@styles/styles.scss'
 import { createApp } from 'vue'
 import ToastPlugin from 'vue-toast-notification'
 import 'vue-toast-notification/dist/theme-default.css'
+import VuetifyUseDialog from 'vuetify-use-dialog'
 loadFonts()
 
 // Nprogress
@@ -26,6 +27,7 @@ app
 .use(router)
 .use(store)
 .use(ToastPlugin)
+.use(VuetifyUseDialog)
 .mount('#app')
 
 
