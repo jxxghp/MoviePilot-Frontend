@@ -45,21 +45,29 @@ const getStatusColor = (status: boolean) => {
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '重新整理',
+    title: "重新整理",
     value: 1,
     props: {
-      prependIcon: 'mdi-redo-variant',
+      prependIcon: "mdi-redo-variant",
     },
   },
   {
-    title: '删除',
+    title: "删除",
     value: 2,
     props: {
-      prependIcon: 'mdi-trash-can-outline',
-      color: 'error',
+      prependIcon: "mdi-trash-can-outline",
+      color: "error",
     },
-  }
-])
+  },
+]);
+
+// 转移方式字典
+const TransferDict: { [key: string]: string } = {
+  copy: "复制",
+  move: "移动",
+  link: "硬链接",
+  softlink: "软链接",
+};
 
 // 加载时获取数据
 onMounted(fetchData);
@@ -91,7 +99,9 @@ onMounted(fetchData);
         <small>{{ item.raw.src }} <br />=> {{ item.raw.dest }}</small>
       </template>
       <template #item.mode="{ item }">
-        <VChip variant="outlined" color="primary" size="small">{{ item.raw.mode }}</VChip>
+        <VChip variant="outlined" color="primary" size="small">{{
+          TransferDict[item.raw.mode]
+        }}</VChip>
       </template>
       <template #item.status="{ item }">
         <VChip :color="getStatusColor(item.raw.status)" size="small">
