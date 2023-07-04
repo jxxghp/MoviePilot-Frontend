@@ -27,7 +27,7 @@ export default defineConfig({
       imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'vuex'],
       vueTemplate: true,
     }),
-    VitePWA({ registerType: 'autoUpdate', injectRegister: 'auto', srcDir: 'public'}),
+    VitePWA({ registerType: 'autoUpdate', injectRegister: 'script', manifest: false}),
   ],
   define: { 'process.env': {} },
   resolve: {
