@@ -1,18 +1,32 @@
 <script lang="ts" setup>
+import { calculateTimeDifference } from "@/@core/utils";
+import { formatSeason } from "@/@core/utils/formatters";
 import api from "@/api";
 import { Subscribe } from "@/api/types";
-import { formatSeason } from "@core/utils/formatters";
+import { useToast } from "vue-toast-notification";
 
 // 输入参数
 const props = defineProps({
   media: Object as PropType<Subscribe>,
 });
 
+// 提示框
+const $toast = useToast();
+
 // 是否显示卡片
 const cardState = ref(true);
 
 // 图片是否加载完成
 const imageLoaded = ref(false);
+
+// 上一次更新时间
+const lastUpdateText = ref(
+  `${
+    props.media?.last_update
+      ? `${calculateTimeDifference(props.media?.last_update || "")}前`
+      : ""
+  }`
+);
 
 // 图片加载完成响应
 const imageLoadHandler = () => {
@@ -67,6 +81,21 @@ const removeSubscribe = async () => {
   }
 };
 
+// 搜索订阅
+const searchSubscribe = async () => {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      `subscribe/search/${props.media?.id}`
+    );
+    // 提示
+    if (result.success) {
+      $toast.success(`${props.media?.name} 提交搜索请求成功！`);
+    }
+  } catch (e) {
+    console.log(e);
+  }
+};
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -77,8 +106,16 @@ const dropdownItems = ref([
     },
   },
   {
-    title: "取消订阅",
+    title: "搜索",
     value: 2,
+    props: {
+      prependIcon: "mdi-magnify",
+      click: searchSubscribe,
+    },
+  },
+  {
+    title: "取消订阅",
+    value: 3,
     props: {
       prependIcon: "mdi-trash-can-outline",
       color: "error",
@@ -144,8 +181,8 @@ const dropdownItems = ref([
         <span class="text-subtitle-2 me-4" :class="getTextClass()">{{
           props.media?.vote
         }}</span>
-
         <IconBtn
+          v-bind="props"
           icon="mdi-progress-clock"
           :color="getTextColor()"
           class="me-1"
@@ -165,7 +202,7 @@ const dropdownItems = ref([
           v-if="props.media?.username"
         />
         <span
-          class="text-subtitle-2"
+          class="text-subtitle-2 me-4"
           :class="getTextClass()"
           v-if="props.media?.username"
         >
@@ -173,7 +210,12 @@ const dropdownItems = ref([
         </span>
       </div>
     </VCardText>
-
+    <VCardText
+      class="absolute right-0 bottom-0 d-flex align-center p-2"
+      v-if="lastUpdateText"
+    >
+      <VIcon icon="mdi-download" class="me-1" /> {{ lastUpdateText }}
+    </VCardText>
     <VProgressLinear
       v-if="getPercentage() > 0"
       :model-value="getPercentage()"
