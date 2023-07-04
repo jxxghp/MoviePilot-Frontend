@@ -147,7 +147,7 @@ const dropdownItems = ref([
       <template #append>
         <div class="me-n3">
           <IconBtn>
-            <VIcon icon="mdi-dots-vertical" />
+            <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
             <VMenu activator="parent">
               <VList>
                 <VListItem
@@ -211,7 +211,7 @@ const dropdownItems = ref([
       </div>
     </VCardText>
     <VCardText
-      class="absolute right-0 bottom-0 d-flex align-center p-2"
+      class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300"
       v-if="lastUpdateText"
     >
       <VIcon icon="mdi-download" class="me-1" /> {{ lastUpdateText }}
