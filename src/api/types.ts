@@ -39,6 +39,8 @@ export interface Subscribe {
   state: string;
   // 最后更新时间
   last_update: string;
+  // 订阅用户
+  username: string;
 }
 
 // 历史记录

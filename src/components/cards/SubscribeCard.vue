@@ -151,10 +151,26 @@ const dropdownItems = ref([
           class="me-1"
           v-if="props.media?.total_episode"
         />
-        <span class="text-subtitle-2" :class="getTextClass()" v-if="props.media?.season"
+        <span
+          class="text-subtitle-2 me-4"
+          :class="getTextClass()"
+          v-if="props.media?.season"
           >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
           {{ props.media?.total_episode }}</span
         >
+        <IconBtn
+          icon="mdi-account"
+          :color="getTextColor()"
+          class="me-1"
+          v-if="props.media?.username"
+        />
+        <span
+          class="text-subtitle-2"
+          :class="getTextClass()"
+          v-if="props.media?.username"
+        >
+          {{ props.media?.username }}
+        </span>
       </div>
     </VCardText>
 
