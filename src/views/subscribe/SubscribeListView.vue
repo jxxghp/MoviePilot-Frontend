@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from "@/api";
 import type { Subscribe } from "@/api/types";
+import NoDataFound from "@/components/NoDataFound.vue";
 import SubscribeCard from "@/components/cards/SubscribeCard.vue";
 import PullRefresh from 'pull-refresh-vue3';
 
