@@ -30,7 +30,9 @@ const toggleDownload = async () => {
     const result: { [key: string]: any } = await api.put(
       `download/${props.info?.hash}/${operation}`
     );
-    isDownloading.value = !isDownloading.value;
+    if (result.success) {
+      isDownloading.value = !isDownloading.value;
+    }
   } catch (error) {
     console.error(error);
   }
@@ -54,14 +56,17 @@ const deleteDownload = () => {
         <VImg
           aspect-ratio="2/3"
           width="100"
-          class="rounded shadow-lg"
+          class="rounded"
           :src="props.info?.media.image"
         />
       </div>
 
       <div class="w-full">
         <VCardItem>
-          <VCardTitle>{{ props.info?.media.title || props.info?.name }} {{ props.info?.season_episode }}</VCardTitle>
+          <VCardTitle
+            >{{ props.info?.media.title || props.info?.name }}
+            {{ props.info?.season_episode }}</VCardTitle
+          >
         </VCardItem>
 
         <VCardText
