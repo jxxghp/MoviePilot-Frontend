@@ -6,6 +6,7 @@
 
 html {
   min-height: calc(100% + env(safe-area-inset-top));
+  background: rgb(var(--v-theme-background));
 }
 
 body {
@@ -33,7 +34,7 @@ body,
   @include mixins.boxed-content(true);
 
   flex-grow: 1;
-
+  overflow:hidden;
   // TODO: Use grid gutter variable here
   padding-block: 0.5rem;
   padding-top: calc(env(safe-area-inset-top) + 70px);
