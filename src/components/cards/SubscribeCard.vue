@@ -30,7 +30,6 @@ const lastUpdateText = ref(
 
 // 图片加载完成响应
 const imageLoadHandler = () => {
-  console.log(imageLoaded.value);
   imageLoaded.value = true;
 };
 

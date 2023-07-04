@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from "@/api";
 import { doneNProgress, startNProgress } from "@/api/nprogress";
-import { MediaInfo, Subscribe } from "@/api/types";
+import { MediaInfo, Subscribe, TmdbSeason } from "@/api/types";
 import { useToast } from "vue-toast-notification";
 
 // 输入参数
@@ -31,8 +31,28 @@ const getChipColor = (type: string) => {
   }
 };
 
-// 添加订阅
-const addSubscribe = async () => {
+const handleAddSubscribe = async () => {
+  // 检查是否多季
+  let season = props.media?.season;
+  if (!season && props.media?.tmdb_id && props.media?.type == "电视剧") {
+    // TMDB且是电视剧
+    let seasons = await getMediaSeasons();
+    if (!seasons) {
+      $toast.error(`${props.media?.title} 查询剧集信息失败！`);
+      return;
+    }
+    // 添加最新季
+    // TODO 弹出季选择列表，支持多选
+    addSubscribe(seasons[seasons.length - 1].season_number);
+  } else {
+    // 电影或者只有1季的电视剧直接添加
+    addSubscribe(season);
+  }
+};
+
+// 添加订阅，电视剧的话需要指定季
+const addSubscribe = async (season: number = 0) => {
+  // 开始处理
   startNProgress();
   try {
     const result: { [key: string]: any } = await api.post("subscribe", {
@@ -41,7 +61,7 @@ const addSubscribe = async () => {
       year: props.media?.year,
       tmdbid: props.media?.tmdb_id,
       doubanid: props.media?.douban_id,
-      season: props.media?.season,
+      season: season,
     });
     // 订阅状态
     if (result.success) {
@@ -93,12 +113,22 @@ const checkSubscribe = async () => {
   }
 };
 
+// 查询TMDB的季信息
+const getMediaSeasons = async () => {
+  try {
+    const result: TmdbSeason[] = await api.get(`tmdb/${props.media?.tmdb_id}/seasons`);
+    return result;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 // 订阅按钮响应
 const handleSubscribe = () => {
   if (isSubscribed.value) {
     removeSubscribe();
   } else {
-    addSubscribe();
+    handleAddSubscribe();
   }
 };
 
