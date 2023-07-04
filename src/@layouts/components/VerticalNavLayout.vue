@@ -197,7 +197,7 @@ export default defineComponent({
 
 .layout-wrapper.layout-nav-type-vertical.layout-overlay-nav {
   .layout-navbar {
-    width: calc(100vw - 1rem);
+    width: 100vw;
   }
 }
 </style>
