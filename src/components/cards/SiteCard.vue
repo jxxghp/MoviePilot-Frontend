@@ -26,7 +26,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active" class="overflow-hidden">
+  <VCard
+    :height="props.height"
+    :width="props.width"
+    :flat="!props.site?.is_active"
+    class="overflow-hidden"
+  >
     <template #image>
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
@@ -79,6 +84,7 @@ onMounted(() => {
     <VCardActions>
       <VBtn>更新</VBtn>
       <VBtn>编辑</VBtn>
+      <VBtn>测试</VBtn>
     </VCardActions>
   </VCard>
 </template>
