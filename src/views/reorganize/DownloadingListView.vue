@@ -78,4 +78,11 @@ onUnmounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   padding-block-end: 1rem;
 }
+
+.centered {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+}
 </style>
