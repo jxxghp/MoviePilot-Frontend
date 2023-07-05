@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from "@/api";
 import { Site } from "@/api/types";
+import { useToast } from "vue-toast-notification";
 // 输入参数
 const props = defineProps({
   site: Object as PropType<Site>,
@@ -11,6 +12,19 @@ const props = defineProps({
 // 图标
 const siteIcon = ref<string>("");
 
+// 提示框
+const $toast = useToast();
+
+// 测试按钮文字
+const testButtonText = ref("测试");
+// 测试按钮可用性
+const testButtonDisable = ref(false);
+
+// 更新按钮文字
+const updateButtonText = ref("更新");
+// 更新按钮可用性
+const updateButtonDisable = ref(false);
+
 // 查询站点图标
 const getSiteIcon = async () => {
   try {
@@ -20,6 +34,52 @@ const getSiteIcon = async () => {
   }
 };
 
+// 测试站点连通性
+const testSite = async () => {
+  try {
+    testButtonText.value = "测试中 ...";
+    testButtonDisable.value = true;
+    const result: { [key: string]: any } = await api.get("site/test/" + props.site?.id);
+    if (result.success) {
+      $toast.success(`${props.site?.name} 连通性测试成功，可正常使用！`);
+    } else {
+      $toast.error(`${props.site?.name} 连通性测试失败：${result.message}`);
+    }
+    testButtonText.value = "测试";
+    testButtonDisable.value = false;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 更新站点Cookie UA
+const updateSite = async () => {
+  try {
+    updateButtonText.value = "更新中 ...";
+    updateButtonDisable.value = true;
+    // TODO 弹窗输入用户名密码
+    const result: { [key: string]: any } = await api.get(
+      "site/cookie/" + props.site?.id,
+      {
+        params: {
+          username: "",
+          password: "",
+        },
+      }
+    );
+    if (result.success) {
+      $toast.success(`${props.site?.name} 更新Cookie & UA 成功！`);
+    } else {
+      $toast.error(`${props.site?.name} 更新失败：${result.message}`);
+    }
+    updateButtonText.value = "更新";
+    updateButtonDisable.value = false;
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 装载时查询站点图标
 onMounted(() => {
   getSiteIcon();
 });
@@ -82,9 +142,11 @@ onMounted(() => {
     </VCardText>
 
     <VCardActions>
-      <VBtn>更新</VBtn>
+      <VBtn @click="updateSite" :disabled="updateButtonDisable">{{
+        updateButtonText
+      }}</VBtn>
       <VBtn>编辑</VBtn>
-      <VBtn>测试</VBtn>
+      <VBtn @click="testSite" :disabled="testButtonDisable">{{ testButtonText }}</VBtn>
     </VCardActions>
   </VCard>
 </template>

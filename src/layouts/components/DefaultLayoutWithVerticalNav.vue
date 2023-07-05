@@ -7,6 +7,8 @@ import VerticalNavLink from "@layouts/components/VerticalNavLink.vue";
 import Footer from "@/layouts/components/Footer.vue";
 import NavbarThemeSwitcher from "@/layouts/components/NavbarThemeSwitcher.vue";
 import UserProfile from "@/layouts/components/UserProfile.vue";
+import store from "@/store";
+import { useToast } from "vue-toast-notification";
 
 const router = useRouter();
 
@@ -15,6 +17,9 @@ const searchWord = ref<string>("");
 
 // 搜索弹窗
 const searchDialog = ref(false);
+
+// 提示框
+const $toast = useToast();
 
 // Search
 const search = () => {
@@ -29,6 +34,26 @@ const search = () => {
     },
   });
 };
+
+// 消息SSE
+onMounted(() => {
+  const token = store.state.auth.token;
+  if (token) {
+    const eventSource = new EventSource(
+      `${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}`
+    );
+    eventSource.addEventListener("message", (event) => {
+      const message = event.data;
+      if (message) {
+        $toast.info(message);
+      }
+    });
+
+    onBeforeUnmount(() => {
+      eventSource.close();
+    });
+  }
+});
 </script>
 
 <template>
