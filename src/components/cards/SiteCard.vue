@@ -86,29 +86,32 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard
-    :height="props.height"
-    :width="props.width"
-    :flat="!props.site?.is_active"
-    class="overflow-hidden"
-  >
+  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active" class="overflow-hidden">
     <template #image>
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
     <VCardItem>
-      <VCardTitle>{{ props.site?.name }}</VCardTitle>
+      <VCardTitle class="font-bold">{{ props.site?.name }}</VCardTitle>
       <VCardSubtitle>{{ props.site?.url }}</VCardSubtitle>
     </VCardItem>
 
-    <VIcon
-      v-if="props.site?.is_active"
-      icon="mdi-check-circle"
-      color="success"
-      class="absolute right-2 top-2"
-    >
-    </VIcon>
+    <div class="absolute top-0 right-0 flex items-center justify-between p-2" v-if="props.site?.is_active">
+      <div class="pointer-events-none z-40 flex items-center">
+        <div
+          class="relative inline-flex whitespace-nowrap rounded-full border-gray-700 font-semibold leading-5 ring-gray-700 ">
+          <div
+            class="rounded-full bg-opacity-80 shadow-md w-5 border p-0 bg-green-500 border-green-400 ring-green-400 text-green-100">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                clip-rule="evenodd"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <VCardText class="py-2">
       <VTooltip text="浏览器仿真" v-if="props.site?.render">
@@ -131,22 +134,29 @@ onMounted(() => {
 
       <VTooltip text="过滤" v-if="props.site?.filter">
         <template #activator="{ props }">
-          <VIcon
-            color="primary"
-            class="me-2"
-            v-bind="props"
-            icon="mdi-filter-cog-outline"
-          />
+          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-filter-cog-outline" />
         </template>
       </VTooltip>
     </VCardText>
 
     <VCardActions>
-      <VBtn @click="updateSite" :disabled="updateButtonDisable">{{
-        updateButtonText
-      }}</VBtn>
-      <VBtn>编辑</VBtn>
-      <VBtn @click="testSite" :disabled="testButtonDisable">{{ testButtonText }}</VBtn>
-    </VCardActions>
-  </VCard>
-</template>
+      <VBtn @click="updateSite" :disabled="updateButtonDisable">
+        <template #prepend>
+          <VIcon icon="mdi-refresh"></VIcon>
+        </template>
+        {{ updateButtonText }}
+      </VBtn>
+      <VBtn>
+        <template #prepend>
+          <VIcon icon="mdi-square-edit-outline"></VIcon>
+        </template>
+        编辑
+      </VBtn>
+      <VBtn @click="testSite" :disabled="testButtonDisable">
+        <template #prepend>
+          <VIcon icon="mdi-network-outline"></VIcon>
+      </template>
+      {{ testButtonText }}
+    </VBtn>
+  </VCardActions>
+</VCard></template>

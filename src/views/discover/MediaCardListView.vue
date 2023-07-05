@@ -136,10 +136,4 @@ const fetchData = async ({ done }) => {
   grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
 }
 
-.centered {
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline-start: 50%;
-  transform: translate(-50%, -50%);
-}
 </style>

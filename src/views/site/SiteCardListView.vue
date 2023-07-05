@@ -24,6 +24,12 @@ onBeforeMount(fetchData)
 </script>
 
 <template>
+  <VProgressCircular
+    class="centered"
+    v-if="!isRefreshed"
+    indeterminate
+    color="primary"
+  ></VProgressCircular>
   <div
     class="grid gap-3 grid-site-card"
     v-if="dataList.length > 0"

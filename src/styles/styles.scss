@@ -19,3 +19,11 @@
 .v-toast--bottom {
   margin-bottom: env(safe-area-inset-top);
 }
+
+
+.centered {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+}
