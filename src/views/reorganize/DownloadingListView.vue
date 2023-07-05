@@ -53,6 +53,12 @@ onUnmounted(() => {
 </script>
 
 <template>
+	<VProgressCircular
+    class="centered"
+    v-if="!isRefreshed"
+    indeterminate
+    color="primary"
+  ></VProgressCircular>
   <PullRefresh v-model="loading" @refresh="onRefresh">
     <div class="grid gap-3 grid-downloading-card" v-if="dataList.length > 0">
       <DownloadingCard v-for="data in dataList" :key="data.hash" :info="data" />
