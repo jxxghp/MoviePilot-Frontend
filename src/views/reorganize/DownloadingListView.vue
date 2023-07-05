@@ -53,7 +53,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<VProgressCircular
+  <VProgressCircular
     class="centered"
     v-if="!isRefreshed"
     indeterminate
