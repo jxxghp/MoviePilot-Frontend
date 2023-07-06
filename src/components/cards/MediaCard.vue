@@ -67,6 +67,7 @@ const addSubscribe = async (season: number = 0) => {
     if (result.success) {
       // 订阅成功
       isSubscribed.value = true;
+      $toast.success(`${props.media?.title} 添加订阅成功！`);
     } else {
       $toast.error(`${props.media?.title} 添加订阅失败：${result.message}！`);
     }
