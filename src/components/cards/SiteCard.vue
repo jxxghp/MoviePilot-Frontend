@@ -82,12 +82,13 @@ const updateSiteCookie = async () => {
     updateButtonText.value = "更新中 ...";
     updateButtonDisable.value = true;
 
-    const result: { [key: string]: any } = await api.put(
+    const result: { [key: string]: any } = await api.get(
       "site/cookie/" + props.site?.id,
       {
-        site_id: props.site?.id,
-        username: userPwForm.value.username,
-        password: userPwForm.value.password,
+        params: {
+          username: userPwForm.value.username,
+          password: userPwForm.value.password,
+        }
       }
     );
     if (result.success) {
