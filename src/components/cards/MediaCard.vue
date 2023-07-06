@@ -2,7 +2,7 @@
 import { formatSeason } from "@/@core/utils/formatters";
 import api from "@/api";
 import { doneNProgress, startNProgress } from "@/api/nprogress";
-import { MediaInfo, Subscribe, TmdbSeason } from "@/api/types";
+import { MediaInfo, NotExistMediaInfo, Subscribe, TmdbSeason } from "@/api/types";
 import { useToast } from "vue-toast-notification";
 
 // 输入参数
@@ -21,8 +21,8 @@ const isImageLoaded = ref(false);
 // 当前订阅状态
 const isSubscribed = ref(false);
 
-// 各季订阅状态
-const seasonsSubscribed = ref<{ [key: number]: boolean }>({});
+// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失
+const seasonsExisted = ref<{ [key: number]: number }>({});
 
 // 订阅季弹窗
 const subscribeSeasonDialog = ref(false);
@@ -54,25 +54,45 @@ const handleAddSubscribe = async () => {
   // 检查是否多季
   let season = props.media?.season;
   if (!season && props.media?.tmdb_id && props.media?.type == "电视剧") {
-    // TMDB且是电视剧
+    // 可能有多季的电视剧
     let seasons = await getMediaSeasons();
     if (!seasons) {
       $toast.error(`${props.media?.title} 查询剧集信息失败！`);
       return;
     }
+    seasonInfos.value = seasons;
+    // 检查各季的缺失状态
+    checkSeasonsExists();
     if (seasons.length <= 1) {
       // 只有1季
-      addSubscribe();
+      if (!seasonsExisted.value[1]) {
+        $toast.warning(`${props.media?.title} 媒体库中已存在！`);
+      } else {
+        addSubscribe();
+      }
       return;
     }
-    seasonInfos.value = seasons;
-    // 检查各季的订阅状态
-    checkSeasonsSubscribe();
     // 弹出季选择列表，支持多选
     subscribeSeasonDialog.value = true;
-  } else {
-    // 电影或者只有1季的电视剧直接添加
+  } else if (props.media?.type == "电视剧") {
+    // 只有1季的电视剧
+    checkSeasonsExists();
+    // 该季存在时提示
+    if (!seasonsExisted.value[season || 1]) {
+      $toast.warning(
+        `${props.media?.title} ${formatSeason((season ?? 1).toString())} 媒体库中已存在！`
+      );
+      return;
+    }
     addSubscribe(season);
+  } else {
+    // 电影
+    let exists = await checkMovieExists();
+    if (exists) {
+      $toast.warning(`${props.media?.title} 媒体库中已存在！`);
+    } else {
+      addSubscribe();
+    }
   }
 };
 
@@ -182,25 +202,53 @@ const checkSubscribe = async (season: number = 0) => {
   return null;
 };
 
-// 检查所有季的订阅状态
-const checkSeasonsSubscribe = async () => {
+// 检查所有季的缺失状态
+const checkSeasonsExists = async () => {
   // 开始处理
   startNProgress();
   try {
-    seasonInfos.value.forEach(async (season) => {
-      if (season.season_number === 0) {
-        return;
-      }
-      const result = await checkSubscribe(season.season_number);
-      if (result) {
-        seasonsSubscribed.value[season.season_number || 0] = true;
-      }
+    const result: NotExistMediaInfo[] = await api.post(`download/notexists`, {
+      title: props.media?.title,
+      type: props.media?.type,
+      tmdb_id: props.media?.tmdb_id,
+      year: props.media?.year,
     });
+    if (result) {
+      result.forEach((item) => {
+        // 0-已存在 1-部分缺失 2-全部缺失
+        let state = 0;
+        if (item.episodes.length == 0) {
+          state = 2;
+        } else if (item.episodes.length < item.total_episodes) {
+          state = 1;
+        }
+        seasonsExisted.value[item.season] = state;
+      });
+    }
   } catch (error) {
     console.error(error);
   }
   // 处理完成
   doneNProgress();
+};
+
+// 检查电影是否存在
+const checkMovieExists = async () => {
+  try {
+    const result: NotExistMediaInfo[] = await api.post(`download/notexists`, {
+      title: props.media?.title,
+      type: props.media?.type,
+      tmdb_id: props.media?.tmdb_id,
+      year: props.media?.year,
+    });
+    if (!result || result.length === 0) {
+      // 没有缺失的就是存在
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error(error);
+  }
 };
 
 // 查询TMDB的所有季信息
@@ -233,6 +281,36 @@ const getDetailLink = () => {
     link = `https://www.themoviedb.org/tv/${props.media?.tmdb_id}`;
   }
   return link;
+};
+
+// 计算存在状态的颜色
+const getExistColor = (season: number) => {
+  let state = seasonsExisted.value[season];
+  if (!state) {
+    return "success";
+  }
+  if (state === 1) {
+    return "warning";
+  } else if (state === 2) {
+    return "error";
+  } else {
+    return "success";
+  }
+};
+
+// 计算存在状态的文本
+const getExistText = (season: number) => {
+  let state = seasonsExisted.value[season];
+  if (!state) {
+    return "已存在";
+  }
+  if (state === 1) {
+    return "部分缺失";
+  } else if (state === 2) {
+    return "缺失";
+  } else {
+    return "已存在";
+  }
 };
 
 // 打开详情页
@@ -328,7 +406,11 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
       </VCard>
     </template>
   </VHover>
-  <VDialog v-model="subscribeSeasonDialog" max-width="600">
+  <VDialog
+    v-model="subscribeSeasonDialog"
+    max-width="600"
+    content-class="m-1 whitespace-nowrap"
+  >
     <!-- Dialog Content -->
     <VCard title="选择订阅季">
       <VDataTable
@@ -340,9 +422,13 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
         fixed-header
         show-select
         :items-per-page="100"
-        hide-default-footer
+        density="compact"
       >
-        <template #item.title="{ item }"> 第 {{ item.raw.season_number }} 季 </template>
+        <template #item.title="{ item }">
+          <span class="d-block whitespace-nowrap"
+            >第 {{ item.raw.season_number }} 季
+          </span></template
+        >
         <template #item.episodes="{ item }">
           <VChip variant="outlined" size="small">{{ item.raw.episode_count }}</VChip>
         </template>
@@ -351,11 +437,11 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
         </template>
         <template #item.status="{ item }">
           <VChip
-            :color="seasonsSubscribed[item.raw.season_number] ? 'success' : ''"
-            v-if="seasonsSubscribed"
+            :color="getExistColor(item.raw.season_number)"
+            v-if="seasonsExisted"
             flat
             size="small"
-            >{{ seasonsSubscribed[item.raw.season_number] ? "已订阅" : "未订阅" }}</VChip
+            >{{ getExistText(item.raw.season_number) }}</VChip
           >
         </template>
         <template #no-data> 没有数据 </template>

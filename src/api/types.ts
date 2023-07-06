@@ -188,15 +188,38 @@ export interface Site {
 
 // 正在下载
 export interface DownloadingInfo {
+  // HASH
   hash?: string
+  // 种子名称
   title?: string
+  // 识别后的名称
   name?: string
+  // 年份
   year?: string
+  // SXXEXX
   season_episode?: string
+  // 大小
   size?: number
+  // 下载进 度
   progress?: number
+  // 状态
   state?: string
+  // 下载速度
   dlspeed?: string
+  // 上传速度
   upspeed?: string
+  // 媒体信息
   media: { [key: string]: any }
+}
+
+
+export interface NotExistMediaInfo {
+  // 季
+  season: number
+  // 剧集列表
+  episodes: number[]
+  // 总集数
+  total_episodes: number
+  // 开始集
+  start_episode: number
 }
