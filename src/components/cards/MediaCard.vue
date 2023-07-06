@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { formatSeason } from "@/@core/utils/formatters";
 import api from "@/api";
 import { doneNProgress, startNProgress } from "@/api/nprogress";
 import { MediaInfo, Subscribe, TmdbSeason } from "@/api/types";
@@ -17,8 +18,25 @@ const $toast = useToast();
 // 图片加载状态
 const isImageLoaded = ref(false);
 
-// 订阅状态
+// 当前订阅状态
 const isSubscribed = ref(false);
+
+// 各季订阅状态
+const seasonsSubscribed = ref<{ [key: number]: boolean }>({});
+
+// 订阅季弹窗
+const subscribeSeasonDialog = ref(false);
+
+// 季详情
+const seasonInfos = ref<TmdbSeason[]>([]);
+
+// 订阅弹窗选择的多季
+const subscribeSeasons = () => {
+  subscribeSeasonDialog.value = false;
+  seasonsSelected.value.forEach((season) => {
+    addSubscribe(season.season_number);
+  });
+};
 
 // 角标颜色
 const getChipColor = (type: string) => {
@@ -31,6 +49,7 @@ const getChipColor = (type: string) => {
   }
 };
 
+// 添加订阅处理
 const handleAddSubscribe = async () => {
   // 检查是否多季
   let season = props.media?.season;
@@ -41,16 +60,23 @@ const handleAddSubscribe = async () => {
       $toast.error(`${props.media?.title} 查询剧集信息失败！`);
       return;
     }
-    // 添加最新季
-    // TODO 弹出季选择列表，支持多选
-    addSubscribe(seasons[seasons.length - 1].season_number);
+    if (seasons.length <= 1) {
+      // 只有1季
+      addSubscribe();
+      return;
+    }
+    seasonInfos.value = seasons;
+    // 检查各季的订阅状态
+    checkSeasonsSubscribe();
+    // 弹出季选择列表，支持多选
+    subscribeSeasonDialog.value = true;
   } else {
     // 电影或者只有1季的电视剧直接添加
     addSubscribe(season);
   }
 };
 
-// 添加订阅，电视剧的话需要指定季
+// 调用API添加订阅，电视剧的话需要指定季
 const addSubscribe = async (season: number = 0) => {
   // 开始处理
   startNProgress();
@@ -67,18 +93,41 @@ const addSubscribe = async (season: number = 0) => {
     if (result.success) {
       // 订阅成功
       isSubscribed.value = true;
-      $toast.success(`${props.media?.title} 添加订阅成功！`);
-    } else {
-      $toast.error(`${props.media?.title} 添加订阅失败：${result.message}！`);
     }
+    // 提示
+    showSubscribeAddToast(
+      result.success,
+      props.media?.title ?? "",
+      season,
+      result.message
+    );
   } catch (error) {
     console.error(error);
   }
   doneNProgress();
 };
 
-// 取消订阅
+// 弹出添加订阅提示
+const showSubscribeAddToast = (
+  result: boolean,
+  title: string,
+  season: number,
+  message: string
+) => {
+  if (season) {
+    title = `${title} ${formatSeason(season.toString())}`;
+  }
+  if (result) {
+    $toast.success(`${title} 添加订阅成功！`);
+  } else {
+    $toast.error(`${title} 添加订阅失败：${message}！`);
+  }
+};
+
+// 调用API取消订阅
 const removeSubscribe = async () => {
+  // 开始处理
+  startNProgress();
   try {
     let mediaid = props.media?.tmdb_id
       ? `tmdb:${props.media?.tmdb_id}`
@@ -91,30 +140,70 @@ const removeSubscribe = async () => {
         },
       }
     );
-    isSubscribed.value = !(result.success || false);
+    if (result.success) {
+      isSubscribed.value = false;
+      $toast.success(`${props.media?.title} 已取消订阅！`);
+    } else {
+      $toast.error(`${props.media?.title} 取消订阅失败：${result.message}！`);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  doneNProgress();
+};
+
+// 查询当前媒体是否已订阅
+const handleCheckSubscribe = async () => {
+  try {
+    const result = await checkSubscribe(props.media?.season);
+    if (result) {
+      isSubscribed.value = true;
+    }
   } catch (error) {
     console.error(error);
   }
 };
 
-// 查询是否已订阅
-const checkSubscribe = async () => {
+// 调用API检查是否已订阅，电视剧需要指定季
+const checkSubscribe = async (season: number = 0) => {
   try {
     let mediaid = props.media?.tmdb_id
       ? `tmdb:${props.media?.tmdb_id}`
       : `douban:${props.media?.douban_id}`;
     const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
       params: {
-        season: props.media?.season,
+        season: season,
       },
     });
-    isSubscribed.value = !!result.id;
+    return result.id || null;
   } catch (error) {
     console.error(error);
   }
+  return null;
 };
 
-// 查询TMDB的季信息
+// 检查所有季的订阅状态
+const checkSeasonsSubscribe = async () => {
+  // 开始处理
+  startNProgress();
+  try {
+    seasonInfos.value.forEach(async (season) => {
+      if (season.season_number === 0) {
+        return;
+      }
+      const result = await checkSubscribe(season.season_number);
+      if (result) {
+        seasonsSubscribed.value[season.season_number || 0] = true;
+      }
+    });
+  } catch (error) {
+    console.error(error);
+  }
+  // 处理完成
+  doneNProgress();
+};
+
+// 查询TMDB的所有季信息
 const getMediaSeasons = async () => {
   try {
     const result: TmdbSeason[] = await api.get(`tmdb/${props.media?.tmdb_id}/seasons`);
@@ -124,7 +213,7 @@ const getMediaSeasons = async () => {
   }
 };
 
-// 订阅按钮响应
+// 爱心订阅按钮响应
 const handleSubscribe = () => {
   if (isSubscribed.value) {
     removeSubscribe();
@@ -152,7 +241,18 @@ const openDetailWindow = () => {
 };
 
 // 装载时检查是否已订阅
-onBeforeMount(checkSubscribe);
+onBeforeMount(handleCheckSubscribe);
+
+// 订阅季表头
+const seasonsHeaders = [
+  { title: "季", key: "title", sortable: false },
+  { title: "集数", key: "episodes", sortable: false },
+  { title: "评分", key: "vote", sortable: false },
+  { title: "状态", key: "status", sortable: false },
+];
+
+// 选中的订阅季
+const seasonsSelected = ref<TmdbSeason[]>([]);
 </script>
 
 <template>
@@ -202,7 +302,7 @@ onBeforeMount(checkSubscribe);
           </VChip>
           <!-- 详情 -->
           <VCardText
-            class="flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
+            class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
             v-show="hover.isHovering"
             @click.stop="openDetailWindow"
           >
@@ -228,6 +328,46 @@ onBeforeMount(checkSubscribe);
       </VCard>
     </template>
   </VHover>
+  <VDialog v-model="subscribeSeasonDialog" max-width="600">
+    <!-- Dialog Content -->
+    <VCard title="选择订阅季">
+      <VDataTable
+        v-model="seasonsSelected"
+        :headers="seasonsHeaders"
+        :items="seasonInfos"
+        item-value="season_number"
+        return-object
+        fixed-header
+        show-select
+        :items-per-page="100"
+        hide-default-footer
+      >
+        <template #item.title="{ item }"> 第 {{ item.raw.season_number }} 季 </template>
+        <template #item.episodes="{ item }">
+          <VChip variant="outlined" size="small">{{ item.raw.episode_count }}</VChip>
+        </template>
+        <template #item.vote="{ item }">
+          {{ item.raw.vote_average }}
+        </template>
+        <template #item.status="{ item }">
+          <VChip
+            :color="seasonsSubscribed[item.raw.season_number] ? 'success' : ''"
+            v-if="seasonsSubscribed"
+            flat
+            size="small"
+            >{{ seasonsSubscribed[item.raw.season_number] ? "已订阅" : "未订阅" }}</VChip
+          >
+        </template>
+        <template #no-data> 没有数据 </template>
+        <template #bottom></template>
+      </VDataTable>
+
+      <VCardActions>
+        <VSpacer />
+        <VBtn @click="subscribeSeasons" @keydown.enter="subscribeSeasons"> 确定 </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
 
 <style type="scss">

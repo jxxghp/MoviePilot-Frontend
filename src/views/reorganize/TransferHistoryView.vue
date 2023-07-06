@@ -17,6 +17,9 @@ const headers = [
 // 数据列表
 const dataList = ref<TransferHistory[]>([]);
 
+// 选中的历史记录
+const selectedHistory = ref<TransferHistory[]>([]);
+
 // 获取订阅列表数据
 const fetchData = async () => {
   try {
@@ -76,8 +79,11 @@ onMounted(fetchData);
 <template>
   <VCard title="历史记录" class="pb-5">
     <VDataTable
+      v-model="selectedHistory"
       :headers="headers"
       :items="dataList"
+      item-value="id"
+      return-object
       fixed-header
       show-select
       :items-per-page="25"
