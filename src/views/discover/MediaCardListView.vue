@@ -2,6 +2,7 @@
 import api from "@/api";
 import { MediaInfo } from "@/api/types";
 import MediaCard from "@/components/cards/MediaCard.vue";
+import NoDataFound from "@/components/NoDataFound.vue";
 
 // 输入参数
 const props = defineProps({

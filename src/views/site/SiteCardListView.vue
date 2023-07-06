@@ -2,6 +2,7 @@
 import api from '@/api';
 import { Site } from '@/api/types';
 import SiteCard from '@/components/cards/SiteCard.vue';
+import NoDataFound from "@/components/NoDataFound.vue";
 
 // 数据列表
 const dataList = ref<Site[]>([])
