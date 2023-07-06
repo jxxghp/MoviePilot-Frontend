@@ -22,7 +22,7 @@ const isImageLoaded = ref(false);
 const isSubscribed = ref(false);
 
 // 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失
-const seasonsExisted = ref<{ [key: number]: number }>({});
+const seasonsNotExisted = ref<{ [key: number]: number }>({});
 
 // 订阅季弹窗
 const subscribeSeasonDialog = ref(false);
@@ -51,40 +51,41 @@ const getChipColor = (type: string) => {
 
 // 添加订阅处理
 const handleAddSubscribe = async () => {
-  // 检查是否多季
-  let season = props.media?.season;
-  if (!season && props.media?.tmdb_id && props.media?.type == "电视剧") {
-    // 可能有多季的电视剧
-    let seasons = await getMediaSeasons();
-    if (!seasons) {
+  if (props.media?.type == "电视剧" && props.media?.tmdb_id) {
+    // TMDB电视剧
+    // 查询TMDB所有季信息
+    await getMediaSeasons();
+    if (!seasonInfos.value) {
       $toast.error(`${props.media?.title} 查询剧集信息失败！`);
       return;
     }
-    seasonInfos.value = seasons;
     // 检查各季的缺失状态
-    checkSeasonsExists();
-    if (seasons.length <= 1) {
+    await checkSeasonsNotExists();
+    if (seasonInfos.value.length == 1) {
       // 只有1季
-      if (!seasonsExisted.value[1]) {
+      if (!seasonsNotExisted.value[1]) {
+        // 已存在
         $toast.warning(`${props.media?.title} 媒体库中已存在！`);
       } else {
+        // 添加订阅
         addSubscribe();
       }
-      return;
+    } else {
+      // 弹出季选择列表，支持多选
+      subscribeSeasonDialog.value = true;
     }
-    // 弹出季选择列表，支持多选
-    subscribeSeasonDialog.value = true;
   } else if (props.media?.type == "电视剧") {
-    // 只有1季的电视剧
-    checkSeasonsExists();
-    // 该季存在时提示
-    if (!seasonsExisted.value[season || 1]) {
-      $toast.warning(
-        `${props.media?.title} ${formatSeason((season ?? 1).toString())} 媒体库中已存在！`
-      );
-      return;
+    // 豆瓣电视剧，只会有一季
+    let season = props.media?.season || 1;
+    // 检查缺失情况
+    await checkSeasonsNotExists();
+    if (!seasonsNotExisted.value[season]) {
+      // 已存在
+      $toast.warning(`${props.media?.title} 媒体库中已存在！`);
+    } else {
+      // 添加订阅
+      addSubscribe(season);
     }
-    addSubscribe(season);
   } else {
     // 电影
     let exists = await checkMovieExists();
@@ -203,7 +204,7 @@ const checkSubscribe = async (season: number = 0) => {
 };
 
 // 检查所有季的缺失状态
-const checkSeasonsExists = async () => {
+const checkSeasonsNotExists = async () => {
   // 开始处理
   startNProgress();
   try {
@@ -212,6 +213,7 @@ const checkSeasonsExists = async () => {
       type: props.media?.type,
       tmdb_id: props.media?.tmdb_id,
       year: props.media?.year,
+      doubanid: props.media?.douban_id,
     });
     if (result) {
       result.forEach((item) => {
@@ -222,7 +224,7 @@ const checkSeasonsExists = async () => {
         } else if (item.episodes.length < item.total_episodes) {
           state = 1;
         }
-        seasonsExisted.value[item.season] = state;
+        seasonsNotExisted.value[item.season] = state;
       });
     }
   } catch (error) {
@@ -240,6 +242,7 @@ const checkMovieExists = async () => {
       type: props.media?.type,
       tmdb_id: props.media?.tmdb_id,
       year: props.media?.year,
+      doubanid: props.media?.douban_id,
     });
     if (!result || result.length === 0) {
       // 没有缺失的就是存在
@@ -254,8 +257,7 @@ const checkMovieExists = async () => {
 // 查询TMDB的所有季信息
 const getMediaSeasons = async () => {
   try {
-    const result: TmdbSeason[] = await api.get(`tmdb/${props.media?.tmdb_id}/seasons`);
-    return result;
+    seasonInfos.value = await api.get(`tmdb/${props.media?.tmdb_id}/seasons`);
   } catch (error) {
     console.error(error);
   }
@@ -285,7 +287,7 @@ const getDetailLink = () => {
 
 // 计算存在状态的颜色
 const getExistColor = (season: number) => {
-  let state = seasonsExisted.value[season];
+  let state = seasonsNotExisted.value[season];
   if (!state) {
     return "success";
   }
@@ -300,7 +302,7 @@ const getExistColor = (season: number) => {
 
 // 计算存在状态的文本
 const getExistText = (season: number) => {
-  let state = seasonsExisted.value[season];
+  let state = seasonsNotExisted.value[season];
   if (!state) {
     return "已存在";
   }
@@ -438,7 +440,7 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
         <template #item.status="{ item }">
           <VChip
             :color="getExistColor(item.raw.season_number)"
-            v-if="seasonsExisted"
+            v-if="seasonsNotExisted"
             flat
             size="small"
             >{{ getExistText(item.raw.season_number) }}</VChip
