@@ -52,34 +52,22 @@ const deleteDownload = () => {
 <template>
   <VCard :key="props.info?.hash" v-if="cardState">
     <div class="d-flex justify-space-between flex-nowrap flex-row">
-      <div class="ma-auto pa-5 pe-0" v-if="props.info?.media.image">
-        <VImg
-          aspect-ratio="2/3"
-          width="100"
-          class="rounded"
-          :src="props.info?.media.image"
-        />
+      <div class="ma-auto pa-3 pe-0" v-if="props.info?.media.image">
+        <VImg aspect-ratio="2/3" width="100" class="rounded" :src="props.info?.media.image" />
       </div>
 
       <div class="w-full">
-        <VCardItem>
-          <VCardTitle
-            >{{ props.info?.media.title || props.info?.name }}
-            {{ props.info?.season_episode }}</VCardTitle
-          >
-        </VCardItem>
+        <VCardTitle>{{ props.info?.media.title || props.info?.name }}
+          {{ props.info?.season_episode }}</VCardTitle>
 
-        <VCardText
-          v-if="!props.info?.media.image"
-          class="break-all whitespace-normal line-clamp-2 overflow-hidden text-ellipsis ..."
-        >
+        <VCardSubtitle class="break-all whitespace-normal line-clamp-2 overflow-hidden text-ellipsis ...">
           {{ props.info?.title }}
-        </VCardText>
+        </VCardSubtitle>
 
-        <VCardText class="text-subtitle-1"> {{ getSpeedText() }} </VCardText>
+        <VCardText class="text-subtitle-1 pt-3 pb-1"> {{ getSpeedText() }} </VCardText>
 
-        <VCardText>
-          <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" />
+        <VCardText v-if="getPercentage() > 0">
+          <VProgressLinear :model-value="getPercentage()" />
         </VCardText>
 
         <VCardActions class="justify-space-between">
