@@ -25,6 +25,15 @@ const updateButtonText = ref("更新");
 // 更新按钮可用性
 const updateButtonDisable = ref(false);
 
+// 更新站点Cookie UA弹窗
+const siteCookieDialog = ref(false);
+
+// 用户名密码表单
+const userPwForm = ref({
+  username: "",
+  password: "",
+});
+
 // 查询站点图标
 const getSiteIcon = async () => {
   try {
@@ -52,20 +61,31 @@ const testSite = async () => {
   }
 };
 
-// 更新站点Cookie UA
-const updateSite = async () => {
+// 打开更新站点Cookie UA弹窗
+const handleSiteUpdate = async () => {
+  siteCookieDialog.value = true;
+};
+
+// 调用API，更新站点Cookie UA
+const updateSiteCookie = async () => {
   try {
+    if (!userPwForm.value.username || !userPwForm.value.password) {
+      return;
+    }
+
+    // 用户名密码
+    const formData = new FormData();
+    formData.append("username", userPwForm.value.username);
+    formData.append("password", userPwForm.value.password);
+
+    // 更新按钮状态
+    siteCookieDialog.value = false;
     updateButtonText.value = "更新中 ...";
     updateButtonDisable.value = true;
-    // TODO 弹窗输入用户名密码
-    const result: { [key: string]: any } = await api.get(
+
+    const result: { [key: string]: any } = await api.put(
       "site/cookie/" + props.site?.id,
-      {
-        params: {
-          username: "",
-          password: "",
-        },
-      }
+      formData
     );
     if (result.success) {
       $toast.success(`${props.site?.name} 更新Cookie & UA 成功！`);
@@ -86,7 +106,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active" class="overflow-hidden">
+  <VCard
+    :height="props.height"
+    :width="props.width"
+    :flat="!props.site?.is_active"
+    class="overflow-hidden"
+  >
     <template #image>
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
@@ -97,16 +122,28 @@ onMounted(() => {
       <VCardSubtitle>{{ props.site?.url }}</VCardSubtitle>
     </VCardItem>
 
-    <div class="absolute top-0 right-0 flex items-center justify-between p-2" v-if="props.site?.is_active">
+    <div
+      class="absolute top-0 right-0 flex items-center justify-between p-2"
+      v-if="props.site?.is_active"
+    >
       <div class="pointer-events-none z-40 flex items-center">
         <div
-          class="relative inline-flex whitespace-nowrap rounded-full border-gray-700 font-semibold leading-5 ring-gray-700 ">
+          class="relative inline-flex whitespace-nowrap rounded-full border-gray-700 font-semibold leading-5 ring-gray-700"
+        >
           <div
-            class="rounded-full bg-opacity-80 shadow-md w-5 border p-0 bg-green-500 border-green-400 ring-green-400 text-green-100">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd"
+            class="rounded-full bg-opacity-80 shadow-md w-5 border p-0 bg-green-500 border-green-400 ring-green-400 text-green-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fill-rule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                clip-rule="evenodd"></path>
+                clip-rule="evenodd"
+              ></path>
             </svg>
           </div>
         </div>
@@ -134,13 +171,18 @@ onMounted(() => {
 
       <VTooltip text="过滤" v-if="props.site?.filter">
         <template #activator="{ props }">
-          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-filter-cog-outline" />
+          <VIcon
+            color="primary"
+            class="me-2"
+            v-bind="props"
+            icon="mdi-filter-cog-outline"
+          />
         </template>
       </VTooltip>
     </VCardText>
 
     <VCardActions>
-      <VBtn @click="updateSite" :disabled="updateButtonDisable">
+      <VBtn @click="handleSiteUpdate" :disabled="updateButtonDisable">
         <template #prepend>
           <VIcon icon="mdi-refresh"></VIcon>
         </template>
@@ -155,8 +197,33 @@ onMounted(() => {
       <VBtn @click="testSite" :disabled="testButtonDisable">
         <template #prepend>
           <VIcon icon="mdi-network-outline"></VIcon>
-      </template>
-      {{ testButtonText }}
-    </VBtn>
-  </VCardActions>
-</VCard></template>
+        </template>
+        {{ testButtonText }}
+      </VBtn>
+    </VCardActions>
+  </VCard>
+  <VDialog v-model="siteCookieDialog" max-width="600">
+    <!-- Dialog Content -->
+    <VCard title="更新站点Cookie & UA">
+      <VCardText>
+        <VForm @submit.prevent="() => {}" ref="userPwForm">
+          <VRow>
+            <VCol cols="6">
+              <VTextField v-model="userPwForm.username" label="用户名" />
+            </VCol>
+            <VCol cols="6">
+              <VTextField v-model="userPwForm.password" type="password" label="密码" />
+            </VCol>
+          </VRow>
+        </VForm>
+      </VCardText>
+
+      <VCardActions>
+        <VSpacer />
+        <VBtn @click="updateSiteCookie" @keydown.enter="updateSiteCookie">
+          开始更新
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+</template>
