@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { requiredValidator } from "@/@validators";
 import api from "@/api";
 import { Site } from "@/api/types";
 import { useToast } from "vue-toast-notification";
@@ -8,6 +9,9 @@ const props = defineProps({
   width: String,
   height: String,
 });
+
+// 密码输入
+const isPasswordVisible = ref(false);
 
 // 图标
 const siteIcon = ref<string>("");
@@ -106,12 +110,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard
-    :height="props.height"
-    :width="props.width"
-    :flat="!props.site?.is_active"
-    class="overflow-hidden"
-  >
+  <VCard :height="props.height" :width="props.width" :flat="!props.site?.is_active" class="overflow-hidden">
     <template #image>
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
@@ -122,28 +121,16 @@ onMounted(() => {
       <VCardSubtitle>{{ props.site?.url }}</VCardSubtitle>
     </VCardItem>
 
-    <div
-      class="absolute top-0 right-0 flex items-center justify-between p-2"
-      v-if="props.site?.is_active"
-    >
+    <div class="absolute top-0 right-0 flex items-center justify-between p-2" v-if="props.site?.is_active">
       <div class="pointer-events-none z-40 flex items-center">
         <div
-          class="relative inline-flex whitespace-nowrap rounded-full border-gray-700 font-semibold leading-5 ring-gray-700"
-        >
+          class="relative inline-flex whitespace-nowrap rounded-full border-gray-700 font-semibold leading-5 ring-gray-700">
           <div
-            class="rounded-full bg-opacity-80 shadow-md w-5 border p-0 bg-green-500 border-green-400 ring-green-400 text-green-100"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
+            class="rounded-full bg-opacity-80 shadow-md w-5 border p-0 bg-green-500 border-green-400 ring-green-400 text-green-100">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                clip-rule="evenodd"
-              ></path>
+                clip-rule="evenodd"></path>
             </svg>
           </div>
         </div>
@@ -171,12 +158,7 @@ onMounted(() => {
 
       <VTooltip text="过滤" v-if="props.site?.filter">
         <template #activator="{ props }">
-          <VIcon
-            color="primary"
-            class="me-2"
-            v-bind="props"
-            icon="mdi-filter-cog-outline"
-          />
+          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-filter-cog-outline" />
         </template>
       </VTooltip>
     </VCardText>
@@ -206,13 +188,15 @@ onMounted(() => {
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">
       <VCardText>
-        <VForm @submit.prevent="() => {}" ref="userPwForm">
+        <VForm @submit.prevent="() => { }" ref="userPwForm">
           <VRow>
             <VCol cols="6">
-              <VTextField v-model="userPwForm.username" label="用户名" />
+              <VTextField v-model="userPwForm.username" label="用户名" :rules="[requiredValidator]" />
             </VCol>
             <VCol cols="6">
-              <VTextField v-model="userPwForm.password" type="password" label="密码" />
+              <VTextField v-model="userPwForm.password" label="密码" :type="isPasswordVisible ? 'text' : 'password'"
+                :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
+                  " :rules="[requiredValidator]" @keydown.enter="updateSiteCookie" />
             </VCol>
           </VRow>
         </VForm>
@@ -220,7 +204,7 @@ onMounted(() => {
 
       <VCardActions>
         <VSpacer />
-        <VBtn @click="updateSiteCookie" @keydown.enter="updateSiteCookie">
+        <VBtn @click="updateSiteCookie">
           开始更新
         </VBtn>
       </VCardActions>
