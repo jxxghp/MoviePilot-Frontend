@@ -18,6 +18,9 @@ const $toast = useToast();
 // 图片加载状态
 const isImageLoaded = ref(false);
 
+// TMDB识别标志
+const tmdbFlag = ref(true);
+
 // 当前订阅状态
 const isSubscribed = ref(false);
 
@@ -61,6 +64,9 @@ const handleAddSubscribe = async () => {
     }
     // 检查各季的缺失状态
     await checkSeasonsNotExists();
+    if (!tmdbFlag.value) {
+      return;
+    }
     if (seasonInfos.value.length == 1) {
       // 只有1季
       if (!seasonsNotExisted.value[1]) {
@@ -79,6 +85,9 @@ const handleAddSubscribe = async () => {
     let season = props.media?.season || 1;
     // 检查缺失情况
     await checkSeasonsNotExists();
+    if (!tmdbFlag.value) {
+      return;
+    }
     if (!seasonsNotExisted.value[season]) {
       // 已存在
       $toast.warning(`${props.media?.title} 媒体库中已存在！`);
@@ -208,13 +217,7 @@ const checkSeasonsNotExists = async () => {
   // 开始处理
   startNProgress();
   try {
-    const result: NotExistMediaInfo[] = await api.post(`download/notexists`, {
-      title: props.media?.title,
-      type: props.media?.type,
-      tmdb_id: props.media?.tmdb_id,
-      year: props.media?.year,
-      doubanid: props.media?.douban_id,
-    });
+    const result: NotExistMediaInfo[] = await api.post(`download/notexists`, props.media);
     if (result) {
       result.forEach((item) => {
         // 0-已存在 1-部分缺失 2-全部缺失
@@ -228,7 +231,8 @@ const checkSeasonsNotExists = async () => {
       });
     }
   } catch (error) {
-    console.error(error);
+    $toast.error(`${props.media?.title}无法识别到themoviedb媒体信息！`);
+    tmdbFlag.value = false;
   }
   // 处理完成
   doneNProgress();
@@ -237,13 +241,7 @@ const checkSeasonsNotExists = async () => {
 // 检查电影是否存在
 const checkMovieExists = async () => {
   try {
-    const result: NotExistMediaInfo[] = await api.post(`download/notexists`, {
-      title: props.media?.title,
-      type: props.media?.type,
-      tmdb_id: props.media?.tmdb_id,
-      year: props.media?.year,
-      doubanid: props.media?.douban_id,
-    });
+    const result: NotExistMediaInfo[] = await api.post(`download/notexists`, props.media);
     if (!result || result.length === 0) {
       // 没有缺失的就是存在
       return true;
