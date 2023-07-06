@@ -77,11 +77,6 @@ const updateSiteCookie = async () => {
       return;
     }
 
-    // 用户名密码
-    const formData = new FormData();
-    formData.append("username", userPwForm.value.username);
-    formData.append("password", userPwForm.value.password);
-
     // 更新按钮状态
     siteCookieDialog.value = false;
     updateButtonText.value = "更新中 ...";
@@ -89,7 +84,11 @@ const updateSiteCookie = async () => {
 
     const result: { [key: string]: any } = await api.put(
       "site/cookie/" + props.site?.id,
-      formData
+      {
+        site_id: props.site?.id,
+        username: userPwForm.value.username,
+        password: userPwForm.value.password,
+      }
     );
     if (result.success) {
       $toast.success(`${props.site?.name} 更新Cookie & UA 成功！`);
@@ -188,15 +187,16 @@ onMounted(() => {
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">
       <VCardText>
-        <VForm @submit.prevent="() => {}">
+        <VForm @submit.prevent="() => { }">
           <VRow>
             <VCol cols="6">
               <VTextField v-model="userPwForm.username" label="用户名" :rules="[requiredValidator]" />
             </VCol>
             <VCol cols="6">
               <VTextField v-model="userPwForm.password" label="密码" :type="isPasswordVisible ? 'text' : 'password'"
-                :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
-                  " :rules="[requiredValidator]" @keydown.enter="updateSiteCookie" />
+                :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                @click:append-inner="isPasswordVisible = !isPasswordVisible" :rules="[requiredValidator]"
+                @keydown.enter="updateSiteCookie" />
             </VCol>
           </VRow>
         </VForm>
