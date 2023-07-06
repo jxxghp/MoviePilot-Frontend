@@ -188,7 +188,7 @@ onMounted(() => {
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">
       <VCardText>
-        <VForm @submit.prevent="() => { }" ref="userPwForm">
+        <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol cols="6">
               <VTextField v-model="userPwForm.username" label="用户名" :rules="[requiredValidator]" />
