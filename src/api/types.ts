@@ -173,6 +173,8 @@ export interface Site {
   filter?: string
   // 是否演染
   render?: number
+  // 是否公开站点
+  public?: number
   // 备注
   note?: string
   // 流控单位周期
