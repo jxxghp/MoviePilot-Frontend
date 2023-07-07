@@ -214,7 +214,7 @@ export interface DownloadingInfo {
   media: { [key: string]: any }
 }
 
-
+// 缺失剧集信息
 export interface NotExistMediaInfo {
   // 季
   season: number
@@ -224,4 +224,32 @@ export interface NotExistMediaInfo {
   total_episodes: number
   // 开始集
   start_episode: number
+}
+
+// 插件
+export interface Plugin {
+  id?: string
+  // 插件名称
+  plugin_name?: string
+  // 插件描述
+  plugin_desc?: string
+  // 插件图标
+  plugin_icon?: string
+  // 主题色
+  plugin_color?: string
+  // 插件版本
+  plugin_version?: string
+  // 插件作者
+  plugin_author?: string
+  // 作者主页
+  author_url?: string
+  // 插件配置项ID前缀
+  plugin_config_prefix?: string
+  // 加载顺序
+  plugin_order?: number
+  // 可使用的用户级别
+  auth_level?: number
+  // 是否已安装
+  installed?: boolean
+
 }
