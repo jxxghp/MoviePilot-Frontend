@@ -3,8 +3,8 @@ import { formatSeason } from "@/@core/utils/formatters";
 import api from "@/api";
 import { doneNProgress, startNProgress } from "@/api/nprogress";
 import { MediaInfo, NotExistMediaInfo, Subscribe, TmdbSeason } from "@/api/types";
+import router from "@/router";
 import { useToast } from "vue-toast-notification";
-
 // 输入参数
 const props = defineProps({
   media: Object as PropType<MediaInfo>,
@@ -231,7 +231,7 @@ const checkSeasonsNotExists = async () => {
       });
     }
   } catch (error) {
-    $toast.error(`${props.media?.title}无法识别到themoviedb媒体信息！`);
+    $toast.error(`${props.media?.title}无法识别TMDB媒体信息！`);
     tmdbFlag.value = false;
   }
   // 处理完成
@@ -318,6 +318,17 @@ const openDetailWindow = () => {
   window.open(getDetailLink(), "_blank");
 };
 
+// 开始搜索
+const handleSearch = () => {
+  router.push(
+    `/resource/${
+      props.media?.tmdb_id
+        ? `tmdb:${props.media?.tmdb_id}`
+        : `douban:${props.media?.douban_id}`
+    }`
+  );
+};
+
 // 装载时检查是否已订阅
 onBeforeMount(handleCheckSubscribe);
 
@@ -394,7 +405,7 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
               {{ props.media?.overview }}
             </p>
             <div class="flex align-center justify-between">
-              <IconBtn icon="mdi-magnify" color="white" />
+              <IconBtn icon="mdi-magnify" color="white" @click.stop="handleSearch" />
               <IconBtn
                 icon="mdi-heart"
                 :color="isSubscribed ? 'error' : 'white'"

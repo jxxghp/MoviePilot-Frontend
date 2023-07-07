@@ -47,4 +47,23 @@ export const formatDateToMonthShort = (value: string, toTimeForCurrentDay = true
 
 export const prefixWithPlus = (value: number) => value > 0 ? `+${value}` : value
 
+// 格式化为Sxx
 export const formatSeason = (value: string) => value ? `S${value.padStart(2, '0')}` : ''
+
+// 格式化为xx[TGMK]B
+export const formatFileSize = (bytes: number) => {
+  if (bytes < 0) {
+    throw new Error("字节数不能为负数。");
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = bytes;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(2)} ${units[unitIndex]}`;
+}

@@ -31,7 +31,7 @@ onBeforeMount(fetchData);
     indeterminate
     color="primary"
   ></VProgressCircular>
-  <div class="grid gap-3 grid-site-card" v-if="dataList.length > 0">
+  <div class="grid gap-3 grid-plugin-card" v-if="dataList.length > 0">
     <PluginCard v-for="data in dataList" :key="data.id" :plugin="data" />
   </div>
   <NoDataFound

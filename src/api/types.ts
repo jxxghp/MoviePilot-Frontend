@@ -1,3 +1,4 @@
+
 // 订阅
 export interface Subscribe {
   id: number;
@@ -252,4 +253,141 @@ export interface Plugin {
   // 是否已安装
   installed?: boolean
 
+}
+
+// 种子信息
+export interface TorrentInfo {
+  // 站点ID
+  site?: number
+  // 站点名称
+  site_name?: string
+  // 站点Cookie
+  site_cookie?: string
+  // 站点UA
+  site_ua?: string
+  // 站点是否使用代理
+  site_proxy: boolean
+  // 站点优先级
+  site_order: number
+  // 种子名称
+  title?: string
+  // 种子副标题
+  description?: string
+  // IMDB ID
+  imdbid: string
+  // 种子链接
+  enclosure?: string
+  // 详情页面
+  page_url?: string
+  // 种子大小
+  size: number
+  // 做种者
+  seeders: number
+  // 下载者
+  peers: number
+  // 完成者
+  grabs: number
+  // 发布时间
+  pubdate?: string
+  // 已过时间
+  date_elapsed?: string
+  // 上传因子
+  uploadvolumefactor: number
+  // 下载因子
+  downloadvolumefactor: number
+  // HR
+  hit_and_run: boolean
+  // 种子标签
+  labels: string[]
+  // 种子优先级
+  pri_order: number
+}
+
+
+// 识别元数据
+export interface MetaInfo {
+  // 是否处理的文件
+  isfile: boolean
+  // 原字符串
+  org_string?: string
+  // 副标题
+  subtitle?: string
+  // 类型 电影、电视剧
+  type: string
+  // 识别的中文名
+  cn_name?: string
+  // 识别的英文名
+  en_name?: string
+  // 年份
+  year?: string
+  // 总季数
+  total_seasons: number
+  // 识别的开始季 数字
+  begin_season?: number
+  // 识别的结束季 数字
+  end_season?: number
+  // 总集数
+  total_episodes: number
+  // 识别的开始集
+  begin_episode?: number
+  // 识别的结束集
+  end_episode?: number
+  // Partx Cd Dvd Disk Disc
+  part?: string
+  // 识别的资源类型
+  resource_type?: string
+  // 识别的效果
+  resource_effect?: string
+  // 识别的分辨率
+  resource_pix?: string
+  // 识别的制作组/字幕组
+  resource_team?: string
+  // 视频编码
+  video_encode?: string
+  // 音频编码
+  audio_encode?: string
+  // 名称（自动中英文）
+  name: string
+  // SXX-SXX
+  season: string
+  // SXX-SXX 有季号才返回
+  sea: string
+  // begin_season 的数字，电视剧没有季的返回1
+  season_seq: string
+  // 季的数组
+  season_list: number[]
+  // Exx-Exx
+  episode: string
+  // 集的数组
+  episode_list: number[]
+  // ExxExx
+  episodes: string
+  //xx-xx
+  episode_seqs: string
+  // begin_episode 的数字
+  episode_seq: string
+  // SxxExx
+  season_episode: string
+  // 资源类型字符串，含分辨率
+  resource_term: string
+  // 资源类型字符串，不含分辨率
+  edtion: string
+  // 发布组/字幕组字符串
+  release_group: string
+  // 视频编码
+  video_term: string
+  // 音频编码
+  audio_term: string
+
+}
+
+
+// 上下文信息
+export interface Context {
+  // 元信息
+  meta_info: MetaInfo,
+  // 媒体信息
+  media_info: MediaInfo,
+  // 种子信息
+  torrent_info: TorrentInfo,
 }
