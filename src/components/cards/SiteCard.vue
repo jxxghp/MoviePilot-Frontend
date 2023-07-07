@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { requiredValidator } from "@/@validators";
+import { numberValidator, requiredValidator } from "@/@validators";
 import api from "@/api";
 import { Site } from "@/api/types";
 import { useToast } from "vue-toast-notification";
@@ -324,14 +324,14 @@ onMounted(() => {
       <VCardText>
         <VForm @submit.prevent="() => {}">
           <VRow>
-            <VCol cols="6">
+            <VCol cols="12" md="6">
               <VTextField
                 v-model="siteForm.url"
                 label="站点地址"
                 :rules="[requiredValidator]"
               />
             </VCol>
-            <VCol cols="3">
+            <VCol cols="12" md="3">
               <VSelect
                 v-model="siteForm.pri"
                 label="优先级"
@@ -339,7 +339,7 @@ onMounted(() => {
                 :rules="[requiredValidator]"
               />
             </VCol>
-            <VCol cols="3">
+            <VCol cols="12" md="3">
               <VSelect v-model="siteForm.is_active" :items="statusItems" label="状态" />
             </VCol>
           </VRow>
@@ -352,21 +352,33 @@ onMounted(() => {
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="4">
-              <VTextField v-model="siteForm.limit_interval" label="单位周期（秒）" />
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model="siteForm.limit_interval"
+                label="单位周期（秒）"
+                :rules="[numberValidator]"
+              />
             </VCol>
-            <VCol cols="4">
-              <VTextField v-model="siteForm.limit_seconds" label="访问次数" />
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model="siteForm.limit_seconds"
+                label="访问次数"
+                :rules="[numberValidator]"
+              />
             </VCol>
-            <VCol cols="4">
-              <VTextField v-model="siteForm.limit_seconds" label="访问间隔（秒）" />
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model="siteForm.limit_seconds"
+                label="访问间隔（秒）"
+                :rules="[numberValidator]"
+              />
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="6">
+            <VCol cols="12" md="6">
               <VSwitch v-model="siteForm.proxy" label="代理" />
             </VCol>
-            <VCol cols="6">
+            <VCol cols="12" md="6">
               <VSwitch v-model="siteForm.render" label="仿真" />
             </VCol>
           </VRow>

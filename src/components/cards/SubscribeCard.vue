@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { calculateTimeDifference } from "@/@core/utils";
 import { formatSeason } from "@/@core/utils/formatters";
+import { numberValidator } from "@/@validators";
 import api from "@/api";
 import { Subscribe } from "@/api/types";
 import { useToast } from "vue-toast-notification";
@@ -18,6 +19,9 @@ const cardState = ref(true);
 
 // 图片是否加载完成
 const imageLoaded = ref(false);
+
+// 订阅弹窗
+const subscribeInfoDialog = ref(false);
 
 // 上一次更新时间
 const lastUpdateText = ref(
@@ -95,6 +99,22 @@ const searchSubscribe = async () => {
   }
 };
 
+// 调用API修改订阅
+const updateSubscribeInfo = async () => {
+  subscribeInfoDialog.value = false;
+  try {
+    const result: { [key: string]: any } = await api.put(`subscribe`, subscribeForm);
+    // 提示
+    if (result.success) {
+      $toast.success(`${props.media?.name} 更新成功！`);
+    } else {
+      $toast.error(`${props.media?.name} 更新失败：${result.message}！`);
+    }
+  } catch (e) {
+    console.log(e);
+  }
+};
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -102,6 +122,9 @@ const dropdownItems = ref([
     value: 1,
     props: {
       prependIcon: "mdi-file-edit-outline",
+      click: () => {
+        subscribeInfoDialog.value = true;
+      },
     },
   },
   {
@@ -122,6 +145,23 @@ const dropdownItems = ref([
     },
   },
 ]);
+
+// 订阅编辑表单
+const subscribeForm = reactive({
+  id: props.media?.id,
+  // 搜索关键字
+  keyword: props.media?.keyword,
+  // 过滤规则
+  filter: props.media?.filter,
+  // 包含
+  include: props.media?.include,
+  // 排除
+  exclude: props.media?.exclude,
+  // 总集数
+  total_episode: props.media?.total_episode,
+  // 开始集数
+  start_episode: props.media?.start_episode,
+});
 </script>
 
 <template>
@@ -222,4 +262,53 @@ const dropdownItems = ref([
       color="success"
     />
   </VCard>
+  <!-- 订阅编辑弹窗 -->
+  <VDialog v-model="subscribeInfoDialog" max-width="1000" persistent>
+    <!-- Dialog Content -->
+    <VCard :title="`编辑订阅 - ${props.media?.name}`">
+      <VCardText>
+        <VForm @submit.prevent="() => {}">
+          <VRow>
+            <VCol cols="12" md="6">
+              <VTextField v-model="subscribeForm.keyword" label="搜索关键词" />
+            </VCol>
+            <VCol cols="12" md="3" v-if="props.media?.type == '电视剧'">
+              <VTextField
+                v-model="subscribeForm.total_episode"
+                label="总集数"
+                :rules="[numberValidator]"
+              />
+            </VCol>
+            <VCol cols="12" md="3" v-if="props.media?.type == '电视剧'">
+              <VTextField
+                v-model="subscribeForm.start_episode"
+                label="开始集数"
+                :rules="[numberValidator]"
+              />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="subscribeForm.include"
+                label="包含（关键字、正则式）"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="subscribeForm.exclude"
+                label="排除（关键字、正则式）"
+              />
+            </VCol>
+          </VRow>
+        </VForm>
+      </VCardText>
+
+      <VCardActions>
+        <VBtn @click="subscribeInfoDialog = false"> 取消 </VBtn>
+        <VSpacer />
+        <VBtn @click="updateSubscribeInfo"> 确定 </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
