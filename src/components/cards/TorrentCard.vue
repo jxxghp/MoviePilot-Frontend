@@ -91,13 +91,13 @@ const downloadTorrentFile = async () => {
 // 促销Chip颜色
 const getVolumeFactorColor = (downloadVolume: number, uploadVolume: number) => {
   if (downloadVolume === 0) {
-    return "text-white bg-green-500";
+    return "text-white bg-lime-500";
   } else if (downloadVolume < 1) {
-    return "text-white bg-sky-500";
+    return "text-white bg-green-500";
   } else if (uploadVolume != 1) {
-    return "text-white bg-blue-700";
+    return "text-white bg-sky-500";
   } else {
-    return "text-white";
+    return "text-white bg-gray-500";
   }
 };
 
@@ -160,8 +160,7 @@ onMounted(() => {
         v-if="meta?.edition"
         variant="elevated"
         size="small"
-        color="error"
-        class="me-1 mb-1"
+        class="me-1 mb-1 bg-red-500"
       >
         {{ meta?.edition }}</VChip
       >
@@ -169,8 +168,7 @@ onMounted(() => {
         v-if="meta?.resource_pix"
         variant="elevated"
         size="small"
-        color="error"
-        class="me-1 mb-1"
+        class="me-1 mb-1 bg-red-500"
       >
         {{ meta?.resource_pix }}
       </VChip>
@@ -178,7 +176,7 @@ onMounted(() => {
         v-if="meta?.video_encode"
         variant="elevated"
         size="small"
-        class="me-1 mb-1 text-white bg-indigo-500"
+        class="me-1 mb-1 text-white bg-orange-500"
       >
         {{ meta?.video_encode }}
       </VChip>
@@ -186,8 +184,7 @@ onMounted(() => {
         v-if="torrent?.size"
         variant="elevated"
         size="small"
-        color="warning"
-        class="me-1 mb-1"
+        class="me-1 mb-1 bg-yellow-500"
       >
         {{ formatFileSize(torrent?.size) }}
       </VChip>
@@ -195,8 +192,7 @@ onMounted(() => {
         v-if="meta?.resource_team"
         variant="elevated"
         size="small"
-        color="info"
-        class="me-1 mb-1"
+        class="me-1 mb-1 bg-cyan-500"
       >
         {{ meta?.resource_team }}
       </VChip>
