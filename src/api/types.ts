@@ -95,6 +95,8 @@ export interface MediaInfo {
   title?: string
   // 年份
   year?: string
+  // 标题（年）
+  title_year?: string
   // 季号
   season?: number;
   // TMDB ID
@@ -121,31 +123,50 @@ export interface MediaInfo {
   overview?: string
   // 二级分类
   category?: string
+  // 详情页面
+  detail_link?: string
 }
 
 
 // TMDB季信息
 export interface TmdbSeason {
+  // 上映日期
   air_date?: string
+  // 总集数
   episode_count?: number
+  // 季名称
   name?: string
+  // 描述
   overview?: string
+  // 海报
   poster_path?: string
+  // 季号
   season_number?: number
+  // 评分
   vote_average?: number
 }
 
 // TMDB集信息
 export interface TmdbEpisodes {
+  // 上映日期
   air_date?: string
+  // 集号
   episode_number?: number
+  // 剧集名称
   name?: string
+  // 描述
   overview?: string
+  // 时长
   runtime?: number
+  // 季号
   season_number?: number
+  // 海报
   still_path?: string
+  // 评分
   vote_average?: number
+  // 演职人员
   crew: Object[]
+  // 嘉宾
   guest_stars: Object[]
 }
 
