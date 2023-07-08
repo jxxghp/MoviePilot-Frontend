@@ -59,6 +59,17 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue';
       </template>
     </MediaCardSlideView>
 
+    <MediaCardSlideView apipath="douban/movie_top250">
+      <template #title="{ loaded }">
+        <div class="slider-header mt-3 ms-1" v-if="loaded">
+          <RouterLink to="/browse/douban/movie_top250" class="slider-title">
+            <span>电影TOP250</span>
+            <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+          </RouterLink>
+        </div>
+      </template>
+    </MediaCardSlideView>
+
     <MediaCardSlideView apipath="douban/tv_weekly_chinese">
       <template #title="{ loaded }">
         <div class="slider-header mt-3 ms-1" v-if="loaded">
