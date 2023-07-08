@@ -185,6 +185,7 @@ onMounted(() => {
     :width="props.width"
     :flat="!siteForm.is_active"
     class="overflow-hidden"
+    @click="siteInfoDialog = true"
   >
     <template #image>
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">

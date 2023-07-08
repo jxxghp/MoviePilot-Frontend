@@ -322,6 +322,8 @@ export interface TorrentInfo {
   labels: string[]
   // 种子优先级
   pri_order: number
+  // 促销描述
+  volume_factor: string
 }
 
 

@@ -2,6 +2,7 @@
 import api from "@/api";
 import { Context } from "@/api/types";
 import { useToast } from "vue-toast-notification";
+import { useConfirm } from "vuetify-use-dialog";
 
 // 输入参数
 const props = defineProps({
@@ -12,6 +13,9 @@ const props = defineProps({
 
 // 提示框
 const $toast = useToast();
+
+// 确认框
+const createConfirm = useConfirm();
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info);
@@ -32,13 +36,29 @@ const getSiteIcon = async () => {
   }
 };
 
+// 询问并添加下载
+const handleAddDownload = async () => {
+  const isConfirmed = await createConfirm({
+    title: "确认",
+    content: `是否确认下载 ${torrent.value?.title} ?`,
+    confirmationText: "确认",
+    cancellationText: "取消",
+    dialogProps: {
+      maxWidth: 600,
+    },
+  });
+
+  if (!isConfirmed) return;
+
+  addDownload();
+};
+
 // 添加下载
 const addDownload = async () => {
   try {
-    const result: { [key: string]: Any } = await api.post("download/add", {
-      torrent_info: torrent?.value,
-      media_info: media?.value,
-      meta_info: meta?.value,
+    const result: { [key: string]: any } = await api.post("download", {
+      media_in: media?.value,
+      torrent_in: torrent?.value,
     });
     if (result.success) {
       // 添加下载成功
@@ -53,29 +73,24 @@ const addDownload = async () => {
   }
 };
 
-// 打开种子详情
-const openTorrentDetail = () => {
-  window.open(torrent?.value?.page_url, "_blank");
-};
-
 // 装载时查询站点图标
 onMounted(() => {
   getSiteIcon();
 });
 </script>
 <template>
-  <VCard :width="props.width" :height="props.height">
+  <VCard :width="props.width" :height="props.height" @click="handleAddDownload">
     <template #image>
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
-    <VCardTitle @click="addDownload">
+    <VCardTitle>
       {{ media?.title }} {{ meta?.season_episode }}
       <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
       <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
     </VCardTitle>
-    <VCardText @click="openTorrentDetail">
+    <VCardText>
       {{ torrent?.title }}
     </VCardText>
     <VCardText>{{ torrent?.description }}</VCardText>
@@ -85,9 +100,54 @@ onMounted(() => {
         size="small"
         v-for="label in torrent?.labels"
         color="primary"
-        class="me-1"
+        class="me-1 mb-1"
         >{{ label }}</VChip
       >
+      <VChip
+        v-if="meta?.resource_type"
+        variant="elevated"
+        size="small"
+        color="error"
+        class="me-1 mb-1"
+      >
+        {{ meta?.resource_type }}</VChip
+      >
+      <VChip
+        v-if="meta?.resource_pix"
+        variant="elevated"
+        size="small"
+        color="error"
+        class="me-1 mb-1"
+      >
+        {{ meta?.resource_pix }}
+      </VChip>
+      <VChip
+        v-if="meta?.video_encode"
+        variant="elevated"
+        size="small"
+        color="warning"
+        class="me-1 mb-1"
+      >
+        {{ meta?.video_encode }}
+      </VChip>
+      <VChip
+        v-if="meta?.resource_team"
+        variant="elevated"
+        size="small"
+        color="info"
+        class="me-1 mb-1"
+      >
+        {{ meta?.resource_team }}
+      </VChip>
+      <VChip
+        v-if="torrent?.volume_factor"
+        variant="elevated"
+        size="small"
+        color="success"
+        class="me-1 mb-1"
+      >
+        {{ torrent?.volume_factor }}
+      </VChip>
     </VCardItem>
   </VCard>
 </template>

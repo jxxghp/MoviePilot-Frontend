@@ -165,7 +165,7 @@ const subscribeForm = reactive({
 </script>
 
 <template>
-  <VCard :key="props.media?.id" v-if="cardState">
+  <VCard :key="props.media?.id" v-if="cardState" @click="subscribeInfoDialog = true">
     <template #image>
       <VImg
         :src="props.media?.backdrop || props.media?.poster"
