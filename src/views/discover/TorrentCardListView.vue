@@ -18,12 +18,18 @@ const isRefreshed = ref(false);
 // 获取订阅列表数据
 const fetchData = async () => {
   try {
-    // 优先按TMDBID精确查询
-    if (props.keyword?.startsWith("tmdb:") || props.keyword?.startsWith("douban:")) {
-      dataList.value = await api.get(`search/media/${props.keyword}`);
+    let keyword = props.keyword?.toString() ?? "";
+    if (!keyword) {
+      // 查询上次搜索结果
+      dataList.value = await api.get("search/last");
     } else {
-      // 按标题模糊查询
-      dataList.value = await api.get(`search/title/${props.keyword}`);
+      // 优先按TMDBID精确查询
+      if (props.keyword?.startsWith("tmdb:") || props.keyword?.startsWith("douban:")) {
+        dataList.value = await api.get(`search/media/${props.keyword}`);
+      } else {
+        // 按标题模糊查询
+        dataList.value = await api.get(`search/title/${props.keyword}`);
+      }
     }
     isRefreshed.value = true;
   } catch (error) {

@@ -27,6 +27,13 @@ const router = createRouter({
           },
         },
         {
+          path: 'resource',
+          component: () => import('../pages/resource.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
           path: 'resource/:keyword+',
           component: () => import('../pages/resource.vue'),
           props: true,

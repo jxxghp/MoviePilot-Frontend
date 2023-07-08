@@ -6,7 +6,6 @@ const route = useRoute();
 
 // 查询TMDBID或标题
 const keyword = route.params?.keyword?.toString() ?? "";
-console.log(keyword);
 </script>
 
 <template>
