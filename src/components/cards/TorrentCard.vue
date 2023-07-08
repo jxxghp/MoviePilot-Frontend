@@ -160,7 +160,7 @@ onMounted(() => {
         v-if="meta?.edition"
         variant="elevated"
         size="small"
-        class="me-1 mb-1 bg-red-500"
+        class="me-1 mb-1 text-white bg-red-500"
       >
         {{ meta?.edition }}</VChip
       >
@@ -168,7 +168,7 @@ onMounted(() => {
         v-if="meta?.resource_pix"
         variant="elevated"
         size="small"
-        class="me-1 mb-1 bg-red-500"
+        class="me-1 mb-1 text-white bg-red-500"
       >
         {{ meta?.resource_pix }}
       </VChip>
@@ -184,7 +184,7 @@ onMounted(() => {
         v-if="torrent?.size"
         variant="elevated"
         size="small"
-        class="me-1 mb-1 bg-yellow-500"
+        class="me-1 mb-1 text-white bg-yellow-500"
       >
         {{ formatFileSize(torrent?.size) }}
       </VChip>
@@ -192,7 +192,7 @@ onMounted(() => {
         v-if="meta?.resource_team"
         variant="elevated"
         size="small"
-        class="me-1 mb-1 bg-cyan-500"
+        class="me-1 mb-1 text-white bg-cyan-500"
       >
         {{ meta?.resource_team }}
       </VChip>
