@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { formatFileSize } from "@/@core/utils/formatters";
 import api from "@/api";
+import { doneNProgress, startNProgress } from "@/api/nprogress";
 import { Context } from "@/api/types";
 import { useToast } from "vue-toast-notification";
 import { useConfirm } from "vuetify-use-dialog";
@@ -56,6 +57,7 @@ const handleAddDownload = async () => {
 
 // 添加下载
 const addDownload = async () => {
+  startNProgress();
   try {
     const result: { [key: string]: any } = await api.post("download", {
       media_in: media?.value,
@@ -67,11 +69,13 @@ const addDownload = async () => {
         `${torrent.value?.site_name} ${torrent.value?.title} 添加下载成功！`
       );
     } else {
-      console.log(`添加下载失败：${result.message}`);
+      // 添加下载失败
+      $toast.error(`${torrent.value?.site_name} ${torrent.value?.title} 添加下载失败！`);
     }
   } catch (error) {
     console.error(error);
   }
+  doneNProgress();
 };
 
 // 打开种子详情页面
@@ -87,11 +91,13 @@ const downloadTorrentFile = async () => {
 // 促销Chip颜色
 const getVolumeFactorColor = (downloadVolume: number, uploadVolume: number) => {
   if (downloadVolume === 0) {
-    return "text-white bg-green-700";
-  } else if (uploadVolume >= 2) {
+    return "text-white bg-green-500";
+  } else if (downloadVolume < 1) {
+    return "text-white bg-sky-500";
+  } else if (uploadVolume != 1) {
     return "text-white bg-blue-700";
   } else {
-    return "";
+    return "text-white";
   }
 };
 
@@ -196,7 +202,7 @@ onMounted(() => {
       </VChip>
       <VChip
         v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1"
-        :color="
+        :class="
           getVolumeFactorColor(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
         "
         variant="elevated"
