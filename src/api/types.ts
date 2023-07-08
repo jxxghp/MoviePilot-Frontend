@@ -393,14 +393,14 @@ export interface MetaInfo {
   season_episode: string
   // 资源类型字符串，含分辨率
   resource_term: string
-  // 资源类型字符串，不含分辨率
-  edtion: string
   // 发布组/字幕组字符串
   release_group: string
   // 视频编码
   video_term: string
   // 音频编码
   audio_term: string
+  // 资源类型+特效
+  edition: string
 
 }
 

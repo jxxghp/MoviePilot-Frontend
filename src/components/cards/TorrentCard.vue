@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { formatFileSize } from "@/@core/utils/formatters";
 import api from "@/api";
 import { Context } from "@/api/types";
 import { useToast } from "vue-toast-notification";
@@ -73,6 +74,27 @@ const addDownload = async () => {
   }
 };
 
+// 打开种子详情页面
+const openTorrentDetail = () => {
+  window.open(torrent.value?.page_url, "_blank");
+};
+
+// 下载种子文件
+const downloadTorrentFile = async () => {
+  window.open(torrent.value?.enclosure, "_blank");
+};
+
+// 促销Chip颜色
+const getVolumeFactorColor = (downloadVolume: number, uploadVolume: number) => {
+  if (downloadVolume === 0) {
+    return "text-white bg-green-700";
+  } else if (uploadVolume >= 2) {
+    return "text-white bg-blue-700";
+  } else {
+    return "";
+  }
+};
+
 // 装载时查询站点图标
 onMounted(() => {
   getSiteIcon();
@@ -85,16 +107,41 @@ onMounted(() => {
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
-    <VCardTitle>
-      {{ media?.title }} {{ meta?.season_episode }}
-      <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
-      <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
-    </VCardTitle>
-    <VCardText>
+    <VCardItem>
+      <VCardTitle>
+        {{ media?.title }} {{ meta?.season_episode }}
+        <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
+        <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
+      </VCardTitle>
+      <template #append>
+        <div class="me-n3">
+          <IconBtn>
+            <VIcon icon="mdi-dots-vertical" color="white" />
+            <VMenu activator="parent">
+              <VList>
+                <VListItem variant="plain" @click.stop="openTorrentDetail">
+                  <template #prepend>
+                    <VIcon icon="mdi-information"></VIcon>
+                  </template>
+                  <VListItemTitle>查看详情</VListItemTitle>
+                </VListItem>
+                <VListItem variant="plain" @click.stop="downloadTorrentFile">
+                  <template #prepend>
+                    <VIcon icon="mdi-download"></VIcon>
+                  </template>
+                  <VListItemTitle>下载种子</VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
+          </IconBtn>
+        </div>
+      </template>
+    </VCardItem>
+    <VCardText class="text-subtitle-2">
       {{ torrent?.title }}
     </VCardText>
     <VCardText>{{ torrent?.description }}</VCardText>
-    <VCardItem class="pb-3 pt-0" v-if="torrent?.labels">
+    <VCardItem class="pb-3 pt-0 pe-12" v-if="torrent?.labels">
       <VChip
         variant="elevated"
         size="small"
@@ -104,13 +151,13 @@ onMounted(() => {
         >{{ label }}</VChip
       >
       <VChip
-        v-if="meta?.resource_type"
+        v-if="meta?.edition"
         variant="elevated"
         size="small"
         color="error"
         class="me-1 mb-1"
       >
-        {{ meta?.resource_type }}</VChip
+        {{ meta?.edition }}</VChip
       >
       <VChip
         v-if="meta?.resource_pix"
@@ -125,10 +172,18 @@ onMounted(() => {
         v-if="meta?.video_encode"
         variant="elevated"
         size="small"
+        class="me-1 mb-1 text-white bg-indigo-500"
+      >
+        {{ meta?.video_encode }}
+      </VChip>
+      <VChip
+        v-if="torrent?.size"
+        variant="elevated"
+        size="small"
         color="warning"
         class="me-1 mb-1"
       >
-        {{ meta?.video_encode }}
+        {{ formatFileSize(torrent?.size) }}
       </VChip>
       <VChip
         v-if="meta?.resource_team"
@@ -140,10 +195,12 @@ onMounted(() => {
         {{ meta?.resource_team }}
       </VChip>
       <VChip
-        v-if="torrent?.volume_factor"
+        v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1"
+        :color="
+          getVolumeFactorColor(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
+        "
         variant="elevated"
         size="small"
-        color="success"
         class="me-1 mb-1"
       >
         {{ torrent?.volume_factor }}

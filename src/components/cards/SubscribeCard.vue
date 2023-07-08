@@ -194,7 +194,7 @@ const subscribeForm = reactive({
                   variant="plain"
                   :base-color="item.props.color"
                   :key="i"
-                  @click="item.props.click"
+                  @click.stop="item.props.click"
                 >
                   <template #prepend>
                     <VIcon :icon="item.props.prependIcon"></VIcon>

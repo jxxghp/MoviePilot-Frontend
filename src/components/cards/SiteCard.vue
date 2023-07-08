@@ -258,7 +258,7 @@ onMounted(() => {
 
     <VCardActions>
       <VBtn
-        @click="handleSiteUpdate"
+        @click.stop="handleSiteUpdate"
         :disabled="updateButtonDisable"
         v-if="!props.site?.public"
       >
@@ -267,13 +267,13 @@ onMounted(() => {
         </template>
         {{ updateButtonText }}
       </VBtn>
-      <VBtn @click="handleSiteInfo">
+      <VBtn @click.stop="handleSiteInfo">
         <template #prepend>
           <VIcon icon="mdi-square-edit-outline"></VIcon>
         </template>
         编辑
       </VBtn>
-      <VBtn @click="testSite" :disabled="testButtonDisable">
+      <VBtn @click.stop="testSite" :disabled="testButtonDisable">
         <template #prepend>
           <VIcon icon="mdi-network-outline"></VIcon>
         </template>
