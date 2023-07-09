@@ -414,3 +414,15 @@ export interface Context {
   // 种子信息
   torrent_info: TorrentInfo,
 }
+
+
+// 用户信息
+export interface User {
+    id: number,
+    name: string,
+    password: string,
+    email: string,
+    is_active: boolean,
+    is_superuser: boolean,
+    avatar: string,
+};

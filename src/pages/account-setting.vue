@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import AccountSettingAccount from "@/views/account-setting/AccountSettingAccount.vue";
-import AccountSettingSecurity from "@/views/account-setting/AccountSettingSecurity.vue";
 import AccountSettingSystem from "@/views/account-setting/AccountSettingSystem.vue";
 import { useRoute } from "vue-router";
 
@@ -10,9 +9,8 @@ const activeTab = ref(route.params.tab);
 
 // tabs
 const tabs = [
-  { title: "账户", icon: "mdi-account-outline", tab: "account" },
-  { title: "安全", icon: "mdi-lock-open-outline", tab: "security" },
-  { title: "系统", icon: "mdi-bell-outline", tab: "system" },
+  { title: "用户", icon: "mdi-account-outline", tab: "account" },
+  { title: "系统", icon: "mdi-cog", tab: "system" },
 ];
 </script>
 
@@ -30,11 +28,6 @@ const tabs = [
       <!-- Account -->
       <VWindowItem value="account">
         <AccountSettingAccount />
-      </VWindowItem>
-
-      <!-- Security -->
-      <VWindowItem value="security">
-        <AccountSettingSecurity />
       </VWindowItem>
 
       <!-- System -->
