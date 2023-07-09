@@ -288,14 +288,14 @@ onMounted(() => {
       <VCardText>
         <VForm @submit.prevent="() => {}">
           <VRow>
-            <VCol cols="6">
+            <VCol cols="12" md="6">
               <VTextField
                 v-model="userPwForm.username"
                 label="用户名"
                 :rules="[requiredValidator]"
               />
             </VCol>
-            <VCol cols="6">
+            <VCol cols="12" md="6">
               <VTextField
                 v-model="userPwForm.password"
                 label="密码"
