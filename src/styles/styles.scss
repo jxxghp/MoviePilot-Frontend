@@ -35,3 +35,8 @@
   inset-inline-start: 50%;
   transform: translate(-50%, -50%);
 }
+
+.v-overlay__content {
+  margin-top: env(safe-area-inset-top);
+  margin-bottom: env(safe-area-inset-bottom);
+}
