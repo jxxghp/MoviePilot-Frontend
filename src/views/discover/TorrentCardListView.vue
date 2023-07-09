@@ -12,6 +12,11 @@ const props = defineProps({
 // 数据列表
 const dataList = ref<Context[]>([]);
 
+// 分组后的数据列表
+const groupedDataList = computed(() => {
+  return groupByTitleAndSize(dataList.value);
+});
+
 // 是否刷新过
 const isRefreshed = ref(false);
 
@@ -37,6 +42,40 @@ const fetchData = async () => {
   }
 };
 
+// 按标题和大小分组
+const groupByTitleAndSize = (contextArray: Context[]): Map<string, Context[]> => {
+  const groupMap = new Map<string, Context[]>();
+
+  for (const context of contextArray) {
+    const { torrent_info } = context;
+    const key = `${torrent_info.title}_${torrent_info.size}`;
+
+    if (groupMap.has(key)) {
+      // 已存在相同标题和大小的分组，将当前上下文信息添加到分组中
+      const group = groupMap.get(key);
+      group?.push(context);
+    } else {
+      // 创建新的分组，并将当前上下文信息添加到分组中
+      groupMap.set(key, [context]);
+    }
+  }
+
+  return groupMap;
+};
+
+// 获取每个分组的第一个数据
+const getFirstContexts = computed(() => {
+  const firstContexts: Context[] = [];
+
+  groupedDataList.value.forEach((group) => {
+    if (group.length > 0) {
+      firstContexts.push(group[0]);
+    }
+  });
+
+  return firstContexts;
+});
+
 // 加载时获取数据
 onBeforeMount(fetchData);
 </script>
@@ -48,11 +87,16 @@ onBeforeMount(fetchData);
     indeterminate
     color="primary"
   ></VProgressCircular>
-  <div class="grid gap-3 grid-torrent-card" v-if="dataList.length > 0">
+  <div class="grid gap-3 grid-torrent-card items-start" v-if="dataList.length > 0">
     <TorrentCard
-      v-for="data in dataList"
+      v-for="data in getFirstContexts"
       :key="data.torrent_info.title"
       :torrent="data"
+      :more="
+        groupedDataList
+          .get(`${data.torrent_info.title}_${data.torrent_info.size}`)
+          ?.slice(1)
+      "
     />
   </div>
   <NoDataFound

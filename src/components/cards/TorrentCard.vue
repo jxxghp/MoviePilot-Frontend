@@ -9,6 +9,7 @@ import { useConfirm } from "vuetify-use-dialog";
 // 输入参数
 const props = defineProps({
   torrent: Object as PropType<Context>,
+  more: Array as PropType<Context[]>,
   width: String,
   height: String,
 });
@@ -18,6 +19,9 @@ const $toast = useToast();
 
 // 确认框
 const createConfirm = useConfirm();
+
+// 更多来源界面
+const showMoreTorrents = ref(false);
 
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info);
@@ -39,10 +43,19 @@ const getSiteIcon = async () => {
 };
 
 // 询问并添加下载
-const handleAddDownload = async () => {
+const handleAddDownload = async (
+  _site: any = undefined,
+  _media: any = undefined,
+  _torrent: any = undefined
+) => {
+  if (!_media || !_torrent || !_site) {
+    _site = torrent.value?.site_name;
+    _media = media.value;
+    _torrent = torrent.value;
+  }
   const isConfirmed = await createConfirm({
     title: "确认",
-    content: `是否确认下载 ${torrent.value?.title} ?`,
+    content: `是否确认下载【${_site}】${_torrent?.title} ?`,
     confirmationText: "确认",
     cancellationText: "取消",
     dialogProps: {
@@ -52,25 +65,23 @@ const handleAddDownload = async () => {
 
   if (!isConfirmed) return;
 
-  addDownload();
+  addDownload(_media, _torrent);
 };
 
 // 添加下载
-const addDownload = async () => {
+const addDownload = async (_media: any, _torrent: any) => {
   startNProgress();
   try {
     const result: { [key: string]: any } = await api.post("download", {
-      media_in: media?.value,
-      torrent_in: torrent?.value,
+      media_in: _media,
+      torrent_in: _torrent,
     });
     if (result.success) {
       // 添加下载成功
-      $toast.success(
-        `${torrent.value?.site_name} ${torrent.value?.title} 添加下载成功！`
-      );
+      $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`);
     } else {
       // 添加下载失败
-      $toast.error(`${torrent.value?.site_name} ${torrent.value?.title} 添加下载失败！`);
+      $toast.error(`${_torrent?.site_name} ${_torrent?.title} 添加下载失败！`);
     }
   } catch (error) {
     console.error(error);
@@ -108,12 +119,12 @@ onMounted(() => {
 </script>
 <template>
   <VCard :width="props.width" :height="props.height" @click="handleAddDownload">
-    <template #image>
+    <template #image v-if="!showMoreTorrents">
       <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
-    <VCardItem>
+    <VCardItem class="py-1">
       <VCardTitle>
         {{ media?.title }} {{ meta?.season_episode }}
         <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
@@ -208,5 +219,34 @@ onMounted(() => {
         {{ torrent?.volume_factor }}
       </VChip>
     </VCardItem>
+    <VCardActions>
+      <VBtn
+        @click.stop="showMoreTorrents = !showMoreTorrents"
+        v-if="props.more && props.more.length > 0"
+      >
+        <template #append>
+          <VIcon :icon="showMoreTorrents ? 'mdi-chevron-up' : 'mdi-chevron-down'"></VIcon>
+        </template>
+        更多来源
+      </VBtn>
+    </VCardActions>
+    <VExpandTransition>
+      <div v-show="showMoreTorrents">
+        <VDivider></VDivider>
+        <VChipGroup class="p-3">
+          <VChip
+            v-for="item in props.more"
+            @click.stop="
+              handleAddDownload(
+                item.torrent_info?.site_name,
+                item.media_info,
+                item.torrent_info
+              )
+            "
+            >{{ item.torrent_info.site_name }}</VChip
+          >
+        </VChipGroup>
+      </div>
+    </VExpandTransition>
   </VCard>
 </template>
