@@ -258,7 +258,7 @@ onMounted(() => {
               <th scope="col">邮箱</th>
               <th scope="col">状态</th>
               <th scope="col">管理员</th>
-              <th scope="col"></th>
+              <th scope="col" class="w-5"></th>
             </tr>
           </thead>
           <tbody>

@@ -1,114 +1,81 @@
 <script lang="ts" setup>
-const recentDevices = ref(
-  [
-    {
-      type: 'New for you',
-      email: true,
-      browser: true,
-      app: true,
-    },
-    {
-      type: 'Account activity',
-      email: true,
-      browser: true,
-      app: true,
-    },
-    {
-      type: 'A new browser used to sign in',
-      email: true,
-      browser: true,
-      app: false,
-    },
-    {
-      type: 'A new device is linked',
-      email: true,
-      browser: false,
-      app: false,
-    },
-  ],
-)
+import api from "@/api";
+import { Site } from "@/api/types";
+import { useToast } from "vue-toast-notification";
 
-const selectedNotification = ref('Only when I\'m online')
+// 提示框
+const $toast = useToast();
+
+// 选中站点
+const selectedSites = ref<number[]>([]);
+
+// 所有站点
+const allSites = ref<Site[]>([]);
+
+// 查询所有站点
+const querySites = async () => {
+  try {
+    const data: Site[] = await api.get("site");
+    allSites.value = data;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// 查询用户选中的站点
+const querySelectedSites = async () => {
+  try {
+    const result: { [key: string]: any } = await api.get("system/setting/IndexerSites");
+    selectedSites.value = result.data?.value;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// 保存用户选中的站点
+const saveSelectedSites = async () => {
+  try {
+    // 用户名密码
+    const result: { [key: string]: any } = await api.post(
+      "system/setting/IndexerSites",
+      selectedSites.value
+    );
+    if (result.success) {
+      $toast.success("索引站点保存成功");
+    } else {
+      $toast.error("索引站点保存失败！");
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+onMounted(() => {
+  querySites();
+  querySelectedSites();
+});
 </script>
 
 <template>
-  <VCard title="Recent Devices">
-    <VCardText>
-      We need permission from your browser to show notifications.
-      <a href="javascript:void(0)">Request Permission</a>
-    </VCardText>
+  <VCard title="索引站点">
+    <VCardSubtitle> 只有选中的站点才会在搜索中使用 </VCardSubtitle>
 
-    <VTable class="text-no-wrap">
-      <thead>
-        <tr>
-          <th scope="col">
-            Type
-          </th>
-          <th scope="col">
-            EMAIL
-          </th>
-          <th scope="col">
-            BROWSER
-          </th>
-          <th scope="col">
-            App
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="device in recentDevices"
-          :key="device.type"
+    <VCardItem>
+      <VChipGroup v-model="selectedSites" column multiple>
+        <VChip
+          filter
+          variant="outlined"
+          v-for="site in allSites"
+          :key="site.id"
+          :value="site.id"
         >
-          <td>
-            {{ device.type }}
-          </td>
-          <td>
-            <VCheckbox v-model="device.email" />
-          </td>
-          <td>
-            <VCheckbox v-model="device.browser" />
-          </td>
-          <td>
-            <VCheckbox v-model="device.app" />
-          </td>
-        </tr>
-      </tbody>
-    </VTable>
-    <VDivider />
+          {{ site.name }}
+        </VChip>
+      </VChipGroup>
+    </VCardItem>
 
-    <VCardText>
-      <VForm @submit.prevent="() => {}">
-        <p class="text-base font-weight-medium">
-          When should we send you notifications?
-        </p>
-
-        <VRow>
-          <VCol
-            cols="12"
-            sm="6"
-          >
-            <VSelect
-              v-model="selectedNotification"
-              mandatory
-              :items="['Only when I\'m online', 'Anytime']"
-            />
-          </VCol>
-        </VRow>
-
-        <div class="d-flex flex-wrap gap-4 mt-4">
-          <VBtn type="submit">
-            Save Changes
-          </VBtn>
-          <VBtn
-            color="secondary"
-            variant="tonal"
-            type="reset"
-          >
-            Reset
-          </VBtn>
-        </div>
-      </VForm>
-    </VCardText>
+    <VCardItem>
+      <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
+    </VCardItem>
   </VCard>
 </template>
