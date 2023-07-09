@@ -12,6 +12,15 @@ const selectedSites = ref<number[]>([]);
 // 所有站点
 const allSites = ref<Site[]>([]);
 
+// 种子优先规则下拉框
+const TorrentPriorityItems = [
+  { title: "站点优先", value: 'site' },
+  { title: "做种数优先", value: 'seeder' },
+];
+
+// 种子优先规则
+const selectedTorrentPriority = ref<string>('seeder');
+
 // 查询所有站点
 const querySites = async () => {
   try {
@@ -27,6 +36,16 @@ const querySelectedSites = async () => {
   try {
     const result: { [key: string]: any } = await api.get("system/setting/IndexerSites");
     selectedSites.value = result.data?.value;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// 查询种子优先规则
+const queryTorrentPriority = async () => {
+  try {
+    const result: { [key: string]: any } = await api.get("system/setting/TorrentsPriority");
+    selectedTorrentPriority.value = result.data?.value;
   } catch (error) {
     console.log(error);
   }
@@ -50,32 +69,59 @@ const saveSelectedSites = async () => {
   }
 };
 
+// 保存种子优先规则
+const saveTorrentPriority = async () => {
+  try {
+    // 用户名密码
+    const result: { [key: string]: any } = await api.post(
+      "system/setting/TorrentsPriority",
+      selectedTorrentPriority.value
+    );
+    if (result.success) {
+      $toast.success("优先规则保存成功");
+    } else {
+      $toast.error("优先规则保存失败！");
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 onMounted(() => {
   querySites();
   querySelectedSites();
+  queryTorrentPriority();
 });
 </script>
 
 <template>
-  <VCard title="索引站点">
-    <VCardSubtitle> 只有选中的站点才会在搜索中使用 </VCardSubtitle>
+  <VRow>
+    <VCol cols="12">
+      <VCard title="索引站点">
+        <VCardSubtitle> 只有选中的站点才会在搜索中使用 </VCardSubtitle>
 
-    <VCardItem>
-      <VChipGroup v-model="selectedSites" column multiple>
-        <VChip
-          filter
-          variant="outlined"
-          v-for="site in allSites"
-          :key="site.id"
-          :value="site.id"
-        >
-          {{ site.name }}
-        </VChip>
-      </VChipGroup>
-    </VCardItem>
+        <VCardItem>
+          <VChipGroup v-model="selectedSites" column multiple>
+            <VChip filter variant="outlined" v-for="site in allSites" :key="site.id" :value="site.id">
+              {{ site.name }}
+            </VChip>
+          </VChipGroup>
+        </VCardItem>
 
-    <VCardItem>
-      <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
-    </VCardItem>
-  </VCard>
+        <VCardItem>
+          <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard title="优先规则">
+        <VCardText>
+          <VSelect v-model="selectedTorrentPriority" :items="TorrentPriorityItems" label="下载优先规则" outlined></VSelect>
+        </VCardText>
+        <VCardItem>
+          <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+  </VRow>
 </template>
