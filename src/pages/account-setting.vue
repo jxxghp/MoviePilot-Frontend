@@ -10,7 +10,7 @@ const activeTab = ref(route.params.tab);
 // tabs
 const tabs = [
   { title: "用户", icon: "mdi-account-outline", tab: "account" },
-  { title: "系统", icon: "mdi-cog", tab: "system" },
+  { title: "进阶", icon: "mdi-monitor-dashboard", tab: "system" },
 ];
 </script>
 

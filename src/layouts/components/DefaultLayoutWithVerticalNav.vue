@@ -67,7 +67,7 @@ onMounted(() => {
         </IconBtn>
 
         <!-- 👉 Search -->
-        <div class="d-flex align-center cursor-pointer" style="user-select: none">
+        <div class="d-flex align-center cursor-pointer" style="user-select: none;">
           <!-- 👉 Search Trigger button -->
           <VDialog
             v-model="searchDialog"
@@ -215,10 +215,10 @@ onMounted(() => {
         }"
       />
 
-      <!-- 👉 设置 -->
+      <!-- 👉 系统 -->
       <VerticalNavSectionTitle
         :item="{
-          heading: '设置',
+          heading: '系统',
         }"
       />
       <VerticalNavLink
@@ -237,8 +237,8 @@ onMounted(() => {
       />
       <VerticalNavLink
         :item="{
-          title: '用户',
-          icon: 'mdi-account',
+          title: '设定',
+          icon: 'mdi-cog',
           to: '/account-setting',
         }"
       />
