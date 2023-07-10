@@ -55,12 +55,6 @@ onMounted(() => {
   <VCard>
     <VCardItem>
       <VCardTitle>媒体统计</VCardTitle>
-
-      <template #append>
-        <div class="me-n3">
-          <MoreBtn />
-        </div>
-      </template>
     </VCardItem>
 
     <VCardText>
