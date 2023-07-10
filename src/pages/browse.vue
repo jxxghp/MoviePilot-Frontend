@@ -21,7 +21,7 @@ const titles: { [key: string]: any } = {
     tvs: "最新电视剧",
     tv_weekly_chinese: "华语剧集榜",
     tv_weekly_global: "全球剧集榜",
-    movie_top250: "电影Top250",
+    movie_top250: "电影TOP250",
   },
   media: {
     search: "搜索",
