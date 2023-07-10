@@ -26,6 +26,9 @@ const errorMessage = ref("");
 // 背景图片
 const backgroundImageUrl = ref("");
 
+// 背景图片加载状态
+const isImageLoaded = ref(false);
+
 // 获取背景图片
 const fetchBackgroundImage = async () => {
   api
@@ -100,66 +103,78 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    class="auth-wrapper d-flex align-center justify-center pa-4 w-full h-full overflow-hidden"
-    :style="{ backgroundImage: `url(${backgroundImageUrl})` }"
+  <VImg
+    aspect-ratio="4/3"
+    :src="backgroundImageUrl"
+    class="w-full h-full overflow-hidden"
+    @load="isImageLoaded = true"
+    cover
   >
-    <VCard class="auth-card pa-7 backdrop-blur-xl bg-white/50" width="25rem" theme="light">
-      <VCardItem class="justify-center mb-7">
-        <template #prepend>
-          <div class="d-flex">
-            <div v-html="logo" />
-          </div>
-        </template>
+    <div class="auth-wrapper d-flex align-center justify-center pa-4">
+      <VCard
+        class="auth-card pa-7 w-full h-full"
+        :class="isImageLoaded ? 'backdrop-blur-xl bg-white/50' : ''"
+        max-width="25rem"
+        :theme="isImageLoaded ? 'light' : ''"
+      >
+        <VCardItem class="justify-center mb-7">
+          <template #prepend>
+            <div class="d-flex">
+              <div v-html="logo" />
+            </div>
+          </template>
 
-        <VCardTitle class="font-weight-semibold text-2xl text-uppercase">
-          MoviePilot
-        </VCardTitle>
-      </VCardItem>
+          <VCardTitle class="font-weight-semibold text-2xl text-uppercase">
+            MoviePilot
+          </VCardTitle>
+        </VCardItem>
 
-      <VCardText>
-        <VForm @submit.prevent="() => {}" ref="refForm">
-          <VRow>
-            <!-- username -->
-            <VCol cols="12">
-              <VTextField
-                v-model="form.username"
-                label="用户名"
-                type="text"
-                :rules="[requiredValidator]"
-              />
-            </VCol>
+        <VCardText>
+          <VForm @submit.prevent="() => {}" ref="refForm">
+            <VRow>
+              <!-- username -->
+              <VCol cols="12">
+                <VTextField
+                  v-model="form.username"
+                  label="用户名"
+                  type="text"
+                  :rules="[requiredValidator]"
+                />
+              </VCol>
 
-            <!-- password -->
-            <VCol cols="12">
-              <VTextField
-                v-model="form.password"
-                label="密码"
-                :type="isPasswordVisible ? 'text' : 'password'"
-                :append-inner-icon="
-                  isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
-                "
-                :rules="[requiredValidator]"
-                @click:append-inner="isPasswordVisible = !isPasswordVisible"
-              />
+              <!-- password -->
+              <VCol cols="12">
+                <VTextField
+                  v-model="form.password"
+                  label="密码"
+                  :type="isPasswordVisible ? 'text' : 'password'"
+                  :append-inner-icon="
+                    isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
+                  "
+                  :rules="[requiredValidator]"
+                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
+                />
 
-              <div v-if="errorMessage" class="text-error mt-1">
-                {{ errorMessage }}
-              </div>
+                <div v-if="errorMessage" class="text-error mt-1">
+                  {{ errorMessage }}
+                </div>
 
-              <!-- remember me checkbox -->
-              <div class="d-flex align-center justify-space-between flex-wrap mt-1 mb-4">
-                <VCheckbox v-model="form.remember" label="保持登录" required />
-              </div>
+                <!-- remember me checkbox -->
+                <div
+                  class="d-flex align-center justify-space-between flex-wrap mt-1 mb-4"
+                >
+                  <VCheckbox v-model="form.remember" label="保持登录" required />
+                </div>
 
-              <!-- login button -->
-              <VBtn block type="submit" @click="login"> 登录 </VBtn>
-            </VCol>
-          </VRow>
-        </VForm>
-      </VCardText>
-    </VCard>
-  </div>
+                <!-- login button -->
+                <VBtn block type="submit" @click="login"> 登录 </VBtn>
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </div>
+  </VImg>
 </template>
 
 <style lang="scss">
