@@ -18,6 +18,9 @@ const $toast = useToast();
 // 图片加载状态
 const isImageLoaded = ref(false);
 
+// 图片加载失败
+const imageLoadError = ref(false);
+
 // TMDB识别标志
 const tmdbFlag = ref(true);
 
@@ -342,6 +345,15 @@ const seasonsHeaders = [
 
 // 选中的订阅季
 const seasonsSelected = ref<TmdbSeason[]>([]);
+
+// 计算图片地址
+const getImgUrl = (url: string) => {
+  // 如果地址中包含douban则使用中转代理
+  if (url.includes("doubanio.com")) {
+    return `${import.meta.env.VITE_API_BASE_URL}douban/img/${encodeURIComponent(url)}`;
+  }
+  return url;
+};
 </script>
 
 <template>
@@ -359,10 +371,11 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
       >
         <VImg
           aspect-ratio="2/3"
-          :src="props.media?.poster_path"
+          :src="getImgUrl(props.media?.poster_path || '')"
           class="object-cover aspect-w-2 aspect-h-3"
           :class="hover.isHovering ? 'on-hover' : ''"
           @load="isImageLoaded = true"
+          @error="imageLoadError = true"
           cover
         >
           <template #placeholder>
@@ -392,7 +405,7 @@ const seasonsSelected = ref<TmdbSeason[]>([]);
           <!-- 详情 -->
           <VCardText
             class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-            v-show="hover.isHovering"
+            v-show="hover.isHovering || imageLoadError"
             @click.stop="openDetailWindow"
           >
             <span class="font-bold">{{ props.media?.year }}</span>
