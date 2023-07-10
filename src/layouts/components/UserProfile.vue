@@ -43,7 +43,6 @@ const logout = () => {
 onMounted(() => {
   loadAccountInfo();
 });
-
 </script>
 
 <template>
@@ -72,7 +71,9 @@ onMounted(() => {
               </VListItemAction>
             </template>
 
-            <VListItemTitle class="font-weight-semibold" v-show="accountInfo.is_superuser"> 管理员 </VListItemTitle>
+            <VListItemTitle class="font-weight-semibold">
+              {{ accountInfo.is_superuser ? "管理员" : "普通用户" }}
+            </VListItemTitle>
             <VListItemSubtitle>{{ accountInfo.name }}</VListItemSubtitle>
           </VListItem>
           <VDivider class="my-2" />
