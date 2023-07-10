@@ -426,3 +426,43 @@ export interface User {
     is_superuser: boolean,
     avatar: string,
 };
+
+
+// 存储空间
+export interface Storage {
+    total_storage: number,
+    used_storage: number,
+
+}
+
+
+// 媒体统计
+export interface MediaStatistic {
+    // 电影总数
+    movie_count: number,
+    // 电视剧总数
+    tv_count: number,
+    // 电视剧总集数
+    episode_count: number,
+    // 用户数量
+    user_count: number,
+}
+
+
+// 后台进程
+export interface Process {
+    // 进程ID
+    pid: number,
+    // 进程名称
+    name: string,
+    // 进程状态
+    status: string,
+    // 进程启动时间
+    create_time: number,
+    // 进程运行时间
+    run_time: number,
+    // 进程CPU占用率
+    cpu: number,
+    // 进程内存占用
+    memory: number,
+}

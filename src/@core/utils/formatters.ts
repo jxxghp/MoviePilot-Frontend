@@ -67,3 +67,26 @@ export const formatFileSize = (bytes: number) => {
 
   return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
+
+// 将时间秒格式化为时分秒
+export const formatSeconds = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  let formattedTime = '';
+
+  if (hours > 0) {
+    formattedTime += `${hours}小时`;
+  }
+
+  if (minutes > 0) {
+    formattedTime += `${minutes}分`;
+  }
+
+  if (remainingSeconds > 0 || formattedTime === '') {
+    formattedTime += `${remainingSeconds}秒`;
+  }
+
+  return formattedTime;
+}

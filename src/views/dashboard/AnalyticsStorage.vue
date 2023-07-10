@@ -1,0 +1,74 @@
+<script setup lang="ts">
+import { formatFileSize } from "@/@core/utils/formatters";
+import api from "@/api";
+import triangleDark from "@images/misc/triangle-dark.png";
+import triangleLight from "@images/misc/triangle-light.png";
+import trophy from "@images/misc/trophy.png";
+import { useTheme } from "vuetify";
+
+const { global } = useTheme();
+const triangleBg = computed(() =>
+  global.name.value === "light" ? triangleLight : triangleDark
+);
+
+// 总存储空间
+const storage = ref(0);
+// 已使用存储空间
+const used = ref(0);
+
+// 计算已使用存储空间百分比，精确到小数点后1位
+const usedPercent = computed(() => {
+  return Math.round((used.value / storage.value) * 1000) / 10;
+});
+
+// 调用API，查询存储空间
+const getStorage = async () => {
+  try {
+    const res: Storage = await api.get("dashboard/storage");
+    storage.value = res.total_storage;
+    used.value = res.used_storage;
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+onMounted(() => {
+  getStorage();
+});
+</script>
+
+<template>
+  <VCard title="存储空间" subtitle="" class="position-relative">
+    <VCardText>
+      <h5 class="text-2xl font-weight-medium text-primary">
+        {{ formatFileSize(storage) }}
+      </h5>
+      <p class="mt-2">已使用 {{ usedPercent }}% 🚀</p>
+      <p class="mt-1"><VProgressLinear :model-value="usedPercent" /></p>
+    </VCardText>
+
+    <!-- Triangle Background -->
+    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
+
+    <!-- Trophy -->
+    <VImg :src="trophy" class="trophy" />
+  </VCard>
+</template>
+
+<style lang="scss">
+@use "@layouts/styles/mixins" as layoutsMixins;
+
+.v-card .triangle-bg {
+  position: absolute;
+  inline-size: 10.375rem;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+}
+
+.v-card .trophy {
+  position: absolute;
+  inline-size: 4.9375rem;
+  inset-block-end: 2rem;
+  inset-inline-end: 2rem;
+}
+</style>
