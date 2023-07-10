@@ -86,11 +86,9 @@ onUnmounted(() => {
     </VCardItem>
 
     <VCardText class="pt-4">
-      <div class="d-flex align-center">
-        <h4 class="text-h4 me-2">
-          ↑{{ formatFileSize(downloadInfo.upload_speed) }}/s <br />
-          ↓{{ formatFileSize(downloadInfo.download_speed) }}/s
-        </h4>
+      <div>
+        <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
+        <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
       </div>
       <VList class="card-list mt-9">
         <VListItem v-for="item in infoItems" :key="item.title">
