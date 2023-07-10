@@ -3,9 +3,14 @@ import { formatSeconds } from "@/@core/utils/formatters";
 import api from "@/api";
 import { Process } from "@/api/types";
 
+// 表头
 const headers = ["进程ID", "进程名称", "运行时间", "内存占用"];
 
+// 数据列表
 const processList = ref<Process[]>([]);
+
+// 定时器
+let refreshTimer: NodeJS.Timer | null = null;
 
 // 调用API加载数据
 const loadProcessList = async () => {
@@ -19,6 +24,18 @@ const loadProcessList = async () => {
 
 onMounted(() => {
   loadProcessList();
+  // 启动定时器
+  refreshTimer = setInterval(() => {
+    loadProcessList();
+  }, 5000);
+});
+
+// 组件卸载时停止定时器
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
 });
 </script>
 
