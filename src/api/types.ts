@@ -466,3 +466,18 @@ export interface Process {
     // 进程内存占用
     memory: number,
 }
+
+
+// 下载器信息
+export interface DownloaderInfo {
+    // 下载速度
+    download_speed: number
+    // 上传速度
+    upload_speed: number
+    // 下载量
+    download_size: number
+    // 上传量
+    upload_size: number
+    // 剩余空间
+    free_space:number
+}
