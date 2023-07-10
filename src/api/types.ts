@@ -481,3 +481,15 @@ export interface DownloaderInfo {
     // 剩余空间
     free_space:number
 }
+
+// 定时服务信息
+export interface ScheduleInfo {
+    // ID
+    id: string
+    // 名称
+    name: string
+    // 状态
+    status: string
+    // 下次运行时间
+    next_run: string
+}
