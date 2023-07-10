@@ -1,43 +1,6 @@
 <script setup lang="ts">
 import api from "@/api";
 import { ScheduleInfo } from "@/api/types";
-const salesByCountries = [
-  {
-    abbr: "站",
-    amount: "CookieCloud同步",
-    country: "2小时5分钟后",
-    sales: "等待",
-    color: "success",
-  },
-  {
-    abbr: "订",
-    amount: "订阅刷新",
-    country: "30分钟后",
-    sales: "运行中",
-    color: "error",
-  },
-  {
-    abbr: "搜",
-    amount: "订阅搜索",
-    country: "12小时后",
-    sales: "等待",
-    color: "error",
-  },
-  {
-    abbr: "豆",
-    amount: "豆瓣想看同步",
-    country: "25分钟后",
-    sales: "运行中",
-    color: "warning",
-  },
-  {
-    abbr: "整",
-    amount: "下载文件整理",
-    country: "每隔5分钟",
-    sales: "等待",
-    color: "secondary",
-  },
-];
 
 // 定时服务列表
 const schedulerList = ref<ScheduleInfo[]>([]);
