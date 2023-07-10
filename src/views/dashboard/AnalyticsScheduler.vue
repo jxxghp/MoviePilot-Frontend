@@ -1,14 +1,14 @@
 <script setup lang="ts">
 const salesByCountries = [
   {
-    abbr: "CC",
+    abbr: "站",
     amount: "CookieCloud同步",
     country: "2小时5分钟后",
     sales: "等待",
     color: "success",
   },
   {
-    abbr: "刷",
+    abbr: "订",
     amount: "订阅刷新",
     country: "30分钟后",
     sales: "运行中",
@@ -29,7 +29,7 @@ const salesByCountries = [
     color: "warning",
   },
   {
-    abbr: "下",
+    abbr: "整",
     amount: "下载文件整理",
     country: "每隔5分钟",
     sales: "等待",
