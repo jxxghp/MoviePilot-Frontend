@@ -109,7 +109,7 @@ const series = [{ data: [37, 57, 45, 75, 57, 40, 65] }];
         <p>最近一周入库了 45 部影片 😎</p>
       </div>
 
-      <VBtn block> 查看详情 </VBtn>
+      <VBtn block to="/history"> 查看详情 </VBtn>
     </VCardText>
   </VCard>
 </template>

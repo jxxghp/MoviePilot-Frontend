@@ -84,7 +84,7 @@ export const formatSeconds = (seconds: number) => {
     formattedTime += `${minutes}分`;
   }
 
-  if (remainingSeconds > 0 || formattedTime === '') {
+  if ((remainingSeconds > 0 || formattedTime === '') && hours <= 0) {
     formattedTime += `${remainingSeconds}秒`;
   }
 
