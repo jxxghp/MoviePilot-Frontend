@@ -40,7 +40,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VCard>
+  <VCard title="系统进程">
     <VTable
       :headers="headers"
       :items="processList"
