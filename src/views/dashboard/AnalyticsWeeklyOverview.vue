@@ -115,12 +115,6 @@ onMounted(() => {
   <VCard>
     <VCardItem>
       <VCardTitle>最近入库</VCardTitle>
-
-      <template #append>
-        <div class="me-n3">
-          <MoreBtn />
-        </div>
-      </template>
     </VCardItem>
 
     <VCardText>
