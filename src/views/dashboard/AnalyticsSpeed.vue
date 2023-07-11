@@ -36,12 +36,12 @@ const loadDownloaderInfo = async () => {
     downloadInfo.value = res;
     infoItems.value = [
       {
-        avatar: "mdi-upload",
+        avatar: "mdi-cloud-upload",
         title: "总上传量",
         amount: formatFileSize(res.upload_size),
       },
       {
-        avatar: "mdi-download",
+        avatar: "mdi-download-box",
         title: "总下载量",
         amount: formatFileSize(res.download_size),
       },

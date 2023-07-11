@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import api from "@/api";
 import { hexToRgb } from "@layouts/utils";
 import VueApexCharts from "vue3-apexcharts";
 import { useTheme } from "vuetify";
@@ -86,7 +87,25 @@ const options = controlledComputed(
   }
 );
 
-const series = [{ data: [37, 57, 45, 75, 57, 40, 65] }];
+// 图表数据
+const series = ref([{ data: [37, 57, 45, 75, 57, 40, 65] }]);
+
+// 总数
+const totalCount = computed(() => series.value[0].data.reduce((a, b) => a + b, 0));
+
+// 调用API接口获取数据近7天数据
+const getWeeklyData = async () => {
+  try {
+    const res: number[] = await api.get("dashboard/transfer");
+    series.value = [{ data: res }];
+  } catch (e) {
+    console.log(e);
+  }
+};
+
+onMounted(() => {
+  getWeeklyData();
+});
 </script>
 
 <template>
@@ -105,8 +124,8 @@ const series = [{ data: [37, 57, 45, 75, 57, 40, 65] }];
       <VueApexCharts type="bar" :options="options" :series="series" :height="220" />
 
       <div class="d-flex align-center mb-3">
-        <h5 class="text-h5 me-4">45</h5>
-        <p>最近一周入库了 45 部影片 😎</p>
+        <h5 class="text-h5 me-4">{{ totalCount }}</h5>
+        <p>最近一周入库了 {{ totalCount }} 部影片 😎</p>
       </div>
 
       <VBtn block to="/history"> 查看详情 </VBtn>

@@ -5,6 +5,9 @@ import { ScheduleInfo } from "@/api/types";
 // 定时服务列表
 const schedulerList = ref<ScheduleInfo[]>([]);
 
+// 定时器
+let refreshTimer: NodeJS.Timer | null = null;
+
 // 调用API加载定时服务列表
 const loadSchedulerList = async () => {
   try {
@@ -17,6 +20,18 @@ const loadSchedulerList = async () => {
 
 onMounted(() => {
   loadSchedulerList();
+  // 启动定时器
+  refreshTimer = setInterval(() => {
+    loadSchedulerList();
+  }, 60000);
+});
+
+// 组件卸载时停止定时器
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
 });
 </script>
 
