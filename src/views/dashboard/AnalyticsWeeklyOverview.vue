@@ -88,7 +88,7 @@ const options = controlledComputed(
 );
 
 // 图表数据
-const series = ref([{ data: [37, 57, 45, 75, 57, 40, 65] }]);
+const series = ref([{ data: [0, 0, 0, 0, 0, 0, 0] }]);
 
 // 总数
 const totalCount = computed(() => series.value[0].data.reduce((a, b) => a + b, 0));
