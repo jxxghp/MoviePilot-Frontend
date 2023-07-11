@@ -38,6 +38,9 @@ const options = controlledComputed(
         colors: [currentTheme.value.surface],
       },
       legend: { show: false },
+      tooltip: {
+        enabled: false,
+      },
       grid: {
         borderColor,
         strokeDashArray: 7,
