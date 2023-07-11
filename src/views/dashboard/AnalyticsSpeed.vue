@@ -77,12 +77,6 @@ onUnmounted(() => {
   <VCard>
     <VCardItem>
       <VCardTitle>实时速率</VCardTitle>
-
-      <template #append>
-        <div class="me-n3">
-          <MoreBtn />
-        </div>
-      </template>
     </VCardItem>
 
     <VCardText class="pt-4">
