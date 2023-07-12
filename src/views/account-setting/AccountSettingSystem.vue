@@ -14,18 +14,20 @@ const allSites = ref<Site[]>([]);
 
 // 种子优先规则下拉框
 const TorrentPriorityItems = [
-  { title: "站点优先", value: 'site' },
-  { title: "做种数优先", value: 'seeder' },
+  { title: "站点优先", value: "site" },
+  { title: "做种数优先", value: "seeder" },
 ];
 
 // 种子优先规则
-const selectedTorrentPriority = ref<string>('seeder');
+const selectedTorrentPriority = ref<string>("seeder");
 
 // 查询所有站点
 const querySites = async () => {
   try {
     const data: Site[] = await api.get("site");
-    allSites.value = data;
+    // 过滤站点，只有启用的站点才显示
+    allSites.value = data.filter((item) => item.is_active);
+    querySelectedSites();
   } catch (error) {
     console.log(error);
   }
@@ -44,7 +46,9 @@ const querySelectedSites = async () => {
 // 查询种子优先规则
 const queryTorrentPriority = async () => {
   try {
-    const result: { [key: string]: any } = await api.get("system/setting/TorrentsPriority");
+    const result: { [key: string]: any } = await api.get(
+      "system/setting/TorrentsPriority"
+    );
     selectedTorrentPriority.value = result.data?.value;
   } catch (error) {
     console.log(error);
@@ -89,7 +93,6 @@ const saveTorrentPriority = async () => {
 
 onMounted(() => {
   querySites();
-  querySelectedSites();
   queryTorrentPriority();
 });
 </script>
@@ -102,7 +105,13 @@ onMounted(() => {
 
         <VCardItem>
           <VChipGroup v-model="selectedSites" column multiple>
-            <VChip filter variant="outlined" v-for="site in allSites" :key="site.id" :value="site.id">
+            <VChip
+              filter
+              variant="outlined"
+              v-for="site in allSites"
+              :key="site.id"
+              :value="site.id"
+            >
               {{ site.name }}
             </VChip>
           </VChipGroup>
@@ -116,7 +125,12 @@ onMounted(() => {
     <VCol cols="12">
       <VCard title="优先规则">
         <VCardText>
-          <VSelect v-model="selectedTorrentPriority" :items="TorrentPriorityItems" label="下载优先规则" outlined></VSelect>
+          <VSelect
+            v-model="selectedTorrentPriority"
+            :items="TorrentPriorityItems"
+            label="下载优先规则"
+            outlined
+          ></VSelect>
         </VCardText>
         <VCardItem>
           <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>

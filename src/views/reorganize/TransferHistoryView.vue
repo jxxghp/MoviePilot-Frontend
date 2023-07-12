@@ -45,25 +45,6 @@ const getStatusColor = (status: boolean) => {
   return status ? "success" : "error";
 };
 
-// 弹出菜单
-const dropdownItems = ref([
-  {
-    title: "重新整理",
-    value: 1,
-    props: {
-      prependIcon: "mdi-redo-variant",
-    },
-  },
-  {
-    title: "删除",
-    value: 2,
-    props: {
-      prependIcon: "mdi-trash-can-outline",
-      color: "error",
-    },
-  },
-]);
-
 // 转移方式字典
 const TransferDict: { [key: string]: string } = {
   copy: "复制",
@@ -72,8 +53,45 @@ const TransferDict: { [key: string]: string } = {
   softlink: "软链接",
 };
 
+// 删除历史记录
+const removeHistory = async () => {
+  try {
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 重新整理
+const rehandleHistory = async () => {
+  try {
+  } catch (e) {
+    console.log(e);
+  }
+};
+
 // 加载时获取数据
 onMounted(fetchData);
+
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: "重新整理",
+    value: 1,
+    props: {
+      prependIcon: "mdi-redo-variant",
+      click: rehandleHistory,
+    },
+  },
+  {
+    title: "删除",
+    value: 2,
+    props: {
+      prependIcon: "mdi-trash-can-outline",
+      color: "error",
+      click: removeHistory,
+    },
+  },
+]);
 </script>
 
 <template>
@@ -121,7 +139,25 @@ onMounted(fetchData);
         {{ item.raw.errmsg }}
       </template>
       <template #item.actions="{ item }">
-        <MoreBtn :item-props="true" :menu-list="dropdownItems" />
+        <IconBtn>
+          <VIcon icon="mdi-dots-vertical" />
+          <VMenu activator="parent" close-on-content-click>
+            <VList>
+              <VListItem
+                v-for="(item, i) in dropdownItems"
+                variant="plain"
+                :base-color="item.props.color"
+                :key="i"
+                @click="item.props.click"
+              >
+                <template #prepend>
+                  <VIcon :icon="item.props.prependIcon"></VIcon>
+                </template>
+                <VListItemTitle v-text="item.title"></VListItemTitle>
+              </VListItem>
+            </VList>
+          </VMenu>
+        </IconBtn>
       </template>
       <template #no-data> 没有数据 </template>
     </VDataTable>

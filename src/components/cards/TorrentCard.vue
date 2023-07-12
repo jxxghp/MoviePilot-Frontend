@@ -116,6 +116,26 @@ const getVolumeFactorColor = (downloadVolume: number, uploadVolume: number) => {
 onMounted(() => {
   getSiteIcon();
 });
+
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: "查看详情",
+    value: 1,
+    props: {
+      prependIcon: "mdi-information",
+      click: openTorrentDetail,
+    },
+  },
+  {
+    title: "下载种子",
+    value: 2,
+    props: {
+      prependIcon: "mdi-download",
+      click: downloadTorrentFile,
+    },
+  },
+]);
 </script>
 <template>
   <VCard :width="props.width" :height="props.height" @click="handleAddDownload">
@@ -136,17 +156,16 @@ onMounted(() => {
             <VIcon icon="mdi-dots-vertical" color="white" />
             <VMenu activator="parent" close-on-content-click>
               <VList>
-                <VListItem variant="plain" @click="openTorrentDetail">
+                <VListItem
+                  v-for="(item, i) in dropdownItems"
+                  variant="plain"
+                  :key="i"
+                  @click="item.props.click"
+                >
                   <template #prepend>
-                    <VIcon icon="mdi-information"></VIcon>
+                    <VIcon :icon="item.props.prependIcon"></VIcon>
                   </template>
-                  <VListItemTitle>查看详情</VListItemTitle>
-                </VListItem>
-                <VListItem variant="plain" @click="downloadTorrentFile">
-                  <template #prepend>
-                    <VIcon icon="mdi-download"></VIcon>
-                  </template>
-                  <VListItemTitle>下载种子</VListItemTitle>
+                  <VListItemTitle v-text="item.title"></VListItemTitle>
                 </VListItem>
               </VList>
             </VMenu>
