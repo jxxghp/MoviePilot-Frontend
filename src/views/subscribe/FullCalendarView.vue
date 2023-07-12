@@ -99,14 +99,13 @@ onMounted(() => {
       <div class="md:hidden">
         <VTooltip :text="arg.event.title">
           <template #activator="{ props }">
-            <VCard v-bind="props" class="outline-none shadow ring-gray-500">
-              <VImg
-                :src="arg.event.extendedProps.posterPath"
-                aspect-ratio="2/3"
-                class="object-cover rounded"
-                cover
-              ></VImg>
-            </VCard>
+            <VImg
+              :src="arg.event.extendedProps.posterPath"
+              v-bind="props"
+              aspect-ratio="2/3"
+              class="object-cover rounded shadow ring-gray-500"
+              cover
+            ></VImg>
           </template>
         </VTooltip>
       </div>
