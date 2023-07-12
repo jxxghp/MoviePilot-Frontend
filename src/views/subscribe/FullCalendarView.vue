@@ -9,6 +9,7 @@ import FullCalendar from "@fullcalendar/vue3";
 
 // 日历属性
 const calendarOptions = ref({
+  height: "auto",
   locale: "zh-cn",
   themeSystem: "standard",
   buttonText: {
@@ -26,9 +27,9 @@ const calendarOptions = ref({
   initialView: "dayGridMonth",
   weekends: false,
   headerToolbar: {
-    left: "prev,next",
+    left: "prev",
     center: "title",
-    right: "",
+    right: "next",
   },
   views: {
     week: {
@@ -55,6 +56,7 @@ const getSubscribes = async () => {
             start: parseDate(movie.release_date || ""),
             allDay: false,
             posterPath: subscribe.poster,
+            mediaType: subscribe.type,
           };
         } else {
           // 调用API查询集信息
@@ -67,6 +69,7 @@ const getSubscribes = async () => {
               start: parseDate(episode.air_date || ""),
               allDay: false,
               posterPath: subscribe.poster,
+              mediaType: subscribe.type,
             };
           });
         }
@@ -78,6 +81,17 @@ const getSubscribes = async () => {
   }
 };
 
+// 根据 type 返回不同的图标
+const getIcon = (type: string) => {
+  if (type === "电影") {
+    return "mdi-movie-roll";
+  } else if (type === "电视剧") {
+    return "mdi-television-box";
+  } else {
+    return "mdi-help-circle";
+  }
+};
+
 // 页面加载时调用API查询所有订阅
 onMounted(() => {
   getSubscribes();
@@ -85,12 +99,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <FullCalendar :options="calendarOptions" class="w-full h-full">
+  <FullCalendar :options="calendarOptions">
     <template #eventContent="arg">
-      <div class="hidden md:block">
+      <div class="hidden md:block overflow-hidden">
         <VTooltip :text="arg.event.title">
           <template #activator="{ props }">
-            <VChip v-bind="props">
+            <VChip v-bind="props" label>
+              <v-icon start :icon="getIcon(arg.event.extendedProps.mediaType)"></v-icon>
               {{ arg.event.title }}
             </VChip>
           </template>
@@ -100,6 +115,7 @@ onMounted(() => {
         <VTooltip :text="arg.event.title">
           <template #activator="{ props }">
             <VImg
+              height="80"
               :src="arg.event.extendedProps.posterPath"
               v-bind="props"
               aspect-ratio="2/3"
@@ -400,4 +416,25 @@ onMounted(() => {
 .v-application .fc-v-event {
   background-color: transparent;
 }
+
+.v-application .fc .fc-button-primary {
+  background-color: transparent;
+  border: none;
+  outline: none;
+  color: var(--v-theme-on-surface);
+}
+
+.v-application .fc .fc-button-primary:hover {
+  background-color: transparent;
+  color: rgb(var(--v-theme-primary));
+}
+
+@media (max-width: 776px) {
+  .fc-daygrid-event-harness {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+}
+
 </style>
