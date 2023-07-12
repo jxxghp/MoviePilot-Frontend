@@ -1,45 +1,117 @@
-
 <script lang="ts" setup>
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import FullCalendar from '@fullcalendar/vue3';
+import { parseDate } from "@/@core/utils/formatters";
+import api from "@/api";
+import type { MediaInfo, Subscribe, TmdbEpisode } from "@/api/types";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import FullCalendar from "@fullcalendar/vue3";
 
-const calendarOptions = {
-  locale: 'zh-cn',
-  themeSystem: 'standard',
+// 日历属性
+const calendarOptions = ref({
+  locale: "zh-cn",
+  themeSystem: "standard",
   buttonText: {
-    today: '今天',
-    month: '月',
-    week: '周',
-    day: '日',
-    list: '列表'
+    today: "今天",
+    month: "月",
+    week: "周",
+    day: "日",
+    list: "列表",
   },
   plugins: [
     dayGridPlugin,
     timeGridPlugin,
-    interactionPlugin // needed for dateClick
+    interactionPlugin, // needed for dateClick
   ],
-  initialView: 'dayGridMonth',
+  initialView: "dayGridMonth",
   weekends: false,
   headerToolbar: {
-    left: 'prev,next',
-    center: 'title',
-    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    left: "prev,next",
+    center: "title",
+    right: "",
   },
   views: {
     week: {
-      titleFormat: { day: 'numeric' }
-    }
+      titleFormat: { day: "numeric" },
+    },
   },
-  events: [
-    { title: 'Meeting', start: new Date() }
-  ],
-}
+  events: [],
+});
+
+// 调用API查询所有订阅
+const getSubscribes = async () => {
+  try {
+    const subscribes: Subscribe[] = await api.get("subscribe");
+    const events = await Promise.all(
+      subscribes.map(async (subscribe) => {
+        // 如果是电影直接返回
+        if (subscribe.type === "电影") {
+          // 调用API查询TMDB详情
+          const movie: MediaInfo = await api.get(`tmdb/${subscribe.tmdbid}`, {
+            params: { tmdbid: subscribe.tmdbid, type_name: subscribe.type },
+          });
+          return {
+            title: subscribe.name,
+            start: parseDate(movie.release_date || ""),
+            allDay: false,
+            posterPath: subscribe.poster,
+          };
+        } else {
+          // 调用API查询集信息
+          const episodes: TmdbEpisode[] = await api.get(
+            `tmdb/${subscribe.tmdbid}/${subscribe.season}`
+          );
+          return episodes.map((episode) => {
+            return {
+              title: `${subscribe.name} 第 ${episode.episode_number} 集`,
+              start: parseDate(episode.air_date || ""),
+              allDay: false,
+              posterPath: subscribe.poster,
+            };
+          });
+        }
+      })
+    );
+    calendarOptions.value.events = events.flat();
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 页面加载时调用API查询所有订阅
+onMounted(() => {
+  getSubscribes();
+});
 </script>
 
 <template>
-  <FullCalendar :options='calendarOptions' locale="zh-cn" />
+  <FullCalendar :options="calendarOptions" class="w-full h-full">
+    <template #eventContent="arg">
+      <div class="hidden md:block">
+        <VTooltip :text="arg.event.title">
+          <template #activator="{ props }">
+            <VChip v-bind="props">
+              {{ arg.event.title }}
+            </VChip>
+          </template>
+        </VTooltip>
+      </div>
+      <div class="md:hidden">
+        <VTooltip :text="arg.event.title">
+          <template #activator="{ props }">
+            <VCard v-bind="props" class="outline-none shadow ring-gray-500">
+              <VImg
+                :src="arg.event.extendedProps.posterPath"
+                aspect-ratio="2/3"
+                class="object-cover rounded"
+                cover
+              ></VImg>
+            </VCard>
+          </template>
+        </VTooltip>
+      </div>
+    </template>
+  </FullCalendar>
 </template>
 
 <style lang="scss">
@@ -144,7 +216,11 @@ const calendarOptions = {
 
 .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-button-primary,
 .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-button-primary:hover,
-.v-application .fc .fc-toolbar-chunk .fc-button-group .fc-button-primary:not(.disabled):active {
+.v-application
+  .fc
+  .fc-toolbar-chunk
+  .fc-button-group
+  .fc-button-primary:not(.disabled):active {
   border-color: transparent;
   background-color: transparent;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
@@ -168,11 +244,20 @@ const calendarOptions = {
   text-transform: uppercase;
 }
 
-.v-application .fc .fc-toolbar-chunk:last-child .fc-button-group .fc-button:not(:last-child) {
-  border-inline-end: 0.0625rem solid rgba(var(--v-theme-primary), var(--v-overlay-scrim-opacity));
+.v-application
+  .fc
+  .fc-toolbar-chunk:last-child
+  .fc-button-group
+  .fc-button:not(:last-child) {
+  border-inline-end: 0.0625rem solid
+    rgba(var(--v-theme-primary), var(--v-overlay-scrim-opacity));
 }
 
-.v-application .fc .fc-toolbar-chunk:last-child .fc-button-group .fc-button.fc-button-active {
+.v-application
+  .fc
+  .fc-toolbar-chunk:last-child
+  .fc-button-group
+  .fc-button.fc-button-active {
   background-color: rgba(var(--v-theme-primary), var(--v-activated-opacity));
   color: rgb(var(--v-theme-primary));
 }
@@ -208,7 +293,7 @@ const calendarOptions = {
   padding-inline: 0.25rem;
 }
 
-.v-application .fc tbody[role="rowgroup"]>tr>td[role="presentation"] {
+.v-application .fc tbody[role="rowgroup"] > tr > td[role="presentation"] {
   border: none;
 }
 
@@ -237,7 +322,9 @@ const calendarOptions = {
 
 .v-application .fc .fc-popover {
   border-radius: 6px;
-  box-shadow: 0 4px 14px -4px var(--v-shadow-key-umbra-opacity), 0 4px 8px -4px var(--v-shadow-key-penumbra-opacity), 0 4px 8px -4px var(--v-shadow-key-ambient-opacity);
+  box-shadow: 0 4px 14px -4px var(--v-shadow-key-umbra-opacity),
+    0 4px 8px -4px var(--v-shadow-key-penumbra-opacity),
+    0 4px 8px -4px var(--v-shadow-key-ambient-opacity);
 }
 
 .v-application .fc .fc-popover .fc-popover-header,
@@ -276,7 +363,12 @@ const calendarOptions = {
   }
 }
 
-.v-theme--dark .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-drawerToggler-button {
+.v-theme--dark
+  .v-application
+  .fc
+  .fc-toolbar-chunk
+  .fc-button-group
+  .fc-drawerToggler-button {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' stroke='rgba(232,232,241,0.68)' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round' class='css-i6dzq1'%3E%3Cpath d='M3 12h18M3 6h18M3 18h18'/%3E%3C/svg%3E");
 }
 
@@ -304,5 +396,9 @@ const calendarOptions = {
 
 .v-layout .v-card[data-v-85990893] {
   overflow: visible;
+}
+
+.v-application .fc-v-event {
+  background-color: transparent;
 }
 </style>
