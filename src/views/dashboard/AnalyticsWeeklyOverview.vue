@@ -52,14 +52,7 @@ const options = controlledComputed(
         },
       },
       dataLabels: { enabled: false },
-      colors: [
-        currentTheme.value["grey-100"],
-        currentTheme.value["grey-100"],
-        currentTheme.value["grey-100"],
-        currentTheme.value.primary,
-        currentTheme.value["grey-100"],
-        currentTheme.value["grey-100"],
-      ],
+      colors: [currentTheme.value.primary],
       states: {
         hover: { filter: { type: "none" } },
         active: { filter: { type: "none" } },

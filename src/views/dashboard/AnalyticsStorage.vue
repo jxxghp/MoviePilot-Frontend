@@ -44,7 +44,7 @@ onMounted(() => {
         {{ formatFileSize(storage) }}
       </h5>
       <p class="mt-2">已使用 {{ usedPercent }}% 🚀</p>
-      <p class="mt-1"><VProgressLinear :model-value="usedPercent" /></p>
+      <p class="mt-1"><VProgressLinear :model-value="usedPercent" color="primary" /></p>
     </VCardText>
 
     <!-- Triangle Background -->

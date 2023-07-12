@@ -64,6 +64,9 @@ onUnmounted(() => {
             </div>
           </template>
         </VListItem>
+        <VListItem v-if="schedulerList.length === 0">
+          <VListItemTitle class="text-center">没有后台服务</VListItemTitle>
+        </VListItem>
       </VList>
     </VCardText>
   </VCard>
