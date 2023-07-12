@@ -164,15 +164,18 @@ const dropdownItems = ref([
 </script>
 
 <template>
-  <VCard title="历史记录" class="pb-5">
+  <VCard class="pb-5">
+    <VCardItem>
+      <VCardTitle>历史记录</VCardTitle>
+    </VCardItem>
     <VDataTable
       v-model="selectedHistory"
       :headers="headers"
       :items="dataList"
+      density="compact"
       item-value="id"
       return-object
       fixed-header
-      show-select
       :items-per-page="25"
       items-per-page-text="每页条数"
       page-text="{0}-{1} 共 {2} 条"
