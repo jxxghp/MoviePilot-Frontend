@@ -187,14 +187,14 @@ const subscribeForm = reactive({
         <div class="me-n3">
           <IconBtn>
             <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
-            <VMenu activator="parent">
+            <VMenu activator="parent" close-on-content-click>
               <VList>
                 <VListItem
                   v-for="(item, i) in dropdownItems"
                   variant="plain"
                   :base-color="item.props.color"
                   :key="i"
-                  @click.stop="item.props.click"
+                  @click="item.props.click"
                 >
                   <template #prepend>
                     <VIcon :icon="item.props.prependIcon"></VIcon>

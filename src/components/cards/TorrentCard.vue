@@ -134,15 +134,15 @@ onMounted(() => {
         <div class="me-n3">
           <IconBtn>
             <VIcon icon="mdi-dots-vertical" color="white" />
-            <VMenu activator="parent">
+            <VMenu activator="parent" close-on-content-click>
               <VList>
-                <VListItem variant="plain" @click.stop="openTorrentDetail">
+                <VListItem variant="plain" @click="openTorrentDetail">
                   <template #prepend>
                     <VIcon icon="mdi-information"></VIcon>
                   </template>
                   <VListItemTitle>查看详情</VListItemTitle>
                 </VListItem>
-                <VListItem variant="plain" @click.stop="downloadTorrentFile">
+                <VListItem variant="plain" @click="downloadTorrentFile">
                   <template #prepend>
                     <VIcon icon="mdi-download"></VIcon>
                   </template>

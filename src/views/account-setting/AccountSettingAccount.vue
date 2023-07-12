@@ -277,9 +277,9 @@ onMounted(() => {
               <td>
                 <IconBtn v-show="!user.is_superuser">
                   <VIcon icon="mdi-dots-vertical" />
-                  <VMenu activator="parent">
+                  <VMenu activator="parent" close-on-content-click>
                     <VList>
-                      <VListItem variant="plain" @click.stop="deactivateUser(user)">
+                      <VListItem variant="plain" @click="deactivateUser(user)">
                         <template #prepend>
                           <VIcon icon="mdi-lock"></VIcon>
                         </template>
@@ -290,7 +290,7 @@ onMounted(() => {
                       <VListItem
                         variant="plain"
                         base-color="error"
-                        @click.stop="deleteUser(user)"
+                        @click="deleteUser(user)"
                       >
                         <template #prepend>
                           <VIcon icon="mdi-delete"></VIcon>

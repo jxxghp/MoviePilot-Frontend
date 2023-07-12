@@ -14,6 +14,7 @@ const props = defineProps<Props>()
     <VMenu
       v-if="props.menuList"
       activator="parent"
+      close-on-content-click
     >
       <VList
         :items="props.menuList"
