@@ -1,7 +1,25 @@
 <script setup lang="ts">
+import { numberValidator, requiredValidator } from "@/@validators";
 import api from "@/api";
 import type { TransferHistory } from "@/api/types";
 import { onMounted, ref } from "vue";
+import { useToast } from "vue-toast-notification";
+import { useConfirm } from "vuetify-use-dialog";
+
+// 确认框
+const createConfirm = useConfirm();
+
+// 提示框
+const $toast = useToast();
+
+// 重新整理对话框
+const redoDialog = ref(false);
+
+// TMDB编号
+const redoTmdbId = ref("");
+
+// 当前操作记录
+const currentHistory = ref<TransferHistory>();
 
 // 表头
 const headers = [
@@ -54,8 +72,33 @@ const TransferDict: { [key: string]: string } = {
 };
 
 // 删除历史记录
-const removeHistory = async () => {
+const removeHistory = async (item: TransferHistory) => {
   try {
+    const isConfirmed = await createConfirm({
+      title: "确认",
+      content: `同步删除 ${item.title} 对应的媒体库文件 ?`,
+      confirmationText: "同步删除文件",
+      cancellationText: "仅删除历史记录",
+      dialogProps: {
+        maxWidth: 600,
+      },
+    });
+    let deleteFile = false;
+    if (isConfirmed) {
+      deleteFile = true;
+    }
+    // 调用删除API
+    const result: { [key: string]: any } = await api.delete("history/transfer", {
+      data: {
+        ...item,
+        delete_file: deleteFile,
+      },
+    });
+    if (result.success) {
+      fetchData();
+    } else {
+      $toast.error(`删除失败: ${result.msg}`);
+    }
   } catch (error) {
     console.error(error);
   }
@@ -64,6 +107,29 @@ const removeHistory = async () => {
 // 重新整理
 const rehandleHistory = async () => {
   try {
+    if (!redoTmdbId.value) {
+      return;
+    }
+    redoDialog.value = false;
+    $toast.info(`正在重新整理 ${currentHistory.value?.title} ...`);
+    // 调用API接口重新转移
+    const requestData = {
+      ...currentHistory.value,
+    };
+    const result: { [key: string]: any } = await api.post(
+      "history/transfer",
+      requestData,
+      {
+        params: {
+          new_tmdbid: parseInt(redoTmdbId.value),
+        },
+      }
+    );
+    if (result.success) {
+      fetchData();
+    } else {
+      $toast.error(`重新整理失败: ${result.message}！`);
+    }
   } catch (e) {
     console.log(e);
   }
@@ -79,7 +145,10 @@ const dropdownItems = ref([
     value: 1,
     props: {
       prependIcon: "mdi-redo-variant",
-      click: rehandleHistory,
+      click: (item: TransferHistory) => {
+        redoDialog.value = true;
+        currentHistory.value = item;
+      },
     },
   },
   {
@@ -144,16 +213,16 @@ const dropdownItems = ref([
           <VMenu activator="parent" close-on-content-click>
             <VList>
               <VListItem
-                v-for="(item, i) in dropdownItems"
+                v-for="(menu, i) in dropdownItems"
                 variant="plain"
-                :base-color="item.props.color"
+                :base-color="menu.props.color"
                 :key="i"
-                @click="item.props.click"
+                @click="menu.props.click(item.raw)"
               >
                 <template #prepend>
-                  <VIcon :icon="item.props.prependIcon"></VIcon>
+                  <VIcon :icon="menu.props.prependIcon"></VIcon>
                 </template>
-                <VListItemTitle v-text="item.title"></VListItemTitle>
+                <VListItemTitle v-text="menu.title"></VListItemTitle>
               </VListItem>
             </VList>
           </VMenu>
@@ -162,6 +231,27 @@ const dropdownItems = ref([
       <template #no-data> 没有数据 </template>
     </VDataTable>
   </VCard>
+  <VDialog v-model="redoDialog" max-width="600">
+    <!-- Dialog Content -->
+    <VCard title="重新整理">
+      <VCardText>
+        <VRow>
+          <VCol cols="12">
+            <VTextField
+              v-model="redoTmdbId"
+              label="请输入TMDB编号"
+              :rules="[requiredValidator, numberValidator]"
+            />
+          </VCol>
+        </VRow>
+      </VCardText>
+
+      <VCardActions>
+        <VSpacer />
+        <VBtn @click="rehandleHistory" @keydown.enter="rehandleHistory"> 确定 </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
 
 <style type="scss">
