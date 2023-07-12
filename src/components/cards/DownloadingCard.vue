@@ -23,6 +23,19 @@ const getSpeedText = () => {
 // 下载状态
 const isDownloading = ref(props.info?.state === "downloading" ? true : false);
 
+// 图片是否加载完成
+const imageLoaded = ref(false);
+
+// 图片加载完成响应
+const imageLoadHandler = () => {
+  imageLoaded.value = true;
+};
+
+// 计算文本类
+const getTextClass = () => {
+  return imageLoaded.value ? "text-white" : "";
+};
+
 // 下载状态控制
 const toggleDownload = async () => {
   let operation = isDownloading.value ? "stop" : "start";
@@ -51,41 +64,36 @@ const deleteDownload = async () => {
 
 <template>
   <VCard :key="props.info?.hash" v-if="cardState">
-    <div class="d-flex justify-space-between flex-nowrap flex-row">
-      <div class="ma-auto pa-3 pe-0" v-if="props.info?.media.image">
-        <VImg
-          aspect-ratio="2/3"
-          width="100"
-          class="rounded"
-          :src="props.info?.media.image"
-        />
-      </div>
+    <template #image>
+      <VImg
+        :src="props.info?.media.image"
+        aspect-ratio="2/3"
+        cover
+        class="brightness-50"
+        @load="imageLoadHandler"
+      />
+    </template>
 
-      <div class="w-full">
-        <VCardTitle
-          >{{ props.info?.media.title || props.info?.name }}
-          {{ props.info?.season_episode }}</VCardTitle
-        >
+    <VCardTitle class="break-words whitespace-normal" :class="getTextClass()">
+      {{ props.info?.media.title || props.info?.name }}
+      {{ props.info?.season_episode }}
+    </VCardTitle>
 
-        <VCardSubtitle
-          class="break-all whitespace-normal line-clamp-2 overflow-hidden text-ellipsis ..."
-        >
-          {{ props.info?.title }}
-        </VCardSubtitle>
+    <VCardSubtitle class="break-words whitespace-normal" :class="getTextClass()">
+      {{ props.info?.title }}
+    </VCardSubtitle>
 
-        <VCardText class="text-subtitle-1 pt-3 pb-1"> {{ getSpeedText() }} </VCardText>
+    <VCardText class="text-subtitle-1 pt-3 pb-1" :class="getTextClass()"> {{ getSpeedText() }} </VCardText>
 
-        <VCardText v-if="getPercentage() > 0">
-          <VProgressLinear :model-value="getPercentage()" />
-        </VCardText>
+    <VCardText v-if="getPercentage() > 0" :class="getTextClass()">
+      <VProgressLinear :model-value="getPercentage()" />
+    </VCardText>
 
-        <VCardActions class="justify-space-between">
-          <VBtn @click="toggleDownload">
-            <span class="ms-2">{{ isDownloading ? "暂停" : "开始" }}</span>
-          </VBtn>
-          <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
-        </VCardActions>
-      </div>
-    </div>
+    <VCardActions class="justify-space-between">
+      <VBtn @click="toggleDownload">
+        <span class="ms-2">{{ isDownloading ? "暂停" : "开始" }}</span>
+      </VBtn>
+      <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
+    </VCardActions>
   </VCard>
 </template>
