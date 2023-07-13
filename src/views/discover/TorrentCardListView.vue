@@ -40,6 +40,8 @@ const filterForm = reactive({
   videoCode: [] as string[],
   // 促销状态
   freeState: [] as string[],
+  // 质量
+  edition: [] as string[],
 });
 
 // 获取站点过滤选项
@@ -103,6 +105,17 @@ const getFreeStateFilterOptions = computed(() => {
   return options;
 });
 
+// 获取质量过滤选项
+const getEditionFilterOptions = computed(() => {
+  const options: string[] = [];
+  dataList.value.forEach((data) => {
+    if (data.meta_info.edition && !options.includes(data.meta_info.edition)) {
+      options.push(data.meta_info.edition);
+    }
+  });
+  return options;
+});
+
 // 按过滤项过滤卡片
 const filterTorrentsCard = (data: Context) => {
   const { torrent_info, meta_info } = data;
@@ -137,6 +150,11 @@ const filterTorrentsCard = (data: Context) => {
 
   // 促销状态过滤
   if (filterForm.freeState.length > 0 && !filterForm.freeState.includes(volume_factor)) {
+    return false;
+  }
+
+  // 质量过滤
+  if (filterForm.edition.length > 0 && !filterForm.edition.includes(meta_info.edition)) {
     return false;
   }
 
@@ -258,6 +276,17 @@ onBeforeMount(fetchData);
           density="compact"
           chips
           label="制作组"
+          multiple
+        />
+      </VCol>
+      <VCol v-if="getEditionFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.edition"
+          :items="getEditionFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="质量"
           multiple
         />
       </VCol>
