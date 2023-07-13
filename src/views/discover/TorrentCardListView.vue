@@ -28,6 +28,121 @@ const progressValue = ref(0);
 // 加载进度SSE
 const progressEventSource = ref<EventSource>();
 
+// 过滤表单
+const filterForm = reactive({
+  // 站点
+  site: [] as string[],
+  // 季
+  season: [] as string[],
+  // 制作组
+  releaseGroup: [] as string[],
+  // 视频编码
+  videoCode: [] as string[],
+  // 促销状态
+  freeState: [] as string[],
+});
+
+// 获取站点过滤选项
+const getSiteFilterOptions = computed(() => {
+  const options: string[] = [];
+  dataList.value.forEach((data) => {
+    if (data.torrent_info?.site_name && !options.includes(data.torrent_info?.site_name)) {
+      options.push(data.torrent_info?.site_name);
+    }
+  });
+  return options;
+});
+
+// 获取季过滤选项
+const getSeasonFilterOptions = computed(() => {
+  const options: string[] = [];
+  dataList.value.forEach((data) => {
+    if (
+      data.meta_info.season_episode &&
+      !options.includes(data.meta_info.season_episode)
+    ) {
+      options.push(data.meta_info.season_episode);
+    }
+  });
+  return options;
+});
+
+// 获取制作组过滤选项
+const getReleaseGroupFilterOptions = computed(() => {
+  const options: string[] = [];
+  dataList.value.forEach((data) => {
+    if (data.meta_info.resource_team && !options.includes(data.meta_info.resource_team)) {
+      options.push(data.meta_info.resource_team);
+    }
+  });
+  return options;
+});
+
+// 获取视频编码过滤选项
+const getVideoCodeFilterOptions = computed(() => {
+  const options: string[] = [];
+  dataList.value.forEach((data) => {
+    if (data.meta_info.video_encode && !options.includes(data.meta_info.video_encode)) {
+      options.push(data.meta_info.video_encode);
+    }
+  });
+  return options;
+});
+
+// 获取促销状态过滤选项
+const getFreeStateFilterOptions = computed(() => {
+  const options: string[] = [];
+  dataList.value.forEach((data) => {
+    if (
+      data.torrent_info.volume_factor &&
+      !options.includes(data.torrent_info.volume_factor)
+    ) {
+      options.push(data.torrent_info.volume_factor);
+    }
+  });
+  return options;
+});
+
+// 按过滤项过滤卡片
+const filterTorrentsCard = (data: Context) => {
+  const { torrent_info, meta_info } = data;
+  const { site_name, volume_factor } = torrent_info;
+  const { season_episode, resource_team, video_encode } = meta_info;
+
+  // 站点过滤
+  if (filterForm.site.length > 0 && !filterForm.site.includes(site_name || "")) {
+    return false;
+  }
+
+  // 季过滤
+  if (filterForm.season.length > 0 && !filterForm.season.includes(season_episode)) {
+    return false;
+  }
+
+  // 制作组过滤
+  if (
+    filterForm.releaseGroup.length > 0 &&
+    !filterForm.releaseGroup.includes(resource_team || "")
+  ) {
+    return false;
+  }
+
+  // 视频编码过滤
+  if (
+    filterForm.videoCode.length > 0 &&
+    !filterForm.videoCode.includes(video_encode || "")
+  ) {
+    return false;
+  }
+
+  // 促销状态过滤
+  if (filterForm.freeState.length > 0 && !filterForm.freeState.includes(volume_factor)) {
+    return false;
+  }
+
+  return true;
+};
+
 // 获取订阅列表数据
 const fetchData = async () => {
   try {
@@ -111,6 +226,65 @@ onBeforeMount(fetchData);
 </script>
 
 <template>
+  <VCard class="bg-transparent mb-3 pt-2 shadow-none">
+    <VRow>
+      <VCol v-if="getSiteFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.site"
+          :items="getSiteFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="站点"
+          multiple
+        />
+      </VCol>
+      <VCol v-if="getSeasonFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.season"
+          :items="getSeasonFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="季集"
+          multiple
+        />
+      </VCol>
+      <VCol v-if="getReleaseGroupFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.releaseGroup"
+          :items="getReleaseGroupFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="制作组"
+          multiple
+        />
+      </VCol>
+      <VCol v-if="getVideoCodeFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.videoCode"
+          :items="getVideoCodeFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="视频编码"
+          multiple
+        />
+      </VCol>
+      <VCol v-if="getFreeStateFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.freeState"
+          :items="getFreeStateFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="促销状态"
+          multiple
+        />
+      </VCol>
+    </VRow>
+  </VCard>
   <VProgressCircular
     class="centered"
     v-if="!isRefreshed && !props.keyword"
@@ -133,6 +307,7 @@ onBeforeMount(fetchData);
   <div class="grid gap-3 grid-torrent-card items-start" v-if="dataList.length > 0">
     <TorrentCard
       v-for="data in getFirstContexts"
+      v-show="filterTorrentsCard(data)"
       :key="data.torrent_info.title"
       :torrent="data"
       :more="
