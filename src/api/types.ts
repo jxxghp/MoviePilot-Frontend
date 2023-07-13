@@ -41,6 +41,8 @@ export interface Subscribe {
   last_update: string;
   // 订阅用户
   username: string;
+  // 订阅站点
+  sites: number[],
 }
 
 // 历史记录

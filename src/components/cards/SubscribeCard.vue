@@ -3,7 +3,7 @@ import { calculateTimeDifference } from "@/@core/utils";
 import { formatSeason } from "@/@core/utils/formatters";
 import { numberValidator } from "@/@validators";
 import api from "@/api";
-import { Subscribe } from "@/api/types";
+import { Site, Subscribe } from "@/api/types";
 import { useToast } from "vue-toast-notification";
 
 // 输入参数
@@ -22,6 +22,12 @@ const imageLoaded = ref(false);
 
 // 订阅弹窗
 const subscribeInfoDialog = ref(false);
+
+// 站点数据列表
+const siteList = ref<Site[]>([]);
+
+// 站点选择下载框
+const selectSitesOptions = ref<{ [key: number]: string }[]>([]);
 
 // 上一次更新时间
 const lastUpdateText = ref(
@@ -115,6 +121,38 @@ const updateSubscribeInfo = async () => {
   }
 };
 
+// 获取站点列表数据
+const loadSites = async () => {
+  try {
+    const data: Site[] = await api.get("site");
+    // 过滤站点，只有启用的站点才显示
+    siteList.value = data.filter((item) => item.is_active);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// 获取站点列表选择框数据
+const getSiteList = async () => {
+  // 加载订阅站点列表
+  if (!siteList.value.length) {
+    await loadSites();
+  }
+  const maps = siteList.value.map((item) => {
+    return {
+      title: item.name,
+      value: item.id,
+    };
+  });
+  selectSitesOptions.value = maps.flat();
+};
+
+// 编辑订阅响应
+const editSubscribeDialog = async () => {
+  await getSiteList();
+  subscribeInfoDialog.value = true;
+};
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -122,9 +160,7 @@ const dropdownItems = ref([
     value: 1,
     props: {
       prependIcon: "mdi-file-edit-outline",
-      click: () => {
-        subscribeInfoDialog.value = true;
-      },
+      click: editSubscribeDialog,
     },
   },
   {
@@ -161,11 +197,13 @@ const subscribeForm = reactive({
   total_episode: props.media?.total_episode,
   // 开始集数
   start_episode: props.media?.start_episode,
+  // 订阅站点
+  sites: props.media?.sites,
 });
 </script>
 
 <template>
-  <VCard :key="props.media?.id" v-if="cardState" @click="subscribeInfoDialog = true">
+  <VCard :key="props.media?.id" v-if="cardState" @click="editSubscribeDialog">
     <template #image>
       <VImg
         :src="props.media?.backdrop || props.media?.poster"
@@ -299,6 +337,17 @@ const subscribeForm = reactive({
                 v-model="subscribeForm.exclude"
                 label="排除（关键字、正则式）"
               />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol cols="12">
+              <VSelect
+                v-model="subscribeForm.sites"
+                :items="selectSitesOptions"
+                chips
+                label="订阅站点"
+                multiple
+              ></VSelect>
             </VCol>
           </VRow>
         </VForm>
