@@ -1,14 +1,33 @@
 <script lang="ts" setup>
 import api from "@/api";
 import { NotificationSwitch } from "@/api/types";
+import { useToast } from "vue-toast-notification";
 
 const messagemTypes = ref<NotificationSwitch[]>([]);
+
+// 提示框
+const $toast = useToast();
 
 // 调用API查询消息开关
 const loadNotificationSwitchs = async () => {
   try {
     const result: NotificationSwitch[] = await api.get("message/switchs");
     messagemTypes.value = result;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// 调用API保存消息开关
+const saveNotificationSwitchs = async () => {
+  try {
+    const result: { [key: string]: any } = await api.post("message/switchs", messagemTypes.value);
+    if (result.success) {
+      $toast.success("保存通知消息设置成功");
+    } else {
+      $toast.error("保存通知消息设置失败！");
+    }
+    messagemTypes.value = messagemTypes.value;
   } catch (error) {
     console.log(error);
   }
@@ -55,9 +74,9 @@ onMounted(() => {
     <VDivider />
 
     <VCardText>
-      <VForm @submit.prevent="() => {}">
+      <VForm @submit.prevent="() => { }">
         <div class="d-flex flex-wrap gap-4 mt-4">
-          <VBtn mtype="submit"> 保存 </VBtn>
+          <VBtn mtype="submit" @click="saveNotificationSwitchs"> 保存 </VBtn>
         </div>
       </VForm>
     </VCardText>
