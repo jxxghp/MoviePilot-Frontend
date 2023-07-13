@@ -100,7 +100,7 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="索引站点">
+      <VCard title="搜索站点">
         <VCardSubtitle> 只有选中的站点才会在搜索中使用 </VCardSubtitle>
 
         <VCardItem>

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import AccountSettingAccount from "@/views/account-setting/AccountSettingAccount.vue";
+import AccountSettingNotification from "@/views/account-setting/AccountSettingNotification.vue";
 import AccountSettingSystem from "@/views/account-setting/AccountSettingSystem.vue";
 import { useRoute } from "vue-router";
 
@@ -10,7 +11,8 @@ const activeTab = ref(route.params.tab);
 // tabs
 const tabs = [
   { title: "用户", icon: "mdi-account-outline", tab: "account" },
-  { title: "进阶", icon: "mdi-monitor-dashboard", tab: "system" },
+  { title: "搜索", icon: "mdi-magnify", tab: "system" },
+  { title: "通知", icon: "mdi-bell-outline", tab: "notification" },
 ];
 </script>
 
@@ -33,6 +35,11 @@ const tabs = [
       <!-- System -->
       <VWindowItem value="system">
         <AccountSettingSystem />
+      </VWindowItem>
+
+      <!-- Notification -->
+      <VWindowItem value="notification">
+        <AccountSettingNotification />
       </VWindowItem>
     </VWindow>
   </div>
