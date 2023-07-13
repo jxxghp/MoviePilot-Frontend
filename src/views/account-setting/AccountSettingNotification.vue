@@ -1,36 +1,22 @@
 <script lang="ts" setup>
-const messageTypes = ref([
-  {
-    type: "资源下载",
-    wechat: true,
-    telegram: true,
-    slack: true,
-  },
-  {
-    type: "整理入库",
-    wechat: true,
-    telegram: true,
-    slack: true,
-  },
-  {
-    type: "订阅",
-    wechat: true,
-    telegram: true,
-    slack: true,
-  },
-  {
-    type: "站点消息",
-    wechat: true,
-    telegram: true,
-    slack: true,
-  },
-  {
-    type: "媒体服务器通知",
-    wechat: true,
-    telegram: true,
-    slack: true,
-  },
-]);
+import api from "@/api";
+import { NotificationSwitch } from "@/api/types";
+
+const messagemTypes = ref<NotificationSwitch[]>([]);
+
+// 调用API查询消息开关
+const loadNotificationSwitchs = async () => {
+  try {
+    const result: NotificationSwitch[] = await api.get("message/switchs");
+    messagemTypes.value = result;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+onMounted(() => {
+  loadNotificationSwitchs();
+});
 </script>
 
 <template>
@@ -47,9 +33,9 @@ const messageTypes = ref([
         </tr>
       </thead>
       <tbody>
-        <tr v-for="message in messageTypes" :key="message.type">
+        <tr v-for="message in messagemTypes" :key="message.mtype">
           <td>
-            {{ message.type }}
+            {{ message.mtype }}
           </td>
           <td>
             <VCheckbox v-model="message.wechat" />
@@ -61,6 +47,9 @@ const messageTypes = ref([
             <VCheckbox v-model="message.slack" />
           </td>
         </tr>
+        <tr v-if="messagemTypes.length === 0">
+          <td colspan="4" align="center">没有设置任何通知渠道</td>
+        </tr>
       </tbody>
     </VTable>
     <VDivider />
@@ -68,7 +57,7 @@ const messageTypes = ref([
     <VCardText>
       <VForm @submit.prevent="() => {}">
         <div class="d-flex flex-wrap gap-4 mt-4">
-          <VBtn type="submit"> 保存 </VBtn>
+          <VBtn mtype="submit"> 保存 </VBtn>
         </div>
       </VForm>
     </VCardText>

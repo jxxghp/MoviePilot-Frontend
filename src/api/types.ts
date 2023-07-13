@@ -480,3 +480,14 @@ export interface ScheduleInfo {
   // 下次运行时间
   next_run: string;
 }
+
+
+// 消息通知
+export interface NotificationSwitch {
+  // 消息类型
+  mtype: string;
+  // 开关
+  wechat: boolean;
+  telegram: boolean;
+  slack: boolean;
+}
