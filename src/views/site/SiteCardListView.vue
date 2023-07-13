@@ -10,7 +10,7 @@ const dataList = ref<Site[]>([])
 // 是否刷新过
 const isRefreshed = ref(false)
 
-// 获取订阅列表数据
+// 获取站点列表数据
 const fetchData = async () => {
   try {
     dataList.value = await api.get('site')
