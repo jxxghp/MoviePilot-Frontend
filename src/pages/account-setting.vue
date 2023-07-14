@@ -11,7 +11,7 @@ const activeTab = ref(route.params.tab);
 // tabs
 const tabs = [
   { title: "用户", icon: "mdi-account-outline", tab: "account" },
-  { title: "搜索", icon: "mdi-magnify", tab: "system" },
+  { title: "系统", icon: "mdi-cog", tab: "system" },
   { title: "通知", icon: "mdi-bell-outline", tab: "notification" },
 ];
 </script>

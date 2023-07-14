@@ -21,7 +21,10 @@ const loadNotificationSwitchs = async () => {
 // 调用API保存消息开关
 const saveNotificationSwitchs = async () => {
   try {
-    const result: { [key: string]: any } = await api.post("message/switchs", messagemTypes.value);
+    const result: { [key: string]: any } = await api.post(
+      "message/switchs",
+      messagemTypes.value
+    );
     if (result.success) {
       $toast.success("保存通知消息设置成功");
     } else {
@@ -74,7 +77,7 @@ onMounted(() => {
     <VDivider />
 
     <VCardText>
-      <VForm @submit.prevent="() => { }">
+      <VForm @submit.prevent="() => {}">
         <div class="d-flex flex-wrap gap-4 mt-4">
           <VBtn mtype="submit" @click="saveNotificationSwitchs"> 保存 </VBtn>
         </div>

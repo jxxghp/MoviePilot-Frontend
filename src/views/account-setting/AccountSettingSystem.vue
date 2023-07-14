@@ -100,8 +100,8 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="搜索站点">
-        <VCardSubtitle> 只有选中的站点才会在搜索中使用 </VCardSubtitle>
+      <VCard title="索引站点">
+        <VCardSubtitle> 只有选中的站点才会在搜索和订阅中使用 </VCardSubtitle>
 
         <VCardItem>
           <VChipGroup v-model="selectedSites" column multiple>
