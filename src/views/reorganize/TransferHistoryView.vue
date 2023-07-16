@@ -47,6 +47,9 @@ const loading = ref(false);
 // 总条数
 const totalItems = ref(0);
 
+// 每页条数
+const itemsPerPage = ref(25);
+
 // 获取订阅列表数据
 const fetchData = async ({ page, itemsPerPage, sortBy }) => {
   loading.value = true;
@@ -185,7 +188,7 @@ const dropdownItems = ref([
       <VCardTitle>历史记录</VCardTitle>
     </VCardItem>
     <VDataTable
-      v-model="selectedHistory"
+      v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="dataList"
       :items-length="totalItems"
@@ -196,7 +199,6 @@ const dropdownItems = ref([
       item-value="id"
       return-object
       fixed-header
-      :items-per-page="25"
       items-per-page-text="每页条数"
       page-text="{0}-{1} 共 {2} 条"
     >
