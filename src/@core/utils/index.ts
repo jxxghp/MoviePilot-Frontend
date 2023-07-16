@@ -32,6 +32,7 @@ export const isToday = (date: Date) => {
   )
 }
 
+// 计算时间差，返回xx天xx小时xx分钟
 export const calculateTimeDifference = (inputTime: string): string => {
 
   if (!inputTime) {
@@ -56,4 +57,14 @@ export const calculateTimeDifference = (inputTime: string): string => {
     const days = Math.floor(secondsDifference / 86400);
     return `${days}天`;
   }
+}
+
+// 判断一个数组subArray是不是在另一个数组mainArray中
+export const isContained = (subArray: any[], mainArray: any[]): boolean => {
+  return subArray.every(element => mainArray.includes(element));
+}
+
+// 判断两个数组是否存在交集
+export const isIntersected = (array1: any[], array2: any[]): boolean => {
+  return array1.some(element => array2.includes(element));
 }

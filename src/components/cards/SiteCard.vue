@@ -188,7 +188,7 @@ onMounted(() => {
     @click="siteInfoDialog = true"
   >
     <template #image>
-      <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
+      <VAvatar class="absolute right-2 bottom-2 rounded" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
