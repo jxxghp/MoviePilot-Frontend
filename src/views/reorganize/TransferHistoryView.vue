@@ -190,6 +190,7 @@ const dropdownItems = ref([
       :items="dataList"
       :items-length="totalItems"
       :search="search"
+      :loading="loading"
       @update:options="fetchData"
       density="compact"
       item-value="id"
