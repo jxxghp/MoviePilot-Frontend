@@ -99,8 +99,8 @@ const downloadTorrentFile = async () => {
   window.open(torrent.value?.enclosure, "_blank");
 };
 
-// 促销Chip颜色
-const getVolumeFactorColor = (downloadVolume: number, uploadVolume: number) => {
+// 促销Chip类
+const getVolumeFactorClass = (downloadVolume: number, uploadVolume: number) => {
   if (downloadVolume === 0) {
     return "text-white bg-lime-500";
   } else if (downloadVolume < 1) {
@@ -189,7 +189,7 @@ const dropdownItems = ref([
       <VChip v-if="meta?.resource_team" variant="elevated" size="small" class="me-1 mb-1 text-white bg-cyan-500">
         {{ meta?.resource_team }}
       </VChip>
-      <VChip v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1" :class="getVolumeFactorColor(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
+      <VChip v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1" :class="getVolumeFactorClass(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
         " variant="elevated" size="small" class="me-1 mb-1">
         {{ torrent?.volume_factor }}
       </VChip>
@@ -214,7 +214,10 @@ const dropdownItems = ref([
             )
             ">
             <template #append>
-              <VBadge color="primary" :content="item.torrent_info?.seeders" inline size="small"></VBadge>
+              <VBadge color="primary" :content="`↑${item.torrent_info?.seeders}`" inline size="small"></VBadge>
+              <VBadge :content="item.torrent_info?.volume_factor" inline size="small"
+                v-if="item.torrent_info?.downloadvolumefactor !== 1 || item.torrent_info?.uploadvolumefactor !== 1">
+              </VBadge>
             </template>
             {{ item.torrent_info.site_name }}
           </VChip>
