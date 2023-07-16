@@ -2,7 +2,7 @@
 import { numberValidator, requiredValidator } from "@/@validators";
 import api from "@/api";
 import type { TransferHistory } from "@/api/types";
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 import { useToast } from "vue-toast-notification";
 import { useConfirm } from "vuetify-use-dialog";
 
@@ -38,13 +38,32 @@ const dataList = ref<TransferHistory[]>([]);
 // 选中的历史记录
 const selectedHistory = ref<TransferHistory[]>([]);
 
+// 搜索
+const search = ref("");
+
+// 加载状态
+const loading = ref(false);
+
+// 总条数
+const totalItems = ref(0);
+
 // 获取订阅列表数据
-const fetchData = async () => {
+const fetchData = async ({ page, itemsPerPage, sortBy }) => {
+  loading.value = true;
   try {
-    dataList.value = await api.get("history/transfer");
+    const result: {[key: string]: any} = await api.get("history/transfer", {
+      params: {
+        page,
+        count: itemsPerPage,
+        title: search.value,
+      },
+    });
+    dataList.value = result.data.list;
+    totalItems.value = result.data.total;
   } catch (error) {
     console.error(error);
   }
+  loading.value = false;
 };
 
 // 根据 type 返回不同的图标
@@ -95,7 +114,7 @@ const removeHistory = async (item: TransferHistory) => {
       },
     });
     if (result.success) {
-      fetchData();
+      // TODO
     } else {
       $toast.error(`删除失败: ${result.msg}`);
     }
@@ -126,7 +145,7 @@ const rehandleHistory = async () => {
       }
     );
     if (result.success) {
-      fetchData();
+      // TODO
     } else {
       $toast.error(`重新整理失败: ${result.message}！`);
     }
@@ -134,9 +153,6 @@ const rehandleHistory = async () => {
     console.log(e);
   }
 };
-
-// 加载时获取数据
-onMounted(fetchData);
 
 // 弹出菜单
 const dropdownItems = ref([
@@ -172,6 +188,9 @@ const dropdownItems = ref([
       v-model="selectedHistory"
       :headers="headers"
       :items="dataList"
+      :items-length="totalItems"
+      :search="search"
+      @update:options="fetchData"
       density="compact"
       item-value="id"
       return-object
