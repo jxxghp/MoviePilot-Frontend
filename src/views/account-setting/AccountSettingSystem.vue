@@ -108,6 +108,8 @@ const resetSites = async () => {
     const result: { [key: string]: any } = await api.get("site/reset");
     if (result.success) {
       $toast.success("站点重置成功，请等待CookieCloud同步完成！");
+      querySites();
+      queryTorrentPriority();
     } else {
       $toast.error("站点重置失败！");
     }
@@ -175,7 +177,7 @@ onMounted(() => {
           </div>
 
           <VBtn
-            :disabled="!isConfirmResetSites && !resetSitesDisabled"
+            :disabled="!isConfirmResetSites || resetSitesDisabled"
             color="error"
             class="mt-3"
             @click="resetSites"
