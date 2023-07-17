@@ -83,7 +83,15 @@ onMounted(() => {
       <VCard title="自定义识别词">
         <VCardSubtitle> 自定义识别词辅助识别种子或文件 </VCardSubtitle>
         <VCardItem>
-          <VTextarea v-model="customIdentifiers" auto-grow> </VTextarea>
+          <VTextarea
+            v-model="customIdentifiers"
+            auto-grow
+            placeholder="支持正则表达式，特殊字符需要\转义，一行为一组，支持三种配置格式：
+屏蔽词
+被替换词 => 替换词
+前定位词 <> 后定位词 >> 偏移量（EP）"
+          >
+          </VTextarea>
         </VCardItem>
         <VCardItem>
           <VBtn type="submit" @click="saveCustomIdentifiers"> 保存 </VBtn>
@@ -94,7 +102,12 @@ onMounted(() => {
       <VCard title="自定义制作组/字幕组">
         <VCardSubtitle> 添加无法识别的制作组/字幕组 </VCardSubtitle>
         <VCardItem>
-          <VTextarea v-model="customReleaseGroups" auto-grow> </VTextarea>
+          <VTextarea
+            v-model="customReleaseGroups"
+            auto-grow
+            placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个制作组/字幕组"
+          >
+          </VTextarea>
         </VCardItem>
         <VCardItem>
           <VBtn type="submit" @click="saveCustomReleaseGroups"> 保存 </VBtn>
