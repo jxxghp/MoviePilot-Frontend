@@ -2,6 +2,7 @@
 import AccountSettingAccount from "@/views/account-setting/AccountSettingAccount.vue";
 import AccountSettingNotification from "@/views/account-setting/AccountSettingNotification.vue";
 import AccountSettingSystem from "@/views/account-setting/AccountSettingSystem.vue";
+import AccountSettingWords from "@/views/account-setting/AccountSettingWords.vue";
 import { useRoute } from "vue-router";
 
 const route = useRoute();
@@ -13,6 +14,7 @@ const tabs = [
   { title: "用户", icon: "mdi-account-outline", tab: "account" },
   { title: "系统", icon: "mdi-cog", tab: "system" },
   { title: "通知", icon: "mdi-bell-outline", tab: "notification" },
+  { title: "自定义词表", icon: "mdi-file-word-box", tab: "words" },
 ];
 </script>
 
@@ -40,6 +42,10 @@ const tabs = [
       <!-- Notification -->
       <VWindowItem value="notification">
         <AccountSettingNotification />
+      </VWindowItem>
+      <!-- Words -->
+      <VWindowItem value="words">
+        <AccountSettingWords />
       </VWindowItem>
     </VWindow>
   </div>
