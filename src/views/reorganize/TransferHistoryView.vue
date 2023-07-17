@@ -23,20 +23,17 @@ const currentHistory = ref<TransferHistory>();
 
 // 表头
 const headers = [
-  { title: "标题", key: "title" },
-  { title: "目录", key: "src" },
-  { title: "转移方式", key: "mode" },
-  { title: "时间", key: "date" },
-  { title: "状态", key: "status" },
-  { title: "失败原因", key: "errmsg" },
+  { title: "标题", key: "title", sortable: false },
+  { title: "目录", key: "src", sortable: false },
+  { title: "转移方式", key: "mode", sortable: false },
+  { title: "时间", key: "date", sortable: false },
+  { title: "状态", key: "status", sortable: false },
+  { title: "失败原因", key: "errmsg", sortable: false },
   { title: "", key: "actions", sortable: false },
 ];
 
 // 数据列表
 const dataList = ref<TransferHistory[]>([]);
-
-// 选中的历史记录
-const selectedHistory = ref<TransferHistory[]>([]);
 
 // 搜索
 const search = ref("");
@@ -50,11 +47,21 @@ const totalItems = ref(0);
 // 每页条数
 const itemsPerPage = ref(25);
 
+// 当前页码
+const currentPage = ref(1);
+
 // 获取订阅列表数据
-const fetchData = async ({ page, itemsPerPage, sortBy }) => {
+const fetchData = async ({
+  page,
+  itemsPerPage,
+}: {
+  page: number;
+  itemsPerPage: number;
+}) => {
   loading.value = true;
   try {
-    const result: {[key: string]: any} = await api.get("history/transfer", {
+    currentPage.value = page;
+    const result: { [key: string]: any } = await api.get("history/transfer", {
       params: {
         page,
         count: itemsPerPage,
@@ -117,7 +124,10 @@ const removeHistory = async (item: TransferHistory) => {
       },
     });
     if (result.success) {
-      // TODO
+      fetchData({
+        page: currentPage.value,
+        itemsPerPage: itemsPerPage.value,
+      });
     } else {
       $toast.error(`删除失败: ${result.msg}`);
     }
@@ -148,7 +158,10 @@ const rehandleHistory = async () => {
       }
     );
     if (result.success) {
-      // TODO
+      fetchData({
+        page: currentPage.value,
+        itemsPerPage: itemsPerPage.value,
+      });
     } else {
       $toast.error(`重新整理失败: ${result.message}！`);
     }
@@ -185,9 +198,27 @@ const dropdownItems = ref([
 <template>
   <VCard class="pb-5">
     <VCardItem>
-      <VCardTitle>历史记录</VCardTitle>
+      <VCardTitle>
+        <VRow>
+          <VCol> 历史记录 </VCol>
+          <VCol>
+            <VTextField
+              key="search_navbar"
+              v-model="search"
+              class="text-disabled"
+              density="compact"
+              label="搜索"
+              append-inner-icon="mdi-magnify"
+              single-line
+              hide-details
+              flat
+              rounded
+            />
+          </VCol>
+        </VRow>
+      </VCardTitle>
     </VCardItem>
-    <VDataTable
+    <VDataTableServer
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="dataList"
@@ -254,7 +285,7 @@ const dropdownItems = ref([
         </IconBtn>
       </template>
       <template #no-data> 没有数据 </template>
-    </VDataTable>
+    </VDataTableServer>
   </VCard>
   <VDialog v-model="redoDialog" max-width="600">
     <!-- Dialog Content -->
