@@ -81,7 +81,7 @@ onMounted(() => {
   <VRow>
     <VCol cols="12">
       <VCard title="自定义识别词">
-        <VCardSubtitle> 自定义识别词辅助识别种子或文件 </VCardSubtitle>
+        <VCardSubtitle> 添加规则对种子名或者文件名进行预处理以校正识别 </VCardSubtitle>
         <VCardItem>
           <VTextarea
             v-model="customIdentifiers"
