@@ -209,6 +209,7 @@ const dropdownItems = ref([
               density="compact"
               label="搜索"
               append-inner-icon="mdi-magnify"
+              variant="solo-filled"
               single-line
               hide-details
               flat
