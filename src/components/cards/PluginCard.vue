@@ -19,7 +19,7 @@ const showPluginInfo = () => {};
     >
       <VAvatar size="128" class="shadow">
         <VImg
-          :src="`/src/assets/images/plugin/${props.plugin?.plugin_icon}`"
+          :src="`@/assets/images/plugin/${props.plugin?.plugin_icon}`"
           aspect-ratio="4/3"
           cover
         />
