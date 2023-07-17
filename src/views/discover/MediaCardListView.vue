@@ -42,7 +42,7 @@ const getParams = () => {
 };
 
 // 获取订阅列表数据
-const fetchData = async ({ done }) => {
+const fetchData = async ({ done }: { done: any }) => {
   try {
     if (!props.apipath) {
       return;
@@ -136,5 +136,4 @@ const fetchData = async ({ done }) => {
 .grid-media-card {
   grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
 }
-
 </style>
