@@ -14,7 +14,7 @@ const appsMenu = ref(false);
     <!-- Menu Activator -->
     <template #activator="{ props }">
       <IconBtn class="me-2" v-bind="props">
-        <VIcon icon="mdi-apps" />
+        <VIcon icon="mdi-checkbox-multiple-blank-outline" />
       </IconBtn>
     </template>
     <!-- Menu Content -->
