@@ -1,4 +1,5 @@
 <script lang="ts">
+import { Transition } from 'vue'
 import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
 
@@ -50,7 +51,9 @@ export default defineComponent({
       const main = h(
         'main',
         { class: 'layout-page-content' },
-        h('div', { class: 'page-content-container' }, slots.default?.()),
+        h(Transition, { name: 'fade-slide', mode: 'out-in', appear: true },
+          h('section', { class: 'page-content-container' }, slots.default?.()),
+        ),
       )
 
       // 👉 Footer

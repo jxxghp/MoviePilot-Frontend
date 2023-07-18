@@ -6,11 +6,11 @@
 
 html {
   min-height: calc(100% + env(safe-area-inset-top));
-  background: rgb(var(--v-theme-background));
+  //background: rgb(var(--v-theme-background));
 }
 
 body {
-  background: rgb(var(--v-theme-background));
+  //background: rgb(var(--v-theme-background));
   overscroll-behavior-y: contain;
   --webkit-overflow-scrolling: touch;
 }

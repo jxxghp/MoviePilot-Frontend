@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import type { PropType } from 'vue'
+import type { PropType, Ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type { MediaInfo, NotExistMediaInfo, Subscribe, TmdbSeason } from '@/api/types'
 import router from '@/router'
+import noImage from '@images/no-image.jpeg'
 
 // 输入参数
 const props = defineProps({
@@ -392,13 +393,16 @@ const seasonsHeaders = [
 ]
 
 // 计算图片地址
-function getImgUrl(url: string) {
+const getImgUrl: Ref<string> = computed(() => {
+  if (imageLoadError.value)
+    return noImage
+  const url = props.media?.poster_path || noImage
   // 如果地址中包含douban则使用中转代理
   if (url.includes('doubanio.com'))
     return `${import.meta.env.VITE_API_BASE_URL}douban/img/${encodeURIComponent(url)}`
 
   return url
-}
+})
 </script>
 
 <template>
@@ -408,15 +412,24 @@ function getImgUrl(url: string) {
         v-bind="hover.props"
         :height="props.height"
         :width="props.width"
+        :loading="!isImageLoaded"
         class="outline-none shadow ring-gray-500"
         :class="{
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
         }"
       >
+        <template #loader="{ isActive }">
+          <v-progress-linear
+            :active="isActive"
+            color="deep-purple"
+            height="4"
+            indeterminate
+          />
+        </template>
         <VImg
           aspect-ratio="2/3"
-          :src="getImgUrl(props.media?.poster_path || '')"
+          :src="getImgUrl"
           class="object-cover aspect-w-2 aspect-h-3"
           :class="hover.isHovering ? 'on-hover' : ''"
           cover
@@ -424,12 +437,16 @@ function getImgUrl(url: string) {
           @error="imageLoadError = true"
         >
           <template #placeholder>
-            <div class="relative animate-pulse bg-gray-300 w-full">
-              <div class="w-full h-full" />
+            <div class="d-flex align-center justify-center fill-height">
+              <v-progress-circular
+                color="grey-lighten-4"
+                indeterminate
+              />
             </div>
           </template>
           <!-- 类型角标 -->
           <VChip
+            v-show="isImageLoaded"
             variant="elevated"
             size="small"
             :class="getChipColor(props.media?.type || '')"
@@ -441,7 +458,7 @@ function getImgUrl(url: string) {
           <ExistIcon v-if="isExists" />
           <!-- 评分角标 -->
           <VChip
-            v-if="props.media?.vote_average && !isExists"
+            v-if="isImageLoaded && props.media?.vote_average && !isExists"
             variant="elevated"
             size="small"
             :class="getChipColor('rating')"
