@@ -6,34 +6,14 @@ import VerticalNavLink from "@layouts/components/VerticalNavLink.vue";
 // Components
 import Footer from "@/layouts/components/Footer.vue";
 import NavbarThemeSwitcher from "@/layouts/components/NavbarThemeSwitcher.vue";
+import SearchBar from "@/layouts/components/SearchBar.vue";
+import ShortcutBar from "@/layouts/components/ShortcutBar.vue";
 import UserProfile from "@/layouts/components/UserProfile.vue";
 import store from "@/store";
 import { useToast } from "vue-toast-notification";
 
-const router = useRouter();
-
-// 搜索词
-const searchWord = ref<string>("");
-
-// 搜索弹窗
-const searchDialog = ref(false);
-
 // 提示框
 const $toast = useToast();
-
-// Search
-const search = () => {
-  if (!searchWord.value) {
-    return;
-  }
-  searchDialog.value = false;
-  router.push({
-    path: "/browse/media/search",
-    query: {
-      title: searchWord.value,
-    },
-  });
-};
 
 // 消息SSE
 onMounted(() => {
@@ -58,66 +38,20 @@ onMounted(() => {
 
 <template>
   <VerticalNavLayout>
-    <!-- 👉 navbar -->
+    <!-- 👉 Navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center mx-1">
-        <!-- 👉 Vertical nav toggle in overlay mode -->
+        <!-- 👉 Vertical Nav Toggle -->
         <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
         </IconBtn>
 
-        <!-- 👉 Search -->
-        <div class="d-flex align-center cursor-pointer" style="user-select: none;">
-          <!-- 👉 Search Trigger button -->
-          <VDialog
-            v-model="searchDialog"
-            max-width="600"
-            transition="dialog-top-transition"
-          >
-            <!-- Dialog Activator -->
-            <template #activator="{ props }">
-              <IconBtn class="d-lg-none" v-bind="props">
-                <VIcon icon="mdi-magnify" />
-              </IconBtn>
-            </template>
-            <!-- Dialog Content -->
-            <VCard title="搜索">
-              <VCardText>
-                <VRow>
-                  <VCol cols="12">
-                    <VTextField v-model="searchWord" label="电影、电视剧名称" />
-                  </VCol>
-                </VRow>
-              </VCardText>
-
-              <VCardActions>
-                <VSpacer />
-                <VBtn @click="search" @keydown.enter="search"> 搜索 </VBtn>
-              </VCardActions>
-            </VCard>
-          </VDialog>
-        </div>
-
-        <span class="w-1/5">
-          <VTextField
-            key="search_navbar"
-            v-model="searchWord"
-            class="d-none d-lg-block text-disabled"
-            density="compact"
-            variant="solo"
-            label="搜索电影、电视剧"
-            append-inner-icon="mdi-magnify"
-            single-line
-            hide-details
-            @click:append-inner="search"
-            @keydown.enter="search"
-            flat
-            rounded
-          />
-        </span>
+        <!-- 👉 Search Bar -->
+        <SearchBar />
 
         <VSpacer />
 
+        <!-- 👉 Github -->
         <IconBtn
           class="me-2"
           href="https://github.com/jxxghp/MoviePilot"
@@ -127,12 +61,13 @@ onMounted(() => {
           <VIcon icon="mdi-github" />
         </IconBtn>
 
-        <IconBtn class="me-2">
-          <VIcon icon="mdi-bell-outline" />
-        </IconBtn>
+        <!-- 👉 Shortcuts -->
+        <ShortcutBar />
 
+        <!-- 👉 Theme -->
         <NavbarThemeSwitcher class="me-2" />
 
+        <!-- 👉 UserProfile -->
         <UserProfile />
       </div>
     </template>
