@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import NameTestView from "@/views/system/NametestView.vue";
-import NetTestView from "@/views/system/NettestView.vue";
+import NameTestView from "@/views/system/NameTestView.vue";
+import NetTestView from "@/views/system/NetTestView.vue";
 
 // App捷径
 const appsMenu = ref(false);
