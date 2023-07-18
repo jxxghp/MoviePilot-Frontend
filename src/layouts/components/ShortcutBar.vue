@@ -1,6 +1,14 @@
 <script lang="ts" setup>
+import NameTestView from "@/views/system/NametestView.vue";
+import NetTestView from "@/views/system/NettestView.vue";
 // App捷径
 const appsMenu = ref(false);
+
+// 名称测试弹窗
+const nameTestDialog = ref(false);
+
+// 网络测试弹窗
+const netTestDialog = ref(false);
 </script>
 
 <template>
@@ -26,7 +34,7 @@ const appsMenu = ref(false);
             cols="6"
             class="text-center border-t cursor-pointer pa-0 shortcut-icon border-e"
           >
-            <VListItem @click="() => {}" class="pa-4">
+            <VListItem @click="nameTestDialog = true" class="pa-4">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-text-recognition" />
               </VAvatar>
@@ -39,7 +47,7 @@ const appsMenu = ref(false);
             cols="6"
             class="text-center border-t cursor-pointer pa-0 shortcut-icon"
           >
-            <VListItem @click="() => {}" class="pa-4">
+            <VListItem @click="netTestDialog = true" class="pa-4">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-network-outline" />
               </VAvatar>
@@ -51,4 +59,20 @@ const appsMenu = ref(false);
       </div>
     </VCard>
   </VMenu>
+  <!-- 名称测试弹窗 -->
+  <VDialog v-model="nameTestDialog" max-width="800">
+    <NameTestView />
+  </VDialog>
+  <!-- 网络测试弹窗 -->
+  <VDialog v-model="netTestDialog" max-width="600">
+    <VCard title="网络测试">
+      <VCardItem>
+        <NetTestView />
+      </VCardItem>
+      <VCardActions>
+        <VSpacer />
+        <VBtn @click="netTestDialog = false">关闭</VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
