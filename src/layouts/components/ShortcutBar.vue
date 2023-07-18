@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import NameTestView from "@/views/system/NametestView.vue";
 import NetTestView from "@/views/system/NettestView.vue";
+
 // App捷径
 const appsMenu = ref(false);
 
@@ -26,14 +27,13 @@ const netTestDialog = ref(false);
       </IconBtn>
     </template>
     <!-- Menu Content -->
-    <VCard title="捷径">
-      <VDivider />
+    <VCard>
+      <VCardItem class="border-b">
+        <VCardTitle>捷径</VCardTitle>
+      </VCardItem>
       <div class="ps ps--active-y">
         <VRow class="ma-0 mt-n1">
-          <VCol
-            cols="6"
-            class="text-center border-t cursor-pointer pa-0 shortcut-icon border-e"
-          >
+          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon border-e">
             <VListItem @click="nameTestDialog = true" class="pa-4">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-text-recognition" />
@@ -45,7 +45,7 @@ const netTestDialog = ref(false);
           <VCol
             @click="() => {}"
             cols="6"
-            class="text-center border-t cursor-pointer pa-0 shortcut-icon"
+            class="text-center cursor-pointer pa-0 shortcut-icon"
           >
             <VListItem @click="netTestDialog = true" class="pa-4">
               <VAvatar size="48" variant="tonal">
@@ -61,18 +61,20 @@ const netTestDialog = ref(false);
   </VMenu>
   <!-- 名称测试弹窗 -->
   <VDialog v-model="nameTestDialog" max-width="800">
-    <NameTestView />
+    <VCard title="名称识别测试">
+      <DialogCloseBtn @click="nameTestDialog = false" />
+      <VCardItem>
+        <NameTestView />
+      </VCardItem>
+    </VCard>
   </VDialog>
   <!-- 网络测试弹窗 -->
   <VDialog v-model="netTestDialog" max-width="600">
     <VCard title="网络测试">
+      <DialogCloseBtn @click="netTestDialog = false" />
       <VCardItem>
         <NetTestView />
       </VCardItem>
-      <VCardActions>
-        <VSpacer />
-        <VBtn @click="netTestDialog = false">关闭</VBtn>
-      </VCardActions>
     </VCard>
   </VDialog>
 </template>

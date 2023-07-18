@@ -1,87 +1,194 @@
 <script setup lang="ts">
-import avatar1 from "@images/avatars/avatar-1.png";
-import avatar2 from "@images/avatars/avatar-2.png";
-import avatar3 from "@images/avatars/avatar-3.png";
-import avatar4 from "@images/avatars/avatar-4.png";
+import api from "@/api";
+import douban from "@images/logos/douban.png";
+import github from "@images/logos/github.png";
+import slack from "@images/logos/slack.png";
+import telegram from "@images/logos/telegram.webp";
+import tmdb from "@images/logos/tmdb.png";
+import wechat from "@images/logos/wechat.png";
 
 interface Status {
-  Online: string;
-  Away: string;
-  Offline: string;
-  "In Meeting": string;
+  OK: string;
+  Fail: string;
+  Normal: string;
 }
 
-interface Users {
-  avatar: string;
+interface Address {
+  image: string;
   name: string;
+  url: string;
+  proxy: boolean;
   status: keyof Status;
-  lastVisited: string;
+  time: string;
+  message: string;
+  btntext: string;
+  btndisable: boolean;
 }
 
-const users: Users[] = [
+// 测试集
+const targets = ref<Address[]>([
   {
-    avatar: avatar1,
-    name: "Caroline Black",
-    status: "Online",
-    lastVisited: "13 minutes ago",
+    image: tmdb,
+    name: "api.themoviedb.org",
+    url: "https://api.themoviedb.org",
+    proxy: true,
+    status: "Normal",
+    time: "",
+    message: "",
+    btntext: "测试",
+    btndisable: false,
   },
   {
-    avatar: avatar2,
-    name: "Alfred Copeland",
-    status: "Away",
-    lastVisited: "11 minutes ago",
+    image: tmdb,
+    name: "api.tmdb.org",
+    url: "https://api.tmdb.org",
+    proxy: true,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
   },
   {
-    avatar: avatar3,
-    name: "Celia Schneider",
-    status: "Offline",
-    lastVisited: "9 minutes ago",
+    image: tmdb,
+    name: "www.themoviedb.org",
+    url: "https://www.themoviedb.org",
+    proxy: true,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
   },
   {
-    avatar: avatar4,
-    name: "Max Rogan",
-    status: "In Meeting",
-    lastVisited: "28 minutes ago",
+    image: telegram,
+    name: "api.telegram.org",
+    url: "https://api.telegram.org",
+    proxy: true,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
   },
-];
+  {
+    image: wechat,
+    name: "qyapi.weixin.qq.com",
+    url: "https://qyapi.weixin.qq.com",
+    proxy: false,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
+  },
+  {
+    image: douban,
+    name: "frodo.douban.com",
+    url: "https://frodo.douban.com",
+    proxy: false,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
+  },
+  {
+    image: slack,
+    name: "slack.com",
+    url: "https://slack.com",
+    proxy: false,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
+  },
+  {
+    image: github,
+    name: "github.com",
+    url: "https://github.com",
+    proxy: true,
+    status: "Normal",
+    time: "",
+    message: "未测试",
+    btntext: "测试",
+    btndisable: false,
+  },
+]);
 
 const resolveStatusColor: Status = {
-  Online: "success",
-  Away: "warning",
-  Offline: "secondary",
-  "In Meeting": "error",
+  OK: "success",
+  Fail: "error",
+  Normal: "",
 };
+
+// 调用API测试网络连接
+const netTest = async (index: number) => {
+  try {
+    const target = targets.value[index];
+    target.btntext = "测试中...";
+    target.btndisable = true;
+    const result: { [key: string]: any } = await api.get("system/nettest", {
+      params: {
+        url: target.url,
+        proxy: target.proxy,
+      },
+    });
+    if (result.success) {
+      target.status = "OK";
+      target.message = "正常";
+    } else {
+      target.status = "Fail";
+      target.message = result.message;
+    }
+    target.time = result.data?.time;
+    target.btntext = "测试";
+    target.btndisable = false;
+  } catch (error) {
+    console.error(error);
+  }
+};
+// 加载时测试所有连接
+onMounted(async () => {
+  for (let i = 0; i < targets.value.length; i++) {
+    await netTest(i);
+  }
+});
 </script>
 
 <template>
   <VList lines="two" border rounded>
-    <template v-for="(user, index) of users" :key="user.name">
+    <template v-for="(target, index) of targets" :key="target.name">
       <VListItem>
         <template #prepend>
-          <VAvatar :image="user.avatar" />
+          <VAvatar :image="target.image" />
         </template>
         <VListItemTitle>
-          {{ user.name }}
+          {{ target.name }}
         </VListItemTitle>
         <VListItemSubtitle class="mt-1 me-2">
           <VBadge
             dot
             location="start center"
             offset-x="2"
-            :color="resolveStatusColor[user.status]"
+            :color="resolveStatusColor[target.status]"
             class="me-3"
           >
-            <span class="ms-4">{{ user.status }}</span>
+            <span class="ms-4">{{ target.message }}</span>
           </VBadge>
 
-          <span class="text-xs text-wrap text-disabled">{{ user.lastVisited }}</span>
+          <span class="text-xs text-wrap text-disabled" v-if="target.time">
+            {{ target.time }} ms
+          </span>
         </VListItemSubtitle>
-
         <template #append>
-          <VBtn size="small"> Add </VBtn>
+          <VBtn size="small" @click="netTest(index)" :disabled="target.btndisable">
+            {{ target.btntext }}
+          </VBtn>
         </template>
       </VListItem>
-      <VDivider v-if="index !== users.length - 1" />
+      <VDivider v-if="index !== targets.length - 1" />
     </template>
   </VList>
 </template>
