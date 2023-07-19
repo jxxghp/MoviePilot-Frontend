@@ -44,11 +44,13 @@ const changeAvatar = (file: Event) => {
   const fileReader = new FileReader();
   const { files } = file.target as HTMLInputElement;
 
-  if (files && files.length) {
+  if (files && files.length > 0) {
     fileReader.readAsDataURL(files[0]);
     fileReader.onload = () => {
-      if (typeof fileReader.result === "string")
+      if (typeof fileReader.result === "string") {
         accountInfo.value.avatar = fileReader.result;
+        saveAccountInfo();
+      }
     };
   }
 };
