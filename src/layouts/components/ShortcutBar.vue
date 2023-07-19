@@ -18,6 +18,9 @@ const netTestDialog = ref(false);
     max-width="600"
     width="340"
     max-height="560"
+    location="top end"
+    origin="top end"
+    transition="scale-transition"
     close-on-content-click
   >
     <!-- Menu Activator -->
@@ -30,6 +33,11 @@ const netTestDialog = ref(false);
     <VCard>
       <VCardItem class="border-b">
         <VCardTitle>捷径</VCardTitle>
+        <template #append>
+          <IconBtn @click="() => {}">
+            <VIcon icon="mdi-checkbox-multiple-blank-outline" />
+          </IconBtn>
+        </template>
       </VCardItem>
       <div class="ps ps--active-y">
         <VRow class="ma-0 mt-n1">
