@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import AccountSettingAccount from "@/views/account-setting/AccountSettingAccount.vue";
+import AccountSettingFilter from "@/views/account-setting/AccountSettingFilter.vue";
 import AccountSettingNotification from "@/views/account-setting/AccountSettingNotification.vue";
 import AccountSettingSystem from "@/views/account-setting/AccountSettingSystem.vue";
 import AccountSettingWords from "@/views/account-setting/AccountSettingWords.vue";
@@ -11,9 +12,10 @@ const activeTab = ref(route.params.tab);
 
 // tabs
 const tabs = [
-  { title: "用户", icon: "mdi-account-outline", tab: "account" },
-  { title: "资源", icon: "mdi-file-multiple", tab: "system" },
-  { title: "通知", icon: "mdi-bell-outline", tab: "notification" },
+  { title: "用户", icon: "mdi-account", tab: "account" },
+  { title: "站点", icon: "mdi-sitemap", tab: "system" },
+  { title: "规则", icon: "mdi-filter-cog", tab: "filter" },
+  { title: "通知", icon: "mdi-bell", tab: "notification" },
   { title: "自定义词表", icon: "mdi-file-word-box", tab: "words" },
 ];
 </script>
@@ -37,6 +39,11 @@ const tabs = [
       <!-- System -->
       <VWindowItem value="system">
         <AccountSettingSystem />
+      </VWindowItem>
+
+      <!-- Notification -->
+      <VWindowItem value="filter">
+        <AccountSettingFilter />
       </VWindowItem>
 
       <!-- Notification -->

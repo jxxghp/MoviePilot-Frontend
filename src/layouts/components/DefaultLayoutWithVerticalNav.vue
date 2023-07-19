@@ -158,7 +158,7 @@ onMounted(() => {
       />
       <VerticalNavLink
         :item="{
-          title: '站点',
+          title: '站点管理',
           icon: 'mdi-web',
           to: '/site',
         }"
