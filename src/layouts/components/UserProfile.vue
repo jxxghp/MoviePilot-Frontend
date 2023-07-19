@@ -38,7 +38,7 @@ const accountInfo: any = inject("accountInfo");
                   color="success"
                 >
                   <VAvatar color="primary" variant="tonal">
-                    <VImg :src="avatar1" />
+                    <VImg :src="accountInfo.avatar" />
                   </VAvatar>
                 </VBadge>
               </VListItemAction>
