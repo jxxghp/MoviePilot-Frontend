@@ -70,7 +70,7 @@ onMounted(() => {
           </td>
         </tr>
         <tr v-if="messagemTypes.length === 0">
-          <td colspan="4" align="center">没有设置任何通知渠道</td>
+          <td colspan="4" class="text-center">没有设置任何通知渠道</td>
         </tr>
       </tbody>
     </VTable>

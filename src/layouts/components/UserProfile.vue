@@ -84,11 +84,14 @@ onMounted(() => {
               <VIcon class="me-2" icon="mdi-account-outline" size="22" />
             </template>
 
-            <VListItemTitle>配置中心</VListItemTitle>
+            <VListItemTitle>设定</VListItemTitle>
           </VListItem>
 
           <!-- 👉 FAQ -->
-          <VListItem link>
+          <VListItem
+            href="https://github.com/jxxghp/MoviePilot/blob/main/README.md"
+            target="_blank"
+          >
             <template #prepend>
               <VIcon class="me-2" icon="mdi-help-circle-outline" size="22" />
             </template>
