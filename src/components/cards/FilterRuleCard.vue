@@ -40,6 +40,8 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: "排除杜比", value: " !DOLBY ", color: "error" },
   { title: "HDR", value: " HDR ", color: "success" },
   { title: "排除HDR", value: " !HDR ", color: "error" },
+  { title: "国语配音", value: " CNVOI ", color: "error" },
+  { title: "排除国语配音", value: " !CNVOI ", color: "error" },
   { title: "免费", value: " FREE ", color: "success" },
 ]);
 
