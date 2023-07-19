@@ -217,6 +217,7 @@ onMounted(() => {
                   "
                   label="新密码"
                   @click:append-inner="isNewPasswordVisible = !isNewPasswordVisible"
+                  autocomplete="new-password"
                 />
               </VCol>
 
