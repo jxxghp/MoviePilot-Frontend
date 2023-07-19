@@ -30,7 +30,7 @@ const targets = ref<Address[]>([
   {
     image: tmdb,
     name: "api.themoviedb.org",
-    url: "https://api.themoviedb.org",
+    url: "https://api.themoviedb.org/docs",
     proxy: true,
     status: "Normal",
     time: "",
@@ -74,7 +74,7 @@ const targets = ref<Address[]>([
   {
     image: wechat,
     name: "qyapi.weixin.qq.com",
-    url: "https://qyapi.weixin.qq.com",
+    url: "https://qyapi.weixin.qq.com/cgi-bin/gettoken",
     proxy: false,
     status: "Normal",
     time: "",
