@@ -16,6 +16,15 @@ interface FilterCard {
 // 提示框
 const $toast = useToast();
 
+// 种子优先规则
+const selectedTorrentPriority = ref<string>("seeder");
+
+// 种子优先规则下拉框
+const TorrentPriorityItems = [
+  { title: "站点优先", value: "site" },
+  { title: "做种数优先", value: "seeder" },
+];
+
 // 查询已设置过滤规则
 const queryCustomFilters = async () => {
   try {
@@ -32,6 +41,18 @@ const queryCustomFilters = async () => {
         };
       });
     }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// 查询种子优先规则
+const queryTorrentPriority = async () => {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      "system/setting/TorrentsPriority"
+    );
+    selectedTorrentPriority.value = result.data?.value;
   } catch (error) {
     console.log(error);
   }
@@ -64,6 +85,24 @@ const saveCustomFilters = async () => {
   }
 };
 
+// 保存种子优先规则
+const saveTorrentPriority = async () => {
+  try {
+    // 用户名密码
+    const result: { [key: string]: any } = await api.post(
+      "system/setting/TorrentsPriority",
+      selectedTorrentPriority.value
+    );
+    if (result.success) {
+      $toast.success("优先规则保存成功");
+    } else {
+      $toast.error("优先规则保存失败！");
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 // 规则卡片列表
 const filterCards = ref<FilterCard[]>([]);
 
@@ -78,10 +117,20 @@ const updateFilterCardValue = (pri: string, rules: string[]) => {
 // 移除卡片
 const filterCardClose = (pri: string) => {
   // 将卡片从列表中删除，并更新剩余卡片的序号
-  filterCards.value = filterCards.value.filter((card) => card.pri !== pri);
-  filterCards.value.forEach((card, index) => {
-    card.pri = (index + 1).toString();
-  });
+  const index = filterCards.value.findIndex((card) => card.pri === pri);
+  if (index !== -1) {
+    // 创建新的数组，然后使用 splice 方法来删除元素
+    const updatedCards = [...filterCards.value];
+    updatedCards.splice(index, 1);
+
+    // 更新剩余卡片的序号
+    updatedCards.forEach((card, i) => {
+      card.pri = (i + 1).toString();
+    });
+
+    // 更新 filterCards.value
+    filterCards.value = updatedCards;
+  }
 };
 
 // 增加卡片
@@ -95,6 +144,7 @@ const addFilterCard = () => {
 };
 
 onMounted(() => {
+  queryTorrentPriority();
   queryCustomFilters();
 });
 </script>
@@ -123,6 +173,21 @@ onMounted(() => {
             <VIcon icon="mdi-plus" />
             <span class="d-none d-sm-block">增加规则</span>
           </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard title="下载优先规则">
+        <VCardText>
+          <VSelect
+            v-model="selectedTorrentPriority"
+            :items="TorrentPriorityItems"
+            label="优先规则"
+            outlined
+          ></VSelect>
+        </VCardText>
+        <VCardItem>
+          <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>
         </VCardItem>
       </VCard>
     </VCol>

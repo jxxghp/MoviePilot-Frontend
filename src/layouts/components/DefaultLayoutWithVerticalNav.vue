@@ -158,16 +158,16 @@ onMounted(() => {
       />
       <VerticalNavLink
         :item="{
-          title: '站点管理',
-          icon: 'mdi-web',
-          to: '/site',
+          title: '插件',
+          icon: 'mdi-apps',
+          to: '/plugin',
         }"
       />
       <VerticalNavLink
         :item="{
-          title: '插件',
-          icon: 'mdi-apps',
-          to: '/plugin',
+          title: '站点管理',
+          icon: 'mdi-web',
+          to: '/site',
         }"
       />
       <VerticalNavLink
