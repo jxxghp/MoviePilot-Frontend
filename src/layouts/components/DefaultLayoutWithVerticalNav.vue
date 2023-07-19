@@ -9,31 +9,6 @@ import NavbarThemeSwitcher from "@/layouts/components/NavbarThemeSwitcher.vue";
 import SearchBar from "@/layouts/components/SearchBar.vue";
 import ShortcutBar from "@/layouts/components/ShortcutBar.vue";
 import UserProfile from "@/layouts/components/UserProfile.vue";
-import store from "@/store";
-import { useToast } from "vue-toast-notification";
-
-// 提示框
-const $toast = useToast();
-
-// 消息SSE
-onMounted(() => {
-  const token = store.state.auth.token;
-  if (token) {
-    const eventSource = new EventSource(
-      `${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}`
-    );
-    eventSource.addEventListener("message", (event) => {
-      const message = event.data;
-      if (message) {
-        $toast.info(message);
-      }
-    });
-
-    onBeforeUnmount(() => {
-      eventSource.close();
-    });
-  }
-});
 </script>
 
 <template>

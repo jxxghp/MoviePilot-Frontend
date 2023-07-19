@@ -1,34 +1,9 @@
 <script setup lang="ts">
-import api from "@/api";
-import { User } from "@/api/types";
 import router from "@/router";
-import avatar1 from "@images/avatars/avatar-1.png";
 import { useStore } from "vuex";
 
 // Vuex Store
 const store = useStore();
-
-// 当前用户信息
-const accountInfo = ref<User>({
-  id: 0,
-  name: "",
-  password: "",
-  email: "",
-  is_active: false,
-  is_superuser: false,
-  avatar: "",
-});
-
-// 调用API，加载当前用户数据
-const loadAccountInfo = async () => {
-  try {
-    const user: User = await api.get(`user/current`);
-    accountInfo.value = user;
-    if (!accountInfo.value.avatar) accountInfo.value.avatar = avatar1;
-  } catch (error) {
-    console.log(error);
-  }
-};
 
 // 执行注销操作
 const logout = () => {
@@ -39,16 +14,14 @@ const logout = () => {
   router.push("/login");
 };
 
-// 页面加载时，加载当前用户数据
-onMounted(() => {
-  loadAccountInfo();
-});
+// 获取当前用户信息
+const accountInfo: any = inject("accountInfo");
 </script>
 
 <template>
   <VBadge dot location="bottom right" offset-x="3" offset-y="3" color="success" bordered>
     <VAvatar class="cursor-pointer" color="primary" variant="tonal">
-      <VImg :src="accountInfo.avatar || avatar1" />
+      <VImg :src="accountInfo.avatar" />
 
       <!-- SECTION Menu -->
       <VMenu activator="parent" width="230" location="bottom end" offset="14px">
