@@ -38,7 +38,7 @@
 
 .v-overlay__content {
   margin-top: env(safe-area-inset-top) !important;
-  margin-bottom: env(safe-area-inset-bottom) !important;
+  padding-bottom: env(safe-area-inset-bottom) !important;
   margin-left: 0.5rem;
   margin-right: 0.5rem;
 }
