@@ -27,7 +27,7 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: "分辨率: 4K", value: " 4K " },
   { title: "分辨率: 1080P", value: " 1080P " },
   { title: "分辨率: 720P", value: " 720P " },
-  { title: "排除720P", value: " !720P " },
+  { title: "排除: 720P", value: " !720P " },
   { title: "质量: 蓝光原盘", value: " BLU " },
   { title: "排除: 蓝光原盘", value: " !BLU ", color: "error" },
   { title: "质量: REMUX", value: " REMUX " },
