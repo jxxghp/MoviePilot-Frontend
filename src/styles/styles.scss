@@ -36,9 +36,8 @@
   transform: translate(-50%, -50%);
 }
 
-.v-overlay__content {
-  margin-top: env(safe-area-inset-top) !important;
-  padding-bottom: env(safe-area-inset-bottom) !important;
-  margin-left: 0.5rem;
-  margin-right: 0.5rem;
+.v-dialog > .v-overlay__content {
+  margin-top: calc(env(safe-area-inset-top) + 1rem) !important;
+  max-height: calc(100% - env(safe-area-inset-top) - 2rem) !important;
+  margin: 0.5rem;
 }

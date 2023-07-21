@@ -319,7 +319,7 @@ onMounted(() => {
     </VCard>
   </VDialog>
   <!-- 站点编辑弹窗 -->
-  <VDialog v-model="siteInfoDialog" max-width="1000" persistent>
+  <VDialog v-model="siteInfoDialog" max-width="1000" persistent scrollable>
     <!-- Dialog Content -->
     <VCard :title="`编辑站点 - ${props.site?.name}`">
       <VCardText>

@@ -301,7 +301,7 @@ const subscribeForm = reactive({
     />
   </VCard>
   <!-- 订阅编辑弹窗 -->
-  <VDialog v-model="subscribeInfoDialog" max-width="1000" persistent>
+  <VDialog v-model="subscribeInfoDialog" max-width="1000" persistent scrollable>
     <!-- Dialog Content -->
     <VCard :title="`编辑订阅 - ${props.media?.name}`">
       <VCardText>
