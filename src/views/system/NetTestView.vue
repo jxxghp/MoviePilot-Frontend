@@ -11,6 +11,7 @@ interface Status {
   OK: string;
   Fail: string;
   Normal: string;
+  Doing?: string;
 }
 
 interface Address {
@@ -21,7 +22,6 @@ interface Address {
   status: keyof Status;
   time: string;
   message: string;
-  btntext: string;
   btndisable: boolean;
 }
 
@@ -30,12 +30,11 @@ const targets = ref<Address[]>([
   {
     image: tmdb,
     name: "api.themoviedb.org",
-    url: "https://api.themoviedb.org/docs",
+    url: "https://api.themoviedb.org/3/movie/550?api_key={TMDBAPIKEY}",
     proxy: true,
     status: "Normal",
     time: "",
     message: "",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -46,7 +45,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -57,7 +55,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -68,7 +65,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -79,7 +75,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -90,7 +85,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -101,7 +95,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
   {
@@ -112,7 +105,6 @@ const targets = ref<Address[]>([
     status: "Normal",
     time: "",
     message: "未测试",
-    btntext: "测试",
     btndisable: false,
   },
 ]);
@@ -121,14 +113,16 @@ const resolveStatusColor: Status = {
   OK: "success",
   Fail: "error",
   Normal: "",
+  Doing: "warning",
 };
 
 // 调用API测试网络连接
 const netTest = async (index: number) => {
   try {
     const target = targets.value[index];
-    target.btntext = "测试中...";
     target.btndisable = true;
+    target.status = "Doing";
+    target.message = "测试中...";
     const result: { [key: string]: any } = await api.get("system/nettest", {
       params: {
         url: target.url,
@@ -143,7 +137,6 @@ const netTest = async (index: number) => {
       target.message = result.message;
     }
     target.time = result.data?.time;
-    target.btntext = "测试";
     target.btndisable = false;
   } catch (error) {
     console.error(error);
@@ -183,8 +176,12 @@ onMounted(async () => {
           </span>
         </VListItemSubtitle>
         <template #append>
-          <VBtn size="small" @click="netTest(index)" :disabled="target.btndisable">
-            {{ target.btntext }}
+          <VBtn
+            size="small"
+            icon="mdi-connection"
+            @click="netTest(index)"
+            :disabled="target.btndisable"
+          >
           </VBtn>
         </template>
       </VListItem>
