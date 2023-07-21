@@ -39,5 +39,6 @@
 .v-dialog > .v-overlay__content {
   margin-top: calc(env(safe-area-inset-top) + 1rem) !important;
   max-height: calc(100% - env(safe-area-inset-top) - 2rem) !important;
-  margin: 0.5rem;
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
 }
