@@ -437,46 +437,50 @@ const getImgUrl = (url: string) => {
   <VDialog
     v-model="subscribeSeasonDialog"
     max-width="600"
-    content-class="m-1 whitespace-nowrap"
+    content-class="whitespace-nowrap"
+    scrollable
   >
     <!-- Dialog Content -->
     <VCard title="选择订阅季">
-      <VDataTable
-        v-model="seasonsSelected"
-        :headers="seasonsHeaders"
-        :items="seasonInfos"
-        item-value="season_number"
-        return-object
-        fixed-header
-        show-select
-        :items-per-page="100"
-        density="compact"
-      >
-        <template #item.title="{ item }">
-          <span class="d-block whitespace-nowrap"
-            >第 {{ item.raw.season_number }} 季
-          </span></template
+      <VCardText style="padding: 0">
+        <VDataTable
+          v-model="seasonsSelected"
+          :headers="seasonsHeaders"
+          :items="seasonInfos"
+          item-value="season_number"
+          return-object
+          fixed-header
+          show-select
+          :items-per-page="100"
+          density="compact"
+          height="auto"
         >
-        <template #item.episodes="{ item }">
-          <VChip variant="outlined" size="small">{{ item.raw.episode_count }}</VChip>
-        </template>
-        <template #item.vote="{ item }">
-          {{ item.raw.vote_average }}
-        </template>
-        <template #item.status="{ item }">
-          <VChip
-            :color="getExistColor(item.raw.season_number)"
-            v-if="seasonsNotExisted"
-            flat
-            size="small"
-            >{{ getExistText(item.raw.season_number) }}</VChip
+          <template #item.title="{ item }">
+            <span class="d-block whitespace-nowrap"
+              >第 {{ item.raw.season_number }} 季
+            </span></template
           >
-        </template>
-        <template #no-data> 没有数据 </template>
-        <template #bottom></template>
-      </VDataTable>
-
+          <template #item.episodes="{ item }">
+            <VChip variant="outlined" size="small">{{ item.raw.episode_count }}</VChip>
+          </template>
+          <template #item.vote="{ item }">
+            {{ item.raw.vote_average }}
+          </template>
+          <template #item.status="{ item }">
+            <VChip
+              :color="getExistColor(item.raw.season_number)"
+              v-if="seasonsNotExisted"
+              flat
+              size="small"
+              >{{ getExistText(item.raw.season_number) }}</VChip
+            >
+          </template>
+          <template #no-data> 没有数据 </template>
+          <template #bottom></template>
+        </VDataTable>
+      </VCardText>
       <VCardActions>
+        <VBtn @click="subscribeSeasonDialog = false"> 取消 </VBtn>
         <VSpacer />
         <VBtn @click="subscribeSeasons" @keydown.enter="subscribeSeasons"> 确定 </VBtn>
       </VCardActions>

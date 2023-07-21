@@ -37,6 +37,16 @@
 }
 
 .v-dialog > .v-overlay__content {
-  margin-top: calc(env(safe-area-inset-top) + 1rem) !important;
-  max-height: calc(100% - env(safe-area-inset-top) - 2rem) !important;
+  margin-top: calc(env(safe-area-inset-top) + 1rem);
+  max-height: calc(100% - env(safe-area-inset-top) - 1rem);
+}
+
+.v-dialog > .v-overlay__content{
+  width: calc(100% - 1rem);
+}
+
+.v-dialog--fullscreen > .v-overlay__content{
+  margin-top: env(safe-area-inset-top);
+  max-height: calc(100% - env(safe-area-inset-top));
+  width: 100%;
 }
