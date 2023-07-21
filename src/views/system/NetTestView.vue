@@ -30,7 +30,7 @@ const targets = ref<Address[]>([
   {
     image: tmdb,
     name: "api.themoviedb.org",
-    url: "https://api.themoviedb.org/docs",
+    url: "https://api.themoviedb.org",
     proxy: true,
     status: "Normal",
     time: "",
