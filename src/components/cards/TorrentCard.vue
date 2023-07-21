@@ -140,7 +140,7 @@ const dropdownItems = ref([
 <template>
   <VCard :width="props.width" :height="props.height" @click="handleAddDownload">
     <template #image v-if="!showMoreTorrents">
-      <VAvatar class="absolute right-2 bottom-2" variant="flat" rounded="0">
+      <VAvatar class="absolute right-2 bottom-2 rounded" variant="flat" rounded="0">
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
@@ -156,7 +156,12 @@ const dropdownItems = ref([
             <VIcon icon="mdi-dots-vertical" color="white" />
             <VMenu activator="parent" close-on-content-click>
               <VList>
-                <VListItem v-for="(item, i) in dropdownItems" variant="plain" :key="i" @click="item.props.click">
+                <VListItem
+                  v-for="(item, i) in dropdownItems"
+                  variant="plain"
+                  :key="i"
+                  @click="item.props.click"
+                >
                   <template #prepend>
                     <VIcon :icon="item.props.prependIcon"></VIcon>
                   </template>
@@ -173,29 +178,71 @@ const dropdownItems = ref([
     </VCardText>
     <VCardText>{{ torrent?.description }}</VCardText>
     <VCardItem class="pb-3 pt-0 pe-12" v-if="torrent?.labels">
-      <VChip variant="elevated" size="small" v-for="label in torrent?.labels" color="primary" class="me-1 mb-1">{{ label
-      }}</VChip>
-      <VChip v-if="meta?.edition" variant="elevated" size="small" class="me-1 mb-1 text-white bg-red-500">
-        {{ meta?.edition }}</VChip>
-      <VChip v-if="meta?.resource_pix" variant="elevated" size="small" class="me-1 mb-1 text-white bg-red-500">
+      <VChip
+        variant="elevated"
+        size="small"
+        v-for="label in torrent?.labels"
+        color="primary"
+        class="me-1 mb-1"
+        >{{ label }}</VChip
+      >
+      <VChip
+        v-if="meta?.edition"
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1 text-white bg-red-500"
+      >
+        {{ meta?.edition }}</VChip
+      >
+      <VChip
+        v-if="meta?.resource_pix"
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1 text-white bg-red-500"
+      >
         {{ meta?.resource_pix }}
       </VChip>
-      <VChip v-if="meta?.video_encode" variant="elevated" size="small" class="me-1 mb-1 text-white bg-orange-500">
+      <VChip
+        v-if="meta?.video_encode"
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1 text-white bg-orange-500"
+      >
         {{ meta?.video_encode }}
       </VChip>
-      <VChip v-if="torrent?.size" variant="elevated" size="small" class="me-1 mb-1 text-white bg-yellow-500">
+      <VChip
+        v-if="torrent?.size"
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1 text-white bg-yellow-500"
+      >
         {{ formatFileSize(torrent?.size) }}
       </VChip>
-      <VChip v-if="meta?.resource_team" variant="elevated" size="small" class="me-1 mb-1 text-white bg-cyan-500">
+      <VChip
+        v-if="meta?.resource_team"
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1 text-white bg-cyan-500"
+      >
         {{ meta?.resource_team }}
       </VChip>
-      <VChip v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1" :class="getVolumeFactorClass(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
-        " variant="elevated" size="small" class="me-1 mb-1">
+      <VChip
+        v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1"
+        :class="
+          getVolumeFactorClass(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
+        "
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1"
+      >
         {{ torrent?.volume_factor }}
       </VChip>
     </VCardItem>
     <VCardActions>
-      <VBtn @click.stop="showMoreTorrents = !showMoreTorrents" v-if="props.more && props.more.length > 0">
+      <VBtn
+        @click.stop="showMoreTorrents = !showMoreTorrents"
+        v-if="props.more && props.more.length > 0"
+      >
         <template #append>
           <VIcon :icon="showMoreTorrents ? 'mdi-chevron-up' : 'mdi-chevron-down'"></VIcon>
         </template>
@@ -206,17 +253,32 @@ const dropdownItems = ref([
       <div v-show="showMoreTorrents">
         <VDivider></VDivider>
         <VChipGroup class="p-3">
-          <VChip v-for="item in props.more" @click.stop="
-            handleAddDownload(
-              item.torrent_info?.site_name,
-              item.media_info,
-              item.torrent_info
-            )
-            ">
+          <VChip
+            v-for="item in props.more"
+            @click.stop="
+              handleAddDownload(
+                item.torrent_info?.site_name,
+                item.media_info,
+                item.torrent_info
+              )
+            "
+          >
             <template #append>
-              <VBadge color="primary" :content="`↑${item.torrent_info?.seeders}`" inline size="small"></VBadge>
-              <VBadge :content="item.torrent_info?.volume_factor" inline size="small"
-                v-if="item.torrent_info?.downloadvolumefactor !== 1 || item.torrent_info?.uploadvolumefactor !== 1">
+              <VBadge
+                color="primary"
+                :content="`↑${item.torrent_info?.seeders}`"
+                inline
+                size="small"
+              ></VBadge>
+              <VBadge
+                :content="item.torrent_info?.volume_factor"
+                inline
+                size="small"
+                v-if="
+                  item.torrent_info?.downloadvolumefactor !== 1 ||
+                  item.torrent_info?.uploadvolumefactor !== 1
+                "
+              >
               </VBadge>
             </template>
             {{ item.torrent_info.site_name }}
