@@ -65,7 +65,8 @@ const getSubscribes = async () => {
           );
           return episodes.map((episode) => {
             return {
-              title: `${subscribe.name} 第 ${episode.episode_number} 集`,
+              title: subscribe.name,
+              subtitle: `第 ${episode.episode_number} 集`,
               start: parseDate(episode.air_date || ""),
               allDay: false,
               posterPath: subscribe.poster,
@@ -102,14 +103,27 @@ onMounted(() => {
   <FullCalendar :options="calendarOptions">
     <template #eventContent="arg">
       <div class="hidden md:block overflow-hidden">
-        <VTooltip :text="arg.event.title">
-          <template #activator="{ props }">
-            <VChip v-bind="props" label>
-              <v-icon start :icon="getIcon(arg.event.extendedProps.mediaType)"></v-icon>
-              {{ arg.event.title }}
-            </VChip>
-          </template>
-        </VTooltip>
+        <VCard>
+          <div class="d-flex justify-space-between flex-nowrap flex-row">
+            <div class="ma-auto">
+              <VImg
+                height="80"
+                width="54"
+                :src="arg.event.extendedProps.posterPath"
+                aspect-ratio="2/3"
+                class="object-cover rounded shadow ring-gray-500"
+                cover
+              />
+            </div>
+            <VDivider :vertical="$vuetify.display.mdAndUp" />
+            <div>
+              <VCardSubtitle class="pa-2 font-bold">{{ arg.event.title }}</VCardSubtitle>
+              <VCardText class="pa-0 px-2">
+                {{ arg.event.extendedProps.subtitle }}
+              </VCardText>
+            </div>
+          </div>
+        </VCard>
       </div>
       <div class="md:hidden">
         <VTooltip :text="arg.event.title">
@@ -121,7 +135,7 @@ onMounted(() => {
               aspect-ratio="2/3"
               class="object-cover rounded shadow ring-gray-500"
               cover
-            ></VImg>
+            />
           </template>
         </VTooltip>
       </div>
@@ -431,10 +445,9 @@ onMounted(() => {
 
 @media (max-width: 776px) {
   .fc-daygrid-event-harness {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
-}
-
 </style>
