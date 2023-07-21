@@ -5,11 +5,13 @@ import TorrentCardListView from "@/views/discover/TorrentCardListView.vue";
 const route = useRoute();
 
 // 查询TMDBID或标题
-const keyword = route.params?.keyword?.toString() ?? "";
+const keyword = route.query?.keyword?.toString() ?? "";
+// 查询类型
+const type = route.query?.type?.toString() ?? "";
 </script>
 
 <template>
   <div>
-    <TorrentCardListView :keyword="keyword" />
+    <TorrentCardListView :keyword="keyword" :type="type" />
   </div>
 </template>

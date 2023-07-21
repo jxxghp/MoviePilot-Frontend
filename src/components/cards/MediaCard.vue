@@ -323,13 +323,17 @@ const openDetailWindow = () => {
 
 // 开始搜索
 const handleSearch = () => {
-  router.push(
-    `/resource/${
-      props.media?.tmdb_id
-        ? `tmdb:${props.media?.tmdb_id}`
-        : `douban:${props.media?.douban_id}`
-    }`
-  );
+  router.push({
+    path: "/resource",
+    query: {
+      keyword: `${
+        props.media?.tmdb_id
+          ? `tmdb:${props.media?.tmdb_id}`
+          : `douban:${props.media?.douban_id}`
+      }`,
+      type: props.media?.type,
+    },
+  });
 };
 
 // 装载时检查是否已订阅

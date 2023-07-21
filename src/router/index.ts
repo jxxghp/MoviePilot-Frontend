@@ -34,14 +34,6 @@ const router = createRouter({
           },
         },
         {
-          path: 'resource/:keyword+',
-          component: () => import('../pages/resource.vue'),
-          props: true,
-          meta: {
-            requiresAuth: true,
-          },
-        },
-        {
           path: 'subscribe-movie',
           component: () => import('../pages/subscribe-movie.vue'),
           meta: {
