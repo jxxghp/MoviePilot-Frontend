@@ -42,7 +42,7 @@ onUnmounted(() => {
     </VCardItem>
 
     <VCardText>
-      <VList class="card-list">
+      <VList class="card-list" height="250">
         <VListItem v-for="item in schedulerList" :key="item.id">
           <template #prepend>
             <VAvatar size="40" variant="tonal" color="" class="me-3">

@@ -111,7 +111,7 @@ onMounted(() => {
     </VCardItem>
 
     <VCardText>
-      <VueApexCharts type="bar" :options="options" :series="series" :height="220" />
+      <VueApexCharts type="bar" :options="options" :series="series" :height="160" />
 
       <div class="d-flex align-center mb-3">
         <h5 class="text-h5 me-4">{{ totalCount }}</h5>
