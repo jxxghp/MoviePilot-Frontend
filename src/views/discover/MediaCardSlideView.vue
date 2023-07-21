@@ -8,7 +8,6 @@ const props = defineProps({
   apipath: String,
 });
 
-
 // 组件加载完成
 const componentLoaded = ref(false);
 
@@ -39,7 +38,12 @@ onMounted(fetchData);
       <VBtn class="rounded-circle shadow-none" icon="mdi-chevron-left" color="grey" />
     </template>
     <VSlideGroupItem v-for="data in dataList" :key="data.tmdb_id">
-      <MediaCard :media="data" height="15rem" width="10rem" />
+      <MediaCard
+        :media="data"
+        height="15rem"
+        width="10rem"
+        :key="data.tmdb_id || data.douban_id"
+      />
     </VSlideGroupItem>
     <template #next>
       <VBtn class="rounded-circle shadow-none" icon="mdi-chevron-right" color="grey" />

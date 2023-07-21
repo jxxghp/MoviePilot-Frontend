@@ -120,7 +120,12 @@ const fetchData = async ({ done }: { done: any }) => {
   >
     <template #loading />
     <div class="grid gap-4 grid-media-card mx-3" v-if="dataList.length > 0">
-      <MediaCard v-for="data in dataList" :key="data.tmdb_id" :media="data"> </MediaCard>
+      <MediaCard
+        v-for="data in dataList"
+        :key="data.tmdb_id || data.douban_id"
+        :media="data"
+      >
+      </MediaCard>
     </div>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
