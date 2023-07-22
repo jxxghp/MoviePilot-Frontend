@@ -53,6 +53,7 @@ onBeforeMount(fetchData)
 <template>
   <VProgressCircular
     v-if="!isRefreshed"
+    size="48"
     class="centered"
     indeterminate
     color="primary"

@@ -379,6 +379,7 @@ onBeforeMount(fetchData)
   </VCard>
   <VProgressCircular
     v-if="!isRefreshed && !props.keyword"
+    size="48"
     class="centered"
     indeterminate
     color="primary"

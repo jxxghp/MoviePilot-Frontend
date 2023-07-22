@@ -125,6 +125,7 @@ async function fetchData({ done }: { done: any }) {
 <template>
   <VProgressCircular
     v-if="!isRefreshed"
+    size="48"
     class="centered"
     indeterminate
     color="primary"

@@ -94,4 +94,8 @@ onUnmounted(() => {
 .card-list {
   --v-card-list-gap: 1.5rem;
 }
+
+.card-list::-webkit-scrollbar {
+  display: none;
+}
 </style>

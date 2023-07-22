@@ -49,6 +49,7 @@ const filteredDataList = computed(() => {
 <template>
   <VProgressCircular
     v-if="!isRefreshed"
+    size="48"
     class="centered"
     indeterminate
     color="primary"

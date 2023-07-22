@@ -428,11 +428,8 @@ const getImgUrl: Ref<string> = computed(() => {
           @error="imageLoadError = true"
         >
           <template #placeholder>
-            <div class="d-flex align-center justify-center fill-height">
-              <v-progress-circular
-                color="grey-lighten-4"
-                indeterminate
-              />
+            <div class="w-full h-full">
+              <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
             </div>
           </template>
           <!-- 类型角标 -->
