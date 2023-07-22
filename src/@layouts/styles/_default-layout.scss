@@ -44,6 +44,7 @@ body,
   padding-top: calc(env(safe-area-inset-top) + 70px);
   display: flex;
 
+
   .page-content-container {
     flex: 1;
     display: flex;
@@ -53,6 +54,12 @@ body,
       position: relative;
       width: calc(100vw - variables.$layout-vertical-nav-width - 1rem);
     }
+  }
+}
+
+@media screen and (max-width: 990px){
+  .page-content-container > div:first-child  {
+    width: calc(100vw - 1rem) !important;
   }
 }
 
