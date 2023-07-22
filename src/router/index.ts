@@ -83,8 +83,8 @@ const router = createRouter({
           },
         },
         {
-          path: 'account-setting',
-          component: () => import('../pages/account-setting.vue'),
+          path: 'setting',
+          component: () => import('../pages/setting.vue'),
           meta: {
             requiresAuth: true,
           },

@@ -152,7 +152,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         :item="{
           title: '设定',
           icon: 'mdi-cog',
-          to: '/account-setting',
+          to: '/setting',
         }"
       />
     </template>

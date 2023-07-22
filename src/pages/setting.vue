@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { useRoute } from 'vue-router'
-import AccountSettingAccount from '@/views/account-setting/AccountSettingAccount.vue'
-import AccountSettingNotification from '@/views/account-setting/AccountSettingNotification.vue'
-import AccountSettingRule from '@/views/account-setting/AccountSettingRule.vue'
-import AccountSettingSite from '@/views/account-setting/AccountSettingSite.vue'
-import AccountSettingWords from '@/views/account-setting/AccountSettingWords.vue'
+import AccountSettingAccount from '@/views/setting/AccountSettingAccount.vue'
+import AccountSettingNotification from '@/views/setting/AccountSettingNotification.vue'
+import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
+import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
+import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
 
 const route = useRoute()
 
@@ -43,29 +43,29 @@ const tabs = [
 
     <VWindow
       v-model="activeTab"
-      class="mt-5 disable-tab-transition"
+      class="mt-5"
     >
       <!-- Account -->
-      <VWindowItem value="account">
+      <VWindowItem value="account" transition="scale-transition">
         <AccountSettingAccount />
       </VWindowItem>
 
       <!-- System -->
-      <VWindowItem value="site">
+      <VWindowItem value="site" transition="scale-transition">
         <AccountSettingSite />
       </VWindowItem>
 
       <!-- Notification -->
-      <VWindowItem value="filter">
+      <VWindowItem value="filter" transition="scale-transition">
         <AccountSettingRule />
       </VWindowItem>
 
       <!-- Notification -->
-      <VWindowItem value="notification">
+      <VWindowItem value="notification" transition="scale-transition">
         <AccountSettingNotification />
       </VWindowItem>
       <!-- Words -->
-      <VWindowItem value="words">
+      <VWindowItem value="words" transition="scale-transition">
         <AccountSettingWords />
       </VWindowItem>
     </VWindow>
