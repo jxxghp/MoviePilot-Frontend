@@ -29,21 +29,25 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '分辨率: 720P', value: ' 720P ' },
   { title: '排除: 720P', value: ' !720P ' },
   { title: '质量: 蓝光原盘', value: ' BLU ' },
-  { title: '排除: 蓝光原盘', value: ' !BLU ', color: 'error' },
+  { title: '排除: 蓝光原盘', value: ' !BLU ' },
+  { title: '质量: BLURAY', value: ' BLURAY ' },
+  { title: '排除: BLURAY', value: ' !BLURAY ' },
+  { title: '质量: UHD', value: ' UHD ' },
+  { title: '排除: UHD', value: ' !UHD ' },
   { title: '质量: REMUX', value: ' REMUX ' },
-  { title: '排除: REMUX', value: ' !REMUX ', color: 'error' },
+  { title: '排除: REMUX', value: ' !REMUX ' },
   { title: '质量: WEB-DL', value: ' WEBDL ' },
-  { title: '排除: WEB-DL', value: ' !WEBDL ', color: 'error' },
+  { title: '排除: WEB-DL', value: ' !WEBDL ' },
   { title: '编码: H265', value: ' H265 ' },
-  { title: '排除: H265', value: ' !H265 ', color: 'error' },
+  { title: '排除: H265', value: ' !H265 ' },
   { title: '编码: H264', value: ' H264 ' },
-  { title: '排除: H264', value: ' !H264 ', color: 'error' },
+  { title: '排除: H264', value: ' !H264 ' },
   { title: '效果: 杜比视界', value: ' DOLBY ' },
-  { title: '排除: 杜比视界', value: ' !DOLBY ', color: 'error' },
+  { title: '排除: 杜比视界', value: ' !DOLBY ' },
   { title: '效果: HDR', value: ' HDR ' },
-  { title: '排除: HDR', value: ' !HDR ', color: 'error' },
-  { title: '国语配音', value: ' CNVOI ', color: 'error' },
-  { title: '排除: 国语配音', value: ' !CNVOI ', color: 'error' },
+  { title: '排除: HDR', value: ' !HDR ' },
+  { title: '国语配音', value: ' CNVOI ' },
+  { title: '排除: 国语配音', value: ' !CNVOI ' },
   { title: '促销: 免费', value: ' FREE ' },
 ])
 
@@ -52,11 +56,7 @@ const selectedFilters = ref<string[]>(props.rules ?? [])
 </script>
 
 <template>
-  <VCard
-    variant="tonal"
-    :width="props.width"
-    :height="props.height"
-  >
+  <VCard variant="tonal" :width="props.width" :height="props.height">
     <DialogCloseBtn @click="onClose" />
     <VCardItem>
       <VCardTitle>优先级 {{ props.pri }}</VCardTitle>

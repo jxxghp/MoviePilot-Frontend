@@ -27,7 +27,7 @@ const calendarOptions: Ref<CalendarOptions> = ref({
     interactionPlugin, // needed for dateClick
   ],
   initialView: 'dayGridMonth',
-  weekends: false,
+  weekends: true,
   headerToolbar: {
     left: 'prev',
     center: 'title',
