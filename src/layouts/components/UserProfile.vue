@@ -73,7 +73,7 @@ const accountInfo: any = inject('accountInfo')
           <!-- 👉 Profile -->
           <VListItem
             link
-            to="account-setting"
+            to="setting"
           >
             <template #prepend>
               <VIcon
