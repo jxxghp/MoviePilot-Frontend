@@ -12,7 +12,7 @@ const type = route.query?.type?.toString() ?? ''
 </script>
 
 <template>
-  <div class="relative">
+  <div>
     <TorrentCardListView
       :keyword="keyword"
       :type="type"
