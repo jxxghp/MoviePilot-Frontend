@@ -12,61 +12,77 @@ const activeTab = ref(route.params.tab)
 
 // tabs
 const tabs = [
-  { title: '用户', icon: 'mdi-account', tab: 'account' },
-  { title: '站点', icon: 'mdi-web', tab: 'site' },
-  { title: '规则', icon: 'mdi-filter-cog', tab: 'filter' },
-  { title: '通知', icon: 'mdi-bell', tab: 'notification' },
-  { title: '自定义词表', icon: 'mdi-file-word-box', tab: 'words' },
+  {
+    title: '用户',
+    icon: 'mdi-account',
+    tab: 'account',
+  },
+  {
+    title: '站点',
+    icon: 'mdi-web',
+    tab: 'site',
+  },
+  {
+    title: '规则',
+    icon: 'mdi-filter-cog',
+    tab: 'filter',
+  },
+  {
+    title: '通知',
+    icon: 'mdi-bell',
+    tab: 'notification',
+  },
+  {
+    title: '自定义词表',
+    icon: 'mdi-file-word-box',
+    tab: 'words',
+  },
 ]
 </script>
 
 <template>
   <div>
-    <VTabs
-      v-model="activeTab"
-      show-arrows
-    >
-      <VTab
-        v-for="item in tabs"
-        :key="item.icon"
-        :value="item.tab"
-      >
-        <VIcon
-          size="20"
-          start
-          :icon="item.icon"
-        />
+    <VTabs v-model="activeTab" show-arrows>
+      <VTab v-for="item in tabs" :key="item.icon" :value="item.tab">
+        <VIcon size="20" start :icon="item.icon" />
         {{ item.title }}
       </VTab>
     </VTabs>
     <VDivider />
 
-    <VWindow
-      v-model="activeTab"
-      class="mt-5"
-    >
+    <VWindow v-model="activeTab" class="mt-5 disable-tab-transition">
       <!-- Account -->
-      <VWindowItem value="account" transition="scale-transition">
-        <AccountSettingAccount />
+      <VWindowItem value="account">
+        <transition name="fade-slide" appear>
+          <AccountSettingAccount />
+        </transition>
       </VWindowItem>
 
       <!-- System -->
-      <VWindowItem value="site" transition="scale-transition">
-        <AccountSettingSite />
+      <VWindowItem value="site">
+        <transition name="fade-slide" appear>
+          <AccountSettingSite />
+        </transition>
       </VWindowItem>
 
       <!-- Notification -->
-      <VWindowItem value="filter" transition="scale-transition">
-        <AccountSettingRule />
+      <VWindowItem value="filter">
+        <transition name="fade-slide" appear>
+          <AccountSettingRule />
+        </transition>
       </VWindowItem>
 
       <!-- Notification -->
-      <VWindowItem value="notification" transition="scale-transition">
-        <AccountSettingNotification />
+      <VWindowItem value="notification">
+        <transition name="fade-slide" appear>
+          <AccountSettingNotification />
+        </transition>
       </VWindowItem>
       <!-- Words -->
-      <VWindowItem value="words" transition="scale-transition">
-        <AccountSettingWords />
+      <VWindowItem value="words">
+        <transition name="fade-slide" appear>
+          <AccountSettingWords />
+        </transition>
       </VWindowItem>
     </VWindow>
   </div>

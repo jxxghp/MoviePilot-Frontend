@@ -132,8 +132,9 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll
     mode="intersect"
     side="end"
-    :on-load="fetchData"
+    :items="dataList"
     class="overflow-hidden"
+    @load="fetchData"
   >
     <template #loading />
     <div
