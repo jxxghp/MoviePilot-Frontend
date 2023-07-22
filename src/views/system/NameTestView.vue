@@ -1,48 +1,50 @@
 <script setup lang="ts">
-import { requiredValidator } from "@/@validators";
-import api from "@/api";
-import { Context } from "@/api/types";
-import { reactive, ref } from "vue";
+import { reactive, ref } from 'vue'
+import { requiredValidator } from '@/@validators'
+import api from '@/api'
+import type { Context } from '@/api/types'
 
 // 识别结果
-const nameTestResult = ref<Context>();
+const nameTestResult = ref<Context>()
 
 // 名称识别表单
 const nameTestForm = reactive({
-  title: "",
-  subtitle: "",
-});
+  title: '',
+  subtitle: '',
+})
 
 // 识别按钮状态
-const nameTestLoading = ref(false);
+const nameTestLoading = ref(false)
+
 // 识别按钮文本
-const nameTestText = ref("识别");
+const nameTestText = ref('识别')
 
 // 是否显示结果
-const showResult = ref(false);
+const showResult = ref(false)
 
 // 调用API识别
-const nameTest = async () => {
-  if (!nameTestForm.title) {
-    return;
-  }
+async function nameTest() {
+  if (!nameTestForm.title)
+    return
+
   try {
-    nameTestLoading.value = true;
-    nameTestText.value = "识别中...";
-    showResult.value = false;
-    nameTestResult.value = await api.get("media/recognize", {
+    nameTestLoading.value = true
+    nameTestText.value = '识别中...'
+    showResult.value = false
+    nameTestResult.value = await api.get('media/recognize', {
       params: {
         title: nameTestForm.title,
         subtitle: nameTestForm.subtitle,
       },
-    });
-    nameTestLoading.value = false;
-    nameTestText.value = "重新识别";
-    showResult.value = true;
-  } catch (error) {
-    console.error(error);
+    })
+    nameTestLoading.value = false
+    nameTestText.value = '重新识别'
+    showResult.value = true
   }
-};
+  catch (error) {
+    console.error(error)
+  }
+}
 </script>
 
 <template>
@@ -56,14 +58,25 @@ const nameTest = async () => {
         />
       </VCol>
       <VCol cols="12">
-        <VTextarea v-model="nameTestForm.subtitle" label="副标题" rows="2" auto-grow />
+        <VTextarea
+          v-model="nameTestForm.subtitle"
+          label="副标题"
+          rows="2"
+          auto-grow
+        />
       </VCol>
     </VRow>
     <VRow>
-      <VCol cols="12" class="text-center">
-        <VBtn @click="nameTest" :disabled="nameTestLoading">
+      <VCol
+        cols="12"
+        class="text-center"
+      >
+        <VBtn
+          :disabled="nameTestLoading"
+          @click="nameTest"
+        >
           <template #prepend>
-            <VIcon icon="mdi-text-recognition"></VIcon>
+            <VIcon icon="mdi-text-recognition" />
           </template>
           {{ nameTestText }}
         </VBtn>
@@ -74,10 +87,13 @@ const nameTest = async () => {
     <div v-show="showResult">
       <VCol>
         <div
-          class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
           v-if="nameTestResult?.meta_info?.name"
+          class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
         >
-          <div class="ma-auto" v-if="nameTestResult?.media_info?.poster_path">
+          <div
+            v-if="nameTestResult?.media_info?.poster_path"
+            class="ma-auto"
+          >
             <VImg
               width="10rem"
               aspect-ratio="2/3"
@@ -108,28 +124,28 @@ const nameTest = async () => {
             <VCardItem>
               <!-- 类型 -->
               <VChip
+                v-if="nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type"
                 variant="elevated"
                 class="me-1 mb-1 text-white bg-blue-500"
-                v-if="nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type"
               >
                 {{
                   nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type
-                }}</VChip
-              >
+                }}
+              </VChip>
               <!-- 二级分类 -->
               <VChip
+                v-if="nameTestResult?.media_info?.category"
                 variant="elevated"
                 class="me-1 mb-1 text-white bg-blue-500"
-                v-if="nameTestResult?.media_info?.category"
               >
                 {{ nameTestResult?.media_info?.category }}
               </VChip>
               <!-- TMDBID -->
               <VChip
+                v-if="nameTestResult?.media_info?.tmdb_id"
                 variant="elevated"
                 color="success"
                 class="me-1 mb-1"
-                v-if="nameTestResult?.media_info?.tmdb_id"
               >
                 {{ nameTestResult?.media_info?.tmdb_id }}
               </VChip>
@@ -139,8 +155,8 @@ const nameTest = async () => {
                 variant="elevated"
                 class="me-1 mb-1 text-white bg-red-500"
               >
-                {{ nameTestResult?.meta_info?.edition }}</VChip
-              >
+                {{ nameTestResult?.meta_info?.edition }}
+              </VChip>
               <VChip
                 v-if="nameTestResult?.meta_info?.resource_pix"
                 variant="elevated"
@@ -172,7 +188,10 @@ const nameTest = async () => {
             </VCardItem>
           </div>
         </div>
-        <VAlert icon="mdi-alert-circle-outline" v-if="!nameTestResult?.meta_info?.name">
+        <VAlert
+          v-if="!nameTestResult?.meta_info?.name"
+          icon="mdi-alert-circle-outline"
+        >
           识别失败，无法识别到有效信息！
         </VAlert>
       </VCol>

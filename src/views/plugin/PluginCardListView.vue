@@ -1,62 +1,66 @@
 <script lang="ts" setup>
-import api from "@/api";
-import { Plugin } from "@/api/types";
-import NoDataFound from "@/components/NoDataFound.vue";
-import PluginAppCard from "@/components/cards/PluginAppCard.vue";
-import PluginCard from "@/components/cards/PluginCard.vue";
+import api from '@/api'
+import type { Plugin } from '@/api/types'
+import NoDataFound from '@/components/NoDataFound.vue'
+import PluginAppCard from '@/components/cards/PluginAppCard.vue'
+import PluginCard from '@/components/cards/PluginCard.vue'
 
 // 数据列表
-const dataList = ref<Plugin[]>([]);
+const dataList = ref<Plugin[]>([])
 
 // 是否刷新过
-const isRefreshed = ref(false);
+const isRefreshed = ref(false)
 
 // APP市场窗口
-const PluginAppDialog = ref(false);
+const PluginAppDialog = ref(false)
 
 // 获取已安装的插件列表
 const getInstalledPluginList = computed(() => {
-  return dataList.value.filter((item) => item.installed);
-});
+  return dataList.value.filter(item => item.installed)
+})
 
 // 获取未安装的插件列表
 const getUninstalledPluginList = computed(() => {
-  return dataList.value.filter((item) => !item.installed);
-});
+  return dataList.value.filter(item => !item.installed)
+})
 
 // 关闭插件市场窗口
-const pluginDialogClose = () => {
-  PluginAppDialog.value = false;
-};
+function pluginDialogClose() {
+  PluginAppDialog.value = false
+}
 
 // 新安装了插件
-const pluginInstalled = () => {
-  fetchData();
-  pluginDialogClose();
-};
+function pluginInstalled() {
+  fetchData()
+  pluginDialogClose()
+}
 
 // 获取插件列表数据
-const fetchData = async () => {
+async function fetchData() {
   try {
-    dataList.value = await api.get("plugin");
-    isRefreshed.value = true;
-  } catch (error) {
-    console.error(error);
+    dataList.value = await api.get('plugin')
+    isRefreshed.value = true
   }
-};
+  catch (error) {
+    console.error(error)
+  }
+}
 
 // 加载时获取数据
-onBeforeMount(fetchData);
+onBeforeMount(fetchData)
 </script>
 
 <template>
   <VProgressCircular
-    class="centered"
     v-if="!isRefreshed"
+    class="centered"
     indeterminate
     color="primary"
-  ></VProgressCircular>
-  <div class="grid gap-3 grid-plugin-card" v-if="dataList.length > 0">
+  />
+  <div
+    v-if="dataList.length > 0"
+    class="grid gap-3 grid-plugin-card"
+  >
     <PluginCard
       v-for="data in getInstalledPluginList"
       :key="data.id"
@@ -69,8 +73,7 @@ onBeforeMount(fetchData);
     error-code="404"
     error-title="没有安装插件"
     error-description="点击右下角按钮，前往插件市场安装插件。"
-  >
-  </NoDataFound>
+  />
   <!-- App市场 -->
   <VDialog
     v-model="PluginAppDialog"
@@ -80,8 +83,12 @@ onBeforeMount(fetchData);
   >
     <!-- Dialog Activator -->
     <template #activator="{ props }">
-      <VBtn icon="mdi-plus" v-bind="props" size="x-large" class="fixed right-5 bottom-5">
-      </VBtn>
+      <VBtn
+        icon="mdi-plus"
+        v-bind="props"
+        size="x-large"
+        class="fixed right-5 bottom-5"
+      />
     </template>
 
     <!-- Dialog Content -->
@@ -94,8 +101,14 @@ onBeforeMount(fetchData);
           <VSpacer />
 
           <VToolbarItems>
-            <VBtn size="x-large" @click="pluginDialogClose">
-              <VIcon color="white" icon="mdi-close" />
+            <VBtn
+              size="x-large"
+              @click="pluginDialogClose"
+            >
+              <VIcon
+                color="white"
+                icon="mdi-close"
+              />
             </VBtn>
           </VToolbarItems>
         </VToolbar>
@@ -114,14 +127,13 @@ onBeforeMount(fetchData);
           error-code="404"
           error-title="没有未安装插件"
           error-description="所有可用插件均已安装。"
-        >
-        </NoDataFound>
+        />
       </div>
     </VCard>
   </VDialog>
 </template>
 
-<style type="scss">
+<style lang="scss">
 .grid-plugin-card {
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   padding-block-end: 1rem;

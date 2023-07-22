@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import DownloadingListView from "@/views/reorganize/DownloadingListView.vue";
+import DownloadingListView from '@/views/reorganize/DownloadingListView.vue'
 </script>
 
 <template>

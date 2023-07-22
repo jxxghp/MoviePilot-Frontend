@@ -1,76 +1,83 @@
 <script setup lang="ts">
-import { formatFileSize } from "@/@core/utils/formatters";
-import api from "@/api";
-import { DownloaderInfo } from "@/api/types";
+import { formatFileSize } from '@/@core/utils/formatters'
+import api from '@/api'
+import type { DownloaderInfo } from '@/api/types'
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null;
+let refreshTimer: NodeJS.Timer | null = null
 
 // 下载器信息
 const downloadInfo = ref<DownloaderInfo>({
   // 下载速度
   download_speed: 0,
+
   // 上传速度
   upload_speed: 0,
+
   // 下载量
   download_size: 0,
+
   // 上传量
   upload_size: 0,
+
   // 剩余空间
   free_space: 0,
-});
+})
 
 // 显示项
 const infoItems = ref([
   {
-    avatar: "",
-    title: "",
-    amount: "",
+    avatar: '',
+    title: '',
+    amount: '',
   },
-]);
+])
 
 // 调用API查询下载器数据
-const loadDownloaderInfo = async () => {
+async function loadDownloaderInfo() {
   try {
-    const res: DownloaderInfo = await api.get("dashboard/downloader");
-    downloadInfo.value = res;
+    const res: DownloaderInfo = await api.get('dashboard/downloader')
+
+    downloadInfo.value = res
     infoItems.value = [
       {
-        avatar: "mdi-cloud-upload",
-        title: "总上传量",
+        avatar: 'mdi-cloud-upload',
+        title: '总上传量',
         amount: formatFileSize(res.upload_size),
       },
       {
-        avatar: "mdi-download-box",
-        title: "总下载量",
+        avatar: 'mdi-download-box',
+        title: '总下载量',
         amount: formatFileSize(res.download_size),
       },
       {
-        avatar: "mdi-content-save",
-        title: "磁盘剩余空间",
+        avatar: 'mdi-content-save',
+        title: '磁盘剩余空间',
         amount: formatFileSize(res.free_space),
       },
-    ];
-  } catch (e) {
-    console.log(e);
+    ]
   }
-};
+  catch (e) {
+    console.log(e)
+  }
+}
 
 onMounted(() => {
-  loadDownloaderInfo();
+  loadDownloaderInfo()
+
   // 启动定时器
   refreshTimer = setInterval(() => {
-    loadDownloaderInfo();
-  }, 3000);
-});
+    loadDownloaderInfo()
+  }, 3000)
+})
 
 // 组件卸载时停止定时器
 onUnmounted(() => {
   if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
+    clearInterval(refreshTimer)
+    refreshTimer = null
   }
-});
+})
 </script>
 
 <template>
@@ -81,13 +88,23 @@ onUnmounted(() => {
 
     <VCardText class="pt-4">
       <div>
-        <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
-        <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
+        <p class="text-h5 me-2">
+          ↑{{ formatFileSize(downloadInfo.upload_speed) }}/s
+        </p>
+        <p class="text-h4 me-2">
+          ↓{{ formatFileSize(downloadInfo.download_speed) }}/s
+        </p>
       </div>
       <VList class="card-list mt-9">
-        <VListItem v-for="item in infoItems" :key="item.title">
+        <VListItem
+          v-for="item in infoItems"
+          :key="item.title"
+        >
           <template #prepend>
-            <VIcon rounded :icon="item.avatar" />
+            <VIcon
+              rounded
+              :icon="item.avatar"
+            />
           </template>
 
           <VListItemTitle class="text-sm font-weight-medium mb-1">

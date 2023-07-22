@@ -67,7 +67,7 @@
     },
     {
       "name": "设置",
-      "url": "./account-settings",
+      "url": "./settings",
       "icons": [
         {
           "src": "./cog-icon-192x192.png",

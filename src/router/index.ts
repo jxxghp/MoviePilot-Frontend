@@ -1,8 +1,8 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior() {
     // 始终滚动到顶部
     return { top: 0 }
   },
@@ -83,8 +83,8 @@ const router = createRouter({
           },
         },
         {
-          path: 'account-setting',
-          component: () => import('../pages/account-setting.vue'),
+          path: 'setting',
+          component: () => import('../pages/setting.vue'),
           meta: {
             requiresAuth: true,
           },

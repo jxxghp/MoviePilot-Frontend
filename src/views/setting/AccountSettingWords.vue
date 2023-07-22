@@ -1,80 +1,86 @@
 <script lang="ts" setup>
-import api from "@/api";
-import { useToast } from "vue-toast-notification";
+import { useToast } from 'vue-toast-notification'
+import api from '@/api'
 
 // 提示框
-const $toast = useToast();
+const $toast = useToast()
 
 // 自定义识别词
-const customIdentifiers = ref("");
+const customIdentifiers = ref('')
 
 // 自定义制作组
-const customReleaseGroups = ref("");
+const customReleaseGroups = ref('')
 
 // 查询已设置的识别词
-const queryCustomIdentifiers = async () => {
+async function queryCustomIdentifiers() {
   try {
     const result: { [key: string]: any } = await api.get(
-      "system/setting/CustomIdentifiers"
-    );
-    customIdentifiers.value = result.data?.value.join("\n");
-  } catch (error) {
-    console.log(error);
+      'system/setting/CustomIdentifiers',
+    )
+
+    customIdentifiers.value = result.data?.value.join('\n')
   }
-};
+  catch (error) {
+    console.log(error)
+  }
+}
 
 // 查询已设置的制作组
-const queryCustomReleaseGroups = async () => {
+async function queryCustomReleaseGroups() {
   try {
     const result: { [key: string]: any } = await api.get(
-      "system/setting/CustomReleaseGroups"
-    );
-    customReleaseGroups.value = result.data?.value.join("\n");
-  } catch (error) {
-    console.log(error);
+      'system/setting/CustomReleaseGroups',
+    )
+
+    customReleaseGroups.value = result.data?.value.join('\n')
   }
-};
+  catch (error) {
+    console.log(error)
+  }
+}
 
 // 保存用户设置的识别词
-const saveCustomIdentifiers = async () => {
+async function saveCustomIdentifiers() {
   try {
     // 用户名密码
     const result: { [key: string]: any } = await api.post(
-      "system/setting/CustomIdentifiers",
-      customIdentifiers.value.split("\n")
-    );
-    if (result.success) {
-      $toast.success("自定义识别词保存成功");
-    } else {
-      $toast.error("自定义识别词保存失败！");
-    }
-  } catch (error) {
-    console.log(error);
+      'system/setting/CustomIdentifiers',
+      customIdentifiers.value.split('\n'),
+    )
+
+    if (result.success)
+      $toast.success('自定义识别词保存成功')
+    else
+      $toast.error('自定义识别词保存失败！')
   }
-};
+  catch (error) {
+    console.log(error)
+  }
+}
 
 // 保存自定义制作组
-const saveCustomReleaseGroups = async () => {
+async function saveCustomReleaseGroups() {
   try {
     // 用户名密码
     const result: { [key: string]: any } = await api.post(
-      "system/setting/CustomReleaseGroups",
-      customReleaseGroups.value.split("\n")
-    );
-    if (result.success) {
-      $toast.success("自定义制作组/字幕组保存成功");
-    } else {
-      $toast.error("自定义制作组/字幕组保存失败！");
-    }
-  } catch (error) {
-    console.log(error);
+      'system/setting/CustomReleaseGroups',
+      customReleaseGroups.value.split('\n'),
+    )
+
+    if (result.success)
+      $toast.success('自定义制作组/字幕组保存成功')
+    else
+      $toast.error('自定义制作组/字幕组保存失败！')
   }
-};
+  catch (error) {
+    console.log(error)
+  }
+}
 
 onMounted(() => {
-  queryCustomIdentifiers();
-  queryCustomReleaseGroups();
-});
+  queryCustomIdentifiers()
+  queryCustomReleaseGroups()
+})
 </script>
 
 <template>
@@ -90,11 +96,15 @@ onMounted(() => {
 屏蔽词
 被替换词 => 替换词
 前定位词 <> 后定位词 >> 偏移量（EP）"
-          >
-          </VTextarea>
+          />
         </VCardItem>
         <VCardItem>
-          <VBtn type="submit" @click="saveCustomIdentifiers"> 保存 </VBtn>
+          <VBtn
+            type="submit"
+            @click="saveCustomIdentifiers"
+          >
+            保存
+          </VBtn>
         </VCardItem>
       </VCard>
     </VCol>
@@ -106,11 +116,15 @@ onMounted(() => {
             v-model="customReleaseGroups"
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个制作组/字幕组"
-          >
-          </VTextarea>
+          />
         </VCardItem>
         <VCardItem>
-          <VBtn type="submit" @click="saveCustomReleaseGroups"> 保存 </VBtn>
+          <VBtn
+            type="submit"
+            @click="saveCustomReleaseGroups"
+          >
+            保存
+          </VBtn>
         </VCardItem>
       </VCard>
     </VCol>

@@ -28,12 +28,13 @@ watch(
   () => route.path,
   () => {
     props.toggleIsOverlayNavActive(false)
-  })
+  },
+)
 
 const isVerticalNavScrolled = ref(false)
-const updateIsVerticalNavScrolled = (val: boolean) => isVerticalNavScrolled.value = val
+const updateIsVerticalNavScrolled = (val: boolean) => (isVerticalNavScrolled.value = val)
 
-const handleNavScroll = (evt: Event) => {
+function handleNavScroll(evt: Event) {
   isVerticalNavScrolled.value = (evt.target as HTMLElement).scrollTop > 0
 }
 </script>
@@ -54,14 +55,8 @@ const handleNavScroll = (evt: Event) => {
     <!-- 👉 Header -->
     <div class="nav-header">
       <slot name="nav-header">
-        <RouterLink
-          to="/"
-          class="app-logo d-flex align-center gap-x-3 app-title-wrapper"
-        >
-          <div
-            class="d-flex"
-            v-html="logo"
-          />
+        <RouterLink to="/" class="app-logo d-flex align-center gap-x-3 app-title-wrapper">
+          <div class="d-flex" v-html="logo" />
 
           <h1 class="font-weight-medium leading-normal text-xl">
             MoviePilot
@@ -72,10 +67,7 @@ const handleNavScroll = (evt: Event) => {
     <slot name="before-nav-items">
       <div class="vertical-nav-items-shadow" />
     </slot>
-    <slot
-      name="nav-items"
-      :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled"
-    >
+    <slot name="nav-items" :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled">
       <PerfectScrollbar
         tag="ul"
         class="nav-items"
@@ -91,8 +83,8 @@ const handleNavScroll = (evt: Event) => {
 </template>
 
 <style lang="scss">
-@use "@configured-variables" as variables;
-@use "@layouts/styles/mixins";
+@use '@configured-variables' as variables;
+@use '@layouts/styles/mixins';
 
 // 👉 Vertical Nav
 .layout-vertical-nav {

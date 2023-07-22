@@ -1,35 +1,45 @@
 <script lang="ts" setup>
 // 路由
-const router = useRouter();
+const router = useRouter()
 
 // 搜索词
-const searchWord = ref<string>("");
+const searchWord = ref<string>('')
 
 // 搜索弹窗
-const searchDialog = ref(false);
+const searchDialog = ref(false)
 
 // Search
-const search = () => {
-  if (!searchWord.value) {
-    return;
-  }
-  searchDialog.value = false;
+function search() {
+  if (!searchWord.value)
+    return
+
+  searchDialog.value = false
   router.push({
-    path: "/browse/media/search",
+    path: '/browse/media/search',
     query: {
       title: searchWord.value,
     },
-  });
-};
+  })
+}
 </script>
 
 <template>
   <!-- 👉 Search Button -->
-  <div class="d-flex align-center cursor-pointer" style="user-select: none">
-    <VDialog v-model="searchDialog" max-width="600" transition="dialog-top-transition">
+  <div
+    class="d-flex align-center cursor-pointer"
+    style="user-select: none"
+  >
+    <VDialog
+      v-model="searchDialog"
+      max-width="600"
+      transition="dialog-top-transition"
+    >
       <!-- Dialog Activator -->
       <template #activator="{ props }">
-        <IconBtn class="d-lg-none" v-bind="props">
+        <IconBtn
+          class="d-lg-none"
+          v-bind="props"
+        >
           <VIcon icon="mdi-magnify" />
         </IconBtn>
       </template>
@@ -38,14 +48,22 @@ const search = () => {
         <VCardText>
           <VRow>
             <VCol cols="12">
-              <VTextField v-model="searchWord" label="电影、电视剧名称" />
+              <VTextField
+                v-model="searchWord"
+                label="电影、电视剧名称"
+              />
             </VCol>
           </VRow>
         </VCardText>
 
         <VCardActions>
           <VSpacer />
-          <VBtn @click="search" @keydown.enter="search"> 搜索 </VBtn>
+          <VBtn
+            @click="search"
+            @keydown.enter="search"
+          >
+            搜索
+          </VBtn>
         </VCardActions>
       </VCard>
     </VDialog>
@@ -63,10 +81,10 @@ const search = () => {
       append-inner-icon="mdi-magnify"
       single-line
       hide-details
-      @click:append-inner="search"
-      @keydown.enter="search"
       flat
       rounded
+      @click:append-inner="search"
+      @keydown.enter="search"
     />
   </span>
 </template>

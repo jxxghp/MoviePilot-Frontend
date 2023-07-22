@@ -1,38 +1,41 @@
 <script setup lang="ts">
-import api from "@/api";
-import { ScheduleInfo } from "@/api/types";
+import api from '@/api'
+import type { ScheduleInfo } from '@/api/types'
 
 // 定时服务列表
-const schedulerList = ref<ScheduleInfo[]>([]);
+const schedulerList = ref<ScheduleInfo[]>([])
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null;
+let refreshTimer: NodeJS.Timer | null = null
 
 // 调用API加载定时服务列表
-const loadSchedulerList = async () => {
+async function loadSchedulerList() {
   try {
-    const res: ScheduleInfo[] = await api.get("dashboard/schedule");
-    schedulerList.value = res;
-  } catch (e) {
-    console.log(e);
+    const res: ScheduleInfo[] = await api.get('dashboard/schedule')
+
+    schedulerList.value = res
   }
-};
+  catch (e) {
+    console.log(e)
+  }
+}
 
 onMounted(() => {
-  loadSchedulerList();
+  loadSchedulerList()
+
   // 启动定时器
   refreshTimer = setInterval(() => {
-    loadSchedulerList();
-  }, 60000);
-});
+    loadSchedulerList()
+  }, 60000)
+})
 
 // 组件卸载时停止定时器
 onUnmounted(() => {
   if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
+    clearInterval(refreshTimer)
+    refreshTimer = null
   }
-});
+})
 </script>
 
 <template>
@@ -42,10 +45,21 @@ onUnmounted(() => {
     </VCardItem>
 
     <VCardText>
-      <VList class="card-list" height="250">
-        <VListItem v-for="item in schedulerList" :key="item.id">
+      <VList
+        class="card-list"
+        height="250"
+      >
+        <VListItem
+          v-for="item in schedulerList"
+          :key="item.id"
+        >
           <template #prepend>
-            <VAvatar size="40" variant="tonal" color="" class="me-3">
+            <VAvatar
+              size="40"
+              variant="tonal"
+              color=""
+              class="me-3"
+            >
               {{ item.name[0] }}
             </VAvatar>
           </template>
@@ -54,7 +68,9 @@ onUnmounted(() => {
             <span class="text-sm font-weight-medium">{{ item.name }}</span>
           </VListItemTitle>
 
-          <VListItemSubtitle class="text-xs"> {{ item.next_run }}</VListItemSubtitle>
+          <VListItemSubtitle class="text-xs">
+            {{ item.next_run }}
+          </VListItemSubtitle>
 
           <template #append>
             <div>
@@ -65,7 +81,9 @@ onUnmounted(() => {
           </template>
         </VListItem>
         <VListItem v-if="schedulerList.length === 0">
-          <VListItemTitle class="text-center">没有后台服务</VListItemTitle>
+          <VListItemTitle class="text-center">
+            没有后台服务
+          </VListItemTitle>
         </VListItem>
       </VList>
     </VCardText>

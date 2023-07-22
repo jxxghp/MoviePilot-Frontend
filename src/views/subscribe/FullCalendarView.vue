@@ -1,102 +1,99 @@
 <script lang="ts" setup>
-import { parseDate } from "@/@core/utils/formatters";
-import api from "@/api";
-import type { MediaInfo, Subscribe, TmdbEpisode } from "@/api/types";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import FullCalendar from "@fullcalendar/vue3";
+import type { CalendarOptions } from '@fullcalendar/core'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import FullCalendar from '@fullcalendar/vue3'
+import type { Ref } from 'vue'
+import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
+import api from '@/api'
+import { parseDate } from '@/@core/utils/formatters'
 
 // 日历属性
-const calendarOptions = ref({
-  height: "auto",
-  locale: "zh-cn",
-  themeSystem: "standard",
+const calendarOptions: Ref<CalendarOptions> = ref({
+  height: 'auto',
+  locale: 'zh-cn',
+  themeSystem: 'standard',
   buttonText: {
-    today: "今天",
-    month: "月",
-    week: "周",
-    day: "日",
-    list: "列表",
+    today: '今天',
+    month: '月',
+    week: '周',
+    day: '日',
+    list: '列表',
   },
   plugins: [
     dayGridPlugin,
     timeGridPlugin,
     interactionPlugin, // needed for dateClick
   ],
-  initialView: "dayGridMonth",
+  initialView: 'dayGridMonth',
   weekends: false,
   headerToolbar: {
-    left: "prev",
-    center: "title",
-    right: "next",
+    left: 'prev',
+    center: 'title',
+    right: 'next',
   },
   views: {
     week: {
-      titleFormat: { day: "numeric" },
+      titleFormat: { day: 'numeric' },
     },
   },
   events: [],
-});
+})
 
 // 调用API查询所有订阅
-const getSubscribes = async () => {
+async function getSubscribes() {
   try {
-    const subscribes: Subscribe[] = await api.get("subscribe");
+    const subscribes: Subscribe[] = await api.get('subscribe')
+
     const events = await Promise.all(
       subscribes.map(async (subscribe) => {
         // 如果是电影直接返回
-        if (subscribe.type === "电影") {
+        if (subscribe.type === '电影') {
           // 调用API查询TMDB详情
           const movie: MediaInfo = await api.get(`tmdb/${subscribe.tmdbid}`, {
             params: { tmdbid: subscribe.tmdbid, type_name: subscribe.type },
-          });
+          })
+
           return {
             title: subscribe.name,
-            start: parseDate(movie.release_date || ""),
+            start: parseDate(movie.release_date || ''),
             allDay: false,
             posterPath: subscribe.poster,
             mediaType: subscribe.type,
-          };
-        } else {
+          }
+        }
+        else {
           // 调用API查询集信息
           const episodes: TmdbEpisode[] = await api.get(
-            `tmdb/${subscribe.tmdbid}/${subscribe.season}`
-          );
+            `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
+          )
+
           return episodes.map((episode) => {
             return {
               title: subscribe.name,
               subtitle: `第 ${episode.episode_number} 集`,
-              start: parseDate(episode.air_date || ""),
+              start: parseDate(episode.air_date || ''),
               allDay: false,
               posterPath: subscribe.poster,
               mediaType: subscribe.type,
-            };
-          });
+            }
+          })
         }
-      })
-    );
-    calendarOptions.value.events = events.flat();
-  } catch (error) {
-    console.error(error);
-  }
-};
+      }),
+    )
 
-// 根据 type 返回不同的图标
-const getIcon = (type: string) => {
-  if (type === "电影") {
-    return "mdi-movie-roll";
-  } else if (type === "电视剧") {
-    return "mdi-television-box";
-  } else {
-    return "mdi-help-circle";
+    calendarOptions.value.events = events.flat()
   }
-};
+  catch (error) {
+    console.error(error)
+  }
+}
 
 // 页面加载时调用API查询所有订阅
 onMounted(() => {
-  getSubscribes();
-});
+  getSubscribes()
+})
 </script>
 
 <template>
@@ -117,7 +114,9 @@ onMounted(() => {
             </div>
             <VDivider :vertical="$vuetify.display.mdAndUp" />
             <div>
-              <VCardSubtitle class="pa-2 font-bold">{{ arg.event.title }}</VCardSubtitle>
+              <VCardSubtitle class="pa-2 font-bold">
+                {{ arg.event.title }}
+              </VCardSubtitle>
               <VCardText class="pa-0 px-2">
                 {{ arg.event.extendedProps.subtitle }}
               </VCardText>

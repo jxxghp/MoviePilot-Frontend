@@ -2,7 +2,7 @@ import type { ThemeInstance } from 'vuetify'
 import { hexToRgb } from '@layouts/utils'
 
 // 👉 Colors variables
-const colorVariables = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+function colorVariables(themeColors: ThemeInstance['themes']['value']['colors']) {
   const themeSecondaryTextColor = `rgba(${hexToRgb(themeColors.colors['on-surface'])},${themeColors.variables['medium-emphasis-opacity']})`
   const themeDisabledTextColor = `rgba(${hexToRgb(themeColors.colors['on-surface'])},${themeColors.variables['disabled-opacity']})`
   const themeBorderColor = `rgba(${hexToRgb(String(themeColors.variables['border-color']))},${themeColors.variables['border-opacity']})`
@@ -11,7 +11,7 @@ const colorVariables = (themeColors: ThemeInstance['themes']['value']['colors'])
   return { themeSecondaryTextColor, themeDisabledTextColor, themeBorderColor, themePrimaryTextColor }
 }
 
-export const getScatterChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getScatterChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const scatterColors = {
     series1: '#ff9f43',
     series2: '#7367f0',
@@ -67,7 +67,7 @@ export const getScatterChartConfig = (themeColors: ThemeInstance['themes']['valu
     },
   }
 }
-export const getLineChartSimpleConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getLineChartSimpleConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const { themeBorderColor, themeDisabledTextColor } = colorVariables(themeColors)
 
   return {
@@ -94,7 +94,7 @@ export const getLineChartSimpleConfig = (themeColors: ThemeInstance['themes']['v
       },
     },
     tooltip: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       custom(data: any) {
         return `<div class='bar-chart pa-2'>
           <span>${data.series[data.seriesIndex][data.dataPointIndex]}%</span>
@@ -137,7 +137,7 @@ export const getLineChartSimpleConfig = (themeColors: ThemeInstance['themes']['v
   }
 }
 
-export const getBarChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getBarChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const { themeBorderColor, themeDisabledTextColor } = colorVariables(themeColors)
 
   return {
@@ -180,7 +180,7 @@ export const getBarChartConfig = (themeColors: ThemeInstance['themes']['value'][
   }
 }
 
-export const getCandlestickChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getCandlestickChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const candlestickColors = {
     series1: '#28c76f',
     series2: '#ea5455',
@@ -231,7 +231,7 @@ export const getCandlestickChartConfig = (themeColors: ThemeInstance['themes']['
     },
   }
 }
-export const getRadialBarChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getRadialBarChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const radialBarColors = {
     series1: '#fdd835',
     series2: '#32baff',
@@ -282,7 +282,7 @@ export const getRadialBarChartConfig = (themeColors: ThemeInstance['themes']['va
             fontSize: '1.125rem',
 
             color: themePrimaryTextColor,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             formatter(w: { globals: { seriesTotals: any[]; series: string | any[] } }) {
               const totalValue
                 = w.globals.seriesTotals.reduce((a: number, b: number) => {
@@ -307,7 +307,7 @@ export const getRadialBarChartConfig = (themeColors: ThemeInstance['themes']['va
   }
 }
 
-export const getDonutChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getDonutChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const donutColors = {
     series1: '#fdd835',
     series2: '#00d4bd',
@@ -401,7 +401,7 @@ export const getDonutChartConfig = (themeColors: ThemeInstance['themes']['value'
   }
 }
 
-export const getAreaChartSplineConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getAreaChartSplineConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const areaColors = {
     series3: '#e0cffe',
     series2: '#b992fe',
@@ -482,7 +482,7 @@ export const getAreaChartSplineConfig = (themeColors: ThemeInstance['themes']['v
   }
 }
 
-export const getColumnChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getColumnChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const columnColors = {
     series1: '#826af9',
     series2: '#d2b0ff',
@@ -568,7 +568,7 @@ export const getColumnChartConfig = (themeColors: ThemeInstance['themes']['value
   }
 }
 
-export const getHeatMapChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getHeatMapChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const { themeSecondaryTextColor, themeDisabledTextColor } = colorVariables(themeColors)
 
   return {
@@ -627,7 +627,7 @@ export const getHeatMapChartConfig = (themeColors: ThemeInstance['themes']['valu
   }
 }
 
-export const getRadarChartConfig = (themeColors: ThemeInstance['themes']['value']['colors']) => {
+export function getRadarChartConfig(themeColors: ThemeInstance['themes']['value']['colors']) {
   const radarColors = {
     series1: '#9b88fa',
     series2: '#ffa1a1',

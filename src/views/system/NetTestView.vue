@@ -1,158 +1,170 @@
 <script setup lang="ts">
-import api from "@/api";
-import douban from "@images/logos/douban.png";
-import github from "@images/logos/github.png";
-import slack from "@images/logos/slack.png";
-import telegram from "@images/logos/telegram.webp";
-import tmdb from "@images/logos/tmdb.png";
-import wechat from "@images/logos/wechat.png";
+import api from '@/api'
+import douban from '@images/logos/douban.png'
+import github from '@images/logos/github.png'
+import slack from '@images/logos/slack.png'
+import telegram from '@images/logos/telegram.webp'
+import tmdb from '@images/logos/tmdb.png'
+import wechat from '@images/logos/wechat.png'
 
 interface Status {
-  OK: string;
-  Fail: string;
-  Normal: string;
-  Doing?: string;
+  OK: string
+  Fail: string
+  Normal: string
+  Doing?: string
 }
 
 interface Address {
-  image: string;
-  name: string;
-  url: string;
-  proxy: boolean;
-  status: keyof Status;
-  time: string;
-  message: string;
-  btndisable: boolean;
+  image: string
+  name: string
+  url: string
+  proxy: boolean
+  status: keyof Status
+  time: string
+  message: string
+  btndisable: boolean
 }
 
 // 测试集
 const targets = ref<Address[]>([
   {
     image: tmdb,
-    name: "api.themoviedb.org",
-    url: "https://api.themoviedb.org/3/movie/550?api_key={TMDBAPIKEY}",
+    name: 'api.themoviedb.org',
+    url: 'https://api.themoviedb.org/3/movie/550?api_key={TMDBAPIKEY}',
     proxy: true,
-    status: "Normal",
-    time: "",
-    message: "",
+    status: 'Normal',
+    time: '',
+    message: '',
     btndisable: false,
   },
   {
     image: tmdb,
-    name: "api.tmdb.org",
-    url: "https://api.tmdb.org",
+    name: 'api.tmdb.org',
+    url: 'https://api.tmdb.org',
     proxy: true,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
   {
     image: tmdb,
-    name: "www.themoviedb.org",
-    url: "https://www.themoviedb.org",
+    name: 'www.themoviedb.org',
+    url: 'https://www.themoviedb.org',
     proxy: true,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
   {
     image: telegram,
-    name: "api.telegram.org",
-    url: "https://api.telegram.org",
+    name: 'api.telegram.org',
+    url: 'https://api.telegram.org',
     proxy: true,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
   {
     image: wechat,
-    name: "qyapi.weixin.qq.com",
-    url: "https://qyapi.weixin.qq.com/cgi-bin/gettoken",
+    name: 'qyapi.weixin.qq.com',
+    url: 'https://qyapi.weixin.qq.com/cgi-bin/gettoken',
     proxy: false,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
   {
     image: douban,
-    name: "frodo.douban.com",
-    url: "https://frodo.douban.com",
+    name: 'frodo.douban.com',
+    url: 'https://frodo.douban.com',
     proxy: false,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
   {
     image: slack,
-    name: "slack.com",
-    url: "https://slack.com",
+    name: 'slack.com',
+    url: 'https://slack.com',
     proxy: false,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
   {
     image: github,
-    name: "github.com",
-    url: "https://github.com",
+    name: 'github.com',
+    url: 'https://github.com',
     proxy: true,
-    status: "Normal",
-    time: "",
-    message: "未测试",
+    status: 'Normal',
+    time: '',
+    message: '未测试',
     btndisable: false,
   },
-]);
+])
 
 const resolveStatusColor: Status = {
-  OK: "success",
-  Fail: "error",
-  Normal: "",
-  Doing: "warning",
-};
+  OK: 'success',
+  Fail: 'error',
+  Normal: '',
+  Doing: 'warning',
+}
 
 // 调用API测试网络连接
-const netTest = async (index: number) => {
+async function netTest(index: number) {
   try {
-    const target = targets.value[index];
-    target.btndisable = true;
-    target.status = "Doing";
-    target.message = "测试中...";
-    const result: { [key: string]: any } = await api.get("system/nettest", {
+    const target = targets.value[index]
+
+    target.btndisable = true
+    target.status = 'Doing'
+    target.message = '测试中...'
+
+    const result: { [key: string]: any } = await api.get('system/nettest', {
       params: {
         url: target.url,
         proxy: target.proxy,
       },
-    });
+    })
+
     if (result.success) {
-      target.status = "OK";
-      target.message = "正常";
-    } else {
-      target.status = "Fail";
-      target.message = result.message;
+      target.status = 'OK'
+      target.message = '正常'
     }
-    target.time = result.data?.time;
-    target.btndisable = false;
-  } catch (error) {
-    console.error(error);
+    else {
+      target.status = 'Fail'
+      target.message = result.message
+    }
+    target.time = result.data?.time
+    target.btndisable = false
   }
-};
+  catch (error) {
+    console.error(error)
+  }
+}
+
 // 加载时测试所有连接
 onMounted(async () => {
-  for (let i = 0; i < targets.value.length; i++) {
-    await netTest(i);
-  }
-});
+  for (let i = 0; i < targets.value.length; i++)
+    await netTest(i)
+})
 </script>
 
 <template>
-  <VList lines="two" border rounded>
-    <template v-for="(target, index) of targets" :key="target.name">
+  <VList
+    lines="two"
+    border
+    rounded
+  >
+    <template
+      v-for="(target, index) of targets"
+      :key="target.name"
+    >
       <VListItem>
         <template #prepend>
           <VAvatar :image="target.image" />
@@ -171,7 +183,10 @@ onMounted(async () => {
             <span class="ms-4">{{ target.message }}</span>
           </VBadge>
 
-          <span class="text-xs text-wrap text-disabled" v-if="target.time">
+          <span
+            v-if="target.time"
+            class="text-xs text-wrap text-disabled"
+          >
             {{ target.time }} ms
           </span>
         </VListItemSubtitle>
@@ -179,10 +194,9 @@ onMounted(async () => {
           <VBtn
             size="small"
             icon="mdi-connection"
-            @click="netTest(index)"
             :disabled="target.btndisable"
-          >
-          </VBtn>
+            @click="netTest(index)"
+          />
         </template>
       </VListItem>
       <VDivider v-if="index !== targets.length - 1" />

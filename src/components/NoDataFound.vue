@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { useTheme } from 'vuetify'
 import misc404 from '@images/pages/404.png'
 import miscMaskDark from '@images/pages/misc-mask-dark.png'
 import miscMaskLight from '@images/pages/misc-mask-light.png'
 import tree from '@images/pages/tree.png'
-import { useTheme } from 'vuetify'
+
+const props = defineProps<Props>()
 
 const vuetifyTheme = useTheme()
 
@@ -16,8 +18,6 @@ interface Props {
   errorTitle?: string
   errorDescription?: string
 }
-
-const props = defineProps<Props>()
 </script>
 
 <template>
