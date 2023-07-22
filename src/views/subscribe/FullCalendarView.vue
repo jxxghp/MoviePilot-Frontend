@@ -112,9 +112,8 @@ onMounted(() => {
                 cover
               />
             </div>
-            <VDivider :vertical="$vuetify.display.mdAndUp" />
             <div>
-              <VCardSubtitle class="pa-2 font-bold">
+              <VCardSubtitle class="pa-2 font-bold break-words whitespace-break-spaces">
                 {{ arg.event.title }}
               </VCardSubtitle>
               <VCardText class="pa-0 px-2">
