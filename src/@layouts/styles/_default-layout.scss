@@ -38,6 +38,10 @@ body,
   // TODO: Use grid gutter variable here
   padding-block: 0.5rem;
   padding-top: calc(env(safe-area-inset-top) + 70px);
+  display: flex;
+  .page-content-container {
+    flex: 1;
+  }
 }
 
 .layout-footer {

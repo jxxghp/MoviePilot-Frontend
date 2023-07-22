@@ -166,7 +166,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
   </div>
 </template>
 
-<style type="text/css">
+<style lang="css">
 .slider-header {
   position: relative;
   display: flex;

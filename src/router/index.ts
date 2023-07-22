@@ -23,6 +23,7 @@ const router = createRouter({
           path: 'ranking',
           component: () => import('../pages/ranking.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },

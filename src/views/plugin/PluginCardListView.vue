@@ -87,7 +87,7 @@ onBeforeMount(fetchData)
         icon="mdi-plus"
         v-bind="props"
         size="x-large"
-        class="fixed right-5 bottom-5"
+        class="fixed right-5"
       />
     </template>
 
