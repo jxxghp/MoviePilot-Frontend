@@ -13,14 +13,6 @@ import { parseDate } from '@/@core/utils/formatters'
 const calendarOptions: Ref<CalendarOptions> = ref({
   height: 'auto',
   locale: 'zh-cn',
-  themeSystem: 'standard',
-  buttonText: {
-    today: '今天',
-    month: '月',
-    week: '周',
-    day: '日',
-    list: '列表',
-  },
   plugins: [
     dayGridPlugin,
     timeGridPlugin,
@@ -124,7 +116,7 @@ onMounted(() => {
         </VCard>
       </div>
       <div class="md:hidden">
-        <VTooltip :text="arg.event.title">
+        <VTooltip :text="`${arg.event.title} ${arg.event.extendedProps.subtitle}`">
           <template #activator="{ props }">
             <VImg
               height="60"
@@ -334,8 +326,8 @@ onMounted(() => {
 }
 
 .v-application .fc .fc-daygrid-day-number {
-  padding-block: 0.5rem;
-  padding-inline: 0.75rem;
+  padding-block: 0rem;
+  padding-inline: 0rem;
 }
 
 .v-application .fc .fc-list-event-dot {
