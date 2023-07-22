@@ -51,6 +51,7 @@ body,
     & > div:first-child {
       flex: auto;
       position: relative;
+      width: calc(100vw - variables.$layout-vertical-nav-width - 1rem);
     }
   }
 }
