@@ -27,6 +27,9 @@ const tmdbFlag = ref(true);
 // 当前订阅状态
 const isSubscribed = ref(false);
 
+// 本地存在状态
+const isExists = ref(false);
+
 // 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失
 const seasonsNotExisted = ref<{ [key: number]: number }>({});
 
@@ -197,6 +200,26 @@ const handleCheckSubscribe = async () => {
   }
 };
 
+// 查询当前媒体是否已存在
+const handleCheckExists = async () => {
+  try {
+    const result: {[key:string]: any} = await api.get(`media/exists`, {
+      params: {
+        tmdbid: props.media?.tmdb_id,
+        title: props.media?.title,
+        year: props.media?.year,
+        season: props.media?.season,
+        mtype: props.media?.type,
+      },
+    });
+    if (result.success) {
+      isExists.value = true;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 // 调用API检查是否已订阅，电视剧需要指定季
 const checkSubscribe = async (season: number = 0) => {
   try {
@@ -337,7 +360,10 @@ const handleSearch = () => {
 };
 
 // 装载时检查是否已订阅
-onBeforeMount(handleCheckSubscribe);
+onBeforeMount(() => {
+  handleCheckSubscribe();
+  handleCheckExists();
+});
 
 // 订阅季表头
 const seasonsHeaders = [
@@ -396,11 +422,13 @@ const getImgUrl = (url: string) => {
           >
             {{ props.media?.type }}
           </VChip>
+          <!-- 本地存在标识 -->
+          <ExistIcon v-if="isExists"/>
           <!-- 评分角标 -->
           <VChip
             variant="elevated"
             size="small"
-            v-if="props.media?.vote_average"
+            v-if="props.media?.vote_average && !isExists"
             :class="getChipColor('rating')"
             class="absolute right-2 top-2 bg-opacity-80 shadow-md text-white font-bold"
           >
@@ -442,7 +470,7 @@ const getImgUrl = (url: string) => {
   >
     <!-- Dialog Content -->
     <VCard title="选择订阅季">
-      <VCardText style="padding: 0">
+      <VCardText style="padding: 0;">
         <VDataTable
           v-model="seasonsSelected"
           :headers="seasonsHeaders"
