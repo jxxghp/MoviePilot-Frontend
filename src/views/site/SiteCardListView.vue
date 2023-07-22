@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import api from '@/api';
-import { Site } from '@/api/types';
-import SiteCard from '@/components/cards/SiteCard.vue';
-import NoDataFound from "@/components/NoDataFound.vue";
+import api from '@/api'
+import type { Site } from '@/api/types'
+import SiteCard from '@/components/cards/SiteCard.vue'
+import NoDataFound from '@/components/NoDataFound.vue'
 
 // 数据列表
 const dataList = ref<Site[]>([])
@@ -11,11 +11,12 @@ const dataList = ref<Site[]>([])
 const isRefreshed = ref(false)
 
 // 获取站点列表数据
-const fetchData = async () => {
+async function fetchData() {
   try {
     dataList.value = await api.get('site')
     isRefreshed.value = true
-  } catch (error) {
+  }
+  catch (error) {
     console.error(error)
   }
 }
@@ -26,14 +27,14 @@ onBeforeMount(fetchData)
 
 <template>
   <VProgressCircular
-    class="centered"
     v-if="!isRefreshed"
+    class="centered"
     indeterminate
     color="primary"
-  ></VProgressCircular>
+  />
   <div
-    class="grid gap-3 grid-site-card"
     v-if="dataList.length > 0"
+    class="grid gap-3 grid-site-card"
   >
     <SiteCard
       v-for="data in dataList"
@@ -46,11 +47,10 @@ onBeforeMount(fetchData)
     error-code="404"
     error-title="没有站点"
     error-description="已添加并支持的站点将会在这里显示。"
-  >
-  </NoDataFound>
+  />
 </template>
 
-<style type="scss">
+<style lang="scss">
 .grid-site-card {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   padding-block-end: 1rem;

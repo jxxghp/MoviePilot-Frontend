@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
     "mgmcdermott.vscode-language-babel",
     "editorconfig.editorconfig",
     "xabikos.javascriptsnippets",

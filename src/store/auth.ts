@@ -1,16 +1,15 @@
-import { Module } from 'vuex';
+import type { Module } from 'vuex'
 
 // 定义状态类型
 interface AuthState {
-  token: string | null;
-  remember: boolean;
+  token: string | null
+  remember: boolean
 }
 
 // 定义根状态类型
 interface RootState {
-  auth: AuthState;
+  auth: AuthState
 }
-
 
 // 导出模块
 const authModule: Module<AuthState, RootState> = {
@@ -21,30 +20,30 @@ const authModule: Module<AuthState, RootState> = {
   },
   mutations: {
     setToken(state, token: string) {
-      state.token = token;
+      state.token = token
     },
     clearToken(state) {
-      state.token = null;
+      state.token = null
     },
     setRemember(state, remember: boolean) {
-      state.remember = remember;
+      state.remember = remember
     },
   },
   actions: {
     updateToken({ commit }, token: string) {
-      commit('setToken', token);
+      commit('setToken', token)
     },
-    clearToken({ commit },) {
-      commit('clearToken');
+    clearToken({ commit }) {
+      commit('clearToken')
     },
     updateRemember({ commit }, remember: boolean) {
-      commit('setRemember', remember);
+      commit('setRemember', remember)
     },
   },
   getters: {
     getToken: state => state.token,
     getRemember: state => state.remember,
-  }
-};
+  },
+}
 
-export default authModule;
+export default authModule

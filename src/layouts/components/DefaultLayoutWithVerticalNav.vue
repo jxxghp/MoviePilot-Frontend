@@ -1,14 +1,14 @@
 <script lang="ts" setup>
-import VerticalNavSectionTitle from "@/@layouts/components/VerticalNavSectionTitle.vue";
-import VerticalNavLayout from "@layouts/components/VerticalNavLayout.vue";
-import VerticalNavLink from "@layouts/components/VerticalNavLink.vue";
+import VerticalNavSectionTitle from '@/@layouts/components/VerticalNavSectionTitle.vue'
+import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
+import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
 
 // Components
-import Footer from "@/layouts/components/Footer.vue";
-import NavbarThemeSwitcher from "@/layouts/components/NavbarThemeSwitcher.vue";
-import SearchBar from "@/layouts/components/SearchBar.vue";
-import ShortcutBar from "@/layouts/components/ShortcutBar.vue";
-import UserProfile from "@/layouts/components/UserProfile.vue";
+import Footer from '@/layouts/components/Footer.vue'
+import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
+import SearchBar from '@/layouts/components/SearchBar.vue'
+import ShortcutBar from '@/layouts/components/ShortcutBar.vue'
+import UserProfile from '@/layouts/components/UserProfile.vue'
 </script>
 
 <template>
@@ -17,7 +17,10 @@ import UserProfile from "@/layouts/components/UserProfile.vue";
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center mx-1">
         <!-- 👉 Vertical Nav Toggle -->
-        <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
+        <IconBtn
+          class="ms-n2 d-lg-none"
+          @click="toggleVerticalOverlayNavActive(true)"
+        >
           <VIcon icon="mdi-menu" />
         </IconBtn>
 

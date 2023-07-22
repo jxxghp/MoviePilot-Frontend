@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PluginCardListView from "@/views/setting/PluginCardListView.vue";
+import PluginCardListView from '@/views/setting/PluginCardListView.vue'
 </script>
 
 <template>

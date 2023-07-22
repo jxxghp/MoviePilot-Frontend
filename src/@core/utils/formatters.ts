@@ -1,6 +1,6 @@
 import { isToday } from './index'
 
-export const avatarText = (value: string) => {
+export function avatarText(value: string) {
   if (!value)
     return ''
   const nameArray = value.split(' ')
@@ -9,7 +9,7 @@ export const avatarText = (value: string) => {
 }
 
 // TODO: Try to implement this: https://twitter.com/fireship_dev/status/1565424801216311297
-export const kFormatter = (num: number) => {
+export function kFormatter(num: number) {
   const regex = /\B(?=(\d{3})+(?!\d))/g
 
   return Math.abs(num) > 9999 ? `${Math.sign(num) * +((Math.abs(num) / 1000).toFixed(1))}k` : Math.abs(num).toFixed(0).replace(regex, ',')
@@ -22,7 +22,7 @@ export const kFormatter = (num: number) => {
  * @param {String} value date to format
  * @param {Intl.DateTimeFormatOptions} formatting Intl object to format with
  */
-export const formatDate = (value: string, formatting: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }) => {
+export function formatDate(value: string, formatting: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }) {
   if (!value)
     return value
 
@@ -35,7 +35,7 @@ export const formatDate = (value: string, formatting: Intl.DateTimeFormatOptions
  * @param {String} value date to format
  * @param {Boolean} toTimeForCurrentDay Shall convert to time if day is today/current
  */
-export const formatDateToMonthShort = (value: string, toTimeForCurrentDay = true) => {
+export function formatDateToMonthShort(value: string, toTimeForCurrentDay = true) {
   const date = new Date(value)
   let formatting: Record<string, string> = { month: 'short', day: 'numeric' }
 
@@ -51,50 +51,47 @@ export const prefixWithPlus = (value: number) => value > 0 ? `+${value}` : value
 export const formatSeason = (value: string) => value ? `S${value.padStart(2, '0')}` : ''
 
 // 格式化为xx[TGMK]B
-export const formatFileSize = (bytes: number) => {
-  if (bytes < 0) {
-    throw new Error("字节数不能为负数。");
-  }
+export function formatFileSize(bytes: number) {
+  if (bytes < 0)
+    throw new Error('字节数不能为负数。')
 
-  const units = ["B", "K", "M", "G", "T"];
-  let size = bytes;
-  let unitIndex = 0;
+  const units = ['B', 'K', 'M', 'G', 'T']
+  let size = bytes
+  let unitIndex = 0
 
   while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
+    size /= 1024
+    unitIndex++
   }
 
-  return `${size.toFixed(2)} ${units[unitIndex]}`;
+  return `${size.toFixed(2)} ${units[unitIndex]}`
 }
 
 // 将时间秒格式化为时分秒
-export const formatSeconds = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const remainingSeconds = seconds % 60;
+export function formatSeconds(seconds: number) {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = seconds % 60
 
-  let formattedTime = '';
+  let formattedTime = ''
 
-  if (hours > 0) {
-    formattedTime += `${hours}小时`;
-  }
+  if (hours > 0)
+    formattedTime += `${hours}小时`
 
-  if (minutes > 0) {
-    formattedTime += `${minutes}分`;
-  }
+  if (minutes > 0)
+    formattedTime += `${minutes}分`
 
-  if ((remainingSeconds > 0 || formattedTime === '') && hours <= 0) {
-    formattedTime += `${remainingSeconds}秒`;
-  }
+  if ((remainingSeconds > 0 || formattedTime === '') && hours <= 0)
+    formattedTime += `${remainingSeconds}秒`
 
-  return formattedTime;
+  return formattedTime
 }
 
-
 // YYYY-MM-DD 转化为Date
-export const parseDate = (dateString: string): Date => {
-  if (!dateString) return new Date();
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+export function parseDate(dateString: string): Date {
+  if (!dateString)
+    return new Date()
+  const [year, month, day] = dateString.split('-').map(Number)
+
+  return new Date(year, month - 1, day)
 }

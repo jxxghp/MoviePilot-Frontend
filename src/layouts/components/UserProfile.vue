@@ -1,30 +1,46 @@
 <script setup lang="ts">
-import router from "@/router";
-import { useStore } from "vuex";
+import { useStore } from 'vuex'
+import router from '@/router'
 
 // Vuex Store
-const store = useStore();
+const store = useStore()
 
 // 执行注销操作
-const logout = () => {
+function logout() {
   // 清除登录状态信息
-  store.dispatch("auth/clearToken");
+  store.dispatch('auth/clearToken')
 
   // 重定向到登录页面或其他适当的页面
-  router.push("/login");
-};
+  router.push('/login')
+}
 
 // 获取当前用户信息
-const accountInfo: any = inject("accountInfo");
+const accountInfo: any = inject('accountInfo')
 </script>
 
 <template>
-  <VBadge dot location="bottom right" offset-x="3" offset-y="3" color="success" bordered>
-    <VAvatar class="cursor-pointer" color="primary" variant="tonal">
+  <VBadge
+    dot
+    location="bottom right"
+    offset-x="3"
+    offset-y="3"
+    color="success"
+    bordered
+  >
+    <VAvatar
+      class="cursor-pointer"
+      color="primary"
+      variant="tonal"
+    >
       <VImg :src="accountInfo.avatar" />
 
       <!-- SECTION Menu -->
-      <VMenu activator="parent" width="230" location="bottom end" offset="14px">
+      <VMenu
+        activator="parent"
+        width="230"
+        location="bottom end"
+        offset="14px"
+      >
         <VList>
           <!-- 👉 User Avatar & Name -->
           <VListItem>
@@ -37,7 +53,10 @@ const accountInfo: any = inject("accountInfo");
                   offset-y="3"
                   color="success"
                 >
-                  <VAvatar color="primary" variant="tonal">
+                  <VAvatar
+                    color="primary"
+                    variant="tonal"
+                  >
                     <VImg :src="accountInfo.avatar" />
                   </VAvatar>
                 </VBadge>
@@ -52,9 +71,16 @@ const accountInfo: any = inject("accountInfo");
           <VDivider class="my-2" />
 
           <!-- 👉 Profile -->
-          <VListItem link to="account-setting">
+          <VListItem
+            link
+            to="account-setting"
+          >
             <template #prepend>
-              <VIcon class="me-2" icon="mdi-account-outline" size="22" />
+              <VIcon
+                class="me-2"
+                icon="mdi-account-outline"
+                size="22"
+              />
             </template>
 
             <VListItemTitle>设定</VListItemTitle>
@@ -66,7 +92,11 @@ const accountInfo: any = inject("accountInfo");
             target="_blank"
           >
             <template #prepend>
-              <VIcon class="me-2" icon="mdi-help-circle-outline" size="22" />
+              <VIcon
+                class="me-2"
+                icon="mdi-help-circle-outline"
+                size="22"
+              />
             </template>
 
             <VListItemTitle>帮助</VListItemTitle>
@@ -78,7 +108,11 @@ const accountInfo: any = inject("accountInfo");
           <!-- 👉 Logout -->
           <VListItem @click="logout">
             <template #prepend>
-              <VIcon class="me-2" icon="mdi-logout" size="22" />
+              <VIcon
+                class="me-2"
+                icon="mdi-logout"
+                size="22"
+              />
             </template>
 
             <VListItemTitle>注销</VListItemTitle>

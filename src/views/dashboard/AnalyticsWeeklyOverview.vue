@@ -1,23 +1,24 @@
 <script setup lang="ts">
-import api from "@/api";
-import { hexToRgb } from "@layouts/utils";
-import VueApexCharts from "vue3-apexcharts";
-import { useTheme } from "vuetify";
+import VueApexCharts from 'vue3-apexcharts'
+import { useTheme } from 'vuetify'
+import api from '@/api'
+import { hexToRgb } from '@layouts/utils'
 
-const vuetifyTheme = useTheme();
+const vuetifyTheme = useTheme()
 
 const options = controlledComputed(
   () => vuetifyTheme.name.value,
   () => {
-    const currentTheme = ref(vuetifyTheme.current.value.colors);
-    const variableTheme = ref(vuetifyTheme.current.value.variables);
+    const currentTheme = ref(vuetifyTheme.current.value.colors)
+    const variableTheme = ref(vuetifyTheme.current.value.variables)
 
-    const disabledColor = `rgba(${hexToRgb(currentTheme.value["on-surface"])},${
-      variableTheme.value["disabled-opacity"]
-    })`;
-    const borderColor = `rgba(${hexToRgb(String(variableTheme.value["border-color"]))},${
-      variableTheme.value["border-opacity"]
-    })`;
+    const disabledColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${
+      variableTheme.value['disabled-opacity']
+    })`
+
+    const borderColor = `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${
+      variableTheme.value['border-opacity']
+    })`
 
     return {
       chart: {
@@ -28,9 +29,9 @@ const options = controlledComputed(
         bar: {
           borderRadius: 9,
           distributed: true,
-          columnWidth: "40%",
-          endingShape: "rounded",
-          startingShape: "rounded",
+          columnWidth: '40%',
+          endingShape: 'rounded',
+          startingShape: 'rounded',
         },
       },
       stroke: {
@@ -54,12 +55,12 @@ const options = controlledComputed(
       dataLabels: { enabled: false },
       colors: [currentTheme.value.primary],
       states: {
-        hover: { filter: { type: "none" } },
-        active: { filter: { type: "none" } },
+        hover: { filter: { type: 'none' } },
+        active: { filter: { type: 'none' } },
       },
       xaxis: {
-        categories: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-        tickPlacement: "on",
+        categories: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        tickPlacement: 'on',
         labels: { show: false },
         crosshairs: { opacity: 0 },
         axisTicks: { show: false },
@@ -72,36 +73,38 @@ const options = controlledComputed(
           offsetX: -17,
           style: {
             colors: disabledColor,
-            fontSize: "12px",
+            fontSize: '12px',
           },
 
           formatter: (value: number) =>
-            `${value > 999 ? `${(value / 1000).toFixed(0)}` : value}`,
+            value > 999 ? (value / 1000).toFixed(0) : value,
         },
       },
-    };
-  }
-);
+    }
+  },
+)
 
 // 图表数据
-const series = ref([{ data: [0, 0, 0, 0, 0, 0, 0] }]);
+const series = ref([{ data: [0, 0, 0, 0, 0, 0, 0] }])
 
 // 总数
-const totalCount = computed(() => series.value[0].data.reduce((a, b) => a + b, 0));
+const totalCount = computed(() => series.value[0].data.reduce((a, b) => a + b, 0))
 
 // 调用API接口获取数据近7天数据
-const getWeeklyData = async () => {
+async function getWeeklyData() {
   try {
-    const res: number[] = await api.get("dashboard/transfer");
-    series.value = [{ data: res }];
-  } catch (e) {
-    console.log(e);
+    const res: number[] = await api.get('dashboard/transfer')
+
+    series.value = [{ data: res }]
   }
-};
+  catch (e) {
+    console.log(e)
+  }
+}
 
 onMounted(() => {
-  getWeeklyData();
-});
+  getWeeklyData()
+})
 </script>
 
 <template>
@@ -111,14 +114,26 @@ onMounted(() => {
     </VCardItem>
 
     <VCardText>
-      <VueApexCharts type="bar" :options="options" :series="series" :height="160" />
+      <VueApexCharts
+        type="bar"
+        :options="options"
+        :series="series"
+        :height="160"
+      />
 
       <div class="d-flex align-center mb-3">
-        <h5 class="text-h5 me-4">{{ totalCount }}</h5>
+        <h5 class="text-h5 me-4">
+          {{ totalCount }}
+        </h5>
         <p>最近一周入库了 {{ totalCount }} 部影片 😎</p>
       </div>
 
-      <VBtn block to="/history"> 查看详情 </VBtn>
+      <VBtn
+        block
+        to="/history"
+      >
+        查看详情
+      </VBtn>
     </VCardText>
   </VCard>
 </template>

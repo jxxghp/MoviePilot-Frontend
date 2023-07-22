@@ -1,16 +1,16 @@
-import NProgress from 'nprogress';
-import 'nprogress/nprogress.css';
+import NProgress from 'nprogress'
+import 'nprogress/nprogress.css'
 
 export function configureNProgress() {
   NProgress.configure({
-    showSpinner: false
-  });
+    showSpinner: false,
+  })
 }
 
 export function startNProgress() {
-  NProgress.start();
+  NProgress.start()
 }
 
 export function doneNProgress() {
-  NProgress.done();
+  NProgress.done()
 }

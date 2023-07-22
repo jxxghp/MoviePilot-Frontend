@@ -1,6 +1,6 @@
-import { createStore } from 'vuex';
-import createPersistedState from 'vuex-persistedstate';
-import authModule from './auth';
+import { createStore } from 'vuex'
+import createPersistedState from 'vuex-persistedstate'
+import authModule from './auth'
 
 const store = createStore({
   modules: {
@@ -14,6 +14,6 @@ const store = createStore({
       key: 'moviepilot', // 存储的键名
     }),
   ],
-});
+})
 
-export default store;
+export default store
