@@ -81,7 +81,7 @@ onMounted(() => {
 
 .v-card .triangle-bg {
   position: absolute;
-  inline-size: 10.375rem;
+  inline-size: 8.75rem;
   inset-block-end: 0;
   inset-inline-end: 0;
 }
