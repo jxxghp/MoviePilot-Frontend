@@ -127,7 +127,8 @@ onMounted(() => {
         <VTooltip :text="arg.event.title">
           <template #activator="{ props }">
             <VImg
-              height="80"
+              height="60"
+              width="40"
               :src="arg.event.extendedProps.posterPath"
               v-bind="props"
               aspect-ratio="2/3"
