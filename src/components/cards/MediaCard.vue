@@ -16,7 +16,7 @@ const props = defineProps({
 })
 
 // 提示框
-const $toast = useToast()
+const $toast = useToast({ position: 'top' })
 
 // 图片加载状态
 const isImageLoaded = ref(false)

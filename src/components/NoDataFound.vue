@@ -54,17 +54,21 @@ interface Props {
 <style lang="scss">
 @use '@core/scss/pages/misc.scss';
 
-.misc-wrapper .misc-footer-tree {
-  position: absolute;
-  z-index: 1;
-  inline-size: 15.625rem;
-  inset-block-end: 3.5rem;
-  inset-inline-start: 0.375rem;
-}
+.misc-wrapper {
+  position: relative;
 
-.misc-wrapper .misc-footer-img {
-  position: absolute;
-  inline-size: 100%;
-  inset-block-end: 0;
+  .misc-footer-tree {
+    position: absolute;
+    z-index: 1;
+    inline-size: 15.625rem;
+    inset-block-end: 3.5rem;
+    inset-inline-start: 0.375rem;
+  }
+
+  .misc-footer-img {
+    position: absolute;
+    inline-size: 100%;
+    inset-block-end: 0;
+  }
 }
 </style>
