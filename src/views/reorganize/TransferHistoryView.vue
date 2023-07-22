@@ -282,7 +282,7 @@ const dropdownItems = ref([
         <small>{{ item.raw.date }}</small>
       </template>
       <template #item.errmsg="{ item }">
-        {{ item.raw.errmsg }}
+        <small class="text-error">{{ item.raw.errmsg }}</small>
       </template>
       <template #item.actions="{ item }">
         <IconBtn>
