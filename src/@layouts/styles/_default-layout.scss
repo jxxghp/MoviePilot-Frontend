@@ -6,11 +6,15 @@
 
 html {
   min-height: calc(100% + env(safe-area-inset-top));
-  //background: rgb(var(--v-theme-background));
+}
+
+@media screen and (max-width: 900px) {
+  html, body {
+    background: rgb(var(--v-theme-background));
+  }
 }
 
 body {
-  //background: rgb(var(--v-theme-background));
   overscroll-behavior-y: contain;
   --webkit-overflow-scrolling: touch;
 }
@@ -34,13 +38,20 @@ body,
   @include mixins.boxed-content(true);
 
   flex-grow: 1;
-  overflow:hidden;
+  overflow: hidden;
   // TODO: Use grid gutter variable here
   padding-block: 0.5rem;
   padding-top: calc(env(safe-area-inset-top) + 70px);
   display: flex;
+
   .page-content-container {
     flex: 1;
+    display: flex;
+
+    & > div:first-child {
+      flex: auto;
+      position: relative;
+    }
   }
 }
 
