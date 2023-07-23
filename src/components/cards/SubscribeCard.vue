@@ -346,7 +346,7 @@ const dropdownItems = ref([
     scrollable
   >
     <!-- Dialog Content -->
-    <VCard :title="`编辑订阅 - ${props.media?.name}`">
+    <VCard :title="`订阅 - ${props.media?.name}`">
       <VCardText>
         <VForm @submit.prevent="() => {}">
           <VRow>

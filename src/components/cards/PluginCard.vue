@@ -19,7 +19,22 @@ const $toast = useToast()
 // 本身是否可见
 const isVisible = ref(true)
 
-// 卸载插件
+// 插件配置页面
+const pluginConfigDialog = ref(false)
+
+// 插件配置表单数据
+const pluginConfigForm = ref({})
+
+// 插件表单配置项
+const pluginFormItems = ref([])
+
+// 插件详情页面
+const pluginInfoDialog = ref(false)
+
+// 插件详情页面配置项
+const pluginPageItems = ref([])
+
+// 调用API卸载插件
 async function uninstallPlugin() {
   try {
     const result: { [key: string]: any } = await api.delete(`plugin/${props.plugin?.id}`)
@@ -38,8 +53,77 @@ async function uninstallPlugin() {
   }
 }
 
+// 调用API读取表单页面
+async function loadPluginForm() {
+  try {
+    const result: { [key: string]: any } = await api.get(`plugin/form／${props.plugin?.id}`)
+    if (result) {
+      pluginFormItems.value = result.conf
+      pluginConfigForm.value = result.model
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// 调用API读取详情页面
+async function loadPluginPage() {
+  try {
+    const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
+    if (result)
+      pluginPageItems.value = result
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// 调用API读取配置数据
+async function loadPluginConf() {
+  try {
+    const result: { [key: string]: any } = await api.get(`plugin/${props.plugin?.id}`)
+    if (result)
+      pluginConfigForm.value = result
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// 调用API保存配置数据
+async function savePluginConf() {
+  try {
+    const result: { [key: string]: any } = await api.put(`plugin/${props.plugin?.id}`, pluginConfigForm.value)
+    if (result.success) {
+      $toast.success(`插件 ${props.plugin?.plugin_name} 配置已保存`)
+      pluginConfigDialog.value = false
+    }
+    else {
+      $toast.error(`插件 ${props.plugin?.plugin_name} 配置保存失败：${result.message}}`)
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
 // 显示插件详情
-function showPluginInfo() {}
+function showPluginInfo() {
+  pluginInfoDialog.value = true
+}
+
+// 显示插件配置
+function showPluginConfig() {
+  // 加载插件表单
+  loadPluginForm()
+  // 加载插件配置
+  loadPluginConf()
+  // 加载详情数据
+  loadPluginPage()
+  // 显示对话框
+  pluginConfigDialog.value = true
+}
 
 // 弹出菜单
 const dropdownItems = ref([
@@ -56,11 +140,12 @@ const dropdownItems = ref([
 </script>
 
 <template>
+  <!-- 插件卡片 -->
   <VCard
     v-if="isVisible"
     :width="props.width"
     :height="props.height"
-    @click="showPluginInfo"
+    @click="showPluginConfig"
   >
     <div
       class="relative pa-4 text-center card-cover-blurred"
@@ -108,6 +193,42 @@ const dropdownItems = ref([
       {{ props.plugin?.plugin_desc }}
     </VCardText>
   </VCard>
+  <!-- 插件配置页面 -->
+  <VDialog
+    v-model="pluginConfigDialog"
+    max-width="800"
+    scrollable
+  >
+    <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+      <VCardText />
+      <VCardActions>
+        <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
+          详情
+        </VBtn>
+        <VSpacer />
+        <VBtn @click="savePluginConf">
+          保存
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <!-- 插件详情页面 -->
+  <VDialog
+    v-model="pluginInfoDialog"
+    max-width="1000"
+    scrollable
+  >
+    <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+      <VCardText />
+      <VCardActions>
+        <VSpacer />
+        <VBtn @click="pluginInfoDialog = false">
+          关闭
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
 
 <style lang="scss" scoped>
