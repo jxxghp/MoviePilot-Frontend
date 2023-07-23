@@ -2,6 +2,7 @@
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
+import FormRender from '@/components/render/FormRender.vue'
 
 // 输入参数
 const props = defineProps({
@@ -56,7 +57,7 @@ async function uninstallPlugin() {
 // 调用API读取表单页面
 async function loadPluginForm() {
   try {
-    const result: { [key: string]: any } = await api.get(`plugin/form／${props.plugin?.id}`)
+    const result: { [key: string]: any } = await api.get(`plugin/form/${props.plugin?.id}`)
     if (result) {
       pluginFormItems.value = result.conf
       pluginConfigForm.value = result.model
@@ -110,6 +111,7 @@ async function savePluginConf() {
 
 // 显示插件详情
 function showPluginInfo() {
+  pluginConfigDialog.value = false
   pluginInfoDialog.value = true
 }
 
@@ -220,7 +222,9 @@ const dropdownItems = ref([
     scrollable
   >
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
-      <VCardText />
+      <VCardText>
+        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" />
+      </VCardText>
       <VCardActions>
         <VSpacer />
         <VBtn @click="pluginInfoDialog = false">

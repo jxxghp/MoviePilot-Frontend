@@ -20,7 +20,7 @@ const used = ref(0)
 
 // 计算已使用存储空间百分比，精确到小数点后1位
 const usedPercent = computed(() => {
-  return Math.round((used.value / storage.value) * 1000) / 10
+  return Math.round((used.value / (storage.value || 1)) * 1000) / 10
 })
 
 // 调用API，查询存储空间
