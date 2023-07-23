@@ -202,7 +202,9 @@ const dropdownItems = ref([
     scrollable
   >
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
-      <VCardText />
+      <VCardText>
+        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" />
+      </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
           详情
@@ -222,9 +224,7 @@ const dropdownItems = ref([
     scrollable
   >
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
-      <VCardText>
-        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" />
-      </VCardText>
+      <VCardText />
       <VCardActions>
         <VSpacer />
         <VBtn @click="pluginInfoDialog = false">

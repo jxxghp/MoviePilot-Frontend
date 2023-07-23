@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { PropType } from 'vue'
+import { type PropType, ref } from 'vue'
 
 interface RenderProps {
   component: string
@@ -16,10 +16,7 @@ const formItems = ref(props.config)
 </script>
 
 <template>
-  <Component :is="item.component" v-for="(item, index) in formItems" :key="index" v-bind="$attrs">
-    <template v-for="(innerItem, innerIndex) in item.content" :key="innerIndex">
-      <FormRender v-if="innerItem.component" :config="innerItem" v-bind="$attrs" />
-      <Component :is="innerItem.component" v-else v-bind="innerItem" />
-    </template>
+  <Component :is="item.component" v-for="(item, index) in formItems" :key="index">
+    <FormRender v-for="(innerItem, innerIndex) in (item.content || [])" :key="innerIndex" :config="innerItem" />
   </Component>
 </template>
