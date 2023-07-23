@@ -691,3 +691,15 @@ export interface NotificationSwitch {
   telegram: boolean
   slack: boolean
 }
+
+// 目录同步
+export interface Sync {
+
+  // 媒体库类型
+  type: string
+  // 源目录
+  source: string
+  // 目标目录
+  target: string
+}
+

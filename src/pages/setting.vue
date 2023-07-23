@@ -5,6 +5,7 @@ import AccountSettingNotification from '@/views/setting/AccountSettingNotificati
 import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
+import AccountSettingSync from '@/views/setting/AccountSettingSync.vue'
 
 const route = useRoute()
 
@@ -36,6 +37,11 @@ const tabs = [
     title: '自定义词表',
     icon: 'mdi-file-word-box',
     tab: 'words',
+  },
+  {
+    title: '目录同步',
+    icon: 'mdi-file-word-box',
+    tab: 'sync',
   },
 ]
 </script>
@@ -82,6 +88,12 @@ const tabs = [
       <VWindowItem value="words">
         <transition name="fade-slide" appear>
           <AccountSettingWords />
+        </transition>
+      </VWindowItem>
+      <!-- Sync -->
+      <VWindowItem value="sync">
+        <transition name="fade-slide" appear>
+          <AccountSettingSync />
         </transition>
       </VWindowItem>
     </VWindow>
