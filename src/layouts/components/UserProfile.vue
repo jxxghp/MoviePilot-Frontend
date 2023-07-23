@@ -19,107 +19,90 @@ const accountInfo: any = inject('accountInfo')
 </script>
 
 <template>
-  <VBadge
-    dot
-    location="bottom right"
-    offset-x="3"
-    offset-y="3"
-    color="success"
-    bordered
+  <VAvatar
+    class="cursor-pointer"
+    color="primary"
+    variant="tonal"
   >
-    <VAvatar
-      class="cursor-pointer"
-      color="primary"
-      variant="tonal"
+    <VImg :src="accountInfo.avatar" />
+
+    <!-- SECTION Menu -->
+    <VMenu
+      activator="parent"
+      width="230"
+      location="bottom end"
+      offset="14px"
     >
-      <VImg :src="accountInfo.avatar" />
+      <VList>
+        <!-- 👉 User Avatar & Name -->
+        <VListItem>
+          <template #prepend>
+            <VListItemAction start>
+              <VAvatar
+                color="primary"
+                variant="tonal"
+              >
+                <VImg :src="accountInfo.avatar" />
+              </VAvatar>
+            </VListItemAction>
+          </template>
 
-      <!-- SECTION Menu -->
-      <VMenu
-        activator="parent"
-        width="230"
-        location="bottom end"
-        offset="14px"
-      >
-        <VList>
-          <!-- 👉 User Avatar & Name -->
-          <VListItem>
-            <template #prepend>
-              <VListItemAction start>
-                <VBadge
-                  dot
-                  location="bottom right"
-                  offset-x="3"
-                  offset-y="3"
-                  color="success"
-                >
-                  <VAvatar
-                    color="primary"
-                    variant="tonal"
-                  >
-                    <VImg :src="accountInfo.avatar" />
-                  </VAvatar>
-                </VBadge>
-              </VListItemAction>
-            </template>
+          <VListItemTitle class="font-weight-semibold">
+            {{ accountInfo.is_superuser ? "管理员" : "普通用户" }}
+          </VListItemTitle>
+          <VListItemSubtitle>{{ accountInfo.name }}</VListItemSubtitle>
+        </VListItem>
+        <VDivider class="my-2" />
 
-            <VListItemTitle class="font-weight-semibold">
-              {{ accountInfo.is_superuser ? "管理员" : "普通用户" }}
-            </VListItemTitle>
-            <VListItemSubtitle>{{ accountInfo.name }}</VListItemSubtitle>
-          </VListItem>
-          <VDivider class="my-2" />
+        <!-- 👉 Profile -->
+        <VListItem
+          link
+          to="setting"
+        >
+          <template #prepend>
+            <VIcon
+              class="me-2"
+              icon="mdi-account-outline"
+              size="22"
+            />
+          </template>
 
-          <!-- 👉 Profile -->
-          <VListItem
-            link
-            to="setting"
-          >
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="mdi-account-outline"
-                size="22"
-              />
-            </template>
+          <VListItemTitle>设定</VListItemTitle>
+        </VListItem>
 
-            <VListItemTitle>设定</VListItemTitle>
-          </VListItem>
+        <!-- 👉 FAQ -->
+        <VListItem
+          href="https://github.com/jxxghp/MoviePilot/blob/main/README.md"
+          target="_blank"
+        >
+          <template #prepend>
+            <VIcon
+              class="me-2"
+              icon="mdi-help-circle-outline"
+              size="22"
+            />
+          </template>
 
-          <!-- 👉 FAQ -->
-          <VListItem
-            href="https://github.com/jxxghp/MoviePilot/blob/main/README.md"
-            target="_blank"
-          >
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="mdi-help-circle-outline"
-                size="22"
-              />
-            </template>
+          <VListItemTitle>帮助</VListItemTitle>
+        </VListItem>
 
-            <VListItemTitle>帮助</VListItemTitle>
-          </VListItem>
+        <!-- Divider -->
+        <VDivider class="my-2" />
 
-          <!-- Divider -->
-          <VDivider class="my-2" />
+        <!-- 👉 Logout -->
+        <VListItem @click="logout">
+          <template #prepend>
+            <VIcon
+              class="me-2"
+              icon="mdi-logout"
+              size="22"
+            />
+          </template>
 
-          <!-- 👉 Logout -->
-          <VListItem @click="logout">
-            <template #prepend>
-              <VIcon
-                class="me-2"
-                icon="mdi-logout"
-                size="22"
-              />
-            </template>
-
-            <VListItemTitle>注销</VListItemTitle>
-          </VListItem>
-        </VList>
-      </VMenu>
-      <!-- !SECTION -->
-    </VAvatar>
-  </VBadge>
+          <VListItemTitle>注销</VListItemTitle>
+        </VListItem>
+      </VList>
+    </VMenu>
+    <!-- !SECTION -->
+  </VAvatar>
 </template>
