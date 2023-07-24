@@ -73,3 +73,12 @@ export function isContained(subArray: any[], mainArray: any[]): boolean {
 export function isIntersected(array1: any[], array2: any[]): boolean {
   return array1.some(element => array2.includes(element))
 }
+
+export function isNullOrEmptyObject(obj: any): boolean {
+  // 首先判断是否为 null 或 undefined
+  if (obj === null || obj === undefined)
+    return true
+
+  // 然后判断是否为空对象
+  return !!(typeof obj === 'object' && Object.keys(obj).length === 0)
+}

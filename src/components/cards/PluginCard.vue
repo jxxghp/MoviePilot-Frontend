@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
+import { isNullOrEmptyObject } from '@core/utils'
 
 // 输入参数
 const props = defineProps({
@@ -60,7 +61,8 @@ async function loadPluginForm() {
     const result: { [key: string]: any } = await api.get(`plugin/form/${props.plugin?.id}`)
     if (result) {
       pluginFormItems.value = result.conf
-      pluginConfigForm.value = result.model
+      if (result.model)
+        pluginConfigForm.value = result.model
     }
   }
   catch (error) {
@@ -84,7 +86,7 @@ async function loadPluginPage() {
 async function loadPluginConf() {
   try {
     const result: { [key: string]: any } = await api.get(`plugin/${props.plugin?.id}`)
-    if (result)
+    if (!isNullOrEmptyObject(result))
       pluginConfigForm.value = result
   }
   catch (error) {
@@ -116,9 +118,9 @@ function showPluginInfo() {
 }
 
 // 显示插件配置
-function showPluginConfig() {
+async function showPluginConfig() {
   // 加载插件表单
-  loadPluginForm()
+  await loadPluginForm()
   // 加载插件配置
   loadPluginConf()
   // 加载详情数据
@@ -203,7 +205,7 @@ const dropdownItems = ref([
   >
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
       <VCardText>
-        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" />
+        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
       </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">

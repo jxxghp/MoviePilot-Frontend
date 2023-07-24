@@ -11,18 +11,28 @@ interface RenderProps {
 // 输入参数
 const elementProps = defineProps({
   config: Object as PropType<RenderProps>,
+  form: Object as PropType<any>,
 })
 
-// 配置表单
+// 配置元素
 const formItem = ref<RenderProps>(elementProps.config || {
   component: 'div',
   props: {},
   content: [],
 })
+
+// 配置数据
+const formData = ref<any>(elementProps.form || {})
 </script>
 
 <template>
-  <Component :is="formItem.component" v-bind="formItem.props">
-    <FormRender v-for="(innerItem, innerIndex) in (formItem.content || [])" :key="innerIndex" :config="innerItem" />
+  <Component :is="formItem.component" v-bind="formItem.props" v-model="formData[formItem.props?.model || '']">
+    <FormRender
+      v-for="(innerItem, innerIndex) in (formItem.content || [])"
+      :key="innerIndex"
+      v-model="formData[innerItem.props?.model || '']"
+      :config="innerItem"
+      :form="formData"
+    />
   </Component>
 </template>
