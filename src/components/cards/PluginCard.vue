@@ -202,8 +202,10 @@ const dropdownItems = ref([
     v-model="pluginConfigDialog"
     max-width="800"
     scrollable
+    persistent
   >
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+      <DialogCloseBtn @click="pluginConfigDialog = false" />
       <VCardText>
         <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
       </VCardText>
@@ -224,8 +226,10 @@ const dropdownItems = ref([
     v-model="pluginInfoDialog"
     max-width="1000"
     scrollable
+    persistent
   >
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+      <DialogCloseBtn @click="pluginInfoDialog = false" />
       <VCardText />
       <VCardActions>
         <VSpacer />
