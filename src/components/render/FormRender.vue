@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { type PropType, ref } from 'vue'
 
-// 组件配置
+// 组件接口
 interface RenderProps {
   component: string
   content?: any
@@ -26,7 +26,11 @@ const formData = ref<any>(elementProps.form || {})
 </script>
 
 <template>
-  <Component :is="formItem.component" v-bind="formItem.props" v-model="formData[formItem.props?.model || '']">
+  <Component
+    :is="formItem.component"
+    v-bind="formItem.props"
+    v-model="formData[formItem.props?.model || '']"
+  >
     <FormRender
       v-for="(innerItem, innerIndex) in (formItem.content || [])"
       :key="innerIndex"

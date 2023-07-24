@@ -119,12 +119,6 @@ function showPluginInfo() {
 
 // 显示插件配置
 async function showPluginConfig() {
-  // 加载插件表单
-  await loadPluginForm()
-  // 加载插件配置
-  loadPluginConf()
-  // 加载详情数据
-  loadPluginPage()
   // 显示对话框
   pluginConfigDialog.value = true
 }
@@ -141,6 +135,13 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 加载插件配置
+onBeforeMount(async () => {
+  await loadPluginForm()
+  await loadPluginConf()
+  await loadPluginPage()
+})
 </script>
 
 <template>
@@ -207,7 +208,12 @@ const dropdownItems = ref([
     <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
       <DialogCloseBtn @click="pluginConfigDialog = false" />
       <VCardText>
-        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
+        <FormRender
+          v-for="(item, index) in pluginFormItems"
+          :key="index"
+          :config="item"
+          :form="pluginConfigForm"
+        />
       </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
