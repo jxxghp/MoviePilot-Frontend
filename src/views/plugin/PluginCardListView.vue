@@ -139,9 +139,4 @@ onBeforeMount(fetchData)
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   padding-block-end: 1rem;
 }
-
-dialog-bottom-transition-enter-active,
-.dialog-bottom-transition-leave-active {
-  transition: transform 0.2s ease-in-out;
-}
 </style>

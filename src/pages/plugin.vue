@@ -3,7 +3,5 @@ import PluginCardListView from '@/views/plugin/PluginCardListView.vue'
 </script>
 
 <template>
-  <div>
-    <PluginCardListView />
-  </div>
+  <PluginCardListView />
 </template>

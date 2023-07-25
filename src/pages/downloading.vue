@@ -3,7 +3,5 @@ import DownloadingListView from '@/views/reorganize/DownloadingListView.vue'
 </script>
 
 <template>
-  <div>
-    <DownloadingListView />
-  </div>
+  <DownloadingListView />
 </template>

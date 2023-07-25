@@ -7,6 +7,7 @@
 html {
   min-height: calc(100% + env(safe-area-inset-top));
   background: rgb(var(--v-theme-background));
+  overflow-y: overlay;
 }
 
 body {
@@ -36,13 +37,13 @@ body,
   flex-grow: 1;
   overflow: hidden;
   // TODO: Use grid gutter variable here
-  padding-block: 0.5rem;
+  padding-block: 1.5rem;
   padding-top: calc(env(safe-area-inset-top) + 70px);
-  display: flex;
+  // display: flex;
 
 
   .page-content-container {
-    flex: 1;
+    // flex: 1;
     display: flex;
 
     & > div:first-child {

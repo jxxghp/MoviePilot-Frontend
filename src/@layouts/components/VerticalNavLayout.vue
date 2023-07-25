@@ -183,7 +183,7 @@ export default defineComponent({
     }
 
     .layout-page-content {
-      display: flex;
+      // display: flex;
       overflow: hidden;
 
       .page-content-container {
