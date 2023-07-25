@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
+import PageRender from '@/components/render/PageRender.vue'
 import { isNullOrEmptyObject } from '@core/utils'
 
 // 输入参数
@@ -112,7 +113,7 @@ async function savePluginConf() {
 }
 
 // 显示插件详情
-function showPluginInfo() {
+async function showPluginInfo() {
   pluginConfigDialog.value = false
   pluginInfoDialog.value = true
 }
@@ -140,7 +141,7 @@ const dropdownItems = ref([
 onBeforeMount(async () => {
   await loadPluginForm()
   await loadPluginConf()
-  await loadPluginPage()
+  loadPluginPage()
 })
 </script>
 
@@ -205,7 +206,7 @@ onBeforeMount(async () => {
     scrollable
     persistent
   >
-    <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+    <VCard :title="props.plugin?.plugin_name">
       <DialogCloseBtn @click="pluginConfigDialog = false" />
       <VCardText>
         <FormRender
@@ -234,9 +235,16 @@ onBeforeMount(async () => {
     scrollable
     persistent
   >
-    <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+    <VCard :title="`${props.plugin?.plugin_name} - 详情`">
       <DialogCloseBtn @click="pluginInfoDialog = false" />
-      <VCardText />
+      <VCardText>
+        <PageRender
+          v-for="(item, index) in pluginPageItems"
+          :key="index"
+          :config="item"
+          :handler="pluginInfoDialog"
+        />
+      </VCardText>
       <VCardActions>
         <VSpacer />
         <VBtn @click="pluginInfoDialog = false">
