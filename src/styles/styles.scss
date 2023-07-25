@@ -20,22 +20,6 @@
   margin-bottom: env(safe-area-inset-top);
 }
 
-
-.centered {
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline-start: 50%;
-  transform: translate(-50%, -50%);
-}
-
-
-.top-centered {
-  position: absolute;
-  inset-block-start: 20%;
-  inset-inline-start: 50%;
-  transform: translate(-50%, -50%);
-}
-
 .v-dialog > .v-overlay__content {
   margin-top: calc(env(safe-area-inset-top) + 1rem);
   max-height: calc(100% - env(safe-area-inset-top) - 1rem);

@@ -377,23 +377,22 @@ onBeforeMount(fetchData)
       </VCol>
     </VRow>
   </VCard>
-  <VProgressCircular
-    v-if="!isRefreshed && !props.keyword"
-    size="48"
-    class="centered"
-    indeterminate
-    color="primary"
-  />
   <div
-    v-if="!isRefreshed && props.keyword"
-    class="top-centered mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+    v-if="!isRefreshed"
+    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
   >
     <VProgressCircular
+      v-if="!props.keyword"
+      size="48"
+      indeterminate
+      color="primary"
+    />
+    <VProgressCircular
+      v-if="props.keyword"
       class="mb-3"
       color="primary"
       :model-value="progressValue"
       size="64"
-      width="7"
     />
     <span>{{ progressText }}</span>
   </div>

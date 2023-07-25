@@ -51,13 +51,17 @@ onBeforeMount(fetchData)
 </script>
 
 <template>
-  <VProgressCircular
+  <div
     v-if="!isRefreshed"
-    size="48"
-    class="centered"
-    indeterminate
-    color="primary"
-  />
+    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+  >
+    <VProgressCircular
+      v-if="!isRefreshed"
+      size="48"
+      indeterminate
+      color="primary"
+    />
+  </div>
   <div
     v-if="dataList.length > 0"
     class="grid gap-3 grid-plugin-card"
@@ -88,7 +92,7 @@ onBeforeMount(fetchData)
         icon="mdi-plus"
         v-bind="props"
         size="x-large"
-        class="absolute right-5 bottom-5"
+        class="fixed right-5 bottom-5"
       />
     </template>
 
