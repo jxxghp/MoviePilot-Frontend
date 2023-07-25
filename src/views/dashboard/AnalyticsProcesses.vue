@@ -45,14 +45,10 @@ onUnmounted(() => {
 <template>
   <VCard title="系统进程">
     <VTable
-      :headers="headers"
-      :items="processList"
       item-key="fullName"
-      class="table-rounded table-list"
+      class="table-rounded"
       hide-default-footer
       disable-sort
-      fixed-header
-      height="500"
     >
       <thead>
         <tr>
@@ -93,9 +89,3 @@ onUnmounted(() => {
     </VTable>
   </VCard>
 </template>
-
-<style lang="scss" scoped>
-.table-list::-webkit-scrollbar {
-  display: none;
-}
-</style>

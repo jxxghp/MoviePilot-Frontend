@@ -6,7 +6,7 @@ html {
   background: var(--initial-loader-bg, #fff);
   min-block-size: calc(100% + env(safe-area-inset-top));
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 #loading-bg {
