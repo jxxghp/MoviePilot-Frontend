@@ -29,13 +29,13 @@ const pluginConfigDialog = ref(false)
 const pluginConfigForm = ref({})
 
 // 插件表单配置项
-const pluginFormItems = ref([])
+let pluginFormItems = reactive([])
 
 // 插件详情页面
 const pluginInfoDialog = ref(false)
 
 // 插件详情页面配置项
-const pluginPageItems = ref([])
+let pluginPageItems = reactive([])
 
 // 调用API卸载插件
 async function uninstallPlugin() {
@@ -61,7 +61,7 @@ async function loadPluginForm() {
   try {
     const result: { [key: string]: any } = await api.get(`plugin/form/${props.plugin?.id}`)
     if (result) {
-      pluginFormItems.value = result.conf
+      pluginFormItems = result.conf
       if (result.model)
         pluginConfigForm.value = result.model
     }
@@ -76,7 +76,7 @@ async function loadPluginPage() {
   try {
     const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
     if (result)
-      pluginPageItems.value = result
+      pluginPageItems = result
   }
   catch (error) {
     console.error(error)
@@ -120,6 +120,12 @@ async function showPluginInfo() {
 
 // 显示插件配置
 async function showPluginConfig() {
+  // 加载表单
+  await loadPluginForm()
+  // 加载配置
+  await loadPluginConf()
+  // 加载详情
+  await loadPluginPage()
   // 显示对话框
   pluginConfigDialog.value = true
 }
@@ -136,13 +142,6 @@ const dropdownItems = ref([
     },
   },
 ])
-
-// 加载插件配置
-onBeforeMount(async () => {
-  await loadPluginForm()
-  await loadPluginConf()
-  loadPluginPage()
-})
 </script>
 
 <template>
@@ -242,7 +241,6 @@ onBeforeMount(async () => {
           v-for="(item, index) in pluginPageItems"
           :key="index"
           :config="item"
-          :handler="pluginInfoDialog"
         />
       </VCardText>
       <VCardActions>
