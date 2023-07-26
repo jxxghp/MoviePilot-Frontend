@@ -7,7 +7,7 @@ import type { Site } from '@/api/types'
 import ExistIcon from '@core/components/ExistIcon.vue'
 
 // 输入参数
-const props = defineProps({
+const cardProps = defineProps({
   site: Object as PropType<Site>,
   width: String,
   height: String,
@@ -49,7 +49,7 @@ const userPwForm = ref({
 // 查询站点图标
 async function getSiteIcon() {
   try {
-    siteIcon.value = (await api.get(`site/icon/${props.site?.id}`)).data.icon
+    siteIcon.value = (await api.get(`site/icon/${cardProps.site?.id}`)).data.icon
   }
   catch (error) {
     console.error(error)
@@ -62,11 +62,11 @@ async function testSite() {
     testButtonText.value = '测试中 ...'
     testButtonDisable.value = true
 
-    const result: { [key: string]: any } = await api.get(`site/test/${props.site?.id}`)
+    const result: { [key: string]: any } = await api.get(`site/test/${cardProps.site?.id}`)
     if (result.success)
-      $toast.success(`${props.site?.name} 连通性测试成功，可正常使用！`)
+      $toast.success(`${cardProps.site?.name} 连通性测试成功，可正常使用！`)
     else
-      $toast.error(`${props.site?.name} 连通性测试失败：${result.message}`)
+      $toast.error(`${cardProps.site?.name} 连通性测试失败：${result.message}`)
 
     testButtonText.value = '测试'
     testButtonDisable.value = false
@@ -98,7 +98,7 @@ async function updateSiteCookie() {
     updateButtonDisable.value = true
 
     const result: { [key: string]: any } = await api.get(
-      `site/cookie/${props.site?.id}`,
+      `site/cookie/${cardProps.site?.id}`,
       {
         params: {
           username: userPwForm.value.username,
@@ -108,9 +108,9 @@ async function updateSiteCookie() {
     )
 
     if (result.success)
-      $toast.success(`${props.site?.name} 更新Cookie & UA 成功！`)
+      $toast.success(`${cardProps.site?.name} 更新Cookie & UA 成功！`)
     else
-      $toast.error(`${props.site?.name} 更新失败：${result.message}`)
+      $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
 
     updateButtonText.value = '更新'
     updateButtonDisable.value = false
@@ -123,55 +123,55 @@ async function updateSiteCookie() {
 // 站点编辑表单数据
 const siteForm = reactive({
   // ID
-  id: props.site?.id,
+  id: cardProps.site?.id,
 
   // 站点名称
-  name: props.site?.name,
+  name: cardProps.site?.name,
 
   // 站点主域名Key
-  domain: props.site?.domain,
+  domain: cardProps.site?.domain,
 
   // 站点地址
-  url: props.site?.url,
+  url: cardProps.site?.url,
 
   // 站点优先级
-  pri: props.site?.pri,
+  pri: cardProps.site?.pri,
 
   // RSS地址
-  rss: props.site?.rss,
+  rss: cardProps.site?.rss,
 
   // Cookie
-  cookie: props.site?.cookie,
+  cookie: cardProps.site?.cookie,
 
   // User-Agent
-  ua: props.site?.ua,
+  ua: cardProps.site?.ua,
 
   // 是否使用代理
-  proxy: !!props.site?.proxy,
+  proxy: !!cardProps.site?.proxy,
 
   // 过滤规则
-  filter: props.site?.filter,
+  filter: cardProps.site?.filter,
 
   // 是否演染
-  render: !!props.site?.render,
+  render: !!cardProps.site?.render,
 
   // 是否公开站点
-  public: props.site?.public,
+  public: cardProps.site?.public,
 
   // 备注
-  note: props.site?.note,
+  note: cardProps.site?.note,
 
   // 流控单位周期
-  limit_interval: props.site?.limit_interval,
+  limit_interval: cardProps.site?.limit_interval,
 
   // 流控次数
-  limit_count: props.site?.limit_count,
+  limit_count: cardProps.site?.limit_count,
 
   // 流控间隔
-  limit_seconds: props.site?.limit_seconds,
+  limit_seconds: cardProps.site?.limit_seconds,
 
   // 是否启用
-  is_active: props.site?.is_active,
+  is_active: cardProps.site?.is_active,
 })
 
 // 调用API更新站点信息
@@ -182,12 +182,12 @@ async function updateSiteInfo() {
 
     const result: { [key: string]: any } = await api.put('site', siteForm)
     if (result.success)
-      $toast.success(`${props.site?.name} 更新成功！`)
+      $toast.success(`${cardProps.site?.name} 更新成功！`)
     else
-      $toast.error(`${props.site?.name} 更新失败：${result.message}`)
+      $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
   }
   catch (error) {
-    $toast.error(`${props.site?.name} 更新失败！`)
+    $toast.error(`${cardProps.site?.name} 更新失败！`)
     console.error(error)
   }
 }
@@ -206,8 +206,8 @@ onMounted(() => {
 
 <template>
   <VCard
-    :height="props.height"
-    :width="props.width"
+    :height="cardProps.height"
+    :width="cardProps.width"
     :flat="!siteForm.is_active"
     class="overflow-hidden"
     @click="siteInfoDialog = true"
@@ -223,9 +223,9 @@ onMounted(() => {
     </template>
     <VCardItem>
       <VCardTitle class="font-bold">
-        {{ props.site?.name }}
+        {{ cardProps.site?.name }}
       </VCardTitle>
-      <VCardSubtitle>{{ props.site?.url }}</VCardSubtitle>
+      <VCardSubtitle>{{ cardProps.site?.url }}</VCardSubtitle>
     </VCardItem>
 
     <ExistIcon v-if="siteForm.is_active" />
@@ -290,7 +290,7 @@ onMounted(() => {
 
     <VCardActions>
       <VBtn
-        v-if="!props.site?.public"
+        v-if="!cardProps.site?.public"
         :disabled="updateButtonDisable"
         @click.stop="handleSiteUpdate"
       >
@@ -372,8 +372,8 @@ onMounted(() => {
     scrollable
   >
     <!-- Dialog Content -->
-    <VCard :title="`编辑站点 - ${props.site?.name}`">
-      <VCardText>
+    <VCard :title="`编辑站点 - ${cardProps.site?.name}`">
+      <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol

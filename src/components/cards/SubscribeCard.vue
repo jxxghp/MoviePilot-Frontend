@@ -347,7 +347,7 @@ const dropdownItems = ref([
   >
     <!-- Dialog Content -->
     <VCard :title="`订阅 - ${props.media?.name}`">
-      <VCardText>
+      <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
