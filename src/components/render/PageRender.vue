@@ -41,7 +41,7 @@ const formItem = ref<RenderProps>(elementProps.config || {
   </Component>
   <Component
     :is="formItem.component"
-    v-if="!formItem.content && formItem.html"
+    v-if="formItem.html"
     v-bind="formItem.props"
     v-html="formItem.html"
   />
