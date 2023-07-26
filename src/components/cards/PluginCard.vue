@@ -158,7 +158,7 @@ const dropdownItems = ref([
     >
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
-          <VIcon icon="mdi-dots-vertical" />
+          <VIcon icon="mdi-dots-vertical" class="text-white" />
           <VMenu
             activator="parent"
             close-on-content-click

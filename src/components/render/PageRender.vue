@@ -5,6 +5,7 @@ import { type PropType, ref } from 'vue'
 interface RenderProps {
   component: string
   text: string
+  html: string
   content?: any
   props?: any
 }
@@ -19,6 +20,7 @@ const elementProps = defineProps({
 const formItem = ref<RenderProps>(elementProps.config || {
   component: 'div',
   text: '',
+  html: '',
   props: {},
   content: [],
 })
@@ -27,6 +29,7 @@ const formItem = ref<RenderProps>(elementProps.config || {
 <template>
   <Component
     :is="formItem.component"
+    v-if="!formItem.html"
     v-bind="formItem.props"
   >
     {{ formItem.text }}
@@ -36,4 +39,10 @@ const formItem = ref<RenderProps>(elementProps.config || {
       :config="innerItem"
     />
   </Component>
+  <Component
+    :is="formItem.component"
+    v-if="!formItem.content && formItem.html"
+    v-bind="formItem.props"
+    v-html="formItem.html"
+  />
 </template>
