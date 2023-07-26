@@ -51,3 +51,8 @@
   opacity: 0;
   transform: translateY(45px);
 }
+
+.grid-info-card {
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  padding-block-end: 1rem;
+}
