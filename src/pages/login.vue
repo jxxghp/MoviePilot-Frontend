@@ -196,8 +196,9 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
+@use "@core/scss/pages/page-auth.scss";
+
 .v-card-item__prepend {
   padding-inline-end: 0 !important;
 }
-@use "@core/scss/pages/page-auth.scss";
 </style>
