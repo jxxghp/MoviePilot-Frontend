@@ -64,7 +64,7 @@ const filteredDataList = computed(() => {
   >
     <div
       v-if="filteredDataList.length > 0"
-      class="grid gap-3 grid-subscribe-card"
+      class="grid gap-3 grid-subscribe-card p-1"
     >
       <SubscribeCard
         v-for="data in filteredDataList"

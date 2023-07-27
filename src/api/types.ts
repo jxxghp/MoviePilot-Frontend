@@ -13,7 +13,11 @@ export interface Subscribe {
 
   // 搜索关键字
   keyword?: string
+
+  // TMDB ID
   tmdbid: number
+
+  // 豆瓣ID
   doubanid?: string
 
   // 季号
@@ -63,6 +67,12 @@ export interface Subscribe {
 
   // 订阅站点
   sites: number[]
+
+  // 是否洗版
+  best_version: number
+
+  // 当前优先级
+  current_priority: number
 }
 
 // 历史记录
