@@ -4,7 +4,7 @@ import { useStore } from 'vuex'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import router from '@/router'
-import logo from '@images/logo.svg?raw'
+import logo from '@images/logo.png'
 
 // Vuex Store
 const store = useStore()
@@ -124,7 +124,7 @@ onMounted(() => {
         <VCardItem class="justify-center mb-7">
           <template #prepend>
             <div class="d-flex">
-              <div v-html="logo" />
+              <VImg :src="logo" width="64" />
             </div>
           </template>
 

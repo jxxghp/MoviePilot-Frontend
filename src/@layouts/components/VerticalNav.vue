@@ -2,7 +2,7 @@
 import type { Component } from 'vue'
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { useDisplay } from 'vuetify'
-import logo from '@images/logo.svg?raw'
+import logo from '@images/logo.png'
 
 interface Props {
   tag?: string | Component
@@ -56,7 +56,9 @@ function handleNavScroll(evt: Event) {
     <div class="nav-header">
       <slot name="nav-header">
         <RouterLink to="/" class="app-logo d-flex align-center gap-x-3 app-title-wrapper">
-          <div class="d-flex" v-html="logo" />
+          <div class="d-flex">
+            <VImg :src="logo" width="30" />
+          </div>
 
           <h1 class="font-weight-medium leading-normal text-xl">
             MoviePilot
