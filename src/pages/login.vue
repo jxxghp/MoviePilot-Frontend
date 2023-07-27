@@ -195,7 +195,7 @@ onMounted(() => {
   </VImg>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 @use "@core/scss/pages/page-auth.scss";
 
 .v-card-item__prepend {
