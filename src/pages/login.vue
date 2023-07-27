@@ -123,7 +123,7 @@ onMounted(() => {
       >
         <VCardItem class="justify-center mb-7">
           <template #prepend>
-            <div class="d-flex">
+            <div class="d-flex pe-0">
               <VImg :src="logo" width="64" />
             </div>
           </template>
@@ -195,6 +195,9 @@ onMounted(() => {
   </VImg>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
+.v-card-item__prepend {
+  padding-inline-end: 0 !important;
+}
 @use "@core/scss/pages/page-auth.scss";
 </style>
