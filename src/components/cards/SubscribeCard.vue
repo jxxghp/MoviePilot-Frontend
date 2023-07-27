@@ -222,7 +222,7 @@ const dropdownItems = ref([
   <VCard
     v-if="cardState"
     :key="props.media?.id"
-    :class="`${props.media?.best_version ? 'outline-dotted' : ''}`"
+    :class="`${subscribeForm.best_version ? 'outline-dotted' : ''}`"
     @click="editSubscribeDialog"
   >
     <template #image>
