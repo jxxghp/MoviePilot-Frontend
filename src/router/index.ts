@@ -77,7 +77,7 @@ const router = createRouter({
           },
         },
         {
-          path: 'plugin',
+          path: 'plugins',
           component: () => import('../pages/plugin.vue'),
           meta: {
             requiresAuth: true,
