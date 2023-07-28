@@ -138,7 +138,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         :item="{
           title: '插件',
           icon: 'mdi-apps',
-          to: '/plugin',
+          to: '/plugins',
         }"
       />
       <VerticalNavLink
