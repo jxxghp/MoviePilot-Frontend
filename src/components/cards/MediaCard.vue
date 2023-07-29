@@ -64,7 +64,7 @@ function getChipColor(type: string) {
 }
 
 // 添加订阅处理
-// eslint-disable-next-line sonarjs/cognitive-complexity
+
 async function handleAddSubscribe() {
   if (props.media?.type === '电视剧' && props.media?.tmdb_id) {
     // TMDB电视剧
@@ -76,23 +76,15 @@ async function handleAddSubscribe() {
       return
     }
 
-    // 检查各季的缺失状态
-    await checkSeasonsNotExists()
-    if (!tmdbFlag.value)
-      return
-
     if (seasonInfos.value.length === 1) {
-      // 只有1季
-      if (!seasonsNotExisted.value[1]) {
-        // 已存在
-        $toast.warning(`${props.media?.title} 媒体库中已存在！`)
-      }
-      else {
-        // 添加订阅
-        addSubscribe()
-      }
+      // 添加订阅
+      addSubscribe()
     }
     else {
+      // 检查各季的缺失状态
+      await checkSeasonsNotExists()
+      if (!tmdbFlag.value)
+        return
       // 弹出季选择列表，支持多选
       subscribeSeasonDialog.value = true
     }
@@ -100,28 +92,12 @@ async function handleAddSubscribe() {
   else if (props.media?.type === '电视剧') {
     // 豆瓣电视剧，只会有一季
     const season = props.media?.season || 1
-
-    // 检查缺失情况
-    await checkSeasonsNotExists()
-    if (!tmdbFlag.value)
-      return
-
-    if (!seasonsNotExisted.value[season]) {
-      // 已存在
-      $toast.warning(`${props.media?.title} 媒体库中已存在！`)
-    }
-    else {
-      // 添加订阅
-      addSubscribe(season)
-    }
+    // 添加订阅
+    addSubscribe(season)
   }
   else {
     // 电影
-    const exists = await checkMovieExists()
-    if (exists)
-      $toast.warning(`${props.media?.title} 媒体库中已存在！`)
-    else
-      addSubscribe()
+    addSubscribe()
   }
 }
 
@@ -137,6 +113,7 @@ async function addSubscribe(season = 0) {
       tmdbid: props.media?.tmdb_id,
       doubanid: props.media?.douban_id,
       season,
+      best_version: isExists.value ? 1 : 0,
     })
 
     // 订阅状态
@@ -151,6 +128,7 @@ async function addSubscribe(season = 0) {
       props.media?.title ?? '',
       season,
       result.message,
+      isExists.value,
     )
   }
   catch (error) {
@@ -163,14 +141,19 @@ async function addSubscribe(season = 0) {
 function showSubscribeAddToast(result: boolean,
   title: string,
   season: number,
-  message: string) {
+  message: string,
+  isExists: boolean) {
   if (season)
     title = `${title} ${formatSeason(season.toString())}`
 
+  let subname = '订阅'
+  if (isExists)
+    subname = '洗版订阅'
+
   if (result)
-    $toast.success(`${title} 添加订阅成功！`)
+    $toast.success(`${title} 添加${subname}成功！`)
   else
-    $toast.error(`${title} 添加订阅失败：${message}！`)
+    $toast.error(`${title} 添加${subname}失败：${message}！`)
 }
 
 // 调用API取消订阅
