@@ -271,21 +271,10 @@ async function checkSeasonsNotExists() {
   doneNProgress()
 }
 
-// 检查电影是否存在
-async function checkMovieExists() {
-  try {
-    const result: NotExistMediaInfo[] = await api.post('download/notexists', props.media)
-    return !result || result.length === 0
-  }
-  catch (error) {
-    console.error(error)
-  }
-}
-
 // 查询TMDB的所有季信息
 async function getMediaSeasons() {
   try {
-    seasonInfos.value = await api.get(`tmdb/${props.media?.tmdb_id}/seasons`)
+    seasonInfos.value = await api.get(`tmdb/seasons/${props.media?.tmdb_id}`)
   }
   catch (error) {
     console.error(error)
@@ -343,7 +332,17 @@ function getExistText(season: number) {
 
 // 打开详情页
 function openDetailWindow() {
-  window.open(getDetailLink(), '_blank')
+  router.push({
+    path: '/media',
+    query: {
+      mediaid: `${
+        props.media?.tmdb_id
+          ? `tmdb:${props.media?.tmdb_id}`
+          : `douban:${props.media?.douban_id}`
+      }`,
+      type: props.media?.type,
+    },
+  })
 }
 
 // 开始搜索

@@ -182,7 +182,7 @@ export interface MediaInfo {
   poster_path?: string
 
   // 评分
-  vote_average: number
+  vote_average?: number
 
   // 描述
   overview?: string

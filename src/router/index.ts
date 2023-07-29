@@ -98,6 +98,13 @@ const router = createRouter({
             requiresAuth: true,
           },
         },
+        {
+          path: '/media',
+          component: () => import('../pages/media.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
       ],
     },
     {
