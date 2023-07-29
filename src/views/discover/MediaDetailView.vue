@@ -54,7 +54,6 @@ onMounted(() => {
           </h1>
           <span class="media-attributes">
             <span>{{ mediaDetail.runtime }}</span>
-            <span>{{ mediaDetail.genres }}</span>
           </span>
         </div>
         <div class="media-actions" />
@@ -123,6 +122,7 @@ onMounted(() => {
 }
 
 .media-page-bg-image {
+  // FIXME: 前景图看不到
   position: absolute;
   z-index: -10;
   block-size: 100%;
@@ -300,6 +300,33 @@ ul.media-crew {
   .media-overview-right {
     margin-top: 0;
     width: 20rem;
+  }
+}
+
+.media-overview h2 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+}
+
+@media (min-width: 640px) {
+  .media-overview h2 {
+      font-size: 1.5rem;
+      line-height: 2rem;
+  }
+}
+
+.tagline {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-style: italic;
+}
+
+@media (min-width: 1024px) {
+  .tagline {
+      font-size: 1.5rem;
+      line-height: 2rem;
   }
 }
 

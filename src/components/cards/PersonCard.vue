@@ -36,9 +36,13 @@ function getPersonImage() {
           <div style="padding-bottom: 150%;">
             <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">
               <div class="relative mt-2 mb-4 flex h-1/2 w-full justify-center">
-                <div class="relative w-3/4 overflow-hidden rounded-full">
-                  <VImg :src="getPersonImage()" cover />
-                </div>
+                <VAvatar size="120" class="ring-1 ring-gray-700">
+                  <VImg
+                    v-img
+                    :src="getPersonImage()"
+                    cover
+                  />
+                </VAvatar>
               </div>
               <div class="w-full truncate text-center font-bold">
                 {{ personInfo?.name }}
