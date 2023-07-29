@@ -1,13 +1,12 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { MediaInfo } from '@/api/types'
-import MediaCard from '@/components/cards/MediaCard.vue'
+import type { TmdbPerson } from '@/api/types'
+import PersonCard from '@/components/cards/PersonCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 
 // 输入参数
 const props = defineProps({
   apipath: String,
-  params: Object as PropType<{ [key: string]: any }>,
 })
 
 // 判断是否有滚动条
@@ -29,19 +28,8 @@ const loading = ref(false)
 const isRefreshed = ref(false)
 
 // 数据列表
-const dataList = ref<MediaInfo[]>([])
-const currData = ref<MediaInfo[]>([])
-
-// 拼装参数
-function getParams() {
-  let params = {
-    page: page.value,
-  }
-  if (props.params)
-    params = { ...params, ...props.params }
-
-  return params
-}
+const dataList = ref<TmdbPerson[]>([])
+const currData = ref<TmdbPerson[]>([])
 
 // 获取列表数据
 async function fetchData({ done }: { done: any }) {
@@ -64,9 +52,7 @@ async function fetchData({ done }: { done: any }) {
       // 加载多次
       while (!hasScroll()) {
         // 请求API
-        currData.value = await api.get(props.apipath, {
-          params: getParams(),
-        })
+        currData.value = await api.get(props.apipath)
 
         // 标计为已请求完成
         isRefreshed.value = true
@@ -87,9 +73,7 @@ async function fetchData({ done }: { done: any }) {
     else {
       // 加载一次
       // 请求API
-      currData.value = await api.get(props.apipath, {
-        params: getParams(),
-      })
+      currData.value = await api.get(props.apipath)
 
       // 标计为已请求完成
       isRefreshed.value = true
@@ -146,9 +130,9 @@ async function fetchData({ done }: { done: any }) {
       class="grid gap-4 grid-media-card mx-3"
       tabindex="0"
     >
-      <MediaCard
+      <PersonCard
         v-for="data in dataList"
-        :key="data.tmdb_id || data.douban_id"
+        :key="data.id"
         :media="data"
       />
     </div>

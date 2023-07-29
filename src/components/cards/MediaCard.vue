@@ -91,7 +91,7 @@ async function handleAddSubscribe() {
   }
   else if (props.media?.type === '电视剧') {
     // 豆瓣电视剧，只会有一季
-    const season = props.media?.season || 1
+    const season = props.media?.season ?? 1
     // 添加订阅
     addSubscribe(season)
   }
@@ -371,7 +371,7 @@ const seasonsHeaders = [
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value)
     return noImage
-  const url = props.media?.poster_path || noImage
+  const url = props.media?.poster_path ?? noImage
   // 如果地址中包含douban则使用中转代理
   if (url.includes('doubanio.com'))
     return `${import.meta.env.VITE_API_BASE_URL}douban/img/${encodeURIComponent(url)}`

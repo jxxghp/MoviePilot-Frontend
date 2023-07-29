@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
@@ -39,72 +40,73 @@ onMounted(() => {
           style="background-image: linear-gradient(180deg, rgba(17, 24, 39, 47%) 0%, rgba(17, 24, 39, 100%) 100%);"
         />
       </div>
-    </div>
-    <div class="media-header">
-      <div class="media-poster">
-        <VImg :src="mediaDetail.poster_path" cover />
-      </div>
-      <div class="media-title">
-        <div class="media-status" />
-        <h1 class="media-title">
-          {{ mediaDetail.title }}
-          <span class="media-year">
-            ({{ mediaDetail.year }})
-          </span>
-        </h1>
-        <span class="media-attributes">
-          <span>分级</span>
-          <span>时长</span>
-          <span>风格</span>
-        </span>
-      </div>
-      <div class="media-actions" />
-    </div>
-    <div class="media-overview">
-      <div class="media-overview-left">
-        <div class="tagline">
-          标签
+      <div class="media-header">
+        <div class="media-poster">
+          <VImg :src="mediaDetail.poster_path" cover />
         </div>
-        <h2>简介</h2>
-        <p>{{ mediaDetail.overview }}</p>
+        <div class="media-title">
+          <div class="media-status" />
+          <h1 class="media-title">
+            {{ mediaDetail.title }}
+            <span class="media-year">
+              ({{ mediaDetail.year }})
+            </span>
+          </h1>
+          <span class="media-attributes">
+            <span>{{ mediaDetail.runtime }}</span>
+            <span>{{ mediaDetail.genres }}</span>
+          </span>
+        </div>
+        <div class="media-actions" />
       </div>
-      <div class="media-overview-right" />
-    </div>
-    <div v-if="mediaDetail.tmdb_id">
-      <MediaCardSlideView :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`">
-        <template #title="{ loaded }">
-          <div v-if="loaded" class="slider-header mt-3 ms-1">
-            <RouterLink to="" class="slider-title">
-              <span>演员阵容</span>
-              <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-            </RouterLink>
+      <div class="media-overview">
+        <div class="media-overview-left">
+          <div v-if="mediaDetail.tagline" class="tagline">
+            {{ mediaDetail.tagline }}
           </div>
-        </template>
-      </MediaCardSlideView>
-    </div>
-    <div v-if="mediaDetail.tmdb_id">
-      <MediaCardSlideView :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`">
-        <template #title="{ loaded }">
-          <div v-if="loaded" class="slider-header mt-3 ms-1">
-            <RouterLink to="" class="slider-title">
-              <span>推荐</span>
-              <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-            </RouterLink>
-          </div>
-        </template>
-      </MediaCardSlideView>
-    </div>
-    <div v-if="mediaDetail.tmdb_id">
-      <MediaCardSlideView :apipath="`tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}`">
-        <template #title="{ loaded }">
-          <div v-if="loaded" class="slider-header mt-3 ms-1">
-            <RouterLink to="" class="slider-title">
-              <span>类似</span>
-              <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-            </RouterLink>
-          </div>
-        </template>
-      </MediaCardSlideView>
+          <h2 v-if="mediaDetail.overview">
+            简介
+          </h2>
+          <p>{{ mediaDetail.overview }}</p>
+        </div>
+        <div class="media-overview-right" />
+      </div>
+      <div v-if="mediaDetail.tmdb_id">
+        <PersonCardSlideView :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`">
+          <template #title="{ loaded }">
+            <div v-if="loaded" class="slider-header mt-3 ms-1">
+              <RouterLink to="" class="slider-title">
+                <span>演员阵容</span>
+                <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+              </RouterLink>
+            </div>
+          </template>
+        </PersonCardSlideView>
+      </div>
+      <div v-if="mediaDetail.tmdb_id">
+        <MediaCardSlideView :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`">
+          <template #title="{ loaded }">
+            <div v-if="loaded" class="slider-header mt-3 ms-1">
+              <RouterLink to="" class="slider-title">
+                <span>推荐</span>
+                <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+              </RouterLink>
+            </div>
+          </template>
+        </MediaCardSlideView>
+      </div>
+      <div v-if="mediaDetail.tmdb_id">
+        <MediaCardSlideView :apipath="`tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}`">
+          <template #title="{ loaded }">
+            <div v-if="loaded" class="slider-header mt-3 ms-1">
+              <RouterLink to="" class="slider-title">
+                <span>类似</span>
+                <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
+              </RouterLink>
+            </div>
+          </template>
+        </MediaCardSlideView>
+      </div>
     </div>
   </div>
 </template>
@@ -128,13 +130,6 @@ onMounted(() => {
   inset: 0;
 }
 
-@media (min-width: 1280px) {
-  .media-header {
-    flex-direction: row;
-    align-items: flex-end;
-  }
-}
-
 .media-header {
   display: flex;
   flex-direction: column;
@@ -142,10 +137,33 @@ onMounted(() => {
   padding-block-start: 1rem;
 }
 
+@media (min-width: 1280px) {
+  .media-header {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+
+.media-overview {
+  display: flex;
+  flex-direction: column;
+  padding-top: 2rem;
+  padding-bottom: 1rem;
+}
+
 @media (min-width: 1024px) {
   .media-overview {
     flex-direction: row;
   }
+}
+
+.media-poster {
+  width: 8rem;
+  overflow: hidden;
+  border-radius: .25rem;
+  --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px -1px rgba(0, 0, 0, .1);
+  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
 @media (min-width: 1280px) {
@@ -165,13 +183,12 @@ onMounted(() => {
   }
 }
 
-.media-poster {
-  width: 8rem;
-  overflow: hidden;
-  border-radius: .25rem;
-  --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px -1px rgba(0, 0, 0, .1);
-  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
-  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+.media-title {
+  margin-top: 1rem;
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  text-align: center;
 }
 
 @media (min-width: 1280px) {
@@ -182,20 +199,22 @@ onMounted(() => {
   }
 }
 
-.media-title {
-  margin-top: 1rem;
-  display: flex;
-  flex: 1 1 0%;
-  flex-direction: column;
-  text-align: center;
-  --tw-text-opacity: 1;
-  color: rgb(255 255 255/var(--tw-text-opacity));
+.media-title>h1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
 }
 
-@media (min-width: 640px) {
-  ul.media-crew {
-      grid-template-columns: repeat(3,minmax(0,1fr));
+@media (min-width: 1280px) {
+  .media-title>h1 {
+      font-size: 2.25rem;
+      line-height: 2.5rem;
   }
+}
+
+h1 .media-year {
+    font-size: 1.5rem;
+    line-height: 2rem;
 }
 
 ul.media-crew {
@@ -205,8 +224,22 @@ ul.media-crew {
     gap: 1.5rem;
 }
 
+@media (min-width: 640px) {
+  ul.media-crew {
+      grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+}
+
 .media-status {
   margin-bottom: .5rem;
+}
+
+.media-attributes {
+  margin-top: .25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (min-width: 1280px) {
@@ -225,16 +258,11 @@ ul.media-crew {
   }
 }
 
-.media-attributes {
-  font-size: .75rem;
-  line-height: 1rem;
-  --tw-text-opacity: 1;
-  color: rgb(209 213 219/var(--tw-text-opacity));
-}
-
-.media-attributes {
-  margin-top: .25rem;
+.media-actions {
+  position: relative;
+  margin-top: 1rem;
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
@@ -253,23 +281,8 @@ ul.media-crew {
   }
 }
 
-.media-actions {
-  position: relative;
-  margin-top: 1rem;
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-}
-
-.media-overview {
-  display: flex;
-  flex-direction: column;
-  padding-top: 2rem;
-  padding-bottom: 1rem;
-  --tw-text-opacity: 1;
-  color: rgb(255 255 255/var(--tw-text-opacity));
+.media-overview-left {
+  flex: 1 1 0%;
 }
 
 @media (min-width: 1024px) {
@@ -278,8 +291,9 @@ ul.media-crew {
   }
 }
 
-.media-overview-left {
-  flex: 1 1 0%;
+.media-overview-right {
+  margin-top: 2rem;
+  width: 100%;
 }
 
 @media (min-width: 1024px) {
@@ -289,8 +303,23 @@ ul.media-crew {
   }
 }
 
-.media-overview-right {
-  margin-top: 2rem;
-  width: 100%;
+.slider-title {
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.75rem;
+    --tw-text-opacity: 1;
+    color: rgb(209 213 219/var(--tw-text-opacity));
+}
+
+@media (min-width: 640px){
+  .slider-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1.5rem;
+      line-height: 2.25rem;
+  }
 }
 </style>

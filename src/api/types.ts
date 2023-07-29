@@ -192,6 +192,29 @@ export interface MediaInfo {
 
   // 详情页面
   detail_link?: string
+  // 其它TMDB属性
+  adult?: boolean
+  created_by?: string[]
+  episode_run_time?: string[]
+  genres?: string[]
+  first_air_date?: string
+  homepage?: string
+  languages?: string[]
+  last_air_date?: string
+  networks?: string[]
+  number_of_episodes?: number
+  number_of_seasons?: number
+  origin_countryv: string[]
+  original_name?: string
+  production_companies?: string[]
+  production_countries?: string[]
+  spoken_languages?: string[]
+  status?: string
+  tagline?: string
+  vote_count?: number
+  popularity?: number
+  runtime?: number
+  next_episode_to_air?: string
 }
 
 // TMDB季信息
@@ -251,6 +274,27 @@ export interface TmdbEpisode {
 
   // 嘉宾
   guest_stars: Object[]
+}
+
+// TMDB人特信息
+export interface TmdbPerson {
+  // ID
+  id: number
+
+  // 名称
+  name: string
+
+  // 角色
+  character: string
+
+  // 图片
+  profile_path: string
+
+  // 性别
+  gender: number
+
+  // 原名
+  original_name: string
 }
 
 // 站点

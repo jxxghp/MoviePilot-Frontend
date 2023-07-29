@@ -3,7 +3,8 @@ import MediaCardListView from '@/views/discover/MediaCardListView.vue'
 
 // 输入参数
 const props = defineProps({
-  type: Array as PropType<string[]> | PropType<string>,
+  // API路径
+  paths: Array as PropType<string[]> | PropType<string>,
 })
 
 // 路由参数
@@ -23,26 +24,27 @@ const titles: { [key: string]: any } = {
     tv_weekly_global: '全球剧集榜',
     movie_top250: '电影TOP250',
   },
+  credits: '演员阵容',
   media: {
     search: '搜索',
   },
 }
 
 // 计算API路径
-function getApiPath(types: string[] | string) {
-  if (Array.isArray(types))
-    return types.join('/')
+function getApiPath(paths: string[] | string) {
+  if (Array.isArray(paths))
+    return paths.join('/')
   else
-    return types
+    return paths
 }
 
 // 面包屑标题
-function getTitle(types: string[] | string, title: any = '') {
-  if (Array.isArray(types)) {
+function getTitle(paths: string[] | string, title: any = '') {
+  if (Array.isArray(paths)) {
     if (title)
-      return [titles[types[0]][types[1]], title]
+      return [titles[paths[0]][paths[1]], title]
 
-    return ['推荐', titles[types[0]][types[1]]]
+    return ['推荐', titles[paths[0]][paths[1]]]
   }
   else {
     return ['发现']
@@ -52,9 +54,9 @@ function getTitle(types: string[] | string, title: any = '') {
 
 <template>
   <div>
-    <VBreadcrumbs :items="getTitle(props.type || '', route.query?.title)" />
+    <VBreadcrumbs :items="getTitle(props.paths || '', route.query?.title)" />
     <MediaCardListView
-      :apipath="getApiPath(props.type || '')"
+      :apipath="getApiPath(props.paths || '')"
       :params="route.query"
     />
   </div>
