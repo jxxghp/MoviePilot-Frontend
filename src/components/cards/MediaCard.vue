@@ -110,8 +110,7 @@ async function addSubscribe(season = 0) {
     let best_version = isExists.value ? 1 : 0
     if (props.media?.type === '电视剧')
       // 全部存在时洗版
-      best_version = seasonsNotExisted.value[season || 1] === 0 ? 1 : 0
-
+      best_version = (!seasonsNotExisted.value[season] || seasonsNotExisted.value[season] === 0) ? 1 : 0
     // 请求API
     const result: { [key: string]: any } = await api.post('subscribe', {
       name: props.media?.title,
@@ -135,7 +134,7 @@ async function addSubscribe(season = 0) {
       props.media?.title ?? '',
       season,
       result.message,
-      isExists.value,
+      best_version,
     )
   }
   catch (error) {
@@ -149,12 +148,12 @@ function showSubscribeAddToast(result: boolean,
   title: string,
   season: number,
   message: string,
-  isExists: boolean) {
+  best_version: number) {
   if (season)
     title = `${title} ${formatSeason(season.toString())}`
 
   let subname = '订阅'
-  if (isExists)
+  if (best_version > 0)
     subname = '洗版订阅'
 
   if (result)
