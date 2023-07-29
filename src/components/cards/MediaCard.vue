@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { PropType, Ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
+import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type { MediaInfo, NotExistMediaInfo, Subscribe, TmdbSeason } from '@/api/types'
@@ -105,6 +106,13 @@ async function addSubscribe(season = 0) {
   // 开始处理
   startNProgress()
   try {
+    // 是否洗版
+    let best_version = isExists.value ? 1 : 0
+    if (props.media?.type === '电视剧')
+      // 全部存在时洗版
+      best_version = seasonsNotExisted.value[season || 1] === 0 ? 1 : 0
+
+    // 请求API
     const result: { [key: string]: any } = await api.post('subscribe', {
       name: props.media?.title,
       type: props.media?.type,
@@ -112,22 +120,47 @@ async function addSubscribe(season = 0) {
       tmdbid: props.media?.tmdb_id,
       doubanid: props.media?.douban_id,
       season,
+      best_version,
     })
 
     // 订阅状态
     if (result.success) {
       // 订阅成功
       isSubscribed.value = true
-      $toast.success(`${result.message}`)
     }
-    else {
-      $toast.error(`${result.message}`)
-    }
+
+    // 提示
+    showSubscribeAddToast(
+      result.success,
+      props.media?.title ?? '',
+      season,
+      result.message,
+      isExists.value,
+    )
   }
   catch (error) {
     console.error(error)
   }
   doneNProgress()
+}
+
+// 弹出添加订阅提示
+function showSubscribeAddToast(result: boolean,
+  title: string,
+  season: number,
+  message: string,
+  isExists: boolean) {
+  if (season)
+    title = `${title} ${formatSeason(season.toString())}`
+
+  let subname = '订阅'
+  if (isExists)
+    subname = '洗版订阅'
+
+  if (result)
+    $toast.success(`${title} 添加${subname}成功！`)
+  else
+    $toast.error(`${title} 添加${subname}失败：${message}！`)
 }
 
 // 调用API取消订阅
@@ -261,6 +294,19 @@ function handleSubscribe() {
     removeSubscribe()
   else
     handleAddSubscribe()
+}
+
+// 拼装详情页链接
+function getDetailLink() {
+  let link = ''
+  if (props.media?.douban_id)
+    link = `https://movie.douban.com/subject/${props.media?.douban_id}/`
+  else if (props.media?.type === '电影')
+    link = `https://www.themoviedb.org/movie/${props.media?.tmdb_id}`
+  else if (props.media?.type === '电视剧')
+    link = `https://www.themoviedb.org/tv/${props.media?.tmdb_id}`
+
+  return link
 }
 
 // 计算存在状态的颜色
