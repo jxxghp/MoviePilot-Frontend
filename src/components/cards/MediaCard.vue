@@ -296,19 +296,6 @@ function handleSubscribe() {
     handleAddSubscribe()
 }
 
-// 拼装详情页链接
-function getDetailLink() {
-  let link = ''
-  if (props.media?.douban_id)
-    link = `https://movie.douban.com/subject/${props.media?.douban_id}/`
-  else if (props.media?.type === '电影')
-    link = `https://www.themoviedb.org/movie/${props.media?.tmdb_id}`
-  else if (props.media?.type === '电视剧')
-    link = `https://www.themoviedb.org/tv/${props.media?.tmdb_id}`
-
-  return link
-}
-
 // 计算存在状态的颜色
 function getExistColor(season: number) {
   const state = seasonsNotExisted.value[season]
