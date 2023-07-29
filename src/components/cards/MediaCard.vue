@@ -113,7 +113,6 @@ async function addSubscribe(season = 0) {
       tmdbid: props.media?.tmdb_id,
       doubanid: props.media?.douban_id,
       season,
-      best_version: isExists.value ? 1 : 0,
     })
 
     // 订阅状态
