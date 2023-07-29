@@ -17,7 +17,11 @@
 }
 
 .v-toast--bottom {
-  margin-bottom: env(safe-area-inset-top);
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+.v-toast--top {
+  margin-top: env(safe-area-inset-top);
 }
 
 .v-dialog > .v-overlay__content {

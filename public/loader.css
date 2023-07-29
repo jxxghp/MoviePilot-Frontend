@@ -20,7 +20,7 @@ html {
 .loading-logo {
   position: absolute;
   inset-block-start: 40%;
-  inset-inline-start: calc(50% - 45px);
+  inset-inline-start: calc(50% - 50px);
 }
 
 .loading {
@@ -31,7 +31,7 @@ html {
   block-size: 55px;
   inline-size: 55px;
   inset-block-start: 80%;
-  inset-inline-start: calc(50% - 29px);
+  inset-inline-start: calc(50% - 27.5px);
 }
 
 .loading .effect-1,
