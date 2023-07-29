@@ -3,6 +3,7 @@ import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
+import NoDataFound from '@/components/NoDataFound.vue'
 
 // 输入参数
 const mediaProps = defineProps({
@@ -25,13 +26,13 @@ async function getMediaDetail() {
   }
 }
 
-onMounted(() => {
+onBeforeMount(() => {
   getMediaDetail()
 })
 </script>
 
 <template>
-  <div class="max-w-8xl mx-auto px-4">
+  <div v-if="mediaDetail.tmdb_id" class="max-w-8xl mx-auto px-4">
     <div class="media-page">
       <div class="media-page-bg-image">
         <VImg cover :src="mediaDetail.backdrop_path" class="absolute inset-0 w-full h-full object-cover object-center" />
@@ -108,6 +109,12 @@ onMounted(() => {
       </div>
     </div>
   </div>
+  <NoDataFound
+    v-if="!mediaDetail.tmdb_id"
+    error-code="500"
+    error-title="出错啦！"
+    error-description="无法获取到媒体信息，请检查网络连接。"
+  />
 </template>
 
 <style lang="scss">
