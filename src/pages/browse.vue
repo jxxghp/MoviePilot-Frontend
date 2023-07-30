@@ -10,25 +10,8 @@ const props = defineProps({
 // 路由参数
 const route = useRoute()
 
-// 面包屑标题定义
-const titles: { [key: string]: any } = {
-  tmdb: {
-    trending: '流行趋势',
-    movies: '热门电影',
-    tvs: '热门电视剧',
-  },
-  douban: {
-    movies: '最新电影',
-    tvs: '最新电视剧',
-    tv_weekly_chinese: '华语剧集榜',
-    tv_weekly_global: '全球剧集榜',
-    movie_top250: '电影TOP250',
-  },
-  credits: '演员阵容',
-  media: {
-    search: '搜索',
-  },
-}
+// 标题
+const title = route.query?.title?.toString()
 
 // 计算API路径
 function getApiPath(paths: string[] | string) {
@@ -37,24 +20,17 @@ function getApiPath(paths: string[] | string) {
   else
     return paths
 }
-
-// 面包屑标题
-function getTitle(paths: string[] | string, title: any = '') {
-  if (Array.isArray(paths)) {
-    if (title)
-      return [titles[paths[0]][paths[1]], title]
-
-    return ['推荐', titles[paths[0]][paths[1]]]
-  }
-  else {
-    return ['发现']
-  }
-}
 </script>
 
 <template>
   <div>
-    <VBreadcrumbs :items="getTitle(props.paths || '', route.query?.title)" />
+    <div v-if="title" class="mt-8 md:flex md:items-center md:justify-between">
+      <div class="min-w-0 flex-1 mx-0">
+        <h2 class="mb-4 truncate text-2xl font-bold leading-7 text-gray-100 sm:overflow-visible sm:text-4xl sm:leading-9 md:mb-0" data-testid="page-header">
+          <span class="text-moviepilot">{{ title }}</span>
+        </h2>
+      </div>
+    </div>
     <MediaCardListView
       :apipath="getApiPath(props.paths || '')"
       :params="route.query"

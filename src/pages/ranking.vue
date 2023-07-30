@@ -11,7 +11,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header ms-1"
         >
           <RouterLink
-            to="/browse/tmdb/trending"
+            to="/browse/tmdb/trending?title=流行趋势"
             class="slider-title"
           >
             <span>流行趋势</span>
@@ -31,7 +31,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/tmdb/movies"
+            to="/browse/tmdb/movies?title=热门电影"
             class="slider-title"
           >
             <span>热门电影</span>
@@ -51,7 +51,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/tmdb/tvs"
+            to="/browse/tmdb/tvs?title=热门电视剧"
             class="slider-title"
           >
             <span>热门电视剧</span>
@@ -71,7 +71,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/douban/movies"
+            to="/browse/douban/movies?title=最新电影"
             class="slider-title"
           >
             <span>最新电影</span>
@@ -91,7 +91,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/douban/tvs"
+            to="/browse/douban/tvs?title=最新电视剧"
             class="slider-title"
           >
             <span>最新电视剧</span>
@@ -111,7 +111,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/douban/movie_top250"
+            to="/browse/douban/movie_top250?title=电影TOP250"
             class="slider-title"
           >
             <span>电影TOP250</span>
@@ -131,7 +131,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/douban/tv_weekly_chinese"
+            to="/browse/douban/tv_weekly_chinese?title=国产剧集榜"
             class="slider-title"
           >
             <span>国产剧集榜</span>
@@ -151,7 +151,7 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
           class="slider-header mt-3 ms-1"
         >
           <RouterLink
-            to="/browse/douban/tv_weekly_global"
+            to="/browse/douban/tv_weekly_global?title=全球剧集榜"
             class="slider-title"
           >
             <span>全球剧集榜</span>

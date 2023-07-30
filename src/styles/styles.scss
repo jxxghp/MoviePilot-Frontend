@@ -60,3 +60,14 @@
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   padding-block-end: 1rem;
 }
+
+.text-moviepilot {
+  background-image: linear-gradient(to bottom right,var(--tw-gradient-stops));
+  --tw-gradient-from: #818cf8;
+  --tw-gradient-to: rgba(129,140,248,0);
+  --tw-gradient-stops: var(--tw-gradient-from),var(--tw-gradient-to);
+  --tw-gradient-to: #c084fc;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

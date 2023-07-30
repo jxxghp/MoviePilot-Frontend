@@ -63,4 +63,8 @@ function getPersonImage() {
 .person-card {
   background-image: linear-gradient(45deg, #99999b, #384359 60%);
 }
+
+.person-card:hover {
+  background-image: linear-gradient(45deg, #bbbbbd, #8597aa 60%);
+}
 </style>

@@ -14,6 +14,9 @@ const mediaProps = defineProps({
 // 媒体详情
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 
+// 是否已加载完成
+const loaded = ref(false)
+
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
@@ -23,6 +26,7 @@ async function getMediaDetail() {
       },
     })
     mediaDetail.value = result
+    loaded.value = true
   }
 }
 
@@ -32,6 +36,16 @@ onBeforeMount(() => {
 </script>
 
 <template>
+  <div
+    v-if="!loaded"
+    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+  >
+    <VProgressCircular
+      size="48"
+      indeterminate
+      color="primary"
+    />
+  </div>
   <div v-if="mediaDetail.tmdb_id" class="max-w-8xl mx-auto px-4">
     <div class="media-page">
       <div class="media-page-bg-image">
@@ -110,7 +124,7 @@ onBeforeMount(() => {
     </div>
   </div>
   <NoDataFound
-    v-if="!mediaDetail.tmdb_id"
+    v-if="!mediaDetail.tmdb_id && loaded"
     error-code="500"
     error-title="出错啦！"
     error-description="无法获取到媒体信息，请检查网络连接。"

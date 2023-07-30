@@ -279,22 +279,46 @@ export interface TmdbEpisode {
 // TMDB人特信息
 export interface TmdbPerson {
   // ID
-  id: number
+  id?: number
 
   // 名称
-  name: string
+  name?: string
 
   // 角色
-  character: string
+  character?: string
 
   // 图片
-  profile_path: string
+  profile_path?: string
 
   // 性别
-  gender: number
+  gender?: number
 
   // 原名
-  original_name: string
+  original_name?: string
+
+  // 演员ID
+  credit_id?: string
+
+  // 别名
+  also_known_as?: string[]
+
+  // 生日
+  birthday?: string
+
+  // 卒日
+  deathday?: string
+
+  // IMDB ID
+  imdb_id?: string
+
+  // 部门
+  known_for_department?: string
+
+  // 出生地
+  place_of_birth?: string
+
+  // 热度
+  popularity?: number
 }
 
 // 站点
