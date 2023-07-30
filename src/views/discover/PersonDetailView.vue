@@ -71,7 +71,11 @@ onBeforeMount(() => {
           {{ personDetail.name }}
         </h1>
         <div class="mt-1 mb-2 space-y-1 text-xs text-white sm:text-sm lg:text-base">
-          <div>{{ personDetail.birthday }} | {{ personDetail.place_of_birth }}</div>
+          <div>
+            <span v-if="personDetail.birthday">{{ personDetail.birthday }}</span>
+            <span v-if="personDetail.place_of_birth"> | </span>
+            <span v-if="personDetail.place_of_birth">{{ personDetail.place_of_birth }}</span>
+          </div>
           <div v-if="personDetail.also_known_as">
             别名：{{ personDetail.also_known_as }}
           </div>
