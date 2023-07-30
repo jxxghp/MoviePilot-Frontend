@@ -387,7 +387,7 @@ const getImgUrl: Ref<string> = computed(() => {
         v-bind="hover.props"
         :height="props.height"
         :width="props.width"
-        class="outline-none shadow ring-gray-500"
+        class="outline-none shadow ring-gray-500 rounded-lg"
         :class="{
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
