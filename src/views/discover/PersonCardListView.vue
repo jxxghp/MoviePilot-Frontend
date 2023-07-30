@@ -7,6 +7,7 @@ import NoDataFound from '@/components/NoDataFound.vue'
 // 输入参数
 const props = defineProps({
   apipath: String,
+  params: Object as PropType<{ [key: string]: any }>,
 })
 
 // 判断是否有滚动条
@@ -73,7 +74,11 @@ async function fetchData({ done }: { done: any }) {
     else {
       // 加载一次
       // 请求API
-      currData.value = await api.get(props.apipath)
+      currData.value = await api.get(props.apipath, {
+        params: {
+          page: page.value,
+        },
+      })
 
       // 标计为已请求完成
       isRefreshed.value = true
@@ -133,7 +138,7 @@ async function fetchData({ done }: { done: any }) {
       <PersonCard
         v-for="data in dataList"
         :key="data.id"
-        :media="data"
+        :person="data"
       />
     </div>
     <NoDataFound

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import MediaCardListView from '@/views/discover/MediaCardListView.vue'
+import PersonCardListView from '@/views/discover/PersonCardListView.vue'
 
 // 输入参数
 const props = defineProps({
@@ -12,9 +12,6 @@ const route = useRoute()
 
 // 标题
 const title = route.query?.title?.toString()
-
-// 副标题
-const subtitle = route.query?.subtitle?.toString()
 
 // 计算API路径
 function getApiPath(paths: string[] | string) {
@@ -31,11 +28,10 @@ function getApiPath(paths: string[] | string) {
       <div class="min-w-0 flex-1 mx-0">
         <h2 class="mb-4 truncate text-2xl font-bold leading-7 text-gray-100 sm:overflow-visible sm:text-4xl sm:leading-9 md:mb-0" data-testid="page-header">
           <span class="text-moviepilot">{{ title }}</span>
-          <span class="text-sm">{{ subtitle }}</span>
         </h2>
       </div>
     </div>
-    <MediaCardListView
+    <PersonCardListView
       :apipath="getApiPath(props.paths || '')"
       :params="route.query"
     />
