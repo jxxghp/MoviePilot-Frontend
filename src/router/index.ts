@@ -99,7 +99,15 @@ const router = createRouter({
           },
         },
         {
-          path: '/person/:paths+',
+          path: '/credits/:paths+',
+          component: () => import('../pages/credits.vue'),
+          props: true,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: '/person',
           component: () => import('../pages/person.vue'),
           props: true,
           meta: {

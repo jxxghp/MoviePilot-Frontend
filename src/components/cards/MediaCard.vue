@@ -324,7 +324,7 @@ function getExistText(season: number) {
 }
 
 // 打开详情页
-function openDetailWindow() {
+function goMediaDetail() {
   router.push({
     path: '/media',
     query: {
@@ -433,7 +433,7 @@ const getImgUrl: Ref<string> = computed(() => {
           <VCardText
             v-show="hover.isHovering || imageLoadError"
             class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-            @click.stop="openDetailWindow"
+            @click.stop="goMediaDetail"
           >
             <span class="font-bold">{{ props.media?.year }}</span>
             <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">

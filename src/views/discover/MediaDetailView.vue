@@ -89,7 +89,7 @@ onBeforeMount(() => {
         <PersonCardSlideView :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`">
           <template #title="{ loaded }">
             <div v-if="loaded" class="slider-header">
-              <RouterLink :to="`/person/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容`" class="slider-title">
+              <RouterLink :to="`/credits/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容`" class="slider-title">
                 <span>演员阵容</span>
                 <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
               </RouterLink>
