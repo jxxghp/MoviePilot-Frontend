@@ -21,7 +21,8 @@ async function fetchData() {
       return
 
     dataList.value = await api.get(props.apipath)
-    componentLoaded.value = true
+    if (dataList.value.length > 0)
+      componentLoaded.value = true
   }
   catch (error) {
     console.error(error)
