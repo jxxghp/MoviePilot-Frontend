@@ -35,6 +35,13 @@ function getPersonImage() {
   return `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personDetail.value?.profile_path}`
 }
 
+// 将别名数组拆分为、分隔的字符串
+function getAlsoKnownAs() {
+  if (!personDetail.value?.also_known_as)
+    return ''
+  return personDetail.value.also_known_as.join('、')
+}
+
 onBeforeMount(() => {
   getPersonDetail()
 })
@@ -77,7 +84,7 @@ onBeforeMount(() => {
             <span v-if="personDetail.place_of_birth">{{ personDetail.place_of_birth }}</span>
           </div>
           <div v-if="personDetail.also_known_as">
-            别名：{{ personDetail.also_known_as }}
+            别名：{{ getAlsoKnownAs() }}
           </div>
         </div>
       </div>

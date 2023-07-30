@@ -48,24 +48,15 @@ onBeforeMount(() => {
   </div>
   <div v-if="mediaDetail.tmdb_id" class="max-w-8xl mx-auto px-4">
     <div class="media-page">
-      <div class="media-page-bg-image">
-        <VImg cover :src="mediaDetail.backdrop_path" class="absolute inset-0 w-full h-full object-cover object-center" />
-        <div
-          class="absolute inset-0"
-          style="background-image: linear-gradient(180deg, rgba(17, 24, 39, 47%) 0%, rgba(17, 24, 39, 100%) 100%);"
-        />
-      </div>
       <div class="media-header">
         <div class="media-poster">
           <VImg :src="mediaDetail.poster_path" cover />
         </div>
         <div class="media-title">
           <div class="media-status" />
-          <h1 class="media-title">
-            {{ mediaDetail.title }}
-            <span class="media-year">
-              ({{ mediaDetail.year }})
-            </span>
+          <h1 class="flex flex-col items-baseline md:flex-row">
+            <span>{{ mediaDetail.title }}</span>
+            <span v-if="mediaDetail.year" class="text-lg">（{{ mediaDetail.year }}）</span>
           </h1>
           <span class="media-attributes">
             <span>{{ mediaDetail.runtime }}</span>
@@ -140,15 +131,6 @@ onBeforeMount(() => {
   margin-inline: -1rem;
   padding-block-start: calc(4rem + env(safe-area-inset-top));
   padding-inline: 1rem;
-}
-
-.media-page-bg-image {
-  // FIXME: 前景图看不到
-  position: absolute;
-  z-index: -10;
-  block-size: 100%;
-  inline-size: 100%;
-  inset: 0;
 }
 
 .media-header {
@@ -231,11 +213,6 @@ onBeforeMount(() => {
       font-size: 2.25rem;
       line-height: 2.5rem;
   }
-}
-
-h1 .media-year {
-    font-size: 1.5rem;
-    line-height: 2rem;
 }
 
 ul.media-crew {

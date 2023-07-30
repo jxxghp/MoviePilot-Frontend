@@ -319,6 +319,9 @@ export interface TmdbPerson {
 
   // 热度
   popularity?: number
+
+  // 图片
+  images?: Object
 }
 
 // 站点
