@@ -99,6 +99,14 @@ const router = createRouter({
           },
         },
         {
+          path: '/person/:paths+',
+          component: () => import('../pages/person.vue'),
+          props: true,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
           path: '/media',
           component: () => import('../pages/media.vue'),
           meta: {

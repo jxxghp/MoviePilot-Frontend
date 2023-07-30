@@ -71,3 +71,30 @@
   background-clip: text;
   color: transparent;
 }
+
+.slider-header {
+  position: relative;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+}
+
+.slider-title {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+  --tw-text-opacity: 1;
+  color: rgb(209 213 219/var(--tw-text-opacity));
+}
+
+@media (min-width: 640px){
+.slider-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.5rem;
+    line-height: 2.25rem;
+}
+}

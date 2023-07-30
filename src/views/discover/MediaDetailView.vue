@@ -15,7 +15,7 @@ const mediaProps = defineProps({
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 
 // 是否已加载完成
-const loaded = ref(false)
+const isRefreshed = ref(false)
 
 // 调用API查询详情
 async function getMediaDetail() {
@@ -26,7 +26,7 @@ async function getMediaDetail() {
       },
     })
     mediaDetail.value = result
-    loaded.value = true
+    isRefreshed.value = true
   }
 }
 
@@ -37,7 +37,7 @@ onBeforeMount(() => {
 
 <template>
   <div
-    v-if="!loaded"
+    v-if="!isRefreshed"
     class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
   >
     <VProgressCircular
@@ -88,8 +88,8 @@ onBeforeMount(() => {
       <div v-if="mediaDetail.tmdb_id">
         <PersonCardSlideView :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`">
           <template #title="{ loaded }">
-            <div v-if="loaded" class="slider-header mt-3 ms-1">
-              <RouterLink to="" class="slider-title">
+            <div v-if="loaded" class="slider-header">
+              <RouterLink :to="`/browse/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容`" class="slider-title">
                 <span>演员阵容</span>
                 <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
               </RouterLink>
@@ -100,8 +100,8 @@ onBeforeMount(() => {
       <div v-if="mediaDetail.tmdb_id">
         <MediaCardSlideView :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`">
           <template #title="{ loaded }">
-            <div v-if="loaded" class="slider-header mt-3 ms-1">
-              <RouterLink to="" class="slider-title">
+            <div v-if="loaded" class="slider-header">
+              <RouterLink :to="`/browse/tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}?title=推荐&subtitle=${mediaDetail.title}`" class="slider-title">
                 <span>推荐</span>
                 <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
               </RouterLink>
@@ -112,8 +112,8 @@ onBeforeMount(() => {
       <div v-if="mediaDetail.tmdb_id">
         <MediaCardSlideView :apipath="`tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}`">
           <template #title="{ loaded }">
-            <div v-if="loaded" class="slider-header mt-3 ms-1">
-              <RouterLink to="" class="slider-title">
+            <div v-if="loaded" class="slider-header">
+              <RouterLink :to="`/browse/tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}?title=类似`" class="slider-title">
                 <span>类似</span>
                 <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
               </RouterLink>
@@ -124,7 +124,7 @@ onBeforeMount(() => {
     </div>
   </div>
   <NoDataFound
-    v-if="!mediaDetail.tmdb_id && loaded"
+    v-if="!mediaDetail.tmdb_id && isRefreshed"
     error-code="500"
     error-title="出错啦！"
     error-description="无法获取到媒体信息，请检查网络连接。"
@@ -348,26 +348,6 @@ ul.media-crew {
   .tagline {
       font-size: 1.5rem;
       line-height: 2rem;
-  }
-}
-
-.slider-title {
-    display: inline-flex;
-    align-items: center;
-    font-size: 1.25rem;
-    font-weight: 700;
-    line-height: 1.75rem;
-    --tw-text-opacity: 1;
-    color: rgb(209 213 219/var(--tw-text-opacity));
-}
-
-@media (min-width: 640px){
-  .slider-title {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 1.5rem;
-      line-height: 2.25rem;
   }
 }
 </style>
