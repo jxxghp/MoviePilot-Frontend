@@ -108,7 +108,7 @@ async function addSubscribe(season = 0) {
   try {
     // 是否洗版
     let best_version = isExists.value ? 1 : 0
-    if (props.media?.type === '电视剧')
+    if (props.media?.type === '电视剧' && props.media?.tmdb_id)
       // 全部存在时洗版
       best_version = (!seasonsNotExisted.value[season] || seasonsNotExisted.value[season] === 0) ? 1 : 0
     // 请求API
