@@ -77,7 +77,7 @@ onBeforeMount(() => {
         <h1 class="text-3xl lg:text-4xl">
           {{ personDetail.name }}
         </h1>
-        <div class="mt-1 mb-2 space-y-1 text-xs text-white sm:text-sm lg:text-base">
+        <div class="mt-1 mb-2 space-y-1 text-xs sm:text-sm lg:text-base">
           <div>
             <span v-if="personDetail.birthday">{{ personDetail.birthday }}</span>
             <span v-if="personDetail.place_of_birth"> | </span>

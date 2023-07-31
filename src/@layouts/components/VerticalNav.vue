@@ -59,7 +59,7 @@ function handleNavScroll(evt: Event) {
           <div class="d-flex" v-html="logo" />
 
           <h1 class="font-weight-bold leading-normal text-2xl">
-            MoviePilot
+            MOVIEPILOT
           </h1>
         </RouterLink>
       </slot>

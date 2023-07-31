@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import personIcon from '@images/misc/person.png'
+import personIcon from '@images/misc/person-icon.png'
 import type { TmdbPerson } from '@/api/types'
 import router from '@/router'
 

@@ -54,7 +54,7 @@ onBeforeMount(() => {
         </div>
         <div class="media-title">
           <div class="media-status" />
-          <h1 class="flex flex-col items-baseline md:flex-row">
+          <h1 class="flex flex-row items-baseline justify-start lg:justify-center">
             <span>{{ mediaDetail.title }}</span>
             <span v-if="mediaDetail.year" class="text-lg">（{{ mediaDetail.year }}）</span>
           </h1>
