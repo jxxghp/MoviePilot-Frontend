@@ -22,7 +22,13 @@ configureNProgress()
 const app = createApp(App)
 
 // Use plugins Mount vue app
-app.use(vuetify).use(router).use(store).use(ToastPlugin).use(VuetifyUseDialog).mount('#app')
+app.use(vuetify)
+  .use(router)
+  .use(store)
+  .use(ToastPlugin, {
+    position: 'bottom-right',
+  })
+  .use(VuetifyUseDialog).mount('#app')
 
 // 导航守卫
 router.beforeEach((to, from, next) => {
