@@ -63,7 +63,7 @@ onBeforeMount(fetchData)
     />
   </div>
   <div
-    v-if="dataList.length > 0"
+    v-if="getInstalledPluginList.length > 0"
     class="grid gap-3 grid-plugin-card"
   >
     <PluginCard
