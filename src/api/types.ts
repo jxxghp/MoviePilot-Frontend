@@ -213,8 +213,8 @@ export interface MediaInfo {
   number_of_seasons?: number
   origin_countryv: string[]
   original_name?: string
-  production_companies?: string[]
-  production_countries?: string[]
+  production_companies?: any[]
+  production_countries?: any[]
   spoken_languages?: string[]
   status?: string
   tagline?: string

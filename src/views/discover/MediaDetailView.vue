@@ -107,6 +107,16 @@ function getTvdbLink() {
   return `https://www.thetvdb.com/series/${mediaDetail.value.tvdb_id}`
 }
 
+// 获取发行国家名称
+const getProductionCountries = computed(() => {
+  return mediaDetail.value.production_companies?.map(country => country.name)
+})
+
+// 获取发行公司名称
+const getProductionCompanies = computed(() => {
+  return mediaDetail.value.production_companies?.map(company => company.name)
+})
+
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -196,7 +206,55 @@ onBeforeMount(() => {
             </a>
           </div>
         </div>
-        <div class="media-overview-right" />
+        <div class="media-overview-right">
+          <div class="media-facts">
+            <div v-if="mediaDetail.vote_average" class="media-ratings">
+              <VRating
+                v-model="mediaDetail.vote_average"
+                density="compact"
+                length="10"
+                class="ma-2"
+                readonly
+              />
+            </div>
+            <div v-if="mediaDetail.original_title || mediaDetail.original_name" class="media-fact">
+              <span>原始标题</span>
+              <span class="media-fact-value">{{ mediaDetail.original_title || mediaDetail.original_name }}</span>
+            </div>
+            <div v-if="mediaDetail.status" class="media-fact">
+              <span>状态</span>
+              <span class="media-fact-value">{{ mediaDetail.status }}</span>
+            </div>
+            <div v-if="mediaDetail.release_date || mediaDetail.first_air_date" class="media-fact">
+              <span>上映日期</span>
+              <span class="media-fact-value">
+                <span class="flex items-center justify-end">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+                  </svg>
+                  <span class="ml-1.5">{{ mediaDetail.release_date || mediaDetail.first_air_date }}</span>
+                </span>
+              </span>
+            </div>
+            <div v-if="mediaDetail.original_language" class="media-fact">
+              <span>原始语言</span>
+              <span class="media-fact-value">{{ mediaDetail.original_language }}</span>
+            </div>
+            <div v-if="mediaDetail.production_countries" class="media-fact">
+              <span>出品国家</span>
+              <span class="media-fact-value">
+                <span v-for="country in getProductionCountries" :key="country" class="flex items-center justify-end text-end">
+                  {{ country }}
+                </span>
+              </span>
+            </div>
+            <div v-if="mediaDetail.production_companies?.length" class="media-fact">
+              <span>制作公司</span>
+              <span class="media-fact-value text-end">
+                <span v-for="company in getProductionCompanies" :key="company" class="block">{{ company }}</span>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
       <div v-if="mediaDetail.tmdb_id">
         <PersonCardSlideView :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`">
@@ -432,6 +490,41 @@ a.crew-name {
     margin-top: 0;
     width: 20rem;
   }
+}
+
+.media-facts {
+    border-radius: 0.5rem;
+    border-width: 1px;
+    --tw-border-opacity: 1;
+    border-color: rgb(55 65 81/var(--tw-border-opacity));
+    --tw-bg-opacity: 1;
+    font-size: .875rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    --tw-text-opacity: 1;
+}
+
+.media-ratings {
+    border-bottom-width: 1px;
+    --tw-border-opacity: 1;
+    border-color: rgb(55 65 81/var(--tw-border-opacity));
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+}
+
+.media-ratings {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-fact {
+    display: flex;
+    justify-content: space-between;
+    border-bottom-width: 1px;
+    --tw-border-opacity: 1;
+    border-color: rgb(55 65 81/var(--tw-border-opacity));
+    padding: 0.5rem 1rem;
 }
 
 .media-overview h2 {
