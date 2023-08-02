@@ -308,7 +308,7 @@ function getEpisodeImage(stillPath: string) {
 
 // 获取发行国家名称
 const getProductionCountries = computed(() => {
-  return mediaDetail.value.production_companies?.map(country => country.name)
+  return mediaDetail.value.production_countries?.map(country => country.name)
 })
 
 // 获取发行公司名称
