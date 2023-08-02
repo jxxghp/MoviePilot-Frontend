@@ -221,7 +221,7 @@ export interface MediaInfo {
   vote_count?: number
   popularity?: number
   runtime?: number
-  next_episode_to_air?: string
+  next_episode_to_air?: object
 }
 
 // TMDB季信息

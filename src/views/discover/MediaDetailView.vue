@@ -2,7 +2,7 @@
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
-import type { MediaInfo } from '@/api/types'
+import type { MediaInfo, Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 
 // 输入参数
@@ -16,6 +16,9 @@ const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 
 // 本地是否存在
 const isExists = ref(false)
+
+// 是否已订阅
+const isSubscribed = ref(false)
 
 // 是否已加载完成
 const isRefreshed = ref(false)
@@ -31,6 +34,8 @@ async function getMediaDetail() {
     isRefreshed.value = true
     // 检查存在状态
     checkExists()
+    // 检查订阅状态
+    checkSubscribe()
   }
 }
 
@@ -55,9 +60,51 @@ async function checkExists() {
   }
 }
 
+// 查询当前媒体是否已订阅
+async function checkSubscribe(season = 0) {
+  try {
+    const mediaid = `tmdb:${mediaDetail.value.tmdb_id}`
+
+    const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
+      params: {
+        season,
+      },
+    })
+
+    if (result.id)
+      isSubscribed.value = true
+  }
+  catch (error) {
+    console.error(error)
+  }
+
+  return null
+}
+
 // 从genres中获取name，使用、分隔
 function getGenresName(genres: any[]) {
   return genres.map(genre => genre.name).join('、')
+}
+
+// 拼装TheMovieDb地址
+function getTheMovieDbLink() {
+  const mtype = mediaProps.type === '电影' ? 'movie' : 'tv'
+  return `https://www.themoviedb.org/${mtype}/${mediaDetail.value.tmdb_id}`
+}
+
+// 拼装豆瓣地址
+function getDoubanLink() {
+  return `https://movie.douban.com/subject/${mediaDetail.value.douban_id}`
+}
+
+// 拼装IMDB地址
+function getImdbLink() {
+  return `https://www.imdb.com/title/${mediaDetail.value.imdb_id}`
+}
+
+// 拼装TVDB地址
+function getTvdbLink() {
+  return `https://www.thetvdb.com/series/${mediaDetail.value.tvdb_id}`
 }
 
 onBeforeMount(() => {
@@ -94,15 +141,15 @@ onBeforeMount(() => {
           </h1>
           <span class="media-attributes">
             <span v-if="mediaDetail.runtime">{{ mediaDetail.runtime }} 分钟</span>
-            <span v-if="mediaDetail.genres" class="mx-1"> | </span>
+            <span v-if="mediaDetail.runtime && mediaDetail.genres" class="mx-1"> | </span>
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
         <div class="media-actions">
-          <VBtn class="ms-2" color="success" variant="tonal">
+          <VBtn v-if="isExists" class="ms-2" color="success" variant="tonal">
             <VIcon icon="mdi-play" />播放
           </VBtn>
-          <VBtn class="ms-2" color="warning" variant="tonal">
+          <VBtn v-if="mediaDetail.type === '电影'" class="ms-2" color="warning" variant="tonal">
             <VIcon icon="mdi-plus" />订阅
           </VBtn>
         </div>
@@ -122,6 +169,32 @@ onBeforeMount(() => {
               <a class="crew-name" :href="`person?personid=${director.id}`" target="_blank">{{ director.name }}</a>
             </li>
           </ul>
+          <div class="mt-6">
+            <a v-if="mediaDetail.tmdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getTheMovieDbLink()" target="_blank">
+              <div class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700">
+                <VIcon icon="mdi-link" />
+                <span class="ms-1">TheMovieDb</span>
+              </div>
+            </a>
+            <a v-if="mediaDetail.douban_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getDoubanLink()" target="_blank">
+              <div class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700">
+                <VIcon icon="mdi-link" />
+                <span class="ms-1">豆瓣</span>
+              </div>
+            </a>
+            <a v-if="mediaDetail.imdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getImdbLink()" target="_blank">
+              <div class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700">
+                <VIcon icon="mdi-link" />
+                <span class="ms-1">IMDb</span>
+              </div>
+            </a>
+            <a v-if="mediaDetail.tvdb_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getTvdbLink()" target="_blank">
+              <div class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700">
+                <VIcon icon="mdi-link" />
+                <span class="ms-1">TheTvDb</span>
+              </div>
+            </a>
+          </div>
         </div>
         <div class="media-overview-right" />
       </div>
