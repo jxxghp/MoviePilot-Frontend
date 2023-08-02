@@ -33,7 +33,7 @@ const isSubscribed = ref(false)
 // 本地存在状态
 const isExists = ref(false)
 
-// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失
+// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失，没有数据也是已存在
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 订阅季弹窗
