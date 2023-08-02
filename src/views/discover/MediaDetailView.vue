@@ -2,7 +2,7 @@
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
-import type { MediaInfo, Subscribe } from '@/api/types'
+import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 
 // 输入参数
@@ -23,6 +23,9 @@ const isSubscribed = ref(false)
 // 是否已加载完成
 const isRefreshed = ref(false)
 
+// 存储每一季的集信息
+const seasonEpisodesInfo = ref({} as { [key: number]: TmdbEpisode[] })
+
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
@@ -36,6 +39,20 @@ async function getMediaDetail() {
     checkExists()
     // 检查订阅状态
     checkSubscribe()
+  }
+}
+
+// 调用API加载季集信息
+async function loadSeasonEpisodes(season: number) {
+  if (seasonEpisodesInfo.value[season])
+    return
+
+  try {
+    const result: TmdbEpisode[] = await api.get(`tmdb/${mediaDetail.value.tmdb_id}/${season}`)
+    seasonEpisodesInfo.value[season] = result || []
+  }
+  catch (error) {
+    console.error(error)
   }
 }
 
@@ -107,6 +124,13 @@ function getTvdbLink() {
   return `https://www.thetvdb.com/series/${mediaDetail.value.tvdb_id}`
 }
 
+// 拼装集图片地址
+function getEpisodeImage(stillPath: string) {
+  if (!stillPath)
+    return ''
+  return `https://image.tmdb.org/t/p/w500${stillPath}`
+}
+
 // 获取发行国家名称
 const getProductionCountries = computed(() => {
   return mediaDetail.value.production_companies?.map(country => country.name)
@@ -159,7 +183,7 @@ onBeforeMount(() => {
           <VBtn v-if="isExists" class="ms-2" color="success" variant="tonal">
             <VIcon icon="mdi-play" />播放
           </VBtn>
-          <VBtn v-if="mediaDetail.type === '电影'" class="ms-2" color="warning" variant="tonal">
+          <VBtn class="ms-2" color="warning" variant="tonal">
             <VIcon icon="mdi-plus" />订阅
           </VBtn>
         </div>
@@ -204,6 +228,61 @@ onBeforeMount(() => {
                 <span class="ms-1">TheTvDb</span>
               </div>
             </a>
+          </div>
+          <h2 v-if="mediaDetail.type === '电视剧'" class="py-4">
+            季
+          </h2>
+          <div v-if="mediaDetail.type === '电视剧'" class="flex w-full flex-col space-y-2">
+            <VExpansionPanels>
+              <VExpansionPanel
+                v-for="season in mediaDetail.season_info"
+                :key="season.season_number"
+                @group:selected="loadSeasonEpisodes(season.season_number || 0)"
+              >
+                <VExpansionPanelTitle>
+                  <template #default>
+                    <div class="flex flex-row items-center justify-between">
+                      <span>第 {{ season.season_number }} 季</span>
+                      <VChip size="small" class="ms-2">
+                        {{ season.episode_count }}集
+                      </VChip>
+                    </div>
+                  </template>
+                </VExpansionPanelTitle>
+                <VExpansionPanelText>
+                  <template #default>
+                    <div
+                      v-if="!seasonEpisodesInfo[season.season_number || 0]"
+                      class="mt-3 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+                    >
+                      <VProgressCircular
+                        size="48"
+                        indeterminate
+                        color="primary"
+                      />
+                    </div>
+                    <div class="flex flex-col justify-center divide-y divide-gray-700">
+                      <div v-for="episode in seasonEpisodesInfo[season.season_number || 0]" :key="episode.episode_number" class="flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4">
+                        <div class="flex-1">
+                          <div class="flex flex-col space-y-2 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-2">
+                            <h3 class="text-lg">
+                              {{ episode.episode_number }} - {{ episode.name }}
+                            </h3>
+                            <div class="flex items-center space-x-2">
+                              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap cursor-default bg-gray-700 !text-gray-300">
+                                {{ episode.air_date }}
+                              </span>
+                            </div>
+                          </div>
+                          <p>{{ episode.overview }}</p>
+                        </div>
+                        <VImg cover class="rounded-lg" max-width="15rem" :src="getEpisodeImage(episode.still_path || '')" alt="" />
+                      </div>
+                    </div>
+                  </template>
+                </VExpansionPanelText>
+              </VExpansionPanel>
+            </VExpansionPanels>
           </div>
         </div>
         <div class="media-overview-right">

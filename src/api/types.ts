@@ -193,6 +193,9 @@ export interface MediaInfo {
   // 详情页面
   detail_link?: string
 
+  // 季详情
+  season_info?: TmdbSeason[]
+
   // 导演
   directors?: any[]
 
