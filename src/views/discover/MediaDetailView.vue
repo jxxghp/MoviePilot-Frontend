@@ -393,8 +393,8 @@ onBeforeMount(() => {
             <span v-if="mediaDetail.year" class="text-lg">（{{ mediaDetail.year }}）</span>
           </h1>
           <span class="media-attributes">
-            <span v-if="mediaDetail.runtime">{{ mediaDetail.runtime }} 分钟</span>
-            <span v-if="mediaDetail.runtime && mediaDetail.genres" class="mx-1"> | </span>
+            <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time">{{ mediaDetail.runtime || mediaDetail.episode_run_time }} 分钟</span>
+            <span v-if="(mediaDetail.runtime || mediaDetail.episode_run_time) && mediaDetail.genres" class="mx-1"> | </span>
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>

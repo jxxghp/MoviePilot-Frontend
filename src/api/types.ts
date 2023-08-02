@@ -202,28 +202,70 @@ export interface MediaInfo {
   // 演员
   actors?: any[]
 
-  // 其它TMDB属性
+  // 成人内容
   adult?: boolean
+
+  // 创建人
   created_by?: string[]
+
+  // 集时长
   episode_run_time?: string[]
+
+  // 风格
   genres?: string[]
+
+  // 首映日期
   first_air_date?: string
+
+  // 主页
   homepage?: string
+
+  // 语言
   languages?: string[]
+
+  // 最后更新日期
   last_air_date?: string
+
+  // 流媒体
   networks?: string[]
+
+  // 总集数
   number_of_episodes?: number
+
+  // 总季数
   number_of_seasons?: number
-  origin_countryv: string[]
+
+  // 原产国
+  origin_country: string[]
+
+  // 原名
   original_name?: string
+
+  // 出品公司
   production_companies?: any[]
+
+  // 出品国
   production_countries?: any[]
+
+  // 语种
   spoken_languages?: string[]
+
+  // 状态
   status?: string
+
+  // 标签
   tagline?: string
+
+  // 评分人数
   vote_count?: number
+
+  // 流行度
   popularity?: number
+
+  // 时长
   runtime?: number
+
+  // 下一集
   next_episode_to_air?: object
 }
 
