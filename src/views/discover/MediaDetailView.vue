@@ -14,20 +14,50 @@ const mediaProps = defineProps({
 // 媒体详情
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 
+// 本地是否存在
+const isExists = ref(false)
+
 // 是否已加载完成
 const isRefreshed = ref(false)
 
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
-    const result: MediaInfo = await api.get(`tmdb/${mediaProps.mediaid}`, {
+    mediaDetail.value = await api.get(`tmdb/${mediaProps.mediaid}`, {
       params: {
         type_name: mediaProps.type,
       },
     })
-    mediaDetail.value = result
     isRefreshed.value = true
+    // 检查存在状态
+    checkExists()
   }
+}
+
+// 查询当前媒体是否已存在
+async function checkExists() {
+  try {
+    const result: { [key: string]: any } = await api.get('media/exists', {
+      params: {
+        tmdbid: mediaDetail.value.tmdb_id,
+        title: mediaDetail.value.title,
+        year: mediaDetail.value.year,
+        season: mediaDetail.value.season,
+        mtype: mediaDetail.value.type,
+      },
+    })
+
+    if (result.success)
+      isExists.value = true
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// 从genres中获取name，使用、分隔
+function getGenresName(genres: any[]) {
+  return genres.map(genre => genre.name).join('、')
 }
 
 onBeforeMount(() => {
@@ -53,16 +83,29 @@ onBeforeMount(() => {
           <VImg :src="mediaDetail.poster_path" cover />
         </div>
         <div class="media-title">
-          <div class="media-status" />
+          <div v-if="isExists" class="media-status">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap transition !no-underline bg-green-500 bg-opacity-80 border border-green-500 !text-green-100 hover:bg-green-500 hover:bg-opacity-100 false overflow-hidden">
+              <div class="relative z-20 flex items-center false"><span>已入库</span></div>
+            </span>
+          </div>
           <h1 class="flex flex-row items-baseline justify-start lg:justify-center">
             <span>{{ mediaDetail.title }}</span>
             <span v-if="mediaDetail.year" class="text-lg">（{{ mediaDetail.year }}）</span>
           </h1>
           <span class="media-attributes">
-            <span>{{ mediaDetail.runtime }}</span>
+            <span v-if="mediaDetail.runtime">{{ mediaDetail.runtime }} 分钟</span>
+            <span v-if="mediaDetail.genres" class="mx-1"> | </span>
+            <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
-        <div class="media-actions" />
+        <div class="media-actions">
+          <VBtn class="ms-2" color="success" variant="tonal">
+            <VIcon icon="mdi-play" />播放
+          </VBtn>
+          <VBtn class="ms-2" color="warning" variant="tonal">
+            <VIcon icon="mdi-plus" />订阅
+          </VBtn>
+        </div>
       </div>
       <div class="media-overview">
         <div class="media-overview-left">
@@ -73,6 +116,12 @@ onBeforeMount(() => {
             简介
           </h2>
           <p>{{ mediaDetail.overview }}</p>
+          <ul class="media-crew">
+            <li v-for="director in mediaDetail.directors" :key="director.id">
+              <span>{{ director.job }}</span>
+              <a class="crew-name" :href="`person?personid=${director.id}`" target="_blank">{{ director.name }}</a>
+            </li>
+          </ul>
         </div>
         <div class="media-overview-right" />
       </div>
@@ -226,6 +275,17 @@ ul.media-crew {
   ul.media-crew {
       grid-template-columns: repeat(3,minmax(0,1fr));
   }
+}
+
+ul.media-crew>li {
+    grid-column: span 1/span 1;
+    display: flex;
+    flex-direction: column;
+    font-weight: 700;
+}
+
+a.crew-name {
+    font-weight: 400;
 }
 
 .media-status {

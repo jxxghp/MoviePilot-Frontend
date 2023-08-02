@@ -89,6 +89,13 @@ onBeforeMount(() => {
         </div>
       </div>
     </div>
+    <div class="relative text-left">
+      <div class="group outline-none ring-0" role="button" tabindex="-1">
+        <p class="pt-2 text-sm lg:text-base" style="overflow-wrap: break-word;">
+          {{ personDetail.biography }}
+        </p>
+      </div>
+    </div>
     <div>
       <div class="slider-header">
         <RouterLink :to="`/browse/tmdb/person/credits/${personDetail.id}?title=参演作品`" class="slider-title">
@@ -106,6 +113,3 @@ onBeforeMount(() => {
     error-description="无法获取到媒体信息，请检查网络连接。"
   />
 </template>
-
-<style lang="scss">
-</style>

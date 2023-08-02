@@ -192,6 +192,13 @@ export interface MediaInfo {
 
   // 详情页面
   detail_link?: string
+
+  // 导演
+  directors?: any[]
+
+  // 演员
+  actors?: any[]
+
   // 其它TMDB属性
   adult?: boolean
   created_by?: string[]
@@ -322,6 +329,9 @@ export interface TmdbPerson {
 
   // 图片
   images?: Object
+
+  // 详情
+  biography?: string
 }
 
 // 站点
