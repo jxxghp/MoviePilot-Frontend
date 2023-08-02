@@ -465,7 +465,7 @@ onBeforeMount(() => {
                   <template #default>
                     <div class="flex flex-row items-center justify-between">
                       <span>第 {{ season.season_number }} 季</span>
-                      <VChip size="small">
+                      <VChip size="small" class="ms-1">
                         {{ season.episode_count }}集
                       </VChip>
                       <div class="absolute right-12">
