@@ -573,40 +573,25 @@ onBeforeMount(() => {
         </div>
       </div>
       <div v-if="mediaDetail.tmdb_id">
-        <PersonCardSlideView :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`">
-          <template #title="{ loaded }">
-            <div v-if="loaded" class="slider-header">
-              <RouterLink :to="`/credits/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容`" class="slider-title">
-                <span>演员阵容</span>
-                <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-              </RouterLink>
-            </div>
-          </template>
-        </PersonCardSlideView>
+        <PersonCardSlideView
+          :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`"
+          :linkurl="`/credits/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容`"
+          title="演员阵容"
+        />
       </div>
       <div v-if="mediaDetail.tmdb_id">
-        <MediaCardSlideView :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`">
-          <template #title="{ loaded }">
-            <div v-if="loaded" class="slider-header">
-              <RouterLink :to="`/browse/tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}?title=推荐`" class="slider-title">
-                <span>推荐</span>
-                <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-              </RouterLink>
-            </div>
-          </template>
-        </MediaCardSlideView>
+        <MediaCardSlideView
+          :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`"
+          :linkurl="`/browse/tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}?title=推荐`"
+          title="推荐"
+        />
       </div>
       <div v-if="mediaDetail.tmdb_id">
-        <MediaCardSlideView :apipath="`tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}`">
-          <template #title="{ loaded }">
-            <div v-if="loaded" class="slider-header">
-              <RouterLink :to="`/browse/tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}?title=类似`" class="slider-title">
-                <span>类似</span>
-                <VIcon icon="mdi-arrow-right-circle-outline" class="ms-1" />
-              </RouterLink>
-            </div>
-          </template>
-        </MediaCardSlideView>
+        <MediaCardSlideView
+          :apipath="`tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}`"
+          :linkurl="`/browse/tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}?title=类似`"
+          title="类似"
+        />
       </div>
     </div>
   </div>
