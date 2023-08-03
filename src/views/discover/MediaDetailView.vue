@@ -377,6 +377,12 @@ onBeforeMount(() => {
     />
   </div>
   <div v-if="mediaDetail.tmdb_id" class="max-w-8xl mx-auto px-4">
+    <template v-if="mediaDetail.backdrop_path">
+      <div class="vue-media-back absolute left-0 top-0 w-full h-96">
+        <VImg class="h-96" :src="mediaDetail.backdrop_path" cover />
+      </div>
+      <div class="vue-media-back absolute left-0 top-0 w-full h-96" />
+    </template>
     <div class="media-page">
       <div class="media-header">
         <div class="media-poster">
@@ -604,6 +610,15 @@ onBeforeMount(() => {
 </template>
 
 <style lang="scss">
+.vue-media-back {
+  background-image:
+    linear-gradient(180deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%),
+    linear-gradient(90deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%),
+    linear-gradient(270deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%);
+  box-shadow: 0 0 0 2px rgb(var(--v-theme-background));
+  margin-block-start: calc(-70px - env(safe-area-inset-top));
+}
+
 .media-page {
   position: relative;
   background-position: 50%;
