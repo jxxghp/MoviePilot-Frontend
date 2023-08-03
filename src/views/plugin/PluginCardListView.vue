@@ -64,7 +64,7 @@ onBeforeMount(fetchData)
   </div>
   <div
     v-if="getInstalledPluginList.length > 0"
-    class="grid gap-3 grid-plugin-card"
+    class="grid gap-4 grid-plugin-card"
   >
     <PluginCard
       v-for="data in getInstalledPluginList"
@@ -119,7 +119,7 @@ onBeforeMount(fetchData)
         </VToolbar>
       </div>
       <div class="pa-4">
-        <div class="grid gap-3 grid-plugin-card">
+        <div class="grid gap-4 grid-plugin-card">
           <PluginAppCard
             v-for="data in getUninstalledPluginList"
             :key="data.id"
