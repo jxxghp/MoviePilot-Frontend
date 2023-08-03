@@ -49,6 +49,7 @@ async function getSubscribes() {
 
           return {
             title: subscribe.name,
+            subtitle: "",
             start: parseDate(movie.release_date || ''),
             allDay: false,
             posterPath: subscribe.poster,
