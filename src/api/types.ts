@@ -209,7 +209,7 @@ export interface MediaInfo {
   created_by?: string[]
 
   // 集时长
-  episode_run_time?: string[]
+  episode_run_time: string[]
 
   // 风格
   genres?: string[]

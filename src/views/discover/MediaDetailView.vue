@@ -399,8 +399,8 @@ onBeforeMount(() => {
             <span v-if="mediaDetail.year" class="text-lg">（{{ mediaDetail.year }}）</span>
           </h1>
           <span class="media-attributes">
-            <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time">{{ mediaDetail.runtime || mediaDetail.episode_run_time }} 分钟</span>
-            <span v-if="(mediaDetail.runtime || mediaDetail.episode_run_time) && mediaDetail.genres" class="mx-1"> | </span>
+            <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time[0]">{{ mediaDetail.runtime || mediaDetail.episode_run_time[0] }} 分钟</span>
+            <span v-if="(mediaDetail.runtime || mediaDetail.episode_run_time[0]) && mediaDetail.genres" class="mx-1"> | </span>
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
           </span>
         </div>
@@ -470,7 +470,7 @@ onBeforeMount(() => {
                 <VExpansionPanelTitle>
                   <template #default>
                     <div class="flex flex-row items-center justify-between">
-                      <span>第 {{ season.season_number }} 季</span>
+                      <span class="font-weight-bold">第 {{ season.season_number }} 季</span>
                       <VChip size="small" class="ms-1">
                         {{ season.episode_count }}集
                       </VChip>

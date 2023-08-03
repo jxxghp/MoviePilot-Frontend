@@ -109,9 +109,9 @@ onUnmounted(() => {
   </div>
   <div
     ref="slideview_content"
-    class="slideview_content grid grid-rows-1 grid-flow-col gap-4 p-3"
-    @scroll="countDisabled"
+    class="slideview_content grid grid-rows-1 grid-flow-col justify-start gap-4 p-3"
     tabindex="0"
+    @scroll="countDisabled"
   >
     <slot name="content" />
   </div>
