@@ -563,7 +563,7 @@ onBeforeMount(() => {
                 </span>
               </span>
             </div>
-            <div v-if="mediaDetail.production_companies?.length" class="media-fact border-b-0">
+            <div class="media-fact border-b-0">
               <span>制作公司</span>
               <span class="media-fact-value text-end">
                 <span v-for="company in getProductionCompanies" :key="company" class="block">{{ company }}</span>
