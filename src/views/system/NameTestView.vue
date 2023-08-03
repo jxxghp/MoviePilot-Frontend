@@ -46,6 +46,15 @@ async function nameTest() {
   }
 }
 
+// 打开TMDB详情页面
+function openTmdbPage(type: string, tmdbId: number) {
+  if (!type || !tmdbId)
+    return
+
+  const url = `https://www.themoviedb.org/${type === '电影' ? 'movie' : 'tv'}/${tmdbId}`
+  window.open(url, '_blank')
+}
+
 // TMDB图片转换为w500大小
 function getW500Image(url = '') {
   if (!url)
@@ -104,10 +113,16 @@ function getW500Image(url = '') {
             <VImg
               width="10rem"
               aspect-ratio="2/3"
-              class="object-cover aspect-w-2 aspect-h-3 rounded ring-1 ring-gray-500 shadow"
+              class="object-cover aspect-w-2 aspect-h-3 rounded-lg ring-1 ring-gray-500"
               :src="getW500Image(nameTestResult?.media_info?.poster_path)"
               cover
-            />
+            >
+              <template #placeholder>
+                <div class="w-full h-full">
+                  <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                </div>
+              </template>
+            </VImg>
           </div>
 
           <div>
@@ -153,6 +168,7 @@ function getW500Image(url = '') {
                 variant="elevated"
                 color="success"
                 class="me-1 mb-1"
+                @click="openTmdbPage(nameTestResult?.media_info?.type, nameTestResult?.media_info?.tmdb_id)"
               >
                 {{ nameTestResult?.media_info?.tmdb_id }}
               </VChip>

@@ -393,7 +393,13 @@ onBeforeMount(() => {
     <div class="media-page">
       <div class="media-header">
         <div class="media-poster">
-          <VImg :src="getW500Image(mediaDetail.poster_path)" cover />
+          <VImg :src="getW500Image(mediaDetail.poster_path)" cover class="object-cover aspect-w-2 aspect-h-3 ring-1 ring-gray-500">
+            <template #placeholder>
+              <div class="w-full h-full">
+                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+              </div>
+            </template>
+          </VImg>
         </div>
         <div class="media-title">
           <div v-if="isExists" class="media-status">
