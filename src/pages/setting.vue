@@ -33,7 +33,7 @@ const tabs = [
     tab: 'notification',
   },
   {
-    title: '自定义词表',
+    title: '词表',
     icon: 'mdi-file-word-box',
     tab: 'words',
   },
