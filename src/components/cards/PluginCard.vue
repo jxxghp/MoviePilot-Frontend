@@ -14,7 +14,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove'])
+const emit = defineEmits(['remove', 'save'])
 
 // 提示框
 const $toast = useToast()
@@ -102,6 +102,8 @@ async function savePluginConf() {
     if (result.success) {
       $toast.success(`插件 ${props.plugin?.plugin_name} 配置已保存`)
       pluginConfigDialog.value = false
+      // 通知父组件刷新
+      emit('save')
     }
     else {
       $toast.error(`插件 ${props.plugin?.plugin_name} 配置保存失败：${result.message}}`)
@@ -192,7 +194,10 @@ const dropdownItems = ref([
       </VAvatar>
     </div>
     <VCardItem class="py-2">
-      <VCardTitle>{{ props.plugin?.plugin_name }}</VCardTitle>
+      <VCardTitle class="flex items-center flex-row">
+        <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
+        {{ props.plugin?.plugin_name }}
+      </VCardTitle>
     </VCardItem>
     <VCardText>
       {{ props.plugin?.plugin_desc }}

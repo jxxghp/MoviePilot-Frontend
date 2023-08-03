@@ -71,6 +71,7 @@ onBeforeMount(fetchData)
       :key="data.id"
       :plugin="data"
       @remove="fetchData"
+      @save="fetchData"
     />
   </div>
   <NoDataFound

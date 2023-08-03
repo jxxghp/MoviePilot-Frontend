@@ -523,6 +523,9 @@ export interface Plugin {
 
   // 是否已安装
   installed?: boolean
+
+  // 运行状态
+  state?: boolean
 }
 
 // 种子信息
