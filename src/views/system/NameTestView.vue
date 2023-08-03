@@ -45,6 +45,13 @@ async function nameTest() {
     console.error(error)
   }
 }
+
+// TMDB图片转换为w500大小
+function getW500Image(url = '') {
+  if (!url)
+    return ''
+  return url.replace('original', 'w500')
+}
 </script>
 
 <template>
@@ -98,7 +105,7 @@ async function nameTest() {
               width="10rem"
               aspect-ratio="2/3"
               class="object-cover aspect-w-2 aspect-h-3 rounded ring-1 ring-gray-500 shadow"
-              :src="nameTestResult?.media_info?.poster_path"
+              :src="getW500Image(nameTestResult?.media_info?.poster_path)"
               cover
             />
           </div>

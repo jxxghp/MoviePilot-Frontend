@@ -306,6 +306,13 @@ function getEpisodeImage(stillPath: string) {
   return `https://image.tmdb.org/t/p/w500${stillPath}`
 }
 
+// TMDB图片转换为w500大小
+function getW500Image(url = '') {
+  if (!url)
+    return ''
+  return url.replace('original', 'w500')
+}
+
 // 获取发行国家名称
 const getProductionCountries = computed(() => {
   return mediaDetail.value.production_countries?.map(country => country.name)
@@ -386,7 +393,7 @@ onBeforeMount(() => {
     <div class="media-page">
       <div class="media-header">
         <div class="media-poster">
-          <VImg :src="mediaDetail.poster_path" cover />
+          <VImg :src="getW500Image(mediaDetail.poster_path)" cover />
         </div>
         <div class="media-title">
           <div v-if="isExists" class="media-status">
