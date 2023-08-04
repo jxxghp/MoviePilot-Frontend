@@ -34,7 +34,7 @@ onMounted(() => {
     <VCol cols="12">
       <VCard title="实时日志">
         <VCardText>
-          <div v-for="(log, i) in logs.reverse()" :key="i">
+          <div v-for="(log, i) in logs" :key="i">
             {{ log }}
           </div>
         </VCardText>
