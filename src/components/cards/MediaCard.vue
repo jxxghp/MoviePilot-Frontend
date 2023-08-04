@@ -72,19 +72,19 @@ async function handleAddSubscribe() {
     await getMediaSeasons()
     if (!seasonInfos.value) {
       $toast.error(`${props.media?.title} 查询剧集信息失败！`)
-
       return
     }
+
+    // 检查各季的缺失状态
+    await checkSeasonsNotExists()
+    if (!tmdbFlag.value)
+      return
 
     if (seasonInfos.value.length === 1) {
       // 添加订阅
       addSubscribe(1)
     }
     else {
-      // 检查各季的缺失状态
-      await checkSeasonsNotExists()
-      if (!tmdbFlag.value)
-        return
       // 弹出季选择列表，支持多选
       subscribeSeasonDialog.value = true
     }
