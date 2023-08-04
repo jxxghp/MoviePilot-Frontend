@@ -126,6 +126,9 @@ async function checkSeasonsNotExists() {
   try {
     const result: NotExistMediaInfo[] = await api.post('download/notexists', mediaDetail.value)
     if (result) {
+      if (result.length === 0)
+        isExists.value = true
+
       result.forEach((item) => {
         // 0-已存在 1-部分缺失 2-全部缺失
         let state = 0
