@@ -5,9 +5,6 @@ import type { User } from './api/types'
 import store from './store'
 import avatar1 from '@images/avatars/avatar-1.png'
 
-// 路由
-const route = useRoute()
-
 // 提示框
 const $toast = useToast()
 
@@ -68,6 +65,6 @@ provide('accountInfo', accountInfo)
 
 <template>
   <VApp>
-    <RouterView :key="route.fullPath" />
+    <RouterView />
   </VApp>
 </template>
