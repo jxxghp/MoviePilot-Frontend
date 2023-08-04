@@ -78,7 +78,7 @@ async function handleAddSubscribe() {
 
     if (seasonInfos.value.length === 1) {
       // 添加订阅
-      addSubscribe()
+      addSubscribe(1)
     }
     else {
       // 检查各季的缺失状态
@@ -108,9 +108,9 @@ async function addSubscribe(season = 0) {
   try {
     // 是否洗版
     let best_version = isExists.value ? 1 : 0
-    if (props.media?.type === '电视剧' && props.media?.tmdb_id)
+    if (season && props.media?.tmdb_id)
       // 全部存在时洗版
-      best_version = (!seasonsNotExisted.value[season] || seasonsNotExisted.value[season] === 0) ? 1 : 0
+      best_version = !seasonsNotExisted.value[season] ? 1 : 0
     // 请求API
     const result: { [key: string]: any } = await api.post('subscribe', {
       name: props.media?.title,
