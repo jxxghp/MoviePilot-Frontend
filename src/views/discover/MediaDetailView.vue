@@ -537,7 +537,13 @@ onBeforeMount(() => {
                           </div>
                           <p>{{ episode.overview }}</p>
                         </div>
-                        <VImg cover class="rounded-lg" max-width="15rem" :src="getEpisodeImage(episode.still_path || '')" alt="" />
+                        <VImg cover class="rounded-lg" max-width="15rem" :src="getEpisodeImage(episode.still_path || '')" alt="">
+                          <template #placeholder>
+                            <div class="w-full h-full">
+                              <VSkeletonLoader class="object-cover aspect-w-16 aspect-h-9" />
+                            </div>
+                          </template>
+                        </VImg>
                       </div>
                     </div>
                   </template>
