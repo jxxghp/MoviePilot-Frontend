@@ -12,7 +12,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
 </script>
 
 <template>
-  <VerticalNavLayout class="touch-none">
+  <VerticalNavLayout>
     <!-- 👉 Navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center mx-1">

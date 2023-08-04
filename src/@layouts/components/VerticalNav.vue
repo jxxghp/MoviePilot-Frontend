@@ -43,7 +43,7 @@ function handleNavScroll(evt: Event) {
   <Component
     :is="props.tag"
     ref="refNav"
-    class="layout-vertical-nav"
+    class="layout-vertical-nav touch-none"
     :class="[
       {
         'visible': isOverlayNavActive,
@@ -83,8 +83,8 @@ function handleNavScroll(evt: Event) {
 </template>
 
 <style lang="scss">
-@use '@configured-variables' as variables;
-@use '@layouts/styles/mixins';
+@use "@configured-variables" as variables;
+@use "@layouts/styles/mixins";
 
 // 👉 Vertical Nav
 .layout-vertical-nav {
