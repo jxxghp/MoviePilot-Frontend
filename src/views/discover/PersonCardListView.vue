@@ -53,7 +53,11 @@ async function fetchData({ done }: { done: any }) {
       // 加载多次
       while (!hasScroll()) {
         // 请求API
-        currData.value = await api.get(props.apipath)
+        currData.value = await api.get(props.apipath, {
+          params: {
+            page: page.value,
+          },
+        })
 
         // 标计为已请求完成
         isRefreshed.value = true
