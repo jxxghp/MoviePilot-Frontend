@@ -17,8 +17,8 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
     />
 
     <MediaCardSlideView
-      apipath="tmdb/tvs"
-      linkurl="/browse/tmdb/tvs?title=热门电视剧"
+      apipath="tmdb/tvs?with_original_language=zh|en|ja|ko"
+      linkurl="/browse/tmdb/tvs??with_original_language=zh|en|ja|ko&title=热门电视剧"
       title="热门电视剧"
     />
 
