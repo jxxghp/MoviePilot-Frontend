@@ -47,20 +47,24 @@ const filteredDataList = computed(() => {
 </script>
 
 <template>
-  <VProgressCircular
+  <div
     v-if="!isRefreshed"
-    size="48"
-    class="centered"
-    indeterminate
-    color="primary"
-  />
+    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+  >
+    <VProgressCircular
+      v-if="!isRefreshed"
+      size="48"
+      indeterminate
+      color="primary"
+    />
+  </div>
   <PullRefresh
     v-model="loading"
     @refresh="onRefresh"
   >
     <div
       v-if="filteredDataList.length > 0"
-      class="grid gap-3 grid-subscribe-card"
+      class="grid gap-3 grid-subscribe-card p-1"
     >
       <SubscribeCard
         v-for="data in filteredDataList"

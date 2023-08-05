@@ -13,7 +13,11 @@ export interface Subscribe {
 
   // 搜索关键字
   keyword?: string
+
+  // TMDB ID
   tmdbid: number
+
+  // 豆瓣ID
   doubanid?: string
 
   // 季号
@@ -63,6 +67,12 @@ export interface Subscribe {
 
   // 订阅站点
   sites: number[]
+
+  // 是否洗版
+  best_version: number
+
+  // 当前优先级
+  current_priority: number
 }
 
 // 历史记录
@@ -172,7 +182,7 @@ export interface MediaInfo {
   poster_path?: string
 
   // 评分
-  vote_average: number
+  vote_average?: number
 
   // 描述
   overview?: string
@@ -182,6 +192,81 @@ export interface MediaInfo {
 
   // 详情页面
   detail_link?: string
+
+  // 季详情
+  season_info?: TmdbSeason[]
+
+  // 导演
+  directors?: any[]
+
+  // 演员
+  actors?: any[]
+
+  // 成人内容
+  adult?: boolean
+
+  // 创建人
+  created_by?: string[]
+
+  // 集时长
+  episode_run_time: string[]
+
+  // 风格
+  genres?: string[]
+
+  // 首映日期
+  first_air_date?: string
+
+  // 主页
+  homepage?: string
+
+  // 语言
+  languages?: string[]
+
+  // 最后更新日期
+  last_air_date?: string
+
+  // 流媒体
+  networks?: string[]
+
+  // 总集数
+  number_of_episodes?: number
+
+  // 总季数
+  number_of_seasons?: number
+
+  // 原产国
+  origin_country: string[]
+
+  // 原名
+  original_name?: string
+
+  // 出品公司
+  production_companies?: any[]
+
+  // 出品国
+  production_countries?: any[]
+
+  // 语种
+  spoken_languages?: string[]
+
+  // 状态
+  status?: string
+
+  // 标签
+  tagline?: string
+
+  // 评分人数
+  vote_count?: number
+
+  // 流行度
+  popularity?: number
+
+  // 时长
+  runtime?: number
+
+  // 下一集
+  next_episode_to_air?: object
 }
 
 // TMDB季信息
@@ -241,6 +326,57 @@ export interface TmdbEpisode {
 
   // 嘉宾
   guest_stars: Object[]
+}
+
+// TMDB人特信息
+export interface TmdbPerson {
+  // ID
+  id?: number
+
+  // 名称
+  name?: string
+
+  // 角色
+  character?: string
+
+  // 图片
+  profile_path?: string
+
+  // 性别
+  gender?: number
+
+  // 原名
+  original_name?: string
+
+  // 演员ID
+  credit_id?: string
+
+  // 别名
+  also_known_as?: string[]
+
+  // 生日
+  birthday?: string
+
+  // 卒日
+  deathday?: string
+
+  // IMDB ID
+  imdb_id?: string
+
+  // 部门
+  known_for_department?: string
+
+  // 出生地
+  place_of_birth?: string
+
+  // 热度
+  popularity?: number
+
+  // 图片
+  images?: Object
+
+  // 详情
+  biography?: string
 }
 
 // 站点
@@ -387,6 +523,9 @@ export interface Plugin {
 
   // 是否已安装
   installed?: boolean
+
+  // 运行状态
+  state?: boolean
 }
 
 // 种子信息

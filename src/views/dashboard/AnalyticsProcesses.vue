@@ -45,8 +45,6 @@ onUnmounted(() => {
 <template>
   <VCard title="系统进程">
     <VTable
-      :headers="headers"
-      :items="processList"
       item-key="fullName"
       class="table-rounded"
       hide-default-footer

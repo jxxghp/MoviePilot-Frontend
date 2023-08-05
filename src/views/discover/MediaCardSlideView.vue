@@ -2,10 +2,13 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
+import SlideView from '@/components/slide/SlideView.vue'
 
 // 输入参数
 const props = defineProps({
   apipath: String,
+  linkurl: String,
+  title: String,
 })
 
 // 组件加载完成
@@ -21,7 +24,8 @@ async function fetchData() {
       return
 
     dataList.value = await api.get(props.apipath)
-    componentLoaded.value = true
+    if (dataList.value.length > 0)
+      componentLoaded.value = true
   }
   catch (error) {
     console.error(error)
@@ -33,55 +37,21 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <slot
-    name="title"
-    :loaded="componentLoaded"
-  />
-  <VSlideGroup show-arrows="false">
-    <template #prev>
-      <VBtn
-        class="rounded-circle shadow-none"
-        icon="mdi-chevron-left"
-        color="grey"
-      />
-    </template>
-    <VSlideGroupItem
-      v-for="data in dataList"
-      :key="data.tmdb_id"
-    >
-      <MediaCard
+  <SlideView
+    v-if="componentLoaded"
+    v-bind="props"
+  >
+    <template #content>
+      <template
+        v-for="data in dataList"
         :key="data.tmdb_id || data.douban_id"
-        :media="data"
-        height="15rem"
-        width="10rem"
-      />
-    </VSlideGroupItem>
-    <template #next>
-      <VBtn
-        class="rounded-circle shadow-none"
-        icon="mdi-chevron-right"
-        color="grey"
-      />
+      >
+        <MediaCard
+          :media="data"
+          height="15rem"
+          width="10rem"
+        />
+      </template>
     </template>
-  </VSlideGroup>
+  </SlideView>
 </template>
-
-<style lang="scss">
-.v-slide-group .v-card {
-  @apply m-2;
-}
-
-.v-slide-group__prev {
-  @apply absolute right-11;
-
-  z-index: 3;
-  margin-block-start: -40px;
-}
-
-.v-slide-group__next {
-  @apply absolute right-1;
-
-  z-index: 3;
-  margin-block-start: -40px;
-}
-</style>

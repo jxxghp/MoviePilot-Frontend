@@ -4,7 +4,7 @@ import { useStore } from 'vuex'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import router from '@/router'
-import logo from '@images/logo.svg?raw'
+import logo from '@images/logo.png'
 
 // Vuex Store
 const store = useStore()
@@ -123,8 +123,8 @@ onMounted(() => {
       >
         <VCardItem class="justify-center mb-7">
           <template #prepend>
-            <div class="d-flex">
-              <div v-html="logo" />
+            <div class="d-flex pe-0">
+              <VImg :src="logo" width="64" />
             </div>
           </template>
 
@@ -197,4 +197,8 @@ onMounted(() => {
 
 <style lang="scss">
 @use "@core/scss/pages/page-auth.scss";
+
+.v-card-item__prepend {
+  padding-inline-end: 0 !important;
+}
 </style>

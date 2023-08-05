@@ -55,11 +55,11 @@ function handleNavScroll(evt: Event) {
     <!-- 👉 Header -->
     <div class="nav-header">
       <slot name="nav-header">
-        <RouterLink to="/" class="app-logo d-flex align-center gap-x-3 app-title-wrapper">
+        <RouterLink to="/" class="app-logo d-flex align-center app-title-wrapper">
           <div class="d-flex" v-html="logo" />
 
-          <h1 class="font-weight-medium leading-normal text-xl">
-            MoviePilot
+          <h1 class="font-weight-bold leading-normal text-2xl">
+            MOVIEPILOT
           </h1>
         </RouterLink>
       </slot>

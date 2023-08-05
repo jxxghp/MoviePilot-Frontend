@@ -16,7 +16,7 @@ const props = defineProps({
 })
 
 // 提示框
-const $toast = useToast({ position: 'top' })
+const $toast = useToast()
 
 // 图片加载状态
 const isImageLoaded = ref(false)
@@ -33,7 +33,7 @@ const isSubscribed = ref(false)
 // 本地存在状态
 const isExists = ref(false)
 
-// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失
+// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失，没有数据也是已存在
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 订阅季弹窗
@@ -64,7 +64,7 @@ function getChipColor(type: string) {
 }
 
 // 添加订阅处理
-// eslint-disable-next-line sonarjs/cognitive-complexity
+
 async function handleAddSubscribe() {
   if (props.media?.type === '电视剧' && props.media?.tmdb_id) {
     // TMDB电视剧
@@ -76,52 +76,28 @@ async function handleAddSubscribe() {
       return
     }
 
-    // 检查各季的缺失状态
-    await checkSeasonsNotExists()
-    if (!tmdbFlag.value)
-      return
-
     if (seasonInfos.value.length === 1) {
-      // 只有1季
-      if (!seasonsNotExisted.value[1]) {
-        // 已存在
-        $toast.warning(`${props.media?.title} 媒体库中已存在！`)
-      }
-      else {
-        // 添加订阅
-        addSubscribe()
-      }
+      // 添加订阅
+      addSubscribe()
     }
     else {
+      // 检查各季的缺失状态
+      await checkSeasonsNotExists()
+      if (!tmdbFlag.value)
+        return
       // 弹出季选择列表，支持多选
       subscribeSeasonDialog.value = true
     }
   }
   else if (props.media?.type === '电视剧') {
     // 豆瓣电视剧，只会有一季
-    const season = props.media?.season || 1
-
-    // 检查缺失情况
-    await checkSeasonsNotExists()
-    if (!tmdbFlag.value)
-      return
-
-    if (!seasonsNotExisted.value[season]) {
-      // 已存在
-      $toast.warning(`${props.media?.title} 媒体库中已存在！`)
-    }
-    else {
-      // 添加订阅
-      addSubscribe(season)
-    }
+    const season = props.media?.season ?? 1
+    // 添加订阅
+    addSubscribe(season)
   }
   else {
     // 电影
-    const exists = await checkMovieExists()
-    if (exists)
-      $toast.warning(`${props.media?.title} 媒体库中已存在！`)
-    else
-      addSubscribe()
+    addSubscribe()
   }
 }
 
@@ -130,6 +106,12 @@ async function addSubscribe(season = 0) {
   // 开始处理
   startNProgress()
   try {
+    // 是否洗版
+    let best_version = isExists.value ? 1 : 0
+    if (props.media?.type === '电视剧' && props.media?.tmdb_id)
+      // 全部存在时洗版
+      best_version = (!seasonsNotExisted.value[season] || seasonsNotExisted.value[season] === 0) ? 1 : 0
+    // 请求API
     const result: { [key: string]: any } = await api.post('subscribe', {
       name: props.media?.title,
       type: props.media?.type,
@@ -137,6 +119,7 @@ async function addSubscribe(season = 0) {
       tmdbid: props.media?.tmdb_id,
       doubanid: props.media?.douban_id,
       season,
+      best_version,
     })
 
     // 订阅状态
@@ -151,6 +134,7 @@ async function addSubscribe(season = 0) {
       props.media?.title ?? '',
       season,
       result.message,
+      best_version,
     )
   }
   catch (error) {
@@ -163,14 +147,19 @@ async function addSubscribe(season = 0) {
 function showSubscribeAddToast(result: boolean,
   title: string,
   season: number,
-  message: string) {
+  message: string,
+  best_version: number) {
   if (season)
     title = `${title} ${formatSeason(season.toString())}`
 
+  let subname = '订阅'
+  if (best_version > 0)
+    subname = '洗版订阅'
+
   if (result)
-    $toast.success(`${title} 添加订阅成功！`)
+    $toast.success(`${title} 添加${subname}成功！`)
   else
-    $toast.error(`${title} 添加订阅失败：${message}！`)
+    $toast.error(`${title} 添加${subname}失败：${message}！`)
 }
 
 // 调用API取消订阅
@@ -288,21 +277,10 @@ async function checkSeasonsNotExists() {
   doneNProgress()
 }
 
-// 检查电影是否存在
-async function checkMovieExists() {
-  try {
-    const result: NotExistMediaInfo[] = await api.post('download/notexists', props.media)
-    return !result || result.length === 0
-  }
-  catch (error) {
-    console.error(error)
-  }
-}
-
 // 查询TMDB的所有季信息
 async function getMediaSeasons() {
   try {
-    seasonInfos.value = await api.get(`tmdb/${props.media?.tmdb_id}/seasons`)
+    seasonInfos.value = await api.get(`tmdb/seasons/${props.media?.tmdb_id}`)
   }
   catch (error) {
     console.error(error)
@@ -315,19 +293,6 @@ function handleSubscribe() {
     removeSubscribe()
   else
     handleAddSubscribe()
-}
-
-// 拼装详情页链接
-function getDetailLink() {
-  let link = ''
-  if (props.media?.douban_id)
-    link = `https://movie.douban.com/subject/${props.media?.douban_id}/`
-  else if (props.media?.type === '电影')
-    link = `https://www.themoviedb.org/movie/${props.media?.tmdb_id}`
-  else if (props.media?.type === '电视剧')
-    link = `https://www.themoviedb.org/tv/${props.media?.tmdb_id}`
-
-  return link
 }
 
 // 计算存在状态的颜色
@@ -359,8 +324,18 @@ function getExistText(season: number) {
 }
 
 // 打开详情页
-function openDetailWindow() {
-  window.open(getDetailLink(), '_blank')
+function goMediaDetail() {
+  router.push({
+    path: '/media',
+    query: {
+      mediaid: `${
+        props.media?.tmdb_id
+          ? `tmdb:${props.media?.tmdb_id}`
+          : `douban:${props.media?.douban_id}`
+      }`,
+      type: props.media?.type,
+    },
+  })
 }
 
 // 开始搜索
@@ -396,7 +371,7 @@ const seasonsHeaders = [
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value)
     return noImage
-  const url = props.media?.poster_path || noImage
+  const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
   // 如果地址中包含douban则使用中转代理
   if (url.includes('doubanio.com'))
     return `${import.meta.env.VITE_API_BASE_URL}douban/img/${encodeURIComponent(url)}`
@@ -412,7 +387,7 @@ const getImgUrl: Ref<string> = computed(() => {
         v-bind="hover.props"
         :height="props.height"
         :width="props.width"
-        class="outline-none shadow ring-gray-500"
+        class="outline-none shadow ring-gray-500 rounded-lg"
         :class="{
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
@@ -458,7 +433,7 @@ const getImgUrl: Ref<string> = computed(() => {
           <VCardText
             v-show="hover.isHovering || imageLoadError"
             class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-            @click.stop="openDetailWindow"
+            @click.stop="goMediaDetail"
           >
             <span class="font-bold">{{ props.media?.year }}</span>
             <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">

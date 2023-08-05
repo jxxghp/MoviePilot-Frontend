@@ -43,7 +43,7 @@ function getParams() {
   return params
 }
 
-// 获取订阅列表数据
+// 获取列表数据
 async function fetchData({ done }: { done: any }) {
   try {
     if (!props.apipath)
@@ -123,13 +123,16 @@ async function fetchData({ done }: { done: any }) {
 </script>
 
 <template>
-  <VProgressCircular
+  <div
     v-if="!isRefreshed"
-    size="48"
-    class="centered"
-    indeterminate
-    color="primary"
-  />
+    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+  >
+    <VProgressCircular
+      size="48"
+      indeterminate
+      color="primary"
+    />
+  </div>
   <VInfiniteScroll
     mode="intersect"
     side="end"

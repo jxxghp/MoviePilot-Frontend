@@ -3,6 +3,8 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
+import PageRender from '@/components/render/PageRender.vue'
+import { isNullOrEmptyObject } from '@core/utils'
 
 // 输入参数
 const props = defineProps({
@@ -12,7 +14,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove'])
+const emit = defineEmits(['remove', 'save'])
 
 // 提示框
 const $toast = useToast()
@@ -27,13 +29,13 @@ const pluginConfigDialog = ref(false)
 const pluginConfigForm = ref({})
 
 // 插件表单配置项
-const pluginFormItems = ref([])
+let pluginFormItems = reactive([])
 
 // 插件详情页面
 const pluginInfoDialog = ref(false)
 
 // 插件详情页面配置项
-const pluginPageItems = ref([])
+let pluginPageItems = reactive([])
 
 // 调用API卸载插件
 async function uninstallPlugin() {
@@ -59,8 +61,9 @@ async function loadPluginForm() {
   try {
     const result: { [key: string]: any } = await api.get(`plugin/form/${props.plugin?.id}`)
     if (result) {
-      pluginFormItems.value = result.conf
-      pluginConfigForm.value = result.model
+      pluginFormItems = result.conf
+      if (result.model)
+        pluginConfigForm.value = result.model
     }
   }
   catch (error) {
@@ -73,7 +76,7 @@ async function loadPluginPage() {
   try {
     const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
     if (result)
-      pluginPageItems.value = result
+      pluginPageItems = result
   }
   catch (error) {
     console.error(error)
@@ -84,7 +87,7 @@ async function loadPluginPage() {
 async function loadPluginConf() {
   try {
     const result: { [key: string]: any } = await api.get(`plugin/${props.plugin?.id}`)
-    if (result)
+    if (!isNullOrEmptyObject(result))
       pluginConfigForm.value = result
   }
   catch (error) {
@@ -99,6 +102,8 @@ async function savePluginConf() {
     if (result.success) {
       $toast.success(`插件 ${props.plugin?.plugin_name} 配置已保存`)
       pluginConfigDialog.value = false
+      // 通知父组件刷新
+      emit('save')
     }
     else {
       $toast.error(`插件 ${props.plugin?.plugin_name} 配置保存失败：${result.message}}`)
@@ -110,19 +115,19 @@ async function savePluginConf() {
 }
 
 // 显示插件详情
-function showPluginInfo() {
+async function showPluginInfo() {
   pluginConfigDialog.value = false
   pluginInfoDialog.value = true
 }
 
 // 显示插件配置
-function showPluginConfig() {
-  // 加载插件表单
-  loadPluginForm()
-  // 加载插件配置
-  loadPluginConf()
-  // 加载详情数据
-  loadPluginPage()
+async function showPluginConfig() {
+  // 加载表单
+  await loadPluginForm()
+  // 加载配置
+  await loadPluginConf()
+  // 加载详情
+  await loadPluginPage()
   // 显示对话框
   pluginConfigDialog.value = true
 }
@@ -155,7 +160,7 @@ const dropdownItems = ref([
     >
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
-          <VIcon icon="mdi-dots-vertical" />
+          <VIcon icon="mdi-dots-vertical" class="text-white" />
           <VMenu
             activator="parent"
             close-on-content-click
@@ -189,7 +194,10 @@ const dropdownItems = ref([
       </VAvatar>
     </div>
     <VCardItem class="py-2">
-      <VCardTitle>{{ props.plugin?.plugin_name }}</VCardTitle>
+      <VCardTitle class="flex items-center flex-row">
+        <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
+        {{ props.plugin?.plugin_name }}
+      </VCardTitle>
     </VCardItem>
     <VCardText>
       {{ props.plugin?.plugin_desc }}
@@ -200,10 +208,17 @@ const dropdownItems = ref([
     v-model="pluginConfigDialog"
     max-width="800"
     scrollable
+    persistent
   >
-    <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
+    <VCard :title="props.plugin?.plugin_name">
+      <DialogCloseBtn @click="pluginConfigDialog = false" />
       <VCardText>
-        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" />
+        <FormRender
+          v-for="(item, index) in pluginFormItems"
+          :key="index"
+          :config="item"
+          :form="pluginConfigForm"
+        />
       </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
@@ -222,9 +237,17 @@ const dropdownItems = ref([
     v-model="pluginInfoDialog"
     max-width="1000"
     scrollable
+    persistent
   >
-    <VCard :title="`插件 - ${props.plugin?.plugin_name}`">
-      <VCardText />
+    <VCard :title="`${props.plugin?.plugin_name} - 详情`">
+      <DialogCloseBtn @click="pluginInfoDialog = false" />
+      <VCardText>
+        <PageRender
+          v-for="(item, index) in pluginPageItems"
+          :key="index"
+          :config="item"
+        />
+      </VCardText>
       <VCardActions>
         <VSpacer />
         <VBtn @click="pluginInfoDialog = false">

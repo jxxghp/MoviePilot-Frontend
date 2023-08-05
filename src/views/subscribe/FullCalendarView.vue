@@ -49,6 +49,7 @@ async function getSubscribes() {
 
           return {
             title: subscribe.name,
+            subtitle: "",
             start: parseDate(movie.release_date || ''),
             allDay: false,
             posterPath: subscribe.poster,
@@ -96,8 +97,8 @@ onMounted(() => {
           <div class="d-flex justify-space-between flex-nowrap flex-row">
             <div class="ma-auto">
               <VImg
-                height="80"
-                width="54"
+                height="75"
+                width="50"
                 :src="arg.event.extendedProps.posterPath"
                 aspect-ratio="2/3"
                 class="object-cover rounded shadow ring-gray-500"

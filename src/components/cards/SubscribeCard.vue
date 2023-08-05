@@ -53,6 +53,10 @@ const subscribeForm = reactive({
 
   // 订阅站点
   sites: props.media?.sites,
+
+  // 是否洗版
+  best_version: !!props.media?.best_version,
+
 })
 
 // 上一次更新时间
@@ -218,6 +222,7 @@ const dropdownItems = ref([
   <VCard
     v-if="cardState"
     :key="props.media?.id"
+    :class="`${subscribeForm.best_version ? 'outline-dashed outline-1' : ''}`"
     @click="editSubscribeDialog"
   >
     <template #image>
@@ -347,7 +352,7 @@ const dropdownItems = ref([
   >
     <!-- Dialog Content -->
     <VCard :title="`订阅 - ${props.media?.name}`">
-      <VCardText>
+      <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
@@ -410,6 +415,14 @@ const dropdownItems = ref([
                 chips
                 label="订阅站点"
                 multiple
+              />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol cols="12">
+              <VSwitch
+                v-model="subscribeForm.best_version"
+                label="洗版"
               />
             </VCol>
           </VRow>

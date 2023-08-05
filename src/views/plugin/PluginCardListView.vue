@@ -51,22 +51,27 @@ onBeforeMount(fetchData)
 </script>
 
 <template>
-  <VProgressCircular
-    v-if="!isRefreshed"
-    size="48"
-    class="centered"
-    indeterminate
-    color="primary"
-  />
   <div
-    v-if="dataList.length > 0"
-    class="grid gap-3 grid-plugin-card"
+    v-if="!isRefreshed"
+    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+  >
+    <VProgressCircular
+      v-if="!isRefreshed"
+      size="48"
+      indeterminate
+      color="primary"
+    />
+  </div>
+  <div
+    v-if="getInstalledPluginList.length > 0"
+    class="grid gap-4 grid-plugin-card"
   >
     <PluginCard
       v-for="data in getInstalledPluginList"
       :key="data.id"
       :plugin="data"
       @remove="fetchData"
+      @save="fetchData"
     />
   </div>
   <NoDataFound
@@ -88,7 +93,7 @@ onBeforeMount(fetchData)
         icon="mdi-plus"
         v-bind="props"
         size="x-large"
-        class="absolute right-5 bottom-5"
+        class="fixed right-5 bottom-5"
       />
     </template>
 
@@ -115,7 +120,7 @@ onBeforeMount(fetchData)
         </VToolbar>
       </div>
       <div class="pa-4">
-        <div class="grid gap-3 grid-plugin-card">
+        <div class="grid gap-4 grid-plugin-card">
           <PluginAppCard
             v-for="data in getUninstalledPluginList"
             :key="data.id"
@@ -138,10 +143,5 @@ onBeforeMount(fetchData)
 .grid-plugin-card {
   grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   padding-block-end: 1rem;
-}
-
-dialog-bottom-transition-enter-active,
-.dialog-bottom-transition-leave-active {
-  transition: transform 0.2s ease-in-out;
 }
 </style>

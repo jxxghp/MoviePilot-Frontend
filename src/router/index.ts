@@ -77,7 +77,7 @@ const router = createRouter({
           },
         },
         {
-          path: 'plugin',
+          path: 'plugins',
           component: () => import('../pages/plugin.vue'),
           meta: {
             requiresAuth: true,
@@ -91,9 +91,32 @@ const router = createRouter({
           },
         },
         {
-          path: '/browse/:type+',
+          path: '/browse/:paths+',
           component: () => import('../pages/browse.vue'),
           props: true,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: '/credits/:paths+',
+          component: () => import('../pages/credits.vue'),
+          props: true,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: '/person',
+          component: () => import('../pages/person.vue'),
+          props: true,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: '/media',
+          component: () => import('../pages/media.vue'),
           meta: {
             requiresAuth: true,
           },
