@@ -168,7 +168,7 @@ function getW500Image(url = '') {
                 variant="elevated"
                 color="success"
                 class="me-1 mb-1"
-                @click="openTmdbPage(nameTestResult?.media_info?.type, nameTestResult?.media_info?.tmdb_id)"
+                @click="openTmdbPage(nameTestResult?.media_info?.type || '', nameTestResult?.media_info?.tmdb_id)"
               >
                 {{ nameTestResult?.media_info?.tmdb_id }}
               </VChip>
