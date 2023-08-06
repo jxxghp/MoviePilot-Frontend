@@ -580,7 +580,7 @@ onMounted(() => {
         >
           <template #item.title="{ item }">
             <div>{{ item.raw.title }}</div>
-            <small>{{ item.raw.description }}</small>
+            <div><small>{{ item.raw.description }}</small></div>
             <VChip
               v-for="(label, index) in item.raw?.labels"
               :key="index"
@@ -594,7 +594,7 @@ onMounted(() => {
           </template>
           <template #item.pubdate="{ item }">
             <div>{{ item.raw.date_elapsed }}</div>
-            <small>{{ item.raw.pubdate }}</small>
+            <div><small>{{ item.raw.pubdate }}</small></div>
           </template>
           <template #item.size="{ item }">
             <div>{{ formatFileSize(item.raw.size) }}</div>
