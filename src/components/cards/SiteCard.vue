@@ -47,10 +47,10 @@ const resourceDialog = ref(false)
 // 资源浏览表头
 const resourceHeaders = [
   { title: '标题', key: 'title', sortable: false },
-  { title: '时间', key: 'pubdate', sortable: false },
-  { title: '大小', key: 'size', sortable: false },
-  { title: '做种', key: 'seeders', sortable: false },
-  { title: '下载', key: 'peers', sortable: false },
+  { title: '时间', key: 'pubdate', sortable: true },
+  { title: '大小', key: 'size', sortable: true },
+  { title: '做种', key: 'seeders', sortable: true },
+  { title: '下载', key: 'peers', sortable: true },
   { title: '', key: 'actions', sortable: false },
 ]
 
@@ -64,10 +64,10 @@ const resourceSearch = ref('')
 const resourceLoading = ref(false)
 
 // 总条数
-const resourceTotalItems = ref(25)
+const resourceTotalItems = ref(0)
 
 // 每页条数
-const resourceItemsPerPage = ref(100)
+const resourceItemsPerPage = ref(25)
 
 // 当前页码
 const resourceCurrentPage = ref(1)
@@ -370,7 +370,7 @@ onMounted(() => {
         @click.stop="testSite"
       >
         <template #prepend>
-          <VIcon icon="mdi-network-outline" />
+          <VIcon icon="mdi-link" />
         </template>
         {{ testButtonText }}
       </VBtn>
@@ -557,7 +557,7 @@ onMounted(() => {
   <!-- 站点资源弹窗 -->
   <VDialog
     v-model="resourceDialog"
-    max-width="1000"
+    max-width="1280"
     scrollable
   >
     <!-- Dialog Content -->
@@ -572,14 +572,16 @@ onMounted(() => {
           :search="resourceSearch"
           :loading="resourceLoading"
           density="compact"
-          item-value="id"
+          item-value="title"
           return-object
           fixed-header
           items-per-page-text="每页条数"
           page-text="{0}-{1} 共 {2} 条"
         >
           <template #item.title="{ item }">
-            <div>{{ item.raw.title }}</div>
+            <div class="text-high-emphasis">
+              {{ item.raw.title }}
+            </div>
             <div class="text-sm">
               {{ item.raw.description }}
             </div>
@@ -601,7 +603,9 @@ onMounted(() => {
             </div>
           </template>
           <template #item.size="{ item }">
-            <div>{{ formatFileSize(item.raw.size) }}</div>
+            <div class="text-nowrap whitespace-nowrap">
+              {{ formatFileSize(item.raw.size) }}
+            </div>
           </template>
           <template #item.seeders="{ item }">
             <div>{{ item.raw.seeders }}</div>
@@ -651,3 +655,9 @@ onMounted(() => {
     </VCard>
   </VDialog>
 </template>
+
+<style lang="scss">
+.v-table th {
+  white-space: nowrap;
+}
+</style>
