@@ -64,7 +64,7 @@ const resourceSearch = ref('')
 const resourceLoading = ref(false)
 
 // 总条数
-const resourceTotalItems = ref(1000)
+const resourceTotalItems = ref(25)
 
 // 每页条数
 const resourceItemsPerPage = ref(100)
@@ -557,7 +557,7 @@ onMounted(() => {
   <!-- 站点资源弹窗 -->
   <VDialog
     v-model="resourceDialog"
-    max-width="1600"
+    max-width="1000"
     scrollable
   >
     <!-- Dialog Content -->
@@ -580,7 +580,9 @@ onMounted(() => {
         >
           <template #item.title="{ item }">
             <div>{{ item.raw.title }}</div>
-            <div><small>{{ item.raw.description }}</small></div>
+            <div class="text-sm">
+              {{ item.raw.description }}
+            </div>
             <VChip
               v-for="(label, index) in item.raw?.labels"
               :key="index"
@@ -594,7 +596,9 @@ onMounted(() => {
           </template>
           <template #item.pubdate="{ item }">
             <div>{{ item.raw.date_elapsed }}</div>
-            <div><small>{{ item.raw.pubdate }}</small></div>
+            <div class="text-sm">
+              {{ item.raw.pubdate }}
+            </div>
           </template>
           <template #item.size="{ item }">
             <div>{{ formatFileSize(item.raw.size) }}</div>
