@@ -423,9 +423,6 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn v-if="isExists" class="ms-2" color="success" variant="tonal">
-            <VIcon icon="mdi-play" />播放
-          </VBtn>
           <VBtn v-if="mediaDetail.type === '电影'" class="ms-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>
               <VIcon :icon="getSubscribeIcon" />
