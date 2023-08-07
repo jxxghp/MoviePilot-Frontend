@@ -49,7 +49,7 @@ function goPersonDetail() {
         @click.stop="goPersonDetail"
       >
         <div
-          class="person-card relative transform-gpu cursor-pointer rounded text-white shadow ring-1 transition duration-150 ease-in-out scale-100 ring-gray-700"
+          class="person-card relative transform-gpu cursor-pointer rounded shadow ring-1 transition duration-150 ease-in-out scale-100 ring-gray-700"
         >
           <div style="padding-bottom: 150%;">
             <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">
@@ -85,10 +85,10 @@ function goPersonDetail() {
 
 <style lang="scss">
 .person-card {
-  background-image: linear-gradient(45deg, #99999b, #384359 60%);
+  background-image: linear-gradient(45deg, rgb(var(--v-theme-background)), rgb(var(--v-theme-surface)) 60%);
 }
 
 .person-card:hover {
-  background-image: linear-gradient(45deg, #bbbbbd, #8597aa 60%);
+  background-image: linear-gradient(45deg, rgb(var(--v-theme-background)), rgb(var(--v-custom-background)) 60%);
 }
 </style>

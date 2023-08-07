@@ -1,12 +1,14 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import { useTheme } from 'vuetify'
 import api from './api'
 import type { User } from './api/types'
 import store from './store'
 import avatar1 from '@images/avatars/avatar-1.png'
 
-// 路由
-const route = useRoute()
+// 第一时间应用主题
+const { global: globalTheme } = useTheme()
+globalTheme.name.value = localStorage.getItem('theme') || 'light'
 
 // 提示框
 const $toast = useToast()
@@ -68,6 +70,6 @@ provide('accountInfo', accountInfo)
 
 <template>
   <VApp>
-    <RouterView :key="route.fullPath" />
+    <RouterView />
   </VApp>
 </template>

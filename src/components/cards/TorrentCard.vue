@@ -173,7 +173,6 @@ const dropdownItems = ref([
           <IconBtn>
             <VIcon
               icon="mdi-dots-vertical"
-              color="white"
             />
             <VMenu
               activator="parent"

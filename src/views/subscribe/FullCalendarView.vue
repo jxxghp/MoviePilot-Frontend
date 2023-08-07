@@ -49,7 +49,7 @@ async function getSubscribes() {
 
           return {
             title: subscribe.name,
-            subtitle: "",
+            subtitle: '',
             start: parseDate(movie.release_date || ''),
             allDay: false,
             posterPath: subscribe.poster,
@@ -103,7 +103,13 @@ onMounted(() => {
                 aspect-ratio="2/3"
                 class="object-cover rounded shadow ring-gray-500"
                 cover
-              />
+              >
+                <template #placeholder>
+                  <div class="w-full h-full">
+                    <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                  </div>
+                </template>
+              </VImg>
             </div>
             <div>
               <VCardSubtitle class="pa-2 font-bold break-words whitespace-break-spaces">
@@ -127,7 +133,13 @@ onMounted(() => {
               aspect-ratio="2/3"
               class="object-cover rounded shadow ring-gray-500"
               cover
-            />
+            >
+              <template #placeholder>
+                <div class="w-full h-full">
+                  <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                </div>
+              </template>
+            </VImg>
           </template>
         </VTooltip>
       </div>

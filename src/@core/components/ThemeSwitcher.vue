@@ -26,6 +26,8 @@ function changeTheme() {
   globalTheme.name.value = nextTheme
   savedTheme.value = nextTheme
   localStorage.setItem('theme', nextTheme)
+  // 修改载入时背景色
+  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
 
   themeTransition()
 }
@@ -39,9 +41,9 @@ watch(
 )
 
 // Apply saved theme on page load
-onMounted(() => {
-  globalTheme.name.value = savedTheme.value
-})
+// onMounted(() => {
+//   globalTheme.name.value = savedTheme.value
+// })
 
 function hasScrollbar(el?: Element | null) {
   if (!el || el.nodeType !== Node.ELEMENT_NODE)

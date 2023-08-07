@@ -5,7 +5,7 @@ import AccountSettingNotification from '@/views/setting/AccountSettingNotificati
 import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
-import AccountSettingSync from '@/views/setting/AccountSettingSync.vue'
+import AccountSettingLogging from '@/views/setting/AccountSettingLogging.vue'
 
 const route = useRoute()
 
@@ -39,9 +39,9 @@ const tabs = [
     tab: 'words',
   },
   {
-    title: '目录同步',
-    icon: 'mdi-file-word-box',
-    tab: 'sync',
+    title: '日志',
+    icon: 'mdi-text-box',
+    tab: 'logging',
   },
 ]
 </script>
@@ -90,10 +90,10 @@ const tabs = [
           <AccountSettingWords />
         </transition>
       </VWindowItem>
-      <!-- Sync -->
-      <VWindowItem value="sync">
+      <!-- Logging -->
+      <VWindowItem value="logging">
         <transition name="fade-slide" appear>
-          <AccountSettingSync />
+          <AccountSettingLogging />
         </transition>
       </VWindowItem>
     </VWindow>

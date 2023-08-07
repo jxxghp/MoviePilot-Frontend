@@ -49,6 +49,7 @@ async function getMediaDetail() {
     isRefreshed.value = true
     if (!mediaDetail.value.tmdb_id)
       return
+
     // 检查存在状态
     if (mediaDetail.value.type === '电影')
       checkMovieExists()
@@ -125,6 +126,9 @@ async function checkSeasonsNotExists() {
   try {
     const result: NotExistMediaInfo[] = await api.post('download/notexists', mediaDetail.value)
     if (result) {
+      if (result.length === 0)
+        isExists.value = true
+
       result.forEach((item) => {
         // 0-已存在 1-部分缺失 2-全部缺失
         let state = 0
@@ -132,7 +136,8 @@ async function checkSeasonsNotExists() {
           state = 2
         else if (item.episodes.length < item.total_episodes)
           state = 1
-
+        if (state !== 2)
+          isExists.value = true
         seasonsNotExisted.value[item.season] = state
       })
     }
@@ -175,9 +180,9 @@ async function addSubscribe(season = 0) {
   try {
     // 是否洗版
     let best_version = isExists.value ? 1 : 0
-    if (mediaDetail.value?.type === '电视剧' && mediaDetail.value?.tmdb_id)
+    if (season)
       // 全部存在时洗版
-      best_version = (!seasonsNotExisted.value[season] || seasonsNotExisted.value[season] === 0) ? 1 : 0
+      best_version = !seasonsNotExisted.value[season] ? 1 : 0
     // 请求API
     const result: { [key: string]: any } = await api.post('subscribe', {
       name: mediaDetail.value?.title,
