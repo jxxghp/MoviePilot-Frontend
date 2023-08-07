@@ -830,3 +830,21 @@ export interface NotificationSwitch {
   telegram: boolean
   slack: boolean
 }
+
+// 环境设置
+export interface Setting {
+  // 媒体服务器 emby/jellyfin/plex
+  MEDIASERVER: string
+  // EMBY服务器地址，IP:PORT
+  EMBY_HOST: string
+  // EMBY Api Key
+  EMBY_API_KEY: string
+  // Jellyfin服务器地址，IP:PORT
+  JELLYFIN_HOST: string
+  // Jellyfin Api Key
+  JELLYFIN_API_KEY: string
+  // Plex服务器地址，IP:PORT
+  PLEX_HOST: string
+  // Plex Token
+  PLEX_TOKEN: string
+}
