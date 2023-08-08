@@ -43,8 +43,8 @@ async function getSubscribes() {
         // 如果是电影直接返回
         if (subscribe.type === '电影') {
           // 调用API查询TMDB详情
-          const movie: MediaInfo = await api.get(`tmdb/${subscribe.tmdbid}`, {
-            params: { tmdbid: subscribe.tmdbid, type_name: subscribe.type },
+          const movie: MediaInfo = await api.get(`media/${subscribe.tmdbid}`, {
+            params: { type_name: subscribe.type },
           })
 
           return {

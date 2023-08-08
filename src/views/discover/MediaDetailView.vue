@@ -41,13 +41,13 @@ const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
-    mediaDetail.value = await api.get(`tmdb/${mediaProps.mediaid}`, {
+    mediaDetail.value = await api.get(`media/${mediaProps.mediaid}`, {
       params: {
         type_name: mediaProps.type,
       },
     })
     isRefreshed.value = true
-    if (!mediaDetail.value.tmdb_id)
+    if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id)
       return
 
     // 检查存在状态
@@ -165,7 +165,7 @@ async function checkSeasonsSubscribed() {
     return
   try {
     mediaDetail.value?.season_info?.forEach(async (item) => {
-      seasonsSubscribed.value[item.season_number || 0] = await checkSubscribe(item.season_number)
+      seasonsSubscribed.value[item.season_number ?? 0] = await checkSubscribe(item.season_number)
     })
   }
   catch (error) {
@@ -372,6 +372,11 @@ const getSubscribeColor = computed(() => {
     return 'warning'
 })
 
+// 使用、拼装数组为字符串
+function joinArray(arr: string[]) {
+  return arr.join('、')
+}
+
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -388,7 +393,7 @@ onBeforeMount(() => {
       color="primary"
     />
   </div>
-  <div v-if="mediaDetail.tmdb_id" class="max-w-8xl mx-auto px-4">
+  <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" class="max-w-8xl mx-auto px-4">
     <template v-if="mediaDetail.backdrop_path">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
         <VImg class="h-96" :src="mediaDetail.backdrop_path" cover />
@@ -440,10 +445,20 @@ onBeforeMount(() => {
             简介
           </h2>
           <p>{{ mediaDetail.overview }}</p>
-          <ul class="media-crew">
+          <ul v-if="mediaDetail.tmdb_id" class="media-crew">
             <li v-for="director in mediaDetail.directors" :key="director.id">
               <span>{{ director.job }}</span>
               <a class="crew-name" :href="`person?personid=${director.id}`" target="_blank">{{ director.name }}</a>
+            </li>
+          </ul>
+          <ul v-if="!mediaDetail.tmdb_id && mediaDetail.douban_id" class="media-crew">
+            <li v-for="director in mediaDetail.directors" :key="director.id">
+              <span>{{ joinArray(director.roles) }}</span>
+              <a class="crew-name" :href="`${director.url}`" target="_blank">{{ director.name }}</a>
+            </li>
+            <li v-for="director in mediaDetail.actors" :key="director.id">
+              <span>{{ joinArray(director.roles) }}</span>
+              <a class="crew-name" :href="`${director.url}`" target="_blank">{{ director.name }}</a>
             </li>
           </ul>
           <div class="mt-6">
@@ -472,10 +487,10 @@ onBeforeMount(() => {
               </div>
             </a>
           </div>
-          <h2 v-if="mediaDetail.type === '电视剧'" class="py-4">
+          <h2 v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="py-4">
             季
           </h2>
-          <div v-if="mediaDetail.type === '电视剧'" class="flex w-full flex-col space-y-2">
+          <div v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="flex w-full flex-col space-y-2">
             <VExpansionPanels>
               <VExpansionPanel
                 v-for="season in getMediaSeasons"
@@ -543,7 +558,7 @@ onBeforeMount(() => {
             </VExpansionPanels>
           </div>
         </div>
-        <div class="media-overview-right">
+        <div v-if="mediaDetail.tmdb_id" class="media-overview-right">
           <div class="media-facts">
             <div v-if="mediaDetail.vote_average" class="media-ratings">
               <VRating
@@ -617,7 +632,7 @@ onBeforeMount(() => {
     </div>
   </div>
   <NoDataFound
-    v-if="!mediaDetail.tmdb_id && isRefreshed"
+    v-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && isRefreshed"
     error-code="500"
     error-title="出错啦！"
     error-description="未识别到TMDB媒体信息。"
