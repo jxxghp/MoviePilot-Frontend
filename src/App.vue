@@ -73,6 +73,6 @@ provide('accountInfo', accountInfo)
 
 <template>
   <VApp>
-    <RouterView :key="route.fullPath + route.query" />
+    <RouterView :key="route.fullPath" />
   </VApp>
 </template>
