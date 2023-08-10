@@ -19,7 +19,6 @@ function search() {
     query: {
       title: searchWord.value,
     },
-    force: true,
   })
 }
 </script>
