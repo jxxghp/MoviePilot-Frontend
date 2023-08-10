@@ -160,6 +160,8 @@ function onRefresh() {
     v-model="rssAddDialog"
     max-width="800"
     transition="dialog-bottom-transition"
+    persistent
+    scrollable
   >
     <!-- Dialog Activator -->
     <template #activator="{ props }">
