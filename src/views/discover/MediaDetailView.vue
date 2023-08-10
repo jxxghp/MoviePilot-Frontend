@@ -134,7 +134,7 @@ async function checkSeasonsNotExists() {
         let state = 0
         if (item.episodes.length === 0)
           state = 2
-        else if (item.episodes.length < item.total_episodes)
+        else if (item.episodes.length < item.total_episode)
           state = 1
         if (state !== 2)
           isExists.value = true

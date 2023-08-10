@@ -2,13 +2,12 @@
 import { useToast } from 'vue-toast-notification'
 import { calculateTimeDifference } from '@/@core/utils'
 import { formatSeason } from '@/@core/utils/formatters'
-import { numberValidator } from '@/@validators'
 import api from '@/api'
-import type { Site, Subscribe } from '@/api/types'
+import type { Rss, Site } from '@/api/types'
 
 // 输入参数
 const props = defineProps({
-  media: Object as PropType<Subscribe>,
+  media: Object as PropType<Rss>,
 })
 
 // 定义触发的自定义事件
@@ -21,41 +20,40 @@ const $toast = useToast()
 const imageLoaded = ref(false)
 
 // 订阅弹窗
-const subscribeInfoDialog = ref(false)
+const rssInfoDialog = ref(false)
 
-// 站点数据列表
-const siteList = ref<Site[]>([])
-
-// 站点选择下载框
-const selectSitesOptions = ref<{ [key: number]: string }[]>([])
+// 站点名称
+const siteName = ref('')
 
 // 订阅编辑表单
-const subscribeForm = reactive({
+const rssForm = reactive({
   id: props.media?.id,
-
-  // 搜索关键字
-  keyword: props.media?.keyword,
-
-  // 过滤规则
-  filter: props.media?.filter,
-
-  // 包含
-  include: props.media?.include,
-
-  // 排除
-  exclude: props.media?.exclude,
-
+  // RSS地址
+  url: props.media?.url,
+  // 类型
+  type: props.media?.type,
+  // 标题
+  title: props.media?.title,
+  // 年份
+  year: props.media?.year,
+  // TMDBID
+  tmdbid: props.media?.tmdbid,
+  // 季号
+  season: props.media?.season,
   // 总集数
   total_episode: props.media?.total_episode,
-
-  // 开始集数
-  start_episode: props.media?.start_episode,
-
-  // 订阅站点
-  sites: props.media?.sites,
-
-  // 是否洗版
-  best_version: !!props.media?.best_version,
+  // 包含
+  include: props.media?.include,
+  // 排除
+  exclude: props.media?.exclude,
+  // 洗版
+  best_version: props.media?.best_version,
+  // 是否使用代理服务器
+  proxy: props.media?.proxy,
+  // 保存路径
+  save_path: props.media?.save_path,
+  // 状态 0-停用，1-启用
+  state: props.media?.state,
 
 })
 
@@ -83,18 +81,6 @@ function getIcon() {
     return 'mdi-help-circle'
 }
 
-// 计算百分比
-function getPercentage() {
-  if (props.media?.total_episode === 0)
-    return 0
-
-  return Math.round(
-    (((props.media?.total_episode || 0) - (props.media?.lack_episode || 0))
-      / (props.media?.total_episode || 1))
-      * 100,
-  )
-}
-
 // 计算文本颜色
 function getTextColor() {
   return imageLoaded.value ? 'white' : ''
@@ -106,10 +92,10 @@ function getTextClass() {
 }
 
 // 删除订阅
-async function removeSubscribe() {
+async function removerRss() {
   try {
     const result: { [key: string]: any } = await api.delete(
-      `subscribe/${props.media?.id}`,
+      `rss/${props.media?.id}`,
     )
 
     if (result.success) {
@@ -122,27 +108,11 @@ async function removeSubscribe() {
   }
 }
 
-// 搜索订阅
-async function searchSubscribe() {
-  try {
-    const result: { [key: string]: any } = await api.get(
-      `subscribe/search/${props.media?.id}`,
-    )
-
-    // 提示
-    if (result.success)
-      $toast.success(`${props.media?.name} 提交搜索请求成功！`)
-  }
-  catch (e) {
-    console.log(e)
-  }
-}
-
 // 调用API修改订阅
-async function updateSubscribeInfo() {
-  subscribeInfoDialog.value = false
+async function updateRssInfo() {
+  rssInfoDialog.value = false
   try {
-    const result: { [key: string]: any } = await api.put('subscribe', subscribeForm)
+    const result: { [key: string]: any } = await api.put('rss', rssForm)
 
     // 提示
     if (result.success) {
@@ -157,40 +127,35 @@ async function updateSubscribeInfo() {
   }
 }
 
-// 获取站点列表数据
-async function loadSites() {
+// 查询站点名称
+async function querySiteName() {
   try {
-    const data: Site[] = await api.get('site')
+    const result: Site = await api.get(
+      `site/domain/${props.media?.url?.split('/')[2]}`,
+    )
 
-    // 过滤站点，只有启用的站点才显示
-    siteList.value = data.filter(item => item.is_active)
+    if (result)
+      siteName.value = result.name
   }
-  catch (error) {
-    console.error(error)
+  catch (e) {
+    // 截取URL中的主域名作为站点名称
+    siteName.value = props.media?.url?.split('/')[2] || '未知'
+    console.log(e)
   }
-}
-
-// 获取站点列表选择框数据
-async function getSiteList() {
-  // 加载订阅站点列表
-  if (!siteList.value.length)
-    await loadSites()
-
-  const maps = siteList.value.map((item) => {
-    return {
-      title: item.name,
-      value: item.id,
-    }
-  })
-
-  selectSitesOptions.value = maps.flat()
 }
 
 // 编辑订阅响应
-async function editSubscribeDialog() {
-  await getSiteList()
-  subscribeInfoDialog.value = true
+async function editRssDialog() {
+  rssInfoDialog.value = true
 }
+
+// 生成1到50季的下拉框选项
+const seasonItems = ref(
+  Array.from({ length: 50 }, (_, i) => i + 1).map(item => ({
+    title: `第 ${item} 季`,
+    value: item,
+  })),
+)
 
 // 弹出菜单
 const dropdownItems = ref([
@@ -199,15 +164,7 @@ const dropdownItems = ref([
     value: 1,
     props: {
       prependIcon: 'mdi-file-edit-outline',
-      click: editSubscribeDialog,
-    },
-  },
-  {
-    title: '搜索',
-    value: 2,
-    props: {
-      prependIcon: 'mdi-magnify',
-      click: searchSubscribe,
+      click: editRssDialog,
     },
   },
   {
@@ -216,17 +173,21 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
-      click: removeSubscribe,
+      click: removerRss,
     },
   },
 ])
+
+onMounted(() => {
+  querySiteName()
+})
 </script>
 
 <template>
   <VCard
     :key="props.media?.id"
-    :class="`${subscribeForm.best_version ? 'outline-dashed outline-1' : ''}`"
-    @click="editSubscribeDialog"
+    :class="`${rssForm.best_version ? 'outline-dashed outline-1' : ''}`"
+    @click="editRssDialog"
   >
     <template #image>
       <VImg
@@ -303,30 +264,27 @@ const dropdownItems = ref([
           props.media?.vote
         }}</span>
         <IconBtn
-          v-if="props.media?.total_episode"
           v-bind="props"
           icon="mdi-progress-clock"
           :color="getTextColor()"
           class="me-1"
         />
         <span
-          v-if="props.media?.season"
           class="text-subtitle-2 me-4"
           :class="getTextClass()"
-        >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
-          {{ props.media?.total_episode }}</span>
+        >{{ props.media?.processed || 0 }}</span>
         <IconBtn
-          v-if="props.media?.username"
-          icon="mdi-account"
+          v-if="siteName"
+          icon="mdi-web"
           :color="getTextColor()"
           class="me-1"
         />
         <span
-          v-if="props.media?.username"
+          v-if="siteName"
           class="text-subtitle-2 me-4"
           :class="getTextClass()"
         >
-          {{ props.media?.username }}
+          {{ siteName }}
         </span>
       </div>
     </VCardText>
@@ -339,16 +297,10 @@ const dropdownItems = ref([
         class="me-1"
       /> {{ lastUpdateText }}
     </VCardText>
-    <VProgressLinear
-      v-if="getPercentage() > 0"
-      :model-value="getPercentage()"
-      bg-color="success"
-      color="success"
-    />
   </VCard>
   <!-- 订阅编辑弹窗 -->
   <VDialog
-    v-model="subscribeInfoDialog"
+    v-model="rssInfoDialog"
     max-width="1000"
     persistent
     scrollable
@@ -360,72 +312,114 @@ const dropdownItems = ref([
           <VRow>
             <VCol
               cols="12"
-              md="6"
             >
               <VTextField
-                v-model="subscribeForm.keyword"
-                label="搜索关键词"
-              />
-            </VCol>
-            <VCol
-              v-if="props.media?.type === '电视剧'"
-              cols="12"
-              md="3"
-            >
-              <VTextField
-                v-model="subscribeForm.total_episode"
-                label="总集数"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-            <VCol
-              v-if="props.media?.type === '电视剧'"
-              cols="12"
-              md="3"
-            >
-              <VTextField
-                v-model="subscribeForm.start_episode"
-                label="开始集数"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VTextField
-                v-model="subscribeForm.include"
-                label="包含（关键字、正则式）"
+                v-model="rssForm.url"
+                label="RSS地址"
+                placeholder="https://example.com/rss"
               />
             </VCol>
             <VCol
               cols="12"
               md="6"
             >
-              <VTextField
-                v-model="subscribeForm.exclude"
-                label="排除（关键字、正则式）"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12">
               <VSelect
-                v-model="subscribeForm.sites"
-                :items="selectSitesOptions"
-                chips
-                label="订阅站点"
-                multiple
+                v-model="rssForm.type"
+                label="类型"
+                :items="[{ title: '电影', value: '电影' }, { title: '电视剧', value: '电视剧' }]"
+                readonly
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VTextField
+                v-model="rssForm.title"
+                label="标题"
+                readonly
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VTextField
+                v-model="rssForm.year"
+                label="年份"
+                readonly
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VSelect
+                v-model="rssForm.season"
+                label="季"
+                :items="seasonItems"
+                readonly
+              />
+            </VCol>
+            <VCol
+              cols="12"
+            >
+              <VTextField
+                v-model="rssForm.include"
+                label="包含"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+            >
+              <VTextField
+                v-model="rssForm.exclude"
+                label="排除"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+            >
+              <VTextField
+                v-model="rssForm.save_path"
+                label="保存路径"
+                placeholder="留空自动"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VSelect
+                v-model="rssForm.state"
+                label="状态"
+                :items="[{
+                  title: '启用',
+                  value: 1,
+                }, {
+                  title: '停用',
+                  value: 0,
+                }]"
               />
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="12">
+            <VCol
+              cols="12"
+              md="6"
+            >
               <VSwitch
-                v-model="subscribeForm.best_version"
+                v-model="rssForm.best_version"
                 label="洗版"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="6"
+            >
+              <VSwitch
+                v-model="rssForm.proxy"
+                label="代理服务器"
               />
             </VCol>
           </VRow>
@@ -433,11 +427,11 @@ const dropdownItems = ref([
       </VCardText>
 
       <VCardActions>
-        <VBtn @click="subscribeInfoDialog = false">
+        <VBtn @click="rssInfoDialog = false">
           取消
         </VBtn>
         <VSpacer />
-        <VBtn @click="updateSubscribeInfo">
+        <VBtn @click="updateRssInfo">
           确定
         </VBtn>
       </VCardActions>
