@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import { calculateTimeDifference } from '@/@core/utils'
-import { formatSeason } from '@/@core/utils/formatters'
+import { formatFileSize, formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
-import type { Rss, Site } from '@/api/types'
+import type { Rss, Site, TorrentInfo } from '@/api/types'
 
 // 输入参数
 const props = defineProps({
@@ -21,6 +21,29 @@ const imageLoaded = ref(false)
 
 // 订阅弹窗
 const rssInfoDialog = ref(false)
+
+// RSS预览窗口
+const rssPreviewDialog = ref(false)
+
+// 加载状态
+const previewLoading = ref(false)
+
+// 总条数
+const previewTotalItems = ref(0)
+
+// 每页条数
+const previewItemsPerPage = ref(25)
+
+// 预览表头
+const previewHeaders = [
+  { title: '标题', key: 'title', sortable: true },
+  { title: '时间', key: 'pubdate', sortable: true },
+  { title: '大小', key: 'size', sortable: true },
+  { title: '', key: 'actions', sortable: false },
+]
+
+// 预览数据
+const previewDataList = ref<TorrentInfo[]>([])
 
 // 站点名称
 const siteName = ref('')
@@ -144,9 +167,45 @@ async function querySiteName() {
   }
 }
 
+// 预览按钮响应
+async function handleRssPreview() {
+  rssPreviewDialog.value = true
+  previewLoading.value = true
+  await previewRss()
+  previewLoading.value = false
+}
+
+// 预览站点RSS
+async function previewRss() {
+  try {
+    const result: TorrentInfo[] = await api.get(
+      `rss/preview/${props.media?.id}`,
+    )
+    previewDataList.value = result
+  }
+  catch (e) {
+    console.log(e)
+  }
+}
+
 // 编辑订阅响应
 async function editRssDialog() {
   rssInfoDialog.value = true
+}
+
+// 刷新按钮响应
+async function refreshRss() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      `rss/refresh/${props.media?.id}`,
+    )
+
+    if (result.success)
+      $toast.success(`${props.media?.name} 已提交刷新任务！`)
+  }
+  catch (e) {
+    console.log(e)
+  }
 }
 
 // 生成1到50季的下拉框选项
@@ -156,6 +215,16 @@ const seasonItems = ref(
     value: item,
   })),
 )
+
+// 打开种子详情页面
+function openTorrentDetail(page_url: string) {
+  window.open(page_url, '_blank')
+}
+
+// 下载种子文件
+async function downloadTorrentFile(enclosure: string) {
+  window.open(enclosure, '_blank')
+}
 
 // 弹出菜单
 const dropdownItems = ref([
@@ -168,8 +237,24 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '取消订阅',
+    title: '预览',
+    value: 2,
+    props: {
+      prependIcon: 'mdi-eye-outline',
+      click: handleRssPreview,
+    },
+  },
+  {
+    title: '刷新',
     value: 3,
+    props: {
+      prependIcon: 'mdi-refresh',
+      click: refreshRss,
+    },
+  },
+  {
+    title: '取消订阅',
+    value: 4,
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
@@ -301,7 +386,7 @@ onMounted(() => {
   <!-- 订阅编辑弹窗 -->
   <VDialog
     v-model="rssInfoDialog"
-    max-width="1000"
+    max-width="800"
     persistent
     scrollable
   >
@@ -435,6 +520,85 @@ onMounted(() => {
           确定
         </VBtn>
       </VCardActions>
+    </VCard>
+  </VDialog>
+  <!-- RSS预览窗口 -->
+  <VDialog
+    v-model="rssPreviewDialog"
+    max-width="1280"
+    scrollable
+  >
+    <!-- Dialog Content -->
+    <VCard title="RSS预览">
+      <DialogCloseBtn @click="rssPreviewDialog = false" />
+      <VCardText class="pt-2">
+        <VDataTable
+          v-model:items-per-page="previewItemsPerPage"
+          :headers="previewHeaders"
+          :items="previewDataList"
+          :items-length="previewTotalItems"
+          :loading="previewLoading"
+          density="compact"
+          item-value="title"
+          return-object
+          fixed-header
+          items-per-page-text="每页条数"
+          page-text="{0}-{1} 共 {2} 条"
+        >
+          <template #item.title="{ item }">
+            <div class="text-high-emphasis">
+              {{ item.raw.title }}
+            </div>
+          </template>
+          <template #item.size="{ item }">
+            <div class="text-nowrap whitespace-nowrap">
+              {{ formatFileSize(item.raw.size) }}
+            </div>
+          </template>
+          <template #item.pubdate="{ item }">
+            <div class="text-sm">
+              {{ item.raw.pubdate }}
+            </div>
+          </template>
+          <template #item.actions="{ item }">
+            <div class="me-n3">
+              <IconBtn>
+                <VIcon
+                  icon="mdi-dots-vertical"
+                />
+                <VMenu
+                  activator="parent"
+                  close-on-content-click
+                >
+                  <VList>
+                    <VListItem
+                      variant="plain"
+                      @click="openTorrentDetail(item.raw.page_url)"
+                    >
+                      <template #prepend>
+                        <VIcon icon="mdi-information" />
+                      </template>
+                      <VListItemTitle>查看详情</VListItemTitle>
+                    </VListItem>
+                    <VListItem
+                      variant="plain"
+                      @click="downloadTorrentFile(item.raw.enclosure)"
+                    >
+                      <template #prepend>
+                        <VIcon icon="mdi-download" />
+                      </template>
+                      <VListItemTitle>下载种子</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
+              </IconBtn>
+            </div>
+          </template>
+          <template #no-data>
+            没有数据
+          </template>
+        </VDataTable>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>
