@@ -33,11 +33,11 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   events: [],
 })
 
-async function eventsHander(subscribe: any) {
+async function eventsHander(subscribe: Subscribe | Rss) {
   // 如果是电影直接返回
   if (subscribe.type === '电影') {
     // 调用API查询TMDB详情
-    const movie: MediaInfo = await api.get(`media/${subscribe.tmdbid}`, {
+    const movie: MediaInfo = await api.get(`media/tmdb:${subscribe.tmdbid}`, {
       params: { type_name: subscribe.type },
     })
 
