@@ -40,7 +40,7 @@ async function queryCustomFilters(ruleType: string) {
     const result: { [key: string]: any } = await api.get(`system/setting/${ruleType}`)
     if (result.success) {
       // 保存的是个字符串，需要分割成数组
-      const groups = result.data?.value.split('>')
+      const groups = result.data?.value?.split('>') ?? []
 
       // 生成规则卡片
       const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
@@ -76,16 +76,15 @@ async function queryTorrentPriority() {
 async function saveCustomFilters(ruleType: string) {
   try {
     // 有值才处理
-    if (filterCards.value.length === 0)
-      return
-
-    // 将卡片规则接装为字符串
-    const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
-    const value = cards.value
-      .filter(card => card.rules.length > 0)
-      .map(card => card.rules.join('&'))
-      .join('>')
-
+    let value = ''
+    if (filterCards.value.length !== 0) {
+      // 将卡片规则接装为字符串
+      const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
+      value = cards.value
+        .filter(card => card.rules.length > 0)
+        .map(card => card.rules.join('&'))
+        .join('>')
+    }
     // 保存
     const result: { [key: string]: any } = await api.post(
       `system/setting/${ruleType}`,
