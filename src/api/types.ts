@@ -884,6 +884,8 @@ export interface Rss {
   best_version?: number
   // 是否使用代理服务器
   proxy?: number
+  // 是否使用过滤规则
+  filter?: boolean
   // 保存路径
   save_path?: string
   // 已处理数量

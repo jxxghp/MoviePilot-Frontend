@@ -70,9 +70,11 @@ const rssForm = reactive({
   // 排除
   exclude: props.media?.exclude,
   // 洗版
-  best_version: props.media?.best_version,
+  best_version: !!props.media?.best_version,
   // 是否使用代理服务器
-  proxy: props.media?.proxy,
+  proxy: !!props.media?.proxy,
+  // 是否使用过滤规则
+  filter: !!props.media?.filter,
   // 保存路径
   save_path: props.media?.save_path,
   // 状态 0-停用，1-启用
@@ -491,7 +493,7 @@ onMounted(() => {
           <VRow>
             <VCol
               cols="12"
-              md="6"
+              md="4"
             >
               <VSwitch
                 v-model="rssForm.best_version"
@@ -500,11 +502,20 @@ onMounted(() => {
             </VCol>
             <VCol
               cols="12"
-              md="6"
+              md="4"
             >
               <VSwitch
                 v-model="rssForm.proxy"
                 label="代理服务器"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSwitch
+                v-model="rssForm.filter"
+                label="过滤规则"
               />
             </VCol>
           </VRow>
