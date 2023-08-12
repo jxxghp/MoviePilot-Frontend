@@ -354,6 +354,11 @@ onMounted(() => {
       </VTooltip>
     </VCardText>
 
+    <VDivider
+      class="opacity-75"
+      style="border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity))"
+    />
+
     <VCardActions>
       <VBtn
         v-if="!cardProps.site?.public"
@@ -579,10 +584,10 @@ onMounted(() => {
           page-text="{0}-{1} 共 {2} 条"
         >
           <template #item.title="{ item }">
-            <div class="text-high-emphasis">
+            <div class="text-high-emphasis pt-1">
               {{ item.raw.title }}
             </div>
-            <div class="text-sm">
+            <div class="text-sm my-1">
               {{ item.raw.description }}
             </div>
             <VChip
