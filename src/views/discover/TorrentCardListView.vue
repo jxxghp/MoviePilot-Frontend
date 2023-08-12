@@ -54,6 +54,9 @@ const filterForm = reactive({
 
   // 质量
   edition: [] as string[],
+
+  // 分辨率
+  resolution: [] as string[],
 })
 
 // 获取站点过滤选项
@@ -134,7 +137,20 @@ const getEditionFilterOptions = computed(() => {
   return options
 })
 
+// 获取分辨率过滤选项
+const getResolutionFilterOptions = computed(() => {
+  const options: string[] = []
+
+  dataList.value.forEach((data) => {
+    if (data.meta_info.resource_pix && !options.includes(data.meta_info.resource_pix))
+      options.push(data.meta_info.resource_pix)
+  })
+
+  return options
+})
+
 // 按过滤项过滤卡片
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function filterTorrentsCard(data: Context) {
   // 当前分组的所有数据
   const items: Context[]
@@ -180,6 +196,13 @@ function filterTorrentsCard(data: Context) {
   if (
     filterForm.videoCode.length > 0
     && !filterForm.videoCode.includes(video_encode || '')
+  )
+    return false
+
+  // 分辨率过滤
+  if (
+    filterForm.resolution.length > 0
+    && !filterForm.resolution.includes(meta_info.resource_pix || '')
   )
     return false
 
@@ -342,6 +365,21 @@ onBeforeMount(fetchData)
           density="compact"
           chips
           label="质量"
+          multiple
+        />
+      </VCol>
+      <VCol
+        v-if="getResolutionFilterOptions.length > 0"
+        cols="6"
+        md=""
+      >
+        <VSelect
+          v-model="filterForm.resolution"
+          :items="getResolutionFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="分辨率"
           multiple
         />
       </VCol>
