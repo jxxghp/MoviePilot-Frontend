@@ -7,6 +7,7 @@ import type { MediaInfo, NotExistMediaInfo, Subscribe, TmdbEpisode } from '@/api
 import NoDataFound from '@/components/NoDataFound.vue'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
+import router from '@/router'
 
 // 输入参数
 const mediaProps = defineProps({
@@ -377,6 +378,17 @@ function joinArray(arr: string[]) {
   return arr.join('、')
 }
 
+// 开始搜索
+function handleSearch() {
+  router.push({
+    path: '/resource',
+    query: {
+      keyword: `tmdb:${mediaDetail.value.tmdb_id}`,
+      type: mediaDetail.value.type,
+    },
+  })
+}
+
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -428,6 +440,12 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
+          <VBtn v-if="mediaDetail.tmdb_id" variant="tonal" color="info" @click="handleSearch">
+            <template #prepend>
+              <VIcon icon="mdi-magnify" />
+            </template>
+            搜索
+          </VBtn>
           <VBtn v-if="mediaDetail.type === '电影'" class="ms-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>
               <VIcon :icon="getSubscribeIcon" />
