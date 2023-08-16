@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { isIntersected } from '@/@core/utils'
+import { ref } from 'vue'
 import api from '@/api'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
@@ -15,13 +15,15 @@ const props = defineProps({
   type: String,
 })
 
+interface SearchTorrent extends Context {
+  more?: Array<Context>
+}
+
 // 数据列表
-const dataList = ref<Context[]>([])
+const dataList = ref <Array<SearchTorrent>>([])
 
 // 分组后的数据列表
-const groupedDataList = computed(() => {
-  return groupByTitleAndSize(dataList.value)
-})
+const groupedDataList = ref<Map<string, Context[]>>()
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -54,154 +56,84 @@ const filterForm = reactive({
 
   // 质量
   edition: [] as string[],
+
+  // 分辨率
+  resolution: [] as string[],
 })
 
 // 获取站点过滤选项
-const getSiteFilterOptions = computed(() => {
-  const options: string[] = []
-
-  dataList.value.forEach((data) => {
-    if (data.torrent_info?.site_name && !options.includes(data.torrent_info?.site_name))
-      options.push(data.torrent_info?.site_name)
-  })
-
-  return options
-})
-
+const siteFilterOptions = ref<Array<string>>([])
 // 获取季过滤选项
-const getSeasonFilterOptions = computed(() => {
-  const options: string[] = []
-
-  dataList.value.forEach((data) => {
-    if (
-      data.meta_info.season_episode
-      && !options.includes(data.meta_info.season_episode)
-    )
-      options.push(data.meta_info.season_episode)
-  })
-
-  return options
-})
-
+const seasonFilterOptions = ref<Array<string>>([])
 // 获取制作组过滤选项
-const getReleaseGroupFilterOptions = computed(() => {
-  const options: string[] = []
-
-  dataList.value.forEach((data) => {
-    if (data.meta_info.resource_team && !options.includes(data.meta_info.resource_team))
-      options.push(data.meta_info.resource_team)
-  })
-
-  return options
-})
-
+const releaseGroupFilterOptions = ref<Array<string>>([])
 // 获取视频编码过滤选项
-const getVideoCodeFilterOptions = computed(() => {
-  const options: string[] = []
-
-  dataList.value.forEach((data) => {
-    if (data.meta_info.video_encode && !options.includes(data.meta_info.video_encode))
-      options.push(data.meta_info.video_encode)
-  })
-
-  return options
-})
-
+const videoCodeFilterOptions = ref<Array<string>>([])
 // 获取促销状态过滤选项
-const getFreeStateFilterOptions = computed(() => {
-  const options: string[] = []
-
-  dataList.value.forEach((data) => {
-    if (
-      data.torrent_info.volume_factor
-      && !options.includes(data.torrent_info.volume_factor)
-    )
-      options.push(data.torrent_info.volume_factor)
-  })
-
-  return options
-})
-
+const freeStateFilterOptions = ref<Array<string>>([])
 // 获取质量过滤选项
-const getEditionFilterOptions = computed(() => {
-  const options: string[] = []
-
-  dataList.value.forEach((data) => {
-    if (data.meta_info.edition && !options.includes(data.meta_info.edition))
-      options.push(data.meta_info.edition)
-  })
-
-  return options
-})
+const editionFilterOptions = ref<Array<string>>([])
+// 获取分辨率过滤选项
+const resolutionFilterOptions = ref<Array<string>>([])
 
 // 按过滤项过滤卡片
-function filterTorrentsCard(data: Context) {
-  // 当前分组的所有数据
-  const items: Context[]
-    = groupedDataList.value.get(`${data.torrent_info.title}_${data.torrent_info.size}`)
-    ?? []
+watchEffect(() => {
+  // 清空数据
+  dataList.value.splice(0)
 
-  // 站点名称、促销状态
-  const site_names = []
-  const volume_factors = []
-  for (const { torrent_info } of items) {
-    site_names.push(torrent_info.site_name)
-    volume_factors.push(torrent_info.volume_factor)
-  }
+  const match = (filter: Array<string>, value: string | undefined) =>
+    filter.length === 0 || (value && filter.includes(value))
 
-  const { meta_info } = data
+  groupedDataList.value?.forEach((value) => {
+    if (value.length > 0) {
+      const matchData = value.filter((data) => {
+        const { meta_info, torrent_info } = data
+        // 季、制作组、视频编码
+        const { season_episode, resource_team, video_encode } = meta_info
+        return (
+          // 站点过滤
+          match(filterForm.site, torrent_info.site_name)
+          // 促销状态过滤
+          && match(filterForm.freeState, torrent_info.volume_factor)
+          // 季过滤
+          && match(filterForm.season, season_episode)
+          // 制作组过滤
+          && match(filterForm.releaseGroup, resource_team)
+          // 视频编码过滤
+          && match(filterForm.videoCode, video_encode)
+          // 分辨率过滤
+          && match(filterForm.resolution, meta_info.resource_pix)
+          // 质量过滤
+          && match(filterForm.edition, meta_info.edition)
+        )
+      })
+      if (matchData.length > 0) {
+        const firstData = matchData[0] as SearchTorrent
+        if (matchData.length > 1)
+          firstData.more = matchData.slice(1)
 
-  // 季、制作组、视频编码
-  const { season_episode, resource_team, video_encode } = meta_info
-
-  // 站点过滤
-  if (filterForm.site.length > 0 && !isIntersected(filterForm.site, site_names))
-    return false
-
-  // 促销状态过滤
-  if (
-    filterForm.freeState.length > 0
-    && !isIntersected(filterForm.freeState, volume_factors)
-  )
-    return false
-
-  // 季过滤
-  if (filterForm.season.length > 0 && !filterForm.season.includes(season_episode))
-    return false
-
-  // 制作组过滤
-  if (
-    filterForm.releaseGroup.length > 0
-    && !filterForm.releaseGroup.includes(resource_team || '')
-  )
-    return false
-
-  // 视频编码过滤
-  if (
-    filterForm.videoCode.length > 0
-    && !filterForm.videoCode.includes(video_encode || '')
-  )
-    return false
-
-  // 质量过滤
-  return !(filterForm.edition.length > 0 && !filterForm.edition.includes(meta_info.edition))
-}
+        dataList.value.push(firstData)
+      }
+    }
+  })
+})
 
 // 获取订阅列表数据
-async function fetchData() {
+async function fetchData(): Promise<Array<Context>> {
   try {
+    let searchData: Array<Context>
     const keyword = props.keyword ?? ''
     const mtype = props.type ?? ''
     if (!keyword) {
       // 查询上次搜索结果
-      dataList.value = await api.get('search/last')
+      searchData = await api.get('search/last')
     }
     else {
       startLoadingProgress()
-
+      const qualify = props.keyword?.startsWith('tmdb:') || props.keyword?.startsWith('douban:')
       // 优先按TMDBID精确查询
-      if (props.keyword?.startsWith('tmdb:') || props.keyword?.startsWith('douban:')) {
-        dataList.value = await api.get(`search/media/${props.keyword}`, {
+      if (qualify) {
+        searchData = await api.get(`search/media/${props.keyword}`, {
           params: {
             mtype,
           },
@@ -209,51 +141,57 @@ async function fetchData() {
       }
       else {
         // 按标题模糊查询
-        dataList.value = await api.get(`search/title/${props.keyword}`)
+        searchData = await api.get(`search/title/${props.keyword}`)
       }
       stopLoadingProgress()
     }
     isRefreshed.value = true
+    return Promise.resolve(searchData)
   }
   catch (error) {
     console.error(error)
+    return Promise.reject(error)
   }
 }
 
-// 按标题和大小分组
-function groupByTitleAndSize(contextArray: Context[]): Map<string, Context[]> {
-  const groupMap = new Map<string, Context[]>()
+function initData() {
+  // load data
+  fetchData().then((data) => {
+    const groupMap = new Map<string, Context[]>()
 
-  for (const context of contextArray) {
-    const { torrent_info } = context
-    const key = `${torrent_info.title}_${torrent_info.size}`
-
-    if (groupMap.has(key)) {
-      // 已存在相同标题和大小的分组，将当前上下文信息添加到分组中
-      const group = groupMap.get(key)
-
-      group?.push(context)
-    }
-    else {
-      // 创建新的分组，并将当前上下文信息添加到分组中
-      groupMap.set(key, [context])
-    }
-  }
-
-  return groupMap
-}
-
-// 获取每个分组的第一个数据
-const getFirstContexts = computed(() => {
-  const firstContexts: Context[] = []
-
-  groupedDataList.value.forEach((group) => {
-    if (group.length > 0)
-      firstContexts.push(group[0])
+    data.forEach((item) => {
+      const { torrent_info } = item
+      // init options
+      initOptions(item)
+      // group data
+      const key = `${torrent_info.title}_${torrent_info.size}`
+      if (groupMap.has(key)) {
+        // 已存在相同标题和大小的分组，将当前上下文信息添加到分组中
+        const group = groupMap.get(key)
+        group?.push(item)
+      }
+      else {
+        // 创建新的分组，并将当前上下文信息添加到分组中
+        groupMap.set(key, [item])
+      }
+    })
+    groupedDataList.value = groupMap
   })
+}
 
-  return firstContexts
-})
+function initOptions(data: Context) {
+  const { torrent_info, meta_info } = data
+  const optionValue = (options: Array<string>, value: string | undefined) => {
+    value && !options.includes(value) && options.push(value)
+  }
+  optionValue(siteFilterOptions.value, torrent_info?.site_name)
+  optionValue(seasonFilterOptions.value, meta_info?.season_episode)
+  optionValue(releaseGroupFilterOptions.value, meta_info?.resource_team)
+  optionValue(videoCodeFilterOptions.value, meta_info?.video_encode)
+  optionValue(freeStateFilterOptions.value, torrent_info?.volume_factor)
+  optionValue(editionFilterOptions.value, meta_info?.edition)
+  optionValue(resolutionFilterOptions.value, meta_info?.resource_pix)
+}
 
 // 使用SSE监听加载进度
 function startLoadingProgress() {
@@ -279,20 +217,16 @@ function stopLoadingProgress() {
 }
 
 // 加载时获取数据
-onBeforeMount(fetchData)
+onMounted(initData)
 </script>
 
 <template>
   <VCard class="bg-transparent mb-3 pt-2 shadow-none">
     <VRow>
-      <VCol
-        v-if="getSiteFilterOptions.length > 0"
-        cols="6"
-        md=""
-      >
+      <VCol v-if="siteFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.site"
-          :items="getSiteFilterOptions"
+          :items="siteFilterOptions"
           size="small"
           density="compact"
           chips
@@ -300,14 +234,10 @@ onBeforeMount(fetchData)
           multiple
         />
       </VCol>
-      <VCol
-        v-if="getSeasonFilterOptions.length > 0"
-        cols="6"
-        md=""
-      >
+      <VCol v-if="seasonFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.season"
-          :items="getSeasonFilterOptions"
+          :items="seasonFilterOptions"
           size="small"
           density="compact"
           chips
@@ -315,14 +245,10 @@ onBeforeMount(fetchData)
           multiple
         />
       </VCol>
-      <VCol
-        v-if="getReleaseGroupFilterOptions.length > 0"
-        cols="6"
-        md=""
-      >
+      <VCol v-if="releaseGroupFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.releaseGroup"
-          :items="getReleaseGroupFilterOptions"
+          :items="releaseGroupFilterOptions"
           size="small"
           density="compact"
           chips
@@ -330,14 +256,10 @@ onBeforeMount(fetchData)
           multiple
         />
       </VCol>
-      <VCol
-        v-if="getEditionFilterOptions.length > 0"
-        cols="6"
-        md=""
-      >
+      <VCol v-if="editionFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.edition"
-          :items="getEditionFilterOptions"
+          :items="editionFilterOptions"
           size="small"
           density="compact"
           chips
@@ -345,14 +267,21 @@ onBeforeMount(fetchData)
           multiple
         />
       </VCol>
-      <VCol
-        v-if="getVideoCodeFilterOptions.length > 0"
-        cols="6"
-        md=""
-      >
+      <VCol v-if="resolutionFilterOptions.length > 0" cols="6" md="">
+        <VSelect
+          v-model="filterForm.resolution"
+          :items="resolutionFilterOptions"
+          size="small"
+          density="compact"
+          chips
+          label="分辨率"
+          multiple
+        />
+      </VCol>
+      <VCol v-if="videoCodeFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.videoCode"
-          :items="getVideoCodeFilterOptions"
+          :items="videoCodeFilterOptions"
           size="small"
           density="compact"
           chips
@@ -360,14 +289,10 @@ onBeforeMount(fetchData)
           multiple
         />
       </VCol>
-      <VCol
-        v-if="getFreeStateFilterOptions.length > 0"
-        cols="6"
-        md=""
-      >
+      <VCol v-if="freeStateFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.freeState"
-          :items="getFreeStateFilterOptions"
+          :items="freeStateFilterOptions"
           size="small"
           density="compact"
           chips
@@ -377,40 +302,13 @@ onBeforeMount(fetchData)
       </VCol>
     </VRow>
   </VCard>
-  <div
-    v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      v-if="!props.keyword"
-      size="48"
-      indeterminate
-      color="primary"
-    />
-    <VProgressCircular
-      v-if="props.keyword"
-      class="mb-3"
-      color="primary"
-      :model-value="progressValue"
-      size="64"
-    />
+  <div v-if="!isRefreshed" class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center">
+    <VProgressCircular v-if="!props.keyword" size="48" indeterminate color="primary" />
+    <VProgressCircular v-if="props.keyword" class="mb-3" color="primary" :model-value="progressValue" size="64" />
     <span>{{ progressText }}</span>
   </div>
-  <div
-    v-if="dataList.length > 0"
-    class="grid gap-3 grid-torrent-card items-start"
-  >
-    <TorrentCard
-      v-for="data in getFirstContexts"
-      v-show="filterTorrentsCard(data)"
-      :key="data.torrent_info.title"
-      :torrent="data"
-      :more="
-        groupedDataList
-          .get(`${data.torrent_info.title}_${data.torrent_info.size}`)
-          ?.slice(1)
-      "
-    />
+  <div v-if="dataList.length > 0" class="grid gap-3 grid-torrent-card items-start">
+    <TorrentCard v-for="data in dataList" :key="`${data.torrent_info.title}_${data.torrent_info.site}`" :torrent="data" :more="data.more" />
   </div>
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"

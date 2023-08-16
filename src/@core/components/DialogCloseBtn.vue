@@ -11,7 +11,7 @@ function onClick() {
 <template>
   <IconBtn
     class="absolute right-3 top-3"
-    @click="onClick"
+    @click.stop="onClick"
   >
     <VIcon icon="mdi-close" />
   </IconBtn>

@@ -6,6 +6,7 @@ import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
 import AccountSettingLogging from '@/views/setting/AccountSettingLogging.vue'
+import AccountSettingAbout from '@/views/setting/AccountSettingAbout.vue'
 
 const route = useRoute()
 
@@ -42,6 +43,11 @@ const tabs = [
     title: '日志',
     icon: 'mdi-text-box',
     tab: 'logging',
+  },
+  {
+    title: '关于',
+    icon: 'mdi-information',
+    tab: 'about',
   },
 ]
 </script>
@@ -94,6 +100,12 @@ const tabs = [
       <VWindowItem value="logging">
         <transition name="fade-slide" appear>
           <AccountSettingLogging />
+        </transition>
+      </VWindowItem>
+      <!-- About -->
+      <VWindowItem value="about">
+        <transition name="fade-slide" appear>
+          <AccountSettingAbout />
         </transition>
       </VWindowItem>
     </VWindow>

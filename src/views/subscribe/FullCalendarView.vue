@@ -5,7 +5,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import FullCalendar from '@fullcalendar/vue3'
 import type { Ref } from 'vue'
-import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
+import type { MediaInfo, Rss, Subscribe, TmdbEpisode } from '@/api/types'
 import api from '@/api'
 import { parseDate } from '@/@core/utils/formatters'
 
@@ -33,48 +33,61 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   events: [],
 })
 
+async function eventsHander(subscribe: Subscribe | Rss) {
+  // 如果是电影直接返回
+  if (subscribe.type === '电影') {
+    // 调用API查询TMDB详情
+    const movie: MediaInfo = await api.get(`media/tmdb:${subscribe.tmdbid}`, {
+      params: { type_name: subscribe.type },
+    })
+
+    return {
+      title: subscribe.name,
+      subtitle: '',
+      start: parseDate(movie.release_date || ''),
+      allDay: false,
+      posterPath: subscribe.poster,
+      mediaType: subscribe.type,
+    }
+  }
+  else {
+    // 调用API查询集信息
+    const episodes: TmdbEpisode[] = await api.get(
+            `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
+    )
+
+    return episodes.map((episode) => {
+      return {
+        title: subscribe.name,
+        subtitle: `第 ${episode.episode_number} 集`,
+        start: parseDate(episode.air_date || ''),
+        allDay: false,
+        posterPath: subscribe.poster,
+        mediaType: subscribe.type,
+      }
+    })
+  }
+}
+
 // 调用API查询所有订阅
 async function getSubscribes() {
   try {
+    // 订阅
     const subscribes: Subscribe[] = await api.get('subscribe')
 
-    const events = await Promise.all(
-      subscribes.map(async (subscribe) => {
-        // 如果是电影直接返回
-        if (subscribe.type === '电影') {
-          // 调用API查询TMDB详情
-          const movie: MediaInfo = await api.get(`tmdb/${subscribe.tmdbid}`, {
-            params: { tmdbid: subscribe.tmdbid, type_name: subscribe.type },
-          })
-
-          return {
-            title: subscribe.name,
-            subtitle: '',
-            start: parseDate(movie.release_date || ''),
-            allDay: false,
-            posterPath: subscribe.poster,
-            mediaType: subscribe.type,
-          }
-        }
-        else {
-          // 调用API查询集信息
-          const episodes: TmdbEpisode[] = await api.get(
-            `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
-          )
-
-          return episodes.map((episode) => {
-            return {
-              title: subscribe.name,
-              subtitle: `第 ${episode.episode_number} 集`,
-              start: parseDate(episode.air_date || ''),
-              allDay: false,
-              posterPath: subscribe.poster,
-              mediaType: subscribe.type,
-            }
-          })
-        }
-      }),
+    const subEvents = await Promise.all(
+      subscribes.map(async sub => eventsHander(sub)),
     )
+
+    // 自定义订阅
+    const rsses: Rss[] = await api.get('rss')
+
+    const rssEvents = await Promise.all(
+      rsses.map(async rss => eventsHander(rss)),
+    )
+
+    // 合并事件
+    const events = [...subEvents, ...rssEvents]
 
     calendarOptions.value.events = events.flat()
   }

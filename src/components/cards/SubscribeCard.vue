@@ -11,11 +11,11 @@ const props = defineProps({
   media: Object as PropType<Subscribe>,
 })
 
+// 定义触发的自定义事件
+const emit = defineEmits(['remove', 'save'])
+
 // 提示框
 const $toast = useToast()
-
-// 是否显示卡片
-const cardState = ref(true)
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
@@ -30,34 +30,7 @@ const siteList = ref<Site[]>([])
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
 
 // 订阅编辑表单
-const subscribeForm = reactive({
-  id: props.media?.id,
-
-  // 搜索关键字
-  keyword: props.media?.keyword,
-
-  // 过滤规则
-  filter: props.media?.filter,
-
-  // 包含
-  include: props.media?.include,
-
-  // 排除
-  exclude: props.media?.exclude,
-
-  // 总集数
-  total_episode: props.media?.total_episode,
-
-  // 开始集数
-  start_episode: props.media?.start_episode,
-
-  // 订阅站点
-  sites: props.media?.sites,
-
-  // 是否洗版
-  best_version: !!props.media?.best_version,
-
-})
+const subscribeForm = reactive<any>(props.media ?? {})
 
 // 上一次更新时间
 const lastUpdateText = ref(
@@ -112,8 +85,10 @@ async function removeSubscribe() {
       `subscribe/${props.media?.id}`,
     )
 
-    if (result.success)
-      cardState.value = false
+    if (result.success) {
+      // 通知父组件刷新
+      emit('remove')
+    }
   }
   catch (e) {
     console.log(e)
@@ -143,10 +118,12 @@ async function updateSubscribeInfo() {
     const result: { [key: string]: any } = await api.put('subscribe', subscribeForm)
 
     // 提示
-    if (result.success)
+    if (result.success) {
       $toast.success(`${props.media?.name} 更新成功！`)
-    else
-      $toast.error(`${props.media?.name} 更新失败：${result.message}！`)
+      // 通知父组件刷新
+      emit('remove')
+    }
+    else { $toast.error(`${props.media?.name} 更新失败：${result.message}！`) }
   }
   catch (e) {
     console.log(e)
@@ -220,7 +197,6 @@ const dropdownItems = ref([
 
 <template>
   <VCard
-    v-if="cardState"
     :key="props.media?.id"
     :class="`${subscribeForm.best_version ? 'outline-dashed outline-1' : ''}`"
     @click="editSubscribeDialog"

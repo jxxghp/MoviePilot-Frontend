@@ -70,6 +70,8 @@ const filteredDataList = computed(() => {
         v-for="data in filteredDataList"
         :key="data.id"
         :media="data"
+        @remove="fetchData"
+        @save="fetchData"
       />
     </div>
     <NoDataFound

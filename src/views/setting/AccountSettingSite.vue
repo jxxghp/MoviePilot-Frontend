@@ -51,10 +51,7 @@ async function querySelectedSites() {
 async function saveSelectedSites() {
   try {
     // 用户名密码
-    const result: { [key: string]: any } = await api.post(
-      'system/setting/IndexerSites',
-      selectedSites.value,
-    )
+    const result: { [key: string]: any } = await api.post('system/setting/IndexerSites', selectedSites.value)
 
     if (result.success)
       $toast.success('索引站点保存成功')
@@ -97,17 +94,14 @@ onMounted(() => {
   <VRow>
     <VCol cols="12">
       <VCard title="索引站点">
-        <VCardSubtitle> 只有选中的站点才会在搜索和订阅中使用 </VCardSubtitle>
+        <VCardSubtitle> 只有选中的站点才会在搜索和订阅中使用</VCardSubtitle>
 
         <VCardItem>
-          <VChipGroup
-            v-model="selectedSites"
-            column
-            multiple
-          >
+          <VChipGroup v-model="selectedSites" column multiple>
             <VChip
               v-for="site in allSites"
               :key="site.id"
+              :color="selectedSites.includes(site.id) ? 'primary' : ''"
               filter
               variant="outlined"
               :value="site.id"
@@ -118,10 +112,7 @@ onMounted(() => {
         </VCardItem>
 
         <VCardItem>
-          <VBtn
-            type="submit"
-            @click="saveSelectedSites"
-          >
+          <VBtn type="submit" @click="saveSelectedSites">
             保存
           </VBtn>
         </VCardItem>
@@ -131,18 +122,10 @@ onMounted(() => {
       <VCard title="站点重置">
         <VCardText>
           <div>
-            <VCheckbox
-              v-model="isConfirmResetSites"
-              label="确认删除所有站点数据并重新同步"
-            />
+            <VCheckbox v-model="isConfirmResetSites" label="确认删除所有站点数据并重新同步" />
           </div>
 
-          <VBtn
-            :disabled="!isConfirmResetSites || resetSitesDisabled"
-            color="error"
-            class="mt-3"
-            @click="resetSites"
-          >
+          <VBtn :disabled="!isConfirmResetSites || resetSitesDisabled" color="error" class="mt-3" @click="resetSites">
             {{ resetSitesText }}
           </VBtn>
         </VCardText>

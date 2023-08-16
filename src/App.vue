@@ -10,6 +10,9 @@ import avatar1 from '@images/avatars/avatar-1.png'
 const { global: globalTheme } = useTheme()
 globalTheme.name.value = localStorage.getItem('theme') || 'light'
 
+// 路由
+const route = useRoute()
+
 // 提示框
 const $toast = useToast()
 
@@ -70,6 +73,6 @@ provide('accountInfo', accountInfo)
 
 <template>
   <VApp>
-    <RouterView />
+    <RouterView :key="route.fullPath" />
   </VApp>
 </template>

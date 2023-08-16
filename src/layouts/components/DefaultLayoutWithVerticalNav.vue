@@ -102,6 +102,13 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
       />
       <VerticalNavLink
         :item="{
+          title: '自定义',
+          icon: 'mdi-rss',
+          to: '/subscribe-rss',
+        }"
+      />
+      <VerticalNavLink
+        :item="{
           title: '日历',
           icon: 'mdi-calendar',
           to: '/calendar',

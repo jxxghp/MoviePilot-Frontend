@@ -481,7 +481,7 @@ export interface NotExistMediaInfo {
   episodes: number[]
 
   // 总集数
-  total_episodes: number
+  total_episode: number
 
   // 开始集
   start_episode: number
@@ -635,7 +635,7 @@ export interface MetaInfo {
   end_season?: number
 
   // 总集数
-  total_episodes: number
+  total_episode: number
 
   // 识别的开始集
   begin_episode?: number
@@ -831,14 +831,69 @@ export interface NotificationSwitch {
   slack: boolean
 }
 
-// 目录同步
-export interface Sync {
-
-  // 媒体库类型
-  type: string
-  // 源目录
-  source: string
-  // 目标目录
-  target: string
+// 环境设置
+export interface Setting {
+  // 媒体服务器 emby/jellyfin/plex
+  MEDIASERVER: string
+  // EMBY服务器地址，IP:PORT
+  EMBY_HOST: string
+  // EMBY Api Key
+  EMBY_API_KEY: string
+  // Jellyfin服务器地址，IP:PORT
+  JELLYFIN_HOST: string
+  // Jellyfin Api Key
+  JELLYFIN_API_KEY: string
+  // Plex服务器地址，IP:PORT
+  PLEX_HOST: string
+  // Plex Token
+  PLEX_TOKEN: string
 }
 
+// 自定义订阅
+export interface Rss {
+  id?: number
+  // 名称
+  name?: string
+  // RSS地址
+  url?: string
+  // 类型
+  type?: string
+  // 标题
+  title?: string
+  // 年份
+  year?: string
+  // TMDBID
+  tmdbid?: number
+  // 季号
+  season?: number
+  // 海报
+  poster?: string
+  // 背景图
+  backdrop?: string
+  // 评分
+  vote?: number
+  // 简介
+  description?: string
+  // 总集数
+  total_episode?: number
+  // 包含
+  include?: string
+  // 排除
+  exclude?: string
+  // 洗版
+  best_version?: number
+  // 是否使用代理服务器
+  proxy?: number
+  // 是否使用过滤规则
+  filter?: boolean
+  // 保存路径
+  save_path?: string
+  // 已处理数量
+  processed?: number
+  // 附加信息
+  note?: string
+  // 最后更新时间
+  last_update?: string
+  // 状态 0-停用，1-启用
+  state?: number
+}

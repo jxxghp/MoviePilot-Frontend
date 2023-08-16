@@ -14,6 +14,9 @@ const cardProps = defineProps({
   height: String,
 })
 
+// 定义触发的自定义事件
+const emit = defineEmits(['remove'])
+
 // 密码输入
 const isPasswordVisible = ref(false)
 
@@ -85,58 +88,7 @@ const statusItems = [
 ]
 
 // 站点编辑表单数据
-const siteForm = reactive({
-  // ID
-  id: cardProps.site?.id,
-
-  // 站点名称
-  name: cardProps.site?.name,
-
-  // 站点主域名Key
-  domain: cardProps.site?.domain,
-
-  // 站点地址
-  url: cardProps.site?.url,
-
-  // 站点优先级
-  pri: cardProps.site?.pri,
-
-  // RSS地址
-  rss: cardProps.site?.rss,
-
-  // Cookie
-  cookie: cardProps.site?.cookie,
-
-  // User-Agent
-  ua: cardProps.site?.ua,
-
-  // 是否使用代理
-  proxy: !!cardProps.site?.proxy,
-
-  // 过滤规则
-  filter: cardProps.site?.filter,
-
-  // 是否演染
-  render: !!cardProps.site?.render,
-
-  // 是否公开站点
-  public: cardProps.site?.public,
-
-  // 备注
-  note: cardProps.site?.note,
-
-  // 流控单位周期
-  limit_interval: cardProps.site?.limit_interval,
-
-  // 流控次数
-  limit_count: cardProps.site?.limit_count,
-
-  // 流控间隔
-  limit_seconds: cardProps.site?.limit_seconds,
-
-  // 是否启用
-  is_active: cardProps.site?.is_active,
-})
+const siteForm = reactive<any>(cardProps.site ?? {})
 
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
@@ -228,6 +180,23 @@ async function updateSiteCookie() {
   }
 }
 
+// 调用API删除站点信息
+async function deleteSiteInfo() {
+  try {
+    siteInfoDialog.value = false
+    const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
+    if (result.success) {
+      $toast.success(`${cardProps.site?.name} 删除成功！`)
+      emit('remove')
+    }
+    else { $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`) }
+  }
+  catch (error) {
+    $toast.error(`${cardProps.site?.name} 删除失败！`)
+    console.error(error)
+  }
+}
+
 // 调用API更新站点信息
 async function updateSiteInfo() {
   try {
@@ -235,8 +204,10 @@ async function updateSiteInfo() {
     siteInfoDialog.value = false
 
     const result: { [key: string]: any } = await api.put('site', siteForm)
-    if (result.success)
+    if (result.success) {
       $toast.success(`${cardProps.site?.name} 更新成功！`)
+      emit('remove')
+    }
     else
       $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
   }
@@ -354,6 +325,11 @@ onMounted(() => {
       </VTooltip>
     </VCardText>
 
+    <VDivider
+      class="opacity-75"
+      style="border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));"
+    />
+
     <VCardActions>
       <VBtn
         v-if="!cardProps.site?.public"
@@ -440,6 +416,7 @@ onMounted(() => {
     <!-- Dialog Content -->
     <VCard :title="`编辑站点 - ${cardProps.site?.name}`">
       <VCardText class="pt-2">
+        <DialogCloseBtn @click="siteInfoDialog = false" />
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
@@ -544,8 +521,8 @@ onMounted(() => {
       </VCardText>
 
       <VCardActions>
-        <VBtn @click="siteInfoDialog = false">
-          取消
+        <VBtn color="error" @click="deleteSiteInfo">
+          删除
         </VBtn>
         <VSpacer />
         <VBtn @click="updateSiteInfo">
@@ -579,10 +556,10 @@ onMounted(() => {
           page-text="{0}-{1} 共 {2} 条"
         >
           <template #item.title="{ item }">
-            <div class="text-high-emphasis">
+            <div class="text-high-emphasis pt-1">
               {{ item.raw.title }}
             </div>
-            <div class="text-sm">
+            <div class="text-sm my-1">
               {{ item.raw.description }}
             </div>
             <VChip

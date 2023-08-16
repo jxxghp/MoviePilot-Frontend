@@ -27,7 +27,7 @@ function search() {
   <!-- 👉 Search Button -->
   <div
     class="d-flex align-center cursor-pointer"
-    style="user-select: none"
+    style="user-select: none;"
   >
     <VDialog
       v-model="searchDialog"

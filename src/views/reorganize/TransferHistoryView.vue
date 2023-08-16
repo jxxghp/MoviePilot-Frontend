@@ -18,6 +18,15 @@ const redoDialog = ref(false)
 // TMDB编号
 const redoTmdbId = ref('')
 
+// 类型
+const redoType = ref('电影')
+
+// 类型下拉框：电影、电视剧
+const redoTypeItems = ref([
+  { title: '电影', value: '电影' },
+  { title: '电视剧', value: '电视剧' },
+])
+
 // 当前操作记录
 const currentHistory = ref<TransferHistory>()
 
@@ -145,7 +154,7 @@ async function removeHistory(item: TransferHistory) {
 // 重新整理
 async function rehandleHistory() {
   try {
-    if (!redoTmdbId.value)
+    if (!redoTmdbId.value || !redoType.value)
       return
 
     redoDialog.value = false
@@ -161,6 +170,7 @@ async function rehandleHistory() {
       requestData,
       {
         params: {
+          mtype: redoType.value,
           new_tmdbid: parseInt(redoTmdbId.value),
         },
       },
@@ -321,10 +331,18 @@ const dropdownItems = ref([
     <VCard title="重新整理">
       <VCardText>
         <VRow>
-          <VCol cols="12">
+          <VCol cols="12" md="4">
+            <VSelect
+              v-model="redoType"
+              label="类型"
+              :rules="[requiredValidator]"
+              :items="redoTypeItems"
+            />
+          </VCol>
+          <VCol cols="12" md="8">
             <VTextField
               v-model="redoTmdbId"
-              label="请输入TMDB编号"
+              label="TMDB编号"
               :rules="[requiredValidator, numberValidator]"
             />
           </VCol>
