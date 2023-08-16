@@ -204,8 +204,10 @@ async function updateSiteInfo() {
     siteInfoDialog.value = false
 
     const result: { [key: string]: any } = await api.put('site', siteForm)
-    if (result.success)
+    if (result.success) {
       $toast.success(`${cardProps.site?.name} 更新成功！`)
+      emit('remove')
+    }
     else
       $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
   }
