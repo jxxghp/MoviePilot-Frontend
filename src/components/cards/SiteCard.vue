@@ -15,7 +15,7 @@ const cardProps = defineProps({
 })
 
 // 列表刷新
-const emits = defineEmits(['fetchData'])
+const emits = defineEmits(['refreshSiteList'])
 
 // 密码输入
 const isPasswordVisible = ref(false)
@@ -237,7 +237,7 @@ async function deleteSiteInfo() {
     const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
     if (result.success) {
       $toast.success(`${cardProps.site?.name} 删除成功！`)
-      emits('fetchData', '')
+      emits('refreshSiteList', '')
     }
     else
       $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`)
@@ -257,7 +257,7 @@ async function updateSiteInfo() {
     const result: { [key: string]: any } = await api.put('site', siteForm)
     if (result.success) {
       $toast.success(`${cardProps.site?.name} 更新成功！`)
-      emits('fetchData', '')
+      emits('refreshSiteList', '')
     }
     else
       $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
