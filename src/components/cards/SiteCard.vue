@@ -85,58 +85,7 @@ const statusItems = [
 ]
 
 // 站点编辑表单数据
-const siteForm = reactive({
-  // ID
-  id: cardProps.site?.id,
-
-  // 站点名称
-  name: cardProps.site?.name,
-
-  // 站点主域名Key
-  domain: cardProps.site?.domain,
-
-  // 站点地址
-  url: cardProps.site?.url,
-
-  // 站点优先级
-  pri: cardProps.site?.pri,
-
-  // RSS地址
-  rss: cardProps.site?.rss,
-
-  // Cookie
-  cookie: cardProps.site?.cookie,
-
-  // User-Agent
-  ua: cardProps.site?.ua,
-
-  // 是否使用代理
-  proxy: !!cardProps.site?.proxy,
-
-  // 过滤规则
-  filter: cardProps.site?.filter,
-
-  // 是否演染
-  render: !!cardProps.site?.render,
-
-  // 是否公开站点
-  public: cardProps.site?.public,
-
-  // 备注
-  note: cardProps.site?.note,
-
-  // 流控单位周期
-  limit_interval: cardProps.site?.limit_interval,
-
-  // 流控次数
-  limit_count: cardProps.site?.limit_count,
-
-  // 流控间隔
-  limit_seconds: cardProps.site?.limit_seconds,
-
-  // 是否启用
-  is_active: cardProps.site?.is_active,
-})
+const siteForm = reactive<any>(cardProps.site ?? {})
 
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
@@ -371,7 +320,7 @@ onMounted(() => {
 
     <VDivider
       class="opacity-75"
-      style="border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity))"
+      style="border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));"
     />
 
     <VCardActions>
@@ -402,9 +351,8 @@ onMounted(() => {
       </VBtn>
       <VBtn @click.stop="deleteSiteInfo">
         <template #prepend>
-          <VIcon icon="mdi-trash-can-outline" />
+          <VIcon icon="mdi-trash-can-outline" color="error" />
         </template>
-        删除
       </VBtn>
     </VCardActions>
   </VCard>

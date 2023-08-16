@@ -30,34 +30,7 @@ const siteList = ref<Site[]>([])
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
 
 // 订阅编辑表单
-const subscribeForm = reactive({
-  id: props.media?.id,
-
-  // 搜索关键字
-  keyword: props.media?.keyword,
-
-  // 过滤规则
-  filter: props.media?.filter,
-
-  // 包含
-  include: props.media?.include,
-
-  // 排除
-  exclude: props.media?.exclude,
-
-  // 总集数
-  total_episode: props.media?.total_episode,
-
-  // 开始集数
-  start_episode: props.media?.start_episode,
-
-  // 订阅站点
-  sites: props.media?.sites,
-
-  // 是否洗版
-  best_version: !!props.media?.best_version,
-
-})
+const subscribeForm = reactive<any>(props.media ?? {})
 
 // 上一次更新时间
 const lastUpdateText = ref(

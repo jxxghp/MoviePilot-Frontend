@@ -49,38 +49,7 @@ const previewDataList = ref<TorrentInfo[]>([])
 const siteName = ref('')
 
 // 订阅编辑表单
-const rssForm = reactive({
-  id: props.media?.id,
-  // RSS地址
-  url: props.media?.url,
-  // 类型
-  type: props.media?.type,
-  // 标题
-  title: props.media?.title,
-  // 年份
-  year: props.media?.year,
-  // TMDBID
-  tmdbid: props.media?.tmdbid,
-  // 季号
-  season: props.media?.season,
-  // 总集数
-  total_episode: props.media?.total_episode,
-  // 包含
-  include: props.media?.include,
-  // 排除
-  exclude: props.media?.exclude,
-  // 洗版
-  best_version: !!props.media?.best_version,
-  // 是否使用代理服务器
-  proxy: !!props.media?.proxy,
-  // 是否使用过滤规则
-  filter: !!props.media?.filter,
-  // 保存路径
-  save_path: props.media?.save_path,
-  // 状态 0-停用，1-启用
-  state: props.media?.state,
-
-})
+const rssForm = reactive<any>(props.media ?? {})
 
 // 上一次更新时间
 const lastUpdateText = ref(
@@ -164,7 +133,7 @@ async function querySiteName() {
   }
   catch (e) {
     // 截取URL中的主域名作为站点名称
-    siteName.value = props.media?.url?.split('/')[2] || '未知'
+    siteName.value = props.media?.url?.split('/')[2] ?? '未知'
     console.log(e)
   }
 }
