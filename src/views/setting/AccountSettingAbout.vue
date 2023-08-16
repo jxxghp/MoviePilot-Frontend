@@ -14,6 +14,19 @@ const releaseDialog = ref(false)
 // 最新版本
 const latestRelease = ref('')
 
+// 变更日志对话框标题
+const releaseDialogTitle = ref('')
+
+// 变更日志对话框内容
+const releaseDialogBody = ref('')
+
+// 打开日志对话框
+function showReleaseDialog(title: string, body: string) {
+  releaseDialogTitle.value = title
+  releaseDialogBody.value = body.replaceAll('\r\n', '<br />')
+  releaseDialog.value = true
+}
+
 // 查询系统环境变量
 async function querySystemEnv() {
   try {
@@ -176,7 +189,7 @@ onMounted(() => {
         </h3>
         <div class="section space-y-3">
           <div>
-            <div v-for="release in allRelease" :key="release.tag_name" class="flex w-full flex-col space-y-3 rounded-md px-4 py-2 shadow-md ring-1 ring-gray-400 sm:flex-row sm:space-y-0 sm:space-x-3">
+            <div v-for="release in allRelease" :key="release.tag_name" class="mb-3 flex w-full flex-col space-y-3 rounded-md px-4 py-2 shadow-md ring-1 ring-gray-400 sm:flex-row sm:space-y-0 sm:space-x-3">
               <div class="flex w-full flex-grow items-center justify-start space-x-2 truncate sm:justify-start">
                 <span class="truncate text-lg font-bold">
                   <span class="mr-2 whitespace-nowrap text-xs font-normal">{{ releaseTime(release.published_at) }}</span>
@@ -189,30 +202,27 @@ onMounted(() => {
                   当前版本
                 </span>
               </div>
-              <VDialog v-model="releaseDialog" width="600" scrollable>
-                <template #activator="{ props }">
-                  <VBtn v-bind="props">
-                    <template #prepend>
-                      <VIcon icon="mdi-text-box-outline" />
-                    </template>
-                    查看变更日志
-                  </VBtn>
+              <VBtn @click.stop="showReleaseDialog(release.tag_name, release.body)">
+                <template #prepend>
+                  <VIcon icon="mdi-text-box-outline" />
                 </template>
-                <VCard :title="`${release.tag_name} 变更日志`">
-                  <VCardItem>
-                    <DialogCloseBtn @click="releaseDialog = false" />
-                  </VCardItem>
-                  <VCardText>
-                    {{ release.body }}
-                  </VCardText>
-                </VCard>
-              </VDialog>
+                查看变更日志
+              </VBtn>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+  <VDialog v-model="releaseDialog" width="600" scrollable>
+    <VCard>
+      <VCardItem>
+        <DialogCloseBtn @click="releaseDialog = false" />
+        <VCardTitle>{{ releaseDialogTitle }} 变更日志</VCardTitle>
+      </VCardItem>
+      <VCardText v-html="releaseDialogBody" />
+    </VCard>
+  </VDialog>
 </template>
 
 <style type="scss">
