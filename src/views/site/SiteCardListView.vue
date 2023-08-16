@@ -46,6 +46,7 @@ onBeforeMount(fetchData)
       :key="data.id"
       :site="data"
       @remove="fetchData"
+      @update="fetchData"
     />
   </div>
   <NoDataFound

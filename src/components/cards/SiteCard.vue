@@ -15,7 +15,7 @@ const cardProps = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove'])
+const emit = defineEmits(['remove', 'update'])
 
 // 密码输入
 const isPasswordVisible = ref(false)
@@ -204,10 +204,11 @@ async function updateSiteInfo() {
     siteInfoDialog.value = false
 
     const result: { [key: string]: any } = await api.put('site', siteForm)
-    if (result.success)
+    if (result.success) {
       $toast.success(`${cardProps.site?.name} 更新成功！`)
-    else
-      $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
+      emit('update')
+    }
+    else { $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`) }
   }
   catch (error) {
     $toast.error(`${cardProps.site?.name} 更新失败！`)
