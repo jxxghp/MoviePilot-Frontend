@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { PropType } from 'vue'
+import type { PropType, defineEmits } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import { formatFileSize } from '@core/utils/formatters'
 import { numberValidator, requiredValidator } from '@/@validators'
@@ -13,6 +13,9 @@ const cardProps = defineProps({
   width: String,
   height: String,
 })
+
+// 列表刷新
+const emits = defineEmits(['fetchData'])
 
 // 密码输入
 const isPasswordVisible = ref(false)
@@ -232,8 +235,10 @@ async function updateSiteCookie() {
 async function deleteSiteInfo() {
   try {
     const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
-    if (result.success)
+    if (result.success) {
       $toast.success(`${cardProps.site?.name} 删除成功！`)
+      emits('fetchData', '')
+    }
     else
       $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`)
   }
@@ -250,8 +255,10 @@ async function updateSiteInfo() {
     siteInfoDialog.value = false
 
     const result: { [key: string]: any } = await api.put('site', siteForm)
-    if (result.success)
+    if (result.success) {
       $toast.success(`${cardProps.site?.name} 更新成功！`)
+      emits('fetchData', '')
+    }
     else
       $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
   }
