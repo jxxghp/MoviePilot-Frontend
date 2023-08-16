@@ -45,6 +45,7 @@ onBeforeMount(fetchData)
       v-for="data in dataList"
       :key="data.id"
       :site="data"
+      @remove="fetchData"
     />
   </div>
   <NoDataFound

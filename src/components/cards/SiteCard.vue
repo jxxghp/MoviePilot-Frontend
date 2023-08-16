@@ -14,6 +14,9 @@ const cardProps = defineProps({
   height: String,
 })
 
+// 定义触发的自定义事件
+const emit = defineEmits(['remove'])
+
 // 密码输入
 const isPasswordVisible = ref(false)
 
@@ -180,11 +183,13 @@ async function updateSiteCookie() {
 // 调用API删除站点信息
 async function deleteSiteInfo() {
   try {
+    siteInfoDialog.value = false
     const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
-    if (result.success)
+    if (result.success) {
       $toast.success(`${cardProps.site?.name} 删除成功！`)
-    else
-      $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`)
+      emit('remove')
+    }
+    else { $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`) }
   }
   catch (error) {
     $toast.error(`${cardProps.site?.name} 删除失败！`)
@@ -349,11 +354,6 @@ onMounted(() => {
         </template>
         浏览
       </VBtn>
-      <VBtn @click.stop="deleteSiteInfo">
-        <template #prepend>
-          <VIcon icon="mdi-trash-can-outline" color="error" />
-        </template>
-      </VBtn>
     </VCardActions>
   </VCard>
   <!-- 更新站点Cookie & UA弹窗 -->
@@ -414,6 +414,7 @@ onMounted(() => {
     <!-- Dialog Content -->
     <VCard :title="`编辑站点 - ${cardProps.site?.name}`">
       <VCardText class="pt-2">
+        <DialogCloseBtn @click="siteInfoDialog = false" />
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
@@ -518,8 +519,8 @@ onMounted(() => {
       </VCardText>
 
       <VCardActions>
-        <VBtn @click="siteInfoDialog = false">
-          取消
+        <VBtn color="error" @click="deleteSiteInfo">
+          删除
         </VBtn>
         <VSpacer />
         <VBtn @click="updateSiteInfo">
