@@ -228,6 +228,21 @@ async function updateSiteCookie() {
   }
 }
 
+// 调用API删除站点信息
+async function deleteSiteInfo() {
+  try {
+    const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
+    if (result.success)
+      $toast.success(`${cardProps.site?.name} 删除成功！`)
+    else
+      $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`)
+  }
+  catch (error) {
+    $toast.error(`${cardProps.site?.name} 删除失败！`)
+    console.error(error)
+  }
+}
+
 // 调用API更新站点信息
 async function updateSiteInfo() {
   try {
@@ -384,6 +399,12 @@ onMounted(() => {
           <VIcon icon="mdi-web" />
         </template>
         浏览
+      </VBtn>
+      <VBtn @click.stop="deleteSiteInfo">
+        <template #prepend>
+          <VIcon icon="mdi-trash-can-outline" />
+        </template>
+        删除
       </VBtn>
     </VCardActions>
   </VCard>
