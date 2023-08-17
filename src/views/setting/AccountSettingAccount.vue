@@ -221,7 +221,7 @@ onMounted(() => {
             </div>
 
             <p class="text-body-1 mb-0">
-              允许 JPG、GIF 或 PNG 格式， 最大尽寸 800K。
+              允许 JPG、GIF 或 PNG 格式， 最大尺寸 800K。
             </p>
           </form>
         </VCardText>
