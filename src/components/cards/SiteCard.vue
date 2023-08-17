@@ -90,6 +90,10 @@ const statusItems = [
 // 站点编辑表单数据
 const siteForm = reactive<any>(cardProps.site ?? {})
 
+// 类型转换
+siteForm.proxy = siteForm.proxy === 1
+siteForm.render = siteForm.render === 1
+
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
   window.open(page_url, '_blank')

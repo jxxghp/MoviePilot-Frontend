@@ -32,6 +32,9 @@ const selectSitesOptions = ref<{ [key: number]: string }[]>([])
 // 订阅编辑表单
 const subscribeForm = reactive<any>(props.media ?? {})
 
+// 类型转换
+subscribeForm.best_version = subscribeForm.best_version === 1
+
 // 上一次更新时间
 const lastUpdateText = ref(
   `${

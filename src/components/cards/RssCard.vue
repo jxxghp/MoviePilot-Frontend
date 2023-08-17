@@ -51,6 +51,11 @@ const siteName = ref('')
 // 订阅编辑表单
 const rssForm = reactive<any>(props.media ?? {})
 
+// 类型转换
+rssForm.best_version = rssForm.best_version === 1
+rssForm.proxy = rssForm.proxy === 1
+rssForm.filter = rssForm.filter === 1
+
 // 上一次更新时间
 const lastUpdateText = ref(
   `${
