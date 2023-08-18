@@ -220,6 +220,18 @@ async function updateSiteInfo() {
   }
 }
 
+// 促销Chip类
+function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
+  if (downloadVolume === 0)
+    return 'text-white bg-lime-500'
+  else if (downloadVolume < 1)
+    return 'text-white bg-green-500'
+  else if (uploadVolume !== 1)
+    return 'text-white bg-sky-500'
+  else
+    return 'text-white bg-gray-500'
+}
+
 // 调用API，查询站点资源
 async function getResourceList() {
   resourceLoading.value = true
@@ -574,6 +586,17 @@ onMounted(() => {
               class="me-1 mb-1"
             >
               {{ label }}
+            </VChip>
+            <VChip
+              v-if="item.raw?.downloadvolumefactor !== 1 || item.raw?.uploadvolumefactor !== 1"
+              :class="
+                getVolumeFactorClass(item.raw?.downloadvolumefactor, item.raw?.uploadvolumefactor)
+              "
+              variant="elevated"
+              size="small"
+              class="me-1 mb-1"
+            >
+              {{ item.raw?.volume_factor }}
             </VChip>
           </template>
           <template #item.pubdate="{ item }">
