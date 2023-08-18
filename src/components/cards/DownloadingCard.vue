@@ -40,8 +40,8 @@ function getTextClass() {
 async function toggleDownload() {
   const operation = isDownloading.value ? 'stop' : 'start'
   try {
-    const result: { [key: string]: any } = await api.put(
-      `download/${props.info?.hash}/${operation}`,
+    const result: { [key: string]: any } = await api.get(
+      `download/${operation}/${props.info?.hash}`,
     )
 
     if (result.success)
