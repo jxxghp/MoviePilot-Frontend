@@ -129,11 +129,8 @@ async function removeHistory(item: TransferHistory) {
       deleteFile = true
 
     // 调用删除API
-    const result: { [key: string]: any } = await api.delete('history/transfer', {
-      data: {
-        ...item,
-        delete_file: deleteFile,
-      },
+    const result: { [key: string]: any } = await api.delete(`history/transfer?delete_file=${deleteFile}`, {
+      data: item,
     })
 
     if (result.success) {
