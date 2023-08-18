@@ -73,7 +73,7 @@ const resourceTotalItems = ref(0)
 const resourceItemsPerPage = ref(25)
 
 // 当前页码
-const resourceCurrentPage = ref(1)
+const resourceCurrentPage = ref(0)
 
 // 用户名密码表单
 const userPwForm = ref({
