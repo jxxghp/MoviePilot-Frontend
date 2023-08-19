@@ -40,8 +40,8 @@ function getTextClass() {
 async function toggleDownload() {
   const operation = isDownloading.value ? 'stop' : 'start'
   try {
-    const result: { [key: string]: any } = await api.put(
-      `download/${props.info?.hash}/${operation}`,
+    const result: { [key: string]: any } = await api.get(
+      `download/${operation}/${props.info?.hash}`,
     )
 
     if (result.success)
@@ -109,9 +109,10 @@ async function deleteDownload() {
     </VCardText>
 
     <VCardActions class="justify-space-between">
-      <VBtn @click="toggleDownload">
-        <span class="ms-2">{{ isDownloading ? "暂停" : "开始" }}</span>
-      </VBtn>
+      <VBtn
+        :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`"
+        @click="toggleDownload"
+      />
       <VBtn
         color="error"
         icon="mdi-trash-can-outline"

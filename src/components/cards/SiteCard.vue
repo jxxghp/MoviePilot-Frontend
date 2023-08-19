@@ -73,7 +73,7 @@ const resourceTotalItems = ref(0)
 const resourceItemsPerPage = ref(25)
 
 // 当前页码
-const resourceCurrentPage = ref(1)
+const resourceCurrentPage = ref(0)
 
 // 用户名密码表单
 const userPwForm = ref({
@@ -89,6 +89,10 @@ const statusItems = [
 
 // 站点编辑表单数据
 const siteForm = reactive<any>(cardProps.site ?? {})
+
+// 类型转换
+siteForm.proxy = siteForm.proxy === 1
+siteForm.render = siteForm.render === 1
 
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
@@ -214,6 +218,18 @@ async function updateSiteInfo() {
     $toast.error(`${cardProps.site?.name} 更新失败！`)
     console.error(error)
   }
+}
+
+// 促销Chip类
+function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
+  if (downloadVolume === 0)
+    return 'text-white bg-lime-500'
+  else if (downloadVolume < 1)
+    return 'text-white bg-green-500'
+  else if (uploadVolume !== 1)
+    return 'text-white bg-sky-500'
+  else
+    return 'text-white bg-gray-500'
 }
 
 // 调用API，查询站点资源
@@ -575,6 +591,17 @@ onMounted(() => {
               class="me-1 mb-1"
             >
               {{ label }}
+            </VChip>
+            <VChip
+              v-if="item.raw?.downloadvolumefactor !== 1 || item.raw?.uploadvolumefactor !== 1"
+              :class="
+                getVolumeFactorClass(item.raw?.downloadvolumefactor, item.raw?.uploadvolumefactor)
+              "
+              variant="elevated"
+              size="small"
+              class="me-1 mb-1"
+            >
+              {{ item.raw?.volume_factor }}
             </VChip>
           </template>
           <template #item.pubdate="{ item }">

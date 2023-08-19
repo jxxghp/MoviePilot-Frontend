@@ -626,7 +626,7 @@ export interface MetaInfo {
   year?: string
 
   // 总季数
-  total_seasons: number
+  total_season: number
 
   // 识别的开始季 数字
   begin_season?: number
