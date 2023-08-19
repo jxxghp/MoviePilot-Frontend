@@ -37,6 +37,9 @@ const pluginInfoDialog = ref(false)
 // 插件详情页面配置项
 let pluginPageItems = reactive([])
 
+// 图片是否加载完成
+const isImageLoaded = ref(false)
+
 // 调用API卸载插件
 async function uninstallPlugin() {
   try {
@@ -184,12 +187,13 @@ const dropdownItems = ref([
       </div>
       <VAvatar
         size="128"
-        class="shadow"
+        :class="{ shadow: isImageLoaded }"
       >
         <VImg
           :src="`/plugin/${props.plugin?.plugin_icon}`"
           aspect-ratio="4/3"
           cover
+          :class="{ shadow: isImageLoaded }"
         />
       </VAvatar>
     </div>

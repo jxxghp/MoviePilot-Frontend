@@ -16,6 +16,9 @@ const emit = defineEmits(['install'])
 // 提示框
 const $toast = useToast()
 
+// 图片是否加载完成
+const isImageLoaded = ref(false)
+
 // 安装插件
 async function installPlugin() {
   try {
@@ -51,12 +54,13 @@ async function installPlugin() {
     >
       <VAvatar
         size="128"
-        class="shadow"
+        :class="{ shadow: isImageLoaded }"
       >
         <VImg
           :src="`/plugin/${props.plugin?.plugin_icon}`"
           aspect-ratio="4/3"
           cover
+          @load="isImageLoaded = true"
         />
       </VAvatar>
     </div>
