@@ -82,12 +82,13 @@ async function addRss() {
     const result: { [key: string]: string } = await api.post('rss', rssForm)
     if (result.success) {
       $toast.success('新增自定义订阅成功')
+
+      // 刷新数据
+      rssAddDialog.value = false
       fetchData()
     }
 
     else { $toast.error(`新增自定义订阅失败：${result.message}`) }
-    // 刷新数据
-    rssAddDialog.value = false
   }
   catch (error) {
     console.error(error)
@@ -161,7 +162,6 @@ function onRefresh() {
   <VDialog
     v-model="rssAddDialog"
     max-width="800"
-    transition="dialog-bottom-transition"
     persistent
     scrollable
   >
@@ -177,7 +177,7 @@ function onRefresh() {
 
     <!-- Dialog Content -->
     <VCard title="新增自定义订阅">
-      <VCardText>
+      <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
