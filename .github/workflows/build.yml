@@ -1,7 +1,12 @@
 name: Build moviepilot frontend
 
 on:
-    workflow_dispatch:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
 
 jobs:
   build:
@@ -13,30 +18,30 @@ jobs:
       - name: Release version
         id: release_version
         run: |
-            frontend_version=$(jq -r '.version' package.json)
-            echo "frontend_version=v$frontend_version" >> $GITHUB_ENV
+          frontend_version=$(jq -r '.version' package.json)
+          echo "frontend_version=v$frontend_version" >> $GITHUB_ENV
 
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-            node-version: '18'
-            cache: 'yarn'
+          node-version: '18'
+          cache: 'yarn'
 
       - name: Build frontend
         id: build_frontend
         run: |
-            yarn
-            yarn build
-            zip -r dist.zip dist
+          yarn
+          yarn build
+          zip -r dist.zip dist
 
       - name: Generate Release
         uses: softprops/action-gh-release@v1
         with:
-            tag_name: ${{ env.frontend_version }}
-            name: ${{ env.frontend_version }}
-            draft: false
-            prerelease: false
-            files: |
-                dist.zip
+          tag_name: ${{ env.frontend_version }}
+          name: ${{ env.frontend_version }}
+          draft: false
+          prerelease: false
+          files: |
+            dist.zip
         env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
