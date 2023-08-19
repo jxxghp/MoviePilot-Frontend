@@ -18,10 +18,12 @@
 
 .v-toast--bottom {
   margin-bottom: env(safe-area-inset-bottom);
+  z-index: 2500;
 }
 
 .v-toast--top {
   margin-top: env(safe-area-inset-top);
+  z-index: 2500;
 }
 
 .v-dialog > .v-overlay__content {

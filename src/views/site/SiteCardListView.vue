@@ -60,7 +60,7 @@ async function fetchData() {
 
 // 调用API 新增站点
 async function addSite() {
-  if (!siteForm.url || !siteForm.name)
+  if (!siteForm.url)
     return
 
   startNProgress()
@@ -74,11 +74,11 @@ async function addSite() {
       $toast.success('新增站点成功')
 
       // 刷新数据
-      siteAddDialog.value = false
       fetchData()
     }
 
     else { $toast.error(`新增站点失败：${result.message}`) }
+    siteAddDialog.value = false
   }
   catch (error) {
     console.error(error)

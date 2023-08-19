@@ -84,11 +84,10 @@ async function addRss() {
       $toast.success('新增自定义订阅成功')
 
       // 刷新数据
-      rssAddDialog.value = false
       fetchData()
     }
-
     else { $toast.error(`新增自定义订阅失败：${result.message}`) }
+    rssAddDialog.value = false
   }
   catch (error) {
     console.error(error)
