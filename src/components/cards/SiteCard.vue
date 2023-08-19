@@ -234,6 +234,11 @@ async function getResourceList() {
   }
 }
 
+// 打开站点页面
+function openSitePage() {
+  window.open(cardProps.site?.url, '_blank')
+}
+
 // 装载时查询站点图标
 onMounted(() => {
   getSiteIcon()
@@ -258,7 +263,7 @@ onMounted(() => {
       </VAvatar>
     </template>
     <VCardItem>
-      <VCardTitle class="font-bold">
+      <VCardTitle class="font-bold" @click.stop="openSitePage">
         {{ cardProps.site?.name }}
       </VCardTitle>
       <VCardSubtitle>{{ cardProps.site?.url }}</VCardSubtitle>
