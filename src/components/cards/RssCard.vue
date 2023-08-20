@@ -416,8 +416,8 @@ onMounted(() => {
               md="6"
             >
               <VSelect
-                v-model="rssForm.season"
                 v-show="rssForm.type === '电视剧'"
+                v-model="rssForm.season"
                 label="季"
                 :items="seasonItems"
                 readonly
