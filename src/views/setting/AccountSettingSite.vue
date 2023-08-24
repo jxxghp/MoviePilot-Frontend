@@ -40,7 +40,7 @@ async function querySelectedSites() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/IndexerSites')
 
-    selectedSites.value = result.data?.value
+    selectedSites.value = result.data?.value ?? []
   }
   catch (error) {
     console.log(error)
