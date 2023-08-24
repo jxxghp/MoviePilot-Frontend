@@ -65,8 +65,8 @@ function getPercentage() {
     return 0
 
   return Math.round(
-    (((props.media?.total_episode || 0) - (props.media?.lack_episode || 0))
-      / (props.media?.total_episode || 1))
+    (((props.media?.total_episode ?? 0) - (props.media?.lack_episode ?? 0))
+      / (props.media?.total_episode ?? 1))
       * 100,
   )
 }
