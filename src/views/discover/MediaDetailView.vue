@@ -379,12 +379,13 @@ function joinArray(arr: string[]) {
 }
 
 // 开始搜索
-function handleSearch() {
+function handleSearch(area: string) {
   router.push({
     path: '/resource',
     query: {
       keyword: `tmdb:${mediaDetail.value.tmdb_id}`,
       type: mediaDetail.value.type,
+      area,
     },
   })
 }
@@ -440,11 +441,31 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn v-if="mediaDetail.tmdb_id" variant="tonal" color="info" @click="handleSearch">
+          <VBtn v-if="mediaDetail.tmdb_id" variant="tonal" color="info">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
             </template>
-            搜索
+            搜索资源
+            <VMenu
+              activator="parent"
+              close-on-content-click
+            >
+              <VList>
+                <VListItem
+                  variant="plain"
+                  @click="handleSearch('title')"
+                >
+                  <VListItemTitle>标题</VListItemTitle>
+                </VListItem>
+                <VListItem
+                  v-show="mediaDetail.imdb_id"
+                  variant="plain"
+                  @click="handleSearch('imdbid')"
+                >
+                  <VListItemTitle>IMDB链接</VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
           </VBtn>
           <VBtn v-if="mediaDetail.type === '电影'" class="ms-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>

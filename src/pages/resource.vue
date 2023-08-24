@@ -9,6 +9,9 @@ const keyword = route.query?.keyword?.toString() ?? ''
 
 // 查询类型
 const type = route.query?.type?.toString() ?? ''
+
+// 搜索字段
+const area = route.query?.area?.toString() ?? ''
 </script>
 
 <template>
@@ -16,6 +19,7 @@ const type = route.query?.type?.toString() ?? ''
     <TorrentCardListView
       :keyword="keyword"
       :type="type"
+      :area="area"
     />
   </div>
 </template>

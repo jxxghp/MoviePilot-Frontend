@@ -349,6 +349,7 @@ function handleSearch() {
           : `douban:${props.media?.douban_id}`
       }`,
       type: props.media?.type,
+      area: 'title',
     },
   })
 }
