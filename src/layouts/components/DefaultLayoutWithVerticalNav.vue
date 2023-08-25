@@ -134,6 +134,13 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
           to: '/history',
         }"
       />
+      <VerticalNavLink
+        :item="{
+          title: '文件管理',
+          icon: 'mdi-folder-multiple-outline',
+          to: '/filemanager',
+        }"
+      />
 
       <!-- 👉 系统 -->
       <VerticalNavSectionTitle
