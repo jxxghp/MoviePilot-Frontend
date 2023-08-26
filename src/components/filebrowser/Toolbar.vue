@@ -85,7 +85,7 @@ async function mkdir() {
 
 <template>
   <VToolbar flat dense>
-    <VToolbarItems>
+    <VToolbarItems class="overflow-hidden">
       <VMenu v-if="inProps.storages?.length || 0 > 1" offset-y>
         <template #activator="{ props }">
           <VBtn v-bind="props">

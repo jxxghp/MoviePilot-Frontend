@@ -216,6 +216,35 @@ watch(
   },
 )
 
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: '重命名',
+    value: 1,
+    props: {
+      prependIcon: 'mdi-rename',
+      click: showRenmae,
+    },
+  },
+  {
+    title: '整理',
+    value: 2,
+    props: {
+      prependIcon: 'mdi-folder-arrow-right',
+      click: showTransfer,
+    },
+  },
+  {
+    title: '删除',
+    value: 3,
+    props: {
+      prependIcon: 'mdi-delete-outline',
+      color: 'error',
+      click: deleteItem,
+    },
+  },
+])
+
 onMounted(() => {
   load()
 })
@@ -231,7 +260,7 @@ onMounted(() => {
     </VCardText>
     <VCardText
       v-else-if="isFile && !isImage"
-      class="grow d-flex justify-center align-center"
+      class="grow d-flex justify-center align-center break-all"
     >
       文件: {{ path }}<br>
     </VCardText>
@@ -241,13 +270,13 @@ onMounted(() => {
     >
       <VImg :src="getImgLink(path)" max-width="100%" max-height="100%" />
     </VCardText>
-    <VCardText v-else-if="dirs.length || files.length" class="grow">
-      <VList v-if="dirs.length" subheader max-height="400">
+    <VCardText v-else-if="dirs.length || files.length" class="p-0">
+      <VList v-if="dirs.length" subheader>
         <VListSubheader>目录</VListSubheader>
         <VListItem
           v-for="(item, index) in dirs"
           :key="index"
-          class="pl-2"
+          class="px-3 pe-1"
           @click="changePath(item.path)"
         >
           <template #prepend>
@@ -255,25 +284,49 @@ onMounted(() => {
           </template>
           <VListItemTitle v-text="item.name" />
           <template #append>
-            <IconBtn @click.stop="showRenmae(item)">
+            <IconBtn class="d-sm-none">
+              <VIcon
+                icon="mdi-dots-vertical"
+              />
+              <VMenu
+                activator="parent"
+                close-on-content-click
+              >
+                <VList>
+                  <VListItem
+                    v-for="(menu, i) in dropdownItems"
+                    :key="i"
+                    variant="plain"
+                    :base-color="menu.props.color"
+                    @click.stop="menu.props.click(item)"
+                  >
+                    <template #prepend>
+                      <VIcon :icon="menu.props.prependIcon" />
+                    </template>
+                    <VListItemTitle v-text="menu.title" />
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </IconBtn>
+            <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
               <VIcon icon="mdi-rename" />
             </IconBtn>
-            <IconBtn @click.stop="showTransfer(item)">
+            <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
               <VIcon icon="mdi-folder-arrow-right" />
             </IconBtn>
-            <IconBtn @click.stop="deleteItem(item)">
+            <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
               <VIcon icon="mdi-delete-outline" />
             </IconBtn>
           </template>
         </VListItem>
       </VList>
       <VDivider v-if="dirs.length && files.length" />
-      <VList v-if="files.length" subheader max-height="400">
+      <VList v-if="files.length" subheader>
         <VListSubheader>文件</VListSubheader>
         <VListItem
           v-for="(item, index) in files"
           :key="index"
-          class="pl-2"
+          class="pl-3 pe-1"
           @click="changePath(item.path)"
         >
           <template #prepend>
@@ -284,13 +337,37 @@ onMounted(() => {
           <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
 
           <template #append>
-            <IconBtn @click.stop="showRenmae(item)">
+            <IconBtn class="d-sm-none">
+              <VIcon
+                icon="mdi-dots-vertical"
+              />
+              <VMenu
+                activator="parent"
+                close-on-content-click
+              >
+                <VList>
+                  <VListItem
+                    v-for="(menu, i) in dropdownItems"
+                    :key="i"
+                    variant="plain"
+                    :base-color="menu.props.color"
+                    @click.stop="menu.props.click(item)"
+                  >
+                    <template #prepend>
+                      <VIcon :icon="menu.props.prependIcon" />
+                    </template>
+                    <VListItemTitle v-text="menu.title" />
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </IconBtn>
+            <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
               <VIcon icon="mdi-rename" />
             </IconBtn>
-            <IconBtn @click.stop="showTransfer(item)">
+            <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
               <VIcon icon="mdi-folder-arrow-right" />
             </IconBtn>
-            <IconBtn @click.stop="deleteItem(item)">
+            <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
               <VIcon icon="mdi-delete-outline" />
             </IconBtn>
           </template>
