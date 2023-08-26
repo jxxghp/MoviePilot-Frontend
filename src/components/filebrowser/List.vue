@@ -225,7 +225,7 @@ onMounted(() => {
       v-else-if="isFile && isImage"
       class="grow d-flex justify-center align-center"
     >
-      <VImg :src="getImgLink(path)" cover max-width="100%" max-height="100%" />
+      <VImg :src="getImgLink(path)" max-width="100%" max-height="100%" />
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="grow">
       <VList v-if="dirs.length" subheader max-height="300">
