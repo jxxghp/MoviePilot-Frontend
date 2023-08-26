@@ -5,6 +5,7 @@ import axios from 'axios'
 import Toolbar from './filebrowser/Toolbar.vue'
 import Tree from './filebrowser/Tree.vue'
 import List from './filebrowser/List.vue'
+import type { EndPoints } from '@/api/types'
 
 // 输入参数
 const props = defineProps({
@@ -12,15 +13,15 @@ const props = defineProps({
   storage: String,
   path: String,
   tree: String,
-  endpoints: Object,
+  endpoints: Object as PropType<EndPoints>,
   axios: Object as PropType<Axios>,
-  axiosConfig: Object,
-  maxUploadFilesCount: Number,
-  maxUploadFileSize: Number,
+  axiosconfig: Object,
 })
 
-// 事件
+// 事件f
 const emit = defineEmits(['change'])
+
+console.log('FileBrowser Init Path', props.path)
 
 const availableStorages = [
   {
@@ -29,12 +30,6 @@ const availableStorages = [
     icon: 'mdi-folder-multiple-outline',
   },
 ]
-
-const endpoints = {
-  list: { url: '/filebrowser/list?path={path}', method: 'get' },
-  mkdir: { url: '/filebrowser/mkdir?path={path}', method: 'post' },
-  delete: { url: '/filebrowser/delete?path={path}', method: 'post' },
-}
 
 const fileIcons = {
   zip: 'mdi-folder-zip-outline',
@@ -65,7 +60,7 @@ const path = ref(props.path)
 // 当前存储
 const activeStorage = ref('local')
 // 刷新
-const refreshPending = ref(false)
+const refreshPending = ref(true)
 // axios实例
 const axiosInstance = ref<Axios>()
 
@@ -89,13 +84,14 @@ function storageChanged(storage: string) {
 
 function pathChanged(_path: string) {
   path.value = _path
+  console.log('Browser changePath', path.value)
   emit('change', path)
 }
 
 // 初始化
-onMounted(() => {
+onBeforeMount(() => {
   activeStorage.value = props.storage ?? 'local'
-  axiosInstance.value = props.axios ?? axios.create(props.axiosConfig)
+  axiosInstance.value = props.axios ?? axios.create(props.axiosconfig)
   if (!path.value)
     pathChanged('/')
 })
@@ -107,7 +103,7 @@ onMounted(() => {
       :path="path"
       :storages="storagesArray"
       :storage="activeStorage"
-      :endpoints="endpoints"
+      :endpoints="props.endpoints"
       :axios="axiosInstance"
       @storagechanged="storageChanged"
       @pathchanged="pathChanged"
@@ -136,10 +132,10 @@ onMounted(() => {
           :endpoints="endpoints"
           :axios="axiosInstance"
           :refreshpending="refreshPending"
-          @path-changed="pathChanged"
+          @pathchanged="pathChanged"
           @loading="loadingChanged"
           @refreshed="refreshPending = false"
-          @file-deleted="refreshPending = true"
+          @filedeleted="refreshPending = true"
         />
       </VCol>
     </VRow>

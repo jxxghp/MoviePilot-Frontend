@@ -38,8 +38,6 @@ function init() {
     children: [],
     size: 0,
   }]
-  if (props.path !== '')
-    emit('pathchanged', '')
 }
 
 // 调用API读取文件夹
@@ -54,9 +52,9 @@ async function readFolder(item: FileItem) {
     method: props.endpoints?.list.method || 'get',
   }
 
-  const response: any = await props.axios?.request(config)
+  const response: FileItem[] = await props.axios?.request(config) ?? []
 
-  item.children = response.data.map((item: FileItem) => {
+  item.children = response.map((item: FileItem) => {
     if (item.type === 'dir')
       item.children = []
 
@@ -68,6 +66,7 @@ async function readFolder(item: FileItem) {
 
 // 选中变化
 function activeChanged(_active: string[]) {
+  console.log('Tree changePath', _active)
   active.value = _active
   let path = ''
   if (active.value.length)

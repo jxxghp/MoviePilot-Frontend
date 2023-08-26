@@ -2,6 +2,7 @@
 import type { Axios } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from 'vuetify-use-dialog'
+import axios from 'axios'
 import { formatBytes } from '@core/utils/formatters'
 import type { EndPoints, FileItem } from '@/api/types'
 
@@ -18,20 +19,25 @@ const props = defineProps({
 // 对外事件
 const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted'])
 
+console.log('List Init Path', props.path)
+
 // 确认框
 const createConfirm = useConfirm()
+
+// axios实例
+const axiosInstance = ref<Axios>(props.axios ?? axios)
 
 // 内容列表
 const items = ref<FileItem[]>([])
 
 // 当前路径
-const path = ref(props.path ?? '')
+const path = ref(props.path)
 
 // 过滤条件
 const filter = ref('')
 
 // 存储空间类型
-const storage = ref(props.storage || '')
+const storage = ref(props.storage ?? '')
 
 // 是否正在加载
 const refreshPending = ref(props.refreshpending || false)
@@ -47,13 +53,14 @@ const files = computed(() =>
 )
 
 // 是否目录
-const isDir = computed(() => path.value.endsWith('/'))
+const isDir = computed(() => path.value?.endsWith('/'))
 
 // 是否文件
 const isFile = computed(() => !isDir.value)
 
 // 调API加载内容
 async function load() {
+  console.log('List load', path.value, isDir.value)
   if (isDir.value) {
     const url = props.endpoints?.list.url
       .replace(/{storage}/g, storage.value)
@@ -63,9 +70,9 @@ async function load() {
       url,
       method: props.endpoints?.list.method || 'get',
     }
-
-    const response = await props.axios?.request(config)
-    items.value = response?.data
+    console.log('List load', url, config)
+    // 加载数据
+    items.value = await axiosInstance.value.request(config) ?? []
   }
 }
 
@@ -75,7 +82,7 @@ async function deleteItem(item: FileItem) {
     title: '确认',
     content: `是否确认删除${
                 item.type === 'dir' ? '目录' : '文件'
-            }?<br><em>${item.basename}</em>?`,
+            } ${item.basename}？`,
     confirmationText: '确认',
     cancellationText: '取消',
     dialogProps: {
@@ -94,7 +101,7 @@ async function deleteItem(item: FileItem) {
       method: props.endpoints?.delete.method || 'post',
     }
 
-    await props.axios?.request(config)
+    await axiosInstance.value.request(config)
     emit('filedeleted')
     emit('loading', false)
   }
@@ -102,21 +109,26 @@ async function deleteItem(item: FileItem) {
 
 // 切换路径
 function changePath(path: string) {
+  console.log('List changePath', path)
   emit('pathchanged', path)
 }
 
 // 监听path变化
 watch(
-  () => path.value,
+  path,
   async () => {
+    console.log('List pathChanged', path.value)
     items.value = []
-    await load()
     if (refreshPending.value) {
       await load()
       emit('refreshed')
     }
   },
 )
+
+onMounted(() => {
+  load()
+})
 </script>
 
 <template>
@@ -139,19 +151,17 @@ watch(
         <VListItem
           v-for="(item, index) in dirs"
           :key="index"
-          class="pl-0"
+          class="pl-2"
           @click="changePath(item.path)"
         >
           <template #prepend>
             <VIcon icon="mdi-folder-outline" />
           </template>
-          <VListItemTitle v-text="item.basename" />
+          <VListItemTitle v-text="item.name" />
           <template #append>
-            <VBtn icon @click.stop="deleteItem(item)">
-              <VIcon color="grey lighten-1">
-                mdi-delete-outline
-              </VIcon>
-            </VBtn>
+            <IconBtn @click.stop="deleteItem(item)">
+              <VIcon icon="mdi-delete-outline" />
+            </IconBtn>
           </template>
         </VListItem>
       </VList>
@@ -161,22 +171,20 @@ watch(
         <VListItem
           v-for="(item, index) in files"
           :key="index"
-          class="pl-0"
+          class="pl-2"
           @click="changePath(item.path)"
         >
           <template #prepend>
             <VIcon v-if="props.icons" :icon="props.icons[item.extension.toLowerCase()] || props.icons?.other" />
           </template>
 
-          <VListItemTitle v-text="item.basename" />
+          <VListItemTitle v-text="item.name" />
           <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
 
           <template #append>
-            <VBtn icon @click.stop="deleteItem(item)">
-              <VIcon color="grey lighten-1">
-                mdi-delete-outline
-              </VIcon>
-            </VBtn>
+            <IconBtn @click.stop="deleteItem(item)">
+              <VIcon icon="mdi-delete-outline" />
+            </IconBtn>
           </template>
         </VListItem>
       </VList>

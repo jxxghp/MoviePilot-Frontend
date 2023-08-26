@@ -913,5 +913,5 @@ export interface FileItem {
   path: string
   extension: string
   size: number
-  children: []
+  children: FileItem[]
 }
