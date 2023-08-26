@@ -1,8 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
+import type { Setting } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
-
-const initPath = '/Users/jxxghp/Downloads/爱情生活 (2020)/'
 
 const endpoints = {
   list: { url: '/filebrowser/list?path={path}', method: 'get' },
@@ -10,10 +9,15 @@ const endpoints = {
   delete: { url: '/filebrowser/delete?path={path}', method: 'get' },
   download: { url: '/filebrowser/download?path={path}', method: 'get' },
 }
+
+// 读取下载目录
+const systemEnv: Setting = inject('systemEnv') ?? {
+  DOWNLOAD_PATH: '/',
+}
 </script>
 
 <template>
   <div>
-    <FileBrowser storages="local" :tree="false" :path="initPath" :endpoints="endpoints" :axios="api" />
+    <FileBrowser storages="local" :tree="false" :path="systemEnv.DOWNLOAD_PATH" :endpoints="endpoints" :axios="api" />
   </div>
 </template>

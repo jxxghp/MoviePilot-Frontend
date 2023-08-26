@@ -117,6 +117,11 @@ function download(path: string) {
   window.open(url, '_blank')
 }
 
+// 转移文件
+function transfer(item: FileItem) {
+  // TODO 转移文件
+}
+
 // 监听path变化
 watch(
   () => props.path,
@@ -170,6 +175,9 @@ onMounted(() => {
           </template>
           <VListItemTitle v-text="item.name" />
           <template #append>
+            <IconBtn @click.stop="transfer(item)">
+              <VIcon icon="mdi-folder-arrow-right" />
+            </IconBtn>
             <IconBtn @click.stop="deleteItem(item)">
               <VIcon icon="mdi-delete-outline" />
             </IconBtn>
@@ -193,6 +201,9 @@ onMounted(() => {
           <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
 
           <template #append>
+            <IconBtn @click.stop="transfer(item)">
+              <VIcon icon="mdi-folder-arrow-right" />
+            </IconBtn>
             <IconBtn @click.stop="deleteItem(item)">
               <VIcon icon="mdi-delete-outline" />
             </IconBtn>
