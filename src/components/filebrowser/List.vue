@@ -3,9 +3,12 @@ import type { Axios } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from 'vuetify-use-dialog'
 import axios from 'axios'
+import { useToast } from 'vue-toast-notification'
+import { numberValidator } from '@/@validators'
 import { formatBytes } from '@core/utils/formatters'
 import type { EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
+import api from '@/api'
 
 // 输入参数
 const inProps = defineProps({
@@ -19,6 +22,9 @@ const inProps = defineProps({
 
 // 对外事件
 const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted', 'renamed'])
+
+// 提示框
+const $toast = useToast()
 
 // 确认框
 const createConfirm = useConfirm()
@@ -47,10 +53,29 @@ const newName = ref('')
 // 当前名称
 const currentItem = ref<FileItem>()
 
-// TODO 文件转移表单
-const transferForm = ref({
+// 文件转移表单
+const transferForm = reactive({
+  path: '',
+  target: '',
+  tmdbid: 0,
+  season: 0,
+  type_name: '电影',
+  transfer_type: '',
+  episode_format: '',
+  episode_detail: '',
+  episode_part: '',
+  episode_offset: null,
+  min_filesize: 0,
 
 })
+
+// 生成1到50季的下拉框选项
+const seasonItems = ref(
+  Array.from({ length: 50 }, (_, i) => i + 1).map(item => ({
+    title: `第 ${item} 季`,
+    value: item,
+  })),
+)
 
 // 目录过滤
 const dirs = computed(() =>
@@ -192,8 +217,26 @@ function showTransfer(item: FileItem) {
 }
 
 // 整理文件
-function transfer() {
-  // TODO 整理文件
+async function transfer() {
+  transferForm.path = currentItem.value?.path || ''
+  // 开始整理文件
+  try {
+    const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
+      params: transferForm,
+    })
+    transferPopper.value = false
+    if (result.success) {
+      $toast.success(`${currentItem.value?.name} 整理成功！`)
+      // 重新加载
+      load()
+    }
+    else {
+      $toast.error(`${currentItem.value?.name} 整理失败：${result.message}！`)
+    }
+  }
+  catch (e) {
+    console.log(e)
+  }
 }
 
 // 监听path变化
@@ -440,22 +483,123 @@ onMounted(() => {
   <!-- 文件整理弹窗 -->
   <VDialog
     v-model="transferPopper"
-    max-width="600"
+    max-width="800"
   >
     <template #activator="{ props }">
       <IconBtn title="整理" v-bind="props">
         <VIcon icon="mdi-folder-arrow-right-outline" />
       </IconBtn>
     </template>
-    <VCard title="文件整理">
-      <VCardText />
+    <VCard :title="`文件整理 - ${currentItem?.name}`">
+      <VCardText>
+        <VForm @submit.prevent="() => {}">
+          <VRow>
+            <VCol
+              cols="12"
+              md="8"
+            >
+              <VTextField
+                v-model="transferForm.target"
+                label="目的路径"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSelect
+                v-model="transferForm.transfer_type"
+                label="整理方式"
+                :items="[
+                  { title: '默认', value: '' },
+                  { title: '移动', value: 'move' },
+                  { title: '复制', value: 'copy' },
+                  { title: '硬链接', value: 'link' },
+                  { title: '软链接', value: 'softlink' },
+                ]"
+              />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSelect
+                v-model="transferForm.type_name"
+                label="类型"
+                :items="[{ title: '电影', value: '电影' }, { title: '电视剧', value: '电视剧' }]"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VTextField
+                v-model="transferForm.tmdbid"
+                label="TMDBID"
+                :rules="[numberValidator]"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSelect
+                v-show="transferForm.type_name === '电视剧'"
+                v-model.number="transferForm.season"
+                label="季"
+                :items="seasonItems"
+              />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol cols="12" md="8">
+              <VTextField
+                v-model="transferForm.episode_format"
+                label="集数定位"
+                placeholder="使用{ep}定位集数"
+              />
+            </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model="transferForm.episode_detail"
+                label="指定集数"
+                placeholder="起始集,终止集，如1或1,2"
+              />
+            </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model="transferForm.episode_part"
+                label="指定Part"
+                placeholder="如part1"
+              />
+            </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model.number="transferForm.episode_offset"
+                label="集数偏移"
+                placeholder="如-10"
+              />
+            </VCol>
+            <VCol cols="12" md="4">
+              <VTextField
+                v-model.number="transferForm.min_filesize"
+                label="最小文件大小（MB）"
+                :rules="[numberValidator]"
+                placeholder="0"
+              />
+            </VCol>
+          </VRow>
+        </VForm>
+      </VCardText>
       <VCardActions>
         <div class="flex-grow-1" />
         <VBtn depressed @click="transferPopper = false">
           取消
         </VBtn>
         <VBtn
-          :disabled="!newName"
+          :disabled="!transferForm.tmdbid"
           depressed
           @click="transfer"
         >
