@@ -12,16 +12,11 @@ const props = defineProps({
   storages: String,
   storage: String,
   path: String,
-  tree: String,
+  tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
   axios: Object as PropType<Axios>,
   axiosconfig: Object,
 })
-
-// 事件f
-const emit = defineEmits(['change'])
-
-console.log('FileBrowser Init Path', props.path)
 
 const availableStorages = [
   {
@@ -53,14 +48,14 @@ const fileIcons = {
   other: 'mdi-file-outline',
 }
 
-// 加载次数
-const loading = ref(0)
 // 当前路径
 const path = ref(props.path)
+// 加载次数
+const loading = ref(0)
 // 当前存储
 const activeStorage = ref('local')
 // 刷新
-const refreshPending = ref(true)
+const refreshPending = ref(false)
 // axios实例
 const axiosInstance = ref<Axios>()
 
@@ -84,8 +79,6 @@ function storageChanged(storage: string) {
 
 function pathChanged(_path: string) {
   path.value = _path
-  console.log('Browser changePath', path.value)
-  emit('change', path)
 }
 
 // 初始化

@@ -903,6 +903,7 @@ export interface EndPoints {
   list: any
   mkdir: any
   delete: any
+  download: any
 }
 
 // 文件浏览项目

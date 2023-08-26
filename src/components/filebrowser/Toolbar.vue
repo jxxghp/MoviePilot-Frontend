@@ -14,9 +14,6 @@ const inProps = defineProps({
 // 对外事件
 const emit = defineEmits(['storagechanged', 'pathchanged', 'loading', 'foldercreated'])
 
-// 当前路径
-const path = ref(inProps.path ?? '')
-
 // 新建文件夹名称
 const newFolderPopper = ref(false)
 
@@ -26,16 +23,16 @@ const newFolderName = ref('')
 // 计算PATH面包屑
 const pathSegments = computed(() => {
   let path_str = '/'
-  const isFolder = path.value.endsWith('/')
-  const segments = path.value.split('/').filter(item => item)
+  const isFolder = inProps.path?.endsWith('/')
+  const segments = inProps.path?.split('/').filter(item => item)
 
-  return segments.map((item, index) => {
+  return segments?.map((item, index) => {
     path_str += item + ((index < segments.length - 1 || isFolder) ? '/' : '')
     return {
       name: item,
       path: path_str,
     }
-  })
+  }) ?? []
 })
 
 const storageObject = computed(() => {
@@ -52,15 +49,13 @@ function changeStorage(code: string) {
 
 // 路径变化
 function changePath(_path: string) {
-  path.value = _path
-  console.log('Toolbar changePath', path.value)
-  emit('pathchanged', path)
+  emit('pathchanged', _path)
 }
 
 // 返回上一级
 function goUp() {
-  const segments = pathSegments.value
-  const path = segments.length === 1 ? '/' : segments[segments.length - 2].path
+  const segments = pathSegments.value ?? []
+  const path = segments?.length === 1 ? '/' : segments[segments.length - 2].path
   changePath(path)
 }
 
@@ -76,11 +71,15 @@ async function mkdir() {
     method: inProps.endpoints?.mkdir.method || 'post',
   }
 
+  // 调API
   await inProps.axios?.request(config)
-  emit('foldercreated', newFolderName.value)
+
   newFolderPopper.value = false
   newFolderName.value = ''
   emit('loading', false)
+
+  // 通知重新加载
+  emit('foldercreated')
 }
 </script>
 

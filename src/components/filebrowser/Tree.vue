@@ -15,9 +15,6 @@ const props = defineProps({
 // 对外事件
 const emit = defineEmits(['pathchanged', 'loading', 'refreshed'])
 
-// 当前路径
-const path = ref(props.path)
-
 // 变量
 const open = ref<string[]>([])
 // 活跃的文件夹
@@ -26,8 +23,6 @@ const active = ref<string[]>([])
 const items = ref<FileItem[]>([])
 // 过滤
 const filter = ref('')
-// 刷新状态
-const refreshPending = ref(props.refreshpending || false)
 
 // 方法
 function init() {
@@ -69,8 +64,6 @@ async function readFolder(item: FileItem) {
 
 // 选中变化
 function activeChanged(_active: string[]) {
-  console.log('Tree changePath', _active)
-  active.value = _active
   let path = ''
   if (active.value.length)
     path = active.value[0]
@@ -103,7 +96,7 @@ watch(() => props.storage, () => {
 
 // 监听路径变化
 watch(
-  path,
+  () => props.path,
   () => {
     if (props.path) {
       active.value = [props.path]
@@ -114,9 +107,9 @@ watch(
 
 // 监听 refreshPending
 watch(
-  refreshPending,
+  () => props.refreshpending,
   async () => {
-    if (refreshPending.value && props.path) {
+    if (props.refreshpending && props.path) {
       const item = findItem(props.path)
       if (item) {
         await readFolder(item)

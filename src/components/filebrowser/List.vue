@@ -19,8 +19,6 @@ const props = defineProps({
 // 对外事件
 const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted'])
 
-console.log('List Init Path', props.path)
-
 // 确认框
 const createConfirm = useConfirm()
 
@@ -30,17 +28,11 @@ const axiosInstance = ref<Axios>(props.axios ?? axios)
 // 内容列表
 const items = ref<FileItem[]>([])
 
-// 当前路径
-const path = ref(props.path)
-
 // 过滤条件
 const filter = ref('')
 
 // 存储空间类型
 const storage = ref(props.storage ?? '')
-
-// 是否正在加载
-const refreshPending = ref(props.refreshpending || false)
 
 // 目录过滤
 const dirs = computed(() =>
@@ -53,27 +45,27 @@ const files = computed(() =>
 )
 
 // 是否目录
-const isDir = computed(() => path.value?.endsWith('/'))
+const isDir = computed(() => props.path?.endsWith('/'))
 
 // 是否文件
 const isFile = computed(() => !isDir.value)
 
 // 调API加载内容
 async function load() {
-  console.log('List load', path.value, isDir.value)
+  emit('loading', true)
   if (isDir.value) {
     const url = props.endpoints?.list.url
       .replace(/{storage}/g, storage.value)
-      .replace(/{path}/g, path.value)
+      .replace(/{path}/g, props.path)
 
     const config = {
       url,
       method: props.endpoints?.list.method || 'get',
     }
-    console.log('List load', url, config)
     // 加载数据
     items.value = await axiosInstance.value.request(config) ?? []
   }
+  emit('loading', false)
 }
 
 // 删除项目
@@ -104,23 +96,41 @@ async function deleteItem(item: FileItem) {
     await axiosInstance.value.request(config)
     emit('filedeleted')
     emit('loading', false)
+    // 重新加载
+    load()
   }
 }
 
 // 切换路径
 function changePath(_path: string) {
-  path.value = _path
-  console.log('List changePath', path.value)
-  emit('pathchanged', path)
+  emit('pathchanged', _path)
+}
+
+// 新窗口中下载文件
+function download(path: string) {
+  if (!path)
+    return
+  const url = props.endpoints?.download.url
+    .replace(/{storage}/g, storage.value)
+    .replace(/{path}/g, path)
+  // FIXME 下载文件
+  window.open(url, '_blank')
 }
 
 // 监听path变化
 watch(
-  path,
+  () => props.path,
   async () => {
-    console.log('List pathChanged', path.value)
     items.value = []
-    if (refreshPending.value) {
+    await load()
+  },
+)
+
+// 监听refreshPending变化
+watch(
+  () => props.refreshpending,
+  async () => {
+    if (props.refreshpending) {
       await load()
       emit('refreshed')
     }
@@ -147,7 +157,7 @@ onMounted(() => {
       文件: {{ path }}
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="grow">
-      <VList v-if="dirs.length" subheader>
+      <VList v-if="dirs.length" subheader max-height="300">
         <VListSubheader>目录</VListSubheader>
         <VListItem
           v-for="(item, index) in dirs"
@@ -167,7 +177,7 @@ onMounted(() => {
         </VListItem>
       </VList>
       <VDivider v-if="dirs.length && files.length" />
-      <VList v-if="files.length" subheader>
+      <VList v-if="files.length" subheader max-height="300">
         <VListSubheader>文件</VListSubheader>
         <VListItem
           v-for="(item, index) in files"
@@ -203,8 +213,9 @@ onMounted(() => {
       空目录
     </VCardText>
     <VDivider v-if="path" />
-    <VToolbar v-if="path && isFile" density="compact" flat color="gray">
+    <VToolbar density="compact" flat color="gray">
       <VTextField
+        v-if="!isFile"
         v-model="filter"
         hide-details
         flat
@@ -214,10 +225,11 @@ onMounted(() => {
         prepend-inner-icon="mdi-filter-outline"
         class="me-2"
       />
-      <VBtn icon>
+      <VSpacer v-if="isFile" />
+      <VBtn v-if="isFile" @click="download(props.path || '')">
         <VIcon>mdi-download</VIcon>
       </VBtn>
-      <VBtn icon @click="load">
+      <VBtn v-if="!isFile" @click="load">
         <VIcon>mdi-refresh</VIcon>
       </VBtn>
     </VToolbar>
