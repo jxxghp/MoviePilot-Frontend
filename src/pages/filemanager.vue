@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import FileBrowser from '@/components/FileBrowser.vue'
+import FileBrowserView from '@/views/reorganize/FileBrowserView.vue'
 </script>
 
 <template>
-  <div>
-    <FileBrowser />
-  </div>
+  <FileBrowserView />
 </template>

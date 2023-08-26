@@ -1,116 +1,136 @@
-<script>
-export default {
-  props: {
-    icons: Object,
-    storage: String,
-    path: String,
-    endpoints: Object,
-    axios: Function,
-    refreshPending: Boolean,
-  },
-  data() {
-    return {
-      open: [],
-      active: [],
-      items: [],
-      filter: '',
+<script lang="ts" setup>
+import type { Axios } from 'axios'
+import type { EndPoints, FileItem } from '@/api/types'
+
+// 输入参数
+const props = defineProps({
+  icons: Object,
+  storage: String,
+  path: String,
+  endpoints: Object as PropType<EndPoints>,
+  axios: Object as PropType<Axios>,
+  refreshpending: Boolean,
+})
+
+// 对外事件
+const emit = defineEmits(['pathchanged', 'loading', 'refreshed'])
+
+// 变量
+const open = ref<string[]>([])
+// 活跃的文件夹
+const active = ref<string[]>([])
+// 内容
+const items = ref<FileItem[]>([])
+// 过滤
+const filter = ref('')
+// 刷新状态
+const refreshPending = ref(props.refreshpending || false)
+
+// 方法
+function init() {
+  open.value = []
+  items.value = [{
+    type: 'dir',
+    path: '/',
+    basename: 'root',
+    extension: '',
+    name: 'root',
+    children: [],
+    size: 0,
+  }]
+  if (props.path !== '')
+    emit('pathchanged', '')
+}
+
+// 调用API读取文件夹
+async function readFolder(item: FileItem) {
+  emit('loading', true)
+  const url = props.endpoints?.list.url
+    .replace(/{storage}/g, props.storage)
+    .replace(/{path}/g, item.path)
+
+  const config = {
+    url,
+    method: props.endpoints?.list.method || 'get',
+  }
+
+  const response: any = await props.axios?.request(config)
+
+  item.children = response.data.map((item: FileItem) => {
+    if (item.type === 'dir')
+      item.children = []
+
+    return item
+  })
+
+  emit('loading', false)
+}
+
+// 选中变化
+function activeChanged(_active: string[]) {
+  active.value = _active
+  let path = ''
+  if (active.value.length)
+    path = active.value[0]
+
+  if (props.path !== path)
+    emit('pathchanged', path)
+}
+
+// 查找文件
+function findItem(path: string) {
+  const stack: FileItem[] = []
+  stack.push(items.value[0])
+  while (stack.length > 0) {
+    const node = stack.pop()
+    if (node?.path === path) {
+      return node
+    }
+    else if (node?.children && node.children.length) {
+      for (const element of node.children)
+        stack.push(element)
+    }
+  }
+  return null
+}
+
+// 监听存储空间变量
+watch(() => props.storage, () => {
+  init()
+})
+
+// 监听路径变化
+watch(() => props.path, () => {
+  if (props.path) {
+    active.value = [props.path]
+    if (!open.value.includes(props.path))
+      open.value.push(props.path)
+  }
+})
+
+// 监听 refreshPending
+watch(
+  () => refreshPending.value,
+  async () => {
+    if (refreshPending.value && props.path) {
+      const item = findItem(props.path)
+      if (item) {
+        await readFolder(item)
+        emit('refreshed')
+      }
     }
   },
-  watch: {
-    storage() {
-      this.init()
-    },
-    path() {
-      this.active = [this.path]
-      if (!this.open.includes(this.path))
-        this.open.push(this.path)
-    },
-    async refreshPending() {
-      if (this.refreshPending) {
-        const item = this.findItem(this.path)
-        await this.readFolder(item)
-        this.$emit('refreshed')
-      }
-    },
-  },
-  created() {
-    this.init()
-  },
-  methods: {
-    init() {
-      this.open = []
-      this.items = []
-      // set default files tree items (root item) in nextTick.
-      // Otherwise this.open isn't cleared properly (due to syncing perhaps)
-      setTimeout(() => {
-        this.items = [
-          {
-            type: 'dir',
-            path: '/',
-            basename: 'root',
-            extension: '',
-            name: 'root',
-            children: [],
-          },
-        ]
-      }, 0)
-      if (this.path !== '')
-        this.$emit('path-changed', '')
-    },
-    async readFolder(item) {
-      this.$emit('loading', true)
-      const url = this.endpoints.list.url
-        .replace(new RegExp('{storage}', 'g'), this.storage)
-        .replace(new RegExp('{path}', 'g'), item.path)
+)
 
-      const config = {
-        url,
-        method: this.endpoints.list.method || 'get',
-      }
-
-      const response = await this.axios.request(config)
-
-      item.children = response.data.map((item) => {
-        if (item.type === 'dir')
-          item.children = []
-
-        return item
-      })
-
-      this.$emit('loading', false)
-    },
-    activeChanged(active) {
-      this.active = active
-      let path = ''
-      if (active.length)
-        path = active[0]
-
-      if (this.path != path)
-        this.$emit('path-changed', path)
-    },
-    findItem(path) {
-      const stack = []
-      stack.push(this.items[0])
-      while (stack.length > 0) {
-        const node = stack.pop()
-        if (node.path == path) {
-          return node
-        }
-        else if (node.children && node.children.length) {
-          for (let i = 0; i < node.children.length; i++)
-            stack.push(node.children[i])
-        }
-      }
-      return null
-    },
-  },
-}
+onMounted(() => {
+  init()
+})
 </script>
 
 <template>
-  <v-card flat tile width="250" min-height="380" class="d-flex flex-column folders-tree-card">
+  <VCard flat width="250" min-height="500" class="d-flex flex-column folders-tree-card">
     <div class="grow scroll-x">
-      <v-treeview
+      <VTreeview
         :open="open"
         :active="active"
         :items="items"
@@ -125,51 +145,37 @@ export default {
         @update:active="activeChanged"
       >
         <template #prepend="{ item, open }">
-          <v-icon
+          <VIcon
             v-if="item.type === 'dir'"
           >
             {{ open ? 'mdi-folder-open-outline' : 'mdi-folder-outline' }}
-          </v-icon>
-          <v-icon v-else>
-            {{ icons[item.extension.toLowerCase()] || icons.other }}
-          </v-icon>
+          </VIcon>
+          <VIcon v-else-if="props.icons" :icon="props.icons[item.extension.toLowerCase()] || props.icons.other" />
         </template>
         <template #label="{ item }">
           {{ item.basename }}
-          <v-btn
+          <VBtn
             v-if="item.type === 'dir'"
             icon
             class="ml-1"
             @click.stop="readFolder(item)"
           >
-            <v-icon class="pa-0 mdi-18px" color="grey lighten-1">
+            <VIcon class="pa-0 mdi-18px" color="grey lighten-1">
               mdi-refresh
-            </v-icon>
-          </v-btn>
+            </VIcon>
+          </VBtn>
         </template>
-      </v-treeview>
+      </VTreeview>
     </div>
-    <v-divider />
-    <v-toolbar dense flat class="shrink">
-      <v-text-field
-        v-model="filter"
-        solo
-        flat
-        hide-details
-        label="Filter"
-        prepend-inner-icon="mdi-filter-outline"
-        class="ml-n3"
-      />
-      <v-tooltip top>
-        <template #activator="{ on }">
-          <v-btn icon @click="init" v-on="on">
-            <v-icon>mdi-collapse-all-outline</v-icon>
-          </v-btn>
-        </template>
-        <span>Collapse All</span>
-      </v-tooltip>
-    </v-toolbar>
-  </v-card>
+    <VDivider />
+    <VToolbar
+      density="compact"
+    >
+      <VBtn icon @click="init">
+        <VIcon icon="mdi-collapse-all-outline" />
+      </VBtn>
+    </VToolbar>
+  </VCard>
 </template>
 
 <style lang="scss" scoped>
@@ -192,5 +198,8 @@ export default {
             }
         }
     }
+}
+.v-toolbar{
+  background: rgb(var(--v-table-header-background));
 }
 </style>

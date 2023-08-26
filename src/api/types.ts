@@ -897,3 +897,21 @@ export interface Rss {
   // 状态 0-停用，1-启用
   state?: number
 }
+
+// 文件浏览接口
+export interface EndPoints {
+  list: any
+  mkdir: any
+  delete: any
+}
+
+// 文件浏览项目
+export interface FileItem {
+  type: string
+  name: string
+  basename: string
+  path: string
+  extension: string
+  size: number
+  children: []
+}

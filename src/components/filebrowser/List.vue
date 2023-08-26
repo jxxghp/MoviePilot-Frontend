@@ -1,227 +1,225 @@
-<script>
-import { formatBytes } from './util'
-import Confirm from './Confirm.vue'
+<script lang="ts" setup>
+import type { Axios } from 'axios'
+import type { PropType } from 'vue'
+import { useConfirm } from 'vuetify-use-dialog'
+import { formatBytes } from '@core/utils/formatters'
+import type { EndPoints, FileItem } from '@/api/types'
 
-export default {
-  components: {
-    Confirm,
-  },
-  props: {
-    icons: Object,
-    storage: String,
-    path: String,
-    endpoints: Object,
-    axios: Function,
-    refreshPending: Boolean,
-  },
-  data() {
-    return {
-      items: [],
-      filter: '',
+// 输入参数
+const props = defineProps({
+  icons: Object,
+  storage: String,
+  path: String,
+  endpoints: Object as PropType<EndPoints>,
+  axios: Object as PropType<Axios>,
+  refreshpending: Boolean,
+})
+
+// 对外事件
+const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted'])
+
+// 确认框
+const createConfirm = useConfirm()
+
+// 内容列表
+const items = ref<FileItem[]>([])
+
+// 当前路径
+const path = ref(props.path ?? '')
+
+// 过滤条件
+const filter = ref('')
+
+// 存储空间类型
+const storage = ref(props.storage || '')
+
+// 是否正在加载
+const refreshPending = ref(props.refreshpending || false)
+
+// 目录过滤
+const dirs = computed(() =>
+  items.value.filter(item => item.type === 'dir' && item.basename.includes(filter.value)),
+)
+
+// 文件过滤
+const files = computed(() =>
+  items.value.filter(item => item.type === 'file' && item.basename.includes(filter.value)),
+)
+
+// 是否目录
+const isDir = computed(() => path.value.endsWith('/'))
+
+// 是否文件
+const isFile = computed(() => !isDir.value)
+
+// 调API加载内容
+async function load() {
+  if (isDir.value) {
+    const url = props.endpoints?.list.url
+      .replace(/{storage}/g, storage.value)
+      .replace(/{path}/g, path.value)
+
+    const config = {
+      url,
+      method: props.endpoints?.list.method || 'get',
+    }
+
+    const response = await props.axios?.request(config)
+    items.value = response?.data
+  }
+}
+
+// 删除项目
+async function deleteItem(item: FileItem) {
+  const confirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认删除${
+                item.type === 'dir' ? '目录' : '文件'
+            }?<br><em>${item.basename}</em>?`,
+    confirmationText: '确认',
+    cancellationText: '取消',
+    dialogProps: {
+      maxWidth: 600,
+    },
+  })
+
+  if (confirmed) {
+    emit('loading', true)
+    const url = props.endpoints?.delete.url
+      .replace(/{storage}/g, storage.value)
+      .replace(/{path}/g, item.path)
+
+    const config = {
+      url,
+      method: props.endpoints?.delete.method || 'post',
+    }
+
+    await props.axios?.request(config)
+    emit('filedeleted')
+    emit('loading', false)
+  }
+}
+
+// 切换路径
+function changePath(path: string) {
+  emit('pathchanged', path)
+}
+
+// 监听path变化
+watch(
+  () => path.value,
+  async () => {
+    items.value = []
+    await load()
+    if (refreshPending.value) {
+      await load()
+      emit('refreshed')
     }
   },
-  computed: {
-    dirs() {
-      return this.items.filter(
-        item =>
-          item.type === 'dir' && item.basename.includes(this.filter),
-      )
-    },
-    files() {
-      return this.items.filter(
-        item =>
-          item.type === 'file' && item.basename.includes(this.filter),
-      )
-    },
-    isDir() {
-      return this.path[this.path.length - 1] === '/'
-    },
-    isFile() {
-      return !this.isDir
-    },
-  },
-  watch: {
-    async path() {
-      this.items = []
-      await this.load()
-    },
-    async refreshPending() {
-      if (this.refreshPending) {
-        await this.load()
-        this.$emit('refreshed')
-      }
-    },
-  },
-  methods: {
-    formatBytes,
-    changePath(path) {
-      this.$emit('path-changed', path)
-    },
-    async load() {
-      this.$emit('loading', true)
-      if (this.isDir) {
-        const url = this.endpoints.list.url
-          .replace(new RegExp('{storage}', 'g'), this.storage)
-          .replace(new RegExp('{path}', 'g'), this.path)
-
-        const config = {
-          url,
-          method: this.endpoints.list.method || 'get',
-        }
-
-        const response = await this.axios.request(config)
-        this.items = response.data
-      }
-      else {
-        // TODO: load file
-      }
-      this.$emit('loading', false)
-    },
-    async deleteItem(item) {
-      const confirmed = await this.$refs.confirm.open(
-        'Delete',
-                `Are you sure<br>you want to delete this ${
-                    item.type === 'dir' ? 'folder' : 'file'
-                }?<br><em>${item.basename}</em>`,
-      )
-
-      if (confirmed) {
-        this.$emit('loading', true)
-        const url = this.endpoints.delete.url
-          .replace(new RegExp('{storage}', 'g'), this.storage)
-          .replace(new RegExp('{path}', 'g'), item.path)
-
-        const config = {
-          url,
-          method: this.endpoints.delete.method || 'post',
-        }
-
-        await this.axios.request(config)
-        this.$emit('file-deleted')
-        this.$emit('loading', false)
-      }
-    },
-  },
-}
+)
 </script>
 
 <template>
-  <v-card flat tile min-height="380" class="d-flex flex-column">
-    <Confirm ref="confirm" />
-    <v-card-text
+  <VCard flat tile min-height="380" class="d-flex flex-column">
+    <VCardText
       v-if="!path"
       class="grow d-flex justify-center align-center grey--text"
     >
-      Select a folder or a file
-    </v-card-text>
-    <v-card-text
+      选择目录或文件
+    </VCardText>
+    <VCardText
       v-else-if="isFile"
       class="grow d-flex justify-center align-center"
     >
-      File: {{ path }}
-    </v-card-text>
-    <v-card-text v-else-if="dirs.length || files.length" class="grow">
-      <v-list v-if="dirs.length" subheader>
-        <v-subheader>Folders</v-subheader>
-        <v-list-item
-          v-for="item in dirs"
-          :key="item.basename"
+      文件: {{ path }}
+    </VCardText>
+    <VCardText v-else-if="dirs.length || files.length" class="grow">
+      <VList v-if="dirs.length" subheader>
+        <VListSubheader>目录</VListSubheader>
+        <VListItem
+          v-for="(item, index) in dirs"
+          :key="index"
           class="pl-0"
           @click="changePath(item.path)"
         >
-          <v-list-item-avatar class="ma-0">
-            <v-icon>mdi-folder-outline</v-icon>
-          </v-list-item-avatar>
-          <v-list-item-content class="py-2">
-            <v-list-item-title v-text="item.basename" />
-          </v-list-item-content>
-          <v-list-item-action>
-            <v-btn icon @click.stop="deleteItem(item)">
-              <v-icon color="grey lighten-1">
+          <template #prepend>
+            <VIcon icon="mdi-folder-outline" />
+          </template>
+          <VListItemTitle v-text="item.basename" />
+          <template #append>
+            <VBtn icon @click.stop="deleteItem(item)">
+              <VIcon color="grey lighten-1">
                 mdi-delete-outline
-              </v-icon>
-            </v-btn>
-            <v-btn v-if="false" icon>
-              <v-icon color="grey lighten-1">
-                mdi-information
-              </v-icon>
-            </v-btn>
-          </v-list-item-action>
-        </v-list-item>
-      </v-list>
-      <v-divider v-if="dirs.length && files.length" />
-      <v-list v-if="files.length" subheader>
-        <v-subheader>Files</v-subheader>
-        <v-list-item
-          v-for="item in files"
-          :key="item.basename"
+              </VIcon>
+            </VBtn>
+          </template>
+        </VListItem>
+      </VList>
+      <VDivider v-if="dirs.length && files.length" />
+      <VList v-if="files.length" subheader>
+        <VListSubheader>文件</VListSubheader>
+        <VListItem
+          v-for="(item, index) in files"
+          :key="index"
           class="pl-0"
           @click="changePath(item.path)"
         >
-          <v-list-item-avatar class="ma-0">
-            <v-icon>{{ icons[item.extension.toLowerCase()] || icons.other }}</v-icon>
-          </v-list-item-avatar>
+          <template #prepend>
+            <VIcon v-if="props.icons" :icon="props.icons[item.extension.toLowerCase()] || props.icons?.other" />
+          </template>
 
-          <v-list-item-content class="py-2">
-            <v-list-item-title v-text="item.basename" />
-            <v-list-item-subtitle>{{ formatBytes(item.size) }}</v-list-item-subtitle>
-          </v-list-item-content>
+          <VListItemTitle v-text="item.basename" />
+          <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
 
-          <v-list-item-action>
-            <v-btn icon @click.stop="deleteItem(item)">
-              <v-icon color="grey lighten-1">
+          <template #append>
+            <VBtn icon @click.stop="deleteItem(item)">
+              <VIcon color="grey lighten-1">
                 mdi-delete-outline
-              </v-icon>
-            </v-btn>
-            <v-btn v-if="false" icon>
-              <v-icon color="grey lighten-1">
-                mdi-information
-              </v-icon>
-            </v-btn>
-          </v-list-item-action>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
-    <v-card-text
+              </VIcon>
+            </VBtn>
+          </template>
+        </VListItem>
+      </VList>
+    </VCardText>
+    <VCardText
       v-else-if="filter"
       class="grow d-flex justify-center align-center grey--text py-5"
     >
-      No files or folders found
-    </v-card-text>
-    <v-card-text
+      没有目录或文件
+    </VCardText>
+    <VCardText
       v-else
       class="grow d-flex justify-center align-center grey--text py-5"
     >
-      The folder is empty
-    </v-card-text>
-    <v-divider v-if="path" />
-    <v-toolbar v-if="false && path && isFile" dense flat class="shrink">
-      <v-btn icon>
-        <v-icon>mdi-download</v-icon>
-      </v-btn>
-    </v-toolbar>
-    <v-toolbar v-if="path && isDir" dense flat class="shrink">
-      <v-text-field
+      空目录
+    </VCardText>
+    <VDivider v-if="path" />
+    <VToolbar v-if="path && isFile" density="compact" flat color="gray">
+      <VTextField
         v-model="filter"
-        solo
-        flat
         hide-details
-        label="Filter"
+        flat
+        density="compact"
+        variant="solo-filled"
+        placeholder="搜索 ..."
         prepend-inner-icon="mdi-filter-outline"
-        class="ml-n3"
+        class="me-2"
       />
-      <v-btn v-if="false" icon>
-        <v-icon>mdi-eye-settings-outline</v-icon>
-      </v-btn>
-      <v-btn icon @click="load">
-        <v-icon>mdi-refresh</v-icon>
-      </v-btn>
-    </v-toolbar>
-  </v-card>
+      <VBtn icon>
+        <VIcon>mdi-download</VIcon>
+      </VBtn>
+      <VBtn icon @click="load">
+        <VIcon>mdi-refresh</VIcon>
+      </VBtn>
+    </VToolbar>
+  </VCard>
 </template>
 
 <style lang="scss" scoped>
 .v-card {
     height: 100%;
+}
+.v-toolbar{
+  background: rgb(var(--v-table-header-background));
 }
 </style>

@@ -1,24 +1,39 @@
-<script>
+<script lang="ts" setup>
+import type { Axios } from 'axios'
 import axios from 'axios'
 
 import Toolbar from './filebrowser/Toolbar.vue'
 import Tree from './filebrowser/Tree.vue'
 import List from './filebrowser/List.vue'
-import Upload from './filebrowser/Upload.vue'
+
+// 输入参数
+const props = defineProps({
+  storages: String,
+  storage: String,
+  path: String,
+  tree: String,
+  endpoints: Object,
+  axios: Object as PropType<Axios>,
+  axiosConfig: Object,
+  maxUploadFilesCount: Number,
+  maxUploadFileSize: Number,
+})
+
+// 事件
+const emit = defineEmits(['change'])
 
 const availableStorages = [
   {
-    name: 'Local',
+    name: '本地',
     code: 'local',
     icon: 'mdi-folder-multiple-outline',
   },
 ]
 
 const endpoints = {
-  list: { url: '/storage/{storage}/list?path={path}', method: 'get' },
-  upload: { url: '/storage/{storage}/upload?path={path}', method: 'post' },
-  mkdir: { url: '/storage/{storage}/mkdir?path={path}', method: 'post' },
-  delete: { url: '/storage/{storage}/delete?path={path}', method: 'post' },
+  list: { url: '/filebrowser/list?path={path}', method: 'get' },
+  mkdir: { url: '/filebrowser/mkdir?path={path}', method: 'post' },
+  delete: { url: '/filebrowser/delete?path={path}', method: 'post' },
 }
 
 const fileIcons = {
@@ -43,171 +58,90 @@ const fileIcons = {
   other: 'mdi-file-outline',
 }
 
-export default {
-  components: {
-    Toolbar,
-    Tree,
-    List,
-    Upload,
-  },
-  model: {
-    prop: 'path',
-    event: 'change',
-  },
-  props: {
-    // comma-separated list of active storage codes
-    storages: {
-      type: String,
-      default: () => availableStorages.map(item => item.code).join(','),
-    },
-    // code of default storage
-    storage: { type: String, default: 'local' },
-    // show tree view
-    tree: { type: Boolean, default: true },
-    // file icons set
-    icons: { type: Object, default: () => fileIcons },
-    // custom backend endpoints
-    endpoints: { type: Object, default: () => endpoints },
-    // custom axios instance
-    axios: { type: Function },
-    // custom configuration for internal axios instance
-    axiosConfig: { type: Object, default: () => {} },
-    // max files count to upload at once. Unlimited by default
-    maxUploadFilesCount: { type: Number, default: 0 },
-    // max file size to upload. Unlimited by default
-    maxUploadFileSize: { type: Number, default: 0 },
-  },
-  data() {
-    return {
-      loading: 0,
-      path: '',
-      activeStorage: null,
-      uploadingFiles: false, // or an Array of files
-      refreshPending: false,
-      axiosInstance: null,
-    }
-  },
-  computed: {
-    storagesArray() {
-      const storageCodes = this.storages.split(',')
-      const result = []
-      storageCodes.forEach((code) => {
-        result.push(availableStorages.find(item => item.code == code))
-      })
-      return result
-    },
-  },
-  created() {
-    this.activeStorage = this.storage
-    this.axiosInstance = this.axios || axios.create(this.axiosConfig)
-  },
-  mounted() {
-    if (!this.path && !(this.tree && this.$vuetify.breakpoint.smAndUp))
-      this.pathChanged('/')
-  },
-  methods: {
-    loadingChanged(loading) {
-      if (loading)
-        this.loading++
-      else if (this.loading > 0)
-        this.loading--
-    },
-    storageChanged(storage) {
-      this.activeStorage = storage
-    },
-    addUploadingFiles(files) {
-      files = Array.from(files)
+// 加载次数
+const loading = ref(0)
+// 当前路径
+const path = ref(props.path)
+// 当前存储
+const activeStorage = ref('local')
+// 刷新
+const refreshPending = ref(false)
+// axios实例
+const axiosInstance = ref<Axios>()
 
-      if (this.maxUploadFileSize) {
-        files = files.filter(
-          file => file.size <= this.maxUploadFileSize,
-        )
-      }
+// 计算属性
+const storagesArray = computed(() => {
+  const storageCodes = props.storages?.split(',')
+  return availableStorages.filter(item => storageCodes?.includes(item.code))
+})
 
-      if (this.uploadingFiles === false)
-        this.uploadingFiles = []
-
-      if (this.maxUploadFilesCount && this.uploadingFiles.length + files.length > this.maxUploadFilesCount)
-        files = files.slice(0, this.maxUploadFilesCount - this.uploadingFiles.length)
-
-      this.uploadingFiles.push(...files)
-    },
-    removeUploadingFile(index) {
-      this.uploadingFiles.splice(index, 1)
-    },
-    uploaded() {
-      this.uploadingFiles = false
-      this.refreshPending = true
-    },
-    pathChanged(path) {
-      this.path = path
-      this.$emit('change', path)
-    },
-  },
+// 方法
+function loadingChanged(loading: number) {
+  if (loading)
+    loading++
+  else if (loading > 0)
+    loading--
 }
+
+function storageChanged(storage: string) {
+  activeStorage.value = storage
+}
+
+function pathChanged(_path: string) {
+  path.value = _path
+  emit('change', path)
+}
+
+// 初始化
+onMounted(() => {
+  activeStorage.value = props.storage ?? 'local'
+  axiosInstance.value = props.axios ?? axios.create(props.axiosConfig)
+  if (!path.value)
+    pathChanged('/')
+})
 </script>
 
 <template>
-  <v-card class="mx-auto" :loading="loading > 0">
+  <VCard class="mx-auto" :loading="loading > 0">
     <Toolbar
       :path="path"
       :storages="storagesArray"
       :storage="activeStorage"
       :endpoints="endpoints"
       :axios="axiosInstance"
-      @storage-changed="storageChanged"
-      @path-changed="pathChanged"
-      @add-files="addUploadingFiles"
-      @folder-created="refreshPending = true"
+      @storagechanged="storageChanged"
+      @pathchanged="pathChanged"
+      @foldercreated="refreshPending = true"
     />
-    <v-row no-gutters>
-      <v-col v-if="tree && $vuetify.breakpoint.smAndUp" sm="auto">
+    <VRow no-gutters>
+      <VCol v-if="tree" sm="auto" class="d-none d-md-block">
         <Tree
           :path="path"
           :storage="activeStorage"
-          :icons="icons"
+          :icons="fileIcons"
           :endpoints="endpoints"
           :axios="axiosInstance"
-          :refresh-pending="refreshPending"
-          @path-changed="pathChanged"
+          :refreshpending="refreshPending"
+          @pathchanged="pathChanged"
           @loading="loadingChanged"
           @refreshed="refreshPending = false"
         />
-      </v-col>
-      <v-divider v-if="tree" vertical />
-      <v-col>
+      </VCol>
+      <VDivider v-if="tree" vertical />
+      <VCol>
         <List
           :path="path"
           :storage="activeStorage"
-          :icons="icons"
+          :icons="fileIcons"
           :endpoints="endpoints"
           :axios="axiosInstance"
-          :refresh-pending="refreshPending"
+          :refreshpending="refreshPending"
           @path-changed="pathChanged"
           @loading="loadingChanged"
           @refreshed="refreshPending = false"
           @file-deleted="refreshPending = true"
         />
-      </v-col>
-    </v-row>
-    <Upload
-      v-if="uploadingFiles !== false"
-      :path="path"
-      :storage="activeStorage"
-      :files="uploadingFiles"
-      :icons="icons"
-      :axios="axiosInstance"
-      :endpoint="endpoints.upload"
-      :max-upload-files-count="maxUploadFilesCount"
-      :max-upload-file-size="maxUploadFileSize"
-      @add-files="addUploadingFiles"
-      @remove-file="removeUploadingFile"
-      @clear-files="uploadingFiles = []"
-      @cancel="uploadingFiles = false"
-      @uploaded="uploaded"
-    />
-  </v-card>
+      </VCol>
+    </VRow>
+  </VCard>
 </template>
-
-<style lang="scss" scoped>
-</style>

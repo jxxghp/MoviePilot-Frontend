@@ -1,194 +1,163 @@
-<script>
-export default {
-  props: {
-    storages: Array,
-    storage: String,
-    path: String,
-    endpoints: Object,
-    axios: Function,
-  },
-  data() {
+<script lang="ts" setup>
+import type { Axios } from 'axios'
+import type { EndPoints } from '@/api/types'
+
+// 输入参数
+const inProps = defineProps({
+  storages: Array as PropType<any[]>,
+  storage: String,
+  path: String,
+  endpoints: Object as PropType<EndPoints>,
+  axios: Object as PropType<Axios>,
+})
+
+// 对外事件
+const emit = defineEmits(['storagechanged', 'pathchanged', 'loading', 'foldercreated'])
+
+// 当前路径
+const path = ref(inProps.path ?? '')
+
+// 新建文件夹名称
+const newFolderPopper = ref(false)
+
+// 新建文件名称
+const newFolderName = ref('')
+
+// 计算PATH面包屑
+const pathSegments = computed(() => {
+  let path_str = '/'
+  const isFolder = path.value.endsWith('/')
+  const segments = path.value.split('/').filter(item => item)
+
+  return segments.map((item, index) => {
+    path_str += item + ((index < segments.length - 1 || isFolder) ? '/' : '')
     return {
-      newFolderPopper: false,
-      newFolderName: '',
+      name: item,
+      path: path_str,
     }
-  },
-  computed: {
-    pathSegments() {
-      let path = '/'
-      const isFolder = this.path[this.path.length - 1] === '/'
-      let segments = this.path.split('/').filter(item => item)
+  })
+})
 
-      segments = segments.map((item, index) => {
-        path
-                    += item + (index < segments.length - 1 || isFolder ? '/' : '')
-        return {
-          name: item,
-          path,
-        }
-      })
+const storageObject = computed(() => {
+  return inProps.storages?.find(item => item.code === inProps.storage)
+})
 
-      return segments
-    },
-    storageObject() {
-      return this.storages.find(item => item.code == this.storage)
-    },
-  },
-  methods: {
-    changeStorage(code) {
-      if (this.storage != code) {
-        this.$emit('storage-changed', code)
-        this.$emit('path-changed', '')
-      }
-    },
-    changePath(path) {
-      this.$emit('path-changed', path)
-    },
-    goUp() {
-      const segments = this.pathSegments
-      const path
-                    = segments.length === 1
-                      ? '/'
-                      : segments[segments.length - 2].path
-      this.changePath(path)
-    },
-    async addFiles(event) {
-      this.$emit('add-files', event.target.files)
-      this.$refs.inputUpload.value = ''
-    },
-    async mkdir() {
-      this.$emit('loading', true)
-      const url = this.endpoints.mkdir.url
-        .replace(new RegExp('{storage}', 'g'), this.storage)
-        .replace(new RegExp('{path}', 'g'), this.path + this.newFolderName)
+// 切换存储
+function changeStorage(code: string) {
+  if (inProps.storage !== code) {
+    emit('storagechanged', code)
+    emit('pathchanged', '')
+  }
+}
 
-      const config = {
-        url,
-        method: this.endpoints.mkdir.method || 'post',
-      }
+// 路径变化
+function changePath(path: string) {
+  emit('pathchanged', path)
+}
 
-      await this.axios.request(config)
-      this.$emit('folder-created', this.newFolderName)
-      this.newFolderPopper = false
-      this.newFolderName = ''
-      this.$emit('loading', false)
-    },
-  },
+// 返回上一级
+function goUp() {
+  const segments = pathSegments.value
+  const path = segments.length === 1 ? '/' : segments[segments.length - 2].path
+  changePath(path)
+}
+
+// 创建目录
+async function mkdir() {
+  emit('loading', true)
+  const url = inProps.endpoints?.mkdir.url
+    .replace(/{storage}/g, inProps.storage)
+    .replace(/{path}/g, inProps.path + newFolderName.value)
+
+  const config = {
+    url,
+    method: inProps.endpoints?.mkdir.method || 'post',
+  }
+
+  await inProps.axios?.request(config)
+  emit('foldercreated', newFolderName.value)
+  newFolderPopper.value = false
+  newFolderName.value = ''
+  emit('loading', false)
 }
 </script>
 
 <template>
-  <v-toolbar flat dense color="blue-grey lighten-5">
-    <v-toolbar-items>
-      <v-menu v-if="storages.length > 1" offset-y>
-        <template #activator="{ on }">
-          <v-btn icon class="storage-select-button mr-3" v-on="on">
-            <v-icon>mdi-arrow-down-drop-circle-outline</v-icon>
-          </v-btn>
+  <VToolbar flat dense>
+    <VToolbarItems>
+      <VMenu v-if="inProps.storages?.length || 0 > 1" offset-y>
+        <template #activator="{ props }">
+          <VBtn v-bind="props">
+            <VIcon icon="mdi-arrow-down-drop-circle-outline" />
+          </VBtn>
         </template>
-        <v-list class="storage-select-list">
-          <v-list-item
+        <VList>
+          <VListItem
             v-for="(item, index) in storages"
             :key="index"
-            :disabled="item.code === storageObject.code"
+            :disabled="item.code === storageObject?.code"
             @click="changeStorage(item.code)"
           >
-            <v-list-item-icon>
-              <v-icon v-text="item.icon" />
-            </v-list-item-icon>
-            <v-list-item-title>{{ item.name }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-      <v-btn text :input-value="path === '/'" @click="changePath('/')">
-        <v-icon class="mr-2">
-          {{ storageObject.icon }}
-        </v-icon>
-        {{ storageObject.name }}
-      </v-btn>
+            <template #prepend>
+              <Icon :icon="item.icon" />
+            </template>
+            <VListItemTitle>{{ item.name }}</VListItemTitle>
+          </VListItem>
+        </VList>
+      </VMenu>
+      <VBtn variant="text" :input-value="path === '/'" class="px-1" @click="changePath('/')">
+        <VIcon :icon="storageObject?.icon" class="mr-2" />
+        {{ storageObject?.name }}
+      </VBtn>
       <template v-for="(segment, index) in pathSegments" :key="index">
-        <v-icon>
-          mdi-chevron-right
-        </v-icon>
-        <v-btn
-          text
+        <VBtn
+          variant="text"
           :input-value="index === pathSegments.length - 1"
+          class="px-1 d-none d-md-block"
           @click="changePath(segment.path)"
         >
+          <VIcon icon=" mdi-chevron-right" />
           {{ segment.name }}
-        </v-btn>
+        </VBtn>
       </template>
-    </v-toolbar-items>
+    </VToolbarItems>
     <div class="flex-grow-1" />
-
-    <template v-if="$vuetify.breakpoint.smAndUp">
-      <v-tooltip v-if="pathSegments.length > 0" bottom>
-        <template #activator="{ on }">
-          <v-btn icon @click="goUp" v-on="on">
-            <v-icon>mdi-arrow-up-bold-outline</v-icon>
-          </v-btn>
-        </template>
-        <span v-if="pathSegments.length === 1">Up to "root"</span>
-        <span v-else>Up to "{{ pathSegments[pathSegments.length - 2].name }}"</span>
-      </v-tooltip>
-      <v-menu
-        v-model="newFolderPopper"
-        :close-on-content-click="false"
-        :nudge-width="200"
-        offset-y
-      >
-        <template #activator="{ on }">
-          <v-btn v-if="path" icon title="Create Folder" v-on="on">
-            <v-icon>mdi-folder-plus-outline</v-icon>
-          </v-btn>
-        </template>
-        <v-card>
-          <v-card-text>
-            <v-text-field v-model="newFolderName" label="Name" hide-details />
-          </v-card-text>
-          <v-card-actions>
-            <div class="flex-grow-1" />
-            <v-btn depressed @click="newFolderPopper = false">
-              Cancel
-            </v-btn>
-            <v-btn
-              color="success"
-              :disabled="!newFolderName"
-              depressed
-              @click="mkdir"
-            >
-              Create Folder
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-menu>
-      <v-btn v-if="path" icon title="Upload Files" @click="$refs.inputUpload.click()">
-        <v-icon>mdi-plus-circle</v-icon>
-        <input v-show="false" ref="inputUpload" type="file" multiple @change="addFiles">
-      </v-btn>
-    </template>
-  </v-toolbar>
+    <IconBtn v-if="pathSegments.length > 0" @click="goUp">
+      <VIcon icon="mdi-arrow-up-bold-outline" />
+    </IconBtn>
+    <VDialog
+      v-model="newFolderPopper"
+      max-width="600"
+    >
+      <template #activator="{ props }">
+        <IconBtn title="新建文件夹" v-bind="props">
+          <VIcon icon="mdi-folder-plus-outline" />
+        </IconBtn>
+      </template>
+      <VCard title="新建文件夹">
+        <VCardText>
+          <VTextField v-model="newFolderName" label="名称" />
+        </VCardText>
+        <VCardActions>
+          <div class="flex-grow-1" />
+          <VBtn depressed @click="newFolderPopper = false">
+            取消
+          </VBtn>
+          <VBtn
+            :disabled="!newFolderName"
+            depressed
+            @click="mkdir"
+          >
+            新建
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+  </VToolbar>
 </template>
 
 <style lang="scss" scoped>
-/* Storage Menu - alternate appearance
-.storage-select-button ::v-deep .v-btn__content {
-    flex-wrap: wrap;
-    font-size: 11px;
-
-    .v-icon {
-        width: 100%;
-        font-size: 22px;
-    }
-}
-*/
-
-.storage-select-list .v-list-item--disabled {
-    background-color: rgba(0, 0, 0, 0.25);
-    color: #fff;
-
-    .v-icon {
-        color: #fff;
-    }
+.v-toolbar{
+  background: rgb(var(--v-table-header-background));
 }
 </style>
