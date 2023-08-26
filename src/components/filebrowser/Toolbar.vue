@@ -51,8 +51,9 @@ function changeStorage(code: string) {
 }
 
 // 路径变化
-function changePath(path: string) {
-  console.log('Toolbar changePath', path)
+function changePath(_path: string) {
+  path.value = _path
+  console.log('Toolbar changePath', path.value)
   emit('pathchanged', path)
 }
 

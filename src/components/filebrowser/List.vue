@@ -108,8 +108,9 @@ async function deleteItem(item: FileItem) {
 }
 
 // 切换路径
-function changePath(path: string) {
-  console.log('List changePath', path)
+function changePath(_path: string) {
+  path.value = _path
+  console.log('List changePath', path.value)
   emit('pathchanged', path)
 }
 

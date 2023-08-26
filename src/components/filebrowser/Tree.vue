@@ -15,6 +15,9 @@ const props = defineProps({
 // 对外事件
 const emit = defineEmits(['pathchanged', 'loading', 'refreshed'])
 
+// 当前路径
+const path = ref(props.path)
+
 // 变量
 const open = ref<string[]>([])
 // 活跃的文件夹
@@ -99,17 +102,19 @@ watch(() => props.storage, () => {
 })
 
 // 监听路径变化
-watch(() => props.path, () => {
-  if (props.path) {
-    active.value = [props.path]
-    if (!open.value.includes(props.path))
-      open.value.push(props.path)
-  }
-})
+watch(
+  path,
+  () => {
+    if (props.path) {
+      active.value = [props.path]
+      if (!open.value.includes(props.path))
+        open.value.push(props.path)
+    }
+  })
 
 // 监听 refreshPending
 watch(
-  () => refreshPending.value,
+  refreshPending,
   async () => {
     if (refreshPending.value && props.path) {
       const item = findItem(props.path)
