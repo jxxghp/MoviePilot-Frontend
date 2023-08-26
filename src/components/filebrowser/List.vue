@@ -5,6 +5,7 @@ import { useConfirm } from 'vuetify-use-dialog'
 import axios from 'axios'
 import { formatBytes } from '@core/utils/formatters'
 import type { EndPoints, FileItem } from '@/api/types'
+import store from '@/store'
 
 // 输入参数
 const props = defineProps({
@@ -49,6 +50,12 @@ const isDir = computed(() => props.path?.endsWith('/'))
 
 // 是否文件
 const isFile = computed(() => !isDir.value)
+
+// 是否为图片文件
+const isImage = computed(() => {
+  const ext = props.path?.split('.').pop()?.toLowerCase()
+  return ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext ?? '')
+})
 
 // 调API加载内容
 async function load() {
@@ -110,11 +117,24 @@ function changePath(_path: string) {
 function download(path: string) {
   if (!path)
     return
-  const url = props.endpoints?.download.url
+  const token = store.state.auth.token
+  const url_path = props.endpoints?.download.url
     .replace(/{storage}/g, storage.value)
     .replace(/{path}/g, path)
-  // FIXME 下载文件
+  const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
+  // 下载文件
   window.open(url, '_blank')
+}
+
+// 显示图片
+function getImgLink(path: string) {
+  if (!path)
+    return ''
+  const token = store.state.auth.token
+  const url_path = props.endpoints?.image.url
+    .replace(/{storage}/g, storage.value)
+    .replace(/{path}/g, path)
+  return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
 }
 
 // 转移文件
@@ -156,10 +176,16 @@ onMounted(() => {
       选择目录或文件
     </VCardText>
     <VCardText
-      v-else-if="isFile"
+      v-else-if="isFile && !isImage"
       class="grow d-flex justify-center align-center"
     >
-      文件: {{ path }}
+      文件: {{ path }}<br>
+    </VCardText>
+    <VCardText
+      v-else-if="isFile && isImage"
+      class="grow d-flex justify-center align-center"
+    >
+      <VImg :src="getImgLink(path)" cover max-width="100%" max-height="100%" />
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="grow">
       <VList v-if="dirs.length" subheader max-height="300">

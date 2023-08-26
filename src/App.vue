@@ -77,9 +77,9 @@ async function loadSystemSettings() {
 }
 
 // 页面加载时，加载当前用户数据
-onMounted(() => {
-  loadAccountInfo()
-  loadSystemSettings()
+onBeforeMount(async () => {
+  await loadAccountInfo()
+  await loadSystemSettings()
   startSSEMessager()
 })
 

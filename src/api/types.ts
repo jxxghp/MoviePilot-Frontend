@@ -892,6 +892,7 @@ export interface EndPoints {
   mkdir: any
   delete: any
   download: any
+  image: any
 }
 
 // 文件浏览项目
