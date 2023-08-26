@@ -9,6 +9,7 @@ const endpoints = {
   delete: { url: '/filebrowser/delete?path={path}', method: 'get' },
   download: { url: '/filebrowser/download?path={path}', method: 'get' },
   image: { url: '/filebrowser/image?path={path}', method: 'get' },
+  rename: { url: '/filebrowser/rename?path={path}&new_name={newname}', method: 'get' },
 }
 
 // 读取下载目录

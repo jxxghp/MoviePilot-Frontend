@@ -893,6 +893,7 @@ export interface EndPoints {
   delete: any
   download: any
   image: any
+  rename: any
 }
 
 // 文件浏览项目

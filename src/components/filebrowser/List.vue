@@ -8,7 +8,7 @@ import type { EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
 
 // 输入参数
-const props = defineProps({
+const inProps = defineProps({
   icons: Object,
   storage: String,
   path: String,
@@ -18,13 +18,13 @@ const props = defineProps({
 })
 
 // 对外事件
-const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted'])
+const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted', 'renamed'])
 
 // 确认框
 const createConfirm = useConfirm()
 
 // axios实例
-const axiosInstance = ref<Axios>(props.axios ?? axios)
+const axiosInstance = ref<Axios>(inProps.axios ?? axios)
 
 // 内容列表
 const items = ref<FileItem[]>([])
@@ -32,8 +32,17 @@ const items = ref<FileItem[]>([])
 // 过滤条件
 const filter = ref('')
 
+// 重命名弹窗
+const renamePopper = ref(false)
+
+// 新名称
+const newName = ref('')
+
+// 当前名称
+const currentItem = ref<FileItem>()
+
 // 存储空间类型
-const storage = ref(props.storage ?? '')
+const storage = ref(inProps.storage ?? '')
 
 // 目录过滤
 const dirs = computed(() =>
@@ -46,14 +55,14 @@ const files = computed(() =>
 )
 
 // 是否目录
-const isDir = computed(() => props.path?.endsWith('/'))
+const isDir = computed(() => inProps.path?.endsWith('/'))
 
 // 是否文件
 const isFile = computed(() => !isDir.value)
 
 // 是否为图片文件
 const isImage = computed(() => {
-  const ext = props.path?.split('.').pop()?.toLowerCase()
+  const ext = inProps.path?.split('.').pop()?.toLowerCase()
   return ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext ?? '')
 })
 
@@ -61,13 +70,13 @@ const isImage = computed(() => {
 async function load() {
   emit('loading', true)
   if (isDir.value) {
-    const url = props.endpoints?.list.url
+    const url = inProps.endpoints?.list.url
       .replace(/{storage}/g, storage.value)
-      .replace(/{path}/g, props.path)
+      .replace(/{path}/g, inProps.path)
 
     const config = {
       url,
-      method: props.endpoints?.list.method || 'get',
+      method: inProps.endpoints?.list.method || 'get',
     }
     // 加载数据
     items.value = await axiosInstance.value.request(config) ?? []
@@ -91,13 +100,13 @@ async function deleteItem(item: FileItem) {
 
   if (confirmed) {
     emit('loading', true)
-    const url = props.endpoints?.delete.url
+    const url = inProps.endpoints?.delete.url
       .replace(/{storage}/g, storage.value)
       .replace(/{path}/g, item.path)
 
     const config = {
       url,
-      method: props.endpoints?.delete.method || 'post',
+      method: inProps.endpoints?.delete.method || 'post',
     }
 
     await axiosInstance.value.request(config)
@@ -118,7 +127,7 @@ function download(path: string) {
   if (!path)
     return
   const token = store.state.auth.token
-  const url_path = props.endpoints?.download.url
+  const url_path = inProps.endpoints?.download.url
     .replace(/{storage}/g, storage.value)
     .replace(/{path}/g, path)
   const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
@@ -131,7 +140,7 @@ function getImgLink(path: string) {
   if (!path)
     return ''
   const token = store.state.auth.token
-  const url_path = props.endpoints?.image.url
+  const url_path = inProps.endpoints?.image.url
     .replace(/{storage}/g, storage.value)
     .replace(/{path}/g, path)
   return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
@@ -142,9 +151,40 @@ function transfer(item: FileItem) {
   // TODO 转移文件
 }
 
+// 显示重命名弹窗
+function showRenmae(item: FileItem) {
+  currentItem.value = item
+  newName.value = item.name
+  renamePopper.value = true
+}
+
+// 重命名
+async function rename() {
+  emit('loading', true)
+  const url = inProps.endpoints?.rename.url
+    .replace(/{storage}/g, inProps.storage)
+    .replace(/{path}/g, currentItem.value?.path)
+    .replace(/{newname}/g, newName.value)
+
+  const config = {
+    url,
+    method: inProps.endpoints?.mkdir.method || 'post',
+  }
+
+  // 调API
+  await inProps.axios?.request(config)
+
+  renamePopper.value = false
+  newName.value = ''
+  emit('loading', false)
+
+  // 通知重新加载
+  emit('renamed')
+}
+
 // 监听path变化
 watch(
-  () => props.path,
+  () => inProps.path,
   async () => {
     items.value = []
     await load()
@@ -153,9 +193,9 @@ watch(
 
 // 监听refreshPending变化
 watch(
-  () => props.refreshpending,
+  () => inProps.refreshpending,
   async () => {
-    if (props.refreshpending) {
+    if (inProps.refreshpending) {
       await load()
       emit('refreshed')
     }
@@ -201,6 +241,9 @@ onMounted(() => {
           </template>
           <VListItemTitle v-text="item.name" />
           <template #append>
+            <IconBtn @click.stop="showRenmae(item)">
+              <VIcon icon="mdi-rename" />
+            </IconBtn>
             <IconBtn @click.stop="transfer(item)">
               <VIcon icon="mdi-folder-arrow-right" />
             </IconBtn>
@@ -220,13 +263,16 @@ onMounted(() => {
           @click="changePath(item.path)"
         >
           <template #prepend>
-            <VIcon v-if="props.icons" :icon="props.icons[item.extension.toLowerCase()] || props.icons?.other" />
+            <VIcon v-if="inProps.icons" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
           </template>
 
           <VListItemTitle v-text="item.name" />
           <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
 
           <template #append>
+            <IconBtn @click.stop="showRenmae(item)">
+              <VIcon icon="mdi-rename" />
+            </IconBtn>
             <IconBtn @click.stop="transfer(item)">
               <VIcon icon="mdi-folder-arrow-right" />
             </IconBtn>
@@ -263,7 +309,7 @@ onMounted(() => {
         class="me-2"
       />
       <VSpacer v-if="isFile" />
-      <VBtn v-if="isFile" @click="download(props.path || '')">
+      <VBtn v-if="isFile" @click="download(inProps.path || '')">
         <VIcon>mdi-download</VIcon>
       </VBtn>
       <VBtn v-if="!isFile" @click="load">
@@ -271,6 +317,34 @@ onMounted(() => {
       </VBtn>
     </VToolbar>
   </VCard>
+  <VDialog
+    v-model="renamePopper"
+    max-width="600"
+  >
+    <template #activator="{ props }">
+      <IconBtn title="重命名" v-bind="props">
+        <VIcon icon="mdi-rename-outline" />
+      </IconBtn>
+    </template>
+    <VCard title="重命名">
+      <VCardText>
+        <VTextField v-model="newName" label="名称" />
+      </VCardText>
+      <VCardActions>
+        <div class="flex-grow-1" />
+        <VBtn depressed @click="renamePopper = false">
+          取消
+        </VBtn>
+        <VBtn
+          :disabled="!newName"
+          depressed
+          @click="rename"
+        >
+          重命名
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
 
 <style lang="scss" scoped>

@@ -129,6 +129,7 @@ onBeforeMount(() => {
           @loading="loadingChanged"
           @refreshed="refreshPending = false"
           @filedeleted="refreshPending = true"
+          @renamed="refreshPending = true"
         />
       </VCol>
     </VRow>
