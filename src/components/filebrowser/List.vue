@@ -23,6 +23,9 @@ const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted', 
 // 确认框
 const createConfirm = useConfirm()
 
+// 存储空间类型
+const storage = ref(inProps.storage ?? '')
+
 // axios实例
 const axiosInstance = ref<Axios>(inProps.axios ?? axios)
 
@@ -35,14 +38,19 @@ const filter = ref('')
 // 重命名弹窗
 const renamePopper = ref(false)
 
+// 整理弹窗
+const transferPopper = ref(false)
+
 // 新名称
 const newName = ref('')
 
 // 当前名称
 const currentItem = ref<FileItem>()
 
-// 存储空间类型
-const storage = ref(inProps.storage ?? '')
+// TODO 文件转移表单
+const transferForm = ref({
+
+})
 
 // 目录过滤
 const dirs = computed(() =>
@@ -146,11 +154,6 @@ function getImgLink(path: string) {
   return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
 }
 
-// 转移文件
-function transfer(item: FileItem) {
-  // TODO 转移文件
-}
-
 // 显示重命名弹窗
 function showRenmae(item: FileItem) {
   currentItem.value = item
@@ -182,6 +185,17 @@ async function rename() {
   emit('renamed')
 }
 
+// 显示整理对话框
+function showTransfer(item: FileItem) {
+  currentItem.value = item
+  transferPopper.value = true
+}
+
+// 整理文件
+function transfer() {
+  // TODO 整理文件
+}
+
 // 监听path变化
 watch(
   () => inProps.path,
@@ -208,7 +222,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard flat tile min-height="380" class="d-flex flex-column">
+  <VCard class="d-flex flex-column">
     <VCardText
       v-if="!path"
       class="grow d-flex justify-center align-center grey--text"
@@ -228,7 +242,7 @@ onMounted(() => {
       <VImg :src="getImgLink(path)" max-width="100%" max-height="100%" />
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="grow">
-      <VList v-if="dirs.length" subheader max-height="300">
+      <VList v-if="dirs.length" subheader max-height="400">
         <VListSubheader>目录</VListSubheader>
         <VListItem
           v-for="(item, index) in dirs"
@@ -244,7 +258,7 @@ onMounted(() => {
             <IconBtn @click.stop="showRenmae(item)">
               <VIcon icon="mdi-rename" />
             </IconBtn>
-            <IconBtn @click.stop="transfer(item)">
+            <IconBtn @click.stop="showTransfer(item)">
               <VIcon icon="mdi-folder-arrow-right" />
             </IconBtn>
             <IconBtn @click.stop="deleteItem(item)">
@@ -254,7 +268,7 @@ onMounted(() => {
         </VListItem>
       </VList>
       <VDivider v-if="dirs.length && files.length" />
-      <VList v-if="files.length" subheader max-height="300">
+      <VList v-if="files.length" subheader max-height="400">
         <VListSubheader>文件</VListSubheader>
         <VListItem
           v-for="(item, index) in files"
@@ -273,7 +287,7 @@ onMounted(() => {
             <IconBtn @click.stop="showRenmae(item)">
               <VIcon icon="mdi-rename" />
             </IconBtn>
-            <IconBtn @click.stop="transfer(item)">
+            <IconBtn @click.stop="showTransfer(item)">
               <VIcon icon="mdi-folder-arrow-right" />
             </IconBtn>
             <IconBtn @click.stop="deleteItem(item)">
@@ -317,6 +331,7 @@ onMounted(() => {
       </VBtn>
     </VToolbar>
   </VCard>
+  <!-- 重命名弹窗 -->
   <VDialog
     v-model="renamePopper"
     max-width="600"
@@ -341,6 +356,33 @@ onMounted(() => {
           @click="rename"
         >
           重命名
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+  <!-- 文件整理弹窗 -->
+  <VDialog
+    v-model="transferPopper"
+    max-width="600"
+  >
+    <template #activator="{ props }">
+      <IconBtn title="整理" v-bind="props">
+        <VIcon icon="mdi-folder-arrow-right-outline" />
+      </IconBtn>
+    </template>
+    <VCard title="文件整理">
+      <VCardText />
+      <VCardActions>
+        <div class="flex-grow-1" />
+        <VBtn depressed @click="transferPopper = false">
+          取消
+        </VBtn>
+        <VBtn
+          :disabled="!newName"
+          depressed
+          @click="transfer"
+        >
+          开始整理
         </VBtn>
       </VCardActions>
     </VCard>
