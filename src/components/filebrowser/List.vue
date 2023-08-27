@@ -226,10 +226,10 @@ async function transfer() {
   transferForm.path = currentItem.value?.path || ''
   // 开始整理文件
   try {
+    transferPopper.value = false
     const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
       params: transferForm,
     })
-    transferPopper.value = false
     if (result.success) {
       $toast.success(`${currentItem.value?.name} 整理成功！`)
       // 重新加载
