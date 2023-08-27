@@ -22,7 +22,7 @@ const newFolderName = ref('')
 
 // 计算PATH面包屑
 const pathSegments = computed(() => {
-  let path_str = '/'
+  let path_str = ''
   const isFolder = inProps.path?.endsWith('/')
   const segments = inProps.path?.split('/').filter(item => item)
 
