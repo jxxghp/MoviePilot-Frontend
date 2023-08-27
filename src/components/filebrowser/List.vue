@@ -26,6 +26,9 @@ const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted', 
 // 提示框
 const $toast = useToast()
 
+// 是否正在加载
+const loading = ref(true)
+
 // 确认框
 const createConfirm = useConfirm()
 
@@ -101,6 +104,7 @@ const isImage = computed(() => {
 
 // 调API加载内容
 async function load() {
+  loading.value = true
   emit('loading', true)
   if (isDir.value) {
     const url = inProps.endpoints?.list.url
@@ -115,6 +119,7 @@ async function load() {
     items.value = await axiosInstance.value.request(config) ?? []
   }
   emit('loading', false)
+  loading.value = false
 }
 
 // 删除项目
@@ -296,6 +301,16 @@ onMounted(() => {
 <template>
   <VCard class="d-flex flex-column">
     <VCardText
+      v-if="loading"
+      class="text-center flex flex-col items-center"
+    >
+      <VProgressCircular
+        size="48"
+        indeterminate
+        color="primary"
+      />
+    </VCardText>
+    <VCardText
       v-if="!path"
       class="grow d-flex justify-center align-center grey--text"
     >
@@ -424,13 +439,13 @@ onMounted(() => {
       没有目录或文件
     </VCardText>
     <VCardText
-      v-else
+      v-else-if="!loading"
       class="grow d-flex justify-center align-center grey--text py-5"
     >
       空目录
     </VCardText>
     <VDivider v-if="path" />
-    <VToolbar density="compact" flat color="gray">
+    <VToolbar v-if="!loading" density="compact" flat color="gray">
       <VTextField
         v-if="!isFile"
         v-model="filter"
