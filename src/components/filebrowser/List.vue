@@ -507,7 +507,7 @@ onMounted(() => {
       </IconBtn>
     </template>
     <VCard :title="`文件整理 - ${currentItem?.name}`">
-      <VCardText>
+      <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
