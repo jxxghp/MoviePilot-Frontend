@@ -484,6 +484,7 @@ onMounted(() => {
   <VDialog
     v-model="transferPopper"
     max-width="800"
+    scrollable
   >
     <template #activator="{ props }">
       <IconBtn title="整理" v-bind="props">
