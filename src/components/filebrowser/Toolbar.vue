@@ -64,7 +64,7 @@ async function mkdir() {
   emit('loading', true)
   const url = inProps.endpoints?.mkdir.url
     .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, inProps.path + newFolderName.value)
+    .replace(/{path}/g, encodeURIComponent(inProps.path + newFolderName.value))
 
   const config = {
     url,

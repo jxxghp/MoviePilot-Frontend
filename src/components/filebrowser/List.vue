@@ -109,7 +109,7 @@ async function load() {
   if (isDir.value) {
     const url = inProps.endpoints?.list.url
       .replace(/{storage}/g, storage.value)
-      .replace(/{path}/g, inProps.path)
+      .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
 
     const config = {
       url,
@@ -140,7 +140,7 @@ async function deleteItem(item: FileItem) {
     emit('loading', true)
     const url = inProps.endpoints?.delete.url
       .replace(/{storage}/g, storage.value)
-      .replace(/{path}/g, item.path)
+      .replace(/{path}/g, encodeURIComponent(item.path))
 
     const config = {
       url,
@@ -167,7 +167,7 @@ function download(path: string) {
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.download.url
     .replace(/{storage}/g, storage.value)
-    .replace(/{path}/g, path)
+    .replace(/{path}/g, encodeURIComponent(path))
   const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
   // 下载文件
   window.open(url, '_blank')
@@ -180,7 +180,7 @@ function getImgLink(path: string) {
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.image.url
     .replace(/{storage}/g, storage.value)
-    .replace(/{path}/g, path)
+    .replace(/{path}/g, encodeURIComponent(path))
   return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
 }
 
@@ -196,8 +196,8 @@ async function rename() {
   emit('loading', true)
   const url = inProps.endpoints?.rename.url
     .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, currentItem.value?.path)
-    .replace(/{newname}/g, newName.value)
+    .replace(/{path}/g, encodeURIComponent(currentItem.value?.path || ''))
+    .replace(/{newname}/g, encodeURIComponent(newName.value))
 
   const config = {
     url,
@@ -223,7 +223,7 @@ function showTransfer(item: FileItem) {
 
 // 整理文件
 async function transfer() {
-  transferForm.path = currentItem.value?.path || ''
+  transferForm.path = encodeURIComponent(currentItem.value?.path || '')
   // 开始整理文件
   try {
     transferPopper.value = false

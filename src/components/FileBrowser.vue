@@ -18,6 +18,9 @@ const props = defineProps({
   axiosconfig: Object,
 })
 
+// 对外事件
+const emit = defineEmits(['pathchanged'])
+
 const availableStorages = [
   {
     name: '本地',
@@ -48,8 +51,6 @@ const fileIcons = {
   other: 'mdi-file-outline',
 }
 
-// 当前路径
-const path = ref(props.path)
 // 加载次数
 const loading = ref(0)
 // 当前存储
@@ -77,23 +78,22 @@ function storageChanged(storage: string) {
   activeStorage.value = storage
 }
 
+// 路径变化
 function pathChanged(_path: string) {
-  path.value = _path
+  emit('pathchanged', _path)
 }
 
 // 初始化
 onBeforeMount(() => {
   activeStorage.value = props.storage ?? 'local'
   axiosInstance.value = props.axios ?? axios.create(props.axiosconfig)
-  if (!path.value)
-    pathChanged('/')
 })
 </script>
 
 <template>
   <VCard class="mx-auto" :loading="loading > 0">
     <Toolbar
-      :path="path"
+      :path="props.path"
       :storages="storagesArray"
       :storage="activeStorage"
       :endpoints="props.endpoints"
@@ -105,7 +105,7 @@ onBeforeMount(() => {
     <VRow no-gutters>
       <VCol v-if="tree" sm="auto" class="d-none d-md-block">
         <Tree
-          :path="path"
+          :path="props.path"
           :storage="activeStorage"
           :icons="fileIcons"
           :endpoints="endpoints"
@@ -119,7 +119,7 @@ onBeforeMount(() => {
       <VDivider v-if="tree" vertical />
       <VCol>
         <List
-          :path="path"
+          :path="props.path"
           :storage="activeStorage"
           :icons="fileIcons"
           :endpoints="endpoints"

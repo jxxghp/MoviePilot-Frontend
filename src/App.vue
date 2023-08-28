@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toast-notification'
 import { useTheme } from 'vuetify'
 import api from './api'
-import type { Setting, User } from './api/types'
+import type { User } from './api/types'
 import store from './store'
 import avatar1 from '@images/avatars/avatar-1.png'
 
@@ -47,9 +47,6 @@ const accountInfo = ref<User>({
   avatar: avatar1,
 })
 
-// 环境设置信息
-const systemEnv = ref<Setting>()
-
 // 调用API，加载当前用户数据
 async function loadAccountInfo() {
   try {
@@ -64,28 +61,14 @@ async function loadAccountInfo() {
   }
 }
 
-// 调用API，加载当前系统环境设置
-async function loadSystemSettings() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success)
-      systemEnv.value = result.data
-  }
-  catch (error) {
-    console.log(error)
-  }
-}
-
 // 页面加载时，加载当前用户数据
 onBeforeMount(async () => {
   await loadAccountInfo()
-  await loadSystemSettings()
   startSSEMessager()
 })
 
 // 提供给所有元素复用
 provide('accountInfo', accountInfo)
-provide('systemEnv', systemEnv)
 </script>
 
 <template>

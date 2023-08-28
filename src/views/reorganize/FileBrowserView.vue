@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { Setting } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
@@ -13,16 +12,32 @@ const endpoints = {
 }
 
 // 读取下载目录
-const systemEnv: Setting = inject('systemEnv') ?? {
-  DOWNLOAD_PATH: '/',
+const path = ref('/')
+
+// 调用API，加载当前系统环境设置
+async function loadSystemSettings() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result.success)
+      path.value = result.data?.DOWNLOAD_PATH || '/'
+    console.log(path.value)
+  }
+  catch (error) {
+    console.log(error)
+  }
 }
 
-if (systemEnv?.DOWNLOAD_PATH && !systemEnv.DOWNLOAD_PATH?.endsWith('/'))
-  systemEnv.DOWNLOAD_PATH += '/'
+function pathChanged(_path: string) {
+  path.value = _path
+}
+
+onBeforeMount(async () => {
+  await loadSystemSettings()
+})
 </script>
 
 <template>
   <div>
-    <FileBrowser storages="local" :tree="false" :path="systemEnv?.DOWNLOAD_PATH" :endpoints="endpoints" :axios="api" />
+    <FileBrowser storages="local" :tree="false" :path="path" :endpoints="endpoints" :axios="api" @pathchanged="pathChanged" />
   </div>
 </template>
