@@ -60,9 +60,9 @@ const currentItem = ref<FileItem>()
 const transferForm = reactive({
   path: '',
   target: '',
-  tmdbid: 0,
-  season: 0,
-  type_name: '电影',
+  tmdbid: null,
+  season: null,
+  type_name: '',
   transfer_type: '',
   episode_format: '',
   episode_detail: '',
@@ -223,7 +223,7 @@ function showTransfer(item: FileItem) {
 
 // 整理文件
 async function transfer() {
-  transferForm.path = encodeURIComponent(currentItem.value?.path || '')
+  transferForm.path = currentItem.value?.path || ''
   // 开始整理文件
   try {
     transferPopper.value = false
@@ -544,7 +544,7 @@ onMounted(() => {
               <VSelect
                 v-model="transferForm.type_name"
                 label="类型"
-                :items="[{ title: '电影', value: '电影' }, { title: '电视剧', value: '电视剧' }]"
+                :items="[{ title: '请选择', value: '' }, { title: '电影', value: '电影' }, { title: '电视剧', value: '电视剧' }]"
               />
             </VCol>
             <VCol
@@ -554,6 +554,7 @@ onMounted(() => {
               <VTextField
                 v-model="transferForm.tmdbid"
                 label="TMDBID"
+                placeholder="留空自动识别"
                 :rules="[numberValidator]"
               />
             </VCol>
@@ -615,8 +616,6 @@ onMounted(() => {
           取消
         </VBtn>
         <VBtn
-          :disabled="!transferForm.tmdbid"
-          depressed
           @click="transfer"
         >
           开始整理
