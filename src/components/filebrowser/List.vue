@@ -50,6 +50,18 @@ const renamePopper = ref(false)
 // 整理弹窗
 const transferPopper = ref(false)
 
+// 整理进度条
+const progressDialog = ref(false)
+
+// 整理进度文本
+const progressText = ref('请稍候 ...')
+
+// 整理进度
+const progressValue = ref(0)
+
+// 加载进度SSE
+const progressEventSource = ref<EventSource>()
+
 // 新名称
 const newName = ref('')
 
@@ -223,21 +235,33 @@ function showTransfer(item: FileItem) {
 
 // 整理文件
 async function transfer() {
-  transferForm.path = currentItem.value?.path || ''
+  transferForm.path = currentItem.value?.path ?? ''
   // 开始整理文件
   try {
+    // 关闭弹窗
     transferPopper.value = false
-    const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
+    // 显示进度条
+    progressDialog.value = true
+    // 开始监听进度
+    startLoadingProgress()
+    // 异步调API，结束后关闭进度条
+    api.post('transfer/manual', {}, {
       params: transferForm,
+    }).then((res: any) => {
+      // 关闭进度条
+      progressDialog.value = false
+      // 停止监听进度
+      stopLoadingProgress()
+      // 显示结果
+      if (res.success) {
+        $toast.success(`${currentItem.value?.name} 整理成功！`)
+        // 重新加载
+        load()
+      }
+      else {
+        $toast.error(`${currentItem.value?.name} 整理失败：${res.message}！`)
+      }
     })
-    if (result.success) {
-      $toast.success(`${currentItem.value?.name} 整理成功！`)
-      // 重新加载
-      load()
-    }
-    else {
-      $toast.error(`${currentItem.value?.name} 整理失败：${result.message}！`)
-    }
   }
   catch (e) {
     console.log(e)
@@ -263,6 +287,29 @@ watch(
     }
   },
 )
+
+// 使用SSE监听加载进度
+function startLoadingProgress() {
+  progressText.value = '请稍候 ...'
+
+  const token = store.state.auth.token
+
+  progressEventSource.value = new EventSource(
+    `${import.meta.env.VITE_API_BASE_URL}system/progress/filetransfer?token=${token}`,
+  )
+  progressEventSource.value.onmessage = (event) => {
+    const progress = JSON.parse(event.data)
+    if (progress) {
+      progressText.value = progress.text
+      progressValue.value = progress.value
+    }
+  }
+}
+
+// 停止监听加载进度
+function stopLoadingProgress() {
+  progressEventSource.value?.close()
+}
 
 // 弹出菜单
 const dropdownItems = ref([
@@ -623,6 +670,25 @@ onMounted(() => {
       </VCardActions>
     </VCard>
   </VDialog>
+  <!-- 手动整理进度框 -->
+  <vDialog
+    v-model="progressDialog"
+    :scrim="false"
+    width="400"
+  >
+    <vCard
+      color="primary"
+    >
+      <vCardText class="text-center">
+        {{ progressText }}
+        <vProgressLinear
+          color="white"
+          class="mb-0 mt-1"
+          :value="progressValue"
+        />
+      </vCardText>
+    </vCard>
+  </vDialog>
 </template>
 
 <style lang="scss" scoped>
