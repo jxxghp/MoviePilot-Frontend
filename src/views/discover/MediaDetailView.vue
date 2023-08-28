@@ -438,8 +438,6 @@ onBeforeMount(() => {
             <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time[0]">{{ mediaDetail.runtime || mediaDetail.episode_run_time[0] }} 分钟</span>
             <span v-if="(mediaDetail.runtime || mediaDetail.episode_run_time[0]) && mediaDetail.genres" class="mx-1"> | </span>
             <span v-if="mediaDetail.genres">{{ getGenresName(mediaDetail.genres || []) }}</span>
-            <span v-if="mediaDetail.genres" class="mx-1">|</span>
-            <span v-if="mediaDetail.tmdb_id">TMDB: <a :href="mediaDetail.detail_link" target="_blank">{{ mediaDetail.tmdb_id }}</a></span>
           </span>
         </div>
         <div class="media-actions">
@@ -609,6 +607,10 @@ onBeforeMount(() => {
                 class="ma-2"
                 readonly
               />
+            </div>
+            <div v-if="mediaDetail.tmdb_id" class="media-fact">
+              <span>ID</span>
+              <span class="media-fact-value">{{ mediaDetail.tmdb_id }}</span>
             </div>
             <div v-if="mediaDetail.original_title || mediaDetail.original_name" class="media-fact">
               <span>原始标题</span>

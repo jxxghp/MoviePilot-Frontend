@@ -6,7 +6,7 @@ import type { Site } from '@/api/types'
 // 提示框
 const $toast = useToast()
 
-// 选中索引站点
+// 选中搜索站点
 const selectedSites = ref<number[]>([])
 // 选中订阅站点
 const selectedRssSites = ref<number[]>([])
@@ -57,9 +57,9 @@ async function saveSelectedSites() {
     const result: { [key: string]: any } = await api.post('system/setting/IndexerSites', selectedSites.value)
 
     if (result.success)
-      $toast.success('索引站点保存成功')
+      $toast.success('搜索站点保存成功')
     else
-      $toast.error('索引站点保存失败！')
+      $toast.error('搜索站点保存失败！')
   }
   catch (error) {
     console.log(error)
@@ -123,7 +123,7 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="索引站点">
+      <VCard title="搜索站点">
         <VCardSubtitle> 只有选中的站点才会在搜索中使用</VCardSubtitle>
 
         <VCardItem>

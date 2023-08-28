@@ -20,7 +20,8 @@ async function loadSystemSettings() {
     const result: { [key: string]: any } = await api.get('system/env')
     if (result.success)
       path.value = result.data?.DOWNLOAD_PATH || '/'
-    console.log(path.value)
+    if (path.value && !path.value.endsWith('/'))
+      path.value += '/'
   }
   catch (error) {
     console.log(error)
