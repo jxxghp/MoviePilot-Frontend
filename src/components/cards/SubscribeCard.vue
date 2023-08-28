@@ -136,7 +136,7 @@ async function updateSubscribeInfo() {
 // 获取站点列表数据
 async function loadSites() {
   try {
-    const data: Site[] = await api.get('site')
+    const data: Site[] = await api.get('site/rss')
 
     // 过滤站点，只有启用的站点才显示
     siteList.value = data.filter(item => item.is_active)
