@@ -13,6 +13,9 @@ const props = defineProps({
 
   // 类型
   type: String,
+
+  // 搜索字段
+  area: String,
 })
 
 interface SearchTorrent extends Context {
@@ -124,6 +127,7 @@ async function fetchData(): Promise<Array<Context>> {
     let searchData: Array<Context>
     const keyword = props.keyword ?? ''
     const mtype = props.type ?? ''
+    const area = props.area ?? ''
     if (!keyword) {
       // 查询上次搜索结果
       searchData = await api.get('search/last')
@@ -136,6 +140,7 @@ async function fetchData(): Promise<Array<Context>> {
         searchData = await api.get(`search/media/${props.keyword}`, {
           params: {
             mtype,
+            area,
           },
         })
       }

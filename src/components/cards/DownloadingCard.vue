@@ -84,7 +84,7 @@ async function deleteDownload() {
       :class="getTextClass()"
     >
       {{ props.info?.media.title || props.info?.name }}
-      {{ props.info?.season_episode }}
+      {{ props.info?.media.episode ? `${props.info?.media.season} ${props.info?.media.episode}` : props.info?.season_episode }}
     </VCardTitle>
 
     <VCardSubtitle

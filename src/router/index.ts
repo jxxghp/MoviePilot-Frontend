@@ -128,6 +128,13 @@ const router = createRouter({
             requiresAuth: true,
           },
         },
+        {
+          path: '/filemanager',
+          component: () => import('../pages/filemanager.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
       ],
     },
     {

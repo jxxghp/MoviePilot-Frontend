@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTheme } from 'vuetify'
-import misc404 from '@images/pages/404.png'
+import miscpose from '@images/pages/pose-fs-9.png'
 import miscMaskDark from '@images/pages/misc-mask-dark.png'
 import miscMaskLight from '@images/pages/misc-mask-light.png'
 import tree from '@images/pages/tree.png'
@@ -29,11 +29,12 @@ interface Props {
     />
 
     <!-- 👉 Image -->
-    <div class="misc-avatar w-100 text-center">
+    <div class="misc-avatar text-center">
       <VImg
-        :src="misc404"
-        :max-width="800"
-        class="mx-auto"
+        :src="miscpose"
+        class="mx-auto pt-10"
+        max-width="250"
+        cover
       />
       <slot name="button" />
     </div>
@@ -41,7 +42,7 @@ interface Props {
     <!-- 👉 Footer -->
     <VImg
       :src="tree"
-      class="misc-footer-tree d-none d-md-block"
+      class="misc-footer-tree d-none d-lg-block"
     />
 
     <VImg
@@ -52,21 +53,23 @@ interface Props {
 </template>
 
 <style lang="scss">
+@use "@configured-variables" as variables;
 @use '@core/scss/pages/misc.scss';
 
 .misc-wrapper {
   position: relative;
 
   .misc-footer-tree {
-    position: absolute;
+    position: fixed;
     z-index: 1;
     inline-size: 15.625rem;
     inset-block-end: 3.5rem;
     inset-inline-start: 0.375rem;
+    left: variables.$layout-vertical-nav-width;
   }
 
   .misc-footer-img {
-    position: absolute;
+    position: fixed;
     inline-size: 100%;
     inset-block-end: 0;
   }
