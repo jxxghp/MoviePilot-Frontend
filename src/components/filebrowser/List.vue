@@ -403,7 +403,7 @@ onMounted(() => {
                     :key="i"
                     variant="plain"
                     :base-color="menu.props.color"
-                    @click.stop="menu.props.click(item)"
+                    @click="menu.props.click(item)"
                   >
                     <template #prepend>
                       <VIcon :icon="menu.props.prependIcon" />
@@ -456,7 +456,7 @@ onMounted(() => {
                     :key="i"
                     variant="plain"
                     :base-color="menu.props.color"
-                    @click.stop="menu.props.click(item)"
+                    @click="menu.props.click(item)"
                   >
                     <template #prepend>
                       <VIcon :icon="menu.props.prependIcon" />
