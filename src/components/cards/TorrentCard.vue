@@ -163,7 +163,7 @@ const dropdownItems = ref([
       </VAvatar>
     </template>
     <VCardItem class="py-1">
-      <VCardTitle>
+      <VCardTitle class="break-words overflow-visible whitespace-break-spaces">
         {{ media?.title }} {{ meta?.season_episode }}
         <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
         <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>

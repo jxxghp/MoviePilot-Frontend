@@ -86,7 +86,7 @@ const transferForm = reactive({
 
 // 生成1到50季的下拉框选项
 const seasonItems = ref(
-  Array.from({ length: 50 }, (_, i) => i + 1).map(item => ({
+  Array.from({ length: 51 }, (_, i) => i).map(item => ({
     title: `第 ${item} 季`,
     value: item,
   })),
