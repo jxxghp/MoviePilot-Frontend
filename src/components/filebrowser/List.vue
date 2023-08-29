@@ -684,7 +684,7 @@ onMounted(() => {
         <vProgressLinear
           color="white"
           class="mb-0 mt-1"
-          :value="progressValue"
+          :model-value="progressValue"
         />
       </vCardText>
     </vCard>
