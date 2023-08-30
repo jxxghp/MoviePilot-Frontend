@@ -365,7 +365,7 @@ onMounted(() => {
               </td>
               <td>{{ user.is_superuser ? "是" : "否" }}</td>
               <td>
-                <IconBtn v-show="!user.is_superuser">
+                <IconBtn v-show="accountInfo.is_superuser && accountInfo.name != user.name">
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu
                     activator="parent"
