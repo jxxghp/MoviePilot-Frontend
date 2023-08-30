@@ -134,9 +134,8 @@ async function fetchData(): Promise<Array<Context>> {
     }
     else {
       startLoadingProgress()
-      const qualify = props.keyword?.startsWith('tmdb:') ?? props.keyword?.startsWith('douban:')
       // 优先按TMDBID精确查询
-      if (qualify) {
+      if (props.keyword?.startsWith('tmdb:') || props.keyword?.startsWith('douban:')) {
         searchData = await api.get(`search/media/${props.keyword}`, {
           params: {
             mtype,
