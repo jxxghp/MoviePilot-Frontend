@@ -59,6 +59,7 @@
     "@iconify/vue": "4.1.1",
     "@intlify/unplugin-vue-i18n": "^0.10.0",
     "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@types/lodash": "^4.14.197",
     "@types/node": "^20.1.4",
     "@types/webfontloader": "^1.6.34",
     "@typescript-eslint/eslint-plugin": "^5.59.5",
