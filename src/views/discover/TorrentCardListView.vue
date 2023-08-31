@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
+import _ from 'lodash'
 import api from '@/api'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
@@ -111,7 +112,7 @@ watchEffect(() => {
         )
       })
       if (matchData.length > 0) {
-        const firstData = matchData[0] as SearchTorrent
+        const firstData = _.cloneDeepWith(matchData[0]) as SearchTorrent
         if (matchData.length > 1)
           firstData.more = matchData.slice(1)
 
@@ -312,7 +313,7 @@ onMounted(initData)
     <span>{{ progressText }}</span>
   </div>
   <div v-if="dataList.length > 0" class="grid gap-3 grid-torrent-card items-start">
-    <TorrentCard v-for="data in dataList" :key="`${data.torrent_info.title}_${data.torrent_info.site}`" :torrent="data" :more="data.more" />
+    <TorrentCard v-for="data in dataList" :key="`${data.torrent_info.title}_${data.torrent_info.site_name}_${data.torrent_info.page_url}`" :torrent="data" :more="data.more" />
   </div>
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"
