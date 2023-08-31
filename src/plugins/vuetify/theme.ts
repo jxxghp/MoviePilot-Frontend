@@ -67,9 +67,9 @@ const theme: VuetifyOptions['theme'] = {
         'on-primary': '#FFFFFF',
         'on-success': '#FFFFFF',
         'on-warning': '#FFFFFF',
-        'background': '#28243D',
+        'background': '#111520',
         'on-background': '#E7E3FC',
-        'surface': '#312D4B',
+        'surface': '#181F2A',
         'on-surface': '#E7E3FC',
         'grey-50': '#2A2E42',
         'grey-100': '#474360',
@@ -87,7 +87,7 @@ const theme: VuetifyOptions['theme'] = {
       },
       variables: {
         'code-color': '#d400ff',
-        'overlay-scrim-background': '#2C2942',
+        'overlay-scrim-background': '#1F2937',
         'overlay-scrim-opacity': 0.6,
         'hover-opacity': 0.04,
         'focus-opacity': 0.1,
@@ -96,9 +96,8 @@ const theme: VuetifyOptions['theme'] = {
         'pressed-opacity': 0.14,
         'dragged-opacity': 0.1,
         'border-color': '#E7E3FC',
-        'table-header-background': '#3D3759',
+        'table-header-background': '#1E2430',
         'custom-background': '#373452',
-
         // Shadows
         'shadow-key-umbra-opacity': 'rgba(20, 18, 33, 0.08)',
         'shadow-key-penumbra-opacity': 'rgba(20, 18, 33, 0.12)',
