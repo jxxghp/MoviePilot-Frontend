@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { CalendarOptions } from '@fullcalendar/core'
+import type { CalendarOptions, EventSourceInput } from '@fullcalendar/core'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -89,7 +89,7 @@ async function getSubscribes() {
     // 合并事件
     const events = [...subEvents, ...rssEvents]
 
-    calendarOptions.value.events = events.flat()
+    calendarOptions.value.events = events.flat().filter(event => event.start) as EventSourceInput
   }
   catch (error) {
     console.error(error)

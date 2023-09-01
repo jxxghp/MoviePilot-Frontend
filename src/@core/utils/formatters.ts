@@ -88,9 +88,9 @@ export function formatSeconds(seconds: number) {
 }
 
 // YYYY-MM-DD 转化为Date
-export function parseDate(dateString: string): Date {
+export function parseDate(dateString: string): Date | null {
   if (!dateString)
-    return new Date()
+    return null
   const [year, month, day] = dateString.split('-').map(Number)
 
   return new Date(year, month - 1, day)
