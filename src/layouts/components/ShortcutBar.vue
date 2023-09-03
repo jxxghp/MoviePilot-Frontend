@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import NameTestView from '@/views/system/NameTestView.vue'
 import NetTestView from '@/views/system/NetTestView.vue'
+import LoggingView from '@/views/system/LoggingView.vue'
 
 // App捷径
 const appsMenu = ref(false)
@@ -10,6 +11,9 @@ const nameTestDialog = ref(false)
 
 // 网络测试弹窗
 const netTestDialog = ref(false)
+
+// 实时日志弹窗
+const loggingDialog = ref(false)
 </script>
 
 <template>
@@ -86,6 +90,29 @@ const netTestDialog = ref(false)
             </VListItem>
           </VCol>
         </VRow>
+        <VRow class="ma-0 mt-n1 border-t">
+          <VCol
+            cols="6"
+            class="text-center cursor-pointer pa-0 shortcut-icon border-e"
+            @click="() => {}"
+          >
+            <VListItem
+              class="pa-4"
+              @click="loggingDialog = true"
+            >
+              <VAvatar
+                size="48"
+                variant="tonal"
+              >
+                <VIcon icon="mdi-file-document-outline" />
+              </VAvatar>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">
+                日志
+              </h6>
+              <span class="text-sm">系统实时日志</span>
+            </VListItem>
+          </VCol>
+        </VRow>
       </div>
     </VCard>
   </VMenu>
@@ -111,6 +138,19 @@ const netTestDialog = ref(false)
       <VCardItem>
         <NetTestView />
       </VCardItem>
+    </VCard>
+  </VDialog>
+  <!-- 实时日志弹窗 -->
+  <VDialog
+    v-model="loggingDialog"
+    max-width="1280"
+    scrollable
+  >
+    <VCard title="实时日志">
+      <DialogCloseBtn @click="loggingDialog = false" />
+      <VCardText>
+        <LoggingView />
+      </VCardText>
     </VCard>
   </VDialog>
 </template>
