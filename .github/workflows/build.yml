@@ -34,13 +34,6 @@ jobs:
           yarn build
           zip -r dist.zip dist
 
-      - name: Delete Release
-        uses: dev-drprasad/delete-tag-and-release@v1.0
-        with:
-          tag_name: ${{ env.frontend_version }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          delete_release: true
-
       - name: Generate Release
         uses: softprops/action-gh-release@v1
         with:
