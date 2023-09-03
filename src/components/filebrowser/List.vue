@@ -87,6 +87,9 @@ const transferForm = reactive({
 // 识别结果
 const nameTestResult = ref<Context>()
 
+// 识别结果对话框
+const nameTestDialog = ref(false)
+
 // 生成1到50季的下拉框选项
 const seasonItems = ref(
   Array.from({ length: 51 }, (_, i) => i).map(item => ({
@@ -277,6 +280,7 @@ watch(
   async () => {
     items.value = []
     nameTestResult.value = undefined
+    nameTestDialog.value = false
     await load()
   },
 )
@@ -330,6 +334,7 @@ async function recognize(path: string) {
     progressDialog.value = false
     if (!nameTestResult.value)
       $toast.error(`${path} 识别失败！`)
+    nameTestDialog.value = !!nameTestResult.value?.meta_info?.name
   }
   catch (error) {
     console.error(error)
@@ -346,8 +351,17 @@ function getW500Image(url = '') {
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '重命名',
+    title: '识别',
     value: 1,
+    props: {
+      prependIcon: 'mdi-text-recognition',
+      click: (_item: FileItem) => {
+        recognize(_item.path || '')
+      },
+    },
+  }, {
+    title: '重命名',
+    value: 2,
     props: {
       prependIcon: 'mdi-rename',
       click: showRenmae,
@@ -355,7 +369,7 @@ const dropdownItems = ref([
   },
   {
     title: '整理',
-    value: 2,
+    value: 3,
     props: {
       prependIcon: 'mdi-folder-arrow-right',
       click: showTransfer,
@@ -363,7 +377,7 @@ const dropdownItems = ref([
   },
   {
     title: '删除',
-    value: 3,
+    value: 4,
     props: {
       prependIcon: 'mdi-delete-outline',
       color: 'error',
@@ -400,114 +414,6 @@ onMounted(() => {
       class="text-center break-all"
     >
       文件: {{ path }}
-      <VDivider v-if="nameTestResult" class="my-3" />
-      <div
-        v-if="nameTestResult?.meta_info?.name"
-        class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
-      >
-        <div
-          v-if="nameTestResult?.media_info?.poster_path"
-        >
-          <VImg
-            width="10rem"
-            aspect-ratio="2/3"
-            class="object-cover aspect-w-2 aspect-h-3 rounded-lg ring-1 ring-gray-500"
-            :src="getW500Image(nameTestResult?.media_info?.poster_path)"
-            cover
-          >
-            <template #placeholder>
-              <div class="w-full h-full">
-                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-              </div>
-            </template>
-          </VImg>
-        </div>
-
-        <div class="text-start grow">
-          <VCardItem class="pb-1">
-            <VCardTitle>
-              {{ nameTestResult?.media_info?.title || nameTestResult?.meta_info?.name }}
-              {{ nameTestResult?.meta_info?.season_episode }}
-            </VCardTitle>
-            <VCardSubtitle>
-              {{ nameTestResult?.media_info?.year || nameTestResult?.meta_info?.year }}
-            </VCardSubtitle>
-          </VCardItem>
-
-          <VCardText
-            v-if="nameTestResult?.media_info?.overview"
-            class="line-clamp-4 overflow-hidden text-ellipsis ..."
-          >
-            {{ nameTestResult?.media_info?.overview }}
-          </VCardText>
-
-          <VCardItem>
-            <!-- 类型 -->
-            <VChip
-              v-if="nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-blue-500"
-            >
-              {{
-                nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type
-              }}
-            </VChip>
-            <!-- 二级分类 -->
-            <VChip
-              v-if="nameTestResult?.media_info?.category"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-blue-500"
-            >
-              {{ nameTestResult?.media_info?.category }}
-            </VChip>
-            <!-- TMDBID -->
-            <VChip
-              v-if="nameTestResult?.media_info?.tmdb_id"
-              variant="elevated"
-              color="success"
-              class="me-1 mb-1"
-            >
-              {{ nameTestResult?.media_info?.tmdb_id }}
-            </VChip>
-            <!-- meta_info -->
-            <VChip
-              v-if="nameTestResult?.meta_info?.edition"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-red-500"
-            >
-              {{ nameTestResult?.meta_info?.edition }}
-            </VChip>
-            <VChip
-              v-if="nameTestResult?.meta_info?.resource_pix"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-red-500"
-            >
-              {{ nameTestResult?.meta_info?.resource_pix }}
-            </VChip>
-            <VChip
-              v-if="nameTestResult?.meta_info?.video_encode"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-orange-500"
-            >
-              {{ nameTestResult?.meta_info?.video_encode }}
-            </VChip>
-            <VChip
-              v-if="nameTestResult?.meta_info?.audio_encode"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-orange-500"
-            >
-              {{ nameTestResult?.meta_info?.audio_encode }}
-            </VChip>
-            <VChip
-              v-if="nameTestResult?.meta_info?.resource_team"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-cyan-500"
-            >
-              {{ nameTestResult?.meta_info?.resource_team }}
-            </VChip>
-          </VCardItem>
-        </div>
-      </div>
     </VCardText>
     <VCardText
       v-else-if="isFile && isImage"
@@ -552,6 +458,9 @@ onMounted(() => {
                   </VListItem>
                 </VList>
               </VMenu>
+            </IconBtn>
+            <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
+              <VIcon icon="mdi-text-recognition" />
             </IconBtn>
             <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
               <VIcon icon="mdi-rename" />
@@ -605,6 +514,9 @@ onMounted(() => {
                   </VListItem>
                 </VList>
               </VMenu>
+            </IconBtn>
+            <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
+              <VIcon icon="mdi-text-recognition" />
             </IconBtn>
             <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
               <VIcon icon="mdi-rename" />
@@ -831,11 +743,141 @@ onMounted(() => {
       <vCardText class="text-center">
         {{ progressText }}
         <vProgressLinear
+          indeterminate
           color="white"
           class="mb-0 mt-1"
-          :model-value="progressValue"
         />
       </vCardText>
+    </vCard>
+  </vDialog>
+  <!-- 识别结果对话框 -->
+  <vDialog
+    v-model="nameTestDialog"
+    :scrim="false"
+    width="800"
+  >
+    <vCard>
+      <DialogCloseBtn @click="nameTestDialog = false" />
+      <VCardItem>
+        <div v-show="nameTestResult">
+          <VCol>
+            <div
+              v-if="nameTestResult?.meta_info?.name"
+              class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
+            >
+              <div
+                v-if="nameTestResult?.media_info?.poster_path"
+                class="ma-auto"
+              >
+                <VImg
+                  width="10rem"
+                  aspect-ratio="2/3"
+                  class="object-cover aspect-w-2 aspect-h-3 rounded-lg ring-1 ring-gray-500"
+                  :src="getW500Image(nameTestResult?.media_info?.poster_path)"
+                  cover
+                >
+                  <template #placeholder>
+                    <div class="w-full h-full">
+                      <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                    </div>
+                  </template>
+                </VImg>
+              </div>
+
+              <div>
+                <VCardItem class="pb-1">
+                  <VCardTitle>
+                    {{ nameTestResult?.media_info?.title || nameTestResult?.meta_info?.name }}
+                    {{ nameTestResult?.meta_info?.season_episode }}
+                  </VCardTitle>
+                  <VCardSubtitle>
+                    {{ nameTestResult?.media_info?.year || nameTestResult?.meta_info?.year }}
+                  </VCardSubtitle>
+                </VCardItem>
+
+                <VCardText
+                  v-if="nameTestResult?.media_info?.overview"
+                  class="line-clamp-4 overflow-hidden text-ellipsis ..."
+                >
+                  {{ nameTestResult?.media_info?.overview }}
+                </VCardText>
+
+                <VCardItem>
+                  <!-- 类型 -->
+                  <VChip
+                    v-if="nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-blue-500"
+                  >
+                    {{
+                      nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type
+                    }}
+                  </VChip>
+                  <!-- 二级分类 -->
+                  <VChip
+                    v-if="nameTestResult?.media_info?.category"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-blue-500"
+                  >
+                    {{ nameTestResult?.media_info?.category }}
+                  </VChip>
+                  <!-- TMDBID -->
+                  <VChip
+                    v-if="nameTestResult?.media_info?.tmdb_id"
+                    variant="elevated"
+                    color="success"
+                    class="me-1 mb-1"
+                  >
+                    {{ nameTestResult?.media_info?.tmdb_id }}
+                  </VChip>
+                  <!-- meta_info -->
+                  <VChip
+                    v-if="nameTestResult?.meta_info?.edition"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-red-500"
+                  >
+                    {{ nameTestResult?.meta_info?.edition }}
+                  </VChip>
+                  <VChip
+                    v-if="nameTestResult?.meta_info?.resource_pix"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-red-500"
+                  >
+                    {{ nameTestResult?.meta_info?.resource_pix }}
+                  </VChip>
+                  <VChip
+                    v-if="nameTestResult?.meta_info?.video_encode"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-orange-500"
+                  >
+                    {{ nameTestResult?.meta_info?.video_encode }}
+                  </VChip>
+                  <VChip
+                    v-if="nameTestResult?.meta_info?.audio_encode"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-orange-500"
+                  >
+                    {{ nameTestResult?.meta_info?.audio_encode }}
+                  </VChip>
+                  <VChip
+                    v-if="nameTestResult?.meta_info?.resource_team"
+                    variant="elevated"
+                    class="me-1 mb-1 text-white bg-cyan-500"
+                  >
+                    {{ nameTestResult?.meta_info?.resource_team }}
+                  </VChip>
+                </VCardItem>
+              </div>
+            </div>
+            <VAlert
+              v-if="!nameTestResult?.meta_info?.name"
+              icon="mdi-alert-circle-outline"
+            >
+              识别失败，无法识别到有效信息！
+            </VAlert>
+          </VCol>
+        </div>
+      </VCardItem>
     </vCard>
   </vDialog>
 </template>
