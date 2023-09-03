@@ -151,7 +151,7 @@ async function deleteItem(item: FileItem) {
     confirmationText: '确认',
     cancellationText: '取消',
     dialogProps: {
-      maxWidth: 600,
+      maxWidth: '50rem',
     },
   })
 
@@ -571,7 +571,7 @@ onMounted(() => {
   <!-- 重命名弹窗 -->
   <VDialog
     v-model="renamePopper"
-    max-width="600"
+    max-width="50rem"
   >
     <template #activator="{ props }">
       <IconBtn title="重命名" v-bind="props">

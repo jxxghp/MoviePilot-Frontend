@@ -462,7 +462,7 @@ const getImgUrl: Ref<string> = computed(() => {
   </VHover>
   <VDialog
     v-model="subscribeSeasonDialog"
-    max-width="600"
+    max-width="50rem"
     content-class="whitespace-nowrap"
     scrollable
   >

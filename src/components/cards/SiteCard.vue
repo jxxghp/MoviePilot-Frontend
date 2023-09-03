@@ -389,7 +389,7 @@ onMounted(() => {
   <!-- 更新站点Cookie & UA弹窗 -->
   <VDialog
     v-model="siteCookieDialog"
-    max-width="600"
+    max-width="50rem"
   >
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">

@@ -128,7 +128,7 @@ async function mkdir() {
     </IconBtn>
     <VDialog
       v-model="newFolderPopper"
-      max-width="600"
+      max-width="50rem"
     >
       <template #activator="{ props }">
         <IconBtn title="新建文件夹" v-bind="props">

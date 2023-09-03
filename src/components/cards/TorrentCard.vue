@@ -62,7 +62,7 @@ async function handleAddDownload(_site: any = undefined,
     confirmationText: '确认',
     cancellationText: '取消',
     dialogProps: {
-      maxWidth: 600,
+      maxWidth: '50rem',
     },
   })
 

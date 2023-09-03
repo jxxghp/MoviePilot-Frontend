@@ -131,7 +131,7 @@ async function removeHistory(item: TransferHistory) {
     confirmationText: '同步删除文件',
     cancellationText: '仅删除历史记录',
     dialogProps: {
-      maxWidth: 600,
+      maxWidth: '50rem',
     },
     confirmationButtonProps: {
       color: 'error',
@@ -180,7 +180,7 @@ async function removeHistoryBatch() {
     confirmationText: '同步删除文件',
     cancellationText: '仅删除历史记录',
     dialogProps: {
-      maxWidth: 600,
+      maxWidth: '50rem',
     },
     confirmationButtonProps: {
       color: 'error',
@@ -393,7 +393,7 @@ const dropdownItems = ref([
   </VCard>
   <VDialog
     v-model="redoDialog"
-    max-width="600"
+    max-width="50rem"
   >
     <!-- Dialog Content -->
     <VCard title="重新整理">

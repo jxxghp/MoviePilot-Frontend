@@ -50,7 +50,7 @@
           rgba(#{variables.$vertical-nav-background-color-rgb}, 30%) 75%,
           transparent
         );
-      block-size: calc(env(safe-area-inset-top) + 64px);
+      block-size: calc(env(safe-area-inset-top) + 4rem);
       inline-size: 100%;
       inset-block-start: calc(#{variables.$vertical-nav-header-height} - 2px);
       opacity: 0;

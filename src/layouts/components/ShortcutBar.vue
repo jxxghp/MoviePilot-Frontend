@@ -144,7 +144,7 @@ const ruleTestDialog = ref(false)
   <!-- 名称测试弹窗 -->
   <VDialog
     v-model="nameTestDialog"
-    max-width="800"
+    max-width="50rem"
   >
     <VCard title="名称识别测试">
       <DialogCloseBtn @click="nameTestDialog = false" />
@@ -156,7 +156,7 @@ const ruleTestDialog = ref(false)
   <!-- 网络测试弹窗 -->
   <VDialog
     v-model="netTestDialog"
-    max-width="600"
+    max-width="35rem"
   >
     <VCard title="网络测试">
       <DialogCloseBtn @click="netTestDialog = false" />
@@ -168,7 +168,7 @@ const ruleTestDialog = ref(false)
   <!-- 实时日志弹窗 -->
   <VDialog
     v-model="loggingDialog"
-    max-width="1280"
+    class="w-full lg:w-4/5"
     scrollable
   >
     <VCard title="实时日志">
@@ -181,7 +181,7 @@ const ruleTestDialog = ref(false)
   <!-- 规则测试弹窗 -->
   <VDialog
     v-model="ruleTestDialog"
-    max-width="800"
+    max-width="50rem"
     scrollable
   >
     <VCard title="过滤规则测试">

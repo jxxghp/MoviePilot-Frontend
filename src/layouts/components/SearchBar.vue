@@ -31,7 +31,7 @@ function search() {
   >
     <VDialog
       v-model="searchDialog"
-      max-width="600"
+      max-width="50rem"
       transition="dialog-top-transition"
     >
       <!-- Dialog Activator -->
