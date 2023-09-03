@@ -6,7 +6,7 @@ import axios from 'axios'
 import { useToast } from 'vue-toast-notification'
 import { numberValidator } from '@/@validators'
 import { formatBytes } from '@core/utils/formatters'
-import type { EndPoints, FileItem } from '@/api/types'
+import type { Context, EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
 import api from '@/api'
 
@@ -83,6 +83,9 @@ const transferForm = reactive({
   min_filesize: 0,
 
 })
+
+// 识别结果
+const nameTestResult = ref<Context>()
 
 // 生成1到50季的下拉框选项
 const seasonItems = ref(
@@ -273,6 +276,7 @@ watch(
   () => inProps.path,
   async () => {
     items.value = []
+    nameTestResult.value = undefined
     await load()
   },
 )
@@ -309,6 +313,34 @@ function startLoadingProgress() {
 // 停止监听加载进度
 function stopLoadingProgress() {
   progressEventSource.value?.close()
+}
+
+// 调用API识别
+async function recognize(path: string) {
+  try {
+    // 显示进度条
+    progressDialog.value = true
+    progressText.value = `正在识别 ${path} ...`
+    nameTestResult.value = await api.get('media/recognize_file', {
+      params: {
+        path,
+      },
+    })
+    // 关闭进度条
+    progressDialog.value = false
+    if (!nameTestResult.value)
+      $toast.error(`${path} 识别失败！`)
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// TMDB图片转换为w500大小
+function getW500Image(url = '') {
+  if (!url)
+    return ''
+  return url.replace('original', 'w500')
 }
 
 // 弹出菜单
@@ -365,9 +397,118 @@ onMounted(() => {
     </VCardText>
     <VCardText
       v-else-if="isFile && !isImage"
-      class="grow d-flex justify-center align-center break-all"
+      class="text-center break-all"
     >
-      文件: {{ path }}<br>
+      文件: {{ path }}
+      <VDivider v-if="nameTestResult" class="my-3" />
+      <div
+        v-if="nameTestResult?.meta_info?.name"
+        class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
+      >
+        <div
+          v-if="nameTestResult?.media_info?.poster_path"
+          class="ma-auto"
+        >
+          <VImg
+            width="10rem"
+            aspect-ratio="2/3"
+            class="object-cover aspect-w-2 aspect-h-3 rounded-lg ring-1 ring-gray-500"
+            :src="getW500Image(nameTestResult?.media_info?.poster_path)"
+            cover
+          >
+            <template #placeholder>
+              <div class="w-full h-full">
+                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+              </div>
+            </template>
+          </VImg>
+        </div>
+
+        <div class="text-start">
+          <VCardItem class="pb-1">
+            <VCardTitle>
+              {{ nameTestResult?.media_info?.title || nameTestResult?.meta_info?.name }}
+              {{ nameTestResult?.meta_info?.season_episode }}
+            </VCardTitle>
+            <VCardSubtitle>
+              {{ nameTestResult?.media_info?.year || nameTestResult?.meta_info?.year }}
+            </VCardSubtitle>
+          </VCardItem>
+
+          <VCardText
+            v-if="nameTestResult?.media_info?.overview"
+            class="line-clamp-4 overflow-hidden text-ellipsis ..."
+          >
+            {{ nameTestResult?.media_info?.overview }}
+          </VCardText>
+
+          <VCardItem>
+            <!-- 类型 -->
+            <VChip
+              v-if="nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-blue-500"
+            >
+              {{
+                nameTestResult?.media_info?.type || nameTestResult?.meta_info?.type
+              }}
+            </VChip>
+            <!-- 二级分类 -->
+            <VChip
+              v-if="nameTestResult?.media_info?.category"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-blue-500"
+            >
+              {{ nameTestResult?.media_info?.category }}
+            </VChip>
+            <!-- TMDBID -->
+            <VChip
+              v-if="nameTestResult?.media_info?.tmdb_id"
+              variant="elevated"
+              color="success"
+              class="me-1 mb-1"
+            >
+              {{ nameTestResult?.media_info?.tmdb_id }}
+            </VChip>
+            <!-- meta_info -->
+            <VChip
+              v-if="nameTestResult?.meta_info?.edition"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-red-500"
+            >
+              {{ nameTestResult?.meta_info?.edition }}
+            </VChip>
+            <VChip
+              v-if="nameTestResult?.meta_info?.resource_pix"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-red-500"
+            >
+              {{ nameTestResult?.meta_info?.resource_pix }}
+            </VChip>
+            <VChip
+              v-if="nameTestResult?.meta_info?.video_encode"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-orange-500"
+            >
+              {{ nameTestResult?.meta_info?.video_encode }}
+            </VChip>
+            <VChip
+              v-if="nameTestResult?.meta_info?.audio_encode"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-orange-500"
+            >
+              {{ nameTestResult?.meta_info?.audio_encode }}
+            </VChip>
+            <VChip
+              v-if="nameTestResult?.meta_info?.resource_team"
+              variant="elevated"
+              class="me-1 mb-1 text-white bg-cyan-500"
+            >
+              {{ nameTestResult?.meta_info?.resource_team }}
+            </VChip>
+          </VCardItem>
+        </div>
+      </div>
     </VCardText>
     <VCardText
       v-else-if="isFile && isImage"
@@ -505,12 +646,21 @@ onMounted(() => {
         class="me-2"
       />
       <VSpacer v-if="isFile" />
-      <VBtn v-if="isFile" @click="download(inProps.path || '')">
-        <VIcon>mdi-download</VIcon>
-      </VBtn>
-      <VBtn v-if="!isFile" @click="load">
-        <VIcon>mdi-refresh</VIcon>
-      </VBtn>
+      <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">
+        <VIcon color="primary">
+          mdi-text-recognition
+        </VIcon>
+      </IconBtn>
+      <IconBtn v-if="isFile" @click="download(inProps.path || '')">
+        <VIcon color="primary">
+          mdi-download
+        </VIcon>
+      </IconBtn>
+      <IconBtn v-if="!isFile" @click="load">
+        <VIcon color="primary">
+          mdi-refresh
+        </VIcon>
+      </IconBtn>
     </VToolbar>
   </VCard>
   <!-- 重命名弹窗 -->
