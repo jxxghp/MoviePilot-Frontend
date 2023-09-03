@@ -407,7 +407,6 @@ onMounted(() => {
       >
         <div
           v-if="nameTestResult?.media_info?.poster_path"
-          class="ma-auto"
         >
           <VImg
             width="10rem"
@@ -424,7 +423,7 @@ onMounted(() => {
           </VImg>
         </div>
 
-        <div class="text-start">
+        <div class="text-start grow">
           <VCardItem class="pb-1">
             <VCardTitle>
               {{ nameTestResult?.media_info?.title || nameTestResult?.meta_info?.name }}

@@ -2,6 +2,7 @@
 import NameTestView from '@/views/system/NameTestView.vue'
 import NetTestView from '@/views/system/NetTestView.vue'
 import LoggingView from '@/views/system/LoggingView.vue'
+import RuleTestView from '@/views/system/RuleTestView.vue'
 
 // App捷径
 const appsMenu = ref(false)
@@ -14,6 +15,9 @@ const netTestDialog = ref(false)
 
 // 实时日志弹窗
 const loggingDialog = ref(false)
+
+// 过滤规则弹窗
+const ruleTestDialog = ref(false)
 </script>
 
 <template>
@@ -112,6 +116,27 @@ const loggingDialog = ref(false)
               <span class="text-sm">系统实时日志</span>
             </VListItem>
           </VCol>
+          <VCol
+            cols="6"
+            class="text-center cursor-pointer pa-0 shortcut-icon border-e"
+            @click="() => {}"
+          >
+            <VListItem
+              class="pa-4"
+              @click="ruleTestDialog = true"
+            >
+              <VAvatar
+                size="48"
+                variant="tonal"
+              >
+                <VIcon icon="mdi-filter-cog-outline" />
+              </VAvatar>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">
+                规则
+              </h6>
+              <span class="text-sm">过滤规则测试</span>
+            </VListItem>
+          </VCol>
         </VRow>
       </div>
     </VCard>
@@ -150,6 +175,19 @@ const loggingDialog = ref(false)
       <DialogCloseBtn @click="loggingDialog = false" />
       <VCardText>
         <LoggingView />
+      </VCardText>
+    </VCard>
+  </VDialog>
+  <!-- 规则测试弹窗 -->
+  <VDialog
+    v-model="ruleTestDialog"
+    max-width="800"
+    scrollable
+  >
+    <VCard title="过滤规则测试">
+      <DialogCloseBtn @click="ruleTestDialog = false" />
+      <VCardText>
+        <RuleTestView />
       </VCardText>
     </VCard>
   </VDialog>
