@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
 import router from '@/router'
+import type { User } from '@/api/types'
 
 // Vuex Store
 const store = useStore()
@@ -15,7 +16,7 @@ function logout() {
 }
 
 // 获取当前用户信息
-const accountInfo: any = inject('accountInfo')
+const accountInfo: User = inject('accountInfo') as User
 </script>
 
 <template>
@@ -56,6 +57,7 @@ const accountInfo: any = inject('accountInfo')
 
         <!-- 👉 Profile -->
         <VListItem
+          v-if="accountInfo.is_superuser"
           link
           to="setting"
         >

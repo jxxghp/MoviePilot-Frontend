@@ -64,6 +64,7 @@ async function loadAccountInfo() {
 // 页面加载时，加载当前用户数据
 onBeforeMount(async () => {
   await loadAccountInfo()
+  console.log('accountInfo', accountInfo.value)
   startSSEMessager()
 })
 
