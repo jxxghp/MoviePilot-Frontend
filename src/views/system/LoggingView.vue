@@ -28,7 +28,7 @@ function startSSELogging() {
 function extractLogDetailsFromLogs(logs: string[]): { level: string; time: string; program: string; content: string }[] {
   const logDetails: { level: string; time: string; program: string; content: string }[] = []
 
-  const logPattern = /^【(.*?)】.*\s(.*?)\s-\s(.*?)\s-\s(.*)$/
+  const logPattern = /^【(.*?)】[0-9\-:]*\s(.*?)\s-\s(.*?)\s-\s(.*)$/
 
   for (const log of logs) {
     const matches = RegExp(logPattern).exec(log)
@@ -70,7 +70,7 @@ onMounted(() => {
 <template>
   <div
     v-if="logs.length === 0"
-    class="mt-5 w-full text-centerflex flex-col items-center"
+    class="mt-5 w-full text-center flex flex-col items-center"
   >
     <VProgressCircular
       size="48"
@@ -79,41 +79,43 @@ onMounted(() => {
     />
     <span class="mt-3">正在刷新 ...</span>
   </div>
-  <VTable
-    class="table-rounded"
-    hide-default-footer
-    disable-sort
-  >
-    <tbody>
-      <tr v-for="(log, i) in extractLogDetails" :key="i" class="text-sm">
-        <td
-          class="text-sm"
-        >
-          <VChip
-            size="small"
-            :color="getLogColor(log.level)"
-            variant="elevated"
-            v-text="log.level"
+  <div>
+    <VTable
+      class="table-rounded"
+      hide-default-footer
+      disable-sort
+    >
+      <tbody>
+        <tr v-for="(log, i) in extractLogDetails" :key="i" class="text-sm">
+          <td
+            class="text-sm"
+          >
+            <VChip
+              size="small"
+              :color="getLogColor(log.level)"
+              variant="elevated"
+              v-text="log.level"
+            />
+          </td>
+          <!-- name -->
+          <td
+            class="text-sm"
+          >
+            {{ log.time }}
+          </td>
+          <td
+            class="text-sm"
+          >
+            <h6 class="text-sm font-weight-medium">
+              {{ log.program }}
+            </h6>
+          </td>
+          <td
+            class="text-sm"
+            v-text="log.content"
           />
-        </td>
-        <!-- name -->
-        <td
-          class="text-sm"
-        >
-          {{ log.time }}
-        </td>
-        <td
-          class="text-sm"
-        >
-          <h6 class="text-sm font-weight-medium">
-            {{ log.program }}
-          </h6>
-        </td>
-        <td
-          class="text-sm"
-          v-text="log.content"
-        />
-      </tr>
-    </tbody>
-  </VTable>
+        </tr>
+      </tbody>
+    </VTable>
+  </div>
 </template>
