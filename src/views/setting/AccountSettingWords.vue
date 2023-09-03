@@ -11,6 +11,9 @@ const customIdentifiers = ref('')
 // 自定义制作组
 const customReleaseGroups = ref('')
 
+// 文件整理屏蔽词
+const transferExcludeWords = ref('')
+
 // 查询已设置的识别词
 async function queryCustomIdentifiers() {
   try {
@@ -33,6 +36,20 @@ async function queryCustomReleaseGroups() {
     )
 
     customReleaseGroups.value = result.data?.value.join('\n')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 查询已设置的屏蔽词
+async function queryTransferExcludeWords() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/setting/TransferExcludeWords',
+    )
+
+    transferExcludeWords.value = result.data?.value.join('\n')
   }
   catch (error) {
     console.log(error)
@@ -77,9 +94,29 @@ async function saveCustomReleaseGroups() {
   }
 }
 
+// 保存文件整理屏蔽词
+async function saveTransferExcludeWords() {
+  try {
+    // 用户名密码
+    const result: { [key: string]: any } = await api.post(
+      'system/setting/TransferExcludeWords',
+      transferExcludeWords.value.split('\n'),
+    )
+
+    if (result.success)
+      $toast.success('文件整理屏蔽词保存成功')
+    else
+      $toast.error('文件整理屏蔽词保存失败！')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   queryCustomIdentifiers()
   queryCustomReleaseGroups()
+  queryTransferExcludeWords()
 })
 </script>
 
@@ -122,6 +159,26 @@ onMounted(() => {
           <VBtn
             type="submit"
             @click="saveCustomReleaseGroups"
+          >
+            保存
+          </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard title="文件整理屏蔽词">
+        <VCardSubtitle> 目录名或文件名中包含屏蔽词时不进行整理 </VCardSubtitle>
+        <VCardItem>
+          <VTextarea
+            v-model="transferExcludeWords"
+            auto-grow
+            placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个屏蔽词"
+          />
+        </VCardItem>
+        <VCardItem>
+          <VBtn
+            type="submit"
+            @click="saveTransferExcludeWords"
           >
             保存
           </VBtn>
