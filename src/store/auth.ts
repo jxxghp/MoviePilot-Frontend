@@ -4,6 +4,9 @@ import type { Module } from 'vuex'
 interface AuthState {
   token: string | null
   remember: boolean
+  superUser: boolean
+  userName: string
+  avatar: string
 }
 
 // 定义根状态类型
@@ -17,6 +20,9 @@ const authModule: Module<AuthState, RootState> = {
   state: {
     token: null,
     remember: false,
+    superUser: false,
+    userName: '',
+    avatar: '',
   },
   mutations: {
     setToken(state, token: string) {
@@ -27,6 +33,15 @@ const authModule: Module<AuthState, RootState> = {
     },
     setRemember(state, remember: boolean) {
       state.remember = remember
+    },
+    setSuperUser(state, superUser: boolean) {
+      state.superUser = superUser
+    },
+    setUserName(state, userName: string) {
+      state.userName = userName
+    },
+    setAvatar(state, avatar: string) {
+      state.avatar = avatar
     },
   },
   actions: {
@@ -39,10 +54,22 @@ const authModule: Module<AuthState, RootState> = {
     updateRemember({ commit }, remember: boolean) {
       commit('setRemember', remember)
     },
+    updateSuperUser({ commit }, superUser: boolean) {
+      commit('setSuperUser', superUser)
+    },
+    updateUserName({ commit }, userName: string) {
+      commit('setUserName', userName)
+    },
+    updateAvatar({ commit }, avatar: string) {
+      commit('setAvatar', avatar)
+    },
   },
   getters: {
     getToken: state => state.token,
     getRemember: state => state.remember,
+    getSuperUser: state => state.superUser,
+    getUserName: state => state.userName,
+    getAvatar: state => state.avatar,
   },
 }
 

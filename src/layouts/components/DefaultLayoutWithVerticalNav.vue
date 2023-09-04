@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import type { User } from '@/api/types'
 import VerticalNavSectionTitle from '@/@layouts/components/VerticalNavSectionTitle.vue'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
@@ -10,9 +9,10 @@ import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import SearchBar from '@/layouts/components/SearchBar.vue'
 import ShortcutBar from '@/layouts/components/ShortcutBar.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
+import store from '@/store'
 
-// 获取当前用户信息
-const accountInfo: User = inject('accountInfo') as User
+// 从Vuex Store中获取superuser信息
+const superUser = store.state.auth.superUser
 </script>
 
 <template>
@@ -91,7 +91,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '电影',
           icon: 'mdi-movie-check-outline',
@@ -99,7 +99,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '电视剧',
           icon: 'mdi-television-classic',
@@ -107,7 +107,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '自定义',
           icon: 'mdi-rss',
@@ -135,7 +135,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '历史记录',
           icon: 'mdi-history',
@@ -143,7 +143,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '文件管理',
           icon: 'mdi-folder-multiple-outline',
@@ -153,13 +153,13 @@ const accountInfo: User = inject('accountInfo') as User
 
       <!-- 👉 系统 -->
       <VerticalNavSectionTitle
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           heading: '系统',
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '插件',
           icon: 'mdi-apps',
@@ -167,7 +167,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '站点管理',
           icon: 'mdi-web',
@@ -175,7 +175,7 @@ const accountInfo: User = inject('accountInfo') as User
         }"
       />
       <VerticalNavLink
-        v-if="accountInfo.is_superuser"
+        v-if="superUser"
         :item="{
           title: '设定',
           icon: 'mdi-cog',

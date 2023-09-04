@@ -66,10 +66,16 @@ function login() {
     .then((response: any) => {
       // 获取token
       const token = response.access_token
+      const superuser = response.super_user
+      const username = response.user_name
+      const avatar = response.avatar
 
       // 更新token和remember状态到Vuex Store
       store.dispatch('auth/updateToken', token)
       store.dispatch('auth/updateRemember', form.value.remember)
+      store.dispatch('auth/updateSuperUser', superuser)
+      store.dispatch('auth/updateUserName', username)
+      store.dispatch('auth/updateAvatar', avatar)
 
       // 跳转到首页
       router.push('/')

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
 import router from '@/router'
-import type { User } from '@/api/types'
+import avatar1 from '@images/avatars/avatar-1.png'
 
 // Vuex Store
 const store = useStore()
@@ -15,8 +15,10 @@ function logout() {
   router.push('/login')
 }
 
-// 获取当前用户信息
-const accountInfo: User = inject('accountInfo') as User
+// 从Vuex Store中获取信息
+const superUser = store.state.auth.superUser
+const userName = store.state.auth.userName
+const avatar = store.state.auth.avatar
 </script>
 
 <template>
@@ -25,7 +27,7 @@ const accountInfo: User = inject('accountInfo') as User
     color="primary"
     variant="tonal"
   >
-    <VImg :src="accountInfo.avatar" />
+    <VImg :src="avatar ?? avatar1" />
 
     <!-- SECTION Menu -->
     <VMenu
@@ -43,21 +45,21 @@ const accountInfo: User = inject('accountInfo') as User
                 color="primary"
                 variant="tonal"
               >
-                <VImg :src="accountInfo.avatar" />
+                <VImg :src="avatar ?? avatar1" />
               </VAvatar>
             </VListItemAction>
           </template>
 
           <VListItemTitle class="font-weight-semibold">
-            {{ accountInfo.is_superuser ? "管理员" : "普通用户" }}
+            {{ superUser ? "管理员" : "普通用户" }}
           </VListItemTitle>
-          <VListItemSubtitle>{{ accountInfo.name }}</VListItemSubtitle>
+          <VListItemSubtitle>{{ userName }}</VListItemSubtitle>
         </VListItem>
         <VDivider class="my-2" />
 
         <!-- 👉 Profile -->
         <VListItem
-          v-if="accountInfo.is_superuser"
+          v-if="superUser"
           link
           to="setting"
         >
