@@ -52,23 +52,23 @@ function openTmdbPage(type: string, tmdbId: number) {
 
         <div>
           <VCardItem class="pb-1">
-            <VCardTitle>
+            <VCardTitle class="text-center text-md-left">
               {{ context?.media_info?.title || context?.meta_info?.name }}
               {{ context?.meta_info?.season_episode }}
             </VCardTitle>
-            <VCardSubtitle>
+            <VCardSubtitle class="text-center text-md-left">
               {{ context?.media_info?.year || context?.meta_info?.year }}
             </VCardSubtitle>
           </VCardItem>
 
           <VCardText
             v-if="context?.media_info?.overview"
-            class="line-clamp-4 overflow-hidden text-ellipsis ..."
+            class="line-clamp-4 overflow-hidden text-ellipsis text-center text-md-left ..."
           >
             {{ context?.media_info?.overview }}
           </VCardText>
 
-          <VCardItem>
+          <VCardItem class="text-center text-md-left">
             <!-- 类型 -->
             <VChip
               v-if="context?.media_info?.type || context?.meta_info?.type"

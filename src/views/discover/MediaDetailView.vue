@@ -430,9 +430,11 @@ onBeforeMount(() => {
               <div class="relative z-20 flex items-center false"><span>已入库</span></div>
             </span>
           </div>
-          <h1 class="flex flex-row items-baseline justify-start lg:justify-center">
-            <span>{{ mediaDetail.title }}</span>
-            <span v-if="mediaDetail.year" class="text-lg">（{{ mediaDetail.year }}）</span>
+          <h1 class="d-flex flex-column flex-lg-row align-baseline justify-center justify-lg-start">
+            <div>{{ mediaDetail.title }}</div>
+            <div v-if="mediaDetail.year" class="text-lg align-self-center align-self-lg-end">
+              （{{ mediaDetail.year }}）
+            </div>
           </h1>
           <span class="media-attributes">
             <span v-if="mediaDetail.runtime || mediaDetail.episode_run_time[0]">{{ mediaDetail.runtime || mediaDetail.episode_run_time[0] }} 分钟</span>
