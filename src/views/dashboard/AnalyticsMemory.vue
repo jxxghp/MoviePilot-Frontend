@@ -28,6 +28,7 @@ const chartOptions = controlledComputed(() => vuetifyTheme.name.value, () => {
     chart: {
       parentHeightOffset: 0,
       toolbar: { show: false },
+      animations: { enabled: false },
     },
     tooltip: { enabled: false },
     grid: {
