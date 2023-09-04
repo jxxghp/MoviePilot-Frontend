@@ -431,7 +431,9 @@ onBeforeMount(() => {
             </span>
           </div>
           <h1 class="d-flex flex-column flex-lg-row align-baseline justify-center justify-lg-start">
-            <div>{{ mediaDetail.title }}</div>
+            <div class="align-self-center align-self-lg-end">
+              {{ mediaDetail.title }}
+            </div>
             <div v-if="mediaDetail.year" class="text-lg align-self-center align-self-lg-end">
               （{{ mediaDetail.year }}）
             </div>
