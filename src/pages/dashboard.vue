@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import AnalyticsMediaStatistic from '@/views/dashboard/AnalyticsMediaStatistic.vue'
-import AnalyticsProcesses from '@/views/dashboard/AnalyticsProcesses.vue'
 import AnalyticsScheduler from '@/views/dashboard/AnalyticsScheduler.vue'
 import AnalyticsSpeed from '@/views/dashboard/AnalyticsSpeed.vue'
 import AnalyticsStorage from '@/views/dashboard/AnalyticsStorage.vue'
 import AnalyticsWeeklyOverview from '@/views/dashboard/AnalyticsWeeklyOverview.vue'
+import AnalyticsCpu from '@/views/dashboard/AnalyticsCpu.vue'
+import AnalyticsMemory from '@/views/dashboard/AnalyticsMemory.vue'
 </script>
 
 <template>
@@ -44,8 +45,18 @@ import AnalyticsWeeklyOverview from '@/views/dashboard/AnalyticsWeeklyOverview.v
       <AnalyticsScheduler />
     </VCol>
 
-    <VCol cols="12">
-      <AnalyticsProcesses />
+    <VCol
+      cols="12"
+      md="6"
+    >
+      <AnalyticsCpu />
+    </VCol>
+
+    <VCol
+      cols="12"
+      md="6"
+    >
+      <AnalyticsMemory />
     </VCol>
   </VRow>
 </template>

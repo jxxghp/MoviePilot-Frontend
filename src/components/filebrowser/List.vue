@@ -326,6 +326,7 @@ async function recognize(path: string) {
     // 显示进度条
     progressDialog.value = true
     progressText.value = `正在识别 ${path} ...`
+    progressValue.value = 0
     nameTestResult.value = await api.get('media/recognize_file', {
       params: {
         path,
@@ -737,9 +738,10 @@ onMounted(() => {
       <vCardText class="text-center">
         {{ progressText }}
         <vProgressLinear
-          indeterminate
+          v-if="progressValue"
           color="white"
           class="mb-0 mt-1"
+          :model-value="progressValue"
         />
       </vCardText>
     </vCard>
