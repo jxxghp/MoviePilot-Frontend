@@ -20,8 +20,10 @@ const series = ref([
   },
 ])
 
-// 当前值
-const current = ref(0)
+// 占用的内存
+const usedMemory = ref(0)
+// 内存使用百分比
+const memoryUsage = ref(0)
 
 const chartOptions = controlledComputed(() => vuetifyTheme.name.value, () => {
   return {
@@ -80,6 +82,7 @@ const chartOptions = controlledComputed(() => vuetifyTheme.name.value, () => {
     },
     yaxis: {
       labels: { show: false },
+      max: 100,
     },
   }
 })
@@ -88,9 +91,8 @@ const chartOptions = controlledComputed(() => vuetifyTheme.name.value, () => {
 async function getMemorgUsage() {
   try {
     // 请求数据
-    current.value = await api.get('dashboard/memory') ?? 0
-    // 添加到序列
-    series.value[0].data.push(current.value / 1024 / 1024 / 1024)
+    [usedMemory.value, memoryUsage.value] = await api.get('dashboard/memory')
+    series.value[0].data.push(memoryUsage.value)
     // 序列超过30条记录时，清掉前面的
     if (series.value[0].data.length > 30)
       series.value[0].data.shift()
@@ -131,7 +133,7 @@ onUnmounted(() => {
       />
 
       <p class="text-center font-weight-medium mb-0">
-        当前：{{ formatBytes(current) }}
+        当前：{{ formatBytes(usedMemory) }}
       </p>
     </VCardText>
   </VCard>
