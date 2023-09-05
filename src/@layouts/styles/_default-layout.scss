@@ -38,7 +38,7 @@ body,
   overflow: hidden;
   // TODO: Use grid gutter variable here
   padding-block: 1.5rem;
-  padding-top: calc(env(safe-area-inset-top) + 65px);
+  padding-top: calc(env(safe-area-inset-top) + 4.25rem);
   // display: flex;
 
 
@@ -49,7 +49,7 @@ body,
     & > div:first-child {
       flex: auto;
       position: relative;
-      width: calc(100vw - variables.$layout-vertical-nav-width - 1rem);
+      width: calc(100vw - variables.$layout-vertical-nav-width - 0.5rem);
     }
   }
 }
