@@ -10,6 +10,10 @@ const themes: ThemeSwitcherTheme[] = [
     name: 'dark',
     icon: 'mdi-weather-night',
   },
+  {
+    name: 'purple',
+    icon: 'mdi-brightness-4',
+  },
 ]
 </script>
 

@@ -3,14 +3,13 @@
 @tailwind components;
 @tailwind utilities;
 
-
 #nprogress .bar {
-  background: #7D34FD !important;
+  background: rgb(var(--v-theme-primary)) !important;
   top: env(safe-area-inset-top) !important;
 }
 
 #nprogress .peg {
-  box-shadow: 0 0 10px #7D34FD, 0 0 5px #7D34FD !important;
+  box-shadow: 0 0 10px rgb(var(--v-theme-primary)), 0 0 5px rgb(var(--v-theme-primary)) !important;
   -webkit-transform: rotate(0deg) translate(0px, -1px);
   -ms-transform: rotate(0deg) translate(0px, -1px);
       transform: rotate(0deg) translate(0px, -1px);
