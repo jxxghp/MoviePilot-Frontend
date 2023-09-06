@@ -43,9 +43,13 @@ async function restart() {
   if (confirmed) {
     // 调用API重启
     try {
+      // 显示等待框
+      progressDialog.value = true
       const result: { [key: string]: any } = await api.get('system/restart')
       if (!result.success) {
-        // 重启成功
+        // 隐藏等待框
+        progressDialog.value = false
+        // 重启不成功
         $toast.error(result.message)
         return
       }
@@ -53,8 +57,6 @@ async function restart() {
     catch (error) {
       console.error(error)
     }
-    // 显示等待框
-    progressDialog.value = true
     // 注销
     logout()
   }
@@ -170,7 +172,6 @@ const avatar = store.state.auth.avatar
   <!-- 重启进度框 -->
   <vDialog
     v-model="progressDialog"
-    :scrim="false"
     width="400"
   >
     <vCard
