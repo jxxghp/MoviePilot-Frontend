@@ -15,6 +15,9 @@ const createConfirm = useConfirm()
 // 提示框
 const $toast = useToast()
 
+// 进度框
+const progressDialog = ref(false)
+
 // 执行注销操作
 function logout() {
   // 清除登录状态信息
@@ -50,6 +53,8 @@ async function restart() {
     catch (error) {
       console.error(error)
     }
+    // 显示等待框
+    progressDialog.value = true
     // 注销
     logout()
   }
@@ -162,4 +167,23 @@ const avatar = store.state.auth.avatar
     </VMenu>
     <!-- !SECTION -->
   </VAvatar>
+  <!-- 重启进度框 -->
+  <vDialog
+    v-model="progressDialog"
+    :scrim="false"
+    width="400"
+  >
+    <vCard
+      color="primary"
+    >
+      <vCardText class="text-center">
+        正在重启 ...
+        <vProgressLinear
+          indeterminate
+          color="white"
+          class="mb-0 mt-1"
+        />
+      </vCardText>
+    </vCard>
+  </vDialog>
 </template>
