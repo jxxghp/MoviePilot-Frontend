@@ -425,6 +425,7 @@ onMounted(() => {
             </VCol>
             <VCol
               cols="12"
+              md="6"
             >
               <VTextField
                 v-model="rssForm.include"
@@ -433,6 +434,7 @@ onMounted(() => {
             </VCol>
             <VCol
               cols="12"
+              md="6"
             >
               <VTextField
                 v-model="rssForm.exclude"
@@ -441,6 +443,7 @@ onMounted(() => {
             </VCol>
             <VCol
               cols="12"
+              md="6"
             >
               <VTextField
                 v-model="rssForm.save_path"

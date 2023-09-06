@@ -232,6 +232,7 @@ function onRefresh() {
             </VCol>
             <VCol
               cols="12"
+              md="6"
             >
               <VTextField
                 v-model="rssForm.include"
@@ -241,6 +242,7 @@ function onRefresh() {
             </VCol>
             <VCol
               cols="12"
+              md="6"
             >
               <VTextField
                 v-model="rssForm.exclude"
@@ -250,6 +252,7 @@ function onRefresh() {
             </VCol>
             <VCol
               cols="12"
+              md="6"
             >
               <VTextField
                 v-model="rssForm.save_path"
