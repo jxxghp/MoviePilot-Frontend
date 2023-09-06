@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import { useStore } from 'vuex'
+import { useConfirm } from 'vuetify-use-dialog'
+import { useToast } from 'vue-toast-notification'
 import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
+import api from '@/api'
 
 // Vuex Store
 const store = useStore()
+
+// 确认框
+const createConfirm = useConfirm()
+
+// 提示框
+const $toast = useToast()
 
 // 执行注销操作
 function logout() {
@@ -13,6 +22,37 @@ function logout() {
 
   // 重定向到登录页面或其他适当的页面
   router.push('/login')
+}
+
+// 执行重启操作
+async function restart() {
+  // 弹出提示
+  const confirmed = await createConfirm({
+    title: '确认',
+    content: '确认重启系统吗？',
+    confirmationText: '确认',
+    cancellationText: '取消',
+    dialogProps: {
+      maxWidth: '30rem',
+    },
+  })
+
+  if (confirmed) {
+    // 调用API重启
+    try {
+      const result: { [key: string]: any } = await api.get('system/restart')
+      if (!result.success) {
+        // 重启成功
+        $toast.error(result.message)
+        return
+      }
+    }
+    catch (error) {
+      console.error(error)
+    }
+    // 注销
+    logout()
+  }
 }
 
 // 从Vuex Store中获取信息
@@ -92,6 +132,19 @@ const avatar = store.state.auth.avatar
 
         <!-- Divider -->
         <VDivider class="my-2" />
+
+        <!-- 👉 restart -->
+        <VListItem @click="restart">
+          <template #prepend>
+            <VIcon
+              class="me-2"
+              icon="mdi-restart"
+              size="22"
+            />
+          </template>
+
+          <VListItemTitle>重启</VListItemTitle>
+        </VListItem>
 
         <!-- 👉 Logout -->
         <VListItem @click="logout">
