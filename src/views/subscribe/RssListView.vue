@@ -176,6 +176,7 @@ function onRefresh() {
 
     <!-- Dialog Content -->
     <VCard title="新增自定义订阅">
+      <DialogCloseBtn @click="rssAddDialog = false" />
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>

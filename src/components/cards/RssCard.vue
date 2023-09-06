@@ -368,6 +368,7 @@ onMounted(() => {
   >
     <!-- Dialog Content -->
     <VCard :title="`订阅 - ${props.media?.name}`">
+      <DialogCloseBtn @click="rssInfoDialog = false" />
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
