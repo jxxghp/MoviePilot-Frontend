@@ -749,7 +749,6 @@ onMounted(() => {
   <!-- 识别结果对话框 -->
   <vDialog
     v-model="nameTestDialog"
-    :scrim="false"
     width="800"
   >
     <vCard>
