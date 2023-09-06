@@ -46,7 +46,7 @@ async function restart() {
       // 显示等待框
       progressDialog.value = true
       const result: { [key: string]: any } = await api.get('system/restart')
-      if (!result.success) {
+      if (!result?.success) {
         // 隐藏等待框
         progressDialog.value = false
         // 重启不成功
