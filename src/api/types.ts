@@ -526,6 +526,9 @@ export interface Plugin {
 
   // 运行状态
   state?: boolean
+
+  // 是否有详情页面
+  has_page?: boolean
 }
 
 // 种子信息

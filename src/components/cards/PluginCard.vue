@@ -119,6 +119,8 @@ async function savePluginConf() {
 
 // 显示插件详情
 async function showPluginInfo() {
+  // 加载详情
+  await loadPluginPage()
   pluginConfigDialog.value = false
   pluginInfoDialog.value = true
 }
@@ -129,17 +131,35 @@ async function showPluginConfig() {
   await loadPluginForm()
   // 加载配置
   await loadPluginConf()
-  // 加载详情
-  await loadPluginPage()
   // 显示对话框
+  pluginInfoDialog.value = false
   pluginConfigDialog.value = true
 }
 
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '卸载',
+    title: '查看详情',
     value: 1,
+    show: props.plugin?.has_page,
+    props: {
+      prependIcon: 'mdi-information-outline',
+      click: showPluginInfo,
+    },
+  },
+  {
+    title: '插件配置',
+    value: 2,
+    show: true,
+    props: {
+      prependIcon: 'mdi-cog-outline',
+      click: showPluginConfig,
+    },
+  },
+  {
+    title: '卸载插件',
+    value: 3,
+    show: true,
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
@@ -155,7 +175,12 @@ const dropdownItems = ref([
     v-if="isVisible"
     :width="props.width"
     :height="props.height"
-    @click="showPluginConfig"
+    @click="() => {
+      if (props.plugin?.has_page)
+        showPluginInfo()
+      else
+        showPluginConfig()
+    }"
   >
     <div
       class="relative pa-4 text-center card-cover-blurred"
@@ -171,6 +196,7 @@ const dropdownItems = ref([
             <VList>
               <VListItem
                 v-for="(item, i) in dropdownItems"
+                v-show="item.show"
                 :key="i"
                 variant="plain"
                 :base-color="item.props.color"
@@ -253,6 +279,9 @@ const dropdownItems = ref([
         />
       </VCardText>
       <VCardActions>
+        <VBtn @click="showPluginConfig">
+          配置
+        </VBtn>
         <VSpacer />
         <VBtn @click="pluginInfoDialog = false">
           关闭
