@@ -157,7 +157,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '插件',
+    title: '卸载',
     value: 3,
     show: true,
     props: {
