@@ -244,13 +244,7 @@ function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
 async function getResourceList() {
   resourceLoading.value = true
   try {
-    resourceDataList.value = await api.get('search/title', {
-      params: {
-        keyword: resourceSearch.value,
-        page: resourceCurrentPage.value,
-        site: cardProps.site?.id,
-      },
-    })
+    resourceDataList.value = await api.get(`site/resource/${cardProps.site?.id}`)
     resourceLoading.value = false
   }
   catch (error) {
