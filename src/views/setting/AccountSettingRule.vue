@@ -5,15 +5,10 @@ import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 
 // 规则卡片类型
 interface FilterCard {
-
   // 优先级
   pri: string
-
   // 已选规则
   rules: string[]
-
-  // 是否可见
-  visible: boolean
 }
 
 // 提示框
@@ -48,7 +43,6 @@ async function queryCustomFilters(ruleType: string) {
         return {
           pri: (index + 1).toString(),
           rules: group.split('&'),
-          visible: true,
         }
       })
     }
@@ -138,23 +132,18 @@ function updateFilterCardValue2(pri: string, rules: string[]) {
 
 // 移除卡片
 function filterCardClose(ruleType: string, pri: string) {
-  // 将卡片从列表中删除，并更新剩余卡片的序号
-  const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
-  const index = cards.value.findIndex(card => card.pri === pri)
-  if (index !== -1) {
-    // 创建新的数组，然后使用 splice 方法来删除元素
-    const updatedCards = [...cards.value]
-
-    updatedCards.splice(index, 1)
-
-    // 更新剩余卡片的序号
-    updatedCards.forEach((card, i) => {
-      card.pri = (i + 1).toString()
+  // 将pri对应的卡片从列表中删除，并更新剩余卡片的序号
+  const updatedCards = (ruleType === 'FilterRules' ? filterCards.value : filterCards2.value)
+    .filter(card => card.pri !== pri)
+    .map((card, index) => {
+      card.pri = (index + 1).toString()
+      return card
     })
-
-    // 更新 filterCards.value
-    cards.value = updatedCards
-  }
+  // 更新 filterCards.value
+  if (ruleType === 'FilterRules')
+    filterCards.value = updatedCards
+  else
+    filterCards2.value = updatedCards
 }
 
 // 增加卡片
@@ -164,7 +153,7 @@ function addFilterCard(ruleType: string) {
   const pri = (cards.value.length + 1).toString()
 
   // 新卡片
-  const newCard: FilterCard = { pri, rules: [], visible: true }
+  const newCard: FilterCard = { pri, rules: [] }
 
   // 添加到列表
   cards.value.push(newCard)
@@ -189,7 +178,6 @@ onMounted(() => {
               :key="index"
               :pri="card.pri"
               :rules="card.rules"
-              :visible="card.visible"
               @changed="updateFilterCardValue"
               @close="filterCardClose('FilterRules', card.pri)"
             />
@@ -224,7 +212,6 @@ onMounted(() => {
               :key="index"
               :pri="card.pri"
               :rules="card.rules"
-              :visible="card.visible"
               @changed="updateFilterCardValue2"
               @close="filterCardClose('FilterRules2', card.pri)"
             />

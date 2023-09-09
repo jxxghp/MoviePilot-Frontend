@@ -50,9 +50,6 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '排除: 国语配音', value: ' !CNVOI ' },
   { title: '促销: 免费', value: ' FREE ' },
 ])
-
-// 已选择的过滤规则
-const selectedFilters = ref<string[]>(props.rules ?? [])
 </script>
 
 <template>
@@ -64,7 +61,7 @@ const selectedFilters = ref<string[]>(props.rules ?? [])
         <VCol>
           <VSelect
             :key="props.pri"
-            v-model="selectedFilters"
+            v-model="props.rules"
             variant="underlined"
             :items="selectFilterOptions"
             chips
