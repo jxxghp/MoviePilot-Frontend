@@ -148,7 +148,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '插件配置',
+    title: '配置',
     value: 2,
     show: true,
     props: {
@@ -157,7 +157,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '卸载插件',
+    title: '插件',
     value: 3,
     show: true,
     props: {
@@ -240,7 +240,7 @@ const dropdownItems = ref([
     scrollable
     persistent
   >
-    <VCard :title="props.plugin?.plugin_name">
+    <VCard :title="`${props.plugin?.plugin_name} - 配置`">
       <DialogCloseBtn @click="pluginConfigDialog = false" />
       <VCardText>
         <FormRender
@@ -252,7 +252,7 @@ const dropdownItems = ref([
       </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
-          详情
+          查看详情
         </VBtn>
         <VSpacer />
         <VBtn @click="savePluginConf">
@@ -269,7 +269,7 @@ const dropdownItems = ref([
     scrollable
     persistent
   >
-    <VCard :title="`${props.plugin?.plugin_name} - 详情`">
+    <VCard :title="`${props.plugin?.plugin_name}`">
       <DialogCloseBtn @click="pluginInfoDialog = false" />
       <VCardText>
         <PageRender
