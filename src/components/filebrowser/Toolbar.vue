@@ -12,13 +12,26 @@ const inProps = defineProps({
 })
 
 // 对外事件
-const emit = defineEmits(['storagechanged', 'pathchanged', 'loading', 'foldercreated'])
+const emit = defineEmits(['storagechanged', 'pathchanged', 'loading', 'foldercreated', 'sortchanged'])
 
 // 新建文件夹名称
 const newFolderPopper = ref(false)
 
 // 新建文件名称
 const newFolderName = ref('')
+
+// 排序方式
+const sort = ref('name')
+
+// 调整排序方式
+function changeSort() {
+  if (sort.value === 'name')
+    sort.value = 'time'
+  else
+    sort.value = 'name'
+
+  emit('sortchanged', sort.value)
+}
 
 // 计算PATH面包屑
 const pathSegments = computed(() => {
@@ -81,6 +94,14 @@ async function mkdir() {
   // 通知重新加载
   emit('foldercreated')
 }
+
+// 计算排序图标
+const sortIcon = computed(() => {
+  if (sort.value === 'time')
+    return 'mdi-sort-clock-ascending-outline'
+  else
+    return 'mdi-sort-alphabetical-ascending'
+})
 </script>
 
 <template>
@@ -123,6 +144,9 @@ async function mkdir() {
       </template>
     </VToolbarItems>
     <div class="flex-grow-1" />
+    <IconBtn @click="changeSort">
+      <VIcon :icon="sortIcon" />
+    </IconBtn>
     <IconBtn v-if="pathSegments.length > 0" @click="goUp">
       <VIcon icon="mdi-arrow-up-bold-outline" />
     </IconBtn>

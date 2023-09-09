@@ -19,6 +19,7 @@ const inProps = defineProps({
   endpoints: Object as PropType<EndPoints>,
   axios: Object as PropType<Axios>,
   refreshpending: Boolean,
+  sort: String,
 })
 
 // 对外事件
@@ -125,18 +126,18 @@ const isImage = computed(() => {
 async function load() {
   loading.value = true
   emit('loading', true)
-  if (isDir.value) {
-    const url = inProps.endpoints?.list.url
-      .replace(/{storage}/g, storage.value)
-      .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
+  // 参数
+  const url = inProps.endpoints?.list.url
+    .replace(/{storage}/g, storage.value)
+    .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
+    .replace(/{sort}/g, inProps.sort || 'name')
 
-    const config = {
-      url,
-      method: inProps.endpoints?.list.method || 'get',
-    }
-    // 加载数据
-    items.value = await axiosInstance.value.request(config) ?? []
+  const config = {
+    url,
+    method: inProps.endpoints?.list.method || 'get',
   }
+  // 加载数据
+  items.value = await axiosInstance.value.request(config) ?? []
   emit('loading', false)
   loading.value = false
 }
@@ -275,6 +276,11 @@ async function transfer() {
   }
 }
 
+// 将文件修改时间（timestape）转换为本地时间
+function formatTime(timestape: number) {
+  return new Date(timestape * 1000).toLocaleString()
+}
+
 // 监听path变化
 watch(
   () => inProps.path,
@@ -408,7 +414,9 @@ onMounted(() => {
       v-else-if="isFile && !isImage"
       class="text-center break-all"
     >
-      文件: {{ path }}
+      <strong>{{ items[0]?.name }}</strong><br>
+      大小：{{ formatBytes(items[0]?.size || 0) }}<br>
+      修改时间：{{ formatTime(items[0]?.modify_time || 0) }}
     </VCardText>
     <VCardText
       v-else-if="isFile && isImage"

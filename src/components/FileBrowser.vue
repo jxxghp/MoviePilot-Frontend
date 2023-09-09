@@ -57,6 +57,8 @@ const loading = ref(0)
 const activeStorage = ref('local')
 // 刷新
 const refreshPending = ref(false)
+// 排序
+const sort = ref('name')
 // axios实例
 const axiosInstance = ref<Axios>()
 
@@ -83,6 +85,12 @@ function pathChanged(_path: string) {
   emit('pathchanged', _path)
 }
 
+// 排序变化
+function sortChanged(s: string) {
+  sort.value = s
+  refreshPending.value = true
+}
+
 // 初始化
 onBeforeMount(() => {
   activeStorage.value = props.storage ?? 'local'
@@ -101,6 +109,7 @@ onBeforeMount(() => {
       @storagechanged="storageChanged"
       @pathchanged="pathChanged"
       @foldercreated="refreshPending = true"
+      @sortchanged="sortChanged"
     />
     <VRow no-gutters>
       <VCol v-if="tree" sm="auto" class="d-none d-md-block">
@@ -125,6 +134,7 @@ onBeforeMount(() => {
           :endpoints="endpoints"
           :axios="axiosInstance"
           :refreshpending="refreshPending"
+          :sort="sort"
           @pathchanged="pathChanged"
           @loading="loadingChanged"
           @refreshed="refreshPending = false"

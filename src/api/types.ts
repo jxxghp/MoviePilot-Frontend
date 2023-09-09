@@ -908,4 +908,5 @@ export interface FileItem {
   extension: string
   size: number
   children: FileItem[]
+  modify_time: number
 }

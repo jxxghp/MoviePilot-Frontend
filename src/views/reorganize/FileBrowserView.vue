@@ -3,7 +3,7 @@ import api from '@/api'
 import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
-  list: { url: '/filebrowser/list?path={path}', method: 'get' },
+  list: { url: '/filebrowser/list?path={path}&sort={sort}', method: 'get' },
   mkdir: { url: '/filebrowser/mkdir?path={path}', method: 'get' },
   delete: { url: '/filebrowser/delete?path={path}', method: 'get' },
   download: { url: '/filebrowser/download?path={path}', method: 'get' },
