@@ -262,7 +262,7 @@ async function transfer() {
       stopLoadingProgress()
       // 显示结果
       if (res.success) {
-        $toast.success(`${currentItem.value?.name} 整理成功！`)
+        $toast.success(`${currentItem.value?.name} 整理完成！`)
         // 重新加载
         load()
       }
