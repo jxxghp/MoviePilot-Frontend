@@ -481,6 +481,12 @@ onMounted(() => {
               />
             </VCol>
             <VCol cols="12">
+              <VTextarea
+                v-model="siteForm.rss"
+                label="站点Rss地址"
+              />
+            </VCol>
+            <VCol cols="12">
               <VTextField
                 v-model="siteForm.ua"
                 label="站点User-Agent"
