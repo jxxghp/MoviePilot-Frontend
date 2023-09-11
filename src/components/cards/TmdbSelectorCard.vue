@@ -61,7 +61,7 @@ async function searchMedias() {
 <template>
   <VCard
     class="mx-auto"
-    min-width="30rem"
+    width="100%"
   >
     <VToolbar flat dense>
       <VTextField
