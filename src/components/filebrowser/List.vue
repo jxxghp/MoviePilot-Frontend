@@ -10,6 +10,7 @@ import type { Context, EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
 import api from '@/api'
 import MediaInfoCard from '@/components/cards/MediaInfoCard.vue'
+import TmdbSelectorCard from '@/components/cards/TmdbSelectorCard.vue'
 
 // 输入参数
 const inProps = defineProps({
@@ -91,6 +92,9 @@ const nameTestResult = ref<Context>()
 
 // 识别结果对话框
 const nameTestDialog = ref(false)
+
+// TMDB选择对话框
+const tmdbSelectorDialog = ref(false)
 
 // 生成1到50季的下拉框选项
 const seasonItems = ref(
@@ -667,6 +671,8 @@ onMounted(() => {
                 label="TMDBID"
                 placeholder="留空自动识别"
                 :rules="[numberValidator]"
+                append-inner-icon="mdi-magnify"
+                @click:append-inner="tmdbSelectorDialog = true"
               />
             </VCol>
             <VCol
@@ -722,10 +728,10 @@ onMounted(() => {
         </VForm>
       </VCardText>
       <VCardActions>
-        <div class="flex-grow-1" />
         <VBtn depressed @click="transferPopper = false">
           取消
         </VBtn>
+        <VSpacer />
         <VBtn
           @click="transfer"
         >
@@ -765,6 +771,17 @@ onMounted(() => {
         <MediaInfoCard :context="nameTestResult" />
       </VCardItem>
     </vCard>
+  </vDialog>
+  <!-- TMDB ID搜索框 -->
+  <vDialog
+    v-model="tmdbSelectorDialog"
+    width="600"
+    scrollable
+  >
+    <TmdbSelectorCard
+      v-model="transferForm.tmdbid"
+      @close="tmdbSelectorDialog = false"
+    />
   </vDialog>
 </template>
 

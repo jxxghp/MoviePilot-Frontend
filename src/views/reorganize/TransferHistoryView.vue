@@ -5,6 +5,7 @@ import { useConfirm } from 'vuetify-use-dialog'
 import { numberValidator, requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
+import TmdbSelectorCard from '@/components/cards/TmdbSelectorCard.vue'
 
 // 确认框
 const createConfirm = useConfirm()
@@ -70,6 +71,9 @@ const progressText = ref('请稍候 ...')
 
 // 进度值
 const progressValue = ref(0)
+
+// TMDB选择对话框
+const tmdbSelectorDialog = ref(false)
 
 // 获取订阅列表数据
 async function fetchData({
@@ -412,6 +416,8 @@ const dropdownItems = ref([
               v-model="redoTmdbId"
               label="TMDB编号"
               :rules="[requiredValidator, numberValidator]"
+              append-inner-icon="mdi-magnify"
+              @click:append-inner="tmdbSelectorDialog = true"
             />
           </VCol>
         </VRow>
@@ -454,6 +460,17 @@ const dropdownItems = ref([
         />
       </vCardText>
     </vCard>
+  </vDialog>
+  <!-- TMDB ID搜索框 -->
+  <vDialog
+    v-model="tmdbSelectorDialog"
+    width="600"
+    scrollable
+  >
+    <TmdbSelectorCard
+      v-model="redoTmdbId"
+      @close="tmdbSelectorDialog = false"
+    />
   </vDialog>
 </template>
 

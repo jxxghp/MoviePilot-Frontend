@@ -180,9 +180,3 @@ const sortIcon = computed(() => {
     </VDialog>
   </VToolbar>
 </template>
-
-<style lang="scss" scoped>
-.v-toolbar{
-  background: rgb(var(--v-table-header-background));
-}
-</style>

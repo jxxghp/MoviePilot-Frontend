@@ -35,6 +35,7 @@ function init() {
     name: 'root',
     children: [],
     size: 0,
+    modify_time: 0,
   }]
 }
 
