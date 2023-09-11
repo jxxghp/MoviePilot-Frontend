@@ -2,10 +2,17 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 
+interface TmdbItem {
+  title: string
+  overview: string
+  tmdbid: number
+  poster: string
+}
+
 // update:modelValue 事件
 const emit = defineEmits(['update:modelValue', 'close'])
 
-const items = ref<{}[]>([])
+const items = ref<TmdbItem[]>([])
 
 // 搜索词
 const keyword = ref('')
@@ -14,9 +21,9 @@ const keyword = ref('')
 const loading = ref(false)
 
 // 选中条目
-function selectMedia(item: MediaInfo) {
+function selectMedia(item: TmdbItem) {
   console.log(item)
-  emit('update:modelValue', item.tmdb_id)
+  emit('update:modelValue', item.tmdbid)
   emit('close')
 }
 
@@ -48,13 +55,11 @@ async function searchMedias() {
 
     // 赋值
     for (const item of result) {
-      if (items.value.length > 0)
-        items.value.push({ type: 'divider', inset: true })
       items.value.push({
-        prependAvatar: getW500Image(item.poster_path),
+        tmdbid: item.tmdb_id || 0,
+        poster: getW500Image(item.poster_path),
         title: `${item.title}（${item.year}）`,
-        subtitle: `<span class="text-primary">${item.type}</span> ${item.overview}`,
-        onClick: () => selectMedia(item),
+        overview: `<span class="text-primary">${item.type}</span> ${item.overview}`,
       })
     }
     loading.value = false
@@ -88,12 +93,35 @@ async function searchMedias() {
 
     <VList
       v-if="items.length > 0"
-      :items="items"
-      item-props
       lines="three"
     >
-      <template #subtitle="{ subtitle }">
-        <div v-html="subtitle" />
+      <template v-for="(item, i) in items" :key="i">
+        <VListItem
+          density="compact"
+          @click="selectMedia(item)"
+        >
+          <template #prepend>
+            <VImg
+              height="75"
+              width="50"
+              :src="item.poster"
+              aspect-ratio="2/3"
+              class="object-cover rounded shadow ring-gray-500 me-3"
+              cover
+            >
+              <template #placeholder>
+                <div class="w-full h-full">
+                  <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                </div>
+              </template>
+            </VImg>
+          </template>
+          <VListItemTitle>
+            {{ item.title }}
+          </VListItemTitle>
+          <VListItemSubtitle v-html="item.overview" />
+        </VListItem>
+        <VDivider v-if="i < items.length - 1" class="mt-1" inset />
       </template>
     </VList>
   </VCard>
