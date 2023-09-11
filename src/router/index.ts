@@ -49,13 +49,6 @@ const router = createRouter({
           },
         },
         {
-          path: 'subscribe-rss',
-          component: () => import('../pages/subscribe-rss.vue'),
-          meta: {
-            requiresAuth: true,
-          },
-        },
-        {
           path: 'calendar',
           component: () => import('../pages/calendar.vue'),
           meta: {
