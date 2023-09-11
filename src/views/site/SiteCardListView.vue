@@ -149,6 +149,7 @@ onBeforeMount(fetchData)
       />
     </template>
     <VCard title="新增站点">
+      <DialogCloseBtn @click="siteAddDialog = false" />
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
@@ -185,6 +186,12 @@ onBeforeMount(fetchData)
             </VCol>
           </VRow>
           <VRow>
+            <VCol cols="12">
+              <VTextField
+                v-model="siteForm.rss"
+                label="RSS地址"
+              />
+            </VCol>
             <VCol cols="12">
               <VTextarea
                 v-model="siteForm.cookie"

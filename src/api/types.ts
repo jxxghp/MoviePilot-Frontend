@@ -840,55 +840,6 @@ export interface Setting {
   DOWNLOAD_PATH: string
 }
 
-// 自定义订阅
-export interface Rss {
-  id?: number
-  // 名称
-  name?: string
-  // RSS地址
-  url?: string
-  // 类型
-  type?: string
-  // 标题
-  title?: string
-  // 年份
-  year?: string
-  // TMDBID
-  tmdbid?: number
-  // 季号
-  season?: number
-  // 海报
-  poster?: string
-  // 背景图
-  backdrop?: string
-  // 评分
-  vote?: number
-  // 简介
-  description?: string
-  // 总集数
-  total_episode?: number
-  // 包含
-  include?: string
-  // 排除
-  exclude?: string
-  // 洗版
-  best_version?: number
-  // 是否使用代理服务器
-  proxy?: number
-  // 是否使用过滤规则
-  filter?: boolean
-  // 保存路径
-  save_path?: string
-  // 已处理数量
-  processed?: number
-  // 附加信息
-  note?: string
-  // 最后更新时间
-  last_update?: string
-  // 状态 0-停用，1-启用
-  state?: number
-}
-
 // 文件浏览接口
 export interface EndPoints {
   list: any

@@ -72,9 +72,6 @@ const resourceTotalItems = ref(0)
 // 每页条数
 const resourceItemsPerPage = ref(25)
 
-// 当前页码
-const resourceCurrentPage = ref(0)
-
 // 用户名密码表单
 const userPwForm = ref({
   username: '',
@@ -474,6 +471,12 @@ onMounted(() => {
             </VCol>
           </VRow>
           <VRow>
+            <VCol cols="12">
+              <VTextField
+                v-model="siteForm.rss"
+                label="RSS地址"
+              />
+            </VCol>
             <VCol cols="12">
               <VTextarea
                 v-model="siteForm.cookie"
