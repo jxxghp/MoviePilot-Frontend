@@ -20,6 +20,13 @@ function selectMedia(item: MediaInfo) {
   emit('close')
 }
 
+// TMDB图片转换为w500大小
+function getW500Image(url = '') {
+  if (!url)
+    return ''
+  return url.replace('original', 'w500')
+}
+
 // 搜索词条
 async function searchMedias() {
   if (!keyword)
@@ -44,7 +51,7 @@ async function searchMedias() {
       if (items.value.length > 0)
         items.value.push({ type: 'divider', inset: true })
       items.value.push({
-        prependAvatar: item.poster_path,
+        prependAvatar: getW500Image(item.poster_path),
         title: `${item.title}（${item.year}）`,
         subtitle: `<span class="text-primary">${item.type}</span> ${item.overview}`,
         onClick: () => selectMedia(item),
