@@ -79,17 +79,7 @@ async function getSubscribes() {
       subscribes.map(async sub => eventsHander(sub)),
     )
 
-    // 自定义订阅
-    const rsses: Rss[] = await api.get('rss')
-
-    const rssEvents = await Promise.all(
-      rsses.map(async rss => eventsHander(rss)),
-    )
-
-    // 合并事件
-    const events = [...subEvents, ...rssEvents]
-
-    calendarOptions.value.events = events.flat().filter(event => event.start) as EventSourceInput
+    calendarOptions.value.events = subEvents.flat().filter(event => event.start) as EventSourceInput
   }
   catch (error) {
     console.error(error)
