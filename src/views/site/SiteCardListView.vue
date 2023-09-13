@@ -135,7 +135,7 @@ onBeforeMount(fetchData)
   <!-- Dialog Content -->
   <VDialog
     v-model="siteAddDialog"
-    max-width="800"
+    max-width="50rem"
     persistent
     scrollable
   >

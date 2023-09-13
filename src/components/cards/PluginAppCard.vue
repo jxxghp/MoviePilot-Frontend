@@ -53,7 +53,7 @@ async function installPlugin() {
       :style="{ background: `${props.plugin?.plugin_color}` }"
     >
       <VAvatar
-        size="128"
+        size="8rem"
         :class="{ shadow: isImageLoaded }"
       >
         <VImg

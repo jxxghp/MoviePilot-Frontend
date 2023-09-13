@@ -446,7 +446,7 @@ const dropdownItems = ref([
   <vDialog
     v-model="progressDialog"
     :scrim="false"
-    width="400"
+    width="25rem"
   >
     <vCard
       color="primary"

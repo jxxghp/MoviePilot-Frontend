@@ -408,7 +408,7 @@ onMounted(() => {
   <!-- 站点编辑弹窗 -->
   <VDialog
     v-model="addUserDialog"
-    max-width="800"
+    max-width="50rem"
     persistent
   >
     <!-- Dialog Content -->

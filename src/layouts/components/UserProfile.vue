@@ -172,7 +172,7 @@ const avatar = store.state.auth.avatar
   <!-- 重启进度框 -->
   <vDialog
     v-model="progressDialog"
-    width="400"
+    width="25rem"
   >
     <vCard
       color="primary"

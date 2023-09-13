@@ -613,7 +613,7 @@ onMounted(() => {
   <!-- 文件整理弹窗 -->
   <VDialog
     v-model="transferPopper"
-    max-width="800"
+    max-width="50rem"
     scrollable
   >
     <template #activator="{ props }">
@@ -744,7 +744,7 @@ onMounted(() => {
   <vDialog
     v-model="progressDialog"
     :scrim="false"
-    width="400"
+    width="25rem"
   >
     <vCard
       color="primary"
@@ -763,7 +763,7 @@ onMounted(() => {
   <!-- 识别结果对话框 -->
   <vDialog
     v-model="nameTestDialog"
-    width="800"
+    width="50rem"
   >
     <vCard>
       <DialogCloseBtn @click="nameTestDialog = false" />
@@ -775,7 +775,7 @@ onMounted(() => {
   <!-- TMDB ID搜索框 -->
   <vDialog
     v-model="tmdbSelectorDialog"
-    width="600"
+    width="40rem"
     scrollable
   >
     <TmdbSelectorCard

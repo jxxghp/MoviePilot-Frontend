@@ -428,7 +428,7 @@ onMounted(() => {
   <!-- 站点编辑弹窗 -->
   <VDialog
     v-model="siteInfoDialog"
-    max-width="1000"
+    max-width="50rem"
     persistent
     scrollable
   >
@@ -559,7 +559,7 @@ onMounted(() => {
   <!-- 站点资源弹窗 -->
   <VDialog
     v-model="resourceDialog"
-    max-width="1280"
+    max-width="80rem"
     scrollable
   >
     <!-- Dialog Content -->

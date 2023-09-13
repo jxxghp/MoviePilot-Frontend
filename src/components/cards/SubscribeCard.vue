@@ -325,7 +325,7 @@ const dropdownItems = ref([
   <!-- 订阅编辑弹窗 -->
   <VDialog
     v-model="subscribeInfoDialog"
-    max-width="1000"
+    max-width="50rem"
     persistent
     scrollable
   >

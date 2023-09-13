@@ -212,7 +212,7 @@ const dropdownItems = ref([
         </IconBtn>
       </div>
       <VAvatar
-        size="128"
+        size="8rem"
         :class="{ shadow: isImageLoaded }"
       >
         <VImg
@@ -236,7 +236,7 @@ const dropdownItems = ref([
   <!-- 插件配置页面 -->
   <VDialog
     v-model="pluginConfigDialog"
-    max-width="800"
+    max-width="50rem"
     scrollable
     persistent
   >
@@ -265,7 +265,7 @@ const dropdownItems = ref([
   <!-- 插件详情页面 -->
   <VDialog
     v-model="pluginInfoDialog"
-    max-width="1000"
+    max-width="62.5rem"
     scrollable
     persistent
   >
