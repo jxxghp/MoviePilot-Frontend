@@ -8,18 +8,16 @@
 // ℹ️ This mixin is inspired from vuetify for adding hover styles via before pseudo element
 @mixin before-pseudo() {
   position: relative;
-  @media (hover) {
-    &::before {
-      position: absolute;
-      border-radius: inherit;
-      background: currentcolor;
-      block-size: 100%;
-      content: "";
-      inline-size: 100%;
-      inset: 0;
-      opacity: 0;
-      pointer-events: none;
-    }
+  &::before {
+    position: absolute;
+    border-radius: inherit;
+    background: currentcolor;
+    block-size: 100%;
+    content: "";
+    inline-size: 100%;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 }
 

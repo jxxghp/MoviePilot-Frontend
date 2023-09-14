@@ -70,12 +70,15 @@ function handleNavScroll(evt: Event) {
     <slot name="nav-items" :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled">
       <PerfectScrollbar
         tag="ul"
-        class="nav-items"
+        class="nav-items d-none d-lg-block"
         :options="{ wheelPropagation: false }"
         @ps-scroll-y="handleNavScroll"
       >
         <slot />
       </PerfectScrollbar>
+      <ul class="nav-items d-lg-none overflow-auto">
+        <slot />
+      </ul>
     </slot>
 
     <slot name="after-nav-items" />
