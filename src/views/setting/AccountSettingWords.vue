@@ -129,10 +129,11 @@ onMounted(() => {
           <VTextarea
             v-model="customIdentifiers"
             auto-grow
-            placeholder="支持正则表达式，特殊字符需要\转义，一行为一组，支持三种配置格式：
+            placeholder="支持正则表达式，特殊字符需要\转义，一行为一组，支持以下几种配置格式：
 屏蔽词
 被替换词 => 替换词
-前定位词 <> 后定位词 >> 偏移量（EP）"
+前定位词 <> 后定位词 >> 集偏移量（EP）
+被替换词 => 替换词 && 偏移前 <> 偏移后 >> 集偏移量（EP）"
           />
         </VCardItem>
         <VCardItem>
