@@ -11,6 +11,8 @@ const props = defineProps({
 const slideview_content = ref()
 // 分页切换状态
 const disabled = ref(0)
+// 记录滚动值
+const slideview_scrollLeft = ref(0)
 // 所有卡片数量
 let slide_card_length: number
 // 卡片间距
@@ -58,6 +60,7 @@ function countMaxNumber() {
 
 // 修改分页切换按钮状态
 function countDisabled() {
+  slideview_scrollLeft.value = slideview_content.value.scrollLeft
   card_current = slideview_content.value.scrollLeft === 0 ? 0 : Math.trunc((slideview_content.value.scrollLeft + card_width / 2) / card_width)
   if (slide_card_length * card_width <= slideview_content.value.clientWidth)
     disabled.value = 3
@@ -80,6 +83,12 @@ onMounted(() => {
 onUnmounted(() => {
   // 卸载事件
   window.removeEventListener('resize', countMaxNumber)
+})
+onActivated(() => {
+  if (slideview_scrollLeft.value !== 0) {
+    // console.log(`onActivated: to_scrollLeft, ${slideview_scrollLeft.value}`)
+    slideview_content.value.scrollLeft = slideview_scrollLeft.value
+  }
 })
 </script>
 
