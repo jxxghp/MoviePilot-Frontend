@@ -41,6 +41,6 @@ onBeforeMount(async () => {
 
 <template>
   <VApp>
-    <RouterView :key="route.fullPath" />
+    <RouterView />
   </VApp>
 </template>
