@@ -18,6 +18,8 @@ const { mdAndDown } = useDisplay()
 
 const refNav = ref()
 
+const menuShow = ref(false)
+
 /*
   ℹ️ Close overlay side when route is changed
   Close overlay vertical nav when link is clicked
@@ -37,11 +39,16 @@ const updateIsVerticalNavScrolled = (val: boolean) => (isVerticalNavScrolled.val
 function handleNavScroll(evt: Event) {
   isVerticalNavScrolled.value = (evt.target as HTMLElement).scrollTop > 0
 }
+
+onMounted(() => {
+  menuShow.value = true
+})
 </script>
 
 <template>
   <Component
     :is="props.tag"
+    v-show="menuShow"
     ref="refNav"
     class="layout-vertical-nav touch-none"
     :class="[
