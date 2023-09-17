@@ -29,6 +29,12 @@ const filterCards = ref<FilterCard[]>([])
 // 洗版规则卡片列表
 const filterCards2 = ref<FilterCard[]>([])
 
+// 包含与排除规则
+const defaultIncludeExcludeFilter = ref({
+  include: '',
+  exclude: '',
+})
+
 // 查询已设置过滤规则
 async function queryCustomFilters(ruleType: string) {
   try {
@@ -60,6 +66,21 @@ async function queryTorrentPriority() {
     )
 
     selectedTorrentPriority.value = result.data?.value
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 查询包含与排除规则
+async function queryIncludeExcludeFilter() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/setting/DefaultIncludeExcludeFilter',
+    )
+    if (result.data?.value) {
+      defaultIncludeExcludeFilter.value = result.data?.value
+    }
   }
   catch (error) {
     console.log(error)
@@ -116,6 +137,23 @@ async function saveTorrentPriority() {
   }
 }
 
+// 保存包含与排除规则
+async function saveIncludeExcludeFilter() {
+  try {
+    const result: { [key: string]: any } = await api.post(
+      'system/setting/DefaultIncludeExcludeFilter',
+      defaultIncludeExcludeFilter.value,
+    )
+    if (result.success)
+      $toast.success("默认包含/排除规则保存成功")
+    else
+      $toast.error("默认包含/排除规则保存失败！")
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 // 更新规则卡片的值
 function updateFilterCardValue(pri: string, rules: string[]) {
   const card = filterCards.value.find(card => card.pri === pri)
@@ -163,6 +201,7 @@ onMounted(() => {
   queryTorrentPriority()
   queryCustomFilters('FilterRules')
   queryCustomFilters('FilterRules2')
+  queryIncludeExcludeFilter()
 })
 </script>
 
@@ -253,6 +292,37 @@ onMounted(() => {
           >
             保存
           </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard title="默认包含与排除规则">
+        <VCardSubtitle> 设置在搜索和订阅时默认使用的包含和排除规则 </VCardSubtitle>
+        <VCardText>
+          <VForm>
+            <VRow>
+              <VCol cols="12">
+                <VTextField
+                  v-model="defaultIncludeExcludeFilter.include"
+                  type="text"
+                  label="包含（关键字、正则式）"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="defaultIncludeExcludeFilter.exclude"
+                  type="text"
+                  label="排除（关键字、正则式）"
+                />
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+        <VCardItem>
+          <VBtn
+            type="submit"
+            @click="saveIncludeExcludeFilter"
+          > 保存 </VBtn>
         </VCardItem>
       </VCard>
     </VCol>
