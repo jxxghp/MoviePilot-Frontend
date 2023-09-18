@@ -18,8 +18,6 @@ const { mdAndDown } = useDisplay()
 
 const refNav = ref()
 
-const menuShow = ref(false)
-
 /*
   ℹ️ Close overlay side when route is changed
   Close overlay vertical nav when link is clicked
@@ -39,13 +37,6 @@ const updateIsVerticalNavScrolled = (val: boolean) => (isVerticalNavScrolled.val
 function handleNavScroll(evt: Event) {
   isVerticalNavScrolled.value = (evt.target as HTMLElement).scrollTop > 0
 }
-
-onMounted(() => {
-  // 1秒钟后再显示
-  setTimeout(() => {
-    menuShow.value = true
-  }, 1000)
-})
 </script>
 
 <template>
@@ -62,7 +53,9 @@ onMounted(() => {
     ]"
   >
     <!-- 👉 Header -->
-    <div class="nav-header">
+    <div
+      class="nav-header"
+    >
       <slot name="nav-header">
         <RouterLink to="/" class="app-logo d-flex align-center app-title-wrapper">
           <div class="d-flex" v-html="logo" />
@@ -79,15 +72,14 @@ onMounted(() => {
     <slot name="nav-items" :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled">
       <PerfectScrollbar
         tag="ul"
-        class="nav-items d-none d-lg-block"
+        class="d-none d-lg-block nav-items"
         :options="{ wheelPropagation: false }"
         @ps-scroll-y="handleNavScroll"
       >
         <slot />
       </PerfectScrollbar>
       <ul
-        v-show="menuShow"
-        class="nav-items d-lg-none overflow-auto"
+        class="d-lg-none overflow-auto nav-items"
       >
         <slot />
       </ul>
