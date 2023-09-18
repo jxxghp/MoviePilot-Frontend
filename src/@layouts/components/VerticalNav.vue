@@ -51,7 +51,6 @@ onMounted(() => {
 <template>
   <Component
     :is="props.tag"
-    v-show="menuShow"
     ref="refNav"
     class="layout-vertical-nav touch-none"
     :class="[
@@ -86,7 +85,10 @@ onMounted(() => {
       >
         <slot />
       </PerfectScrollbar>
-      <ul class="nav-items d-lg-none overflow-auto">
+      <ul
+        v-show="menuShow"
+        class="nav-items d-lg-none overflow-auto"
+      >
         <slot />
       </ul>
     </slot>
