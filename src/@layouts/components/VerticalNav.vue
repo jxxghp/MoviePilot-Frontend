@@ -41,7 +41,10 @@ function handleNavScroll(evt: Event) {
 }
 
 onMounted(() => {
-  menuShow.value = true
+  // 1秒钟后再显示
+  setTimeout(() => {
+    menuShow.value = true
+  }, 1000)
 })
 </script>
 
