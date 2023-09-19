@@ -124,7 +124,7 @@ onMounted(() => {
   <VRow>
     <VCol cols="12">
       <VCard title="自定义识别词">
-        <VCardSubtitle> 添加规则对种子名或者文件名进行预处理以校正识别 </VCardSubtitle>
+        <VCardSubtitle> 添加规则对种子名或者文件名进行预处理以校正识别。 </VCardSubtitle>
         <VCardItem>
           <VTextarea
             v-model="customIdentifiers"
@@ -148,7 +148,7 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="自定义制作组/字幕组">
-        <VCardSubtitle> 添加无法识别的制作组/字幕组 </VCardSubtitle>
+        <VCardSubtitle> 添加无法识别的制作组/字幕组。 </VCardSubtitle>
         <VCardItem>
           <VTextarea
             v-model="customReleaseGroups"
@@ -168,7 +168,7 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="文件整理屏蔽词">
-        <VCardSubtitle> 目录名或文件名中包含屏蔽词时不进行整理 </VCardSubtitle>
+        <VCardSubtitle> 目录名或文件名中包含屏蔽词时不进行整理。 </VCardSubtitle>
         <VCardItem>
           <VTextarea
             v-model="transferExcludeWords"

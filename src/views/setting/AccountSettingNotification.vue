@@ -47,7 +47,7 @@ onMounted(() => {
 
 <template>
   <VCard title="消息通知">
-    <VCardText> 对应消息类型只会发送给选中的消息渠道 </VCardText>
+    <VCardText> 对应消息类型只会发送给选中的消息渠道。 </VCardText>
 
     <VTable class="text-no-wrap">
       <thead>
