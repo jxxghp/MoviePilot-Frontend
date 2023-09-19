@@ -33,3 +33,11 @@ $ps-track-size: 0.5rem;
 .ps__thumb-y {
   background-color: rgb(var(--v-theme-perfect-scrollbar-thumb)) !important;
 }
+
+// fix bug
+@media(hover: none) {
+  .ps > .ps__rail-x,
+  .ps > .ps__rail-y {
+    opacity: 0.6;
+  }
+}

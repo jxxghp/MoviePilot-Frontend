@@ -11,6 +11,7 @@ import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-default.css'
+import { removeEl } from '@/util'
 
 loadFonts()
 
@@ -18,10 +19,13 @@ loadFonts()
 const app = createApp(App)
 
 // Use plugins Mount vue app
-app.use(vuetify)
+app
+  .use(vuetify)
   .use(router)
   .use(store)
   .use(ToastPlugin, {
     position: 'bottom-right',
   })
-  .use(VuetifyUseDialog).mount('#app')
+  .use(VuetifyUseDialog)
+  .mount('#app')
+  .$nextTick(() => removeEl('#loading-bg'))

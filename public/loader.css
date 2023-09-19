@@ -11,10 +11,11 @@ html {
 
 #loading-bg {
   position: absolute;
+  z-index: 999;
   display: block;
   background: var(--initial-loader-bg, #fff);
-  block-size: 100%;
-  inline-size: 100%;
+  block-size: 100vh;
+  inline-size: 100vw;
 }
 
 .loading-logo {
