@@ -49,9 +49,7 @@ function handleNavScroll(evt: Event) {
     ]"
   >
     <!-- 👉 Header -->
-    <div
-      class="nav-header"
-    >
+    <div class="nav-header">
       <slot name="nav-header">
         <RouterLink to="/" class="app-logo d-flex align-center app-title-wrapper">
           <div class="d-flex" v-html="logo" />
@@ -81,8 +79,8 @@ function handleNavScroll(evt: Event) {
 </template>
 
 <style lang="scss">
-@use "@configured-variables" as variables;
-@use "@layouts/styles/mixins";
+@use '@configured-variables' as variables;
+@use '@layouts/styles/mixins';
 
 // 👉 Vertical Nav
 .layout-vertical-nav {

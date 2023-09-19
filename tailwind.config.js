@@ -4,6 +4,9 @@ module.exports = {
   theme: {
     extend: {},
   },
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   corePlugins: {
     aspectRatio: false,
   },
