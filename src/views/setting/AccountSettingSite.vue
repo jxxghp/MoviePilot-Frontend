@@ -42,7 +42,7 @@ async function resetSites() {
       <VCard title="站点重置">
         <VCardText>
           <div>
-            <VCheckbox v-model="isConfirmResetSites" label="确认删除所有站点数据并重新同步" />
+            <VCheckbox v-model="isConfirmResetSites" label="确认删除所有站点数据并重新同步。" />
           </div>
 
           <VBtn :disabled="!isConfirmResetSites || resetSitesDisabled" color="error" class="mt-3" @click="resetSites">
