@@ -130,7 +130,7 @@ onMounted(() => {
         <VCardItem class="justify-center mb-7">
           <template #prepend>
             <div class="d-flex pe-0">
-              <VImg :src="logo" width="64" />
+              <VImg :src="logo" width="64" height="64" />
             </div>
           </template>
 
