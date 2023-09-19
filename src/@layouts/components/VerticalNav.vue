@@ -33,25 +33,6 @@ const updateIsVerticalNavScrolled = (val: boolean) => (isVerticalNavScrolled.val
 function handleNavScroll(evt: Event) {
   isVerticalNavScrolled.value = (evt.target as HTMLElement).scrollTop > 0
 }
-
-// 是否LG大屏幕
-const isLargeScreen = ref(false)
-// 检测屏幕大小
-function checkScreenSize() {
-  const screenWidth = window.innerWidth
-  isLargeScreen.value = screenWidth >= 1024
-}
-
-// 在组件挂载时和窗口大小变化时执行检查
-onMounted(() => {
-  checkScreenSize()
-  window.addEventListener('resize', checkScreenSize)
-})
-
-// 在组件销毁前移除窗口大小变化监听器
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', checkScreenSize)
-})
 </script>
 
 <template>
@@ -86,7 +67,6 @@ onBeforeUnmount(() => {
     </slot>
     <slot name="nav-items" :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled">
       <PerfectScrollbar
-        v-if="isLargeScreen"
         tag="ul"
         class="nav-items"
         :options="{ wheelPropagation: false }"
@@ -95,7 +75,6 @@ onBeforeUnmount(() => {
         <slot />
       </PerfectScrollbar>
       <ul
-        v-if="!isLargeScreen"
         class="nav-items"
       >
         <slot />
