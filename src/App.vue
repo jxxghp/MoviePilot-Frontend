@@ -7,9 +7,6 @@ import store from './store'
 const { global: globalTheme } = useTheme()
 globalTheme.name.value = localStorage.getItem('theme') || 'light'
 
-// 路由
-const route = useRoute()
-
 // 提示框
 const $toast = useToast()
 
