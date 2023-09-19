@@ -2,8 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  scrollBehavior() {
-    // 始终滚动到顶部
+  scrollBehavior(to, from, savedPosition) {
+    // 如果页面有缓存那么恢复其位置, 否则始终滚动到顶部
+    if (to.meta.keepAlive && savedPosition)
+      return savedPosition
+    console.log('top: 0')
     return { top: 0 }
   },
   routes: [

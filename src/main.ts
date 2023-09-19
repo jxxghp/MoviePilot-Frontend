@@ -30,9 +30,6 @@ app.use(vuetify)
   })
   .use(VuetifyUseDialog).mount('#app')
 
-// 记录和恢复滚动位置
-const scrollPositions: { [key: string]: number } = {} // 用于存储每个路由的滚动位置
-
 // 路由导航守卫
 router.beforeEach((to, from, next) => {
   const isAuthenticated = store.state.auth.token !== null
@@ -41,24 +38,11 @@ router.beforeEach((to, from, next) => {
     next('/login')
   }
   else {
-    // 只有 meta 中 keepAlive 为 true 的情况下才记录滚动位置
-    if (from.meta.keepAlive)
-      scrollPositions[from.fullPath] = window.scrollY
-
     startNProgress()
     next()
   }
 })
 
 router.afterEach((to) => {
-  // 只有 meta 中 keepAlive 为 true 的情况下才恢复滚动位置
-  if (to.meta.keepAlive) {
-    const savedPosition = scrollPositions[to.fullPath]
-    if (savedPosition !== undefined) {
-      setTimeout(() => {
-        window.scrollTo(0, savedPosition)
-      }, 0)
-    }
-  }
   doneNProgress()
 })
