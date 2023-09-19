@@ -43,6 +43,16 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-router.afterEach((to) => {
+// 记录首次开启app
+let isFirstApp: Boolean = true
+router.afterEach(() => {
   doneNProgress()
+  if (isFirstApp) {
+    // 标记首次载入完成, 再隐藏loading页面, 让首次载入更加丝滑
+    isFirstApp = false
+    const loading_bg = document.getElementById('loading-bg')
+    if (loading_bg)
+      // 或许这里需要再多加一点延迟才能改善ios的bug
+      document.body.removeChild(loading_bg)
+  }
 })
