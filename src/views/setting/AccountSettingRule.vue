@@ -94,6 +94,7 @@ onMounted(() => {
   <VRow>
     <VCol cols="12">
       <VCard title="下载优先规则">
+        <VCardSubtitle> 站点优先时按站点优先级排序，否则按资源种子数量排序。 </VCardSubtitle>
         <VCardText>
           <VForm>
             <VRow>
@@ -120,7 +121,7 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="默认包含与排除规则">
-        <VCardSubtitle> 设置在搜索和订阅时默认使用的包含和排除规则 </VCardSubtitle>
+        <VCardSubtitle> 设置在搜索和订阅时默认使用的包含和排除规则。 </VCardSubtitle>
         <VCardText>
           <VForm>
             <VRow>
