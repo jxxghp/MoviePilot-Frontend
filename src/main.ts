@@ -28,7 +28,7 @@ app.use(vuetify)
   .use(ToastPlugin, {
     position: 'bottom-right',
   })
-  .use(VuetifyUseDialog).mount('#app')
+  .use(VuetifyUseDialog)
 
 // 路由导航守卫
 router.beforeEach((to, from, next) => {
@@ -43,6 +43,17 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-router.afterEach((to) => {
+// 记录首次开启app
+let isFirstApp: Boolean = true
+router.afterEach(() => {
   doneNProgress()
+  if (isFirstApp) {
+    // 标记首次载入完成, 再绑定app
+    isFirstApp = false
+    // 先不加延迟试试
+    app.mount('#app')
+    // setTimeout(() => {
+    //   app.mount('#app')
+    // }, 300)
+  }
 })
