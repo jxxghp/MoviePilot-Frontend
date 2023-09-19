@@ -50,8 +50,10 @@ router.afterEach(() => {
   if (isFirstApp) {
     // 标记首次载入完成, 再绑定app
     isFirstApp = false
-    setTimeout(() => {
-      app.mount('#app')
-    }, 300)
+    // 先不加延迟试试
+    app.mount('#app')
+    // setTimeout(() => {
+    //   app.mount('#app')
+    // }, 300)
   }
 })
