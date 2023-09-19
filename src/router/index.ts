@@ -1,12 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { configureNProgress, doneNProgress, startNProgress } from '@/api/nprogress'
+import store from '@/store'
 
+// Nprogress
+configureNProgress()
+
+// Router
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   scrollBehavior(to, from, savedPosition) {
     // 如果页面有缓存那么恢复其位置, 否则始终滚动到顶部
     if (to.meta.keepAlive && savedPosition)
       return savedPosition
-    // console.log('top: 0')
     return { top: 0 }
   },
   routes: [
@@ -148,6 +153,23 @@ const router = createRouter({
       ],
     },
   ],
+})
+
+// 路由导航守卫
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = store.state.auth.token !== null
+
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next('/login')
+  }
+  else {
+    startNProgress()
+    next()
+  }
+})
+
+router.afterEach(() => {
+  doneNProgress()
 })
 
 export default router
