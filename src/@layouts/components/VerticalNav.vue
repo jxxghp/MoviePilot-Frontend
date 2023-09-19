@@ -75,7 +75,7 @@ function handleNavScroll(evt: Event) {
         <slot />
       </PerfectScrollbar>
       <ul
-        class="nav-items"
+        class="nav-items overflow-auto"
       >
         <slot />
       </ul>
