@@ -82,6 +82,9 @@ function handleNavScroll(evt: Event) {
 @use '@configured-variables' as variables;
 @use '@layouts/styles/mixins';
 
+.visible {
+  visibility: visible !important;
+}
 // 👉 Vertical Nav
 .layout-vertical-nav {
   position: fixed;
@@ -94,6 +97,11 @@ function handleNavScroll(evt: Event) {
   inset-inline-start: 0;
   transition: transform 0.25s ease-in-out, inline-size 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
   will-change: transform, inline-size;
+  visibility: hidden;
+
+  &:not(.overlay-nav) {
+    visibility: visible;
+  }
 
   .nav-header {
     display: flex;
