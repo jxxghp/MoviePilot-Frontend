@@ -132,9 +132,9 @@ const ruleTestDialog = ref(false)
                 <VIcon icon="mdi-filter-cog-outline" />
               </VAvatar>
               <h6 class="text-base font-weight-medium mt-2 mb-0">
-                规则
+                优先级
               </h6>
-              <span class="text-sm">过滤规则测试</span>
+              <span class="text-sm">优先级规则测试</span>
             </VListItem>
           </VCol>
         </VRow>
@@ -184,7 +184,7 @@ const ruleTestDialog = ref(false)
     max-width="50rem"
     scrollable
   >
-    <VCard title="过滤规则测试">
+    <VCard title="优先级测试">
       <DialogCloseBtn @click="ruleTestDialog = false" />
       <VCardText>
         <RuleTestView />

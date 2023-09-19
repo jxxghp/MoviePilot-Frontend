@@ -1,15 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
-import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
-
-// 规则卡片类型
-interface FilterCard {
-  // 优先级
-  pri: string
-  // 已选规则
-  rules: string[]
-}
 
 // 提示框
 const $toast = useToast()
@@ -23,40 +14,11 @@ const TorrentPriorityItems = [
   { title: '做种数优先', value: 'seeder' },
 ]
 
-// 规则卡片列表
-const filterCards = ref<FilterCard[]>([])
-
-// 洗版规则卡片列表
-const filterCards2 = ref<FilterCard[]>([])
-
 // 包含与排除规则
 const defaultIncludeExcludeFilter = ref({
   include: '',
   exclude: '',
 })
-
-// 查询已设置过滤规则
-async function queryCustomFilters(ruleType: string) {
-  try {
-    const result: { [key: string]: any } = await api.get(`system/setting/${ruleType}`)
-    if (result.success) {
-      // 保存的是个字符串，需要分割成数组
-      const groups = result.data?.value?.split('>') ?? []
-
-      // 生成规则卡片
-      const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
-      cards.value = groups?.map((group: string, index: number) => {
-        return {
-          pri: (index + 1).toString(),
-          rules: group.split('&'),
-        }
-      })
-    }
-  }
-  catch (error) {
-    console.log(error)
-  }
-}
 
 // 查询种子优先规则
 async function queryTorrentPriority() {
@@ -80,37 +42,6 @@ async function queryIncludeExcludeFilter() {
     )
     if (result.data?.value)
       defaultIncludeExcludeFilter.value = result.data?.value
-  }
-  catch (error) {
-    console.log(error)
-  }
-}
-
-// 保存用户设置的规则
-async function saveCustomFilters(ruleType: string) {
-  try {
-    // 有值才处理
-    let value = ''
-    if (filterCards.value.length !== 0) {
-      // 将卡片规则接装为字符串
-      const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
-      value = cards.value
-        .filter(card => card.rules.length > 0)
-        .map(card => card.rules.join('&'))
-        .join('>')
-    }
-    // 保存
-    const result: { [key: string]: any } = await api.post(
-      `system/setting/${ruleType}`,
-      value,
-    )
-
-    const msg = ruleType === 'FilterRules' ? '过滤规则' : '洗版规则'
-
-    if (result.success)
-      $toast.success(`${msg}保存成功`)
-    else
-      $toast.error(`${msg}保存失败！`)
   }
   catch (error) {
     console.log(error)
@@ -153,127 +84,14 @@ async function saveIncludeExcludeFilter() {
   }
 }
 
-// 更新规则卡片的值
-function updateFilterCardValue(pri: string, rules: string[]) {
-  const card = filterCards.value.find(card => card.pri === pri)
-  if (card)
-    card.rules = rules
-}
-
-// 更新洗版规则卡片的值
-function updateFilterCardValue2(pri: string, rules: string[]) {
-  const card = filterCards2.value.find(card => card.pri === pri)
-  if (card)
-    card.rules = rules
-}
-
-// 移除卡片
-function filterCardClose(ruleType: string, pri: string) {
-  // 将pri对应的卡片从列表中删除，并更新剩余卡片的序号
-  const updatedCards = (ruleType === 'FilterRules' ? filterCards.value : filterCards2.value)
-    .filter(card => card.pri !== pri)
-    .map((card, index) => {
-      card.pri = (index + 1).toString()
-      return card
-    })
-  // 更新 filterCards.value
-  if (ruleType === 'FilterRules')
-    filterCards.value = updatedCards
-  else
-    filterCards2.value = updatedCards
-}
-
-// 增加卡片
-function addFilterCard(ruleType: string) {
-  const cards = ruleType === 'FilterRules' ? filterCards : filterCards2
-  // 优先级
-  const pri = (cards.value.length + 1).toString()
-
-  // 新卡片
-  const newCard: FilterCard = { pri, rules: [] }
-
-  // 添加到列表
-  cards.value.push(newCard)
-}
-
 onMounted(() => {
   queryTorrentPriority()
-  queryCustomFilters('FilterRules')
-  queryCustomFilters('FilterRules2')
   queryIncludeExcludeFilter()
 })
 </script>
 
 <template>
   <VRow>
-    <VCol cols="12">
-      <VCard title="过滤规则">
-        <VCardSubtitle> 设置在搜索和订阅时默认使用的过滤规则 </VCardSubtitle>
-        <VCardItem>
-          <div class="grid gap-3 grid-filterrule-card">
-            <FilterRuleCard
-              v-for="(card, index) in filterCards"
-              :key="index"
-              :pri="card.pri"
-              :rules="card.rules"
-              @changed="updateFilterCardValue"
-              @close="filterCardClose('FilterRules', card.pri)"
-            />
-          </div>
-        </VCardItem>
-        <VCardItem>
-          <VBtn
-            type="submit"
-            class="me-2"
-            @click="saveCustomFilters('FilterRules')"
-          >
-            保存
-          </VBtn>
-          <VBtn
-            color="success"
-            variant="tonal"
-            @click="addFilterCard('FilterRules')"
-          >
-            <VIcon icon="mdi-plus" />
-            <span class="d-none d-sm-block">增加规则</span>
-          </VBtn>
-        </VCardItem>
-      </VCard>
-    </VCol>
-    <VCol cols="12">
-      <VCard title="洗版规则">
-        <VCardSubtitle> 设置在订阅洗版时使用的过滤规则，匹配优先级1时洗版完成 </VCardSubtitle>
-        <VCardItem>
-          <div class="grid gap-3 grid-filterrule-card">
-            <FilterRuleCard
-              v-for="(card, index) in filterCards2"
-              :key="index"
-              :pri="card.pri"
-              :rules="card.rules"
-              @changed="updateFilterCardValue2"
-              @close="filterCardClose('FilterRules2', card.pri)"
-            />
-          </div>
-        </VCardItem>
-        <VCardItem>
-          <VBtn
-            type="submit"
-            class="me-2"
-            @click="saveCustomFilters('FilterRules2')"
-          >
-            保存
-          </VBtn>
-          <VBtn
-            color="success"
-            variant="tonal"
-            @click="addFilterCard('FilterRules2')"
-          >
-            <VIcon icon="mdi-plus" />
-            <span class="d-none d-sm-block">增加规则</span>
-          </VBtn>
-        </VCardItem>
-      </VCard>
-    </VCol>
     <VCol cols="12">
       <VCard title="下载优先规则">
         <VCardText>

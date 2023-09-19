@@ -6,6 +6,8 @@ import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
 import AccountSettingAbout from '@/views/setting/AccountSettingAbout.vue'
+import AccountSettingSearch from '@/views/setting/AccountSettingSearch.vue'
+import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue'
 
 const route = useRoute()
 
@@ -22,6 +24,16 @@ const tabs = [
     title: '站点',
     icon: 'mdi-web',
     tab: 'site',
+  },
+  {
+    title: '搜索',
+    icon: 'mdi-magnify',
+    tab: 'search',
+  },
+  {
+    title: '订阅',
+    icon: 'mdi-rss',
+    tab: 'subscribe',
   },
   {
     title: '规则',
@@ -64,10 +76,24 @@ const tabs = [
         </transition>
       </VWindowItem>
 
-      <!-- System -->
+      <!-- 用户 -->
       <VWindowItem value="site">
         <transition name="fade-slide" appear>
           <AccountSettingSite />
+        </transition>
+      </VWindowItem>
+
+      <!-- 搜索 -->
+      <VWindowItem value="search">
+        <transition name="fade-slide" appear>
+          <AccountSettingSearch />
+        </transition>
+      </VWindowItem>
+
+      <!-- 订阅 -->
+      <VWindowItem value="subscribe">
+        <transition name="fade-slide" appear>
+          <AccountSettingSubscribe />
         </transition>
       </VWindowItem>
 
@@ -78,19 +104,19 @@ const tabs = [
         </transition>
       </VWindowItem>
 
-      <!-- Notification -->
+      <!-- 通知 -->
       <VWindowItem value="notification">
         <transition name="fade-slide" appear>
           <AccountSettingNotification />
         </transition>
       </VWindowItem>
-      <!-- Words -->
+      <!-- 词表 -->
       <VWindowItem value="words">
         <transition name="fade-slide" appear>
           <AccountSettingWords />
         </transition>
       </VWindowItem>
-      <!-- About -->
+      <!-- 关于 -->
       <VWindowItem value="about">
         <transition name="fade-slide" appear>
           <AccountSettingAbout />

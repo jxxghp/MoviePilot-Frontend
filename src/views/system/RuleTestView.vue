@@ -69,11 +69,14 @@ async function ruleTest() {
           v-model="ruleTestForm.ruletype"
           label="规则类型"
           :items="[{
-            title: '默认规则',
+            title: '订阅优先级',
             value: '1',
           }, {
-            title: '洗版规则',
+            title: '洗版优先级',
             value: '2',
+          }, {
+            title: '搜索优先级',
+            value: '3',
           }]"
         />
       </VCol>
