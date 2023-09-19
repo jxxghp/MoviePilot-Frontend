@@ -40,6 +40,22 @@
   width: 100%;
 }
 
+/* router view transition fade-slide */
+.fade-slide-leave-active,
+.fade-slide-enter-active {
+  transition: all 0.6s;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-45px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(45px);
+}
+
 .grid-info-card {
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   padding-block-end: 1rem;
@@ -90,8 +106,10 @@
   border-radius: 3px;
   background: rgb(var(--v-theme-perfect-scrollbar-thumb));
   -webkit-box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
-  &:hover{
-    background: #a1a1a1;
+  @media(hover){
+    &:hover{
+      background: #a1a1a1;
+    }
   }
 }
 

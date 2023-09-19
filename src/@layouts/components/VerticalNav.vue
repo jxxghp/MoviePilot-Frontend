@@ -17,7 +17,6 @@ const props = withDefaults(defineProps<Props>(), {
 const { mdAndDown } = useDisplay()
 const refNav = ref()
 const route = useRoute()
-const menuShow = ref(false)
 
 watch(
   () => route.path,
@@ -43,26 +42,21 @@ function checkScreenSize() {
   isLargeScreen.value = screenWidth >= 1024
 }
 
-// 在组件挂载时执行检查
+// 在组件挂载时和窗口大小变化时执行检查
 onMounted(() => {
   checkScreenSize()
-  if (!isLargeScreen.value) {
-    // 1秒后显示菜单
-    setTimeout(() => {
-      menuShow.value = true
-    }, 1000)
-  }
-  else {
-    // 立即显示菜单
-    menuShow.value = true
-  }
+  window.addEventListener('resize', checkScreenSize)
+})
+
+// 在组件销毁前移除窗口大小变化监听器
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkScreenSize)
 })
 </script>
 
 <template>
   <Component
     :is="props.tag"
-    v-show="menuShow"
     ref="refNav"
     class="layout-vertical-nav touch-none"
     :class="[
@@ -92,15 +86,17 @@ onMounted(() => {
     </slot>
     <slot name="nav-items" :update-is-vertical-nav-scrolled="updateIsVerticalNavScrolled">
       <PerfectScrollbar
+        v-if="isLargeScreen"
         tag="ul"
-        class="d-none d-lg-block nav-items"
+        class="nav-items"
         :options="{ wheelPropagation: false }"
         @ps-scroll-y="handleNavScroll"
       >
         <slot />
       </PerfectScrollbar>
       <ul
-        class="d-lg-none overflow-auto nav-items"
+        v-if="!isLargeScreen"
+        class="nav-items"
       >
         <slot />
       </ul>
