@@ -6,7 +6,7 @@ const router = createRouter({
     // 如果页面有缓存那么恢复其位置, 否则始终滚动到顶部
     if (to.meta.keepAlive && savedPosition)
       return savedPosition
-    console.log('top: 0')
+    // console.log('top: 0')
     return { top: 0 }
   },
   routes: [
