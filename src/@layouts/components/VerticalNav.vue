@@ -15,14 +15,9 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { mdAndDown } = useDisplay()
-
 const refNav = ref()
-
-/*
-  ℹ️ Close overlay side when route is changed
-  Close overlay vertical nav when link is clicked
-*/
 const route = useRoute()
+const menuShow = ref(false)
 
 watch(
   () => route.path,
@@ -31,17 +26,43 @@ watch(
   },
 )
 
+// 是否滚动
 const isVerticalNavScrolled = ref(false)
 const updateIsVerticalNavScrolled = (val: boolean) => (isVerticalNavScrolled.value = val)
 
+// 滚动响应
 function handleNavScroll(evt: Event) {
   isVerticalNavScrolled.value = (evt.target as HTMLElement).scrollTop > 0
 }
+
+// 是否LG大屏幕
+const isLargeScreen = ref(false)
+// 检测屏幕大小
+function checkScreenSize() {
+  const screenWidth = window.innerWidth
+  isLargeScreen.value = screenWidth >= 1024
+}
+
+// 在组件挂载时执行检查
+onMounted(() => {
+  checkScreenSize()
+  if (!isLargeScreen.value) {
+    // 1秒后显示菜单
+    setTimeout(() => {
+      menuShow.value = true
+    }, 1000)
+  }
+  else {
+    // 立即显示菜单
+    menuShow.value = true
+  }
+})
 </script>
 
 <template>
   <Component
     :is="props.tag"
+    v-show="menuShow"
     ref="refNav"
     class="layout-vertical-nav touch-none"
     :class="[
