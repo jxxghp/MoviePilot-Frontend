@@ -49,7 +49,7 @@ onBeforeMount(async () => {
   if (!isLargeScreen.value) {
     setTimeout(() => {
       isLoaded.value = true
-    }, 1000)
+    }, 500)
   }
   else {
     isLoaded.value = true
