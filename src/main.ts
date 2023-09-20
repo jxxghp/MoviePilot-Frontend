@@ -28,9 +28,4 @@ app
   })
   .use(VuetifyUseDialog)
   .mount('#app')
-
-// 小屏幕下1s后移除loading
-if (window.innerWidth < 1024)
-  setTimeout(() => removeEl('#loading-bg'), 1000)
-else
-  removeEl('#loading-bg')
+  .$nextTick(() => removeEl('#loading-bg'))

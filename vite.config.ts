@@ -43,6 +43,7 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 5000,
+    cssCodeSplit: false,
   },
   optimizeDeps: {
     exclude: ['vuetify'],
