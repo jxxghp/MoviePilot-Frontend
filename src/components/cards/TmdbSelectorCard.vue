@@ -79,7 +79,8 @@ async function searchMedias() {
       <VTextField
         v-model="keyword"
         label="输入名称搜索"
-        class="mx-3"
+        single-line
+        placeholder="电影或电视剧名称"
         variant="underlined"
         append-inner-icon="mdi-magnify"
         :loading="loading"
