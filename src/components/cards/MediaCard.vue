@@ -460,14 +460,14 @@ const getImgUrl: Ref<string> = computed(() => {
       </VCard>
     </template>
   </VHover>
-  <VDialog
+  <!-- 订阅季弹窗 -->
+  <VBottomSheet
     v-model="subscribeSeasonDialog"
-    max-width="50rem"
-    content-class="whitespace-nowrap"
+    inset
     scrollable
   >
-    <!-- Dialog Content -->
     <VCard title="选择订阅季">
+      <DialogCloseBtn @click="subscribeSeasonDialog = false" />
       <VCardText style="padding: 0;">
         <VDataTable
           v-model="seasonsSelected"
@@ -478,17 +478,15 @@ const getImgUrl: Ref<string> = computed(() => {
           fixed-header
           show-select
           :items-per-page="100"
-          density="compact"
           height="auto"
         >
           <template #item.title="{ item }">
-            <span class="d-block whitespace-nowrap">第 {{ item.raw.season_number }} 季
+            <span class="d-block whitespace-nowrap text-high-emphasis">第 {{ item.raw.season_number }} 季
             </span>
           </template>
           <template #item.episodes="{ item }">
             <VChip
               variant="outlined"
-              size="small"
             >
               {{ item.raw.episode_count }}
             </VChip>
@@ -500,8 +498,6 @@ const getImgUrl: Ref<string> = computed(() => {
             <VChip
               v-if="seasonsNotExisted"
               :color="getExistColor(item.raw.season_number)"
-              flat
-              size="small"
             >
               {{ getExistText(item.raw.season_number) }}
             </VChip>
@@ -512,20 +508,18 @@ const getImgUrl: Ref<string> = computed(() => {
           <template #bottom />
         </VDataTable>
       </VCardText>
-      <VCardActions>
-        <VBtn @click="subscribeSeasonDialog = false">
-          取消
-        </VBtn>
-        <VSpacer />
+      <div class="my-2 text-center">
         <VBtn
+          :disabled="seasonsSelected.length === 0"
+          width="30%"
           @click="subscribeSeasons"
           @keydown.enter="subscribeSeasons"
         >
-          确定
+          提交订阅
         </VBtn>
-      </VCardActions>
+      </div>
     </VCard>
-  </VDialog>
+  </VBottomSheet>
 </template>
 
 <style lang="scss">
