@@ -480,8 +480,11 @@ function getYear(airDate: string) {
     inset
     scrollable
   >
-    <VCard :title="`订阅 - ${props.media?.title}`">
+    <VCard>
       <DialogCloseBtn @click="subscribeSeasonDialog = false" />
+      <VCardTitle class="pe-10">
+        订阅 - {{ props.media?.title }}
+      </VCardTitle>
       <VCardText>
         <VList
           v-model="seasonsSelected"

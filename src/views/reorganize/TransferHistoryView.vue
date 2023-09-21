@@ -132,7 +132,7 @@ const TransferDict: { [key: string]: string } = {
 // 删除历史记录
 async function removeHistory(item: TransferHistory) {
   currentHistory.value = item
-  confirmTitle.value = `确认删除 ${item.title} ?`
+  confirmTitle.value = `确认删除 ${item.title} ${item.seasons}${item.episodes} ?`
   deleteConfirmDialog.value = true
 }
 
@@ -471,9 +471,12 @@ const dropdownItems = ref([
   </vDialog>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
-    <VCard :title="confirmTitle" class="text-center">
+    <VCard class="text-center">
       <DialogCloseBtn @click="deleteConfirmDialog = false" />
-      <div class="d-flex  flex-column flex-md-row justify-center mb-3">
+      <VCardTitle class="pe-10">
+        {{ confirmTitle }}
+      </VCardTitle>
+      <div class="d-flex  flex-column flex-md-row justify-center my-3">
         <VBtn
           color="info"
           class="mb-2 mx-2"

@@ -84,6 +84,7 @@ async function searchMedias() {
         variant="solo"
         append-inner-icon="mdi-magnify"
         flat
+        class="mx-1"
         :loading="loading"
         @click:append-inner="searchMedias"
         @keydown.enter="searchMedias"
