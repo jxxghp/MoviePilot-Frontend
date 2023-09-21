@@ -360,14 +360,6 @@ onBeforeMount(() => {
   handleCheckExists()
 })
 
-// 订阅季表头
-const seasonsHeaders = [
-  { title: '季', key: 'title', sortable: false },
-  { title: '集数', key: 'episodes', sortable: false },
-  { title: '评分', key: 'vote', sortable: false },
-  { title: '状态', key: 'status', sortable: false },
-]
-
 // 计算图片地址
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value)
@@ -379,6 +371,13 @@ const getImgUrl: Ref<string> = computed(() => {
 
   return url
 })
+
+// 拼装季图片地址
+function getSeasonPoster(posterPath: string) {
+  if (!posterPath)
+    return ''
+  return `https://image.tmdb.org/t/p/w500${posterPath}`
+}
 </script>
 
 <template>
@@ -468,54 +467,61 @@ const getImgUrl: Ref<string> = computed(() => {
   >
     <VCard title="选择订阅季">
       <DialogCloseBtn @click="subscribeSeasonDialog = false" />
-      <VCardText style="padding: 0;">
-        <VDataTable
+      <VCardText class="p-0">
+        <VList
           v-model="seasonsSelected"
-          :headers="seasonsHeaders"
-          :items="seasonInfos"
-          item-value="season_number"
-          return-object
-          fixed-header
-          show-select
-          :items-per-page="100"
-          height="auto"
+          multiple
+          lines="three"
         >
-          <template #item.title="{ item }">
-            <span class="d-block whitespace-nowrap text-high-emphasis">第 {{ item.raw.season_number }} 季
-            </span>
-          </template>
-          <template #item.episodes="{ item }">
-            <VChip
-              variant="outlined"
-            >
-              {{ item.raw.episode_count }}
-            </VChip>
-          </template>
-          <template #item.vote="{ item }">
-            {{ item.raw.vote_average }}
-          </template>
-          <template #item.status="{ item }">
-            <VChip
-              v-if="seasonsNotExisted"
-              :color="getExistColor(item.raw.season_number)"
-            >
-              {{ getExistText(item.raw.season_number) }}
-            </VChip>
-          </template>
-          <template #no-data>
-            没有数据
-          </template>
-          <template #bottom />
-        </VDataTable>
+          <VListItem v-for="(item, i) in seasonInfos" :key="i">
+            <template #prepend>
+              <VImg
+                height="80"
+                width="60"
+                :src="getSeasonPoster(item.poster_path || '')"
+                aspect-ratio="2/3"
+                class="object-cover rounded shadow ring-gray-500 me-3"
+                cover
+              >
+                <template #placeholder>
+                  <div class="w-full h-full">
+                    <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                  </div>
+                </template>
+              </VImg>
+            </template>
+            <VListItemTitle>
+              第 {{ item.season_number }} 季
+            </VListItemTitle>
+            <VListItemSubtitle class="mt-1">
+              评分：{{ item.vote_average }}，上映日期：{{ item.air_date }}
+            </VListItemSubtitle>
+            <VListItemSubtitle v-html="item.overview" />
+            <VListItemSubtitle>
+              <VChip
+                v-if="seasonsNotExisted"
+                class="mt-2"
+                size="small"
+                :color="getExistColor(item.season_number || 0)"
+              >
+                {{ getExistText(item.season_number || 0) }}
+              </VChip>
+            </VListItemSubtitle>
+            <template #append>
+              <VListItemAction start>
+                <VSwitch v-model="seasonsSelected" :value="item.season_number" />
+              </VListItemAction>
+            </template>
+          </VListItem>
+        </VList>
       </VCardText>
       <div class="my-2 text-center">
         <VBtn
           :disabled="seasonsSelected.length === 0"
           width="30%"
           @click="subscribeSeasons"
-          @keydown.enter="subscribeSeasons"
         >
-          提交订阅
+          {{ seasonsSelected.length === 0 ? '请选择订阅季' : '提交订阅' }}
         </VBtn>
       </div>
     </VCard>

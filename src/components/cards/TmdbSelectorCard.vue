@@ -75,15 +75,12 @@ async function searchMedias() {
     class="mx-auto"
     width="100%"
   >
-    <VToolbar flat dense>
+    <VToolbar flat class="p-0">
       <VTextField
         v-model="keyword"
-        density="compact"
         label="输入名称搜索"
-        single-line
-        hide-details
-        flat
         class="mx-3"
+        variant="underlined"
         append-inner-icon="mdi-magnify"
         :loading="loading"
         @click:append-inner="searchMedias"
@@ -97,7 +94,6 @@ async function searchMedias() {
     >
       <template v-for="(item, i) in items" :key="i">
         <VListItem
-          density="compact"
           @click="selectMedia(item)"
         >
           <template #prepend>
@@ -119,7 +115,7 @@ async function searchMedias() {
           <VListItemTitle>
             {{ item.title }}
           </VListItemTitle>
-          <VListItemSubtitle v-html="item.overview" />
+          <VListItemSubtitle class="mt-2" v-html="item.overview" />
         </VListItem>
         <VDivider v-if="i < items.length - 1" class="mt-1" inset />
       </template>
