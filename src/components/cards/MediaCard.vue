@@ -378,6 +378,21 @@ function getSeasonPoster(posterPath: string) {
     return ''
   return `https://image.tmdb.org/t/p/w500${posterPath}`
 }
+
+// 将yyyy-mm-dd转换为yyyy年mm月dd日
+function formatAirDate(airDate: string) {
+  if (!airDate)
+    return ''
+  const date = new Date(airDate)
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+// 从yyyy-mm-dd中提取年份
+function getYear(airDate: string) {
+  if (!airDate)
+    return ''
+  const date = new Date(airDate)
+  return date.getFullYear()
+}
 </script>
 
 <template>
@@ -465,7 +480,7 @@ function getSeasonPoster(posterPath: string) {
     inset
     scrollable
   >
-    <VCard title="选择订阅季">
+    <VCard title="选择订阅季 - {{ props.media?.title }}">
       <DialogCloseBtn @click="subscribeSeasonDialog = false" />
       <VCardText>
         <VList
@@ -494,9 +509,19 @@ function getSeasonPoster(posterPath: string) {
               第 {{ item.season_number }} 季
             </VListItemTitle>
             <VListItemSubtitle class="mt-1 me-2">
-              评分：{{ item.vote_average }}，集数：{{ item.episode_count }}，首播日期：{{ item.air_date }}
+              <VChip
+                v-if="item.vote_average"
+                color="primary"
+                size="small"
+                class="mb-1"
+              >
+                <VIcon icon="mdi-star" /> {{ item.vote_average }}
+              </VChip>
+              {{ getYear(item.air_date || '') }} • {{ item.episode_count }} 集
             </VListItemSubtitle>
-            <VListItemSubtitle v-html="item.overview" />
+            <VListItemSubtitle>
+              《{{ media?.title }}》第 {{ item.season_number }} 季于 {{ formatAirDate(item.air_date || '') }} 首播。
+            </VListItemSubtitle>
             <VListItemSubtitle>
               <VChip
                 v-if="seasonsNotExisted"
