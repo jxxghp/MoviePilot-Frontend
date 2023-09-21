@@ -467,7 +467,7 @@ function getSeasonPoster(posterPath: string) {
   >
     <VCard title="选择订阅季">
       <DialogCloseBtn @click="subscribeSeasonDialog = false" />
-      <VCardText class="p-0">
+      <VCardText>
         <VList
           v-model="seasonsSelected"
           multiple
@@ -476,7 +476,7 @@ function getSeasonPoster(posterPath: string) {
           <VListItem v-for="(item, i) in seasonInfos" :key="i">
             <template #prepend>
               <VImg
-                height="80"
+                height="90"
                 width="60"
                 :src="getSeasonPoster(item.poster_path || '')"
                 aspect-ratio="2/3"
@@ -493,8 +493,8 @@ function getSeasonPoster(posterPath: string) {
             <VListItemTitle>
               第 {{ item.season_number }} 季
             </VListItemTitle>
-            <VListItemSubtitle class="mt-1">
-              评分：{{ item.vote_average }}，上映日期：{{ item.air_date }}
+            <VListItemSubtitle class="mt-1 me-2">
+              评分：{{ item.vote_average }}，集数：{{ item.episode_count }}，首播日期：{{ item.air_date }}
             </VListItemSubtitle>
             <VListItemSubtitle v-html="item.overview" />
             <VListItemSubtitle>
