@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import { useConfirm } from 'vuetify-use-dialog'
 import { numberValidator, requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
 import TmdbSelectorCard from '@/components/cards/TmdbSelectorCard.vue'
-
-// 确认框
-const createConfirm = useConfirm()
 
 // 提示框
 const $toast = useToast()
@@ -75,6 +71,12 @@ const progressValue = ref(0)
 // TMDB选择对话框
 const tmdbSelectorDialog = ref(false)
 
+// 删除确认对话框
+const deleteConfirmDialog = ref(false)
+
+// 确认框标题
+const confirmTitle = ref('')
+
 // 获取订阅列表数据
 async function fetchData({
   page,
@@ -129,74 +131,50 @@ const TransferDict: { [key: string]: string } = {
 
 // 删除历史记录
 async function removeHistory(item: TransferHistory) {
-  const isConfirmed = await createConfirm({
-    title: '确认',
-    content: `同步删除 ${item.title} 对应的媒体库文件 ?`,
-    confirmationText: '同步删除文件',
-    cancellationText: '仅删除历史记录',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    confirmationButtonProps: {
-      color: 'error',
-    },
-  })
-  if (isConfirmed === undefined)
-    return
-
-  // 执行删除
-  remove(item, isConfirmed || false)
-  // 清空选中项
-  selected.value = []
+  currentHistory.value = item
+  confirmTitle.value = `确认删除 ${item.title} ?`
+  deleteConfirmDialog.value = true
 }
 
 // 调用API删除记录
-async function remove(item: TransferHistory, deleteFile: boolean) {
+async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean) {
   try {
     // 调用删除API
-    const result: { [key: string]: any } = await api.delete(`history/transfer?delete_file=${deleteFile}`, {
+    const result: { [key: string]: any } = await api.delete(`history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`, {
       data: item,
     })
 
-    if (result.success) {
-      fetchData({
-        page: currentPage.value,
-        itemsPerPage: itemsPerPage.value,
-      })
-    }
-    else {
+    if (!result.success)
       $toast.error(`删除失败: ${result.msg}`)
-    }
   }
   catch (error) {
     console.error(error)
   }
 }
 
-// 批量删除历史记录
-async function removeHistoryBatch() {
-  if (selected.value.length === 0)
+// 删除单条记录
+async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
+  // 关闭弹窗
+  deleteConfirmDialog.value = false
+  if (!currentHistory.value)
     return
-  // 确认
-  const isConfirmed = await createConfirm({
-    title: '确认',
-    content: `同步删除 ${selected.value.length} 条记录对应的媒体库文件 ?`,
-    confirmationText: '同步删除文件',
-    cancellationText: '仅删除历史记录',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    confirmationButtonProps: {
-      color: 'error',
-    },
+  // 删除
+  await remove(currentHistory.value, deleteSrc, deleteDest)
+  // 刷新
+  fetchData({
+    page: currentPage.value,
+    itemsPerPage: itemsPerPage.value,
   })
-  if (isConfirmed === undefined)
-    return
+}
 
-  console.log(selected.value)
-
+// 批量删除记录
+async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
+  // 关闭弹窗
+  deleteConfirmDialog.value = false
   // 总条数
   const total = selected.value.length
+  if (total === 0)
+    return
   // 已处理条数
   let handled = 0
   // 显示进度条
@@ -205,7 +183,7 @@ async function removeHistoryBatch() {
   for (const item of selected.value) {
     // 开始删除
     progressText.value = `正在删除 ${item.title} ${item.seasons}${item.episodes} ...`
-    await remove(item, isConfirmed || false)
+    await remove(item, deleteSrc, deleteDest)
     // 删除完成
     handled++
     progressValue.value = handled / total * 100
@@ -219,6 +197,23 @@ async function removeHistoryBatch() {
     page: currentPage.value,
     itemsPerPage: itemsPerPage.value,
   })
+}
+
+// 响应删除操作
+async function deleteConfirmHandler(deleteSrc: boolean, deleteDest: boolean) {
+  if (currentHistory.value)
+    await removeSingle(deleteSrc, deleteDest)
+  else
+    await removeBatch(deleteSrc, deleteDest)
+}
+
+// 批量删除历史记录
+async function removeHistoryBatch() {
+  if (selected.value.length === 0)
+    return
+  currentHistory.value = undefined
+  confirmTitle.value = `确认删除 ${selected.value.length} 条记录 ?`
+  deleteConfirmDialog.value = true
 }
 
 // 重新整理
@@ -280,7 +275,9 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
-      click: removeHistory,
+      click: (item: TransferHistory) => {
+        removeHistory(item)
+      },
     },
   },
 ])
@@ -472,6 +469,35 @@ const dropdownItems = ref([
       @close="tmdbSelectorDialog = false"
     />
   </vDialog>
+  <!-- 底部弹窗 -->
+  <VBottomSheet v-model="deleteConfirmDialog" inset>
+    <VCard :title="confirmTitle" class="text-center">
+      <DialogCloseBtn @click="deleteConfirmDialog = false" />
+      <div class="d-flex  flex-column flex-md-row justify-center mb-3">
+        <VBtn
+          color="info"
+          class="mb-2 mx-2"
+          @click="deleteConfirmHandler(false, false)"
+        >
+          仅删除历史记录
+        </VBtn>
+        <VBtn
+          color="warning"
+          class="mb-2 mx-2"
+          @click="deleteConfirmHandler(false, true)"
+        >
+          删除历史记录和媒体库文件
+        </VBtn>
+        <VBtn
+          color="error"
+          class="mb-2 mx-2"
+          @click="deleteConfirmHandler(true, true)"
+        >
+          删除历史记录、源文件和媒体库文件
+        </VBtn>
+      </div>
+    </VCard>
+  </VBottomSheet>
 </template>
 
 <style lang="scss">
