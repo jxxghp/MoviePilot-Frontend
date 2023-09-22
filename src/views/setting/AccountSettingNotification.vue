@@ -64,6 +64,9 @@ onMounted(() => {
           <th scope="col">
             Slack
           </th>
+          <th scope="col">
+            SynologyChat
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -82,6 +85,9 @@ onMounted(() => {
           </td>
           <td>
             <VCheckbox v-model="message.slack" />
+          </td>
+          <td>
+            <VCheckbox v-model="message.synologychat" />
           </td>
         </tr>
         <tr v-if="messagemTypes.length === 0">

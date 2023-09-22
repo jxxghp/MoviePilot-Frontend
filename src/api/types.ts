@@ -832,6 +832,7 @@ export interface NotificationSwitch {
   wechat: boolean
   telegram: boolean
   slack: boolean
+  synologychat: boolean
 }
 
 // 环境设置
