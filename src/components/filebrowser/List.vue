@@ -632,6 +632,7 @@ onMounted(() => {
               <VTextField
                 v-model="transferForm.target"
                 label="目的路径"
+                placeholder="留空自动"
               />
             </VCol>
             <VCol
