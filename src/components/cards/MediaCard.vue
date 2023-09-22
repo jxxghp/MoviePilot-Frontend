@@ -487,11 +487,14 @@ function getYear(airDate: string) {
       </VCardTitle>
       <VCardText>
         <VList
-          v-model="seasonsSelected"
-          multiple
+          v-model:selected="seasonsSelected"
           lines="three"
+          select-strategy="classic"
         >
-          <VListItem v-for="(item, i) in seasonInfos" :key="i">
+          <VListItem
+            v-for="(item, i) in seasonInfos" :key="i"
+            :value="item"
+          >
             <template #prepend>
               <VImg
                 height="90"
@@ -535,9 +538,9 @@ function getYear(airDate: string) {
                 {{ getExistText(item.season_number || 0) }}
               </VChip>
             </VListItemSubtitle>
-            <template #append>
+            <template #append="{ isSelected }">
               <VListItemAction start>
-                <VSwitch v-model="seasonsSelected" :value="item.season_number" />
+                <VSwitch :model-value="isSelected" />
               </VListItemAction>
             </template>
           </VListItem>
