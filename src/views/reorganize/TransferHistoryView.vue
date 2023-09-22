@@ -412,9 +412,9 @@ const dropdownItems = ref([
             <VTextField
               v-model="redoTmdbId"
               label="TMDB编号"
-              :rules="[requiredValidator, numberValidator]"
+              :rules="[numberValidator]"
               append-inner-icon="mdi-magnify"
-              @click:append-inner="tmdbSelectorDialog = true"
+              @click:append-inner.stop="tmdbSelectorDialog = true"
             />
           </VCol>
         </VRow>

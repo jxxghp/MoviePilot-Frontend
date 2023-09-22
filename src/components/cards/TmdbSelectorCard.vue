@@ -20,6 +20,9 @@ const keyword = ref('')
 // 加载中
 const loading = ref(false)
 
+// ref
+const tmdbKeyword = ref<HTMLElement | null>(null)
+
 // 选中条目
 function selectMedia(item: TmdbItem) {
   console.log(item)
@@ -68,6 +71,14 @@ async function searchMedias() {
     console.error(e)
   }
 }
+
+// 加载时聚焦搜索框
+onMounted(() => {
+  // 500ms后聚焦
+  setTimeout(() => {
+    tmdbKeyword.value?.focus()
+  }, 500)
+})
 </script>
 
 <template>
@@ -77,6 +88,7 @@ async function searchMedias() {
   >
     <VToolbar flat class="p-0">
       <VTextField
+        ref="tmdbKeyword"
         v-model="keyword"
         label="输入名称搜索"
         single-line
