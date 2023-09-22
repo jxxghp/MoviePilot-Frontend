@@ -73,7 +73,7 @@ async function eventsHander(subscribe: Subscribe | Rss) {
 async function getSubscribes() {
   try {
     // 订阅
-    const subscribes: Subscribe[] = await api.get('subscribe')
+    const subscribes: Subscribe[] = await api.get('subscribe/')
 
     const subEvents = await Promise.all(
       subscribes.map(async sub => eventsHander(sub)),

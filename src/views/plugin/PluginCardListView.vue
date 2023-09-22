@@ -38,7 +38,7 @@ function pluginInstalled() {
 // 获取插件列表数据
 async function fetchData() {
   try {
-    dataList.value = await api.get('plugin')
+    dataList.value = await api.get('plugin/')
     isRefreshed.value = true
   }
   catch (error) {

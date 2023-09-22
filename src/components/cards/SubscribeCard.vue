@@ -118,7 +118,7 @@ async function searchSubscribe() {
 async function updateSubscribeInfo() {
   subscribeInfoDialog.value = false
   try {
-    const result: { [key: string]: any } = await api.put('subscribe', subscribeForm)
+    const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm)
 
     // 提示
     if (result.success) {

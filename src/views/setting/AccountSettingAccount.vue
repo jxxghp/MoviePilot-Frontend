@@ -86,7 +86,7 @@ async function saveAccountInfo() {
     accountInfo.value.password = newPassword.value
   }
   try {
-    const result: { [key: string]: any } = await api.put('user', accountInfo.value)
+    const result: { [key: string]: any } = await api.put('user/', accountInfo.value)
     if (result.success)
       $toast.success('用户信息保存成功！')
     else
@@ -100,7 +100,7 @@ async function saveAccountInfo() {
 // 调用API，查询所有用户
 async function loadAllUsers() {
   try {
-    const result: User[] = await api.get('/user')
+    const result: User[] = await api.get('/user/')
 
     allUsers.value = result
   }
@@ -131,7 +131,7 @@ async function deactivateUser(user: User) {
   try {
     user.is_active = !user.is_active
 
-    const result: { [key: string]: any } = await api.put('user', user)
+    const result: { [key: string]: any } = await api.put('user/', user)
     if (result.success) {
       $toast.success('用户冻结成功！')
       loadAllUsers()
