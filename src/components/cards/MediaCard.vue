@@ -112,7 +112,7 @@ async function addSubscribe(season = 0) {
       // 全部存在时洗版
       best_version = !seasonsNotExisted.value[season] ? 1 : 0
     // 请求API
-    const result: { [key: string]: any } = await api.post('subscribe', {
+    const result: { [key: string]: any } = await api.post('subscribe/', {
       name: props.media?.title,
       type: props.media?.type,
       year: props.media?.year,

@@ -19,7 +19,7 @@ const dataList = ref<Subscribe[]>([])
 // 获取订阅列表数据
 async function fetchData() {
   try {
-    dataList.value = await api.get('subscribe')
+    dataList.value = await api.get('subscribe/')
     isRefreshed.value = true
   }
   catch (error) {

@@ -17,7 +17,7 @@ const isRefreshed = ref(false)
 // 获取订阅列表数据
 async function fetchData() {
   try {
-    dataList.value = await api.get('download')
+    dataList.value = await api.get('download/')
     isRefreshed.value = true
   }
   catch (error) {

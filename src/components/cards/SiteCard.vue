@@ -212,7 +212,7 @@ async function updateSiteInfo() {
     // 更新按钮状态
     siteInfoDialog.value = false
 
-    const result: { [key: string]: any } = await api.put('site', siteForm)
+    const result: { [key: string]: any } = await api.put('site/', siteForm)
     if (result.success) {
       $toast.success(`${cardProps.site?.name} 更新成功！`)
       emit('update')

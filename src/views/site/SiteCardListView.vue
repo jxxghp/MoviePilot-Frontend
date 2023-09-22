@@ -58,7 +58,7 @@ const siteForm = reactive<Site>({
 // 获取站点列表数据
 async function fetchData() {
   try {
-    dataList.value = await api.get('site')
+    dataList.value = await api.get('site/')
     isRefreshed.value = true
   }
   catch (error) {
@@ -77,7 +77,7 @@ async function addSite() {
   addBtnState.value = true
 
   try {
-    const result: { [key: string]: string } = await api.post('site', siteForm)
+    const result: { [key: string]: string } = await api.post('site/', siteForm)
     if (result.success) {
       $toast.success('新增站点成功')
 

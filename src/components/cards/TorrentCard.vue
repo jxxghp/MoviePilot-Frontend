@@ -76,7 +76,7 @@ async function handleAddDownload(_site: any = undefined,
 async function addDownload(_media: any, _torrent: any) {
   startNProgress()
   try {
-    const result: { [key: string]: any } = await api.post('download', {
+    const result: { [key: string]: any } = await api.post('download/', {
       media_in: _media,
       torrent_in: _torrent,
     })
