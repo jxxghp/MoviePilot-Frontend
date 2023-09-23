@@ -647,6 +647,7 @@ onMounted(() => {
                       <VListItemTitle>查看详情</VListItemTitle>
                     </VListItem>
                     <VListItem
+                      v-if="item.raw.enclosure?.startsWith('http')"
                       variant="plain"
                       @click="downloadTorrentFile(item.raw.enclosure)"
                     >

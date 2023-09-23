@@ -122,26 +122,6 @@ function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
 onMounted(() => {
   getSiteIcon()
 })
-
-// 弹出菜单
-const dropdownItems = ref([
-  {
-    title: '查看详情',
-    value: 1,
-    props: {
-      prependIcon: 'mdi-information',
-      click: openTorrentDetail,
-    },
-  },
-  {
-    title: '下载种子',
-    value: 2,
-    props: {
-      prependIcon: 'mdi-download',
-      click: downloadTorrentFile,
-    },
-  },
-])
 </script>
 
 <template>
@@ -180,15 +160,23 @@ const dropdownItems = ref([
             >
               <VList>
                 <VListItem
-                  v-for="(item, i) in dropdownItems"
-                  :key="i"
                   variant="plain"
-                  @click="item.props.click"
+                  @click="openTorrentDetail()"
                 >
                   <template #prepend>
-                    <VIcon :icon="item.props.prependIcon" />
+                    <VIcon icon="mdi-information" />
                   </template>
-                  <VListItemTitle v-text="item.title" />
+                  <VListItemTitle>查看详情</VListItemTitle>
+                </VListItem>
+                <VListItem
+                  v-if="props.torrent?.torrent_info?.enclosure?.startsWith('http')"
+                  variant="plain"
+                  @click="downloadTorrentFile()"
+                >
+                  <template #prepend>
+                    <VIcon icon="mdi-download" />
+                  </template>
+                  <VListItemTitle>下载种子</VListItemTitle>
                 </VListItem>
               </VList>
             </VMenu>
