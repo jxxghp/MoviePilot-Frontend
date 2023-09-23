@@ -15,7 +15,7 @@ const TorrentPriorityItems = [
 ]
 
 // 包含与排除规则
-const defaultIncludeExcludeFilter = ref({
+const defaultFilterRules = ref({
   include: '',
   exclude: '',
 })
@@ -35,13 +35,13 @@ async function queryTorrentPriority() {
 }
 
 // 查询包含与排除规则
-async function queryIncludeExcludeFilter() {
+async function queryDefaultFilter() {
   try {
     const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultIncludeExcludeFilter',
+      'system/setting/DefaultFilterRules',
     )
     if (result.data?.value)
-      defaultIncludeExcludeFilter.value = result.data?.value
+      defaultFilterRules.value = result.data?.value
   }
   catch (error) {
     console.log(error)
@@ -68,11 +68,11 @@ async function saveTorrentPriority() {
 }
 
 // 保存包含与排除规则
-async function saveIncludeExcludeFilter() {
+async function saveDefaultFilter() {
   try {
     const result: { [key: string]: any } = await api.post(
-      'system/setting/DefaultIncludeExcludeFilter',
-      defaultIncludeExcludeFilter.value,
+      'system/setting/DefaultFilterRules',
+      defaultFilterRules.value,
     )
     if (result.success)
       $toast.success('默认包含/排除规则保存成功')
@@ -86,7 +86,7 @@ async function saveIncludeExcludeFilter() {
 
 onMounted(() => {
   queryTorrentPriority()
-  queryIncludeExcludeFilter()
+  queryDefaultFilter()
 })
 </script>
 
@@ -127,14 +127,14 @@ onMounted(() => {
             <VRow>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="defaultIncludeExcludeFilter.include"
+                  v-model="defaultFilterRules.include"
                   type="text"
                   label="包含（关键字、正则式）"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="defaultIncludeExcludeFilter.exclude"
+                  v-model="defaultFilterRules.exclude"
                   type="text"
                   label="排除（关键字、正则式）"
                 />
@@ -145,7 +145,7 @@ onMounted(() => {
         <VCardItem>
           <VBtn
             type="submit"
-            @click="saveIncludeExcludeFilter"
+            @click="saveDefaultFilter"
           >
             保存
           </VBtn>
