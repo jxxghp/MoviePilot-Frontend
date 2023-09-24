@@ -29,6 +29,8 @@ function getSchedulerColor(status: string) {
   switch (status) {
     case '正在运行':
       return 'success'
+    case '已停止':
+      return 'error'
     case '等待':
       return ''
     default:
@@ -37,22 +39,21 @@ function getSchedulerColor(status: string) {
 }
 
 // 执行命令
-async function runCommand(id: string) {
+function runCommand(id: string) {
   // 取id|前面的命令
-  id = `/${id.split('|')[0]}`
+  id = id.split('|')[0]
   try {
-    const result: { [key: string]: any } = await api.get('system/command', {
+    // 异步提交
+    api.get('system/runscheduler', {
       params: {
-        cmd: id,
+        jobid: id,
       },
     })
-    if (result.success) {
-      $toast.success('执行请求提交成功！')
+    $toast.success('定时作业执行请求提交成功！')
+    // 1秒后刷新数据
+    setTimeout(() => {
       loadSchedulerList()
-    }
-    else {
-      $toast.error(`执行请求提交失败：${result.message}`)
-    }
+    }, 1000)
   }
   catch (e) {
     console.log(e)
@@ -115,6 +116,7 @@ onUnmounted(() => {
           <td>
             <VBtn
               small
+              :disabled="scheduler.status === '正在运行'"
               @click="runCommand(scheduler.id)"
             >
               <template #prepend>
