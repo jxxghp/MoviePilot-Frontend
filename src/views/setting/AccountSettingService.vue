@@ -113,7 +113,7 @@ onUnmounted(() => {
           </td>
           <td>
             <VBtn
-              small
+              size="small"
               :disabled="scheduler.status === '正在运行'"
               @click="runCommand(scheduler.id)"
             >
