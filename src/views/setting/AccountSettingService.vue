@@ -40,8 +40,6 @@ function getSchedulerColor(status: string) {
 
 // 执行命令
 function runCommand(id: string) {
-  // 取id|前面的命令
-  id = id.split('|')[0]
   try {
     // 异步提交
     api.get('system/runscheduler', {
