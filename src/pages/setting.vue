@@ -8,6 +8,7 @@ import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
 import AccountSettingAbout from '@/views/setting/AccountSettingAbout.vue'
 import AccountSettingSearch from '@/views/setting/AccountSettingSearch.vue'
 import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue'
+import AccountSettingService from '@/views/setting/AccountSettingService.vue'
 
 const route = useRoute()
 
@@ -36,6 +37,11 @@ const tabs = [
     tab: 'subscribe',
   },
   {
+    title: '服务',
+    icon: 'mdi-list-box',
+    tab: 'service',
+  },
+  {
     title: '规则',
     icon: 'mdi-filter-cog',
     tab: 'filter',
@@ -60,7 +66,10 @@ const tabs = [
 
 <template>
   <div>
-    <VTabs v-model="activeTab" show-arrows>
+    <VTabs
+      v-model="activeTab"
+      show-arrows
+    >
       <VTab v-for="item in tabs" :key="item.icon" :value="item.tab">
         <VIcon size="20" start :icon="item.icon" />
         {{ item.title }}
@@ -68,15 +77,19 @@ const tabs = [
     </VTabs>
     <VDivider />
 
-    <VWindow v-model="activeTab" class="mt-5 disable-tab-transition">
-      <!-- Account -->
+    <VWindow
+      v-model="activeTab"
+      class="mt-5 disable-tab-transition"
+      :touch="false"
+    >
+      <!-- 用户 -->
       <VWindowItem value="account">
         <transition name="fade-slide" appear>
           <AccountSettingAccount />
         </transition>
       </VWindowItem>
 
-      <!-- 用户 -->
+      <!-- 站点 -->
       <VWindowItem value="site">
         <transition name="fade-slide" appear>
           <AccountSettingSite />
@@ -97,7 +110,14 @@ const tabs = [
         </transition>
       </VWindowItem>
 
-      <!-- Notification -->
+      <!-- 服务 -->
+      <VWindowItem value="service">
+        <transition name="fade-slide" appear>
+          <AccountSettingService />
+        </transition>
+      </VWindowItem>
+
+      <!-- 规则 -->
       <VWindowItem value="filter">
         <transition name="fade-slide" appear>
           <AccountSettingRule />
