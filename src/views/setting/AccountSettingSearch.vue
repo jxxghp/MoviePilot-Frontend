@@ -148,6 +148,48 @@ async function saveSelectedSites() {
   }
 }
 
+// 上调优先级
+function onLevelUp(pri: string) {
+  // 找到当前卡片
+  const card = filterCards.value.find(card => card.pri === pri)
+  if (!card)
+    return
+
+  // 找到当前卡片的上一张卡片
+  const prevCard = filterCards.value.find(card => card.pri === (parseInt(pri) - 1).toString())
+  if (!prevCard)
+    return
+
+  // 交换两张卡片的优先级
+  const temp = card.pri
+  card.pri = prevCard.pri
+  prevCard.pri = temp
+
+  // 卡片重新按优先级排序
+  filterCards.value.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
+}
+
+// 下调优先级
+function onLevelDown(pri: string) {
+  // 找到当前卡片
+  const card = filterCards.value.find(card => card.pri === pri)
+  if (!card)
+    return
+
+  // 找到当前卡片的下一张卡片
+  const nextCard = filterCards.value.find(card => card.pri === (parseInt(pri) + 1).toString())
+  if (!nextCard)
+    return
+
+  // 交换两张卡片的优先级
+  const temp = card.pri
+  card.pri = nextCard.pri
+  nextCard.pri = temp
+
+  // 卡片重新按优先级排序
+  filterCards.value.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
+}
+
 onMounted(() => {
   queryCustomFilters()
   querySites()
@@ -191,9 +233,12 @@ onMounted(() => {
               v-for="(card, index) in filterCards"
               :key="index"
               :pri="card.pri"
+              :maxpri="filterCards.length.toString()"
               :rules="card.rules"
               @changed="updateFilterCardValue"
               @close="filterCardClose(card.pri)"
+              @leveldown="onLevelDown"
+              @levelup="onLevelUp"
             />
           </div>
         </VCardItem>

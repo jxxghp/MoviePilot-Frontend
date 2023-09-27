@@ -226,6 +226,7 @@ async function retransferBatch() {
   // 清空当前操作记录
   currentHistory.value = undefined
   // 打开识别弹窗
+  redoType.value = ''
   redoDialog.value = true
 }
 

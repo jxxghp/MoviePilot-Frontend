@@ -2,17 +2,28 @@
 // 输入参数
 const props = defineProps({
   pri: String,
+  maxpri: String,
   rules: Array as PropType<string[]>,
   width: String,
   height: String,
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'changed'])
+const emit = defineEmits(['close', 'changed', 'levelup', 'leveldown'])
 
 // 按钮点击
 function onClose() {
   emit('close')
+}
+
+// 上升优先级
+function onLevelUp() {
+  emit('levelup', props.pri)
+}
+
+// 下降优先级
+function onLevelDown() {
+  emit('leveldown', props.pri)
 }
 
 // 选项变化
@@ -54,6 +65,20 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
 
 <template>
   <VCard variant="tonal" :width="props.width" :height="props.height">
+    <span class="absolute top-3 right-14">
+      <IconBtn
+        v-if="props.pri !== '1'"
+        @click.stop="onLevelUp"
+      >
+        <VIcon icon="mdi-arrow-up" />
+      </IconBtn>
+      <IconBtn
+        v-if="props.pri !== props.maxpri"
+        @click.stop="onLevelDown"
+      >
+        <VIcon icon="mdi-arrow-down" />
+      </IconBtn>
+    </span>
     <DialogCloseBtn @click="onClose" />
     <VCardItem>
       <VCardTitle>优先级 {{ props.pri }}</VCardTitle>

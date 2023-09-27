@@ -165,6 +165,48 @@ function addFilterCard(ruleType: string) {
   cards.value.push(newCard)
 }
 
+// 上调优先级
+function onLevelUp(filterCards: FilterCard[], pri: string) {
+  // 找到当前卡片
+  const card = filterCards.find(card => card.pri === pri)
+  if (!card)
+    return
+
+  // 找到当前卡片的上一张卡片
+  const prevCard = filterCards.find(card => card.pri === (parseInt(pri) - 1).toString())
+  if (!prevCard)
+    return
+
+  // 交换两张卡片的优先级
+  const temp = card.pri
+  card.pri = prevCard.pri
+  prevCard.pri = temp
+
+  // 卡片重新按优先级排序
+  filterCards.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
+}
+
+// 下调优先级
+function onLevelDown(filterCards: FilterCard[], pri: string) {
+  // 找到当前卡片
+  const card = filterCards.find(card => card.pri === pri)
+  if (!card)
+    return
+
+  // 找到当前卡片的下一张卡片
+  const nextCard = filterCards.find(card => card.pri === (parseInt(pri) + 1).toString())
+  if (!nextCard)
+    return
+
+  // 交换两张卡片的优先级
+  const temp = card.pri
+  card.pri = nextCard.pri
+  nextCard.pri = temp
+
+  // 卡片重新按优先级排序
+  filterCards.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
+}
+
 onMounted(() => {
   querySites()
   queryCustomFilters('SubscribeFilterRules')
@@ -209,9 +251,12 @@ onMounted(() => {
               v-for="(card, index) in subscribeFilterCards"
               :key="index"
               :pri="card.pri"
+              :maxpri="subscribeFilterCards.length.toString()"
               :rules="card.rules"
               @changed="updateFilterCardValue"
               @close="filterCardClose('SubscribeFilterRules', card.pri)"
+              @leveldown="onLevelDown(subscribeFilterCards, card.pri)"
+              @levelup="onLevelUp(subscribeFilterCards, card.pri)"
             />
           </div>
         </VCardItem>
@@ -242,9 +287,12 @@ onMounted(() => {
               v-for="(card, index) in bestVersionFilterCards"
               :key="index"
               :pri="card.pri"
+              :maxpri="bestVersionFilterCards.length.toString()"
               :rules="card.rules"
               @changed="updateFilterCardValue2"
               @close="filterCardClose('BestVersionFilterRules', card.pri)"
+              @leveldown="onLevelDown(bestVersionFilterCards, card.pri)"
+              @levelup="onLevelUp(bestVersionFilterCards, card.pri)"
             />
           </div>
         </VCardItem>
