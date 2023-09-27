@@ -276,8 +276,24 @@ async function rehandleHistory() {
       await retransfer(currentHistory.value, redoType.value, tmdbid)
     }
     else if (selected.value.length > 0) {
-      for (const item of selected.value)
+      // 总条数
+      const total = selected.value.length
+      if (total === 0)
+        return
+      // 已处理条数
+      let handled = 0
+      // 显示进度条
+      progressDialog.value = true
+      for (const item of selected.value) {
+        progressText.value = `正在重新整理 ${item.src} ...`
         await retransfer(item, redoType.value, tmdbid)
+        handled++
+        progressValue.value = handled / total * 100
+      }
+      // 清空选中项
+      selected.value = []
+      // 隐藏进度条
+      progressDialog.value = false
     }
     // 批量转移
     else { $toast.error('没有选中任何记录！') }
