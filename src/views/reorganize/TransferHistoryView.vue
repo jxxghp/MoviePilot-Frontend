@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import { numberValidator, requiredValidator } from '@/@validators'
+import { numberValidator } from '@/@validators'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
 import TmdbSelectorCard from '@/components/cards/TmdbSelectorCard.vue'
@@ -20,6 +20,7 @@ const redoType = ref('电影')
 
 // 类型下拉框：电影、电视剧
 const redoTypeItems = ref([
+  { title: '自动', value: '' },
   { title: '电影', value: '电影' },
   { title: '电视剧', value: '电视剧' },
 ])
@@ -216,27 +217,24 @@ async function removeHistoryBatch() {
   deleteConfirmDialog.value = true
 }
 
-// 重新整理
-async function rehandleHistory() {
+// 批量重新整理
+async function retransferBatch() {
+  if (selected.value.length === 0)
+    return
+  for (const item of selected.value)
+    await retransfer(item)
+}
+
+// 调API重新整理
+async function retransfer(item: TransferHistory, redoType = '', redoTmdbId = 0) {
   try {
-    if (!redoTmdbId.value || !redoType.value)
-      return
-
-    redoDialog.value = false
-    $toast.info(`正在重新整理 ${currentHistory.value?.title} ...`)
-
-    // 调用API接口重新转移
-    const requestData = {
-      ...currentHistory.value,
-    }
-
     const result: { [key: string]: any } = await api.post(
       'history/transfer',
-      requestData,
+      item,
       {
         params: {
-          mtype: redoType.value,
-          new_tmdbid: parseInt(redoTmdbId.value),
+          mtype: redoType,
+          new_tmdbid: redoTmdbId,
         },
       },
     )
@@ -256,6 +254,23 @@ async function rehandleHistory() {
   }
 }
 
+// 重新整理
+async function rehandleHistory() {
+  try {
+    redoDialog.value = false
+    if (!redoTmdbId.value)
+      redoTmdbId.value = '0'
+
+    $toast.info(`正在重新整理 ${currentHistory.value?.title} ...`)
+
+    // 调用API接口重新转移
+    await retransfer(currentHistory.value as TransferHistory, redoType.value, parseInt(redoTmdbId.value))
+  }
+  catch (e) {
+    console.log(e)
+  }
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -264,6 +279,8 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-redo-variant',
       click: (item: TransferHistory) => {
+        redoTmdbId.value = ''
+        redoType.value = ''
         redoDialog.value = true
         currentHistory.value = item
       },
@@ -404,7 +421,6 @@ const dropdownItems = ref([
             <VSelect
               v-model="redoType"
               label="类型"
-              :rules="[requiredValidator]"
               :items="redoTypeItems"
             />
           </VCol>
@@ -412,6 +428,7 @@ const dropdownItems = ref([
             <VTextField
               v-model="redoTmdbId"
               label="TMDB编号"
+              placeholder="留空自动识别"
               :rules="[numberValidator]"
               append-inner-icon="mdi-magnify"
               @click:append-inner.stop="tmdbSelectorDialog = true"
@@ -432,6 +449,13 @@ const dropdownItems = ref([
     </VCard>
   </VDialog>
   <span v-if="selected.length > 0" class="fixed right-5 bottom-5">
+    <VBtn
+      icon="mdi-redo-variant"
+      class="me-2"
+      color="primary"
+      size="x-large"
+      @click="retransferBatch"
+    />
     <VBtn
       icon="mdi-trash-can-outline"
       color="error"
