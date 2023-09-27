@@ -212,8 +212,10 @@ async function deleteConfirmHandler(deleteSrc: boolean, deleteDest: boolean) {
 async function removeHistoryBatch() {
   if (selected.value.length === 0)
     return
+  // 清空当前操作记录
   currentHistory.value = undefined
   confirmTitle.value = `确认删除 ${selected.value.length} 条记录 ?`
+  // 打开确认弹窗
   deleteConfirmDialog.value = true
 }
 
@@ -221,8 +223,10 @@ async function removeHistoryBatch() {
 async function retransferBatch() {
   if (selected.value.length === 0)
     return
-  for (const item of selected.value)
-    await retransfer(item)
+  // 清空当前操作记录
+  currentHistory.value = undefined
+  // 打开识别弹窗
+  redoDialog.value = true
 }
 
 // 调API重新整理
@@ -257,14 +261,25 @@ async function retransfer(item: TransferHistory, redoType = '', redoTmdbId = 0) 
 // 重新整理
 async function rehandleHistory() {
   try {
+    // 关闭弹窗
     redoDialog.value = false
-    if (!redoTmdbId.value)
-      redoTmdbId.value = '0'
 
-    $toast.info(`正在重新整理 ${currentHistory.value?.title} ...`)
+    let tmdbid = 0
 
-    // 调用API接口重新转移
-    await retransfer(currentHistory.value as TransferHistory, redoType.value, parseInt(redoTmdbId.value))
+    if (redoTmdbId.value)
+      tmdbid = parseInt(redoTmdbId.value)
+
+    // 转移当前选中记录
+    if (currentHistory.value) {
+      $toast.info(`正在重新整理 ${currentHistory.value?.title} ...`)
+      await retransfer(currentHistory.value, redoType.value, tmdbid)
+    }
+    else if (selected.value.length > 0) {
+      for (const item of selected.value)
+        await retransfer(item, redoType.value, tmdbid)
+    }
+    // 批量转移
+    else { $toast.error('没有选中任何记录！') }
   }
   catch (e) {
     console.log(e)
