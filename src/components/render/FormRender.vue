@@ -5,6 +5,7 @@ import { type PropType, ref } from 'vue'
 interface RenderProps {
   component: string
   text: string
+  html: string
   content?: any
   props?: any
 }
@@ -16,9 +17,10 @@ const elementProps = defineProps({
 })
 
 // 配置元素
-const formItem = ref<RenderProps>(elementProps.config || {
+const formItem = ref<RenderProps>(elementProps.config ?? {
   component: 'div',
   text: '',
+  html: '',
   props: {},
   content: [],
 })
@@ -30,6 +32,7 @@ const formData = ref<any>(elementProps.form || {})
 <template>
   <Component
     :is="formItem.component"
+    v-if="!formItem.html"
     v-bind="formItem.props"
     v-model="formData[formItem.props?.model || '']"
   >
@@ -42,4 +45,10 @@ const formData = ref<any>(elementProps.form || {})
       :form="formData"
     />
   </Component>
+  <Component
+    :is="formItem.component"
+    v-if="formItem.html"
+    v-bind="formItem.props"
+    v-html="formItem.html"
+  />
 </template>
