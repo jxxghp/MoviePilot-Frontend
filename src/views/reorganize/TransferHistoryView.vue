@@ -532,9 +532,9 @@ const dropdownItems = ref([
       <VCardTitle class="pe-10">
         {{ confirmTitle }}
       </VCardTitle>
-      <div class="d-flex  flex-column flex-md-row justify-center my-3">
+      <div class="d-flex  flex-column flex-lg-row justify-center my-3">
         <VBtn
-          color="info"
+          color="primary"
           class="mb-2 mx-2"
           @click="deleteConfirmHandler(false, false)"
         >
@@ -542,6 +542,13 @@ const dropdownItems = ref([
         </VBtn>
         <VBtn
           color="warning"
+          class="mb-2 mx-2"
+          @click="deleteConfirmHandler(true, false)"
+        >
+          删除历史记录和源文件
+        </VBtn>
+        <VBtn
+          color="info"
           class="mb-2 mx-2"
           @click="deleteConfirmHandler(false, true)"
         >
