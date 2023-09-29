@@ -227,6 +227,7 @@ async function retransferBatch() {
   currentHistory.value = undefined
   // 打开识别弹窗
   redoType.value = ''
+  redoTmdbId.value = ''
   redoDialog.value = true
 }
 
@@ -461,6 +462,7 @@ const dropdownItems = ref([
               v-model="redoTmdbId"
               label="TMDB编号"
               placeholder="留空自动识别"
+              :disabled="redoType === ''"
               :rules="[numberValidator]"
               append-inner-icon="mdi-magnify"
               @click:append-inner.stop="tmdbSelectorDialog = true"
