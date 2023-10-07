@@ -13,11 +13,10 @@ interface RenderProps {
 // 输入参数
 const elementProps = defineProps({
   config: Object as PropType<RenderProps>,
-  handler: Boolean,
 })
 
 // 配置元素
-const formItem = ref<RenderProps>(elementProps.config || {
+const formItem = ref<RenderProps>(elementProps.config ?? {
   component: 'div',
   text: '',
   html: '',

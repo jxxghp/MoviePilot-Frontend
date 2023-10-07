@@ -1,6 +1,6 @@
 {
   "name": "moviepilot",
-  "version": "1.2.6",
+  "version": "1.2.7-2",
   "private": true,
   "scripts": {
     "dev": "vite --host",

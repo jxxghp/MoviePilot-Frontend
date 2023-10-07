@@ -622,6 +622,7 @@ onMounted(() => {
       </IconBtn>
     </template>
     <VCard :title="`文件整理 - ${currentItem?.name}`">
+      <DialogCloseBtn @click="transferPopper = false" />
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
@@ -669,6 +670,7 @@ onMounted(() => {
             >
               <VTextField
                 v-model="transferForm.tmdbid"
+                :disabled="transferForm.type_name === ''"
                 label="TMDBID"
                 placeholder="留空自动识别"
                 :rules="[numberValidator]"
