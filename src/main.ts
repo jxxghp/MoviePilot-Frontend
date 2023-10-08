@@ -10,7 +10,7 @@ import store from '@/store'
 import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
-import 'vue-toast-notification/dist/theme-default.css'
+import 'vue-toast-notification/dist/theme-bootstrap.css'
 import { removeEl } from '@/util'
 
 loadFonts()
