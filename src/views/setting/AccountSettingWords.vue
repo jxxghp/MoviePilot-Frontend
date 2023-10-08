@@ -11,6 +11,9 @@ const customIdentifiers = ref('')
 // 自定义制作组
 const customReleaseGroups = ref('')
 
+// 自定义占位符
+const customization = ref('')
+
 // 文件整理屏蔽词
 const transferExcludeWords = ref('')
 
@@ -36,6 +39,20 @@ async function queryCustomReleaseGroups() {
     )
 
     customReleaseGroups.value = result.data?.value.join('\n')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 查询已设置的自定义占位符
+async function queryCustomization() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/setting/Customization',
+    )
+
+    customization.value = result.data?.value.join('\n')
   }
   catch (error) {
     console.log(error)
@@ -94,6 +111,25 @@ async function saveCustomReleaseGroups() {
   }
 }
 
+// 保存自定义占位符
+async function saveCustomization() {
+  try {
+    // 用户名密码
+    const result: { [key: string]: any } = await api.post(
+      'system/setting/Customization',
+      customization.value.split('\n'),
+    )
+
+    if (result.success)
+      $toast.success('自定义占位符保存成功')
+    else
+      $toast.error('自定义占位符保存失败！')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 // 保存文件整理屏蔽词
 async function saveTransferExcludeWords() {
   try {
@@ -116,6 +152,7 @@ async function saveTransferExcludeWords() {
 onMounted(() => {
   queryCustomIdentifiers()
   queryCustomReleaseGroups()
+  queryCustomization()
   queryTransferExcludeWords()
 })
 </script>
@@ -160,6 +197,26 @@ onMounted(() => {
           <VBtn
             type="submit"
             @click="saveCustomReleaseGroups"
+          >
+            保存
+          </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard title="自定义占位符">
+        <VCardSubtitle> 添加自定义占位符识别正则，重命名格式中添加{{customization}}使用。 </VCardSubtitle>
+        <VCardItem>
+          <VTextarea
+            v-model="customization"
+            auto-grow
+            placeholder="多个匹配对象请换行分隔，支持正则表达式，特殊字符注意转义"
+          />
+        </VCardItem>
+        <VCardItem>
+          <VBtn
+            type="submit"
+            @click="saveCustomization"
           >
             保存
           </VBtn>
