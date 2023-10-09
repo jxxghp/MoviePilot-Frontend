@@ -43,6 +43,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist/MoviePilot-Frontend.exe
+            MoviePilot-Frontend.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
