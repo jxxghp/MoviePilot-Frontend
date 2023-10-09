@@ -1,4 +1,4 @@
-name: Build Moviepilot-Frontend
+name: Build Moviepilot-Frontend Windows
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -32,16 +32,17 @@ jobs:
         run: |
           yarn
           yarn build
-          zip -r dist.zip dist
+          npm i -g pkg
+          yarn pkg
 
       - name: Generate Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.frontend_version }}
-          name: ${{ env.frontend_version }}
+          tag_name: ${{ env.frontend_version }}-win
+          name: ${{ env.frontend_version }}-win
           draft: false
           prerelease: false
           files: |
-            dist.zip
+            dist/MoviePilot-Frontend.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
