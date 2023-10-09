@@ -18,8 +18,8 @@ jobs:
       - name: Release version
         id: release_version
         run: |
-          frontend_version=$(jq -r '.version' package.json)
-          echo "frontend_version=v$frontend_version" >> $GITHUB_ENV
+          $frontend_version = (Get-Content package.json | ConvertFrom-Json).version
+          Add-Content -Path $env:GITHUB_ENV -Value "frontend_version=v$frontend_version"
 
       - name: Setup node
         uses: actions/setup-node@v3
