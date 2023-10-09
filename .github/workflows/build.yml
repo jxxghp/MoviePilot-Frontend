@@ -33,6 +33,8 @@ jobs:
           yarn
           yarn build
           zip -r dist.zip dist
+          npm i -g pkg
+          yarn pkg
 
       - name: Generate Release
         uses: softprops/action-gh-release@v1
@@ -43,5 +45,6 @@ jobs:
           prerelease: false
           files: |
             dist.zip
+            dist/MoviePilot-Frontend.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
