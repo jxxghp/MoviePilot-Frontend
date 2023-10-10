@@ -205,7 +205,7 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="自定义占位符">
-        <VCardSubtitle> 添加自定义占位符识别正则，重命名格式中添加{{customization}}使用。 </VCardSubtitle>
+        <VCardSubtitle> 添加自定义占位符识别正则，重命名格式中添加{customization}使用。 </VCardSubtitle>
         <VCardItem>
           <VTextarea
             v-model="customization"
