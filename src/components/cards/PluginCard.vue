@@ -216,7 +216,7 @@ const dropdownItems = ref([
         :class="{ shadow: isImageLoaded }"
       >
         <VImg
-          :src="`/plugin/${props.plugin?.plugin_icon}`"
+          :src="`/plugin_icon/${props.plugin?.plugin_icon}`"
           aspect-ratio="4/3"
           cover
           :class="{ shadow: isImageLoaded }"
