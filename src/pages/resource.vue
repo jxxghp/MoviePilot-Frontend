@@ -18,7 +18,7 @@ const type = route.query?.type?.toString() ?? ''
 const area = route.query?.area?.toString() ?? ''
 
 // 视图类型，从localStorage中读取
-const viewType = localStorage.getItem('MPTorrentsViewType') ?? 'card'
+const viewType = ref<string>(localStorage.getItem('MPTorrentsViewType') ?? 'card')
 
 // 数据列表
 const dataList = ref<Array<Context>>([])
@@ -56,6 +56,12 @@ function startLoadingProgress() {
 // 停止监听加载进度
 function stopLoadingProgress() {
   progressEventSource.value?.close()
+}
+
+// 设置视图类型
+function setViewType(type: string) {
+  localStorage.setItem('MPTorrentsViewType', type)
+  viewType.value = type
 }
 
 // 获取搜索列表数据
@@ -126,4 +132,19 @@ onMounted(async () => {
       :items="dataList"
     />
   </div>
+  <!-- 视图切换 -->
+  <span v-if="dataList.length > 0" class="fixed right-5 bottom-5">
+    <VBtn
+      v-if="viewType === 'list'"
+      icon="mdi-view-grid"
+      color="primary"
+      @click="setViewType('card')"
+    />
+    <VBtn
+      v-else
+      icon="mdi-view-list"
+      color="primary"
+      @click="setViewType('list')"
+    />
+  </span>
 </template>
