@@ -29,6 +29,12 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
     />
 
     <MediaCardSlideView
+      apipath="douban/tv_animation"
+      linkurl="/browse/douban/tv_animation?title=热门动漫"
+      title="热门动漫"
+    />
+
+    <MediaCardSlideView
       apipath="douban/movies"
       linkurl="/browse/douban/movies?title=最新电影"
       title="最新电影"
