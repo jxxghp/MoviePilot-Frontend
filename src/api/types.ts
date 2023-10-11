@@ -87,7 +87,7 @@ export interface TransferHistory {
   // 目的目录
   dest?: string
 
-  // 转移模式link/copy/move/softlink
+  // 转移模式link/copy/move/softlink/rclone_copy/rclone_move
   mode?: string
 
   // 类型：电影、电视剧

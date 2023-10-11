@@ -128,6 +128,8 @@ const TransferDict: { [key: string]: string } = {
   move: '移动',
   link: '硬链接',
   softlink: '软链接',
+  rclone_copy: 'Rclone复制',
+  rclone_move: 'Rclone移动',
 }
 
 // 删除历史记录
