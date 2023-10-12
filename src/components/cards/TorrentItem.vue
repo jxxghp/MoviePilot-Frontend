@@ -10,9 +10,6 @@ import type { Context } from '@/api/types'
 // 输入参数
 const props = defineProps({
   torrent: Object as PropType<Context>,
-  more: Array as PropType<Context[]>,
-  width: String,
-  height: String,
 })
 
 // 提示框
@@ -125,72 +122,31 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard
-    :width="props.width"
-    :height="props.height"
-    @click="handleAddDownload"
-  >
+  <VListItem @click="handleAddDownload">
     <template
       v-if="!showMoreTorrents"
-      #image
+      #prepend
     >
       <VAvatar
-        class="absolute right-2 bottom-2 rounded"
+        class="rounded"
         variant="flat"
         rounded="0"
+        @click.stop="openTorrentDetail"
       >
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
-    <VCardItem class="py-1">
-      <VCardTitle class="break-words overflow-visible whitespace-break-spaces">
-        {{ media?.title }} {{ meta?.season_episode }}
-        <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
-        <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
-      </VCardTitle>
-      <template #append>
-        <div class="me-n3">
-          <IconBtn>
-            <VIcon
-              icon="mdi-dots-vertical"
-            />
-            <VMenu
-              activator="parent"
-              close-on-content-click
-            >
-              <VList>
-                <VListItem
-                  variant="plain"
-                  @click="openTorrentDetail()"
-                >
-                  <template #prepend>
-                    <VIcon icon="mdi-information" />
-                  </template>
-                  <VListItemTitle>查看详情</VListItemTitle>
-                </VListItem>
-                <VListItem
-                  v-if="props.torrent?.torrent_info?.enclosure?.startsWith('http')"
-                  variant="plain"
-                  @click="downloadTorrentFile()"
-                >
-                  <template #prepend>
-                    <VIcon icon="mdi-download" />
-                  </template>
-                  <VListItemTitle>下载种子文件</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </IconBtn>
-        </div>
-      </template>
-    </VCardItem>
-    <VCardText class="text-subtitle-2">
+    <VListItemTitle>
       {{ torrent?.title }}
-    </VCardText>
-    <VCardText>{{ torrent?.description }}</VCardText>
-    <VCardItem
+      <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
+      <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
+    </VListItemTitle>
+    <VListItemSubtitle>
+      {{ torrent?.description }}
+    </VListItemSubtitle>
+    <div
       v-if="torrent?.labels"
-      class="pb-3 pt-0 pe-12"
+      class="pt-2"
     >
       <VChip
         v-for="(label, index) in torrent?.labels"
@@ -253,54 +209,41 @@ onMounted(() => {
       >
         {{ torrent?.volume_factor }}
       </VChip>
-    </VCardItem>
-    <VCardActions>
-      <VBtn
-        v-if="props.more && props.more.length > 0"
-        @click.stop="showMoreTorrents = !showMoreTorrents"
-      >
-        <template #append>
-          <VIcon :icon="showMoreTorrents ? 'mdi-chevron-up' : 'mdi-chevron-down'" />
-        </template>
-        更多来源
-      </VBtn>
-    </VCardActions>
-    <VExpandTransition>
-      <div v-show="showMoreTorrents">
-        <VDivider />
-        <VChipGroup class="p-3">
-          <VChip
-            v-for="(item, index) in props.more"
-            :key="index"
-            @click.stop="
-              handleAddDownload(
-                item.torrent_info?.site_name,
-                item.media_info,
-                item.torrent_info,
-              )
-            "
+    </div>
+    <template #append>
+      <div class="me-n3">
+        <IconBtn>
+          <VIcon
+            icon="mdi-dots-vertical"
+          />
+          <VMenu
+            activator="parent"
+            close-on-content-click
           >
-            <template #append>
-              <VBadge
-                color="primary"
-                :content="`↑${item.torrent_info?.seeders}`"
-                inline
-                size="small"
-              />
-              <VBadge
-                v-if="
-                  item.torrent_info?.downloadvolumefactor !== 1
-                    || item.torrent_info?.uploadvolumefactor !== 1
-                "
-                :content="item.torrent_info?.volume_factor"
-                inline
-                size="small"
-              />
-            </template>
-            {{ item.torrent_info.site_name }}
-          </VChip>
-        </VChipGroup>
+            <VList>
+              <VListItem
+                variant="plain"
+                @click="openTorrentDetail()"
+              >
+                <template #prepend>
+                  <VIcon icon="mdi-information" />
+                </template>
+                <VListItemTitle>查看详情</VListItemTitle>
+              </VListItem>
+              <VListItem
+                v-if="props.torrent?.torrent_info?.enclosure?.startsWith('http')"
+                variant="plain"
+                @click="downloadTorrentFile()"
+              >
+                <template #prepend>
+                  <VIcon icon="mdi-download" />
+                </template>
+                <VListItemTitle>下载种子文件</VListItemTitle>
+              </VListItem>
+            </VList>
+          </VMenu>
+        </IconBtn>
       </div>
-    </VExpandTransition>
-  </VCard>
+    </template>
+  </VListItem>
 </template>

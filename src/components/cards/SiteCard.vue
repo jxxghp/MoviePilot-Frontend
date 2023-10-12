@@ -654,7 +654,7 @@ onMounted(() => {
                       <template #prepend>
                         <VIcon icon="mdi-download" />
                       </template>
-                      <VListItemTitle>下载种子</VListItemTitle>
+                      <VListItemTitle>下载种子文件</VListItemTitle>
                     </VListItem>
                   </VList>
                 </VMenu>

@@ -216,8 +216,8 @@ const dataList = computed(() => {
   </VCard>
   <div class="grid gap-3 grid-torrent-card items-start">
     <TorrentCard
-      v-for="data in dataList"
-      :key="`${data.torrent_info.title}_${data.torrent_info.site_name}_${data.torrent_info.page_url}`"
+      v-for="(data, index) in dataList"
+      :key="index"
       :torrent="data"
       :more="data.more"
     />
