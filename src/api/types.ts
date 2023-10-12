@@ -44,6 +44,15 @@ export interface Subscribe {
   // 排除
   exclude?: string
 
+  // 质量
+  quality?: string
+
+  // 分辨率
+  resolution?: string
+
+  // 特效
+  effect?: string
+
   // 总集数
   total_episode?: number
 

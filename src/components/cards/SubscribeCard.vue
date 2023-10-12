@@ -196,6 +196,94 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 质量选择框数据
+const qualityOptions = ref([
+  {
+    title: '全部',
+    value: '',
+  },
+  {
+    title: '蓝光原盘',
+    value: 'Blu-?Ray.+VC-?1|Blu-?Ray.+AVC|UHD.+blu-?ray.+HEVC|MiniBD',
+  },
+  {
+    title: 'Remux',
+    value: 'Remux',
+  },
+  {
+    title: 'BluRay',
+    value: 'Blu-?Ray',
+  },
+  {
+    title: 'UHD',
+    value: 'UHD|UltraHD',
+  },
+  {
+    title: 'WEB-DL',
+    value: 'WEB-?DL|WEB-?RIP',
+  },
+  {
+    title: 'HDTV',
+    value: 'HDTV',
+  },
+  {
+    title: 'H265',
+    value: '[Hx].?265|HEVC',
+  },
+  {
+    title: 'H264',
+    value: '[Hx].?264|AVC',
+  },
+  {
+    title: '其他',
+    value: '其他',
+  },
+])
+
+// 分辨率选择框数据
+const resolutionOptions = ref([
+  {
+    title: '全部',
+    value: '',
+  },
+  {
+    title: '8K',
+    value: '8K|4320p|x4320',
+  },
+  {
+    title: '4k',
+    value: '4K|2160p|x2160',
+  },
+  {
+    title: '1080p',
+    value: '1080[pi]|x1080',
+  },
+  {
+    title: '720p',
+    value: '720[pi]|x720',
+  },
+])
+
+// 特效选择框数据
+const effectOptions = ref([
+  {
+    title: '全部',
+    value: '',
+  },
+  {
+    title: '杜比视界',
+    value: 'Dolby[\\s.]+Vision|DOVI|[\\s.]+DV[\\s.]+',
+  },
+  {
+    title: '杜比全景声',
+    value: 'Dolby[\\s.]*\\+?Atmos|Atmos',
+  },
+  {
+    title: 'HDR',
+    value: '[\\s.]+HDR[\\s.]+|HDR10|HDR10\\+',
+  },
+])
 </script>
 
 <template>
@@ -332,6 +420,7 @@ const dropdownItems = ref([
     <!-- Dialog Content -->
     <VCard :title="`订阅 - ${props.media?.name}`">
       <VCardText class="pt-2">
+        <DialogCloseBtn @click="subscribeInfoDialog = false" />
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol
@@ -363,6 +452,38 @@ const dropdownItems = ref([
                 v-model="subscribeForm.start_episode"
                 label="开始集数"
                 :rules="[numberValidator]"
+              />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSelect
+                v-model="subscribeForm.quality"
+                label="质量"
+                :items="qualityOptions"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSelect
+                v-model="subscribeForm.resolution"
+                label="分瓣率"
+                :items="resolutionOptions"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSelect
+                v-model="subscribeForm.effect"
+                label="特效"
+                :items="effectOptions"
               />
             </VCol>
           </VRow>

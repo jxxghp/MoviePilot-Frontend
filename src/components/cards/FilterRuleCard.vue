@@ -55,6 +55,8 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '排除: H264', value: ' !H264 ' },
   { title: '效果: 杜比视界', value: ' DOLBY ' },
   { title: '排除: 杜比视界', value: ' !DOLBY ' },
+  { title: '效果: 杜比全景声', value: ' ATMOS ' },
+  { title: '排除: 杜比全景声', value: ' !ATMOS ' },
   { title: '效果: HDR', value: ' HDR ' },
   { title: '排除: HDR', value: ' !HDR ' },
   { title: '国语配音', value: ' CNVOI ' },
