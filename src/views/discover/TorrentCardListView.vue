@@ -47,6 +47,12 @@ const editionFilterOptions = ref<Array<string>>([])
 // 获取分辨率过滤选项
 const resolutionFilterOptions = ref<Array<string>>([])
 
+// 数据列表
+const dataList = ref <Array<SearchTorrent>>([])
+
+// 分组后的数据列表
+const groupedDataList = ref<Map<string, Context[]>>()
+
 // 初始化过滤选项
 function initOptions(data: Context) {
   const { torrent_info, meta_info } = data
@@ -63,7 +69,7 @@ function initOptions(data: Context) {
 }
 
 // 计算分组后的列表
-const groupedDataList = computed(() => {
+watchEffect(() => {
   // 数据分组
   const groupMap = new Map<string, Context[]>()
   // 遍历数据
@@ -83,52 +89,47 @@ const groupedDataList = computed(() => {
       groupMap.set(key, [item])
     }
   })
-  return groupMap
+  groupedDataList.value = groupMap
 })
 
 // 计算过滤后的列表
-const dataList = computed(() => {
-  const list = groupedDataList.value
-  const filter = filterForm
-
+watchEffect(() => {
+  // 清空列表
+  dataList.value.splice(0)
   // 匹配过滤函数
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
 
-  const result: Array<SearchTorrent> = []
-  list.forEach((value) => {
+  groupedDataList.value?.forEach((value) => {
     if (value.length > 0) {
       const matchData = value.filter((data) => {
         const { meta_info, torrent_info } = data
         // 季、制作组、视频编码
-        const { season_episode, resource_team, video_encode } = meta_info
         return (
           // 站点过滤
-          match(filter.site, torrent_info.site_name)
+          match(filterForm.site, torrent_info.site_name)
           // 促销状态过滤
-          && match(filter.freeState, torrent_info.volume_factor)
+          && match(filterForm.freeState, torrent_info.volume_factor)
           // 季过滤
-          && match(filter.season, season_episode)
+          && match(filterForm.season, meta_info.season_episode)
           // 制作组过滤
-          && match(filter.releaseGroup, resource_team)
+          && match(filterForm.releaseGroup, meta_info.resource_team)
           // 视频编码过滤
-          && match(filter.videoCode, video_encode)
+          && match(filterForm.videoCode, meta_info.video_encode)
           // 分辨率过滤
-          && match(filter.resolution, meta_info.resource_pix)
+          && match(filterForm.resolution, meta_info.resource_pix)
           // 质量过滤
-          && match(filter.edition, meta_info.edition)
+          && match(filterForm.edition, meta_info.edition)
         )
       })
       if (matchData.length > 0) {
         const firstData = _.cloneDeepWith(matchData[0]) as SearchTorrent
         if (matchData.length > 1)
           firstData.more = matchData.slice(1)
-
-        result.push(firstData)
+        dataList.value.push(firstData)
       }
     }
   })
-  return result
 })
 </script>
 

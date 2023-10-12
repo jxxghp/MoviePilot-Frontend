@@ -26,6 +26,9 @@ const filterForm = reactive({
   resolution: [] as string[],
 })
 
+// 数据列表
+const dataList = ref <Array<Context>>([])
+
 // 获取站点过滤选项
 const siteFilterOptions = ref<Array<string>>([])
 // 获取季过滤选项
@@ -57,35 +60,33 @@ function initOptions(data: Context) {
 }
 
 // 计算过滤后的列表
-const dataList = computed(() => {
-  const filter = filterForm
-
+watchEffect(() => {
+  // 清空列表
+  dataList.value.splice(0)
   // 匹配过滤函数
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
 
-  const result: Array<Context> = []
   props.items?.forEach((data) => {
     const { meta_info, torrent_info } = data
     if (
       // 站点过滤
-      match(filter.site, torrent_info.site_name)
+      match(filterForm.site, torrent_info.site_name)
         // 促销状态过滤
-        && match(filter.freeState, torrent_info.volume_factor)
+        && match(filterForm.freeState, torrent_info.volume_factor)
         // 季过滤
-        && match(filter.season, meta_info.season_episode)
+        && match(filterForm.season, meta_info.season_episode)
         // 制作组过滤
-        && match(filter.releaseGroup, meta_info.resource_term)
+        && match(filterForm.releaseGroup, meta_info.resource_term)
         // 视频编码过滤
-        && match(filter.videoCode, meta_info.video_encode)
+        && match(filterForm.videoCode, meta_info.video_encode)
         // 分辨率过滤
-        && match(filter.resolution, meta_info.resource_pix)
+        && match(filterForm.resolution, meta_info.resource_pix)
         // 质量过滤
-        && match(filter.edition, meta_info.edition)
+        && match(filterForm.edition, meta_info.edition)
     )
-      result.push(data)
+      dataList.value.push(data)
   })
-  return result
 })
 
 // 初始化过滤选项
