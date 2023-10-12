@@ -217,10 +217,10 @@ watchEffect(() => {
   </VCard>
   <div class="grid gap-3 grid-torrent-card items-start">
     <TorrentCard
-      v-for="(data, index) in dataList"
-      :key="index"
-      :torrent="data"
-      :more="data.more"
+      v-for="(item, index) in dataList"
+      :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`"
+      :torrent="item"
+      :more="item.more"
     />
   </div>
 </template>

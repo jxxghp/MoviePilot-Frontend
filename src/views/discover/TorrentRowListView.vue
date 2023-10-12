@@ -77,7 +77,7 @@ watchEffect(() => {
         // 季过滤
         && match(filterForm.season, meta_info.season_episode)
         // 制作组过滤
-        && match(filterForm.releaseGroup, meta_info.resource_term)
+        && match(filterForm.releaseGroup, meta_info.resource_team)
         // 视频编码过滤
         && match(filterForm.videoCode, meta_info.video_encode)
         // 分辨率过滤
@@ -106,7 +106,7 @@ onMounted(() => {
       >
         <TorrentItem
           v-for="(item, index) in dataList"
-          :key="index"
+          :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`"
           :torrent="item"
         />
         <VListItem v-if="dataList.length === 0">
