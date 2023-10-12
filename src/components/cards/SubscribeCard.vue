@@ -235,10 +235,6 @@ const qualityOptions = ref([
     title: 'H264',
     value: '[Hx].?264|AVC',
   },
-  {
-    title: '其他',
-    value: '其他',
-  },
 ])
 
 // 分辨率选择框数据
