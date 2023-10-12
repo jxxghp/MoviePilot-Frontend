@@ -67,19 +67,17 @@ const dataList = computed(() => {
   const result: Array<Context> = []
   props.items?.forEach((data) => {
     const { meta_info, torrent_info } = data
-    // 季、制作组、视频编码
-    const { season_episode, resource_team, video_encode } = meta_info
     if (
       // 站点过滤
       match(filter.site, torrent_info.site_name)
         // 促销状态过滤
         && match(filter.freeState, torrent_info.volume_factor)
         // 季过滤
-        && match(filter.season, season_episode)
+        && match(filter.season, meta_info.season_episode)
         // 制作组过滤
-        && match(filter.releaseGroup, resource_team)
+        && match(filter.releaseGroup, meta_info.resource_term)
         // 视频编码过滤
-        && match(filter.videoCode, video_encode)
+        && match(filter.videoCode, meta_info.video_encode)
         // 分辨率过滤
         && match(filter.resolution, meta_info.resource_pix)
         // 质量过滤
