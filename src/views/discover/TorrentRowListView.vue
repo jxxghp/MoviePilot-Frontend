@@ -155,7 +155,7 @@ onMounted(() => {
             </VChip>
           </VChipGroup>
         </VListItem>
-        <VListSubheader v-if="filterForm.resolution.length > 0">
+        <VListSubheader v-if="resolutionFilterOptions.length > 0">
           分辨率
         </VListSubheader>
         <VListItem>
@@ -172,7 +172,7 @@ onMounted(() => {
             </VChip>
           </vchipgroup>
         </VListItem>
-        <VListSubheader v-if="filterForm.releaseGroup.length > 0">
+        <VListSubheader v-if="releaseGroupFilterOptions.length > 0">
           制作组
         </VListSubheader>
         <VListItem>
