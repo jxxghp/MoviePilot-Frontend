@@ -468,7 +468,7 @@ const effectOptions = ref([
             >
               <VSelect
                 v-model="subscribeForm.resolution"
-                label="分瓣率"
+                label="分辨率"
                 :items="resolutionOptions"
               />
             </VCol>
