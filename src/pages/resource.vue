@@ -65,18 +65,17 @@ function setViewType(type: string) {
 }
 
 // 获取搜索列表数据
-async function fetchData(): Promise<Array<Context>> {
+async function fetchData() {
   try {
-    let searchData: Array<Context>
     if (!keyword) {
       // 查询上次搜索结果
-      searchData = await api.get('search/last')
+      dataList.value = await api.get('search/last')
     }
     else {
       startLoadingProgress()
       // 优先按TMDBID精确查询
       if (keyword?.startsWith('tmdb:') || keyword?.startsWith('douban:')) {
-        searchData = await api.get(`search/media/${keyword}`, {
+        dataList.value = await api.get(`search/media/${keyword}`, {
           params: {
             mtype: type,
             area,
@@ -85,13 +84,12 @@ async function fetchData(): Promise<Array<Context>> {
       }
       else {
         // 按标题模糊查询
-        searchData = await api.get(`search/title/${keyword}`)
+        dataList.value = await api.get(`search/title/${keyword}`)
       }
       stopLoadingProgress()
     }
     // 标记已刷新
     isRefreshed.value = true
-    return Promise.resolve(searchData)
   }
   catch (error) {
     console.error(error)
@@ -100,13 +98,8 @@ async function fetchData(): Promise<Array<Context>> {
 }
 
 // 加载数据
-onMounted(async () => {
-  try {
-    dataList.value = await fetchData()
-  }
-  catch (error) {
-    console.error(error)
-  }
+onMounted(() => {
+  fetchData()
 })
 </script>
 

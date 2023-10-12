@@ -8,6 +8,9 @@ const searchWord = ref<string>('')
 // 搜索弹窗
 const searchDialog = ref(false)
 
+// ref
+const searchWordInput = ref<HTMLElement | null>(null)
+
 // Search
 function search() {
   if (!searchWord.value)
@@ -19,6 +22,14 @@ function search() {
     query: {
       title: searchWord.value,
     },
+  })
+}
+
+// 打开搜索弹窗
+function openSearchDialog() {
+  searchDialog.value = true
+  nextTick(() => {
+    searchWordInput.value?.focus()
   })
 }
 </script>
@@ -34,23 +45,16 @@ function search() {
       max-width="50rem"
       transition="dialog-top-transition"
     >
-      <!-- Dialog Activator -->
-      <template #activator="{ props }">
-        <IconBtn
-          class="d-lg-none"
-          v-bind="props"
-        >
-          <VIcon icon="mdi-magnify" />
-        </IconBtn>
-      </template>
       <!-- Dialog Content -->
       <VCard title="搜索">
         <VCardText>
           <VRow>
             <VCol cols="12">
               <VTextField
+                ref="searchWordInput"
                 v-model="searchWord"
                 label="电影、电视剧名称"
+                @keydown.enter="search"
               />
             </VCol>
           </VRow>
@@ -60,7 +64,6 @@ function search() {
           <VSpacer />
           <VBtn
             @click="search"
-            @keydown.enter="search"
           >
             搜索
           </VBtn>
@@ -68,7 +71,13 @@ function search() {
       </VCard>
     </VDialog>
   </div>
-
+  <!-- 👉 Search Icon -->
+  <IconBtn
+    class="d-lg-none"
+    @click="openSearchDialog"
+  >
+    <VIcon icon="mdi-magnify" />
+  </IconBtn>
   <!-- 👉 Search Textfield -->
   <span class="w-1/5">
     <VTextField

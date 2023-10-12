@@ -103,6 +103,7 @@ const router = createRouter({
           component: () => import('../pages/browse.vue'),
           props: true,
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -111,6 +112,7 @@ const router = createRouter({
           component: () => import('../pages/credits.vue'),
           props: true,
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
