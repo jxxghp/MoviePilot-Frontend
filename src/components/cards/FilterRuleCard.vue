@@ -49,6 +49,8 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '排除: REMUX', value: ' !REMUX ' },
   { title: '质量: WEB-DL', value: ' WEBDL ' },
   { title: '排除: WEB-DL', value: ' !WEBDL ' },
+  { title: '质量: 60fps', value: '60FPS' },
+  { title: '排除: 60fps', value: '!60FPS' },
   { title: '编码: H265', value: ' H265 ' },
   { title: '排除: H265', value: ' !H265 ' },
   { title: '编码: H264', value: ' H264 ' },
