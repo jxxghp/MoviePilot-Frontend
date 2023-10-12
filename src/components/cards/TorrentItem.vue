@@ -130,13 +130,12 @@ onMounted(() => {
       <VAvatar
         class="rounded"
         variant="flat"
-        rounded="0"
         @click.stop="openTorrentDetail"
       >
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
-    <VListItemTitle>
+    <VListItemTitle class="break-words overflow-visible whitespace-break-spaces">
       {{ torrent?.title }}
       <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
       <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>

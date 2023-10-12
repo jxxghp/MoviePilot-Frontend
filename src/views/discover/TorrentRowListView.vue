@@ -101,7 +101,10 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol>
-      <VList lines="three">
+      <VList
+        lines="three"
+        class="rounded"
+      >
         <TorrentItem
           v-for="(item, index) in dataList"
           :key="index"
@@ -115,9 +118,9 @@ onMounted(() => {
     <VCol
       xl="2"
       md="3"
-      class="d-none d-md-block h-100"
+      class="d-none d-md-block"
     >
-      <VList lines="one" class="sticky top-5">
+      <VList lines="one" class="rounded">
         <VListSubheader v-if="siteFilterOptions.length > 0">
           站点
         </VListSubheader>
