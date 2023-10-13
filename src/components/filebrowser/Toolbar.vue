@@ -171,6 +171,7 @@ const sortIcon = computed(() => {
           <VBtn
             :disabled="!newFolderName"
             depressed
+            variant="tonal"
             @click="mkdir"
           >
             新建

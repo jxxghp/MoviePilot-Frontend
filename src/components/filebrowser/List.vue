@@ -158,7 +158,7 @@ async function deleteItem(item: FileItem) {
     dialogProps: {
       maxWidth: '50rem',
     },
-    confirmationButtonProps: {
+    cancellationButtonProps: {
       variant: 'tonal',
     },
   })
