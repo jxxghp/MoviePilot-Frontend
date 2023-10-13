@@ -8,6 +8,7 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
 import router from '@/router'
+import SubscribeEditForm from '@/components/form/SubscribeEditForm.vue'
 
 // 输入参数
 const mediaProps = defineProps({
@@ -20,6 +21,9 @@ const $toast = useToast()
 
 // 媒体详情
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
+
+// 订阅编辑弹窗
+const subscribeEditDialog = ref(false)
 
 // 本地是否存在
 const isExists = ref(false)
@@ -38,6 +42,9 @@ const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 各季的订阅状态
 const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
+
+// 订阅编号
+const subscribeId = ref(0)
 
 // 调用API查询详情
 async function getMediaDetail() {
@@ -211,6 +218,12 @@ async function addSubscribe(season = 0) {
       result.message,
       best_version,
     )
+
+    // 显示编辑弹窗
+    if (result.success) {
+      subscribeId.value = result.data.id
+      subscribeEditDialog.value = true
+    }
   }
   catch (error) {
     console.error(error)
@@ -683,6 +696,20 @@ onBeforeMount(() => {
     error-code="500"
     error-title="出错啦！"
     error-description="未识别到TMDB媒体信息。"
+  />
+  <!-- 订阅编辑弹窗 -->
+  <SubscribeEditForm
+    v-model="subscribeEditDialog"
+    :subid="subscribeId"
+    @close="subscribeEditDialog = false"
+    @save="subscribeEditDialog = false"
+    @remove="() => {
+      subscribeEditDialog = false;
+      if (mediaDetail.type === '电影')
+        checkMovieSubscribed()
+      else
+        checkSeasonsSubscribed();
+    }"
   />
 </template>
 

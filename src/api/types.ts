@@ -77,8 +77,8 @@ export interface Subscribe {
   // 订阅站点
   sites: number[]
 
-  // 是否洗版
-  best_version: number
+  // 是否洗版，数字或者boolean
+  best_version: any
 
   // 当前优先级
   current_priority: number

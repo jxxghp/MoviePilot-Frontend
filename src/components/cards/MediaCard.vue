@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { PropType, Ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
+import SubscribeEditForm from '../form/SubscribeEditForm.vue'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
@@ -38,6 +39,12 @@ const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 订阅季弹窗
 const subscribeSeasonDialog = ref(false)
+
+// 订阅编辑弹窗
+const subscribeEditDialog = ref(false)
+
+// 订阅ID
+const subscribeId = ref(0)
 
 // 季详情
 const seasonInfos = ref<TmdbSeason[]>([])
@@ -136,6 +143,12 @@ async function addSubscribe(season = 0) {
       result.message,
       best_version,
     )
+
+    // 弹出订阅编辑弹窗
+    if (result.success) {
+      subscribeId.value = result.data.id
+      subscribeEditDialog.value = true
+    }
   }
   catch (error) {
     console.error(error)
@@ -480,7 +493,7 @@ function getYear(airDate: string) {
     inset
     scrollable
   >
-    <VCard>
+    <VCard class="rounded-t">
       <DialogCloseBtn @click="subscribeSeasonDialog = false" />
       <VCardTitle class="pe-10">
         订阅 - {{ props.media?.title }}
@@ -557,6 +570,14 @@ function getYear(airDate: string) {
       </div>
     </VCard>
   </VBottomSheet>
+  <!-- 订阅编辑弹窗 -->
+  <SubscribeEditForm
+    v-model="subscribeEditDialog"
+    :subid="subscribeId"
+    @close="subscribeEditDialog = false"
+    @save="subscribeEditDialog = false"
+    @remove="() => { subscribeEditDialog = false; handleCheckSubscribe(); }"
+  />
 </template>
 
 <style lang="scss">
