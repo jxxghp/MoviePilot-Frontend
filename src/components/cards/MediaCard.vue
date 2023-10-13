@@ -93,6 +93,7 @@ async function handleAddSubscribe() {
     }
     else {
       // 弹出季选择列表，支持多选
+      seasonsSelected.value = []
       subscribeSeasonDialog.value = true
     }
   }
@@ -169,9 +170,9 @@ function showSubscribeAddToast(result: boolean,
   if (best_version > 0)
     subname = '洗版订阅'
 
-  if (result)
+  if (result && seasonsSelected.value.length > 1)
     $toast.success(`${title} 添加${subname}成功！`)
-  else
+  else if (!result)
     $toast.error(`${title} 添加${subname}失败：${message}！`)
 }
 

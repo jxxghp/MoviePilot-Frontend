@@ -19,7 +19,7 @@ const siteList = ref<Site[]>([])
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
 
 // 订阅编辑表单
-let subscribeForm = reactive<Subscribe>({
+const subscribeForm = ref<Subscribe>({
   id: props.subid ?? 0,
   keyword: '',
   quality: '',
@@ -47,15 +47,15 @@ const $toast = useToast()
 // 调用API修改订阅
 async function updateSubscribeInfo() {
   try {
-    subscribeForm.best_version = subscribeForm.best_version ? 1 : 0
-    const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm)
+    subscribeForm.value.best_version = subscribeForm.value.best_version ? 1 : 0
+    const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm.value)
     // 提示
     if (result.success) {
-      $toast.success(`${subscribeForm.name} 更新成功！`)
+      $toast.success(`${subscribeForm.value.name} 更新成功！`)
       // 通知父组件刷新
       emit('save')
     }
-    else { $toast.error(`${subscribeForm.name} 更新失败：${result.message}！`) }
+    else { $toast.error(`${subscribeForm.value.name} 更新失败：${result.message}！`) }
   }
   catch (e) {
     console.log(e)
@@ -97,8 +97,8 @@ async function getSubscribeInfo() {
     const result: Subscribe = await api.get(
       `subscribe/${props.subid}`,
     )
-    subscribeForm = result
-    subscribeForm.best_version = subscribeForm.best_version === 1
+    subscribeForm.value = result
+    subscribeForm.value.best_version = subscribeForm.value.best_version === 1
   }
   catch (e) {
     console.log(e)
@@ -121,6 +121,11 @@ async function removeSubscribe() {
     console.log(e)
   }
 }
+
+watchEffect(() => {
+  if (props.subid)
+    getSubscribeInfo()
+})
 
 // 质量选择框数据
 const qualityOptions = ref([
@@ -210,8 +215,6 @@ const effectOptions = ref([
 onMounted(async () => {
   // 加载订阅站点列表
   getSiteList()
-  // 加载订阅信息
-  getSubscribeInfo()
 })
 </script>
 
@@ -221,7 +224,7 @@ onMounted(async () => {
     scrollable
   >
     <VCard
-      :title="`编辑订阅 - ${subscribeForm?.name} ${subscribeForm?.season ? `季 ${subscribeForm?.season}` : ''}`"
+      :title="`编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`"
       class="rounded-t"
     >
       <VCardText class="pt-2">
@@ -230,7 +233,7 @@ onMounted(async () => {
           <VRow>
             <VCol
               cols="12"
-              md="6"
+              md="8"
             >
               <VTextField
                 v-model="subscribeForm.keyword"
@@ -238,9 +241,9 @@ onMounted(async () => {
               />
             </VCol>
             <VCol
-              v-if="subscribeForm?.type === '电视剧'"
+              v-if="subscribeForm.type === '电视剧'"
               cols="12"
-              md="3"
+              md="2"
             >
               <VTextField
                 v-model="subscribeForm.total_episode"
@@ -249,9 +252,9 @@ onMounted(async () => {
               />
             </VCol>
             <VCol
-              v-if="subscribeForm?.type === '电视剧'"
+              v-if="subscribeForm.type === '电视剧'"
               cols="12"
-              md="3"
+              md="2"
             >
               <VTextField
                 v-model="subscribeForm.start_episode"
@@ -295,7 +298,7 @@ onMounted(async () => {
           <VRow>
             <VCol
               cols="12"
-              md="6"
+              md="4"
             >
               <VTextField
                 v-model="subscribeForm.include"
@@ -304,16 +307,17 @@ onMounted(async () => {
             </VCol>
             <VCol
               cols="12"
-              md="6"
+              md="4"
             >
               <VTextField
                 v-model="subscribeForm.exclude"
                 label="排除（关键字、正则式）"
               />
             </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12">
+            <VCol
+              cols="12"
+              md="4"
+            >
               <VSelect
                 v-model="subscribeForm.sites"
                 :items="selectSitesOptions"
@@ -336,10 +340,13 @@ onMounted(async () => {
 
       <VCardActions>
         <VBtn color="error" @click="removeSubscribe">
-          删除
+          取消订阅
         </VBtn>
         <VSpacer />
-        <VBtn @click="updateSubscribeInfo">
+        <VBtn
+          variant="tonal"
+          @click="updateSubscribeInfo"
+        >
           保存
         </VBtn>
       </VCardActions>

@@ -255,7 +255,10 @@ const dropdownItems = ref([
           查看详情
         </VBtn>
         <VSpacer />
-        <VBtn @click="savePluginConf">
+        <VBtn
+          variant="tonal"
+          @click="savePluginConf"
+        >
           保存
         </VBtn>
       </VCardActions>
@@ -279,11 +282,16 @@ const dropdownItems = ref([
         />
       </VCardText>
       <VCardActions>
-        <VBtn @click="showPluginConfig">
+        <VBtn
+          @click="showPluginConfig"
+        >
           配置
         </VBtn>
         <VSpacer />
-        <VBtn @click="pluginInfoDialog = false">
+        <VBtn
+          variant="tonal"
+          @click="pluginInfoDialog = false"
+        >
           关闭
         </VBtn>
       </VCardActions>

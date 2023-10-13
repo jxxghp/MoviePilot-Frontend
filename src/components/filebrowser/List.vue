@@ -158,6 +158,9 @@ async function deleteItem(item: FileItem) {
     dialogProps: {
       maxWidth: '50rem',
     },
+    confirmationButtonProps: {
+      variant: 'tonal',
+    },
   })
 
   if (confirmed) {
@@ -596,13 +599,14 @@ onMounted(() => {
         <VTextField v-model="newName" label="名称" />
       </VCardText>
       <VCardActions>
-        <div class="flex-grow-1" />
         <VBtn depressed @click="renamePopper = false">
           取消
         </VBtn>
+        <VSpacer />
         <VBtn
           :disabled="!newName"
           depressed
+          variant="tonal"
           @click="rename"
         >
           重命名
@@ -738,6 +742,7 @@ onMounted(() => {
         </VBtn>
         <VSpacer />
         <VBtn
+          variant="tonal"
           @click="transfer"
         >
           开始整理

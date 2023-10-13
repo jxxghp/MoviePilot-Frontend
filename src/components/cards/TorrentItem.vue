@@ -61,6 +61,9 @@ async function handleAddDownload(_site: any = undefined,
     dialogProps: {
       maxWidth: '50rem',
     },
+    confirmationButtonProps: {
+      variant: 'tonal',
+    },
   })
 
   if (!isConfirmed)

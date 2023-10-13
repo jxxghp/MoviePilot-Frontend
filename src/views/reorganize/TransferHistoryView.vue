@@ -476,6 +476,7 @@ const dropdownItems = ref([
       <VCardActions>
         <VSpacer />
         <VBtn
+          variant="tonal"
           @click="rehandleHistory"
           @keydown.enter="rehandleHistory"
         >

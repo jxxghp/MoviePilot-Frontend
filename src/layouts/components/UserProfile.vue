@@ -38,6 +38,9 @@ async function restart() {
     dialogProps: {
       maxWidth: '30rem',
     },
+    cancellationButtonProps: {
+      variant: 'tonal',
+    },
   })
 
   if (confirmed) {

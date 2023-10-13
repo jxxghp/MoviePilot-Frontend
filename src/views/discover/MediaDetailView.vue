@@ -244,9 +244,7 @@ function showSubscribeAddToast(result: boolean,
   if (best_version > 0)
     subname = '洗版订阅'
 
-  if (result)
-    $toast.success(`${title} 添加${subname}成功！`)
-  else
+  if (!result)
     $toast.error(`${title} 添加${subname}失败：${message}！`)
 }
 

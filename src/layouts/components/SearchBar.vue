@@ -63,6 +63,7 @@ function openSearchDialog() {
         <VCardActions>
           <VSpacer />
           <VBtn
+            variant="tonal"
             @click="search"
           >
             搜索

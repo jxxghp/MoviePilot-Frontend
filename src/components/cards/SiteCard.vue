@@ -278,10 +278,14 @@ onMounted(() => {
       </VAvatar>
     </template>
     <VCardItem>
-      <VCardTitle class="font-bold" @click.stop="openSitePage">
+      <VCardTitle class="font-bold">
         {{ cardProps.site?.name }}
       </VCardTitle>
-      <VCardSubtitle>{{ cardProps.site?.url }}</VCardSubtitle>
+      <VCardSubtitle
+        @click.stop="openSitePage"
+      >
+        {{ cardProps.site?.url }}
+      </VCardSubtitle>
     </VCardItem>
 
     <ExistIcon v-if="siteForm.is_active" />
@@ -550,7 +554,10 @@ onMounted(() => {
           删除
         </VBtn>
         <VSpacer />
-        <VBtn @click="updateSiteInfo">
+        <VBtn
+          variant="tonal"
+          @click="updateSiteInfo"
+        >
           确定
         </VBtn>
       </VCardActions>
