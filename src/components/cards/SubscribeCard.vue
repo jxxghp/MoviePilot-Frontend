@@ -244,10 +244,6 @@ const resolutionOptions = ref([
     value: '',
   },
   {
-    title: '8K',
-    value: '8K|4320p|x4320',
-  },
-  {
     title: '4k',
     value: '4K|2160p|x2160',
   },
@@ -278,6 +274,10 @@ const effectOptions = ref([
   {
     title: 'HDR',
     value: '[\\s.]+HDR[\\s.]+|HDR10|HDR10\\+',
+  },
+  {
+    title: 'SDR',
+    value: '[\\s.]+SDR[\\s.]+',
   },
 ])
 </script>
