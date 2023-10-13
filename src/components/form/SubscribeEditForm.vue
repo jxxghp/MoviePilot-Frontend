@@ -221,7 +221,7 @@ onMounted(async () => {
     scrollable
   >
     <VCard
-      :title="`编辑订阅 - ${subscribeForm?.name} ${subscribeForm?.season ? `季 ${subscribeForm?.season}` : ''}}}`"
+      :title="`编辑订阅 - ${subscribeForm?.name} ${subscribeForm?.season ? `季 ${subscribeForm?.season}` : ''}`"
       class="rounded-t"
     >
       <VCardText class="pt-2">
