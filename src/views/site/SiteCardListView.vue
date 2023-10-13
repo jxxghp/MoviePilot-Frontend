@@ -98,6 +98,25 @@ async function addSite() {
   addBtnState.value = false
 }
 
+// 打开新增站点对话框
+function openSiteAddDialog() {
+  // 清空输入项
+  siteForm.id = 0
+  siteForm.url = ''
+  siteForm.pri = 1
+  siteForm.is_active = true
+  siteForm.cookie = ''
+  siteForm.ua = ''
+  siteForm.limit_interval = 0
+  siteForm.limit_seconds = 0
+  siteForm.limit_count = 0
+  siteForm.proxy = 0
+  siteForm.render = 0
+  siteForm.name = ''
+  siteForm.domain = ''
+  siteAddDialog.value = true
+}
+
 // 加载时获取数据
 onBeforeMount(fetchData)
 </script>
@@ -261,7 +280,7 @@ onBeforeMount(fetchData)
       </VCardText>
       <VCardActions>
         <VBtn
-          @click="siteAddDialog = false"
+          @click="openSiteAddDialog"
         >
           取消
         </VBtn>
