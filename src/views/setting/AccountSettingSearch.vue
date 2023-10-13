@@ -24,6 +24,12 @@ const allSites = ref<Site[]>([])
 // 选中订阅站点
 const selectedSites = ref<number[]>([])
 
+// 包含与排除规则
+const defaultFilterRules = ref({
+  include: '',
+  exclude: '',
+})
+
 // 查询已设置优先级规则
 async function queryCustomFilters() {
   try {
@@ -190,9 +196,41 @@ function onLevelDown(pri: string) {
   filterCards.value.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
 }
 
+// 查询包含与排除规则
+async function queryDefaultFilter() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/setting/DefaultSearchFilterRules',
+    )
+    if (result.data?.value)
+      defaultFilterRules.value = result.data?.value
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 保存包含与排除规则
+async function saveDefaultFilter() {
+  try {
+    const result: { [key: string]: any } = await api.post(
+      'system/setting/DefaultSearchFilterRules',
+      defaultFilterRules.value,
+    )
+    if (result.success)
+      $toast.success('默认包含/排除规则保存成功')
+    else
+      $toast.error('默认包含/排除规则保存失败！')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   queryCustomFilters()
   querySites()
+  queryDefaultFilter()
 })
 </script>
 
@@ -256,6 +294,39 @@ onMounted(() => {
             @click="addFilterCard()"
           >
             <VIcon icon="mdi-plus" />
+          </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
+    <VCol cols="12">
+      <VCard title="默认过滤规则">
+        <VCardSubtitle> 设置在搜索时默认使用的过滤规则。 </VCardSubtitle>
+        <VCardText>
+          <VForm>
+            <VRow>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="defaultFilterRules.include"
+                  type="text"
+                  label="包含（关键字、正则式）"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="defaultFilterRules.exclude"
+                  type="text"
+                  label="排除（关键字、正则式）"
+                />
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+        <VCardItem>
+          <VBtn
+            type="submit"
+            @click="saveDefaultFilter"
+          >
+            保存
           </VBtn>
         </VCardItem>
       </VCard>

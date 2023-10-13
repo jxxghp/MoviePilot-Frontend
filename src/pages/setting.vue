@@ -2,7 +2,6 @@
 import { useRoute } from 'vue-router'
 import AccountSettingAccount from '@/views/setting/AccountSettingAccount.vue'
 import AccountSettingNotification from '@/views/setting/AccountSettingNotification.vue'
-import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
 import AccountSettingAbout from '@/views/setting/AccountSettingAbout.vue'
@@ -40,11 +39,6 @@ const tabs = [
     title: '服务',
     icon: 'mdi-list-box',
     tab: 'service',
-  },
-  {
-    title: '规则',
-    icon: 'mdi-filter-cog',
-    tab: 'filter',
   },
   {
     title: '通知',
@@ -114,13 +108,6 @@ const tabs = [
       <VWindowItem value="service">
         <transition name="fade-slide" appear>
           <AccountSettingService />
-        </transition>
-      </VWindowItem>
-
-      <!-- 规则 -->
-      <VWindowItem value="filter">
-        <transition name="fade-slide" appear>
-          <AccountSettingRule />
         </transition>
       </VWindowItem>
 
