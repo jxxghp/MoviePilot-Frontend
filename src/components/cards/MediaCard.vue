@@ -145,7 +145,7 @@ async function addSubscribe(season = 0) {
     )
 
     // 弹出订阅编辑弹窗
-    if (result.success) {
+    if (result.success && seasonsSelected.value.length <= 1) {
       subscribeId.value = result.data.id
       subscribeEditDialog.value = true
     }
