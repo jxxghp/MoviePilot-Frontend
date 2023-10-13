@@ -280,7 +280,7 @@ onBeforeMount(fetchData)
       </VCardText>
       <VCardActions>
         <VBtn
-          @click="openSiteAddDialog"
+          @click="siteAddDialog = false"
         >
           取消
         </VBtn>
@@ -288,6 +288,7 @@ onBeforeMount(fetchData)
         <VBtn
           color="primary"
           :disabled="addBtnState"
+          variant="tonal"
           @click="addSite"
         >
           {{ addBtnText }}
