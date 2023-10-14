@@ -524,7 +524,7 @@ onMounted(() => {
   <ReorganizeForm
     v-model="transferPopper"
     :path="currentItem?.path"
-    @done="load"
+    @done="transferPopper = false; load()"
     @close="transferPopper = false"
   />
   <!-- 手动整理进度框 -->

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import TmdbSelectorCard from '../cards/TmdbSelectorCard.vue'
 import store from '@/store'
 import api from '@/api'
 import { numberValidator } from '@/@validators'
@@ -60,6 +61,8 @@ const transferForm = reactive({
 watchEffect(() => {
   if (props.path)
     transferForm.path = props.path
+  if (props.target)
+    transferForm.target = props.target
 })
 
 // 使用SSE监听加载进度
@@ -123,9 +126,11 @@ async function transfer() {
     for (const logid of props.logids) {
       transferForm.logid = logid
       try {
-        await api.post('transfer/manual', {}, {
+        const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
           params: transferForm,
         })
+        if (!result.success)
+          $toast.error(`历史记录 ${logid} 重新整理失败：${result.message}！`)
       }
       catch (e) {
         console.log(e)
@@ -148,7 +153,7 @@ async function transfer() {
     inset
   >
     <VCard
-      :title="`${props.path ? `整理 - ${props.path}` : `整理 - ${props.logids?.length} 条记录`}`"
+      :title="`${props.path ? `整理 - ${props.path}` : `整理 - 共 ${props.logids?.length} 条记录`}`"
       class="rounded-t"
     >
       <DialogCloseBtn @click="emit('close')" />
@@ -274,36 +279,36 @@ async function transfer() {
         </VBtn>
       </VCardActions>
     </VCard>
-  </VBottomSheet>
-  <!-- 手动整理进度框 -->
-  <VDialog
-    v-model="progressDialog"
-    :scrim="false"
-    width="25rem"
-  >
-    <VCard
-      color="primary"
+    <!-- 手动整理进度框 -->
+    <VDialog
+      v-model="progressDialog"
+      :scrim="false"
+      width="25rem"
     >
-      <VBottomSheetCardText class="text-center">
-        {{ progressText }}
-        <VProgressLinear
-          v-if="progressValue"
-          color="white"
-          class="mb-0 mt-1"
-          :model-value="progressValue"
-        />
-      </VBottomSheetCardText>
-    </VCard>
-  </VDialog>
-  <!-- TMDB ID搜索框 -->
-  <VDialog
-    v-model="tmdbSelectorDialog"
-    width="40rem"
-    scrollable
-  >
-    <TmdbSelectorCard
-      v-model="transferForm.tmdbid"
-      @close="tmdbSelectorDialog = false"
-    />
-  </VDialog>
+      <VCard
+        color="primary"
+      >
+        <VCardText class="text-center">
+          {{ progressText }}
+          <VProgressLinear
+            v-if="progressValue"
+            color="white"
+            class="mb-0 mt-1"
+            :model-value="progressValue"
+          />
+        </VCardText>
+      </VCard>
+    </VDialog>
+    <!-- TMDB ID搜索框 -->
+    <VDialog
+      v-model="tmdbSelectorDialog"
+      width="40rem"
+      scrollable
+    >
+      <TmdbSelectorCard
+        v-model="transferForm.tmdbid"
+        @close="tmdbSelectorDialog = false"
+      />
+    </VDialog>
+  </VBottomSheet>
 </template>

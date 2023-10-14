@@ -235,7 +235,8 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-redo-variant',
       click: (item: TransferHistory) => {
-        currentHistory.value = item
+        redoIds.value = [item.id]
+        redoTarget.value = item.dest ?? ''
         redoDialog.value = true
       },
     },
@@ -427,6 +428,10 @@ const dropdownItems = ref([
     :logids="redoIds"
     :target="redoTarget"
     @done="() => {
+      redoDialog = false
+      // 清空当前操作记录
+      currentHistory = undefined
+      selected = []
       // 刷新
       fetchData({
         page: currentPage,
