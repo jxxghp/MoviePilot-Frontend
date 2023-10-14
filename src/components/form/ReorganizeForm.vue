@@ -89,6 +89,7 @@ function stopLoadingProgress() {
 }
 
 // 整理文件
+// eslint-disable-next-line sonarjs/cognitive-complexity
 async function transfer() {
   if (!props.logids && !props.path)
     return
@@ -101,21 +102,15 @@ async function transfer() {
   if (props.path) {
     // 文件整理
     try {
-      api.post('transfer/manual', {}, {
+      const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
         params: transferForm,
-      }).then((res: any) => {
-      // 关闭进度条
-        progressDialog.value = false
-        // 显示结果
-        if (res.success) {
-          $toast.success(`${props.path} 整理完成！`)
-          // 重新加载
-          emit('done')
-        }
-        else {
-          $toast.error(`${props.path} 整理失败：${res.message}！`)
-        }
       })
+      // 显示结果
+      if (result.success)
+        $toast.success(`${props.path} 整理完成！`)
+
+      else
+        $toast.error(`${props.path} 整理失败：${result.message}！`)
     }
     catch (e) {
       console.log(e)
@@ -136,14 +131,14 @@ async function transfer() {
         console.log(e)
       }
     }
-    // 重新加载
-    emit('done')
   }
 
   // 停止监听进度
   stopLoadingProgress()
   // 关闭进度条
   progressDialog.value = false
+  // 重新加载
+  emit('done')
 }
 </script>
 
