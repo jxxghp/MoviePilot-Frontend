@@ -169,7 +169,7 @@ onMounted(() => {
             >
               {{ resolution }}
             </VChip>
-          </vchipgroup>
+          </VChipGroup>
         </VListItem>
         <VListSubheader v-if="releaseGroupFilterOptions.length > 0">
           制作组
@@ -186,7 +186,7 @@ onMounted(() => {
             >
               {{ releaseGroup }}
             </VChip>
-          </vchipgroup>
+          </VChipGroup>
         </VListItem>
         <VListSubheader v-if="videoCodeFilterOptions.length > 0">
           视频编码
@@ -203,7 +203,7 @@ onMounted(() => {
             >
               {{ videoCode }}
             </VChip>
-          </vchipgroup>
+          </VChipGroup>
         </VListItem>
         <VListSubheader v-if="freeStateFilterOptions.length > 0">
           促销状态
@@ -220,7 +220,7 @@ onMounted(() => {
             >
               {{ freeState }}
             </VChip>
-          </vchipgroup>
+          </VChipGroup>
         </VListItem>
         <VListSubheader v-if="seasonFilterOptions.length > 0">
           季集

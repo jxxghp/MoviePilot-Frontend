@@ -173,21 +173,21 @@ const avatar = store.state.auth.avatar
     <!-- !SECTION -->
   </VAvatar>
   <!-- 重启进度框 -->
-  <vDialog
+  <VDialog
     v-model="progressDialog"
     width="25rem"
   >
-    <vCard
+    <VCard
       color="primary"
     >
-      <vCardText class="text-center">
+      <VCardText class="text-center">
         正在重启 ...
-        <vProgressLinear
+        <VProgressLinear
           indeterminate
           color="white"
           class="mb-0 mt-1"
         />
-      </vCardText>
-    </vCard>
-  </vDialog>
+      </VCardText>
+    </VCard>
+  </VDialog>
 </template>

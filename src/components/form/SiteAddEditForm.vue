@@ -123,7 +123,10 @@ async function updateSiteInfo() {
     inset
     scrollable
   >
-    <VCard :title="`${props.oper === 'add' ? '新增' : '编辑'}站点${props.oper !== 'add' ? ` - ${siteForm.name}` : ''}`">
+    <VCard
+      :title="`${props.oper === 'add' ? '新增' : '编辑'}站点${props.oper !== 'add' ? ` - ${siteForm.name}` : ''}`"
+      class="rounded-t"
+    >
       <DialogCloseBtn @click="emit('close')" />
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
@@ -267,5 +270,5 @@ async function updateSiteInfo() {
         </VBtn>
       </VCardActions>
     </VCard>
-  </vBottomSheet>
+  </VBottomSheet>
 </template>

@@ -234,13 +234,15 @@ const dropdownItems = ref([
     </VCardText>
   </VCard>
   <!-- 插件配置页面 -->
-  <VDialog
+  <VBottomSheet
     v-model="pluginConfigDialog"
-    max-width="50rem"
     scrollable
-    persistent
+    inset
   >
-    <VCard :title="`${props.plugin?.plugin_name} - 配置`">
+    <VCard
+      :title="`${props.plugin?.plugin_name} - 配置`"
+      class="rounded-t"
+    >
       <DialogCloseBtn @click="pluginConfigDialog = false" />
       <VCardText>
         <FormRender
@@ -263,16 +265,18 @@ const dropdownItems = ref([
         </VBtn>
       </VCardActions>
     </VCard>
-  </VDialog>
+  </VBottomSheet>
 
   <!-- 插件详情页面 -->
-  <VDialog
+  <VBottomSheet
     v-model="pluginInfoDialog"
-    max-width="62.5rem"
     scrollable
-    persistent
+    inset
   >
-    <VCard :title="`${props.plugin?.plugin_name}`">
+    <VCard
+      :title="`${props.plugin?.plugin_name}`"
+      class="rounded-t"
+    >
       <DialogCloseBtn @click="pluginInfoDialog = false" />
       <VCardText>
         <PageRender
@@ -296,7 +300,7 @@ const dropdownItems = ref([
         </VBtn>
       </VCardActions>
     </VCard>
-  </VDialog>
+  </VBottomSheet>
 </template>
 
 <style lang="scss" scoped>

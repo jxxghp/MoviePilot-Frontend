@@ -99,7 +99,7 @@ onMounted(() => {
                 />
               </VCol>
             </VRow>
-          </vform>
+          </VForm>
         </VCardText>
         <VCardItem>
           <VBtn

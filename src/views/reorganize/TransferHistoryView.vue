@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import { numberValidator } from '@/@validators'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
-import TmdbSelectorCard from '@/components/cards/TmdbSelectorCard.vue'
+import ReorganizeForm from '@/components/form/ReorganizeForm.vue'
 
 // 提示框
 const $toast = useToast()
@@ -12,21 +11,14 @@ const $toast = useToast()
 // 重新整理对话框
 const redoDialog = ref(false)
 
-// TMDB编号
-const redoTmdbId = ref('')
-
-// 类型
-const redoType = ref('电影')
-
-// 类型下拉框：电影、电视剧
-const redoTypeItems = ref([
-  { title: '自动', value: '' },
-  { title: '电影', value: '电影' },
-  { title: '电视剧', value: '电视剧' },
-])
-
 // 当前操作记录
 const currentHistory = ref<TransferHistory>()
+
+// 重新整理IDS
+const redoIds = ref<number[]>([])
+
+// 重新整理target
+const redoTarget = ref('')
 
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
@@ -68,9 +60,6 @@ const progressText = ref('请稍候 ...')
 
 // 进度值
 const progressValue = ref(0)
-
-// TMDB选择对话框
-const tmdbSelectorDialog = ref(false)
 
 // 删除确认对话框
 const deleteConfirmDialog = ref(false)
@@ -227,83 +216,15 @@ async function retransferBatch() {
     return
   // 清空当前操作记录
   currentHistory.value = undefined
+  // 重新整理IDS
+  redoIds.value = selected.value.map(item => item.id)
+  // 重新整理target
+  if (selected.value.length === 1)
+    redoTarget.value = selected.value[0].dest ?? ''
+  else
+    redoTarget.value = ''
   // 打开识别弹窗
-  redoType.value = ''
-  redoTmdbId.value = ''
   redoDialog.value = true
-}
-
-// 调API重新整理
-async function retransfer(item: TransferHistory, redoType = '', redoTmdbId = 0) {
-  try {
-    const result: { [key: string]: any } = await api.post(
-      'history/transfer',
-      item,
-      {
-        params: {
-          mtype: redoType,
-          new_tmdbid: redoTmdbId,
-        },
-      },
-    )
-
-    if (result.success) {
-      fetchData({
-        page: currentPage.value,
-        itemsPerPage: itemsPerPage.value,
-      })
-    }
-    else {
-      $toast.error(`重新整理失败: ${result.message}！`)
-    }
-  }
-  catch (e) {
-    console.log(e)
-  }
-}
-
-// 重新整理
-async function rehandleHistory() {
-  try {
-    // 关闭弹窗
-    redoDialog.value = false
-
-    let tmdbid = 0
-
-    if (redoTmdbId.value)
-      tmdbid = parseInt(redoTmdbId.value)
-
-    // 转移当前选中记录
-    if (currentHistory.value) {
-      $toast.info(`正在重新整理 ${currentHistory.value?.title} ...`)
-      await retransfer(currentHistory.value, redoType.value, tmdbid)
-    }
-    else if (selected.value.length > 0) {
-      // 总条数
-      const total = selected.value.length
-      if (total === 0)
-        return
-      // 已处理条数
-      let handled = 0
-      // 显示进度条
-      progressDialog.value = true
-      for (const item of selected.value) {
-        progressText.value = `正在重新整理 ${item.src} ...`
-        await retransfer(item, redoType.value, tmdbid)
-        handled++
-        progressValue.value = handled / total * 100
-      }
-      // 清空选中项
-      selected.value = []
-      // 隐藏进度条
-      progressDialog.value = false
-    }
-    // 批量转移
-    else { $toast.error('没有选中任何记录！') }
-  }
-  catch (e) {
-    console.log(e)
-  }
 }
 
 // 弹出菜单
@@ -314,10 +235,8 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-redo-variant',
       click: (item: TransferHistory) => {
-        redoTmdbId.value = ''
-        redoType.value = ''
-        redoDialog.value = true
         currentHistory.value = item
+        redoDialog.value = true
       },
     },
   },
@@ -444,48 +363,11 @@ const dropdownItems = ref([
       </template>
     </VDataTableServer>
   </VCard>
-  <VDialog
-    v-model="redoDialog"
-    max-width="50rem"
+  <!-- 底部操作按钮 -->
+  <span
+    v-if="selected.length > 0"
+    class="fixed right-5 bottom-5"
   >
-    <!-- Dialog Content -->
-    <VCard title="重新整理">
-      <VCardText>
-        <VRow>
-          <VCol cols="12" md="4">
-            <VSelect
-              v-model="redoType"
-              label="类型"
-              :items="redoTypeItems"
-            />
-          </VCol>
-          <VCol cols="12" md="8">
-            <VTextField
-              v-model="redoTmdbId"
-              label="TMDB编号"
-              placeholder="留空自动识别"
-              :disabled="redoType === ''"
-              :rules="[numberValidator]"
-              append-inner-icon="mdi-magnify"
-              @click:append-inner.stop="tmdbSelectorDialog = true"
-            />
-          </VCol>
-        </VRow>
-      </VCardText>
-
-      <VCardActions>
-        <VSpacer />
-        <VBtn
-          variant="tonal"
-          @click="rehandleHistory"
-          @keydown.enter="rehandleHistory"
-        >
-          确定
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
-  <span v-if="selected.length > 0" class="fixed right-5 bottom-5">
     <VBtn
       icon="mdi-redo-variant"
       class="me-2"
@@ -500,39 +382,9 @@ const dropdownItems = ref([
       @click="removeHistoryBatch"
     />
   </span>
-  <!-- 进度框 -->
-  <vDialog
-    v-model="progressDialog"
-    :scrim="false"
-    width="25rem"
-  >
-    <vCard
-      color="primary"
-    >
-      <vCardText class="text-center">
-        {{ progressText }}
-        <vProgressLinear
-          color="white"
-          class="mb-0 mt-1"
-          :model-value="progressValue"
-        />
-      </vCardText>
-    </vCard>
-  </vDialog>
-  <!-- TMDB ID搜索框 -->
-  <vDialog
-    v-model="tmdbSelectorDialog"
-    width="600"
-    scrollable
-  >
-    <TmdbSelectorCard
-      v-model="redoTmdbId"
-      @close="tmdbSelectorDialog = false"
-    />
-  </vDialog>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
-    <VCard class="text-center">
+    <VCard class="text-center rounded-t">
       <DialogCloseBtn @click="deleteConfirmDialog = false" />
       <VCardTitle class="pe-10">
         {{ confirmTitle }}
@@ -569,6 +421,20 @@ const dropdownItems = ref([
       </div>
     </VCard>
   </VBottomSheet>
+  <!-- 文件整理弹窗 -->
+  <ReorganizeForm
+    v-model="redoDialog"
+    :logids="redoIds"
+    :target="redoTarget"
+    @done="() => {
+      // 刷新
+      fetchData({
+        page: currentPage,
+        itemsPerPage,
+      })
+    }"
+    @close="redoDialog = false"
+  />
 </template>
 
 <style lang="scss">
