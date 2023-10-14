@@ -416,13 +416,13 @@ export interface Site {
   ua?: string
 
   // 是否使用代理
-  proxy?: number
+  proxy?: any
 
   // 过滤规则
   filter?: string
 
   // 是否演染
-  render?: number
+  render?: any
 
   // 是否公开站点
   public?: number

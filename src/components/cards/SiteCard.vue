@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 import { useToast } from 'vue-toast-notification'
+import SiteAddEditForm from '../form/SiteAddEditForm.vue'
 import { formatFileSize } from '@core/utils/formatters'
-import { numberValidator, requiredValidator } from '@/@validators'
+import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Site, TorrentInfo } from '@/api/types'
 import ExistIcon from '@core/components/ExistIcon.vue'
@@ -15,7 +16,7 @@ const cardProps = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove', 'update'])
+const emit = defineEmits(['update', 'remove'])
 
 // 密码输入
 const isPasswordVisible = ref(false)
@@ -42,7 +43,7 @@ const updateButtonDisable = ref(false)
 const siteCookieDialog = ref(false)
 
 // 站点编辑弹窗
-const siteInfoDialog = ref(false)
+const siteEditDialog = ref(false)
 
 // 资源浏览弹窗
 const resourceDialog = ref(false)
@@ -77,27 +78,6 @@ const userPwForm = ref({
   username: '',
   password: '',
 })
-
-// 状态下拉项
-const statusItems = [
-  { title: '启用', value: true },
-  { title: '停用', value: false },
-]
-
-// 生成1到50的优先级下拉框选项
-const priorityItems = ref(
-  Array.from({ length: 50 }, (_, i) => i + 1).map(item => ({
-    title: item,
-    value: item,
-  })),
-)
-
-// 站点编辑表单数据
-const siteForm = reactive<any>(cardProps.site ?? {})
-
-// 类型转换
-siteForm.proxy = siteForm.proxy === 1
-siteForm.render = siteForm.render === 1
 
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
@@ -144,11 +124,6 @@ async function handleSiteUpdate() {
   siteCookieDialog.value = true
 }
 
-// 打开站点编辑弹窗
-async function handleSiteInfo() {
-  siteInfoDialog.value = true
-}
-
 // 打开资源浏览弹窗
 async function handleResourceBrowse() {
   resourceDialog.value = true
@@ -185,42 +160,6 @@ async function updateSiteCookie() {
     updateButtonDisable.value = false
   }
   catch (error) {
-    console.error(error)
-  }
-}
-
-// 调用API删除站点信息
-async function deleteSiteInfo() {
-  try {
-    siteInfoDialog.value = false
-    const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
-    if (result.success) {
-      $toast.success(`${cardProps.site?.name} 删除成功！`)
-      emit('remove')
-    }
-    else { $toast.error(`${cardProps.site?.name} 删除失败：${result.message}`) }
-  }
-  catch (error) {
-    $toast.error(`${cardProps.site?.name} 删除失败！`)
-    console.error(error)
-  }
-}
-
-// 调用API更新站点信息
-async function updateSiteInfo() {
-  try {
-    // 更新按钮状态
-    siteInfoDialog.value = false
-
-    const result: { [key: string]: any } = await api.put('site/', siteForm)
-    if (result.success) {
-      $toast.success(`${cardProps.site?.name} 更新成功！`)
-      emit('update')
-    }
-    else { $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`) }
-  }
-  catch (error) {
-    $toast.error(`${cardProps.site?.name} 更新失败！`)
     console.error(error)
   }
 }
@@ -264,9 +203,9 @@ onMounted(() => {
   <VCard
     :height="cardProps.height"
     :width="cardProps.width"
-    :flat="!siteForm.is_active"
+    :flat="!cardProps.site?.is_active"
     class="overflow-hidden"
-    @click="handleSiteInfo"
+    @click="siteEditDialog = true"
   >
     <template #image>
       <VAvatar
@@ -279,20 +218,18 @@ onMounted(() => {
     </template>
     <VCardItem>
       <VCardTitle class="font-bold">
-        {{ cardProps.site?.name }}
+        <span @click.stop="openSitePage">{{ cardProps.site?.name }}</span>
       </VCardTitle>
-      <VCardSubtitle
-        @click.stop="openSitePage"
-      >
+      <VCardSubtitle>
         {{ cardProps.site?.url }}
       </VCardSubtitle>
     </VCardItem>
 
-    <ExistIcon v-if="siteForm.is_active" />
+    <ExistIcon v-if="cardProps.site?.is_active" />
 
     <VCardText class="py-2">
       <VTooltip
-        v-if="siteForm.render"
+        v-if="cardProps.site?.render === 1"
         text="浏览器仿真"
       >
         <template #activator="{ props }">
@@ -306,7 +243,7 @@ onMounted(() => {
       </VTooltip>
 
       <VTooltip
-        v-if="siteForm.proxy"
+        v-if="cardProps.site?.proxy === 1"
         text="代理"
       >
         <template #activator="{ props }">
@@ -320,7 +257,7 @@ onMounted(() => {
       </VTooltip>
 
       <VTooltip
-        v-if="siteForm.limit_interval"
+        v-if="cardProps.site?.limit_interval"
         text="流控"
       >
         <template #activator="{ props }">
@@ -334,7 +271,7 @@ onMounted(() => {
       </VTooltip>
 
       <VTooltip
-        v-if="siteForm.filter"
+        v-if="cardProps.site?.filter"
         text="过滤"
       >
         <template #activator="{ props }">
@@ -423,146 +360,22 @@ onMounted(() => {
 
       <VCardActions>
         <VSpacer />
-        <VBtn @click="updateSiteCookie">
+        <VBtn
+          variant="tonal"
+          @click="updateSiteCookie"
+        >
           开始更新
         </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
-  <!-- 站点编辑弹窗 -->
-  <VDialog
-    v-model="siteInfoDialog"
-    max-width="50rem"
-    persistent
-    scrollable
-  >
-    <!-- Dialog Content -->
-    <VCard :title="`编辑站点 - ${cardProps.site?.name}`">
-      <VCardText class="pt-2">
-        <DialogCloseBtn @click="siteInfoDialog = false" />
-        <VForm @submit.prevent="() => {}">
-          <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VTextField
-                v-model="siteForm.url"
-                label="站点地址"
-                :rules="[requiredValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="3"
-            >
-              <VSelect
-                v-model="siteForm.pri"
-                label="优先级"
-                :items="priorityItems"
-                :rules="[requiredValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="3"
-            >
-              <VSelect
-                v-model="siteForm.is_active"
-                :items="statusItems"
-                label="状态"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12">
-              <VTextField
-                v-model="siteForm.rss"
-                label="RSS地址"
-              />
-            </VCol>
-            <VCol cols="12">
-              <VTextarea
-                v-model="siteForm.cookie"
-                label="站点Cookie"
-              />
-            </VCol>
-            <VCol cols="12">
-              <VTextField
-                v-model="siteForm.ua"
-                label="站点User-Agent"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol
-              cols="12"
-              md="4"
-            >
-              <VTextField
-                v-model="siteForm.limit_interval"
-                label="单位周期（秒）"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
-              <VTextField
-                v-model="siteForm.limit_seconds"
-                label="访问次数"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
-              <VTextField
-                v-model="siteForm.limit_seconds"
-                label="访问间隔（秒）"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VSwitch
-                v-model="siteForm.proxy"
-                label="代理"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VSwitch
-                v-model="siteForm.render"
-                label="仿真"
-              />
-            </VCol>
-          </VRow>
-        </VForm>
-      </VCardText>
-
-      <VCardActions>
-        <VBtn color="error" @click="deleteSiteInfo">
-          删除
-        </VBtn>
-        <VSpacer />
-        <VBtn
-          variant="tonal"
-          @click="updateSiteInfo"
-        >
-          确定
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
+  <SiteAddEditForm
+    v-model="siteEditDialog"
+    :siteid="cardProps.site?.id"
+    @save="siteEditDialog = false; emit('update')"
+    @remove="emit('remove')"
+    @close="siteEditDialog = false"
+  />
   <!-- 站点资源弹窗 -->
   <VDialog
     v-model="resourceDialog"

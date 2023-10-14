@@ -1,14 +1,9 @@
 <script lang="ts" setup>
-import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Site } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import { numberValidator, requiredValidator } from '@/@validators'
-import { doneNProgress, startNProgress } from '@/api/nprogress'
-
-// 提示框
-const $toast = useToast()
+import SiteAddEditForm from '@/components/form/SiteAddEditForm.vue'
 
 // 数据列表
 const dataList = ref<Site[]>([])
@@ -16,44 +11,8 @@ const dataList = ref<Site[]>([])
 // 是否刷新过
 const isRefreshed = ref(false)
 
-// 新增按钮文本
-const addBtnText = ref('新增站点')
-// 新增按钮状态
-const addBtnState = ref(false)
-
 // 新增站点对话框
 const siteAddDialog = ref(false)
-
-// 状态下拉项
-const statusItems = [
-  { title: '启用', value: true },
-  { title: '停用', value: false },
-]
-
-// 生成1到50的优先级下拉框选项
-const priorityItems = ref(
-  Array.from({ length: 50 }, (_, i) => i + 1).map(item => ({
-    title: item,
-    value: item,
-  })),
-)
-
-// 站点编辑表单数据
-const siteForm = reactive<Site>({
-  id: 0,
-  url: '',
-  pri: 1,
-  is_active: true,
-  cookie: '',
-  ua: '',
-  limit_interval: 0,
-  limit_seconds: 0,
-  limit_count: 0,
-  proxy: 0,
-  render: 0,
-  name: '',
-  domain: '',
-})
 
 // 获取站点列表数据
 async function fetchData() {
@@ -64,57 +23,6 @@ async function fetchData() {
   catch (error) {
     console.error(error)
   }
-}
-
-// 调用API 新增站点
-async function addSite() {
-  if (!siteForm.url)
-    return
-
-  startNProgress()
-
-  addBtnText.value = '新增中...'
-  addBtnState.value = true
-
-  try {
-    const result: { [key: string]: string } = await api.post('site/', siteForm)
-    if (result.success) {
-      $toast.success('新增站点成功')
-
-      // 刷新数据
-      fetchData()
-    }
-
-    else { $toast.error(`新增站点失败：${result.message}`) }
-    siteAddDialog.value = false
-  }
-  catch (error) {
-    console.error(error)
-  }
-
-  doneNProgress()
-
-  addBtnText.value = '新增站点'
-  addBtnState.value = false
-}
-
-// 打开新增站点对话框
-function openSiteAddDialog() {
-  // 清空输入项
-  siteForm.id = 0
-  siteForm.url = ''
-  siteForm.pri = 1
-  siteForm.is_active = true
-  siteForm.cookie = ''
-  siteForm.ua = ''
-  siteForm.limit_interval = 0
-  siteForm.limit_seconds = 0
-  siteForm.limit_count = 0
-  siteForm.proxy = 0
-  siteForm.render = 0
-  siteForm.name = ''
-  siteForm.domain = ''
-  siteAddDialog.value = true
 }
 
 // 加载时获取数据
@@ -151,151 +59,20 @@ onBeforeMount(fetchData)
     error-title="没有站点"
     error-description="已添加并支持的站点将会在这里显示。"
   />
-  <!-- Dialog Content -->
-  <VDialog
+  <!-- 新增站点按钮 -->
+  <VBtn
+    icon="mdi-plus"
+    size="x-large"
+    class="fixed right-5 bottom-5"
+    oper="add"
+    @click="siteAddDialog = true"
+  />
+  <SiteAddEditForm
     v-model="siteAddDialog"
-    max-width="50rem"
-    persistent
-    scrollable
-  >
-    <!-- Dialog Activator -->
-    <template #activator="{ props }">
-      <VBtn
-        icon="mdi-plus"
-        v-bind="props"
-        size="x-large"
-        class="fixed right-5 bottom-5"
-      />
-    </template>
-    <VCard title="新增站点">
-      <DialogCloseBtn @click="siteAddDialog = false" />
-      <VCardText class="pt-2">
-        <VForm @submit.prevent="() => {}">
-          <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VTextField
-                v-model="siteForm.url"
-                label="站点地址"
-                :rules="[requiredValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="3"
-            >
-              <VSelect
-                v-model="siteForm.pri"
-                label="优先级"
-                :items="priorityItems"
-                :rules="[requiredValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="3"
-            >
-              <VSelect
-                v-model="siteForm.is_active"
-                :items="statusItems"
-                label="状态"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12">
-              <VTextField
-                v-model="siteForm.rss"
-                label="RSS地址"
-              />
-            </VCol>
-            <VCol cols="12">
-              <VTextarea
-                v-model="siteForm.cookie"
-                label="站点Cookie"
-              />
-            </VCol>
-            <VCol cols="12">
-              <VTextField
-                v-model="siteForm.ua"
-                label="站点User-Agent"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol
-              cols="12"
-              md="4"
-            >
-              <VTextField
-                v-model="siteForm.limit_interval"
-                label="单位周期（秒）"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
-              <VTextField
-                v-model="siteForm.limit_seconds"
-                label="访问次数"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
-              <VTextField
-                v-model="siteForm.limit_seconds"
-                label="访问间隔（秒）"
-                :rules="[numberValidator]"
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VSwitch
-                v-model="siteForm.proxy"
-                label="代理"
-              />
-            </VCol>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VSwitch
-                v-model="siteForm.render"
-                label="仿真"
-              />
-            </VCol>
-          </VRow>
-        </VForm>
-      </VCardText>
-      <VCardActions>
-        <VBtn
-          @click="siteAddDialog = false"
-        >
-          取消
-        </VBtn>
-        <VSpacer />
-        <VBtn
-          color="primary"
-          :disabled="addBtnState"
-          variant="tonal"
-          @click="addSite"
-        >
-          {{ addBtnText }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
+    oper="add"
+    @save="siteAddDialog = false; fetchData()"
+    @close="siteAddDialog = false"
+  />
 </template>
 
 <style lang="scss">
