@@ -143,9 +143,9 @@ async function transfer() {
 </script>
 
 <template>
-  <VBottomSheet
+  <VDialog
     scrollable
-    inset
+    max-width="60rem"
   >
     <VCard
       :title="`${props.path ? `整理 - ${props.path}` : `整理 - 共 ${props.logids?.length} 条记录`}`"
@@ -305,5 +305,5 @@ async function transfer() {
         @close="tmdbSelectorDialog = false"
       />
     </VDialog>
-  </VBottomSheet>
+  </VDialog>
 </template>

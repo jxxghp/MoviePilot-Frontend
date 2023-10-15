@@ -119,9 +119,9 @@ async function updateSiteInfo() {
 </script>
 
 <template>
-  <VBottomSheet
-    inset
+  <VDialog
     scrollable
+    max-width="60rem"
   >
     <VCard
       :title="`${props.oper === 'add' ? '新增' : '编辑'}站点${props.oper !== 'add' ? ` - ${siteForm.name}` : ''}`"
@@ -270,5 +270,5 @@ async function updateSiteInfo() {
         </VBtn>
       </VCardActions>
     </VCard>
-  </VBottomSheet>
+  </VDialog>
 </template>

@@ -219,9 +219,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <VBottomSheet
-    inset
+  <VDialog
     scrollable
+    max-width="60rem"
   >
     <VCard
       :title="`编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`"
@@ -351,5 +351,5 @@ onMounted(async () => {
         </VBtn>
       </VCardActions>
     </VCard>
-  </VBottomSheet>
+  </VDialog>
 </template>
