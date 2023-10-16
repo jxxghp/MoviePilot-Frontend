@@ -124,6 +124,25 @@ const avatar = store.state.auth.avatar
           <VListItemTitle>设定</VListItemTitle>
         </VListItem>
 
+        <!-- Divider -->
+        <VDivider class="my-2" />
+
+        <!-- 👉 restart -->
+        <VListItem
+          v-if="superUser"
+          @click="restart"
+        >
+          <template #prepend>
+            <VIcon
+              class="me-2"
+              icon="mdi-restart"
+              size="22"
+            />
+          </template>
+
+          <VListItemTitle>重启</VListItemTitle>
+        </VListItem>
+
         <!-- 👉 FAQ -->
         <VListItem
           href="https://github.com/jxxghp/MoviePilot/blob/main/README.md"
@@ -138,22 +157,6 @@ const avatar = store.state.auth.avatar
           </template>
 
           <VListItemTitle>帮助</VListItemTitle>
-        </VListItem>
-
-        <!-- Divider -->
-        <VDivider class="my-2" />
-
-        <!-- 👉 restart -->
-        <VListItem @click="restart">
-          <template #prepend>
-            <VIcon
-              class="me-2"
-              icon="mdi-restart"
-              size="22"
-            />
-          </template>
-
-          <VListItemTitle>重启</VListItemTitle>
         </VListItem>
 
         <!-- 👉 Logout -->
