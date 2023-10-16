@@ -4,11 +4,16 @@ import api from '@/api'
 import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
+import store from '@/store'
 
 // 输入参数
 const props = defineProps({
   type: String,
 })
+
+// 从Vuex Store中获取用户信息
+const superUser = store.state.auth.superUser
+const userName = store.state.auth.userName
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -40,9 +45,12 @@ function onRefresh() {
   loading.value = false
 }
 
-// 过滤数据
+// 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
 const filteredDataList = computed(() => {
-  return dataList.value.filter(data => data.type === props.type)
+  if (superUser)
+    return dataList.value.filter(data => data.type === props.type)
+  else
+    return dataList.value.filter(data => data.type === props.type && data.username === userName)
 })
 </script>
 

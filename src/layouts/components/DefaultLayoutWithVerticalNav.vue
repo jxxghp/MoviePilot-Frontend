@@ -91,7 +91,6 @@ const superUser = store.state.auth.superUser
         }"
       />
       <VerticalNavLink
-        v-if="superUser"
         :item="{
           title: '电影',
           icon: 'mdi-movie-check-outline',
@@ -99,7 +98,6 @@ const superUser = store.state.auth.superUser
         }"
       />
       <VerticalNavLink
-        v-if="superUser"
         :item="{
           title: '电视剧',
           icon: 'mdi-television-classic',

@@ -129,12 +129,14 @@ onMounted(() => {
   <span v-if="dataList.length > 0" class="fixed right-5 bottom-5">
     <VBtn
       v-if="viewType === 'list'"
+      size="x-large"
       icon="mdi-view-grid"
       color="primary"
       @click="setViewType('card')"
     />
     <VBtn
       v-else
+      size="x-large"
       icon="mdi-view-list"
       color="primary"
       @click="setViewType('list')"
