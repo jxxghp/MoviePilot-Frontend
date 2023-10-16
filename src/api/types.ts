@@ -478,6 +478,9 @@ export interface DownloadingInfo {
 
   // 媒体信息
   media: { [key: string]: any }
+
+  // 下载用户
+  userid?: string
 }
 
 // 缺失剧集信息

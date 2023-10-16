@@ -4,6 +4,11 @@ import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
+import store from '@/store'
+
+// 从Vuex Store中获取用户信息
+const superUser = store.state.auth.superUser
+const userName = store.state.auth.userName
 
 // 定时器
 let refreshTimer: NodeJS.Timer | null = null
@@ -34,6 +39,14 @@ function onRefresh() {
   fetchData()
   loading.value = false
 }
+
+// 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
+const filteredDataList = computed(() => {
+  if (superUser)
+    return dataList.value
+  else
+    return dataList.value.filter(data => data.userid === userName)
+})
 
 // 加载时获取数据
 onBeforeMount(() => {
@@ -71,17 +84,17 @@ onUnmounted(() => {
     @refresh="onRefresh"
   >
     <div
-      v-if="dataList.length > 0"
+      v-if="filteredDataList.length > 0"
       class="grid gap-3 grid-downloading-card"
     >
       <DownloadingCard
-        v-for="data in dataList"
+        v-for="data in filteredDataList"
         :key="data.hash"
         :info="data"
       />
     </div>
     <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
+      v-if="filteredDataList.length === 0 && isRefreshed"
       error-code="404"
       error-title="没有任务"
       error-description="正在下载的任务将会显示在这里。"
