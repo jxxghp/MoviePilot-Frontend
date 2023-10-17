@@ -59,10 +59,8 @@ const transferForm = reactive({
 })
 
 watchEffect(() => {
-  if (props.path)
-    transferForm.path = props.path
-  if (props.target)
-    transferForm.target = props.target
+  transferForm.path = props.path ?? ''
+  transferForm.target = props.target ?? ''
 })
 
 // 使用SSE监听加载进度
