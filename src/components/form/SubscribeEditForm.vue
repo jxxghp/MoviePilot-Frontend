@@ -47,7 +47,6 @@ const $toast = useToast()
 // 调用API修改订阅
 async function updateSubscribeInfo() {
   try {
-    subscribeForm.value.best_version = subscribeForm.value.best_version ? 1 : 0
     const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm.value)
     // 提示
     if (result.success) {
@@ -121,11 +120,6 @@ async function removeSubscribe() {
     console.log(e)
   }
 }
-
-watchEffect(() => {
-  if (props.subid)
-    getSubscribeInfo()
-})
 
 // 质量选择框数据
 const qualityOptions = ref([
@@ -213,8 +207,8 @@ const effectOptions = ref([
 
 // 初始化
 onMounted(async () => {
-  // 加载订阅站点列表
   getSiteList()
+  getSubscribeInfo()
 })
 </script>
 
