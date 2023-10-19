@@ -207,8 +207,10 @@ const effectOptions = ref([
 
 // 初始化
 onMounted(async () => {
-  getSiteList()
-  getSubscribeInfo()
+  if (props.subid) {
+    getSiteList()
+    getSubscribeInfo()
+  }
 })
 </script>
 
