@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import NoDataFound from '@/components/NoDataFound.vue'
 import api from '@/api'
 import type { Context } from '@/api/types'
 import store from '@/store'
