@@ -205,8 +205,7 @@ const effectOptions = ref([
   },
 ])
 
-// 初始化
-onMounted(async () => {
+watchEffect(() => {
   if (props.subid) {
     getSiteList()
     getSubscribeInfo()

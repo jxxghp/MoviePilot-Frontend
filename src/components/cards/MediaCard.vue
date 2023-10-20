@@ -44,7 +44,7 @@ const subscribeSeasonDialog = ref(false)
 const subscribeEditDialog = ref(false)
 
 // 订阅ID
-const subscribeId = ref(0)
+const subscribeId = ref<number>()
 
 // 季详情
 const seasonInfos = ref<TmdbSeason[]>([])

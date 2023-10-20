@@ -44,7 +44,7 @@ const seasonsNotExisted = ref<{ [key: number]: number }>({})
 const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 
 // 订阅编号
-const subscribeId = ref(0)
+const subscribeId = ref<number>()
 
 // 调用API查询详情
 async function getMediaDetail() {
