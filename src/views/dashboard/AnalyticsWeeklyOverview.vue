@@ -6,6 +6,10 @@ import { hexToRgb } from '@layouts/utils'
 
 const vuetifyTheme = useTheme()
 
+// 从Vuex Store中获取信息
+const store = useStore()
+const superUser = store.state.auth.superUser
+
 const options = controlledComputed(
   () => vuetifyTheme.name.value,
   () => {
@@ -129,6 +133,7 @@ onMounted(() => {
       </div>
 
       <VBtn
+        v-if="superUser"
         block
         to="/history"
       >
