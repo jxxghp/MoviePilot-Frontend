@@ -33,7 +33,7 @@ const isImageLoaded = ref(false)
 // 获取背景图片
 async function fetchBackgroundImage() {
   api
-    .get('/login/tmdb')
+    .get('/login/wallpaper')
     .then((response: any) => {
       backgroundImageUrl.value = response.message
     })
