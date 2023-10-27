@@ -17,7 +17,7 @@ function getPercentage() {
 
 // 速度
 function getSpeedText() {
-  return `↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s`
+  return `↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s ${props.info?.left_time}`
 }
 
 // 下载状态
