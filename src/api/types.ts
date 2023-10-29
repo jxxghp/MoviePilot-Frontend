@@ -625,6 +625,9 @@ export interface MetaInfo {
   // 原字符串
   org_string?: string
 
+  // 原标题（未经识别词转换）
+  title?: string
+
   // 副标题
   subtitle?: string
 
@@ -726,6 +729,9 @@ export interface MetaInfo {
 
   // 资源类型+特效
   edition: string
+
+  // 应用的自定义识别词
+  apply_words: string[]
 }
 
 // 上下文信息

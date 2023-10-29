@@ -89,30 +89,4 @@ async function nameTest() {
       <MediaInfoCard :context="nameTestResult" />
     </div>
   </VExpandTransition>
-  <VExpansionPanels
-    v-show="showResult && nameTestResult.meta_info.title !== nameTestResult.meta_info.org_string"
-  >
-    <VExpansionPanel>
-      <VExpansionPanelTitle>
-        <div class="text-h6">
-          识别词应用详情
-        </div>
-      </VExpansionPanelTitle>
-      <VExpansionPanelText>
-        <VChip
-          variant="elevated"
-          class="me-1 mb-1 text-white bg-orange-500"
-        >
-          {{ nameTestResult.meta_info.org_string }}
-        </VChip>
-        <VChip
-          v-for="(val, key) in nameTestResult.meta_info.apply_words" :key="key" :val="val"
-          variant="elevated"
-          class="me-1 mb-1 text-white bg-cyan-500"
-        >
-          {{ val }}
-        </VChip>
-      </VExpansionPanelText>
-    </VExpansionPanel>
-  </VExpansionPanels>
 </template>

@@ -143,5 +143,33 @@ function openTmdbPage(type: string, tmdbId: number) {
         识别失败，无法识别到有效信息！
       </VAlert>
     </VCol>
+    <VExpansionPanels
+      v-show="context?.meta_info?.title !== context?.meta_info.org_string"
+    >
+      <VExpansionPanel>
+        <VExpansionPanelTitle>
+          识别词应用详情
+        </VExpansionPanelTitle>
+        <VExpansionPanelText>
+          <VChip
+            variant="elevated"
+            class="me-1 mb-1 break-all"
+            color="primary"
+          >
+            {{ context?.meta_info.org_string }}
+          </VChip>
+          <VChip
+            v-for="(val, key) in context?.meta_info.apply_words"
+            :key="key"
+            :val="val"
+            variant="outlined"
+            color="info"
+            class="me-1 mb-1 break-all"
+          >
+            {{ val }}
+          </VChip>
+        </VExpansionPanelText>
+      </VExpansionPanel>
+    </VExpansionPanels>
   </div>
 </template>
