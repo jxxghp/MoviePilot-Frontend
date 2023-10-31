@@ -166,12 +166,25 @@ onMounted(() => {
           <VTextarea
             v-model="customIdentifiers"
             auto-grow
-            placeholder="支持正则表达式，特殊字符需要\转义，一行为一组，支持以下几种配置格式：
-屏蔽词
-被替换词 => 替换词
-前定位词 <> 后定位词 >> 集偏移量（EP）
-被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）"
+            placeholder="支持正则表达式，特殊字符需要\转义，一行为一组"
           />
+        </VCardItem>
+        <VCardItem>
+          <VAlert
+            type="info"
+            variant="tonal"
+            title="支持的配置格式："
+          >
+            <span
+              v-html="`
+              屏蔽词<br>
+              被替换词 => 替换词<br>
+              前定位词 <> 后定位词 >> 集偏移量（EP）<br>
+              被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）<br>
+              其中替换词支持格式：{[tmdbid=xxx;type=movie/tv;s=xxx;e=xxx]} 直接指定TMDBID识别，其中s、e为季数和集数（可选）<br>
+              `"
+            />
+          </VAlert>
         </VCardItem>
         <VCardItem>
           <VBtn
