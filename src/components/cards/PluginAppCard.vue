@@ -76,7 +76,8 @@ async function installPlugin() {
         @click.stop
       >
         {{ props.plugin?.plugin_author }}
-      </a>
+      </a><br>
+      版本：{{ props.plugin?.plugin_version }}
     </VCardText>
   </VCard>
 </template>

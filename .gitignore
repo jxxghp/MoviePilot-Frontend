@@ -32,3 +32,4 @@ dist-ssr
 
 # iconify dist files
 src/@iconify/*.js
+public/plugin_icon/**
