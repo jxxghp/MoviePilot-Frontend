@@ -29,9 +29,10 @@ jobs:
 
       - name: Download Icons
         run: |
-          curl -sL "https://github.com/jxxghp/MoviePilot-Plugins/archive/refs/heads/main.zip" | busybox unzip -d / -
-          mv MoviePilot-Plugins-main/icons public/plugin_icon
-          rm -rf MoviePilot-Plugins-main
+          pwd
+          curl -sL "https://github.com/jxxghp/MoviePilot-Plugins/archive/refs/heads/main.zip" | busybox unzip -d /tmp -
+          mv /tmp/MoviePilot-Plugins-main/icons public/plugin_icon
+          rm -rf /tmp/MoviePilot-Plugins-main
 
       - name: Build frontend
         id: build_frontend
