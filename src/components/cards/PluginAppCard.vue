@@ -16,15 +16,34 @@ const emit = defineEmits(['install'])
 // 提示框
 const $toast = useToast()
 
+// 进度框
+const progressDialog = ref(false)
+
+// 进度框文本
+const progressText = ref('正在安装插件...')
+
 // 图片是否加载完成
 const isImageLoaded = ref(false)
 
 // 安装插件
 async function installPlugin() {
   try {
+    // 显示等待提示框
+    progressDialog.value = true
+    progressText.value = `正在安装 ${props.plugin?.plugin_name} 插件...`
+
     const result: { [key: string]: any } = await api.get(
       `plugin/install/${props.plugin?.id}`,
+      {
+        params: {
+          repo_url: props.plugin?.repo_url,
+          force: props.plugin?.has_update,
+        },
+      },
     )
+
+    // 隐藏等待提示框
+    progressDialog.value = false
 
     if (result.success) {
       $toast.success(`插件 ${props.plugin?.plugin_name} 安装成功！`)
@@ -52,6 +71,15 @@ async function installPlugin() {
       class="relative pa-4 text-center card-cover-blurred"
       :style="{ background: `${props.plugin?.plugin_color}` }"
     >
+      <div
+        v-if="props.plugin?.has_update"
+        class="me-n3 absolute top-0 right-5"
+      >
+        <VIcon
+          icon="mdi-new-box"
+          class="text-white"
+        />
+      </div>
       <VAvatar
         size="8rem"
         :class="{ shadow: isImageLoaded }"
@@ -80,6 +108,25 @@ async function installPlugin() {
       版本：{{ props.plugin?.plugin_version }}
     </VCardText>
   </VCard>
+  <!-- 安装插件进度框 -->
+  <VDialog
+    v-model="progressDialog"
+    :scrim="false"
+    width="25rem"
+  >
+    <VCard
+      color="primary"
+    >
+      <VCardText class="text-center">
+        {{ progressText }}
+        <VProgressLinear
+          indeterminate
+          color="white"
+          class="mb-0 mt-1"
+        />
+      </VCardText>
+    </VCard>
+  </VDialog>
 </template>
 
 <style lang="scss" scoped>

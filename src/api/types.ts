@@ -541,6 +541,15 @@ export interface Plugin {
 
   // 是否有详情页面
   has_page?: boolean
+
+  // 是否有新版本
+  has_update?: boolean
+
+  // 是否本地插件
+  is_local?: boolean
+
+  // 插件仓库地址
+  repo_url?: string
 }
 
 // 种子信息
