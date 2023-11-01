@@ -30,7 +30,7 @@ async function installPlugin() {
   try {
     // 显示等待提示框
     progressDialog.value = true
-    progressText.value = `正在安装 ${props.plugin?.plugin_name} 插件...`
+    progressText.value = `正在安装 ${props.plugin?.plugin_name} ${props?.plugin?.plugin_version} 插件...`
 
     const result: { [key: string]: any } = await api.get(
       `plugin/install/${props.plugin?.id}`,
@@ -59,6 +59,13 @@ async function installPlugin() {
     console.error(error)
   }
 }
+
+// 计算图标路径
+const iconPath = computed(() => {
+  return props.plugin?.plugin_icon?.startsWith('http')
+    ? props.plugin?.plugin_icon
+    : `/plugin_icon/${props.plugin?.plugin_icon}`
+})
 </script>
 
 <template>
@@ -85,7 +92,7 @@ async function installPlugin() {
         :class="{ shadow: isImageLoaded }"
       >
         <VImg
-          :src="`/plugin_icon/${props.plugin?.plugin_icon}`"
+          :src="iconPath"
           aspect-ratio="4/3"
           cover
           @load="isImageLoaded = true"

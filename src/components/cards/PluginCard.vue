@@ -136,6 +136,13 @@ async function showPluginConfig() {
   pluginConfigDialog.value = true
 }
 
+// 计算图标路径
+const iconPath = computed(() => {
+  return props.plugin?.plugin_icon?.startsWith('http')
+    ? props.plugin?.plugin_icon
+    : `/plugin_icon/${props.plugin?.plugin_icon}`
+})
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -216,7 +223,7 @@ const dropdownItems = ref([
         :class="{ shadow: isImageLoaded }"
       >
         <VImg
-          :src="`/plugin_icon/${props.plugin?.plugin_icon}`"
+          :src="iconPath"
           aspect-ratio="4/3"
           cover
           :class="{ shadow: isImageLoaded }"

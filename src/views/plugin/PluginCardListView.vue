@@ -19,9 +19,9 @@ const getInstalledPluginList = computed(() => {
   return dataList.value.filter(item => item.installed)
 })
 
-// 获取未安装的插件列表
+// 获取未安装或者有更新的插件列表
 const getUninstalledPluginList = computed(() => {
-  return dataList.value.filter(item => !item.installed)
+  return dataList.value.filter(item => !item.installed || item.has_update)
 })
 
 // 关闭插件市场窗口
