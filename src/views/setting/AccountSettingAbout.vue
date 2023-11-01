@@ -84,7 +84,7 @@ onMounted(() => {
           <div>
             <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
               <dt class="block text-sm font-bold">
-                当前版本
+                软件版本
               </dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow flex flex-row items-center truncate">
@@ -94,6 +94,30 @@ onMounted(() => {
                       最新
                     </span>
                   </a>
+                </span>
+              </dd>
+            </div>
+          </div>
+          <div>
+            <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+              <dt class="block text-sm font-bold">
+                认证资源版本
+              </dt>
+              <dd class="flex text-sm sm:col-span-2 sm:mt-0">
+                <span class="flex-grow flex flex-row items-center truncate">
+                  <code class="truncate">{{ systemEnv.AUTH_VERSION }}</code>
+                </span>
+              </dd>
+            </div>
+          </div>
+          <div>
+            <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+              <dt class="block text-sm font-bold">
+                站点资源版本
+              </dt>
+              <dd class="flex text-sm sm:col-span-2 sm:mt-0">
+                <span class="flex-grow flex flex-row items-center truncate">
+                  <code class="truncate">{{ systemEnv.INDEXER_VERSION }}</code>
                 </span>
               </dd>
             </div>
