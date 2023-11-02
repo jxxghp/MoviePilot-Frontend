@@ -84,6 +84,7 @@ onBeforeMount(fetchData)
   <VDialog
     v-model="PluginAppDialog"
     fullscreen
+    scrollable
     :scrim="false"
     transition="dialog-bottom-transition"
   >
@@ -119,7 +120,7 @@ onBeforeMount(fetchData)
           </VToolbarItems>
         </VToolbar>
       </div>
-      <div class="pa-4">
+      <VCardText>
         <div class="grid gap-4 grid-plugin-card">
           <PluginAppCard
             v-for="data in getUninstalledPluginList"
@@ -134,7 +135,7 @@ onBeforeMount(fetchData)
           error-title="没有未安装插件"
           error-description="所有可用插件均已安装。"
         />
-      </div>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>
