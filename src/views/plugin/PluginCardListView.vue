@@ -91,7 +91,7 @@ onBeforeMount(fetchData)
     <!-- Dialog Activator -->
     <template #activator="{ props }">
       <VBtn
-        icon="mdi-plus"
+        icon="mdi-store-plus"
         v-bind="props"
         size="x-large"
         class="fixed right-5 bottom-5"
