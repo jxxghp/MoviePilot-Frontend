@@ -33,9 +33,6 @@ const testButtonText = ref('测试')
 // 测试按钮可用性
 const testButtonDisable = ref(false)
 
-// 更新按钮文字
-const updateButtonText = ref('更新')
-
 // 更新按钮可用性
 const updateButtonDisable = ref(false)
 
@@ -47,6 +44,12 @@ const siteEditDialog = ref(false)
 
 // 资源浏览弹窗
 const resourceDialog = ref(false)
+
+// 进度条
+const progressDialog = ref(false)
+
+// 进度文本
+const progressText = ref('请稍候 ...')
 
 // 资源浏览表头
 const resourceHeaders = [
@@ -138,8 +141,10 @@ async function updateSiteCookie() {
 
     // 更新按钮状态
     siteCookieDialog.value = false
-    updateButtonText.value = '更新中 ...'
     updateButtonDisable.value = true
+
+    progressDialog.value = true
+    progressText.value = `正在更新 ${cardProps.site?.name} Cookie & UA ...`
 
     const result: { [key: string]: any } = await api.get(
       `site/cookie/${cardProps.site?.id}`,
@@ -156,7 +161,7 @@ async function updateSiteCookie() {
     else
       $toast.error(`${cardProps.site?.name} 更新失败：${result.message}`)
 
-    updateButtonText.value = '更新'
+    progressDialog.value = false
     updateButtonDisable.value = false
   }
   catch (error) {
@@ -299,7 +304,7 @@ onMounted(() => {
         <template #prepend>
           <VIcon icon="mdi-refresh" />
         </template>
-        {{ updateButtonText }}
+        更新
       </VBtn>
       <VBtn
         :disabled="testButtonDisable"
@@ -485,6 +490,24 @@ onMounted(() => {
             没有数据
           </template>
         </VDataTable>
+      </VCardText>
+    </VCard>
+  </VDialog>
+  <VDialog
+    v-model="progressDialog"
+    :scrim="false"
+    width="25rem"
+  >
+    <VCard
+      color="primary"
+    >
+      <VCardText class="text-center">
+        {{ progressText }}
+        <VProgressLinear
+          indeterminate
+          color="white"
+          class="mb-0 mt-1"
+        />
       </VCardText>
     </VCard>
   </VDialog>
