@@ -323,7 +323,10 @@ watchEffect(() => {
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="12">
+            <VCol
+              cols="12"
+              md="4"
+            >
               <VSwitch
                 v-model="subscribeForm.best_version"
                 label="洗版"
