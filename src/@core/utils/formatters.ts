@@ -55,7 +55,7 @@ export function formatFileSize(bytes: number) {
   if (bytes < 0)
     throw new Error('字节数不能为负数。')
 
-  const units = ['B', 'K', 'M', 'G', 'T']
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let size = bytes
   let unitIndex = 0
 

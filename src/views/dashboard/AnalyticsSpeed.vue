@@ -89,10 +89,10 @@ onUnmounted(() => {
     <VCardText class="pt-4">
       <div>
         <p class="text-h5 me-2">
-          ↑{{ formatFileSize(downloadInfo.upload_speed) }}B/s
+          ↑{{ formatFileSize(downloadInfo.upload_speed) }}/s
         </p>
         <p class="text-h4 me-2">
-          ↓{{ formatFileSize(downloadInfo.download_speed) }}B/s
+          ↓{{ formatFileSize(downloadInfo.download_speed) }}/s
         </p>
       </div>
       <VList class="card-list mt-9">
