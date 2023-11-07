@@ -181,7 +181,7 @@ onMounted(() => {
               被替换词 => 替换词<br>
               前定位词 <> 后定位词 >> 集偏移量（EP）<br>
               被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）<br>
-              其中替换词支持格式：{[tmdbid=xxx;type=movie/tv;s=xxx;e=xxx]} 直接指定TMDBID识别，其中s、e为季数和集数（可选）<br>
+              其中替换词支持格式：{[tmdbid/doubanid=xxx;type=movie/tv;s=xxx;e=xxx]} 直接指定TMDBID/豆瓣ID识别，其中s、e为季数和集数（可选）<br>
               `"
             />
           </VAlert>
