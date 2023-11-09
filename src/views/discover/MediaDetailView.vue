@@ -37,7 +37,7 @@ const isRefreshed = ref(false)
 // 存储每一季的集信息
 const seasonEpisodesInfo = ref({} as { [key: number]: TmdbEpisode[] })
 
-// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失，没有数据也是已存在
+// 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 各季的订阅状态
@@ -85,7 +85,7 @@ async function loadSeasonEpisodes(season: number) {
   }
 }
 
-// 查询当前媒体是否已存在
+// 查询当前媒体是否已入库
 async function checkMovieExists() {
   try {
     const result: { [key: string]: any } = await api.get('media/exists', {
@@ -138,7 +138,7 @@ async function checkSeasonsNotExists() {
         isExists.value = true
 
       result.forEach((item) => {
-        // 0-已存在 1-部分缺失 2-全部缺失
+        // 0-已入库 1-部分缺失 2-全部缺失
         let state = 0
         if (item.episodes.length === 0)
           state = 2
@@ -358,14 +358,14 @@ function getExistColor(season: number) {
 function getExistText(season: number) {
   const state = seasonsNotExisted.value[season]
   if (!state)
-    return '已存在'
+    return '已入库'
 
   if (state === 1)
     return '部分缺失'
   else if (state === 2)
     return '缺失'
   else
-    return '已存在'
+    return '已入库'
 }
 
 // 计算订阅图标

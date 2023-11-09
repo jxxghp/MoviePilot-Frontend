@@ -34,7 +34,7 @@ const isSubscribed = ref(false)
 // 本地存在状态
 const isExists = ref(false)
 
-// 各季缺失状态：0-已存在 1-部分缺失 2-全部缺失，没有数据也是已存在
+// 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
 
 // 订阅季弹窗
@@ -220,7 +220,7 @@ async function handleCheckSubscribe() {
   }
 }
 
-// 查询当前媒体是否已存在
+// 查询当前媒体是否已入库
 async function handleCheckExists() {
   try {
     const result: { [key: string]: any } = await api.get('media/exists', {
@@ -271,7 +271,7 @@ async function checkSeasonsNotExists() {
     const result: NotExistMediaInfo[] = await api.post('download/notexists', props.media)
     if (result) {
       result.forEach((item) => {
-        // 0-已存在 1-部分缺失 2-全部缺失
+        // 0-已入库 1-部分缺失 2-全部缺失
         let state = 0
         if (item.episodes.length === 0)
           state = 2
@@ -327,14 +327,14 @@ function getExistColor(season: number) {
 function getExistText(season: number) {
   const state = seasonsNotExisted.value[season]
   if (!state)
-    return '已存在'
+    return '已入库'
 
   if (state === 1)
     return '部分缺失'
   else if (state === 2)
     return '缺失'
   else
-    return '已存在'
+    return '已入库'
 }
 
 // 打开详情页

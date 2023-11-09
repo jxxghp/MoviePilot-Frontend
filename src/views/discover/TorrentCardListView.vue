@@ -80,7 +80,7 @@ watchEffect(() => {
     // group data
     const key = `${torrent_info.title}_${torrent_info.size}`
     if (groupMap.has(key)) {
-      // 已存在相同标题和大小的分组，将当前上下文信息添加到分组中
+      // 已入库相同标题和大小的分组，将当前上下文信息添加到分组中
       const group = groupMap.get(key)
       group?.push(item)
     }
