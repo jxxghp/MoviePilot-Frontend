@@ -156,7 +156,7 @@ async function fetchData({ done }: { done: any }) {
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"
       error-title="没有数据"
-      error-description="无法获取到TMDB媒体信息。"
+      error-description="无法获取到媒体信息。"
     />
   </VInfiniteScroll>
 </template>

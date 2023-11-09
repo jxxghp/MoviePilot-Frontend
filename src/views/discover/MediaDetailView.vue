@@ -456,7 +456,7 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn v-if="mediaDetail.tmdb_id" variant="tonal" color="info">
+          <VBtn v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" variant="tonal" color="info">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
             </template>
@@ -693,7 +693,7 @@ onBeforeMount(() => {
     v-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && isRefreshed"
     error-code="500"
     error-title="出错啦！"
-    error-description="未识别到TMDB媒体信息。"
+    error-description="未识别到媒体信息。"
   />
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditForm
