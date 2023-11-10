@@ -147,6 +147,10 @@ async function deactivateUser(user: User) {
 
 // 新增用户
 async function addUser() {
+  if (!userForm.name || !userForm.password || !userForm.email) {
+    $toast.error('请填写完整信息！')
+    return
+  }
   try {
     const result: { [key: string]: any } = await api.post('user', userForm)
     if (result.success) {
@@ -447,6 +451,7 @@ onMounted(() => {
             >
               <VTextField
                 v-model="userForm.email"
+                :rules="[requiredValidator]"
                 label="邮箱"
               />
             </VCol>
