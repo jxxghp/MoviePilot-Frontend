@@ -391,10 +391,11 @@ function joinArray(arr: string[]) {
 
 // 开始搜索
 function handleSearch(area: string) {
+  const keyword = mediaDetail.value.tmdb_id ? `tmdb:${mediaDetail.value.tmdb_id}` : `douban:${mediaDetail.value.douban_id}`
   router.push({
     path: '/resource',
     query: {
-      keyword: `tmdb:${mediaDetail.value.tmdb_id}`,
+      keyword,
       type: mediaDetail.value.type,
       area,
     },
