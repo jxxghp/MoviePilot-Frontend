@@ -47,7 +47,7 @@ const loading = ref(false)
 const totalItems = ref(0)
 
 // 每页条数
-const itemsPerPage = ref(25)
+const itemsPerPage = ref(50)
 
 // 当前页码
 const currentPage = ref(1)
