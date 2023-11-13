@@ -483,7 +483,7 @@ onBeforeMount(() => {
               </VList>
             </VMenu>
           </VBtn>
-          <VBtn v-if="mediaDetail.type === '电影'" class="ms-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
+          <VBtn v-if="mediaDetail.type === '电影' || mediaDetail.douban_id" class="ms-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>
               <VIcon :icon="getSubscribeIcon" />
             </template>
