@@ -114,6 +114,7 @@ async function checkSubscribe(season = 0) {
     const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
       params: {
         season,
+        title: mediaDetail.value.title,
       },
     })
 
