@@ -1,21 +1,22 @@
 <script lang="ts" setup>
-import PersionCard from '@/components/cards/PersonCard.vue'
+import TmdbPersonCard from '@/components/cards/TmdbPersonCard.vue'
 import api from '@/api'
-import type { TmdbPerson } from '@/api/types'
 import SlideView from '@/components/slide/SlideView.vue'
+import DoubanPersonCard from '@/components/cards/DoubanPersonCard.vue'
 
 // 输入参数
 const props = defineProps({
   apipath: String,
   linkurl: String,
   title: String,
+  type: String,
 })
 
 // 组件加载完成
 const componentLoaded = ref(false)
 
 // 数据列表
-const dataList = ref<TmdbPerson[]>([])
+const dataList = ref<any>([])
 
 // 获取订阅列表数据
 async function fetchData() {
@@ -46,7 +47,14 @@ onMounted(fetchData)
         v-for="data in dataList"
         :key="data.id"
       >
-        <PersionCard
+        <TmdbPersonCard
+          v-if="props.type === 'tmdb'"
+          :person="data"
+          height="15rem"
+          width="10rem"
+        />
+        <DoubanPersonCard
+          v-if="props.type === 'douban'"
           :person="data"
           height="15rem"
           width="10rem"

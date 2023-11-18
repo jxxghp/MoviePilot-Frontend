@@ -13,6 +13,9 @@ const route = useRoute()
 // 标题
 const title = route.query?.title?.toString()
 
+// 类型
+const type = route.query?.type?.toString()
+
 // 计算API路径
 function getApiPath(paths: string[] | string) {
   if (Array.isArray(paths))
@@ -34,6 +37,7 @@ function getApiPath(paths: string[] | string) {
     <PersonCardListView
       :apipath="getApiPath(props.paths || '')"
       :params="route.query"
+      :type="type"
     />
   </div>
 </template>

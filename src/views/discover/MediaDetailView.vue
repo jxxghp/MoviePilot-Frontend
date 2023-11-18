@@ -109,7 +109,7 @@ async function checkMovieExists() {
 // 查询当前媒体是否已订阅
 async function checkSubscribe(season = 0) {
   try {
-    const mediaid = `tmdb:${mediaDetail.value.tmdb_id}`
+    const mediaid = mediaDetail.value.tmdb_id ? `tmdb:${mediaDetail.value.tmdb_id}` : `douban:${mediaDetail.value.douban_id}`
 
     const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
       params: {
@@ -420,9 +420,9 @@ onBeforeMount(() => {
     />
   </div>
   <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" class="max-w-8xl mx-auto px-4">
-    <template v-if="mediaDetail.backdrop_path">
+    <template v-if="mediaDetail.backdrop_path || mediaDetail.poster_path">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
-        <VImg class="h-96" :src="mediaDetail.backdrop_path" cover />
+        <VImg class="h-96" :src="mediaDetail.backdrop_path || mediaDetail.poster_path" cover />
       </div>
       <div class="vue-media-back absolute left-0 top-0 w-full h-96" />
     </template>
@@ -509,10 +509,6 @@ onBeforeMount(() => {
           </ul>
           <ul v-if="!mediaDetail.tmdb_id && mediaDetail.douban_id" class="media-crew">
             <li v-for="director in mediaDetail.directors" :key="director.id">
-              <span>{{ joinArray(director.roles) }}</span>
-              <a class="crew-name" :href="`${director.url}`" target="_blank">{{ director.name }}</a>
-            </li>
-            <li v-for="director in mediaDetail.actors" :key="director.id">
               <span>{{ joinArray(director.roles) }}</span>
               <a class="crew-name" :href="`${director.url}`" target="_blank">{{ director.name }}</a>
             </li>
@@ -667,18 +663,69 @@ onBeforeMount(() => {
             </div>
           </div>
         </div>
+        <div v-else-if="mediaDetail.douban_id" class="media-overview-right">
+          <div class="media-facts">
+            <div v-if="mediaDetail.vote_average" class="media-ratings">
+              <VRating
+                v-model="mediaDetail.vote_average"
+                density="compact"
+                length="10"
+                class="ma-2"
+                readonly
+              />
+            </div>
+            <div v-if="mediaDetail.douban_id" class="media-fact">
+              <span>豆瓣ID</span>
+              <span class="media-fact-value">{{ mediaDetail.douban_id }}</span>
+            </div>
+            <div v-if="mediaDetail.original_title" class="media-fact">
+              <span>原始标题</span>
+              <span class="media-fact-value">{{ mediaDetail.original_title }}</span>
+            </div>
+            <div v-if="mediaDetail.release_date" class="media-fact">
+              <span>上映日期</span>
+              <span class="media-fact-value">
+                {{ mediaDetail.release_date }}
+              </span>
+            </div>
+            <div v-if="mediaDetail.production_countries" class="media-fact border-b-0">
+              <span>出品国家</span>
+              <span class="media-fact-value">
+                <span v-for="country in getProductionCountries" :key="country" class="flex items-center justify-end text-end">
+                  {{ country }}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
       <div v-if="mediaDetail.tmdb_id">
         <PersonCardSlideView
           :apipath="`tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}`"
-          :linkurl="`/credits/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容`"
+          :linkurl="`/credits/tmdb/credits/${mediaDetail.tmdb_id}/${mediaProps.type}?title=演员阵容&type=tmdb`"
           title="演员阵容"
+          type="tmdb"
+        />
+      </div>
+      <div v-else-if="mediaDetail.douban_id">
+        <PersonCardSlideView
+          :apipath="`douban/credits/${mediaDetail.douban_id}/${mediaProps.type}`"
+          :linkurl="`/credits/douban/credits/${mediaDetail.douban_id}/${mediaProps.type}?title=演员阵容&type=douban`"
+          title="演员阵容"
+          type="douban"
         />
       </div>
       <div v-if="mediaDetail.tmdb_id">
         <MediaCardSlideView
           :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`"
           :linkurl="`/browse/tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}?title=推荐`"
+          title="推荐"
+        />
+      </div>
+      <div v-else-if="mediaDetail.douban_id">
+        <MediaCardSlideView
+          :apipath="`douban/recommend/${mediaDetail.douban_id}/${mediaProps.type}`"
+          :linkurl="`/browse/douban/recommend/${mediaDetail.douban_id}/${mediaProps.type}?title=推荐`"
           title="推荐"
         />
       </div>

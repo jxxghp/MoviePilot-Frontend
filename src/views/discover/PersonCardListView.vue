@@ -1,13 +1,14 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { TmdbPerson } from '@/api/types'
-import PersonCard from '@/components/cards/PersonCard.vue'
+import DoubanPersonCard from '@/components/cards/DoubanPersonCard.vue'
+import TmdbPersonCard from '@/components/cards/TmdbPersonCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 
 // 输入参数
 const props = defineProps({
   apipath: String,
   params: Object as PropType<{ [key: string]: any }>,
+  type: String,
 })
 
 // 判断是否有滚动条
@@ -29,8 +30,8 @@ const loading = ref(false)
 const isRefreshed = ref(false)
 
 // 数据列表
-const dataList = ref<TmdbPerson[]>([])
-const currData = ref<TmdbPerson[]>([])
+const dataList = ref<any>([])
+const currData = ref<any>([])
 
 // 获取列表数据
 async function fetchData({ done }: { done: any }) {
@@ -135,11 +136,22 @@ async function fetchData({ done }: { done: any }) {
   >
     <template #loading />
     <div
-      v-if="dataList.length > 0"
+      v-if="dataList.length > 0 && props.type === 'tmdb'"
       class="grid gap-4 grid-media-card mx-3"
       tabindex="0"
     >
-      <PersonCard
+      <TmdbPersonCard
+        v-for="data in dataList"
+        :key="data.id"
+        :person="data"
+      />
+    </div>
+    <div
+      v-if="dataList.length > 0 && props.type === 'douban'"
+      class="grid gap-4 grid-media-card mx-3"
+      tabindex="0"
+    >
+      <DoubanPersonCard
         v-for="data in dataList"
         :key="data.id"
         :person="data"

@@ -337,7 +337,7 @@ export interface TmdbEpisode {
   guest_stars: Object[]
 }
 
-// TMDB人特信息
+// TMDB人物信息
 export interface TmdbPerson {
   // ID
   id?: number
@@ -386,6 +386,34 @@ export interface TmdbPerson {
 
   // 详情
   biography?: string
+}
+
+// 豆瓣人物信息
+export interface DoubanPerson {
+  // ID
+  id?: string
+
+  // 名称
+  name?: string
+
+  // 角色
+  roles?: string[]
+
+  // 简介
+  title?: string
+
+  // 详情页面
+  url?: string
+
+  // 饰演
+  character?: string
+
+  // 图片 large/normal
+  avatar?: { [key: string]: string }
+
+  // 别名
+  latin_name?: string
+
 }
 
 // 站点
