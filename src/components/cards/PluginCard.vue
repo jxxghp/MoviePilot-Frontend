@@ -220,7 +220,6 @@ const dropdownItems = ref([
       </div>
       <VAvatar
         size="8rem"
-        :class="{ shadow: isImageLoaded }"
       >
         <VImg
           :src="iconPath"

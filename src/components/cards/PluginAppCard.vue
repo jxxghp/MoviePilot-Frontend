@@ -89,12 +89,12 @@ const iconPath = computed(() => {
       </div>
       <VAvatar
         size="8rem"
-        :class="{ shadow: isImageLoaded }"
       >
         <VImg
           :src="iconPath"
           aspect-ratio="4/3"
           cover
+          :class="{ shadow: isImageLoaded }"
           @load="isImageLoaded = true"
         />
       </VAvatar>
