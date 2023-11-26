@@ -143,6 +143,24 @@ const iconPath = computed(() => {
     : `/plugin_icon/${props.plugin?.plugin_icon}`
 })
 
+// 重置插件
+async function resetPlugin() {
+  try {
+    const result: { [key: string]: any } = await api.get(`plugin/reset/${props.plugin?.id}`)
+    if (result.success) {
+      $toast.success(`插件 ${props.plugin?.plugin_name} 数据已重置`)
+      // 通知父组件刷新
+      emit('save')
+    }
+    else {
+      $toast.error(`插件 ${props.plugin?.plugin_name} 重置失败：${result.message}}`)
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -164,8 +182,18 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '卸载',
+    title: '重置',
     value: 3,
+    show: true,
+    props: {
+      prependIcon: 'mdi-cancel',
+      color: 'warning',
+      click: resetPlugin,
+    },
+  },
+  {
+    title: '卸载',
+    value: 4,
     show: true,
     props: {
       prependIcon: 'mdi-trash-can-outline',
