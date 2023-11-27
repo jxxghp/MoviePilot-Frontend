@@ -52,7 +52,7 @@ async function installPlugin() {
       emit('install')
     }
     else {
-      $toast.error(`插件 ${props.plugin?.plugin_name} 安装失败：${result.message}}`)
+      $toast.error(`插件 ${props.plugin?.plugin_name} 安装失败：${result.message}`)
     }
   }
   catch (error) {
