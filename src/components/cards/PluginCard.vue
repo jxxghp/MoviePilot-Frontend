@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import { useConfirm } from 'vuetify-use-dialog'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
@@ -18,6 +19,9 @@ const emit = defineEmits(['remove', 'save'])
 
 // 提示框
 const $toast = useToast()
+
+// 确认框
+const createConfirm = useConfirm()
 
 // 本身是否可见
 const isVisible = ref(true)
@@ -42,6 +46,22 @@ const isImageLoaded = ref(false)
 
 // 调用API卸载插件
 async function uninstallPlugin() {
+  const isConfirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认卸载插件 ${props.plugin?.plugin_name} ?`,
+    confirmationText: '确认',
+    cancellationText: '取消',
+    dialogProps: {
+      maxWidth: '50rem',
+    },
+    confirmationButtonProps: {
+      variant: 'tonal',
+    },
+  })
+
+  if (!isConfirmed)
+    return
+
   try {
     const result: { [key: string]: any } = await api.delete(`plugin/${props.plugin?.id}`)
     if (result.success) {
@@ -145,6 +165,22 @@ const iconPath = computed(() => {
 
 // 重置插件
 async function resetPlugin() {
+  const isConfirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认重置插件 ${props.plugin?.plugin_name} 的配置数据?`,
+    confirmationText: '确认',
+    cancellationText: '取消',
+    dialogProps: {
+      maxWidth: '50rem',
+    },
+    confirmationButtonProps: {
+      variant: 'tonal',
+    },
+  })
+
+  if (!isConfirmed)
+    return
+
   try {
     const result: { [key: string]: any } = await api.get(`plugin/reset/${props.plugin?.id}`)
     if (result.success) {
