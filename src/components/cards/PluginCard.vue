@@ -6,6 +6,7 @@ import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
 import PageRender from '@/components/render/PageRender.vue'
 import { isNullOrEmptyObject } from '@core/utils'
+import noImage from '@images/logos/plugin.png'
 
 // 输入参数
 const props = defineProps({
@@ -16,6 +17,9 @@ const props = defineProps({
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
+
+// 默认背景颜色
+const defaultBackgroundColor = '#28A9E1'
 
 // 提示框
 const $toast = useToast()
@@ -43,6 +47,9 @@ let pluginPageItems = reactive([])
 
 // 图片是否加载完成
 const isImageLoaded = ref(false)
+
+// 图片是否加载失败
+const imageLoadError = ref(false)
 
 // 调用API卸载插件
 async function uninstallPlugin() {
@@ -157,10 +164,19 @@ async function showPluginConfig() {
 }
 
 // 计算图标路径
-const iconPath = computed(() => {
+const iconPath: Ref<string> = computed(() => {
+  if (imageLoadError.value)
+    return noImage
   return props.plugin?.plugin_icon?.startsWith('http')
     ? props.plugin?.plugin_icon
     : `/plugin_icon/${props.plugin?.plugin_icon}`
+})
+
+// 计算背景颜色
+const backgroundColor = computed(() => {
+  if (imageLoadError.value)
+    return defaultBackgroundColor
+  return props.plugin?.plugin_color
 })
 
 // 重置插件
@@ -255,7 +271,7 @@ const dropdownItems = ref([
   >
     <div
       class="relative pa-4 text-center card-cover-blurred"
-      :style="{ background: `${props.plugin?.plugin_color}` }"
+      :style="{ background: `${backgroundColor}` }"
     >
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
@@ -291,6 +307,7 @@ const dropdownItems = ref([
           cover
           :class="{ shadow: isImageLoaded }"
           @load="isImageLoaded = true"
+          @error="imageLoadError = true"
         />
       </VAvatar>
     </div>
