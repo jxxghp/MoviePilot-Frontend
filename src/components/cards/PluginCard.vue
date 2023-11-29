@@ -290,6 +290,7 @@ const dropdownItems = ref([
           aspect-ratio="4/3"
           cover
           :class="{ shadow: isImageLoaded }"
+          @load="isImageLoaded = true"
         />
       </VAvatar>
     </div>
