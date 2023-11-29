@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import noImage from '@images/logos/plugin.png'
+import { getDominantColor } from '@/@core/utils/image'
 
 // 输入参数
 const props = defineProps({
@@ -14,8 +15,11 @@ const props = defineProps({
 // 定义触发的自定义事件
 const emit = defineEmits(['install'])
 
-// 默认背景颜色
-const defaultBackgroundColor = '#28A9E1'
+// 背景颜色
+const backgroundColor = ref('#28A9E1')
+
+// 图片对象
+const imageRef = ref<any>()
 
 // 提示框
 const $toast = useToast()
@@ -31,6 +35,14 @@ const isImageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+// 图片加载完成
+async function imageLoaded() {
+  isImageLoaded.value = true
+  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
+  // 从图片中提取背景色
+  backgroundColor.value = await getDominantColor(imageElement)
+}
 
 // 安装插件
 async function installPlugin() {
@@ -71,16 +83,11 @@ async function installPlugin() {
 const iconPath: Ref<string> = computed(() => {
   if (imageLoadError.value)
     return noImage
-  return props.plugin?.plugin_icon?.startsWith('http')
-    ? props.plugin?.plugin_icon
-    : `/plugin_icon/${props.plugin?.plugin_icon}`
-})
+  // 如果是网络图片则使用代理后返回
+  if (props.plugin?.plugin_icon?.startsWith('http'))
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(props.plugin?.plugin_icon)}`
 
-// 计算背景颜色
-const backgroundColor = computed(() => {
-  if (imageLoadError.value)
-    return defaultBackgroundColor
-  return props.plugin?.plugin_color
+  return `/plugin_icon/${props.plugin?.plugin_icon}`
 })
 </script>
 
@@ -107,11 +114,12 @@ const backgroundColor = computed(() => {
         size="8rem"
       >
         <VImg
+          ref="imageRef"
           :src="iconPath"
           aspect-ratio="4/3"
           cover
           :class="{ shadow: isImageLoaded }"
-          @load="isImageLoaded = true"
+          @load="imageLoaded"
           @error="imageLoadError = true"
         />
       </VAvatar>
