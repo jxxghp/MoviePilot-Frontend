@@ -28,8 +28,8 @@ const headers = [
   { title: '标题', key: 'title', sortable: false },
   { title: '目录', key: 'src', sortable: false },
   { title: '转移方式', key: 'mode', sortable: false },
-  { title: '时间', key: 'date', sortable: false },
-  { title: '状态', key: 'status', sortable: false },
+  { title: '时间', key: 'date', sortable: true },
+  { title: '状态', key: 'status', sortable: true },
   { title: '失败原因', key: 'errmsg', sortable: false },
   { title: '', key: 'actions', sortable: false },
 ]
@@ -285,7 +285,7 @@ const dropdownItems = ref([
         </VRow>
       </VCardTitle>
     </VCardItem>
-    <VDataTableServer
+    <VDataTable
       v-model="selected"
       v-model:items-per-page="itemsPerPage"
       :headers="headers"
@@ -368,7 +368,7 @@ const dropdownItems = ref([
       <template #no-data>
         没有数据
       </template>
-    </VDataTableServer>
+    </VDataTable>
   </VCard>
   <!-- 底部操作按钮 -->
   <span
