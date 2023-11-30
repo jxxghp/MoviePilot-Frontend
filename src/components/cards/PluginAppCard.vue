@@ -89,6 +89,45 @@ const iconPath: Ref<string> = computed(() => {
 
   return `/plugin_icon/${props.plugin?.plugin_icon}`
 })
+
+// 访问插件页面
+function visitPluginPage() {
+  // 将raw.githubusercontent.com转换为项目地址
+  let repoUrl = props.plugin?.repo_url
+  if (repoUrl) {
+    if (repoUrl.includes('raw.githubusercontent.com')) {
+      if (!repoUrl.endsWith('/'))
+        repoUrl += '/'
+
+      if (repoUrl.split('/').length < 6)
+        repoUrl = `${repoUrl}main/`
+
+      try {
+        const [user, repo] = repoUrl.split('/').slice(-4, -2)
+        repoUrl = `https://github.com/${user}/${repo}`
+      }
+      catch (error) {
+        return
+      }
+    }
+  }
+  else {
+    repoUrl = props.plugin?.author_url
+  }
+  window.open(repoUrl, '_blank')
+}
+
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: '查看详情',
+    value: 1,
+    props: {
+      prependIcon: 'mdi-information-outline',
+      click: visitPluginPage,
+    },
+  },
+])
 </script>
 
 <template>
@@ -101,9 +140,32 @@ const iconPath: Ref<string> = computed(() => {
       class="relative pa-4 text-center card-cover-blurred"
       :style="{ background: `${backgroundColor}` }"
     >
+      <div class="me-n3 absolute top-0 right-3">
+        <IconBtn>
+          <VIcon icon="mdi-dots-vertical" class="text-white" />
+          <VMenu
+            activator="parent"
+            close-on-content-click
+          >
+            <VList>
+              <VListItem
+                v-for="(item, i) in dropdownItems"
+                :key="i"
+                variant="plain"
+                @click="item.props.click"
+              >
+                <template #prepend>
+                  <VIcon :icon="item.props.prependIcon" />
+                </template>
+                <VListItemTitle v-text="item.title" />
+              </VListItem>
+            </VList>
+          </VMenu>
+        </IconBtn>
+      </div>
       <div
         v-if="props.plugin?.has_update"
-        class="me-n3 absolute top-0 right-5"
+        class="me-n3 absolute top-0 left-1"
       >
         <VIcon
           icon="mdi-new-box"

@@ -43,10 +43,10 @@ const pluginConfigForm = ref({})
 // 插件表单配置项
 let pluginFormItems = reactive([])
 
-// 插件详情页面
+// 插件数据页面
 const pluginInfoDialog = ref(false)
 
-// 插件详情页面配置项
+// 插件数据页面配置项
 let pluginPageItems = reactive([])
 
 // 图片是否加载完成
@@ -113,7 +113,7 @@ async function loadPluginForm() {
   }
 }
 
-// 调用API读取详情页面
+// 调用API读取数据页面
 async function loadPluginPage() {
   try {
     const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
@@ -156,9 +156,9 @@ async function savePluginConf() {
   }
 }
 
-// 显示插件详情
+// 显示插件数据
 async function showPluginInfo() {
-  // 加载详情
+  // 加载数据
   await loadPluginPage()
   pluginConfigDialog.value = false
   pluginInfoDialog.value = true
@@ -220,10 +220,15 @@ async function resetPlugin() {
   }
 }
 
+// 访问作者主页
+function visitAuthorPage() {
+  window.open(props.plugin?.author_url, '_blank')
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '查看详情',
+    title: '查看数据',
     value: 1,
     show: props.plugin?.has_page,
     props: {
@@ -232,7 +237,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '配置',
+    title: '设置',
     value: 2,
     show: true,
     props: {
@@ -258,6 +263,15 @@ const dropdownItems = ref([
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
       click: uninstallPlugin,
+    },
+  },
+  {
+    title: '作者主页',
+    value: 4,
+    show: true,
+    props: {
+      prependIcon: 'mdi-home-circle-outline',
+      click: visitAuthorPage,
     },
   },
 ])
@@ -350,7 +364,7 @@ const dropdownItems = ref([
       </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
-          查看详情
+          查看数据
         </VBtn>
         <VSpacer />
         <VBtn
@@ -363,7 +377,7 @@ const dropdownItems = ref([
     </VCard>
   </VDialog>
 
-  <!-- 插件详情页面 -->
+  <!-- 插件数据页面 -->
   <VDialog
     v-model="pluginInfoDialog"
     scrollable
