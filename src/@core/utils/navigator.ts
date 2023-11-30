@@ -6,7 +6,7 @@ export async function getClipboardContent() {
   else {
     const input = document.createElement('input')
     document.body.appendChild(input)
-    input.select()
+    input.focus()
     document.execCommand('paste')
     const content = input.value
     document.body.removeChild(input)
