@@ -1,6 +1,17 @@
 // 请求和获取剪切板内容
 export async function getClipboardContent() {
-  return await navigator.clipboard.readText()
+  if (navigator.clipboard && window.isSecureContext) {
+    return await navigator.clipboard.readText()
+  }
+  else {
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('paste')
+    const content = input.value
+    document.body.removeChild(input)
+    return content
+  }
 }
 
 // 将内容复制到剪切板，兼容非安全域场景
