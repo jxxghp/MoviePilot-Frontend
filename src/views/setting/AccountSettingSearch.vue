@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
+import { copyToClipboard, getClipboardContent } from '@/@core/utils/navigator'
 
 // 规则卡片类型
 interface FilterCard {
@@ -240,33 +241,33 @@ function shareRules() {
     .join('>')
 
   // 复制到剪切板
-  navigator.clipboard.writeText(value)
-    .then(() => {
-      $toast.success('优先级规则已复制到剪切板')
-    })
-    .catch(() => {
-      $toast.error('优先级规则复制失败！')
-    })
+  try {
+    copyToClipboard(value)
+    $toast.success('优先级规则已复制到剪切板')
+  }
+  catch (error) {
+    $toast.error('优先级规则复制失败！')
+  }
 }
 
 // 导入规则
-function importRules() {
-  // 从剪切板读取
-  navigator.clipboard.readText()
-    .then((value) => {
-      // 分割成数组
-      const groups = value.split('>')
-      // 生成规则卡片
-      filterCards.value = groups?.map((group: string, index: number) => {
-        return {
-          pri: (index + 1).toString(),
-          rules: group.split('&'),
-        }
-      })
+async function importRules() {
+  try {
+    // 从剪切板读取
+    const value = await getClipboardContent()
+    // 分割成数组
+    const groups = value.split('>')
+    // 生成规则卡片
+    filterCards.value = groups?.map((group: string, index: number) => {
+      return {
+        pri: (index + 1).toString(),
+        rules: group.split('&'),
+      }
     })
-    .catch(() => {
-      $toast.error('从剪切版读取规则失败！')
-    })
+  }
+  catch (error) {
+    $toast.error('从剪切板读取数据失败！')
+  }
 }
 
 onMounted(() => {
