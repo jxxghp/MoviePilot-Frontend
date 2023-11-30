@@ -262,6 +262,12 @@ watchEffect(() => {
   if (!importCodeString.value)
     return
 
+  // 导入代码需要以空格开头和结束，没有则拼接
+  if (!importCodeString.value.startsWith(' '))
+    importCodeString.value = ` ${importCodeString.value}`
+  if (!importCodeString.value.endsWith(' '))
+    importCodeString.value = `${importCodeString.value} `
+
   // 将导入的代码转换为规则卡片
   const groups = importCodeString.value.split('>')
   filterCards.value = groups.map((group: string, index: number) => {

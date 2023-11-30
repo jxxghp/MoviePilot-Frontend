@@ -295,6 +295,11 @@ watchEffect(() => {
     return
   if (!currentRuleType.value)
     return
+  // 导入代码需要以空格开头和结束，没有则拼接
+  if (!importCodeString.value.startsWith(' '))
+    importCodeString.value = ` ${importCodeString.value}`
+  if (!importCodeString.value.endsWith(' '))
+    importCodeString.value = `${importCodeString.value} `
   let filterCards: Ref<FilterCard[]>
   if (currentRuleType.value === 'SubscribeFilterRules')
     filterCards = subscribeFilterCards
