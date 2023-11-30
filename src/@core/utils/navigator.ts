@@ -1,12 +1,15 @@
 // 请求和获取剪切板内容
 export async function getClipboardContent() {
-  if (navigator.clipboard && window.isSecureContext) {
+  try {
     return await navigator.clipboard.readText()
   }
-  else {
+  catch (error) {
+    console.error('Unable to read clipboard using navigator.clipboard:', error)
+
+    // Fallback for older browsers or non-secure context
     const input = document.createElement('input')
     document.body.appendChild(input)
-    input.focus()
+    input.select()
     document.execCommand('paste')
     const content = input.value
     document.body.removeChild(input)
@@ -16,10 +19,13 @@ export async function getClipboardContent() {
 
 // 将内容复制到剪切板，兼容非安全域场景
 export async function copyToClipboard(content: string) {
-  if (navigator.clipboard && window.isSecureContext) {
+  try {
     await navigator.clipboard.writeText(content)
   }
-  else {
+  catch (error) {
+    console.error('Unable to write to clipboard using navigator.clipboard:', error)
+
+    // Fallback for older browsers or non-secure context
     const input = document.createElement('input')
     input.value = content
     document.body.appendChild(input)
