@@ -3,7 +3,8 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
-import { copyToClipboard, getClipboardContent } from '@/@core/utils/navigator'
+import { copyToClipboard } from '@/@core/utils/navigator'
+import ImportCodeForm from '@/components/form/ImportCodeForm.vue'
 
 // 规则卡片类型
 interface FilterCard {
@@ -30,6 +31,12 @@ const defaultFilterRules = ref({
   include: '',
   exclude: '',
 })
+
+// 导入代码弹窗
+const importCodeDialog = ref(false)
+
+// 导入的代码
+const importCodeString = ref('')
 
 // 查询已设置优先级规则
 async function queryCustomFilters() {
@@ -240,35 +247,30 @@ function shareRules() {
     .map(card => card.rules.join('&'))
     .join('>')
 
-  // 复制到剪切板
+  // 复制到剪贴板
   try {
     copyToClipboard(value)
-    $toast.success('优先级规则已复制到剪切板')
+    $toast.success('优先级规则已复制到剪贴板')
   }
   catch (error) {
     $toast.error('优先级规则复制失败！')
   }
 }
 
-// 导入规则
-async function importRules() {
-  try {
-    // 从剪切板读取
-    const value = await getClipboardContent()
-    // 分割成数组
-    const groups = value.split('>')
-    // 生成规则卡片
-    filterCards.value = groups?.map((group: string, index: number) => {
-      return {
-        pri: (index + 1).toString(),
-        rules: group.split('&'),
-      }
-    })
-  }
-  catch (error) {
-    $toast.error('从剪切板读取数据失败！')
-  }
-}
+// 监听导入代码变化
+watchEffect(() => {
+  if (!importCodeString.value)
+    return
+
+  // 将导入的代码转换为规则卡片
+  const groups = importCodeString.value.split('>')
+  filterCards.value = groups.map((group: string, index: number) => {
+    return {
+      pri: (index + 1).toString(),
+      rules: group.split('&'),
+    }
+  })
+})
 
 onMounted(() => {
   queryCustomFilters()
@@ -322,16 +324,16 @@ onMounted(() => {
                   <template #prepend>
                     <VIcon icon="mdi-share" />
                   </template>
-                  <VListItemTitle>分享规则</VListItemTitle>
+                  <VListItemTitle>分享</VListItemTitle>
                 </VListItem>
                 <VListItem
                   variant="plain"
-                  @click="importRules"
+                  @click="importCodeDialog = true"
                 >
                   <template #prepend>
                     <VIcon icon="mdi-import" />
                   </template>
-                  <VListItemTitle>从剪切板导入</VListItemTitle>
+                  <VListItemTitle>导入</VListItemTitle>
                 </VListItem>
               </VList>
             </VMenu>
@@ -405,6 +407,17 @@ onMounted(() => {
       </VCard>
     </VCol>
   </VRow>
+  <VDialog
+    v-model="importCodeDialog"
+    width="60rem"
+    scrollable
+  >
+    <ImportCodeForm
+      v-model="importCodeString"
+      title="导入优先级规则"
+      @close="importCodeDialog = false"
+    />
+  </VDialog>
 </template>
 
 <style lang="scss">
