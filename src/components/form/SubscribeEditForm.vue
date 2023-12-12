@@ -39,6 +39,7 @@ const subscribeForm = ref<Subscribe>({
   last_update: '',
   username: '',
   current_priority: 0,
+  save_path: ''
 })
 
 // 提示框
@@ -319,6 +320,17 @@ watchEffect(() => {
                 chips
                 label="订阅站点"
                 multiple
+              />
+            </VCol>
+          </VRow>
+           <VRow>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VTextField
+                v-model="subscribeForm.save_path"
+                label="保存路径"
               />
             </VCol>
           </VRow>
