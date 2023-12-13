@@ -2,6 +2,8 @@
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
+import noImage from '@images/logos/plugin.png'
+import { getDominantColor } from '@/@core/utils/image'
 
 // 输入参数
 const props = defineProps({
@@ -12,6 +14,12 @@ const props = defineProps({
 
 // 定义触发的自定义事件
 const emit = defineEmits(['install'])
+
+// 背景颜色
+const backgroundColor = ref('#28A9E1')
+
+// 图片对象
+const imageRef = ref<any>()
 
 // 提示框
 const $toast = useToast()
@@ -24,6 +32,17 @@ const progressText = ref('正在安装插件...')
 
 // 图片是否加载完成
 const isImageLoaded = ref(false)
+
+// 图片是否加载失败
+const imageLoadError = ref(false)
+
+// 图片加载完成
+async function imageLoaded() {
+  isImageLoaded.value = true
+  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
+  // 从图片中提取背景色
+  backgroundColor.value = await getDominantColor(imageElement)
+}
 
 // 安装插件
 async function installPlugin() {
@@ -61,11 +80,54 @@ async function installPlugin() {
 }
 
 // 计算图标路径
-const iconPath = computed(() => {
-  return props.plugin?.plugin_icon?.startsWith('http')
-    ? props.plugin?.plugin_icon
-    : `/plugin_icon/${props.plugin?.plugin_icon}`
+const iconPath: Ref<string> = computed(() => {
+  if (imageLoadError.value)
+    return noImage
+  // 如果是网络图片则使用代理后返回
+  if (props.plugin?.plugin_icon?.startsWith('http'))
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(props.plugin?.plugin_icon)}`
+
+  return `/plugin_icon/${props.plugin?.plugin_icon}`
 })
+
+// 访问插件页面
+function visitPluginPage() {
+  // 将raw.githubusercontent.com转换为项目地址
+  let repoUrl = props.plugin?.repo_url
+  if (repoUrl) {
+    if (repoUrl.includes('raw.githubusercontent.com')) {
+      if (!repoUrl.endsWith('/'))
+        repoUrl += '/'
+
+      if (repoUrl.split('/').length < 6)
+        repoUrl = `${repoUrl}main/`
+
+      try {
+        const [user, repo] = repoUrl.split('/').slice(-4, -2)
+        repoUrl = `https://github.com/${user}/${repo}`
+      }
+      catch (error) {
+        return
+      }
+    }
+  }
+  else {
+    repoUrl = props.plugin?.author_url
+  }
+  window.open(repoUrl, '_blank')
+}
+
+// 弹出菜单
+const dropdownItems = ref([
+  {
+    title: '查看详情',
+    value: 1,
+    props: {
+      prependIcon: 'mdi-information-outline',
+      click: visitPluginPage,
+    },
+  },
+])
 </script>
 
 <template>
@@ -76,11 +138,34 @@ const iconPath = computed(() => {
   >
     <div
       class="relative pa-4 text-center card-cover-blurred"
-      :style="{ background: `${props.plugin?.plugin_color}` }"
+      :style="{ background: `${backgroundColor}` }"
     >
+      <div class="me-n3 absolute top-0 right-3">
+        <IconBtn>
+          <VIcon icon="mdi-dots-vertical" class="text-white" />
+          <VMenu
+            activator="parent"
+            close-on-content-click
+          >
+            <VList>
+              <VListItem
+                v-for="(item, i) in dropdownItems"
+                :key="i"
+                variant="plain"
+                @click="item.props.click"
+              >
+                <template #prepend>
+                  <VIcon :icon="item.props.prependIcon" />
+                </template>
+                <VListItemTitle v-text="item.title" />
+              </VListItem>
+            </VList>
+          </VMenu>
+        </IconBtn>
+      </div>
       <div
         v-if="props.plugin?.has_update"
-        class="me-n3 absolute top-0 right-5"
+        class="me-n3 absolute top-0 left-1"
       >
         <VIcon
           icon="mdi-new-box"
@@ -91,11 +176,13 @@ const iconPath = computed(() => {
         size="8rem"
       >
         <VImg
+          ref="imageRef"
           :src="iconPath"
           aspect-ratio="4/3"
           cover
           :class="{ shadow: isImageLoaded }"
-          @load="isImageLoaded = true"
+          @load="imageLoaded"
+          @error="imageLoadError = true"
         />
       </VAvatar>
     </div>

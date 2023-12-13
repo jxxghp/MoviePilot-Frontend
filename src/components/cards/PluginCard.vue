@@ -6,6 +6,8 @@ import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
 import PageRender from '@/components/render/PageRender.vue'
 import { isNullOrEmptyObject } from '@core/utils'
+import noImage from '@images/logos/plugin.png'
+import { getDominantColor } from '@/@core/utils/image'
 
 // 输入参数
 const props = defineProps({
@@ -16,6 +18,12 @@ const props = defineProps({
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
+
+// 背景颜色
+const backgroundColor = ref('#28A9E1')
+
+// 图片对象
+const imageRef = ref<any>()
 
 // 提示框
 const $toast = useToast()
@@ -35,14 +43,25 @@ const pluginConfigForm = ref({})
 // 插件表单配置项
 let pluginFormItems = reactive([])
 
-// 插件详情页面
+// 插件数据页面
 const pluginInfoDialog = ref(false)
 
-// 插件详情页面配置项
+// 插件数据页面配置项
 let pluginPageItems = reactive([])
 
 // 图片是否加载完成
 const isImageLoaded = ref(false)
+
+// 图片是否加载失败
+const imageLoadError = ref(false)
+
+// 图片加载完成
+async function imageLoaded() {
+  isImageLoaded.value = true
+  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
+  // 从图片中提取背景色
+  backgroundColor.value = await getDominantColor(imageElement)
+}
 
 // 调用API卸载插件
 async function uninstallPlugin() {
@@ -94,7 +113,7 @@ async function loadPluginForm() {
   }
 }
 
-// 调用API读取详情页面
+// 调用API读取数据页面
 async function loadPluginPage() {
   try {
     const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
@@ -137,9 +156,9 @@ async function savePluginConf() {
   }
 }
 
-// 显示插件详情
+// 显示插件数据
 async function showPluginInfo() {
-  // 加载详情
+  // 加载数据
   await loadPluginPage()
   pluginConfigDialog.value = false
   pluginInfoDialog.value = true
@@ -157,10 +176,14 @@ async function showPluginConfig() {
 }
 
 // 计算图标路径
-const iconPath = computed(() => {
-  return props.plugin?.plugin_icon?.startsWith('http')
-    ? props.plugin?.plugin_icon
-    : `/plugin_icon/${props.plugin?.plugin_icon}`
+const iconPath: Ref<string> = computed(() => {
+  if (imageLoadError.value)
+    return noImage
+  // 如果是网络图片则使用代理后返回
+  if (props.plugin?.plugin_icon?.startsWith('http'))
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(props.plugin?.plugin_icon)}`
+
+  return `/plugin_icon/${props.plugin?.plugin_icon}`
 })
 
 // 重置插件
@@ -197,10 +220,15 @@ async function resetPlugin() {
   }
 }
 
+// 访问作者主页
+function visitAuthorPage() {
+  window.open(props.plugin?.author_url, '_blank')
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '查看详情',
+    title: '查看数据',
     value: 1,
     show: props.plugin?.has_page,
     props: {
@@ -209,7 +237,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '配置',
+    title: '设置',
     value: 2,
     show: true,
     props: {
@@ -237,6 +265,15 @@ const dropdownItems = ref([
       click: uninstallPlugin,
     },
   },
+  {
+    title: '作者主页',
+    value: 4,
+    show: true,
+    props: {
+      prependIcon: 'mdi-home-circle-outline',
+      click: visitAuthorPage,
+    },
+  },
 ])
 </script>
 
@@ -255,7 +292,7 @@ const dropdownItems = ref([
   >
     <div
       class="relative pa-4 text-center card-cover-blurred"
-      :style="{ background: `${props.plugin?.plugin_color}` }"
+      :style="{ background: `${backgroundColor}` }"
     >
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
@@ -286,10 +323,13 @@ const dropdownItems = ref([
         size="8rem"
       >
         <VImg
+          ref="imageRef"
           :src="iconPath"
           aspect-ratio="4/3"
           cover
           :class="{ shadow: isImageLoaded }"
+          @load="imageLoaded"
+          @error="imageLoadError = true"
         />
       </VAvatar>
     </div>
@@ -324,7 +364,7 @@ const dropdownItems = ref([
       </VCardText>
       <VCardActions>
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
-          查看详情
+          查看数据
         </VBtn>
         <VSpacer />
         <VBtn
@@ -337,7 +377,7 @@ const dropdownItems = ref([
     </VCard>
   </VDialog>
 
-  <!-- 插件详情页面 -->
+  <!-- 插件数据页面 -->
   <VDialog
     v-model="pluginInfoDialog"
     scrollable

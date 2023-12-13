@@ -173,7 +173,7 @@ onMounted(() => {
           <VAlert
             type="info"
             variant="tonal"
-            title="支持的配置格式："
+            title="支持的配置格式（注意空格）："
           >
             <span
               v-html="`

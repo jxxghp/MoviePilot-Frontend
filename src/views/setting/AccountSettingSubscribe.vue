@@ -3,6 +3,8 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
+import { copyToClipboard } from '@/@core/utils/navigator'
+import ImportCodeForm from '@/components/form/ImportCodeForm.vue'
 
 // 规则卡片类型
 interface FilterCard {
@@ -27,11 +29,20 @@ const allSites = ref<Site[]>([])
 // 选中订阅站点
 const selectedRssSites = ref<number[]>([])
 
+// 当前规则类型
+const currentRuleType = ref('SubscribeFilterRules')
+
 // 包含与排除规则
 const defaultFilterRules = ref({
   include: '',
   exclude: '',
 })
+
+// 导入代码弹窗
+const importCodeDialog = ref(false)
+
+// 导入的代码
+const importCodeString = ref('')
 
 // 查询用户选中的订阅站点
 async function querySelectedRssSites() {
@@ -244,6 +255,66 @@ async function saveDefaultFilter() {
   }
 }
 
+// 分享规则
+function shareRules(ruleType: string) {
+  let filterCards: Ref<FilterCard[]>
+  if (ruleType === 'SubscribeFilterRules')
+    filterCards = subscribeFilterCards
+  else
+    filterCards = bestVersionFilterCards
+  // 有值才处理
+  if (filterCards.value.length === 0)
+    return
+
+  // 将卡片规则接装为字符串
+  const value = filterCards.value
+    .filter(card => card.rules.length > 0)
+    .map(card => card.rules.join('&'))
+    .join('>')
+
+  // 复制到剪贴板
+  try {
+    copyToClipboard(value)
+    $toast.success('优先级规则已复制到剪贴板')
+  }
+  catch (error) {
+    $toast.error('优先级规则复制失败！')
+  }
+}
+
+// 导入规则
+async function importRules(ruleType: string) {
+  currentRuleType.value = ruleType
+  importCodeString.value = ''
+  importCodeDialog.value = true
+}
+
+// 监听导入代码变化
+watchEffect(() => {
+  if (!importCodeString.value)
+    return
+  if (!currentRuleType.value)
+    return
+  // 导入代码需要以空格开头和结束，没有则拼接
+  if (!importCodeString.value.startsWith(' '))
+    importCodeString.value = ` ${importCodeString.value}`
+  if (!importCodeString.value.endsWith(' '))
+    importCodeString.value = `${importCodeString.value} `
+  let filterCards: Ref<FilterCard[]>
+  if (currentRuleType.value === 'SubscribeFilterRules')
+    filterCards = subscribeFilterCards
+  else
+    filterCards = bestVersionFilterCards
+  // 将导入的代码转换为规则卡片
+  const groups = importCodeString.value.split('>')
+  filterCards.value = groups.map((group: string, index: number) => {
+    return {
+      pri: (index + 1).toString(),
+      rules: group.split('&'),
+    }
+  })
+})
+
 onMounted(() => {
   querySites()
   queryCustomFilters('SubscribeFilterRules')
@@ -282,6 +353,36 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="订阅优先级">
+        <template #append>
+          <IconBtn>
+            <VIcon icon="mdi-dots-vertical" />
+            <VMenu
+              activator="parent"
+              close-on-content-click
+            >
+              <VList>
+                <VListItem
+                  variant="plain"
+                  @click="shareRules('SubscribeFilterRules')"
+                >
+                  <template #prepend>
+                    <VIcon icon="mdi-share" />
+                  </template>
+                  <VListItemTitle>分享</VListItemTitle>
+                </VListItem>
+                <VListItem
+                  variant="plain"
+                  @click="importRules('SubscribeFilterRules')"
+                >
+                  <template #prepend>
+                    <VIcon icon="mdi-import" />
+                  </template>
+                  <VListItemTitle>导入</VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
+          </IconBtn>
+        </template>
         <VCardSubtitle> 设置在正常订阅时默认使用的优先级，未在优先级中的资源将不会自动下载。 </VCardSubtitle>
         <VCardItem>
           <div class="grid gap-3 grid-filterrule-card">
@@ -318,6 +419,36 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="洗版优先级">
+        <template #append>
+          <IconBtn>
+            <VIcon icon="mdi-dots-vertical" />
+            <VMenu
+              activator="parent"
+              close-on-content-click
+            >
+              <VList>
+                <VListItem
+                  variant="plain"
+                  @click="shareRules('BestVersionFilterRules')"
+                >
+                  <template #prepend>
+                    <VIcon icon="mdi-share" />
+                  </template>
+                  <VListItemTitle>分享</VListItemTitle>
+                </VListItem>
+                <VListItem
+                  variant="plain"
+                  @click="importRules('BestVersionFilterRules')"
+                >
+                  <template #prepend>
+                    <VIcon icon="mdi-import" />
+                  </template>
+                  <VListItemTitle>导入</VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
+          </IconBtn>
+        </template>
         <VCardSubtitle> 设置在订阅洗版时使用的优先级，匹配优先级1时洗版完成。 </VCardSubtitle>
         <VCardItem>
           <div class="grid gap-3 grid-filterrule-card">
@@ -386,6 +517,17 @@ onMounted(() => {
       </VCard>
     </VCol>
   </VRow>
+  <VDialog
+    v-model="importCodeDialog"
+    width="60rem"
+    scrollable
+  >
+    <ImportCodeForm
+      v-model="importCodeString"
+      title="导入优先级规则"
+      @close="importCodeDialog = false"
+    />
+  </VDialog>
 </template>
 
 <style lang="scss">

@@ -540,9 +540,6 @@ export interface Plugin {
   // 插件图标
   plugin_icon?: string
 
-  // 主题色
-  plugin_color?: string
-
   // 插件版本
   plugin_version?: string
 

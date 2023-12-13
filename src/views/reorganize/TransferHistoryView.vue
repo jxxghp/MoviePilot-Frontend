@@ -40,6 +40,9 @@ const dataList = ref<TransferHistory[]>([])
 // 搜索
 const search = ref('')
 
+// 搜索提示词列表
+const searchHintList = ref<string[]>([])
+
 // 加载状态
 const loading = ref(false)
 
@@ -89,6 +92,7 @@ async function fetchData({
 
     dataList.value = result.data.list
     totalItems.value = result.data.total
+    searchHintList.value = [...new Set(dataList.value.map(item => item.title || ''))].filter(title => title !== '')
   }
   catch (error) {
     console.error(error)
@@ -294,9 +298,10 @@ const dropdownItems = ref([
         <VRow>
           <VCol> 历史记录 </VCol>
           <VCol>
-            <VTextField
+            <VCombobox
               key="search_navbar"
               v-model="search"
+              :items="searchHintList"
               class="text-disabled"
               density="compact"
               label="搜索"
@@ -306,6 +311,7 @@ const dropdownItems = ref([
               hide-details
               flat
               rounded
+              clearable
             />
           </VCol>
         </VRow>
