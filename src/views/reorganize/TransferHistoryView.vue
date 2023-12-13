@@ -219,10 +219,30 @@ async function retransferBatch() {
   // 重新整理IDS
   redoIds.value = selected.value.map(item => item.id)
   // 重新整理target
-  if (selected.value.length === 1)
-    redoTarget.value = selected.value[0].dest ?? ''
-  else
+  if (selected.value.length === 1) {
+    // 目的目录
+    const dest = selected.value[0].dest ?? ''
+    // 类型
+    const mediaType = selected.value[0].type
+    // 分类
+    const category = selected.value[0].category
+    if (dest) {
+      let index = -2
+      if (mediaType !== '电影')
+        index = -3
+
+      if (category)
+        index -= 1
+      // 截取路径
+      redoTarget.value = dest.split('/').slice(0, index).join('/')
+    }
+    else {
+      redoTarget.value = ''
+    }
+  }
+  else {
     redoTarget.value = ''
+  }
   // 打开识别弹窗
   redoDialog.value = true
 }
@@ -236,7 +256,19 @@ const dropdownItems = ref([
       prependIcon: 'mdi-redo-variant',
       click: (item: TransferHistory) => {
         redoIds.value = [item.id]
-        redoTarget.value = item.dest ?? ''
+        if (item.dest) {
+          let index = -2
+          if (item.type !== '电影')
+            index = -3
+
+          if (item.category)
+            index -= 1
+
+          redoTarget.value = item.dest.split('/').slice(0, index).join('/')
+        }
+        else {
+          redoTarget.value = ''
+        }
         redoDialog.value = true
       },
     },
