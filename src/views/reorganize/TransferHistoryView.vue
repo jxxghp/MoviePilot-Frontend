@@ -214,6 +214,21 @@ async function removeHistoryBatch() {
   deleteConfirmDialog.value = true
 }
 
+// 计算根路径
+function getRootPath(path: string, type: string, category: string) {
+  if (!path)
+    return ''
+  let index = -2
+  if (type !== '电影')
+    index = -3
+  if (category)
+    index -= 1
+  if (path.includes('/'))
+    return path.split('/').slice(0, index).join('/')
+  else
+    return path.split('\\').slice(0, index).join('\\')
+}
+
 // 批量重新整理
 async function retransferBatch() {
   if (selected.value.length === 0)
@@ -227,22 +242,11 @@ async function retransferBatch() {
     // 目的目录
     const dest = selected.value[0].dest ?? ''
     // 类型
-    const mediaType = selected.value[0].type
+    const mediaType = selected.value[0].type ?? ''
     // 分类
-    const category = selected.value[0].category
-    if (dest) {
-      let index = -2
-      if (mediaType !== '电影')
-        index = -3
-
-      if (category)
-        index -= 1
-      // 截取路径
-      redoTarget.value = dest.split('/').slice(0, index).join('/')
-    }
-    else {
-      redoTarget.value = ''
-    }
+    const category = selected.value[0].category ?? ''
+    // 计算根路径
+    redoTarget.value = getRootPath(dest, mediaType, category)
   }
   else {
     redoTarget.value = ''
@@ -260,19 +264,7 @@ const dropdownItems = ref([
       prependIcon: 'mdi-redo-variant',
       click: (item: TransferHistory) => {
         redoIds.value = [item.id]
-        if (item.dest) {
-          let index = -2
-          if (item.type !== '电影')
-            index = -3
-
-          if (item.category)
-            index -= 1
-
-          redoTarget.value = item.dest.split('/').slice(0, index).join('/')
-        }
-        else {
-          redoTarget.value = ''
-        }
+        redoTarget.value = getRootPath(item.dest ?? '', item.type ?? '', item.category ?? '')
         redoDialog.value = true
       },
     },
