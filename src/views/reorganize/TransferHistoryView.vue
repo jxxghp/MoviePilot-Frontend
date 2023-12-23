@@ -38,7 +38,7 @@ const headers = [
 const dataList = ref<TransferHistory[]>([])
 
 // 搜索
-const search = ref('')
+const search = ref()
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -92,7 +92,7 @@ async function fetchData({
 
     dataList.value = result.data.list
     totalItems.value = result.data.total
-    searchHintList.value = [...new Set(dataList.value.map(item => item.title || ''))].filter(title => title !== '')
+    searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(title => title !== '')
   }
   catch (error) {
     console.error(error)
@@ -288,15 +288,17 @@ const dropdownItems = ref([
     <VCardItem>
       <VCardTitle>
         <VRow>
-          <VCol> 历史记录 </VCol>
-          <VCol>
+          <VCol cols="4" md="6">
+            历史记录
+          </VCol>
+          <VCol cols="8" md="6">
             <VCombobox
               key="search_navbar"
               v-model="search"
               :items="searchHintList"
               class="text-disabled"
               density="compact"
-              label="搜索"
+              label="搜索标题、状态"
               append-inner-icon="mdi-magnify"
               variant="solo-filled"
               single-line
