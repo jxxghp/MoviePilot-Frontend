@@ -39,7 +39,7 @@ const subscribeForm = ref<Subscribe>({
   last_update: '',
   username: '',
   current_priority: 0,
-  save_path: ''
+  save_path: '',
 })
 
 // 提示框
@@ -323,7 +323,7 @@ watchEffect(() => {
               />
             </VCol>
           </VRow>
-           <VRow>
+          <VRow>
             <VCol
               cols="12"
               md="4"

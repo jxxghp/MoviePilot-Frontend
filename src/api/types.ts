@@ -82,6 +82,9 @@ export interface Subscribe {
 
   // 当前优先级
   current_priority: number
+
+  // 保存目录
+  save_path: string
 }
 
 // 历史记录
