@@ -31,7 +31,7 @@ export default {
     elevation: 0,
   },
   VList: {
-    activeColor: 'primary',
+    color: 'primary',
   },
   VPagination: {
     activeColor: 'primary',
