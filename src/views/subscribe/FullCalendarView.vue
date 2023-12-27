@@ -176,6 +176,7 @@ onMounted(() => {
                 </div>
               </template>
               <VChip
+                v-if="arg.event.extendedProps.len > 1"
                 variant="elevated"
                 size="mini"
                 class="absolute right-1 top-1 bg-opacity-80 shadow-md text-white font-bold border-purple-600 bg-purple-600"
