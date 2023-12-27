@@ -179,7 +179,7 @@ onMounted(() => {
                 v-if="arg.event.extendedProps.len > 1"
                 variant="elevated"
                 size="mini"
-                class="absolute right-1 top-1 bg-opacity-80 shadow-md text-white font-bold border-purple-600 bg-purple-600"
+                class="absolute right-0.5 top-0.5 bg-opacity-80 shadow-md text-white font-bold border-purple-600 bg-purple-600"
               >
                 {{ arg.event.extendedProps.len }}
               </VChip>
