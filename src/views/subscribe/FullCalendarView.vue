@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+<script lang='ts' setup>
 import type { CalendarOptions, EventSourceInput } from '@fullcalendar/core'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -48,24 +48,54 @@ async function eventsHander(subscribe: Subscribe | Rss) {
       allDay: false,
       posterPath: subscribe.poster,
       mediaType: subscribe.type,
+      len: 1,
     }
   }
   else {
     // 调用API查询集信息
     const episodes: TmdbEpisode[] = await api.get(
-            `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
+      `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
     )
 
-    return episodes.map((episode) => {
-      return {
-        title: subscribe.name,
-        subtitle: `第 ${episode.episode_number} 集`,
-        start: parseDate(episode.air_date || ''),
-        allDay: false,
-        posterPath: subscribe.poster,
-        mediaType: subscribe.type,
+    interface EpisodeInfo {
+      title: string
+      subtitle: string
+      start: Date | null
+      allDay: boolean
+      posterPath: string
+      mediaType: string
+      len: number
+    }
+
+    interface EpisodesDictionary {
+      [key: string]: EpisodeInfo
+    }
+
+    const dictEpisode: EpisodesDictionary = {}
+    episodes.forEach((episode: TmdbEpisode) => {
+      const air_date = episode.air_date ?? ''
+      if (dictEpisode[air_date]) {
+        dictEpisode[air_date].subtitle += `,${episode.episode_number}`
+        dictEpisode[air_date].len++
+      }
+      else {
+        dictEpisode[air_date] = {
+          title: subscribe.name,
+          subtitle: `第${episode.episode_number}`,
+          start: parseDate(episode.air_date || ''),
+          allDay: false,
+          posterPath: subscribe.poster,
+          mediaType: subscribe.type,
+          len: 1,
+        }
       }
     })
+    for (const key in dictEpisode) {
+      if (dictEpisode.hasOwnProperty(key))
+        dictEpisode[key].subtitle += '集'
+    }
+
+    return Object.values(dictEpisode)
   }
 }
 
@@ -115,10 +145,13 @@ onMounted(() => {
               </VImg>
             </div>
             <div>
-              <VCardSubtitle class="pa-2 font-bold break-words whitespace-break-spaces">
+              <VCardSubtitle class="pa-1 px-2 font-bold break-words whitespace-break-spaces">
                 {{ arg.event.title }}
               </VCardSubtitle>
               <VCardText class="pa-0 px-2">
+                {{ arg.event.extendedProps.len }}集
+              </VCardText>
+              <VCardText class="pa-0 px-2 break-words">
                 {{ arg.event.extendedProps.subtitle }}
               </VCardText>
             </div>
@@ -142,6 +175,14 @@ onMounted(() => {
                   <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
                 </div>
               </template>
+              <VChip
+                v-if="arg.event.extendedProps.len > 1"
+                variant="elevated"
+                size="mini"
+                class="absolute right-0.5 top-0.5 bg-opacity-80 shadow-md text-white font-bold border-purple-600 bg-purple-600"
+              >
+                {{ arg.event.extendedProps.len }}
+              </VChip>
             </VImg>
           </template>
         </VTooltip>
@@ -150,7 +191,7 @@ onMounted(() => {
   </FullCalendar>
 </template>
 
-<style lang="scss">
+<style lang='scss'>
 .v-application .fc {
   --fc-today-bg-color: rgba(var(--v-theme-on-surface), 0.04);
   --fc-border-color: rgba(var(--v-border-color), var(--v-border-opacity));
@@ -253,10 +294,10 @@ onMounted(() => {
 .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-button-primary,
 .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-button-primary:hover,
 .v-application
-  .fc
-  .fc-toolbar-chunk
-  .fc-button-group
-  .fc-button-primary:not(.disabled):active {
+.fc
+.fc-toolbar-chunk
+.fc-button-group
+.fc-button-primary:not(.disabled):active {
   border-color: transparent;
   background-color: transparent;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
@@ -281,19 +322,18 @@ onMounted(() => {
 }
 
 .v-application
-  .fc
-  .fc-toolbar-chunk:last-child
-  .fc-button-group
-  .fc-button:not(:last-child) {
-  border-inline-end: 0.0625rem solid
-    rgba(var(--v-theme-primary), var(--v-overlay-scrim-opacity));
+.fc
+.fc-toolbar-chunk:last-child
+.fc-button-group
+.fc-button:not(:last-child) {
+  border-inline-end: 0.0625rem solid rgba(var(--v-theme-primary), var(--v-overlay-scrim-opacity));
 }
 
 .v-application
-  .fc
-  .fc-toolbar-chunk:last-child
-  .fc-button-group
-  .fc-button.fc-button-active {
+.fc
+.fc-toolbar-chunk:last-child
+.fc-button-group
+.fc-button.fc-button-active {
   background-color: rgba(var(--v-theme-primary), var(--v-activated-opacity));
   color: rgb(var(--v-theme-primary));
 }
@@ -359,8 +399,8 @@ onMounted(() => {
 .v-application .fc .fc-popover {
   border-radius: 6px;
   box-shadow: 0 4px 14px -4px var(--v-shadow-key-umbra-opacity),
-    0 4px 8px -4px var(--v-shadow-key-penumbra-opacity),
-    0 4px 8px -4px var(--v-shadow-key-ambient-opacity);
+  0 4px 8px -4px var(--v-shadow-key-penumbra-opacity),
+  0 4px 8px -4px var(--v-shadow-key-ambient-opacity);
 }
 
 .v-application .fc .fc-popover .fc-popover-header,
@@ -400,11 +440,11 @@ onMounted(() => {
 }
 
 .v-theme--dark
-  .v-application
-  .fc
-  .fc-toolbar-chunk
-  .fc-button-group
-  .fc-drawerToggler-button {
+.v-application
+.fc
+.fc-toolbar-chunk
+.fc-button-group
+.fc-drawerToggler-button {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' stroke='rgba(232,232,241,0.68)' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round' class='css-i6dzq1'%3E%3Cpath d='M3 12h18M3 6h18M3 18h18'/%3E%3C/svg%3E");
 }
 
