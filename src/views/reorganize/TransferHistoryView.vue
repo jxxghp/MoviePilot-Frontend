@@ -25,13 +25,36 @@ const selected = ref<TransferHistory[]>([])
 
 // 表头
 const headers = [
-  { title: '标题', key: 'title', sortable: false },
-  { title: '目录', key: 'src', sortable: false },
-  { title: '转移方式', key: 'mode', sortable: false },
-  { title: '时间', key: 'date', sortable: false },
-  { title: '状态', key: 'status', sortable: false },
-  { title: '失败原因', key: 'errmsg', sortable: false },
-  { title: '', key: 'actions', sortable: false },
+  {
+    title: '标题',
+    key: 'title',
+    sortable: false,
+  },
+  {
+    title: '目录',
+    key: 'src',
+    sortable: false,
+  },
+  {
+    title: '转移方式',
+    key: 'mode',
+    sortable: false,
+  },
+  {
+    title: '时间',
+    key: 'date',
+    sortable: false,
+  },
+  {
+    title: '状态',
+    key: 'status',
+    sortable: false,
+  },
+  {
+    title: '',
+    key: 'actions',
+    sortable: false,
+  },
 ]
 
 // 数据列表
@@ -71,13 +94,7 @@ const deleteConfirmDialog = ref(false)
 const confirmTitle = ref('')
 
 // 获取订阅列表数据
-async function fetchData({
-  page,
-  itemsPerPage,
-}: {
-  page: number
-  itemsPerPage: number
-}) {
+async function fetchData({ page, itemsPerPage }: { page: number; itemsPerPage: number }) {
   loading.value = true
   try {
     currentPage.value = page
@@ -92,7 +109,9 @@ async function fetchData({
 
     dataList.value = result.data.list
     totalItems.value = result.data.total
-    searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(title => title !== '')
+    searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(
+      title => title !== '',
+    )
   }
   catch (error) {
     console.error(error)
@@ -108,11 +127,6 @@ function getIcon(type: string) {
     return 'mdi-television-classic'
   else
     return 'mdi-help-circle'
-}
-
-// 计算颜色
-function getStatusColor(status: boolean) {
-  return status ? 'success' : 'error'
 }
 
 // 转移方式字典
@@ -136,7 +150,9 @@ async function removeHistory(item: TransferHistory) {
 async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boolean) {
   try {
     // 调用删除API
-    const result: { [key: string]: any } = await api.delete(`history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`, {
+    const result: {
+      [key: string]: any
+    } = await api.delete(`history/transfer?deletesrc=${deleteSrc}&deletedest=${deleteDest}`, {
       data: item,
     })
 
@@ -154,6 +170,7 @@ async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   deleteConfirmDialog.value = false
   if (!currentHistory.value)
     return
+
   // 删除
   await remove(currentHistory.value, deleteSrc, deleteDest)
   // 刷新
@@ -171,6 +188,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   const total = selected.value.length
   if (total === 0)
     return
+
   // 已处理条数
   let handled = 0
   // 显示进度条
@@ -182,7 +200,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
     await remove(item, deleteSrc, deleteDest)
     // 删除完成
     handled++
-    progressValue.value = handled / total * 100
+    progressValue.value = (handled / total) * 100
   }
   // 清空选中项
   selected.value = []
@@ -207,6 +225,7 @@ async function deleteConfirmHandler(deleteSrc: boolean, deleteDest: boolean) {
 async function removeHistoryBatch() {
   if (selected.value.length === 0)
     return
+
   // 清空当前操作记录
   currentHistory.value = undefined
   confirmTitle.value = `确认删除 ${selected.value.length} 条记录 ?`
@@ -218,11 +237,14 @@ async function removeHistoryBatch() {
 function getRootPath(path: string, type: string, category: string) {
   if (!path)
     return ''
+
   let index = -2
   if (type !== '电影')
     index = -3
+
   if (category)
     index -= 1
+
   if (path.includes('/'))
     return path.split('/').slice(0, index).join('/')
   else
@@ -233,6 +255,7 @@ function getRootPath(path: string, type: string, category: string) {
 async function retransferBatch() {
   if (selected.value.length === 0)
     return
+
   // 清空当前操作记录
   currentHistory.value = undefined
   // 重新整理IDS
@@ -329,58 +352,52 @@ const dropdownItems = ref([
       @update:options="fetchData"
     >
       <template #item.title="{ item }">
-        <div class="d-flex">
-          <VAvatar><VIcon :icon="getIcon(item.raw.type || '')" /></VAvatar>
+        <div class="d-flex align-center">
+          <VAvatar>
+            <VIcon :icon="getIcon(item.value.type || '')" />
+          </VAvatar>
           <div class="d-flex flex-column ms-1">
             <span class="d-block whitespace-nowrap text-high-emphasis">
-              {{ item.raw.title }} {{ item.raw.seasons }}{{ item.raw.episodes }}
+              {{ item.value.title }} {{ item.value.seasons }}{{ item.value.episodes }}
             </span>
-            <small>{{ item.raw.category }}</small>
+            <small>{{ item.value.category }}</small>
           </div>
         </div>
       </template>
       <template #item.src="{ item }">
-        <small>{{ item.raw.src }} <br>=> {{ item.raw.dest }}</small>
+        <small>{{ item.value.src }} <br>=> {{ item.value.dest }}</small>
       </template>
       <template #item.mode="{ item }">
-        <VChip
-          variant="outlined"
-          color="primary"
-          size="small"
-        >
-          {{
-            TransferDict[item.raw.mode]
-          }}
+        <VChip variant="outlined" color="primary" size="small">
+          {{ TransferDict[item.value.mode] }}
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <VChip
-          :color="getStatusColor(item.raw.status)"
-          size="small"
-        >
-          {{ item.raw.status ? "成功" : "失败" }}
+        <VChip v-if="item.value.status" color="success" size="small">
+          成功
         </VChip>
+        <v-tooltip v-else :text="item.value.errmsg">
+          <template #activator="{ props }">
+            <VChip v-bind="props" color="error" size="small">
+              失败
+            </VChip>
+          </template>
+        </v-tooltip>
       </template>
       <template #item.date="{ item }">
-        <small>{{ item.raw.date }}</small>
-      </template>
-      <template #item.errmsg="{ item }">
-        <small class="text-error">{{ item.raw.errmsg }}</small>
+        <small>{{ item.value.date }}</small>
       </template>
       <template #item.actions="{ item }">
         <IconBtn>
           <VIcon icon="mdi-dots-vertical" />
-          <VMenu
-            activator="parent"
-            close-on-content-click
-          >
+          <VMenu activator="parent" close-on-content-click>
             <VList>
               <VListItem
                 v-for="(menu, i) in dropdownItems"
                 :key="i"
                 variant="plain"
                 :base-color="menu.props.color"
-                @click="menu.props.click(item.raw)"
+                @click="menu.props.click(item.value)"
               >
                 <template #prepend>
                   <VIcon :icon="menu.props.prependIcon" />
@@ -397,23 +414,9 @@ const dropdownItems = ref([
     </VDataTableServer>
   </VCard>
   <!-- 底部操作按钮 -->
-  <span
-    v-if="selected.length > 0"
-    class="fixed right-5 bottom-5"
-  >
-    <VBtn
-      icon="mdi-redo-variant"
-      class="me-2"
-      color="primary"
-      size="x-large"
-      @click="retransferBatch"
-    />
-    <VBtn
-      icon="mdi-trash-can-outline"
-      color="error"
-      size="x-large"
-      @click="removeHistoryBatch"
-    />
+  <span v-if="selected.length > 0" class="fixed right-5 bottom-5">
+    <VBtn icon="mdi-redo-variant" class="me-2" color="primary" size="x-large" @click="retransferBatch" />
+    <VBtn icon="mdi-trash-can-outline" color="error" size="x-large" @click="removeHistoryBatch" />
   </span>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
@@ -422,33 +425,17 @@ const dropdownItems = ref([
       <VCardTitle class="pe-10">
         {{ confirmTitle }}
       </VCardTitle>
-      <div class="d-flex  flex-column flex-lg-row justify-center my-3">
-        <VBtn
-          color="primary"
-          class="mb-2 mx-2"
-          @click="deleteConfirmHandler(false, false)"
-        >
+      <div class="d-flex flex-column flex-lg-row justify-center my-3">
+        <VBtn color="primary" class="mb-2 mx-2" @click="deleteConfirmHandler(false, false)">
           仅删除历史记录
         </VBtn>
-        <VBtn
-          color="warning"
-          class="mb-2 mx-2"
-          @click="deleteConfirmHandler(true, false)"
-        >
+        <VBtn color="warning" class="mb-2 mx-2" @click="deleteConfirmHandler(true, false)">
           删除历史记录和源文件
         </VBtn>
-        <VBtn
-          color="info"
-          class="mb-2 mx-2"
-          @click="deleteConfirmHandler(false, true)"
-        >
+        <VBtn color="info" class="mb-2 mx-2" @click="deleteConfirmHandler(false, true)">
           删除历史记录和媒体库文件
         </VBtn>
-        <VBtn
-          color="error"
-          class="mb-2 mx-2"
-          @click="deleteConfirmHandler(true, true)"
-        >
+        <VBtn color="error" class="mb-2 mx-2" @click="deleteConfirmHandler(true, true)">
           删除历史记录、源文件和媒体库文件
         </VBtn>
       </div>
@@ -459,17 +446,19 @@ const dropdownItems = ref([
     v-model="redoDialog"
     :logids="redoIds"
     :target="redoTarget"
-    @done="() => {
-      redoDialog = false
-      // 清空当前操作记录
-      currentHistory = undefined
-      selected = []
-      // 刷新
-      fetchData({
-        page: currentPage,
-        itemsPerPage,
-      })
-    }"
+    @done="
+      () => {
+        redoDialog = false
+        // 清空当前操作记录
+        currentHistory = undefined
+        selected = []
+        // 刷新
+        fetchData({
+          page: currentPage,
+          itemsPerPage,
+        })
+      }
+    "
     @close="redoDialog = false"
   />
 </template>

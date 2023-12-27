@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ref } from 'vue'
 import type { Context } from '@/api/types'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
 
@@ -27,7 +28,7 @@ const filterForm = reactive({
 })
 
 // 数据列表
-const dataList = ref <Array<Context>>([])
+const dataList = ref<Array<Context>>([])
 
 // 获取站点过滤选项
 const siteFilterOptions = ref<Array<string>>([])
@@ -62,7 +63,7 @@ function initOptions(data: Context) {
 // 计算过滤后的列表
 watchEffect(() => {
   // 清空列表
-  dataList.value.splice(0)
+  dataList.value = []
   // 匹配过滤函数
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
@@ -72,18 +73,18 @@ watchEffect(() => {
     if (
       // 站点过滤
       match(filterForm.site, torrent_info.site_name)
-        // 促销状态过滤
-        && match(filterForm.freeState, torrent_info.volume_factor)
-        // 季过滤
-        && match(filterForm.season, meta_info.season_episode)
-        // 制作组过滤
-        && match(filterForm.releaseGroup, meta_info.resource_team)
-        // 视频编码过滤
-        && match(filterForm.videoCode, meta_info.video_encode)
-        // 分辨率过滤
-        && match(filterForm.resolution, meta_info.resource_pix)
-        // 质量过滤
-        && match(filterForm.edition, meta_info.edition)
+      // 促销状态过滤
+      && match(filterForm.freeState, torrent_info.volume_factor)
+      // 季过滤
+      && match(filterForm.season, meta_info.season_episode)
+      // 制作组过滤
+      && match(filterForm.releaseGroup, meta_info.resource_team)
+      // 视频编码过滤
+      && match(filterForm.videoCode, meta_info.video_encode)
+      // 分辨率过滤
+      && match(filterForm.resolution, meta_info.resource_pix)
+      // 质量过滤
+      && match(filterForm.edition, meta_info.edition)
     )
       dataList.value.push(data)
   })
@@ -100,26 +101,19 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol>
-      <VList
-        lines="three"
-        class="rounded"
-      >
-        <TorrentItem
-          v-for="(item, index) in dataList"
-          :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`"
-          :torrent="item"
-        />
-        <VListItem v-if="dataList.length === 0">
+      <VList v-if="dataList.length === 0" lines="three" class="rounded">
+        <VListItem>
           <VListItemTitle>没有附合当前过滤条件的资源。</VListItemTitle>
         </VListItem>
       </VList>
+      <v-virtual-scroll lines="three" class="rounded" :items="dataList" height="calc(100vh - 156px)">
+        <template #default="{ item }">
+          <TorrentItem :torrent="item" />
+        </template>
+      </v-virtual-scroll>
     </VCol>
-    <VCol
-      xl="2"
-      md="3"
-      class="d-none d-md-block"
-    >
-      <VList lines="one" class="rounded">
+    <VCol xl="2" md="3" class="d-none d-md-block">
+      <VList lines="one" class="rounded" height="calc(100vh - 156px)">
         <VListSubheader v-if="siteFilterOptions.length > 0">
           站点
         </VListSubheader>

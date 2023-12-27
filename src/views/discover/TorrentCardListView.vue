@@ -1,6 +1,8 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
 import _ from 'lodash'
+import type { Ref } from 'vue'
+import { ref } from 'vue'
+import { useDefer } from '@/util'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 
@@ -48,7 +50,7 @@ const editionFilterOptions = ref<Array<string>>([])
 const resolutionFilterOptions = ref<Array<string>>([])
 
 // 数据列表
-const dataList = ref <Array<SearchTorrent>>([])
+const dataList = ref<Array<SearchTorrent>>([])
 
 // 分组后的数据列表
 const groupedDataList = ref<Map<string, Context[]>>()
@@ -69,7 +71,7 @@ function initOptions(data: Context) {
 }
 
 // 计算分组后的列表
-watchEffect(() => {
+onMounted(() => {
   // 数据分组
   const groupMap = new Map<string, Context[]>()
   // 遍历数据
@@ -92,10 +94,12 @@ watchEffect(() => {
   groupedDataList.value = groupMap
 })
 
+const defer: Ref<Function> = ref(() => true)
+
 // 计算过滤后的列表
 watchEffect(() => {
   // 清空列表
-  dataList.value.splice(0)
+  dataList.value = []
   // 匹配过滤函数
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
@@ -126,10 +130,12 @@ watchEffect(() => {
         const firstData = _.cloneDeepWith(matchData[0]) as SearchTorrent
         if (matchData.length > 1)
           firstData.more = matchData.slice(1)
+
         dataList.value.push(firstData)
       }
     }
   })
+  defer.value = useDefer(dataList.value.length)
 })
 </script>
 
@@ -216,12 +222,9 @@ watchEffect(() => {
     </VRow>
   </VCard>
   <div class="grid gap-3 grid-torrent-card items-start">
-    <TorrentCard
-      v-for="(item, index) in dataList"
-      :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`"
-      :torrent="item"
-      :more="item.more"
-    />
+    <div v-for="(item, index) in dataList" :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`">
+      <TorrentCard v-if="defer(index)" :torrent="item" :more="item.more" />
+    </div>
   </div>
 </template>
 
