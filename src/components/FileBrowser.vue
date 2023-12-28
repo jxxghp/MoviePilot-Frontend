@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import type { Axios } from 'axios'
 import axios from 'axios'
+import List from './filebrowser/List.vue'
 
 import Toolbar from './filebrowser/Toolbar.vue'
 import Tree from './filebrowser/Tree.vue'
-import List from './filebrowser/List.vue'
 import type { EndPoints } from '@/api/types'
 
 // 输入参数
@@ -70,10 +70,12 @@ const storagesArray = computed(() => {
 
 // 方法
 function loadingChanged(loading: number) {
-  if (loading)
+  if (loading) {
     loading++
-  else if (loading > 0)
+  }
+  else if (loading > 0) {
     loading--
+  }
 }
 
 function storageChanged(storage: string) {
@@ -92,56 +94,58 @@ function sortChanged(s: string) {
 }
 
 // 初始化
-onBeforeMount(() => {
+onMounted(() => {
   activeStorage.value = props.storage ?? 'local'
   axiosInstance.value = props.axios ?? axios.create(props.axiosconfig)
 })
 </script>
 
 <template>
-  <VCard class="mx-auto" :loading="loading > 0">
-    <Toolbar
-      :path="props.path"
-      :storages="storagesArray"
-      :storage="activeStorage"
-      :endpoints="props.endpoints"
-      :axios="axiosInstance"
-      @storagechanged="storageChanged"
-      @pathchanged="pathChanged"
-      @foldercreated="refreshPending = true"
-      @sortchanged="sortChanged"
-    />
-    <VRow no-gutters>
-      <VCol v-if="tree" sm="auto" class="d-none d-md-block">
-        <Tree
-          :path="props.path"
-          :storage="activeStorage"
-          :icons="fileIcons"
-          :endpoints="endpoints"
-          :axios="axiosInstance"
-          :refreshpending="refreshPending"
-          @pathchanged="pathChanged"
-          @loading="loadingChanged"
-          @refreshed="refreshPending = false"
-        />
-      </VCol>
-      <VDivider v-if="tree" vertical />
-      <VCol>
-        <List
-          :path="props.path"
-          :storage="activeStorage"
-          :icons="fileIcons"
-          :endpoints="endpoints"
-          :axios="axiosInstance"
-          :refreshpending="refreshPending"
-          :sort="sort"
-          @pathchanged="pathChanged"
-          @loading="loadingChanged"
-          @refreshed="refreshPending = false"
-          @filedeleted="refreshPending = true"
-          @renamed="refreshPending = true"
-        />
-      </VCol>
-    </VRow>
+  <VCard class="mx-auto" :loading="loading > 0 || !path">
+    <div v-if="path">
+      <Toolbar
+        :path="path"
+        :storages="storagesArray"
+        :storage="activeStorage"
+        :endpoints="endpoints"
+        :axios="axiosInstance"
+        @storagechanged="storageChanged"
+        @pathchanged="pathChanged"
+        @foldercreated="refreshPending = true"
+        @sortchanged="sortChanged"
+      />
+      <VRow no-gutters>
+        <VCol v-if="tree" sm="auto" class="d-none d-md-block">
+          <Tree
+            :path="path"
+            :storage="activeStorage"
+            :icons="fileIcons"
+            :endpoints="endpoints"
+            :axios="axiosInstance"
+            :refreshpending="refreshPending"
+            @pathchanged="pathChanged"
+            @loading="loadingChanged"
+            @refreshed="refreshPending = false"
+          />
+        </VCol>
+        <VDivider v-if="tree" vertical />
+        <VCol>
+          <List
+            :path="path"
+            :storage="activeStorage"
+            :icons="fileIcons"
+            :endpoints="endpoints"
+            :axios="axiosInstance"
+            :refreshpending="refreshPending"
+            :sort="sort"
+            @pathchanged="pathChanged"
+            @loading="loadingChanged"
+            @refreshed="refreshPending = false"
+            @filedeleted="refreshPending = true"
+            @renamed="refreshPending = true"
+          />
+        </VCol>
+      </VRow>
+    </div>
   </VCard>
 </template>
