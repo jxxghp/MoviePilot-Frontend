@@ -2,9 +2,9 @@
 import _ from 'lodash'
 import type { Ref } from 'vue'
 import { ref } from 'vue'
-import { useDefer } from '@/util'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
+import { useDefer } from '@/@core/utils/dom'
 
 interface SearchTorrent extends Context {
   more?: Array<Context>

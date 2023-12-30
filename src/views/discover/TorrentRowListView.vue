@@ -106,14 +106,14 @@ onMounted(() => {
           <VListItemTitle>没有附合当前过滤条件的资源。</VListItemTitle>
         </VListItem>
       </VList>
-      <v-virtual-scroll lines="three" class="rounded" :items="dataList" height="calc(100vh - 156px)">
-        <template #default="{ item }">
-          <TorrentItem :torrent="item" />
-        </template>
-      </v-virtual-scroll>
+      <TorrentItem
+        v-for="(item, index) in dataList"
+        :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`"
+        :torrent="item"
+      />
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
-      <VList lines="one" class="rounded" height="calc(100vh - 156px)">
+      <VList lines="one" class="rounded">
         <VListSubheader v-if="siteFilterOptions.length > 0">
           站点
         </VListSubheader>

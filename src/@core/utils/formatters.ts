@@ -109,3 +109,41 @@ export function formatBytes(bytes: number, decimals = 2) {
 
   return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`
 }
+
+// 格式化剧集列表
+export function formatEp(nums: number[]): string {
+  if (!nums.length)
+    return ''
+
+  if (nums.length === 1)
+    return nums[0].toString()
+
+  // 将数组升序排序
+  nums.sort((a, b) => a - b)
+  const formattedRanges: string[] = []
+  let start = nums[0]
+  let end = nums[0]
+
+  for (let i = 1; i < nums.length; i++) {
+    if (nums[i] === end + 1) {
+      end = nums[i]
+    }
+    else {
+      if (start === end)
+        formattedRanges.push(start.toString())
+
+      else
+        formattedRanges.push(`${start.toString()}-${end.toString()}`)
+
+      start = end = nums[i]
+    }
+  }
+
+  if (start === end)
+    formattedRanges.push(start.toString())
+
+  else
+    formattedRanges.push(`${start.toString()}-${end.toString()}`)
+
+  return formattedRanges.join('、')
+}

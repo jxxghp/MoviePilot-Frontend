@@ -5,9 +5,9 @@ import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import FullCalendar from '@fullcalendar/vue3'
 import type { Ref } from 'vue'
-import type { MediaInfo, Rss, Subscribe, TmdbEpisode } from '@/api/types'
+import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
 import api from '@/api'
-import { parseDate } from '@/@core/utils/formatters'
+import { formatEp, parseDate } from '@/@core/utils/formatters'
 
 // 日历属性
 const calendarOptions: Ref<CalendarOptions> = ref({
@@ -33,7 +33,7 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   events: [],
 })
 
-async function eventsHander(subscribe: Subscribe | Rss) {
+async function eventsHander(subscribe: Subscribe) {
   // 如果是电影直接返回
   if (subscribe.type === '电影') {
     // 调用API查询TMDB详情
@@ -62,7 +62,7 @@ async function eventsHander(subscribe: Subscribe | Rss) {
       subtitle: string
       start: Date | null
       allDay: boolean
-      posterPath: string
+      posterPath: string | undefined
       mediaType: string
       len: number
     }
@@ -81,7 +81,7 @@ async function eventsHander(subscribe: Subscribe | Rss) {
       else {
         dictEpisode[air_date] = {
           title: subscribe.name,
-          subtitle: `第${episode.episode_number}`,
+          subtitle: `${episode.episode_number}`,
           start: parseDate(episode.air_date || ''),
           allDay: false,
           posterPath: subscribe.poster,
@@ -90,10 +90,8 @@ async function eventsHander(subscribe: Subscribe | Rss) {
         }
       }
     })
-    for (const key in dictEpisode) {
-      if (dictEpisode.hasOwnProperty(key))
-        dictEpisode[key].subtitle += '集'
-    }
+    for (const key in dictEpisode)
+      dictEpisode[key].subtitle = formatEp(dictEpisode[key].subtitle.split(',').map(Number))
 
     return Object.values(dictEpisode)
   }
@@ -148,11 +146,8 @@ onMounted(() => {
               <VCardSubtitle class="pa-1 px-2 font-bold break-words whitespace-break-spaces">
                 {{ arg.event.title }}
               </VCardSubtitle>
-              <VCardText class="pa-0 px-2">
-                {{ arg.event.extendedProps.len }}集
-              </VCardText>
-              <VCardText class="pa-0 px-2 break-words">
-                {{ arg.event.extendedProps.subtitle }}
+              <VCardText v-if="arg.event.extendedProps.subtitle" class="pa-0 px-2 break-words">
+                第{{ arg.event.extendedProps.subtitle }}集
               </VCardText>
             </div>
           </div>
@@ -178,8 +173,9 @@ onMounted(() => {
               <VChip
                 v-if="arg.event.extendedProps.len > 1"
                 variant="elevated"
-                size="mini"
-                class="absolute right-0.5 top-0.5 bg-opacity-80 shadow-md text-white font-bold border-purple-600 bg-purple-600"
+                color="primary"
+                size="x-small"
+                class="absolute right-0 top-0"
               >
                 {{ arg.event.extendedProps.len }}
               </VChip>

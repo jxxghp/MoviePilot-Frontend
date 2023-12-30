@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import '@/@iconify/icons-bundle'
 import ToastPlugin from 'vue-toast-notification'
 import VuetifyUseDialog from 'vuetify-use-dialog'
+import { removeEl } from './@core/utils/dom'
 import App from '@/App.vue'
 import vuetify from '@/plugins/vuetify'
 import { loadFonts } from '@/plugins/webfontloader'
@@ -11,7 +12,6 @@ import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
-import { removeEl } from '@/util'
 
 loadFonts()
 
