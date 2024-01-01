@@ -413,6 +413,23 @@ onMounted(() => {
               {{ item.raw.description }}
             </div>
             <VChip
+              v-if="item.raw?.hit_and_run"
+              variant="elevated"
+              size="small"
+              class="me-1 mb-1 text-white bg-black"
+            >
+              H&R
+            </VChip>
+            <VChip
+              v-if="item.raw?.freedate_diff"
+              variant="elevated"
+              color="secondary"
+              size="small"
+              class="me-1 mb-1"
+            >
+              {{ item.raw?.freedate_diff }}
+            </VChip>
+            <VChip
               v-for="(label, index) in item.raw?.labels"
               :key="index"
               variant="elevated"

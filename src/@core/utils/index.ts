@@ -33,7 +33,7 @@ export function isToday(date: Date) {
   )
 }
 
-// 计算时间差，返回xx天xx小时xx分钟
+// 计算时间差，返回xx天/xx小时/xx分钟/xx秒
 export function calculateTimeDifference(inputTime: string): string {
   if (!inputTime)
     return ''
@@ -62,6 +62,38 @@ export function calculateTimeDifference(inputTime: string): string {
 
     return `${days}天`
   }
+}
+
+// 计算时间差，返回xx天xx小时xx分钟
+export function calculateTimeDiff(inputTime: string): string {
+  if (!inputTime)
+    return ''
+
+  // 使用当前时区
+  const inputDate = new Date(inputTime)
+  const currentDate = new Date()
+
+  const timeDifference = currentDate.getTime() - inputDate.getTime()
+  const secondsDifference = Math.floor(timeDifference / 1000)
+
+  const days = Math.floor(secondsDifference / 86400)
+  const hours = Math.floor(secondsDifference % 86400 / 3600)
+  const minutes = Math.floor(secondsDifference % 86400 % 3600 / 60)
+  const secones = Math.floor(secondsDifference % 60)
+
+  if (days > 0)
+    return `${days}天${hours}小时${minutes}分钟`
+
+  else if (hours > 0)
+    return `${hours}小时${minutes}分钟`
+
+  else if (minutes > 0)
+    return `${minutes}分钟`
+
+  else if (secones > 0)
+    return `${secones}秒`
+
+  return ''
 }
 
 // 判断一个数组subArray是不是在另一个数组mainArray中

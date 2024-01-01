@@ -151,6 +151,23 @@ onMounted(() => {
       class="pt-2"
     >
       <VChip
+        v-if="torrent?.hit_and_run"
+        variant="elevated"
+        size="small"
+        class="me-1 mb-1 text-white bg-black"
+      >
+        H&R
+      </VChip>
+      <VChip
+        v-if="torrent?.freedate_diff"
+        variant="elevated"
+        color="secondary"
+        size="small"
+        class="me-1 mb-1"
+      >
+        {{ torrent?.freedate_diff }}
+      </VChip>
+      <VChip
         v-for="(label, index) in torrent?.labels"
         :key="index"
         variant="elevated"

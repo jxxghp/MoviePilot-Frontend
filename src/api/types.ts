@@ -651,6 +651,13 @@ export interface TorrentInfo {
 
   // 促销描述
   volume_factor: string
+
+  // 免费时间
+  freedate: string
+
+  // 剩余免费时间
+  freedate_diff: string
+
 }
 
 // 识别元数据
