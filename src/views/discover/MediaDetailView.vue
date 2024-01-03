@@ -430,7 +430,7 @@ async function handlePlay() {
       a.target = '_blank'
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
+      a.remove()
     }
     else { $toast.error(`获取播放链接失败：${result.message}！`) }
   }
