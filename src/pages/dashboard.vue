@@ -38,12 +38,12 @@ const default_config = {
   latest: false,
 }
 const config = ref(JSON.parse(localStorage.getItem('MP_DASHBOARD') || '{}'))
-if (!config.value) {
+if (Object.keys(config.value).length === 0) {
   config.value = default_config
   localStorage.setItem('MP_DASHBOARD', JSON.stringify(config.value))
 }
 
-// 弹窗设置项目
+// 设置项目
 function setDashboardConfig() {
   localStorage.setItem('MP_DASHBOARD', JSON.stringify(config.value))
   dialog.value = false
