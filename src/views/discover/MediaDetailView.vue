@@ -424,7 +424,7 @@ async function handlePlay() {
       `mediaserver/play/${existsItemId.value}`,
     )
     if (result?.success)
-      window.open(result.data?.url, '_blank')
+      window.open(result.data?.url, '_blank', "noopener,noreferrer")
     else
       $toast.error(`获取播放链接失败：${result.message}！`)
   }
