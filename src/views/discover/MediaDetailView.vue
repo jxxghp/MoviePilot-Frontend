@@ -423,10 +423,16 @@ async function handlePlay() {
     const result: { [key: string]: any } = await api.get(
       `mediaserver/play/${existsItemId.value}`,
     )
-    if (result?.success)
-      window.open(result.data?.url, '_blank', "noopener,noreferrer")
-    else
-      $toast.error(`获取播放链接失败：${result.message}！`)
+    if (result?.success) {
+      // 打开链接地址
+      const a = document.createElement('a')
+      a.href = result.data?.url
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+    else { $toast.error(`获取播放链接失败：${result.message}！`) }
   }
   catch (error) {
     console.error(error)
