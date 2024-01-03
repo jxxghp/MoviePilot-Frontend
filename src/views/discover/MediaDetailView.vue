@@ -489,7 +489,7 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" variant="tonal" color="info">
+          <VBtn v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" variant="tonal" color="info" class="mb-2">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
             </template>
@@ -515,13 +515,13 @@ onBeforeMount(() => {
               </VList>
             </VMenu>
           </VBtn>
-          <VBtn v-if="mediaDetail.type === '电影' || mediaDetail.douban_id" class="ms-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
+          <VBtn v-if="mediaDetail.type === '电影' || mediaDetail.douban_id" class="ms-2 mb-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>
               <VIcon :icon="getSubscribeIcon" />
             </template>
             {{ isSubscribed ? '已订阅' : '订阅' }}
           </VBtn>
-          <VBtn v-if="existsItemId" class="ms-2" variant="tonal" @click="handlePlay()">
+          <VBtn v-if="existsItemId" class="ms-2 mb-2" variant="tonal" @click="handlePlay()">
             <template #prepend>
               <VIcon icon="mdi-play" />
             </template>
