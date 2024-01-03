@@ -16,6 +16,11 @@ const props = defineProps({
   height: String,
 })
 
+// 订阅规则
+const subscribeRules = ref({
+  show_edit_dialog: false,
+})
+
 // 提示框
 const $toast = useToast()
 
@@ -146,7 +151,7 @@ async function addSubscribe(season = 0) {
     )
 
     // 弹出订阅编辑弹窗
-    if (result.success && seasonsSelected.value.length <= 1) {
+    if (result.success && seasonsSelected.value.length <= 1 && subscribeRules.value.show_edit_dialog) {
       subscribeId.value = result.data.id
       subscribeEditDialog.value = true
     }
@@ -302,6 +307,20 @@ async function getMediaSeasons() {
   }
 }
 
+// 查询订阅弹窗规则
+async function querySubscribeRules() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/setting/DefaultFilterRules',
+    )
+    if (result.data?.value)
+      subscribeRules.value = result.data?.value
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 // 爱心订阅按钮响应
 function handleSubscribe() {
   if (isSubscribed.value)
@@ -373,6 +392,7 @@ function handleSearch() {
 onBeforeMount(() => {
   handleCheckSubscribe()
   handleCheckExists()
+  querySubscribeRules()
 })
 
 // 计算图片地址

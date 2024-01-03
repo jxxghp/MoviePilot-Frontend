@@ -38,6 +38,7 @@ const defaultFilterRules = ref({
   exclude: '',
   movie_size: '',
   tv_size: '',
+  show_edit_dialog: false,
 })
 
 // 导入代码弹窗
@@ -519,6 +520,12 @@ onMounted(() => {
                   type="text"
                   label="剧集单集文件大小（GB）"
                   placeholder="0-10"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="defaultFilterRules.show_edit_dialog"
+                  label="订阅时编辑更多规则"
                 />
               </VCol>
             </VRow>

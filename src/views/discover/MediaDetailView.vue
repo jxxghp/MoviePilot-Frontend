@@ -46,6 +46,11 @@ const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 // 订阅编号
 const subscribeId = ref<number>()
 
+// 订阅规则
+const subscribeRules = ref({
+  show_edit_dialog: false,
+})
+
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
@@ -215,7 +220,7 @@ async function addSubscribe(season = 0) {
     )
 
     // 显示编辑弹窗
-    if (result.success) {
+    if (result.success && subscribeRules.value.show_edit_dialog) {
       subscribeId.value = result.data.id
       subscribeEditDialog.value = true
     }
@@ -275,6 +280,20 @@ async function removeSubscribe(season: number) {
     console.error(error)
   }
   doneNProgress()
+}
+
+// 查询订阅弹窗规则
+async function querySubscribeRules() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/setting/DefaultFilterRules',
+    )
+    if (result.data?.value)
+      subscribeRules.value = result.data?.value
+  }
+  catch (error) {
+    console.log(error)
+  }
 }
 
 // 订阅按钮响应
@@ -404,6 +423,7 @@ function handlePlay() {
 
 onBeforeMount(() => {
   getMediaDetail()
+  querySubscribeRules()
 })
 </script>
 
