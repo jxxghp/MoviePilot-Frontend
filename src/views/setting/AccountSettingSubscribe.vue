@@ -36,7 +36,8 @@ const currentRuleType = ref('SubscribeFilterRules')
 const defaultFilterRules = ref({
   include: '',
   exclude: '',
-  size: '',
+  movie_size: '',
+  tv_size: '',
 })
 
 // 导入代码弹窗
@@ -506,19 +507,18 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="defaultFilterRules.size"
+                  v-model="defaultFilterRules.movie_size"
                   type="text"
-                  label="文件大小（GB）"
+                  label="电影文件大小（GB）"
                   placeholder="0-30"
                 />
               </VCol>
-            </VRow>
-            <VRow>
-              <VCol cols="12">
-                <VAlert
-                  type="info"
-                  variant="tonal"
-                  text="文件大小：电视剧含多集时指单集平均大小，支持格式：0-30表示筛选0GB到30GB之间的文件，30表示筛选30GB以下的文件。"
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="defaultFilterRules.tv_size"
+                  type="text"
+                  label="剧集单集文件大小（GB）"
+                  placeholder="0-10"
                 />
               </VCol>
             </VRow>
