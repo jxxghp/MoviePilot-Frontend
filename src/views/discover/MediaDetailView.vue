@@ -417,8 +417,20 @@ function handleSearch(area: string) {
 }
 
 // 跳转播放页面
-function handlePlay() {
-  window.open(`${import.meta.env.VITE_API_BASE_URL}mediaserver/play/${existsItemId.value}`, '_blank')
+async function handlePlay() {
+  // 获取播放链接地址
+  try {
+    const result: { [key: string]: any } = await api.get(
+      `mediaserver/play/${existsItemId.value}`,
+    )
+    if (result?.success)
+      window.open(result.data?.url, '_blank')
+    else
+      $toast.error(`获取播放链接失败：${result.message}！`)
+  }
+  catch (error) {
+    console.error(error)
+  }
 }
 
 onBeforeMount(() => {
