@@ -223,7 +223,7 @@ async function handleCheckSubscribe() {
 // 查询当前媒体是否已入库
 async function handleCheckExists() {
   try {
-    const result: { [key: string]: any } = await api.get('media/exists', {
+    const result: { [key: string]: any } = await api.get('mediaserver/exists', {
       params: {
         tmdbid: props.media?.tmdb_id,
         title: props.media?.title,
@@ -269,7 +269,7 @@ async function checkSeasonsNotExists() {
   // 开始处理
   startNProgress()
   try {
-    const result: NotExistMediaInfo[] = await api.post('download/notexists', props.media)
+    const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', props.media)
     if (result) {
       result.forEach((item) => {
         // 0-已入库 1-部分缺失 2-全部缺失

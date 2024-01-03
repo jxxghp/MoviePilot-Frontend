@@ -25,8 +25,8 @@ const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 // 订阅编辑弹窗
 const subscribeEditDialog = ref(false)
 
-// 本地是否存在
-const isExists = ref(false)
+// 本地是否存在，存在则包括Item信息
+const existsItemId = ref('')
 
 // 是否已订阅
 const isSubscribed = ref(false)
@@ -59,9 +59,8 @@ async function getMediaDetail() {
       return
 
     // 检查存在状态
-    if (mediaDetail.value.type === '电影')
-      checkMovieExists()
-    else
+    checkExists()
+    if (mediaDetail.value.type === '电视剧')
       checkSeasonsNotExists()
     // 检查订阅状态
     if (mediaDetail.value.type === '电影')
@@ -86,9 +85,9 @@ async function loadSeasonEpisodes(season: number) {
 }
 
 // 查询当前媒体是否已入库
-async function checkMovieExists() {
+async function checkExists() {
   try {
-    const result: { [key: string]: any } = await api.get('media/exists', {
+    const result: { [key: string]: any } = await api.get('mediaserver/exists', {
       params: {
         tmdbid: mediaDetail.value.tmdb_id,
         title: mediaDetail.value.title,
@@ -99,7 +98,7 @@ async function checkMovieExists() {
     })
 
     if (result.success)
-      isExists.value = true
+      existsItemId.value = result.data.item.id
   }
   catch (error) {
     console.error(error)
@@ -133,11 +132,8 @@ async function checkSeasonsNotExists() {
   if (mediaDetail.value.type !== '电视剧')
     return
   try {
-    const result: NotExistMediaInfo[] = await api.post('download/notexists', mediaDetail.value)
+    const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', mediaDetail.value)
     if (result) {
-      if (result.length === 0)
-        isExists.value = true
-
       result.forEach((item) => {
         // 0-已入库 1-部分缺失 2-全部缺失
         let state = 0
@@ -145,8 +141,6 @@ async function checkSeasonsNotExists() {
           state = 2
         else if (item.episodes.length < item.total_episode)
           state = 1
-        if (state !== 2)
-          isExists.value = true
         seasonsNotExisted.value[item.season] = state
       })
     }
@@ -188,7 +182,7 @@ async function addSubscribe(season = 0) {
   startNProgress()
   try {
     // 是否洗版
-    let best_version = isExists.value ? 1 : 0
+    let best_version = existsItemId.value ? 1 : 0
     if (season)
       // 全部存在时洗版
       best_version = !seasonsNotExisted.value[season] ? 1 : 0
@@ -403,6 +397,11 @@ function handleSearch(area: string) {
   })
 }
 
+// 跳转播放页面
+function handlePlay() {
+  window.open(`${import.meta.env.VITE_API_BASE_URL}mediaserver/play/${existsItemId.value}`, '_blank')
+}
+
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -438,7 +437,7 @@ onBeforeMount(() => {
           </VImg>
         </div>
         <div class="media-title">
-          <div v-if="isExists" class="media-status">
+          <div v-if="existsItemId" class="media-status">
             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap transition !no-underline bg-green-500 bg-opacity-80 border border-green-500 !text-green-100 hover:bg-green-500 hover:bg-opacity-100 false overflow-hidden">
               <div class="relative z-20 flex items-center false"><span>已入库</span></div>
             </span>
@@ -489,6 +488,12 @@ onBeforeMount(() => {
               <VIcon :icon="getSubscribeIcon" />
             </template>
             {{ isSubscribed ? '已订阅' : '订阅' }}
+          </VBtn>
+          <VBtn v-if="existsItemId" class="ms-2" variant="tonal" @click="handlePlay()">
+            <template #prepend>
+              <VIcon icon="mdi-play" />
+            </template>
+            在线播放
           </VBtn>
         </div>
       </div>
