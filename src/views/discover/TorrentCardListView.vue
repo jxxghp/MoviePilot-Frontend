@@ -1,7 +1,5 @@
 <script lang="ts" setup>
 import _ from 'lodash'
-import type { Ref } from 'vue'
-import { ref } from 'vue'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import { useDefer } from '@/@core/utils/dom'
@@ -94,7 +92,7 @@ onMounted(() => {
   groupedDataList.value = groupMap
 })
 
-const defer: Ref<Function> = ref(() => true)
+let defer = (_: number) => true
 
 // 计算过滤后的列表
 watchEffect(() => {
@@ -135,7 +133,7 @@ watchEffect(() => {
       }
     }
   })
-  defer.value = useDefer(dataList.value.length)
+  defer = useDefer(dataList.value.length)
 })
 </script>
 

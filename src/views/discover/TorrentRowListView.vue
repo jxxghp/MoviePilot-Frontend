@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
 import type { Context } from '@/api/types'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
+import { useDefer } from '@/@core/utils/dom'
 
 // 定义输入参数
 const props = defineProps({
@@ -60,6 +60,8 @@ function initOptions(data: Context) {
   optionValue(resolutionFilterOptions.value, meta_info?.resource_pix)
 }
 
+let defer = (_: number) => true
+
 // 计算过滤后的列表
 watchEffect(() => {
   // 清空列表
@@ -88,6 +90,7 @@ watchEffect(() => {
     )
       dataList.value.push(data)
   })
+  defer = useDefer(dataList.value.length)
 })
 
 // 初始化过滤选项
@@ -106,11 +109,11 @@ onMounted(() => {
           <VListItemTitle>没有附合当前过滤条件的资源。</VListItemTitle>
         </VListItem>
       </VList>
-      <TorrentItem
-        v-for="(item, index) in dataList"
-        :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`"
-        :torrent="item"
-      />
+      <div>
+        <div v-for="(item, index) in dataList" :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`">
+          <TorrentItem v-if="defer(index)" :torrent="item" />
+        </div>
+      </div>
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
       <VList lines="one" class="rounded">
