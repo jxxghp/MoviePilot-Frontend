@@ -425,12 +425,9 @@ async function handlePlay() {
     )
     if (result?.success) {
       // 打开链接地址
-      const a = document.createElement('a')
-      a.href = result.data?.url
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      setTimeout(() => {
+        window.open(result.data.url, '_blank')
+      }, 500)
     }
     else { $toast.error(`获取播放链接失败：${result.message}！`) }
   }
