@@ -28,7 +28,12 @@ app.use(
 
 // 处理根路径的请求
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html')) // 指向你的前端入口文件
+  res.sendFile(path.join(__dirname, 'index.html'))
+})
+
+// 处理所有其他请求，重定向到前端入口文件
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'))
 })
 
 app.listen(port, () => {
