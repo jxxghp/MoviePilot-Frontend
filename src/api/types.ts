@@ -924,3 +924,14 @@ export interface FileItem {
   children: FileItem[]
   modify_time: number
 }
+
+// 媒体服务器播放条目
+export interface MediaServerPlayItem {
+  id?: string | number
+  title: string
+  subtitle?: string
+  type?: string
+  image?: string
+  link?: string
+  percent?: number
+}
