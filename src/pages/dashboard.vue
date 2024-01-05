@@ -6,6 +6,9 @@ import AnalyticsStorage from '@/views/dashboard/AnalyticsStorage.vue'
 import AnalyticsWeeklyOverview from '@/views/dashboard/AnalyticsWeeklyOverview.vue'
 import AnalyticsCpu from '@/views/dashboard/AnalyticsCpu.vue'
 import AnalyticsMemory from '@/views/dashboard/AnalyticsMemory.vue'
+import MediaServerLatest from '@/views/dashboard/MediaServerLatest.vue'
+import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
+import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
 
 // 仪表盘配置
 const dashboard_names = {
@@ -17,7 +20,7 @@ const dashboard_names = {
   cpu: 'CPU',
   memory: '内存',
   library: '我的媒体库',
-  playing: '继续播放',
+  playing: '继续观看',
   latest: '最近添加',
 }
 
@@ -106,6 +109,27 @@ function setDashboardConfig() {
       md="6"
     >
       <AnalyticsMemory />
+    </VCol>
+
+    <VCol
+      v-if="config.library"
+      cols="12"
+    >
+      <MediaServerLibrary />
+    </VCol>
+
+    <VCol
+      v-if="config.playing"
+      cols="12"
+    >
+      <MediaServerPlaying />
+    </VCol>
+
+    <VCol
+      v-if="config.latest"
+      cols="12"
+    >
+      <MediaServerLatest />
     </VCol>
   </VRow>
   <!-- 底部操作按钮 -->
