@@ -29,7 +29,7 @@ onMounted(() => {
 
     <div
       v-if="latestList.length > 0"
-      class="grid gap-4 grid-media-card mx-3"
+      class="grid gap-4 grid-media-card mx-3 mb-3"
       tabindex="0"
     >
       <PosterCard
