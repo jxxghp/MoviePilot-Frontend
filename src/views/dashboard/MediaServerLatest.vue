@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { MediaServerPlayItem } from '@/api/types'
+import PosterCard from '@/components/cards/PosterCard.vue'
 
 // 最近入库列表
 const latestList = ref<MediaServerPlayItem[]>([])
@@ -26,12 +27,22 @@ onMounted(() => {
       <VCardTitle>最近添加</VCardTitle>
     </VCardItem>
 
-    <VCardText class="pt-4" />
+    <div
+      v-if="latestList.length > 0"
+      class="grid gap-4 grid-media-card mx-3"
+      tabindex="0"
+    >
+      <PosterCard
+        v-for="data in latestList"
+        :key="data.id"
+        :media="data"
+      />
+    </div>
   </VCard>
 </template>
 
-<style lang="scss" scoped>
-.card-list {
-  --v-card-list-gap: 1rem;
+<style lang="scss">
+.grid-media-card {
+  grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
 }
 </style>

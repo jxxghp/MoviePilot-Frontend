@@ -935,3 +935,15 @@ export interface MediaServerPlayItem {
   link?: string
   percent?: number
 }
+
+// 媒体服务器媒体库
+export interface MediaServerLibrary {
+  server: string
+  id?: string | number
+  name: string
+  path?: string
+  type?: string
+  image?: string
+  image_list?: string[]
+  link?: string
+}

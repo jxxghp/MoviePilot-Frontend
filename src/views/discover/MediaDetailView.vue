@@ -427,7 +427,7 @@ async function handlePlay() {
       // 打开链接地址
       setTimeout(() => {
         window.open(result.data.url, '_blank')
-      }, 500)
+      }, 100)
     }
     else { $toast.error(`获取播放链接失败：${result.message}！`) }
   }
