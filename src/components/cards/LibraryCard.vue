@@ -16,6 +16,11 @@ function imageLoadHandler() {
   imageLoaded.value = true
 }
 
+// 计算图片地址
+const getImgUrl = computed(() => {
+  return props.media?.image || props.media?.image_list?.[0]
+})
+
 // 跳转播放
 function goPlay() {
   if (props.media?.link)
@@ -41,7 +46,7 @@ function goPlay() {
       >
         <template #image>
           <VImg
-            :src="props.media?.image"
+            :src="getImgUrl"
             aspect-ratio="2/3"
             cover
             @load="imageLoadHandler"

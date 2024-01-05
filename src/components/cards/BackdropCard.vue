@@ -34,9 +34,10 @@ function goPlay() {
         v-bind="hover.props"
         :height="props.height"
         :width="props.width"
-        class="shadow ring-gray-500 ring-1"
+        class="ring-gray-500"
         :class="{
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
+          'ring-1': imageLoaded,
         }"
         @click="goPlay"
       >
@@ -58,7 +59,7 @@ function goPlay() {
               <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
                 {{ props.media?.title }}
               </h1>
-              <span class="font-bold">{{ props.media?.subtitle }}</span>
+              <span>{{ props.media?.subtitle }}</span>
             </VCardText>
           </VImg>
         </template>

@@ -30,15 +30,15 @@ const dialog = ref(false)
 // 从localStorage中获取数据
 const default_config = {
   mediaStatistic: true,
-  scheduler: true,
-  speed: true,
+  scheduler: false,
+  speed: false,
   storage: true,
-  weeklyOverview: true,
-  cpu: true,
-  memory: true,
-  library: false,
-  playing: false,
-  latest: false,
+  weeklyOverview: false,
+  cpu: false,
+  memory: false,
+  library: true,
+  playing: true,
+  latest: true,
 }
 const config = ref(JSON.parse(localStorage.getItem('MP_DASHBOARD') || '{}'))
 if (Object.keys(config.value).length === 0) {
