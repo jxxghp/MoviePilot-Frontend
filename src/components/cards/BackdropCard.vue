@@ -21,6 +21,12 @@ function goPlay() {
   if (props.media?.link)
     window.open(props.media?.link, '_blank')
 }
+
+// 计算图片地址
+const getImgUrl = computed(() => {
+  const image = props.media?.image || ''
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(image)}`
+})
 </script>
 
 <template>
@@ -43,7 +49,7 @@ function goPlay() {
       >
         <template #image>
           <VImg
-            :src="props.media?.image"
+            :src="getImgUrl"
             aspect-ratio="2/3"
             cover
             @load="imageLoadHandler"

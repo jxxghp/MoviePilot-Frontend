@@ -30,7 +30,8 @@ function getChipColor(type: string) {
 const getImgUrl = computed(() => {
   if (imageLoadError.value)
     return noImage
-  return props.media?.image
+  const image = props.media?.image || ''
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(image)}`
 })
 
 // 跳转播放

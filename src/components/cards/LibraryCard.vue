@@ -18,7 +18,8 @@ function imageLoadHandler() {
 
 // 计算图片地址
 const getImgUrl = computed(() => {
-  return props.media?.image || props.media?.image_list?.[0]
+  const image = props.media?.image || props.media?.image_list?.[0] || ''
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(image)}`
 })
 
 // 跳转播放
