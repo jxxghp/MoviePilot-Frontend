@@ -142,7 +142,7 @@ function setDashboardConfig() {
     max-width="600"
     scrollable
   >
-    <VCard title="设置仪表盘">
+    <VCard title="设置仪表板">
       <VCardText>
         <VRow>
           <VCol
