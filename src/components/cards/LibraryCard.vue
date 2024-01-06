@@ -56,7 +56,7 @@ function getImgUrl(url: string) {
   if (!url)
     return getDefaultImage()
   else
-    return `${import.meta.env.VITE_API_BASE_URL}system/proxy?url=${encodeURIComponent(url)}`
+    return `${import.meta.env.VITE_API_BASE_URL}system/img?url=${encodeURIComponent(url)}`
 }
 
 // 根据多张图片生成媒体库封面
