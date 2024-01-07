@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useTheme } from 'vuetify'
 import type { ThemeSwitcherTheme } from '@layouts/types'
 
@@ -20,25 +20,29 @@ const {
   { initialValue: savedTheme.value },
 )
 
-function changeTheme() {
-  const nextTheme = getNextThemeName()
-
-  globalTheme.name.value = nextTheme
-  savedTheme.value = nextTheme
-  localStorage.setItem('theme', nextTheme)
+function updateTheme() {
+  const autoTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const theme = currentThemeName.value === 'auto' ? autoTheme : currentThemeName.value
+  globalTheme.name.value = theme
+  savedTheme.value = theme
   // 修改载入时背景色
   localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
-
   themeTransition()
 }
 
-// Update icon if theme is changed from other sources
+// 监听系统主题变化
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
+
 watch(
-  () => globalTheme.name.value,
-  (val) => {
-    currentThemeName.value = val
-  },
+  () => currentThemeName.value,
+  () => updateTheme(),
 )
+
+function changeTheme() {
+  const nextTheme = getNextThemeName()
+  currentThemeName.value = nextTheme
+  localStorage.setItem('theme', nextTheme)
+}
 
 // Apply saved theme on page load
 // onMounted(() => {
