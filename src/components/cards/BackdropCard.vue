@@ -25,7 +25,7 @@ function goPlay() {
 // 计算图片地址
 const getImgUrl = computed(() => {
   const image = props.media?.image || ''
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(image)}`
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(image)}/0`
 })
 </script>
 
