@@ -3,9 +3,15 @@ import { useToast } from 'vue-toast-notification'
 import { useTheme } from 'vuetify'
 import store from './store'
 
+function setTheme() {
+  const { global: globalTheme } = useTheme()
+  let theme = localStorage.getItem('theme') || 'light'
+  if (theme === 'auto')
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  globalTheme.name.value = theme
+}
 // 第一时间应用主题
-const { global: globalTheme } = useTheme()
-globalTheme.name.value = localStorage.getItem('theme') || 'light'
+setTheme()
 
 // 提示框
 const $toast = useToast()
