@@ -23,6 +23,11 @@ function getSpeedText() {
 // 下载状态
 const isDownloading = ref(props.info?.state === 'downloading')
 
+// 监听props.info?.state的变化
+watch(() => props.info?.state, (newValue) => {
+  isDownloading.value = newValue === 'downloading';
+});
+
 // 图片是否加载完成
 const imageLoaded = ref(false)
 
