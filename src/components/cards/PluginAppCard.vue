@@ -87,7 +87,7 @@ const iconPath: Ref<string> = computed(() => {
   if (props.plugin?.plugin_icon?.startsWith('http'))
     return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(props.plugin?.plugin_icon)}/1`
 
-  return `/plugin_icon/${props.plugin?.plugin_icon}`
+  return `./plugin_icon/${props.plugin?.plugin_icon}`
 })
 
 // 访问插件页面
