@@ -544,7 +544,9 @@ onBeforeMount(() => {
           <ul v-if="mediaDetail.tmdb_id" class="media-crew">
             <li v-for="director in mediaDetail.directors" :key="director.id">
               <span>{{ director.job }}</span>
-              <a class="crew-name" :href="`person?personid=${director.id}`" target="_blank">{{ director.name }}</a>
+              <RouterLink :to="`/person?personid=${director.id}`" class="crew-name" target="_blank">
+                {{ director.name }}
+              </RouterLink>
             </li>
           </ul>
           <ul v-if="!mediaDetail.tmdb_id && mediaDetail.douban_id" class="media-crew">
