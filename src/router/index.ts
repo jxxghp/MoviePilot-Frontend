@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import { configureNProgress, doneNProgress, startNProgress } from '@/api/nprogress'
 import store from '@/store'
 
@@ -7,7 +7,7 @@ configureNProgress()
 
 // Router
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(import.meta.env.BASE_URL),
   scrollBehavior(to, from, savedPosition) {
     // 如果页面有缓存那么恢复其位置, 否则始终滚动到顶部
     if (to.meta.keepAlive && savedPosition)
