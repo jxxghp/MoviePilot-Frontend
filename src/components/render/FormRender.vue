@@ -32,20 +32,53 @@ const formData = ref<any>(elementProps.form || {})
 <template>
   <Component
     :is="formItem.component"
-    v-if="!formItem.html"
+    v-if="!formItem.html && formItem.props?.modelvalue"
     v-bind="formItem.props"
-    v-model="formData[formItem.props?.model || '']"
     v-model:value="formData[formItem.props?.modelvalue]"
   >
     {{ formItem.text }}
-    <FormRender
+    <template
       v-for="(innerItem, innerIndex) in (formItem.content || [])"
       :key="innerIndex"
-      v-model="formData[innerItem.props?.model || '']"
-      v-model:value="formData[formItem.props?.modelvalue]"
-      :config="innerItem"
-      :form="formData"
-    />
+    >
+      <FormRender
+        v-if="innerItem.props?.modelvalue"
+        v-model:value="formData[innerItem.props?.modelvalue]"
+        :config="innerItem"
+        :form="formData"
+      />
+      <FormRender
+        v-else
+        v-model="formData[innerItem.props?.model]"
+        :config="innerItem"
+        :form="formData"
+      />
+    </template>
+  </Component>
+  <Component
+    :is="formItem.component"
+    v-if="!formItem.html"
+    v-bind="formItem.props"
+    v-model="formData[formItem.props?.model]"
+  >
+    {{ formItem.text }}
+    <template
+      v-for="(innerItem, innerIndex) in (formItem.content || [])"
+      :key="innerIndex"
+    >
+      <FormRender
+        v-if="innerItem.props?.modelvalue"
+        v-model:value="formData[innerItem.props?.modelvalue]"
+        :config="innerItem"
+        :form="formData"
+      />
+      <FormRender
+        v-else
+        v-model="formData[innerItem.props?.model]"
+        :config="innerItem"
+        :form="formData"
+      />
+    </template>
   </Component>
   <Component
     :is="formItem.component"
