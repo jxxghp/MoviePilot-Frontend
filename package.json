@@ -1,6 +1,6 @@
 {
   "name": "moviepilot",
-  "version": "1.6.1-1",
+  "version": "1.6.1-2",
   "private": true,
   "bin": "dist/service.js",
   "scripts": {
@@ -24,6 +24,7 @@
     "@floating-ui/dom": "1.2.8",
     "@vueuse/core": "^10.1.2",
     "@vueuse/math": "^10.1.2",
+    "ace-builds": "^1.32.6",
     "apexcharts-clevision": "^3.28.5",
     "axios": "1.4.0",
     "axios-mock-adapter": "^1.21.4",
@@ -48,6 +49,7 @@
     "vue-prism-component": "^2.0.0",
     "vue-router": "^4.2.0",
     "vue-toast-notification": "^3",
+    "vue3-ace-editor": "^2.2.4",
     "vue3-apexcharts": "^1.4.1",
     "vue3-perfect-scrollbar": "^1.6.0",
     "vuetify": "3.3.5",

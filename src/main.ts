@@ -1,7 +1,9 @@
+import { VAceEditor } from 'vue3-ace-editor'
 import { createApp } from 'vue'
 import '@/@iconify/icons-bundle'
 import ToastPlugin from 'vue-toast-notification'
 import VuetifyUseDialog from 'vuetify-use-dialog'
+import './ace-config'
 import { removeEl } from './@core/utils/dom'
 import App from '@/App.vue'
 import vuetify from '@/plugins/vuetify'
@@ -15,10 +17,13 @@ import 'vue-toast-notification/dist/theme-bootstrap.css'
 
 loadFonts()
 
-// Create vue app
+// 创建Vue实例
 const app = createApp(App)
 
-// Use plugins Mount vue app
+// 注册全局组件
+app.component('VAceEditor', VAceEditor)
+
+// 注册插件
 app
   .use(vuetify)
   .use(router)
