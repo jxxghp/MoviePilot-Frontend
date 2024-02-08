@@ -28,7 +28,16 @@ export default defineConfig({
       imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'vuex'],
       vueTemplate: true,
     }),
-    VitePWA({ registerType: 'autoUpdate', injectRegister: 'script', manifest: false }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'script',
+      manifest: false,
+      workbox: {
+        navigateFallbackDenylist: [
+          /.*\/api\/v\d+\/system\/logging.*/,
+        ],
+      },
+    }),
   ],
   define: { 'process.env': {} },
   resolve: {
