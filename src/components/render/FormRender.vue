@@ -35,14 +35,14 @@ const formData = ref<any>(elementProps.form || {})
     v-if="!formItem.html"
     v-bind="formItem.props"
     v-model="formData[formItem.props?.model || '']"
-    v-model:value="formData[formItem.props?.modelvalue || '']"
+    v-model:value="formData[formItem.props?.modelvalue]"
   >
     {{ formItem.text }}
     <FormRender
       v-for="(innerItem, innerIndex) in (formItem.content || [])"
       :key="innerIndex"
       v-model="formData[innerItem.props?.model || '']"
-      v-model:value="formData[formItem.props?.modelvalue || '']"
+      v-model:value="formData[formItem.props?.modelvalue]"
       :config="innerItem"
       :form="formData"
     />
