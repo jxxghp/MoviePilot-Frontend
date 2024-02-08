@@ -326,7 +326,6 @@ watchEffect(() => {
           <VRow>
             <VCol
               cols="12"
-              md="4"
             >
               <VTextField
                 v-model="subscribeForm.save_path"
