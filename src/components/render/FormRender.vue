@@ -32,7 +32,7 @@ const formData = ref<any>(elementProps.form || {})
 <template>
   <Component
     :is="formItem.component"
-    v-if="!formItem.html && formItem.props?.modelvalue"
+    v-if="!formItem.html && !!formItem.props?.modelvalue"
     v-bind="formItem.props"
     v-model:value="formData[formItem.props?.modelvalue]"
   >
@@ -42,7 +42,7 @@ const formData = ref<any>(elementProps.form || {})
       :key="innerIndex"
     >
       <FormRender
-        v-if="innerItem.props?.modelvalue"
+        v-if="!!innerItem.props?.modelvalue"
         v-model:value="formData[innerItem.props?.modelvalue]"
         :config="innerItem"
         :form="formData"
@@ -57,7 +57,13 @@ const formData = ref<any>(elementProps.form || {})
   </Component>
   <Component
     :is="formItem.component"
-    v-if="!formItem.html"
+    v-else-if="formItem.html"
+    v-bind="formItem.props"
+    v-html="formItem.html"
+  />
+  <Component
+    :is="formItem.component"
+    v-else
     v-bind="formItem.props"
     v-model="formData[formItem.props?.model]"
   >
@@ -67,7 +73,7 @@ const formData = ref<any>(elementProps.form || {})
       :key="innerIndex"
     >
       <FormRender
-        v-if="innerItem.props?.modelvalue"
+        v-if="!!innerItem.props?.modelvalue"
         v-model:value="formData[innerItem.props?.modelvalue]"
         :config="innerItem"
         :form="formData"
@@ -80,10 +86,4 @@ const formData = ref<any>(elementProps.form || {})
       />
     </template>
   </Component>
-  <Component
-    :is="formItem.component"
-    v-if="formItem.html"
-    v-bind="formItem.props"
-    v-html="formItem.html"
-  />
 </template>
