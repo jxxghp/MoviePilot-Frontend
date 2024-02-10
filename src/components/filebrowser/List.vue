@@ -267,6 +267,28 @@ async function recognize(path: string) {
   }
 }
 
+// 调用API刮削
+async function scrape(path: string) {
+  try {
+    // 显示进度条
+    progressDialog.value = true
+    progressText.value = `正在刮削 ${path} ...`
+    const result: { [key: string]: any } = await api.get('media/scrape', {
+      params: {
+        path,
+      },
+    })
+    // 关闭进度条
+    progressDialog.value = false
+    if (!result.success)
+      $toast.error(result.message)
+    else
+      $toast.success(`${path}削刮完成！`)
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -279,8 +301,17 @@ const dropdownItems = ref([
       },
     },
   }, {
-    title: '重命名',
+    title: '刮削',
     value: 2,
+    props: {
+      prependIcon: 'mdi-auto-fix',
+      click: (_item: FileItem) => {
+        scrape(_item.path || '')
+      },
+    },
+  }, {
+    title: '重命名',
+    value: 3,
     props: {
       prependIcon: 'mdi-rename',
       click: showRenmae,
@@ -288,7 +319,7 @@ const dropdownItems = ref([
   },
   {
     title: '整理',
-    value: 3,
+    value: 4,
     props: {
       prependIcon: 'mdi-folder-arrow-right',
       click: showTransfer,
@@ -296,7 +327,7 @@ const dropdownItems = ref([
   },
   {
     title: '删除',
-    value: 4,
+    value: 5,
     props: {
       prependIcon: 'mdi-delete-outline',
       color: 'error',
@@ -345,111 +376,133 @@ onMounted(() => {
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
       <VList v-if="dirs.length" subheader>
         <VListSubheader>目录</VListSubheader>
-        <VListItem
+        <VHover
           v-for="(item, index) in dirs"
           :key="index"
-          class="px-3 pe-1"
-          @click="changePath(item.path)"
         >
-          <template #prepend>
-            <VIcon icon="mdi-folder-outline" />
-          </template>
-          <VListItemTitle v-text="item.name" />
-          <template #append>
-            <IconBtn class="d-sm-none">
-              <VIcon
-                icon="mdi-dots-vertical"
-              />
-              <VMenu
-                activator="parent"
-                close-on-content-click
-              >
-                <VList>
-                  <VListItem
-                    v-for="(menu, i) in dropdownItems"
-                    :key="i"
-                    variant="plain"
-                    :base-color="menu.props.color"
-                    @click="menu.props.click(item)"
+          <template #default="hover">
+            <VListItem
+              v-bind="hover.props"
+              class="px-3 pe-1"
+              @click="changePath(item.path)"
+            >
+              <template #prepend>
+                <VIcon icon="mdi-folder-outline" />
+              </template>
+              <VListItemTitle v-text="item.name" />
+              <template #append>
+                <IconBtn class="d-sm-none">
+                  <VIcon
+                    icon="mdi-dots-vertical"
+                  />
+                  <VMenu
+                    activator="parent"
+                    close-on-content-click
                   >
-                    <template #prepend>
-                      <VIcon :icon="menu.props.prependIcon" />
-                    </template>
-                    <VListItemTitle v-text="menu.title" />
-                  </VListItem>
-                </VList>
-              </VMenu>
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
-              <VIcon icon="mdi-text-recognition" />
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
-              <VIcon icon="mdi-rename" />
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
-              <VIcon icon="mdi-folder-arrow-right" />
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
-              <VIcon icon="mdi-delete-outline" />
-            </IconBtn>
+                    <VList>
+                      <VListItem
+                        v-for="(menu, i) in dropdownItems"
+                        :key="i"
+                        variant="plain"
+                        :base-color="menu.props.color"
+                        @click="menu.props.click(item)"
+                      >
+                        <template #prepend>
+                          <VIcon :icon="menu.props.prependIcon" />
+                        </template>
+                        <VListItemTitle v-text="menu.title" />
+                      </VListItem>
+                    </VList>
+                  </VMenu>
+                </IconBtn>
+                <span v-show="hover.isHovering" class="flex">
+                  <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
+                    <VIcon icon="mdi-text-recognition" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="scrape(item.path)">
+                    <VIcon icon="mdi-auto-fix" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
+                    <VIcon icon="mdi-rename" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
+                    <VIcon icon="mdi-folder-arrow-right" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
+                    <VIcon icon="mdi-delete-outline" />
+                  </IconBtn>
+                </span>
+              </template>
+            </VListItem>
           </template>
-        </VListItem>
+        </VHover>
       </VList>
       <VDivider v-if="dirs.length && files.length" />
       <VList v-if="files.length" subheader>
         <VListSubheader>文件</VListSubheader>
-        <VListItem
+        <VHover
           v-for="(item, index) in files"
           :key="index"
-          class="pl-3 pe-1"
-          @click="changePath(item.path)"
         >
-          <template #prepend>
-            <VIcon v-if="inProps.icons" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
-          </template>
+          <template #default="hover">
+            <VListItem
+              v-bind="hover.props"
+              class="pl-3 pe-1"
+              @click="changePath(item.path)"
+            >
+              <template #prepend>
+                <VIcon v-if="inProps.icons" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
+              </template>
 
-          <VListItemTitle v-text="item.name" />
-          <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
+              <VListItemTitle v-text="item.name" />
+              <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
 
-          <template #append>
-            <IconBtn class="d-sm-none">
-              <VIcon
-                icon="mdi-dots-vertical"
-              />
-              <VMenu
-                activator="parent"
-                close-on-content-click
-              >
-                <VList>
-                  <VListItem
-                    v-for="(menu, i) in dropdownItems"
-                    :key="i"
-                    variant="plain"
-                    :base-color="menu.props.color"
-                    @click="menu.props.click(item)"
+              <template #append>
+                <IconBtn class="d-sm-none">
+                  <VIcon
+                    icon="mdi-dots-vertical"
+                  />
+                  <VMenu
+                    activator="parent"
+                    close-on-content-click
                   >
-                    <template #prepend>
-                      <VIcon :icon="menu.props.prependIcon" />
-                    </template>
-                    <VListItemTitle v-text="menu.title" />
-                  </VListItem>
-                </VList>
-              </VMenu>
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
-              <VIcon icon="mdi-text-recognition" />
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
-              <VIcon icon="mdi-rename" />
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
-              <VIcon icon="mdi-folder-arrow-right" />
-            </IconBtn>
-            <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
-              <VIcon icon="mdi-delete-outline" />
-            </IconBtn>
+                    <VList>
+                      <VListItem
+                        v-for="(menu, i) in dropdownItems"
+                        :key="i"
+                        variant="plain"
+                        :base-color="menu.props.color"
+                        @click="menu.props.click(item)"
+                      >
+                        <template #prepend>
+                          <VIcon :icon="menu.props.prependIcon" />
+                        </template>
+                        <VListItemTitle v-text="menu.title" />
+                      </VListItem>
+                    </VList>
+                  </VMenu>
+                </IconBtn>
+                <span v-show="hover.isHovering" class="flex">
+                  <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
+                    <VIcon icon="mdi-text-recognition" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="scrape(item.path)">
+                    <VIcon icon="mdi-auto-fix" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
+                    <VIcon icon="mdi-rename" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
+                    <VIcon icon="mdi-folder-arrow-right" />
+                  </IconBtn>
+                  <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
+                    <VIcon icon="mdi-delete-outline" />
+                  </IconBtn>
+                </span>
+              </template>
+            </VListItem>
           </template>
-        </VListItem>
+        </VHover>
       </VList>
     </VCardText>
     <VCardText
