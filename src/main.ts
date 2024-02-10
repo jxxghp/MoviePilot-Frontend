@@ -4,6 +4,7 @@ import '@/@iconify/icons-bundle'
 import ToastPlugin from 'vue-toast-notification'
 import VuetifyUseDialog from 'vuetify-use-dialog'
 import './ace-config'
+import VueApexCharts from 'vue3-apexcharts'
 import { removeEl } from './@core/utils/dom'
 import App from '@/App.vue'
 import vuetify from '@/plugins/vuetify'
@@ -22,6 +23,7 @@ const app = createApp(App)
 
 // 注册全局组件
 app.component('VAceEditor', VAceEditor)
+  .component('VApexChart', VueApexCharts)
 
 // 注册插件
 app
