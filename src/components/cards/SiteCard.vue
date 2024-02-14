@@ -80,6 +80,7 @@ const resourceItemsPerPage = ref(25)
 const userPwForm = ref({
   username: '',
   password: '',
+  code: '',
 })
 
 // 打开种子详情页面
@@ -152,6 +153,7 @@ async function updateSiteCookie() {
         params: {
           username: userPwForm.value.username,
           password: userPwForm.value.password,
+          code: userPwForm.value.code,
         },
       },
     )
@@ -335,7 +337,7 @@ onMounted(() => {
           <VRow>
             <VCol
               cols="12"
-              md="6"
+              md="4"
             >
               <VTextField
                 v-model="userPwForm.username"
@@ -345,7 +347,7 @@ onMounted(() => {
             </VCol>
             <VCol
               cols="12"
-              md="6"
+              md="4"
             >
               <VTextField
                 v-model="userPwForm.password"
@@ -357,6 +359,15 @@ onMounted(() => {
                 :rules="[requiredValidator]"
                 @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 @keydown.enter="updateSiteCookie"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VTextField
+                v-model="userPwForm.code"
+                label="两步验证"
               />
             </VCol>
           </VRow>
