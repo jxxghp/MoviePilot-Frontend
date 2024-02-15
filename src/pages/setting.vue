@@ -8,6 +8,7 @@ import AccountSettingAbout from '@/views/setting/AccountSettingAbout.vue'
 import AccountSettingSearch from '@/views/setting/AccountSettingSearch.vue'
 import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue'
 import AccountSettingService from '@/views/setting/AccountSettingService.vue'
+import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
 
 const route = useRoute()
 
@@ -19,6 +20,11 @@ const tabs = [
     title: '用户',
     icon: 'mdi-account',
     tab: 'account',
+  },
+  {
+    title: '系统',
+    icon: 'mdi-cog',
+    tab: 'system',
   },
   {
     title: '站点',
@@ -80,6 +86,13 @@ const tabs = [
       <VWindowItem value="account">
         <transition name="fade-slide" appear>
           <AccountSettingAccount />
+        </transition>
+      </VWindowItem>
+
+      <!-- 系统 -->
+      <VWindowItem value="system">
+        <transition name="fade-slide" appear>
+          <AccountSettingSystem />
         </transition>
       </VWindowItem>
 

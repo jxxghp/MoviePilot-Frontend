@@ -94,7 +94,7 @@ onMounted(() => {
                 <VSelect
                   v-model="selectedTorrentPriority"
                   :items="TorrentPriorityItems"
-                  label="优先规则"
+                  label="当前使用下载优先规则"
                   outlined
                 />
               </VCol>
