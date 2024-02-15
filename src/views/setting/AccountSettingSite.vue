@@ -17,10 +17,30 @@ const resetSitesDisabled = ref(false)
 // 种子优先规则
 const selectedTorrentPriority = ref<string>('seeder')
 
+// CookieCloud设置项
+const cookieCloudSetting = ref({
+  COOKIECLOUD_HOST: '',
+  COOKIECLOUD_KEY: '',
+  COOKIECLOUD_PASSWORD: '',
+  COOKIECLOUD_INTERVAL: 0,
+  USER_AGENT: '',
+})
+
 // 种子优先规则下拉框
 const TorrentPriorityItems = [
   { title: '站点优先', value: 'site' },
   { title: '做种数优先', value: 'seeder' },
+]
+
+// 同步间隔下拉框
+const CookieCloudIntervalItems = [
+  { title: '每小时', value: 60 },
+  { title: '每6小时', value: 360 },
+  { title: '每12小时', value: 720 },
+  { title: '每天', value: 1440 },
+  { title: '每周', value: 10080 },
+  { title: '每月', value: 43200 },
+  { title: '永不', value: 0 },
 ]
 
 // 重置站点
@@ -77,13 +97,111 @@ async function saveTorrentPriority() {
   }
 }
 
+// 加载CookieCloud设置
+async function loadCookieCloudSettings() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result.success) {
+      const {
+        COOKIECLOUD_HOST,
+        COOKIECLOUD_KEY,
+        COOKIECLOUD_PASSWORD,
+        COOKIECLOUD_INTERVAL,
+        USER_AGENT,
+      } = result.data
+      cookieCloudSetting.value = {
+        COOKIECLOUD_HOST,
+        COOKIECLOUD_KEY,
+        COOKIECLOUD_PASSWORD,
+        COOKIECLOUD_INTERVAL,
+        USER_AGENT,
+      }
+    }
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 调用API保存CookieCloud设置
+async function saveCookieCloudetting() {
+  try {
+    const result: { [key: string]: any } = await api.post(
+      'system/env',
+      cookieCloudSetting.value,
+    )
+
+    if (result.success)
+      $toast.success('保存站点同步设置成功')
+    else
+      $toast.error('保存站点同步设置失败！')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 加载数据
 onMounted(() => {
   queryTorrentPriority()
+  loadCookieCloudSettings()
 })
 </script>
 
 <template>
   <VRow>
+    <VCol cols="12">
+      <VCard title="站点同步">
+        <VCardSubtitle> 从CookieCloud快速同步站点数据。 </VCardSubtitle>
+        <VCardText>
+          <VForm>
+            <VRow>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="cookieCloudSetting.COOKIECLOUD_HOST"
+                  label="CookieCloud服务器地址"
+                  placeholder="https://movie-pilot.org/cookiecloud"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="cookieCloudSetting.COOKIECLOUD_KEY"
+                  label="用户KEY"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="cookieCloudSetting.COOKIECLOUD_PASSWORD"
+                  type="password"
+                  label="端对端加密密码"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="cookieCloudSetting.COOKIECLOUD_INTERVAL"
+                  label="自动同步间隔"
+                  :items="CookieCloudIntervalItems"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="cookieCloudSetting.USER_AGENT"
+                  label="浏览器User-Agent"
+                />
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+        <VCardItem>
+          <VBtn
+            type="submit"
+            @click="saveCookieCloudetting"
+          >
+            保存
+          </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
     <VCol cols="12">
       <VCard title="下载优先规则">
         <VCardSubtitle> 按站点或做种数量优先下载。 </VCardSubtitle>
@@ -95,7 +213,6 @@ onMounted(() => {
                   v-model="selectedTorrentPriority"
                   :items="TorrentPriorityItems"
                   label="当前使用下载优先规则"
-                  outlined
                 />
               </VCol>
             </VRow>
