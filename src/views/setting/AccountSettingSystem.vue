@@ -532,8 +532,8 @@ onMounted(() => {
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.EMBY_PLAY_HOST"
-                            label="播放地址"
-                            placeholder="IP:PORT"
+                            label="外网播放地址"
+                            placeholder="http(s)://domain:port"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -559,7 +559,7 @@ onMounted(() => {
                           <VTextField
                             v-model="mediaServerSettings.JELLYFIN_PLAY_HOST"
                             label="外网播放地址"
-                            placeholder="IP:PORT"
+                            placeholder="http(s)://domain:port"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -585,7 +585,7 @@ onMounted(() => {
                           <VTextField
                             v-model="mediaServerSettings.PLEX_PLAY_HOST"
                             label="外网播放地址"
-                            placeholder="IP:PORT"
+                            placeholder="http(s)://domain:port"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
