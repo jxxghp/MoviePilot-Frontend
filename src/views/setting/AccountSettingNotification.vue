@@ -206,19 +206,15 @@ onMounted(() => {
                   stacked
                 >
                   <VTab value="wechat">
-                    <VAvatar size="20" icon="mdi-download" />
                     微信
                   </VTab>
                   <VTab value="telegram">
-                    <VAvatar size="20" icon="mdi-download" />
                     Telegram
                   </VTab>
                   <VTab value="slack">
-                    <VAvatar size="20" icon="mdi-download" />
                     Slack
                   </VTab>
                   <VTab value="synologychat">
-                    <VAvatar size="20" icon="mdi-download" />
                     SynologyChat
                   </VTab>
                 </VTabs>
@@ -418,7 +414,7 @@ onMounted(() => {
             </tr>
             <tr v-if="messagemTypes.length === 0">
               <td
-                colspan="4"
+                colspan="5"
                 class="text-center"
               >
                 没有设置任何通知渠道

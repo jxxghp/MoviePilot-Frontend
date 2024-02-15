@@ -34,6 +34,7 @@ const mediaSettings = ref({
 const downloaderSettings = ref({
   DOWNLOADER: '',
   DOWNLOADER_MONITOR: true,
+  TORRENT_TAG: '',
   QB_HOST: '',
   QB_USER: '',
   QB_PASSWORD: '',
@@ -47,6 +48,8 @@ const downloaderSettings = ref({
 
 // 媒体服务器设置项
 const mediaServerSettings = ref({
+  MEDIASERVER_SYNC_INTERVAL: 6,
+  MEDIASERVER_SYNC_BLACKLIST: '',
   EMBY_HOST: '',
   EMBY_PLAY_HOST: '',
   EMBY_API_KEY: '',
@@ -102,6 +105,16 @@ const overwriteModeItems = [
   { title: '按大小覆盖', value: 'size' },
   { title: '总是覆盖', value: 'always' },
   { title: '仅保留最新版本', value: 'latest' },
+]
+
+// 媒体库同步周期字典
+const syncIntervalItems = [
+  { title: '从不', value: 0 },
+  { title: '每小时', value: 1 },
+  { title: '每6小时', value: 6 },
+  { title: '每12小时', value: 12 },
+  { title: '每天', value: 24 },
+  { title: '每周', value: 168 },
 ]
 
 // 提示框
@@ -175,6 +188,7 @@ async function loadDownladerSetting() {
       const {
         DOWNLOADER,
         DOWNLOADER_MONITOR,
+        TORRENT_TAG,
         QB_HOST,
         QB_USER,
         QB_PASSWORD,
@@ -188,6 +202,7 @@ async function loadDownladerSetting() {
       downloaderSettings.value = {
         DOWNLOADER,
         DOWNLOADER_MONITOR,
+        TORRENT_TAG,
         QB_HOST,
         QB_USER,
         QB_PASSWORD,
@@ -234,6 +249,8 @@ async function loadMediaServerSetting() {
     const result2: { [key: string]: any } = await api.get('system/env')
     if (result2.success) {
       const {
+        MEDIASERVER_SYNC_INTERVAL,
+        MEDIASERVER_SYNC_BLACKLIST,
         EMBY_HOST,
         EMBY_PLAY_HOST,
         EMBY_API_KEY,
@@ -245,6 +262,8 @@ async function loadMediaServerSetting() {
         PLEX_TOKEN,
       } = result2.data
       mediaServerSettings.value = {
+        MEDIASERVER_SYNC_INTERVAL,
+        MEDIASERVER_SYNC_BLACKLIST,
         EMBY_HOST,
         EMBY_PLAY_HOST,
         EMBY_API_KEY,
@@ -323,6 +342,12 @@ onMounted(() => {
                   label="当前使用下载器"
                 />
               </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="downloaderSettings.TORRENT_TAG"
+                  label="下载器种子标签"
+                />
+              </VCol>
             </VRow>
             <VRow>
               <VCol cols="12" md="6">
@@ -339,11 +364,9 @@ onMounted(() => {
                   stacked
                 >
                   <VTab value="qbittorrent">
-                    <VAvatar size="20" icon="mdi-download" />
                     Qbittorrent
                   </VTab>
                   <VTab value="transmission">
-                    <VAvatar size="20" icon="mdi-download" />
                     Transmission
                   </VTab>
                 </VTabs>
@@ -451,13 +474,27 @@ onMounted(() => {
         <VCardText>
           <VForm>
             <VRow>
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="4">
                 <VSelect
                   v-model="selectedMediaServers"
                   multiple
                   chips
                   :items="MediaServers"
                   label="当前使用媒体服务器"
+                />
+              </VCol>
+              <VCol cols="12" md="4">
+                <VSelect
+                  v-model="mediaServerSettings.MEDIASERVER_SYNC_INTERVAL"
+                  :items="syncIntervalItems"
+                  label="同步周期"
+                />
+              </VCol>
+              <VCol cols="12" md="4">
+                <VTextField
+                  v-model="mediaServerSettings.MEDIASERVER_SYNC_BLACKLIST"
+                  label="媒体库同步黑名单"
+                  placeholder="使用,分隔"
                 />
               </VCol>
             </VRow>
@@ -468,15 +505,12 @@ onMounted(() => {
                   stacked
                 >
                   <VTab value="emby">
-                    <VAvatar size="20" icon="mdi-download" />
                     Emby
                   </VTab>
                   <VTab value="jellyfin">
-                    <VAvatar size="20" icon="mdi-download" />
                     Jellyfin
                   </VTab>
                   <VTab value="plex">
-                    <VAvatar size="20" icon="mdi-download" />
                     Plex
                   </vtab>
                 </VTabs>
