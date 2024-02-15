@@ -8,6 +8,29 @@ const messagemTypes = ref<NotificationSwitch[]>([])
 // 选中的消息渠道
 const selectedChannels = ref([])
 
+// 消息渠道标签页
+const messagerTab = ref('wechat')
+
+// 消息设置
+const notificationSettings = ref({
+  WECHAT_CORPID: '',
+  WECHAT_APP_SECRET: '',
+  WECHAT_APP_ID: '',
+  WECHAT_PROXY: '',
+  WECHAT_TOKEN: '',
+  WECHAT_ENCODING_AESKEY: '',
+  WECHAT_ADMINS: '',
+  TELEGRAM_TOKEN: '',
+  TELEGRAM_CHAT_ID: '',
+  TELEGRAM_USERS: '',
+  TELEGRAM_ADMINS: '',
+  SLACK_OAUTH_TOKEN: '',
+  SLACK_APP_TOKEN: '',
+  SLACK_CHANNEL: '',
+  SYNOLOGYCHAT_WEBHOOK: '',
+  SYNOLOGYCHAT_TOKEN: '',
+})
+
 // 消息渠道
 const NotificationChannels = [
   {
@@ -55,8 +78,6 @@ async function saveNotificationSwitchs() {
       $toast.success('保存通知消息设置成功')
     else
       $toast.error('保存通知消息设置失败！')
-
-    // messagemTypes.value = messagemTypes.value
   }
   catch (error) {
     console.log(error)
@@ -64,11 +85,51 @@ async function saveNotificationSwitchs() {
 }
 
 // 调用API查询消息渠道设置
-async function loadNotificationChannels() {
+async function loadNotificationSettings() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/MESSAGER')
-    if (result.success)
-      selectedChannels.value = result.data?.value?.split(',')
+    const result1: { [key: string]: any } = await api.get('system/setting/MESSAGER')
+    if (result1.success)
+      selectedChannels.value = result1.data?.value?.split(',')
+
+    const result2: { [key: string]: any } = await api.get('system/env')
+    if (result2.success) {
+      const {
+        WECHAT_CORPID,
+        WECHAT_APP_SECRET,
+        WECHAT_APP_ID,
+        WECHAT_PROXY,
+        WECHAT_TOKEN,
+        WECHAT_ENCODING_AESKEY,
+        WECHAT_ADMINS,
+        TELEGRAM_TOKEN,
+        TELEGRAM_CHAT_ID,
+        TELEGRAM_USERS,
+        TELEGRAM_ADMINS,
+        SLACK_OAUTH_TOKEN,
+        SLACK_APP_TOKEN,
+        SLACK_CHANNEL,
+        SYNOLOGYCHAT_WEBHOOK,
+        SYNOLOGYCHAT_TOKEN,
+      } = result2.data
+      notificationSettings.value = {
+        WECHAT_CORPID,
+        WECHAT_APP_SECRET,
+        WECHAT_APP_ID,
+        WECHAT_PROXY,
+        WECHAT_TOKEN,
+        WECHAT_ENCODING_AESKEY,
+        WECHAT_ADMINS,
+        TELEGRAM_TOKEN,
+        TELEGRAM_CHAT_ID,
+        TELEGRAM_USERS,
+        TELEGRAM_ADMINS,
+        SLACK_OAUTH_TOKEN,
+        SLACK_APP_TOKEN,
+        SLACK_CHANNEL,
+        SYNOLOGYCHAT_WEBHOOK,
+        SYNOLOGYCHAT_TOKEN,
+      }
+    }
   }
   catch (error) {
     console.log(error)
@@ -76,26 +137,47 @@ async function loadNotificationChannels() {
 }
 
 // 调用API保存消息渠道设置
-async function saveNotificationChannels() {
+async function saveNotificationSettings() {
   try {
-    const result: { [key: string]: any } = await api.post(
+    const result1: { [key: string]: any } = await api.post(
       'system/setting/MESSAGER',
       selectedChannels.value.join(','),
     )
 
-    if (result.success)
+    const result2: { [key: string]: any } = await api.post(
+      'system/env',
+      notificationSettings.value,
+    )
+
+    if (result1.success && result2.success) {
       $toast.success('保存通知渠道设置成功')
-    else
-      $toast.error('保存通知渠道设置失败！')
+      reloadModule()
+    }
+    else { $toast.error('保存通知渠道设置失败！') }
   }
   catch (error) {
     console.log(error)
   }
 }
 
+// 调用API接口重新加载模块
+async function reloadModule() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/reload')
+    if (result.success)
+      $toast.success('重新加载模块成功')
+    else
+      $toast.error('重新加载模块失败！')
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+// 加载数据
 onMounted(() => {
   loadNotificationSwitchs()
-  loadNotificationChannels()
+  loadNotificationSettings()
 })
 </script>
 
@@ -117,6 +199,161 @@ onMounted(() => {
                 />
               </VCol>
             </VRow>
+            <VRow>
+              <VCol>
+                <VTabs
+                  v-model="messagerTab"
+                  stacked
+                >
+                  <VTab value="wechat">
+                    <VAvatar size="20" icon="mdi-download" />
+                    微信
+                  </VTab>
+                  <VTab value="telegram">
+                    <VAvatar size="20" icon="mdi-download" />
+                    Telegram
+                  </VTab>
+                  <VTab value="slack">
+                    <VAvatar size="20" icon="mdi-download" />
+                    Slack
+                  </VTab>
+                  <VTab value="synologychat">
+                    <VAvatar size="20" icon="mdi-download" />
+                    SynologyChat
+                  </VTab>
+                </VTabs>
+                <VWindow
+                  v-model="messagerTab"
+                  class="mt-5 disable-tab-transition"
+                  :touch="false"
+                >
+                  <VWindowItem value="wechat">
+                    <VForm>
+                      <VRow>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_CORPID"
+                            label="企业ID"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_APP_SECRET"
+                            label="应用密钥"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_APP_ID"
+                            label="应用ID"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_PROXY"
+                            label="代理地址"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_TOKEN"
+                            label="Token"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_ENCODING_AESKEY"
+                            label="EncodingAESKey"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_ADMINS"
+                            label="管理员白名单"
+                            placeholder="多个用,分隔"
+                          />
+                        </VCol>
+                      </VRow>
+                    </VForm>
+                  </VWindowItem>
+                  <VWindowItem value="telegram">
+                    <VForm>
+                      <VRow>
+                        <VCol cols="12" md="6">
+                          <VTextField
+                            v-model="notificationSettings.TELEGRAM_TOKEN"
+                            label="Bot Token"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="6">
+                          <VTextField
+                            v-model="notificationSettings.TELEGRAM_CHAT_ID"
+                            label="Chat ID"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="6">
+                          <VTextField
+                            v-model="notificationSettings.TELEGRAM_USERS"
+                            label="用户白名单"
+                            placeholder="多个用,分隔"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="6">
+                          <VTextField
+                            v-model="notificationSettings.TELEGRAM_ADMINS"
+                            label="管理员白名单"
+                            placeholder="多个用,分隔"
+                          />
+                        </VCol>
+                      </VRow>
+                    </VForm>
+                  </VWindowItem>
+                  <VWindowItem value="slack">
+                    <VForm>
+                      <VRow>
+                        <VCol cols="12" md="5">
+                          <VTextField
+                            v-model="notificationSettings.SLACK_OAUTH_TOKEN"
+                            label="Slack Bot User OAuth Token"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="5">
+                          <VTextField
+                            v-model="notificationSettings.SLACK_APP_TOKEN"
+                            label="Slack App-Level Token"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="2">
+                          <VTextField
+                            v-model="notificationSettings.SLACK_CHANNEL"
+                            label="频道名称"
+                            placeholder="全体"
+                          />
+                        </VCol>
+                      </VRow>
+                    </VForm>
+                  </VWindowItem>
+                  <VWindowItem value="synologychat">
+                    <VForm>
+                      <VRow>
+                        <VCol cols="12" md="6">
+                          <VTextField
+                            v-model="notificationSettings.SYNOLOGYCHAT_WEBHOOK"
+                            label="Webhook"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="6">
+                          <VTextField
+                            v-model="notificationSettings.SYNOLOGYCHAT_TOKEN"
+                            label="Token"
+                          />
+                        </VCol>
+                      </VRow>
+                    </VForm>
+                  </VWindowItem>
+                </VWindow>
+              </VCol>
+            </VRow>
           </VForm>
         </VCardText>
         <VCardText>
@@ -124,7 +361,7 @@ onMounted(() => {
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn
                 mtype="submit"
-                @click="saveNotificationChannels"
+                @click="saveNotificationSettings"
               >
                 保存
               </VBtn>

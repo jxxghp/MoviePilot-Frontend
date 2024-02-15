@@ -32,6 +32,9 @@ const selectedRssSites = ref<number[]>([])
 // 当前规则类型
 const currentRuleType = ref('SubscribeFilterRules')
 
+// 是否开启订阅定时搜索
+const enableIntervalSearch = ref(false)
+
 // 包含与排除规则
 const defaultFilterRules = ref({
   include: '',
@@ -40,6 +43,29 @@ const defaultFilterRules = ref({
   tv_size: '',
   show_edit_dialog: false,
 })
+
+// 订阅模式选择项
+const subscribeModeItems = [
+  { title: '自动', value: 'spider' },
+  { title: '站点RSS', value: 'rss' },
+]
+
+// 选择的订阅模式
+const selectedSubscribeMode = ref('spider')
+
+// RSS运行周期选择项
+const rssIntervalItems = [
+  { title: '5分钟', value: 5 },
+  { title: '10分钟', value: 10 },
+  { title: '20分钟', value: 20 },
+  { title: '半小时', value: 30 },
+  { title: '1小时', value: 60 },
+  { title: '12小时', value: 720 },
+  { title: '1天', value: 1440 },
+]
+
+// 选择的RSS运行周期
+const selectedRssInterval = ref<number>(5)
 
 // 导入代码弹窗
 const importCodeDialog = ref(false)
@@ -62,9 +88,26 @@ async function querySelectedRssSites() {
 // 保存用户选中的订阅站点
 async function saveSelectedRssSites() {
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/RssSites', selectedRssSites.value)
+    const result1: { [key: string]: any } = await api.post(
+      'system/setting/RssSites',
+      selectedRssSites.value)
 
-    if (result.success)
+    const result2: { [key: string]: any } = await api.post(
+      'system/setting/SUBSCRIBE_SEARCH',
+      enableIntervalSearch.value,
+    )
+
+    const result3: { [key: string]: any } = await api.post(
+      'system/setting/SUBSCRIBE_MODE',
+      selectedSubscribeMode.value,
+    )
+
+    const result4: { [key: string]: any } = await api.post(
+      'system/setting/SUBSCRIBE_RSS_INTERVAL',
+      selectedRssInterval.value,
+    )
+
+    if (result1.success && result2.success && result3.success && result4.success)
       $toast.success('订阅站点保存成功')
     else
       $toast.error('订阅站点保存失败！')
@@ -82,6 +125,19 @@ async function querySites() {
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)
     querySelectedRssSites()
+
+    // 查询订阅搜索开关
+    const result: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_SEARCH')
+    if (result.success)
+      enableIntervalSearch.value = result.data?.value
+    // 查询订阅模式
+    const result2: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_MODE')
+    if (result2.success)
+      selectedSubscribeMode.value = result2.data?.value
+    // 查询站点RSS周期
+    const result3: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_RSS_INTERVAL')
+    if (result3.success)
+      selectedRssInterval.value = result3.data?.value
   }
   catch (error) {
     console.log(error)
@@ -346,7 +402,34 @@ onMounted(() => {
             </VChip>
           </VChipGroup>
         </VCardItem>
-
+        <VCardText>
+          <VForm>
+            <VRow>
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="selectedSubscribeMode"
+                  :items="subscribeModeItems"
+                  label="订阅模式"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="selectedRssInterval"
+                  :items="rssIntervalItems"
+                  label="站点RSS周期"
+                />
+              </VCol>
+            </VRow>
+            <VRow>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="enableIntervalSearch"
+                  label="开启订阅定时搜索"
+                />
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
         <VCardItem>
           <VBtn type="submit" @click="saveSelectedRssSites">
             保存
