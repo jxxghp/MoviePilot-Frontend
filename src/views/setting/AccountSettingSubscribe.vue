@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+<script lang='ts' setup>
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
@@ -94,7 +94,7 @@ async function saveSelectedRssSites() {
 
     const result2: { [key: string]: any } = await api.post(
       'system/setting/SUBSCRIBE_SEARCH',
-      enableIntervalSearch.value,
+      enableIntervalSearch.value ? 'True' : 'False',
     )
 
     const result3: { [key: string]: any } = await api.post(
@@ -469,7 +469,7 @@ onMounted(() => {
             </VMenu>
           </IconBtn>
         </template>
-        <VCardSubtitle> 设置在正常订阅时默认使用的优先级，未在优先级中的资源将不会自动下载。 </VCardSubtitle>
+        <VCardSubtitle> 设置在正常订阅时默认使用的优先级，未在优先级中的资源将不会自动下载。</VCardSubtitle>
         <VCardItem>
           <div class="grid gap-3 grid-filterrule-card">
             <FilterRuleCard
@@ -535,7 +535,7 @@ onMounted(() => {
             </VMenu>
           </IconBtn>
         </template>
-        <VCardSubtitle> 设置在订阅洗版时使用的优先级，匹配优先级1时洗版完成。 </VCardSubtitle>
+        <VCardSubtitle> 设置在订阅洗版时使用的优先级，匹配优先级1时洗版完成。</VCardSubtitle>
         <VCardItem>
           <div class="grid gap-3 grid-filterrule-card">
             <FilterRuleCard
@@ -571,7 +571,7 @@ onMounted(() => {
     </VCol>
     <VCol cols="12">
       <VCard title="默认过滤规则">
-        <VCardSubtitle> 设置在订阅时默认使用的过滤规则。 </VCardSubtitle>
+        <VCardSubtitle> 设置在订阅时默认使用的过滤规则。</VCardSubtitle>
         <VCardText>
           <VForm>
             <VRow>
@@ -638,7 +638,7 @@ onMounted(() => {
   </VDialog>
 </template>
 
-<style lang="scss">
+<style lang='scss'>
 .grid-filterrule-card {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   padding-block-end: 1rem;
