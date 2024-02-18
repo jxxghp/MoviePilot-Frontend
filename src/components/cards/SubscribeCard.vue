@@ -1,10 +1,11 @@
-<script lang="ts" setup>
+<script lang='ts' setup>
 import { useToast } from 'vue-toast-notification'
 import SubscribeEditForm from '../form/SubscribeEditForm.vue'
 import { calculateTimeDifference } from '@/@core/utils'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
+import router from '@/router'
 
 // 输入参数
 const props = defineProps({
@@ -55,7 +56,7 @@ function getPercentage() {
   return Math.round(
     (((props.media?.total_episode ?? 0) - (props.media?.lack_episode ?? 0))
       / (props.media?.total_episode ?? 1))
-      * 100,
+    * 100,
   )
 }
 
@@ -126,8 +127,28 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '取消订阅',
+    title: '查看详情',
     value: 3,
+    props: {
+      prependIcon: 'mdi-open-in-new',
+      click: () => {
+        router.push({
+          path: '/media',
+          query: {
+            mediaid: `${
+              props.media?.tmdbid
+                ? `tmdb:${props.media?.tmdbid}`
+                : `douban:${props.media?.doubanid}`
+            }`,
+            type: props.media?.type,
+          },
+        })
+      },
+    },
+  },
+  {
+    title: '取消订阅',
+    value: 4,
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
@@ -162,7 +183,7 @@ const dropdownItems = ref([
       </template>
       <VCardTitle :class="getTextClass()">
         {{ props.media?.name }}
-        {{ formatSeason(props.media?.season ? props.media?.season.toString() : "") }}
+        {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
       </VCardTitle>
       <template #append>
         <div class="me-n3">
@@ -252,7 +273,8 @@ const dropdownItems = ref([
       <VIcon
         icon="mdi-download"
         class="me-1"
-      /> {{ lastUpdateText }}
+      />
+      {{ lastUpdateText }}
     </VCardText>
     <VProgressLinear
       v-if="getPercentage() > 0"
