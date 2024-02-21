@@ -5,24 +5,20 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import PluginAppCard from '@/components/cards/PluginAppCard.vue'
 import PluginCard from '@/components/cards/PluginCard.vue'
 
-// 数据列表
+// 已安装插件列表
 const dataList = ref<Plugin[]>([])
+
+// 未安装插件列表
+const uninstalledList = ref<Plugin[]>([])
 
 // 是否刷新过
 const isRefreshed = ref(false)
 
+// APP市场是否加载完成
+const isAppMarketLoaded = ref(false)
+
 // APP市场窗口
 const PluginAppDialog = ref(false)
-
-// 获取已安装的插件列表
-const getInstalledPluginList = computed(() => {
-  return dataList.value.filter(item => item.installed)
-})
-
-// 获取未安装或者有更新的插件列表
-const getUninstalledPluginList = computed(() => {
-  return dataList.value.filter(item => !item.installed || item.has_update)
-})
 
 // 关闭插件市场窗口
 function pluginDialogClose() {
@@ -31,14 +27,19 @@ function pluginDialogClose() {
 
 // 新安装了插件
 function pluginInstalled() {
-  fetchData()
+  fetchInstalledPlugins()
   pluginDialogClose()
+  fetchUninstalledPlugins()
 }
 
 // 获取插件列表数据
-async function fetchData() {
+async function fetchInstalledPlugins() {
   try {
-    dataList.value = await api.get('plugin/')
+    dataList.value = await api.get('plugin/', {
+      params: {
+        state: 'installed',
+      },
+    })
     isRefreshed.value = true
   }
   catch (error) {
@@ -46,8 +47,26 @@ async function fetchData() {
   }
 }
 
+// 获取未安装插件列表数据
+async function fetchUninstalledPlugins() {
+  try {
+    uninstalledList.value = await api.get('plugin/', {
+      params: {
+        state: 'market',
+      },
+    })
+    isAppMarketLoaded.value = true
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
 // 加载时获取数据
-onBeforeMount(fetchData)
+onBeforeMount(() => {
+  fetchInstalledPlugins()
+  fetchUninstalledPlugins()
+})
 </script>
 
 <template>
@@ -63,19 +82,19 @@ onBeforeMount(fetchData)
     />
   </div>
   <div
-    v-if="getInstalledPluginList.length > 0"
+    v-if="dataList.length > 0"
     class="grid gap-4 grid-plugin-card"
   >
     <PluginCard
-      v-for="data in getInstalledPluginList"
+      v-for="data in dataList"
       :key="data.id"
       :plugin="data"
-      @remove="fetchData"
-      @save="fetchData"
+      @remove="fetchInstalledPlugins"
+      @save="fetchInstalledPlugins"
     />
   </div>
   <NoDataFound
-    v-if="getInstalledPluginList.length === 0 && isRefreshed"
+    v-if="dataList.length === 0 && isRefreshed"
     error-code="404"
     error-title="没有安装插件"
     error-description="点击右下角按钮，前往插件市场安装插件。"
@@ -121,16 +140,28 @@ onBeforeMount(fetchData)
         </VToolbar>
       </div>
       <VCardText>
-        <div class="grid gap-4 grid-plugin-card">
+        <div
+          v-if="!isAppMarketLoaded"
+          class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+        >
+          正在加载插件市场，请稍候...
+          <VProgressCircular
+            v-if="!isAppMarketLoaded"
+            size="48"
+            indeterminate
+            color="primary"
+          />
+        </div>
+        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <PluginAppCard
-            v-for="data in getUninstalledPluginList"
+            v-for="data in uninstalledList"
             :key="data.id"
             :plugin="data"
             @install="pluginInstalled"
           />
         </div>
         <NoDataFound
-          v-if="getUninstalledPluginList.length === 0 && isRefreshed"
+          v-if="uninstalledList.length === 0 && isAppMarketLoaded"
           error-code="404"
           error-title="没有未安装插件"
           error-description="所有可用插件均已安装。"
