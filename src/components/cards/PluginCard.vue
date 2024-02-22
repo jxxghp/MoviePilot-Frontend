@@ -8,6 +8,7 @@ import PageRender from '@/components/render/PageRender.vue'
 import { isNullOrEmptyObject } from '@core/utils'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
+import store from '@/store'
 
 // 输入参数
 const props = defineProps({
@@ -225,6 +226,13 @@ function visitAuthorPage() {
   window.open(props.plugin?.author_url, '_blank')
 }
 
+// 查看日志URL
+function openLoggerWindow() {
+  const token = store.state.auth.token
+  const url = `${import.meta.env.VITE_API_BASE_URL}system/logging?token=${token}&length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
+  window.open(url, '_blank')
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -266,8 +274,19 @@ const dropdownItems = ref([
     },
   },
   {
+    title: '查看日志',
+    value: 5,
+    show: true,
+    props: {
+      prependIcon: 'mdi-file-document-outline',
+      click: () => {
+        openLoggerWindow()
+      },
+    },
+  },
+  {
     title: '作者主页',
-    value: 4,
+    value: 5,
     show: true,
     props: {
       prependIcon: 'mdi-home-circle-outline',
