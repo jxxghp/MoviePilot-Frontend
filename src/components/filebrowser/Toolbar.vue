@@ -144,19 +144,31 @@ const sortIcon = computed(() => {
       </template>
     </VToolbarItems>
     <div class="flex-grow-1" />
-    <IconBtn @click="changeSort">
-      <VIcon :icon="sortIcon" />
-    </IconBtn>
-    <IconBtn v-if="pathSegments.length > 0" @click="goUp">
-      <VIcon icon="mdi-arrow-up-bold-outline" />
-    </IconBtn>
+    <VTooltip text="调整排序">
+      <template #activator="{ props }">
+        <IconBtn v-bind="props" @click="changeSort">
+          <VIcon :icon="sortIcon" />
+        </IconBtn>
+      </template>
+    </VTooltip>
+    <VTooltip text="返回上一级" v-if="pathSegments.length > 0">
+      <template #activator="{ props }">
+        <IconBtn v-bind="props" @click="goUp">
+          <VIcon icon="mdi-arrow-up-bold-outline" />
+        </IconBtn>
+      </template>
+    </VTooltip>
     <VDialog
       v-model="newFolderPopper"
       max-width="50rem"
     >
       <template #activator="{ props }">
-        <IconBtn title="新建文件夹" v-bind="props">
-          <VIcon icon="mdi-folder-plus-outline" />
+        <IconBtn v-bind="props">
+          <VTooltip text="新建文件夹">
+            <template #activator="{ props: _props }">
+              <VIcon v-bind="_props" icon="mdi-folder-plus-outline" />
+            </template>
+          </VTooltip>
         </IconBtn>
       </template>
       <VCard title="新建文件夹">

@@ -415,8 +415,16 @@ const dropdownItems = ref([
   </VCard>
   <!-- 底部操作按钮 -->
   <span v-if="selected.length > 0" class="fixed right-5 bottom-5">
-    <VBtn icon="mdi-redo-variant" class="me-2" color="primary" size="x-large" @click="retransferBatch" />
-    <VBtn icon="mdi-trash-can-outline" color="error" size="x-large" @click="removeHistoryBatch" />
+    <VTooltip text="批量重新整理">
+      <template #activator="{ props }">
+        <VBtn v-bind="props" icon="mdi-redo-variant" class="me-2" color="primary" size="x-large" @click="retransferBatch" />
+      </template>
+    </VTooltip>
+    <VTooltip text="批量删除">
+      <template #activator="{ props }">
+        <VBtn v-bind="props" icon="mdi-trash-can-outline" color="error" size="x-large" @click="removeHistoryBatch" />
+      </template>
+    </VTooltip>
   </span>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>

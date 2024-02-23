@@ -416,21 +416,41 @@ onMounted(() => {
                   </VMenu>
                 </IconBtn>
                 <span v-show="hover.isHovering" class="flex">
-                  <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
-                    <VIcon icon="mdi-text-recognition" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="scrape(item.path)">
-                    <VIcon icon="mdi-auto-fix" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
-                    <VIcon icon="mdi-rename" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
-                    <VIcon icon="mdi-folder-arrow-right" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
-                    <VIcon icon="mdi-delete-outline" />
-                  </IconBtn>
+                  <VTooltip text="识别">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
+                        <VIcon icon="mdi-text-recognition" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="刮削">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
+                        <VIcon icon="mdi-auto-fix" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="重命名">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showRenmae(item)">
+                        <VIcon icon="mdi-rename" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="整理">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
+                        <VIcon icon="mdi-folder-arrow-right" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="删除">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="deleteItem(item)">
+                        <VIcon icon="mdi-delete-outline" color="error" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
                 </span>
               </template>
             </VListItem>
@@ -483,21 +503,41 @@ onMounted(() => {
                   </VMenu>
                 </IconBtn>
                 <span v-show="hover.isHovering" class="flex">
-                  <IconBtn class="d-none d-sm-block" @click.stop="recognize(item.path)">
-                    <VIcon icon="mdi-text-recognition" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="scrape(item.path)">
-                    <VIcon icon="mdi-auto-fix" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="showRenmae(item)">
-                    <VIcon icon="mdi-rename" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="showTransfer(item)">
-                    <VIcon icon="mdi-folder-arrow-right" />
-                  </IconBtn>
-                  <IconBtn class="d-none d-sm-block" @click.stop="deleteItem(item)">
-                    <VIcon icon="mdi-delete-outline" />
-                  </IconBtn>
+                  <VTooltip text="识别">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
+                        <VIcon icon="mdi-text-recognition" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="刮削">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
+                        <VIcon icon="mdi-auto-fix" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="重命名">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showRenmae(item)">
+                        <VIcon icon="mdi-rename" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="整理">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
+                        <VIcon icon="mdi-folder-arrow-right" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
+                  <VTooltip text="删除">
+                    <template #activator="{ props }">
+                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="deleteItem(item)">
+                        <VIcon icon="mdi-delete-outline" color="error" />
+                      </IconBtn>
+                    </template>
+                  </VTooltip>
                 </span>
               </template>
             </VListItem>
