@@ -877,6 +877,9 @@ export interface ScheduleInfo {
   // 名称
   name: string
 
+  // 提供者
+  provider: string
+
   // 状态
   status: string
 
