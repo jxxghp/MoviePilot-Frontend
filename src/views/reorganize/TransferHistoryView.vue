@@ -357,7 +357,7 @@ const dropdownItems = ref([
             <VIcon :icon="getIcon(item.value.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
-            <span class="d-block whitespace-nowrap text-high-emphasis">
+            <span class="d-block text-high-emphasis">
               {{ item.value.title }} {{ item.value.seasons }}{{ item.value.episodes }}
             </span>
             <small>{{ item.value.category }}</small>
