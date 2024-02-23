@@ -44,7 +44,11 @@ function allLoggingUrl() {
         class="me-2"
         v-bind="props"
       >
-        <VIcon icon="mdi-checkbox-multiple-blank-outline" />
+        <VTooltip text="捷径">
+          <template #activator="{ props: _props }">
+            <VIcon v-bind="_props" icon="mdi-checkbox-multiple-blank-outline" />
+          </template>
+        </VTooltip>
       </IconBtn>
     </template>
     <!-- Menu Content -->

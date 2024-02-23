@@ -121,7 +121,11 @@ function themeTransition() {
 
 <template>
   <IconBtn @click="changeTheme">
-    <VIcon :icon="props.themes[currentThemeIndex].icon" />
+    <VTooltip text="切换主题">
+      <template #activator="{ props: _props }">
+        <VIcon v-bind="_props" :icon="props.themes[currentThemeIndex].icon" />
+      </template>
+    </VTooltip>
   </IconBtn>
 </template>
 
