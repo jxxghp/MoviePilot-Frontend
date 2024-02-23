@@ -84,6 +84,9 @@ onUnmounted(() => {
       <thead>
         <tr>
           <th scope="col">
+            提供者
+          </th>
+          <th scope="col">
             任务名称
           </th>
           <th scope="col">
@@ -100,6 +103,9 @@ onUnmounted(() => {
           v-for="scheduler in schedulerList"
           :key="scheduler.id"
         >
+          <td>
+            {{ scheduler.provider }}
+          </td>
           <td>
             {{ scheduler.name }}
           </td>
