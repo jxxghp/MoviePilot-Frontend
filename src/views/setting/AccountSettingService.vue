@@ -78,7 +78,7 @@ onUnmounted(() => {
 
 <template>
   <VCard title="定时作业">
-    <VCardSubtitle> 手动执行不会影响作业正常的时间表。 </VCardSubtitle>
+    <VCardSubtitle> 包含系统内置服务以及插件提供的服务，手动执行不会影响作业正常的时间表。 </VCardSubtitle>
 
     <VTable class="text-no-wrap">
       <thead>
