@@ -144,7 +144,6 @@ onBeforeMount(() => {
           v-if="!isAppMarketLoaded"
           class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
         >
-          正在加载插件市场，请稍候...
           <VProgressCircular
             v-if="!isAppMarketLoaded"
             size="48"
