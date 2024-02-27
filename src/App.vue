@@ -1,8 +1,13 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import { useTheme } from 'vuetify'
+
 import store from './store'
 
+// 提示框
+const $toast = useToast()
+
+// 设置主题
 function setTheme() {
   const { global: globalTheme } = useTheme()
   let theme = localStorage.getItem('theme') || 'light'
@@ -10,11 +15,6 @@ function setTheme() {
     theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   globalTheme.name.value = theme
 }
-// 第一时间应用主题
-setTheme()
-
-// 提示框
-const $toast = useToast()
 
 // SSE持续接收消息
 function startSSEMessager() {
@@ -38,6 +38,7 @@ function startSSEMessager() {
 
 // 页面加载时，加载当前用户数据
 onBeforeMount(async () => {
+  setTheme()
   startSSEMessager()
 })
 </script>
