@@ -3,6 +3,7 @@
 import { useToast } from 'vue-toast-notification'
 import { VRow } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
+import { requiredValidator } from '@/@validators'
 
 // 选中的媒体服务器
 const selectedMediaServers = ref([])
@@ -628,6 +629,7 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaSettings.DOWNLOAD_PATH"
                   label="下载目录"
+                  :rules="[requiredValidator]"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -682,6 +684,8 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaSettings.LIBRARY_PATH"
                   label="媒体库目录"
+                  placeholder="多个目录使用,分隔"
+                  :rules="[requiredValidator]"
                 />
               </VCol>
               <VCol cols="12" md="6">
