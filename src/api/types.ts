@@ -658,6 +658,9 @@ export interface TorrentInfo {
   // 剩余免费时间
   freedate_diff: string
 
+  // 种子类型
+  category: string
+
 }
 
 // 识别元数据
