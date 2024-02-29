@@ -105,6 +105,7 @@ onBeforeMount(() => {
     fullscreen
     scrollable
     :scrim="false"
+    :z-index="1010"
     transition="dialog-bottom-transition"
   >
     <!-- Dialog Activator -->
