@@ -6,10 +6,6 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
 import store from '@/store'
 
-// 从Vuex Store中获取用户信息
-const superUser = store.state.auth.superUser
-const userName = store.state.auth.userName
-
 // 定时器
 let refreshTimer: NodeJS.Timer | null = null
 
@@ -42,6 +38,9 @@ function onRefresh() {
 
 // 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
 const filteredDataList = computed(() => {
+  // 从Vuex Store中获取用户信息
+  const superUser = store.state.auth.superUser
+  const userName = store.state.auth.userName
   if (superUser)
     return dataList.value
   else
