@@ -1,14 +1,25 @@
 <script lang="ts" setup>
+import api from '@/api';
 import DefaultLayoutWithVerticalNav from './components/DefaultLayoutWithVerticalNav.vue'
+const router = useRouter()
+const route = useRoute()
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    api.get('user/current')
+    .catch(() => {
+      router.replace('/login')
+    })
+  }
+})
 </script>
 
 <template>
   <DefaultLayoutWithVerticalNav>
     <router-view v-slot="{ Component }">
       <keep-alive>
-        <component :is="Component" v-if="$route.meta.keepAlive" :key="$route.fullPath" />
+        <component :is="Component" v-if="route.meta.keepAlive" :key="route.fullPath" />
       </keep-alive>
-      <component :is="Component" v-if="!$route.meta.keepAlive" :key="$route.fullPath" />
+      <component :is="Component" v-if="!route.meta.keepAlive" :key="route.fullPath" />
     </router-view>
   </DefaultLayoutWithVerticalNav>
 </template>
