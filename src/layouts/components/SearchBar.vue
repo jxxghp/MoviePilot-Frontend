@@ -84,7 +84,7 @@ function openSearchDialog() {
     <VTextField
       key="search_navbar"
       v-model="searchWord"
-      class="d-none d-lg-block text-disabled"
+      class="d-none d-lg-block text-disabled search-box"
       density="compact"
       variant="solo"
       label="搜索电影、电视剧"
@@ -98,3 +98,9 @@ function openSearchDialog() {
     />
   </span>
 </template>
+
+<style lang="scss">
+.search-box div.v-input__control div[role="textbox"] {
+  border: 1px solid rgb(var(--v-theme-background));
+}
+</style>
