@@ -11,10 +11,6 @@ const props = defineProps({
   type: String,
 })
 
-// 从Vuex Store中获取用户信息
-const superUser = store.state.auth.superUser
-const userName = store.state.auth.userName
-
 // 是否刷新过
 const isRefreshed = ref(false)
 
@@ -47,6 +43,9 @@ function onRefresh() {
 
 // 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
 const filteredDataList = computed(() => {
+// 从Vuex Store中获取用户信息
+  const superUser = store.state.auth.superUser
+  const userName = store.state.auth.userName
   if (superUser)
     return dataList.value.filter(data => data.type === props.type)
   else
