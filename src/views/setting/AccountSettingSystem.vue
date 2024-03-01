@@ -214,6 +214,7 @@ async function loadDownladerSetting() {
         TR_USER,
         TR_PASSWORD,
       }
+      downloaderTab.value = DOWNLOADER === 'qbittorrent' ? 'qbittorrent' : 'transmission'
     }
   }
   catch (error) {
