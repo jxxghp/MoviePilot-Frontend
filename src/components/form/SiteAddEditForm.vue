@@ -121,6 +121,9 @@ async function updateSiteInfo() {
 <template>
   <VDialog
     scrollable
+    :close-on-back="false"
+    persistent
+    eager
     max-width="60rem"
   >
     <VCard

@@ -68,6 +68,7 @@ onBeforeMount(fetchData)
     @click="siteAddDialog = true"
   />
   <SiteAddEditForm
+    v-if="siteAddDialog"
     v-model="siteAddDialog"
     oper="add"
     @save="siteAddDialog = false; fetchData()"
