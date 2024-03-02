@@ -1,14 +1,15 @@
 <script lang="ts" setup>
-import api from '@/api';
 import DefaultLayoutWithVerticalNav from './components/DefaultLayoutWithVerticalNav.vue'
+import api from '@/api'
+
 const router = useRouter()
 const route = useRoute()
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     api.get('user/current')
-    .catch(() => {
-      router.replace('/login')
-    })
+      .catch(() => {
+        router.replace('/login')
+      })
   }
 })
 </script>
