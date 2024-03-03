@@ -44,9 +44,7 @@ function allLoggingUrl() {
         class="me-2"
         v-bind="props"
       >
-        <template #activator="{ props: _props }">
-          <VIcon v-bind="_props" icon="mdi-checkbox-multiple-blank-outline" />
-        </template>
+        <VIcon icon="mdi-checkbox-multiple-blank-outline" />
       </IconBtn>
     </template>
     <!-- Menu Content -->

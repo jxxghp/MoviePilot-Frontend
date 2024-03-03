@@ -121,9 +121,7 @@ function themeTransition() {
 
 <template>
   <IconBtn @click="changeTheme">
-    <template #activator="{ props: _props }">
-      <VIcon v-bind="_props" :icon="props.themes[currentThemeIndex].icon" />
-    </template>
+    <VIcon :icon="props.themes[currentThemeIndex].icon" />
   </IconBtn>
 </template>
 
