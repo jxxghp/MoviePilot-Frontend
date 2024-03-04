@@ -30,6 +30,7 @@ const subscribeForm = ref<Subscribe>({
   total_episode: 0,
   start_episode: 0,
   best_version: 0,
+  search_imdbid: false,
   sites: [],
   type: '',
   name: '',
@@ -341,6 +342,15 @@ watchEffect(() => {
               <VSwitch
                 v-model="subscribeForm.best_version"
                 label="洗版"
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+            >
+              <VSwitch
+                v-model="subscribeForm.search_imdbid"
+                label="使用 ImdbID 搜索"
               />
             </VCol>
           </VRow>
