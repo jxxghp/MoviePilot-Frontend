@@ -80,6 +80,9 @@ export interface Subscribe {
   // 是否洗版，数字或者boolean
   best_version: any
 
+  // 使用 imdbid 搜索
+  search_imdbid?: boolean
+
   // 当前优先级
   current_priority: number
 
