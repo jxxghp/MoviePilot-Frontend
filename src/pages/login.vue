@@ -77,8 +77,8 @@ function login() {
       store.dispatch('auth/updateUserName', username)
       store.dispatch('auth/updateAvatar', avatar)
 
-      // 跳转到首页
-      router.push('/')
+      // 跳转到首页或回原始页面
+      router.push(store.state.auth.originalPath)
     })
     .catch((error: any) => {
       // 登录失败，显示错误提示
