@@ -6,6 +6,7 @@ import slack from '@images/logos/slack.png'
 import telegram from '@images/logos/telegram.webp'
 import tmdb from '@images/logos/tmdb.png'
 import wechat from '@images/logos/wechat.png'
+import fanart from '@images/logos/fanart.webp'
 
 interface Status {
   OK: string
@@ -51,6 +52,16 @@ const targets = ref<Address[]>([
     image: tmdb,
     name: 'www.themoviedb.org',
     url: 'https://www.themoviedb.org',
+    proxy: true,
+    status: 'Normal',
+    time: '',
+    message: '未测试',
+    btndisable: false,
+  },
+  {
+    image: fanart,
+    name: 'webservice.fanart.tv',
+    url: 'https://webservice.fanart.tv',
     proxy: true,
     status: 'Normal',
     time: '',
