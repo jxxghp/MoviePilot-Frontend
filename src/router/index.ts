@@ -162,6 +162,7 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = store.state.auth.token !== null
 
   if (to.meta.requiresAuth && !isAuthenticated) {
+    store.state.auth.originalPath = to.fullPath
     next('/login')
   }
   else {

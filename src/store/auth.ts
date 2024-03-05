@@ -7,6 +7,7 @@ interface AuthState {
   superUser: boolean
   userName: string
   avatar: string
+  originalPath: string | null
 }
 
 // 定义根状态类型
@@ -23,6 +24,7 @@ const authModule: Module<AuthState, RootState> = {
     superUser: false,
     userName: '',
     avatar: '',
+    originalPath: null,
   },
   mutations: {
     setToken(state, token: string) {
