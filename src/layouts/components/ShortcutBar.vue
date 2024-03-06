@@ -3,6 +3,7 @@ import NameTestView from '@/views/system/NameTestView.vue'
 import NetTestView from '@/views/system/NetTestView.vue'
 import LoggingView from '@/views/system/LoggingView.vue'
 import RuleTestView from '@/views/system/RuleTestView.vue'
+import ModuleTestView from '@/views/system/ModuleTestView.vue'
 import store from '@/store'
 
 // App捷径
@@ -19,6 +20,9 @@ const loggingDialog = ref(false)
 
 // 过滤规则弹窗
 const ruleTestDialog = ref(false)
+
+// 系统健康检查弹窗
+const systemTestDialog = ref(false)
 
 // 拼接全部日志url
 function allLoggingUrl() {
@@ -81,6 +85,50 @@ function allLoggingUrl() {
           </VCol>
           <VCol
             cols="6"
+            class="text-center cursor-pointer pa-0 shortcut-icon border-e"
+            @click="() => {}"
+          >
+            <VListItem
+              class="pa-4"
+              @click="ruleTestDialog = true"
+            >
+              <VAvatar
+                size="48"
+                variant="tonal"
+              >
+                <VIcon icon="mdi-filter-cog-outline" />
+              </VAvatar>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">
+                优先级
+              </h6>
+              <span class="text-sm">优先级规则测试</span>
+            </VListItem>
+          </VCol>
+        </VRow>
+        <VRow class="ma-0 mt-n1 border-t">
+          <VCol
+            cols="6"
+            class="text-center cursor-pointer pa-0 shortcut-icon border-e"
+            @click="() => {}"
+          >
+            <VListItem
+              class="pa-4"
+              @click="loggingDialog = true"
+            >
+              <VAvatar
+                size="48"
+                variant="tonal"
+              >
+                <VIcon icon="mdi-file-document-outline" />
+              </VAvatar>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">
+                日志
+              </h6>
+              <span class="text-sm">查看实时日志</span>
+            </VListItem>
+          </VCol>
+          <VCol
+            cols="6"
             class="text-center cursor-pointer pa-0 shortcut-icon"
             @click="() => {}"
           >
@@ -109,39 +157,18 @@ function allLoggingUrl() {
           >
             <VListItem
               class="pa-4"
-              @click="loggingDialog = true"
+              @click="systemTestDialog = true"
             >
               <VAvatar
                 size="48"
                 variant="tonal"
               >
-                <VIcon icon="mdi-file-document-outline" />
+                <VIcon icon="mdi-cog-outline" />
               </VAvatar>
               <h6 class="text-base font-weight-medium mt-2 mb-0">
-                日志
+                系统
               </h6>
-              <span class="text-sm">系统实时日志</span>
-            </VListItem>
-          </VCol>
-          <VCol
-            cols="6"
-            class="text-center cursor-pointer pa-0 shortcut-icon border-e"
-            @click="() => {}"
-          >
-            <VListItem
-              class="pa-4"
-              @click="ruleTestDialog = true"
-            >
-              <VAvatar
-                size="48"
-                variant="tonal"
-              >
-                <VIcon icon="mdi-filter-cog-outline" />
-              </VAvatar>
-              <h6 class="text-base font-weight-medium mt-2 mb-0">
-                优先级
-              </h6>
-              <span class="text-sm">优先级规则测试</span>
+              <span class="text-sm">系统健康检查</span>
             </VListItem>
           </VCol>
         </VRow>
@@ -206,6 +233,19 @@ function allLoggingUrl() {
       <DialogCloseBtn @click="ruleTestDialog = false" />
       <VCardText>
         <RuleTestView />
+      </VCardText>
+    </VCard>
+  </VDialog>
+  <!-- 系统健康检查弹窗 -->
+  <VDialog
+    v-model="systemTestDialog"
+    max-width="50rem"
+    scrollable
+  >
+    <VCard title="系统健康检查">
+      <DialogCloseBtn @click="systemTestDialog = false" />
+      <VCardText>
+        <ModuleTestView />
       </VCardText>
     </VCard>
   </VDialog>
