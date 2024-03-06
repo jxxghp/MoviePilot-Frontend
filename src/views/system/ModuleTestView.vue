@@ -3,22 +3,22 @@ import api from '@/api'
 
 // 定义所有的模块ID、名称列表
 const modules = ref([
-  { id: 'FileTransferModule', name: '媒体目录', state: '', errmsg: '' },
-  { id: 'IndexerModule', name: '站点索引', state: '', errmsg: '' },
-  { id: 'DoubanModule', name: '豆瓣', state: '', errmsg: '' },
-  { id: 'TheMovieDbModule', name: 'TheMovieDb', state: '', errmsg: '' },
-  { id: 'TheTvDbModule', name: 'TheTvDb', state: '', errmsg: '' },
-  { id: 'FanartModule', name: 'Fanart', state: '', errmsg: '' },
-  { id: 'EmbyModule', name: 'Emby', state: '', errmsg: '' },
-  { id: 'JellyfinModule', name: 'Jellyfin', state: '', errmsg: '' },
-  { id: 'PlexModule', name: 'Plex', state: '', errmsg: '' },
-  { id: 'WechatModule', name: '微信', state: '', errmsg: '' },
-  { id: 'TelegramModule', name: 'Telegram', state: '', errmsg: '' },
-  { id: 'SlackModule', name: 'Slack', state: '', errmsg: '' },
-  { id: 'SynologyChatModule', name: 'Synology Chat', state: '', errmsg: '' },
-  { id: 'VoceChatModule', name: 'VoceChat', state: '', errmsg: '' },
-  { id: 'QbittorrentModule', name: 'Qbittorrent', state: '', errmsg: '' },
-  { id: 'TransmissionModule', name: 'Transmission', state: '', errmsg: '' },
+  { id: 'FileTransferModule', name: '媒体目录', state: '', errmsg: '', loading: false },
+  { id: 'IndexerModule', name: '站点索引', state: '', errmsg: '', loading: false },
+  { id: 'DoubanModule', name: '豆瓣', state: '', errmsg: '', loading: false },
+  { id: 'TheMovieDbModule', name: 'TheMovieDb', state: '', errmsg: '', loading: false },
+  { id: 'TheTvDbModule', name: 'TheTvDb', state: '', errmsg: '', loading: false },
+  { id: 'FanartModule', name: 'Fanart', state: '', errmsg: '', loading: false },
+  { id: 'EmbyModule', name: 'Emby', state: '', errmsg: '', loading: false },
+  { id: 'JellyfinModule', name: 'Jellyfin', state: '', errmsg: '', loading: false },
+  { id: 'PlexModule', name: 'Plex', state: '', errmsg: '', loading: false },
+  { id: 'WechatModule', name: '微信', state: '', errmsg: '', loading: false },
+  { id: 'TelegramModule', name: 'Telegram', state: '', errmsg: '', loading: false },
+  { id: 'SlackModule', name: 'Slack', state: '', errmsg: '', loading: false },
+  { id: 'SynologyChatModule', name: 'Synology Chat', state: '', errmsg: '', loading: false },
+  { id: 'VoceChatModule', name: 'VoceChat', state: '', errmsg: '', loading: false },
+  { id: 'QbittorrentModule', name: 'Qbittorrent', state: '', errmsg: '', loading: false },
+  { id: 'TransmissionModule', name: 'Transmission', state: '', errmsg: '', loading: false },
 ])
 
 // 调用API测试模块
@@ -26,9 +26,9 @@ async function moduleTest(index: number) {
   try {
     const target = modules.value[index]
     const moduleid = target.id
-
+    target.loading = true
     const result: { [key: string]: any } = await api.get(`system/moduletest/${moduleid}`)
-
+    target.loading = false
     if (result.success) {
       target.state = 'success'
       target.name = `${target.name} - 正常`
@@ -65,5 +65,11 @@ onMounted(async () => {
     variant="tonal"
   >
     {{ module.errmsg }}
+    <template #prepend>
+      <VProgressCircular
+        v-if="module.loading"
+        indeterminate
+      />
+    </template>
   </VAlert>
 </template>
