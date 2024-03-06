@@ -14,6 +14,7 @@ const modules = ref([
   { id: 'TelegramModule', name: 'Telegram', state: '', errmsg: '' },
   { id: 'SlackModule', name: 'Slack', state: '', errmsg: '' },
   { id: 'SynologyChatModule', name: 'Synology Chat', state: '', errmsg: '' },
+  { id: 'VoceChatModule', name: 'VoceChat', state: '', errmsg: '' },
   { id: 'IndexerModule', name: '站点索引', state: '', errmsg: '' },
   { id: 'QbittorrentModule', name: 'Qbittorrent', state: '', errmsg: '' },
   { id: 'TransmissionModule', name: 'Transmission', state: '', errmsg: '' },

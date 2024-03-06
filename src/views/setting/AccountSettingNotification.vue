@@ -29,6 +29,9 @@ const notificationSettings = ref({
   SLACK_CHANNEL: '',
   SYNOLOGYCHAT_WEBHOOK: '',
   SYNOLOGYCHAT_TOKEN: '',
+  VOCECHAT_HOST: '',
+  VOCECHAT_API_KEY: '',
+  VOCECHAT_CHANNEL_ID: '',
 })
 
 // 消息渠道
@@ -48,6 +51,10 @@ const NotificationChannels = [
   {
     title: 'SynologyChat',
     value: 'synologychat',
+  },
+  {
+    title: 'VoceChat',
+    value: 'vocechat',
   },
 ]
 
@@ -110,6 +117,9 @@ async function loadNotificationSettings() {
         SLACK_CHANNEL,
         SYNOLOGYCHAT_WEBHOOK,
         SYNOLOGYCHAT_TOKEN,
+        VOCECHAT_HOST,
+        VOCECHAT_API_KEY,
+        VOCECHAT_CHANNEL_ID,
       } = result2.data
       notificationSettings.value = {
         WECHAT_CORPID,
@@ -128,6 +138,9 @@ async function loadNotificationSettings() {
         SLACK_CHANNEL,
         SYNOLOGYCHAT_WEBHOOK,
         SYNOLOGYCHAT_TOKEN,
+        VOCECHAT_HOST,
+        VOCECHAT_API_KEY,
+        VOCECHAT_CHANNEL_ID,
       }
     }
   }
@@ -216,6 +229,9 @@ onMounted(() => {
                   </VTab>
                   <VTab value="synologychat">
                     SynologyChat
+                  </VTab>
+                  <VTab value="vocechat">
+                    VoceChat
                   </VTab>
                 </VTabs>
                 <VWindow
@@ -347,6 +363,31 @@ onMounted(() => {
                       </VRow>
                     </VForm>
                   </VWindowItem>
+                  <VWindowItem value="vocechat">
+                    <VForm>
+                      <VRow>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.VOCECHAT_HOST"
+                            label="地址"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.VOCECHAT_API_KEY"
+                            label="机器人密钥"
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.VOCECHAT_CHANNEL_ID"
+                            label="频道ID"
+                            placeholder="不包含#号"
+                          />
+                        </VCol>
+                      </VRow>
+                    </VForm>
+                  </VWindowItem>
                 </VWindow>
               </VCol>
             </VRow>
@@ -389,6 +430,9 @@ onMounted(() => {
               <th scope="col">
                 SynologyChat
               </th>
+              <th scope="col">
+                VoceChat
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -411,10 +455,13 @@ onMounted(() => {
               <td>
                 <VCheckbox v-model="message.synologychat" />
               </td>
+              <td>
+                <VCheckbox v-model="message.vocechat" />
+              </td>
             </tr>
             <tr v-if="messagemTypes.length === 0">
               <td
-                colspan="5"
+                colspan="6"
                 class="text-center"
               >
                 没有设置任何通知渠道

@@ -904,6 +904,7 @@ export interface NotificationSwitch {
   telegram: boolean
   slack: boolean
   synologychat: boolean
+  vocechat: boolean
 }
 
 // 环境设置
