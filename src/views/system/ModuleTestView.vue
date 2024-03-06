@@ -3,6 +3,8 @@ import api from '@/api'
 
 // 定义所有的模块ID、名称列表
 const modules = ref([
+  { id: 'FileTransferModule', name: '媒体目录', state: '', errmsg: '' },
+  { id: 'IndexerModule', name: '站点索引', state: '', errmsg: '' },
   { id: 'DoubanModule', name: '豆瓣', state: '', errmsg: '' },
   { id: 'TheMovieDbModule', name: 'TheMovieDb', state: '', errmsg: '' },
   { id: 'TheTvDbModule', name: 'TheTvDb', state: '', errmsg: '' },
@@ -15,7 +17,6 @@ const modules = ref([
   { id: 'SlackModule', name: 'Slack', state: '', errmsg: '' },
   { id: 'SynologyChatModule', name: 'Synology Chat', state: '', errmsg: '' },
   { id: 'VoceChatModule', name: 'VoceChat', state: '', errmsg: '' },
-  { id: 'IndexerModule', name: '站点索引', state: '', errmsg: '' },
   { id: 'QbittorrentModule', name: 'Qbittorrent', state: '', errmsg: '' },
   { id: 'TransmissionModule', name: 'Transmission', state: '', errmsg: '' },
 ])
