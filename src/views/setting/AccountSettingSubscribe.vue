@@ -41,6 +41,7 @@ const defaultFilterRules = ref({
   exclude: '',
   movie_size: '',
   tv_size: '',
+  min_seeders: 0,
   show_edit_dialog: false,
 })
 
@@ -589,7 +590,7 @@ onMounted(() => {
                   label="排除（关键字、正则式）"
                 />
               </VCol>
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="4">
                 <VTextField
                   v-model="defaultFilterRules.movie_size"
                   type="text"
@@ -597,12 +598,20 @@ onMounted(() => {
                   placeholder="0-30"
                 />
               </VCol>
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="4">
                 <VTextField
                   v-model="defaultFilterRules.tv_size"
                   type="text"
                   label="剧集单集文件大小（GB）"
                   placeholder="0-10"
+                />
+              </VCol>
+              <VCol cols="12" md="4">
+                <VTextField
+                  v-model="defaultFilterRules.min_seeders"
+                  type="text"
+                  label="最小做种数"
+                  placeholder="0"
                 />
               </VCol>
               <VCol cols="12" md="6">
