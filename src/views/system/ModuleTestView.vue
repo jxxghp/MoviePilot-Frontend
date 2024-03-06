@@ -65,7 +65,7 @@ onMounted(async () => {
     variant="tonal"
   >
     {{ module.errmsg }}
-    <template #prepend>
+    <template #append>
       <VProgressCircular
         v-if="module.loading"
         indeterminate
