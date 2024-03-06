@@ -7,6 +7,7 @@ import telegram from '@images/logos/telegram.webp'
 import tmdb from '@images/logos/tmdb.png'
 import wechat from '@images/logos/wechat.png'
 import fanart from '@images/logos/fanart.webp'
+import tvdb from '@images/logos/thetvdb.jpeg'
 
 interface Status {
   OK: string
@@ -52,6 +53,16 @@ const targets = ref<Address[]>([
     image: tmdb,
     name: 'www.themoviedb.org',
     url: 'https://www.themoviedb.org',
+    proxy: true,
+    status: 'Normal',
+    time: '',
+    message: '未测试',
+    btndisable: false,
+  },
+  {
+    image: tvdb,
+    name: 'api.thetvdb.com',
+    url: 'https://api.thetvdb.com/series/81189',
     proxy: true,
     status: 'Normal',
     time: '',
