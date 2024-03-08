@@ -44,7 +44,7 @@ const filteredDataList = computed(() => {
   if (superUser)
     return dataList.value
   else
-    return dataList.value.filter(data => data.userid === userName)
+    return dataList.value.filter(data => data.userid === userName || data.username === userName)
 })
 
 // 加载时获取数据

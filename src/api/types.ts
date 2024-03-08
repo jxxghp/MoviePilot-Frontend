@@ -513,8 +513,11 @@ export interface DownloadingInfo {
   // 媒体信息
   media: { [key: string]: any }
 
-  // 下载用户
+  // 下载用户ID
   userid?: string
+
+  // 下载用户名称
+  username?: string
 }
 
 // 缺失剧集信息

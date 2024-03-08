@@ -49,7 +49,7 @@ const filteredDataList = computed(() => {
   if (superUser)
     return dataList.value.filter(data => data.type === props.type)
   else
-    return dataList.value.filter(data => data.type === props.type && data.username === userName)
+    return dataList.value.filter(data => data.type === props.type && (data.username === userName))
 })
 </script>
 
