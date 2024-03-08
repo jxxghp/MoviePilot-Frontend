@@ -54,6 +54,12 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 5000,
     cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['vuetify'],

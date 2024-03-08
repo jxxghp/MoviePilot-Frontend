@@ -2,6 +2,9 @@
 <html lang="en">
 
 <head>
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="expires" content="0">
   <meta charset="UTF-8" />
   <link rel="icon" href="/favicon.ico" />
   <meta name="viewport" content="initial-scale=1, viewport-fit=cover, width=device-width, user-scalable=no" />
@@ -145,11 +148,6 @@
   <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>
   <script>
-    window.addEventListener('vite:preloadError', (event) => {
-      console.log(event)
-      window.reload()
-    })
-
     const loaderColor = localStorage.getItem('materio-initial-loader-bg') || '#FFFFFF'
     const primaryColor = localStorage.getItem('materio-initial-loader-color') || '#9155FD'
 
