@@ -68,6 +68,14 @@ function initOptions(data: Context) {
   optionValue(resolutionFilterOptions.value, meta_info?.resource_pix)
 }
 
+// 对季过滤选项进行排序
+const sortSeasonFilterOptions = computed(() => {
+  return seasonFilterOptions.value.sort((a, b) => {
+    // 按字符串升序排序
+    return a.localeCompare(b, 'zh-Hans-CN', { sensitivity: 'accent' })
+  })
+})
+
 // 计算分组后的列表
 onMounted(() => {
   // 数据分组
@@ -154,7 +162,7 @@ watchEffect(() => {
       <VCol v-if="seasonFilterOptions.length > 0" cols="6" md="">
         <VSelect
           v-model="filterForm.season"
-          :items="seasonFilterOptions"
+          :items="sortSeasonFilterOptions"
           size="small"
           density="compact"
           chips
