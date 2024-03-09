@@ -189,6 +189,7 @@ async function loadDownladerSetting() {
     const result1: { [key: string]: any } = await api.get('system/setting/DOWNLOADER')
     if (result1.success)
       selectedDownloaders.value = result1.data?.value?.split(',')
+
     const result2: { [key: string]: any } = await api.get('system/env')
     if (result2.success) {
       const {
@@ -203,7 +204,7 @@ async function loadDownladerSetting() {
         TR_HOST,
         TR_USER,
         TR_PASSWORD,
-      } = result.data
+      } = result2.data
       downloaderSettings.value = {
         DOWNLOADER_MONITOR,
         TORRENT_TAG,
