@@ -8,6 +8,9 @@ import { requiredValidator } from '@/@validators'
 // 选中的媒体服务器
 const selectedMediaServers = ref([])
 
+// 选中的下载器
+const selectedDownloaders = ref([])
+
 // 下载器选中标签页
 const downloaderTab = ref('qbittorrent')
 
@@ -33,7 +36,6 @@ const mediaSettings = ref({
 
 // 下载器设置项
 const downloaderSettings = ref({
-  DOWNLOADER: '',
   DOWNLOADER_MONITOR: true,
   TORRENT_TAG: '',
   QB_HOST: '',
@@ -184,10 +186,12 @@ async function saveMediaSetting() {
 // 调用API查询下载器设置
 async function loadDownladerSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success) {
+    const result1: { [key: string]: any } = await api.get('system/setting/DOWNLOADER')
+    if (result1.success)
+      selectedDownloaders.value = result1.data?.value?.split(',')
+    const result2: { [key: string]: any } = await api.get('system/env')
+    if (result2.success) {
       const {
-        DOWNLOADER,
         DOWNLOADER_MONITOR,
         TORRENT_TAG,
         QB_HOST,
@@ -201,7 +205,6 @@ async function loadDownladerSetting() {
         TR_PASSWORD,
       } = result.data
       downloaderSettings.value = {
-        DOWNLOADER,
         DOWNLOADER_MONITOR,
         TORRENT_TAG,
         QB_HOST,
@@ -214,7 +217,6 @@ async function loadDownladerSetting() {
         TR_USER,
         TR_PASSWORD,
       }
-      downloaderTab.value = DOWNLOADER === 'qbittorrent' ? 'qbittorrent' : 'transmission'
     }
   }
   catch (error) {
@@ -225,12 +227,16 @@ async function loadDownladerSetting() {
 // 调用API保存下载器设置
 async function saveDownloaderSetting() {
   try {
-    const result: { [key: string]: any } = await api.post(
+    const result1: { [key: string]: any } = await api.post(
+      'system/setting/DOWNLOADER',
+      selectedDownloaders.value.join(','),
+    )
+    const result2: { [key: string]: any } = await api.post(
       'system/env',
       downloaderSettings.value,
     )
 
-    if (result.success) {
+    if (result1.success && result2.success) {
       $toast.success('保存下载器设置成功')
       reloadModule()
     }
@@ -333,13 +339,15 @@ onMounted(() => {
   <VRow>
     <VCol cols="12">
       <VCard title="下载器">
-        <VCardSubtitle>只有选中的下载器才会被默认使用。</VCardSubtitle>
+        <VCardSubtitle>只有选中的第1个下载器才会被默认使用。</VCardSubtitle>
         <VCardText>
           <VForm>
             <VRow>
               <VCol cols="12" md="6">
                 <VSelect
-                  v-model="downloaderSettings.DOWNLOADER"
+                  v-model="selectedDownloaders"
+                  multiple
+                  chips
                   :items="Downloaders"
                   label="当前使用下载器"
                 />
@@ -355,7 +363,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="downloaderSettings.DOWNLOADER_MONITOR"
-                  label="监控下载器"
+                  label="监控默认下载器"
                 />
               </VCol>
             </VRow>
