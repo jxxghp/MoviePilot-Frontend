@@ -36,6 +36,7 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '特效字幕', value: ' SPECSUB ' },
   { title: '中文字幕', value: ' CNSUB ' },
   { title: '国语配音', value: ' CNVOI ' },
+  { title: '官种', value: ' GZ ' },
   { title: '排除: 国语配音', value: ' !CNVOI ' },
   { title: '粤语配音', value: ' HKVOI ' },
   { title: '排除: 粤语配音', value: ' !HKVOI ' },
