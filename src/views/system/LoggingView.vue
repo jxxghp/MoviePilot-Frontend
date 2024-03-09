@@ -34,7 +34,7 @@ function extractLogDetailsFromLogs(logs: string[]): { level: string; time: strin
     const matches = RegExp(logPattern).exec(log)
     if (matches && matches.length === 5) {
       const [_, level, time, program, content] = matches
-      logDetails.push({ level, time, program, content })
+      logDetails.unshift({ level, time, program, content })
     }
   }
 
