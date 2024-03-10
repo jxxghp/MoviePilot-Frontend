@@ -20,6 +20,7 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   ],
   initialView: 'dayGridMonth',
   weekends: true,
+  firstDay: 1,
   headerToolbar: {
     left: 'prev',
     center: 'title',
@@ -195,6 +196,11 @@ onMounted(() => {
   --fc-list-event-hover-bg-color: rgba(var(--v-theme-on-surface), 0.02);
   --fc-page-bg-color: rgb(var(--v-theme-surface));
   --fc-event-border-color: currentcolor;
+}
+
+// 当天背景渐变
+.fc-day-today {
+  background-image: linear-gradient(to bottom, #AF85FD ,rgba(var(--v-theme-on-surface), 0.04));
 }
 
 .v-application .fc a {
