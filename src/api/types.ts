@@ -81,7 +81,7 @@ export interface Subscribe {
   best_version: any
 
   // 使用 imdbid 搜索
-  search_imdbid?: boolean
+  search_imdbid?: any
 
   // 当前优先级
   current_priority: number
