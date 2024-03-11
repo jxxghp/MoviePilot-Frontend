@@ -30,7 +30,7 @@ const subscribeForm = ref<Subscribe>({
   total_episode: 0,
   start_episode: 0,
   best_version: 0,
-  search_imdbid: false,
+  search_imdbid: 0,
   sites: [],
   type: '',
   name: '',
@@ -100,6 +100,7 @@ async function getSubscribeInfo() {
     )
     subscribeForm.value = result
     subscribeForm.value.best_version = subscribeForm.value.best_version === 1
+    subscribeForm.value.search_imdbid = subscribeForm.value.search_imdbid === 1
   }
   catch (e) {
     console.log(e)
