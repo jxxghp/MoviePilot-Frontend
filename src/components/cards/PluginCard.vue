@@ -41,11 +41,17 @@ const pluginConfigDialog = ref(false)
 // 插件配置表单数据
 const pluginConfigForm = ref({})
 
+// 进度框
+const progressDialog = ref(false)
+
 // 插件表单配置项
 let pluginFormItems = reactive([])
 
 // 插件数据页面
 const pluginInfoDialog = ref(false)
+
+// 进度框文本
+const progressText = ref('正在更新插件...')
 
 // 插件数据页面配置项
 let pluginPageItems = reactive([])
@@ -83,7 +89,12 @@ async function uninstallPlugin() {
     return
 
   try {
+  // 显示等待提示框
+    progressDialog.value = true
+    progressText.value = `正在卸载 ${props.plugin?.plugin_name} ...`
     const result: { [key: string]: any } = await api.delete(`plugin/${props.plugin?.id}`)
+    // 隐藏等待提示框
+    progressDialog.value = false
     if (result.success) {
       $toast.success(`插件 ${props.plugin?.plugin_name} 已卸载`)
 
@@ -221,6 +232,41 @@ async function resetPlugin() {
   }
 }
 
+// 更新插件
+async function updatePlugin() {
+  try {
+    // 显示等待提示框
+    progressDialog.value = true
+    progressText.value = `正在更新 ${props.plugin?.plugin_name} ...`
+
+    const result: { [key: string]: any } = await api.get(
+      `plugin/install/${props.plugin?.id}`,
+      {
+        params: {
+          repo_url: props.plugin?.repo_url,
+          force: true,
+        },
+      },
+    )
+
+    // 隐藏等待提示框
+    progressDialog.value = false
+
+    if (result.success) {
+      $toast.success(`插件 ${props.plugin?.plugin_name} 更新成功！`)
+
+      // 通知父组件刷新
+      emit('save')
+    }
+    else {
+      $toast.error(`插件 ${props.plugin?.plugin_name} 更新失败：${result.message}`)
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
 // 访问作者主页
 function visitAuthorPage() {
   window.open(props.plugin?.author_url, '_blank')
@@ -254,8 +300,18 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '重置',
+    title: '更新',
     value: 3,
+    show: props.plugin?.has_update,
+    props: {
+      prependIcon: 'mdi-cancel',
+      color: 'success',
+      click: updatePlugin,
+    },
+  },
+  {
+    title: '重置',
+    value: 4,
     show: true,
     props: {
       prependIcon: 'mdi-cancel',
@@ -265,7 +321,7 @@ const dropdownItems = ref([
   },
   {
     title: '卸载',
-    value: 4,
+    value: 5,
     show: true,
     props: {
       prependIcon: 'mdi-trash-can-outline',
@@ -275,7 +331,7 @@ const dropdownItems = ref([
   },
   {
     title: '查看日志',
-    value: 5,
+    value: 6,
     show: true,
     props: {
       prependIcon: 'mdi-file-document-outline',
@@ -286,7 +342,7 @@ const dropdownItems = ref([
   },
   {
     title: '作者主页',
-    value: 5,
+    value: 7,
     show: true,
     props: {
       prependIcon: 'mdi-home-circle-outline',
@@ -294,6 +350,13 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 监听插件状态变化
+watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
+  const updateItemIndex = dropdownItems.value.findIndex(item => item.value === 3)
+  if (updateItemIndex !== -1)
+    dropdownItems.value[updateItemIndex].show = newHasUpdate
+})
 </script>
 
 <template>
@@ -313,6 +376,15 @@ const dropdownItems = ref([
       class="relative pa-4 text-center card-cover-blurred"
       :style="{ background: `${backgroundColor}` }"
     >
+      <div
+        v-if="props.plugin?.has_update"
+        class="me-n3 absolute top-0 left-1"
+      >
+        <VIcon
+          icon="mdi-new-box"
+          class="text-white"
+        />
+      </div>
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
           <VIcon icon="mdi-dots-vertical" class="text-white" />
@@ -428,6 +500,25 @@ const dropdownItems = ref([
           关闭
         </VBtn>
       </VCardActions>
+    </VCard>
+  </VDialog>
+  <!-- 更新插件进度框 -->
+  <VDialog
+    v-model="progressDialog"
+    :scrim="false"
+    width="25rem"
+  >
+    <VCard
+      color="primary"
+    >
+      <VCardText class="text-center">
+        {{ progressText }}
+        <VProgressLinear
+          indeterminate
+          color="white"
+          class="mb-0 mt-1"
+        />
+      </VCardText>
     </VCard>
   </VDialog>
 </template>

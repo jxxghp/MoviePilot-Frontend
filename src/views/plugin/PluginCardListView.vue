@@ -55,17 +55,37 @@ async function fetchUninstalledPlugins() {
         state: 'market',
       },
     })
+    // 设置APP市场加载完成
     isAppMarketLoaded.value = true
+    // 设置更新状态
+    for (const uninstalled of uninstalledList.value) {
+      for (const data of dataList.value) {
+        if (uninstalled.id === data.id) {
+          data.has_update = true
+          data.repo_url = uninstalled.repo_url
+        }
+      }
+    }
   }
   catch (error) {
     console.error(error)
   }
 }
 
-// 加载时获取数据
-onBeforeMount(() => {
+// 加载所有数据
+function refreshData() {
   fetchInstalledPlugins()
   fetchUninstalledPlugins()
+}
+
+// 获取没有更新的插件
+const getUnupdatedPlugins = computed(() => {
+  return uninstalledList.value.filter(item => !item.has_update)
+})
+
+// 加载时获取数据
+onBeforeMount(() => {
+  refreshData()
 })
 </script>
 
@@ -89,8 +109,8 @@ onBeforeMount(() => {
       v-for="data in dataList"
       :key="data.id"
       :plugin="data"
-      @remove="fetchInstalledPlugins"
-      @save="fetchInstalledPlugins"
+      @remove="refreshData"
+      @save="refreshData"
     />
   </div>
   <NoDataFound
@@ -154,7 +174,7 @@ onBeforeMount(() => {
         </div>
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <PluginAppCard
-            v-for="data in uninstalledList"
+            v-for="data in getUnupdatedPlugins"
             :key="data.id"
             :plugin="data"
             @install="pluginInstalled"

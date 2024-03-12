@@ -49,7 +49,7 @@ async function installPlugin() {
   try {
     // 显示等待提示框
     progressDialog.value = true
-    progressText.value = `正在安装 ${props.plugin?.plugin_name} ${props?.plugin?.plugin_version} 插件...`
+    progressText.value = `正在安装 ${props.plugin?.plugin_name} v${props?.plugin?.plugin_version} ...`
 
     const result: { [key: string]: any } = await api.get(
       `plugin/install/${props.plugin?.id}`,
@@ -162,15 +162,6 @@ const dropdownItems = ref([
             </VList>
           </VMenu>
         </IconBtn>
-      </div>
-      <div
-        v-if="props.plugin?.has_update"
-        class="me-n3 absolute top-0 left-1"
-      >
-        <VIcon
-          icon="mdi-new-box"
-          class="text-white"
-        />
       </div>
       <VAvatar
         size="8rem"
