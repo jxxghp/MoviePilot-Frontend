@@ -960,3 +960,19 @@ export interface MediaServerLibrary {
   image_list?: string[]
   link?: string
 }
+// 活动数据
+export interface MediaServerActivityDict {
+  [date: string]: MediaServerActivity
+}
+
+export interface MediaServerActivity {
+  date: Date
+  activities: any
+  count: number
+}
+
+export interface MediaServerActivityItem {
+  id: number
+  name: string
+  date: string
+}
