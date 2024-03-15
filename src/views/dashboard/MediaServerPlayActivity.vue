@@ -89,11 +89,11 @@ onMounted(() => {
       :range-color="colors"
       :dark-mode="themeName !== 'light'"
       :locale="{
-        months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        months: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+        days: ['日', '一', '二', '三', '四', '五', '六'],
         on: '在',
-        less: 'less',
-        more: 'more',
+        less: '少',
+        more: '更多',
       }"
       @dayClick="handleDayClick"
     />

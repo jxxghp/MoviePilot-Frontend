@@ -1069,10 +1069,10 @@ export interface MediaServerActivityDict {
 export interface MediaServerActivity {
   // 活动日期，提供给组件
   date: Date
-  
+
   // 具体活动信息
   activities: any
-  
+
   // 当天的总活动数
   count: number
 }
@@ -1080,10 +1080,10 @@ export interface MediaServerActivity {
 export interface MediaServerActivityItem {
   // 活动id
   id: number
-  
+
   // 活动信息
   name: string
-  
+
   // 活动发生时间
   date: string
 }
