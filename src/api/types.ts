@@ -802,18 +802,34 @@ export interface Context {
 
 // 用户信息
 export interface User {
+  // 用户ID
   id: number
+
+  // 用户名称
   name: string
+
+  // 用户密码
   password: string
+
+  // 用户邮箱
   email: string
+
+  // 是否激活
   is_active: boolean
+
+  // 是否管理员
   is_superuser: boolean
+
+  // 头像
   avatar: string
 }
 
 // 存储空间
 export interface Storage {
+  // 总空间
   total_storage: number
+
+  // 已使用空间
   used_storage: number
 }
 
@@ -918,61 +934,156 @@ export interface Setting {
 
 // 文件浏览接口
 export interface EndPoints {
+  // 文件列表
   list: any
+
+  // 创建目录
   mkdir: any
+
+  // 删除文件
   delete: any
+
+  // 下载文件
   download: any
+
+  // 图片预览
   image: any
+
+  // 重命名
   rename: any
 }
 
 // 文件浏览项目
 export interface FileItem {
+  // 类型
   type: string
+
+  // 文件名
   name: string
+
+  // 文件名不含扩展名
   basename: string
+
+  // 文件路径
   path: string
+
+  // 文件扩展名
   extension: string
+
+  // 文件大小
   size: number
+
+  // 文件子元素
   children: FileItem[]
+
+  // 文件创建时间
   modify_time: number
 }
 
 // 媒体服务器播放条目
 export interface MediaServerPlayItem {
+  // ID
   id?: string | number
+
+  // 标题
   title: string
+
+  // 副标题
   subtitle?: string
+
+  // 类型
   type?: string
+
+  // 海报
   image?: string
+
+  // 链接
   link?: string
+
+  // 播放百分比
   percent?: number
 }
 
 // 媒体服务器媒体库
 export interface MediaServerLibrary {
+  // 服务器名称
   server: string
+
+  // ID
   id?: string | number
+
+  // 名称
   name: string
+
+  // 路径
   path?: string
+
+  // 类型
   type?: string
+
+  // 图片
   image?: string
+
+  // 图片列表
   image_list?: string[]
+
+  // 链接
   link?: string
 }
+
+// 消息通知
+export interface Message {
+  // 消息类型
+  mtype?: string
+
+  // 消息标题
+  title?: string
+
+  // 消息内容
+  text?: string
+
+  // 消息链接
+  link?: string
+
+  // 消息图片
+  image?: string
+
+  // 消息时间
+  date?: string
+
+  // 用户ID
+  userid?: string
+
+  // 用户名称
+  username?: string
+
+  // 消息方向：0-接收，1-发送
+  action?: number
+}
+
 // 活动数据
 export interface MediaServerActivityDict {
   [date: string]: MediaServerActivity
 }
 
 export interface MediaServerActivity {
+  // 活动日期，提供给组件
   date: Date
+  
+  // 具体活动信息
   activities: any
+  
+  // 当天的总活动数
   count: number
 }
 
 export interface MediaServerActivityItem {
+  // 活动id
   id: number
+  
+  // 活动信息
   name: string
+  
+  // 活动发生时间
   date: string
 }
