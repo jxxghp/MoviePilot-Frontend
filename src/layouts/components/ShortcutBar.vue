@@ -4,6 +4,7 @@ import NetTestView from '@/views/system/NetTestView.vue'
 import LoggingView from '@/views/system/LoggingView.vue'
 import RuleTestView from '@/views/system/RuleTestView.vue'
 import ModuleTestView from '@/views/system/ModuleTestView.vue'
+import MessageView from '@/views/system/MessageView.vue'
 import store from '@/store'
 
 // App捷径
@@ -23,6 +24,9 @@ const ruleTestDialog = ref(false)
 
 // 系统健康检查弹窗
 const systemTestDialog = ref(false)
+
+// 消息中心弹窗
+const messageDialog = ref(false)
 
 // 拼接全部日志url
 function allLoggingUrl() {
@@ -124,7 +128,7 @@ function allLoggingUrl() {
               <h6 class="text-base font-weight-medium mt-2 mb-0">
                 日志
               </h6>
-              <span class="text-sm">查看实时日志</span>
+              <span class="text-sm">实时日志</span>
             </VListItem>
           </VCol>
           <VCol
@@ -145,7 +149,7 @@ function allLoggingUrl() {
               <h6 class="text-base font-weight-medium mt-2 mb-0">
                 网络
               </h6>
-              <span class="text-sm">测试网速连通性</span>
+              <span class="text-sm">网速连通性测试</span>
             </VListItem>
           </VCol>
         </VRow>
@@ -168,7 +172,28 @@ function allLoggingUrl() {
               <h6 class="text-base font-weight-medium mt-2 mb-0">
                 系统
               </h6>
-              <span class="text-sm">系统健康检查</span>
+              <span class="text-sm">健康检查</span>
+            </VListItem>
+          </VCol>
+          <VCol
+            cols="6"
+            class="text-center cursor-pointer pa-0 shortcut-icon border-e"
+            @click="() => {}"
+          >
+            <VListItem
+              class="pa-4"
+              @click="messageDialog = true"
+            >
+              <VAvatar
+                size="48"
+                variant="tonal"
+              >
+                <VIcon icon="mdi-message-outline" />
+              </VAvatar>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">
+                消息
+              </h6>
+              <span class="text-sm">消息中心</span>
             </VListItem>
           </VCol>
         </VRow>
@@ -246,6 +271,19 @@ function allLoggingUrl() {
       <DialogCloseBtn @click="systemTestDialog = false" />
       <VCardText>
         <ModuleTestView />
+      </VCardText>
+    </VCard>
+  </VDialog>
+  <!-- 消息中心弹窗 -->
+  <VDialog
+    v-model="messageDialog"
+    max-width="60rem"
+    scrollable
+  >
+    <VCard title="消息中心">
+      <DialogCloseBtn @click="messageDialog = false" />
+      <VCardText>
+        <MessageView />
       </VCardText>
     </VCard>
   </VDialog>
