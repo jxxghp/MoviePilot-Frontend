@@ -25,6 +25,16 @@ app.use(
   })
 );
 
+// 配置代理中间件将CookieCloud请求转发给后端API
+app.use(
+  '/cookiecloud',
+  proxy(`${proxyConfig.URL}:${proxyConfig.PORT}`, {
+    // 路径加上 /api 前缀
+    proxyReqPathResolver: (req) => {
+      return `/cookiecloud${req.url}`
+    }
+  })
+);
 
 // 处理根路径的请求
 app.get('/', (req, res) => {

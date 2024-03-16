@@ -24,6 +24,7 @@ const cookieCloudSetting = ref({
   COOKIECLOUD_PASSWORD: '',
   COOKIECLOUD_INTERVAL: 0,
   USER_AGENT: '',
+  COOKIECLOUD_ENABLE_LOCAL: '',
 })
 
 // 种子优先规则下拉框
@@ -108,6 +109,7 @@ async function loadCookieCloudSettings() {
         COOKIECLOUD_PASSWORD,
         COOKIECLOUD_INTERVAL,
         USER_AGENT,
+        COOKIECLOUD_ENABLE_LOCAL,
       } = result.data
       cookieCloudSetting.value = {
         COOKIECLOUD_HOST,
@@ -115,6 +117,7 @@ async function loadCookieCloudSettings() {
         COOKIECLOUD_PASSWORD,
         COOKIECLOUD_INTERVAL,
         USER_AGENT,
+        COOKIECLOUD_ENABLE_LOCAL,
       }
     }
   }
@@ -156,10 +159,13 @@ onMounted(() => {
         <VCardText>
           <VForm>
             <VRow>
+              <VCol cols="12" md="12">
+                <VCheckbox v-model="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL" label="是否启用本地CookieCloud服务器，启用后将停用远程服务器，并开启地址 http://localhost:3000/cookiecloud/ 作为CookieCloud服务器" />
+              </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="cookieCloudSetting.COOKIECLOUD_HOST"
-                  label="CookieCloud服务器地址"
+                  label="远程CookieCloud服务器地址"
                   placeholder="https://movie-pilot.org/cookiecloud"
                 />
               </VCol>
