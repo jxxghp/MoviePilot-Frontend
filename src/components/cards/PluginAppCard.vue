@@ -179,7 +179,7 @@ const dropdownItems = ref([
     </div>
     <VCardTitle>
       {{ props.plugin?.plugin_name }}
-      <span class="text-xs text-gray-500">v{{ props.plugin?.plugin_version }}</span>
+      <span class="text-sm text-gray-500">v{{ props.plugin?.plugin_version }}</span>
     </VCardTitle>
     <VCardText class="pb-2">
       {{ props.plugin?.plugin_desc }}
