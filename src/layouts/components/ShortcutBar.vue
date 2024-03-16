@@ -6,6 +6,7 @@ import RuleTestView from '@/views/system/RuleTestView.vue'
 import ModuleTestView from '@/views/system/ModuleTestView.vue'
 import MessageView from '@/views/system/MessageView.vue'
 import store from '@/store'
+import api from '@/api'
 
 // App捷径
 const appsMenu = ref(false)
@@ -28,11 +29,48 @@ const systemTestDialog = ref(false)
 // 消息中心弹窗
 const messageDialog = ref(false)
 
+// 输入消息
+const user_message = ref('')
+
+// 发送按钮是否可用
+const sendButtonDisabled = ref(false)
+
+// 聊天容器
+const chatContainer = ref<HTMLDivElement>()
+
+// 滚动到底部
+function scrollMessageToEnd() {
+  nextTick(() => {
+    if (chatContainer.value)
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  })
+}
+
 // 拼接全部日志url
 function allLoggingUrl() {
   const token = store.state.auth.token
   return `${import.meta.env.VITE_API_BASE_URL}system/logging?token=${token}&length=-1`
 }
+
+// 发送消息
+async function sendMessage() {
+  if (user_message.value) {
+    try {
+      sendButtonDisabled.value = true
+      await api.post(`message/web?text=${user_message.value}`)
+      user_message.value = ''
+      sendButtonDisabled.value = false
+      scrollMessageToEnd()
+    }
+    catch (error) {
+      console.error(error)
+    }
+  }
+}
+
+onMounted(() => {
+  scrollMessageToEnd()
+})
 </script>
 
 <template>
@@ -282,9 +320,32 @@ function allLoggingUrl() {
   >
     <VCard title="消息中心">
       <DialogCloseBtn @click="messageDialog = false" />
-      <VCardText>
-        <MessageView />
+      <VCardText ref="chatContainer">
+        <MessageView @scroll="scrollMessageToEnd" />
       </VCardText>
+
+      <VCardItem>
+        <VTextField
+          v-model="user_message"
+          placeholder="输入消息或命令"
+          outlined
+          hide-details
+          single-line
+          clearable
+          density="compact"
+          @keydown.enter="sendMessage"
+        >
+          <template #append>
+            <VBtn
+              color="primary"
+              :disabled="sendButtonDisabled"
+              @click="sendMessage"
+            >
+              发送
+            </VBtn>
+          </template>
+        </VTextField>
+      </VCardItem>
     </VCard>
   </VDialog>
 </template>

@@ -4,23 +4,14 @@ import MessageCard from '@/components/cards/MessageCard.vue'
 import type { Message } from '@/api/types'
 import api from '@/api'
 
+// 定义事件
+const emit = defineEmits(['scroll'])
+
 // 消息列表
 const messages = ref<Message[]>([])
 
 // 是否完成加载
 const isLoaded = ref(false)
-
-// 输入消息
-const content = ref('')
-
-// 聊天容器
-const chatContainer = ref<HTMLDivElement>()
-
-// 滚动到底部
-function scrollToEnd() {
-  if (chatContainer.value)
-    chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-}
 
 // SSE持续获取消息
 function startSSEMessager() {
@@ -35,7 +26,7 @@ function startSSEMessager() {
       if (message) {
         const object = JSON.parse(message)
         messages.value.push(object)
-        scrollToEnd()
+        emit('scroll')
       }
       isLoaded.value = true
     })
@@ -52,7 +43,7 @@ async function loadMessages() {
     messages.value = await api.get('message/web')
     if (messages.value.length > 0) {
       isLoaded.value = true
-      scrollToEnd()
+      emit('scroll')
     }
   }
   catch (error) {
@@ -86,7 +77,7 @@ onMounted(() => {
   >
     <span class="mb-3">当前没有消息</span>
   </div>
-  <VContainer ref="chatContainer" fluid style="padding: 0;">
+  <div>
     <VRow
       v-for="(msg, index) in messages"
       :key="index"
@@ -96,7 +87,7 @@ onMounted(() => {
       }"
     >
       <VCol
-        sm="8"
+        cols="10"
         lg="6"
         xl="4"
         style="position: relative;"
@@ -106,5 +97,5 @@ onMounted(() => {
         />
       </VCol>
     </VRow>
-  </VContainer>
+  </div>
 </template>

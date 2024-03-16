@@ -1051,12 +1051,15 @@ export interface Message {
   // 消息时间
   date?: string
 
+  // 登记时间
+  reg_time?: string
+
   // 用户ID
   userid?: string
 
-  // 用户名称
-  username?: string
-
   // 消息方向：0-接收，1-发送
   action?: number
+
+  // JSON
+  note?: string
 }

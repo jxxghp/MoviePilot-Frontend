@@ -147,3 +147,23 @@ export function formatEp(nums: number[]): string {
 
   return formattedRanges.join('、')
 }
+
+// 将yyyy-mm-dd hh:mm:ss转换为时间差，如：1小时前，1天前
+export function formatDateDifference(dateString: string): string {
+  const date = new Date(dateString)
+  const currentDate = new Date()
+  const timeDifference = currentDate.getTime() - date.getTime()
+  const secondsDifference = Math.floor(timeDifference / 1000)
+  const minutesDifference = Math.floor(secondsDifference / 60)
+  const hoursDifference = Math.floor(minutesDifference / 60)
+  const daysDifference = Math.floor(hoursDifference / 24)
+
+  if (daysDifference > 0)
+    return `${daysDifference}天前`
+  else if (hoursDifference > 0)
+    return `${hoursDifference}小时前`
+  else if (minutesDifference > 0)
+    return `${minutesDifference}分钟前`
+  else
+    return '刚刚'
+}
