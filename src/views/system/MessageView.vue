@@ -50,6 +50,10 @@ function startSSEMessager() {
 async function loadMessages() {
   try {
     messages.value = await api.get('message/web')
+    if (messages.value.length > 0) {
+      isLoaded.value = true
+      scrollToEnd()
+    }
   }
   catch (error) {
     console.error(error)
@@ -77,7 +81,7 @@ onMounted(() => {
     <span class="mt-3">正在刷新 ...</span>
   </div>
   <div
-    v-if="messages.length === 0"
+    v-if="messages.length === 0 && isLoaded"
     class="w-full text-center flex flex-col items-center"
   >
     <span class="mb-3">当前没有消息</span>
@@ -86,6 +90,10 @@ onMounted(() => {
     <VRow
       v-for="(msg, index) in messages"
       :key="index"
+      :class="{
+        'justify-end': msg.action === 0,
+        'justify-start': msg.action === 1,
+      }"
     >
       <VCol
         sm="8"

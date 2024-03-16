@@ -45,9 +45,18 @@ function openLink() {
         @error="imageLoadError = true"
       />
     </div>
-    <VCardTitle>{{ props.message?.title }}</VCardTitle>
-
-    <VCardText>
+    <VCardTitle v-if="props.message?.title">
+      {{ props.message?.title }}
+    </VCardTitle>
+    <VAlert
+      v-if="props.message?.text && props.message?.action === 0"
+      variant="tonal"
+      type="success"
+    >
+      <template #prepend />
+      {{ props.message?.text }}
+    </VAlert>
+    <VCardText v-if="props.message?.text && props.message?.action === 1">
       {{ props.message?.text }}
     </VCardText>
   </VCard>
