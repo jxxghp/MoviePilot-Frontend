@@ -41,8 +41,10 @@ const chatContainer = ref<HTMLDivElement>()
 // 滚动到底部
 function scrollMessageToEnd() {
   nextTick(() => {
-    if (chatContainer.value)
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    if (chatContainer.value) {
+      const scrollDiv = chatContainer.value.$el
+      scrollDiv.scrollTop = scrollDiv.scrollHeight
+    }
   })
 }
 
@@ -333,6 +335,7 @@ onMounted(() => {
           single-line
           clearable
           density="compact"
+          :disabled="sendButtonDisabled"
           @keydown.enter="sendMessage"
         >
           <template #append>
