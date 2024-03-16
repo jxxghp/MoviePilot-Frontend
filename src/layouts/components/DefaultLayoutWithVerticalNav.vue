@@ -44,7 +44,7 @@ const superUser = store.state.auth.superUser
         </IconBtn>
 
         <!-- 👉 Shortcuts -->
-        <ShortcutBar />
+        <ShortcutBar v-if="superUser" />
 
         <!-- 👉 Theme -->
         <NavbarThemeSwitcher class="me-2" />
