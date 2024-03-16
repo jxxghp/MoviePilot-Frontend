@@ -159,14 +159,15 @@ onMounted(() => {
         <VCardText>
           <VForm>
             <VRow>
-              <VCol cols="12" md="12">
-                <VCheckbox v-model="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL" label="是否启用本地CookieCloud服务器，启用后将停用远程服务器，并开启地址 http://localhost:3000/cookiecloud/ 作为CookieCloud服务器" />
+              <VCol cols="12" md="6">
+                <VCheckbox v-model="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL" label="启用本地CookieCloud服务器" />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="cookieCloudSetting.COOKIECLOUD_HOST"
                   label="远程CookieCloud服务器地址"
                   placeholder="https://movie-pilot.org/cookiecloud"
+                  :disabled="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL"
                 />
               </VCol>
               <VCol cols="12" md="6">
