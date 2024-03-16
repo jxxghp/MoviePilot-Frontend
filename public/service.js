@@ -29,7 +29,7 @@ app.use(
 app.use(
   '/cookiecloud',
   proxy(`${proxyConfig.URL}:${proxyConfig.PORT}`, {
-    // 路径加上 /api 前缀
+    // 路径加上 /cookiecloud 前缀
     proxyReqPathResolver: (req) => {
       return `/cookiecloud${req.url}`
     }
