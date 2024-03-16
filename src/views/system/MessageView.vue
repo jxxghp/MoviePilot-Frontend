@@ -36,7 +36,6 @@ function startSSEMessager() {
         messages.value.push(object)
         emit('scroll')
       }
-      isLoaded.value = true
     })
 
     onBeforeUnmount(() => {
@@ -64,12 +63,14 @@ async function loadMessages({ done }: { done: any }) {
     if (currData.value.length > 0) {
       // 合并数据
       messages.value = [...currData.value, ...messages.value]
-      // 页码+1
-      page.value++
       // 加载完成
       done('ok')
-      // 滚动到底部
-      emit('scroll')
+      if (page.value === 1) {
+        // 滚动到底部
+        emit('scroll')
+      }
+      // 页码+1
+      page.value++
     }
     else {
       done('ok')
@@ -127,18 +128,7 @@ onMounted(() => {
       </VRow>
     </div>
     <div
-      v-if="!isLoaded"
-      class="mt-5 w-full text-center flex flex-col items-center"
-    >
-      <VProgressCircular
-        size="48"
-        indeterminate
-        color="primary"
-      />
-      <span class="mt-3">正在刷新 ...</span>
-    </div>
-    <div
-      v-if="messages.length === 0 && isLoaded"
+      v-if="messages.length === 0 && isLoaded && !loading"
       class="w-full text-center flex flex-col items-center"
     >
       <span class="mb-3">当前没有消息</span>
