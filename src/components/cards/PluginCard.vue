@@ -427,7 +427,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     <VCardItem class="py-2">
       <VCardTitle class="flex items-center flex-row">
         <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
-        {{ props.plugin?.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">{{ props.plugin?.plugin_version }}</span>
+        {{ props.plugin?.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ props.plugin?.plugin_version }}</span>
       </VCardTitle>
     </VCardItem>
     <VCardText>

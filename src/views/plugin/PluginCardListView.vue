@@ -172,7 +172,7 @@ onBeforeMount(() => {
             color="primary"
           />
         </div>
-        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
+        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card items-start">
           <PluginAppCard
             v-for="data in getUnupdatedPlugins"
             :key="data.id"
@@ -193,7 +193,7 @@ onBeforeMount(() => {
 
 <style lang="scss">
 .grid-plugin-card {
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   padding-block-end: 1rem;
 }
 </style>

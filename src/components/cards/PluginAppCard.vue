@@ -177,20 +177,22 @@ const dropdownItems = ref([
         />
       </VAvatar>
     </div>
-    <VCardTitle>{{ props.plugin?.plugin_name }}</VCardTitle>
-
-    <VCardText>
+    <VCardTitle>
+      {{ props.plugin?.plugin_name }}
+      <span class="text-xs">v{{ props.plugin?.plugin_version }}</span>
+    </VCardTitle>
+    <VCardText class="pb-2">
       {{ props.plugin?.plugin_desc }}
     </VCardText>
-    <VCardText>
-      作者：<a
+    <VCardText class="flex items-center justify-start pb-2">
+      <VIcon icon="mdi-account" class="me-1" />
+      <a
         :href="props.plugin?.author_url"
         target="_blank"
         @click.stop
       >
         {{ props.plugin?.plugin_author }}
-      </a><br>
-      版本：{{ props.plugin?.plugin_version }}
+      </a>
     </VCardText>
   </VCard>
   <!-- 安装插件进度框 -->
