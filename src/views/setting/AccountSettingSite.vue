@@ -162,6 +162,8 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VCheckbox v-model="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL" label="启用本地CookieCloud服务器" />
               </VCol>
+            </VRow>
+            <VRow>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="cookieCloudSetting.COOKIECLOUD_HOST"

@@ -21,6 +21,9 @@ const loading = ref(false)
 // 当前页码
 const page = ref(1)
 
+// 存量消息最新时间
+const lastTime = ref('')
+
 // SSE持续获取消息
 function startSSEMessager() {
   const token = store.state.auth.token
@@ -33,6 +36,8 @@ function startSSEMessager() {
       const message = event.data
       if (message) {
         const object = JSON.parse(message)
+        if (compareTime(object.date, lastTime.value) <= 0)
+          return
         messages.value.push(object)
         emit('scroll')
       }
@@ -61,6 +66,8 @@ async function loadMessages({ done }: { done: any }) {
       },
     })
     if (currData.value.length > 0) {
+      // 取最后一条时间为存量消息最新时间
+      lastTime.value = currData.value[currData.value.length - 1].reg_time
       // 合并数据
       messages.value = [...currData.value, ...messages.value]
       // 加载完成
@@ -81,6 +88,15 @@ async function loadMessages({ done }: { done: any }) {
   catch (error) {
     console.error(error)
   }
+}
+
+// 比较yyyy-MM-dd HH:mm:ss时间大小
+function compareTime(time1: string, time2: string) {
+  if (!time1)
+    return -1
+  if (!time2)
+    return 1
+  return new Date(time1).getTime() - new Date(time2).getTime()
 }
 
 onMounted(() => {
