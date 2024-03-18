@@ -369,7 +369,7 @@ onMounted(() => {
               </td>
               <td>{{ user.is_superuser ? "是" : "否" }}</td>
               <td>
-                <IconBtn v-show="accountInfo.is_superuser && accountInfo.name != user.name">
+                <IconBtn v-show="accountInfo.is_superuser && accountInfo.name !== user.name">
                   <VIcon icon="mdi-dots-vertical" />
                   <VMenu
                     activator="parent"
@@ -409,11 +409,12 @@ onMounted(() => {
       </VCard>
     </VCol>
   </VRow>
-  <!-- 站点编辑弹窗 -->
+  <!-- =弹窗 -->
   <VDialog
     v-model="addUserDialog"
     max-width="50rem"
     persistent
+    z-index="1010"
   >
     <!-- Dialog Content -->
     <VCard title="新增用户">

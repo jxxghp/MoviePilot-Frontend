@@ -1,12 +1,14 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 import { useToast } from 'vue-toast-notification'
+import { useConfirm } from 'vuetify-use-dialog'
 import SiteAddEditForm from '../form/SiteAddEditForm.vue'
 import { formatFileSize } from '@core/utils/formatters'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Site, TorrentInfo } from '@/api/types'
 import ExistIcon from '@core/components/ExistIcon.vue'
+import { doneNProgress, startNProgress } from '@/api/nprogress'
 
 // 输入参数
 const cardProps = defineProps({
@@ -26,6 +28,9 @@ const siteIcon = ref<string>('')
 
 // 提示框
 const $toast = useToast()
+
+// 确认框
+const createConfirm = useConfirm()
 
 // 测试按钮文字
 const testButtonText = ref('测试')
@@ -198,6 +203,45 @@ async function getResourceList() {
 // 打开站点页面
 function openSitePage() {
   window.open(cardProps.site?.url, '_blank')
+}
+
+// 添加下载
+async function addDownload(_torrent: any) {
+  const isConfirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认下载【${_torrent.site_name}】${_torrent?.title} ?`,
+    confirmationText: '确认',
+    cancellationText: '取消',
+    dialogProps: {
+      maxWidth: '50rem',
+    },
+    confirmationButtonProps: {
+      variant: 'tonal',
+    },
+  })
+
+  if (!isConfirmed)
+    return
+
+  startNProgress()
+  try {
+    const result: { [key: string]: any } = await api.post('download/add', {
+      torrent_in: _torrent,
+    })
+
+    if (result.success) {
+      // 添加下载成功
+      $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`)
+    }
+    else {
+      // 添加下载失败
+      $toast.error(`${_torrent?.site_name} ${_torrent?.title} 添加下载失败！`)
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+  doneNProgress()
 }
 
 // 装载时查询站点图标
@@ -397,6 +441,7 @@ onMounted(() => {
     v-model="resourceDialog"
     max-width="80rem"
     scrollable
+    z-index="1010"
   >
     <!-- Dialog Content -->
     <VCard :title="`浏览站点 - ${cardProps.site?.name}`">
@@ -413,54 +458,57 @@ onMounted(() => {
           item-value="title"
           return-object
           fixed-header
+          hover
           items-per-page-text="每页条数"
           page-text="{0}-{1} 共 {2} 条"
         >
           <template #item.title="{ item }">
-            <div class="text-high-emphasis pt-1">
-              {{ item.raw.title }}
-            </div>
-            <div class="text-sm my-1">
-              {{ item.raw.description }}
-            </div>
-            <VChip
-              v-if="item.raw?.hit_and_run"
-              variant="elevated"
-              size="small"
-              class="me-1 mb-1 text-white bg-black"
-            >
-              H&R
-            </VChip>
-            <VChip
-              v-if="item.raw?.freedate_diff"
-              variant="elevated"
-              color="secondary"
-              size="small"
-              class="me-1 mb-1"
-            >
-              {{ item.raw?.freedate_diff }}
-            </VChip>
-            <VChip
-              v-for="(label, index) in item.raw?.labels"
-              :key="index"
-              variant="elevated"
-              size="small"
-              color="primary"
-              class="me-1 mb-1"
-            >
-              {{ label }}
-            </VChip>
-            <VChip
-              v-if="item.raw?.downloadvolumefactor !== 1 || item.raw?.uploadvolumefactor !== 1"
-              :class="
-                getVolumeFactorClass(item.raw?.downloadvolumefactor, item.raw?.uploadvolumefactor)
-              "
-              variant="elevated"
-              size="small"
-              class="me-1 mb-1"
-            >
-              {{ item.raw?.volume_factor }}
-            </VChip>
+            <a href="javascript:void(0)" @click.stop="addDownload(item.raw)">
+              <div class="text-high-emphasis pt-1">
+                {{ item.raw.title }}
+              </div>
+              <div class="text-sm my-1">
+                {{ item.raw.description }}
+              </div>
+              <VChip
+                v-if="item.raw?.hit_and_run"
+                variant="elevated"
+                size="small"
+                class="me-1 mb-1 text-white bg-black"
+              >
+                H&R
+              </VChip>
+              <VChip
+                v-if="item.raw?.freedate_diff"
+                variant="elevated"
+                color="secondary"
+                size="small"
+                class="me-1 mb-1"
+              >
+                {{ item.raw?.freedate_diff }}
+              </VChip>
+              <VChip
+                v-for="(label, index) in item.raw?.labels"
+                :key="index"
+                variant="elevated"
+                size="small"
+                color="primary"
+                class="me-1 mb-1"
+              >
+                {{ label }}
+              </VChip>
+              <VChip
+                v-if="item.raw?.downloadvolumefactor !== 1 || item.raw?.uploadvolumefactor !== 1"
+                :class="
+                  getVolumeFactorClass(item.raw?.downloadvolumefactor, item.raw?.uploadvolumefactor)
+                "
+                variant="elevated"
+                size="small"
+                class="me-1 mb-1"
+              >
+                {{ item.raw?.volume_factor }}
+              </VChip>
+            </a>
           </template>
           <template #item.pubdate="{ item }">
             <div>{{ item.raw.date_elapsed }}</div>
