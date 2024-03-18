@@ -24,11 +24,14 @@ const page = ref(1)
 // 存量消息最新时间
 const lastTime = ref('')
 
+// SSE消息对象
+let eventSource: EventSource | null = null
+
 // SSE持续获取消息
 function startSSEMessager() {
   const token = store.state.auth.token
   if (token) {
-    const eventSource = new EventSource(
+    eventSource = new EventSource(
       `${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}&role=user`,
     )
 
@@ -41,10 +44,6 @@ function startSSEMessager() {
         messages.value.push(object)
         emit('scroll')
       }
-    })
-
-    onBeforeUnmount(() => {
-      eventSource.close()
     })
   }
 }
@@ -67,7 +66,7 @@ async function loadMessages({ done }: { done: any }) {
     })
     if (currData.value.length > 0) {
       // 取最后一条时间为存量消息最新时间
-      lastTime.value = currData.value[currData.value.length - 1].reg_time
+      lastTime.value = currData.value[currData.value.length - 1].reg_time ?? ''
       // 合并数据
       messages.value = [...currData.value, ...messages.value]
       // 加载完成
@@ -75,12 +74,16 @@ async function loadMessages({ done }: { done: any }) {
       if (page.value === 1) {
         // 滚动到底部
         emit('scroll')
+        // 监听SSE消息
+        startSSEMessager()
       }
       // 页码+1
       page.value++
     }
     else {
       done('ok')
+      // 监听SSE消息
+      startSSEMessager()
     }
     loading.value = false
     isLoaded.value = true
@@ -99,9 +102,9 @@ function compareTime(time1: string, time2: string) {
   return new Date(time1).getTime() - new Date(time2).getTime()
 }
 
-onMounted(() => {
-  // 监听新消息
-  startSSEMessager()
+onBeforeUnmount(() => {
+  if (eventSource)
+    eventSource.close()
 })
 </script>
 
