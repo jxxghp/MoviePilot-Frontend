@@ -225,9 +225,7 @@ async function addDownload(_torrent: any) {
 
   startNProgress()
   try {
-    const result: { [key: string]: any } = await api.post('download/add', {
-      torrent_in: _torrent,
-    })
+    const result: { [key: string]: any } = await api.post('download/add', _torrent)
 
     if (result.success) {
       // 添加下载成功
