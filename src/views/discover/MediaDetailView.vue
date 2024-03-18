@@ -51,6 +51,15 @@ const subscribeRules = ref({
   show_edit_dialog: false,
 })
 
+// 获得mediaid
+function getMediaId() {
+  return mediaDetail.value?.tmdb_id
+    ? `tmdb:${mediaDetail.value?.tmdb_id}`
+    : mediaDetail.value?.douban_id
+      ? `douban:${mediaDetail.value?.douban_id}`
+      : `bangumi:${mediaDetail.value?.bangumi_id}`
+}
+
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
@@ -60,7 +69,7 @@ async function getMediaDetail() {
       },
     })
     isRefreshed.value = true
-    if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id)
+    if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id && !mediaDetail.value.bangumi_id)
       return
 
     // 检查存在状态
@@ -113,7 +122,7 @@ async function checkExists() {
 // 查询当前媒体是否已订阅
 async function checkSubscribe(season = 0) {
   try {
-    const mediaid = mediaDetail.value.tmdb_id ? `tmdb:${mediaDetail.value.tmdb_id}` : `douban:${mediaDetail.value.douban_id}`
+    const mediaid = getMediaId()
 
     const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
       params: {
@@ -198,6 +207,7 @@ async function addSubscribe(season = 0) {
       year: mediaDetail.value?.year,
       tmdbid: mediaDetail.value?.tmdb_id,
       doubanid: mediaDetail.value?.douban_id,
+      bangumiid: mediaDetail.value?.bangumi_id,
       season,
       best_version,
     })
@@ -253,9 +263,7 @@ async function removeSubscribe(season: number) {
   // 开始处理
   startNProgress()
   try {
-    const mediaid = mediaDetail.value?.tmdb_id
-      ? `tmdb:${mediaDetail.value?.tmdb_id}`
-      : `douban:${mediaDetail.value?.douban_id}`
+    const mediaid = getMediaId()
 
     const result: { [key: string]: any } = await api.delete(
       `subscribe/media/${mediaid}`,
@@ -328,6 +336,11 @@ function getImdbLink() {
 // 拼装TVDB地址
 function getTvdbLink() {
   return `https://www.thetvdb.com/series/${mediaDetail.value.tvdb_id}`
+}
+
+// 拼装Bangumi地址
+function getBangumiLink() {
+  return `https://bgm.tv/subject/${mediaDetail.value.bangumi_id}`
 }
 
 // 拼装集图片地址
@@ -405,7 +418,7 @@ function joinArray(arr: string[]) {
 
 // 开始搜索
 function handleSearch(area: string) {
-  const keyword = mediaDetail.value.tmdb_id ? `tmdb:${mediaDetail.value.tmdb_id}` : `douban:${mediaDetail.value.douban_id}`
+  const keyword = getMediaId()
   router.push({
     path: '/resource',
     query: {
@@ -453,7 +466,7 @@ onBeforeMount(() => {
       color="primary"
     />
   </div>
-  <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" class="max-w-8xl mx-auto px-4">
+  <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" class="max-w-8xl mx-auto px-4">
     <template v-if="mediaDetail.backdrop_path || mediaDetail.poster_path">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
         <VImg class="h-96" :src="mediaDetail.backdrop_path || mediaDetail.poster_path" cover />
@@ -492,7 +505,7 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn v-if="mediaDetail.tmdb_id || mediaDetail.douban_id" variant="tonal" color="info" class="mb-2">
+          <VBtn v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" variant="tonal" color="info" class="mb-2">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
             </template>
@@ -518,7 +531,7 @@ onBeforeMount(() => {
               </VList>
             </VMenu>
           </VBtn>
-          <VBtn v-if="mediaDetail.type === '电影' || mediaDetail.douban_id" class="ms-2 mb-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
+          <VBtn v-if="mediaDetail.type === '电影' || mediaDetail.douban_id || mediaDetail.bangumi_id" class="ms-2 mb-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>
               <VIcon :icon="getSubscribeIcon" />
             </template>
@@ -578,6 +591,12 @@ onBeforeMount(() => {
               <div class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700">
                 <VIcon icon="mdi-link" />
                 <span class="ms-1">TheTvDb</span>
+              </div>
+            </a>
+            <a v-if="mediaDetail.bangumi_id" class="mb-2 mr-2 inline-flex last:mr-0" :href="getBangumiLink()" target="_blank">
+              <div class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700">
+                <VIcon icon="mdi-link" />
+                <span class="ms-1">Bangumi</span>
               </div>
             </a>
           </div>
@@ -740,6 +759,33 @@ onBeforeMount(() => {
             </div>
           </div>
         </div>
+        <div v-else-if="mediaDetail.bangumi_id" class="media-overview-right">
+          <div class="media-facts">
+            <div v-if="mediaDetail.vote_average" class="media-ratings">
+              <VRating
+                v-model="mediaDetail.vote_average"
+                density="compact"
+                length="10"
+                class="ma-2"
+                readonly
+              />
+            </div>
+            <div v-if="mediaDetail.bangumi_id" class="media-fact">
+              <span>ID</span>
+              <span class="media-fact-value">{{ mediaDetail.bangumi_id }}</span>
+            </div>
+            <div v-if="mediaDetail.original_title" class="media-fact">
+              <span>原始标题</span>
+              <span class="media-fact-value">{{ mediaDetail.original_title }}</span>
+            </div>
+            <div v-if="mediaDetail.release_date" class="media-fact border-b-0">
+              <span>上映日期</span>
+              <span class="media-fact-value">
+                {{ mediaDetail.release_date }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
       <div v-if="mediaDetail.tmdb_id">
         <PersonCardSlideView
@@ -757,6 +803,14 @@ onBeforeMount(() => {
           type="douban"
         />
       </div>
+      <div v-else-if="mediaDetail.bangumi_id">
+        <PersonCardSlideView
+          :apipath="`bangumi/credits/${mediaDetail.bangumi_id}`"
+          :linkurl="`/credits/bangumi/credits/${mediaDetail.bangumi_id}?title=演员阵容&type=bangumi`"
+          title="演员阵容"
+          type="bangumi"
+        />
+      </div>
       <div v-if="mediaDetail.tmdb_id">
         <MediaCardSlideView
           :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`"
@@ -771,6 +825,13 @@ onBeforeMount(() => {
           title="推荐"
         />
       </div>
+      <div v-else-if="mediaDetail.bangumi_id">
+        <MediaCardSlideView
+          :apipath="`bangumi/recommend/${mediaDetail.bangumi_id}`"
+          :linkurl="`/browse/bangumi/recommend/${mediaDetail.bangumi_id}?title=推荐`"
+          title="推荐"
+        />
+      </div>
       <div v-if="mediaDetail.tmdb_id">
         <MediaCardSlideView
           :apipath="`tmdb/similar/${mediaDetail.tmdb_id}/${mediaProps.type}`"
@@ -781,7 +842,7 @@ onBeforeMount(() => {
     </div>
   </div>
   <NoDataFound
-    v-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && isRefreshed"
+    v-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && !mediaDetail.bangumi_id && isRefreshed"
     error-code="500"
     error-title="出错啦！"
     error-description="未识别到媒体信息。"

@@ -75,7 +75,7 @@ async function fetchData() {
     else {
       startLoadingProgress()
       // 优先按TMDBID精确查询
-      if (keyword?.startsWith('tmdb:') || keyword?.startsWith('douban:')) {
+      if (keyword?.startsWith('tmdb:') || keyword?.startsWith('douban:') || keyword?.startsWith('bangumi:')) {
         dataList.value = await api.get(`search/media/${keyword}`, {
           params: {
             mtype: type,

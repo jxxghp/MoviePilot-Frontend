@@ -17,6 +17,12 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
     />
 
     <MediaCardSlideView
+      apipath="bangumi/calendar"
+      linkurl="/browse/bangumi/calendar?title=Bangumi每日放送"
+      title="Bangumi每日放送"
+    />
+
+    <MediaCardSlideView
       apipath="tmdb/movies"
       linkurl="/browse/tmdb/movies?title=热门电影"
       title="热门电影"

@@ -3,6 +3,7 @@ import TmdbPersonCard from '@/components/cards/TmdbPersonCard.vue'
 import api from '@/api'
 import SlideView from '@/components/slide/SlideView.vue'
 import DoubanPersonCard from '@/components/cards/DoubanPersonCard.vue'
+import BangumiPersonCard from '@/components/cards/BangumiPersonCard.vue'
 
 // 输入参数
 const props = defineProps({
@@ -55,6 +56,12 @@ onMounted(fetchData)
         />
         <DoubanPersonCard
           v-if="props.type === 'douban'"
+          :person="data"
+          height="15rem"
+          width="10rem"
+        />
+        <BangumiPersonCard
+          v-if="props.type === 'bangumi'"
           :person="data"
           height="15rem"
           width="10rem"

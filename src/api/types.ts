@@ -181,6 +181,9 @@ export interface MediaInfo {
   // 豆瓣ID
   douban_id?: string
 
+  // Bangumi ID
+  bangumi_id?: string
+
   // 媒体原语种
   original_language?: string
 
@@ -282,6 +285,9 @@ export interface MediaInfo {
 
   // 下一集
   next_episode_to_air?: object
+
+  // 别名
+  names?: string[]
 }
 
 // TMDB季信息
@@ -419,6 +425,28 @@ export interface DoubanPerson {
 
   // 别名
   latin_name?: string
+
+}
+
+// Bangumi人物信息
+export interface BangumiPerson {
+  // ID
+  id?: number
+
+  // 名称
+  name?: string
+
+  // 类型
+  type?: number
+
+  // 角色
+  career?: string[]
+
+  // images large/normal
+  images?: { [key: string]: string }
+
+  // 关系
+  relation?: string
 
 }
 

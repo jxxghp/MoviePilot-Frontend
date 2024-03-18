@@ -44,7 +44,7 @@ onMounted(fetchData)
     <template #content>
       <template
         v-for="data in dataList"
-        :key="data.tmdb_id || data.douban_id"
+        :key="data.tmdb_id || data.douban_id || data.bangumi_id"
       >
         <MediaCard
           :media="data"

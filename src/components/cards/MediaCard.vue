@@ -57,6 +57,15 @@ const seasonInfos = ref<TmdbSeason[]>([])
 // 选中的订阅季
 const seasonsSelected = ref<TmdbSeason[]>([])
 
+// 获得mediaid
+function getMediaId() {
+  return props.media?.tmdb_id
+    ? `tmdb:${props.media?.tmdb_id}`
+    : props.media?.douban_id
+      ? `douban:${props.media?.douban_id}`
+      : `bangumi:${props.media?.bangumi_id}`
+}
+
 // 订阅弹窗选择的多季
 function subscribeSeasons() {
   subscribeSeasonDialog.value = false
@@ -131,6 +140,7 @@ async function addSubscribe(season = 0) {
       year: props.media?.year,
       tmdbid: props.media?.tmdb_id,
       doubanid: props.media?.douban_id,
+      bangumiid: props.media?.bangumi_id,
       season,
       best_version,
     })
@@ -186,9 +196,7 @@ async function removeSubscribe() {
   // 开始处理
   startNProgress()
   try {
-    const mediaid = props.media?.tmdb_id
-      ? `tmdb:${props.media?.tmdb_id}`
-      : `douban:${props.media?.douban_id}`
+    const mediaid = getMediaId()
 
     const result: { [key: string]: any } = await api.delete(
       `subscribe/media/${mediaid}`,
@@ -249,9 +257,7 @@ async function handleCheckExists() {
 // 调用API检查是否已订阅，电视剧需要指定季
 async function checkSubscribe(season = 0) {
   try {
-    const mediaid = props.media?.tmdb_id
-      ? `tmdb:${props.media?.tmdb_id}`
-      : `douban:${props.media?.douban_id}`
+    const mediaid = getMediaId()
 
     const result: Subscribe = await api.get(`subscribe/media/${mediaid}`, {
       params: {
@@ -362,11 +368,7 @@ function goMediaDetail() {
   router.push({
     path: '/media',
     query: {
-      mediaid: `${
-        props.media?.tmdb_id
-          ? `tmdb:${props.media?.tmdb_id}`
-          : `douban:${props.media?.douban_id}`
-      }`,
+      mediaid: getMediaId(),
       type: props.media?.type,
     },
   })
@@ -377,11 +379,7 @@ function handleSearch() {
   router.push({
     path: '/resource',
     query: {
-      keyword: `${
-        props.media?.tmdb_id
-          ? `tmdb:${props.media?.tmdb_id}`
-          : `douban:${props.media?.douban_id}`
-      }`,
+      keyword: getMediaId(),
       type: props.media?.type,
       area: 'title',
     },
