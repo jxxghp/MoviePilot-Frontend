@@ -4,7 +4,6 @@ import axios from 'axios'
 import List from './filebrowser/List.vue'
 
 import Toolbar from './filebrowser/Toolbar.vue'
-import Tree from './filebrowser/Tree.vue'
 import type { EndPoints } from '@/api/types'
 
 // 输入参数
@@ -70,12 +69,10 @@ const storagesArray = computed(() => {
 
 // 方法
 function loadingChanged(loading: number) {
-  if (loading) {
+  if (loading)
     loading++
-  }
-  else if (loading > 0) {
+  else if (loading > 0)
     loading--
-  }
 }
 
 function storageChanged(storage: string) {
@@ -115,20 +112,6 @@ onMounted(() => {
         @sortchanged="sortChanged"
       />
       <VRow no-gutters>
-        <VCol v-if="tree" sm="auto" class="d-none d-md-block">
-          <Tree
-            :path="path"
-            :storage="activeStorage"
-            :icons="fileIcons"
-            :endpoints="endpoints"
-            :axios="axiosInstance"
-            :refreshpending="refreshPending"
-            @pathchanged="pathChanged"
-            @loading="loadingChanged"
-            @refreshed="refreshPending = false"
-          />
-        </VCol>
-        <VDivider v-if="tree" vertical />
         <VCol>
           <List
             :path="path"

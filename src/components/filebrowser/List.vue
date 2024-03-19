@@ -10,6 +10,7 @@ import type { Context, EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
 import api from '@/api'
 import MediaInfoCard from '@/components/cards/MediaInfoCard.vue'
+import { useDefer } from '@/@core/utils/dom'
 
 // 输入参数
 const inProps = defineProps({
@@ -73,6 +74,9 @@ const nameTestResult = ref<Context>()
 // 识别结果对话框
 const nameTestDialog = ref(false)
 
+// 延迟加载
+let defer = (_: number) => true
+
 // 目录过滤
 const dirs = computed(() =>
   items.value.filter(item => item.type === 'dir' && item.basename.includes(filter.value)),
@@ -111,6 +115,7 @@ async function load() {
   }
   // 加载数据
   items.value = await axiosInstance.value.request(config) ?? []
+  defer = useDefer(items.value.length)
   emit('loading', false)
   loading.value = false
 }
@@ -382,6 +387,7 @@ onMounted(() => {
         >
           <template #default="hover">
             <VListItem
+              v-if="defer(index)"
               v-bind="hover.props"
               class="px-3 pe-1"
               @click="changePath(item.path)"
@@ -466,6 +472,7 @@ onMounted(() => {
         >
           <template #default="hover">
             <VListItem
+              v-if="defer(index)"
               v-bind="hover.props"
               class="pl-3 pe-1"
               @click="changePath(item.path)"

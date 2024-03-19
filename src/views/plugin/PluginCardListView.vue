@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useDefer } from '@/@core/utils/dom'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
@@ -19,6 +20,9 @@ const isAppMarketLoaded = ref(false)
 
 // APP市场窗口
 const PluginAppDialog = ref(false)
+
+// 延迟加载
+let defer = (_: number) => true
 
 // 关闭插件市场窗口
 function pluginDialogClose() {
@@ -80,7 +84,9 @@ function refreshData() {
 
 // 获取没有更新的插件
 const getUnupdatedPlugins = computed(() => {
-  return uninstalledList.value.filter(item => !item.has_update)
+  const list = uninstalledList.value.filter(item => !item.has_update)
+  defer = useDefer(list.length)
+  return list
 })
 
 // 加载时获取数据
@@ -173,12 +179,17 @@ onBeforeMount(() => {
           />
         </div>
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card items-start">
-          <PluginAppCard
-            v-for="data in getUnupdatedPlugins"
-            :key="data.id"
-            :plugin="data"
-            @install="pluginInstalled"
-          />
+          <div
+            v-for="(data, index) in getUnupdatedPlugins"
+            :key="index"
+          >
+            <PluginAppCard
+              v-if="defer(index)"
+              :key="data.id"
+              :plugin="data"
+              @install="pluginInstalled"
+            />
+          </div>
         </div>
         <NoDataFound
           v-if="uninstalledList.length === 0 && isAppMarketLoaded"
