@@ -304,7 +304,7 @@ const dropdownItems = ref([
     value: 3,
     show: props.plugin?.has_update,
     props: {
-      prependIcon: 'mdi-cancel',
+      prependIcon: 'mdi-arrow-up-circle-outline',
       color: 'success',
       click: updatePlugin,
     },
