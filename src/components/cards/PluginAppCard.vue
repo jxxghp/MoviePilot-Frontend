@@ -10,6 +10,7 @@ const props = defineProps({
   plugin: Object as PropType<Plugin>,
   width: String,
   height: String,
+  count: Number,
 })
 
 // 定义触发的自定义事件
@@ -185,14 +186,20 @@ const dropdownItems = ref([
       {{ props.plugin?.plugin_desc }}
     </VCardText>
     <VCardText class="flex items-center justify-start pb-2">
-      <VIcon icon="mdi-account" class="me-1" />
-      <a
-        :href="props.plugin?.author_url"
-        target="_blank"
-        @click.stop
-      >
-        {{ props.plugin?.plugin_author }}
-      </a>
+      <span>
+        <VIcon icon="mdi-account" class="me-1" />
+        <a
+          :href="props.plugin?.author_url"
+          target="_blank"
+          @click.stop
+        >
+          {{ props.plugin?.plugin_author }}
+        </a>
+      </span>
+      <span v-if="props.count" class="ms-3">
+        <VIcon icon="mdi-download" class="me-1" />
+        {{ props.count?.toLocaleString() }}
+      </span>
     </VCardText>
   </VCard>
   <!-- 安装插件进度框 -->

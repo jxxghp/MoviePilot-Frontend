@@ -21,6 +21,9 @@ const isAppMarketLoaded = ref(false)
 // APP市场窗口
 const PluginAppDialog = ref(false)
 
+// 插件安装统计
+const PluginStatistics = ref<{ [key: string]: number }>({})
+
 // 延迟加载
 let defer = (_: number) => true
 
@@ -76,6 +79,16 @@ async function fetchUninstalledPlugins() {
   }
 }
 
+// 加载插件统计数据
+async function getPluginStatistics() {
+  try {
+    PluginStatistics.value = await api.get('plugin/statistic')
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
 // 加载所有数据
 function refreshData() {
   fetchInstalledPlugins()
@@ -92,6 +105,7 @@ const getUnupdatedPlugins = computed(() => {
 // 加载时获取数据
 onBeforeMount(() => {
   refreshData()
+  getPluginStatistics()
 })
 </script>
 
@@ -187,6 +201,7 @@ onBeforeMount(() => {
               v-if="defer(index)"
               :key="data.id"
               :plugin="data"
+              :count="PluginStatistics[data.id || '0']"
               @install="pluginInstalled"
             />
           </div>
