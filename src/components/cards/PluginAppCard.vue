@@ -197,8 +197,8 @@ const dropdownItems = ref([
         </a>
       </span>
       <span v-if="props.count" class="ms-3">
-        <VIcon icon="mdi-download" class="me-1" />
-        {{ props.count?.toLocaleString() }}
+        <VIcon icon="mdi-download" />
+        <span class="text-sm ms-1 mt-1">{{ props.count?.toLocaleString() }}</span>
       </span>
     </VCardText>
   </VCard>

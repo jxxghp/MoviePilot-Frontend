@@ -128,6 +128,7 @@ onBeforeMount(() => {
     <PluginCard
       v-for="data in dataList"
       :key="`${data.id}_v${data.plugin_version}`"
+      :count="PluginStatistics[data.id || '0']"
       :plugin="data"
       @remove="refreshData"
       @save="refreshData"
@@ -192,7 +193,7 @@ onBeforeMount(() => {
             color="primary"
           />
         </div>
-        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card items-start">
+        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <div
             v-for="(data, index) in getUnupdatedPlugins"
             :key="index"

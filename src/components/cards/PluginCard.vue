@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import { useConfirm } from 'vuetify-use-dialog'
+import { VIcon } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
@@ -13,6 +14,7 @@ import store from '@/store'
 // 输入参数
 const props = defineProps({
   plugin: Object as PropType<Plugin>,
+  count: Number,
   width: String,
   height: String,
 })
@@ -424,6 +426,10 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
         />
       </VAvatar>
     </div>
+    <span v-if="props.count" class="absolute bottom-1 right-2 flex items-center">
+      <VIcon icon="mdi-fire" />
+      <span class="text-sm ms-1">{{ props.count }}</span>
+    </span>
     <VCardItem class="py-2">
       <VCardTitle class="flex items-center flex-row">
         <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
