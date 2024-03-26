@@ -127,7 +127,7 @@ onBeforeMount(() => {
   >
     <PluginCard
       v-for="data in dataList"
-      :key="data.id"
+      :key="`${data.id}_v${data.plugin_version}`"
       :plugin="data"
       @remove="refreshData"
       @save="refreshData"
@@ -199,7 +199,7 @@ onBeforeMount(() => {
           >
             <PluginAppCard
               v-if="defer(index)"
-              :key="data.id"
+              :key="`${data.id}_v${data.plugin_version}`"
               :plugin="data"
               :count="PluginStatistics[data.id || '0']"
               @install="pluginInstalled"
