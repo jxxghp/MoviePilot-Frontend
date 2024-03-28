@@ -271,12 +271,10 @@ onMounted(() => {
                 color="primary"
                 @click="refInputEl?.click()"
               >
-                <template #prepend>
-                  <VIcon
-                    icon="mdi-cloud-upload-outline"
-                  />
-                </template>
-                <span class="d-none d-sm-block">上传头像</span>
+                <VIcon
+                  icon="mdi-cloud-upload-outline"
+                />
+                <span class="d-none d-sm-block ms-2">上传头像</span>
               </VBtn>
 
               <input
@@ -294,12 +292,10 @@ onMounted(() => {
                 variant="tonal"
                 @click="resetAvatar"
               >
-                <template #prepend>
-                  <VIcon
-                    icon="mdi-refresh"
-                  />
-                </template>
-                <span class="d-none d-sm-block">重置</span>
+                <VIcon
+                  icon="mdi-refresh"
+                />
+                <span class="d-none d-sm-block ms-2">重置</span>
               </VBtn>
 
               <VBtn
@@ -307,12 +303,10 @@ onMounted(() => {
                 variant="tonal"
                 @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
               >
-                <template #prepend>
-                  <VIcon
-                    icon="mdi-account-key"
-                  />
-                </template>
-                <span class="d-none d-sm-block">{{ accountInfo.is_otp ? "关闭验证" : "二次验证" }}</span>
+                <VIcon
+                  icon="mdi-account-key"
+                />
+                <span class="d-none d-sm-block ms-2">{{ accountInfo.is_otp ? "关闭验证" : "二次验证" }}</span>
               </VBtn>
             </div>
 
