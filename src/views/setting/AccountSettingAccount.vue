@@ -4,6 +4,7 @@ import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
+import QrcodeVue from 'qrcode.vue'
 
 const isNewPasswordVisible = ref(false)
 const isConfirmPasswordVisible = ref(false)
@@ -18,6 +19,18 @@ const refInputEl = ref<HTMLElement>()
 
 // 新增用户窗口
 const addUserDialog = ref(false)
+
+// 开启二次验证窗口
+const otpDialog = ref(false)
+
+// otp uri
+const otpUri = ref('')
+
+// otp secret
+const secret = ref('')
+
+// 确认二次验证密码
+const otpPassword = ref('')
 
 // 新增用户表单
 const userForm = reactive({
@@ -35,10 +48,14 @@ const accountInfo = ref<User>({
   is_active: false,
   is_superuser: false,
   avatar: '',
+  is_otp: false
 })
 
 // 所有用户信息
 const allUsers = ref<User[]>([])
+
+// 二维码信息
+const qrCode = ref('')
 
 // changeAvatar function
 function changeAvatar(file: Event) {
@@ -65,7 +82,7 @@ function resetAvatar() {
 async function loadAccountInfo() {
   try {
     const user: User = await api.get('user/current')
-
+    console.log(user)
     accountInfo.value = user
     if (!accountInfo.value.avatar)
       accountInfo.value.avatar = avatar1
@@ -167,6 +184,62 @@ async function addUser() {
   }
 }
 
+// 为当前用户获取Otp Uri
+async function getOtpUri() {
+  try {
+    const result: { [key: string]: any } = await api.post('user/otp/generate')
+    if (result.success) {
+      otpUri.value = result.data.uri
+      secret.value = result.data.secret
+      qrCode.value = result.data.uri
+      otpDialog.value = true
+    } else {
+      $toast.error(`获取otp uri失败：${result.message}！`)
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 关闭当前用户的二次验证
+async function disableOtp() {
+  try {
+    const result: { [key: string]: any } = await api.post('user/otp/disable')
+    if (result.success) {
+      accountInfo.value.is_otp = false;
+      $toast.success('关闭二次验证成功！')
+    }
+    else {
+      $toast.error(`关闭otp失败：${result.message}！`)
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 启用Otp
+async function judgeOtpPassword() {
+  if (!otpPassword) {
+    $toast.error('请填写6位验证码')
+    return
+  }
+  try {
+    const result: { [key: string]: any } = await api.post('user/otp/judge', {'uri': otpUri.value, 'otpPassword': otpPassword.value})
+
+    if (result.success) {
+      $toast.success('开启二次验证成功！')
+      otpDialog.value = false
+      accountInfo.value.is_otp = true
+    }
+    else {
+      $toast.error(`开启otp失败：${result.message}！`)
+    }
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 // 加载当前用户数据
 onMounted(() => {
   loadAccountInfo()
@@ -221,6 +294,16 @@ onMounted(() => {
                   icon="mdi-refresh"
                   class="d-sm-none"
                 />
+              </VBtn>
+
+              <VBtn
+                :color="accountInfo.is_otp? 'error': 'info'"
+                @click.stop="accountInfo.is_otp? disableOtp(): getOtpUri()"
+              >
+                <VIcon
+                  icon="mdi-account-key"
+                />
+                <span class="d-none d-sm-block">{{accountInfo.is_otp? "关闭验证": "二次验证"}}</span>
               </VBtn>
             </div>
 
@@ -465,6 +548,52 @@ onMounted(() => {
         </VBtn>
         <VSpacer />
         <VBtn @click="addUser">
+          确定
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <!-- 二次验证弹窗 -->
+  <VDialog
+    v-model="otpDialog"
+    max-width="40rem"
+    persistent
+    z-index="1010"
+  >
+    <!-- 开启二次验证弹窗内容 -->
+    <VCard title="二次验证">
+      <VCardText>
+        <VRow>
+          <VCol>
+            <QrcodeVue :value="qrCode" :size="200" max-width="25rem"/>
+          </VCol>
+          <VCol>
+            <VRow>
+              1、你可以使用 Microsoft Authenticator (谷歌或其他支持软件如Keeper等) 软件扫描左侧二维码
+              或者在 APP 中手动输入以下 Key
+              <h1>{{secret}}</h1>
+            </VRow>
+            <VRow>
+              2、在 APP 中获取6位验证码并输入
+            </VRow>
+            <VRow>
+              <VTextField
+                v-model="otpPassword"
+                type="text"
+                label="输入验证码以确认开启双重验证"
+                autocomplete="otpPassword"
+              />
+            </VRow>
+          </VCol>
+        </VRow>
+      </VCardText>
+      <VCardActions>
+        <VBtn @click="otpDialog = false">
+          取消
+        </VBtn>
+        <VSpacer />
+        <VBtn @click="judgeOtpPassword">
           确定
         </VBtn>
       </VCardActions>

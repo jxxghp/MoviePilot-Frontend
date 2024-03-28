@@ -184,7 +184,7 @@ async function saveMediaSetting() {
 }
 
 // 调用API查询下载器设置
-async function loadDownladerSetting() {
+async function loadDownloaderSetting() {
   try {
     const result1: { [key: string]: any } = await api.get('system/setting/DOWNLOADER')
     if (result1.success)
@@ -330,7 +330,7 @@ async function reloadModule() {
 
 // 加载数据
 onMounted(() => {
-  loadDownladerSetting()
+  loadDownloaderSetting()
   loadMediaServerSetting()
   loadMediaSettings()
 })
