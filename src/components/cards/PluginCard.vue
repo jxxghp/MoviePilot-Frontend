@@ -428,7 +428,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     </div>
     <span v-if="props.count" class="absolute bottom-1 right-2 flex items-center">
       <VIcon icon="mdi-fire" />
-      <span class="text-sm ms-1">{{ props.count }}</span>
+      <span class="text-sm ms-1">{{ props.count?.toLocaleString() }}</span>
     </span>
     <VCardItem class="py-2">
       <VCardTitle class="flex items-center flex-row">

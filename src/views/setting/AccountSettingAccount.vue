@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import QrcodeVue from 'qrcode.vue'
+import { VForm } from 'vuetify/lib/components/index.mjs'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
-import QrcodeVue from 'qrcode.vue'
 
 const isNewPasswordVisible = ref(false)
 const isConfirmPasswordVisible = ref(false)
@@ -48,7 +49,7 @@ const accountInfo = ref<User>({
   is_active: false,
   is_superuser: false,
   avatar: '',
-  is_otp: false
+  is_otp: false,
 })
 
 // 所有用户信息
@@ -193,10 +194,12 @@ async function getOtpUri() {
       secret.value = result.data.secret
       qrCode.value = result.data.uri
       otpDialog.value = true
-    } else {
+    }
+    else {
       $toast.error(`获取otp uri失败：${result.message}！`)
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.log(error)
   }
 }
@@ -206,28 +209,29 @@ async function disableOtp() {
   try {
     const result: { [key: string]: any } = await api.post('user/otp/disable')
     if (result.success) {
-      accountInfo.value.is_otp = false;
-      $toast.success('关闭二次验证成功！')
+      accountInfo.value.is_otp = false
+      $toast.success('关闭登录二次验证成功！')
     }
     else {
       $toast.error(`关闭otp失败：${result.message}！`)
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.log(error)
   }
 }
 
 // 启用Otp
 async function judgeOtpPassword() {
-  if (!otpPassword) {
+  if (!otpPassword.value) {
     $toast.error('请填写6位验证码')
     return
   }
   try {
-    const result: { [key: string]: any } = await api.post('user/otp/judge', {'uri': otpUri.value, 'otpPassword': otpPassword.value})
+    const result: { [key: string]: any } = await api.post('user/otp/judge', { uri: otpUri.value, otpPassword: otpPassword.value })
 
     if (result.success) {
-      $toast.success('开启二次验证成功！')
+      $toast.success('开启登录二次验证成功！')
       otpDialog.value = false
       accountInfo.value.is_otp = true
     }
@@ -267,10 +271,11 @@ onMounted(() => {
                 color="primary"
                 @click="refInputEl?.click()"
               >
-                <VIcon
-                  icon="mdi-cloud-upload-outline"
-                  class="d-sm-none"
-                />
+                <template #prepend>
+                  <VIcon
+                    icon="mdi-cloud-upload-outline"
+                  />
+                </template>
                 <span class="d-none d-sm-block">上传头像</span>
               </VBtn>
 
@@ -289,21 +294,25 @@ onMounted(() => {
                 variant="tonal"
                 @click="resetAvatar"
               >
+                <template #prepend>
+                  <VIcon
+                    icon="mdi-refresh"
+                  />
+                </template>
                 <span class="d-none d-sm-block">重置</span>
-                <VIcon
-                  icon="mdi-refresh"
-                  class="d-sm-none"
-                />
               </VBtn>
 
               <VBtn
-                :color="accountInfo.is_otp? 'error': 'info'"
-                @click.stop="accountInfo.is_otp? disableOtp(): getOtpUri()"
+                :color="accountInfo.is_otp ? 'error' : 'info'"
+                variant="tonal"
+                @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
               >
-                <VIcon
-                  icon="mdi-account-key"
-                />
-                <span class="d-none d-sm-block">{{accountInfo.is_otp? "关闭验证": "二次验证"}}</span>
+                <template #prepend>
+                  <VIcon
+                    icon="mdi-account-key"
+                  />
+                </template>
+                <span class="d-none d-sm-block">{{ accountInfo.is_otp ? "关闭验证" : "二次验证" }}</span>
               </VBtn>
             </div>
 
@@ -351,11 +360,9 @@ onMounted(() => {
                 <VTextField
                   v-model="newPassword"
                   :type="isNewPasswordVisible ? 'text' : 'password'"
-                  :append-inner-icon="
-                    isNewPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
-                  "
+                  :append-inner-icon="isNewPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                   label="新密码"
-                  autocomplete="new-password"
+                  autocomplete=""
                   @click:append-inner="isNewPasswordVisible = !isNewPasswordVisible"
                 />
               </VCol>
@@ -557,46 +564,56 @@ onMounted(() => {
   <!-- 二次验证弹窗 -->
   <VDialog
     v-model="otpDialog"
-    max-width="40rem"
+    max-width="45rem"
     persistent
     z-index="1010"
   >
     <!-- 开启二次验证弹窗内容 -->
-    <VCard title="二次验证">
+    <VCard>
+      <DialogCloseBtn @click="otpDialog = false" />
       <VCardText>
-        <VRow>
-          <VCol>
-            <QrcodeVue :value="qrCode" :size="200" max-width="25rem"/>
-          </VCol>
-          <VCol>
-            <VRow>
-              1、你可以使用 Microsoft Authenticator (谷歌或其他支持软件如Keeper等) 软件扫描左侧二维码
-              或者在 APP 中手动输入以下 Key
-              <h1>{{secret}}</h1>
-            </VRow>
-            <VRow>
-              2、在 APP 中获取6位验证码并输入
-            </VRow>
-            <VRow>
-              <VTextField
-                v-model="otpPassword"
-                type="text"
-                label="输入验证码以确认开启双重验证"
-                autocomplete="otpPassword"
-              />
-            </VRow>
-          </VCol>
-        </VRow>
+        <h4 class="text-h4 text-center mb-6 mt-5">
+          登录二次验证
+        </h4><h5 class="text-h5 font-weight-medium mb-2">
+          身份验证器
+        </h5>
+        <p class="mb-6">
+          使用像Google Authenticator、Microsoft Authenticator、Authy或1Password这样的身份验证器应用程序，扫描二维码。它将为您生成一个6位数的代码，供您在下方输入。
+        </p>
+        <div class="my-6">
+          <QrcodeVue class="mx-auto" :value="qrCode" :size="200" max-width="25rem" />
+        </div>
+        <VAlert
+          :title="secret"
+          variant="tonal"
+          type="warning"
+          class="my-4"
+          text="如果您在使用二维码时遇到困难，请在您的应用程序中选择手动输入以上代码。"
+        >
+          <template #prepend />
+        </VAlert>
+        <VForm>
+          <VTextField
+            v-model="otpPassword"
+            type="text"
+            label="输入验证码以确认开启双重验证"
+            autocomplete=""
+            class="mb-8"
+            variant="outlined"
+          />
+          <div class="d-flex justify-end flex-wrap gap-4">
+            <VBtn variant="outlined" color="secondary" @click="otpDialog = false">
+              取消
+            </VBtn>
+            <VBtn @click="judgeOtpPassword">
+              确定
+              <template #append>
+                <VIcon icon="mdi-check" />
+              </template>
+            </VBtn>
+          </div>
+        </VForm>
       </VCardText>
-      <VCardActions>
-        <VBtn @click="otpDialog = false">
-          取消
-        </VBtn>
-        <VSpacer />
-        <VBtn @click="judgeOtpPassword">
-          确定
-        </VBtn>
-      </VCardActions>
     </VCard>
   </VDialog>
 </template>

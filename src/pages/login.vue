@@ -179,8 +179,8 @@ onMounted(() => {
               </VCol>
               <VCol cols="12">
                 <VTextField
-                  hint="非必传，如开启二次验证需填写"
                   v-model="form.otp_password"
+                  hint="非必须，如开启二次验证需填写"
                   label="二次验证"
                   type="input"
                 />
