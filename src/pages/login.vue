@@ -13,6 +13,7 @@ const store = useStore()
 const form = ref({
   username: '',
   password: '',
+  otp_password: '',
   remember: true,
 })
 
@@ -55,6 +56,7 @@ function login() {
 
   formData.append('username', form.value.username)
   formData.append('password', form.value.password)
+  formData.append('otp_password', form.value.otp_password)
 
   // 请求token
   api
@@ -85,13 +87,13 @@ function login() {
       if (!error.response)
         errorMessage.value = '登录失败，请检查网络连接'
       else if (error.response.status === 401)
-        errorMessage.value = '登录失败，请检查用户名和密码是否正确'
+        errorMessage.value = '登录失败，请检查用户名、密码或二次验证是否正确'
       else if (error.response.status === 403)
         errorMessage.value = '登录失败，您没有权限访问'
       else if (error.response.status === 500)
         errorMessage.value = '登录失败，服务器错误'
       else
-        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名和密码是否正确`
+        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或二次验证是否正确`
     })
 }
 
@@ -174,7 +176,14 @@ onMounted(() => {
                 >
                   {{ errorMessage }}
                 </div>
-
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  hint="非必传，如开启二次验证需填写"
+                  v-model="form.otp_password"
+                  label="二次验证"
+                  type="input"
+                />
                 <!-- remember me checkbox -->
                 <div class="d-flex align-center justify-space-between flex-wrap mt-1 mb-4">
                   <VCheckbox

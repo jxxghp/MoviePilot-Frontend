@@ -850,6 +850,9 @@ export interface User {
 
   // 头像
   avatar: string
+
+  // 是否开启二次验证
+  is_otp: boolean
 }
 
 // 存储空间
