@@ -31,12 +31,35 @@ const backgroundImageUrl = ref('')
 // 背景图片加载状态
 const isImageLoaded = ref(false)
 
+// 是否开启二次验证
+const isOTP = ref(false)
+
+// 用户名称输入框
+const usernameInput = ref()
+
 // 获取背景图片
 async function fetchBackgroundImage() {
   api
     .get('/login/wallpaper')
     .then((response: any) => {
       backgroundImageUrl.value = response.message
+    })
+    .catch((error: any) => {
+      console.log(error)
+    })
+}
+
+// 查询是否开启二次验证
+async function fetchOTP() {
+  const userid = usernameInput.value?.value
+  if (!userid) {
+    isOTP.value = false
+    return
+  }
+  api
+    .get(`/user/otp/${userid}`)
+    .then((response: any) => {
+      isOTP.value = response.success
     })
     .catch((error: any) => {
       console.log(error)
@@ -150,13 +173,14 @@ onMounted(() => {
               <!-- username -->
               <VCol cols="12">
                 <VTextField
+                  ref="usernameInput"
                   v-model="form.username"
                   label="用户名"
                   type="text"
                   :rules="[requiredValidator]"
+                  @input="fetchOTP"
                 />
               </VCol>
-
               <!-- password -->
               <VCol cols="12">
                 <VTextField
@@ -169,30 +193,24 @@ onMounted(() => {
                   :rules="[requiredValidator]"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
-
-                <div
-                  v-if="errorMessage"
-                  class="text-error mt-1"
-                >
-                  {{ errorMessage }}
-                </div>
               </VCol>
               <VCol cols="12">
                 <VTextField
+                  v-if="isOTP"
                   v-model="form.otp_password"
-                  hint="非必须，如开启二次验证需填写"
-                  label="二次验证"
+                  label="二次验证码"
                   type="input"
                 />
                 <!-- remember me checkbox -->
-                <div class="d-flex align-center justify-space-between flex-wrap mt-1 mb-4">
+                <div class="d-flex align-center justify-space-between flex-wrap">
                   <VCheckbox
                     v-model="form.remember"
                     label="保持登录"
                     required
                   />
                 </div>
-
+              </VCol>
+              <VCol cols="12">
                 <!-- login button -->
                 <VBtn
                   block
@@ -201,6 +219,12 @@ onMounted(() => {
                 >
                   登录
                 </VBtn>
+                <div
+                  v-if="errorMessage"
+                  class="text-error mt-2"
+                >
+                  {{ errorMessage }}
+                </div>
               </VCol>
             </VRow>
           </VForm>
