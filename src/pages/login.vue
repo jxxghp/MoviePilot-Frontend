@@ -71,9 +71,10 @@ function login() {
   errorMessage.value = ''
 
   // 进行表单校验
-  if (!form.value.username || !form.value.password)
+  if (!form.value.username || !form.value.password || (isOTP.value && !form.value.otp_password)) {
+    errorMessage.value = '请输入完整信息'
     return
-
+  }
   // 用户名密码
   const formData = new FormData()
 
@@ -116,7 +117,7 @@ function login() {
       else if (error.response.status === 500)
         errorMessage.value = '登录失败，服务器错误'
       else
-        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或二次验证是否正确`
+        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或二次验证码是否正确`
     })
 }
 
@@ -221,7 +222,7 @@ onMounted(() => {
                 </VBtn>
                 <div
                   v-if="errorMessage"
-                  class="text-error mt-2"
+                  class="text-error mt-2 text-shadow"
                 >
                   {{ errorMessage }}
                 </div>
