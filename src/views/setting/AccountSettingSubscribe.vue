@@ -411,6 +411,7 @@ onMounted(() => {
                   v-model="selectedSubscribeMode"
                   :items="subscribeModeItems"
                   label="订阅模式"
+                  hint="自动：系统自动爬取站点首页资源；站点RSS：使用站点RSS订阅资源，站点RSS会自动获取，也可手动在站点管理中补全"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -418,6 +419,7 @@ onMounted(() => {
                   v-model="selectedRssInterval"
                   :items="rssIntervalItems"
                   label="站点RSS周期"
+                  hint="设置站点RSS运行周期，在订阅模式为站点RSS时生效"
                 />
               </VCol>
             </VRow>
@@ -426,6 +428,7 @@ onMounted(() => {
                 <VSwitch
                   v-model="enableIntervalSearch"
                   label="开启订阅定时搜索"
+                  hint="开启后，系统每隔24小时将按名称搜索全站，补全订阅可能漏掉的资源"
                 />
               </VCol>
             </VRow>
@@ -581,6 +584,7 @@ onMounted(() => {
                   v-model="defaultFilterRules.include"
                   type="text"
                   label="包含（关键字、正则式）"
+                  hint="支持正式表达式，多个关键字用|分隔表示或"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -588,6 +592,7 @@ onMounted(() => {
                   v-model="defaultFilterRules.exclude"
                   type="text"
                   label="排除（关键字、正则式）"
+                  hint="支持正式表达式，多个关键字用|分隔表示或"
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -596,6 +601,7 @@ onMounted(() => {
                   type="text"
                   label="电影文件大小（GB）"
                   placeholder="0-30"
+                  hint="格式：0-30，表示0到30GB之间的资源"
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -604,6 +610,7 @@ onMounted(() => {
                   type="text"
                   label="剧集单集文件大小（GB）"
                   placeholder="0-10"
+                  hint="格式：0-10，表示0到10GB之间的资源"
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -612,12 +619,14 @@ onMounted(() => {
                   type="text"
                   label="最小做种数"
                   placeholder="0"
+                  hint="小于该值的资源将被过滤掉，0表示不过滤"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="defaultFilterRules.show_edit_dialog"
                   label="订阅时编辑更多规则"
+                  hint="开启后，添加订阅时将自动弹出订阅编辑框，要设置更多订阅选项"
                 />
               </VCol>
             </VRow>

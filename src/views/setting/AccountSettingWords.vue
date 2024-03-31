@@ -167,6 +167,7 @@ onMounted(() => {
             v-model="customIdentifiers"
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行为一组"
+            hint="支持正则表达式，特殊字符需要\转义，一行为一组"
           />
         </VCardItem>
         <VCardItem>
@@ -204,6 +205,7 @@ onMounted(() => {
             v-model="customReleaseGroups"
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个制作组/字幕组"
+            hint="支持正则表达式，特殊字符需要\转义，一行代表一个制作组/字幕组"
           />
         </VCardItem>
         <VCardItem>
@@ -224,6 +226,7 @@ onMounted(() => {
             v-model="customization"
             auto-grow
             placeholder="多个匹配对象请换行分隔，支持正则表达式，特殊字符注意转义"
+            hint="多个匹配对象请换行分隔，支持正则表达式，特殊字符注意转义"
           />
         </VCardItem>
         <VCardItem>
@@ -244,6 +247,7 @@ onMounted(() => {
             v-model="transferExcludeWords"
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个屏蔽词"
+            hint="支持正则表达式，特殊字符需要\转义，一行代表一个屏蔽词"
           />
         </VCardItem>
         <VCardItem>

@@ -160,7 +160,11 @@ onMounted(() => {
           <VForm>
             <VRow>
               <VCol cols="12" md="6">
-                <VCheckbox v-model="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL" label="启用本地CookieCloud服务器" />
+                <VCheckbox
+                  v-model="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL"
+                  label="启用本地CookieCloud服务器"
+                  hint="启用后，将使用内建CookieCloud服务同步站点数据，服务地址为：http://localhost:3000/cookiecloud"
+                />
               </VCol>
             </VRow>
             <VRow>
@@ -169,13 +173,15 @@ onMounted(() => {
                   v-model="cookieCloudSetting.COOKIECLOUD_HOST"
                   label="远程CookieCloud服务器地址"
                   placeholder="https://movie-pilot.org/cookiecloud"
-                  :disabled="cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL"
+                  :disabled="!!cookieCloudSetting.COOKIECLOUD_ENABLE_LOCAL"
+                  hint="格式：https://movie-pilot.org/cookiecloud"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="cookieCloudSetting.COOKIECLOUD_KEY"
                   label="用户KEY"
+                  hint="在CookieCloud浏览器插件中生成"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -183,6 +189,7 @@ onMounted(() => {
                   v-model="cookieCloudSetting.COOKIECLOUD_PASSWORD"
                   type="password"
                   label="端对端加密密码"
+                  hint="在CookieCloud浏览器插件中生成"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -190,12 +197,14 @@ onMounted(() => {
                   v-model="cookieCloudSetting.COOKIECLOUD_INTERVAL"
                   label="自动同步间隔"
                   :items="CookieCloudIntervalItems"
+                  hint="设置定时从CookieCloud服务器同步站点Cookie到MoviePilot的时间周期"
                 />
               </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="cookieCloudSetting.USER_AGENT"
                   label="浏览器User-Agent"
+                  hint="设置为CookieCloud插件所在的浏览器的User-Agent，用于模拟浏览器请求，正确填写后有助于提升站点访问成功率"
                 />
               </VCol>
             </VRow>
@@ -222,6 +231,7 @@ onMounted(() => {
                   v-model="selectedTorrentPriority"
                   :items="TorrentPriorityItems"
                   label="当前使用下载优先规则"
+                  hint="站点优先：优先下载站点优先级最高的站点的种子；做种数优先：优先下载做种数量最多的种子。注意下载优先级仍然低于搜索和订阅中设定的优先级规则"
                 />
               </VCol>
             </VRow>
@@ -241,7 +251,11 @@ onMounted(() => {
       <VCard title="站点重置">
         <VCardText>
           <div>
-            <VCheckbox v-model="isConfirmResetSites" label="确认删除所有站点数据并重新同步。" />
+            <VCheckbox
+              v-model="isConfirmResetSites"
+              label="确认删除所有站点数据并重新同步。"
+              hint="删除所有站点数据并重新同步，站点图标短时间内会因数缓存而混乱，重启或者等待2两时自动恢复。"
+            />
           </div>
 
           <VBtn :disabled="!isConfirmResetSites || resetSitesDisabled" color="error" class="mt-3" @click="resetSites">

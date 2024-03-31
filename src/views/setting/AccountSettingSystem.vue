@@ -351,12 +351,14 @@ onMounted(() => {
                   chips
                   :items="Downloaders"
                   label="当前使用下载器"
+                  hint="MoviePilot自动添加的下载任务将使用选中的第1个下载器"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="downloaderSettings.TORRENT_TAG"
                   label="下载器种子标签"
+                  hint="设置种子标签用于区分MoviePilot添加的下载任务，默认标签为`MOVIEPILOT`"
                 />
               </VCol>
             </VRow>
@@ -365,6 +367,7 @@ onMounted(() => {
                 <VSwitch
                   v-model="downloaderSettings.DOWNLOADER_MONITOR"
                   label="监控默认下载器"
+                  hint="监控选中的第1个下载器，当任务下载完成时自动整理文件到媒体库"
                 />
               </VCol>
             </VRow>
@@ -394,6 +397,7 @@ onMounted(() => {
                             v-model="downloaderSettings.QB_HOST"
                             label="地址"
                             placeholder="IP:PORT"
+                            hint="格式：IP:PORT，如启用了HTTPS，请使用https://IP:PORT"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -401,6 +405,7 @@ onMounted(() => {
                             v-model="downloaderSettings.QB_USER"
                             label="用户名"
                             placeholder="admin"
+                            hint="QB的登录用户名"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -408,24 +413,28 @@ onMounted(() => {
                             v-model="downloaderSettings.QB_PASSWORD"
                             type="password"
                             label="密码"
+                            hint="QB的登录密码"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VSwitch
                             v-model="downloaderSettings.QB_CATEGORY"
                             label="自动分类管理"
+                            hint="开启后，下载目录将由QB控制自动下载到分类到目录，此时MoviePilot的下载目录设定无效，需在QB中提前创建分类"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VSwitch
                             v-model="downloaderSettings.QB_SEQUENTIAL"
                             label="顺序下载"
+                            hint="开启后QB将按照文件顺序依次下载"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VSwitch
                             v-model="downloaderSettings.QB_FORCE_RESUME"
                             label="强制继续"
+                            hint="开启后，QB将设置为强制继续、强制上传模式（带[F]标识）"
                           />
                         </VCol>
                       </VRow>
@@ -439,6 +448,7 @@ onMounted(() => {
                             v-model="downloaderSettings.TR_HOST"
                             label="地址"
                             placeholder="IP:PORT"
+                            hint="格式：IP:PORT，如启用了HTTPS，请使用https://IP:PORT"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -446,6 +456,7 @@ onMounted(() => {
                             v-model="downloaderSettings.TR_USER"
                             label="用户名"
                             placeholder="admin"
+                            hint="TR的登录用户名"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -453,6 +464,7 @@ onMounted(() => {
                             v-model="downloaderSettings.TR_PASSWORD"
                             type="password"
                             label="密码"
+                            hint="TR的登录密码"
                           />
                         </VCol>
                       </VRow>
@@ -492,6 +504,7 @@ onMounted(() => {
                   chips
                   :items="MediaServers"
                   label="当前使用媒体服务器"
+                  hint="媒体服务器用于搜索下载等判断库中是否已存在，以避免重复下载"
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -499,6 +512,7 @@ onMounted(() => {
                   v-model="mediaServerSettings.MEDIASERVER_SYNC_INTERVAL"
                   :items="syncIntervalItems"
                   label="同步周期"
+                  hint="设置后数据将定时同步到MoviePilot数据库，以便展示媒体库是否存在标识"
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -506,6 +520,7 @@ onMounted(() => {
                   v-model="mediaServerSettings.MEDIASERVER_SYNC_BLACKLIST"
                   label="媒体库同步黑名单"
                   placeholder="使用,分隔"
+                  hint="设置不同步数据的媒体库名称，使用,分隔，如：电影,电视剧"
                 />
               </VCol>
             </VRow>
@@ -538,6 +553,7 @@ onMounted(() => {
                             v-model="mediaServerSettings.EMBY_HOST"
                             label="地址"
                             placeholder="IP:PORT"
+                            hint="格式：IP:PORT 或 http(s)://IP:PORT/"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -545,12 +561,14 @@ onMounted(() => {
                             v-model="mediaServerSettings.EMBY_PLAY_HOST"
                             label="外网播放地址"
                             placeholder="http(s)://domain:port"
+                            hint="格式：http(s)://domain:port，设置后跳转Emby时将优先使用此地址"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.EMBY_API_KEY"
                             label="API密钥"
+                            hint="Emby的API密钥，在 Emby设置->高级->API 密钥 中生成"
                           />
                         </VCol>
                       </VRow>
@@ -564,6 +582,7 @@ onMounted(() => {
                             v-model="mediaServerSettings.JELLYFIN_HOST"
                             label="地址"
                             placeholder="IP:PORT"
+                            hint="格式：IP:PORT 或 http(s)://IP:PORT/"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -571,12 +590,14 @@ onMounted(() => {
                             v-model="mediaServerSettings.JELLYFIN_PLAY_HOST"
                             label="外网播放地址"
                             placeholder="http(s)://domain:port"
+                            hint="格式：http(s)://domain:port，设置后跳转Jellyfin时将优先使用此地址"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.JELLYFIN_API_KEY"
                             label="API密钥"
+                            hint="Jellyfin的API密钥，在 Jellyfin设置->高级->API 密钥 中生成"
                           />
                         </VCol>
                       </VRow>
@@ -590,6 +611,7 @@ onMounted(() => {
                             v-model="mediaServerSettings.PLEX_HOST"
                             label="地址"
                             placeholder="IP:PORT"
+                            hint="格式：IP:PORT 或 http(s)://IP:PORT/"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -597,12 +619,14 @@ onMounted(() => {
                             v-model="mediaServerSettings.PLEX_PLAY_HOST"
                             label="外网播放地址"
                             placeholder="http(s)://domain:port"
+                            hint="格式：http(s)://domain:port，设置后跳转Plex时将优先使用此地址"
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.PLEX_TOKEN"
                             label="API密钥"
+                            hint="Plex网页Url中的X-Plex-Token，通过浏览器F12->网络从请求URL中获取"
                           />
                         </VCol>
                       </VRow>
@@ -640,30 +664,35 @@ onMounted(() => {
                   v-model="mediaSettings.DOWNLOAD_PATH"
                   label="下载目录"
                   :rules="[requiredValidator]"
+                  hint="MoviePilot添加的下载任务的默认保存目录，必须设置"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="mediaSettings.DOWNLOAD_MOVIE_PATH"
                   label="电影下载目录"
+                  hint="为电影设置单独的下载保存目录，不设置则使用下载目录"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="mediaSettings.DOWNLOAD_TV_PATH"
                   label="电视剧下载目录"
+                  hint="为电视剧设置单独的下载保存目录，不设置则使用下载目录"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="mediaSettings.DOWNLOAD_ANIME_PATH"
                   label="动漫下载目录"
+                  hint="为动漫设置单独的下载保存目录，不设置则使用下载目录"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="mediaSettings.DOWNLOAD_CATEGORY"
                   label="下载目录自动分类"
+                  hint="开启后，下载任务保存目录将根据二级分类策略自动分类存放到下载目录的二级子目录中，二级分类策略需要编辑配置文件目录下的`category.yml`文件，插件市场有提供文件编辑插件"
                 />
               </VCol>
             </VRow>
@@ -673,6 +702,7 @@ onMounted(() => {
                   v-model="mediaSettings.TRANSFER_TYPE"
                   :items="transferTypeItems"
                   label="整理方式"
+                  hint="硬链接需要确保下载目录和媒体库目录不跨盘、不跨共享目录、不分别映射；rclone需要手动在容器中完成配置，且配置名为：`MP`"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -680,12 +710,14 @@ onMounted(() => {
                   v-model="mediaSettings.OVERWRITE_MODE"
                   :items="overwriteModeItems"
                   label="覆盖模式"
+                  hint="从不覆盖：不覆盖已存在的文件；按大小覆盖：大文件将覆盖小文件；总是覆盖：总是覆盖已存在的文件；仅保留最新版本：保留最新版本的文件，删除其它版本的文件"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="mediaSettings.SCRAP_METADATA"
                   label="自动刮削媒体信息"
+                  hint="开启后，整理完成后将自动刮削媒体信息，如海报、简介等"
                 />
               </VCol>
             </VRow>
@@ -696,6 +728,7 @@ onMounted(() => {
                   label="媒体库目录"
                   placeholder="多个目录使用,分隔"
                   :rules="[requiredValidator]"
+                  hint="整理完成后的媒体文件存放的根目录，所有整理场景下未设定目的目录时都将整理到该目录下，必须设置"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -703,6 +736,7 @@ onMounted(() => {
                   v-model="mediaSettings.LIBRARY_MOVIE_NAME"
                   label="电影目录名称"
                   placeholder="电影"
+                  hint="设置电影的存放一级目录名称，不设置则使用使用`电影`做为目录名称"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -710,6 +744,7 @@ onMounted(() => {
                   v-model="mediaSettings.LIBRARY_TV_NAME"
                   label="电视剧目录名称"
                   placeholder="电视剧"
+                  hint="设置电视剧的存放一级目录名称，不设置则使用使用`电视剧`做为目录名称"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -717,12 +752,14 @@ onMounted(() => {
                   v-model="mediaSettings.LIBRARY_ANIME_NAME"
                   label="动漫目录名称"
                   placeholder="动漫"
+                  hint="设置动漫的存放一级目录名称，不设置则使用使用`动漫`做为目录名称"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="mediaSettings.LIBRARY_CATEGORY"
                   label="媒体库目录自动分类"
+                  hint="开启后，整理完成后的媒体文件将根据二级分类策略自动分类存放到媒体库一级目录的二级子目录中，二级分类策略需要编辑配置文件目录下的`category.yml`文件，插件市场有提供文件编辑插件"
                 />
               </VCol>
             </VRow>
