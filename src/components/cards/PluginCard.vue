@@ -153,15 +153,20 @@ async function loadPluginConf() {
 
 // 调用API保存配置数据
 async function savePluginConf() {
+  // 显示等待提示框
+  progressDialog.value = true
+  progressText.value = `正在保存 ${props.plugin?.plugin_name} 配置...`
   try {
     const result: { [key: string]: any } = await api.put(`plugin/${props.plugin?.id}`, pluginConfigForm.value)
     if (result.success) {
-      $toast.success(`插件 ${props.plugin?.plugin_name} 配置已保存`)
+      progressDialog.value = false
       pluginConfigDialog.value = false
+      $toast.success(`插件 ${props.plugin?.plugin_name} 配置已保存`)
       // 通知父组件刷新
       emit('save')
     }
     else {
+      progressDialog.value = false
       $toast.error(`插件 ${props.plugin?.plugin_name} 配置保存失败：${result.message}}`)
     }
   }
