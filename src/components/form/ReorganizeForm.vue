@@ -161,6 +161,7 @@ async function transfer() {
                 v-model="transferForm.target"
                 label="目的路径"
                 placeholder="留空自动"
+                hint="留空将自动整理到媒体库目录"
               />
             </VCol>
             <VCol
@@ -204,6 +205,7 @@ async function transfer() {
                 placeholder="留空自动识别"
                 :rules="[numberValidator]"
                 append-inner-icon="mdi-magnify"
+                hint="点击图标按名称搜索，留空将自动重新识别"
                 @click:append-inner="tmdbSelectorDialog = true"
               />
             </VCol>
@@ -225,6 +227,7 @@ async function transfer() {
                 v-model="transferForm.episode_format"
                 label="集数定位"
                 placeholder="使用{ep}定位集数"
+                hint="使用{ep}定位文件名中的集数部分，其余相同部分直接填写，不同部分使用{a}进行忽略，例如：{a}葬送的芙莉莲_Sousou no Frieren 第{ep}话{b}"
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -232,6 +235,7 @@ async function transfer() {
                 v-model="transferForm.episode_detail"
                 label="指定集数"
                 placeholder="起始集,终止集，如1或1,2"
+                hint="直接指定集数或者范围，格式：起始集,终止集，如1或1,2"
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -239,6 +243,7 @@ async function transfer() {
                 v-model="transferForm.episode_part"
                 label="指定Part"
                 placeholder="如part1"
+                hint="指定集数的Part，如part1"
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -246,6 +251,7 @@ async function transfer() {
                 v-model.number="transferForm.episode_offset"
                 label="集数偏移"
                 placeholder="如-10"
+                hint="对集数进行偏移运算，如-10表示文件名中的集数减10为整理后集数"
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -254,6 +260,7 @@ async function transfer() {
                 label="最小文件大小（MB）"
                 :rules="[numberValidator]"
                 placeholder="0"
+                hint="最小文件大小，小于此大小的文件将被忽略不进行整理"
               />
             </VCol>
           </VRow>

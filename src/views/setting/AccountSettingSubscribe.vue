@@ -584,7 +584,7 @@ onMounted(() => {
                   v-model="defaultFilterRules.include"
                   type="text"
                   label="包含（关键字、正则式）"
-                  hint="支持正式表达式，多个关键字用|分隔表示或"
+                  hint="支持正式表达式，多个关键字用 | 分隔表示或"
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -592,7 +592,7 @@ onMounted(() => {
                   v-model="defaultFilterRules.exclude"
                   type="text"
                   label="排除（关键字、正则式）"
-                  hint="支持正式表达式，多个关键字用|分隔表示或"
+                  hint="支持正式表达式，多个关键字用 | 分隔表示或"
                 />
               </VCol>
               <VCol cols="12" md="4">

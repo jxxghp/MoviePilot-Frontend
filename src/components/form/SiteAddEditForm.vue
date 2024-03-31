@@ -142,6 +142,7 @@ async function updateSiteInfo() {
                 v-model="siteForm.url"
                 label="站点地址"
                 :rules="[requiredValidator]"
+                hint="格式：http://www.example.com/"
               />
             </VCol>
             <VCol
@@ -153,6 +154,7 @@ async function updateSiteInfo() {
                 label="优先级"
                 :items="priorityItems"
                 :rules="[requiredValidator]"
+                hint="站点资源下载优先级，优先级数字越小越优先下载"
               />
             </VCol>
             <VCol
@@ -171,18 +173,21 @@ async function updateSiteInfo() {
               <VTextField
                 v-model="siteForm.rss"
                 label="RSS地址"
+                hint="订阅模式为站点RSS时，将会使用此地址获取站点种子资源，该地址一般会自动获取，也可手动补充"
               />
             </VCol>
             <VCol cols="12">
               <VTextarea
                 v-model="siteForm.cookie"
                 label="站点Cookie"
+                hint="浏览器打开站点首页，打开开发人员工具，刷新页面后在网络选项中找到首页地址，在请求头中获取Cookie信息"
               />
             </VCol>
             <VCol cols="12">
               <VTextField
                 v-model="siteForm.ua"
                 label="站点User-Agent"
+                hint="在开发人员工具，网络请求头中获取User-Agent信息，需与站点Cookie配套使用"
               />
             </VCol>
           </VRow>
@@ -195,6 +200,7 @@ async function updateSiteInfo() {
                 v-model="siteForm.limit_interval"
                 label="单位周期（秒）"
                 :rules="[numberValidator]"
+                hint="设定站点限流的单位周期，单位为秒，0为不限流"
               />
             </VCol>
             <VCol
@@ -205,6 +211,7 @@ async function updateSiteInfo() {
                 v-model="siteForm.limit_count"
                 label="访问次数"
                 :rules="[numberValidator]"
+                hint="设定单位周期内站点允许的访问次数，0为不限制"
               />
             </VCol>
             <VCol
@@ -215,6 +222,7 @@ async function updateSiteInfo() {
                 v-model="siteForm.limit_seconds"
                 label="访问间隔（秒）"
                 :rules="[numberValidator]"
+                hint="设定单位周期内每次站点访问需间隔时间，单位为秒，0为不限制"
               />
             </VCol>
           </VRow>
@@ -226,6 +234,7 @@ async function updateSiteInfo() {
               <VSwitch
                 v-model="siteForm.proxy"
                 label="代理"
+                hint="站点是否需要代理访问，需要设置好代理服务器信息"
               />
             </VCol>
             <VCol
@@ -235,6 +244,7 @@ async function updateSiteInfo() {
               <VSwitch
                 v-model="siteForm.render"
                 label="仿真"
+                hint="站点是否需要使用浏览器模拟访问，开启可以一定程度上提升连通性，但会大大增加站点请求时间"
               />
             </VCol>
           </VRow>

@@ -95,11 +95,15 @@ function refreshData() {
   fetchUninstalledPlugins()
 }
 
-// 获取没有更新的插件
-const getUnupdatedPlugins = computed(() => {
+// 对uninstalledList进行排序，按PluginStatistics倒序
+const sortedUninstalledList = computed(() => {
   const list = uninstalledList.value.filter(item => !item.has_update)
   defer = useDefer(list.length)
-  return list
+  if (PluginStatistics.value.length === 0)
+    return list
+  return list.sort((a, b) => {
+    return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
+  })
 })
 
 // 加载时获取数据
@@ -195,7 +199,7 @@ onBeforeMount(() => {
         </div>
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <div
-            v-for="(data, index) in getUnupdatedPlugins"
+            v-for="(data, index) in sortedUninstalledList"
             :key="index"
           >
             <PluginAppCard

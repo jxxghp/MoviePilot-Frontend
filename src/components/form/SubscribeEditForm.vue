@@ -236,6 +236,7 @@ watchEffect(() => {
               <VTextField
                 v-model="subscribeForm.keyword"
                 label="搜索关键词"
+                hint="设定搜索关键词后，将使用此关键词搜索站点资源，否则自动使用themoviedb中的名称搜索"
               />
             </VCol>
             <VCol
@@ -247,6 +248,7 @@ watchEffect(() => {
                 v-model="subscribeForm.total_episode"
                 label="总集数"
                 :rules="[numberValidator]"
+                hint="设定剧集的总集数，以应对themoviedb中剧集信息未维护完整，导致提前结束订阅的情况"
               />
             </VCol>
             <VCol
@@ -258,6 +260,7 @@ watchEffect(() => {
                 v-model="subscribeForm.start_episode"
                 label="开始集数"
                 :rules="[numberValidator]"
+                hint="只订阅下载此集数及之后的剧集"
               />
             </VCol>
           </VRow>
@@ -301,6 +304,7 @@ watchEffect(() => {
               <VTextField
                 v-model="subscribeForm.include"
                 label="包含（关键字、正则式）"
+                hint="支持正则表达式，多个关键字用 | 分隔表示或"
               />
             </VCol>
             <VCol
@@ -310,6 +314,7 @@ watchEffect(() => {
               <VTextField
                 v-model="subscribeForm.exclude"
                 label="排除（关键字、正则式）"
+                hint="支持正则表达式，多个关键字用 | 分隔表示或"
               />
             </VCol>
             <VCol
@@ -322,6 +327,7 @@ watchEffect(() => {
                 chips
                 label="订阅站点"
                 multiple
+                hint="只订阅选中的订阅站点，不选则订阅所有可订阅站点"
               />
             </VCol>
           </VRow>
@@ -332,6 +338,7 @@ watchEffect(() => {
               <VTextField
                 v-model="subscribeForm.save_path"
                 label="保存路径"
+                hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
               />
             </VCol>
           </VRow>
@@ -343,6 +350,7 @@ watchEffect(() => {
               <VSwitch
                 v-model="subscribeForm.best_version"
                 label="洗版"
+                hint="开启后不管媒体库是否存在，均会根据洗版优先级进行过滤下载，直到下载到了最高优先级的资源为止"
               />
             </VCol>
             <VCol
@@ -352,6 +360,7 @@ watchEffect(() => {
               <VSwitch
                 v-model="subscribeForm.search_imdbid"
                 label="使用 ImdbID 搜索"
+                hint="开启后将使用 ImdbID 搜索资源，搜索结果更精确，但不是所有站点都支持"
               />
             </VCol>
           </VRow>
