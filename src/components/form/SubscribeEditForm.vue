@@ -7,6 +7,8 @@ import type { Site, Subscribe } from '@/api/types'
 // 输入参数
 const props = defineProps({
   subid: Number,
+  default_config: Boolean,
+  type: String,
 })
 
 // 定义触发的自定义事件
@@ -60,6 +62,51 @@ async function updateSubscribeInfo() {
   }
   catch (e) {
     console.log(e)
+  }
+}
+
+// 设置用户设置的默认订阅规则
+async function saveDefaultSubscribeConfig() {
+  try {
+      let subscribe_config_url = ""
+      if (props.type == "电影") {
+        subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
+      } else {
+        subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+      }
+      const result: { [key: string]: any } = await api.post(
+        subscribe_config_url,
+        subscribeForm.value)
+      if (result.success) {
+        $toast.success(props.type + '订阅默认规则保存成功')
+      } else {
+        $toast.error(props.type + '订阅默认规则保存失败！')
+      }
+      // 通知父组件刷新
+      emit('default_config')
+    }
+    catch (error) {
+      console.log(error)
+    }
+}
+
+// 查询用户设置的默认订阅规则
+async function queryDefaultSubscribeConfig() {
+  try {
+    let subscribe_config_url = ""
+    if (props.type == "电影") {
+      subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
+    } else {
+      subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+    }
+    const result: { [key: string]: any } = await api.get(subscribe_config_url)
+
+    if (result.data.value) {
+      subscribeForm.value = result.data?.value ?? ''
+    }
+  }
+  catch (error) {
+    console.log(error)
   }
 }
 
@@ -213,6 +260,9 @@ watchEffect(() => {
     getSiteList()
     getSubscribeInfo()
   }
+  if (props.default_config) {
+    queryDefaultSubscribeConfig()
+  }
 })
 </script>
 
@@ -222,7 +272,7 @@ watchEffect(() => {
     max-width="60rem"
   >
     <VCard
-      :title="`编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`"
+      :title="`${props.default_config ? `设置${props.type}默认订阅规则` : `编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`}`"
       class="rounded-t"
     >
       <VCardText class="pt-2">
@@ -234,6 +284,7 @@ watchEffect(() => {
               md="8"
             >
               <VTextField
+                v-if="!props.default_config"
                 v-model="subscribeForm.keyword"
                 label="搜索关键词"
                 hint="设定搜索关键词后，将使用此关键词搜索站点资源，否则自动使用themoviedb中的名称搜索"
@@ -368,13 +419,13 @@ watchEffect(() => {
       </VCardText>
 
       <VCardActions>
-        <VBtn color="error" @click="removeSubscribe">
+        <VBtn v-if="!props.default_config" color="error" @click="removeSubscribe">
           取消订阅
         </VBtn>
         <VSpacer />
         <VBtn
           variant="tonal"
-          @click="updateSubscribeInfo"
+          @click="`${props.default_config ? saveDefaultSubscribeConfig() : updateSubscribeInfo()}`"
         >
           保存
         </VBtn>

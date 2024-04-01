@@ -4,6 +4,7 @@ import api from '@/api'
 import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
+import SubscribeEditForm from '@/components/form/SubscribeEditForm.vue'
 import store from '@/store'
 
 // 输入参数
@@ -16,6 +17,12 @@ const isRefreshed = ref(false)
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
+
+// 定义触发的自定义事件
+const emit = defineEmits(['default_config'])
+
+// 弹窗
+const subscribeEditDialog = ref(false)
 
 // 获取订阅列表数据
 async function fetchData() {
@@ -88,6 +95,18 @@ const filteredDataList = computed(() => {
       error-description="请通过搜索添加电影、电视剧订阅。"
     />
   </PullRefresh>
+  <!-- 底部操作按钮 -->
+  <span class="fixed right-5 bottom-5">
+    <VBtn icon="mdi-view-dashboard-edit" class="me-2" color="primary" size="x-large" @click="subscribeEditDialog = true" />
+  </span>
+    <!-- 订阅编辑弹窗 -->
+  <SubscribeEditForm
+    v-model="subscribeEditDialog"
+    :default_config=true
+    :type=props.type
+    @default_config="() => { emit('default_config');subscribeEditDialog = false; }"
+    @close="subscribeEditDialog = false"
+  />
 </template>
 
 <style lang="scss">
