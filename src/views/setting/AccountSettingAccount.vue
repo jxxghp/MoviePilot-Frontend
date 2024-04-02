@@ -21,7 +21,7 @@ const refInputEl = ref<HTMLElement>()
 // 新增用户窗口
 const addUserDialog = ref(false)
 
-// 开启二次验证窗口
+// 开启双重验证窗口
 const otpDialog = ref(false)
 
 // otp uri
@@ -30,7 +30,7 @@ const otpUri = ref('')
 // otp secret
 const secret = ref('')
 
-// 确认二次验证密码
+// 确认双重验证密码
 const otpPassword = ref('')
 
 // 新增用户表单
@@ -204,13 +204,13 @@ async function getOtpUri() {
   }
 }
 
-// 关闭当前用户的二次验证
+// 关闭当前用户的双重验证
 async function disableOtp() {
   try {
     const result: { [key: string]: any } = await api.post('user/otp/disable')
     if (result.success) {
       accountInfo.value.is_otp = false
-      $toast.success('关闭登录二次验证成功！')
+      $toast.success('关闭登录双重验证成功！')
     }
     else {
       $toast.error(`关闭otp失败：${result.message}！`)
@@ -231,7 +231,7 @@ async function judgeOtpPassword() {
     const result: { [key: string]: any } = await api.post('user/otp/judge', { uri: otpUri.value, otpPassword: otpPassword.value })
 
     if (result.success) {
-      $toast.success('开启登录二次验证成功！')
+      $toast.success('开启登录双重验证成功！')
       otpDialog.value = false
       accountInfo.value.is_otp = true
     }
@@ -306,7 +306,7 @@ onMounted(() => {
                 <VIcon
                   icon="mdi-account-key"
                 />
-                <span class="d-none d-sm-block ms-2">{{ accountInfo.is_otp ? "关闭验证" : "二次验证" }}</span>
+                <span class="d-none d-sm-block ms-2">{{ accountInfo.is_otp ? "关闭验证" : "双重验证" }}</span>
               </VBtn>
             </div>
 
@@ -555,19 +555,19 @@ onMounted(() => {
     </VCard>
   </VDialog>
 
-  <!-- 二次验证弹窗 -->
+  <!-- 双重验证弹窗 -->
   <VDialog
     v-model="otpDialog"
     max-width="45rem"
     persistent
     z-index="1010"
   >
-    <!-- 开启二次验证弹窗内容 -->
+    <!-- 开启双重验证弹窗内容 -->
     <VCard>
       <DialogCloseBtn @click="otpDialog = false" />
       <VCardText>
         <h4 class="text-h4 text-center mb-6 mt-5">
-          登录二次验证
+          登录双重验证
         </h4><h5 class="text-h5 font-weight-medium mb-2">
           身份验证器
         </h5>

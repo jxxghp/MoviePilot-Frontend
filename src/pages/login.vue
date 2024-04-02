@@ -31,7 +31,7 @@ const backgroundImageUrl = ref('')
 // 背景图片加载状态
 const isImageLoaded = ref(false)
 
-// 是否开启二次验证
+// 是否开启双重验证
 const isOTP = ref(false)
 
 // 用户名称输入框
@@ -49,7 +49,7 @@ async function fetchBackgroundImage() {
     })
 }
 
-// 查询是否开启二次验证
+// 查询是否开启双重验证
 async function fetchOTP() {
   const userid = usernameInput.value?.value
   if (!userid) {
@@ -111,13 +111,13 @@ function login() {
       if (!error.response)
         errorMessage.value = '登录失败，请检查网络连接'
       else if (error.response.status === 401)
-        errorMessage.value = '登录失败，请检查用户名、密码或二次验证是否正确'
+        errorMessage.value = '登录失败，请检查用户名、密码或双重验证是否正确'
       else if (error.response.status === 403)
         errorMessage.value = '登录失败，您没有权限访问'
       else if (error.response.status === 500)
         errorMessage.value = '登录失败，服务器错误'
       else
-        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或二次验证码是否正确`
+        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或双重验证码是否正确`
     })
 }
 
@@ -199,7 +199,7 @@ onMounted(() => {
                 <VTextField
                   v-if="isOTP"
                   v-model="form.otp_password"
-                  label="二次验证码"
+                  label="双重验证码"
                   type="input"
                 />
                 <!-- remember me checkbox -->

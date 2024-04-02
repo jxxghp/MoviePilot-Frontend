@@ -851,7 +851,7 @@ export interface User {
   // 头像
   avatar: string
 
-  // 是否开启二次验证
+  // 是否开启双重验证
   is_otp: boolean
 }
 
