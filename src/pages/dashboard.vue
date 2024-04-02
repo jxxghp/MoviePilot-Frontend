@@ -54,6 +54,16 @@ function setDashboardConfig() {
 </script>
 
 <template>
+  <!-- 底部操作按钮 -->
+  <VFab
+    icon="mdi-view-dashboard-edit"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="dialog = true"
+  />
   <VRow class="match-height">
     <VCol
       v-if="config.storage"
@@ -132,10 +142,6 @@ function setDashboardConfig() {
       <MediaServerLatest />
     </VCol>
   </VRow>
-  <!-- 底部操作按钮 -->
-  <span class="fixed right-5 bottom-5">
-    <VBtn icon="mdi-view-dashboard-edit" class="me-2" color="primary" size="x-large" @click="dialog = true" />
-  </span>
   <!-- 弹窗，根据配置生成选项 -->
   <VDialog
     v-model="dialog"

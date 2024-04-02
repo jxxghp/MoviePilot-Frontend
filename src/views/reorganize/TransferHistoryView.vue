@@ -307,6 +307,30 @@ const dropdownItems = ref([
 </script>
 
 <template>
+  <!-- 底部操作按钮 -->
+  <VFab
+    v-if="selected.length > 0"
+    icon="mdi-trash-can-outline"
+    color="error"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="removeHistoryBatch"
+  />
+  <VFab
+    v-if="selected.length > 0"
+    class="mb-2"
+    icon="mdi-redo-variant"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="retransferBatch"
+  />
+
   <VCard class="pb-5">
     <VCardItem>
       <VCardTitle>
@@ -354,29 +378,29 @@ const dropdownItems = ref([
       <template #item.title="{ item }">
         <div class="d-flex align-center">
           <VAvatar>
-            <VIcon :icon="getIcon(item.value.type || '')" />
+            <VIcon :icon="getIcon(item.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
             <span class="d-block text-high-emphasis">
-              {{ item.value.title }} {{ item.value.seasons }}{{ item.value.episodes }}
+              {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
             </span>
-            <small>{{ item.value.category }}</small>
+            <small>{{ item?.category }}</small>
           </div>
         </div>
       </template>
       <template #item.src="{ item }">
-        <small>{{ item.value.src }} <br>=> {{ item.value.dest }}</small>
+        <small>{{ item?.src }} <br>=> {{ item?.dest }}</small>
       </template>
       <template #item.mode="{ item }">
         <VChip variant="outlined" color="primary" size="small">
-          {{ TransferDict[item.value.mode] }}
+          {{ TransferDict[item?.mode || ''] }}
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <VChip v-if="item.value.status" color="success" size="small">
+        <VChip v-if="item?.status" color="success" size="small">
           成功
         </VChip>
-        <v-tooltip v-else :text="item.value.errmsg">
+        <v-tooltip v-else :text="item?.errmsg">
           <template #activator="{ props }">
             <VChip v-bind="props" color="error" size="small">
               失败
@@ -385,7 +409,7 @@ const dropdownItems = ref([
         </v-tooltip>
       </template>
       <template #item.date="{ item }">
-        <small>{{ item.value.date }}</small>
+        <small>{{ item?.date }}</small>
       </template>
       <template #item.actions="{ item }">
         <IconBtn>
@@ -397,7 +421,7 @@ const dropdownItems = ref([
                 :key="i"
                 variant="plain"
                 :base-color="menu.props.color"
-                @click="menu.props.click(item.value)"
+                @click="menu.props.click(item)"
               >
                 <template #prepend>
                   <VIcon :icon="menu.props.prependIcon" />
@@ -413,19 +437,6 @@ const dropdownItems = ref([
       </template>
     </VDataTableServer>
   </VCard>
-  <!-- 底部操作按钮 -->
-  <span v-if="selected.length > 0" class="fixed right-5 bottom-5">
-    <VTooltip text="批量重新整理">
-      <template #activator="{ props }">
-        <VBtn v-bind="props" icon="mdi-redo-variant" class="me-2" color="primary" size="x-large" @click="retransferBatch" />
-      </template>
-    </VTooltip>
-    <VTooltip text="批量删除">
-      <template #activator="{ props }">
-        <VBtn v-bind="props" icon="mdi-trash-can-outline" color="error" size="x-large" @click="removeHistoryBatch" />
-      </template>
-    </VTooltip>
-  </span>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
     <VCard class="text-center rounded-t">

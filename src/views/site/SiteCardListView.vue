@@ -70,13 +70,16 @@ onBeforeMount(fetchData)
     error-description="已添加并支持的站点将会在这里显示。"
   />
   <!-- 新增站点按钮 -->
-  <VBtn
+  <VFab
     icon="mdi-plus"
+    location="bottom end"
     size="x-large"
-    class="fixed right-5 bottom-5"
-    oper="add"
+    fixed
+    app
+    appear
     @click="siteAddDialog = true"
   />
+  <!-- 新增站点弹窗 -->
   <SiteAddEditForm
     v-if="siteAddDialog"
     v-model="siteAddDialog"

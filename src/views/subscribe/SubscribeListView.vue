@@ -93,12 +93,15 @@ const filteredDataList = computed(() => {
     />
   </PullRefresh>
   <!-- 底部操作按钮 -->
-  <span class="fixed right-5 bottom-5">
-    <VTooltip text="设置默认订阅规则">
-      <template #activator="{ props }">
-        <VBtn v-bind="props" icon="mdi-file-document-edit" class="me-2" color="primary" size="x-large" @click="subscribeEditDialog = true" />
-      </template>
-    </vtooltip></span>
+  <VFab
+    icon="mdi-file-document-edit"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="subscribeEditDialog = true"
+  />
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditForm
     v-model="subscribeEditDialog"

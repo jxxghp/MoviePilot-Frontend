@@ -53,7 +53,7 @@
     "vue3-ace-editor": "^2.2.4",
     "vue3-apexcharts": "^1.4.1",
     "vue3-perfect-scrollbar": "^1.6.0",
-    "vuetify": "3.3.5",
+    "vuetify": "3.5.7",
     "vuetify-use-dialog": "^0.6.0",
     "vuex": "^4.1.0",
     "vuex-persistedstate": "^4.1.0",

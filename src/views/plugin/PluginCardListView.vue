@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { useDefer } from '@/@core/utils/dom'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
@@ -23,9 +22,6 @@ const PluginAppDialog = ref(false)
 
 // 插件安装统计
 const PluginStatistics = ref<{ [key: string]: number }>({})
-
-// 延迟加载
-let defer = (_: number) => true
 
 // 关闭插件市场窗口
 function pluginDialogClose() {
@@ -98,7 +94,6 @@ function refreshData() {
 // 对uninstalledList进行排序，按PluginStatistics倒序
 const sortedUninstalledList = computed(() => {
   const list = uninstalledList.value.filter(item => !item.has_update)
-  defer = useDefer(list.length)
   if (PluginStatistics.value.length === 0)
     return list
   return list.sort((a, b) => {
@@ -155,11 +150,14 @@ onBeforeMount(() => {
   >
     <!-- Dialog Activator -->
     <template #activator="{ props }">
-      <VBtn
-        icon="mdi-store-plus"
+      <VFab
         v-bind="props"
+        icon="mdi-store-plus"
+        location="bottom end"
         size="x-large"
-        class="fixed right-5 bottom-5"
+        fixed
+        app
+        appear
       />
     </template>
 
@@ -198,18 +196,13 @@ onBeforeMount(() => {
           />
         </div>
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
-          <div
-            v-for="(data, index) in sortedUninstalledList"
-            :key="index"
-          >
-            <PluginAppCard
-              v-if="defer(index)"
-              :key="`${data.id}_v${data.plugin_version}`"
-              :plugin="data"
-              :count="PluginStatistics[data.id || '0']"
-              @install="pluginInstalled"
-            />
-          </div>
+          <PluginAppCard
+            v-for="data in sortedUninstalledList"
+            :key="`${data.id}_v${data.plugin_version}`"
+            :plugin="data"
+            :count="PluginStatistics[data.id || '0']"
+            @install="pluginInstalled"
+          />
         </div>
         <NoDataFound
           v-if="uninstalledList.length === 0 && isAppMarketLoaded"

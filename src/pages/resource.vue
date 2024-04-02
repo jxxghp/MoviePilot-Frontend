@@ -127,20 +127,24 @@ onMounted(() => {
     />
   </div>
   <!-- 视图切换 -->
-  <span v-if="dataList.length > 0" class="fixed right-5 bottom-5">
-    <VBtn
-      v-if="viewType === 'list'"
-      size="x-large"
-      icon="mdi-view-grid"
-      color="primary"
-      @click="setViewType('card')"
-    />
-    <VBtn
-      v-else
-      size="x-large"
-      icon="mdi-view-list"
-      color="primary"
-      @click="setViewType('list')"
-    />
-  </span>
+  <VFab
+    v-if="viewType === 'list'"
+    icon="mdi-view-grid"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="setViewType('card')"
+  />
+  <VFab
+    v-else
+    icon="mdi-view-list"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="setViewType('list')"
+  />
 </template>
