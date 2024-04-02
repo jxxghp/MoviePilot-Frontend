@@ -111,24 +111,20 @@ onMounted(() => {
         @foldercreated="refreshPending = true"
         @sortchanged="sortChanged"
       />
-      <VRow no-gutters>
-        <VCol>
-          <List
-            :path="path"
-            :storage="activeStorage"
-            :icons="fileIcons"
-            :endpoints="endpoints"
-            :axios="axiosInstance"
-            :refreshpending="refreshPending"
-            :sort="sort"
-            @pathchanged="pathChanged"
-            @loading="loadingChanged"
-            @refreshed="refreshPending = false"
-            @filedeleted="refreshPending = true"
-            @renamed="refreshPending = true"
-          />
-        </VCol>
-      </VRow>
+      <List
+        :path="path"
+        :storage="activeStorage"
+        :icons="fileIcons"
+        :endpoints="endpoints"
+        :axios="axiosInstance"
+        :refreshpending="refreshPending"
+        :sort="sort"
+        @pathchanged="pathChanged"
+        @loading="loadingChanged"
+        @refreshed="refreshPending = false"
+        @filedeleted="refreshPending = true"
+        @renamed="refreshPending = true"
+      />
     </div>
   </VCard>
 </template>

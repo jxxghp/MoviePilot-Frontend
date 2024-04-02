@@ -359,6 +359,7 @@ onMounted(() => {
         placeholder="搜索 ..."
         prepend-inner-icon="mdi-filter-outline"
         class="me-2"
+        rounded="0"
       />
       <VSpacer v-if="isFile" />
       <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">

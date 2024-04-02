@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import miscpose from '@images/pages/pose-fs-9.png'
+import image from '@images/misc/teamwork.png'
 
 const props = defineProps<Props>()
 
@@ -11,25 +11,24 @@ interface Props {
 </script>
 
 <template>
-  <div class="flex flex-col">
-    <ErrorHeader
-      :error-code="props.errorCode"
-      :error-title="props.errorTitle"
-      :error-description="props.errorDescription"
-    />
+  <VEmptyState
+    :image="image"
+    size="250"
+  >
+    <template #title>
+      <div class="mt-8 text-2xl">
+        {{ props.errorTitle }}
+      </div>
+    </template>
 
-    <!-- 👉 Image -->
-    <div class="text-center">
-      <VImg
-        :src="miscpose"
-        class="mx-auto pt-10"
-        max-width="250"
-        cover
-      />
+    <template #text>
+      <div class="text-subtitle">
+        {{ props.errorDescription }}
+      </div>
+    </template>
+
+    <template #actions>
       <slot name="button" />
-    </div>
-  </div>
+    </template>
+  </VEmptyState>
 </template>
-
-<style lang="scss">
-</style>
