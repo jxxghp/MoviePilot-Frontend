@@ -348,6 +348,35 @@ onMounted(() => {
 
 <template>
   <VCard class="d-flex flex-column">
+    <VToolbar v-if="!loading" density="compact" flat color="gray">
+      <VTextField
+        v-if="!isFile"
+        v-model="filter"
+        hide-details
+        flat
+        density="compact"
+        variant="solo-filled"
+        placeholder="搜索 ..."
+        prepend-inner-icon="mdi-filter-outline"
+        class="me-2"
+      />
+      <VSpacer v-if="isFile" />
+      <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">
+        <VIcon color="primary">
+          mdi-text-recognition
+        </VIcon>
+      </IconBtn>
+      <IconBtn v-if="isFile" @click="download(inProps.path || '')">
+        <VIcon color="primary">
+          mdi-download
+        </VIcon>
+      </IconBtn>
+      <IconBtn v-if="!isFile" @click="load">
+        <VIcon color="primary">
+          mdi-refresh
+        </VIcon>
+      </IconBtn>
+    </VToolbar>
     <VCardText
       v-if="loading"
       class="text-center flex flex-col items-center"
@@ -564,36 +593,6 @@ onMounted(() => {
     >
       空目录
     </VCardText>
-    <VDivider v-if="path" />
-    <VToolbar v-if="!loading" density="compact" flat color="gray">
-      <VTextField
-        v-if="!isFile"
-        v-model="filter"
-        hide-details
-        flat
-        density="compact"
-        variant="solo-filled"
-        placeholder="搜索 ..."
-        prepend-inner-icon="mdi-filter-outline"
-        class="me-2"
-      />
-      <VSpacer v-if="isFile" />
-      <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">
-        <VIcon color="primary">
-          mdi-text-recognition
-        </VIcon>
-      </IconBtn>
-      <IconBtn v-if="isFile" @click="download(inProps.path || '')">
-        <VIcon color="primary">
-          mdi-download
-        </VIcon>
-      </IconBtn>
-      <IconBtn v-if="!isFile" @click="load">
-        <VIcon color="primary">
-          mdi-refresh
-        </VIcon>
-      </IconBtn>
-    </VToolbar>
   </VCard>
   <!-- 重命名弹窗 -->
   <VDialog
