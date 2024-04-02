@@ -18,9 +18,6 @@ const isRefreshed = ref(false)
 // 数据列表
 const dataList = ref<Subscribe[]>([])
 
-// 定义触发的自定义事件
-const emit = defineEmits(['default_config'])
-
 // 弹窗
 const subscribeEditDialog = ref(false)
 
@@ -97,14 +94,17 @@ const filteredDataList = computed(() => {
   </PullRefresh>
   <!-- 底部操作按钮 -->
   <span class="fixed right-5 bottom-5">
-    <VBtn icon="mdi-view-dashboard-edit" class="me-2" color="primary" size="x-large" @click="subscribeEditDialog = true" />
-  </span>
-    <!-- 订阅编辑弹窗 -->
+    <VTooltip text="设置默认订阅规则">
+      <template #activator="{ props }">
+        <VBtn v-bind="props" icon="mdi-file-document-edit" class="me-2" color="primary" size="x-large" @click="subscribeEditDialog = true" />
+      </template>
+    </vtooltip></span>
+  <!-- 订阅编辑弹窗 -->
   <SubscribeEditForm
     v-model="subscribeEditDialog"
-    :default_config=true
-    :type=props.type
-    @default_config="() => { emit('default_config');subscribeEditDialog = false; }"
+    :default="true"
+    :type="props.type"
+    @save="subscribeEditDialog = false"
     @close="subscribeEditDialog = false"
   />
 </template>
