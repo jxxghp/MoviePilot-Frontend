@@ -136,17 +136,18 @@ onMounted(() => {
     hover
     items-per-page-text="每页条数"
     page-text="{0}-{1} 共 {2} 条"
+    loading-text="加载中..."
   >
     <template #item.title="{ item }">
-      <a href="javascript:void(0)" @click.stop="addDownload(item.raw)">
+      <a href="javascript:void(0)" @click.stop="addDownload(item)">
         <div class="text-high-emphasis pt-1">
-          {{ item.raw.title }}
+          {{ item.title }}
         </div>
         <div class="text-sm my-1">
-          {{ item.raw.description }}
+          {{ item.description }}
         </div>
         <VChip
-          v-if="item.raw?.hit_and_run"
+          v-if="item.hit_and_run"
           variant="elevated"
           size="small"
           class="me-1 mb-1 text-white bg-black"
@@ -154,16 +155,16 @@ onMounted(() => {
           H&R
         </VChip>
         <VChip
-          v-if="item.raw?.freedate_diff"
+          v-if="item.freedate_diff"
           variant="elevated"
           color="secondary"
           size="small"
           class="me-1 mb-1"
         >
-          {{ item.raw?.freedate_diff }}
+          {{ item.freedate_diff }}
         </VChip>
         <VChip
-          v-for="(label, index) in item.raw?.labels"
+          v-for="(label, index) in item.labels"
           :key="index"
           variant="elevated"
           size="small"
@@ -173,34 +174,34 @@ onMounted(() => {
           {{ label }}
         </VChip>
         <VChip
-          v-if="item.raw?.downloadvolumefactor !== 1 || item.raw?.uploadvolumefactor !== 1"
+          v-if="item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1"
           :class="
-            getVolumeFactorClass(item.raw?.downloadvolumefactor, item.raw?.uploadvolumefactor)
+            getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)
           "
           variant="elevated"
           size="small"
           class="me-1 mb-1"
         >
-          {{ item.raw?.volume_factor }}
+          {{ item.volume_factor }}
         </VChip>
       </a>
     </template>
     <template #item.pubdate="{ item }">
-      <div>{{ item.raw.date_elapsed }}</div>
+      <div>{{ item.date_elapsed }}</div>
       <div class="text-sm">
-        {{ item.raw.pubdate }}
+        {{ item.pubdate }}
       </div>
     </template>
     <template #item.size="{ item }">
       <div class="text-nowrap whitespace-nowrap">
-        {{ formatFileSize(item.raw.size) }}
+        {{ formatFileSize(item.size) }}
       </div>
     </template>
     <template #item.seeders="{ item }">
-      <div>{{ item.raw.seeders }}</div>
+      <div>{{ item.seeders }}</div>
     </template>
     <template #item.peers="{ item }">
-      <div>{{ item.raw.peers }}</div>
+      <div>{{ item.peers }}</div>
     </template>
     <template #item.actions="{ item }">
       <div class="me-n3">
@@ -215,7 +216,7 @@ onMounted(() => {
             <VList>
               <VListItem
                 variant="plain"
-                @click="openTorrentDetail(item.raw.page_url)"
+                @click="openTorrentDetail(item.page_url || '')"
               >
                 <template #prepend>
                   <VIcon icon="mdi-information" />
@@ -223,9 +224,9 @@ onMounted(() => {
                 <VListItemTitle>查看详情</VListItemTitle>
               </VListItem>
               <VListItem
-                v-if="item.raw.enclosure?.startsWith('http')"
+                v-if="item.enclosure?.startsWith('http')"
                 variant="plain"
-                @click="downloadTorrentFile(item.raw.enclosure)"
+                @click="downloadTorrentFile(item.enclosure)"
               >
                 <template #prepend>
                   <VIcon icon="mdi-download" />

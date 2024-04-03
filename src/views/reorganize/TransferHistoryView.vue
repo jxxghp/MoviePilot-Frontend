@@ -373,6 +373,7 @@ const dropdownItems = ref([
       show-select
       items-per-page-text="每页条数"
       page-text="{0}-{1} 共 {2} 条"
+      loading-text="加载中..."
       @update:options="fetchData"
     >
       <template #item.title="{ item }">
