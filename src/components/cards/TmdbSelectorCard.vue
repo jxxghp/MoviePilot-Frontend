@@ -131,7 +131,6 @@ onMounted(() => {
           </VListItemTitle>
           <VListItemSubtitle class="mt-2" v-html="item.overview" />
         </VListItem>
-        <VDivider v-if="i < items.length - 1" class="mt-1" inset />
       </template>
     </VList>
   </VCard>

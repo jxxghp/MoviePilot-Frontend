@@ -304,6 +304,7 @@ async function transfer() {
       v-model="tmdbSelectorDialog"
       width="40rem"
       scrollable
+      max-height="90vh"
     >
       <TmdbSelectorCard
         v-model="transferForm.tmdbid"

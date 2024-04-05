@@ -1,9 +1,11 @@
 <script lang="ts" setup>
+import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import PluginAppCard from '@/components/cards/PluginAppCard.vue'
 import PluginCard from '@/components/cards/PluginCard.vue'
+import noImage from '@images/logos/plugin.png'
 
 // 已安装插件列表
 const dataList = ref<Plugin[]>([])
@@ -23,16 +25,115 @@ const PluginAppDialog = ref(false)
 // 插件安装统计
 const PluginStatistics = ref<{ [key: string]: number }>({})
 
+// 搜索窗口
+const SearchDialog = ref(false)
+
+// 搜索关键字
+const keyword = ref('')
+
+// 每一个插件的图标加载状态
+const pluginIconLoaded = ref<{ [key: string]: boolean }>({})
+
+// 每一个插件的动作标识
+const pluginActions = ref<{ [key: string]: boolean }>({})
+
+// 提示框
+const $toast = useToast()
+
+// 进度框
+const progressDialog = ref(false)
+
+// 进度框文本
+const progressText = ref('正在安装插件...')
+
 // 关闭插件市场窗口
 function pluginDialogClose() {
   PluginAppDialog.value = false
 }
 
+// 安装插件
+async function installPlugin(item: Plugin) {
+  try {
+    // 显示等待提示框
+    progressDialog.value = true
+    progressText.value = `正在安装 ${item?.plugin_name} v${item?.plugin_version} ...`
+
+    const result: { [key: string]: any } = await api.get(
+      `plugin/install/${item?.id}`,
+      {
+        params: {
+          repo_url: item?.repo_url,
+          force: item?.has_update,
+        },
+      },
+    )
+
+    // 隐藏等待提示框
+    progressDialog.value = false
+
+    if (result.success) {
+      $toast.success(`插件 ${item?.plugin_name} 安装成功！`)
+
+      // 刷新
+      refreshData()
+    }
+    else {
+      $toast.error(`插件 ${item?.plugin_name} 安装失败：${result.message}`)
+    }
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// 打开插件搜索结果
+function openPlugin(item: Plugin) {
+  // 如果是已安装插件则打开插件详情
+  if (item.installed === true) {
+    // 标记插件动作
+    pluginActions.value[item.id || '0'] = true
+  }
+  else {
+    // 如果是未安装插件则安装
+    installPlugin(item)
+  }
+  closeSearchDialog()
+}
+
+// 关闭插件搜索窗口
+function closeSearchDialog() {
+  SearchDialog.value = false
+}
+
+// 插件图标加载错误
+function pluginIconError(item: Plugin) {
+  pluginIconLoaded.value[item.id || '0'] = false
+}
+
+// 插件图标地址
+function pluginIcon(item: Plugin) {
+  // 如果图片加载错误
+  if (pluginIconLoaded.value[item.id || '0'] === false)
+    return noImage
+  // 如果是网络图片则使用代理后返回
+  if (item?.plugin_icon?.startsWith('http'))
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(item?.plugin_icon)}/1`
+
+  return `./plugin_icon/${item?.plugin_icon}`
+}
+
+// 过滤插件
+const filterPlugins = computed(() => {
+  const all_list = [...dataList.value, ...uninstalledList.value]
+  return all_list.filter((item: Plugin) => {
+    return item.plugin_name?.includes(keyword.value) || item.plugin_desc?.includes(keyword.value)
+  })
+})
+
 // 新安装了插件
 function pluginInstalled() {
-  fetchInstalledPlugins()
   pluginDialogClose()
-  fetchUninstalledPlugins()
+  refreshData()
 }
 
 // 获取插件列表数据
@@ -129,8 +230,10 @@ onBeforeMount(() => {
       :key="`${data.id}_v${data.plugin_version}`"
       :count="PluginStatistics[data.id || '0']"
       :plugin="data"
+      :action="pluginActions[data.id || '0']"
       @remove="refreshData"
       @save="refreshData"
+      @action-done="pluginActions[data.id || '0'] = false"
     />
   </div>
   <NoDataFound
@@ -209,6 +312,97 @@ onBeforeMount(() => {
           error-code="404"
           error-title="没有未安装插件"
           error-description="所有可用插件均已安装。"
+        />
+      </VCardText>
+    </VCard>
+  </VDialog>
+
+  <!-- 插件搜索 -->
+  <VDialog
+    v-model="SearchDialog"
+    scrollable
+    :z-index="1010"
+    max-width="40rem"
+    max-height="90vh"
+  >
+    <!-- Dialog Activator -->
+    <template #activator="{ props }">
+      <VFab
+        v-bind="props"
+        icon="mdi-magnify"
+        color="info"
+        location="bottom end"
+        class="mb-2"
+        size="x-large"
+        fixed
+        app
+        appear
+      />
+    </template>
+    <VCard
+      class="mx-auto"
+      width="100%"
+    >
+      <VToolbar flat class="p-0">
+        <VTextField
+          v-model="keyword"
+          label="搜索插件"
+          single-line
+          placeholder="插件名称或描述"
+          variant="solo"
+          append-inner-icon="mdi-magnify"
+          flat
+          class="mx-1"
+        />
+      </VToolbar>
+
+      <VList
+        v-if="filterPlugins.length > 0"
+        lines="two"
+      >
+        <template v-for="(item, i) in filterPlugins" :key="i">
+          <VListItem
+            @click="openPlugin(item)"
+          >
+            <template #prepend>
+              <VAvatar>
+                <VImg
+                  :src="pluginIcon(item)"
+                  @error="pluginIconError(item)"
+                >
+                  <template #placeholder>
+                    <div class="w-full h-full">
+                      <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
+                    </div>
+                  </template>
+                </VImg>
+              </VAvatar>
+            </template>
+            <VListItemTitle>
+              {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
+              <ExistIcon v-if="item.installed" />
+            </VListItemTitle>
+            <VListItemSubtitle class="mt-2" v-html="item.plugin_desc" />
+          </VListItem>
+        </template>
+      </VList>
+    </VCard>
+  </VDialog>
+  <!-- 安装插件进度框 -->
+  <VDialog
+    v-model="progressDialog"
+    :scrim="false"
+    width="25rem"
+  >
+    <VCard
+      color="primary"
+    >
+      <VCardText class="text-center">
+        {{ progressText }}
+        <VProgressLinear
+          indeterminate
+          color="white"
+          class="mb-0 mt-1"
         />
       </VCardText>
     </VCard>

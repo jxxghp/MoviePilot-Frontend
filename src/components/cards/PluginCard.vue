@@ -14,13 +14,14 @@ import store from '@/store'
 // 输入参数
 const props = defineProps({
   plugin: Object as PropType<Plugin>,
-  count: Number,
+  count: Number, // 下载次数
+  action: Boolean, // 动作标识
   width: String,
   height: String,
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove', 'save'])
+const emit = defineEmits(['remove', 'save', 'actionDone'])
 
 // 背景颜色
 const backgroundColor = ref('#28A9E1')
@@ -63,6 +64,14 @@ const isImageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+// 监听动作标识，如为true则打开详情
+watch(() => props.action, (newAction, oldAction) => {
+  if (newAction && !oldAction) {
+    openPluginDetail()
+    emit('actionDone')
+  }
+})
 
 // 图片加载完成
 async function imageLoaded() {
@@ -286,6 +295,14 @@ function openLoggerWindow() {
   window.open(url, '_blank')
 }
 
+// 打开插件详情
+function openPluginDetail() {
+  if (props.plugin?.has_page)
+    showPluginInfo()
+  else
+    showPluginConfig()
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -372,12 +389,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     v-if="isVisible"
     :width="props.width"
     :height="props.height"
-    @click="() => {
-      if (props.plugin?.has_page)
-        showPluginInfo()
-      else
-        showPluginConfig()
-    }"
+    @click="openPluginDetail"
   >
     <div
       class="relative pa-4 text-center card-cover-blurred"
