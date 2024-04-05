@@ -4,6 +4,7 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
 import ReorganizeForm from '@/components/form/ReorganizeForm.vue'
+import { fixArrayAt } from '@/@core/utils/compatibility'
 
 // 提示框
 const $toast = useToast()
@@ -304,6 +305,9 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 修复低版本Safari等浏览器数组不支持at函数的问题
+fixArrayAt()
 </script>
 
 <template>
