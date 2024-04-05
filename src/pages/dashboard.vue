@@ -174,6 +174,7 @@ function setDashboardConfig() {
         <VSpacer />
         <VBtn
           color="primary"
+          variant="tonal"
           @click="setDashboardConfig"
         >
           保存
