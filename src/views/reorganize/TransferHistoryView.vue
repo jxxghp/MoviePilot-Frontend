@@ -312,29 +312,30 @@ fixArrayAt()
 
 <template>
   <!-- 底部操作按钮 -->
-  <VFab
-    v-if="selected.length > 0"
-    icon="mdi-trash-can-outline"
-    color="error"
-    location="bottom end"
-    size="x-large"
-    fixed
-    app
-    appear
-    @click="removeHistoryBatch"
-  />
-  <VFab
-    v-if="selected.length > 0"
-    class="mb-2"
-    icon="mdi-redo-variant"
-    location="bottom end"
-    size="x-large"
-    fixed
-    app
-    appear
-    @click="retransferBatch"
-  />
-
+  <span>
+    <VFab
+      v-if="selected.length > 0"
+      icon="mdi-trash-can-outline"
+      color="error"
+      location="bottom end"
+      size="x-large"
+      fixed
+      app
+      appear
+      @click="removeHistoryBatch"
+    />
+    <VFab
+      v-if="selected.length > 0"
+      class="mb-2"
+      icon="mdi-redo-variant"
+      location="bottom end"
+      size="x-large"
+      fixed
+      app
+      appear
+      @click="retransferBatch"
+    />
+  </span>
   <VCard class="pb-5">
     <VCardItem>
       <VCardTitle>
