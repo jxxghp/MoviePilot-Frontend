@@ -93,7 +93,7 @@ onMounted(() => {
         single-line
         placeholder="电影或电视剧名称"
         variant="solo"
-        append-inner-icon="mdi-magnify"
+        prepend-inner-icon="mdi-magnify"
         flat
         class="mx-1"
         :loading="loading"
@@ -101,7 +101,7 @@ onMounted(() => {
         @keydown.enter="searchMedias"
       />
     </VToolbar>
-
+    <DialogCloseBtn @click="() => { emit('close') }" />
     <VList
       v-if="items.length > 0"
       lines="three"

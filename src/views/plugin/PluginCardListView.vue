@@ -350,12 +350,12 @@ onBeforeMount(() => {
           single-line
           placeholder="插件名称或描述"
           variant="solo"
-          append-inner-icon="mdi-magnify"
+          prepend-inner-icon="mdi-magnify"
           flat
           class="mx-1"
         />
       </VToolbar>
-
+      <DialogCloseBtn @click="closeSearchDialog" />
       <VList
         v-if="filterPlugins.length > 0"
         lines="two"
@@ -380,7 +380,13 @@ onBeforeMount(() => {
             </template>
             <VListItemTitle>
               {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
-              <ExistIcon v-if="item.installed" />
+              <VIcon
+                v-if="item.installed"
+                color="success"
+                icon="mdi-check-circle"
+                class="ms-2"
+                size="small"
+              />
             </VListItemTitle>
             <VListItemSubtitle class="mt-2" v-html="item.plugin_desc" />
           </VListItem>
