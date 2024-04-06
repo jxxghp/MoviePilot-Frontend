@@ -311,31 +311,6 @@ fixArrayAt()
 </script>
 
 <template>
-  <!-- 底部操作按钮 -->
-  <span>
-    <VFab
-      v-if="selected.length > 0"
-      icon="mdi-trash-can-outline"
-      color="error"
-      location="bottom end"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="removeHistoryBatch"
-    />
-    <VFab
-      v-if="selected.length > 0"
-      class="mb-2"
-      icon="mdi-redo-variant"
-      location="bottom end"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="retransferBatch"
-    />
-  </span>
   <VCard class="pb-5">
     <VCardItem>
       <VCardTitle>
@@ -379,6 +354,7 @@ fixArrayAt()
       items-per-page-text="每页条数"
       page-text="{0}-{1} 共 {2} 条"
       loading-text="加载中..."
+      class="data-table-div"
       @update:options="fetchData"
     >
       <template #item.title="{ item }">
@@ -486,10 +462,38 @@ fixArrayAt()
     "
     @close="redoDialog = false"
   />
+  <!-- 底部操作按钮 -->
+  <span>
+    <VFab
+      v-if="selected.length > 0"
+      icon="mdi-trash-can-outline"
+      color="error"
+      location="bottom end"
+      size="x-large"
+      fixed
+      app
+      appear
+      @click="removeHistoryBatch"
+    />
+    <VFab
+      v-if="selected.length > 0"
+      class="mb-2"
+      icon="mdi-redo-variant"
+      location="bottom end"
+      size="x-large"
+      fixed
+      app
+      appear
+      @click="retransferBatch"
+    />
+  </span>
 </template>
 
 <style lang="scss">
 .v-table th {
   white-space: nowrap;
+}
+.data-table-div {
+  height: calc(100vh - 200px);
 }
 </style>

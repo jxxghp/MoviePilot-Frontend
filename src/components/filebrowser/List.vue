@@ -10,7 +10,6 @@ import type { Context, EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
 import api from '@/api'
 import MediaInfoCard from '@/components/cards/MediaInfoCard.vue'
-import { useDefer } from '@/@core/utils/dom'
 
 // 输入参数
 const inProps = defineProps({
@@ -75,7 +74,7 @@ const nameTestResult = ref<Context>()
 const nameTestDialog = ref(false)
 
 // 延迟加载
-let defer = (_: number) => true
+const defer = (_: number) => true
 
 // 目录过滤
 const dirs = computed(() =>
@@ -115,7 +114,6 @@ async function load() {
   }
   // 加载数据
   items.value = await axiosInstance.value.request(config) ?? []
-  defer = useDefer(items.value.length)
   emit('loading', false)
   loading.value = false
 }
@@ -410,91 +408,91 @@ onMounted(() => {
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
       <VList subheader>
-        <VHover
-          v-for="(item, index) in [...dirs, ...files]"
-          :key="index"
-        >
-          <template #default="hover">
-            <VListItem
-              v-if="defer(index)"
-              v-bind="hover.props"
-              class="px-3 pe-1"
-              @click="changePath(item.path)"
-            >
-              <template #prepend>
-                <VIcon v-if="inProps.icons && item.extension" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
-                <VIcon v-else icon="mdi-folder-outline" />
-              </template>
-              <VListItemTitle v-text="item.name" />
-              <VListItemSubtitle v-if="item.size">
-                {{ formatBytes(item.size) }}
-              </VListItemSubtitle>
-              <template #append>
-                <IconBtn class="d-sm-none">
-                  <VIcon
-                    icon="mdi-dots-vertical"
-                  />
-                  <VMenu
-                    activator="parent"
-                    close-on-content-click
-                  >
-                    <VList>
-                      <VListItem
-                        v-for="(menu, i) in dropdownItems"
-                        :key="i"
-                        variant="plain"
-                        :base-color="menu.props.color"
-                        @click="menu.props.click(item)"
+        <VVirtualScroll class="virtual-scroll-div" :items="[...dirs, ...files]">
+          <template #default="{ item }">
+            <VHover>
+              <template #default="hover">
+                <VListItem
+                  v-bind="hover.props"
+                  class="px-3 pe-1"
+                  @click="changePath(item.path)"
+                >
+                  <template #prepend>
+                    <VIcon v-if="inProps.icons && item.extension" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
+                    <VIcon v-else icon="mdi-folder-outline" />
+                  </template>
+                  <VListItemTitle v-text="item.name" />
+                  <VListItemSubtitle v-if="item.size">
+                    {{ formatBytes(item.size) }}
+                  </VListItemSubtitle>
+                  <template #append>
+                    <IconBtn class="d-sm-none">
+                      <VIcon
+                        icon="mdi-dots-vertical"
+                      />
+                      <VMenu
+                        activator="parent"
+                        close-on-content-click
                       >
-                        <template #prepend>
-                          <VIcon :icon="menu.props.prependIcon" />
+                        <VList>
+                          <VListItem
+                            v-for="(menu, i) in dropdownItems"
+                            :key="i"
+                            variant="plain"
+                            :base-color="menu.props.color"
+                            @click="menu.props.click(item)"
+                          >
+                            <template #prepend>
+                              <VIcon :icon="menu.props.prependIcon" />
+                            </template>
+                            <VListItemTitle v-text="menu.title" />
+                          </VListItem>
+                        </VList>
+                      </VMenu>
+                    </IconBtn>
+                    <span v-if="hover.isHovering" class="flex">
+                      <VTooltip text="识别">
+                        <template #activator="{ props }">
+                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
+                            <VIcon icon="mdi-text-recognition" />
+                          </IconBtn>
                         </template>
-                        <VListItemTitle v-text="menu.title" />
-                      </VListItem>
-                    </VList>
-                  </VMenu>
-                </IconBtn>
-                <span v-if="hover.isHovering" class="flex">
-                  <VTooltip text="识别">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
-                        <VIcon icon="mdi-text-recognition" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="刮削">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
-                        <VIcon icon="mdi-auto-fix" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="重命名">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showRenmae(item)">
-                        <VIcon icon="mdi-rename" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="整理">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
-                        <VIcon icon="mdi-folder-arrow-right" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="删除">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="deleteItem(item)">
-                        <VIcon icon="mdi-delete-outline" color="error" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                </span>
+                      </VTooltip>
+                      <VTooltip text="刮削">
+                        <template #activator="{ props }">
+                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
+                            <VIcon icon="mdi-auto-fix" />
+                          </IconBtn>
+                        </template>
+                      </VTooltip>
+                      <VTooltip text="重命名">
+                        <template #activator="{ props }">
+                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showRenmae(item)">
+                            <VIcon icon="mdi-rename" />
+                          </IconBtn>
+                        </template>
+                      </VTooltip>
+                      <VTooltip text="整理">
+                        <template #activator="{ props }">
+                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
+                            <VIcon icon="mdi-folder-arrow-right" />
+                          </IconBtn>
+                        </template>
+                      </VTooltip>
+                      <VTooltip text="删除">
+                        <template #activator="{ props }">
+                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="deleteItem(item)">
+                            <VIcon icon="mdi-delete-outline" color="error" />
+                          </IconBtn>
+                        </template>
+                      </VTooltip>
+                    </span>
+                  </template>
+                </VListItem>
               </template>
-            </VListItem>
+            </VHover>
           </template>
-        </VHover>
+        </VVirtualScroll>
       </VList>
     </VCardText>
     <VCardText
@@ -582,5 +580,8 @@ onMounted(() => {
 }
 .v-toolbar{
   background: rgb(var(--v-table-header-background));
+}
+.virtual-scroll-div {
+  height: calc(100vh - 230px);
 }
 </style>
