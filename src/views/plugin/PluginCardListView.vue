@@ -323,7 +323,7 @@ onBeforeMount(() => {
     scrollable
     :z-index="1010"
     max-width="40rem"
-    max-height="90vh"
+    max-height="85vh"
   >
     <!-- Dialog Activator -->
     <template #activator="{ props }">

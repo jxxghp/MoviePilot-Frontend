@@ -409,10 +409,9 @@ onMounted(() => {
       <VImg :src="getImgLink(path)" max-width="100%" max-height="100%" />
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
-      <VList v-if="dirs.length" subheader>
-        <VListSubheader>目录</VListSubheader>
+      <VList subheader>
         <VHover
-          v-for="(item, index) in dirs"
+          v-for="(item, index) in [...dirs, ...files]"
           :key="index"
         >
           <template #default="hover">
@@ -423,9 +422,13 @@ onMounted(() => {
               @click="changePath(item.path)"
             >
               <template #prepend>
-                <VIcon icon="mdi-folder-outline" />
+                <VIcon v-if="inProps.icons && item.extension" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
+                <VIcon v-else icon="mdi-folder-outline" />
               </template>
               <VListItemTitle v-text="item.name" />
+              <VListItemSubtitle v-if="item.size">
+                {{ formatBytes(item.size) }}
+              </VListItemSubtitle>
               <template #append>
                 <IconBtn class="d-sm-none">
                   <VIcon
@@ -451,95 +454,7 @@ onMounted(() => {
                     </VList>
                   </VMenu>
                 </IconBtn>
-                <span v-show="hover.isHovering" class="flex">
-                  <VTooltip text="识别">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
-                        <VIcon icon="mdi-text-recognition" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="刮削">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
-                        <VIcon icon="mdi-auto-fix" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="重命名">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showRenmae(item)">
-                        <VIcon icon="mdi-rename" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="整理">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
-                        <VIcon icon="mdi-folder-arrow-right" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                  <VTooltip text="删除">
-                    <template #activator="{ props }">
-                      <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="deleteItem(item)">
-                        <VIcon icon="mdi-delete-outline" color="error" />
-                      </IconBtn>
-                    </template>
-                  </VTooltip>
-                </span>
-              </template>
-            </VListItem>
-          </template>
-        </VHover>
-      </VList>
-      <VDivider v-if="dirs.length && files.length" />
-      <VList v-if="files.length" subheader>
-        <VListSubheader>文件</VListSubheader>
-        <VHover
-          v-for="(item, index) in files"
-          :key="index"
-        >
-          <template #default="hover">
-            <VListItem
-              v-if="defer(index)"
-              v-bind="hover.props"
-              class="pl-3 pe-1"
-              @click="changePath(item.path)"
-            >
-              <template #prepend>
-                <VIcon v-if="inProps.icons" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
-              </template>
-
-              <VListItemTitle v-text="item.name" />
-              <VListItemSubtitle> {{ formatBytes(item.size) }}</VListItemSubtitle>
-
-              <template #append>
-                <IconBtn class="d-sm-none">
-                  <VIcon
-                    icon="mdi-dots-vertical"
-                  />
-                  <VMenu
-                    activator="parent"
-                    close-on-content-click
-                  >
-                    <VList>
-                      <VListItem
-                        v-for="(menu, i) in dropdownItems"
-                        :key="i"
-                        variant="plain"
-                        :base-color="menu.props.color"
-                        @click="menu.props.click(item)"
-                      >
-                        <template #prepend>
-                          <VIcon :icon="menu.props.prependIcon" />
-                        </template>
-                        <VListItemTitle v-text="menu.title" />
-                      </VListItem>
-                    </VList>
-                  </VMenu>
-                </IconBtn>
-                <span v-show="hover.isHovering" class="flex">
+                <span v-if="hover.isHovering" class="flex">
                   <VTooltip text="识别">
                     <template #activator="{ props }">
                       <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
