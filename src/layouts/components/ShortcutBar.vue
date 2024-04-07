@@ -242,6 +242,7 @@ onMounted(() => {
   </VMenu>
   <!-- 名称测试弹窗 -->
   <VDialog
+    v-if="nameTestDialog"
     v-model="nameTestDialog"
     max-width="50rem"
   >
@@ -254,6 +255,7 @@ onMounted(() => {
   </VDialog>
   <!-- 网络测试弹窗 -->
   <VDialog
+    v-if="netTestDialog"
     v-model="netTestDialog"
     max-width="35rem"
   >
@@ -266,6 +268,7 @@ onMounted(() => {
   </VDialog>
   <!-- 实时日志弹窗 -->
   <VDialog
+    v-if="loggingDialog"
     v-model="loggingDialog"
     class="w-full lg:w-4/5"
     scrollable
@@ -290,6 +293,7 @@ onMounted(() => {
   </VDialog>
   <!-- 规则测试弹窗 -->
   <VDialog
+    v-if="ruleTestDialog"
     v-model="ruleTestDialog"
     max-width="50rem"
     scrollable
@@ -303,6 +307,7 @@ onMounted(() => {
   </VDialog>
   <!-- 系统健康检查弹窗 -->
   <VDialog
+    v-if="systemTestDialog"
     v-model="systemTestDialog"
     max-width="50rem"
     scrollable
@@ -316,6 +321,7 @@ onMounted(() => {
   </VDialog>
   <!-- 消息中心弹窗 -->
   <VDialog
+    v-if="messageDialog"
     v-model="messageDialog"
     max-width="60rem"
     scrollable
