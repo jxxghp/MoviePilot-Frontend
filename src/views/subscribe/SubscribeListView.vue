@@ -104,6 +104,7 @@ const filteredDataList = computed(() => {
   />
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditForm
+    v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :default="true"
     :type="props.type"

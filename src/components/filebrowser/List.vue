@@ -510,6 +510,7 @@ onMounted(() => {
   </VCard>
   <!-- 重命名弹窗 -->
   <VDialog
+    v-if="renamePopper"
     v-model="renamePopper"
     max-width="50rem"
   >
@@ -535,6 +536,7 @@ onMounted(() => {
   </VDialog>
   <!-- 文件整理弹窗 -->
   <ReorganizeForm
+    v-if="transferPopper"
     v-model="transferPopper"
     :path="currentItem?.path"
     @done="transferPopper = false; load()"
@@ -562,6 +564,7 @@ onMounted(() => {
   </VDialog>
   <!-- 识别结果对话框 -->
   <VDialog
+    v-if="nameTestDialog"
     v-model="nameTestDialog"
     width="50rem"
   >

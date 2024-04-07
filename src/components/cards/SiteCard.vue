@@ -326,6 +326,7 @@ onMounted(() => {
     </VCard>
   </VDialog>
   <SiteAddEditForm
+    v-if="siteEditDialog"
     v-model="siteEditDialog"
     :siteid="cardProps.site?.id"
     @save="siteEditDialog = false; emit('update')"
@@ -334,6 +335,7 @@ onMounted(() => {
   />
   <!-- 站点资源弹窗 -->
   <VDialog
+    v-if="resourceDialog"
     v-model="resourceDialog"
     max-width="80rem"
     scrollable

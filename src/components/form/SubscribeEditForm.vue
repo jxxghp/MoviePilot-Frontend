@@ -254,7 +254,7 @@ const effectOptions = ref([
   },
 ])
 
-watchEffect(() => {
+onMounted(() => {
   getSiteList()
   if (props.subid)
     getSubscribeInfo()

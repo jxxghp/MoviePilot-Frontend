@@ -507,6 +507,7 @@ function getYear(airDate: string) {
   </VHover>
   <!-- 订阅季弹窗 -->
   <VBottomSheet
+    v-if="subscribeSeasonDialog"
     v-model="subscribeSeasonDialog"
     inset
     scrollable
@@ -590,6 +591,7 @@ function getYear(airDate: string) {
   </VBottomSheet>
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditForm
+    v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="subscribeId"
     @close="subscribeEditDialog = false"

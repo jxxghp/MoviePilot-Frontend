@@ -285,6 +285,7 @@ const dropdownItems = ref([
   </VCard>
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditForm
+    v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="props.media?.id"
     @remove="() => { emit('remove');subscribeEditDialog = false; }"
