@@ -21,12 +21,6 @@
         }
     ],
     "rules": {
-        "max-line-length": [
-            120,
-            {
-                "ignore": "comments"
-            }
-        ],
         "liberty/use-logical-spec": true,
         "selector-class-pattern": null,
         "color-function-notation": null

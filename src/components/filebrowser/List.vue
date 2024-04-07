@@ -579,12 +579,14 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .v-card {
-    height: 100%;
+    block-size: 100%;
 }
+
 .v-toolbar{
   background: rgb(var(--v-table-header-background));
 }
+
 .virtual-scroll-div {
-  height: calc(100vh - 230px);
+  block-size: calc(100vh - 14rem);
 }
 </style>

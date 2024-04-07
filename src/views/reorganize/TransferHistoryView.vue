@@ -493,7 +493,8 @@ fixArrayAt()
 .v-table th {
   white-space: nowrap;
 }
+
 .data-table-div {
-  height: calc(100vh - 200px);
+  block-size: calc(100vh - 12rem);
 }
 </style>
