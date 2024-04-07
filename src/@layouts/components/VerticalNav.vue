@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { Component } from 'vue'
-import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import { useDisplay } from 'vuetify'
 import logo from '@images/logo.svg?raw'
 
@@ -85,6 +84,7 @@ function handleNavScroll(evt: Event) {
 .visible {
   visibility: visible !important;
 }
+
 // 👉 Vertical Nav
 .layout-vertical-nav {
   position: fixed;
@@ -96,8 +96,8 @@ function handleNavScroll(evt: Event) {
   inset-block-start: 0;
   inset-inline-start: 0;
   transition: transform 0.25s ease-in-out, inline-size 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-  will-change: transform, inline-size;
   visibility: hidden;
+  will-change: transform, inline-size;
 
   &:not(.overlay-nav) {
     visibility: visible;

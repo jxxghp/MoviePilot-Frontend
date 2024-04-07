@@ -15,6 +15,8 @@ import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
+import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
+import 'vue3-perfect-scrollbar/style.css';
 
 loadFonts()
 
@@ -34,5 +36,6 @@ app
     position: 'bottom-right',
   })
   .use(VuetifyUseDialog)
+  .use(PerfectScrollbarPlugin)
   .mount('#app')
   .$nextTick(() => removeEl('#loading-bg'))
