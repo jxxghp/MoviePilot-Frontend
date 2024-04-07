@@ -24,5 +24,6 @@
         "liberty/use-logical-spec": true,
         "selector-class-pattern": null,
         "color-function-notation": null
-    }
+    },
+    "fix": true
 }

@@ -243,7 +243,17 @@ onBeforeMount(() => {
     error-description="点击右下角按钮，前往插件市场安装插件。"
   />
   <!-- App市场 -->
+  <VFab
+    icon="mdi-store-plus"
+    location="bottom end"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="PluginAppDialog = true"
+  />
   <VDialog
+    v-if="PluginAppDialog"
     v-model="PluginAppDialog"
     fullscreen
     scrollable
@@ -251,19 +261,6 @@ onBeforeMount(() => {
     :z-index="1010"
     transition="dialog-bottom-transition"
   >
-    <!-- Dialog Activator -->
-    <template #activator="{ props }">
-      <VFab
-        v-bind="props"
-        icon="mdi-store-plus"
-        location="bottom end"
-        size="x-large"
-        fixed
-        app
-        appear
-      />
-    </template>
-
     <!-- Dialog Content -->
     <VCard>
       <!-- Toolbar -->
@@ -318,27 +315,25 @@ onBeforeMount(() => {
   </VDialog>
 
   <!-- 插件搜索 -->
+  <VFab
+    icon="mdi-magnify"
+    color="info"
+    location="bottom end"
+    class="mb-2"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="SearchDialog = true"
+  />
   <VDialog
+    v-if="SearchDialog"
     v-model="SearchDialog"
     scrollable
     :z-index="1010"
     max-width="40rem"
     max-height="85vh"
   >
-    <!-- Dialog Activator -->
-    <template #activator="{ props }">
-      <VFab
-        v-bind="props"
-        icon="mdi-magnify"
-        color="info"
-        location="bottom end"
-        class="mb-2"
-        size="x-large"
-        fixed
-        app
-        appear
-      />
-    </template>
     <VCard
       class="mx-auto"
       width="100%"
