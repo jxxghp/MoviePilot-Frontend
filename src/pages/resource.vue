@@ -36,6 +36,12 @@ const progressValue = ref(0)
 // 加载进度SSE
 const progressEventSource = ref<EventSource>()
 
+// 错误标题
+const errorTitle = ref('没有数据')
+
+// 错误描述
+const errorDescription = ref('未搜索到任何资源')
+
 // 使用SSE监听加载进度
 function startLoadingProgress() {
   progressText.value = '正在搜索，请稍候...'
@@ -76,12 +82,17 @@ async function fetchData() {
       startLoadingProgress()
       // 优先按TMDBID精确查询
       if (keyword?.startsWith('tmdb:') || keyword?.startsWith('douban:') || keyword?.startsWith('bangumi:')) {
-        dataList.value = await api.get(`search/media/${keyword}`, {
+        const result: {[key: string]: any} = await api.get(`search/media/${keyword}`, {
           params: {
             mtype: type,
             area,
           },
         })
+        if (result.success){
+          dataList.value = result.data
+        } else {
+          errorDescription.value = result.message
+        }
       }
       else {
         // 按标题模糊查询
@@ -112,9 +123,8 @@ onMounted(() => {
   </div>
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"
-    error-code="404"
-    error-title="没有资源"
-    error-description="没有搜索到符合条件的资源。"
+    :error-title="errorTitle"
+    :error-description="errorDescription"
   />
   <div v-if="dataList.length > 0">
     <TorrentRowListView
