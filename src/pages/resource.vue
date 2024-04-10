@@ -18,6 +18,9 @@ const type = route.query?.type?.toString() ?? ''
 // 搜索字段
 const area = route.query?.area?.toString() ?? ''
 
+// 搜索季
+const season = route.query?.season?.toString() ?? ''
+
 // 视图类型，从localStorage中读取
 const viewType = ref<string>(localStorage.getItem('MPTorrentsViewType') ?? 'card')
 
@@ -86,6 +89,7 @@ async function fetchData() {
           params: {
             mtype: type,
             area,
+            season,
           },
         })
         if (result.success){
