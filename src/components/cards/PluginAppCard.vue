@@ -4,6 +4,8 @@ import api from '@/api'
 import type { Plugin } from '@/api/types'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
+import VersionHistory from '../misc/VersionHistory.vue'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
 const props = defineProps({
@@ -36,6 +38,9 @@ const isImageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+// 更新日志弹窗
+const releaseDialog = ref(false)
 
 // 图片加载完成
 async function imageLoaded() {
@@ -118,14 +123,28 @@ function visitPluginPage() {
   window.open(repoUrl, '_blank')
 }
 
+// 显示更新日志
+function showUpdateHistory() {
+  releaseDialog.value = true
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: '查看详情',
+    title: '项目主页',
     value: 1,
+    show: true,
     props: {
       prependIcon: 'mdi-information-outline',
       click: visitPluginPage,
+    },
+  },{
+    title: '更新说明',
+    value: 2,
+    show: !isNullOrEmptyObject(props.plugin?.history || {}),
+    props: {
+      prependIcon: 'mdi-update',
+      click: showUpdateHistory,
     },
   },
 ])
@@ -151,6 +170,7 @@ const dropdownItems = ref([
             <VList>
               <VListItem
                 v-for="(item, i) in dropdownItems"
+                v-show="item.show"
                 :key="i"
                 variant="plain"
                 @click="item.props.click"
@@ -219,6 +239,19 @@ const dropdownItems = ref([
           class="mb-0 mt-1"
         />
       </VCardText>
+    </VCard>
+  </VDialog>
+  <!-- 更新日志 -->
+  <VDialog  
+    v-if="releaseDialog" 
+    v-model="releaseDialog"
+    width="600" 
+    scrollable
+  >
+    <VCard>
+      <DialogCloseBtn @click="releaseDialog = false" />
+      <VCardTitle>{{ props.plugin?.plugin_name }} 变更说明</VCardTitle>
+      <VersionHistory :history="props.plugin?.history" />
     </VCard>
   </VDialog>
 </template>
