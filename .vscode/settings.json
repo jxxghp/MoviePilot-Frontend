@@ -53,6 +53,7 @@
     "stylelint",
     "touchless",
     "triggerer",
+    "unref",
     "vuetify"
   ],
   // Extension: Comment Anchors

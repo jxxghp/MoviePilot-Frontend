@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { debounce, cloneDeep } from 'lodash'
+import { ref, unref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
@@ -58,11 +59,22 @@ const headers = [
   },
 ]
 
+const pageRange = [
+  {title: '10', value: 10},
+  {title: '25', value: 25},
+  {title: '50', value: 50},
+  {title: '100', value: 100},
+  {title: 'All', value: -1}]
+
 // 数据列表
 const dataList = ref<TransferHistory[]>([])
+// 本地数据根据文件夹筛选
+const backupList = ref<TransferHistory[]>([])
 
 // 搜索
 const search = ref()
+//文件夹搜索
+const searchFolder = ref()
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -94,8 +106,46 @@ const deleteConfirmDialog = ref(false)
 // 确认框标题
 const confirmTitle = ref('')
 
+// 分页提示
+const pageTip = computed(() => {
+  const begin  = unref(itemsPerPage) * (unref(currentPage) - 1) + 1
+  const end = unref(itemsPerPage) * unref(currentPage) === -1 ? 'ALL' : unref(itemsPerPage) * unref(currentPage) 
+  return {
+    begin,
+    end
+  }
+})
+// 分页总数
+const totalPage = computed(() => {
+  const total = Math.ceil(unref(totalItems) /unref(itemsPerPage))
+  
+  return total
+})
+
+// 切换页签
+watch(
+  () => currentPage.value,
+  async () => {
+    await fetchData({ page: currentPage.value, itemsPerPage: itemsPerPage.value })
+})
+// 切换每页条数
+watch(
+  () => itemsPerPage.value,
+  async () => {
+    await fetchData({ page: 1, itemsPerPage: itemsPerPage.value })
+})
+
+const handleSearchFolder = debounce(() => {
+  if (!unref(searchFolder)) {
+    dataList.value = unref(backupList)
+  } else {
+    dataList.value = unref(backupList).filter((data: any) => data!.src.includes(unref(searchFolder)) || data!.dest.includes(unref(searchFolder)))
+  }
+}, 100)
+
 // 获取订阅列表数据
 async function fetchData({ page, itemsPerPage }: { page: number; itemsPerPage: number }) {
+  
   loading.value = true
   try {
     currentPage.value = page
@@ -109,6 +159,7 @@ async function fetchData({ page, itemsPerPage }: { page: number; itemsPerPage: n
     })
 
     dataList.value = result.data.list
+    backupList.value = cloneDeep(unref(dataList))
     totalItems.value = result.data.total
     searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(
       title => title !== '',
@@ -318,7 +369,22 @@ fixArrayAt()
           <VCol cols="4" md="6">
             历史记录
           </VCol>
-          <VCol cols="8" md="6">
+          <VCol cols="8" md="6" class="flex">
+            <VCombobox
+              key="search_navbar"
+              v-model="searchFolder"
+              class="text-disabled mr-6"
+              density="compact"
+              label="选择目录"
+              append-inner-icon="mdi-magnify"
+              variant="solo-filled"
+              single-line
+              hide-details
+              flat
+              rounded
+              clearable
+              @update:search="handleSearchFolder"
+            />
             <VCombobox
               key="search_navbar"
               v-model="search"
@@ -339,20 +405,99 @@ fixArrayAt()
       </VCardTitle>
     </VCardItem>
     <VDataTableServer
+      v-if="itemsPerPage !== -1"
       v-model="selected"
-      v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="dataList"
       :items-length="totalItems"
       :search="search"
       :loading="loading"
-      density="compact"
-      item-value="id"
+      :item-value="'id' + Math.random()*1000"
       return-object
       fixed-header
       show-select
-      items-per-page-text="每页条数"
-      page-text="{0}-{1} 共 {2} 条"
+      loading-text="加载中..."
+      class="data-table-div"
+      :hide-default-footer="true"
+      :disable-pagination="true"
+      @update:options="fetchData"
+    >
+      <template #item.title="{ item }">
+        <div class="d-flex align-center">
+          <VAvatar>
+            <VIcon :icon="getIcon(item.type || '')" />
+          </VAvatar>
+          <div class="d-flex flex-column ms-1">
+            <span class="d-block text-high-emphasis">
+              {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
+            </span>
+            <small>{{ item?.category }}</small>
+          </div>
+        </div>
+      </template>
+      <template #item.src="{ item }">
+        <small>{{ item?.src }} <br>=> {{ item?.dest }}</small>
+      </template>
+      <template #item.mode="{ item }">
+        <VChip variant="outlined" color="primary" size="small">
+          {{ TransferDict[item?.mode || ''] }}
+        </VChip>
+      </template>
+      <template #item.status="{ item }">
+        <VChip v-if="item?.status" color="success" size="small">
+          成功
+        </VChip>
+        <v-tooltip v-else :text="item?.errmsg">
+          <template #activator="{ props }">
+            <VChip v-bind="props" color="error" size="small">
+              失败
+            </VChip>
+          </template>
+        </v-tooltip>
+      </template>
+      <template #item.date="{ item }">
+        <small>{{ item?.date }}</small>
+      </template>
+      <template #item.actions="{ item }">
+        <IconBtn>
+          <VIcon icon="mdi-dots-vertical" />
+          <VMenu activator="parent" close-on-content-click>
+            <VList>
+              <VListItem
+                v-for="(menu, i) in dropdownItems"
+                :key="i"
+                variant="plain"
+                :base-color="menu.props.color"
+                @click="menu.props.click(item)"
+              >
+                <template #prepend>
+                  <VIcon :icon="menu.props.prependIcon" />
+                </template>
+                <VListItemTitle v-text="menu.title" />
+              </VListItem>
+            </VList>
+          </VMenu>
+        </IconBtn>
+      </template>
+      <template #no-data>
+        没有数据
+      </template>
+      <template v-slot:bottom>
+        <div/>
+      </template>
+    </VDataTableServer>
+    <VDataTableVirtual
+      v-else
+      v-model="selected"
+      v-model:items-per-page="itemsPerPage"
+      :headers="headers"
+      :items="dataList"
+      :search="search"
+      :loading="loading"
+      density="compact"
+      return-object
+      fixed-header
+      show-select
       loading-text="加载中..."
       class="data-table-div"
       @update:options="fetchData"
@@ -417,7 +562,25 @@ fixArrayAt()
       <template #no-data>
         没有数据
       </template>
-    </VDataTableServer>
+    </VDataTableVirtual>
+    <div class="flex items-center justify-end">
+      <span class="page-text">每页条数</span>
+      <div class="!w-[90px] ml-[8px]">
+        <v-select
+          v-model="itemsPerPage"
+          :items="pageRange"
+          density="compact"
+        />
+      </div>
+      <span class="page-text px-[16px]">{{pageTip.begin}}-{{pageTip.end}} 共 {{totalItems}} 条</span>
+      <v-pagination
+        v-model="currentPage"
+        show-first-last-page
+        :length="totalPage"
+        @next="currentPage + 1"
+        @prev="currentPage - 1"
+      ></v-pagination>
+  </div>
   </VCard>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
@@ -495,6 +658,11 @@ fixArrayAt()
 }
 
 .data-table-div {
-  block-size: calc(100vh - 12rem);
+  block-size: calc(100vh - 15.5rem);
+}
+
+.page-text {
+  color: rgba(58, 53, 65, 0.6);
+  font-size: 14px;
 }
 </style>
