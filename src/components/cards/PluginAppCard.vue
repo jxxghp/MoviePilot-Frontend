@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import VersionHistory from '../misc/VersionHistory.vue'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
-import VersionHistory from '../misc/VersionHistory.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
@@ -135,10 +135,10 @@ const dropdownItems = ref([
     value: 1,
     show: true,
     props: {
-      prependIcon: 'mdi-information-outline',
+      prependIcon: 'mdi-github',
       click: visitPluginPage,
     },
-  },{
+  }, {
     title: '更新说明',
     value: 2,
     show: !isNullOrEmptyObject(props.plugin?.history || {}),
@@ -242,15 +242,15 @@ const dropdownItems = ref([
     </VCard>
   </VDialog>
   <!-- 更新日志 -->
-  <VDialog  
-    v-if="releaseDialog" 
+  <VDialog
+    v-if="releaseDialog"
     v-model="releaseDialog"
-    width="600" 
+    width="600"
     scrollable
   >
     <VCard>
       <DialogCloseBtn @click="releaseDialog = false" />
-      <VCardTitle>{{ props.plugin?.plugin_name }} 变更说明</VCardTitle>
+      <VCardTitle>{{ props.plugin?.plugin_name }} 更新说明</VCardTitle>
       <VersionHistory :history="props.plugin?.history" />
     </VCard>
   </VDialog>

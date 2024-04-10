@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { PropType } from 'vue';
+import type { PropType } from 'vue'
 
 // 输入参数
 const props = defineProps({
@@ -15,7 +15,9 @@ const props = defineProps({
         :key="key"
       >
         <VListItemTitle>{{ key }}</VListItemTitle>
-        <VListItemSubtitle>{{ value }}</VListItemSubtitle>
+        <div class="text-gray-500">
+          {{ value }}
+        </div>
       </VListItem>
     </VList>
   </VCardItem>
