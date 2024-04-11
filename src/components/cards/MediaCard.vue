@@ -381,6 +381,7 @@ function handleSearch() {
       keyword: getMediaId(),
       type: props.media?.type,
       area: 'title',
+      season: props.media?.season,
     },
   })
 }

@@ -612,6 +612,9 @@ export interface Plugin {
 
   // 插件仓库地址
   repo_url?: string
+
+  // 变更历史
+  history?: { [key: string]: string }
 }
 
 // 种子信息

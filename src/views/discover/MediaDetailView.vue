@@ -425,6 +425,7 @@ function handleSearch(area: string) {
       keyword,
       type: mediaDetail.value.type,
       area,
+      season: mediaDetail.value.season,
     },
   })
 }
@@ -890,7 +891,7 @@ onBeforeMount(() => {
   padding-block-start: 1rem;
 }
 
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .media-header {
     flex-direction: row;
     align-items: flex-end;
@@ -900,65 +901,66 @@ onBeforeMount(() => {
 .media-overview {
   display: flex;
   flex-direction: column;
-  padding-top: 2rem;
-  padding-bottom: 1rem;
+  padding-block: 2rem 1rem;
 }
 
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .media-overview {
     flex-direction: row;
   }
 }
 
 .media-poster {
-  width: 8rem;
   overflow: hidden;
   border-radius: .25rem;
-  --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px -1px rgba(0, 0, 0, .1);
-  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  inline-size: 8rem;
+
+  --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, 10%), 0 1px 2px -1px rgba(0, 0, 0, 10%);
+  --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
 }
 
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .media-poster {
-    margin-right: 1rem;
-    width: 13rem;
+    inline-size: 13rem;
+    margin-inline-end: 1rem;
   }
 }
 
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .media-poster {
-    width: 11rem;
     border-radius: .5rem;
-    --tw-shadow: 0 25px 50px -12px rgba(0, 0, 0, .25);
-    --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color);
     box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+    inline-size: 11rem;
+
+    --tw-shadow: 0 25px 50px -12px rgba(0, 0, 0, 25%);
+    --tw-shadow-colored: 0 25px 50px -12px var(--tw-shadow-color);
   }
 }
 
 .media-title {
-  margin-top: 1rem;
   display: flex;
   flex: 1 1 0%;
   flex-direction: column;
+  margin-block-start: 1rem;
   text-align: center;
 }
 
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .media-title {
-    margin-right: 1rem;
-    margin-top: 0;
-    text-align: left;
+    margin-block-start: 0;
+    margin-inline-end: 1rem;
+    text-align: start;
   }
 }
 
 .media-title>h1 {
     font-size: 1.5rem;
-    line-height: 2rem;
     font-weight: 700;
+    line-height: 2rem;
 }
 
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .media-title>h1 {
       font-size: 2.25rem;
       line-height: 2.5rem;
@@ -966,23 +968,23 @@ onBeforeMount(() => {
 }
 
 ul.media-crew {
-    margin-top: 1.5rem;
     display: grid;
-    grid-template-columns: repeat(2,minmax(0,1fr));
     gap: 1.5rem;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    margin-block-start: 1.5rem;
 }
 
-@media (min-width: 640px) {
+@media (width >= 640px) {
   ul.media-crew {
       grid-template-columns: repeat(3,minmax(0,1fr));
   }
 }
 
 ul.media-crew>li {
-    grid-column: span 1/span 1;
     display: flex;
     flex-direction: column;
     font-weight: 700;
+    grid-column: span 1/span 1;
 }
 
 a.crew-name {
@@ -990,27 +992,27 @@ a.crew-name {
 }
 
 .media-status {
-  margin-bottom: .5rem;
+  margin-block-end: .5rem;
 }
 
 .media-attributes {
-  margin-top: .25rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  margin-block-start: .25rem;
 }
 
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .media-attributes {
-    margin-top: 0;
     justify-content: flex-start;
     font-size: 1rem;
     line-height: 1.5rem;
+    margin-block-start: 0;
   }
 }
 
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .media-attributes {
     font-size: .875rem;
     line-height: 1.25rem;
@@ -1019,21 +1021,21 @@ a.crew-name {
 
 .media-actions {
   position: relative;
-  margin-top: 1rem;
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  margin-block-start: 1rem;
 }
 
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .media-actions {
-    margin-top: 0;
+    margin-block-start: 0;
   }
 }
 
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .media-actions {
     flex-wrap: nowrap;
     justify-content: flex-end;
@@ -1044,42 +1046,45 @@ a.crew-name {
   flex: 1 1 0%;
 }
 
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .media-overview-left {
-    margin-right: 2rem;
+    margin-inline-end: 2rem;
   }
 }
 
 .media-overview-right {
-  margin-top: 2rem;
-  width: 100%;
+  inline-size: 100%;
+  margin-block-start: 2rem;
 }
 
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .media-overview-right {
-    margin-top: 0;
-    width: 20rem;
+    inline-size: 20rem;
+    margin-block-start: 0;
   }
 }
 
 .media-facts {
-    border-radius: 0.5rem;
     border-width: 1px;
-    --tw-border-opacity: 1;
     border-color: rgb(55 65 81/var(--tw-border-opacity));
-    --tw-bg-opacity: 1;
+    border-radius: 0.5rem;
     font-size: .875rem;
-    line-height: 1.25rem;
     font-weight: 700;
+    line-height: 1.25rem;
+
+    --tw-border-opacity: 1;
+    --tw-bg-opacity: 1;
     --tw-text-opacity: 1;
 }
 
 .media-ratings {
-    border-bottom-width: 1px;
-    --tw-border-opacity: 1;
     border-color: rgb(55 65 81/var(--tw-border-opacity));
-    padding: 0.5rem 1rem;
+    border-block-end-width: 1px;
     font-weight: 500;
+    padding-block: 0.5rem;
+    padding-inline: 1rem;
+
+    --tw-border-opacity: 1;
 }
 
 .media-ratings {
@@ -1091,19 +1096,21 @@ a.crew-name {
 .media-fact {
     display: flex;
     justify-content: space-between;
-    border-bottom-width: 1px;
-    --tw-border-opacity: 1;
     border-color: rgb(55 65 81/var(--tw-border-opacity));
-    padding: 0.5rem 1rem;
+    border-block-end-width: 1px;
+    padding-block: 0.5rem;
+    padding-inline: 1rem;
+
+    --tw-border-opacity: 1;
 }
 
 .media-overview h2 {
     font-size: 1.25rem;
-    line-height: 1.75rem;
     font-weight: 700;
+    line-height: 1.75rem;
 }
 
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .media-overview h2 {
       font-size: 1.5rem;
       line-height: 2rem;
@@ -1111,13 +1118,13 @@ a.crew-name {
 }
 
 .tagline {
-    margin-bottom: 1rem;
     font-size: 1.25rem;
-    line-height: 1.75rem;
     font-style: italic;
+    line-height: 1.75rem;
+    margin-block-end: 1rem;
 }
 
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .tagline {
       font-size: 1.5rem;
       line-height: 2rem;
