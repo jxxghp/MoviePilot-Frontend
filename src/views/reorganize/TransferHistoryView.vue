@@ -444,6 +444,7 @@ fixArrayAt()
   </VBottomSheet>
   <!-- 文件整理弹窗 -->
   <ReorganizeForm
+    v-if="redoDialog"
     v-model="redoDialog"
     :logids="redoIds"
     :target="redoTarget"
