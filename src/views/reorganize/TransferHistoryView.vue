@@ -128,6 +128,7 @@ watch(
   async () => {
     await fetchData({ page: currentPage.value, itemsPerPage: itemsPerPage.value })
 })
+
 // 切换每页条数
 watch(
   () => itemsPerPage.value,
@@ -362,7 +363,7 @@ fixArrayAt()
 </script>
 
 <template>
-  <VCard class="pb-5">
+  <VCard>
     <VCardItem>
       <VCardTitle>
         <VRow>
@@ -375,7 +376,7 @@ fixArrayAt()
               v-model="searchFolder"
               class="text-disabled mr-3 d-none d-md-block"
               density="compact"
-              label="搜索目录"
+              label="目录筛选"
               prepend-inner-icon="mdi-folder-search"
               variant="solo-filled"
               single-line
@@ -564,7 +565,7 @@ fixArrayAt()
       </template>
     </VDataTableVirtual>
     <div class="flex items-center justify-end">
-      <div class="!w-[90px] ml-[8px]">
+      <div class="w-auto">
         <VSelect
           v-model="itemsPerPage"
           :items="pageRange"
@@ -574,7 +575,7 @@ fixArrayAt()
           size="small"
         />
       </div>
-      <span class="page-text px-[16px]">{{pageTip.begin}}-{{pageTip.end}} / {{totalItems}}</span>
+      <div class="w-auto text-sm">{{pageTip.begin}}-{{pageTip.end}} / {{totalItems}}</div>
       <VPagination
         v-model="currentPage"
         show-first-last-page
@@ -663,10 +664,5 @@ fixArrayAt()
 
 .data-table-div {
   block-size: calc(100vh - 15.5rem);
-}
-
-.page-text {
-  color: rgba(58, 53, 65, 60%);
-  font-size: 14px;
 }
 </style>
