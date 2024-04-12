@@ -139,7 +139,7 @@ const handleSearchFolder = debounce(() => {
   if (!unref(searchFolder)) {
     dataList.value = unref(backupList)
   } else {
-    dataList.value = unref(backupList).filter((data: any) => data!.src.includes(unref(searchFolder)) || data!.dest.includes(unref(searchFolder)))
+    dataList.value = unref(backupList).filter((data: any) => data.src.includes(unref(searchFolder)) || data.dest.includes(unref(searchFolder)))
   }
 }, 100)
 
@@ -373,10 +373,10 @@ fixArrayAt()
             <VCombobox
               key="search_navbar"
               v-model="searchFolder"
-              class="text-disabled mr-6"
+              class="text-disabled mr-3 d-none d-md-block"
               density="compact"
-              label="选择目录"
-              append-inner-icon="mdi-magnify"
+              label="搜索目录"
+              prepend-inner-icon="mdi-folder-search"
               variant="solo-filled"
               single-line
               hide-details
@@ -392,7 +392,7 @@ fixArrayAt()
               class="text-disabled"
               density="compact"
               label="搜索标题、状态"
-              append-inner-icon="mdi-magnify"
+              prepend-inner-icon="mdi-text-search"
               variant="solo-filled"
               single-line
               hide-details
@@ -564,23 +564,26 @@ fixArrayAt()
       </template>
     </VDataTableVirtual>
     <div class="flex items-center justify-end">
-      <span class="page-text">每页条数</span>
       <div class="!w-[90px] ml-[8px]">
-        <v-select
+        <VSelect
           v-model="itemsPerPage"
           :items="pageRange"
           density="compact"
+          variant="solo"
+          flat
+          size="small"
         />
       </div>
-      <span class="page-text px-[16px]">{{pageTip.begin}}-{{pageTip.end}} 共 {{totalItems}} 条</span>
-      <v-pagination
+      <span class="page-text px-[16px]">{{pageTip.begin}}-{{pageTip.end}} / {{totalItems}}</span>
+      <VPagination
         v-model="currentPage"
         show-first-last-page
         :length="totalPage"
         @next="currentPage + 1"
         @prev="currentPage - 1"
-      ></v-pagination>
-  </div>
+      >
+      </VPagination>
+    </div>
   </VCard>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
@@ -663,7 +666,7 @@ fixArrayAt()
 }
 
 .page-text {
-  color: rgba(58, 53, 65, 0.6);
+  color: rgba(58, 53, 65, 60%);
   font-size: 14px;
 }
 </style>
