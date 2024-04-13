@@ -5,7 +5,7 @@ import { useConfirm } from 'vuetify-use-dialog'
 import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import type { Context } from '@/api/types'
+import type { Context, MediaInfo, TorrentInfo } from '@/api/types'
 
 // 输入参数
 const props = defineProps({
@@ -35,6 +35,9 @@ const meta = ref(props.torrent?.meta_info)
 
 // 站点图标
 const siteIcon = ref('')
+
+// 存储是否已经下载过的记录
+const downloaded = ref<String[]>([])
 
 // 查询站点图标
 async function getSiteIcon() {
@@ -76,7 +79,7 @@ async function handleAddDownload(_site: any = undefined,
 }
 
 // 添加下载
-async function addDownload(_media: any, _torrent: any) {
+async function addDownload(_media: MediaInfo, _torrent: TorrentInfo) {
   startNProgress()
   try {
     const result: { [key: string]: any } = await api.post('download/', {
@@ -87,6 +90,7 @@ async function addDownload(_media: any, _torrent: any) {
     if (result.success) {
       // 添加下载成功
       $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`)
+      downloaded.value.push(_torrent?.enclosure || '')
     }
     else {
       // 添加下载失败
@@ -131,6 +135,7 @@ onMounted(() => {
   <VCard
     :width="props.width"
     :height="props.height"
+    :variant="downloaded.includes(torrent?.enclosure || '') ? 'tonal' : 'elevated'"
     @click="handleAddDownload"
   >
     <template

@@ -104,16 +104,16 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol>
-      <VList v-if="dataList.length === 0" lines="three" class="rounded">
+      <VList v-if="dataList.length === 0" lines="three" class="rounded p-0">
         <VListItem>
           <VListItemTitle>没有附合当前过滤条件的资源。</VListItemTitle>
         </VListItem>
       </VList>
-      <div>
+      <VList v-if="dataList.length !== 0" lines="three" class="rounded p-0">
         <div v-for="(item, index) in dataList" :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`">
           <TorrentItem v-if="defer(index)" :torrent="item" />
         </div>
-      </div>
+      </VList>
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
       <VList lines="one" class="rounded">
