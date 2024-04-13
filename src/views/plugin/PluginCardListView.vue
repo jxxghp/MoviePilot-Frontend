@@ -167,6 +167,7 @@ async function fetchUninstalledPlugins() {
         if (uninstalled.id === data.id) {
           data.has_update = true
           data.repo_url = uninstalled.repo_url
+          data.history = uninstalled.history
         }
       }
     }

@@ -6,6 +6,7 @@ import api from '@/api'
 import type { Plugin } from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
 import PageRender from '@/components/render/PageRender.vue'
+import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { isNullOrEmptyObject } from '@core/utils'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
@@ -65,6 +66,9 @@ const isImageLoaded = ref(false)
 // 图片是否加载失败
 const imageLoadError = ref(false)
 
+// 更新日志弹窗
+const releaseDialog = ref(false)
+
 // 监听动作标识，如为true则打开详情
 watch(() => props.action, (newAction, oldAction) => {
   if (newAction && !oldAction) {
@@ -79,6 +83,16 @@ async function imageLoaded() {
   const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
   // 从图片中提取背景色
   backgroundColor.value = await getDominantColor(imageElement)
+}
+
+// 显示更新日志
+function showUpdateHistory() {
+  // 检查当前版本是否有更新日志
+  if (isNullOrEmptyObject(props.plugin?.history)) {
+    updatePlugin()
+  } else{
+    releaseDialog.value = true
+  }
 }
 
 // 调用API卸载插件
@@ -251,6 +265,7 @@ async function resetPlugin() {
 // 更新插件
 async function updatePlugin() {
   try {
+    releaseDialog.value = false
     // 显示等待提示框
     progressDialog.value = true
     progressText.value = `正在更新 ${props.plugin?.plugin_name} ...`
@@ -330,7 +345,7 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-arrow-up-circle-outline',
       color: 'success',
-      click: updatePlugin,
+      click: showUpdateHistory,
     },
   },
   {
@@ -541,6 +556,30 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
           color="white"
           class="mb-0 mt-1"
         />
+      </VCardText>
+    </VCard>
+  </VDialog>
+  <!-- 更新日志 -->
+  <VDialog
+    v-if="releaseDialog"
+    v-model="releaseDialog"
+    width="600"
+    scrollable
+  >
+    <VCard>
+      <DialogCloseBtn @click="releaseDialog = false" />
+      <VCardTitle>{{ props.plugin?.plugin_name }} 更新说明</VCardTitle>
+      <VersionHistory :history="props.plugin?.history" />
+      <VCardText>
+        <VBtn
+          @click="updatePlugin"
+          block
+        >
+          <template #prepend>
+            <VIcon icon="mdi-arrow-up-circle-outline" />
+          </template>
+          更新到最新版本
+        </VBtn>
       </VCardText>
     </VCard>
   </VDialog>
