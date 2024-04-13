@@ -150,7 +150,7 @@ onMounted(() => {
   <VCard
     :height="cardProps.height"
     :width="cardProps.width"
-    :variant="cardProps.site?.is_active ? 'elevated' : 'tonal'"
+    :variant="cardProps.site?.is_active ? 'elevated' : 'outlined'"
     class="overflow-hidden"
     @click="siteEditDialog = true"
   >

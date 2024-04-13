@@ -135,7 +135,7 @@ onMounted(() => {
   <VCard
     :width="props.width"
     :height="props.height"
-    :variant="downloaded.includes(torrent?.enclosure || '') ? 'tonal' : 'elevated'"
+    :variant="downloaded.includes(torrent?.enclosure || '') ? 'outlined' : 'elevated'"
     @click="handleAddDownload"
   >
     <template

@@ -131,7 +131,7 @@ onMounted(() => {
 <template>
   <VListItem 
     @click="handleAddDownload"
-    :variant="downloaded.includes(torrent?.enclosure || '') ? 'tonal' : 'flat'"
+    :variant="downloaded.includes(torrent?.enclosure || '') ? 'outlined' : 'flat'"
   >
     <template
       v-if="!showMoreTorrents"
