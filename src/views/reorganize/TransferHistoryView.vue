@@ -407,6 +407,7 @@ fixArrayAt()
     </VCardItem>
     <VDataTableServer
       v-if="itemsPerPage !== -1"
+      :items-per-page="itemsPerPage"
       v-model="selected"
       :headers="headers"
       :items="dataList"
@@ -490,7 +491,6 @@ fixArrayAt()
     <VDataTableVirtual
       v-else
       v-model="selected"
-      v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="dataList"
       :search="search"
