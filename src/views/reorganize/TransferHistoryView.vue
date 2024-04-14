@@ -129,12 +129,6 @@ watch(
     await fetchData({ page: currentPage.value, itemsPerPage: itemsPerPage.value })
 })
 
-// 切换每页条数
-watch(
-  () => itemsPerPage.value,
-  async () => {
-    await fetchData({ page: 1, itemsPerPage: itemsPerPage.value })
-})
 
 const handleSearchFolder = debounce(() => {
   if (!unref(searchFolder)) {
