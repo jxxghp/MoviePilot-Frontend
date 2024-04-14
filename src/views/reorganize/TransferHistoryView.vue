@@ -129,12 +129,6 @@ watch(
     await fetchData({ page: currentPage.value, itemsPerPage: itemsPerPage.value })
 })
 
-// 切换每页条数
-watch(
-  () => itemsPerPage.value,
-  async () => {
-    await fetchData({ page: 1, itemsPerPage: itemsPerPage.value })
-})
 
 const handleSearchFolder = debounce(() => {
   if (!unref(searchFolder)) {
@@ -407,6 +401,7 @@ fixArrayAt()
     </VCardItem>
     <VDataTableServer
       v-if="itemsPerPage !== -1"
+      :items-per-page="itemsPerPage"
       v-model="selected"
       :headers="headers"
       :items="dataList"
@@ -490,7 +485,6 @@ fixArrayAt()
     <VDataTableVirtual
       v-else
       v-model="selected"
-      v-model:items-per-page="itemsPerPage"
       :headers="headers"
       :items="dataList"
       :search="search"
