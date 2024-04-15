@@ -79,6 +79,9 @@ const searchFolder = ref()
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
 
+// 文件夹搜索提示词列表
+const searchFolderHintList = ref<string[]>([])
+
 // 加载状态
 const loading = ref(false)
 
@@ -171,6 +174,34 @@ async function fetchData({ page, itemsPerPage }: { page: number; itemsPerPage: n
   }
   loading.value = false
 }
+
+// 查询已设置媒体路径
+async function queryMediaFolders() {
+  try {
+    const result: { [key: string]: any } = await api.get(
+      'system/env',
+    )
+    if (result.data)
+      if (result.data.DOWNLOAD_TV_PATH)
+        searchFolderHintList.value.push(result.data.DOWNLOAD_TV_PATH)
+      if (result.data.DOWNLOAD_MOVIE_PATH)
+        searchFolderHintList.value.push(result.data.DOWNLOAD_MOVIE_PATH)
+      if (result.data.DOWNLOAD_ANIME_PATH)
+        searchFolderHintList.value.push(result.data.DOWNLOAD_ANIME_PATH)
+      if (result.data.LIBRARY_PATH)
+        if (result.data.LIBRARY_TV_NAME)
+          searchFolderHintList.value.push(result.data.LIBRARY_PATH + "/" + result.data.LIBRARY_TV_NAME)
+        if (result.data.LIBRARY_MOVIE_NAME)
+          searchFolderHintList.value.push(result.data.LIBRARY_PATH + "/" + result.data.LIBRARY_MOVIE_NAME)
+        if (result.data.LIBRARY_ANIME_NAME)
+          searchFolderHintList.value.push(result.data.LIBRARY_PATH + "/" + result.data.LIBRARY_ANIME_NAME)
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
+onBeforeMount(queryMediaFolders)
 
 // 根据 type 返回不同的图标
 function getIcon(type: string) {
@@ -374,6 +405,7 @@ fixArrayAt()
             <VCombobox
               key="search_navbar"
               v-model="searchFolder"
+              :items="searchFolderHintList"
               class="text-disabled mr-3 d-none d-md-block"
               density="compact"
               label="目录筛选"
