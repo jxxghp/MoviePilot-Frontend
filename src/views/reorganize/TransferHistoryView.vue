@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { debounce, cloneDeep } from 'lodash'
 import { ref, unref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
@@ -59,21 +58,17 @@ const headers = [
 ]
 
 const pageRange = [
-  {title: '10', value: 10},
   {title: '25', value: 25},
   {title: '50', value: 50},
   {title: '100', value: 100},
+  {title: '1000', value: 1000},
   {title: 'All', value: -1}]
 
 // 数据列表
 const dataList = ref<TransferHistory[]>([])
-// 本地数据根据文件夹筛选
-const backupList = ref<TransferHistory[]>([])
 
 // 搜索
 const search = ref()
-//文件夹搜索
-const searchFolder = ref()
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -105,6 +100,16 @@ const deleteConfirmDialog = ref(false)
 // 确认框标题
 const confirmTitle = ref('')
 
+// 转移方式字典
+const TransferDict: { [key: string]: string } = {
+  copy: '复制',
+  move: '移动',
+  link: '硬链接',
+  softlink: '软链接',
+  rclone_copy: 'Rclone复制',
+  rclone_move: 'Rclone移动',
+}
+
 // 分页提示
 const pageTip = computed(() => {
   const begin  = unref(itemsPerPage) * (unref(currentPage) - 1) + 1
@@ -114,47 +119,34 @@ const pageTip = computed(() => {
     end
   }
 })
+
 // 分页总数
 const totalPage = computed(() => {
   const total = Math.ceil(unref(totalItems) /unref(itemsPerPage))
-  
   return total
 })
 
-// 切换页签
+// 切换页签和搜索词
 watch(
-  () => currentPage.value,
+  [() => currentPage.value, () => itemsPerPage.value, () => search.value],
   async () => {
-    await fetchData({ page: currentPage.value, itemsPerPage: itemsPerPage.value })
+    await fetchData()
 })
 
-
-const handleSearchFolder = debounce(() => {
-  if (!unref(searchFolder)) {
-    dataList.value = unref(backupList)
-  } else {
-    dataList.value = unref(backupList).filter((data: any) => data.src.includes(unref(searchFolder)) || data.dest.includes(unref(searchFolder)))
-  }
-}, 100)
-
 // 获取订阅列表数据
-async function fetchData({ page, itemsPerPage }: { page: number; itemsPerPage: number }) {
-  
+async function fetchData(page = currentPage.value, count = itemsPerPage.value) {
   loading.value = true
   try {
-    currentPage.value = page
-
     const result: { [key: string]: any } = await api.get('history/transfer', {
       params: {
         page,
-        count: itemsPerPage,
+        count,
         title: search.value,
       },
     })
 
-    dataList.value = result.data.list
-    backupList.value = cloneDeep(unref(dataList))
-    totalItems.value = result.data.total
+    dataList.value = result.data?.list
+    totalItems.value = result.data?.total
     searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(
       title => title !== '',
     )
@@ -173,16 +165,6 @@ function getIcon(type: string) {
     return 'mdi-television-classic'
   else
     return 'mdi-help-circle'
-}
-
-// 转移方式字典
-const TransferDict: { [key: string]: string } = {
-  copy: '复制',
-  move: '移动',
-  link: '硬链接',
-  softlink: '软链接',
-  rclone_copy: 'Rclone复制',
-  rclone_move: 'Rclone移动',
 }
 
 // 删除历史记录
@@ -220,10 +202,7 @@ async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   // 删除
   await remove(currentHistory.value, deleteSrc, deleteDest)
   // 刷新
-  fetchData({
-    page: currentPage.value,
-    itemsPerPage: itemsPerPage.value,
-  })
+  fetchData()
 }
 
 // 批量删除记录
@@ -253,10 +232,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 隐藏进度条
   progressDialog.value = false
   // 重新获取数据
-  fetchData({
-    page: currentPage.value,
-    itemsPerPage: itemsPerPage.value,
-  })
+  fetchData()
 }
 
 // 响应删除操作
@@ -350,6 +326,10 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 初始加载数据
+onMounted(fetchData)
+
 </script>
 
 <template>
@@ -363,27 +343,12 @@ const dropdownItems = ref([
           <VCol cols="8" md="6" class="flex">
             <VCombobox
               key="search_navbar"
-              v-model="searchFolder"
-              class="text-disabled mr-3 d-none d-md-block"
-              density="compact"
-              label="目录筛选"
-              prepend-inner-icon="mdi-folder-search"
-              variant="solo-filled"
-              single-line
-              hide-details
-              flat
-              rounded
-              clearable
-              @update:search="handleSearchFolder"
-            />
-            <VCombobox
-              key="search_navbar"
               v-model="search"
               :items="searchHintList"
               class="text-disabled"
               density="compact"
-              label="搜索标题、状态"
-              prepend-inner-icon="mdi-text-search"
+              label="搜索目录、状态"
+              prepend-inner-icon="mdi-magnify"
               variant="solo-filled"
               single-line
               hide-details
@@ -395,91 +360,7 @@ const dropdownItems = ref([
         </VRow>
       </VCardTitle>
     </VCardItem>
-    <VDataTableServer
-      v-if="itemsPerPage !== -1"
-      :items-per-page="itemsPerPage"
-      v-model="selected"
-      :headers="headers"
-      :items="dataList"
-      :items-length="totalItems"
-      :search="search"
-      :loading="loading"
-      :item-value="'id' + Math.random()*1000"
-      return-object
-      fixed-header
-      show-select
-      loading-text="加载中..."
-      class="data-table-div"
-      :hide-default-footer="true"
-      :disable-pagination="true"
-      @update:options="fetchData"
-    >
-      <template #item.title="{ item }">
-        <div class="d-flex align-center">
-          <VAvatar>
-            <VIcon :icon="getIcon(item.type || '')" />
-          </VAvatar>
-          <div class="d-flex flex-column ms-1">
-            <span class="d-block text-high-emphasis">
-              {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
-            </span>
-            <small>{{ item?.category }}</small>
-          </div>
-        </div>
-      </template>
-      <template #item.src="{ item }">
-        <small>{{ item?.src }} <br>=> {{ item?.dest }}</small>
-      </template>
-      <template #item.mode="{ item }">
-        <VChip variant="outlined" color="primary" size="small">
-          {{ TransferDict[item?.mode || ''] }}
-        </VChip>
-      </template>
-      <template #item.status="{ item }">
-        <VChip v-if="item?.status" color="success" size="small">
-          成功
-        </VChip>
-        <v-tooltip v-else :text="item?.errmsg">
-          <template #activator="{ props }">
-            <VChip v-bind="props" color="error" size="small">
-              失败
-            </VChip>
-          </template>
-        </v-tooltip>
-      </template>
-      <template #item.date="{ item }">
-        <small>{{ item?.date }}</small>
-      </template>
-      <template #item.actions="{ item }">
-        <IconBtn>
-          <VIcon icon="mdi-dots-vertical" />
-          <VMenu activator="parent" close-on-content-click>
-            <VList>
-              <VListItem
-                v-for="(menu, i) in dropdownItems"
-                :key="i"
-                variant="plain"
-                :base-color="menu.props.color"
-                @click="menu.props.click(item)"
-              >
-                <template #prepend>
-                  <VIcon :icon="menu.props.prependIcon" />
-                </template>
-                <VListItemTitle v-text="menu.title" />
-              </VListItem>
-            </VList>
-          </VMenu>
-        </IconBtn>
-      </template>
-      <template #no-data>
-        没有数据
-      </template>
-      <template v-slot:bottom>
-        <div/>
-      </template>
-    </VDataTableServer>
     <VDataTableVirtual
-      v-else
       v-model="selected"
       :headers="headers"
       :items="dataList"
@@ -491,7 +372,6 @@ const dropdownItems = ref([
       show-select
       loading-text="加载中..."
       class="data-table-div"
-      @update:options="fetchData"
     >
       <template #item.title="{ item }">
         <div class="d-flex align-center">
@@ -612,10 +492,7 @@ const dropdownItems = ref([
         currentHistory = undefined
         selected = []
         // 刷新
-        fetchData({
-          page: currentPage,
-          itemsPerPage,
-        })
+        fetchData()
       }
     "
     @close="redoDialog = false"
@@ -653,6 +530,6 @@ const dropdownItems = ref([
 }
 
 .data-table-div {
-  block-size: calc(100vh - 15.5rem);
+  block-size: calc(100vh - 14rem);
 }
 </style>
