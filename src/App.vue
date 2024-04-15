@@ -4,6 +4,11 @@ import { useTheme } from 'vuetify'
 
 import store from './store'
 
+import { fixArrayAt } from '@/@core/utils/compatibility'
+
+// 修复低版本Safari等浏览器数组不支持at函数的问题
+fixArrayAt()
+
 // 提示框
 const $toast = useToast()
 
