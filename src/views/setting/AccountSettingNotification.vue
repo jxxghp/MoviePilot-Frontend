@@ -96,7 +96,7 @@ async function loadNotificationSettings() {
   try {
     const result1: { [key: string]: any } = await api.get('system/setting/MESSAGER')
     if (result1.success)
-      selectedChannels.value = result1.data?.value?.split(',')
+      selectedChannels.value = result1.data && result1.data.value ? result1.data.value.split(',') : []
 
     const result2: { [key: string]: any } = await api.get('system/env')
     if (result2.success) {
