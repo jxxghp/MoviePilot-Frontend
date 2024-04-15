@@ -56,7 +56,7 @@ function getImgUrl(url: string) {
   if (!url)
     return getDefaultImage()
   else
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/0/${url}`
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/0/${encodeURI(url)}`
 }
 
 // 根据多张图片生成媒体库封面
@@ -68,7 +68,7 @@ async function drawImages(imageList: string[]) {
 
   // 为所有图片添加system/img前缀
   for (let i = 0; i < IMAGES.length; i++)
-    IMAGES[i] = `${import.meta.env.VITE_API_BASE_URL}system/img/0/${IMAGES[i]}`
+    IMAGES[i] = `${import.meta.env.VITE_API_BASE_URL}system/img/0/${encodeURI(IMAGES[i])}`
 
   // canvas
   const canvas = canvasRef.value
