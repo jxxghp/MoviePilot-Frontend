@@ -31,7 +31,7 @@ const getImgUrl = computed(() => {
   if (imageLoadError.value)
     return noImage
   const image = props.media?.image || ''
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/${encodeURIComponent(image)}/0`
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/0/${encodeURIComponent(image).replace(/%2F/g, '/')}`
 })
 
 // 跳转播放
