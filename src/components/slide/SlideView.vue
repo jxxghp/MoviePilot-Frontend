@@ -1,12 +1,6 @@
 <script lang="ts" setup>
 import SlideViewTitle from '@/components/slide/SlideViewTitle.vue'
 
-// 输入参数
-const props = defineProps({
-  linkurl: String,
-  title: String,
-})
-
 // 元素
 const slideview_content = ref()
 // 分页切换状态
@@ -95,7 +89,7 @@ onActivated(() => {
 <template>
   <div class="flex justify-between mt-3">
     <slot name="title">
-      <SlideViewTitle v-bind="props" />
+      <SlideViewTitle />
     </slot>
     <div v-if="disabled !== 3" class="me-1 d-none d-md-flex">
       <VBtn

@@ -52,7 +52,7 @@ export default defineComponent({
         'main',
         { class: 'layout-page-content' },
         h(Transition, { name: 'fade-slide', mode: 'out-in', appear: true },
-          h('section', { class: 'page-content-container' }, slots.default?.()),
+          () => h('section', { class: 'page-content-container' }, slots.default?.()),
         ),
       )
 

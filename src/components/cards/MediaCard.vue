@@ -166,8 +166,9 @@ async function addSubscribe(season = 0) {
   }
   catch (error) {
     console.error(error)
+  } finally {
+    doneNProgress()
   }
-  doneNProgress()
 }
 
 // 弹出添加订阅提示
@@ -428,7 +429,7 @@ function getYear(airDate: string) {
 </script>
 
 <template>
-  <VHover v-bind="props">
+  <VHover>
     <template #default="hover">
       <VCard
         v-bind="hover.props"
