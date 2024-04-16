@@ -36,7 +36,7 @@ function goPersonDetail() {
 </script>
 
 <template>
-  <VHover v-bind="personProps">
+  <VHover>
     <template #default="hover">
       <VCard
         v-bind="hover.props"
@@ -61,7 +61,6 @@ function goPersonDetail() {
                   }"
                 >
                   <VImg
-                    v-img
                     :src="getPersonImage()"
                     cover
                     @load="isImageLoaded = true"

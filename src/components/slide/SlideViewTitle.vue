@@ -1,9 +1,7 @@
 <script lang="ts" setup>
 // 输入参数
-const props = defineProps({
-  linkurl: String,
-  title: String,
-})
+const props = inject('rankingPropsKey')
+
 </script>
 
 <template>
