@@ -69,8 +69,9 @@ function goPlay() {
               <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
             </div>
           </template>
-          <!-- 类型角标 -->
-          <VChip
+        </VImg>
+        <!-- 类型角标 -->
+        <VChip
             v-show="isImageLoaded"
             variant="elevated"
             size="small"
@@ -89,7 +90,6 @@ function goPlay() {
               {{ props.media?.title }}
             </h1>
           </VCardText>
-        </VImg>
       </VCard>
     </template>
   </VHover>
