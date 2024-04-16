@@ -364,7 +364,6 @@ onMounted(fetchData)
       v-model="selected"
       :headers="headers"
       :items="dataList"
-      :search="search"
       :loading="loading"
       density="compact"
       return-object
