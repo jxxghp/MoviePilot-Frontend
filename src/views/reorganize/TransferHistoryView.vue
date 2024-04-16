@@ -529,6 +529,6 @@ onMounted(fetchData)
 }
 
 .data-table-div {
-  block-size: calc(100vh - 14rem);
+  block-size: calc(100vh - 15rem);
 }
 </style>
