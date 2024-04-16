@@ -378,7 +378,7 @@ onMounted(fetchData)
             <VIcon :icon="getIcon(item.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
-            <span class="d-block text-high-emphasis">
+            <span class="d-block text-high-emphasis min-w-20">
               {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
             </span>
             <small>{{ item?.category }}</small>
