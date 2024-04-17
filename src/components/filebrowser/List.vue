@@ -592,7 +592,7 @@ onMounted(() => {
 
 @media (width <= 768px) {
   .virtual-scroll-div {
-    block-size: calc(100vh - 16rem);
+    block-size: calc(100vh - 17rem);
   }
 }
 

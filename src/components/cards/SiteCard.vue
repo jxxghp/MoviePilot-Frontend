@@ -7,6 +7,7 @@ import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Site, SiteStatistic } from '@/api/types'
 import ExistIcon from '@core/components/ExistIcon.vue'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
 const cardProps = defineProps({
@@ -157,7 +158,7 @@ function openSitePage() {
 
 // 根据站点状态显示不同的状态图标
 const statColor = computed(() => {
-  if (!siteStats.value){
+  if (isNullOrEmptyObject(siteStats.value)){
     return 'secondary'
   }
   if (siteStats.value?.lst_state == 1){
@@ -166,7 +167,7 @@ const statColor = computed(() => {
   else if (siteStats.value?.lst_state == 0){
     if (!siteStats.value?.seconds)
       return 'secondary'
-     if (siteStats.value?.seconds >= 10)
+     if (siteStats.value?.seconds >= 6)
       return 'warning'
     return 'success'
   }
