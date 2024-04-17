@@ -5,7 +5,7 @@ import SiteAddEditForm from '../form/SiteAddEditForm.vue'
 import SiteTorrentTable from '../table/SiteTorrentTable.vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
-import type { Site } from '@/api/types'
+import type { Site, SiteStatistic } from '@/api/types'
 import ExistIcon from '@core/components/ExistIcon.vue'
 
 // 输入参数
@@ -58,6 +58,9 @@ const userPwForm = ref({
   code: '',
 })
 
+// 站点使用统计
+const siteStats = ref<SiteStatistic>({})
+
 // 查询站点图标
 async function getSiteIcon() {
   try {
@@ -82,6 +85,18 @@ async function testSite() {
 
     testButtonText.value = '测试'
     testButtonDisable.value = false
+
+    getSiteStats()
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// 查询站点使用统计
+async function getSiteStats() {
+  try {
+    siteStats.value = (await api.get(`site/statistic/${cardProps.site?.domain}`))
   }
   catch (error) {
     console.error(error)
@@ -140,9 +155,24 @@ function openSitePage() {
   window.open(cardProps.site?.url, '_blank')
 }
 
+// 根据站点状态显示不同的状态图标
+const statColor = computed(() => {
+  if (siteStats.value?.lst_state == 1){
+    return 'error'
+  }
+  else if (siteStats.value?.lst_state == 0){
+    if (!siteStats.value?.seconds)
+      return 'secondary'
+     if (siteStats.value?.seconds >= 10)
+      return 'warning'
+    return 'success'
+  }
+})
+
 // 装载时查询站点图标
 onMounted(() => {
   getSiteIcon()
+  getSiteStats()
 })
 </script>
 
@@ -163,16 +193,17 @@ onMounted(() => {
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
+
     <VCardItem>
       <VCardTitle class="font-bold">
         <span @click.stop="openSitePage">{{ cardProps.site?.name }}</span>
       </VCardTitle>
       <VCardSubtitle>
-        {{ cardProps.site?.url }}
+        <span @click.stop="openSitePage">{{ cardProps.site?.url }}</span>
       </VCardSubtitle>
     </VCardItem>
 
-    <ExistIcon v-if="cardProps.site?.is_active" />
+    <StatIcon v-if="cardProps.site?.is_active" :color="statColor" />
 
     <VCardText class="py-2">
       <VTooltip
