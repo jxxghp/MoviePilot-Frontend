@@ -378,8 +378,11 @@ onMounted(fetchData)
             <VIcon :icon="getIcon(item.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
-            <span class="d-block text-high-emphasis min-w-20">
+            <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
+            </span>
+            <span v-else class="d-block text-high-emphasis min-w-20">
+              {{ item?.title }}
             </span>
             <small>{{ item?.category }}</small>
           </div>
