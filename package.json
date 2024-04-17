@@ -81,6 +81,7 @@
     "@vitejs/plugin-vue": "^5.0.4",
     "@vitejs/plugin-vue-jsx": "^3.0.0",
     "autoprefixer": "^10.4.14",
+    "dayjs": "^1.11.10",
     "eslint": "^9.0.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-import-resolver-typescript": "^3.5.1",

@@ -1,4 +1,11 @@
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import ZH_CN from 'dayjs/locale/zh-cn'
+
 import { isToday } from './index'
+
+dayjs.extend(relativeTime)
+dayjs.locale(ZH_CN)
 
 export function avatarText(value: string) {
   if (!value)
@@ -19,7 +26,7 @@ export function kFormatter(num: number) {
  * Format and return date in Humanize format
  * Intl docs: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/format
  * Intl Constructor: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat/DateTimeFormat
- * @param {String} value date to format
+ * @param {string} value date to format
  * @param {Intl.DateTimeFormatOptions} formatting Intl object to format with
  */
 export function formatDate(value: string, formatting: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }) {
@@ -32,8 +39,8 @@ export function formatDate(value: string, formatting: Intl.DateTimeFormatOptions
 /**
  * Return short human friendly month representation of date
  * Can also convert date to only time if date is of today (Better UX)
- * @param {String} value date to format
- * @param {Boolean} toTimeForCurrentDay Shall convert to time if day is today/current
+ * @param {string} value date to format
+ * @param {boolean} toTimeForCurrentDay Shall convert to time if day is today/current
  */
 export function formatDateToMonthShort(value: string, toTimeForCurrentDay = true) {
   const date = new Date(value)
@@ -107,7 +114,7 @@ export function formatBytes(bytes: number, decimals = 2) {
 
   const i = Math.floor(Math.log(bytes) / Math.log(k))
 
-  return `${parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`
+  return `${Number.parseFloat((bytes / k ** i).toFixed(dm))} ${sizes[i]}`
 }
 
 // 格式化剧集列表
@@ -150,20 +157,20 @@ export function formatEp(nums: number[]): string {
 
 // 将yyyy-mm-dd hh:mm:ss转换为时间差，如：1小时前，1天前
 export function formatDateDifference(dateString: string): string {
-  const date = new Date(dateString)
-  const currentDate = new Date()
-  const timeDifference = currentDate.getTime() - date.getTime()
-  const secondsDifference = Math.floor(timeDifference / 1000)
-  const minutesDifference = Math.floor(secondsDifference / 60)
-  const hoursDifference = Math.floor(minutesDifference / 60)
-  const daysDifference = Math.floor(hoursDifference / 24)
+  // const timeDifference = dayjs().millisecond() - dayjs(dateString).millisecond()
+  // const secondsDifference = Math.floor(timeDifference / 1000)
+  // const minutesDifference = Math.floor(secondsDifference / 60)
+  // const hoursDifference = Math.floor(minutesDifference / 60)
+  // const daysDifference = Math.floor(hoursDifference / 24)
 
-  if (daysDifference > 0)
-    return `${daysDifference}天前`
-  else if (hoursDifference > 0)
-    return `${hoursDifference}小时前`
-  else if (minutesDifference > 0)
-    return `${minutesDifference}分钟前`
-  else
-    return '刚刚'
+  // if (daysDifference > 0)
+  //   return `${daysDifference}天前`
+  // else if (hoursDifference > 0)
+  //   return `${hoursDifference}小时前`
+  // else if (minutesDifference > 0)
+  //   return `${minutesDifference}分钟前`
+  // else
+  //   return '刚刚'
+
+  return dayjs(dateString).fromNow()
 }
