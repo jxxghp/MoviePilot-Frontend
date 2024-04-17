@@ -482,7 +482,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
       :title="`${props.plugin?.plugin_name} - 配置`"
       class="rounded-t"
     >
-      <DialogCloseBtn @click="pluginConfigDialog = false" />
+      <DialogCloseBtn v-model='pluginConfigDialog' />
       <VCardText>
         <FormRender
           v-for="(item, index) in pluginFormItems"
@@ -516,7 +516,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
       :title="`${props.plugin?.plugin_name}`"
       class="rounded-t"
     >
-      <DialogCloseBtn @click="pluginInfoDialog = false" />
+      <DialogCloseBtn v-model='pluginInfoDialog' />
       <VCardText>
         <PageRender
           v-for="(item, index) in pluginPageItems"

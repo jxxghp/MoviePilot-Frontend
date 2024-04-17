@@ -17,6 +17,7 @@ import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
 import 'vue3-perfect-scrollbar/style.css';
+import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 
 loadFonts()
 
@@ -26,6 +27,7 @@ const app = createApp(App)
 // 注册全局组件
 app.component('VAceEditor', VAceEditor)
   .component('VApexChart', VueApexCharts)
+  .component('VDialogCloseBtn', DialogCloseBtn)
 
 // 注册插件
 app
