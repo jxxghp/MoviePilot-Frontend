@@ -157,6 +157,9 @@ function openSitePage() {
 
 // 根据站点状态显示不同的状态图标
 const statColor = computed(() => {
+  if (!siteStats.value){
+    return 'secondary'
+  }
   if (siteStats.value?.lst_state == 1){
     return 'error'
   }
