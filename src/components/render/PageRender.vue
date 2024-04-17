@@ -7,6 +7,7 @@ interface RenderProps {
   text: string
   html: string
   content?: any
+  slots?: any
   props?: any
 }
 
@@ -22,6 +23,7 @@ const formItem = ref<RenderProps>(elementProps.config ?? {
   html: '',
   props: {},
   content: [],
+  slots: {},
 })
 </script>
 
@@ -32,6 +34,15 @@ const formItem = ref<RenderProps>(elementProps.config ?? {
     v-bind="formItem.props"
   >
     {{ formItem.text }}
+    <template v-for="(content, name) in (formItem.slots || [])" :key="name" v-slot:[name]="{_props}">
+      <slot :name="name" v-bind="_props">
+        <PageRender
+          v-for="(slotItem, slotIndex) in (content || [])"
+          :key="slotIndex"
+          :config="slotItem"
+        />
+      </slot>
+    </template>
     <PageRender
       v-for="(innerItem, innerIndex) in (formItem.content || [])"
       :key="innerIndex"
