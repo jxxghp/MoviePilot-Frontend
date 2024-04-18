@@ -4,7 +4,7 @@ import type { PropType } from 'vue'
 import { useConfirm } from 'vuetify-use-dialog'
 import axios from 'axios'
 import { useToast } from 'vue-toast-notification'
-import ReorganizeForm from '../form/ReorganizeForm.vue'
+import ReorganizeDialog from '../dialog/ReorganizeDialog.vue'
 import { formatBytes } from '@core/utils/formatters'
 import type { Context, EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
@@ -535,7 +535,7 @@ onMounted(() => {
     </VCard>
   </VDialog>
   <!-- 文件整理弹窗 -->
-  <ReorganizeForm
+  <ReorganizeDialog
     v-if="transferPopper"
     v-model="transferPopper"
     :path="currentItem?.path"

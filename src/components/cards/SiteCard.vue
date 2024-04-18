@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import SiteAddEditForm from '../form/SiteAddEditForm.vue'
+import SiteAddEditDialog from '../dialog/SiteAddEditDialog.vue'
 import SiteTorrentTable from '../table/SiteTorrentTable.vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
@@ -360,7 +360,7 @@ onMounted(() => {
       </VCardActions>
     </VCard>
   </VDialog>
-  <SiteAddEditForm
+  <SiteAddEditDialog
     v-if="siteEditDialog"
     v-model="siteEditDialog"
     :siteid="cardProps.site?.id"

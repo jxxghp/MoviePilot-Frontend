@@ -1,6 +1,6 @@
 <script lang='ts' setup>
 import { useToast } from 'vue-toast-notification'
-import SubscribeEditForm from '../form/SubscribeEditForm.vue'
+import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 import { calculateTimeDifference } from '@/@core/utils'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
@@ -284,7 +284,7 @@ const dropdownItems = ref([
     />
   </VCard>
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="props.media?.id"

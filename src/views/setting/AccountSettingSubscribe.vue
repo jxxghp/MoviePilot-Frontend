@@ -4,7 +4,7 @@ import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import ImportCodeForm from '@/components/form/ImportCodeForm.vue'
+import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
 
 // 规则卡片类型
 interface FilterCard {
@@ -648,7 +648,7 @@ onMounted(() => {
     width="60rem"
     scrollable
   >
-    <ImportCodeForm
+    <ImportCodeDialog
       v-model="importCodeString"
       title="导入优先级规则"
       @close="importCodeDialog = false"

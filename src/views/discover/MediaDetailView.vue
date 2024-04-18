@@ -8,7 +8,7 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
 import router from '@/router'
-import SubscribeEditForm from '@/components/form/SubscribeEditForm.vue'
+import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
 
 // 输入参数
 const mediaProps = defineProps({
@@ -849,7 +849,7 @@ onBeforeMount(() => {
     error-description="未识别到媒体信息。"
   />
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-model="subscribeEditDialog"
     :subid="subscribeId"
     @close="subscribeEditDialog = false"

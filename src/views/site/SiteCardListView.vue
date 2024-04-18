@@ -3,7 +3,7 @@ import api from '@/api'
 import type { Site } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import SiteAddEditForm from '@/components/form/SiteAddEditForm.vue'
+import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import { useDefer } from '@/@core/utils/dom'
 
 // 数据列表
@@ -80,7 +80,7 @@ onBeforeMount(fetchData)
     @click="siteAddDialog = true"
   />
   <!-- 新增站点弹窗 -->
-  <SiteAddEditForm
+  <SiteAddEditDialog
     v-if="siteAddDialog"
     v-model="siteAddDialog"
     oper="add"

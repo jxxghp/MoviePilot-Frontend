@@ -4,8 +4,8 @@ import api from '@/api'
 import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
-import SubscribeEditForm from '@/components/form/SubscribeEditForm.vue'
-import SubscribeHistory from '@/components/misc/SubscribeHistory.vue'
+import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
+import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
 import store from '@/store'
 
 // 输入参数
@@ -118,7 +118,7 @@ const filteredDataList = computed(() => {
     @click="historyDialog = true"
   />
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :default="true"
@@ -127,7 +127,7 @@ const filteredDataList = computed(() => {
     @close="subscribeEditDialog = false"
   />
   <!-- 历史记录弹窗 -->
-  <SubscribeHistory   
+  <SubscribeHistoryDialog   
     v-if="historyDialog"
     v-model="historyDialog"
     :type="props.type"

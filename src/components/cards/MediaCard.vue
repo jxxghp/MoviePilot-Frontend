@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { PropType, Ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import SubscribeEditForm from '../form/SubscribeEditForm.vue'
+import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
@@ -592,7 +592,7 @@ function getYear(airDate: string) {
     </VCard>
   </VBottomSheet>
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="subscribeId"
