@@ -166,8 +166,8 @@ const statColor = computed(() => {
   }
   else if (siteStats.value?.lst_state == 0){
     if (!siteStats.value?.seconds)
-      return 'secondary'
-     if (siteStats.value?.seconds >= 6)
+      return 'success'
+     if (siteStats.value?.seconds >= 5)
       return 'warning'
     return 'success'
   }
