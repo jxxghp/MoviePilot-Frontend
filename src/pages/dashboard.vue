@@ -52,7 +52,7 @@ function setDashboardConfig() {
   const data = JSON.stringify(config.value)
   api.post('/user/config/Dashboard', data, {
     headers: {
-      "Content-Type": "text/plain"
+      "Content-Type": "application/json"
     }
   }).then((response: any) => {
     if (response && response.success) {
