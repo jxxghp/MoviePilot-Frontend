@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import type { Axios } from 'axios'
 import axios from 'axios'
-import List from './filebrowser/List.vue'
-
-import Toolbar from './filebrowser/Toolbar.vue'
+import FileList from './filebrowser/FileList.vue'
+import FileToolbar from './filebrowser/FileToolbar.vue'
 import type { EndPoints } from '@/api/types'
 
 // 输入参数
@@ -100,7 +99,7 @@ onMounted(() => {
 <template>
   <VCard class="mx-auto" :loading="loading > 0 || !path">
     <div v-if="path">
-      <Toolbar
+      <FileToolbar
         :path="path"
         :storages="storagesArray"
         :storage="activeStorage"
@@ -111,7 +110,7 @@ onMounted(() => {
         @foldercreated="refreshPending = true"
         @sortchanged="sortChanged"
       />
-      <List
+      <FileList
         :path="path"
         :storage="activeStorage"
         :icons="fileIcons"

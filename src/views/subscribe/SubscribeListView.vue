@@ -5,6 +5,7 @@ import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeEditForm from '@/components/form/SubscribeEditForm.vue'
+import SubscribeHistory from '@/components/misc/SubscribeHistory.vue'
 import store from '@/store'
 
 // 输入参数
@@ -20,6 +21,9 @@ const dataList = ref<Subscribe[]>([])
 
 // 弹窗
 const subscribeEditDialog = ref(false)
+
+// 历史记录弹窗
+const historyDialog = ref(false)
 
 // 获取订阅列表数据
 async function fetchData() {
@@ -102,15 +106,43 @@ const filteredDataList = computed(() => {
     appear
     @click="subscribeEditDialog = true"
   />
+  <VFab
+    icon="mdi-history"
+    color="info"
+    location="bottom end"
+    class="mb-2"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="historyDialog = true"
+  />
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <VDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
-    :default="true"
-    :type="props.type"
-    @save="subscribeEditDialog = false"
-    @close="subscribeEditDialog = false"
-  />
+    scrollable
+    max-width="60rem"
+  >
+    <SubscribeEditForm
+      :default="true"
+      :type="props.type"
+      @save="subscribeEditDialog = false"
+      @close="subscribeEditDialog = false"
+    />
+  </VDialog>
+  <!-- 历史记录弹窗 -->
+  <VDialog
+    v-if="historyDialog"
+    v-model="historyDialog"
+    scrollable
+    max-width="50rem"
+  >
+    <SubscribeHistory
+      :type="props.type"
+      @close="historyDialog = false"
+    />
+  </VDialog>
 </template>
 
 <style lang="scss">

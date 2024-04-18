@@ -88,6 +88,9 @@ export interface Subscribe {
 
   // 保存目录
   save_path: string
+
+  // 时间
+  date: string
 }
 
 // 历史记录
