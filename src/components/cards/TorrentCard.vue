@@ -293,7 +293,7 @@ onMounted(() => {
     <VExpandTransition>
       <div v-show="showMoreTorrents">
         <VDivider />
-        <VChipGroup class="p-3">
+        <VChipGroup class="p-3" column>
           <VChip
             v-for="(item, index) in props.more"
             :key="index"
