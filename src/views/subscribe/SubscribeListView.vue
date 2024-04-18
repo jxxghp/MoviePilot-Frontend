@@ -118,31 +118,21 @@ const filteredDataList = computed(() => {
     @click="historyDialog = true"
   />
   <!-- 订阅编辑弹窗 -->
-  <VDialog
+  <SubscribeEditForm
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
-    scrollable
-    max-width="60rem"
-  >
-    <SubscribeEditForm
-      :default="true"
-      :type="props.type"
-      @save="subscribeEditDialog = false"
-      @close="subscribeEditDialog = false"
-    />
-  </VDialog>
+    :default="true"
+    :type="props.type"
+    @save="subscribeEditDialog = false"
+    @close="subscribeEditDialog = false"
+  />
   <!-- 历史记录弹窗 -->
-  <VDialog
+  <SubscribeHistory   
     v-if="historyDialog"
     v-model="historyDialog"
-    scrollable
-    max-width="50rem"
-  >
-    <SubscribeHistory
-      :type="props.type"
-      @close="historyDialog = false"
-    />
-  </VDialog>
+    :type="props.type"
+    @close="historyDialog = false"
+  />
 </template>
 
 <style lang="scss">

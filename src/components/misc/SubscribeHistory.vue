@@ -105,93 +105,99 @@ const dropdownItems = ref([
 </script>
 
 <template>
- <VCard
-    class="mx-auto"
-    width="100%"
-    :title = "props.type + '订阅历史'"
+  <VDialog
+    scrollable
+    max-width="50rem"
   >
-    <DialogCloseBtn @click="() => { emit('close') }" />
-    <div
-      v-if="!isRefreshed"
-      class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
+  <VCard
+      class="mx-auto"
+      width="100%"
+      :title = "props.type + '订阅历史'"
     >
-      <VProgressCircular
-        size="48"
-        indeterminate
-        color="primary"
-      />
-    </div>
-    <VList
-      lines="two"
-    >
-      <VInfiniteScroll
-        mode="intersect"
-        side="end"
-        :items="historyList"
-        class="overflow-hidden"
-        @load="loadHistory"
+      <DialogCloseBtn @click="() => { emit('close') }" />
+      <div
+        v-if="!isRefreshed"
+        class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
       >
-        <template #loading />
-          <template v-for="(item, i) in historyList" :key="i">
-            <VListItem>
-              <template #prepend>
-                <VImg
-                  height="75"
-                  width="50"
-                  :src="item.poster"
-                  aspect-ratio="2/3"
-                  class="object-cover rounded shadow ring-gray-500 me-3"
-                  cover
-                >
-                  <template #placeholder>
-                    <div class="w-full h-full">
-                      <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                    </div>
-                  </template>
-                </VImg>
-              </template>
-              <VListItemTitle v-if="item.type == '电视剧'">
-                {{ item.name }} <span class="text-sm">第 {{ item.season }} 季</span>
-              </VListItemTitle>
-              <VListItemTitle v-else>
-                {{ item.name }}
-              </VListItemTitle>
-              <VListItemSubtitle class="mt-2">{{ formatDateDifference(item.date) }}</VListItemSubtitle>
-              <VListItemSubtitle class="mt-2">{{ item.description }}</VListItemSubtitle>
-              <template #append>
-                <div class="me-n3">
-                  <IconBtn>
-                    <VIcon
-                      icon="mdi-dots-vertical"
-                    />
-                    <VMenu
-                      activator="parent"
-                      close-on-content-click
-                    >
-                      <VList>
-                        <VListItem
-                          v-for="(item, i) in dropdownItems"
-                          :key="i"
-                          variant="plain"
-                          :base-color="item.color"
-                          @click="item.props.click"
-                        >
-                          <template #prepend>
-                            <VIcon :icon="item.props.prependIcon" />
-                          </template>
-                          <VListItemTitle v-text="item.title" />
-                        </VListItem>
-                      </VList>
-                    </VMenu>
-                  </IconBtn>
-                </div>
-              </template>
-            </VListItem>
-          </template>
-        </VInfiniteScroll>
-      </VList>
-    <VCardText v-if="historyList.length == 0 && isRefreshed" class="text-center">
-      没有数据
-    </VCardText>
-  </VCard>
+        <VProgressCircular
+          size="48"
+          indeterminate
+          color="primary"
+        />
+      </div>
+      <VList
+        lines="two"
+      >
+        <VInfiniteScroll
+          v-if="historyList.length > 0"
+          mode="intersect"
+          side="end"
+          :items="historyList"
+          class="overflow-hidden"
+          @load="loadHistory"
+        >
+          <template #loading />
+            <template v-for="(item, i) in historyList" :key="i">
+              <VListItem>
+                <template #prepend>
+                  <VImg
+                    height="75"
+                    width="50"
+                    :src="item.poster"
+                    aspect-ratio="2/3"
+                    class="object-cover rounded shadow ring-gray-500 me-3"
+                    cover
+                  >
+                    <template #placeholder>
+                      <div class="w-full h-full">
+                        <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                      </div>
+                    </template>
+                  </VImg>
+                </template>
+                <VListItemTitle v-if="item.type == '电视剧'">
+                  {{ item.name }} <span class="text-sm">第 {{ item.season }} 季</span>
+                </VListItemTitle>
+                <VListItemTitle v-else>
+                  {{ item.name }}
+                </VListItemTitle>
+                <VListItemSubtitle class="mt-2">{{ formatDateDifference(item.date) }}</VListItemSubtitle>
+                <VListItemSubtitle class="mt-2">{{ item.description }}</VListItemSubtitle>
+                <template #append>
+                  <div class="me-n3">
+                    <IconBtn>
+                      <VIcon
+                        icon="mdi-dots-vertical"
+                      />
+                      <VMenu
+                        activator="parent"
+                        close-on-content-click
+                      >
+                        <VList>
+                          <VListItem
+                            v-for="(item, i) in dropdownItems"
+                            :key="i"
+                            variant="plain"
+                            :base-color="item.color"
+                            @click="item.props.click"
+                          >
+                            <template #prepend>
+                              <VIcon :icon="item.props.prependIcon" />
+                            </template>
+                            <VListItemTitle v-text="item.title" />
+                          </VListItem>
+                        </VList>
+                      </VMenu>
+                    </IconBtn>
+                  </div>
+                </template>
+              </VListItem>
+            </template>
+          </VInfiniteScroll>
+        </VList>
+      <VCardText v-if="historyList.length == 0 && isRefreshed" class="text-center">
+        没有数据
+      </VCardText>
+    </VCard>
+  </VDialog>
 </template>

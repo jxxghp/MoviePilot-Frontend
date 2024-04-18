@@ -18,22 +18,28 @@ function handleImport() {
 </script>
 
 <template>
-  <VCard
-    :title="props.title"
-    class="rounded-t"
+  <VDialog
+    width="40rem"
+    scrollable
+    max-height="85vh"
   >
-    <DialogCloseBtn @click="emit('close')" />
-    <VCardText class="pt-2">
-      <VTextarea v-model="codeString" />
-    </VCardText>
-    <VCardActions>
-      <VSpacer />
-      <VBtn
-        variant="tonal"
-        @click="handleImport"
-      >
-        导入
-      </VBtn>
-    </VCardActions>
-  </VCard>
+    <VCard
+      :title="props.title"
+      class="rounded-t"
+    >
+      <DialogCloseBtn @click="emit('close')" />
+      <VCardText class="pt-2">
+        <VTextarea v-model="codeString" />
+      </VCardText>
+      <VCardActions>
+        <VSpacer />
+        <VBtn
+          variant="tonal"
+          @click="handleImport"
+        >
+          导入
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 </template>
