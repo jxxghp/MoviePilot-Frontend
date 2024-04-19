@@ -82,7 +82,7 @@ async function loadMessages({ done }: { done: any }) {
     }
     else {
       // 没有新数据
-      done('error')
+      done('empty')
     }
     // 取消加载中
     loading.value = false
@@ -111,14 +111,18 @@ onBeforeUnmount(() => {
 
 <template>
   <VInfiniteScroll
-    mode="intersect"
+    :mode="!isLoaded ? 'intersect' : 'manual'"
     side="start"
     :items="messages"
     class="overflow-hidden"
     @load="loadMessages"
+    load-more-text="加载更多 ..."
   >
     <template #loading>
       <LoadingBanner />
+    </template>
+    <template #empty>
+      没有更多数据
     </template>
     <div>
       <VRow

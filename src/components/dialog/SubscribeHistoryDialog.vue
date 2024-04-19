@@ -57,7 +57,7 @@ async function loadHistory({ done }: { done: any }) {
     isRefreshed.value = true
     if (currData.value.length === 0) {
       // 如果没有数据，跳出
-      done('error')
+      done('empty')
     } else {
       // 合并数据
       historyList.value = [...historyList.value, ...currData.value]
@@ -156,6 +156,9 @@ const dropdownItems = ref([
           <template #loading>
             <LoadingBanner />
           </template>
+          <template #empty>
+            没有更多数据
+          </template>
           <template v-for="(item, i) in historyList" :key="i">
             <VListItem>
               <template #prepend>
@@ -212,9 +215,6 @@ const dropdownItems = ref([
               </template>
             </VListItem>
           </template>
-          <VCardText v-if="historyList.length == 0 && isRefreshed" class="text-center">
-            没有数据
-          </VCardText>
         </VInfiniteScroll>
       </VList>
     </VCard>

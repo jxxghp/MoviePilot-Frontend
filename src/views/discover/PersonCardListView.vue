@@ -63,7 +63,7 @@ async function fetchData({ done }: { done: any }) {
         isRefreshed.value = true
         if (currData.value.length === 0) {
           // 如果没有数据，跳出
-          done('error')
+          done('empty')
         } else {
           // 合并数据
           dataList.value = [...dataList.value, ...currData.value]
@@ -88,7 +88,7 @@ async function fetchData({ done }: { done: any }) {
       isRefreshed.value = true
       if (currData.value.length === 0) {
         // 如果没有数据，跳出
-        done('error')
+        done('empty')
       } else {
         // 合并数据
         dataList.value = [...dataList.value, ...currData.value]
@@ -122,6 +122,7 @@ async function fetchData({ done }: { done: any }) {
     @load="fetchData"
   >
     <template #loading />
+    <template #empty />
     <div
       v-if="dataList.length > 0 && props.type === 'tmdb'"
       class="grid gap-4 grid-media-card mx-3"

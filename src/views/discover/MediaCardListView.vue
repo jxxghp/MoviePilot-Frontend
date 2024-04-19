@@ -71,13 +71,15 @@ async function fetchData({ done }: { done: any }) {
         isRefreshed.value = true
         if (currData.value.length === 0) {
           // 如果没有数据，跳出
-          done('error')
+          done('empty')
           return
         }
         // 合并数据
         dataList.value = [...dataList.value, ...currData.value]
         // 页码+1
         page.value++
+        // 返回加载成功
+        done('ok')
       }
     }
     else {
@@ -92,7 +94,7 @@ async function fetchData({ done }: { done: any }) {
       isRefreshed.value = true
       if (currData.value.length === 0) {
         // 如果没有数据，跳出
-        done('error')
+        done('empty')
       } else {
         // 合并数据
         dataList.value = [...dataList.value, ...currData.value]
@@ -107,7 +109,6 @@ async function fetchData({ done }: { done: any }) {
   }
   catch (error) {
     console.error(error)
-
     // 返回加载失败
     done('error')
   }
@@ -127,6 +128,7 @@ async function fetchData({ done }: { done: any }) {
     @load="fetchData"
   >
     <template #loading />
+    <template #empty />
     <div
       v-if="dataList.length > 0"
       class="grid gap-4 grid-media-card mx-3"
