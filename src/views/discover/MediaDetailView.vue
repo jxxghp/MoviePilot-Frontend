@@ -457,16 +457,10 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" class="max-w-8xl mx-auto px-4">
     <template v-if="mediaDetail.backdrop_path || mediaDetail.poster_path">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
@@ -638,16 +632,10 @@ onBeforeMount(() => {
                 </VExpansionPanelTitle>
                 <VExpansionPanelText>
                   <template #default>
-                    <div
+                    <LoadingBanner
                       v-if="!seasonEpisodesInfo[season.season_number || 0]"
-                      class="mt-3 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-                    >
-                      <VProgressCircular
-                        size="48"
-                        indeterminate
-                        color="primary"
-                      />
-                    </div>
+                      class="mt-3"
+                    />
                     <div class="flex flex-col justify-center divide-y divide-gray-700">
                       <div v-for="episode in seasonEpisodesInfo[season.season_number || 0]" :key="episode.episode_number" class="flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4">
                         <div class="flex-1">

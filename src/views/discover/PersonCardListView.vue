@@ -117,16 +117,10 @@ async function fetchData({ done }: { done: any }) {
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <VInfiniteScroll
     mode="intersect"
     side="end"

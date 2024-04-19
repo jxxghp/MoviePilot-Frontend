@@ -211,17 +211,10 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      v-if="!isRefreshed"
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <div
     v-if="dataList.length > 0"
     class="grid gap-4 grid-plugin-card"
@@ -285,17 +278,10 @@ onBeforeMount(() => {
         </VToolbar>
       </div>
       <VCardText>
-        <div
+        <LoadingBanner
           v-if="!isAppMarketLoaded"
-          class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-        >
-          <VProgressCircular
-            v-if="!isAppMarketLoaded"
-            size="48"
-            indeterminate
-            color="primary"
-          />
-        </div>
+          class="mt-12"
+        />
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <PluginAppCard
             v-for="data in sortedUninstalledList"

@@ -9,7 +9,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'save'])
 
 // 订阅历史列表
 const historyList = ref<Subscribe[]>([])
@@ -28,6 +28,12 @@ const loading = ref(false)
 
 // 是否加载完成
 const isRefreshed = ref(false)
+
+// 进度框
+const progressDialog = ref(false)
+
+// 进度文字
+const progressText = ref('正在重新订阅...')
 
 // 调用API查询列表
 async function loadHistory({ done }: { done: any }) {
@@ -71,13 +77,33 @@ async function loadHistory({ done }: { done: any }) {
 }
 
 // 重新订阅
-function reSubscribe(item: Subscribe) {
-
+async function reSubscribe(item: Subscribe) {
+  if (item.type === '电影')
+    progressText.value = `正在重新订阅 ${item.name} ...`
+  else
+    progressText.value = `正在重新订阅 ${item.name} 第 ${item.season} 季 ...`
+  progressDialog.value = true
+  try {
+    const result: {[key: string]: any} = await api.post('subscribe', item)
+    if (result.success){
+      emit('save')
+    }
+  } catch (e) {
+    console.error(e)
+  }
+  progressDialog.value = false
 }
 
 // 删除记录
-function deleteHistory(item: Subscribe) {
-
+async function deleteHistory(item: Subscribe) {
+  try {
+    const result: {[key: string]: any} = await api.delete(`subscribe/history/${item.id}`)
+    if (result.success){
+      historyList.value = historyList.value.filter((i) => i.id !== item.id)
+    }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 // 弹出菜单
@@ -108,12 +134,15 @@ const dropdownItems = ref([
   <VDialog
     scrollable
     max-width="50rem"
+    max-height="90vh"
   >
   <VCard
       class="mx-auto"
       width="100%"
-      :title = "props.type + '订阅历史'"
     >
+      <VCardItem class="pb-0">
+        <VCardTitle>{{ props.type + '订阅历史' }}</VCardTitle>
+      </VCardItem>
       <DialogCloseBtn @click="() => { emit('close') }" />
       <VList
         lines="two"
@@ -126,16 +155,7 @@ const dropdownItems = ref([
           @load="loadHistory"
         >
           <template #loading>
-            <div
-              v-if="!isRefreshed"
-              class="w-full text-center text-gray-500 text-sm flex flex-col items-center"
-            >
-              <VProgressCircular
-                size="48"
-                indeterminate
-                color="primary"
-              />
-            </div>
+            <LoadingBanner />
           </template>
           <template v-for="(item, i) in historyList" :key="i">
             <VListItem>
@@ -175,16 +195,16 @@ const dropdownItems = ref([
                     >
                       <VList>
                         <VListItem
-                          v-for="(item, i) in dropdownItems"
+                          v-for="(menu, i) in dropdownItems"
                           :key="i"
                           variant="plain"
-                          :base-color="item.color"
-                          @click="item.props.click"
+                          :base-color="menu.color"
+                          @click="menu.props.click(item)"
                         >
                           <template #prepend>
-                            <VIcon :icon="item.props.prependIcon" />
+                            <VIcon :icon="menu.props.prependIcon" />
                           </template>
-                          <VListItemTitle v-text="item.title" />
+                          <VListItemTitle v-text="menu.title" />
                         </VListItem>
                       </VList>
                     </VMenu>
@@ -199,5 +219,24 @@ const dropdownItems = ref([
         </VInfiniteScroll>
       </VList>
     </VCard>
+    <!-- 进度框 -->
+    <VDialog
+      v-model="progressDialog"
+      :scrim="false"
+      width="25rem"
+    >
+      <VCard
+        color="primary"
+      >
+        <VCardText class="text-center">
+          {{ progressText }}
+          <VProgressLinear
+            indeterminate
+            color="white"
+            class="mb-0 mt-1"
+          />
+        </VCardText>
+      </VCard>
+    </VDialog>
   </VDialog>
 </template>

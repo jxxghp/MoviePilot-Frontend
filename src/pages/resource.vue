@@ -120,11 +120,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="!isRefreshed" class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center">
-    <VProgressCircular v-if="!keyword" size="48" indeterminate color="primary" />
-    <VProgressCircular v-if="keyword" class="mb-3" color="primary" :model-value="progressValue" size="64" />
-    <span>{{ progressText }}</span>
-  </div>
+  <LoadingBanner 
+    v-if="!isRefreshed" 
+    class="mt-12"
+    :text="progressText"
+    :progress="progressValue"
+  />
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"
     :error-title="errorTitle"
