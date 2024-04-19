@@ -364,14 +364,16 @@ function getExistText(season: number) {
 }
 
 // 打开详情页
-function goMediaDetail() {
-  router.push({
-    path: '/media',
-    query: {
-      mediaid: getMediaId(),
-      type: props.media?.type,
-    },
-  })
+function goMediaDetail(isHovering = false) {
+  if (isHovering) {
+    router.push({
+      path: '/media',
+      query: {
+        mediaid: getMediaId(),
+        type: props.media?.type,
+      },
+    })
+  }
 }
 
 // 开始搜索
@@ -440,7 +442,7 @@ function getYear(airDate: string) {
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
         }"
-        @click.stop="goMediaDetail"
+        @click.stop="goMediaDetail(hover.isHovering)"
       >
         <VImg
           aspect-ratio="2/3"
