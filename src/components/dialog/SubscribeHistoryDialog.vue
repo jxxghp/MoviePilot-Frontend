@@ -43,11 +43,10 @@ async function loadHistory({ done }: { done: any }) {
     return
   }
 
-  // 设置加载中
-  loading.value = true
-
   // 调用API查询列表
   try {
+    // 设置加载中
+    loading.value = true
     currData.value = await api.get(`subscribe/history/${props.type}`, {
       params: {
         page: currentPage.value,
@@ -58,17 +57,17 @@ async function loadHistory({ done }: { done: any }) {
     isRefreshed.value = true
     if (currData.value.length === 0) {
       // 如果没有数据，跳出
+      done('error')
+    } else {
+      // 合并数据
+      historyList.value = [...historyList.value, ...currData.value]
+      // 页码+1
+      currentPage.value++
+      // 返回加载成功
       done('ok')
-      return
     }
-    // 合并数据
-    historyList.value = [...historyList.value, ...currData.value]
-    // 页码+1
-    currentPage.value++
     // 取消加载中
     loading.value = false
-    // 返回加载成功
-    done('ok')
   } catch (e) {
     console.error(e)
     // 返回加载失败

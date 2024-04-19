@@ -55,38 +55,39 @@ async function loadMessages({ done }: { done: any }) {
     done('ok')
     return
   }
-  // 设置加载中
-  loading.value = true
   try {
+    // 设置加载中
+    loading.value = true
     currData.value = await api.get('message/web', {
       params: {
         page: page.value,
         size: 20,
       },
     })
+    // 已加载过
+    isLoaded.value = true
     if (currData.value.length > 0) {
       // 取最后一条时间为存量消息最新时间
       lastTime.value = currData.value[currData.value.length - 1].reg_time ?? ''
       // 合并数据
       messages.value = [...currData.value, ...messages.value]
-      // 加载完成
-      done('ok')
       if (page.value === 1) {
         // 滚动到底部
         emit('scroll')
-        // 监听SSE消息
-        startSSEMessager()
       }
       // 页码+1
       page.value++
+      // 完成
+      done('ok')
     }
     else {
-      done('ok')
-      // 监听SSE消息
-      startSSEMessager()
+      // 没有新数据
+      done('error')
     }
+    // 取消加载中
     loading.value = false
-    isLoaded.value = true
+    // 监听SSE消息
+    startSSEMessager()
   }
   catch (error) {
     console.error(error)
@@ -117,13 +118,7 @@ onBeforeUnmount(() => {
     @load="loadMessages"
   >
     <template #loading>
-      <VProgressCircular
-        v-if="loading"
-        indeterminate
-        size="48"
-        class="mb-5"
-        color="primary"
-      />
+      <LoadingBanner />
     </template>
     <div>
       <VRow

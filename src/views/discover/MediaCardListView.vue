@@ -52,66 +52,58 @@ async function fetchData({ done }: { done: any }) {
     // 如果正在加载中，直接返回
     if (loading.value) {
       done('ok')
-
       return
     }
-
-    // 设置加载中
-    loading.value = true
 
     // 加载到满屏或者加载出错
     if (!hasScroll()) {
       // 加载多次
       while (!hasScroll()) {
+        // 设置加载中
+        loading.value = true
         // 请求API
         currData.value = await api.get(props.apipath, {
           params: getParams(),
         })
-
+        // 取消加载中
+        loading.value = false
         // 标计为已请求完成
         isRefreshed.value = true
         if (currData.value.length === 0) {
           // 如果没有数据，跳出
-          done('ok')
-
+          done('error')
           return
         }
-
         // 合并数据
         dataList.value = [...dataList.value, ...currData.value]
-
         // 页码+1
         page.value++
       }
     }
     else {
       // 加载一次
+      // 设置加载中
+      loading.value = true
       // 请求API
       currData.value = await api.get(props.apipath, {
         params: getParams(),
       })
-
       // 标计为已请求完成
       isRefreshed.value = true
       if (currData.value.length === 0) {
         // 如果没有数据，跳出
+        done('error')
+      } else {
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value]
+        // 页码+1
+        page.value++
+        // 返回加载成功
         done('ok')
-
-        return
       }
-
-      // 合并数据
-      dataList.value = [...dataList.value, ...currData.value]
-
-      // 页码+1
-      page.value++
     }
-
     // 取消加载中
     loading.value = false
-
-    // 返回加载成功
-    done('ok')
   }
   catch (error) {
     console.error(error)
