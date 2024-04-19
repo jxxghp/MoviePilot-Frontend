@@ -156,9 +156,7 @@ const dropdownItems = ref([
           <template #loading>
             <LoadingBanner />
           </template>
-          <template #empty>
-            没有更多数据
-          </template>
+          <template #empty />
           <template v-for="(item, i) in historyList" :key="i">
             <VListItem>
               <template #prepend>
