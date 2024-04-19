@@ -400,7 +400,7 @@ const getImgUrl: Ref<string> = computed(() => {
   const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
   // 如果地址中包含douban则使用中转代理
   if (url.includes('doubanio.com'))
-    return `${import.meta.env.VITE_API_BASE_URL}douban/img/${encodeURIComponent(url)}`
+    return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${encodeURIComponent(url)}`
 
   return url
 })
