@@ -91,7 +91,7 @@ const iconPath: Ref<string> = computed(() => {
     return noImage
   // 如果是网络图片则使用代理后返回
   if (props.plugin?.plugin_icon?.startsWith('http'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/1/${encodeURIComponent(props.plugin?.plugin_icon).replace(/%2F/g, '/')}`
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(props.plugin?.plugin_icon).replace(/%2F/g, '/')}`
 
   return `./plugin_icon/${props.plugin?.plugin_icon}`
 })
