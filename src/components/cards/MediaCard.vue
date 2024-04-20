@@ -157,7 +157,7 @@ async function addSubscribe(season = 0) {
 
     // 弹出订阅编辑弹窗
     if (result.success && seasonsSelected.value.length <= 1) {
-      const show_edit_dialog = await querySubscribeRules()
+      const show_edit_dialog = await queryDefaultSubscribeConfig()
       if (show_edit_dialog) {
         subscribeId.value = result.data.id
         subscribeEditDialog.value = true
@@ -313,11 +313,16 @@ async function getMediaSeasons() {
 }
 
 // 查询订阅弹窗规则
-async function querySubscribeRules() {
+async function queryDefaultSubscribeConfig() {
   try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultFilterRules',
-    )
+    let subscribe_config_url = ''
+    if (props.media?.type === '电影')
+      subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
+    else
+      subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+
+    const result: { [key: string]: any } = await api.get(subscribe_config_url)
+
     if (result.data?.value)
       return result.data.value.show_edit_dialog
   }
