@@ -41,8 +41,7 @@ const defaultFilterRules = ref({
   exclude: '',
   movie_size: '',
   tv_size: '',
-  min_seeders: 0,
-  show_edit_dialog: false,
+  min_seeders: 0
 })
 
 // 订阅模式选择项
@@ -620,13 +619,6 @@ onMounted(() => {
                   label="最小做种数"
                   placeholder="0"
                   hint="小于该值的资源将被过滤掉，0表示不过滤"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VSwitch
-                  v-model="defaultFilterRules.show_edit_dialog"
-                  label="订阅时编辑更多规则"
-                  hint="开启后，添加订阅时将自动弹出订阅编辑框，要设置更多订阅选项"
                 />
               </VCol>
             </VRow>

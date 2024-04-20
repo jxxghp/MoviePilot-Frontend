@@ -46,10 +46,8 @@ const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 // 订阅编号
 const subscribeId = ref<number>()
 
-// 订阅规则
-const subscribeRules = ref({
-  show_edit_dialog: false,
-})
+// 是否显示编辑订阅弹窗
+const showEditDialog = ref(false)
 
 // 获得mediaid
 function getMediaId() {
@@ -230,7 +228,7 @@ async function addSubscribe(season = 0) {
     )
 
     // 显示编辑弹窗
-    if (result.success && subscribeRules.value.show_edit_dialog) {
+    if (result.success && showEditDialog.value) {
       subscribeId.value = result.data.id
       subscribeEditDialog.value = true
     }
@@ -288,20 +286,6 @@ async function removeSubscribe(season: number) {
     console.error(error)
   }
   doneNProgress()
-}
-
-// 查询订阅弹窗规则
-async function querySubscribeRules() {
-  try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultFilterRules',
-    )
-    if (result.data?.value)
-      subscribeRules.value = result.data?.value
-  }
-  catch (error) {
-    console.log(error)
-  }
 }
 
 // 订阅按钮响应
@@ -450,9 +434,27 @@ async function handlePlay() {
   }
 }
 
+async function queryDefaultSubscribeConfig() {
+  try {
+    let subscribe_config_url = ''
+    if (mediaProps.type === '电影')
+      subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
+    else
+      subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+
+    const result: { [key: string]: any } = await api.get(subscribe_config_url)
+
+    if (result.data.value && result.data.value.show_edit_dialog)
+      showEditDialog.value = true
+  }
+  catch (error) {
+    console.log(error)
+  }
+}
+
 onBeforeMount(() => {
   getMediaDetail()
-  querySubscribeRules()
+  queryDefaultSubscribeConfig()
 })
 </script>
 
