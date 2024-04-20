@@ -414,7 +414,7 @@ onMounted(() => {
                 hint="开启后将使用 ImdbID 搜索资源，搜索结果更精确，但不是所有站点都支持"
               />
             </VCol>
-            <VCol
+            <VCol v-if="props.default"
               cols="12"
               md="4"
             >
