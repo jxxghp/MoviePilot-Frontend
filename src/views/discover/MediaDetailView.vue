@@ -46,9 +46,6 @@ const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 // 订阅编号
 const subscribeId = ref<number>()
 
-// 是否显示编辑订阅弹窗
-const showEditDialog = ref(false)
-
 // 获得mediaid
 function getMediaId() {
   return mediaDetail.value?.tmdb_id
@@ -228,9 +225,12 @@ async function addSubscribe(season = 0) {
     )
 
     // 显示编辑弹窗
-    if (result.success && showEditDialog.value) {
-      subscribeId.value = result.data.id
-      subscribeEditDialog.value = true
+    if (result.success) {
+      const show_edit_dialog = await queryDefaultSubscribeConfig()
+      if (show_edit_dialog) {
+        subscribeId.value = result.data.id
+        subscribeEditDialog.value = true
+      }
     }
   }
   catch (error) {
@@ -444,17 +444,17 @@ async function queryDefaultSubscribeConfig() {
 
     const result: { [key: string]: any } = await api.get(subscribe_config_url)
 
-    if (result.data.value && result.data.value.show_edit_dialog)
-      showEditDialog.value = true
+    if (result.data?.value)
+      return result.data.value.show_edit_dialog
   }
   catch (error) {
     console.log(error)
   }
+  return false
 }
 
 onBeforeMount(() => {
   getMediaDetail()
-  queryDefaultSubscribeConfig()
 })
 </script>
 
