@@ -155,7 +155,7 @@ onMounted(() => {
         </VCard>
       </div>
       <div class="md:hidden">
-        <VTooltip :text="`${arg.event.title} ${arg.event.extendedProps.subtitle}`">
+        <VTooltip :text="`${arg.event.title} 第 ${arg.event.extendedProps.subtitle} 集`">
           <template #activator="{ props }">
             <VImg
               height="60"
@@ -384,8 +384,8 @@ onMounted(() => {
 }
 
 .v-application .fc .fc-daygrid-day-number {
-  padding-block: 0rem;
-  padding-inline: 0rem;
+  padding-block: 0;
+  padding-inline: 0;
 }
 
 .v-application .fc .fc-list-event-dot {
@@ -435,7 +435,7 @@ onMounted(() => {
   margin-inline-end: 0.25rem;
 }
 
-@media (max-width: 1264px) {
+@media (width <= 1264px) {
   .v-application .fc .fc-toolbar-chunk .fc-button-group .fc-drawerToggler-button {
     display: block !important;
   }
@@ -481,10 +481,10 @@ onMounted(() => {
 }
 
 .v-application .fc .fc-button-primary {
-  background-color: transparent;
   border: none;
-  outline: none;
+  background-color: transparent;
   color: var(--v-theme-on-surface);
+  outline: none;
 }
 
 .v-application .fc .fc-button-primary:hover {
@@ -492,7 +492,7 @@ onMounted(() => {
   color: rgb(var(--v-theme-primary));
 }
 
-@media (max-width: 776px) {
+@media (width <= 776px) {
   .fc-daygrid-event-harness {
     display: flex;
     align-items: center;
