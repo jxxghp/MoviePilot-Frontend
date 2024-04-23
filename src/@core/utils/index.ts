@@ -38,6 +38,8 @@ export function calculateTimeDifference(inputTime: string): string {
   if (!inputTime)
     return ''
 
+  // 兼容低版本safari等浏览器的Date字符串
+  inputTime = inputTime.replaceAll(/-/g, '/')
   const inputDate = new Date(inputTime)
   const currentDate = new Date()
 
