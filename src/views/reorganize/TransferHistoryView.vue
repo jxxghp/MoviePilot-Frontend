@@ -3,7 +3,7 @@ import { ref, unref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
-import ReorganizeForm from '@/components/form/ReorganizeForm.vue'
+import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 
 // 提示框
 const $toast = useToast()
@@ -482,7 +482,7 @@ onMounted(fetchData)
     </VCard>
   </VBottomSheet>
   <!-- 文件整理弹窗 -->
-  <ReorganizeForm
+  <ReorganizeDialog
     v-if="redoDialog"
     v-model="redoDialog"
     :logids="redoIds"

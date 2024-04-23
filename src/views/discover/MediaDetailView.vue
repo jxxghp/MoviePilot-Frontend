@@ -8,7 +8,7 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
 import router from '@/router'
-import SubscribeEditForm from '@/components/form/SubscribeEditForm.vue'
+import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
 
 // 输入参数
 const mediaProps = defineProps({
@@ -45,11 +45,6 @@ const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 
 // 订阅编号
 const subscribeId = ref<number>()
-
-// 订阅规则
-const subscribeRules = ref({
-  show_edit_dialog: false,
-})
 
 // 获得mediaid
 function getMediaId() {
@@ -230,9 +225,12 @@ async function addSubscribe(season = 0) {
     )
 
     // 显示编辑弹窗
-    if (result.success && subscribeRules.value.show_edit_dialog) {
-      subscribeId.value = result.data.id
-      subscribeEditDialog.value = true
+    if (result.success) {
+      const show_edit_dialog = await queryDefaultSubscribeConfig()
+      if (show_edit_dialog) {
+        subscribeId.value = result.data.id
+        subscribeEditDialog.value = true
+      }
     }
   }
   catch (error) {
@@ -288,20 +286,6 @@ async function removeSubscribe(season: number) {
     console.error(error)
   }
   doneNProgress()
-}
-
-// 查询订阅弹窗规则
-async function querySubscribeRules() {
-  try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultFilterRules',
-    )
-    if (result.data?.value)
-      subscribeRules.value = result.data?.value
-  }
-  catch (error) {
-    console.log(error)
-  }
 }
 
 // 订阅按钮响应
@@ -450,23 +434,35 @@ async function handlePlay() {
   }
 }
 
+async function queryDefaultSubscribeConfig() {
+  try {
+    let subscribe_config_url = ''
+    if (mediaProps.type === '电影')
+      subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
+    else
+      subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+
+    const result: { [key: string]: any } = await api.get(subscribe_config_url)
+
+    if (result.data?.value)
+      return result.data.value.show_edit_dialog
+  }
+  catch (error) {
+    console.log(error)
+  }
+  return false
+}
+
 onBeforeMount(() => {
   getMediaDetail()
-  querySubscribeRules()
 })
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" class="max-w-8xl mx-auto px-4">
     <template v-if="mediaDetail.backdrop_path || mediaDetail.poster_path">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
@@ -638,16 +634,10 @@ onBeforeMount(() => {
                 </VExpansionPanelTitle>
                 <VExpansionPanelText>
                   <template #default>
-                    <div
+                    <LoadingBanner
                       v-if="!seasonEpisodesInfo[season.season_number || 0]"
-                      class="mt-3 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-                    >
-                      <VProgressCircular
-                        size="48"
-                        indeterminate
-                        color="primary"
-                      />
-                    </div>
+                      class="mt-3"
+                    />
                     <div class="flex flex-col justify-center divide-y divide-gray-700">
                       <div v-for="episode in seasonEpisodesInfo[season.season_number || 0]" :key="episode.episode_number" class="flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4">
                         <div class="flex-1">
@@ -849,7 +839,7 @@ onBeforeMount(() => {
     error-description="未识别到媒体信息。"
   />
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-model="subscribeEditDialog"
     :subid="subscribeId"
     @close="subscribeEditDialog = false"

@@ -43,6 +43,8 @@ const subscribeForm = ref<Subscribe>({
   username: '',
   current_priority: 0,
   save_path: '',
+  date: '',
+  show_edit_dialog: false
 })
 
 // 提示框
@@ -270,7 +272,7 @@ onMounted(() => {
     max-width="60rem"
   >
     <VCard
-      :title="`${props.default ? `设置${props.type}默认订阅规则` : `编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`}`"
+      :title="`${props.default ? `${props.type}默认订阅规则` : `编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`}`"
       class="rounded-t"
     >
       <VCardText class="pt-2">
@@ -410,6 +412,16 @@ onMounted(() => {
                 v-model="subscribeForm.search_imdbid"
                 label="使用 ImdbID 搜索"
                 hint="开启后将使用 ImdbID 搜索资源，搜索结果更精确，但不是所有站点都支持"
+              />
+            </VCol>
+            <VCol v-if="props.default"
+              cols="12"
+              md="4"
+            >
+              <VSwitch
+                v-model="subscribeForm.show_edit_dialog"
+                label="订阅时编辑更多规则"
+                hint="开启后将在添加订阅后弹出编辑订阅的对话框，方便用户编辑订阅规则"
               />
             </VCol>
           </VRow>

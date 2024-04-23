@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import SiteAddEditForm from '../form/SiteAddEditForm.vue'
+import SiteAddEditDialog from '../dialog/SiteAddEditDialog.vue'
 import SiteTorrentTable from '../table/SiteTorrentTable.vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
@@ -166,11 +166,17 @@ const statColor = computed(() => {
   }
   else if (siteStats.value?.lst_state == 0){
     if (!siteStats.value?.seconds)
-      return 'success'
+      return 'secondary'
      if (siteStats.value?.seconds >= 5)
       return 'warning'
     return 'success'
   }
+})
+
+// 监听resourceDialog，如果为false则重新查询站点使用统计
+watch(resourceDialog, (value) => {
+  if (!value)
+    getSiteStats()
 })
 
 // 装载时查询站点图标
@@ -360,7 +366,7 @@ onMounted(() => {
       </VCardActions>
     </VCard>
   </VDialog>
-  <SiteAddEditForm
+  <SiteAddEditDialog
     v-if="siteEditDialog"
     v-model="siteEditDialog"
     :siteid="cardProps.site?.id"

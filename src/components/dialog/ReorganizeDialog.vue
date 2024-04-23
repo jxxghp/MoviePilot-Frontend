@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
-import TmdbSelectorCard from '../cards/TmdbSelectorCard.vue'
+import TmdbSelector from '../misc/TmdbSelector.vue'
 import store from '@/store'
 import api from '@/api'
 import { numberValidator } from '@/@validators'
@@ -306,7 +306,7 @@ async function transfer() {
       scrollable
       max-height="85vh"
     >
-      <TmdbSelectorCard
+      <TmdbSelector
         v-model="transferForm.tmdbid"
         @close="tmdbSelectorDialog = false"
       />
