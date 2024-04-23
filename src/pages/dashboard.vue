@@ -50,14 +50,12 @@ if (Object.keys(config.value).length === 0) {
 // 设置项目
 function setDashboardConfig() {
   const data = JSON.stringify(config.value)
+  localStorage.setItem('MP_DASHBOARD', data)
+  dialog.value = false
+  // 保存到服务端
   api.post('/user/config/Dashboard', data, {
     headers: {
       "Content-Type": "application/json"
-    }
-  }).then((response: any) => {
-    if (response && response.success) {
-      localStorage.setItem('MP_DASHBOARD', data)
-      dialog.value = false
     }
   })
 }

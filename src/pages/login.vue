@@ -77,9 +77,17 @@ async function loadDashboardConfig() {
   }
 }
 
-async function afterLogin() {
-  // 加载用户监控面板配置
+// 尝试加载用户监控面板配置（本地无配置时才加载）
+async function tryLoadDashboardConfig() {
+  if (localStorage.getItem("MP_DASHBOARD")) {
+    return
+  }
   await loadDashboardConfig()
+}
+
+async function afterLogin() {
+  // 尝试加载用户监控面板配置（本地无配置时才加载）
+  await tryLoadDashboardConfig()
   // 跳转到首页或回原始页面
   router.push(store.state.auth.originalPath ?? '/')
 }
