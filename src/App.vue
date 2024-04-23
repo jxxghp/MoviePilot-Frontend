@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import { useTheme } from 'vuetify'
+import api from '@/api'
 import store from './store'
 
 
@@ -36,10 +37,30 @@ function startSSEMessager() {
   }
 }
 
+// 加载用户监控面板配置
+async function loadDashboardConfig() {
+  const response = await api.get('/user/config/Dashboard')
+  if (response && response.data && response.data.value) {
+      const data = JSON.stringify(response.data.value)
+      if (data != localStorage.getItem("MP_DASHBOARD")) {
+        localStorage.setItem("MP_DASHBOARD", data)
+      }
+    }
+}
+
+// 尝试加载用户监控面板配置（本地无配置时才加载）
+async function tryLoadDashboardConfig() {
+  if (localStorage.getItem("MP_DASHBOARD")) {
+    return
+  }
+  await loadDashboardConfig()
+}
+
 // 页面加载时，加载当前用户数据
 onBeforeMount(async () => {
   setTheme()
   startSSEMessager()
+  await tryLoadDashboardConfig()
 })
 </script>
 

@@ -9,6 +9,7 @@ import AnalyticsMemory from '@/views/dashboard/AnalyticsMemory.vue'
 import MediaServerLatest from '@/views/dashboard/MediaServerLatest.vue'
 import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
 import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
+import api from '@/api'
 
 // 仪表盘配置
 const dashboard_names = {
@@ -48,8 +49,15 @@ if (Object.keys(config.value).length === 0) {
 
 // 设置项目
 function setDashboardConfig() {
-  localStorage.setItem('MP_DASHBOARD', JSON.stringify(config.value))
+  const data = JSON.stringify(config.value)
+  localStorage.setItem('MP_DASHBOARD', data)
   dialog.value = false
+  // 保存到服务端
+  api.post('/user/config/Dashboard', data, {
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
 }
 </script>
 
