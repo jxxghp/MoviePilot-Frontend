@@ -128,7 +128,8 @@ function login() {
       store.dispatch('auth/updateSuperUser', superuser)
       store.dispatch('auth/updateUserName', username)
       store.dispatch('auth/updateAvatar', avatar)
-
+      
+      // 登录后处理
       afterLogin()
     })
     .catch((error: any) => {
