@@ -276,8 +276,9 @@ onMounted(() => {
   <VDialog
     v-if="loggingDialog"
     v-model="loggingDialog"
-    class="w-full lg:w-4/5"
     scrollable
+    max-width="70rem"
+    :fullscreen="displayWidth < (70 * 16)"
   >
     <VCard>
       <DialogCloseBtn @click="loggingDialog = false" />
