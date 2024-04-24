@@ -319,6 +319,7 @@ onMounted(() => {
     v-model="systemTestDialog"
     max-width="50rem"
     scrollable
+    :fullscreen="displayWidth < (50 * 16)"
   >
     <VCard title="系统健康检查">
       <DialogCloseBtn @click="systemTestDialog = false" />
