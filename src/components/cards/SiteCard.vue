@@ -313,6 +313,7 @@ onMounted(() => {
   >
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">
+      <DialogCloseBtn @click="siteCookieDialog=false" />
       <VCardText>
         <VForm @submit.prevent="() => {}">
           <VRow>
