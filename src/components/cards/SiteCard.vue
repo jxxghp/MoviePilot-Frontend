@@ -387,6 +387,7 @@ onMounted(() => {
     max-width="80rem"
     scrollable
     z-index="1010"
+    :fullscreen="displayWidth < (80 * 16)"
   >
     <!-- Dialog Content -->
     <VCard :title="`浏览站点 - ${cardProps.site?.name}`">
