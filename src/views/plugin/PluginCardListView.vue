@@ -6,6 +6,10 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import PluginAppCard from '@/components/cards/PluginAppCard.vue'
 import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 已安装插件列表
 const dataList = ref<Plugin[]>([])
@@ -320,6 +324,7 @@ onBeforeMount(() => {
     :z-index="1010"
     max-width="40rem"
     max-height="85vh"
+    :fullscreen="displayWidth < 40 * 16"
   >
     <VCard
       class="mx-auto"
