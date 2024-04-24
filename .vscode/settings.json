@@ -6,9 +6,6 @@
   "[javascript]": {
     "editor.formatOnSave": false
   },
-  "[typescript]": {
-    "editor.formatOnSave": false
-  },
   "[markdown]": {
     "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
   },
@@ -25,7 +22,7 @@
   },
   // Vue
   "[vue]": {
-    "editor.formatOnSave": false
+    "editor.formatOnSave": true
   },
   // Extension: Volar
   "volar.preview.port": 3000,
@@ -33,6 +30,10 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.fixAll.stylelint": "explicit"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
   },
   "eslint.alwaysShowStatus": true,
   "eslint.format.enable": true,
