@@ -171,6 +171,7 @@ export function formatDateDifference(dateString: string): string {
   //   return `${minutesDifference}分钟前`
   // else
   //   return '刚刚'
-
+  if (!dateString)
+    return ''
   return dayjs(dateString).fromNow()
 }

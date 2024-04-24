@@ -100,7 +100,7 @@ function compareTime(time1: string, time2: string) {
     return -1
   if (!time2)
     return 1
-  return new Date(time1).getTime() - new Date(time2).getTime()
+  return new Date(time1.replaceAll(/-/g, '/')).getTime() - new Date(time2.replaceAll(/-/g, '/')).getTime()
 }
 
 onBeforeUnmount(() => {
