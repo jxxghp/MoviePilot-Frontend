@@ -4,6 +4,10 @@ import TmdbSelector from '../misc/TmdbSelector.vue'
 import store from '@/store'
 import api from '@/api'
 import { numberValidator } from '@/@validators'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 输入参数
 const props = defineProps({
@@ -144,6 +148,7 @@ async function transfer() {
   <VDialog
     scrollable
     max-width="60rem"
+    :fullscreen="displayWidth < (60 * 16)"
   >
     <VCard
       :title="`${props.path ? `整理 - ${props.path}` : `整理 - 共 ${props.logids?.length} 条记录`}`"

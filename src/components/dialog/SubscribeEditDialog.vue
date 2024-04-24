@@ -3,6 +3,10 @@ import { useToast } from 'vue-toast-notification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
 import type { Site, Subscribe } from '@/api/types'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 输入参数
 const props = defineProps({
@@ -270,6 +274,7 @@ onMounted(() => {
   <VDialog
     scrollable
     max-width="60rem"
+    :fullscreen="displayWidth < (60 * 16)"
   >
     <VCard
       :title="`${props.default ? `${props.type}默认订阅规则` : `编辑订阅 - ${subscribeForm.name} ${subscribeForm.season ? `第 ${subscribeForm.season} 季` : ''}`}`"

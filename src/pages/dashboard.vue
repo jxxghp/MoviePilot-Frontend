@@ -11,6 +11,10 @@ import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
 import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
 import api from '@/api'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 仪表盘配置
 const dashboard_names = {
@@ -157,6 +161,7 @@ function setDashboardConfig() {
     v-model="dialog"
     max-width="600"
     scrollable
+    :fullscreen="displayWidth < 600"
   >
     <VCard title="设置仪表板">
       <VCardText>
@@ -166,6 +171,7 @@ function setDashboardConfig() {
             :key="key"
             cols="12"
             md="4"
+            sm="4"
           >
             <VCheckbox
               v-model="config[key]"

@@ -2,6 +2,10 @@
 import api from '@/api';
 import { Subscribe } from '@/api/types';
 import { formatDateDifference } from '@core/utils/formatters'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 输入参数
 const props = defineProps({
@@ -133,7 +137,7 @@ const dropdownItems = ref([
   <VDialog
     scrollable
     max-width="50rem"
-    max-height="90vh"
+    :fullscreen="displayWidth < (50 * 16)"
   >
   <VCard
       class="mx-auto"
