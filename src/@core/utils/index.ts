@@ -33,12 +33,16 @@ export function isToday(date: Date) {
   )
 }
 
-// 计算时间差，返回xx天/xx小时/xx分钟/xx秒
+/**
+ * 计算时间差，返回xx天/xx小时/xx分钟/xx秒
+ *
+ * @deprecated 建议使用：@core/utils/formatters.ts formatDateDifference
+ */
 export function calculateTimeDifference(inputTime: string): string {
   if (!inputTime)
     return ''
 
-  const inputDate = new Date(inputTime)
+  const inputDate = new Date(inputTime.replaceAll(/-/g, '/'))
   const currentDate = new Date()
 
   const timeDifference = currentDate.getTime() - inputDate.getTime()
@@ -70,7 +74,7 @@ export function calculateTimeDiff(inputTime: string): string {
     return ''
 
   // 使用当前时区
-  const inputDate = new Date(inputTime)
+  const inputDate = new Date(inputTime.replaceAll(/-/g, '/'))
   const currentDate = new Date()
 
   const timeDifference = currentDate.getTime() - inputDate.getTime()
