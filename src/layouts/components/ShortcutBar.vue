@@ -263,6 +263,7 @@ onMounted(() => {
     v-if="netTestDialog"
     v-model="netTestDialog"
     max-width="35rem"
+    :fullscreen="displayWidth < (35 * 16)"
   >
     <VCard title="网络测试">
       <DialogCloseBtn @click="netTestDialog = false" />
