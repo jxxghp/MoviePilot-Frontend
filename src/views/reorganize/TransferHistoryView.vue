@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { debounce } from 'lodash'
 import { ref, unref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
@@ -58,11 +59,12 @@ const headers = [
 ]
 
 const pageRange = [
-  {title: '25', value: 25},
-  {title: '50', value: 50},
-  {title: '100', value: 100},
-  {title: '1000', value: 1000},
-  {title: 'All', value: -1}]
+  { title: '25', value: 25 },
+  { title: '50', value: 50 },
+  { title: '100', value: 100 },
+  { title: '1000', value: 1000 },
+  { title: 'All', value: -1 },
+]
 
 // 数据列表
 const dataList = ref<TransferHistory[]>([])
@@ -112,30 +114,32 @@ const TransferDict: { [key: string]: string } = {
 
 // 分页提示
 const pageTip = computed(() => {
-  const begin  = unref(itemsPerPage) * (unref(currentPage) - 1) + 1
-  const end = unref(itemsPerPage) * unref(currentPage) === -1 ? 'ALL' : unref(itemsPerPage) * unref(currentPage) 
+  const begin = unref(itemsPerPage) * (unref(currentPage) - 1) + 1
+  const end = unref(itemsPerPage) * unref(currentPage) === -1 ? 'ALL' : unref(itemsPerPage) * unref(currentPage)
   return {
     begin,
-    end
+    end,
   }
 })
 
 // 分页总数
 const totalPage = computed(() => {
-  const total = Math.ceil(unref(totalItems) /unref(itemsPerPage))
+  const total = Math.ceil(unref(totalItems) / unref(itemsPerPage))
   return total
 })
 
 // 切换页签和搜索词
 watch(
   [() => currentPage.value, () => itemsPerPage.value, () => search.value],
-  async () => {
+  debounce(async () => {
     await fetchData()
-})
+  }, 1000),
+)
 
 // 获取订阅列表数据
 async function fetchData(page = currentPage.value, count = itemsPerPage.value) {
   loading.value = true
+
   try {
     const result: { [key: string]: any } = await api.get('history/transfer', {
       params: {
@@ -150,8 +154,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value) {
     searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(
       title => title !== '',
     )
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
   loading.value = false
@@ -159,12 +162,9 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value) {
 
 // 根据 type 返回不同的图标
 function getIcon(type: string) {
-  if (type === '电影')
-    return 'mdi-movie'
-  else if (type === '电视剧')
-    return 'mdi-television-classic'
-  else
-    return 'mdi-help-circle'
+  if (type === '电影') return 'mdi-movie'
+  else if (type === '电视剧') return 'mdi-television-classic'
+  else return 'mdi-help-circle'
 }
 
 // 删除历史记录
@@ -184,10 +184,8 @@ async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boo
       data: item,
     })
 
-    if (!result.success)
-      $toast.error(`删除失败: ${result.msg}`)
-  }
-  catch (error) {
+    if (!result.success) $toast.error(`删除失败: ${result.msg}`)
+  } catch (error) {
     console.error(error)
   }
 }
@@ -196,8 +194,7 @@ async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boo
 async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   // 关闭弹窗
   deleteConfirmDialog.value = false
-  if (!currentHistory.value)
-    return
+  if (!currentHistory.value) return
 
   // 删除
   await remove(currentHistory.value, deleteSrc, deleteDest)
@@ -211,8 +208,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   deleteConfirmDialog.value = false
   // 总条数
   const total = selected.value.length
-  if (total === 0)
-    return
+  if (total === 0) return
 
   // 已处理条数
   let handled = 0
@@ -237,16 +233,13 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
 
 // 响应删除操作
 async function deleteConfirmHandler(deleteSrc: boolean, deleteDest: boolean) {
-  if (currentHistory.value)
-    await removeSingle(deleteSrc, deleteDest)
-  else
-    await removeBatch(deleteSrc, deleteDest)
+  if (currentHistory.value) await removeSingle(deleteSrc, deleteDest)
+  else await removeBatch(deleteSrc, deleteDest)
 }
 
 // 批量删除历史记录
 async function removeHistoryBatch() {
-  if (selected.value.length === 0)
-    return
+  if (selected.value.length === 0) return
 
   // 清空当前操作记录
   currentHistory.value = undefined
@@ -257,26 +250,20 @@ async function removeHistoryBatch() {
 
 // 计算根路径
 function getRootPath(path: string, type: string, category: string) {
-  if (!path)
-    return ''
+  if (!path) return ''
 
   let index = -2
-  if (type !== '电影')
-    index = -3
+  if (type !== '电影') index = -3
 
-  if (category)
-    index -= 1
+  if (category) index -= 1
 
-  if (path.includes('/'))
-    return path.split('/').slice(0, index).join('/')
-  else
-    return path.split('\\').slice(0, index).join('\\')
+  if (path.includes('/')) return path.split('/').slice(0, index).join('/')
+  else return path.split('\\').slice(0, index).join('\\')
 }
 
 // 批量重新整理
 async function retransferBatch() {
-  if (selected.value.length === 0)
-    return
+  if (selected.value.length === 0) return
 
   // 清空当前操作记录
   currentHistory.value = undefined
@@ -292,8 +279,7 @@ async function retransferBatch() {
     const category = selected.value[0].category ?? ''
     // 计算根路径
     redoTarget.value = getRootPath(dest, mediaType, category)
-  }
-  else {
+  } else {
     redoTarget.value = ''
   }
   // 打开识别弹窗
@@ -329,7 +315,6 @@ const dropdownItems = ref([
 
 // 初始加载数据
 onMounted(fetchData)
-
 </script>
 
 <template>
@@ -337,9 +322,7 @@ onMounted(fetchData)
     <VCardItem>
       <VCardTitle>
         <VRow>
-          <VCol cols="4" md="6">
-            历史记录
-          </VCol>
+          <VCol cols="4" md="6"> 历史记录 </VCol>
           <VCol cols="8" md="6" class="flex">
             <VCombobox
               key="search_navbar"
@@ -389,7 +372,7 @@ onMounted(fetchData)
         </div>
       </template>
       <template #item.src="{ item }">
-        <small>{{ item?.src }} <br>=> {{ item?.dest }}</small>
+        <small>{{ item?.src }} <br />=> {{ item?.dest }}</small>
       </template>
       <template #item.mode="{ item }">
         <VChip variant="outlined" color="primary" size="small">
@@ -397,14 +380,10 @@ onMounted(fetchData)
         </VChip>
       </template>
       <template #item.status="{ item }">
-        <VChip v-if="item?.status" color="success" size="small">
-          成功
-        </VChip>
+        <VChip v-if="item?.status" color="success" size="small"> 成功 </VChip>
         <v-tooltip v-else :text="item?.errmsg">
           <template #activator="{ props }">
-            <VChip v-bind="props" color="error" size="small">
-              失败
-            </VChip>
+            <VChip v-bind="props" color="error" size="small"> 失败 </VChip>
           </template>
         </v-tooltip>
       </template>
@@ -432,22 +411,13 @@ onMounted(fetchData)
           </VMenu>
         </IconBtn>
       </template>
-      <template #no-data>
-        没有数据
-      </template>
+      <template #no-data> 没有数据 </template>
     </VDataTableVirtual>
     <div class="flex items-center justify-end">
       <div class="w-auto">
-        <VSelect
-          v-model="itemsPerPage"
-          :items="pageRange"
-          density="compact"
-          variant="solo"
-          flat
-          size="small"
-        />
+        <VSelect v-model="itemsPerPage" :items="pageRange" density="compact" variant="solo" flat />
       </div>
-      <div class="w-auto text-sm">{{pageTip.begin}}-{{pageTip.end}} / {{totalItems}}</div>
+      <div class="w-auto text-sm">{{ pageTip.begin }}-{{ pageTip.end }} / {{ totalItems }}</div>
       <VPagination
         v-model="currentPage"
         show-first-last-page
@@ -466,12 +436,8 @@ onMounted(fetchData)
         {{ confirmTitle }}
       </VCardTitle>
       <div class="d-flex flex-column flex-lg-row justify-center my-3">
-        <VBtn color="primary" class="mb-2 mx-2" @click="deleteConfirmHandler(false, false)">
-          仅删除历史记录
-        </VBtn>
-        <VBtn color="warning" class="mb-2 mx-2" @click="deleteConfirmHandler(true, false)">
-          删除历史记录和源文件
-        </VBtn>
+        <VBtn color="primary" class="mb-2 mx-2" @click="deleteConfirmHandler(false, false)"> 仅删除历史记录 </VBtn>
+        <VBtn color="warning" class="mb-2 mx-2" @click="deleteConfirmHandler(true, false)"> 删除历史记录和源文件 </VBtn>
         <VBtn color="info" class="mb-2 mx-2" @click="deleteConfirmHandler(false, true)">
           删除历史记录和媒体库文件
         </VBtn>

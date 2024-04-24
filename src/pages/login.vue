@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { debounce } from 'lodash'
 import { VForm } from 'vuetify/components/VForm'
 import { useStore } from 'vuex'
 import { requiredValidator } from '@/@validators'
@@ -48,9 +49,8 @@ async function fetchBackgroundImage() {
       console.log(error)
     })
 }
-
 // 查询是否开启双重验证
-async function fetchOTP() {
+const fetchOTP = debounce(async () => {
   const userid = usernameInput.value?.value
   if (!userid) {
     isOTP.value = false
@@ -64,22 +64,22 @@ async function fetchOTP() {
     .catch((error: any) => {
       console.log(error)
     })
-}
+}, 500)
 
 // 加载用户监控面板配置
 async function loadDashboardConfig() {
   const response = await api.get('/user/config/Dashboard')
   if (response && response.data && response.data.value) {
     const data = JSON.stringify(response.data.value)
-    if (data != localStorage.getItem("MP_DASHBOARD")) {
-      localStorage.setItem("MP_DASHBOARD", data)
+    if (data != localStorage.getItem('MP_DASHBOARD')) {
+      localStorage.setItem('MP_DASHBOARD', data)
     }
   }
 }
 
 // 尝试加载用户监控面板配置（本地无配置时才加载）
 async function tryLoadDashboardConfig() {
-  if (localStorage.getItem("MP_DASHBOARD")) {
+  if (localStorage.getItem('MP_DASHBOARD')) {
     return
   }
   await loadDashboardConfig()
@@ -128,22 +128,17 @@ function login() {
       store.dispatch('auth/updateSuperUser', superuser)
       store.dispatch('auth/updateUserName', username)
       store.dispatch('auth/updateAvatar', avatar)
-      
+
       // 登录后处理
       afterLogin()
     })
     .catch((error: any) => {
       // 登录失败，显示错误提示
-      if (!error.response)
-        errorMessage.value = '登录失败，请检查网络连接'
-      else if (error.response.status === 401)
-        errorMessage.value = '登录失败，请检查用户名、密码或双重验证是否正确'
-      else if (error.response.status === 403)
-        errorMessage.value = '登录失败，您没有权限访问'
-      else if (error.response.status === 500)
-        errorMessage.value = '登录失败，服务器错误'
-      else
-        errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或双重验证码是否正确`
+      if (!error.response) errorMessage.value = '登录失败，请检查网络连接'
+      else if (error.response.status === 401) errorMessage.value = '登录失败，请检查用户名、密码或双重验证是否正确'
+      else if (error.response.status === 403) errorMessage.value = '登录失败，您没有权限访问'
+      else if (error.response.status === 500) errorMessage.value = '登录失败，服务器错误'
+      else errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或双重验证码是否正确`
     })
 }
 
@@ -156,8 +151,7 @@ onMounted(() => {
   // 如果token存在，且保持登录状态为true，则跳转到首页
   if (token && remember) {
     router.push('/')
-  }
-  else {
+  } else {
     // 获取背景图片
     fetchBackgroundImage()
   }
@@ -186,16 +180,11 @@ onMounted(() => {
             </div>
           </template>
 
-          <VCardTitle class="font-weight-semibold text-2xl text-uppercase">
-            MoviePilot
-          </VCardTitle>
+          <VCardTitle class="font-weight-semibold text-2xl text-uppercase"> MoviePilot </VCardTitle>
         </VCardItem>
 
         <VCardText>
-          <VForm
-            ref="refForm"
-            @submit.prevent="() => {}"
-          >
+          <VForm ref="refForm" @submit.prevent="() => {}">
             <VRow>
               <!-- username -->
               <VCol cols="12">
@@ -214,42 +203,22 @@ onMounted(() => {
                   v-model="form.password"
                   label="密码"
                   :type="isPasswordVisible ? 'text' : 'password'"
-                  :append-inner-icon="
-                    isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
-                  "
+                  :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                   :rules="[requiredValidator]"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
               </VCol>
               <VCol cols="12">
-                <VTextField
-                  v-if="isOTP"
-                  v-model="form.otp_password"
-                  label="双重验证码"
-                  type="input"
-                />
+                <VTextField v-if="isOTP" v-model="form.otp_password" label="双重验证码" type="input" />
                 <!-- remember me checkbox -->
                 <div class="d-flex align-center justify-space-between flex-wrap">
-                  <VCheckbox
-                    v-model="form.remember"
-                    label="保持登录"
-                    required
-                  />
+                  <VCheckbox v-model="form.remember" label="保持登录" required />
                 </div>
               </VCol>
               <VCol cols="12">
                 <!-- login button -->
-                <VBtn
-                  block
-                  type="submit"
-                  @click="login"
-                >
-                  登录
-                </VBtn>
-                <div
-                  v-if="errorMessage"
-                  class="text-error mt-2 text-shadow"
-                >
+                <VBtn block type="submit" @click="login"> 登录 </VBtn>
+                <div v-if="errorMessage" class="text-error mt-2 text-shadow">
                   {{ errorMessage }}
                 </div>
               </VCol>
@@ -262,7 +231,7 @@ onMounted(() => {
 </template>
 
 <style lang="scss">
-@use "@core/scss/pages/page-auth.scss";
+@use '@core/scss/pages/page-auth.scss';
 
 .v-card-item__prepend {
   padding-inline-end: 0 !important;
