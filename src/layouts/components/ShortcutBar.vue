@@ -173,18 +173,18 @@ onMounted(() => {
   <VDialog v-if="nameTestDialog" v-model="nameTestDialog" max-width="50rem" scrollable>
     <VCard title="名称识别测试">
       <DialogCloseBtn @click="nameTestDialog = false" />
-      <VCardItem>
+      <VCardText>
         <NameTestView />
-      </VCardItem>
+      </VCardText>
     </VCard>
   </VDialog>
   <!-- 网络测试弹窗 -->
-  <VDialog v-if="netTestDialog" v-model="netTestDialog" scrollable max-width="35rem">
+  <VDialog v-if="netTestDialog" v-model="netTestDialog" max-width="35rem" scrollable>
     <VCard title="网络测试">
       <DialogCloseBtn @click="netTestDialog = false" />
-      <VCardItem>
+      <VCardText>
         <NetTestView />
-      </VCardItem>
+      </VCardText>
     </VCard>
   </VDialog>
   <!-- 实时日志弹窗 -->
