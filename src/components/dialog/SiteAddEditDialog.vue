@@ -4,6 +4,10 @@ import type { Site } from '@/api/types'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { numberValidator, requiredValidator } from '@/@validators'
 import api from '@/api'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 输入参数
 const props = defineProps({
@@ -125,6 +129,7 @@ async function updateSiteInfo() {
     persistent
     eager
     max-width="60rem"
+    :fullscreen="displayWidth < (60 * 16)"
   >
     <VCard
       :title="`${props.oper === 'add' ? '新增' : '编辑'}站点${props.oper !== 'add' ? ` - ${siteForm.name}` : ''}`"
