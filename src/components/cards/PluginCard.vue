@@ -11,6 +11,10 @@ import { isNullOrEmptyObject } from '@core/utils'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
 import store from '@/store'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 输入参数
 const props = defineProps({
@@ -477,6 +481,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     v-model="pluginConfigDialog"
     scrollable
     max-width="60rem"
+    :fullscreen="displayWidth < (60 * 16)"
   >
     <VCard
       :title="`${props.plugin?.plugin_name} - 配置`"
