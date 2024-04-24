@@ -88,6 +88,9 @@ export interface Subscribe {
 
   // 保存目录
   save_path: string
+
+  // 时间
+  date: string
 }
 
 // 历史记录
@@ -503,6 +506,33 @@ export interface Site {
 
   // 是否启用
   is_active: boolean
+}
+
+// 站点使用统计
+export interface SiteStatistic {
+
+  // 站点主域名Key
+  domain?: string
+
+  // 成功次数
+  success?: number
+
+  // 失败次数
+  fail?: number
+
+  // 平均耗时
+  seconds?: number
+
+  // 最后一次访问状态 0-成功 1-失败
+  lst_state?: number
+
+  // 最后访问时间
+  lst_mod_date?: string
+
+  // 耗时记录 JSON
+  note?: string
+
+
 }
 
 // 正在下载

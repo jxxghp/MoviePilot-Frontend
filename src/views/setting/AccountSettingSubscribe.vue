@@ -4,7 +4,7 @@ import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import ImportCodeForm from '@/components/form/ImportCodeForm.vue'
+import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
 
 // 规则卡片类型
 interface FilterCard {
@@ -41,8 +41,7 @@ const defaultFilterRules = ref({
   exclude: '',
   movie_size: '',
   tv_size: '',
-  min_seeders: 0,
-  show_edit_dialog: false,
+  min_seeders: 0
 })
 
 // 订阅模式选择项
@@ -622,13 +621,6 @@ onMounted(() => {
                   hint="小于该值的资源将被过滤掉，0表示不过滤"
                 />
               </VCol>
-              <VCol cols="12" md="6">
-                <VSwitch
-                  v-model="defaultFilterRules.show_edit_dialog"
-                  label="订阅时编辑更多规则"
-                  hint="开启后，添加订阅时将自动弹出订阅编辑框，要设置更多订阅选项"
-                />
-              </VCol>
             </VRow>
           </VForm>
         </VCardText>
@@ -648,7 +640,7 @@ onMounted(() => {
     width="60rem"
     scrollable
   >
-    <ImportCodeForm
+    <ImportCodeDialog
       v-model="importCodeString"
       title="导入优先级规则"
       @close="importCodeDialog = false"

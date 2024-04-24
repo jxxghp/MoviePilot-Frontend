@@ -1,7 +1,7 @@
 <script lang='ts' setup>
 import { useToast } from 'vue-toast-notification'
-import SubscribeEditForm from '../form/SubscribeEditForm.vue'
-import { calculateTimeDifference } from '@/@core/utils'
+import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
+import { formatDateDifference } from '@/@core/utils/formatters'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
@@ -26,11 +26,9 @@ const subscribeEditDialog = ref(false)
 
 // 上一次更新时间
 const lastUpdateText = ref(
-  `${
-    props.media?.last_update
-      ? `${calculateTimeDifference(props.media?.last_update || '')}前`
-      : ''
-  }`,
+    props.media && props.media.last_update
+    ? formatDateDifference(props.media.last_update)
+    : '',
 )
 
 // 图片加载完成响应
@@ -284,7 +282,7 @@ const dropdownItems = ref([
     />
   </VCard>
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="props.media?.id"

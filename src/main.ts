@@ -17,7 +17,13 @@ import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar';
 import 'vue3-perfect-scrollbar/style.css';
+import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
+import { fixArrayAt } from '@/@core/utils/compatibility'
 
+// 修复低版本Safari等浏览器数组不支持at函数的问题
+fixArrayAt()
+
+// 加载字体
 loadFonts()
 
 // 创建Vue实例
@@ -26,6 +32,7 @@ const app = createApp(App)
 // 注册全局组件
 app.component('VAceEditor', VAceEditor)
   .component('VApexChart', VueApexCharts)
+  .component('VDialogCloseBtn', DialogCloseBtn)
 
 // 注册插件
 app

@@ -3,7 +3,7 @@ import api from '@/api'
 import type { Site } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import SiteAddEditForm from '@/components/form/SiteAddEditForm.vue'
+import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import { useDefer } from '@/@core/utils/dom'
 
 // 数据列表
@@ -35,17 +35,10 @@ onBeforeMount(fetchData)
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      v-if="!isRefreshed"
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <div
     v-if="dataList.length > 0"
     class="grid gap-3 grid-site-card"
@@ -80,7 +73,7 @@ onBeforeMount(fetchData)
     @click="siteAddDialog = true"
   />
   <!-- 新增站点弹窗 -->
-  <SiteAddEditForm
+  <SiteAddEditDialog
     v-if="siteAddDialog"
     v-model="siteAddDialog"
     oper="add"

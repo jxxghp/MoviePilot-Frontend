@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { PropType, Ref } from 'vue'
 import { useToast } from 'vue-toast-notification'
-import SubscribeEditForm from '../form/SubscribeEditForm.vue'
+import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
@@ -157,7 +157,7 @@ async function addSubscribe(season = 0) {
 
     // 弹出订阅编辑弹窗
     if (result.success && seasonsSelected.value.length <= 1) {
-      const show_edit_dialog = await querySubscribeRules()
+      const show_edit_dialog = await queryDefaultSubscribeConfig()
       if (show_edit_dialog) {
         subscribeId.value = result.data.id
         subscribeEditDialog.value = true
@@ -313,11 +313,16 @@ async function getMediaSeasons() {
 }
 
 // 查询订阅弹窗规则
-async function querySubscribeRules() {
+async function queryDefaultSubscribeConfig() {
   try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultFilterRules',
-    )
+    let subscribe_config_url = ''
+    if (props.media?.type === '电影')
+      subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
+    else
+      subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+
+    const result: { [key: string]: any } = await api.get(subscribe_config_url)
+
     if (result.data?.value)
       return result.data.value.show_edit_dialog
   }
@@ -364,14 +369,16 @@ function getExistText(season: number) {
 }
 
 // 打开详情页
-function goMediaDetail() {
-  router.push({
-    path: '/media',
-    query: {
-      mediaid: getMediaId(),
-      type: props.media?.type,
-    },
-  })
+function goMediaDetail(isHovering = false) {
+  if (isHovering) {
+    router.push({
+      path: '/media',
+      query: {
+        mediaid: getMediaId(),
+        type: props.media?.type,
+      },
+    })
+  }
 }
 
 // 开始搜索
@@ -400,7 +407,7 @@ const getImgUrl: Ref<string> = computed(() => {
   const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
   // 如果地址中包含douban则使用中转代理
   if (url.includes('doubanio.com'))
-    return `${import.meta.env.VITE_API_BASE_URL}douban/img/${encodeURIComponent(url)}`
+    return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${encodeURIComponent(url)}`
 
   return url
 })
@@ -416,14 +423,14 @@ function getSeasonPoster(posterPath: string) {
 function formatAirDate(airDate: string) {
   if (!airDate)
     return ''
-  const date = new Date(airDate)
+  const date = new Date(airDate.replaceAll(/-/g, '/'))
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
 // 从yyyy-mm-dd中提取年份
 function getYear(airDate: string) {
   if (!airDate)
     return ''
-  const date = new Date(airDate)
+  const date = new Date(airDate.replaceAll(/-/g, '/'))
   return date.getFullYear()
 }
 </script>
@@ -440,7 +447,7 @@ function getYear(airDate: string) {
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
         }"
-        @click.stop="goMediaDetail"
+        @click.stop="goMediaDetail(hover.isHovering)"
       >
         <VImg
           aspect-ratio="2/3"
@@ -592,7 +599,7 @@ function getYear(airDate: string) {
     </VCard>
   </VBottomSheet>
   <!-- 订阅编辑弹窗 -->
-  <SubscribeEditForm
+  <SubscribeEditDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="subscribeId"

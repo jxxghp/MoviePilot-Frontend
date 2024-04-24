@@ -223,7 +223,7 @@ const iconPath: Ref<string> = computed(() => {
     return noImage
   // 如果是网络图片则使用代理后返回
   if (props.plugin?.plugin_icon?.startsWith('http'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/1/${encodeURIComponent(props.plugin?.plugin_icon).replace(/%2F/g, '/')}`
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(props.plugin?.plugin_icon)}`
 
   return `./plugin_icon/${props.plugin?.plugin_icon}`
 })
@@ -482,7 +482,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
       :title="`${props.plugin?.plugin_name} - 配置`"
       class="rounded-t"
     >
-      <DialogCloseBtn @click="pluginConfigDialog = false" />
+      <DialogCloseBtn v-model='pluginConfigDialog' />
       <VCardText>
         <FormRender
           v-for="(item, index) in pluginFormItems"
@@ -516,7 +516,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
       :title="`${props.plugin?.plugin_name}`"
       class="rounded-t"
     >
-      <DialogCloseBtn @click="pluginInfoDialog = false" />
+      <DialogCloseBtn v-model='pluginInfoDialog' />
       <VCardText>
         <PageRender
           v-for="(item, index) in pluginPageItems"

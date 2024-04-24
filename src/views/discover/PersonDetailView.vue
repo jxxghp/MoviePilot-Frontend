@@ -48,16 +48,10 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <div v-if="personDetail.id" class="max-w-8xl mx-auto px-4">
     <div class="relative z-10 mt-4 mb-8 flex flex-col items-center lg:flex-row ">
       <VAvatar

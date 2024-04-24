@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { calculateTimeDifference } from '@/@core/utils'
+import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 
 // 系统环境变量
@@ -62,7 +62,7 @@ async function queryAllRelease() {
 // 计算发布时间
 function releaseTime(releaseDate: string) {
   // 上一次更新时间
-  return `${calculateTimeDifference(releaseDate)}前`
+  return formatDateDifference(releaseDate)
 }
 
 onMounted(() => {

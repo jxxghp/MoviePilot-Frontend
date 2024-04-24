@@ -42,74 +42,67 @@ async function fetchData({ done }: { done: any }) {
     // 如果正在加载中，直接返回
     if (loading.value) {
       done('ok')
-
       return
     }
-
-    // 设置加载中
-    loading.value = true
 
     // 加载到满屏或者加载出错
     if (!hasScroll()) {
       // 加载多次
       while (!hasScroll()) {
+        // 设置加载中
+        loading.value = true
         // 请求API
         currData.value = await api.get(props.apipath, {
           params: {
             page: page.value,
           },
         })
-
+        // 取消加载中
+        loading.value = false
         // 标计为已请求完成
         isRefreshed.value = true
         if (currData.value.length === 0) {
           // 如果没有数据，跳出
+          done('empty')
+        } else {
+          // 合并数据
+          dataList.value = [...dataList.value, ...currData.value]
+          // 页码+1
+          page.value++
+          // 返回加载成功
           done('ok')
-
-          return
         }
-
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-
-        // 页码+1
-        page.value++
       }
     }
     else {
       // 加载一次
+      // 设置加载中
+      loading.value = true
       // 请求API
       currData.value = await api.get(props.apipath, {
         params: {
           page: page.value,
         },
       })
-
       // 标计为已请求完成
       isRefreshed.value = true
       if (currData.value.length === 0) {
         // 如果没有数据，跳出
+        done('empty')
+      } else {
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value]
+        // 页码+1
+        page.value++
+        // 返回加载成功
         done('ok')
-
-        return
       }
-
-      // 合并数据
-      dataList.value = [...dataList.value, ...currData.value]
-
-      // 页码+1
-      page.value++
+      // 取消加载中
+      loading.value = false
     }
-
-    // 取消加载中
-    loading.value = false
-
-    // 返回加载成功
-    done('ok')
   }
   catch (error) {
     console.error(error)
-
     // 返回加载失败
     done('error')
   }
@@ -117,16 +110,10 @@ async function fetchData({ done }: { done: any }) {
 </script>
 
 <template>
-  <div
+  <LoadingBanner
     v-if="!isRefreshed"
-    class="mt-12 w-full text-center text-gray-500 text-sm flex flex-col items-center"
-  >
-    <VProgressCircular
-      size="48"
-      indeterminate
-      color="primary"
-    />
-  </div>
+    class="mt-12"
+  />
   <VInfiniteScroll
     mode="intersect"
     side="end"
@@ -135,6 +122,7 @@ async function fetchData({ done }: { done: any }) {
     @load="fetchData"
   >
     <template #loading />
+    <template #empty />
     <div
       v-if="dataList.length > 0 && props.type === 'tmdb'"
       class="grid gap-4 grid-media-card mx-3"

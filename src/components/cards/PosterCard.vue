@@ -31,12 +31,12 @@ const getImgUrl = computed(() => {
   if (imageLoadError.value)
     return noImage
   const image = props.media?.image || ''
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/0/${encodeURIComponent(image).replace(/%2F/g, '/')}`
+  return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
 })
 
 // 跳转播放
-function goPlay() {
-  if (props.media?.link)
+function goPlay(isHovering = false) {
+  if (props.media?.link && isHovering)
     window.open(props.media?.link, '_blank')
 }
 </script>
@@ -53,7 +53,7 @@ function goPlay() {
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
         }"
-        @click.stop="goPlay"
+        @click.stop="goPlay(hover.isHovering)"
       >
         <VImg
           aspect-ratio="2/3"

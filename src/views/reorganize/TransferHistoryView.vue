@@ -3,7 +3,7 @@ import { ref, unref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
-import ReorganizeForm from '@/components/form/ReorganizeForm.vue'
+import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 
 // 提示框
 const $toast = useToast()
@@ -378,8 +378,11 @@ onMounted(fetchData)
             <VIcon :icon="getIcon(item.type || '')" />
           </VAvatar>
           <div class="d-flex flex-column ms-1">
-            <span class="d-block text-high-emphasis min-w-20">
+            <span v-if="item.type === '电视剧'" class="d-block text-high-emphasis min-w-20">
               {{ item?.title }} {{ item?.seasons }}{{ item?.episodes }}
+            </span>
+            <span v-else class="d-block text-high-emphasis min-w-20">
+              {{ item?.title }}
             </span>
             <small>{{ item?.category }}</small>
           </div>
@@ -479,7 +482,7 @@ onMounted(fetchData)
     </VCard>
   </VBottomSheet>
   <!-- 文件整理弹窗 -->
-  <ReorganizeForm
+  <ReorganizeDialog
     v-if="redoDialog"
     v-model="redoDialog"
     :logids="redoIds"
@@ -534,7 +537,7 @@ onMounted(fetchData)
 
 @media (width <= 768px) {
   .data-table-div {
-    block-size: calc(100vh - 16rem);
+    block-size: calc(100vh - 17rem);
   }
 }
 </style>
