@@ -8,6 +8,10 @@ import api from '@/api'
 import type { Site, SiteStatistic } from '@/api/types'
 import ExistIcon from '@core/components/ExistIcon.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const displayWidth = useDisplay().width
 
 // 输入参数
 const cardProps = defineProps({
@@ -310,6 +314,7 @@ onMounted(() => {
   <VDialog
     v-model="siteCookieDialog"
     max-width="50rem"
+    :fullscreen="displayWidth < (50 * 16)"
   >
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">
