@@ -516,6 +516,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     v-model="pluginInfoDialog"
     scrollable
     max-width="80rem"
+    :fullscreen="displayWidth < (80 * 16)"
   >
     <VCard
       :title="`${props.plugin?.plugin_name}`"
