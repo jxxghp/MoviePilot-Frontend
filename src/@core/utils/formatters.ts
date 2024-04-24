@@ -173,5 +173,5 @@ export function formatDateDifference(dateString: string): string {
   //   return '刚刚'
   if (!dateString)
     return ''
-  return dayjs(dateString).fromNow()
+  return dayjs(dateString.replaceAll(/-/g, '/')).fromNow()
 }
