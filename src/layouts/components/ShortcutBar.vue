@@ -334,6 +334,7 @@ onMounted(() => {
     v-model="messageDialog"
     max-width="60rem"
     scrollable
+    :fullscreen="displayWidth < (60 * 16)"
   >
     <VCard title="消息中心">
       <DialogCloseBtn @click="messageDialog = false" />
