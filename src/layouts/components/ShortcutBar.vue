@@ -304,6 +304,7 @@ onMounted(() => {
     v-model="ruleTestDialog"
     max-width="50rem"
     scrollable
+    :fullscreen="displayWidth < (50 * 16)"
   >
     <VCard title="优先级测试">
       <DialogCloseBtn @click="ruleTestDialog = false" />
