@@ -39,6 +39,7 @@ jobs:
         run: |
           yarn
           yarn build
+          echo "v$frontend_version" > dist/version.txt
           zip -r dist.zip dist
 
       - name: Generate Release
