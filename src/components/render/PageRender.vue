@@ -49,18 +49,18 @@ async function commonAction(api_path: string, method: string, params = {}) {
 }
 
 // 组装事件
-let componentEvents: { [key: string]: any } = {}
-if (!isNullOrEmptyObject(elementProps.config?.events)) {
-  for (const key in elementProps.config?.events) {
-    const attr = elementProps.config?.events[key]
-    const func = async () => {
-      await commonAction(attr['api'], attr['method'], attr['params'])
+let componentEvents = reactive<{ [key: string]: any }>({})
+watchEffect(() => {
+  if (!isNullOrEmptyObject(elementProps.config?.events)) {
+    for (const key in elementProps.config?.events) {
+      const attr = elementProps.config?.events[key]
+      const func = async () => {
+        await commonAction(attr['api'], attr['method'], attr['params'])
+      }
+      componentEvents[key] = func
     }
-    componentEvents[key] = func
   }
-} else {
-  componentEvents = {}
-}
+})
 </script>
 
 <template>
