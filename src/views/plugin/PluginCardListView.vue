@@ -189,7 +189,9 @@ function refreshData() {
 
 // 对uninstalledList进行排序，按PluginStatistics倒序
 const sortedUninstalledList = computed(() => {
-  const list = uninstalledList.value.filter(item => !item.has_update)
+  //const list = uninstalledList.value.filter(item => !item.has_update)
+  // 排除已安装且有更新的，上面的问题在于“本地存在未安装的旧版本插件且云端有更新时”不会在插件市场展示
+  const list = uninstalledList.value.filter(item => !(item.has_update && item.installed))
   if (PluginStatistics.value.length === 0) return list
   return list.sort((a, b) => {
     return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
