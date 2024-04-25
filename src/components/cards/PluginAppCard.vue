@@ -6,6 +6,7 @@ import type { Plugin } from '@/api/types'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 
 // 输入参数
 const props = defineProps({
@@ -57,15 +58,12 @@ async function installPlugin() {
     progressDialog.value = true
     progressText.value = `正在安装 ${props.plugin?.plugin_name} v${props?.plugin?.plugin_version} ...`
 
-    const result: { [key: string]: any } = await api.get(
-      `plugin/install/${props.plugin?.id}`,
-      {
-        params: {
-          repo_url: props.plugin?.repo_url,
-          force: props.plugin?.has_update,
-        },
+    const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
+      params: {
+        repo_url: props.plugin?.repo_url,
+        force: props.plugin?.has_update,
       },
-    )
+    })
 
     // 隐藏等待提示框
     progressDialog.value = false
@@ -75,20 +73,17 @@ async function installPlugin() {
 
       // 通知父组件刷新
       emit('install')
-    }
-    else {
+    } else {
       $toast.error(`插件 ${props.plugin?.plugin_name} 安装失败：${result.message}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 
 // 计算图标路径
 const iconPath: Ref<string> = computed(() => {
-  if (imageLoadError.value)
-    return noImage
+  if (imageLoadError.value) return noImage
   // 如果是网络图片则使用代理后返回
   if (props.plugin?.plugin_icon?.startsWith('http'))
     return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(props.plugin?.plugin_icon)}`
@@ -102,22 +97,18 @@ function visitPluginPage() {
   let repoUrl = props.plugin?.repo_url
   if (repoUrl) {
     if (repoUrl.includes('raw.githubusercontent.com')) {
-      if (!repoUrl.endsWith('/'))
-        repoUrl += '/'
+      if (!repoUrl.endsWith('/')) repoUrl += '/'
 
-      if (repoUrl.split('/').length < 6)
-        repoUrl = `${repoUrl}main/`
+      if (repoUrl.split('/').length < 6) repoUrl = `${repoUrl}main/`
 
       try {
         const [user, repo] = repoUrl.split('/').slice(-4, -2)
         repoUrl = `https://github.com/${user}/${repo}`
-      }
-      catch (error) {
+      } catch (error) {
         return
       }
     }
-  }
-  else {
+  } else {
     repoUrl = props.plugin?.author_url
   }
   window.open(repoUrl, '_blank')
@@ -138,7 +129,8 @@ const dropdownItems = ref([
       prependIcon: 'mdi-github',
       click: visitPluginPage,
     },
-  }, {
+  },
+  {
     title: '更新说明',
     value: 2,
     show: !isNullOrEmptyObject(props.plugin?.history || {}),
@@ -151,22 +143,12 @@ const dropdownItems = ref([
 </script>
 
 <template>
-  <VCard
-    :width="props.width"
-    :height="props.height"
-    @click="installPlugin"
-  >
-    <div
-      class="relative pa-4 text-center card-cover-blurred"
-      :style="{ background: `${backgroundColor}` }"
-    >
+  <VCard :width="props.width" :height="props.height" @click="installPlugin">
+    <div class="relative pa-4 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
           <VIcon icon="mdi-dots-vertical" class="text-white" />
-          <VMenu
-            activator="parent"
-            close-on-content-click
-          >
+          <VMenu activator="parent" close-on-content-click>
             <VList>
               <VListItem
                 v-for="(item, i) in dropdownItems"
@@ -184,9 +166,7 @@ const dropdownItems = ref([
           </VMenu>
         </IconBtn>
       </div>
-      <VAvatar
-        size="8rem"
-      >
+      <VAvatar size="8rem">
         <VImg
           ref="imageRef"
           :src="iconPath"
@@ -208,11 +188,7 @@ const dropdownItems = ref([
     <VCardText class="flex items-center justify-start pb-2">
       <span>
         <VIcon icon="mdi-account" class="me-1" />
-        <a
-          :href="props.plugin?.author_url"
-          target="_blank"
-          @click.stop
-        >
+        <a :href="props.plugin?.author_url" target="_blank" @click.stop>
           {{ props.plugin?.plugin_author }}
         </a>
       </span>
@@ -223,31 +199,9 @@ const dropdownItems = ref([
     </VCardText>
   </VCard>
   <!-- 安装插件进度框 -->
-  <VDialog
-    v-model="progressDialog"
-    :scrim="false"
-    width="25rem"
-  >
-    <VCard
-      color="primary"
-    >
-      <VCardText class="text-center">
-        {{ progressText }}
-        <VProgressLinear
-          indeterminate
-          color="white"
-          class="mb-0 mt-1"
-        />
-      </VCardText>
-    </VCard>
-  </VDialog>
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
   <!-- 更新日志 -->
-  <VDialog
-    v-if="releaseDialog"
-    v-model="releaseDialog"
-    width="600"
-    scrollable
-  >
+  <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
     <VCard>
       <DialogCloseBtn @click="releaseDialog = false" />
       <VCardTitle>{{ props.plugin?.plugin_name }} 更新说明</VCardTitle>
@@ -263,7 +217,7 @@ const dropdownItems = ref([
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   background: rgba(29, 39, 59, 48%);
-  content: "";
+  content: '';
   inset: 0;
 }
 </style>

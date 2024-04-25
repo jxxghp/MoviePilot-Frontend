@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { isNullOrEmptyObject } from '@/@core/utils'
 import api from '@/api'
-import { type PropType, ref } from 'vue'
+import { type PropType } from 'vue'
+import ProgressDialog from '../dialog/ProgressDialog.vue'
 
 // 定议外部事件
 const emit = defineEmits(['action'])
@@ -22,17 +23,29 @@ const elementProps = defineProps({
   config: Object as PropType<RenderProps>,
 })
 
+// 进度框
+const progressDialog = ref(false)
+
+// 进度框文本
+const progressText = ref('正在处理...')
+
 // 元素API事件响应
 async function commonAction(api_path: string, method: string, params = {}) {
   if (!api_path || !method) return
-  if (method.toUpperCase() === 'GET') {
-    await api.get(api_path, {
-      params: params,
-    })
-  } else {
-    await api.post(api_path, params)
+  progressDialog.value = true
+  try {
+    if (method.toUpperCase() === 'GET') {
+      await api.get(api_path, {
+        params: params,
+      })
+    } else {
+      await api.post(api_path, params)
+    }
+    emit('action')
+  } catch (error) {
+    console.error(error)
   }
-  emit('action')
+  progressDialog.value = false
 }
 
 // 组装事件
@@ -82,4 +95,6 @@ if (!isNullOrEmptyObject(elementProps.config?.events)) {
     v-html="elementProps.config?.html"
     v-on="componentEvents"
   />
+  <!-- 进度框 -->
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
 </template>

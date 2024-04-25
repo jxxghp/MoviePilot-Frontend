@@ -6,9 +6,9 @@ import SiteTorrentTable from '../table/SiteTorrentTable.vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Site, SiteStatistic } from '@/api/types'
-import ExistIcon from '@core/components/ExistIcon.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useDisplay } from 'vuetify'
+import ProgressDialog from '../dialog/ProgressDialog.vue'
 
 // 显示器宽度
 const display = useDisplay()
@@ -313,14 +313,8 @@ onMounted(() => {
       </VCardText>
     </VCard>
   </VDialog>
-  <VDialog v-model="progressDialog" :scrim="false" width="25rem">
-    <VCard color="primary">
-      <VCardText class="text-center">
-        {{ progressText }}
-        <VProgressLinear indeterminate color="white" class="mb-0 mt-1" />
-      </VCardText>
-    </VCard>
-  </VDialog>
+  <!-- 进度框 -->
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
 </template>
 
 <style lang="scss">

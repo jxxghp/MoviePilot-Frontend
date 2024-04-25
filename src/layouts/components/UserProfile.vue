@@ -5,6 +5,7 @@ import { useToast } from 'vue-toast-notification'
 import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
 import api from '@/api'
+import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 
 // Vuex Store
 const store = useStore()
@@ -56,8 +57,7 @@ async function restart() {
         $toast.error(result.message)
         return
       }
-    }
-    catch (error) {
+    } catch (error) {
       console.error(error)
     }
     // 注销
@@ -72,53 +72,33 @@ const avatar = store.state.auth.avatar
 </script>
 
 <template>
-  <VAvatar
-    class="cursor-pointer"
-    color="primary"
-    variant="tonal"
-  >
+  <VAvatar class="cursor-pointer" color="primary" variant="tonal">
     <VImg :src="avatar ?? avatar1" />
 
     <!-- SECTION Menu -->
-    <VMenu
-      activator="parent"
-      width="230"
-      location="bottom end"
-      offset="14px"
-    >
+    <VMenu activator="parent" width="230" location="bottom end" offset="14px">
       <VList>
         <!-- 👉 User Avatar & Name -->
         <VListItem>
           <template #prepend>
             <VListItemAction start>
-              <VAvatar
-                color="primary"
-                variant="tonal"
-              >
+              <VAvatar color="primary" variant="tonal">
                 <VImg :src="avatar ?? avatar1" />
               </VAvatar>
             </VListItemAction>
           </template>
 
           <VListItemTitle class="font-weight-semibold">
-            {{ superUser ? "管理员" : "普通用户" }}
+            {{ superUser ? '管理员' : '普通用户' }}
           </VListItemTitle>
           <VListItemSubtitle>{{ userName }}</VListItemSubtitle>
         </VListItem>
         <VDivider class="my-2" />
 
         <!-- 👉 Profile -->
-        <VListItem
-          v-if="superUser"
-          link
-          to="setting"
-        >
+        <VListItem v-if="superUser" link to="setting">
           <template #prepend>
-            <VIcon
-              class="me-2"
-              icon="mdi-account-outline"
-              size="22"
-            />
+            <VIcon class="me-2" icon="mdi-account-outline" size="22" />
           </template>
 
           <VListItemTitle>设定</VListItemTitle>
@@ -128,32 +108,18 @@ const avatar = store.state.auth.avatar
         <VDivider class="my-2" />
 
         <!-- 👉 restart -->
-        <VListItem
-          v-if="superUser"
-          @click="restart"
-        >
+        <VListItem v-if="superUser" @click="restart">
           <template #prepend>
-            <VIcon
-              class="me-2"
-              icon="mdi-restart"
-              size="22"
-            />
+            <VIcon class="me-2" icon="mdi-restart" size="22" />
           </template>
 
           <VListItemTitle>重启</VListItemTitle>
         </VListItem>
 
         <!-- 👉 FAQ -->
-        <VListItem
-          href="https://github.com/jxxghp/MoviePilot/blob/main/README.md"
-          target="_blank"
-        >
+        <VListItem href="https://github.com/jxxghp/MoviePilot/blob/main/README.md" target="_blank">
           <template #prepend>
-            <VIcon
-              class="me-2"
-              icon="mdi-help-circle-outline"
-              size="22"
-            />
+            <VIcon class="me-2" icon="mdi-help-circle-outline" size="22" />
           </template>
 
           <VListItemTitle>帮助</VListItemTitle>
@@ -162,11 +128,7 @@ const avatar = store.state.auth.avatar
         <!-- 👉 Logout -->
         <VListItem @click="logout">
           <template #prepend>
-            <VIcon
-              class="me-2"
-              icon="mdi-logout"
-              size="22"
-            />
+            <VIcon class="me-2" icon="mdi-logout" size="22" />
           </template>
 
           <VListItemTitle>注销</VListItemTitle>
@@ -176,21 +138,5 @@ const avatar = store.state.auth.avatar
     <!-- !SECTION -->
   </VAvatar>
   <!-- 重启进度框 -->
-  <VDialog
-    v-model="progressDialog"
-    width="25rem"
-  >
-    <VCard
-      color="primary"
-    >
-      <VCardText class="text-center">
-        正在重启 ...
-        <VProgressLinear
-          indeterminate
-          color="white"
-          class="mb-0 mt-1"
-        />
-      </VCardText>
-    </VCard>
-  </VDialog>
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" text="正在重启 ..." />
 </template>

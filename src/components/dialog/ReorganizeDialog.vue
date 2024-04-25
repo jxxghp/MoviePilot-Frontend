@@ -5,6 +5,7 @@ import store from '@/store'
 import api from '@/api'
 import { numberValidator } from '@/@validators'
 import { useDisplay } from 'vuetify'
+import ProgressDialog from './ProgressDialog.vue'
 
 // 显示器宽度
 const display = useDisplay()
@@ -262,14 +263,7 @@ async function transfer() {
       </VCardActions>
     </VCard>
     <!-- 手动整理进度框 -->
-    <VDialog v-model="progressDialog" :scrim="false" width="25rem">
-      <VCard color="primary">
-        <VCardText class="text-center">
-          {{ progressText }}
-          <VProgressLinear v-if="progressValue" color="white" class="mb-0 mt-1" :model-value="progressValue" />
-        </VCardText>
-      </VCard>
-    </VDialog>
+    <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
     <!-- TMDB ID搜索框 -->
     <VDialog v-model="tmdbSelectorDialog" width="40rem" scrollable max-height="85vh">
       <TmdbSelector v-model="transferForm.tmdbid" @close="tmdbSelectorDialog = false" />

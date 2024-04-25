@@ -3,6 +3,7 @@ import api from '@/api'
 import { Subscribe } from '@/api/types'
 import { formatDateDifference } from '@core/utils/formatters'
 import { useDisplay } from 'vuetify'
+import ProgressDialog from './ProgressDialog.vue'
 
 // 显示器宽度
 const display = useDisplay()
@@ -204,13 +205,6 @@ const dropdownItems = ref([
       </VList>
     </VCard>
     <!-- 进度框 -->
-    <VDialog v-model="progressDialog" :scrim="false" width="25rem">
-      <VCard color="primary">
-        <VCardText class="text-center">
-          {{ progressText }}
-          <VProgressLinear indeterminate color="white" class="mb-0 mt-1" />
-        </VCardText>
-      </VCard>
-    </VDialog>
+    <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
   </VDialog>
 </template>

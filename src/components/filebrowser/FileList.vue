@@ -10,6 +10,7 @@ import type { Context, EndPoints, FileItem } from '@/api/types'
 import store from '@/store'
 import api from '@/api'
 import MediaInfoCard from '@/components/cards/MediaInfoCard.vue'
+import ProgressDialog from '../dialog/ProgressDialog.vue'
 
 // 输入参数
 const inProps = defineProps({
@@ -77,14 +78,10 @@ const nameTestDialog = ref(false)
 const defer = (_: number) => true
 
 // 目录过滤
-const dirs = computed(() =>
-  items.value.filter(item => item.type === 'dir' && item.basename.includes(filter.value)),
-)
+const dirs = computed(() => items.value.filter(item => item.type === 'dir' && item.basename.includes(filter.value)))
 
 // 文件过滤
-const files = computed(() =>
-  items.value.filter(item => item.type === 'file' && item.basename.includes(filter.value)),
-)
+const files = computed(() => items.value.filter(item => item.type === 'file' && item.basename.includes(filter.value)))
 
 // 是否目录
 const isDir = computed(() => inProps.path?.endsWith('/'))
@@ -113,7 +110,7 @@ async function load() {
     method: inProps.endpoints?.list.method || 'get',
   }
   // 加载数据
-  items.value = await axiosInstance.value.request(config) ?? []
+  items.value = (await axiosInstance.value.request(config)) ?? []
   emit('loading', false)
   loading.value = false
 }
@@ -122,9 +119,7 @@ async function load() {
 async function deleteItem(item: FileItem) {
   const confirmed = await createConfirm({
     title: '确认',
-    content: `是否确认删除${
-                item.type === 'dir' ? '目录' : '文件'
-            } ${item.basename}？`,
+    content: `是否确认删除${item.type === 'dir' ? '目录' : '文件'} ${item.basename}？`,
     confirmationText: '确认',
     cancellationText: '取消',
     dialogProps: {
@@ -161,8 +156,7 @@ function changePath(_path: string) {
 
 // 新窗口中下载文件
 function download(path: string) {
-  if (!path)
-    return
+  if (!path) return
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.download.url
     .replace(/{storage}/g, storage.value)
@@ -174,8 +168,7 @@ function download(path: string) {
 
 // 显示图片
 function getImgLink(path: string) {
-  if (!path)
-    return ''
+  if (!path) return ''
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.image.url
     .replace(/{storage}/g, storage.value)
@@ -261,11 +254,9 @@ async function recognize(path: string) {
     })
     // 关闭进度条
     progressDialog.value = false
-    if (!nameTestResult.value)
-      $toast.error(`${path} 识别失败！`)
+    if (!nameTestResult.value) $toast.error(`${path} 识别失败！`)
     nameTestDialog.value = !!nameTestResult.value?.meta_info?.name
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -283,12 +274,9 @@ async function scrape(path: string) {
     })
     // 关闭进度条
     progressDialog.value = false
-    if (!result.success)
-      $toast.error(result.message)
-    else
-      $toast.success(`${path}削刮完成！`)
-  }
-  catch (error) {
+    if (!result.success) $toast.error(result.message)
+    else $toast.success(`${path}削刮完成！`)
+  } catch (error) {
     console.error(error)
   }
 }
@@ -303,7 +291,8 @@ const dropdownItems = ref([
         recognize(_item.path || '')
       },
     },
-  }, {
+  },
+  {
     title: '刮削',
     value: 2,
     props: {
@@ -312,7 +301,8 @@ const dropdownItems = ref([
         scrape(_item.path || '')
       },
     },
-  }, {
+  },
+  {
     title: '重命名',
     value: 3,
     props: {
@@ -361,49 +351,26 @@ onMounted(() => {
       />
       <VSpacer v-if="isFile" />
       <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">
-        <VIcon color="primary">
-          mdi-text-recognition
-        </VIcon>
+        <VIcon color="primary"> mdi-text-recognition </VIcon>
       </IconBtn>
       <IconBtn v-if="isFile" @click="download(inProps.path || '')">
-        <VIcon color="primary">
-          mdi-download
-        </VIcon>
+        <VIcon color="primary"> mdi-download </VIcon>
       </IconBtn>
       <IconBtn v-if="!isFile" @click="load">
-        <VIcon color="primary">
-          mdi-refresh
-        </VIcon>
+        <VIcon color="primary"> mdi-refresh </VIcon>
       </IconBtn>
     </VToolbar>
-    <VCardText
-      v-if="loading"
-      class="text-center flex flex-col items-center"
-    >
-      <VProgressCircular
-        size="48"
-        indeterminate
-        color="primary"
-      />
+    <VCardText v-if="loading" class="text-center flex flex-col items-center">
+      <VProgressCircular size="48" indeterminate color="primary" />
     </VCardText>
-    <VCardText
-      v-if="!path"
-      class="grow d-flex justify-center align-center grey--text"
-    >
-      选择目录或文件
-    </VCardText>
-    <VCardText
-      v-else-if="isFile && !isImage"
-      class="text-center break-all"
-    >
-      <strong>{{ items[0]?.name }}</strong><br>
-      大小：{{ formatBytes(items[0]?.size || 0) }}<br>
+    <VCardText v-if="!path" class="grow d-flex justify-center align-center grey--text"> 选择目录或文件 </VCardText>
+    <VCardText v-else-if="isFile && !isImage" class="text-center break-all">
+      <strong>{{ items[0]?.name }}</strong
+      ><br />
+      大小：{{ formatBytes(items[0]?.size || 0) }}<br />
       修改时间：{{ formatTime(items[0]?.modify_time || 0) }}
     </VCardText>
-    <VCardText
-      v-else-if="isFile && isImage"
-      class="grow d-flex justify-center align-center"
-    >
+    <VCardText v-else-if="isFile && isImage" class="grow d-flex justify-center align-center">
       <VImg :src="getImgLink(path)" max-width="100%" max-height="100%" />
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
@@ -412,13 +379,12 @@ onMounted(() => {
           <template #default="{ item }">
             <VHover>
               <template #default="hover">
-                <VListItem
-                  v-bind="hover.props"
-                  class="px-3 pe-1"
-                  @click="changePath(item.path)"
-                >
+                <VListItem v-bind="hover.props" class="px-3 pe-1" @click="changePath(item.path)">
                   <template #prepend>
-                    <VIcon v-if="inProps.icons && item.extension" :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other" />
+                    <VIcon
+                      v-if="inProps.icons && item.extension"
+                      :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
+                    />
                     <VIcon v-else icon="mdi-folder-outline" />
                   </template>
                   <VListItemTitle v-text="item.name" />
@@ -427,13 +393,8 @@ onMounted(() => {
                   </VListItemSubtitle>
                   <template #append>
                     <IconBtn class="d-sm-none">
-                      <VIcon
-                        icon="mdi-dots-vertical"
-                      />
-                      <VMenu
-                        activator="parent"
-                        close-on-content-click
-                      >
+                      <VIcon icon="mdi-dots-vertical" />
+                      <VMenu activator="parent" close-on-content-click>
                         <VList>
                           <VListItem
                             v-for="(menu, i) in dropdownItems"
@@ -495,42 +456,21 @@ onMounted(() => {
         </VVirtualScroll>
       </VList>
     </VCardText>
-    <VCardText
-      v-else-if="filter"
-      class="grow d-flex justify-center align-center grey--text py-5"
-    >
+    <VCardText v-else-if="filter" class="grow d-flex justify-center align-center grey--text py-5">
       没有目录或文件
     </VCardText>
-    <VCardText
-      v-else-if="!loading"
-      class="grow d-flex justify-center align-center grey--text py-5"
-    >
-      空目录
-    </VCardText>
+    <VCardText v-else-if="!loading" class="grow d-flex justify-center align-center grey--text py-5"> 空目录 </VCardText>
   </VCard>
   <!-- 重命名弹窗 -->
-  <VDialog
-    v-if="renamePopper"
-    v-model="renamePopper"
-    max-width="50rem"
-  >
+  <VDialog v-if="renamePopper" v-model="renamePopper" max-width="50rem">
     <VCard title="重命名">
       <VCardText>
         <VTextField v-model="newName" label="名称" />
       </VCardText>
       <VCardActions>
-        <VBtn depressed @click="renamePopper = false">
-          取消
-        </VBtn>
+        <VBtn depressed @click="renamePopper = false"> 取消 </VBtn>
         <VSpacer />
-        <VBtn
-          :disabled="!newName"
-          depressed
-          variant="tonal"
-          @click="rename"
-        >
-          重命名
-        </VBtn>
+        <VBtn :disabled="!newName" depressed variant="tonal" @click="rename"> 重命名 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
@@ -539,35 +479,18 @@ onMounted(() => {
     v-if="transferPopper"
     v-model="transferPopper"
     :path="currentItem?.path"
-    @done="transferPopper = false; load()"
+    @done="
+      () => {
+        transferPopper = false
+        load()
+      }
+    "
     @close="transferPopper = false"
   />
-  <!-- 手动整理进度框 -->
-  <VDialog
-    v-model="progressDialog"
-    :scrim="false"
-    width="25rem"
-  >
-    <VCard
-      color="primary"
-    >
-      <VCardText class="text-center">
-        {{ progressText }}
-        <VProgressLinear
-          v-if="progressValue"
-          color="white"
-          class="mb-0 mt-1"
-          :model-value="progressValue"
-        />
-      </VCardText>
-    </VCard>
-  </VDialog>
+  <!-- 进度框 -->
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
   <!-- 识别结果对话框 -->
-  <VDialog
-    v-if="nameTestDialog"
-    v-model="nameTestDialog"
-    width="50rem"
-  >
+  <VDialog v-if="nameTestDialog" v-model="nameTestDialog" width="50rem">
     <VCard>
       <DialogCloseBtn @click="nameTestDialog = false" />
       <VCardItem>
@@ -579,10 +502,10 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .v-card {
-    block-size: 100%;
+  block-size: 100%;
 }
 
-.v-toolbar{
+.v-toolbar {
   background: rgb(var(--v-table-header-background));
 }
 
@@ -595,5 +518,4 @@ onMounted(() => {
     block-size: calc(100vh - 17rem);
   }
 }
-
 </style>

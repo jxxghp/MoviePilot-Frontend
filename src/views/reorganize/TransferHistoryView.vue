@@ -382,11 +382,11 @@ onMounted(fetchData)
       </template>
       <template #item.status="{ item }">
         <VChip v-if="item?.status" color="success" size="small"> 成功 </VChip>
-        <v-tooltip v-else :text="item?.errmsg">
+        <VTooltip v-else :text="item?.errmsg">
           <template #activator="{ props }">
             <VChip v-bind="props" color="error" size="small"> 失败 </VChip>
           </template>
-        </v-tooltip>
+        </VTooltip>
       </template>
       <template #item.date="{ item }">
         <small>{{ item?.date }}</small>
