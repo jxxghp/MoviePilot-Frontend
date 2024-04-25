@@ -62,7 +62,7 @@ const pluginInfoDialog = ref(false)
 const progressText = ref('正在更新插件...')
 
 // 插件数据页面配置项
-let pluginPageItems = reactive([])
+let pluginPageItems = ref([])
 
 // 图片是否加载完成
 const isImageLoaded = ref(false)
@@ -156,7 +156,7 @@ async function loadPluginForm() {
 async function loadPluginPage() {
   try {
     const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
-    if (result) pluginPageItems = result
+    if (result) pluginPageItems.value = result
   } catch (error) {
     console.error(error)
   }
@@ -443,6 +443,7 @@ watch(
       {{ props.plugin?.plugin_desc }}
     </VCardText>
   </VCard>
+
   <!-- 插件配置页面 -->
   <VDialog v-model="pluginConfigDialog" scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard :title="`${props.plugin?.plugin_name} - 配置`" class="rounded-t">
@@ -463,7 +464,7 @@ watch(
     <VCard :title="`${props.plugin?.plugin_name}`" class="rounded-t">
       <DialogCloseBtn v-model="pluginInfoDialog" />
       <VCardText>
-        <PageRender v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
+        <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
       </VCardText>
       <VCardActions>
         <VBtn @click="showPluginConfig"> 配置 </VBtn>
@@ -472,6 +473,7 @@ watch(
       </VCardActions>
     </VCard>
   </VDialog>
+
   <!-- 更新插件进度框 -->
   <VDialog v-model="progressDialog" :scrim="false" width="25rem">
     <VCard color="primary">
@@ -481,6 +483,7 @@ watch(
       </VCardText>
     </VCard>
   </VDialog>
+
   <!-- 更新日志 -->
   <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
     <VCard>
