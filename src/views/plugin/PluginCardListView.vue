@@ -62,15 +62,12 @@ async function installPlugin(item: Plugin) {
     progressDialog.value = true
     progressText.value = `正在安装 ${item?.plugin_name} v${item?.plugin_version} ...`
 
-    const result: { [key: string]: any } = await api.get(
-      `plugin/install/${item?.id}`,
-      {
-        params: {
-          repo_url: item?.repo_url,
-          force: item?.has_update,
-        },
+    const result: { [key: string]: any } = await api.get(`plugin/install/${item?.id}`, {
+      params: {
+        repo_url: item?.repo_url,
+        force: item?.has_update,
       },
-    )
+    })
 
     // 隐藏等待提示框
     progressDialog.value = false
@@ -80,12 +77,10 @@ async function installPlugin(item: Plugin) {
 
       // 刷新
       refreshData()
-    }
-    else {
+    } else {
       $toast.error(`插件 ${item?.plugin_name} 安装失败：${result.message}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -96,8 +91,7 @@ function openPlugin(item: Plugin) {
   if (item.installed === true) {
     // 标记插件动作
     pluginActions.value[item.id || '0'] = true
-  }
-  else {
+  } else {
     // 如果是未安装插件则安装
     installPlugin(item)
   }
@@ -117,8 +111,7 @@ function pluginIconError(item: Plugin) {
 // 插件图标地址
 function pluginIcon(item: Plugin) {
   // 如果图片加载错误
-  if (pluginIconLoaded.value[item.id || '0'] === false)
-    return noImage
+  if (pluginIconLoaded.value[item.id || '0'] === false) return noImage
   // 如果是网络图片则使用代理后返回
   if (item?.plugin_icon?.startsWith('http'))
     return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(item?.plugin_icon)}`
@@ -149,8 +142,7 @@ async function fetchInstalledPlugins() {
       },
     })
     isRefreshed.value = true
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -175,8 +167,7 @@ async function fetchUninstalledPlugins() {
         }
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -185,8 +176,7 @@ async function fetchUninstalledPlugins() {
 async function getPluginStatistics() {
   try {
     PluginStatistics.value = await api.get('plugin/statistic')
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -200,8 +190,7 @@ function refreshData() {
 // 对uninstalledList进行排序，按PluginStatistics倒序
 const sortedUninstalledList = computed(() => {
   const list = uninstalledList.value.filter(item => !item.has_update)
-  if (PluginStatistics.value.length === 0)
-    return list
+  if (PluginStatistics.value.length === 0) return list
   return list.sort((a, b) => {
     return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
   })
@@ -215,14 +204,8 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <LoadingBanner
-    v-if="!isRefreshed"
-    class="mt-12"
-  />
-  <div
-    v-if="dataList.length > 0"
-    class="grid gap-4 grid-plugin-card"
-  >
+  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+  <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
     <PluginCard
       v-for="data in dataList"
       :key="`${data.id}_v${data.plugin_version}`"
@@ -241,15 +224,7 @@ onBeforeMount(() => {
     error-description="点击右下角按钮，前往插件市场安装插件。"
   />
   <!-- App市场 -->
-  <VFab
-    icon="mdi-store-plus"
-    location="bottom end"
-    size="x-large"
-    fixed
-    app
-    appear
-    @click="PluginAppDialog = true"
-  />
+  <VFab icon="mdi-store-plus" location="bottom end" size="x-large" fixed app appear @click="PluginAppDialog = true" />
   <VDialog
     v-if="PluginAppDialog"
     v-model="PluginAppDialog"
@@ -269,23 +244,14 @@ onBeforeMount(() => {
           <VSpacer />
 
           <VToolbarItems>
-            <VBtn
-              size="x-large"
-              @click="pluginDialogClose"
-            >
-              <VIcon
-                color="white"
-                icon="mdi-close"
-              />
+            <VBtn size="x-large" @click="pluginDialogClose">
+              <VIcon color="white" icon="mdi-close" />
             </VBtn>
           </VToolbarItems>
         </VToolbar>
       </div>
       <VCardText>
-        <LoadingBanner
-          v-if="!isAppMarketLoaded"
-          class="mt-12"
-        />
+        <LoadingBanner v-if="!isAppMarketLoaded" class="mt-12" />
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <PluginAppCard
             v-for="data in sortedUninstalledList"
@@ -323,13 +289,10 @@ onBeforeMount(() => {
     scrollable
     :z-index="1010"
     max-width="40rem"
-    max-height="85vh"
+    :max-height="displayWidth < 40 * 16 ? '' : '85vh'"
     :fullscreen="displayWidth < 40 * 16"
   >
-    <VCard
-      class="mx-auto"
-      width="100%"
-    >
+    <VCard class="mx-auto" width="100%">
       <VToolbar flat class="p-0">
         <VTextField
           v-model="keyword"
@@ -343,20 +306,12 @@ onBeforeMount(() => {
         />
       </VToolbar>
       <DialogCloseBtn @click="closeSearchDialog" />
-      <VList
-        v-if="filterPlugins.length > 0"
-        lines="two"
-      >
+      <VList v-if="filterPlugins.length > 0" lines="two">
         <template v-for="(item, i) in filterPlugins" :key="i">
-          <VListItem
-            @click="openPlugin(item)"
-          >
+          <VListItem @click="openPlugin(item)">
             <template #prepend>
               <VAvatar>
-                <VImg
-                  :src="pluginIcon(item)"
-                  @error="pluginIconError(item)"
-                >
+                <VImg :src="pluginIcon(item)" @error="pluginIconError(item)">
                   <template #placeholder>
                     <div class="w-full h-full">
                       <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
@@ -367,13 +322,7 @@ onBeforeMount(() => {
             </template>
             <VListItemTitle>
               {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
-              <VIcon
-                v-if="item.installed"
-                color="success"
-                icon="mdi-check-circle"
-                class="ms-2"
-                size="small"
-              />
+              <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
             </VListItemTitle>
             <VListItemSubtitle class="mt-2" v-html="item.plugin_desc" />
           </VListItem>
@@ -382,21 +331,11 @@ onBeforeMount(() => {
     </VCard>
   </VDialog>
   <!-- 安装插件进度框 -->
-  <VDialog
-    v-model="progressDialog"
-    :scrim="false"
-    width="25rem"
-  >
-    <VCard
-      color="primary"
-    >
+  <VDialog v-model="progressDialog" :scrim="false" width="25rem">
+    <VCard color="primary">
       <VCardText class="text-center">
         {{ progressText }}
-        <VProgressLinear
-          indeterminate
-          color="white"
-          class="mb-0 mt-1"
-        />
+        <VProgressLinear indeterminate color="white" class="mb-0 mt-1" />
       </VCardText>
     </VCard>
   </VDialog>
