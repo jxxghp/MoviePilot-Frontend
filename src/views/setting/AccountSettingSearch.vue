@@ -30,6 +30,7 @@ const selectedSites = ref<number[]>([])
 const defaultFilterRules = ref({
   include: '',
   exclude: '',
+  min_seeders: 0
 })
 
 // 导入代码弹窗
@@ -399,6 +400,15 @@ onMounted(() => {
                   type="text"
                   label="排除（关键字、正则式）"
                   hint="支持正式表达式，多个关键字用 | 分隔表示或"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="defaultFilterRules.min_seeders"
+                  type="text"
+                  label="最小做种数"
+                  placeholder="0"
+                  hint="小于该值的资源将被过滤掉，0表示不过滤"
                 />
               </VCol>
             </VRow>
