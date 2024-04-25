@@ -502,7 +502,7 @@ onBeforeMount(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" variant="tonal" color="info" class="mb-2">
+          <VBtn v-if="(mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) && mediaDetail.imdb_id" variant="tonal" color="info" class="mb-2">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
             </template>
@@ -527,6 +527,12 @@ onBeforeMount(() => {
                 </VListItem>
               </VList>
             </VMenu>
+          </VBtn>
+          <VBtn v-if="(mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) && !mediaDetail.imdb_id" variant="tonal" color="info" class="mb-2" @click="handleSearch('title')">
+            <template #prepend>
+              <VIcon icon="mdi-magnify" />
+            </template>
+            搜索资源
           </VBtn>
           <VBtn v-if="mediaDetail.type === '电影' || mediaDetail.douban_id || mediaDetail.bangumi_id" class="ms-2 mb-2" :color="getSubscribeColor" variant="tonal" @click="handleSubscribe(0)">
             <template #prepend>
