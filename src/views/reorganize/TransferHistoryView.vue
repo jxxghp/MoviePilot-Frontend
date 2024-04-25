@@ -29,27 +29,27 @@ const headers = [
   {
     title: '标题',
     key: 'title',
-    sortable: false,
+    sortable: true,
   },
   {
     title: '目录',
     key: 'src',
-    sortable: false,
+    sortable: true,
   },
   {
     title: '转移方式',
     key: 'mode',
-    sortable: false,
+    sortable: true,
   },
   {
     title: '时间',
     key: 'date',
-    sortable: false,
+    sortable: true,
   },
   {
     title: '状态',
     key: 'status',
-    sortable: false,
+    sortable: true,
   },
   {
     title: '',
