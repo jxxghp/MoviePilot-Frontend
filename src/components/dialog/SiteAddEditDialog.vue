@@ -7,7 +7,7 @@ import api from '@/api'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // 输入参数
 const props = defineProps({
@@ -52,8 +52,7 @@ const priorityItems = ref(
 
 // 监控输入参数
 watchEffect(async () => {
-  if (props.siteid)
-    fetchSiteInfo()
+  if (props.siteid) fetchSiteInfo()
 })
 
 // 查询站点信息
@@ -62,27 +61,24 @@ async function fetchSiteInfo() {
     siteForm.value = await api.get(`site/${props.siteid}`)
     siteForm.value.proxy = siteForm.value.proxy === 1
     siteForm.value.render = siteForm.value.render === 1
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 
 // 调用API 新增站点
 async function addSite() {
-  if (!siteForm.value?.url)
-    return
+  if (!siteForm.value?.url) return
   startNProgress()
   try {
     const result: { [key: string]: string } = await api.post('site/', siteForm.value)
     if (result.success) {
       $toast.success('新增站点成功')
       emit('save')
+    } else {
+      $toast.error(`新增站点失败：${result.message}`)
     }
-
-    else { $toast.error(`新增站点失败：${result.message}`) }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
   doneNProgress()
@@ -92,12 +88,9 @@ async function addSite() {
 async function deleteSiteInfo() {
   try {
     const result: { [key: string]: any } = await api.delete(`site/${siteForm.value?.id}`)
-    if (result.success)
-      emit('remove')
-
+    if (result.success) emit('remove')
     else $toast.error(`${siteForm.value?.name} 删除失败：${result.message}`)
-  }
-  catch (error) {
+  } catch (error) {
     $toast.error(`${siteForm.value?.name} 删除失败！`)
     console.error(error)
   }
@@ -111,10 +104,10 @@ async function updateSiteInfo() {
     if (result.success) {
       $toast.success(`${siteForm.value?.name} 更新成功！`)
       emit('save')
+    } else {
+      $toast.error(`${siteForm.value?.name} 更新失败：${result.message}`)
     }
-    else { $toast.error(`${siteForm.value?.name} 更新失败：${result.message}`) }
-  }
-  catch (error) {
+  } catch (error) {
     $toast.error(`${siteForm.value?.name} 更新失败！`)
     console.error(error)
   }
@@ -123,14 +116,7 @@ async function updateSiteInfo() {
 </script>
 
 <template>
-  <VDialog
-    scrollable
-    :close-on-back="false"
-    persistent
-    eager
-    max-width="60rem"
-    :fullscreen="displayWidth < (60 * 16)"
-  >
+  <VDialog scrollable :close-on-back="false" persistent eager max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard
       :title="`${props.oper === 'add' ? '新增' : '编辑'}站点${props.oper !== 'add' ? ` - ${siteForm.name}` : ''}`"
       class="rounded-t"
@@ -139,10 +125,7 @@ async function updateSiteInfo() {
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
+            <VCol cols="12" md="6">
               <VTextField
                 v-model="siteForm.url"
                 label="站点地址"
@@ -150,10 +133,7 @@ async function updateSiteInfo() {
                 hint="格式：http://www.example.com/"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="3"
-            >
+            <VCol cols="12" md="3">
               <VSelect
                 v-model="siteForm.pri"
                 label="优先级"
@@ -162,15 +142,8 @@ async function updateSiteInfo() {
                 hint="站点资源下载优先级，优先级数字越小越优先下载"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="3"
-            >
-              <VSelect
-                v-model="siteForm.is_active"
-                :items="statusItems"
-                label="状态"
-              />
+            <VCol cols="12" md="3">
+              <VSelect v-model="siteForm.is_active" :items="statusItems" label="状态" />
             </VCol>
           </VRow>
           <VRow>
@@ -197,10 +170,7 @@ async function updateSiteInfo() {
             </VCol>
           </VRow>
           <VRow>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VTextField
                 v-model="siteForm.limit_interval"
                 label="单位周期（秒）"
@@ -208,10 +178,7 @@ async function updateSiteInfo() {
                 hint="设定站点限流的单位周期，单位为秒，0为不限流"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VTextField
                 v-model="siteForm.limit_count"
                 label="访问次数"
@@ -219,10 +186,7 @@ async function updateSiteInfo() {
                 hint="设定单位周期内站点允许的访问次数，0为不限制"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VTextField
                 v-model="siteForm.limit_seconds"
                 label="访问间隔（秒）"
@@ -232,20 +196,10 @@ async function updateSiteInfo() {
             </VCol>
           </VRow>
           <VRow>
-            <VCol
-              cols="12"
-              md="6"
-            >
-              <VSwitch
-                v-model="siteForm.proxy"
-                label="代理"
-                hint="站点是否需要代理访问，需要设置好代理服务器信息"
-              />
+            <VCol cols="12" md="6">
+              <VSwitch v-model="siteForm.proxy" label="代理" hint="站点是否需要代理访问，需要设置好代理服务器信息" />
             </VCol>
-            <VCol
-              cols="12"
-              md="6"
-            >
+            <VCol cols="12" md="6">
               <VSwitch
                 v-model="siteForm.render"
                 label="仿真"
@@ -256,36 +210,11 @@ async function updateSiteInfo() {
         </VForm>
       </VCardText>
       <VCardActions>
-        <VBtn
-          v-if="props.oper === 'add'"
-          @click="emit('close')"
-        >
-          取消
-        </VBtn>
-        <VBtn
-          v-else
-          color="error"
-          @click="deleteSiteInfo"
-        >
-          删除
-        </VBtn>
+        <VBtn v-if="props.oper === 'add'" @click="emit('close')"> 取消 </VBtn>
+        <VBtn v-else color="error" @click="deleteSiteInfo"> 删除 </VBtn>
         <VSpacer />
-        <VBtn
-          v-if="props.oper === 'add'"
-          color="primary"
-          variant="tonal"
-          @click="addSite"
-        >
-          新增
-        </VBtn>
-        <VBtn
-          v-else
-          color="primary"
-          variant="tonal"
-          @click="updateSiteInfo"
-        >
-          保存
-        </VBtn>
+        <VBtn v-if="props.oper === 'add'" color="primary" variant="tonal" @click="addSite"> 新增 </VBtn>
+        <VBtn v-else color="primary" variant="tonal" @click="updateSiteInfo"> 保存 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

@@ -9,7 +9,7 @@ import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // 已安装插件列表
 const dataList = ref<Plugin[]>([])
@@ -289,8 +289,8 @@ onBeforeMount(() => {
     scrollable
     :z-index="1010"
     max-width="40rem"
-    :max-height="displayWidth < 40 * 16 ? '' : '85vh'"
-    :fullscreen="displayWidth < 40 * 16"
+    :max-height="!display.mdAndUp.value ? '' : '85vh'"
+    :fullscreen="!display.mdAndUp.value"
   >
     <VCard class="mx-auto" width="100%">
       <VToolbar flat class="p-0">

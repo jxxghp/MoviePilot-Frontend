@@ -14,7 +14,7 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // 仪表盘配置
 const dashboard_names = {
@@ -60,8 +60,8 @@ function setDashboardConfig() {
   // 保存到服务端
   api.post('/user/config/Dashboard', data, {
     headers: {
-      "Content-Type": "application/json"
-    }
+      'Content-Type': 'application/json',
+    },
   })
   dialog.value = false
 }
@@ -69,133 +69,63 @@ function setDashboardConfig() {
 
 <template>
   <!-- 底部操作按钮 -->
-  <VFab
-    icon="mdi-view-dashboard-edit"
-    location="bottom end"
-    size="x-large"
-    fixed
-    app
-    appear
-    @click="dialog = true"
-  />
+  <VFab icon="mdi-view-dashboard-edit" location="bottom end" size="x-large" fixed app appear @click="dialog = true" />
   <VRow class="match-height">
-    <VCol
-      v-if="config.storage"
-      cols="12"
-      md="4"
-    >
+    <VCol v-if="config.storage" cols="12" md="4">
       <AnalyticsStorage />
     </VCol>
 
-    <VCol
-      v-if="config.mediaStatistic"
-      cols="12"
-      md="8"
-    >
+    <VCol v-if="config.mediaStatistic" cols="12" md="8">
       <AnalyticsMediaStatistic />
     </VCol>
 
-    <VCol
-      v-if="config.weeklyOverview"
-      cols="12"
-      md="4"
-    >
+    <VCol v-if="config.weeklyOverview" cols="12" md="4">
       <AnalyticsWeeklyOverview />
     </VCol>
 
-    <VCol
-      v-if="config.speed"
-      cols="12"
-      md="4"
-    >
+    <VCol v-if="config.speed" cols="12" md="4">
       <AnalyticsSpeed />
     </VCol>
 
-    <VCol
-      v-if="config.scheduler"
-      cols="12"
-      md="4"
-    >
+    <VCol v-if="config.scheduler" cols="12" md="4">
       <AnalyticsScheduler />
     </VCol>
 
-    <VCol
-      v-if="config.cpu"
-      cols="12"
-      md="6"
-    >
+    <VCol v-if="config.cpu" cols="12" md="6">
       <AnalyticsCpu />
     </VCol>
 
-    <VCol
-      v-if="config.memory"
-      cols="12"
-      md="6"
-    >
+    <VCol v-if="config.memory" cols="12" md="6">
       <AnalyticsMemory />
     </VCol>
 
-    <VCol
-      v-if="config.library"
-      cols="12"
-    >
+    <VCol v-if="config.library" cols="12">
       <MediaServerLibrary />
     </VCol>
 
-    <VCol
-      v-if="config.playing"
-      cols="12"
-    >
+    <VCol v-if="config.playing" cols="12">
       <MediaServerPlaying />
     </VCol>
 
-    <VCol
-      v-if="config.latest"
-      cols="12"
-    >
+    <VCol v-if="config.latest" cols="12">
       <MediaServerLatest />
     </VCol>
   </VRow>
   <!-- 弹窗，根据配置生成选项 -->
-  <VDialog
-    v-model="dialog"
-    max-width="600"
-    scrollable
-    :fullscreen="displayWidth < 600"
-  >
+  <VDialog v-model="dialog" max-width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard title="设置仪表板">
       <VCardText>
         <VRow>
-          <VCol
-            v-for="(item, key) in dashboard_names"
-            :key="key"
-            cols="12"
-            md="4"
-            sm="4"
-          >
-            <VCheckbox
-              v-model="config[key]"
-              :label="dashboard_names[key]"
-            />
+          <VCol v-for="(item, key) in dashboard_names" :key="key" cols="12" md="4" sm="4">
+            <VCheckbox v-model="config[key]" :label="dashboard_names[key]" />
           </VCol>
         </VRow>
       </VCardText>
       <VCardActions>
-        <VBtn
-          color="primary"
-          @click="dialog = false"
-        >
-          取消
-        </VBtn>
+        <VBtn color="primary" @click="dialog = false"> 取消 </VBtn>
         <VSpacer />
-        <VBtn
-          color="primary"
-          variant="tonal"
-          @click="setDashboardConfig"
-        >
-          保存
-        </VBtn>
+        <VBtn color="primary" variant="tonal" @click="setDashboardConfig"> 保存 </VBtn>
       </VCardActions>
     </VCard>
-  </vdialog>
+  </VDialog>
 </template>

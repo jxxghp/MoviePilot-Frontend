@@ -10,7 +10,7 @@ import api from '@/api'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // App捷径
 const appsMenu = ref(false)
@@ -179,7 +179,7 @@ onMounted(() => {
     </VCard>
   </VDialog>
   <!-- 网络测试弹窗 -->
-  <VDialog v-if="netTestDialog" v-model="netTestDialog" max-width="35rem" scrollable>
+  <VDialog v-if="netTestDialog" v-model="netTestDialog" max-width="35rem" max-height="85vh" scrollable>
     <VCard title="网络测试">
       <DialogCloseBtn @click="netTestDialog = false" />
       <VCardText>
@@ -193,7 +193,7 @@ onMounted(() => {
     v-model="loggingDialog"
     scrollable
     max-width="70rem"
-    :fullscreen="displayWidth < 70 * 16"
+    :fullscreen="!display.mdAndUp.value"
   >
     <VCard>
       <DialogCloseBtn @click="loggingDialog = false" />
@@ -225,13 +225,7 @@ onMounted(() => {
     </VCard>
   </VDialog>
   <!-- 系统健康检查弹窗 -->
-  <VDialog
-    v-if="systemTestDialog"
-    v-model="systemTestDialog"
-    max-width="50rem"
-    scrollable
-    :fullscreen="displayWidth < 50 * 16"
-  >
+  <VDialog v-if="systemTestDialog" v-model="systemTestDialog" max-width="35rem" max-height="85vh" scrollable>
     <VCard title="系统健康检查">
       <DialogCloseBtn @click="systemTestDialog = false" />
       <VCardText>
@@ -245,7 +239,7 @@ onMounted(() => {
     v-model="messageDialog"
     max-width="60rem"
     scrollable
-    :fullscreen="displayWidth < 60 * 16"
+    :fullscreen="!display.mdAndUp.value"
   >
     <VCard title="消息中心">
       <DialogCloseBtn @click="messageDialog = false" />

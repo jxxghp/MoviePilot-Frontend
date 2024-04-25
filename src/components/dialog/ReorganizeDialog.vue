@@ -7,7 +7,7 @@ import { numberValidator } from '@/@validators'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // 输入参数
 const props = defineProps({
@@ -59,7 +59,6 @@ const transferForm = reactive({
   episode_part: '',
   episode_offset: null,
   min_filesize: 0,
-
 })
 
 watchEffect(() => {
@@ -76,7 +75,7 @@ function startLoadingProgress() {
   progressEventSource.value = new EventSource(
     `${import.meta.env.VITE_API_BASE_URL}system/progress/filetransfer?token=${token}`,
   )
-  progressEventSource.value.onmessage = (event) => {
+  progressEventSource.value.onmessage = event => {
     const progress = JSON.parse(event.data)
     if (progress) {
       progressText.value = progress.text
@@ -93,8 +92,7 @@ function stopLoadingProgress() {
 // 整理文件
 // eslint-disable-next-line sonarjs/cognitive-complexity
 async function transfer() {
-  if (!props.logids && !props.path)
-    return
+  if (!props.logids && !props.path) return
 
   // 显示进度条
   progressDialog.value = true
@@ -104,32 +102,33 @@ async function transfer() {
   if (props.path) {
     // 文件整理
     try {
-      const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
-        params: transferForm,
-      })
+      const result: { [key: string]: any } = await api.post(
+        'transfer/manual',
+        {},
+        {
+          params: transferForm,
+        },
+      )
       // 显示结果
-      if (result.success)
-        $toast.success(`${props.path} 整理完成！`)
-
-      else
-        $toast.error(`${props.path} 整理失败：${result.message}！`)
-    }
-    catch (e) {
+      if (result.success) $toast.success(`${props.path} 整理完成！`)
+      else $toast.error(`${props.path} 整理失败：${result.message}！`)
+    } catch (e) {
       console.log(e)
     }
-  }
-  else if (props.logids) {
+  } else if (props.logids) {
     // 日志整理
     for (const logid of props.logids) {
       transferForm.logid = logid
       try {
-        const result: { [key: string]: any } = await api.post('transfer/manual', {}, {
-          params: transferForm,
-        })
-        if (!result.success)
-          $toast.error(`历史记录 ${logid} 重新整理失败：${result.message}！`)
-      }
-      catch (e) {
+        const result: { [key: string]: any } = await api.post(
+          'transfer/manual',
+          {},
+          {
+            params: transferForm,
+          },
+        )
+        if (!result.success) $toast.error(`历史记录 ${logid} 重新整理失败：${result.message}！`)
+      } catch (e) {
         console.log(e)
       }
     }
@@ -145,11 +144,7 @@ async function transfer() {
 </script>
 
 <template>
-  <VDialog
-    scrollable
-    max-width="60rem"
-    :fullscreen="displayWidth < (60 * 16)"
-  >
+  <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard
       :title="`${props.path ? `整理 - ${props.path}` : `整理 - 共 ${props.logids?.length} 条记录`}`"
       class="rounded-t"
@@ -158,10 +153,7 @@ async function transfer() {
       <VCardText class="pt-2">
         <VForm @submit.prevent="() => {}">
           <VRow>
-            <VCol
-              cols="12"
-              md="8"
-            >
+            <VCol cols="12" md="8">
               <VTextField
                 v-model="transferForm.target"
                 label="目的路径"
@@ -169,10 +161,7 @@ async function transfer() {
                 hint="留空将自动整理到媒体库目录"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VSelect
                 v-model="transferForm.transfer_type"
                 label="整理方式"
@@ -189,20 +178,18 @@ async function transfer() {
             </VCol>
           </VRow>
           <VRow>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VSelect
                 v-model="transferForm.type_name"
                 label="类型"
-                :items="[{ title: '自动', value: '' }, { title: '电影', value: '电影' }, { title: '电视剧', value: '电视剧' }]"
+                :items="[
+                  { title: '自动', value: '' },
+                  { title: '电影', value: '电影' },
+                  { title: '电视剧', value: '电视剧' },
+                ]"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VTextField
                 v-model="transferForm.tmdbid"
                 :disabled="transferForm.type_name === ''"
@@ -214,10 +201,7 @@ async function transfer() {
                 @click:append-inner="tmdbSelectorDialog = true"
               />
             </VCol>
-            <VCol
-              cols="12"
-              md="4"
-            >
+            <VCol cols="12" md="4">
               <VSelect
                 v-show="transferForm.type_name === '电视剧'"
                 v-model.number="transferForm.season"
@@ -272,49 +256,23 @@ async function transfer() {
         </VForm>
       </VCardText>
       <VCardActions>
-        <VBtn depressed @click="emit('close')">
-          取消
-        </VBtn>
+        <VBtn depressed @click="emit('close')"> 取消 </VBtn>
         <VSpacer />
-        <VBtn
-          variant="tonal"
-          @click="transfer"
-        >
-          开始整理
-        </VBtn>
+        <VBtn variant="tonal" @click="transfer"> 开始整理 </VBtn>
       </VCardActions>
     </VCard>
     <!-- 手动整理进度框 -->
-    <VDialog
-      v-model="progressDialog"
-      :scrim="false"
-      width="25rem"
-    >
-      <VCard
-        color="primary"
-      >
+    <VDialog v-model="progressDialog" :scrim="false" width="25rem">
+      <VCard color="primary">
         <VCardText class="text-center">
           {{ progressText }}
-          <VProgressLinear
-            v-if="progressValue"
-            color="white"
-            class="mb-0 mt-1"
-            :model-value="progressValue"
-          />
+          <VProgressLinear v-if="progressValue" color="white" class="mb-0 mt-1" :model-value="progressValue" />
         </VCardText>
       </VCard>
     </VDialog>
     <!-- TMDB ID搜索框 -->
-    <VDialog
-      v-model="tmdbSelectorDialog"
-      width="40rem"
-      scrollable
-      max-height="85vh"
-    >
-      <TmdbSelector
-        v-model="transferForm.tmdbid"
-        @close="tmdbSelectorDialog = false"
-      />
+    <VDialog v-model="tmdbSelectorDialog" width="40rem" scrollable max-height="85vh">
+      <TmdbSelector v-model="transferForm.tmdbid" @close="tmdbSelectorDialog = false" />
     </VDialog>
   </VDialog>
 </template>

@@ -14,7 +14,7 @@ import store from '@/store'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // 输入参数
 const props = defineProps({
@@ -74,12 +74,15 @@ const imageLoadError = ref(false)
 const releaseDialog = ref(false)
 
 // 监听动作标识，如为true则打开详情
-watch(() => props.action, (newAction, oldAction) => {
-  if (newAction && !oldAction) {
-    openPluginDetail()
-    emit('actionDone')
-  }
-})
+watch(
+  () => props.action,
+  (newAction, oldAction) => {
+    if (newAction && !oldAction) {
+      openPluginDetail()
+      emit('actionDone')
+    }
+  },
+)
 
 // 图片加载完成
 async function imageLoaded() {
@@ -94,7 +97,7 @@ function showUpdateHistory() {
   // 检查当前版本是否有更新日志
   if (isNullOrEmptyObject(props.plugin?.history)) {
     updatePlugin()
-  } else{
+  } else {
     releaseDialog.value = true
   }
 }
@@ -114,11 +117,10 @@ async function uninstallPlugin() {
     },
   })
 
-  if (!isConfirmed)
-    return
+  if (!isConfirmed) return
 
   try {
-  // 显示等待提示框
+    // 显示等待提示框
     progressDialog.value = true
     progressText.value = `正在卸载 ${props.plugin?.plugin_name} ...`
     const result: { [key: string]: any } = await api.delete(`plugin/${props.plugin?.id}`)
@@ -129,12 +131,10 @@ async function uninstallPlugin() {
 
       // 通知父组件刷新
       emit('remove')
-    }
-    else {
+    } else {
       $toast.error(`插件 ${props.plugin?.plugin_name} 卸载失败：${result.message}}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -145,11 +145,9 @@ async function loadPluginForm() {
     const result: { [key: string]: any } = await api.get(`plugin/form/${props.plugin?.id}`)
     if (result) {
       pluginFormItems = result.conf
-      if (result.model)
-        pluginConfigForm.value = result.model
+      if (result.model) pluginConfigForm.value = result.model
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -158,10 +156,8 @@ async function loadPluginForm() {
 async function loadPluginPage() {
   try {
     const result: [] = await api.get(`plugin/page/${props.plugin?.id}`)
-    if (result)
-      pluginPageItems = result
-  }
-  catch (error) {
+    if (result) pluginPageItems = result
+  } catch (error) {
     console.error(error)
   }
 }
@@ -170,10 +166,8 @@ async function loadPluginPage() {
 async function loadPluginConf() {
   try {
     const result: { [key: string]: any } = await api.get(`plugin/${props.plugin?.id}`)
-    if (!isNullOrEmptyObject(result))
-      pluginConfigForm.value = result
-  }
-  catch (error) {
+    if (!isNullOrEmptyObject(result)) pluginConfigForm.value = result
+  } catch (error) {
     console.error(error)
   }
 }
@@ -191,13 +185,11 @@ async function savePluginConf() {
       $toast.success(`插件 ${props.plugin?.plugin_name} 配置已保存`)
       // 通知父组件刷新
       emit('save')
-    }
-    else {
+    } else {
       progressDialog.value = false
       $toast.error(`插件 ${props.plugin?.plugin_name} 配置保存失败：${result.message}}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -223,8 +215,7 @@ async function showPluginConfig() {
 
 // 计算图标路径
 const iconPath: Ref<string> = computed(() => {
-  if (imageLoadError.value)
-    return noImage
+  if (imageLoadError.value) return noImage
   // 如果是网络图片则使用代理后返回
   if (props.plugin?.plugin_icon?.startsWith('http'))
     return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(props.plugin?.plugin_icon)}`
@@ -247,8 +238,7 @@ async function resetPlugin() {
     },
   })
 
-  if (!isConfirmed)
-    return
+  if (!isConfirmed) return
 
   try {
     const result: { [key: string]: any } = await api.get(`plugin/reset/${props.plugin?.id}`)
@@ -256,12 +246,10 @@ async function resetPlugin() {
       $toast.success(`插件 ${props.plugin?.plugin_name} 数据已重置`)
       // 通知父组件刷新
       emit('save')
-    }
-    else {
+    } else {
       $toast.error(`插件 ${props.plugin?.plugin_name} 重置失败：${result.message}}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -274,15 +262,12 @@ async function updatePlugin() {
     progressDialog.value = true
     progressText.value = `正在更新 ${props.plugin?.plugin_name} ...`
 
-    const result: { [key: string]: any } = await api.get(
-      `plugin/install/${props.plugin?.id}`,
-      {
-        params: {
-          repo_url: props.plugin?.repo_url,
-          force: true,
-        },
+    const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
+      params: {
+        repo_url: props.plugin?.repo_url,
+        force: true,
       },
-    )
+    })
 
     // 隐藏等待提示框
     progressDialog.value = false
@@ -292,12 +277,10 @@ async function updatePlugin() {
 
       // 通知父组件刷新
       emit('save')
-    }
-    else {
+    } else {
       $toast.error(`插件 ${props.plugin?.plugin_name} 更新失败：${result.message}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -310,16 +293,16 @@ function visitAuthorPage() {
 // 查看日志URL
 function openLoggerWindow() {
   const token = store.state.auth.token
-  const url = `${import.meta.env.VITE_API_BASE_URL}system/logging?token=${token}&length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
+  const url = `${
+    import.meta.env.VITE_API_BASE_URL
+  }system/logging?token=${token}&length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
   window.open(url, '_blank')
 }
 
 // 打开插件详情
 function openPluginDetail() {
-  if (props.plugin?.has_page)
-    showPluginInfo()
-  else
-    showPluginConfig()
+  if (props.plugin?.has_page) showPluginInfo()
+  else showPluginConfig()
 }
 
 // 弹出菜单
@@ -395,41 +378,26 @@ const dropdownItems = ref([
 ])
 
 // 监听插件状态变化
-watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
-  const updateItemIndex = dropdownItems.value.findIndex(item => item.value === 3)
-  if (updateItemIndex !== -1)
-    dropdownItems.value[updateItemIndex].show = newHasUpdate
-})
+watch(
+  () => props.plugin?.has_update,
+  (newHasUpdate, oldHasUpdate) => {
+    const updateItemIndex = dropdownItems.value.findIndex(item => item.value === 3)
+    if (updateItemIndex !== -1) dropdownItems.value[updateItemIndex].show = newHasUpdate
+  },
+)
 </script>
 
 <template>
   <!-- 插件卡片 -->
-  <VCard
-    v-if="isVisible"
-    :width="props.width"
-    :height="props.height"
-    @click="openPluginDetail"
-  >
-    <div
-      class="relative pa-4 text-center card-cover-blurred"
-      :style="{ background: `${backgroundColor}` }"
-    >
-      <div
-        v-if="props.plugin?.has_update"
-        class="me-n3 absolute top-0 left-1"
-      >
-        <VIcon
-          icon="mdi-new-box"
-          class="text-white"
-        />
+  <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail">
+    <div class="relative pa-4 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
+      <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 left-1">
+        <VIcon icon="mdi-new-box" class="text-white" />
       </div>
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
           <VIcon icon="mdi-dots-vertical" class="text-white" />
-          <VMenu
-            activator="parent"
-            close-on-content-click
-          >
+          <VMenu activator="parent" close-on-content-click>
             <VList>
               <VListItem
                 v-for="(item, i) in dropdownItems"
@@ -448,9 +416,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
           </VMenu>
         </IconBtn>
       </div>
-      <VAvatar
-        size="8rem"
-      >
+      <VAvatar size="8rem">
         <VImg
           ref="imageRef"
           :src="iconPath"
@@ -469,7 +435,8 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     <VCardItem class="py-2">
       <VCardTitle class="flex items-center flex-row">
         <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
-        {{ props.plugin?.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ props.plugin?.plugin_version }}</span>
+        {{ props.plugin?.plugin_name
+        }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ props.plugin?.plugin_version }}</span>
       </VCardTitle>
     </VCardItem>
     <VCardText>
@@ -477,110 +444,51 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
     </VCardText>
   </VCard>
   <!-- 插件配置页面 -->
-  <VDialog
-    v-model="pluginConfigDialog"
-    scrollable
-    max-width="60rem"
-    :fullscreen="displayWidth < (60 * 16)"
-  >
-    <VCard
-      :title="`${props.plugin?.plugin_name} - 配置`"
-      class="rounded-t"
-    >
-      <DialogCloseBtn v-model='pluginConfigDialog' />
+  <VDialog v-model="pluginConfigDialog" scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
+    <VCard :title="`${props.plugin?.plugin_name} - 配置`" class="rounded-t">
+      <DialogCloseBtn v-model="pluginConfigDialog" />
       <VCardText>
-        <FormRender
-          v-for="(item, index) in pluginFormItems"
-          :key="index"
-          :config="item"
-          :form="pluginConfigForm"
-        />
+        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
       </VCardText>
       <VCardActions>
-        <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo">
-          查看数据
-        </VBtn>
+        <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo"> 查看数据 </VBtn>
         <VSpacer />
-        <VBtn
-          variant="tonal"
-          @click="savePluginConf"
-        >
-          保存
-        </VBtn>
+        <VBtn variant="tonal" @click="savePluginConf"> 保存 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
 
   <!-- 插件数据页面 -->
-  <VDialog
-    v-model="pluginInfoDialog"
-    scrollable
-    max-width="80rem"
-    :fullscreen="displayWidth < (80 * 16)"
-  >
-    <VCard
-      :title="`${props.plugin?.plugin_name}`"
-      class="rounded-t"
-    >
-      <DialogCloseBtn v-model='pluginInfoDialog' />
+  <VDialog v-model="pluginInfoDialog" scrollable max-width="80rem" :fullscreen="!display.mdAndUp.value">
+    <VCard :title="`${props.plugin?.plugin_name}`" class="rounded-t">
+      <DialogCloseBtn v-model="pluginInfoDialog" />
       <VCardText>
-        <PageRender
-          v-for="(item, index) in pluginPageItems"
-          :key="index"
-          :config="item"
-        />
+        <PageRender v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
       </VCardText>
       <VCardActions>
-        <VBtn
-          @click="showPluginConfig"
-        >
-          配置
-        </VBtn>
+        <VBtn @click="showPluginConfig"> 配置 </VBtn>
         <VSpacer />
-        <VBtn
-          variant="tonal"
-          @click="pluginInfoDialog = false"
-        >
-          关闭
-        </VBtn>
+        <VBtn variant="tonal" @click="pluginInfoDialog = false"> 关闭 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
   <!-- 更新插件进度框 -->
-  <VDialog
-    v-model="progressDialog"
-    :scrim="false"
-    width="25rem"
-  >
-    <VCard
-      color="primary"
-    >
+  <VDialog v-model="progressDialog" :scrim="false" width="25rem">
+    <VCard color="primary">
       <VCardText class="text-center">
         {{ progressText }}
-        <VProgressLinear
-          indeterminate
-          color="white"
-          class="mb-0 mt-1"
-        />
+        <VProgressLinear indeterminate color="white" class="mb-0 mt-1" />
       </VCardText>
     </VCard>
   </VDialog>
   <!-- 更新日志 -->
-  <VDialog
-    v-if="releaseDialog"
-    v-model="releaseDialog"
-    width="600"
-    scrollable
-  >
+  <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
     <VCard>
       <DialogCloseBtn @click="releaseDialog = false" />
       <VCardTitle>{{ props.plugin?.plugin_name }} 更新说明</VCardTitle>
       <VersionHistory :history="props.plugin?.history" />
       <VCardText>
-        <VBtn
-          @click="updatePlugin"
-          block
-        >
+        <VBtn @click="updatePlugin" block>
           <template #prepend>
             <VIcon icon="mdi-arrow-up-circle-outline" />
           </template>
@@ -598,7 +506,7 @@ watch(() => props.plugin?.has_update, (newHasUpdate, oldHasUpdate) => {
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   background: rgba(29, 39, 59, 48%);
-  content: "";
+  content: '';
   inset: 0;
 }
 </style>

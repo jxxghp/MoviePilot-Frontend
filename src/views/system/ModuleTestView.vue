@@ -32,26 +32,22 @@ async function moduleTest(index: number) {
     if (result.success) {
       target.state = 'success'
       target.name = `${target.name} - 正常`
-    }
-    else if (result.message?.includes('模块未加载')) {
+    } else if (result.message?.includes('模块未加载')) {
       target.state = ''
       target.name = `${target.name} - 未启用`
-    }
-    else {
+    } else {
       target.state = 'error'
       target.name = `${target.name} - 错误！`
       target.errmsg = result.message
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 // 加载
 onMounted(async () => {
   // 逐个检查所有模块
-  for (let i = 0; i < modules.value.length; i++)
-    await moduleTest(i)
+  for (let i = 0; i < modules.value.length; i++) await moduleTest(i)
 })
 </script>
 
@@ -66,10 +62,7 @@ onMounted(async () => {
   >
     {{ module.errmsg }}
     <template #append>
-      <VProgressCircular
-        v-if="module.loading"
-        indeterminate
-      />
+      <VProgressCircular v-if="module.loading" indeterminate />
     </template>
   </VAlert>
 </template>

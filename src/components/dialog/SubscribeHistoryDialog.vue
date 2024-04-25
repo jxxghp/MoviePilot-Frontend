@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import api from '@/api';
-import { Subscribe } from '@/api/types';
+import api from '@/api'
+import { Subscribe } from '@/api/types'
 import { formatDateDifference } from '@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
-const displayWidth = useDisplay().width
+const display = useDisplay()
 
 // 输入参数
 const props = defineProps({
@@ -81,14 +81,12 @@ async function loadHistory({ done }: { done: any }) {
 
 // 重新订阅
 async function reSubscribe(item: Subscribe) {
-  if (item.type === '电影')
-    progressText.value = `正在重新订阅 ${item.name} ...`
-  else
-    progressText.value = `正在重新订阅 ${item.name} 第 ${item.season} 季 ...`
+  if (item.type === '电影') progressText.value = `正在重新订阅 ${item.name} ...`
+  else progressText.value = `正在重新订阅 ${item.name} 第 ${item.season} 季 ...`
   progressDialog.value = true
   try {
-    const result: {[key: string]: any} = await api.post('subscribe', item)
-    if (result.success){
+    const result: { [key: string]: any } = await api.post('subscribe', item)
+    if (result.success) {
       emit('save')
     }
   } catch (e) {
@@ -100,9 +98,9 @@ async function reSubscribe(item: Subscribe) {
 // 删除记录
 async function deleteHistory(item: Subscribe) {
   try {
-    const result: {[key: string]: any} = await api.delete(`subscribe/history/${item.id}`)
-    if (result.success){
-      historyList.value = historyList.value.filter((i) => i.id !== item.id)
+    const result: { [key: string]: any } = await api.delete(`subscribe/history/${item.id}`)
+    if (result.success) {
+      historyList.value = historyList.value.filter(i => i.id !== item.id)
     }
   } catch (e) {
     console.error(e)
@@ -128,35 +126,25 @@ const dropdownItems = ref([
       prependIcon: 'mdi-delete',
       click: deleteHistory,
     },
-  }
+  },
 ])
-
 </script>
 
 <template>
-  <VDialog
-    scrollable
-    max-width="50rem"
-    :fullscreen="displayWidth < (50 * 16)"
-  >
-  <VCard
-      class="mx-auto"
-      width="100%"
-    >
+  <VDialog scrollable max-width="50rem" :fullscreen="!display.mdAndUp.value">
+    <VCard class="mx-auto" width="100%">
       <VCardItem class="pb-0">
         <VCardTitle>{{ props.type + '订阅历史' }}</VCardTitle>
       </VCardItem>
-      <DialogCloseBtn @click="() => { emit('close') }" />
-      <VList
-        lines="two"
-      >
-        <VInfiniteScroll
-          mode="intersect"
-          side="end"
-          :items="historyList"
-          class="overflow-hidden"
-          @load="loadHistory"
-        >
+      <DialogCloseBtn
+        @click="
+          () => {
+            emit('close')
+          }
+        "
+      />
+      <VList lines="two">
+        <VInfiniteScroll mode="intersect" side="end" :items="historyList" class="overflow-hidden" @load="loadHistory">
           <template #loading>
             <LoadingBanner />
           </template>
@@ -190,13 +178,8 @@ const dropdownItems = ref([
               <template #append>
                 <div class="me-n3">
                   <IconBtn>
-                    <VIcon
-                      icon="mdi-dots-vertical"
-                    />
-                    <VMenu
-                      activator="parent"
-                      close-on-content-click
-                    >
+                    <VIcon icon="mdi-dots-vertical" />
+                    <VMenu activator="parent" close-on-content-click>
                       <VList>
                         <VListItem
                           v-for="(menu, i) in dropdownItems"
@@ -221,21 +204,11 @@ const dropdownItems = ref([
       </VList>
     </VCard>
     <!-- 进度框 -->
-    <VDialog
-      v-model="progressDialog"
-      :scrim="false"
-      width="25rem"
-    >
-      <VCard
-        color="primary"
-      >
+    <VDialog v-model="progressDialog" :scrim="false" width="25rem">
+      <VCard color="primary">
         <VCardText class="text-center">
           {{ progressText }}
-          <VProgressLinear
-            indeterminate
-            color="white"
-            class="mb-0 mt-1"
-          />
+          <VProgressLinear indeterminate color="white" class="mb-0 mt-1" />
         </VCardText>
       </VCard>
     </VDialog>
