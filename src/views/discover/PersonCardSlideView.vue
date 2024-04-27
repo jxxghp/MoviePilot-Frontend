@@ -1,9 +1,7 @@
 <script lang="ts" setup>
-import TmdbPersonCard from '@/components/cards/TmdbPersonCard.vue'
+import PersonCard from '@/components/cards/PersonCard.vue'
 import api from '@/api'
 import SlideView from '@/components/slide/SlideView.vue'
-import DoubanPersonCard from '@/components/cards/DoubanPersonCard.vue'
-import BangumiPersonCard from '@/components/cards/BangumiPersonCard.vue'
 
 // 输入参数
 const props = defineProps({
@@ -13,7 +11,7 @@ const props = defineProps({
   type: String,
 })
 
-provide('rankingPropsKey', reactive({...props}))
+provide('rankingPropsKey', reactive({ ...props }))
 
 // 组件加载完成
 const componentLoaded = ref(false)
@@ -24,14 +22,11 @@ const dataList = ref<any>([])
 // 获取订阅列表数据
 async function fetchData() {
   try {
-    if (!props.apipath)
-      return
+    if (!props.apipath) return
 
     dataList.value = await api.get(props.apipath)
-    if (dataList.value.length > 0)
-      componentLoaded.value = true
-  }
-  catch (error) {
+    if (dataList.value.length > 0) componentLoaded.value = true
+  } catch (error) {
     console.error(error)
   }
 }
@@ -41,32 +36,10 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <SlideView
-    v-if="componentLoaded"
-  >
+  <SlideView v-if="componentLoaded">
     <template #content>
-      <template
-        v-for="data in dataList"
-        :key="data.id"
-      >
-        <TmdbPersonCard
-          v-if="props.type === 'tmdb'"
-          :person="data"
-          height="15rem"
-          width="10rem"
-        />
-        <DoubanPersonCard
-          v-if="props.type === 'douban'"
-          :person="data"
-          height="15rem"
-          width="10rem"
-        />
-        <BangumiPersonCard
-          v-if="props.type === 'bangumi'"
-          :person="data"
-          height="15rem"
-          width="10rem"
-        />
+      <template v-for="data in dataList" :key="data.id">
+        <PersonCard :person="data" height="15rem" width="10rem" />
       </template>
     </template>
   </SlideView>

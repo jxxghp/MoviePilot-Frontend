@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import personIcon from '@images/misc/person-icon.png'
-import type { DoubanPerson } from '@/api/types'
+import type { Person } from '@/api/types'
+import router from '@/router'
 
 const personProps = defineProps({
-  person: Object as PropType<DoubanPerson>,
+  person: Object as PropType<Person>,
   width: String,
   height: String,
 })
@@ -16,14 +17,49 @@ const isImageLoaded = ref(false)
 
 // 人物图片地址
 function getPersonImage() {
-  if (!personInfo.value?.avatar) return personIcon
-  return personInfo.value?.avatar?.large
+  if (personProps.person?.source === 'themoviedb') {
+    if (!personInfo.value?.profile_path) return personIcon
+    return `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personInfo.value?.profile_path}`
+  } else if (personProps.person?.source === 'douban') {
+    if (!personInfo.value?.avatar) return personIcon
+    if (typeof personInfo.value?.avatar === 'object') {
+      return personInfo.value?.avatar?.normal
+    } else {
+      return personInfo.value?.avatar
+    }
+  } else if (personProps.person?.source === 'bangumi') {
+    if (!personInfo.value?.images) return personIcon
+    return personInfo.value?.images?.medium
+  } else {
+    return personIcon
+  }
 }
 
-// 打开人物详情
+// 人物姓名
+function getPersonName() {
+  return personInfo.value?.name
+}
+
+// 人物角色
+function getPersonCharacter() {
+  if (personProps.person?.source === 'bangumi') {
+    if (!personInfo.value?.career) return ''
+    return personInfo.value?.career.join('、')
+  } else {
+    return personInfo.value?.character
+  }
+}
+
+// 人物详情
 function goPersonDetail() {
   if (!personInfo.value?.id) return
-  window.open(`https://movie.douban.com/celebrity/${personInfo.value?.id}/`, '_blank')
+  router.push({
+    path: '/person',
+    query: {
+      personid: personInfo.value?.id,
+      source: personInfo.value?.source,
+    },
+  })
 }
 </script>
 
@@ -52,17 +88,17 @@ function goPersonDetail() {
                     'ring-1 ring-gray-700': isImageLoaded,
                   }"
                 >
-                  <VImg v-img :src="getPersonImage()" cover @load="isImageLoaded = true" />
+                  <VImg :src="getPersonImage()" cover @load="isImageLoaded = true" />
                 </VAvatar>
               </div>
               <div class="w-full truncate text-center font-bold">
-                {{ personInfo?.name }}
+                {{ getPersonName() }}
               </div>
               <div
                 class="overflow-hidden whitespace-normal text-center text-sm"
                 style="display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2"
               >
-                {{ personInfo?.character }}
+                {{ getPersonCharacter() }}
               </div>
               <div class="absolute bottom-0 left-0 right-0 h-12 rounded-b" />
             </div>

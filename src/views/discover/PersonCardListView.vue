@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import DoubanPersonCard from '@/components/cards/DoubanPersonCard.vue'
-import TmdbPersonCard from '@/components/cards/TmdbPersonCard.vue'
-import BangumiPersonCard from '@/components/cards/BangumiPersonCard.vue'
+import PersonCard from '@/components/cards/PersonCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 
 // 输入参数
@@ -115,14 +113,8 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-hidden" @load="fetchData">
     <template #loading />
     <template #empty />
-    <div v-if="dataList.length > 0 && props.type === 'tmdb'" class="grid gap-4 grid-media-card mx-3" tabindex="0">
-      <TmdbPersonCard v-for="data in dataList" :key="data.id" :person="data" />
-    </div>
-    <div v-if="dataList.length > 0 && props.type === 'douban'" class="grid gap-4 grid-media-card mx-3" tabindex="0">
-      <DoubanPersonCard v-for="data in dataList" :key="data.id" :person="data" />
-    </div>
-    <div v-if="dataList.length > 0 && props.type === 'bangumi'" class="grid gap-4 grid-media-card mx-3" tabindex="0">
-      <BangumiPersonCard v-for="data in dataList" :key="data.id" :person="data" />
+    <div v-if="dataList.length > 0" class="grid gap-4 grid-media-card mx-3" tabindex="0">
+      <PersonCard v-for="data in dataList" :key="data.id" :person="data" />
     </div>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
