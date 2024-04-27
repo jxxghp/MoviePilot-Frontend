@@ -47,7 +47,7 @@ function goPersonDetail() {
         @click.stop="goPersonDetail"
       >
         <div
-          class="person-card relative transform-gpu cursor-pointer rounded shadow ring-1 transition duration-150 ease-in-out scale-100 ring-gray-700"
+          class="person-card relative transform-gpu cursor-pointer rounded shadow transition duration-150 ease-in-out scale-100 ring-gray-700"
         >
           <div style="padding-block-end: 150%">
             <div class="absolute inset-0 flex h-full w-full flex-col items-center p-2">

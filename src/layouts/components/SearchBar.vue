@@ -54,7 +54,7 @@ function openSearchDialog() {
               <VTextField
                 ref="searchWordInput"
                 v-model="searchWord"
-                :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie-roll'"
+                :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie'"
                 :label="searchType == 'person' ? '演员名称' : '电影、电视剧名称'"
                 @keydown.enter="search"
                 @click:prepend-inner="switchSearchType"
@@ -82,7 +82,7 @@ function openSearchDialog() {
       class="d-none d-lg-block text-disabled search-box"
       density="compact"
       variant="solo"
-      :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie-roll'"
+      :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie'"
       :label="searchType == 'person' ? '演员名称' : '电影、电视剧名称'"
       append-inner-icon="mdi-magnify"
       single-line
