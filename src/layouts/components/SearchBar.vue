@@ -55,7 +55,7 @@ function openSearchDialog() {
                 ref="searchWordInput"
                 v-model="searchWord"
                 :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie'"
-                :label="searchType == 'person' ? '演员名称' : '电影、电视剧名称'"
+                :label="searchType == 'person' ? '搜索演员' : '搜索电影、电视剧'"
                 @keydown.enter="search"
                 @click:prepend-inner="switchSearchType"
               />
@@ -83,7 +83,7 @@ function openSearchDialog() {
       density="compact"
       variant="solo"
       :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie'"
-      :label="searchType == 'person' ? '演员名称' : '电影、电视剧名称'"
+      :label="searchType == 'person' ? '搜索演员' : '搜索电影、电视剧'"
       append-inner-icon="mdi-magnify"
       single-line
       hide-details
