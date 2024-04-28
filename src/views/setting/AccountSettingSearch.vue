@@ -31,6 +31,7 @@ const defaultFilterRules = ref({
   include: '',
   exclude: '',
   min_seeders: 0,
+  min_seeders_time: 0
 })
 
 // 媒体信息数据源字典
@@ -430,6 +431,15 @@ onMounted(() => {
                   label="最小做种数"
                   placeholder="0"
                   hint="小于该值的资源将被过滤掉，0表示不过滤"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="defaultFilterRules.min_seeders_time"
+                  type="text"
+                  label="最少做种人数生效发布时间（分钟）"
+                  placeholder="0"
+                  hint="发布时间距现在大于该值的资源将生效最小做种数规则，0表示不生效"
                 />
               </VCol>
             </VRow>

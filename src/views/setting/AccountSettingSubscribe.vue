@@ -41,7 +41,8 @@ const defaultFilterRules = ref({
   exclude: '',
   movie_size: '',
   tv_size: '',
-  min_seeders: 0
+  min_seeders: 0,
+  min_seeders_time: 0
 })
 
 // 订阅模式选择项
@@ -594,7 +595,7 @@ onMounted(() => {
                   hint="支持正式表达式，多个关键字用 | 分隔表示或"
                 />
               </VCol>
-              <VCol cols="12" md="4">
+              <VCol cols="12" md="6">
                 <VTextField
                   v-model="defaultFilterRules.movie_size"
                   type="text"
@@ -603,7 +604,7 @@ onMounted(() => {
                   hint="格式：0-30，表示0到30GB之间的资源"
                 />
               </VCol>
-              <VCol cols="12" md="4">
+              <VCol cols="12" md="6">
                 <VTextField
                   v-model="defaultFilterRules.tv_size"
                   type="text"
@@ -612,13 +613,22 @@ onMounted(() => {
                   hint="格式：0-10，表示0到10GB之间的资源"
                 />
               </VCol>
-              <VCol cols="12" md="4">
+              <VCol cols="12" md="6">
                 <VTextField
                   v-model="defaultFilterRules.min_seeders"
                   type="text"
                   label="最小做种数"
                   placeholder="0"
                   hint="小于该值的资源将被过滤掉，0表示不过滤"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="defaultFilterRules.min_seeders_time"
+                  type="text"
+                  label="最少做种人数生效发布时间（分钟）"
+                  placeholder="0"
+                  hint="发布时间距现在大于该值的资源将生效最小做种数规则，0表示不生效"
                 />
               </VCol>
             </VRow>
