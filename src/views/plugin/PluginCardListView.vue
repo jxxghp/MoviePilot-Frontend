@@ -198,8 +198,6 @@ async function fetchUninstalledPlugins() {
         state: 'market',
       },
     })
-    // 设置APP市场加载完成
-    isAppMarketLoaded.value = true
     // 设置更新状态
     for (const uninstalled of uninstalledList.value) {
       for (const data of dataList.value) {
@@ -216,6 +214,8 @@ async function fetchUninstalledPlugins() {
     marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
     // 初始化过滤选项
     marketList.value.forEach(initOptions)
+    // 设置APP市场加载完成
+    isAppMarketLoaded.value = true
   } catch (error) {
     console.error(error)
   }
@@ -231,8 +231,8 @@ async function getPluginStatistics() {
 }
 
 // 加载所有数据
-function refreshData() {
-  fetchInstalledPlugins()
+async function refreshData() {
+  await fetchInstalledPlugins()
   fetchUninstalledPlugins()
 }
 
@@ -275,8 +275,8 @@ function pluginLabels(label: string | undefined) {
 }
 
 // 加载时获取数据
-onBeforeMount(() => {
-  refreshData()
+onBeforeMount(async () => {
+  await refreshData()
   getPluginStatistics()
 })
 </script>
