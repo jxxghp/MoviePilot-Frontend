@@ -407,6 +407,8 @@ export interface Plugin {
   plugin_desc?: string
   // 插件图标
   plugin_icon?: string
+  // 插件标签，多个以,分隔
+  plugin_label?: string
   // 插件版本
   plugin_version?: string
   // 插件作者

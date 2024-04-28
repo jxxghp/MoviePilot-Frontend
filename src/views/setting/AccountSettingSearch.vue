@@ -31,7 +31,7 @@ const defaultFilterRules = ref({
   include: '',
   exclude: '',
   min_seeders: 0,
-  min_seeders_time: 0
+  min_seeders_time: 0,
 })
 
 // 媒体信息数据源字典
@@ -320,7 +320,7 @@ onMounted(() => {
                 chips
                 :items="mediaSourcesDict"
                 label="当前使用数据源"
-                hint="选中多项时会同时展示来自不同数据源的搜索结果"
+                hint="选中多项时会同时展示来自不同数据源的搜索结果，选择的数据源顺序将会搜索结果的排序"
               />
             </VCol>
           </VRow>

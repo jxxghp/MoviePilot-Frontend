@@ -43,6 +43,12 @@ const imageLoadError = ref(false)
 // 更新日志弹窗
 const releaseDialog = ref(false)
 
+// 计算插件标签
+const pluginLabels = computed(() => {
+  if (!props.plugin?.plugin_label) return []
+  return props.plugin.plugin_label.split(',')
+})
+
 // 图片加载完成
 async function imageLoaded() {
   isImageLoaded.value = true
@@ -183,7 +189,12 @@ const dropdownItems = ref([
       <span class="text-sm text-gray-500">v{{ props.plugin?.plugin_version }}</span>
     </VCardTitle>
     <VCardText class="pb-2">
-      {{ props.plugin?.plugin_desc }}
+      <div>{{ props.plugin?.plugin_desc }}</div>
+      <div>
+        <VChip v-for="label in pluginLabels" variant="tonal" size="small" class="me-1 my-1" color="info" label>
+          {{ label }}
+        </VChip>
+      </div>
     </VCardText>
     <VCardText class="flex items-center justify-start pb-2">
       <span>

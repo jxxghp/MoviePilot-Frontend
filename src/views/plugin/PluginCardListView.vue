@@ -7,6 +7,7 @@ import PluginAppCard from '@/components/cards/PluginAppCard.vue'
 import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 显示器宽度
 const display = useDisplay()
@@ -16,6 +17,9 @@ const dataList = ref<Plugin[]>([])
 
 // 未安装插件列表
 const uninstalledList = ref<Plugin[]>([])
+
+// 插件市场插件列表
+const marketList = ref<Plugin[]>([])
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -49,6 +53,41 @@ const progressDialog = ref(false)
 
 // 进度框文本
 const progressText = ref('正在安装插件...')
+
+// 过滤表单
+const filterForm = reactive({
+  // 名称
+  name: [] as string[],
+  // 作者
+  author: [] as string[],
+  // 标签
+  label: [] as string[],
+  // 插件库
+  repo: [] as string[],
+})
+
+// 名称过滤项
+const nameFilterOptions = ref<string[]>([])
+// 作者过滤项
+const authorFilterOptions = ref<string[]>([])
+// 标签过滤项
+const labelFilterOptions = ref<string[]>([])
+// 插件库过滤项
+const repoFilterOptions = ref<string[]>([])
+
+// 初始化过滤选项
+function initOptions(item: Plugin) {
+  const optionValue = (options: Array<string>, value: string | undefined) => {
+    value && !options.includes(value) && options.push(value)
+  }
+  const optionMutipleValue = (options: Array<string>, value: string | undefined) => {
+    value && value.split(',').forEach(v => !options.includes(v) && options.push(v))
+  }
+  optionValue(nameFilterOptions.value, item.plugin_name)
+  optionValue(authorFilterOptions.value, item.plugin_author)
+  optionMutipleValue(labelFilterOptions.value, item.plugin_label)
+  optionValue(repoFilterOptions.value, item.repo_url)
+}
 
 // 关闭插件市场窗口
 function pluginDialogClose() {
@@ -123,7 +162,11 @@ function pluginIcon(item: Plugin) {
 const filterPlugins = computed(() => {
   const all_list = [...dataList.value, ...uninstalledList.value]
   return all_list.filter((item: Plugin) => {
-    return item.plugin_name?.includes(keyword.value) || item.plugin_desc?.includes(keyword.value)
+    // 需要忽略大小写
+    return (
+      item.plugin_name?.toLowerCase().includes(keyword.value.toLowerCase()) ||
+      item.plugin_desc?.toLowerCase().includes(keyword.value.toLowerCase())
+    )
   })
 })
 
@@ -167,6 +210,11 @@ async function fetchUninstalledPlugins() {
         }
       }
     }
+    // 更新插件市场列表
+    // 排除已安装且有更新的，上面的问题在于“本地存在未安装的旧版本插件且云端有更新时”不会在插件市场展示
+    marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
+    // 初始化过滤选项
+    marketList.value.forEach(initOptions)
   } catch (error) {
     console.error(error)
   }
@@ -189,11 +237,32 @@ function refreshData() {
 
 // 对uninstalledList进行排序，按PluginStatistics倒序
 const sortedUninstalledList = computed(() => {
-  //const list = uninstalledList.value.filter(item => !item.has_update)
-  // 排除已安装且有更新的，上面的问题在于“本地存在未安装的旧版本插件且云端有更新时”不会在插件市场展示
-  const list = uninstalledList.value.filter(item => !(item.has_update && item.installed))
-  if (PluginStatistics.value.length === 0) return list
-  return list.sort((a, b) => {
+  // 匹配过滤函数
+  const match = (filter: Array<string>, value: string | undefined) =>
+    filter.length === 0 || (value && filter.includes(value))
+  const matchMultiple = (filter: Array<string>, value: string | undefined) =>
+    filter.length === 0 || (value && value.split(',').some(v => filter.includes(v)))
+
+  // 过滤后的数据列表
+  const ret_list: Plugin[] = []
+
+  // 过滤
+  marketList.value.forEach(value => {
+    if (value) {
+      if (
+        match(filterForm.name, value.plugin_name) &&
+        match(filterForm.author, value.plugin_author) &&
+        matchMultiple(filterForm.label, value.plugin_label) &&
+        match(filterForm.repo, value.repo_url)
+      ) {
+        ret_list.push(value)
+      }
+    }
+  })
+
+  // 按照统计数据排序
+  if (isNullOrEmptyObject(PluginStatistics.value)) return ret_list
+  return ret_list.sort((a, b) => {
     return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
   })
 })
@@ -236,15 +305,12 @@ onBeforeMount(() => {
     :z-index="1010"
     transition="dialog-bottom-transition"
   >
-    <!-- Dialog Content -->
     <VCard>
-      <!-- Toolbar -->
+      <!-- 标题栏 -->
       <div>
         <VToolbar color="primary">
           <VToolbarTitle>插件市场</VToolbarTitle>
-
           <VSpacer />
-
           <VToolbarItems>
             <VBtn size="x-large" @click="pluginDialogClose">
               <VIcon color="white" icon="mdi-close" />
@@ -254,6 +320,55 @@ onBeforeMount(() => {
       </div>
       <VCardText>
         <LoadingBanner v-if="!isAppMarketLoaded" class="mt-12" />
+        <!-- 过滤表单 -->
+        <div v-if="isAppMarketLoaded" class="bg-transparent mb-3 shadow-none">
+          <VRow>
+            <VCol v-if="nameFilterOptions.length > 0" cols="6" md="3">
+              <VSelect
+                v-model="filterForm.name"
+                :items="nameFilterOptions"
+                size="small"
+                density="compact"
+                chips
+                label="名称"
+                multiple
+              />
+            </VCol>
+            <VCol v-if="authorFilterOptions.length > 0" cols="6" md="3">
+              <VSelect
+                v-model="filterForm.author"
+                :items="authorFilterOptions"
+                size="small"
+                density="compact"
+                chips
+                label="作者"
+                multiple
+              />
+            </VCol>
+            <VCol v-if="labelFilterOptions.length > 0" cols="6" md="3">
+              <VSelect
+                v-model="filterForm.label"
+                :items="labelFilterOptions"
+                size="small"
+                density="compact"
+                chips
+                label="标签"
+                multiple
+              />
+            </VCol>
+            <VCol v-if="repoFilterOptions.length > 0" cols="6" md="3">
+              <VSelect
+                v-model="filterForm.repo"
+                :items="repoFilterOptions"
+                size="small"
+                density="compact"
+                chips
+                label="插件库"
+                multiple
+              />
+            </VCol>
+          </VRow>
+        </div>
         <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
           <PluginAppCard
             v-for="data in sortedUninstalledList"
