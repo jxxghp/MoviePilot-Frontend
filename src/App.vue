@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import { useTheme } from 'vuetify'
 import api from '@/api'
 import store from './store'
+import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 
 const { global: globalTheme } = useTheme()
 
@@ -21,7 +22,7 @@ async function fetchThemeConfig() {
 // 设置主题
 async function setTheme() {
   let themeValue = await fetchThemeConfig() || localStorage.getItem('theme') || 'light'
-  const autoTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
   globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
   // 修改载入时背景色
   localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
