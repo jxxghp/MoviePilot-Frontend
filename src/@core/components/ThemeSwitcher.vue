@@ -22,64 +22,17 @@ const {
   { initialValue: savedTheme.value },
 )
 
-function updateTheme() {
-  const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
-  const theme = currentThemeName.value === 'auto' ? autoTheme : currentThemeName.value
-  globalTheme.name.value = theme
-  savedTheme.value = theme
-  // 修改载入时背景色
-  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
-  themeTransition()
-}
-
-// 监听系统主题变化
-try {
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
-} catch(e) {
-  console.error('当前设备不支持监听系统主题变化')
-}
-
-watch(
-  () => currentThemeName.value,
-  () => updateTheme(),
-)
-
-function changeTheme() {
-  const nextTheme = getNextThemeName()
-  currentThemeName.value = nextTheme
-  localStorage.setItem('theme', nextTheme)
-  // 保存主题到服务端
-  api.post('/user/config/theme', nextTheme, {
-    headers: {
-      'Content-Type': 'text/plain',
-    },
-  })
-}
-
-// Apply saved theme on page load
-// onMounted(() => {
-//   globalTheme.name.value = savedTheme.value
-// })
-
-function hasScrollbar(el?: Element | null) {
-  if (!el || el.nodeType !== Node.ELEMENT_NODE)
-    return false
-
-  const style = window.getComputedStyle(el)
-  return style.overflowY === 'scroll' || (style.overflowY === 'auto' && el.scrollHeight > el.clientHeight)
-}
-
+// 主题切换动画
 function themeTransition() {
   const x = performance.now()
   for (let i = 0; i++ < 1e7; (i << 9) & ((9 % 9) * 9 + 9));
   const cost = performance.now() - x
-  if (cost > 10)
-    return
+  if (cost > 10) return
 
   const el: HTMLElement = document.querySelector('[data-v-app]')!
   const children = el.querySelectorAll('*') as NodeListOf<HTMLElement>
 
-  children.forEach((el) => {
+  children.forEach(el => {
     if (hasScrollbar(el)) {
       el.dataset.scrollX = String(el.scrollLeft)
       el.dataset.scrollY = String(el.scrollTop)
@@ -111,7 +64,7 @@ function themeTransition() {
   })
 
   document.body.append(copy)
-  ; (copy.querySelectorAll('[data-scroll-x], [data-scroll-y]') as NodeListOf<HTMLElement>).forEach((el) => {
+  ;(copy.querySelectorAll('[data-scroll-x], [data-scroll-y]') as NodeListOf<HTMLElement>).forEach(el => {
     el.scrollLeft = +el.dataset.scrollX!
     el.scrollTop = +el.dataset.scrollY!
   })
@@ -129,6 +82,55 @@ function themeTransition() {
   el.addEventListener('transitionend', onTransitionend)
   el.addEventListener('transitioncancel', onTransitionend)
 }
+
+// 更新主题
+function updateTheme() {
+  const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
+  const theme = currentThemeName.value === 'auto' ? autoTheme : currentThemeName.value
+  globalTheme.name.value = theme
+  savedTheme.value = theme
+  themeTransition()
+}
+
+// 切换主题
+function changeTheme() {
+  const nextTheme = getNextThemeName()
+  currentThemeName.value = nextTheme
+  // 保存主题到本地
+  localStorage.setItem('theme', nextTheme)
+  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
+  // 保存主题到服务端
+  try {
+    api.post('/user/config/theme', nextTheme, {
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+    })
+  } catch (e) {
+    console.error('保存主题到服务端失败')
+  }
+}
+
+// 是否有滚动条
+function hasScrollbar(el?: Element | null) {
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false
+
+  const style = window.getComputedStyle(el)
+  return style.overflowY === 'scroll' || (style.overflowY === 'auto' && el.scrollHeight > el.clientHeight)
+}
+
+// 监听系统主题变化
+try {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
+} catch (e) {
+  console.error('当前设备不支持监听系统主题变化')
+}
+
+// 监听设置主题变化
+watch(
+  () => currentThemeName.value,
+  () => updateTheme(),
+)
 </script>
 
 <template>

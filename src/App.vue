@@ -10,37 +10,22 @@ const { global: globalTheme } = useTheme()
 // 提示框
 const $toast = useToast()
 
-// 获取用户主题配置
-async function fetchThemeConfig() {
-  const response = await api.get('/user/config/theme')
-  if (response && response.data && response.data.value) {
-    return response.data.value
-  }
-  return null
-}
-
-// 设置主题
+// 生效主题
 async function setTheme() {
-  let themeValue = await fetchThemeConfig() || localStorage.getItem('theme') || 'light'
+  let themeValue = localStorage.getItem('theme') || 'light'
   const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
   globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
-  // 修改载入时背景色
-  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
-  localStorage.setItem('theme', themeValue)
 }
 
 // SSE持续接收消息
 function startSSEMessager() {
   const token = store.state.auth.token
   if (token) {
-    const eventSource = new EventSource(
-      `${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}`,
-    )
+    const eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}`)
 
-    eventSource.addEventListener('message', (event) => {
+    eventSource.addEventListener('message', event => {
       const message = event.data
-      if (message)
-        $toast.info(message)
+      if (message) $toast.info(message)
     })
 
     onBeforeUnmount(() => {
@@ -53,16 +38,16 @@ function startSSEMessager() {
 async function loadDashboardConfig() {
   const response = await api.get('/user/config/Dashboard')
   if (response && response.data && response.data.value) {
-      const data = JSON.stringify(response.data.value)
-      if (data != localStorage.getItem("MP_DASHBOARD")) {
-        localStorage.setItem("MP_DASHBOARD", data)
-      }
+    const data = JSON.stringify(response.data.value)
+    if (data != localStorage.getItem('MP_DASHBOARD')) {
+      localStorage.setItem('MP_DASHBOARD', data)
     }
+  }
 }
 
 // 尝试加载用户监控面板配置（本地无配置时才加载）
 async function tryLoadDashboardConfig() {
-  if (localStorage.getItem("MP_DASHBOARD")) {
+  if (localStorage.getItem('MP_DASHBOARD')) {
     return
   }
   await loadDashboardConfig()
