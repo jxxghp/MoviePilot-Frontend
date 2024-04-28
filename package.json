@@ -51,6 +51,7 @@
     "vue-prism-component": "^2.0.0",
     "vue-router": "^4.2.0",
     "vue-toast-notification": "^3",
+    "vue-virtual-scroll-grid": "^1.11.0",
     "vue3-ace-editor": "^2.2.4",
     "vue3-apexcharts": "^1.4.1",
     "vue3-perfect-scrollbar": "^2.0.0",

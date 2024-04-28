@@ -8,6 +8,7 @@ import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import Grid from 'vue-virtual-scroll-grid'
 
 // 显示器宽度
 const display = useDisplay()
@@ -274,6 +275,24 @@ function pluginLabels(label: string | undefined) {
   return label.split(',')
 }
 
+// 插件分页提供器
+const pluginsPageProvider = (pageNumber: number, pageSize: number) => {
+  return new Promise<Plugin[]>(resolve => {
+    const start = pageNumber * pageSize
+    const end = start + pageSize
+    resolve(dataList.value.slice(start, end + 1))
+  })
+}
+
+// 插件市场分页提供器
+const pluginsMarketPageProvider = (pageNumber: number, pageSize: number) => {
+  return new Promise<Plugin[]>(resolve => {
+    const start = pageNumber * pageSize
+    const end = start + pageSize
+    resolve(sortedUninstalledList.value.slice(start, end + 1))
+  })
+}
+
 // 加载时获取数据
 onBeforeMount(async () => {
   await refreshData()
@@ -283,18 +302,28 @@ onBeforeMount(async () => {
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
-    <PluginCard
-      v-for="data in dataList"
-      :key="`${data.id}_v${data.plugin_version}`"
-      :count="PluginStatistics[data.id || '0']"
-      :plugin="data"
-      :action="pluginActions[data.id || '0']"
-      @remove="refreshData"
-      @save="refreshData"
-      @action-done="pluginActions[data.id || '0'] = false"
-    />
-  </div>
+  <Grid
+    :length="dataList.length"
+    :pageSize="20"
+    :pageProvider="pluginsPageProvider"
+    class="grid gap-4 grid-plugin-card"
+  >
+    <template v-slot:probe>
+      <PluginAppCard />
+    </template>
+    <template v-slot:default="{ item, style, index }">
+      <PluginCard
+        :style="style"
+        :key="index"
+        :count="PluginStatistics[item.id || '0']"
+        :plugin="item"
+        :action="pluginActions[item.id || '0']"
+        @remove="refreshData"
+        @save="refreshData"
+        @action-done="pluginActions[item.id || '0'] = false"
+      />
+    </template>
+  </Grid>
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"
     error-code="404"
@@ -376,15 +405,26 @@ onBeforeMount(async () => {
             </VCol>
           </VRow>
         </div>
-        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
-          <PluginAppCard
-            v-for="data in sortedUninstalledList"
-            :key="`${data.id}_v${data.plugin_version}`"
-            :plugin="data"
-            :count="PluginStatistics[data.id || '0']"
-            @install="pluginInstalled"
-          />
-        </div>
+        <Grid
+          v-if="isAppMarketLoaded"
+          :length="sortedUninstalledList.length"
+          :pageSize="20"
+          :pageProvider="pluginsMarketPageProvider"
+          class="grid gap-4 grid-plugin-card"
+        >
+          <template v-slot:probe>
+            <PluginAppCard />
+          </template>
+          <template v-slot:default="{ item, style, index }">
+            <PluginAppCard
+              :style="style"
+              :key="index"
+              :plugin="item"
+              :count="PluginStatistics[item.id || '0']"
+              @install="pluginInstalled"
+            />
+          </template>
+        </Grid>
         <NoDataFound
           v-if="uninstalledList.length === 0 && isAppMarketLoaded"
           error-code="404"
