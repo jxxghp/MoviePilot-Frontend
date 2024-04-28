@@ -207,6 +207,7 @@ async function fetchUninstalledPlugins() {
           data.has_update = true
           data.repo_url = uninstalled.repo_url
           data.history = uninstalled.history
+          data.plugin_label = uninstalled.plugin_label
         }
       }
     }
@@ -266,6 +267,12 @@ const sortedUninstalledList = computed(() => {
     return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
   })
 })
+
+// 标签转换
+function pluginLabels(label: string | undefined) {
+  if (!label) return []
+  return label.split(',')
+}
 
 // 加载时获取数据
 onBeforeMount(() => {
@@ -441,7 +448,21 @@ onBeforeMount(() => {
               {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
               <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
             </VListItemTitle>
-            <VListItemSubtitle class="mt-2" v-html="item.plugin_desc" />
+            <VListItemSubtitle class="mt-2">
+              <VChip
+                v-for="label in pluginLabels(item.plugin_label)"
+                variant="tonal"
+                size="small"
+                class="me-1 my-1"
+                color="info"
+                label
+              >
+                {{ label }}
+              </VChip>
+              <span>
+                {{ item.plugin_desc }}
+              </span>
+            </VListItemSubtitle>
           </VListItem>
         </template>
       </VList>
