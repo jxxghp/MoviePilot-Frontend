@@ -30,8 +30,27 @@ const selectedSites = ref<number[]>([])
 const defaultFilterRules = ref({
   include: '',
   exclude: '',
-  min_seeders: 0
+  min_seeders: 0,
 })
+
+// 媒体信息数据源字典
+const mediaSourcesDict = [
+  {
+    title: 'TheMovieDb',
+    value: 'themoviedb',
+  },
+  {
+    title: '豆瓣',
+    value: 'douban',
+  },
+  {
+    title: 'Bangumi',
+    value: 'bangumi',
+  },
+]
+
+// 当前选中的媒体信息数据源
+const selectedMediaSource = ref([])
 
 // 导入代码弹窗
 const importCodeDialog = ref(false)
@@ -55,8 +74,7 @@ async function queryCustomFilters() {
         }
       })
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -74,17 +92,11 @@ async function saveCustomFilters() {
         .join('>')
     }
     // 保存
-    const result: { [key: string]: any } = await api.post(
-      'system/setting/SearchFilterRules',
-      value,
-    )
+    const result: { [key: string]: any } = await api.post('system/setting/SearchFilterRules', value)
 
-    if (result.success)
-      $toast.success('搜索优先级保存成功')
-    else
-      $toast.error('搜索优先级保存失败！')
-  }
-  catch (error) {
+    if (result.success) $toast.success('搜索优先级保存成功')
+    else $toast.error('搜索优先级保存失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -92,8 +104,7 @@ async function saveCustomFilters() {
 // 更新规则卡片的值
 function updateFilterCardValue(pri: string, rules: string[]) {
   const card = filterCards.value.find(card => card.pri === pri)
-  if (card)
-    card.rules = rules
+  if (card) card.rules = rules
 }
 
 // 移除卡片
@@ -129,8 +140,7 @@ async function querySites() {
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)
     querySelectedSites()
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -141,8 +151,7 @@ async function querySelectedSites() {
     const result: { [key: string]: any } = await api.get('system/setting/IndexerSites')
 
     selectedSites.value = result.data?.value ?? []
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -153,12 +162,9 @@ async function saveSelectedSites() {
     // 用户名密码
     const result: { [key: string]: any } = await api.post('system/setting/IndexerSites', selectedSites.value)
 
-    if (result.success)
-      $toast.success('搜索站点保存成功')
-    else
-      $toast.error('搜索站点保存失败！')
-  }
-  catch (error) {
+    if (result.success) $toast.success('搜索站点保存成功')
+    else $toast.error('搜索站点保存失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -167,13 +173,11 @@ async function saveSelectedSites() {
 function onLevelUp(pri: string) {
   // 找到当前卡片
   const card = filterCards.value.find(card => card.pri === pri)
-  if (!card)
-    return
+  if (!card) return
 
   // 找到当前卡片的上一张卡片
   const prevCard = filterCards.value.find(card => card.pri === (parseInt(pri) - 1).toString())
-  if (!prevCard)
-    return
+  if (!prevCard) return
 
   // 交换两张卡片的优先级
   const temp = card.pri
@@ -188,13 +192,11 @@ function onLevelUp(pri: string) {
 function onLevelDown(pri: string) {
   // 找到当前卡片
   const card = filterCards.value.find(card => card.pri === pri)
-  if (!card)
-    return
+  if (!card) return
 
   // 找到当前卡片的下一张卡片
   const nextCard = filterCards.value.find(card => card.pri === (parseInt(pri) + 1).toString())
-  if (!nextCard)
-    return
+  if (!nextCard) return
 
   // 交换两张卡片的优先级
   const temp = card.pri
@@ -208,13 +210,9 @@ function onLevelDown(pri: string) {
 // 查询包含与排除规则
 async function queryDefaultFilter() {
   try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultSearchFilterRules',
-    )
-    if (result.data?.value)
-      defaultFilterRules.value = result.data?.value
-  }
-  catch (error) {
+    const result: { [key: string]: any } = await api.get('system/setting/DefaultSearchFilterRules')
+    if (result.data?.value) defaultFilterRules.value = result.data?.value
+  } catch (error) {
     console.log(error)
   }
 }
@@ -226,12 +224,9 @@ async function saveDefaultFilter() {
       'system/setting/DefaultSearchFilterRules',
       defaultFilterRules.value,
     )
-    if (result.success)
-      $toast.success('默认包含/排除规则保存成功')
-    else
-      $toast.error('默认包含/排除规则保存失败！')
-  }
-  catch (error) {
+    if (result.success) $toast.success('默认包含/排除规则保存成功')
+    else $toast.error('默认包含/排除规则保存失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -239,8 +234,7 @@ async function saveDefaultFilter() {
 // 分享规则
 function shareRules() {
   // 有值才处理
-  if (filterCards.value.length === 0)
-    return
+  if (filterCards.value.length === 0) return
 
   // 将卡片规则接装为字符串
   const value = filterCards.value
@@ -252,22 +246,18 @@ function shareRules() {
   try {
     copyToClipboard(value)
     $toast.success('优先级规则已复制到剪贴板')
-  }
-  catch (error) {
+  } catch (error) {
     $toast.error('优先级规则复制失败！')
   }
 }
 
 // 监听导入代码变化
 watchEffect(() => {
-  if (!importCodeString.value)
-    return
+  if (!importCodeString.value) return
 
   // 导入代码需要以空格开头和结束，没有则拼接
-  if (!importCodeString.value.startsWith(' '))
-    importCodeString.value = ` ${importCodeString.value}`
-  if (!importCodeString.value.endsWith(' '))
-    importCodeString.value = `${importCodeString.value} `
+  if (!importCodeString.value.startsWith(' ')) importCodeString.value = ` ${importCodeString.value}`
+  if (!importCodeString.value.endsWith(' ')) importCodeString.value = `${importCodeString.value} `
 
   // 将导入的代码转换为规则卡片
   const groups = importCodeString.value.split('>')
@@ -279,15 +269,67 @@ watchEffect(() => {
   })
 })
 
+// 调用API查询下载器设置
+async function loadMediaSourceSetting() {
+  try {
+    const result1: { [key: string]: any } = await api.get('system/setting/SEARCH_SOURCE')
+    if (result1.success) selectedMediaSource.value = result1.data?.value?.split(',')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 调用API保存下载器设置
+async function saveMediaSourceSetting() {
+  try {
+    const result: { [key: string]: any } = await api.post(
+      'system/setting/SEARCH_SOURCE',
+      selectedMediaSource.value.join(','),
+    )
+
+    if (result.success) {
+      $toast.success('保存媒体数据源设置成功')
+    } else {
+      $toast.error('保存媒体数据源设置失败！')
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   queryCustomFilters()
   querySites()
   queryDefaultFilter()
+  loadMediaSourceSetting()
 })
 </script>
 
 <template>
   <VRow>
+    <VCol cols="12">
+      <VCard title="媒体数据源">
+        <VCardSubtitle> 设定搜索时展示哪些源的媒体信息。</VCardSubtitle>
+        <VCardText>
+          <VRow>
+            <VCol cols="12" md="6">
+              <VSelect
+                v-model="selectedMediaSource"
+                multiple
+                chips
+                :items="mediaSourcesDict"
+                label="当前使用数据源"
+                hint="选中多项时会同时展示来自不同数据源的搜索结果"
+              />
+            </VCol>
+          </VRow>
+        </VCardText>
+
+        <VCardItem>
+          <VBtn type="submit" @click="saveMediaSourceSetting"> 保存 </VBtn>
+        </VCardItem>
+      </VCard>
+    </VCol>
     <VCol cols="12">
       <VCard title="搜索站点">
         <VCardSubtitle> 只有选中的站点才会在搜索中使用。</VCardSubtitle>
@@ -308,9 +350,7 @@ onMounted(() => {
         </VCardItem>
 
         <VCardItem>
-          <VBtn type="submit" @click="saveSelectedSites">
-            保存
-          </VBtn>
+          <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
         </VCardItem>
       </VCard>
     </VCol>
@@ -319,24 +359,15 @@ onMounted(() => {
         <template #append>
           <IconBtn>
             <VIcon icon="mdi-dots-vertical" />
-            <VMenu
-              activator="parent"
-              close-on-content-click
-            >
+            <VMenu activator="parent" close-on-content-click>
               <VList>
-                <VListItem
-                  variant="plain"
-                  @click="shareRules"
-                >
+                <VListItem variant="plain" @click="shareRules">
                   <template #prepend>
                     <VIcon icon="mdi-share" />
                   </template>
                   <VListItemTitle>分享</VListItemTitle>
                 </VListItem>
-                <VListItem
-                  variant="plain"
-                  @click="importCodeDialog = true"
-                >
+                <VListItem variant="plain" @click="importCodeDialog = true">
                   <template #prepend>
                     <VIcon icon="mdi-import" />
                   </template>
@@ -363,18 +394,8 @@ onMounted(() => {
           </div>
         </VCardItem>
         <VCardItem>
-          <VBtn
-            type="submit"
-            class="me-2"
-            @click="saveCustomFilters()"
-          >
-            保存
-          </VBtn>
-          <VBtn
-            color="success"
-            variant="tonal"
-            @click="addFilterCard()"
-          >
+          <VBtn type="submit" class="me-2" @click="saveCustomFilters()"> 保存 </VBtn>
+          <VBtn color="success" variant="tonal" @click="addFilterCard()">
             <VIcon icon="mdi-plus" />
           </VBtn>
         </VCardItem>
@@ -415,26 +436,13 @@ onMounted(() => {
           </VForm>
         </VCardText>
         <VCardItem>
-          <VBtn
-            type="submit"
-            @click="saveDefaultFilter"
-          >
-            保存
-          </VBtn>
+          <VBtn type="submit" @click="saveDefaultFilter"> 保存 </VBtn>
         </VCardItem>
       </VCard>
     </VCol>
   </VRow>
-  <VDialog
-    v-model="importCodeDialog"
-    width="60rem"
-    scrollable
-  >
-    <ImportCodeDialog
-      v-model="importCodeString"
-      title="导入优先级规则"
-      @close="importCodeDialog = false"
-    />
+  <VDialog v-model="importCodeDialog" width="60rem" scrollable>
+    <ImportCodeDialog v-model="importCodeString" title="导入优先级规则" @close="importCodeDialog = false" />
   </VDialog>
 </template>
 
