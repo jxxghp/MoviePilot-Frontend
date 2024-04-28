@@ -431,10 +431,10 @@ function getYear(airDate: string) {
           {{ props.media?.type }}
         </VChip>
         <!-- 本地存在标识 -->
-        <ExistIcon v-if="isExists" />
+        <ExistIcon v-if="isExists && !hover.isHovering" />
         <!-- 评分角标 -->
         <VChip
-          v-if="isImageLoaded && props.media?.vote_average && !isExists"
+          v-if="isImageLoaded && props.media?.vote_average && !(isExists && !hover.isHovering)"
           variant="elevated"
           size="small"
           :class="getChipColor('rating')"
