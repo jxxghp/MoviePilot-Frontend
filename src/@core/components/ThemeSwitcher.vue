@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useTheme } from 'vuetify'
 import type { ThemeSwitcherTheme } from '@layouts/types'
+import api from '@/api'
 
 const props = defineProps<{
   themes: ThemeSwitcherTheme[]
@@ -42,6 +43,12 @@ function changeTheme() {
   const nextTheme = getNextThemeName()
   currentThemeName.value = nextTheme
   localStorage.setItem('theme', nextTheme)
+  // 保存主题到服务端
+  api.post('/user/config/theme', nextTheme, {
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  })
 }
 
 // Apply saved theme on page load
