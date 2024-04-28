@@ -165,7 +165,8 @@ const filterPlugins = computed(() => {
     // 需要忽略大小写
     return (
       item.plugin_name?.toLowerCase().includes(keyword.value.toLowerCase()) ||
-      item.plugin_desc?.toLowerCase().includes(keyword.value.toLowerCase())
+      item.plugin_desc?.toLowerCase().includes(keyword.value.toLowerCase()) ||
+      !keyword
     )
   })
 })
@@ -205,7 +206,6 @@ async function fetchUninstalledPlugins() {
           data.has_update = true
           data.repo_url = uninstalled.repo_url
           data.history = uninstalled.history
-          data.plugin_label = uninstalled.plugin_label
         }
       }
     }
@@ -430,41 +430,41 @@ onBeforeMount(async () => {
         />
       </VToolbar>
       <DialogCloseBtn @click="closeSearchDialog" />
-      <VList v-if="filterPlugins.length > 0" lines="two">
-        <template v-for="(item, i) in filterPlugins" :key="i">
-          <VListItem @click="openPlugin(item)">
-            <template #prepend>
-              <VAvatar>
-                <VImg :src="pluginIcon(item)" @error="pluginIconError(item)">
-                  <template #placeholder>
-                    <div class="w-full h-full">
-                      <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
-                    </div>
-                  </template>
-                </VImg>
-              </VAvatar>
-            </template>
-            <VListItemTitle>
-              {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
-              <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
-            </VListItemTitle>
-            <VListItemSubtitle class="mt-2">
-              <VChip
-                v-for="label in pluginLabels(item.plugin_label)"
-                variant="tonal"
-                size="small"
-                class="me-1 my-1"
-                color="info"
-                label
-              >
-                {{ label }}
-              </VChip>
-              <span>
+      <VList v-if="filterPlugins.length > 0" lines="three">
+        <VVirtualScroll :items="filterPlugins">
+          <template #default="{ item }">
+            <VListItem @click="openPlugin(item)">
+              <template #prepend>
+                <VAvatar>
+                  <VImg :src="pluginIcon(item)" @error="pluginIconError(item)">
+                    <template #placeholder>
+                      <div class="w-full h-full">
+                        <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
+                      </div>
+                    </template>
+                  </VImg>
+                </VAvatar>
+              </template>
+              <VListItemTitle>
+                {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
+                <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
+              </VListItemTitle>
+              <VListItemSubtitle class="mt-2">
+                <VChip
+                  v-for="label in pluginLabels(item.plugin_label)"
+                  variant="tonal"
+                  size="small"
+                  class="me-1 my-1"
+                  color="info"
+                  label
+                >
+                  {{ label }}
+                </VChip>
                 {{ item.plugin_desc }}
-              </span>
-            </VListItemSubtitle>
-          </VListItem>
-        </template>
+              </VListItemSubtitle>
+            </VListItem>
+          </template>
+        </VVirtualScroll>
       </VList>
     </VCard>
   </VDialog>
