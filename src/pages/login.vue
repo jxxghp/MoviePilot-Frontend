@@ -6,6 +6,10 @@ import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import router from '@/router'
 import logo from '@images/logo.png'
+import { useTheme } from 'vuetify'
+import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
+
+const { global: globalTheme } = useTheme()
 
 // Vuex Store
 const store = useStore()
@@ -85,7 +89,28 @@ async function tryLoadDashboardConfig() {
   await loadDashboardConfig()
 }
 
+// 获取用户主题配置
+async function fetchThemeConfig() {
+  const response = await api.get('/user/config/theme')
+  if (response && response.data && response.data.value) {
+    return response.data.value
+  }
+  return null
+}
+
+// 设置主题
+async function setTheme() {
+  let themeValue = await fetchThemeConfig() || localStorage.getItem('theme') || 'light'
+  const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
+  globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
+  // 修改载入时背景色
+  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
+  localStorage.setItem('theme', themeValue)
+}
+
 async function afterLogin() {
+  // 主题配置
+  await setTheme()
   // 尝试加载用户监控面板配置（本地无配置时才加载）
   await tryLoadDashboardConfig()
   // 跳转到首页或回原始页面

@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useTheme } from 'vuetify'
 import type { ThemeSwitcherTheme } from '@layouts/types'
+import api from '@/api'
+import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 
 const props = defineProps<{
   themes: ThemeSwitcherTheme[]
@@ -21,7 +23,7 @@ const {
 )
 
 function updateTheme() {
-  const autoTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
   const theme = currentThemeName.value === 'auto' ? autoTheme : currentThemeName.value
   globalTheme.name.value = theme
   savedTheme.value = theme
@@ -31,7 +33,11 @@ function updateTheme() {
 }
 
 // 监听系统主题变化
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
+try {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
+} catch(e) {
+  console.error('当前设备不支持监听系统主题变化')
+}
 
 watch(
   () => currentThemeName.value,
@@ -42,6 +48,12 @@ function changeTheme() {
   const nextTheme = getNextThemeName()
   currentThemeName.value = nextTheme
   localStorage.setItem('theme', nextTheme)
+  // 保存主题到服务端
+  api.post('/user/config/theme', nextTheme, {
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  })
 }
 
 // Apply saved theme on page load

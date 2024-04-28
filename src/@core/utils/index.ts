@@ -118,3 +118,12 @@ export function isNullOrEmptyObject(obj: any): boolean {
   // 然后判断是否为空对象
   return !!(typeof obj === 'object' && Object.keys(obj).length === 0)
 }
+
+// 判断系统配置色是否是黑暗的
+export function checkPrefersColorSchemeIsDark(): boolean {
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  } catch (e) {
+    return false
+  }
+}
