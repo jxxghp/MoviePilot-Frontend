@@ -3,7 +3,7 @@
 const router = useRouter()
 
 // 搜索词
-const searchWord = ref<string>('')
+const searchWord = ref(null)
 
 // 搜索弹窗
 const searchDialog = ref(false)
@@ -76,16 +76,16 @@ function openSearchDialog() {
     </VDialog>
   </div>
   <!-- 👉 Search Icon -->
-  <IconBtn class="d-lg-none" @click="openSearchDialog">
+  <IconBtn class="d-md-none" @click="openSearchDialog">
     <VIcon icon="mdi-magnify" />
   </IconBtn>
   <!-- 👉 Search Textfield -->
-  <span class="w-1/5">
+  <span class="w-full me-3">
     <VCombobox
       key="search_navbar"
       v-model="searchWord"
       :items="searchHintList"
-      class="d-none d-lg-block text-disabled search-box"
+      class="d-none d-md-block text-disabled search-box"
       density="compact"
       variant="solo"
       :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie'"
