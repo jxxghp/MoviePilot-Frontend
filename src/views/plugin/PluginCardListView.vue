@@ -8,17 +8,16 @@ import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import { VFadeTransition } from 'vuetify/lib/components/index.mjs'
 
 const route = useRoute()
 
 // 显示器宽度
 const display = useDisplay()
 
-//
+// 当前标签
 const activeTab = ref(route.params.tab)
 
-// tabs
+// 标签页
 const tabs = [
   {
     title: '我的插件',
@@ -28,6 +27,18 @@ const tabs = [
     title: '插件市场',
     tab: 'pluginmarket',
   },
+]
+
+// 当前排序字段
+const activeSort = ref('')
+
+// 排序选项
+const sortOptions = [
+  { title: '默认', value: '' },
+  { title: '热门', value: 'count' },
+  { title: '插件名称', value: 'plugin_name' },
+  { title: '作者', value: 'plugin_author' },
+  { title: '插件仓库', value: 'repo_url' },
 ]
 
 // 已安装插件列表
@@ -272,11 +283,17 @@ const sortedUninstalledList = computed(() => {
     }
   })
 
-  // 按照统计数据排序
   if (isNullOrEmptyObject(PluginStatistics.value)) return ret_list
-  return ret_list.sort((a, b) => {
-    return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
-  })
+  // 数据排序
+  if (!activeSort.value || activeSort.value === 'count') {
+    return ret_list.sort((a, b) => {
+      return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
+    })
+  } else if (activeSort.value) {
+    return ret_list.sort((a: any, b: any) => {
+      return a[activeSort.value] > b[activeSort.value] ? 1 : -1
+    })
+  }
 })
 
 // 标签转换
@@ -349,10 +366,10 @@ onBeforeMount(async () => {
             <!-- 过滤表单 -->
             <div v-if="isAppMarketLoaded" class="bg-transparent mb-3 shadow-none">
               <VRow>
-                <VCol cols="6" md="3">
+                <VCol cols="6" md="">
                   <VTextField v-model="filterForm.name" size="small" density="compact" label="名称" />
                 </VCol>
-                <VCol v-if="authorFilterOptions.length > 0" cols="6" md="3">
+                <VCol v-if="authorFilterOptions.length > 0" cols="6" md="">
                   <VSelect
                     v-model="filterForm.author"
                     :items="authorFilterOptions"
@@ -363,7 +380,7 @@ onBeforeMount(async () => {
                     multiple
                   />
                 </VCol>
-                <VCol v-if="labelFilterOptions.length > 0" cols="6" md="3">
+                <VCol v-if="labelFilterOptions.length > 0" cols="6" md="">
                   <VSelect
                     v-model="filterForm.label"
                     :items="labelFilterOptions"
@@ -374,7 +391,7 @@ onBeforeMount(async () => {
                     multiple
                   />
                 </VCol>
-                <VCol v-if="repoFilterOptions.length > 0" cols="6" md="3">
+                <VCol v-if="repoFilterOptions.length > 0" cols="6" md="">
                   <VSelect
                     v-model="filterForm.repo"
                     :items="repoFilterOptions"
@@ -384,6 +401,9 @@ onBeforeMount(async () => {
                     label="插件库"
                     multiple
                   />
+                </VCol>
+                <VCol v-if="repoFilterOptions.length > 0" cols="6" md="">
+                  <VSelect v-model="activeSort" :items="sortOptions" size="small" density="compact" label="排序" />
                 </VCol>
               </VRow>
             </div>
