@@ -311,7 +311,7 @@ function pluginInstalled() {
 // 处理掉github地址的前缀
 function handleRepoUrl(url: string | undefined) {
   if (!url) return ''
-  return url.replace('https:github.com/', '').replace('https://raw.githubusercontent.com/', '')
+  return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
 // 加载时获取数据
