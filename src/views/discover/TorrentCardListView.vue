@@ -148,7 +148,7 @@ watchEffect(() => {
 <template>
   <VCard class="bg-transparent mb-3 pt-2 shadow-none">
     <VRow>
-      <VCol v-if="siteFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="siteFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.site"
           :items="siteFilterOptions"
@@ -159,7 +159,7 @@ watchEffect(() => {
           multiple
         />
       </VCol>
-      <VCol v-if="seasonFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="seasonFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.season"
           :items="sortSeasonFilterOptions"
@@ -170,7 +170,7 @@ watchEffect(() => {
           multiple
         />
       </VCol>
-      <VCol v-if="releaseGroupFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="releaseGroupFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.releaseGroup"
           :items="releaseGroupFilterOptions"
@@ -181,7 +181,7 @@ watchEffect(() => {
           multiple
         />
       </VCol>
-      <VCol v-if="editionFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="editionFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.edition"
           :items="editionFilterOptions"
@@ -192,7 +192,7 @@ watchEffect(() => {
           multiple
         />
       </VCol>
-      <VCol v-if="resolutionFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="resolutionFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.resolution"
           :items="resolutionFilterOptions"
@@ -203,7 +203,7 @@ watchEffect(() => {
           multiple
         />
       </VCol>
-      <VCol v-if="videoCodeFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="videoCodeFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.videoCode"
           :items="videoCodeFilterOptions"
@@ -214,7 +214,7 @@ watchEffect(() => {
           multiple
         />
       </VCol>
-      <VCol v-if="freeStateFilterOptions.length > 0" cols="6" md="">
+      <VCol v-if="freeStateFilterOptions.length > 1" cols="6" md="">
         <VSelect
           v-model="filterForm.freeState"
           :items="freeStateFilterOptions"

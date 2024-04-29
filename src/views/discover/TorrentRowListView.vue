@@ -117,125 +117,125 @@ onMounted(() => {
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
       <VList lines="one" class="rounded">
-        <VListSubheader v-if="siteFilterOptions.length > 0">
-          站点
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.site" column multiple>
-            <VChip
-              v-for="site in siteFilterOptions"
-              :key="site"
-              :color="filterForm.site.includes(site) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="site"
-            >
-              {{ site }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
-        <VListSubheader v-if="editionFilterOptions.length > 0">
-          质量
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.edition" column multiple>
-            <VChip
-              v-for="edition in editionFilterOptions"
-              :key="edition"
-              :color="filterForm.edition.includes(edition) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="edition"
-            >
-              {{ edition }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
-        <VListSubheader v-if="resolutionFilterOptions.length > 0">
-          分辨率
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.resolution" column multiple>
-            <VChip
-              v-for="resolution in resolutionFilterOptions"
-              :key="resolution"
-              :color="filterForm.resolution.includes(resolution) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="resolution"
-            >
-              {{ resolution }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
-        <VListSubheader v-if="releaseGroupFilterOptions.length > 0">
-          制作组
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.releaseGroup" column multiple>
-            <VChip
-              v-for="releaseGroup in releaseGroupFilterOptions"
-              :key="releaseGroup"
-              :color="filterForm.releaseGroup.includes(releaseGroup) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="releaseGroup"
-            >
-              {{ releaseGroup }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
-        <VListSubheader v-if="videoCodeFilterOptions.length > 0">
-          视频编码
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.videoCode" column multiple>
-            <VChip
-              v-for="videoCode in videoCodeFilterOptions"
-              :key="videoCode"
-              :color="filterForm.videoCode.includes(videoCode) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="videoCode"
-            >
-              {{ videoCode }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
-        <VListSubheader v-if="freeStateFilterOptions.length > 0">
-          促销状态
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.freeState" column multiple>
-            <VChip
-              v-for="freeState in freeStateFilterOptions"
-              :key="freeState"
-              :color="filterForm.freeState.includes(freeState) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="freeState"
-            >
-              {{ freeState }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
-        <VListSubheader v-if="seasonFilterOptions.length > 0">
-          季集
-        </VListSubheader>
-        <VListItem>
-          <VChipGroup v-model="filterForm.season" column multiple>
-            <VChip
-              v-for="season in seasonFilterOptions"
-              :key="season"
-              :color="filterForm.season.includes(season) ? 'primary' : ''"
-              filter
-              variant="outlined"
-              :value="season"
-            >
-              {{ season }}
-            </VChip>
-          </VChipGroup>
-        </VListItem>
+        <div v-if="siteFilterOptions.length > 1">
+          <VListSubheader>站点</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.site" column multiple>
+              <VChip
+                v-for="site in siteFilterOptions"
+                :key="site"
+                :color="filterForm.site.includes(site) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="site"
+              >
+                {{ site }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
+        <div v-if="seasonFilterOptions.length > 1">
+          <VListSubheader>季集</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.season" column multiple>
+              <VChip
+                v-for="season in seasonFilterOptions"
+                :key="season"
+                :color="filterForm.season.includes(season) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="season"
+              >
+                {{ season }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
+        <div v-if="releaseGroupFilterOptions.length > 1">
+          <VListSubheader>制作组</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.releaseGroup" column multiple>
+              <VChip
+                v-for="releaseGroup in releaseGroupFilterOptions"
+                :key="releaseGroup"
+                :color="filterForm.releaseGroup.includes(releaseGroup) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="releaseGroup"
+              >
+                {{ releaseGroup }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
+        <div v-if="editionFilterOptions.length > 1">
+          <VListSubheader>质量</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.edition" column multiple>
+              <VChip
+                v-for="edition in editionFilterOptions"
+                :key="edition"
+                :color="filterForm.edition.includes(edition) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="edition"
+              >
+                {{ edition }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
+        <div v-if="resolutionFilterOptions.length > 1">
+          <VListSubheader>分辨率</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.resolution" column multiple>
+              <VChip
+                v-for="resolution in resolutionFilterOptions"
+                :key="resolution"
+                :color="filterForm.resolution.includes(resolution) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="resolution"
+              >
+                {{ resolution }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
+        <div v-if="videoCodeFilterOptions.length > 1">
+          <VListSubheader>视频编码</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.videoCode" column multiple>
+              <VChip
+                v-for="videoCode in videoCodeFilterOptions"
+                :key="videoCode"
+                :color="filterForm.videoCode.includes(videoCode) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="videoCode"
+              >
+                {{ videoCode }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
+        <div v-if="freeStateFilterOptions.length > 1">
+          <VListSubheader>促销状态</VListSubheader>
+          <VListItem>
+            <VChipGroup v-model="filterForm.freeState" column multiple>
+              <VChip
+                v-for="freeState in freeStateFilterOptions"
+                :key="freeState"
+                :color="filterForm.freeState.includes(freeState) ? 'primary' : ''"
+                filter
+                variant="outlined"
+                :value="freeState"
+              >
+                {{ freeState }}
+              </VChip>
+            </VChipGroup>
+          </VListItem>
+        </div>
       </VList>
     </VCol>
   </VRow>
