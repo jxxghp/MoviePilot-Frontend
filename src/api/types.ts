@@ -316,6 +316,10 @@ export interface Site {
   rss?: string
   // Cookie
   cookie?: string
+  // ApiKey
+  apikey?: string
+  // Token
+  token?: string
   // User-Agent
   ua?: string
   // 是否使用代理

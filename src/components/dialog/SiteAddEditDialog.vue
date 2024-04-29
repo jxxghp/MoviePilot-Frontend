@@ -161,6 +161,16 @@ async function updateSiteInfo() {
                 hint="浏览器打开站点首页，打开开发人员工具，刷新页面后在网络选项中找到首页地址，在请求头中获取Cookie信息"
               />
             </VCol>
+            <VCol cols="6">
+              <VTextField
+                v-model="siteForm.token"
+                label="请求头（Authorization）"
+                hint="在开发人员工具，网络请求头中获取Authorization，仅个别站点需要"
+              />
+            </VCol>
+            <VCol cols="6">
+              <VTextField v-model="siteForm.apikey" label="令牌（API Key）" hint="站点的访问API Key，仅个别站点需要" />
+            </VCol>
             <VCol cols="12">
               <VTextField
                 v-model="siteForm.ua"
