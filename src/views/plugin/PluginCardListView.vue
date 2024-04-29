@@ -35,11 +35,10 @@ const tabs = [
 ]
 
 // 当前排序字段
-const activeSort = ref('')
+const activeSort = ref(null)
 
 // 排序选项
 const sortOptions = [
-  { title: '默认', value: '' },
   { title: '热门', value: 'count' },
   { title: '插件名称', value: 'plugin_name' },
   { title: '作者', value: 'plugin_author' },
@@ -299,7 +298,7 @@ const sortedUninstalledList = computed(() => {
     })
   } else if (activeSort.value) {
     return ret_list.sort((a: any, b: any) => {
-      return a[activeSort.value] > b[activeSort.value] ? 1 : -1
+      return a[activeSort.value ?? ''] > b[activeSort.value ?? ''] ? 1 : -1
     })
   }
 })

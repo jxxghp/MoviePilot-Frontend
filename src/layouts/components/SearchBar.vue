@@ -14,10 +14,13 @@ const searchWordInput = ref<HTMLElement | null>(null)
 // 当前的搜索类型 media/person
 const searchType = ref('media')
 
+// 搜索提示词列表
+const searchHintList = ref<string[]>([])
+
 // Search
 function search() {
   if (!searchWord.value) return
-
+  if (!searchHintList.value.includes(searchWord.value)) searchHintList.value.push(searchWord.value)
   searchDialog.value = false
   router.push({
     path: '/browse/media/search',
@@ -51,13 +54,15 @@ function openSearchDialog() {
         <VCardText>
           <VRow>
             <VCol cols="12">
-              <VTextField
+              <VCombobox
                 ref="searchWordInput"
                 v-model="searchWord"
+                :items="searchHintList"
                 :prepend-inner-icon="searchType == 'person' ? 'mdi-account' : 'mdi-movie'"
                 :label="searchType == 'person' ? '搜索演员' : '搜索电影、电视剧'"
                 @keydown.enter="search"
                 @click:prepend-inner="switchSearchType"
+                clearable
               />
             </VCol>
           </VRow>
@@ -76,9 +81,10 @@ function openSearchDialog() {
   </IconBtn>
   <!-- 👉 Search Textfield -->
   <span class="w-1/5">
-    <VTextField
+    <VCombobox
       key="search_navbar"
       v-model="searchWord"
+      :items="searchHintList"
       class="d-none d-lg-block text-disabled search-box"
       density="compact"
       variant="solo"
