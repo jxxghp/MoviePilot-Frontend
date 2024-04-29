@@ -8,9 +8,27 @@ import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { VFadeTransition } from 'vuetify/lib/components/index.mjs'
+
+const route = useRoute()
 
 // 显示器宽度
 const display = useDisplay()
+
+//
+const activeTab = ref(route.params.tab)
+
+// tabs
+const tabs = [
+  {
+    title: '我的插件',
+    tab: 'myplugin',
+  },
+  {
+    title: '插件市场',
+    tab: 'pluginmarket',
+  },
+]
 
 // 已安装插件列表
 const dataList = ref<Plugin[]>([])
@@ -57,7 +75,7 @@ const progressText = ref('正在安装插件...')
 // 过滤表单
 const filterForm = reactive({
   // 名称
-  name: [] as string[],
+  name: '' as string,
   // 作者
   author: [] as string[],
   // 标签
@@ -66,8 +84,6 @@ const filterForm = reactive({
   repo: [] as string[],
 })
 
-// 名称过滤项
-const nameFilterOptions = ref<string[]>([])
 // 作者过滤项
 const authorFilterOptions = ref<string[]>([])
 // 标签过滤项
@@ -83,10 +99,9 @@ function initOptions(item: Plugin) {
   const optionMutipleValue = (options: Array<string>, value: string | undefined) => {
     value && value.split(',').forEach(v => !options.includes(v) && options.push(v))
   }
-  optionValue(nameFilterOptions.value, item.plugin_name)
   optionValue(authorFilterOptions.value, item.plugin_author)
   optionMutipleValue(labelFilterOptions.value, item.plugin_label)
-  optionValue(repoFilterOptions.value, item.repo_url)
+  optionValue(repoFilterOptions.value, handleRepoUrl(item.repo_url))
 }
 
 // 关闭插件市场窗口
@@ -171,12 +186,6 @@ const filterPlugins = computed(() => {
   })
 })
 
-// 新安装了插件
-function pluginInstalled() {
-  pluginDialogClose()
-  refreshData()
-}
-
 // 获取插件列表数据
 async function fetchInstalledPlugins() {
   try {
@@ -243,6 +252,8 @@ const sortedUninstalledList = computed(() => {
     filter.length === 0 || (value && filter.includes(value))
   const matchMultiple = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && value.split(',').some(v => filter.includes(v)))
+  const filterText = (filter: string, value: string | undefined) =>
+    !filter || (value && value.toLowerCase().includes(filter.toLowerCase()))
 
   // 过滤后的数据列表
   const ret_list: Plugin[] = []
@@ -251,10 +262,10 @@ const sortedUninstalledList = computed(() => {
   marketList.value.forEach(value => {
     if (value) {
       if (
-        match(filterForm.name, value.plugin_name) &&
+        filterText(filterForm.name, `${value.plugin_name} ${value.plugin_desc}`) &&
         match(filterForm.author, value.plugin_author) &&
         matchMultiple(filterForm.label, value.plugin_label) &&
-        match(filterForm.repo, value.repo_url)
+        match(filterForm.repo, handleRepoUrl(value.repo_url))
       ) {
         ret_list.push(value)
       }
@@ -274,6 +285,18 @@ function pluginLabels(label: string | undefined) {
   return label.split(',')
 }
 
+// 新安装了插件
+function pluginInstalled() {
+  pluginDialogClose()
+  refreshData()
+}
+
+// 处理掉github地址的前缀
+function handleRepoUrl(url: string | undefined) {
+  if (!url) return ''
+  return url.replace('https:github.com/', '').replace('https://raw.githubusercontent.com/', '')
+}
+
 // 加载时获取数据
 onBeforeMount(async () => {
   await refreshData()
@@ -282,118 +305,108 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
-    <PluginCard
-      v-for="data in dataList"
-      :key="`${data.id}_v${data.plugin_version}`"
-      :count="PluginStatistics[data.id || '0']"
-      :plugin="data"
-      :action="pluginActions[data.id || '0']"
-      @remove="refreshData"
-      @save="refreshData"
-      @action-done="pluginActions[data.id || '0'] = false"
-    />
+  <div>
+    <VTabs v-model="activeTab">
+      <VTab v-for="item in tabs" :value="item.tab">
+        <span class="mx-5">{{ item.title }}</span>
+      </VTab>
+    </VTabs>
+
+    <VDivider />
+
+    <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
+      <!-- 我的插件 -->
+      <VWindowItem value="myplugin">
+        <transition name="fade-slide" appear>
+          <div>
+            <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+            <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
+              <PluginCard
+                v-for="data in dataList"
+                :key="`${data.id}_v${data.plugin_version}`"
+                :count="PluginStatistics[data.id || '0']"
+                :plugin="data"
+                :action="pluginActions[data.id || '0']"
+                @remove="refreshData"
+                @save="refreshData"
+                @action-done="pluginActions[data.id || '0'] = false"
+              />
+            </div>
+            <NoDataFound
+              v-if="dataList.length === 0 && isRefreshed"
+              error-code="404"
+              error-title="没有安装插件"
+              error-description="点击右下角按钮，前往插件市场安装插件。"
+            />
+          </div>
+        </transition>
+      </VWindowItem>
+      <!-- 插件市场 -->
+      <VWindowItem value="pluginmarket">
+        <transition name="fade-slide" appear>
+          <div>
+            <LoadingBanner v-if="!isAppMarketLoaded" class="mt-12" />
+            <!-- 过滤表单 -->
+            <div v-if="isAppMarketLoaded" class="bg-transparent mb-3 shadow-none">
+              <VRow>
+                <VCol cols="6" md="3">
+                  <VTextField v-model="filterForm.name" size="small" density="compact" label="名称" />
+                </VCol>
+                <VCol v-if="authorFilterOptions.length > 0" cols="6" md="3">
+                  <VSelect
+                    v-model="filterForm.author"
+                    :items="authorFilterOptions"
+                    size="small"
+                    density="compact"
+                    chips
+                    label="作者"
+                    multiple
+                  />
+                </VCol>
+                <VCol v-if="labelFilterOptions.length > 0" cols="6" md="3">
+                  <VSelect
+                    v-model="filterForm.label"
+                    :items="labelFilterOptions"
+                    size="small"
+                    density="compact"
+                    chips
+                    label="标签"
+                    multiple
+                  />
+                </VCol>
+                <VCol v-if="repoFilterOptions.length > 0" cols="6" md="3">
+                  <VSelect
+                    v-model="filterForm.repo"
+                    :items="repoFilterOptions"
+                    size="small"
+                    density="compact"
+                    chips
+                    label="插件库"
+                    multiple
+                  />
+                </VCol>
+              </VRow>
+            </div>
+            <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
+              <PluginAppCard
+                v-for="data in sortedUninstalledList"
+                :key="`${data.id}_v${data.plugin_version}`"
+                :plugin="data"
+                :count="PluginStatistics[data.id || '0']"
+                @install="pluginInstalled"
+              />
+            </div>
+            <NoDataFound
+              v-if="uninstalledList.length === 0 && isAppMarketLoaded"
+              error-code="404"
+              error-title="没有未安装插件"
+              error-description="所有可用插件均已安装。"
+            />
+          </div>
+        </transition>
+      </VWindowItem>
+    </VWindow>
   </div>
-  <NoDataFound
-    v-if="dataList.length === 0 && isRefreshed"
-    error-code="404"
-    error-title="没有安装插件"
-    error-description="点击右下角按钮，前往插件市场安装插件。"
-  />
-  <!-- App市场 -->
-  <VFab icon="mdi-store-plus" location="bottom end" size="x-large" fixed app appear @click="PluginAppDialog = true" />
-  <VDialog
-    v-if="PluginAppDialog"
-    v-model="PluginAppDialog"
-    fullscreen
-    scrollable
-    :scrim="false"
-    :z-index="1010"
-    transition="dialog-bottom-transition"
-  >
-    <VCard>
-      <!-- 标题栏 -->
-      <div>
-        <VToolbar color="primary">
-          <VToolbarTitle>插件市场</VToolbarTitle>
-          <VSpacer />
-          <VToolbarItems>
-            <VBtn size="x-large" @click="pluginDialogClose">
-              <VIcon color="white" icon="mdi-close" />
-            </VBtn>
-          </VToolbarItems>
-        </VToolbar>
-      </div>
-      <VCardText>
-        <LoadingBanner v-if="!isAppMarketLoaded" class="mt-12" />
-        <!-- 过滤表单 -->
-        <div v-if="isAppMarketLoaded" class="bg-transparent mb-3 shadow-none">
-          <VRow>
-            <VCol v-if="nameFilterOptions.length > 0" cols="6" md="3">
-              <VSelect
-                v-model="filterForm.name"
-                :items="nameFilterOptions"
-                size="small"
-                density="compact"
-                chips
-                label="名称"
-                multiple
-              />
-            </VCol>
-            <VCol v-if="authorFilterOptions.length > 0" cols="6" md="3">
-              <VSelect
-                v-model="filterForm.author"
-                :items="authorFilterOptions"
-                size="small"
-                density="compact"
-                chips
-                label="作者"
-                multiple
-              />
-            </VCol>
-            <VCol v-if="labelFilterOptions.length > 0" cols="6" md="3">
-              <VSelect
-                v-model="filterForm.label"
-                :items="labelFilterOptions"
-                size="small"
-                density="compact"
-                chips
-                label="标签"
-                multiple
-              />
-            </VCol>
-            <VCol v-if="repoFilterOptions.length > 0" cols="6" md="3">
-              <VSelect
-                v-model="filterForm.repo"
-                :items="repoFilterOptions"
-                size="small"
-                density="compact"
-                chips
-                label="插件库"
-                multiple
-              />
-            </VCol>
-          </VRow>
-        </div>
-        <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
-          <PluginAppCard
-            v-for="data in sortedUninstalledList"
-            :key="`${data.id}_v${data.plugin_version}`"
-            :plugin="data"
-            :count="PluginStatistics[data.id || '0']"
-            @install="pluginInstalled"
-          />
-        </div>
-        <NoDataFound
-          v-if="uninstalledList.length === 0 && isAppMarketLoaded"
-          error-code="404"
-          error-title="没有未安装插件"
-          error-description="所有可用插件均已安装。"
-        />
-      </VCardText>
-    </VCard>
-  </VDialog>
 
   <!-- 插件搜索 -->
   <VFab

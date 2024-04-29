@@ -7496,10 +7496,10 @@ vue@^3.3.2:
     "@vue/server-renderer" "3.4.21"
     "@vue/shared" "3.4.21"
 
-vuetify-use-dialog@^0.6.0:
-  version "0.6.9"
-  resolved "https://registry.yarnpkg.com/vuetify-use-dialog/-/vuetify-use-dialog-0.6.9.tgz#d1ba116331f885af75b6d68ddbebbdb12c3facc6"
-  integrity sha512-wInJvEMZQAuqYGwqniuiuvpxfwUdEe9ZDpezc2rPdrwm/Wx6JoTIva0qTXeKBIovik/IbuZ1wIV1W3mLP+ksow==
+vuetify-use-dialog@^0.6.11:
+  version "0.6.11"
+  resolved "https://registry.yarnpkg.com/vuetify-use-dialog/-/vuetify-use-dialog-0.6.11.tgz#8800cc56b234dae1dfa44a7f06a6bb1a33ad4b39"
+  integrity sha512-iPAu6MsN8suuNAS1M6JN2CaOXRgr7LZ2u+UNtAw0Fi3AjianzVIrnRNhQcAZjmE8Hu6ZwAbgte1p47qU6OazLw==
   dependencies:
     defu "^6.1.4"
 
