@@ -8,11 +8,16 @@ import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { useDefer } from '@/@core/utils/dom'
 
 const route = useRoute()
 
 // 显示器宽度
 const display = useDisplay()
+
+// 延迟加载
+let defer = (_: number) => true
+let deferApp = (_: number) => true
 
 // 当前标签
 const activeTab = ref(route.params.tab)
@@ -205,6 +210,7 @@ async function fetchInstalledPlugins() {
         state: 'installed',
       },
     })
+    defer = useDefer(dataList.value.length)
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
@@ -283,6 +289,8 @@ const sortedUninstalledList = computed(() => {
     }
   })
 
+  deferApp = useDefer(ret_list.length)
+
   if (isNullOrEmptyObject(PluginStatistics.value)) return ret_list
   // 数据排序
   if (!activeSort.value || activeSort.value === 'count') {
@@ -338,16 +346,17 @@ onBeforeMount(async () => {
           <div>
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
             <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
-              <PluginCard
-                v-for="data in dataList"
-                :key="`${data.id}_v${data.plugin_version}`"
-                :count="PluginStatistics[data.id || '0']"
-                :plugin="data"
-                :action="pluginActions[data.id || '0']"
-                @remove="refreshData"
-                @save="refreshData"
-                @action-done="pluginActions[data.id || '0'] = false"
-              />
+              <template v-for="(data, index) in dataList" :key="`${data.id}_v${data.plugin_version}`">
+                <PluginCard
+                  v-if="defer(index)"
+                  :count="PluginStatistics[data.id || '0']"
+                  :plugin="data"
+                  :action="pluginActions[data.id || '0']"
+                  @remove="refreshData"
+                  @save="refreshData"
+                  @action-done="pluginActions[data.id || '0'] = false"
+                />
+              </template>
             </div>
             <NoDataFound
               v-if="dataList.length === 0 && isRefreshed"
@@ -367,7 +376,7 @@ onBeforeMount(async () => {
             <div v-if="isAppMarketLoaded" class="bg-transparent mb-3 shadow-none">
               <VRow>
                 <VCol cols="6" md="">
-                  <VTextField v-model="filterForm.name" size="small" density="compact" label="名称" />
+                  <VTextField v-model="filterForm.name" size="small" density="compact" label="名称" clearable />
                 </VCol>
                 <VCol v-if="authorFilterOptions.length > 0" cols="6" md="">
                   <VSelect
@@ -408,13 +417,14 @@ onBeforeMount(async () => {
               </VRow>
             </div>
             <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
-              <PluginAppCard
-                v-for="data in sortedUninstalledList"
-                :key="`${data.id}_v${data.plugin_version}`"
-                :plugin="data"
-                :count="PluginStatistics[data.id || '0']"
-                @install="pluginInstalled"
-              />
+              <template v-for="(data, index) in sortedUninstalledList" :key="`${data.id}_v${data.plugin_version}`">
+                <PluginAppCard
+                  v-if="deferApp(index)"
+                  :plugin="data"
+                  :count="PluginStatistics[data.id || '0']"
+                  @install="pluginInstalled"
+                />
+              </template>
             </div>
             <NoDataFound
               v-if="uninstalledList.length === 0 && isAppMarketLoaded"
