@@ -24,8 +24,7 @@ async function fetchData() {
     dataList.value = await api.get('site/')
     isRefreshed.value = true
     defer = useDefer(dataList.value.length)
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -35,25 +34,10 @@ onBeforeMount(fetchData)
 </script>
 
 <template>
-  <LoadingBanner
-    v-if="!isRefreshed"
-    class="mt-12"
-  />
-  <div
-    v-if="dataList.length > 0"
-    class="grid gap-3 grid-site-card"
-  >
-    <div
-      v-for="(data, index) in dataList"
-      :key="index"
-    >
-      <SiteCard
-        v-if="defer(index)"
-        :key="data.id"
-        :site="data"
-        @remove="fetchData"
-        @update="fetchData"
-      />
+  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+  <div v-if="dataList.length > 0" class="grid gap-3 grid-site-card">
+    <div v-for="(data, index) in dataList" :key="index">
+      <SiteCard v-if="defer(index)" :key="data.id" :site="data" @remove="fetchData" @update="fetchData" />
     </div>
   </div>
   <NoDataFound
@@ -63,21 +47,18 @@ onBeforeMount(fetchData)
     error-description="已添加并支持的站点将会在这里显示。"
   />
   <!-- 新增站点按钮 -->
-  <VFab
-    icon="mdi-plus"
-    location="bottom end"
-    size="x-large"
-    fixed
-    app
-    appear
-    @click="siteAddDialog = true"
-  />
+  <VFab icon="mdi-plus" location="bottom end" size="x-large" fixed app appear @click="siteAddDialog = true" />
   <!-- 新增站点弹窗 -->
   <SiteAddEditDialog
     v-if="siteAddDialog"
     v-model="siteAddDialog"
     oper="add"
-    @save="siteAddDialog = false; fetchData()"
+    @save="
+      () => {
+        siteAddDialog = false
+        fetchData()
+      }
+    "
     @close="siteAddDialog = false"
   />
 </template>
