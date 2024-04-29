@@ -249,7 +249,7 @@ onMounted(() => {
     </VCardActions>
   </VCard>
   <!-- 更新站点Cookie & UA弹窗 -->
-  <VDialog v-model="siteCookieDialog" max-width="50rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog v-model="siteCookieDialog" max-width="50rem">
     <!-- Dialog Content -->
     <VCard title="更新站点Cookie & UA">
       <DialogCloseBtn @click="siteCookieDialog = false" />
