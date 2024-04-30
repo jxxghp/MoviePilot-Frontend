@@ -297,6 +297,10 @@ const sortedUninstalledList = computed(() => {
     return ret_list.sort((a, b) => {
       return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
     })
+  } else if (activeSort.value == 'add_time') {
+    return ret_list.sort((a: any, b: any) => {
+      return b.add_time - a.add_time
+    })
   } else if (activeSort.value) {
     return ret_list.sort((a: any, b: any) => {
       return a[activeSort.value ?? ''] > b[activeSort.value ?? ''] ? 1 : -1
