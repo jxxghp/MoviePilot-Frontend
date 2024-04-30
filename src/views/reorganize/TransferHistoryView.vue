@@ -5,6 +5,7 @@ import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
+import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 
 // 提示框
 const $toast = useToast()
@@ -448,6 +449,8 @@ onMounted(fetchData)
       </div>
     </VCard>
   </VBottomSheet>
+  <!-- 进度框 -->
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
   <!-- 文件整理弹窗 -->
   <ReorganizeDialog
     v-if="redoDialog"
