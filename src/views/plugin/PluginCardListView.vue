@@ -43,6 +43,7 @@ const sortOptions = [
   { title: '插件名称', value: 'plugin_name' },
   { title: '作者', value: 'plugin_author' },
   { title: '插件仓库', value: 'repo_url' },
+  { title: '最新发布', value: 'add_time' },
 ]
 
 // 已安装插件列表

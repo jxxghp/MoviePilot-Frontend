@@ -439,6 +439,8 @@ export interface Plugin {
   repo_url?: string
   // 变更历史
   history?: { [key: string]: string }
+  // 添加时间
+  add_time?: number
 }
 
 // 种子信息
