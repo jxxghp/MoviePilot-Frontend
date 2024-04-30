@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 import type { Context } from '@/api/types'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
 const props = defineProps({
@@ -9,15 +10,13 @@ const props = defineProps({
 
 // TMDB图片转换为w500大小
 function getW500Image(url = '') {
-  if (!url)
-    return ''
+  if (!url) return ''
   return url.replace('original', 'w500')
 }
 
 // 打开TMDB详情页面
 function openTmdbPage(type: string, tmdbId: number) {
-  if (!type || !tmdbId)
-    return
+  if (!type || !tmdbId) return
 
   const url = `https://www.themoviedb.org/${type === '电影' ? 'movie' : 'tv'}/${tmdbId}`
   window.open(url, '_blank')
@@ -31,10 +30,7 @@ function openTmdbPage(type: string, tmdbId: number) {
         v-if="context?.meta_info?.name"
         class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row"
       >
-        <div
-          v-if="context?.media_info?.poster_path"
-          class="ma-auto"
-        >
+        <div v-if="context?.media_info?.poster_path" class="ma-auto">
           <VImg
             width="10rem"
             aspect-ratio="2/3"
@@ -75,16 +71,10 @@ function openTmdbPage(type: string, tmdbId: number) {
               variant="elevated"
               class="me-1 mb-1 text-white bg-blue-500"
             >
-              {{
-                context?.media_info?.type || context?.meta_info?.type
-              }}
+              {{ context?.media_info?.type || context?.meta_info?.type }}
             </VChip>
             <!-- 二级分类 -->
-            <VChip
-              v-if="context?.media_info?.category"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-blue-500"
-            >
+            <VChip v-if="context?.media_info?.category" variant="elevated" class="me-1 mb-1 text-white bg-blue-500">
               {{ context?.media_info?.category }}
             </VChip>
             <!-- TMDBID -->
@@ -98,18 +88,10 @@ function openTmdbPage(type: string, tmdbId: number) {
               {{ context?.media_info?.tmdb_id }}
             </VChip>
             <!-- meta_info -->
-            <VChip
-              v-if="context?.meta_info?.edition"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-red-500"
-            >
+            <VChip v-if="context?.meta_info?.edition" variant="elevated" class="me-1 mb-1 text-white bg-red-500">
               {{ context?.meta_info?.edition }}
             </VChip>
-            <VChip
-              v-if="context?.meta_info?.resource_pix"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-red-500"
-            >
+            <VChip v-if="context?.meta_info?.resource_pix" variant="elevated" class="me-1 mb-1 text-white bg-red-500">
               {{ context?.meta_info?.resource_pix }}
             </VChip>
             <VChip
@@ -126,36 +108,19 @@ function openTmdbPage(type: string, tmdbId: number) {
             >
               {{ context?.meta_info?.audio_encode }}
             </VChip>
-            <VChip
-              v-if="context?.meta_info?.resource_team"
-              variant="elevated"
-              class="me-1 mb-1 text-white bg-cyan-500"
-            >
+            <VChip v-if="context?.meta_info?.resource_team" variant="elevated" class="me-1 mb-1 text-white bg-cyan-500">
               {{ context?.meta_info?.resource_team }}
             </VChip>
           </VCardItem>
         </div>
       </div>
-      <VAlert
-        v-if="!context?.meta_info?.name"
-        icon="mdi-alert-circle-outline"
-      >
-        识别失败，无法识别到有效信息！
-      </VAlert>
+      <VAlert v-if="!context?.meta_info?.name" icon="mdi-alert-circle-outline"> 识别失败，无法识别到有效信息！ </VAlert>
     </VCol>
-    <VExpansionPanels
-      v-show="context?.meta_info?.title !== context?.meta_info.org_string"
-    >
+    <VExpansionPanels v-show="!isNullOrEmptyObject(context?.meta_info.apply_words)">
       <VExpansionPanel>
-        <VExpansionPanelTitle>
-          识别词应用详情
-        </VExpansionPanelTitle>
+        <VExpansionPanelTitle> 识别词应用详情 </VExpansionPanelTitle>
         <VExpansionPanelText>
-          <VChip
-            variant="elevated"
-            class="me-1 mb-1 break-all"
-            color="primary"
-          >
+          <VChip variant="elevated" class="me-1 mb-1 break-all" color="primary">
             {{ context?.meta_info.org_string }}
           </VChip>
           <VChip
