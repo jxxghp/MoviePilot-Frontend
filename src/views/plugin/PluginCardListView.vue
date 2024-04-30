@@ -492,7 +492,7 @@ onBeforeMount(async () => {
                 {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
                 <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
               </VListItemTitle>
-              <VListItemSubtitle class="mt-2">
+              <VListItemSubtitle>
                 <VChip
                   v-for="label in pluginLabels(item.plugin_label)"
                   variant="tonal"
