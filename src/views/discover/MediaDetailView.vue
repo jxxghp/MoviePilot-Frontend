@@ -9,6 +9,7 @@ import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
 import router from '@/router'
 import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
 const mediaProps = defineProps({
@@ -38,6 +39,9 @@ const isRefreshed = ref(false)
 
 // 存储每一季的集信息
 const seasonEpisodesInfo = ref({} as { [key: number]: TmdbEpisode[] })
+
+// 存储存在的季集
+const existsEpisodes = ref({} as { [key: number]: number[] })
 
 // 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
@@ -77,10 +81,12 @@ async function getMediaDetail() {
   }
 }
 
-// 调用API加载季集信息
+// 调用API加载季集信息（TMDB）
 async function loadSeasonEpisodes(season: number) {
+  // 加载季集存在信息
+  loadEpisodeExists()
+  // 加载季集信息
   if (seasonEpisodesInfo.value[season]) return
-
   try {
     const result: TmdbEpisode[] = await api.get(`tmdb/${mediaDetail.value.tmdb_id}/${season}`)
     seasonEpisodesInfo.value[season] = result || []
@@ -89,7 +95,19 @@ async function loadSeasonEpisodes(season: number) {
   }
 }
 
-// 查询当前媒体是否已入库
+// 调用API加载季集存在信息（媒体服务器）
+async function loadEpisodeExists() {
+  // 查询季集存在状态
+  if (!isNullOrEmptyObject(existsEpisodes.value)) return
+  try {
+    const result: { [key: number]: number[] } = await api.post(`mediaserver/exists_remote`, mediaDetail.value)
+    existsEpisodes.value = result || {}
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+// 查询当前媒体是否已入库（数据库）
 async function checkExists() {
   try {
     const result: { [key: string]: any } = await api.get('mediaserver/exists', {
@@ -634,6 +652,16 @@ onBeforeMount(() => {
                                 {{ episode.air_date }}
                               </span>
                             </div>
+                            <VIcon
+                              v-if="
+                                existsEpisodes[season.season_number || 0] &&
+                                existsEpisodes[season.season_number || 0].includes(episode.episode_number || 0)
+                              "
+                              color="success"
+                              icon="mdi-check-circle"
+                              class="ms-2"
+                              size="small"
+                            />
                           </div>
                           <p>{{ episode.overview }}</p>
                         </div>

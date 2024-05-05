@@ -254,7 +254,7 @@ async function checkSubscribe(season = 0) {
   return null
 }
 
-// 检查所有季的缺失状态
+// 检查所有季的缺失状态（数据库）
 async function checkSeasonsNotExists() {
   // 开始处理
   startNProgress()
