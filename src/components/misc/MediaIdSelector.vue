@@ -2,10 +2,16 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 
+// 定义输入变量
+const props = defineProps({
+  type: String, // 来源 themoviedb | douban
+})
+
 interface TmdbItem {
   title: string
   overview: string
   tmdbid: number
+  doubanid: string
   poster: string
 }
 
@@ -21,25 +27,23 @@ const keyword = ref('')
 const loading = ref(false)
 
 // ref
-const tmdbKeyword = ref<HTMLElement | null>(null)
+const inputKeyword = ref<HTMLElement | null>(null)
 
 // 选中条目
 function selectMedia(item: TmdbItem) {
-  emit('update:modelValue', item.tmdbid)
+  emit('update:modelValue', item.tmdbid || item.doubanid)
   emit('close')
 }
 
 // TMDB图片转换为w500大小
 function getW500Image(url = '') {
-  if (!url)
-    return ''
+  if (!url) return ''
   return url.replace('original', 'w500')
 }
 
 // 搜索词条
 async function searchMedias() {
-  if (!keyword)
-    return
+  if (!keyword) return
 
   // 调用API搜索词条
   try {
@@ -57,16 +61,17 @@ async function searchMedias() {
 
     // 赋值
     for (const item of result) {
+      if (props.type && props.type !== item.source) continue
       items.value.push({
         tmdbid: item.tmdb_id || 0,
+        doubanid: item.douban_id || '',
         poster: getW500Image(item.poster_path),
         title: `${item.title}（${item.year}）`,
         overview: `<span class="text-primary">${item.type}</span> ${item.overview}`,
       })
     }
     loading.value = false
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e)
   }
 }
@@ -75,19 +80,16 @@ async function searchMedias() {
 onMounted(() => {
   // 500ms后聚焦
   setTimeout(() => {
-    tmdbKeyword.value?.focus()
+    inputKeyword.value?.focus()
   }, 500)
 })
 </script>
 
 <template>
-  <VCard
-    class="mx-auto"
-    width="100%"
-  >
+  <VCard class="mx-auto" width="100%">
     <VToolbar flat class="p-0">
       <VTextField
-        ref="tmdbKeyword"
+        ref="inputKeyword"
         v-model="keyword"
         label="输入名称搜索"
         single-line
@@ -101,15 +103,16 @@ onMounted(() => {
         @keydown.enter="searchMedias"
       />
     </VToolbar>
-    <DialogCloseBtn @click="() => { emit('close') }" />
-    <VList
-      v-if="items.length > 0"
-      lines="three"
-    >
+    <DialogCloseBtn
+      @click="
+        () => {
+          emit('close')
+        }
+      "
+    />
+    <VList v-if="items.length > 0" lines="three">
       <template v-for="(item, i) in items" :key="i">
-        <VListItem
-          @click="selectMedia(item)"
-        >
+        <VListItem @click="selectMedia(item)">
           <template #prepend>
             <VImg
               height="75"

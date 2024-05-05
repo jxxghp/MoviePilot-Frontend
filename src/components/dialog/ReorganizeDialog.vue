@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
-import TmdbSelector from '../misc/TmdbSelector.vue'
+import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import store from '@/store'
 import api from '@/api'
 import { numberValidator } from '@/@validators'
@@ -28,11 +28,14 @@ const seasonItems = ref(
   })),
 )
 
+// 当前识别类型
+const mediaSource = ref('themoviedb')
+
 // 提示框
 const $toast = useToast()
 
 // TMDB选择对话框
-const tmdbSelectorDialog = ref(false)
+const mediaSelectorDialog = ref(false)
 
 // 加载进度SSE
 const progressEventSource = ref<EventSource>()
@@ -52,6 +55,7 @@ const transferForm = reactive({
   path: '',
   target: props.target ?? '',
   tmdbid: null,
+  doubanid: null,
   season: null,
   type_name: '',
   transfer_type: '',
@@ -142,6 +146,20 @@ async function transfer() {
   // 重新加载
   emit('done')
 }
+
+// 调用API，加载当前系统环境设置
+async function loadSystemSettings() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result) mediaSource.value = result.data?.RECOGNIZE_SOURCE || 'themoviedb'
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+onMounted(() => {
+  loadSystemSettings()
+})
 </script>
 
 <template>
@@ -192,14 +210,26 @@ async function transfer() {
             </VCol>
             <VCol cols="12" md="4">
               <VTextField
+                v-if="mediaSource === 'themoviedb'"
                 v-model="transferForm.tmdbid"
                 :disabled="transferForm.type_name === ''"
-                label="TMDBID"
+                label="TheMovieDb编号"
                 placeholder="留空自动识别"
                 :rules="[numberValidator]"
                 append-inner-icon="mdi-magnify"
                 hint="点击图标按名称搜索，留空将自动重新识别"
-                @click:append-inner="tmdbSelectorDialog = true"
+                @click:append-inner="mediaSelectorDialog = true"
+              />
+              <VTextField
+                v-else
+                v-model="transferForm.doubanid"
+                :disabled="transferForm.type_name === ''"
+                label="豆瓣编号"
+                placeholder="留空自动识别"
+                :rules="[numberValidator]"
+                append-inner-icon="mdi-magnify"
+                hint="点击图标按名称搜索，留空将自动重新识别"
+                @click:append-inner="mediaSelectorDialog = true"
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -265,8 +295,19 @@ async function transfer() {
     <!-- 手动整理进度框 -->
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
     <!-- TMDB ID搜索框 -->
-    <VDialog v-model="tmdbSelectorDialog" width="40rem" scrollable max-height="85vh">
-      <TmdbSelector v-model="transferForm.tmdbid" @close="tmdbSelectorDialog = false" />
+    <VDialog v-model="mediaSelectorDialog" width="40rem" scrollable max-height="85vh">
+      <MediaIdSelector
+        v-if="mediaSource === 'themoviedb'"
+        v-model="transferForm.tmdbid"
+        @close="mediaSelectorDialog = false"
+        :type="mediaSource"
+      />
+      <MediaIdSelector
+        v-else
+        v-model="transferForm.doubanid"
+        @close="mediaSelectorDialog = false"
+        :type="mediaSource"
+      />
     </VDialog>
   </VDialog>
 </template>
