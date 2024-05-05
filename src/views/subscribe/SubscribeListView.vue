@@ -30,8 +30,7 @@ async function fetchData() {
   try {
     dataList.value = await api.get('subscribe/')
     isRefreshed.value = true
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -51,29 +50,18 @@ function onRefresh() {
 
 // 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
 const filteredDataList = computed(() => {
-// 从Vuex Store中获取用户信息
+  // 从Vuex Store中获取用户信息
   const superUser = store.state.auth.superUser
   const userName = store.state.auth.userName
-  if (superUser)
-    return dataList.value.filter(data => data.type === props.type)
-  else
-    return dataList.value.filter(data => data.type === props.type && (data.username === userName))
+  if (superUser) return dataList.value.filter(data => data.type === props.type)
+  else return dataList.value.filter(data => data.type === props.type && data.username === userName)
 })
 </script>
 
 <template>
-  <LoadingBanner
-    v-if="!isRefreshed"
-    class="mt-12"
-  />
-  <PullRefresh
-    v-model="loading"
-    @refresh="onRefresh"
-  >
-    <div
-      v-if="filteredDataList.length > 0"
-      class="grid gap-3 grid-subscribe-card p-1"
-    >
+  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+  <PullRefresh v-model="loading" @refresh="onRefresh">
+    <div v-if="filteredDataList.length > 0" class="grid gap-3 grid-subscribe-card p-1">
       <SubscribeCard
         v-for="data in filteredDataList"
         :key="data.id"
@@ -91,7 +79,8 @@ const filteredDataList = computed(() => {
   </PullRefresh>
   <!-- 底部操作按钮 -->
   <VFab
-    icon="mdi-file-document-edit"
+    v-if="store.state.auth.superUser"
+    icon="mdi-clipboard-edit"
     location="bottom end"
     size="x-large"
     fixed
@@ -100,6 +89,7 @@ const filteredDataList = computed(() => {
     @click="subscribeEditDialog = true"
   />
   <VFab
+    v-if="store.state.auth.superUser"
     icon="mdi-history"
     color="info"
     location="bottom end"
@@ -120,12 +110,17 @@ const filteredDataList = computed(() => {
     @close="subscribeEditDialog = false"
   />
   <!-- 历史记录弹窗 -->
-  <SubscribeHistoryDialog   
+  <SubscribeHistoryDialog
     v-if="historyDialog"
     v-model="historyDialog"
     :type="props.type"
     @close="historyDialog = false"
-    @save="() => {historyDialog = false; fetchData()}"
+    @save="
+      () => {
+        historyDialog = false
+        fetchData()
+      }
+    "
   />
 </template>
 

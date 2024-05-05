@@ -19,6 +19,8 @@ const props = defineProps({
   height: String,
 })
 
+const store = useStore()
+
 // 提示框
 const $toast = useToast()
 
@@ -288,6 +290,8 @@ async function getMediaSeasons() {
 
 // 查询订阅弹窗规则
 async function queryDefaultSubscribeConfig() {
+  // 非管理员不显示
+  if (!store.state.auth.superUser) return false
   try {
     let subscribe_config_url = ''
     if (props.media?.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
