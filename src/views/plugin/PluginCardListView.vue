@@ -16,7 +16,6 @@ const route = useRoute()
 const display = useDisplay()
 
 // 延迟加载
-let defer = (_: number) => true
 let deferApp = (_: number) => true
 
 // 当前标签
@@ -210,7 +209,6 @@ async function fetchInstalledPlugins() {
         state: 'installed',
       },
     })
-    defer = useDefer(dataList.value.length)
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
@@ -348,7 +346,6 @@ onBeforeMount(async () => {
             <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
               <template v-for="(data, index) in dataList" :key="`${data.id}_v${data.plugin_version}`">
                 <PluginCard
-                  v-if="defer(index)"
                   :count="PluginStatistics[data.id || '0']"
                   :plugin="data"
                   :action="pluginActions[data.id || '0']"

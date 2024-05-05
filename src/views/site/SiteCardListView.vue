@@ -4,7 +4,6 @@ import type { Site } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
-import { useDefer } from '@/@core/utils/dom'
 
 // 数据列表
 const dataList = ref<Site[]>([])
@@ -15,15 +14,11 @@ const isRefreshed = ref(false)
 // 新增站点对话框
 const siteAddDialog = ref(false)
 
-// 延迟加载
-let defer = (_: number) => true
-
 // 获取站点列表数据
 async function fetchData() {
   try {
     dataList.value = await api.get('site/')
     isRefreshed.value = true
-    defer = useDefer(dataList.value.length)
   } catch (error) {
     console.error(error)
   }
@@ -37,7 +32,7 @@ onBeforeMount(fetchData)
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <div v-if="dataList.length > 0" class="grid gap-3 grid-site-card">
     <div v-for="(data, index) in dataList" :key="index">
-      <SiteCard v-if="defer(index)" :key="data.id" :site="data" @remove="fetchData" @update="fetchData" />
+      <SiteCard :key="data.id" :site="data" @remove="fetchData" @update="fetchData" />
     </div>
   </div>
   <NoDataFound

@@ -74,9 +74,6 @@ const nameTestResult = ref<Context>()
 // 识别结果对话框
 const nameTestDialog = ref(false)
 
-// 延迟加载
-const defer = (_: number) => true
-
 // 目录过滤
 const dirs = computed(() => items.value.filter(item => item.type === 'dir' && item.basename.includes(filter.value)))
 
