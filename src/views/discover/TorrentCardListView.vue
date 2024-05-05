@@ -81,7 +81,7 @@ onMounted(() => {
   // 数据分组
   const groupMap = new Map<string, Context[]>()
   // 遍历数据
-  props.items?.forEach((item) => {
+  props.items?.forEach(item => {
     const { torrent_info } = item
     // init options
     initOptions(item)
@@ -91,8 +91,7 @@ onMounted(() => {
       // 已入库相同标题和大小的分组，将当前上下文信息添加到分组中
       const group = groupMap.get(key)
       group?.push(item)
-    }
-    else {
+    } else {
       // 创建新的分组，并将当前上下文信息添加到分组中
       groupMap.set(key, [item])
     }
@@ -110,32 +109,31 @@ watchEffect(() => {
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
 
-  groupedDataList.value?.forEach((value) => {
+  groupedDataList.value?.forEach(value => {
     if (value.length > 0) {
-      const matchData = value.filter((data) => {
+      const matchData = value.filter(data => {
         const { meta_info, torrent_info } = data
         // 季、制作组、视频编码
         return (
           // 站点过滤
-          match(filterForm.site, torrent_info.site_name)
+          match(filterForm.site, torrent_info.site_name) &&
           // 促销状态过滤
-          && match(filterForm.freeState, torrent_info.volume_factor)
+          match(filterForm.freeState, torrent_info.volume_factor) &&
           // 季过滤
-          && match(filterForm.season, meta_info.season_episode)
+          match(filterForm.season, meta_info.season_episode) &&
           // 制作组过滤
-          && match(filterForm.releaseGroup, meta_info.resource_team)
+          match(filterForm.releaseGroup, meta_info.resource_team) &&
           // 视频编码过滤
-          && match(filterForm.videoCode, meta_info.video_encode)
+          match(filterForm.videoCode, meta_info.video_encode) &&
           // 分辨率过滤
-          && match(filterForm.resolution, meta_info.resource_pix)
+          match(filterForm.resolution, meta_info.resource_pix) &&
           // 质量过滤
-          && match(filterForm.edition, meta_info.edition)
+          match(filterForm.edition, meta_info.edition)
         )
       })
       if (matchData.length > 0) {
         const firstData = _.cloneDeepWith(matchData[0]) as SearchTorrent
-        if (matchData.length > 1)
-          firstData.more = matchData.slice(1)
+        if (matchData.length > 1) firstData.more = matchData.slice(1)
 
         dataList.value.push(firstData)
       }
@@ -236,7 +234,7 @@ watchEffect(() => {
 
 <style lang="scss">
 .grid-torrent-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   padding-block-end: 1rem;
 }
 </style>
