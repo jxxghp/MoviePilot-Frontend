@@ -335,8 +335,6 @@ onBeforeMount(async () => {
       </VTab>
     </VTabs>
 
-    <VDivider />
-
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
       <!-- 我的插件 -->
       <VWindowItem value="myplugin">
@@ -523,5 +521,9 @@ onBeforeMount(async () => {
 .grid-plugin-card {
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   padding-block-end: 1rem;
+}
+
+.v-tabs:not(.v-tabs-pill).v-tabs--horizontal {
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

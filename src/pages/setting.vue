@@ -66,13 +66,12 @@ const tabs = [
 
 <template>
   <div>
-    <VTabs v-model="activeTab" show-arrows>
+    <VTabs v-model="activeTab" show-arrows class="v-tabs-pill">
       <VTab v-for="item in tabs" :key="item.icon" :value="item.tab">
         <VIcon size="20" start :icon="item.icon" />
         {{ item.title }}
       </VTab>
     </VTabs>
-    <VDivider />
 
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
       <!-- 用户 -->
@@ -138,3 +137,19 @@ const tabs = [
     </VWindow>
   </div>
 </template>
+<
+<style lang="scss">
+.v-tabs.v-tabs-pill.v-slide-group-item--active.v-tab--selected.text-primary {
+  background-color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary)) !important;
+}
+
+.v-tabs.v-tabs-pill.v-tab.v-tab--selected {
+  box-shadow: 0 2px 4px rgba(var(--v-shadow-key-umbra-color), var(--v-shadow-xs-opacity)), 0 0 transparent,
+    0 0 transparent;
+}
+
+.v-tabs.v-tabs-pill.v-btn:hover {
+  color: rgb(var(--v-theme-primary));
+}
+</style>
