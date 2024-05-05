@@ -1,17 +1,7 @@
 <script lang="ts" setup>
 import DefaultLayoutWithVerticalNav from './components/DefaultLayoutWithVerticalNav.vue'
-import api from '@/api'
 
-const router = useRouter()
 const route = useRoute()
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    api.get('user/current')
-      .catch(() => {
-        router.replace('/login')
-      })
-  }
-})
 </script>
 
 <template>
@@ -27,5 +17,5 @@ document.addEventListener('visibilitychange', () => {
 
 <style lang="scss">
 // As we are using `layouts` plugin we need its styles to be imported
-@use "@layouts/styles/default-layout";
+@use '@layouts/styles/default-layout';
 </style>
