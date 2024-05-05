@@ -391,7 +391,7 @@ watch(
 <template>
   <!-- 插件卡片 -->
   <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail">
-    <div class="relative pa-4 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
+    <div class="relative pa-3 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
       <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 left-1">
         <VIcon icon="mdi-new-box" class="text-white" />
       </div>
@@ -417,7 +417,7 @@ watch(
           </VMenu>
         </IconBtn>
       </div>
-      <VAvatar size="8rem">
+      <VAvatar size="6rem">
         <VImg
           ref="imageRef"
           :src="iconPath"

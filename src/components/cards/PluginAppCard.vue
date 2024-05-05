@@ -150,7 +150,7 @@ const dropdownItems = ref([
 
 <template>
   <VCard :width="props.width" :height="props.height" @click="installPlugin">
-    <div class="relative pa-4 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
+    <div class="relative pa-3 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
           <VIcon icon="mdi-dots-vertical" class="text-white" />
@@ -172,7 +172,7 @@ const dropdownItems = ref([
           </VMenu>
         </IconBtn>
       </div>
-      <VAvatar size="8rem">
+      <VAvatar size="6rem">
         <VImg
           ref="imageRef"
           :src="iconPath"
