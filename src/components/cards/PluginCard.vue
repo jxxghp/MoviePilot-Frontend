@@ -438,7 +438,7 @@ watch(
       <VCardText>
         <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
       </VCardText>
-      <VCardActions>
+      <VCardActions class="pt-3">
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo" variant="outlined" color="info">
           查看数据
         </VBtn>
