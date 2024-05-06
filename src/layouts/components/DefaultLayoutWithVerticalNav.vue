@@ -21,10 +21,7 @@ const superUser = store.state.auth.superUser
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center mx-1">
         <!-- 👉 Vertical Nav Toggle -->
-        <IconBtn
-          class="ms-n2 d-lg-none"
-          @click="toggleVerticalOverlayNavActive(true)"
-        >
+        <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
         </IconBtn>
 
@@ -32,16 +29,6 @@ const superUser = store.state.auth.superUser
         <SearchBar />
 
         <VSpacer />
-
-        <!-- 👉 Github -->
-        <IconBtn
-          class="me-2"
-          href="https://github.com/jxxghp/MoviePilot"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <VIcon icon="mdi-github" />
-        </IconBtn>
 
         <!-- 👉 Shortcuts -->
         <ShortcutBar v-if="superUser" />
