@@ -149,7 +149,7 @@ const dropdownItems = ref([
 </script>
 
 <template>
-  <VCard :width="props.width" :height="props.height" @click="installPlugin">
+  <VCard :width="props.width" :height="props.height" @click="installPlugin" class="flex flex-col">
     <div class="relative pa-3 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
       <div class="me-n3 absolute top-0 right-3">
         <IconBtn>
@@ -196,7 +196,7 @@ const dropdownItems = ref([
         </VChip>
       </div>
     </VCardText>
-    <VCardText class="flex items-center justify-start pb-2">
+    <VCardText class="flex align-self-baseline pb-2 w-full align-end">
       <span>
         <VIcon icon="mdi-account" class="me-1" />
         <a :href="props.plugin?.author_url" target="_blank" @click.stop>

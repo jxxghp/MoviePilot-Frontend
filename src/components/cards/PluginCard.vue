@@ -390,7 +390,7 @@ watch(
 
 <template>
   <!-- 插件卡片 -->
-  <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail">
+  <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail" class="flex flex-col">
     <div class="relative pa-3 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
       <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 left-1">
         <VIcon icon="mdi-new-box" class="text-white" />
@@ -429,19 +429,21 @@ watch(
         />
       </VAvatar>
     </div>
-    <span v-if="props.count" class="absolute bottom-1 right-2 flex items-center">
-      <VIcon icon="mdi-fire" />
-      <span class="text-sm ms-1">{{ props.count?.toLocaleString() }}</span>
-    </span>
     <VCardItem class="py-2">
       <VCardTitle class="flex items-center flex-row">
         <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
-        {{ props.plugin?.plugin_name
-        }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ props.plugin?.plugin_version }}</span>
+        {{ props.plugin?.plugin_name }}
+        <span class="text-sm ms-2 mt-1 text-gray-500">v{{ props.plugin?.plugin_version }}</span>
       </VCardTitle>
     </VCardItem>
-    <VCardText>
+    <VCardText class="pb-1">
       {{ props.plugin?.plugin_desc }}
+    </VCardText>
+    <VCardText class="flex justify-end align-self-baseline p-1 w-full align-end">
+      <span v-if="props.count" class="ms-3">
+        <VIcon icon="mdi-fire" />
+        <span class="text-sm ms-1">{{ props.count?.toLocaleString() }}</span>
+      </span>
     </VCardText>
   </VCard>
 
