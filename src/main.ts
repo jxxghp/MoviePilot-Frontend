@@ -46,7 +46,7 @@ app
   .use(VuetifyUseDialog, {
     confirmDialog: {
       dialogProps: {
-        maxWidth: '50rem',
+        maxWidth: '40rem',
       },
       confirmationButtonProps: {
         variant: 'elevated',

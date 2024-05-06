@@ -287,9 +287,8 @@ onMounted(() => {
         </VForm>
       </VCardText>
       <VCardActions>
-        <VBtn depressed @click="emit('close')"> 取消 </VBtn>
         <VSpacer />
-        <VBtn variant="tonal" @click="transfer"> 开始整理 </VBtn>
+        <VBtn variant="elevated" @click="transfer" prepend-icon="mdi-arrow-right-bold" class="px-5"> 开始整理 </VBtn>
       </VCardActions>
     </VCard>
     <!-- 手动整理进度框 -->

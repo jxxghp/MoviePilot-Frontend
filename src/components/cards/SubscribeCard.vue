@@ -1,4 +1,4 @@
-<script lang='ts' setup>
+<script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 import { formatDateDifference } from '@/@core/utils/formatters'
@@ -25,11 +25,7 @@ const imageLoaded = ref(false)
 const subscribeEditDialog = ref(false)
 
 // 上一次更新时间
-const lastUpdateText = ref(
-    props.media && props.media.last_update
-    ? formatDateDifference(props.media.last_update)
-    : '',
-)
+const lastUpdateText = ref(props.media && props.media.last_update ? formatDateDifference(props.media.last_update) : '')
 
 // 图片加载完成响应
 function imageLoadHandler() {
@@ -38,23 +34,17 @@ function imageLoadHandler() {
 
 // 根据 type 返回不同的图标
 function getIcon() {
-  if (props.media?.type === '电影')
-    return 'mdi-movie'
-  else if (props.media?.type === '电视剧')
-    return 'mdi-television-classic'
-  else
-    return 'mdi-help-circle'
+  if (props.media?.type === '电影') return 'mdi-movie'
+  else if (props.media?.type === '电视剧') return 'mdi-television-classic'
+  else return 'mdi-help-circle'
 }
 
 // 计算百分比
 function getPercentage() {
-  if (props.media?.total_episode === 0)
-    return 0
+  if (props.media?.total_episode === 0) return 0
 
   return Math.round(
-    (((props.media?.total_episode ?? 0) - (props.media?.lack_episode ?? 0))
-      / (props.media?.total_episode ?? 1))
-    * 100,
+    (((props.media?.total_episode ?? 0) - (props.media?.lack_episode ?? 0)) / (props.media?.total_episode ?? 1)) * 100,
   )
 }
 
@@ -71,16 +61,13 @@ function getTextClass() {
 // 删除订阅
 async function removeSubscribe() {
   try {
-    const result: { [key: string]: any } = await api.delete(
-      `subscribe/${props.media?.id}`,
-    )
+    const result: { [key: string]: any } = await api.delete(`subscribe/${props.media?.id}`)
 
     if (result.success) {
       // 通知父组件刷新
       emit('remove')
     }
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -88,15 +75,11 @@ async function removeSubscribe() {
 // 搜索订阅
 async function searchSubscribe() {
   try {
-    const result: { [key: string]: any } = await api.get(
-      `subscribe/search/${props.media?.id}`,
-    )
+    const result: { [key: string]: any } = await api.get(`subscribe/search/${props.media?.id}`)
 
     // 提示
-    if (result.success)
-      $toast.success(`${props.media?.name} 提交搜索请求成功！`)
-  }
-  catch (e) {
+    if (result.success) $toast.success(`${props.media?.name} 提交搜索请求成功！`)
+  } catch (e) {
     console.log(e)
   }
 }
@@ -133,11 +116,7 @@ const dropdownItems = ref([
         router.push({
           path: '/media',
           query: {
-            mediaid: `${
-              props.media?.tmdbid
-                ? `tmdb:${props.media?.tmdbid}`
-                : `douban:${props.media?.doubanid}`
-            }`,
+            mediaid: `${props.media?.tmdbid ? `tmdb:${props.media?.tmdbid}` : `douban:${props.media?.doubanid}`}`,
             type: props.media?.type,
           },
         })
@@ -160,6 +139,7 @@ const dropdownItems = ref([
   <VCard
     :key="props.media?.id"
     :class="`${props.media?.best_version ? 'outline-dashed outline-1' : ''}`"
+    class="flex flex-col"
     @click="editSubscribeDialog"
   >
     <template #image>
@@ -173,11 +153,7 @@ const dropdownItems = ref([
     </template>
     <VCardItem>
       <template #prepend>
-        <VIcon
-          size="1.9rem"
-          :color="getTextColor()"
-          :icon="getIcon()"
-        />
+        <VIcon size="1.9rem" :color="getTextColor()" :icon="getIcon()" />
       </template>
       <VCardTitle :class="getTextClass()">
         {{ props.media?.name }}
@@ -186,14 +162,8 @@ const dropdownItems = ref([
       <template #append>
         <div class="me-n3">
           <IconBtn>
-            <VIcon
-              icon="mdi-dots-vertical"
-              :color="getTextColor()"
-            />
-            <VMenu
-              activator="parent"
-              close-on-content-click
-            >
+            <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
+            <VMenu activator="parent" close-on-content-click>
               <VList>
                 <VListItem
                   v-for="(item, i) in dropdownItems"
@@ -213,29 +183,15 @@ const dropdownItems = ref([
         </div>
       </template>
     </VCardItem>
-
     <VCardText>
-      <p
-        class="clamp-text mb-0"
-        :class="getTextClass()"
-      >
+      <p class="clamp-text mb-0" :class="getTextClass()">
         {{ props.media?.description }}
       </p>
     </VCardText>
-
     <VCardText class="d-flex justify-space-between align-center flex-wrap">
       <div class="d-flex align-center">
-        <IconBtn
-          icon="mdi-star"
-          :color="getTextColor()"
-          class="me-1"
-        />
-        <span
-          class="text-subtitle-2 me-4"
-          :class="getTextClass()"
-        >{{
-          props.media?.vote
-        }}</span>
+        <IconBtn icon="mdi-star" :color="getTextColor()" class="me-1" />
+        <span class="text-subtitle-2 me-4" :class="getTextClass()">{{ props.media?.vote }}</span>
         <IconBtn
           v-if="props.media?.total_episode"
           v-bind="props"
@@ -243,51 +199,39 @@ const dropdownItems = ref([
           :color="getTextColor()"
           class="me-1"
         />
-        <span
-          v-if="props.media?.season"
-          class="text-subtitle-2 me-4"
-          :class="getTextClass()"
-        >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
-          {{ props.media?.total_episode }}</span>
-        <IconBtn
-          v-if="props.media?.username"
-          icon="mdi-account"
-          :color="getTextColor()"
-          class="me-1"
-        />
-        <span
-          v-if="props.media?.username"
-          class="text-subtitle-2 me-4"
-          :class="getTextClass()"
+        <span v-if="props.media?.season" class="text-subtitle-2 me-4" :class="getTextClass()"
+          >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
+          {{ props.media?.total_episode }}</span
         >
+        <IconBtn v-if="props.media?.username" icon="mdi-account" :color="getTextColor()" class="me-1" />
+        <span v-if="props.media?.username" class="text-subtitle-2 me-4" :class="getTextClass()">
           {{ props.media?.username }}
         </span>
       </div>
     </VCardText>
-    <VCardText
-      v-if="lastUpdateText"
-      class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300"
-    >
-      <VIcon
-        icon="mdi-download"
-        class="me-1"
-      />
+    <VCardText v-if="lastUpdateText" class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
+      <VIcon icon="mdi-download" class="me-1" />
       {{ lastUpdateText }}
     </VCardText>
-    <VProgressLinear
-      v-if="getPercentage() > 0"
-      :model-value="getPercentage()"
-      bg-color="success"
-      color="success"
-    />
+    <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" bg-color="success" color="success" />
   </VCard>
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditDialog
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="props.media?.id"
-    @remove="() => { emit('remove');subscribeEditDialog = false; }"
-    @save="() => { emit('save');subscribeEditDialog = false; }"
+    @remove="
+      () => {
+        emit('remove')
+        subscribeEditDialog = false
+      }
+    "
+    @save="
+      () => {
+        emit('save')
+        subscribeEditDialog = false
+      }
+    "
     @close="subscribeEditDialog = false"
   />
 </template>

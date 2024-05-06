@@ -61,6 +61,8 @@ export interface Subscribe {
   save_path: string
   // 时间
   date: string
+  // 编辑框设置项
+  show_edit_dialog: boolean
 }
 
 // 历史记录

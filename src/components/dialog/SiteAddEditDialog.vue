@@ -5,9 +5,13 @@ import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { numberValidator, requiredValidator } from '@/@validators'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
+import { useConfirm } from 'vuetify-use-dialog'
 
 // 显示器宽度
 const display = useDisplay()
+
+// 确认框
+const createConfirm = useConfirm()
 
 // 输入参数
 const props = defineProps({
@@ -86,6 +90,13 @@ async function addSite() {
 
 // 调用API删除站点信息
 async function deleteSiteInfo() {
+  const isConfirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认删除站点？`,
+  })
+
+  if (!isConfirmed) return
+
   try {
     const result: { [key: string]: any } = await api.delete(`site/${siteForm.value?.id}`)
     if (result.success) emit('remove')
@@ -220,11 +231,30 @@ async function updateSiteInfo() {
         </VForm>
       </VCardText>
       <VCardActions>
-        <VBtn v-if="props.oper === 'add'" @click="emit('close')"> 取消 </VBtn>
-        <VBtn v-else color="error" @click="deleteSiteInfo"> 删除 </VBtn>
+        <VBtn v-if="props.oper !== 'add'" color="error" @click="deleteSiteInfo" variant="outlined" class="me-3">
+          删除
+        </VBtn>
         <VSpacer />
-        <VBtn v-if="props.oper === 'add'" color="primary" variant="tonal" @click="addSite"> 新增 </VBtn>
-        <VBtn v-else color="primary" variant="tonal" @click="updateSiteInfo"> 保存 </VBtn>
+        <VBtn
+          v-if="props.oper === 'add'"
+          color="primary"
+          variant="elevated"
+          @click="addSite"
+          prepend-icon="mdi-plus"
+          class="px-5"
+        >
+          新增
+        </VBtn>
+        <VBtn
+          v-else
+          color="primary"
+          variant="elevated"
+          @click="updateSiteInfo"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
+          保存
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

@@ -4,9 +4,13 @@ import { numberValidator } from '@/@validators'
 import api from '@/api'
 import type { Site, Subscribe } from '@/api/types'
 import { useDisplay } from 'vuetify'
+import { useConfirm } from 'vuetify-use-dialog'
 
 // 显示器宽度
 const display = useDisplay()
+
+// 确认框
+const createConfirm = useConfirm()
 
 // 输入参数
 const props = defineProps({
@@ -145,6 +149,12 @@ async function getSubscribeInfo() {
 
 // 删除订阅
 async function removeSubscribe() {
+  const isConfirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认取消订阅？`,
+  })
+
+  if (!isConfirmed) return
   try {
     const result: { [key: string]: any } = await api.delete(`subscribe/${props.subid}`)
 
@@ -361,9 +371,16 @@ onMounted(() => {
       </VCardText>
 
       <VCardActions>
-        <VBtn v-if="!props.default" color="error" @click="removeSubscribe"> 取消订阅 </VBtn>
+        <VBtn v-if="!props.default" color="error" @click="removeSubscribe" variant="outlined" class="me-3">
+          取消订阅
+        </VBtn>
         <VSpacer />
-        <VBtn variant="tonal" @click=";`${props.default ? saveDefaultSubscribeConfig() : updateSubscribeInfo()}`">
+        <VBtn
+          variant="elevated"
+          @click=";`${props.default ? saveDefaultSubscribeConfig() : updateSubscribeInfo()}`"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
           保存
         </VBtn>
       </VCardActions>
