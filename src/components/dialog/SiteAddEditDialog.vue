@@ -230,7 +230,7 @@ async function updateSiteInfo() {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions>
+      <VCardActions class="pt-3">
         <VBtn v-if="props.oper !== 'add'" color="error" @click="deleteSiteInfo" variant="outlined" class="me-3">
           删除
         </VBtn>
