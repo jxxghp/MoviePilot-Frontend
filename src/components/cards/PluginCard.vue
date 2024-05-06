@@ -439,9 +439,11 @@ watch(
         <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
       </VCardText>
       <VCardActions>
-        <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo"> 查看数据 </VBtn>
+        <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo" variant="outlined" color="info">
+          查看数据
+        </VBtn>
         <VSpacer />
-        <VBtn variant="tonal" @click="savePluginConf"> 保存 </VBtn>
+        <VBtn @click="savePluginConf" variant="elevated" prepend-icon="mdi-content-save" class="px-5"> 保存 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
@@ -453,10 +455,9 @@ watch(
       <VCardText>
         <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
       </VCardText>
-      <VCardActions>
-        <VBtn @click="showPluginConfig"> 配置 </VBtn>
+      <VCardActions class="pt-3">
         <VSpacer />
-        <VBtn variant="tonal" @click="pluginInfoDialog = false"> 关闭 </VBtn>
+        <VBtn @click="showPluginConfig" variant="elevated" prepend-icon="mdi-cog" class="px-5"> 配置 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

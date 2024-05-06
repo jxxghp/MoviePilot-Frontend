@@ -260,7 +260,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard
       :title="`${
         props.default
@@ -286,7 +286,7 @@ onMounted(() => {
                 v-model="subscribeForm.total_episode"
                 label="总集数"
                 :rules="[numberValidator]"
-                hint="设定剧集的总集数，以应对themoviedb中剧集信息未维护完整，导致提前结束订阅的情况"
+                hint="手动设定总集数"
               />
             </VCol>
             <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="2">
@@ -294,7 +294,7 @@ onMounted(() => {
                 v-model="subscribeForm.start_episode"
                 label="开始集数"
                 :rules="[numberValidator]"
-                hint="只订阅下载此集数及之后的剧集"
+                hint="只下载此集数及之后的集"
               />
             </VCol>
           </VRow>

@@ -163,7 +163,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard
       :title="`${props.path ? `整理 - ${props.path}` : `整理 - 共 ${props.logids?.length} 条记录`}`"
       class="rounded-t"
