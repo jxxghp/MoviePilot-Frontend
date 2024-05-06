@@ -119,7 +119,7 @@ async function fetchData({ done }: { done: any }) {
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"
       error-title="没有数据"
-      error-description="未获取到热门订阅数据，服务器无法连接。"
+      error-description="未获取到热门订阅数据，未开启数据分享或服务器无法连接。"
     />
   </VInfiniteScroll>
 </template>
