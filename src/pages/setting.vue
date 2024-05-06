@@ -137,19 +137,3 @@ const tabs = [
     </VWindow>
   </div>
 </template>
-<
-<style lang="scss">
-.v-tabs.v-tabs-pill.v-slide-group-item--active.v-tab--selected.text-primary {
-  background-color: rgb(var(--v-theme-primary));
-  color: rgb(var(--v-theme-on-primary)) !important;
-}
-
-.v-tabs.v-tabs-pill.v-tab.v-tab--selected {
-  box-shadow: 0 2px 4px rgba(var(--v-shadow-key-umbra-color), var(--v-shadow-xs-opacity)), 0 0 transparent,
-    0 0 transparent;
-}
-
-.v-tabs.v-tabs-pill.v-btn:hover {
-  color: rgb(var(--v-theme-primary));
-}
-</style>
