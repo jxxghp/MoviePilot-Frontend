@@ -117,14 +117,6 @@ async function deleteItem(item: FileItem) {
   const confirmed = await createConfirm({
     title: '确认',
     content: `是否确认删除${item.type === 'dir' ? '目录' : '文件'} ${item.basename}？`,
-    confirmationText: '确认',
-    cancellationText: '取消',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    cancellationButtonProps: {
-      variant: 'tonal',
-    },
   })
 
   if (confirmed) {

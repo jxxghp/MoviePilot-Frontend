@@ -108,14 +108,6 @@ async function uninstallPlugin() {
   const isConfirmed = await createConfirm({
     title: '确认',
     content: `是否确认卸载插件 ${props.plugin?.plugin_name} ?`,
-    confirmationText: '确认',
-    cancellationText: '取消',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    confirmationButtonProps: {
-      variant: 'tonal',
-    },
   })
 
   if (!isConfirmed) return
@@ -229,14 +221,6 @@ async function resetPlugin() {
   const isConfirmed = await createConfirm({
     title: '确认',
     content: `是否确认重置插件 ${props.plugin?.plugin_name} 的配置数据?`,
-    confirmationText: '确认',
-    cancellationText: '取消',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    confirmationButtonProps: {
-      variant: 'tonal',
-    },
   })
 
   if (!isConfirmed) return

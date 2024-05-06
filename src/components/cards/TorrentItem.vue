@@ -5,7 +5,7 @@ import { useConfirm } from 'vuetify-use-dialog'
 import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import type { Context, MediaInfo, TorrentInfo  } from '@/api/types'
+import type { Context, MediaInfo, TorrentInfo } from '@/api/types'
 
 // 输入参数
 const props = defineProps({
@@ -40,16 +40,13 @@ const downloaded = ref<String[]>([])
 async function getSiteIcon() {
   try {
     siteIcon.value = (await api.get(`site/icon/${torrent?.value?.site}`)).data.icon
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 
 // 询问并添加下载
-async function handleAddDownload(_site: any = undefined,
-  _media: any = undefined,
-  _torrent: any = undefined) {
+async function handleAddDownload(_site: any = undefined, _media: any = undefined, _torrent: any = undefined) {
   if (!_media || !_torrent || !_site) {
     _site = torrent.value?.site_name
     _media = media.value
@@ -59,18 +56,9 @@ async function handleAddDownload(_site: any = undefined,
   const isConfirmed = await createConfirm({
     title: '确认',
     content: `是否确认下载【${_site}】${_torrent?.title} ?`,
-    confirmationText: '确认',
-    cancellationText: '取消',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    confirmationButtonProps: {
-      variant: 'tonal',
-    },
   })
 
-  if (!isConfirmed)
-    return
+  if (!isConfirmed) return
 
   addDownload(_media, _torrent)
 }
@@ -88,13 +76,11 @@ async function addDownload(_media: MediaInfo, _torrent: TorrentInfo) {
       // 添加下载成功
       $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`)
       downloaded.value.push(_torrent?.enclosure || '')
-    }
-    else {
+    } else {
       // 添加下载失败
       $toast.error(`${_torrent?.site_name} ${_torrent?.title} 添加下载失败！`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
   doneNProgress()
@@ -112,14 +98,10 @@ async function downloadTorrentFile() {
 
 // 促销Chip类
 function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
-  if (downloadVolume === 0)
-    return 'text-white bg-lime-500'
-  else if (downloadVolume < 1)
-    return 'text-white bg-green-500'
-  else if (uploadVolume !== 1)
-    return 'text-white bg-sky-500'
-  else
-    return 'text-white bg-gray-500'
+  if (downloadVolume === 0) return 'text-white bg-lime-500'
+  else if (downloadVolume < 1) return 'text-white bg-green-500'
+  else if (uploadVolume !== 1) return 'text-white bg-sky-500'
+  else return 'text-white bg-gray-500'
 }
 
 // 装载时查询站点图标
@@ -129,19 +111,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <VListItem 
-    @click="handleAddDownload"
-    :variant="downloaded.includes(torrent?.enclosure || '') ? 'outlined' : 'flat'"
-  >
-    <template
-      v-if="!showMoreTorrents"
-      #prepend
-    >
-      <VAvatar
-        class="rounded"
-        variant="flat"
-        @click.stop="openTorrentDetail"
-      >
+  <VListItem @click="handleAddDownload" :variant="downloaded.includes(torrent?.enclosure || '') ? 'outlined' : 'flat'">
+    <template v-if="!showMoreTorrents" #prepend>
+      <VAvatar class="rounded" variant="flat" @click.stop="openTorrentDetail">
         <VImg :src="siteIcon" />
       </VAvatar>
     </template>
@@ -153,25 +125,11 @@ onMounted(() => {
     <VListItemSubtitle>
       {{ torrent?.description }}
     </VListItemSubtitle>
-    <div
-      v-if="torrent?.labels"
-      class="pt-2"
-    >
-      <VChip
-        v-if="torrent?.hit_and_run"
-        variant="elevated"
-        size="small"
-        class="me-1 mb-1 text-white bg-black"
-      >
+    <div v-if="torrent?.labels" class="pt-2">
+      <VChip v-if="torrent?.hit_and_run" variant="elevated" size="small" class="me-1 mb-1 text-white bg-black">
         H&R
       </VChip>
-      <VChip
-        v-if="torrent?.freedate_diff"
-        variant="elevated"
-        color="secondary"
-        size="small"
-        class="me-1 mb-1"
-      >
+      <VChip v-if="torrent?.freedate_diff" variant="elevated" color="secondary" size="small" class="me-1 mb-1">
         {{ torrent?.freedate_diff }}
       </VChip>
       <VChip
@@ -184,51 +142,24 @@ onMounted(() => {
       >
         {{ label }}
       </VChip>
-      <VChip
-        v-if="meta?.edition"
-        variant="elevated"
-        size="small"
-        class="me-1 mb-1 text-white bg-red-500"
-      >
+      <VChip v-if="meta?.edition" variant="elevated" size="small" class="me-1 mb-1 text-white bg-red-500">
         {{ meta?.edition }}
       </VChip>
-      <VChip
-        v-if="meta?.resource_pix"
-        variant="elevated"
-        size="small"
-        class="me-1 mb-1 text-white bg-red-500"
-      >
+      <VChip v-if="meta?.resource_pix" variant="elevated" size="small" class="me-1 mb-1 text-white bg-red-500">
         {{ meta?.resource_pix }}
       </VChip>
-      <VChip
-        v-if="meta?.video_encode"
-        variant="elevated"
-        size="small"
-        class="me-1 mb-1 text-white bg-orange-500"
-      >
+      <VChip v-if="meta?.video_encode" variant="elevated" size="small" class="me-1 mb-1 text-white bg-orange-500">
         {{ meta?.video_encode }}
       </VChip>
-      <VChip
-        v-if="torrent?.size"
-        variant="elevated"
-        size="small"
-        class="me-1 mb-1 text-white bg-yellow-500"
-      >
+      <VChip v-if="torrent?.size" variant="elevated" size="small" class="me-1 mb-1 text-white bg-yellow-500">
         {{ formatFileSize(torrent?.size) }}
       </VChip>
-      <VChip
-        v-if="meta?.resource_team"
-        variant="elevated"
-        size="small"
-        class="me-1 mb-1 text-white bg-cyan-500"
-      >
+      <VChip v-if="meta?.resource_team" variant="elevated" size="small" class="me-1 mb-1 text-white bg-cyan-500">
         {{ meta?.resource_team }}
       </VChip>
       <VChip
         v-if="torrent?.downloadvolumefactor !== 1 || torrent?.uploadvolumefactor !== 1"
-        :class="
-          getVolumeFactorClass(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)
-        "
+        :class="getVolumeFactorClass(torrent?.downloadvolumefactor, torrent?.uploadvolumefactor)"
         variant="elevated"
         size="small"
         class="me-1 mb-1"
@@ -239,18 +170,10 @@ onMounted(() => {
     <template #append>
       <div class="me-n3">
         <IconBtn>
-          <VIcon
-            icon="mdi-dots-vertical"
-          />
-          <VMenu
-            activator="parent"
-            close-on-content-click
-          >
+          <VIcon icon="mdi-dots-vertical" />
+          <VMenu activator="parent" close-on-content-click>
             <VList>
-              <VListItem
-                variant="plain"
-                @click="openTorrentDetail()"
-              >
+              <VListItem variant="plain" @click="openTorrentDetail()">
                 <template #prepend>
                   <VIcon icon="mdi-information" />
                 </template>

@@ -34,14 +34,6 @@ async function restart() {
   const confirmed = await createConfirm({
     title: '确认',
     content: '确认重启系统吗？',
-    confirmationText: '确认',
-    cancellationText: '取消',
-    dialogProps: {
-      maxWidth: '30rem',
-    },
-    cancellationButtonProps: {
-      variant: 'tonal',
-    },
   })
 
   if (confirmed) {

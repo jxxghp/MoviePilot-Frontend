@@ -112,8 +112,12 @@ function setDashboardConfig() {
     </VCol>
   </VRow>
   <!-- 弹窗，根据配置生成选项 -->
-  <VDialog v-model="dialog" max-width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
-    <VCard title="设置仪表板">
+  <VDialog v-model="dialog" max-width="35rem" scrollable :fullscreen="!display.mdAndUp.value">
+    <VCard>
+      <VCardItem>
+        <VCardTitle>设置仪表板</VCardTitle>
+      </VCardItem>
+      <VDivider />
       <VCardText>
         <VRow>
           <VCol v-for="(item, key) in dashboard_names" :key="key" cols="12" md="4" sm="4">
@@ -121,11 +125,17 @@ function setDashboardConfig() {
           </VCol>
         </VRow>
       </VCardText>
-      <VCardActions>
-        <VBtn color="primary" @click="dialog = false"> 取消 </VBtn>
+      <VDivider />
+      <VCardText class="pt-5 text-end">
         <VSpacer />
-        <VBtn color="primary" variant="tonal" @click="setDashboardConfig"> 保存 </VBtn>
-      </VCardActions>
+        <VBtn variant="outlined" color="secondary" class="me-4" @click="dialog = false"> 关闭 </VBtn>
+        <VBtn @click="setDashboardConfig">
+          <template #prepend>
+            <VIcon icon="mdi-content-save" />
+          </template>
+          保存
+        </VBtn>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>

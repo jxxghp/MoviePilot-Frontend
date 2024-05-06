@@ -60,22 +60,17 @@ async function getResourceList() {
   try {
     resourceDataList.value = await api.get(`site/resource/${props.site}`)
     resourceLoading.value = false
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 
 // 促销Chip类
 function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
-  if (downloadVolume === 0)
-    return 'text-white bg-lime-500'
-  else if (downloadVolume < 1)
-    return 'text-white bg-green-500'
-  else if (uploadVolume !== 1)
-    return 'text-white bg-sky-500'
-  else
-    return 'text-white bg-gray-500'
+  if (downloadVolume === 0) return 'text-white bg-lime-500'
+  else if (downloadVolume < 1) return 'text-white bg-green-500'
+  else if (uploadVolume !== 1) return 'text-white bg-sky-500'
+  else return 'text-white bg-gray-500'
 }
 
 // 添加下载
@@ -83,18 +78,9 @@ async function addDownload(_torrent: any) {
   const isConfirmed = await createConfirm({
     title: '确认',
     content: `是否确认下载【${_torrent.site_name}】${_torrent?.title} ?`,
-    confirmationText: '确认',
-    cancellationText: '取消',
-    dialogProps: {
-      maxWidth: '50rem',
-    },
-    confirmationButtonProps: {
-      variant: 'tonal',
-    },
   })
 
-  if (!isConfirmed)
-    return
+  if (!isConfirmed) return
 
   startNProgress()
   try {
@@ -103,13 +89,11 @@ async function addDownload(_torrent: any) {
     if (result.success) {
       // 添加下载成功
       $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`)
-    }
-    else {
+    } else {
       // 添加下载失败
       $toast.error(`${_torrent?.site_name} ${_torrent?.title} 添加下载失败：${result.message || '未知错误'}`)
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
   doneNProgress()
@@ -146,21 +130,10 @@ onMounted(() => {
         <div class="text-sm my-1">
           {{ item.description }}
         </div>
-        <VChip
-          v-if="item.hit_and_run"
-          variant="elevated"
-          size="small"
-          class="me-1 mb-1 text-white bg-black"
-        >
+        <VChip v-if="item.hit_and_run" variant="elevated" size="small" class="me-1 mb-1 text-white bg-black">
           H&R
         </VChip>
-        <VChip
-          v-if="item.freedate_diff"
-          variant="elevated"
-          color="secondary"
-          size="small"
-          class="me-1 mb-1"
-        >
+        <VChip v-if="item.freedate_diff" variant="elevated" color="secondary" size="small" class="me-1 mb-1">
           {{ item.freedate_diff }}
         </VChip>
         <VChip
@@ -175,9 +148,7 @@ onMounted(() => {
         </VChip>
         <VChip
           v-if="item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1"
-          :class="
-            getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)
-          "
+          :class="getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)"
           variant="elevated"
           size="small"
           class="me-1 mb-1"
@@ -206,18 +177,10 @@ onMounted(() => {
     <template #item.actions="{ item }">
       <div class="me-n3">
         <IconBtn>
-          <VIcon
-            icon="mdi-dots-vertical"
-          />
-          <VMenu
-            activator="parent"
-            close-on-content-click
-          >
+          <VIcon icon="mdi-dots-vertical" />
+          <VMenu activator="parent" close-on-content-click>
             <VList>
-              <VListItem
-                variant="plain"
-                @click="openTorrentDetail(item.page_url || '')"
-              >
+              <VListItem variant="plain" @click="openTorrentDetail(item.page_url || '')">
                 <template #prepend>
                   <VIcon icon="mdi-information" />
                 </template>
@@ -238,8 +201,6 @@ onMounted(() => {
         </IconBtn>
       </div>
     </template>
-    <template #no-data>
-      没有数据
-    </template>
+    <template #no-data> 没有数据 </template>
   </VDataTable>
 </template>
