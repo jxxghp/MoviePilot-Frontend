@@ -286,7 +286,7 @@ onMounted(() => {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions>
+      <VCardActions class="pt-3">
         <VSpacer />
         <VBtn variant="elevated" @click="transfer" prepend-icon="mdi-arrow-right-bold" class="px-5"> 开始整理 </VBtn>
       </VCardActions>
