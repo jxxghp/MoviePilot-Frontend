@@ -370,7 +370,7 @@ onMounted(() => {
         </VForm>
       </VCardText>
 
-      <VCardActions>
+      <VCardActions class="pt-3">
         <VBtn v-if="!props.default" color="error" @click="removeSubscribe" variant="outlined" class="me-3">
           取消订阅
         </VBtn>
