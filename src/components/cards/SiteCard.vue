@@ -279,7 +279,7 @@ onMounted(() => {
 
       <VCardActions>
         <VSpacer />
-        <VBtn variant="tonal" @click="updateSiteCookie"> 开始更新 </VBtn>
+        <VBtn variant="elevated" @click="updateSiteCookie" prepend-icon="mdi-refresh" class="px-5"> 开始更新 </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
