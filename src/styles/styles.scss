@@ -130,3 +130,8 @@
 .v-toast {
   z-index: 2500 !important;
  }
+
+ .v-divider {
+  border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));
+  opacity:0.75;
+ }

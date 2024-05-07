@@ -225,7 +225,7 @@ onMounted(() => {
       </VTooltip>
     </VCardText>
 
-    <VDivider class="opacity-75" style="border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity))" />
+    <VDivider />
 
     <VCardActions>
       <VBtn v-if="!cardProps.site?.public" :disabled="updateButtonDisable" @click.stop="handleSiteUpdate">
