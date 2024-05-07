@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import image from '@images/misc/teamwork.png'
+import image from '@images/no-data.svg'
 
 const props = defineProps<Props>()
 
