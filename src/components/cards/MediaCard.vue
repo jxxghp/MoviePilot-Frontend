@@ -460,7 +460,17 @@ function getYear(airDate: string) {
           </p>
           <div class="flex align-center justify-between">
             <IconBtn icon="mdi-magnify" color="white" @click.stop="handleSearch" />
-            <IconBtn icon="mdi-heart" :color="isSubscribed ? 'error' : 'white'" @click.stop="handleSubscribe" />
+            <VTooltip v-if="props.media?.popularity" :text="'流行度：' + props.media?.popularity?.toString()">
+              <template #activator="{ props }">
+                <IconBtn
+                  v-bind="props"
+                  icon="mdi-heart"
+                  :color="isSubscribed ? 'error' : 'white'"
+                  @click.stop="handleSubscribe"
+                />
+              </template>
+            </VTooltip>
+            <IconBtn v-else icon="mdi-heart" :color="isSubscribed ? 'error' : 'white'" @click.stop="handleSubscribe" />
           </div>
         </VCardText>
         <VAvatar
