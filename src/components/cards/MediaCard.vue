@@ -58,7 +58,7 @@ const seasonInfos = ref<TmdbSeason[]>([])
 const seasonsSelected = ref<TmdbSeason[]>([])
 
 // 来源角标字典
-const sourceIconDict = {
+const sourceIconDict: { [key: string]: any } = {
   themoviedb: tmdbImage,
   douban: doubanImage,
   bangumi: bangumiImage,
@@ -66,11 +66,9 @@ const sourceIconDict = {
 
 // 获得mediaid
 function getMediaId() {
-  return props.media?.tmdb_id
-    ? `tmdb:${props.media?.tmdb_id}`
-    : props.media?.douban_id
-    ? `douban:${props.media?.douban_id}`
-    : `bangumi:${props.media?.bangumi_id}`
+  if (props.media?.tmdb_id) return `tmdb:${props.media?.tmdb_id}`
+  else if (props.media?.douban_id) return `douban:${props.media?.douban_id}`
+  else return `bangumi:${props.media?.bangumi_id}`
 }
 
 // 订阅弹窗选择的多季
@@ -460,17 +458,7 @@ function getYear(airDate: string) {
           </p>
           <div class="flex align-center justify-between">
             <IconBtn icon="mdi-magnify" color="white" @click.stop="handleSearch" />
-            <VTooltip v-if="props.media?.popularity" :text="'流行度：' + props.media?.popularity?.toString()">
-              <template #activator="{ props }">
-                <IconBtn
-                  v-bind="props"
-                  icon="mdi-heart"
-                  :color="isSubscribed ? 'error' : 'white'"
-                  @click.stop="handleSubscribe"
-                />
-              </template>
-            </VTooltip>
-            <IconBtn v-else icon="mdi-heart" :color="isSubscribed ? 'error' : 'white'" @click.stop="handleSubscribe" />
+            <IconBtn icon="mdi-heart" :color="isSubscribed ? 'error' : 'white'" @click.stop="handleSubscribe" />
           </div>
         </VCardText>
         <VAvatar
@@ -478,7 +466,7 @@ function getYear(airDate: string) {
           density="compact"
           class="absolute bottom-1 right-1"
           tile
-          v-if="!hover.isHovering && isImageLoaded"
+          v-if="!hover.isHovering && isImageLoaded && props.media?.source"
         >
           <VImg cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />
         </VAvatar>
