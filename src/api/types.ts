@@ -445,6 +445,20 @@ export interface Plugin {
   add_time?: number
 }
 
+// 插件仪表板
+export interface PluginDashboard {
+  // 插件ID
+  id: string
+  // 插件名称
+  name: string
+  // 全局配置
+  attrs: { [key: string]: any }
+  // col列数
+  cols: { [key: string]: number }
+  // 页面元素
+  elements: { [key: string]: any }[]
+}
+
 // 种子信息
 export interface TorrentInfo {
   // 站点ID
