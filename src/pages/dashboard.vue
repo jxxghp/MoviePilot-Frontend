@@ -143,10 +143,9 @@ async function loadDashboardConfig() {
 // 按order的顺序对dashboardConfigs进行排序
 function sortDashboardConfigs() {
   dashboardConfigs.value.sort((a, b) => {
-    return (
-      orderConfig.value.findIndex((item: { id: string }) => item.id === a.id) -
-      orderConfig.value.findIndex((item: { id: string }) => item.id === b.id)
-    )
+    const aIndex = orderConfig.value.findIndex((item: { id: string }) => item.id === a.id)
+    const bIndex = orderConfig.value.findIndex((item: { id: string }) => item.id === b.id)
+    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
   })
 }
 
