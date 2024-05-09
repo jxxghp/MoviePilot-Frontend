@@ -467,9 +467,8 @@ watch(
 
   <!-- 更新日志 -->
   <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
-    <VCard>
+    <VCard :title="`${props.plugin?.plugin_name} 更新说明`">
       <DialogCloseBtn @click="releaseDialog = false" />
-      <VCardTitle>{{ props.plugin?.plugin_name }} 更新说明</VCardTitle>
       <VersionHistory :history="props.plugin?.history" />
       <VCardText>
         <VBtn @click="updatePlugin" block>
