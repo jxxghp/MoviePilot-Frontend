@@ -56,8 +56,7 @@ async function loadDownloaderInfo() {
         amount: formatFileSize(res.free_space),
       },
     ]
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -83,28 +82,18 @@ onUnmounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle>实时速率</VCardTitle>
+      <VCardTitle class="cursor-move">实时速率</VCardTitle>
     </VCardItem>
 
     <VCardText class="pt-4">
       <div>
-        <p class="text-h5 me-2">
-          ↑{{ formatFileSize(downloadInfo.upload_speed) }}/s
-        </p>
-        <p class="text-h4 me-2">
-          ↓{{ formatFileSize(downloadInfo.download_speed) }}/s
-        </p>
+        <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
+        <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
       </div>
       <VList class="card-list mt-9">
-        <VListItem
-          v-for="item in infoItems"
-          :key="item.title"
-        >
+        <VListItem v-for="item in infoItems" :key="item.title">
           <template #prepend>
-            <VIcon
-              rounded
-              :icon="item.avatar"
-            />
+            <VIcon rounded :icon="item.avatar" />
           </template>
 
           <VListItemTitle class="text-sm font-weight-medium mb-1">

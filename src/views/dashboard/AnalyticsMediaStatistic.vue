@@ -42,8 +42,7 @@ async function loadMediaStatistic() {
         color: 'info',
       },
     ]
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -56,29 +55,16 @@ onMounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle>媒体统计</VCardTitle>
+      <VCardTitle class="cursor-move">媒体统计</VCardTitle>
     </VCardItem>
 
     <VCardText>
       <VRow>
-        <VCol
-          v-for="item in statistics"
-          :key="item.title"
-          cols="6"
-          sm="3"
-        >
+        <VCol v-for="item in statistics" :key="item.title" cols="6" sm="3">
           <div class="d-flex align-center">
             <div class="me-3">
-              <VAvatar
-                :color="item.color"
-                rounded
-                size="42"
-                class="elevation-1"
-              >
-                <VIcon
-                  size="24"
-                  :icon="item.icon"
-                />
+              <VAvatar :color="item.color" rounded size="42" class="elevation-1">
+                <VIcon size="24" :icon="item.icon" />
               </VAvatar>
             </div>
 

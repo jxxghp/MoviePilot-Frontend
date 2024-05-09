@@ -8,9 +8,7 @@ import triangleLight from '@images/misc/triangle-light.png'
 
 const { global } = useTheme()
 
-const triangleBg = computed(() =>
-  global.name.value === 'light' ? triangleLight : triangleDark,
-)
+const triangleBg = computed(() => (global.name.value === 'light' ? triangleLight : triangleDark))
 
 // 总存储空间
 const storage = ref(0)
@@ -30,8 +28,7 @@ async function getStorage() {
 
     storage.value = res.total_storage
     used.value = res.used_storage
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -42,42 +39,30 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard
-    title="存储空间"
-    subtitle=""
-    class="position-relative"
-  >
+  <VCard>
+    <VCardItem>
+      <VCardTitle class="cursor-move">存储空间</VCardTitle>
+    </VCardItem>
     <VCardText>
       <h5 class="text-2xl font-weight-medium text-primary">
         {{ formatFileSize(storage) }}
       </h5>
-      <p class="mt-2">
-        已使用 {{ usedPercent }}% 🚀
-      </p>
+      <p class="mt-2">已使用 {{ usedPercent }}% 🚀</p>
       <p class="mt-1">
-        <VProgressLinear
-          :model-value="usedPercent"
-          color="primary"
-        />
+        <VProgressLinear :model-value="usedPercent" color="primary" />
       </p>
     </VCardText>
 
     <!-- Triangle Background -->
-    <VImg
-      :src="triangleBg"
-      class="triangle-bg flip-in-rtl"
-    />
+    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
 
     <!-- Trophy -->
-    <VImg
-      :src="trophy"
-      class="trophy"
-    />
+    <VImg :src="trophy" class="trophy" />
   </VCard>
 </template>
 
 <style lang="scss">
-@use "@layouts/styles/mixins" as layoutsMixins;
+@use '@layouts/styles/mixins' as layoutsMixins;
 
 .v-card .triangle-bg {
   position: absolute;

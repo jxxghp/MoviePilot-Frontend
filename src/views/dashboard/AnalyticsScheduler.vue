@@ -14,8 +14,7 @@ async function loadSchedulerList() {
     const res: ScheduleInfo[] = await api.get('dashboard/schedule')
 
     schedulerList.value = res
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -41,25 +40,14 @@ onUnmounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle>后台任务</VCardTitle>
+      <VCardTitle class="cursor-move">后台任务</VCardTitle>
     </VCardItem>
 
     <VCardText>
-      <VList
-        class="card-list"
-        height="250"
-      >
-        <VListItem
-          v-for="item in schedulerList"
-          :key="item.id"
-        >
+      <VList class="card-list" height="250">
+        <VListItem v-for="item in schedulerList" :key="item.id">
           <template #prepend>
-            <VAvatar
-              size="40"
-              variant="tonal"
-              color=""
-              class="me-3"
-            >
+            <VAvatar size="40" variant="tonal" color="" class="me-3">
               {{ item.name[0] }}
             </VAvatar>
           </template>
@@ -81,9 +69,7 @@ onUnmounted(() => {
           </template>
         </VListItem>
         <VListItem v-if="schedulerList.length === 0">
-          <VListItemTitle class="text-center">
-            没有后台服务
-          </VListItemTitle>
+          <VListItemTitle class="text-center"> 没有后台服务 </VListItemTitle>
         </VListItem>
       </VList>
     </VCardText>

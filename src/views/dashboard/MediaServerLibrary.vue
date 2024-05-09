@@ -10,8 +10,7 @@ const libraryList = ref<MediaServerPlayItem[]>([])
 async function loadLibrary() {
   try {
     libraryList.value = await api.get('mediaserver/library')
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -24,20 +23,11 @@ onMounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle>我的媒体库</VCardTitle>
+      <VCardTitle class="cursor-move">我的媒体库</VCardTitle>
     </VCardItem>
 
-    <div
-      v-if="libraryList.length > 0"
-      class="grid gap-4 grid-backdrop-card mx-3"
-      tabindex="0"
-    >
-      <LibraryCard
-        v-for="data in libraryList"
-        :key="data.id"
-        :media="data"
-        height="10rem"
-      />
+    <div v-if="libraryList.length > 0" class="grid gap-4 grid-backdrop-card mx-3" tabindex="0">
+      <LibraryCard v-for="data in libraryList" :key="data.id" :media="data" height="10rem" />
     </div>
   </VCard>
 </template>

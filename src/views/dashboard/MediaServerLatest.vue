@@ -10,8 +10,7 @@ const latestList = ref<MediaServerPlayItem[]>([])
 async function loadLatest() {
   try {
     latestList.value = await api.get('mediaserver/latest')
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -24,19 +23,11 @@ onMounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle>最近添加</VCardTitle>
+      <VCardTitle class="cursor-move">最近添加</VCardTitle>
     </VCardItem>
 
-    <div
-      v-if="latestList.length > 0"
-      class="grid gap-4 grid-media-card mx-3 mb-3"
-      tabindex="0"
-    >
-      <PosterCard
-        v-for="data in latestList"
-        :key="data.id"
-        :media="data"
-      />
+    <div v-if="latestList.length > 0" class="grid gap-4 grid-media-card mx-3 mb-3" tabindex="0">
+      <PosterCard v-for="data in latestList" :key="data.id" :media="data" />
     </div>
   </VCard>
 </template>

@@ -1,20 +1,11 @@
 <script setup lang="ts">
-import AnalyticsMediaStatistic from '@/views/dashboard/AnalyticsMediaStatistic.vue'
-import AnalyticsScheduler from '@/views/dashboard/AnalyticsScheduler.vue'
-import AnalyticsSpeed from '@/views/dashboard/AnalyticsSpeed.vue'
-import AnalyticsStorage from '@/views/dashboard/AnalyticsStorage.vue'
-import AnalyticsWeeklyOverview from '@/views/dashboard/AnalyticsWeeklyOverview.vue'
-import AnalyticsCpu from '@/views/dashboard/AnalyticsCpu.vue'
-import AnalyticsMemory from '@/views/dashboard/AnalyticsMemory.vue'
-import MediaServerLatest from '@/views/dashboard/MediaServerLatest.vue'
-import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
-import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
-import DashboardRender from '@/components/render/DashboardRender.vue'
+import draggable from 'vuedraggable'
 import api from '@/api'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useDisplay } from 'vuetify'
-import { PluginDashboard } from '@/api/types'
+import { DashboardItem } from '@/api/types'
 import store from '@/store'
+import DashboardElement from '@/components/misc/DashboardElement.vue'
 
 // 显示器宽度
 const display = useDisplay()
@@ -22,8 +13,8 @@ const display = useDisplay()
 // 从Vuex Store中获取superuser信息
 const superUser = store.state.auth.superUser
 
-// 从localStorage中获取数据
-const default_config = {
+// 仪表板启用配置
+const enableConfig = ref<{ [key: string]: boolean }>({
   mediaStatistic: true,
   scheduler: false,
   speed: false,
@@ -34,47 +25,149 @@ const default_config = {
   library: true,
   playing: true,
   latest: true,
-}
-
-// 仪表盘字典
-const dashboard_names = ref<{ [key: string]: string }>({
-  storage: '存储空间',
-  mediaStatistic: '媒体统计',
-  weeklyOverview: '最近入库',
-  speed: '实时速率',
-  scheduler: '后台任务',
-  cpu: 'CPU',
-  memory: '内存',
-  library: '我的媒体库',
-  playing: '继续观看',
-  latest: '最近添加',
 })
 
-// 有仪表板的插件
-const dashboard_plugins = ref<any[]>([])
+// 仪表板配置
+const dashboardConfigs = ref<DashboardItem[]>([
+  {
+    id: 'storage',
+    name: '存储空间',
+    attrs: {},
+    cols: { cols: 12, md: 4 },
+    elements: [],
+  },
+  {
+    id: 'mediaStatistic',
+    name: '媒体统计',
+    attrs: {},
+    cols: { cols: 12, md: 8 },
+    elements: [],
+  },
+  {
+    id: 'weeklyOverview',
+    name: '最近入库',
+    attrs: {},
+    cols: { cols: 12, md: 4 },
+    elements: [],
+  },
+  {
+    id: 'speed',
+    name: '实时速率',
+    attrs: {},
+    cols: { cols: 12, md: 4 },
+    elements: [],
+  },
+  {
+    id: 'scheduler',
+    name: '后台任务',
+    attrs: {},
+    cols: { cols: 12, md: 4 },
+    elements: [],
+  },
+  {
+    id: 'cpu',
+    name: 'CPU',
+    attrs: {},
+    cols: { cols: 12, md: 6 },
+    elements: [],
+  },
+  {
+    id: 'memory',
+    name: '内存',
+    attrs: {},
+    cols: { cols: 12, md: 6 },
+    elements: [],
+  },
+  {
+    id: 'library',
+    name: '我的媒体库',
+    attrs: {},
+    cols: { cols: 12 },
+    elements: [],
+  },
+  {
+    id: 'playing',
+    name: '继续观看',
+    attrs: {},
+    cols: { cols: 12 },
+    elements: [],
+  },
+  {
+    id: 'latest',
+    name: '最近添加',
+    attrs: {},
+    cols: { cols: 12 },
+    elements: [],
+  },
+])
 
-// 插件仪表板配置
-const plugin_dashboards = ref<PluginDashboard[]>([])
+// 有仪表板的插件
+const dashboardPlugins = ref<any[]>([])
 
 // 弹窗
 const dialog = ref(false)
 
-// 初始化默认值
-const config = ref(JSON.parse(localStorage.getItem('MP_DASHBOARD') || '{}'))
-if (isNullOrEmptyObject(config.value)) {
-  config.value = default_config
+// 加载用户监控面板配置（本地无配置时才加载）
+async function loadDashboardConfig() {
+  // 显示配置
+  const local_enable = localStorage.getItem('MP_DASHBOARD')
+  if (local_enable) {
+    enableConfig.value = JSON.parse(local_enable)
+  } else {
+    const response = await api.get('/user/config/Dashboard')
+    if (response && response.data && response.data.value) {
+      enableConfig.value = response.data.value
+      localStorage.setItem('MP_DASHBOARD', JSON.stringify(response.data.value))
+    }
+  }
+  // 顺序配置
+  const local_order = localStorage.getItem('MP_DASHBOARD_ORDER')
+  let order = null
+  if (local_order) {
+    order = JSON.parse(local_order)
+  } else {
+    const response2 = await api.get('/user/config/DashboardOrder')
+    if (response2 && response2.data && response2.data.value) {
+      order = response2.data.value
+      localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify(order))
+    }
+  }
+  // 按order的顺序对dashboardConfigs进行排序
+  if (order) {
+    const newConfigs: DashboardItem[] = []
+    order.forEach((item: { id: string }) => {
+      const config = dashboardConfigs.value.find(c => c.id === item.id)
+      if (config) {
+        newConfigs.push(config)
+      }
+    })
+    dashboardConfigs.value = newConfigs
+  }
 }
 
 // 设置项目
 function setDashboardConfig() {
-  const data = JSON.stringify(config.value)
+  // 启用配置
+  const data = JSON.stringify(enableConfig.value)
   localStorage.setItem('MP_DASHBOARD', data)
+  // 顺序配置，从dashboardConfigs中提取
+  const order = JSON.stringify(dashboardConfigs.value.map(item => ({ id: item.id })))
+  localStorage.setItem('MP_DASHBOARD_ORDER', order)
   // 保存到服务端
-  api.post('/user/config/Dashboard', data, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
+  try {
+    api.post('/user/config/Dashboard', data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    api.post('/user/config/DashboardOrder', order, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+  } catch (error) {
+    console.error(error)
+  }
   dialog.value = false
 }
 
@@ -83,14 +176,10 @@ async function getDashboardPlugins() {
   // 只有超级用户才能获取插件仪表板
   if (!superUser) return
   try {
-    dashboard_plugins.value = await api.get('/plugin/dashboards')
-    if (!isNullOrEmptyObject(dashboard_plugins.value)) {
-      // 获取id和name补充到 dashboard_names 中
-      dashboard_plugins.value.forEach((plugin: { [key: string]: string }) => {
-        dashboard_names.value[plugin.id] = plugin.name
-      })
+    dashboardPlugins.value = await api.get('/plugin/dashboards')
+    if (!isNullOrEmptyObject(dashboardPlugins.value)) {
       // 下载插件仪表板配置
-      dashboard_plugins.value.forEach(async (plugin: { id: string }) => {
+      dashboardPlugins.value.forEach(async (plugin: { id: string }) => {
         await getPluginDashboard(plugin.id)
       })
     }
@@ -104,9 +193,10 @@ async function getPluginDashboard(id: string) {
   try {
     api.get(`/plugin/dashboard/${id}`).then((res: any) => {
       if (res) {
-        plugin_dashboards.value.push(res)
+        // 保存到仪表板配置中
+        dashboardConfigs.value.push(res)
+        // 定时刷新
         if (res.attrs?.refresh) {
-          // 定时刷新
           setTimeout(() => {
             getPluginDashboard(id)
           }, res.attrs.refresh * 1000)
@@ -118,58 +208,36 @@ async function getPluginDashboard(id: string) {
   }
 }
 
-onMounted(() => {
+// 拖动排序结束
+function dragOrderEnd() {
+  // 保存数据
+  setDashboardConfig()
+}
+
+onBeforeMount(async () => {
+  await loadDashboardConfig()
   getDashboardPlugins()
 })
 </script>
 
 <template>
-  <!-- 底部操作按钮 -->
-  <VFab icon="mdi-view-dashboard-edit" location="bottom end" size="x-large" fixed app appear @click="dialog = true" />
   <!-- 仪表板 -->
-  <VRow class="match-height">
-    <!-- 系统内置的仪表板 -->
-    <VCol v-if="config.storage" cols="12" md="4">
-      <AnalyticsStorage />
-    </VCol>
-    <VCol v-if="config.mediaStatistic" cols="12" md="8">
-      <AnalyticsMediaStatistic />
-    </VCol>
-    <VCol v-if="config.weeklyOverview" cols="12" md="4">
-      <AnalyticsWeeklyOverview />
-    </VCol>
-    <VCol v-if="config.speed" cols="12" md="4">
-      <AnalyticsSpeed />
-    </VCol>
-    <VCol v-if="config.scheduler" cols="12" md="4">
-      <AnalyticsScheduler />
-    </VCol>
-    <VCol v-if="config.cpu" cols="12" md="6">
-      <AnalyticsCpu />
-    </VCol>
-    <VCol v-if="config.memory" cols="12" md="6">
-      <AnalyticsMemory />
-    </VCol>
-    <VCol v-if="config.library" cols="12">
-      <MediaServerLibrary />
-    </VCol>
-    <VCol v-if="config.playing" cols="12">
-      <MediaServerPlaying />
-    </VCol>
-    <VCol v-if="config.latest" cols="12">
-      <MediaServerLatest />
-    </VCol>
-    <!-- 插件仪表板 -->
-    <template v-for="plugin in plugin_dashboards" :key="plugin.id">
-      <VCol v-if="config[plugin.id]" v-bind="plugin.cols">
-        <VCard :title="plugin.name">
-          <VCardItem>
-            <DashboardRender v-for="(item, index) in plugin.elements" :key="index" :config="item" />
-          </VCardItem>
-        </VCard>
+  <draggable
+    v-model="dashboardConfigs"
+    @end="dragOrderEnd"
+    item-key="id"
+    tag="VRow"
+    :component-data="{ 'class': 'match-height' }"
+  >
+    <template #item="{ element }">
+      <VCol v-if="enableConfig[element.id]" v-bind:="element.cols">
+        <DashboardElement :config="element" />
       </VCol>
     </template>
-  </VRow>
+  </draggable>
+
+  <!-- 底部操作按钮 -->
+  <VFab icon="mdi-view-dashboard-edit" location="bottom end" size="x-large" fixed app appear @click="dialog = true" />
 
   <!-- 弹窗，根据配置生成选项 -->
   <VDialog v-model="dialog" max-width="35rem" scrollable :fullscreen="!display.mdAndUp.value">
@@ -180,8 +248,8 @@ onMounted(() => {
       <VDivider />
       <VCardText>
         <VRow>
-          <VCol v-for="(name, key) in dashboard_names" :key="key" cols="12" md="4" sm="4">
-            <VCheckbox v-model="config[key]" :label="name" />
+          <VCol v-for="item in dashboardConfigs" :key="item.id" cols="12" md="4" sm="4">
+            <VCheckbox v-model="enableConfig[item.id]" :label="item.name" />
           </VCol>
         </VRow>
       </VCardText>

@@ -445,11 +445,11 @@ export interface Plugin {
   add_time?: number
 }
 
-// 插件仪表板
-export interface PluginDashboard {
-  // 插件ID
+// 仪表板组件
+export interface DashboardItem {
+  // ID
   id: string
-  // 插件名称
+  // 名称
   name: string
   // 全局配置
   attrs: { [key: string]: any }

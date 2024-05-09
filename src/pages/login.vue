@@ -70,25 +70,6 @@ const fetchOTP = debounce(async () => {
     })
 }, 500)
 
-// 加载用户监控面板配置
-async function loadDashboardConfig() {
-  const response = await api.get('/user/config/Dashboard')
-  if (response && response.data && response.data.value) {
-    const data = JSON.stringify(response.data.value)
-    if (data != localStorage.getItem('MP_DASHBOARD')) {
-      localStorage.setItem('MP_DASHBOARD', data)
-    }
-  }
-}
-
-// 尝试加载用户监控面板配置（本地无配置时才加载）
-async function tryLoadDashboardConfig() {
-  if (localStorage.getItem('MP_DASHBOARD')) {
-    return
-  }
-  await loadDashboardConfig()
-}
-
 // 获取用户主题配置
 async function fetchThemeConfig() {
   const response = await api.get('/user/config/theme')
@@ -111,8 +92,6 @@ async function setTheme() {
 async function afterLogin() {
   // 生效主题配置
   await setTheme()
-  // 尝试加载用户监控面板配置（本地无配置时才加载）
-  await tryLoadDashboardConfig()
   // 跳转到首页或回原始页面
   router.push(store.state.auth.originalPath ?? '/')
 }
