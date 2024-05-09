@@ -27,6 +27,9 @@ const enableConfig = ref<{ [key: string]: boolean }>({
   latest: true,
 })
 
+// 仪表板顺序配置
+const orderConfig = ref<{ id: string }[]>([])
+
 // 仪表板配置
 const dashboardConfigs = ref<DashboardItem[]>([
   {
@@ -122,31 +125,33 @@ async function loadDashboardConfig() {
   }
   // 顺序配置
   const local_order = localStorage.getItem('MP_DASHBOARD_ORDER')
-  let order = null
   if (local_order) {
-    order = JSON.parse(local_order)
+    orderConfig.value = JSON.parse(local_order)
   } else {
     const response2 = await api.get('/user/config/DashboardOrder')
     if (response2 && response2.data && response2.data.value) {
-      order = response2.data.value
-      localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify(order))
+      orderConfig.value = response2.data.value
+      localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify(orderConfig.value))
     }
   }
-  // 按order的顺序对dashboardConfigs进行排序
-  if (order) {
-    const newConfigs: DashboardItem[] = []
-    order.forEach((item: { id: string }) => {
-      const config = dashboardConfigs.value.find(c => c.id === item.id)
-      if (config) {
-        newConfigs.push(config)
-      }
-    })
-    dashboardConfigs.value = newConfigs
+  // 排序
+  if (orderConfig.value) {
+    sortDashboardConfigs()
   }
 }
 
+// 按order的顺序对dashboardConfigs进行排序
+function sortDashboardConfigs() {
+  dashboardConfigs.value.sort((a, b) => {
+    return (
+      orderConfig.value.findIndex((item: { id: string }) => item.id === a.id) -
+      orderConfig.value.findIndex((item: { id: string }) => item.id === b.id)
+    )
+  })
+}
+
 // 设置项目
-function setDashboardConfig() {
+function saveDashboardConfig() {
   // 启用配置
   const data = JSON.stringify(enableConfig.value)
   localStorage.setItem('MP_DASHBOARD', data)
@@ -195,6 +200,8 @@ async function getPluginDashboard(id: string) {
       if (res) {
         // 保存到仪表板配置中
         dashboardConfigs.value.push(res)
+        // 排序
+        sortDashboardConfigs()
         // 定时刷新
         if (res.attrs?.refresh) {
           setTimeout(() => {
@@ -211,7 +218,7 @@ async function getPluginDashboard(id: string) {
 // 拖动排序结束
 function dragOrderEnd() {
   // 保存数据
-  setDashboardConfig()
+  saveDashboardConfig()
 }
 
 onBeforeMount(async () => {
@@ -230,7 +237,7 @@ onBeforeMount(async () => {
     :component-data="{ 'class': 'match-height' }"
   >
     <template #item="{ element }">
-      <VCol v-if="enableConfig[element.id]" v-bind:="element.cols">
+      <VCol v-if="enableConfig[element.id] && element.cols" v-bind:="element.cols">
         <DashboardElement :config="element" />
       </VCol>
     </template>
@@ -257,7 +264,7 @@ onBeforeMount(async () => {
       <VCardText class="pt-5 text-end">
         <VSpacer />
         <VBtn variant="outlined" color="secondary" class="me-4" @click="dialog = false"> 关闭 </VBtn>
-        <VBtn @click="setDashboardConfig">
+        <VBtn @click="saveDashboardConfig">
           <template #prepend>
             <VIcon icon="mdi-content-save" />
           </template>

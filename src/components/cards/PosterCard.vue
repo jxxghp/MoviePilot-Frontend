@@ -18,26 +18,21 @@ const imageLoadError = ref(false)
 
 // 角标颜色
 function getChipColor(type: string) {
-  if (type === '电影')
-    return 'border-blue-500 bg-blue-600'
-  else if (type === '电视剧')
-    return ' bg-indigo-500 border-indigo-600'
-  else
-    return 'border-purple-600 bg-purple-600'
+  if (type === '电影') return 'border-blue-500 bg-blue-600'
+  else if (type === '电视剧') return ' bg-indigo-500 border-indigo-600'
+  else return 'border-purple-600 bg-purple-600'
 }
 
 // 计算图片地址
 const getImgUrl = computed(() => {
-  if (imageLoadError.value)
-    return noImage
+  if (imageLoadError.value) return noImage
   const image = props.media?.image || ''
   return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
 })
 
 // 跳转播放
 function goPlay(isHovering = false) {
-  if (props.media?.link && isHovering)
-    window.open(props.media?.link, '_blank')
+  if (props.media?.link && isHovering) window.open(props.media?.link, '_blank')
 }
 </script>
 
@@ -72,24 +67,24 @@ function goPlay(isHovering = false) {
         </VImg>
         <!-- 类型角标 -->
         <VChip
-            v-show="isImageLoaded"
-            variant="elevated"
-            size="small"
-            :class="getChipColor(props.media?.type || '')"
-            class="absolute left-2 top-2 bg-opacity-80 shadow-md text-white font-bold"
-          >
-            {{ props.media?.type }}
-          </VChip>
-          <!-- 详情 -->
-          <VCardText
-            v-show="hover.isHovering || imageLoadError"
-            class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-          >
-            <span class="font-bold">{{ props.media?.subtitle }}</span>
-            <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
-              {{ props.media?.title }}
-            </h1>
-          </VCardText>
+          v-show="isImageLoaded"
+          variant="elevated"
+          size="small"
+          :class="getChipColor(props.media?.type || '')"
+          class="absolute left-2 top-2 bg-opacity-80 shadow-md text-white font-bold"
+        >
+          {{ props.media?.type }}
+        </VChip>
+        <!-- 详情 -->
+        <VCardText
+          v-show="hover.isHovering || imageLoadError"
+          class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
+        >
+          <span class="font-bold">{{ props.media?.subtitle }}</span>
+          <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
+            {{ props.media?.title }}
+          </h1>
+        </VCardText>
       </VCard>
     </template>
   </VHover>

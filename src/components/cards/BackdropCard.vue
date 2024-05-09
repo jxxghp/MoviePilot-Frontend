@@ -18,8 +18,7 @@ function imageLoadHandler() {
 
 // 跳转播放
 function goPlay() {
-  if (props.media?.link)
-    window.open(props.media?.link, '_blank')
+  if (props.media?.link) window.open(props.media?.link, '_blank')
 }
 
 // 计算图片地址
@@ -30,11 +29,7 @@ const getImgUrl = computed(() => {
 </script>
 
 <template>
-  <VHover
-    v-bind="props"
-    :height="props.height"
-    :width="props.width"
-  >
+  <VHover v-bind="props">
     <template #default="hover">
       <VCard
         v-bind="hover.props"
@@ -48,12 +43,7 @@ const getImgUrl = computed(() => {
         @click="goPlay"
       >
         <template #image>
-          <VImg
-            :src="getImgUrl"
-            aspect-ratio="2/3"
-            cover
-            @load="imageLoadHandler"
-          >
+          <VImg :src="getImgUrl" aspect-ratio="2/3" cover @load="imageLoadHandler">
             <template #placeholder>
               <div class="w-full h-full">
                 <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
@@ -62,7 +52,9 @@ const getImgUrl = computed(() => {
             <VCardText
               class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
             >
-              <h1 class="mb-1 text-white text-shadow font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
+              <h1
+                class="mb-1 text-white text-shadow font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ..."
+              >
                 {{ props.media?.title }}
               </h1>
               <span class="text-shadow">{{ props.media?.subtitle }}</span>
@@ -83,7 +75,7 @@ const getImgUrl = computed(() => {
 </template>
 
 <style lang="scss">
-.text-shadow{
-  text-shadow:1px 1px #777;
+.text-shadow {
+  text-shadow: 1px 1px #777;
 }
 </style>

@@ -17,8 +17,6 @@ const props = defineProps({
   // 仪表板配置
   config: Object as PropType<DashboardItem>,
 })
-
-console.log(props.config)
 </script>
 <template>
   <!-- 系统内置的仪表板 -->
