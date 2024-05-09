@@ -44,7 +44,10 @@ onUnmounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">系统进程</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>系统进程</VCardTitle>
     </VCardItem>
     <VTable item-key="fullName" class="table-rounded" hide-default-footer disable-sort>
       <thead>

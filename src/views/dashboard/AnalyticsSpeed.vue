@@ -82,7 +82,10 @@ onUnmounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">实时速率</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>实时速率</VCardTitle>
     </VCardItem>
 
     <VCardText class="pt-4">

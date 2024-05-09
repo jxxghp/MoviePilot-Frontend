@@ -33,7 +33,12 @@ const props = defineProps({
   <!-- 插件仪表板 -->
   <VCard v-else-if="!isNullOrEmptyObject(props.config)">
     <VCardItem>
-      <VCardTitle class="cursor-move">{{ props.config?.name }}</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>
+        {{ props.config?.name }}
+      </VCardTitle>
     </VCardItem>
     <VCardItem>
       <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />

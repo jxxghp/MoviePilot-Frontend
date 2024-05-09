@@ -131,7 +131,10 @@ onUnmounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">内存</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>内存</VCardTitle>
     </VCardItem>
     <VCardText>
       <VueApexCharts type="area" :options="chartOptions" :series="series" :height="150" />

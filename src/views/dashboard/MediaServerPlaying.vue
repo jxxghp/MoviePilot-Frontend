@@ -23,7 +23,10 @@ onMounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">继续观看</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>继续观看</VCardTitle>
     </VCardItem>
 
     <div v-if="playingList.length > 0" class="grid gap-4 grid-backdrop-card mx-3" tabindex="0">

@@ -221,6 +221,12 @@ function dragOrderEnd() {
   saveDashboardConfig()
 }
 
+// 拖动排序开始
+function dragOrderBegin() {
+  // 如果是移动端则取消
+  if (!display.mdAndUp.value) return false
+}
+
 onBeforeMount(async () => {
   await loadDashboardConfig()
   getDashboardPlugins()
@@ -232,6 +238,8 @@ onBeforeMount(async () => {
   <draggable
     v-model="dashboardConfigs"
     @end="dragOrderEnd"
+    :move="dragOrderBegin"
+    handle=".cursor-move"
     item-key="id"
     tag="VRow"
     :component-data="{ 'class': 'match-height' }"

@@ -40,7 +40,10 @@ onUnmounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">后台任务</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>后台任务</VCardTitle>
     </VCardItem>
 
     <VCardText>

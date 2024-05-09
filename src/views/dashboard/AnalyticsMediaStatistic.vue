@@ -55,7 +55,10 @@ onMounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">媒体统计</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle>媒体统计</VCardTitle>
     </VCardItem>
 
     <VCardText>

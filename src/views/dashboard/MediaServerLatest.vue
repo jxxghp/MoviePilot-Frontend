@@ -23,7 +23,10 @@ onMounted(() => {
 <template>
   <VCard>
     <VCardItem>
-      <VCardTitle class="cursor-move">最近添加</VCardTitle>
+      <template #append>
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </template>
+      <VCardTitle >最近添加</VCardTitle>
     </VCardItem>
 
     <div v-if="latestList.length > 0" class="grid gap-4 grid-media-card mx-3 mb-3" tabindex="0">
