@@ -14,9 +14,13 @@ import api from '@/api'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useDisplay } from 'vuetify'
 import { PluginDashboard } from '@/api/types'
+import store from '@/store'
 
 // 显示器宽度
 const display = useDisplay()
+
+// 从Vuex Store中获取superuser信息
+const superUser = store.state.auth.superUser
 
 // 从localStorage中获取数据
 const default_config = {
@@ -76,6 +80,8 @@ function setDashboardConfig() {
 
 // 调用API获取有仪表板的插件
 async function getDashboardPlugins() {
+  // 只有超级用户才能获取插件仪表板
+  if (!superUser) return
   try {
     dashboard_plugins.value = await api.get('/plugin/dashboards')
     if (!isNullOrEmptyObject(dashboard_plugins.value)) {
@@ -96,8 +102,16 @@ async function getDashboardPlugins() {
 // 获取一个插件的仪表板配置项
 async function getPluginDashboard(id: string) {
   try {
-    api.get(`/plugin/dashboard/${id}`).then(res => {
-      if (res) plugin_dashboards.value.push(res)
+    api.get(`/plugin/dashboard/${id}`).then((res: any) => {
+      if (res) {
+        plugin_dashboards.value.push(res)
+        if (res.attrs?.refresh) {
+          // 定时刷新
+          setTimeout(() => {
+            getPluginDashboard(id)
+          }, res.attrs.refresh * 1000)
+        }
+      }
     })
   } catch (error) {
     console.error(error)
