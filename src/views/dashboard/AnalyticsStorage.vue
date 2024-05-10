@@ -40,6 +40,8 @@ onMounted(() => {
 
 <template>
   <VCard>
+    <!-- Triangle Background -->
+    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
     <VCardItem>
       <template #append>
         <VIcon class="cursor-move">mdi-drag</VIcon>
@@ -55,9 +57,6 @@ onMounted(() => {
         <VProgressLinear :model-value="usedPercent" color="primary" />
       </p>
     </VCardText>
-
-    <!-- Triangle Background -->
-    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
 
     <!-- Trophy -->
     <VImg :src="trophy" class="trophy" />
