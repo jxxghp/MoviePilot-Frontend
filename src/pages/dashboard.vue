@@ -247,7 +247,7 @@ onBeforeMount(async () => {
   <VFab icon="mdi-view-dashboard-edit" location="bottom end" size="x-large" fixed app appear @click="dialog = true" />
 
   <!-- 弹窗，根据配置生成选项 -->
-  <VDialog v-model="dialog" max-width="35rem" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog v-model="dialog" max-width="35rem" scrollable>
     <VCard>
       <VCardItem>
         <VCardTitle>设置仪表板</VCardTitle>
