@@ -64,5 +64,6 @@ app
     },
   })
   .use(PerfectScrollbarPlugin)
+  .use(VueApexCharts)
   .mount('#app')
   .$nextTick(() => removeEl('#loading-bg'))

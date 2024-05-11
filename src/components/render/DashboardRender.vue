@@ -15,8 +15,6 @@ interface RenderProps {
 const elementProps = defineProps({
   config: Object as PropType<RenderProps>,
 })
-
-console.log(elementProps.config)
 </script>
 
 <template>
