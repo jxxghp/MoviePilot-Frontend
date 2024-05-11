@@ -6,6 +6,7 @@ import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
 // Components
 import Footer from '@/layouts/components/Footer.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
+import UserNofification from '@/layouts/components/UserNotification.vue'
 import SearchBar from '@/layouts/components/SearchBar.vue'
 import ShortcutBar from '@/layouts/components/ShortcutBar.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
@@ -34,7 +35,10 @@ const superUser = store.state.auth.superUser
         <ShortcutBar v-if="superUser" />
 
         <!-- 👉 Theme -->
-        <NavbarThemeSwitcher class="me-2" />
+        <NavbarThemeSwitcher />
+
+        <!-- 👉 Notification -->
+        <UserNofification />
 
         <!-- 👉 UserProfile -->
         <UserProfile />

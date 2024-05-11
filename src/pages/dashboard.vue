@@ -255,7 +255,7 @@ onBeforeMount(async () => {
       <VDivider />
       <VCardText>
         <VRow>
-          <VCol v-for="item in dashboardConfigs" :key="item.id" cols="12" md="4" sm="4">
+          <VCol v-for="item in dashboardConfigs" :key="item.id" cols="6" md="4" sm="4">
             <VCheckbox v-model="enableConfig[item.id]" :label="item.name" />
           </VCol>
         </VRow>

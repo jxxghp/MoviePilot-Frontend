@@ -13,11 +13,7 @@ const { name: themeName, global: globalTheme } = useTheme()
 
 const savedTheme = ref(localStorage.getItem('theme') ?? themeName)
 
-const {
-  state: currentThemeName,
-  next: getNextThemeName,
-  index: currentThemeIndex,
-} = useCycleList(
+const { state: currentThemeName, next: getNextThemeName } = useCycleList(
   props.themes.map(t => t.name),
   { initialValue: savedTheme.value },
 )
@@ -90,15 +86,16 @@ function updateTheme() {
   globalTheme.name.value = theme
   savedTheme.value = theme
   themeTransition()
+  // 保存主题到本地
+  localStorage.setItem('theme', theme)
+  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
 }
 
 // 切换主题
-function changeTheme() {
-  const nextTheme = getNextThemeName()
+function changeTheme(theme: string) {
+  let nextTheme = theme
+  if (!theme) nextTheme = getNextThemeName()
   currentThemeName.value = nextTheme
-  // 保存主题到本地
-  localStorage.setItem('theme', nextTheme)
-  localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
   // 保存主题到服务端
   try {
     api.post('/user/config/theme', nextTheme, {
@@ -126,6 +123,12 @@ try {
   console.error('当前设备不支持监听系统主题变化')
 }
 
+// 查询当前主题的图标
+const getThemeIcon = computed(() => {
+  const theme = props.themes.find(t => t.name === currentThemeName.value)
+  return theme?.icon ?? 'mdi-circle'
+})
+
 // 监听设置主题变化
 watch(
   () => currentThemeName.value,
@@ -134,9 +137,21 @@ watch(
 </script>
 
 <template>
-  <IconBtn @click="changeTheme">
-    <VIcon :icon="props.themes[currentThemeIndex].icon" />
-  </IconBtn>
+  <VMenu v-if="props.themes">
+    <template v-slot:activator="{ props }">
+      <IconBtn v-bind="props">
+        <VIcon :icon="getThemeIcon" />
+      </IconBtn>
+    </template>
+    <VList>
+      <VListItem v-for="theme in props.themes" :key="theme.name" @click="changeTheme(theme.name)">
+        <template #prepend>
+          <VIcon :icon="theme.icon" />
+        </template>
+        <VListItemTitle>{{ theme.title }}</VListItemTitle>
+      </VListItem>
+    </VList>
+  </VMenu>
 </template>
 
 <style lang="sass">

@@ -91,7 +91,7 @@ onMounted(() => {
   >
     <!-- Menu Activator -->
     <template #activator="{ props }">
-      <IconBtn class="me-2" v-bind="props">
+      <IconBtn class="ms-2" v-bind="props">
         <VIcon icon="mdi-checkbox-multiple-blank-outline" />
       </IconBtn>
     </template>

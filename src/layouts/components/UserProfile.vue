@@ -64,7 +64,7 @@ const avatar = store.state.auth.avatar
 </script>
 
 <template>
-  <VAvatar class="cursor-pointer" color="primary" variant="tonal">
+  <VAvatar class="cursor-pointer ms-3" color="primary" variant="tonal">
     <VImg :src="avatar ?? avatar1" />
 
     <!-- SECTION Menu -->
@@ -92,8 +92,15 @@ const avatar = store.state.auth.avatar
           <template #prepend>
             <VIcon class="me-2" icon="mdi-account-outline" size="22" />
           </template>
-
           <VListItemTitle>设定</VListItemTitle>
+        </VListItem>
+
+        <!-- 👉 FAQ -->
+        <VListItem href="https://github.com/jxxghp/MoviePilot/blob/main/README.md" target="_blank">
+          <template #prepend>
+            <VIcon class="me-2" icon="mdi-help-circle-outline" size="22" />
+          </template>
+          <VListItemTitle>帮助</VListItemTitle>
         </VListItem>
 
         <!-- Divider -->
@@ -104,26 +111,18 @@ const avatar = store.state.auth.avatar
           <template #prepend>
             <VIcon class="me-2" icon="mdi-restart" size="22" />
           </template>
-
           <VListItemTitle>重启</VListItemTitle>
         </VListItem>
 
-        <!-- 👉 FAQ -->
-        <VListItem href="https://github.com/jxxghp/MoviePilot/blob/main/README.md" target="_blank">
-          <template #prepend>
-            <VIcon class="me-2" icon="mdi-help-circle-outline" size="22" />
-          </template>
-
-          <VListItemTitle>帮助</VListItemTitle>
-        </VListItem>
+        <!-- Divider -->
+        <VDivider class="my-2" />
 
         <!-- 👉 Logout -->
         <VListItem @click="logout">
-          <template #prepend>
-            <VIcon class="me-2" icon="mdi-logout" size="22" />
-          </template>
-
-          <VListItemTitle>注销</VListItemTitle>
+          <VBtn color="error" block>
+            <template #append> <VIcon size="small" icon="mdi-logout" /> </template>
+            退出登录
+          </VBtn>
         </VListItem>
       </VList>
     </VMenu>

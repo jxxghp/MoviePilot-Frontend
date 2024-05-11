@@ -6,19 +6,19 @@ export interface UserConfig {
   app: {
     title: Lowercase<string>
     logo: VNode
-    contentWidth: typeof ContentWidth[keyof typeof ContentWidth]
-    contentLayoutNav: typeof AppContentLayoutNav[keyof typeof AppContentLayoutNav]
+    contentWidth: (typeof ContentWidth)[keyof typeof ContentWidth]
+    contentLayoutNav: (typeof AppContentLayoutNav)[keyof typeof AppContentLayoutNav]
     overlayNavFromBreakpoint: number
     enableI18n: boolean
     isRtl: boolean
     iconRenderer?: Component
   }
   navbar: {
-    type: typeof NavbarType[keyof typeof NavbarType]
+    type: (typeof NavbarType)[keyof typeof NavbarType]
     navbarBlur: boolean
   }
   footer: {
-    type:typeof FooterType[keyof typeof FooterType]
+    type: (typeof FooterType)[keyof typeof FooterType]
   }
   verticalNav: {
     isVerticalNavCollapsed: boolean
@@ -143,7 +143,7 @@ interface I18nLanguage {
 // avatar | text | icon
 // Thanks: https://stackoverflow.com/a/60617060/10796681
 type Notification = {
-  id:number
+  id: number
   title: string
   subtitle: string
   time: string
@@ -157,5 +157,6 @@ type Notification = {
 
 interface ThemeSwitcherTheme {
   name: string
+  title: string
   icon: string
 }

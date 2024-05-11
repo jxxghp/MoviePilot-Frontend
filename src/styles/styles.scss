@@ -135,3 +135,7 @@
   border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));
   opacity:0.75;
  }
+
+ .apexcharts-title-text {
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)) !important;
+ }
