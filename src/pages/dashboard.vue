@@ -197,8 +197,13 @@ async function getPluginDashboard(id: string) {
   try {
     api.get(`/plugin/dashboard/${id}`).then((res: any) => {
       if (res) {
-        // 保存到仪表板配置中
-        dashboardConfigs.value.push(res)
+        // 保存到仪表板配置中，如果已经存在则替换
+        const index = dashboardConfigs.value.findIndex((item: { id: string }) => item.id === id)
+        if (index !== -1) {
+          dashboardConfigs.value[index] = res
+        } else {
+          dashboardConfigs.value.push(res)
+        }
         // 排序
         sortDashboardConfigs()
         // 定时刷新
