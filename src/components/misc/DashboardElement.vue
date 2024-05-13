@@ -40,8 +40,8 @@ const props = defineProps({
         {{ props.config?.name }}
       </VCardTitle>
     </VCardItem>
-    <VCardItem>
+    <VCardText>
       <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
-    </VCardItem>
+    </VCardText>
   </VCard>
 </template>
