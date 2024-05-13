@@ -32,7 +32,7 @@ const props = defineProps({
   <MediaServerLatest v-else-if="config?.id === 'latest'" />
   <!-- 插件仪表板 -->
   <VCard v-else-if="!isNullOrEmptyObject(props.config)">
-    <VCardItem>
+    <VCardItem v-if="props.config?.attrs.border !== false">
       <template #append>
         <VIcon class="cursor-move">mdi-drag</VIcon>
       </template>
@@ -40,8 +40,11 @@ const props = defineProps({
         {{ props.config?.name }}
       </VCardTitle>
     </VCardItem>
-    <VCardText>
+    <VCardText :class="{ 'p-0': props.config?.attrs.border === false }">
       <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
     </VCardText>
+    <div v-if="props.config?.attrs.border === false" class="absolute right-5 top-5">
+      <VIcon class="cursor-move">mdi-drag</VIcon>
+    </div>
   </VCard>
 </template>
