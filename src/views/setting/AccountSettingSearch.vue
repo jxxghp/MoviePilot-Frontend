@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import draggable from 'vuedraggable'
 import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
@@ -170,42 +171,12 @@ async function saveSelectedSites() {
   }
 }
 
-// 上调优先级
-function onLevelUp(pri: string) {
-  // 找到当前卡片
-  const card = filterCards.value.find(card => card.pri === pri)
-  if (!card) return
-
-  // 找到当前卡片的上一张卡片
-  const prevCard = filterCards.value.find(card => card.pri === (parseInt(pri) - 1).toString())
-  if (!prevCard) return
-
-  // 交换两张卡片的优先级
-  const temp = card.pri
-  card.pri = prevCard.pri
-  prevCard.pri = temp
-
-  // 卡片重新按优先级排序
-  filterCards.value.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
-}
-
-// 下调优先级
-function onLevelDown(pri: string) {
-  // 找到当前卡片
-  const card = filterCards.value.find(card => card.pri === pri)
-  if (!card) return
-
-  // 找到当前卡片的下一张卡片
-  const nextCard = filterCards.value.find(card => card.pri === (parseInt(pri) + 1).toString())
-  if (!nextCard) return
-
-  // 交换两张卡片的优先级
-  const temp = card.pri
-  card.pri = nextCard.pri
-  nextCard.pri = temp
-
-  // 卡片重新按优先级排序
-  filterCards.value.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
+// 根据列表的拖动顺序更新优先级
+function dragOrderEnd() {
+  filterCards.value = filterCards.value.map((card, index) => {
+    card.pri = (index + 1).toString()
+    return card
+  })
 }
 
 // 查询包含与排除规则
@@ -380,19 +351,24 @@ onMounted(() => {
         </template>
         <VCardSubtitle> 设置在搜索时默认使用的优先级排序，未在优先级中的资源将不在搜索结果中显示。 </VCardSubtitle>
         <VCardItem>
-          <div class="grid gap-3 grid-filterrule-card">
-            <FilterRuleCard
-              v-for="(card, index) in filterCards"
-              :key="index"
-              :pri="card.pri"
-              :maxpri="filterCards.length.toString()"
-              :rules="card.rules"
-              @changed="updateFilterCardValue"
-              @close="filterCardClose(card.pri)"
-              @leveldown="onLevelDown"
-              @levelup="onLevelUp"
-            />
-          </div>
+          <draggable
+            v-model="filterCards"
+            handle=".cursor-move"
+            item-key="pri"
+            tag="div"
+            @end="dragOrderEnd"
+            :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
+          >
+            <template #item="{ element }">
+              <FilterRuleCard
+                :pri="element.pri"
+                :maxpri="filterCards.length.toString()"
+                :rules="element.rules"
+                @changed="updateFilterCardValue"
+                @close="filterCardClose(element.pri)"
+              />
+            </template>
+          </draggable>
         </VCardItem>
         <VCardItem>
           <VBtn type="submit" class="me-2" @click="saveCustomFilters()"> 保存 </VBtn>

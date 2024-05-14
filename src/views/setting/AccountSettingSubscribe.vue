@@ -1,5 +1,6 @@
-<script lang='ts' setup>
+<script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import draggable from 'vuedraggable'
 import api from '@/api'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import type { Site } from '@/api/types'
@@ -42,7 +43,7 @@ const defaultFilterRules = ref({
   movie_size: '',
   tv_size: '',
   min_seeders: 0,
-  min_seeders_time: 0
+  min_seeders_time: 0,
 })
 
 // 订阅模式选择项
@@ -80,8 +81,7 @@ async function querySelectedRssSites() {
     const result: { [key: string]: any } = await api.get('system/setting/RssSites')
 
     selectedRssSites.value = result.data?.value ?? []
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -89,31 +89,23 @@ async function querySelectedRssSites() {
 // 保存用户选中的订阅站点
 async function saveSelectedRssSites() {
   try {
-    const result1: { [key: string]: any } = await api.post(
-      'system/setting/RssSites',
-      selectedRssSites.value)
+    const result1: { [key: string]: any } = await api.post('system/setting/RssSites', selectedRssSites.value)
 
     const result2: { [key: string]: any } = await api.post(
       'system/setting/SUBSCRIBE_SEARCH',
       enableIntervalSearch.value ? 'True' : 'False',
     )
 
-    const result3: { [key: string]: any } = await api.post(
-      'system/setting/SUBSCRIBE_MODE',
-      selectedSubscribeMode.value,
-    )
+    const result3: { [key: string]: any } = await api.post('system/setting/SUBSCRIBE_MODE', selectedSubscribeMode.value)
 
     const result4: { [key: string]: any } = await api.post(
       'system/setting/SUBSCRIBE_RSS_INTERVAL',
       selectedRssInterval.value,
     )
 
-    if (result1.success && result2.success && result3.success && result4.success)
-      $toast.success('订阅站点保存成功')
-    else
-      $toast.error('订阅站点保存失败！')
-  }
-  catch (error) {
+    if (result1.success && result2.success && result3.success && result4.success) $toast.success('订阅站点保存成功')
+    else $toast.error('订阅站点保存失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -129,18 +121,14 @@ async function querySites() {
 
     // 查询订阅搜索开关
     const result: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_SEARCH')
-    if (result.success)
-      enableIntervalSearch.value = result.data?.value
+    if (result.success) enableIntervalSearch.value = result.data?.value
     // 查询订阅模式
     const result2: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_MODE')
-    if (result2.success)
-      selectedSubscribeMode.value = result2.data?.value
+    if (result2.success) selectedSubscribeMode.value = result2.data?.value
     // 查询站点RSS周期
     const result3: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_RSS_INTERVAL')
-    if (result3.success)
-      selectedRssInterval.value = result3.data?.value
-  }
-  catch (error) {
+    if (result3.success) selectedRssInterval.value = result3.data?.value
+  } catch (error) {
     console.log(error)
   }
 }
@@ -162,8 +150,7 @@ async function queryCustomFilters(ruleType: string) {
         }
       })
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -182,35 +169,27 @@ async function saveCustomFilters(ruleType: string) {
         .join('>')
     }
     // 保存
-    const result: { [key: string]: any } = await api.post(
-      `system/setting/${ruleType}`,
-      value,
-    )
+    const result: { [key: string]: any } = await api.post(`system/setting/${ruleType}`, value)
 
     const msg = ruleType === 'SubscribeFilterRules' ? '订阅优先级' : '洗版优先级'
 
-    if (result.success)
-      $toast.success(`${msg}保存成功`)
-    else
-      $toast.error(`${msg}保存失败！`)
-  }
-  catch (error) {
+    if (result.success) $toast.success(`${msg}保存成功`)
+    else $toast.error(`${msg}保存失败！`)
+  } catch (error) {
     console.log(error)
   }
 }
 
 // 更新规则卡片的值
-function updateFilterCardValue(pri: string, rules: string[]) {
+function updateSubscribeFilterCardValue(pri: string, rules: string[]) {
   const card = subscribeFilterCards.value.find(card => card.pri === pri)
-  if (card)
-    card.rules = rules
+  if (card) card.rules = rules
 }
 
 // 更新洗版规则卡片的值
-function updateFilterCardValue2(pri: string, rules: string[]) {
+function updateBestVersionFilterCardValue(pri: string, rules: string[]) {
   const card = bestVersionFilterCards.value.find(card => card.pri === pri)
-  if (card)
-    card.rules = rules
+  if (card) card.rules = rules
 }
 
 // 移除卡片
@@ -223,10 +202,8 @@ function filterCardClose(ruleType: string, pri: string) {
       return card
     })
   // 更新 subscribeFilterCards.value
-  if (ruleType === 'SubscribeFilterRules')
-    subscribeFilterCards.value = updatedCards
-  else
-    bestVersionFilterCards.value = updatedCards
+  if (ruleType === 'SubscribeFilterRules') subscribeFilterCards.value = updatedCards
+  else bestVersionFilterCards.value = updatedCards
 }
 
 // 增加卡片
@@ -242,58 +219,22 @@ function addFilterCard(ruleType: string) {
   cards.value.push(newCard)
 }
 
-// 上调优先级
-function onLevelUp(filterCards: FilterCard[], pri: string) {
-  // 找到当前卡片
-  const card = filterCards.find(card => card.pri === pri)
-  if (!card)
-    return
-
-  // 找到当前卡片的上一张卡片
-  const prevCard = filterCards.find(card => card.pri === (parseInt(pri) - 1).toString())
-  if (!prevCard)
-    return
-
-  // 交换两张卡片的优先级
-  const temp = card.pri
-  card.pri = prevCard.pri
-  prevCard.pri = temp
-
-  // 卡片重新按优先级排序
-  filterCards.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
-}
-
-// 下调优先级
-function onLevelDown(filterCards: FilterCard[], pri: string) {
-  // 找到当前卡片
-  const card = filterCards.find(card => card.pri === pri)
-  if (!card)
-    return
-
-  // 找到当前卡片的下一张卡片
-  const nextCard = filterCards.find(card => card.pri === (parseInt(pri) + 1).toString())
-  if (!nextCard)
-    return
-
-  // 交换两张卡片的优先级
-  const temp = card.pri
-  card.pri = nextCard.pri
-  nextCard.pri = temp
-
-  // 卡片重新按优先级排序
-  filterCards.sort((a, b) => parseInt(a.pri) - parseInt(b.pri))
+// 根据列表的拖动顺序更新优先级
+function dragOrderEnd(ruleType: string) {
+  ;(ruleType === 'SubscribeFilterRules' ? subscribeFilterCards.value : bestVersionFilterCards.value).map(
+    (card, index) => {
+      card.pri = (index + 1).toString()
+      return card
+    },
+  )
 }
 
 // 查询包含与排除规则
 async function queryDefaultFilter() {
   try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/DefaultFilterRules',
-    )
-    if (result.data?.value)
-      defaultFilterRules.value = result.data?.value
-  }
-  catch (error) {
+    const result: { [key: string]: any } = await api.get('system/setting/DefaultFilterRules')
+    if (result.data?.value) defaultFilterRules.value = result.data?.value
+  } catch (error) {
     console.log(error)
   }
 }
@@ -301,16 +242,10 @@ async function queryDefaultFilter() {
 // 保存包含与排除规则
 async function saveDefaultFilter() {
   try {
-    const result: { [key: string]: any } = await api.post(
-      'system/setting/DefaultFilterRules',
-      defaultFilterRules.value,
-    )
-    if (result.success)
-      $toast.success('默认包含/排除规则保存成功')
-    else
-      $toast.error('默认包含/排除规则保存失败！')
-  }
-  catch (error) {
+    const result: { [key: string]: any } = await api.post('system/setting/DefaultFilterRules', defaultFilterRules.value)
+    if (result.success) $toast.success('默认包含/排除规则保存成功')
+    else $toast.error('默认包含/排除规则保存失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -318,13 +253,10 @@ async function saveDefaultFilter() {
 // 分享规则
 function shareRules(ruleType: string) {
   let filterCards: Ref<FilterCard[]>
-  if (ruleType === 'SubscribeFilterRules')
-    filterCards = subscribeFilterCards
-  else
-    filterCards = bestVersionFilterCards
+  if (ruleType === 'SubscribeFilterRules') filterCards = subscribeFilterCards
+  else filterCards = bestVersionFilterCards
   // 有值才处理
-  if (filterCards.value.length === 0)
-    return
+  if (filterCards.value.length === 0) return
 
   // 将卡片规则接装为字符串
   const value = filterCards.value
@@ -336,8 +268,7 @@ function shareRules(ruleType: string) {
   try {
     copyToClipboard(value)
     $toast.success('优先级规则已复制到剪贴板')
-  }
-  catch (error) {
+  } catch (error) {
     $toast.error('优先级规则复制失败！')
   }
 }
@@ -351,20 +282,14 @@ async function importRules(ruleType: string) {
 
 // 监听导入代码变化
 watchEffect(() => {
-  if (!importCodeString.value)
-    return
-  if (!currentRuleType.value)
-    return
+  if (!importCodeString.value) return
+  if (!currentRuleType.value) return
   // 导入代码需要以空格开头和结束，没有则拼接
-  if (!importCodeString.value.startsWith(' '))
-    importCodeString.value = ` ${importCodeString.value}`
-  if (!importCodeString.value.endsWith(' '))
-    importCodeString.value = `${importCodeString.value} `
+  if (!importCodeString.value.startsWith(' ')) importCodeString.value = ` ${importCodeString.value}`
+  if (!importCodeString.value.endsWith(' ')) importCodeString.value = `${importCodeString.value} `
   let filterCards: Ref<FilterCard[]>
-  if (currentRuleType.value === 'SubscribeFilterRules')
-    filterCards = subscribeFilterCards
-  else
-    filterCards = bestVersionFilterCards
+  if (currentRuleType.value === 'SubscribeFilterRules') filterCards = subscribeFilterCards
+  else filterCards = bestVersionFilterCards
   // 将导入的代码转换为规则卡片
   const groups = importCodeString.value.split('>')
   filterCards.value = groups.map((group: string, index: number) => {
@@ -435,9 +360,7 @@ onMounted(() => {
           </VForm>
         </VCardText>
         <VCardItem>
-          <VBtn type="submit" @click="saveSelectedRssSites">
-            保存
-          </VBtn>
+          <VBtn type="submit" @click="saveSelectedRssSites"> 保存 </VBtn>
         </VCardItem>
       </VCard>
     </VCol>
@@ -446,24 +369,15 @@ onMounted(() => {
         <template #append>
           <IconBtn>
             <VIcon icon="mdi-dots-vertical" />
-            <VMenu
-              activator="parent"
-              close-on-content-click
-            >
+            <VMenu activator="parent" close-on-content-click>
               <VList>
-                <VListItem
-                  variant="plain"
-                  @click="shareRules('SubscribeFilterRules')"
-                >
+                <VListItem variant="plain" @click="shareRules('SubscribeFilterRules')">
                   <template #prepend>
                     <VIcon icon="mdi-share" />
                   </template>
                   <VListItemTitle>分享</VListItemTitle>
                 </VListItem>
-                <VListItem
-                  variant="plain"
-                  @click="importRules('SubscribeFilterRules')"
-                >
+                <VListItem variant="plain" @click="importRules('SubscribeFilterRules')">
                   <template #prepend>
                     <VIcon icon="mdi-import" />
                   </template>
@@ -475,33 +389,28 @@ onMounted(() => {
         </template>
         <VCardSubtitle> 设置在正常订阅时默认使用的优先级，未在优先级中的资源将不会自动下载。</VCardSubtitle>
         <VCardItem>
-          <div class="grid gap-3 grid-filterrule-card">
-            <FilterRuleCard
-              v-for="(card, index) in subscribeFilterCards"
-              :key="index"
-              :pri="card.pri"
-              :maxpri="subscribeFilterCards.length.toString()"
-              :rules="card.rules"
-              @changed="updateFilterCardValue"
-              @close="filterCardClose('SubscribeFilterRules', card.pri)"
-              @leveldown="onLevelDown(subscribeFilterCards, card.pri)"
-              @levelup="onLevelUp(subscribeFilterCards, card.pri)"
-            />
-          </div>
+          <draggable
+            v-model="subscribeFilterCards"
+            handle=".cursor-move"
+            item-key="pri"
+            tag="div"
+            @end="dragOrderEnd('SubscribeFilterRules')"
+            :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
+          >
+            <template #item="{ element }">
+              <FilterRuleCard
+                :pri="element.pri"
+                :maxpri="subscribeFilterCards.length.toString()"
+                :rules="element.rules"
+                @changed="updateSubscribeFilterCardValue"
+                @close="filterCardClose('SubscribeFilterRules', element.pri)"
+              />
+            </template>
+          </draggable>
         </VCardItem>
         <VCardItem>
-          <VBtn
-            type="submit"
-            class="me-2"
-            @click="saveCustomFilters('SubscribeFilterRules')"
-          >
-            保存
-          </VBtn>
-          <VBtn
-            color="success"
-            variant="tonal"
-            @click="addFilterCard('SubscribeFilterRules')"
-          >
+          <VBtn type="submit" class="me-2" @click="saveCustomFilters('SubscribeFilterRules')"> 保存 </VBtn>
+          <VBtn color="success" variant="tonal" @click="addFilterCard('SubscribeFilterRules')">
             <VIcon icon="mdi-plus" />
           </VBtn>
         </VCardItem>
@@ -512,24 +421,15 @@ onMounted(() => {
         <template #append>
           <IconBtn>
             <VIcon icon="mdi-dots-vertical" />
-            <VMenu
-              activator="parent"
-              close-on-content-click
-            >
+            <VMenu activator="parent" close-on-content-click>
               <VList>
-                <VListItem
-                  variant="plain"
-                  @click="shareRules('BestVersionFilterRules')"
-                >
+                <VListItem variant="plain" @click="shareRules('BestVersionFilterRules')">
                   <template #prepend>
                     <VIcon icon="mdi-share" />
                   </template>
                   <VListItemTitle>分享</VListItemTitle>
                 </VListItem>
-                <VListItem
-                  variant="plain"
-                  @click="importRules('BestVersionFilterRules')"
-                >
+                <VListItem variant="plain" @click="importRules('BestVersionFilterRules')">
                   <template #prepend>
                     <VIcon icon="mdi-import" />
                   </template>
@@ -541,33 +441,28 @@ onMounted(() => {
         </template>
         <VCardSubtitle> 设置在订阅洗版时使用的优先级，匹配优先级1时洗版完成。</VCardSubtitle>
         <VCardItem>
-          <div class="grid gap-3 grid-filterrule-card">
-            <FilterRuleCard
-              v-for="(card, index) in bestVersionFilterCards"
-              :key="index"
-              :pri="card.pri"
-              :maxpri="bestVersionFilterCards.length.toString()"
-              :rules="card.rules"
-              @changed="updateFilterCardValue2"
-              @close="filterCardClose('BestVersionFilterRules', card.pri)"
-              @leveldown="onLevelDown(bestVersionFilterCards, card.pri)"
-              @levelup="onLevelUp(bestVersionFilterCards, card.pri)"
-            />
-          </div>
+          <draggable
+            v-model="bestVersionFilterCards"
+            handle=".cursor-move"
+            item-key="pri"
+            tag="div"
+            @end="dragOrderEnd('BestVersionFilterRules')"
+            :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
+          >
+            <template #item="{ element }">
+              <FilterRuleCard
+                :pri="element.pri"
+                :maxpri="bestVersionFilterCards.length.toString()"
+                :rules="element.rules"
+                @changed="updateBestVersionFilterCardValue"
+                @close="filterCardClose('BestVersionFilterRules', element.pri)"
+              />
+            </template>
+          </draggable>
         </VCardItem>
         <VCardItem>
-          <VBtn
-            type="submit"
-            class="me-2"
-            @click="saveCustomFilters('BestVersionFilterRules')"
-          >
-            保存
-          </VBtn>
-          <VBtn
-            color="success"
-            variant="tonal"
-            @click="addFilterCard('BestVersionFilterRules')"
-          >
+          <VBtn type="submit" class="me-2" @click="saveCustomFilters('BestVersionFilterRules')"> 保存 </VBtn>
+          <VBtn color="success" variant="tonal" @click="addFilterCard('BestVersionFilterRules')">
             <VIcon icon="mdi-plus" />
           </VBtn>
         </VCardItem>
@@ -635,30 +530,17 @@ onMounted(() => {
           </VForm>
         </VCardText>
         <VCardItem>
-          <VBtn
-            type="submit"
-            @click="saveDefaultFilter"
-          >
-            保存
-          </VBtn>
+          <VBtn type="submit" @click="saveDefaultFilter"> 保存 </VBtn>
         </VCardItem>
       </VCard>
     </VCol>
   </VRow>
-  <VDialog
-    v-model="importCodeDialog"
-    width="60rem"
-    scrollable
-  >
-    <ImportCodeDialog
-      v-model="importCodeString"
-      title="导入优先级规则"
-      @close="importCodeDialog = false"
-    />
+  <VDialog v-model="importCodeDialog" width="60rem" scrollable>
+    <ImportCodeDialog v-model="importCodeString" title="导入优先级规则" @close="importCodeDialog = false" />
   </VDialog>
 </template>
 
-<style lang='scss'>
+<style lang="scss">
 .grid-filterrule-card {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   padding-block-end: 1rem;
