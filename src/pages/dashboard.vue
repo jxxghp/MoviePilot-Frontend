@@ -203,9 +203,9 @@ async function getPluginDashboard(id: string) {
           dashboardConfigs.value[index] = res
         } else {
           dashboardConfigs.value.push(res)
+          // 排序
+          sortDashboardConfigs()
         }
-        // 排序
-        sortDashboardConfigs()
         // 定时刷新
         if (res.attrs?.refresh) {
           setTimeout(() => {
