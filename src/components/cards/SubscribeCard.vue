@@ -136,83 +136,91 @@ const dropdownItems = ref([
 </script>
 
 <template>
-  <VCard
-    :key="props.media?.id"
-    :class="`${props.media?.best_version ? 'outline-dashed outline-1' : ''}`"
-    class="flex flex-col"
-    @click="editSubscribeDialog"
-  >
-    <template #image>
-      <VImg
-        :src="props.media?.backdrop || props.media?.poster"
-        aspect-ratio="2/3"
-        cover
-        class="brightness-50"
-        @load="imageLoadHandler"
-      />
+  <VHover>
+    <template #default="hover">
+      <VCard
+        v-bind="hover.props"
+        :key="props.media?.id"
+        class="flex flex-col"
+        :class="{
+          'outline-dashed outline-1': props.media?.best_version,
+          'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
+        }"
+        @click="editSubscribeDialog"
+      >
+        <template #image>
+          <VImg
+            :src="props.media?.backdrop || props.media?.poster"
+            aspect-ratio="2/3"
+            cover
+            class="brightness-50"
+            @load="imageLoadHandler"
+          />
+        </template>
+        <VCardItem>
+          <template #prepend>
+            <VIcon size="1.9rem" :color="getTextColor()" :icon="getIcon()" />
+          </template>
+          <VCardTitle :class="getTextClass()">
+            {{ props.media?.name }}
+            {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
+          </VCardTitle>
+          <template #append>
+            <div class="me-n3">
+              <IconBtn>
+                <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
+                <VMenu activator="parent" close-on-content-click>
+                  <VList>
+                    <VListItem
+                      v-for="(item, i) in dropdownItems"
+                      :key="i"
+                      variant="plain"
+                      :base-color="item.props.color"
+                      @click="item.props.click"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="item.props.prependIcon" />
+                      </template>
+                      <VListItemTitle v-text="item.title" />
+                    </VListItem>
+                  </VList>
+                </VMenu>
+              </IconBtn>
+            </div>
+          </template>
+        </VCardItem>
+        <VCardText>
+          <p class="clamp-text mb-0" :class="getTextClass()">
+            {{ props.media?.description }}
+          </p>
+        </VCardText>
+        <VCardText class="d-flex justify-space-between align-center flex-wrap">
+          <div class="d-flex align-center">
+            <IconBtn
+              v-if="props.media?.total_episode"
+              v-bind="props"
+              icon="mdi-progress-clock"
+              :color="getTextColor()"
+              class="me-1"
+            />
+            <span v-if="props.media?.season" class="text-subtitle-2 me-4" :class="getTextClass()"
+              >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
+              {{ props.media?.total_episode }}</span
+            >
+            <IconBtn v-if="props.media?.username" icon="mdi-account" :color="getTextColor()" class="me-1" />
+            <span v-if="props.media?.username" class="text-subtitle-2 me-4" :class="getTextClass()">
+              {{ props.media?.username }}
+            </span>
+          </div>
+        </VCardText>
+        <VCardText v-if="lastUpdateText" class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
+          <VIcon icon="mdi-download" class="me-1" />
+          {{ lastUpdateText }}
+        </VCardText>
+        <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" bg-color="success" color="success" />
+      </VCard>
     </template>
-    <VCardItem>
-      <template #prepend>
-        <VIcon size="1.9rem" :color="getTextColor()" :icon="getIcon()" />
-      </template>
-      <VCardTitle :class="getTextClass()">
-        {{ props.media?.name }}
-        {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
-      </VCardTitle>
-      <template #append>
-        <div class="me-n3">
-          <IconBtn>
-            <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
-            <VMenu activator="parent" close-on-content-click>
-              <VList>
-                <VListItem
-                  v-for="(item, i) in dropdownItems"
-                  :key="i"
-                  variant="plain"
-                  :base-color="item.props.color"
-                  @click="item.props.click"
-                >
-                  <template #prepend>
-                    <VIcon :icon="item.props.prependIcon" />
-                  </template>
-                  <VListItemTitle v-text="item.title" />
-                </VListItem>
-              </VList>
-            </VMenu>
-          </IconBtn>
-        </div>
-      </template>
-    </VCardItem>
-    <VCardText>
-      <p class="clamp-text mb-0" :class="getTextClass()">
-        {{ props.media?.description }}
-      </p>
-    </VCardText>
-    <VCardText class="d-flex justify-space-between align-center flex-wrap">
-      <div class="d-flex align-center">
-        <IconBtn
-          v-if="props.media?.total_episode"
-          v-bind="props"
-          icon="mdi-progress-clock"
-          :color="getTextColor()"
-          class="me-1"
-        />
-        <span v-if="props.media?.season" class="text-subtitle-2 me-4" :class="getTextClass()"
-          >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
-          {{ props.media?.total_episode }}</span
-        >
-        <IconBtn v-if="props.media?.username" icon="mdi-account" :color="getTextColor()" class="me-1" />
-        <span v-if="props.media?.username" class="text-subtitle-2 me-4" :class="getTextClass()">
-          {{ props.media?.username }}
-        </span>
-      </div>
-    </VCardText>
-    <VCardText v-if="lastUpdateText" class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
-      <VIcon icon="mdi-download" class="me-1" />
-      {{ lastUpdateText }}
-    </VCardText>
-    <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" bg-color="success" color="success" />
-  </VCard>
+  </VHover>
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditDialog
     v-if="subscribeEditDialog"

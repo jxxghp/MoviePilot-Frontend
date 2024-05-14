@@ -61,7 +61,7 @@ const filteredDataList = computed(() => {
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <PullRefresh v-model="loading" @refresh="onRefresh">
-    <div v-if="filteredDataList.length > 0" class="grid gap-3 grid-subscribe-card p-1">
+    <div v-if="filteredDataList.length > 0" class="mx-3 grid gap-4 grid-subscribe-card p-1">
       <SubscribeCard
         v-for="data in filteredDataList"
         :key="data.id"
