@@ -190,8 +190,6 @@ const dropdownItems = ref([
     </VCardText>
     <VCardText class="d-flex justify-space-between align-center flex-wrap">
       <div class="d-flex align-center">
-        <IconBtn icon="mdi-star" :color="getTextColor()" class="me-1" />
-        <span class="text-subtitle-2 me-4" :class="getTextClass()">{{ props.media?.vote }}</span>
         <IconBtn
           v-if="props.media?.total_episode"
           v-bind="props"
