@@ -16,6 +16,15 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 const props = defineProps({
   // 仪表板配置
   config: Object as PropType<DashboardItem>,
+  // 刷新状态
+  refreshStatus: Boolean,
+})
+
+const emit = defineEmits(['update:refreshStatus'])
+
+onUnmounted(() => {
+  // 组件卸载时禁用刷新状态
+  emit('update:refreshStatus', false)
 })
 </script>
 <template>

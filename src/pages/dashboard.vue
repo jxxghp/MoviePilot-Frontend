@@ -172,6 +172,8 @@ function saveDashboardConfig() {
   } catch (error) {
     console.error(error)
   }
+  // 保存后重新获取插件仪表板
+  getDashboardPlugins()
   dialog.value = false
 }
 
@@ -184,6 +186,8 @@ async function getDashboardPlugins() {
     if (!isNullOrEmptyObject(dashboardPlugins.value)) {
       // 下载插件仪表板配置
       dashboardPlugins.value.forEach(async (plugin: { id: string }) => {
+        // 初始化插件仪表板的刷新状态
+        pluginDashboardRefreshStatus.value[plugin.id] = true
         await getPluginDashboard(plugin.id)
       })
     }
@@ -191,6 +195,9 @@ async function getDashboardPlugins() {
     console.error(error)
   }
 }
+
+// 插件仪表板的刷新状态
+const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
 
 // 获取一个插件的仪表板配置项
 async function getPluginDashboard(id: string) {
@@ -209,7 +216,7 @@ async function getPluginDashboard(id: string) {
         // 定时刷新
         if (res.attrs?.refresh) {
           setTimeout(() => {
-            getPluginDashboard(id)
+            pluginDashboardRefreshStatus.value[id] && getPluginDashboard(id)
           }, res.attrs.refresh * 1000)
         }
       }
@@ -243,7 +250,7 @@ onBeforeMount(async () => {
   >
     <template #item="{ element }">
       <VCol v-if="enableConfig[element.id] && element.cols" v-bind:="element.cols">
-        <DashboardElement :config="element" />
+        <DashboardElement :config="element" v-model:refreshStatus="pluginDashboardRefreshStatus[element.id]" />
       </VCol>
     </template>
   </draggable>
