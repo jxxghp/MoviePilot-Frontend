@@ -264,10 +264,7 @@ onBeforeMount(async () => {
       <VCardText>
         <VRow>
           <VCol v-for="item in dashboardConfigs" :key="item.id" cols="6" md="4" sm="4">
-            <VCheckbox
-              v-model="enableConfig[item.id]"
-              :label="item.name + (item.attrs?.subtitle ? ' - ' + item.attrs.subtitle : '')"
-            />
+            <VCheckbox v-model="enableConfig[item.id]" :label="item.name" />
           </VCol>
         </VRow>
       </VCardText>

@@ -46,8 +46,9 @@ onUnmounted(() => {
         <VIcon class="cursor-move">mdi-drag</VIcon>
       </template>
       <VCardTitle>
-        {{ props.config?.name + (props.config?.attrs?.subtitle ? ' - ' + props.config.attrs.subtitle : '') }}
+        {{ props.config?.name }}
       </VCardTitle>
+      <VCardSubtitle v-if="props.config?.attrs?.subtitle"> {{ props.config?.attrs?.subtitle }}</VCardSubtitle>
     </VCardItem>
     <VCardText :class="{ 'p-0': props.config?.attrs.border === false }">
       <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
