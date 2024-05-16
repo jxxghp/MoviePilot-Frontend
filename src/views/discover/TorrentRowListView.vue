@@ -265,7 +265,7 @@ onMounted(() => {
 
 @media (width <= 768px) {
   .orrent-list-vscroll {
-    block-size: calc(100vh - 10rem);
+    block-size: calc(100vh - 9rem);
   }
 }
 </style>
