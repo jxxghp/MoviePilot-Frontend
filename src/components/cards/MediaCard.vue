@@ -97,7 +97,6 @@ async function handleAddSubscribe() {
       $toast.error(`${props.media?.title} 查询剧集信息失败！`)
       return
     }
-
     // 检查各季的缺失状态
     await checkSeasonsNotExists()
     if (!tmdbFlag.value) return
@@ -174,7 +173,7 @@ function showSubscribeAddToast(result: boolean, title: string, season: number, m
   let subname = '订阅'
   if (best_version > 0) subname = '洗版订阅'
 
-  if (result && seasonsSelected.value.length > 1) $toast.success(`${title} 添加${subname}成功！`)
+  if (result) $toast.success(`${title} 添加${subname}成功！`)
   else if (!result) $toast.error(`${title} 添加${subname}失败：${message}！`)
 }
 
@@ -199,8 +198,9 @@ async function removeSubscribe() {
     }
   } catch (error) {
     console.error(error)
+  } finally {
+    doneNProgress()
   }
-  doneNProgress()
 }
 
 // 查询当前媒体是否已订阅
@@ -271,10 +271,10 @@ async function checkSeasonsNotExists() {
   } catch (error) {
     $toast.error(`${props.media?.title}无法识别TMDB媒体信息！`)
     tmdbFlag.value = false
+  } finally {
+    // 处理完成
+    doneNProgress()
   }
-
-  // 处理完成
-  doneNProgress()
 }
 
 // 查询TMDB的所有季信息
