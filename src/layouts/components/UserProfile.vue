@@ -23,7 +23,8 @@ const progressDialog = ref(false)
 function logout() {
   // 清除登录状态信息
   store.dispatch('auth/clearToken')
-
+  // 主动登出时清除路由标记
+  store.state.auth.originalPath = null
   // 重定向到登录页面或其他适当的页面
   router.push('/login')
 }
