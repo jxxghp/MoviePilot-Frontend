@@ -2,13 +2,9 @@
 import draggable from 'vuedraggable'
 import api from '@/api'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import { useDisplay } from 'vuetify'
 import { DashboardItem } from '@/api/types'
 import store from '@/store'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
-
-// 显示器宽度
-const display = useDisplay()
 
 // 从Vuex Store中获取superuser信息
 const superUser = store.state.auth.superUser
@@ -107,6 +103,9 @@ const dashboardConfigs = ref<DashboardItem[]>([
 // 有仪表板的插件
 const dashboardPlugins = ref<any[]>([])
 
+// 插件仪表板的刷新状态
+const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
+
 // 弹窗
 const dialog = ref(false)
 
@@ -195,9 +194,6 @@ async function getDashboardPlugins() {
     console.error(error)
   }
 }
-
-// 插件仪表板的刷新状态
-const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
 
 // 获取一个插件的仪表板配置项
 async function getPluginDashboard(id: string) {

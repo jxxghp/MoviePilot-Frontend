@@ -308,6 +308,7 @@ onMounted(() => {
     <!-- Dialog Content -->
     <VCard :title="`浏览站点 - ${cardProps.site?.name}`">
       <DialogCloseBtn @click="resourceDialog = false" />
+      <VDivider />
       <VCardText class="pt-2">
         <SiteTorrentTable :site="cardProps.site?.id" />
       </VCardText>

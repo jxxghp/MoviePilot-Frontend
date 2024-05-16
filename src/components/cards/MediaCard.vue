@@ -477,7 +477,10 @@ function getYear(airDate: string) {
   <VBottomSheet v-if="subscribeSeasonDialog" v-model="subscribeSeasonDialog" inset scrollable>
     <VCard class="rounded-t">
       <DialogCloseBtn @click="subscribeSeasonDialog = false" />
-      <VCardTitle class="pe-10"> 订阅 - {{ props.media?.title }} </VCardTitle>
+      <VCardItem>
+        <VCardTitle class="pe-10"> 订阅 - {{ props.media?.title }} </VCardTitle>
+      </VCardItem>
+      <VDivider />
       <VCardText>
         <VList v-model:selected="seasonsSelected" lines="three" select-strategy="classic">
           <VListItem v-for="(item, i) in seasonInfos" :key="i" :value="item">

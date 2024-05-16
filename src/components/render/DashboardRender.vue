@@ -1,15 +1,6 @@
 <script lang="ts" setup>
+import { RenderProps } from '@/api/types'
 import { type PropType } from 'vue'
-
-// 组件接口
-interface RenderProps {
-  component: string
-  text: string
-  html: string
-  content?: any
-  slots?: any
-  props?: any
-}
 
 // 输入参数
 const elementProps = defineProps({

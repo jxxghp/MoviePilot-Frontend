@@ -435,6 +435,7 @@ watch(
   <VDialog v-model="pluginConfigDialog" scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard :title="`${props.plugin?.plugin_name} - 配置`" class="rounded-t">
       <DialogCloseBtn v-model="pluginConfigDialog" />
+      <VDivider />
       <VCardText>
         <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
       </VCardText>
@@ -452,13 +453,10 @@ watch(
   <VDialog v-model="pluginInfoDialog" scrollable max-width="80rem" :fullscreen="!display.mdAndUp.value">
     <VCard :title="`${props.plugin?.plugin_name}`" class="rounded-t">
       <DialogCloseBtn v-model="pluginInfoDialog" />
-      <VCardText>
+      <VCardText class="min-h-40">
         <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
       </VCardText>
-      <VCardActions class="pt-3">
-        <VSpacer />
-        <VBtn @click="showPluginConfig" variant="elevated" prepend-icon="mdi-cog" class="px-5"> 配置 </VBtn>
-      </VCardActions>
+      <VFab icon="mdi-cog" location="bottom end" size="x-large" fixed app appear @click="showPluginConfig" />
     </VCard>
   </VDialog>
 
@@ -469,7 +467,9 @@ watch(
   <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
     <VCard :title="`${props.plugin?.plugin_name} 更新说明`">
       <DialogCloseBtn @click="releaseDialog = false" />
+      <VDivider />
       <VersionHistory :history="props.plugin?.history" />
+      <VDivider />
       <VCardText>
         <VBtn @click="updatePlugin" block>
           <template #prepend>

@@ -269,7 +269,8 @@ onMounted(() => {
       }`"
       class="rounded-t"
     >
-      <VCardText class="pt-2">
+      <VDivider />
+      <VCardText>
         <DialogCloseBtn @click="emit('close')" />
         <VForm @submit.prevent="() => {}">
           <VRow>
@@ -369,7 +370,6 @@ onMounted(() => {
           </VRow>
         </VForm>
       </VCardText>
-
       <VCardActions class="pt-3">
         <VBtn v-if="!props.default" color="error" @click="removeSubscribe" variant="outlined" class="me-3">
           取消订阅

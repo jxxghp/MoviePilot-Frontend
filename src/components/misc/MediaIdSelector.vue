@@ -110,6 +110,7 @@ onMounted(() => {
         }
       "
     />
+    <VDivider />
     <VList v-if="items.length > 0" lines="three">
       <template v-for="(item, i) in items" :key="i">
         <VListItem @click="selectMedia(item)">

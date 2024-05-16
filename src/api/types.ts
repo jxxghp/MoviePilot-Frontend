@@ -447,6 +447,17 @@ export interface Plugin {
   add_time?: number
 }
 
+// 渲染结构
+export interface RenderProps {
+  component: string
+  text?: string
+  html?: string
+  content?: any
+  slots?: any
+  props?: any
+  events?: any
+}
+
 // 仪表板组件
 export interface DashboardItem {
   // ID
@@ -458,7 +469,7 @@ export interface DashboardItem {
   // col列数
   cols: { [key: string]: number }
   // 页面元素
-  elements: { [key: string]: any }[]
+  elements: RenderProps[]
 }
 
 // 种子信息

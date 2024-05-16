@@ -169,7 +169,8 @@ onMounted(() => {
       class="rounded-t"
     >
       <DialogCloseBtn @click="emit('close')" />
-      <VCardText class="pt-2">
+      <VDivider />
+      <VCardText>
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol cols="12" md="8">

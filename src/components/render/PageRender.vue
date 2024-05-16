@@ -3,20 +3,10 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import api from '@/api'
 import { type PropType } from 'vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
+import { RenderProps } from '@/api/types'
 
 // 定议外部事件
 const emit = defineEmits(['action'])
-
-// 组件接口
-interface RenderProps {
-  component: string
-  text: string
-  html: string
-  content?: any
-  slots?: any
-  props?: any
-  events?: any
-}
 
 // 输入参数
 const elementProps = defineProps({

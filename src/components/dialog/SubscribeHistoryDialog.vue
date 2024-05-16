@@ -134,9 +134,10 @@ const dropdownItems = ref([
 <template>
   <VDialog scrollable max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="mx-auto" width="100%">
-      <VCardItem class="pb-0">
+      <VCardItem>
         <VCardTitle>{{ props.type + '订阅历史' }}</VCardTitle>
       </VCardItem>
+      <VDivider />
       <DialogCloseBtn
         @click="
           () => {
