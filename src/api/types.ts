@@ -334,6 +334,8 @@ export interface Site {
   public?: number
   // 备注
   note?: string
+  // 超时时间
+  timeout?: number
   // 流控单位周期
   limit_interval?: number
   // 流控次数

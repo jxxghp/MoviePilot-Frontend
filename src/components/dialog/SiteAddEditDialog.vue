@@ -144,7 +144,7 @@ async function updateSiteInfo() {
                 hint="格式：http://www.example.com/"
               />
             </VCol>
-            <VCol cols="12" md="3">
+            <VCol cols="6" md="3">
               <VSelect
                 v-model="siteForm.pri"
                 label="优先级"
@@ -153,17 +153,20 @@ async function updateSiteInfo() {
                 hint="站点资源下载优先级，优先级数字越小越优先下载"
               />
             </VCol>
-            <VCol cols="12" md="3">
+            <VCol cols="6" md="3">
               <VSelect v-model="siteForm.is_active" :items="statusItems" label="状态" />
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="12">
+            <VCol cols="12" md="9">
               <VTextField
                 v-model="siteForm.rss"
                 label="RSS地址"
                 hint="订阅模式为站点RSS时，将会使用此地址获取站点种子资源，该地址一般会自动获取，也可手动补充"
               />
+            </VCol>
+            <VCol cols="12" md="3">
+              <VTextField v-model="siteForm.timeout" label="超时时间（秒）" hint="站点请求超时时间，为空将使用默认值" />
             </VCol>
             <VCol cols="12">
               <VTextarea
@@ -202,7 +205,7 @@ async function updateSiteInfo() {
             <VCol cols="12" md="4">
               <VTextField
                 v-model="siteForm.limit_count"
-                label="访问次数"
+                label="周期内访问次数"
                 :rules="[numberValidator]"
                 hint="设定单位周期内站点允许的访问次数，0为不限制"
               />
