@@ -159,10 +159,11 @@ const router = createRouter({
 
 // 路由导航守卫
 router.beforeEach((to, from, next) => {
+  // 总是记录非login路由
+  if (to.fullPath != '/login') store.state.auth.originalPath = to.fullPath
   const isAuthenticated = store.state.auth.token !== null
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    store.state.auth.originalPath = to.fullPath
     next('/login')
   }
   else {
