@@ -16,6 +16,15 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 const props = defineProps({
   // 仪表板配置
   config: Object as PropType<DashboardItem>,
+  // 刷新状态
+  refreshStatus: Boolean,
+})
+
+const emit = defineEmits(['update:refreshStatus'])
+
+onUnmounted(() => {
+  // 组件卸载时禁用刷新状态
+  emit('update:refreshStatus', false)
 })
 </script>
 <template>
@@ -37,7 +46,7 @@ const props = defineProps({
         <VIcon class="cursor-move">mdi-drag</VIcon>
       </template>
       <VCardTitle>
-        {{ props.config?.name }}
+        {{ props.config?.name + (props.config?.attrs?.subtitle ? ' - ' + props.config.attrs.subtitle : '') }}
       </VCardTitle>
     </VCardItem>
     <VCardText :class="{ 'p-0': props.config?.attrs.border === false }">
