@@ -2,6 +2,7 @@
   "name": "MoviePilot",
   "short_name": "MoviePilot",
   "start_url": "./",
+  "display": "minimal-ui",
   "icons": [
     {
       "src": "./android-chrome-192x192.png",
@@ -30,7 +31,6 @@
   ],
   "theme_color": "#28243D",
   "background_color": "#28243D",
-  "display": "standalone",
   "shortcuts": [
     {
       "name": "推荐",
