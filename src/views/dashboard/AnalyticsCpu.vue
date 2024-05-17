@@ -123,17 +123,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VCard>
-    <VCardItem>
-      <template #append>
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </template>
-      <VCardTitle>CPU</VCardTitle>
-    </VCardItem>
-    <VCardText>
-      <VueApexCharts type="line" :options="chartOptions" :series="series" :height="150" />
+  <VHover>
+    <template #default="hover">
+      <VCard v-bind="hover.props">
+        <VCardItem>
+          <template #append>
+            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
+          </template>
+          <VCardTitle>CPU</VCardTitle>
+        </VCardItem>
+        <VCardText>
+          <VueApexCharts type="line" :options="chartOptions" :series="series" :height="150" />
 
-      <p class="text-center font-weight-medium mb-0">当前：{{ current }}%</p>
-    </VCardText>
-  </VCard>
+          <p class="text-center font-weight-medium mb-0">当前：{{ current }}%</p>
+        </VCardText>
+      </VCard>
+    </template>
+  </VHover>
 </template>

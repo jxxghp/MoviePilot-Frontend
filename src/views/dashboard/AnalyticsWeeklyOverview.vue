@@ -110,25 +110,29 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard>
-    <VCardItem>
-      <template #append>
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </template>
-      <VCardTitle>最近入库</VCardTitle>
-    </VCardItem>
+  <VHover>
+    <template #default="hover">
+      <VCard v-bind="hover.props">
+        <VCardItem>
+          <template #append>
+            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
+          </template>
+          <VCardTitle>最近入库</VCardTitle>
+        </VCardItem>
 
-    <VCardText>
-      <VueApexCharts type="bar" :options="options" :series="series" :height="160" />
+        <VCardText>
+          <VueApexCharts type="bar" :options="options" :series="series" :height="160" />
 
-      <div class="d-flex align-center mb-3">
-        <h5 class="text-h5 me-4">
-          {{ totalCount }}
-        </h5>
-        <p>最近一周入库了 {{ totalCount }} 部影片 😎</p>
-      </div>
+          <div class="d-flex align-center mb-3">
+            <h5 class="text-h5 me-4">
+              {{ totalCount }}
+            </h5>
+            <p>最近一周入库了 {{ totalCount }} 部影片 😎</p>
+          </div>
 
-      <VBtn v-if="superUser" block to="/history"> 查看详情 </VBtn>
-    </VCardText>
-  </VCard>
+          <VBtn v-if="superUser" block to="/history"> 查看详情 </VBtn>
+        </VCardText>
+      </VCard>
+    </template>
+  </VHover>
 </template>

@@ -39,28 +39,32 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard>
-    <!-- Triangle Background -->
-    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
-    <VCardItem>
-      <template #append>
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </template>
-      <VCardTitle>存储空间</VCardTitle>
-    </VCardItem>
-    <VCardText>
-      <h5 class="text-2xl font-weight-medium text-primary">
-        {{ formatFileSize(storage) }}
-      </h5>
-      <p class="mt-2">已使用 {{ usedPercent }}% 🚀</p>
-      <p class="mt-1">
-        <VProgressLinear :model-value="usedPercent" color="primary" />
-      </p>
-    </VCardText>
+  <VHover>
+    <template #default="hover">
+      <VCard v-bind="hover.props">
+        <!-- Triangle Background -->
+        <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
+        <VCardItem>
+          <template #append>
+            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
+          </template>
+          <VCardTitle>存储空间</VCardTitle>
+        </VCardItem>
+        <VCardText>
+          <h5 class="text-2xl font-weight-medium text-primary">
+            {{ formatFileSize(storage) }}
+          </h5>
+          <p class="mt-2">已使用 {{ usedPercent }}% 🚀</p>
+          <p class="mt-1">
+            <VProgressLinear :model-value="usedPercent" color="primary" />
+          </p>
+        </VCardText>
 
-    <!-- Trophy -->
-    <VImg :src="trophy" class="trophy" />
-  </VCard>
+        <!-- Trophy -->
+        <VImg :src="trophy" class="trophy" />
+      </VCard>
+    </template>
+  </VHover>
 </template>
 
 <style lang="scss">

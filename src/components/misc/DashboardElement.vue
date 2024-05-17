@@ -40,21 +40,25 @@ onUnmounted(() => {
   <MediaServerPlaying v-else-if="config?.id === 'playing'" />
   <MediaServerLatest v-else-if="config?.id === 'latest'" />
   <!-- 插件仪表板 -->
-  <VCard v-else-if="!isNullOrEmptyObject(props.config)">
-    <VCardItem v-if="props.config?.attrs.border !== false">
-      <template #append>
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </template>
-      <VCardTitle>
-        {{ props.config?.name }}
-      </VCardTitle>
-      <VCardSubtitle v-if="props.config?.attrs?.subtitle"> {{ props.config?.attrs?.subtitle }}</VCardSubtitle>
-    </VCardItem>
-    <VCardText :class="{ 'p-0': props.config?.attrs.border === false }">
-      <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
-    </VCardText>
-    <div v-if="props.config?.attrs.border === false" class="absolute right-5 top-5">
-      <VIcon class="cursor-move">mdi-drag</VIcon>
-    </div>
-  </VCard>
+  <VHover v-else-if="!isNullOrEmptyObject(props.config)">
+    <template #default="hover">
+      <VCard v-bind="hover.props">
+        <VCardItem v-if="props.config?.attrs.border !== false">
+          <template #append>
+            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
+          </template>
+          <VCardTitle>
+            {{ props.config?.name }}
+          </VCardTitle>
+          <VCardSubtitle v-if="props.config?.attrs?.subtitle"> {{ props.config?.attrs?.subtitle }}</VCardSubtitle>
+        </VCardItem>
+        <VCardText :class="{ 'p-0': props.config?.attrs.border === false }">
+          <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
+        </VCardText>
+        <div v-if="props.config?.attrs.border === false && hover.isHovering" class="absolute right-5 top-5">
+          <VIcon class="cursor-move">mdi-drag</VIcon>
+        </div>
+      </VCard>
+    </template>
+  </VHover>
 </template>
