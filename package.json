@@ -1,6 +1,6 @@
 {
   "name": "moviepilot",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "private": true,
   "bin": "dist/service.js",
   "scripts": {
