@@ -21,18 +21,22 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard>
-    <VCardItem>
-      <template #append>
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </template>
-      <VCardTitle>继续观看</VCardTitle>
-    </VCardItem>
+  <VHover>
+    <template #default="hover">
+      <VCard v-bind="hover.props">
+        <VCardItem>
+          <template #append>
+            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
+          </template>
+          <VCardTitle>继续观看</VCardTitle>
+        </VCardItem>
 
-    <div v-if="playingList.length > 0" class="grid gap-4 grid-backdrop-card mx-3" tabindex="0">
-      <BackdropCard v-for="data in playingList" :key="data.id" :media="data" height="10rem" />
-    </div>
-  </VCard>
+        <div v-if="playingList.length > 0" class="grid gap-4 grid-backdrop-card mx-3" tabindex="0">
+          <BackdropCard v-for="data in playingList" :key="data.id" :media="data" height="10rem" />
+        </div>
+      </VCard>
+    </template>
+  </VHover>
 </template>
 
 <style lang="scss">
