@@ -46,7 +46,7 @@ onUnmounted(() => {
         <VIcon class="cursor-move">mdi-drag</VIcon>
       </template>
       <VCardTitle>
-        {{ props.config?.name }}
+        {{ props.config?.attrs?.title ?? props.config?.name }}
       </VCardTitle>
       <VCardSubtitle v-if="props.config?.attrs?.subtitle"> {{ props.config?.attrs?.subtitle }}</VCardSubtitle>
     </VCardItem>
