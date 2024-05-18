@@ -2,7 +2,7 @@
   "name": "MoviePilot",
   "short_name": "MoviePilot",
   "start_url": "./",
-  "display": "minimal-ui",
+  "display": "standalone",
   "icons": [
     {
       "src": "./android-chrome-192x192.png",
