@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useTheme } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 import type { ThemeSwitcherTheme } from '@layouts/types'
 import api from '@/api'
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { useToast } from 'vue-toast-notification'
 import { VAceEditor } from 'vue3-ace-editor'
+
+// 显示器宽度
+const display = useDisplay()
 
 const props = defineProps<{
   themes: ThemeSwitcherTheme[]
@@ -209,11 +212,17 @@ onMounted(() => {
     </VList>
   </VMenu>
   <!-- 自定义 CSS -- -->
-  <VDialog v-model="cssDialog" persistent max-width="50rem">
+  <VDialog v-model="cssDialog" persistent max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard title="自定义主题风格">
       <DialogCloseBtn @click="cssDialog = false" />
       <VDivider />
-      <VAceEditor v-model:value="customCSS" lang="css" :theme="editorTheme" style="block-size: 30rem" />
+      <VAceEditor
+        v-model:value="customCSS"
+        lang="css"
+        :theme="editorTheme"
+        style="block-size: 100%; min-block-size: 30rem"
+      />
+      <VDivider />
       <VCardText class="text-center">
         <VBtn @click="saveCustomCSS" class="w-1/2">
           <template #prepend>
