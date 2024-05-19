@@ -4,6 +4,8 @@ import { useTheme } from 'vuetify'
 import type { ThemeSwitcherTheme } from '@layouts/types'
 import api from '@/api'
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
+import { useToast } from 'vue-toast-notification'
+import { VAceEditor } from 'vue3-ace-editor'
 
 const props = defineProps<{
   themes: ThemeSwitcherTheme[]
@@ -17,6 +19,17 @@ const { state: currentThemeName, next: getNextThemeName } = useCycleList(
   props.themes.map(t => t.name),
   { initialValue: savedTheme.value },
 )
+
+const $toast = useToast()
+
+// 自定义CSS弹窗
+const cssDialog = ref(false)
+
+// 自定义 CSS
+const customCSS = ref('')
+
+// 编辑器主题
+const editorTheme = computed(() => (currentThemeName.value === 'light' ? 'github' : 'monokai'))
 
 // 主题切换动画
 function themeTransition() {
@@ -134,6 +147,43 @@ watch(
   () => currentThemeName.value,
   () => updateTheme(),
 )
+
+// 获取自定义 CSS
+async function getCustomCSS() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserCustomCSS')
+    if (result && result.success && result.data?.value) {
+      customCSS.value = result.data?.value ?? ''
+      if (customCSS.value) {
+        const style = document.createElement('style')
+        style.innerHTML = result.data?.value ?? ''
+        document.head.appendChild(style)
+      }
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+// 保存自定义 CSS
+async function saveCustomCSS() {
+  cssDialog.value = false
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/UserCustomCSS', customCSS.value, {
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+    })
+
+    if (result.success) $toast.success('自定义CSS保存成功！')
+  } catch (e) {
+    console.error('保存自定义 CSS 到服务端失败')
+  }
+}
+
+onMounted(() => {
+  getCustomCSS()
+})
 </script>
 
 <template>
@@ -150,8 +200,30 @@ watch(
         </template>
         <VListItemTitle>{{ theme.title }}</VListItemTitle>
       </VListItem>
+      <VListItem @click="cssDialog = true">
+        <template #prepend>
+          <VIcon icon="mdi-palette" />
+        </template>
+        <VListItemTitle>自定义</VListItemTitle>
+      </VListItem>
     </VList>
   </VMenu>
+  <!-- 自定义 CSS -- -->
+  <VDialog v-model="cssDialog" persistent max-width="50rem">
+    <VCard title="自定义主题风格">
+      <DialogCloseBtn @click="cssDialog = false" />
+      <VDivider />
+      <VAceEditor v-model:value="customCSS" lang="css" :theme="editorTheme" style="block-size: 30rem" />
+      <VCardText class="text-center">
+        <VBtn @click="saveCustomCSS" class="w-1/2">
+          <template #prepend>
+            <VIcon icon="mdi-content-save" />
+          </template>
+          保存
+        </VBtn>
+      </VCardText>
+    </VCard>
+  </VDialog>
 </template>
 
 <style lang="sass">
