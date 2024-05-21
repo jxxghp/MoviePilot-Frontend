@@ -210,9 +210,9 @@ async function getPluginDashboard(id: string) {
           sortDashboardConfigs()
         }
         // 定时刷新
-        if (res.attrs?.refresh) {
+        if (res.attrs?.refresh && pluginDashboardRefreshStatus.value[id] && enableConfig.value[id]) {
           setTimeout(() => {
-            pluginDashboardRefreshStatus.value[id] && getPluginDashboard(id)
+            getPluginDashboard(id)
           }, res.attrs.refresh * 1000)
         }
       }
