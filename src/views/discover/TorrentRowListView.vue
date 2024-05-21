@@ -118,12 +118,12 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol>
-      <VList v-if="dataList.length === 0" lines="three" class="rounded p-0">
+      <VList v-if="dataList.length === 0" lines="three" class="rounded p-0 shadow-lg">
         <VListItem>
           <VListItemTitle>没有附合当前过滤条件的资源。</VListItemTitle>
         </VListItem>
       </VList>
-      <VList v-if="dataList.length !== 0" lines="three" class="rounded p-0 torrent-list-vscroll">
+      <VList v-if="dataList.length !== 0" lines="three" class="rounded p-0 torrent-list-vscroll shadow-lg">
         <VVirtualScroll :items="dataList">
           <template #default="{ item }">
             <TorrentItem :torrent="item" :key="`${item.torrent_info.title}_${item.torrent_info.site}`" />
@@ -132,7 +132,7 @@ onMounted(() => {
       </VList>
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
-      <VList lines="one" class="rounded torrent-list-vscroll">
+      <VList lines="one" class="rounded torrent-list-vscroll shadow-lg">
         <VListSubheader> 排序 </VListSubheader>
         <VListItem>
           <VChipGroup column v-model="sortField">
@@ -265,7 +265,7 @@ onMounted(() => {
 
 @media (width <= 768px) {
   .orrent-list-vscroll {
-    block-size: calc(100vh - 9rem);
+    block-size: calc(100vh - 10rem);
   }
 }
 </style>
