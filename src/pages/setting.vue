@@ -9,6 +9,7 @@ import AccountSettingSearch from '@/views/setting/AccountSettingSearch.vue'
 import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue'
 import AccountSettingService from '@/views/setting/AccountSettingService.vue'
 import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
+import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
 
 const route = useRoute()
 
@@ -22,9 +23,14 @@ const tabs = [
     tab: 'account',
   },
   {
-    title: '系统',
-    icon: 'mdi-cog',
+    title: '连接',
+    icon: 'mdi-server-network',
     tab: 'system',
+  },
+  {
+    title: '目录',
+    icon: 'mdi-folder',
+    tab: 'directory',
   },
   {
     title: '站点',
@@ -81,10 +87,17 @@ const tabs = [
         </transition>
       </VWindowItem>
 
-      <!-- 系统 -->
+      <!-- 连接 -->
       <VWindowItem value="system">
         <transition name="fade-slide" appear>
           <AccountSettingSystem />
+        </transition>
+      </VWindowItem>
+
+      <!-- 目录 -->
+      <VWindowItem value="directory">
+        <transition name="fade-slide" appear>
+          <AccountSettingDirectory />
         </transition>
       </VWindowItem>
 
@@ -122,12 +135,14 @@ const tabs = [
           <AccountSettingNotification />
         </transition>
       </VWindowItem>
+
       <!-- 词表 -->
       <VWindowItem value="words">
         <transition name="fade-slide" appear>
           <AccountSettingWords />
         </transition>
       </VWindowItem>
+
       <!-- 关于 -->
       <VWindowItem value="about">
         <transition name="fade-slide" appear>

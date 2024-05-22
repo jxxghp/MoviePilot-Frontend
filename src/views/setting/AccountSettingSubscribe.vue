@@ -311,10 +311,12 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="订阅站点">
-        <VCardSubtitle> 只有选中的站点才会在订阅中使用。</VCardSubtitle>
-
+      <VCard>
         <VCardItem>
+          <VCardTitle>订阅站点</VCardTitle>
+          <VCardSubtitle>只有选中的站点才会在订阅中使用。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
           <VChipGroup v-model="selectedRssSites" column multiple>
             <VChip
               v-for="site in allSites"
@@ -327,7 +329,7 @@ onMounted(() => {
               {{ site.name }}
             </VChip>
           </VChipGroup>
-        </VCardItem>
+        </VCardText>
         <VCardText>
           <VForm>
             <VRow>
@@ -359,36 +361,39 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardItem>
+        <VCardText>
           <VBtn type="submit" @click="saveSelectedRssSites"> 保存 </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="订阅优先级">
-        <template #append>
-          <IconBtn>
-            <VIcon icon="mdi-dots-vertical" />
-            <VMenu activator="parent" close-on-content-click>
-              <VList>
-                <VListItem variant="plain" @click="shareRules('SubscribeFilterRules')">
-                  <template #prepend>
-                    <VIcon icon="mdi-share" />
-                  </template>
-                  <VListItemTitle>分享</VListItemTitle>
-                </VListItem>
-                <VListItem variant="plain" @click="importRules('SubscribeFilterRules')">
-                  <template #prepend>
-                    <VIcon icon="mdi-import" />
-                  </template>
-                  <VListItemTitle>导入</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </IconBtn>
-        </template>
-        <VCardSubtitle> 设置在正常订阅时默认使用的优先级，未在优先级中的资源将不会自动下载。</VCardSubtitle>
+      <VCard>
         <VCardItem>
+          <template #append>
+            <IconBtn>
+              <VIcon icon="mdi-dots-vertical" />
+              <VMenu activator="parent" close-on-content-click>
+                <VList>
+                  <VListItem variant="plain" @click="shareRules('SubscribeFilterRules')">
+                    <template #prepend>
+                      <VIcon icon="mdi-share" />
+                    </template>
+                    <VListItemTitle>分享</VListItemTitle>
+                  </VListItem>
+                  <VListItem variant="plain" @click="importRules('SubscribeFilterRules')">
+                    <template #prepend>
+                      <VIcon icon="mdi-import" />
+                    </template>
+                    <VListItemTitle>导入</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </IconBtn>
+          </template>
+          <VCardTitle>订阅优先级</VCardTitle>
+          <VCardSubtitle> 设置在正常订阅时默认使用的优先级，未在优先级中的资源将不会自动下载。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
           <draggable
             v-model="subscribeFilterCards"
             handle=".cursor-move"
@@ -407,40 +412,43 @@ onMounted(() => {
               />
             </template>
           </draggable>
-        </VCardItem>
-        <VCardItem>
+        </VCardText>
+        <VCardText>
           <VBtn type="submit" class="me-2" @click="saveCustomFilters('SubscribeFilterRules')"> 保存 </VBtn>
           <VBtn color="success" variant="tonal" @click="addFilterCard('SubscribeFilterRules')">
             <VIcon icon="mdi-plus" />
           </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="洗版优先级">
-        <template #append>
-          <IconBtn>
-            <VIcon icon="mdi-dots-vertical" />
-            <VMenu activator="parent" close-on-content-click>
-              <VList>
-                <VListItem variant="plain" @click="shareRules('BestVersionFilterRules')">
-                  <template #prepend>
-                    <VIcon icon="mdi-share" />
-                  </template>
-                  <VListItemTitle>分享</VListItemTitle>
-                </VListItem>
-                <VListItem variant="plain" @click="importRules('BestVersionFilterRules')">
-                  <template #prepend>
-                    <VIcon icon="mdi-import" />
-                  </template>
-                  <VListItemTitle>导入</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </IconBtn>
-        </template>
-        <VCardSubtitle> 设置在订阅洗版时使用的优先级，匹配优先级1时洗版完成。</VCardSubtitle>
+      <VCard>
         <VCardItem>
+          <VCardTitle>洗版优先级</VCardTitle>
+          <template #append>
+            <IconBtn>
+              <VIcon icon="mdi-dots-vertical" />
+              <VMenu activator="parent" close-on-content-click>
+                <VList>
+                  <VListItem variant="plain" @click="shareRules('BestVersionFilterRules')">
+                    <template #prepend>
+                      <VIcon icon="mdi-share" />
+                    </template>
+                    <VListItemTitle>分享</VListItemTitle>
+                  </VListItem>
+                  <VListItem variant="plain" @click="importRules('BestVersionFilterRules')">
+                    <template #prepend>
+                      <VIcon icon="mdi-import" />
+                    </template>
+                    <VListItemTitle>导入</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </IconBtn>
+          </template>
+          <VCardSubtitle> 设置在订阅洗版时使用的优先级，匹配优先级1时洗版完成。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
           <draggable
             v-model="bestVersionFilterCards"
             handle=".cursor-move"
@@ -459,18 +467,21 @@ onMounted(() => {
               />
             </template>
           </draggable>
-        </VCardItem>
-        <VCardItem>
+        </VCardText>
+        <VCardText>
           <VBtn type="submit" class="me-2" @click="saveCustomFilters('BestVersionFilterRules')"> 保存 </VBtn>
           <VBtn color="success" variant="tonal" @click="addFilterCard('BestVersionFilterRules')">
             <VIcon icon="mdi-plus" />
           </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="默认过滤规则">
-        <VCardSubtitle> 设置在订阅时默认使用的过滤规则。</VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>默认过滤规则</VCardTitle>
+          <VCardSubtitle> 设置在订阅时默认使用的过滤规则。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VForm>
             <VRow>
@@ -529,9 +540,9 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardItem>
+        <VCardText>
           <VBtn type="submit" @click="saveDefaultFilter"> 保存 </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
   </VRow>

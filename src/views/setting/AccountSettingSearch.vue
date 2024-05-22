@@ -280,8 +280,11 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="媒体数据源">
-        <VCardSubtitle> 设定搜索时展示哪些源的媒体信息。</VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>媒体数据源</VCardTitle>
+          <VCardSubtitle>设定搜索时展示哪些源的媒体信息。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VRow>
             <VCol cols="12" md="6">
@@ -296,17 +299,18 @@ onMounted(() => {
             </VCol>
           </VRow>
         </VCardText>
-
-        <VCardItem>
+        <VCardText>
           <VBtn type="submit" @click="saveMediaSourceSetting"> 保存 </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="搜索站点">
-        <VCardSubtitle> 只有选中的站点才会在搜索中使用。</VCardSubtitle>
-
+      <VCard>
         <VCardItem>
+          <VCardTitle>搜索站点</VCardTitle>
+          <VCardSubtitle> 只有选中的站点才会在搜索中使用。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
           <VChipGroup v-model="selectedSites" column multiple>
             <VChip
               v-for="site in allSites"
@@ -319,38 +323,40 @@ onMounted(() => {
               {{ site.name }}
             </VChip>
           </VChipGroup>
-        </VCardItem>
-
-        <VCardItem>
+        </VCardText>
+        <VCardText>
           <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="搜索优先级">
-        <template #append>
-          <IconBtn>
-            <VIcon icon="mdi-dots-vertical" />
-            <VMenu activator="parent" close-on-content-click>
-              <VList>
-                <VListItem variant="plain" @click="shareRules">
-                  <template #prepend>
-                    <VIcon icon="mdi-share" />
-                  </template>
-                  <VListItemTitle>分享</VListItemTitle>
-                </VListItem>
-                <VListItem variant="plain" @click="importCodeDialog = true">
-                  <template #prepend>
-                    <VIcon icon="mdi-import" />
-                  </template>
-                  <VListItemTitle>导入</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </IconBtn>
-        </template>
-        <VCardSubtitle> 设置在搜索时默认使用的优先级排序，未在优先级中的资源将不在搜索结果中显示。 </VCardSubtitle>
+      <VCard>
         <VCardItem>
+          <template #append>
+            <IconBtn>
+              <VIcon icon="mdi-dots-vertical" />
+              <VMenu activator="parent" close-on-content-click>
+                <VList>
+                  <VListItem variant="plain" @click="shareRules">
+                    <template #prepend>
+                      <VIcon icon="mdi-share" />
+                    </template>
+                    <VListItemTitle>分享</VListItemTitle>
+                  </VListItem>
+                  <VListItem variant="plain" @click="importCodeDialog = true">
+                    <template #prepend>
+                      <VIcon icon="mdi-import" />
+                    </template>
+                    <VListItemTitle>导入</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </IconBtn>
+          </template>
+          <VCardTitle>搜索优先级</VCardTitle>
+          <VCardSubtitle>设置在搜索时默认使用的优先级排序，未在优先级中的资源将不在搜索结果中显示。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
           <draggable
             v-model="filterCards"
             handle=".cursor-move"
@@ -369,18 +375,21 @@ onMounted(() => {
               />
             </template>
           </draggable>
-        </VCardItem>
-        <VCardItem>
+        </VCardText>
+        <VCardText>
           <VBtn type="submit" class="me-2" @click="saveCustomFilters()"> 保存 </VBtn>
           <VBtn color="success" variant="tonal" @click="addFilterCard()">
             <VIcon icon="mdi-plus" />
           </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="默认过滤规则">
-        <VCardSubtitle> 设置在搜索时默认使用的过滤规则。 </VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>默认过滤规则</VCardTitle>
+          <VCardSubtitle>设置在搜索时默认使用的过滤规则。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VForm>
             <VRow>
@@ -421,9 +430,9 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardItem>
+        <VCardText>
           <VBtn type="submit" @click="saveDefaultFilter"> 保存 </VBtn>
-        </VCardItem>
+        </VCardText>
       </VCard>
     </VCol>
   </VRow>

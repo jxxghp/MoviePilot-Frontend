@@ -51,16 +51,12 @@ async function resetSites() {
     resetSitesText.value = '正在重置...'
 
     const result: { [key: string]: any } = await api.get('site/reset')
-    if (result.success)
-      $toast.success('站点重置成功，请等待CookieCloud同步完成！')
-
-    else
-      $toast.error('站点重置失败！')
+    if (result.success) $toast.success('站点重置成功，请等待CookieCloud同步完成！')
+    else $toast.error('站点重置失败！')
 
     resetSitesDisabled.value = false
     resetSitesText.value = '重置站点数据'
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -68,13 +64,10 @@ async function resetSites() {
 // 查询种子优先规则
 async function queryTorrentPriority() {
   try {
-    const result: { [key: string]: any } = await api.get(
-      'system/setting/TorrentsPriority',
-    )
+    const result: { [key: string]: any } = await api.get('system/setting/TorrentsPriority')
 
     selectedTorrentPriority.value = result.data?.value
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -88,12 +81,9 @@ async function saveTorrentPriority() {
       selectedTorrentPriority.value,
     )
 
-    if (result.success)
-      $toast.success('优先规则保存成功')
-    else
-      $toast.error('优先规则保存失败！')
-  }
-  catch (error) {
+    if (result.success) $toast.success('优先规则保存成功')
+    else $toast.error('优先规则保存失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -120,8 +110,7 @@ async function loadCookieCloudSettings() {
         COOKIECLOUD_ENABLE_LOCAL,
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -129,17 +118,11 @@ async function loadCookieCloudSettings() {
 // 调用API保存CookieCloud设置
 async function saveCookieCloudetting() {
   try {
-    const result: { [key: string]: any } = await api.post(
-      'system/env',
-      cookieCloudSetting.value,
-    )
+    const result: { [key: string]: any } = await api.post('system/env', cookieCloudSetting.value)
 
-    if (result.success)
-      $toast.success('保存站点同步设置成功')
-    else
-      $toast.error('保存站点同步设置失败！')
-  }
-  catch (error) {
+    if (result.success) $toast.success('保存站点同步设置成功')
+    else $toast.error('保存站点同步设置失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -154,8 +137,11 @@ onMounted(() => {
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="站点同步">
-        <VCardSubtitle> 从CookieCloud快速同步站点数据。 </VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>站点同步</VCardTitle>
+          <VCardSubtitle>从CookieCloud快速同步站点数据。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VForm>
             <VRow>
@@ -210,19 +196,17 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardItem>
-          <VBtn
-            type="submit"
-            @click="saveCookieCloudetting"
-          >
-            保存
-          </VBtn>
-        </VCardItem>
+        <VCardText>
+          <VBtn type="submit" @click="saveCookieCloudetting"> 保存 </VBtn>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">
-      <VCard title="下载优先规则">
-        <VCardSubtitle> 按站点或做种数量优先下载。 </VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>下载优先规则</VCardTitle>
+          <VCardSubtitle>按站点或做种数量优先下载。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VForm>
             <VRow>
@@ -237,14 +221,9 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardItem>
-          <VBtn
-            type="submit"
-            @click="saveTorrentPriority"
-          >
-            保存
-          </VBtn>
-        </VCardItem>
+        <VCardText>
+          <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>
+        </VCardText>
       </VCard>
     </VCol>
     <VCol cols="12">

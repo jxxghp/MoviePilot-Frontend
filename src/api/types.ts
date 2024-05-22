@@ -831,3 +831,23 @@ export interface SystemNotification {
   // 通知时间
   date: string
 }
+
+// 下载目录/媒体库目录
+export interface MediaDirectory {
+  // 类型 download/library
+  type?: string
+  // 别名
+  name?: string
+  // 路径
+  path?: string
+  // 媒体类型 电影/电视剧
+  media_type?: string
+  // 媒体类别 动画电影/国产剧
+  category?: string
+  // 刮削媒体信息
+  scrape?: boolean
+  // 自动二级分类，未指定类别时自动分类
+  auto_category?: boolean
+  // 优先级
+  priority?: number
+}

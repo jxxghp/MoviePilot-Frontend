@@ -3,7 +3,6 @@
 import { useToast } from 'vue-toast-notification'
 import { VRow } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
-import { requiredValidator } from '@/@validators'
 
 // 选中的媒体服务器
 const selectedMediaServers = ref([])
@@ -16,23 +15,6 @@ const downloaderTab = ref('qbittorrent')
 
 // 媒体服务器选中标签页
 const mediaserverTab = ref('emby')
-
-// 媒体库设置项
-const mediaSettings = ref({
-  SCRAP_METADATA: true,
-  DOWNLOAD_PATH: '',
-  DOWNLOAD_MOVIE_PATH: '',
-  DOWNLOAD_TV_PATH: '',
-  DOWNLOAD_ANIME_PATH: '',
-  DOWNLOAD_CATEGORY: false,
-  TRANSFER_TYPE: 'copy',
-  OVERWRITE_MODE: 'size',
-  LIBRARY_PATH: '',
-  LIBRARY_MOVIE_NAME: '',
-  LIBRARY_TV_NAME: '',
-  LIBRARY_ANIME_NAME: '',
-  LIBRARY_CATEGORY: false,
-})
 
 // 下载器设置项
 const downloaderSettings = ref({
@@ -92,24 +74,6 @@ const MediaServers = [
   },
 ]
 
-// 转移方式字典
-const transferTypeItems = [
-  { title: '硬链接', value: 'link' },
-  { title: '复制', value: 'copy' },
-  { title: '移动', value: 'move' },
-  { title: '软链接', value: 'softlink' },
-  { title: 'rclone复制', value: 'rclone_copy' },
-  { title: 'rclone移动', value: 'rclone_move' },
-]
-
-// 覆盖模式字典
-const overwriteModeItems = [
-  { title: '从不覆盖', value: 'never' },
-  { title: '按大小覆盖', value: 'size' },
-  { title: '总是覆盖', value: 'always' },
-  { title: '仅保留最新版本', value: 'latest' },
-]
-
 // 媒体库同步周期字典
 const syncIntervalItems = [
   { title: '从不', value: 0 },
@@ -123,72 +87,11 @@ const syncIntervalItems = [
 // 提示框
 const $toast = useToast()
 
-// 加载媒体库设置
-async function loadMediaSettings() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/env')
-    if (result.success) {
-      const {
-        SCRAP_METADATA,
-        DOWNLOAD_PATH,
-        DOWNLOAD_MOVIE_PATH,
-        DOWNLOAD_TV_PATH,
-        DOWNLOAD_ANIME_PATH,
-        DOWNLOAD_CATEGORY,
-        TRANSFER_TYPE,
-        OVERWRITE_MODE,
-        LIBRARY_PATH,
-        LIBRARY_MOVIE_NAME,
-        LIBRARY_TV_NAME,
-        LIBRARY_ANIME_NAME,
-        LIBRARY_CATEGORY,
-      } = result.data
-      mediaSettings.value = {
-        SCRAP_METADATA,
-        DOWNLOAD_PATH,
-        DOWNLOAD_MOVIE_PATH,
-        DOWNLOAD_TV_PATH,
-        DOWNLOAD_ANIME_PATH,
-        DOWNLOAD_CATEGORY,
-        TRANSFER_TYPE,
-        OVERWRITE_MODE,
-        LIBRARY_PATH,
-        LIBRARY_MOVIE_NAME,
-        LIBRARY_TV_NAME,
-        LIBRARY_ANIME_NAME,
-        LIBRARY_CATEGORY,
-      }
-    }
-  }
-  catch (error) {
-    console.log(error)
-  }
-}
-
-// 调用API保存媒体设置
-async function saveMediaSetting() {
-  try {
-    const result: { [key: string]: any } = await api.post(
-      'system/env',
-      mediaSettings.value,
-    )
-
-    if (result.success)
-      $toast.success('保存媒体库设置成功')
-    else
-      $toast.error('保存媒体库设置失败！')
-  }
-  catch (error) {
-    console.log(error)
-  }
-}
-
 // 调用API查询下载器设置
 async function loadDownloaderSetting() {
   try {
     const result1: { [key: string]: any } = await api.get('system/setting/DOWNLOADER')
-    if (result1.success)
-      selectedDownloaders.value = result1.data?.value?.split(',')
+    if (result1.success) selectedDownloaders.value = result1.data?.value?.split(',')
 
     const result2: { [key: string]: any } = await api.get('system/env')
     if (result2.success) {
@@ -219,8 +122,7 @@ async function loadDownloaderSetting() {
         TR_PASSWORD,
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -232,18 +134,15 @@ async function saveDownloaderSetting() {
       'system/setting/DOWNLOADER',
       selectedDownloaders.value.join(','),
     )
-    const result2: { [key: string]: any } = await api.post(
-      'system/env',
-      downloaderSettings.value,
-    )
+    const result2: { [key: string]: any } = await api.post('system/env', downloaderSettings.value)
 
     if (result1.success && result2.success) {
       $toast.success('保存下载器设置成功')
       reloadModule()
+    } else {
+      $toast.error('保存下载器设置失败！')
     }
-    else { $toast.error('保存下载器设置失败！') }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -252,8 +151,7 @@ async function saveDownloaderSetting() {
 async function loadMediaServerSetting() {
   try {
     const result1: { [key: string]: any } = await api.get('system/setting/MEDIASERVER')
-    if (result1.success)
-      selectedMediaServers.value = result1.data?.value?.split(',')
+    if (result1.success) selectedMediaServers.value = result1.data?.value?.split(',')
 
     const result2: { [key: string]: any } = await api.get('system/env')
     if (result2.success) {
@@ -284,8 +182,7 @@ async function loadMediaServerSetting() {
         PLEX_TOKEN,
       }
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -298,18 +195,15 @@ async function saveMediaServerSetting() {
       selectedMediaServers.value.join(','),
     )
 
-    const result2: { [key: string]: any } = await api.post(
-      'system/env',
-      mediaServerSettings.value,
-    )
+    const result2: { [key: string]: any } = await api.post('system/env', mediaServerSettings.value)
 
     if (result1.success && result2.success) {
       $toast.success('保存媒体服务器设置成功')
       reloadModule()
+    } else {
+      $toast.error('保存媒体服务器设置失败！')
     }
-    else { $toast.error('保存媒体服务器设置失败！') }
-  }
-  catch (error) {
+  } catch (error) {
     console.log(error)
   }
 }
@@ -318,12 +212,9 @@ async function saveMediaServerSetting() {
 async function reloadModule() {
   try {
     const result: { [key: string]: any } = await api.get('system/reload')
-    if (result.success)
-      $toast.success('重新加载模块成功')
-    else
-      $toast.error('重新加载模块失败！')
-  }
-  catch (error) {
+    if (result.success) $toast.success('重新加载模块成功')
+    else $toast.error('重新加载模块失败！')
+  } catch (error) {
     console.log(error)
   }
 }
@@ -332,15 +223,17 @@ async function reloadModule() {
 onMounted(() => {
   loadDownloaderSetting()
   loadMediaServerSetting()
-  loadMediaSettings()
 })
 </script>
 
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="下载器">
-        <VCardSubtitle>只有选中的第1个下载器才会被默认使用。</VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>下载器</VCardTitle>
+          <VCardSubtitle>只有选中的第1个下载器才会被默认使用。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VForm>
             <VRow>
@@ -373,22 +266,11 @@ onMounted(() => {
             </VRow>
             <VRow>
               <VCol>
-                <VTabs
-                  v-model="downloaderTab"
-                  stacked
-                >
-                  <VTab value="qbittorrent">
-                    Qbittorrent
-                  </VTab>
-                  <VTab value="transmission">
-                    Transmission
-                  </VTab>
+                <VTabs v-model="downloaderTab" stacked>
+                  <VTab value="qbittorrent"> Qbittorrent </VTab>
+                  <VTab value="transmission"> Transmission </VTab>
                 </VTabs>
-                <VWindow
-                  v-model="downloaderTab"
-                  class="mt-5 disable-tab-transition"
-                  :touch="false"
-                >
+                <VWindow v-model="downloaderTab" class="mt-5 disable-tab-transition" :touch="false">
                   <VWindowItem value="qbittorrent">
                     <VForm>
                       <VRow>
@@ -478,12 +360,7 @@ onMounted(() => {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn
-                mtype="submit"
-                @click="saveDownloaderSetting"
-              >
-                保存
-              </VBtn>
+              <VBtn mtype="submit" @click="saveDownloaderSetting"> 保存 </VBtn>
             </div>
           </VForm>
         </VCardText>
@@ -492,8 +369,11 @@ onMounted(() => {
   </VRow>
   <VRow>
     <VCol cols="12">
-      <VCard title="媒体服务器">
-        <VCardSubtitle>只有选中的媒体服务器才会被默认使用。</VCardSubtitle>
+      <VCard>
+        <VCardItem>
+          <VCardTitle>媒体服务器</VCardTitle>
+          <VCardSubtitle>只有选中的媒体服务器才会被默认使用。</VCardSubtitle>
+        </VCardItem>
         <VCardText>
           <VForm>
             <VRow>
@@ -526,25 +406,12 @@ onMounted(() => {
             </VRow>
             <VRow>
               <VCol>
-                <VTabs
-                  v-model="mediaserverTab"
-                  stacked
-                >
-                  <VTab value="emby">
-                    Emby
-                  </VTab>
-                  <VTab value="jellyfin">
-                    Jellyfin
-                  </VTab>
-                  <VTab value="plex">
-                    Plex
-                  </vtab>
+                <VTabs v-model="mediaserverTab" stacked>
+                  <VTab value="emby"> Emby </VTab>
+                  <VTab value="jellyfin"> Jellyfin </VTab>
+                  <VTab value="plex"> Plex </VTab>
                 </VTabs>
-                <VWindow
-                  v-model="mediaserverTab"
-                  class="mt-5 disable-tab-transition"
-                  :touch="false"
-                >
+                <VWindow v-model="mediaserverTab" class="mt-5 disable-tab-transition" :touch="false">
                   <VWindowItem value="emby">
                     <VForm>
                       <VRow>
@@ -640,140 +507,7 @@ onMounted(() => {
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn
-                mtype="submit"
-                @click="saveMediaServerSetting"
-              >
-                保存
-              </VBtn>
-            </div>
-          </VForm>
-        </VCardText>
-      </VCard>
-    </VCol>
-  </VRow>
-  <VRow>
-    <VCol cols="12">
-      <VCard title="媒体库">
-        <VCardSubtitle>设置下载目录、媒体库目录以及整理方式。</VCardSubtitle>
-        <VCardText>
-          <VForm>
-            <VRow>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.DOWNLOAD_PATH"
-                  label="下载目录"
-                  :rules="[requiredValidator]"
-                  hint="MoviePilot添加的下载任务的默认保存目录，必须设置"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.DOWNLOAD_MOVIE_PATH"
-                  label="电影下载目录"
-                  hint="为电影设置单独的下载保存目录，不设置则使用下载目录"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.DOWNLOAD_TV_PATH"
-                  label="电视剧下载目录"
-                  hint="为电视剧设置单独的下载保存目录，不设置则使用下载目录"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.DOWNLOAD_ANIME_PATH"
-                  label="动漫下载目录"
-                  hint="为动漫设置单独的下载保存目录，不设置则使用下载目录"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VSwitch
-                  v-model="mediaSettings.DOWNLOAD_CATEGORY"
-                  label="下载目录自动分类"
-                  hint="开启后，下载任务保存目录将根据二级分类策略自动分类存放到下载目录的二级子目录中，二级分类策略需要编辑配置文件目录下的`category.yml`文件，插件市场有提供文件编辑插件"
-                />
-              </VCol>
-            </VRow>
-            <VRow>
-              <VCol cols="12" md="6">
-                <VSelect
-                  v-model="mediaSettings.TRANSFER_TYPE"
-                  :items="transferTypeItems"
-                  label="整理方式"
-                  hint="硬链接需要确保下载目录和媒体库目录不跨盘、不跨共享目录、不分别映射；rclone需要手动在容器中完成配置，且配置名为：`MP`"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VSelect
-                  v-model="mediaSettings.OVERWRITE_MODE"
-                  :items="overwriteModeItems"
-                  label="覆盖模式"
-                  hint="从不覆盖：不覆盖已存在的文件；按大小覆盖：大文件将覆盖小文件；总是覆盖：总是覆盖已存在的文件；仅保留最新版本：保留最新版本的文件，删除其它版本的文件"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VSwitch
-                  v-model="mediaSettings.SCRAP_METADATA"
-                  label="自动刮削媒体信息"
-                  hint="开启后，整理完成后将自动刮削媒体信息，如海报、简介等"
-                />
-              </VCol>
-            </VRow>
-            <VRow>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.LIBRARY_PATH"
-                  label="媒体库目录"
-                  placeholder="多个目录使用,分隔"
-                  :rules="[requiredValidator]"
-                  hint="整理完成后的媒体文件存放的根目录，所有整理场景下未设定目的目录时都将整理到该目录下，必须设置"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.LIBRARY_MOVIE_NAME"
-                  label="电影目录名称"
-                  placeholder="电影"
-                  hint="设置电影的存放一级目录名称，不设置则使用使用`电影`做为目录名称"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.LIBRARY_TV_NAME"
-                  label="电视剧目录名称"
-                  placeholder="电视剧"
-                  hint="设置电视剧的存放一级目录名称，不设置则使用使用`电视剧`做为目录名称"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="mediaSettings.LIBRARY_ANIME_NAME"
-                  label="动漫目录名称"
-                  placeholder="动漫"
-                  hint="设置动漫的存放一级目录名称，不设置则使用使用`动漫`做为目录名称"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VSwitch
-                  v-model="mediaSettings.LIBRARY_CATEGORY"
-                  label="媒体库目录自动分类"
-                  hint="开启后，整理完成后的媒体文件将根据二级分类策略自动分类存放到媒体库一级目录的二级子目录中，二级分类策略需要编辑配置文件目录下的`category.yml`文件，插件市场有提供文件编辑插件"
-                />
-              </VCol>
-            </VRow>
-          </VForm>
-        </VCardText>
-        <VCardText>
-          <VForm @submit.prevent="() => {}">
-            <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn
-                mtype="submit"
-                @click="saveMediaSetting"
-              >
-                保存
-              </VBtn>
+              <VBtn mtype="submit" @click="saveMediaServerSetting"> 保存 </VBtn>
             </div>
           </VForm>
         </VCardText>

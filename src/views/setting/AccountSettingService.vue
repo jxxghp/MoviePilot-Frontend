@@ -18,8 +18,7 @@ async function loadSchedulerList() {
     const res: ScheduleInfo[] = await api.get('dashboard/schedule')
 
     schedulerList.value = res
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -52,8 +51,7 @@ function runCommand(id: string) {
     setTimeout(() => {
       loadSchedulerList()
     }, 1000)
-  }
-  catch (e) {
+  } catch (e) {
     console.log(e)
   }
 }
@@ -77,32 +75,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VCard title="定时作业">
-    <VCardSubtitle> 包含系统内置服务以及插件提供的服务，手动执行不会影响作业正常的时间表。 </VCardSubtitle>
-
+  <VCard>
+    <VCardItem>
+      <VCardTitle>定时作业</VCardTitle>
+      <VCardSubtitle>包含系统内置服务以及插件提供的服务，手动执行不会影响作业正常的时间表。</VCardSubtitle>
+    </VCardItem>
     <VTable class="text-no-wrap">
       <thead>
         <tr>
-          <th scope="col">
-            提供者
-          </th>
-          <th scope="col">
-            任务名称
-          </th>
-          <th scope="col">
-            任务状态
-          </th>
-          <th scope="col">
-            下一次执行时间
-          </th>
+          <th scope="col">提供者</th>
+          <th scope="col">任务名称</th>
+          <th scope="col">任务状态</th>
+          <th scope="col">下一次执行时间</th>
           <th scope="col" />
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="scheduler in schedulerList"
-          :key="scheduler.id"
-        >
+        <tr v-for="scheduler in schedulerList" :key="scheduler.id">
           <td>
             {{ scheduler.provider }}
           </td>
@@ -118,11 +107,7 @@ onUnmounted(() => {
             {{ scheduler.next_run }}
           </td>
           <td>
-            <VBtn
-              size="small"
-              :disabled="scheduler.status === '正在运行'"
-              @click="runCommand(scheduler.id)"
-            >
+            <VBtn size="small" :disabled="scheduler.status === '正在运行'" @click="runCommand(scheduler.id)">
               <template #prepend>
                 <VIcon>mdi-play</VIcon>
               </template>
@@ -131,12 +116,7 @@ onUnmounted(() => {
           </td>
         </tr>
         <tr v-if="schedulerList.length === 0">
-          <td
-            colspan="4"
-            class="text-center"
-          >
-            没有后台服务
-          </td>
+          <td colspan="4" class="text-center">没有后台服务</td>
         </tr>
       </tbody>
     </VTable>
