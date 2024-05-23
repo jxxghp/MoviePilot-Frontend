@@ -64,6 +64,7 @@ const transferForm = reactive({
   episode_part: '',
   episode_offset: null,
   min_filesize: 0,
+  scrape: true,
 })
 
 watchEffect(() => {
@@ -283,6 +284,11 @@ onMounted(() => {
                 placeholder="0"
                 hint="最小文件大小，小于此大小的文件将被忽略不进行整理"
               />
+            </VCol>
+          </VRow>
+          <VRow>
+            <VCol cols="12" md="6">
+              <VSwitch v-model="transferForm.scrape" label="刮削元数据" hint="整理完成后自动刮削元数据" />
             </VCol>
           </VRow>
         </VForm>
