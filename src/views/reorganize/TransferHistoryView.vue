@@ -272,18 +272,7 @@ async function retransferBatch() {
   // 重新整理IDS
   redoIds.value = selected.value.map(item => item.id)
   // 重新整理target
-  if (selected.value.length === 1) {
-    // 目的目录
-    const dest = selected.value[0].dest ?? ''
-    // 类型
-    const mediaType = selected.value[0].type ?? ''
-    // 分类
-    const category = selected.value[0].category ?? ''
-    // 计算根路径
-    redoTarget.value = getRootPath(dest, mediaType, category)
-  } else {
-    redoTarget.value = ''
-  }
+  redoTarget.value = ''
   // 打开识别弹窗
   redoDialog.value = true
 }
