@@ -19,9 +19,6 @@ const currentHistory = ref<TransferHistory>()
 // 重新整理IDS
 const redoIds = ref<number[]>([])
 
-// 重新整理target
-const redoTarget = ref('')
-
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
 
@@ -271,8 +268,6 @@ async function retransferBatch() {
   currentHistory.value = undefined
   // 重新整理IDS
   redoIds.value = selected.value.map(item => item.id)
-  // 重新整理target
-  redoTarget.value = ''
   // 打开识别弹窗
   redoDialog.value = true
 }
@@ -286,7 +281,6 @@ const dropdownItems = ref([
       prependIcon: 'mdi-redo-variant',
       click: (item: TransferHistory) => {
         redoIds.value = [item.id]
-        redoTarget.value = getRootPath(item.dest ?? '', item.type ?? '', item.category ?? '')
         redoDialog.value = true
       },
     },
@@ -445,7 +439,6 @@ onMounted(fetchData)
     v-if="redoDialog"
     v-model="redoDialog"
     :logids="redoIds"
-    :target="redoTarget"
     @done="
       () => {
         redoDialog = false

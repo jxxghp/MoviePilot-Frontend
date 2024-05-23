@@ -54,7 +54,7 @@ function startLoadingProgress() {
   progressEventSource.value = new EventSource(
     `${import.meta.env.VITE_API_BASE_URL}system/progress/search?token=${token}`,
   )
-  progressEventSource.value.onmessage = (event) => {
+  progressEventSource.value.onmessage = event => {
     const progress = JSON.parse(event.data)
     if (progress) {
       progressText.value = progress.text
@@ -80,34 +80,33 @@ async function fetchData() {
     if (!keyword) {
       // 查询上次搜索结果
       dataList.value = await api.get('search/last')
-    }
-    else {
+    } else {
       startLoadingProgress()
       // 优先按TMDBID精确查询
       if (keyword?.startsWith('tmdb:') || keyword?.startsWith('douban:') || keyword?.startsWith('bangumi:')) {
-        const result: {[key: string]: any} = await api.get(`search/media/${keyword}`, {
+        const result: { [key: string]: any } = await api.get(`search/media/${keyword}`, {
           params: {
             mtype: type,
             area,
             season,
           },
         })
-        if (result.success){
+        if (result.success) {
           dataList.value = result.data
         } else {
           errorDescription.value = result.message
         }
-      }
-      else {
+      } else {
         // 按标题模糊查询
         dataList.value = await api.get(`search/title/${keyword}`)
       }
       stopLoadingProgress()
+      // 从浏览器历史中删除当前搜索
+      window.history.replaceState(null, '', window.location.pathname)
     }
     // 标记已刷新
     isRefreshed.value = true
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
     return Promise.reject(error)
   }
@@ -120,26 +119,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <LoadingBanner 
-    v-if="!isRefreshed" 
-    class="mt-12"
-    :text="progressText"
-    :progress="progressValue"
-  />
+  <LoadingBanner v-if="!isRefreshed" class="mt-12" :text="progressText" :progress="progressValue" />
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"
     :error-title="errorTitle"
     :error-description="errorDescription"
   />
   <div v-if="dataList.length > 0">
-    <TorrentRowListView
-      v-if="viewType === 'list'"
-      :items="dataList"
-    />
-    <TorrentCardListView
-      v-else
-      :items="dataList"
-    />
+    <TorrentRowListView v-if="viewType === 'list'" :items="dataList" />
+    <TorrentCardListView v-else :items="dataList" />
   </div>
   <!-- 视图切换 -->
   <VFab

@@ -6,6 +6,7 @@ import api from '@/api'
 import { numberValidator } from '@/@validators'
 import { useDisplay } from 'vuetify'
 import ProgressDialog from './ProgressDialog.vue'
+import { MediaDirectory } from '@/api/types'
 
 // 显示器宽度
 const display = useDisplay()
@@ -20,9 +21,9 @@ const props = defineProps({
 // 定义事件
 const emit = defineEmits(['done', 'close'])
 
-// 生成1到50季的下拉框选项
+// 生成1到100季的下拉框选项
 const seasonItems = ref(
-  Array.from({ length: 51 }, (_, i) => i).map(item => ({
+  Array.from({ length: 101 }, (_, i) => i).map(item => ({
     title: `第 ${item} 季`,
     value: item,
   })),
@@ -53,7 +54,7 @@ const progressValue = ref(0)
 const transferForm = reactive({
   logid: 0,
   path: '',
-  target: props.target ?? '',
+  target: props.target ?? null,
   tmdbid: null,
   doubanid: null,
   season: null,
@@ -67,9 +68,17 @@ const transferForm = reactive({
   scrape: true,
 })
 
+// 所有媒体库目录
+const libraryDirectories = ref<MediaDirectory[]>([])
+
+// 目的目录下拉框
+const targetDirectories = computed(() => {
+  return libraryDirectories.value.map(item => item.path)
+})
+
 watchEffect(() => {
   transferForm.path = props.path ?? ''
-  transferForm.target = props.target ?? ''
+  transferForm.target = props.target ?? null
 })
 
 // 使用SSE监听加载进度
@@ -158,8 +167,21 @@ async function loadSystemSettings() {
   }
 }
 
+// 查询媒体库目录
+async function loadLibraryDirectories() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/LibraryDirectories')
+    if (result.success && result.data?.value) {
+      libraryDirectories.value = result.data.value
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   loadSystemSettings()
+  loadLibraryDirectories()
 })
 </script>
 
@@ -175,11 +197,12 @@ onMounted(() => {
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol cols="12" md="8">
-              <VTextField
+              <VCombobox
                 v-model="transferForm.target"
+                :items="targetDirectories"
                 label="目的路径"
                 placeholder="留空自动"
-                hint="留空将自动整理到媒体库目录"
+                hint="留空将自动匹配目标路径"
               />
             </VCol>
             <VCol cols="12" md="4">
