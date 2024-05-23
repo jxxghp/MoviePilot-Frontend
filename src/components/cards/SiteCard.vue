@@ -167,6 +167,12 @@ watch(resourceDialog, value => {
   if (!value) getSiteStats()
 })
 
+// 保存站点
+function saveSite() {
+  siteEditDialog.value = false
+  emit('update')
+}
+
 // 装载时查询站点图标
 onMounted(() => {
   getSiteIcon()
@@ -175,150 +181,142 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard
-    :height="cardProps.height"
-    :width="cardProps.width"
-    :variant="cardProps.site?.is_active ? 'elevated' : 'outlined'"
-    class="overflow-hidden"
-    @click="siteEditDialog = true"
-  >
-    <template #image>
-      <VAvatar class="absolute right-2 bottom-2 rounded" variant="flat" rounded="0">
-        <VImg :src="siteIcon" />
-      </VAvatar>
-    </template>
-
-    <VCardItem>
-      <VCardTitle class="font-bold">
-        <span @click.stop="openSitePage">{{ cardProps.site?.name }}</span>
-      </VCardTitle>
-      <VCardSubtitle>
-        <span @click.stop="openSitePage">{{ cardProps.site?.url }}</span>
-      </VCardSubtitle>
-    </VCardItem>
-
-    <StatIcon v-if="cardProps.site?.is_active" :color="statColor" />
-
-    <VCardText class="py-2">
-      <VTooltip v-if="cardProps.site?.render === 1" text="浏览器仿真">
-        <template #activator="{ props }">
-          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-apple-safari" />
-        </template>
-      </VTooltip>
-
-      <VTooltip v-if="cardProps.site?.proxy === 1" text="代理">
-        <template #activator="{ props }">
-          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-network-outline" />
-        </template>
-      </VTooltip>
-
-      <VTooltip v-if="cardProps.site?.limit_interval" text="流控">
-        <template #activator="{ props }">
-          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
-        </template>
-      </VTooltip>
-
-      <VTooltip v-if="cardProps.site?.filter" text="过滤">
-        <template #activator="{ props }">
-          <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-filter-cog-outline" />
-        </template>
-      </VTooltip>
-    </VCardText>
-
-    <VDivider />
-
-    <VCardActions>
-      <VBtn v-if="!cardProps.site?.public" :disabled="updateButtonDisable" @click.stop="handleSiteUpdate">
-        <template #prepend>
-          <VIcon icon="mdi-refresh" />
-        </template>
-        更新
-      </VBtn>
-      <VBtn :disabled="testButtonDisable" @click.stop="testSite">
-        <template #prepend>
-          <VIcon icon="mdi-link" />
-        </template>
-        {{ testButtonText }}
-      </VBtn>
-      <VBtn @click.stop="handleResourceBrowse">
-        <template #prepend>
-          <VIcon icon="mdi-web" />
-        </template>
-        浏览
-      </VBtn>
-    </VCardActions>
-  </VCard>
-  <!-- 更新站点Cookie & UA弹窗 -->
-  <VDialog v-model="siteCookieDialog" max-width="50rem">
-    <!-- Dialog Content -->
-    <VCard title="更新站点Cookie & UA">
-      <DialogCloseBtn @click="siteCookieDialog = false" />
-      <VCardText>
-        <VForm @submit.prevent="() => {}">
-          <VRow>
-            <VCol cols="12" md="4">
-              <VTextField v-model="userPwForm.username" label="用户名" :rules="[requiredValidator]" />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VTextField
-                v-model="userPwForm.password"
-                label="密码"
-                :type="isPasswordVisible ? 'text' : 'password'"
-                :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-                :rules="[requiredValidator]"
-                @click:append-inner="isPasswordVisible = !isPasswordVisible"
-                @keydown.enter="updateSiteCookie"
-              />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VTextField v-model="userPwForm.code" label="两步验证" />
-            </VCol>
-          </VRow>
-        </VForm>
+  <div>
+    <VCard
+      :height="cardProps.height"
+      :width="cardProps.width"
+      :variant="cardProps.site?.is_active ? 'elevated' : 'outlined'"
+      class="overflow-hidden"
+      @click="siteEditDialog = true"
+    >
+      <template #image>
+        <VAvatar class="absolute right-2 bottom-2 rounded" variant="flat" rounded="0">
+          <VImg :src="siteIcon" />
+        </VAvatar>
+      </template>
+      <VCardItem>
+        <VCardTitle class="font-bold">
+          <span @click.stop="openSitePage">{{ cardProps.site?.name }}</span>
+        </VCardTitle>
+        <VCardSubtitle>
+          <span @click.stop="openSitePage">{{ cardProps.site?.url }}</span>
+        </VCardSubtitle>
+      </VCardItem>
+      <VCardText class="py-2">
+        <VTooltip v-if="cardProps.site?.render === 1" text="浏览器仿真">
+          <template #activator="{ props }">
+            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-apple-safari" />
+          </template>
+        </VTooltip>
+        <VTooltip v-if="cardProps.site?.proxy === 1" text="代理">
+          <template #activator="{ props }">
+            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-network-outline" />
+          </template>
+        </VTooltip>
+        <VTooltip v-if="cardProps.site?.limit_interval" text="流控">
+          <template #activator="{ props }">
+            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
+          </template>
+        </VTooltip>
+        <VTooltip v-if="cardProps.site?.filter" text="过滤">
+          <template #activator="{ props }">
+            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-filter-cog-outline" />
+          </template>
+        </VTooltip>
       </VCardText>
-
-      <VCardActions>
-        <VSpacer />
-        <VBtn variant="elevated" @click="updateSiteCookie" prepend-icon="mdi-refresh" class="px-5"> 开始更新 </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
-  <SiteAddEditDialog
-    v-if="siteEditDialog"
-    v-model="siteEditDialog"
-    :siteid="cardProps.site?.id"
-    @save="
-      () => {
-        siteEditDialog = false
-        emit('update')
-      }
-    "
-    @remove="emit('remove')"
-    @close="siteEditDialog = false"
-  />
-  <!-- 站点资源弹窗 -->
-  <VDialog
-    v-if="resourceDialog"
-    v-model="resourceDialog"
-    max-width="80rem"
-    scrollable
-    z-index="1010"
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <!-- Dialog Content -->
-    <VCard :title="`浏览站点 - ${cardProps.site?.name}`">
-      <DialogCloseBtn @click="resourceDialog = false" />
       <VDivider />
-      <VCardText class="pt-2">
-        <SiteTorrentTable :site="cardProps.site?.id" />
-      </VCardText>
+      <VCardActions>
+        <VBtn v-if="!cardProps.site?.public" :disabled="updateButtonDisable" @click.stop="handleSiteUpdate">
+          <template #prepend>
+            <VIcon icon="mdi-refresh" />
+          </template>
+          更新
+        </VBtn>
+        <VBtn :disabled="testButtonDisable" @click.stop="testSite">
+          <template #prepend>
+            <VIcon icon="mdi-link" />
+          </template>
+          {{ testButtonText }}
+        </VBtn>
+        <VBtn @click.stop="handleResourceBrowse">
+          <template #prepend>
+            <VIcon icon="mdi-web" />
+          </template>
+          浏览
+        </VBtn>
+      </VCardActions>
+      <StatIcon v-if="cardProps.site?.is_active" :color="statColor" />
+      <span class="absolute top-1 right-8">
+        <VIcon class="cursor-move">mdi-drag</VIcon>
+      </span>
     </VCard>
-  </VDialog>
-  <!-- 进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
+    <!-- 更新站点Cookie & UA弹窗 -->
+    <VDialog v-model="siteCookieDialog" max-width="50rem">
+      <!-- Dialog Content -->
+      <VCard title="更新站点Cookie & UA">
+        <DialogCloseBtn @click="siteCookieDialog = false" />
+        <VCardText>
+          <VForm @submit.prevent="() => {}">
+            <VRow>
+              <VCol cols="12" md="4">
+                <VTextField v-model="userPwForm.username" label="用户名" :rules="[requiredValidator]" />
+              </VCol>
+              <VCol cols="12" md="4">
+                <VTextField
+                  v-model="userPwForm.password"
+                  label="密码"
+                  :type="isPasswordVisible ? 'text' : 'password'"
+                  :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                  :rules="[requiredValidator]"
+                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
+                  @keydown.enter="updateSiteCookie"
+                />
+              </VCol>
+              <VCol cols="12" md="4">
+                <VTextField v-model="userPwForm.code" label="两步验证" />
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+
+        <VCardActions>
+          <VSpacer />
+          <VBtn variant="elevated" @click="updateSiteCookie" prepend-icon="mdi-refresh" class="px-5"> 开始更新 </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+    <!-- 站点编辑弹窗 -->
+    <SiteAddEditDialog
+      v-if="siteEditDialog"
+      v-model="siteEditDialog"
+      :siteid="cardProps.site?.id"
+      @save="saveSite"
+      @remove="emit('remove')"
+      @close="siteEditDialog = false"
+    />
+    <!-- 站点资源弹窗 -->
+    <VDialog
+      v-if="resourceDialog"
+      v-model="resourceDialog"
+      max-width="80rem"
+      scrollable
+      z-index="1010"
+      :fullscreen="!display.mdAndUp.value"
+    >
+      <VCard :title="`浏览站点 - ${cardProps.site?.name}`">
+        <DialogCloseBtn @click="resourceDialog = false" />
+        <VDivider />
+        <VCardText class="pt-2">
+          <SiteTorrentTable :site="cardProps.site?.id" />
+        </VCardText>
+      </VCard>
+    </VDialog>
+    <!-- 进度框 -->
+    <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
+  </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .v-table th {
   white-space: nowrap;
 }

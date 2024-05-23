@@ -93,10 +93,3 @@ onUnmounted(() => {
     />
   </PullRefresh>
 </template>
-
-<style lang="scss">
-.grid-downloading-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  padding-block-end: 1rem;
-}
-</style>

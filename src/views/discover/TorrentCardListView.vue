@@ -233,8 +233,5 @@ watchEffect(() => {
 </template>
 
 <style lang="scss">
-.grid-torrent-card {
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  padding-block-end: 1rem;
-}
+
 </style>

@@ -48,7 +48,7 @@ const statusItems = [
 
 // 生成1到50的优先级下拉框选项
 const priorityItems = ref(
-  Array.from({ length: 50 }, (_, i) => i + 1).map(item => ({
+  Array.from({ length: 100 }, (_, i) => i + 1).map(item => ({
     title: item,
     value: item,
   })),

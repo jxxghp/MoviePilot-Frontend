@@ -123,10 +123,3 @@ const filteredDataList = computed(() => {
     "
   />
 </template>
-
-<style lang="scss">
-.grid-subscribe-card {
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  padding-block-end: 1rem;
-}
-</style>

@@ -310,9 +310,3 @@ onMounted(() => {
     </VCol>
   </VRow>
 </template>
-<style lang="scss">
-.grid-directory-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  padding-block-end: 1rem;
-}
-</style>

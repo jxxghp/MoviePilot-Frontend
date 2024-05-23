@@ -550,10 +550,3 @@ onMounted(() => {
     <ImportCodeDialog v-model="importCodeString" title="导入优先级规则" @close="importCodeDialog = false" />
   </VDialog>
 </template>
-
-<style lang="scss">
-.grid-filterrule-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  padding-block-end: 1rem;
-}
-</style>

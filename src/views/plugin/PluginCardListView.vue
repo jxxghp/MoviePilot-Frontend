@@ -516,14 +516,3 @@ onBeforeMount(async () => {
     </VCard>
   </VDialog>
 </template>
-
-<style lang="scss">
-.grid-plugin-card {
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  padding-block-end: 1rem;
-}
-
-.v-tabs:not(.v-tabs-pill).v-tabs--horizontal {
-  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-</style>

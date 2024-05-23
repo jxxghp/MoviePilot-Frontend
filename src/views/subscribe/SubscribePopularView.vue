@@ -129,13 +129,3 @@ async function fetchData({ done }: { done: any }) {
     />
   </VInfiniteScroll>
 </template>
-
-<style lang="scss">
-.grid-media-card {
-  grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
-}
-
-.v-tabs:not(.v-tabs-pill).v-tabs--horizontal {
-  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-</style>

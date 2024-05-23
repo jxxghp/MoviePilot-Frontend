@@ -125,7 +125,5 @@ async function fetchData({ done }: { done: any }) {
 </template>
 
 <style lang="scss">
-.grid-media-card {
-  grid-template-columns: repeat(auto-fill, minmax(9.375rem, 1fr));
-}
+
 </style>

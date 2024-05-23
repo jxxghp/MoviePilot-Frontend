@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import draggable from 'vuedraggable'
 import api from '@/api'
 import type { Site } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
@@ -24,16 +25,40 @@ async function fetchData() {
   }
 }
 
+// 保存站点排序
+async function savaSitesPriority() {
+  // 重新排序
+  const priorities = dataList.value.map((site, index) => ({ id: site.id, pri: index + 1 }))
+  try {
+    const result: { [key: string]: any } = await api.post('site/priorities', priorities)
+    if (result.success) {
+      fetchData()
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 // 加载时获取数据
 onBeforeMount(fetchData)
 </script>
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <div v-if="dataList.length > 0" class="grid gap-3 grid-site-card">
-    <div v-for="(data, index) in dataList" :key="index">
-      <SiteCard :key="data.id" :site="data" @remove="fetchData" @update="fetchData" />
-    </div>
+  <div>
+    <draggable
+      v-if="dataList.length > 0"
+      v-model="dataList"
+      @end="savaSitesPriority"
+      handle=".cursor-move"
+      item-key="id"
+      tag="div"
+      :component-data="{ 'class': 'grid gap-3 grid-site-card' }"
+    >
+      <template #item="{ element }">
+        <SiteCard :site="element" @remove="fetchData" @update="fetchData" />
+      </template>
+    </draggable>
   </div>
   <NoDataFound
     v-if="dataList.length === 0 && isRefreshed"
@@ -57,10 +82,3 @@ onBeforeMount(fetchData)
     @close="siteAddDialog = false"
   />
 </template>
-
-<style lang="scss">
-.grid-site-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  padding-block-end: 1rem;
-}
-</style>

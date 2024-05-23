@@ -38,10 +38,3 @@ onMounted(() => {
     </template>
   </VHover>
 </template>
-
-<style lang="scss">
-.grid-backdrop-card {
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  padding-block-end: 1rem;
-}
-</style>
