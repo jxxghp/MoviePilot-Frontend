@@ -464,6 +464,8 @@ export interface DashboardItem {
   id: string
   // 名称
   name: string
+  // 插件的仪表板key
+  key: string
   // 全局配置
   attrs: { [key: string]: any }
   // col列数

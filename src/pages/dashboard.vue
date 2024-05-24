@@ -24,13 +24,14 @@ const enableConfig = ref<{ [key: string]: boolean }>({
 })
 
 // 仪表板顺序配置
-const orderConfig = ref<{ id: string }[]>([])
+const orderConfig = ref<{ id: string, key: string }[]>([])
 
 // 仪表板配置
 const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'storage',
     name: '存储空间',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 4 },
     elements: [],
@@ -38,6 +39,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'mediaStatistic',
     name: '媒体统计',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 8 },
     elements: [],
@@ -45,6 +47,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'weeklyOverview',
     name: '最近入库',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 4 },
     elements: [],
@@ -52,6 +55,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'speed',
     name: '实时速率',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 4 },
     elements: [],
@@ -59,6 +63,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'scheduler',
     name: '后台任务',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 4 },
     elements: [],
@@ -66,6 +71,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'cpu',
     name: 'CPU',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 6 },
     elements: [],
@@ -73,6 +79,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'memory',
     name: '内存',
+    key: "",
     attrs: {},
     cols: { cols: 12, md: 6 },
     elements: [],
@@ -80,6 +87,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'library',
     name: '我的媒体库',
+    key: "",
     attrs: {},
     cols: { cols: 12 },
     elements: [],
@@ -87,6 +95,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'playing',
     name: '继续观看',
+    key: "",
     attrs: {},
     cols: { cols: 12 },
     elements: [],
@@ -94,14 +103,15 @@ const dashboardConfigs = ref<DashboardItem[]>([
   {
     id: 'latest',
     name: '最近添加',
+    key: "",
     attrs: {},
     cols: { cols: 12 },
     elements: [],
   },
 ])
 
-// 有仪表板的插件
-const dashboardPlugins = ref<any[]>([])
+// 插件的仪表板元信息
+const pluginDashboardMeta = ref<any[]>([])
 
 // 插件仪表板的刷新状态
 const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
@@ -142,8 +152,8 @@ async function loadDashboardConfig() {
 // 按order的顺序对dashboardConfigs进行排序
 function sortDashboardConfigs() {
   dashboardConfigs.value.sort((a, b) => {
-    const aIndex = orderConfig.value.findIndex((item: { id: string }) => item.id === a.id)
-    const bIndex = orderConfig.value.findIndex((item: { id: string }) => item.id === b.id)
+    const aIndex = orderConfig.value.findIndex((item: { id: string, key: string }) => item.id === a.id && item.key === a.key)
+    const bIndex = orderConfig.value.findIndex((item: { id: string, key: string }) => item.id === b.id && item.key === b.key)
     return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
   })
 }
@@ -154,7 +164,7 @@ function saveDashboardConfig() {
   const data = JSON.stringify(enableConfig.value)
   localStorage.setItem('MP_DASHBOARD', data)
   // 顺序配置，从dashboardConfigs中提取
-  const order = JSON.stringify(dashboardConfigs.value.map(item => ({ id: item.id })))
+  const order = JSON.stringify(dashboardConfigs.value.map(item => ({ id: item.id, key: item.key })))
   localStorage.setItem('MP_DASHBOARD_ORDER', order)
   // 保存到服务端
   try {
@@ -172,22 +182,29 @@ function saveDashboardConfig() {
     console.error(error)
   }
   // 保存后重新获取插件仪表板
-  getDashboardPlugins()
+  getPluginDashboardMeta()
   dialog.value = false
 }
 
-// 调用API获取有仪表板的插件
-async function getDashboardPlugins() {
-  // 只有超级用户才能获取插件仪表板
+// 构造插件仪表板主ID
+function buildPluginDashboardId(plugin_id: string, key: string) {
+  if (!key) return plugin_id
+  return plugin_id + ':' + key
+}
+
+// 调用API获取所有插件的仪表板元信息
+async function getPluginDashboardMeta() {
+  // 只有超级用户才能获取
   if (!superUser) return
+  pluginDashboardMeta.value = await api.get('/plugin/dashboard/meta')
   try {
-    dashboardPlugins.value = await api.get('/plugin/dashboards')
-    if (!isNullOrEmptyObject(dashboardPlugins.value)) {
+    if (!isNullOrEmptyObject(pluginDashboardMeta.value)) {
       // 下载插件仪表板配置
-      dashboardPlugins.value.forEach(async (plugin: { id: string }) => {
+      pluginDashboardMeta.value.forEach(async (pluginDashboard: { id: string, key: string }) => {
+        const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
         // 初始化插件仪表板的刷新状态
-        pluginDashboardRefreshStatus.value[plugin.id] = true
-        await getPluginDashboard(plugin.id)
+        pluginDashboardRefreshStatus.value[pluginDashboardId] = true
+        await getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
       })
     }
   } catch (error) {
@@ -196,12 +213,16 @@ async function getDashboardPlugins() {
 }
 
 // 获取一个插件的仪表板配置项
-async function getPluginDashboard(id: string) {
+async function getPluginDashboard(id: string, key: string) {
   try {
-    api.get(`/plugin/dashboard/${id}`).then((res: any) => {
+    const url = key ? `/plugin/dashboard/${id}/${key}` : `/plugin/dashboard/${id}`
+    api.get(url).then((res: any) => {
       if (res) {
+        // 名称替换为元信息的名称
+        const meta = pluginDashboardMeta.value.find((item: { id: string, key: string }) => item.id === id && item.key === key)
+        if (meta) res.name = meta.name
         // 保存到仪表板配置中，如果已经存在则替换
-        const index = dashboardConfigs.value.findIndex((item: { id: string }) => item.id === id)
+        const index = dashboardConfigs.value.findIndex((item: { id: string, key: string }) => item.id === id && item.key === key)
         if (index !== -1) {
           dashboardConfigs.value[index] = res
         } else {
@@ -209,10 +230,11 @@ async function getPluginDashboard(id: string) {
           // 排序
           sortDashboardConfigs()
         }
+        const pluginDashboardId = buildPluginDashboardId(id, key)
         // 定时刷新
-        if (res.attrs?.refresh && pluginDashboardRefreshStatus.value[id] && enableConfig.value[id]) {
+        if (res.attrs?.refresh && pluginDashboardRefreshStatus.value[pluginDashboardId] && enableConfig.value[pluginDashboardId]) {
           setTimeout(() => {
-            getPluginDashboard(id)
+            getPluginDashboard(id, key)
           }, res.attrs.refresh * 1000)
         }
       }
@@ -230,7 +252,7 @@ function dragOrderEnd() {
 
 onBeforeMount(async () => {
   await loadDashboardConfig()
-  getDashboardPlugins()
+  getPluginDashboardMeta()
 })
 </script>
 
@@ -245,8 +267,8 @@ onBeforeMount(async () => {
     :component-data="{ 'class': 'match-height' }"
   >
     <template #item="{ element }">
-      <VCol v-if="enableConfig[element.id] && element.cols" v-bind:="element.cols">
-        <DashboardElement :config="element" v-model:refreshStatus="pluginDashboardRefreshStatus[element.id]" />
+      <VCol v-if="enableConfig[buildPluginDashboardId(element.id, element.key)] && element.cols" v-bind:="element.cols">
+        <DashboardElement :config="element" v-model:refreshStatus="pluginDashboardRefreshStatus[buildPluginDashboardId(element.id, element.key)]" />
       </VCol>
     </template>
   </draggable>
@@ -263,8 +285,8 @@ onBeforeMount(async () => {
       <VDivider />
       <VCardText>
         <VRow>
-          <VCol v-for="item in dashboardConfigs" :key="item.id" cols="6" md="4" sm="4">
-            <VCheckbox v-model="enableConfig[item.id]" :label="item.attrs?.title ?? item.name" />
+          <VCol v-for="item in dashboardConfigs" :key="buildPluginDashboardId(item.id, item.key)" cols="6" md="4" sm="4">
+            <VCheckbox v-model="enableConfig[buildPluginDashboardId(item.id, item.key)]" :label="item.attrs?.title ?? item.name" />
           </VCol>
         </VRow>
       </VCardText>
