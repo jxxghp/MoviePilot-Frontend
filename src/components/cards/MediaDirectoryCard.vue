@@ -22,7 +22,6 @@ const typeItems = [
   { title: '全部', value: '' },
   { title: '电影', value: '电影' },
   { title: '电视剧', value: '电视剧' },
-  { title: '动漫', value: '动漫' },
 ]
 
 // 定义触发的自定义事件
