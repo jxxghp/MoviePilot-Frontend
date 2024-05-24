@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toast-notification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
-import type { Site, Subscribe } from '@/api/types'
+import type { MediaDirectory, Site, Subscribe } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useConfirm } from 'vuetify-use-dialog'
 
@@ -24,6 +24,9 @@ const emit = defineEmits(['remove', 'save', 'close'])
 
 // 站点数据列表
 const siteList = ref<Site[]>([])
+
+// 下载目录列表
+const downloadDirectories = ref<MediaDirectory[]>([])
 
 // 站点选择下载框
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
@@ -167,6 +170,23 @@ async function removeSubscribe() {
   }
 }
 
+// 查询下载目录
+async function loadDownloadDirectories() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/DownloadDirectories')
+    if (result.success && result.data?.value) {
+      downloadDirectories.value = result.data.value
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 保存目录下拉框
+const targetDirectories = computed(() => {
+  return downloadDirectories.value.map(item => item.path)
+})
+
 // 质量选择框数据
 const qualityOptions = ref([
   {
@@ -252,9 +272,9 @@ const effectOptions = ref([
 ])
 
 onMounted(() => {
+  loadDownloadDirectories()
   getSiteList()
   if (props.subid) getSubscribeInfo()
-
   if (props.default) queryDefaultSubscribeConfig()
 })
 </script>
@@ -338,8 +358,9 @@ onMounted(() => {
           </VRow>
           <VRow>
             <VCol cols="12">
-              <VTextField
+              <VCombobox
                 v-model="subscribeForm.save_path"
+                :items="targetDirectories"
                 label="保存路径"
                 hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
               />
