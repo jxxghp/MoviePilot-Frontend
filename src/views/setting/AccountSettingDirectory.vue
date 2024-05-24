@@ -11,6 +11,7 @@ import MediaDirectoryCard from '@/components/cards/MediaDirectoryCard.vue'
 const transferSettings = ref({
   TRANSFER_TYPE: 'copy',
   OVERWRITE_MODE: 'size',
+  TRANSFER_SAME_DISK: true,
 })
 
 // 转移方式字典
@@ -48,10 +49,11 @@ async function loadTransferSettings() {
   try {
     const result: { [key: string]: any } = await api.get('system/env')
     if (result.success) {
-      const { TRANSFER_TYPE, OVERWRITE_MODE } = result.data
+      const { TRANSFER_TYPE, OVERWRITE_MODE, TRANSFER_SAME_DISK } = result.data
       transferSettings.value = {
         TRANSFER_TYPE,
         OVERWRITE_MODE,
+        TRANSFER_SAME_DISK,
       }
     }
   } catch (error) {
@@ -294,6 +296,13 @@ onMounted(() => {
                   :items="overwriteModeItems"
                   label="覆盖模式"
                   hint="从不覆盖：不覆盖已存在的文件；按大小覆盖：大文件将覆盖小文件；总是覆盖：总是覆盖已存在的文件；仅保留最新版本：保留最新版本的文件，删除其它版本的文件"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="transferSettings.TRANSFER_SAME_DISK"
+                  label="同盘/同根目录优先"
+                  hint="开启后优先整理到与下载目录同一磁盘/同一根路径的媒体库目录中"
                 />
               </VCol>
             </VRow>
