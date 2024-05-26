@@ -184,7 +184,9 @@ async function loadDownloadDirectories() {
 
 // 保存目录下拉框
 const targetDirectories = computed(() => {
-  return downloadDirectories.value.map(item => item.path)
+  // 去重后的下载目录
+  const directories = downloadDirectories.value.map(item => item.path)
+  return [...new Set(directories)]
 })
 
 // 质量选择框数据

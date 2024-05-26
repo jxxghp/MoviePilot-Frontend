@@ -73,7 +73,8 @@ const libraryDirectories = ref<MediaDirectory[]>([])
 
 // 目的目录下拉框
 const targetDirectories = computed(() => {
-  return libraryDirectories.value.map(item => item.path)
+  const directories = libraryDirectories.value.map(item => item.path)
+  return [...new Set(directories)]
 })
 
 watchEffect(() => {
