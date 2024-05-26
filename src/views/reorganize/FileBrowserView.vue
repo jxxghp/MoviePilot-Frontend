@@ -38,32 +38,36 @@ const downloadDirectories = ref<MediaDirectory[]>([])
 
 // 计算公共路径
 function findCommonPath(paths: string[]): string {
-  if (!paths || paths.length === 0) return '/'
-  if (paths.length === 1) {
-    if (!paths[0].endsWith('/')) {
-      return paths[0] + '/'
+  let commonPath = '/'
+  if (!paths || paths.length === 0) {
+    commonPath = '/'
+  } else if (paths.length === 1) {
+    commonPath = paths[0]
+    commonPath = commonPath.replace(/\\/g, '/')
+  } else {
+    const normalizedPaths = paths.map(path => path.replace(/\\/g, '/'))
+    const splitPaths = normalizedPaths.map(path => path.split('/'))
+    let commonParts: string[] = []
+    for (let i = 0; i < splitPaths[0].length; i++) {
+      const part = splitPaths[0][i]
+      if (splitPaths.every(pathParts => pathParts[i] === part)) {
+        commonParts.push(part)
+      } else {
+        break
+      }
     }
-    return paths[0]
+    commonPath = commonParts.join('/')
   }
-  const normalizedPaths = paths.map(path => path.replace(/\\/g, '/'))
-  const splitPaths = normalizedPaths.map(path => path.split('/'))
-  let commonParts: string[] = []
-  for (let i = 0; i < splitPaths[0].length; i++) {
-    const part = splitPaths[0][i]
-    if (splitPaths.every(pathParts => pathParts[i] === part)) {
-      commonParts.push(part)
-    } else {
-      break
-    }
-  }
-  let commonPath = commonParts.join('/')
-  if (commonPath.includes(':')) {
-    commonPath = commonPath.replace('/', '\\')
-  }
+
   if (!commonPath.endsWith('/')) {
     commonPath += '/'
   }
-  return commonPath.length > 0 ? commonPath : paths[0][0] === '/' ? '/' : ''
+
+  if (commonPath.includes(':')) {
+    commonPath = commonPath.replace('/', '\\')
+  }
+
+  return commonPath
 }
 
 // 查询下载目录
