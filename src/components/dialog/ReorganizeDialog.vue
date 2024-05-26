@@ -65,7 +65,7 @@ const transferForm = reactive({
   episode_part: '',
   episode_offset: null,
   min_filesize: 0,
-  scrape: true,
+  scrape: false,
 })
 
 // 所有媒体库目录
@@ -77,9 +77,20 @@ const targetDirectories = computed(() => {
   return [...new Set(directories)]
 })
 
+// 监听输入变化
 watchEffect(() => {
   transferForm.path = props.path ?? ''
   transferForm.target = props.target ?? null
+})
+
+// 监听目的路径变化，自动查询目录的刮削配置
+watch(transferForm, async () => {
+  if (transferForm.target) {
+    const directory = libraryDirectories.value.find(item => item.path === transferForm.target)
+    if (directory) {
+      transferForm.scrape = directory.scrape ?? false
+    }
+  }
 })
 
 // 使用SSE监听加载进度
