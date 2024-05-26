@@ -38,8 +38,13 @@ const downloadDirectories = ref<MediaDirectory[]>([])
 
 // 计算公共路径
 function findCommonPath(paths: string[]): string {
-  if (!paths || paths.length === 0) return ''
-  if (paths.length === 1) return paths[0]
+  if (!paths || paths.length === 0) return '/'
+  if (paths.length === 1) {
+    if (!paths[0].endsWith('/')) {
+      return paths[0] + '/'
+    }
+    return paths[0]
+  }
   const normalizedPaths = paths.map(path => path.replace(/\\/g, '/'))
   const splitPaths = normalizedPaths.map(path => path.split('/'))
   let commonParts: string[] = []
