@@ -36,35 +36,17 @@ const path: Ref<string | undefined> = ref()
 // 下载目录列表
 const downloadDirectories = ref<MediaDirectory[]>([])
 
-// 计算公共路径
-function findCommonPath(paths: string[]): string {
-  if (!paths || paths.length === 0) return ''
-  if (paths.length === 1) return paths[0]
-  const normalizedPaths = paths.map(path => path.replace(/\\/g, '/'))
-  const splitPaths = normalizedPaths.map(path => path.split('/'))
-  let commonParts: string[] = []
-  for (let i = 0; i < splitPaths[0].length; i++) {
-    const part = splitPaths[0][i]
-    if (splitPaths.every(pathParts => pathParts[i] === part)) {
-      commonParts.push(part)
-    } else {
-      break
-    }
-  }
-  let commonPath = commonParts.join('/')
-  if (commonPath.includes(':')) {
-    commonPath = commonPath.replace('/', '\\')
-  }
-  return commonPath.length > 0 ? commonPath : paths[0][0] === '/' ? '/' : ''
-}
-
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/DownloadDirectories')
     if (result.success && result.data?.value) {
       downloadDirectories.value = result.data.value
-      path.value = findCommonPath(downloadDirectories.value.map(item => item.path) as string[])
+      if (downloadDirectories.value.length > 0) {
+        path.value = downloadDirectories.value[downloadDirectories.value.length - 1].path
+      } else {
+        path.value = '/'
+      }
     }
   } catch (error) {
     console.log(error)
