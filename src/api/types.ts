@@ -718,12 +718,6 @@ export interface NotificationSwitch {
   vocechat: boolean
 }
 
-// 环境设置
-export interface Setting {
-  // 下载目录
-  DOWNLOAD_PATH: string
-}
-
 // 文件浏览接口
 export interface EndPoints {
   // 文件列表

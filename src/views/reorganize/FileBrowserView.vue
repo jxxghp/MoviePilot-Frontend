@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
+import { MediaDirectory } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
@@ -29,42 +30,53 @@ const endpoints = {
   },
 }
 
-// 读取下载目录
+// 当前目录
 const path: Ref<string | undefined> = ref()
 
-// 调用API，加载当前系统环境设置
-function loadSystemSettings(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    api
-      .get('system/env')
-      .then((result: any) => {
-        let path = '/'
-        if (result.success)
-          path = result.data?.DOWNLOAD_PATH || '/'
+// 下载目录列表
+const downloadDirectories = ref<MediaDirectory[]>([])
 
-        if (!path.endsWith('/'))
-          path += '/'
-
-        resolve(path)
-      })
-      .catch(error => reject(error))
-  })
+// 计算公共路径
+function findCommonPath(paths: string[]): string {
+  if (!paths || paths.length === 0) return ''
+  if (paths.length === 1) return paths[0]
+  const normalizedPaths = paths.map(path => path.replace(/\\/g, '/'))
+  const splitPaths = normalizedPaths.map(path => path.split('/'))
+  let commonParts: string[] = []
+  for (let i = 0; i < splitPaths[0].length; i++) {
+    const part = splitPaths[0][i]
+    if (splitPaths.every(pathParts => pathParts[i] === part)) {
+      commonParts.push(part)
+    } else {
+      break
+    }
+  }
+  let commonPath = commonParts.join('/')
+  if (commonPath.includes(':')) {
+    commonPath = commonPath.replace('/', '\\')
+  }
+  return commonPath.length > 0 ? commonPath : paths[0][0] === '/' ? '/' : ''
 }
 
+// 查询下载目录
+async function loadDownloadDirectories() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/DownloadDirectories')
+    if (result.success && result.data?.value) {
+      downloadDirectories.value = result.data.value
+      path.value = findCommonPath(downloadDirectories.value.map(item => item.path) as string[])
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 目录变化
 function pathChanged(_path: string) {
   path.value = _path
 }
 
-onMounted(() => {
-  loadSystemSettings()
-    .then((res) => {
-      path.value = res
-    })
-    .catch((error) => {
-      console.error(error)
-      path.value = '/'
-    })
-})
+onBeforeMount(loadDownloadDirectories)
 </script>
 
 <template>
