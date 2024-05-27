@@ -339,6 +339,7 @@ onMounted(fetchData)
       show-select
       loading-text="加载中..."
       class="data-table-div"
+      hover
     >
       <template #item.title="{ item }">
         <div class="d-flex align-center">
