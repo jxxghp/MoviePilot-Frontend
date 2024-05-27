@@ -71,8 +71,8 @@ function initOptions(data: Context) {
 // 对季过滤选项进行排序
 const sortSeasonFilterOptions = computed(() => {
   return seasonFilterOptions.value.sort((a, b) => {
-    // 按字符串升序排序
-    return a.localeCompare(b, 'zh-Hans-CN', { sensitivity: 'accent' })
+    // 按字符串降序排序
+    return b.localeCompare(a)
   })
 })
 
@@ -105,9 +105,9 @@ let defer = (_: number) => true
 watchEffect(() => {
   // 清空列表
   dataList.value = []
-  // 匹配过滤函数
-  const match = (filter: Array<string>, value: string | undefined) =>
-    filter.length === 0 || (value && filter.includes(value))
+  // 匹配过滤函数，filter中有任一值包含value则返回true
+  const match = (filter: Array<string>, value: string | undefined): boolean =>
+    filter.length === 0 || filter.includes(value ?? '') || filter.some(v => value?.includes(v) ?? false)
 
   groupedDataList.value?.forEach(value => {
     if (value.length > 0) {
@@ -231,7 +231,3 @@ watchEffect(() => {
     </div>
   </div>
 </template>
-
-<style lang="scss">
-
-</style>
