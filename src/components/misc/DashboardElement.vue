@@ -42,7 +42,19 @@ onUnmounted(() => {
   <!-- 插件仪表板 -->
   <VHover v-else-if="!isNullOrEmptyObject(props.config)">
     <template #default="hover">
-      <VCard v-bind="hover.props">
+      <!-- 无边框 -->
+      <div v-if="props.config?.attrs.border === false">
+        <VCard v-bind="hover.props">
+          <VCardText class="p-0">
+            <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
+          </VCardText>
+          <div v-if="hover.isHovering" class="absolute right-5 top-5">
+            <VIcon class="cursor-move">mdi-drag</VIcon>
+          </div>
+        </VCard>
+      </div>
+      <!-- 有边框 -->
+      <VCard v-else v-bind="hover.props">
         <VCardItem v-if="props.config?.attrs.border !== false">
           <template #append>
             <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
@@ -52,12 +64,9 @@ onUnmounted(() => {
           </VCardTitle>
           <VCardSubtitle v-if="props.config?.attrs?.subtitle"> {{ props.config?.attrs?.subtitle }}</VCardSubtitle>
         </VCardItem>
-        <VCardText :class="{ 'p-0': props.config?.attrs.border === false }">
+        <VCardText>
           <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
         </VCardText>
-        <div v-if="props.config?.attrs.border === false && hover.isHovering" class="absolute right-5 top-5">
-          <VIcon class="cursor-move">mdi-drag</VIcon>
-        </div>
       </VCard>
     </template>
   </VHover>
