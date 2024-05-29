@@ -158,7 +158,8 @@ async function loadDashboardConfig() {
     }
   }
   // 是否拉升高度
-  isElevated.value = localStorage.getItem('MP_DASHBOARD_ELEVATED') === 'true'
+  const local_elevated = localStorage.getItem('MP_DASHBOARD_ELEVATED')
+  if (local_elevated) isElevated.value = local_elevated === 'true'
   // 排序
   if (orderConfig.value) {
     sortDashboardConfigs()
