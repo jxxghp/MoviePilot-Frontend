@@ -340,7 +340,7 @@ onBeforeMount(async () => {
         </VRow>
         <VRow>
           <VCol cols="12" md="6">
-            <VSwitch v-model="isElevated" label="高度拉升" />
+            <VSwitch v-model="isElevated" label="自适应组件高度" />
           </VCol>
         </VRow>
       </VCardText>
