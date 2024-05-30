@@ -160,7 +160,7 @@ const superUser = store.state.auth.superUser
         :item="{
           title: '设定',
           icon: 'mdi-cog',
-          to: '/setting',
+          to: '/setting/account',
         }"
       />
     </template>

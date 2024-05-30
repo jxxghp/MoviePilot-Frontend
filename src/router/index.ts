@@ -92,7 +92,7 @@ const router = createRouter({
           },
         },
         {
-          path: 'setting',
+          path: 'setting/:tab',
           component: () => import('../pages/setting.vue'),
           meta: {
             requiresAuth: true,
