@@ -5,6 +5,7 @@ import LoggingView from '@/views/system/LoggingView.vue'
 import RuleTestView from '@/views/system/RuleTestView.vue'
 import ModuleTestView from '@/views/system/ModuleTestView.vue'
 import MessageView from '@/views/system/MessageView.vue'
+import PluginPageSelector from '@/views/plugin/PluginPageSelector.vue'
 import store from '@/store'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
@@ -32,6 +33,9 @@ const systemTestDialog = ref(false)
 
 // 消息中心弹窗
 const messageDialog = ref(false)
+
+// 插件数据页选择器弹窗
+const pluginPageSelectorDialog = ref(false)
 
 // 输入消息
 const user_message = ref('')
@@ -82,7 +86,7 @@ onMounted(() => {
   <VMenu
     v-model="appsMenu"
     max-width="600"
-    width="340"
+    width="440"
     max-height="560"
     location="top end"
     origin="top end"
@@ -107,7 +111,7 @@ onMounted(() => {
       </VCardItem>
       <div class="ps ps--active-y">
         <VRow class="ma-0 mt-n1">
-          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon border-e">
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border">
             <VListItem class="pa-4" @click="nameTestDialog = true">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-text-recognition" />
@@ -116,7 +120,7 @@ onMounted(() => {
               <span class="text-sm">名称识别测试</span>
             </VListItem>
           </VCol>
-          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon border-e" @click="() => {}">
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border" @click="() => {}">
             <VListItem class="pa-4" @click="ruleTestDialog = true">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-filter-cog-outline" />
@@ -125,9 +129,7 @@ onMounted(() => {
               <span class="text-sm">优先级规则测试</span>
             </VListItem>
           </VCol>
-        </VRow>
-        <VRow class="ma-0 mt-n1 border-t">
-          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon border-e" @click="() => {}">
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border" @click="() => {}">
             <VListItem class="pa-4" @click="loggingDialog = true">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-file-document-outline" />
@@ -136,7 +138,7 @@ onMounted(() => {
               <span class="text-sm">实时日志</span>
             </VListItem>
           </VCol>
-          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon" @click="() => {}">
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border" @click="() => {}">
             <VListItem class="pa-4" @click="netTestDialog = true">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-network-outline" />
@@ -145,9 +147,7 @@ onMounted(() => {
               <span class="text-sm">网速连通性测试</span>
             </VListItem>
           </VCol>
-        </VRow>
-        <VRow class="ma-0 mt-n1 border-t">
-          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon border-e" @click="() => {}">
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border" @click="() => {}">
             <VListItem class="pa-4" @click="systemTestDialog = true">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-cog-outline" />
@@ -156,13 +156,22 @@ onMounted(() => {
               <span class="text-sm">健康检查</span>
             </VListItem>
           </VCol>
-          <VCol cols="6" class="text-center cursor-pointer pa-0 shortcut-icon border-e" @click="() => {}">
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border" @click="() => {}">
             <VListItem class="pa-4" @click="messageDialog = true">
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-message-outline" />
               </VAvatar>
               <h6 class="text-base font-weight-medium mt-2 mb-0">消息</h6>
               <span class="text-sm">消息中心</span>
+            </VListItem>
+          </VCol>
+          <VCol cols="4" class="text-center cursor-pointer pa-0 shortcut-icon border" @click="() => {}">
+            <VListItem class="pa-4" @click="pluginPageSelectorDialog = true">
+              <VAvatar size="48" variant="tonal">
+                <VIcon icon="mdi-apps" />
+              </VAvatar>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">插件数据</h6>
+              <span class="text-sm">打开插件数据页</span>
             </VListItem>
           </VCol>
         </VRow>
@@ -265,5 +274,14 @@ onMounted(() => {
         </VTextField>
       </VCardItem>
     </VCard>
+  </VDialog>
+  <!--插件数据页选择-->
+  <VDialog
+    v-if="pluginPageSelectorDialog"
+    v-model="pluginPageSelectorDialog"
+    max-width="65rem"
+    height="calc(100% - 15rem)"
+  >
+    <PluginPageSelector></PluginPageSelector>
   </VDialog>
 </template>
