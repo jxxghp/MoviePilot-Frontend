@@ -180,7 +180,7 @@ function sortDashboardConfigs() {
 }
 
 // 设置项目
-function saveDashboardConfig() {
+async function saveDashboardConfig() {
   // 启用配置
   const data = JSON.stringify(enableConfig.value)
   localStorage.setItem('MP_DASHBOARD', data)
@@ -191,12 +191,12 @@ function saveDashboardConfig() {
   localStorage.setItem('MP_DASHBOARD_ELEVATED', isElevated.value.toString())
   // 保存到服务端
   try {
-    api.post('/user/config/Dashboard', data, {
+    await api.post('/user/config/Dashboard', data, {
       headers: {
         'Content-Type': 'application/json',
       },
     })
-    api.post('/user/config/DashboardOrder', order, {
+    await api.post('/user/config/DashboardOrder', order, {
       headers: {
         'Content-Type': 'application/json',
       },
