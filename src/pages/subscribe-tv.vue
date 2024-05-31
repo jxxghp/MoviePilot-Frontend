@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
 import SubscribePopularView from '@/views/subscribe/SubscribePopularView.vue'
+import router from '@/router'
 
 const route = useRoute()
 
@@ -17,13 +18,18 @@ const tabs = [
 ]
 
 // 当前标签
-const activeTab = ref(route.params.tab)
+const activeTab = ref(route.query.tab)
+
+// 跳转tab
+function jumpTab(tab: string) {
+  router.push("/subscribe-tv?tab=" + tab)
+}
 </script>
 
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in tabs" :value="item.tab">
+      <VTab v-for="item in tabs" :value="item.tab" @click="jumpTab(item.tab)">
         <span class="mx-5">{{ item.title }}</span>
       </VTab>
     </VTabs>

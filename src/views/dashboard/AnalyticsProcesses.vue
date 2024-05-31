@@ -10,7 +10,7 @@ const headers = ['进程ID', '进程名称', '运行时间', '内存占用']
 const processList = ref<Process[]>([])
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null
+let refreshTimer: NodeJS.Timeout | null = null
 
 // 调用API加载数据
 async function loadProcessList() {

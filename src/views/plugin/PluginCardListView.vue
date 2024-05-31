@@ -9,6 +9,7 @@ import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useDefer } from '@/@core/utils/dom'
+import router from '@/router'
 
 const route = useRoute()
 
@@ -19,17 +20,17 @@ const display = useDisplay()
 let deferApp = (_: number) => true
 
 // 当前标签
-const activeTab = ref(route.params.tab)
+const activeTab = ref(route.query.tab)
 
 // 标签页
 const tabs = [
   {
     title: '我的插件',
-    tab: 'myplugin',
+    tab: 'installed',
   },
   {
     title: '插件市场',
-    tab: 'pluginmarket',
+    tab: 'market',
   },
 ]
 
@@ -320,6 +321,11 @@ function handleRepoUrl(url: string | undefined) {
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
+// 跳转tab
+function jumpTab(tab: string) {
+  router.push("/plugins?tab=" + tab)
+}
+
 // 加载时获取数据
 onBeforeMount(async () => {
   await refreshData()
@@ -330,14 +336,14 @@ onBeforeMount(async () => {
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in tabs" :value="item.tab">
+      <VTab v-for="item in tabs" :value="item.tab" @click="jumpTab(item.tab)">
         <span class="mx-5">{{ item.title }}</span>
       </VTab>
     </VTabs>
 
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
       <!-- 我的插件 -->
-      <VWindowItem value="myplugin">
+      <VWindowItem value="installed">
         <transition name="fade-slide" appear>
           <div>
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
@@ -363,7 +369,7 @@ onBeforeMount(async () => {
         </transition>
       </VWindowItem>
       <!-- 插件市场 -->
-      <VWindowItem value="pluginmarket">
+      <VWindowItem value="market">
         <transition name="fade-slide" appear>
           <div>
             <LoadingBanner v-if="!isAppMarketLoaded" class="mt-12" />

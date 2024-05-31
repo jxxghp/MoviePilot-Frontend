@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useRoute } from 'vue-router'
+import router from '@/router'
 import AccountSettingAccount from '@/views/setting/AccountSettingAccount.vue'
 import AccountSettingNotification from '@/views/setting/AccountSettingNotification.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
@@ -13,7 +14,7 @@ import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue
 
 const route = useRoute()
 
-const activeTab = ref(route.params.tab)
+const activeTab = ref(route.query.tab)
 
 // tabs
 const tabs = [
@@ -68,12 +69,17 @@ const tabs = [
     tab: 'about',
   },
 ]
+
+// 跳转tab
+function jumpTab(tab: string) {
+  router.push("/setting?tab=" + tab)
+}
 </script>
 
 <template>
   <div>
     <VTabs v-model="activeTab" show-arrows class="v-tabs-pill">
-      <VTab v-for="item in tabs" :key="item.icon" :value="item.tab" :to="'/setting/' + item.tab">
+      <VTab v-for="item in tabs" :key="item.icon" :value="item.tab" @click="jumpTab(item.tab)" selected-class="v-slide-group-item--active v-tab--selected">
         <VIcon size="20" start :icon="item.icon" />
         {{ item.title }}
       </VTab>

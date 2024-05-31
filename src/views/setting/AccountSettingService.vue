@@ -10,7 +10,7 @@ const $toast = useToast()
 const schedulerList = ref<ScheduleInfo[]>([])
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null
+let refreshTimer: NodeJS.Timeout | null = null
 
 // 调用API加载定时服务列表
 async function loadSchedulerList() {

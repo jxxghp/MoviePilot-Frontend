@@ -4,7 +4,7 @@ import api from '@/api'
 import type { DownloaderInfo } from '@/api/types'
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null
+let refreshTimer: NodeJS.Timeout | null = null
 
 // 下载器信息
 const downloadInfo = ref<DownloaderInfo>({

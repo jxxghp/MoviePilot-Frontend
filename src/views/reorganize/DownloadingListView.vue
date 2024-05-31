@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import PullRefresh from 'pull-refresh-vue3'
+import { VPullToRefresh } from 'vuetify/labs/VPullToRefresh'
 import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
@@ -7,7 +7,7 @@ import DownloadingCard from '@/components/cards/DownloadingCard.vue'
 import store from '@/store'
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null
+let refreshTimer: NodeJS.Timeout | null = null
 
 // 数据列表
 const dataList = ref<DownloadingInfo[]>([])
@@ -20,8 +20,7 @@ async function fetchData() {
   try {
     dataList.value = await api.get('download/')
     isRefreshed.value = true
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
@@ -41,10 +40,8 @@ const filteredDataList = computed(() => {
   // 从Vuex Store中获取用户信息
   const superUser = store.state.auth.superUser
   const userName = store.state.auth.userName
-  if (superUser)
-    return dataList.value
-  else
-    return dataList.value.filter(data => data.userid === userName || data.username === userName)
+  if (superUser) return dataList.value
+  else return dataList.value.filter(data => data.userid === userName || data.username === userName)
 })
 
 // 加载时获取数据
@@ -67,23 +64,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <LoadingBanner
-    v-if="!isRefreshed"
-    class="mt-12"
-  />
-  <PullRefresh
-    v-model="loading"
-    @refresh="onRefresh"
-  >
-    <div
-      v-if="filteredDataList.length > 0"
-      class="grid gap-3 grid-downloading-card"
-    >
-      <DownloadingCard
-        v-for="data in filteredDataList"
-        :key="data.hash"
-        :info="data"
-      />
+  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+  <VPullToRefresh v-model="loading" @load="onRefresh" :pull-down-threshold="64">
+    <div v-if="filteredDataList.length > 0" class="grid gap-3 grid-downloading-card">
+      <DownloadingCard v-for="data in filteredDataList" :key="data.hash" :info="data" />
     </div>
     <NoDataFound
       v-if="filteredDataList.length === 0 && isRefreshed"
@@ -91,5 +75,5 @@ onUnmounted(() => {
       error-title="没有任务"
       error-description="正在下载的任务将会显示在这里。"
     />
-  </PullRefresh>
+  </VPullToRefresh>
 </template>
