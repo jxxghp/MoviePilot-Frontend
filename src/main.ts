@@ -17,6 +17,7 @@ import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar'
 import 'vue3-perfect-scrollbar/style.css'
+import { VTreeview } from 'vuetify/labs/VTreeview'
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import MediaCard from './components/cards/MediaCard.vue'
 import PosterCard from './components/cards/PosterCard.vue'
@@ -48,6 +49,7 @@ app
   .component('VMediaInfoCard', MediaInfoCard)
   .component('VTorrentCard', TorrentCard)
   .component('VMediaIdSelector', MediaIdSelector)
+  .component('VTreeview', VTreeview)
 
 // 注册插件
 app
