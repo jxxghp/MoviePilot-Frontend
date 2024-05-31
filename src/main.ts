@@ -26,6 +26,7 @@ import PersonCard from './components/cards/PersonCard.vue'
 import MediaInfoCard from './components/cards/MediaInfoCard.vue'
 import TorrentCard from './components/cards/TorrentCard.vue'
 import MediaIdSelector from './components/misc/MediaIdSelector.vue'
+import PathField from './components/input/PathField.vue'
 import { fixArrayAt } from '@/@core/utils/compatibility'
 
 // 修复低版本Safari等浏览器数组不支持at函数的问题
@@ -50,6 +51,7 @@ app
   .component('VTorrentCard', TorrentCard)
   .component('VMediaIdSelector', MediaIdSelector)
   .component('VTreeview', VTreeview)
+  .component('VPathField', PathField)
 
 // 注册插件
 app

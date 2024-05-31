@@ -17,6 +17,9 @@ const props = defineProps({
   height: String,
 })
 
+// 路径
+const path = ref<string>('')
+
 // 类型下拉字典
 const typeItems = [
   { title: '全部', value: '' },
@@ -25,11 +28,17 @@ const typeItems = [
 ]
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'changed'])
+const emit = defineEmits(['close', 'changed', 'update:modelValue'])
 
 // 按钮点击
 function onClose() {
   emit('close')
+}
+
+// 路径更新
+function updatePath(value: string) {
+  path.value = value
+  emit('update:modelValue', value)
 }
 
 // 根据选中的媒体类型，获取对应的媒体类别
@@ -60,7 +69,11 @@ const getCategories = computed(() => {
       <VForm>
         <VRow>
           <VCol>
-            <VTextField v-model="props.directory.path" variant="underlined" label="路径" />
+            <VPathField @update:modelValue="updatePath">
+              <template #activator="{ menuprops }">
+                <VTextField v-model="props.directory.path" v-bind="menuprops" variant="underlined" label="路径" />
+              </template>
+            </VPathField>
           </VCol>
         </VRow>
         <VRow>

@@ -21,13 +21,10 @@ const activedDirs = ref<string[]>([])
 // 打开的目录
 const openedDirs = ref<string[]>([])
 
-// 当前选中的目录
-const selectedDir = ref<string>('')
-
 // 目录列表
 const treeItems = ref<FileItem[]>([
   {
-    name: props.root,
+    name: '/',
     path: props.root,
     children: [],
     type: '',
@@ -48,11 +45,18 @@ async function fetchDirs(item: any) {
     .catch(err => console.warn(err))
 }
 
+// 获取选择的目录路径
+const selectedPath = computed(() => {
+  if (activedDirs.value.length > 0) {
+    return activedDirs.value[0]
+  }
+  return ''
+})
+
 // 监听目录变化
 watch(activedDirs, newVal => {
   if (!newVal.length) return
-  selectedDir.value = newVal[0]
-  emit('update:modelValue', newVal[0])
+  emit('update:modelValue', selectedPath)
 })
 
 onMounted(() => {
@@ -61,27 +65,24 @@ onMounted(() => {
 </script>
 
 <template>
-  <VMenu>
+  <VMenu :close-on-content-click="false" content-class="cursor-default">
     <template v-slot:activator="{ props }">
-      <VTextField v-model="selectedDir" label="路径" variant="underlined" v-bind="props"></VTextField>
+      <slot name="activator" :menuprops="props" />
     </template>
     <VTreeview
       v-model:activated="activedDirs"
       v-model:opened="openedDirs"
       :items="treeItems"
       :load-children="fetchDirs"
-      density="compact"
       item-key="path"
       item-title="name"
       item-value="path"
       item-type="unknown"
       activatable
-      open-on-click
-      transition
       return-object
       max-height="20rem"
-      selectable
-      class="cursor-pointer"
+      expand-icon="mdi-folder"
+      collapse-icon="mdi-folder-open"
     >
     </VTreeview>
   </VMenu>

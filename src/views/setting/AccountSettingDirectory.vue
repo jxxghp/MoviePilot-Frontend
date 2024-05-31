@@ -5,7 +5,7 @@ import draggable from 'vuedraggable'
 import { VRow } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
 import { MediaDirectory } from '@/api/types'
-import MediaDirectoryCard from '@/components/cards/MediaDirectoryCard.vue'
+import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 
 // 媒体库设置项
 const transferSettings = ref({
@@ -223,10 +223,11 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-directory-card' }"
           >
             <template #item="{ element }">
-              <MediaDirectoryCard
+              <DirectoryCard
                 type="download"
                 :directory="element"
                 :categories="mediaCategories"
+                @update:modelValue="(value: string) => (element.path = value)"
                 @close="downloadCardClose(element.name)"
               />
             </template>
@@ -256,7 +257,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-directory-card' }"
           >
             <template #item="{ element }">
-              <MediaDirectoryCard
+              <DirectoryCard
                 type="library"
                 :directory="element"
                 :categories="mediaCategories"
