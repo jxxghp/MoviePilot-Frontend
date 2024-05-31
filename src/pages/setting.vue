@@ -79,7 +79,7 @@ function jumpTab(tab: string) {
 <template>
   <div>
     <VTabs v-model="activeTab" show-arrows class="v-tabs-pill">
-      <VTab v-for="item in tabs" :key="item.icon" :value="item.tab" @click="jumpTab(item.tab)">
+      <VTab v-for="item in tabs" :key="item.icon" :value="item.tab" @click="jumpTab(item.tab)" selected-class="v-slide-group-item--active v-tab--selected">
         <VIcon size="20" start :icon="item.icon" />
         {{ item.title }}
       </VTab>
