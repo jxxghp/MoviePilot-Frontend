@@ -16,7 +16,7 @@ const variableTheme = controlledComputed(
 )
 
 // 定时器
-let refreshTimer: NodeJS.Timer | null = null
+let refreshTimer: NodeJS.Timeout | null = null
 
 // 时间序列
 const series = ref([

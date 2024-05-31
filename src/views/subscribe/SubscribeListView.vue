@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import PullRefresh from 'pull-refresh-vue3'
+import { VPullToRefresh } from 'vuetify/labs/VPullToRefresh'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
@@ -60,7 +60,7 @@ const filteredDataList = computed(() => {
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <PullRefresh v-model="loading" @refresh="onRefresh">
+  <VPullToRefresh v-model="loading" @load="onRefresh">
     <div v-if="filteredDataList.length > 0" class="mx-3 grid gap-4 grid-subscribe-card p-1">
       <SubscribeCard
         v-for="data in filteredDataList"
@@ -76,7 +76,7 @@ const filteredDataList = computed(() => {
       error-title="没有订阅"
       error-description="请通过搜索添加电影、电视剧订阅。"
     />
-  </PullRefresh>
+  </VPullToRefresh>
   <!-- 底部操作按钮 -->
   <VFab
     v-if="store.state.auth.superUser"
