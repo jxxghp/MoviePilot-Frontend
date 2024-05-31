@@ -89,7 +89,7 @@ const avatar = store.state.auth.avatar
         <VDivider class="my-2" />
 
         <!-- 👉 Profile -->
-        <VListItem v-if="superUser" link to="setting">
+        <VListItem v-if="superUser" link @click="router.push('/setting?tab=account')">
           <template #prepend>
             <VIcon class="me-2" icon="mdi-account-outline" size="22" />
           </template>
