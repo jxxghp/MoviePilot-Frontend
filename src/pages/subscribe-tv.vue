@@ -23,7 +23,7 @@ const activeTab = ref(route.params.tab)
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in tabs" :value="item.tab">
+      <VTab v-for="item in tabs" :value="item.tab" :to="'/subscribe-tv/' + item.tab">
         <span class="mx-5">{{ item.title }}</span>
       </VTab>
     </VTabs>

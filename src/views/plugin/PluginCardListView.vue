@@ -25,11 +25,11 @@ const activeTab = ref(route.params.tab)
 const tabs = [
   {
     title: '我的插件',
-    tab: 'myplugin',
+    tab: 'installed',
   },
   {
     title: '插件市场',
-    tab: 'pluginmarket',
+    tab: 'market',
   },
 ]
 
@@ -330,14 +330,14 @@ onBeforeMount(async () => {
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in tabs" :value="item.tab">
+      <VTab v-for="item in tabs" :value="item.tab" :to="'/plugins/' + item.tab">
         <span class="mx-5">{{ item.title }}</span>
       </VTab>
     </VTabs>
 
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
       <!-- 我的插件 -->
-      <VWindowItem value="myplugin">
+      <VWindowItem value="installed">
         <transition name="fade-slide" appear>
           <div>
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
@@ -363,7 +363,7 @@ onBeforeMount(async () => {
         </transition>
       </VWindowItem>
       <!-- 插件市场 -->
-      <VWindowItem value="pluginmarket">
+      <VWindowItem value="market">
         <transition name="fade-slide" appear>
           <div>
             <LoadingBanner v-if="!isAppMarketLoaded" class="mt-12" />

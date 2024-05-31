@@ -85,14 +85,14 @@ const superUser = store.state.auth.superUser
         :item="{
           title: '电影',
           icon: 'mdi-movie-check-outline',
-          to: '/subscribe-movie',
+          to: '/subscribe-movie/mysub',
         }"
       />
       <VerticalNavLink
         :item="{
           title: '电视剧',
           icon: 'mdi-television-classic',
-          to: '/subscribe-tv',
+          to: '/subscribe-tv/mysub',
         }"
       />
       <VerticalNavLink
@@ -144,7 +144,7 @@ const superUser = store.state.auth.superUser
         :item="{
           title: '插件',
           icon: 'mdi-apps',
-          to: '/plugins',
+          to: '/plugins/installed',
         }"
       />
       <VerticalNavLink

@@ -10,8 +10,7 @@ const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   scrollBehavior(to, from, savedPosition) {
     // 如果页面有缓存那么恢复其位置, 否则始终滚动到顶部
-    if (to.meta.keepAlive && savedPosition)
-      return savedPosition
+    if (to.meta.keepAlive && savedPosition) return savedPosition
     return { top: 0 }
   },
   routes: [
@@ -43,14 +42,14 @@ const router = createRouter({
           },
         },
         {
-          path: 'subscribe-movie',
+          path: 'subscribe-movie/:tab',
           component: () => import('../pages/subscribe-movie.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'subscribe-tv',
+          path: 'subscribe-tv/:tab',
           component: () => import('../pages/subscribe-tv.vue'),
           meta: {
             requiresAuth: true,
@@ -85,7 +84,7 @@ const router = createRouter({
           },
         },
         {
-          path: 'plugins',
+          path: 'plugins/:tab',
           component: () => import('../pages/plugin.vue'),
           meta: {
             requiresAuth: true,
@@ -165,8 +164,7 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login')
-  }
-  else {
+  } else {
     startNProgress()
     next()
   }
