@@ -736,7 +736,7 @@ export interface EndPoints {
 
 // 文件浏览项目
 export interface FileItem {
-  // 类型
+  // 类型 dir/file
   type: string
   // 文件名
   name: string

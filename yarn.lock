@@ -5853,11 +5853,6 @@ psl@^1.1.28:
   resolved "https://registry.yarnpkg.com/psl/-/psl-1.9.0.tgz#d0df2a137f00794565fcaf3b2c00cd09f8d5a5a7"
   integrity sha512-E/ZsdU4HLs/68gYzgGTkMicWTLPdAftJLfJFlLUAAKZGkStNU72sZjT66SnMDVOfOWY/YAoiD7Jxa9iHvngcag==
 
-pull-refresh-vue3@^0.3.1:
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/pull-refresh-vue3/-/pull-refresh-vue3-0.3.1.tgz#e75ffad5d71e30a85b5338f2beca9fc8a1e01432"
-  integrity sha512-DTcosG4LT3dGF/amzMP3YOwQ11x1taxQU3ChGx2SDCT5LMmyNpUD7pb2FAZkB/QEHVSpUTIfCcanfXANkYOXjw==
-
 pump@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/pump/-/pump-3.0.0.tgz#b4a2116815bde2f4e1ea602354e8c75565107a64"
