@@ -20,14 +20,14 @@ const router = createRouter({
       component: () => import('../layouts/default.vue'),
       children: [
         {
-          path: 'dashboard',
+          path: '/dashboard',
           component: () => import('../pages/dashboard.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'ranking',
+          path: '/ranking',
           component: () => import('../pages/ranking.vue'),
           meta: {
             keepAlive: true,
@@ -35,63 +35,63 @@ const router = createRouter({
           },
         },
         {
-          path: 'resource',
+          path: '/resource',
           component: () => import('../pages/resource.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'subscribe-movie/:tab',
+          path: '/subscribe-movie',
           component: () => import('../pages/subscribe-movie.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'subscribe-tv/:tab',
+          path: '/subscribe-tv',
           component: () => import('../pages/subscribe-tv.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'calendar',
+          path: '/calendar',
           component: () => import('../pages/calendar.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'downloading',
+          path: '/downloading',
           component: () => import('../pages/downloading.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'history',
+          path: '/history',
           component: () => import('../pages/history.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'site',
+          path: '/site',
           component: () => import('../pages/site.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'plugins/:tab',
+          path: '/plugins',
           component: () => import('../pages/plugin.vue'),
           meta: {
             requiresAuth: true,
           },
         },
         {
-          path: 'setting/:tab',
+          path: '/setting',
           component: () => import('../pages/setting.vue'),
           meta: {
             requiresAuth: true,
