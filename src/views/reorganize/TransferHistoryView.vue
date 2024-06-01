@@ -414,6 +414,32 @@ onMounted(fetchData)
       </VPagination>
     </div>
   </VCard>
+
+  <!-- 底部操作按钮 -->
+  <span>
+    <VFab
+      v-if="selected.length > 0"
+      icon="mdi-trash-can-outline"
+      color="error"
+      location="bottom"
+      size="x-large"
+      fixed
+      app
+      appear
+      @click="removeHistoryBatch"
+    />
+    <VFab
+      v-if="selected.length > 0"
+      class="mb-16"
+      icon="mdi-redo-variant"
+      location="bottom"
+      size="x-large"
+      fixed
+      app
+      appear
+      @click="retransferBatch"
+    />
+  </span>
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
     <VCard class="text-center rounded-t">
@@ -452,31 +478,6 @@ onMounted(fetchData)
     "
     @close="redoDialog = false"
   />
-  <!-- 底部操作按钮 -->
-  <span>
-    <VFab
-      v-if="selected.length > 0"
-      icon="mdi-trash-can-outline"
-      color="error"
-      location="bottom end"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="removeHistoryBatch"
-    />
-    <VFab
-      v-if="selected.length > 0"
-      class="mb-2"
-      icon="mdi-redo-variant"
-      location="bottom end"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="retransferBatch"
-    />
-  </span>
 </template>
 
 <style lang="scss">

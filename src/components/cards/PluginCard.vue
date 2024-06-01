@@ -456,7 +456,7 @@ watch(
       <VCardText class="min-h-40">
         <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
       </VCardText>
-      <VFab icon="mdi-cog" location="bottom end" size="x-large" fixed app appear @click="showPluginConfig" />
+      <VFab icon="mdi-cog" location="bottom" size="x-large" fixed app appear @click="showPluginConfig" />
     </VCard>
   </VDialog>
 

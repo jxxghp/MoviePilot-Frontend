@@ -323,7 +323,7 @@ function handleRepoUrl(url: string | undefined) {
 
 // 跳转tab
 function jumpTab(tab: string) {
-  router.push("/plugins?tab=" + tab)
+  router.push('/plugins?tab=' + tab)
 }
 
 // 加载时获取数据
@@ -443,7 +443,7 @@ onBeforeMount(async () => {
   <VFab
     icon="mdi-magnify"
     color="info"
-    location="bottom end"
+    location="bottom"
     class="mb-2"
     size="x-large"
     fixed

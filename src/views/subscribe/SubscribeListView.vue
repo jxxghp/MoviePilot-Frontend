@@ -81,7 +81,7 @@ const filteredDataList = computed(() => {
   <VFab
     v-if="store.state.auth.superUser"
     icon="mdi-clipboard-edit"
-    location="bottom end"
+    location="bottom"
     size="x-large"
     fixed
     app
@@ -92,8 +92,8 @@ const filteredDataList = computed(() => {
     v-if="store.state.auth.superUser"
     icon="mdi-history"
     color="info"
-    location="bottom end"
-    class="mb-2"
+    location="bottom"
+    class="mb-16"
     size="x-large"
     fixed
     app

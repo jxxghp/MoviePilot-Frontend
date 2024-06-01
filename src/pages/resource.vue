@@ -133,21 +133,12 @@ onMounted(() => {
   <VFab
     v-if="viewType === 'list'"
     icon="mdi-view-grid"
-    location="bottom end"
+    location="bottom"
     size="x-large"
     fixed
     app
     appear
     @click="setViewType('card')"
   />
-  <VFab
-    v-else
-    icon="mdi-view-list"
-    location="bottom end"
-    size="x-large"
-    fixed
-    app
-    appear
-    @click="setViewType('list')"
-  />
+  <VFab v-else icon="mdi-view-list" location="bottom" size="x-large" fixed app appear @click="setViewType('list')" />
 </template>
