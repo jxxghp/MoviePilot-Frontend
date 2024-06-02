@@ -10,6 +10,7 @@ import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useDefer } from '@/@core/utils/dom'
 import router from '@/router'
+import { PluginTabs } from '@/router/menu'
 
 const route = useRoute()
 
@@ -24,18 +25,6 @@ const activeTab = ref(route.query.tab)
 
 // 插件ID参数
 const pluginId = ref(route.query.id)
-
-// 标签页
-const tabs = [
-  {
-    title: '我的插件',
-    tab: 'installed',
-  },
-  {
-    title: '插件市场',
-    tab: 'market',
-  },
-]
 
 // 当前排序字段
 const activeSort = ref(null)
@@ -346,7 +335,7 @@ onBeforeMount(async () => {
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in tabs" :value="item.tab" @click="jumpTab(item.tab)">
+      <VTab v-for="item in PluginTabs" :value="item.tab" @click="jumpTab(item.tab)">
         <span class="mx-5">{{ item.title }}</span>
       </VTab>
     </VTabs>

@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { Plugin } from '@/api/types'
+import {
+  SystemNavMenus,
+  UserfulMenus,
+  SubscribeMovieTabs,
+  SubscribeTvTabs,
+  PluginTabs,
+  SettingTabs,
+} from '@/router/menu'
+import { NavMenu } from '@/@layouts/types'
 
 // 路由
 const router = useRouter()
@@ -18,42 +27,76 @@ const searchWordInput = ref<HTMLElement | null>(null)
 const searchHintList = ref<string[]>([])
 
 // 所有菜单功能
-const menuItems = ref([])
+function getMenus(): NavMenu[] {
+  let menus: NavMenu[] = []
+  // 导航菜单
+  for (const key in SystemNavMenus) {
+    menus.push({
+      title: SystemNavMenus[key].title,
+      icon: SystemNavMenus[key].icon,
+      to: SystemNavMenus[key].to,
+      header: SystemNavMenus[key].header,
+      admin: SystemNavMenus[key].admin,
+    })
+  }
+  // 各类标签页
+  for (const key in SettingTabs) {
+    menus.push({
+      title: '设定 -> ' + SettingTabs[key].title,
+      icon: SettingTabs[key].icon,
+      to: `/setting?tab=${SettingTabs[key].tab}`,
+      header: '',
+      admin: true,
+      description: SettingTabs[key].description,
+    })
+  }
+  for (const key in SubscribeMovieTabs) {
+    menus.push({
+      title: '电影 -> ' + SubscribeMovieTabs[key].title,
+      icon: SubscribeMovieTabs[key].icon,
+      to: `/subscribe-movie?tab=${SubscribeMovieTabs[key].tab}`,
+      header: '',
+      admin: false,
+    })
+  }
+  for (const key in SubscribeTvTabs) {
+    menus.push({
+      title: '电视剧 -> ' + SubscribeTvTabs[key].title,
+      icon: SubscribeTvTabs[key].icon,
+      to: `/subscribe-tv?tab=${SubscribeTvTabs[key].tab}`,
+      header: '',
+      admin: false,
+    })
+  }
+  for (const key in PluginTabs) {
+    menus.push({
+      title: '插件 -> ' + PluginTabs[key].title,
+      icon: PluginTabs[key].icon,
+      to: `/plugins?tab=${PluginTabs[key].tab}`,
+      header: '',
+      admin: true,
+    })
+  }
 
-// 常用菜单功能
-const commonMenuItems = ref([
-  {
-    title: '搜索设置',
-    icon: 'mdi-magnify',
-    to: 'setting?tab=search',
-  },
-  {
-    title: '订阅设置',
-    icon: 'mdi-rss',
-    to: 'setting?tab=subscribe',
-  },
-  {
-    title: '服务',
-    icon: 'mdi-list-box',
-    to: 'setting?tab=service',
-  },
-  {
-    title: '词表',
-    icon: 'mdi-file-word-box',
-    to: 'setting?tab=words',
-  },
-  {
-    title: '历史记录',
-    icon: 'mdi-history',
-    to: 'history',
-  },
-])
+  return menus
+}
+
+// 匹配的菜单列表
+const matchedMenuItems = computed(() => {
+  if (!searchWord.value) return []
+  const lowerWord = searchWord.value?.toLowerCase()
+  const menuItems = getMenus()
+  if (menuItems)
+    return menuItems.filter(
+      item =>
+        item.title.toLowerCase().includes(lowerWord) ||
+        (item.description && item.description.toLowerCase().includes(lowerWord)),
+    )
+  return []
+})
 
 // 所有插件（已安装）
 const pluginItems = ref<Plugin[]>([])
-
-// 匹配的菜单列表
-const matchedMenuItems = ref([])
 
 // 获取插件列表数据
 async function fetchInstalledPlugins() {
@@ -153,7 +196,7 @@ onMounted(() => {
                 @click="searchMedia('media')"
               >
                 <VListItemTitle>
-                  搜索 <span class="font-bold">{{ searchWord }} </span> 相关的电影、电视剧
+                  搜索 <span class="font-bold">{{ searchWord }} </span> 相关的电影、电视剧 ...
                 </VListItemTitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
@@ -171,7 +214,7 @@ onMounted(() => {
                 @click="searchMedia('person')"
               >
                 <VListItemTitle>
-                  搜索 <span class="font-bold">{{ searchWord }}</span> 相关的人物
+                  搜索 <span class="font-bold">{{ searchWord }}</span> 相关的人物 ...
                 </VListItemTitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
@@ -180,6 +223,25 @@ onMounted(() => {
             </template>
           </VHover>
           <VListSubheader v-if="matchedMenuItems.length > 0"> 功能 </VListSubheader>
+          <VHover v-if="matchedMenuItems.length > 0" v-for="menu in matchedMenuItems" :key="menu.title">
+            <template #default="hover">
+              <VListItem
+                :prepend-icon="menu.icon as string"
+                density="compact"
+                link
+                v-bind="hover.props"
+                @click="goPage(menu.to as string)"
+              >
+                <VListItemTitle>
+                  {{ menu.title }}
+                </VListItemTitle>
+                <VListItemSubtitle v-if="menu.description"> {{ menu.description }} </VListItemSubtitle>
+                <template #append>
+                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                </template>
+              </VListItem>
+            </template>
+          </VHover>
           <VListSubheader v-if="matchedPluginItems.length > 0"> 插件 </VListSubheader>
           <VHover v-if="matchedPluginItems.length > 0" v-for="plugin in matchedPluginItems" :key="plugin.id">
             <template #default="hover">
@@ -206,7 +268,7 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">常用功能</p>
                 <VList lines="one">
-                  <VHover v-for="(menu, index) in commonMenuItems" :key="index">
+                  <VHover v-for="(menu, index) in UserfulMenus" :key="index">
                     <template #default="hover">
                       <VListItem
                         :prepend-icon="menu.icon"

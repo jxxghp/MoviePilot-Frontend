@@ -120,6 +120,12 @@ export interface NavLink extends NavLinkProps, Partial<AclProperties> {
   disable?: boolean
 }
 
+export interface NavMenu extends NavLink {
+  header: string
+  admin: boolean
+  description?: string
+}
+
 // 👉 Vertical nav group
 export interface NavGroup extends Partial<AclProperties> {
   title: string

@@ -21,8 +21,7 @@ const transferExcludeWords = ref('')
 async function queryCustomIdentifiers() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/CustomIdentifiers')
-
-    customIdentifiers.value = result.data?.value.join('\n')
+    if (result && result.data && result.data.value) customIdentifiers.value = result.data.value.join('\n')
   } catch (error) {
     console.log(error)
   }
@@ -32,8 +31,7 @@ async function queryCustomIdentifiers() {
 async function queryCustomReleaseGroups() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/CustomReleaseGroups')
-
-    customReleaseGroups.value = result.data?.value.join('\n')
+    if (result && result.data && result.data.value) customReleaseGroups.value = result.data.value.join('\n')
   } catch (error) {
     console.log(error)
   }
@@ -43,8 +41,7 @@ async function queryCustomReleaseGroups() {
 async function queryCustomization() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/Customization')
-
-    customization.value = result.data?.value.join('\n')
+    if (result && result.data && result.data.value) customization.value = result.data?.value.join('\n')
   } catch (error) {
     console.log(error)
   }
@@ -54,8 +51,7 @@ async function queryCustomization() {
 async function queryTransferExcludeWords() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/TransferExcludeWords')
-
-    transferExcludeWords.value = result.data?.value.join('\n')
+    if (result && result.data && result.data.value) transferExcludeWords.value = result.data?.value.join('\n')
   } catch (error) {
     console.log(error)
   }
