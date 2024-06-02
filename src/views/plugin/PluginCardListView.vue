@@ -22,6 +22,9 @@ let deferApp = (_: number) => true
 // 当前标签
 const activeTab = ref(route.query.tab)
 
+// 插件ID参数
+const pluginId = ref(route.query.id)
+
 // 标签页
 const tabs = [
   {
@@ -330,6 +333,13 @@ function jumpTab(tab: string) {
 onBeforeMount(async () => {
   await refreshData()
   getPluginStatistics()
+  if (activeTab.value != 'market' && pluginId.value) {
+    // 找到这个插件
+    const plugin = dataList.value.find(item => item.id === pluginId.value)
+    if (plugin) {
+      plugin.page_open = true
+    }
+  }
 })
 </script>
 

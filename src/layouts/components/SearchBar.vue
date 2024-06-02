@@ -1,10 +1,16 @@
 <script lang="ts" setup>
+import * as Mousetrap from 'mousetrap'
 import SearchBarView from '@/views/system/SearchBarView.vue'
 
 const searchDialog = ref(false)
 
+// 注册快捷键
+Mousetrap.bind(['command+k', 'ctrl+k'], openSearchDialog)
+
+// 打开搜索弹窗
 function openSearchDialog() {
   searchDialog.value = true
+  return false
 }
 </script>
 
@@ -20,7 +26,7 @@ function openSearchDialog() {
     </span>
   </div>
   <!-- 搜索弹窗 -->
-  <SearchBarView v-model="searchDialog" @close="searchDialog = false" />
+  <SearchBarView v-model="searchDialog" v-if="searchDialog" @close="searchDialog = false" />
 </template>
 <style type="scss" scoped>
 .meta-key {

@@ -365,9 +365,17 @@ const dropdownItems = ref([
 // 监听插件状态变化
 watch(
   () => props.plugin?.has_update,
-  (newHasUpdate, oldHasUpdate) => {
+  (newHasUpdate, _) => {
     const updateItemIndex = dropdownItems.value.findIndex(item => item.value === 3)
     if (updateItemIndex !== -1) dropdownItems.value[updateItemIndex].show = newHasUpdate
+  },
+)
+
+// 监听插件窗口状态变化
+watch(
+  () => props.plugin?.page_open,
+  (newOpenState, _) => {
+    if (newOpenState) openPluginDetail()
   },
 )
 </script>

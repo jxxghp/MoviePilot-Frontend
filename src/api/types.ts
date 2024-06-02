@@ -445,6 +445,8 @@ export interface Plugin {
   history?: { [key: string]: string }
   // 添加时间
   add_time?: number
+  // 页面打开状态
+  page_open?: boolean
 }
 
 // 渲染结构
