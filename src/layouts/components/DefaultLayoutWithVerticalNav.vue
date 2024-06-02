@@ -2,8 +2,6 @@
 import VerticalNavSectionTitle from '@/@layouts/components/VerticalNavSectionTitle.vue'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
 import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
-
-// Components
 import Footer from '@/layouts/components/Footer.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserNofification from '@/layouts/components/UserNotification.vue'
@@ -25,21 +23,16 @@ const superUser = store.state.auth.superUser
         <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
         </IconBtn>
-
         <!-- 👉 Search Bar -->
         <SearchBar />
-
+        <!-- 👉 Spacer -->
         <VSpacer />
-
         <!-- 👉 Shortcuts -->
         <ShortcutBar v-if="superUser" />
-
         <!-- 👉 Theme -->
         <NavbarThemeSwitcher />
-
         <!-- 👉 Notification -->
         <UserNofification />
-
         <!-- 👉 UserProfile -->
         <UserProfile />
       </div>
@@ -53,7 +46,6 @@ const superUser = store.state.auth.superUser
           to: '/dashboard',
         }"
       />
-
       <!-- 👉 发现 -->
       <VerticalNavSectionTitle
         :item="{
@@ -74,7 +66,6 @@ const superUser = store.state.auth.superUser
           to: '/resource',
         }"
       />
-
       <!-- 👉 订阅 -->
       <VerticalNavSectionTitle
         :item="{
@@ -131,7 +122,6 @@ const superUser = store.state.auth.superUser
           to: '/filemanager',
         }"
       />
-
       <!-- 👉 系统 -->
       <VerticalNavSectionTitle
         v-if="superUser"
@@ -166,10 +156,8 @@ const superUser = store.state.auth.superUser
     </template>
 
     <template #after-vertical-nav-items />
-
     <!-- 👉 Pages -->
     <slot />
-
     <!-- 👉 Footer -->
     <template #footer>
       <Footer />
