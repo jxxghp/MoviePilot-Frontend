@@ -145,13 +145,13 @@ export const SettingTabs = [
     title: '搜索',
     icon: 'mdi-magnify',
     tab: 'search',
-    description: '媒体数据源、搜索站点、搜索优先级、默认过滤规则',
+    description: '媒体数据源（TheMovieDb、豆瓣、Bangumi）、搜索站点、搜索优先级、默认过滤规则',
   },
   {
     title: '订阅',
     icon: 'mdi-rss',
     tab: 'subscribe',
-    description: '订阅站点、订阅优先级、洗版优先级、默认过滤规则',
+    description: '订阅站点、订阅模式、订阅优先级、洗版优先级、默认过滤规则',
   },
   {
     title: '服务',
