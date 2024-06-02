@@ -232,7 +232,7 @@ onMounted(() => {
                   <VHover v-for="plugin in pluginItems.slice(0, 5)" :key="plugin.id">
                     <template #default="hover">
                       <VListItem
-                        prepend-icon="mdi-package-variant"
+                        prepend-icon="mdi-puzzle"
                         density="compact"
                         link
                         v-bind="hover.props"
