@@ -133,6 +133,14 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 监听插件窗口状态变化
+watch(
+  () => props.media?.page_open,
+  (newOpenState, _) => {
+    if (newOpenState) editSubscribeDialog()
+  },
+)
 </script>
 
 <template>

@@ -63,6 +63,8 @@ export interface Subscribe {
   date: string
   // 编辑框设置项
   show_edit_dialog: boolean
+  // 编辑框打开状态
+  page_open?: boolean
 }
 
 // 历史记录

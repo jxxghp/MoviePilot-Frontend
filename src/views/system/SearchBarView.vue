@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type { Plugin, Subscribe } from '@/api/types'
 import {
   SystemNavMenus,
   UserfulMenus,
@@ -84,7 +84,7 @@ function getMenus(): NavMenu[] {
 // 匹配的菜单列表
 const matchedMenuItems = computed(() => {
   if (!searchWord.value) return []
-  const lowerWord = searchWord.value?.toLowerCase()
+  const lowerWord = (searchWord.value as string).toLowerCase()
   const menuItems = getMenus()
   if (menuItems)
     return menuItems.filter(
@@ -114,10 +114,31 @@ async function fetchInstalledPlugins() {
 // 区配的插件列表
 const matchedPluginItems = computed(() => {
   if (!searchWord.value) return []
-  const lowerWord = searchWord.value?.toLowerCase()
+  const lowerWord = (searchWord.value as string).toLowerCase()
   return pluginItems.value.filter((item: Plugin) => {
     if (!item.plugin_name && !item.plugin_desc) return false
     return item.plugin_name?.toLowerCase().includes(lowerWord) || item.plugin_desc?.toLowerCase().includes(lowerWord)
+  })
+})
+
+// 所有订阅数据
+const SubscribeItems = ref<Subscribe[]>([])
+
+// 获取电影订阅列表数据
+async function fetchSubscribes() {
+  try {
+    SubscribeItems.value = await api.get('subscribe/')
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+// 匹配的订阅列表
+const matchedSubscribeItems = computed(() => {
+  if (!searchWord.value) return []
+  const lowerWord = (searchWord.value as string).toLowerCase()
+  return SubscribeItems.value.filter((item: Subscribe) => {
+    return item.name.toLowerCase().includes(lowerWord)
   })
 })
 
@@ -154,15 +175,36 @@ function goPage(to: string) {
   emit('close')
 }
 
+// 跳转订阅页面
+function goSubscribe(subscribe: Subscribe) {
+  if (subscribe.type === '电影') {
+    router.push({
+      path: '/subscribe-movie',
+      query: {
+        id: subscribe.id,
+      },
+    })
+  } else {
+    router.push({
+      path: '/subscribe-tv',
+      query: {
+        id: subscribe.id,
+      },
+    })
+  }
+  emit('close')
+}
+
 onMounted(() => {
   setTimeout(() => {
     searchWordInput.value?.focus()
   }, 500)
   fetchInstalledPlugins()
+  fetchSubscribes()
 })
 </script>
 <template>
-  <VDialog max-width="40rem">
+  <VDialog max-width="40rem" scrollable>
     <VCard>
       <VCardText class="pe-12">
         <VCombobox
@@ -216,6 +258,30 @@ onMounted(() => {
                 <VListItemTitle>
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的人物 ...
                 </VListItemTitle>
+                <template #append>
+                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                </template>
+              </VListItem>
+            </template>
+          </VHover>
+          <VListSubheader v-if="matchedSubscribeItems.length > 0"> 订阅 </VListSubheader>
+          <VHover
+            v-if="matchedSubscribeItems.length > 0"
+            v-for="subscribe in matchedSubscribeItems"
+            :key="subscribe.id"
+          >
+            <template #default="hover">
+              <VListItem
+                :prepend-icon="`${subscribe.type === '电影' ? 'mdi-movie-roll' : 'mdi-television-classic'}`"
+                density="compact"
+                link
+                v-bind="hover.props"
+                @click="goSubscribe(subscribe)"
+              >
+                <VListItemTitle>
+                  {{ subscribe.name }}<span v-if="subscribe.season"> 第 {{ subscribe.season }} 季</span>
+                </VListItemTitle>
+                <VListItemSubtitle> {{ subscribe.type }}</VListItemSubtitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
                 </template>

@@ -6,6 +6,9 @@ import { SubscribeMovieTabs } from '@/router/menu'
 
 const route = useRoute()
 
+// 订阅ID参数
+const subId = ref(route.query.id as string)
+
 // 当前标签
 const activeTab = ref(route.query.tab)
 
@@ -26,12 +29,12 @@ function jumpTab(tab: string) {
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
       <VWindowItem value="mysub">
         <transition name="fade-slide" appear>
-          <SubscribeListView type="电影" />
+          <SubscribeListView type="电影" :subid="subId" />
         </transition>
       </VWindowItem>
       <VWindowItem value="popular">
         <transition name="fade-slide" appear>
-          <SubscribePopularView type="电影" />
+          <SubscribePopularView type="电影" :subid="subId" />
         </transition>
       </VWindowItem>
     </VWindow>

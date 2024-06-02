@@ -11,6 +11,7 @@ import store from '@/store'
 // 输入参数
 const props = defineProps({
   type: String,
+  subid: String,
 })
 
 // 是否刷新过
@@ -35,9 +36,6 @@ async function fetchData() {
   }
 }
 
-// 加载时获取数据
-onBeforeMount(fetchData)
-
 // 刷新状态
 const loading = ref(false)
 
@@ -55,6 +53,18 @@ const filteredDataList = computed(() => {
   const userName = store.state.auth.userName
   if (superUser) return dataList.value.filter(data => data.type === props.type)
   else return dataList.value.filter(data => data.type === props.type && data.username === userName)
+})
+
+onMounted(async () => {
+  await fetchData()
+  if (props.subid) {
+    // 找到这个订阅
+    const sub = dataList.value.find(sub => sub.id.toString() == props.subid?.toString())
+    if (sub) {
+      // 打开编辑弹窗
+      sub.page_open = true
+    }
+  }
 })
 </script>
 
