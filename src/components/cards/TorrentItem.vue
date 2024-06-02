@@ -67,18 +67,24 @@ async function handleAddDownload(_site: any = undefined, _media: any = undefined
 async function addDownload(_media: MediaInfo, _torrent: TorrentInfo) {
   startNProgress()
   try {
-    const result: { [key: string]: any } = await api.post('download/', {
-      media_in: _media,
-      torrent_in: _torrent,
-    })
+    let result: { [key: string]: any }
 
-    if (result.success) {
+    if (_media) {
+      result = await api.post('download/', {
+        media_in: _media,
+        torrent_in: _torrent,
+      })
+    } else {
+      result = await api.post('download/add', _torrent)
+    }
+
+    if (result && result.success) {
       // 添加下载成功
-      $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`)
+      $toast.success(`${_torrent?.site_name} ${_torrent?.title} 下载成功！`)
       downloaded.value.push(_torrent?.enclosure || '')
     } else {
       // 添加下载失败
-      $toast.error(`${_torrent?.site_name} ${_torrent?.title} 添加下载失败！`)
+      $toast.error(`${_torrent?.site_name} ${_torrent?.title} 下载失败：${result?.message}！`)
     }
   } catch (error) {
     console.error(error)

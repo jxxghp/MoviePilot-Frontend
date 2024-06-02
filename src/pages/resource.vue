@@ -65,7 +65,7 @@ function startLoadingProgress() {
 
 // 停止监听加载进度
 function stopLoadingProgress() {
-  progressEventSource.value?.close()
+  if (progressEventSource.value) progressEventSource.value?.close()
 }
 
 // 设置视图类型
@@ -82,23 +82,28 @@ async function fetchData() {
       dataList.value = await api.get('search/last')
     } else {
       startLoadingProgress()
+      let result: { [key: string]: any }
       // 优先按TMDBID精确查询
       if (keyword?.startsWith('tmdb:') || keyword?.startsWith('douban:') || keyword?.startsWith('bangumi:')) {
-        const result: { [key: string]: any } = await api.get(`search/media/${keyword}`, {
+        result = await api.get(`search/media/${keyword}`, {
           params: {
             mtype: type,
             area,
             season,
           },
         })
-        if (result.success) {
-          dataList.value = result.data
-        } else {
-          errorDescription.value = result.message
-        }
       } else {
         // 按标题模糊查询
-        dataList.value = await api.get(`search/title/${keyword}`)
+        result = await api.get(`search/title`, {
+          params: {
+            keyword,
+          },
+        })
+      }
+      if (result && result.success) {
+        dataList.value = result.data
+      } else if (result && result.message) {
+        errorDescription.value = result.message
       }
       stopLoadingProgress()
       // 从浏览器历史中删除当前搜索
@@ -115,6 +120,11 @@ async function fetchData() {
 // 加载数据
 onMounted(() => {
   fetchData()
+})
+
+// 卸载时停止加载进度
+onUnmounted(() => {
+  stopLoadingProgress()
 })
 </script>
 

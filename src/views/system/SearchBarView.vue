@@ -23,9 +23,6 @@ const searchWord = ref(null)
 // ref
 const searchWordInput = ref<HTMLElement | null>(null)
 
-// 搜索提示词列表
-const searchHintList = ref<string[]>([])
-
 // 所有菜单功能
 function getMenus(): NavMenu[] {
   let menus: NavMenu[] = []
@@ -146,12 +143,24 @@ const matchedSubscribeItems = computed(() => {
 function searchMedia(searchType: string) {
   // 搜索类型 media/person
   if (!searchWord.value) return
-  if (!searchHintList.value.includes(searchWord.value)) searchHintList.value.push(searchWord.value)
   router.push({
     path: '/browse/media/search',
     query: {
       title: searchWord.value,
       type: searchType,
+    },
+  })
+  emit('close')
+}
+
+// 跳转到种子搜索页面
+function searchTorrent() {
+  if (!searchWord.value) return
+  router.push({
+    path: '/resource',
+    query: {
+      keyword: searchWord.value,
+      area: 'title',
     },
   })
   emit('close')
@@ -214,7 +223,6 @@ onMounted(() => {
           variant="plain"
           class="text-high-emphasis"
           placeholder="搜索 ..."
-          :items="searchHintList"
           @keydown.enter="searchMedia('media')"
         >
           <template #prepend>
@@ -227,7 +235,7 @@ onMounted(() => {
       <div class="ps h-100">
         <VList lines="one" v-if="searchWord">
           <!-- 搜索结果 -->
-          <VListSubheader v-if="searchWord"> 媒体 </VListSubheader>
+          <VListSubheader v-if="searchWord"> 媒体 & 资源 </VListSubheader>
           <VHover>
             <template #default="hover">
               <VListItem
@@ -238,7 +246,7 @@ onMounted(() => {
                 @click="searchMedia('media')"
               >
                 <VListItemTitle>
-                  搜索 <span class="font-bold">{{ searchWord }} </span> 相关的电影、电视剧 ...
+                  搜索 <span class="font-bold">{{ searchWord }} </span> 相关的【电影、电视剧】 ...
                 </VListItemTitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
@@ -256,7 +264,25 @@ onMounted(() => {
                 @click="searchMedia('person')"
               >
                 <VListItemTitle>
-                  搜索 <span class="font-bold">{{ searchWord }}</span> 相关的人物 ...
+                  搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【演职人员】 ...
+                </VListItemTitle>
+                <template #append>
+                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                </template>
+              </VListItem>
+            </template>
+          </VHover>
+          <VHover>
+            <template #default="hover">
+              <VListItem
+                prepend-icon="mdi-search-web"
+                density="compact"
+                link
+                v-bind="hover.props"
+                @click="searchTorrent"
+              >
+                <VListItemTitle>
+                  搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【站点资源】 ...
                 </VListItemTitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
