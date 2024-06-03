@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { debounce } from 'lodash'
-import { ref, unref } from 'vue'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import type { TransferHistory } from '@/api/types'
@@ -62,19 +61,19 @@ const headers = [
 ]
 
 const pageRange = [
-  { title: '25', value: '25' },
-  { title: '50', value: '50' },
-  { title: '100', value: '100' },
-  { title: '500', value: '500' },
-  { title: '1000', value: '1000' },
-  { title: 'All', value: '-1' },
+  { title: '25', value: 25 },
+  { title: '50', value: 50 },
+  { title: '100', value: 100 },
+  { title: '500', value: 500 },
+  { title: '1000', value: 1000 },
+  { title: 'All', value: -1 },
 ]
 
 // 数据列表
 const dataList = ref<TransferHistory[]>([])
 
 // 搜索
-const search = ref(route.query.search??"")
+const search = ref(route.query.search as string)
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -118,8 +117,8 @@ const TransferDict: { [key: string]: string } = {
 
 // 分页提示
 const pageTip = computed(() => {
-  const begin = unref(itemsPerPage) * (unref(currentPage) - 1) + 1
-  const end = unref(itemsPerPage) * unref(currentPage) === -1 ? 'ALL' : unref(itemsPerPage) * unref(currentPage)
+  const begin = itemsPerPage.value * (currentPage.value - 1) + 1
+  const end = itemsPerPage.value * currentPage.value === -1 ? 'ALL' : itemsPerPage.value * currentPage.value
   return {
     begin,
     end,
@@ -128,7 +127,7 @@ const pageTip = computed(() => {
 
 // 分页总数
 const totalPage = computed(() => {
-  const total = Math.ceil(unref(totalItems) / unref(itemsPerPage))
+  const total = Math.ceil(totalItems.value / itemsPerPage.value)
   return total
 })
 
@@ -277,6 +276,16 @@ async function retransferBatch() {
   redoDialog.value = true
 }
 
+// 整理完成
+function transferDone() {
+  redoDialog.value = false
+  // 清空当前操作记录
+  currentHistory.value = undefined
+  selected.value = []
+  // 刷新
+  reloadPage()
+}
+
 // 弹出菜单
 const dropdownItems = ref([
   {
@@ -306,21 +315,21 @@ const dropdownItems = ref([
 // 添加url参数
 function addUrlQuery(url: string, name: string, value: any) {
   if (!url || !name || !value) return url
-  const separator = url.includes("?") ? "&" : "?"
-  return url + separator + name + "=" + encodeURIComponent(value)
+  const separator = url.includes('?') ? '&' : '?'
+  return url + separator + name + '=' + encodeURIComponent(value)
 }
 
 // 重载页面
 function reloadPage() {
-  let url = "/history"
+  let url = '/history'
   if (search.value) {
-    url = addUrlQuery(url, "search", search.value)
+    url = addUrlQuery(url, 'search', search.value)
   }
   if (itemsPerPage.value) {
-    url = addUrlQuery(url, "itemsPerPage", itemsPerPage.value)
+    url = addUrlQuery(url, 'itemsPerPage', itemsPerPage.value)
   }
   if (currentPage.value) {
-    url = addUrlQuery(url, "currentPage", currentPage.value)
+    url = addUrlQuery(url, 'currentPage', currentPage.value)
   }
   router.push(url)
 }
@@ -503,16 +512,7 @@ onMounted(fetchData)
     v-if="redoDialog"
     v-model="redoDialog"
     :logids="redoIds"
-    @done="
-      () => {
-        redoDialog = false
-        // 清空当前操作记录
-        currentHistory = undefined
-        selected = []
-        // 刷新
-        reloadPage()
-      }
-    "
+    @done="transferDone"
     @close="redoDialog = false"
   />
 </template>
