@@ -214,7 +214,8 @@ onMounted(() => {
                 :items="targetDirectories"
                 label="目的路径"
                 placeholder="留空自动"
-                hint="留空将自动匹配目标路径"
+                hint="整理目的路径，留空将自动匹配"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -230,6 +231,8 @@ onMounted(() => {
                   { title: 'Rclone复制', value: 'rclone_copy' },
                   { title: 'Rclone移动', value: 'rclone_move' },
                 ]"
+                hint="文件操作整理方式"
+                persistent-hint
               />
             </VCol>
           </VRow>
@@ -243,6 +246,8 @@ onMounted(() => {
                   { title: '电影', value: '电影' },
                   { title: '电视剧', value: '电视剧' },
                 ]"
+                hint="文件的媒体类型"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -254,7 +259,8 @@ onMounted(() => {
                 placeholder="留空自动识别"
                 :rules="[numberValidator]"
                 append-inner-icon="mdi-magnify"
-                hint="点击图标按名称搜索，留空将自动重新识别"
+                hint="按名称查询媒体编号，留空自动识别"
+                persistent-hint
                 @click:append-inner="mediaSelectorDialog = true"
               />
               <VTextField
@@ -265,7 +271,8 @@ onMounted(() => {
                 placeholder="留空自动识别"
                 :rules="[numberValidator]"
                 append-inner-icon="mdi-magnify"
-                hint="点击图标按名称搜索，留空将自动重新识别"
+                hint="按名称查询媒体编号，留空自动识别"
+                persistent-hint
                 @click:append-inner="mediaSelectorDialog = true"
               />
             </VCol>
@@ -275,6 +282,8 @@ onMounted(() => {
                 v-model.number="transferForm.season"
                 label="季"
                 :items="seasonItems"
+                hint="指定季数"
+                persistent-hint
               />
             </VCol>
           </VRow>
@@ -284,7 +293,8 @@ onMounted(() => {
                 v-model="transferForm.episode_format"
                 label="集数定位"
                 placeholder="使用{ep}定位集数"
-                hint="使用{ep}定位文件名中的集数部分，其余相同部分直接填写，不同部分使用{a}进行忽略，例如：{a}葬送的芙莉莲_Sousou no Frieren 第{ep}话{b}"
+                hint="使用{ep}定位文件名中的集数部分以辅助识别"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -292,7 +302,8 @@ onMounted(() => {
                 v-model="transferForm.episode_detail"
                 label="指定集数"
                 placeholder="起始集,终止集，如1或1,2"
-                hint="直接指定集数或者范围，格式：起始集,终止集，如1或1,2"
+                hint="指定集数或范围，如1或1,2"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -300,7 +311,8 @@ onMounted(() => {
                 v-model="transferForm.episode_part"
                 label="指定Part"
                 placeholder="如part1"
-                hint="指定集数的Part，如part1"
+                hint="指定Part，如part1"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -308,7 +320,8 @@ onMounted(() => {
                 v-model.number="transferForm.episode_offset"
                 label="集数偏移"
                 placeholder="如-10"
-                hint="对集数进行偏移运算，如-10表示文件名中的集数减10为整理后集数"
+                hint="集数偏移运算，如-10或EP*2"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -317,13 +330,19 @@ onMounted(() => {
                 label="最小文件大小（MB）"
                 :rules="[numberValidator]"
                 placeholder="0"
-                hint="最小文件大小，小于此大小的文件将被忽略不进行整理"
+                hint="只整理大于最小文件大小的文件"
+                persistent-hint
               />
             </VCol>
           </VRow>
           <VRow>
             <VCol cols="12" md="6">
-              <VSwitch v-model="transferForm.scrape" label="刮削元数据" hint="整理完成后自动刮削元数据" />
+              <VSwitch
+                v-model="transferForm.scrape"
+                label="刮削元数据"
+                hint="整理完成后自动刮削元数据"
+                persistent-hint
+              />
             </VCol>
           </VRow>
         </VForm>

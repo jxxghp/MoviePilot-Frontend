@@ -58,7 +58,7 @@ export interface Subscribe {
   // 当前优先级
   current_priority: number
   // 保存目录
-  save_path: string
+  save_path?: string
   // 时间
   date: string
   // 编辑框设置项

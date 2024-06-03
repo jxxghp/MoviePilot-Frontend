@@ -143,6 +143,7 @@ async function updateSiteInfo() {
                 label="站点地址"
                 :rules="[requiredValidator]"
                 hint="格式：http://www.example.com/"
+                persistent-hint
               />
             </VCol>
             <VCol cols="6" md="3">
@@ -151,11 +152,18 @@ async function updateSiteInfo() {
                 label="优先级"
                 :items="priorityItems"
                 :rules="[requiredValidator]"
-                hint="站点资源下载优先级，优先级数字越小越优先下载"
+                hint="优先级越小越优先"
+                persistent-hint
               />
             </VCol>
             <VCol cols="6" md="3">
-              <VSelect v-model="siteForm.is_active" :items="statusItems" label="状态" />
+              <VSelect
+                v-model="siteForm.is_active"
+                :items="statusItems"
+                label="状态"
+                hint="站点启用/停用"
+                persistent-hint
+              />
             </VCol>
           </VRow>
           <VRow>
@@ -163,34 +171,38 @@ async function updateSiteInfo() {
               <VTextField
                 v-model="siteForm.rss"
                 label="RSS地址"
-                hint="订阅模式为站点RSS时，将会使用此地址获取站点种子资源，该地址一般会自动获取，也可手动补充"
+                hint="订阅模式为`站点RSS`时使用的订阅链接，如未自动获取需手动补充"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="3">
-              <VTextField v-model="siteForm.timeout" label="超时时间（秒）" hint="站点请求超时时间，为空将使用默认值" />
+              <VTextField v-model="siteForm.timeout" label="超时时间（秒）" hint="站点请求超时时间" persistent-hint />
             </VCol>
             <VCol cols="12">
-              <VTextarea
-                v-model="siteForm.cookie"
-                label="站点Cookie"
-                hint="浏览器打开站点首页，打开开发人员工具，刷新页面后在网络选项中找到首页地址，在请求头中获取Cookie信息"
-              />
+              <VTextarea v-model="siteForm.cookie" label="站点Cookie" hint="站点请求头中的Cookie信息" persistent-hint />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="siteForm.token"
                 label="请求头（Authorization）"
-                hint="在开发人员工具，网络请求头中获取Authorization，仅个别站点需要"
+                hint="站点请求头中的Authorization信息，特殊站点需要"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="siteForm.apikey" label="令牌（API Key）" hint="站点的访问API Key，仅个别站点需要" />
+              <VTextField
+                v-model="siteForm.apikey"
+                label="令牌（API Key）"
+                hint="站点的访问API Key，特殊站点需要"
+                persistent-hint
+              />
             </VCol>
             <VCol cols="12">
               <VTextField
                 v-model="siteForm.ua"
                 label="站点User-Agent"
-                hint="在开发人员工具，网络请求头中获取User-Agent信息，需与站点Cookie配套使用"
+                hint="获取Cookie的浏览器对应的User-Agent"
+                persistent-hint
               />
             </VCol>
           </VRow>
@@ -200,7 +212,8 @@ async function updateSiteInfo() {
                 v-model="siteForm.limit_interval"
                 label="单位周期（秒）"
                 :rules="[numberValidator]"
-                hint="设定站点限流的单位周期，单位为秒，0为不限流"
+                hint="限流控制的单位周期时长"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -208,7 +221,8 @@ async function updateSiteInfo() {
                 v-model="siteForm.limit_count"
                 label="周期内访问次数"
                 :rules="[numberValidator]"
-                hint="设定单位周期内站点允许的访问次数，0为不限制"
+                hint="单位周期内允许的访问次数"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -216,20 +230,17 @@ async function updateSiteInfo() {
                 v-model="siteForm.limit_seconds"
                 label="访问间隔（秒）"
                 :rules="[numberValidator]"
-                hint="设定单位周期内每次站点访问需间隔时间，单位为秒，0为不限制"
+                hint="每次访问需要间隔的最小时间"
+                persistent-hint
               />
             </VCol>
           </VRow>
           <VRow>
             <VCol cols="12" md="6">
-              <VSwitch v-model="siteForm.proxy" label="代理" hint="站点是否需要代理访问，需要设置好代理服务器信息" />
+              <VSwitch v-model="siteForm.proxy" label="代理" hint="使用代理服务器访问该站点" persistent-hint />
             </VCol>
             <VCol cols="12" md="6">
-              <VSwitch
-                v-model="siteForm.render"
-                label="仿真"
-                hint="站点是否需要使用浏览器模拟访问，开启可以一定程度上提升连通性，但会大大增加站点请求时间"
-              />
+              <VSwitch v-model="siteForm.render" label="仿真" hint="使用浏览器模拟真实访问该站点" persistent-hint />
             </VCol>
           </VRow>
         </VForm>

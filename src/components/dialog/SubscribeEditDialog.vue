@@ -53,7 +53,7 @@ const subscribeForm = ref<Subscribe>({
   last_update: '',
   username: '',
   current_priority: 0,
-  save_path: '',
+  save_path: undefined,
   date: '',
   show_edit_dialog: false,
 })
@@ -301,7 +301,8 @@ onMounted(() => {
                 v-if="!props.default"
                 v-model="subscribeForm.keyword"
                 label="搜索关键词"
-                hint="设定搜索关键词后，将使用此关键词搜索站点资源，否则自动使用themoviedb中的名称搜索"
+                hint="指定搜索站点时使用的关键词"
+                persistent-hint
               />
             </VCol>
             <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="2">
@@ -309,7 +310,8 @@ onMounted(() => {
                 v-model="subscribeForm.total_episode"
                 label="总集数"
                 :rules="[numberValidator]"
-                hint="手动设定总集数"
+                hint="剧集总集数"
+                persistent-hint
               />
             </VCol>
             <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="2">
@@ -317,19 +319,38 @@ onMounted(() => {
                 v-model="subscribeForm.start_episode"
                 label="开始集数"
                 :rules="[numberValidator]"
-                hint="只下载此集数及之后的集"
+                hint="开始订阅集数"
+                persistent-hint
               />
             </VCol>
           </VRow>
           <VRow>
             <VCol cols="12" md="4">
-              <VSelect v-model="subscribeForm.quality" label="质量" :items="qualityOptions" />
+              <VSelect
+                v-model="subscribeForm.quality"
+                label="质量"
+                :items="qualityOptions"
+                hint="订阅资源质量"
+                persistent-hint
+              />
             </VCol>
             <VCol cols="12" md="4">
-              <VSelect v-model="subscribeForm.resolution" label="分辨率" :items="resolutionOptions" />
+              <VSelect
+                v-model="subscribeForm.resolution"
+                label="分辨率"
+                :items="resolutionOptions"
+                hint="订阅资源分辨率"
+                persistent-hint
+              />
             </VCol>
             <VCol cols="12" md="4">
-              <VSelect v-model="subscribeForm.effect" label="特效" :items="effectOptions" />
+              <VSelect
+                v-model="subscribeForm.effect"
+                label="特效"
+                :items="effectOptions"
+                hint="订阅资源特效"
+                persistent-hint
+              />
             </VCol>
           </VRow>
           <VRow>
@@ -337,14 +358,16 @@ onMounted(() => {
               <VTextField
                 v-model="subscribeForm.include"
                 label="包含（关键字、正则式）"
-                hint="支持正则表达式，多个关键字用 | 分隔表示或"
+                hint="包含规则，支持正则表达式"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
               <VTextField
                 v-model="subscribeForm.exclude"
                 label="排除（关键字、正则式）"
-                hint="支持正则表达式，多个关键字用 | 分隔表示或"
+                hint="排除规则，支持正则表达式"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
@@ -354,7 +377,8 @@ onMounted(() => {
                 chips
                 label="订阅站点"
                 multiple
-                hint="只订阅选中的订阅站点，不选则订阅所有可订阅站点"
+                hint="订阅的站点范围，不选使用系统设置"
+                persistent-hint
               />
             </VCol>
           </VRow>
@@ -365,6 +389,7 @@ onMounted(() => {
                 :items="targetDirectories"
                 label="保存路径"
                 hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
+                persistent-hint
               />
             </VCol>
           </VRow>
@@ -373,21 +398,24 @@ onMounted(() => {
               <VSwitch
                 v-model="subscribeForm.best_version"
                 label="洗版"
-                hint="开启后不管媒体库是否存在，均会根据洗版优先级进行过滤下载，直到下载到了最高优先级的资源为止"
+                hint="根据洗版优先级进行洗版订阅"
+                persistent-hint
               />
             </VCol>
             <VCol cols="12" md="4">
               <VSwitch
                 v-model="subscribeForm.search_imdbid"
                 label="使用 ImdbID 搜索"
-                hint="开启后将使用 ImdbID 搜索资源，搜索结果更精确，但不是所有站点都支持"
+                hint="开使用 ImdbID 精确搜索资源"
+                persistent-hint
               />
             </VCol>
             <VCol v-if="props.default" cols="12" md="4">
               <VSwitch
                 v-model="subscribeForm.show_edit_dialog"
                 label="订阅时编辑更多规则"
-                hint="开启后将在添加订阅后弹出编辑订阅的对话框，方便用户编辑订阅规则"
+                hint="添加订阅时显示此编辑订阅对话框"
+                persistent-hint
               />
             </VCol>
           </VRow>
