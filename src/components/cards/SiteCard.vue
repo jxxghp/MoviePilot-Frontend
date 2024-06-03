@@ -194,7 +194,7 @@ onMounted(() => {
           <VImg :src="siteIcon" />
         </VAvatar>
       </template>
-      <VCardItem>
+      <VCardItem style="padding-block-end: 0;">
         <VCardTitle class="font-bold">
           <span @click.stop="openSitePage">{{ cardProps.site?.name }}</span>
         </VCardTitle>
@@ -202,7 +202,7 @@ onMounted(() => {
           <span @click.stop="openSitePage">{{ cardProps.site?.url }}</span>
         </VCardSubtitle>
       </VCardItem>
-      <VCardText class="py-2">
+      <VCardText class="py-2" style="block-size: 36px;">
         <VTooltip v-if="cardProps.site?.render === 1" text="浏览器仿真">
           <template #activator="{ props }">
             <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-apple-safari" />
