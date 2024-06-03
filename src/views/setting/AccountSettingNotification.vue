@@ -195,7 +195,8 @@ onMounted(() => {
                   chips
                   :items="NotificationChannels"
                   label="当前使用通知渠道"
-                  hint="选中的渠道才会按消息类型的设定发送消息"
+                  hint="消息通知渠道总开关"
+                  persistent-hint
                 />
               </VCol>
             </VRow>
@@ -216,42 +217,48 @@ onMounted(() => {
                           <VTextField
                             v-model="notificationSettings.WECHAT_CORPID"
                             label="企业ID"
-                            hint="登录企业微信后台，在 https://work.weixin.qq.com/wework_admin/frame#profile 中查看"
-                          />
-                        </VCol>
-                        <VCol cols="12" md="4">
-                          <VTextField
-                            v-model="notificationSettings.WECHAT_APP_SECRET"
-                            label="应用Secret"
-                            hint="在企业微信中创建应用，查看应用的Secret"
+                            hint="企业微信后台企业信息中的企业ID"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="notificationSettings.WECHAT_APP_ID"
                             label="应用 AgentId"
-                            hint="在企业微信中创建应用，查看应用的AgentId"
+                            hint="企业微信自建应用的AgentId"
+                            persistent-hint
+                          />
+                        </VCol>
+                        <VCol cols="12" md="4">
+                          <VTextField
+                            v-model="notificationSettings.WECHAT_APP_SECRET"
+                            label="应用Secret"
+                            hint="企业微信自建应用的Secret"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="notificationSettings.WECHAT_PROXY"
                             label="代理地址"
-                            hint="由于微信官方限制，2022年6月20日后创建的企业微信应用需要有固定的公网IP地址并加入IP白名单后才能接收消息，使用有固定公网IP的代理服务器转发可解决该问题；代理服务器需自行搭建，搭建方法参考项目主页说明，不使用代理需保留默认值"
+                            hint="微信消息的转发代理地址，2022年6月20日后创建的自建应用才需要，不使用代理时需要保留默认值"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="notificationSettings.WECHAT_TOKEN"
                             label="Token"
-                            hint="在微信企业应用管理后台-接收消息设置页面生成"
+                            hint="微信企业自建应用->API接收消息配置中的Token"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="notificationSettings.WECHAT_ENCODING_AESKEY"
                             label="EncodingAESKey"
-                            hint="在微信企业应用管理后台-接收消息设置页面生成，所有信息填入完成后保存，然后再在企业微信应用消息接收服务中输入回调地址：http(s)://domain:port/api/v1/message/"
+                            hint="微信企业自建应用->API接收消息配置中的EncodingAESKey"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -259,7 +266,8 @@ onMounted(() => {
                             v-model="notificationSettings.WECHAT_ADMINS"
                             label="管理员白名单"
                             placeholder="多个用,分隔"
-                            hint="只有在白名单中的用户才能使用菜单管理功能，不填写则所有用户都能使用，菜单会自动生成，不需要手动创建"
+                            hint="可使用管理菜单及命令的用户ID列表，多个ID使用,分隔"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -272,14 +280,16 @@ onMounted(() => {
                           <VTextField
                             v-model="notificationSettings.TELEGRAM_TOKEN"
                             label="Bot Token"
-                            hint="Telegram机器人的token，关注BotFather创建机器人并获取token，格式为：123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                            hint="Telegram机器人token，格式：123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="6">
                           <VTextField
                             v-model="notificationSettings.TELEGRAM_CHAT_ID"
                             label="Chat ID"
-                            hint="接受消息通知的用户、群组或频道Chat ID，关注@getidsbot获取"
+                            hint="接受消息通知的用户、群组或频道Chat ID"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="6">
@@ -287,7 +297,8 @@ onMounted(() => {
                             v-model="notificationSettings.TELEGRAM_USERS"
                             label="用户白名单"
                             placeholder="多个用,分隔"
-                            hint="只有在白名单中的用户才能使用Telegram机器人，不填写则所有用户都能使用，多个用户用英文,分隔"
+                            hint="可使用Telegram机器人的用户ID清单，多个用户用,分隔，不填写则所有用户都能使用"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="6">
@@ -295,7 +306,8 @@ onMounted(() => {
                             v-model="notificationSettings.TELEGRAM_ADMINS"
                             label="管理员白名单"
                             placeholder="多个用,分隔"
-                            hint="只有在白名单中的用户才能使用管理功能，不填写则所有用户都能使用，多个用户用英文,分隔。菜单会自动生成，不需要手动创建"
+                            hint="可使用管理菜单及命令的用户ID列表，多个ID使用,分隔"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -309,7 +321,8 @@ onMounted(() => {
                             v-model="notificationSettings.SLACK_OAUTH_TOKEN"
                             label="Slack Bot User OAuth Token"
                             placeholder="xoxb-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx"
-                            hint="在 https://api.slack.com/apps 中创建应用，查看OAuth & Permissions页面中的Bot User OAuth Token"
+                            hint="Slack应用`OAuth & Permissions`页面中的`Bot User OAuth Token`"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="5">
@@ -317,7 +330,8 @@ onMounted(() => {
                             v-model="notificationSettings.SLACK_APP_TOKEN"
                             label="Slack App-Level Token"
                             placeholder="xapp-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx"
-                            hint="在 https://api.slack.com/apps 中创建应用，查看OAuth & Permissions页面中的App-Level Token"
+                            hint="Slack应用`OAuth & Permissions`页面中的`App-Level Token`"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="2">
@@ -325,7 +339,8 @@ onMounted(() => {
                             v-model="notificationSettings.SLACK_CHANNEL"
                             label="频道名称"
                             placeholder="全体"
-                            hint="消息发送到的频道名称，不填写则发送到全体频道"
+                            hint="消息发送频道，默认`全体`"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -338,14 +353,16 @@ onMounted(() => {
                           <VTextField
                             v-model="notificationSettings.SYNOLOGYCHAT_WEBHOOK"
                             label="机器人传入URL"
-                            hint="在Synology Chat中创建机器人，获取机器人传入URL"
+                            hint="Synology Chat机器人传入URL"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="6">
                           <VTextField
                             v-model="notificationSettings.SYNOLOGYCHAT_TOKEN"
                             label="令牌"
-                            hint="在Synology Chat中创建机器人，获取机器人令牌"
+                            hint="Synology Chat机器人令牌"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -355,13 +372,19 @@ onMounted(() => {
                     <VForm>
                       <VRow>
                         <VCol cols="12" md="4">
-                          <VTextField v-model="notificationSettings.VOCECHAT_HOST" label="地址" />
+                          <VTextField
+                            v-model="notificationSettings.VOCECHAT_HOST"
+                            label="地址"
+                            hint="VoceChat服务端地址，格式：http(s)://ip:port"
+                            persistent-hint
+                          />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="notificationSettings.VOCECHAT_API_KEY"
                             label="机器人密钥"
-                            hint="在VoceChat中创建机器人，获取机器人密钥"
+                            hint="VoceChat机器人密钥"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -369,7 +392,8 @@ onMounted(() => {
                             v-model="notificationSettings.VOCECHAT_CHANNEL_ID"
                             label="频道ID"
                             placeholder="不包含#号"
-                            hint="在VoceChat中创建频道，获取频道ID，不包含#号"
+                            hint="VoceChat的频道ID，不包含#号"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>

@@ -294,7 +294,8 @@ onMounted(() => {
                 chips
                 :items="mediaSourcesDict"
                 label="当前使用数据源"
-                hint="选中多项时会同时展示来自不同数据源的搜索结果，选择的数据源顺序将会影响搜索结果的排序"
+                hint="搜索媒体信息时使用的数据源以及排序"
+                persistent-hint
               />
             </VCol>
           </VRow>
@@ -398,7 +399,8 @@ onMounted(() => {
                   v-model="defaultFilterRules.include"
                   type="text"
                   label="包含（关键字、正则式）"
-                  hint="支持正式表达式，多个关键字用 | 分隔表示或"
+                  hint="包含规则，支持正式表达式，多个关键字用 | 分隔表示或"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -406,7 +408,8 @@ onMounted(() => {
                   v-model="defaultFilterRules.exclude"
                   type="text"
                   label="排除（关键字、正则式）"
-                  hint="支持正式表达式，多个关键字用 | 分隔表示或"
+                  hint="排除规则，支持正式表达式，多个关键字用 | 分隔表示或"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -416,15 +419,17 @@ onMounted(() => {
                   label="最小做种数"
                   placeholder="0"
                   hint="小于该值的资源将被过滤掉，0表示不过滤"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="defaultFilterRules.min_seeders_time"
                   type="text"
-                  label="最少做种人数生效发布时间（分钟）"
+                  label="最少做种数生效发布时间（分钟）"
                   placeholder="0"
-                  hint="发布时间距现在大于该值的资源将生效最小做种数规则，0表示不生效"
+                  hint="发布时间距当前时间大于该值的资源将生效最小做种数规则，0表示不生效"
+                  persistent-hint
                 />
               </VCol>
             </VRow>

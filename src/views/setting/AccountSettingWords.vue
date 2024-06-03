@@ -143,6 +143,7 @@ onMounted(() => {
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行为一组"
             hint="支持正则表达式，特殊字符需要\转义，一行为一组"
+            persistent-hint
           />
         </VCardText>
         <VCardText>
@@ -177,6 +178,7 @@ onMounted(() => {
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个制作组/字幕组"
             hint="支持正则表达式，特殊字符需要\转义，一行代表一个制作组/字幕组"
+            persistent-hint
           />
         </VCardText>
         <VCardText>
@@ -194,8 +196,9 @@ onMounted(() => {
           <VTextarea
             v-model="customization"
             auto-grow
-            placeholder="多个匹配对象请换行分隔，支持正则表达式，特殊字符注意转义"
-            hint="多个匹配对象请换行分隔，支持正则表达式，特殊字符注意转义"
+            placeholder="支持正则表达式，特殊字符需要\转义，多个匹配对象请换行分隔"
+            hint="支持正则表达式，特殊字符需要\转义，多个匹配对象请换行分隔"
+            persistent-hint
           />
         </VCardText>
         <VCardText>
@@ -215,6 +218,7 @@ onMounted(() => {
             auto-grow
             placeholder="支持正则表达式，特殊字符需要\转义，一行代表一个屏蔽词"
             hint="支持正则表达式，特殊字符需要\转义，一行代表一个屏蔽词"
+            persistent-hint
           />
         </VCardText>
         <VCardText>

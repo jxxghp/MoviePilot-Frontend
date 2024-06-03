@@ -288,7 +288,8 @@ onMounted(() => {
                   v-model="transferSettings.TRANSFER_TYPE"
                   :items="transferTypeItems"
                   label="整理方式"
-                  hint="硬链接需要确保下载目录和媒体库目录不跨盘、不跨共享目录、不分别映射；rclone需要手动在容器中完成配置，且配置名为：`MP`"
+                  hint="文件从下载目录整理到媒体库目录的操作方式"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -296,14 +297,16 @@ onMounted(() => {
                   v-model="transferSettings.OVERWRITE_MODE"
                   :items="overwriteModeItems"
                   label="覆盖模式"
-                  hint="从不覆盖：不覆盖已存在的文件；按大小覆盖：大文件将覆盖小文件；总是覆盖：总是覆盖已存在的文件；仅保留最新版本：保留最新版本的文件，删除其它版本的文件"
+                  hint="媒体库中同名文件已存在时的覆盖方式"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="transferSettings.TRANSFER_SAME_DISK"
                   label="同盘/同根目录优先"
-                  hint="开启后优先整理到与下载目录同一磁盘/同一根路径的媒体库目录中"
+                  hint="优先整理到与下载目录同一磁盘/同一根路径的媒体库目录中"
+                  persistent-hint
                 />
               </VCol>
             </VRow>

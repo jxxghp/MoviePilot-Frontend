@@ -338,7 +338,8 @@ onMounted(() => {
                   v-model="selectedSubscribeMode"
                   :items="subscribeModeItems"
                   label="订阅模式"
-                  hint="自动：系统自动爬取站点首页资源；站点RSS：使用站点RSS订阅资源，站点RSS会自动获取，也可手动在站点管理中补全"
+                  hint="自动：自动爬取站点首页，站点RSS：通过站点RSS链接订阅"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -346,7 +347,8 @@ onMounted(() => {
                   v-model="selectedRssInterval"
                   :items="rssIntervalItems"
                   label="站点RSS周期"
-                  hint="设置站点RSS运行周期，在订阅模式为站点RSS时生效"
+                  hint="设置站点RSS运行周期，在订阅模式为`站点RSS`时生效"
+                  persistent-hint
                 />
               </VCol>
             </VRow>
@@ -355,7 +357,8 @@ onMounted(() => {
                 <VSwitch
                   v-model="enableIntervalSearch"
                   label="开启订阅定时搜索"
-                  hint="开启后，系统每隔24小时将按名称搜索全站，补全订阅可能漏掉的资源"
+                  hint="每隔24小时全站搜索，以补全订阅可能漏掉的资源"
+                  persistent-hint
                 />
               </VCol>
             </VRow>
@@ -490,7 +493,8 @@ onMounted(() => {
                   v-model="defaultFilterRules.include"
                   type="text"
                   label="包含（关键字、正则式）"
-                  hint="支持正式表达式，多个关键字用 | 分隔表示或"
+                  hint="包含规则，支持正式表达式，多个关键字用 | 分隔表示或"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -498,7 +502,8 @@ onMounted(() => {
                   v-model="defaultFilterRules.exclude"
                   type="text"
                   label="排除（关键字、正则式）"
-                  hint="支持正式表达式，多个关键字用 | 分隔表示或"
+                  hint="排除规则，支持正式表达式，多个关键字用 | 分隔表示或"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -507,7 +512,8 @@ onMounted(() => {
                   type="text"
                   label="电影文件大小（GB）"
                   placeholder="0-30"
-                  hint="格式：0-30，表示0到30GB之间的资源"
+                  hint="文件大小范围，格式：0-30，表示0-30GB之间的资源"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -516,7 +522,8 @@ onMounted(() => {
                   type="text"
                   label="剧集单集文件大小（GB）"
                   placeholder="0-10"
-                  hint="格式：0-10，表示0到10GB之间的资源"
+                  hint="单集文件大小范围，格式：0-10，表示0-10GB之间的资源"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -526,15 +533,17 @@ onMounted(() => {
                   label="最小做种数"
                   placeholder="0"
                   hint="小于该值的资源将被过滤掉，0表示不过滤"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="defaultFilterRules.min_seeders_time"
                   type="text"
-                  label="最少做种人数生效发布时间（分钟）"
+                  label="最少做种数生效发布时间（分钟）"
                   placeholder="0"
-                  hint="发布时间距现在大于该值的资源将生效最小做种数规则，0表示不生效"
+                  hint="发布时间距当前时间大于该值的资源将生效最小做种数规则，0表示不生效"
+                  persistent-hint
                 />
               </VCol>
             </VRow>

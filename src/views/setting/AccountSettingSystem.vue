@@ -244,14 +244,16 @@ onMounted(() => {
                   chips
                   :items="Downloaders"
                   label="当前使用下载器"
-                  hint="MoviePilot自动添加的下载任务将使用选中的第1个下载器"
+                  hint="启用下载器，只有第1个会被默认下载使用"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="downloaderSettings.TORRENT_TAG"
                   label="下载器种子标签"
-                  hint="设置种子标签用于区分MoviePilot添加的下载任务，默认标签为`MOVIEPILOT`"
+                  hint="MoviePilot添加的下载任务标签"
+                  persistent-hint
                 />
               </VCol>
             </VRow>
@@ -259,8 +261,9 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="downloaderSettings.DOWNLOADER_MONITOR"
-                  label="监控默认下载器"
-                  hint="监控选中的第1个下载器，当任务下载完成时自动整理文件到媒体库"
+                  label="下载文件自动整理"
+                  hint="任务下载完成时自动整理文件到媒体库"
+                  persistent-hint
                 />
               </VCol>
             </VRow>
@@ -278,8 +281,9 @@ onMounted(() => {
                           <VTextField
                             v-model="downloaderSettings.QB_HOST"
                             label="地址"
-                            placeholder="IP:PORT"
-                            hint="格式：IP:PORT，如启用了HTTPS，请使用https://IP:PORT"
+                            placeholder="http(s)://ip:port"
+                            hint="服务端地址，格式：http(s)://ip:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -287,7 +291,8 @@ onMounted(() => {
                             v-model="downloaderSettings.QB_USER"
                             label="用户名"
                             placeholder="admin"
-                            hint="QB的登录用户名"
+                            hint="登录使用的用户名"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -295,28 +300,32 @@ onMounted(() => {
                             v-model="downloaderSettings.QB_PASSWORD"
                             type="password"
                             label="密码"
-                            hint="QB的登录密码"
+                            hint="登录使用的密码"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VSwitch
                             v-model="downloaderSettings.QB_CATEGORY"
                             label="自动分类管理"
-                            hint="开启后，下载目录将由QB控制自动下载到分类到目录，此时MoviePilot的下载目录设定无效，需在QB中提前创建分类"
+                            hint="由下载器自动管理分类和下载目录"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VSwitch
                             v-model="downloaderSettings.QB_SEQUENTIAL"
                             label="顺序下载"
-                            hint="开启后QB将按照文件顺序依次下载"
+                            hint="按顺序依次下载文件"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VSwitch
                             v-model="downloaderSettings.QB_FORCE_RESUME"
                             label="强制继续"
-                            hint="开启后，QB将设置为强制继续、强制上传模式（带[F]标识）"
+                            hint="强制继续、强制上传模式"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -329,8 +338,9 @@ onMounted(() => {
                           <VTextField
                             v-model="downloaderSettings.TR_HOST"
                             label="地址"
-                            placeholder="IP:PORT"
-                            hint="格式：IP:PORT，如启用了HTTPS，请使用https://IP:PORT"
+                            placeholder="http(s)://ip:port"
+                            hint="服务端地址，格式：http(s)://ip:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -338,7 +348,8 @@ onMounted(() => {
                             v-model="downloaderSettings.TR_USER"
                             label="用户名"
                             placeholder="admin"
-                            hint="TR的登录用户名"
+                            hint="登录使用的用户名"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -346,7 +357,8 @@ onMounted(() => {
                             v-model="downloaderSettings.TR_PASSWORD"
                             type="password"
                             label="密码"
-                            hint="TR的登录密码"
+                            hint="登录使用的密码"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -384,7 +396,8 @@ onMounted(() => {
                   chips
                   :items="MediaServers"
                   label="当前使用媒体服务器"
-                  hint="媒体服务器用于搜索下载等判断库中是否已存在，以避免重复下载"
+                  hint="启用媒体服务器，入库展示、下载控重等将使用"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -392,7 +405,8 @@ onMounted(() => {
                   v-model="mediaServerSettings.MEDIASERVER_SYNC_INTERVAL"
                   :items="syncIntervalItems"
                   label="同步周期"
-                  hint="设置后数据将定时同步到MoviePilot数据库，以便展示媒体库是否存在标识"
+                  hint="同步媒体库数据到MoviePilot的时间间隔"
+                  persistent-hint
                 />
               </VCol>
               <VCol cols="12" md="4">
@@ -400,7 +414,8 @@ onMounted(() => {
                   v-model="mediaServerSettings.MEDIASERVER_SYNC_BLACKLIST"
                   label="媒体库同步黑名单"
                   placeholder="使用,分隔"
-                  hint="设置不同步数据的媒体库名称，使用,分隔，如：电影,电视剧"
+                  hint="不同步数据的媒体库名称，多个使用,分隔"
+                  persistent-hint
                 />
               </VCol>
             </VRow>
@@ -419,8 +434,9 @@ onMounted(() => {
                           <VTextField
                             v-model="mediaServerSettings.EMBY_HOST"
                             label="地址"
-                            placeholder="IP:PORT"
-                            hint="格式：IP:PORT 或 http(s)://IP:PORT/"
+                            placeholder="http(s)://ip:port"
+                            hint="服务端地址，格式：http(s)://ip:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -428,14 +444,16 @@ onMounted(() => {
                             v-model="mediaServerSettings.EMBY_PLAY_HOST"
                             label="外网播放地址"
                             placeholder="http(s)://domain:port"
-                            hint="格式：http(s)://domain:port，设置后跳转Emby时将优先使用此地址"
+                            hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.EMBY_API_KEY"
                             label="API密钥"
-                            hint="Emby的API密钥，在 Emby设置->高级->API 密钥 中生成"
+                            hint="Emby设置->高级->API密钥中生成的密钥"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -448,8 +466,9 @@ onMounted(() => {
                           <VTextField
                             v-model="mediaServerSettings.JELLYFIN_HOST"
                             label="地址"
-                            placeholder="IP:PORT"
-                            hint="格式：IP:PORT 或 http(s)://IP:PORT/"
+                            placeholder="http(s)://ip:port"
+                            hint="服务端地址，格式：http(s)://ip:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -457,14 +476,16 @@ onMounted(() => {
                             v-model="mediaServerSettings.JELLYFIN_PLAY_HOST"
                             label="外网播放地址"
                             placeholder="http(s)://domain:port"
-                            hint="格式：http(s)://domain:port，设置后跳转Jellyfin时将优先使用此地址"
+                            hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.JELLYFIN_API_KEY"
                             label="API密钥"
-                            hint="Jellyfin的API密钥，在 Jellyfin设置->高级->API 密钥 中生成"
+                            hint="Jellyfin设置->高级->API密钥中生成的密钥"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
@@ -477,8 +498,9 @@ onMounted(() => {
                           <VTextField
                             v-model="mediaServerSettings.PLEX_HOST"
                             label="地址"
-                            placeholder="IP:PORT"
-                            hint="格式：IP:PORT 或 http(s)://IP:PORT/"
+                            placeholder="http(s)://ip:port"
+                            hint="服务端地址，格式：http(s)://ip:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
@@ -486,14 +508,16 @@ onMounted(() => {
                             v-model="mediaServerSettings.PLEX_PLAY_HOST"
                             label="外网播放地址"
                             placeholder="http(s)://domain:port"
-                            hint="格式：http(s)://domain:port，设置后跳转Plex时将优先使用此地址"
+                            hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
+                            persistent-hint
                           />
                         </VCol>
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="mediaServerSettings.PLEX_TOKEN"
-                            label="API密钥"
-                            hint="Plex网页Url中的X-Plex-Token，通过浏览器F12->网络从请求URL中获取"
+                            label="X-Plex-Token"
+                            hint="浏览器F12->网络，从Plex请求URL中获取的X-Plex-Token"
+                            persistent-hint
                           />
                         </VCol>
                       </VRow>
