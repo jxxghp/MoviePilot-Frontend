@@ -62,21 +62,19 @@ const headers = [
 ]
 
 const pageRange = [
-  { title: '25', value: 25 },
-  { title: '50', value: 50 },
-  { title: '100', value: 100 },
-  { title: '500', value: 500 },
-  { title: '1000', value: 1000 },
-  { title: 'All', value: -1 },
+  { title: '25', value: '25' },
+  { title: '50', value: '50' },
+  { title: '100', value: '100' },
+  { title: '500', value: '500' },
+  { title: '1000', value: '1000' },
+  { title: 'All', value: '-1' },
 ]
 
 // 数据列表
 const dataList = ref<TransferHistory[]>([])
 
 // 搜索
-const search = ref()
-// 路由中有搜索参数时放到搜索框中
-if (route.query.search) search.value = route.query.search
+const search = ref(route.query.search??"")
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -88,10 +86,10 @@ const loading = ref(false)
 const totalItems = ref(0)
 
 // 每页条数
-const itemsPerPage = ref(50)
+const itemsPerPage = ref(route.query.itemsPerPage??50)
 
 // 当前页码
-const currentPage = ref(1)
+const currentPage = ref(route.query.currentPage??1)
 
 // 进度条
 const progressDialog = ref(false)
@@ -138,9 +136,7 @@ const totalPage = computed(() => {
 watch(
   [() => currentPage.value, () => itemsPerPage.value, () => search.value],
   debounce(async () => {
-    // 清除路由参数
-    if (route.query.search) router.push("/history")
-    await fetchData()
+    reloadPage()
   }, 1000),
 )
 
@@ -207,7 +203,7 @@ async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   // 删除
   await remove(currentHistory.value, deleteSrc, deleteDest)
   // 刷新
-  fetchData()
+  reloadPage()
 }
 
 // 批量删除记录
@@ -236,7 +232,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 隐藏进度条
   progressDialog.value = false
   // 重新获取数据
-  fetchData()
+  reloadPage()
 }
 
 // 响应删除操作
@@ -306,6 +302,28 @@ const dropdownItems = ref([
     },
   },
 ])
+
+// 添加url参数
+function addUrlQuery(url: string, name: string, value: any) {
+  if (!url || !name || !value) return url
+  const separator = url.includes("?") ? "&" : "?"
+  return url + separator + name + "=" + value
+}
+
+// 重载页面
+function reloadPage() {
+  let url = "/history"
+  if (search.value) {
+    url = addUrlQuery(url, "search", search.value)
+  }
+  if (itemsPerPage.value) {
+    url = addUrlQuery(url, "itemsPerPage", itemsPerPage.value)
+  }
+  if (currentPage.value) {
+    url = addUrlQuery(url, "currentPage", currentPage.value)
+  }
+  router.push(url)
+}
 
 // 初始加载数据
 onMounted(fetchData)
@@ -482,7 +500,7 @@ onMounted(fetchData)
         currentHistory = undefined
         selected = []
         // 刷新
-        fetchData()
+        reloadPage()
       }
     "
     @close="redoDialog = false"
