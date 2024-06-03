@@ -86,10 +86,10 @@ const loading = ref(false)
 const totalItems = ref(0)
 
 // 每页条数
-const itemsPerPage = ref<number>(Number(route.query.itemsPerPage??50))
+const itemsPerPage = ref<number>(ensureNumber(route.query.itemsPerPage, 50))
 
 // 当前页码
-const currentPage = ref<number>(Number(route.query.currentPage??1))
+const currentPage = ref<number>(ensureNumber(route.query.currentPage, 1))
 
 // 进度条
 const progressDialog = ref(false)
@@ -323,6 +323,16 @@ function reloadPage() {
     url = addUrlQuery(url, "currentPage", currentPage.value)
   }
   router.push(url)
+}
+
+// 确保值为number类型
+function ensureNumber(value: any, defaultValue: number = 0) {
+  value = Number(value)
+  // 如果不是数字
+  if (value !== value) {
+    value = defaultValue
+  }
+  return value
 }
 
 // 初始加载数据
