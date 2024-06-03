@@ -203,9 +203,9 @@ onMounted(() => {
         </VCardSubtitle>
       </VCardItem>
       <VCardText class="py-2" style="block-size: 36px;">
-        <VTooltip v-if="cardProps.site?.render === 1" text="浏览器仿真">
+        <VTooltip v-if="cardProps.site?.limit_interval" text="流控">
           <template #activator="{ props }">
-            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-apple-safari" />
+            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
           </template>
         </VTooltip>
         <VTooltip v-if="cardProps.site?.proxy === 1" text="代理">
@@ -213,9 +213,9 @@ onMounted(() => {
             <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-network-outline" />
           </template>
         </VTooltip>
-        <VTooltip v-if="cardProps.site?.limit_interval" text="流控">
+        <VTooltip v-if="cardProps.site?.render === 1" text="浏览器仿真">
           <template #activator="{ props }">
-            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
+            <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-apple-safari" />
           </template>
         </VTooltip>
         <VTooltip v-if="cardProps.site?.filter" text="过滤">
