@@ -18,10 +18,33 @@ const router = useRouter()
 const emit = defineEmits(['close'])
 
 // 搜索词
-const searchWord = ref(null)
+const searchWord = ref<string | null>(null)
 
 // ref
 const searchWordInput = ref<HTMLElement | null>(null)
+
+// 近期搜索词条
+const recentSearches = ref<string[]>([])
+
+// 保存近期搜索到本地
+function saveRecentSearches(keyword: string) {
+  if (!keyword) return
+  if (recentSearches.value.includes(keyword)) return
+  recentSearches.value.unshift(keyword)
+  localStorage.setItem('MP_RecentSearches', JSON.stringify(recentSearches.value))
+}
+
+// 从本地加载近期搜索
+function loadRecentSearches() {
+  const recentSearchesStr = localStorage.getItem('MP_RecentSearches')
+  if (recentSearchesStr) {
+    recentSearches.value = JSON.parse(recentSearchesStr)
+    // 只保留最近的 5 条
+    if (recentSearches.value.length > 5) {
+      recentSearches.value = recentSearches.value.slice(0, 5)
+    }
+  }
+}
 
 // 所有菜单功能
 function getMenus(): NavMenu[] {
@@ -143,6 +166,7 @@ const matchedSubscribeItems = computed(() => {
 function searchMedia(searchType: string) {
   // 搜索类型 media/person
   if (!searchWord.value) return
+  saveRecentSearches(searchWord.value)
   router.push({
     path: '/browse/media/search',
     query: {
@@ -156,6 +180,7 @@ function searchMedia(searchType: string) {
 // 跳转到种子搜索页面
 function searchTorrent() {
   if (!searchWord.value) return
+  saveRecentSearches(searchWord.value)
   router.push({
     path: '/resource',
     query: {
@@ -169,10 +194,11 @@ function searchTorrent() {
 // 跳转到历史记录页面
 function searchHistory() {
   if (!searchWord.value) return
+  saveRecentSearches(searchWord.value)
   router.push({
     path: '/history',
     query: {
-      search: searchWord.value
+      search: searchWord.value,
     },
   })
   emit('close')
@@ -222,6 +248,7 @@ onMounted(() => {
   }, 500)
   fetchInstalledPlugins()
   fetchSubscribes()
+  loadRecentSearches()
 })
 </script>
 <template>
@@ -268,13 +295,7 @@ onMounted(() => {
           </VHover>
           <VHover>
             <template #default="hover">
-              <VListItem
-                prepend-icon="mdi-account-search"
-                density="compact"
-                link
-                v-bind="hover.props"
-                @click="searchMedia('person')"
-              >
+              <VListItem prepend-icon="mdi-account-search" link v-bind="hover.props" @click="searchMedia('person')">
                 <VListItemTitle>
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【演职人员】 ...
                 </VListItemTitle>
@@ -286,13 +307,7 @@ onMounted(() => {
           </VHover>
           <VHover>
             <template #default="hover">
-              <VListItem
-                prepend-icon="mdi-search-web"
-                density="compact"
-                link
-                v-bind="hover.props"
-                @click="searchTorrent"
-              >
+              <VListItem prepend-icon="mdi-search-web" link v-bind="hover.props" @click="searchTorrent">
                 <VListItemTitle>
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【站点资源】 ...
                 </VListItemTitle>
@@ -304,13 +319,7 @@ onMounted(() => {
           </VHover>
           <VHover>
             <template #default="hover">
-              <VListItem
-                prepend-icon="mdi-history"
-                density="compact"
-                link
-                v-bind="hover.props"
-                @click="searchHistory"
-              >
+              <VListItem prepend-icon="mdi-history" link v-bind="hover.props" @click="searchHistory">
                 <VListItemTitle>
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【历史记录】 ...
                 </VListItemTitle>
@@ -386,6 +395,23 @@ onMounted(() => {
         <div v-else>
           <!-- 默认 -->
           <VCardText>
+            <VRow v-if="recentSearches.length > 0">
+              <VCol cols="12">
+                <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">最近搜索</p>
+                <div class="px-3">
+                  <VChip
+                    v-for="(word, index) in recentSearches"
+                    :key="index"
+                    class="me-2"
+                    variant="tonal"
+                    @click="searchWord = word"
+                    label
+                  >
+                    {{ word }}
+                  </VChip>
+                </div>
+              </VCol>
+            </VRow>
             <VRow>
               <VCol cols="12" md="6">
                 <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">常用功能</p>
