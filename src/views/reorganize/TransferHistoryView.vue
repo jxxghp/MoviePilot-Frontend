@@ -86,10 +86,10 @@ const loading = ref(false)
 const totalItems = ref(0)
 
 // 每页条数
-const itemsPerPage = ref(route.query.itemsPerPage??50)
+const itemsPerPage = ref<number>(Number(route.query.itemsPerPage??50))
 
 // 当前页码
-const currentPage = ref(route.query.currentPage??1)
+const currentPage = ref<number>(Number(route.query.currentPage??1))
 
 // 进度条
 const progressDialog = ref(false)
