@@ -166,6 +166,18 @@ function searchTorrent() {
   emit('close')
 }
 
+// 跳转到历史记录页面
+function searchHistory() {
+  if (!searchWord.value) return
+  router.push({
+    path: '/history',
+    query: {
+      search: searchWord.value
+    },
+  })
+  emit('close')
+}
+
 // 跳转插件页面
 function showPlugin(pluginId: string) {
   router.push({
@@ -283,6 +295,24 @@ onMounted(() => {
               >
                 <VListItemTitle>
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【站点资源】 ...
+                </VListItemTitle>
+                <template #append>
+                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                </template>
+              </VListItem>
+            </template>
+          </VHover>
+          <VHover>
+            <template #default="hover">
+              <VListItem
+                prepend-icon="mdi-history"
+                density="compact"
+                link
+                v-bind="hover.props"
+                @click="searchHistory"
+              >
+                <VListItemTitle>
+                  搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【历史记录】 ...
                 </VListItemTitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />

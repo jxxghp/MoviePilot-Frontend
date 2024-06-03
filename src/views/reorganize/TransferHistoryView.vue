@@ -6,9 +6,14 @@ import api from '@/api'
 import type { TransferHistory } from '@/api/types'
 import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
+import { useRoute } from 'vue-router'
+import router from '@/router'
 
 // 提示框
 const $toast = useToast()
+
+// 路由
+const route = useRoute()
 
 // 重新整理对话框
 const redoDialog = ref(false)
@@ -70,6 +75,8 @@ const dataList = ref<TransferHistory[]>([])
 
 // 搜索
 const search = ref()
+// 路由中有搜索参数时放到搜索框中
+if (route.query.search) search.value = route.query.search
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -131,6 +138,8 @@ const totalPage = computed(() => {
 watch(
   [() => currentPage.value, () => itemsPerPage.value, () => search.value],
   debounce(async () => {
+    // 清除路由参数
+    if (route.query.search) router.push("/history")
     await fetchData()
   }, 1000),
 )
