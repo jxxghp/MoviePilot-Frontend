@@ -307,7 +307,7 @@ const dropdownItems = ref([
 function addUrlQuery(url: string, name: string, value: any) {
   if (!url || !name || !value) return url
   const separator = url.includes("?") ? "&" : "?"
-  return url + separator + name + "=" + value
+  return url + separator + name + "=" + encodeURIComponent(value)
 }
 
 // 重载页面
