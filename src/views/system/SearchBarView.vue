@@ -281,7 +281,7 @@ onMounted(() => {
       </VCardItem>
       <DialogCloseBtn inner-class="absolute right-3 top-5 text-high-emphasis" @click="emit('close')" />
       <VDivider />
-      <VCardText>
+      <VCardText class="p-0">
         <VList lines="one" v-if="searchWord">
           <!-- 搜索结果 -->
           <VListSubheader v-if="searchWord"> 媒体 & 资源 </VListSubheader>
