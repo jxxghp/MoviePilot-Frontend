@@ -249,7 +249,7 @@ onMounted(() => {
   <VDialog
     max-width="40rem"
     scrollable
-    :fullscreen="display.mobile.value"
+    :fullscreen="display.mobile.value && display.width.value < 40 * 16"
   >
     <VCard>
       <VCardText class="pe-12">
