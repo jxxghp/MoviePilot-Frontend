@@ -1,0 +1,17 @@
+/**
+ * 兼容性样式处理
+ */
+
+// 弹窗 VDialog 在低版本 iOS Safari 浏览器下宽度异常问题处理
+@media screen and (max-device-width:960px) {
+  .v-dialog > .v-overlay__content {
+    margin: 0;
+    max-width: calc(100% - 1rem);
+    max-height: calc(100% - 1rem);
+  }
+
+  .v-dialog--fullscreen > .v-overlay__content {
+    max-width: 100%;
+    max-height: 100%;
+  }
+}
