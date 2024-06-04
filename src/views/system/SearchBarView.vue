@@ -10,6 +10,10 @@ import {
   SettingTabs,
 } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
+import { useDisplay, useTheme } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
 
 // 路由
 const router = useRouter()
@@ -242,7 +246,11 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VDialog max-width="40rem" scrollable>
+  <VDialog
+    max-width="40rem"
+    scrollable
+    :fullscreen="display.mobile.value"
+  >
     <VCard>
       <VCardText class="pe-12">
         <VCombobox
