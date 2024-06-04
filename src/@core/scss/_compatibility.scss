@@ -7,11 +7,12 @@
   .v-dialog > .v-overlay__content {
     margin: 0;
     max-width: calc(100% - 1rem);
-    max-height: calc(100% - 1rem);
+    max-height: calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1rem);
   }
 
   .v-dialog--fullscreen > .v-overlay__content {
+    margin-top: env(safe-area-inset-top);
     max-width: 100%;
-    max-height: 100%;
+    max-height: calc(100% - env(safe-area-inset-top));
   }
 }
