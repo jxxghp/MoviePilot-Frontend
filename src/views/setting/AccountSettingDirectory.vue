@@ -261,6 +261,7 @@ onMounted(() => {
                 type="library"
                 :directory="element"
                 :categories="mediaCategories"
+                @update:modelValue="(value: string) => (element.path = value)"
                 @close="libraryCardClose(element.name)"
               />
             </template>
