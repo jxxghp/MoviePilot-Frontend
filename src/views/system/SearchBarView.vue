@@ -10,7 +10,7 @@ import {
   SettingTabs,
 } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
-import { useDisplay, useTheme } from 'vuetify'
+import { useDisplay } from 'vuetify'
 
 // 显示器宽度
 const display = useDisplay()
