@@ -18,3 +18,12 @@ defineProps<{
     </div>
   </li>
 </template>
+
+<style lang="scss">
+.layout-vertical-nav {
+  .nav-section-title {
+    padding-left: 1.375rem;
+    padding-right: 1rem;
+  }
+}
+</style>

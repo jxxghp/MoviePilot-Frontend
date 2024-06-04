@@ -34,6 +34,10 @@ defineProps<{
     display: flex;
     align-items: center;
     cursor: pointer;
+    padding-left: 1.375rem;
+    padding-right: 1rem;
+    margin-right: 1.125em;
+    border-radius: 0 3.125rem 3.125rem 0 !important;
   }
 }
 </style>
