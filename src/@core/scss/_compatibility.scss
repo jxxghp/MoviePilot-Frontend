@@ -16,3 +16,9 @@
     max-height: calc(100% - env(safe-area-inset-top));
   }
 }
+
+// 修复表单padding丢失问题
+.v-field__input {
+  padding-left: var(--v-field-padding-start);
+  padding-right: var(--v-field-padding-end);
+}
