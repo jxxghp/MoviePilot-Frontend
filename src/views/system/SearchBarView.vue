@@ -50,53 +50,63 @@ function loadRecentSearches() {
 function getMenus(): NavMenu[] {
   let menus: NavMenu[] = []
   // 导航菜单
-  for (const key in SystemNavMenus) {
-    menus.push({
-      title: SystemNavMenus[key].title,
-      icon: SystemNavMenus[key].icon,
-      to: SystemNavMenus[key].to,
-      header: SystemNavMenus[key].header,
-      admin: SystemNavMenus[key].admin,
-    })
-  }
+  SystemNavMenus.forEach(
+    item =>
+      item &&
+      menus.push({
+        title: item.title,
+        icon: item.icon,
+        to: item.to,
+        header: item.header,
+        admin: item.admin,
+      }),
+  )
   // 各类标签页
-  for (const key in SettingTabs) {
-    menus.push({
-      title: '设定 -> ' + SettingTabs[key].title,
-      icon: SettingTabs[key].icon,
-      to: `/setting?tab=${SettingTabs[key].tab}`,
-      header: '',
-      admin: true,
-      description: SettingTabs[key].description,
-    })
-  }
-  for (const key in SubscribeMovieTabs) {
-    menus.push({
-      title: '电影 -> ' + SubscribeMovieTabs[key].title,
-      icon: SubscribeMovieTabs[key].icon,
-      to: `/subscribe-movie?tab=${SubscribeMovieTabs[key].tab}`,
-      header: '',
-      admin: false,
-    })
-  }
-  for (const key in SubscribeTvTabs) {
-    menus.push({
-      title: '电视剧 -> ' + SubscribeTvTabs[key].title,
-      icon: SubscribeTvTabs[key].icon,
-      to: `/subscribe-tv?tab=${SubscribeTvTabs[key].tab}`,
-      header: '',
-      admin: false,
-    })
-  }
-  for (const key in PluginTabs) {
-    menus.push({
-      title: '插件 -> ' + PluginTabs[key].title,
-      icon: PluginTabs[key].icon,
-      to: `/plugins?tab=${PluginTabs[key].tab}`,
-      header: '',
-      admin: true,
-    })
-  }
+  SettingTabs.forEach(
+    item =>
+      item &&
+      menus.push({
+        title: '设定 -> ' + item.title,
+        icon: item.icon,
+        to: `/setting?tab=${item.tab}`,
+        header: '',
+        admin: true,
+        description: item.description,
+      }),
+  )
+  SubscribeMovieTabs.forEach(
+    item =>
+      item &&
+      menus.push({
+        title: '电影 -> ' + item.title,
+        icon: item.icon,
+        to: `/subscribe-movie?tab=${item.tab}`,
+        header: '',
+        admin: false,
+      }),
+  )
+  SubscribeTvTabs.forEach(
+    item =>
+      item &&
+      menus.push({
+        title: '电视剧 -> ' + item.title,
+        icon: item.icon,
+        to: `/subscribe-tv?tab=${item.tab}`,
+        header: '',
+        admin: false,
+      }),
+  )
+  PluginTabs.forEach(
+    item =>
+      item &&
+      menus.push({
+        title: '插件 -> ' + item.title,
+        icon: item.icon,
+        to: `/plugins?tab=${item.tab}`,
+        header: '',
+        admin: true,
+      }),
+  )
 
   return menus
 }
@@ -254,7 +264,7 @@ onMounted(() => {
 <template>
   <VDialog max-width="40rem" scrollable>
     <VCard>
-      <VCardText class="pe-12">
+      <VCardItem class="pe-12">
         <VCombobox
           ref="searchWordInput"
           v-model="searchWord"
@@ -268,10 +278,10 @@ onMounted(() => {
             <VIcon icon="ri-search-line" style="opacity: 1" />
           </template>
         </VCombobox>
-      </VCardText>
+      </VCardItem>
       <DialogCloseBtn inner-class="absolute right-3 top-5 text-high-emphasis" @click="emit('close')" />
       <VDivider />
-      <div class="ps h-100">
+      <VCardText>
         <VList lines="one" v-if="searchWord">
           <!-- 搜索结果 -->
           <VListSubheader v-if="searchWord"> 媒体 & 资源 </VListSubheader>
@@ -462,7 +472,7 @@ onMounted(() => {
             </VRow>
           </VCardText>
         </div>
-      </div>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>
