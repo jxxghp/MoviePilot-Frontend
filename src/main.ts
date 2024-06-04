@@ -28,7 +28,6 @@ import TorrentCard from './components/cards/TorrentCard.vue'
 import MediaIdSelector from './components/misc/MediaIdSelector.vue'
 import PathField from './components/input/PathField.vue'
 import { fixArrayAt } from '@/@core/utils/compatibility'
-import '@core/scss/_compatibility.scss'
 
 // 修复低版本Safari等浏览器数组不支持at函数的问题
 fixArrayAt()
