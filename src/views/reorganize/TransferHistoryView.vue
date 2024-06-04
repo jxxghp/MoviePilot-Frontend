@@ -202,7 +202,7 @@ async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   // 删除
   await remove(currentHistory.value, deleteSrc, deleteDest)
   // 刷新
-  reloadPage()
+  fetchData()
 }
 
 // 批量删除记录
@@ -231,7 +231,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 隐藏进度条
   progressDialog.value = false
   // 重新获取数据
-  reloadPage()
+  fetchData()
 }
 
 // 响应删除操作
@@ -283,7 +283,7 @@ function transferDone() {
   currentHistory.value = undefined
   selected.value = []
   // 刷新
-  reloadPage()
+  fetchData()
 }
 
 // 弹出菜单
