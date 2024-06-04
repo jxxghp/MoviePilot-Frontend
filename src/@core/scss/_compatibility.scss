@@ -22,3 +22,11 @@
   padding-left: var(--v-field-padding-start);
   padding-right: var(--v-field-padding-end);
 }
+
+// 修复主菜单打开后遮罩丢失的问题
+.layout-wrapper.layout-nav-type-vertical .layout-overlay {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
