@@ -46,7 +46,8 @@
       "esnext",
       "dom",
       "dom.iterable",
-      "scripthost"
+      "scripthost",
+      "WebWorker"
     ],
     "skipLibCheck": true,
     "types": [
@@ -63,7 +64,9 @@
     "src/**/*.vue",
     "themeConfig.ts",
     "auto-imports.d.ts",
-    "components.d.ts"
+    "components.d.ts",
+    "src/service-worker.ts",
+    "public/service.js"
   ],
   "exclude": [
     "dist",

@@ -8,6 +8,7 @@ import router from '@/router'
 import logo from '@images/logo.png'
 import { useTheme } from 'vuetify'
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
+import { urlBase64ToUint8Array } from '@/@core/utils/navigator'
 
 const { global: globalTheme } = useTheme()
 
@@ -89,9 +90,33 @@ async function setTheme() {
   localStorage.setItem('materio-initial-loader-bg', globalTheme.current.value.colors.background)
 }
 
+// 订阅推送通知
+async function subscribeForPushNotifications() {
+  if ('serviceWorker' in navigator && 'PushManager' in window) {
+    const registration = await navigator.serviceWorker.ready
+    // 获取订阅信息
+    const subscription = await registration.pushManager.getSubscription().then(function (subscription) {
+      if (subscription === null) {
+        const convertedVapidKey = urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY)
+        return registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedVapidKey,
+        })
+      } else {
+        return subscription
+      }
+    })
+    // 发送订阅请求
+    await api.post('/message/subscribe', subscription)
+  }
+}
+
+// 登录后处理
 async function afterLogin() {
   // 生效主题配置
   await setTheme()
+  // 订阅推送通知
+  await subscribeForPushNotifications()
   // 跳转到首页或回原始页面
   router.push(store.state.auth.originalPath ?? '/')
 }

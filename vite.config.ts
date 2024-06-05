@@ -4,8 +4,8 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { defineConfig } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
 import vuetify from 'vite-plugin-vuetify'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -13,8 +13,6 @@ export default defineConfig({
   plugins: [
     vue(),
     vueJsx(),
-
-    // https://github.com/vuetifyjs/vuetify-loader/tree/next/packages/vite-plugin
     vuetify({
       styles: {
         configFile: 'src/styles/variables/_vuetify.scss',
@@ -29,12 +27,100 @@ export default defineConfig({
       vueTemplate: true,
     }),
     VitePWA({
-      registerType: 'autoUpdate',
       injectRegister: 'script',
-      manifest: false,
+      registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
       workbox: {
-        navigateFallbackDenylist: [
-          /.*\/api\/v\d+\/system\/logging.*/,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg}'],
+        navigateFallbackDenylist: [/.*\/api\/v\d+\/system\/logging.*/],
+      },
+      injectManifest: {
+        rollupFormat: 'iife',
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
+      manifest: {
+        'name': 'MoviePilot',
+        'short_name': 'MoviePilot',
+        'start_url': './',
+        'display': 'standalone',
+        'icons': [
+          {
+            'src': './android-chrome-192x192.png',
+            'sizes': '192x192',
+            'type': 'image/png',
+            'purpose': 'any',
+          },
+          {
+            'src': './android-chrome-192x192_maskable.png',
+            'sizes': '192x192',
+            'type': 'image/png',
+            'purpose': 'maskable',
+          },
+          {
+            'src': './android-chrome-512x512.png',
+            'sizes': '512x512',
+            'type': 'image/png',
+            'purpose': 'any',
+          },
+          {
+            'src': './android-chrome-512x512_maskable.png',
+            'sizes': '512x512',
+            'type': 'image/png',
+            'purpose': 'maskable',
+          },
+        ],
+        'theme_color': '#28243D',
+        'background_color': '#28243D',
+        'shortcuts': [
+          {
+            'name': '推荐',
+            'url': './ranking',
+            'icons': [
+              {
+                'src': './sparkles-icon-192x192.png',
+                'sizes': '192x192',
+                'type': 'image/png',
+              },
+            ],
+          },
+          {
+            'name': '电影订阅',
+            'url': './subscribe-movie?tab=mysub',
+            'icons': [
+              {
+                'src': './clock-icon-192x192.png',
+                'sizes': '192x192',
+                'type': 'image/png',
+              },
+            ],
+          },
+          {
+            'name': '电视剧订阅',
+            'url': './subscribe-tv?tab=mysub',
+            'icons': [
+              {
+                'src': './clock-icon-192x192.png',
+                'sizes': '192x192',
+                'type': 'image/png',
+              },
+            ],
+          },
+          {
+            'name': '设置',
+            'url': './setting',
+            'icons': [
+              {
+                'src': './cog-icon-192x192.png',
+                'sizes': '192x192',
+                'type': 'image/png',
+              },
+            ],
+          },
         ],
       },
     }),
@@ -63,8 +149,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['vuetify'],
-    entries: [
-      './src/**/*.vue',
-    ],
+    entries: ['./src/**/*.vue'],
   },
 })

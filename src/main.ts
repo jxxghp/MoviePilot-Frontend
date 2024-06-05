@@ -1,23 +1,19 @@
-import { VAceEditor } from 'vue3-ace-editor'
-import { createApp } from 'vue'
-import '@/@iconify/icons-bundle'
-import ToastPlugin from 'vue-toast-notification'
-import VuetifyUseDialog from 'vuetify-use-dialog'
+import '@/@core/utils/compatibility'
 import './ace-config'
-import VueApexCharts from 'vue3-apexcharts'
-import { removeEl } from './@core/utils/dom'
+import '@/@iconify/icons-bundle'
+import '@/plugins/webfontloader'
 import App from '@/App.vue'
 import vuetify from '@/plugins/vuetify'
-import { loadFonts } from '@/plugins/webfontloader'
 import router from '@/router'
 import store from '@/store'
-import '@core/scss/template/index.scss'
-import '@layouts/styles/index.scss'
-import '@styles/styles.scss'
-import 'vue-toast-notification/dist/theme-bootstrap.css'
+import { VAceEditor } from 'vue3-ace-editor'
+import { createApp } from 'vue'
+import { removeEl } from './@core/utils/dom'
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar'
-import 'vue3-perfect-scrollbar/style.css'
 import { VTreeview } from 'vuetify/labs/VTreeview'
+import ToastPlugin from 'vue-toast-notification'
+import VuetifyUseDialog from 'vuetify-use-dialog'
+import VueApexCharts from 'vue3-apexcharts'
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import MediaCard from './components/cards/MediaCard.vue'
 import PosterCard from './components/cards/PosterCard.vue'
@@ -27,13 +23,11 @@ import MediaInfoCard from './components/cards/MediaInfoCard.vue'
 import TorrentCard from './components/cards/TorrentCard.vue'
 import MediaIdSelector from './components/misc/MediaIdSelector.vue'
 import PathField from './components/input/PathField.vue'
-import { fixArrayAt } from '@/@core/utils/compatibility'
-
-// 修复低版本Safari等浏览器数组不支持at函数的问题
-fixArrayAt()
-
-// 加载字体
-loadFonts()
+import '@core/scss/template/index.scss'
+import '@layouts/styles/index.scss'
+import '@styles/styles.scss'
+import 'vue-toast-notification/dist/theme-bootstrap.css'
+import 'vue3-perfect-scrollbar/style.css'
 
 // 创建Vue实例
 const app = createApp(App)
