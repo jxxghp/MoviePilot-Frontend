@@ -34,6 +34,13 @@ function saveRecentSearches(keyword: string) {
   localStorage.setItem('MP_RecentSearches', JSON.stringify(recentSearches.value))
 }
 
+// 保存当前搜索关键字到近期搜索
+function saveKeywordToRecentSearches() {
+  if (searchWord.value) {
+    saveRecentSearches(searchWord.value)
+  }
+}
+
 // 从本地加载近期搜索
 function loadRecentSearches() {
   const recentSearchesStr = localStorage.getItem('MP_RecentSearches')
@@ -182,7 +189,7 @@ const matchedSubscribeItems = computed(() => {
 function searchMedia(searchType: string) {
   // 搜索类型 media/person
   if (!searchWord.value) return
-  saveRecentSearches(searchWord.value)
+  saveKeywordToRecentSearches()
   router.push({
     path: '/browse/media/search',
     query: {
@@ -196,7 +203,7 @@ function searchMedia(searchType: string) {
 // 跳转到种子搜索页面
 function searchTorrent() {
   if (!searchWord.value) return
-  saveRecentSearches(searchWord.value)
+  saveKeywordToRecentSearches()
   router.push({
     path: '/resource',
     query: {
@@ -210,7 +217,7 @@ function searchTorrent() {
 // 跳转到历史记录页面
 function searchHistory() {
   if (!searchWord.value) return
-  saveRecentSearches(searchWord.value)
+  saveKeywordToRecentSearches()
   router.push({
     path: '/history',
     query: {
@@ -222,6 +229,8 @@ function searchHistory() {
 
 // 跳转插件页面
 function showPlugin(pluginId: string) {
+  if (!pluginId) return
+  saveKeywordToRecentSearches()
   router.push({
     path: `/plugins/`,
     query: {
@@ -235,18 +244,23 @@ function showPlugin(pluginId: string) {
 // 跳转插件数据页面
 function showPluginPage(plugin: Plugin) {
   if (!plugin || !plugin.id || !plugin.plugin_name) return
+  saveKeywordToRecentSearches()
   emit('close')
   emit('showPluginPage', plugin)
 }
 
 // 跳转菜单页面
 function goPage(to: string) {
+  if (!to) return
+  saveKeywordToRecentSearches()
   router.push(to)
   emit('close')
 }
 
 // 跳转订阅页面
 function goSubscribe(subscribe: Subscribe) {
+  if (!subscribe) return
+  saveKeywordToRecentSearches()
   if (subscribe.type === '电影') {
     router.push({
       path: '/subscribe-movie',
