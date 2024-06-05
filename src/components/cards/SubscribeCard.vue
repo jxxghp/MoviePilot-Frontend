@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import { useConfirm } from 'vuetify-use-dialog'
 import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 import { formatDateDifference } from '@/@core/utils/formatters'
 import { formatSeason } from '@/@core/utils/formatters'
@@ -14,6 +15,9 @@ const props = defineProps({
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
+
+// 确认框
+const createConfirm = useConfirm()
 
 // 提示框
 const $toast = useToast()
@@ -84,6 +88,25 @@ async function searchSubscribe() {
   }
 }
 
+// 重置订阅
+async function resetSubscribe() {
+  // 确认
+  try {
+    const isConfirmed = await createConfirm({
+      title: '确认',
+      content: `重置后 ${props.media?.name} 已下载记录将被清除，未入库的剧集将会重新下载，是否确认？`,
+    })
+    if (!isConfirmed) return
+    // 重置
+    const result: { [key: string]: any } = await api.get(`subscribe/reset/${props.media?.id}`)
+    // 提示
+    if (result.success) $toast.success(`${props.media?.name} 重置成功！`)
+    else $toast.error(`${props.media?.name} 重置失败：${result.message}`)
+  } catch (e) {
+    console.log(e)
+  }
+}
+
 // 编辑订阅响应
 async function editSubscribeDialog() {
   subscribeEditDialog.value = true
@@ -124,8 +147,18 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '取消订阅',
+    title: '重置',
     value: 4,
+    props: {
+      prependIcon: 'mdi-restore-alert',
+      click: resetSubscribe,
+      color: 'warning',
+    },
+    show: props.media?.type === '电视剧',
+  },
+  {
+    title: '取消订阅',
+    value: 5,
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
@@ -179,18 +212,19 @@ watch(
                 <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
-                    <VListItem
-                      v-for="(item, i) in dropdownItems"
-                      :key="i"
-                      variant="plain"
-                      :base-color="item.props.color"
-                      @click="item.props.click"
-                    >
-                      <template #prepend>
-                        <VIcon :icon="item.props.prependIcon" />
-                      </template>
-                      <VListItemTitle v-text="item.title" />
-                    </VListItem>
+                    <template v-for="(item, i) in dropdownItems" :key="i">
+                      <VListItem
+                        v-if="item.show !== false"
+                        variant="plain"
+                        :base-color="item.props.color"
+                        @click="item.props.click"
+                      >
+                        <template #prepend>
+                          <VIcon :icon="item.props.prependIcon" />
+                        </template>
+                        <VListItemTitle v-text="item.title" />
+                      </VListItem>
+                    </template>
                   </VList>
                 </VMenu>
               </IconBtn>
