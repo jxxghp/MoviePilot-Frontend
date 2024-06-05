@@ -107,7 +107,11 @@ async function subscribeForPushNotifications() {
       }
     })
     // 发送订阅请求
-    await api.post('/message/subscribe', subscription)
+    try {
+      await api.post('/message/webpush/subscribe', subscription)
+    } catch (e) {
+      console.log(e)
+    }
   }
 }
 

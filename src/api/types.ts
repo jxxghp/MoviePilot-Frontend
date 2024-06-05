@@ -720,6 +720,7 @@ export interface NotificationSwitch {
   slack: boolean
   synologychat: boolean
   vocechat: boolean
+  webpush: boolean
 }
 
 // 文件浏览接口

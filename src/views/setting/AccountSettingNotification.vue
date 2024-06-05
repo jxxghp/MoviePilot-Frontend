@@ -56,6 +56,10 @@ const NotificationChannels = [
     title: 'VoceChat',
     value: 'vocechat',
   },
+  {
+    title: 'WebPush',
+    value: 'webpush',
+  },
 ]
 
 // 提示框
@@ -430,6 +434,7 @@ onMounted(() => {
               <th scope="col">Slack</th>
               <th scope="col">SynologyChat</th>
               <th scope="col">VoceChat</th>
+              <th scope="col">WebPush</th>
             </tr>
           </thead>
           <tbody>
@@ -451,6 +456,9 @@ onMounted(() => {
               </td>
               <td>
                 <VCheckbox v-model="message.vocechat" />
+              </td>
+              <td>
+                <VCheckbox v-model="message.webpush" />
               </td>
             </tr>
             <tr v-if="messagemTypes.length === 0">
