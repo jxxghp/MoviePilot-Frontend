@@ -18,12 +18,20 @@ const options = {
 }
 
 // 监听 push 事件，显示通知
-self.addEventListener('push', function (e) {
-  if (!e.data) {
+self.addEventListener('push', function (event) {
+  if (!event.data) {
     return
   }
   // 解析获取推送消息
-  let payload = e.data.json()
+  let payload
+  try {
+    payload = event.data?.json()
+  } catch (err) {
+    console.log(err)
+    payload = {
+      title: event.data?.text(),
+    }
+  }
   // 根据推送消息生成桌面通知并展现出来
   let promise = self.registration.showNotification(payload.title, {
     body: payload.body,
@@ -32,7 +40,7 @@ self.addEventListener('push', function (e) {
       url: payload.url,
     },
   })
-  e.waitUntil(promise)
+  event.waitUntil(promise)
 })
 
 self.skipWaiting()

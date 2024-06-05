@@ -119,10 +119,10 @@ async function subscribeForPushNotifications() {
 async function afterLogin() {
   // 生效主题配置
   await setTheme()
-  // 订阅推送通知
-  await subscribeForPushNotifications()
   // 跳转到首页或回原始页面
   router.push(store.state.auth.originalPath ?? '/')
+  // 订阅推送通知
+  await subscribeForPushNotifications()
 }
 
 // 登录获取token事件
