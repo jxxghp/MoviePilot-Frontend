@@ -15,7 +15,7 @@ import { NavMenu } from '@/@layouts/types'
 const router = useRouter()
 
 // 定义事件
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'showPluginPage'])
 
 // 搜索词
 const searchWord = ref<string | null>(null)
@@ -151,6 +151,12 @@ const matchedPluginItems = computed(() => {
   })
 })
 
+// 区配的插件数据页插件列表
+const matchedPluginPagePluginItems = computed(() => {
+  if (!matchedPluginItems.value) return []
+  return matchedPluginItems.value.filter((item: Plugin) => item.has_page)
+})
+
 // 所有订阅数据
 const SubscribeItems = ref<Subscribe[]>([])
 
@@ -224,6 +230,13 @@ function showPlugin(pluginId: string) {
     },
   })
   emit('close')
+}
+
+// 跳转插件数据页面
+function showPluginPage(plugin: Plugin) {
+  if (!plugin || !plugin.id || !plugin.plugin_name) return
+  emit('close')
+  emit('showPluginPage', plugin)
 }
 
 // 跳转菜单页面
@@ -394,6 +407,24 @@ onMounted(() => {
                 @click="showPlugin(plugin.id ?? '')"
               >
                 <VListItemTitle> {{ plugin.plugin_name }} </VListItemTitle>
+                <VListItemSubtitle> {{ plugin.plugin_desc }} </VListItemSubtitle>
+                <template #append>
+                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                </template>
+              </VListItem>
+            </template>
+          </VHover>
+          <VListSubheader v-if="matchedPluginPagePluginItems.length > 0"> 插件数据页 </VListSubheader>
+          <VHover v-if="matchedPluginPagePluginItems.length > 0" v-for="plugin in matchedPluginPagePluginItems" :key="plugin.id">
+            <template #default="hover">
+              <VListItem
+                prepend-icon="mdi-puzzle-plus"
+                density="compact"
+                link
+                v-bind="hover.props"
+                @click="showPluginPage(plugin)"
+              >
+                <VListItemTitle> {{ plugin.plugin_name + " -> 数据页" }} </VListItemTitle>
                 <VListItemSubtitle> {{ plugin.plugin_desc }} </VListItemSubtitle>
                 <template #append>
                   <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
