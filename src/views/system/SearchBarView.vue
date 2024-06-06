@@ -158,12 +158,6 @@ const matchedPluginItems = computed(() => {
   })
 })
 
-// 区配的插件数据页插件列表
-const matchedPluginPagePluginItems = computed(() => {
-  if (!matchedPluginItems.value) return []
-  return matchedPluginItems.value.filter((item: Plugin) => item.has_page)
-})
-
 // 所有订阅数据
 const SubscribeItems = ref<Subscribe[]>([])
 
@@ -325,7 +319,9 @@ onMounted(() => {
                   搜索 <span class="font-bold">{{ searchWord }} </span> 相关的【电影、电视剧】 ...
                 </VListItemTitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -337,7 +333,9 @@ onMounted(() => {
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【演职人员】 ...
                 </VListItemTitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -349,7 +347,9 @@ onMounted(() => {
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【站点资源】 ...
                 </VListItemTitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -361,7 +361,9 @@ onMounted(() => {
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【历史记录】 ...
                 </VListItemTitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -385,7 +387,9 @@ onMounted(() => {
                 </VListItemTitle>
                 <VListItemSubtitle> {{ subscribe.type }}</VListItemSubtitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -405,7 +409,9 @@ onMounted(() => {
                 </VListItemTitle>
                 <VListItemSubtitle v-if="menu.description"> {{ menu.description }} </VListItemSubtitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -423,25 +429,16 @@ onMounted(() => {
                 <VListItemTitle> {{ plugin.plugin_name }} </VListItemTitle>
                 <VListItemSubtitle> {{ plugin.plugin_desc }} </VListItemSubtitle>
                 <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
-                </template>
-              </VListItem>
-            </template>
-          </VHover>
-          <VListSubheader v-if="matchedPluginPagePluginItems.length > 0"> 插件数据页 </VListSubheader>
-          <VHover v-if="matchedPluginPagePluginItems.length > 0" v-for="plugin in matchedPluginPagePluginItems" :key="plugin.id">
-            <template #default="hover">
-              <VListItem
-                prepend-icon="mdi-puzzle-plus"
-                density="compact"
-                link
-                v-bind="hover.props"
-                @click="showPluginPage(plugin)"
-              >
-                <VListItemTitle> {{ plugin.plugin_name + " -> 数据页" }} </VListItemTitle>
-                <VListItemSubtitle> {{ plugin.plugin_desc }} </VListItemSubtitle>
-                <template #append>
-                  <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  <div style="width: 2rem;" v-if="plugin.has_page">
+                    <VTooltip text="查看数据">
+                      <template #activator="{ props }">
+                        <VIcon v-bind="props" icon="mdi-information-outline" @click="showPluginPage(plugin)" />
+                      </template>
+                    </VTooltip>
+                  </div>
+                  <div style="width: 24px;">
+                    <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                  </div>
                 </template>
               </VListItem>
             </template>
@@ -484,7 +481,9 @@ onMounted(() => {
                           {{ menu.title }}
                         </VListItemTitle>
                         <template #append>
-                          <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                          <div style="width: 24px;">
+                            <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                          </div>
                         </template>
                       </VListItem>
                     </template>
@@ -505,7 +504,9 @@ onMounted(() => {
                       >
                         <VListItemTitle> {{ plugin.plugin_name }} </VListItemTitle>
                         <template #append>
-                          <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                          <div style="width: 24px;">
+                            <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
+                          </div>
                         </template>
                       </VListItem>
                     </template>
