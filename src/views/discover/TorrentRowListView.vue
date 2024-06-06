@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import type { Context } from '@/api/types'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
-import { useDefer } from '@/@core/utils/dom'
 
 // 定义输入参数
 const props = defineProps({

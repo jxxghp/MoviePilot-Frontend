@@ -2,7 +2,6 @@
 import _ from 'lodash'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
-import { useDefer } from '@/@core/utils/dom'
 
 interface SearchTorrent extends Context {
   more?: Array<Context>
@@ -73,13 +72,13 @@ const sortSeasonFilterOptions = computed(() => {
   return seasonFilterOptions.value.sort((a, b) => {
     // 按季,集降序排序
     const parseSeasonEpisode = (str: string) => {
-      const seasonRangeMatch = str.match(/S(\d+)(?:-S(\d+))?/);
-      const episodeRangeMatch = str.match(/E(\d+)(?:-E(\d+))?/);
+      const seasonRangeMatch = str.match(/S(\d+)(?:-S(\d+))?/)
+      const episodeRangeMatch = str.match(/E(\d+)(?:-E(\d+))?/)
       return {
-        seasonStart  : seasonRangeMatch?.[1] ? parseInt(seasonRangeMatch[1]) : 0,
-        seasonEnd    : seasonRangeMatch?.[2] ? parseInt(seasonRangeMatch[2]) : 0,
-        episodeStart : episodeRangeMatch?.[1] ? parseInt(episodeRangeMatch[1]) : 0,
-        episodeEnd   : episodeRangeMatch?.[2] ? parseInt(episodeRangeMatch[2]) : 0
+        seasonStart: seasonRangeMatch?.[1] ? parseInt(seasonRangeMatch[1]) : 0,
+        seasonEnd: seasonRangeMatch?.[2] ? parseInt(seasonRangeMatch[2]) : 0,
+        episodeStart: episodeRangeMatch?.[1] ? parseInt(episodeRangeMatch[1]) : 0,
+        episodeEnd: episodeRangeMatch?.[2] ? parseInt(episodeRangeMatch[2]) : 0,
       }
     }
     const parsedA = parseSeasonEpisode(a)
@@ -126,8 +125,6 @@ onMounted(() => {
   groupedDataList.value = groupMap
 })
 
-let defer = (_: number) => true
-
 // 计算过滤后的列表
 watchEffect(() => {
   // 清空列表
@@ -139,10 +136,7 @@ watchEffect(() => {
   groupedDataList.value?.forEach(value => {
     if (value.length > 0) {
       const matchData = value.filter(data => {
-        const {
-          meta_info,
-          torrent_info,
-        } = data
+        const { meta_info, torrent_info } = data
         // 季、制作组、视频编码
         return (
           // 站点过滤
@@ -169,7 +163,6 @@ watchEffect(() => {
       }
     }
   })
-  defer = useDefer(dataList.value.length)
 })
 </script>
 
@@ -257,7 +250,7 @@ watchEffect(() => {
   </VCard>
   <div class="grid gap-3 grid-torrent-card items-start">
     <div v-for="(item, index) in dataList" :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`">
-      <TorrentCard v-if="defer(index)" :torrent="item" :more="item.more" />
+      <TorrentCard :torrent="item" :more="item.more" />
     </div>
   </div>
 </template>

@@ -8,7 +8,6 @@ import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import { useDefer } from '@/@core/utils/dom'
 import router from '@/router'
 import { PluginTabs } from '@/router/menu'
 
@@ -16,9 +15,6 @@ const route = useRoute()
 
 // 显示器宽度
 const display = useDisplay()
-
-// 延迟加载
-let deferApp = (_: number) => true
 
 // 当前标签
 const activeTab = ref(route.query.tab)
@@ -280,8 +276,6 @@ const sortedUninstalledList = computed(() => {
     }
   })
 
-  deferApp = useDefer(ret_list.length)
-
   if (isNullOrEmptyObject(PluginStatistics.value)) return ret_list
   // 数据排序
   if (!activeSort.value || activeSort.value === 'count') {
@@ -418,12 +412,7 @@ onBeforeMount(async () => {
             </div>
             <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card items-start">
               <template v-for="(data, index) in sortedUninstalledList" :key="`${data.id}_v${data.plugin_version}`">
-                <PluginAppCard
-                  v-if="deferApp(index)"
-                  :plugin="data"
-                  :count="PluginStatistics[data.id || '0']"
-                  @install="pluginInstalled"
-                />
+                <PluginAppCard :plugin="data" :count="PluginStatistics[data.id || '0']" @install="pluginInstalled" />
               </template>
             </div>
             <NoDataFound
