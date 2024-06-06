@@ -294,6 +294,7 @@ onMounted(() => {
           class="text-high-emphasis"
           placeholder="搜索 ..."
           @keydown.enter="searchMedia('media')"
+          clearable
         >
           <template #prepend>
             <VIcon icon="ri-search-line" style="opacity: 1" />
