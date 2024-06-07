@@ -33,14 +33,18 @@ self.addEventListener('push', function (event) {
     }
   }
   // 根据推送消息生成桌面通知并展现出来
-  let promise = self.registration.showNotification(payload.title, {
-    body: payload.body,
-    icon: payload.icon ?? options.icon,
-    data: {
-      url: payload.url,
-    },
-  })
-  event.waitUntil(promise)
+  try {
+    let promise = self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: payload.icon ?? options.icon,
+      data: {
+        url: payload.url,
+      },
+    })
+    event.waitUntil(promise)
+  } catch (e) {
+    console.error(e)
+  }
 })
 
 self.skipWaiting()
