@@ -15,10 +15,13 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denyl
 // 通知选项
 const options = {
   icon: '/logo.png',
+  vibrate: [100, 50, 100],
+  actions: [{ action: 'close', title: '关闭' }],
 }
 
 // 监听 push 事件，显示通知
 self.addEventListener('push', function (event) {
+  console.log('notification push')
   if (!event.data) {
     return
   }
@@ -34,18 +37,38 @@ self.addEventListener('push', function (event) {
   }
   // 根据推送消息生成桌面通知并展现出来
   try {
-    let promise = self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: payload.icon ?? options.icon,
-      data: {
-        url: payload.url,
-      },
-    })
-    event.waitUntil(promise)
+    const content = {
+      body: payload.body || '',
+      icon: payload.icon || options.icon,
+      vibrate: [100, 50, 100],
+      data: { url: payload.url },
+      actions: options.actions,
+    }
+    event.waitUntil(self.registration.showNotification(payload.title, content))
   } catch (e) {
     console.error(e)
   }
 })
 
-self.skipWaiting()
-clientsClaim()
+// 安装
+self.addEventListener('install', function (e) {
+  console.log('worker install')
+  self.skipWaiting()
+})
+
+// 激活
+self.addEventListener('activate', function (e) {
+  console.log('worker activate')
+  e.waitUntil(self.clients.claim())
+})
+
+// 监听通知点击事件
+self.addEventListener('notificationclick', function (event) {
+  console.log('notification click')
+  const info = event.notification
+  if (event.action === 'close') {
+    info.close()
+  } else if (info.data?.url) {
+    event.waitUntil(self.clients.openWindow(info.data?.url))
+  }
+})
