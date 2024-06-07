@@ -8,6 +8,7 @@ import MessageView from '@/views/system/MessageView.vue'
 import store from '@/store'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
+import { getQueryValue } from '@/@core/utils'
 
 // 显示器宽度
 const display = useDisplay()
@@ -75,6 +76,29 @@ async function sendMessage() {
 
 onMounted(() => {
   scrollMessageToEnd()
+  const shortcut = getQueryValue('shortcut')
+  if (shortcut) {
+    switch (shortcut) {
+      case 'nameTest':
+        nameTestDialog.value = true
+        break
+      case 'netTest':
+        netTestDialog.value = true
+        break
+      case 'logging':
+        loggingDialog.value = true
+        break
+      case 'ruleTest':
+        ruleTestDialog.value = true
+        break
+      case 'systemTest':
+        systemTestDialog.value = true
+        break
+      case 'message':
+        messageDialog.value = true
+        break
+    }
+  }
 })
 </script>
 
