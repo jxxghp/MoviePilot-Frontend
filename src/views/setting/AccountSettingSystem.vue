@@ -16,6 +16,11 @@ const downloaderTab = ref('qbittorrent')
 // 媒体服务器选中标签页
 const mediaserverTab = ref('emby')
 
+// 系统设置项
+const SystemSettings = ref({
+  APP_DOMAIN: '',
+})
+
 // 下载器设置项
 const downloaderSettings = ref({
   DOWNLOADER_MONITOR: true,
@@ -208,6 +213,33 @@ async function saveMediaServerSetting() {
   }
 }
 
+// 加载系统设置
+async function loadSystemSettings() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result.success) {
+      const { APP_DOMAIN } = result.data
+      SystemSettings.value = {
+        APP_DOMAIN,
+      }
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 调用API保存系统设置
+async function saveSystemSetting() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/env', SystemSettings.value)
+
+    if (result.success) $toast.success('保存设置成功')
+    else $toast.error('保存设置失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 调用API接口重新加载模块
 async function reloadModule() {
   try {
@@ -223,11 +255,41 @@ async function reloadModule() {
 onMounted(() => {
   loadDownloaderSetting()
   loadMediaServerSetting()
+  loadSystemSettings()
 })
 </script>
 
 <template>
   <VRow>
+    <VCol cols="12">
+      <VCard>
+        <VCardItem>
+          <VCardTitle>系统</VCardTitle>
+          <VCardSubtitle>设置服务使用的域名等信息。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
+          <VForm>
+            <VRow>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="SystemSettings.APP_DOMAIN"
+                  label="访问域名"
+                  hint="用于通知跳转，格式：http(s)://domain:port"
+                  persistent-hint
+                />
+              </VCol>
+            </VRow>
+          </VForm>
+        </VCardText>
+        <VCardText>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn mtype="submit" @click="saveSystemSetting"> 保存 </VBtn>
+            </div>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </VCol>
     <VCol cols="12">
       <VCard>
         <VCardItem>
