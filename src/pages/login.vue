@@ -116,13 +116,13 @@ async function subscribeForPushNotifications() {
 }
 
 // 登录后处理
-async function afterLogin() {
+async function afterLogin(superuser: boolean) {
   // 生效主题配置
   await setTheme()
   // 跳转到首页或回原始页面
   router.push(store.state.auth.originalPath ?? '/')
   // 订阅推送通知
-  await subscribeForPushNotifications()
+  if (superuser) await subscribeForPushNotifications()
 }
 
 // 登录获取token事件
@@ -163,7 +163,7 @@ function login() {
       store.dispatch('auth/updateAvatar', avatar)
 
       // 登录后处理
-      afterLogin()
+      afterLogin(superuser)
     })
     .catch((error: any) => {
       // 登录失败，显示错误提示
