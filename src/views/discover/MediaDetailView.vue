@@ -861,6 +861,7 @@ onBeforeMount(() => {
   />
   <!-- 订阅编辑弹窗 -->
   <SubscribeEditDialog
+    v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="subscribeId"
     @close="subscribeEditDialog = false"

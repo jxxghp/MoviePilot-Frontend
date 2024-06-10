@@ -100,8 +100,10 @@ async function resetSubscribe() {
     // 重置
     const result: { [key: string]: any } = await api.get(`subscribe/reset/${props.media?.id}`)
     // 提示
-    if (result.success) $toast.success(`${props.media?.name} 重置成功！`)
-    else $toast.error(`${props.media?.name} 重置失败：${result.message}`)
+    if (result.success) {
+      $toast.success(`${props.media?.name} 重置成功！`)
+      emit('save')
+    } else $toast.error(`${props.media?.name} 重置失败：${result.message}`)
   } catch (e) {
     console.log(e)
   }
