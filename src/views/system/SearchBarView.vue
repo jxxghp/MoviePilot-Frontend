@@ -412,7 +412,7 @@ onMounted(() => {
                   <VChip
                     v-for="(word, index) in recentSearches"
                     :key="index"
-                    class="me-2"
+                    class="me-2 mb-1"
                     variant="tonal"
                     @click="searchWord = word"
                     label
