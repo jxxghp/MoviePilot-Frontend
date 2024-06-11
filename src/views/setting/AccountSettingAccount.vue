@@ -160,7 +160,7 @@ async function addUser() {
     return
   }
   try {
-    const result: { [key: string]: any } = await api.post('user', userForm)
+    const result: { [key: string]: any } = await api.post('user/', userForm)
     if (result.success) {
       $toast.success('用户新增成功！')
       loadAllUsers()
