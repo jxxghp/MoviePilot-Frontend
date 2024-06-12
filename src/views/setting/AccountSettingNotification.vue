@@ -236,7 +236,7 @@ onMounted(() => {
                         <VCol cols="12" md="4">
                           <VTextField
                             v-model="notificationSettings.WECHAT_APP_SECRET"
-                            label="应用Secret"
+                            label="应用 Secret"
                             hint="企业微信自建应用的Secret"
                             persistent-hint
                           />
