@@ -425,7 +425,7 @@ onBeforeMount(() => {
   <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" class="max-w-8xl mx-auto px-4">
     <template v-if="mediaDetail.backdrop_path || mediaDetail.poster_path">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
-        <VImg class="h-96" :src="mediaDetail.backdrop_path || mediaDetail.poster_path" cover />
+        <VImg class="h-96" position="top" :src="mediaDetail.backdrop_path || mediaDetail.poster_path" cover />
       </div>
       <div class="vue-media-back absolute left-0 top-0 w-full h-96" />
     </template>
