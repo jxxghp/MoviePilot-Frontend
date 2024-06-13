@@ -52,7 +52,7 @@ const activeState = computed(() => {
     </VBottomNavigation>
   </div>
 </template>
-<
+
 <style lang="scss">
 .footer-nav {
   /* stylelint-disable-next-line property-no-vendor-prefix */
