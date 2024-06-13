@@ -24,12 +24,9 @@
 }
 
 .v-dialog > .v-overlay__content {
+  inline-size: calc(100% - 1rem);
   margin-block-start: calc(env(safe-area-inset-top) + 1rem);
   max-block-size: calc(100% - env(safe-area-inset-top) - 1rem);
-}
-
-.v-dialog > .v-overlay__content{
-  inline-size: calc(100% - 1rem);
 }
 
 .v-dialog--fullscreen > .v-overlay__content{
@@ -65,7 +62,6 @@
   color: transparent;
 
   --tw-gradient-from: #818cf8;
-  --tw-gradient-to: rgba(129,140,248,0%);
   --tw-gradient-stops: var(--tw-gradient-from),var(--tw-gradient-to);
   --tw-gradient-to: #c084fc;
 }
@@ -187,4 +183,8 @@
 
 .v-tabs:not(.v-tabs-pill).v-tabs--horizontal {
   border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.v-fab--bottom {
+  padding-block-end: env(safe-area-inset-bottom);
 }

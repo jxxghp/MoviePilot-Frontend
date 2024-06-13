@@ -1,6 +1,15 @@
 <script lang="ts" setup>
 import type { Context } from '@/api/types'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
+
+// APP
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 定义输入参数
 const props = defineProps({
@@ -115,7 +124,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VRow>
+  <VRow :style="appMode ? 'margin-bottom: 56px' : ''">
     <VCol>
       <VList v-if="dataList.length === 0" lines="three" class="rounded p-0 shadow-lg">
         <VListItem>
@@ -263,8 +272,8 @@ onMounted(() => {
 }
 
 @media (width <= 768px) {
-  .orrent-list-vscroll {
-    block-size: calc(100vh - 10rem);
+  .torrent-list-vscroll {
+    block-size: calc(100vh - 8rem - env(safe-area-inset-bottom));
   }
 }
 </style>

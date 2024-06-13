@@ -358,7 +358,7 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <VCard>
+  <VCard :style="appMode ? 'margin-bottom: 56px' : ''">
     <VCardItem>
       <VCardTitle>
         <VRow>
@@ -533,12 +533,12 @@ onMounted(fetchData)
 }
 
 .data-table-div {
-  block-size: calc(100vh - 14rem);
+  block-size: calc(100vh - 14rem - env(safe-area-inset-bottom));
 }
 
 @media (width <= 768px) {
   .data-table-div {
-    block-size: calc(100vh - 17rem);
+    block-size: calc(100vh - 16rem - env(safe-area-inset-bottom));
   }
 }
 </style>

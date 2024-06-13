@@ -9,7 +9,7 @@ const appMode = computed(() => {
 
 <template>
   <div v-if="appMode" class="w-100" style="block-size: 3.5rem">
-    <VBottomNavigation grow horizontal color="primary">
+    <VBottomNavigation grow horizontal color="primary" class="footer-nav border-t">
       <VBtn to="/dashboard">
         <VIcon size="28">mdi-home-outline</VIcon>
         <span>首页</span>
@@ -33,3 +33,10 @@ const appMode = computed(() => {
     </VBottomNavigation>
   </div>
 </template>
+<
+<style lang="scss" scoped>
+.footer-nav {
+  padding-block-end: env(safe-area-inset-bottom);
+}
+</style>
+}
