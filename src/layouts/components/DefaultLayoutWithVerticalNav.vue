@@ -19,6 +19,9 @@ const superUser = store.state.auth.superUser
 const getMenuList = (header: string) => {
   return SystemNavMenus.filter((item: NavMenu) => item.header === header && (!item.admin || superUser))
 }
+
+// APP模式
+const appMode = computed(() => localStorage.getItem('MP_APPMODE') == '1')
 </script>
 
 <template>
@@ -27,7 +30,7 @@ const getMenuList = (header: string) => {
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center mx-1">
         <!-- 👉 Vertical Nav Toggle -->
-        <IconBtn class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
+        <IconBtn v-if="!appMode" class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
         </IconBtn>
         <!-- 👉 Search Bar -->

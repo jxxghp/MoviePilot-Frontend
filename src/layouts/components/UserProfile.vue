@@ -6,6 +6,9 @@ import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
 import api from '@/api'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
+import { useDisplay } from 'vuetify'
+
+const display = useDisplay()
 
 // Vuex Store
 const store = useStore()
@@ -58,10 +61,20 @@ async function restart() {
   }
 }
 
+// 是否精简模式
+const isCompactMode = ref(localStorage.getItem('MP_APPMODE') == '1')
+
 // 从Vuex Store中获取信息
 const superUser = store.state.auth.superUser
 const userName = store.state.auth.userName
 const avatar = store.state.auth.avatar
+
+// 监听精简模式切换
+watch(isCompactMode, value => {
+  localStorage.setItem('MP_APPMODE', value ? '1' : '0')
+  //刷新页面
+  location.reload()
+})
 </script>
 
 <template>
@@ -86,6 +99,12 @@ const avatar = store.state.auth.avatar
           </VListItemTitle>
           <VListItemSubtitle>{{ userName }}</VListItemSubtitle>
         </VListItem>
+        <VListItem v-if="display.mdAndDown.value">
+          <template #prepend>
+            <VSwitch class="me-2" v-model="isCompactMode"></VSwitch>
+          </template>
+          <VListItemTitle>App模式</VListItemTitle>
+        </VListItem>
         <VDivider class="my-2" />
 
         <!-- 👉 Profile -->
@@ -105,7 +124,7 @@ const avatar = store.state.auth.avatar
         </VListItem>
 
         <!-- Divider -->
-        <VDivider class="my-2" />
+        <VDivider v-if="superUser" class="my-2" />
 
         <!-- 👉 restart -->
         <VListItem v-if="superUser" @click="restart">
@@ -114,9 +133,6 @@ const avatar = store.state.auth.avatar
           </template>
           <VListItemTitle>重启</VListItemTitle>
         </VListItem>
-
-        <!-- Divider -->
-        <VDivider class="my-2" />
 
         <!-- 👉 Logout -->
         <VListItem @click="logout">

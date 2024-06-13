@@ -5,6 +5,13 @@ import type { Context } from '@/api/types'
 import store from '@/store'
 import TorrentCardListView from '@/views/discover/TorrentCardListView.vue'
 import TorrentRowListView from '@/views/discover/TorrentRowListView.vue'
+import { useDisplay } from 'vuetify'
+
+// APP
+const display = useDisplay()
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 路由参数
 const route = useRoute()
@@ -142,13 +149,25 @@ onUnmounted(() => {
   <!-- 视图切换 -->
   <VFab
     v-if="viewType === 'list'"
+    class="mb-12"
     icon="mdi-view-grid"
+    location="bottom"
+    size="x-large"
+    absolute
+    app
+    appear
+    @click="setViewType('card')"
+    :class="{ 'mb-12': appMode }"
+  />
+  <VFab
+    v-else
+    icon="mdi-view-list"
     location="bottom"
     size="x-large"
     fixed
     app
     appear
-    @click="setViewType('card')"
+    @click="setViewType('list')"
+    :class="{ 'mb-12': appMode }"
   />
-  <VFab v-else icon="mdi-view-list" location="bottom" size="x-large" fixed app appear @click="setViewType('list')" />
 </template>

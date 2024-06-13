@@ -16,6 +16,11 @@ const route = useRoute()
 // 显示器宽度
 const display = useDisplay()
 
+// APP
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
+
 // 当前标签
 const activeTab = ref(route.query.tab)
 
@@ -438,6 +443,7 @@ onBeforeMount(async () => {
     app
     appear
     @click="SearchDialog = true"
+    :class="{ 'mb-12': appMode }"
   />
   <VDialog
     v-if="SearchDialog"

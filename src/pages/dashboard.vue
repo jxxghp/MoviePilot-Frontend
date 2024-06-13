@@ -5,6 +5,13 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { DashboardItem } from '@/api/types'
 import store from '@/store'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
+import { useDisplay } from 'vuetify'
+
+// APP
+const display = useDisplay()
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 从Vuex Store中获取superuser信息
 const superUser = store.state.auth.superUser
@@ -314,7 +321,16 @@ onBeforeMount(async () => {
   </draggable>
 
   <!-- 底部操作按钮 -->
-  <VFab icon="mdi-view-dashboard-edit" location="bottom" size="x-large" fixed app appear @click="dialog = true" />
+  <VFab
+    icon="mdi-view-dashboard-edit"
+    location="bottom"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="dialog = true"
+    :class="{ 'mb-12': appMode }"
+  />
 
   <!-- 弹窗，根据配置生成选项 -->
   <VDialog v-model="dialog" max-width="35rem" scrollable>

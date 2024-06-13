@@ -7,6 +7,15 @@ import ReorganizeDialog from '@/components/dialog/ReorganizeDialog.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useRoute } from 'vue-router'
 import router from '@/router'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
+
+// APP
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 提示框
 const $toast = useToast()
@@ -473,10 +482,11 @@ onMounted(fetchData)
       app
       appear
       @click="removeHistoryBatch"
+      :class="{ 'mb-12': appMode }"
     />
     <VFab
       v-if="selected.length > 0"
-      class="mb-16"
+      :class="appMode ? 'mb-28' : 'mb-16'"
       icon="mdi-redo-variant"
       location="bottom"
       size="x-large"

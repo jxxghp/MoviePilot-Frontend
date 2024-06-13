@@ -7,6 +7,15 @@ import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
 import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
 import store from '@/store'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
+
+// APP
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 输入参数
 const props = defineProps({
@@ -97,13 +106,14 @@ onMounted(async () => {
     app
     appear
     @click="subscribeEditDialog = true"
+    :class="{ 'mb-12': appMode }"
   />
   <VFab
     v-if="store.state.auth.superUser"
     icon="mdi-history"
     color="info"
     location="bottom"
-    class="mb-16"
+    :class="appMode ? 'mb-28' : 'mb-16'"
     size="x-large"
     fixed
     app

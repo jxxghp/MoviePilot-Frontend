@@ -5,6 +5,15 @@ import type { Site } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
+
+// APP
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 数据列表
 const dataList = ref<Site[]>([])
@@ -67,7 +76,16 @@ onBeforeMount(fetchData)
     error-description="已添加并支持的站点将会在这里显示。"
   />
   <!-- 新增站点按钮 -->
-  <VFab icon="mdi-plus" location="bottom" size="x-large" fixed app appear @click="siteAddDialog = true" />
+  <VFab
+    icon="mdi-plus"
+    location="bottom"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="siteAddDialog = true"
+    :class="{ 'mb-12': appMode }"
+  />
   <!-- 新增站点弹窗 -->
   <SiteAddEditDialog
     v-if="siteAddDialog"

@@ -137,6 +137,13 @@ const router = createRouter({
             requiresAuth: true,
           },
         },
+        {
+          path: '/apps',
+          component: () => import('../pages/appcenter.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
       ],
     },
     {
