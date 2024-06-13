@@ -358,7 +358,7 @@ onMounted(fetchData)
 </script>
 
 <template>
-  <VCard :style="appMode ? 'margin-bottom: 56px' : ''">
+  <VCard>
     <VCardItem>
       <VCardTitle>
         <VRow>
@@ -395,6 +395,11 @@ onMounted(fetchData)
       loading-text="加载中..."
       class="data-table-div"
       hover
+      :style="
+        appMode
+          ? 'height: calc(100vh - 14rem - env(safe-area-inset-bottom) - 3.5rem)'
+          : 'height: calc(100vh - 14rem - env(safe-area-inset-bottom)'
+      "
     >
       <template #item.title="{ item }">
         <div class="d-flex align-center">
@@ -530,15 +535,5 @@ onMounted(fetchData)
 <style lang="scss">
 .v-table th {
   white-space: nowrap;
-}
-
-.data-table-div {
-  block-size: calc(100vh - 14rem - env(safe-area-inset-bottom));
-}
-
-@media (width <= 768px) {
-  .data-table-div {
-    block-size: calc(100vh - 17rem - env(safe-area-inset-bottom));
-  }
 }
 </style>

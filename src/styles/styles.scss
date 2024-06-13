@@ -185,6 +185,6 @@
   border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
-.v-fab--bottom {
+.v-fab__container {
   padding-block-end: env(safe-area-inset-bottom);
 }

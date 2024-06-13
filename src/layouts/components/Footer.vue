@@ -8,7 +8,7 @@ const appMode = computed(() => {
 </script>
 
 <template>
-  <div v-if="appMode" class="w-100" style="block-size: 3.5rem">
+  <div v-if="appMode" class="w-100" style="block-size: calc(3.5rem + env(safe-area-inset-bottom))">
     <VBottomNavigation
       grow
       horizontal

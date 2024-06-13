@@ -124,7 +124,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VRow :style="appMode ? 'margin-bottom: 56px' : ''">
+  <VRow>
     <VCol>
       <VList v-if="dataList.length === 0" lines="three" class="rounded p-0 shadow-lg">
         <VListItem>
@@ -132,7 +132,14 @@ onMounted(() => {
         </VListItem>
       </VList>
       <VList v-if="dataList.length !== 0" lines="three" class="rounded p-0 torrent-list-vscroll shadow-lg">
-        <VVirtualScroll :items="dataList">
+        <VVirtualScroll
+          :items="dataList"
+          :style="
+            appMode
+              ? 'height: calc(100vh - 6rem - env(safe-area-inset-bottom) - 3.5rem)'
+              : 'height: calc(100vh - 6rem - env(safe-area-inset-bottom)'
+          "
+        >
           <template #default="{ item }">
             <TorrentItem :torrent="item" :key="`${item.torrent_info.title}_${item.torrent_info.site}`" />
           </template>
@@ -140,7 +147,7 @@ onMounted(() => {
       </VList>
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
-      <VList lines="one" class="rounded torrent-list-vscroll shadow-lg">
+      <VList lines="one" class="rounded shadow-lg" style="height: calc(100vh - 6rem - env(safe-area-inset-bottom)">
         <VListSubheader> 排序 </VListSubheader>
         <VListItem>
           <VChipGroup column v-model="sortField">
@@ -265,15 +272,3 @@ onMounted(() => {
     </VCol>
   </VRow>
 </template>
-<style lang="scss">
-.torrent-list-vscroll {
-  block-size: calc(100vh - 6rem);
-  overflow-y: auto;
-}
-
-@media (width <= 768px) {
-  .torrent-list-vscroll {
-    block-size: calc(100vh - 9rem - env(safe-area-inset-bottom));
-  }
-}
-</style>
