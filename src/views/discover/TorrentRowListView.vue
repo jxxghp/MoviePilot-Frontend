@@ -136,7 +136,7 @@ onMounted(() => {
           :items="dataList"
           :style="
             appMode
-              ? 'height: calc(100vh - 6rem - env(safe-area-inset-bottom) - 3.5rem)'
+              ? 'height: calc(100vh - 7rem - env(safe-area-inset-bottom) - 3.5rem)'
               : 'height: calc(100vh - 6rem - env(safe-area-inset-bottom)'
           "
         >

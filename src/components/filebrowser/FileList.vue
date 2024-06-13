@@ -11,6 +11,15 @@ import store from '@/store'
 import api from '@/api'
 import MediaInfoCard from '@/components/cards/MediaInfoCard.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
+
+// APP
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+})
 
 // 输入参数
 const inProps = defineProps({
@@ -364,7 +373,14 @@ onMounted(() => {
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
       <VList subheader>
-        <VVirtualScroll class="virtual-scroll-div" :items="[...dirs, ...files]">
+        <VVirtualScroll
+          :items="[...dirs, ...files]"
+          :style="
+            appMode
+              ? 'height: calc(100vh - 15rem - env(safe-area-inset-bottom) - 3.5rem)'
+              : 'height: calc(100vh - 14rem - env(safe-area-inset-bottom)'
+          "
+        >
           <template #default="{ item }">
             <VHover>
               <template #default="hover">
@@ -496,15 +512,5 @@ onMounted(() => {
 
 .v-toolbar {
   background: rgb(var(--v-table-header-background));
-}
-
-.virtual-scroll-div {
-  block-size: calc(100vh - 14rem);
-}
-
-@media (width <= 768px) {
-  .virtual-scroll-div {
-    block-size: calc(100vh - 17rem);
-  }
 }
 </style>
