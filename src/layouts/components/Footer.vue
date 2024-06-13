@@ -42,7 +42,7 @@ const activeState = computed(() => {
         <VIcon v-else size="32">mdi-movie-open-outline</VIcon>
       </VBtn>
       <VBtn to="/subscribe-tv?tab=mysub" :ripple="false">
-        <VIcon v-if="activeState.tv" size="32">mdi-youtube-tv</VIcon>
+        <VIcon v-if="activeState.tv" size="32">mdi-television-play</VIcon>
         <VIcon v-else size="32">mdi-television</VIcon>
       </VBtn>
       <VBtn to="/apps" :ripple="false">
