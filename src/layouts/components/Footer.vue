@@ -9,7 +9,13 @@ const appMode = computed(() => {
 
 <template>
   <div v-if="appMode" class="w-100" style="block-size: 3.5rem">
-    <VBottomNavigation grow horizontal color="primary" class="footer-nav border-t">
+    <VBottomNavigation
+      grow
+      horizontal
+      color="primary"
+      class="footer-nav border-t"
+      style="block-size: calc(3.5rem + env(safe-area-inset-bottom))"
+    >
       <VBtn to="/dashboard">
         <VIcon size="28">mdi-home-outline</VIcon>
         <span>首页</span>

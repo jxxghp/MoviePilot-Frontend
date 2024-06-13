@@ -273,7 +273,7 @@ onMounted(() => {
 
 @media (width <= 768px) {
   .torrent-list-vscroll {
-    block-size: calc(100vh - 8rem - env(safe-area-inset-bottom));
+    block-size: calc(100vh - 9rem - env(safe-area-inset-bottom));
   }
 }
 </style>
