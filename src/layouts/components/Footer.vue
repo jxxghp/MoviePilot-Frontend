@@ -30,24 +30,24 @@ const activeState = computed(() => {
       style="block-size: calc(3.5rem + env(safe-area-inset-bottom))"
     >
       <VBtn to="/dashboard" :ripple="false">
-        <VIcon v-if="activeState.home" size="40">mdi-home</VIcon>
-        <VIcon v-else size="40">mdi-home-outline</VIcon>
+        <VIcon v-if="activeState.home" size="32">mdi-home</VIcon>
+        <VIcon v-else size="32">mdi-home-outline</VIcon>
       </VBtn>
       <VBtn to="/ranking" :ripple="false">
-        <VIcon v-if="activeState.ranking" size="40">mdi-star</VIcon>
-        <VIcon v-else size="40">mdi-star-outline</VIcon>
+        <VIcon v-if="activeState.ranking" size="32">mdi-star</VIcon>
+        <VIcon v-else size="32">mdi-star-outline</VIcon>
       </VBtn>
       <VBtn to="/subscribe-movie?tab=mysub" :ripple="false">
-        <VIcon v-if="activeState.movie" size="40">mdi-movie-open</VIcon>
-        <VIcon v-else size="40">mdi-movie-open-outline</VIcon>
+        <VIcon v-if="activeState.movie" size="32">mdi-movie-open</VIcon>
+        <VIcon v-else size="32">mdi-movie-open-outline</VIcon>
       </VBtn>
       <VBtn to="/subscribe-tv?tab=mysub" :ripple="false">
-        <VIcon v-if="activeState.tv" size="40">mdi-youtube-tv</VIcon>
-        <VIcon v-else size="40">mdi-television</VIcon>
+        <VIcon v-if="activeState.tv" size="32">mdi-youtube-tv</VIcon>
+        <VIcon v-else size="32">mdi-television</VIcon>
       </VBtn>
       <VBtn to="/apps" :ripple="false">
-        <VIcon v-if="activeState.apps" size="40">mdi-dots-horizontal-circle</VIcon>
-        <VIcon v-else size="40">mdi-dots-horizontal-circle-outline</VIcon>
+        <VIcon v-if="activeState.apps" size="32">mdi-dots-horizontal-circle</VIcon>
+        <VIcon v-else size="32">mdi-dots-horizontal-circle-outline</VIcon>
       </VBtn>
     </VBottomNavigation>
   </div>
