@@ -9,7 +9,7 @@ export const SystemNavMenus = [
   },
   {
     title: '推荐',
-    icon: 'mdi-star-check-outline',
+    icon: 'mdi-star-outline',
     to: '/ranking',
     header: '发现',
     admin: false,
@@ -24,7 +24,7 @@ export const SystemNavMenus = [
   {
     title: '电影',
     full_title: '电影订阅',
-    icon: 'mdi-movie-roll',
+    icon: 'mdi-movie-open-outline',
     to: '/subscribe-movie?tab=mysub',
     header: '订阅',
     admin: false,
@@ -32,7 +32,7 @@ export const SystemNavMenus = [
   {
     title: '电视剧',
     full_title: '电视剧订阅',
-    icon: 'mdi-television-classic',
+    icon: 'mdi-television',
     to: '/subscribe-tv?tab=mysub',
     header: '订阅',
     admin: false,

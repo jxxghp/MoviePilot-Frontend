@@ -5,6 +5,19 @@ const display = useDisplay()
 const appMode = computed(() => {
   return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
 })
+
+const route = useRoute()
+
+// 各按钮活动状态
+const activeState = computed(() => {
+  return {
+    home: route.path === '/dashboard',
+    ranking: route.path === '/ranking',
+    movie: route.path === '/subscribe-movie',
+    tv: route.path === '/subscribe-tv',
+    apps: route.path === '/apps',
+  }
+})
 </script>
 
 <template>
@@ -17,24 +30,24 @@ const appMode = computed(() => {
       style="block-size: calc(3.5rem + env(safe-area-inset-bottom))"
     >
       <VBtn to="/dashboard" :ripple="false">
-        <VIcon size="28">mdi-home-outline</VIcon>
-        <span>首页</span>
+        <VIcon v-if="activeState.home" size="40">mdi-home</VIcon>
+        <VIcon v-else size="40">mdi-home-outline</VIcon>
       </VBtn>
       <VBtn to="/ranking" :ripple="false">
-        <VIcon size="28">mdi-star-check-outline</VIcon>
-        <span>推荐</span>
+        <VIcon v-if="activeState.ranking" size="40">mdi-star</VIcon>
+        <VIcon v-else size="40">mdi-star-outline</VIcon>
       </VBtn>
       <VBtn to="/subscribe-movie?tab=mysub" :ripple="false">
-        <VIcon size="28">mdi-movie-roll</VIcon>
-        <span><span></span>电影</span>
+        <VIcon v-if="activeState.movie" size="40">mdi-movie-open</VIcon>
+        <VIcon v-else size="40">mdi-movie-open-outline</VIcon>
       </VBtn>
       <VBtn to="/subscribe-tv?tab=mysub" :ripple="false">
-        <VIcon size="28">mdi-television-classic</VIcon>
-        <span>电视剧</span>
+        <VIcon v-if="activeState.tv" size="40">mdi-youtube-tv</VIcon>
+        <VIcon v-else size="40">mdi-television</VIcon>
       </VBtn>
       <VBtn to="/apps" :ripple="false">
-        <VIcon size="28">mdi-dots-horizontal</VIcon>
-        <span>更多</span>
+        <VIcon v-if="activeState.apps" size="40">mdi-dots-horizontal-circle</VIcon>
+        <VIcon v-else size="40">mdi-dots-horizontal-circle-outline</VIcon>
       </VBtn>
     </VBottomNavigation>
   </div>
@@ -42,6 +55,10 @@ const appMode = computed(() => {
 <
 <style lang="scss">
 .footer-nav {
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  background-color: rgb(var(--v-theme-surface), 0.8);
   padding-block-end: env(safe-area-inset-bottom);
 }
 
