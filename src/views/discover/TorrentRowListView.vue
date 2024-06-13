@@ -136,8 +136,8 @@ onMounted(() => {
           :items="dataList"
           :style="
             appMode
-              ? 'height: calc(100vh - 7rem - env(safe-area-inset-bottom) - 3.5rem)'
-              : 'height: calc(100vh - 6rem - env(safe-area-inset-bottom)'
+              ? 'height: calc(100vh - 7.5rem - env(safe-area-inset-bottom) - 3.5rem)'
+              : 'height: calc(100vh - 6.5rem - env(safe-area-inset-bottom)'
           "
         >
           <template #default="{ item }">
@@ -147,7 +147,11 @@ onMounted(() => {
       </VList>
     </VCol>
     <VCol xl="2" md="3" class="d-none d-md-block">
-      <VList lines="one" class="rounded shadow-lg" style="height: calc(100vh - 6rem - env(safe-area-inset-bottom)">
+      <VList
+        lines="one"
+        class="rounded shadow-lg"
+        style="block-size: calc(100vh - 6.5rem - env(safe-area-inset-bottom))"
+      >
         <VListSubheader> 排序 </VListSubheader>
         <VListItem>
           <VChipGroup column v-model="sortField">

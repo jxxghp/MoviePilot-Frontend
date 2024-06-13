@@ -377,8 +377,8 @@ onMounted(() => {
           :items="[...dirs, ...files]"
           :style="
             appMode
-              ? 'height: calc(100vh - 15rem - env(safe-area-inset-bottom) - 3.5rem)'
-              : 'height: calc(100vh - 14rem - env(safe-area-inset-bottom)'
+              ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
+              : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
           "
         >
           <template #default="{ item }">
