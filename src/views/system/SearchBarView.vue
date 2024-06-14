@@ -282,7 +282,7 @@ onMounted(() => {
       <DialogCloseBtn inner-class="absolute right-3 top-5 text-high-emphasis" @click="emit('close')" />
       <VDivider />
       <VCardText class="p-0">
-        <VList lines="one" v-if="searchWord">
+        <VList lines="two" v-if="searchWord">
           <!-- 搜索结果 -->
           <VListSubheader v-if="searchWord"> 媒体 & 资源 </VListSubheader>
           <VHover>
@@ -294,7 +294,7 @@ onMounted(() => {
                 v-bind="hover.props"
                 @click="searchMedia('media')"
               >
-                <VListItemTitle>
+                <VListItemTitle class="break-words whitespace-break-spaces">
                   搜索 <span class="font-bold">{{ searchWord }} </span> 相关的【电影、电视剧】 ...
                 </VListItemTitle>
                 <template #append>
@@ -306,7 +306,7 @@ onMounted(() => {
           <VHover>
             <template #default="hover">
               <VListItem prepend-icon="mdi-account-search" link v-bind="hover.props" @click="searchMedia('person')">
-                <VListItemTitle>
+                <VListItemTitle class="break-words whitespace-break-spaces">
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【演职人员】 ...
                 </VListItemTitle>
                 <template #append>
@@ -318,7 +318,7 @@ onMounted(() => {
           <VHover>
             <template #default="hover">
               <VListItem prepend-icon="mdi-search-web" link v-bind="hover.props" @click="searchTorrent">
-                <VListItemTitle>
+                <VListItemTitle class="break-words whitespace-break-spaces">
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【站点资源】 ...
                 </VListItemTitle>
                 <template #append>
@@ -330,7 +330,7 @@ onMounted(() => {
           <VHover>
             <template #default="hover">
               <VListItem prepend-icon="mdi-history" link v-bind="hover.props" @click="searchHistory">
-                <VListItemTitle>
+                <VListItemTitle class="break-words whitespace-break-spaces">
                   搜索 <span class="font-bold">{{ searchWord }}</span> 相关的【历史记录】 ...
                 </VListItemTitle>
                 <template #append>
