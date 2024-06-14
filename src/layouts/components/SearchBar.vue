@@ -1,6 +1,9 @@
 <script lang="ts" setup>
 import * as Mousetrap from 'mousetrap'
 import SearchBarView from '@/views/system/SearchBarView.vue'
+import { useDisplay } from 'vuetify'
+
+const display = useDisplay()
 
 const searchDialog = ref(false)
 
@@ -20,7 +23,7 @@ function openSearchDialog() {
     <IconBtn @click="openSearchDialog">
       <VIcon icon="ri-search-line" />
     </IconBtn>
-    <span class="d-none d-md-flex align-center text-disabled ms-2" @click="openSearchDialog">
+    <span v-if="display.lgAndUp.value" class="flex align-center text-disabled ms-2" @click="openSearchDialog">
       <span class="me-3">搜索</span>
       <span class="meta-key">⌘K</span>
     </span>

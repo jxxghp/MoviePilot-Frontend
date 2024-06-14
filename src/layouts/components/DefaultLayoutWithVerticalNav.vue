@@ -11,6 +11,12 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
 import store from '@/store'
 import { SystemNavMenus } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
+import { useDisplay } from 'vuetify'
+
+const display = useDisplay()
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
+})
 
 // 从Vuex Store中获取superuser信息
 const superUser = store.state.auth.superUser
@@ -20,8 +26,10 @@ const getMenuList = (header: string) => {
   return SystemNavMenus.filter((item: NavMenu) => item.header === header && (!item.admin || superUser))
 }
 
-// APP模式
-const appMode = computed(() => localStorage.getItem('MP_APPMODE') != '0')
+// 返回上一页
+function goBack() {
+  history.back()
+}
 </script>
 
 <template>
@@ -30,8 +38,12 @@ const appMode = computed(() => localStorage.getItem('MP_APPMODE') != '0')
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div class="d-flex h-100 align-center mx-1">
         <!-- 👉 Vertical Nav Toggle -->
-        <IconBtn v-if="!appMode" class="ms-n2 d-lg-none" @click="toggleVerticalOverlayNavActive(true)">
+        <IconBtn v-if="!appMode && display.mdAndDown.value" class="ms-n2" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
+        </IconBtn>
+        <!-- 👉 Back Button -->
+        <IconBtn v-if="appMode" class="ms-n2" @click="goBack">
+          <VIcon icon="mdi-arrow-left" size="32" />
         </IconBtn>
         <!-- 👉 Search Bar -->
         <SearchBar />
