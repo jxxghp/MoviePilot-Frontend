@@ -41,7 +41,6 @@ onMounted(() => {
   <div class="ps ps--active-y mx-3 appcenter-grid" tabindex="0">
     <draggable
       v-model="appList"
-      handle=".cursor-move"
       item-key="pri"
       tag="VRow"
       @end="saveAppsOrder"
@@ -49,19 +48,12 @@ onMounted(() => {
     >
       <template #item="{ element }">
         <VCol cols="6" md="4" lg="3" class="text-center cursor-pointer shortcut-icon">
-          <VHover>
-            <template #default="hover">
-              <VCard class="pa-4" :to="element.to" variant="flat" v-bind="hover.props">
-                <div v-if="hover.isHovering" class="absolute right-5 top-5">
-                  <VIcon class="cursor-move">mdi-drag</VIcon>
-                </div>
-                <VAvatar size="64" variant="text">
-                  <VIcon size="48" :icon="element.icon" color="primary" />
-                </VAvatar>
-                <h6 class="text-base font-weight-medium mt-2 mb-0">{{ element.full_title || element.title }}</h6>
-              </VCard>
-            </template>
-          </VHover>
+          <VCard class="pa-4" :to="element.to" variant="flat">
+            <VAvatar size="64" variant="text">
+              <VIcon size="48" :icon="element.icon" color="primary" />
+            </VAvatar>
+            <h6 class="text-base font-weight-medium mt-2 mb-0">{{ element.full_title || element.title }}</h6>
+          </VCard>
         </VCol>
       </template>
     </draggable>

@@ -201,4 +201,11 @@
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   background-color: rgb(var(--v-theme-surface), 0.95) !important;
+
+  .v-list {
+    /* stylelint-disable-next-line property-no-vendor-prefix */
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: transparent !important;
+  }
 }
