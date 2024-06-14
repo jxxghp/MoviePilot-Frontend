@@ -188,3 +188,17 @@
 .v-fab__container {
   padding-block-end: env(safe-area-inset-bottom);
 }
+
+.v-overlay__content .v-list{
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  background-color: rgb(var(--v-theme-surface), 0.9) !important;
+}
+
+.v-overlay__content .v-card{
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  background-color: rgb(var(--v-theme-surface), 0.95) !important;
+}

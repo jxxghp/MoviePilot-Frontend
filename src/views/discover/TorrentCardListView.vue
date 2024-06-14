@@ -130,8 +130,8 @@ watchEffect(() => {
   // 清空列表
   dataList.value = []
   // 匹配过滤函数，filter中有任一值包含value则返回true
-  const match = (filter: Array<string>, value: string | undefined): boolean =>
-    filter.length === 0 || filter.includes(value ?? '') || filter.some(v => value?.includes(v) ?? false)
+  const match = (filter: Array<string>, value: string | undefined) =>
+    filter.length === 0 || (value && filter.includes(value))
 
   groupedDataList.value?.forEach(value => {
     if (value.length > 0) {
