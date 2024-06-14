@@ -3,10 +3,9 @@ body {
 }
 
 html {
+  overflow: hidden auto;
   background: var(--initial-loader-bg, #fff);
   min-block-size: calc(100% + env(safe-area-inset-top));
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
 #loading-bg {
@@ -21,7 +20,7 @@ html {
 .loading-logo {
   position: absolute;
   inset-block-start: 40%;
-  inset-inline-start: calc(50% - 50px);
+  inset-inline-start: calc(50% - 5rem);
 }
 
 .loading {

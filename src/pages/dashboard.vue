@@ -10,7 +10,7 @@ import { useDisplay } from 'vuetify'
 // APP
 const display = useDisplay()
 const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
 })
 
 // 从Vuex Store中获取superuser信息

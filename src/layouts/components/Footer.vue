@@ -3,7 +3,7 @@ import { useDisplay } from 'vuetify'
 
 const display = useDisplay()
 const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
 })
 
 const route = useRoute()
@@ -47,7 +47,7 @@ const activeState = computed(() => {
       </VBtn>
       <VBtn to="/apps" :ripple="false">
         <VIcon v-if="activeState.apps" size="32">mdi-dots-horizontal-circle</VIcon>
-        <VIcon v-else size="32">mdi-dots-horizontal-circle-outline</VIcon>
+        <VIcon v-else size="32">mdi-dots-horizontal</VIcon>
       </VBtn>
     </VBottomNavigation>
   </div>

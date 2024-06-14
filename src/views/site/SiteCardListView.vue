@@ -12,7 +12,7 @@ const display = useDisplay()
 
 // APP
 const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') == '1' && display.mdAndDown.value
+  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
 })
 
 // 数据列表

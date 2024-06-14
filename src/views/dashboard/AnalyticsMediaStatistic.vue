@@ -2,14 +2,7 @@
 import api from '@/api'
 import type { MediaStatistic } from '@/api/types'
 
-const statistics = ref([
-  {
-    title: '',
-    stats: '',
-    icon: '',
-    color: '',
-  },
-])
+const statistics = ref<{ [key: string]: string }[]>([])
 
 // 调用API加载媒体统计数据
 async function loadMediaStatistic() {

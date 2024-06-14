@@ -62,7 +62,7 @@ async function restart() {
 }
 
 // 是否精简模式
-const isCompactMode = ref(localStorage.getItem('MP_APPMODE') == '1')
+const isCompactMode = ref(localStorage.getItem('MP_APPMODE') != '0')
 
 // 从Vuex Store中获取信息
 const superUser = store.state.auth.superUser
@@ -99,6 +99,11 @@ watch(isCompactMode, value => {
           </VListItemTitle>
           <VListItemSubtitle>{{ userName }}</VListItemSubtitle>
         </VListItem>
+
+        <!-- Divider -->
+        <VDivider v-if="display.mdAndDown.value" class="my-2" />
+
+        <!-- 👉 AppMode -->
         <VListItem v-if="display.mdAndDown.value">
           <template #prepend>
             <VSwitch class="me-2" v-model="isCompactMode"></VSwitch>

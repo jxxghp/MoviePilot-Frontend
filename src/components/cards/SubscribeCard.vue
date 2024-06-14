@@ -38,8 +38,8 @@ function imageLoadHandler() {
 
 // 根据 type 返回不同的图标
 function getIcon() {
-  if (props.media?.type === '电影') return 'mdi-movie'
-  else if (props.media?.type === '电视剧') return 'mdi-television-classic'
+  if (props.media?.type === '电影') return 'mdi-movie-open'
+  else if (props.media?.type === '电视剧') return 'mdi-television-play'
   else return 'mdi-help-circle'
 }
 
@@ -54,12 +54,12 @@ function getPercentage() {
 
 // 计算文本颜色
 function getTextColor() {
-  return imageLoaded.value ? 'white' : ''
+  return 'white'
 }
 
 // 计算文本类
 function getTextClass() {
-  return imageLoaded.value ? 'text-white' : ''
+  return 'text-white'
 }
 
 // 删除订阅
@@ -186,7 +186,7 @@ watch(
         :key="props.media?.id"
         class="flex flex-col"
         :class="{
-          'outline-dashed outline-1': props.media?.best_version,
+          'outline-dashed outline-1': props.media?.best_version && imageLoaded,
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
         }"
         @click="editSubscribeDialog"
@@ -194,74 +194,87 @@ watch(
         <template #image>
           <VImg
             :src="props.media?.backdrop || props.media?.poster"
-            aspect-ratio="2/3"
+            aspect-ratio="3/2"
             cover
-            class="brightness-50"
+            :class="{ 'brightness-50': imageLoaded }"
             @load="imageLoadHandler"
-          />
+          >
+            <template #placeholder>
+              <div class="w-full h-full">
+                <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+              </div>
+            </template>
+          </VImg>
         </template>
-        <VCardItem>
-          <template #prepend>
-            <VIcon size="1.9rem" :color="getTextColor()" :icon="getIcon()" />
-          </template>
-          <VCardTitle :class="getTextClass()">
-            {{ props.media?.name }}
-            {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
-          </VCardTitle>
-          <template #append>
-            <div class="me-n3">
-              <IconBtn>
-                <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
-                <VMenu activator="parent" close-on-content-click>
-                  <VList>
-                    <template v-for="(item, i) in dropdownItems" :key="i">
-                      <VListItem
-                        v-if="item.show !== false"
-                        variant="plain"
-                        :base-color="item.props.color"
-                        @click="item.props.click"
-                      >
-                        <template #prepend>
-                          <VIcon :icon="item.props.prependIcon" />
-                        </template>
-                        <VListItemTitle v-text="item.title" />
-                      </VListItem>
-                    </template>
-                  </VList>
-                </VMenu>
-              </IconBtn>
+        <div v-if="imageLoaded">
+          <VCardItem>
+            <template #prepend>
+              <VIcon size="1.9rem" :color="getTextColor()" :icon="getIcon()" />
+            </template>
+            <VCardTitle :class="getTextClass()">
+              {{ props.media?.name }}
+              {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
+            </VCardTitle>
+            <template #append>
+              <div class="me-n3">
+                <IconBtn>
+                  <VIcon icon="mdi-dots-vertical" :color="getTextColor()" />
+                  <VMenu activator="parent" close-on-content-click>
+                    <VList>
+                      <template v-for="(item, i) in dropdownItems" :key="i">
+                        <VListItem
+                          v-if="item.show !== false"
+                          variant="plain"
+                          :base-color="item.props.color"
+                          @click="item.props.click"
+                        >
+                          <template #prepend>
+                            <VIcon :icon="item.props.prependIcon" />
+                          </template>
+                          <VListItemTitle v-text="item.title" />
+                        </VListItem>
+                      </template>
+                    </VList>
+                  </VMenu>
+                </IconBtn>
+              </div>
+            </template>
+          </VCardItem>
+          <VCardText>
+            <p class="clamp-text mb-0" :class="getTextClass()">
+              {{ props.media?.description }}
+            </p>
+          </VCardText>
+          <VCardText class="d-flex justify-space-between align-center flex-wrap">
+            <div class="d-flex align-center">
+              <IconBtn
+                v-if="props.media?.total_episode"
+                v-bind="props"
+                icon="mdi-progress-clock"
+                :color="getTextColor()"
+                class="me-1"
+              />
+              <span v-if="props.media?.season" class="text-subtitle-2 me-4" :class="getTextClass()"
+                >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
+                {{ props.media?.total_episode }}</span
+              >
+              <IconBtn v-if="props.media?.username" icon="mdi-account" :color="getTextColor()" class="me-1" />
+              <span v-if="props.media?.username" class="text-subtitle-2 me-4" :class="getTextClass()">
+                {{ props.media?.username }}
+              </span>
             </div>
-          </template>
-        </VCardItem>
-        <VCardText>
-          <p class="clamp-text mb-0" :class="getTextClass()">
-            {{ props.media?.description }}
-          </p>
-        </VCardText>
-        <VCardText class="d-flex justify-space-between align-center flex-wrap">
-          <div class="d-flex align-center">
-            <IconBtn
-              v-if="props.media?.total_episode"
-              v-bind="props"
-              icon="mdi-progress-clock"
-              :color="getTextColor()"
-              class="me-1"
-            />
-            <span v-if="props.media?.season" class="text-subtitle-2 me-4" :class="getTextClass()"
-              >{{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
-              {{ props.media?.total_episode }}</span
-            >
-            <IconBtn v-if="props.media?.username" icon="mdi-account" :color="getTextColor()" class="me-1" />
-            <span v-if="props.media?.username" class="text-subtitle-2 me-4" :class="getTextClass()">
-              {{ props.media?.username }}
-            </span>
-          </div>
-        </VCardText>
-        <VCardText v-if="lastUpdateText" class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
-          <VIcon icon="mdi-download" class="me-1" />
-          {{ lastUpdateText }}
-        </VCardText>
-        <VProgressLinear v-if="getPercentage() > 0" :model-value="getPercentage()" bg-color="success" color="success" />
+          </VCardText>
+          <VCardText v-if="lastUpdateText" class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
+            <VIcon icon="mdi-download" class="me-1" />
+            {{ lastUpdateText }}
+          </VCardText>
+          <VProgressLinear
+            v-if="getPercentage() > 0"
+            :model-value="getPercentage()"
+            bg-color="success"
+            color="success"
+          />
+        </div>
       </VCard>
     </template>
   </VHover>

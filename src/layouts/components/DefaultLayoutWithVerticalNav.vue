@@ -21,7 +21,7 @@ const getMenuList = (header: string) => {
 }
 
 // APP模式
-const appMode = computed(() => localStorage.getItem('MP_APPMODE') == '1')
+const appMode = computed(() => localStorage.getItem('MP_APPMODE') != '0')
 </script>
 
 <template>
