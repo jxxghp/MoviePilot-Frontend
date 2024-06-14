@@ -49,7 +49,7 @@ onMounted(() => {
     >
       <template #item="{ element }">
         <VCol cols="6" md="4" lg="3" class="text-center cursor-pointer shortcut-icon">
-          <VCard class="pa-4" :to="element.to" variant="flat">
+          <VCard class="pa-4 select-none" :to="element.to" variant="flat">
             <VAvatar size="64" variant="text">
               <VIcon size="48" :icon="element.icon" color="primary" />
             </VAvatar>
