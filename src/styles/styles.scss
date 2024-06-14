@@ -202,7 +202,7 @@
   backdrop-filter: blur(8px);
   background-color: rgb(var(--v-theme-surface), 0.95) !important;
 
-  .v-list {
+  .v-list, .v-table {
     /* stylelint-disable-next-line property-no-vendor-prefix */
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
