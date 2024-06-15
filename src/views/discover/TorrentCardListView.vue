@@ -249,7 +249,7 @@ watchEffect(() => {
     </VRow>
   </VCard>
   <div class="grid gap-3 grid-torrent-card items-start">
-    <div v-for="(item, index) in dataList" :key="`${index}_${item.torrent_info.title}_${item.torrent_info.site}`">
+    <div v-for="(item) in dataList" :key="`${item.torrent_info.page_url}`">
       <TorrentCard :torrent="item" :more="item.more" />
     </div>
   </div>
