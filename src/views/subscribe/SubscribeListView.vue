@@ -24,7 +24,7 @@ const props = defineProps({
 })
 
 // 是否刷新过
-const isRefreshed = ref(false)
+let isRefreshed = ref(false)
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
@@ -38,7 +38,9 @@ const historyDialog = ref(false)
 // 获取订阅列表数据
 async function fetchData() {
   try {
+    loading.value = true
     dataList.value = await api.get('subscribe/')
+    loading.value = false
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
@@ -49,10 +51,9 @@ async function fetchData() {
 const loading = ref(false)
 
 // 下拉刷新
-function onRefresh() {
-  loading.value = true
-  fetchData()
-  loading.value = false
+async function onRefresh({ done }: { done: any }) {
+  await fetchData()
+  done('ok')
 }
 
 // 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
@@ -73,6 +74,12 @@ onMounted(async () => {
       // 打开编辑弹窗
       sub.page_open = true
     }
+  }
+})
+
+onActivated(async () => {
+  if (!loading.value) {
+    fetchData()
   }
 })
 </script>

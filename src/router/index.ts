@@ -23,6 +23,7 @@ const router = createRouter({
           path: '/dashboard',
           component: () => import('../pages/dashboard.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -42,23 +43,28 @@ const router = createRouter({
           },
         },
         {
-          path: '/subscribe-movie',
-          component: () => import('../pages/subscribe-movie.vue'),
+          path: '/subscribe/movie',
+          component: () => import('../pages/subscribe.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
+            subType: '电影',
           },
         },
         {
-          path: '/subscribe-tv',
-          component: () => import('../pages/subscribe-tv.vue'),
+          path: '/subscribe/tv',
+          component: () => import('../pages/subscribe.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
+            subType: '电视剧',
           },
         },
         {
           path: '/calendar',
           component: () => import('../pages/calendar.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -80,6 +86,7 @@ const router = createRouter({
           path: '/site',
           component: () => import('../pages/site.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -87,6 +94,7 @@ const router = createRouter({
           path: '/plugins',
           component: () => import('../pages/plugin.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -120,6 +128,7 @@ const router = createRouter({
           component: () => import('../pages/person.vue'),
           props: true,
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -127,6 +136,7 @@ const router = createRouter({
           path: '/media',
           component: () => import('../pages/media.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },

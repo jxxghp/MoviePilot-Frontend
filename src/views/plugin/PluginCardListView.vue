@@ -8,7 +8,6 @@ import PluginCard from '@/components/cards/PluginCard.vue'
 import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import router from '@/router'
 import { PluginTabs } from '@/router/menu'
 
 const route = useRoute()
@@ -38,6 +37,9 @@ const sortOptions = [
   { title: '插件仓库', value: 'repo_url' },
   { title: '最新发布', value: 'add_time' },
 ]
+
+// 加载中
+const loading = ref(false)
 
 // 已安装插件列表
 const dataList = ref<Plugin[]>([])
@@ -198,11 +200,13 @@ const filterPlugins = computed(() => {
 // 获取插件列表数据
 async function fetchInstalledPlugins() {
   try {
+    loading.value = true
     dataList.value = await api.get('plugin/', {
       params: {
         state: 'installed',
       },
     })
+    loading.value = false
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
@@ -212,6 +216,7 @@ async function fetchInstalledPlugins() {
 // 获取未安装插件列表数据
 async function fetchUninstalledPlugins() {
   try {
+    loading.value = true
     uninstalledList.value = await api.get('plugin/', {
       params: {
         state: 'market',
@@ -227,6 +232,8 @@ async function fetchUninstalledPlugins() {
         }
       }
     }
+    loading.value = false
+    isRefreshed.value = true
     // 更新插件市场列表
     // 排除已安装且有更新的，上面的问题在于“本地存在未安装的旧版本插件且云端有更新时”不会在插件市场展示
     marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
@@ -312,11 +319,6 @@ function handleRepoUrl(url: string | undefined) {
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
-// 跳转tab
-function jumpTab(tab: string) {
-  router.push('/plugins?tab=' + tab)
-}
-
 // 加载时获取数据
 onBeforeMount(async () => {
   await refreshData()
@@ -334,7 +336,7 @@ onBeforeMount(async () => {
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in PluginTabs" :value="item.tab" @click="jumpTab(item.tab)">
+      <VTab v-for="item in PluginTabs" :value="item.tab">
         <span class="mx-5">{{ item.title }}</span>
       </VTab>
     </VTabs>

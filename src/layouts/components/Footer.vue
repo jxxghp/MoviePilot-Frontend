@@ -13,8 +13,8 @@ const activeState = computed(() => {
   return {
     home: route.path === '/dashboard',
     ranking: route.path === '/ranking',
-    movie: route.path === '/subscribe-movie',
-    tv: route.path === '/subscribe-tv',
+    movie: route.path === '/subscribe/movie',
+    tv: route.path === '/subscribe/tv',
     apps: route.path === '/apps',
   }
 })
@@ -30,24 +30,24 @@ const activeState = computed(() => {
       style="block-size: calc(3.5rem + env(safe-area-inset-bottom))"
     >
       <VBtn to="/dashboard" :ripple="false">
-        <VIcon v-if="activeState.home" size="32">mdi-home</VIcon>
-        <VIcon v-else size="32">mdi-home-outline</VIcon>
+        <VIcon v-if="activeState.home" size="28">mdi-home</VIcon>
+        <VIcon v-else size="28">mdi-home-outline</VIcon>
       </VBtn>
       <VBtn to="/ranking" :ripple="false">
-        <VIcon v-if="activeState.ranking" size="32">mdi-star</VIcon>
-        <VIcon v-else size="32">mdi-star-outline</VIcon>
+        <VIcon v-if="activeState.ranking" size="28">mdi-star</VIcon>
+        <VIcon v-else size="28">mdi-star-outline</VIcon>
       </VBtn>
-      <VBtn to="/subscribe-movie?tab=mysub" :ripple="false">
-        <VIcon v-if="activeState.movie" size="32">mdi-movie-open</VIcon>
-        <VIcon v-else size="32">mdi-movie-open-outline</VIcon>
+      <VBtn to="/subscribe/movie" :ripple="false">
+        <VIcon v-if="activeState.movie" size="28">mdi-movie-open</VIcon>
+        <VIcon v-else size="28">mdi-movie-open-outline</VIcon>
       </VBtn>
-      <VBtn to="/subscribe-tv?tab=mysub" :ripple="false">
-        <VIcon v-if="activeState.tv" size="32">mdi-television-play</VIcon>
-        <VIcon v-else size="32">mdi-television</VIcon>
+      <VBtn to="/subscribe/tv" :ripple="false">
+        <VIcon v-if="activeState.tv" size="28">mdi-television-play</VIcon>
+        <VIcon v-else size="28">mdi-television</VIcon>
       </VBtn>
       <VBtn to="/apps" :ripple="false">
-        <VIcon v-if="activeState.apps" size="32">mdi-dots-horizontal-circle</VIcon>
-        <VIcon v-else size="32">mdi-dots-horizontal</VIcon>
+        <VIcon v-if="activeState.apps" size="28">mdi-dots-horizontal-circle</VIcon>
+        <VIcon v-else size="28">mdi-dots-horizontal</VIcon>
       </VBtn>
     </VBottomNavigation>
   </div>

@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { Plugin, Subscribe } from '@/api/types'
-import {
-  SystemNavMenus,
-  UserfulMenus,
-  SubscribeMovieTabs,
-  SubscribeTvTabs,
-  PluginTabs,
-  SettingTabs,
-} from '@/router/menu'
+import { SystemNavMenus, UserfulMenus, PluginTabs, SettingTabs } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
 
 // 路由
@@ -54,14 +47,14 @@ function getMenus(): NavMenu[] {
     item =>
       item &&
       menus.push({
-        title: item.title,
+        title: item.full_title ?? item.title,
         icon: item.icon,
         to: item.to,
         header: item.header,
         admin: item.admin,
       }),
   )
-  // 各类标签页
+  // 设置标签页
   SettingTabs.forEach(
     item =>
       item &&
@@ -72,39 +65,6 @@ function getMenus(): NavMenu[] {
         header: '',
         admin: true,
         description: item.description,
-      }),
-  )
-  SubscribeMovieTabs.forEach(
-    item =>
-      item &&
-      menus.push({
-        title: '电影 -> ' + item.title,
-        icon: item.icon,
-        to: `/subscribe-movie?tab=${item.tab}`,
-        header: '',
-        admin: false,
-      }),
-  )
-  SubscribeTvTabs.forEach(
-    item =>
-      item &&
-      menus.push({
-        title: '电视剧 -> ' + item.title,
-        icon: item.icon,
-        to: `/subscribe-tv?tab=${item.tab}`,
-        header: '',
-        admin: false,
-      }),
-  )
-  PluginTabs.forEach(
-    item =>
-      item &&
-      menus.push({
-        title: '插件 -> ' + item.title,
-        icon: item.icon,
-        to: `/plugins?tab=${item.tab}`,
-        header: '',
-        admin: true,
       }),
   )
 
@@ -236,14 +196,14 @@ function goPage(to: string) {
 function goSubscribe(subscribe: Subscribe) {
   if (subscribe.type === '电影') {
     router.push({
-      path: '/subscribe-movie',
+      path: '/subscribe/movie',
       query: {
         id: subscribe.id,
       },
     })
   } else {
     router.push({
-      path: '/subscribe-tv',
+      path: '/subscribe/tv',
       query: {
         id: subscribe.id,
       },

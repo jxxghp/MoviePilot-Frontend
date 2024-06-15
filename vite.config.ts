@@ -90,7 +90,7 @@ export default defineConfig({
           },
           {
             'name': '电影订阅',
-            'url': './subscribe-movie?tab=mysub',
+            'url': './subscribe/movie',
             'icons': [
               {
                 'src': './clock-icon-192x192.png',
@@ -101,7 +101,7 @@ export default defineConfig({
           },
           {
             'name': '电视剧订阅',
-            'url': './subscribe-tv?tab=mysub',
+            'url': './subscribe/tv',
             'icons': [
               {
                 'src': './clock-icon-192x192.png',

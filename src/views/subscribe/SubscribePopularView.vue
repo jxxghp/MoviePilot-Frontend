@@ -76,13 +76,13 @@ async function fetchData({ done }: { done: any }) {
         done('ok')
       }
     } else {
-      // 加载一次
       // 设置加载中
       loading.value = true
       // 请求API
       currData.value = await api.get(apipath, {
         params: getParams(),
       })
+      loading.value = false
       // 标计为已请求完成
       isRefreshed.value = true
       if (currData.value.length === 0) {
@@ -97,8 +97,6 @@ async function fetchData({ done }: { done: any }) {
         done('ok')
       }
     }
-    // 取消加载中
-    loading.value = false
   } catch (error) {
     console.error(error)
     // 返回加载失败

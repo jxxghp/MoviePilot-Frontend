@@ -6,6 +6,7 @@ import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import { useDisplay } from 'vuetify'
+import { isLength } from 'lodash'
 
 // 显示器宽度
 const display = useDisplay()
@@ -21,13 +22,18 @@ const dataList = ref<Site[]>([])
 // 是否刷新过
 const isRefreshed = ref(false)
 
+// 是否加载中
+const loading = ref(false)
+
 // 新增站点对话框
 const siteAddDialog = ref(false)
 
 // 获取站点列表数据
 async function fetchData() {
   try {
+    loading.value = true
     dataList.value = await api.get('site/')
+    loading.value = false
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
@@ -50,6 +56,12 @@ async function savaSitesPriority() {
 
 // 加载时获取数据
 onBeforeMount(fetchData)
+
+onActivated(() => {
+  if (!loading.value) {
+    fetchData()
+  }
+})
 </script>
 
 <template>
