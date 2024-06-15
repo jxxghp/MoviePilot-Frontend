@@ -25,6 +25,7 @@ const cookieCloudSetting = ref({
   COOKIECLOUD_INTERVAL: 0,
   USER_AGENT: '',
   COOKIECLOUD_ENABLE_LOCAL: '',
+  COOKIECLOUD_BLACKLIST: '',
 })
 
 // 种子优先规则下拉框
@@ -100,6 +101,7 @@ async function loadCookieCloudSettings() {
         COOKIECLOUD_INTERVAL,
         USER_AGENT,
         COOKIECLOUD_ENABLE_LOCAL,
+        COOKIECLOUD_BLACKLIST,
       } = result.data
       cookieCloudSetting.value = {
         COOKIECLOUD_HOST,
@@ -108,6 +110,7 @@ async function loadCookieCloudSettings() {
         COOKIECLOUD_INTERVAL,
         USER_AGENT,
         COOKIECLOUD_ENABLE_LOCAL,
+        COOKIECLOUD_BLACKLIST,
       }
     }
   } catch (error) {
@@ -191,7 +194,16 @@ onMounted(() => {
                   persistent-hint
                 />
               </VCol>
-              <VCol cols="12">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="cookieCloudSetting.COOKIECLOUD_BLACKLIST"
+                  label="同步域名黑名单"
+                  placeholder="多个域名,分割"
+                  hint="CookieCloud同步域名黑名单，多个域名,分割"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
                 <VTextField
                   v-model="cookieCloudSetting.USER_AGENT"
                   label="浏览器User-Agent"
