@@ -31,7 +31,7 @@ function getApiPath(paths: string[] | string) {
     <div v-if="title" class="mt-3 md:flex md:items-center md:justify-between">
       <div class="min-w-0 flex-1 mx-0">
         <h2
-          class="mb-4 truncate text-2xl font-bold leading-7 text-gray-100 sm:overflow-visible sm:text-4xl sm:leading-9 md:mb-0"
+          class="mb-4 ms-3 truncate text-2xl font-bold leading-7 text-gray-100 sm:overflow-visible sm:text-4xl sm:leading-9 md:mb-0"
           data-testid="page-header"
         >
           <span class="text-moviepilot">{{ title }}</span>

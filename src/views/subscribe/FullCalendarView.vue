@@ -16,6 +16,9 @@ const progressDialog = ref(false)
 // 加载中
 const loading = ref(false)
 
+// 已加载过
+const isLoaded = ref(false)
+
 // 日历属性
 const calendarOptions: Ref<CalendarOptions> = ref({
   height: 'auto',
@@ -103,7 +106,7 @@ async function eventsHander(subscribe: Subscribe) {
 
 // 调用API查询所有订阅
 async function getSubscribes() {
-  progressDialog.value = true
+  if (!isLoaded.value) progressDialog.value = true
   try {
     // 订阅
     loading.value = true
@@ -111,6 +114,7 @@ async function getSubscribes() {
     loading.value = false
     const subEvents = await Promise.all(subscribes.map(async sub => eventsHander(sub)))
     calendarOptions.value.events = subEvents.flat().filter(event => event.start) as EventSourceInput
+    isLoaded.value = true
   } catch (error) {
     console.error(error)
   }

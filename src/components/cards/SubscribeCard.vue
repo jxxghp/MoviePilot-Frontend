@@ -180,6 +180,7 @@ watch(
         class="flex flex-col rounded-lg"
         :class="{
           'outline-dashed outline-1': props.media?.best_version && imageLoaded,
+          'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
         }"
         @click="editSubscribeDialog"
       >
@@ -223,26 +224,29 @@ watch(
         </template>
         <div v-if="imageLoaded">
           <VCardText class="flex items-center">
-            <div
-              class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg"
-              :class="{ 'transition transform-cpu duration-300 scale-105': hover.isHovering }"
-            >
-              <VImg :src="props.media?.poster" aspect-ratio="2/3" cover @click.stop="viewMediaDetail" />
+            <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg">
+              <VImg :src="props.media?.poster" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
+                <template #placeholder>
+                  <div class="w-full h-full">
+                    <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                  </div>
+                </template>
+              </VImg>
             </div>
             <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
               <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
-              <div class="mr-2 min-w-0 text-lg font-bold text-white xl:text-xl">
+              <div class="mr-2 min-w-0 text-lg font-bold text-white">
                 {{ props.media?.name }}
                 {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
               </div>
             </div>
           </VCardText>
           <VCardText class="flex justify-space-between align-center flex-wrap">
-            <div class="d-flex align-center">
+            <div class="flex align-center">
               <IconBtn
                 v-if="props.media?.total_episode"
                 v-bind="props"
-                icon="mdi-progress-clock"
+                icon="mdi-progress-download"
                 color="white"
                 class="me-1"
               />
@@ -260,12 +264,14 @@ watch(
             <VIcon icon="mdi-download" class="me-1" />
             {{ lastUpdateText }}
           </VCardText>
-          <VProgressLinear
-            v-if="getPercentage() > 0"
-            :model-value="getPercentage()"
-            bg-color="success"
-            color="success"
-          />
+          <div class="w-full absolute bottom-0">
+            <VProgressLinear
+              v-if="getPercentage() > 0"
+              :model-value="getPercentage()"
+              bg-color="success"
+              color="success"
+            />
+          </div>
         </div>
       </VCard>
     </template>
