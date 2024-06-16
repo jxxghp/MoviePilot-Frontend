@@ -34,6 +34,9 @@ const errorMessage = ref('')
 // 背景图片
 const backgroundImageUrl = ref('')
 
+// 所有的背景图片
+const backgroundImages = ref<string[]>([])
+
 // 背景图片加载状态
 const isImageLoaded = ref(false)
 
@@ -43,17 +46,21 @@ const isOTP = ref(false)
 // 用户名称输入框
 const usernameInput = ref()
 
+// Interval定时器
+let intervalTimer: NodeJS.Timeout | null = null
+
 // 获取背景图片
 async function fetchBackgroundImage() {
-  api
-    .get('/login/wallpaper')
-    .then((response: any) => {
-      backgroundImageUrl.value = response.message
-    })
-    .catch((error: any) => {
-      console.log(error)
-    })
+  try {
+    backgroundImages.value = await api.get('/login/wallpapers')
+    if (backgroundImages.value && backgroundImages.value.length > 0) {
+      backgroundImageUrl.value = backgroundImages.value[0]
+    }
+  } catch (e) {
+    console.log(e)
+  }
 }
+
 // 查询是否开启双重验证
 const fetchOTP = debounce(async () => {
   const userid = usernameInput.value?.value
@@ -176,7 +183,7 @@ function login() {
 }
 
 // 自动登录
-onMounted(() => {
+onMounted(async () => {
   // 从Vuex Store中获取token和remember状态
   const token = store.state.auth.token
   const remember = store.state.auth.remember
@@ -186,80 +193,97 @@ onMounted(() => {
     router.push('/')
   } else {
     // 获取背景图片
-    fetchBackgroundImage()
+    await fetchBackgroundImage()
+
+    // 每隔5秒更换一次背景图片
+    intervalTimer = setInterval(() => {
+      if (backgroundImages.value.length > 0) {
+        const index = Math.floor(Math.random() * backgroundImages.value.length)
+        backgroundImageUrl.value = backgroundImages.value[index]
+      }
+    }, 5000)
   }
+})
+
+onUnmounted(() => {
+  if (intervalTimer) clearInterval(intervalTimer)
 })
 </script>
 
 <template>
-  <VImg
-    aspect-ratio="4/3"
-    :src="backgroundImageUrl"
-    class="w-full h-full overflow-hidden"
-    cover
-    @load="isImageLoaded = true"
-  >
-    <div
-      class="absolute inset-0"
-      style="background-image: linear-gradient(rgba(45, 55, 72, 7%) 0%, rgb(26, 32, 46) 100%)"
-    ></div>
-    <div class="auth-wrapper d-flex align-center justify-center pa-4">
-      <VCard class="auth-card pa-7 w-full h-full rounded-lg backdrop-opacity-10 opacity-80" max-width="25rem">
-        <VCardItem class="justify-center mb-7">
-          <template #prepend>
-            <div class="d-flex pe-0">
-              <VImg :src="logo" width="64" height="64" />
-            </div>
-          </template>
-
-          <VCardTitle class="font-weight-semibold text-2xl text-uppercase"> MoviePilot </VCardTitle>
-        </VCardItem>
-
-        <VCardText>
-          <VForm ref="refForm" @submit.prevent="() => {}">
-            <VRow>
-              <!-- username -->
-              <VCol cols="12">
-                <VTextField
-                  ref="usernameInput"
-                  v-model="form.username"
-                  label="用户名"
-                  type="text"
-                  :rules="[requiredValidator]"
-                  @input="fetchOTP"
-                />
-              </VCol>
-              <!-- password -->
-              <VCol cols="12">
-                <VTextField
-                  v-model="form.password"
-                  label="密码"
-                  :type="isPasswordVisible ? 'text' : 'password'"
-                  :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-                  :rules="[requiredValidator]"
-                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
-                />
-              </VCol>
-              <VCol cols="12">
-                <VTextField v-if="isOTP" v-model="form.otp_password" label="双重验证码" type="input" />
-                <!-- remember me checkbox -->
-                <div class="d-flex align-center justify-space-between flex-wrap">
-                  <VCheckbox v-model="form.remember" label="保持登录" required />
-                </div>
-              </VCol>
-              <VCol cols="12">
-                <!-- login button -->
-                <VBtn block type="submit" @click="login"> 登录 </VBtn>
-                <div v-if="errorMessage" class="text-error mt-2 text-shadow">
-                  {{ errorMessage }}
-                </div>
-              </VCol>
-            </VRow>
-          </VForm>
-        </VCardText>
-      </VCard>
+  <template v-for="image in backgroundImages">
+    <div v-if="backgroundImageUrl == image" class="absolute inset-0">
+      <VImg :src="image" class="w-full h-full" cover position="center top" @load="isImageLoaded = true">
+        <template #placeholder>
+          <VSkeletonLoader v-if="!isImageLoaded" class="object-cover" />
+        </template>
+        <div
+          class="absolute inset-0"
+          style="background-image: linear-gradient(rgba(45, 55, 72, 33%) 0%, rgb(26, 32, 46) 100%)"
+        />
+      </VImg>
     </div>
-  </VImg>
+  </template>
+  <div class="auth-wrapper d-flex align-center justify-center pa-4">
+    <VCard
+      class="auth-card px-7 py-3 w-full h-full rounded-lg"
+      :class="{ 'opacity-85': isImageLoaded }"
+      max-width="24rem"
+    >
+      <VCardItem class="justify-center">
+        <template #prepend>
+          <div class="d-flex pe-0">
+            <VImg :src="logo" width="64" height="64" />
+          </div>
+        </template>
+
+        <VCardTitle class="font-weight-semibold text-2xl text-uppercase"> MoviePilot </VCardTitle>
+      </VCardItem>
+
+      <VCardText>
+        <VForm ref="refForm" @submit.prevent="() => {}">
+          <VRow>
+            <!-- username -->
+            <VCol cols="12">
+              <VTextField
+                ref="usernameInput"
+                v-model="form.username"
+                label="用户名"
+                type="text"
+                :rules="[requiredValidator]"
+                @input="fetchOTP"
+              />
+            </VCol>
+            <!-- password -->
+            <VCol cols="12">
+              <VTextField
+                v-model="form.password"
+                label="密码"
+                :type="isPasswordVisible ? 'text' : 'password'"
+                :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                :rules="[requiredValidator]"
+                @click:append-inner="isPasswordVisible = !isPasswordVisible"
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextField v-if="isOTP" v-model="form.otp_password" label="双重验证码" type="input" />
+              <!-- remember me checkbox -->
+              <div class="d-flex align-center justify-space-between flex-wrap">
+                <VCheckbox v-model="form.remember" label="保持登录" required />
+              </div>
+            </VCol>
+            <VCol cols="12">
+              <!-- login button -->
+              <VBtn block type="submit" @click="login"> 登录 </VBtn>
+              <div v-if="errorMessage" class="text-error mt-2 text-shadow">
+                {{ errorMessage }}
+              </div>
+            </VCol>
+          </VRow>
+        </VForm>
+      </VCardText>
+    </VCard>
+  </div>
 </template>
 
 <style lang="scss">
