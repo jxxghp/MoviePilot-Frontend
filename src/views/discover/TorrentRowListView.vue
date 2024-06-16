@@ -71,6 +71,42 @@ function initOptions(data: Context) {
   optionValue(resolutionFilterOptions.value, meta_info?.resource_pix)
 }
 
+
+// 对季过滤选项进行排序
+const sortSeasonFilterOptions = computed(() => {
+  return seasonFilterOptions.value.sort((a, b) => {
+    // 按季,集降序排序
+    const parseSeasonEpisode = (str: string) => {
+      const seasonRangeMatch = str.match(/S(\d+)(?:-S(\d+))?/)
+      const episodeRangeMatch = str.match(/E(\d+)(?:-E(\d+))?/)
+      return {
+        seasonStart: seasonRangeMatch?.[1] ? parseInt(seasonRangeMatch[1]) : 0,
+        seasonEnd: seasonRangeMatch?.[2] ? parseInt(seasonRangeMatch[2]) : 0,
+        episodeStart: episodeRangeMatch?.[1] ? parseInt(episodeRangeMatch[1]) : 0,
+        episodeEnd: episodeRangeMatch?.[2] ? parseInt(episodeRangeMatch[2]) : 0,
+      }
+    }
+    const parsedA = parseSeasonEpisode(a)
+    const parsedB = parseSeasonEpisode(b)
+    // 先按季降序排序
+    if (parsedB.seasonStart !== parsedA.seasonStart) {
+      return parsedB.seasonStart - parsedA.seasonStart
+    }
+    if (parsedB.seasonEnd !== parsedA.seasonEnd) {
+      return parsedB.seasonEnd - parsedA.seasonEnd
+    }
+    // 按集降序排序
+    if (parsedB.episodeStart !== parsedA.episodeStart) {
+      return parsedB.episodeStart - parsedA.episodeStart
+    }
+    if (parsedB.episodeEnd !== parsedA.episodeEnd) {
+      return parsedB.episodeEnd - parsedA.episodeEnd
+    }
+    // 兜底
+    return b.localeCompare(a)
+  })
+})
+
 // 排序
 watchEffect(() => {
   const list = dataList.value
@@ -141,7 +177,7 @@ onMounted(() => {
           "
         >
           <template #default="{ item }">
-            <TorrentItem :torrent="item" :key="`${item.torrent_info.title}_${item.torrent_info.site}`" />
+            <TorrentItem :torrent="item" :key="`${item.torrent_info.page_url}`" />
           </template>
         </VVirtualScroll>
       </VList>
@@ -261,7 +297,7 @@ onMounted(() => {
         <VListItem>
           <VChipGroup v-model="filterForm.season" column multiple>
             <VChip
-              v-for="season in seasonFilterOptions"
+              v-for="season in sortSeasonFilterOptions"
               :key="season"
               :color="filterForm.season.includes(season) ? 'primary' : ''"
               filter
