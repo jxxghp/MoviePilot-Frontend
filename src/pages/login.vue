@@ -199,13 +199,12 @@ onMounted(() => {
     cover
     @load="isImageLoaded = true"
   >
+    <div
+      class="absolute inset-0"
+      style="background-image: linear-gradient(rgba(45, 55, 72, 7%) 0%, rgb(26, 32, 46) 100%)"
+    ></div>
     <div class="auth-wrapper d-flex align-center justify-center pa-4">
-      <VCard
-        class="auth-card pa-7 w-full h-full"
-        :class="isImageLoaded ? 'backdrop-blur-xl bg-white/50' : ''"
-        max-width="25rem"
-        :theme="isImageLoaded ? 'light' : ''"
-      >
+      <VCard class="auth-card pa-7 w-full h-full rounded-lg backdrop-opacity-10 opacity-80" max-width="25rem">
         <VCardItem class="justify-center mb-7">
           <template #prepend>
             <div class="d-flex pe-0">
