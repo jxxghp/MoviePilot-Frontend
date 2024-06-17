@@ -46,8 +46,10 @@ const editionFilterOptions = ref<Array<string>>([])
 // 获取分辨率过滤选项
 const resolutionFilterOptions = ref<Array<string>>([])
 
-// 数据列表
-const dataList = ref<Array<SearchTorrent>>([])
+// 完整的数据列表
+let dataList: SearchTorrent[]
+// 显示用的数据列表
+const displayDataList = ref<Array<SearchTorrent>>([])
 
 // 分组后的数据列表
 const groupedDataList = ref<Map<string, Context[]>>()
@@ -123,12 +125,15 @@ onMounted(() => {
     }
   })
   groupedDataList.value = groupMap
+
 })
 
-// 计算过滤后的列表
-watchEffect(() => {
+// 只监听filterForm和groupedDataList的变化。因为displayDataList的变化不需要清空列表
+watch([filterForm, groupedDataList], filterData)
+function filterData() {
   // 清空列表
-  dataList.value = []
+  dataList = []
+  displayDataList.value = []
   // 匹配过滤函数，filter中有任一值包含value则返回true
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
@@ -159,11 +164,23 @@ watchEffect(() => {
         const firstData = _.cloneDeepWith(matchData[0]) as SearchTorrent
         if (matchData.length > 1) firstData.more = matchData.slice(1)
 
-        dataList.value.push(firstData)
+        // 显示前20个，4行左右。
+        if (displayDataList.value.length < 20) {
+          displayDataList.value.push(firstData)
+        } else {
+          // 后续内容不显示，存在list里。loadMore的时候再加载。
+          dataList.push(firstData)
+        }
       }
     }
   })
-})
+}
+
+function loadMore({ done }: { done: any }) {
+  const itemsToMove = dataList.splice(0, 20) // 从 dataList 中获取最前面的 20 个元素
+  displayDataList.value.push(...itemsToMove)
+  done('ok')
+}
 </script>
 
 <template>
@@ -248,9 +265,12 @@ watchEffect(() => {
       </VCol>
     </VRow>
   </VCard>
-  <div class="grid gap-3 grid-torrent-card items-start">
-    <div v-for="(item) in dataList" :key="`${item.torrent_info.page_url}`">
-      <TorrentCard :torrent="item" :more="item.more" />
-    </div>
-  </div>
+      <VInfiniteScroll mode="intersect" side="end" :items="displayDataList" class="overflow-hidden"
+                       @load="loadMore">
+        <template #loading />
+        <template #empty />
+        <div class="grid gap-3 grid-torrent-card items-start">
+          <TorrentCard v-for="item in displayDataList"  :key="`${item.torrent_info.page_url}`" :torrent="item" :more="item.more" />
+        </div>
+      </VInfiniteScroll>
 </template>
