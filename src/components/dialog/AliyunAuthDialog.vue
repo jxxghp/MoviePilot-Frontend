@@ -27,20 +27,8 @@ const UserAliyunParams = ref({})
 // timeout定时器
 let timeoutTimer: NodeJS.Timeout | undefined = undefined
 
-// 存储认证数据
-async function saveAliyunParams() {
-  if (isNullOrEmptyObject(UserAliyunParams.value)) return
-  try {
-    await api.post('system/setting/UserAliyunParams', UserAliyunParams.value)
-  } catch (error) {
-    console.log(error)
-  }
-}
-
 // 完成
 async function handleDone() {
-  // 存储认证数据
-  await saveAliyunParams()
   emit('done')
 }
 
@@ -78,7 +66,7 @@ async function checkQrcode() {
         UserAliyunParams.value = result.data
         handleDone()
       } else if (qrCodeStatus == 'NEW' || qrCodeStatus == 'SCANED') {
-        alertType.value = 'warning'
+        alertType.value = 'info'
         // 新建、待扫码
         clearTimeout(timeoutTimer)
         timeoutTimer = setTimeout(checkQrcode, 3000)

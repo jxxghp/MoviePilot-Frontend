@@ -67,8 +67,8 @@ const refreshPending = ref(false)
 const sort = ref('name')
 // 阿里云盘认证对话框
 const aliyunAuthDialog = ref(false)
-// 阿里云盘认证参数
-const aliyunParams = ref<{ [key: string]: any }>({})
+// 阿里云盘用户信息
+const aliyunUserInfo = ref<{ [key: string]: any }>({})
 
 // 计算属性
 const storagesArray = computed(() => {
@@ -83,11 +83,11 @@ function loadingChanged(loading: number) {
 }
 
 // 查询阿里云token
-async function loadAliyunParams() {
+async function loadAliyunUserInfo() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserAliyunParams')
+    const result: { [key: string]: any } = await api.get('aliyun/userinfo')
     if (result.success) {
-      aliyunParams.value = result.data?.value
+      aliyunUserInfo.value = result
     }
   } catch (error) {
     console.log(error)
@@ -97,8 +97,8 @@ async function loadAliyunParams() {
 // 存储切换
 async function storageChanged(storage: string) {
   if (storage == 'aliyun') {
-    await loadAliyunParams()
-    if (isNullOrEmptyObject(aliyunParams.value)) {
+    await loadAliyunUserInfo()
+    if (isNullOrEmptyObject(aliyunUserInfo.value)) {
       aliyunAuthDialog.value = true
       return
     }
