@@ -53,9 +53,6 @@ const progressValue = ref(0)
 // 确认框
 const createConfirm = useConfirm()
 
-// 存储空间类型
-const storage = ref(inProps.storage ?? '')
-
 // axios实例
 const axiosInstance = ref<Axios>(inProps.axios ?? axios)
 
@@ -107,10 +104,9 @@ async function load() {
   emit('loading', true)
   // 参数
   const url = inProps.endpoints?.list.url
-    .replace(/{storage}/g, storage.value)
+    .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
     .replace(/{sort}/g, inProps.sort || 'name')
-
   const config = {
     url,
     method: inProps.endpoints?.list.method || 'get',
@@ -131,7 +127,7 @@ async function deleteItem(item: FileItem) {
   if (confirmed) {
     emit('loading', true)
     const url = inProps.endpoints?.delete.url
-      .replace(/{storage}/g, storage.value)
+      .replace(/{storage}/g, inProps.storage)
       .replace(/{path}/g, encodeURIComponent(item.path))
 
     const config = {
@@ -157,7 +153,7 @@ function download(path: string) {
   if (!path) return
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.download.url
-    .replace(/{storage}/g, storage.value)
+    .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(path))
   const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
   // 下载文件
@@ -169,7 +165,7 @@ function getImgLink(path: string) {
   if (!path) return ''
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.image.url
-    .replace(/{storage}/g, storage.value)
+    .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(path))
   return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
 }
@@ -216,15 +212,16 @@ function formatTime(timestape: number) {
   return new Date(timestape * 1000).toLocaleString()
 }
 
-// 监听path变化
+// 监听path变化或者storage变化
 watch(
-  () => inProps.path,
+  [() => inProps.path, () => inProps.storage],
   async () => {
     items.value = []
     nameTestResult.value = undefined
     nameTestDialog.value = false
     await load()
   },
+  { immediate: true },
 )
 
 // 监听refreshPending变化

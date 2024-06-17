@@ -4,6 +4,9 @@ import axios from 'axios'
 import FileList from './filebrowser/FileList.vue'
 import FileToolbar from './filebrowser/FileToolbar.vue'
 import type { EndPoints } from '@/api/types'
+import api from '@/api'
+import AliyunAuthDialog from './dialog/AliyunAuthDialog.vue'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
 const props = defineProps({
@@ -24,6 +27,11 @@ const availableStorages = [
     name: '本地',
     code: 'local',
     icon: 'mdi-folder-multiple-outline',
+  },
+  {
+    name: '阿里云盘',
+    code: 'aliyun',
+    icon: 'mdi-cloud-outline',
   },
 ]
 
@@ -59,6 +67,10 @@ const refreshPending = ref(false)
 const sort = ref('name')
 // axios实例
 const axiosInstance = ref<Axios>()
+// 阿里云盘认证对话框
+const aliyunAuthDialog = ref(false)
+// 阿里云盘认证参数
+const aliyunParams = ref<{ [key: string]: any }>({})
 
 // 计算属性
 const storagesArray = computed(() => {
@@ -68,13 +80,31 @@ const storagesArray = computed(() => {
 
 // 方法
 function loadingChanged(loading: number) {
-  if (loading)
-    loading++
-  else if (loading > 0)
-    loading--
+  if (loading) loading++
+  else if (loading > 0) loading--
 }
 
-function storageChanged(storage: string) {
+// 查询阿里云token
+async function loadAliyunParams() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserAliyunParams')
+    if (result.success) {
+      aliyunParams.value = result.data?.value
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 存储切换
+async function storageChanged(storage: string) {
+  if (storage == 'aliyun') {
+    await loadAliyunParams()
+    if (isNullOrEmptyObject(aliyunParams.value)) {
+      aliyunAuthDialog.value = true
+      return
+    }
+  }
   activeStorage.value = storage
 }
 
@@ -87,6 +117,12 @@ function pathChanged(_path: string) {
 function sortChanged(s: string) {
   sort.value = s
   refreshPending.value = true
+}
+
+// aliyun认证完成
+function aliyunAuthDone() {
+  aliyunAuthDialog.value = false
+  activeStorage.value = 'aliyun'
 }
 
 // 初始化
@@ -126,4 +162,10 @@ onMounted(() => {
       />
     </div>
   </VCard>
+  <AliyunAuthDialog
+    v-if="aliyunAuthDialog"
+    v-model="aliyunAuthDialog"
+    @close="aliyunAuthDialog = false"
+    @done="aliyunAuthDone"
+  />
 </template>

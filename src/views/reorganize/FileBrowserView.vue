@@ -5,27 +5,27 @@ import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
   list: {
-    url: '/filebrowser/list?path={path}&sort={sort}',
+    url: '/filebrowser/{storage}/list?path={path}&sort={sort}',
     method: 'get',
   },
   mkdir: {
-    url: '/filebrowser/mkdir?path={path}',
+    url: '/filebrowser/{storage}/mkdir?path={path}',
     method: 'get',
   },
   delete: {
-    url: '/filebrowser/delete?path={path}',
+    url: '/filebrowser/{storage}/delete?path={path}',
     method: 'get',
   },
   download: {
-    url: '/filebrowser/download?path={path}',
+    url: '/filebrowser/{storage}/download?path={path}',
     method: 'get',
   },
   image: {
-    url: '/filebrowser/image?path={path}',
+    url: '/filebrowser/{storage}/image?path={path}',
     method: 'get',
   },
   rename: {
-    url: '/filebrowser/rename?path={path}&new_name={newname}',
+    url: '/filebrowser/{storage}/rename?path={path}&new_name={newname}',
     method: 'get',
   },
 }
@@ -38,7 +38,7 @@ const downloadDirectories = ref<MediaDirectory[]>([])
 
 // 计算公共路径
 function findCommonPath(paths: string[]): string {
-  let commonPath = '/'
+  let commonPath
   if (!paths || paths.length === 0) {
     commonPath = '/'
   } else if (paths.length === 1) {
@@ -94,7 +94,7 @@ onBeforeMount(loadDownloadDirectories)
 <template>
   <div>
     <FileBrowser
-      storages="local"
+      storages="local,aliyun"
       :tree="false"
       :path="path"
       :endpoints="endpoints"

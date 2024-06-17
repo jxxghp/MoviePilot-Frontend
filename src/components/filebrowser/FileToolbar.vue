@@ -25,10 +25,8 @@ const sort = ref('name')
 
 // 调整排序方式
 function changeSort() {
-  if (sort.value === 'name')
-    sort.value = 'time'
-  else
-    sort.value = 'name'
+  if (sort.value === 'name') sort.value = 'time'
+  else sort.value = 'name'
 
   emit('sortchanged', sort.value)
 }
@@ -39,13 +37,15 @@ const pathSegments = computed(() => {
   const isFolder = inProps.path?.endsWith('/')
   const segments = inProps.path?.split('/').filter(item => item)
 
-  return segments?.map((item, index) => {
-    path_str += item + ((index < segments.length - 1 || isFolder) ? '/' : '')
-    return {
-      name: item,
-      path: path_str,
-    }
-  }) ?? []
+  return (
+    segments?.map((item, index) => {
+      path_str += item + (index < segments.length - 1 || isFolder ? '/' : '')
+      return {
+        name: item,
+        path: path_str,
+      }
+    }) ?? []
+  )
 })
 
 const storageObject = computed(() => {
@@ -56,7 +56,7 @@ const storageObject = computed(() => {
 function changeStorage(code: string) {
   if (inProps.storage !== code) {
     emit('storagechanged', code)
-    emit('pathchanged', '')
+    emit('pathchanged', '/')
   }
 }
 
@@ -97,10 +97,8 @@ async function mkdir() {
 
 // 计算排序图标
 const sortIcon = computed(() => {
-  if (sort.value === 'time')
-    return 'mdi-sort-clock-ascending-outline'
-  else
-    return 'mdi-sort-alphabetical-ascending'
+  if (sort.value === 'time') return 'mdi-sort-clock-ascending-outline'
+  else return 'mdi-sort-alphabetical-ascending'
 })
 </script>
 
@@ -158,10 +156,7 @@ const sortIcon = computed(() => {
         </IconBtn>
       </template>
     </VTooltip>
-    <VDialog
-      v-model="newFolderPopper"
-      max-width="50rem"
-    >
+    <VDialog v-model="newFolderPopper" max-width="50rem">
       <template #activator="{ props }">
         <IconBtn v-bind="props">
           <VTooltip text="新建文件夹">
@@ -177,17 +172,8 @@ const sortIcon = computed(() => {
         </VCardText>
         <VCardActions>
           <div class="flex-grow-1" />
-          <VBtn depressed @click="newFolderPopper = false">
-            取消
-          </VBtn>
-          <VBtn
-            :disabled="!newFolderName"
-            depressed
-            variant="tonal"
-            @click="mkdir"
-          >
-            新建
-          </VBtn>
+          <VBtn depressed @click="newFolderPopper = false"> 取消 </VBtn>
+          <VBtn :disabled="!newFolderName" depressed variant="tonal" @click="mkdir"> 新建 </VBtn>
         </VCardActions>
       </VCard>
     </VDialog>

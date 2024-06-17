@@ -757,6 +757,10 @@ export interface FileItem {
   children: FileItem[]
   // 文件创建时间
   modify_time: number
+  // 文件ID
+  fileid: string
+  // 上级文件ID
+  parent_fileid: string
 }
 
 // 媒体服务器播放条目
