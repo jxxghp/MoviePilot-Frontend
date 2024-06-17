@@ -7,6 +7,11 @@ const inProps = defineProps({
   storages: Array as PropType<any[]>,
   storage: String,
   path: String,
+  fileid: String,
+  fileidstack: {
+    type: Array as PropType<string[]>,
+    default: () => [],
+  },
   endpoints: Object as PropType<EndPoints>,
   axios: Object as PropType<Axios>,
 })
@@ -36,13 +41,14 @@ const pathSegments = computed(() => {
   let path_str = ''
   const isFolder = inProps.path?.endsWith('/')
   const segments = inProps.path?.split('/').filter(item => item)
-
+  const fileids = inProps.fileidstack ?? []
   return (
     segments?.map((item, index) => {
       path_str += item + (index < segments.length - 1 || isFolder ? '/' : '')
       return {
         name: item,
         path: path_str,
+        fileid: fileids[index],
       }
     }) ?? []
   )
@@ -56,20 +62,27 @@ const storageObject = computed(() => {
 function changeStorage(code: string) {
   if (inProps.storage !== code) {
     emit('storagechanged', code)
-    emit('pathchanged', '/')
+    emit('pathchanged', {
+      path: '/',
+      fileid: 'root',
+    })
   }
 }
 
 // 路径变化
-function changePath(_path: string) {
-  emit('pathchanged', _path)
+function changePath(_path: string, _fileid: string) {
+  emit('pathchanged', {
+    path: _path,
+    fileid: _fileid,
+  })
 }
 
 // 返回上一级
 function goUp() {
   const segments = pathSegments.value ?? []
   const path = segments?.length === 1 ? '/' : segments[segments.length - 2].path
-  changePath(path)
+  const fileid = segments?.length === 1 ? 'root' : segments[segments.length - 2].fileid
+  changePath(path, fileid)
 }
 
 // 创建目录
@@ -78,6 +91,7 @@ async function mkdir() {
   const url = inProps.endpoints?.mkdir.url
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(inProps.path + newFolderName.value))
+    .replace(/{fileid}/g, inProps.fileid || '')
 
   const config = {
     url,
@@ -125,7 +139,7 @@ const sortIcon = computed(() => {
           </VListItem>
         </VList>
       </VMenu>
-      <VBtn variant="text" :input-value="path === '/'" class="px-1" @click="changePath('/')">
+      <VBtn variant="text" :input-value="path === '/'" class="px-1" @click="changePath('/', 'root')">
         <VIcon :icon="storageObject?.icon" class="mr-2" />
         {{ storageObject?.name }}
       </VBtn>
@@ -134,7 +148,7 @@ const sortIcon = computed(() => {
           variant="text"
           :input-value="index === pathSegments.length - 1"
           class="px-1 d-none d-md-block"
-          @click="changePath(segment.path)"
+          @click="changePath(segment.path, inProps.fileidstack[index])"
         >
           <VIcon icon=" mdi-chevron-right" />
           {{ segment.name }}

@@ -1,37 +1,43 @@
 <script lang="ts" setup>
 import api from '@/api'
-import { MediaDirectory } from '@/api/types'
+import { FileItem, MediaDirectory } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
   list: {
-    url: '/filebrowser/{storage}/list?path={path}&sort={sort}',
+    url: '/filebrowser/{storage}/list?path={path}&sort={sort}&fileid={fileid}',
     method: 'get',
   },
   mkdir: {
-    url: '/filebrowser/{storage}/mkdir?path={path}',
+    url: '/filebrowser/{storage}/mkdir?path={path}&fileid={fileid}',
     method: 'get',
   },
   delete: {
-    url: '/filebrowser/{storage}/delete?path={path}',
+    url: '/filebrowser/{storage}/delete?path={path}&fileid={fileid}',
     method: 'get',
   },
   download: {
-    url: '/filebrowser/{storage}/download?path={path}',
+    url: '/filebrowser/{storage}/download?path={path}&fileid={fileid}',
     method: 'get',
   },
   image: {
-    url: '/filebrowser/{storage}/image?path={path}',
+    url: '/filebrowser/{storage}/image?path={path}&fileid={fileid}',
     method: 'get',
   },
   rename: {
-    url: '/filebrowser/{storage}/rename?path={path}&new_name={newname}',
+    url: '/filebrowser/{storage}/rename?path={path}&new_name={newname}&fileid={fileid}',
     method: 'get',
   },
 }
 
 // 当前目录
-const path: Ref<string | undefined> = ref()
+const path = ref<string>('')
+
+// 当前fileid
+const fileid = ref<string>('root')
+
+// fileid的堆栈
+const fileidstack = ref<string[]>(['root'])
 
 // 下载目录列表
 const downloadDirectories = ref<MediaDirectory[]>([])
@@ -84,8 +90,14 @@ async function loadDownloadDirectories() {
 }
 
 // 目录变化
-function pathChanged(_path: string) {
-  path.value = _path
+function pathChanged(item: FileItem) {
+  path.value = item.path
+  fileid.value = item.fileid
+  if (fileidstack.value.includes(item.fileid)) {
+    fileidstack.value = fileidstack.value.slice(0, fileidstack.value.indexOf(item.fileid) + 1)
+  } else {
+    fileidstack.value.push(item.fileid)
+  }
 }
 
 onBeforeMount(loadDownloadDirectories)
@@ -97,6 +109,8 @@ onBeforeMount(loadDownloadDirectories)
       storages="local,aliyun"
       :tree="false"
       :path="path"
+      :fileid="fileid"
+      :fileidstack="fileidstack"
       :endpoints="endpoints"
       :axios="api"
       @pathchanged="pathChanged"

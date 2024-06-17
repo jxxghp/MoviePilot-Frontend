@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import type { Axios } from 'axios'
-import axios from 'axios'
 import FileList from './filebrowser/FileList.vue'
 import FileToolbar from './filebrowser/FileToolbar.vue'
-import type { EndPoints } from '@/api/types'
+import type { EndPoints, FileItem } from '@/api/types'
 import api from '@/api'
 import AliyunAuthDialog from './dialog/AliyunAuthDialog.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -11,8 +10,9 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 // 输入参数
 const props = defineProps({
   storages: String,
-  storage: String,
   path: String,
+  fileid: String,
+  fileidstack: Array as PropType<string[]>,
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
   axios: Object as PropType<Axios>,
@@ -65,8 +65,6 @@ const activeStorage = ref('local')
 const refreshPending = ref(false)
 // 排序
 const sort = ref('name')
-// axios实例
-const axiosInstance = ref<Axios>()
 // 阿里云盘认证对话框
 const aliyunAuthDialog = ref(false)
 // 阿里云盘认证参数
@@ -109,8 +107,8 @@ async function storageChanged(storage: string) {
 }
 
 // 路径变化
-function pathChanged(_path: string) {
-  emit('pathchanged', _path)
+function pathChanged(item: FileItem) {
+  emit('pathchanged', item)
 }
 
 // 排序变化
@@ -124,23 +122,19 @@ function aliyunAuthDone() {
   aliyunAuthDialog.value = false
   activeStorage.value = 'aliyun'
 }
-
-// 初始化
-onMounted(() => {
-  activeStorage.value = props.storage ?? 'local'
-  axiosInstance.value = props.axios ?? axios.create(props.axiosconfig)
-})
 </script>
 
 <template>
-  <VCard class="mx-auto" :loading="loading > 0 || !path">
-    <div v-if="path">
+  <VCard class="mx-auto" :loading="loading > 0">
+    <div v-if="path || fileid">
       <FileToolbar
         :path="path"
+        :fileid="fileid"
+        :fileidstack="fileidstack"
         :storages="storagesArray"
         :storage="activeStorage"
         :endpoints="endpoints"
-        :axios="axiosInstance"
+        :axios="axios"
         @storagechanged="storageChanged"
         @pathchanged="pathChanged"
         @foldercreated="refreshPending = true"
@@ -148,10 +142,11 @@ onMounted(() => {
       />
       <FileList
         :path="path"
+        :fileid="fileid"
         :storage="activeStorage"
         :icons="fileIcons"
         :endpoints="endpoints"
-        :axios="axiosInstance"
+        :axios="axios"
         :refreshpending="refreshPending"
         :sort="sort"
         @pathchanged="pathChanged"

@@ -26,6 +26,7 @@ const inProps = defineProps({
   icons: Object,
   storage: String,
   path: String,
+  fileid: String,
   endpoints: Object as PropType<EndPoints>,
   axios: Object as PropType<Axios>,
   refreshpending: Boolean,
@@ -81,10 +82,10 @@ const nameTestResult = ref<Context>()
 const nameTestDialog = ref(false)
 
 // 目录过滤
-const dirs = computed(() => items.value.filter(item => item.type === 'dir' && item.basename.includes(filter.value)))
+const dirs = computed(() => items.value.filter(item => item.type === 'dir' && item.name.includes(filter.value)))
 
 // 文件过滤
-const files = computed(() => items.value.filter(item => item.type === 'file' && item.basename.includes(filter.value)))
+const files = computed(() => items.value.filter(item => item.type === 'file' && item.name.includes(filter.value)))
 
 // 是否目录
 const isDir = computed(() => inProps.path?.endsWith('/'))
@@ -107,6 +108,7 @@ async function load() {
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
     .replace(/{sort}/g, inProps.sort || 'name')
+    .replace(/{fileid}/g, inProps.fileid || '')
   const config = {
     url,
     method: inProps.endpoints?.list.method || 'get',
@@ -121,7 +123,7 @@ async function load() {
 async function deleteItem(item: FileItem) {
   const confirmed = await createConfirm({
     title: '确认',
-    content: `是否确认删除${item.type === 'dir' ? '目录' : '文件'} ${item.basename}？`,
+    content: `是否确认删除${item.type === 'dir' ? '目录' : '文件'} ${item.name}？`,
   })
 
   if (confirmed) {
@@ -129,6 +131,7 @@ async function deleteItem(item: FileItem) {
     const url = inProps.endpoints?.delete.url
       .replace(/{storage}/g, inProps.storage)
       .replace(/{path}/g, encodeURIComponent(item.path))
+      .replace(/{fileid}/g, inProps.fileid || '')
 
     const config = {
       url,
@@ -144,8 +147,8 @@ async function deleteItem(item: FileItem) {
 }
 
 // 切换路径
-function changePath(_path: string) {
-  emit('pathchanged', _path)
+function changePath(item: FileItem) {
+  emit('pathchanged', item)
 }
 
 // 新窗口中下载文件
@@ -155,6 +158,7 @@ function download(path: string) {
   const url_path = inProps.endpoints?.download.url
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(path))
+    .replace(/{fileid}/g, inProps.fileid || '')
   const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
   // 下载文件
   window.open(url, '_blank')
@@ -167,6 +171,7 @@ function getImgLink(path: string) {
   const url_path = inProps.endpoints?.image.url
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(path))
+    .replace(/{fileid}/g, inProps.fileid || '')
   return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
 }
 
@@ -183,6 +188,7 @@ async function rename() {
   const url = inProps.endpoints?.rename.url
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(currentItem.value?.path || ''))
+    .replace(/{fileid}/g, inProps.fileid || '')
     .replace(/{newname}/g, encodeURIComponent(newName.value))
 
   const config = {
@@ -214,7 +220,7 @@ function formatTime(timestape: number) {
 
 // 监听path变化或者storage变化
 watch(
-  [() => inProps.path, () => inProps.storage],
+  [() => inProps.path, () => inProps.fileid, () => inProps.storage],
   async () => {
     items.value = []
     nameTestResult.value = undefined
@@ -358,7 +364,9 @@ onMounted(() => {
     <VCardText v-if="loading" class="text-center flex flex-col items-center">
       <VProgressCircular size="48" indeterminate color="primary" />
     </VCardText>
-    <VCardText v-if="!path" class="grow d-flex justify-center align-center grey--text"> 选择目录或文件 </VCardText>
+    <VCardText v-if="!inProps.path" class="grow d-flex justify-center align-center grey--text">
+      选择目录或文件
+    </VCardText>
     <VCardText v-else-if="isFile && !isImage" class="text-center break-all">
       <strong>{{ items[0]?.name }}</strong
       ><br />
@@ -366,7 +374,7 @@ onMounted(() => {
       修改时间：{{ formatTime(items[0]?.modify_time || 0) }}
     </VCardText>
     <VCardText v-else-if="isFile && isImage" class="grow d-flex justify-center align-center">
-      <VImg :src="getImgLink(path)" max-width="100%" max-height="100%" />
+      <VImg :src="getImgLink(inProps.path)" max-width="100%" max-height="100%" />
     </VCardText>
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
       <VList subheader>
@@ -381,7 +389,7 @@ onMounted(() => {
           <template #default="{ item }">
             <VHover>
               <template #default="hover">
-                <VListItem v-bind="hover.props" class="px-3 pe-1" @click="changePath(item.path)">
+                <VListItem v-bind="hover.props" class="px-3 pe-1" @click="changePath(item)">
                   <template #prepend>
                     <VIcon
                       v-if="inProps.icons && item.extension"
