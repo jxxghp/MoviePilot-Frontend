@@ -2,7 +2,6 @@
 import _ from 'lodash'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
-import { debounce } from 'lodash'
 
 interface SearchTorrent extends Context {
   more?: Array<Context>
@@ -127,16 +126,11 @@ onMounted(() => {
   })
   groupedDataList.value = groupMap
 
-  window.addEventListener('scroll', handleScroll)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('scroll', handleScroll)
 })
 
 // 只监听filterForm和groupedDataList的变化。因为displayDataList的变化不需要清空列表
-watch([filterForm,groupedDataList], filterData)
-function filterData(){
+watch([filterForm, groupedDataList], filterData)
+function filterData() {
   // 清空列表
   dataList = []
   displayDataList.value = []
@@ -182,20 +176,10 @@ function filterData(){
   })
 }
 
-//滚到底部时，加载新的数据。
-const handleScroll = debounce(() => {
-  const bottomOffset = 50 // 距离底部多少像素开始加载
-  const scrollTop = window.scrollY
-  const windowHeight = window.innerHeight
-  const documentHeight = document.documentElement.scrollHeight
-  if (scrollTop + windowHeight + bottomOffset >= documentHeight) {
-    loadMore()
-  }
-}, 100)
-
-function loadMore() {
-  const itemsToMove = dataList.splice(0, 20); // 从 dataList 中获取最前面的 20 个元素
-  displayDataList.value.push(...itemsToMove);
+function loadMore({ done }: { done: any }) {
+  const itemsToMove = dataList.splice(0, 20) // 从 dataList 中获取最前面的 20 个元素
+  displayDataList.value.push(...itemsToMove)
+  done('ok')
 }
 </script>
 
@@ -281,9 +265,12 @@ function loadMore() {
       </VCol>
     </VRow>
   </VCard>
-  <div class="grid gap-3 grid-torrent-card items-start">
-    <div v-for="(item) in displayDataList" :key="`${item.torrent_info.page_url}`">
-      <TorrentCard :torrent="item" :more="item.more" />
-    </div>
-  </div>
+      <VInfiniteScroll mode="intersect" side="end" :items="displayDataList" class="overflow-hidden"
+                       @load="loadMore">
+        <template #loading />
+        <template #empty />
+        <div class="grid gap-3 grid-torrent-card items-start">
+          <TorrentCard v-for="item in displayDataList"  :key="`${item.torrent_info.page_url}`" :torrent="item" :more="item.more" />
+        </div>
+      </VInfiniteScroll>
 </template>
