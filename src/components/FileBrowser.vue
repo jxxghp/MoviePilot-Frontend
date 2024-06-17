@@ -126,7 +126,7 @@ function aliyunAuthDone() {
 
 <template>
   <VCard class="mx-auto" :loading="loading > 0">
-    <div v-if="path || fileid">
+    <div v-if="activeStorage && (path || fileid)">
       <FileToolbar
         :path="path"
         :fileid="fileid"

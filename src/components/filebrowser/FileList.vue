@@ -81,6 +81,9 @@ const nameTestResult = ref<Context>()
 // 识别结果对话框
 const nameTestDialog = ref(false)
 
+// 弹出菜单
+const dropdownItems = ref<{ [key: string]: any }[]>([])
+
 // 目录过滤
 const dirs = computed(() => items.value.filter(item => item.type === 'dir' && item.name.includes(filter.value)))
 
@@ -222,9 +225,64 @@ function formatTime(timestape: number) {
 watch(
   [() => inProps.path, () => inProps.fileid, () => inProps.storage],
   async () => {
+    // 清空列表
     items.value = []
+    // 关闭弹窗
     nameTestResult.value = undefined
     nameTestDialog.value = false
+    // 重置菜单
+    dropdownItems.value = [
+      {
+        title: '识别',
+        value: 1,
+        show: true,
+        props: {
+          prependIcon: 'mdi-text-recognition',
+          click: (_item: FileItem) => {
+            recognize(_item.path || '')
+          },
+        },
+      },
+      {
+        title: '刮削',
+        value: 2,
+        show: inProps.storage == 'local',
+        props: {
+          prependIcon: 'mdi-auto-fix',
+          click: (_item: FileItem) => {
+            scrape(_item.path || '')
+          },
+        },
+      },
+      {
+        title: '重命名',
+        value: 3,
+        show: true,
+        props: {
+          prependIcon: 'mdi-rename',
+          click: showRenmae,
+        },
+      },
+      {
+        title: '整理',
+        value: 4,
+        show: inProps.storage == 'local',
+        props: {
+          prependIcon: 'mdi-folder-arrow-right',
+          click: showTransfer,
+        },
+      },
+      {
+        title: '删除',
+        value: 5,
+        show: true,
+        props: {
+          prependIcon: 'mdi-delete-outline',
+          color: 'error',
+          click: deleteItem,
+        },
+      },
+    ]
     await load()
   },
   { immediate: true },
@@ -281,54 +339,6 @@ async function scrape(path: string) {
     console.error(error)
   }
 }
-// 弹出菜单
-const dropdownItems = ref([
-  {
-    title: '识别',
-    value: 1,
-    props: {
-      prependIcon: 'mdi-text-recognition',
-      click: (_item: FileItem) => {
-        recognize(_item.path || '')
-      },
-    },
-  },
-  {
-    title: '刮削',
-    value: 2,
-    props: {
-      prependIcon: 'mdi-auto-fix',
-      click: (_item: FileItem) => {
-        scrape(_item.path || '')
-      },
-    },
-  },
-  {
-    title: '重命名',
-    value: 3,
-    props: {
-      prependIcon: 'mdi-rename',
-      click: showRenmae,
-    },
-  },
-  {
-    title: '整理',
-    value: 4,
-    props: {
-      prependIcon: 'mdi-folder-arrow-right',
-      click: showTransfer,
-    },
-  },
-  {
-    title: '删除',
-    value: 5,
-    props: {
-      prependIcon: 'mdi-delete-outline',
-      color: 'error',
-      click: deleteItem,
-    },
-  },
-])
 
 onMounted(() => {
   load()
@@ -406,18 +416,19 @@ onMounted(() => {
                       <VIcon icon="mdi-dots-vertical" />
                       <VMenu activator="parent" close-on-content-click>
                         <VList>
-                          <VListItem
-                            v-for="(menu, i) in dropdownItems"
-                            :key="i"
-                            variant="plain"
-                            :base-color="menu.props.color"
-                            @click="menu.props.click(item)"
-                          >
-                            <template #prepend>
-                              <VIcon :icon="menu.props.prependIcon" />
-                            </template>
-                            <VListItemTitle v-text="menu.title" />
-                          </VListItem>
+                          <template v-for="(menu, i) in dropdownItems" :key="i">
+                            <VListItem
+                              v-if="menu.show"
+                              variant="plain"
+                              :base-color="menu.props.color"
+                              @click="menu.props.click(item)"
+                            >
+                              <template #prepend>
+                                <VIcon :icon="menu.props.prependIcon" />
+                              </template>
+                              <VListItemTitle v-text="menu.title" />
+                            </VListItem>
+                          </template>
                         </VList>
                       </VMenu>
                     </IconBtn>
@@ -429,7 +440,7 @@ onMounted(() => {
                           </IconBtn>
                         </template>
                       </VTooltip>
-                      <VTooltip text="刮削">
+                      <VTooltip text="刮削" v-if="storage == 'local'">
                         <template #activator="{ props }">
                           <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
                             <VIcon icon="mdi-auto-fix" />
@@ -443,7 +454,7 @@ onMounted(() => {
                           </IconBtn>
                         </template>
                       </VTooltip>
-                      <VTooltip text="整理">
+                      <VTooltip text="整理" v-if="storage == 'local'">
                         <template #activator="{ props }">
                           <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
                             <VIcon icon="mdi-folder-arrow-right" />
