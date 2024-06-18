@@ -74,6 +74,9 @@ const transferPopper = ref(false)
 // 新名称
 const newName = ref('')
 
+// 处理目录内所有文件
+const renameAll = ref(false)
+
 // 当前名称
 const currentItem = ref<FileItem>()
 
@@ -186,6 +189,7 @@ function getImgLink(path: string) {
 function showRenmae(item: FileItem) {
   currentItem.value = item
   newName.value = item.name
+  renameAll.value = false
   renamePopper.value = true
 }
 
@@ -213,26 +217,44 @@ async function get_recommend_name() {
 // 重命名
 async function rename() {
   emit('loading', true)
-  const url = inProps.endpoints?.rename.url
+
+  let url = inProps.endpoints?.rename.url
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(currentItem.value?.path || ''))
     .replace(/{fileid}/g, currentItem.value?.fileid || '')
     .replace(/{newname}/g, encodeURIComponent(newName.value))
     .replace(/{filetype}/g, currentItem.value?.type || 'file')
 
+  if (renameAll.value) {
+    url += '&recursive=true'
+  }
+
   const config = {
     url,
     method: inProps.endpoints?.mkdir.method || 'post',
   }
 
-  // 调API
-  await inProps.axios?.request(config)
-
+  // 关闭弹窗
   renamePopper.value = false
   newName.value = ''
-  emit('loading', false)
+  renameAll.value = false
+
+  // 显示进度条
+  progressDialog.value = true
+  progressText.value = `正在重命名 ${currentItem.value?.path} ...`
+  progressValue.value = 0
+
+  // 调API
+  const result: { [key: string]: any } = await inProps.axios?.request(config)
+  if (!result.success) {
+    $toast.error(result.message)
+  }
+
+  // 关闭进度条
+  progressDialog.value = false
 
   // 通知重新加载
+  emit('loading', false)
   emit('renamed')
 }
 
@@ -520,8 +542,16 @@ onMounted(() => {
   <VDialog v-if="renamePopper" v-model="renamePopper" max-width="50rem">
     <VCard title="重命名">
       <DialogCloseBtn @click="renamePopper = false" />
+      <VDivider />
       <VCardText>
-        <VTextField v-model="newName" label="新名称" :loading="renameLoading" />
+        <VRow>
+          <VCol cols="12">
+            <VTextField v-model="newName" label="新名称" :loading="renameLoading" />
+          </VCol>
+          <VCol cols="6" v-if="currentItem && currentItem.type == 'dir'">
+            <VSwitch v-model="renameAll" label="自动重命名目录内所有媒体文件" />
+          </VCol>
+        </VRow>
       </VCardText>
       <VCardActions>
         <VBtn color="success" variant="elevated" @click="get_recommend_name" prepend-icon="mdi-magic" class="px-5 me-3">
