@@ -15,7 +15,10 @@ const props = defineProps({
   fileidstack: Array as PropType<string[]>,
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
-  axios: Object as PropType<Axios>,
+  axios: {
+    type: Object as PropType<Axios>,
+    required: true,
+  },
   axiosconfig: Object,
 })
 

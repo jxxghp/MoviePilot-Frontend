@@ -746,21 +746,23 @@ export interface FileItem {
   // 文件名
   name: string
   // 文件名不含扩展名
-  basename: string
+  basename?: string
   // 文件路径
   path: string
   // 文件扩展名
-  extension: string
+  extension?: string
   // 文件大小
-  size: number
+  size?: number
   // 文件子元素
-  children: FileItem[]
+  children?: FileItem[]
   // 文件创建时间
-  modify_time: number
+  modify_time?: number
   // 文件ID
-  fileid: string
+  fileid?: string
   // 上级文件ID
-  parent_fileid: string
+  parent_fileid?: string
+  // 缩略图
+  thumbnail?: string
 }
 
 // 媒体服务器播放条目

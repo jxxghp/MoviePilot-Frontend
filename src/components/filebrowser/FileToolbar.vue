@@ -13,7 +13,10 @@ const inProps = defineProps({
     default: () => [],
   },
   endpoints: Object as PropType<EndPoints>,
-  axios: Object as PropType<Axios>,
+  axios: {
+    type: Object as PropType<Axios>,
+    required: true,
+  },
 })
 
 // 对外事件
@@ -77,7 +80,7 @@ function changePath(_path: string, _fileid: string) {
 function goUp() {
   const segments = pathSegments.value ?? []
   const path = segments?.length === 1 ? '/' : segments[segments.length - 2].path
-  const fileid = segments?.length === 1 ? 'root' : segments[segments.length - 2].fileid
+  const fileid = segments?.length === 1 ? 'root' : segments[segments.length - 1].fileid
   changePath(path, fileid)
 }
 
@@ -95,7 +98,7 @@ async function mkdir() {
   }
 
   // 调API
-  await inProps.axios?.request(config)
+  await inProps.axios.request(config)
 
   newFolderPopper.value = false
   newFolderName.value = ''

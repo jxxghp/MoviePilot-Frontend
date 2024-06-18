@@ -2,7 +2,6 @@
 import type { Axios } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from 'vuetify-use-dialog'
-import axios from 'axios'
 import { useToast } from 'vue-toast-notification'
 import ReorganizeDialog from '../dialog/ReorganizeDialog.vue'
 import { formatBytes } from '@core/utils/formatters'
@@ -28,7 +27,10 @@ const inProps = defineProps({
   path: String,
   fileid: String,
   endpoints: Object as PropType<EndPoints>,
-  axios: Object as PropType<Axios>,
+  axios: {
+    type: Object as PropType<Axios>,
+    required: true,
+  },
   refreshpending: Boolean,
   sort: String,
 })
@@ -53,9 +55,6 @@ const progressValue = ref(0)
 
 // 确认框
 const createConfirm = useConfirm()
-
-// axios实例
-const axiosInstance = ref<Axios>(inProps.axios ?? axios)
 
 // 内容列表
 const items = ref<FileItem[]>([])
@@ -118,7 +117,7 @@ async function load() {
     method: inProps.endpoints?.list.method || 'get',
   }
   // 加载数据
-  items.value = (await axiosInstance.value.request(config)) ?? []
+  items.value = (await inProps.axios.request(config)) ?? []
   emit('loading', false)
   loading.value = false
 }
@@ -142,7 +141,7 @@ async function deleteItem(item: FileItem) {
       method: inProps.endpoints?.delete.method || 'post',
     }
 
-    await axiosInstance.value.request(config)
+    await inProps.axios.request(config)
     emit('filedeleted')
     emit('loading', false)
     // 重新加载
@@ -380,11 +379,19 @@ onMounted(() => {
     <VCardText v-if="!inProps.path" class="grow d-flex justify-center align-center grey--text">
       选择目录或文件
     </VCardText>
-    <VCardText v-else-if="isFile && !isImage" class="text-center break-all">
-      <strong>{{ items[0]?.name }}</strong
-      ><br />
-      大小：{{ formatBytes(items[0]?.size || 0) }}<br />
-      修改时间：{{ formatTime(items[0]?.modify_time || 0) }}
+    <VCardText v-else-if="isFile && !isImage && items[0]" class="text-center break-all">
+      <div v-if="items[0]?.thumbnail" class="flex justify-center">
+        <VImg max-width="15rem" cover :src="items[0]?.thumbnail" class="rounded border shadow-lg">
+          <template #placeholder>
+            <VSkeletonLoader class="object-cover w-full h-full" />
+          </template>
+        </VImg>
+      </div>
+      <div class="text-xl text-high-emphasis mt-3">{{ items[0]?.name }}</div>
+      <p class="mt-2">
+        大小：{{ formatBytes(items[0]?.size || 0) }}<br />
+        修改时间：{{ formatTime(items[0]?.modify_time || 0) }}
+      </p>
     </VCardText>
     <VCardText v-else-if="isFile && isImage" class="grow d-flex justify-center align-center">
       <VImg :src="getImgLink(inProps.path)" max-width="100%" max-height="100%" />
