@@ -44,6 +44,9 @@ const $toast = useToast()
 // 是否正在加载
 const loading = ref(true)
 
+// 重命名loading
+const renameLoading = ref(false)
+
 // 识别进度条
 const progressDialog = ref(false)
 
@@ -184,6 +187,27 @@ function showRenmae(item: FileItem) {
   currentItem.value = item
   newName.value = item.name
   renamePopper.value = true
+}
+
+// 调用API获取新名称
+async function get_recommend_name() {
+  renameLoading.value = true
+  try {
+    const result: { [key: string]: any } = await api.get('transfer/name', {
+      params: {
+        path: `${inProps.path}${currentItem.value?.name}`,
+        filetype: currentItem.value?.type ?? 'file',
+      },
+    })
+    if (result.success && result.data) {
+      newName.value = result.data.name
+    } else {
+      $toast.error(result.message)
+    }
+  } catch (error) {
+    console.error(error)
+  }
+  renameLoading.value = false
 }
 
 // 重命名
@@ -495,13 +519,17 @@ onMounted(() => {
   <!-- 重命名弹窗 -->
   <VDialog v-if="renamePopper" v-model="renamePopper" max-width="50rem">
     <VCard title="重命名">
+      <DialogCloseBtn @click="renamePopper = false" />
       <VCardText>
-        <VTextField v-model="newName" label="名称" />
+        <VTextField v-model="newName" label="新名称" :loading="renameLoading" />
       </VCardText>
       <VCardActions>
-        <VBtn depressed @click="renamePopper = false"> 取消 </VBtn>
-        <VSpacer />
-        <VBtn :disabled="!newName" depressed variant="tonal" @click="rename"> 重命名 </VBtn>
+        <VBtn color="success" variant="elevated" @click="get_recommend_name" prepend-icon="mdi-magic" class="px-5 me-3">
+          自动识别名称
+        </VBtn>
+        <VBtn :disabled="!newName" variant="elevated" @click="rename" prepend-icon="mdi-check" class="px-5 me-3">
+          确定
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
