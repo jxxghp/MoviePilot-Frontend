@@ -148,7 +148,7 @@ const sortIcon = computed(() => {
           variant="text"
           :input-value="index === pathSegments.length - 1"
           class="px-1 d-none d-md-block"
-          @click="changePath(segment.path, inProps.fileidstack[index])"
+          @click="changePath(segment.path, inProps.fileidstack[index + 1])"
         >
           <VIcon icon=" mdi-chevron-right" />
           {{ segment.name }}

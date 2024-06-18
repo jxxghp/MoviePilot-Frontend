@@ -5,7 +5,7 @@ import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
   list: {
-    url: '/filebrowser/{storage}/list?path={path}&sort={sort}&fileid={fileid}',
+    url: '/filebrowser/{storage}/list?path={path}&sort={sort}&fileid={fileid}&filetype={filetype}',
     method: 'get',
   },
   mkdir: {
@@ -25,7 +25,7 @@ const endpoints = {
     method: 'get',
   },
   rename: {
-    url: '/filebrowser/{storage}/rename?path={path}&new_name={newname}&fileid={fileid}',
+    url: '/filebrowser/{storage}/rename?path={path}&new_name={newname}&fileid={fileid}&filetype={filetype}',
     method: 'get',
   },
 }
@@ -93,6 +93,7 @@ async function loadDownloadDirectories() {
 function pathChanged(item: FileItem) {
   path.value = item.path
   fileid.value = item.fileid
+  if (item.fileid == 'root') return
   if (fileidstack.value.includes(item.fileid)) {
     fileidstack.value = fileidstack.value.slice(0, fileidstack.value.indexOf(item.fileid) + 1)
   } else {

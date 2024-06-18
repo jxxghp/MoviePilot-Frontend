@@ -112,6 +112,7 @@ async function load() {
     .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
     .replace(/{sort}/g, inProps.sort || 'name')
     .replace(/{fileid}/g, inProps.fileid || '')
+    .replace(/{filetype}/g, isDir.value ? 'dir' : 'file')
   const config = {
     url,
     method: inProps.endpoints?.list.method || 'get',
@@ -134,7 +135,7 @@ async function deleteItem(item: FileItem) {
     const url = inProps.endpoints?.delete.url
       .replace(/{storage}/g, inProps.storage)
       .replace(/{path}/g, encodeURIComponent(item.path))
-      .replace(/{fileid}/g, inProps.fileid || '')
+      .replace(/{fileid}/g, item.fileid || '')
 
     const config = {
       url,
@@ -151,6 +152,7 @@ async function deleteItem(item: FileItem) {
 
 // 切换路径
 function changePath(item: FileItem) {
+  item.path = inProps.path + item.name + (item.type === 'dir' ? '/' : '')
   emit('pathchanged', item)
 }
 
@@ -191,8 +193,9 @@ async function rename() {
   const url = inProps.endpoints?.rename.url
     .replace(/{storage}/g, inProps.storage)
     .replace(/{path}/g, encodeURIComponent(currentItem.value?.path || ''))
-    .replace(/{fileid}/g, inProps.fileid || '')
+    .replace(/{fileid}/g, currentItem.value?.fileid || '')
     .replace(/{newname}/g, encodeURIComponent(newName.value))
+    .replace(/{filetype}/g, currentItem.value?.type || 'file')
 
   const config = {
     url,
