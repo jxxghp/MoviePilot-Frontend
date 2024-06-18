@@ -104,6 +104,7 @@ async function storageChanged(storage: string) {
     }
   }
   activeStorage.value = storage
+  emit('pathchanged', { path: '/', fileid: 'root' })
 }
 
 // 路径变化

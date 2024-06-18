@@ -62,10 +62,6 @@ const storageObject = computed(() => {
 function changeStorage(code: string) {
   if (inProps.storage !== code) {
     emit('storagechanged', code)
-    emit('pathchanged', {
-      path: '/',
-      fileid: 'root',
-    })
   }
 }
 
