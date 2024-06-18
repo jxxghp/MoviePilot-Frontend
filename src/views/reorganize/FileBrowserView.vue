@@ -5,27 +5,27 @@ import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
   list: {
-    url: '/filebrowser/{storage}/list?path={path}&sort={sort}&fileid={fileid}&filetype={filetype}',
+    url: '/{storage}/list?path={path}&sort={sort}&fileid={fileid}&filetype={filetype}',
     method: 'get',
   },
   mkdir: {
-    url: '/filebrowser/{storage}/mkdir?path={path}&fileid={fileid}',
+    url: '/{storage}/mkdir?path={path}&fileid={fileid}',
     method: 'get',
   },
   delete: {
-    url: '/filebrowser/{storage}/delete?path={path}&fileid={fileid}',
+    url: '/{storage}/delete?path={path}&fileid={fileid}',
     method: 'get',
   },
   download: {
-    url: '/filebrowser/{storage}/download?path={path}&fileid={fileid}',
+    url: '/{storage}/download?path={path}&fileid={fileid}',
     method: 'get',
   },
   image: {
-    url: '/filebrowser/{storage}/image?path={path}&fileid={fileid}',
+    url: '/{storage}/image?path={path}&fileid={fileid}',
     method: 'get',
   },
   rename: {
-    url: '/filebrowser/{storage}/rename?path={path}&new_name={newname}&fileid={fileid}&filetype={filetype}',
+    url: '/{storage}/rename?path={path}&new_name={newname}&fileid={fileid}&filetype={filetype}',
     method: 'get',
   },
 }
@@ -92,12 +92,13 @@ async function loadDownloadDirectories() {
 // 目录变化
 function pathChanged(item: FileItem) {
   path.value = item.path
-  fileid.value = item.fileid
-  if (item.fileid == 'root') return
-  if (fileidstack.value.includes(item.fileid)) {
-    fileidstack.value = fileidstack.value.slice(0, fileidstack.value.indexOf(item.fileid) + 1)
-  } else {
-    fileidstack.value.push(item.fileid)
+  if (item.fileid) {
+    fileid.value = item.fileid
+    if (fileidstack.value.includes(item.fileid)) {
+      fileidstack.value = fileidstack.value.slice(0, fileidstack.value.indexOf(item.fileid) + 1)
+    } else {
+      fileidstack.value.push(item.fileid)
+    }
   }
 }
 
