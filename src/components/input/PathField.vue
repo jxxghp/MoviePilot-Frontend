@@ -40,7 +40,7 @@ const treeItems = ref<FileItem[]>([
 // 拉取子目录
 async function fetchDirs(item: any) {
   return api
-    .get('/filebrowser/local/listdir?path=' + item.path)
+    .get('/local/listdir?path=' + item.path)
     .then((data: any) => {
       item.children.push(...data)
     })

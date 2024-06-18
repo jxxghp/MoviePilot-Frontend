@@ -36,6 +36,11 @@ const availableStorages = [
     code: 'aliyun',
     icon: 'mdi-cloud-outline',
   },
+  {
+    name: '115网盘',
+    code: 'u115',
+    icon: 'mdi-cloud-outline',
+  },
 ]
 
 const fileIcons = {
