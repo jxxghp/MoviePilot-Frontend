@@ -90,6 +90,9 @@ const nameTestDialog = ref(false)
 // 弹出菜单
 const dropdownItems = ref<{ [key: string]: any }[]>([])
 
+// 加载进度SSE
+const progressEventSource = ref<EventSource>()
+
 // 目录过滤
 const dirs = computed(() => items.value.filter(item => item.type === 'dir' && item.name.includes(filter.value)))
 
@@ -238,13 +241,18 @@ async function rename() {
 
   // 关闭弹窗
   renamePopper.value = false
-  newName.value = ''
-  renameAll.value = false
 
   // 显示进度条
   progressDialog.value = true
-  progressText.value = `正在重命名 ${currentItem.value?.path} ...`
   progressValue.value = 0
+  if (renameAll.value) {
+    progressText.value = `正在重命名 ${currentItem.value?.path} 及目录内所有文件 ...`
+  } else {
+    progressText.value = `正在重命名 ${currentItem.value?.name} ...`
+  }
+  if (renameAll.value) {
+    startLoadingProgress()
+  }
 
   // 调API
   const result: { [key: string]: any } = await inProps.axios?.request(config)
@@ -253,9 +261,14 @@ async function rename() {
   }
 
   // 关闭进度条
+  if (renameAll.value) {
+    stopLoadingProgress()
+  }
   progressDialog.value = false
 
   // 通知重新加载
+  newName.value = ''
+  renameAll.value = false
   emit('loading', false)
   emit('renamed')
 }
@@ -388,6 +401,29 @@ async function scrape(path: string) {
   } catch (error) {
     console.error(error)
   }
+}
+
+// 使用SSE监听加载进度
+function startLoadingProgress() {
+  progressText.value = '请稍候 ...'
+
+  const token = store.state.auth.token
+
+  progressEventSource.value = new EventSource(
+    `${import.meta.env.VITE_API_BASE_URL}system/progress/batchrename?token=${token}`,
+  )
+  progressEventSource.value.onmessage = event => {
+    const progress = JSON.parse(event.data)
+    if (progress) {
+      progressText.value = progress.text
+      progressValue.value = progress.value
+    }
+  }
+}
+
+// 停止监听加载进度
+function stopLoadingProgress() {
+  progressEventSource.value?.close()
 }
 
 onMounted(() => {
