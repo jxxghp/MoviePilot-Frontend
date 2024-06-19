@@ -763,6 +763,8 @@ export interface FileItem {
   parent_fileid?: string
   // 缩略图
   thumbnail?: string
+  // pickcode
+  pickcode?: string
 }
 
 // 媒体服务器播放条目

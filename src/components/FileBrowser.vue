@@ -5,6 +5,7 @@ import FileToolbar from './filebrowser/FileToolbar.vue'
 import type { EndPoints, FileItem } from '@/api/types'
 import api from '@/api'
 import AliyunAuthDialog from './dialog/AliyunAuthDialog.vue'
+import U115AuthDialog from './dialog/U115AuthDialog.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
@@ -12,6 +13,7 @@ const props = defineProps({
   storages: String,
   path: String,
   fileid: String,
+  pickcode: String,
   fileidstack: Array as PropType<string[]>,
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
@@ -77,6 +79,10 @@ const sort = ref('name')
 const aliyunAuthDialog = ref(false)
 // 阿里云盘用户信息
 const aliyunUserInfo = ref<{ [key: string]: any }>({})
+// 115网盘认证对话框
+const u115AuthDialog = ref(false)
+// 115网盘用户信息
+const u115UserInfo = ref<{ [key: string]: any }>({})
 
 // 计算属性
 const storagesArray = computed(() => {
@@ -90,12 +96,24 @@ function loadingChanged(loading: number) {
   else if (loading > 0) loading--
 }
 
-// 查询阿里云token
+// 查询阿里云
 async function loadAliyunUserInfo() {
   try {
     const result: { [key: string]: any } = await api.get('aliyun/userinfo')
     if (result.success) {
       aliyunUserInfo.value = result
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 查询115
+async function loadU115UserInfo() {
+  try {
+    const result: { [key: string]: any } = await api.get('u115/storage')
+    if (result.success) {
+      u115UserInfo.value = result
     }
   } catch (error) {
     console.log(error)
@@ -108,6 +126,12 @@ async function storageChanged(storage: string) {
     await loadAliyunUserInfo()
     if (isNullOrEmptyObject(aliyunUserInfo.value)) {
       aliyunAuthDialog.value = true
+      return
+    }
+  } else if (storage == 'u115') {
+    await loadU115UserInfo()
+    if (isNullOrEmptyObject(u115UserInfo.value)) {
+      u115AuthDialog.value = true
       return
     }
   }
@@ -131,6 +155,12 @@ function aliyunAuthDone() {
   aliyunAuthDialog.value = false
   activeStorage.value = 'aliyun'
 }
+
+// u115认证完成
+function u115AuthDone() {
+  u115AuthDialog.value = false
+  activeStorage.value = 'u115'
+}
 </script>
 
 <template>
@@ -152,6 +182,7 @@ function aliyunAuthDone() {
       <FileList
         :path="path"
         :fileid="fileid"
+        :pickcode="pickcode"
         :storage="activeStorage"
         :icons="fileIcons"
         :endpoints="endpoints"
@@ -172,4 +203,5 @@ function aliyunAuthDone() {
     @close="aliyunAuthDialog = false"
     @done="aliyunAuthDone"
   />
+  <U115AuthDialog v-if="u115AuthDialog" v-model="u115AuthDialog" @close="u115AuthDialog = false" @done="u115AuthDone" />
 </template>

@@ -26,6 +26,7 @@ const inProps = defineProps({
   storage: String,
   path: String,
   fileid: String,
+  pickcode: String,
   endpoints: Object as PropType<EndPoints>,
   axios: {
     type: Object as PropType<Axios>,
@@ -118,6 +119,7 @@ async function load() {
     .replace(/{sort}/g, inProps.sort || 'name')
     .replace(/{fileid}/g, inProps.fileid || '')
     .replace(/{filetype}/g, isDir.value ? 'dir' : 'file')
+    .replace(/{pickcode}/g, inProps.pickcode || '')
   const config = {
     url,
     method: inProps.endpoints?.list.method || 'get',
@@ -162,26 +164,26 @@ function changePath(item: FileItem) {
 }
 
 // 新窗口中下载文件
-function download(path: string) {
-  if (!path) return
+function download(item: FileItem) {
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.download.url
     .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(path))
-    .replace(/{fileid}/g, inProps.fileid || '')
+    .replace(/{path}/g, encodeURIComponent(item.path))
+    .replace(/{fileid}/g, item.fileid || '')
+    .replace(/{pickcode}/g, item.pickcode || '')
   const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
   // 下载文件
   window.open(url, '_blank')
 }
 
 // 显示图片
-function getImgLink(path: string) {
-  if (!path) return ''
+function getImgLink(item: FileItem) {
   const token = store.state.auth.token
   const url_path = inProps.endpoints?.image.url
     .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(path))
-    .replace(/{fileid}/g, inProps.fileid || '')
+    .replace(/{path}/g, encodeURIComponent(item.path))
+    .replace(/{fileid}/g, item.fileid || '')
+    .replace(/{pickcode}/g, item.pickcode || '')
   return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
 }
 
@@ -412,7 +414,7 @@ onMounted(() => {
       <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">
         <VIcon color="primary"> mdi-text-recognition </VIcon>
       </IconBtn>
-      <IconBtn v-if="isFile" @click="download(inProps.path || '')">
+      <IconBtn v-if="isFile && items.length > 0" @click="download(items[0])">
         <VIcon color="primary"> mdi-download </VIcon>
       </IconBtn>
       <IconBtn v-if="!isFile" @click="load">
@@ -422,10 +424,8 @@ onMounted(() => {
     <VCardText v-if="loading" class="text-center flex flex-col items-center">
       <VProgressCircular size="48" indeterminate color="primary" />
     </VCardText>
-    <VCardText v-if="!inProps.path" class="grow d-flex justify-center align-center grey--text">
-      选择目录或文件
-    </VCardText>
-    <VCardText v-else-if="isFile && !isImage && items[0]" class="text-center break-all">
+    <!-- 文件详情 -->
+    <VCardText v-else-if="isFile && !isImage && items.length > 0" class="text-center break-all">
       <div v-if="items[0]?.thumbnail" class="flex justify-center">
         <VImg max-width="15rem" cover :src="items[0]?.thumbnail" class="rounded border shadow-lg">
           <template #placeholder>
@@ -434,14 +434,16 @@ onMounted(() => {
         </VImg>
       </div>
       <div class="text-xl text-high-emphasis mt-3">{{ items[0]?.name }}</div>
-      <p class="mt-2">
+      <p class="mt-2" v-if="items[0]?.size && items[0].modify_time">
         大小：{{ formatBytes(items[0]?.size || 0) }}<br />
         修改时间：{{ formatTime(items[0]?.modify_time || 0) }}
       </p>
     </VCardText>
-    <VCardText v-else-if="isFile && isImage" class="grow d-flex justify-center align-center">
-      <VImg :src="getImgLink(inProps.path)" max-width="100%" max-height="100%" />
+    <!-- 图片 -->
+    <VCardText v-else-if="isFile && isImage && items.length > 0" class="grow d-flex justify-center align-center">
+      <VImg :src="getImgLink(items[0])" max-width="100%" max-height="100%" />
     </VCardText>
+    <!-- 目录和文件列表 -->
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
       <VList subheader>
         <VVirtualScroll

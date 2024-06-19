@@ -5,7 +5,7 @@ import FileBrowser from '@/components/FileBrowser.vue'
 
 const endpoints = {
   list: {
-    url: '/{storage}/list?path={path}&sort={sort}&fileid={fileid}&filetype={filetype}',
+    url: '/{storage}/list?path={path}&sort={sort}&fileid={fileid}&filetype={filetype}&pickcode={pickcode}',
     method: 'get',
   },
   mkdir: {
@@ -17,11 +17,11 @@ const endpoints = {
     method: 'get',
   },
   download: {
-    url: '/{storage}/download?path={path}&fileid={fileid}',
+    url: '/{storage}/download?path={path}&fileid={fileid}&pickcode={pickcode}',
     method: 'get',
   },
   image: {
-    url: '/{storage}/image?path={path}&fileid={fileid}',
+    url: '/{storage}/image?path={path}&fileid={fileid}&pickcode={pickcode}',
     method: 'get',
   },
   rename: {
@@ -35,6 +35,9 @@ const path = ref<string>('')
 
 // 当前fileid
 const fileid = ref<string>('root')
+
+// 当前pickcode
+const pickcode = ref<string>('')
 
 // fileid的堆栈
 const fileidstack = ref<string[]>(['root'])
@@ -92,6 +95,7 @@ async function loadDownloadDirectories() {
 // 目录变化
 function pathChanged(item: FileItem) {
   path.value = item.path
+  pickcode.value = item.pickcode || ''
   if (item.fileid) {
     fileid.value = item.fileid
     if (fileidstack.value.includes(item.fileid)) {
@@ -108,10 +112,11 @@ onBeforeMount(loadDownloadDirectories)
 <template>
   <div>
     <FileBrowser
-      storages="local,aliyun"
+      storages="local,aliyun,u115"
       :tree="false"
       :path="path"
       :fileid="fileid"
+      :pickcode="pickcode"
       :fileidstack="fileidstack"
       :endpoints="endpoints"
       :axios="api"
