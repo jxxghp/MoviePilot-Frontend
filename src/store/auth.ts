@@ -8,6 +8,7 @@ interface AuthState {
   userName: string
   avatar: string
   originalPath: string | null
+  level: number
 }
 
 // 定义根状态类型
@@ -25,6 +26,7 @@ const authModule: Module<AuthState, RootState> = {
     userName: '',
     avatar: '',
     originalPath: null,
+    level: 1,
   },
   mutations: {
     setToken(state, token: string) {
@@ -44,6 +46,12 @@ const authModule: Module<AuthState, RootState> = {
     },
     setAvatar(state, avatar: string) {
       state.avatar = avatar
+    },
+    setOriginalPath(state, originalPath: string) {
+      state.originalPath = originalPath
+    },
+    setLevel(state, level: number) {
+      state.level = level
     },
   },
   actions: {
@@ -65,6 +73,12 @@ const authModule: Module<AuthState, RootState> = {
     updateAvatar({ commit }, avatar: string) {
       commit('setAvatar', avatar)
     },
+    updateOriginalPath({ commit }, originalPath: string) {
+      commit('setOriginalPath', originalPath)
+    },
+    updateLevel({ commit }, level: number) {
+      commit('setLevel', level)
+    },
   },
   getters: {
     getToken: state => state.token,
@@ -72,6 +86,8 @@ const authModule: Module<AuthState, RootState> = {
     getSuperUser: state => state.superUser,
     getUserName: state => state.userName,
     getAvatar: state => state.avatar,
+    getOriginalPath: state => state.originalPath,
+    getLevel: state => state.level,
   },
 }
 

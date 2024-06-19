@@ -2,6 +2,7 @@
 import api from '@/api'
 import { FileItem, MediaDirectory } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
+import store from '@/store'
 
 const endpoints = {
   list: {
@@ -29,6 +30,11 @@ const endpoints = {
     method: 'get',
   },
 }
+
+const user_level = store.state.auth.level
+
+// 用户存储
+const userStorage = user_level > 1 ? 'local,aliyun,u115' : 'local'
 
 // 当前目录
 const path = ref<string>('')
@@ -112,7 +118,7 @@ onBeforeMount(loadDownloadDirectories)
 <template>
   <div>
     <FileBrowser
-      storages="local,aliyun,u115"
+      :storages="userStorage"
       :tree="false"
       :path="path"
       :fileid="fileid"
