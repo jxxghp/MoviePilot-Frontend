@@ -79,9 +79,9 @@ onUnmounted(() => {
   <VDialog width="40rem" scrollable max-height="85vh">
     <VCard title="115网盘登录" class="rounded-t">
       <DialogCloseBtn @click="emit('close')" />
-      <VCardText class="pt-2">
-        <div class="my-6">
-          <VImg class="mx-auto" :src="qrCodeContent" :size="200" max-width="25rem" />
+      <VCardText class="pt-2 flex flex-col items-center">
+        <div class="my-6 shadow-lg rounded p-3 border">
+          <VImg class="mx-auto" :src="qrCodeContent" style="inline-size: 200px" />
         </div>
         <VAlert variant="tonal" :type="alertType" class="my-4 text-center" :text="text">
           <template #prepend />
