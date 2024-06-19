@@ -550,7 +550,7 @@ onMounted(() => {
           <VCol cols="12">
             <VTextField v-model="newName" label="新名称" :loading="renameLoading" />
           </VCol>
-          <VCol cols="6" v-if="currentItem && currentItem.type == 'dir'">
+          <VCol cols="12" md="6" v-if="currentItem && currentItem.type == 'dir'">
             <VSwitch v-model="renameAll" label="自动重命名目录内所有媒体文件" />
           </VCol>
         </VRow>
