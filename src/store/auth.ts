@@ -55,29 +55,17 @@ const authModule: Module<AuthState, RootState> = {
     },
   },
   actions: {
-    updateToken({ commit }, token: string) {
+    login({ commit }, { token, remember, superUser, userName, avatar, level }) {
       commit('setToken', token)
-    },
-    clearToken({ commit }) {
-      commit('clearToken')
-    },
-    updateRemember({ commit }, remember: boolean) {
       commit('setRemember', remember)
-    },
-    updateSuperUser({ commit }, superUser: boolean) {
       commit('setSuperUser', superUser)
-    },
-    updateUserName({ commit }, userName: string) {
       commit('setUserName', userName)
-    },
-    updateAvatar({ commit }, avatar: string) {
       commit('setAvatar', avatar)
-    },
-    updateOriginalPath({ commit }, originalPath: string) {
-      commit('setOriginalPath', originalPath)
-    },
-    updateLevel({ commit }, level: number) {
       commit('setLevel', level)
+    },
+    logout({ commit }) {
+      commit('clearToken')
+      commit('setOriginalPath', '')
     },
   },
   getters: {

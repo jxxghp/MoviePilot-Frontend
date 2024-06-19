@@ -25,9 +25,7 @@ const progressDialog = ref(false)
 // 执行注销操作
 function logout() {
   // 清除登录状态信息
-  store.dispatch('auth/clearToken')
-  // 主动登出时清除路由标记
-  store.state.auth.originalPath = null
+  store.dispatch('auth/logout')
   // 重定向到登录页面或其他适当的页面
   router.push('/login')
 }

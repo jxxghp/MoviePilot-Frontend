@@ -27,8 +27,7 @@ api.interceptors.response.use(
       return Promise.reject(new Error(error))
     } else if (error.response.status === 403) {
       // 清除登录状态信息
-      store.dispatch('auth/clearToken')
-
+      store.dispatch('auth/logout')
       // token验证失败，跳转到登录页面
       router.push('/login')
     }
