@@ -80,8 +80,10 @@ onUnmounted(() => {
     <VCard title="115网盘登录" class="rounded-t">
       <DialogCloseBtn @click="emit('close')" />
       <VCardText class="pt-2 flex flex-col items-center">
-        <div class="my-6 shadow-lg rounded p-3 border">
-          <VImg class="mx-auto" :src="qrCodeContent" style="inline-size: 200px" />
+        <div class="my-6 shadow-lg rounded border">
+          <VImg class="mx-auto" :src="qrCodeContent" style="block-size: 200px; inline-size: 200px">
+            <VSkeletonLoader v-if="!qrCodeContent" class="w-full h-full" />
+          </VImg>
         </div>
         <VAlert variant="tonal" :type="alertType" class="my-4 text-center" :text="text">
           <template #prepend />
