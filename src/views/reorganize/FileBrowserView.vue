@@ -104,6 +104,16 @@ async function loadDownloadDirectories() {
         name: name,
         path: path,
       }
+      // 将初始数据拆分到堆栈中
+      const paths = path.split('/').filter(Boolean)
+      paths.map((name, index) => {
+        const path = '/' + paths.slice(0, index + 1).join('/') + '/'
+        itemstack.value.push({
+          type: 'dir',
+          name: name,
+          path: path,
+        })
+      })
     }
   } catch (error) {
     console.log(error)
