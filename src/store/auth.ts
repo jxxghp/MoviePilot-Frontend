@@ -65,7 +65,7 @@ const authModule: Module<AuthState, RootState> = {
     },
     logout({ commit }) {
       commit('clearToken')
-      commit('setOriginalPath', '')
+      commit('setOriginalPath', null)
     },
   },
   getters: {

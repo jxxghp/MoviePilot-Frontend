@@ -158,17 +158,17 @@ function login() {
     .then((response: any) => {
       // 获取token
       const token = response.access_token
-      const superuser = response.super_user
-      const username = response.user_name
+      const superUser = response.super_user
+      const userName = response.user_name
       const avatar = response.avatar
       const level = response.level
       const remember = form.value.remember
 
       // 更新token和remember状态到Vuex Store
-      store.dispatch('auth/login', { token, remember, superuser, username, avatar, level })
+      store.dispatch('auth/login', { token, remember, superUser, userName, avatar, level })
 
       // 登录后处理
-      afterLogin(superuser)
+      afterLogin(superUser)
     })
     .catch((error: any) => {
       // 登录失败，显示错误提示
