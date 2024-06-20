@@ -127,6 +127,12 @@ const isImage = computed(() => {
   return ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext ?? '')
 })
 
+// 调整选择模式
+function changeSelectMode() {
+  selectMode.value = !selectMode.value
+  if (!selectMode.value) selected.value = []
+}
+
 // 调API加载文件夹内的内容
 async function list_files() {
   loading.value = true
@@ -520,7 +526,7 @@ onMounted(() => {
         rounded="0"
       />
       <VSpacer v-if="isFile" />
-      <IconBtn v-if="!isFile" @click="selectMode = !selectMode">
+      <IconBtn v-if="!isFile" @click="changeSelectMode">
         <VIcon color="primary" v-if="selectMode"> mdi-selection-remove </VIcon>
         <VIcon color="primary" v-else>mdi-select</VIcon>
       </IconBtn>
