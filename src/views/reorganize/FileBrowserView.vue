@@ -45,7 +45,14 @@ const operItem = ref<FileItem>({
 })
 
 // fileid的堆栈
-const fileidstack = ref<string[]>(['root'])
+const itemstack = ref<FileItem[]>([
+  {
+    type: 'dir',
+    name: '/',
+    path: '/',
+    fileid: 'root',
+  },
+])
 
 // 下载目录列表
 const downloadDirectories = ref<MediaDirectory[]>([])
@@ -106,12 +113,11 @@ async function loadDownloadDirectories() {
 // 目录变化
 function pathChanged(item: FileItem) {
   operItem.value = item
-  if (item.fileid) {
-    if (fileidstack.value.includes(item.fileid)) {
-      fileidstack.value = fileidstack.value.slice(0, fileidstack.value.indexOf(item.fileid) + 1)
-    } else {
-      fileidstack.value.push(item.fileid)
-    }
+  const index = itemstack.value.findIndex(i => i.path === item.path)
+  if (index >= 0) {
+    itemstack.value = itemstack.value.slice(0, index + 1)
+  } else {
+    itemstack.value.push(item)
   }
 }
 
@@ -124,7 +130,7 @@ onBeforeMount(loadDownloadDirectories)
     <FileBrowser
       :storages="userStorage"
       :tree="false"
-      :fileidstack="fileidstack"
+      :itemstack="itemstack"
       :endpoints="endpoints"
       :axios="api"
       :item="operItem"

@@ -765,6 +765,8 @@ export interface FileItem {
   thumbnail?: string
   // pickcode
   pickcode?: string
+  // drive_id
+  drive_id?: string
 }
 
 // 媒体服务器播放条目

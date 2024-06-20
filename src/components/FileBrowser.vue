@@ -22,7 +22,7 @@ const props = defineProps({
     type: Object as PropType<FileItem>,
     required: true,
   },
-  fileidstack: Array as PropType<string[]>,
+  itemstack: Array as PropType<FileItem[]>,
 })
 
 // 对外事件
@@ -169,7 +169,7 @@ function u115AuthDone() {
     <div v-if="activeStorage && item">
       <FileToolbar
         :item="item"
-        :fileidstack="fileidstack"
+        :itemstack="itemstack"
         :storages="storagesArray"
         :storage="activeStorage"
         :endpoints="endpoints"

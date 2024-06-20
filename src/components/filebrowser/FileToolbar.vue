@@ -14,9 +14,9 @@ const inProps = defineProps({
     type: Object as PropType<FileItem>,
     required: true,
   },
-  fileidstack: {
-    type: Array as PropType<string[]>,
-    default: () => [],
+  itemstack: {
+    type: Array as PropType<FileItem[]>,
+    required: true,
   },
   endpoints: Object as PropType<EndPoints>,
   axios: {
@@ -50,14 +50,12 @@ const pathSegments = computed(() => {
   let path_str = ''
   const isFolder = inProps.item.path?.endsWith('/')
   const segments = inProps.item.path?.split('/').filter(item => item)
-  const fileids = inProps.fileidstack ?? []
   return (
     segments?.map((item, index) => {
       path_str += item + (index < segments.length - 1 || isFolder ? '/' : '')
       return {
         name: item,
         path: path_str,
-        fileid: fileids[index],
       }
     }) ?? []
   )
@@ -76,19 +74,15 @@ function changeStorage(code: string) {
 }
 
 // 路径变化
-function changePath(_path: string, _fileid: string) {
-  emit('pathchanged', {
-    path: _path,
-    fileid: _fileid,
-  })
+function changePath(item: FileItem) {
+  emit('pathchanged', item)
 }
 
 // 返回上一级
 function goUp() {
   const segments = pathSegments.value ?? []
-  const path = segments?.length === 1 ? '/' : segments[segments.length - 2].path
-  const fileid = segments?.length === 1 ? 'root' : segments[segments.length - 1].fileid
-  changePath(path, fileid)
+  const fileitem = inProps.itemstack[segments.length - 1]
+  changePath(fileitem)
 }
 
 // 创建目录
@@ -145,7 +139,7 @@ const sortIcon = computed(() => {
           </VListItem>
         </VList>
       </VMenu>
-      <VBtn variant="text" :input-value="item.path === '/'" class="px-1" @click="changePath('/', 'root')">
+      <VBtn variant="text" :input-value="item.path === '/'" class="px-1" @click="changePath(inProps.itemstack[0])">
         <VIcon :icon="storageObject?.icon" class="mr-2" />
         {{ storageObject?.name }}
       </VBtn>
@@ -155,7 +149,7 @@ const sortIcon = computed(() => {
           variant="text"
           :input-value="index === pathSegments.length - 1"
           class="px-1"
-          @click="changePath(segment.path, inProps.fileidstack[index + 1])"
+          @click="changePath(inProps.itemstack[index + 1])"
         >
           <VIcon icon=" mdi-chevron-right" />
           {{ segment.name }}
