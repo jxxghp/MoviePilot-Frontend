@@ -46,6 +46,9 @@ const createConfirm = useConfirm()
 // 提示框
 const $toast = useToast()
 
+// 是否选择模式
+const selectMode = ref(false)
+
 // 是否正在加载
 const loading = ref(true)
 
@@ -82,6 +85,9 @@ const renameAll = ref(false)
 // 当前操作项
 const currentItem = ref<FileItem>()
 
+// 选中的项目
+const selected = ref<FileItem[]>([])
+
 // 识别结果
 const nameTestResult = ref<Context>()
 
@@ -104,6 +110,16 @@ const isDir = computed(() => inProps.item.path?.endsWith('/'))
 
 // 是否文件
 const isFile = computed(() => !isDir.value)
+
+// 需要整理的path
+const transferPaths = ref<string[]>([])
+
+// 大小控制
+const scrollStyle = computed(() => {
+  return appMode
+    ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
+    : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
+})
 
 // 是否为图片文件
 const isImage = computed(() => {
@@ -158,10 +174,59 @@ async function deleteItem(item: FileItem) {
   }
 }
 
+// 批量删除
+async function batchDelete() {
+  const confirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认删除选中的 ${selected.value.length} 个项目？`,
+  })
+
+  if (confirmed) {
+    emit('loading', true)
+
+    // 显示进度条
+    progressDialog.value = true
+    progressValue.value = 0
+
+    // 删除选中的项目
+    selected.value.every(async item => {
+      progressText.value = `正在删除 ${item.name} ...`
+      const url = inProps.endpoints?.delete.url.replace(/{storage}/g, inProps.storage)
+      const config: AxiosRequestConfig<FileItem> = {
+        url,
+        method: inProps.endpoints?.delete.method || 'post',
+        data: item,
+      }
+      await inProps.axios.request(config)
+    })
+
+    // 关闭进度条
+    progressDialog.value = false
+
+    emit('filedeleted')
+    emit('loading', false)
+    // 重新加载
+    list_files()
+  }
+}
+
 // 切换路径
 function changePath(item: FileItem) {
   item.path = inProps.item.path + item.name + (item.type === 'dir' ? '/' : '')
   emit('pathchanged', item)
+}
+
+// 点击列表项
+function listItemClick(item: FileItem) {
+  if (selectMode.value) {
+    if (selected.value.includes(item)) {
+      selected.value = selected.value.filter(i => i !== item)
+    } else {
+      selected.value.push(item)
+    }
+    return false
+  }
+  changePath(item)
 }
 
 // 新窗口中下载文件
@@ -264,8 +329,20 @@ async function rename() {
 
 // 显示整理对话框
 function showTransfer(item: FileItem) {
-  currentItem.value = item
+  transferPaths.value = [item.path || '']
   transferPopper.value = true
+}
+
+// 显示批量整理对话框
+function showBatchTransfer() {
+  transferPaths.value = selected.value.map(item => item.path || '')
+  transferPopper.value = true
+}
+
+// 整理完成
+function transferDone() {
+  transferPopper.value = false
+  list_files()
 }
 
 // 将文件修改时间（timestape）转换为本地时间
@@ -392,6 +469,13 @@ async function scrape(path: string) {
   }
 }
 
+// 批量刮削
+async function batchScrape() {
+  selected.value.map(item => {
+    scrape(item.path || '')
+  })
+}
+
 // 使用SSE监听加载进度
 function startLoadingProgress() {
   progressText.value = '请稍候 ...'
@@ -436,6 +520,10 @@ onMounted(() => {
         rounded="0"
       />
       <VSpacer v-if="isFile" />
+      <IconBtn v-if="!isFile" @click="selectMode = !selectMode">
+        <VIcon color="primary" v-if="selectMode"> mdi-selection-remove </VIcon>
+        <VIcon color="primary" v-else>mdi-select</VIcon>
+      </IconBtn>
       <IconBtn v-if="isFile" @click="recognize(inProps.item.path || '')">
         <VIcon color="primary"> mdi-text-recognition </VIcon>
       </IconBtn>
@@ -445,6 +533,18 @@ onMounted(() => {
       <IconBtn v-if="!isFile" @click="list_files">
         <VIcon color="primary"> mdi-refresh </VIcon>
       </IconBtn>
+      <!-- 批量操作按钮 -->
+      <span v-if="selected.length > 0">
+        <IconBtn @click.stop="batchScrape">
+          <VIcon color="primary" icon="mdi-auto-fix" />
+        </IconBtn>
+        <IconBtn @click.stop="showBatchTransfer">
+          <VIcon color="primary" icon="mdi-folder-arrow-right" />
+        </IconBtn>
+        <IconBtn @click.stop="batchDelete">
+          <VIcon icon="mdi-delete-outline" color="error" />
+        </IconBtn>
+      </span>
     </VToolbar>
     <VCardText v-if="loading" class="text-center flex flex-col items-center">
       <VProgressCircular size="48" indeterminate color="primary" />
@@ -471,31 +571,29 @@ onMounted(() => {
     <!-- 目录和文件列表 -->
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
       <VList subheader>
-        <VVirtualScroll
-          :items="[...dirs, ...files]"
-          :style="
-            appMode
-              ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
-              : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
-          "
-        >
+        <VVirtualScroll :items="[...dirs, ...files]" :style="scrollStyle">
           <template #default="{ item }">
             <VHover>
               <template #default="hover">
-                <VListItem v-bind="hover.props" class="px-3 pe-1" @click="changePath(item)">
+                <VListItem v-bind="hover.props" class="px-3 pe-1" @click="listItemClick(item)">
                   <template #prepend>
-                    <VIcon
-                      v-if="inProps.icons && item.extension"
-                      :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
-                    />
-                    <VIcon v-else icon="mdi-folder-outline" />
+                    <VListItemAction v-if="selectMode">
+                      <VCheckbox v-model="selected" :value="item" />
+                    </VListItemAction>
+                    <template v-else>
+                      <VIcon
+                        v-if="inProps.icons && item.extension"
+                        :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
+                      />
+                      <VIcon v-else icon="mdi-folder-outline" />
+                    </template>
                   </template>
                   <VListItemTitle v-text="item.name" />
                   <VListItemSubtitle v-if="item.size">
                     {{ formatBytes(item.size) }}
                   </VListItemSubtitle>
                   <template #append>
-                    <IconBtn v-if="display.smAndDown.value">
+                    <IconBtn v-if="display.smAndDown.value && !selectMode">
                       <VIcon icon="mdi-dots-vertical" />
                       <VMenu activator="parent" close-on-content-click>
                         <VList>
@@ -515,7 +613,7 @@ onMounted(() => {
                         </VList>
                       </VMenu>
                     </IconBtn>
-                    <span v-if="hover.isHovering && display.mdAndUp" class="flex">
+                    <span v-if="hover.isHovering && display.mdAndUp.value && !selectMode" class="flex">
                       <VTooltip text="识别">
                         <template #activator="{ props }">
                           <IconBtn v-bind="props" @click.stop="recognize(item.path)">
@@ -594,13 +692,8 @@ onMounted(() => {
   <ReorganizeDialog
     v-if="transferPopper"
     v-model="transferPopper"
-    :path="currentItem?.path"
-    @done="
-      () => {
-        transferPopper = false
-        list_files()
-      }
-    "
+    :paths="transferPaths"
+    @done="transferDone"
     @close="transferPopper = false"
   />
   <!-- 进度框 -->

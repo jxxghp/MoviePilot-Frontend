@@ -347,7 +347,7 @@ function reloadPage() {
 function ensureNumber(value: any, defaultValue: number = 0) {
   value = Number(value)
   // 如果不是数字
-  if (value !== value) {
+  if (Number.isNaN(value)) {
     value = defaultValue
   }
   return value
