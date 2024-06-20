@@ -71,7 +71,6 @@ function initOptions(data: Context) {
   optionValue(resolutionFilterOptions.value, meta_info?.resource_pix)
 }
 
-
 // 对季过滤选项进行排序
 const sortSeasonFilterOptions = computed(() => {
   return seasonFilterOptions.value.sort((a, b) => {
@@ -182,7 +181,7 @@ onMounted(() => {
         </VVirtualScroll>
       </VList>
     </VCol>
-    <VCol xl="2" md="3" class="d-none d-md-block">
+    <VCol xl="2" md="3" v-if="display.mdAndUp.value">
       <VList
         lines="one"
         class="rounded shadow-lg"

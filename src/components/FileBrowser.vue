@@ -11,10 +11,6 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 // 输入参数
 const props = defineProps({
   storages: String,
-  path: String,
-  fileid: String,
-  pickcode: String,
-  fileidstack: Array as PropType<string[]>,
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
   axios: {
@@ -22,6 +18,11 @@ const props = defineProps({
     required: true,
   },
   axiosconfig: Object,
+  item: {
+    type: Object as PropType<FileItem>,
+    required: true,
+  },
+  fileidstack: Array as PropType<string[]>,
 })
 
 // 对外事件
@@ -165,10 +166,9 @@ function u115AuthDone() {
 
 <template>
   <VCard class="mx-auto" :loading="loading > 0">
-    <div v-if="activeStorage && (path || fileid)">
+    <div v-if="activeStorage && item">
       <FileToolbar
-        :path="path"
-        :fileid="fileid"
+        :item="item"
         :fileidstack="fileidstack"
         :storages="storagesArray"
         :storage="activeStorage"
@@ -180,9 +180,7 @@ function u115AuthDone() {
         @sortchanged="sortChanged"
       />
       <FileList
-        :path="path"
-        :fileid="fileid"
-        :pickcode="pickcode"
+        :item="item"
         :storage="activeStorage"
         :icons="fileIcons"
         :endpoints="endpoints"

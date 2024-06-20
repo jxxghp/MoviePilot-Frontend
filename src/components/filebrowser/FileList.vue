@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Axios } from 'axios'
+import type { Axios, AxiosRequestConfig } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from 'vuetify-use-dialog'
 import { useToast } from 'vue-toast-notification'
@@ -24,20 +24,24 @@ const appMode = computed(() => {
 const inProps = defineProps({
   icons: Object,
   storage: String,
-  path: String,
-  fileid: String,
-  pickcode: String,
   endpoints: Object as PropType<EndPoints>,
   axios: {
     type: Object as PropType<Axios>,
     required: true,
   },
   refreshpending: Boolean,
+  item: {
+    type: Object as PropType<FileItem>,
+    required: true,
+  },
   sort: String,
 })
 
 // 对外事件
 const emit = defineEmits(['loading', 'pathchanged', 'refreshed', 'filedeleted', 'renamed'])
+
+// 确认框
+const createConfirm = useConfirm()
 
 // 提示框
 const $toast = useToast()
@@ -57,9 +61,6 @@ const progressText = ref('请稍候 ...')
 // 识别进度
 const progressValue = ref(0)
 
-// 确认框
-const createConfirm = useConfirm()
-
 // 内容列表
 const items = ref<FileItem[]>([])
 
@@ -78,7 +79,7 @@ const newName = ref('')
 // 处理目录内所有文件
 const renameAll = ref(false)
 
-// 当前名称
+// 当前操作项
 const currentItem = ref<FileItem>()
 
 // 识别结果
@@ -98,35 +99,34 @@ const dirs = computed(() => items.value.filter(item => item.type === 'dir' && it
 
 // 文件过滤
 const files = computed(() => items.value.filter(item => item.type === 'file' && item.name.includes(filter.value)))
-
 // 是否目录
-const isDir = computed(() => inProps.path?.endsWith('/'))
+const isDir = computed(() => inProps.item.path?.endsWith('/'))
 
 // 是否文件
 const isFile = computed(() => !isDir.value)
 
 // 是否为图片文件
 const isImage = computed(() => {
-  const ext = inProps.path?.split('.').pop()?.toLowerCase()
+  const ext = inProps.item.path?.split('.').pop()?.toLowerCase()
   return ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext ?? '')
 })
 
-// 调API加载内容
-async function load() {
+// 调API加载文件夹内的内容
+async function list_files() {
   loading.value = true
   emit('loading', true)
+
   // 参数
   const url = inProps.endpoints?.list.url
     .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(inProps.path || ''))
     .replace(/{sort}/g, inProps.sort || 'name')
-    .replace(/{fileid}/g, inProps.fileid || '')
-    .replace(/{filetype}/g, isDir.value ? 'dir' : 'file')
-    .replace(/{pickcode}/g, inProps.pickcode || '')
-  const config = {
+
+  const config: AxiosRequestConfig<FileItem> = {
     url,
     method: inProps.endpoints?.list.method || 'get',
+    data: inProps.item,
   }
+
   // 加载数据
   items.value = (await inProps.axios.request(config)) ?? []
   emit('loading', false)
@@ -142,52 +142,45 @@ async function deleteItem(item: FileItem) {
 
   if (confirmed) {
     emit('loading', true)
-    const url = inProps.endpoints?.delete.url
-      .replace(/{storage}/g, inProps.storage)
-      .replace(/{path}/g, encodeURIComponent(item.path))
-      .replace(/{fileid}/g, item.fileid || '')
 
-    const config = {
+    const url = inProps.endpoints?.delete.url.replace(/{storage}/g, inProps.storage)
+    const config: AxiosRequestConfig<FileItem> = {
       url,
       method: inProps.endpoints?.delete.method || 'post',
+      data: item,
     }
 
     await inProps.axios.request(config)
     emit('filedeleted')
     emit('loading', false)
     // 重新加载
-    load()
+    list_files()
   }
 }
 
 // 切换路径
 function changePath(item: FileItem) {
-  item.path = inProps.path + item.name + (item.type === 'dir' ? '/' : '')
+  item.path = inProps.item.path + item.name + (item.type === 'dir' ? '/' : '')
   emit('pathchanged', item)
 }
 
 // 新窗口中下载文件
-function download(item: FileItem) {
-  const token = store.state.auth.token
-  const url_path = inProps.endpoints?.download.url
-    .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(item.path))
-    .replace(/{fileid}/g, item.fileid || '')
-    .replace(/{pickcode}/g, item.pickcode || '')
-  const url = `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
-  // 下载文件
-  window.open(url, '_blank')
+async function download(item: FileItem) {
+  const url = inProps.endpoints?.download.url.replace(/{storage}/g, inProps.storage)
+  const filterEntries = Object.entries(item).filter(([key, value]) => !['children', 'thumbnail'].includes(key) && value)
+  const queryParams = filterEntries.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&')
+  window.open(
+    `${import.meta.env.VITE_API_BASE_URL}${url.slice(1)}?${queryParams}&token=${store.state.auth.token}`,
+    '_blank',
+  )
 }
 
-// 显示图片
+// 获取图片地址
 function getImgLink(item: FileItem) {
-  const token = store.state.auth.token
-  const url_path = inProps.endpoints?.image.url
-    .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(item.path))
-    .replace(/{fileid}/g, item.fileid || '')
-    .replace(/{pickcode}/g, item.pickcode || '')
-  return `${import.meta.env.VITE_API_BASE_URL}${url_path.slice(1)}&token=${token}`
+  let url = inProps.endpoints?.image.url.replace(/{storage}/g, inProps.storage)
+  const filterEntries = Object.entries(item).filter(([key, value]) => !['children', 'thumbnail'].includes(key) && value)
+  const queryParams = filterEntries.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&')
+  return `${import.meta.env.VITE_API_BASE_URL}${url.slice(1)}?${queryParams}&token=${store.state.auth.token}`
 }
 
 // 显示重命名弹窗
@@ -204,7 +197,7 @@ async function get_recommend_name() {
   try {
     const result: { [key: string]: any } = await api.get('transfer/name', {
       params: {
-        path: `${inProps.path}${currentItem.value?.name}`,
+        path: `${inProps.item.path}${currentItem.value?.name}`,
         filetype: currentItem.value?.type ?? 'file',
       },
     })
@@ -223,22 +216,6 @@ async function get_recommend_name() {
 async function rename() {
   emit('loading', true)
 
-  let url = inProps.endpoints?.rename.url
-    .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(currentItem.value?.path || ''))
-    .replace(/{fileid}/g, currentItem.value?.fileid || '')
-    .replace(/{newname}/g, encodeURIComponent(newName.value))
-    .replace(/{filetype}/g, currentItem.value?.type || 'file')
-
-  if (renameAll.value) {
-    url += '&recursive=true'
-  }
-
-  const config = {
-    url,
-    method: inProps.endpoints?.mkdir.method || 'post',
-  }
-
   // 关闭弹窗
   renamePopper.value = false
 
@@ -255,6 +232,18 @@ async function rename() {
   }
 
   // 调API
+  let url = inProps.endpoints?.rename.url
+    .replace(/{storage}/g, inProps.storage)
+    .replace(/{newname}/g, encodeURIComponent(newName.value))
+  if (renameAll.value) {
+    url += '&recursive=true'
+  }
+
+  const config: AxiosRequestConfig<FileItem> = {
+    url,
+    method: inProps.endpoints?.rename.method || 'post',
+    data: currentItem.value,
+  }
   const result: { [key: string]: any } = await inProps.axios?.request(config)
   if (!result.success) {
     $toast.error(result.message)
@@ -284,9 +273,20 @@ function formatTime(timestape: number) {
   return new Date(timestape * 1000).toLocaleString()
 }
 
-// 监听path变化或者storage变化
+// 监听refreshPending变化
 watch(
-  [() => inProps.path, () => inProps.fileid, () => inProps.storage],
+  () => inProps.refreshpending,
+  async () => {
+    if (inProps.refreshpending) {
+      await list_files()
+      emit('refreshed')
+    }
+  },
+)
+
+// 监听item变化或者storage变化
+watch(
+  [() => inProps.item, () => inProps.storage],
   async () => {
     // 清空列表
     items.value = []
@@ -346,20 +346,9 @@ watch(
         },
       },
     ]
-    await load()
+    await list_files()
   },
   { immediate: true },
-)
-
-// 监听refreshPending变化
-watch(
-  () => inProps.refreshpending,
-  async () => {
-    if (inProps.refreshpending) {
-      await load()
-      emit('refreshed')
-    }
-  },
 )
 
 // 调用API识别
@@ -427,7 +416,7 @@ function stopLoadingProgress() {
 }
 
 onMounted(() => {
-  load()
+  list_files()
 })
 </script>
 
@@ -447,13 +436,13 @@ onMounted(() => {
         rounded="0"
       />
       <VSpacer v-if="isFile" />
-      <IconBtn v-if="isFile" @click="recognize(inProps.path || '')">
+      <IconBtn v-if="isFile" @click="recognize(inProps.item.path || '')">
         <VIcon color="primary"> mdi-text-recognition </VIcon>
       </IconBtn>
       <IconBtn v-if="isFile && items.length > 0" @click="download(items[0])">
         <VIcon color="primary"> mdi-download </VIcon>
       </IconBtn>
-      <IconBtn v-if="!isFile" @click="load">
+      <IconBtn v-if="!isFile" @click="list_files">
         <VIcon color="primary"> mdi-refresh </VIcon>
       </IconBtn>
     </VToolbar>
@@ -506,7 +495,7 @@ onMounted(() => {
                     {{ formatBytes(item.size) }}
                   </VListItemSubtitle>
                   <template #append>
-                    <IconBtn class="d-sm-none">
+                    <IconBtn v-if="display.smAndDown.value">
                       <VIcon icon="mdi-dots-vertical" />
                       <VMenu activator="parent" close-on-content-click>
                         <VList>
@@ -526,38 +515,38 @@ onMounted(() => {
                         </VList>
                       </VMenu>
                     </IconBtn>
-                    <span v-if="hover.isHovering" class="flex">
+                    <span v-if="hover.isHovering && display.mdAndUp" class="flex">
                       <VTooltip text="识别">
                         <template #activator="{ props }">
-                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="recognize(item.path)">
+                          <IconBtn v-bind="props" @click.stop="recognize(item.path)">
                             <VIcon icon="mdi-text-recognition" />
                           </IconBtn>
                         </template>
                       </VTooltip>
                       <VTooltip text="刮削" v-if="storage == 'local'">
                         <template #activator="{ props }">
-                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="scrape(item.path)">
+                          <IconBtn v-bind="props" @click.stop="scrape(item.path)">
                             <VIcon icon="mdi-auto-fix" />
                           </IconBtn>
                         </template>
                       </VTooltip>
                       <VTooltip text="重命名">
                         <template #activator="{ props }">
-                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showRenmae(item)">
+                          <IconBtn v-bind="props" @click.stop="showRenmae(item)">
                             <VIcon icon="mdi-rename" />
                           </IconBtn>
                         </template>
                       </VTooltip>
                       <VTooltip text="整理" v-if="storage == 'local'">
                         <template #activator="{ props }">
-                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="showTransfer(item)">
+                          <IconBtn v-bind="props" @click.stop="showTransfer(item)">
                             <VIcon icon="mdi-folder-arrow-right" />
                           </IconBtn>
                         </template>
                       </VTooltip>
                       <VTooltip text="删除">
                         <template #activator="{ props }">
-                          <IconBtn v-bind="props" class="d-none d-sm-block" @click.stop="deleteItem(item)">
+                          <IconBtn v-bind="props" @click.stop="deleteItem(item)">
                             <VIcon icon="mdi-delete-outline" color="error" />
                           </IconBtn>
                         </template>
@@ -609,7 +598,7 @@ onMounted(() => {
     @done="
       () => {
         transferPopper = false
-        load()
+        list_files()
       }
     "
     @close="transferPopper = false"

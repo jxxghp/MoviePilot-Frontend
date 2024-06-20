@@ -6,6 +6,10 @@ import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
 
 const isNewPasswordVisible = ref(false)
 const isConfirmPasswordVisible = ref(false)
@@ -250,7 +254,7 @@ onMounted(() => {
               <div class="d-flex flex-wrap gap-2">
                 <VBtn color="primary" @click="refInputEl?.click()">
                   <VIcon icon="mdi-cloud-upload-outline" />
-                  <span class="d-none d-sm-block ms-2">上传头像</span>
+                  <span v-if="display.mdAndUp.value" class="ms-2">上传头像</span>
                 </VBtn>
 
                 <input
@@ -264,7 +268,7 @@ onMounted(() => {
 
                 <VBtn type="reset" color="error" variant="tonal" @click="resetAvatar">
                   <VIcon icon="mdi-refresh" />
-                  <span class="d-none d-sm-block ms-2">重置</span>
+                  <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
                 </VBtn>
 
                 <VBtn
@@ -273,7 +277,9 @@ onMounted(() => {
                   @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
                 >
                   <VIcon icon="mdi-account-key" />
-                  <span class="d-none d-sm-block ms-2">{{ accountInfo.is_otp ? '关闭验证' : '双重验证' }}</span>
+                  <span v-if="display.mdAndUp.value" class="ms-2">{{
+                    accountInfo.is_otp ? '关闭验证' : '双重验证'
+                  }}</span>
                 </VBtn>
               </div>
 

@@ -1,13 +1,19 @@
 <script lang="ts" setup>
-import type { Axios } from 'axios'
-import type { EndPoints } from '@/api/types'
+import type { Axios, AxiosRequestConfig } from 'axios'
+import type { EndPoints, FileItem } from '@/api/types'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
 
 // 输入参数
 const inProps = defineProps({
   storages: Array as PropType<any[]>,
   storage: String,
-  path: String,
-  fileid: String,
+  item: {
+    type: Object as PropType<FileItem>,
+    required: true,
+  },
   fileidstack: {
     type: Array as PropType<string[]>,
     default: () => [],
@@ -42,8 +48,8 @@ function changeSort() {
 // 计算PATH面包屑
 const pathSegments = computed(() => {
   let path_str = ''
-  const isFolder = inProps.path?.endsWith('/')
-  const segments = inProps.path?.split('/').filter(item => item)
+  const isFolder = inProps.item.path?.endsWith('/')
+  const segments = inProps.item.path?.split('/').filter(item => item)
   const fileids = inProps.fileidstack ?? []
   return (
     segments?.map((item, index) => {
@@ -57,6 +63,7 @@ const pathSegments = computed(() => {
   )
 })
 
+// 当前存储
 const storageObject = computed(() => {
   return inProps.storages?.find(item => item.code === inProps.storage)
 })
@@ -89,12 +96,12 @@ async function mkdir() {
   emit('loading', true)
   const url = inProps.endpoints?.mkdir.url
     .replace(/{storage}/g, inProps.storage)
-    .replace(/{path}/g, encodeURIComponent(inProps.path + newFolderName.value))
-    .replace(/{fileid}/g, inProps.fileid || '')
+    .replace(/{name}/g, newFolderName.value)
 
-  const config = {
+  const config: AxiosRequestConfig<FileItem> = {
     url,
     method: inProps.endpoints?.mkdir.method || 'post',
+    data: inProps.item,
   }
 
   // 调API
@@ -138,15 +145,16 @@ const sortIcon = computed(() => {
           </VListItem>
         </VList>
       </VMenu>
-      <VBtn variant="text" :input-value="path === '/'" class="px-1" @click="changePath('/', 'root')">
+      <VBtn variant="text" :input-value="item.path === '/'" class="px-1" @click="changePath('/', 'root')">
         <VIcon :icon="storageObject?.icon" class="mr-2" />
         {{ storageObject?.name }}
       </VBtn>
       <template v-for="(segment, index) in pathSegments" :key="index">
         <VBtn
+          v-if="display.mdAndUp.value"
           variant="text"
           :input-value="index === pathSegments.length - 1"
-          class="px-1 d-none d-md-block"
+          class="px-1"
           @click="changePath(segment.path, inProps.fileidstack[index + 1])"
         >
           <VIcon icon=" mdi-chevron-right" />
@@ -180,13 +188,16 @@ const sortIcon = computed(() => {
         </IconBtn>
       </template>
       <VCard title="新建文件夹">
+        <DialogCloseBtn @click="newFolderPopper = false" />
+        <VDivider />
         <VCardText>
           <VTextField v-model="newFolderName" label="名称" />
         </VCardText>
         <VCardActions>
           <div class="flex-grow-1" />
-          <VBtn depressed @click="newFolderPopper = false"> 取消 </VBtn>
-          <VBtn :disabled="!newFolderName" depressed variant="tonal" @click="mkdir"> 新建 </VBtn>
+          <VBtn :disabled="!newFolderName" variant="elevated" @click="mkdir" prepend-icon="mdi-check" class="px-5 me-3">
+            新建
+          </VBtn>
         </VCardActions>
       </VCard>
     </VDialog>

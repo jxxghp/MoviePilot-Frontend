@@ -1,5 +1,9 @@
 <script lang="ts" setup>
 import SlideViewTitle from '@/components/slide/SlideViewTitle.vue'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
 
 // 元素
 const slideview_content = ref()
@@ -91,7 +95,7 @@ onActivated(() => {
     <slot name="title">
       <SlideViewTitle />
     </slot>
-    <div v-if="disabled !== 3" class="me-1 d-none d-md-flex">
+    <div v-if="disabled !== 3 && display.mdAndUp.value" class="me-1 d-flex">
       <VBtn
         class="rounded-circle"
         variant="text"
@@ -122,8 +126,8 @@ onActivated(() => {
 
 <style lang="scss" scoped>
 .slideview_content {
-  -ms-overflow-style: none !important;
   overflow: scroll hidden !important;
+  -ms-overflow-style: none !important;
   overscroll-behavior-x: contain !important;
   scrollbar-width: none !important;
 }

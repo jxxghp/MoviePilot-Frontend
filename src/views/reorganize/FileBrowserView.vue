@@ -6,28 +6,28 @@ import store from '@/store'
 
 const endpoints = {
   list: {
-    url: '/{storage}/list?path={path}&sort={sort}&fileid={fileid}&filetype={filetype}&pickcode={pickcode}',
-    method: 'get',
+    url: '/{storage}/list?sort={sort}',
+    method: 'post',
   },
   mkdir: {
-    url: '/{storage}/mkdir?path={path}&fileid={fileid}',
-    method: 'get',
+    url: '/{storage}/mkdir?name={name}',
+    method: 'post',
   },
   delete: {
-    url: '/{storage}/delete?path={path}&fileid={fileid}',
-    method: 'get',
+    url: '/{storage}/delete',
+    method: 'post',
   },
   download: {
-    url: '/{storage}/download?path={path}&fileid={fileid}&pickcode={pickcode}',
+    url: '/{storage}/download',
     method: 'get',
   },
   image: {
-    url: '/{storage}/image?path={path}&fileid={fileid}&pickcode={pickcode}',
+    url: '/{storage}/image',
     method: 'get',
   },
   rename: {
-    url: '/{storage}/rename?path={path}&new_name={newname}&fileid={fileid}&filetype={filetype}',
-    method: 'get',
+    url: '/{storage}/rename?new_name={newname}',
+    method: 'post',
   },
 }
 
@@ -36,14 +36,13 @@ const user_level = store.state.auth.level
 // 用户存储
 const userStorage = user_level > 1 ? 'local,aliyun,u115' : 'local'
 
-// 当前目录
-const path = ref<string>('')
-
-// 当前fileid
-const fileid = ref<string>('root')
-
-// 当前pickcode
-const pickcode = ref<string>('')
+// 当前文件项
+const operItem = ref<FileItem>({
+  type: 'dir',
+  name: '/',
+  path: '/',
+  fileid: 'root',
+})
 
 // fileid的堆栈
 const fileidstack = ref<string[]>(['root'])
@@ -91,7 +90,13 @@ async function loadDownloadDirectories() {
     const result: { [key: string]: any } = await api.get('system/setting/DownloadDirectories')
     if (result.success && result.data?.value) {
       downloadDirectories.value = result.data.value
-      path.value = findCommonPath(downloadDirectories.value.map(item => item.path) as string[])
+      const path = findCommonPath(downloadDirectories.value.map(item => item.path) as string[])
+      const name = path.split('/').filter(Boolean).pop() ?? ''
+      operItem.value = {
+        type: 'dir',
+        name: name,
+        path: path,
+      }
     }
   } catch (error) {
     console.log(error)
@@ -100,10 +105,8 @@ async function loadDownloadDirectories() {
 
 // 目录变化
 function pathChanged(item: FileItem) {
-  path.value = item.path
-  pickcode.value = item.pickcode || ''
+  operItem.value = item
   if (item.fileid) {
-    fileid.value = item.fileid
     if (fileidstack.value.includes(item.fileid)) {
       fileidstack.value = fileidstack.value.slice(0, fileidstack.value.indexOf(item.fileid) + 1)
     } else {
@@ -112,6 +115,7 @@ function pathChanged(item: FileItem) {
   }
 }
 
+// 加载初始目录
 onBeforeMount(loadDownloadDirectories)
 </script>
 
@@ -120,12 +124,10 @@ onBeforeMount(loadDownloadDirectories)
     <FileBrowser
       :storages="userStorage"
       :tree="false"
-      :path="path"
-      :fileid="fileid"
-      :pickcode="pickcode"
       :fileidstack="fileidstack"
       :endpoints="endpoints"
       :axios="api"
+      :item="operItem"
       @pathchanged="pathChanged"
     />
   </div>
