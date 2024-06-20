@@ -392,7 +392,7 @@ watch(
       {
         title: '刮削',
         value: 2,
-        show: inProps.storage == 'local',
+        show: true,
         props: {
           prependIcon: 'mdi-auto-fix',
           click: (_item: FileItem) => {
@@ -412,7 +412,7 @@ watch(
       {
         title: '整理',
         value: 4,
-        show: inProps.storage == 'local',
+        show: true,
         props: {
           prependIcon: 'mdi-folder-arrow-right',
           click: showTransfer,
@@ -456,20 +456,30 @@ async function recognize(path: string) {
 }
 
 // 调用API刮削
-async function scrape(path: string) {
+async function scrape(path: string, confirm: boolean = true) {
   try {
+    if (confirm) {
+      // 确认
+      const confirmed = await createConfirm({
+        title: '确认',
+        content: `是否确认刮削 ${path}？`,
+      })
+      if (!confirmed) return
+    }
+
     // 显示进度条
     progressDialog.value = true
     progressText.value = `正在刮削 ${path} ...`
     const result: { [key: string]: any } = await api.get('media/scrape', {
       params: {
         path,
+        storage: inProps.storage,
       },
     })
     // 关闭进度条
     progressDialog.value = false
     if (!result.success) $toast.error(result.message)
-    else $toast.success(`${path}削刮完成！`)
+    else $toast.success(`${path} 削刮完成！`)
   } catch (error) {
     console.error(error)
   }
@@ -477,8 +487,15 @@ async function scrape(path: string) {
 
 // 批量刮削
 async function batchScrape() {
+  // 确认
+  const confirmed = await createConfirm({
+    title: '确认',
+    content: `是否确认刮削选中的 ${selected.value.length} 项？`,
+  })
+  if (!confirmed) return
+
   selected.value.map(item => {
-    scrape(item.path || '')
+    scrape(item.path || '', false)
   })
 }
 
@@ -627,7 +644,7 @@ onMounted(() => {
                           </IconBtn>
                         </template>
                       </VTooltip>
-                      <VTooltip text="刮削" v-if="storage == 'local'">
+                      <VTooltip text="刮削">
                         <template #activator="{ props }">
                           <IconBtn v-bind="props" @click.stop="scrape(item.path)">
                             <VIcon icon="mdi-auto-fix" />
@@ -641,7 +658,7 @@ onMounted(() => {
                           </IconBtn>
                         </template>
                       </VTooltip>
-                      <VTooltip text="整理" v-if="storage == 'local'">
+                      <VTooltip text="整理">
                         <template #activator="{ props }">
                           <IconBtn v-bind="props" @click.stop="showTransfer(item)">
                             <VIcon icon="mdi-folder-arrow-right" />
@@ -698,6 +715,7 @@ onMounted(() => {
   <ReorganizeDialog
     v-if="transferPopper"
     v-model="transferPopper"
+    :storage="inProps.storage"
     :paths="transferPaths"
     @done="transferDone"
     @close="transferPopper = false"
