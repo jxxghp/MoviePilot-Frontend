@@ -230,6 +230,8 @@ function listItemClick(item: FileItem) {
     } else {
       selected.value.push(item)
     }
+    // 去重
+    selected.value = Array.from(new Set(selected.value))
     return false
   }
   changePath(item)
