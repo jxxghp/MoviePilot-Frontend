@@ -470,12 +470,9 @@ async function scrape(item: FileItem, confirm: boolean = true) {
     // 显示进度条
     progressDialog.value = true
     progressText.value = `正在刮削 ${item.path} ...`
-    const result: { [key: string]: any } = await api.get('media/scrape', {
-      params: {
-        ...item,
-        storage: inProps.storage,
-      },
-    })
+
+    const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.storage}`, item)
+
     // 关闭进度条
     progressDialog.value = false
     if (!result.success) $toast.error(result.message)
