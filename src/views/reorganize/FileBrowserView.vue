@@ -85,7 +85,7 @@ function findCommonPath(paths: string[]): string {
   }
 
   if (commonPath.includes(':')) {
-    commonPath = commonPath.replace('/', '\\')
+    commonPath = commonPath.replace('\\', '/')
   }
 
   return commonPath
