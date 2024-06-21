@@ -396,7 +396,7 @@ watch(
         props: {
           prependIcon: 'mdi-auto-fix',
           click: (_item: FileItem) => {
-            scrape(_item.path || '')
+            scrape(_item)
           },
         },
       },
@@ -456,30 +456,30 @@ async function recognize(path: string) {
 }
 
 // 调用API刮削
-async function scrape(path: string, confirm: boolean = true) {
+async function scrape(item: FileItem, confirm: boolean = true) {
   try {
     if (confirm) {
       // 确认
       const confirmed = await createConfirm({
         title: '确认',
-        content: `是否确认刮削 ${path}？`,
+        content: `是否确认刮削 ${item.path}？`,
       })
       if (!confirmed) return
     }
 
     // 显示进度条
     progressDialog.value = true
-    progressText.value = `正在刮削 ${path} ...`
+    progressText.value = `正在刮削 ${item.path} ...`
     const result: { [key: string]: any } = await api.get('media/scrape', {
       params: {
-        path,
+        ...item,
         storage: inProps.storage,
       },
     })
     // 关闭进度条
     progressDialog.value = false
     if (!result.success) $toast.error(result.message)
-    else $toast.success(`${path} 削刮完成！`)
+    else $toast.success(`${item.path} 削刮完成！`)
   } catch (error) {
     console.error(error)
   }
@@ -495,7 +495,7 @@ async function batchScrape() {
   if (!confirmed) return
 
   selected.value.map(item => {
-    scrape(item.path || '', false)
+    scrape(item, false)
   })
 }
 
@@ -646,7 +646,7 @@ onMounted(() => {
                       </VTooltip>
                       <VTooltip text="刮削">
                         <template #activator="{ props }">
-                          <IconBtn v-bind="props" @click.stop="scrape(item.path)">
+                          <IconBtn v-bind="props" @click.stop="scrape(item)">
                             <VIcon icon="mdi-auto-fix" />
                           </IconBtn>
                         </template>
