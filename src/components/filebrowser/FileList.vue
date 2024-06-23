@@ -111,8 +111,8 @@ const isDir = computed(() => inProps.item.path?.endsWith('/'))
 // 是否文件
 const isFile = computed(() => !isDir.value)
 
-// 需要整理的path
-const transferPaths = ref<string[]>([])
+// 需要整理的文件项
+const transferItems = ref<FileItem[]>([])
 
 // 大小控制
 const scrollStyle = computed(() => {
@@ -156,28 +156,33 @@ async function list_files() {
 }
 
 // 删除项目
-async function deleteItem(item: FileItem) {
-  const confirmed = await createConfirm({
-    title: '确认',
-    content: `是否确认删除${item.type === 'dir' ? '目录' : '文件'} ${item.name}？`,
-  })
-
-  if (confirmed) {
-    emit('loading', true)
-
-    const url = inProps.endpoints?.delete.url.replace(/{storage}/g, inProps.storage)
-    const config: AxiosRequestConfig<FileItem> = {
-      url,
-      method: inProps.endpoints?.delete.method || 'post',
-      data: item,
-    }
-
-    await inProps.axios.request(config)
-    emit('filedeleted')
-    emit('loading', false)
-    // 重新加载
-    list_files()
+async function deleteItem(item: FileItem, confirm: boolean = true) {
+  if (confirm) {
+    const confirmed = await createConfirm({
+      title: '确认',
+      content: `是否确认删除${item.type === 'dir' ? '目录' : '文件'} ${item.name}？`,
+    })
+    if (!confirmed) return
   }
+
+  // 加载中
+  emit('loading', true)
+
+  // 请求API
+  const url = inProps.endpoints?.delete.url.replace(/{storage}/g, inProps.storage)
+  const config: AxiosRequestConfig<FileItem> = {
+    url,
+    method: inProps.endpoints?.delete.method || 'post',
+    data: item,
+  }
+  await inProps.axios.request(config)
+
+  // 删除完成
+  emit('loading', false)
+  emit('filedeleted')
+
+  // 重新加载
+  list_files()
 }
 
 // 批量删除
@@ -187,33 +192,23 @@ async function batchDelete() {
     content: `是否确认删除选中的 ${selected.value.length} 个项目？`,
   })
 
-  if (confirmed) {
-    emit('loading', true)
+  if (!confirmed) return
 
-    // 显示进度条
-    progressDialog.value = true
-    progressValue.value = 0
+  // 显示进度条
+  progressDialog.value = true
+  progressValue.value = 0
 
-    // 删除选中的项目
-    selected.value.every(async item => {
-      progressText.value = `正在删除 ${item.name} ...`
-      const url = inProps.endpoints?.delete.url.replace(/{storage}/g, inProps.storage)
-      const config: AxiosRequestConfig<FileItem> = {
-        url,
-        method: inProps.endpoints?.delete.method || 'post',
-        data: item,
-      }
-      await inProps.axios.request(config)
-    })
+  // 删除选中的项目
+  selected.value.every(async item => {
+    progressText.value = `正在删除 ${item.name} ...`
+    await deleteItem(item, false)
+  })
 
-    // 关闭进度条
-    progressDialog.value = false
+  // 关闭进度条
+  progressDialog.value = false
 
-    emit('filedeleted')
-    emit('loading', false)
-    // 重新加载
-    list_files()
-  }
+  // 重新加载
+  list_files()
 }
 
 // 切换路径
@@ -337,13 +332,13 @@ async function rename() {
 
 // 显示整理对话框
 function showTransfer(item: FileItem) {
-  transferPaths.value = [item.path || '']
+  transferItems.value = [item]
   transferPopper.value = true
 }
 
 // 显示批量整理对话框
 function showBatchTransfer() {
-  transferPaths.value = selected.value.map(item => item.path || '')
+  transferItems.value = selected.value
   transferPopper.value = true
 }
 
@@ -715,7 +710,7 @@ onMounted(() => {
     v-if="transferPopper"
     v-model="transferPopper"
     :storage="inProps.storage"
-    :paths="transferPaths"
+    :items="transferItems"
     @done="transferDone"
     @close="transferPopper = false"
   />

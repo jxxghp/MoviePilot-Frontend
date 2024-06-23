@@ -6,7 +6,7 @@ import api from '@/api'
 import { numberValidator } from '@/@validators'
 import { useDisplay } from 'vuetify'
 import ProgressDialog from './ProgressDialog.vue'
-import { MediaDirectory } from '@/api/types'
+import { FileItem, MediaDirectory } from '@/api/types'
 
 // 显示器宽度
 const display = useDisplay()
@@ -17,9 +17,9 @@ const props = defineProps({
     type: String,
     default: () => 'local',
   },
-  paths: Array<string>,
-  target: String,
   logids: Array<number>,
+  items: Array<FileItem>,
+  target: String,
 })
 
 // 定义事件
@@ -56,9 +56,9 @@ const progressValue = ref(0)
 
 // 标题
 const dialogTitle = computed(() => {
-  if (props.paths) {
-    if (props.paths.length > 1) return `整理 - 共 ${props.paths.length} 项`
-    return `整理 - ${props.paths[0]}`
+  if (props.items) {
+    if (props.items.length > 1) return `整理 - 共 ${props.items.length} 项`
+    return `整理 - ${props.items[0].path}`
   } else if (props.logids) {
     return `整理 - 共 ${props.logids.length} 项`
   }
@@ -70,6 +70,9 @@ const transferForm = reactive({
   storage: props.storage,
   logid: 0,
   path: '',
+  drive_id: '',
+  fileid: '',
+  filetype: '',
   target: props.target ?? null,
   tmdbid: null,
   doubanid: null,
@@ -128,7 +131,7 @@ function stopLoadingProgress() {
 
 // 整理文件
 async function transfer() {
-  if (!props.logids && !props.paths) return
+  if (!props.logids && !props.items) return
 
   // 显示进度条
   progressDialog.value = true
@@ -136,9 +139,9 @@ async function transfer() {
   startLoadingProgress()
 
   // 文件整理
-  if (props.paths) {
-    for (const path of props.paths) {
-      await handleTransfer(path)
+  if (props.items) {
+    for (const item of props.items) {
+      await handleTransfer(item)
     }
   }
 
@@ -158,11 +161,15 @@ async function transfer() {
 }
 
 // 整理文件
-async function handleTransfer(path: string) {
-  transferForm.path = path
+async function handleTransfer(item: FileItem) {
+  transferForm.path = item.path
+  transferForm.fileid = item.fileid || ''
+  transferForm.drive_id = item.drive_id || ''
+  transferForm.filetype = item.type || 'dir'
+
   try {
     const result: { [key: string]: any } = await api.post('transfer/manual', {}, { params: transferForm })
-    if (!result.success) $toast.error(`文件 ${path} 整理失败：${result.message}！`)
+    if (!result.success) $toast.error(`文件 ${item.path} 整理失败：${result.message}！`)
   } catch (e) {
     console.log(e)
   }
