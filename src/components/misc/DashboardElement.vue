@@ -12,12 +12,18 @@ import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
 import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
 import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
+
 // 输入参数
 const props = defineProps({
   // 仪表板配置
   config: Object as PropType<DashboardItem>,
   // 刷新状态
   refreshStatus: Boolean,
+  // 是否允许刷新数据
+  allowRefresh: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 const emit = defineEmits(['update:refreshStatus'])
@@ -32,10 +38,10 @@ onUnmounted(() => {
   <AnalyticsStorage v-if="config?.id === 'storage'" />
   <AnalyticsMediaStatistic v-else-if="config?.id === 'mediaStatistic'" />
   <AnalyticsWeeklyOverview v-else-if="config?.id === 'weeklyOverview'" />
-  <AnalyticsSpeed v-else-if="config?.id === 'speed'" />
-  <AnalyticsScheduler v-else-if="config?.id === 'scheduler'" />
-  <AnalyticsCpu v-else-if="config?.id === 'cpu'" />
-  <AnalyticsMemory v-else-if="config?.id === 'memory'" />
+  <AnalyticsSpeed v-else-if="config?.id === 'speed'" :allowRefresh="props.allowRefresh" />
+  <AnalyticsScheduler v-else-if="config?.id === 'scheduler'" :allowRefresh="props.allowRefresh" />
+  <AnalyticsCpu v-else-if="config?.id === 'cpu'" :allowRefresh="props.allowRefresh" />
+  <AnalyticsMemory v-else-if="config?.id === 'memory'" :allowRefresh="props.allowRefresh" />
   <MediaServerLibrary v-else-if="config?.id === 'library'" />
   <MediaServerPlaying v-else-if="config?.id === 'playing'" />
   <MediaServerLatest v-else-if="config?.id === 'latest'" />

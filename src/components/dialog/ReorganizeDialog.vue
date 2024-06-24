@@ -350,7 +350,7 @@ onMounted(() => {
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="12" md="6" v-if="props.storage == 'local'">
+            <VCol cols="12" md="6">
               <VSwitch
                 v-model="transferForm.scrape"
                 label="刮削元数据"

@@ -2,6 +2,15 @@
 import api from '@/api'
 import type { ScheduleInfo } from '@/api/types'
 
+// 输入参数
+const props = defineProps({
+  // 是否允许刷新数据
+  allowRefresh: {
+    type: Boolean,
+    default: true,
+  },
+})
+
 // 定时服务列表
 const schedulerList = ref<ScheduleInfo[]>([])
 
@@ -10,6 +19,9 @@ let refreshTimer: NodeJS.Timeout | null = null
 
 // 调用API加载定时服务列表
 async function loadSchedulerList() {
+  if (!props.allowRefresh) {
+    return
+  }
   try {
     const res: ScheduleInfo[] = await api.get('dashboard/schedule')
 
