@@ -32,7 +32,7 @@ api.interceptors.response.use(
       router.push('/login')
     }
 
-    return Promise.reject(new Error(error))
+    return Promise.reject(error)
   },
 )
 
