@@ -3,6 +3,15 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { DownloaderInfo } from '@/api/types'
 
+// 输入参数
+const props = defineProps({
+  // 是否允许刷新数据
+  allowRefresh: {
+    type: Boolean,
+    default: true,
+  },
+})
+
 // 定时器
 let refreshTimer: NodeJS.Timeout | null = null
 
@@ -35,6 +44,10 @@ const infoItems = ref([
 
 // 调用API查询下载器数据
 async function loadDownloaderInfo() {
+  if (!props.allowRefresh) {
+    return
+  }
+
   try {
     const res: DownloaderInfo = await api.get('dashboard/downloader')
 

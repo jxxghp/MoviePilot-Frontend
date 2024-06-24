@@ -5,6 +5,15 @@ import { hexToRgb } from '@layouts/utils'
 import api from '@/api'
 import { formatBytes } from '@/@core/utils/formatters'
 
+// 输入参数
+const props = defineProps({
+  // 是否允许刷新数据
+  allowRefresh: {
+    type: Boolean,
+    default: true,
+  },
+})
+
 const vuetifyTheme = useTheme()
 
 const currentTheme = controlledComputed(
@@ -100,6 +109,7 @@ const chartOptions = controlledComputed(
 
 // 调用API接口获取最新内存使用量
 async function getMemorgUsage() {
+  if (!props.allowRefresh) return
   try {
     // 请求数据
     ;[usedMemory.value, memoryUsage.value] = await api.get('dashboard/memory')

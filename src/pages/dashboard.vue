@@ -19,6 +19,9 @@ const superUser = store.state.auth.superUser
 // 是否拉升高度
 const isElevated = ref(true)
 
+// 是否发送请求的总开关
+const isRequest = ref(true)
+
 // 计算属性，控制是否拉升高度
 const elevatedConf = controlledComputed(
   () => isElevated.value,
@@ -269,7 +272,8 @@ async function getPluginDashboard(id: string, key: string) {
         if (
           res.attrs?.refresh &&
           pluginDashboardRefreshStatus.value[pluginDashboardId] &&
-          enableConfig.value[pluginDashboardId]
+          enableConfig.value[pluginDashboardId] &&
+          isRequest.value
         ) {
           // 清除之前的定时器
           if (refreshTimers.value[pluginDashboardId]) {
@@ -298,6 +302,14 @@ onBeforeMount(async () => {
   await loadDashboardConfig()
   getPluginDashboardMeta()
 })
+
+onActivated(async () => {
+  isRequest.value = true
+})
+
+onDeactivated(() => {
+  isRequest.value = false
+})
 </script>
 
 <template>
@@ -314,6 +326,7 @@ onBeforeMount(async () => {
       <VCol v-if="enableConfig[buildPluginDashboardId(element.id, element.key)] && element.cols" v-bind:="element.cols">
         <DashboardElement
           :config="element"
+          :allow-refresh="isRequest"
           v-model:refreshStatus="pluginDashboardRefreshStatus[buildPluginDashboardId(element.id, element.key)]"
         />
       </VCol>
