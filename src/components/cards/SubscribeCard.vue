@@ -182,6 +182,7 @@ watch(
           'outline-dashed outline-1': props.media?.best_version && imageLoaded,
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
         }"
+        min-height="170"
         @click="editSubscribeDialog"
       >
         <div class="me-n3 absolute top-1 right-2">

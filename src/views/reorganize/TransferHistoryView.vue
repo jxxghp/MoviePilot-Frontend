@@ -124,6 +124,12 @@ const TransferDict: { [key: string]: string } = {
   rclone_move: 'Rclone移动',
 }
 
+const tableStyle = computed(() => {
+  return appMode.value
+    ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
+    : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
+})
+
 // 分页提示
 const pageTip = computed(() => {
   const begin = itemsPerPage.value * (currentPage.value - 1) + 1
@@ -394,11 +400,7 @@ onMounted(fetchData)
       show-select
       loading-text="加载中..."
       hover
-      :style="
-        appMode
-          ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
-          : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
-      "
+      :style="tableStyle"
     >
       <template #item.title="{ item }">
         <div class="d-flex align-center">
