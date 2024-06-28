@@ -116,7 +116,7 @@ const transferItems = ref<FileItem[]>([])
 
 // 大小控制
 const scrollStyle = computed(() => {
-  return appMode
+  return appMode.value
     ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
     : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
 })

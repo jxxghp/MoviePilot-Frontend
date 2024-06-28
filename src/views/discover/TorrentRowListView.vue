@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { Context } from '@/api/types'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
+import { list } from 'postcss'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
@@ -33,6 +34,13 @@ const filterForm = reactive({
   edition: [] as string[],
   // 分辨率
   resolution: [] as string[],
+})
+
+// 列表样式
+const listStyle = computed(() => {
+  return appMode.value
+    ? 'height: calc(100vh - 7.5rem - env(safe-area-inset-bottom) - 3.5rem)'
+    : 'height: calc(100vh - 6.5rem - env(safe-area-inset-bottom)'
 })
 
 // 排序字段
@@ -167,14 +175,7 @@ onMounted(() => {
         </VListItem>
       </VList>
       <VList v-if="dataList.length !== 0" lines="three" class="rounded p-0 torrent-list-vscroll shadow-lg">
-        <VVirtualScroll
-          :items="dataList"
-          :style="
-            appMode
-              ? 'height: calc(100vh - 7.5rem - env(safe-area-inset-bottom) - 3.5rem)'
-              : 'height: calc(100vh - 6.5rem - env(safe-area-inset-bottom)'
-          "
-        >
+        <VVirtualScroll :items="dataList" :style="listStyle">
           <template #default="{ item }">
             <TorrentItem :torrent="item" :key="`${item.torrent_info.page_url}`" />
           </template>
@@ -182,11 +183,7 @@ onMounted(() => {
       </VList>
     </VCol>
     <VCol xl="2" md="3" v-if="display.mdAndUp.value">
-      <VList
-        lines="one"
-        class="rounded shadow-lg"
-        style="block-size: calc(100vh - 6.5rem - env(safe-area-inset-bottom))"
-      >
+      <VList lines="one" class="rounded shadow-lg" :style="listStyle">
         <VListSubheader> 排序 </VListSubheader>
         <VListItem>
           <VChipGroup column v-model="sortField">
