@@ -81,6 +81,7 @@ function getMenus(): NavMenu[] {
 // 匹配的菜单列表
 const matchedMenuItems = computed(() => {
   if (!searchWord.value) return []
+  if (!superUser) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   const menuItems = getMenus()
   if (menuItems)
@@ -295,7 +296,7 @@ onMounted(() => {
               </VListItem>
             </template>
           </VHover>
-          <VHover>
+          <VHover v-if="superUser">
             <template #default="hover">
               <VListItem prepend-icon="mdi-history" link v-bind="hover.props" @click="searchHistory">
                 <VListItemTitle class="break-words whitespace-break-spaces">
@@ -390,7 +391,7 @@ onMounted(() => {
                 </div>
               </VCol>
             </VRow>
-            <VRow>
+            <VRow v-if="superUser">
               <VCol cols="12" md="6">
                 <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">常用功能</p>
                 <VList lines="one">
