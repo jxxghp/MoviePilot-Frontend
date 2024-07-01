@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { Plugin, Subscribe } from '@/api/types'
-import { SystemNavMenus, UserfulMenus, PluginTabs, SettingTabs } from '@/router/menu'
+import { SystemNavMenus, UserfulMenus, SettingTabs } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
+import store from '@/store'
 
 // 路由
 const router = useRouter()
+
+// 超级用户
+const superUser = store.state.auth.superUser
+
+// 当前用户名
+const userName = store.state.auth.userName
 
 // 定义事件
 const emit = defineEmits(['close'])
@@ -74,6 +81,7 @@ function getMenus(): NavMenu[] {
 // 匹配的菜单列表
 const matchedMenuItems = computed(() => {
   if (!searchWord.value) return []
+  if (!superUser) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   const menuItems = getMenus()
   if (menuItems)
@@ -104,6 +112,7 @@ async function fetchInstalledPlugins() {
 // 区配的插件列表
 const matchedPluginItems = computed(() => {
   if (!searchWord.value) return []
+  if (!superUser) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   return pluginItems.value.filter((item: Plugin) => {
     if (!item.plugin_name && !item.plugin_desc) return false
@@ -114,7 +123,7 @@ const matchedPluginItems = computed(() => {
 // 所有订阅数据
 const SubscribeItems = ref<Subscribe[]>([])
 
-// 获取电影订阅列表数据
+// 获取订阅列表数据
 async function fetchSubscribes() {
   try {
     SubscribeItems.value = await api.get('subscribe/')
@@ -128,7 +137,7 @@ const matchedSubscribeItems = computed(() => {
   if (!searchWord.value) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   return SubscribeItems.value.filter((item: Subscribe) => {
-    return item.name.toLowerCase().includes(lowerWord)
+    return (item.name.toLowerCase().includes(lowerWord) && (superUser || userName === item.username)) || false
   })
 })
 
@@ -287,7 +296,7 @@ onMounted(() => {
               </VListItem>
             </template>
           </VHover>
-          <VHover>
+          <VHover v-if="superUser">
             <template #default="hover">
               <VListItem prepend-icon="mdi-history" link v-bind="hover.props" @click="searchHistory">
                 <VListItemTitle class="break-words whitespace-break-spaces">
@@ -382,7 +391,7 @@ onMounted(() => {
                 </div>
               </VCol>
             </VRow>
-            <VRow>
+            <VRow v-if="superUser">
               <VCol cols="12" md="6">
                 <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">常用功能</p>
                 <VList lines="one">
