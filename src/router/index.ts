@@ -91,6 +91,22 @@ const router = createRouter({
           },
         },
         {
+          path: '/user',
+          component: () => import('../pages/user.vue'),
+          meta: {
+            keepAlive: true,
+            requiresAuth: true,
+          },
+        },
+        {
+          path: '/profile',
+          component: () => import('../pages/profile.vue'),
+          meta: {
+            keepAlive: true,
+            requiresAuth: true,
+          },
+        },
+        {
           path: '/plugins',
           component: () => import('../pages/plugin.vue'),
           meta: {

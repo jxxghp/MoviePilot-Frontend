@@ -5,21 +5,21 @@ export const SystemNavMenus = [
     icon: 'mdi-home-outline',
     to: '/dashboard',
     header: '开始',
-    admin: false,
+    permission: 'dashboard',
   },
   {
     title: '推荐',
     icon: 'mdi-star-outline',
     to: '/ranking',
     header: '发现',
-    admin: false,
+    permission: 'ranking',
   },
   {
     title: '资源搜索',
     icon: 'mdi-magnify',
     to: '/resource',
     header: '发现',
-    admin: false,
+    permission: 'resource.search',
   },
   {
     title: '电影',
@@ -27,7 +27,7 @@ export const SystemNavMenus = [
     icon: 'mdi-movie-open-outline',
     to: '/subscribe/movie',
     header: '订阅',
-    admin: false,
+    permission: 'subscribe.movie',
   },
   {
     title: '电视剧',
@@ -35,7 +35,7 @@ export const SystemNavMenus = [
     icon: 'mdi-television',
     to: '/subscribe/tv',
     header: '订阅',
-    admin: false,
+    permission: 'subscribe.tv',
   },
   {
     title: '日历',
@@ -43,49 +43,56 @@ export const SystemNavMenus = [
     icon: 'mdi-calendar',
     to: '/calendar',
     header: '订阅',
-    admin: false,
+    permission: 'subscribe.calendar',
   },
   {
     title: '正在下载',
     icon: 'mdi-download-outline',
     to: '/downloading',
     header: '整理',
-    admin: false,
+    permission: 'downloading.view',
   },
   {
     title: '历史记录',
     icon: 'mdi-history',
     to: '/history',
     header: '整理',
-    admin: true,
+    permission: 'admin',
   },
   {
     title: '文件管理',
     icon: 'mdi-folder-multiple-outline',
     to: '/filemanager',
     header: '整理',
-    admin: true,
+    permission: 'admin',
   },
   {
     title: '插件',
     icon: 'mdi-apps',
     to: '/plugins',
     header: '系统',
-    admin: true,
+    permission: 'admin',
   },
   {
     title: '站点管理',
     icon: 'mdi-web',
     to: '/site',
     header: '系统',
-    admin: true,
+    permission: 'admin',
+  },
+  {
+    title: '用户管理',
+    icon: 'mdi-account-group',
+    to: '/user',
+    header: '系统',
+    permission: 'usermanage',
   },
   {
     title: '设定',
     icon: 'mdi-cog',
     to: '/setting',
     header: '系统',
-    admin: true,
+    permission: 'admin',
   },
 ]
 
@@ -120,12 +127,6 @@ export const UserfulMenus = [
 
 // 设定标签页
 export const SettingTabs = [
-  {
-    title: '用户',
-    icon: 'mdi-account',
-    tab: 'account',
-    description: '个人信息、用户管理、修改密码、双重认证',
-  },
   {
     title: '连接',
     icon: 'mdi-server-network',

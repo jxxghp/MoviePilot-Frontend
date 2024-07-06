@@ -163,9 +163,10 @@ function login() {
       const avatar = response.avatar
       const level = response.level
       const remember = form.value.remember
+      const permissions = response.permissions
 
       // 更新token和remember状态到Vuex Store
-      store.dispatch('auth/login', { token, remember, superUser, userName, avatar, level })
+      store.dispatch('auth/login', { token, remember, superUser, userName, avatar, level, permissions })
 
       // 登录后处理
       afterLogin(superUser)

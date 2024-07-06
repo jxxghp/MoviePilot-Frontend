@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { useRoute } from 'vue-router'
 import router from '@/router'
-import AccountSettingAccount from '@/views/setting/AccountSettingAccount.vue'
 import AccountSettingNotification from '@/views/setting/AccountSettingNotification.vue'
 import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingWords from '@/views/setting/AccountSettingWords.vue'
@@ -38,13 +37,6 @@ function jumpTab(tab: string) {
     </VTabs>
 
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
-      <!-- 用户 -->
-      <VWindowItem value="account">
-        <transition name="fade-slide" appear>
-          <AccountSettingAccount />
-        </transition>
-      </VWindowItem>
-
       <!-- 连接 -->
       <VWindowItem value="system">
         <transition name="fade-slide" appear>

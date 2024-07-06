@@ -111,11 +111,11 @@ watch(isCompactMode, value => {
         <VDivider class="my-2" />
 
         <!-- 👉 Profile -->
-        <VListItem v-if="superUser" link @click="router.push('/setting?tab=account')">
+        <VListItem link @click="router.push('/profile')">
           <template #prepend>
             <VIcon class="me-2" icon="mdi-account-outline" size="22" />
           </template>
-          <VListItemTitle>设定</VListItemTitle>
+          <VListItemTitle>个人信息</VListItemTitle>
         </VListItem>
 
         <!-- 👉 FAQ -->
@@ -123,7 +123,7 @@ watch(isCompactMode, value => {
           <template #prepend>
             <VIcon class="me-2" icon="mdi-help-circle-outline" size="22" />
           </template>
-          <VListItemTitle>帮助</VListItemTitle>
+          <VListItemTitle>帮助文档</VListItemTitle>
         </VListItem>
 
         <!-- Divider -->

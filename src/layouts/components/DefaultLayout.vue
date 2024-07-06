@@ -18,18 +18,65 @@ const appMode = computed(() => {
   return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
 })
 
-// 从Vuex Store中获取superuser信息
-const superUser = store.state.auth.superUser
+// 是否超级用户
+let superUser = store.state.auth.superUser
+
+// 用户权限
+const permissions = store.state.auth.permissions
+
+// 检查是否有权限
+function hasPermission(permission: string | null = null) {
+  if (!permission) return true
+  // permission是一个以.分隔的字符串，例如：'user.create'
+  const permissionList = permission.split('.')
+  let permissions_obj = permissions
+  for (const element of permissionList) {
+    if (!permissions_obj[element]) {
+      return false
+    } else if (typeof permissions_obj[element] === 'object') {
+      permissions_obj = permissions_obj[element]
+    } else {
+      return true
+    }
+  }
+  return false
+}
+
+// 开始菜单项
+const startMenus = ref<NavMenu[]>([])
+
+// 发现菜单项
+const discoveryMenus = ref<NavMenu[]>([])
+
+// 订阅菜单项
+const subscribeMenus = ref<NavMenu[]>([])
+
+// 整理菜单项
+const organizeMenus = ref<NavMenu[]>([])
+
+// 系统菜单项
+const systemMenus = ref<NavMenu[]>([])
 
 // 根据分类获取菜单列表
 const getMenuList = (header: string) => {
-  return SystemNavMenus.filter((item: NavMenu) => item.header === header && (!item.admin || superUser))
+  return SystemNavMenus.filter(
+    (item: NavMenu) => item.header === header && (superUser || hasPermission(item.permission)),
+  )
 }
 
 // 返回上一页
 function goBack() {
   history.back()
 }
+
+onMounted(() => {
+  // 获取菜单列表
+  startMenus.value = getMenuList('开始')
+  discoveryMenus.value = getMenuList('发现')
+  subscribeMenus.value = getMenuList('订阅')
+  organizeMenus.value = getMenuList('整理')
+  systemMenus.value = getMenuList('系统')
+})
 </script>
 
 <template>
@@ -61,36 +108,39 @@ function goBack() {
     </template>
 
     <template #vertical-nav-content>
-      <VerticalNavLink v-for="item in getMenuList('开始')" :item="item" />
+      <VerticalNavLink v-for="item in startMenus" :item="item" />
       <!-- 👉 发现 -->
       <VerticalNavSectionTitle
+        v-if="discoveryMenus.length > 0"
         :item="{
           heading: '发现',
         }"
       />
-      <VerticalNavLink v-for="item in getMenuList('发现')" :item="item" />
+      <VerticalNavLink v-for="item in discoveryMenus" :item="item" />
       <!-- 👉 订阅 -->
       <VerticalNavSectionTitle
+        v-if="subscribeMenus.length > 0"
         :item="{
           heading: '订阅',
         }"
       />
-      <VerticalNavLink v-for="item in getMenuList('订阅')" :item="item" />
+      <VerticalNavLink v-for="item in subscribeMenus" :item="item" />
       <!-- 👉 整理 -->
       <VerticalNavSectionTitle
+        v-if="organizeMenus.length > 0"
         :item="{
           heading: '整理',
         }"
       />
-      <VerticalNavLink v-for="item in getMenuList('整理')" :item="item" />
+      <VerticalNavLink v-for="item in organizeMenus" :item="item" />
       <!-- 👉 系统 -->
       <VerticalNavSectionTitle
-        v-if="superUser"
+        v-if="systemMenus.length > 0"
         :item="{
           heading: '系统',
         }"
       />
-      <VerticalNavLink v-for="item in getMenuList('系统')" :item="item" />
+      <VerticalNavLink v-for="item in systemMenus" :item="item" />
     </template>
 
     <template #after-vertical-nav-items />
