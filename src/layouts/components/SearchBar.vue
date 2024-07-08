@@ -2,6 +2,7 @@
 import * as Mousetrap from 'mousetrap'
 import SearchBarView from '@/views/system/SearchBarView.vue'
 import { useDisplay } from 'vuetify'
+import { ref, computed } from 'vue'
 
 const display = useDisplay()
 
@@ -15,6 +16,14 @@ function openSearchDialog() {
   searchDialog.value = true
   return false
 }
+
+// 检测操作系统是否是Mac
+function isMac() {
+  return navigator.platform.toUpperCase().indexOf('MAC') >= 0
+}
+
+// 计算属性：根据操作系统显示不同的按键提示
+const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
 </script>
 
 <template>
@@ -25,12 +34,13 @@ function openSearchDialog() {
     </IconBtn>
     <span v-if="display.lgAndUp.value" class="flex align-center text-disabled ms-2" @click="openSearchDialog">
       <span class="me-3">搜索</span>
-      <span class="meta-key">⌘K</span>
+      <span class="meta-key">{{ metaKey }}</span>
     </span>
   </div>
   <!-- 搜索弹窗 -->
   <SearchBarView v-model="searchDialog" v-if="searchDialog" @close="searchDialog = false" />
 </template>
+
 <style type="scss" scoped>
 .meta-key {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
