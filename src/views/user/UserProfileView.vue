@@ -42,6 +42,14 @@ const accountInfo = ref<User>({
   is_superuser: false,
   avatar: '',
   is_otp: false,
+  permissions: {},
+  settings: {
+    wechat_userid: null,
+    telegram_userid: null,
+    slack_userid: null,
+    vocechat_userid: null,
+    synologychat_userid: null,
+  },
 })
 
 // 所有用户信息
@@ -229,18 +237,13 @@ onMounted(() => {
             <!-- 👉 Form -->
             <VForm class="mt-6">
               <VRow>
-                <!-- 👉 Name -->
                 <VCol md="6" cols="12">
                   <VTextField v-model="accountInfo.name" readonly label="用户名" />
                 </VCol>
-
-                <!-- 👉 Email -->
                 <VCol cols="12" md="6">
                   <VTextField v-model="accountInfo.email" label="邮箱" type="email" />
                 </VCol>
-
                 <VCol cols="12" md="6">
-                  <!-- 👉 new password -->
                   <VTextField
                     v-model="newPassword"
                     :type="isNewPasswordVisible ? 'text' : 'password'"
@@ -250,7 +253,6 @@ onMounted(() => {
                     @click:append-inner="isNewPasswordVisible = !isNewPasswordVisible"
                   />
                 </VCol>
-
                 <VCol cols="12" md="6">
                   <!-- 👉 confirm password -->
                   <VTextField
@@ -261,7 +263,25 @@ onMounted(() => {
                     @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
                   />
                 </VCol>
-
+              </VRow>
+              <VRow>
+                <VCol cols="12" md="6">
+                  <VTextField v-model="accountInfo.settings.wechat_userid" label="微信用户" />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField v-model="accountInfo.settings.telegram_userid" label="Telegram用户" />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField v-model="accountInfo.settings.slack_userid" label="Slack用户" />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField v-model="accountInfo.settings.vocechat_userid" label="VoceChat用户" />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField v-model="accountInfo.settings.synologychat_userid" label="SynologyChat用户" />
+                </VCol>
+              </VRow>
+              <VRow>
                 <!-- 👉 Form Actions -->
                 <VCol cols="12" class="d-flex flex-wrap gap-4">
                   <VBtn @click="saveAccountInfo"> 保存 </VBtn>

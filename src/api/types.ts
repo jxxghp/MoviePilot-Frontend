@@ -642,6 +642,10 @@ export interface User {
   avatar: string
   // 是否开启双重验证
   is_otp: boolean
+  // 用户权限 json
+  permissions: { [key: string]: any }
+  // 用户个性化设置 json
+  settings: { [key: string]: string | null }
 }
 
 // 存储空间
