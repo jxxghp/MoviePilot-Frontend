@@ -148,9 +148,16 @@ const totalPage = computed(() => {
 
 // 切换页签和搜索词
 watch(
-  [() => currentPage.value, () => itemsPerPage.value, () => search.value],
+  [() => currentPage.value, () => itemsPerPage.value],
   debounce(async () => {
     reloadPage()
+  }, 1000),
+)
+
+watch(
+  [() => search.value],
+  debounce(async () => {
+    reloadPage(true)
   }, 1000),
 )
 
@@ -335,7 +342,7 @@ function addUrlQuery(url: string, name: string, value: any) {
 }
 
 // 重载页面
-function reloadPage() {
+function reloadPage(resetPage = false) {
   let url = '/history'
   if (search.value) {
     url = addUrlQuery(url, 'search', search.value)
@@ -344,7 +351,7 @@ function reloadPage() {
     url = addUrlQuery(url, 'itemsPerPage', itemsPerPage.value)
   }
   if (currentPage.value) {
-    url = addUrlQuery(url, 'currentPage', currentPage.value)
+    url = addUrlQuery(url, 'currentPage', resetPage ? 1 : currentPage.value)
   }
   router.push(url)
 }
