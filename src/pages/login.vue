@@ -54,6 +54,8 @@ async function fetchBackgroundImage() {
   try {
     backgroundImages.value = await api.get('/login/wallpapers')
     if (backgroundImages.value && backgroundImages.value.length > 0) {
+      // 随机打乱排序
+      backgroundImages.value.sort(() => Math.random() - 0.5)
       backgroundImageUrl.value = backgroundImages.value[0]
     }
   } catch (e) {

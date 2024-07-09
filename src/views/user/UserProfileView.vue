@@ -238,14 +238,15 @@ onMounted(() => {
             <VForm class="mt-6">
               <VRow>
                 <VCol md="6" cols="12">
-                  <VTextField v-model="accountInfo.name" readonly label="用户名" />
+                  <VTextField v-model="accountInfo.name" density="comfortable" readonly label="用户名" />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.email" label="邮箱" type="email" />
+                  <VTextField v-model="accountInfo.email" density="comfortable" label="邮箱" type="email" />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
                     v-model="newPassword"
+                    density="comfortable"
                     :type="isNewPasswordVisible ? 'text' : 'password'"
                     :append-inner-icon="isNewPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                     label="新密码"
@@ -257,6 +258,7 @@ onMounted(() => {
                   <!-- 👉 confirm password -->
                   <VTextField
                     v-model="confirmPassword"
+                    density="comfortable"
                     :type="isConfirmPasswordVisible ? 'text' : 'password'"
                     :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                     label="确认新密码"
@@ -266,19 +268,31 @@ onMounted(() => {
               </VRow>
               <VRow>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.wechat_userid" label="微信用户" />
+                  <VTextField v-model="accountInfo.settings.wechat_userid" density="comfortable" label="微信用户" />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.telegram_userid" label="Telegram用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.telegram_userid"
+                    density="comfortable"
+                    label="Telegram用户"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.slack_userid" label="Slack用户" />
+                  <VTextField v-model="accountInfo.settings.slack_userid" density="comfortable" label="Slack用户" />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.vocechat_userid" label="VoceChat用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.vocechat_userid"
+                    density="comfortable"
+                    label="VoceChat用户"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.synologychat_userid" label="SynologyChat用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.synologychat_userid"
+                    density="comfortable"
+                    label="SynologyChat用户"
+                  />
                 </VCol>
               </VRow>
               <VRow>
