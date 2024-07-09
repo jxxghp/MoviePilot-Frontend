@@ -5,12 +5,21 @@ import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
+import { useDisplay } from 'vuetify'
+
+// APP
+const display = useDisplay()
+const appMode = computed(() => {
+  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
+})
 
 // 提示框
 const $toast = useToast()
 
 // 新增用户窗口
 const addUserDialog = ref(false)
+
+const isPasswordVisible = ref(false)
 
 // 新增用户表单
 const userForm = reactive({
@@ -29,6 +38,8 @@ const accountInfo = ref<User>({
   is_superuser: false,
   avatar: '',
   is_otp: false,
+  permissions: {},
+  settings: {},
 })
 
 // 所有用户信息
@@ -211,4 +222,15 @@ onMounted(() => {
       </VCard>
     </VDialog>
   </div>
+
+  <VFab
+    icon="mdi-plus"
+    location="bottom"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="addUserDialog = true"
+    :class="{ 'mb-12': appMode }"
+  />
 </template>
