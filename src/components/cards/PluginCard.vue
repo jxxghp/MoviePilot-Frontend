@@ -476,7 +476,7 @@ watch(
     <VCard :title="`${props.plugin?.plugin_name} 更新说明`">
       <DialogCloseBtn @click="releaseDialog = false" />
       <VDivider />
-      <VersionHistory :history="props.plugin?.history" />
+      <VersionHistory :history="props.plugin?.history" :cutoff="props.plugin?.plugin_version" />
       <VDivider />
       <VCardText>
         <VBtn @click="updatePlugin" block>
