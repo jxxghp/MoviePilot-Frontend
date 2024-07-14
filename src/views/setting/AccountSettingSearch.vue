@@ -121,7 +121,7 @@ onMounted(() => {
     <VCol cols="12">
       <VCard>
         <VCardItem>
-          <VCardTitle>搜索数据源 & 规则组</VCardTitle>
+          <VCardTitle>数据源 & 规则</VCardTitle>
           <VCardSubtitle>设定数据源、规则组等基础信息。</VCardSubtitle>
         </VCardItem>
         <VCardText>
