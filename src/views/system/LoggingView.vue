@@ -4,6 +4,14 @@ import store from '@/store'
 // 日志列表
 const logs = ref<string[]>([])
 
+// 表头
+const headers = [
+  { title: '级别', value: 'level' },
+  { title: '时间', value: 'time' },
+  { title: '程序', value: 'program' },
+  { title: '内容', value: 'content' },
+]
+
 // SSE消息对象
 let eventSource: EventSource | null = null
 
@@ -11,20 +19,19 @@ let eventSource: EventSource | null = null
 function startSSELogging() {
   const token = store.state.auth.token
   if (token) {
-    eventSource = new EventSource(
-      `${import.meta.env.VITE_API_BASE_URL}system/logging?token=${token}`,
-    )
+    eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/logging?token=${token}`)
 
-    eventSource.addEventListener('message', (event) => {
+    eventSource.addEventListener('message', event => {
       const message = event.data
-      if (message)
-        logs.value.push(message)
+      if (message) logs.value.push(message)
     })
   }
 }
 
 // 从日志中提取日志详情
-function extractLogDetailsFromLogs(logs: string[]): { level: string; time: string; program: string; content: string }[] {
+function extractLogDetailsFromLogs(
+  logs: string[],
+): { level: string; time: string; program: string; content: string }[] {
   const logDetails: { level: string; time: string; program: string; content: string }[] = []
 
   const logPattern = /^【(.*?)】[0-9\-:]*\s(.*?)\s-\s(.*?)\s-\s(.*)$/
@@ -66,59 +73,34 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (eventSource)
-    eventSource.close()
+  if (eventSource) eventSource.close()
 })
 </script>
 
 <template>
-  <div
-    v-if="logs.length === 0"
-    class="mt-5 w-full text-center flex flex-col items-center"
-  >
-    <VProgressCircular
-      size="48"
-      indeterminate
-      color="primary"
-    />
+  <div v-if="logs.length === 0" class="mt-5 w-full text-center flex flex-col items-center">
+    <VProgressCircular size="48" indeterminate color="primary" />
     <span class="mt-3">正在刷新 ...</span>
   </div>
   <div>
-    <VTable
-      class="table-rounded"
-      hide-default-footer
-      disable-sort
-    >
+    <VTable class="table-rounded" hide-default-footer disable-sort>
       <tbody>
-        <tr v-for="(log, i) in extractLogDetails" :key="i" class="text-sm">
-          <td
-            class="text-sm"
-          >
-            <VChip
-              size="small"
-              :color="getLogColor(log.level)"
-              variant="elevated"
-              v-text="log.level"
-            />
-          </td>
-          <!-- name -->
-          <td
-            class="text-sm"
-          >
-            {{ log.time }}
-          </td>
-          <td
-            class="text-sm"
-          >
-            <h6 class="text-sm font-weight-medium">
-              {{ log.program }}
-            </h6>
-          </td>
-          <td
-            class="text-sm"
-            v-text="log.content"
-          />
-        </tr>
+        <VDataTableVirtual :headers="headers" :items="extractLogDetails" height="100%" density="compact" hover>
+          <template #item.level="{ item }">
+            <VChip size="small" :color="getLogColor(item.level)" variant="elevated" v-text="item.level" />
+          </template>
+          <template #item.time="{ item }">
+            <span class="text-sm">{{ item.time }}</span>
+          </template>
+          <template #item.program="{ item }">
+            <h6 class="text-sm font-weight-medium">{{ item.program }}</h6>
+          </template>
+          <template #item.content="{ item }">
+            <span class="text-sm">
+              {{ item.content }}
+            </span>
+          </template>
+        </VDataTableVirtual>
       </tbody>
     </VTable>
   </div>
