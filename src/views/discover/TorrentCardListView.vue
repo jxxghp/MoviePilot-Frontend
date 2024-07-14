@@ -125,7 +125,6 @@ onMounted(() => {
     }
   })
   groupedDataList.value = groupMap
-
 })
 
 // 只监听filterForm和groupedDataList的变化。因为displayDataList的变化不需要清空列表
@@ -265,12 +264,16 @@ function loadMore({ done }: { done: any }) {
       </VCol>
     </VRow>
   </VCard>
-      <VInfiniteScroll mode="intersect" side="end" :items="displayDataList" class="overflow-hidden"
-                       @load="loadMore">
-        <template #loading />
-        <template #empty />
-        <div class="grid gap-3 grid-torrent-card items-start">
-          <TorrentCard v-for="item in displayDataList"  :key="`${item.torrent_info.page_url}`" :torrent="item" :more="item.more" />
-        </div>
-      </VInfiniteScroll>
+  <VInfiniteScroll mode="intersect" side="end" :items="displayDataList" class="overflow-hidden" @load="loadMore">
+    <template #loading />
+    <template #empty />
+    <div class="grid gap-3 grid-torrent-card items-start">
+      <TorrentCard
+        v-for="item in displayDataList"
+        :key="`${item.torrent_info.page_url}`"
+        :torrent="item"
+        :more="item.more"
+      />
+    </div>
+  </VInfiniteScroll>
 </template>

@@ -134,7 +134,7 @@ export const SettingTabs = [
     description: '下载器（Qbittorrent、Transmission）、媒体服务器（Emby、Jellyfin、Plex）',
   },
   {
-    title: '目录',
+    title: '存储 & 目录',
     icon: 'mdi-folder',
     tab: 'directory',
     description: '下载目录、媒体库目录、整理模式',
@@ -144,6 +144,12 @@ export const SettingTabs = [
     icon: 'mdi-web',
     tab: 'site',
     description: '站点同步、下载优先规则、站点重置',
+  },
+  {
+    title: '规则',
+    icon: 'mdi-filter',
+    tab: 'rule',
+    description: '优先级规则组',
   },
   {
     title: '搜索',

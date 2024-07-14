@@ -14,9 +14,6 @@ const resetSitesText = ref('重置站点数据')
 // 站点重置按钮可用状态
 const resetSitesDisabled = ref(false)
 
-// 种子优先规则
-const selectedTorrentPriority = ref<string>('seeder')
-
 // CookieCloud设置项
 const cookieCloudSetting = ref({
   COOKIECLOUD_HOST: '',
@@ -27,12 +24,6 @@ const cookieCloudSetting = ref({
   COOKIECLOUD_ENABLE_LOCAL: '',
   COOKIECLOUD_BLACKLIST: '',
 })
-
-// 种子优先规则下拉框
-const TorrentPriorityItems = [
-  { title: '站点优先', value: 'site' },
-  { title: '做种数优先', value: 'seeder' },
-]
 
 // 同步间隔下拉框
 const CookieCloudIntervalItems = [
@@ -57,33 +48,6 @@ async function resetSites() {
 
     resetSitesDisabled.value = false
     resetSitesText.value = '重置站点数据'
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-// 查询种子优先规则
-async function queryTorrentPriority() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/setting/TorrentsPriority')
-
-    selectedTorrentPriority.value = result.data?.value
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-// 保存种子优先规则
-async function saveTorrentPriority() {
-  try {
-    // 用户名密码
-    const result: { [key: string]: any } = await api.post(
-      'system/setting/TorrentsPriority',
-      selectedTorrentPriority.value,
-    )
-
-    if (result.success) $toast.success('优先规则保存成功')
-    else $toast.error('优先规则保存失败！')
   } catch (error) {
     console.log(error)
   }
@@ -132,7 +96,6 @@ async function saveCookieCloudetting() {
 
 // 加载数据
 onMounted(() => {
-  queryTorrentPriority()
   loadCookieCloudSettings()
 })
 </script>
@@ -219,32 +182,7 @@ onMounted(() => {
         </VCardText>
       </VCard>
     </VCol>
-    <VCol cols="12">
-      <VCard>
-        <VCardItem>
-          <VCardTitle>下载优先规则</VCardTitle>
-          <VCardSubtitle>按站点或做种数量优先下载。</VCardSubtitle>
-        </VCardItem>
-        <VCardText>
-          <VForm>
-            <VRow>
-              <VCol cols="12" md="6">
-                <VSelect
-                  v-model="selectedTorrentPriority"
-                  :items="TorrentPriorityItems"
-                  label="当前使用下载优先规则"
-                  hint="同时命中多个站点的多个资源时下载的优先规则"
-                  persistent-hint
-                />
-              </VCol>
-            </VRow>
-          </VForm>
-        </VCardText>
-        <VCardText>
-          <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>
-        </VCardText>
-      </VCard>
-    </VCol>
+
     <VCol cols="12">
       <VCard title="站点重置">
         <VCardText>

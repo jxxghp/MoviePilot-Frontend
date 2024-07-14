@@ -10,6 +10,7 @@ import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue
 import AccountSettingService from '@/views/setting/AccountSettingService.vue'
 import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
 import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
+import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import { SettingTabs } from '@/router/menu'
 
 const route = useRoute()
@@ -55,6 +56,13 @@ function jumpTab(tab: string) {
       <VWindowItem value="site">
         <transition name="fade-slide" appear>
           <AccountSettingSite />
+        </transition>
+      </VWindowItem>
+
+      <!-- 规则 -->
+      <VWindowItem value="rule">
+        <transition name="fade-slide" appear>
+          <AccountSettingRule />
         </transition>
       </VWindowItem>
 

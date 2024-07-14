@@ -79,7 +79,6 @@ watch(isCompactMode, value => {
   <VAvatar class="cursor-pointer ms-3" color="primary" variant="tonal">
     <VImg :src="avatar ?? avatar1" />
 
-    <!-- SECTION Menu -->
     <VMenu activator="parent" width="230" location="bottom end" offset="14px">
       <VList>
         <!-- 👉 User Avatar & Name -->

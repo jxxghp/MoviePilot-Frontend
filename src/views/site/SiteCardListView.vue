@@ -6,7 +6,6 @@ import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import { useDisplay } from 'vuetify'
-import { isLength } from 'lodash'
 
 // 显示器宽度
 const display = useDisplay()

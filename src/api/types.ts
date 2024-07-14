@@ -847,22 +847,124 @@ export interface SystemNotification {
   date: string
 }
 
-// 下载目录/媒体库目录
-export interface MediaDirectory {
-  // 类型 download/library
-  type?: string
-  // 别名
-  name?: string
-  // 路径
-  path?: string
-  // 媒体类型 电影/电视剧
-  media_type?: string
-  // 媒体类别 动画电影/国产剧
-  category?: string
-  // 刮削媒体信息
-  scrape?: boolean
-  // 自动二级分类，未指定类别时自动分类
-  auto_category?: boolean
+// 下载器配置
+export interface DownloaderConf {
+  // 名称
+  name: string
+  // 类型 qbittorrent/transmission
+  type: string
+  // 是否默认
+  default: boolean
+  // 配置
+  config?: { [key: string]: any }
+  // 是否启用
+  enabled: boolean
+}
+
+// 通知配置
+export interface NotificationConf {
+  // 名称
+  name: string
+  // 类型 telegram/wechat/vocechat/synologychat
+  type: string
+  // 配置
+  config?: { [key: string]: any }
+  // 场景开关
+  switchs?: string[]
+  // 是否启用
+  enabled: boolean
+}
+
+// 通知场景开关配置
+export interface NotificationSwitchConf {
+  // 场景名称
+  type: string
+  // 通知范围 all/user/admin
+  action: string
+}
+
+// 存储配置
+export interface StorageConf {
+  // 类型 local/alipan/u115/rclone
+  type: string
+  // 配置
+  config?: { [key: string]: any }
+}
+
+// 媒体服务器配置
+export interface MediaServerConf {
+  // 名称
+  name: string
+  // 类型 emby/jellyfin/plex
+  type: string
+  // 配置
+  config?: { [key: string]: any }
+  // 是否启用
+  enabled: boolean
+  // 同步媒体体库列表
+  sync_libraries?: string[]
+}
+
+// 文件整理目录配置
+export interface TransferDirectoryConf {
+  // 名称
+  name: string
   // 优先级
-  priority?: number
+  priority: number
+  // 存储
+  storage: string
+  // 下载目录
+  download_path?: string
+  // 适用媒体类型
+  media_type?: string
+  // 适用媒体类别
+  media_category?: string
+  // 下载类型子目录
+  download_type_folder?: boolean
+  // 下载类别子目录
+  download_category_folder?: boolean
+  // 监控方式 downloader/monitor，None为不监控
+  monitor_type?: string
+  // 整理方式 move/copy/link/softlink
+  transfer_type?: string
+  // 文件覆盖模式 always/size/never/latest
+  overwrite_mode?: string
+  // 整理到媒体库目录
+  library_path?: string
+  // 媒体库目录存储
+  library_storage?: string
+  // 智能重命名
+  renaming?: boolean
+  // 刮削
+  scraping?: boolean
+  // 媒体库类型子目录
+  library_type_folder?: boolean
+  // 媒体库类别子目录
+  library_category_folder?: boolean
+}
+
+// 自定义规则项
+export interface CustomRule {
+  // 规则ID
+  id: string
+  // 名称
+  name: string
+  // 包含
+  include?: string[]
+  // 排除
+  exclude?: string[]
+  // 大小范围
+  size_range?: string
+  // 最少做种人数
+  seeders?: string
+}
+
+// 过滤规则组
+export interface FilterRuleGroup {
+  // 名称
+  name: string
+  // 规则串
+  rule_string?: string
+  // 适用类媒体类别 None-全部 电影/电视剧
+  media_type?: string
 }
