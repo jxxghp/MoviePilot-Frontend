@@ -22,8 +22,7 @@ async function imageLoaded() {
 
 // 链接打开新窗口
 function openLink() {
-  if (props.message?.link)
-    window.open(props.message.link, '_blank')
+  if (props.message?.link) window.open(props.message.link, '_blank')
 }
 
 // 将note转换为json
@@ -31,8 +30,7 @@ function noteToJson() {
   if (props.message?.note) {
     try {
       return JSON.parse(props.message.note)
-    }
-    catch (error) {
+    } catch (error) {
       console.error(error)
     }
   }
@@ -41,23 +39,14 @@ function noteToJson() {
 
 // 将\n转换为html属性的换行符
 function replaceNewLine(value: string) {
-  if (!value)
-    return ''
+  if (!value) return ''
   return value.replace(/\n/g, '<br/>')
 }
 </script>
 
 <template>
-  <VCard
-    :width="props.width"
-    :height="props.height"
-    variant="tonal"
-    @click="openLink"
-  >
-    <div
-      v-if="props.message?.image"
-      class="relative text-center card-cover-blurred"
-    >
+  <div :width="props.width" :height="props.height" @click="openLink">
+    <div v-if="props.message?.image" class="relative text-center card-cover-blurred">
       <VImg
         :src="props.message?.image"
         aspect-ratio="4/3"
@@ -70,25 +59,16 @@ function replaceNewLine(value: string) {
     <VCardTitle v-if="props.message?.title" class="whitespace-break-spaces">
       {{ props.message?.title }}
     </VCardTitle>
-    <VAlert
+    <div
       v-if="props.message?.text && props.message?.action === 0"
-      variant="tonal"
-      type="success"
+      class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
     >
-      <template #prepend />
-      {{ props.message?.text }}
-    </VAlert>
-    <VCardText
-      v-if="props.message?.text && props.message?.action === 1"
-      v-html="replaceNewLine(props.message?.text)"
-    />
+      <p class="mb-0">{{ props.message?.text }}</p>
+    </div>
+    <VCardText v-if="props.message?.text && props.message?.action === 1" v-html="replaceNewLine(props.message?.text)" />
     <VCardText v-if="props.message?.note">
       <VList>
-        <VListItem
-          v-for="(value, key) in noteToJson()"
-          :key="key"
-          two-line
-        >
+        <VListItem v-for="(value, key) in noteToJson()" :key="key" two-line>
           <VListItemTitle v-if="value.title_year" class="font-bold">
             {{ key + 1 }}. {{ value.title_year }}
           </VListItemTitle>
@@ -104,9 +84,11 @@ function replaceNewLine(value: string) {
         </VListItem>
       </VList>
     </VCardText>
-    <div class="text-end">
-      <span v-if="props.message?.action === 0" class="text-sm italic me-2">{{ props.message?.userid }}</span>
-      <span class="text-sm italic me-2">{{ formatDateDifference(props.message?.reg_time || props.message?.date || '') }}</span>
-    </div>
-  </VCard>
+  </div>
+  <div class="text-end">
+    <span v-if="props.message?.action === 0" class="text-sm italic me-2">{{ props.message?.userid }}</span>
+    <span class="text-sm italic me-2">{{
+      formatDateDifference(props.message?.reg_time || props.message?.date || '')
+    }}</span>
+  </div>
 </template>

@@ -206,6 +206,7 @@ onMounted(() => {
   <VDialog v-if="netTestDialog" v-model="netTestDialog" max-width="35rem" max-height="85vh" scrollable>
     <VCard title="网络测试">
       <DialogCloseBtn @click="netTestDialog = false" />
+      <VDivider />
       <VCardText>
         <NetTestView />
       </VCardText>
@@ -234,6 +235,7 @@ onMounted(() => {
           </a>
         </VCardTitle>
       </VCardItem>
+      <VDivider />
       <VCardText>
         <LoggingView />
       </VCardText>
@@ -252,6 +254,7 @@ onMounted(() => {
   <VDialog v-if="systemTestDialog" v-model="systemTestDialog" max-width="35rem" max-height="85vh" scrollable>
     <VCard title="系统健康检查">
       <DialogCloseBtn @click="systemTestDialog = false" />
+      <VDivider />
       <VCardText>
         <ModuleTestView />
       </VCardText>
@@ -267,23 +270,20 @@ onMounted(() => {
   >
     <VCard title="消息中心">
       <DialogCloseBtn @click="messageDialog = false" />
+      <VDivider />
       <VCardText ref="chatContainer">
         <MessageView @scroll="scrollMessageToEnd" />
       </VCardText>
-
       <VCardItem>
         <VTextField
           v-model="user_message"
+          variant="solo"
           placeholder="输入消息或命令"
-          outlined
-          hide-details
-          single-line
           clearable
-          density="compact"
           :disabled="sendButtonDisabled"
           @keydown.enter="sendMessage"
         >
-          <template #append>
+          <template #append-inner>
             <VBtn color="primary" :disabled="sendButtonDisabled" @click="sendMessage"> 发送 </VBtn>
           </template>
         </VTextField>

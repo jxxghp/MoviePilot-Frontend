@@ -31,16 +31,13 @@ let eventSource: EventSource | null = null
 function startSSEMessager() {
   const token = store.state.auth.token
   if (token) {
-    eventSource = new EventSource(
-      `${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}&role=user`,
-    )
+    eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}&role=user`)
 
-    eventSource.addEventListener('message', (event) => {
+    eventSource.addEventListener('message', event => {
       const message = event.data
       if (message) {
         const object = JSON.parse(message)
-        if (compareTime(object.date, lastTime.value) <= 0)
-          return
+        if (compareTime(object.date, lastTime.value) <= 0) return
         messages.value.push(object)
         emit('scroll')
       }
@@ -79,8 +76,7 @@ async function loadMessages({ done }: { done: any }) {
       page.value++
       // 完成
       done('ok')
-    }
-    else {
+    } else {
       // 没有新数据
       done('empty')
     }
@@ -88,24 +84,20 @@ async function loadMessages({ done }: { done: any }) {
     loading.value = false
     // 监听SSE消息
     startSSEMessager()
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 
 // 比较yyyy-MM-dd HH:mm:ss时间大小
 function compareTime(time1: string, time2: string) {
-  if (!time1)
-    return -1
-  if (!time2)
-    return 1
+  if (!time1) return -1
+  if (!time2) return 1
   return new Date(time1.replaceAll(/-/g, '/')).getTime() - new Date(time2.replaceAll(/-/g, '/')).getTime()
 }
 
 onBeforeUnmount(() => {
-  if (eventSource)
-    eventSource.close()
+  if (eventSource) eventSource.close()
 })
 </script>
 
@@ -121,35 +113,18 @@ onBeforeUnmount(() => {
     <template #loading>
       <LoadingBanner />
     </template>
-    <template #empty>
-      没有更多数据
-    </template>
+    <template #empty> 没有更多数据 </template>
     <div>
-      <VRow
+      <div
         v-for="(msg, index) in messages"
         :key="index"
-        :class="{
-          'justify-end': msg.action === 0,
-          'justify-start': msg.action === 1,
-        }"
+        class="chat-group d-flex mb-8"
+        :class="msg.action == 1 ? 'flex-row align-start' : 'flex-row-reverse align-end'"
       >
-        <VCol
-          cols="10"
-          lg="6"
-          xl="4"
-          style="position: relative;"
-        >
-          <MessageCard
-            :message="msg"
-          />
-        </VCol>
-      </VRow>
-    </div>
-    <div
-      v-if="messages.length === 0 && isLoaded && !loading"
-      class="w-full text-center flex flex-col items-center"
-    >
-      <span class="mb-3">当前没有消息</span>
+        <div class="d-inline-flex flex-column" :class="msg.action == 1 ? 'align-start' : 'align-end'">
+          <MessageCard :message="msg" />
+        </div>
+      </div>
     </div>
   </VInfiniteScroll>
 </template>

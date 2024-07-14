@@ -82,7 +82,14 @@ onBeforeUnmount(() => {
   <div v-else>
     <VTable class="table-rounded" hide-default-footer disable-sort>
       <tbody>
-        <VDataTableVirtual :headers="headers" :items="extractLogDetails" height="100%" density="compact" hover>
+        <VDataTableVirtual
+          :headers="headers"
+          :items="extractLogDetails"
+          height="100%"
+          density="compact"
+          hover
+          hide-default-header
+        >
           <template #item.level="{ item }">
             <VChip size="small" :color="getLogColor(item.level)" variant="elevated" v-text="item.level" />
           </template>
