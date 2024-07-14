@@ -149,7 +149,7 @@ const dropdownItems = ref([
 </script>
 
 <template>
-  <VCard :width="props.width" :height="props.height" @click="installPlugin">
+  <VCard :width="props.width" :height="props.height" @click="installPlugin" class="flex flex-col">
     <div class="me-n3 absolute bottom-0 right-3">
       <IconBtn>
         <VIcon icon="mdi-dots-vertical" />
@@ -171,7 +171,7 @@ const dropdownItems = ref([
         </VMenu>
       </IconBtn>
     </div>
-    <div class="flex flex-row items-center pa-3 justify-between" :style="{ background: `${backgroundColor}` }">
+    <div class="flex flex-row items-start pa-3 justify-between grow" :style="{ background: `${backgroundColor}` }">
       <div class="flex-1 min-w-0">
         <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
           {{ props.plugin?.plugin_name }}
@@ -179,7 +179,7 @@ const dropdownItems = ref([
         </VCardTitle>
         <VCardText class="text-white px-2">{{ props.plugin?.plugin_desc }}</VCardText>
       </div>
-      <div class="flex-shrink-0">
+      <div class="flex-shrink-0 self-center">
         <VAvatar size="64">
           <VImg
             ref="imageRef"
@@ -193,7 +193,7 @@ const dropdownItems = ref([
         </VAvatar>
       </div>
     </div>
-    <VCardText class="flex align-self-baseline py-3 w-full align-end">
+    <VCardText class="flex flex-none align-self-baseline py-3 w-full align-end">
       <span>
         <VIcon icon="mdi-github" class="me-1" />
         <a :href="props.plugin?.author_url" target="_blank" @click.stop>
