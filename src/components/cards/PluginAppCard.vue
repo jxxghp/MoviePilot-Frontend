@@ -177,7 +177,7 @@ const dropdownItems = ref([
           {{ props.plugin?.plugin_name }}
           <span class="text-sm text-gray-200">v{{ props.plugin?.plugin_version }}</span>
         </VCardTitle>
-        <VCardText class="text-white px-2 text-shadow">{{ props.plugin?.plugin_desc }}</VCardText>
+        <VCardText class="text-white px-2 py-1 text-shadow line-clamp-3">{{ props.plugin?.plugin_desc }}</VCardText>
       </div>
       <div class="flex-shrink-0 self-center">
         <VAvatar size="64">
