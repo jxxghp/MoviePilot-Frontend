@@ -435,7 +435,7 @@ watch(
     </div>
     <VCardText class="flex align-self-baseline py-3 w-full align-end">
       <span>
-        <VIcon icon="mdi-account" class="me-1" />
+        <VIcon icon="mdi-github" class="me-1" />
         <a :href="props.plugin?.author_url" target="_blank" @click.stop>
           {{ props.plugin?.plugin_author }}
         </a>
