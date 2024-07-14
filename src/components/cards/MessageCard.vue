@@ -31,7 +31,7 @@ function noteToJson() {
     try {
       return JSON.parse(props.message.note)
     } catch (error) {
-      console.error(error)
+      return props.message.note
     }
   }
   return {}
@@ -45,7 +45,7 @@ function replaceNewLine(value: string) {
 </script>
 
 <template>
-  <div :width="props.width" :height="props.height" @click="openLink">
+  <VCard variant="tonal" :width="props.width" :height="props.height" @click="openLink">
     <div v-if="props.message?.image" class="relative text-center card-cover-blurred">
       <VImg
         :src="props.message?.image"
@@ -56,9 +56,12 @@ function replaceNewLine(value: string) {
         @error="imageLoadError = true"
       />
     </div>
-    <VCardTitle v-if="props.message?.title" class="whitespace-break-spaces">
-      {{ props.message?.title }}
-    </VCardTitle>
+    <div
+      v-if="props.message?.title"
+      class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
+    >
+      <p class="mb-0">{{ props.message?.title }}</p>
+    </div>
     <div
       v-if="props.message?.text && props.message?.action === 0"
       class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
@@ -84,7 +87,7 @@ function replaceNewLine(value: string) {
         </VListItem>
       </VList>
     </VCardText>
-  </div>
+  </VCard>
   <div class="text-end">
     <span v-if="props.message?.action === 0" class="text-sm italic me-2">{{ props.message?.userid }}</span>
     <span class="text-sm italic me-2">{{
