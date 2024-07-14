@@ -78,11 +78,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="logs.length === 0" class="mt-5 w-full text-center flex flex-col items-center">
-    <VProgressCircular size="48" indeterminate color="primary" />
-    <span class="mt-3">正在刷新 ...</span>
-  </div>
-  <div>
+  <LoadingBanner v-if="logs.length === 0" class="mt-12" text="正在刷新 ..." />
+  <div v-else>
     <VTable class="table-rounded" hide-default-footer disable-sort>
       <tbody>
         <VDataTableVirtual :headers="headers" :items="extractLogDetails" height="100%" density="compact" hover>
