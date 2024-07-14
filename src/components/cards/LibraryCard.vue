@@ -171,9 +171,3 @@ onMounted(async () => {
     </template>
   </VHover>
 </template>
-
-<style lang="scss">
-.text-shadow {
-  text-shadow: 1px 1px #777;
-}
-</style>

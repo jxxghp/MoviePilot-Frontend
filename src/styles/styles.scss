@@ -156,7 +156,7 @@
 }
 
 .grid-plugin-card {
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
   padding-block-end: 1rem;
 }
 
@@ -218,4 +218,18 @@
     backdrop-filter: none;
     background-color: transparent !important;
   }
+}
+
+.text-shadow {
+  text-shadow: 1px 1px #777;
+}
+
+.card-cover-blurred::before {
+  position: absolute;
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  background: rgba(29, 39, 59, 48%);
+  content: '';
+  inset: 0;
 }
