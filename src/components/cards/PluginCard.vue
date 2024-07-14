@@ -415,7 +415,7 @@ watch(
           {{ props.plugin?.plugin_name }}
           <span class="text-sm mt-1 text-gray-200">v{{ props.plugin?.plugin_version }}</span>
         </VCardTitle>
-        <VCardText class="px-2 text-white">
+        <VCardText class="px-2 text-white text-shadow">
           {{ props.plugin?.plugin_desc }}
         </VCardText>
       </div>
