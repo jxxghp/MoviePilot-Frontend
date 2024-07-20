@@ -885,6 +885,8 @@ export interface NotificationSwitchConf {
 
 // 存储配置
 export interface StorageConf {
+  // 名称
+  name: string
   // 类型 local/alipan/u115/rclone
   type: string
   // 配置
