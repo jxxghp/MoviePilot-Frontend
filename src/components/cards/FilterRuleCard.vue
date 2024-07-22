@@ -21,6 +21,14 @@ function filtersChanged(value: string[]) {
   emit('changed', props.pri, value)
 }
 
+// 清洗规则中的换行符和多余空格，并在前后添加空格
+const cleanedRules = computed(() => {
+  return props.rules.map(rule => {
+    rule = rule ?? ''
+    return ` ${rule.replace(/[\r\n]/g, '').replace(/\s+/g, '')} `
+  })
+})
+
 // 过滤规则下拉框
 const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '特效字幕', value: ' SPECSUB ' },
@@ -77,7 +85,7 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
       <VRow>
         <VCol>
           <VSelect
-            v-model="props.rules"
+            v-model="cleanedRules"
             variant="underlined"
             :items="selectFilterOptions"
             chips
