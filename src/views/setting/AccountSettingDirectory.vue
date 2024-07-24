@@ -63,6 +63,13 @@ async function loadDirectories() {
 // 保存目录
 async function saveDirectories() {
   orderDirectoryCards()
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/Directories', directories.value)
+    if (result.success) $toast.success('目录设置保存成功')
+    else $toast.error('目录设置保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 // 添加媒体库目录
