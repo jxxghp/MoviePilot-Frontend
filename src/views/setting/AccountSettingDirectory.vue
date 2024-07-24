@@ -51,7 +51,14 @@ async function saveStorages() {
 }
 
 // 查询目录
-async function loadDirectories() {}
+async function loadDirectories() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Directories')
+    directories.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 保存目录
 async function saveDirectories() {
@@ -59,7 +66,15 @@ async function saveDirectories() {
 }
 
 // 添加媒体库目录
-function addDirectory() {}
+function addDirectory() {
+  directories.value.push({
+    name: '新目录',
+    storage: 'local',
+    download_path: '',
+    priority: -1,
+    monitor_type: '',
+  })
+}
 
 // 调用API查询自动分类配置
 async function loadMediaCategories() {
@@ -117,11 +132,10 @@ onMounted(() => {
             item-key="pri"
             tag="div"
             @end="orderDirectoryCards"
-            :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
+            :component-data="{ 'class': 'grid gap-3 grid-directory-card items-start' }"
           >
             <template #item="{ element }">
               <DirectoryCard
-                type="library"
                 :directory="element"
                 :categories="mediaCategories"
                 @update:modelValue="(value: string) => (element.path = value)"

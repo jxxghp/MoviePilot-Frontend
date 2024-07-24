@@ -4,6 +4,7 @@ import { formatBytes } from '@core/utils/formatters'
 import storage_png from '@images/misc/storage.png'
 import alipan_png from '@images/misc/alipan.webp'
 import u115_png from '@images/misc/u115.png'
+import rclone_png from '@images/misc/rclone.png'
 
 // 定义输入
 const props = defineProps({
@@ -28,6 +29,8 @@ const getIcon = computed(() => {
       return alipan_png
     case 'u115':
       return u115_png
+    case 'rclone':
+      return rclone_png
     default:
       return storage_png
   }
@@ -48,7 +51,7 @@ const usage = computed(() => {
           <h4 class="text-h4">{{ formatBytes(available) }}</h4>
         </div>
       </div>
-      <VImg :src="getIcon" cover class="m-3" />
+      <VImg :src="getIcon" cover class="m-3" max-width="6rem" />
     </VCardText>
   </VCard>
 </template>
