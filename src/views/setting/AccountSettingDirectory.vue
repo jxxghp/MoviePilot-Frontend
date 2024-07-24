@@ -6,6 +6,7 @@ import { VRow } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
 import { TransferDirectoryConf, StorageConf } from '@/api/types'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
+import StorageCard from '@/components/cards/StorageCard.vue'
 
 // 所有下载目录
 const directories = ref<TransferDirectoryConf[]>([])
@@ -28,12 +29,26 @@ function orderDirectoryCards() {
 }
 
 // 查询存储
-async function loadStorages() {}
+async function loadStorages() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Storages')
+
+    storages.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 保存存储
-async function saveStorages() {}
-// 添加存储
-function addStorage() {}
+async function saveStorages() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/Storages', storages.value)
+    if (result.success) $toast.success('存储设置保存成功')
+    else $toast.error('存储设置保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 查询目录
 async function loadDirectories() {}
@@ -69,7 +84,7 @@ onMounted(() => {
       <VCard>
         <VCardItem>
           <VCardTitle>存储</VCardTitle>
-          <VCardSubtitle>设置本地或网盘存储参数。</VCardSubtitle>
+          <VCardSubtitle>设置本地或网盘存储。</VCardSubtitle>
         </VCardItem>
         <VCardText>
           <draggable
@@ -80,15 +95,12 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <StorageCard type="download" :storage="element" />
+              <StorageCard :storage="element" />
             </template>
           </draggable>
         </VCardText>
         <VCardText>
           <VBtn type="submit" class="me-2" @click="saveStorages"> 保存 </VBtn>
-          <VBtn color="success" variant="tonal" @click="addStorage">
-            <VIcon icon="mdi-plus" />
-          </VBtn>
         </VCardText>
       </VCard>
     </VCol>
