@@ -62,7 +62,14 @@ async function saveSystemSetting() {
 }
 
 // 添加下载器
-function addDownloader() {}
+function addDownloader() {
+  downloaders.value.push({
+    name: '新下载器',
+    type: 'qbittorrent',
+    default: false,
+    enabled: false,
+  })
+}
 
 // 添加媒体服务器
 function addMediaServer() {}
