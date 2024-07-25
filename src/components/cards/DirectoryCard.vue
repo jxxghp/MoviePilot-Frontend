@@ -153,6 +153,7 @@ const getCategories = computed(() => {
             <VSwitch v-model="props.directory.download_category_folder" label="按类别分类"></VSwitch>
           </VCol>
         </VRow>
+        <VDivider v-if="$props.directory.monitor_type" class="my-3 bg-primary" />
         <VRow>
           <VCol>
             <VSelect
@@ -163,7 +164,6 @@ const getCategories = computed(() => {
             />
           </VCol>
         </VRow>
-        <VDivider v-if="$props.directory.monitor_type" class="my-3 bg-primary" />
         <VRow v-if="$props.directory.monitor_type">
           <VCol cols="4">
             <VSelect

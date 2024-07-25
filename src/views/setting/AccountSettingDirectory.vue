@@ -75,12 +75,21 @@ async function saveDirectories() {
 // 添加媒体库目录
 function addDirectory() {
   directories.value.push({
-    name: '新目录',
+    name: `目录${directories.value.length + 1}`,
     storage: 'local',
     download_path: '',
     priority: -1,
     monitor_type: '',
   })
+  orderDirectoryCards()
+}
+
+// 移除媒体库目录
+function removeDirectory(directory: TransferDirectoryConf) {
+  const index = directories.value.indexOf(directory)
+  if (index > -1) {
+    directories.value.splice(index, 1)
+  }
 }
 
 // 调用API查询自动分类配置
@@ -145,7 +154,8 @@ onMounted(() => {
               <DirectoryCard
                 :directory="element"
                 :categories="mediaCategories"
-                @update:modelValue="(value: string) => (element.path = value)"
+                @update:modelValue="(value: any) => {element.download_path = value?.download; element.library_path = value?.library}"
+                @close="removeDirectory(element)"
               />
             </template>
           </draggable>
