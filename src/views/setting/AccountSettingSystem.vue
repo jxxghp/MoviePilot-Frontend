@@ -101,6 +101,12 @@ function addDownloader(downloader: string) {
   })
 }
 
+// 删除下载器
+function removeDownloader(ele: DownloaderConf) {
+  const index = downloaders.value.indexOf(ele)
+  downloaders.value.splice(index, 1)
+}
+
 // 添加媒体服务器
 function addMediaServer(mediaserver: string) {
   mediaServers.value.push({
@@ -108,6 +114,12 @@ function addMediaServer(mediaserver: string) {
     type: mediaserver,
     enabled: false,
   })
+}
+
+// 删除媒体服务器
+function removeMediaServer(ele: MediaServerConf) {
+  const index = mediaServers.value.indexOf(ele)
+  mediaServers.value.splice(index, 1)
 }
 
 // 加载数据
@@ -164,7 +176,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <DownloaderCard :downloader="element" />
+              <DownloaderCard :downloader="element" @close="removeDownloader(element)" />
             </template>
           </draggable>
         </VCardText>
@@ -207,7 +219,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <MediaServerCard :mediaserver="element" />
+              <MediaServerCard :mediaserver="element" @close="removeMediaServer(element)" />
             </template>
           </draggable>
         </VCardText>

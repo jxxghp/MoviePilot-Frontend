@@ -34,15 +34,24 @@ const getIcon = computed(() => {
       return qbittorrent_image
   }
 })
+
+// 定义触发的自定义事件
+const emit = defineEmits(['close'])
+
+// 按钮点击
+function onClose() {
+  emit('close')
+}
 </script>
 <template>
   <VCard variant="tonal">
+    <DialogCloseBtn @click="onClose" />
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start">
-        <h5 class="text-h5 mb-1">{{ downloader.name }}</h5>
+        <h5 class="text-h6 mb-1">{{ downloader.name }}</h5>
         <div class="text-body-1 mb-3">{{ getSpeedText }}</div>
       </div>
-      <VImg :src="getIcon" cover class="m-3" max-width="6rem" />
+      <VImg :src="getIcon" cover class="mt-5 me-7" max-width="4rem" />
     </VCardText>
   </VCard>
 </template>

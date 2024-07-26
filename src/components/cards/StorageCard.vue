@@ -45,13 +45,13 @@ const usage = computed(() => {
   <VCard variant="tonal">
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start">
-        <h5 class="text-h5 mb-1">{{ storage.name }}</h5>
+        <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
         <div class="text-body-1 mb-3">空间使用率 {{ usage }}%</div>
         <div v-if="available" class="d-flex align-center flex-wrap">
           <h4 class="text-h4">{{ formatBytes(available) }}</h4>
         </div>
       </div>
-      <VImg :src="getIcon" cover class="m-3" max-width="6rem" />
+      <VImg :src="getIcon" cover class="mt-5 me-7" max-width="4rem" />
     </VCardText>
   </VCard>
 </template>

@@ -20,6 +20,12 @@ function addNotification(notification: string) {
   })
 }
 
+// 移除媒体服务器
+function removeNotification(notification: NotificationConf) {
+  const index = notifications.value.indexOf(notification)
+  if (index > -1) notifications.value.splice(index, 1)
+}
+
 // 调用API查询通知设置
 async function loadNotificationSetting() {
   try {
@@ -64,7 +70,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <NotificationChannelCard :notification="element" />
+              <NotificationChannelCard :notification="element" @close="removeNotification(element)" />
             </template>
           </draggable>
         </VCardText>
