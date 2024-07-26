@@ -745,6 +745,8 @@ export interface EndPoints {
 
 // 文件浏览项目
 export interface FileItem {
+  // 存储
+  storage: string
   // 类型 dir/file
   type: string
   // 文件名

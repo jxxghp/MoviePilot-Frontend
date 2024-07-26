@@ -1,32 +1,32 @@
 <script lang="ts" setup>
 import api from '@/api'
-import { FileItem, MediaDirectory } from '@/api/types'
+import { FileItem, TransferDirectoryConf } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
 import store from '@/store'
 
 const endpoints = {
   list: {
-    url: '/{storage}/list?sort={sort}',
+    url: '/storage/list?sort={sort}',
     method: 'post',
   },
   mkdir: {
-    url: '/{storage}/mkdir?name={name}',
+    url: '/storage/mkdir?name={name}',
     method: 'post',
   },
   delete: {
-    url: '/{storage}/delete',
+    url: '/storage/delete',
     method: 'post',
   },
   download: {
-    url: '/{storage}/download',
-    method: 'get',
+    url: '/storage/download',
+    method: 'post',
   },
   image: {
-    url: '/{storage}/image',
-    method: 'get',
+    url: '/storage/image',
+    method: 'post',
   },
   rename: {
-    url: '/{storage}/rename?new_name={newname}',
+    url: '/storage/rename?new_name={newname}',
     method: 'post',
   },
 }
@@ -38,6 +38,7 @@ const userStorage = user_level > 1 ? 'local,aliyun,u115' : 'local'
 
 // 当前文件项
 const operItem = ref<FileItem>({
+  storage: 'local',
   type: 'dir',
   name: '/',
   path: '/',
@@ -47,6 +48,7 @@ const operItem = ref<FileItem>({
 // fileid的堆栈
 const itemstack = ref<FileItem[]>([
   {
+    storage: 'local',
     type: 'dir',
     name: '/',
     path: '/',
@@ -55,7 +57,7 @@ const itemstack = ref<FileItem[]>([
 ])
 
 // 下载目录列表
-const downloadDirectories = ref<MediaDirectory[]>([])
+const downloadDirectories = ref<TransferDirectoryConf[]>([])
 
 // 计算公共路径
 function findCommonPath(paths: string[]): string {
@@ -94,12 +96,13 @@ function findCommonPath(paths: string[]): string {
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/DownloadDirectories')
+    const result: { [key: string]: any } = await api.get('system/setting/Directories')
     if (result.success && result.data?.value) {
       downloadDirectories.value = result.data.value
-      const path = findCommonPath(downloadDirectories.value.map(item => item.path) as string[])
+      const path = findCommonPath(downloadDirectories.value.map(item => item.download_path) as string[])
       const name = path.split('/').filter(Boolean).pop() ?? ''
       operItem.value = {
+        storage: 'local',
         type: 'dir',
         name: name,
         path: path,
@@ -109,6 +112,7 @@ async function loadDownloadDirectories() {
       paths.map((name, index) => {
         const path = '/' + paths.slice(0, index + 1).join('/') + '/'
         itemstack.value.push({
+          storage: 'local',
           type: 'dir',
           name: name,
           path: path,

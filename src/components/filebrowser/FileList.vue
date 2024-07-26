@@ -139,9 +139,7 @@ async function list_files() {
   emit('loading', true)
 
   // 参数
-  const url = inProps.endpoints?.list.url
-    .replace(/{storage}/g, inProps.storage)
-    .replace(/{sort}/g, inProps.sort || 'name')
+  const url = inProps.endpoints?.list.url.replace(/{sort}/g, inProps.sort || 'name')
 
   const config: AxiosRequestConfig<FileItem> = {
     url,
@@ -169,7 +167,7 @@ async function deleteItem(item: FileItem, confirm: boolean = true) {
   emit('loading', true)
 
   // 请求API
-  const url = inProps.endpoints?.delete.url.replace(/{storage}/g, inProps.storage)
+  const url = inProps.endpoints?.delete.url
   const config: AxiosRequestConfig<FileItem> = {
     url,
     method: inProps.endpoints?.delete.method || 'post',
@@ -234,7 +232,7 @@ function listItemClick(item: FileItem) {
 
 // 新窗口中下载文件
 async function download(item: FileItem) {
-  const url = inProps.endpoints?.download.url.replace(/{storage}/g, inProps.storage)
+  const url = inProps.endpoints?.download.url
   const filterEntries = Object.entries(item).filter(([key, value]) => !['children', 'thumbnail'].includes(key) && value)
   const queryParams = filterEntries.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&')
   window.open(
@@ -245,7 +243,7 @@ async function download(item: FileItem) {
 
 // 获取图片地址
 function getImgLink(item: FileItem) {
-  let url = inProps.endpoints?.image.url.replace(/{storage}/g, inProps.storage)
+  let url = inProps.endpoints?.image.url
   const filterEntries = Object.entries(item).filter(([key, value]) => !['children', 'thumbnail'].includes(key) && value)
   const queryParams = filterEntries.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&')
   return `${import.meta.env.VITE_API_BASE_URL}${url.slice(1)}?${queryParams}&token=${store.state.auth.token}`
@@ -300,9 +298,7 @@ async function rename() {
   }
 
   // 调API
-  let url = inProps.endpoints?.rename.url
-    .replace(/{storage}/g, inProps.storage)
-    .replace(/{newname}/g, encodeURIComponent(newName.value))
+  let url = inProps.endpoints?.rename.url.replace(/{newname}/g, encodeURIComponent(newName.value))
   if (renameAll.value) {
     url += '&recursive=true'
   }

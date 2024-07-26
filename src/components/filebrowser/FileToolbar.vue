@@ -88,9 +88,7 @@ function goUp() {
 // 创建目录
 async function mkdir() {
   emit('loading', true)
-  const url = inProps.endpoints?.mkdir.url
-    .replace(/{storage}/g, inProps.storage)
-    .replace(/{name}/g, newFolderName.value)
+  const url = inProps.endpoints?.mkdir.url.replace(/{name}/g, newFolderName.value)
 
   const config: AxiosRequestConfig<FileItem> = {
     url,
