@@ -23,16 +23,46 @@ const downloaders = ref<DownloaderConf[]>([])
 const $toast = useToast()
 
 // 调用API查询下载器设置
-async function loadDownloaderSetting() {}
+async function loadDownloaderSetting() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Downloaders')
+    downloaders.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 调用API保存下载器设置
-async function saveDownloaderSetting() {}
+async function saveDownloaderSetting() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/Downloaders', downloaders.value)
+    if (result.success) $toast.success('下载器设置保存成功')
+    else $toast.error('下载器设置保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 调用API查询媒体服务器设置
-async function loadMediaServerSetting() {}
+async function loadMediaServerSetting() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
+    mediaServers.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 调用API保存媒体服务器设置
-async function saveMediaServerSetting() {}
+async function saveMediaServerSetting() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/MediaServers', mediaServers.value)
+    if (result.success) $toast.success('媒体服务器设置保存成功')
+    else $toast.error('媒体服务器设置保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 加载系统设置
 async function loadSystemSettings() {
@@ -62,17 +92,23 @@ async function saveSystemSetting() {
 }
 
 // 添加下载器
-function addDownloader() {
+function addDownloader(downloader: string) {
   downloaders.value.push({
-    name: '新下载器',
-    type: 'qbittorrent',
+    name: `下载器${downloaders.value.length + 1}`,
+    type: downloader,
     default: false,
     enabled: false,
   })
 }
 
 // 添加媒体服务器
-function addMediaServer() {}
+function addMediaServer(mediaserver: string) {
+  mediaServers.value.push({
+    name: `服务器${mediaServers.value.length + 1}`,
+    type: mediaserver,
+    enabled: false,
+  })
+}
 
 // 加载数据
 onMounted(() => {
@@ -136,8 +172,18 @@ onMounted(() => {
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn mtype="submit" @click="saveDownloaderSetting"> 保存 </VBtn>
-              <VBtn color="success" variant="tonal" @click="addDownloader">
+              <VBtn color="success" variant="tonal">
                 <VIcon icon="mdi-plus" />
+                <VMenu activator="parent" close-on-content-click>
+                  <VList>
+                    <VListItem variant="plain" @click="addDownloader('qbittottent')">
+                      <VListItemTitle>Qbittorrent</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addDownloader('transmission')">
+                      <VListItemTitle>Transmission</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </VBtn>
             </div>
           </VForm>
@@ -161,7 +207,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <MediaServerCard :downloader="element" />
+              <MediaServerCard :mediaserver="element" />
             </template>
           </draggable>
         </VCardText>
@@ -169,8 +215,21 @@ onMounted(() => {
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn mtype="submit" @click="saveMediaServerSetting"> 保存 </VBtn>
-              <VBtn color="success" variant="tonal" @click="addMediaServer">
+              <VBtn color="success" variant="tonal">
                 <VIcon icon="mdi-plus" />
+                <VMenu activator="parent" close-on-content-click>
+                  <VList>
+                    <VListItem variant="plain" @click="addMediaServer('emby')">
+                      <VListItemTitle>Emby</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addMediaServer('jellyfin')">
+                      <VListItemTitle>Jellyfin</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addMediaServer('plex')">
+                      <VListItemTitle>Plex</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </VBtn>
             </div>
           </VForm>

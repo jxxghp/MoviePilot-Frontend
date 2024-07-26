@@ -8,39 +8,43 @@ import NotificationChannelCard from '@/components/cards/NotificationChannelCard.
 // 所有消息渠道
 const notifications = ref<NotificationConf[]>([])
 
-// 消息渠道
-const NotificationChannels = [
-  {
-    title: '微信',
-    value: 'wechat',
-  },
-  {
-    title: 'Telegram',
-    value: 'telegram',
-  },
-  {
-    title: 'Slack',
-    value: 'slack',
-  },
-  {
-    title: 'SynologyChat',
-    value: 'synologychat',
-  },
-  {
-    title: 'VoceChat',
-    value: 'vocechat',
-  },
-  {
-    title: 'WebPush',
-    value: 'webpush',
-  },
-]
-
 // 提示框
 const $toast = useToast()
 
+// 添加媒体服务器
+function addNotification(notification: string) {
+  notifications.value.push({
+    name: `通知${notifications.value.length + 1}`,
+    type: notification,
+    enabled: false,
+  })
+}
+
+// 调用API查询通知设置
+async function loadNotificationSetting() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Notifications')
+    notifications.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 调用API保存通知设置
+async function saveNotificationSetting() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/Notifications', notifications.value)
+    if (result.success) $toast.success('通知设置保存成功')
+    else $toast.error('通知设置保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 加载数据
-onMounted(() => {})
+onMounted(() => {
+  loadNotificationSetting()
+})
 </script>
 
 <template>
@@ -60,16 +64,38 @@ onMounted(() => {})
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <NotificationChannelCard notification="element" />
+              <NotificationChannelCard :notification="element" />
             </template>
           </draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
-              <VBtn mtype="submit" @click=""> 保存 </VBtn>
+              <VBtn mtype="submit" @click="saveNotificationSetting"> 保存 </VBtn>
               <VBtn color="success" variant="tonal" @click="">
                 <VIcon icon="mdi-plus" />
+                <VMenu activator="parent" close-on-content-click>
+                  <VList>
+                    <VListItem variant="plain" @click="addNotification('wechat')">
+                      <VListItemTitle>微信</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addNotification('telegram')">
+                      <VListItemTitle>Telegram</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addNotification('slack')">
+                      <VListItemTitle>Slack</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addNotification('synologychat')">
+                      <VListItemTitle>SynologyChat</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addNotification('vocechat')">
+                      <VListItemTitle>VoceChat</VListItemTitle>
+                    </VListItem>
+                    <VListItem variant="plain" @click="addNotification('webpush')">
+                      <VListItemTitle>WebPush</VListItemTitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </VBtn>
             </div>
           </VForm>
