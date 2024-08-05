@@ -26,17 +26,78 @@ const TorrentPriorityItems = [
   { title: '做种数优先', value: 'seeder' },
 ]
 
+// 加载自定义规则
+async function queryCustomRules() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/CustomFilterRules')
+    customRules.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 保存自定义规则
-function saveCustomRules() {}
+async function saveCustomRules() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/CustomFilterRules', customRules.value)
+    if (result.success) $toast.success('自定义规则保存成功')
+    else $toast.error('自定义规则保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 添加自定义规则
-function addCustomRule() {}
+function addCustomRule() {
+  customRules.value.push({
+    id: `RULE${customRules.value.length + 1}`,
+    name: `规则${customRules.value.length + 1}`,
+    include: '',
+    exclude: '',
+  })
+}
+
+// 移除自定义规则
+function removeCustomRule(rule: CustomRule) {
+  const index = customRules.value.findIndex(item => item.id === rule.id)
+  if (index !== -1) customRules.value.splice(index, 1)
+}
+
+// 加载规则组
+async function queryFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 保存规则组
-function saveFilterRuleGroups() {}
+async function saveFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.post('system/setting/UserFilterRuleGroups', filterRuleGroups.value)
+    if (result.success) $toast.success('优先级规则组保存成功')
+    else $toast.error('优先级规则组保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 添加规则组
-function addFilterRuleGroup() {}
+function addFilterRuleGroup() {
+  filterRuleGroups.value.push({
+    name: `规则组${filterRuleGroups.value.length + 1}`,
+    rule_string: '',
+    media_type: '',
+  })
+}
+
+// 移除规则组
+function removeFilterRuleGroup(rule: FilterRuleGroup) {
+  const index = filterRuleGroups.value.findIndex(item => item.name === rule.name)
+  if (index !== -1) filterRuleGroups.value.splice(index, 1)
+}
 
 // 查询种子优先规则
 async function queryTorrentPriority() {
@@ -67,6 +128,8 @@ async function saveTorrentPriority() {
 
 // 加载数据
 onMounted(() => {
+  queryCustomRules()
+  queryFilterRuleGroups()
   queryTorrentPriority()
 })
 </script>
@@ -88,7 +151,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
           >
             <template #item="{ element }">
-              <CustomerRuleCard :rule="element" />
+              <CustomerRuleCard :rule="element" @close="removeCustomRule(element)" />
             </template>
           </draggable>
         </VCardText>
@@ -115,7 +178,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
           >
             <template #item="{ element }">
-              <FilterRuleGroupCard type="library" :filterrule="element" />
+              <FilterRuleGroupCard :filterrule="element" @close="removeFilterRuleGroup(element)" />
             </template>
           </draggable>
         </VCardText>

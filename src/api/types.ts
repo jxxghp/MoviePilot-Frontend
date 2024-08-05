@@ -954,13 +954,15 @@ export interface CustomRule {
   // 名称
   name: string
   // 包含
-  include?: string[]
+  include?: string
   // 排除
-  exclude?: string[]
+  exclude?: string
   // 大小范围
   size_range?: string
   // 最少做种人数
   seeders?: string
+  // 发布时间
+  publish_time?: string
 }
 
 // 过滤规则组

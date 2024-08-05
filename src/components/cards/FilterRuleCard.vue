@@ -2,7 +2,6 @@
 // 输入参数
 const props = defineProps({
   pri: String,
-  maxpri: String,
   rules: Array as PropType<string[]>,
   width: String,
   height: String,
