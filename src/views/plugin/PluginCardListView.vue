@@ -347,7 +347,7 @@ onBeforeMount(async () => {
         <transition name="fade-slide" appear>
           <div>
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-            <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card items-start">
+            <div v-if="dataList.length > 0" class="grid gap-4 grid-plugin-card">
               <template v-for="(data, index) in dataList" :key="`${data.id}_v${data.plugin_version}`">
                 <PluginCard
                   :count="PluginStatistics[data.id || '0']"
@@ -417,7 +417,7 @@ onBeforeMount(async () => {
                 </VCol>
               </VRow>
             </div>
-            <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card items-start">
+            <div v-if="isAppMarketLoaded" class="grid gap-4 grid-plugin-card">
               <template v-for="(data, index) in sortedUninstalledList" :key="`${data.id}_v${data.plugin_version}`">
                 <PluginAppCard :plugin="data" :count="PluginStatistics[data.id || '0']" @install="pluginInstalled" />
               </template>

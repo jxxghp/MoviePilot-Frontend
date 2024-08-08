@@ -383,58 +383,66 @@ watch(
 <template>
   <!-- 插件卡片 -->
   <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail" class="flex flex-col">
-    <div class="relative pa-3 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
-      <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 left-1">
-        <VIcon icon="mdi-new-box" class="text-white" />
-      </div>
-      <div class="me-n3 absolute top-0 right-3">
-        <IconBtn>
-          <VIcon icon="mdi-dots-vertical" class="text-white" />
-          <VMenu activator="parent" close-on-content-click>
-            <VList>
-              <VListItem
-                v-for="(item, i) in dropdownItems"
-                v-show="item.show"
-                :key="i"
-                variant="plain"
-                :base-color="item.props.color"
-                @click="item.props.click"
-              >
-                <template #prepend>
-                  <VIcon :icon="item.props.prependIcon" />
-                </template>
-                <VListItemTitle v-text="item.title" />
-              </VListItem>
-            </VList>
-          </VMenu>
-        </IconBtn>
-      </div>
-      <VAvatar size="6rem">
-        <VImg
-          ref="imageRef"
-          :src="iconPath"
-          aspect-ratio="4/3"
-          cover
-          :class="{ shadow: isImageLoaded }"
-          @load="imageLoaded"
-          @error="imageLoadError = true"
-        />
-      </VAvatar>
+    <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 left-1">
+      <VIcon icon="mdi-new-box" class="text-white" />
     </div>
-    <VCardItem class="py-2">
-      <VCardTitle class="flex items-center flex-row">
-        <VBadge v-if="props.plugin?.state" dot inline color="success" class="me-1 mb-1" />
-        {{ props.plugin?.plugin_name }}
-        <span class="text-sm ms-2 mt-1 text-gray-500">v{{ props.plugin?.plugin_version }}</span>
-      </VCardTitle>
-    </VCardItem>
-    <VCardText class="pb-1">
-      {{ props.plugin?.plugin_desc }}
-    </VCardText>
-    <VCardText class="flex justify-end align-self-baseline p-1 w-full align-end">
+    <div class="me-n3 absolute bottom-0 right-3">
+      <IconBtn>
+        <VIcon icon="mdi-dots-vertical" />
+        <VMenu activator="parent" close-on-content-click>
+          <VList>
+            <VListItem
+              v-for="(item, i) in dropdownItems"
+              v-show="item.show"
+              :key="i"
+              variant="plain"
+              :base-color="item.props.color"
+              @click="item.props.click"
+            >
+              <template #prepend>
+                <VIcon :icon="item.props.prependIcon" />
+              </template>
+              <VListItemTitle v-text="item.title" />
+            </VListItem>
+          </VList>
+        </VMenu>
+      </IconBtn>
+    </div>
+    <div class="flex flex-row items-start pa-3 justify-between grow" :style="{ background: `${backgroundColor}` }">
+      <div class="flex-1 min-w-0">
+        <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
+          <VBadge v-if="props.plugin?.state" dot inline color="success" />
+          {{ props.plugin?.plugin_name }}
+          <span class="text-sm mt-1 text-gray-200">v{{ props.plugin?.plugin_version }}</span>
+        </VCardTitle>
+        <VCardText class="px-2 py-1 text-white text-shadow line-clamp-3">
+          {{ props.plugin?.plugin_desc }}
+        </VCardText>
+      </div>
+      <div class="flex-shrink-0 self-center">
+        <VAvatar size="64">
+          <VImg
+            ref="imageRef"
+            :src="iconPath"
+            aspect-ratio="4/3"
+            cover
+            :class="{ shadow: isImageLoaded }"
+            @load="imageLoaded"
+            @error="imageLoadError = true"
+          />
+        </VAvatar>
+      </div>
+    </div>
+    <VCardText class="flex flex-none align-self-baseline py-3 w-full align-end">
+      <span>
+        <VIcon icon="mdi-github" class="me-1" />
+        <a :href="props.plugin?.author_url" target="_blank" @click.stop>
+          {{ props.plugin?.plugin_author }}
+        </a>
+      </span>
       <span v-if="props.count" class="ms-3">
-        <VIcon icon="mdi-fire" />
-        <span class="text-sm ms-1">{{ props.count?.toLocaleString() }}</span>
+        <VIcon icon="mdi-download" />
+        <span class="text-sm ms-1 mt-1">{{ props.count?.toLocaleString() }}</span>
       </span>
     </VCardText>
   </VCard>

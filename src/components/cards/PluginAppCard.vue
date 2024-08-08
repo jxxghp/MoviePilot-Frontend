@@ -150,55 +150,52 @@ const dropdownItems = ref([
 
 <template>
   <VCard :width="props.width" :height="props.height" @click="installPlugin" class="flex flex-col">
-    <div class="relative pa-3 text-center card-cover-blurred" :style="{ background: `${backgroundColor}` }">
-      <div class="me-n3 absolute top-0 right-3">
-        <IconBtn>
-          <VIcon icon="mdi-dots-vertical" class="text-white" />
-          <VMenu activator="parent" close-on-content-click>
-            <VList>
-              <VListItem
-                v-for="(item, i) in dropdownItems"
-                v-show="item.show"
-                :key="i"
-                variant="plain"
-                @click="item.props.click"
-              >
-                <template #prepend>
-                  <VIcon :icon="item.props.prependIcon" />
-                </template>
-                <VListItemTitle v-text="item.title" />
-              </VListItem>
-            </VList>
-          </VMenu>
-        </IconBtn>
-      </div>
-      <VAvatar size="6rem">
-        <VImg
-          ref="imageRef"
-          :src="iconPath"
-          aspect-ratio="4/3"
-          cover
-          :class="{ shadow: isImageLoaded }"
-          @load="imageLoaded"
-          @error="imageLoadError = true"
-        />
-      </VAvatar>
+    <div class="me-n3 absolute bottom-0 right-3">
+      <IconBtn>
+        <VIcon icon="mdi-dots-vertical" />
+        <VMenu activator="parent" close-on-content-click>
+          <VList>
+            <VListItem
+              v-for="(item, i) in dropdownItems"
+              v-show="item.show"
+              :key="i"
+              variant="plain"
+              @click="item.props.click"
+            >
+              <template #prepend>
+                <VIcon :icon="item.props.prependIcon" />
+              </template>
+              <VListItemTitle v-text="item.title" />
+            </VListItem>
+          </VList>
+        </VMenu>
+      </IconBtn>
     </div>
-    <VCardTitle>
-      {{ props.plugin?.plugin_name }}
-      <span class="text-sm text-gray-500">v{{ props.plugin?.plugin_version }}</span>
-    </VCardTitle>
-    <VCardText class="pb-2">
-      <div>{{ props.plugin?.plugin_desc }}</div>
-      <div>
-        <VChip v-for="label in pluginLabels" variant="tonal" size="small" class="me-1 my-1" color="info" label>
-          {{ label }}
-        </VChip>
+    <div class="flex flex-row items-start pa-3 justify-between grow" :style="{ background: `${backgroundColor}` }">
+      <div class="flex-1 min-w-0">
+        <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
+          {{ props.plugin?.plugin_name }}
+          <span class="text-sm text-gray-200">v{{ props.plugin?.plugin_version }}</span>
+        </VCardTitle>
+        <VCardText class="text-white px-2 py-1 text-shadow line-clamp-3">{{ props.plugin?.plugin_desc }}</VCardText>
       </div>
-    </VCardText>
-    <VCardText class="flex align-self-baseline pb-2 w-full align-end">
+      <div class="flex-shrink-0 self-center">
+        <VAvatar size="64">
+          <VImg
+            ref="imageRef"
+            :src="iconPath"
+            aspect-ratio="4/3"
+            cover
+            :class="{ shadow: isImageLoaded }"
+            @load="imageLoaded"
+            @error="imageLoadError = true"
+          />
+        </VAvatar>
+      </div>
+    </div>
+    <VCardText class="flex flex-none align-self-baseline py-3 w-full align-end">
       <span>
-        <VIcon icon="mdi-account" class="me-1" />
+        <VIcon icon="mdi-github" class="me-1" />
         <a :href="props.plugin?.author_url" target="_blank" @click.stop>
           {{ props.plugin?.plugin_author }}
         </a>
@@ -220,15 +217,3 @@ const dropdownItems = ref([
     </VCard>
   </VDialog>
 </template>
-
-<style lang="scss" scoped>
-.card-cover-blurred::before {
-  position: absolute;
-  /* stylelint-disable-next-line property-no-vendor-prefix */
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-  background: rgba(29, 39, 59, 48%);
-  content: '';
-  inset: 0;
-}
-</style>
