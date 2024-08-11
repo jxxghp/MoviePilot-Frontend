@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { CustomRule } from '@/api/types'
+import filter_svg from '@images/svg/filter.svg'
 
 // 输入参数
 const props = defineProps({
@@ -63,6 +64,7 @@ function onClose() {
           <h5 class="text-h6 mb-1">{{ props.rule.id }}</h5>
           <div class="text-body-1 mb-3">{{ props.rule.name }}</div>
         </div>
+        <VImg :src="filter_svg" cover class="mt-7" max-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="ruleInfoDialog" scrollable max-width="40rem">

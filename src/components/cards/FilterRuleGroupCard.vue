@@ -5,6 +5,7 @@ import { FilterRuleGroup } from '@/api/types'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import { useToast } from 'vue-toast-notification'
 import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
+import filter_group_svg from '@images/misc/filter-group.png'
 
 // 输入参数
 const props = defineProps({
@@ -180,6 +181,7 @@ function onClose() {
           <h5 class="text-h6 mb-1">{{ props.group.name }}</h5>
           <div class="text-body-1 mb-3">{{ props.group.media_type || '通用' }}</div>
         </div>
+        <VImg :src="filter_group_svg" cover class="mt-10" max-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="groupInfoDialog" scrollable max-width="80rem">
