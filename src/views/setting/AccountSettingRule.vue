@@ -22,8 +22,9 @@ const $toast = useToast()
 
 // 种子优先规则下拉框
 const TorrentPriorityItems = [
-  { title: '站点优先', value: 'site' },
-  { title: '做种数优先', value: 'seeder' },
+  { title: '站点排序优先', value: 'site' },
+  { title: '站点上传量优先', value: 'upload' },
+  { title: '资源做种数优先', value: 'seeder' },
 ]
 
 // 加载自定义规则
@@ -105,6 +106,12 @@ function removeFilterRuleGroup(rule: FilterRuleGroup) {
   if (index !== -1) filterRuleGroups.value.splice(index, 1)
 }
 
+// 规则组变化时赋值
+function changeRuleGroup(group: FilterRuleGroup) {
+  const index = filterRuleGroups.value.findIndex(item => item.name === group.name)
+  if (index !== -1) filterRuleGroups.value[index] = group
+}
+
 // 查询种子优先规则
 async function queryTorrentPriority() {
   try {
@@ -181,10 +188,10 @@ onMounted(() => {
             handle=".cursor-move"
             item-key="name"
             tag="div"
-            :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
+            :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <FilterRuleGroupCard :filterrule="element" @close="removeFilterRuleGroup(element)" />
+              <FilterRuleGroupCard :group="element" @close="removeFilterRuleGroup(element)" @change="changeRuleGroup" />
             </template>
           </draggable>
         </VCardText>

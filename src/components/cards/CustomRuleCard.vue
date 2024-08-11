@@ -26,15 +26,20 @@ const ruleInfo = ref<CustomRule>({
   publish_time: '',
 })
 
+// 规则名称
+const ruleName = ref('')
+
 // 打开详情弹窗
 function openRuleInfoDialog() {
   ruleInfo.value = props.rule
+  ruleName.value = props.rule.name
   ruleInfoDialog.value = true
 }
 
 // 保存详情数据
 function saveRuleInfo() {
   ruleInfoDialog.value = false
+  ruleInfo.value.name = ruleName.value
   emit('change', ruleInfo.value)
 }
 
@@ -63,7 +68,7 @@ function onClose() {
           <VForm>
             <VRow>
               <VCol cols="12">
-                <VTextField v-model="ruleInfo.name" label="规则名称" />
+                <VTextField v-model="ruleName" label="规则名称" />
               </VCol>
               <VCol cols="12">
                 <VTextField v-model="ruleInfo.include" placeholder="关键字/正则表达式" label="包含" />
