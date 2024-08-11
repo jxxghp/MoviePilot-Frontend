@@ -98,6 +98,7 @@ function addDownloader(downloader: string) {
     type: downloader,
     default: false,
     enabled: false,
+    config: {},
   })
 }
 
@@ -113,6 +114,7 @@ function addMediaServer(mediaserver: string) {
     name: `服务器${mediaServers.value.length + 1}`,
     type: mediaserver,
     enabled: false,
+    config: {},
   })
 }
 
@@ -188,7 +190,7 @@ onMounted(() => {
                 <VIcon icon="mdi-plus" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
-                    <VListItem variant="plain" @click="addDownloader('qbittottent')">
+                    <VListItem variant="plain" @click="addDownloader('qbittorrent')">
                       <VListItemTitle>Qbittorrent</VListItemTitle>
                     </VListItem>
                     <VListItem variant="plain" @click="addDownloader('transmission')">

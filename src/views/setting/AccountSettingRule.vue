@@ -93,6 +93,12 @@ function addFilterRuleGroup() {
   })
 }
 
+// 规则变化时赋值
+function onRuleChange(rule: CustomRule) {
+  const index = customRules.value.findIndex(item => item.id === rule.id)
+  if (index !== -1) customRules.value[index] = rule
+}
+
 // 移除规则组
 function removeFilterRuleGroup(rule: FilterRuleGroup) {
   const index = filterRuleGroups.value.findIndex(item => item.name === rule.name)
@@ -148,10 +154,10 @@ onMounted(() => {
             handle=".cursor-move"
             item-key="name"
             tag="div"
-            :component-data="{ 'class': 'grid gap-3 grid-filterrule-card' }"
+            :component-data="{ 'class': 'grid gap-3 grid-customrule-card' }"
           >
             <template #item="{ element }">
-              <CustomerRuleCard :rule="element" @close="removeCustomRule(element)" />
+              <CustomerRuleCard :rule="element" @close="removeCustomRule(element)" @change="onRuleChange" />
             </template>
           </draggable>
         </VCardText>

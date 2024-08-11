@@ -858,7 +858,7 @@ export interface DownloaderConf {
   // 是否默认
   default: boolean
   // 配置
-  config?: { [key: string]: any }
+  config: { [key: string]: any }
   // 是否启用
   enabled: boolean
 }
@@ -902,7 +902,7 @@ export interface MediaServerConf {
   // 类型 emby/jellyfin/plex
   type: string
   // 配置
-  config?: { [key: string]: any }
+  config: { [key: string]: any }
   // 是否启用
   enabled: boolean
   // 同步媒体体库列表
