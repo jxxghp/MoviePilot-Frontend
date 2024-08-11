@@ -24,6 +24,9 @@ const download_rate = ref(0)
 // 下载器详情弹窗
 const downloaderInfoDialog = ref(false)
 
+// 下载器名称
+const downloaderName = ref('')
+
 // 下载器详情
 const downloaderInfo = ref<DownloaderConf>({
   name: '',
@@ -36,12 +39,14 @@ const downloaderInfo = ref<DownloaderConf>({
 // 打开详情弹窗
 function openDownloaderInfoDialog() {
   downloaderInfo.value = props.downloader
+  downloaderName.value = props.downloader.name
   downloaderInfoDialog.value = true
 }
 
 // 保存详情数据
 function saveDownloaderInfo() {
   downloaderInfoDialog.value = false
+  downloaderInfo.value.name = downloaderName.value
   emit('change', downloaderInfo.value)
 }
 
@@ -78,9 +83,15 @@ function onClose() {
       </span>
       <VCardText class="flex justify-space-between align-center gap-3">
         <div class="align-self-start">
-          <div>
-            <VBadge v-if="props.downloader.default && props.downloader.enabled" dot inline color="success" />
-            <span class="text-h6 mb-1 ms-1">{{ downloader.name }}</span>
+          <div class="flex items-center">
+            <VBadge
+              v-if="props.downloader.default && props.downloader.enabled"
+              dot
+              inline
+              color="success"
+              class="me-1"
+            />
+            <span class="text-h6 mb-1">{{ downloader.name }}</span>
           </div>
           <div class="text-body-1 mb-3">{{ getSpeedText }}</div>
         </div>
@@ -104,7 +115,7 @@ function onClose() {
             <VRow v-if="downloaderInfo.type == 'qbittorrent'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.name"
+                  v-model="downloaderName"
                   label="名称"
                   placeholder="别名"
                   hint="下载器的别名"
@@ -166,7 +177,7 @@ function onClose() {
             <VRow v-if="downloaderInfo.type == 'transmission'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.name"
+                  v-model="downloaderName"
                   label="名称"
                   placeholder="别名"
                   hint="下载器的别名"

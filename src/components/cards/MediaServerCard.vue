@@ -18,6 +18,9 @@ const emit = defineEmits(['close', 'change'])
 // 媒体服务器详情弹窗
 const mediaServerInfoDialog = ref(false)
 
+// 媒体服务器名称
+const mediaServerName = ref('')
+
 // 媒体服务器详情
 const mediaServerInfo = ref<MediaServerConf>({
   name: '',
@@ -29,12 +32,14 @@ const mediaServerInfo = ref<MediaServerConf>({
 // 打开详情弹窗
 function openMediaServerInfoDialog() {
   mediaServerInfo.value = props.mediaserver
+  mediaServerName.value = props.mediaserver.name
   mediaServerInfoDialog.value = true
 }
 
 // 保存详情数据
 function saveMediaServerInfo() {
   mediaServerInfoDialog.value = false
+  mediaServerInfo.value.name = mediaServerName.value
   emit('change', mediaServerInfo.value)
 }
 
@@ -81,7 +86,7 @@ function onClose() {
             <VRow v-if="mediaServerInfo.type == 'emby'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.name"
+                  v-model="mediaServerName"
                   label="名称"
                   placeholder="别名"
                   hint="媒体服务器的别名"
@@ -118,7 +123,7 @@ function onClose() {
             <VRow v-if="mediaServerInfo.type == 'jellyfin'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.name"
+                  v-model="mediaServerName"
                   label="名称"
                   placeholder="别名"
                   hint="媒体服务器的别名"
@@ -155,7 +160,7 @@ function onClose() {
             <VRow v-if="mediaServerInfo.type == 'plex'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.name"
+                  v-model="mediaServerName"
                   label="名称"
                   placeholder="别名"
                   hint="媒体服务器的别名"

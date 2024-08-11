@@ -870,7 +870,7 @@ export interface NotificationConf {
   // 类型 telegram/wechat/vocechat/synologychat
   type: string
   // 配置
-  config?: { [key: string]: any }
+  config: { [key: string]: any }
   // 场景开关
   switchs?: string[]
   // 是否启用

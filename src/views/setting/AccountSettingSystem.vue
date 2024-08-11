@@ -167,7 +167,7 @@ onMounted(() => {
       <VCard>
         <VCardItem>
           <VCardTitle>下载器</VCardTitle>
-          <VCardSubtitle>只有第1个启用的下载器才会被默认使用。</VCardSubtitle>
+          <VCardSubtitle>只有默认下载器才会被默认使用。</VCardSubtitle>
         </VCardItem>
         <VCardText>
           <draggable

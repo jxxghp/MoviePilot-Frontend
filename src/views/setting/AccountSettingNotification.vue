@@ -17,6 +17,7 @@ function addNotification(notification: string) {
     name: `通知${notifications.value.length + 1}`,
     type: notification,
     enabled: false,
+    config: {},
   })
 }
 
