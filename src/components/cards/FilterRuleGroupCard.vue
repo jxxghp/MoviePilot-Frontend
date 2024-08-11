@@ -5,7 +5,7 @@ import { FilterRuleGroup } from '@/api/types'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import { useToast } from 'vue-toast-notification'
 import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
-import filter_group_svg from '@images/misc/filter-group.png'
+import filter_group_svg from '@images/svg/filter-group.svg'
 
 // 输入参数
 const props = defineProps({
