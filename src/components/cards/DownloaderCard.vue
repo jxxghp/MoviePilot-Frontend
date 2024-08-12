@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import api from '@/api'
+import { formatFileSize } from '@/@core/utils/formatters'
 import { DownloaderConf } from '@/api/types'
-import { formatBytes } from '@core/utils/formatters'
+import type { DownloaderInfo } from '@/api/types'
 import qbittorrent_image from '@images/logos/qbittorrent.png'
 import transmission_image from '@images/logos/transmission.png'
 
@@ -14,6 +16,9 @@ const props = defineProps({
 
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'change'])
+
+// timeout定时器
+let timeoutTimer: NodeJS.Timeout | undefined = undefined
 
 // 上传速率
 const upload_rate = ref(0)
@@ -36,6 +41,29 @@ const downloaderInfo = ref<DownloaderConf>({
   config: {},
 })
 
+// 调用API查询下载器数据
+async function loadDownloaderInfo() {
+  try {
+    const res: DownloaderInfo = await api.get('dashboard/downloader', {
+      params: {
+        name: props.downloader.name,
+      },
+    })
+
+    if (res) {
+      upload_rate.value = res.upload_speed
+      download_rate.value = res.download_speed
+      // 定时查询
+      clearTimeout(timeoutTimer)
+      if (props.downloader.enabled) {
+        timeoutTimer = setTimeout(loadDownloaderInfo, 3000)
+      }
+    }
+  } catch (e) {
+    console.log(e)
+  }
+}
+
 // 打开详情弹窗
 function openDownloaderInfoDialog() {
   downloaderInfo.value = props.downloader
@@ -52,7 +80,7 @@ function saveDownloaderInfo() {
 
 // 速度
 const getSpeedText = computed(() => {
-  return `↑ ${upload_rate.value}/s ↓ ${download_rate.value}/s`
+  return `↑ ${formatFileSize(upload_rate.value, 1)}/s ↓ ${formatFileSize(download_rate.value, 1)}/s`
 })
 
 // 根据存储类型选择图标
@@ -71,6 +99,17 @@ const getIcon = computed(() => {
 function onClose() {
   emit('close')
 }
+
+onMounted(async () => {
+  if (props.downloader.enabled) {
+    await loadDownloaderInfo()
+    timeoutTimer = setTimeout(loadDownloaderInfo, 3000)
+  }
+})
+
+onUnmounted(() => {
+  if (timeoutTimer) clearTimeout(timeoutTimer)
+})
 </script>
 <template>
   <div>
@@ -93,7 +132,7 @@ function onClose() {
             />
             <span class="text-h6 mb-1">{{ downloader.name }}</span>
           </div>
-          <div class="text-body-1 mb-3">{{ getSpeedText }}</div>
+          <div class="text-body-1 mb-3" v-if="props.downloader.enabled">{{ getSpeedText }}</div>
         </div>
         <VImg :src="getIcon" cover class="mt-10" max-width="4rem" />
       </VCardText>
