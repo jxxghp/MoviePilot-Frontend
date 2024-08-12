@@ -120,7 +120,7 @@ onUnmounted(() => {
           <VIcon class="cursor-move" icon="mdi-drag" />
         </IconBtn>
       </span>
-      <VCardText class="flex justify-space-between align-center gap-3">
+      <VCardText class="flex justify-space-between align-center gap-4">
         <div class="align-self-start">
           <div class="flex items-center">
             <VBadge
@@ -130,11 +130,14 @@ onUnmounted(() => {
               color="success"
               class="me-1"
             />
-            <span class="text-h6 mb-1">{{ downloader.name }}</span>
+            <span class="text-h6">{{ downloader.name }}</span>
           </div>
-          <div class="text-body-1 mb-3" v-if="props.downloader.enabled">{{ getSpeedText }}</div>
+          <div class="text-body-1 mt-5 flex flex-wrap text-sm" v-if="props.downloader.enabled">
+            <span class="me-2">{{ `↑ ${formatFileSize(upload_rate, 1)}/s ` }}</span>
+            <span>{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
+          </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-10" max-width="4rem" />
+        <VImg :src="getIcon" cover class="mt-7" max-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem">

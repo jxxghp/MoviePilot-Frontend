@@ -32,6 +32,16 @@ const notificationInfo = ref<NotificationConf>({
   config: {},
 })
 
+// 各通知类型的名称字典
+const notificationTypeNames: { [key: string]: string } = {
+  wechat: '企业微信',
+  telegram: 'Telegram',
+  vocechat: 'VoceChat',
+  synologychat: 'Synology Chat',
+  slack: 'Slack',
+  webpush: 'WebPush',
+}
+
 // 打开详情弹窗
 function openNotificationInfoDialog() {
   notificationInfo.value = props.notification
@@ -77,10 +87,13 @@ function onClose() {
       <DialogCloseBtn @click="onClose" />
       <VCardText class="flex justify-space-between align-center gap-3">
         <div class="align-self-start">
-          <h5 class="text-h6 mb-1">{{ notification.name }}</h5>
-          <div class="text-body-1 mb-3">{{ notification.type }}</div>
+          <div class="flex items-center">
+            <VBadge v-if="props.notification.enabled" dot inline color="success" class="me-1" />
+            <span class="text-h6">{{ props.notification.name }}</span>
+          </div>
+          <div class="text-body-1 mb-3">{{ notificationTypeNames[notification.type] }}</div>
         </div>
-        <VImg :src="getIcon" cover class="mt-5 me-7" max-width="4rem" />
+        <VImg :src="getIcon" cover class="mt-5 me-7" max-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="notificationInfoDialog" scrollable max-width="40rem">
