@@ -27,16 +27,6 @@ const TorrentPriorityItems = [
   { title: '资源做种数优先', value: 'seeder' },
 ]
 
-// 加载自定义规则
-async function queryCustomRules() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/setting/CustomFilterRules')
-    customRules.value = result.data?.value ?? []
-  } catch (error) {
-    console.log(error)
-  }
-}
-
 // 保存自定义规则
 async function saveCustomRules() {
   try {
@@ -123,6 +113,16 @@ async function queryTorrentPriority() {
   }
 }
 
+// 查询自定义规则项
+async function queryCustomRules() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/CustomFilterRules')
+    customRules.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 保存种子优先规则
 async function saveTorrentPriority() {
   try {
@@ -191,7 +191,12 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <FilterRuleGroupCard :group="element" @close="removeFilterRuleGroup(element)" @change="changeRuleGroup" />
+              <FilterRuleGroupCard
+                :group="element"
+                :custom_rules="customRules"
+                @close="removeFilterRuleGroup(element)"
+                @change="changeRuleGroup"
+              />
             </template>
           </draggable>
         </VCardText>

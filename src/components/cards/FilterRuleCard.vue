@@ -1,10 +1,11 @@
 <script lang="ts" setup>
+import { CustomRule } from '@/api/types'
+
 // 输入参数
 const props = defineProps({
   pri: String,
   rules: Array as PropType<string[]>,
-  width: String,
-  height: String,
+  custom_rules: Array as PropType<CustomRule[]>,
 })
 
 // 定义触发的自定义事件
@@ -61,6 +62,17 @@ const selectFilterOptions = ref<{ [key: string]: string }[]>([
   { title: '效果: 3D', value: ' 3D ' },
   { title: '排除: 3D', value: ' !3D ' },
 ])
+
+onMounted(() => {
+  if (props.custom_rules) {
+    props.custom_rules.map(rule => {
+      selectFilterOptions.value.push({
+        title: rule.name,
+        value: rule.id,
+      })
+    })
+  }
+})
 </script>
 
 <template>

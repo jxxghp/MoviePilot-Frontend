@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import draggable from 'vuedraggable'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import { FilterRuleGroup } from '@/api/types'
+import { CustomRule, FilterRuleGroup } from '@/api/types'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import { useToast } from 'vue-toast-notification'
 import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
@@ -13,6 +13,7 @@ const props = defineProps({
     type: Object as PropType<FilterRuleGroup>,
     required: true,
   },
+  custom_rules: Array as PropType<CustomRule[]>,
 })
 
 // 规则卡片类型
@@ -212,6 +213,7 @@ function onClose() {
                 :pri="element.pri"
                 :maxpri="filterRuleCards.length.toString()"
                 :rules="element.rules"
+                :custom_rules="props.custom_rules"
                 @changed="updateFilterCardValue"
                 @close="filterCardClose(element.pri)"
               />
