@@ -408,8 +408,15 @@ watch(
         </VMenu>
       </IconBtn>
     </div>
-    <div class="flex flex-row items-start pa-3 justify-between grow" :style="{ background: `${backgroundColor}` }">
-      <div class="flex-1 min-w-0">
+    <div
+      class="relative flex flex-row items-start pa-3 justify-between grow"
+      :style="{ background: `${backgroundColor}` }"
+    >
+      <div
+        class="absolute inset-0 bg-cover bg-center"
+        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.7)' }"
+      />
+      <div class="relative flex-1 min-w-0">
         <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
           <VBadge v-if="props.plugin?.state" dot inline color="success" />
           {{ props.plugin?.plugin_name }}
@@ -419,7 +426,7 @@ watch(
           {{ props.plugin?.plugin_desc }}
         </VCardText>
       </div>
-      <div class="flex-shrink-0 self-center">
+      <div class="relative flex-shrink-0 self-center">
         <VAvatar size="64">
           <VImg
             ref="imageRef"
