@@ -6,6 +6,8 @@ import alipan_png from '@images/misc/alipan.webp'
 import u115_png from '@images/misc/u115.png'
 import rclone_png from '@images/misc/rclone.png'
 import api from '@/api'
+import AliyunAuthDialog from '../dialog/AliyunAuthDialog.vue'
+import U115AuthDialog from '../dialog/U115AuthDialog.vue'
 
 // 定义输入
 const props = defineProps({
@@ -20,6 +22,23 @@ const total = ref(0)
 
 // 存储可用空间
 const available = ref(0)
+
+// 阿里云盘认证对话框
+const aliyunAuthDialog = ref(false)
+// 115网盘认证对话框
+const u115AuthDialog = ref(false)
+
+// 打开存储对话框
+function openStorageDialog() {
+  switch (props.storage.type) {
+    case 'alipan':
+      aliyunAuthDialog.value = true
+      break
+    case 'u115':
+      u115AuthDialog.value = true
+      break
+  }
+}
 
 // 根据存储类型选择图标
 const getIcon = computed(() => {
@@ -58,7 +77,7 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VCard variant="tonal">
+  <VCard variant="tonal" @click="openStorageDialog">
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
@@ -71,4 +90,16 @@ onMounted(() => {
       <VProgressLinear v-if="usage > 0" :model-value="usage" bg-color="success" color="success" />
     </div>
   </VCard>
+  <AliyunAuthDialog
+    v-if="aliyunAuthDialog"
+    v-model="aliyunAuthDialog"
+    @close="aliyunAuthDialog = false"
+    @done="aliyunAuthDialog = false"
+  />
+  <U115AuthDialog
+    v-if="u115AuthDialog"
+    v-model="u115AuthDialog"
+    @close="u115AuthDialog = false"
+    @done="u115AuthDialog = false"
+  />
 </template>

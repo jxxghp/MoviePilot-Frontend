@@ -31,7 +31,7 @@ async function handleDone() {
 // 调用/aliyun/qrcode api生成二维码
 async function getQrcode() {
   try {
-    const result: { [key: string]: any } = await api.get('/aliyun/qrcode')
+    const result: { [key: string]: any } = await api.get('/storage/qrcode/alipan')
     if (result.success && result.data) {
       qrCodeContent.value = result.data.codeContent
       ck.value = result.data.ck
@@ -47,11 +47,8 @@ async function getQrcode() {
 // 调用/aliyun/check api验证二维码
 async function checkQrcode() {
   try {
-    const result: { [key: string]: any } = await api.get('/aliyun/check', {
-      params: {
-        ck: ck.value,
-        t: t.value,
-      },
+    const result: { [key: string]: any } = await api.get('/storage/check/alipan', {
+      params: { ck: ck.value, t: t.value },
     })
     if (result.success && result.data) {
       const qrCodeStatus = result.data.qrCodeStatus
