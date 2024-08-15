@@ -80,6 +80,8 @@ function addDirectory() {
     download_path: '',
     priority: -1,
     monitor_type: '',
+    media_type: '',
+    media_category: '',
   })
   orderDirectoryCards()
 }

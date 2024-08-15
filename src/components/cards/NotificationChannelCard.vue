@@ -42,6 +42,18 @@ const notificationTypeNames: { [key: string]: string } = {
   webpush: 'WebPush',
 }
 
+// 消息类型下拉字典
+const notificationTypes = [
+  { value: '资源下载', title: '资源下载' },
+  { value: '整理入库', title: '整理入库' },
+  { value: '订阅', title: '订阅' },
+  { value: '站点', title: '站点' },
+  { value: '媒体服务器', title: '媒体服务器' },
+  { value: '手动处理', title: '手动处理' },
+  { value: '插件', title: '插件' },
+  { value: '其它', title: '其它' },
+]
+
 // 打开详情弹窗
 function openNotificationInfoDialog() {
   notificationInfo.value = props.notification
@@ -105,6 +117,17 @@ function onClose() {
             <VRow>
               <VCol cols="12" md="6">
                 <VSwitch v-model="notificationInfo.enabled" label="启用通知" />
+              </VCol>
+              <VCol cols="12">
+                <VSelect
+                  v-model="notificationInfo.switchs"
+                  :items="notificationTypes"
+                  label="消息类型"
+                  hint="开启通知的消息类型"
+                  multiple
+                  chips
+                  persistent-hint
+                />
               </VCol>
             </VRow>
             <VRow v-if="notificationInfo.type == 'wechat'">

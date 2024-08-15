@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
-import type { Site } from '@/api/types'
+import type { FilterRuleGroup, Site } from '@/api/types'
 
 // 提示框
 const $toast = useToast()
@@ -36,6 +36,17 @@ const subscribeModeItems = [
 
 // 选择的订阅模式
 const selectedSubscribeMode = ref('spider')
+
+// 所有规则组列表
+const filterRuleGroups = ref<FilterRuleGroup[]>([])
+
+// 过滤规则组选择项
+const filterRuleGroupOptions = computed(() => {
+  return filterRuleGroups.value.map(item => ({
+    title: item.name,
+    value: item.name,
+  }))
+})
 
 // RSS运行周期选择项
 const rssIntervalItems = [
@@ -109,8 +120,19 @@ async function querySites() {
   }
 }
 
+// 加载规则组
+async function queryFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   querySites()
+  queryFilterRuleGroups()
 })
 </script>
 
@@ -146,7 +168,7 @@ onMounted(() => {
               <VCol cols="12" md="12">
                 <VSelect
                   v-model="selectedFilterRuleGroup"
-                  :items="[]"
+                  :items="filterRuleGroupOptions"
                   chips
                   multiple
                   label="优先级规则组"

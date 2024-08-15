@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
-import type { Site } from '@/api/types'
+import type { FilterRuleGroup, Site } from '@/api/types'
 
 // 提示框
 const $toast = useToast()
@@ -42,8 +42,16 @@ const selectedMediaSource = ref([])
 // 当前选中的过滤规则组
 const selectedFilterGroup = ref([])
 
-// 保存用户设置的规则
-async function saveCustomFilters() {}
+// 过滤规则组选择项
+const filterRuleGroupOptions = computed(() => {
+  return filterRuleGroups.value.map(item => ({
+    title: item.name,
+    value: item.name,
+  }))
+})
+
+// 所有规则组列表
+const filterRuleGroups = ref<FilterRuleGroup[]>([])
 
 // 查询所有站点
 async function querySites() {
@@ -110,9 +118,20 @@ async function saveSearchSetting() {
   }
 }
 
+// 加载规则组
+async function queryFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   querySites()
   loadSearchSetting()
+  queryFilterRuleGroups()
 })
 </script>
 
@@ -142,7 +161,7 @@ onMounted(() => {
                 v-model="selectedFilterGroup"
                 multiple
                 chips
-                :items="[]"
+                :items="filterRuleGroupOptions"
                 label="过滤规则组"
                 hint="搜索媒体信息时按选定的过滤规则组对结果进行过滤"
                 persistent-hint

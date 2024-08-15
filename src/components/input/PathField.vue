@@ -27,21 +27,24 @@ const treeItems = ref<FileItem[]>([
     name: '/',
     path: props.root,
     children: [],
-    type: '',
+    type: 'dir',
     basename: props.root,
     extension: '',
     size: 0,
     modify_time: 0,
     fileid: '',
     parent_fileid: '',
+    storage: 'local',
   },
 ])
 
 // 拉取子目录
 async function fetchDirs(item: any) {
   return api
-    .get('/local/listdir?path=' + item.path)
+    .post('/storage/list', item)
     .then((data: any) => {
+      // 只添加目录到子目录
+      data = data.filter((i: any) => i.type === 'dir')
       item.children.push(...data)
     })
     .catch(err => console.warn(err))
