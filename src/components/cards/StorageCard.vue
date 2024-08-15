@@ -5,6 +5,7 @@ import storage_png from '@images/misc/storage.png'
 import alipan_png from '@images/misc/alipan.webp'
 import u115_png from '@images/misc/u115.png'
 import rclone_png from '@images/misc/rclone.png'
+import api from '@/api'
 
 // 定义输入
 const props = defineProps({
@@ -40,18 +41,34 @@ const getIcon = computed(() => {
 const usage = computed(() => {
   return Math.round((available.value / (total.value || 1)) * 1000) / 10
 })
+
+// 查询存储信息
+async function queryStorage() {
+  try {
+    const data: { total: number; available: number } = await api.get(`storage/usage/${props.storage.type}`)
+    total.value = data.total
+    available.value = data.available
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+onMounted(() => {
+  queryStorage()
+})
 </script>
 <template>
   <VCard variant="tonal">
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
-        <div class="text-body-1 mb-3">空间使用率 {{ usage }}%</div>
-        <div v-if="available" class="d-flex align-center flex-wrap">
-          <h4 class="text-h4">{{ formatBytes(available) }}</h4>
-        </div>
+        <div class="text-body-1 mb-3" v-if="total">{{ formatBytes(available) }} / {{ formatBytes(total) }}</div>
+        <div v-else>未配置</div>
       </div>
-      <VImg :src="getIcon" cover class="mt-5 me-7" max-width="4rem" />
+      <VImg :src="getIcon" cover class="mt-5" max-width="4rem" />
     </VCardText>
+    <div class="w-full absolute bottom-0">
+      <VProgressLinear v-if="usage > 0" :model-value="usage" bg-color="success" color="success" />
+    </div>
   </VCard>
 </template>

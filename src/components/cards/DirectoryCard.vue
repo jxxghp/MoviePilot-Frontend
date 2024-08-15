@@ -182,7 +182,12 @@ const getCategories = computed(() => {
             />
           </VCol>
           <VCol cols="4">
-            <VSelect v-model="props.directory.storage" variant="underlined" :items="storageItems" label="媒体库存储" />
+            <VSelect
+              v-model="props.directory.library_storage"
+              variant="underlined"
+              :items="storageItems"
+              label="媒体库存储"
+            />
           </VCol>
           <VCol cols="8">
             <VPathField @update:modelValue="updateLibraryPath">
