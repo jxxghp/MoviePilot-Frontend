@@ -8,7 +8,6 @@ const props = defineProps({
   root: {
     type: String,
     default: '/',
-    required: true,
   },
 })
 
