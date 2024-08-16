@@ -32,8 +32,10 @@ function jumpTab(tab: string) {
         @click="jumpTab(item.tab)"
         selected-class="v-slide-group-item--active v-tab--selected"
       >
-        <VIcon size="20" start :icon="item.icon" />
-        {{ item.title }}
+        <div>
+          <VIcon size="20" start :icon="item.icon" />
+          {{ item.title }}
+        </div>
       </VTab>
     </VTabs>
 
@@ -41,70 +43,90 @@ function jumpTab(tab: string) {
       <!-- 用户 -->
       <VWindowItem value="account">
         <transition name="fade-slide" appear>
-          <AccountSettingAccount />
+          <div>
+            <AccountSettingAccount />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 连接 -->
       <VWindowItem value="system">
         <transition name="fade-slide" appear>
-          <AccountSettingSystem />
+          <div>
+            <AccountSettingSystem />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 目录 -->
       <VWindowItem value="directory">
         <transition name="fade-slide" appear>
-          <AccountSettingDirectory />
+          <div>
+            <AccountSettingDirectory />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 站点 -->
       <VWindowItem value="site">
         <transition name="fade-slide" appear>
-          <AccountSettingSite />
+          <div>
+            <AccountSettingSite />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 搜索 -->
       <VWindowItem value="search">
         <transition name="fade-slide" appear>
-          <AccountSettingSearch />
+          <div>
+            <AccountSettingSearch />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 订阅 -->
       <VWindowItem value="subscribe">
         <transition name="fade-slide" appear>
-          <AccountSettingSubscribe />
+          <div>
+            <AccountSettingSubscribe />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 服务 -->
       <VWindowItem value="service">
         <transition name="fade-slide" appear>
-          <AccountSettingService />
+          <div>
+            <AccountSettingService />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 通知 -->
       <VWindowItem value="notification">
         <transition name="fade-slide" appear>
-          <AccountSettingNotification />
+          <div>
+            <AccountSettingNotification />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 词表 -->
       <VWindowItem value="words">
         <transition name="fade-slide" appear>
-          <AccountSettingWords />
+          <div>
+            <AccountSettingWords />
+          </div>
         </transition>
       </VWindowItem>
 
       <!-- 关于 -->
       <VWindowItem value="about">
         <transition name="fade-slide" appear>
-          <AccountSettingAbout />
+          <div>
+            <AccountSettingAbout />
+          </div>
         </transition>
       </VWindowItem>
     </VWindow>
