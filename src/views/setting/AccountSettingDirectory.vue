@@ -128,7 +128,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <StorageCard :storage="element" />
+              <StorageCard :storage="element" @done="loadStorages" />
             </template>
           </draggable>
         </VCardText>

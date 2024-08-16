@@ -8,6 +8,8 @@ import rclone_png from '@images/misc/rclone.png'
 import api from '@/api'
 import AliyunAuthDialog from '../dialog/AliyunAuthDialog.vue'
 import U115AuthDialog from '../dialog/U115AuthDialog.vue'
+import RcloneConfigDialog from '../dialog/RcloneConfigDialog.vue'
+import { useToast } from 'vue-toast-notification'
 
 // 定义输入
 const props = defineProps({
@@ -16,6 +18,12 @@ const props = defineProps({
     required: true,
   },
 })
+
+// 定义事件
+const emit = defineEmits(['done'])
+
+// 提示信息
+const $toast = useToast()
 
 // 存储总空间
 const total = ref(0)
@@ -27,6 +35,8 @@ const available = ref(0)
 const aliyunAuthDialog = ref(false)
 // 115网盘认证对话框
 const u115AuthDialog = ref(false)
+// Rclone配置对话框
+const rcloneConfigDialog = ref(false)
 
 // 打开存储对话框
 function openStorageDialog() {
@@ -36,6 +46,12 @@ function openStorageDialog() {
       break
     case 'u115':
       u115AuthDialog.value = true
+      break
+    case 'rclone':
+      rcloneConfigDialog.value = true
+      break
+    default:
+      $toast.info('此存储类型无需配置参数')
       break
   }
 }
@@ -72,6 +88,14 @@ async function queryStorage() {
   }
 }
 
+// 完成配置后的处理
+function handleDone() {
+  aliyunAuthDialog.value = false
+  u115AuthDialog.value = false
+  rcloneConfigDialog.value = false
+  emit('done')
+}
+
 onMounted(() => {
   queryStorage()
 })
@@ -94,12 +118,14 @@ onMounted(() => {
     v-if="aliyunAuthDialog"
     v-model="aliyunAuthDialog"
     @close="aliyunAuthDialog = false"
-    @done="aliyunAuthDialog = false"
+    @done="handleDone"
   />
-  <U115AuthDialog
-    v-if="u115AuthDialog"
-    v-model="u115AuthDialog"
-    @close="u115AuthDialog = false"
-    @done="u115AuthDialog = false"
+  <U115AuthDialog v-if="u115AuthDialog" v-model="u115AuthDialog" @close="u115AuthDialog = false" @done="handleDone" />
+  <RcloneConfigDialog
+    v-if="rcloneConfigDialog"
+    v-model="rcloneConfigDialog"
+    :conf="props.storage.config || {}"
+    @close="rcloneConfigDialog = false"
+    @done="handleDone"
   />
 </template>

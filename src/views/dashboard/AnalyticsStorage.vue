@@ -59,7 +59,6 @@ onMounted(() => {
             <VProgressLinear :model-value="usedPercent" color="primary" />
           </p>
         </VCardText>
-
         <!-- Trophy -->
         <VImg :src="trophy" class="trophy" />
       </VCard>
