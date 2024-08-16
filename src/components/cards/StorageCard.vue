@@ -72,6 +72,17 @@ const getIcon = computed(() => {
   }
 })
 
+// 计算进度条颜色
+const progressColor = computed(() => {
+  if (usage.value > 90) {
+    return 'error'
+  } else if (usage.value > 70) {
+    return 'warning'
+  } else {
+    return 'success'
+  }
+})
+
 // 计算存储使用率
 const usage = computed(() => {
   return Math.round((available.value / (total.value || 1)) * 1000) / 10
@@ -105,13 +116,15 @@ onMounted(() => {
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
-        <div class="text-body-1 mb-3" v-if="total">{{ formatBytes(available) }} / {{ formatBytes(total) }}</div>
+        <div class="text-body-1 mb-3 text-xs" v-if="total">
+          {{ formatBytes(available, 1) }} / {{ formatBytes(total, 1) }}
+        </div>
         <div v-else>未配置</div>
       </div>
       <VImg :src="getIcon" cover class="mt-5" max-width="4rem" />
     </VCardText>
     <div class="w-full absolute bottom-0">
-      <VProgressLinear v-if="usage > 0" :model-value="usage" bg-color="success" color="success" />
+      <VProgressLinear v-if="usage > 0" :model-value="usage" :bg-color="progressColor" :color="progressColor" />
     </div>
   </VCard>
   <AliyunAuthDialog
