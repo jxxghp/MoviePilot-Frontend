@@ -46,7 +46,13 @@ async function savaRcloneConfig() {
             <VTextField v-model="props.conf.filepath" label="rclone配置文件路径" />
           </VCol>
           <VCol cols="12">
-            <VAceEditor v-model:value="props.conf.content" lang="ini" theme="monokai" style="block-size: 30rem">
+            <VAceEditor
+              v-model:value="props.conf.content"
+              lang="ini"
+              theme="monokai"
+              style="block-size: 30rem"
+              class="rounded"
+            >
             </VAceEditor>
           </VCol>
         </VRow>
