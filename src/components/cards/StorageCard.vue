@@ -114,14 +114,12 @@ onMounted(() => {
 <template>
   <VCard variant="tonal" @click="openStorageDialog">
     <VCardText class="flex justify-space-between align-center gap-3">
-      <div class="align-self-start">
+      <div class="align-self-start flex-1">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
-        <div class="text-body-1 mb-3 text-xs" v-if="total">
-          {{ formatBytes(available, 1) }} / {{ formatBytes(total, 1) }}
-        </div>
+        <div class="mb-3 text-sm" v-if="total">{{ formatBytes(available, 1) }} / {{ formatBytes(total, 1) }}</div>
         <div v-else>未配置</div>
       </div>
-      <VImg :src="getIcon" cover class="mt-5" max-width="4rem" />
+      <VImg :src="getIcon" cover class="mt-5" max-width="3rem" min-width="3rem" />
     </VCardText>
     <div class="w-full absolute bottom-0">
       <VProgressLinear v-if="usage > 0" :model-value="usage" :bg-color="progressColor" :color="progressColor" />

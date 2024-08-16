@@ -122,15 +122,15 @@ onMounted(() => {
     <VCard variant="tonal" @click="openMediaServerInfoDialog">
       <DialogCloseBtn @click="onClose" />
       <VCardText class="flex justify-space-between align-center gap-3">
-        <div class="align-self-start">
+        <div class="align-self-start flex-1">
           <div class="text-h6 mb-1">{{ mediaserver.name }}</div>
-          <div class="text-body-1 mt-5 flex flex-wrap">
+          <div class="text-sm mt-5 flex flex-wrap">
             <span v-for="item in infoItems" :key="item.title" class="me-2 mb-1">
               <VIcon rounded :icon="item.avatar" class="me-1" />{{ item.amount }}
             </span>
           </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-5 me-3" max-width="4rem" />
+        <VImg :src="getIcon" cover class="mt-5 me-3" max-width="3rem" min-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="mediaServerInfoDialog" scrollable max-width="40rem">

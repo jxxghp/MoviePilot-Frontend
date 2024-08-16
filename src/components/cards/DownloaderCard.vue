@@ -121,7 +121,7 @@ onUnmounted(() => {
         </IconBtn>
       </span>
       <VCardText class="flex justify-space-between align-center gap-4">
-        <div class="align-self-start">
+        <div class="align-self-start flex-1">
           <div class="flex items-center">
             <VBadge
               v-if="props.downloader.default && props.downloader.enabled"
@@ -132,12 +132,12 @@ onUnmounted(() => {
             />
             <span class="text-h6">{{ downloader.name }}</span>
           </div>
-          <div class="text-body-1 mt-5 flex flex-wrap text-sm" v-if="props.downloader.enabled">
+          <div class="mt-1 flex flex-wrap text-sm" v-if="props.downloader.enabled">
             <span class="me-2">{{ `↑ ${formatFileSize(upload_rate, 1)}/s ` }}</span>
             <span>{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
           </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-7" max-width="3rem" />
+        <VImg :src="getIcon" cover class="mt-7" max-width="3rem" min-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem">
