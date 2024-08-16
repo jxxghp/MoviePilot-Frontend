@@ -15,7 +15,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'change'])
+const emit = defineEmits(['close', 'done', 'change'])
 
 // timeout定时器
 let timeoutTimer: NodeJS.Timeout | undefined = undefined
@@ -76,12 +76,8 @@ function saveDownloaderInfo() {
   downloaderInfoDialog.value = false
   downloaderInfo.value.name = downloaderName.value
   emit('change', downloaderInfo.value)
+  emit('done')
 }
-
-// 速度
-const getSpeedText = computed(() => {
-  return `↑ ${formatFileSize(upload_rate.value, 1)}/s ↓ ${formatFileSize(download_rate.value, 1)}/s`
-})
 
 // 根据存储类型选择图标
 const getIcon = computed(() => {
@@ -166,7 +162,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.config.QB_HOST"
+                  v-model="downloaderInfo.config.host"
                   label="地址"
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
@@ -175,7 +171,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.config.QB_USER"
+                  v-model="downloaderInfo.config.username"
                   label="用户名"
                   placeholder="admin"
                   hint="登录使用的用户名"
@@ -184,7 +180,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.config.QB_PASSWORD"
+                  v-model="downloaderInfo.config.password"
                   type="password"
                   label="密码"
                   hint="登录使用的密码"
@@ -193,7 +189,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
-                  v-model="downloaderInfo.config.QB_CATEGORY"
+                  v-model="downloaderInfo.config.category"
                   label="自动分类管理"
                   hint="由下载器自动管理分类和下载目录"
                   persistent-hint
@@ -201,7 +197,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
-                  v-model="downloaderInfo.config.QB_SEQUENTIAL"
+                  v-model="downloaderInfo.config.sequentail"
                   label="顺序下载"
                   hint="按顺序依次下载文件"
                   persistent-hint
@@ -209,7 +205,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
-                  v-model="downloaderInfo.config.QB_FORCE_RESUME"
+                  v-model="downloaderInfo.config.force_resume"
                   label="强制继续"
                   hint="强制继续、强制上传模式"
                   persistent-hint
@@ -228,7 +224,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.config.TR_HOST"
+                  v-model="downloaderInfo.config.host"
                   label="地址"
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
@@ -237,7 +233,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.config.TR_USER"
+                  v-model="downloaderInfo.config.username"
                   label="用户名"
                   placeholder="admin"
                   hint="登录使用的用户名"
@@ -246,7 +242,7 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderInfo.config.TR_PASSWORD"
+                  v-model="downloaderInfo.config.password"
                   type="password"
                   label="密码"
                   hint="登录使用的密码"

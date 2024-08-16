@@ -14,7 +14,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'change'])
+const emit = defineEmits(['close', 'done', 'change'])
 
 // 媒体统计数据
 const infoItems = ref([
@@ -61,6 +61,7 @@ function saveMediaServerInfo() {
   mediaServerInfoDialog.value = false
   mediaServerInfo.value.name = mediaServerName.value
   emit('change', mediaServerInfo.value)
+  emit('done')
 }
 
 // 根据存储类型选择图标
@@ -156,7 +157,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.EMBY_HOST"
+                  v-model="mediaServerInfo.config.host"
                   label="地址"
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
@@ -165,7 +166,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.EMBY_PLAY_HOST"
+                  v-model="mediaServerInfo.config.play_host"
                   label="外网播放地址"
                   placeholder="http(s)://domain:port"
                   hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
@@ -174,7 +175,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.EMBY_API_KEY"
+                  v-model="mediaServerInfo.config.apikey"
                   label="API密钥"
                   hint="Emby设置->高级->API密钥中生成的密钥"
                   persistent-hint
@@ -193,7 +194,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.JELLYFIN_HOST"
+                  v-model="mediaServerInfo.config.host"
                   label="地址"
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
@@ -202,7 +203,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.JELLYFIN_PLAY_HOST"
+                  v-model="mediaServerInfo.config.play_host"
                   label="外网播放地址"
                   placeholder="http(s)://domain:port"
                   hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
@@ -211,7 +212,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.JELLYFIN_API_KEY"
+                  v-model="mediaServerInfo.config.apikey"
                   label="API密钥"
                   hint="Jellyfin设置->高级->API密钥中生成的密钥"
                   persistent-hint
@@ -230,7 +231,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.PLEX_HOST"
+                  v-model="mediaServerInfo.config.host"
                   label="地址"
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
@@ -239,7 +240,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.PLEX_PLAY_HOST"
+                  v-model="mediaServerInfo.config.play_host"
                   label="外网播放地址"
                   placeholder="http(s)://domain:port"
                   hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
@@ -248,7 +249,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerInfo.config.PLEX_TOKEN"
+                  v-model="mediaServerInfo.config.token"
                   label="X-Plex-Token"
                   hint="浏览器F12->网络，从Plex请求URL中获取的X-Plex-Token"
                   persistent-hint

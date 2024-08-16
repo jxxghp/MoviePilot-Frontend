@@ -38,6 +38,8 @@ async function saveDownloaderSetting() {
     const result: { [key: string]: any } = await api.post('system/setting/Downloaders', downloaders.value)
     if (result.success) $toast.success('下载器设置保存成功')
     else $toast.error('下载器设置保存失败！')
+
+    loadDownloaderSetting()
   } catch (error) {
     console.log(error)
   }
@@ -59,6 +61,8 @@ async function saveMediaServerSetting() {
     const result: { [key: string]: any } = await api.post('system/setting/MediaServers', mediaServers.value)
     if (result.success) $toast.success('媒体服务器设置保存成功')
     else $toast.error('媒体服务器设置保存失败！')
+
+    loadMediaServerSetting()
   } catch (error) {
     console.log(error)
   }
@@ -108,6 +112,12 @@ function removeDownloader(ele: DownloaderConf) {
   downloaders.value.splice(index, 1)
 }
 
+// 下载器变化
+function onDownloaderChange(downloader: DownloaderConf) {
+  const index = downloaders.value.findIndex(item => item.name === downloader.name)
+  downloaders.value[index] = downloader
+}
+
 // 添加媒体服务器
 function addMediaServer(mediaserver: string) {
   mediaServers.value.push({
@@ -122,6 +132,12 @@ function addMediaServer(mediaserver: string) {
 function removeMediaServer(ele: MediaServerConf) {
   const index = mediaServers.value.indexOf(ele)
   mediaServers.value.splice(index, 1)
+}
+
+// 变更媒体服务器
+function onMediaServerChange(mediaserver: MediaServerConf) {
+  const index = mediaServers.value.findIndex(item => item.name === mediaserver.name)
+  mediaServers.value[index] = mediaserver
 }
 
 // 加载数据
@@ -178,7 +194,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <DownloaderCard :downloader="element" @close="removeDownloader(element)" />
+              <DownloaderCard :downloader="element" @close="removeDownloader(element)" @change="onDownloaderChange" />
             </template>
           </draggable>
         </VCardText>
@@ -221,7 +237,11 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <MediaServerCard :mediaserver="element" @close="removeMediaServer(element)" />
+              <MediaServerCard
+                :mediaserver="element"
+                @close="removeMediaServer(element)"
+                @change="onMediaServerChange"
+              />
             </template>
           </draggable>
         </VCardText>
