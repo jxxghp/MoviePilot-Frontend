@@ -383,9 +383,6 @@ watch(
 <template>
   <!-- 插件卡片 -->
   <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail" class="flex flex-col">
-    <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 left-1">
-      <VIcon icon="mdi-new-box" class="text-white" />
-    </div>
     <div class="me-n3 absolute bottom-0 right-3">
       <IconBtn>
         <VIcon icon="mdi-dots-vertical" />
@@ -452,6 +449,9 @@ watch(
         <span class="text-sm ms-1 mt-1">{{ props.count?.toLocaleString() }}</span>
       </span>
     </VCardText>
+    <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 right-5">
+      <VIcon icon="mdi-new-box" class="text-white" />
+    </div>
   </VCard>
 
   <!-- 插件配置页面 -->
