@@ -1,19 +1,86 @@
 <script setup lang="ts">
-import { User } from '@/api/types'
+import api from '@/api'
+import { Subscribe, User } from '@/api/types'
+import store from '@/store'
 import avatar1 from '@images/avatars/avatar-1.png'
+import { useToast } from 'vue-toast-notification'
+import { useConfirm } from 'vuetify-use-dialog'
+import { hasPermission } from '@/@core/utils/permission'
 
 // 定义输入变量
-defineProps({
+const props = defineProps({
   user: {
     type: Object as PropType<User>,
     required: true,
   },
 })
 
+// 当前用户名称
+const currentUser = store.state.auth.userName
+
+// 定义触发的自定义事件
+const emit = defineEmits(['remove'])
+
+// 确认框
+const createConfirm = useConfirm()
+
+// 提示框
+const $toast = useToast()
+
 // 用户电影订阅数量
-const movieSubscriptions = 0
+const movieSubscriptions = ref(0)
+
 // 用户电视剧订阅数量
-const tvShowSubscriptions = 0
+const tvShowSubscriptions = ref(0)
+
+// 按用户查询订阅数量
+async function fetchSubscriptions() {
+  try {
+    const result: Subscribe[] = await api.get(`subscribe/user/${props.user.name}`)
+    if (result) {
+      movieSubscriptions.value = result.filter(item => item.type === '电影').length
+      tvShowSubscriptions.value = result.filter(item => item.type === '电视剧').length
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 删除用户
+async function removeUser() {
+  try {
+    const isConfirmed = await createConfirm({
+      title: '确认',
+      content: `删除用户 ${props.user?.name} 的所有数据，是否确认？`,
+    })
+    if (!isConfirmed) return
+    const result: { [key: string]: any } = await api.delete(`user/${props.user.id}`)
+    if (result.success) {
+      $toast.success('用户删除成功')
+      emit('remove')
+    } else {
+      $toast.error('用户删除失败！')
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 计算是否有用户编辑权限
+const canEditUser = computed(() => {
+  if (props.user.is_superuser) return true
+  return hasPermission('admin') || hasPermission('usermanage')
+})
+
+// 计算是否有用户管理权限
+const canManageUser = computed(() => {
+  if (props.user.name == currentUser) return false
+  return canEditUser
+})
+
+onMounted(() => {
+  fetchSubscriptions()
+})
 </script>
 <template>
   <VCard>
@@ -68,9 +135,9 @@ const tvShowSubscriptions = 0
       </VList>
     </VCardText>
     <VCardText class="flex flex-row justify-center">
-      <VBtn color="primary" class="me-4">编辑</VBtn>
-      <VBtn color="info" class="me-4" variant="outlined">权限</VBtn>
-      <VBtn color="error" variant="outlined">删除</VBtn>
+      <VBtn v-if="canEditUser" color="primary" class="me-4">编辑</VBtn>
+      <VBtn v-if="canEditUser" color="info" class="me-4" variant="outlined"> 权限 </VBtn>
+      <VBtn v-if="canManageUser" color="error" variant="outlined" @click="removeUser"> 删除 </VBtn>
     </VCardText>
   </VCard>
 </template>
