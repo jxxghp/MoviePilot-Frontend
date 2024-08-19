@@ -15,6 +15,13 @@ function openSearchDialog() {
   searchDialog.value = true
   return false
 }
+
+// 检测操作系统是否是Mac
+function isMac() {
+  return navigator.platform.toUpperCase().indexOf('MAC') >= 0
+}
+// 计算属性：根据操作系统显示不同的按键提示
+const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
 </script>
 
 <template>
@@ -25,7 +32,7 @@ function openSearchDialog() {
     </IconBtn>
     <span v-if="display.lgAndUp.value" class="flex align-center text-disabled ms-2" @click="openSearchDialog">
       <span class="me-3">搜索</span>
-      <span class="meta-key">⌘K</span>
+      <span class="meta-key">{{ metaKey }}</span>
     </span>
   </div>
   <!-- 搜索弹窗 -->

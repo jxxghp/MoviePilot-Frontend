@@ -80,7 +80,13 @@ const options = controlledComputed(
             fontSize: '12px',
           },
 
-          formatter: (value: number) => (value > 999 ? (value / 1000).toFixed(0) : value),
+          formatter: (value: number) => {
+            if (value > 999) {
+              return (value / 1000).toFixed(1) + 'k'
+            } else {
+              return value.toString()
+            }
+          },
         },
       },
     }

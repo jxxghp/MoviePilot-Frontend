@@ -148,9 +148,16 @@ const totalPage = computed(() => {
 
 // 切换页签和搜索词
 watch(
-  [() => currentPage.value, () => itemsPerPage.value, () => search.value],
+  [() => currentPage.value, () => itemsPerPage.value],
   debounce(async () => {
     reloadPage()
+  }, 1000),
+)
+
+watch(
+  [() => search.value],
+  debounce(async () => {
+    reloadPage(true)
   }, 1000),
 )
 
@@ -266,19 +273,6 @@ async function removeHistoryBatch() {
   deleteConfirmDialog.value = true
 }
 
-// 计算根路径
-function getRootPath(path: string, type: string, category: string) {
-  if (!path) return ''
-
-  let index = -2
-  if (type !== '电影') index = -3
-
-  if (category) index -= 1
-
-  if (path.includes('/')) return path.split('/').slice(0, index).join('/')
-  else return path.split('\\').slice(0, index).join('\\')
-}
-
 // 批量重新整理
 async function retransferBatch() {
   if (selected.value.length === 0) return
@@ -335,7 +329,7 @@ function addUrlQuery(url: string, name: string, value: any) {
 }
 
 // 重载页面
-function reloadPage() {
+function reloadPage(resetPage = false) {
   let url = '/history'
   if (search.value) {
     url = addUrlQuery(url, 'search', search.value)
@@ -344,7 +338,7 @@ function reloadPage() {
     url = addUrlQuery(url, 'itemsPerPage', itemsPerPage.value)
   }
   if (currentPage.value) {
-    url = addUrlQuery(url, 'currentPage', currentPage.value)
+    url = addUrlQuery(url, 'currentPage', resetPage ? 1 : currentPage.value)
   }
   router.push(url)
 }
