@@ -15,6 +15,9 @@ const { global: globalTheme } = useTheme()
 // Vuex Store
 const store = useStore()
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 // 表单
 const form = ref({
   username: '',
@@ -52,8 +55,15 @@ let intervalTimer: NodeJS.Timeout | null = null
 // 获取背景图片
 async function fetchBackgroundImage() {
   try {
-    backgroundImages.value = await api.get('/login/wallpapers')
-    if (backgroundImages.value && backgroundImages.value.length > 0) {
+    const results: string[] = await api.get('/login/wallpapers')
+    if (results && results.length > 0) {
+      results.map((url: string) => {
+        if (globalSettings.GLOBAL_IMAGE_CACHE)
+          backgroundImages.value.push(
+            `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`,
+          )
+        else backgroundImages.value.push(url)
+      })
       // 随机打乱排序
       backgroundImages.value.sort(() => Math.random() - 0.5)
       backgroundImageUrl.value = backgroundImages.value[0]
