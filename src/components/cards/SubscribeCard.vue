@@ -13,6 +13,9 @@ const props = defineProps({
   media: Object as PropType<Subscribe>,
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
 
@@ -169,6 +172,24 @@ watch(
     if (newOpenState) editSubscribeDialog()
   },
 )
+
+// 计算backdrop图片地址
+const backdropUrl = computed(() => {
+  const url = props.media?.backdrop || props.media?.poster
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
+  return url
+})
+
+// 计算海报图片地址
+const posterUrl = computed(() => {
+  const url = props.media?.poster
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
+  return url
+})
 </script>
 
 <template>
@@ -208,13 +229,7 @@ watch(
           </IconBtn>
         </div>
         <template #image>
-          <VImg
-            :src="props.media?.backdrop || props.media?.poster"
-            aspect-ratio="3/2"
-            cover
-            @load="imageLoadHandler"
-            position="top"
-          >
+          <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
             <template #placeholder>
               <div class="w-full h-full">
                 <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
@@ -223,10 +238,10 @@ watch(
             <div class="absolute inset-0 subscribe-card-background"></div>
           </VImg>
         </template>
-        <div v-if="imageLoaded">
+        <div>
           <VCardText class="flex items-center">
             <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg">
-              <VImg :src="props.media?.poster" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
+              <VImg :src="posterUrl" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
                 <template #placeholder>
                   <div class="w-full h-full">
                     <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />

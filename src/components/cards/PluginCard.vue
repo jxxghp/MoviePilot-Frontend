@@ -411,7 +411,7 @@ watch(
     >
       <div
         class="absolute inset-0 bg-cover bg-center"
-        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.7)' }"
+        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }"
       />
       <div class="relative flex-1 min-w-0">
         <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">

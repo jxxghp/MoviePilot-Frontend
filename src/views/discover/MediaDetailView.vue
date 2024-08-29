@@ -321,7 +321,8 @@ function getW500Image(url = '') {
   if (!url) return ''
   url = url.replace('original', 'w500')
   // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${url}`
+  if (globalSettings.GLOBAL_IMAGE_CACHE)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
   return url
 }
 
@@ -329,9 +330,11 @@ function getW500Image(url = '') {
 const getPosterUrl: Ref<string> = computed(() => {
   const url = mediaDetail.value.poster_path ?? ''
   // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${url}`
+  if (globalSettings.GLOBAL_IMAGE_CACHE)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
   // 如果地址中包含douban则使用中转代理
-  if (url.includes('doubanio.com')) return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${url}`
+  if (url.includes('doubanio.com'))
+    return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${encodeURIComponent(url)}`
   return url
 })
 
@@ -339,7 +342,8 @@ const getPosterUrl: Ref<string> = computed(() => {
 const getBackdropUrl: Ref<string> = computed(() => {
   const url = mediaDetail.value.backdrop_path ?? ''
   // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${url}`
+  if (globalSettings.GLOBAL_IMAGE_CACHE)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
   return url
 })
 
