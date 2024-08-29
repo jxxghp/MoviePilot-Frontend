@@ -2,8 +2,8 @@
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 
-// 系统环境变量
-const systemEnv = ref<any>({})
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
 
 // 所有Release
 const allRelease = ref<any>([])
@@ -27,17 +27,6 @@ function showReleaseDialog(title: string, body: string) {
   releaseDialog.value = true
 }
 
-// 查询系统环境变量
-async function querySystemEnv() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/env')
-
-    systemEnv.value = result.data
-  } catch (error) {
-    console.log(error)
-  }
-}
-
 // 查询所有Release
 async function queryAllRelease() {
   try {
@@ -59,7 +48,6 @@ function releaseTime(releaseDate: string) {
 }
 
 onMounted(() => {
-  querySystemEnv()
   queryAllRelease()
 })
 </script>
@@ -77,9 +65,9 @@ onMounted(() => {
               <dt class="block text-sm font-bold">软件版本</dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow flex flex-row items-center truncate">
-                  <code class="truncate">{{ systemEnv.VERSION }}</code>
+                  <code class="truncate">{{ globalSettings.VERSION }}</code>
                   <a
-                    v-if="latestRelease === systemEnv.VERSION"
+                    v-if="latestRelease === globalSettings.VERSION"
                     href="https://github.com/jxxghp/MoviePilot/releases"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -94,12 +82,12 @@ onMounted(() => {
               </dd>
             </div>
           </div>
-          <div v-if="systemEnv.FRONTEND_VERSION">
+          <div v-if="globalSettings.FRONTEND_VERSION">
             <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
               <dt class="block text-sm font-bold">前端版本</dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow flex flex-row items-center truncate">
-                  <code class="truncate">{{ systemEnv.FRONTEND_VERSION }}</code>
+                  <code class="truncate">{{ globalSettings.FRONTEND_VERSION }}</code>
                 </span>
               </dd>
             </div>
@@ -109,7 +97,7 @@ onMounted(() => {
               <dt class="block text-sm font-bold">认证资源版本</dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow flex flex-row items-center truncate">
-                  <code class="truncate">{{ systemEnv.AUTH_VERSION }}</code>
+                  <code class="truncate">{{ globalSettings.AUTH_VERSION }}</code>
                 </span>
               </dd>
             </div>
@@ -119,7 +107,7 @@ onMounted(() => {
               <dt class="block text-sm font-bold">站点资源版本</dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow flex flex-row items-center truncate">
-                  <code class="truncate">{{ systemEnv.INDEXER_VERSION }}</code>
+                  <code class="truncate">{{ globalSettings.INDEXER_VERSION }}</code>
                 </span>
               </dd>
             </div>
@@ -129,7 +117,7 @@ onMounted(() => {
               <dt class="block text-sm font-bold">配置目录</dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow undefined">
-                  <code>{{ systemEnv.CONFIG_DIR }}</code>
+                  <code>{{ globalSettings.CONFIG_DIR }}</code>
                 </span>
               </dd>
             </div>
@@ -145,7 +133,7 @@ onMounted(() => {
               <dt class="block text-sm font-bold">时区</dt>
               <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                 <span class="flex-grow undefined">
-                  <code>{{ systemEnv.TZ }}</code>
+                  <code>{{ globalSettings.TZ }}</code>
                 </span>
               </dd>
             </div>
@@ -237,7 +225,7 @@ onMounted(() => {
                   最新软件版本
                 </span>
                 <span
-                  v-if="release.tag_name === systemEnv.VERSION"
+                  v-if="release.tag_name === globalSettings.VERSION"
                   class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap cursor-default bg-indigo-500 bg-opacity-80 border border-indigo-500 !text-indigo-100"
                 >
                   当前版本

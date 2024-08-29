@@ -19,6 +19,9 @@ const props = defineProps({
   height: String,
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 const store = useStore()
 
 // 提示框
@@ -366,10 +369,11 @@ onBeforeMount(() => {
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value) return noImage
   const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${url}`
   // 如果地址中包含douban则使用中转代理
   if (url.includes('doubanio.com'))
     return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${encodeURIComponent(url)}`
-
   return url
 })
 
@@ -405,7 +409,7 @@ function getYear(airDate: string) {
           'transition transform-cpu duration-300 scale-105 shadow-lg': hover.isHovering,
           'ring-1': isImageLoaded,
         }"
-        @click.stop="goMediaDetail(hover.isHovering)"
+        @click.stop="goMediaDetail(hover.isHovering ?? false)"
       >
         <VImg
           aspect-ratio="2/3"

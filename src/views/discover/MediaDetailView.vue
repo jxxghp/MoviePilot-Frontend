@@ -17,6 +17,9 @@ const mediaProps = defineProps({
   type: String,
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 const store = useStore()
 
 // 提示框
@@ -316,8 +319,33 @@ function getEpisodeImage(stillPath: string) {
 // TMDB图片转换为w500大小
 function getW500Image(url = '') {
   if (!url) return ''
-  return url.replace('original', 'w500')
+  url = url.replace('original', 'w500')
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${encodeURIComponent(url)}`
+  return url
 }
+
+// 计算Poster地址
+const getPosterUrl: Ref<string> = computed(() => {
+  const url = mediaDetail.value.poster_path ?? ''
+  // 如果地址中包含douban则使用中转代理
+  if (url.includes('doubanio.com'))
+    return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${encodeURIComponent(url)}`
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${url}`
+  return url
+})
+
+// 计算backdrop地址
+const getBackdropUrl: Ref<string> = computed(() => {
+  const url = mediaDetail.value.backdrop_path ?? ''
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE) return `${import.meta.env.VITE_API_BASE_URL}${url}`
+  // 如果地址中包含douban则使用中转代理
+  if (url.includes('doubanio.com'))
+    return `${import.meta.env.VITE_API_BASE_URL}douban/img?imgurl=${encodeURIComponent(url)}`
+  return url
+})
 
 // 获取发行国家名称
 const getProductionCountries = computed(() => {
@@ -423,9 +451,9 @@ onBeforeMount(() => {
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" class="max-w-8xl mx-auto px-4">
-    <template v-if="mediaDetail.backdrop_path || mediaDetail.poster_path">
+    <template v-if="getBackdropUrl || getPosterUrl">
       <div class="vue-media-back absolute left-0 top-0 w-full h-96">
-        <VImg class="h-96" position="top" :src="mediaDetail.backdrop_path || mediaDetail.poster_path" cover />
+        <VImg class="h-96" position="top" :src="getBackdropUrl || getPosterUrl" cover />
       </div>
       <div class="vue-media-back absolute left-0 top-0 w-full h-96" />
     </template>

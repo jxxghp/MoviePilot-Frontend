@@ -9,6 +9,9 @@ const personProps = defineProps({
   height: String,
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 // 当前人物
 const personInfo = ref(personProps.person)
 
@@ -17,22 +20,26 @@ const isImageLoaded = ref(false)
 
 // 人物图片地址
 function getPersonImage() {
+  let url = ''
   if (personProps.person?.source === 'themoviedb') {
     if (!personInfo.value?.profile_path) return personIcon
-    return `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personInfo.value?.profile_path}`
+    url = `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personInfo.value?.profile_path}`
   } else if (personProps.person?.source === 'douban') {
     if (!personInfo.value?.avatar) return personIcon
     if (typeof personInfo.value?.avatar === 'object') {
-      return personInfo.value?.avatar?.normal
+      url = personInfo.value?.avatar?.normal
     } else {
-      return personInfo.value?.avatar
+      url = personInfo.value?.avatar
     }
   } else if (personProps.person?.source === 'bangumi') {
     if (!personInfo.value?.images) return personIcon
-    return personInfo.value?.images?.medium
+    url = personInfo.value?.images?.medium
   } else {
     return personIcon
   }
+  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
+  return url
 }
 
 // 人物姓名

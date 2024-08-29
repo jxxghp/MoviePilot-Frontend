@@ -6,7 +6,7 @@ import api from '@/api'
 import { numberValidator } from '@/@validators'
 import { useDisplay } from 'vuetify'
 import ProgressDialog from './ProgressDialog.vue'
-import { FileItem, MediaDirectory } from '@/api/types'
+import { FileItem, TransferDirectoryConf } from '@/api/types'
 
 // 显示器宽度
 const display = useDisplay()
@@ -22,6 +22,12 @@ const props = defineProps({
   target: String,
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
+// 当前识别类型
+const mediaSource = ref(globalSettings.data?.RECOGNIZE_SOURCE || 'themoviedb')
+
 // 定义事件
 const emit = defineEmits(['done', 'close'])
 
@@ -32,9 +38,6 @@ const seasonItems = ref(
     value: item,
   })),
 )
-
-// 当前识别类型
-const mediaSource = ref('themoviedb')
 
 // 提示框
 const $toast = useToast()
@@ -88,20 +91,20 @@ const transferForm = reactive({
 })
 
 // 所有媒体库目录
-const libraryDirectories = ref<MediaDirectory[]>([])
+const libraryDirectories = ref<TransferDirectoryConf[]>([])
 
 // 目的目录下拉框
 const targetDirectories = computed(() => {
-  const directories = libraryDirectories.value.map(item => item.path)
+  const directories = libraryDirectories.value.map(item => item.library_path)
   return [...new Set(directories)]
 })
 
 // 监听目的路径变化，自动查询目录的刮削配置
 watch(transferForm, async () => {
   if (transferForm.target) {
-    const directory = libraryDirectories.value.find(item => item.path === transferForm.target)
+    const directory = libraryDirectories.value.find(item => item.library_path === transferForm.target)
     if (directory) {
-      transferForm.scrape = directory.scrape ?? false
+      transferForm.scrape = directory.scraping ?? false
     }
   }
 })
@@ -186,16 +189,6 @@ async function handleTransferLog(logid: number) {
   }
 }
 
-// 调用API，加载当前系统环境设置
-async function loadSystemSettings() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/env')
-    if (result) mediaSource.value = result.data?.RECOGNIZE_SOURCE || 'themoviedb'
-  } catch (e) {
-    console.error(e)
-  }
-}
-
 // 查询媒体库目录
 async function loadLibraryDirectories() {
   try {
@@ -209,7 +202,6 @@ async function loadLibraryDirectories() {
 }
 
 onMounted(() => {
-  loadSystemSettings()
   loadLibraryDirectories()
 })
 </script>

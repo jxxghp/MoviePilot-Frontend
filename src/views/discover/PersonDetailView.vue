@@ -12,6 +12,9 @@ const personProps = defineProps({
   source: String,
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 // 媒体详情
 const personDetail = ref<Person>({} as Person)
 
@@ -37,22 +40,27 @@ async function getPersonDetail() {
 
 // 人物图片地址
 function getPersonImage() {
+  let url = ''
   if (personProps.source === 'themoviedb') {
     if (!personDetail.value?.profile_path) return personIcon
-    return `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personDetail.value?.profile_path}`
+    url = `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personDetail.value?.profile_path}`
   } else if (personProps.source === 'douban') {
     if (!personDetail.value?.avatar) return personIcon
     if (typeof personDetail.value?.avatar === 'object') {
-      return personDetail.value?.avatar?.normal
+      url = personDetail.value?.avatar?.normal
     } else {
-      return personDetail.value?.avatar
+      url = personDetail.value?.avatar
     }
   } else if (personProps.source === 'bangumi') {
     if (!personDetail.value?.images) return personIcon
-    return personDetail.value?.images?.medium
+    url = personDetail.value?.images?.medium
   } else {
     return personIcon
   }
+  // 使用图片缓存
+  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
+  return url
 }
 
 // 将别名数组拆分为、分隔的字符串

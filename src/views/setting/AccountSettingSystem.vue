@@ -13,6 +13,9 @@ const SystemSettings = ref({
   APP_DOMAIN: '',
 })
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 // 选中的媒体服务器
 const mediaServers = ref<MediaServerConf[]>([])
 

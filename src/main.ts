@@ -28,9 +28,18 @@ import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
 import 'vue3-perfect-scrollbar/style.css'
+import { fetchGlobalSettings } from './api'
 
 // 创建Vue实例
 const app = createApp(App)
+
+try {
+  const globalSettings = await fetchGlobalSettings()
+  // 使用 provide 传递全局设置
+  app.provide('globalSettings', globalSettings)
+} catch (error) {
+  console.error('Failed to initialize app', error)
+}
 
 // 注册全局组件
 app

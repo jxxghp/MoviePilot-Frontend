@@ -2,6 +2,9 @@
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 
+// 从 provide 中获取全局设置
+const globalSettings: any = inject('globalSettings')
+
 // 提示框
 const $toast = useToast()
 
