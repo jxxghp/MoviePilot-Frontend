@@ -44,49 +44,51 @@ async function initializeApp() {
 }
 
 // 注册全局组件
-app
-  .component('VAceEditor', VAceEditor)
-  .component('VApexChart', VueApexCharts)
-  .component('VDialogCloseBtn', DialogCloseBtn)
-  .component('VMediaCard', MediaCard)
-  .component('VPosterCard', PosterCard)
-  .component('VBackdropCard', BackdropCard)
-  .component('VPersonCard', PersonCard)
-  .component('VMediaInfoCard', MediaInfoCard)
-  .component('VTorrentCard', TorrentCard)
-  .component('VMediaIdSelector', MediaIdSelector)
-  .component('VTreeview', VTreeview)
-  .component('VPathField', PathField)
+initializeApp().then(() => {
+  app
+    .component('VAceEditor', VAceEditor)
+    .component('VApexChart', VueApexCharts)
+    .component('VDialogCloseBtn', DialogCloseBtn)
+    .component('VMediaCard', MediaCard)
+    .component('VPosterCard', PosterCard)
+    .component('VBackdropCard', BackdropCard)
+    .component('VPersonCard', PersonCard)
+    .component('VMediaInfoCard', MediaInfoCard)
+    .component('VTorrentCard', TorrentCard)
+    .component('VMediaIdSelector', MediaIdSelector)
+    .component('VTreeview', VTreeview)
+    .component('VPathField', PathField)
 
-// 注册插件
-app
-  .use(vuetify)
-  .use(router)
-  .use(store)
-  .use(ToastPlugin, {
-    position: 'bottom-right',
-  })
-  .use(VuetifyUseDialog, {
-    confirmDialog: {
-      dialogProps: {
-        maxWidth: '40rem',
+  // 注册插件
+  app
+    .use(vuetify)
+    .use(router)
+    .use(store)
+    .use(ToastPlugin, {
+      position: 'bottom-right',
+    })
+    .use(VuetifyUseDialog, {
+      confirmDialog: {
+        dialogProps: {
+          maxWidth: '40rem',
+        },
+        confirmationButtonProps: {
+          variant: 'elevated',
+          color: 'primary',
+          class: 'me-3 px-5',
+          'prepend-icon': 'mdi-check',
+        },
+        cancellationButtonProps: {
+          variant: 'outlined',
+          color: 'secondary',
+          class: 'me-3',
+        },
+        confirmationText: '确认',
+        cancellationText: '取消',
       },
-      confirmationButtonProps: {
-        variant: 'elevated',
-        color: 'primary',
-        class: 'me-3 px-5',
-        'prepend-icon': 'mdi-check',
-      },
-      cancellationButtonProps: {
-        variant: 'outlined',
-        color: 'secondary',
-        class: 'me-3',
-      },
-      confirmationText: '确认',
-      cancellationText: '取消',
-    },
-  })
-  .use(PerfectScrollbarPlugin)
-  .use(VueApexCharts)
-  .mount('#app')
-  .$nextTick(() => removeEl('#loading-bg'))
+    })
+    .use(PerfectScrollbarPlugin)
+    .use(VueApexCharts)
+    .mount('#app')
+    .$nextTick(() => removeEl('#loading-bg'))
+})
