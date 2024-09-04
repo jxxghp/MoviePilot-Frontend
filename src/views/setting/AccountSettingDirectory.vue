@@ -137,7 +137,7 @@ function addDownloadDirectory() {
   downloadDirectories.value.push({
     name: `下载目录${downloadDirectories.value.length + 1}`,
     path: '',
-    media_type: '全部',
+    media_type: '',
     category: '',
   })
 }
@@ -181,7 +181,7 @@ function addLibraryDirectory() {
   libraryDirectories.value.push({
     name: `媒体库目录${libraryDirectories.value.length + 1}`,
     path: '',
-    media_type: '全部',
+    media_type: '',
     category: '',
     scrape: true,
   })
