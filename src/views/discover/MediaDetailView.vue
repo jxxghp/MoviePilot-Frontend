@@ -313,7 +313,7 @@ function getBangumiLink() {
 // 拼装集图片地址
 function getEpisodeImage(stillPath: string) {
   if (!stillPath) return ''
-  return `https://image.tmdb.org/t/p/w500${stillPath}`
+  return `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${stillPath}`
 }
 
 // TMDB图片转换为w500大小

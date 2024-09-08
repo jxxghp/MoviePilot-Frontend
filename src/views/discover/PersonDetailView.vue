@@ -43,7 +43,7 @@ function getPersonImage() {
   let url = ''
   if (personProps.source === 'themoviedb') {
     if (!personDetail.value?.profile_path) return personIcon
-    url = `https://image.tmdb.org/t/p/w600_and_h900_bestv2${personDetail.value?.profile_path}`
+    url = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w600_and_h900_bestv2${personDetail.value?.profile_path}`
   } else if (personProps.source === 'douban') {
     if (!personDetail.value?.avatar) return personIcon
     if (typeof personDetail.value?.avatar === 'object') {

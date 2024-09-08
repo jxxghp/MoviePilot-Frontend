@@ -381,7 +381,7 @@ const getImgUrl: Ref<string> = computed(() => {
 // 拼装季图片地址
 function getSeasonPoster(posterPath: string) {
   if (!posterPath) return ''
-  return `https://image.tmdb.org/t/p/w500${posterPath}`
+  return `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${posterPath}`
 }
 
 // 将yyyy-mm-dd转换为yyyy年mm月dd日
