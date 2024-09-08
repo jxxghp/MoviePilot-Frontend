@@ -6,6 +6,7 @@ import avatar1 from '@images/avatars/avatar-1.png'
 import { useToast } from 'vue-toast-notification'
 import { useConfirm } from 'vuetify-use-dialog'
 import { hasPermission } from '@/@core/utils/permission'
+import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 
 // 定义输入变量
 const props = defineProps({
@@ -23,6 +24,9 @@ const emit = defineEmits(['remove'])
 
 // 确认框
 const createConfirm = useConfirm()
+
+// 用户信息弹窗
+const userEditDialog = ref(false)
 
 // 提示框
 const $toast = useToast()
@@ -54,7 +58,7 @@ async function removeUser() {
       content: `删除用户 ${props.user?.name} 的所有数据，是否确认？`,
     })
     if (!isConfirmed) return
-    const result: { [key: string]: any } = await api.delete(`user/${props.user.id}`)
+    const result: { [key: string]: any } = await api.delete(`user/${props.user.name}`)
     if (result.success) {
       $toast.success('用户删除成功')
       emit('remove')
@@ -66,9 +70,14 @@ async function removeUser() {
   }
 }
 
+// 编辑用户
+function editUser() {
+  userEditDialog.value = true
+}
+
 // 计算是否有用户编辑权限
 const canEditUser = computed(() => {
-  if (props.user.is_superuser) return true
+  if (store.state.auth.superUser) return true
   return hasPermission('admin') || hasPermission('usermanage')
 })
 
@@ -77,6 +86,12 @@ const canManageUser = computed(() => {
   if (props.user.name == currentUser) return false
   return canEditUser
 })
+
+// 用户重新完成时
+function onUserUpdate() {
+  userEditDialog.value = false
+  emit('save')
+}
 
 onMounted(() => {
   fetchSubscriptions()
@@ -135,9 +150,17 @@ onMounted(() => {
       </VList>
     </VCardText>
     <VCardText class="flex flex-row justify-center">
-      <VBtn v-if="canEditUser" color="primary" class="me-4">编辑</VBtn>
-      <VBtn v-if="canEditUser" color="info" class="me-4" variant="outlined"> 权限 </VBtn>
+      <VBtn v-if="canEditUser" color="primary" class="me-4" @click="editUser">编辑</VBtn>
       <VBtn v-if="canManageUser" color="error" variant="outlined" @click="removeUser"> 删除 </VBtn>
     </VCardText>
   </VCard>
+  <!-- 用户编辑弹窗 -->
+  <UserAddEditDialog
+    v-if="userEditDialog"
+    v-model="userEditDialog"
+    :username="props.user?.name"
+    oper="edit"
+    @save="onUserUpdate"
+    @close="userEditDialog = false"
+  />
 </template>

@@ -37,6 +37,12 @@ async function loadAllUsers() {
   }
 }
 
+// 用户新增完成
+const onUserAdd = () => {
+  addUserDialog.value = false
+  loadAllUsers()
+}
+
 // 加载当前用户数据
 onMounted(() => {
   loadAllUsers()
@@ -53,7 +59,7 @@ onActivated(() => {
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
 
   <div v-if="allUsers.length > 0" class="grid gap-3 grid-user-card items-start">
-    <UserCard v-for="user in allUsers" :user="user" />
+    <UserCard v-for="user in allUsers" :user="user" @remove="loadAllUsers" @save="loadAllUsers" />
   </div>
 
   <NoDataFound
@@ -75,5 +81,14 @@ onActivated(() => {
   />
 
   <!-- 弹窗 -->
-  <UserAddEditDialog v-model="addUserDialog" max-width="50rem" persistent z-index="1010" />
+  <UserAddEditDialog
+    v-if="addUserDialog"
+    v-model="addUserDialog"
+    oper="add"
+    max-width="50rem"
+    persistent
+    z-index="1010"
+    @save="onUserAdd"
+    @close="addUserDialog = false"
+  />
 </template>

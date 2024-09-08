@@ -54,11 +54,6 @@ const priorityItems = ref(
   })),
 )
 
-// 监控输入参数
-watchEffect(async () => {
-  if (props.siteid) fetchSiteInfo()
-})
-
 // 查询站点信息
 async function fetchSiteInfo() {
   try {
@@ -124,6 +119,12 @@ async function updateSiteInfo() {
   }
   doneNProgress()
 }
+
+onMounted(() => {
+  if (props.oper !== 'add') {
+    fetchSiteInfo()
+  }
+})
 </script>
 
 <template>
