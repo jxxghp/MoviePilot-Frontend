@@ -13,8 +13,8 @@ const SystemSettings = ref({
   APP_DOMAIN: '',
 })
 
-// 从 provide 中获取全局设置
-const globalSettings: any = inject('globalSettings')
+// 是否发送请求的总开关
+const isRequest = ref(true)
 
 // 选中的媒体服务器
 const mediaServers = ref<MediaServerConf[]>([])
@@ -149,6 +149,14 @@ onMounted(() => {
   loadMediaServerSetting()
   loadSystemSettings()
 })
+
+onActivated(async () => {
+  isRequest.value = true
+})
+
+onDeactivated(() => {
+  isRequest.value = false
+})
 </script>
 
 <template>
@@ -197,7 +205,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <DownloaderCard :downloader="element" @close="removeDownloader(element)" @change="onDownloaderChange" />
+              <DownloaderCard :downloader="element" @close="removeDownloader(element)" @change="onDownloaderChange" :allow-refresh="isRequest" />
             </template>
           </draggable>
         </VCardText>

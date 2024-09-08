@@ -12,6 +12,11 @@ const props = defineProps({
     type: Object as PropType<DownloaderConf>,
     required: true,
   },
+  // 是否允许刷新数据
+  allowRefresh: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 定义触发的自定义事件
@@ -43,6 +48,9 @@ const downloaderInfo = ref<DownloaderConf>({
 
 // 调用API查询下载器数据
 async function loadDownloaderInfo() {
+  if (!props.allowRefresh) {
+    return
+  }
   try {
     const res: DownloaderInfo = await api.get('dashboard/downloader', {
       params: {
@@ -99,7 +107,6 @@ function onClose() {
 onMounted(async () => {
   if (props.downloader.enabled) {
     await loadDownloaderInfo()
-    timeoutTimer = setTimeout(loadDownloaderInfo, 3000)
   }
 })
 
