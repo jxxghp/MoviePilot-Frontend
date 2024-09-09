@@ -6,6 +6,11 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
 import store from '@/store'
 
+// 定义输入参数
+const props = defineProps<{
+  name: string
+}>()
+
 // 定时器
 let refreshTimer: NodeJS.Timeout | null = null
 
@@ -18,7 +23,7 @@ const isRefreshed = ref(false)
 // 获取订阅列表数据
 async function fetchData() {
   try {
-    dataList.value = await api.get('download/')
+    dataList.value = await api.get('download/', { params: { name: props.name } })
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
