@@ -35,6 +35,17 @@ async function loadDownloaderSetting() {
   }
 }
 
+// 重载系统生效配置
+async function reloadSystem() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/reload')
+    if (result.success) $toast.success('系统配置已生效')
+    else $toast.error('重载系统失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 调用API保存下载器设置
 async function saveDownloaderSetting() {
   try {
@@ -43,6 +54,7 @@ async function saveDownloaderSetting() {
     else $toast.error('下载器设置保存失败！')
 
     loadDownloaderSetting()
+    await reloadSystem()
   } catch (error) {
     console.log(error)
   }
@@ -66,6 +78,7 @@ async function saveMediaServerSetting() {
     else $toast.error('媒体服务器设置保存失败！')
 
     loadMediaServerSetting()
+    await reloadSystem()
   } catch (error) {
     console.log(error)
   }
@@ -205,7 +218,12 @@ onDeactivated(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <DownloaderCard :downloader="element" @close="removeDownloader(element)" @change="onDownloaderChange" :allow-refresh="isRequest" />
+              <DownloaderCard
+                :downloader="element"
+                @close="removeDownloader(element)"
+                @change="onDownloaderChange"
+                :allow-refresh="isRequest"
+              />
             </template>
           </draggable>
         </VCardText>
