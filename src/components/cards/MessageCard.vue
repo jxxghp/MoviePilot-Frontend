@@ -57,11 +57,14 @@ function replaceNewLine(value: string) {
       />
     </div>
     <div
-      v-if="props.message?.title"
+      v-if="props.message?.title && !props.message?.image"
       class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
     >
       <p class="mb-0">{{ props.message?.title }}</p>
     </div>
+    <VCardTitle v-if="props.message?.title && props.message?.image">
+      {{ props.message?.title }}
+    </VCardTitle>
     <div
       v-if="props.message?.text && props.message?.action === 0"
       class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
