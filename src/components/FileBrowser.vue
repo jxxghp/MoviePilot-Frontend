@@ -96,7 +96,7 @@ function loadingChanged(loading: number) {
 // 存储切换
 async function storageChanged(storage: string) {
   activeStorage.value = storage
-  emit('pathchanged', { path: '/', fileid: 'root' })
+  emit('pathchanged', { storage: storage, path: '/', fileid: 'root' })
 }
 
 // 路径变化

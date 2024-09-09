@@ -34,7 +34,7 @@ const endpoints = {
 const user_level = store.state.auth.level
 
 // 用户存储
-const userStorage = user_level > 1 ? 'local,aliyun,u115' : 'local'
+const userStorage = user_level > 1 ? 'local,alipan,u115' : 'local'
 
 // 当前文件项
 const operItem = ref<FileItem>({
@@ -127,6 +127,18 @@ async function loadDownloadDirectories() {
 // 目录变化
 function pathChanged(item: FileItem) {
   operItem.value = item
+  if (item.path == '/') {
+    itemstack.value = [
+      {
+        storage: item.storage,
+        type: 'dir',
+        name: '/',
+        path: '/',
+        fileid: item.fileid || 'root',
+      },
+    ]
+    return
+  }
   const index = itemstack.value.findIndex(i => i.path === item.path)
   if (index >= 0) {
     itemstack.value = itemstack.value.slice(0, index + 1)
