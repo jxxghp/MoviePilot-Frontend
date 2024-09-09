@@ -10,6 +10,9 @@ const activeTab = ref(route.query.tab)
 // 下载器
 const downloaders = ref<DownloaderConf[]>([])
 
+// 获取启用的下载器
+const enabledDownloaders = computed(() => downloaders.value.filter(item => item.enabled))
+
 // 调用API查询下载器设置
 async function loadDownloaderSetting() {
   try {
@@ -35,13 +38,13 @@ onMounted(() => {
 <template>
   <div>
     <VTabs v-model="activeTab">
-      <VTab v-for="item in downloaders" :value="item.name" @to="jumpTab(item.name)">
+      <VTab v-for="item in enabledDownloaders" :value="item.name" @to="jumpTab(item.name)">
         <span class="mx-5">{{ item.name }}</span>
       </VTab>
     </VTabs>
 
     <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
-      <VWindowItem v-for="item in downloaders" :value="item.name">
+      <VWindowItem v-for="item in enabledDownloaders" :value="item.name">
         <transition name="fade-slide" appear>
           <DownloadingListView :name="item.name" />
         </transition>
