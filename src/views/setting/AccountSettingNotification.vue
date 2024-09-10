@@ -101,7 +101,7 @@ async function saveNotificationSetting() {
 async function loadNotificationSwitchs() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/NotificationSwitchs')
-    notificationSwitchs.value = result.data?.value ?? []
+    if (result.data?.value && result.data?.value.length > 0) notificationSwitchs.value = result.data?.value
   } catch (error) {
     console.log(error)
   }
