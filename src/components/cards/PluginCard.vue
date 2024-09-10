@@ -220,7 +220,7 @@ const iconPath: Ref<string> = computed(() => {
 async function resetPlugin() {
   const isConfirmed = await createConfirm({
     title: '确认',
-    content: `是否确认重置插件 ${props.plugin?.plugin_name} 的配置数据?`,
+    content: `此操作将恢复插件 ${props.plugin?.plugin_name} 的默认设置，并清除所有相关数据，确定要继续吗？`,
   })
 
   if (!isConfirmed) return
