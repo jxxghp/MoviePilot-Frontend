@@ -192,25 +192,21 @@ function sortDashboardConfigs() {
 // 设置项目
 async function saveDashboardConfig() {
   // 启用配置
-  const data = JSON.stringify(enableConfig.value)
-  localStorage.setItem('MP_DASHBOARD', data)
+  const enableString = JSON.stringify(enableConfig.value)
+  localStorage.setItem('MP_DASHBOARD', enableString)
+
   // 顺序配置，从dashboardConfigs中提取
-  const order = JSON.stringify(dashboardConfigs.value.map(item => ({ id: item.id, key: item.key })))
-  localStorage.setItem('MP_DASHBOARD_ORDER', order)
+  const orderObj = dashboardConfigs.value.map(item => ({ id: item.id, key: item.key }))
+  const orderString = JSON.stringify(orderObj)
+  localStorage.setItem('MP_DASHBOARD_ORDER', orderString)
+  
   // 是否拉升高度
   localStorage.setItem('MP_DASHBOARD_ELEVATED', isElevated.value.toString())
+
   // 保存到服务端
   try {
-    await api.post('/user/config/Dashboard', data, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    await api.post('/user/config/DashboardOrder', order, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    await api.post('/user/config/Dashboard', enableConfig.value)
+    await api.post('/user/config/DashboardOrder', orderObj)
   } catch (error) {
     console.error(error)
   }
