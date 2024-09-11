@@ -1,8 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
-import { FileItem, TransferDirectoryConf } from '@/api/types'
+import { FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
 import FileBrowser from '@/components/FileBrowser.vue'
-import store from '@/store'
 
 const endpoints = {
   list: {
@@ -31,10 +30,19 @@ const endpoints = {
   },
 }
 
-const user_level = store.state.auth.level
+// 所有存储
+const storages = ref<StorageConf[]>([])
 
-// 用户存储
-const userStorage = user_level > 1 ? 'local,alipan,u115' : 'local'
+// 查询存储
+async function loadStorages() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Storages')
+
+    storages.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 当前文件项
 const operItem = ref<FileItem>({
@@ -149,12 +157,16 @@ function pathChanged(item: FileItem) {
 
 // 加载初始目录
 onBeforeMount(loadDownloadDirectories)
+
+onMounted(() => {
+  loadStorages()
+})
 </script>
 
 <template>
   <div>
     <FileBrowser
-      :storages="userStorage"
+      :storages="storages"
       :tree="false"
       :itemstack="itemstack"
       :endpoints="endpoints"

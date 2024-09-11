@@ -2,11 +2,11 @@
 import type { Axios } from 'axios'
 import FileList from './filebrowser/FileList.vue'
 import FileToolbar from './filebrowser/FileToolbar.vue'
-import type { EndPoints, FileItem } from '@/api/types'
+import type { EndPoints, FileItem, StorageConf } from '@/api/types'
 
 // 输入参数
 const props = defineProps({
-  storages: String,
+  storages: Array as PropType<StorageConf[]>,
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
   axios: {
@@ -83,7 +83,7 @@ const sort = ref('name')
 
 // 计算属性
 const storagesArray = computed(() => {
-  const storageCodes = props.storages?.split(',')
+  const storageCodes = props.storages?.map(item => item.type)
   return availableStorages.filter(item => storageCodes?.includes(item.code))
 })
 
