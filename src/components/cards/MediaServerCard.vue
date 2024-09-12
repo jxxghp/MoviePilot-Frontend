@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MediaServerConf, MediaStatistic } from '@/api/types'
+import { MediaServerConf, MediaServerLibrary, MediaStatistic } from '@/api/types'
 import emby_image from '@images/logos/emby.png'
 import jellyfin_image from '@images/logos/jellyfin.png'
 import plex_image from '@images/logos/plex.png'
@@ -35,6 +35,9 @@ const infoItems = ref([
   },
 ])
 
+// 同步媒体库选项
+const librariesOptions = ref<{ title: string; value: string | undefined }[]>([])
+
 // 媒体服务器详情弹窗
 const mediaServerInfoDialog = ref(false)
 
@@ -51,6 +54,7 @@ const mediaServerInfo = ref<MediaServerConf>({
 
 // 打开详情弹窗
 function openMediaServerInfoDialog() {
+  loadLibrary(props.mediaserver.name)
   mediaServerInfo.value = props.mediaserver
   mediaServerName.value = props.mediaserver.name
   mediaServerInfoDialog.value = true
@@ -108,6 +112,21 @@ async function loadMediaStatistic() {
           amount: res.user_count.toLocaleString(),
         },
       ]
+    }
+  } catch (e) {
+    console.log(e)
+  }
+}
+
+// 调用API查询媒体库
+async function loadLibrary(server: string) {
+  try {
+    const result: MediaServerLibrary[] = await api.get('mediaserver/library', { params: { server } })
+    if (result && result.length > 0) {
+      librariesOptions.value = result.map(item => ({
+        title: item.name,
+        value: item.id?.toString(),
+      }))
     }
   } catch (e) {
     console.log(e)
@@ -253,6 +272,21 @@ onMounted(() => {
                   label="X-Plex-Token"
                   hint="浏览器F12->网络，从Plex请求URL中获取的X-Plex-Token"
                   persistent-hint
+                />
+              </VCol>
+            </VRow>
+            <VRow>
+              <VCol cols="12">
+                <VSelect
+                  v-model="mediaServerInfo.sync_libraries"
+                  label="同步媒体库"
+                  :items="librariesOptions"
+                  chips
+                  multiple
+                  hint="只有选中的媒体库才会被同步"
+                  persistent-hint
+                  append-inner-icon="mdi-refresh"
+                  @click:append-inner="loadLibrary(mediaServerInfo.name)"
                 />
               </VCol>
             </VRow>
