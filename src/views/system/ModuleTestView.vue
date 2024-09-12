@@ -42,7 +42,7 @@ async function moduleTest(index: number) {
     if (result.success) {
       target.state = 'success'
       target.name = `${target.name} - 正常`
-    } else if (result.message?.includes('模块未加载')) {
+    } else if (!result.message) {
       target.state = undefined
       target.name = `${target.name} - 未启用`
     } else {
