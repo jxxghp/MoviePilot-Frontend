@@ -22,7 +22,9 @@ async function loadMediaServerSetting() {
 // 调用API查询
 async function loadLibrary(server: string) {
   try {
-    const result: MediaServerLibrary[] = await api.get('mediaserver/library', { params: { server } })
+    const result: MediaServerLibrary[] = await api.get('mediaserver/library', {
+      params: { server: server, hidden: true },
+    })
     if (result && result.length > 0) {
       libraryList.value = libraryList.value.concat(result)
     }
