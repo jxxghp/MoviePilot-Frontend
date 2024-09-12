@@ -13,6 +13,10 @@ const props = defineProps({
     type: Object as PropType<FilterRuleGroup>,
     required: true,
   },
+  categories: {
+    type: Object as PropType<{ [key: string]: any }>,
+    required: true,
+  },
   custom_rules: Array as PropType<CustomRule[]>,
 })
 
@@ -38,6 +42,7 @@ const groupInfo = ref<FilterRuleGroup>({
   name: '',
   rule_string: '',
   media_type: '',
+  category: '',
 })
 
 // 规则组名称
@@ -49,6 +54,14 @@ const mediaTypeItems = [
   { title: '电影', value: '电影' },
   { title: '电视剧', value: '电视剧' },
 ]
+
+// 根据选中的媒体类型，获取对应的媒体类别
+const getCategories = computed(() => {
+  const default_value = [{ title: '全部', value: '' }]
+  if (!props.categories || !groupInfo.value.media_type || !props.categories[groupInfo.value.media_type ?? ''])
+    return default_value
+  return default_value.concat(props.categories[groupInfo.value.media_type ?? ''])
+})
 
 // 规则组规则卡片列表
 const filterRuleCards = ref<FilterCard[]>([])
@@ -167,6 +180,15 @@ function savegroupInfo() {
   emit('change', groupInfo.value)
 }
 
+// 监听适用媒体类型数据变化
+watch(
+  () => groupInfo.value.media_type,
+  () => {
+    // 适用媒体类型变化时，清空适用媒体类别
+    groupInfo.value.category = ''
+  },
+)
+
 // 按钮点击
 function onClose() {
   emit('close')
@@ -180,7 +202,10 @@ function onClose() {
       <VCardText class="flex justify-space-between align-center gap-3">
         <div class="align-self-start">
           <h5 class="text-h6 mb-1">{{ props.group.name }}</h5>
-          <div class="text-body-1 mb-3">{{ props.group.media_type || '通用' }}</div>
+          <div class="text-body-1 mb-3">
+            <span v-if="!props.group.category">{{ props.group.media_type || '通用' }}</span>
+            <span v-else>{{ props.group.category }}</span>
+          </div>
         </div>
         <VImg :src="filter_group_svg" cover class="mt-10" max-width="3rem" />
       </VCardText>
@@ -194,8 +219,11 @@ function onClose() {
             <VCol cols="12" md="6">
               <VTextField v-model="groupName" label="规则组名称" />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol cols="6" md="3">
               <VSelect v-model="groupInfo.media_type" label="适用媒体类型" :items="mediaTypeItems" />
+            </VCol>
+            <VCol cols="6" md="3">
+              <VSelect v-model="groupInfo.category" :items="getCategories" label="适用媒体类别" />
             </VCol>
           </VRow>
         </VCardText>

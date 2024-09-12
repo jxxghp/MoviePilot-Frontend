@@ -17,6 +17,9 @@ const filterRuleGroups = ref<FilterRuleGroup[]>([])
 // 种子优先规则
 const selectedTorrentPriority = ref<string>('seeder')
 
+// 二级分类策略
+const mediaCategories = ref<{ [key: string]: any }>({})
+
 // 提示框
 const $toast = useToast()
 
@@ -26,6 +29,15 @@ const TorrentPriorityItems = [
   { title: '站点上传量优先', value: 'upload' },
   { title: '资源做种数优先', value: 'seeder' },
 ]
+
+// 调用API查询自动分类配置
+async function loadMediaCategories() {
+  try {
+    mediaCategories.value = await api.get('media/category')
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 保存自定义规则
 async function saveCustomRules() {
@@ -141,6 +153,7 @@ async function saveTorrentPriority() {
 
 // 加载数据
 onMounted(() => {
+  loadMediaCategories()
   queryCustomRules()
   queryFilterRuleGroups()
   queryTorrentPriority()
@@ -194,6 +207,7 @@ onMounted(() => {
               <FilterRuleGroupCard
                 :group="element"
                 :custom_rules="customRules"
+                :categories="mediaCategories"
                 @close="removeFilterRuleGroup(element)"
                 @change="changeRuleGroup"
               />
