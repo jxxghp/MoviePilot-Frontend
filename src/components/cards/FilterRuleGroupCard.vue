@@ -57,6 +57,7 @@ const mediaTypeItems = [
 
 // 根据选中的媒体类型，获取对应的媒体类别
 const getCategories = computed(() => {
+  groupInfo.value.category = ''
   const default_value = [{ title: '全部', value: '' }]
   if (!props.categories || !groupInfo.value.media_type || !props.categories[groupInfo.value.media_type ?? ''])
     return default_value
@@ -179,15 +180,6 @@ function savegroupInfo() {
     .join('>')
   emit('change', groupInfo.value)
 }
-
-// 监听适用媒体类型数据变化
-watch(
-  () => groupInfo.value.media_type,
-  () => {
-    // 适用媒体类型变化时，清空适用媒体类别
-    groupInfo.value.category = ''
-  },
-)
 
 // 按钮点击
 function onClose() {
