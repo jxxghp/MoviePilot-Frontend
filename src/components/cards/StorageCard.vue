@@ -31,6 +31,11 @@ const total = ref(0)
 // 存储可用空间
 const available = ref(0)
 
+// 储存已用空间
+const used = computed(() => {
+  return total.value - available.value
+})
+
 // 阿里云盘认证对话框
 const aliyunAuthDialog = ref(false)
 // 115网盘认证对话框
@@ -85,7 +90,7 @@ const progressColor = computed(() => {
 
 // 计算存储使用率
 const usage = computed(() => {
-  return Math.round((available.value / (total.value || 1)) * 1000) / 10
+  return Math.round(((used.value) / (total.value || 1)) * 1000) / 10
 })
 
 // 查询存储信息
@@ -116,7 +121,7 @@ onMounted(() => {
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start flex-1">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
-        <div class="mb-3 text-sm" v-if="total">{{ formatBytes(available, 1) }} / {{ formatBytes(total, 1) }}</div>
+        <div class="mb-3 text-sm" v-if="total">{{ formatBytes(used, 1) }} / {{ formatBytes(total, 1) }}</div>
         <div v-else>未配置</div>
       </div>
       <VImg :src="getIcon" cover class="mt-5" max-width="3rem" min-width="3rem" />
