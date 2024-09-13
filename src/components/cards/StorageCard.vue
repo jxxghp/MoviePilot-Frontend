@@ -85,7 +85,7 @@ const progressColor = computed(() => {
 
 // 计算存储使用率
 const usage = computed(() => {
-  return Math.round((available.value / (total.value || 1)) * 1000) / 10
+  return Math.round(((total.value - available.value) / (total.value || 1)) * 1000) / 10
 })
 
 // 查询存储信息
@@ -116,7 +116,7 @@ onMounted(() => {
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start flex-1">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
-        <div class="mb-3 text-sm" v-if="total">{{ formatBytes(available, 1) }} / {{ formatBytes(total, 1) }}</div>
+        <div class="mb-3 text-sm" v-if="total">{{ formatBytes(total, 1) }} / {{ formatBytes(available, 1) }} </div>
         <div v-else>未配置</div>
       </div>
       <VImg :src="getIcon" cover class="mt-5" max-width="3rem" min-width="3rem" />
