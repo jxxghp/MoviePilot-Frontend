@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { MediaServerConf, MediaServerLibrary, MediaStatistic } from '@/api/types'
+import { useToast } from 'vue-toast-notification'
 import emby_image from '@images/logos/emby.png'
 import jellyfin_image from '@images/logos/jellyfin.png'
 import plex_image from '@images/logos/plex.png'
@@ -7,11 +8,20 @@ import api from '@/api'
 
 // 定义输入
 const props = defineProps({
+  // 单个媒体服务器
   mediaserver: {
     type: Object as PropType<MediaServerConf>,
     required: true,
   },
+  // 所有媒体服务器
+  mediaservers: {
+    type: Array as PropType<MediaServerConf[]>,
+    required: true
+  }
 })
+
+// 提示框
+const $toast = useToast()
 
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'done', 'change'])
@@ -62,6 +72,17 @@ function openMediaServerInfoDialog() {
 
 // 保存详情数据
 function saveMediaServerInfo() {
+  // 为空不保存，跳出警告框
+  if (!mediaServerName.value) {
+    $toast.error('名称不能为空，请输入后再确定')
+    return
+  }
+  // 重名判断
+  if (props.mediaservers.some(item => item.name === mediaServerName.value && item!== props.mediaserver)) {
+    $toast.error(`【${mediaServerName.value}】已存在，请替换为其他名称`)
+    return
+  }
+  // 执行保存
   mediaServerInfoDialog.value = false
   mediaServerInfo.value.name = mediaServerName.value
   emit('change', mediaServerInfo.value)
@@ -169,9 +190,10 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaServerName"
                   label="名称"
-                  placeholder="别名"
+                  placeholder="必填；不可与其他名称重名"
                   hint="媒体服务器的别名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -181,6 +203,7 @@ onMounted(() => {
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -190,6 +213,7 @@ onMounted(() => {
                   placeholder="http(s)://domain:port"
                   hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -198,6 +222,7 @@ onMounted(() => {
                   label="API密钥"
                   hint="Emby设置->高级->API密钥中生成的密钥"
                   persistent-hint
+                  active
                 />
               </VCol>
             </VRow>
@@ -206,9 +231,10 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaServerName"
                   label="名称"
-                  placeholder="别名"
+                  placeholder="必填；不可与其他名称重名"
                   hint="媒体服务器的别名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -218,6 +244,7 @@ onMounted(() => {
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -227,6 +254,7 @@ onMounted(() => {
                   placeholder="http(s)://domain:port"
                   hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -235,6 +263,7 @@ onMounted(() => {
                   label="API密钥"
                   hint="Jellyfin设置->高级->API密钥中生成的密钥"
                   persistent-hint
+                  active
                 />
               </VCol>
             </VRow>
@@ -243,9 +272,10 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaServerName"
                   label="名称"
-                  placeholder="别名"
+                  placeholder="必填；不可与其他名称重名"
                   hint="媒体服务器的别名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -255,6 +285,7 @@ onMounted(() => {
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -264,6 +295,7 @@ onMounted(() => {
                   placeholder="http(s)://domain:port"
                   hint="跳转播放页面使用的地址，格式：http(s)://domain:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -272,6 +304,7 @@ onMounted(() => {
                   label="X-Plex-Token"
                   hint="浏览器F12->网络，从Plex请求URL中获取的X-Plex-Token"
                   persistent-hint
+                  active
                 />
               </VCol>
             </VRow>
@@ -285,6 +318,7 @@ onMounted(() => {
                   multiple
                   hint="只有选中的媒体库才会被同步"
                   persistent-hint
+                  active
                   append-inner-icon="mdi-refresh"
                   @click:append-inner="loadLibrary(mediaServerInfo.name)"
                 />

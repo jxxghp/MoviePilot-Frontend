@@ -9,14 +9,22 @@ import filter_group_svg from '@images/svg/filter-group.svg'
 
 // 输入参数
 const props = defineProps({
+  // 单个规则组
   group: {
     type: Object as PropType<FilterRuleGroup>,
     required: true,
   },
+  // 所有规则组
+  groups: {
+    type: Array as PropType<FilterRuleGroup[]>,
+    required: true,
+  },
+  // 媒体类型字典
   categories: {
     type: Object as PropType<{ [key: string]: any }>,
     required: true,
   },
+  // 自定义规则列表
   custom_rules: Array as PropType<CustomRule[]>,
 })
 
@@ -171,6 +179,17 @@ function opengroupInfoDialog() {
 
 // 保存详情数据
 function savegroupInfo() {
+  // 为空
+  if (!groupName.value) {
+    $toast.error('规则组名称不能为空')
+    return
+  }
+  // 重名判断
+  if (props.groups.some(item => item.name === groupName.value && item !== props.group)) {
+    $toast.error(`规则组名称【${groupName.value}】已存在，请替换`)
+    return
+  }
+  // 保存
   groupInfoDialog.value = false
   groupInfo.value.name = groupName.value
   // 更新到 groupInfo的rule_string
@@ -209,13 +228,34 @@ function onClose() {
         <VCardText>
           <VRow>
             <VCol cols="12" md="6">
-              <VTextField v-model="groupName" label="规则组名称" />
+              <VTextField
+                v-model="groupName"
+                label="规则组名称"
+                placeholder="必填；不可与其他规则组重名"
+                hint="自定义规则组名称"
+                persistent-hint
+                active
+              />
             </VCol>
             <VCol cols="6" md="3">
-              <VSelect v-model="groupInfo.media_type" label="适用媒体类型" :items="mediaTypeItems" />
+              <VSelect
+                v-model="groupInfo.media_type"
+                label="适用媒体类型"
+                :items="mediaTypeItems"
+                hint="选择规则组适用的媒体类型"
+                persistent-hint
+                active
+              />
             </VCol>
             <VCol cols="6" md="3">
-              <VSelect v-model="groupInfo.category" :items="getCategories" label="适用媒体类别" />
+              <VSelect
+                v-model="groupInfo.category"
+                :items="getCategories"
+                label="适用媒体类别"
+                hint="选择规则组适用的媒体类别"
+                persistent-hint
+                active
+              />
             </VCol>
           </VRow>
         </VCardText>

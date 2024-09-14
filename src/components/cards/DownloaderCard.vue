@@ -2,12 +2,14 @@
 import api from '@/api'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { DownloaderConf } from '@/api/types'
+import { useToast } from 'vue-toast-notification'
 import type { DownloaderInfo } from '@/api/types'
 import qbittorrent_image from '@images/logos/qbittorrent.png'
 import transmission_image from '@images/logos/transmission.png'
 
 // 定义输入
 const props = defineProps({
+  // 单个下载器
   downloader: {
     type: Object as PropType<DownloaderConf>,
     required: true,
@@ -17,10 +19,18 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  // 所有下载器
+  downloaders: {
+    type: Array as PropType<DownloaderConf[]>,
+    required: true,
+  },
 })
 
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'done', 'change'])
+
+// 提示框
+const $toast = useToast()
 
 // timeout定时器
 let timeoutTimer: NodeJS.Timeout | undefined = undefined
@@ -81,6 +91,17 @@ function openDownloaderInfoDialog() {
 
 // 保存详情数据
 function saveDownloaderInfo() {
+  // 为空不保存，跳出警告框
+  if (!downloaderName.value) {
+    $toast.error('名称不能为空，请输入后再确定')
+    return
+  }
+  // 重名判断
+  if (props.downloaders.some(item => item.name === downloaderName.value && item!== props.downloader)) {
+    $toast.error(`【${downloaderName.value}】已存在，请替换为其他名称`)
+    return
+  }
+  // 执行保存
   downloaderInfoDialog.value = false
   downloaderInfo.value.name = downloaderName.value
   emit('change', downloaderInfo.value)
@@ -162,9 +183,10 @@ onUnmounted(() => {
                 <VTextField
                   v-model="downloaderName"
                   label="名称"
-                  placeholder="别名"
+                  placeholder="必填；不可与其他名称重名"
                   hint="下载器的别名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -174,6 +196,7 @@ onUnmounted(() => {
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -183,6 +206,7 @@ onUnmounted(() => {
                   placeholder="admin"
                   hint="登录使用的用户名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -192,6 +216,7 @@ onUnmounted(() => {
                   label="密码"
                   hint="登录使用的密码"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -200,6 +225,7 @@ onUnmounted(() => {
                   label="自动分类管理"
                   hint="由下载器自动管理分类和下载目录"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -208,6 +234,7 @@ onUnmounted(() => {
                   label="顺序下载"
                   hint="按顺序依次下载文件"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -215,7 +242,8 @@ onUnmounted(() => {
                   v-model="downloaderInfo.config.force_resume"
                   label="强制继续"
                   hint="强制继续、强制上传模式"
-                  persistent-hint
+                  persistent-
+                  active
                 />
               </VCol>
             </VRow>
@@ -224,9 +252,10 @@ onUnmounted(() => {
                 <VTextField
                   v-model="downloaderName"
                   label="名称"
-                  placeholder="别名"
+                  placeholder="必填；不可与其他名称重名"
                   hint="下载器的别名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -236,6 +265,7 @@ onUnmounted(() => {
                   placeholder="http(s)://ip:port"
                   hint="服务端地址，格式：http(s)://ip:port"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -245,6 +275,7 @@ onUnmounted(() => {
                   placeholder="admin"
                   hint="登录使用的用户名"
                   persistent-hint
+                  active
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -254,6 +285,7 @@ onUnmounted(() => {
                   label="密码"
                   hint="登录使用的密码"
                   persistent-hint
+                  active
                 />
               </VCol>
             </VRow>
