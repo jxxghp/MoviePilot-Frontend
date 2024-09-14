@@ -32,7 +32,7 @@ const userForm = ref<User>({
   email: '',
   is_active: false,
   is_superuser: false,
-  avatar: '',
+  avatar: avatar1,
   is_otp: false,
   permissions: {},
   settings: {
@@ -179,12 +179,22 @@ onMounted(() => {
       </VCardText>
       <VCardText>
         <VForm @submit.prevent="() => {}" class="mt-3">
+          <VDivider class="my-10">
+            <span>用户基础设置</span>
+          </VDivider>
           <VRow>
-            <VCol md="6" cols="12">
-              <VTextField v-model="userForm.name" density="comfortable" label="用户名" />
+            <VCol md="6" cols="12" v-if="props.oper === 'add'">
+              <VTextField v-model="userForm.name"
+                          density="comfortable"
+                          label="用户名"
+              />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.email" density="comfortable" label="邮箱" type="email" />
+              <VTextField v-model="userForm.email"
+                          density="comfortable"
+                          label="邮箱"
+                          type="email"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -219,6 +229,9 @@ onMounted(() => {
               />
             </VCol>
           </VRow>
+          <VDivider class="my-10">
+            <span>消息账号绑定</span>
+          </VDivider>
           <VRow>
             <VCol cols="12" md="6">
               <VTextField v-model="userForm.settings.wechat_userid" density="comfortable" label="微信用户" />
