@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
+import { formatFileSize } from '@/@core/utils/formatters'
 
 // 输入参数
 const props = defineProps({
@@ -17,16 +18,21 @@ function getPercentage() {
 
 // 速度
 function getSpeedText() {
-  return `${props.info?.sizeStr} ↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s ${props.info?.left_time}`
+  return `${formatFileSize(props.info?.size || 0)} ↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s ${
+    props.info?.left_time
+  }`
 }
 
 // 下载状态
 const isDownloading = ref(props.info?.state === 'downloading')
 
 // 监听props.info?.state的变化
-watch(() => props.info?.state, (newValue) => {
-  isDownloading.value = newValue === 'downloading'
-})
+watch(
+  () => props.info?.state,
+  newValue => {
+    isDownloading.value = newValue === 'downloading'
+  },
+)
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
@@ -45,14 +51,10 @@ function getTextClass() {
 async function toggleDownload() {
   const operation = isDownloading.value ? 'stop' : 'start'
   try {
-    const result: { [key: string]: any } = await api.get(
-      `download/${operation}/${props.info?.hash}`,
-    )
+    const result: { [key: string]: any } = await api.get(`download/${operation}/${props.info?.hash}`)
 
-    if (result.success)
-      isDownloading.value = !isDownloading.value
-  }
-  catch (error) {
+    if (result.success) isDownloading.value = !isDownloading.value
+  } catch (error) {
     console.error(error)
   }
 }
@@ -62,67 +64,42 @@ async function deleteDownload() {
   try {
     await api.delete(`download/${props.info?.hash}`)
     cardState.value = false
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
   }
 }
 </script>
 
 <template>
-  <VCard
-    v-if="cardState"
-    :key="props.info?.hash"
-  >
+  <VCard v-if="cardState" :key="props.info?.hash">
     <template #image>
-      <VImg
-        :src="props.info?.media.image"
-        aspect-ratio="2/3"
-        cover
-        class="brightness-50"
-        @load="imageLoadHandler"
-      />
+      <VImg :src="props.info?.media.image" aspect-ratio="2/3" cover class="brightness-50" @load="imageLoadHandler" />
     </template>
 
-    <VCardTitle
-      class="break-words whitespace-normal"
-      :class="getTextClass()"
-    >
+    <VCardTitle class="break-words whitespace-normal" :class="getTextClass()">
       {{ props.info?.media.title || props.info?.name }}
-      {{ props.info?.media.episode ? `${props.info?.media.season} ${props.info?.media.episode}` : props.info?.season_episode }}
+      {{
+        props.info?.media.episode
+          ? `${props.info?.media.season} ${props.info?.media.episode}`
+          : props.info?.season_episode
+      }}
     </VCardTitle>
 
-    <VCardSubtitle
-      class="break-words whitespace-normal"
-      :class="getTextClass()"
-    >
+    <VCardSubtitle class="break-words whitespace-normal" :class="getTextClass()">
       {{ props.info?.title }}
     </VCardSubtitle>
 
-    <VCardText
-      class="text-subtitle-1 pt-3 pb-1"
-      :class="getTextClass()"
-    >
+    <VCardText class="text-subtitle-1 pt-3 pb-1" :class="getTextClass()">
       {{ getSpeedText() }}
     </VCardText>
 
-    <VCardText
-      v-if="getPercentage() > 0"
-      :class="getTextClass()"
-    >
+    <VCardText v-if="getPercentage() > 0" :class="getTextClass()">
       <VProgressLinear :model-value="getPercentage()" />
     </VCardText>
 
     <VCardActions class="justify-space-between">
-      <VBtn
-        :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`"
-        @click="toggleDownload"
-      />
-      <VBtn
-        color="error"
-        icon="mdi-trash-can-outline"
-        @click="deleteDownload"
-      />
+      <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
+      <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
     </VCardActions>
   </VCard>
 </template>

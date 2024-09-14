@@ -394,6 +394,8 @@ export interface DownloadingInfo {
   userid?: string
   // 下载用户名称
   username?: string
+  // 剩余时间
+  left_time?: string
 }
 
 // 缺失剧集信息
