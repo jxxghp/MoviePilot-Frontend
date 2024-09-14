@@ -12,14 +12,6 @@ const allSites = ref<Site[]>([])
 // 选中订阅站点
 const selectedSites = ref<number[]>([])
 
-// 包含与排除规则
-const defaultFilterRules = ref({
-  include: '',
-  exclude: '',
-  min_seeders: 0,
-  min_seeders_time: 0,
-})
-
 // 媒体信息数据源字典
 const mediaSourcesDict = [
   {
@@ -60,7 +52,16 @@ async function querySites() {
 
     // 过滤站点，只有启用的站点才显示
     allSites.value = data.filter(item => item.is_active)
-    querySelectedSites()
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 加载规则组
+async function queryFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)
   }
@@ -95,6 +96,8 @@ async function loadSearchSetting() {
   try {
     const result1: { [key: string]: any } = await api.get('system/setting/SEARCH_SOURCE')
     if (result1.success) selectedMediaSource.value = result1.data?.value?.split(',')
+    const result2: { [key: string]: any } = await api.get('system/setting/SearchFilterRuleGroups')
+    if (result2.success) selectedFilterGroup.value = result2.data?.value
   } catch (error) {
     console.log(error)
   }
@@ -103,12 +106,17 @@ async function loadSearchSetting() {
 // 调用API保存设置
 async function saveSearchSetting() {
   try {
-    const result: { [key: string]: any } = await api.post(
+    const result1: { [key: string]: any } = await api.post(
       'system/setting/SEARCH_SOURCE',
       selectedMediaSource.value.join(','),
     )
 
-    if (result.success) {
+    const result2: { [key: string]: any } = await api.post(
+      'system/setting/SearchFilterRuleGroups',
+      selectedFilterGroup.value,
+    )
+
+    if (result1.success && result2.success) {
       $toast.success('保存媒体数据源设置成功')
     } else {
       $toast.error('保存媒体数据源设置失败！')
@@ -118,20 +126,11 @@ async function saveSearchSetting() {
   }
 }
 
-// 加载规则组
-async function queryFilterRuleGroups() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
-  } catch (error) {
-    console.log(error)
-  }
-}
-
 onMounted(() => {
   querySites()
-  loadSearchSetting()
   queryFilterRuleGroups()
+  querySelectedSites()
+  loadSearchSetting()
 })
 </script>
 

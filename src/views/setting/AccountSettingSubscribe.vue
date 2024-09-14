@@ -18,16 +18,6 @@ const selectedFilterRuleGroup = ref([])
 // 是否开启订阅定时搜索
 const enableIntervalSearch = ref(false)
 
-// 包含与排除规则
-const defaultFilterRules = ref({
-  include: '',
-  exclude: '',
-  movie_size: '',
-  tv_size: '',
-  min_seeders: 0,
-  min_seeders_time: 0,
-})
-
 // 订阅模式选择项
 const subscribeModeItems = [
   { title: '自动', value: 'spider' },
@@ -62,6 +52,28 @@ const rssIntervalItems = [
 // 选择的RSS运行周期
 const selectedRssInterval = ref<number>(5)
 
+// 查询所有站点
+async function querySites() {
+  try {
+    const data: Site[] = await api.get('site/')
+
+    // 过滤站点，只有启用的站点才显示
+    allSites.value = data.filter(item => item.is_active)
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 加载规则组
+async function queryFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 查询用户选中的订阅站点
 async function querySelectedRssSites() {
   try {
@@ -78,34 +90,16 @@ async function saveSelectedRssSites() {
   try {
     const result1: { [key: string]: any } = await api.post('system/setting/RssSites', selectedRssSites.value)
 
-    const result2: { [key: string]: any } = await api.post(
-      'system/setting/SUBSCRIBE_SEARCH',
-      enableIntervalSearch.value ? 'True' : 'False',
-    )
-
-    const result3: { [key: string]: any } = await api.post('system/setting/SUBSCRIBE_MODE', selectedSubscribeMode.value)
-
-    const result4: { [key: string]: any } = await api.post(
-      'system/setting/SUBSCRIBE_RSS_INTERVAL',
-      selectedRssInterval.value,
-    )
-
-    if (result1.success && result2.success && result3.success && result4.success) $toast.success('订阅站点保存成功')
+    if (result1.success) $toast.success('订阅站点保存成功')
     else $toast.error('订阅站点保存失败！')
   } catch (error) {
     console.log(error)
   }
 }
 
-// 查询所有站点
-async function querySites() {
+// 查询订阅设置
+async function querySubscribeSetting() {
   try {
-    const data: Site[] = await api.get('site/')
-
-    // 过滤站点，只有启用的站点才显示
-    allSites.value = data.filter(item => item.is_active)
-    querySelectedRssSites()
-
     // 查询订阅搜索开关
     const result: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_SEARCH')
     if (result.success) enableIntervalSearch.value = result.data?.value
@@ -115,16 +109,36 @@ async function querySites() {
     // 查询站点RSS周期
     const result3: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_RSS_INTERVAL')
     if (result3.success) selectedRssInterval.value = result3.data?.value
+    // 查询优先级规则组
+    const result4: { [key: string]: any } = await api.get('system/setting/SubscribeFilterRuleGroups')
+    if (result4.success) selectedFilterRuleGroup.value = result4.data?.value
   } catch (error) {
     console.log(error)
   }
 }
 
-// 加载规则组
-async function queryFilterRuleGroups() {
+// 保存订阅设置
+async function saveSubscribeSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
-    filterRuleGroups.value = result.data?.value ?? []
+    const result1: { [key: string]: any } = await api.post(
+      'system/setting/SUBSCRIBE_SEARCH',
+      enableIntervalSearch.value,
+    )
+
+    const result2: { [key: string]: any } = await api.post('system/setting/SUBSCRIBE_MODE', selectedSubscribeMode.value)
+
+    const result3: { [key: string]: any } = await api.post(
+      'system/setting/SUBSCRIBE_RSS_INTERVAL',
+      selectedRssInterval.value,
+    )
+
+    const result4: { [key: string]: any } = await api.post(
+      'system/setting/SubscribeFilterRuleGroups',
+      selectedFilterRuleGroup.value,
+    )
+
+    if (result1.success && result2.success && result3.success && result4.success) $toast.success('订阅设置保存成功')
+    else $toast.error('订阅设置保存失败！')
   } catch (error) {
     console.log(error)
   }
@@ -133,6 +147,8 @@ async function queryFilterRuleGroups() {
 onMounted(() => {
   querySites()
   queryFilterRuleGroups()
+  querySelectedRssSites()
+  querySubscribeSetting()
 })
 </script>
 
@@ -190,7 +206,7 @@ onMounted(() => {
           </VForm>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveSelectedRssSites"> 保存 </VBtn>
+          <VBtn type="submit" @click="saveSubscribeSetting"> 保存 </VBtn>
         </VCardText>
       </VCard>
     </VCol>
