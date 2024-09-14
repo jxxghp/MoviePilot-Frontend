@@ -2,6 +2,9 @@ name: Build Moviepilot-Frontend
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dev
 
 jobs:
   build:
@@ -36,6 +39,13 @@ jobs:
           yarn build
           echo "$frontend_version" > dist/version.txt
           zip -r dist.zip dist
+
+      - name: Delete Release
+        uses: dev-drprasad/delete-tag-and-release@v1.1
+        with:
+          tag_name: dev_${{ env.frontend_version }}
+          delete_release: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Release
         uses: softprops/action-gh-release@v2
