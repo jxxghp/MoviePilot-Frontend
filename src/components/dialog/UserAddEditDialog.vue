@@ -5,6 +5,7 @@ import { doneNProgress, startNProgress } from '@/api/nprogress'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
 import avatar1 from '@images/avatars/avatar-1.png'
+import store from '@/store'
 
 // 显示器宽度
 const display = useDisplay()
@@ -20,6 +21,9 @@ const props = defineProps({
   username: String,
   oper: String,
 })
+
+// 当前用户名称
+const currentUser = store.state.auth.userName
 
 // 注册事件
 const emit = defineEmits(['save', 'close'])
@@ -139,6 +143,20 @@ const userStatus = computed({
   },
 })
 
+// 计算是否有用户管理权限
+const canControl = computed(() => {
+  // 新增用户时，有权限
+  if (props.oper === 'add') {
+    return true
+  }
+  else {
+    // 编辑显示的用户与当前用户不一致时，有权限
+    if (props.username !== currentUser) {
+      return true
+    }
+  }
+})
+
 onMounted(() => {
   if (props.oper !== 'add') {
     fetchUserInfo()
@@ -218,7 +236,7 @@ onMounted(() => {
                 @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
               />
             </VCol>
-            <VCol cols="12" md="6">
+            <VCol cols="12" md="6" v-if="canControl" >
               <VSelect
                 v-model="userStatus"
                 :items="statusItems"
@@ -234,16 +252,29 @@ onMounted(() => {
           </VDivider>
           <VRow>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.wechat_userid" density="comfortable" label="微信用户" />
+              <VTextField v-model="userForm.settings.wechat_userid"
+                          density="comfortable"
+                          label="微信用户"
+              />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.telegram_userid" density="comfortable" label="Telegram用户" />
+              <VTextField v-model="userForm.settings.telegram_userid"
+                          density="comfortable"
+                          label="Telegram用户"
+              />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.slack_userid" density="comfortable" label="Slack用户" />
+              <VTextField v-model="userForm.settings.slack_userid"
+                          density="comfortable"
+                          label="Slack用户"
+              />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.vocechat_userid" density="comfortable" label="VoceChat用户" />
+              <VTextField
+                v-model="userForm.settings.vocechat_userid"
+                density="comfortable"
+                label="VoceChat用户"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
