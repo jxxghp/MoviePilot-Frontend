@@ -114,6 +114,9 @@ const isFile = computed(() => !isDir.value)
 // 需要整理的文件项
 const transferItems = ref<FileItem[]>([])
 
+// 当前图片地址
+const currentImgLink = ref('')
+
 // 大小控制
 const scrollStyle = computed(() => {
   return appMode.value
@@ -124,7 +127,7 @@ const scrollStyle = computed(() => {
 // 是否为图片文件
 const isImage = computed(() => {
   const ext = inProps.item.path?.split('.').pop()?.toLowerCase()
-  return ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext ?? '')
+  return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext ?? '')
 })
 
 // 调整选择模式
@@ -233,21 +236,49 @@ function listItemClick(item: FileItem) {
 // 新窗口中下载文件
 async function download(item: FileItem) {
   const url = inProps.endpoints?.download.url
-  const filterEntries = Object.entries(item).filter(([key, value]) => !['children', 'thumbnail'].includes(key) && value)
-  const queryParams = filterEntries.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&')
-  window.open(
-    `${import.meta.env.VITE_API_BASE_URL}${url.slice(1)}?${queryParams}&token=${store.state.auth.token}`,
-    '_blank',
-  )
+  // 下载文件
+  const config: AxiosRequestConfig<FileItem> = {
+    url,
+    method: inProps.endpoints?.download.method || 'post',
+    data: item,
+    responseType: 'blob',
+  }
+  // 加载数据
+  const result: Blob = await inProps.axios.request(config)
+  if (result) {
+    const downloadUrl = URL.createObjectURL(result)
+    window.open(downloadUrl, '_blank')
+  }
 }
 
 // 获取图片地址
-function getImgLink(item: FileItem) {
+async function getImgLink(item: FileItem) {
   let url = inProps.endpoints?.image.url
-  const filterEntries = Object.entries(item).filter(([key, value]) => !['children', 'thumbnail'].includes(key) && value)
-  const queryParams = filterEntries.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&')
-  return `${import.meta.env.VITE_API_BASE_URL}${url.slice(1)}?${queryParams}&token=${store.state.auth.token}`
+  // 下载文件
+  const config: AxiosRequestConfig<FileItem> = {
+    url,
+    method: inProps.endpoints?.image.method || 'post',
+    data: item,
+    responseType: 'blob',
+  }
+  // 加载二进制数据
+  const result: Blob = await inProps.axios.request(config)
+  if (result) {
+    // 创建图片地址
+    currentImgLink.value = URL.createObjectURL(result)
+  }
 }
+
+// 如果当前是图片且是文件，则获取图片地址
+watch(
+  () => inProps.item,
+  async () => {
+    if (isImage.value && isFile.value) {
+      await getImgLink(inProps.item)
+    }
+  },
+  { immediate: true },
+)
 
 // 显示重命名弹窗
 function showRenmae(item: FileItem) {
@@ -579,7 +610,7 @@ onMounted(() => {
     </VCardText>
     <!-- 图片 -->
     <VCardText v-else-if="isFile && isImage && items.length > 0" class="grow d-flex justify-center align-center">
-      <VImg :src="getImgLink(items[0])" max-width="100%" max-height="100%" />
+      <VImg :src="currentImgLink" max-width="100%" max-height="100%" />
     </VCardText>
     <!-- 目录和文件列表 -->
     <VCardText v-else-if="dirs.length || files.length" class="p-0">
