@@ -177,7 +177,11 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-customrule-card' }"
           >
             <template #item="{ element }">
-              <CustomerRuleCard :rule="element" @close="removeCustomRule(element)" @change="onRuleChange" />
+              <CustomerRuleCard
+                :rule="element"
+                :rules="customRules"
+                @close="removeCustomRule(element)"
+                @change="onRuleChange" />
             </template>
           </draggable>
         </VCardText>
@@ -206,6 +210,7 @@ onMounted(() => {
             <template #item="{ element }">
               <FilterRuleGroupCard
                 :group="element"
+                :groups="filterRuleGroups"
                 :custom_rules="customRules"
                 :categories="mediaCategories"
                 @close="removeFilterRuleGroup(element)"

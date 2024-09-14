@@ -220,6 +220,7 @@ onDeactivated(() => {
             <template #item="{ element }">
               <DownloaderCard
                 :downloader="element"
+                :downloaders="downloaders"
                 @close="removeDownloader(element)"
                 @change="onDownloaderChange"
                 :allow-refresh="isRequest"
@@ -268,6 +269,7 @@ onDeactivated(() => {
             <template #item="{ element }">
               <MediaServerCard
                 :mediaserver="element"
+                :mediaservers="mediaServers"
                 @close="removeMediaServer(element)"
                 @change="onMediaServerChange"
               />
