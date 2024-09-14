@@ -242,7 +242,7 @@ onUnmounted(() => {
                   v-model="downloaderInfo.config.force_resume"
                   label="强制继续"
                   hint="强制继续、强制上传模式"
-                  persistent-
+                  persistent-hint
                   active
                 />
               </VCol>
