@@ -266,9 +266,14 @@ onMounted(() => {
                   />
                 </VCol>
               </VRow>
+              <VDivider class="my-10" />
               <VRow>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.wechat_userid" density="comfortable" label="微信用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.wechat_userid"
+                    density="comfortable"
+                    label="微信用户"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
@@ -278,7 +283,11 @@ onMounted(() => {
                   />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.slack_userid" density="comfortable" label="Slack用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.slack_userid"
+                    density="comfortable"
+                    label="Slack用户"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
