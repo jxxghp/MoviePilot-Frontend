@@ -1,17 +1,17 @@
 <script lang="ts" setup>
-import { useToast } from 'vue-toast-notification'
-import { useConfirm } from 'vuetify-use-dialog'
-import { VIcon } from 'vuetify/lib/components/index.mjs'
+import {useToast} from 'vue-toast-notification'
+import {useConfirm} from 'vuetify-use-dialog'
+import {VIcon} from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type {Plugin} from '@/api/types'
 import FormRender from '@/components/render/FormRender.vue'
 import PageRender from '@/components/render/PageRender.vue'
 import VersionHistory from '@/components/misc/VersionHistory.vue'
-import { isNullOrEmptyObject } from '@core/utils'
+import {isNullOrEmptyObject} from '@core/utils'
 import noImage from '@images/logos/plugin.png'
-import { getDominantColor } from '@/@core/utils/image'
+import {getDominantColor} from '@/@core/utils/image'
 import store from '@/store'
-import { useDisplay } from 'vuetify'
+import {useDisplay} from 'vuetify'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
 
 // 显示器宽度
@@ -383,47 +383,27 @@ watch(
 <template>
   <!-- 插件卡片 -->
   <VCard v-if="isVisible" :width="props.width" :height="props.height" @click="openPluginDetail" class="flex flex-col">
-    <div class="me-n3 absolute bottom-0 right-3">
-      <IconBtn>
-        <VIcon icon="mdi-dots-vertical" />
-        <VMenu activator="parent" close-on-content-click>
-          <VList>
-            <VListItem
-              v-for="(item, i) in dropdownItems"
-              v-show="item.show"
-              :key="i"
-              variant="plain"
-              :base-color="item.props.color"
-              @click="item.props.click"
-            >
-              <template #prepend>
-                <VIcon :icon="item.props.prependIcon" />
-              </template>
-              <VListItemTitle v-text="item.title" />
-            </VListItem>
-          </VList>
-        </VMenu>
-      </IconBtn>
-    </div>
-    <div
-      class="relative flex flex-row items-start pa-3 justify-between grow"
-      :style="{ background: `${backgroundColor}` }"
-    >
-      <div
-        class="absolute inset-0 bg-cover bg-center"
-        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }"
-      />
-      <div class="relative flex-1 min-w-0">
-        <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
-          <VBadge v-if="props.plugin?.state" dot inline color="success" />
+    <!-- 顶部信息 -->
+    <div class="relative flex flex-row items-start pa-3 justify-between grow"
+         :style="{ background: `${backgroundColor}` }">
+      <!-- 背景图片 -->
+      <div class="absolute inset-0 bg-cover bg-center"
+           :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }"/>
+      <!-- 左侧 -->
+      <div class="relative flex-1 min-w-0 ml-2">
+        <!-- 插件名称 -->
+        <VCardTitle class="px-0 py-1 text-white text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
           {{ props.plugin?.plugin_name }}
           <span class="text-sm mt-1 text-gray-200">v{{ props.plugin?.plugin_version }}</span>
         </VCardTitle>
-        <VCardText class="px-2 py-1 text-white text-shadow line-clamp-3">
+        <!-- 插件描述 -->
+        <VCardText class="pa-0 mr-2 text-white text-shadow overflow-y-auto line-clamp-3 overflow-clip">
           {{ props.plugin?.plugin_desc }}
         </VCardText>
       </div>
-      <div class="relative flex-shrink-0 self-center">
+      <!-- 右侧 -->
+      <div class="relative flex-shrink-0 self-center pl-1 mr-2">
+        <!-- 图标 -->
         <VAvatar size="64">
           <VImg
             ref="imageRef"
@@ -437,66 +417,96 @@ watch(
         </VAvatar>
       </div>
     </div>
-    <VCardText class="flex flex-none align-self-baseline py-3 w-full align-end">
-      <span>
-        <VIcon icon="mdi-github" class="me-1" />
+    <!--  底部信息栏  -->
+    <VCardText class="flex flex-none align-self-baseline py-1 px-1.5 w-full align-center justify-between">
+      <!-- 状态显示 -->
+      <span v-if="props.count" class="ml-2 whitespace-no-wrap">
+        <VIcon v-if="props.plugin?.state" icon="mdi-toggle-switch" class="-rotate-90" dot inline color="success"/>
+        <VIcon v-else dot inline icon="mdi-toggle-switch-off" class="-rotate-90"/>
+      </span>
+      <!-- 作者信息 -->
+      <span class="ml-2 whitespace-no-wrap overflow-hidden overflow-ellipsis " style="max-width: 50%">
+        <VIcon icon="mdi-github" class="me-0.5"/>
         <a :href="props.plugin?.author_url" target="_blank" @click.stop>
           {{ props.plugin?.plugin_author }}
         </a>
       </span>
-      <span v-if="props.count" class="ms-3">
-        <VIcon icon="mdi-download" />
-        <span class="text-sm ms-1 mt-1">{{ props.count?.toLocaleString() }}</span>
+      <!-- 下载次数 -->
+      <span v-if="props.count" class="mx-2 whitespace-no-wrap overflow-hidden overflow-ellipsis">
+        <VIcon icon="mdi-download"/>
+        <span class="text-sm ">
+          {{ props.count?.toLocaleString() }}
+        </span>
       </span>
+      <!-- 更多选项 -->
+      <IconBtn class="ml-auto">
+        <VIcon icon="mdi-dots-vertical"/>
+        <VMenu activator="parent" close-on-content-click>
+          <VList>
+            <VListItem v-for="(item, i) in dropdownItems"
+                       v-show="item.show"
+                       :key="i"
+                       variant="plain"
+                       :base-color="item.props.color"
+                       @click="item.props.click">
+              <template #prepend>
+                <VIcon :icon="item.props.prependIcon"/>
+              </template>
+              <VListItemTitle v-text="item.title"/>
+            </VListItem>
+          </VList>
+        </VMenu>
+      </IconBtn>
     </VCardText>
+    <!-- 更新标识 -->
     <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 right-5">
-      <VIcon icon="mdi-new-box" class="text-white" />
+      <VIcon icon="mdi-new-box" class="text-white"/>
     </div>
   </VCard>
 
   <!-- 插件配置页面 -->
   <VDialog v-model="pluginConfigDialog" scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
-    <VCard :title="`${props.plugin?.plugin_name} - 配置`" class="rounded-t">
-      <DialogCloseBtn v-model="pluginConfigDialog" />
-      <VDivider />
+    <VCard :title="`${props.plugin?.plugin_name} - v${props.plugin?.plugin_version} - 配置`" class="rounded-t">
+      <DialogCloseBtn v-model="pluginConfigDialog"/>
+      <VDivider/>
       <VCardText>
-        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm" />
+        <FormRender v-for="(item, index) in pluginFormItems" :key="index" :config="item" :form="pluginConfigForm"/>
       </VCardText>
       <VCardActions class="pt-3">
         <VBtn v-if="pluginPageItems.length > 0" @click="showPluginInfo" variant="outlined" color="info">
           查看数据
         </VBtn>
-        <VSpacer />
-        <VBtn @click="savePluginConf" variant="elevated" prepend-icon="mdi-content-save" class="px-5"> 保存 </VBtn>
+        <VSpacer/>
+        <VBtn @click="savePluginConf" variant="elevated" prepend-icon="mdi-content-save" class="px-5"> 保存</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
 
   <!-- 插件数据页面 -->
   <VDialog v-model="pluginInfoDialog" scrollable max-width="80rem" :fullscreen="!display.mdAndUp.value">
-    <VCard :title="`${props.plugin?.plugin_name}`" class="rounded-t">
-      <DialogCloseBtn v-model="pluginInfoDialog" />
+    <VCard :title="`${props.plugin?.plugin_name} - v${props.plugin?.plugin_version}`" class="rounded-t">
+      <DialogCloseBtn v-model="pluginInfoDialog"/>
       <VCardText class="min-h-40">
-        <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
+        <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item"/>
       </VCardText>
-      <VFab icon="mdi-cog" location="bottom" size="x-large" fixed app appear @click="showPluginConfig" />
+      <VFab icon="mdi-cog" location="bottom" size="x-large" fixed app appear @click="showPluginConfig"/>
     </VCard>
   </VDialog>
 
   <!-- 进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText"/>
 
   <!-- 更新日志 -->
   <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
     <VCard :title="`${props.plugin?.plugin_name} 更新说明`">
-      <DialogCloseBtn @click="releaseDialog = false" />
-      <VDivider />
-      <VersionHistory :history="props.plugin?.history" />
-      <VDivider />
+      <DialogCloseBtn @click="releaseDialog = false"/>
+      <VDivider/>
+      <VersionHistory :history="props.plugin?.history"/>
+      <VDivider/>
       <VCardText>
         <VBtn @click="updatePlugin" block>
           <template #prepend>
-            <VIcon icon="mdi-arrow-up-circle-outline" />
+            <VIcon icon="mdi-arrow-up-circle-outline"/>
           </template>
           更新到最新版本
         </VBtn>
