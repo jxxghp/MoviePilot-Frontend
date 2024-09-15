@@ -1,12 +1,13 @@
 <script lang="ts" setup>
-import { useToast } from 'vue-toast-notification'
+import {useToast} from 'vue-toast-notification'
 import VersionHistory from '../misc/VersionHistory.vue'
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type {Plugin} from '@/api/types'
 import noImage from '@images/logos/plugin.png'
-import { getDominantColor } from '@/@core/utils/image'
-import { isNullOrEmptyObject } from '@/@core/utils'
+import {getDominantColor} from '@/@core/utils/image'
+import {isNullOrEmptyObject} from '@/@core/utils'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
+import {VIcon} from "vuetify/components";
 
 // 输入参数
 const props = defineProps({
@@ -150,45 +151,27 @@ const dropdownItems = ref([
 
 <template>
   <VCard :width="props.width" :height="props.height" @click="installPlugin" class="flex flex-col">
-    <div class="me-n3 absolute bottom-0 right-3">
-      <IconBtn>
-        <VIcon icon="mdi-dots-vertical" />
-        <VMenu activator="parent" close-on-content-click>
-          <VList>
-            <VListItem
-              v-for="(item, i) in dropdownItems"
-              v-show="item.show"
-              :key="i"
-              variant="plain"
-              @click="item.props.click"
-            >
-              <template #prepend>
-                <VIcon :icon="item.props.prependIcon" />
-              </template>
-              <VListItemTitle v-text="item.title" />
-            </VListItem>
-          </VList>
-        </VMenu>
-      </IconBtn>
-    </div>
-    <div
-      class="relative flex flex-row items-start pa-3 justify-between grow"
-      :style="{ background: `${backgroundColor}` }"
-    >
-      <div
-        class="absolute inset-0 bg-cover bg-center"
-        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }"
-      ></div>
-      <div class="relative flex-1 min-w-0">
-        <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
+    <!-- 顶部信息 -->
+    <div class="relative flex flex-row items-start pa-3 justify-between grow"
+         :style="{ background: `${backgroundColor}` }">
+      <!-- 背景图片 -->
+      <div class="absolute inset-0 bg-cover bg-center"
+           :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }"/>
+      <!-- 左侧 -->
+      <div class="relative flex-1 min-w-0 ml-2">
+        <!-- 插件名称 -->
+        <VCardTitle class="px-0 py-1 text-white text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
           {{ props.plugin?.plugin_name }}
-          <span class="text-sm text-gray-200">v{{ props.plugin?.plugin_version }}</span>
+          <span class="text-sm mt-1 text-gray-200">v{{ props.plugin?.plugin_version }}</span>
         </VCardTitle>
-        <VCardText class="text-white px-2 py-1 text-shadow line-clamp-3">
+        <!-- 插件描述 -->
+        <VCardText class="pa-0 mr-2 text-white text-shadow overflow-y-auto line-clamp-3 overflow-clip">
           {{ props.plugin?.plugin_desc }}
         </VCardText>
       </div>
-      <div class="relative flex-shrink-0 self-center">
+      <!-- 右侧 -->
+      <div class="relative flex-shrink-0 self-center pl-1 mr-2">
+        <!-- 图标 -->
         <VAvatar size="64">
           <VImg
             ref="imageRef"
@@ -202,27 +185,51 @@ const dropdownItems = ref([
         </VAvatar>
       </div>
     </div>
-    <VCardText class="flex flex-none align-self-baseline py-3 w-full align-end">
-      <span>
-        <VIcon icon="mdi-github" class="me-1" />
+    <!--  底部信息栏  -->
+    <VCardText class="flex flex-none align-self-baseline py-1 px-1.5 w-full align-center justify-between">
+      <!-- 作者信息 -->
+      <span class="ml-2 whitespace-no-wrap overflow-hidden overflow-ellipsis " style="max-width: 60%">
+        <VIcon icon="mdi-github" class="me-0.5"/>
         <a :href="props.plugin?.author_url" target="_blank" @click.stop>
           {{ props.plugin?.plugin_author }}
         </a>
       </span>
-      <span v-if="props.count" class="ms-3">
-        <VIcon icon="mdi-download" />
-        <span class="text-sm ms-1 mt-1">{{ props.count?.toLocaleString() }}</span>
+      <!-- 下载次数 -->
+      <span v-if="props.count" class="mx-2 whitespace-no-wrap overflow-hidden overflow-ellipsis">
+        <VIcon icon="mdi-download"/>
+        <span class="text-sm ">
+          {{ props.count?.toLocaleString() }}
+        </span>
       </span>
+      <!-- 更多选项 -->
+      <IconBtn class="ml-auto">
+        <VIcon icon="mdi-dots-vertical"/>
+        <VMenu activator="parent" close-on-content-click>
+          <VList>
+            <VListItem v-for="(item, i) in dropdownItems"
+                       v-show="item.show"
+                       :key="i"
+                       variant="plain"
+                       :base-color="item.props.color"
+                       @click="item.props.click">
+              <template #prepend>
+                <VIcon :icon="item.props.prependIcon"/>
+              </template>
+              <VListItemTitle v-text="item.title"/>
+            </VListItem>
+          </VList>
+        </VMenu>
+      </IconBtn>
     </VCardText>
   </VCard>
   <!-- 安装插件进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
+  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText"/>
   <!-- 更新日志 -->
   <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
     <VCard :title="`${props.plugin?.plugin_name} 更新说明`">
-      <DialogCloseBtn @click="releaseDialog = false" />
-      <VDivider />
-      <VersionHistory :history="props.plugin?.history" />
+      <DialogCloseBtn @click="releaseDialog = false"/>
+      <VDivider/>
+      <VersionHistory :history="props.plugin?.history"/>
     </VCard>
   </VDialog>
 </template>
