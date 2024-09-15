@@ -108,29 +108,34 @@ onMounted(() => {
         {{ user.is_superuser ? '管理员' : '普通用户' }}
       </VChip>
     </VCardText>
-    <VCardText class="flex justify-center gap-6 pb-5">
+    <VCardText class="flex flex-col justify-center gap-6 pb-5">
       <div class="d-flex align-center">
         <VAvatar size="40" color="primary" rounded variant="tonal" class="me-4">
           <VIcon size="24" icon="mdi-movie-open-outline"></VIcon>
         </VAvatar>
-        <div>
-          <div class="text-h6">{{ movieSubscriptions }}</div>
-          <div class="text-sm">电影订阅</div>
+        <div class="max-w-100 w-100">
+          <div class="text-h6 whitespace-no-wrap overflow-hidden overflow-ellipsis max-w-72">
+            {{ movieSubscriptions }}
+          </div>
+          <div class="text-sm whitespace-no-wrap">电影订阅</div>
         </div>
       </div>
       <div class="d-flex align-center">
         <VAvatar size="40" color="primary" rounded variant="tonal" class="me-4">
           <VIcon size="24" icon="mdi-television"></VIcon>
         </VAvatar>
-        <div>
-          <div class="text-h6">{{ tvShowSubscriptions }}</div>
-          <div class="text-sm">电视剧订阅</div>
+        <div class="max-w-100 w-100">
+          <div class="text-h6 whitespace-no-wrap overflow-hidden overflow-ellipsis max-w-72">
+            {{ tvShowSubscriptions }}
+          </div>
+          <div class="text-sm whitespace-no-wrap">电视剧订阅</div>
         </div>
       </div>
     </VCardText>
     <VCardText class="pb-6">
-      <h5 class="text-h6">详情</h5>
-      <VDivider class="my-2" />
+      <VDivider class="my-2">
+        <span class="ms-2">详情信息</span>
+      </VDivider>
       <VList lines="one">
         <VListItem>
           <VListItemTitle class="text-sm">
@@ -143,6 +148,16 @@ onMounted(() => {
             ><span class="text-body-1">
               <VChip size="small" :class="{ 'text-success': user.is_active }" variant="tonal">
                 {{ user.is_active ? '激活' : '已停用' }}
+              </VChip>
+            </span>
+          </VListItemTitle>
+        </VListItem>
+        <VListItem>
+          <VListItemTitle class="text-sm">
+            <span class="font-weight-medium">双重认证：</span
+            ><span class="text-body-1">
+              <VChip size="small" :class="{ 'text-success': user.is_otp }" variant="tonal">
+                {{ user.is_otp ? '已启用' : '未启用' }}
               </VChip>
             </span>
           </VListItemTitle>
