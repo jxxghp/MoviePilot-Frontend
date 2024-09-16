@@ -182,7 +182,19 @@ onMounted(() => {
           <VForm>
             <VRow>
               <VCol cols="12" md="6">
-                <VSwitch v-model="mediaServerInfo.enabled" label="启用媒体服务器" />
+                <VSwitch v-model="mediaServerInfo.enabled"
+                         label="启用媒体服务器"
+                         hint="激活使用当前媒体服务器"
+                         persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch v-if="['emby', 'jellyfin'].includes(mediaServerInfo.type)"
+                         v-model="mediaServerInfo.config.auxiliary_auth_enabled"
+                         label="启用辅助认证"
+                         hint="允许通过媒体服务器账号直接注册登录"
+                         persistent-hint
+                />
               </VCol>
             </VRow>
             <VRow v-if="mediaServerInfo.type == 'emby'">
