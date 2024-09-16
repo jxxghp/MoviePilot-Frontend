@@ -65,7 +65,7 @@ const isCompactMode = ref(localStorage.getItem('MP_APPMODE') != '0')
 // 从Vuex Store中获取信息
 const superUser = store.state.auth.superUser
 const userName = store.state.auth.userName
-const avatar = store.state.auth.avatar
+const avatar = computed(() => store.state.auth.avatar || avatar1)
 
 // 监听精简模式切换
 watch(isCompactMode, value => {
@@ -77,7 +77,7 @@ watch(isCompactMode, value => {
 
 <template>
   <VAvatar class="cursor-pointer ms-3" color="primary" variant="tonal">
-    <VImg :src="avatar ?? avatar1" />
+    <VImg :src="avatar" />
 
     <VMenu activator="parent" width="230" location="bottom end" offset="14px">
       <VList>
@@ -86,7 +86,7 @@ watch(isCompactMode, value => {
           <template #prepend>
             <VListItemAction start>
               <VAvatar color="primary" variant="tonal">
-                <VImg :src="avatar ?? avatar1" />
+                <VImg :src="avatar" />
               </VAvatar>
             </VListItemAction>
           </template>
