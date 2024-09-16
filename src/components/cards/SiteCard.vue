@@ -189,12 +189,8 @@ onMounted(() => {
       class="overflow-hidden"
       @click="siteEditDialog = true"
     >
-      <template #image>
-        <VAvatar class="absolute right-2 bottom-2 rounded" variant="flat" rounded="0">
-          <VImg :src="siteIcon" />
-        </VAvatar>
-      </template>
-      <VCardItem style="padding-block-end: 0;">
+      <!-- 站点基础信息 -->
+      <VCardItem class="px-5 pt-5 pb-1" >
         <VCardTitle class="font-bold">
           <span @click.stop="openSitePage">{{ cardProps.site?.name }}</span>
         </VCardTitle>
@@ -202,7 +198,8 @@ onMounted(() => {
           <span @click.stop="openSitePage">{{ cardProps.site?.url }}</span>
         </VCardSubtitle>
       </VCardItem>
-      <VCardText class="py-2" style="block-size: 36px;">
+      <!-- 站点状态 -->
+      <VCardText class="flex px-5 w-full py-2 " style="block-size: 36px;">
         <VTooltip v-if="cardProps.site?.limit_interval" text="流控">
           <template #activator="{ props }">
             <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
@@ -225,27 +222,36 @@ onMounted(() => {
         </VTooltip>
       </VCardText>
       <VDivider />
-      <VCardActions>
-        <VBtn v-if="!cardProps.site?.public" :disabled="updateButtonDisable" @click.stop="handleSiteUpdate">
+      <!-- 功能按钮与图片 -->
+      <VCardActions class="flex py-1 w-full">
+        <VBtn v-if="!cardProps.site?.public"
+              :disabled="updateButtonDisable"
+              @click.stop="handleSiteUpdate"
+              class="pa-0">
           <template #prepend>
-            <VIcon icon="mdi-refresh" />
+            <VIcon icon="mdi-refresh"/>
           </template>
           更新
         </VBtn>
-        <VBtn :disabled="testButtonDisable" @click.stop="testSite">
+        <VBtn :disabled="testButtonDisable" @click.stop="testSite" class="pa-0">
           <template #prepend>
-            <VIcon icon="mdi-link" />
+            <VIcon icon="mdi-link"/>
           </template>
           {{ testButtonText }}
         </VBtn>
-        <VBtn @click.stop="handleResourceBrowse">
+        <VBtn @click.stop="handleResourceBrowse" class="pa-0">
           <template #prepend>
-            <VIcon icon="mdi-web" />
+            <VIcon icon="mdi-web"/>
           </template>
           浏览
         </VBtn>
+        <VAvatar class="ml-auto rounded" variant="flat" >
+           <VImg :src="siteIcon" />
+        </VAvatar>
       </VCardActions>
+      <!-- 站点状态图标 -->
       <StatIcon v-if="cardProps.site?.is_active" :color="statColor" />
+      <!-- 站点拖动 -->
       <span class="absolute top-1 right-8">
         <VIcon class="cursor-move">mdi-drag</VIcon>
       </span>
