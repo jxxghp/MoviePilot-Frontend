@@ -1,13 +1,13 @@
 <script lang="ts" setup>
-import {useToast} from 'vue-toast-notification'
+import { useToast } from 'vue-toast-notification'
 import VersionHistory from '../misc/VersionHistory.vue'
 import api from '@/api'
-import type {Plugin} from '@/api/types'
+import type { Plugin } from '@/api/types'
 import noImage from '@images/logos/plugin.png'
-import {getDominantColor} from '@/@core/utils/image'
-import {isNullOrEmptyObject} from '@/@core/utils'
+import { getDominantColor } from '@/@core/utils/image'
+import { isNullOrEmptyObject } from '@/@core/utils'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
-import {VIcon} from "vuetify/components";
+import { VIcon } from "vuetify/components";
 
 // 输入参数
 const props = defineProps({
