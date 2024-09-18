@@ -145,7 +145,7 @@ const dropdownItems = ref([
           }
         "
       />
-      <VList lines="two">
+      <VList lines="two" v-if="historyList.length > 0">
         <VInfiniteScroll mode="intersect" side="end" :items="historyList" class="overflow-hidden" @load="loadHistory">
           <template #loading>
             <LoadingBanner />
@@ -204,6 +204,7 @@ const dropdownItems = ref([
           </template>
         </VInfiniteScroll>
       </VList>
+      <VCardText v-if="historyList.length === 0" class="text-center"> 没有已完成的订阅 </VCardText>
     </VCard>
     <!-- 进度框 -->
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
