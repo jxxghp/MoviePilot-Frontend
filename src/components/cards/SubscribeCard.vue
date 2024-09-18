@@ -240,7 +240,7 @@ const posterUrl = computed(() => {
         </template>
         <div>
           <VCardText class="flex items-center">
-            <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg">
+            <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg" v-if="imageLoaded">
               <VImg :src="posterUrl" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
                 <template #placeholder>
                   <div class="w-full h-full">
