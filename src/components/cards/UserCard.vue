@@ -20,7 +20,7 @@ const props = defineProps({
 const currentUser = store.state.auth.userName
 
 // 定义触发的自定义事件
-const emit = defineEmits(['remove'])
+const emit = defineEmits(['remove', 'save'])
 
 // 确认框
 const createConfirm = useConfirm()
@@ -143,6 +143,16 @@ onMounted(() => {
             ><span class="text-body-1">
               <VChip size="small" :class="{ 'text-success': user.is_active }" variant="tonal">
                 {{ user.is_active ? '激活' : '已停用' }}
+              </VChip>
+            </span>
+          </VListItemTitle>
+        </VListItem>
+        <VListItem>
+          <VListItemTitle class="text-sm">
+            <span class="font-weight-medium">双重认证：</span
+            ><span class="text-body-1">
+              <VChip size="small" :class="{ 'text-success': user.is_otp }" variant="tonal">
+                {{ user.is_otp ? '已启用' : '未启用' }}
               </VChip>
             </span>
           </VListItemTitle>
