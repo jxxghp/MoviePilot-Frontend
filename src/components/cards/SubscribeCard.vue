@@ -223,9 +223,9 @@ watch(
             <div class="absolute inset-0 subscribe-card-background"></div>
           </VImg>
         </template>
-        <div v-if="imageLoaded">
+        <div>
           <VCardText class="flex items-center">
-            <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg">
+            <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg" v-if="imageLoaded">
               <VImg :src="props.media?.poster" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
                 <template #placeholder>
                   <div class="w-full h-full">
