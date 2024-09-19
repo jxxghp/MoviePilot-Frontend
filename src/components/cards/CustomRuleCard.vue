@@ -21,7 +21,7 @@ const props = defineProps({
 const $toast = useToast()
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'change'])
+const emit = defineEmits(['close', 'change', 'done'])
 
 // 规则详情弹窗
 const ruleInfoDialog = ref(false)
@@ -61,18 +61,18 @@ function saveRuleInfo() {
     if (ruleId.value && !ruleName.value) {
       $toast.error('规则名称不能为空')
     }
-    if (!ruleId.value && !ruleName.value){
+    if (!ruleId.value && !ruleName.value) {
       $toast.error('规则ID和规则名称不能为空')
     }
     return
   }
   // ID已存在
-  if (ruleId.value !== props.rule.id && props.rules.find((rule) => rule.id === ruleId.value)) {
+  if (ruleId.value !== props.rule.id && props.rules.find(rule => rule.id === ruleId.value)) {
     $toast.error(`规则ID【${ruleId.value}】已存在，请替换`)
     return
   }
   // 规则名称已存在
-  if (ruleName.value !== props.rule.name && props.rules.find((rule) => rule.name === ruleName.value)) {
+  if (ruleName.value !== props.rule.name && props.rules.find(rule => rule.name === ruleName.value)) {
     $toast.error(`规则名称【${ruleName.value}】已存在，请替换`)
     return
   }
@@ -81,6 +81,7 @@ function saveRuleInfo() {
   ruleInfo.value.id = ruleId.value
   ruleInfo.value.name = ruleName.value
   emit('change', ruleInfo.value)
+  emit('done')
 }
 
 // 按钮点击

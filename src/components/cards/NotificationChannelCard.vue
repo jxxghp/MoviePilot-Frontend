@@ -16,7 +16,7 @@ const props = defineProps({
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'change'])
+const emit = defineEmits(['close', 'change', 'done'])
 
 // 通知详情弹窗
 const notificationInfoDialog = ref(false)
@@ -66,6 +66,7 @@ function saveNotificationInfo() {
   notificationInfoDialog.value = false
   notificationInfo.value.name = notificationName.value
   emit('change', notificationInfo.value)
+  emit('done')
 }
 
 // 根据存储类型选择图标

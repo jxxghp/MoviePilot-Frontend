@@ -181,7 +181,9 @@ onMounted(() => {
                 :rule="element"
                 :rules="customRules"
                 @close="removeCustomRule(element)"
-                @change="onRuleChange" />
+                @change="onRuleChange"
+                @done="saveCustomRules"
+              />
             </template>
           </draggable>
         </VCardText>
@@ -215,6 +217,7 @@ onMounted(() => {
                 :categories="mediaCategories"
                 @close="removeFilterRuleGroup(element)"
                 @change="changeRuleGroup"
+                @done="saveFilterRuleGroups"
               />
             </template>
           </draggable>

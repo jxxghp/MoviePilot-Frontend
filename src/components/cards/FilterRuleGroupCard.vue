@@ -40,7 +40,7 @@ interface FilterCard {
 const $toast = useToast()
 
 // 定义触发的自定义事件
-const emit = defineEmits(['close', 'change'])
+const emit = defineEmits(['close', 'change', 'done'])
 
 // 规则详情弹窗
 const groupInfoDialog = ref(false)
@@ -198,6 +198,7 @@ function savegroupInfo() {
     .map(card => card.rules.join('&'))
     .join('>')
   emit('change', groupInfo.value)
+  emit('done')
 }
 
 // 按钮点击

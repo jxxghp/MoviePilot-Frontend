@@ -61,6 +61,12 @@ async function saveStorages() {
   }
 }
 
+// 修改后生效
+async function updatedStorage() {
+  await saveStorages()
+  loadStorages()
+}
+
 // 查询目录
 async function loadDirectories() {
   try {
@@ -141,7 +147,7 @@ onMounted(() => {
             :component-data="{ 'class': 'grid gap-3 grid-app-card' }"
           >
             <template #item="{ element }">
-              <StorageCard :storage="element" @done="loadStorages" />
+              <StorageCard :storage="element" @done="updatedStorage" />
             </template>
           </draggable>
         </VCardText>
