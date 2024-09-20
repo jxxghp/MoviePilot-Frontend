@@ -736,7 +736,6 @@ onMounted(() => {
   <ReorganizeDialog
     v-if="transferPopper"
     v-model="transferPopper"
-    :storage="inProps.storage"
     :items="transferItems"
     @done="transferDone"
     @close="transferPopper = false"

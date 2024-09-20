@@ -13,13 +13,10 @@ const display = useDisplay()
 
 // 输入参数
 const props = defineProps({
-  storage: {
-    type: String,
-    default: () => 'local',
-  },
   logids: Array<number>,
   items: Array<FileItem>,
-  target: String,
+  target_storage: String,
+  target_path: String,
 })
 
 // 从 provide 中获取全局设置
@@ -38,6 +35,25 @@ const seasonItems = ref(
     value: item,
   })),
 )
+
+const storageOptions = [
+  {
+    title: '本地',
+    value: 'local',
+  },
+  {
+    title: '阿里云盘',
+    value: 'alipan',
+  },
+  {
+    title: '115网盘',
+    value: 'u115',
+  },
+  {
+    title: 'Rclone网盘',
+    value: 'rclone',
+  },
+]
 
 // 提示框
 const $toast = useToast()
@@ -70,13 +86,10 @@ const dialogTitle = computed(() => {
 
 // 表单
 const transferForm = reactive({
-  storage: props.storage,
+  fileitem: {},
   logid: 0,
-  path: '',
-  drive_id: '',
-  fileid: '',
-  filetype: '',
-  target: props.target ?? null,
+  target_storage: props.target_storage || 'local',
+  target_path: props.target_path ?? '',
   tmdbid: null,
   doubanid: null,
   season: null,
@@ -101,8 +114,8 @@ const targetDirectories = computed(() => {
 
 // 监听目的路径变化，自动查询目录的刮削配置
 watch(transferForm, async () => {
-  if (transferForm.target) {
-    const directory = libraryDirectories.value.find(item => item.library_path === transferForm.target)
+  if (transferForm.target_path) {
+    const directory = libraryDirectories.value.find(item => item.library_path === transferForm.target_path)
     if (directory) {
       transferForm.scrape = directory.scraping ?? false
     }
@@ -165,13 +178,10 @@ async function transfer() {
 
 // 整理文件
 async function handleTransfer(item: FileItem) {
-  transferForm.path = item.path
-  transferForm.fileid = item.fileid || ''
-  transferForm.drive_id = item.drive_id || ''
-  transferForm.filetype = item.type || 'dir'
-
+  transferForm.fileitem = item
+  transferForm.logid = 0
   try {
-    const result: { [key: string]: any } = await api.post('transfer/manual', {}, { params: transferForm })
+    const result: { [key: string]: any } = await api.post('transfer/manual', transferForm)
     if (!result.success) $toast.error(`文件 ${item.path} 整理失败：${result.message}！`)
   } catch (e) {
     console.log(e)
@@ -181,8 +191,9 @@ async function handleTransfer(item: FileItem) {
 // 整理日志
 async function handleTransferLog(logid: number) {
   transferForm.logid = logid
+  transferForm.fileitem = {}
   try {
-    const result: { [key: string]: any } = await api.post('transfer/manual', {}, { params: transferForm })
+    const result: { [key: string]: any } = await api.post('transfer/manual', transferForm)
     if (!result.success) $toast.error(`历史记录 ${logid} 重新整理失败：${result.message}！`)
   } catch (e) {
     console.log(e)
@@ -214,17 +225,17 @@ onMounted(() => {
       <VCardText>
         <VForm @submit.prevent="() => {}">
           <VRow>
-            <VCol v-if="props.storage == 'local'" cols="12" md="8">
+            <VCol cols="12" md="6">
               <VCombobox
-                v-model="transferForm.target"
-                :items="targetDirectories"
-                label="目的路径"
+                v-model="transferForm.target_storage"
+                :items="storageOptions"
+                label="目的存储"
                 placeholder="留空自动"
-                hint="整理目的路径，留空将自动匹配"
+                hint="整理目的存储"
                 persistent-hint
               />
             </VCol>
-            <VCol v-if="props.storage == 'local'" cols="12" md="4">
+            <VCol cols="12" md="6">
               <VSelect
                 v-model="transferForm.transfer_type"
                 label="整理方式"
@@ -234,10 +245,18 @@ onMounted(() => {
                   { title: '复制', value: 'copy' },
                   { title: '硬链接', value: 'link' },
                   { title: '软链接', value: 'softlink' },
-                  { title: 'Rclone复制', value: 'rclone_copy' },
-                  { title: 'Rclone移动', value: 'rclone_move' },
                 ]"
                 hint="文件操作整理方式"
+                persistent-hint
+              />
+            </VCol>
+            <VCol cols="12" md="12">
+              <VCombobox
+                v-model="transferForm.target_path"
+                :items="targetDirectories"
+                label="目的路径"
+                placeholder="留空自动"
+                hint="整理目的路径，留空将自动匹配"
                 persistent-hint
               />
             </VCol>
