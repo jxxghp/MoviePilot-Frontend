@@ -169,7 +169,9 @@ onUnmounted(() => {
             <span>{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
           </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-7" max-width="3rem" min-width="3rem" />
+        <div class="h-20">
+          <VImg :src="getIcon" cover class="mt-7" max-width="3rem" min-width="3rem" />
+        </div>
       </VCardText>
     </VCard>
     <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem">
