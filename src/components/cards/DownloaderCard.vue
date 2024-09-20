@@ -101,6 +101,15 @@ function saveDownloaderInfo() {
     $toast.error(`【${downloaderName.value}】已存在，请替换为其他名称`)
     return
   }
+  // 默认下载器去重
+  if (downloaderInfo.value.default) {
+    props.downloaders.forEach(item => {
+      if (item.default && item !== props.downloader) {
+        item.default = false
+        $toast.info(`【${item.name}】存在默认下载器，已替换成【${downloaderName.value}】`)
+      }
+    })
+  }
   // 执行保存
   downloaderInfoDialog.value = false
   downloaderInfo.value.name = downloaderName.value
@@ -161,10 +170,12 @@ onUnmounted(() => {
             <span>{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
           </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-7" max-width="3rem" min-width="3rem" />
+        <div class="h-20">
+          <VImg :src="getIcon" cover class="mt-7" max-width="3rem" min-width="3rem" />
+        </div>
       </VCardText>
     </VCard>
-    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem">
+    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem" persistent>
       <VCard :title="`${props.downloader.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="downloaderInfoDialog" />
         <VDivider />
