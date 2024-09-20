@@ -91,6 +91,14 @@ function openDownloaderInfoDialog() {
 
 // 保存详情数据
 function saveDownloaderInfo() {
+  // 默认下载器去重
+  if (downloaderInfo.value.default) {
+    props.downloaders.forEach(item => {
+      if (item.default && item !== props.downloader) {
+        item.default = false
+      }
+    })
+  }
   // 为空不保存，跳出警告框
   if (!downloaderName.value) {
     $toast.error('名称不能为空，请输入后再确定')
