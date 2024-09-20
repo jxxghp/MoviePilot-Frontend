@@ -91,14 +91,6 @@ function openDownloaderInfoDialog() {
 
 // 保存详情数据
 function saveDownloaderInfo() {
-  // 默认下载器去重
-  if (downloaderInfo.value.default) {
-    props.downloaders.forEach(item => {
-      if (item.default && item !== props.downloader) {
-        item.default = false
-      }
-    })
-  }
   // 为空不保存，跳出警告框
   if (!downloaderName.value) {
     $toast.error('名称不能为空，请输入后再确定')
@@ -108,6 +100,15 @@ function saveDownloaderInfo() {
   if (props.downloaders.some(item => item.name === downloaderName.value && item!== props.downloader)) {
     $toast.error(`【${downloaderName.value}】已存在，请替换为其他名称`)
     return
+  }
+  // 默认下载器去重
+  if (downloaderInfo.value.default) {
+    props.downloaders.forEach(item => {
+      if (item.default && item !== props.downloader) {
+        item.default = false
+        $toast.info(`【${item.name}】存在默认下载器，已替换成【${downloaderName.value}】`)
+      }
+    })
   }
   // 执行保存
   downloaderInfoDialog.value = false
@@ -174,7 +175,7 @@ onUnmounted(() => {
         </div>
       </VCardText>
     </VCard>
-    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem">
+    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem" persistent>
       <VCard :title="`${props.downloader.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="downloaderInfoDialog" />
         <VDivider />
