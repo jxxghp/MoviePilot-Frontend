@@ -88,8 +88,8 @@ const dialogTitle = computed(() => {
 const transferForm = reactive({
   fileitem: {},
   logid: 0,
-  target_storage: props.target_storage || 'local',
-  target_path: props.target_path ?? '',
+  target_storage: props.target_storage ?? 'local',
+  target_path: props.target_path ?? null,
   tmdbid: null,
   doubanid: null,
   season: null,
@@ -101,23 +101,35 @@ const transferForm = reactive({
   episode_offset: null,
   min_filesize: 0,
   scrape: false,
+  from_history: false,
 })
 
 // 所有媒体库目录
-const libraryDirectories = ref<TransferDirectoryConf[]>([])
+const directories = ref<TransferDirectoryConf[]>([])
+
+// 查询目录
+async function loadDirectories() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Directories')
+    directories.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // 目的目录下拉框
 const targetDirectories = computed(() => {
-  const directories = libraryDirectories.value.map(item => item.library_path)
-  return [...new Set(directories)]
+  const libraryDirectories = directories.value.map(item => item.library_path)
+  return [...new Set(libraryDirectories)]
 })
 
-// 监听目的路径变化，自动查询目录的刮削配置
+// 监听目的路径变化，自动查询目录削配置
 watch(transferForm, async () => {
   if (transferForm.target_path) {
-    const directory = libraryDirectories.value.find(item => item.library_path === transferForm.target_path)
+    const directory = directories.value.find(item => item.library_path === transferForm.target_path)
     if (directory) {
       transferForm.scrape = directory.scraping ?? false
+      transferForm.transfer_type = directory.transfer_type ?? ''
     }
   }
 })
@@ -200,20 +212,8 @@ async function handleTransferLog(logid: number) {
   }
 }
 
-// 查询媒体库目录
-async function loadLibraryDirectories() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/setting/LibraryDirectories')
-    if (result.success && result.data?.value) {
-      libraryDirectories.value = result.data.value
-    }
-  } catch (error) {
-    console.log(error)
-  }
-}
-
 onMounted(() => {
-  loadLibraryDirectories()
+  loadDirectories()
 })
 </script>
 
