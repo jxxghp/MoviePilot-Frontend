@@ -351,6 +351,14 @@ onMounted(() => {
                 persistent-hint
               />
             </VCol>
+            <VCol cols="12" md="6" v-if="props.logids">
+              <VSwitch
+                v-model="transferForm.from_history"
+                label="复用历史识别信息"
+                hint="使用历史记录中已识别的媒体信息"
+                persistent-hint
+              />
+            </VCol>
           </VRow>
         </VForm>
       </VCardText>

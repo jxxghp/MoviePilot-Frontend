@@ -416,20 +416,20 @@ onMounted(fetchData)
       <template #item.src="{ item }">
         <div>
           <span>
-            <VChip size="small" label class="my-1"> {{ storageDict[item?.src_storage || ''] }}</VChip>
+            <VChip variant="tonal" size="small" label class="my-1"> {{ storageDict[item?.src_storage || ''] }}</VChip>
             <small>{{ item?.src }}</small>
           </span>
           <span class="text-high-emphasis text-bold"> => </span>
           <br />
-          <span>
-            <VChip size="small" label class="my-1"> {{ storageDict[item?.dest_storage || ''] }}</VChip>
+          <span v-if="item?.dest">
+            <VChip variant="tonal" size="small" label class="my-1"> {{ storageDict[item?.dest_storage || ''] }}</VChip>
             <small>{{ item?.dest }}</small>
           </span>
         </div>
       </template>
       <template #item.mode="{ item }">
         <VChip variant="outlined" color="primary" size="small">
-          {{ TransferDict[item?.mode || '未知'] }}
+          {{ TransferDict[item?.mode ?? ''] || '未知' }}
         </VChip>
       </template>
       <template #item.status="{ item }">
