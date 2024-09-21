@@ -71,6 +71,10 @@ export interface Subscribe {
 export interface TransferHistory {
   // ID
   id: number
+  // 源存储
+  src_storage?: string
+  // 目标存储
+  dest_storage?: string
   // 源目录
   src?: string
   // 目的目录

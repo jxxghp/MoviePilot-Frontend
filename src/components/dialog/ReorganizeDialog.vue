@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import store from '@/store'
 import api from '@/api'
+import { storageOptions } from '@/api/constants'
 import { numberValidator } from '@/@validators'
 import { useDisplay } from 'vuetify'
 import ProgressDialog from './ProgressDialog.vue'
@@ -35,25 +36,6 @@ const seasonItems = ref(
     value: item,
   })),
 )
-
-const storageOptions = [
-  {
-    title: '本地',
-    value: 'local',
-  },
-  {
-    title: '阿里云盘',
-    value: 'alipan',
-  },
-  {
-    title: '115网盘',
-    value: 'u115',
-  },
-  {
-    title: 'Rclone网盘',
-    value: 'rclone',
-  },
-]
 
 // 提示框
 const $toast = useToast()
@@ -226,7 +208,7 @@ onMounted(() => {
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol cols="12" md="6">
-              <VSelect
+              <VCombobox
                 v-model="transferForm.target_storage"
                 :items="storageOptions"
                 label="目的存储"
