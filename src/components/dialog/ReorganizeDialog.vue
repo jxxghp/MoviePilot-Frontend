@@ -226,7 +226,7 @@ onMounted(() => {
         <VForm @submit.prevent="() => {}">
           <VRow>
             <VCol cols="12" md="6">
-              <VCombobox
+              <VSelect
                 v-model="transferForm.target_storage"
                 :items="storageOptions"
                 label="目的存储"

@@ -737,6 +737,7 @@ onMounted(() => {
     v-if="transferPopper"
     v-model="transferPopper"
     :items="transferItems"
+    :target_storage="inProps.storage"
     @done="transferDone"
     @close="transferPopper = false"
   />

@@ -417,7 +417,7 @@ onMounted(fetchData)
       </template>
       <template #item.mode="{ item }">
         <VChip variant="outlined" color="primary" size="small">
-          {{ TransferDict[item?.mode || ''] }}
+          {{ TransferDict[item?.mode || '未知'] }}
         </VChip>
       </template>
       <template #item.status="{ item }">
