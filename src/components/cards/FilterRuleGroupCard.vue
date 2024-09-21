@@ -47,10 +47,10 @@ const groupInfoDialog = ref(false)
 
 // 规则详情
 const groupInfo = ref<FilterRuleGroup>({
-  name: '',
-  rule_string: '',
-  media_type: '',
-  category: '',
+  name: props.group?.name,
+  rule_string: props.group?.rule_string,
+  media_type: props.group?.media_type,
+  category: props.group?.category,
 })
 
 // 规则组名称
@@ -65,7 +65,6 @@ const mediaTypeItems = [
 
 // 根据选中的媒体类型，获取对应的媒体类别
 const getCategories = computed(() => {
-  groupInfo.value.category = ''
   const default_value = [{ title: '全部', value: '' }]
   if (!props.categories || !groupInfo.value.media_type || !props.categories[groupInfo.value.media_type ?? ''])
     return default_value
