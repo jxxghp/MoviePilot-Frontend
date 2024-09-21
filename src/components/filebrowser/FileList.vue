@@ -105,11 +105,12 @@ const dirs = computed(() => items.value.filter(item => item.type === 'dir' && it
 
 // 文件过滤
 const files = computed(() => items.value.filter(item => item.type === 'file' && item.name.includes(filter.value)))
-// 是否目录
-const isDir = computed(() => inProps.item.path?.endsWith('/'))
 
 // 是否文件
-const isFile = computed(() => !isDir.value)
+const isFile = computed(() => inProps.item.type == 'file')
+
+// 是否目录
+const isDir = computed(() => !isFile.value)
 
 // 需要整理的文件项
 const transferItems = ref<FileItem[]>([])
