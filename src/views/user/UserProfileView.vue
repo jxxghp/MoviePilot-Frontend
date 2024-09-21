@@ -231,8 +231,6 @@ onMounted(() => {
             </form>
           </VCardText>
 
-          <VDivider />
-
           <VCardText>
             <!-- 👉 Form -->
             <VForm class="mt-6">
@@ -266,14 +264,14 @@ onMounted(() => {
                   />
                 </VCol>
               </VRow>
-              <VDivider class="my-10" />
+
+              <VDivider class="my-10">
+                <span>消息账号绑定</span>
+              </VDivider>
+
               <VRow>
                 <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="accountInfo.settings.wechat_userid"
-                    density="comfortable"
-                    label="微信用户"
-                  />
+                  <VTextField v-model="accountInfo.settings.wechat_userid" density="comfortable" label="微信用户" />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
@@ -283,11 +281,7 @@ onMounted(() => {
                   />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="accountInfo.settings.slack_userid"
-                    density="comfortable"
-                    label="Slack用户"
-                  />
+                  <VTextField v-model="accountInfo.settings.slack_userid" density="comfortable" label="Slack用户" />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
