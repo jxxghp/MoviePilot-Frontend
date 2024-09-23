@@ -1,10 +1,8 @@
 <script lang="ts" setup>
-import { useToast } from 'vue-toast-notification'
-import { useConfirm } from 'vuetify-use-dialog'
 import api from '@/api'
-import type { TorrentInfo } from '@/api/types'
-import { doneNProgress, startNProgress } from '@/api/nprogress'
+import type { MediaInfo, TorrentInfo } from '@/api/types'
 import { formatFileSize } from '@core/utils/formatters'
+import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
 
 // 输入参数
 const props = defineProps({
@@ -12,12 +10,6 @@ const props = defineProps({
   width: String,
   height: String,
 })
-
-// 提示框
-const $toast = useToast()
-
-// 确认框
-const createConfirm = useConfirm()
 
 // 数据列表
 const resourceDataList = ref<TorrentInfo[]>([])
@@ -33,6 +25,9 @@ const resourceItemsPerPage = ref(25)
 
 // 加载状态
 const resourceLoading = ref(false)
+
+// 识别元数据
+const torrent = ref<TorrentInfo>()
 
 // 资源浏览表头
 const resourceHeaders = [
@@ -75,28 +70,21 @@ function getVolumeFactorClass(downloadVolume: number, uploadVolume: number) {
 
 // 添加下载
 async function addDownload(_torrent: any) {
-  const isConfirmed = await createConfirm({
-    title: '确认',
-    content: `是否确认下载【${_torrent.site_name}】${_torrent?.title} ?`,
-  })
+  torrent.value = _torrent
+  addDownloadDialog.value = true
+}
 
-  if (!isConfirmed) return
+// 添加下载对话框
+const addDownloadDialog = ref(false)
 
-  startNProgress()
-  try {
-    const result: { [key: string]: any } = await api.post('download/add', _torrent)
+// 添加下载成功
+function addDownloadSuccess(url: string) {
+  addDownloadDialog.value = false
+}
 
-    if (result.success) {
-      // 添加下载成功
-      $toast.success(`${_torrent?.site_name} ${_torrent?.title} 添加下载成功！`)
-    } else {
-      // 添加下载失败
-      $toast.error(`${_torrent?.site_name} ${_torrent?.title} 添加下载失败：${result.message || '未知错误'}`)
-    }
-  } catch (error) {
-    console.error(error)
-  }
-  doneNProgress()
+// 添加下载失败
+function addDownloadError(error: string) {
+  addDownloadDialog.value = false
 }
 
 // 装载时查询站点图标
@@ -203,4 +191,12 @@ onMounted(() => {
     </template>
     <template #no-data> 没有数据 </template>
   </VDataTable>
+  <AddDownloadDialog
+    v-if="addDownloadDialog"
+    v-model="addDownloadDialog"
+    :torrent="torrent"
+    @done="addDownloadSuccess"
+    @error="addDownloadError"
+    @close="addDownloadDialog = false"
+  />
 </template>
