@@ -223,7 +223,6 @@ onDeactivated(() => {
                 :downloaders="downloaders"
                 @close="removeDownloader(element)"
                 @change="onDownloaderChange"
-                @done="saveDownloaderSetting"
                 :allow-refresh="isRequest"
               />
             </template>
@@ -273,7 +272,6 @@ onDeactivated(() => {
                 :mediaservers="mediaServers"
                 @close="removeMediaServer(element)"
                 @change="onMediaServerChange"
-                @done="saveMediaServerSetting"
               />
             </template>
           </draggable>

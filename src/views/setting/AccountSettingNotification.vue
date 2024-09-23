@@ -148,7 +148,6 @@ onMounted(() => {
               <NotificationChannelCard
                 :notification="element"
                 @close="removeNotification(element)"
-                @done="saveNotificationSetting"
               />
             </template>
           </draggable>
