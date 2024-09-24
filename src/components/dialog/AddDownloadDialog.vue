@@ -113,14 +113,15 @@ onMounted(() => {
 </script>
 <template>
   <VDialog max-width="40rem" scrollable>
-    <VCard title="下载确认">
+    <VCard title="确认下载">
       <DialogCloseBtn @click="emit('close')" />
       <VDivider />
       <VCardText>
         <VRow>
           <VCol cols="12" class="text-lg text-high-emphasis">
-            是否确认下载 {{ props.torrent?.site_name }} - {{ props.torrent?.title }}，大小：
-            {{ formatFileSize(props.torrent?.size || 0) }} ？
+            <strong>标题：</strong>{{ props.torrent?.title }}<br />
+            <strong>站点：</strong>{{ props.torrent?.site_name }}<br />
+            <strong>大小：</strong>{{ formatFileSize(props.torrent?.size || 0) }}
           </VCol>
         </VRow>
         <VRow>
@@ -147,7 +148,14 @@ onMounted(() => {
         </VRow>
       </VCardText>
       <VCardText class="text-center mt-3">
-        <VBtn variant="elevated" :disabled="loading" @click="addDownload" :prepend-icon="icon" class="px-5">
+        <VBtn
+          variant="elevated"
+          :disabled="loading"
+          @click="addDownload"
+          :prepend-icon="icon"
+          class="px-5"
+          size="large"
+        >
           {{ buttonText }}
         </VBtn>
       </VCardText>
