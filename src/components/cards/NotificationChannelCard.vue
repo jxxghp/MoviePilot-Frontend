@@ -6,17 +6,27 @@ import vocechat_image from '@images/logos/vocechat.png'
 import synologychat_image from '@images/logos/synologychat.png'
 import slack_image from '@images/logos/slack.webp'
 import chrome_image from '@images/logos/chrome.png'
+import { useToast } from 'vue-toast-notification'
 
 // 定义输入
 const props = defineProps({
+  // 单个通知
   notification: {
     type: Object as PropType<NotificationConf>,
+    required: true,
+  },
+  // 所有通知
+  notifications: {
+    type: Array as PropType<NotificationConf[]>,
     required: true,
   },
 })
 
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'change', 'done'])
+
+// 提示框
+const $toast = useToast()
 
 // 通知详情弹窗
 const notificationInfoDialog = ref(false)
@@ -63,6 +73,16 @@ function openNotificationInfoDialog() {
 
 // 保存详情数据
 function saveNotificationInfo() {
+  // 为空不保存，跳出警告框
+  if (!notificationName.value) {
+    $toast.error('名称不能为空，请输入后再确定')
+    return
+  }
+  // 重名判断
+  if (props.notifications.some(item => item.name === notificationName.value && item!== props.notification)) {
+    $toast.error(`【${notificationName.value}】已存在，请替换为其他名称`)
+    return
+  }
   notificationInfoDialog.value = false
   notificationInfo.value.name = notificationName.value
   emit('change', notificationInfo.value)
@@ -109,7 +129,7 @@ function onClose() {
         <VImg :src="getIcon" cover class="mt-5 me-7" max-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="notificationInfoDialog" scrollable max-width="40rem">
+    <VDialog v-model="notificationInfoDialog" scrollable max-width="40rem" persistent >
       <VCard :title="`${props.notification.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="notificationInfoDialog" />
         <VDivider />

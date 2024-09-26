@@ -102,7 +102,7 @@ function onClose() {
         <VImg :src="filter_svg" cover class="mt-7" max-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="ruleInfoDialog" scrollable max-width="40rem">
+    <VDialog v-model="ruleInfoDialog" scrollable max-width="40rem" persistent >
       <VCard :title="`${props.rule.id} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="ruleInfoDialog" />
         <VDivider />

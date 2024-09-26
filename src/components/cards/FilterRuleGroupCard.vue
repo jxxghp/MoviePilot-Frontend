@@ -221,7 +221,7 @@ function onClose() {
         <VImg :src="filter_group_svg" cover class="mt-10" max-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="groupInfoDialog" scrollable max-width="80rem">
+    <VDialog v-model="groupInfoDialog" scrollable max-width="80rem" persistent >
       <VCard :title="`${props.group.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="groupInfoDialog" />
         <VDivider />

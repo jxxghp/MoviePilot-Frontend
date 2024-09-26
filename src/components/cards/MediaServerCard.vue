@@ -174,7 +174,7 @@ onMounted(() => {
         <VImg :src="getIcon" cover class="mt-5 me-3" max-width="3rem" min-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="mediaServerInfoDialog" scrollable max-width="40rem">
+    <VDialog v-model="mediaServerInfoDialog" scrollable max-width="40rem" persistent >
       <VCard :title="`${props.mediaserver.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="mediaServerInfoDialog" />
         <VDivider />
