@@ -20,9 +20,6 @@ const props = defineProps({
   height: String,
 })
 
-// 提示框
-const $toast = useToast();
-
 // 下载路径
 const downloadPath = ref<string>('')
 
