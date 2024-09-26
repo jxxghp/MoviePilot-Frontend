@@ -81,6 +81,11 @@ async function loadDirectories() {
 async function saveDirectories() {
   orderDirectoryCards()
   try {
+    const names = directories.value.map(item => item.name)
+    if (new Set(names).size !== names.length) {
+      $toast.error('存在重复目录名称！无法保存，请修改！')
+      return
+    }
     const result: { [key: string]: any } = await api.post('system/setting/Directories', directories.value)
     if (result.success) {
       $toast.success('目录设置保存成功')
@@ -93,8 +98,12 @@ async function saveDirectories() {
 
 // 添加媒体库目录
 function addDirectory() {
+  let name = `目录${directories.value.length + 1}`;
+  while (directories.value.some(item => item.name === name)) {
+    name = `目录${parseInt(name.split('目录')[1]) + 1}`;
+  }
   directories.value.push({
-    name: `目录${directories.value.length + 1}`,
+    name: name,
     storage: 'local',
     download_path: '',
     priority: -1,
