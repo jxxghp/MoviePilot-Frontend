@@ -60,8 +60,12 @@ async function reloadSystem() {
 
 // 添加媒体服务器
 function addNotification(notification: string) {
+  let name = `通知${notifications.value.length + 1}`;
+  while (notifications.value.some(item => item.name === name)) {
+    name = `通知${parseInt(name.split('通知')[1]) + 1}`;
+  }
   notifications.value.push({
-    name: `通知${notifications.value.length + 1}`,
+    name: name,
     type: notification,
     enabled: false,
     config: {},
@@ -147,6 +151,7 @@ onMounted(() => {
             <template #item="{ element }">
               <NotificationChannelCard
                 :notification="element"
+                :notifications="notifications"
                 @close="removeNotification(element)"
               />
             </template>
