@@ -1,6 +1,9 @@
 <script lang="ts" setup>
 import type { TransferDirectoryConf } from '@/api/types'
 import { VTextField } from 'vuetify/lib/components/index.mjs'
+import { useToast } from 'vue-toast-notification'
+import api from "@/api";
+import { nextTick } from 'vue'
 
 // 输入参数
 const props = defineProps({
@@ -16,6 +19,9 @@ const props = defineProps({
   width: String,
   height: String,
 })
+
+// 提示框
+const $toast = useToast();
 
 // 下载路径
 const downloadPath = ref<string>('')
@@ -46,12 +52,66 @@ const transferSourceItems = [
 ]
 
 // 整理方式下拉字典
-const transferTypeItems = [
-  { title: '复制', value: 'copy' },
-  { title: '移动', value: 'move' },
-  { title: '硬链接', value: 'link' },
-  { title: '软链接', value: 'softlink' },
-]
+const transferTypeItems = ref<{ title: string; value: string }[]>([])
+
+// 调用API查询支持的整理方式
+async function loadTransferTypeItems() {
+  // 参数不全时不查询
+  if (!props.directory.library_storage || !props.directory.storage) return
+  try {
+    // 下载器储存整理方法
+    const storage_res = await api.get(`storage/transtype/${props.directory.storage}`)
+    const storage_transtype = (storage_res as any).transtype;
+    // 媒体库储存整理方法
+    const library_storage_res = await api.get(`storage/transtype/${props.directory.library_storage}`)
+    const library_storage_transtype = (library_storage_res as any).transtype;
+    // 为空终止
+    if (!library_storage_transtype || !storage_transtype) return
+    // 取并集
+    const transtype: { [key: string]: string } = {};
+    Object.keys(storage_transtype).forEach(key => {
+      if (key in library_storage_transtype) {
+        transtype[key] = storage_transtype[key];
+      }
+    })
+    // 非空时设置整理方式下拉字典
+    if (transtype && Object.keys(transtype).length > 0) {
+      transferTypeItems.value = Object.keys(transtype).map(key => ({
+        title: transtype[key],
+        value: key,
+      }))
+      // 如果整理方式下拉字典不为空，且当前值不在新的transferTypeItems里，则设置整理方式为第一个
+      if (transferTypeItems.value.length > 0 && !transferTypeItems.value.find(item => item.value === props.directory.transfer_type)) {
+        nextTick(() => {
+          props.directory.transfer_type = transferTypeItems.value[0].value
+        })
+      }
+      // 如果整理方式下拉字典为空，清空整理方式
+      if (transferTypeItems.value.length === 0) {
+        props.directory.transfer_type = ''
+      }
+    } else {
+      // 无可用整理方式，清除已选值
+      transferTypeItems.value = []
+      props.directory.transfer_type = ''
+    }
+  } catch (e) {
+    console.log(e)
+  }
+}
+
+// 整理方式无数据提示
+const computedNoDataText = computed(() => {
+  if (!props.directory.library_storage && !props.directory.storage) {
+    return '无可用整理方式！请先选择下载器储存与媒体库储存！'
+  } else if (!props.directory.library_storage) {
+    return '无可用整理方式！请先选择媒体库储存！'
+  } else if (!props.directory.storage) {
+    return '无可用整理方式！请先选择下载器储存！'
+  } else {
+    return '选择的存储没有支持的整理方法！'
+  }
+})
 
 // 覆盖模式下拉字典
 const overwriteModeItems = [
@@ -93,6 +153,15 @@ const getCategories = computed(() => {
   if (!props.categories || !props.categories[props.directory?.media_type ?? '']) return default_value
   return default_value.concat(props.categories[props.directory.media_type ?? ''])
 })
+
+// 监听 下载储存与媒体库储存 变化，重新加载整理方式下拉字典
+watch([() => props.directory.library_storage, () => props.directory.storage],
+  ([newLibraryStorage, newStorage], [oldLibraryStorage, oldStorage]) => {
+  if (newLibraryStorage !== oldLibraryStorage || newStorage !== oldStorage) {
+    loadTransferTypeItems();
+  }
+}, { immediate: true });
+
 </script>
 
 <template>
@@ -132,7 +201,10 @@ const getCategories = computed(() => {
             />
           </VCol>
           <VCol cols="4">
-            <VSelect v-model="props.directory.storage" variant="underlined" :items="storageItems" label="下载存储" />
+            <VSelect v-model="props.directory.storage"
+                     variant="underlined"
+                     :items="storageItems"
+                     label="下载存储" />
           </VCol>
           <VCol cols="8">
             <VPathField @update:modelValue="updateDownloadPath">
@@ -171,6 +243,7 @@ const getCategories = computed(() => {
               variant="underlined"
               :items="transferTypeItems"
               label="整理方式"
+              :no-data-text="computedNoDataText"
             />
           </VCol>
           <VCol cols="8">
