@@ -52,9 +52,17 @@ async function saveCustomRules() {
 
 // 添加自定义规则
 function addCustomRule() {
+  let id = `RULE${customRules.value.length + 1}`;
+  while (customRules.value.some(item => item.id === id)) {
+    id = `RULE${parseInt(id.split('RULE')[1]) + 1}`;
+  }
+  let name = `规则${customRules.value.length + 1}`;
+  while (customRules.value.some(item => item.name === name)) {
+    name = `规则${parseInt(name.split('规则')[1]) + 1}`;
+  }
   customRules.value.push({
-    id: `RULE${customRules.value.length + 1}`,
-    name: `规则${customRules.value.length + 1}`,
+    id: id,
+    name: name,
     include: '',
     exclude: '',
   })
@@ -89,8 +97,12 @@ async function saveFilterRuleGroups() {
 
 // 添加规则组
 function addFilterRuleGroup() {
+  let name = `规则组${filterRuleGroups.value.length + 1}`;
+  while (filterRuleGroups.value.some(item => item.name === name)) {
+    name = `规则组${parseInt(name.split('规则组')[1]) + 1}`;
+  }
   filterRuleGroups.value.push({
-    name: `规则组${filterRuleGroups.value.length + 1}`,
+    name: name,
     rule_string: '',
     media_type: '',
     category: '',

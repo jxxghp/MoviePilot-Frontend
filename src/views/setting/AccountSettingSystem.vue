@@ -113,8 +113,12 @@ async function saveSystemSetting() {
 
 // 添加下载器
 function addDownloader(downloader: string) {
+  let name = `下载器${downloaders.value.length + 1}`;
+  while (downloaders.value.some(item => item.name === name)) {
+    name = `下载器${parseInt(name.split('下载器')[1]) + 1}`;
+  }
   downloaders.value.push({
-    name: `下载器${downloaders.value.length + 1}`,
+    name: name,
     type: downloader,
     default: false,
     enabled: false,
@@ -136,8 +140,12 @@ function onDownloaderChange(downloader: DownloaderConf) {
 
 // 添加媒体服务器
 function addMediaServer(mediaserver: string) {
+  let name = `服务器${mediaServers.value.length + 1}`;
+  while (mediaServers.value.some(item => item.name === name)) {
+    name = `服务器${parseInt(name.split('服务器')[1]) + 1}`;
+  }
   mediaServers.value.push({
-    name: `服务器${mediaServers.value.length + 1}`,
+    name: name,
     type: mediaserver,
     enabled: false,
     config: {},
