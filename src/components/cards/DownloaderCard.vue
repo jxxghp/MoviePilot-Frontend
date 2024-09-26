@@ -175,7 +175,7 @@ onUnmounted(() => {
         </div>
       </VCardText>
     </VCard>
-    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem" persistent>
+    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem" persistent >
       <VCard :title="`${props.downloader.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="downloaderInfoDialog" />
         <VDivider />
