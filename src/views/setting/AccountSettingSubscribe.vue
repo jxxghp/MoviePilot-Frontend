@@ -12,8 +12,11 @@ const allSites = ref<Site[]>([])
 // 选中订阅站点
 const selectedRssSites = ref<number[]>([])
 
-// 选中的优先级规则组
+// 选中的订阅规则组
 const selectedFilterRuleGroup = ref([])
+
+// 选中的洗版规则组
+const selectedBestVersionRuleGroup = ref([])
 
 // 是否开启订阅定时搜索
 const enableIntervalSearch = ref(false)
@@ -109,9 +112,12 @@ async function querySubscribeSetting() {
     // 查询站点RSS周期
     const result3: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_RSS_INTERVAL')
     if (result3.success) selectedRssInterval.value = result3.data?.value
-    // 查询优先级规则组
+    // 查询订阅规则组
     const result4: { [key: string]: any } = await api.get('system/setting/SubscribeFilterRuleGroups')
     if (result4.success) selectedFilterRuleGroup.value = result4.data?.value
+    // 查询洗版规则组
+    const result5: { [key: string]: any } = await api.get('system/setting/BestVersionFilterRuleGroups')
+    if (result5.success) selectedBestVersionRuleGroup.value = result5.data?.value
   } catch (error) {
     console.log(error)
   }
@@ -137,7 +143,13 @@ async function saveSubscribeSetting() {
       selectedFilterRuleGroup.value,
     )
 
-    if (result1.success && result2.success && result3.success && result4.success) $toast.success('订阅设置保存成功')
+    const result5: { [key: string]: any } = await api.post(
+      'system/setting/BestVersionFilterRuleGroups',
+      selectedBestVersionRuleGroup.value,
+    )
+
+    if (result1.success && result2.success && result3.success && result4.success && result5.success)
+      $toast.success('订阅设置保存成功')
     else $toast.error('订阅设置保存失败！')
   } catch (error) {
     console.log(error)
@@ -181,14 +193,25 @@ onMounted(() => {
                   persistent-hint
                 />
               </VCol>
-              <VCol cols="12" md="12">
+              <VCol cols="12" md="6">
                 <VSelect
                   v-model="selectedFilterRuleGroup"
                   :items="filterRuleGroupOptions"
                   chips
                   multiple
-                  label="优先级规则组"
+                  label="订阅优先级规则组"
                   hint="按选定的过滤规则组对订阅进行过滤"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="selectedBestVersionRuleGroup"
+                  :items="filterRuleGroupOptions"
+                  chips
+                  multiple
+                  label="洗版优先级规则组"
+                  hint="按选定的过滤规则组对洗版订阅进行过滤"
                   persistent-hint
                 />
               </VCol>
