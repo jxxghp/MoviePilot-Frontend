@@ -161,7 +161,7 @@ onMounted(() => {
                 multiple
                 chips
                 :items="filterRuleGroupOptions"
-                label="过滤规则组"
+                label="优先级规则组"
                 hint="搜索媒体信息时按选定的过滤规则组对结果进行过滤"
                 persistent-hint
               />
