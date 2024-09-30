@@ -4,9 +4,11 @@ import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type { DownloaderConf, MediaInfo, TorrentInfo, TransferDirectoryConf } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
+import { VCardTitle } from 'vuetify/lib/components/index.mjs'
 
 // 输入参数
 const props = defineProps({
+  title: String,
   media: Object as PropType<MediaInfo>,
   torrent: Object as PropType<TorrentInfo>,
 })
@@ -113,24 +115,23 @@ onMounted(() => {
 </script>
 <template>
   <VDialog max-width="40rem" scrollable>
-    <VCard title="确认下载">
+    <VCard>
+      <VCardTitle v-if="title">下载 - {{ title }}</VCardTitle>
+      <VCardTitle v-else>确认下载</VCardTitle>
       <DialogCloseBtn @click="emit('close')" />
       <VDivider />
       <VCardText>
         <VRow>
-          <VCol cols="12" class="text-lg text-high-emphasis">
+          <VCol cols="12" class="text-lg text-high-emphasis pb-0">
             <strong>标题：</strong>{{ props.torrent?.title }}<br />
             <strong>站点：</strong>{{ props.torrent?.site_name }}<br />
             <strong>大小：</strong>{{ formatFileSize(props.torrent?.size || 0) }}
           </VCol>
-        </VRow>
-        <VRow>
           <VCol cols="12" md="4">
             <VSelect
               v-model="selectedDownloader"
               :items="downloaderOptions"
               label="下载器"
-              density="compact"
               variant="underlined"
               placeholder="默认"
             />
@@ -141,13 +142,12 @@ onMounted(() => {
               :items="targetDirectories"
               label="保存目录"
               placeholder="自动"
-              density="compact"
               variant="underlined"
             />
           </VCol>
         </VRow>
       </VCardText>
-      <VCardText class="text-center mt-3">
+      <VCardText class="text-center">
         <VBtn
           variant="elevated"
           :disabled="loading"

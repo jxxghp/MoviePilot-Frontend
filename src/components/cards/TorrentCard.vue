@@ -213,8 +213,9 @@ onMounted(() => {
     <AddDownloadDialog
       v-if="addDownloadDialog"
       v-model="addDownloadDialog"
-      :media="props.torrent?.media_info"
-      :torrent="props.torrent?.torrent_info"
+      :title="`${media?.title_year || meta?.name} ${meta?.season_episode}`"
+      :media="media"
+      :torrent="torrent"
       @done="addDownloadSuccess"
       @error="addDownloadError"
       @close="addDownloadDialog = false"

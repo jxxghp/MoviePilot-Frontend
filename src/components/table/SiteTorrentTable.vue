@@ -26,7 +26,7 @@ const resourceItemsPerPage = ref(25)
 // 加载状态
 const resourceLoading = ref(false)
 
-// 识别元数据
+// 种子元数据
 const torrent = ref<TorrentInfo>()
 
 // 资源浏览表头

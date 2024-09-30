@@ -16,6 +16,9 @@ const showMoreTorrents = ref(false)
 // 种子信息
 const torrent = ref(props.torrent?.torrent_info)
 
+// 媒体信息
+const media = ref(props.torrent?.media_info)
+
 // 识别元数据
 const meta = ref(props.torrent?.meta_info)
 
@@ -171,8 +174,9 @@ onMounted(() => {
     <AddDownloadDialog
       v-if="addDownloadDialog"
       v-model="addDownloadDialog"
-      :media="props.torrent?.media_info"
-      :torrent="props.torrent?.torrent_info"
+      :title="`${media?.title_year || meta?.name} ${meta?.season_episode}`"
+      :media="media"
+      :torrent="torrent"
       @done="addDownloadSuccess"
       @error="addDownloadError"
       @close="addDownloadDialog = false"
