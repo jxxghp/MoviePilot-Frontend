@@ -982,3 +982,43 @@ export interface FilterRuleGroup {
   // # 适用媒体类别 None-全部 对应二级分类
   category?: string
 }
+
+export interface SubscribeDownloadFileInfo {
+  // 种子名称
+  torrent_title?: string
+  // 站点名称
+  site_name?: string
+  // 下载器
+  downloader?: string
+  // hash
+  hash?: string
+  // 文件路径
+  file_path?: string
+}
+
+export interface SubscribeLibraryFileInfo {
+  // 存储
+  storage?: string
+  // 文件路径
+  file_path?: string
+}
+
+export interface SubscribeEpisodeInfo {
+  // 标题
+  title?: string
+  // 描述
+  description?: string
+  // 背景图
+  backdrop?: string
+  // 下载文件信息
+  download?: SubscribeDownloadFileInfo[]
+  // 媒体库文件信息
+  library?: SubscribeLibraryFileInfo[]
+}
+
+export interface SubscrbieInfo {
+  // 订阅信息
+  subscribe: Subscribe
+  // 集信息 {集号: {download: 文件路径，library: 文件路径, backdrop: url, title: 标题, description: 描述}}
+  episodes: Record<number, SubscribeEpisodeInfo>
+}

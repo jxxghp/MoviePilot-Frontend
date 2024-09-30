@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toast-notification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
-import type { MediaDirectory, Site, Subscribe } from '@/api/types'
+import type { Site, Subscribe, TransferDirectoryConf } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useConfirm } from 'vuetify-use-dialog'
 
@@ -26,7 +26,7 @@ const emit = defineEmits(['remove', 'save', 'close'])
 const siteList = ref<Site[]>([])
 
 // 下载目录列表
-const downloadDirectories = ref<MediaDirectory[]>([])
+const downloadDirectories = ref<TransferDirectoryConf[]>([])
 
 // 站点选择下载框
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
@@ -185,7 +185,7 @@ async function loadDownloadDirectories() {
 // 保存目录下拉框
 const targetDirectories = computed(() => {
   // 去重后的下载目录
-  const directories = downloadDirectories.value.map(item => item.path)
+  const directories = downloadDirectories.value.map(item => item.download_path)
   return [...new Set(directories)]
 })
 

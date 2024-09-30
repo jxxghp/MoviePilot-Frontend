@@ -443,6 +443,13 @@ async function queryDefaultSubscribeConfig() {
   return false
 }
 
+// 删除订阅处理
+function onSubscribeEditRemove() {
+  subscribeEditDialog.value = false
+  if (mediaDetail.value.type === '电影') checkMovieSubscribed()
+  else checkSeasonsSubscribed()
+}
+
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -894,13 +901,7 @@ onBeforeMount(() => {
     :subid="subscribeId"
     @close="subscribeEditDialog = false"
     @save="subscribeEditDialog = false"
-    @remove="
-      () => {
-        subscribeEditDialog = false
-        if (mediaDetail.type === '电影') checkMovieSubscribed()
-        else checkSeasonsSubscribed()
-      }
-    "
+    @remove="onSubscribeEditRemove"
   />
 </template>
 

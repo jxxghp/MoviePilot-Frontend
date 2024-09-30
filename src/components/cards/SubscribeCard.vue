@@ -2,6 +2,7 @@
 import { useToast } from 'vue-toast-notification'
 import { useConfirm } from 'vuetify-use-dialog'
 import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
+import SubscribeFilesDialog from '../dialog/SubscribeFilesDialog.vue'
 import { formatDateDifference } from '@/@core/utils/formatters'
 import { formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
@@ -31,19 +32,15 @@ const imageLoaded = ref(false)
 // 订阅弹窗
 const subscribeEditDialog = ref(false)
 
+// 订阅文件信息弹窗
+const subscribeFilesDialog = ref(false)
+
 // 上一次更新时间
 const lastUpdateText = ref(props.media && props.media.last_update ? formatDateDifference(props.media.last_update) : '')
 
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
-}
-
-// 根据 type 返回不同的图标
-function getIcon() {
-  if (props.media?.type === '电影') return 'mdi-movie-open'
-  else if (props.media?.type === '电视剧') return 'mdi-television-play'
-  else return 'mdi-help-circle'
 }
 
 // 计算百分比
@@ -107,7 +104,7 @@ async function editSubscribeDialog() {
   subscribeEditDialog.value = true
 }
 
-// 查看详情
+// 查看媒体详情
 async function viewMediaDetail() {
   router.push({
     path: '/media',
@@ -116,6 +113,11 @@ async function viewMediaDetail() {
       type: props.media?.type,
     },
   })
+}
+
+// 查看文件详情
+async function viewSubscribeFiles() {
+  subscribeFilesDialog.value = true
 }
 
 // 弹出菜单
@@ -137,16 +139,24 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '查看详情',
+    title: '媒体详情',
     value: 3,
     props: {
-      prependIcon: 'mdi-open-in-new',
+      prependIcon: 'mdi-information-outline',
       click: viewMediaDetail,
     },
   },
   {
-    title: '重置',
+    title: '文件信息',
     value: 4,
+    props: {
+      prependIcon: 'mdi-file-document-outline',
+      click: viewSubscribeFiles,
+    },
+  },
+  {
+    title: '重置',
+    value: 5,
     props: {
       prependIcon: 'mdi-restore-alert',
       click: resetSubscribe,
@@ -156,7 +166,7 @@ const dropdownItems = ref([
   },
   {
     title: '取消订阅',
-    value: 5,
+    value: 6,
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
@@ -190,6 +200,18 @@ const posterUrl = computed(() => {
     return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
   return url
 })
+
+// 订阅编辑保存
+function onSubscribeEditSave() {
+  subscribeEditDialog.value = false
+  emit('save')
+}
+
+// 订阅编辑取消
+function onSubscribeEditRemove() {
+  subscribeEditDialog.value = false
+  emit('remove')
+}
 </script>
 
 <template>
@@ -297,19 +319,17 @@ const posterUrl = computed(() => {
     v-if="subscribeEditDialog"
     v-model="subscribeEditDialog"
     :subid="props.media?.id"
-    @remove="
-      () => {
-        emit('remove')
-        subscribeEditDialog = false
-      }
-    "
-    @save="
-      () => {
-        emit('save')
-        subscribeEditDialog = false
-      }
-    "
+    @remove="onSubscribeEditRemove"
+    @save="onSubscribeEditSave"
     @close="subscribeEditDialog = false"
+  />
+
+  <!-- 订阅文件信息弹窗 -->
+  <SubscribeFilesDialog
+    v-if="subscribeFilesDialog"
+    v-model="subscribeFilesDialog"
+    :subid="props.media?.id"
+    @close="subscribeFilesDialog = false"
   />
 </template>
 <style lang="scss">
