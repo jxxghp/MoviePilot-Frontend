@@ -97,7 +97,7 @@ function saveDownloaderInfo() {
     return
   }
   // 重名判断
-  if (props.downloaders.some(item => item.name === downloaderName.value && item!== props.downloader)) {
+  if (props.downloaders.some(item => item.name === downloaderName.value && item !== props.downloader)) {
     $toast.error(`【${downloaderName.value}】已存在，请替换为其他名称`)
     return
   }
@@ -175,7 +175,7 @@ onUnmounted(() => {
         </div>
       </VCardText>
     </VCard>
-    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem" persistent >
+    <VDialog v-model="downloaderInfoDialog" scrollable max-width="40rem" persistent>
       <VCard :title="`${props.downloader.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="downloaderInfoDialog" />
         <VDivider />
@@ -253,6 +253,15 @@ onUnmounted(() => {
                   v-model="downloaderInfo.config.force_resume"
                   label="强制继续"
                   hint="强制继续、强制上传模式"
+                  persistent-hint
+                  active
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="downloaderInfo.config.first_last_piece"
+                  label="优先首尾文件"
+                  hint="优先下载首尾文件块"
                   persistent-hint
                   active
                 />
