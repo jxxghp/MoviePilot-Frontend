@@ -49,6 +49,12 @@ async function reloadSystem() {
 // 调用API保存下载器设置
 async function saveDownloaderSetting() {
   try {
+    // 提取启用的下载器
+    const enabledDownloaders = downloaders.value.filter(item => item.enabled);
+    // 有启动的下载器时
+    if (enabledDownloaders.length > 0) {
+      downloaders.value = handleDefaultDownloaders(enabledDownloaders, downloaders.value);
+    }
     const result: { [key: string]: any } = await api.post('system/setting/Downloaders', downloaders.value)
     if (result.success) $toast.success('下载器设置保存成功')
     else $toast.error('下载器设置保存失败！')
@@ -58,6 +64,22 @@ async function saveDownloaderSetting() {
   } catch (error) {
     console.log(error)
   }
+}
+
+// 处理默认下载器状态
+function handleDefaultDownloaders(enabledDownloaders: any[], downloaders: any[]) {
+  const enabledDefaultDownloader = enabledDownloaders.find(item => item.default);
+  if (enabledDownloaders.length > 0 && !enabledDefaultDownloader) {
+    downloaders = downloaders.map(item => {
+      if (item === enabledDownloaders[0]) {
+        $toast.info(`未设置默认下载器，已将【${item.name}】作为默认下载器`);
+        return {...item, default: true };
+      }
+      // 清除其他下载器的默认下载器状态
+      return {...item, default: false };
+    });
+  }
+  return downloaders;
 }
 
 // 调用API查询媒体服务器设置
