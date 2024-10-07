@@ -6,6 +6,7 @@ import vocechat_image from '@images/logos/vocechat.png'
 import synologychat_image from '@images/logos/synologychat.png'
 import slack_image from '@images/logos/slack.webp'
 import chrome_image from '@images/logos/chrome.png'
+import qq_image from '@images/logos/qq.webp'
 import { useToast } from 'vue-toast-notification'
 
 // 定义输入
@@ -50,6 +51,7 @@ const notificationTypeNames: { [key: string]: string } = {
   synologychat: 'Synology Chat',
   slack: 'Slack',
   webpush: 'WebPush',
+  onebot11: 'onebot11'
 }
 
 // 消息类型下拉字典
@@ -104,6 +106,8 @@ const getIcon = computed(() => {
       return slack_image
     case 'webpush':
       return chrome_image
+    case 'onebot11':
+      return qq_image
     default:
       return wechat_image
   }
@@ -260,6 +264,44 @@ function onClose() {
                   label="管理员白名单"
                   placeholder="多个用,分隔"
                   hint="可使用管理菜单及命令的用户ID列表，多个ID使用,分隔"
+                  persistent-hint
+                />
+              </VCol>
+            </VRow>
+            <!-- TODO 新增QQ配置 -->
+            <VRow v-if="notificationInfo.type == 'onebot11'">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationName"
+                  label="名称"
+                  placeholder="QQ推送"
+                  hint="通知渠道的别名"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.OB11_USERS"
+                  label="私聊推送"
+                  hint="接受消息通知的用户QQ"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.OB11_GROUPS"
+                  label="群聊推送"
+                  placeholder="多个用,分隔"
+                  hint="接受消息通知的QQ群号"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.OB11_PERMISSION"
+                  label="交互白名单"
+                  placeholder="多个用,分隔"
+                  hint="可使用QQ机器人交互的用户QQ，多个用户用,分隔，不填写则所有用户都能使用"
                   persistent-hint
                 />
               </VCol>

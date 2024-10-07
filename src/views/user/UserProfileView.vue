@@ -281,6 +281,13 @@ onMounted(() => {
                   />
                 </VCol>
                 <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="accountInfo.settings.ob11_userid"
+                    density="comfortable"
+                    label="QQ号"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
                   <VTextField v-model="accountInfo.settings.slack_userid" density="comfortable" label="Slack用户" />
                 </VCol>
                 <VCol cols="12" md="6">

@@ -253,6 +253,9 @@ onMounted(() => {
               <VTextField v-model="userForm.settings.telegram_userid" density="comfortable" label="Telegram用户" />
             </VCol>
             <VCol cols="12" md="6">
+              <VTextField v-model="userForm.settings.qq_userid" density="comfortable" label="QQ账号" />
+            </VCol>
+            <VCol cols="12" md="6">
               <VTextField v-model="userForm.settings.slack_userid" density="comfortable" label="Slack用户" />
             </VCol>
             <VCol cols="12" md="6">

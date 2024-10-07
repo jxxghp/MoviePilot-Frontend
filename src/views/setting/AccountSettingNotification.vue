@@ -183,6 +183,9 @@ onMounted(() => {
                     <VListItem variant="plain" @click="addNotification('webpush')">
                       <VListItemTitle>WebPush</VListItemTitle>
                     </VListItem>
+                    <VListItem variant="plain" @click="addNotification('onebot11')">
+                      <VListItemTitle>QQ</VListItemTitle>
+                    </VListItem>
                   </VList>
                 </VMenu>
               </VBtn>

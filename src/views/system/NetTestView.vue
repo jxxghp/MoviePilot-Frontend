@@ -4,6 +4,7 @@ import douban from '@images/logos/douban.png'
 import github from '@images/logos/github.png'
 import slack from '@images/logos/slack.webp'
 import telegram from '@images/logos/telegram.webp'
+import qq from '@images/logos/qq.webp'
 import tmdb from '@images/logos/tmdb.png'
 import wechat from '@images/logos/wechat.png'
 import fanart from '@images/logos/fanart.webp'
@@ -83,6 +84,16 @@ const targets = ref<Address[]>([
     image: telegram,
     name: 'api.telegram.org',
     url: 'https://api.telegram.org',
+    proxy: true,
+    status: 'Normal',
+    time: '',
+    message: '未测试',
+    btndisable: false,
+  },
+  {
+    image: qq,
+    name: 'im.qq.com',
+    url: 'https://im.qq.com/',
     proxy: true,
     status: 'Normal',
     time: '',
