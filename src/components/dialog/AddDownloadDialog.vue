@@ -17,10 +17,10 @@ const props = defineProps({
 const $toast = useToast()
 
 // 选择的下载器
-const selectedDownloader = ref(null)
+const selectedDownloader = ref<string | null>(null)
 
 // 选择的保存目录
-const selectedDirectory = ref(null)
+const selectedDirectory = ref<string | null>(null)
 
 // 定义成功和失败事件
 const emit = defineEmits(['done', 'error', 'close'])
@@ -81,14 +81,19 @@ async function addDownload() {
   try {
     let result: { [key: string]: any }
 
-    if (props.media) {
-      result = await api.post('download/', {
-        media_in: props.media,
-        torrent_in: props.torrent,
-      })
-    } else {
-      result = await api.post('download/add', props.torrent)
+    const payload: any = {
+      torrent_in: props.torrent,
+      downloader: selectedDownloader.value,
+      save_path: selectedDirectory.value,
     }
+
+    if (props.media) {
+      payload.media_in = props.media
+    }
+
+    const endpoint = props.media ? 'download/' : 'download/add'
+
+    result = await api.post(endpoint, payload)
 
     if (result && result.success) {
       // 添加下载成功
