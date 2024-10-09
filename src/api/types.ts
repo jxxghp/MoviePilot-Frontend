@@ -1,5 +1,6 @@
 // 订阅
 export interface Subscribe {
+  // 订阅ID
   id: number
   // 订阅名称
   name: string
@@ -71,6 +72,64 @@ export interface Subscribe {
   media_category?: string
   // 过滤规则组
   filter_groups?: string[]
+}
+
+// 订阅分享
+export interface SubscribeShare {
+  // 分享ID
+  id?: number
+  // 订阅ID
+  subscribe_id?: number
+  // 分享标题
+  share_title?: string
+  // 分享说明
+  share_comment?: string
+  // 分享人
+  share_user?: string
+  // 订阅名称
+  name?: string
+  // 订阅年份
+  year?: string
+  // 订阅类型 电影/电视剧
+  type?: string
+  // 搜索关键字
+  keyword?: string
+  // TMDB ID
+  tmdbid?: number
+  // 豆瓣ID
+  doubanid?: string
+  // 季号
+  season?: number
+  // 海报
+  poster?: string
+  // 背景图
+  backdrop?: string
+  // 评分
+  vote?: number
+  // 描述
+  description?: string
+  // 过滤规则
+  filter?: string
+  // 包含
+  include?: string
+  // 排除
+  exclude?: string
+  // 质量
+  quality?: string
+  // 分辨率
+  resolution?: string
+  // 特效
+  effect?: string
+  // 总集数
+  total_episode?: number
+  // 时间
+  date?: string
+  // 自定义识别词
+  custom_words?: string
+  // 自定义媒体类别
+  media_category?: string
+  // 复用次数
+  count?: number
 }
 
 // 历史记录

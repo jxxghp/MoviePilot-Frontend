@@ -3,6 +3,7 @@ import { useToast } from 'vue-toast-notification'
 import { useConfirm } from 'vuetify-use-dialog'
 import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 import SubscribeFilesDialog from '../dialog/SubscribeFilesDialog.vue'
+import SubscribeShareDialog from '../dialog/SubscribeShareDialog.vue'
 import { formatDateDifference, formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
@@ -33,6 +34,9 @@ const subscribeEditDialog = ref(false)
 
 // 订阅文件信息弹窗
 const subscribeFilesDialog = ref(false)
+
+// 分享订阅弹窗
+const subscribeShareDialog = ref(false)
 
 // 上一次更新时间
 const lastUpdateText = ref(props.media && props.media.last_update ? formatDateDifference(props.media.last_update) : '')
@@ -96,6 +100,11 @@ async function resetSubscribe() {
   } catch (e) {
     console.log(e)
   }
+}
+
+//  分享订阅
+async function shareSubscribe() {
+  subscribeShareDialog.value = true
 }
 
 // 编辑订阅响应
@@ -164,8 +173,18 @@ const dropdownItems = ref([
     show: props.media?.type === '电视剧',
   },
   {
-    title: '取消订阅',
+    title: '分享',
     value: 6,
+    props: {
+      prependIcon: 'mdi-share',
+      click: shareSubscribe,
+      color: 'success',
+    },
+    show: props.media?.type === '电视剧',
+  },
+  {
+    title: '取消订阅',
+    value: 7,
     props: {
       prependIcon: 'mdi-trash-can-outline',
       color: 'error',
@@ -329,6 +348,13 @@ function onSubscribeEditRemove() {
     v-model="subscribeFilesDialog"
     :subid="props.media?.id"
     @close="subscribeFilesDialog = false"
+  />
+  <!-- 分享订阅弹窗 -->
+  <SubscribeShareDialog
+    v-if="subscribeShareDialog"
+    v-model="subscribeShareDialog"
+    :sub="props.media"
+    @close="subscribeShareDialog = false"
   />
 </template>
 <style lang="scss">
