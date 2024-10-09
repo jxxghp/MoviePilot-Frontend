@@ -92,9 +92,9 @@ const fetchOTP = debounce(async () => {
 
 // 获取用户主题配置
 async function fetchThemeConfig() {
-  const response = await api.get('/user/config/theme')
+  const response = await api.get('/user/config/Layout')
   if (response && response.data && response.data.value) {
-    return response.data.value
+    return response.data.value?.theme
   }
   return null
 }

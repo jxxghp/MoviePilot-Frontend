@@ -2,9 +2,10 @@
 import { useToast } from 'vue-toast-notification'
 import { numberValidator } from '@/@validators'
 import api from '@/api'
-import type { Site, Subscribe, TransferDirectoryConf } from '@/api/types'
+import type { FilterRuleGroup, Site, Subscribe, TransferDirectoryConf } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useConfirm } from 'vuetify-use-dialog'
+import { VTextarea, VTextField } from 'vuetify/lib/components/index.mjs'
 
 // 显示器宽度
 const display = useDisplay()
@@ -22,6 +23,8 @@ const props = defineProps({
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save', 'close'])
 
+const activeTab = ref('basic')
+
 // 站点数据列表
 const siteList = ref<Site[]>([])
 
@@ -31,35 +34,46 @@ const downloadDirectories = ref<TransferDirectoryConf[]>([])
 // 站点选择下载框
 const selectSitesOptions = ref<{ [key: number]: string }[]>([])
 
+// 所有规则组列表
+const filterRuleGroups = ref<FilterRuleGroup[]>([])
+
 // 订阅编辑表单
 const subscribeForm = ref<Subscribe>({
   id: props.subid ?? 0,
-  keyword: '',
-  quality: '',
-  resolution: '',
-  effect: '',
-  include: '',
-  exclude: '',
-  total_episode: 0,
-  start_episode: 0,
-  best_version: 0,
-  search_imdbid: 0,
-  sites: [],
-  type: '',
   name: '',
   year: '',
+  type: '',
   tmdbid: 0,
   state: '',
   last_update: '',
   username: '',
+  sites: [],
+  best_version: undefined,
   current_priority: 0,
-  save_path: undefined,
   date: '',
   show_edit_dialog: false,
 })
 
 // 提示框
 const $toast = useToast()
+
+// 加载规则组
+async function queryFilterRuleGroups() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
+    filterRuleGroups.value = result.data?.value ?? []
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 过滤规则组选择项
+const filterRuleGroupOptions = computed(() => {
+  return filterRuleGroups.value.map(item => ({
+    title: item.name,
+    value: item.name,
+  }))
+})
 
 // 调用API修改订阅
 async function updateSubscribeInfo() {
@@ -274,6 +288,7 @@ const effectOptions = ref([
 ])
 
 onMounted(() => {
+  queryFilterRuleGroups()
   loadDownloadDirectories()
   getSiteList()
   if (props.subid) getSubscribeInfo()
@@ -291,134 +306,187 @@ onMounted(() => {
       }`"
       class="rounded-t"
     >
-      <VDivider />
       <VCardText>
         <DialogCloseBtn @click="emit('close')" />
         <VForm @submit.prevent="() => {}">
-          <VRow>
-            <VCol cols="12" md="8">
-              <VTextField
-                v-if="!props.default"
-                v-model="subscribeForm.keyword"
-                label="搜索关键词"
-                hint="指定搜索站点时使用的关键词"
-                persistent-hint
-              />
-            </VCol>
-            <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="2">
-              <VTextField
-                v-model="subscribeForm.total_episode"
-                label="总集数"
-                :rules="[numberValidator]"
-                hint="剧集总集数"
-                persistent-hint
-              />
-            </VCol>
-            <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="2">
-              <VTextField
-                v-model="subscribeForm.start_episode"
-                label="开始集数"
-                :rules="[numberValidator]"
-                hint="开始订阅集数"
-                persistent-hint
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12" md="4">
-              <VSelect
-                v-model="subscribeForm.quality"
-                label="质量"
-                :items="qualityOptions"
-                hint="订阅资源质量"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VSelect
-                v-model="subscribeForm.resolution"
-                label="分辨率"
-                :items="resolutionOptions"
-                hint="订阅资源分辨率"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VSelect
-                v-model="subscribeForm.effect"
-                label="特效"
-                :items="effectOptions"
-                hint="订阅资源特效"
-                persistent-hint
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12" md="4">
-              <VTextField
-                v-model="subscribeForm.include"
-                label="包含（关键字、正则式）"
-                hint="包含规则，支持正则表达式"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VTextField
-                v-model="subscribeForm.exclude"
-                label="排除（关键字、正则式）"
-                hint="排除规则，支持正则表达式"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VSelect
-                v-model="subscribeForm.sites"
-                :items="selectSitesOptions"
-                chips
-                label="订阅站点"
-                multiple
-                hint="订阅的站点范围，不选使用系统设置"
-                persistent-hint
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12">
-              <VCombobox
-                v-model="subscribeForm.save_path"
-                :items="targetDirectories"
-                label="保存路径"
-                hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
-                persistent-hint
-              />
-            </VCol>
-          </VRow>
-          <VRow>
-            <VCol cols="12" md="4">
-              <VSwitch
-                v-model="subscribeForm.best_version"
-                label="洗版"
-                hint="根据洗版优先级进行洗版订阅"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12" md="4">
-              <VSwitch
-                v-model="subscribeForm.search_imdbid"
-                label="使用 ImdbID 搜索"
-                hint="开使用 ImdbID 精确搜索资源"
-                persistent-hint
-              />
-            </VCol>
-            <VCol v-if="props.default" cols="12" md="4">
-              <VSwitch
-                v-model="subscribeForm.show_edit_dialog"
-                label="订阅时编辑更多规则"
-                hint="添加订阅时显示此编辑订阅对话框"
-                persistent-hint
-              />
-            </VCol>
-          </VRow>
+          <VTabs v-model="activeTab" show-arrows>
+            <VTab value="basic">
+              <div>基础</div>
+            </VTab>
+            <VTab value="advance">
+              <div>进阶</div>
+            </VTab>
+          </VTabs>
+          <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
+            <VWindowItem value="basic">
+              <div>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-if="!props.default"
+                      v-model="subscribeForm.keyword"
+                      label="搜索关键词"
+                      hint="指定搜索站点时使用的关键词"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="3">
+                    <VTextField
+                      v-model="subscribeForm.total_episode"
+                      label="总集数"
+                      :rules="[numberValidator]"
+                      hint="剧集总集数"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="3">
+                    <VTextField
+                      v-model="subscribeForm.start_episode"
+                      label="开始集数"
+                      :rules="[numberValidator]"
+                      hint="开始订阅集数"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="subscribeForm.filter_groups"
+                      :items="filterRuleGroupOptions"
+                      chips
+                      multiple
+                      label="优先级规则组"
+                      hint="按选定的过滤规则组对订阅进行过滤"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="subscribeForm.sites"
+                      :items="selectSitesOptions"
+                      chips
+                      label="订阅站点"
+                      multiple
+                      hint="订阅的站点范围，不选使用系统设置"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="subscribeForm.media_category"
+                      label="自定义类别"
+                      hint="指定类别名称，留空自动识别"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VCombobox
+                      v-model="subscribeForm.save_path"
+                      :items="targetDirectories"
+                      label="自定义保存路径"
+                      hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12" md="4">
+                    <VSwitch
+                      v-model="subscribeForm.best_version"
+                      label="洗版"
+                      hint="根据洗版优先级进行洗版订阅"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="4">
+                    <VSwitch
+                      v-model="subscribeForm.search_imdbid"
+                      label="使用 ImdbID 搜索"
+                      hint="开使用 ImdbID 精确搜索资源"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol v-if="props.default" cols="12" md="4">
+                    <VSwitch
+                      v-model="subscribeForm.show_edit_dialog"
+                      label="订阅时编辑更多规则"
+                      hint="添加订阅时显示此编辑订阅对话框"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+              </div>
+            </VWindowItem>
+            <VWindowItem value="advance">
+              <div>
+                <VRow>
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="subscribeForm.quality"
+                      label="质量"
+                      :items="qualityOptions"
+                      hint="订阅资源质量"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="subscribeForm.resolution"
+                      label="分辨率"
+                      :items="resolutionOptions"
+                      hint="订阅资源分辨率"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="subscribeForm.effect"
+                      label="特效"
+                      :items="effectOptions"
+                      hint="订阅资源特效"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="subscribeForm.include"
+                      label="包含（关键字、正则式）"
+                      hint="包含规则，支持正则表达式"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="subscribeForm.exclude"
+                      label="排除（关键字、正则式）"
+                      hint="排除规则，支持正则表达式"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12">
+                    <VTextarea
+                      v-model="subscribeForm.custom_words"
+                      label="自定义识别词"
+                      hint="只对该订阅使用的识别词"
+                      persistent-hint
+                      placeholder="屏蔽词
+被替换词 => 替换词
+前定位词 <> 后定位词 >> 集偏移量（EP）
+被替换词 => 替换词 && 前定位词 <> 后定位词 >> 集偏移量（EP）
+其中替换词支持格式：{[tmdbid/doubanid=xxx;type=movie/tv;s=xxx;e=xxx]} 直接指定TMDBID/豆瓣ID识别，其中s、e为季数和集数（可选）"
+                    />
+                  </VCol>
+                </VRow>
+              </div>
+            </VWindowItem>
+          </VWindow>
         </VForm>
       </VCardText>
       <VCardActions class="pt-3">

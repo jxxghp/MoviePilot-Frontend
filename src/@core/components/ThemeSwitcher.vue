@@ -114,10 +114,8 @@ function changeTheme(theme: string) {
   currentThemeName.value = nextTheme
   // 保存主题到服务端
   try {
-    api.post('/user/config/theme', nextTheme, {
-      headers: {
-        'Content-Type': 'text/plain',
-      },
+    api.post('/user/config/Layout', {
+      theme: nextTheme
     })
   } catch (e) {
     console.error('保存主题到服务端失败')

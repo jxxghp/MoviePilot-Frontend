@@ -65,6 +65,12 @@ export interface Subscribe {
   show_edit_dialog: boolean
   // 编辑框打开状态
   page_open?: boolean
+  // 自定义识别词
+  custom_words?: string
+  // 自定义媒体类别
+  media_category?: string
+  // 过滤规则组
+  filter_groups?: string[]
 }
 
 // 历史记录
