@@ -2,6 +2,7 @@
 import api from '@/api'
 import { SubscrbieInfo } from '@/api/types'
 import { useDisplay } from 'vuetify'
+import { VCardTitle } from 'vuetify/lib/components/index.mjs'
 
 // 显示器宽度
 const display = useDisplay()
@@ -77,7 +78,7 @@ onBeforeMount(() => {
 <template>
   <VDialog scrollable max-width="80rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="rounded-t">
-      <VCardItem>
+      <VCardItem class="my-2">
         <DialogCloseBtn @click="emit('close')" />
       </VCardItem>
       <VCardText>

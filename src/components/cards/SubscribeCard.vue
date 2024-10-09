@@ -138,7 +138,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '媒体详情',
+    title: '详情',
     value: 3,
     props: {
       prependIcon: 'mdi-information-outline',
@@ -146,7 +146,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: '文件信息',
+    title: '文件',
     value: 4,
     props: {
       prependIcon: 'mdi-file-document-outline',

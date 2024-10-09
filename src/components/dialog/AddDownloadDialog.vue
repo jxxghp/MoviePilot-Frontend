@@ -121,9 +121,11 @@ onMounted(() => {
 <template>
   <VDialog max-width="40rem" scrollable>
     <VCard>
-      <VCardTitle v-if="title">下载 - {{ title }}</VCardTitle>
-      <VCardTitle v-else>确认下载</VCardTitle>
-      <DialogCloseBtn @click="emit('close')" />
+      <VCardItem>
+        <VCardTitle v-if="title">下载 - {{ title }}</VCardTitle>
+        <VCardTitle v-else>确认下载</VCardTitle>
+        <DialogCloseBtn @click="emit('close')" />
+      </VCardItem>
       <VDivider />
       <VCardText>
         <VRow>
