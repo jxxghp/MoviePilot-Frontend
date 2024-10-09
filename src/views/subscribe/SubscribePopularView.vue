@@ -113,9 +113,9 @@ async function fetchData({ done }: { done: any }) {
     <div v-if="dataList.length > 0" class="grid gap-4 grid-media-card mx-3" tabindex="0">
       <div v-for="data in dataList" :key="data.tmdb_id || data.douban_id">
         <MediaCard :media="data" />
-        <div class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
+        <div v-if="data.popularity" class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
           <VIcon icon="mdi-fire" color="error" />
-          <span> {{ data.popularity }}</span>
+          <span> {{ data.popularity.toLocaleString() }}</span>
         </div>
       </div>
     </div>

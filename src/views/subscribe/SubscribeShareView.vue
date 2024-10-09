@@ -107,10 +107,6 @@ async function fetchData({ done }: { done: any }) {
     <div v-if="dataList.length > 0" class="grid gap-4 grid-subscribe-card mx-3" tabindex="0">
       <div v-for="data in dataList" :key="data.id">
         <SubscribeShareCard :media="data" />
-        <div class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
-          <VIcon icon="mdi-fire" color="error" />
-          <span> {{ data.count }}</span>
-        </div>
       </div>
     </div>
     <NoDataFound

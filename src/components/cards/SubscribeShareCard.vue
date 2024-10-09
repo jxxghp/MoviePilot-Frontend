@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type { SubscribeShare } from '@/api/types'
@@ -27,6 +28,9 @@ const imageLoaded = ref(false)
 function imageLoadHandler() {
   imageLoaded.value = true
 }
+
+// 分享时间
+const dateText = ref(props.media && props.media?.date ? formatDateDifference(props.media.date) : '')
 
 // 计算backdrop图片地址
 const backdropUrl = computed(() => {
@@ -121,18 +125,29 @@ async function forkSubscribe() {
               </VImg>
             </div>
             <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
-              <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
               <div class="mr-2 min-w-0 text-lg font-bold text-white">
                 {{ props.media?.share_title }}
+              </div>
+              <div class="text-sm font-medium text-gray-200 sm:pt-1">
+                {{ props.media?.share_comment }}
               </div>
             </div>
           </VCardText>
           <VCardText class="flex justify-space-between align-center flex-wrap">
-            {{ props.media?.share_comment }}
+            <div class="flex align-center">
+              <IconBtn v-bind="props" icon="mdi-account" color="white" class="me-1" />
+              <div class="text-subtitle-2 me-4 text-white">
+                {{ props.media?.share_user }}
+              </div>
+              <IconBtn v-if="props.media?.count" icon="mdi-fire" color="error" class="me-1" />
+              <span v-if="props.media?.count" class="text-subtitle-2 me-4 text-white">
+                {{ props.media?.count.toLocaleString() }}
+              </span>
+            </div>
           </VCardText>
           <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
-            <VIcon icon="mdi-account" class="me-1" />
-            {{ props.media?.share_user }}
+            <VIcon icon="mdi-calcdar" class="me-1" />
+            {{ dateText }}
           </VCardText>
         </div>
       </VCard>
