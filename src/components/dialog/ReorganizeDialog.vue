@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
-import store from '@/store'
 import api from '@/api'
 import { storageOptions } from '@/api/constants'
 import { numberValidator } from '@/@validators'
@@ -119,12 +118,7 @@ watch(transferForm, async () => {
 // 使用SSE监听加载进度
 function startLoadingProgress() {
   progressText.value = '请稍候 ...'
-
-  const token = store.state.auth.token
-
-  progressEventSource.value = new EventSource(
-    `${import.meta.env.VITE_API_BASE_URL}system/progress/filetransfer?token=${token}`,
-  )
+  progressEventSource.value = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/progress/filetransfer`)
   progressEventSource.value.onmessage = event => {
     const progress = JSON.parse(event.data)
     if (progress) {
