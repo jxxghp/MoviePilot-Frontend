@@ -321,7 +321,7 @@ onMounted(() => {
             <VWindowItem value="basic">
               <div>
                 <VRow>
-                  <VCol cols="12" md="6">
+                  <VCol cols="12" md="4">
                     <VTextField
                       v-if="!props.default"
                       v-model="subscribeForm.keyword"
@@ -330,7 +330,7 @@ onMounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="3">
+                  <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="4">
                     <VTextField
                       v-model="subscribeForm.total_episode"
                       label="总集数"
@@ -339,7 +339,7 @@ onMounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="3">
+                  <VCol v-if="subscribeForm.type === '电视剧'" cols="12" md="4">
                     <VTextField
                       v-model="subscribeForm.start_episode"
                       label="开始集数"
@@ -350,18 +350,36 @@ onMounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol cols="12" md="6">
+                  <VCol cols="12" md="4">
                     <VSelect
-                      v-model="subscribeForm.filter_groups"
-                      :items="filterRuleGroupOptions"
-                      chips
-                      multiple
-                      label="优先级规则组"
-                      hint="按选定的过滤规则组对订阅进行过滤"
+                      v-model="subscribeForm.quality"
+                      label="质量"
+                      :items="qualityOptions"
+                      hint="订阅资源质量"
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="subscribeForm.resolution"
+                      label="分辨率"
+                      :items="resolutionOptions"
+                      hint="订阅资源分辨率"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="subscribeForm.effect"
+                      label="特效"
+                      :items="effectOptions"
+                      hint="订阅资源特效"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12">
                     <VSelect
                       v-model="subscribeForm.sites"
                       :items="selectSitesOptions"
@@ -369,25 +387,6 @@ onMounted(() => {
                       label="订阅站点"
                       multiple
                       hint="订阅的站点范围，不选使用系统设置"
-                      persistent-hint
-                    />
-                  </VCol>
-                </VRow>
-                <VRow>
-                  <VCol cols="12" md="6">
-                    <VTextField
-                      v-model="subscribeForm.media_category"
-                      label="自定义类别"
-                      hint="指定类别名称，留空自动识别"
-                      persistent-hint
-                    />
-                  </VCol>
-                  <VCol cols="12" md="6">
-                    <VCombobox
-                      v-model="subscribeForm.save_path"
-                      :items="targetDirectories"
-                      label="自定义保存路径"
-                      hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
                       persistent-hint
                     />
                   </VCol>
@@ -423,35 +422,6 @@ onMounted(() => {
             <VWindowItem value="advance">
               <div>
                 <VRow>
-                  <VCol cols="12" md="4">
-                    <VSelect
-                      v-model="subscribeForm.quality"
-                      label="质量"
-                      :items="qualityOptions"
-                      hint="订阅资源质量"
-                      persistent-hint
-                    />
-                  </VCol>
-                  <VCol cols="12" md="4">
-                    <VSelect
-                      v-model="subscribeForm.resolution"
-                      label="分辨率"
-                      :items="resolutionOptions"
-                      hint="订阅资源分辨率"
-                      persistent-hint
-                    />
-                  </VCol>
-                  <VCol cols="12" md="4">
-                    <VSelect
-                      v-model="subscribeForm.effect"
-                      label="特效"
-                      :items="effectOptions"
-                      hint="订阅资源特效"
-                      persistent-hint
-                    />
-                  </VCol>
-                </VRow>
-                <VRow>
                   <VCol cols="12" md="6">
                     <VTextField
                       v-model="subscribeForm.include"
@@ -465,6 +435,38 @@ onMounted(() => {
                       v-model="subscribeForm.exclude"
                       label="排除（关键字、正则式）"
                       hint="排除规则，支持正则表达式"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="subscribeForm.filter_groups"
+                      :items="filterRuleGroupOptions"
+                      chips
+                      multiple
+                      label="优先级规则组"
+                      hint="按选定的过滤规则组对订阅进行过滤"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="subscribeForm.media_category"
+                      label="自定义类别"
+                      hint="指定类别名称，留空自动识别"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12">
+                    <VCombobox
+                      v-model="subscribeForm.save_path"
+                      :items="targetDirectories"
+                      label="自定义保存路径"
+                      hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
                       persistent-hint
                     />
                   </VCol>

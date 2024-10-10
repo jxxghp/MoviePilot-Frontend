@@ -6,6 +6,7 @@ import type { SubscribeShare } from '@/api/types'
 import router from '@/router'
 import { useToast } from 'vue-toast-notification'
 import { useConfirm } from 'vuetify-use-dialog'
+import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
 
 // 输入参数
 const props = defineProps({
@@ -23,6 +24,12 @@ const globalSettings: any = inject('globalSettings')
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
+
+// 订阅编辑弹窗
+const subscribeEditDialog = ref(false)
+
+// 订阅ID
+const subscribeId = ref<number>()
 
 // 图片加载完成响应
 function imageLoadHandler() {
@@ -79,6 +86,9 @@ async function forkSubscribe() {
     // 订阅状态
     if (result.success) {
       $toast.success(`${props.media?.share_title} 添加订阅成功！`)
+      // 弹出订阅编辑弹窗
+      subscribeId.value = result.data.id
+      subscribeEditDialog.value = true
     } else {
       $toast.error(`${props.media?.share_title} 添加订阅失败：${result.message}！`)
     }
@@ -153,6 +163,15 @@ async function forkSubscribe() {
       </VCard>
     </template>
   </VHover>
+  <!-- 订阅编辑弹窗 -->
+  <SubscribeEditDialog
+    v-if="subscribeEditDialog"
+    v-model="subscribeEditDialog"
+    :subid="subscribeId"
+    @close="subscribeEditDialog = false"
+    @save="subscribeEditDialog = false"
+    @remove="subscribeEditDialog = false"
+  />
 </template>
 <style lang="scss">
 .subscribe-card-background {

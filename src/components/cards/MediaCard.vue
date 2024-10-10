@@ -390,11 +390,17 @@ function formatAirDate(airDate: string) {
   const date = new Date(airDate.replaceAll(/-/g, '/'))
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
+
 // 从yyyy-mm-dd中提取年份
 function getYear(airDate: string) {
   if (!airDate) return ''
   const date = new Date(airDate.replaceAll(/-/g, '/'))
   return date.getFullYear()
+}
+
+// 移除订阅
+function onRemoveSubscribe() {
+  subscribeEditDialog.value = false
 }
 </script>
 
@@ -542,12 +548,7 @@ function getYear(airDate: string) {
     :subid="subscribeId"
     @close="subscribeEditDialog = false"
     @save="subscribeEditDialog = false"
-    @remove="
-      () => {
-        subscribeEditDialog = false
-        handleCheckSubscribe()
-      }
-    "
+    @remove="onRemoveSubscribe"
   />
 </template>
 
