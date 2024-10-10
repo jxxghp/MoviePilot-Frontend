@@ -10,7 +10,6 @@ import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { isNullOrEmptyObject } from '@core/utils'
 import noImage from '@images/logos/plugin.png'
 import { getDominantColor } from '@/@core/utils/image'
-import store from '@/store'
 import { useDisplay } from 'vuetify'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
 
@@ -277,10 +276,9 @@ function visitAuthorPage() {
 
 // 查看日志URL
 function openLoggerWindow() {
-  const token = store.state.auth.token
   const url = `${
     import.meta.env.VITE_API_BASE_URL
-  }system/logging?token=${token}&length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
+  }system/logging?length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
   window.open(url, '_blank')
 }
 

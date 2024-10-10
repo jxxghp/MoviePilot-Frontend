@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import store from '@/store'
 import type { Message } from '@/api/types'
 import MessageCard from '@/components/cards/MessageCard.vue'
 import api from '@/api'
@@ -29,20 +28,16 @@ let eventSource: EventSource | null = null
 
 // SSE持续获取消息
 function startSSEMessager() {
-  const token = store.state.auth.token
-  if (token) {
-    eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}&role=user`)
-
-    eventSource.addEventListener('message', event => {
-      const message = event.data
-      if (message) {
-        const object = JSON.parse(message)
-        if (compareTime(object.date, lastTime.value) <= 0) return
-        messages.value.push(object)
-        emit('scroll')
-      }
-    })
-  }
+  eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message?role=user`)
+  eventSource.addEventListener('message', event => {
+    const message = event.data
+    if (message) {
+      const object = JSON.parse(message)
+      if (compareTime(object.date, lastTime.value) <= 0) return
+      messages.value.push(object)
+      emit('scroll')
+    }
+  })
 }
 
 // 调用API加载存量消息

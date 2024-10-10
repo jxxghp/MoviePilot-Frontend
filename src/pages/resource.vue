@@ -2,7 +2,6 @@
 import NoDataFound from '@/components/NoDataFound.vue'
 import api from '@/api'
 import type { Context } from '@/api/types'
-import store from '@/store'
 import TorrentCardListView from '@/views/discover/TorrentCardListView.vue'
 import TorrentRowListView from '@/views/discover/TorrentRowListView.vue'
 import { useDisplay } from 'vuetify'
@@ -55,12 +54,7 @@ const errorDescription = ref('未搜索到任何资源')
 // 使用SSE监听加载进度
 function startLoadingProgress() {
   progressText.value = '正在搜索，请稍候...'
-
-  const token = store.state.auth.token
-
-  progressEventSource.value = new EventSource(
-    `${import.meta.env.VITE_API_BASE_URL}system/progress/search?token=${token}`,
-  )
+  progressEventSource.value = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/progress/search`)
   progressEventSource.value.onmessage = event => {
     const progress = JSON.parse(event.data)
     if (progress) {

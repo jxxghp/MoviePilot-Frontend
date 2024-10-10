@@ -151,4 +151,14 @@ export default defineConfig({
     exclude: ['vuetify'],
     entries: ['./src/**/*.vue'],
   },
+  server: {
+    proxy: {
+      '/api/v1': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: 'localhost',
+      },
+    },
+  },
 })

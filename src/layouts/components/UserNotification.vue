@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import store from '@/store'
 import { formatDateDifference } from '@core/utils/formatters'
 import { SystemNotification } from '@/api/types'
 
@@ -17,18 +16,15 @@ const appsMenu = ref(false)
 
 // SSE持续接收消息
 function startSSEMessager() {
-  const token = store.state.auth.token
-  if (token) {
-    eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message?token=${token}`)
-    eventSource.addEventListener('message', event => {
-      if (event.data) {
-        const noti: SystemNotification = JSON.parse(event.data)
-        notificationList.value.unshift(noti)
-        hasNewMessage.value = true
-        // TODO 在顶部显示消息汽泡
-      }
-    })
-  }
+  eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message`)
+  eventSource.addEventListener('message', event => {
+    if (event.data) {
+      const noti: SystemNotification = JSON.parse(event.data)
+      notificationList.value.unshift(noti)
+      hasNewMessage.value = true
+      // TODO 在顶部显示消息汽泡
+    }
+  })
 }
 
 // 页面加载时，加载当前用户数据

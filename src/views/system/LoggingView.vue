@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import store from '@/store'
-
 // 日志列表
 const logs = ref<string[]>([])
 
@@ -17,15 +15,11 @@ let eventSource: EventSource | null = null
 
 // SSE持续获取日志
 function startSSELogging() {
-  const token = store.state.auth.token
-  if (token) {
-    eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/logging?token=${token}`)
-
-    eventSource.addEventListener('message', event => {
-      const message = event.data
-      if (message) logs.value.push(message)
-    })
-  }
+  eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/logging`)
+  eventSource.addEventListener('message', event => {
+    const message = event.data
+    if (message) logs.value.push(message)
+  })
 }
 
 // 从日志中提取日志详情
