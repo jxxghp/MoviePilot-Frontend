@@ -176,6 +176,7 @@ async function removeSubscribe() {
     const result: { [key: string]: any } = await api.delete(`subscribe/${props.subid}`)
 
     if (result.success) {
+      $toast.success(`订阅 ${subscribeForm.value.name} 已取消！`)
       // 通知父组件刷新
       emit('remove')
     }
