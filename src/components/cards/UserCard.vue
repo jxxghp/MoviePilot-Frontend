@@ -115,7 +115,7 @@ onMounted(() => {
         </VAvatar>
         <div>
           <div class="text-h6">{{ movieSubscriptions }}</div>
-          <div class="text-sm">电影订阅</div>
+          <div class="text-sm text-no-wrap">电影订阅</div>
         </div>
       </div>
       <div class="d-flex align-center">
@@ -124,7 +124,7 @@ onMounted(() => {
         </VAvatar>
         <div>
           <div class="text-h6">{{ tvShowSubscriptions }}</div>
-          <div class="text-sm">电视剧订阅</div>
+          <div class="text-sm text-no-wrap">电视剧订阅</div>
         </div>
       </div>
     </VCardText>
