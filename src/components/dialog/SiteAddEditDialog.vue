@@ -40,6 +40,12 @@ const siteForm = ref<Site>({
 // 提示框
 const $toast = useToast()
 
+// 维护类型
+const siteType = ref('cookie')
+
+// 是否限流
+const isLimit = ref(false)
+
 // 状态下拉项
 const statusItems = [
   { title: '启用', value: true },
@@ -106,6 +112,15 @@ async function deleteSiteInfo() {
 async function updateSiteInfo() {
   startNProgress()
   try {
+    if (isLimit.value) {
+      siteForm.value.limit_interval = siteForm.value.limit_interval || 0
+      siteForm.value.limit_count = siteForm.value.limit_count || 0
+      siteForm.value.limit_seconds = siteForm.value.limit_seconds || 0
+    } else {
+      siteForm.value.limit_interval = 0
+      siteForm.value.limit_count = 0
+      siteForm.value.limit_seconds = 0
+    }
     const result: { [key: string]: any } = await api.put('site/', siteForm.value)
     if (result.success) {
       $toast.success(`${siteForm.value?.name} 更新成功！`)
@@ -120,9 +135,12 @@ async function updateSiteInfo() {
   doneNProgress()
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (props.oper !== 'add') {
-    fetchSiteInfo()
+    await fetchSiteInfo()
+    if (siteForm.value.limit_interval || siteForm.value.limit_count || siteForm.value.limit_seconds)
+      isLimit.value = true
+    if (siteForm.value.apikey) siteType.value = 'api'
   }
 })
 </script>
@@ -179,35 +197,69 @@ onMounted(() => {
             <VCol cols="12" md="3">
               <VTextField v-model="siteForm.timeout" label="超时时间（秒）" hint="站点请求超时时间" persistent-hint />
             </VCol>
-            <VCol cols="12">
-              <VTextarea v-model="siteForm.cookie" label="站点Cookie" hint="站点请求头中的Cookie信息" persistent-hint />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="siteForm.token"
-                label="请求头（Authorization）"
-                hint="站点请求头中的Authorization信息，特殊站点需要"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="siteForm.apikey"
-                label="令牌（API Key）"
-                hint="站点的访问API Key，特殊站点需要"
-                persistent-hint
-              />
-            </VCol>
-            <VCol cols="12">
-              <VTextField
-                v-model="siteForm.ua"
-                label="站点User-Agent"
-                hint="获取Cookie的浏览器对应的User-Agent"
-                persistent-hint
-              />
+          </VRow>
+          <VTabs v-model="siteType" show-arrows class="v-tabs-pill mt-3">
+            <VTab selected-class="v-tab--selected">
+              <div>
+                <VIcon size="20" start icon="mdi-cookie" value="cookie" />
+                Cookie
+              </div>
+            </VTab>
+            <VTab selected-class="v-tab--selected">
+              <div>
+                <VIcon size="20" start icon="mdi-api" value="api" />
+                API
+              </div>
+            </VTab>
+          </VTabs>
+          <VWindow v-model="siteType" class="my-3 disable-tab-transition" :touch="false">
+            <VWindowItem value="cookie">
+              <VRow>
+                <VCol cols="12">
+                  <VTextarea
+                    v-model="siteForm.cookie"
+                    label="站点Cookie"
+                    hint="站点请求头中的Cookie信息"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12">
+                  <VTextField
+                    v-model="siteForm.ua"
+                    label="站点User-Agent"
+                    hint="获取Cookie的浏览器对应的User-Agent"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+            </VWindowItem>
+            <VWindowItem value="api">
+              <VRow>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="siteForm.token"
+                    label="请求头（Authorization）"
+                    hint="站点请求头中的Authorization信息，特殊站点需要"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="siteForm.apikey"
+                    label="令牌（API Key）"
+                    hint="站点的访问API Key，特殊站点需要"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+            </VWindowItem>
+          </VWindow>
+          <VRow>
+            <VCol cols="12" md="4">
+              <VSwitch v-model="isLimit" label="限制站点访问频率" />
             </VCol>
           </VRow>
-          <VRow>
+          <VRow v-if="isLimit">
             <VCol cols="12" md="4">
               <VTextField
                 v-model="siteForm.limit_interval"
@@ -238,10 +290,15 @@ onMounted(() => {
           </VRow>
           <VRow>
             <VCol cols="12" md="6">
-              <VSwitch v-model="siteForm.proxy" label="代理" hint="使用代理服务器访问该站点" persistent-hint />
+              <VSwitch v-model="siteForm.proxy" label="使用代理访问" hint="使用代理服务器访问该站点" persistent-hint />
             </VCol>
             <VCol cols="12" md="6">
-              <VSwitch v-model="siteForm.render" label="仿真" hint="使用浏览器模拟真实访问该站点" persistent-hint />
+              <VSwitch
+                v-model="siteForm.render"
+                label="浏览器仿真"
+                hint="使用浏览器模拟真实访问该站点"
+                persistent-hint
+              />
             </VCol>
           </VRow>
         </VForm>

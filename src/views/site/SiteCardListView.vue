@@ -53,6 +53,12 @@ async function savaSitesPriority() {
   }
 }
 
+// 更新站点事件时
+function onSiteSave() {
+  siteAddDialog.value = false
+  fetchData()
+}
+
 // 加载时获取数据
 onBeforeMount(fetchData)
 
@@ -102,12 +108,7 @@ onActivated(() => {
     v-if="siteAddDialog"
     v-model="siteAddDialog"
     oper="add"
-    @save="
-      () => {
-        siteAddDialog = false
-        fetchData()
-      }
-    "
+    @save="onSiteSave"
     @close="siteAddDialog = false"
   />
 </template>

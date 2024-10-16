@@ -435,6 +435,44 @@ export interface SiteStatistic {
   note?: string
 }
 
+// 站点用户数据
+export interface SiteUserData {
+  // 站点域名
+  domain?: string
+  // 用户名
+  username?: string
+  // 用户ID
+  userid?: number
+  // 用户等级
+  user_level?: string
+  // 加入时间
+  join_at?: string
+  // 积分
+  bonus?: number // 默认为 0.0
+  // 上传量
+  upload?: number // 默认为 0
+  // 下载量
+  download?: number // 默认为 0
+  // 分享率
+  ratio?: number // 默认为 0
+  // 做种数
+  seeding?: number // 默认为 0
+  // 下载数
+  leeching?: number // 默认为 0
+  // 做种体积
+  seeding_size?: number // 默认为 0
+  // 下载体积
+  leeching_size?: number // 默认为 0
+  // 做种人数, 种子大小
+  seeding_info?: any[] // 默认为空数组
+  // 未读消息
+  message_unread?: number // 默认为 0
+  // 未读消息内容
+  message_unread_contents?: any[] // 默认为空数组
+  // 错误信息
+  err_msg?: string | null // 默认为 null
+}
+
 // 正在下载
 export interface DownloadingInfo {
   // HASH
