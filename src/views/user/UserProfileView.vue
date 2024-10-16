@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import { useToast } from 'vue-toast-notification'
+import {useToast} from 'vue-toast-notification'
 import QrcodeVue from 'qrcode.vue'
-import { VForm } from 'vuetify/lib/components/index.mjs'
+import {VForm} from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
-import type { User } from '@/api/types'
+import type {User} from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
-import { useDisplay } from 'vuetify'
+import {useDisplay} from 'vuetify'
+import store from "@/store";
 
 // 显示器宽度
 const display = useDisplay()
@@ -31,6 +32,9 @@ const secret = ref('')
 
 // 确认双重验证密码
 const otpPassword = ref('')
+
+// 当前头像缓存
+const nowAvatar = ref(avatar1)
 
 // 当前用户信息
 const accountInfo = ref<User>({
@@ -58,7 +62,7 @@ const allUsers = ref<User[]>([])
 // 二维码信息
 const qrCode = ref('')
 
-// changeAvatar function
+// 更新头像
 function changeAvatar(file: Event) {
   const fileReader = new FileReader()
   const { files } = file.target as HTMLInputElement
@@ -67,16 +71,23 @@ function changeAvatar(file: Event) {
     fileReader.readAsDataURL(files[0])
     fileReader.onload = () => {
       if (typeof fileReader.result === 'string') {
-        accountInfo.value.avatar = fileReader.result
-        saveAccountInfo()
+        nowAvatar.value = fileReader.result
+        $toast.success('新头像上传成功，待保存后生效!')
       }
     }
   }
 }
 
-// reset avatar image
-function resetAvatar() {
-  accountInfo.value.avatar = avatar1
+// 重置默认头像
+function resetDefaultAvatar() {
+  nowAvatar.value = avatar1
+  $toast.success('已重置为默认头像，待保存后生效！')
+}
+
+// 还原当前头像
+function restoreNowAvatar() {
+  nowAvatar.value = accountInfo.value.avatar
+  $toast.success('已还原当前使用头像！')
 }
 
 // 调用API，加载当前用户数据
@@ -85,7 +96,10 @@ async function loadAccountInfo() {
     const user: User = await api.get('user/current')
     console.log(user)
     accountInfo.value = user
-    if (!accountInfo.value.avatar) accountInfo.value.avatar = avatar1
+    if (!accountInfo.value.avatar) {
+      accountInfo.value.avatar = avatar1
+    }
+  nowAvatar.value = accountInfo.value.avatar
   } catch (error) {
     console.log(error)
   }
@@ -101,9 +115,17 @@ async function saveAccountInfo() {
     }
     accountInfo.value.password = newPassword.value
   }
+  const oldAvatar = accountInfo.value.avatar
+  accountInfo.value.avatar = nowAvatar.value
   try {
     const result: { [key: string]: any } = await api.put('user/', accountInfo.value)
-    if (result.success) $toast.success('用户信息保存成功！')
+    if (result.success) {
+      $toast.success('用户信息保存成功！')
+      if (oldAvatar !== nowAvatar.value) {
+      // 通知 localStorage 中的用户头像发生变化
+      store.commit('auth/setAvatar', nowAvatar.value)
+      }
+    }
     else $toast.error(`用户信息保存失败：${result.message}！`)
   } catch (error) {
     console.log(error)
@@ -113,9 +135,7 @@ async function saveAccountInfo() {
 // 调用API，查询所有用户
 async function loadAllUsers() {
   try {
-    const result: User[] = await api.get('/user/')
-
-    allUsers.value = result
+    allUsers.value = await api.get('/user/')
   } catch (error) {
     console.log(error)
   }
@@ -191,14 +211,14 @@ onMounted(() => {
         <VCard title="个人信息">
           <VCardText class="d-flex">
             <!-- 👉 Avatar -->
-            <VAvatar rounded="lg" size="100" class="me-6" :image="accountInfo.avatar" />
+            <VAvatar rounded="lg" size="100" class="me-6" :image="nowAvatar" />
 
             <!-- 👉 Upload Photo -->
             <form class="d-flex flex-column justify-center gap-5">
               <div class="d-flex flex-wrap gap-2">
                 <VBtn color="primary" @click="refInputEl?.click()">
                   <VIcon icon="mdi-cloud-upload-outline" />
-                  <span v-if="display.mdAndUp.value" class="ms-2">上传头像</span>
+                  <span v-if="display.mdAndUp.value" class="ms-2">上传新头像</span>
                 </VBtn>
 
                 <input
@@ -210,9 +230,14 @@ onMounted(() => {
                   @input="changeAvatar"
                 />
 
-                <VBtn type="reset" color="error" variant="tonal" @click="resetAvatar">
+                <VBtn type="reset" color="error" variant="tonal" @click="restoreNowAvatar">
                   <VIcon icon="mdi-refresh" />
-                  <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
+                  <span v-if="display.mdAndUp.value" class="ms-2">还原当前头像</span>
+                </VBtn>
+
+                <VBtn type="reset" color="error" variant="tonal" @click="resetDefaultAvatar">
+                  <VIcon icon="mdi-refresh" />
+                  <span v-if="display.mdAndUp.value" class="ms-2">重置默认头像</span>
                 </VBtn>
 
                 <VBtn
@@ -222,12 +247,12 @@ onMounted(() => {
                 >
                   <VIcon icon="mdi-account-key" />
                   <span v-if="display.mdAndUp.value" class="ms-2">{{
-                    accountInfo.is_otp ? '关闭验证' : '双重验证'
+                    accountInfo.is_otp ? '关闭双重验证' : '开启双重验证'
                   }}</span>
                 </VBtn>
               </div>
 
-              <p class="text-body-1 mb-0">允许 JPG、GIF 或 PNG 格式， 最大尺寸 800K。</p>
+              <p class="text-body-1 mb-0">允许 JPG、PNG、GIF 格式， 最大尺寸 800K。</p>
             </form>
           </VCardText>
 

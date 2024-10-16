@@ -25,6 +25,9 @@ const props = defineProps({
 // 当前用户名称
 const currentUser = store.state.auth.userName
 
+// 当前头像缓存
+const nowAvatar = ref(avatar1)
+
 // 注册事件
 const emit = defineEmits(['save', 'close'])
 
@@ -48,7 +51,7 @@ const userForm = ref<User>({
   },
 })
 
-// changeAvatar function
+// 更新头像
 function changeAvatar(file: Event) {
   const fileReader = new FileReader()
   const { files } = file.target as HTMLInputElement
@@ -56,15 +59,22 @@ function changeAvatar(file: Event) {
     fileReader.readAsDataURL(files[0])
     fileReader.onload = () => {
       if (typeof fileReader.result === 'string') {
-        userForm.value.avatar = fileReader.result
+        nowAvatar.value = fileReader.result
       }
     }
   }
 }
 
-// reset avatar image
-function resetAvatar() {
-  userForm.value.avatar = avatar1
+// 重置默认头像
+function resetDefaultAvatar() {
+  nowAvatar.value = avatar1
+  $toast.success('已重置为默认头像，待保存后生效！')
+}
+
+// 还原当前头像
+function restoreNowAvatar() {
+  nowAvatar.value = userForm.value.avatar
+  $toast.success('已还原当前使用头像！')
 }
 
 // 提示框
@@ -82,6 +92,7 @@ async function fetchUserInfo() {
     userForm.value = await api.get(`user/${props.username}`)
     if (userForm.value) {
       userForm.value.avatar = userForm.value.avatar || avatar1
+      nowAvatar.value = userForm.value.avatar
     }
   } catch (error) {
     console.error(error)
@@ -122,11 +133,17 @@ async function updateUser() {
     }
     userForm.value.password = newPassword.value
   }
+  const oldAvatar = userForm.value.avatar
+  userForm.value.avatar = nowAvatar.value
   startNProgress()
   try {
     const result: { [key: string]: any } = await api.put('user/', userForm.value)
     if (result.success) {
       $toast.success(`${userForm.value?.name} 更新成功！`)
+      // 通知 localStorage 立刻更新头像
+      if (oldAvatar !== nowAvatar.value && isCurrentUser.value) {
+        store.commit('auth/setAvatar', nowAvatar.value)
+      }
       emit('save')
     } else {
       $toast.error(`${userForm.value?.name} 更新失败：${result.message}`)
@@ -152,11 +169,14 @@ const canControl = computed(() => {
   if (props.oper === 'add') {
     return true
   } else {
-    // 编辑显示的用户与当前用户不一致时，有权限
-    if (props.username !== currentUser) {
-      return true
-    }
+    // 调用isCurrentUser函数判断是否为当前用户
+    return isCurrentUser.value
   }
+})
+
+// 检查是否为当前用户
+const isCurrentUser = computed(() => {
+  return props.username === currentUser
 })
 
 onMounted(() => {
@@ -176,25 +196,32 @@ onMounted(() => {
       <VDivider />
       <VCardText class="d-flex">
         <!-- 👉 Avatar -->
-        <VAvatar rounded="lg" size="100" class="me-6" :image="userForm.avatar" />
+        <VAvatar rounded="lg" size="100" class="me-6" :image="nowAvatar" />
 
         <!-- 👉 Upload Photo -->
         <form class="d-flex flex-column justify-center gap-5">
           <div class="d-flex flex-wrap gap-2">
             <VBtn color="primary" @click="refInputEl?.click()">
               <VIcon icon="mdi-cloud-upload-outline" />
-              <span v-if="display.mdAndUp.value" class="ms-2">上传头像</span>
+              <span v-if="display.mdAndUp.value" class="ms-2">上传新头像</span>
             </VBtn>
 
             <input ref="refInputEl" type="file" name="file" accept=".jpeg,.png,.jpg,GIF" hidden @input="changeAvatar" />
 
-            <VBtn type="reset" color="error" variant="tonal" @click="resetAvatar">
+
+            <VBtn type="reset" color="error" variant="tonal" @click="restoreNowAvatar">
               <VIcon icon="mdi-refresh" />
-              <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
+              <span v-if="display.mdAndUp.value" class="ms-2">还原当前头像</span>
             </VBtn>
+
+            <VBtn type="reset" color="error" variant="tonal" @click="resetDefaultAvatar">
+              <VIcon icon="mdi-refresh" />
+              <span v-if="display.mdAndUp.value" class="ms-2">重置默认头像</span>
+            </VBtn>
+
           </div>
 
-          <p class="text-body-1 mb-0">允许 JPG、GIF 或 PNG 格式， 最大尺寸 800K。</p>
+          <p class="text-body-1 mb-0">允许 JPG、PNG、GIF 格式， 最大尺寸 800K。</p>
         </form>
       </VCardText>
       <VCardText>
