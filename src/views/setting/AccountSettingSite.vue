@@ -14,6 +14,8 @@ const resetSitesText = ref('重置站点数据')
 // 站点重置按钮可用状态
 const resetSitesDisabled = ref(false)
 
+const isPasswordVisible = ref(false)
+
 // CookieCloud设置项
 const siteSetting = ref({
   COOKIECLOUD_HOST: '',
@@ -155,7 +157,9 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VTextField
                   v-model="siteSetting.COOKIECLOUD_PASSWORD"
-                  type="password"
+                  :type="isPasswordVisible ? 'text' : 'password'"
+                  :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
                   label="端对端加密密码"
                   hint="CookieCloud浏览器插件生成的端对端加密密码"
                   persistent-hint
