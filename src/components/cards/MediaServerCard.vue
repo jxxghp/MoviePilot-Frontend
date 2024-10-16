@@ -16,8 +16,8 @@ const props = defineProps({
   // 所有媒体服务器
   mediaservers: {
     type: Array as PropType<MediaServerConf[]>,
-    required: true
-  }
+    required: true,
+  },
 })
 
 // 提示框
@@ -46,7 +46,12 @@ const infoItems = ref([
 ])
 
 // 同步媒体库选项
-const librariesOptions = ref<{ title: string; value: string | undefined }[]>([])
+const librariesOptions = ref<{ title: string; value: string | undefined }[]>([
+  {
+    title: '全部',
+    value: 'all',
+  },
+])
 
 // 媒体服务器详情弹窗
 const mediaServerInfoDialog = ref(false)
@@ -68,6 +73,9 @@ function openMediaServerInfoDialog() {
   mediaServerInfo.value = props.mediaserver
   mediaServerName.value = props.mediaserver.name
   mediaServerInfoDialog.value = true
+  if (!props.mediaserver.sync_libraries) {
+    mediaServerInfo.value.sync_libraries = ['all']
+  }
 }
 
 // 保存详情数据
@@ -78,7 +86,7 @@ function saveMediaServerInfo() {
     return
   }
   // 重名判断
-  if (props.mediaservers.some(item => item.name === mediaServerName.value && item!== props.mediaserver)) {
+  if (props.mediaservers.some(item => item.name === mediaServerName.value && item !== props.mediaserver)) {
     $toast.error(`【${mediaServerName.value}】已存在，请替换为其他名称`)
     return
   }
@@ -148,7 +156,13 @@ async function loadLibrary(server: string) {
         title: item.name,
         value: item.id?.toString(),
       }))
+    } else {
+      librariesOptions.value = []
     }
+    librariesOptions.value.unshift({
+      title: '全部',
+      value: 'all',
+    })
   } catch (e) {
     console.log(e)
   }
@@ -174,7 +188,7 @@ onMounted(() => {
         <VImg :src="getIcon" cover class="mt-5 me-3" max-width="3rem" min-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="mediaServerInfoDialog" scrollable max-width="40rem" persistent >
+    <VDialog v-model="mediaServerInfoDialog" scrollable max-width="40rem" persistent>
       <VCard :title="`${props.mediaserver.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="mediaServerInfoDialog" />
         <VDivider />
