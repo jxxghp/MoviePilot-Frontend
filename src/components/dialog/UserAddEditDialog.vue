@@ -22,8 +22,11 @@ const props = defineProps({
   oper: String,
 })
 
-// 当前用户名称
+// 当前登录用户名称
 const currentUser = store.state.auth.userName
+
+// 用户名
+const userName = ref('')
 
 // 当前头像缓存
 const nowAvatar = ref(avatar1)
@@ -93,6 +96,7 @@ async function fetchUserInfo() {
     if (userForm.value) {
       userForm.value.avatar = userForm.value.avatar || avatar1
       nowAvatar.value = userForm.value.avatar
+      userName.value = userForm.value.name
     }
   } catch (error) {
     console.error(error)
@@ -170,7 +174,7 @@ const canControl = computed(() => {
     return true
   } else {
     // 调用isCurrentUser函数判断是否为当前用户
-    return isCurrentUser.value
+    return !(isCurrentUser.value)
   }
 })
 
@@ -194,7 +198,7 @@ watch(() => store.state.auth.avatar, () => {
 <template>
   <VDialog scrollable :close-on-back="false" persistent eager max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard
-      :title="`${props.oper === 'add' ? '新增' : '编辑'}用户${props.oper !== 'add' ? ` - ${userForm.name}` : ''}`"
+      :title="`${props.oper === 'add' ? '新增' : '编辑'}用户${props.oper !== 'add' ? ` - ${userName}` : ''}`"
       class="rounded-t"
     >
       <DialogCloseBtn @click="emit('close')" />
@@ -236,10 +240,15 @@ watch(() => store.state.auth.avatar, () => {
           </VDivider>
           <VRow>
             <VCol md="6" cols="12" v-if="props.oper === 'add'">
-              <VTextField v-model="userForm.name" density="comfortable" label="用户名" />
+              <VTextField  v-model="userForm.name" density="comfortable" label="用户名" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.email" density="comfortable" label="邮箱" type="email" />
+              <VTextField
+                v-model="userForm.email"
+                density="comfortable"
+                clearable
+                label="邮箱"
+                type="email" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -247,6 +256,7 @@ watch(() => store.state.auth.avatar, () => {
                 density="comfortable"
                 :type="isNewPasswordVisible ? 'text' : 'password'"
                 :append-inner-icon="isNewPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                clearable
                 label="密码"
                 autocomplete=""
                 @click:append-inner="isNewPasswordVisible = !isNewPasswordVisible"
@@ -259,6 +269,7 @@ watch(() => store.state.auth.avatar, () => {
                 density="comfortable"
                 :type="isConfirmPasswordVisible ? 'text' : 'password'"
                 :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                clearable
                 label="确认密码"
                 @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
               />
@@ -279,21 +290,38 @@ watch(() => store.state.auth.avatar, () => {
           </VDivider>
           <VRow>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.wechat_userid" density="comfortable" label="微信用户" />
+              <VTextField
+                v-model="userForm.settings.wechat_userid"
+                density="comfortable"
+                clearable
+                label="微信用户" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.telegram_userid" density="comfortable" label="Telegram用户" />
+              <VTextField
+                v-model="userForm.settings.telegram_userid"
+                density="comfortable"
+                clearable
+                label="Telegram用户" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.slack_userid" density="comfortable" label="Slack用户" />
+              <VTextField
+                v-model="userForm.settings.slack_userid"
+                density="comfortable"
+                clearable
+                label="Slack用户" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.vocechat_userid" density="comfortable" label="VoceChat用户" />
+              <VTextField
+                v-model="userForm.settings.vocechat_userid"
+                density="comfortable"
+                clearable
+                label="VoceChat用户" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="userForm.settings.synologychat_userid"
                 density="comfortable"
+                clearable
                 label="SynologyChat用户"
               />
             </VCol>
