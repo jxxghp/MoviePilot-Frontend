@@ -184,6 +184,11 @@ onMounted(() => {
     fetchUserInfo()
   }
 })
+
+// 监听 localStorage 中的头像变化
+watch(() => store.state.auth.avatar, () => {
+  nowAvatar.value = store.state.auth.avatar
+})
 </script>
 
 <template>
