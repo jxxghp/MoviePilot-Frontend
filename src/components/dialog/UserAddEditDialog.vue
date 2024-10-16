@@ -22,8 +22,14 @@ const props = defineProps({
   oper: String,
 })
 
-// 当前用户名称
+// 当前登录用户名称
 const currentUser = store.state.auth.userName
+
+// 用户名
+const userName = ref('')
+
+// 当前头像缓存
+const nowAvatar = ref(avatar1)
 
 // 注册事件
 const emit = defineEmits(['save', 'close'])
@@ -48,7 +54,7 @@ const userForm = ref<User>({
   },
 })
 
-// changeAvatar function
+// 更新头像
 function changeAvatar(file: Event) {
   const fileReader = new FileReader()
   const { files } = file.target as HTMLInputElement
@@ -56,15 +62,22 @@ function changeAvatar(file: Event) {
     fileReader.readAsDataURL(files[0])
     fileReader.onload = () => {
       if (typeof fileReader.result === 'string') {
-        userForm.value.avatar = fileReader.result
+        nowAvatar.value = fileReader.result
       }
     }
   }
 }
 
-// reset avatar image
-function resetAvatar() {
-  userForm.value.avatar = avatar1
+// 重置默认头像
+function resetDefaultAvatar() {
+  nowAvatar.value = avatar1
+  $toast.success('已重置为默认头像，待保存后生效！')
+}
+
+// 还原当前头像
+function restoreNowAvatar() {
+  nowAvatar.value = userForm.value.avatar
+  $toast.success('已还原当前使用头像！')
 }
 
 // 提示框
@@ -82,6 +95,8 @@ async function fetchUserInfo() {
     userForm.value = await api.get(`user/${props.username}`)
     if (userForm.value) {
       userForm.value.avatar = userForm.value.avatar || avatar1
+      nowAvatar.value = userForm.value.avatar
+      userName.value = userForm.value.name
     }
   } catch (error) {
     console.error(error)
@@ -122,11 +137,17 @@ async function updateUser() {
     }
     userForm.value.password = newPassword.value
   }
+  const oldAvatar = userForm.value.avatar
+  userForm.value.avatar = nowAvatar.value
   startNProgress()
   try {
     const result: { [key: string]: any } = await api.put('user/', userForm.value)
     if (result.success) {
       $toast.success(`${userForm.value?.name} 更新成功！`)
+      // 通知 localStorage 立刻更新头像
+      if (oldAvatar !== nowAvatar.value && isCurrentUser.value) {
+        store.commit('auth/setAvatar', nowAvatar.value)
+      }
       emit('save')
     } else {
       $toast.error(`${userForm.value?.name} 更新失败：${result.message}`)
@@ -152,11 +173,14 @@ const canControl = computed(() => {
   if (props.oper === 'add') {
     return true
   } else {
-    // 编辑显示的用户与当前用户不一致时，有权限
-    if (props.username !== currentUser) {
-      return true
-    }
+    // 调用isCurrentUser函数判断是否为当前用户
+    return !(isCurrentUser.value)
   }
+})
+
+// 检查是否为当前用户
+const isCurrentUser = computed(() => {
+  return props.username === currentUser
 })
 
 onMounted(() => {
@@ -164,37 +188,49 @@ onMounted(() => {
     fetchUserInfo()
   }
 })
+
+// 监听 localStorage 中的头像变化
+watch(() => store.state.auth.avatar, () => {
+  nowAvatar.value = store.state.auth.avatar
+})
 </script>
 
 <template>
   <VDialog scrollable :close-on-back="false" persistent eager max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard
-      :title="`${props.oper === 'add' ? '新增' : '编辑'}用户${props.oper !== 'add' ? ` - ${userForm.name}` : ''}`"
+      :title="`${props.oper === 'add' ? '新增' : '编辑'}用户${props.oper !== 'add' ? ` - ${userName}` : ''}`"
       class="rounded-t"
     >
       <DialogCloseBtn @click="emit('close')" />
       <VDivider />
       <VCardText class="d-flex">
         <!-- 👉 Avatar -->
-        <VAvatar rounded="lg" size="100" class="me-6" :image="userForm.avatar" />
+        <VAvatar rounded="lg" size="100" class="me-6" :image="nowAvatar" />
 
         <!-- 👉 Upload Photo -->
         <form class="d-flex flex-column justify-center gap-5">
           <div class="d-flex flex-wrap gap-2">
             <VBtn color="primary" @click="refInputEl?.click()">
               <VIcon icon="mdi-cloud-upload-outline" />
-              <span v-if="display.mdAndUp.value" class="ms-2">上传头像</span>
+              <span v-if="display.mdAndUp.value" class="ms-2">上传新头像</span>
             </VBtn>
 
             <input ref="refInputEl" type="file" name="file" accept=".jpeg,.png,.jpg,GIF" hidden @input="changeAvatar" />
 
-            <VBtn type="reset" color="error" variant="tonal" @click="resetAvatar">
+
+            <VBtn type="reset" color="error" variant="tonal" @click="restoreNowAvatar">
               <VIcon icon="mdi-refresh" />
-              <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
+              <span v-if="display.mdAndUp.value" class="ms-2">还原当前头像</span>
             </VBtn>
+
+            <VBtn type="reset" color="error" variant="tonal" @click="resetDefaultAvatar">
+              <VIcon icon="mdi-refresh" />
+              <span v-if="display.mdAndUp.value" class="ms-2">重置默认头像</span>
+            </VBtn>
+
           </div>
 
-          <p class="text-body-1 mb-0">允许 JPG、GIF 或 PNG 格式， 最大尺寸 800K。</p>
+          <p class="text-body-1 mb-0">允许 JPG、PNG、GIF 格式， 最大尺寸 800K。</p>
         </form>
       </VCardText>
       <VCardText>
@@ -204,10 +240,15 @@ onMounted(() => {
           </VDivider>
           <VRow>
             <VCol md="6" cols="12" v-if="props.oper === 'add'">
-              <VTextField v-model="userForm.name" density="comfortable" label="用户名" />
+              <VTextField  v-model="userForm.name" density="comfortable" label="用户名" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.email" density="comfortable" label="邮箱" type="email" />
+              <VTextField
+                v-model="userForm.email"
+                density="comfortable"
+                clearable
+                label="邮箱"
+                type="email" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -215,6 +256,7 @@ onMounted(() => {
                 density="comfortable"
                 :type="isNewPasswordVisible ? 'text' : 'password'"
                 :append-inner-icon="isNewPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                clearable
                 label="密码"
                 autocomplete=""
                 @click:append-inner="isNewPasswordVisible = !isNewPasswordVisible"
@@ -227,6 +269,7 @@ onMounted(() => {
                 density="comfortable"
                 :type="isConfirmPasswordVisible ? 'text' : 'password'"
                 :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                clearable
                 label="确认密码"
                 @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
               />
@@ -247,21 +290,38 @@ onMounted(() => {
           </VDivider>
           <VRow>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.wechat_userid" density="comfortable" label="微信用户" />
+              <VTextField
+                v-model="userForm.settings.wechat_userid"
+                density="comfortable"
+                clearable
+                label="微信用户" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.telegram_userid" density="comfortable" label="Telegram用户" />
+              <VTextField
+                v-model="userForm.settings.telegram_userid"
+                density="comfortable"
+                clearable
+                label="Telegram用户" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.slack_userid" density="comfortable" label="Slack用户" />
+              <VTextField
+                v-model="userForm.settings.slack_userid"
+                density="comfortable"
+                clearable
+                label="Slack用户" />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField v-model="userForm.settings.vocechat_userid" density="comfortable" label="VoceChat用户" />
+              <VTextField
+                v-model="userForm.settings.vocechat_userid"
+                density="comfortable"
+                clearable
+                label="VoceChat用户" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="userForm.settings.synologychat_userid"
                 density="comfortable"
+                clearable
                 label="SynologyChat用户"
               />
             </VCol>
