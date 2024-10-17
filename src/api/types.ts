@@ -471,6 +471,10 @@ export interface SiteUserData {
   message_unread_contents?: any[] // 默认为空数组
   // 错误信息
   err_msg?: string | null // 默认为 null
+  // 更新日期
+  updated_day?: string
+  // 更新时间
+  updated_time?: string
 }
 
 // 正在下载

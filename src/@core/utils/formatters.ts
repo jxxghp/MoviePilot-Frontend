@@ -60,19 +60,25 @@ export const prefixWithPlus = (value: number) => (value > 0 ? `+${value}` : valu
 export const formatSeason = (value: string) => (value ? `S${value.padStart(2, '0')}` : '')
 
 // 格式化为xx[TGMK]B
-export function formatFileSize(bytes: number, decimals = 2) {
-  if (bytes < 0) throw new Error('字节数不能为负数。')
+export function formatFileSize(bytes: number, decimals = 2, prefix = false) {
+  // 负数标记
+  let negative = false
+  let size = bytes
+  if (bytes < 0) {
+    negative = true
+    size = Math.abs(bytes)
+  }
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let size = bytes
   let unitIndex = 0
 
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024
     unitIndex++
   }
-
-  return `${size.toFixed(decimals)} ${units[unitIndex]}`
+  if (negative) return `-${size.toFixed(decimals)} ${units[unitIndex]}`
+  else
+    return prefix ? `+${size.toFixed(decimals)} ${units[unitIndex]}` : `${size.toFixed(decimals)} ${units[unitIndex]}`
 }
 
 // 将时间秒格式化为时分秒

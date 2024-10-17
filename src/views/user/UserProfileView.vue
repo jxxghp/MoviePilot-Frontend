@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import {useToast} from 'vue-toast-notification'
+import { useToast } from 'vue-toast-notification'
 import QrcodeVue from 'qrcode.vue'
-import {VForm} from 'vuetify/lib/components/index.mjs'
+import { VForm } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
-import type {User} from '@/api/types'
+import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
-import {useDisplay} from 'vuetify'
-import store from "@/store";
+import { useDisplay } from 'vuetify'
+import store from '@/store'
 
 // 显示器宽度
 const display = useDisplay()
@@ -99,7 +99,7 @@ async function loadAccountInfo() {
     if (!accountInfo.value.avatar) {
       accountInfo.value.avatar = avatar1
     }
-  nowAvatar.value = accountInfo.value.avatar
+    nowAvatar.value = accountInfo.value.avatar
   } catch (error) {
     console.log(error)
   }
@@ -122,11 +122,10 @@ async function saveAccountInfo() {
     if (result.success) {
       $toast.success('用户信息保存成功！')
       if (oldAvatar !== nowAvatar.value) {
-      // 通知 localStorage 中的用户头像发生变化
-      store.commit('auth/setAvatar', nowAvatar.value)
+        // 通知 localStorage 中的用户头像发生变化
+        store.commit('auth/setAvatar', nowAvatar.value)
       }
-    }
-    else $toast.error(`用户信息保存失败：${result.message}！`)
+    } else $toast.error(`用户信息保存失败：${result.message}！`)
   } catch (error) {
     console.log(error)
   }
@@ -204,9 +203,12 @@ onMounted(() => {
 })
 
 // 监听 localStorage 中的用户头像变化
-watch(() => store.state.auth.avatar, () => {
-  nowAvatar.value = store.state.auth.avatar
-})
+watch(
+  () => store.state.auth.avatar,
+  () => {
+    nowAvatar.value = store.state.auth.avatar
+  },
+)
 </script>
 
 <template>
@@ -235,18 +237,18 @@ watch(() => store.state.auth.avatar, () => {
                   @input="changeAvatar"
                 />
 
-                <VBtn type="reset" color="error" variant="tonal" @click="restoreNowAvatar">
+                <VBtn type="reset" color="info" variant="tonal" @click="restoreNowAvatar">
                   <VIcon icon="mdi-refresh" />
-                  <span v-if="display.mdAndUp.value" class="ms-2">还原当前头像</span>
+                  <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
                 </VBtn>
 
                 <VBtn type="reset" color="error" variant="tonal" @click="resetDefaultAvatar">
-                  <VIcon icon="mdi-refresh" />
-                  <span v-if="display.mdAndUp.value" class="ms-2">重置默认头像</span>
+                  <VIcon icon="mdi-image-sync-outline" />
+                  <span v-if="display.mdAndUp.value" class="ms-2">默认</span>
                 </VBtn>
 
                 <VBtn
-                  :color="accountInfo.is_otp ? 'error' : 'info'"
+                  :color="accountInfo.is_otp ? 'warning' : 'success'"
                   variant="tonal"
                   @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
                 >

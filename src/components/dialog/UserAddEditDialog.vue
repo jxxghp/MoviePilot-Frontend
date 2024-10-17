@@ -218,14 +218,14 @@ watch(() => store.state.auth.avatar, () => {
             <input ref="refInputEl" type="file" name="file" accept=".jpeg,.png,.jpg,GIF" hidden @input="changeAvatar" />
 
 
-            <VBtn type="reset" color="error" variant="tonal" @click="restoreNowAvatar">
+            <VBtn type="reset" color="info" variant="tonal" @click="restoreNowAvatar">
               <VIcon icon="mdi-refresh" />
-              <span v-if="display.mdAndUp.value" class="ms-2">还原当前头像</span>
+              <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
             </VBtn>
 
             <VBtn type="reset" color="error" variant="tonal" @click="resetDefaultAvatar">
-              <VIcon icon="mdi-refresh" />
-              <span v-if="display.mdAndUp.value" class="ms-2">重置默认头像</span>
+              <VIcon icon="mdi-image-sync-outline" />
+              <span v-if="display.mdAndUp.value" class="ms-2">默认</span>
             </VBtn>
 
           </div>
