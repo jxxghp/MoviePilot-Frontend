@@ -6,15 +6,15 @@ import SiteUserDataDialog from '../dialog/SiteUserDataDialog.vue'
 import SiteResourceDialog from '../dialog/SiteResourceDialog.vue'
 import SiteCookieUpdateDialog from '../dialog/SiteCookieUpdateDialog.vue'
 import api from '@/api'
-import type { Site, SiteStatistic } from '@/api/types'
+import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
-import { VCardActions, VExpandTransition, VSpacer } from 'vuetify/lib/components/index.mjs'
+import { VCardActions, VExpandTransition, VProgressLinear, VSpacer } from 'vuetify/lib/components/index.mjs'
+import { formatFileSize } from '@/@core/utils/formatters'
 
 // 输入参数
 const cardProps = defineProps({
   site: Object as PropType<Site>,
-  width: String,
-  height: String,
+  data: Object as PropType<SiteUserData>,
 })
 
 // 定义触发的自定义事件
@@ -121,6 +121,12 @@ const statColor = computed(() => {
   }
 })
 
+// 计算上传量和下载量的百分比
+const getPercentage = computed(() => {
+  if (cardProps.data?.upload === 0) return 100
+  return ((cardProps.data?.download ?? 0) / ((cardProps.data?.download ?? 0) + (cardProps.data?.upload ?? 0))) * 100
+})
+
 // 保存站点
 function saveSite() {
   siteEditDialog.value = false
@@ -149,8 +155,6 @@ onMounted(() => {
 <template>
   <div>
     <VCard
-      :height="cardProps.height"
-      :width="cardProps.width"
       :variant="cardProps.site?.is_active ? 'elevated' : 'outlined'"
       class="overflow-hidden"
       @click="siteEditDialog = true"
@@ -195,6 +199,9 @@ onMounted(() => {
           :icon="siteActionShow ? 'mdi-chevron-up' : 'mdi-chevron-down'"
           @click.stop="siteActionShow = !siteActionShow"
         />
+        <span class="text-sm">
+          ↑ {{ formatFileSize(cardProps.data?.upload || 0) }} / ↓ {{ formatFileSize(cardProps.data?.download || 0) }}
+        </span>
         <VSpacer />
       </VCardActions>
       <VDivider class="mb-1" v-if="siteActionShow" />
@@ -230,6 +237,9 @@ onMounted(() => {
       <span class="absolute top-1 right-8">
         <VIcon class="cursor-move">mdi-drag</VIcon>
       </span>
+      <div class="w-full absolute bottom-0" v-if="(cardProps.data?.upload || cardProps.data?.download || 0) > 0">
+        <VProgressLinear :model-value="getPercentage" bg-color="success" color="warning" bg-opacity="0.5" height="3" />
+      </div>
     </VCard>
     <!-- 更新站点Cookie & UA弹窗 -->
     <SiteCookieUpdateDialog
