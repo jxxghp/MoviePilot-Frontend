@@ -22,7 +22,7 @@ const props = defineProps({
 })
 
 // 当前用户名称
-const currentLoginUser = store.state.auth.userName
+const currentLoginUserId = computed(() => store.state.auth.userID)
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
@@ -57,7 +57,7 @@ async function fetchSubscriptions() {
 
 // 删除用户
 async function removeUser() {
-  if (props.user.name == currentLoginUser) {
+  if (props.user.id === currentLoginUserId.value) {
     $toast.error('不能删除当前登录用户！')
     return
   }
@@ -83,18 +83,6 @@ async function removeUser() {
 function editUser() {
   userEditDialog.value = true
 }
-
-// 计算是否有用户编辑权限
-const canEditUser = computed(() => {
-  if (store.state.auth.superUser && props.user.name !== currentLoginUser) return true
-  return false
-})
-
-// 计算是否有用户管理权限
-const canManageUser = computed(() => {
-  if (props.user.name == currentLoginUser) return false
-  return canEditUser
-})
 
 // 用户重新完成时
 function onUserUpdate() {
@@ -169,8 +157,20 @@ onMounted(() => {
       </VList>
     </VCardText>
     <VCardText class="flex flex-row justify-center">
-      <VBtn v-if="canEditUser" color="primary" class="me-4" @click="editUser">编辑</VBtn>
-      <VBtn v-if="canManageUser" color="error" variant="outlined" @click="removeUser"> 删除 </VBtn>
+      <VBtn
+        color="primary"
+        class="me-4"
+        @click="editUser"
+      >
+        编辑
+      </VBtn>
+      <VBtn
+        v-if="!(props.user.id === currentLoginUserId)"
+        color="error" variant="outlined"
+        @click="removeUser"
+      >
+        删除
+      </VBtn>
     </VCardText>
   </VCard>
   <!-- 用户编辑弹窗 -->
