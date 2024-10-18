@@ -63,8 +63,8 @@ async function restart() {
 const isCompactMode = ref(localStorage.getItem('MP_APPMODE') != '0')
 
 // 从Vuex Store中获取信息
-const superUser = store.state.auth.superUser
-const userName = store.state.auth.userName
+const superUser = computed(() =>store.state.auth.superUser)
+const userName = computed(() =>store.state.auth.userName)
 const avatar = computed(() => store.state.auth.avatar || avatar1)
 
 // 监听精简模式切换

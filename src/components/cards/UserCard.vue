@@ -10,14 +10,20 @@ import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 
 // 定义输入变量
 const props = defineProps({
+  // 用户信息
   user: {
     type: Object as PropType<User>,
+    required: true,
+  },
+  // 所有用户
+  users: {
+    type: Array as PropType<User[]>,
     required: true,
   },
 })
 
 // 当前用户名称
-const currentUser = store.state.auth.userName
+const currentLoginUser = store.state.auth.userName
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
@@ -52,13 +58,17 @@ async function fetchSubscriptions() {
 
 // 删除用户
 async function removeUser() {
+  if (props.user.name == currentLoginUser) {
+    $toast.error('不能删除当前登录用户！')
+    return
+  }
   try {
     const isConfirmed = await createConfirm({
-      title: '确认',
+      title: '注意',
       content: `删除用户 ${props.user?.name} 的所有数据，是否确认？`,
     })
     if (!isConfirmed) return
-    const result: { [key: string]: any } = await api.delete(`user/${props.user.name}`)
+    const result: { [key: string]: any } = await api.delete(`user/id/${props.user.id}`)
     if (result.success) {
       $toast.success('用户删除成功')
       emit('remove')
@@ -83,7 +93,7 @@ const canEditUser = computed(() => {
 
 // 计算是否有用户管理权限
 const canManageUser = computed(() => {
-  if (props.user.name == currentUser) return false
+  if (props.user.name == currentLoginUser) return false
   return canEditUser
 })
 
@@ -169,6 +179,7 @@ onMounted(() => {
     v-if="userEditDialog"
     v-model="userEditDialog"
     :username="props.user?.name"
+    :usernames="props.users.map(item => item.name)"
     oper="edit"
     @save="onUserUpdate"
     @close="userEditDialog = false"

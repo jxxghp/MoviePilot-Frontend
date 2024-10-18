@@ -19,20 +19,39 @@ const confirmPassword = ref('')
 // 输入参数
 const props = defineProps({
   username: String,
+  usernames: Array,
   oper: String,
 })
 
 // 当前登录用户名称
-const currentUser = store.state.auth.userName
+const currentLoginUser = store.state.auth.userName
 
 // 用户名
 const userName = ref('')
 
 // 当前头像缓存
-const nowAvatar = ref(avatar1)
+const currentAvatar = ref(avatar1)
+
+// 用户名缓存
+const currentUserName = ref('')
 
 // 注册事件
 const emit = defineEmits(['save', 'close'])
+
+// 创建新用户按钮运行状态
+const isAdding = ref(false);
+
+// 更新用户消息按钮运行状态
+const isUpdating = ref(false);
+
+// 提示框
+const $toast = useToast()
+
+// 状态下拉项
+const statusItems = [
+  { title: '激活', value: 1 },
+  { title: '已停用', value: 0 },
+]
 
 // 用户编辑表单数据
 const userForm = ref<User>({
@@ -62,7 +81,7 @@ function changeAvatar(file: Event) {
     fileReader.readAsDataURL(files[0])
     fileReader.onload = () => {
       if (typeof fileReader.result === 'string') {
-        nowAvatar.value = fileReader.result
+        currentAvatar.value = fileReader.result
       }
     }
   }
@@ -70,24 +89,15 @@ function changeAvatar(file: Event) {
 
 // 重置默认头像
 function resetDefaultAvatar() {
-  nowAvatar.value = avatar1
+  currentAvatar.value = avatar1
   $toast.success('已重置为默认头像，待保存后生效！')
 }
 
 // 还原当前头像
-function restoreNowAvatar() {
-  nowAvatar.value = userForm.value.avatar
+function restoreCurrentAvatar() {
+  currentAvatar.value = userForm.value.avatar
   $toast.success('已还原当前使用头像！')
 }
-
-// 提示框
-const $toast = useToast()
-
-// 状态下拉项
-const statusItems = [
-  { title: '激活', value: 1 },
-  { title: '已停用', value: 0 },
-]
 
 // 查询用户信息
 async function fetchUserInfo() {
@@ -95,7 +105,8 @@ async function fetchUserInfo() {
     userForm.value = await api.get(`user/${props.username}`)
     if (userForm.value) {
       userForm.value.avatar = userForm.value.avatar || avatar1
-      nowAvatar.value = userForm.value.avatar
+      currentAvatar.value = userForm.value.avatar
+      currentUserName.value = userForm.value.name
       userName.value = userForm.value.name
     }
   } catch (error) {
@@ -105,6 +116,19 @@ async function fetchUserInfo() {
 
 // 调用API 新增用户
 async function addUser() {
+  if (isAdding.value) {
+    $toast.error(`正在创建【${userForm.value.name}】用户，请稍后`)
+    return
+  }
+  if (!currentUserName.value) {
+    $toast.error('用户名不能为空')
+    return
+  } else userForm.value.name = currentUserName.value
+  // 重名检查
+  if (props.usernames && props.usernames.includes(userForm.value.name)) {
+    $toast.error('用户名已存在')
+    return
+  }
   if (!userForm.value?.name || !newPassword.value) return
   if (newPassword.value || confirmPassword.value) {
     if (newPassword.value !== confirmPassword.value) {
@@ -113,23 +137,35 @@ async function addUser() {
     }
     userForm.value.password = newPassword.value
   }
+  isAdding.value = true
   startNProgress()
   try {
     const result: { [key: string]: string } = await api.post('user/', userForm.value)
     if (result.success) {
-      $toast.success('新增用户成功')
+      $toast.success(`用户【${userForm.value.name}】创建成功`)
       emit('save')
     } else {
-      $toast.error(`新增用户失败：${result.message}`)
+      $toast.error(`创建用户失败：${result.message}`)
+      // 清除用户名
+      userForm.value.name = ''
     }
   } catch (error) {
     console.error(error)
   }
   doneNProgress()
+  isAdding.value = false
 }
 
 // 调用API更新用户信息
 async function updateUser() {
+  if (isUpdating.value) {
+    $toast.error(`正在更新【${userForm.value.name}】用户，请稍后`)
+    return
+  }
+  if (!currentUserName.value) {
+    $toast.error('用户名不能为空')
+    return
+  }
   if (newPassword.value || confirmPassword.value) {
     if (newPassword.value !== confirmPassword.value) {
       $toast.error('两次输入的密码不一致')
@@ -137,26 +173,47 @@ async function updateUser() {
     }
     userForm.value.password = newPassword.value
   }
+  const oldUserName = userForm.value.name
+  userForm.value.name = currentUserName.value
   const oldAvatar = userForm.value.avatar
-  userForm.value.avatar = nowAvatar.value
+  userForm.value.avatar = currentAvatar.value
+  isUpdating.value = true
   startNProgress()
   try {
     const result: { [key: string]: any } = await api.put('user/', userForm.value)
     if (result.success) {
-      $toast.success(`${userForm.value?.name} 更新成功！`)
-      // 通知 localStorage 立刻更新头像
-      if (oldAvatar !== nowAvatar.value && isCurrentUser.value) {
-        store.commit('auth/setAvatar', nowAvatar.value)
+      if (oldUserName !== currentUserName.value) {
+        $toast.success(`【${oldUserName}】更名【${currentUserName.value}】， 更新成功！`)
+        // 如果是当前登录用户，更新当前用户名称显示
+        if (isCurrentUser.value) store.commit('auth/setUserName', currentUserName.value)
+      } else {
+        $toast.success(`【${userForm.value?.name}】更新成功！`)
+      }
+      // 更新本地头像显示
+      if (oldAvatar !== currentAvatar.value && isCurrentUser.value) {
+        store.commit('auth/setAvatar', currentAvatar.value)
       }
       emit('save')
     } else {
-      $toast.error(`${userForm.value?.name} 更新失败：${result.message}`)
+      if (oldUserName !== currentUserName.value) {
+        $toast.error(`【${oldUserName}】更名【${currentUserName.value}】， 更新失败：${result.message}`)
+        currentUserName.value = oldUserName
+      } else {
+        $toast.error(`【${userForm.value?.name}】更新失败：${result.message}`)
+      }
     }
+    //失败缓存值还原
+    currentUserName.value = userForm.value.name
+    userForm.value.name = oldUserName
+    currentAvatar.value = userForm.value.avatar
+    userForm.value.avatar = oldAvatar
+    userForm.value.password = ''
   } catch (error) {
-    $toast.error(`${userForm.value?.name} 更新失败！`)
+    $toast.error(`【${userForm.value?.name}】更新失败！`)
     console.error(error)
   }
   doneNProgress()
+  isUpdating.value = false
 }
 
 // 用户状态转换，true/false转换为1/0
@@ -180,7 +237,7 @@ const canControl = computed(() => {
 
 // 检查是否为当前用户
 const isCurrentUser = computed(() => {
-  return props.username === currentUser
+  return props.username === currentLoginUser
 })
 
 onMounted(() => {
@@ -189,10 +246,6 @@ onMounted(() => {
   }
 })
 
-// 监听 localStorage 中的头像变化
-watch(() => store.state.auth.avatar, () => {
-  nowAvatar.value = store.state.auth.avatar
-})
 </script>
 
 <template>
@@ -205,7 +258,7 @@ watch(() => store.state.auth.avatar, () => {
       <VDivider />
       <VCardText class="d-flex">
         <!-- 👉 Avatar -->
-        <VAvatar rounded="lg" size="100" class="me-6" :image="nowAvatar" />
+        <VAvatar rounded="lg" size="100" class="me-6" :image="currentAvatar" />
 
         <!-- 👉 Upload Photo -->
         <form class="d-flex flex-column justify-center gap-5">
@@ -217,13 +270,13 @@ watch(() => store.state.auth.avatar, () => {
 
             <input ref="refInputEl" type="file" name="file" accept=".jpeg,.png,.jpg,GIF" hidden @input="changeAvatar" />
 
-
-            <VBtn type="reset" color="info" variant="tonal" @click="restoreNowAvatar">
+            <VBtn type="reset" color="info" variant="tonal" @click="restoreCurrentAvatar" v-if="props.oper !== 'add'">
               <VIcon icon="mdi-refresh" />
               <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
             </VBtn>
 
-            <VBtn type="reset" color="error" variant="tonal" @click="resetDefaultAvatar">
+            <VBtn type="reset" :color="props.oper === 'add'? 'info' : 'error'" variant="tonal"
+                  @click="resetDefaultAvatar">
               <VIcon icon="mdi-image-sync-outline" />
               <span v-if="display.mdAndUp.value" class="ms-2">默认</span>
             </VBtn>
@@ -239,8 +292,13 @@ watch(() => store.state.auth.avatar, () => {
             <span>用户基础设置</span>
           </VDivider>
           <VRow>
-            <VCol md="6" cols="12" v-if="props.oper === 'add'">
-              <VTextField  v-model="userForm.name" density="comfortable" label="用户名" />
+            <VCol md="6" cols="12">
+              <VTextField
+                v-model="currentUserName"
+                density="comfortable"
+                clearable
+                label="用户名"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -332,23 +390,27 @@ watch(() => store.state.auth.avatar, () => {
         <VSpacer />
         <VBtn
           v-if="props.oper === 'add'"
+          :disabled="isAdding"
           color="primary"
           variant="elevated"
           @click="addUser"
           prepend-icon="mdi-plus"
           class="px-5"
         >
-          新增
+          <span v-if="isAdding">创建中...</span>
+          <span v-else>创建</span>
         </VBtn>
         <VBtn
           v-else
+          :disabled="isUpdating"
           color="primary"
           variant="elevated"
           @click="updateUser"
           prepend-icon="mdi-content-save"
           class="px-5"
         >
-          保存
+          <span v-if="isUpdating" >更新中...</span>
+          <span v-else>更新</span>
         </VBtn>
       </VCardActions>
     </VCard>

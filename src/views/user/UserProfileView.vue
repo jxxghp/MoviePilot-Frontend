@@ -34,7 +34,10 @@ const secret = ref('')
 const otpPassword = ref('')
 
 // 当前头像缓存
-const nowAvatar = ref(avatar1)
+const currentAvatar = ref(avatar1)
+
+// 当前用户名
+const currentUserName = ref('')
 
 // 当前用户信息
 const accountInfo = ref<User>({
@@ -71,7 +74,7 @@ function changeAvatar(file: Event) {
     fileReader.readAsDataURL(files[0])
     fileReader.onload = () => {
       if (typeof fileReader.result === 'string') {
-        nowAvatar.value = fileReader.result
+        currentAvatar.value = fileReader.result
         $toast.success('新头像上传成功，待保存后生效!')
       }
     }
@@ -80,13 +83,13 @@ function changeAvatar(file: Event) {
 
 // 重置默认头像
 function resetDefaultAvatar() {
-  nowAvatar.value = avatar1
+  currentAvatar.value = avatar1
   $toast.success('已重置为默认头像，待保存后生效！')
 }
 
 // 还原当前头像
-function restoreNowAvatar() {
-  nowAvatar.value = accountInfo.value.avatar
+function restoreCurrentAvatar() {
+  currentAvatar.value = accountInfo.value.avatar
   $toast.success('已还原当前使用头像！')
 }
 
@@ -99,7 +102,8 @@ async function loadAccountInfo() {
     if (!accountInfo.value.avatar) {
       accountInfo.value.avatar = avatar1
     }
-    nowAvatar.value = accountInfo.value.avatar
+  currentAvatar.value = accountInfo.value.avatar
+  currentUserName.value = accountInfo.value.name
   } catch (error) {
     console.log(error)
   }
@@ -107,25 +111,47 @@ async function loadAccountInfo() {
 
 // 保存用户信息
 async function saveAccountInfo() {
+  if (!currentUserName.value) {
+    $toast.error('用户名不能为空')
+    return
+  }
   if (newPassword.value || confirmPassword.value) {
     if (newPassword.value !== confirmPassword.value) {
       $toast.error('两次输入的密码不一致')
-
       return
     }
     accountInfo.value.password = newPassword.value
   }
+  const oldUserName = accountInfo.value.name
   const oldAvatar = accountInfo.value.avatar
-  accountInfo.value.avatar = nowAvatar.value
+  accountInfo.value.avatar = currentAvatar.value
+  accountInfo.value.name = currentUserName.value
   try {
     const result: { [key: string]: any } = await api.put('user/', accountInfo.value)
     if (result.success) {
-      $toast.success('用户信息保存成功！')
-      if (oldAvatar !== nowAvatar.value) {
-        // 通知 localStorage 中的用户头像发生变化
-        store.commit('auth/setAvatar', nowAvatar.value)
+      if (oldUserName !== currentUserName.value) {
+        $toast.success(`【${oldUserName}】更名【${currentUserName.value}】，用户信息保存成功！`)
+        // 更新本地用户名显示
+        store.commit('auth/setUserName', currentUserName.value)
+      } else {
+        $toast.success('用户信息保存成功！')
       }
-    } else $toast.error(`用户信息保存失败：${result.message}！`)
+      // 更新本地头像显示
+      if (oldAvatar !== currentAvatar.value) {
+        store.commit('auth/setAvatar', currentAvatar.value)
+      }
+    } else {
+      if (oldAvatar !== currentAvatar.value) {
+        $toast.error(`【${oldUserName}】更名【${currentUserName.value}】，信息保存失败：${result.message}！`)
+      } else {
+        $toast.error(`用户信息保存失败：${result.message}！`)
+      }
+      // 失败缓存值还原
+      currentUserName.value = accountInfo.value.name
+      accountInfo.value.name = oldUserName
+      currentAvatar.value = accountInfo.value.avatar
+      accountInfo.value.avatar = oldAvatar
+    }
   } catch (error) {
     console.log(error)
   }
@@ -206,8 +232,8 @@ onMounted(() => {
 watch(
   () => store.state.auth.avatar,
   () => {
-    nowAvatar.value = store.state.auth.avatar
-  },
+    currentAvatar.value = store.state.auth.avatar
+  }
 )
 </script>
 
@@ -218,7 +244,7 @@ watch(
         <VCard title="个人信息">
           <VCardText class="d-flex">
             <!-- 👉 Avatar -->
-            <VAvatar rounded="lg" size="100" class="me-6" :image="nowAvatar" />
+            <VAvatar rounded="lg" size="100" class="me-6" :image="currentAvatar" />
 
             <!-- 👉 Upload Photo -->
             <form class="d-flex flex-column justify-center gap-5">
@@ -237,7 +263,7 @@ watch(
                   @input="changeAvatar"
                 />
 
-                <VBtn type="reset" color="info" variant="tonal" @click="restoreNowAvatar">
+                <VBtn type="reset" color="info" variant="tonal" @click="restoreCurrentAvatar">
                   <VIcon icon="mdi-refresh" />
                   <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
                 </VBtn>
@@ -268,10 +294,21 @@ watch(
             <VForm class="mt-6">
               <VRow>
                 <VCol md="6" cols="12">
-                  <VTextField v-model="accountInfo.name" density="comfortable" readonly label="用户名" />
+                  <VTextField
+                    v-model="currentUserName"
+                    density="comfortable"
+                    clearable
+                    label="用户名"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.email" density="comfortable" label="邮箱" type="email" />
+                  <VTextField
+                    v-model="accountInfo.email"
+                    density="comfortable"
+                    clearable
+                    label="邮箱"
+                    type="email"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
@@ -279,6 +316,7 @@ watch(
                     density="comfortable"
                     :type="isNewPasswordVisible ? 'text' : 'password'"
                     :append-inner-icon="isNewPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                    clearable
                     label="新密码"
                     autocomplete=""
                     @click:append-inner="isNewPasswordVisible = !isNewPasswordVisible"
@@ -291,6 +329,7 @@ watch(
                     density="comfortable"
                     :type="isConfirmPasswordVisible ? 'text' : 'password'"
                     :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                    clearable
                     label="确认新密码"
                     @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
                   />
@@ -303,22 +342,34 @@ watch(
 
               <VRow>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.wechat_userid" density="comfortable" label="微信用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.wechat_userid"
+                    density="comfortable"
+                    clearable
+                    label="微信用户"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
                     v-model="accountInfo.settings.telegram_userid"
                     density="comfortable"
+                    clearable
                     label="Telegram用户"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField v-model="accountInfo.settings.slack_userid" density="comfortable" label="Slack用户" />
+                  <VTextField
+                    v-model="accountInfo.settings.slack_userid"
+                    density="comfortable"
+                    clearable
+                    label="Slack用户"
+                  />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
                     v-model="accountInfo.settings.vocechat_userid"
                     density="comfortable"
+                    clearable
                     label="VoceChat用户"
                   />
                 </VCol>
@@ -326,6 +377,7 @@ watch(
                   <VTextField
                     v-model="accountInfo.settings.synologychat_userid"
                     density="comfortable"
+                    clearable
                     label="SynologyChat用户"
                   />
                 </VCol>

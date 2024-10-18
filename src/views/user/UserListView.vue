@@ -59,7 +59,7 @@ onActivated(() => {
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
 
   <div v-if="allUsers.length > 0" class="grid gap-3 grid-user-card items-start">
-    <UserCard v-for="user in allUsers" :user="user" @remove="loadAllUsers" @save="loadAllUsers" />
+    <UserCard v-for="user in allUsers" :user="user" :users="allUsers" @remove="loadAllUsers" @save="loadAllUsers" />
   </div>
 
   <NoDataFound
