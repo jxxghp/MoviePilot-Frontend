@@ -7,6 +7,7 @@ import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
 import store from '@/store'
+import { debounce } from 'lodash'
 
 // 显示器宽度
 const display = useDisplay()
@@ -20,6 +21,12 @@ const confirmPassword = ref('')
 const $toast = useToast()
 
 const refInputEl = ref<HTMLElement>()
+
+// 防抖时间
+const debounceTime = 500
+
+// 正在保存
+const isSaving = ref(false)
 
 // 开启双重验证窗口
 const otpDialog = ref(false)
@@ -58,9 +65,6 @@ const accountInfo = ref<User>({
     synologychat_userid: null,
   },
 })
-
-// 所有用户信息
-const allUsers = ref<User[]>([])
 
 // 二维码信息
 const qrCode = ref('')
@@ -110,7 +114,11 @@ async function loadAccountInfo() {
 }
 
 // 保存用户信息
-async function saveAccountInfo() {
+const saveAccountInfo = debounce(async () => {
+  if (isSaving.value) {
+    $toast.error('正在保存中，请稍后...')
+    return
+  }
   if (!currentUserName.value) {
     $toast.error('用户名不能为空')
     return
@@ -126,6 +134,7 @@ async function saveAccountInfo() {
   const oldAvatar = accountInfo.value.avatar
   accountInfo.value.avatar = currentAvatar.value
   accountInfo.value.name = currentUserName.value
+  isSaving.value = true
   try {
     const result: { [key: string]: any } = await api.put('user/', accountInfo.value)
     if (result.success) {
@@ -155,16 +164,8 @@ async function saveAccountInfo() {
   } catch (error) {
     console.log(error)
   }
-}
-
-// 调用API，查询所有用户
-async function loadAllUsers() {
-  try {
-    allUsers.value = await api.get('/user/')
-  } catch (error) {
-    console.log(error)
-  }
-}
+  isSaving.value = false
+}, debounceTime)
 
 // 为当前用户获取Otp Uri
 async function getOtpUri() {
@@ -225,7 +226,6 @@ async function judgeOtpPassword() {
 // 加载当前用户数据
 onMounted(() => {
   loadAccountInfo()
-  loadAllUsers()
 })
 
 // 监听 localStorage 中的用户头像变化
@@ -385,7 +385,13 @@ watch(
               <VRow>
                 <!-- 👉 Form Actions -->
                 <VCol cols="12" class="d-flex flex-wrap gap-4">
-                  <VBtn @click="saveAccountInfo"> 保存 </VBtn>
+                  <VBtn
+                    @click="saveAccountInfo"
+                    :disabled="isSaving"
+                  >
+                    <span v-if="isSaving">保存中...</span>
+                    <span v-else>保存</span>
+                  </VBtn>
                 </VCol>
               </VRow>
             </VForm>
