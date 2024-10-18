@@ -388,6 +388,7 @@ onBeforeMount(async () => {
                     chips
                     label="作者"
                     multiple
+                    clearable
                   />
                 </VCol>
                 <VCol v-if="labelFilterOptions.length > 0" cols="6" md="">
@@ -399,6 +400,7 @@ onBeforeMount(async () => {
                     chips
                     label="标签"
                     multiple
+                    clearable
                   />
                 </VCol>
                 <VCol v-if="repoFilterOptions.length > 0" cols="6" md="">
@@ -410,6 +412,7 @@ onBeforeMount(async () => {
                     chips
                     label="插件库"
                     multiple
+                    clearable
                   />
                 </VCol>
                 <VCol v-if="repoFilterOptions.length > 0" cols="6" md="">

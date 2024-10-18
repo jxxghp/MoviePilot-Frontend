@@ -256,6 +256,7 @@ onMounted(() => {
                   v-model="selectedTorrentPriority"
                   :items="TorrentPriorityItems"
                   multiple
+                  clearable
                   chips
                   label="当前使用下载优先规则"
                   hint="排在前面的优先级越高，未选择的项不纳入排序"

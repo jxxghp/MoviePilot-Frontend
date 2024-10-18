@@ -148,6 +148,7 @@ onMounted(() => {
               <VSelect
                 v-model="selectedMediaSource"
                 multiple
+                clearable
                 chips
                 :items="mediaSourcesDict"
                 label="媒体数据源"
@@ -159,6 +160,7 @@ onMounted(() => {
               <VSelect
                 v-model="selectedFilterGroup"
                 multiple
+                clearable
                 chips
                 :items="filterRuleGroupOptions"
                 label="优先级规则组"

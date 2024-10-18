@@ -277,6 +277,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="站点"
           multiple
+          clearable
         />
       </VCol>
       <VCol v-if="seasonFilterOptions.length > 0" cols="6" md="">
@@ -288,6 +289,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="季集"
           multiple
+          clearable
         />
       </VCol>
       <VCol v-if="releaseGroupFilterOptions.length > 0" cols="6" md="">
@@ -299,6 +301,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="制作组"
           multiple
+          clearable
         />
       </VCol>
       <VCol v-if="editionFilterOptions.length > 0" cols="6" md="">
@@ -310,6 +313,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="质量"
           multiple
+          clearable
         />
       </VCol>
       <VCol v-if="resolutionFilterOptions.length > 0" cols="6" md="">
@@ -321,6 +325,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="分辨率"
           multiple
+          clearable
         />
       </VCol>
       <VCol v-if="videoCodeFilterOptions.length > 0" cols="6" md="">
@@ -332,6 +337,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="视频编码"
           multiple
+          clearable
         />
       </VCol>
       <VCol v-if="freeStateFilterOptions.length > 0" cols="6" md="">
@@ -343,6 +349,7 @@ function loadMore({ done }: { done: any }) {
           chips
           label="促销状态"
           multiple
+          clearable
         />
       </VCol>
     </VRow>

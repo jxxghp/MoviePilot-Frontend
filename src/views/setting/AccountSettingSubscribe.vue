@@ -199,6 +199,7 @@ onMounted(() => {
                   :items="filterRuleGroupOptions"
                   chips
                   multiple
+                  clearable
                   label="订阅优先级规则组"
                   hint="按选定的过滤规则组对订阅进行过滤"
                   persistent-hint
@@ -210,6 +211,7 @@ onMounted(() => {
                   :items="filterRuleGroupOptions"
                   chips
                   multiple
+                  clearable
                   label="洗版优先级规则组"
                   hint="按选定的过滤规则组对洗版订阅进行过滤"
                   persistent-hint
