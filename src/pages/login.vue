@@ -171,6 +171,7 @@ function login() {
       // 获取token
       const token = response.access_token
       const superUser = response.super_user
+      const userID = response.user_id
       const userName = response.user_name
       const avatar = response.avatar
       const level = response.level
@@ -178,7 +179,7 @@ function login() {
       const permissions = response.permissions
 
       // 更新token和remember状态到Vuex Store
-      store.dispatch('auth/login', { token, remember, superUser, userName, avatar, level, permissions })
+      store.dispatch('auth/login', { token, remember, superUser, userID, userName, avatar, level, permissions })
 
       // 登录后处理
       afterLogin(superUser)
