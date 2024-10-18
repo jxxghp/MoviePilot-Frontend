@@ -79,7 +79,7 @@ function saveNotificationInfo() {
     return
   }
   // 重名判断
-  if (props.notifications.some(item => item.name === notificationName.value && item!== props.notification)) {
+  if (props.notifications.some(item => item.name === notificationName.value && item !== props.notification)) {
     $toast.error(`【${notificationName.value}】已存在，请替换为其他名称`)
     return
   }
@@ -129,7 +129,7 @@ function onClose() {
         <VImg :src="getIcon" cover class="mt-5 me-7" max-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="notificationInfoDialog" scrollable max-width="40rem" persistent >
+    <VDialog v-model="notificationInfoDialog" scrollable max-width="40rem" persistent>
       <VCard :title="`${props.notification.name} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="notificationInfoDialog" />
         <VDivider />
@@ -146,6 +146,7 @@ function onClose() {
                   label="消息类型"
                   hint="开启通知的消息类型"
                   multiple
+                  clearable
                   chips
                   persistent-hint
                 />

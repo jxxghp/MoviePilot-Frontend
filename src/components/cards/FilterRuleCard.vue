@@ -94,6 +94,7 @@ onMounted(() => {
             chips
             label=""
             multiple
+            clearable
             @update:modelValue="filtersChanged"
           />
         </VCol>

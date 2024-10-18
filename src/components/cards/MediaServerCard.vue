@@ -330,6 +330,7 @@ onMounted(() => {
                   :items="librariesOptions"
                   chips
                   multiple
+                  clearable
                   hint="只有选中的媒体库才会被同步"
                   persistent-hint
                   active

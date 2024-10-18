@@ -387,6 +387,7 @@ onMounted(() => {
                       chips
                       label="订阅站点"
                       multiple
+                      clearable
                       hint="订阅的站点范围，不选使用系统设置"
                       persistent-hint
                     />
@@ -447,6 +448,7 @@ onMounted(() => {
                       :items="filterRuleGroupOptions"
                       chips
                       multiple
+                      clearable
                       label="优先级规则组"
                       hint="按选定的过滤规则组对订阅进行过滤"
                       persistent-hint
