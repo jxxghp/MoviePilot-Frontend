@@ -233,7 +233,7 @@ watch(
   () => store.state.auth.avatar,
   () => {
     currentAvatar.value = store.state.auth.avatar
-  },
+  }
 )
 </script>
 
