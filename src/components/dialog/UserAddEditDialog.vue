@@ -270,7 +270,6 @@ onMounted(() => {
 
             <input ref="refInputEl" type="file" name="file" accept=".jpeg,.png,.jpg,GIF" hidden @input="changeAvatar" />
 
-
             <VBtn type="reset" color="info" variant="tonal" @click="restoreCurrentAvatar" v-if="props.oper !== 'add'">
               <VIcon icon="mdi-refresh" />
               <span v-if="display.mdAndUp.value" class="ms-2">重置</span>

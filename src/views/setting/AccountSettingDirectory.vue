@@ -63,7 +63,6 @@ async function saveStorages() {
 
 // 修改后生效
 async function updatedStorage() {
-  await saveStorages()
   loadStorages()
 }
 
@@ -98,9 +97,9 @@ async function saveDirectories() {
 
 // 添加媒体库目录
 function addDirectory() {
-  let name = `目录${directories.value.length + 1}`;
+  let name = `目录${directories.value.length + 1}`
   while (directories.value.some(item => item.name === name)) {
-    name = `目录${parseInt(name.split('目录')[1]) + 1}`;
+    name = `目录${parseInt(name.split('目录')[1]) + 1}`
   }
   directories.value.push({
     name: name,

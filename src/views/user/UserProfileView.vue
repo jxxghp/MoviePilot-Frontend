@@ -229,9 +229,12 @@ onMounted(() => {
 })
 
 // 监听 localStorage 中的用户头像变化
-watch(() => store.state.auth.avatar, () => {
-  currentAvatar.value = store.state.auth.avatar
-})
+watch(
+  () => store.state.auth.avatar,
+  () => {
+    currentAvatar.value = store.state.auth.avatar
+  },
+)
 </script>
 
 <template>
@@ -271,7 +274,7 @@ watch(() => store.state.auth.avatar, () => {
                 </VBtn>
 
                 <VBtn
-                  :color="accountInfo.is_otp ? 'error' : 'info'"
+                  :color="accountInfo.is_otp ? 'warning' : 'success'"
                   variant="tonal"
                   @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
                 >

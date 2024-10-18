@@ -16,15 +16,18 @@ const appsMenu = ref(false)
 
 // SSE持续接收消息
 function startSSEMessager() {
-  eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message`)
-  eventSource.addEventListener('message', event => {
-    if (event.data) {
-      const noti: SystemNotification = JSON.parse(event.data)
-      notificationList.value.unshift(noti)
-      hasNewMessage.value = true
-      // TODO 在顶部显示消息汽泡
-    }
-  })
+  // 延迟 3 秒启动 SSE，避免相关认证信息尚未写入 Cookie 导致 403
+  setTimeout(() => {
+    eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}system/message`)
+    eventSource.addEventListener('message', event => {
+      if (event.data) {
+        const noti: SystemNotification = JSON.parse(event.data)
+        notificationList.value.unshift(noti)
+        hasNewMessage.value = true
+        // TODO 在顶部显示消息汽泡
+      }
+    })
+  }, 3000)
 }
 
 // 页面加载时，加载当前用户数据

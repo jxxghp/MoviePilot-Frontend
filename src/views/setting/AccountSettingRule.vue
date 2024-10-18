@@ -25,9 +25,10 @@ const $toast = useToast()
 
 // 种子优先规则下拉框
 const TorrentPriorityItems = [
-  { title: '站点排序优先', value: 'site' },
-  { title: '站点上传量优先', value: 'upload' },
-  { title: '资源做种数优先', value: 'seeder' },
+  { title: '资源优先级', value: 'torrent' },
+  { title: '站点优先级', value: 'site' },
+  { title: '站点上传量', value: 'upload' },
+  { title: '资源做种数', value: 'seeder' },
 ]
 
 // 调用API查询自动分类配置
@@ -52,13 +53,13 @@ async function saveCustomRules() {
 
 // 添加自定义规则
 function addCustomRule() {
-  let id = `RULE${customRules.value.length + 1}`;
+  let id = `RULE${customRules.value.length + 1}`
   while (customRules.value.some(item => item.id === id)) {
-    id = `RULE${parseInt(id.split('RULE')[1]) + 1}`;
+    id = `RULE${parseInt(id.split('RULE')[1]) + 1}`
   }
-  let name = `规则${customRules.value.length + 1}`;
+  let name = `规则${customRules.value.length + 1}`
   while (customRules.value.some(item => item.name === name)) {
-    name = `规则${parseInt(name.split('规则')[1]) + 1}`;
+    name = `规则${parseInt(name.split('规则')[1]) + 1}`
   }
   customRules.value.push({
     id: id,
@@ -97,9 +98,9 @@ async function saveFilterRuleGroups() {
 
 // 添加规则组
 function addFilterRuleGroup() {
-  let name = `规则组${filterRuleGroups.value.length + 1}`;
+  let name = `规则组${filterRuleGroups.value.length + 1}`
   while (filterRuleGroups.value.some(item => item.name === name)) {
-    name = `规则组${parseInt(name.split('规则组')[1]) + 1}`;
+    name = `规则组${parseInt(name.split('规则组')[1]) + 1}`
   }
   filterRuleGroups.value.push({
     name: name,
@@ -245,7 +246,7 @@ onMounted(() => {
       <VCard>
         <VCardItem>
           <VCardTitle>下载规则</VCardTitle>
-          <VCardSubtitle>按站点或做种数量优先下载。</VCardSubtitle>
+          <VCardSubtitle>同时命中多个资源时择优下载。</VCardSubtitle>
         </VCardItem>
         <VCardText>
           <VForm>
@@ -254,8 +255,10 @@ onMounted(() => {
                 <VSelect
                   v-model="selectedTorrentPriority"
                   :items="TorrentPriorityItems"
+                  multiple
+                  chips
                   label="当前使用下载优先规则"
-                  hint="同时命中多个站点的多个资源时下载的优先规则"
+                  hint="排在前面的优先级越高，未选择的项不纳入排序"
                   persistent-hint
                 />
               </VCol>

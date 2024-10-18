@@ -3,6 +3,7 @@ import api from '@/api'
 import { DownloaderConf } from '@/api/types'
 import DownloadingListView from '@/views/reorganize/DownloadingListView.vue'
 import router from '@/router'
+import NoDataFound from '@/components/NoDataFound.vue'
 
 const route = useRoute()
 const activeTab = ref(route.query.tab)
@@ -36,7 +37,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <div v-if="enabledDownloaders.length > 0">
     <VTabs v-model="activeTab">
       <VTab v-for="item in enabledDownloaders" :value="item.name" @to="jumpTab(item.name)">
         <span class="mx-5">{{ item.name }}</span>
@@ -51,4 +52,10 @@ onMounted(() => {
       </VWindowItem>
     </VWindow>
   </div>
+  <NoDataFound
+    v-else
+    error-code="404"
+    error-title="没有下载器"
+    error-description="请先在设置中正确配置并启用下载器。"
+  />
 </template>
