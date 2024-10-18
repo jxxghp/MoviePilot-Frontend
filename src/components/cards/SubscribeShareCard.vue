@@ -124,7 +124,7 @@ async function forkSubscribe() {
           </VImg>
         </template>
         <div>
-          <VCardText class="flex items-center">
+          <VCardText class="flex items-center pb-1">
             <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg" v-if="imageLoaded">
               <VImg :src="posterUrl" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
                 <template #placeholder>
@@ -134,11 +134,11 @@ async function forkSubscribe() {
                 </template>
               </VImg>
             </div>
-            <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
+            <div class="flex flex-col justify-center pl-2 xl:pl-4 line-clamp-2 overflow-hidden text-ellipsis ...">
               <div class="mr-2 min-w-0 text-lg font-bold text-white">
                 {{ props.media?.share_title }}
               </div>
-              <div class="text-sm font-medium text-gray-200 sm:pt-1">
+              <div class="text-sm font-medium text-gray-200 sm:pt-1 line-clamp-3 overflow-hidden text-ellipsis ...">
                 {{ props.media?.share_comment }}
               </div>
             </div>
