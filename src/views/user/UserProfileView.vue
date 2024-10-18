@@ -297,7 +297,7 @@ watch(
                   <VTextField
                     v-model="currentUserName"
                     density="comfortable"
-                    clearable
+                    readonly
                     label="用户名"
                   />
                 </VCol>

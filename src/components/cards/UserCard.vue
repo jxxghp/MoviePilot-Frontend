@@ -92,7 +92,6 @@ const canEditUser = computed(() => {
 
 // 计算是否有用户管理权限
 const canManageUser = computed(() => {
-  if (props.user.name == currentLoginUser) return false
   return canEditUser
 })
 

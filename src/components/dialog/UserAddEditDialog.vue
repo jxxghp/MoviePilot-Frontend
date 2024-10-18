@@ -43,10 +43,10 @@ const currentUserName = ref('')
 const emit = defineEmits(['save', 'close'])
 
 // 创建新用户按钮运行状态
-const isAdding = ref(false);
+const isAdding = ref(false)
 
 // 更新用户消息按钮运行状态
-const isUpdating = ref(false);
+const isUpdating = ref(false)
 
 // 提示框
 const $toast = useToast()
@@ -235,7 +235,7 @@ const canControl = computed(() => {
     return true
   } else {
     // 调用isCurrentUser函数判断是否为当前用户
-    return !(isCurrentUser.value)
+    return !isCurrentUser.value
   }
 })
 
@@ -249,7 +249,6 @@ onMounted(() => {
     fetchUserInfo()
   }
 })
-
 </script>
 
 <template>
@@ -279,12 +278,15 @@ onMounted(() => {
               <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
             </VBtn>
 
-            <VBtn type="reset" :color="props.oper === 'add'? 'info' : 'error'" variant="tonal"
-                  @click="resetDefaultAvatar">
+            <VBtn
+              type="reset"
+              :color="props.oper === 'add' ? 'info' : 'error'"
+              variant="tonal"
+              @click="resetDefaultAvatar"
+            >
               <VIcon icon="mdi-image-sync-outline" />
               <span v-if="display.mdAndUp.value" class="ms-2">默认</span>
             </VBtn>
-
           </div>
 
           <p class="text-body-1 mb-0">允许 JPG、PNG、GIF 格式， 最大尺寸 800K。</p>
@@ -300,17 +302,12 @@ onMounted(() => {
               <VTextField
                 v-model="currentUserName"
                 density="comfortable"
-                clearable
+                :readonly="props.oper !== 'add'"
                 label="用户名"
               />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField
-                v-model="userForm.email"
-                density="comfortable"
-                clearable
-                label="邮箱"
-                type="email" />
+              <VTextField v-model="userForm.email" density="comfortable" clearable label="邮箱" type="email" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -352,32 +349,26 @@ onMounted(() => {
           </VDivider>
           <VRow>
             <VCol cols="12" md="6">
-              <VTextField
-                v-model="userForm.settings.wechat_userid"
-                density="comfortable"
-                clearable
-                label="微信用户" />
+              <VTextField v-model="userForm.settings.wechat_userid" density="comfortable" clearable label="微信用户" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="userForm.settings.telegram_userid"
                 density="comfortable"
                 clearable
-                label="Telegram用户" />
+                label="Telegram用户"
+              />
             </VCol>
             <VCol cols="12" md="6">
-              <VTextField
-                v-model="userForm.settings.slack_userid"
-                density="comfortable"
-                clearable
-                label="Slack用户" />
+              <VTextField v-model="userForm.settings.slack_userid" density="comfortable" clearable label="Slack用户" />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
                 v-model="userForm.settings.vocechat_userid"
                 density="comfortable"
                 clearable
-                label="VoceChat用户" />
+                label="VoceChat用户"
+              />
             </VCol>
             <VCol cols="12" md="6">
               <VTextField
@@ -413,7 +404,7 @@ onMounted(() => {
           prepend-icon="mdi-content-save"
           class="px-5"
         >
-          <span v-if="isUpdating" >更新中...</span>
+          <span v-if="isUpdating">更新中...</span>
           <span v-else>更新</span>
         </VBtn>
       </VCardActions>
