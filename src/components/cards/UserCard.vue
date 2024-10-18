@@ -22,7 +22,7 @@ const props = defineProps({
 })
 
 // 当前用户名称
-const currentLoginUser = store.state.auth.userName
+const currentLoginUserId = computed(() => store.state.auth.userID)
 
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
@@ -57,7 +57,7 @@ async function fetchSubscriptions() {
 
 // 删除用户
 async function removeUser() {
-  if (props.user.name == currentLoginUser) {
+  if (props.user.id === currentLoginUserId.value) {
     $toast.error('不能删除当前登录用户！')
     return
   }
@@ -81,6 +81,7 @@ async function removeUser() {
 
 // 编辑用户
 function editUser() {
+  $toast.info(`编辑用户, id是 ${currentLoginUserId.value}`)
   userEditDialog.value = true
 }
 
@@ -165,7 +166,7 @@ onMounted(() => {
         编辑
       </VBtn>
       <VBtn
-        v-if="store.state.auth.superUser && !(props.user.name === currentLoginUser)"
+        v-if="!(props.user.id === currentLoginUserId)"
         color="error" variant="outlined"
         @click="removeUser"
       >
