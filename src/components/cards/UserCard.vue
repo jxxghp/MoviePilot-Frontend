@@ -81,7 +81,6 @@ async function removeUser() {
 
 // 编辑用户
 function editUser() {
-  $toast.info(`编辑用户, id是 ${currentLoginUserId.value}`)
   userEditDialog.value = true
 }
 
