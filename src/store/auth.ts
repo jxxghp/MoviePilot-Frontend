@@ -28,29 +28,7 @@ const authModule: Module<AuthState, RootState> = {
     avatar: '', // 头像
     originalPath: null, // 原始路径
     level: 1, // 用户认证等级 1-未认证 2-已认证
-    permissions: {
-      admin: false, // 管理员
-      usermanage: false, // 用户管理
-      dashboard: true, //仪表板
-      ranking: true, // 推荐榜单
-      resource: {
-        search: false, // 搜索站点资源
-        download: false, // 下载站点资源
-      },
-      subscribe: {
-        movie: true, // 查看电影订阅
-        tv: true, // 电视剧订阅
-        request: true, // 提交订阅请求
-        autopass: false, // 订阅请求自动批准
-        approve: false, // 审批订阅请求
-        calendar: true, // 查看订阅日历
-        manage: false, // 管理所有订阅
-      },
-      downloading: {
-        view: true, // 查看正在下载任务
-        manager: false, // 管理正在下载任务
-      },
-    },
+    permissions: {},
   },
   mutations: {
     setToken(state, token: string) {

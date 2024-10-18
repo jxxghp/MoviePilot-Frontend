@@ -5,7 +5,6 @@ import store from '@/store'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useToast } from 'vue-toast-notification'
 import { useConfirm } from 'vuetify-use-dialog'
-import { hasPermission } from '@/@core/utils/permission'
 import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 
 // 定义输入变量
@@ -87,8 +86,8 @@ function editUser() {
 
 // 计算是否有用户编辑权限
 const canEditUser = computed(() => {
-  if (store.state.auth.superUser) return true
-  return hasPermission('admin') || hasPermission('usermanage')
+  if (store.state.auth.superUser && props.user.name !== currentLoginUser) return true
+  return false
 })
 
 // 计算是否有用户管理权限

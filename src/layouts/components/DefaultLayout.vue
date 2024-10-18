@@ -12,7 +12,6 @@ import store from '@/store'
 import { SystemNavMenus } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
-import { hasPermission } from '@/@core/utils/permission'
 
 const display = useDisplay()
 const appMode = computed(() => {
@@ -39,9 +38,7 @@ const systemMenus = ref<NavMenu[]>([])
 
 // 根据分类获取菜单列表
 const getMenuList = (header: string) => {
-  return SystemNavMenus.filter(
-    (item: NavMenu) => item.header === header && (superUser || hasPermission(item.permission)),
-  )
+  return SystemNavMenus.filter((item: NavMenu) => item.header === header && superUser)
 }
 
 // 返回上一页
