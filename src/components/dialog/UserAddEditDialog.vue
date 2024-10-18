@@ -6,6 +6,7 @@ import api from '@/api'
 import { useDisplay } from 'vuetify'
 import avatar1 from '@images/avatars/avatar-1.png'
 import store from '@/store'
+import { debounce } from 'lodash'
 
 // 显示器宽度
 const display = useDisplay()
@@ -22,6 +23,9 @@ const props = defineProps({
   usernames: Array,
   oper: String,
 })
+
+// 防抖时间
+const debounceTime = 500
 
 // 当前登录用户名称
 const currentLoginUser = store.state.auth.userName
@@ -115,7 +119,7 @@ async function fetchUserInfo() {
 }
 
 // 调用API 新增用户
-async function addUser() {
+const addUser = debounce(async () => {
   if (isAdding.value) {
     $toast.error(`正在创建【${userForm.value.name}】用户，请稍后`)
     return
@@ -154,10 +158,10 @@ async function addUser() {
   }
   doneNProgress()
   isAdding.value = false
-}
+}, debounceTime)
 
 // 调用API更新用户信息
-async function updateUser() {
+const updateUser = debounce(async () => {
   if (isUpdating.value) {
     $toast.error(`正在更新【${userForm.value.name}】用户，请稍后`)
     return
@@ -214,7 +218,7 @@ async function updateUser() {
   }
   doneNProgress()
   isUpdating.value = false
-}
+}, debounceTime)
 
 // 用户状态转换，true/false转换为1/0
 const userStatus = computed({
