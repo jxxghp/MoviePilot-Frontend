@@ -165,7 +165,7 @@ onMounted(() => {
         编辑
       </VBtn>
       <VBtn
-        v-if="!(props.user.id === currentLoginUserId)"
+        v-if="props.user.id != currentLoginUserId"
         color="error"
         variant="outlined"
         @click="removeUser"
