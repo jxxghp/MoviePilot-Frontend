@@ -8,9 +8,7 @@ import { useDisplay } from 'vuetify'
 const display = useDisplay()
 
 // APP
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 定义输入参数
 const props = defineProps({
@@ -38,7 +36,7 @@ const filterForm = reactive({
 
 // 列表样式
 const listStyle = computed(() => {
-  return appMode.value
+  return appMode
     ? 'height: calc(100vh - 7.5rem - env(safe-area-inset-bottom) - 3.5rem)'
     : 'height: calc(100vh - 6.5rem - env(safe-area-inset-bottom)'
 })

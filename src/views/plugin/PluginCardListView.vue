@@ -16,9 +16,7 @@ const route = useRoute()
 const display = useDisplay()
 
 // APP
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 当前标签
 const activeTab = ref(route.query.tab)

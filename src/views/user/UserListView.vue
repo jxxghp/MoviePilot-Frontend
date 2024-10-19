@@ -7,10 +7,7 @@ import UserCard from '@/components/cards/UserCard.vue'
 import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 
 // APP
-const display = useDisplay()
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -58,7 +55,7 @@ onActivated(() => {
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
 
-  <div v-if="allUsers.length > 0" class="grid gap-3 grid-user-card items-start">
+  <div v-if="allUsers.length > 0" class="grid gap-3 grid-user-card">
     <UserCard v-for="user in allUsers" :user="user" :users="allUsers" @remove="loadAllUsers" @save="loadAllUsers" />
   </div>
 

@@ -10,13 +10,8 @@ import router from '@/router'
 import { useDisplay } from 'vuetify'
 import { storageDict } from '@/api/constants'
 
-// 显示器宽度
-const display = useDisplay()
-
 // APP
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 提示框
 const $toast = useToast()
@@ -126,7 +121,7 @@ const TransferDict: { [key: string]: string } = {
 }
 
 const tableStyle = computed(() => {
-  return appMode.value
+  return appMode
     ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
     : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
 })

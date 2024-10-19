@@ -9,13 +9,8 @@ import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.v
 import store from '@/store'
 import { useDisplay } from 'vuetify'
 
-// 显示器宽度
-const display = useDisplay()
-
 // APP
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 输入参数
 const props = defineProps({

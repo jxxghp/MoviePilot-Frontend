@@ -8,10 +8,7 @@ import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { useDisplay } from 'vuetify'
 
 // APP
-const display = useDisplay()
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 从Vuex Store中获取superuser信息
 const superUser = store.state.auth.superUser

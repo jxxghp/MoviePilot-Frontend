@@ -2,8 +2,7 @@
 export async function getClipboardContent() {
   if (navigator.clipboard && window.isSecureContext) {
     return await navigator.clipboard.readText()
-  }
-  else {
+  } else {
     const input = document.createElement('textarea')
     document.body.appendChild(input)
     input.select()
@@ -18,8 +17,7 @@ export async function getClipboardContent() {
 export async function copyToClipboard(content: string) {
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(content)
-  }
-  else {
+  } else {
     const input = document.createElement('textarea')
     input.value = content
     document.body.appendChild(input)
@@ -41,4 +39,13 @@ export function urlBase64ToUint8Array(base64String: string) {
     outputArray[i] = rawData.charCodeAt(i)
   }
   return outputArray
+}
+
+// 判断是否为PWA
+export const isPWA = async (): Promise<boolean> => {
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    return registrations.length > 0
+  }
+  return (window.navigator as any).standalone === true
 }

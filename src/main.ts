@@ -23,20 +23,24 @@ import MediaInfoCard from './components/cards/MediaInfoCard.vue'
 import TorrentCard from './components/cards/TorrentCard.vue'
 import MediaIdSelector from './components/misc/MediaIdSelector.vue'
 import PathField from './components/input/PathField.vue'
+import { fetchGlobalSettings } from './api'
+import { isPWA } from './@core/utils/navigator'
 import '@core/scss/template/index.scss'
 import '@layouts/styles/index.scss'
 import '@styles/styles.scss'
 import 'vue-toast-notification/dist/theme-bootstrap.css'
 import 'vue3-perfect-scrollbar/style.css'
-import { fetchGlobalSettings } from './api'
 
 // 创建Vue实例
 const app = createApp(App)
 
 async function initializeApp() {
   try {
+    // 是否为PWA
+    const appMode = await isPWA()
+    app.provide('appMode', appMode)
+    // 全局设置
     const globalSettings = await fetchGlobalSettings()
-    // 使用 provide 传递全局设置
     app.provide('globalSettings', globalSettings)
   } catch (error) {
     console.error('Failed to initialize app', error)

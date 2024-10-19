@@ -14,9 +14,7 @@ import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
 
 const display = useDisplay()
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 是否超级用户
 let superUser = store.state.auth.superUser

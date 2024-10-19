@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import { useDisplay } from 'vuetify'
-
-const display = useDisplay()
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 const route = useRoute()
 

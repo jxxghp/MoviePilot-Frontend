@@ -92,7 +92,9 @@ const canEditUser = computed(() => {
 
 // 计算是否有用户管理权限
 const canManageUser = computed(() => {
-  return canEditUser
+  if (props.user.name == currentLoginUser) return false
+  if (store.state.auth.superUser) return true
+  return false
 })
 
 // 用户重新完成时

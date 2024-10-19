@@ -63,7 +63,7 @@ const userForm = ref<User>({
   name: props.username ?? '',
   password: '',
   email: '',
-  is_active: false,
+  is_active: true,
   is_superuser: false,
   avatar: avatar1,
   is_otp: false,

@@ -59,20 +59,10 @@ async function restart() {
   }
 }
 
-// 是否精简模式
-const isCompactMode = ref(localStorage.getItem('MP_APPMODE') != '0')
-
 // 从Vuex Store中获取信息
-const superUser = computed(() =>store.state.auth.superUser)
-const userName = computed(() =>store.state.auth.userName)
+const superUser = computed(() => store.state.auth.superUser)
+const userName = computed(() => store.state.auth.userName)
 const avatar = computed(() => store.state.auth.avatar || avatar1)
-
-// 监听精简模式切换
-watch(isCompactMode, value => {
-  localStorage.setItem('MP_APPMODE', value ? '1' : '0')
-  //刷新页面
-  location.reload()
-})
 </script>
 
 <template>
@@ -97,16 +87,6 @@ watch(isCompactMode, value => {
           <VListItemSubtitle>{{ userName }}</VListItemSubtitle>
         </VListItem>
 
-        <!-- Divider -->
-        <VDivider v-if="display.mdAndDown.value" class="my-2" />
-
-        <!-- 👉 AppMode -->
-        <VListItem v-if="display.mdAndDown.value">
-          <template #prepend>
-            <VSwitch class="me-2" v-model="isCompactMode"></VSwitch>
-          </template>
-          <VListItemTitle>App模式</VListItemTitle>
-        </VListItem>
         <VDivider class="my-2" />
 
         <!-- 👉 Profile -->

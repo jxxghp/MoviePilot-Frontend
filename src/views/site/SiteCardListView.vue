@@ -7,13 +7,8 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import { useDisplay } from 'vuetify'
 
-// 显示器宽度
-const display = useDisplay()
-
 // APP
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 站点列表
 const siteList = ref<Site[]>([])

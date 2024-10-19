@@ -15,9 +15,7 @@ import { useDisplay } from 'vuetify'
 const display = useDisplay()
 
 // APP
-const appMode = computed(() => {
-  return localStorage.getItem('MP_APPMODE') != '0' && display.mdAndDown.value
-})
+const appMode = inject('appMode')
 
 // 输入参数
 const inProps = defineProps({
@@ -119,7 +117,7 @@ const currentImgLink = ref('')
 
 // 大小控制
 const scrollStyle = computed(() => {
-  return appMode.value
+  return appMode
     ? 'height: calc(100vh - 15.5rem - env(safe-area-inset-bottom) - 3.5rem)'
     : 'height: calc(100vh - 14.5rem - env(safe-area-inset-bottom)'
 })
