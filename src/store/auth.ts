@@ -5,6 +5,7 @@ interface AuthState {
   token: string | null
   remember: boolean
   superUser: boolean
+  userID: number
   userName: string
   avatar: string
   originalPath: string | null
@@ -24,6 +25,7 @@ const authModule: Module<AuthState, RootState> = {
     token: null, // 用户令牌
     remember: false, // 记住我
     superUser: false, // 超级管理员
+    userID: 999, // 用户ID
     userName: '', // 用户名
     avatar: '', // 头像
     originalPath: null, // 原始路径
@@ -43,6 +45,9 @@ const authModule: Module<AuthState, RootState> = {
     setSuperUser(state, superUser: boolean) {
       state.superUser = superUser
     },
+    setUserID(state, userID: number) {
+      state.userID = userID
+    },
     setUserName(state, userName: string) {
       state.userName = userName
     },
@@ -60,10 +65,11 @@ const authModule: Module<AuthState, RootState> = {
     },
   },
   actions: {
-    login({ commit }, { token, remember, superUser, userName, avatar, level, permissions }) {
+    login({ commit }, { token, remember, superUser, userID, userName, avatar, level, permissions }) {
       commit('setToken', token)
       commit('setRemember', remember)
       commit('setSuperUser', superUser)
+      commit('setUserID', userID)
       commit('setUserName', userName)
       commit('setAvatar', avatar)
       commit('setLevel', level)
@@ -78,6 +84,7 @@ const authModule: Module<AuthState, RootState> = {
     getToken: state => state.token,
     getRemember: state => state.remember,
     getSuperUser: state => state.superUser,
+    getUserID: state => state.userID,
     getUserName: state => state.userName,
     getAvatar: state => state.avatar,
     getOriginalPath: state => state.originalPath,
