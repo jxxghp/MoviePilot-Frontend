@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const appMode = inject('appMode')
+import { useDisplay } from 'vuetify'
+
+const display = useDisplay()
+const appMode = inject('appMode') && display.mdAndDown
 
 const route = useRoute()
 
