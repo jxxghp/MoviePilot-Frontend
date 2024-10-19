@@ -7,7 +7,8 @@ import TorrentRowListView from '@/views/discover/TorrentRowListView.vue'
 import { useDisplay } from 'vuetify'
 
 // APP
-const appMode = inject('appMode')
+const display = useDisplay()
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 路由参数
 const route = useRoute()

@@ -7,7 +7,8 @@ import UserCard from '@/components/cards/UserCard.vue'
 import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 
 // APP
-const appMode = inject('appMode')
+const display = useDisplay()
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 是否刷新过
 const isRefreshed = ref(false)

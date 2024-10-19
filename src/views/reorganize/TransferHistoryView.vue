@@ -11,7 +11,8 @@ import { useDisplay } from 'vuetify'
 import { storageDict } from '@/api/constants'
 
 // APP
-const appMode = inject('appMode')
+const display = useDisplay()
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 提示框
 const $toast = useToast()

@@ -14,7 +14,7 @@ import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
 
 const display = useDisplay()
-const appMode = inject('appMode')
+const appMode = inject('pwaMode')
 
 // 是否超级用户
 let superUser = store.state.auth.superUser

@@ -37,8 +37,8 @@ const app = createApp(App)
 async function initializeApp() {
   try {
     // 是否为PWA
-    const appMode = await isPWA()
-    app.provide('appMode', appMode)
+    const pwaMode = await isPWA()
+    app.provide('pwaMode', pwaMode)
     // 全局设置
     const globalSettings = await fetchGlobalSettings()
     app.provide('globalSettings', globalSettings)

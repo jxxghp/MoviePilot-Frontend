@@ -2,7 +2,7 @@
 import { useDisplay } from 'vuetify'
 
 const display = useDisplay()
-const appMode = inject('appMode') && display.mdAndDown
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 const route = useRoute()
 

@@ -8,7 +8,7 @@ import { useDisplay } from 'vuetify'
 const display = useDisplay()
 
 // APP
-const appMode = inject('appMode')
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 定义输入参数
 const props = defineProps({

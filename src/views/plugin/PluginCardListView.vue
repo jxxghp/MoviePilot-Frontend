@@ -16,7 +16,7 @@ const route = useRoute()
 const display = useDisplay()
 
 // APP
-const appMode = inject('appMode')
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 当前标签
 const activeTab = ref(route.query.tab)

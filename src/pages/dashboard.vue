@@ -8,7 +8,8 @@ import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { useDisplay } from 'vuetify'
 
 // APP
-const appMode = inject('appMode')
+const display = useDisplay()
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 从Vuex Store中获取superuser信息
 const superUser = store.state.auth.superUser
@@ -196,7 +197,7 @@ async function saveDashboardConfig() {
   const orderObj = dashboardConfigs.value.map(item => ({ id: item.id, key: item.key }))
   const orderString = JSON.stringify(orderObj)
   localStorage.setItem('MP_DASHBOARD_ORDER', orderString)
-  
+
   // 是否拉升高度
   localStorage.setItem('MP_DASHBOARD_ELEVATED', isElevated.value.toString())
 

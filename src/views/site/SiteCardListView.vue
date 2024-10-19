@@ -8,7 +8,8 @@ import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import { useDisplay } from 'vuetify'
 
 // APP
-const appMode = inject('appMode')
+const display = useDisplay()
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 站点列表
 const siteList = ref<Site[]>([])

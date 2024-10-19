@@ -10,7 +10,8 @@ import store from '@/store'
 import { useDisplay } from 'vuetify'
 
 // APP
-const appMode = inject('appMode')
+const display = useDisplay()
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 输入参数
 const props = defineProps({
