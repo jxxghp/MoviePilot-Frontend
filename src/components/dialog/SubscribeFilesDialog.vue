@@ -2,7 +2,6 @@
 import api from '@/api'
 import { SubscrbieInfo } from '@/api/types'
 import { useDisplay } from 'vuetify'
-import { VCardTitle } from 'vuetify/lib/components/index.mjs'
 
 // 显示器宽度
 const display = useDisplay()
@@ -44,7 +43,7 @@ async function loadSubscribeFilesInfo() {
 
 // 计算下载文件列表
 const downloadInfos = computed(() => {
-  return Object.keys(subScribeInfo.value?.episodes ?? {}).map((key: number) => {
+  return Object.keys(subScribeInfo.value?.episodes ?? {}).map((key: any) => {
     const item = subScribeInfo.value?.episodes[key]
     return {
       episode_number: key,
@@ -61,7 +60,7 @@ const totalCount = computed(() => {
 
 // 计算媒体库文件列表
 const libraryInfos = computed(() => {
-  return Object.keys(subScribeInfo.value?.episodes ?? {}).map((key: number) => {
+  return Object.keys(subScribeInfo.value?.episodes ?? {}).map((key: any) => {
     const item = subScribeInfo.value?.episodes[key]
     return {
       episode_number: key,
@@ -151,12 +150,12 @@ onBeforeMount(() => {
                     <div class="text-high-emphasis pt-1">{{ item.episode_number }}. {{ item.title }}</div>
                   </template>
                   <template #item.torrent_title="{ item }">
-                    <div class="text-sm" v-for="file in item.download">
-                      【{{ file.site_name }}】{{ file.torrent_name }}
+                    <div class="text-xs" v-for="file in item.download">
+                      【{{ file.site_name }}】{{ file.torrent_title }}
                     </div>
                   </template>
                   <template #item.file_path="{ item }">
-                    <div class="text-sm" v-for="file in item.download">{{ file.file_path }}</div>
+                    <div class="text-xs" v-for="file in item.download">{{ file.file_path }}</div>
                   </template>
                   <template #no-data> 没有数据 </template>
                 </VDataTable>
@@ -182,7 +181,7 @@ onBeforeMount(() => {
                     <div class="text-high-emphasis pt-1">{{ item.episode_number }}. {{ item.title }}</div>
                   </template>
                   <template #item.file_path="{ item }">
-                    <div class="text-sm" v-for="file in item.library">【{{ file.storage }}】{{ file.file_path }}</div>
+                    <div class="text-xs" v-for="file in item.library">{{ file.file_path }}</div>
                   </template>
                   <template #no-data> 没有数据 </template>
                 </VDataTable>
