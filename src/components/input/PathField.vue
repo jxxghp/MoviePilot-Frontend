@@ -10,6 +10,10 @@ const props = defineProps({
     default: '/',
     required: true,
   },
+  storage: {
+    type: String,
+    default: 'local',
+  },
 })
 
 // update:modelValue 事件
@@ -29,12 +33,7 @@ const treeItems = ref<FileItem[]>([
     children: [],
     type: 'dir',
     basename: props.root,
-    extension: '',
-    size: 0,
-    modify_time: 0,
-    fileid: '',
-    parent_fileid: '',
-    storage: 'local',
+    storage: props.storage,
   },
 ])
 
@@ -64,9 +63,24 @@ watch(activedDirs, newVal => {
   emit('update:modelValue', selectedPath)
 })
 
-onMounted(() => {
-  fetchDirs(treeItems.value[0])
-})
+// 监听存储变化
+watch(
+  () => props.storage,
+  async newVal => {
+    treeItems.value = [
+      {
+        name: '/',
+        path: props.root,
+        children: [],
+        type: 'dir',
+        basename: props.root,
+        storage: newVal,
+      },
+    ]
+    openedDirs.value = []
+    activedDirs.value = []
+  },
+)
 </script>
 
 <template>

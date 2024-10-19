@@ -2,7 +2,7 @@
 import type { TransferDirectoryConf } from '@/api/types'
 import { VTextField } from 'vuetify/lib/components/index.mjs'
 import { useToast } from 'vue-toast-notification'
-import api from "@/api";
+import api from '@/api'
 import { nextTick } from 'vue'
 
 // 输入参数
@@ -58,17 +58,17 @@ async function loadTransferTypeItems() {
   try {
     // 下载器储存整理方法
     const storage_res = await api.get(`storage/transtype/${props.directory.storage}`)
-    const storage_transtype = (storage_res as any).transtype;
+    const storage_transtype = (storage_res as any).transtype
     // 媒体库储存整理方法
     const library_storage_res = await api.get(`storage/transtype/${props.directory.library_storage}`)
-    const library_storage_transtype = (library_storage_res as any).transtype;
+    const library_storage_transtype = (library_storage_res as any).transtype
     // 为空终止
     if (!library_storage_transtype || !storage_transtype) return
     // 取并集
-    const transtype: { [key: string]: string } = {};
+    const transtype: { [key: string]: string } = {}
     Object.keys(storage_transtype).forEach(key => {
       if (key in library_storage_transtype) {
-        transtype[key] = storage_transtype[key];
+        transtype[key] = storage_transtype[key]
       }
     })
     // 非空时设置整理方式下拉字典
@@ -78,7 +78,10 @@ async function loadTransferTypeItems() {
         value: key,
       }))
       // 如果整理方式下拉字典不为空，且当前值不在新的transferTypeItems里，则设置整理方式为第一个
-      if (transferTypeItems.value.length > 0 && !transferTypeItems.value.find(item => item.value === props.directory.transfer_type)) {
+      if (
+        transferTypeItems.value.length > 0 &&
+        !transferTypeItems.value.find(item => item.value === props.directory.transfer_type)
+      ) {
         nextTick(() => {
           props.directory.transfer_type = transferTypeItems.value[0].value
         })
@@ -152,13 +155,15 @@ const getCategories = computed(() => {
 })
 
 // 监听 下载储存与媒体库储存 变化，重新加载整理方式下拉字典
-watch([() => props.directory.library_storage, () => props.directory.storage],
+watch(
+  [() => props.directory.library_storage, () => props.directory.storage],
   ([newLibraryStorage, newStorage], [oldLibraryStorage, oldStorage]) => {
-  if (newLibraryStorage !== oldLibraryStorage || newStorage !== oldStorage) {
-    loadTransferTypeItems();
-  }
-}, { immediate: true });
-
+    if (newLibraryStorage !== oldLibraryStorage || newStorage !== oldStorage) {
+      loadTransferTypeItems()
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -198,13 +203,10 @@ watch([() => props.directory.library_storage, () => props.directory.storage],
             />
           </VCol>
           <VCol cols="4">
-            <VSelect v-model="props.directory.storage"
-                     variant="underlined"
-                     :items="storageItems"
-                     label="下载存储" />
+            <VSelect v-model="props.directory.storage" variant="underlined" :items="storageItems" label="下载存储" />
           </VCol>
           <VCol cols="8">
-            <VPathField @update:modelValue="updateDownloadPath">
+            <VPathField @update:modelValue="updateDownloadPath" :storage="props.directory.storage">
               <template #activator="{ menuprops }">
                 <VTextField
                   v-model="props.directory.download_path"
@@ -260,7 +262,7 @@ watch([() => props.directory.library_storage, () => props.directory.storage],
             />
           </VCol>
           <VCol cols="8">
-            <VPathField @update:modelValue="updateLibraryPath">
+            <VPathField @update:modelValue="updateLibraryPath" :storage="props.directory.library_storage">
               <template #activator="{ menuprops }">
                 <VTextField
                   v-model="props.directory.library_path"
