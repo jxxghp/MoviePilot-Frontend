@@ -24,6 +24,9 @@ const props = defineProps({
 // 当前用户的ID
 const currentLoginUserId = computed(() => store.state.auth.userID)
 
+// 当前用户是否是管理员
+const currentUserIsSuperuser = computed(() => store.state.auth.superUser)
+
 // 定义触发的自定义事件
 const emit = defineEmits(['remove', 'save'])
 
@@ -126,8 +129,9 @@ onMounted(() => {
       </div>
     </VCardText>
     <VCardText class="pb-6">
-      <h5 class="text-h6">详情</h5>
-      <VDivider class="my-2" />
+      <VDivider class="my-2">
+        <h5 class="text-h6">详情</h5>
+      </VDivider>
       <VList lines="one">
         <VListItem>
           <VListItemTitle class="text-sm">
@@ -158,6 +162,7 @@ onMounted(() => {
     </VCardText>
     <VCardText class="flex flex-row justify-center">
       <VBtn
+        v-if="currentUserIsSuperuser"
         color="primary"
         class="me-4"
         @click="editUser"
@@ -165,7 +170,7 @@ onMounted(() => {
         编辑
       </VBtn>
       <VBtn
-        v-if="props.user.id != currentLoginUserId"
+        v-if="currentUserIsSuperuser && props.user.id != currentLoginUserId"
         color="error"
         variant="outlined"
         @click="removeUser"
