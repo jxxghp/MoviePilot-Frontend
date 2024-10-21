@@ -238,23 +238,6 @@ watch(
         <VRow v-if="$props.directory.monitor_type">
           <VCol cols="4">
             <VSelect
-              v-model="props.directory.transfer_type"
-              variant="underlined"
-              :items="transferTypeItems"
-              label="整理方式"
-              :no-data-text="computedNoDataText"
-            />
-          </VCol>
-          <VCol cols="8">
-            <VSelect
-              v-model="props.directory.overwrite_mode"
-              variant="underlined"
-              :items="overwriteModeItems"
-              label="覆盖模式"
-            />
-          </VCol>
-          <VCol cols="4">
-            <VSelect
               v-model="props.directory.library_storage"
               variant="underlined"
               :items="storageItems"
@@ -272,6 +255,23 @@ watch(
                 />
               </template>
             </VPathField>
+          </VCol>
+          <VCol cols="4">
+            <VSelect
+              v-model="props.directory.transfer_type"
+              variant="underlined"
+              :items="transferTypeItems"
+              label="整理方式"
+              :no-data-text="computedNoDataText"
+            />
+          </VCol>
+          <VCol cols="8">
+            <VSelect
+              v-model="props.directory.overwrite_mode"
+              variant="underlined"
+              :items="overwriteModeItems"
+              label="覆盖模式"
+            />
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_type || props.directory.media_type === ''">
             <VSwitch v-model="props.directory.library_type_folder" label="按类型分类"></VSwitch>
