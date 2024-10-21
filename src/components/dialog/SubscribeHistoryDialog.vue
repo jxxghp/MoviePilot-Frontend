@@ -42,7 +42,6 @@ const progressText = ref('正在重新订阅...')
 
 // 调用API查询列表
 async function loadHistory({ done }: { done: any }) {
-  console.log('🚀 ~ loadHistory ~ loadHistory:', loadHistory)
   // 如果正在加载中，直接返回
   if (loading.value) {
     done('ok')
@@ -53,15 +52,6 @@ async function loadHistory({ done }: { done: any }) {
   try {
     // 设置加载中
     loading.value = true
-    const url = `subscribe/history/${props.type}`
-    const params = {
-      params: {
-        page: currentPage.value,
-        count: pageSize.value,
-      },
-    }
-    console.log('history url:', url)
-    console.log('history params:', params)
     currData.value = await api.get(`subscribe/history/${props.type}`, {
       params: {
         page: currentPage.value,
