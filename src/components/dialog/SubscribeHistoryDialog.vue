@@ -42,6 +42,7 @@ const progressText = ref('正在重新订阅...')
 
 // 调用API查询列表
 async function loadHistory({ done }: { done: any }) {
+  console.log('🚀 ~ loadHistory ~ loadHistory:', loadHistory)
   // 如果正在加载中，直接返回
   if (loading.value) {
     done('ok')
@@ -52,6 +53,15 @@ async function loadHistory({ done }: { done: any }) {
   try {
     // 设置加载中
     loading.value = true
+    const url = `subscribe/history/${props.type}`
+    const params = {
+      params: {
+        page: currentPage.value,
+        count: pageSize.value,
+      },
+    }
+    console.log('history url:', url)
+    console.log('history params:', params)
     currData.value = await api.get(`subscribe/history/${props.type}`, {
       params: {
         page: currentPage.value,
@@ -145,62 +155,65 @@ const dropdownItems = ref([
           }
         "
       />
-      <VList lines="two" v-if="historyList.length > 0">
+      <!-- <VList lines="two" v-if="historyList.length > 0"> -->
+      <VList lines="two">
         <VInfiniteScroll mode="intersect" side="end" :items="historyList" class="overflow-hidden" @load="loadHistory">
           <template #loading>
             <LoadingBanner />
           </template>
           <template #empty />
-          <template v-for="(item, i) in historyList" :key="i">
-            <VListItem>
-              <template #prepend>
-                <VImg
-                  height="75"
-                  width="50"
-                  :src="item.poster"
-                  aspect-ratio="2/3"
-                  class="object-cover rounded shadow ring-gray-500 me-3"
-                  cover
-                >
-                  <template #placeholder>
-                    <div class="w-full h-full">
-                      <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                    </div>
-                  </template>
-                </VImg>
-              </template>
-              <VListItemTitle v-if="item.type == '电视剧'">
-                {{ item.name }} <span class="text-sm">第 {{ item.season }} 季</span>
-              </VListItemTitle>
-              <VListItemTitle v-else>
-                {{ item.name }}
-              </VListItemTitle>
-              <VListItemSubtitle class="mt-2">{{ formatDateDifference(item.date) }}</VListItemSubtitle>
-              <VListItemSubtitle class="mt-2">{{ item.description }}</VListItemSubtitle>
-              <template #append>
-                <div class="me-n3">
-                  <IconBtn>
-                    <VIcon icon="mdi-dots-vertical" />
-                    <VMenu activator="parent" close-on-content-click>
-                      <VList>
-                        <VListItem
-                          v-for="(menu, i) in dropdownItems"
-                          :key="i"
-                          variant="plain"
-                          :base-color="menu.color"
-                          @click="menu.props.click(item)"
-                        >
-                          <template #prepend>
-                            <VIcon :icon="menu.props.prependIcon" />
-                          </template>
-                          <VListItemTitle v-text="menu.title" />
-                        </VListItem>
-                      </VList>
-                    </VMenu>
-                  </IconBtn>
-                </div>
-              </template>
-            </VListItem>
+          <template v-if="historyList.length > 0">
+            <template v-for="(item, i) in historyList" :key="i">
+              <VListItem>
+                <template #prepend>
+                  <VImg
+                    height="75"
+                    width="50"
+                    :src="item.poster"
+                    aspect-ratio="2/3"
+                    class="object-cover rounded shadow ring-gray-500 me-3"
+                    cover
+                  >
+                    <template #placeholder>
+                      <div class="w-full h-full">
+                        <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                      </div>
+                    </template>
+                  </VImg>
+                </template>
+                <VListItemTitle v-if="item.type == '电视剧'">
+                  {{ item.name }} <span class="text-sm">第 {{ item.season }} 季</span>
+                </VListItemTitle>
+                <VListItemTitle v-else>
+                  {{ item.name }}
+                </VListItemTitle>
+                <VListItemSubtitle class="mt-2">{{ formatDateDifference(item.date) }}</VListItemSubtitle>
+                <VListItemSubtitle class="mt-2">{{ item.description }}</VListItemSubtitle>
+                <template #append>
+                  <div class="me-n3">
+                    <IconBtn>
+                      <VIcon icon="mdi-dots-vertical" />
+                      <VMenu activator="parent" close-on-content-click>
+                        <VList>
+                          <VListItem
+                            v-for="(menu, i) in dropdownItems"
+                            :key="i"
+                            variant="plain"
+                            :base-color="menu.color"
+                            @click="menu.props.click(item)"
+                          >
+                            <template #prepend>
+                              <VIcon :icon="menu.props.prependIcon" />
+                            </template>
+                            <VListItemTitle v-text="menu.title" />
+                          </VListItem>
+                        </VList>
+                      </VMenu>
+                    </IconBtn>
+                  </div>
+                </template>
+              </VListItem>
+            </template>
           </template>
         </VInfiniteScroll>
       </VList>
