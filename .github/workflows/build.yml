@@ -1,4 +1,4 @@
-name: Build Moviepilot-Frontend
+name: Build Moviepilot-Frontend v2
 
 on:
   workflow_dispatch:
@@ -43,14 +43,14 @@ jobs:
       - name: Delete Release
         uses: dev-drprasad/delete-tag-and-release@v1.1
         with:
-          tag_name: dev_${{ env.frontend_version }}
+          tag_name: ${{ env.frontend_version }}
           delete_release: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: dev_${{ env.frontend_version }}
+          tag_name: ${{ env.frontend_version }}
           name: ${{ env.frontend_version }}
           draft: false
           prerelease: false
