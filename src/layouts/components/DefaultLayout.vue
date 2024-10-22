@@ -36,7 +36,7 @@ const systemMenus = ref<NavMenu[]>([])
 
 // 根据分类获取菜单列表
 const getMenuList = (header: string) => {
-  return SystemNavMenus.filter((item: NavMenu) => item.header === header && superUser)
+  return SystemNavMenus.filter((item: NavMenu) => item.header === header && (superUser || !item.admin))
 }
 
 // 返回上一页
