@@ -134,8 +134,8 @@ async function forkSubscribe() {
                 </template>
               </VImg>
             </div>
-            <div class="flex flex-col justify-center pl-2 xl:pl-4 line-clamp-2 overflow-hidden text-ellipsis ...">
-              <div class="mr-2 min-w-0 text-lg font-bold text-white">
+            <div class="flex flex-col justify-center pl-2 xl:pl-4">
+              <div class="mr-2 min-w-0 text-lg font-bold text-white line-clamp-2 overflow-hidden text-ellipsis ...">
                 {{ props.media?.share_title }}
               </div>
               <div class="text-sm font-medium text-gray-200 sm:pt-1 line-clamp-3 overflow-hidden text-ellipsis ...">
