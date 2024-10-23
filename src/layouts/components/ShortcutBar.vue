@@ -143,8 +143,8 @@ onMounted(() => {
               <VAvatar size="48" variant="tonal">
                 <VIcon icon="mdi-filter-cog-outline" />
               </VAvatar>
-              <h6 class="text-base font-weight-medium mt-2 mb-0">优先级</h6>
-              <span class="text-sm">优先级规则测试</span>
+              <h6 class="text-base font-weight-medium mt-2 mb-0">规则</h6>
+              <span class="text-sm">规则测试</span>
             </VListItem>
           </VCol>
         </VRow>
@@ -241,7 +241,7 @@ onMounted(() => {
   </VDialog>
   <!-- 规则测试弹窗 -->
   <VDialog v-if="ruleTestDialog" v-model="ruleTestDialog" max-width="50rem" scrollable>
-    <VCard title="优先级测试">
+    <VCard title="规则测试">
       <DialogCloseBtn @click="ruleTestDialog = false" />
       <VCardText>
         <RuleTestView />

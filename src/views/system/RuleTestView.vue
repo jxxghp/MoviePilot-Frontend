@@ -3,7 +3,6 @@ import { reactive, ref } from 'vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import { FilterRuleGroup } from '@/api/types'
-import { title } from 'process'
 
 // 识别结果
 const ruleTestResult = ref('')
