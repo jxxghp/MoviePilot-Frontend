@@ -117,6 +117,11 @@ function onClose() {
 <template>
   <div>
     <VCard variant="tonal" @click="openNotificationInfoDialog">
+      <span class="absolute top-3 right-12">
+        <IconBtn>
+          <VIcon class="cursor-move" icon="mdi-drag" />
+        </IconBtn>
+      </span>
       <DialogCloseBtn @click="onClose" />
       <VCardText class="flex justify-space-between align-center gap-3">
         <div class="align-self-start">
