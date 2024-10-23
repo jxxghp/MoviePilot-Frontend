@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { TransferDirectoryConf } from '@/api/types'
-import { VTextField } from 'vuetify/lib/components/index.mjs'
+import { VDivider, VSpacer, VTextField } from 'vuetify/lib/components/index.mjs'
 import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import { nextTick } from 'vue'
@@ -25,6 +25,9 @@ const downloadPath = ref<string>('')
 
 // 媒体库路径
 const libraryPath = ref<string>('')
+
+// 卡版是否折叠状态
+const isCollapsed = ref(true)
 
 // 类型下拉字典
 const typeItems = [
@@ -188,7 +191,7 @@ watch(
         </IconBtn>
       </span>
     </VCardItem>
-    <VCardText>
+    <VCardText v-if="!isCollapsed">
       <VForm>
         <VRow>
           <VCol cols="6">
@@ -242,7 +245,7 @@ watch(
           </VCol>
         </VRow>
         <VRow v-if="$props.directory.monitor_type">
-           <VCol cols="12" v-if="$props.directory.monitor_type == 'monitor'">
+          <VCol cols="12" v-if="$props.directory.monitor_type == 'monitor'">
             <VSelect
               v-model="props.directory.monitor_mode"
               variant="underlined"
@@ -305,5 +308,10 @@ watch(
         </VRow>
       </VForm>
     </VCardText>
+    <VCardActions class="text-center py-0">
+      <VSpacer />
+      <VBtn :icon="isCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'" @click.stop="isCollapsed = !isCollapsed" />
+      <VSpacer />
+    </VCardActions>
   </VCard>
 </template>
