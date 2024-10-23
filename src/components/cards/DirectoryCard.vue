@@ -299,6 +299,9 @@ watch(
           <VCol cols="6">
             <VSwitch v-model="props.directory.scraping" label="刮削元数据"></VSwitch>
           </VCol>
+          <VCol cols="6">
+            <VSwitch v-model="props.directory.notify" label="发送通知"></VSwitch>
+          </VCol>
         </VRow>
       </VForm>
     </VCardText>

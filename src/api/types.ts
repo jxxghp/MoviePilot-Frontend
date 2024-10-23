@@ -1060,6 +1060,8 @@ export interface TransferDirectoryConf {
   library_type_folder?: boolean
   // 媒体库类别子目录
   library_category_folder?: boolean
+  // 是否发送通知
+  notify?: boolean
 }
 
 // 自定义规则项
