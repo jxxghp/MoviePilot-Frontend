@@ -48,6 +48,12 @@ const transferSourceItems = [
   { title: '目录监控', value: 'monitor' },
 ]
 
+// 监控模式下拉字典
+const MonitorModeItems = [
+  { title: '性能模式', value: 'fast' },
+  { title: '兼容模式', value: 'compatibility' },
+]
+
 // 整理方式下拉字典
 const transferTypeItems = ref<{ title: string; value: string }[]>([])
 
@@ -236,6 +242,14 @@ watch(
           </VCol>
         </VRow>
         <VRow v-if="$props.directory.monitor_type">
+           <VCol cols="12" v-if="$props.directory.monitor_type == 'monitor'">
+            <VSelect
+              v-model="props.directory.monitor_mode"
+              variant="underlined"
+              :items="MonitorModeItems"
+              label="监控模式"
+            />
+          </VCol>
           <VCol cols="4">
             <VSelect
               v-model="props.directory.library_storage"
