@@ -33,7 +33,8 @@ async function loadPlayingList(server: string) {
 
 onMounted(async () => {
   await loadMediaServerSetting()
-  for (const server of mediaServers.value) {
+  const enabledServers = mediaServers.value.filter(server => server.enabled)
+  for (const server of enabledServers) {
     loadPlayingList(server.name)
   }
 })
