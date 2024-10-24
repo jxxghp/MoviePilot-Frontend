@@ -12,7 +12,7 @@ const appOrder = ref<string[]>([])
 
 // 根据分类获取菜单列表
 const getMenuList = () => {
-  return SystemNavMenus.filter((item: NavMenu) => !item.admin || superUser)
+  return SystemNavMenus.filter((item: NavMenu) => (!item.admin || superUser) && !item.footer)
 }
 
 // APP列表
@@ -48,7 +48,7 @@ onMounted(() => {
       :component-data="{ 'class': 'ma-0 mt-n1' }"
     >
       <template #item="{ element }">
-        <VCol cols="6" md="4" lg="3" class="text-center cursor-pointer shortcut-icon select-none">
+        <VCol cols="6" md="3" lg="2" class="text-center cursor-pointer shortcut-icon select-none">
           <VCard class="pa-4" :to="element.to" variant="flat">
             <VAvatar size="64" variant="text">
               <VIcon size="48" :icon="element.icon" color="primary" />

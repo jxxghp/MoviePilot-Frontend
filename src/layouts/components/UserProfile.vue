@@ -6,9 +6,6 @@ import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
 import api from '@/api'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
-import { useDisplay } from 'vuetify'
-
-const display = useDisplay()
 
 // Vuex Store
 const store = useStore()

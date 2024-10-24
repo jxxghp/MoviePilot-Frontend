@@ -6,6 +6,7 @@ export const SystemNavMenus = [
     to: '/dashboard',
     header: '开始',
     admin: false,
+    footer: true,
   },
   {
     title: '推荐',
@@ -13,6 +14,7 @@ export const SystemNavMenus = [
     to: '/ranking',
     header: '发现',
     admin: false,
+    footer: true,
   },
   {
     title: '资源搜索',
@@ -28,6 +30,7 @@ export const SystemNavMenus = [
     to: '/subscribe/movie',
     header: '订阅',
     admin: false,
+    footer: true,
   },
   {
     title: '电视剧',
@@ -36,6 +39,7 @@ export const SystemNavMenus = [
     to: '/subscribe/tv',
     header: '订阅',
     admin: false,
+    footer: true,
   },
   {
     title: '日历',
