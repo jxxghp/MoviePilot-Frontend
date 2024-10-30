@@ -136,19 +136,18 @@ onMounted(() => {
   loadStorages()
   loadMediaCategories()
 })
-// 侦听`类型/类别`变化
-watch(directories, (newDirectories) => {
-  newDirectories.forEach(directory => {
-    if (directory.media_type) {
-      directory.download_type_folder = false;
-      directory.library_type_folder = false;
-    }
-    if (directory.media_category) {
-      directory.download_category_folder = false;
-      directory.library_category_folder = false;
-    }
+// 侦听`media_type`和`media_category`变化
+directories.value.forEach(directory => {
+  watch(() => directory.media_type, (newValue) => {
+    directory.download_type_folder = false;
+    directory.library_type_folder = false;
   });
-}, { deep: true }); // 深度观察
+
+  watch(() => directory.media_category, (newValue) => {
+    directory.download_category_folder = false;
+    directory.library_category_folder = false;
+  });
+});
 </script>
 
 <template>
