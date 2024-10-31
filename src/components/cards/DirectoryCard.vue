@@ -173,6 +173,21 @@ watch(
   },
   { immediate: true },
 )
+
+// 媒体类别和类型变更非空时，将按类型分类和按类别分类置为false
+watch(
+  [() => props.directory.media_type, () => props.directory.media_category],
+  ([newMediaType, newMediaCategory], [oldMediaType, oldMediaCategory]) => {
+    if (newMediaType && newMediaType !== oldMediaType) {
+      props.directory.download_type_folder = false
+      props.directory.library_type_folder = false
+    }
+    if (newMediaCategory && newMediaCategory !== oldMediaCategory) {
+      props.directory.download_category_folder = false
+      props.directory.library_category_folder = false
+    }
+  },
+)
 </script>
 
 <template>

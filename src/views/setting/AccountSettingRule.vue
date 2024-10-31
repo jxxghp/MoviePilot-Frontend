@@ -1,12 +1,14 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
 import { useToast } from 'vue-toast-notification'
+import { copyToClipboard } from '@/@core/utils/navigator'
 import draggable from 'vuedraggable'
 import { VRow } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
 import { CustomRule, FilterRuleGroup } from '@/api/types'
 import CustomerRuleCard from '@/components/cards/CustomRuleCard.vue'
 import FilterRuleGroupCard from '@/components/cards/FilterRuleGroupCard.vue'
+import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
 
 // 自定义规则列表
 const customRules = ref<CustomRule[]>([])
@@ -19,6 +21,15 @@ const selectedTorrentPriority = ref<string>('seeder')
 
 // 二级分类策略
 const mediaCategories = ref<{ [key: string]: any }>({})
+
+// 导入代码弹窗
+const importCodeDialog = ref(false)
+
+// 导入的代码
+const importCodeString = ref('')
+
+// 导入代码类型
+const importCodeType = ref('')
 
 // 提示框
 const $toast = useToast()
@@ -109,6 +120,63 @@ function addFilterRuleGroup() {
     category: '',
   })
 }
+
+// 分享规则
+function shareRules(rules: CustomRule[] | FilterRuleGroup[]) {
+  if (!rules || rules.length === 0) return
+
+  // 将卡片规则接装为字符串
+  const value = JSON.stringify(rules)
+
+  // 复制到剪贴板
+  try {
+    copyToClipboard(value)
+    $toast.success('优先级规则已复制到剪贴板')
+  } catch (error) {
+    $toast.error('优先级规则复制失败！')
+  }
+}
+
+// 导入规则
+async function importRules(ruleType: string) {
+  importCodeType.value = ruleType
+  importCodeString.value = ''
+  importCodeDialog.value = true
+}
+
+// 监听导入代码变化
+watchEffect(() => {
+  if (!importCodeString.value) return
+  // 导入代码需要json格式
+  try {
+    if (importCodeType.value === 'custom') {
+      // 将导入的代码转换为规则卡片
+      customRules.value = JSON.parse(importCodeString.value).map((item: any) => {
+        return {
+          id: item.id,
+          name: item.name,
+          include: item.include,
+          exclude: item.exclude,
+          publish_time: item.publish_time,
+          seeders: item.seeders,
+          size_range: item.size_range,
+        }
+      })
+    } else if (importCodeType.value === 'group') {
+      // 将导入的代码转换为规则卡片
+      filterRuleGroups.value = JSON.parse(importCodeString.value).map((item: any) => {
+        return {
+          name: item.name,
+          rule_string: item.rule_string,
+          media_type: item.media_type,
+          category: item.category,
+        }
+      })
+    }
+  } catch (error) {
+    $toast.error('规则导入失败！')
+  }
+})
 
 // 规则变化时赋值
 function onRuleChange(rule: CustomRule) {
@@ -202,9 +270,17 @@ onMounted(() => {
         </VCardText>
         <VCardText>
           <VBtn type="submit" class="me-2" @click="saveCustomRules"> 保存 </VBtn>
-          <VBtn color="success" variant="tonal" @click="addCustomRule">
-            <VIcon icon="mdi-plus" />
-          </VBtn>
+          <VBtnGroup density="comfortable">
+            <VBtn color="success" variant="tonal" @click="addCustomRule">
+              <VIcon icon="mdi-plus" />
+            </VBtn>
+            <VBtn color="info" variant="tonal" @click="importRules('custom')">
+              <VIcon icon="mdi-import" />
+            </VBtn>
+            <VBtn color="info" variant="tonal" @click="shareRules(customRules)">
+              <VIcon icon="mdi-share" />
+            </VBtn>
+          </VBtnGroup>
         </VCardText>
       </VCard>
     </VCol>
@@ -236,10 +312,21 @@ onMounted(() => {
         </VCardText>
         <VCardText>
           <VBtn type="submit" class="me-2" @click="saveFilterRuleGroups"> 保存 </VBtn>
-          <VBtn color="success" variant="tonal" @click="addFilterRuleGroup">
-            <VIcon icon="mdi-plus" />
-          </VBtn>
+          <VBtnGroup density="comfortable">
+            <VBtn color="success" variant="tonal" @click="addFilterRuleGroup">
+              <VIcon icon="mdi-plus" />
+            </VBtn>
+            <VBtn color="info" variant="tonal" @click="importRules('group')">
+              <VIcon icon="mdi-import" />
+            </VBtn>
+            <VBtn color="info" variant="tonal" @click="shareRules(filterRuleGroups)">
+              <VIcon icon="mdi-share" />
+            </VBtn>
+          </VBtnGroup>
         </VCardText>
+        <VDialog v-model="importCodeDialog" width="60rem" scrollable>
+          <ImportCodeDialog v-model="importCodeString" title="导入规则" @close="importCodeDialog = false" />
+        </VDialog>
       </VCard>
     </VCol>
     <VCol cols="12">
