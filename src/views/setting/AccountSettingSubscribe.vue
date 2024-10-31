@@ -21,6 +21,9 @@ const selectedBestVersionRuleGroup = ref([])
 // 是否开启订阅定时搜索
 const enableIntervalSearch = ref(false)
 
+// 是否检查本地媒体库是否存在资源
+const enableDirExistsSearch = ref(false)
+
 // 订阅模式选择项
 const subscribeModeItems = [
   { title: '自动', value: 'spider' },
@@ -118,6 +121,9 @@ async function querySubscribeSetting() {
     // 查询洗版规则组
     const result5: { [key: string]: any } = await api.get('system/setting/BestVersionFilterRuleGroups')
     if (result5.success) selectedBestVersionRuleGroup.value = result5.data?.value
+    // 查询检查本地媒体库是否存在资源开关
+    const result6: { [key: string]: any } = await api.get('system/setting/LOCAL_EXISTS_SEARCH')
+    if (result6.success) enableDirExistsSearch.value = result6.data?.value
   } catch (error) {
     console.log(error)
   }
@@ -148,7 +154,12 @@ async function saveSubscribeSetting() {
       selectedBestVersionRuleGroup.value,
     )
 
-    if (result1.success && result2.success && result3.success && result4.success && result5.success)
+    const result6: { [key: string]: any } = await api.post(
+      'system/setting/LOCAL_EXISTS_SEARCH',
+      enableDirExistsSearch.value,
+    )
+
+    if (result1.success && result2.success && result3.success && result4.success && result5.success && result6.success)
       $toast.success('订阅设置保存成功')
     else $toast.error('订阅设置保存失败！')
   } catch (error) {
@@ -222,8 +233,16 @@ onMounted(() => {
               <VCol cols="12" md="6">
                 <VSwitch
                   v-model="enableIntervalSearch"
-                  label="开启订阅定时搜索"
+                  label="订阅定时搜索"
                   hint="每隔24小时全站搜索，以补全订阅可能漏掉的资源"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="enableDirExistsSearch"
+                  label="检查本地媒体库资源"
+                  hint="检查存储盘是否存在资源，以避免重复下载"
                   persistent-hint
                 />
               </VCol>

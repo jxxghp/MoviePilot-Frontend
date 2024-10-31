@@ -325,7 +325,7 @@ onMounted(() => {
           </VBtnGroup>
         </VCardText>
         <VDialog v-model="importCodeDialog" width="60rem" scrollable>
-          <ImportCodeDialog v-model="importCodeString" title="导入优先级规则" @close="importCodeDialog = false" />
+          <ImportCodeDialog v-model="importCodeString" title="导入规则" @close="importCodeDialog = false" />
         </VDialog>
       </VCard>
     </VCol>
