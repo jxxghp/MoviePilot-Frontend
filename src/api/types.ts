@@ -14,6 +14,8 @@ export interface Subscribe {
   tmdbid: number
   // 豆瓣ID
   doubanid?: string
+  // Bangumi ID
+  bangumiid?: string
   // 季号
   season?: number
   // 海报

@@ -15,6 +15,10 @@ import bangumiImage from '@images/logos/bangumi.png'
 // 输入参数
 const props = defineProps({
   media: Object as PropType<MediaInfo>,
+  isSubscribed: {
+    type: [Boolean, null] as PropType<boolean | null>,
+    default: null,
+  },
   width: String,
   height: String,
 })
@@ -36,8 +40,11 @@ const imageLoadError = ref(false)
 // TMDB识别标志
 const tmdbFlag = ref(true)
 
+// 从父组件接收了订阅状态
+const isSubscribedFromProps = props.isSubscribed !== null
+
 // 当前订阅状态
-const isSubscribed = ref(false)
+const isSubscribed = ref(props.isSubscribed ?? false)
 
 // 本地存在状态
 const isExists = ref(false)
@@ -208,11 +215,14 @@ async function removeSubscribe() {
 
 // 查询当前媒体是否已订阅
 async function handleCheckSubscribe() {
-  try {
-    const result = await checkSubscribe(props.media?.season)
-    if (result) isSubscribed.value = true
-  } catch (error) {
-    console.error(error)
+  // 如果父组件未传入订阅信息，才进行请求
+  if (!isSubscribedFromProps) {
+    try {
+      const result = await checkSubscribe(props.media?.season)
+      if (result) isSubscribed.value = true
+    } catch (error) {
+      console.error(error)
+    }
   }
 }
 
@@ -361,7 +371,13 @@ function handleSearch() {
 
 // 装载时检查是否已订阅
 onBeforeMount(() => {
-  handleCheckSubscribe()
+  // 如果父组件传入了订阅信息，直接使用
+  if (isSubscribedFromProps) {
+    isSubscribed.value = props.isSubscribed || false
+  } else {
+    // 否则，自行检查订阅状态
+    handleCheckSubscribe()
+  }
   handleCheckExists()
 })
 
