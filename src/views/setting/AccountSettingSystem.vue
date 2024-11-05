@@ -159,15 +159,7 @@ async function loadSystemSettings() {
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
         Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          let v: any
-          if (result.data.hasOwnProperty(key)) {
-            v = result.data[key]
-            // 空字符串转为null，避免空字符串导致前端显示问题，如：VCombobox
-            if (v === '') {
-              v = null
-            }
-            (SystemSettings.value[sectionKey] as any)[key] = v
-          }
+          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
         })
       }
     }
