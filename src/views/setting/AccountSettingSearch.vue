@@ -219,6 +219,7 @@ onMounted(() => {
                 placeholder="MOVIEPILOT"
                 hint="MoviePilot添加的下载任务标签"
                 persistent-hint
+                clearable
               />
             </VCol>
             <VCol cols="12" md="6">
@@ -228,6 +229,7 @@ onMounted(() => {
                 placeholder="用户ID1,用户ID2"
                 hint="使用Telegram、微信等搜索时是否自动下载，使用逗号分割，设置为 all 代表所有用户自动择优下载"
                 persistent-hint
+                clearable
               />
             </VCol>
             <VCol cols="12" md="6">

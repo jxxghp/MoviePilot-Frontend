@@ -2,11 +2,6 @@
 import api from '@/api'
 import { useToast } from 'vue-toast-notification'
 
-// 输入参数
-const props = defineProps({
-  title: String,
-})
-
 const $toast = useToast()
 
 // 插件仓库设置字符串
@@ -55,6 +50,7 @@ onMounted(() => {
           placeholder="格式：https://github.com/jxxghp/MoviePilot-Plugins/,https://github.com/xxxx/xxxxxx/"
           hint="多个地址使用逗号分隔，仅支持Github仓库"
           persistent-hint
+          clearable
         />
       </VCardText>
       <VCardActions>

@@ -429,6 +429,7 @@ onMounted(() => {
                       label="包含（关键字、正则式）"
                       hint="包含规则，支持正则表达式"
                       persistent-hint
+                      clearable
                     />
                   </VCol>
                   <VCol cols="12" md="6">
@@ -437,6 +438,7 @@ onMounted(() => {
                       label="排除（关键字、正则式）"
                       hint="排除规则，支持正则表达式"
                       persistent-hint
+                      clearable
                     />
                   </VCol>
                 </VRow>
@@ -451,6 +453,7 @@ onMounted(() => {
                       label="优先级规则组"
                       hint="按选定的过滤规则组对订阅进行过滤"
                       persistent-hint
+                      clearable
                     />
                   </VCol>
                   <VCol cols="12" md="6" v-if="!props.default">
@@ -468,6 +471,7 @@ onMounted(() => {
                       label="自定义保存路径"
                       hint="指定该订阅的下载保存路径，留空自动使用设定的下载目录"
                       persistent-hint
+                      clearable
                     />
                   </VCol>
                 </VRow>
@@ -478,6 +482,7 @@ onMounted(() => {
                       label="自定义识别词"
                       hint="只对该订阅使用的识别词"
                       persistent-hint
+                      clearable
                       placeholder="屏蔽词
 被替换词 => 替换词
 前定位词 <> 后定位词 >> 集偏移量（EP）

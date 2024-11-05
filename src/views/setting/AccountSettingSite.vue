@@ -156,6 +156,7 @@ onMounted(() => {
                   :disabled="siteSetting.CookieCloud.COOKIECLOUD_ENABLE_LOCAL"
                   hint="远端CookieCloud服务地址，格式：https://movie-pilot.org/cookiecloud"
                   persistent-hint
+                  clearable
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -164,6 +165,7 @@ onMounted(() => {
                   label="用户KEY"
                   hint="CookieCloud浏览器插件生成的用户KEY"
                   persistent-hint
+                  clearable
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -175,6 +177,7 @@ onMounted(() => {
                   label="端对端加密密码"
                   hint="CookieCloud浏览器插件生成的端对端加密密码"
                   persistent-hint
+                  clearable
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -193,6 +196,7 @@ onMounted(() => {
                   placeholder="多个域名,分割"
                   hint="CookieCloud同步域名黑名单，多个域名,分割"
                   persistent-hint
+                  clearable
                 />
               </VCol>
               <VCol cols="12" md="6">
@@ -201,6 +205,7 @@ onMounted(() => {
                   label="浏览器User-Agent"
                   hint="CookieCloud插件所在的浏览器的User-Agent"
                   persistent-hint
+                  clearable
                 />
               </VCol>
             </VRow>
