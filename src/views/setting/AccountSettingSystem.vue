@@ -8,6 +8,7 @@ import { DownloaderConf, MediaServerConf } from '@/api/types'
 import DownloaderCard from '@/components/cards/DownloaderCard.vue'
 import MediaServerCard from '@/components/cards/MediaServerCard.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
+import { cloneDeep } from 'lodash'
 
 // 系统设置项
 const SystemSettings = ref<any>({
@@ -63,6 +64,10 @@ const $toast = useToast()
 // 高级设置对话框
 const advancedDialog = ref(false)
 
+// 高级设置深复制
+const AdvancedSettings = ref(cloneDeep(SystemSettings.value.Advanced))
+
+// 当前激活的Tab
 const activeTab = ref('system')
 
 // 调用API查询下载器设置
@@ -154,7 +159,15 @@ async function loadSystemSettings() {
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
         Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
-          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+          let v: any
+          if (result.data.hasOwnProperty(key)) {
+            v = result.data[key]
+            // 空字符串转为null，避免空字符串导致前端显示问题，如：VCombobox
+            if (v === '') {
+              v = null
+            }
+            (SystemSettings.value[sectionKey] as any)[key] = v
+          }
         })
       }
     }
@@ -186,8 +199,16 @@ async function saveBasicSettings() {
   }
 }
 
+// 打开高级设置详情
+function openAdvancedDialog() {
+  AdvancedSettings.value = cloneDeep(SystemSettings.value.Advanced)
+  advancedDialog.value = true
+}
+
 // 高级设置变化，等待保存
 async function saveAdvancedSettings() {
+  // 将AdvancedSettings的值赋值给SystemSettings
+  SystemSettings.value.Advanced = AdvancedSettings.value
   if (await saveSystemSetting(SystemSettings.value.Advanced)) {
     advancedDialog.value = false
     $toast.success('高级设置保存成功')
@@ -195,6 +216,11 @@ async function saveAdvancedSettings() {
   } else {
     $toast.error('高级设置保存失败！')
   }
+}
+
+// 打开URL
+function openURL(url: string) {
+  if (url) window.open(url)
 }
 
 // 快捷复制到剪贴板
@@ -329,6 +355,10 @@ onDeactivated(() => {
                   placeholder="格式：http(s)://domain:port"
                   hint="用于发送通知时，添加快捷跳转地址"
                   persistent-hint
+                  :appendInnerIcon="SystemSettings.Basic.APP_DOMAIN ? 'mdi-content-copy' : ''"
+                  prependInnerIcon="mdi-share"
+                  @click:appendInner="copyValue(SystemSettings.Basic.APP_DOMAIN)"
+                  @click:prependInner="openURL(SystemSettings.Basic.APP_DOMAIN)"
                 />
               </VCol>
               <VCol cols="12" md="3">
@@ -364,6 +394,7 @@ onDeactivated(() => {
                   hint="设置外部请求MoviePilot API时使用的token值"
                   placeholder="不能小于16位字符"
                   persistent-hint
+                  clearable
                   prependInnerIcon="mdi-reload"
                   :appendInnerIcon="SystemSettings.Basic.API_TOKEN ? 'mdi-content-copy' : ''"
                   @click:prependInner="createRandomString"
@@ -378,16 +409,21 @@ onDeactivated(() => {
                   placeholder="ghp_**** 或 github_pat_****"
                   hint="用于提高插件等访问Github API时的限流阈值"
                   persistent-hint
+                  clearable
+                  :appendInnerIcon="SystemSettings.Basic.GITHUB_TOKEN ? 'mdi-content-copy' : ''"
+                  @click:appendInner="copyValue(SystemSettings.Basic.GITHUB_TOKEN)"
                 >
                 </VTextField>
               </VCol>
               <VCol cols="12" md="6">
-                <VTextField
+                <VCombobox
                   v-model="SystemSettings.Basic.OCR_HOST"
                   label="验证码识别服务器"
                   placeholder="https://movie-pilot.org"
-                  hint="用于站点签到、更新站点Cookie等识别验证码"
+                  hint="用于站点签到、更新站点Cookie等识别验证码，可替换为自定义识别服务器"
                   persistent-hint
+                  clearable
+                  :items="['https://movie-pilot.org']"
                 />
               </VCol>
             </VRow>
@@ -398,7 +434,7 @@ onDeactivated(() => {
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn type="submit" @click="saveBasicSettings"> 保存 </VBtn>
               <VSpacer />
-              <VBtn color="warning" @click="advancedDialog = true" append-icon="mdi-dots-horizontal"> 高级设置 </VBtn>
+              <VBtn color="warning" @click="openAdvancedDialog" append-icon="mdi-dots-horizontal"> 高级设置 </VBtn>
             </div>
           </VForm>
         </VCardText>
@@ -534,7 +570,7 @@ onDeactivated(() => {
               <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.AUXILIARY_AUTH_ENABLE"
+                    v-model="AdvancedSettings.AUXILIARY_AUTH_ENABLE"
                     label="用户辅助认证"
                     hint="允许外部服务进行登录认证以及自动创建用户"
                     persistent-hint
@@ -542,7 +578,7 @@ onDeactivated(() => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.GLOBAL_IMAGE_CACHE"
+                    v-model="AdvancedSettings.GLOBAL_IMAGE_CACHE"
                     label="全局图片缓存"
                     hint="将媒体图片缓存到本地，提升图片加载速度"
                     persistent-hint
@@ -550,7 +586,7 @@ onDeactivated(() => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.SUBSCRIBE_STATISTIC_SHARE"
+                    v-model="AdvancedSettings.SUBSCRIBE_STATISTIC_SHARE"
                     label="分享订阅数据"
                     hint="分享订阅统计数据到热门订阅，供其他MPer参考"
                     persistent-hint
@@ -558,7 +594,7 @@ onDeactivated(() => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.PLUGIN_STATISTIC_SHARE"
+                    v-model="AdvancedSettings.PLUGIN_STATISTIC_SHARE"
                     label="上报插件安装数据"
                     hint="上报插件安装数据给服务器，用于统计展示插件安装情况"
                     persistent-hint
@@ -566,7 +602,7 @@ onDeactivated(() => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.BIG_MEMORY_MODE"
+                    v-model="AdvancedSettings.BIG_MEMORY_MODE"
                     label="大内存模式"
                     hint="使用更大的内存缓存数据，提升系统性能"
                     persistent-hint
@@ -580,43 +616,47 @@ onDeactivated(() => {
               <VRow>
                 <VCol cols="12" md="6">
                   <VCombobox
-                    v-model="SystemSettings.Advanced.TMDB_API_DOMAIN"
+                    v-model="AdvancedSettings.TMDB_API_DOMAIN"
                     label="TMDB API服务地址"
                     placeholder="api.themoviedb.org"
                     hint="自定义themoviedb API域名或代理地址"
                     persistent-hint
+                    clearable
                     :items="['api.themoviedb.org']"
                     :rules="[(v: string) => !!v || '请输入TMDB API域名']"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VCombobox
-                    v-model="SystemSettings.Advanced.TMDB_IMAGE_DOMAIN"
+                    v-model="AdvancedSettings.TMDB_IMAGE_DOMAIN"
                     label="TMDB 图片服务地址"
                     placeholder="image.tmdb.org"
                     hint="自定义themoviedb图片服务域名或代理地址"
                     persistent-hint
+                    clearable
                     :items="['image.tmdb.org', 'static-mdb.v.geilijiasu.com']"
                     :rules="[(v: string) => !!v || '请输入图片服务域名']"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
-                    v-model="SystemSettings.Advanced.META_CACHE_EXPIRE"
+                    v-model="AdvancedSettings.META_CACHE_EXPIRE"
                     label="媒体元数据缓存过期时间"
                     hint="识别元数据本地缓存时间，为 0 时使用内置默认值"
                     persistent-hint
                     min="0"
                     type="number"
                     suffix="小时"
-                    :rules="[(v: any) => v === 0 || !!v || '请输入元数据缓存时间', (v: any) => v >= 0 || '元数据缓存时间必须大于等于0']"
+                    :rules="[
+                      (v: any) => v === 0 || !!v || '请输入元数据缓存时间',
+                      (v: any) => v >= 0 || '元数据缓存时间必须大于等于0']"
                   />
                 </VCol>
               </VRow>
               <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.SCRAP_FOLLOW_TMDB"
+                    v-model="AdvancedSettings.SCRAP_FOLLOW_TMDB"
                     label="跟随TMDB识别整理"
                     hint="关闭时以整理历史记录为准（如有），避免TMDB数据在订阅中途修改"
                     persistent-hint
@@ -624,7 +664,7 @@ onDeactivated(() => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.FANART_ENABLE"
+                    v-model="AdvancedSettings.FANART_ENABLE"
                     label="Fanart图片数据源"
                     hint="使用 fanart.tv 的图片数据"
                     persistent-hint
@@ -638,21 +678,23 @@ onDeactivated(() => {
               <VRow>
                 <VCol cols="12" md="6">
                   <VCombobox
-                    v-model="SystemSettings.Advanced.GITHUB_PROXY"
+                    v-model="AdvancedSettings.GITHUB_PROXY"
                     label="Github加速代理"
                     placeholder="https://mirror.ghproxy.com/"
                     hint="使用代理加速Github访问速度"
                     persistent-hint
+                    clearable
                     :items="githubMirrorsItems"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VCombobox
-                    v-model="SystemSettings.Advanced.PIP_PROXY"
+                    v-model="AdvancedSettings.PIP_PROXY"
                     label="PIP加速代理"
                     placeholder="https://pypi.tuna.tsinghua.edu.cn/simple"
                     hint="使用代理加速插件等pip库安装速度"
                     persistent-hint
+                    clearable
                     :items="pipMirrorsItems"
                   />
                 </VCol>
@@ -660,28 +702,30 @@ onDeactivated(() => {
               <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.DOH_ENABLE"
+                    v-model="AdvancedSettings.DOH_ENABLE"
                     label="DNS Over HTTPS"
                     hint="使用DOH对特定域名进行解析，以防止DNS污染"
                     persistent-hint
                   />
                 </VCol>
-                <VCol cols="12" v-show="SystemSettings.Advanced.DOH_ENABLE">
+                <VCol cols="12" v-show="AdvancedSettings.DOH_ENABLE">
                   <VTextarea
                     v-model="SystemSettings.Advanced.DOH_RESOLVERS"
                     label="DOH 服务器"
                     placeholder="https://dns.google/dns-query,1.1.1.1"
                     hint="DNS解析服务器地址，多个地址使用逗号分隔"
                     persistent-hint
+                    clearable
                   />
                 </VCol>
-                <VCol cols="12" v-show="SystemSettings.Advanced.DOH_ENABLE">
+                <VCol cols="12" v-show="AdvancedSettings.DOH_ENABLE">
                   <VTextarea
-                    v-model="SystemSettings.Advanced.DOH_DOMAINS"
+                    v-model="AdvancedSettings.DOH_DOMAINS"
                     label="DOH 域名"
                     placeholder="example.com,example2.com"
                     hint="使用DOH解析的域名，多个域名使用逗号分隔"
                     persistent-hint
+                    clearable
                   />
                 </VCol>
               </VRow>
@@ -693,7 +737,7 @@ onDeactivated(() => {
               <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.DEBUG"
+                    v-model="AdvancedSettings.DEBUG"
                     label="DEBUG日志"
                     hint="显示DEBUG级别日志，方便排查问题"
                     persistent-hint
@@ -701,7 +745,7 @@ onDeactivated(() => {
                 </VCol>
                 <VCol cols="12" md="6">
                   <VSwitch
-                    v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"
+                    v-model="AdvancedSettings.PLUGIN_AUTO_RELOAD"
                     label="插件热加载"
                     hint="修改插件文件后自动重新加载，开发插件时使用"
                     persistent-hint
