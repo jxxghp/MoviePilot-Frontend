@@ -453,7 +453,6 @@ onMounted(() => {
                       label="优先级规则组"
                       hint="按选定的过滤规则组对订阅进行过滤"
                       persistent-hint
-                      clearable
                     />
                   </VCol>
                   <VCol cols="12" md="6" v-if="!props.default">
