@@ -63,7 +63,7 @@ const pathSegments = computed(() => {
 
 // 当前存储
 const storageObject = computed(() => {
-  return inProps.storages?.find(item => item.code === inProps.storage)
+  return inProps.storages?.find(item => item.value === inProps.storage)
 })
 
 // 切换存储
@@ -127,19 +127,19 @@ const sortIcon = computed(() => {
           <VListItem
             v-for="(item, index) in storages"
             :key="index"
-            :disabled="item.code === storageObject?.code"
-            @click="changeStorage(item.code)"
+            :disabled="item.value === storageObject?.value"
+            @click="changeStorage(item.value)"
           >
             <template #prepend>
               <Icon :icon="item.icon" />
             </template>
-            <VListItemTitle>{{ item.name }}</VListItemTitle>
+            <VListItemTitle>{{ item.title }}</VListItemTitle>
           </VListItem>
         </VList>
       </VMenu>
       <VBtn variant="text" :input-value="item.path === '/'" class="px-1" @click="changePath(inProps.itemstack[0])">
         <VIcon :icon="storageObject?.icon" class="mr-2" />
-        {{ storageObject?.name }}
+        {{ storageObject?.title }}
       </VBtn>
       <template v-for="(segment, index) in pathSegments" :key="index">
         <VBtn

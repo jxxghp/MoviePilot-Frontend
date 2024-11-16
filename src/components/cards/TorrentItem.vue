@@ -98,9 +98,7 @@ onMounted(() => {
         <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
         <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
       </VListItemTitle>
-      <VListItemSubtitle>
-        {{ torrent?.description }}
-      </VListItemSubtitle>
+      <VListItemSubtitle> 【{{ torrent?.site_name }}】{{ torrent?.description }} </VListItemSubtitle>
       <div v-if="torrent?.labels" class="pt-2">
         <VChip v-if="torrent?.hit_and_run" variant="elevated" size="small" class="me-1 mb-1 text-white bg-black">
           H&R

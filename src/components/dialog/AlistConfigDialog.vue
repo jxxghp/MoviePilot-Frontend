@@ -9,27 +9,19 @@ const props = defineProps({
   },
 })
 
-if (!props.conf.filepath) {
-  props.conf.filepath = '/moviepilot/.config/rclone/rclone.conf'
-}
-
-if (!props.conf.content) {
-  props.conf.content = '# 请在此处填写rclone配置文件内容 \n# 请参考 https://rclone.org/docs/ \n# 存储节点名必须为：MP'
-}
-
 // 定义事件
 const emit = defineEmits(['done', 'close'])
 
 // 完成
 async function handleDone() {
-  await savaRcloneConfig()
+  await savaAlistConfig()
   emit('done')
 }
 
 // 保存rclone设置
-async function savaRcloneConfig() {
+async function savaAlistConfig() {
   try {
-    await api.post(`storage/save/rclone`, props.conf)
+    await api.post(`storage/save/alist`, props.conf)
   } catch (e) {
     console.error(e)
   }
@@ -38,22 +30,24 @@ async function savaRcloneConfig() {
 
 <template>
   <VDialog width="50rem" scrollable max-height="85vh">
-    <VCard title="RClone配置" class="rounded-t">
+    <VCard title="AList配置" class="rounded-t">
       <DialogCloseBtn @click="emit('close')" />
       <VCardText>
         <VRow>
           <VCol cols="12">
-            <VTextField v-model="props.conf.filepath" label="rclone配置文件路径" />
+            <VTextField v-model="props.conf.url" hint="AList服务地址" label="地址" persistent-hint />
           </VCol>
-          <VCol cols="12">
-            <VAceEditor
-              v-model:value="props.conf.content"
-              lang="ini"
-              theme="monokai"
-              style="block-size: 30rem"
-              class="rounded"
-            >
-            </VAceEditor>
+          <VCol cols="12" md="6">
+            <VTextField v-model="props.conf.username" hint="AList登录用户名" label="用户名" persistent-hint />
+          </VCol>
+          <VCol cols="12" md="6">
+            <VTextField
+              type="password"
+              v-model="props.conf.password"
+              hint="AList登录密码"
+              label="密码"
+              persistent-hint
+            />
           </VCol>
         </VRow>
       </VCardText>

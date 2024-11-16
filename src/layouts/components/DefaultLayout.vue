@@ -64,7 +64,7 @@ onMounted(() => {
           <VIcon icon="mdi-menu" />
         </IconBtn>
         <!-- 👉 Back Button -->
-        <IconBtn v-if="appMode && display.lgAndUp" class="ms-n2" @click="goBack">
+        <IconBtn v-if="appMode && display.mdAndDown.value" class="ms-n2" @click="goBack">
           <VIcon icon="mdi-arrow-left" size="32" />
         </IconBtn>
         <!-- 👉 Search Bar -->

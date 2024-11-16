@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { Plugin, Subscribe } from '@/api/types'
-import { SystemNavMenus, UserfulMenus, SettingTabs } from '@/router/menu'
+import { SystemNavMenus, SettingTabs } from '@/router/menu'
 import { NavMenu } from '@/@layouts/types'
 import store from '@/store'
 
@@ -390,54 +390,6 @@ onMounted(() => {
                   </VChip>
                 </div>
               </VCol>
-            </VRow>
-            <VRow v-if="superUser">
-              <VCol cols="12" md="6">
-                <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">常用功能</p>
-                <VList lines="one">
-                  <VHover v-for="(menu, index) in UserfulMenus" :key="index">
-                    <template #default="hover">
-                      <VListItem
-                        :prepend-icon="menu.icon"
-                        density="compact"
-                        link
-                        v-bind="hover.props"
-                        @click="goPage(menu.to)"
-                      >
-                        <VListItemTitle>
-                          {{ menu.title }}
-                        </VListItemTitle>
-                        <template #append>
-                          <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
-                        </template>
-                      </VListItem>
-                    </template>
-                  </VHover>
-                </VList>
-              </VCol>
-              <VCol cols="12" md="6">
-                <p class="custom-letter-spacing text-sm text-disabled text-uppercase py-2 px-4 mb-0">常用插件</p>
-                <VList lines="one">
-                  <VHover v-for="plugin in pluginItems.slice(0, 5)" :key="plugin.id">
-                    <template #default="hover">
-                      <VListItem
-                        prepend-icon="mdi-puzzle"
-                        density="compact"
-                        link
-                        v-bind="hover.props"
-                        @click="showPlugin(plugin.id ?? '')"
-                      >
-                        <VListItemTitle> {{ plugin.plugin_name }} </VListItemTitle>
-                        <template #append>
-                          <VIcon v-if="hover.isHovering" icon="ri-corner-down-left-line" />
-                        </template>
-                      </VListItem>
-                    </template>
-                  </VHover>
-                </VList>
-              </VCol>
-              <VCol cols="12" md="6"> </VCol>
-              <VCol cols="12" md="6"> </VCol>
             </VRow>
           </VCardText>
         </div>

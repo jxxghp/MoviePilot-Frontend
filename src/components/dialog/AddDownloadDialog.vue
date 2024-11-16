@@ -4,7 +4,7 @@ import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type { DownloaderConf, MediaInfo, TorrentInfo, TransferDirectoryConf } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
-import { VCardTitle } from 'vuetify/lib/components/index.mjs'
+import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
 
 // 输入参数
 const props = defineProps({
@@ -119,36 +119,63 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VDialog max-width="40rem" scrollable>
+  <VDialog max-width="45rem" scrollable>
     <VCard>
       <VCardItem>
-        <VCardTitle v-if="title">下载 - {{ title }}</VCardTitle>
+        <VCardTitle v-if="title">{{ torrent?.site_name }} - {{ title }}</VCardTitle>
         <VCardTitle v-else>确认下载</VCardTitle>
         <DialogCloseBtn @click="emit('close')" />
       </VCardItem>
       <VDivider />
       <VCardText>
+        <VList lines="one">
+          <VListItem>
+            <template #prepend>
+              <VIcon icon="mdi-web"></VIcon>
+            </template>
+            <VListItemTitle>
+              <span class="whitespace-break-spaces me-2">{{ torrent?.title }}</span>
+              <span class="text-green-700 ms-2 text-sm">↑{{ torrent?.seeders }}</span>
+              <span class="text-orange-700 ms-2 text-sm">↓{{ torrent?.peers }}</span>
+            </VListItemTitle>
+          </VListItem>
+          <VListItem>
+            <template #prepend>
+              <VIcon icon="mdi-subtitles-outline"></VIcon>
+            </template>
+            <VListItemTitle>
+              <span class="text-body-1 whitespace-break-spaces">{{ torrent?.description }}</span>
+            </VListItemTitle>
+          </VListItem>
+          <VListItem>
+            <template #prepend>
+              <VIcon icon="mdi-database"></VIcon>
+            </template>
+            <VListItemTitle>
+              <span class="text-body-1">
+                <VChip variant="tonal" label>
+                  {{ formatFileSize(torrent?.size || 0) }}
+                </VChip>
+              </span>
+            </VListItemTitle>
+          </VListItem>
+        </VList>
         <VRow>
-          <VCol cols="12" class="text-lg text-high-emphasis pb-0">
-            <strong>标题：</strong>{{ props.torrent?.title }}<br />
-            <strong>站点：</strong>{{ props.torrent?.site_name }}<br />
-            <strong>大小：</strong>{{ formatFileSize(props.torrent?.size || 0) }}
-          </VCol>
           <VCol cols="12" md="4">
             <VSelect
               v-model="selectedDownloader"
               :items="downloaderOptions"
-              label="下载器"
+              label="指定下载器"
               variant="underlined"
-              placeholder="默认"
+              placeholder="留空默认"
             />
           </VCol>
           <VCol cols="12" md="8">
             <VCombobox
               v-model="selectedDirectory"
               :items="targetDirectories"
-              label="保存目录"
-              placeholder="自动"
+              label="指定保存目录"
+              placeholder="留空自动匹配"
               variant="underlined"
             />
           </VCol>

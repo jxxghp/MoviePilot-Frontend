@@ -162,10 +162,16 @@ onMounted(() => {
           </VAlert>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveCustomIdentifiers"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveCustomIdentifiers"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -182,10 +188,16 @@ onMounted(() => {
           />
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveCustomReleaseGroups"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveCustomReleaseGroups"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -202,10 +214,16 @@ onMounted(() => {
           />
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveCustomization"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveCustomization"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -222,7 +240,11 @@ onMounted(() => {
           />
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveTransferExcludeWords"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveTransferExcludeWords"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>

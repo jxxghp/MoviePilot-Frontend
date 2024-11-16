@@ -5,6 +5,7 @@ import emby_image from '@images/logos/emby.png'
 import jellyfin_image from '@images/logos/jellyfin.png'
 import plex_image from '@images/logos/plex.png'
 import api from '@/api'
+import { cloneDeep } from 'lodash'
 
 // 定义输入
 const props = defineProps({
@@ -56,9 +57,6 @@ const librariesOptions = ref<{ title: string; value: string | undefined }[]>([
 // 媒体服务器详情弹窗
 const mediaServerInfoDialog = ref(false)
 
-// 媒体服务器名称
-const mediaServerName = ref('')
-
 // 媒体服务器详情
 const mediaServerInfo = ref<MediaServerConf>({
   name: '',
@@ -70,8 +68,8 @@ const mediaServerInfo = ref<MediaServerConf>({
 // 打开详情弹窗
 function openMediaServerInfoDialog() {
   loadLibrary(props.mediaserver.name)
-  mediaServerInfo.value = props.mediaserver
-  mediaServerName.value = props.mediaserver.name
+  // 深复制
+  mediaServerInfo.value = cloneDeep(props.mediaserver)
   mediaServerInfoDialog.value = true
   if (!props.mediaserver.sync_libraries) {
     mediaServerInfo.value.sync_libraries = ['all']
@@ -81,19 +79,18 @@ function openMediaServerInfoDialog() {
 // 保存详情数据
 function saveMediaServerInfo() {
   // 为空不保存，跳出警告框
-  if (!mediaServerName.value) {
+  if (!mediaServerInfo.value.name) {
     $toast.error('名称不能为空，请输入后再确定')
     return
   }
   // 重名判断
-  if (props.mediaservers.some(item => item.name === mediaServerName.value && item !== props.mediaserver)) {
-    $toast.error(`【${mediaServerName.value}】已存在，请替换为其他名称`)
+  if (props.mediaservers.some(item => item.name === mediaServerInfo.value.name && item !== props.mediaserver)) {
+    $toast.error(`【${mediaServerInfo.value.name}】已存在，请替换为其他名称`)
     return
   }
   // 执行保存
   mediaServerInfoDialog.value = false
-  mediaServerInfo.value.name = mediaServerName.value
-  emit('change', mediaServerInfo.value)
+  emit('change', mediaServerInfo.value, props.mediaserver.name)
   emit('done')
 }
 
@@ -185,7 +182,7 @@ onMounted(() => {
             </span>
           </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-5 me-3" max-width="3rem" min-width="3rem" />
+        <VImg :src="getIcon" cover class="mt-7 me-3" max-width="3rem" min-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="mediaServerInfoDialog" scrollable max-width="40rem" persistent>
@@ -202,7 +199,7 @@ onMounted(() => {
             <VRow v-if="mediaServerInfo.type == 'emby'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerName"
+                  v-model="mediaServerInfo.name"
                   label="名称"
                   placeholder="必填；不可与其他名称重名"
                   hint="媒体服务器的别名"
@@ -243,7 +240,7 @@ onMounted(() => {
             <VRow v-if="mediaServerInfo.type == 'jellyfin'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerName"
+                  v-model="mediaServerInfo.name"
                   label="名称"
                   placeholder="必填；不可与其他名称重名"
                   hint="媒体服务器的别名"
@@ -284,7 +281,7 @@ onMounted(() => {
             <VRow v-if="mediaServerInfo.type == 'plex'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="mediaServerName"
+                  v-model="mediaServerInfo.name"
                   label="名称"
                   placeholder="必填；不可与其他名称重名"
                   hint="媒体服务器的别名"

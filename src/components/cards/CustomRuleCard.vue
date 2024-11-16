@@ -2,6 +2,8 @@
 import { CustomRule } from '@/api/types'
 import { useToast } from 'vue-toast-notification'
 import filter_svg from '@images/svg/filter.svg'
+import { cloneDeep } from 'lodash'
+import { innerFilterRules } from '@/api/constants'
 
 // 输入参数
 const props = defineProps({
@@ -37,50 +39,45 @@ const ruleInfo = ref<CustomRule>({
   publish_time: '',
 })
 
-// 规则ID
-const ruleId = ref('')
-
-// 规则名称
-const ruleName = ref('')
-
 // 打开详情弹窗
 function openRuleInfoDialog() {
-  ruleInfo.value = props.rule
-  ruleId.value = props.rule.id
-  ruleName.value = props.rule.name
+  // 深复制
+  ruleInfo.value = cloneDeep(props.rule)
   ruleInfoDialog.value = true
 }
 
 // 保存详情数据
 function saveRuleInfo() {
   // 有空值
-  if (!ruleId.value && !ruleName.value) {
-    if (!ruleId.value && ruleName.value) {
-      $toast.error('规则ID不能为空')
-    }
-    if (ruleId.value && !ruleName.value) {
-      $toast.error('规则名称不能为空')
-    }
-    if (!ruleId.value && !ruleName.value) {
+  if (!ruleInfo.value.id || !ruleInfo.value.name) {
+    if (!ruleInfo.value.id && !ruleInfo.value.name) {
       $toast.error('规则ID和规则名称不能为空')
     }
     return
   }
+  // 检查ID是否在内置的规则中
+  if (innerFilterRules.find(option => option.value === ruleInfo.value.id)) {
+    $toast.error('当前规则ID已被内置规则占用')
+    return
+  }
+  // 检查规则名称是否在内置的规则中
+  if (innerFilterRules.find(option => option.title === ruleInfo.value.name)) {
+    $toast.error('当前规则名称已被内置规则占用')
+    return
+  }
   // ID已存在
-  if (ruleId.value !== props.rule.id && props.rules.find(rule => rule.id === ruleId.value)) {
-    $toast.error(`规则ID【${ruleId.value}】已存在，请替换`)
+  if (ruleInfo.value.id !== props.rule.id && props.rules.find(rule => rule.id === ruleInfo.value.id)) {
+    $toast.error(`规则ID【${ruleInfo.value.id}】已存在`)
     return
   }
   // 规则名称已存在
-  if (ruleName.value !== props.rule.name && props.rules.find(rule => rule.name === ruleName.value)) {
-    $toast.error(`规则名称【${ruleName.value}】已存在，请替换`)
+  if (ruleInfo.value.name !== props.rule.name && props.rules.find(rule => rule.name === ruleInfo.value.name)) {
+    $toast.error(`规则名称【${ruleInfo.value.name}】已存在`)
     return
   }
   // 保存数据
   ruleInfoDialog.value = false
-  ruleInfo.value.id = ruleId.value
-  ruleInfo.value.name = ruleName.value
-  emit('change', ruleInfo.value)
+  emit('change', ruleInfo.value, props.rule.id)
   emit('done')
 }
 
@@ -107,7 +104,7 @@ function onClose() {
         <VImg :src="filter_svg" cover class="mt-7" max-width="3rem" />
       </VCardText>
     </VCard>
-    <VDialog v-model="ruleInfoDialog" scrollable max-width="40rem" persistent >
+    <VDialog v-model="ruleInfoDialog" scrollable max-width="40rem" persistent>
       <VCard :title="`${props.rule.id} - 配置`" class="rounded-t">
         <DialogCloseBtn v-model="ruleInfoDialog" />
         <VDivider />
@@ -116,7 +113,7 @@ function onClose() {
             <VRow>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="ruleId"
+                  v-model="ruleInfo.id"
                   label="规则ID"
                   placeholder="必填；不可与其他规则ID重名"
                   hint="字符与数字组合，不能含空格"
@@ -126,7 +123,7 @@ function onClose() {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="ruleName"
+                  v-model="ruleInfo.name"
                   label="规则名称"
                   placeholder="必填；不可与其他规则名称重名"
                   hint="使用别名便于区分规则"
@@ -159,7 +156,7 @@ function onClose() {
                   v-model="ruleInfo.size_range"
                   placeholder="0/1-10"
                   label="资源体积（MB）"
-                  hint="最小资源文件体积或文件体积范围"
+                  hint="最小资源文件体积或体积范围（剧集计算单集平均大小）"
                   persistent-hint
                   active
                 />

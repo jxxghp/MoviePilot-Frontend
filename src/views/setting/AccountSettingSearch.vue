@@ -12,6 +12,16 @@ const allSites = ref<Site[]>([])
 // 选中订阅站点
 const selectedSites = ref<number[]>([])
 
+// 系统设置
+const SystemSettings = ref<any>({
+  Basic: {
+    SEARCH_MULTIPLE_NAME: false,
+    DOWNLOAD_SUBTITLE: false,
+    AUTO_DOWNLOAD_USER: null,
+    TORRENT_TAG: 'MOVIEPILOT',
+  },
+})
+
 // 媒体信息数据源字典
 const mediaSourcesDict = [
   {
@@ -91,7 +101,7 @@ async function saveSelectedSites() {
   }
 }
 
-// 调用API查询下载器设置
+// 调用API查询设置
 async function loadSearchSetting() {
   try {
     const result1: { [key: string]: any } = await api.get('system/setting/SEARCH_SOURCE')
@@ -101,6 +111,18 @@ async function loadSearchSetting() {
   } catch (error) {
     console.log(error)
   }
+}
+
+// 调用API保存设置
+async function saveSystemSetting(value: { [key: string]: any }) {
+  try {
+    const result: { [key: string]: any } = await api.post('system/env', value)
+
+    if (result.success) {
+      return true
+    }
+  } catch (error) {}
+  return false
 }
 
 // 调用API保存设置
@@ -116,10 +138,29 @@ async function saveSearchSetting() {
       selectedFilterGroup.value,
     )
 
-    if (result1.success && result2.success) {
-      $toast.success('保存媒体数据源设置成功')
+    const result3 = await saveSystemSetting(SystemSettings.value.Basic)
+
+    if (result1.success && result2.success && result3) {
+      $toast.success('搜索基础设置保存成功')
     } else {
-      $toast.error('保存媒体数据源设置失败！')
+      $toast.error('搜索基础设置保存失败！')
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 加载系统设置
+async function loadSystemSettings() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result.success) {
+      // 将API返回的值赋值给SystemSettings
+      for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+        Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
+          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+        })
+      }
     }
   } catch (error) {
     console.log(error)
@@ -131,6 +172,7 @@ onMounted(() => {
   queryFilterRuleGroups()
   querySelectedSites()
   loadSearchSetting()
+  loadSystemSettings()
 })
 </script>
 
@@ -139,7 +181,7 @@ onMounted(() => {
     <VCol cols="12">
       <VCard>
         <VCardItem>
-          <VCardTitle>数据源 & 规则</VCardTitle>
+          <VCardTitle>基础设置</VCardTitle>
           <VCardSubtitle>设定数据源、规则组等基础信息。</VCardSubtitle>
         </VCardItem>
         <VCardText>
@@ -151,7 +193,7 @@ onMounted(() => {
                 clearable
                 chips
                 :items="mediaSourcesDict"
-                label="媒体数据源"
+                label="媒体搜索数据源"
                 hint="搜索媒体信息时使用的数据源以及排序"
                 persistent-hint
               />
@@ -169,12 +211,54 @@ onMounted(() => {
               />
             </VCol>
           </VRow>
+          <VRow>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="SystemSettings.Basic.TORRENT_TAG"
+                label="下载任务标签"
+                placeholder="MOVIEPILOT"
+                hint="MoviePilot添加的下载任务标签"
+                persistent-hint
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VCombobox
+                v-model="SystemSettings.Basic.AUTO_DOWNLOAD_USER"
+                label="远程搜索自动下载用户名单"
+                placeholder="用户ID1,用户ID2"
+                hint="使用Telegram、微信等搜索时是否自动下载，使用逗号分割，设置为 all 代表所有用户自动择优下载"
+                persistent-hint
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VSwitch
+                v-model="SystemSettings.Basic.SEARCH_MULTIPLE_NAME"
+                label="多名称资源搜索"
+                hint="使用中英文等多个名称搜索站点资源并合并搜索结果，将会增加站点访问频率"
+                persistent-hint
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VSwitch
+                v-model="SystemSettings.Basic.DOWNLOAD_SUBTITLE"
+                label="下载站点字幕"
+                hint="检查站点资源是否有独立的字幕文件，有则自动下载"
+                persistent-hint
+              />
+            </VCol>
+          </VRow>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveSearchSetting"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveSearchSetting"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -196,7 +280,11 @@ onMounted(() => {
           </VChipGroup>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveSelectedSites"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>

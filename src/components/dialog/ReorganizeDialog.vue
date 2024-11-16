@@ -318,7 +318,7 @@ onMounted(() => {
             </VCol>
             <VCol cols="12" md="4">
               <VTextField
-                v-model.number="transferForm.episode_offset"
+                v-model="transferForm.episode_offset"
                 label="集数偏移"
                 placeholder="如-10"
                 hint="集数偏移运算，如-10或EP*2"

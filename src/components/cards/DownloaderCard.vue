@@ -6,6 +6,7 @@ import { useToast } from 'vue-toast-notification'
 import type { DownloaderInfo } from '@/api/types'
 import qbittorrent_image from '@images/logos/qbittorrent.png'
 import transmission_image from '@images/logos/transmission.png'
+import {cloneDeep} from "lodash";
 
 // 定义输入
 const props = defineProps({
@@ -44,9 +45,6 @@ const download_rate = ref(0)
 // 下载器详情弹窗
 const downloaderInfoDialog = ref(false)
 
-// 下载器名称
-const downloaderName = ref('')
-
 // 下载器详情
 const downloaderInfo = ref<DownloaderConf>({
   name: '',
@@ -84,21 +82,21 @@ async function loadDownloaderInfo() {
 
 // 打开详情弹窗
 function openDownloaderInfoDialog() {
-  downloaderInfo.value = props.downloader
-  downloaderName.value = props.downloader.name
+  // 深复制
+  downloaderInfo.value = cloneDeep(props.downloader)
   downloaderInfoDialog.value = true
 }
 
 // 保存详情数据
 function saveDownloaderInfo() {
   // 为空不保存，跳出警告框
-  if (!downloaderName.value) {
+  if (!downloaderInfo.value.name) {
     $toast.error('名称不能为空，请输入后再确定')
     return
   }
   // 重名判断
-  if (props.downloaders.some(item => item.name === downloaderName.value && item !== props.downloader)) {
-    $toast.error(`【${downloaderName.value}】已存在，请替换为其他名称`)
+  if (props.downloaders.some(item => item.name === downloaderInfo.value.name && item !== props.downloader)) {
+    $toast.error(`【${downloaderInfo.value.name}】已存在，请替换为其他名称`)
     return
   }
   // 默认下载器去重
@@ -106,14 +104,13 @@ function saveDownloaderInfo() {
     props.downloaders.forEach(item => {
       if (item.default && item !== props.downloader) {
         item.default = false
-        $toast.info(`【${item.name}】存在默认下载器，已替换成【${downloaderName.value}】`)
+        $toast.info(`【${item.name}】存在默认下载器，已替换成【${downloaderInfo.value.name}】`)
       }
     })
   }
   // 执行保存
   downloaderInfoDialog.value = false
-  downloaderInfo.value.name = downloaderName.value
-  emit('change', downloaderInfo.value)
+  emit('change', downloaderInfo.value, props.downloader.name)
   emit('done')
 }
 
@@ -171,7 +168,7 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="h-20">
-          <VImg :src="getIcon" cover class="mt-7" max-width="3rem" min-width="3rem" />
+          <VImg :src="getIcon" cover class="mt-7 me-3" max-width="3rem" min-width="3rem" />
         </div>
       </VCardText>
     </VCard>
@@ -192,7 +189,7 @@ onUnmounted(() => {
             <VRow v-if="downloaderInfo.type == 'qbittorrent'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderName"
+                  v-model="downloaderInfo.name"
                   label="名称"
                   placeholder="必填；不可与其他名称重名"
                   hint="下载器的别名"
@@ -270,7 +267,7 @@ onUnmounted(() => {
             <VRow v-if="downloaderInfo.type == 'transmission'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="downloaderName"
+                  v-model="downloaderInfo.name"
                   label="名称"
                   placeholder="必填；不可与其他名称重名"
                   hint="下载器的别名"

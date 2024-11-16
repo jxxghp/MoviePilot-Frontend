@@ -215,7 +215,7 @@ onUnmounted(() => {
 
 <template>
   <!-- 当前背景图片 -->
-  <div class="relative flex min-h-screen flex-col bg-gray-900 py-14">
+  <div class="relative flex min-h-screen flex-col bg-gray-900 items-center justify-center">
     <div>
       <div
         v-for="(imageUrl, index) in backgroundImages"
@@ -230,7 +230,7 @@ onUnmounted(() => {
       </div>
     </div>
     <!-- 登录表单 -->
-    <div class="auth-wrapper d-flex align-center justify-center pa-4">
+    <div class="auth-wrapper d-flex align-center justify-center">
       <VCard class="auth-card px-7 py-3 w-full h-full rounded-lg opacity-85" max-width="24rem">
         <VCardItem class="justify-center">
           <template #prepend>
@@ -296,5 +296,10 @@ onUnmounted(() => {
 
 .absolute-top-shift {
   inset-block-start: calc(-4rem - env(safe-area-inset-top));
+}
+
+.auth-wrapper {
+  overflow: hidden;
+  block-size: auto;
 }
 </style>

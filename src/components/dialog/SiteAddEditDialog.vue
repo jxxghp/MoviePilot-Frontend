@@ -60,6 +60,25 @@ const priorityItems = ref(
   })),
 )
 
+// 下载器选项
+const downloaderOptions = ref<{ title: string; value: string }[]>([])
+
+async function loadDownloaderSetting() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/Downloaders')
+    const downloaders = result.data?.value ?? []
+    downloaderOptions.value = [
+      { title: '默认', value: null },
+      ...downloaders.map((item: { name: any }) => ({
+        title: item.name,
+        value: item.name,
+      })),
+    ]
+  } catch (error) {
+    console.error('加载下载器设置失败:', error)
+  }
+}
+
 // 查询站点信息
 async function fetchSiteInfo() {
   try {
@@ -142,6 +161,7 @@ onMounted(async () => {
       isLimit.value = true
     if (siteForm.value.apikey) siteType.value = 'api'
   }
+  await loadDownloaderSetting()
 })
 </script>
 
@@ -186,7 +206,7 @@ onMounted(async () => {
             </VCol>
           </VRow>
           <VRow>
-            <VCol cols="12" md="9">
+            <VCol cols="12" md="6">
               <VTextField
                 v-model="siteForm.rss"
                 label="RSS地址"
@@ -196,6 +216,15 @@ onMounted(async () => {
             </VCol>
             <VCol cols="12" md="3">
               <VTextField v-model="siteForm.timeout" label="超时时间（秒）" hint="站点请求超时时间" persistent-hint />
+            </VCol>
+            <VCol cols="6" md="3">
+              <VSelect
+                v-model="siteForm.downloader"
+                label="下载器"
+                :items="downloaderOptions"
+                hint="此站点使用的下载器"
+                persistent-hint
+              />
             </VCol>
           </VRow>
           <VTabs v-model="siteType" show-arrows class="v-tabs-pill mt-3">

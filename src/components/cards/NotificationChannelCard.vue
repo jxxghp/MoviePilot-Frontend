@@ -7,6 +7,7 @@ import synologychat_image from '@images/logos/synologychat.png'
 import slack_image from '@images/logos/slack.webp'
 import chrome_image from '@images/logos/chrome.png'
 import { useToast } from 'vue-toast-notification'
+import { cloneDeep } from "lodash"
 
 // 定义输入
 const props = defineProps({
@@ -30,9 +31,6 @@ const $toast = useToast()
 
 // 通知详情弹窗
 const notificationInfoDialog = ref(false)
-
-// 通知名称
-const notificationName = ref('')
 
 // 通知详情
 const notificationInfo = ref<NotificationConf>({
@@ -66,26 +64,26 @@ const notificationTypes = [
 
 // 打开详情弹窗
 function openNotificationInfoDialog() {
-  notificationInfo.value = props.notification
-  notificationName.value = props.notification.name
+  // 替换成深复制，避免修改时影响原数据
+  notificationInfo.value = cloneDeep(props.notification)
+  console.log(`当前卡片的通知信息：${JSON.stringify(notificationInfo.value)}`)
   notificationInfoDialog.value = true
 }
 
 // 保存详情数据
 function saveNotificationInfo() {
   // 为空不保存，跳出警告框
-  if (!notificationName.value) {
+  if (!notificationInfo.value.name) {
     $toast.error('名称不能为空，请输入后再确定')
     return
   }
   // 重名判断
-  if (props.notifications.some(item => item.name === notificationName.value && item !== props.notification)) {
-    $toast.error(`【${notificationName.value}】已存在，请替换为其他名称`)
+  if (props.notifications.some(item => item.name === notificationInfo.value.name && item !== props.notification)) {
+    $toast.error(`通知渠道【${notificationInfo.value.name}】已存在，请替换`)
     return
   }
   notificationInfoDialog.value = false
-  notificationInfo.value.name = notificationName.value
-  emit('change', notificationInfo.value)
+  emit('change', notificationInfo.value, props.notification.name)
   emit('done')
 }
 
@@ -131,7 +129,7 @@ function onClose() {
           </div>
           <div class="text-body-1 mb-3">{{ notificationTypeNames[notification.type] }}</div>
         </div>
-        <VImg :src="getIcon" cover class="mt-5 me-7" max-width="3rem" />
+        <VImg :src="getIcon" cover class="mt-7 me-3" max-width="3rem" />
       </VCardText>
     </VCard>
     <VDialog v-model="notificationInfoDialog" scrollable max-width="40rem" persistent>
@@ -160,7 +158,7 @@ function onClose() {
             <VRow v-if="notificationInfo.type == 'wechat'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationName"
+                  v-model="notificationInfo.name"
                   label="名称"
                   placeholder="别名"
                   hint="通知渠道的别名"
@@ -228,7 +226,7 @@ function onClose() {
             <VRow v-if="notificationInfo.type == 'telegram'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationName"
+                  v-model="notificationInfo.name"
                   label="名称"
                   placeholder="别名"
                   hint="通知渠道的别名"
@@ -273,7 +271,7 @@ function onClose() {
             <VRow v-if="notificationInfo.type == 'slack'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationName"
+                  v-model="notificationInfo.name"
                   label="名称"
                   placeholder="别名"
                   hint="通知渠道的别名"
@@ -311,7 +309,7 @@ function onClose() {
             <VRow v-if="notificationInfo.type == 'synologychat'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationName"
+                  v-model="notificationInfo.name"
                   label="名称"
                   placeholder="别名"
                   hint="通知渠道的别名"
@@ -338,7 +336,7 @@ function onClose() {
             <VRow v-if="notificationInfo.type == 'vocechat'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationName"
+                  v-model="notificationInfo.name"
                   label="名称"
                   placeholder="别名"
                   hint="通知渠道的别名"
@@ -374,7 +372,7 @@ function onClose() {
             <VRow v-if="notificationInfo.type == 'webpush'">
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationName"
+                  v-model="notificationInfo.name"
                   label="名称"
                   placeholder="别名"
                   hint="通知渠道的别名"

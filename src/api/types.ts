@@ -72,6 +72,8 @@ export interface Subscribe {
   media_category?: string
   // 过滤规则组
   filter_groups?: string[]
+  // 下载器
+  downloader?: string
 }
 
 // 订阅分享
@@ -387,6 +389,8 @@ export interface Site {
   pri?: number
   // RSS地址
   rss?: string
+  // 下载器
+  downloader?: string
   // Cookie
   cookie?: string
   // ApiKey
@@ -605,6 +609,8 @@ export interface TorrentInfo {
   site_proxy: boolean
   // 站点优先级
   site_order: number
+  // 站点下载器
+  site_downloader?: string
   // 种子名称
   title?: string
   // 种子副标题

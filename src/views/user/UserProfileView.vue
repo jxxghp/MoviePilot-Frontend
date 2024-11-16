@@ -7,7 +7,6 @@ import type { User } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
 import store from '@/store'
-import { debounce } from 'lodash'
 
 // 显示器宽度
 const display = useDisplay()
@@ -21,9 +20,6 @@ const confirmPassword = ref('')
 const $toast = useToast()
 
 const refInputEl = ref<HTMLElement>()
-
-// 防抖时间
-const debounceTime = 500
 
 // 正在保存
 const isSaving = ref(false)
@@ -73,9 +69,21 @@ const qrCode = ref('')
 function changeAvatar(file: Event) {
   const fileReader = new FileReader()
   const { files } = file.target as HTMLInputElement
-
   if (files && files.length > 0) {
-    fileReader.readAsDataURL(files[0])
+    const selectedFile = files[0]
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const maxSize = 800 * 1024
+    // 检查文件是否为图片
+    if (!allowedTypes.includes(selectedFile.type)) {
+      $toast.error('上传的文件不符合要求，请重新选择头像')
+      return
+    }
+    // 检查文件大小
+    if (selectedFile.size > maxSize) {
+      $toast.error('文件大小不得大于800KB')
+      return
+    }
+    fileReader.readAsDataURL(selectedFile)
     fileReader.onload = () => {
       if (typeof fileReader.result === 'string') {
         currentAvatar.value = fileReader.result
@@ -106,15 +114,15 @@ async function loadAccountInfo() {
     if (!accountInfo.value.avatar) {
       accountInfo.value.avatar = avatar1
     }
-  currentAvatar.value = accountInfo.value.avatar
-  currentUserName.value = accountInfo.value.name
+    currentAvatar.value = accountInfo.value.avatar
+    currentUserName.value = accountInfo.value.name
   } catch (error) {
     console.log(error)
   }
 }
 
 // 保存用户信息
-const saveAccountInfo = debounce(async () => {
+async function saveAccountInfo() {
   if (isSaving.value) {
     $toast.error('正在保存中，请稍后...')
     return
@@ -165,7 +173,7 @@ const saveAccountInfo = debounce(async () => {
     console.log(error)
   }
   isSaving.value = false
-}, debounceTime)
+}
 
 // 为当前用户获取Otp Uri
 async function getOtpUri() {
@@ -233,7 +241,7 @@ watch(
   () => store.state.auth.avatar,
   () => {
     currentAvatar.value = store.state.auth.avatar
-  }
+  },
 )
 </script>
 
@@ -285,7 +293,7 @@ watch(
                 </VBtn>
               </div>
 
-              <p class="text-body-1 mb-0">允许 JPG、PNG、GIF 格式， 最大尺寸 800K。</p>
+              <p class="text-body-1 mb-0">允许 JPG、PNG、GIF、WEBP 格式， 最大尺寸 800KB。</p>
             </form>
           </VCardText>
 
@@ -294,21 +302,10 @@ watch(
             <VForm class="mt-6">
               <VRow>
                 <VCol md="6" cols="12">
-                  <VTextField
-                    v-model="currentUserName"
-                    density="comfortable"
-                    readonly
-                    label="用户名"
-                  />
+                  <VTextField v-model="currentUserName" density="comfortable" readonly label="用户名" />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="accountInfo.email"
-                    density="comfortable"
-                    clearable
-                    label="邮箱"
-                    type="email"
-                  />
+                  <VTextField v-model="accountInfo.email" density="comfortable" clearable label="邮箱" type="email" />
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
@@ -385,10 +382,7 @@ watch(
               <VRow>
                 <!-- 👉 Form Actions -->
                 <VCol cols="12" class="d-flex flex-wrap gap-4">
-                  <VBtn
-                    @click="saveAccountInfo"
-                    :disabled="isSaving"
-                  >
+                  <VBtn @click="saveAccountInfo" :disabled="isSaving">
                     <span v-if="isSaving">保存中...</span>
                     <span v-else>保存</span>
                   </VBtn>

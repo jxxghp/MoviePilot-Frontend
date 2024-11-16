@@ -5,6 +5,7 @@ import { useDisplay, useTheme } from 'vuetify'
 import { VAvatar, VCardText, VIcon } from 'vuetify/lib/components/index.mjs'
 import { formatFileSize } from '@/@core/utils/formatters'
 import VueApexCharts from 'vue3-apexcharts'
+import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 
 // 显示器宽度
 const display = useDisplay()
@@ -17,6 +18,9 @@ const props = defineProps({
 // 注册事件
 const emit = defineEmits(['close'])
 
+// 进度框
+const progressDialog = ref(false)
+
 const vuetifyTheme = useTheme()
 
 const currentTheme = controlledComputed(
@@ -27,8 +31,9 @@ const currentTheme = controlledComputed(
 // 站点数据列表
 const siteDatas = ref<SiteUserData[]>([])
 
-// 最新一天的数据，按时间倒序排序后取第一条记录
-const siteData = computed(() => siteDatas.value[0])
+// 最新一天的数据
+const siteData = computed(() => siteDatas.value[siteDatas.value.length - 1])
+
 
 // 站点数据列表中的上传量、下载量数据生成图形使用的数据
 const historySeries = computed(() => {
@@ -238,6 +243,21 @@ async function fetchSiteUserData() {
   }
 }
 
+
+// 刷新站点数据
+async function refreshSiteData(){
+  progressDialog.value = true
+  try {
+    const result: { [key: string]: any } = await api.post(`site/userdata/${props.site?.id}`)
+    if (result.success){
+      await fetchSiteUserData()
+    }
+  } catch (error) {
+    console.log(error)
+  }
+  progressDialog.value = false
+}
+
 onBeforeMount(async () => {
   await fetchSiteUserData()
 })
@@ -245,8 +265,13 @@ onBeforeMount(async () => {
 
 <template>
   <VDialog scrollable eager max-width="80rem" :fullscreen="!display.mdAndUp.value">
-    <VCard :title="`数据 - ${props.site?.name}`" class="rounded-t">
-      <DialogCloseBtn @click="emit('close')" />
+    <VCard class="rounded-t">
+      <VCardItem>
+        <VCardTitle>{{ `数据 - ${props.site?.name}` }}
+        <IconBtn @click.stop="refreshSiteData" color="info"><VIcon icon="mdi-refresh"</VIcon></IconBtn>
+        </VCardTitle>
+        <DialogCloseBtn @click="emit('close')" />
+      </VCardItem>
       <VCardText>
         <VRow class="match-height">
           <!-- 用户信息 -->
@@ -432,5 +457,7 @@ onBeforeMount(async () => {
         </VRow>
       </VCardText>
     </VCard>
+    <!-- 进度框 -->
+    <ProgressDialog v-if="progressDialog" v-model="progressDialog" text="正在刷新站点数据..." />
   </VDialog>
 </template>

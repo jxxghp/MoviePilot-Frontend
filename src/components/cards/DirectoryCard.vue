@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import type { TransferDirectoryConf } from '@/api/types'
 import { VDivider, VSpacer, VTextField } from 'vuetify/lib/components/index.mjs'
-import { useToast } from 'vue-toast-notification'
 import api from '@/api'
 import { nextTick } from 'vue'
+import { storageOptions } from '@/api/constants'
 
 // 输入参数
 const props = defineProps({
@@ -36,19 +36,12 @@ const typeItems = [
   { title: '电视剧', value: '电视剧' },
 ]
 
-// 存储下拉字典
-const storageItems = [
-  { title: '本地', value: 'local' },
-  { title: '阿里云盘', value: 'alipan' },
-  { title: '115网盘', value: 'u115' },
-  { title: 'Rclone网盘', value: 'rclone' },
-]
-
 // 自动整理方式下拉字典
 const transferSourceItems = [
-  { title: '不自动整理', value: '' },
+  { title: '不整理', value: '' },
   { title: '下载器监控', value: 'downloader' },
   { title: '目录监控', value: 'monitor' },
+  { title: '手动整理', value: 'manual' },
 ]
 
 // 监控模式下拉字典
@@ -227,7 +220,7 @@ watch(
             />
           </VCol>
           <VCol cols="4">
-            <VSelect v-model="props.directory.storage" variant="underlined" :items="storageItems" label="下载存储" />
+            <VSelect v-model="props.directory.storage" variant="underlined" :items="storageOptions" label="下载存储" />
           </VCol>
           <VCol cols="8">
             <VPathField @update:modelValue="updateDownloadPath" :storage="props.directory.storage">
@@ -272,7 +265,7 @@ watch(
             <VSelect
               v-model="props.directory.library_storage"
               variant="underlined"
-              :items="storageItems"
+              :items="storageOptions"
               label="媒体库存储"
             />
           </VCol>

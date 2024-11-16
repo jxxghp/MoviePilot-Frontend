@@ -20,12 +20,33 @@ const mediaCategories = ref<{ [key: string]: any }>({})
 // 提示框
 const $toast = useToast()
 
-// 重载系统生效配置
-async function reloadSystem() {
+// 数据源
+const sourceItems = [
+  { 'title': 'TheMovieDb', 'value': 'themoviedb' },
+  { 'title': '豆瓣', 'value': 'douban' },
+]
+
+// 系统设置
+const SystemSettings = ref<any>({
+  Basic: {
+    SCRAP_SOURCE: 'themoviedb',
+    MOVIE_RENAME_FORMAT: null,
+    TV_RENAME_FORMAT: null,
+  },
+})
+
+// 加载系统设置
+async function loadSystemSettings() {
   try {
-    const result: { [key: string]: any } = await api.get('system/reload')
-    if (result.success) $toast.success('系统配置已生效')
-    else $toast.error('重载系统失败！')
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result.success) {
+      // 将API返回的值赋值给SystemSettings
+      for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+        Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
+          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+        })
+      }
+    }
   } catch (error) {
     console.log(error)
   }
@@ -63,7 +84,7 @@ async function saveStorages() {
 
 // 修改后生效
 async function updatedStorage() {
-  loadStorages()
+  await loadStorages()
 }
 
 // 查询目录
@@ -88,7 +109,6 @@ async function saveDirectories() {
     const result: { [key: string]: any } = await api.post('system/setting/Directories', directories.value)
     if (result.success) {
       $toast.success('目录设置保存成功')
-      await reloadSystem()
     } else $toast.error('目录设置保存失败！')
   } catch (error) {
     console.log(error)
@@ -130,11 +150,24 @@ async function loadMediaCategories() {
   }
 }
 
+// 保存设置
+async function saveSystemSettings(value: any) {
+  try {
+    const result: { [key: string]: any } = await api.post('system/env', value)
+    if (result.success) {
+      $toast.success('整理选项设置保存成功')
+    } else $toast.error('整理选项设置保存失败！')
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 // 加载数据
 onMounted(() => {
   loadDirectories()
   loadStorages()
   loadMediaCategories()
+  loadSystemSettings()
 })
 </script>
 
@@ -160,10 +193,16 @@ onMounted(() => {
           </draggable>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" class="me-2" @click="saveStorages"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" class="me-2" @click="saveStorages"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -190,10 +229,64 @@ onMounted(() => {
           </draggable>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" class="me-2" @click="saveDirectories"> 保存 </VBtn>
-          <VBtn color="success" variant="tonal" @click="addDirectory">
-            <VIcon icon="mdi-plus" />
-          </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveDirectories"> 保存 </VBtn>
+              <VBtn color="success" variant="tonal" @click="addDirectory">
+                <VIcon icon="mdi-plus" />
+              </VBtn>
+            </div>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </VCol>
+  </VRow>
+  <VRow>
+    <VCol cols="12">
+      <VCard>
+        <VCardItem>
+          <VCardTitle>整理 & 刮削</VCardTitle>
+          <VCardSubtitle>设置重命名格式、刮削选项等。</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
+          <VRow>
+            <VCol cols="12" md="6">
+              <VSelect
+                v-model="SystemSettings.Basic.SCRAP_SOURCE"
+                :items="sourceItems"
+                label="刮削数据源"
+                hint="刮削时的元数据来源"
+                persistent-hint
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextarea
+                v-model="SystemSettings.Basic.MOVIE_RENAME_FORMAT"
+                label="电影重命名格式"
+                hint="使用Jinja2语法，格式参考：https://jinja.palletsprojects.com/en/3.0.x/templates"
+                persistent-hint
+                clearable
+                active
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextarea
+                v-model="SystemSettings.Basic.TV_RENAME_FORMAT"
+                label="电视剧重命名格式"
+                hint="使用Jinja2语法，格式参考：https://jinja.palletsprojects.com/en/3.0.x/templates"
+                persistent-hint
+                clearable
+                active
+              />
+            </VCol>
+          </VRow>
+        </VCardText>
+        <VCardText>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveSystemSettings(SystemSettings.Basic)"> 保存</VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>

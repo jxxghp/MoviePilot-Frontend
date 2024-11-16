@@ -9,6 +9,7 @@ import noImage from '@images/logos/plugin.png'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { PluginTabs } from '@/router/menu'
+import PluginMarketSettingDialog from '@/components/dialog/PluginMarketSettingDialog.vue'
 
 const route = useRoute()
 
@@ -62,6 +63,9 @@ const PluginStatistics = ref<{ [key: string]: number }>({})
 
 // 搜索窗口
 const SearchDialog = ref(false)
+
+// 插件市场设置窗口
+const MarketSettingDialog = ref(false)
 
 // 搜索关键字
 const keyword = ref('')
@@ -311,6 +315,13 @@ function pluginInstalled() {
   refreshData()
 }
 
+// 插件市场设置完成
+function marketSettingDone() {
+  MarketSettingDialog.value = false
+  // 重新加载数据
+  refreshData()
+}
+
 // 处理掉github地址的前缀
 function handleRepoUrl(url: string | undefined) {
   if (!url) return ''
@@ -435,19 +446,40 @@ onBeforeMount(async () => {
     </VWindow>
   </div>
 
-  <!-- 插件搜索 -->
+  <!-- 插件搜索图标 -->
   <VFab
     icon="mdi-magnify"
     color="info"
     location="bottom"
-    class="mb-2"
     size="x-large"
     fixed
     app
     appear
     @click="SearchDialog = true"
+    :class="appMode ? 'mb-28' : 'mb-16'"
+  />
+  <!-- 插件市场设置图标 -->
+  <VFab
+    icon="mdi-store-cog"
+    color="warning"
+    location="bottom"
+    size="x-large"
+    fixed
+    app
+    appear
+    @click="MarketSettingDialog = true"
     :class="{ 'mb-12': appMode }"
   />
+
+  <!-- 插件市场设置窗口 -->
+  <PluginMarketSettingDialog
+    v-if="MarketSettingDialog"
+    v-model="MarketSettingDialog"
+    @close="MarketSettingDialog = false"
+    @save="marketSettingDone"
+  />
+
+  <!-- 插件搜索窗口 -->
   <VDialog
     v-if="SearchDialog"
     v-model="SearchDialog"

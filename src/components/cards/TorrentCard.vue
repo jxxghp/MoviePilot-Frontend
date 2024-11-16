@@ -4,6 +4,7 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Context } from '@/api/types'
 import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 输入参数
 const props = defineProps({
@@ -24,6 +25,9 @@ const media = ref(props.torrent?.media_info)
 
 // 识别元数据
 const meta = ref(props.torrent?.meta_info)
+
+// 当前下载项
+const downloadItem = ref(props.torrent)
 
 // 站点图标
 const siteIcon = ref('')
@@ -56,7 +60,10 @@ async function getSiteIcon() {
 }
 
 // 询问并添加下载
-async function handleAddDownload() {
+async function handleAddDownload(item: Context | null = null) {
+  if (item && !isNullOrEmptyObject(item)) {
+    downloadItem.value = item
+  }
   // 打开下载对话框
   addDownloadDialog.value = true
 }
@@ -91,7 +98,7 @@ onMounted(() => {
       :width="props.width"
       :height="props.height"
       :variant="downloaded.includes(torrent?.enclosure || '') ? 'outlined' : 'elevated'"
-      @click="handleAddDownload"
+      @click="handleAddDownload(props.torrent)"
     >
       <template v-if="!showMoreTorrents" #image>
         <VAvatar class="absolute right-2 bottom-2 rounded" variant="flat" rounded="0">
@@ -135,7 +142,7 @@ onMounted(() => {
       <VCardText class="text-subtitle-2">
         {{ torrent?.title }}
       </VCardText>
-      <VCardText>{{ torrent?.description }}</VCardText>
+      <VCardText>【{{ torrent?.site_name }}】{{ torrent?.description }}</VCardText>
       <VCardItem v-if="torrent?.labels" class="pb-3 pt-0 pe-12">
         <VChip v-if="torrent?.hit_and_run" variant="elevated" size="small" class="me-1 mb-1 text-white bg-black">
           H&R
@@ -190,11 +197,7 @@ onMounted(() => {
         <div v-show="showMoreTorrents">
           <VDivider />
           <VChipGroup class="p-3" column>
-            <VChip
-              v-for="(item, index) in props.more"
-              :key="index"
-              @click.stop="handleAddDownload(item.torrent_info?.site_name, item.media_info, item.torrent_info)"
-            >
+            <VChip v-for="(item, index) in props.more" :key="index" @click.stop="handleAddDownload(item)">
               <template #append>
                 <VBadge color="primary" :content="`↑${item.torrent_info?.seeders}`" inline size="small" />
                 <VBadge
@@ -213,9 +216,11 @@ onMounted(() => {
     <AddDownloadDialog
       v-if="addDownloadDialog"
       v-model="addDownloadDialog"
-      :title="`${media?.title_year || meta?.name} ${meta?.season_episode}`"
-      :media="media"
-      :torrent="torrent"
+      :title="`${downloadItem?.media_info?.title_year || downloadItem?.meta_info?.name} ${
+        downloadItem?.meta_info?.season_episode
+      }`"
+      :media="downloadItem?.media_info"
+      :torrent="downloadItem?.torrent_info"
       @done="addDownloadSuccess"
       @error="addDownloadError"
       @close="addDownloadDialog = false"

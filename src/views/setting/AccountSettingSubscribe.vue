@@ -18,20 +18,11 @@ const selectedFilterRuleGroup = ref([])
 // 选中的洗版规则组
 const selectedBestVersionRuleGroup = ref([])
 
-// 是否开启订阅定时搜索
-const enableIntervalSearch = ref(false)
-
-// 是否检查本地媒体库是否存在资源
-const enableDirExistsSearch = ref(false)
-
 // 订阅模式选择项
 const subscribeModeItems = [
   { title: '自动', value: 'spider' },
   { title: '站点RSS', value: 'rss' },
 ]
-
-// 选择的订阅模式
-const selectedSubscribeMode = ref('spider')
 
 // 所有规则组列表
 const filterRuleGroups = ref<FilterRuleGroup[]>([])
@@ -55,8 +46,16 @@ const rssIntervalItems = [
   { title: '1天', value: 1440 },
 ]
 
-// 选择的RSS运行周期
-const selectedRssInterval = ref<number>(5)
+// 系统设置项
+const SystemSettings = ref<any>({
+  // 基础设置
+  Basic: {
+    SUBSCRIBE_MODE: 'auto',
+    SUBSCRIBE_SEARCH: false,
+    SUBSCRIBE_RSS_INTERVAL: 30,
+    LOCAL_EXISTS_SEARCH: false,
+  },
+})
 
 // 查询所有站点
 async function querySites() {
@@ -103,27 +102,55 @@ async function saveSelectedRssSites() {
   }
 }
 
-// 查询订阅设置
-async function querySubscribeSetting() {
+// 加载系统设置
+async function loadSystemSettings() {
   try {
-    // 查询订阅搜索开关
-    const result: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_SEARCH')
-    if (result.success) enableIntervalSearch.value = result.data?.value
-    // 查询订阅模式
-    const result2: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_MODE')
-    if (result2.success) selectedSubscribeMode.value = result2.data?.value
-    // 查询站点RSS周期
-    const result3: { [key: string]: any } = await api.get('system/setting/SUBSCRIBE_RSS_INTERVAL')
-    if (result3.success) selectedRssInterval.value = result3.data?.value
+    const result: { [key: string]: any } = await api.get('system/env')
+    if (result.success) {
+      // 将API返回的值赋值给SystemSettings
+      for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
+        Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
+          if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
+        })
+      }
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 调用API保存设置
+async function saveSystemSetting(value: { [key: string]: any }) {
+  try {
+    const result: { [key: string]: any } = await api.post('system/env', value)
+
+    if (result.success) {
+      return true
+    }
+  } catch (error) {}
+  return false
+}
+
+// 查询订阅设置
+async function querySubscribeRules() {
+  try {
     // 查询订阅规则组
-    const result4: { [key: string]: any } = await api.get('system/setting/SubscribeFilterRuleGroups')
-    if (result4.success) selectedFilterRuleGroup.value = result4.data?.value
+    const result1: { [key: string]: any } = await api.get('system/setting/SubscribeFilterRuleGroups')
+    if (result1.success) selectedFilterRuleGroup.value = result1.data?.value
     // 查询洗版规则组
-    const result5: { [key: string]: any } = await api.get('system/setting/BestVersionFilterRuleGroups')
-    if (result5.success) selectedBestVersionRuleGroup.value = result5.data?.value
-    // 查询检查本地媒体库是否存在资源开关
-    const result6: { [key: string]: any } = await api.get('system/setting/LOCAL_EXISTS_SEARCH')
-    if (result6.success) enableDirExistsSearch.value = result6.data?.value
+    const result2: { [key: string]: any } = await api.get('system/setting/BestVersionFilterRuleGroups')
+    if (result2.success) selectedBestVersionRuleGroup.value = result2.data?.value
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 重载系统生效配置
+async function reloadSystem() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/reload')
+    if (result.success) $toast.success('系统配置已生效')
+    else $toast.error('重载系统失败！')
   } catch (error) {
     console.log(error)
   }
@@ -133,35 +160,21 @@ async function querySubscribeSetting() {
 async function saveSubscribeSetting() {
   try {
     const result1: { [key: string]: any } = await api.post(
-      'system/setting/SUBSCRIBE_SEARCH',
-      enableIntervalSearch.value,
-    )
-
-    const result2: { [key: string]: any } = await api.post('system/setting/SUBSCRIBE_MODE', selectedSubscribeMode.value)
-
-    const result3: { [key: string]: any } = await api.post(
-      'system/setting/SUBSCRIBE_RSS_INTERVAL',
-      selectedRssInterval.value,
-    )
-
-    const result4: { [key: string]: any } = await api.post(
       'system/setting/SubscribeFilterRuleGroups',
       selectedFilterRuleGroup.value,
     )
 
-    const result5: { [key: string]: any } = await api.post(
+    const result2: { [key: string]: any } = await api.post(
       'system/setting/BestVersionFilterRuleGroups',
       selectedBestVersionRuleGroup.value,
     )
 
-    const result6: { [key: string]: any } = await api.post(
-      'system/setting/LOCAL_EXISTS_SEARCH',
-      enableDirExistsSearch.value,
-    )
+    const result3 = await saveSystemSetting(SystemSettings.value.Basic)
 
-    if (result1.success && result2.success && result3.success && result4.success && result5.success && result6.success)
-      $toast.success('订阅设置保存成功')
-    else $toast.error('订阅设置保存失败！')
+    if (result1.success && result2.success && result3) {
+      $toast.success('订阅基础设置保存成功')
+      await reloadSystem()
+    } else $toast.error('订阅基础设置保存失败！')
   } catch (error) {
     console.log(error)
   }
@@ -171,7 +184,8 @@ onMounted(() => {
   querySites()
   queryFilterRuleGroups()
   querySelectedRssSites()
-  querySubscribeSetting()
+  querySubscribeRules()
+  loadSystemSettings()
 })
 </script>
 
@@ -180,7 +194,7 @@ onMounted(() => {
     <VCol cols="12">
       <VCard>
         <VCardItem>
-          <VCardTitle>订阅模式 & 规则</VCardTitle>
+          <VCardTitle>基础设置</VCardTitle>
           <VCardSubtitle>设定订阅模式、周期等基础设置</VCardSubtitle>
         </VCardItem>
         <VCardText>
@@ -188,7 +202,7 @@ onMounted(() => {
             <VRow>
               <VCol cols="12" md="6">
                 <VSelect
-                  v-model="selectedSubscribeMode"
+                  v-model="SystemSettings.Basic.SUBSCRIBE_MODE"
                   :items="subscribeModeItems"
                   label="订阅模式"
                   hint="自动：自动爬取站点首页，站点RSS：通过站点RSS链接订阅"
@@ -197,7 +211,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VSelect
-                  v-model="selectedRssInterval"
+                  v-model="SystemSettings.Basic.SUBSCRIBE_RSS_INTERVAL"
                   :items="rssIntervalItems"
                   label="站点RSS周期"
                   hint="设置站点RSS运行周期，在订阅模式为`站点RSS`时生效"
@@ -232,7 +246,7 @@ onMounted(() => {
             <VRow>
               <VCol cols="12" md="6">
                 <VSwitch
-                  v-model="enableIntervalSearch"
+                  v-model="SystemSettings.Basic.SUBSCRIBE_SEARCH"
                   label="订阅定时搜索"
                   hint="每隔24小时全站搜索，以补全订阅可能漏掉的资源"
                   persistent-hint
@@ -240,7 +254,7 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VSwitch
-                  v-model="enableDirExistsSearch"
+                  v-model="SystemSettings.Basic.LOCAL_EXISTS_SEARCH"
                   label="检查本地媒体库资源"
                   hint="检查存储盘是否存在资源，以避免重复下载"
                   persistent-hint
@@ -250,10 +264,16 @@ onMounted(() => {
           </VForm>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveSubscribeSetting"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveSubscribeSetting"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -275,7 +295,11 @@ onMounted(() => {
           </VChipGroup>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveSelectedRssSites"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveSelectedRssSites"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>

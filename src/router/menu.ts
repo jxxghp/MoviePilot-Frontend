@@ -132,10 +132,10 @@ export const UserfulMenus = [
 // 设定标签页
 export const SettingTabs = [
   {
-    title: '连接',
+    title: '系统',
     icon: 'mdi-server-network',
     tab: 'system',
-    description: '下载器（Qbittorrent、Transmission）、媒体服务器（Emby、Jellyfin、Plex）',
+    description: '基础设置、下载器（Qbittorrent、Transmission）、媒体服务器（Emby、Jellyfin、Plex）',
   },
   {
     title: '网络',
@@ -147,43 +147,43 @@ export const SettingTabs = [
     title: '存储 & 目录',
     icon: 'mdi-folder',
     tab: 'directory',
-    description: '下载目录、媒体库目录、整理模式',
+    description: '下载目录、媒体库目录、整理、刮削',
   },
   {
     title: '站点',
     icon: 'mdi-web',
     tab: 'site',
-    description: '站点同步、下载优先规则、站点重置',
+    description: '站点同步、站点数据刷新、站点重置',
   },
   {
     title: '规则',
     icon: 'mdi-filter',
     tab: 'rule',
-    description: '优先级规则组',
+    description: '自定义规则、优先级规则组、下载规则',
   },
   {
-    title: '搜索',
+    title: '搜索 & 下载',
     icon: 'mdi-magnify',
     tab: 'search',
-    description: '媒体数据源（TheMovieDb、豆瓣、Bangumi）、搜索站点、搜索优先级、默认过滤规则',
+    description: '搜索数据源（TheMovieDb、豆瓣、Bangumi）、下载任务标签、搜索站点',
   },
   {
     title: '订阅',
     icon: 'mdi-rss',
     tab: 'subscribe',
-    description: '订阅站点、订阅模式、订阅优先级、洗版优先级、默认过滤规则',
+    description: '订阅站点、订阅模式、订阅规则、洗版规则',
   },
   {
     title: '服务',
     icon: 'mdi-list-box',
-    tab: 'service',
+    tab: 'scheduler',
     description: '定时作业',
   },
   {
     title: '通知',
     icon: 'mdi-bell',
     tab: 'notification',
-    description: '通知渠道（微信、Telegram、Slack、SynologyChat、VoceChat）、消息类型',
+    description: '通知渠道（微信、Telegram、Slack、SynologyChat、VoceChat、WebPush）、消息发送范围',
   },
   {
     title: '词表',
@@ -195,6 +195,7 @@ export const SettingTabs = [
     title: '关于',
     icon: 'mdi-information',
     tab: 'about',
+    description: '软件版本',
   },
 ]
 

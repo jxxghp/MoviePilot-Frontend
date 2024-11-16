@@ -3,6 +3,7 @@ import type { Axios } from 'axios'
 import FileList from './filebrowser/FileList.vue'
 import FileToolbar from './filebrowser/FileToolbar.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
+import { storageOptions } from '@/api/constants'
 
 // 输入参数
 const props = defineProps({
@@ -26,29 +27,6 @@ const props = defineProps({
 
 // 对外事件
 const emit = defineEmits(['pathchanged'])
-
-const availableStorages = [
-  {
-    name: '本地',
-    code: 'local',
-    icon: 'mdi-folder-multiple-outline',
-  },
-  {
-    name: '阿里云盘',
-    code: 'alipan',
-    icon: 'mdi-cloud-outline',
-  },
-  {
-    name: '115网盘',
-    code: 'u115',
-    icon: 'mdi-cloud-outline',
-  },
-  {
-    name: 'Rclone网盘',
-    code: 'rclone',
-    icon: 'mdi-cloud-outline',
-  },
-]
 
 const fileIcons = {
   // 压缩包
@@ -151,7 +129,7 @@ const sort = ref('name')
 // 计算属性
 const storagesArray = computed(() => {
   const storageCodes = props.storages?.map(item => item.type)
-  return availableStorages.filter(item => storageCodes?.includes(item.code))
+  return storageOptions.filter(item => storageCodes?.includes(item.value))
 })
 
 // 方法

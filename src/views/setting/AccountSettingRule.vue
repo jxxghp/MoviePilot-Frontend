@@ -53,6 +53,29 @@ async function loadMediaCategories() {
 
 // 保存自定义规则
 async function saveCustomRules() {
+  // 检查是否存在空id规则
+  if (customRules.value.some(item => !item.id)) {
+    $toast.error('存在空ID的规则，无法保存，请修改！')
+    return
+  }
+  // 检查是否存在空的规则名称
+  if (customRules.value.some(item => !item.name)) {
+    $toast.error('存在空名字的规则，无法保存，请修改！')
+    return
+  }
+  // 获取所有规则ID和名称
+  const ids = customRules.value.map(item => item.id)
+  const names = customRules.value.map(item => item.name)
+  // 检查是否存在重名的规则ID
+  if (new Set(ids).size !== ids.length) {
+    $toast.error('存在重复规则ID！无法保存，请修改！')
+    return
+  }
+  // 检查是否存在重名规则名称
+  if (new Set(names).size !== names.length) {
+    $toast.error('存在重复规则名称！无法保存，请修改！')
+    return
+  }
   try {
     const result: { [key: string]: any } = await api.post('system/setting/CustomFilterRules', customRules.value)
     if (result.success) $toast.success('自定义规则保存成功')
@@ -63,7 +86,7 @@ async function saveCustomRules() {
 }
 
 // 添加自定义规则
-function addCustomRule() {
+async function addCustomRule() {
   let id = `RULE${customRules.value.length + 1}`
   while (customRules.value.some(item => item.id === id)) {
     id = `RULE${parseInt(id.split('RULE')[1]) + 1}`
@@ -98,6 +121,17 @@ async function queryFilterRuleGroups() {
 
 // 保存规则组
 async function saveFilterRuleGroups() {
+  // 检查是否存在空的规则组名称
+  if (filterRuleGroups.value.some(item => !item.name)) {
+    $toast.error('存在空名字的规则组！无法保存，请修改！')
+    return
+  }
+  // 检查是否存在重名规则组
+  const names = filterRuleGroups.value.map(item => item.name)
+  if (new Set(names).size !== names.length) {
+    $toast.error('存在重复规则组名称！无法保存，请修改！')
+    return
+  }
   try {
     const result: { [key: string]: any } = await api.post('system/setting/UserFilterRuleGroups', filterRuleGroups.value)
     if (result.success) $toast.success('优先级规则组保存成功')
@@ -150,8 +184,8 @@ watchEffect(() => {
   // 导入代码需要json格式
   try {
     if (importCodeType.value === 'custom') {
-      // 将导入的代码转换为规则卡片
-      customRules.value = JSON.parse(importCodeString.value).map((item: any) => {
+      // 将导入的代码转换为规则卡片，并追加到已有的 customRules
+      const newCustomRules = JSON.parse(importCodeString.value).map((item: any) => {
         return {
           id: item.id,
           name: item.name,
@@ -162,9 +196,10 @@ watchEffect(() => {
           size_range: item.size_range,
         }
       })
+      customRules.value = [...customRules.value, ...newCustomRules] // 合并已有的和新导入的规则
     } else if (importCodeType.value === 'group') {
-      // 将导入的代码转换为规则卡片
-      filterRuleGroups.value = JSON.parse(importCodeString.value).map((item: any) => {
+      // 将导入的代码转换为规则卡片，并追加到已有的 filterRuleGroups
+      const newFilterRuleGroups = JSON.parse(importCodeString.value).map((item: any) => {
         return {
           name: item.name,
           rule_string: item.rule_string,
@@ -172,6 +207,7 @@ watchEffect(() => {
           category: item.category,
         }
       })
+      filterRuleGroups.value = [...filterRuleGroups.value, ...newFilterRuleGroups] // 合并已有的和新导入的规则
     }
   } catch (error) {
     $toast.error('规则导入失败！')
@@ -179,8 +215,8 @@ watchEffect(() => {
 })
 
 // 规则变化时赋值
-function onRuleChange(rule: CustomRule) {
-  const index = customRules.value.findIndex(item => item.id === rule.id)
+function onRuleChange(rule: CustomRule, id: string) {
+  const index = customRules.value.findIndex(item => item.id === id)
   if (index !== -1) customRules.value[index] = rule
 }
 
@@ -191,8 +227,8 @@ function removeFilterRuleGroup(rule: FilterRuleGroup) {
 }
 
 // 规则组变化时赋值
-function changeRuleGroup(group: FilterRuleGroup) {
-  const index = filterRuleGroups.value.findIndex(item => item.name === group.name)
+function changeRuleGroup(group: FilterRuleGroup, name: string) {
+  const index = filterRuleGroups.value.findIndex(item => item.name === name)
   if (index !== -1) filterRuleGroups.value[index] = group
 }
 
@@ -220,12 +256,10 @@ async function queryCustomRules() {
 // 保存种子优先规则
 async function saveTorrentPriority() {
   try {
-    // 用户名密码
     const result: { [key: string]: any } = await api.post(
       'system/setting/TorrentsPriority',
       selectedTorrentPriority.value,
     )
-
     if (result.success) $toast.success('优先规则保存成功')
     else $toast.error('优先规则保存失败！')
   } catch (error) {
@@ -269,21 +303,27 @@ onMounted(() => {
           </draggable>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" class="me-2" @click="saveCustomRules"> 保存 </VBtn>
-          <VBtnGroup density="comfortable">
-            <VBtn color="success" variant="tonal" @click="addCustomRule">
-              <VIcon icon="mdi-plus" />
-            </VBtn>
-            <VBtn color="info" variant="tonal" @click="importRules('custom')">
-              <VIcon icon="mdi-import" />
-            </VBtn>
-            <VBtn color="info" variant="tonal" @click="shareRules(customRules)">
-              <VIcon icon="mdi-share" />
-            </VBtn>
-          </VBtnGroup>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" class="me-2" @click="saveCustomRules"> 保存 </VBtn>
+              <VBtnGroup density="comfortable">
+                <VBtn color="success" variant="tonal" @click="addCustomRule">
+                  <VIcon icon="mdi-plus" />
+                </VBtn>
+                <VBtn color="info" variant="tonal" @click="importRules('custom')">
+                  <VIcon icon="mdi-import" />
+                </VBtn>
+                <VBtn color="info" variant="tonal" @click="shareRules(customRules)">
+                  <VIcon icon="mdi-share" />
+                </VBtn>
+              </VBtnGroup>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -311,24 +351,30 @@ onMounted(() => {
           </draggable>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" class="me-2" @click="saveFilterRuleGroups"> 保存 </VBtn>
-          <VBtnGroup density="comfortable">
-            <VBtn color="success" variant="tonal" @click="addFilterRuleGroup">
-              <VIcon icon="mdi-plus" />
-            </VBtn>
-            <VBtn color="info" variant="tonal" @click="importRules('group')">
-              <VIcon icon="mdi-import" />
-            </VBtn>
-            <VBtn color="info" variant="tonal" @click="shareRules(filterRuleGroups)">
-              <VIcon icon="mdi-share" />
-            </VBtn>
-          </VBtnGroup>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" class="me-2" @click="saveFilterRuleGroups"> 保存 </VBtn>
+              <VBtnGroup density="comfortable">
+                <VBtn color="success" variant="tonal" @click="addFilterRuleGroup">
+                  <VIcon icon="mdi-plus" />
+                </VBtn>
+                <VBtn color="info" variant="tonal" @click="importRules('group')">
+                  <VIcon icon="mdi-import" />
+                </VBtn>
+                <VBtn color="info" variant="tonal" @click="shareRules(filterRuleGroups)">
+                  <VIcon icon="mdi-share" />
+                </VBtn>
+              </VBtnGroup>
+            </div>
+          </VForm>
         </VCardText>
         <VDialog v-model="importCodeDialog" width="60rem" scrollable>
           <ImportCodeDialog v-model="importCodeString" title="导入规则" @close="importCodeDialog = false" />
         </VDialog>
       </VCard>
     </VCol>
+  </VRow>
+  <VRow>
     <VCol cols="12">
       <VCard>
         <VCardItem>
@@ -354,7 +400,11 @@ onMounted(() => {
           </VForm>
         </VCardText>
         <VCardText>
-          <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveTorrentPriority"> 保存 </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VCol>

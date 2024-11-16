@@ -106,9 +106,6 @@ const files = computed(() => items.value.filter(item => item.type === 'file' && 
 // 是否文件
 const isFile = computed(() => inProps.item.type == 'file')
 
-// 是否目录
-const isDir = computed(() => !isFile.value)
-
 // 需要整理的文件项
 const transferItems = ref<FileItem[]>([])
 
@@ -622,7 +619,8 @@ onMounted(() => {
                         v-if="inProps.icons && item.extension"
                         :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
                       />
-                      <VIcon v-else icon="mdi-folder-outline" />
+                      <VIcon v-else-if="item.type == 'dir'" icon="mdi-folder-outline" />
+                      <VIcon v-else icon="mdi-file-outline" />
                     </template>
                   </template>
                   <VListItemTitle v-text="item.name" />

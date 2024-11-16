@@ -5,11 +5,14 @@ import storage_png from '@images/misc/storage.png'
 import alipan_png from '@images/misc/alipan.webp'
 import u115_png from '@images/misc/u115.png'
 import rclone_png from '@images/misc/rclone.png'
+import alist_png from '@images/misc/alist.svg'
 import api from '@/api'
 import AliyunAuthDialog from '../dialog/AliyunAuthDialog.vue'
 import U115AuthDialog from '../dialog/U115AuthDialog.vue'
 import RcloneConfigDialog from '../dialog/RcloneConfigDialog.vue'
+import AlistConfigDialog from '../dialog/AlistConfigDialog.vue'
 import { useToast } from 'vue-toast-notification'
+import { isNullOrEmptyObject } from '@/@core/utils'
 
 // 定义输入
 const props = defineProps({
@@ -42,6 +45,8 @@ const aliyunAuthDialog = ref(false)
 const u115AuthDialog = ref(false)
 // Rclone配置对话框
 const rcloneConfigDialog = ref(false)
+// AList配置对话框
+const aListConfigDialog = ref(false)
 
 // 打开存储对话框
 function openStorageDialog() {
@@ -55,8 +60,11 @@ function openStorageDialog() {
     case 'rclone':
       rcloneConfigDialog.value = true
       break
+    case 'alist':
+      aListConfigDialog.value = true
+      break
     default:
-      $toast.info('此存储类型无需配置参数')
+      $toast.info('此存储类型无需配置参数，请直接配置目录！')
       break
   }
 }
@@ -72,6 +80,8 @@ const getIcon = computed(() => {
       return u115_png
     case 'rclone':
       return rclone_png
+    case 'alist':
+      return alist_png
     default:
       return storage_png
   }
@@ -90,7 +100,7 @@ const progressColor = computed(() => {
 
 // 计算存储使用率
 const usage = computed(() => {
-  return Math.round(((used.value) / (total.value || 1)) * 1000) / 10
+  return Math.round((used.value / (total.value || 1)) * 1000) / 10
 })
 
 // 查询存储信息
@@ -109,6 +119,7 @@ function handleDone() {
   aliyunAuthDialog.value = false
   u115AuthDialog.value = false
   rcloneConfigDialog.value = false
+  aListConfigDialog.value = false
   emit('done')
 }
 
@@ -122,7 +133,7 @@ onMounted(() => {
       <div class="align-self-start flex-1">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
         <div class="mb-3 text-sm" v-if="total">{{ formatBytes(used, 1) }} / {{ formatBytes(total, 1) }}</div>
-        <div v-else>未配置</div>
+        <div v-else-if="isNullOrEmptyObject(storage.config)">未配置</div>
       </div>
       <VImg :src="getIcon" cover class="mt-5" max-width="3rem" min-width="3rem" />
     </VCardText>
@@ -142,6 +153,13 @@ onMounted(() => {
     v-model="rcloneConfigDialog"
     :conf="props.storage.config || {}"
     @close="rcloneConfigDialog = false"
+    @done="handleDone"
+  />
+  <AlistConfigDialog
+    v-if="aListConfigDialog"
+    v-model="aListConfigDialog"
+    :conf="props.storage.config || {}"
+    @close="aListConfigDialog = false"
     @done="handleDone"
   />
 </template>
