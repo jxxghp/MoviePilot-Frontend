@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import QrcodeVue from 'qrcode.vue'
 import api from '@/api'
+import QrcodeVue from 'qrcode.vue'
 
 // 定义事件
 const emit = defineEmits(['done', 'close'])
@@ -43,15 +43,21 @@ async function checkQrcode() {
     if (result.success && result.data) {
       const status = result.data.status
       text.value = result.data.tip
-      if (status == 1) {
-        // 已确认完成
-        alertType.value = 'success'
-        handleDone()
-      } else if (status == 0) {
+      if (status == 0) {
         alertType.value = 'info'
         // 新建、待扫码
         clearTimeout(timeoutTimer)
         timeoutTimer = setTimeout(checkQrcode, 3000)
+      } else if (status == 1) {
+        // 已扫码
+        alertType.value = 'info'
+        text.value = '已扫码，请确认登录'
+        clearTimeout(timeoutTimer)
+        timeoutTimer = setTimeout(checkQrcode, 3000)
+      } else if (status == 2) {
+        // 已确认完成
+        alertType.value = 'success'
+        handleDone()
       } else {
         // 过期或者已取消
         alertType.value = 'error'
@@ -80,10 +86,8 @@ onUnmounted(() => {
     <VCard title="115网盘登录" class="rounded-t">
       <DialogCloseBtn @click="emit('close')" />
       <VCardText class="pt-2 flex flex-col items-center">
-        <div class="my-6 shadow-lg rounded border">
-          <VImg class="mx-auto" :src="qrCodeContent" style="block-size: 200px; inline-size: 200px">
-            <VSkeletonLoader v-if="!qrCodeContent" class="w-full h-full" />
-          </VImg>
+        <div class="my-6 shadow-lg rounded text-center p-3 border">
+          <QrcodeVue class="mx-auto" :value="qrCodeContent" :size="200" />
         </div>
         <VAlert variant="tonal" :type="alertType" class="my-4 text-center" :text="text">
           <template #prepend />

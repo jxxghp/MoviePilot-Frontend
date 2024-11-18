@@ -422,7 +422,6 @@ function onRemoveSubscribe() {
           aspect-ratio="2/3"
           :src="getImgUrl"
           class="object-cover aspect-w-2 aspect-h-3"
-          :class="hover.isHovering ? 'on-hover' : ''"
           cover
           @load="isImageLoaded = true"
           @error="imageLoadError = true"
@@ -433,6 +432,24 @@ function onRemoveSubscribe() {
             </div>
           </template>
         </VImg>
+        <!-- 详情 -->
+        <VCardText
+          v-show="hover.isHovering || imageLoadError"
+          class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
+          style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
+        >
+          <span class="font-bold">{{ props.media?.year }}</span>
+          <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
+            {{ props.media?.title }}
+          </h1>
+          <p class="leading-4 line-clamp-4 overflow-hidden text-ellipsis ...">
+            {{ props.media?.overview }}
+          </p>
+          <div class="flex align-center justify-between">
+            <IconBtn icon="mdi-magnify" color="white" @click.stop="handleSearch" />
+            <IconBtn icon="mdi-heart" :color="isSubscribed ? 'error' : 'white'" @click.stop="handleSubscribe" />
+          </div>
+        </VCardText>
         <!-- 类型角标 -->
         <VChip
           v-show="isImageLoaded"
@@ -455,23 +472,7 @@ function onRemoveSubscribe() {
         >
           {{ props.media?.vote_average }}
         </VChip>
-        <!-- 详情 -->
-        <VCardText
-          v-show="hover.isHovering || imageLoadError"
-          class="w-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
-        >
-          <span class="font-bold">{{ props.media?.year }}</span>
-          <h1 class="mb-1 text-white font-extrabold text-xl line-clamp-2 overflow-hidden text-ellipsis ...">
-            {{ props.media?.title }}
-          </h1>
-          <p class="leading-4 line-clamp-4 overflow-hidden text-ellipsis ...">
-            {{ props.media?.overview }}
-          </p>
-          <div class="flex align-center justify-between">
-            <IconBtn icon="mdi-magnify" color="white" @click.stop="handleSearch" />
-            <IconBtn icon="mdi-heart" :color="isSubscribed ? 'error' : 'white'" @click.stop="handleSubscribe" />
-          </div>
-        </VCardText>
+        <!--来源图标-->
         <VAvatar
           size="24"
           density="compact"
@@ -551,9 +552,3 @@ function onRemoveSubscribe() {
     @remove="onRemoveSubscribe"
   />
 </template>
-
-<style lang="scss">
-.on-hover img {
-  @apply brightness-50;
-}
-</style>

@@ -207,7 +207,7 @@ async function removeSubscribe() {
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/DownloadDirectories')
+    const result: { [key: string]: any } = await api.get('system/setting/Directories')
     if (result.success && result.data?.value) {
       downloadDirectories.value = result.data.value
     }
@@ -219,8 +219,7 @@ async function loadDownloadDirectories() {
 // 保存目录下拉框
 const targetDirectories = computed(() => {
   // 去重后的下载目录
-  const directories = downloadDirectories.value.map(item => item.download_path)
-  return [...new Set(directories)]
+  return downloadDirectories.value.map(item => item.download_path)
 })
 
 // 质量选择框数据
