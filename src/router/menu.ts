@@ -214,7 +214,7 @@ export const SubscribeMovieTabs = [
 ]
 
 // 电视剧订阅标签页
-export const SubscribeTvTabs = [
+export const SubscribeTvTabs = ref([
   {
     title: '我的订阅',
     tab: 'mysub',
@@ -225,7 +225,12 @@ export const SubscribeTvTabs = [
     tab: 'popular',
     icon: 'mdi-television',
   },
-]
+  {
+    title: '订阅分享',
+    tab: 'share',
+    icon: 'mdi-share',
+  },
+])
 
 // 插件标签页
 export const PluginTabs = [
