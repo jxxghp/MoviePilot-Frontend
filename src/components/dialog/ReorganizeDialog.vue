@@ -119,7 +119,7 @@ watch(
         transferForm.library_category_folder = directory.library_category_folder ?? false
         transferForm.library_type_folder = directory.library_type_folder ?? false
       } else {
-        transferForm.transfer_type = ''
+        transferForm.transfer_type = 'copy'
         transferForm.scrape = false
         transferForm.library_category_folder = false
         transferForm.library_type_folder = false
