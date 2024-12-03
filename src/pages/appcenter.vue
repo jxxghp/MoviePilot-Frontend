@@ -39,14 +39,8 @@ onMounted(() => {
 </script>
 <template>
   <div class="ps ps--active-y mx-3 appcenter-grid" tabindex="0">
-    <draggable
-      v-model="appList"
-      item-key="title"
-      tag="VRow"
-      delay="300"
-      @end="saveAppsOrder"
-      :component-data="{ 'class': 'ma-0 mt-n1' }"
-    >
+    <draggable v-model="appList" item-key="title" tag="VRow" delay="300" @end="saveAppsOrder"
+      :component-data="{ 'class': 'ma-0 mt-n1' }">
       <template #item="{ element }">
         <VCol cols="6" md="3" lg="2" class="text-center cursor-pointer shortcut-icon select-none">
           <VCard class="pa-4" :to="element.to" variant="flat">
@@ -63,7 +57,6 @@ onMounted(() => {
 
 <style type="scss">
 .appcenter-grid .v-card {
-  /* stylelint-disable-next-line property-no-vendor-prefix */
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.8);

@@ -11,10 +11,12 @@ module.exports = {
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
 
     'sonarjs/no-duplicate-string': 'warn',
-
-    'vue/valid-v-slot': ['error', {
-      allowModifiers: true,
-    }],
+    'vue/valid-v-slot': [
+      'error',
+      {
+        allowModifiers: true,
+      },
+    ],
 
     // https://github.com/gmullerb/eslint-plugin-regex
     'regex/invalid': [
@@ -23,12 +25,12 @@ module.exports = {
         {
           regex: '@/assets/images',
           replacement: '@images',
-          message: 'Use \'@images\' path alias for image imports',
+          message: "Use '@images' path alias for image imports",
         },
         {
           regex: '@/styles',
           replacement: '@styles',
-          message: 'Use \'@styles\' path alias for importing styles from \'src/styles\'',
+          message: "Use '@styles' path alias for importing styles from 'src/styles'",
         },
 
         // {
@@ -39,7 +41,7 @@ module.exports = {
 
         {
           regex: '@core/\\w',
-          message: 'You can\'t use @core when you are in @layouts module',
+          message: "You can't use @core when you are in @layouts module",
           files: {
             inspect: '@layouts/.*',
           },

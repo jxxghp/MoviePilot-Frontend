@@ -1,8 +1,8 @@
 // These are styles which are both common in layout w/ vertical nav & horizontal nav
-@use "@layouts/styles/rtl";
-@use "@layouts/styles/placeholders";
-@use "@layouts/styles/mixins";
-@use "@configured-variables" as variables;
+@use '@layouts/styles/rtl';
+@use '@layouts/styles/placeholders';
+@use '@layouts/styles/mixins';
+@use '@configured-variables' as variables;
 
 html {
   min-height: calc(100% + env(safe-area-inset-top));
@@ -32,15 +32,16 @@ body,
 }
 
 .layout-page-content {
-  @include mixins.boxed-content(true);
-
-  flex-grow: 1;
-  overflow: hidden;
-  // TODO: Use grid gutter variable here
-  padding-block: 1.5rem;
   padding-top: calc(env(safe-area-inset-top) + 4.25rem);
-  // display: flex;
-
+  @include mixins.boxed-content(true);
+  & {
+    flex-grow: 1;
+    overflow: hidden;
+  }
+  & {
+    // TODO: Use grid gutter variable here
+    padding-block: 1.5rem;
+  }
 
   .page-content-container {
     // flex: 1;
@@ -54,8 +55,8 @@ body,
   }
 }
 
-@media screen and (max-width: 1280px){
-  .page-content-container > div:first-child  {
+@media screen and (max-width: 1280px) {
+  .page-content-container > div:first-child {
     width: calc(100vw - 1rem) !important;
   }
 }

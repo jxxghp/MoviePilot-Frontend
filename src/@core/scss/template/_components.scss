@@ -1,7 +1,7 @@
-@use "vuetify/lib/styles/tools/_elevation" as mixins_elevation;
-@use "@configured-variables" as variables;
-@use "mixins";
-@use "@core/scss/base/mixins" as mixins_base;
+@use 'vuetify/lib/styles/tools/_elevation' as mixins_elevation;
+@use '@configured-variables' as variables;
+@use 'mixins';
+@use '@core/scss/base/mixins' as mixins_base;
 
 // 👉 Alert
 .v-alert {
@@ -34,7 +34,6 @@
 
 // 👉 Button
 .v-btn {
-  /* stylelint-disable-next-line no-descending-specificity */
   &:not(.v-btn--icon) .v-icon {
     --v-icon-size-multiplier: 0.9525 !important;
   }
@@ -78,7 +77,6 @@
       box-shadow: 0 0 0 0.1875rem rgb(var(--v-theme-on-surface-variant));
 
       @each $color-name in variables.$theme-colors-name {
-
         &.bg-#{$color-name} {
           box-shadow: 0 0 0 0.1875rem rgba(var(--v-theme-#{$color-name}), 0.12);
         }

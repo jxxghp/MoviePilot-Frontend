@@ -1,7 +1,7 @@
-@use "mixins";
-@use "vuetify/lib/styles/tools/_elevation" as mixins_elevation;
-@use "@layouts/styles/placeholders";
-@use "@configured-variables" as variables;
+@use 'mixins';
+@use 'vuetify/lib/styles/tools/_elevation' as mixins_elevation;
+@use '@layouts/styles/placeholders';
+@use '@configured-variables' as variables;
 
 // 👉 Avatar group
 .v-avatar-group {
@@ -36,7 +36,7 @@
 .v-card--variant-outlined,
 .v-chip--variant-outlined,
 .v-list-item--variant-outlined {
-  &:not([class*="text-"]) {
+  &:not([class*='text-']) {
     border-color: rgba(var(--v-border-color), var(--v-border-opacity));
   }
 
@@ -151,7 +151,6 @@
 // 👉 Textarea
 
 .v-textarea .v-field__input {
-  /* stylelint-disable-next-line property-no-vendor-prefix */
   -webkit-mask-image: none !important;
   mask-image: none !important;
 }

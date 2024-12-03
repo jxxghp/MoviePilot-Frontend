@@ -287,9 +287,8 @@ function visitAuthorPage() {
 
 // 查看日志URL
 function openLoggerWindow() {
-  const url = `${
-    import.meta.env.VITE_API_BASE_URL
-  }system/logging?length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
+  const url = `${import.meta.env.VITE_API_BASE_URL
+    }system/logging?length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
   window.open(url, '_blank')
 }
 
@@ -397,14 +396,8 @@ watch(
         <VIcon icon="mdi-dots-vertical" />
         <VMenu activator="parent" close-on-content-click>
           <VList>
-            <VListItem
-              v-for="(item, i) in dropdownItems"
-              v-show="item.show"
-              :key="i"
-              variant="plain"
-              :base-color="item.props.color"
-              @click="item.props.click"
-            >
+            <VListItem v-for="(item, i) in dropdownItems" v-show="item.show" :key="i" variant="plain"
+              :base-color="item.props.color" @click="item.props.click">
               <template #prepend>
                 <VIcon :icon="item.props.prependIcon" />
               </template>
@@ -414,14 +407,10 @@ watch(
         </VMenu>
       </IconBtn>
     </div>
-    <div
-      class="relative flex flex-row items-start pa-3 justify-between grow"
-      :style="{ background: `${backgroundColor}` }"
-    >
-      <div
-        class="absolute inset-0 bg-cover bg-center"
-        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }"
-      />
+    <div class="relative flex flex-row items-start pa-3 justify-between grow"
+      :style="{ background: `${backgroundColor}` }">
+      <div class="absolute inset-0 bg-cover bg-center"
+        :style="{ background: `${backgroundColor}`, filter: 'brightness(0.5)' }" />
       <div class="relative flex-1 min-w-0">
         <VCardTitle class="text-white px-2 text-shadow whitespace-nowrap overflow-hidden text-ellipsis">
           <VBadge v-if="props.plugin?.state" dot inline color="success" />
@@ -434,15 +423,8 @@ watch(
       </div>
       <div class="relative flex-shrink-0 self-center">
         <VAvatar size="64">
-          <VImg
-            ref="imageRef"
-            :src="iconPath"
-            aspect-ratio="4/3"
-            cover
-            :class="{ shadow: isImageLoaded }"
-            @load="imageLoaded"
-            @error="imageLoadError = true"
-          />
+          <VImg ref="imageRef" :src="iconPath" aspect-ratio="4/3" cover :class="{ shadow: isImageLoaded }"
+            @load="imageLoaded" @error="imageLoadError = true" />
         </VAvatar>
       </div>
     </div>
@@ -519,7 +501,6 @@ watch(
 <style lang="scss" scoped>
 .card-cover-blurred::before {
   position: absolute;
-  /* stylelint-disable-next-line property-no-vendor-prefix */
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   background: rgba(29, 39, 59, 48%);

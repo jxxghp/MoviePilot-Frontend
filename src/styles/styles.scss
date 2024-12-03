@@ -10,7 +10,7 @@
 
 #nprogress .peg {
   box-shadow: 0 0 10px rgb(var(--v-theme-primary)), 0 0 5px rgb(var(--v-theme-primary)) !important;
-      transform: rotate(0deg) translate(0, -1px);
+  transform: rotate(0deg) translate(0, -1px);
 }
 
 .v-toast--bottom {
@@ -29,7 +29,7 @@
   max-block-size: calc(100% - env(safe-area-inset-top) - 1rem);
 }
 
-.v-dialog--fullscreen > .v-overlay__content{
+.v-dialog--fullscreen > .v-overlay__content {
   inline-size: 100%;
   margin-block-start: env(safe-area-inset-top);
   max-block-size: calc(100% - env(safe-area-inset-top));
@@ -58,11 +58,11 @@
 
 .text-moviepilot {
   background-clip: text;
-  background-image: linear-gradient(to bottom right,var(--tw-gradient-stops));
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
   color: transparent;
 
   --tw-gradient-from: #818cf8;
-  --tw-gradient-stops: var(--tw-gradient-from),var(--tw-gradient-to);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
   --tw-gradient-to: #c084fc;
 }
 
@@ -80,13 +80,13 @@
   line-height: 1.75rem;
 }
 
-@media (width >= 640px){
+@media (width >= 640px) {
   .slider-title {
-      overflow: hidden;
-      font-size: 1.5rem;
-      line-height: 2.25rem;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    overflow: hidden;
+    font-size: 1.5rem;
+    line-height: 2.25rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -99,44 +99,47 @@
 ::-webkit-scrollbar-thumb {
   border-radius: 3px;
   background: rgb(var(--v-theme-perfect-scrollbar-thumb));
-  box-shadow: inset 0 0 10px rgba(0,0,0,20%);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 20%);
 
-  @media(hover){
-    &:hover{
+  @media (hover) {
+    &:hover {
       background: #a1a1a1;
     }
   }
 }
 
-.v-alert--variant-elevated, .v-alert--variant-flat {
+.v-alert--variant-elevated,
+.v-alert--variant-flat {
   background: rgb(var(--v-table-header-background));
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
 }
 
 .backdrop-blur {
-  --tw-backdrop-blur: blur(8px)!important;
+  --tw-backdrop-blur: blur(8px) !important;
 
-  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)!important;
+  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast)
+    var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity)
+    var(--tw-backdrop-saturate) var(--tw-backdrop-sepia) !important;
 }
 
-.v-toolbar{
+.v-toolbar {
   background: rgb(var(--v-table-header-background));
 }
 
 .v-toast {
   z-index: 2500 !important;
- }
+}
 
- .v-divider {
+.v-divider {
   border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));
-  opacity:0.75;
- }
+  opacity: 0.75;
+}
 
- .apexcharts-title-text {
+.apexcharts-title-text {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)) !important;
- }
+}
 
- .grid-site-card {
+.grid-site-card {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   padding-block-end: 1rem;
 }
@@ -169,7 +172,6 @@
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
   padding-block-end: 1rem;
 }
-
 
 .grid-filterrule-card {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
@@ -204,21 +206,19 @@
   padding-block-end: env(safe-area-inset-bottom);
 }
 
-.v-overlay__content .v-list{
-  /* stylelint-disable-next-line property-no-vendor-prefix */
+.v-overlay__content .v-list {
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.9) !important;
 }
 
-.v-overlay__content .v-card:not(.bg-primary){
-  /* stylelint-disable-next-line property-no-vendor-prefix */
+.v-overlay__content .v-card:not(.bg-primary) {
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   background-color: rgb(var(--v-theme-surface), 0.95) !important;
 
-  .v-list, .v-table {
-    /* stylelint-disable-next-line property-no-vendor-prefix */
+  .v-list,
+  .v-table {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: transparent !important;
@@ -231,7 +231,6 @@
 
 .card-cover-blurred::before {
   position: absolute;
-  /* stylelint-disable-next-line property-no-vendor-prefix */
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   background: rgba(29, 39, 59, 48%);

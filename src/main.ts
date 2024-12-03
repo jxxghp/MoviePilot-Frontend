@@ -1,5 +1,5 @@
 import '@/@core/utils/compatibility'
-import '@/@iconify/icons-bundle'
+import '@/@iconify/icons-bundle.mjs'
 import '@/plugins/webfontloader'
 import App from '@/App.vue'
 import vuetify from '@/plugins/vuetify'

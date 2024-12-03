@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "CommonJS",
+    "target": "esnext",
+    "module": "esnext",
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,

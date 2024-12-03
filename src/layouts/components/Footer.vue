@@ -20,13 +20,8 @@ const activeState = computed(() => {
 
 <template>
   <div v-if="appMode" class="w-100" style="block-size: calc(3.5rem + env(safe-area-inset-bottom))">
-    <VBottomNavigation
-      grow
-      horizontal
-      color="primary"
-      class="footer-nav border-t"
-      style="block-size: calc(3.5rem + env(safe-area-inset-bottom))"
-    >
+    <VBottomNavigation grow horizontal color="primary" class="footer-nav border-t"
+      style="block-size: calc(3.5rem + env(safe-area-inset-bottom))">
       <VBtn to="/dashboard" :ripple="false">
         <VIcon v-if="activeState.home" size="28">mdi-home</VIcon>
         <VIcon v-else size="28">mdi-home-outline</VIcon>
@@ -53,7 +48,6 @@ const activeState = computed(() => {
 
 <style lang="scss">
 .footer-nav {
-  /* stylelint-disable-next-line property-no-vendor-prefix */
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.8);

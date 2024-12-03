@@ -1,15 +1,17 @@
 // placeholders
-@use "@configured-variables" as variables;
+@use '@configured-variables' as variables;
 
 %boxed-content {
-  @at-root #{&}-spacing {
-    // TODO: Use grid gutter variable here
-    padding-inline: 0.5rem;
-  }
-
   inline-size: 100%;
   margin-inline: auto;
   max-inline-size: variables.$layout-boxed-content-width;
+
+  @at-root & {
+    #{&}-spacing {
+      // TODO: Use grid gutter variable here
+      padding-inline: 0.5rem;
+    }
+  }
 }
 
 %layout-navbar-hidden {

@@ -1,4 +1,4 @@
-@use "vuetify/lib/styles/settings" as vuetify_settings;
+@use 'vuetify/lib/styles/settings' as vuetify_settings;
 
 @mixin themed($property, $light-value, $dark-value) {
   @at-root {
@@ -22,7 +22,7 @@
     background: currentcolor;
     block-size: 100%;
     border-radius: inherit;
-    content: "";
+    content: '';
     inline-size: 100%;
     inset: 0;
     opacity: 0;
@@ -33,7 +33,7 @@
 // ——— Light background generator ——————— //
 // ℹ️ With this you have to give text color to the component you want light bg
 // e.g. class="avatar-initial text-primary" for primary light bg
-@mixin light-bg-provider($component, $inner-selector: "", $opacity: 0.12) {
+@mixin light-bg-provider($component, $inner-selector: '', $opacity: 0.12) {
   .#{$component}.#{$component}-light-bg #{$inner-selector} {
     background-color: transparent !important;
 
@@ -45,7 +45,7 @@
       position: absolute;
       background-color: currentcolor;
       border-radius: inherit;
-      content: "";
+      content: '';
       inset: 0;
       opacity: $opacity;
       pointer-events: none;
@@ -55,7 +55,6 @@
 
 @mixin avatar-font-sizes($map: $avatar-sizes) {
   @each $sizeName, $multiplier in vuetify_settings.$size-scales {
-    /* stylelint-disable-next-line scss/no-global-function-names */
     $size: map-get($map, $sizeName);
 
     &.v-avatar--size-#{$sizeName} {

@@ -11,7 +11,7 @@
   },
   // SCSS
   "[scss]": {
-    "editor.defaultFormatter": "stylelint.vscode-stylelint"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   // JSON
   "[json]": {
@@ -29,7 +29,6 @@
   "volar.completion.preferredTagNameCase": "pascal",
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
-    "source.fixAll.stylelint": "explicit"
   },
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -37,13 +36,6 @@
   },
   "eslint.alwaysShowStatus": true,
   "eslint.format.enable": true,
-  // Extension: Stylelint
-  "stylelint.packageManager": "yarn",
-  "stylelint.validate": [
-    "css",
-    "scss",
-    "vue"
-  ],
   // Extension: Spell Checker
   "cSpell.words": [
     "Composables",
@@ -51,10 +43,10 @@
     "flagpack",
     "Iconify",
     "psudo",
-    "stylelint",
     "touchless",
     "triggerer",
     "unref",
+    "VITE",
     "vuetify"
   ],
   // Extension: Comment Anchors
