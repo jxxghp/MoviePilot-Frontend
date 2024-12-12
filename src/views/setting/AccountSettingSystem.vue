@@ -37,6 +37,7 @@ const SystemSettings = ref<any>({
     SCRAP_FOLLOW_TMDB: true,
     SUBSCRIBE_STATISTIC_SHARE: true,
     PLUGIN_STATISTIC_SHARE: true,
+    SUBTITLE_OFFSET_ENABLE: false,
     // 网络
     PROXY_HOST: null,
     GITHUB_PROXY: null,
@@ -724,6 +725,16 @@ onDeactivated(() => {
                     v-model="SystemSettings.Advanced.ENCODING_DETECTION_PERFORMANCE_MODE"
                     label="编码探测性能模式"
                     hint="优先提升探测效率，但可能降低编码探测的准确性"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol cols="12" md="4">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.SUBTITLE_OFFSET_ENABLE"
+                    label="副标题集数偏移"
+                    hint="识别词可选使用副标题集数偏移，适应部分站点格式"
                     persistent-hint
                   />
                 </VCol>
