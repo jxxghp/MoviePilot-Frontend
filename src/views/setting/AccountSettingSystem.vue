@@ -47,6 +47,7 @@ const SystemSettings = ref<any>({
     DOH_DOMAINS: null,
     // 开发
     DEBUG: false,
+    LOG_LEVEL: 'INFO',
     PLUGIN_AUTO_RELOAD: false,
   },
 })
@@ -237,6 +238,15 @@ const pipMirrorsItems = [
   'https://pypi.doubanio.com/simple', // 豆瓣
   'https://mirrors.hust.edu.cn/pypi/web/simple', // 华中理工大学
   'https://mirrors.bfsu.edu.cn/pypi/web/simple', // 北京外国语大学
+]
+
+// 日志等级
+const logLevelItems = [
+  { title: 'DEBUG - 调试 ', value: 'DEBUG' },
+  { title: 'INFO - 信息 ', value: 'INFO' },
+  { title: 'WARNING - 警告 ', value: 'WARNING' },
+  { title: 'ERROR - 错误 ', value: 'ERROR' },
+  { title: 'CRITICAL - 严重 ', value: 'CRITICAL' },
 ]
 
 // 创建随机字符串
@@ -536,6 +546,9 @@ onDeactivated(() => {
           <VTab value="network">
             <div>网络</div>
           </VTab>
+          <VTab value="log">
+            <div>日志</div>
+          </VTab>
           <VTab value="dev">
             <div>实验室</div>
           </VTab>
@@ -707,18 +720,33 @@ onDeactivated(() => {
               </VRow>
             </div>
           </VWindowItem>
-
-          <VWindowItem value="dev">
+          <VWindowItem value="log">
             <div>
               <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.DEBUG"
-                    label="DEBUG日志"
-                    hint="显示DEBUG级别日志，方便排查问题"
+                    label="全局DEBUG日志"
+                    hint="全局强制使用DEBUG级别日志，方便排查问题"
                     persistent-hint
                   />
                 </VCol>
+                <VCol cols="12" md="6">
+                  <VSelect
+                    v-if="!SystemSettings.Advanced.DEBUG"
+                    v-model="SystemSettings.Advanced.LOG_LEVEL"
+                    label="全局日志等级"
+                    hint="只显示对于级别的日志，方便控制日志记录量"
+                    persistent-hint
+                    :items="logLevelItems"
+                  />
+                </VCol>
+              </VRow>
+            </div>
+          </VWindowItem>
+          <VWindowItem value="dev">
+            <div>
+              <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"
