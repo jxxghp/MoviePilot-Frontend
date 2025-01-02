@@ -26,18 +26,16 @@ const SystemSettings = ref<any>({
     // 全局
     AUXILIARY_AUTH_ENABLE: false,
     GLOBAL_IMAGE_CACHE: false,
+    SUBSCRIBE_STATISTIC_SHARE: true,
+    PLUGIN_STATISTIC_SHARE: true,
     BIG_MEMORY_MODE: false,
     DB_WAL_ENABLE: false,
-    ENCODING_DETECTION_PERFORMANCE_MODE: true,
-    TOKENIZED_SEARCH: false,
     // 媒体
     TMDB_API_DOMAIN: null,
     TMDB_IMAGE_DOMAIN: null,
     META_CACHE_EXPIRE: 0,
-    FANART_ENABLE: false,
     SCRAP_FOLLOW_TMDB: true,
-    SUBSCRIBE_STATISTIC_SHARE: true,
-    PLUGIN_STATISTIC_SHARE: true,
+    FANART_ENABLE: false,
     // 网络
     PROXY_HOST: null,
     GITHUB_PROXY: null,
@@ -45,10 +43,13 @@ const SystemSettings = ref<any>({
     DOH_ENABLE: false,
     DOH_RESOLVERS: null,
     DOH_DOMAINS: null,
-    // 开发
+    // 日志
     DEBUG: false,
     LOG_LEVEL: 'INFO',
+    // 实验室
     PLUGIN_AUTO_RELOAD: false,
+    ENCODING_DETECTION_PERFORMANCE_MODE: true,
+    TOKENIZED_SEARCH: false,
   },
 })
 
@@ -736,7 +737,7 @@ onDeactivated(() => {
                     v-if="!SystemSettings.Advanced.DEBUG"
                     v-model="SystemSettings.Advanced.LOG_LEVEL"
                     label="全局日志等级"
-                    hint="只显示对于级别的日志，方便控制日志记录量"
+                    hint="设置日志记录的级别，方便控制日志记录量"
                     persistent-hint
                     :items="logLevelItems"
                   />
