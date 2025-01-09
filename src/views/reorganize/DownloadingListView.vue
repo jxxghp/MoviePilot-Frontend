@@ -74,11 +74,7 @@ onUnmounted(() => {
     <div v-if="filteredDataList.length > 0" class="grid gap-3 grid-downloading-card">
       <DownloadingCard v-for="data in filteredDataList" :key="data.hash" :info="data" />
     </div>
-    <NoDataFound
-      v-if="filteredDataList.length === 0 && isRefreshed"
-      error-code="404"
-      error-title="没有任务"
-      error-description="正在下载的任务将会显示在这里。"
-    />
+    <NoDataFound v-if="filteredDataList.length === 0 && isRefreshed" error-code="404" error-title="没有任务"
+      error-description="正在下载的任务将会显示在这里。" />
   </VPullToRefresh>
 </template>

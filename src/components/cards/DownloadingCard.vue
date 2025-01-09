@@ -18,14 +18,39 @@ function getPercentage() {
 
 // 速度
 function getSpeedText() {
-  return `${formatFileSize(props.info?.size || 0)} ↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s ${
-    props.info?.left_time
-  }`
+  return `${formatFileSize(props.info?.size || 0)} ↑ ${props.info?.upspeed}/s ↓ ${props.info?.dlspeed}/s ${convertTimeString(props.info?.left_time)
+    }`
 }
 
 // 下载状态
 const isDownloading = ref(props.info?.state === 'downloading')
+/**
+ * @Author: wintsa
+ * @Date: 2025-01-09 
+ * @LastEditors: wintsa
+ * @Description: 转换时间单位
+ * @returns {*} 
+ */
+function convertTimeString(timeString: string | undefined) {
+  // 匹配原始格式中的数字和单位
+  if (!timeString) {
+    return timeString
+  }
+  const match = timeString.match(/(\d+)时(\d+)分(\d+)秒/);
+  if (!match) {
+    throw new Error("时间格式不正确");
+  }
 
+  let hours = parseInt(match[1], 10); // 提取时
+  const minutes = parseInt(match[2], 10); // 提取分
+  const seconds = parseInt(match[3], 10); // 提取秒
+
+  // 将小时转换为天和小时
+  const days = Math.floor(hours / 24);
+  hours = hours % 24;
+
+  return `${days}天${hours}时${minutes}分${seconds}秒`;
+}
 // 监听props.info?.state的变化
 watch(
   () => props.info?.state,
