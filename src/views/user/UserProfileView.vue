@@ -250,13 +250,13 @@ watch(
     <VRow>
       <VCol cols="12">
         <VCard title="个人信息">
-          <VCardText class="d-flex">
+          <VCardText class="flex">
             <!-- 👉 Avatar -->
             <VAvatar rounded="lg" size="100" class="me-6" :image="currentAvatar" />
 
             <!-- 👉 Upload Photo -->
-            <form class="d-flex flex-column justify-center gap-5">
-              <div class="d-flex flex-wrap gap-2">
+            <form class="flex flex-col justify-center gap-5">
+              <div class="flex flex-wrap gap-2">
                 <VBtn color="primary" @click="refInputEl?.click()">
                   <VIcon icon="mdi-cloud-upload-outline" />
                   <span v-if="display.mdAndUp.value" class="ms-2">上传新头像</span>

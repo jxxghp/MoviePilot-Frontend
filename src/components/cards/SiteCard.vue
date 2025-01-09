@@ -26,7 +26,7 @@ const siteIcon = ref<string>('')
 const $toast = useToast()
 
 // 测试按钮文字
-const testButtonText = ref('测试')
+const testButtonText = ref('连通性测试')
 
 // 测试按钮可用性
 const testButtonDisable = ref(false)
@@ -42,9 +42,6 @@ const resourceDialog = ref(false)
 
 // 用户数据弹窗
 const siteUserDataDialog = ref(false)
-
-// 站点操作显示
-const siteActionShow = ref(false)
 
 // 站点使用统计
 const siteStats = ref<SiteStatistic>({})
@@ -68,7 +65,7 @@ async function testSite() {
     if (result.success) $toast.success(`${cardProps.site?.name} 连通性测试成功，可正常使用！`)
     else $toast.error(`${cardProps.site?.name} 连通性测试失败：${result.message}`)
 
-    testButtonText.value = '测试'
+    testButtonText.value = '连通性测试'
     testButtonDisable.value = false
 
     getSiteStats()
@@ -155,7 +152,7 @@ onMounted(() => {
   <div>
     <VCard
       :variant="cardProps.site?.is_active ? 'elevated' : 'outlined'"
-      class="overflow-hidden"
+      class="overflow-hidden h-full flex flex-col"
       @click="siteEditDialog = true"
     >
       <template #image>
@@ -171,7 +168,7 @@ onMounted(() => {
           <span @click.stop="openSitePage">{{ cardProps.site?.url }}</span>
         </VCardSubtitle>
       </VCardItem>
-      <VCardText class="py-1" style="block-size: 36px">
+      <VCardText class="py-1">
         <VTooltip v-if="cardProps.site?.limit_interval" text="流控">
           <template #activator="{ props }">
             <VIcon color="primary" class="me-2" v-bind="props" icon="mdi-speedometer" />
@@ -194,46 +191,42 @@ onMounted(() => {
         </VTooltip>
       </VCardText>
       <VCardActions>
-        <VBtn
-          :icon="siteActionShow ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-          @click.stop="siteActionShow = !siteActionShow"
-        />
+        <IconBtn>
+          <VIcon icon="mdi-chevron-down" color="primary" />
+          <VMenu activator="parent" close-on-content-click>
+            <VList>
+              <VListItem variant="plain" v-if="!cardProps.site?.public" @click="handleSiteUpdate">
+                <template #prepend>
+                  <VIcon icon="mdi-refresh" />
+                </template>
+                <VListItemTitle>更新 Cookie & UA</VListItemTitle>
+              </VListItem>
+              <VListItem variant="plain" :disabled="testButtonDisable" @click.stop="testSite">
+                <template #prepend>
+                  <VIcon icon="mdi-link" />
+                </template>
+                <VListItemTitle>{{ testButtonText }}</VListItemTitle>
+              </VListItem>
+              <VListItem variant="plain" @click="handleResourceBrowse">
+                <template #prepend>
+                  <VIcon icon="mdi-web" />
+                </template>
+                <VListItemTitle>资源预览</VListItemTitle>
+              </VListItem>
+              <VListItem variant="plain" @click="handleSiteUserData">
+                <template #prepend>
+                  <VIcon icon="mdi-chart-bell-curve" />
+                </template>
+                <VListItemTitle>站点数据</VListItemTitle>
+              </VListItem>
+            </VList>
+          </VMenu>
+        </IconBtn>
         <span class="text-sm">
           ↑ {{ formatFileSize(cardProps.data?.upload || 0) }} / ↓ {{ formatFileSize(cardProps.data?.download || 0) }}
         </span>
         <VSpacer />
       </VCardActions>
-      <VExpandTransition v-show="siteActionShow">
-        <div>
-          <VDivider />
-          <div class="py-1 pe-12">
-            <VBtn v-if="!cardProps.site?.public" @click.stop="handleSiteUpdate" variant="text">
-              <template #prepend>
-                <VIcon icon="mdi-refresh" />
-              </template>
-              更新
-            </VBtn>
-            <VBtn :disabled="testButtonDisable" @click.stop="testSite" variant="text">
-              <template #prepend>
-                <VIcon icon="mdi-link" />
-              </template>
-              {{ testButtonText }}
-            </VBtn>
-            <VBtn @click.stop="handleResourceBrowse" variant="text">
-              <template #prepend>
-                <VIcon icon="mdi-web" />
-              </template>
-              浏览
-            </VBtn>
-            <VBtn @click.stop="handleSiteUserData" variant="text">
-              <template #prepend>
-                <VIcon icon="mdi-chart-bell-curve" />
-              </template>
-              数据
-            </VBtn>
-          </div>
-        </div>
-      </VExpandTransition>
       <StatIcon v-if="cardProps.site?.is_active" :color="statColor" />
       <span class="absolute top-1 right-8">
         <VIcon class="cursor-move">mdi-drag</VIcon>

@@ -269,41 +269,48 @@ onMounted(() => {
     >
       <DialogCloseBtn @click="emit('close')" />
       <VDivider />
-      <VCardText class="d-flex">
+      <VCardItem>
         <!-- 👉 Avatar -->
-        <VAvatar rounded="lg" size="100" class="me-6" :image="currentAvatar" />
+        <div class="flex flex-row">
+          <VAvatar rounded="lg" size="100" class="me-5" :image="currentAvatar" />
+          <!-- 👉 Upload Photo -->
+          <div class="flex flex-col justify-center gap-5">
+            <div class="flex flex-wrap gap-2">
+              <VBtn color="primary" @click="refInputEl?.click()">
+                <VIcon icon="mdi-cloud-upload-outline" />
+                <span v-if="display.mdAndUp.value" class="ms-2">上传新头像</span>
+              </VBtn>
 
-        <!-- 👉 Upload Photo -->
-        <form class="d-flex flex-column justify-center gap-5">
-          <div class="d-flex flex-wrap gap-2">
-            <VBtn color="primary" @click="refInputEl?.click()">
-              <VIcon icon="mdi-cloud-upload-outline" />
-              <span v-if="display.mdAndUp.value" class="ms-2">上传新头像</span>
-            </VBtn>
+              <input
+                ref="refInputEl"
+                type="file"
+                name="file"
+                accept=".jpeg,.png,.jpg,GIF"
+                hidden
+                @input="changeAvatar"
+              />
 
-            <input ref="refInputEl" type="file" name="file" accept=".jpeg,.png,.jpg,GIF" hidden @input="changeAvatar" />
+              <VBtn type="reset" color="info" variant="tonal" @click="restoreCurrentAvatar" v-if="props.oper !== 'add'">
+                <VIcon icon="mdi-refresh" />
+                <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
+              </VBtn>
 
-            <VBtn type="reset" color="info" variant="tonal" @click="restoreCurrentAvatar" v-if="props.oper !== 'add'">
-              <VIcon icon="mdi-refresh" />
-              <span v-if="display.mdAndUp.value" class="ms-2">重置</span>
-            </VBtn>
-
-            <VBtn
-              type="reset"
-              :color="props.oper === 'add' ? 'info' : 'error'"
-              variant="tonal"
-              @click="resetDefaultAvatar"
-            >
-              <VIcon icon="mdi-image-sync-outline" />
-              <span v-if="display.mdAndUp.value" class="ms-2">默认</span>
-            </VBtn>
+              <VBtn
+                type="reset"
+                :color="props.oper === 'add' ? 'info' : 'error'"
+                variant="tonal"
+                @click="resetDefaultAvatar"
+              >
+                <VIcon icon="mdi-image-sync-outline" />
+                <span v-if="display.mdAndUp.value" class="ms-2">默认</span>
+              </VBtn>
+            </div>
+            <p class="text-body-1 mb-0">允许 JPG、PNG、GIF、WEBP 格式， 最大尺寸 800KB。</p>
           </div>
-
-          <p class="text-body-1 mb-0">允许 JPG、PNG、GIF、WEBP 格式， 最大尺寸 800KB。</p>
-        </form>
-      </VCardText>
+        </div>
+      </VCardItem>
       <VCardText>
-        <VForm @submit.prevent="() => {}" class="mt-3">
+        <VForm @submit.prevent="() => {}">
           <VDivider class="my-10">
             <span>用户基础设置</span>
           </VDivider>

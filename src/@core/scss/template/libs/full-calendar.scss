@@ -92,8 +92,7 @@
   .fc-header-toolbar {
     flex-wrap: wrap;
     margin: 1.25rem;
-    column-gap: 0.5rem;
-    row-gap: 1rem;
+    gap: 1rem 0.5rem;
   }
 
   .fc-toolbar-chunk {
@@ -238,7 +237,7 @@
         inline-size: 1.5625rem;
         margin-inline-end: 0.25rem;
 
-        @media (max-width: 1264px) {
+        @media (width <= 1264px) {
           display: block !important;
         }
 

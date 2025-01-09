@@ -14,6 +14,8 @@ import ProgressDialog from '../dialog/ProgressDialog.vue'
 
 // 显示器宽度
 const display = useDisplay()
+// APP
+const appMode = inject('pwaMode') && display.mdAndDown.value
 
 // 输入参数
 const props = defineProps({
@@ -507,7 +509,7 @@ watch(
         <VCardText class="min-h-40">
           <PageRender @action="loadPluginPage" v-for="(item, index) in pluginPageItems" :key="index" :config="item" />
         </VCardText>
-        <VFab icon="mdi-cog" location="bottom" size="x-large" fixed app appear @click="showPluginConfig" />
+        <VFab icon="mdi-cog" location="bottom" size="x-large" fixed app appear @click="showPluginConfig" :class="{ 'mb-10': appMode }" />
       </VCard>
     </VDialog>
 

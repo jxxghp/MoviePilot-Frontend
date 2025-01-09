@@ -5,7 +5,7 @@
 @use "@configured-variables" as variables;
 
 html {
-  min-height: calc(100% + env(safe-area-inset-top));
+  min-height: calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));
   background: rgb(var(--v-theme-background));
   overflow-y: overlay;
 }

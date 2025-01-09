@@ -133,6 +133,11 @@ async function saveSearchSetting() {
       selectedMediaSource.value.join(','),
     )
 
+    if (!result1 || !result1.success) {
+      $toast.error(`媒体搜索数据源保存失败：${result1?.message}！`)
+      return
+    }
+
     const result2: { [key: string]: any } = await api.post(
       'system/setting/SearchFilterRuleGroups',
       selectedFilterGroup.value,
@@ -140,7 +145,7 @@ async function saveSearchSetting() {
 
     const result3 = await saveSystemSetting(SystemSettings.value.Basic)
 
-    if (result1.success && result2.success && result3) {
+    if (result2.success && result3) {
       $toast.success('搜索基础设置保存成功')
     } else {
       $toast.error('搜索基础设置保存失败！')

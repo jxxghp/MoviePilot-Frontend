@@ -105,13 +105,13 @@ async function loadTransferTypeItems() {
 // 整理方式无数据提示
 const computedNoDataText = computed(() => {
   if (!props.directory.library_storage && !props.directory.storage) {
-    return '无可用整理方式！请先选择下载器储存与媒体库储存！'
+    return '请选择储存'
   } else if (!props.directory.library_storage) {
-    return '无可用整理方式！请先选择媒体库储存！'
+    return '请选择媒体库储存'
   } else if (!props.directory.storage) {
-    return '无可用整理方式！请先选择下载器储存！'
+    return '请选择下载器储存'
   } else {
-    return '选择的存储没有支持的整理方法！'
+    return '选择的存储类型没有支持的整理方式'
   }
 })
 

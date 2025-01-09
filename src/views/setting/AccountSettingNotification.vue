@@ -222,6 +222,7 @@ onMounted(() => {
                 <VRadioGroup v-model="item.action" inline>
                   <VRadio value="user" label="仅操作用户" />
                   <VRadio value="admin" label="仅管理员" />
+                  <VRadio value="user,admin" label="操作用户和管理员" />
                   <VRadio value="all" label="所有用户" />
                 </VRadioGroup>
               </td>

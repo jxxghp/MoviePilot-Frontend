@@ -26,18 +26,16 @@ const SystemSettings = ref<any>({
     // 全局
     AUXILIARY_AUTH_ENABLE: false,
     GLOBAL_IMAGE_CACHE: false,
+    SUBSCRIBE_STATISTIC_SHARE: true,
+    PLUGIN_STATISTIC_SHARE: true,
     BIG_MEMORY_MODE: false,
     DB_WAL_ENABLE: false,
-    ENCODING_DETECTION_PERFORMANCE_MODE: true,
-    TOKENIZED_SEARCH: false,
     // 媒体
     TMDB_API_DOMAIN: null,
     TMDB_IMAGE_DOMAIN: null,
     META_CACHE_EXPIRE: 0,
-    FANART_ENABLE: false,
     SCRAP_FOLLOW_TMDB: true,
-    SUBSCRIBE_STATISTIC_SHARE: true,
-    PLUGIN_STATISTIC_SHARE: true,
+    FANART_ENABLE: false,
     // 网络
     PROXY_HOST: null,
     GITHUB_PROXY: null,
@@ -45,9 +43,16 @@ const SystemSettings = ref<any>({
     DOH_ENABLE: false,
     DOH_RESOLVERS: null,
     DOH_DOMAINS: null,
-    // 开发
+    // 日志
     DEBUG: false,
+    LOG_LEVEL: 'INFO',
+    LOG_MAX_FILE_SIZE: '5',
+    LOG_BACKUP_COUNT: '3',
+    LOG_FILE_FORMAT: '【%(levelname)s】%(asctime)s - %(message)s',
+    // 实验室
     PLUGIN_AUTO_RELOAD: false,
+    ENCODING_DETECTION_PERFORMANCE_MODE: true,
+    TOKENIZED_SEARCH: false,
   },
 })
 
@@ -172,6 +177,9 @@ async function saveSystemSetting(value: { [key: string]: any }) {
     const result: { [key: string]: any } = await api.post('system/env', value)
     if (result.success) {
       return true
+    } else {
+      $toast.error(`设置保存失败：${result?.message}！`)
+      return false
     }
   } catch (error) {
     console.log(error)
@@ -184,20 +192,27 @@ async function saveBasicSettings() {
   if (await saveSystemSetting(SystemSettings.value.Basic)) {
     $toast.success('基础设置保存成功')
     await reloadSystem()
-  } else {
-    $toast.error('基础设置保存失败！')
   }
 }
 
-// 高级设置变化，等待保存
+// 保存高级设置
 async function saveAdvancedSettings() {
+  cleanEmptyFields(SystemSettings.value.Advanced, ['LOG_FILE_FORMAT'])
+
   if (await saveSystemSetting(SystemSettings.value.Advanced)) {
     advancedDialog.value = false
     $toast.success('高级设置保存成功')
     await reloadSystem()
-  } else {
-    $toast.error('高级设置保存失败！')
   }
+}
+
+// 当字段为空时，将其设置为 null 提交，以便后端恢复为默认值
+function cleanEmptyFields(settings: any, fields: string[]) {
+  fields.forEach(field => {
+    if (settings[field]?.trim?.() === '') {
+      settings[field] = null
+    }
+  })
 }
 
 // 快捷复制到剪贴板
@@ -237,6 +252,15 @@ const pipMirrorsItems = [
   'https://pypi.doubanio.com/simple', // 豆瓣
   'https://mirrors.hust.edu.cn/pypi/web/simple', // 华中理工大学
   'https://mirrors.bfsu.edu.cn/pypi/web/simple', // 北京外国语大学
+]
+
+// 日志等级
+const logLevelItems = [
+  { title: 'DEBUG - 调试 ', value: 'DEBUG' },
+  { title: 'INFO - 信息 ', value: 'INFO' },
+  { title: 'WARNING - 警告 ', value: 'WARNING' },
+  { title: 'ERROR - 错误 ', value: 'ERROR' },
+  { title: 'CRITICAL - 严重 ', value: 'CRITICAL' },
 ]
 
 // 创建随机字符串
@@ -536,6 +560,9 @@ onDeactivated(() => {
           <VTab value="network">
             <div>网络</div>
           </VTab>
+          <VTab value="log">
+            <div>日志</div>
+          </VTab>
           <VTab value="dev">
             <div>实验室</div>
           </VTab>
@@ -605,7 +632,7 @@ onDeactivated(() => {
                     placeholder="api.themoviedb.org"
                     hint="自定义themoviedb API域名或代理地址"
                     persistent-hint
-                    :items="['api.themoviedb.org']"
+                    :items="['api.themoviedb.org', 'api.tmdb.org']"
                     :rules="[(v: string) => !!v || '请输入TMDB API域名']"
                   />
                 </VCol>
@@ -707,18 +734,64 @@ onDeactivated(() => {
               </VRow>
             </div>
           </VWindowItem>
-
-          <VWindowItem value="dev">
+          <VWindowItem value="log">
             <div>
               <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.DEBUG"
-                    label="DEBUG日志"
-                    hint="显示DEBUG级别日志，方便排查问题"
+                    label="调试模式"
+                    hint="启用调试模式后，日志将以DEBUG级别记录，以便排查问题"
                     persistent-hint
                   />
                 </VCol>
+                <VCol cols="12" md="6">
+                  <VSelect
+                    v-if="!SystemSettings.Advanced.DEBUG"
+                    v-model="SystemSettings.Advanced.LOG_LEVEL"
+                    label="日志等级"
+                    hint="设置日志记录的级别，用于控制日志输出量"
+                    persistent-hint
+                    :items="logLevelItems"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.LOG_MAX_FILE_SIZE"
+                    label="日志文件最大容量(MB)"
+                    hint="限制单个日志文件的最大容量，超出后将自动分割日志"
+                    persistent-hint
+                    min="1"
+                    type="number"
+                    suffix="MB"
+                    :rules="[(v: any) => v === 0 || !!v || '日志文件最大大小', (v: any) => v >= 1 || '日志文件最大容量必须大于等于1']"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.LOG_BACKUP_COUNT"
+                    label="日志文件最大备份数量"
+                    hint="设置每个模块日志文件的最大备份数量，超过后将覆盖旧日志"
+                    persistent-hint
+                    min="1"
+                    type="number"
+                    :rules="[(v: any) => v === 0 || !!v || '请输入日志文件最大备份数量', (v: any) => v >= 1 || '日志文件最大备份数量必须大于等于1']"
+                  />
+                </VCol>
+                <VCol cols="12">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.LOG_FILE_FORMAT"
+                    label="日志文件格式"
+                    hint="设置日志文件的输出格式，用于自定义日志的显示内容"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+            </div>
+          </VWindowItem>
+          <VWindowItem value="dev">
+            <div>
+              <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"

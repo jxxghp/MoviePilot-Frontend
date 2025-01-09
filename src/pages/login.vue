@@ -130,7 +130,6 @@ function login() {
 
   // 进行表单校验
   if (!form.value.username || !form.value.password || (isOTP.value && !form.value.otp_password)) {
-    errorMessage.value = '请输入完整信息'
     return
   }
   // 用户名密码
@@ -175,11 +174,11 @@ function login() {
     })
     .catch((error: any) => {
       // 登录失败，显示错误提示
-      if (!error.response) errorMessage.value = '登录失败，请检查网络连接'
-      else if (error.response.status === 401) errorMessage.value = '登录失败，请检查用户名、密码或双重验证是否正确'
-      else if (error.response.status === 403) errorMessage.value = '登录失败，您没有权限访问'
-      else if (error.response.status === 500) errorMessage.value = '登录失败，服务器错误'
-      else errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或双重验证码是否正确`
+      if (!error.response) errorMessage.value = '登录失败，请检查网络连接！'
+      else if (error.response.status === 401) errorMessage.value = '登录失败，请检查用户名、密码或双重验证是否正确！'
+      else if (error.response.status === 403) errorMessage.value = '登录失败，您没有权限访问！'
+      else if (error.response.status === 500) errorMessage.value = '登录失败，服务器错误！'
+      else errorMessage.value = `登录失败 ${error.response.status}，请检查用户名、密码或双重验证码是否正确！`
     })
 }
 
@@ -275,9 +274,9 @@ onUnmounted(() => {
               <VCol cols="12">
                 <!-- login button -->
                 <VBtn block type="submit" @click="login"> 登录 </VBtn>
-                <div v-if="errorMessage" class="text-error mt-2 text-shadow">
+                <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
                   {{ errorMessage }}
-                </div>
+                </VAlert>
               </VCol>
             </VRow>
           </VForm>

@@ -34,7 +34,7 @@ async function saveHandle() {
     if (result.success) {
       $toast.success('插件仓库保存成功')
       emit('save')
-    } else $toast.error('插件仓库保存失败！')
+    } else $toast.error(`插件仓库保存失败：${result?.message}！`)
   } catch (error) {
     console.log(error)
   }

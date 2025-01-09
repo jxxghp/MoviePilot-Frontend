@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { isNullOrEmptyObject } from '@/@core/utils'
 import type { Message } from '@/api/types'
 import { formatDateDifference } from '@core/utils/formatters'
 
@@ -45,24 +46,30 @@ function replaceNewLine(value: string) {
 </script>
 
 <template>
-  <VCard variant="tonal" :width="props.width" :height="props.height" @click="openLink">
+  <VCard variant="tonal" :width="props.width" :height="props.height" @click="openLink" max-width="23rem">
     <div v-if="props.message?.image" class="relative text-center card-cover-blurred">
       <VImg
         :src="props.message?.image"
-        aspect-ratio="4/3"
+        aspect-ratio="3/2"
         cover
+        position="top"
         :class="{ shadow: isImageLoaded }"
         @load="imageLoaded"
         @error="imageLoadError = true"
       />
     </div>
     <div
-      v-if="props.message?.title && !props.message?.image && !props.message?.note"
+      v-if="
+        props.message?.title &&
+        !props.message?.text &&
+        !props.message?.image &&
+        isNullOrEmptyObject(props.message?.note)
+      "
       class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
     >
       <p class="mb-0">{{ props.message?.title }}</p>
     </div>
-    <VCardTitle v-else-if="props.message?.title">
+    <VCardTitle v-else-if="props.message?.title" class="break-words whitespace-break-spaces">
       {{ props.message?.title }}
     </VCardTitle>
     <div
@@ -72,13 +79,13 @@ function replaceNewLine(value: string) {
       <p class="mb-0">{{ props.message?.text }}</p>
     </div>
     <VCardText v-if="props.message?.text && props.message?.action === 1" v-html="replaceNewLine(props.message?.text)" />
-    <VCardText v-if="props.message?.note">
+    <VCardText v-if="!isNullOrEmptyObject(props.message?.note)">
       <VList>
         <VListItem v-for="(value, key) in noteToJson()" :key="key" two-line>
-          <VListItemTitle v-if="value.title_year" class="font-bold">
+          <VListItemTitle v-if="value.title_year" class="font-bold break-words whitespace-break-spaces">
             {{ key + 1 }}. {{ value.title_year }}
           </VListItemTitle>
-          <VListItemTitle v-if="value.enclosure" class="font-bold whitespace-break-spaces">
+          <VListItemTitle v-if="value.enclosure" class="font-bold break-words whitespace-break-spaces">
             {{ key + 1 }}. {{ value.title }} {{ value.volume_factor }} ↑{{ value.seeders }}
           </VListItemTitle>
           <VListItemSubtitle v-if="value.type">
