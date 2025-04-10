@@ -125,6 +125,7 @@ export interface NavMenu extends NavLink {
   description?: string
   admin?: boolean
   footer?: boolean
+  hidden?: boolean
 }
 
 // 👉 Vertical nav group

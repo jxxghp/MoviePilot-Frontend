@@ -39,6 +39,7 @@ export const SystemNavMenus = [
     header: '订阅',
     admin: false,
     footer: true,
+    hidden: true,
   },
   {
     title: '电视剧',
@@ -48,6 +49,7 @@ export const SystemNavMenus = [
     header: '订阅',
     admin: false,
     footer: true,
+    hidden: true,
   },
 
   {
@@ -66,6 +68,7 @@ export const SystemNavMenus = [
     to: '/calendar',
     header: '订阅',
     admin: false,
+    hidden: true,
   },
   {
     title: '下载管理',

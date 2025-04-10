@@ -16,8 +16,7 @@ const activeState = computed(() => {
   return {
     home: route.path === '/dashboard',
     recommend: route.path === '/recommend',
-    movie: route.path === '/subscribe/movie',
-    tv: route.path === '/subscribe/tv',
+    subscribe: route.path.startsWith('/subscribe') || route.path === '/calendar',
   }
 })
 
@@ -47,12 +46,8 @@ const currentPath = computed(() => route.path)
         <VIcon v-else size="28">mdi-star-outline</VIcon>
       </VBtn>
       <VBtn to="/subscribe/movie" :ripple="false">
-        <VIcon v-if="activeState.movie" size="28">mdi-movie-open</VIcon>
-        <VIcon v-else size="28">mdi-movie-open-outline</VIcon>
-      </VBtn>
-      <VBtn to="/subscribe/tv" :ripple="false">
-        <VIcon v-if="activeState.tv" size="28">mdi-television-play</VIcon>
-        <VIcon v-else size="28">mdi-television</VIcon>
+        <VIcon v-if="activeState.subscribe" size="28">mdi-rss</VIcon>
+        <VIcon v-else size="28">mdi-rss-box</VIcon>
       </VBtn>
       <VBtn :ripple="false">
         <VIcon

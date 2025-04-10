@@ -301,11 +301,10 @@ function onSubscribeEditRemove() {
             'transition transform-cpu duration-300 -translate-y-1 shadow-lg': hover.isHovering,
             'opacity-70': subscribeState === 'S',
           }"
-          min-height="170"
           @click="editSubscribeDialog"
           :ripple="false"
         >
-          <div class="me-n3 absolute top-1 right-2">
+          <div class="me-n3 absolute top-1 right-2 z-10">
             <IconBtn>
               <VIcon icon="mdi-dots-vertical" color="white" />
               <VMenu activator="parent" close-on-content-click>
@@ -327,6 +326,7 @@ function onSubscribeEditRemove() {
               </VMenu>
             </IconBtn>
           </div>
+          
           <template #image>
             <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
               <template #placeholder>
@@ -338,9 +338,10 @@ function onSubscribeEditRemove() {
             </VImg>
             <div v-if="subscribeState === 'P'" class="absolute inset-0 bg-yellow-900 opacity-80 pointer-events-none" />
           </template>
+          
           <div>
-            <VCardText class="flex items-center">
-              <div class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md shadow-lg" v-if="imageLoaded">
+            <VCardText class="flex items-center px-3 pt-3 pb-2">
+              <div class="poster-container" v-if="imageLoaded">
                 <VImg :src="posterUrl" aspect-ratio="2/3" cover>
                   <template #placeholder>
                     <div class="w-full h-full">
@@ -349,7 +350,7 @@ function onSubscribeEditRemove() {
                   </template>
                 </VImg>
               </div>
-              <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
+              <div class="flex flex-col justify-center overflow-hidden pl-3">
                 <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
                 <div class="mr-2 min-w-0 text-lg font-bold text-white">
                   {{ props.media?.name }}
@@ -357,7 +358,8 @@ function onSubscribeEditRemove() {
                 </div>
               </div>
             </VCardText>
-            <VCardText class="flex justify-space-between align-center flex-wrap">
+            
+            <VCardText class="flex justify-space-between align-center flex-wrap px-3 py-1">
               <div class="flex align-center">
                 <IconBtn
                   v-if="props.media?.total_episode"
@@ -376,10 +378,12 @@ function onSubscribeEditRemove() {
                 </span>
               </div>
             </VCardText>
+            
             <VCardText v-if="lastUpdateText" class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
               <VIcon icon="mdi-download" class="me-1" />
               {{ lastUpdateText }}
             </VCardText>
+            
             <div class="w-full absolute bottom-0">
               <VProgressLinear
                 v-if="getPercentage() > 0"
@@ -388,6 +392,7 @@ function onSubscribeEditRemove() {
                 color="success"
               />
             </div>
+            
             <div v-if="hover.isHovering" class="me-n3 absolute top-1 right-10">
               <IconBtn><VIcon class="cursor-move text-white">mdi-drag</VIcon></IconBtn>
             </div>
@@ -421,8 +426,19 @@ function onSubscribeEditRemove() {
     />
   </div>
 </template>
+
 <style lang="scss" scoped>
 .subscribe-card-background {
   background-image: linear-gradient(90deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
+}
+
+.poster-container {
+  height: auto;
+  width: 14px;
+  min-width: 70px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 </style>
