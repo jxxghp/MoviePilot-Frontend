@@ -117,86 +117,185 @@ watch([type, filterParams], () => {
 </script>
 
 <template>
-  <div class="px-3">
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>类型</VLabel>
+  <div class="filter-container">
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-shape-outline" size="x-small" class="mr-1" />
+        类型
       </div>
-      <VChipGroup v-model="type">
-        <VChip :color="type == 'movies' ? 'primary' : ''" filter tile value="movies">电影</VChip>
-        <VChip :color="type == 'tvs' ? 'primary' : ''" filter tile value="tvs">电视剧</VChip>
-      </VChipGroup>
+      <div class="chip-wrapper">
+        <div 
+          class="custom-chip"
+          :class="{ 'active-chip': type === 'movies' }"
+          @click="type = 'movies'"
+        >
+          电影
+        </div>
+        <div 
+          class="custom-chip"
+          :class="{ 'active-chip': type === 'tvs' }"
+          @click="type = 'tvs'"
+        >
+          电视剧
+        </div>
+      </div>
     </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>排序</VLabel>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-sort-variant" size="x-small" class="mr-1" />
+        排序
       </div>
-      <VChipGroup v-model="filterParams.sort">
-        <VChip
-          :color="filterParams.sort == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in doubanSortDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': filterParams.sort === key }"
+          @click="filterParams.sort = key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>风格</VLabel>
+        </div>
       </div>
-      <VChipGroup v-model="doubanCategory">
-        <VChip
-          :color="doubanCategory == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+    </div>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-tag-multiple-outline" size="x-small" class="mr-1" />
+        风格
+      </div>
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in categoryDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': doubanCategory === key }"
+          @click="doubanCategory = doubanCategory === key ? '' : key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>地区</VLabel>
+        </div>
       </div>
-      <VChipGroup v-model="doubanZone">
-        <VChip
-          :color="doubanZone == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+    </div>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-map-marker-outline" size="x-small" class="mr-1" />
+        地区
+      </div>
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in zoneDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': doubanZone === key }"
+          @click="doubanZone = doubanZone === key ? '' : key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>年代</VLabel>
+        </div>
       </div>
-      <VChipGroup v-model="doubanYear">
-        <VChip
-          :color="doubanYear == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+    </div>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-calendar-outline" size="x-small" class="mr-1" />
+        年代
+      </div>
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in yearDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': doubanYear === key }"
+          @click="doubanYear = doubanYear === key ? '' : key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
+        </div>
+      </div>
     </div>
   </div>
+  
   <div>
     <MediaCardListView :key="currentKey" :apipath="`discover/douban_${type}`" :params="filterParams" />
   </div>
 </template>
+
+<style lang="scss" scoped>
+.filter-container {
+  padding: 0 16px 16px;
+}
+
+.filter-row {
+  display: flex;
+  margin-bottom: 16px;
+  align-items: flex-start;
+  
+  @media (max-width: 768px) {
+    margin-bottom: 12px;
+  }
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  min-width: 60px;
+  margin-right: 16px;
+  margin-top: 8px;
+  white-space: nowrap;
+}
+
+.chip-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  
+  @media (max-width: 768px) {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+.custom-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  background-color: rgba(var(--v-theme-surface), 0.8);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  
+  &:hover {
+    background-color: rgba(var(--v-theme-surface), 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  &.active-chip {
+    background-color: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-weight: 500;
+    border-color: rgba(var(--v-theme-primary), 0.5);
+  }
+  
+  @media (max-width: 768px) {
+    flex-shrink: 0;
+  }
+}
+</style>

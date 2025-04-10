@@ -133,83 +133,105 @@ watch(filterParams, () => {
 </script>
 
 <template>
-  <div class="px-3">
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>类型</VLabel>
+  <div class="filter-container">
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-shape-outline" size="x-small" class="mr-1" />
+        类型
       </div>
-      <VChipGroup v-model="type">
-        <VChip :color="type == 'movies' ? 'primary' : ''" filter tile value="movies">电影</VChip>
-        <VChip :color="type == 'tvs' ? 'primary' : ''" filter tile value="tvs">电视剧</VChip>
-      </VChipGroup>
+      <div class="chip-wrapper">
+        <div 
+          class="custom-chip"
+          :class="{ 'active-chip': type === 'movies' }"
+          @click="type = 'movies'"
+        >
+          电影
+        </div>
+        <div 
+          class="custom-chip"
+          :class="{ 'active-chip': type === 'tvs' }"
+          @click="type = 'tvs'"
+        >
+          电视剧
+        </div>
+      </div>
     </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>排序</VLabel>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-sort-variant" size="x-small" class="mr-1" />
+        排序
       </div>
-      <VChipGroup v-model="filterParams.sort_by">
-        <VChip
-          :color="filterParams.sort_by == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in type == 'movies' ? tmdbSortDict : tmdbTvSortDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': filterParams.sort_by === key }"
+          @click="filterParams.sort_by = key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>风格</VLabel>
+        </div>
       </div>
-      <VChipGroup v-model="filterParams.with_genres">
-        <VChip
-          :color="filterParams.with_genres == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+    </div>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-tag-multiple-outline" size="x-small" class="mr-1" />
+        风格
+      </div>
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in type == 'movies' ? tmdbMovieGenreDict : tmdbTvGenreDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': filterParams.with_genres === key }"
+          @click="filterParams.with_genres = filterParams.with_genres === key ? '' : key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>语言</VLabel>
+        </div>
       </div>
-      <VChipGroup v-model="filterParams.with_original_language">
-        <VChip
-          :color="filterParams.with_original_language == key ? 'primary' : ''"
-          filter
-          tile
-          :value="key"
+    </div>
+    
+    <div class="filter-row">
+      <div class="filter-label">
+        <VIcon icon="mdi-translate" size="x-small" class="mr-1" />
+        语言
+      </div>
+      <div class="chip-wrapper">
+        <div 
           v-for="(value, key) in tmdbLanguageDict"
           :key="key"
+          class="custom-chip"
+          :class="{ 'active-chip': filterParams.with_original_language === key }"
+          @click="filterParams.with_original_language = filterParams.with_original_language === key ? '' : key"
         >
           {{ value }}
-        </VChip>
-      </VChipGroup>
-    </div>
-    <div class="flex justify-start align-center">
-      <div class="mr-5">
-        <VLabel>评分</VLabel>
+        </div>
       </div>
-      <VSlider v-model="filterParams.vote_average" thumb-label max="10" min="0" :step="1" class="align-center" hide-details>
-        <template v-slot:append>
-          <VTextField
-            width="5rem"
-            v-model="filterParams.vote_count"
-            density="compact"
-            type="number"
-            hide-details
-            single-line
-          />
-        </template>
-      </VSlider>
+    </div>
+    
+    <div class="filter-row rating-row">
+      <div class="rating-header">
+        <div class="filter-label">
+          <VIcon icon="mdi-star-outline" size="x-small" class="mr-1" />
+          评分不低于 {{ filterParams.vote_average }}
+        </div>
+      </div>
+      <div class="slider-container">
+        <div class="min-value">0</div>
+        <VSlider 
+          v-model="filterParams.vote_average" 
+          :step="0.5" 
+          max="10" 
+          min="0" 
+          class="rating-slider" 
+          hide-details
+          track-color="grey-lighten-3"
+          thumb-label="always"
+        />
+        <div class="max-value">10</div>
+      </div>
     </div>
   </div>
 
@@ -217,3 +239,112 @@ watch(filterParams, () => {
     <MediaCardListView :key="currentKey" :apipath="`discover/tmdb_${type}`" :params="filterParams" />
   </div>
 </template>
+
+<style lang="scss" scoped>
+.filter-container {
+  padding: 0 16px 16px;
+}
+
+.filter-row {
+  display: flex;
+  margin-bottom: 16px;
+  align-items: flex-start;
+  
+  @media (max-width: 768px) {
+    margin-bottom: 12px;
+  }
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  min-width: 60px;
+  margin-right: 16px;
+  margin-top: 8px;
+  white-space: nowrap;
+}
+
+.chip-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  
+  @media (max-width: 768px) {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+.custom-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  background-color: rgba(var(--v-theme-surface), 0.8);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  
+  &:hover {
+    background-color: rgba(var(--v-theme-surface), 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  &.active-chip {
+    background-color: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
+    font-weight: 500;
+    border-color: rgba(var(--v-theme-primary), 0.5);
+  }
+  
+  @media (max-width: 768px) {
+    flex-shrink: 0;
+  }
+}
+
+.rating-row {
+  flex-direction: column;
+}
+
+.rating-header {
+  margin-bottom: 8px;
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  width: 100%;
+  
+  .min-value, .max-value {
+    font-size: 0.8rem;
+    color: rgba(var(--v-theme-on-surface), 0.6);
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+  }
+  
+  .rating-slider {
+    flex-grow: 1;
+    margin: 0 8px;
+  }
+}
+</style>

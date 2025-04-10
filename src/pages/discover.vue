@@ -24,8 +24,20 @@ const discoverTabs = ref<DiscoverSource[]>([])
 const discoverTabItems = computed(() => {
   return discoverTabs.value.map(item => ({
     title: item.name,
+    icon: getTabIcon(item.name),
   }))
 })
+
+// 获取标签页图标
+function getTabIcon(name: string): string {
+  // 为常见的标签提供图标
+  const iconMap: Record<string, string> = {
+    'TheMovieDb': 'mdi-movie-search',
+    '豆瓣': 'mdi-seed',
+    'Bangumi': 'mdi-animation',
+  }
+  return iconMap[name] || 'mdi-magnify' // 默认图标
+}
 
 // 额外的数据源
 const extraDiscoverSources = ref<DiscoverSource[]>([])
@@ -129,7 +141,7 @@ onActivated(async () => {
 </script>
 
 <template>
-  <div>
+  <div class="mp-discover">
     <VHeaderTab :items="discoverTabItems" v-model="activeTab">
       <template #append>
         <VBtn
@@ -173,10 +185,11 @@ onActivated(async () => {
         </transition>
       </VWindowItem>
     </VWindow>
+    
     <!-- 弹窗，根据配置生成选项 -->
-    <VDialog v-if="orderConfigDialog" v-model="orderConfigDialog" max-width="35rem" scrollable>
-      <VCard>
-        <VCardItem>
+    <VDialog v-if="orderConfigDialog" v-model="orderConfigDialog" width="35rem" scrollable>
+      <VCard class="settings-card">
+        <VCardItem class="settings-card-header">
           <VCardTitle>
             <VIcon icon="mdi-order-alphabetical-ascending" size="small" class="me-2" />
             设置标签顺序
@@ -195,7 +208,10 @@ onActivated(async () => {
           >
             <template #item="{ element }">
               <div class="setting-item enabled">
-                <div class="setting-item-inner cursor-move text-center">
+                <div class="setting-item-inner cursor-move">
+                  <div class="setting-check">
+                    <VIcon :icon="getTabIcon(element.name)" size="small" color="primary" />
+                  </div>
                   <span class="setting-label">{{ element.name }}</span>
                 </div>
               </div>
@@ -203,22 +219,30 @@ onActivated(async () => {
           </draggable>
         </VCardText>
         <VDivider />
-        <VCardText class="pt-5 text-end">
+        <VCardActions class="pt-5">
           <VSpacer />
-          <VBtn @click="saveTabOrder">
+          <VBtn @click="saveTabOrder" variant="elevated" color="primary" class="px-5">
             <template #prepend>
               <VIcon icon="mdi-content-save" />
             </template>
             保存
           </VBtn>
-        </VCardText>
+        </VCardActions>
       </VCard>
     </VDialog>
+    
     <!-- 快速滚动到顶部按钮 -->
     <VScrollToTopBtn />
   </div>
 </template>
+
 <style lang="scss" scoped>
+.mp-discover {
+  position: relative;
+  padding: 0;
+  max-inline-size: 100%;
+}
+
 .settings-card-header {
   padding-block: 16px;
   padding-inline: 20px;
@@ -287,5 +311,17 @@ onActivated(async () => {
 
 .setting-check {
   margin-inline-end: 8px;
+}
+
+/* Fade transition for content */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style>
