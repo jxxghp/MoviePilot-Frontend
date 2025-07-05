@@ -145,21 +145,24 @@ onBeforeMount(async () => {
   await loadOrderConfig()
   await loadExtraDiscoverSources()
   sortSubscribeOrder()
-})
-
-onMounted(() => {
   // 选中第一个标签页
   if (discoverTabs.value.length > 0) {
     activeTab.value = discoverTabs.value[0].mediaid_prefix
   }
 })
 
+onMounted(() => {
+  // 空的，因为初始化已经在onBeforeMount中完成
+})
+
 onActivated(async () => {
   await loadExtraDiscoverSources()
   sortSubscribeOrder()
-  // 如果当前没有选中任何标签页，则选中第一个标签页
-  if (!activeTab.value && discoverTabs.value.length > 0) {
-    activeTab.value = discoverTabs.value[0].mediaid_prefix
+  // 如果当前选中的标签页不存在，则选中第一个标签页
+  if (activeTab.value && !discoverTabs.value.find(tab => tab.mediaid_prefix === activeTab.value)) {
+    if (discoverTabs.value.length > 0) {
+      activeTab.value = discoverTabs.value[0].mediaid_prefix
+    }
   }
 })
 </script>
