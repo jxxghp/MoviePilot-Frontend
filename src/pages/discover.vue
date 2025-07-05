@@ -157,6 +157,12 @@ onMounted(() => {
 onActivated(async () => {
   await loadExtraDiscoverSources()
   sortSubscribeOrder()
+  // 如果当前没有选中任何标签页，或者当前选中的标签页不存在，则选中第一个标签页
+  if (!activeTab.value || !discoverTabs.value.find(tab => tab.mediaid_prefix === activeTab.value)) {
+    if (discoverTabs.value.length > 0) {
+      activeTab.value = discoverTabs.value[0].mediaid_prefix
+    }
+  }
 })
 </script>
 
