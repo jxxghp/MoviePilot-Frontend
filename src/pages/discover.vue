@@ -151,13 +151,20 @@ onBeforeMount(async () => {
   }
 })
 
+// 确保在标签页数据变化后，如果没有选中任何标签页，自动选中第一个
+watch(discoverTabItems, (newItems) => {
+  if (newItems.length > 0 && !activeTab.value) {
+    activeTab.value = newItems[0].tab
+  }
+}, { immediate: true })
+
 
 
 onActivated(async () => {
   await loadExtraDiscoverSources()
   sortSubscribeOrder()
-  // 如果当前选中的标签页不存在，则选中第一个标签页
-  if (activeTab.value && !discoverTabs.value.find(tab => tab.mediaid_prefix === activeTab.value)) {
+  // 如果当前没有选中任何标签页，或者当前选中的标签页不存在，则选中第一个标签页
+  if (!activeTab.value || !discoverTabs.value.find(tab => tab.mediaid_prefix === activeTab.value)) {
     if (discoverTabs.value.length > 0) {
       activeTab.value = discoverTabs.value[0].mediaid_prefix
     }
