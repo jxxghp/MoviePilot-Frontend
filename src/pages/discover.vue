@@ -151,12 +151,7 @@ onBeforeMount(async () => {
   }
 })
 
-// 确保在标签页数据变化后，如果没有选中任何标签页，自动选中第一个
-watch(discoverTabItems, (newItems) => {
-  if (newItems.length > 0 && !activeTab.value) {
-    activeTab.value = newItems[0].tab
-  }
-}, { immediate: true })
+
 
 
 
