@@ -151,9 +151,7 @@ onBeforeMount(async () => {
   }
 })
 
-onMounted(() => {
-  // 空的，因为初始化已经在onBeforeMount中完成
-})
+
 
 onActivated(async () => {
   await loadExtraDiscoverSources()
