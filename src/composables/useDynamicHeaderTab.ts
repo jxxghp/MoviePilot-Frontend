@@ -91,6 +91,8 @@ export function useDynamicHeaderTab() {
       tabConfig.routePath = route.path
       // 确保items是最新的
       tabConfig.items = Array.isArray(config.items) ? config.items : config.items.value
+      // 确保modelValue是最新的
+      tabConfig.modelValue = config.modelValue.value
 
       if (registerDynamicHeaderTab) {
         registerDynamicHeaderTab(tabConfig)
