@@ -4,6 +4,7 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import WorkflowAddEditDialog from '@/components/dialog/WorkflowAddEditDialog.vue'
 import WorkflowActionsDialog from '@/components/dialog/WorkflowActionsDialog.vue'
+import WorkflowShareDialog from '@/components/dialog/WorkflowShareDialog.vue'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 
@@ -32,6 +33,9 @@ const editDialog = ref(false)
 // 流程对话框
 const flowDialog = ref(false)
 
+// 分享对话框
+const shareDialog = ref(false)
+
 // 加载中
 const loading = ref(false)
 
@@ -45,10 +49,16 @@ function handleFlow(item: Workflow) {
   flowDialog.value = true
 }
 
+// 分享工作流
+function handleShare(item: Workflow) {
+  shareDialog.value = true
+}
+
 // 编辑完成
 function editDone() {
   editDialog.value = false
   flowDialog.value = false
+  shareDialog.value = false
   emit('refresh')
 }
 
@@ -240,6 +250,12 @@ const resolveProgress = (item: Workflow) => {
                     </template>
                     <VListItemTitle>{{ t('workflow.task.reset') }}</VListItemTitle>
                   </VListItem>
+                  <VListItem base-color="info" @click="handleShare(workflow)">
+                    <template #prepend>
+                      <VIcon icon="mdi-share" />
+                    </template>
+                    <VListItemTitle>{{ t('workflow.task.share') }}</VListItemTitle>
+                  </VListItem>
                   <VListItem base-color="error" @click="handleDelete(workflow)">
                     <template #prepend>
                       <VIcon icon="mdi-delete" />
@@ -316,6 +332,12 @@ const resolveProgress = (item: Workflow) => {
       @close="editDialog = false"
       @save="editDone"
       :workflow="workflow"
+    />
+    <!-- 分享对话框 -->
+    <WorkflowShareDialog
+      v-if="shareDialog"
+      :workflow="workflow"
+      @close="shareDialog = false"
     />
   </div>
 </template>

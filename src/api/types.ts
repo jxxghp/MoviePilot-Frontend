@@ -144,6 +144,38 @@ export interface SubscribeShare {
   episode_group?: string
 }
 
+// 工作流分享
+export interface WorkflowShare {
+  // 分享ID
+  id?: number
+  // 工作流ID
+  workflow_id?: string
+  // 分享标题
+  share_title?: string
+  // 分享说明
+  share_comment?: string
+  // 分享人
+  share_user?: string
+  // 分享人唯一ID
+  share_uid?: string
+  // 工作流名称
+  name?: string
+  // 工作流描述
+  description?: string
+  // 定时器
+  timer?: string
+  // 动作列表
+  actions?: any[]
+  // 动作流
+  flows?: any[]
+  // 上下文
+  context?: string
+  // 时间
+  date?: string
+  // 复用次数
+  count?: number
+}
+
 // 历史记录
 export interface TransferHistory {
   // ID

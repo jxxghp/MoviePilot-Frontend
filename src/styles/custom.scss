@@ -236,6 +236,10 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
 }
 
+.grid-workflow-share-card {
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+
 .v-tabs:not(.v-tabs-pill).v-tabs--horizontal {
   border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
