@@ -318,21 +318,21 @@ export default {
       description: '軟件版本',
     },
   },
-      subscribeTabs: {
-      movie: {
-        mysub: '我的訂閱',
-        popular: '熱門訂閱',
-      },
-      tv: {
-        mysub: '我的訂閱',
-        popular: '熱門訂閱',
-        share: '訂閱分享',
-      },
+  subscribeTabs: {
+    movie: {
+      mysub: '我的訂閱',
+      popular: '熱門訂閱',
     },
-    workflowTabs: {
-      list: '工作流',
-      share: '工作流分享',
+    tv: {
+      mysub: '我的訂閱',
+      popular: '熱門訂閱',
+      share: '訂閱分享',
     },
+  },
+  workflowTabs: {
+    list: '工作流',
+    share: '工作流分享',
+  },
   pluginTabs: {
     installed: '我的插件',
     market: '插件市場',
