@@ -4,7 +4,6 @@ import { Workflow } from '@/api/types'
 import WorkflowAddEditDialog from '@/components/dialog/WorkflowAddEditDialog.vue'
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 
@@ -49,14 +48,6 @@ onMounted(() => {
 onActivated(() => {
   fetchData()
 })
-
-// 使用动态按钮钩子 新增
-useDynamicButton({
-  icon: 'mdi-plus',
-  onClick: () => {
-    addDialog.value = true
-  },
-})
 </script>
 <template>
   <div>
@@ -72,21 +63,4 @@ useDynamicButton({
       :error-description="t('workflow.noWorkflowDescription')"
     />
   </div>
-
-  <!-- 新增按钮 -->
-  <Teleport to="body" v-if="route.path === '/workflow'">
-    <VFab
-      v-if="isRefreshed && !appMode"
-      icon="mdi-plus"
-      location="bottom"
-      size="x-large"
-      fixed
-      app
-      appear
-      :class="{ 'mb-12': appMode }"
-      @click="addDialog = true"
-    />
-  </Teleport>
-  <!-- 新增对话框 -->
-  <WorkflowAddEditDialog v-if="addDialog" v-model="addDialog" @close="addDialog = false" @save="addDone" />
 </template>

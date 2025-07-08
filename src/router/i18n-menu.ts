@@ -293,3 +293,21 @@ export function getDiscoverTabs() {
     },
   ]
 }
+
+// 获取工作流标签页
+export function getWorkflowTabs() {
+  const { t } = useI18n()
+
+  return [
+    {
+      title: t('workflowTabs.list'),
+      tab: 'list',
+      icon: 'mdi-format-list-bulleted',
+    },
+    {
+      title: t('workflowTabs.share'),
+      tab: 'share',
+      icon: 'mdi-share',
+    },
+  ]
+}

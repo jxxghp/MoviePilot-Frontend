@@ -317,17 +317,21 @@ export default {
       description: '软件版本',
     },
   },
-  subscribeTabs: {
-    movie: {
-      mysub: '我的订阅',
-      popular: '热门订阅',
+      subscribeTabs: {
+      movie: {
+        mysub: '我的订阅',
+        popular: '热门订阅',
+      },
+      tv: {
+        mysub: '我的订阅',
+        popular: '热门订阅',
+        share: '订阅分享',
+      },
     },
-    tv: {
-      mysub: '我的订阅',
-      popular: '热门订阅',
-      share: '订阅分享',
+    workflowTabs: {
+      list: '工作流',
+      share: '工作流分享',
     },
-  },
   pluginTabs: {
     installed: '我的插件',
     market: '插件市场',

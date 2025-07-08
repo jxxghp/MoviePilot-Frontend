@@ -329,6 +329,10 @@ export default {
       share: 'Subscription Shares',
     },
   },
+  workflowTabs: {
+    list: 'Workflow',
+    share: 'Workflow Share',
+  },
   pluginTabs: {
     installed: 'My Plugins',
     market: 'Plugin Market',
