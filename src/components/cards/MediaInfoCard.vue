@@ -49,7 +49,6 @@ function openTmdbPage(type: string, tmdbId: number) {
           <VCardItem class="pb-1">
             <VCardTitle class="text-center text-md-left">
               {{ context?.media_info?.title || context?.meta_info?.name }}
-              {{ context?.meta_info?.season_episode }}
             </VCardTitle>
             <VCardSubtitle class="text-center text-md-left">
               {{ context?.media_info?.year || context?.meta_info?.year }}
@@ -75,6 +74,11 @@ function openTmdbPage(type: string, tmdbId: number) {
             <!-- 二级分类 -->
             <VChip v-if="context?.media_info?.category" variant="elevated" class="me-1 mb-1 text-white bg-blue-500">
               {{ context?.media_info?.category }}
+            </VChip>
+            <!-- 季集 -->
+            <VChip v-if="context?.meta_info?.season_episode" variant="elevated"
+              class="me-1 mb-1 text-white bg-blue-500">
+              {{ context?.meta_info?.season_episode }}
             </VChip>
             <!-- TMDBID -->
             <VChip
