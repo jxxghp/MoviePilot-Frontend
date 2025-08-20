@@ -58,7 +58,7 @@ registerHeaderTab({
     {
       icon: 'mdi-filter-multiple-outline',
       variant: 'text',
-      color: computed(() => (isFilterFormEmpty.value ? 'gray' : 'primary')),
+      color: marketFilterButtonColor,
       class: 'settings-icon-button',
       dataAttr: 'market-filter-btn',
       action: () => {
@@ -220,6 +220,14 @@ const isFilterFormEmpty = computed(() => {
     filterForm.label.length === 0 &&
     filterForm.repo.length === 0
   )
+})
+
+// 计算筛选按钮颜色
+const marketFilterButtonColor = computed(() => {
+  if (!isFilterFormEmpty.value) {
+    return 'primary'
+  }
+  return 'gray'
 })
 
 // 插件过滤条件
@@ -1246,45 +1254,6 @@ async function handleDropToFolder(event: DragEvent, folderName: string) {
   }
 }
 
-// 名称过滤器变化处理
-function onNameFilterChange(value: string) {
-  // 确保 filterForm.name 的值正确更新
-  filterForm.name = value || ''
-  // 强制触发响应式更新
-  nextTick(() => {
-    // 这里可以添加额外的逻辑，如果需要的话
-  })
-}
-
-// 作者过滤器变化处理
-function onAuthorFilterChange(value: string[]) {
-  // 确保 filterForm.author 的值正确更新
-  filterForm.author = value || []
-  // 强制触发响应式更新
-  nextTick(() => {
-    // 这里可以添加额外的逻辑，如果需要的话
-  })
-}
-
-// 标签过滤器变化处理
-function onLabelFilterChange(value: string[]) {
-  // 确保 filterForm.label 的值正确更新
-  filterForm.label = value || []
-  // 强制触发响应式更新
-  nextTick(() => {
-    // 这里可以添加额外的逻辑，如果需要的话
-  })
-}
-
-// 仓库过滤器变化处理
-function onRepoFilterChange(value: string[]) {
-  // 确保 filterForm.repo 的值正确更新
-  filterForm.repo = value || []
-  // 强制触发响应式更新
-  nextTick(() => {
-    // 这里可以添加额外的逻辑，如果需要的话
-  })
-}
 
 // 拖拽开始事件（修复版本）
 function onDragStartPlugin(evt: any) {
@@ -1393,13 +1362,7 @@ function onDragStartPlugin(evt: any) {
             <div v-if="isAppMarketLoaded">
               <VRow>
                 <VCol cols="6">
-                  <VTextField 
-                    v-model="filterForm.name" 
-                    density="comfortable" 
-                    :label="t('plugin.name')" 
-                    clearable 
-                    @update:model-value="onNameFilterChange"
-                  />
+                  <VTextField v-model="filterForm.name" density="comfortable" :label="t('plugin.name')" clearable />
                 </VCol>
                 <VCol v-if="authorFilterOptions.length > 0" cols="6">
                   <VSelect
@@ -1410,7 +1373,6 @@ function onDragStartPlugin(evt: any) {
                     :label="t('plugin.author')"
                     multiple
                     clearable
-                    @update:model-value="onAuthorFilterChange"
                   />
                 </VCol>
                 <VCol v-if="labelFilterOptions.length > 0" cols="6">
@@ -1422,7 +1384,6 @@ function onDragStartPlugin(evt: any) {
                     :label="t('plugin.label')"
                     multiple
                     clearable
-                    @update:model-value="onLabelFilterChange"
                   />
                 </VCol>
                 <VCol v-if="repoFilterOptions.length > 0" cols="6">
@@ -1434,7 +1395,6 @@ function onDragStartPlugin(evt: any) {
                     :label="t('plugin.repository')"
                     multiple
                     clearable
-                    @update:model-value="onRepoFilterChange"
                   />
                 </VCol>
                 <VCol v-if="sortOptions.length > 0" cols="6">
