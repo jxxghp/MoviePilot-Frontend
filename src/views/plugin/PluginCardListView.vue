@@ -215,7 +215,7 @@ const defaultColor = '#2196F3'
 // 计算过滤表单是否全部为空
 const isFilterFormEmpty = computed(() => {
   return (
-    filterForm.name === '' &&
+    !filterForm.name?.trim() &&
     filterForm.author.length === 0 &&
     filterForm.label.length === 0 &&
     filterForm.repo.length === 0
