@@ -213,11 +213,18 @@ watch(
     if (visible) {
       fetchPluginsWithPage()
       loadRecentPlugins()
-      // 禁用背景滚动
-      disableBodyScroll(document.body)
+      // 禁用背景滚动，但允许面板内部滚动
+      // 注意：参数是要允许滚动的目标元素，即面板本身
+      const panelElement = document.querySelector('.plugin-quick-access')
+      if (panelElement) {
+        disableBodyScroll(panelElement as HTMLElement)
+      }
     } else {
       // 恢复背景滚动
-      enableBodyScroll(document.body)
+      const panelElement = document.querySelector('.plugin-quick-access')
+      if (panelElement) {
+        enableBodyScroll(panelElement as HTMLElement)
+      }
     }
   },
   { immediate: true },
@@ -232,7 +239,10 @@ onMounted(() => {
 
 // 组件卸载时确保恢复背景滚动
 onUnmounted(() => {
-  enableBodyScroll(document.body)
+  const panelElement = document.querySelector('.plugin-quick-access')
+  if (panelElement) {
+    enableBodyScroll(panelElement as HTMLElement)
+  }
 })
 
 // 处理触摸开始
