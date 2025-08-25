@@ -5,6 +5,7 @@ import noImage from '@images/logos/plugin.png'
 import { useI18n } from 'vue-i18n'
 import { useRecentPlugins } from '@/composables/useRecentPlugins'
 import PluginDataDialog from '@/components/dialog/PluginDataDialog.vue'
+import BodyLock from '@/components/misc/BodyLock.vue'
 import { VCard } from 'vuetify/components'
 import { getDominantColor } from '@/@core/utils/image'
 
@@ -212,11 +213,6 @@ watch(
     if (visible) {
       fetchPluginsWithPage()
       loadRecentPlugins()
-      // 添加v-overlay-scroll-blocked类到html元素
-      document.documentElement.classList.add('v-overlay-scroll-blocked')
-    } else {
-      // 移除v-overlay-scroll-blocked类
-      document.documentElement.classList.remove('v-overlay-scroll-blocked')
     }
   },
   { immediate: true },
@@ -229,9 +225,9 @@ onMounted(() => {
   }
 })
 
-// 组件卸载时确保移除v-overlay-scroll-blocked类
+// 组件卸载时确保清理状态
 onUnmounted(() => {
-  document.documentElement.classList.remove('v-overlay-scroll-blocked')
+  // BodyLock组件会自动处理清理工作
 })
 
 // 处理触摸开始
@@ -502,6 +498,9 @@ function handleBackdropClick(event: MouseEvent) {
     :show_switch="false"
     @close="handleClosePluginDataDialog"
   />
+
+  <!-- BodyLock组件，用于禁用背景滚动 -->
+  <BodyLock :locked="isVisible" />
 </template>
 
 <style lang="scss" scoped>
