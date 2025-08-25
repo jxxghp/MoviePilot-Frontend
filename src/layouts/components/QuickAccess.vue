@@ -212,6 +212,11 @@ watch(
     if (visible) {
       fetchPluginsWithPage()
       loadRecentPlugins()
+      // 添加v-overlay-scroll-blocked类到html元素
+      document.documentElement.classList.add('v-overlay-scroll-blocked')
+    } else {
+      // 移除v-overlay-scroll-blocked类
+      document.documentElement.classList.remove('v-overlay-scroll-blocked')
     }
   },
   { immediate: true },
@@ -222,6 +227,11 @@ onMounted(() => {
     fetchPluginsWithPage()
     loadRecentPlugins()
   }
+})
+
+// 组件卸载时确保移除v-overlay-scroll-blocked类
+onUnmounted(() => {
+  document.documentElement.classList.remove('v-overlay-scroll-blocked')
 })
 
 // 处理触摸开始
