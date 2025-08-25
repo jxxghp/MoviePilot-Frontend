@@ -5,9 +5,9 @@ import noImage from '@images/logos/plugin.png'
 import { useI18n } from 'vue-i18n'
 import { useRecentPlugins } from '@/composables/useRecentPlugins'
 import PluginDataDialog from '@/components/dialog/PluginDataDialog.vue'
-import BodyLock from '@/components/misc/BodyLock.vue'
 import { VCard } from 'vuetify/components'
 import { getDominantColor } from '@/@core/utils/image'
+import { disableBodyScroll, enableBodyScroll } from 'body-scroll-lock'
 
 // 国际化
 const { t } = useI18n()
@@ -213,6 +213,11 @@ watch(
     if (visible) {
       fetchPluginsWithPage()
       loadRecentPlugins()
+      // 禁用背景滚动
+      disableBodyScroll(document.body)
+    } else {
+      // 恢复背景滚动
+      enableBodyScroll(document.body)
     }
   },
   { immediate: true },
@@ -225,9 +230,9 @@ onMounted(() => {
   }
 })
 
-// 组件卸载时确保清理状态
+// 组件卸载时确保恢复背景滚动
 onUnmounted(() => {
-  // BodyLock组件会自动处理清理工作
+  enableBodyScroll(document.body)
 })
 
 // 处理触摸开始
@@ -498,9 +503,6 @@ function handleBackdropClick(event: MouseEvent) {
     :show_switch="false"
     @close="handleClosePluginDataDialog"
   />
-
-  <!-- BodyLock组件，用于禁用背景滚动 -->
-  <BodyLock :locked="isVisible" />
 </template>
 
 <style lang="scss" scoped>
