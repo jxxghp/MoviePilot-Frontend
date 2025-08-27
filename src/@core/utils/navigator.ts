@@ -46,6 +46,16 @@ export const isPWA = async (): Promise<boolean> => {
 
 // 同步检测PWA显示模式
 export const isPWADisplayMode = (): boolean => {
+  // iOS Safari PWA检测
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const isStandalone = (window.navigator as any).standalone === true
+  
+  // iOS Safari的独立模式检测
+  if (isIOS && isStandalone) {
+    return true
+  }
+  
+  // 通用PWA显示模式检测
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone ||
@@ -57,6 +67,8 @@ export const isPWADisplayMode = (): boolean => {
 export const checkPWAStatus = async () => {
   const hasServiceWorker = await isPWA()
   const isStandaloneMode = isPWADisplayMode()
+  const isIOS = isIOSDevice()
+  const isMobile = isMobileDevice()
 
   return {
     // 是否有PWA功能（Service Worker）
@@ -64,7 +76,8 @@ export const checkPWAStatus = async () => {
     // 是否在独立显示模式下运行
     isStandaloneMode,
     // 综合判断：更宽松的检测，在移动设备上默认启用PWA功能
-    isPWAEnvironment: hasServiceWorker || isStandaloneMode || isMobileDevice(),
+    // iOS 14特殊处理：即使没有Service Worker，在移动设备上也启用PWA功能
+    isPWAEnvironment: hasServiceWorker || isStandaloneMode || (isMobile && (isIOS || isStandaloneMode)),
     // 完整的PWA体验：既有功能又在独立模式下运行
     isFullPWA: hasServiceWorker && isStandaloneMode,
   }

@@ -12,6 +12,65 @@ const display = useDisplay()
 const { appMode } = usePWA()
 const { t, locale } = useI18n()
 
+// iOS 14兼容性修复：确保在iOS Safari中也能显示Footer
+const isIOS14Compatible = computed(() => {
+  const userAgent = navigator.userAgent
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent)
+  const isIOS14 = isIOS && /OS 14_/.test(userAgent)
+  
+  // 在iOS 14上，即使不是严格的PWA模式，也显示Footer
+  if (isIOS14 && display.mdAndDown.value) {
+    return true
+  }
+  
+  return appMode.value
+})
+
+// 强制显示Footer的机制（用于调试和兼容性）
+const forceShowFooter = computed(() => {
+  // 检查URL参数
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('forceFooter') === 'true') {
+    return true
+  }
+  
+  // 检查localStorage设置
+  if (typeof window !== 'undefined' && localStorage.getItem('forceFooter') === 'true') {
+    return true
+  }
+  
+  return false
+})
+
+// 最终决定是否显示Footer
+const shouldShowFooter = computed(() => {
+  return isIOS14Compatible.value || forceShowFooter.value
+})
+
+// 调试信息（仅在开发环境显示）
+const debugInfo = computed(() => {
+  if (process.env.NODE_ENV === 'development') {
+    return {
+      appMode: appMode.value,
+      isIOS14Compatible: isIOS14Compatible.value,
+      forceShowFooter: forceShowFooter.value,
+      shouldShowFooter: shouldShowFooter.value,
+      userAgent: navigator.userAgent,
+      isMobile: display.mdAndDown.value,
+    }
+  }
+  return null
+})
+
+// 在开发环境中输出调试信息
+if (process.env.NODE_ENV === 'development') {
+  watch(debugInfo, (info) => {
+    if (info) {
+      console.log('Footer Debug Info:', info)
+    }
+  }, { immediate: true })
+}
+
 // 判断当前是否为英文环境
 const isEnglish = computed(() => locale.value === 'en-US')
 
@@ -160,7 +219,7 @@ const showDynamicButton = computed(() => {
 </script>
 
 <template>
-  <Teleport v-if="appMode" to="body">
+  <Teleport v-if="shouldShowFooter" to="body">
     <div class="footer-nav-container">
       <VCard elevation="3" class="footer-nav-card border" rounded="pill" :class="{ 'shift-left': showDynamicButton }">
         <VCardText class="footer-card-content">
@@ -223,19 +282,60 @@ const showDynamicButton = computed(() => {
         </VCard>
       </Transition>
     </div>
+    
+    <!-- 调试面板（仅在开发环境显示） -->
+    <div v-if="debugInfo" class="footer-debug-panel">
+      <VCard elevation="2" class="debug-card">
+        <VCardText class="debug-content">
+          <div class="debug-title">Footer Debug Info</div>
+          <div class="debug-item">
+            <span>App Mode:</span>
+            <span :class="{ 'debug-true': debugInfo.appMode, 'debug-false': !debugInfo.appMode }">
+              {{ debugInfo.appMode }}
+            </span>
+          </div>
+          <div class="debug-item">
+            <span>iOS 14 Compatible:</span>
+            <span :class="{ 'debug-true': debugInfo.isIOS14Compatible, 'debug-false': !debugInfo.isIOS14Compatible }">
+              {{ debugInfo.isIOS14Compatible }}
+            </span>
+          </div>
+          <div class="debug-item">
+            <span>Force Show:</span>
+            <span :class="{ 'debug-true': debugInfo.forceShowFooter, 'debug-false': !debugInfo.forceShowFooter }">
+              {{ debugInfo.forceShowFooter }}
+            </span>
+          </div>
+          <div class="debug-item">
+            <span>Should Show:</span>
+            <span :class="{ 'debug-true': debugInfo.shouldShowFooter, 'debug-false': !debugInfo.shouldShowFooter }">
+              {{ debugInfo.shouldShowFooter }}
+            </span>
+          </div>
+          <div class="debug-item">
+            <span>Mobile:</span>
+            <span :class="{ 'debug-true': debugInfo.isMobile, 'debug-false': !debugInfo.isMobile }">
+              {{ debugInfo.isMobile }}
+            </span>
+          </div>
+        </VCardText>
+      </VCard>
+    </div>
   </Teleport>
 </template>
 
 <style lang="scss">
 .footer-nav-container {
   position: fixed;
-  z-index: 1999;
+  z-index: 9999; // 提高z-index确保在iOS 14上可见
   display: flex;
   align-items: center;
   justify-content: center;
   inset-block-end: 0;
   inset-inline: 0;
+  /* iOS 14兼容性修复：使用fallback值 */
   padding-block-end: calc(6px + env(safe-area-inset-bottom, 0px));
+  padding-block-end: calc(6px + var(--safe-area-inset-bottom, 0px)); // 备用方案
   pointer-events: none;
 
   // 按钮卡片之间的间距
@@ -247,7 +347,9 @@ const showDynamicButton = computed(() => {
 .footer-nav-card {
   position: relative;
   overflow: hidden;
+  /* iOS 14兼容性修复：backdrop-filter降级处理 */
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px); // WebKit前缀
   background-color: rgba(var(--v-theme-surface), 0.6);
   pointer-events: auto;
   transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
@@ -255,7 +357,17 @@ const showDynamicButton = computed(() => {
   // 透明主题下的特殊样式
   .v-theme--transparent & {
     backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
+    -webkit-backdrop-filter: blur(var(--transparent-blur-heavy, 16px)); // WebKit前缀
     background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
+  }
+
+  /* iOS 14兼容性：如果backdrop-filter不支持，使用纯色背景 */
+  @supports not (backdrop-filter: blur(1px)) {
+    background-color: rgba(var(--v-theme-surface), 0.95);
+    
+    .v-theme--transparent & {
+      background-color: rgba(var(--v-theme-surface), 0.9);
+    }
   }
 
   &.shift-left {
@@ -368,6 +480,99 @@ const showDynamicButton = computed(() => {
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* iOS 14特定修复 */
+@supports (-webkit-touch-callout: none) {
+  .footer-nav-container {
+    /* 确保在iOS Safari中正确显示 */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    /* iOS Safari中的position: fixed修复 */
+    position: -webkit-sticky;
+    position: fixed;
+  }
+  
+  .footer-nav-card {
+    /* iOS Safari中的backdrop-filter降级 */
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    
+    @supports not (-webkit-backdrop-filter: blur(1px)) {
+      background-color: rgba(var(--v-theme-surface), 0.95);
+    }
+    
+    /* iOS Safari中的transform修复 */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  /* iOS 14 Safari中的按钮样式修复 */
+  .footer-nav-btn {
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    
+    &:active {
+      -webkit-transform: scale(0.95);
+      transform: scale(0.95);
+    }
+  }
+}
+
+/* 额外的iOS 14兼容性修复 */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .footer-nav-container {
+    /* 确保在WebKit浏览器中正确渲染 */
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* 调试面板样式 */
+.footer-debug-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  max-width: 300px;
+  
+  .debug-card {
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .debug-content {
+    padding: 12px;
+    color: white;
+    font-size: 12px;
+    font-family: monospace;
+  }
+  
+  .debug-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #4CAF50;
+  }
+  
+  .debug-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    
+    span:first-child {
+      color: #BDBDBD;
+    }
+    
+    .debug-true {
+      color: #4CAF50;
+    }
+    
+    .debug-false {
+      color: #F44336;
+    }
   }
 }
 </style>
