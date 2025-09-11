@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>iOS PWA 软键盘导航栏修复示例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* 导航栏样式 - 关键修复 */
+        .navigation-bar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 9999 !important;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+        }
+
+        /* 键盘打开时的特殊处理 */
+        .keyboard-open .navigation-bar {
+            transform: translateZ(0) translateY(0) !important;
+            -webkit-transform: translateZ(0) translateY(0) !important;
+        }
+
+        /* iOS Safari特殊处理 */
+        @supports (-webkit-touch-callout: none) {
+            .navigation-bar {
+                position: -webkit-sticky !important;
+                position: sticky !important;
+            }
+            
+            .keyboard-open .navigation-bar {
+                position: fixed !important;
+            }
+        }
+
+        .nav-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .nav-tab::after {
+            content: '';
+            display: block;
+            height: 2px;
+            background: #007AFF;
+            margin-top: 4px;
+            border-radius: 1px;
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .nav-tab.active::after {
+            transform: scaleX(1);
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            padding-top: 60px;
+            padding: 80px 20px 20px;
+            min-height: calc(100vh - 60px);
+        }
+
+        .content-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.4;
+        }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: #333;
+            transition: max-height 0.3s ease;
+        }
+
+        /* 键盘打开时弹窗内容调整 */
+        .keyboard-open .modal-content {
+            max-height: calc(100vh - 200px);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px; /* 防止iOS自动缩放 */
+            transform: translateZ(0);
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 100px;
+            transform: translateZ(0);
+            transition: border-color 0.3s ease;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn-primary {
+            background: #007AFF;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #0056CC;
+        }
+
+        .modal-btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        /* 测试按钮 */
+        .test-buttons {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .test-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .test-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 状态指示器 */
+        .status-indicator {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 10001;
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.keyboard-open {
+            background: rgba(255, 165, 0, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navigation-bar">
+        <div class="nav-title">插件管理</div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="my-plugins">我的插件</button>
+            <button class="nav-tab" data-tab="plugin-market">插件市场</button>
+        </div>
+    </nav>
+
+    <!-- 状态指示器 -->
+    <div class="status-indicator" id="statusIndicator">键盘状态: 关闭</div>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="content-card">
+            <div class="card-title">憨憨保种区 v1.2.2.1</div>
+            <div class="card-description">拯救憨憨保种区，提供更好的保种体验</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">自动转移做种 v1.10.2</div>
+            <div class="card-description">定期转移下载器中的做种任务到另一个下载器</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">自动诊断 v1.9</div>
+            <div class="card-description">自动发起系统健康检查、网络连通性测试以及硬链接检查</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">插件更新管理 v2.0.3</div>
+            <div class="card-description">监测已安装插件，推送更新提醒，可配置自动更新</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">Bug反馈 v1.3</div>
+            <div class="card-description">自动上报异常，协助开发者发现和解决问题</div>
+        </div>
+    </main>
+
+    <!-- 弹窗 -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <div class="modal-title">插件配置</div>
+            
+            <div class="form-group">
+                <label class="form-label" for="pluginName">插件名称</label>
+                <input type="text" id="pluginName" class="form-input" placeholder="请输入插件名称">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="pluginVersion">版本号</label>
+                <input type="text" id="pluginVersion" class="form-input" placeholder="例如: 1.0.0">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="pluginDescription">插件描述</label>
+                <textarea id="pluginDescription" class="form-textarea" placeholder="请描述插件的功能和用途"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="pluginAuthor">作者</label>
+                <input type="text" id="pluginAuthor" class="form-input" placeholder="请输入作者名称">
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeModal()">取消</button>
+                <button class="modal-btn modal-btn-primary" onclick="savePlugin()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测试按钮 -->
+    <div class="test-buttons">
+        <button class="test-btn" onclick="openModal()">打开配置弹窗</button>
+        <button class="test-btn" onclick="refreshNavigation()">刷新导航栏</button>
+        <button class="test-btn" onclick="scrollToTop()">滚动到顶部</button>
+    </div>
+
+    <script>
+        // 键盘管理器
+        class KeyboardManager {
+            constructor() {
+                this.isKeyboardOpen = false;
+                this.originalViewportHeight = window.innerHeight;
+                this.scrollPosition = 0;
+                this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                this.statusIndicator = document.getElementById('statusIndicator');
+                
+                if (this.isIOS) {
+                    this.initKeyboardListeners();
+                }
+            }
+
+            initKeyboardListeners() {
+                // 监听输入框获得焦点（键盘弹出）
+                window.addEventListener('focusin', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                        this.handleKeyboardOpen();
+                    }
+                });
+
+                // 监听输入框失去焦点（键盘收起）
+                window.addEventListener('focusout', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                        // 延迟处理，确保键盘完全收起
+                        setTimeout(() => {
+                            this.handleKeyboardClose();
+                        }, 300);
+                    }
+                });
+
+                // 监听视口高度变化
+                window.addEventListener('resize', () => {
+                    this.handleViewportChange();
+                });
+
+                // 监听页面可见性变化
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        this.refreshNavigationBar();
+                    }
+                });
+            }
+
+            handleKeyboardOpen() {
+                if (this.isKeyboardOpen) return;
+                
+                this.isKeyboardOpen = true;
+                this.scrollPosition = window.scrollY;
+                
+                // 添加键盘打开状态类
+                document.body.classList.add('keyboard-open');
+                
+                // 防止页面滚动
+                document.body.style.position = 'fixed';
+                document.body.style.top = `-${this.scrollPosition}px`;
+                document.body.style.width = '100%';
+                
+                // 更新状态指示器
+                this.updateStatusIndicator('键盘状态: 打开');
+                
+                // 强制刷新导航栏
+                this.refreshNavigationBar();
+                
+                console.log('键盘已打开，当前滚动位置:', this.scrollPosition);
+            }
+
+            handleKeyboardClose() {
+                if (!this.isKeyboardOpen) return;
+                
+                this.isKeyboardOpen = false;
+                
+                // 移除键盘打开状态类
+                document.body.classList.remove('keyboard-open');
+                
+                // 恢复页面滚动
+                document.body.style.position = '';
+                document.body.style.top = '';
+                document.body.style.width = '';
+                
+                // 恢复滚动位置
+                window.scrollTo(0, this.scrollPosition);
+                
+                // 更新状态指示器
+                this.updateStatusIndicator('键盘状态: 关闭');
+                
+                // 延迟刷新导航栏，确保视口稳定
+                setTimeout(() => {
+                    this.refreshNavigationBar();
+                }, 100);
+                
+                console.log('键盘已关闭，恢复滚动位置:', this.scrollPosition);
+            }
+
+            handleViewportChange() {
+                const currentHeight = window.innerHeight;
+                const heightDiff = this.originalViewportHeight - currentHeight;
+                
+                // 如果高度变化超过150px，认为是键盘弹出/收起
+                if (heightDiff > 150) {
+                    if (!this.isKeyboardOpen) {
+                        this.handleKeyboardOpen();
+                    }
+                } else if (heightDiff < 50) {
+                    if (this.isKeyboardOpen) {
+                        this.handleKeyboardClose();
+                    }
+                }
+            }
+
+            refreshNavigationBar() {
+                const navBar = document.querySelector('.navigation-bar');
+                if (navBar) {
+                    // 强制重新计算样式
+                    navBar.style.position = 'fixed';
+                    navBar.style.top = '0';
+                    navBar.style.left = '0';
+                    navBar.style.right = '0';
+                    navBar.style.width = '100%';
+                    navBar.style.zIndex = '9999';
+                    
+                    // iOS特殊处理 - 强制硬件加速
+                    navBar.style.transform = 'translateZ(0)';
+                    navBar.style.webkitTransform = 'translateZ(0)';
+                    
+                    // 触发重排
+                    navBar.offsetHeight;
+                    
+                    console.log('导航栏已刷新');
+                }
+            }
+
+            updateStatusIndicator(text) {
+                if (this.statusIndicator) {
+                    this.statusIndicator.textContent = text;
+                    this.statusIndicator.classList.toggle('keyboard-open', this.isKeyboardOpen);
+                }
+            }
+        }
+
+        // 弹窗管理器
+        class ModalManager {
+            constructor() {
+                this.keyboardManager = new KeyboardManager();
+                this.isModalOpen = false;
+                this.originalBodyStyle = {};
+                this.scrollPosition = 0;
+            }
+
+            openModal() {
+                this.isModalOpen = true;
+                this.scrollPosition = window.scrollY;
+                
+                // 保存原始样式
+                this.originalBodyStyle = {
+                    overflow: document.body.style.overflow,
+                    position: document.body.style.position,
+                    top: document.body.style.top,
+                    width: document.body.style.width
+                };
+
+                // 显示弹窗
+                document.getElementById('modal').style.display = 'flex';
+                
+                // 刷新导航栏
+                this.keyboardManager.refreshNavigationBar();
+            }
+
+            closeModal() {
+                this.isModalOpen = false;
+                
+                // 隐藏弹窗
+                document.getElementById('modal').style.display = 'none';
+                
+                // 恢复原始样式
+                document.body.style.overflow = this.originalBodyStyle.overflow;
+                document.body.style.position = this.originalBodyStyle.position;
+                document.body.style.top = this.originalBodyStyle.top;
+                document.body.style.width = this.originalBodyStyle.width;
+                
+                // 恢复滚动位置
+                window.scrollTo(0, this.scrollPosition);
+                
+                // 延迟刷新导航栏
+                setTimeout(() => {
+                    this.keyboardManager.refreshNavigationBar();
+                }, 100);
+            }
+        }
+
+        // 创建管理器实例
+        const modalManager = new ModalManager();
+
+        // 全局函数
+        function openModal() {
+            modalManager.openModal();
+        }
+
+        function closeModal() {
+            modalManager.closeModal();
+        }
+
+        function refreshNavigation() {
+            modalManager.keyboardManager.refreshNavigationBar();
+        }
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        function savePlugin() {
+            const pluginName = document.getElementById('pluginName').value;
+            const pluginVersion = document.getElementById('pluginVersion').value;
+            const pluginDescription = document.getElementById('pluginDescription').value;
+            const pluginAuthor = document.getElementById('pluginAuthor').value;
+            
+            if (pluginName && pluginVersion) {
+                alert(`插件保存成功！\n名称: ${pluginName}\n版本: ${pluginVersion}\n作者: ${pluginAuthor}`);
+                closeModal();
+            } else {
+                alert('请填写插件名称和版本号');
+            }
+        }
+
+        // 监听滚动事件
+        let ticking = false;
+        function updateNavigationBar() {
+            const navBar = document.querySelector('.navigation-bar');
+            if (navBar && window.scrollY > 0) {
+                // 如果导航栏不在顶部，强制重置
+                navBar.style.position = 'fixed';
+                navBar.style.top = '0';
+                navBar.style.transform = 'translateZ(0)';
+            }
+            ticking = false;
+        }
+
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(updateNavigationBar);
+                ticking = true;
+            }
+        });
+
+        // 标签切换
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+
+        // 点击弹窗外部关闭
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            modalManager.keyboardManager.refreshNavigationBar();
+        });
+    </script>
+</body>
+</html>
