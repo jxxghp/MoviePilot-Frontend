@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>iOS PWA 导航栏修复示例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* 导航栏样式 - 关键修复 */
+        .navigation-bar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 9999 !important;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            color: white;
+        }
+
+        /* iOS Safari特殊处理 */
+        @supports (-webkit-touch-callout: none) {
+            .navigation-bar {
+                position: -webkit-sticky !important;
+                position: sticky !important;
+            }
+        }
+
+        .nav-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .nav-tab::after {
+            content: '';
+            display: block;
+            height: 2px;
+            background: #007AFF;
+            margin-top: 4px;
+            border-radius: 1px;
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .nav-tab.active::after {
+            transform: scaleX(1);
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            padding-top: 60px;
+            padding: 80px 20px 20px;
+            min-height: calc(100vh - 60px);
+        }
+
+        .content-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.4;
+        }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: #333;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .modal-close {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 16px;
+        }
+
+        /* 测试按钮 */
+        .test-buttons {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .test-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .test-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navigation-bar">
+        <div class="nav-title">插件管理</div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="my-plugins">我的插件</button>
+            <button class="nav-tab" data-tab="plugin-market">插件市场</button>
+        </div>
+    </nav>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="content-card">
+            <div class="card-title">憨憨保种区 v1.2.2.1</div>
+            <div class="card-description">拯救憨憨保种区，提供更好的保种体验</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">自动转移做种 v1.10.2</div>
+            <div class="card-description">定期转移下载器中的做种任务到另一个下载器</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">自动诊断 v1.9</div>
+            <div class="card-description">自动发起系统健康检查、网络连通性测试以及硬链接检查</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">插件更新管理 v2.0.3</div>
+            <div class="card-description">监测已安装插件，推送更新提醒，可配置自动更新</div>
+        </div>
+        
+        <div class="content-card">
+            <div class="card-title">Bug反馈 v1.3</div>
+            <div class="card-description">自动上报异常，协助开发者发现和解决问题</div>
+        </div>
+    </main>
+
+    <!-- 弹窗 -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <div class="modal-title">测试弹窗</div>
+            <p>这是一个测试弹窗，用于演示iOS PWA中嵌套弹窗的问题。</p>
+            <p>点击关闭按钮后，导航栏应该保持固定位置。</p>
+            <button class="modal-close" onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+
+    <!-- 测试按钮 -->
+    <div class="test-buttons">
+        <button class="test-btn" onclick="openModal()">打开弹窗</button>
+        <button class="test-btn" onclick="refreshNavigation()">刷新导航栏</button>
+        <button class="test-btn" onclick="scrollToTop()">滚动到顶部</button>
+    </div>
+
+    <script>
+        // 弹窗管理器
+        class ModalManager {
+            constructor() {
+                this.isModalOpen = false;
+                this.originalBodyStyle = {};
+                this.scrollPosition = 0;
+            }
+
+            openModal() {
+                this.isModalOpen = true;
+                
+                // 保存当前滚动位置
+                this.scrollPosition = window.scrollY;
+                
+                // 保存原始body样式
+                this.originalBodyStyle = {
+                    overflow: document.body.style.overflow,
+                    position: document.body.style.position,
+                    top: document.body.style.top,
+                    width: document.body.style.width
+                };
+
+                // 防止滚动穿透
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+                document.body.style.top = `-${this.scrollPosition}px`;
+                document.body.style.width = '100%';
+
+                // 显示弹窗
+                document.getElementById('modal').style.display = 'flex';
+                
+                // 强制重新计算导航栏位置
+                this.refreshNavigationBar();
+            }
+
+            closeModal() {
+                this.isModalOpen = false;
+
+                // 隐藏弹窗
+                document.getElementById('modal').style.display = 'none';
+
+                // 恢复原始body样式
+                document.body.style.overflow = this.originalBodyStyle.overflow;
+                document.body.style.position = this.originalBodyStyle.position;
+                document.body.style.top = this.originalBodyStyle.top;
+                document.body.style.width = this.originalBodyStyle.width;
+
+                // 恢复滚动位置
+                window.scrollTo(0, this.scrollPosition);
+
+                // 延迟刷新导航栏，确保DOM更新完成
+                setTimeout(() => {
+                    this.refreshNavigationBar();
+                }, 100);
+            }
+
+            refreshNavigationBar() {
+                const navBar = document.querySelector('.navigation-bar');
+                if (navBar) {
+                    // 强制重新计算样式
+                    navBar.style.position = 'fixed';
+                    navBar.style.top = '0';
+                    navBar.style.left = '0';
+                    navBar.style.right = '0';
+                    navBar.style.width = '100%';
+                    navBar.style.zIndex = '9999';
+                    
+                    // 触发重排
+                    navBar.offsetHeight;
+                    
+                    // iOS特殊处理
+                    if (this.isIOS()) {
+                        navBar.style.transform = 'translateZ(0)';
+                        navBar.style.webkitTransform = 'translateZ(0)';
+                    }
+                }
+            }
+
+            isIOS() {
+                return /iPad|iPhone|iPod/.test(navigator.userAgent);
+            }
+        }
+
+        // 创建弹窗管理器实例
+        const modalManager = new ModalManager();
+
+        // 全局函数
+        function openModal() {
+            modalManager.openModal();
+        }
+
+        function closeModal() {
+            modalManager.closeModal();
+        }
+
+        function refreshNavigation() {
+            modalManager.refreshNavigationBar();
+        }
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // 页面重新可见时，检查并修复导航栏
+                setTimeout(() => {
+                    modalManager.refreshNavigationBar();
+                }, 50);
+            }
+        });
+
+        // 监听滚动事件
+        let ticking = false;
+        function updateNavigationBar() {
+            const navBar = document.querySelector('.navigation-bar');
+            if (navBar && window.scrollY > 0) {
+                // 如果导航栏不在顶部，强制重置
+                navBar.style.position = 'fixed';
+                navBar.style.top = '0';
+                navBar.style.transform = 'translateZ(0)';
+            }
+            ticking = false;
+        }
+
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(updateNavigationBar);
+                ticking = true;
+            }
+        });
+
+        // 标签切换
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+
+        // 点击弹窗外部关闭
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            modalManager.refreshNavigationBar();
+        });
+    </script>
+</body>
+</html>
