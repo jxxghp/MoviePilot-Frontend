@@ -239,9 +239,9 @@ onMounted(() => {
         <!-- 移动端垂直布局，桌面端水平布局 -->
         <div class="d-flex flex-column flex-md-row align-center justify-space-between w-100 gap-4">
           <!-- 左侧统计信息 -->
-          <div class="d-flex align-center gap-2 gap-md-6 w-100 w-md-auto">
+          <div class="d-flex align-center justify-center justify-md-start gap-2 gap-md-6 w-100 w-md-auto">
             <!-- 统计信息卡片 -->
-            <div class="d-flex gap-2 gap-md-4 flex-wrap">
+            <div class="d-flex gap-2 gap-md-4 flex-wrap justify-center justify-md-start">
               <VCard variant="tonal" color="primary" class="pa-2 pa-md-3 flex-grow-1 flex-md-grow-0" style="min-width: 120px;">
                 <div class="d-flex align-center gap-2">
                   <VIcon color="primary" size="small">mdi-database</VIcon>
