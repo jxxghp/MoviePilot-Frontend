@@ -236,26 +236,27 @@ onMounted(() => {
     <!-- 工具栏统计信息和操作按钮 -->
     <VCard class="mb-4">
       <VCardItem>
-        <div class="d-flex align-center justify-space-between w-100">
+        <!-- 移动端垂直布局，桌面端水平布局 -->
+        <div class="d-flex flex-column flex-md-row align-center justify-space-between w-100 gap-4">
           <!-- 左侧统计信息 -->
-          <div class="d-flex align-center gap-6">
+          <div class="d-flex align-center gap-2 gap-md-6 w-100 w-md-auto">
             <!-- 统计信息卡片 -->
-            <div class="d-flex gap-4">
-              <VCard variant="tonal" color="primary" class="pa-3">
+            <div class="d-flex gap-2 gap-md-4 flex-wrap">
+              <VCard variant="tonal" color="primary" class="pa-2 pa-md-3 flex-grow-1 flex-md-grow-0" style="min-width: 120px;">
                 <div class="d-flex align-center gap-2">
-                  <VIcon color="primary">mdi-database</VIcon>
+                  <VIcon color="primary" size="small">mdi-database</VIcon>
                   <div>
-                    <div class="text-h6 font-weight-bold">{{ cacheData.count }}</div>
+                    <div class="text-h6 text-md-h6 font-weight-bold">{{ cacheData.count }}</div>
                     <div class="text-caption text-medium-emphasis">{{ t('setting.cache.totalCount') }}</div>
                   </div>
                 </div>
               </VCard>
 
-              <VCard variant="tonal" color="success" class="pa-3">
+              <VCard variant="tonal" color="success" class="pa-2 pa-md-3 flex-grow-1 flex-md-grow-0" style="min-width: 120px;">
                 <div class="d-flex align-center gap-2">
-                  <VIcon color="success">mdi-web</VIcon>
+                  <VIcon color="success" size="small">mdi-web</VIcon>
                   <div>
-                    <div class="text-h6 font-weight-bold">{{ cacheData.sites }}</div>
+                    <div class="text-h6 text-md-h6 font-weight-bold">{{ cacheData.sites }}</div>
                     <div class="text-caption text-medium-emphasis">{{ t('setting.cache.siteCount') }}</div>
                   </div>
                 </div>
@@ -264,9 +265,9 @@ onMounted(() => {
           </div>
 
           <!-- 右侧操作按钮 -->
-          <div class="d-flex gap-2">
-            <VBtn icon color="primary" :loading="loading" @click="refreshCache">
-              <VIcon>mdi-refresh</VIcon>
+          <div class="d-flex gap-1 gap-md-2 flex-wrap justify-center justify-md-end">
+            <VBtn icon color="primary" :loading="loading" @click="refreshCache" size="small">
+              <VIcon size="small">mdi-refresh</VIcon>
               <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refresh') }}</VTooltip>
             </VBtn>
 
@@ -276,15 +277,16 @@ onMounted(() => {
               :loading="loading"
               :disabled="selectedItems.length === 0"
               @click="deleteSelectedItems"
+              size="small"
             >
-              <VIcon>mdi-delete-sweep</VIcon>
+              <VIcon size="small">mdi-delete-sweep</VIcon>
               <VTooltip activator="parent" location="bottom"
                 >{{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})</VTooltip
               >
             </VBtn>
 
-            <VBtn icon color="error" :loading="loading" @click="clearAllCache">
-              <VIcon>mdi-delete-variant</VIcon>
+            <VBtn icon color="error" :loading="loading" @click="clearAllCache" size="small">
+              <VIcon size="small">mdi-delete-variant</VIcon>
               <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
             </VBtn>
           </div>
