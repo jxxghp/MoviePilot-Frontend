@@ -29,6 +29,11 @@ const selectedDownloader = ref<string | null>(null)
 // 选择的保存目录
 const selectedDirectory = ref<string | null>(null)
 
+// ID字段
+const tmdbid = ref<number | null>(null)
+const doubanid = ref<string | null>(null)
+const bangumiid = ref<number | null>(null)
+
 // 下载器
 const downloaders = ref<DownloaderConf[]>([])
 
@@ -90,6 +95,9 @@ async function addDownload() {
       torrent_in: props.torrent,
       downloader: selectedDownloader.value,
       save_path: selectedDirectory.value,
+      tmdbid: tmdbid.value,
+      doubanid: doubanid.value,
+      bangumiid: bangumiid.value,
     }
 
     if (props.media) {
@@ -199,6 +207,41 @@ onMounted(() => {
               variant="underlined"
               density="comfortable"
               prepend-inner-icon="mdi-folder"
+            />
+          </VCol>
+        </VRow>
+        <VRow class="px-5">
+          <VCol cols="12" md="4">
+            <VTextField
+              v-model.number="tmdbid"
+              type="number"
+              size="small"
+              label="TMDB ID"
+              variant="underlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-movie-open"
+            />
+          </VCol>
+          <VCol cols="12" md="4">
+            <VTextField
+              v-model="doubanid"
+              type="text"
+              size="small"
+              label="Douban ID"
+              variant="underlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-book-open-variant"
+            />
+          </VCol>
+          <VCol cols="12" md="4">
+            <VTextField
+              v-model.number="bangumiid"
+              type="number"
+              size="small"
+              label="Bangumi ID"
+              variant="underlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-television-classic"
             />
           </VCol>
         </VRow>
