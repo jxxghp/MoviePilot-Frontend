@@ -615,9 +615,6 @@ onDeactivated(() => {
             <VDivider class="my-4" />
             <VRow>
               <VCol cols="12">
-                <VListSubheader class="text-lg">{{ t('setting.system.aiAgent') }}</VListSubheader>
-              </VCol>
-              <VCol cols="12" md="6">
                 <VSwitch
                   v-model="SystemSettings.Basic.AI_AGENT_ENABLE"
                   :label="t('setting.system.aiAgentEnable')"
