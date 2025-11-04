@@ -26,7 +26,11 @@ async function goPlay() {
 // 计算图片地址
 const getImgUrl = computed(() => {
   const image = props.media?.image || ''
-  return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
+  let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
+  const cookies = props.media?.cookies
+  if (cookies)
+   url += `&cookies=${encodeURIComponent(cookies)}`
+  return url
 })
 </script>
 
