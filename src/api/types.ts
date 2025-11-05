@@ -992,8 +992,8 @@ export interface MediaServerPlayItem {
   percent?: number
   // 媒体服务器类型
   server_type?: string
-  // 飞牛的图片需要Cookies
-  cookies?: string
+  // 图片是否需要Cookies
+  cookies?: boolean
 }
 
 // 媒体服务器媒体库
@@ -1016,8 +1016,8 @@ export interface MediaServerLibrary {
   link?: string
   // 媒体服务器类型
   server_type?: string
-  // 飞牛的图片需要Cookies
-  cookies?: string
+  // 图片是否需要Cookies
+  cookies?: boolean
 }
 
 // 消息通知

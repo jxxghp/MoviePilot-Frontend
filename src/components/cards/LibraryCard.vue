@@ -52,16 +52,17 @@ async function goPlay() {
 }
 
 // 生成图片代理路径
-function getImgUrl(url: string, cookies?: string) {
+function getImgUrl(url: string, cookies?: boolean) {
   if (!url) return getDefaultImage()
   let imgurl = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
-  if (cookies)
+  if (cookies) {
     imgurl += `&cookies=${encodeURIComponent(cookies)}`
+  }
   return imgurl
 }
 
 // 根据多张图片生成媒体库封面
-async function drawImages(imageList: string[], cookies?: string) {
+async function drawImages(imageList: string[], cookies?: boolean) {
   // 图片
   const IMAGES = imageList
   if (IMAGES.length === 0) return getDefaultImage()
@@ -69,8 +70,9 @@ async function drawImages(imageList: string[], cookies?: string) {
   // 为所有图片添加system/img前缀
   for (let i = 0; i < IMAGES.length; i++) {
     IMAGES[i] = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(IMAGES[i])}`
-    if (cookies)
+    if (cookies) {
       IMAGES[i] += `&cookies=${encodeURIComponent(cookies)}`
+    }
   }
 
   // canvas
