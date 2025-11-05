@@ -992,6 +992,8 @@ export interface MediaServerPlayItem {
   percent?: number
   // 媒体服务器类型
   server_type?: string
+  // 图片是否需要Cookies
+  use_cookies?: boolean
 }
 
 // 媒体服务器媒体库
@@ -1014,6 +1016,8 @@ export interface MediaServerLibrary {
   link?: string
   // 媒体服务器类型
   server_type?: string
+  // 图片是否需要Cookies
+  use_cookies?: boolean
 }
 
 // 消息通知

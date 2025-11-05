@@ -52,20 +52,28 @@ async function goPlay() {
 }
 
 // 生成图片代理路径
-function getImgUrl(url: string) {
+function getImgUrl(url: string, use_cookies?: boolean) {
   if (!url) return getDefaultImage()
-  else return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
+  let imgurl = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
+  if (use_cookies) {
+    imgurl += `&use_cookies=${encodeURIComponent(use_cookies)}`
+  }
+  return imgurl
 }
 
 // 根据多张图片生成媒体库封面
-async function drawImages(imageList: string[]) {
+async function drawImages(imageList: string[], use_cookies?: boolean) {
   // 图片
   const IMAGES = imageList
   if (IMAGES.length === 0) return getDefaultImage()
 
   // 为所有图片添加system/img前缀
-  for (let i = 0; i < IMAGES.length; i++)
+  for (let i = 0; i < IMAGES.length; i++) {
     IMAGES[i] = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(IMAGES[i])}`
+    if (use_cookies) {
+      IMAGES[i] += `&use_cookies=${encodeURIComponent(use_cookies)}`
+    }
+  }
 
   // canvas
   const canvas = canvasRef.value
@@ -137,8 +145,8 @@ async function drawImages(imageList: string[]) {
 
 onMounted(async () => {
   if (props.media?.image_list && props.media?.image_list.length > 0)
-    imgUrl.value = await drawImages(props.media?.image_list || [])
-  else imgUrl.value = getImgUrl(props.media?.image || '')
+    imgUrl.value = await drawImages(props.media?.image_list || [], props.media?.use_cookies)
+  else imgUrl.value = getImgUrl(props.media?.image || '', props.media?.use_cookies)
 })
 </script>
 
