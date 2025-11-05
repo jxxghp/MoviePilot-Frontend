@@ -29,9 +29,9 @@ const getImgUrl = computed(() => {
   if (imageLoadError.value) return noImage
   const image = props.media?.image || ''
   let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
-  const cookies = props.media?.cookies
-  if (cookies) {
-   url += `&cookies=${encodeURIComponent(cookies)}`
+  const use_cookies = props.media?.use_cookies
+  if (use_cookies) {
+   url += `&use_cookies=${encodeURIComponent(use_cookies)}`
   }
   return url
 })
