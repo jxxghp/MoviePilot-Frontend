@@ -788,6 +788,8 @@ export default {
       originalTitle: 'Original Title',
       status: 'Status',
       releaseDate: 'Release Date',
+      digitalRelease: 'Digital Release',
+      physicalRelease: 'Physical Release',
       originalLanguage: 'Original Language',
       productionCountries: 'Production Countries',
       productionCompanies: 'Production Companies',
