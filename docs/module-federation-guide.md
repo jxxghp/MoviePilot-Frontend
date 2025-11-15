@@ -245,13 +245,21 @@ const props = defineProps({
 
 <template>
   <div class="dashboard-widget">
-    <!-- 仪表板内容 -->
-    <v-card>
-      <v-card-title>{{ config.title || '仪表板组件' }}</v-card-title>
-      <v-card-text>
-        <!-- 组件内容 -->
-      </v-card-text>
-    </v-card>
+    <v-hover>
+      <!-- 仪表板内容 -->
+      <template #default="{ isHovering, props: hoverProps }">
+        <v-card v-bind="hoverProps">
+          <v-card-title>{{ config.title || '仪表板组件' }}</v-card-title>
+          <v-card-text>
+            <!-- 组件内容 -->
+          </v-card-text>
+          <!-- 只在悬停时显示拖拽图标 -->
+          <div v-show="isHovering" class="absolute right-5 top-5">
+            <v-icon class="cursor-move">mdi-drag</v-icon>
+          </div>
+        </v-card>
+      </template>
+    </v-hover>
   </div>
 </template>
 ```

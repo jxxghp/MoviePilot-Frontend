@@ -91,10 +91,6 @@ onUnmounted(() => {
     <!-- Vue 渲染模式 -->
     <div v-if="pluginRenderMode === 'vue'">
       <component :is="dynamicPluginComponent" :config="props.config" :allow-refresh="props.allowRefresh" :api="api" />
-      <!-- Vue 模式下也可以显示拖拽句柄 -->
-      <div class="absolute right-5 top-5">
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </div>
     </div>
     <!-- Vuetify 渲染模式 -->
     <VHover v-else-if="pluginRenderMode === 'vuetify'">
