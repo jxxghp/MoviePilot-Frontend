@@ -428,6 +428,17 @@ const getProductionCompanies = computed(() => {
   return mediaDetail.value.production_companies?.map(company => company.name)
 })
 
+// 获取最早实体/数字发行日期
+const getEarliestReleaseDate = computed(() => {
+  const filteredDates = mediaDetail.value.release_dates?.filter(date => [4, 5].includes(date.type))
+  if (!filteredDates || filteredDates.length === 0)
+    return null
+
+  return filteredDates.reduce((earliest, current) =>
+    new Date(current.date) < new Date(earliest.date) ? current : earliest,
+  )
+})
+
 // 计算存在状态的颜色
 function getExistColor(season: number) {
   const state = seasonsNotExisted.value[season]
@@ -837,6 +848,17 @@ onBeforeMount(() => {
                     />
                   </svg>
                   <span class="ml-1.5">{{ mediaDetail.release_date || mediaDetail.first_air_date }}</span>
+                </span>
+              </span>
+            </div>
+            <div v-if="mediaDetail.type === '电影' && getEarliestReleaseDate" class="media-fact">
+              <span>{{ t(getEarliestReleaseDate.type === 4 ? 'media.info.digitalRelease' : 'media.info.physicalRelease') }}</span>
+              <span class="media-fact-value">
+                <span class="flex items-center justify-end">
+                  <span class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none">
+                    {{ getEarliestReleaseDate.iso_code }}
+                  </span>
+                  <span class="ml-1.5">{{ getEarliestReleaseDate.date.slice(0, 10) }}</span>
                 </span>
               </span>
             </div>

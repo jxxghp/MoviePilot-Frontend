@@ -773,6 +773,8 @@ export default {
       originalTitle: '原始標題',
       status: '狀態',
       releaseDate: '上映日期',
+      digitalRelease: '數位發行',
+      physicalRelease: '實體發行',
       originalLanguage: '原始語言',
       productionCountries: '出品國家',
       productionCompanies: '製作公司',

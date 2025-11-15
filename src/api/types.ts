@@ -314,6 +314,8 @@ export interface MediaInfo {
   production_countries?: any[]
   // 语种
   spoken_languages?: string[]
+  // 数字/实体发行日期
+  release_dates?: MediaRelease[]
   // 状态
   status?: string
   // 标签
@@ -366,6 +368,18 @@ export interface TmdbSeason {
   season_number?: number
   // 评分
   vote_average?: number
+}
+
+// 发行信息
+export interface MediaRelease {
+  // 发行日期
+  date: string
+  // 发行地区
+  iso_code: string
+  // 备注
+  note?: string
+  // 发行类型
+  type: number
 }
 
 // TMDB集信息

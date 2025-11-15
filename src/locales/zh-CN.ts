@@ -786,6 +786,8 @@ export default {
       originalTitle: '原始标题',
       status: '状态',
       releaseDate: '上映日期',
+      digitalRelease: '数字发行',
+      physicalRelease: '实体发行',
       originalLanguage: '原始语言',
       productionCountries: '出品国家',
       productionCompanies: '制作公司',
