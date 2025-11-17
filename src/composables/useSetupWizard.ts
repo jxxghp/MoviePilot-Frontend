@@ -187,6 +187,7 @@ export function useSetupWizard() {
       'emby': 'EmbyModule',
       'jellyfin': 'JellyfinModule',
       'plex': 'PlexModule',
+      'trimemedia': 'TrimeMediaModule',
     },
     // 通知映射
     notification: {
