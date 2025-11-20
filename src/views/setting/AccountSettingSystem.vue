@@ -172,10 +172,8 @@ async function loadLlmModels() {
 
     if (result.success) {
       llmModels.value = result.data
-      if (llmModels.value.length > 0)
-        SystemSettings.value.Basic.LLM_MODEL = llmModels.value[0]
-    }
-    else {
+      if (llmModels.value.length > 0) SystemSettings.value.Basic.LLM_MODEL = llmModels.value[0]
+    } else {
       $toast.error(result.message)
     }
   } catch (error) {
@@ -667,6 +665,27 @@ onDeactivated(() => {
                 />
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VTextField
+                  v-model="SystemSettings.Basic.LLM_BASE_URL"
+                  :label="t('setting.system.llmBaseUrl')"
+                  :hint="t('setting.system.llmBaseUrlHint')"
+                  placeholder="https://api.deepseek.com"
+                  persistent-hint
+                  prepend-inner-icon="mdi-link"
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VTextField
+                  v-model="SystemSettings.Basic.LLM_API_KEY"
+                  :label="t('setting.system.llmApiKey')"
+                  :hint="t('setting.system.llmApiKeyHint')"
+                  :placeholder="t('setting.system.llmApiKeyPlaceholder')"
+                  persistent-hint
+                  type="password"
+                  prepend-inner-icon="mdi-key-variant"
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                 <VCombobox
                   v-model="SystemSettings.Basic.LLM_MODEL"
                   :label="t('setting.system.llmModel')"
@@ -687,27 +706,6 @@ onDeactivated(() => {
                     />
                   </template>
                 </VCombobox>
-              </VCol>
-              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                <VTextField
-                  v-model="SystemSettings.Basic.LLM_API_KEY"
-                  :label="t('setting.system.llmApiKey')"
-                  :hint="t('setting.system.llmApiKeyHint')"
-                  :placeholder="t('setting.system.llmApiKeyPlaceholder')"
-                  persistent-hint
-                  type="password"
-                  prepend-inner-icon="mdi-key-variant"
-                />
-              </VCol>
-              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                <VTextField
-                  v-model="SystemSettings.Basic.LLM_BASE_URL"
-                  :label="t('setting.system.llmBaseUrl')"
-                  :hint="t('setting.system.llmBaseUrlHint')"
-                  placeholder="https://api.deepseek.com"
-                  persistent-hint
-                  prepend-inner-icon="mdi-link"
-                />
               </VCol>
             </VRow>
           </VForm>
