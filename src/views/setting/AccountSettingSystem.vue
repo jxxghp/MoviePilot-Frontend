@@ -119,6 +119,10 @@ const progressDialog = ref(false)
 // 高级设置对话框
 const advancedDialog = ref(false)
 
+// LLM 模型列表
+const llmModels = ref<string[]>([])
+const loadingModels = ref(false)
+
 const activeTab = ref('system')
 
 // 元数据语言
@@ -153,6 +157,32 @@ const logLevelItems = [
 
 // 安全域名添加变量
 const newSecurityDomain = ref('')
+
+// 加载LLM模型列表
+async function loadLlmModels() {
+  loadingModels.value = true
+  try {
+    const result: { [key: string]: any } = await api.get('system/llm-models', {
+      params: {
+        provider: SystemSettings.value.Basic.LLM_PROVIDER,
+        api_key: SystemSettings.value.Basic.LLM_API_KEY,
+        base_url: SystemSettings.value.Basic.LLM_BASE_URL,
+      },
+    })
+
+    if (result.success) {
+      llmModels.value = result.data
+      if (llmModels.value.length > 0)
+        SystemSettings.value.Basic.LLM_MODEL = llmModels.value[0]
+    }
+    else {
+      $toast.error(result.message)
+    }
+  } catch (error) {
+    console.log(error)
+  }
+  loadingModels.value = false
+}
 
 // 添加安全域名
 function addSecurityDomain() {
@@ -637,14 +667,26 @@ onDeactivated(() => {
                 />
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                <VTextField
+                <VCombobox
                   v-model="SystemSettings.Basic.LLM_MODEL"
                   :label="t('setting.system.llmModel')"
                   :hint="t('setting.system.llmModelHint')"
-                  placeholder="gpt-3.5-turbo"
+                  :placeholder="t('setting.system.llmModelHint')"
                   persistent-hint
+                  :items="llmModels"
+                  :loading="loadingModels"
                   prepend-inner-icon="mdi-brain"
-                />
+                >
+                  <template #append-inner>
+                    <VBtn
+                      variant="text"
+                      icon="mdi-refresh"
+                      size="small"
+                      @click="loadLlmModels"
+                      :disabled="!SystemSettings.Basic.LLM_API_KEY"
+                    />
+                  </template>
+                </VCombobox>
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                 <VTextField
