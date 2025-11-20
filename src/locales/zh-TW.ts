@@ -1876,6 +1876,8 @@ export default {
       startDownload: '開始下載',
       downloadSuccess: '{site} {title} 下載成功！',
       downloadFailed: '{site} {title} 下載失敗：{message}！',
+      showAdvancedOptions: '顯示高級選項',
+      hideAdvancedOptions: '隱藏高級選項',
     },
     subscribeShare: {
       shareSubscription: '分享訂閱',

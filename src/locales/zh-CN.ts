@@ -1890,6 +1890,8 @@ export default {
       startDownload: '开始下载',
       downloadSuccess: '{site} {title} 下载成功！',
       downloadFailed: '{site} {title} 下载失败：{message}！',
+      showAdvancedOptions: '显示高级选项',
+      hideAdvancedOptions: '隐藏高级选项',
     },
     subscribeShare: {
       shareSubscription: '分享订阅',

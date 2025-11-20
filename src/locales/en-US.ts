@@ -1914,6 +1914,8 @@ export default {
       startDownload: 'Start Download',
       downloadSuccess: '{site} {title} downloaded successfully!',
       downloadFailed: '{site} {title} download failed: {message}!',
+      showAdvancedOptions: 'Show Advanced Options',
+      hideAdvancedOptions: 'Hide Advanced Options',
     },
     subscribeShare: {
       shareSubscription: 'Share Subscription',
