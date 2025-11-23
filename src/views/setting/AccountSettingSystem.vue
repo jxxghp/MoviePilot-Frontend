@@ -32,6 +32,7 @@ const SystemSettings = ref<any>({
     OCR_HOST: null,
     CUSTOMIZE_WALLPAPER_API_URL: null,
     AI_AGENT_ENABLE: false,
+    AI_AGENT_GLOBAL: false,
     LLM_PROVIDER: 'deepseek',
     LLM_MODEL: 'deepseek-chat',
     LLM_API_KEY: null,
@@ -706,6 +707,14 @@ onDeactivated(() => {
                     />
                   </template>
                 </VCombobox>
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VSwitch
+                  v-model="SystemSettings.Basic.AI_AGENT_GLOBAL"
+                  :label="t('setting.system.aiAgentGlobal')"
+                  :hint="t('setting.system.aiAgentGlobalHint')"
+                  persistent-hint
+                />
               </VCol>
             </VRow>
           </VForm>

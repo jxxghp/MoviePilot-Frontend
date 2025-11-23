@@ -1252,6 +1252,8 @@ export default {
       llmApiKeyPlaceholder: '请输入API密钥',
       llmBaseUrl: 'LLM基础URL',
       llmBaseUrlHint: 'LLM API的基础URL地址，用于自定义API端点',
+      aiAgentGlobal: '全局智能助手',
+      aiAgentGlobalHint: '启用全局智能助手功能，所有消息对话均使用智能体回答而不用使用/ai命令',
       advancedSettings: '高级设置',
       advancedSettingsDesc: '系统进阶设置，特殊情况下才需要调整',
       downloaders: '下载器',

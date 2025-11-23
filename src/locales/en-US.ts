@@ -1256,6 +1256,8 @@ export default {
       llmApiKeyPlaceholder: 'Please enter API key',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
+      aiAgentGlobal: 'Global AI Assistant',
+      aiAgentGlobalHint: 'Enable global AI assistant functionality, all message conversations will be answered by the AI agent without using the /ai command',
       advancedSettings: 'Advanced Settings',
       advancedSettingsDesc: 'System advanced settings, only need to be adjusted in special cases',
       downloaders: 'Downloaders',

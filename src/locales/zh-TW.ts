@@ -1240,6 +1240,8 @@ export default {
       llmApiKeyPlaceholder: '請輸入API密鑰',
       llmBaseUrl: 'LLM基礎URL',
       llmBaseUrlHint: 'LLM API的基礎URL地址，用於自定義API端點',
+      aiAgentGlobal: '全局智能助手',
+      aiAgentGlobalHint: '啟用全局智能助手功能，所有消息對話均使用智能體回答而不用使用/ai命令',
       advancedSettings: '高級設置',
       advancedSettingsDesc: '系統進階設置，特殊情況下才需要調整',
       downloaders: '下載器',
