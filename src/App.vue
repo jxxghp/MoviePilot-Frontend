@@ -38,10 +38,40 @@ const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 
+// 心跳检测
+let heartbeatInterval: number | null = null
+
 // ApexCharts 全局配置
 declare global {
   interface Window {
     Apex: any
+  }
+}
+
+// 启动心跳
+const startHeartbeat = () => {
+  // 如果已经有心跳，则先停止
+  if (heartbeatInterval) {
+    stopHeartbeat()
+  }
+
+  // 开始心跳任务
+  heartbeatInterval = window.setInterval(async () => {
+    try {
+      if (isLogin.value) {
+        await api.get('dashboard/cpu')
+      }
+    } catch (error) {
+      console.warn('Heartbeat request failed:', error)
+    }
+  }, 5 * 60 * 1000)
+}
+
+// 停止心跳
+const stopHeartbeat = () => {
+  if (heartbeatInterval) {
+    window.clearInterval(heartbeatInterval)
+    heartbeatInterval = null
   }
 }
 
@@ -234,11 +264,15 @@ onMounted(async () => {
   ensureRenderComplete(() => {
     nextTick(removeLoadingWithStateCheck)
   })
+  // 启动心跳
+  startHeartbeat()
 })
 
 onUnmounted(() => {
   // 清除背景轮换定时器
   removeBackgroundTimer('background-rotation')
+  // 停止心跳
+  stopHeartbeat()
 })
 </script>
 
