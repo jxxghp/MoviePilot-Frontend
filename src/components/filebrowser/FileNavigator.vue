@@ -42,7 +42,7 @@ const availableHeight = computed(() => {
 const props = defineProps({
   storage: {
     type: String,
-    default: 'local',
+    required: true,
   },
   currentPath: {
     type: String,
@@ -223,7 +223,7 @@ watch(
 watch(
   () => props.items,
   newItems => {
-    if (newItems && newItems.length > 0) {
+    if (newItems) {
       // 过滤出目录项
       const dirs = newItems.filter(item => item.type === 'dir')
 
@@ -283,9 +283,6 @@ onMounted(async () => {
   await loadRootDirectories()
 })
 
-onActivated(() => {
-  updateHeight()
-})
 </script>
 
 <template>
@@ -309,7 +306,6 @@ onActivated(() => {
           <span>{{ t('file.rootDirectory') }}</span>
         </div>
       </div>
-
       <!-- 加载根目录 -->
       <div v-if="loading['/']" class="tree-loading">
         <VProgressCircular indeterminate size="24" color="primary" class="ma-2" />

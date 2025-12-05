@@ -32,40 +32,13 @@ const endpoints = {
 
 // 所有存储
 const storages = ref<StorageConf[]>([])
-
-// 查询存储
-async function loadStorages() {
-  try {
-    const result: { [key: string]: any } = await api.get('system/setting/Storages')
-
-    storages.value = result.data?.value ?? []
-  } catch (error) {
-    console.log(error)
-  }
-}
+const storageTypes = computed(() => storages.value.map(s => s.type))
 
 // 当前文件项
-const operItem = ref<FileItem>({
-  storage: 'local',
-  type: 'dir',
-  name: '/',
-  path: '/',
-  fileid: 'root',
-})
+const operItem = ref<FileItem | undefined>(undefined)
 
 // fileid的堆栈
-const itemstack = ref<FileItem[]>([
-  {
-    storage: 'local',
-    type: 'dir',
-    name: '/',
-    path: '/',
-    fileid: 'root',
-  },
-])
-
-// 下载目录列表
-const downloadDirectories = ref<TransferDirectoryConf[]>([])
+const itemstack = ref<FileItem[]>([])
 
 // 计算公共路径
 function findCommonPath(paths: string[]): string {
@@ -101,29 +74,97 @@ function findCommonPath(paths: string[]): string {
   return commonPath
 }
 
+const STORAGE_KEY = 'fileBrowserView.activeStorage'
+
+interface BrowserInitialParams {
+  storage: string;
+  path: string;
+  name: string;
+}
+ // determine which entry to select initially
+function determineBrowserInitialParams(downloadDirectories: TransferDirectoryConf[]): BrowserInitialParams {
+  const isAvailable = (storage: string) => storageTypes.value.includes(storage);
+  const buckets = downloadDirectories.reduce<Map<string, string[]>>((dict, item) => { 
+    // filter out directories whose storage is not available
+    if (!isAvailable(item.storage)) {
+      return dict
+    }
+    if (item.download_path == undefined) {
+      return dict
+    }
+    if (!dict.has(item.storage)) {
+      dict.set(item.storage, [item.download_path])
+    } else {
+      dict.get(item.storage)!.push(item.download_path)
+    }
+    return dict
+  }, new Map());
+
+  const cachedStorage = localStorage.getItem(STORAGE_KEY) || '';
+  // if no download directories are configured, fall back to cached storage or first available storage
+  if (buckets.size === 0) {
+    return {
+      storage: isAvailable(cachedStorage)
+        ? cachedStorage
+        : (storageTypes.value[0] || 'local'),
+      path: '/',
+      name: '/',
+    }
+  }
+  let selectedEntry: [string, string[]];
+  if (cachedStorage && buckets.has(cachedStorage)) {
+    selectedEntry = [cachedStorage, buckets.get(cachedStorage)!];
+  } else {
+    // if no storage selected previously, use the most populous one
+    selectedEntry = Array.from(buckets.entries()).reduce((prev, curr) => {
+      return curr[1].length > prev[1].length ? curr : prev;
+    });
+  }
+
+  const path = findCommonPath(selectedEntry[1]);
+  return {
+    storage: selectedEntry[0],
+    path,
+    name: path.split('/').filter(Boolean).pop() ?? '',
+  }
+}
+      
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
+    // fetch available storages
+    const storageResult: { [key: string]: any } = await api.get('system/setting/Storages')
+    storages.value = storageResult.data?.value ?? []
+
     const result: { [key: string]: any } = await api.get('system/setting/Directories')
     if (result.success && result.data?.value) {
-      downloadDirectories.value = result.data.value
-      const path = findCommonPath(downloadDirectories.value.map(item => item.download_path) as string[])
-      const name = path.split('/').filter(Boolean).pop() ?? ''
+      const { storage, path, name } = determineBrowserInitialParams(result.data.value);
+      // operItem初始化
       operItem.value = {
-        storage: 'local',
         type: 'dir',
+        storage,
         name: name,
         path: path,
       }
+      // itemstack初始化
+      itemstack.value = [
+        {
+          storage: storage,
+          type: 'dir',
+          name: '/',
+          path: '/',
+          fileid: 'root',
+        }
+      ];
       // 将初始数据拆分到堆栈中
       const paths = path.split('/').filter(Boolean)
       paths.map((name, index) => {
         const path = '/' + paths.slice(0, index + 1).join('/') + '/'
         itemstack.value.push({
-          storage: 'local',
+          storage,
           type: 'dir',
-          name: name,
-          path: path,
+          name,
+          path,
         })
       })
     }
@@ -134,6 +175,11 @@ async function loadDownloadDirectories() {
 
 // 目录变化
 function pathChanged(item: FileItem) {
+  // save storage to localStorage
+  if (item.storage !== operItem.value?.storage) {
+    localStorage.setItem(STORAGE_KEY, item.storage)
+  }
+
   operItem.value = item
   if (item.path == '/') {
     itemstack.value = [
@@ -156,16 +202,13 @@ function pathChanged(item: FileItem) {
 }
 
 // 加载初始目录
-onBeforeMount(loadDownloadDirectories)
-
-onMounted(() => {
-  loadStorages()
-})
+onMounted(loadDownloadDirectories)
 </script>
 
 <template>
   <div class="file-browser-view">
     <FileBrowser
+      v-if="operItem"
       :storages="storages"
       :tree="false"
       :itemstack="itemstack"
