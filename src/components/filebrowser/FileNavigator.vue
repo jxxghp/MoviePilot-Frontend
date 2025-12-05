@@ -283,9 +283,6 @@ onMounted(async () => {
   await loadRootDirectories()
 })
 
-onActivated(() => {
-  // updateHeight()
-})
 </script>
 
 <template>
