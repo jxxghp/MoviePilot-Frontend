@@ -26,6 +26,10 @@ const inProps = defineProps({
     type: Function,
     required: true,
   },
+  sort: {
+    type: String,
+    default: 'name',
+  },
 })
 
 // 对外事件
@@ -38,7 +42,7 @@ const newFolderPopper = ref(false)
 const newFolderName = ref('')
 
 // 排序方式
-const sort = ref('name')
+const sort = ref(inProps.sort)
 
 // 调整排序方式
 function changeSort() {

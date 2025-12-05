@@ -253,6 +253,7 @@ function stopDrag() {
   <div class="mx-auto" :loading="loading > 0">
     <div v-if="item">
       <FileToolbar
+        :sort="sort"
         :item="item"
         :itemstack="itemstack"
         :storages="storagesArray"
