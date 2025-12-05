@@ -5,6 +5,11 @@ import FileNavigator from './filebrowser/FileNavigator.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
 import { storageIconDict } from '@/api/constants'
 
+// LocalStorage keys
+const SORT_KEY = 'fileBrowser.sort'
+const SHOW_TREE_KEY = 'fileBrowser.showDirTree'
+const NAV_WIDTH_KEY = 'fileBrowser.navigatorWidth'
+
 // 输入参数
 const props = defineProps({
   storages: Array as PropType<StorageConf[]>,
@@ -119,21 +124,32 @@ const fileIcons = {
 
 // 加载次数
 const loading = ref(0)
-// 当前存储
-const activeStorage = ref('local')
+
 // 刷新
 const refreshPending = ref(false)
-// 排序
-const sort = ref('name')
+// 排序 - 从localStorage恢复
+const sort = ref(localStorage.getItem(SORT_KEY) || 'name')
 
-// 是否显示目录树
-const showDirTree = ref(false)
+// 是否显示目录树 - 从localStorage恢复
+const showDirTree = ref(localStorage.getItem(SHOW_TREE_KEY) === 'true')
 
-// 拖动分隔条相关
-const navigatorWidth = ref(280) // 初始宽度
+// 拖动分隔条相关 - 从localStorage恢复宽度
+const navigatorWidth = ref(parseInt(localStorage.getItem(NAV_WIDTH_KEY) || '280'))
 const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragStartWidth = ref(0)
+
+watch(sort, (val) => {
+  localStorage.setItem(SORT_KEY, val)
+})
+
+watch(showDirTree, (val) => {
+  localStorage.setItem(SHOW_TREE_KEY, String(val))
+})
+
+watch(navigatorWidth, (val) => {
+  localStorage.setItem(NAV_WIDTH_KEY, String(val))
+})
 
 // 计算属性
 const storagesArray = computed(() => {
@@ -144,15 +160,15 @@ const storagesArray = computed(() => {
   }))
 })
 
+
 // 方法
-function loadingChanged(loading: number) {
-  if (loading) loading++
-  else if (loading > 0) loading--
+function loadingChanged(isLoading: number) {
+  if (isLoading) loading.value++
+  else if (loading.value > 0) loading.value--
 }
 
 // 存储切换
 async function storageChanged(storage: string) {
-  activeStorage.value = storage
   emit('pathchanged', { storage: storage, path: '/', fileid: 'root' })
 }
 
@@ -235,12 +251,11 @@ function stopDrag() {
 
 <template>
   <div class="mx-auto" :loading="loading > 0">
-    <div v-if="activeStorage && item">
+    <div v-if="item">
       <FileToolbar
         :item="item"
         :itemstack="itemstack"
         :storages="storagesArray"
-        :storage="activeStorage"
         :endpoints="endpoints"
         :axios="axios"
         @storagechanged="storageChanged"
@@ -251,7 +266,7 @@ function stopDrag() {
       <div class="flex">
         <FileNavigator
           v-if="showDirTree"
-          :storage="activeStorage"
+          :storage="item.storage"
           :currentPath="item.path"
           :items="fileListItems"
           :endpoints="endpoints"
@@ -266,7 +281,6 @@ function stopDrag() {
         </div>
         <FileList
           :item="item"
-          :storage="activeStorage"
           :icons="fileIcons"
           :endpoints="endpoints"
           :axios="axios"

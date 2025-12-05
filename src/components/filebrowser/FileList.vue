@@ -26,7 +26,6 @@ const { appMode } = usePWA()
 // 输入参数
 const inProps = defineProps({
   icons: Object,
-  storage: String,
   endpoints: Object as PropType<EndPoints>,
   axios: {
     type: Function,
@@ -183,6 +182,8 @@ function changeSelectMode() {
 // 调API加载文件夹内的内容
 async function list_files() {
   loading.value = true
+  const takeURISnapshot = () => [inProps.item.storage, inProps.item.path].join(':/');
+  const prevURI = takeURISnapshot();
   emit('loading', true)
 
   // 参数
@@ -195,7 +196,12 @@ async function list_files() {
   }
 
   // 加载数据
-  items.value = (await inProps.axios.request(config)) ?? []
+  const data = (await inProps.axios.request(config)) ?? []
+  // 如果当前路径已经变化，则放弃此次加载结果
+  if (prevURI !== takeURISnapshot()) {
+    return;
+  }
+  items.value = data
   emit('loading', false)
   loading.value = false
 
@@ -446,9 +452,9 @@ watch(
   },
 )
 
-// 监听item变化或者storage变化
+// 监听item变化
 watch(
-  [() => inProps.item, () => inProps.storage],
+  [() => inProps.item],
   async () => {
     // 清空列表
     items.value = []
@@ -550,7 +556,7 @@ async function scrape(item: FileItem, confirm: boolean = true) {
     progressDialog.value = true
     progressText.value = t('file.scraping', { path: item.path })
 
-    const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.storage}`, item)
+    const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.item.storage}`, item)
 
     // 关闭进度条
     progressDialog.value = false
@@ -808,7 +814,7 @@ onMounted(() => {
       v-if="transferPopper"
       v-model="transferPopper"
       :items="transferItems"
-      :target_storage="inProps.storage"
+      :target_storage="inProps.item.storage"
       @done="transferDone"
       @close="transferPopper = false"
     />

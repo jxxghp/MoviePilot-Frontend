@@ -13,7 +13,6 @@ const display = useDisplay()
 // 输入参数
 const inProps = defineProps({
   storages: Array as PropType<any[]>,
-  storage: String,
   item: {
     type: Object as PropType<FileItem>,
     required: true,
@@ -67,12 +66,12 @@ const pathSegments = computed(() => {
 
 // 当前存储
 const storageObject = computed(() => {
-  return inProps.storages?.find(item => item.value === inProps.storage)
+  return inProps.storages?.find(item => item.value === inProps.item.storage)
 })
 
 // 切换存储
 function changeStorage(code: string) {
-  if (inProps.storage !== code) {
+  if (inProps.item.storage!== code) {
     emit('storagechanged', code)
   }
 }
