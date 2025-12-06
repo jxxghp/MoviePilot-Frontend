@@ -78,9 +78,16 @@ async function loadDirectories() {
   }
 }
 
+function convertToUri(item: TransferDirectoryConf) {
+  if (item.storage === 'local') {
+    return item.download_path
+  }
+  return item.storage + ':' + item.download_path
+}
+
 // 获取保存目录
 const targetDirectories = computed(() => {
-  const downloadDirectories = directories.value.map(item => item.download_path)
+  const downloadDirectories = directories.value.map(item => convertToUri(item))
   return [...new Set(downloadDirectories)]
 })
 
