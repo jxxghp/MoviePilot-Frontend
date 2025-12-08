@@ -2679,8 +2679,7 @@ export default {
     pathMapping: 'Path Mapping',
     pathMappingHint: 'Map download paths between downloader and client',
     pathMappingRequired: 'Path cannot be empty',
-    pathMappingFormatError: 'Invalid storage type prefix',
-    pathMappingLocalError: 'Must start with /',
+    pathMappingError: 'Must start with /',
   },
   filterRule: {
     title: 'Filter Rule',

@@ -55,19 +55,50 @@ const downloaderInfoDialog = ref(false)
 // 表单
 const downloaderForm = ref()
 
-// 路径校验规则
-const remotePathRules = [
-  (v: string) => !!v || t('downloader.pathMappingRequired'),
-  (v: string) => {
-    const prefixes = storageAttributes.map(s => (s.type === 'local' ? '/' : `${s.type}:/`))
-    const pattern = new RegExp(`^(${prefixes.join('|')})`)
-    return pattern.test(v) || t('downloader.pathMappingFormatError')
-  },
-]
+// 路径前缀选项
+const prefixOptions = computed(() => {
+  return storageAttributes.map(item => ({
+    title: t(`storage.${item.type}`),
+    value: `${item.type}:`,
+  }))
+})
 
-const localPathRules = [
+// 获取远程路径前缀
+function getRemotePrefix(path: string) {
+  if (!path) return 'local:'
+  const match = prefixOptions.value
+    .find(p => path.startsWith(p.value))
+  return match ? match.value : 'local:'
+}
+
+// 获取远程路径后缀
+function getRemotePath(path: string) {
+  if (!path) return ''
+  const prefix = getRemotePrefix(path)
+  return path.replace(new RegExp(`^${prefix}`), '')
+}
+
+// 更新远程路径前缀
+function updateRemotePrefix(index: number, prefix: string) {
+  if (!downloaderInfo.value.path_mapping) return
+  const currentPath = downloaderInfo.value.path_mapping[index][0] || ''
+  const currentSuffix = getRemotePath(currentPath)
+  prefix = prefix === 'local:' ? '' : prefix // 本地路径前缀为空
+  downloaderInfo.value.path_mapping[index][0] = prefix + currentSuffix
+}
+
+// 更新远程路径后缀
+function updateRemotePath(index: number, suffix: string) {
+  if (!downloaderInfo.value.path_mapping) return
+  const currentPath = downloaderInfo.value.path_mapping[index][0] || ''
+  let currentPrefix = getRemotePrefix(currentPath)
+  currentPrefix = currentPrefix === 'local:' ? '' : currentPrefix // 本地路径前缀为空
+  downloaderInfo.value.path_mapping[index][0] = currentPrefix + suffix
+}
+
+const downloadPathRules = [
   (v: string) => !!v || t('downloader.pathMappingRequired'),
-  (v: string) => v.startsWith('/') || t('downloader.pathMappingLocalError'),
+  (v: string) => v.startsWith('/') || t('downloader.pathMappingError'),
 ]
 
 // 下载器详情
@@ -189,19 +220,32 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-  .path-icon {
-    line-height: 40px;
-    height: 40px;
-  }
-  .path-input {
-    flex: 0 0 100%;
-  }
-  @media (min-width: 960px) {
-    .path-input {
-      flex: 1 1 auto;
-      max-width: 50%;
+  .pm-row {
+    padding-inline-start: 12px;
+    padding-inline-end: 12px;
+    :deep(.v-input__append) {
+      margin-inline-start: 8px;
+      margin-inline-end: 8px;
     }
   }
+.rp-select {
+  flex: 0 0 95px;
+  margin-right: -1px;
+  :deep(.v-field) {
+    padding-inline-end: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    --v-field-padding-end: 0;
+  }
+} 
+.rp-input {
+  flex: 1 1 auto;
+  :deep(.v-field) {
+    padding-inline-start: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
 </style>
 <template>
   <div>
@@ -427,35 +471,50 @@ onUnmounted(() => {
             <VRow>
               <VCol cols="12">
                 <VLabel class="mb-2">{{ t('downloader.pathMapping') }}</VLabel>
-                <div
+                <VRow
                   v-for="(mapping, index) in downloaderInfo.path_mapping"
                   :key="index"
-                  class="d-flex gap-2 mb-2 align-start flex-wrap"
+                  class="align-start flex-wrap pm-row"
                 >
-                  <VTextField
-                    v-model="mapping[0]"
-                    placeholder="/remote/path"
-                    density="compact"
-                    hide-details="auto"
-                    :rules="remotePathRules"
-                    :appendIcon="'mdi-arrow-right'"
-                    class="path-input"
-                  />
-                  <VTextField
-                    v-model="mapping[1]"
-                    placeholder="/download/path"
-                    density="compact"
-                    hide-details="auto"
-                    :rules="localPathRules"
-                    :appendIcon="'mdi-close'"
-                    @click:append="removePathMapping(index)"
-                  />
-                </div>
-                <div>
-                  <VBtn variant="tonal" size="small" prepend-icon="mdi-plus" @click="addPathMapping">
-                    {{ t('common.add') }}
-                  </VBtn>
-                </div>
+                <VCol cols="12" md="6" class="pl-0 pr-0">
+                  <div class="d-flex flex-nowrap align-start">
+                    <VSelect
+                      class="rp-select"
+                      :model-value="getRemotePrefix(mapping[0])"
+                      :items="prefixOptions"
+                      density="compact"
+                      hide-details
+                      @update:model-value="v => updateRemotePrefix(index, v)"
+                    />
+                    <VTextField
+                      class="rp-input"
+                      :model-value="getRemotePath(mapping[0])"
+                      placeholder="/remote/path"
+                      density="compact"
+                      hide-details="auto"
+                      :rules="downloadPathRules"
+                      @update:model-value="v => updateRemotePath(index, v)"
+                      append-icon="mdi-arrow-right"
+                    />
+                  </div>
+                  </VCol>
+                  <VCol cols="12" md="6" class="pl-0 pr-0">
+                    <VTextField
+                      v-model="mapping[1]"
+                      placeholder="/download/path"
+                      density="compact"
+                      hide-details="auto"
+                      :rules="downloadPathRules"
+                      append-icon="mdi-close"
+                      @click:append="removePathMapping(index)"
+                    />
+                  </VCol>
+                </VRow>
+              </VCol>
+              <VCol>
+                <VBtn variant="tonal" size="small" prepend-icon="mdi-plus" @click="addPathMapping">
+                  {{ t('common.add') }}
+                </VBtn>
               </VCol>
             </VRow>
           </VForm>

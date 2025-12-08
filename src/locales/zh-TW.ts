@@ -2633,8 +2633,7 @@ export default {
     pathMapping: '路徑映射',
     pathMappingHint: '下載器服務端路徑映射為客戶端路徑，用於整理媒體文件',
     pathMappingRequired: '路徑不能為空',
-    pathMappingFormatError: '存儲類型前綴錯誤',
-    pathMappingLocalError: '必須以 / 開頭',
+    pathMappingError: '必須以 / 開頭',
   },
   filterRule: {
     title: '過濾規則',
