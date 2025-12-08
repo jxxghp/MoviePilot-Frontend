@@ -2630,6 +2630,11 @@ export default {
     hostRequired: '地址不能為空',
     usernameRequired: '用戶名不能為空',
     passwordRequired: '密碼不能為空',
+    pathMapping: '路徑映射',
+    pathMappingRequired: '路徑不能為空',
+    pathMappingError: '必須以 / 開頭',
+    storagePath: '存儲路徑',
+    downloadPath: '下載路徑',
   },
   filterRule: {
     title: '過濾規則',

@@ -7,7 +7,7 @@ import type { DownloaderInfo } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
-import { downloaderDict } from '@/api/constants'
+import { downloaderDict, storageAttributes } from '@/api/constants'
 import { useDisplay } from 'vuetify'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 
@@ -52,6 +52,56 @@ const download_rate = ref(0)
 // 下载器详情弹窗
 const downloaderInfoDialog = ref(false)
 
+// 表单
+const downloaderForm = ref()
+
+// 路径前缀选项
+const prefixOptions = computed(() => {
+  return storageAttributes.map(item => ({
+    title: t(`storage.${item.type}`),
+    value: item.type
+  }))
+})
+
+function getStorageType(path: string) {
+  if (!path) return 'local'
+  // 查找匹配的存储类型
+  const storage = storageAttributes.find(
+    s => s.type !== 'local' && path.startsWith(`${s.type}:`)
+  )
+  return storage?.type || 'local'
+}
+
+function storage2Prefix(storage: string) {
+  return storage === 'local' ? '' : storage + ':'
+}
+
+// 获取存储路径前后缀
+function parseStoragePath(path: string): [prefix: string, suffix: string] {
+  if (!path) return ['', '']
+  const storage = getStorageType(path)
+  const prefix = storage2Prefix(storage)
+  return [prefix, path.slice(prefix.length)]
+}
+
+// 更新存储路径前缀
+function updateStoragePrefix(row: PathMappingRow, storage: string) {
+  const [, currentSuffix] = parseStoragePath(row.storage)
+  const prefix = storage2Prefix(storage)
+  row.storage = prefix + currentSuffix
+}
+
+// 更新存储路径后缀
+function updateStorageSuffix(row: PathMappingRow, suffix: string) {
+  const [currentPrefix] = parseStoragePath(row.storage)
+  row.storage = currentPrefix + suffix
+}
+
+const pathValidationRules = [
+  (v: string) => !!v || t('downloader.pathMappingRequired'),
+  (v: string) => v.startsWith('/') || t('downloader.pathMappingError'),
+]
+
 // 下载器详情
 const downloaderInfo = ref<DownloaderConf>({
   name: '',
@@ -59,7 +109,23 @@ const downloaderInfo = ref<DownloaderConf>({
   default: false,
   enabled: false,
   config: {},
+  path_mapping: [],
 })
+
+// 路径映射行定义
+interface PathMappingRow {
+  id: string
+  storage: string
+  download: string
+}
+
+// 路径映射行数据
+const pathMappingRows = ref<PathMappingRow[]>([])
+
+// 生成随机ID
+function generateId() {
+  return Math.random().toString(36).substring(2, 9)
+}
 
 // 下载器是否应该刷新数据的计算属性
 const shouldRefresh = computed(() => props.allowRefresh && props.downloader.enabled)
@@ -92,11 +158,24 @@ async function loadDownloaderInfo() {
 function openDownloaderInfoDialog() {
   // 深复制
   downloaderInfo.value = cloneDeep(props.downloader)
+  // 初始化路径映射行数据
+  pathMappingRows.value = (downloaderInfo.value.path_mapping || []).map(item => ({
+    id: generateId(),
+    storage: item[0],
+    download: item[1],
+  }))
   downloaderInfoDialog.value = true
 }
 
 // 保存详情数据
-function saveDownloaderInfo() {
+async function saveDownloaderInfo() {
+  // 表单校验
+  const { valid } = await downloaderForm.value?.validate()
+  if (!valid) return
+
+  // 同步路径映射数据
+  downloaderInfo.value.path_mapping = pathMappingRows.value.map(row => [row.storage, row.download])
+
   // 为空不保存，跳出警告框
   if (!downloaderInfo.value.name) {
     $toast.error(t('downloader.nameRequired'))
@@ -134,6 +213,20 @@ const getIcon = computed(() => {
   }
 })
 
+// 添加路径映射
+function addPathMapping() {
+  pathMappingRows.value.push({
+    id: generateId(),
+    storage: '',
+    download: ''
+  })
+}
+
+// 移除路径映射
+function removePathMapping(index: number) {
+  pathMappingRows.value.splice(index, 1)
+}
+
 // 按钮点击
 function onClose() {
   emit('close')
@@ -152,6 +245,38 @@ onUnmounted(() => {
   stopRefresh()
 })
 </script>
+
+<style scoped lang="scss">
+  .pm-row {
+    padding-inline-start: 12px;
+    padding-inline-end: 12px;
+    :deep(.v-input__append) {
+      margin-inline-start: 8px;
+      margin-inline-end: 8px;
+    }
+  }
+.rp-select {
+  flex: 0 0 95px;
+  margin-right: -1px;
+  :deep(.v-field) {
+    padding-inline-end: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    --v-field-padding-end: 0;
+  }
+} 
+.rp-input {
+  flex: 1 1 auto;
+  :deep(.v-input__prepend) {
+    margin-inline-end: 0;
+  }
+  & > :deep(.v-input__control .v-field) {
+    padding-inline-start: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
+</style>
 <template>
   <div>
     <VHover v-slot="hover">
@@ -212,7 +337,7 @@ onUnmounted(() => {
         <VDialogCloseBtn v-model="downloaderInfoDialog" />
         <VDivider />
         <VCardText>
-          <VForm>
+          <VForm ref="downloaderForm">
             <VRow>
               <VCol cols="12" md="6">
                 <VSwitch v-model="downloaderInfo.enabled" :label="t('downloader.enabled')" />
@@ -371,6 +496,58 @@ onUnmounted(() => {
                   active
                   prepend-inner-icon="mdi-label"
                 />
+              </VCol>
+            </VRow>
+            <VRow>
+              <VCol cols="12">
+                <VLabel class="mb-2">{{ t('downloader.pathMapping') }}</VLabel>
+                <VRow
+                  v-for="(row, index) in pathMappingRows"
+                  :key="row.id"
+                  class="align-start flex-wrap pm-row"
+                >
+                <VCol cols="12" md="6" class="pl-0 pr-0">
+                  <div class="d-flex flex-nowrap align-start">
+                    <VTextField
+                      class="rp-input"
+                      :model-value="parseStoragePath(row.storage)[1]"
+                      :placeholder="t('downloader.storagePath')"
+                      density="compact"
+                      hide-details="auto"
+                      :rules="pathValidationRules"
+                      @update:model-value="v => updateStorageSuffix(row, v)"
+                      append-icon="mdi-arrow-right"
+                    >
+                    <template v-slot:prepend>
+                        <VSelect
+                        class="rp-select"
+                        :model-value="getStorageType(row.storage)"
+                        :items="prefixOptions"
+                        density="compact"
+                        hide-details
+                        @update:model-value="v => updateStoragePrefix(row, v)"
+                      />
+                    </template>
+                    </VTextField>
+                  </div>
+                  </VCol>
+                  <VCol cols="12" md="6" class="pl-0 pr-0">
+                    <VTextField
+                      v-model="row.download"
+                      :placeholder="t('downloader.downloadPath')"
+                      density="compact"
+                      hide-details="auto"
+                      :rules="pathValidationRules"
+                      append-icon="mdi-close"
+                      @click:append="removePathMapping(index)"
+                    />
+                  </VCol>
+                </VRow>
+              </VCol>
+              <VCol>
+                <VBtn variant="tonal" size="small" prepend-icon="mdi-plus" @click="addPathMapping">
+                  {{ t('common.add') }}
+                </VBtn>
               </VCol>
             </VRow>
           </VForm>

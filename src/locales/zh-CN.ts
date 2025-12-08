@@ -2644,6 +2644,11 @@ export default {
     hostRequired: '地址不能为空',
     usernameRequired: '用户名不能为空',
     passwordRequired: '密码不能为空',
+    pathMapping: '路径映射',
+    pathMappingRequired: '路径不能为空',
+    pathMappingError: '必须以 / 开头',
+    storagePath: '存储路径',
+    downloadPath: '下载路径',
   },
   filterRule: {
     title: '过滤规则',

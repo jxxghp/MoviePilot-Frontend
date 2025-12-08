@@ -2676,6 +2676,11 @@ export default {
     hostRequired: 'Host cannot be empty',
     usernameRequired: 'Username cannot be empty',
     passwordRequired: 'Password cannot be empty',
+    pathMapping: 'Path Mapping',
+    pathMappingRequired: 'Path cannot be empty',
+    pathMappingError: 'Must start with /',
+    storagePath: 'Storage Path',
+    downloadPath: 'Download Path',
   },
   filterRule: {
     title: 'Filter Rule',
