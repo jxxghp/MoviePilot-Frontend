@@ -85,22 +85,16 @@ function parseStoragePath(path: string): [prefix: string, suffix: string] {
 }
 
 // 更新存储路径前缀
-function updateStoragePrefix(index: number, storage: string) {
-  if (!downloaderInfo.value.path_mapping) return
-  const currentMapping = downloaderInfo.value.path_mapping[index]
-  const currentPath = currentMapping[0] || ''
-  const [, currentSuffix] = parseStoragePath(currentPath)
+function updateStoragePrefix(row: PathMappingRow, storage: string) {
+  const [, currentSuffix] = parseStoragePath(row.storage)
   const prefix = storage2Prefix(storage)
-  currentMapping[0] = prefix + currentSuffix
+  row.storage = prefix + currentSuffix
 }
 
 // 更新存储路径后缀
-function updateStorageSuffix(index: number, suffix: string) {
-  if (!downloaderInfo.value.path_mapping) return
-  const currentMapping = downloaderInfo.value.path_mapping[index]
-  const currentPath = currentMapping[0] || ''
-  const [currentPrefix] = parseStoragePath(currentPath)
-  currentMapping[0] = currentPrefix + suffix
+function updateStorageSuffix(row: PathMappingRow, suffix: string) {
+  const [currentPrefix] = parseStoragePath(row.storage)
+  row.storage = currentPrefix + suffix
 }
 
 const pathValidationRules = [
@@ -115,7 +109,23 @@ const downloaderInfo = ref<DownloaderConf>({
   default: false,
   enabled: false,
   config: {},
+  path_mapping: [],
 })
+
+// 路径映射行定义
+interface PathMappingRow {
+  id: string
+  storage: string
+  download: string
+}
+
+// 路径映射行数据
+const pathMappingRows = ref<PathMappingRow[]>([])
+
+// 生成随机ID
+function generateId() {
+  return Math.random().toString(36).substring(2, 9)
+}
 
 // 下载器是否应该刷新数据的计算属性
 const shouldRefresh = computed(() => props.allowRefresh && props.downloader.enabled)
@@ -148,6 +158,12 @@ async function loadDownloaderInfo() {
 function openDownloaderInfoDialog() {
   // 深复制
   downloaderInfo.value = cloneDeep(props.downloader)
+  // 初始化路径映射行数据
+  pathMappingRows.value = (downloaderInfo.value.path_mapping || []).map(item => ({
+    id: generateId(),
+    storage: item[0],
+    download: item[1],
+  }))
   downloaderInfoDialog.value = true
 }
 
@@ -156,6 +172,9 @@ async function saveDownloaderInfo() {
   // 表单校验
   const { valid } = await downloaderForm.value?.validate()
   if (!valid) return
+
+  // 同步路径映射数据
+  downloaderInfo.value.path_mapping = pathMappingRows.value.map(row => [row.storage, row.download])
 
   // 为空不保存，跳出警告框
   if (!downloaderInfo.value.name) {
@@ -196,15 +215,16 @@ const getIcon = computed(() => {
 
 // 添加路径映射
 function addPathMapping() {
-  if (!downloaderInfo.value.path_mapping) {
-    downloaderInfo.value.path_mapping = []
-  }
-  downloaderInfo.value.path_mapping.push(['', ''])
+  pathMappingRows.value.push({
+    id: generateId(),
+    storage: '',
+    download: ''
+  })
 }
 
 // 移除路径映射
 function removePathMapping(index: number) {
-  downloaderInfo.value.path_mapping?.splice(index, 1)
+  pathMappingRows.value.splice(index, 1)
 }
 
 // 按钮点击
@@ -482,30 +502,30 @@ onUnmounted(() => {
               <VCol cols="12">
                 <VLabel class="mb-2">{{ t('downloader.pathMapping') }}</VLabel>
                 <VRow
-                  v-for="(mapping, index) in downloaderInfo.path_mapping"
-                  :key="mapping[0] + '-' + mapping[1]"
+                  v-for="(row, index) in pathMappingRows"
+                  :key="row.id"
                   class="align-start flex-wrap pm-row"
                 >
                 <VCol cols="12" md="6" class="pl-0 pr-0">
                   <div class="d-flex flex-nowrap align-start">
                     <VTextField
                       class="rp-input"
-                      :model-value="parseStoragePath(mapping[0])[1]"
+                      :model-value="parseStoragePath(row.storage)[1]"
                       :placeholder="t('downloader.storagePath')"
                       density="compact"
                       hide-details="auto"
                       :rules="pathValidationRules"
-                      @update:model-value="v => updateStorageSuffix(index, v)"
+                      @update:model-value="v => updateStorageSuffix(row, v)"
                       append-icon="mdi-arrow-right"
                     >
                     <template v-slot:prepend>
                         <VSelect
                         class="rp-select"
-                        :model-value="getStorageType(mapping[0])"
+                        :model-value="getStorageType(row.storage)"
                         :items="prefixOptions"
                         density="compact"
                         hide-details
-                        @update:model-value="v => updateStoragePrefix(index, v)"
+                        @update:model-value="v => updateStoragePrefix(row, v)"
                       />
                     </template>
                     </VTextField>
@@ -513,7 +533,7 @@ onUnmounted(() => {
                   </VCol>
                   <VCol cols="12" md="6" class="pl-0 pr-0">
                     <VTextField
-                      v-model="mapping[1]"
+                      v-model="row.download"
                       :placeholder="t('downloader.downloadPath')"
                       density="compact"
                       hide-details="auto"
