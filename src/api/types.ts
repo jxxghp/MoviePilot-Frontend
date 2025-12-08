@@ -1085,7 +1085,7 @@ export interface DownloaderConf {
   // 是否启用
   enabled: boolean
   // 路径映射
-  path_mapping?: Array<[src: string, dst: string]>
+  path_mapping?: Array<[storagePath: string, downloadPath: string]>
 }
 
 // 通知配置
