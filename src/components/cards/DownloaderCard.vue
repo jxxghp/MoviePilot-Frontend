@@ -66,16 +66,10 @@ const prefixOptions = computed(() => {
 function getStorageType(path: string) {
   if (!path) return 'local'
   // 查找匹配的存储类型
-  for (const storage of storageAttributes) {
-    // skip checking local storage as it is the default
-    if (storage.type === 'local') {
-      continue
-    }
-    if (path.startsWith(storage.type + ':')) {
-      return storage.type
-    }
-  }
-  return 'local'
+  const storage = storageAttributes.find(
+    s => s.type !== 'local' && path.startsWith(`${s.type}:`)
+  )
+  return storage?.type || 'local'
 }
 
 function storage2Prefix(storage: string) {
@@ -105,7 +99,7 @@ function updateStorageSuffix(index: number, suffix: string) {
   if (!downloaderInfo.value.path_mapping) return
   const currentMapping = downloaderInfo.value.path_mapping[index]
   const currentPath = currentMapping[0] || ''
-  let [currentPrefix] = parseStoragePath(currentPath)
+  const [currentPrefix] = parseStoragePath(currentPath)
   currentMapping[0] = currentPrefix + suffix
 }
 
@@ -489,7 +483,7 @@ onUnmounted(() => {
                 <VLabel class="mb-2">{{ t('downloader.pathMapping') }}</VLabel>
                 <VRow
                   v-for="(mapping, index) in downloaderInfo.path_mapping"
-                  :key="index"
+                  :key="mapping[0] + '-' + mapping[1]"
                   class="align-start flex-wrap pm-row"
                 >
                 <VCol cols="12" md="6" class="pl-0 pr-0">
