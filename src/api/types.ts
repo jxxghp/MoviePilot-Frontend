@@ -1084,6 +1084,8 @@ export interface DownloaderConf {
   config: { [key: string]: any }
   // 是否启用
   enabled: boolean
+  // 路径映射
+  path_mapping?: Array<[src: string, dst: string]>
 }
 
 // 通知配置

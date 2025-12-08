@@ -7,7 +7,7 @@ import type { DownloaderInfo } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
-import { downloaderDict } from '@/api/constants'
+import { downloaderDict, storageAttributes } from '@/api/constants'
 import { useDisplay } from 'vuetify'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 
@@ -51,6 +51,24 @@ const download_rate = ref(0)
 
 // 下载器详情弹窗
 const downloaderInfoDialog = ref(false)
+
+// 表单
+const downloaderForm = ref()
+
+// 路径校验规则
+const remotePathRules = [
+  (v: string) => !!v || t('downloader.pathMappingRequired'),
+  (v: string) => {
+    const prefixes = storageAttributes.map(s => (s.type === 'local' ? '/' : `${s.type}:/`))
+    const pattern = new RegExp(`^(${prefixes.join('|')})`)
+    return pattern.test(v) || t('downloader.pathMappingFormatError')
+  },
+]
+
+const localPathRules = [
+  (v: string) => !!v || t('downloader.pathMappingRequired'),
+  (v: string) => v.startsWith('/') || t('downloader.pathMappingLocalError'),
+]
 
 // 下载器详情
 const downloaderInfo = ref<DownloaderConf>({
@@ -96,7 +114,11 @@ function openDownloaderInfoDialog() {
 }
 
 // 保存详情数据
-function saveDownloaderInfo() {
+async function saveDownloaderInfo() {
+  // 表单校验
+  const { valid } = await downloaderForm.value?.validate()
+  if (!valid) return
+
   // 为空不保存，跳出警告框
   if (!downloaderInfo.value.name) {
     $toast.error(t('downloader.nameRequired'))
@@ -134,6 +156,19 @@ const getIcon = computed(() => {
   }
 })
 
+// 添加路径映射
+function addPathMapping() {
+  if (!downloaderInfo.value.path_mapping) {
+    downloaderInfo.value.path_mapping = []
+  }
+  downloaderInfo.value.path_mapping.push(['', ''])
+}
+
+// 移除路径映射
+function removePathMapping(index: number) {
+  downloaderInfo.value.path_mapping?.splice(index, 1)
+}
+
 // 按钮点击
 function onClose() {
   emit('close')
@@ -152,6 +187,22 @@ onUnmounted(() => {
   stopRefresh()
 })
 </script>
+
+<style scoped lang="scss">
+  .path-icon {
+    line-height: 40px;
+    height: 40px;
+  }
+  .path-input {
+    flex: 0 0 100%;
+  }
+  @media (min-width: 960px) {
+    .path-input {
+      flex: 1 1 auto;
+      max-width: 50%;
+    }
+  }
+</style>
 <template>
   <div>
     <VHover v-slot="hover">
@@ -212,7 +263,7 @@ onUnmounted(() => {
         <VDialogCloseBtn v-model="downloaderInfoDialog" />
         <VDivider />
         <VCardText>
-          <VForm>
+          <VForm ref="downloaderForm">
             <VRow>
               <VCol cols="12" md="6">
                 <VSwitch v-model="downloaderInfo.enabled" :label="t('downloader.enabled')" />
@@ -371,6 +422,40 @@ onUnmounted(() => {
                   active
                   prepend-inner-icon="mdi-label"
                 />
+              </VCol>
+            </VRow>
+            <VRow>
+              <VCol cols="12">
+                <VLabel class="mb-2">{{ t('downloader.pathMapping') }}</VLabel>
+                <div
+                  v-for="(mapping, index) in downloaderInfo.path_mapping"
+                  :key="index"
+                  class="d-flex gap-2 mb-2 align-start flex-wrap"
+                >
+                  <VTextField
+                    v-model="mapping[0]"
+                    placeholder="/remote/path"
+                    density="compact"
+                    hide-details="auto"
+                    :rules="remotePathRules"
+                    :appendIcon="'mdi-arrow-right'"
+                    class="path-input"
+                  />
+                  <VTextField
+                    v-model="mapping[1]"
+                    placeholder="/download/path"
+                    density="compact"
+                    hide-details="auto"
+                    :rules="localPathRules"
+                    :appendIcon="'mdi-close'"
+                    @click:append="removePathMapping(index)"
+                  />
+                </div>
+                <div>
+                  <VBtn variant="tonal" size="small" prepend-icon="mdi-plus" @click="addPathMapping">
+                    {{ t('common.add') }}
+                  </VBtn>
+                </div>
               </VCol>
             </VRow>
           </VForm>
