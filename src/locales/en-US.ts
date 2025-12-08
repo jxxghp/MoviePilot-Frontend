@@ -2677,9 +2677,10 @@ export default {
     usernameRequired: 'Username cannot be empty',
     passwordRequired: 'Password cannot be empty',
     pathMapping: 'Path Mapping',
-    pathMappingHint: 'Map download paths between downloader and client',
     pathMappingRequired: 'Path cannot be empty',
     pathMappingError: 'Must start with /',
+    storagePath: 'Storage Path',
+    downloadPath: 'Download Path',
   },
   filterRule: {
     title: 'Filter Rule',

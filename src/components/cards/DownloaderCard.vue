@@ -59,44 +59,57 @@ const downloaderForm = ref()
 const prefixOptions = computed(() => {
   return storageAttributes.map(item => ({
     title: t(`storage.${item.type}`),
-    value: `${item.type}:`,
+    value: item.type
   }))
 })
 
-// 获取远程路径前缀
-function getRemotePrefix(path: string) {
-  if (!path) return 'local:'
-  const match = prefixOptions.value
-    .find(p => path.startsWith(p.value))
-  return match ? match.value : 'local:'
+function getStorageType(path: string) {
+  if (!path) return 'local'
+  // 查找匹配的存储类型
+  for (const storage of storageAttributes) {
+    // skip checking local storage as it is the default
+    if (storage.type === 'local') {
+      continue
+    }
+    if (path.startsWith(storage.type + ':')) {
+      return storage.type
+    }
+  }
+  return 'local'
 }
 
-// 获取远程路径后缀
-function getRemotePath(path: string) {
-  if (!path) return ''
-  const prefix = getRemotePrefix(path)
-  return path.replace(new RegExp(`^${prefix}`), '')
+function storage2Prefix(storage: string) {
+  return storage === 'local' ? '' : storage + ':'
 }
 
-// 更新远程路径前缀
-function updateRemotePrefix(index: number, prefix: string) {
+// 获取存储路径前后缀
+function parseStoragePath(path: string): [prefix: string, suffix: string] {
+  if (!path) return ['', '']
+  const storage = getStorageType(path)
+  const prefix = storage2Prefix(storage)
+  return [prefix, path.slice(prefix.length)]
+}
+
+// 更新存储路径前缀
+function updateStoragePrefix(index: number, storage: string) {
   if (!downloaderInfo.value.path_mapping) return
-  const currentPath = downloaderInfo.value.path_mapping[index][0] || ''
-  const currentSuffix = getRemotePath(currentPath)
-  prefix = prefix === 'local:' ? '' : prefix // 本地路径前缀为空
-  downloaderInfo.value.path_mapping[index][0] = prefix + currentSuffix
+  const currentMapping = downloaderInfo.value.path_mapping[index]
+  const currentPath = currentMapping[0] || ''
+  const [, currentSuffix] = parseStoragePath(currentPath)
+  const prefix = storage2Prefix(storage)
+  currentMapping[0] = prefix + currentSuffix
 }
 
-// 更新远程路径后缀
-function updateRemotePath(index: number, suffix: string) {
+// 更新存储路径后缀
+function updateStorageSuffix(index: number, suffix: string) {
   if (!downloaderInfo.value.path_mapping) return
-  const currentPath = downloaderInfo.value.path_mapping[index][0] || ''
-  let currentPrefix = getRemotePrefix(currentPath)
-  currentPrefix = currentPrefix === 'local:' ? '' : currentPrefix // 本地路径前缀为空
-  downloaderInfo.value.path_mapping[index][0] = currentPrefix + suffix
+  const currentMapping = downloaderInfo.value.path_mapping[index]
+  const currentPath = currentMapping[0] || ''
+  let [currentPrefix] = parseStoragePath(currentPath)
+  currentMapping[0] = currentPrefix + suffix
 }
 
-const downloadPathRules = [
+const pathValidationRules = [
   (v: string) => !!v || t('downloader.pathMappingRequired'),
   (v: string) => v.startsWith('/') || t('downloader.pathMappingError'),
 ]
@@ -240,7 +253,10 @@ onUnmounted(() => {
 } 
 .rp-input {
   flex: 1 1 auto;
-  :deep(.v-field) {
+  :deep(.v-input__prepend) {
+    margin-inline-end: 0;
+  }
+  & > :deep(.v-input__control .v-field) {
     padding-inline-start: 0;
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
@@ -478,33 +494,36 @@ onUnmounted(() => {
                 >
                 <VCol cols="12" md="6" class="pl-0 pr-0">
                   <div class="d-flex flex-nowrap align-start">
-                    <VSelect
-                      class="rp-select"
-                      :model-value="getRemotePrefix(mapping[0])"
-                      :items="prefixOptions"
-                      density="compact"
-                      hide-details
-                      @update:model-value="v => updateRemotePrefix(index, v)"
-                    />
                     <VTextField
                       class="rp-input"
-                      :model-value="getRemotePath(mapping[0])"
-                      placeholder="/remote/path"
+                      :model-value="parseStoragePath(mapping[0])[1]"
+                      :placeholder="t('downloader.storagePath')"
                       density="compact"
                       hide-details="auto"
-                      :rules="downloadPathRules"
-                      @update:model-value="v => updateRemotePath(index, v)"
+                      :rules="pathValidationRules"
+                      @update:model-value="v => updateStorageSuffix(index, v)"
                       append-icon="mdi-arrow-right"
-                    />
+                    >
+                    <template v-slot:prepend>
+                        <VSelect
+                        class="rp-select"
+                        :model-value="getStorageType(mapping[0])"
+                        :items="prefixOptions"
+                        density="compact"
+                        hide-details
+                        @update:model-value="v => updateStoragePrefix(index, v)"
+                      />
+                    </template>
+                    </VTextField>
                   </div>
                   </VCol>
                   <VCol cols="12" md="6" class="pl-0 pr-0">
                     <VTextField
                       v-model="mapping[1]"
-                      placeholder="/download/path"
+                      :placeholder="t('downloader.downloadPath')"
                       density="compact"
                       hide-details="auto"
-                      :rules="downloadPathRules"
+                      :rules="pathValidationRules"
                       append-icon="mdi-close"
                       @click:append="removePathMapping(index)"
                     />

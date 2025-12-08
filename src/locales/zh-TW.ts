@@ -2631,9 +2631,10 @@ export default {
     usernameRequired: '用戶名不能為空',
     passwordRequired: '密碼不能為空',
     pathMapping: '路徑映射',
-    pathMappingHint: '下載器服務端路徑映射為客戶端路徑，用於整理媒體文件',
     pathMappingRequired: '路徑不能為空',
     pathMappingError: '必須以 / 開頭',
+    storagePath: '存儲路徑',
+    downloadPath: '下載路徑',
   },
   filterRule: {
     title: '過濾規則',
