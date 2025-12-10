@@ -59,16 +59,14 @@ const downloaderForm = ref()
 const prefixOptions = computed(() => {
   return storageAttributes.map(item => ({
     title: t(`storage.${item.type}`),
-    value: item.type
+    value: item.type,
   }))
 })
 
 function getStorageType(path: string) {
   if (!path) return 'local'
   // 查找匹配的存储类型
-  const storage = storageAttributes.find(
-    s => s.type !== 'local' && path.startsWith(`${s.type}:`)
-  )
+  const storage = storageAttributes.find(s => s.type !== 'local' && path.startsWith(`${s.type}:`))
   return storage?.type || 'local'
 }
 
@@ -218,7 +216,7 @@ function addPathMapping() {
   pathMappingRows.value.push({
     id: generateId(),
     storage: '',
-    download: ''
+    download: '',
   })
 }
 
@@ -246,37 +244,6 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-  .pm-row {
-    padding-inline-start: 12px;
-    padding-inline-end: 12px;
-    :deep(.v-input__append) {
-      margin-inline-start: 8px;
-      margin-inline-end: 8px;
-    }
-  }
-.rp-select {
-  flex: 0 0 95px;
-  margin-right: -1px;
-  :deep(.v-field) {
-    padding-inline-end: 0;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    --v-field-padding-end: 0;
-  }
-} 
-.rp-input {
-  flex: 1 1 auto;
-  :deep(.v-input__prepend) {
-    margin-inline-end: 0;
-  }
-  & > :deep(.v-input__control .v-field) {
-    padding-inline-start: 0;
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-  }
-}
-</style>
 <template>
   <div>
     <VHover v-slot="hover">
@@ -500,53 +467,84 @@ onUnmounted(() => {
             </VRow>
             <VRow>
               <VCol cols="12">
-                <VLabel class="mb-2">{{ t('downloader.pathMapping') }}</VLabel>
-                <VRow
-                  v-for="(row, index) in pathMappingRows"
-                  :key="row.id"
-                  class="align-start flex-wrap pm-row"
+                <VDivider class="my-2">
+                  <span class="text-body-1 font-weight-medium">{{ t('downloader.pathMapping') }}</span>
+                </VDivider>
+
+                <div v-if="pathMappingRows.length === 0" class="text-center py-2">
+                  <VIcon icon="mdi-folder-network" size="48" class="text-disabled mb-1" />
+                  <div class="text-body-2 text-disabled">{{ t('common.noData') }}</div>
+                </div>
+
+                <VCard v-for="(row, index) in pathMappingRows" :key="row.id" variant="outlined" class="my-2">
+                  <VCardText class="pa-3">
+                    <VRow align="center" no-gutters>
+                      <VCol cols="12" class="mb-2">
+                        <div class="d-flex align-center mb-1">
+                          <VIcon icon="mdi-folder-outline" size="18" class="me-1 text-primary" />
+                          <span class="text-caption text-medium-emphasis">{{ t('downloader.storagePath') }}</span>
+                        </div>
+                        <VRow no-gutters>
+                          <VCol cols="12" sm="4" class="pe-2">
+                            <VSelect
+                              :model-value="getStorageType(row.storage)"
+                              :items="prefixOptions"
+                              density="compact"
+                              variant="outlined"
+                              hide-details
+                              @update:model-value="v => updateStoragePrefix(row, v)"
+                            />
+                          </VCol>
+                          <VCol cols="12" sm="8">
+                            <VTextField
+                              :model-value="parseStoragePath(row.storage)[1]"
+                              :placeholder="'/path/to/storage'"
+                              density="compact"
+                              variant="outlined"
+                              hide-details="auto"
+                              :rules="pathValidationRules"
+                              @update:model-value="v => updateStorageSuffix(row, v)"
+                            />
+                          </VCol>
+                        </VRow>
+                      </VCol>
+
+                      <VCol cols="12" class="mb-1">
+                        <div class="d-flex align-center justify-center my-1">
+                          <VIcon icon="mdi-arrow-down" size="18" class="text-medium-emphasis" />
+                        </div>
+                        <div class="d-flex align-center mb-1">
+                          <VIcon icon="mdi-download-outline" size="18" class="me-1 text-success" />
+                          <span class="text-caption text-medium-emphasis">{{ t('downloader.downloadPath') }}</span>
+                        </div>
+                        <VTextField
+                          v-model="row.download"
+                          :placeholder="'/path/to/download'"
+                          density="compact"
+                          variant="outlined"
+                          hide-details="auto"
+                          :rules="pathValidationRules"
+                        />
+                      </VCol>
+
+                      <VCol cols="12" class="d-flex justify-end pt-1">
+                        <IconBtn variant="text" color="error" size="small" @click="removePathMapping(index)">
+                          <VIcon icon="mdi-delete-outline" />
+                        </IconBtn>
+                      </VCol>
+                    </VRow>
+                  </VCardText>
+                </VCard>
+
+                <VBtn
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-plus-circle-outline"
+                  @click="addPathMapping"
+                  class="mt-1"
+                  size="small"
                 >
-                <VCol cols="12" md="6" class="pl-0 pr-0">
-                  <div class="d-flex flex-nowrap align-start">
-                    <VTextField
-                      class="rp-input"
-                      :model-value="parseStoragePath(row.storage)[1]"
-                      :placeholder="t('downloader.storagePath')"
-                      density="compact"
-                      hide-details="auto"
-                      :rules="pathValidationRules"
-                      @update:model-value="v => updateStorageSuffix(row, v)"
-                      append-icon="mdi-arrow-right"
-                    >
-                    <template v-slot:prepend>
-                        <VSelect
-                        class="rp-select"
-                        :model-value="getStorageType(row.storage)"
-                        :items="prefixOptions"
-                        density="compact"
-                        hide-details
-                        @update:model-value="v => updateStoragePrefix(row, v)"
-                      />
-                    </template>
-                    </VTextField>
-                  </div>
-                  </VCol>
-                  <VCol cols="12" md="6" class="pl-0 pr-0">
-                    <VTextField
-                      v-model="row.download"
-                      :placeholder="t('downloader.downloadPath')"
-                      density="compact"
-                      hide-details="auto"
-                      :rules="pathValidationRules"
-                      append-icon="mdi-close"
-                      @click:append="removePathMapping(index)"
-                    />
-                  </VCol>
-                </VRow>
-              </VCol>
-              <VCol>
-                <VBtn variant="tonal" size="small" prepend-icon="mdi-plus" @click="addPathMapping">
-                  {{ t('common.add') }}
+                  {{ t('common.add') }} {{ t('downloader.pathMapping') }}
                 </VBtn>
               </VCol>
             </VRow>
