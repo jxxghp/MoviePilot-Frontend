@@ -294,6 +294,9 @@ onMounted(() => {
                     <VListItem @click="addNotification('slack')">
                       <VListItemTitle>{{ t('setting.notification.slack') }}</VListItemTitle>
                     </VListItem>
+                    <VListItem @click="addNotification('discord')">
+                      <VListItemTitle>Discord</VListItemTitle>
+                    </VListItem>
                     <VListItem @click="addNotification('synologychat')">
                       <VListItemTitle>{{ t('setting.notification.synologyChat') }}</VListItemTitle>
                     </VListItem>

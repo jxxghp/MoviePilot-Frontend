@@ -447,6 +447,18 @@ export default {
       channel: '頻道名稱',
       channelHint: '消息發送頻道，默認`全體`',
     },
+    discord: {
+      name: 'Discord',
+      webhookUrl: 'Webhook URL',
+      webhookUrlHint: 'Discord Webhook URL，格式：https://discord.com/api/webhooks/...',
+      webhookUrlRequired: 'Webhook URL不能為空',
+      username: '用戶名',
+      usernameHint: '自定義消息顯示的用戶名（可選）',
+      usernamePlaceholder: 'MoviePilot',
+      avatarUrl: '頭像URL',
+      avatarUrlHint: '自定義頭像圖片URL（可選）',
+      avatarUrlPlaceholder: 'https://example.com/avatar.png',
+    },
     synologychat: {
       name: 'Synology Chat',
       webhook: '機器人傳入URL',

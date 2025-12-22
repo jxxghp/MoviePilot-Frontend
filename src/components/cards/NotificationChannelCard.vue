@@ -49,6 +49,7 @@ const notificationTypeNames: { [key: string]: string } = {
   vocechat: t('notification.vocechat.name'),
   synologychat: t('notification.synologychat.name'),
   slack: t('notification.slack.name'),
+  discord: t('notification.discord.name'),
   webpush: t('notification.webpush.name'),
   custom: t('setting.notification.custom'),
 }
@@ -102,6 +103,8 @@ const getIcon = computed(() => {
       return getLogoUrl('synologychat')
     case 'slack':
       return getLogoUrl('slack')
+    case 'discord':
+      return getLogoUrl('discord')
     case 'webpush':
       return getLogoUrl('chrome')
     default:
@@ -347,6 +350,47 @@ function onClose() {
                   :hint="t('notification.slack.channelHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-pound"
+                />
+              </VCol>
+            </VRow>
+            <VRow v-else-if="notificationInfo.type == 'discord'">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.name"
+                  :label="t('notification.name')"
+                  :placeholder="t('notification.name')"
+                  :hint="t('notification.nameHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-label"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.DISCORD_WEBHOOK_URL"
+                  :label="t('notification.discord.webhookUrl')"
+                  :hint="t('notification.discord.webhookUrlHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-webhook"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.DISCORD_USERNAME"
+                  :label="t('notification.discord.username')"
+                  :placeholder="t('notification.discord.usernamePlaceholder')"
+                  :hint="t('notification.discord.usernameHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.DISCORD_AVATAR_URL"
+                  :label="t('notification.discord.avatarUrl')"
+                  :placeholder="t('notification.discord.avatarUrlPlaceholder')"
+                  :hint="t('notification.discord.avatarUrlHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-image-outline"
                 />
               </VCol>
             </VRow>

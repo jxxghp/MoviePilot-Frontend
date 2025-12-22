@@ -456,6 +456,18 @@ export default {
       channelHint: '消息发送频道，默认`全体`',
       channelRequired: '频道名称不能为空',
     },
+    discord: {
+      name: 'Discord',
+      webhookUrl: 'Webhook URL',
+      webhookUrlHint: 'Discord Webhook URL，格式：https://discord.com/api/webhooks/...',
+      webhookUrlRequired: 'Webhook URL不能为空',
+      username: '用户名',
+      usernameHint: '自定义消息显示的用户名（可选）',
+      usernamePlaceholder: 'MoviePilot',
+      avatarUrl: '头像URL',
+      avatarUrlHint: '自定义头像图片URL（可选）',
+      avatarUrlPlaceholder: 'https://example.com/avatar.png',
+    },
     synologychat: {
       name: 'Synology Chat',
       webhook: '机器人传入URL',

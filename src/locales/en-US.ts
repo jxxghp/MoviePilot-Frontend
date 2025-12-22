@@ -458,6 +458,18 @@ export default {
       channelHint: 'Channel to send messages, default is "all"',
       channelRequired: 'Channel Name cannot be empty',
     },
+    discord: {
+      name: 'Discord',
+      webhookUrl: 'Webhook URL',
+      webhookUrlHint: 'Discord Webhook URL, format: https://discord.com/api/webhooks/...',
+      webhookUrlRequired: 'Webhook URL is required',
+      username: 'Username',
+      usernameHint: 'Custom username for webhook messages (optional)',
+      usernamePlaceholder: 'MoviePilot',
+      avatarUrl: 'Avatar URL',
+      avatarUrlHint: 'Custom avatar image URL (optional)',
+      avatarUrlPlaceholder: 'https://example.com/avatar.png',
+    },
     synologychat: {
       name: 'Synology Chat',
       webhook: 'Webhook URL',
