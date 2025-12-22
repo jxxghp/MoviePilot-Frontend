@@ -366,31 +366,31 @@ function onClose() {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationInfo.config.DISCORD_WEBHOOK_URL"
-                  :label="t('notification.discord.webhookUrl')"
-                  :hint="t('notification.discord.webhookUrlHint')"
+                  v-model="notificationInfo.config.DISCORD_BOT_TOKEN"
+                  :label="t('notification.discord.botToken')"
+                  :hint="t('notification.discord.botTokenHint')"
                   persistent-hint
-                  prepend-inner-icon="mdi-webhook"
+                  prepend-inner-icon="mdi-key-variant"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationInfo.config.DISCORD_USERNAME"
-                  :label="t('notification.discord.username')"
-                  :placeholder="t('notification.discord.usernamePlaceholder')"
-                  :hint="t('notification.discord.usernameHint')"
+                  v-model="notificationInfo.config.DISCORD_GUILD_ID"
+                  :label="t('notification.discord.guildId')"
+                  :placeholder="t('notification.discord.guildIdPlaceholder')"
+                  :hint="t('notification.discord.guildIdHint')"
                   persistent-hint
-                  prepend-inner-icon="mdi-account"
+                  prepend-inner-icon="mdi-pound"
                 />
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
-                  v-model="notificationInfo.config.DISCORD_AVATAR_URL"
-                  :label="t('notification.discord.avatarUrl')"
-                  :placeholder="t('notification.discord.avatarUrlPlaceholder')"
-                  :hint="t('notification.discord.avatarUrlHint')"
+                  v-model="notificationInfo.config.DISCORD_CHANNEL_ID"
+                  :label="t('notification.discord.channelId')"
+                  :placeholder="t('notification.discord.channelIdPlaceholder')"
+                  :hint="t('notification.discord.channelIdHint')"
                   persistent-hint
-                  prepend-inner-icon="mdi-image-outline"
+                  prepend-inner-icon="mdi-pound-box"
                 />
               </VCol>
             </VRow>
