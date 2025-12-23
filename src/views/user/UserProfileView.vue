@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { bufferToBase64Url, base64UrlToUint8Array } from '@/@core/utils/navigator'
 import { useToast } from 'vue-toastification'
 import QrcodeVue from 'qrcode.vue'
 import { VForm } from 'vuetify/lib/components/index.mjs'
@@ -10,7 +11,7 @@ import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
@@ -67,8 +68,18 @@ const accountInfo = ref<User>({
 // 二维码信息
 const qrCode = ref('')
 
+// PassKey类型
+interface PassKey {
+  id: number
+  name: string
+  created_at: string
+  last_used_at?: string
+  aaguid?: string
+  transports?: string
+}
+
 // PassKey列表
-const passkeyList = ref<any[]>([])
+const passkeyList = ref<PassKey[]>([])
 
 // PassKey对话框
 const passkeyDialog = ref(false)
@@ -84,6 +95,21 @@ const passkeyChallenge = ref('')
 
 // 双重验证菜单
 const mfaMenu = ref(false)
+
+// 密码验证对话框
+const verifyPasswordDialog = ref(false)
+
+// 验证密码
+const verifyPassword = ref('')
+
+// 验证后的回调
+const verifyCallback = ref<(() => void) | null>(null)
+
+// 验证对话框标题
+const verifyTitle = ref('')
+
+// 验证对话框提示
+const verifyText = ref('')
 
 // 检查是否已启用任何双重验证
 const hasMfaEnabled = computed(() => {
@@ -147,7 +173,7 @@ async function fetchUserInfo() {
   }
 }
 
-// 加载时获取用户信息和PassKey列表
+// 保存账户信息
 async function saveAccountInfo() {
   if (isSaving.value) {
     $toast.error(t('profile.savingInProgress'))
@@ -245,19 +271,49 @@ async function getOtpUri() {
   }
 }
 
+// 密码验证并执行回调
+function withPasswordVerification(title: string, text: string, callback: () => void) {
+  verifyTitle.value = title
+  verifyText.value = text
+  verifyCallback.value = callback
+  verifyPassword.value = ''
+  verifyPasswordDialog.value = true
+}
+
+// 确认密码验证
+async function confirmVerifyPassword() {
+  if (!verifyPassword.value) {
+    $toast.error(t('user.passwordHint'))
+    return
+  }
+  if (verifyCallback.value) {
+    verifyCallback.value()
+  }
+  verifyPasswordDialog.value = false
+}
+
 // 关闭当前用户的双重验证
 async function disableOtp() {
-  try {
-    const result: { [key: string]: any } = await api.post('mfa/otp/disable')
-    if (result.success) {
-      accountInfo.value.is_otp = false
-      $toast.success(t('profile.otpDisableSuccess'))
-    } else {
-      $toast.error(t('profile.otpDisableFailed', { message: result.message }))
-    }
-  } catch (error) {
-    console.log(error)
+  if (passkeyList.value.length > 0) {
+    $toast.error(t('profile.otpDisableRestrictedByPasskey'))
+    return
   }
+  withPasswordVerification(t('profile.disableTwoFactor'), t('profile.confirmToDisableOtp'), async () => {
+    try {
+      const result: { [key: string]: any } = await api.post('mfa/otp/disable', {
+        password: verifyPassword.value,
+      })
+      if (result.success) {
+        accountInfo.value.is_otp = false
+        $toast.success(t('profile.otpDisableSuccess'))
+        otpDialog.value = false
+      } else {
+        $toast.error(t('profile.otpDisableFailed', { message: result.message }))
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  })
 }
 
 // 启用Otp
@@ -331,47 +387,31 @@ async function registerPassKey() {
     const credential = await navigator.credentials.create({
       publicKey: {
         ...publicKeyOptions,
-        challenge: Uint8Array.from(atob(publicKeyOptions.challenge.replace(/-/g, '+').replace(/_/g, '/')), c =>
-          c.charCodeAt(0),
-        ),
+        challenge: base64UrlToUint8Array(publicKeyOptions.challenge),
         user: {
           ...publicKeyOptions.user,
-          id: Uint8Array.from(atob(publicKeyOptions.user.id.replace(/-/g, '+').replace(/_/g, '/')), c =>
-            c.charCodeAt(0),
-          ),
+          id: base64UrlToUint8Array(publicKeyOptions.user.id),
         },
         excludeCredentials: publicKeyOptions.excludeCredentials?.map((cred: any) => ({
           ...cred,
-          id: Uint8Array.from(atob(cred.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+          id: base64UrlToUint8Array(cred.id),
         })),
       },
     })
 
     if (!credential) {
       $toast.error(t('profile.passkeyRegisterCancelled'))
-      passkeyRegistering.value = false
       return
     }
 
     // 3. 转换credential为可传输格式
     const credentialJSON = {
       id: credential.id,
-      rawId: btoa(String.fromCharCode(...new Uint8Array((credential as any).rawId)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=/g, ''),
+      rawId: bufferToBase64Url((credential as any).rawId),
       type: credential.type,
       response: {
-        attestationObject: btoa(
-          String.fromCharCode(...new Uint8Array((credential as any).response.attestationObject)),
-        )
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=/g, ''),
-        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.clientDataJSON)))
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=/g, ''),
+        attestationObject: bufferToBase64Url((credential as any).response.attestationObject),
+        clientDataJSON: bufferToBase64Url((credential as any).response.clientDataJSON),
         transports: (credential as any).response.getTransports ? (credential as any).response.getTransports() : [],
       },
     }
@@ -403,18 +443,23 @@ async function registerPassKey() {
 
 // 删除PassKey
 async function deletePassKey(passkeyId: number) {
-  try {
-    const result: { [key: string]: any } = await api.delete(`mfa/passkey/${passkeyId}`)
-    if (result.success) {
-      $toast.success(t('profile.passkeyDeleteSuccess'))
-      await fetchPassKeyList()
-    } else {
-      $toast.error(result.message || t('profile.passkeyDeleteFailed'))
+  withPasswordVerification(t('common.delete') + t('profile.usePasskey'), t('profile.confirmToDeletePasskey'), async () => {
+    try {
+      const result: { [key: string]: any } = await api.post('mfa/passkey/delete', {
+        passkey_id: passkeyId,
+        password: verifyPassword.value,
+      })
+      if (result.success) {
+        $toast.success(t('profile.passkeyDeleteSuccess'))
+        await fetchPassKeyList()
+      } else {
+        $toast.error(result.message || t('profile.passkeyDeleteFailed'))
+      }
+    } catch (error) {
+      console.log(error)
+      $toast.error(t('profile.passkeyDeleteFailed'))
     }
-  } catch (error) {
-    console.log(error)
-    $toast.error(t('profile.passkeyDeleteFailed'))
-  }
+  })
 }
 
 // 加载当前用户数据
@@ -727,7 +772,11 @@ watch(
             class="mb-6"
             icon="mdi-alert"
           >
-            <span v-html="t('profile.passkeyDomainWarning', { domain: '<b>' + t('profile.accessDomain') + '</b>' })"></span>
+            <i18n-t keypath="profile.passkeyDomainWarning" tag="span">
+              <template #domain>
+                <b>{{ t('profile.accessDomain') }}</b>
+              </template>
+            </i18n-t>
           </VAlert>
           
           <!-- 注册新通行密钥 -->
@@ -764,7 +813,11 @@ watch(
             class="mb-6"
             icon="mdi-shield-lock"
           >
-            <span v-html="t('profile.otpRequiredForPasskey', { otp: '<b>' + t('profile.otpAuthenticator') + '</b>' })"></span>
+            <i18n-t keypath="profile.otpRequiredForPasskey" tag="span">
+              <template #otp>
+                <b>{{ t('profile.otpAuthenticator') }}</b>
+              </template>
+            </i18n-t>
           </VAlert>
 
           <!-- 已注册的通行密钥列表 -->
@@ -786,7 +839,7 @@ watch(
                     {{ passkey.name }}
                   </VListItemTitle>
                   <VListItemSubtitle>
-                    {{ t('profile.createdAt') }}: {{ new Date(passkey.created_at).toLocaleString('zh-CN') }}
+                    {{ t('profile.createdAt') }}: {{ new Date(passkey.created_at).toLocaleString(locale) }}
                   </VListItemSubtitle>
                   <template #append>
                     <VBtn
@@ -808,6 +861,36 @@ watch(
           <div class="d-flex justify-end mt-6">
             <VBtn variant="outlined" @click="passkeyDialog = false">{{ t('common.close') }}</VBtn>
           </div>
+        </VCardText>
+      </VCard>
+    </VDialog>
+
+    <!-- 密码验证对话框 -->
+    <VDialog v-model="verifyPasswordDialog" max-width="30rem">
+      <VCard>
+        <VCardTitle class="text-h5 text-center mt-4">{{ verifyTitle }}</VCardTitle>
+        <VCardText>
+          <p class="mb-4">{{ verifyText }}</p>
+          <VForm @submit.prevent="confirmVerifyPassword">
+            <VTextField
+              v-model="verifyPassword"
+              :type="isConfirmPasswordVisible ? 'text' : 'password'"
+              :label="t('user.password')"
+              :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+              variant="outlined"
+              prepend-inner-icon="mdi-lock"
+              autocomplete="current-password"
+              @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
+            />
+            <div class="d-flex justify-end gap-4 mt-4">
+              <VBtn variant="outlined" color="secondary" @click="verifyPasswordDialog = false">
+                {{ t('common.cancel') }}
+              </VBtn>
+              <VBtn type="submit" color="primary">
+                {{ t('common.confirm') }}
+              </VBtn>
+            </div>
+          </VForm>
         </VCardText>
       </VCard>
     </VDialog>
