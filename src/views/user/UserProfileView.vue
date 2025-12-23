@@ -761,7 +761,6 @@ watch(
     <!-- PassKey管理对话框 -->
     <VDialog v-if="passkeyDialog" v-model="passkeyDialog" max-width="45rem" scrollable>
       <VCard>
-        <VDialogCloseBtn @click="passkeyDialog = false" />
         <VCardText>
           <h4 class="text-h4 text-center mb-6 mt-5">{{ t('profile.passkeyManagement') }}</h4>
 
@@ -862,6 +861,7 @@ watch(
             <VBtn variant="outlined" @click="passkeyDialog = false">{{ t('common.close') }}</VBtn>
           </div>
         </VCardText>
+				<VDialogCloseBtn @click="passkeyDialog = false" />
       </VCard>
     </VDialog>
 
