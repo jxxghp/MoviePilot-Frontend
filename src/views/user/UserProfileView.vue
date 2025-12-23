@@ -67,6 +67,29 @@ const accountInfo = ref<User>({
 // 二维码信息
 const qrCode = ref('')
 
+// PassKey列表
+const passkeyList = ref<any[]>([])
+
+// PassKey对话框
+const passkeyDialog = ref(false)
+
+// PassKey注册loading
+const passkeyRegistering = ref(false)
+
+// PassKey名称
+const passkeyName = ref('')
+
+// PassKey challenge
+const passkeyChallenge = ref('')
+
+// 双重验证菜单
+const mfaMenu = ref(false)
+
+// 检查是否已启用任何双重验证
+const hasMfaEnabled = computed(() => {
+  return accountInfo.value.is_otp || passkeyList.value.length > 0
+})
+
 // 更新头像
 function changeAvatar(file: Event) {
   const fileReader = new FileReader()
@@ -116,13 +139,15 @@ async function fetchUserInfo() {
       accountInfo.value.avatar = accountInfo.value.avatar ? accountInfo.value.avatar : avatar1
       currentUserName.value = accountInfo.value.name
       currentAvatar.value = accountInfo.value.avatar
+      // 同时加载PassKey列表
+      await fetchPassKeyList()
     }
   } catch (error) {
     console.log(error)
   }
 }
 
-// 保存用户信息
+// 加载时获取用户信息和PassKey列表
 async function saveAccountInfo() {
   if (isSaving.value) {
     $toast.error(t('profile.savingInProgress'))
@@ -197,8 +222,16 @@ async function saveAccountInfo() {
 
 // 为当前用户获取Otp Uri
 async function getOtpUri() {
+  // 如果已经启用OTP，只打开对话框，不生成新的二维码
+  if (accountInfo.value.is_otp) {
+    qrCode.value = '' // 清空二维码，这样对话框会显示清除界面
+    otpDialog.value = true
+    return
+  }
+  
+  // 未启用OTP，生成新的二维码
   try {
-    const result: { [key: string]: any } = await api.post('user/otp/generate')
+    const result: { [key: string]: any } = await api.post('mfa/otp/generate')
     if (result.success) {
       otpUri.value = result.data.uri
       secret.value = result.data.secret
@@ -215,7 +248,7 @@ async function getOtpUri() {
 // 关闭当前用户的双重验证
 async function disableOtp() {
   try {
-    const result: { [key: string]: any } = await api.post('user/otp/disable')
+    const result: { [key: string]: any } = await api.post('mfa/otp/disable')
     if (result.success) {
       accountInfo.value.is_otp = false
       $toast.success(t('profile.otpDisableSuccess'))
@@ -234,7 +267,7 @@ async function judgeOtpPassword() {
     return
   }
   try {
-    const result: { [key: string]: any } = await api.post('user/otp/judge', {
+    const result: { [key: string]: any } = await api.post('mfa/otp/verify', {
       uri: otpUri.value,
       otpPassword: otpPassword.value,
     })
@@ -248,6 +281,139 @@ async function judgeOtpPassword() {
     }
   } catch (error) {
     console.log(error)
+  }
+}
+
+// 获取PassKey列表
+async function fetchPassKeyList() {
+  try {
+    const result: { [key: string]: any } = await api.get('mfa/passkey/list')
+    if (result.success) {
+      passkeyList.value = result.data || []
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 打开PassKey注册对话框
+async function openPassKeyDialog() {
+  passkeyName.value = ''
+  passkeyDialog.value = true
+  await fetchPassKeyList()
+}
+
+// 注册PassKey
+async function registerPassKey() {
+  if (!passkeyName.value) {
+    $toast.error(t('profile.passkeyNameRequired'))
+    return
+  }
+
+  passkeyRegistering.value = true
+  try {
+    // 1. 开始注册
+    const startResult: { [key: string]: any } = await api.post('mfa/passkey/register/start', {
+      name: passkeyName.value,
+    })
+
+    if (!startResult.success) {
+      $toast.error(startResult.message || t('profile.passkeyRegisterFailed'))
+      passkeyRegistering.value = false
+      return
+    }
+
+    const { options, challenge } = startResult.data
+    const publicKeyOptions = JSON.parse(options)
+    passkeyChallenge.value = challenge
+
+    // 2. 调用WebAuthn API
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        ...publicKeyOptions,
+        challenge: Uint8Array.from(atob(publicKeyOptions.challenge.replace(/-/g, '+').replace(/_/g, '/')), c =>
+          c.charCodeAt(0),
+        ),
+        user: {
+          ...publicKeyOptions.user,
+          id: Uint8Array.from(atob(publicKeyOptions.user.id.replace(/-/g, '+').replace(/_/g, '/')), c =>
+            c.charCodeAt(0),
+          ),
+        },
+        excludeCredentials: publicKeyOptions.excludeCredentials?.map((cred: any) => ({
+          ...cred,
+          id: Uint8Array.from(atob(cred.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+        })),
+      },
+    })
+
+    if (!credential) {
+      $toast.error(t('profile.passkeyRegisterCancelled'))
+      passkeyRegistering.value = false
+      return
+    }
+
+    // 3. 转换credential为可传输格式
+    const credentialJSON = {
+      id: credential.id,
+      rawId: btoa(String.fromCharCode(...new Uint8Array((credential as any).rawId)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, ''),
+      type: credential.type,
+      response: {
+        attestationObject: btoa(
+          String.fromCharCode(...new Uint8Array((credential as any).response.attestationObject)),
+        )
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.clientDataJSON)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        transports: (credential as any).response.getTransports ? (credential as any).response.getTransports() : [],
+      },
+    }
+
+    // 4. 完成注册
+    const finishResult: { [key: string]: any } = await api.post('mfa/passkey/register/finish', {
+      credential: credentialJSON,
+      challenge: passkeyChallenge.value,
+      name: passkeyName.value,
+    })
+
+    if (finishResult.success) {
+      $toast.success(t('profile.passkeyRegisterSuccess'))
+      passkeyName.value = ''
+      await fetchPassKeyList()
+    } else {
+      $toast.error(finishResult.message || t('profile.passkeyRegisterFailed'))
+    }
+  } catch (error: any) {
+    console.error('PassKey注册失败:', error)
+    if (error.name === 'NotAllowedError') {
+      $toast.error(t('profile.passkeyRegisterCancelled'))
+    } else {
+      $toast.error(t('profile.passkeyRegisterFailed'))
+    }
+  }
+  passkeyRegistering.value = false
+}
+
+// 删除PassKey
+async function deletePassKey(passkeyId: number) {
+  try {
+    const result: { [key: string]: any } = await api.delete(`mfa/passkey/${passkeyId}`)
+    if (result.success) {
+      $toast.success(t('profile.passkeyDeleteSuccess'))
+      await fetchPassKeyList()
+    } else {
+      $toast.error(result.message || t('profile.passkeyDeleteFailed'))
+    }
+  } catch (error) {
+    console.log(error)
+    $toast.error(t('profile.passkeyDeleteFailed'))
   }
 }
 
@@ -301,16 +467,42 @@ watch(
                   <span v-if="display.mdAndUp.value" class="ms-2">{{ t('common.default') }}</span>
                 </VBtn>
 
-                <VBtn
-                  :color="accountInfo.is_otp ? 'warning' : 'success'"
-                  variant="tonal"
-                  @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
-                >
-                  <VIcon icon="mdi-account-key" />
-                  <span v-if="display.mdAndUp.value" class="ms-2">{{
-                    accountInfo.is_otp ? t('profile.disableTwoFactor') : t('profile.enableTwoFactor')
-                  }}</span>
-                </VBtn>
+                <!-- 双重验证菜单按钮 -->
+                <VMenu v-model="mfaMenu" :close-on-content-click="false">
+                  <template #activator="{ props }">
+                    <VBtn
+                      :color="hasMfaEnabled ? 'warning' : 'success'"
+                      variant="tonal"
+                      v-bind="props"
+                    >
+                      <VIcon icon="mdi-shield-key" />
+                      <span v-if="display.mdAndUp.value" class="ms-2">
+                        {{ hasMfaEnabled ? t('profile.setupMfa') : t('profile.enableMfa') }}
+                      </span>
+                      <VIcon icon="mdi-menu-down" class="ms-1" />
+                    </VBtn>
+                  </template>
+                  <VList>
+                    <VListItem @click="getOtpUri(); mfaMenu = false">
+                      <template #prepend>
+                        <VIcon icon="mdi-cellphone-key" />
+                      </template>
+                      <VListItemTitle>{{ t('profile.useAuthenticator') }}</VListItemTitle>
+                      <VListItemSubtitle v-if="accountInfo.is_otp" class="text-success">
+                        {{ t('profile.enabled') }}
+                      </VListItemSubtitle>
+                    </VListItem>
+                    <VListItem @click="openPassKeyDialog(); mfaMenu = false">
+                      <template #prepend>
+                        <VIcon icon="mdi-key-variant" />
+                      </template>
+                      <VListItemTitle>{{ t('profile.usePasskey') }}</VListItemTitle>
+                      <VListItemSubtitle v-if="passkeyList.length > 0" class="text-success">
+                        {{ t('profile.keysCount', { count: passkeyList.length }) }}
+                      </VListItemSubtitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </div>
 
               <p class="text-body-1 mb-0">{{ t('profile.avatarFormatTip') }}</p>
@@ -455,41 +647,167 @@ watch(
 
     <!-- 双重验证弹窗 -->
     <VDialog v-if="otpDialog" v-model="otpDialog" max-width="45rem" scrollable>
-      <!-- 开启双重验证弹窗内容 -->
       <VCard>
         <VDialogCloseBtn @click="otpDialog = false" />
         <VCardText>
-          <h4 class="text-h4 text-center mb-6 mt-5">{{ t('profile.twoFactorAuthentication') }}</h4>
-          <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.authenticatorApp') }}</h5>
-          <p class="mb-6">
-            {{ t('profile.authenticatorAppDescription') }}
-          </p>
-          <div class="my-6">
-            <QrcodeVue class="mx-auto" :value="qrCode" :size="200" max-width="25rem" />
-          </div>
-          <VAlert :title="secret" variant="tonal" type="warning" class="my-4" :text="t('profile.secretKeyTip')">
-            <template #prepend />
-          </VAlert>
-          <VForm>
-            <VTextField
-              v-model="otpPassword"
-              type="text"
-              :label="t('profile.enterVerificationCode')"
-              autocomplete=""
-              class="mb-8"
-              variant="outlined"
-              prepend-inner-icon="mdi-shield-key"
-            />
+          <!-- 如果已启用OTP，显示清除界面 -->
+          <template v-if="accountInfo.is_otp && !qrCode">
+            <h4 class="text-h4 text-center mb-6 mt-5">{{ t('profile.authenticatorManagement') }}</h4>
+            <VAlert type="success" variant="tonal" class="mb-4">
+              {{ t('profile.authenticatorEnabled') }}
+            </VAlert>
+            <p class="mb-6">
+              {{ t('profile.clearAuthenticatorTip') }}
+            </p>
             <div class="d-flex justify-end flex-wrap gap-4">
-              <VBtn variant="outlined" color="secondary" @click="otpDialog = false"> {{ t('common.cancel') }} </VBtn>
-              <VBtn @click="judgeOtpPassword">
+              <VBtn variant="outlined" color="secondary" @click="otpDialog = false">
+                {{ t('common.cancel') }}
+              </VBtn>
+              <VBtn color="error" @click="disableOtp(); otpDialog = false">
                 <template #prepend>
-                  <VIcon icon="mdi-check" />
+                  <VIcon icon="mdi-delete" />
                 </template>
-                {{ t('common.confirm') }}
+                {{ t('profile.clearAuthenticator') }}
               </VBtn>
             </div>
-          </VForm>
+          </template>
+
+          <!-- 设置新的OTP -->
+          <template v-else>
+            <h4 class="text-h4 text-center mb-6 mt-5">{{ t('profile.setupAuthenticator') }}</h4>
+            <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.authenticatorApp') }}</h5>
+            <p class="mb-6">
+              {{ t('profile.authenticatorAppDescription') }}
+            </p>
+            <div class="my-6">
+              <QrcodeVue class="mx-auto" :value="qrCode" :size="200" max-width="25rem" />
+            </div>
+            <VAlert :title="secret" variant="tonal" type="warning" class="my-4" :text="t('profile.secretKeyTip')">
+              <template #prepend />
+            </VAlert>
+            <VForm @submit.prevent="judgeOtpPassword">
+              <VTextField
+                v-model="otpPassword"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                :label="t('profile.enterVerificationCode')"
+                class="mb-8"
+                variant="outlined"
+                prepend-inner-icon="mdi-shield-key"
+              />
+              <div class="d-flex justify-end flex-wrap gap-4">
+                <VBtn variant="outlined" color="secondary" @click="otpDialog = false">
+                  {{ t('common.cancel') }}
+                </VBtn>
+                <VBtn type="submit">
+                  <template #prepend>
+                    <VIcon icon="mdi-check" />
+                  </template>
+                  {{ t('common.confirm') }}
+                </VBtn>
+              </div>
+            </VForm>
+          </template>
+        </VCardText>
+      </VCard>
+    </VDialog>
+
+    <!-- PassKey管理对话框 -->
+    <VDialog v-if="passkeyDialog" v-model="passkeyDialog" max-width="45rem" scrollable>
+      <VCard>
+        <VDialogCloseBtn @click="passkeyDialog = false" />
+        <VCardText>
+          <h4 class="text-h4 text-center mb-6 mt-5">{{ t('profile.passkeyManagement') }}</h4>
+
+          <!-- 安全警告 -->
+          <VAlert
+            type="warning"
+            variant="tonal"
+            class="mb-6"
+            icon="mdi-alert"
+          >
+            <span v-html="t('profile.passkeyDomainWarning', { domain: '<b>' + t('profile.accessDomain') + '</b>' })"></span>
+          </VAlert>
+          
+          <!-- 注册新通行密钥 -->
+          <VCard v-if="accountInfo.is_otp" variant="tonal" class="mb-6">
+            <VCardText>
+              <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.registerNewPasskey') }}</h5>
+              <p class="mb-4">{{ t('profile.passkeyDescription') }}</p>
+              <VForm @submit.prevent="registerPassKey">
+                <VTextField
+                  v-model="passkeyName"
+                  :label="t('profile.passkeyName')"
+                  :placeholder="t('profile.passkeyNamePlaceholder')"
+                  class="mb-4"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-form-textbox"
+                />
+                <VBtn
+                  color="primary"
+                  type="submit"
+                  :loading="passkeyRegistering"
+                  prepend-icon="mdi-plus"
+                >
+                  {{ t('profile.registerPasskey') }}
+                </VBtn>
+              </VForm>
+            </VCardText>
+          </VCard>
+
+          <!-- 未启用 OTP 提示 -->
+          <VAlert
+            v-else
+            type="error"
+            variant="tonal"
+            class="mb-6"
+            icon="mdi-shield-lock"
+          >
+            <span v-html="t('profile.otpRequiredForPasskey', { otp: '<b>' + t('profile.otpAuthenticator') + '</b>' })"></span>
+          </VAlert>
+
+          <!-- 已注册的通行密钥列表 -->
+          <VCard variant="tonal">
+            <VCardText>
+              <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.registeredPasskeys') }}</h5>
+              <VList v-if="passkeyList.length > 0" class="mt-4">
+                <VListItem
+                  v-for="passkey in passkeyList"
+                  :key="passkey.id"
+                  class="mb-2 py-4"
+                  rounded="lg"
+                  border
+                >
+                  <template #prepend>
+                    <VIcon icon="mdi-key-variant" size="32" class="me-4" />
+                  </template>
+                  <VListItemTitle class="font-weight-medium">
+                    {{ passkey.name }}
+                  </VListItemTitle>
+                  <VListItemSubtitle>
+                    {{ t('profile.createdAt') }}: {{ new Date(passkey.created_at).toLocaleString('zh-CN') }}
+                  </VListItemSubtitle>
+                  <template #append>
+                    <VBtn
+                      icon="mdi-delete"
+                      variant="text"
+                      color="error"
+                      size="small"
+                      @click="deletePassKey(passkey.id)"
+                    />
+                  </template>
+                </VListItem>
+              </VList>
+              <VAlert v-else type="info" variant="tonal" class="mt-4">
+                {{ t('profile.noPasskeys') }}
+              </VAlert>
+            </VCardText>
+          </VCard>
+
+          <div class="d-flex justify-end mt-6">
+            <VBtn variant="outlined" @click="passkeyDialog = false">{{ t('common.close') }}</VBtn>
+          </div>
         </VCardText>
       </VCard>
     </VDialog>

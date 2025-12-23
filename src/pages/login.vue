@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { debounce } from 'lodash-es'
 import { VForm } from 'vuetify/components/VForm'
 import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
@@ -43,6 +42,15 @@ const errorMessage = ref('')
 // 是否开启双重验证
 const isOTP = ref(false)
 
+// 双重验证对话框
+const mfaDialog = ref(false)
+
+// MFA challenge（用于PassKey验证）
+const mfaChallenge = ref('')
+
+// MFA PassKey loading
+const mfaPasskeyLoading = ref(false)
+
 // 用户名称输入框
 const usernameInput = ref()
 
@@ -66,6 +74,128 @@ const locales = Object.values(SUPPORTED_LOCALES)
 // 登录按钮 loading
 const loading = ref(false)
 
+// PassKey 登录按钮 loading
+const passkeyLoading = ref(false)
+
+// 使用PassKey登录
+async function loginWithPassKey() {
+  errorMessage.value = ''
+  passkeyLoading.value = true
+
+  try {
+    // 1. 开始认证流程
+    const startResponse: any = await api.post('/mfa/passkey/authenticate/start', {})
+
+    if (!startResponse.success) {
+      errorMessage.value = startResponse.message || '启动通行密钥认证失败'
+      passkeyLoading.value = false
+      return
+    }
+
+    const { options, challenge } = startResponse.data
+    const publicKeyOptions = JSON.parse(options)
+
+    // 2. 调用WebAuthn API
+    const credential = await navigator.credentials.get({
+      publicKey: {
+        ...publicKeyOptions,
+        challenge: Uint8Array.from(atob(publicKeyOptions.challenge.replace(/-/g, '+').replace(/_/g, '/')), c =>
+          c.charCodeAt(0),
+        ),
+        allowCredentials: publicKeyOptions.allowCredentials?.map((cred: any) => ({
+          ...cred,
+          id: Uint8Array.from(atob(cred.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+        })),
+      },
+    })
+
+    if (!credential) {
+      errorMessage.value = '未选择通行密钥'
+      passkeyLoading.value = false
+      return
+    }
+
+    // 3. 转换credential为可传输格式
+    const credentialJSON = {
+      id: credential.id,
+      rawId: btoa(String.fromCharCode(...new Uint8Array((credential as any).rawId)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, ''),
+      type: credential.type,
+      response: {
+        authenticatorData: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.authenticatorData)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.clientDataJSON)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        signature: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.signature)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        userHandle: (credential as any).response.userHandle
+          ? btoa(String.fromCharCode(...new Uint8Array((credential as any).response.userHandle)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, '')
+          : null,
+      },
+    }
+
+    // 4. 完成认证
+    const finishResponse: any = await api.post('/mfa/passkey/authenticate/finish', {
+      credential: credentialJSON,
+      challenge: challenge,
+    })
+
+    // 处理登录响应（与密码登录相同）
+    const userPayload: userState = {
+      superUser: finishResponse.super_user,
+      userID: finishResponse.user_id,
+      userName: finishResponse.user_name,
+      avatar: finishResponse.avatar,
+      level: finishResponse.level,
+      permissions: finishResponse.permissions,
+      wizard: finishResponse.widzard,
+    }
+
+    const userPermissions = {
+      is_superuser: userPayload.superUser,
+      ...userPayload.permissions,
+    }
+
+    const filteredMenus = filterMenusByPermission(navMenus, userPermissions)
+    if (filteredMenus.length === 0) {
+      errorMessage.value = t('login.noPermission')
+      passkeyLoading.value = false
+      return
+    }
+
+    const authPayLoad: authState = {
+      token: finishResponse.access_token,
+      remember: form.value.remember,
+    }
+
+    authStore.login(authPayLoad)
+    userStore.loginUser(userPayload)
+
+    await afterLogin(userPayload.superUser, userPayload, filteredMenus)
+  } catch (error: any) {
+    console.error('PassKey登录失败:', error)
+    if (error.response) {
+      errorMessage.value = error.response.data?.detail || '通行密钥登录失败'
+    } else if (error.name === 'NotAllowedError') {
+      errorMessage.value = '通行密钥认证被取消'
+    } else {
+      errorMessage.value = '通行密钥登录失败，请重试'
+    }
+    passkeyLoading.value = false
+  }
+}
+
 // 切换语言
 async function switchLanguage(locale: SupportedLocale) {
   await setI18nLanguage(locale)
@@ -74,21 +204,21 @@ async function switchLanguage(locale: SupportedLocale) {
 }
 
 // 查询是否开启双重验证
-const fetchOTP = debounce(async () => {
-  const userid = usernameInput.value?.value
-  if (!userid) {
+async function fetchOTP(): Promise<boolean> {
+  if (!form.value.username) {
     isOTP.value = false
-    return
+    return false
   }
-  api
-    .get(`/user/otp/${userid}`)
-    .then((response: any) => {
-      isOTP.value = response.success
-    })
-    .catch((error: any) => {
-      console.log(error)
-    })
-}, 500)
+  try {
+    const response: any = await api.get(`/mfa/status/${form.value.username}`)
+    isOTP.value = response.success
+    return response.success
+  } catch (error: any) {
+    console.log(error)
+    isOTP.value = false
+    return false
+  }
+}
 
 // 订阅推送通知
 async function subscribeForPushNotifications() {
@@ -137,11 +267,11 @@ async function afterLogin(superuser: boolean, userPayload: userState, filteredMe
 }
 
 // 登录获取token事件
-function login() {
+async function login() {
   errorMessage.value = ''
 
   // 进行表单校验
-  if (!form.value.username || !form.value.password || (isOTP.value && !form.value.otp_password)) {
+  if (!form.value.username || !form.value.password) {
     return
   }
 
@@ -200,16 +330,174 @@ function login() {
       // 登录后处理
       afterLogin(userPayload.superUser, userPayload, filteredMenus)
     })
-    .catch((error: any) => {
+    .catch(async (error: any) => {
       // 登录失败，显示错误提示
-      if (!error.response) errorMessage.value = t('login.networkError')
-      else if (error.response.status === 401) errorMessage.value = t('login.authFailure')
-      else if (error.response.status === 403) errorMessage.value = t('login.permissionDenied')
-      else if (error.response.status === 500) errorMessage.value = t('login.serverError')
-      else errorMessage.value = `${t('login.loginFailed')} ${error.response.status}，${t('login.checkCredentials')}`
-      // 登录按钮 loading
-      loading.value = false
+      if (!error.response) {
+        errorMessage.value = t('login.networkError')
+        loading.value = false
+      }
+      else if (error.response.status === 401) {
+        // 401错误可能是需要MFA或者认证失败
+        // 检查响应头是否有MFA要求标识
+        const mfaRequired = error.response.headers?.['x-mfa-required'] === 'true'
+        if (mfaRequired && !form.value.otp_password) {
+          // 需要MFA验证，弹出对话框
+          isOTP.value = true
+          mfaDialog.value = true
+          loading.value = false
+          return
+        }
+        // 不需要MFA或已填写OTP但认证失败
+        errorMessage.value = t('login.authFailure')
+        // 认证失败后清空OTP密码，防止下次点击不弹出对话框
+        form.value.otp_password = ''
+        loading.value = false
+      }
+      else if (error.response.status === 403) {
+        errorMessage.value = t('login.permissionDenied')
+        loading.value = false
+      }
+      else if (error.response.status === 500) {
+        errorMessage.value = t('login.serverError')
+        loading.value = false
+      }
+      else {
+        errorMessage.value = `${t('login.loginFailed')} ${error.response.status}，${t('login.checkCredentials')}`
+        loading.value = false
+      }
     })
+}
+
+// 使用OTP码继续登录
+function loginWithOTP() {
+  mfaDialog.value = false
+  login()
+}
+
+// 使用PassKey进行MFA验证
+async function verifyWithPassKey() {
+  if (!form.value.username) return
+
+  mfaPasskeyLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    // 1. 开始认证流程（指定用户名）
+    const startResponse: any = await api.post('/mfa/passkey/authenticate/start', {
+      username: form.value.username,
+    })
+
+    if (!startResponse.success) {
+      errorMessage.value = startResponse.message || '启动通行密钥认证失败'
+      mfaPasskeyLoading.value = false
+      return
+    }
+
+    const { options, challenge } = startResponse.data
+    const publicKeyOptions = JSON.parse(options)
+
+    // 2. 调用WebAuthn API
+    const credential = await navigator.credentials.get({
+      publicKey: {
+        ...publicKeyOptions,
+        challenge: Uint8Array.from(atob(publicKeyOptions.challenge.replace(/-/g, '+').replace(/_/g, '/')), c =>
+          c.charCodeAt(0),
+        ),
+        allowCredentials: publicKeyOptions.allowCredentials?.map((cred: any) => ({
+          ...cred,
+          id: Uint8Array.from(atob(cred.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+        })),
+      },
+    })
+
+    if (!credential) {
+      errorMessage.value = '未选择通行密钥'
+      mfaPasskeyLoading.value = false
+      return
+    }
+
+    // 3. 转换credential
+    const credentialJSON = {
+      id: credential.id,
+      rawId: btoa(String.fromCharCode(...new Uint8Array((credential as any).rawId)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, ''),
+      type: credential.type,
+      response: {
+        authenticatorData: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.authenticatorData)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.clientDataJSON)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        signature: btoa(String.fromCharCode(...new Uint8Array((credential as any).response.signature)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        userHandle: (credential as any).response.userHandle
+          ? btoa(String.fromCharCode(...new Uint8Array((credential as any).response.userHandle)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, '')
+          : null,
+      },
+    }
+
+    // 4. 完成认证（直接登录，不需要密码）
+    const finishResponse: any = await api.post('/mfa/passkey/authenticate/finish', {
+      credential: credentialJSON,
+      challenge: challenge,
+    })
+
+    // 关闭MFA对话框
+    mfaDialog.value = false
+
+    // 处理登录响应
+    const userPayload: userState = {
+      superUser: finishResponse.super_user,
+      userID: finishResponse.user_id,
+      userName: finishResponse.user_name,
+      avatar: finishResponse.avatar,
+      level: finishResponse.level,
+      permissions: finishResponse.permissions,
+      wizard: finishResponse.widzard,
+    }
+
+    const userPermissions = {
+      is_superuser: userPayload.superUser,
+      ...userPayload.permissions,
+    }
+
+    const filteredMenus = filterMenusByPermission(navMenus, userPermissions)
+    if (filteredMenus.length === 0) {
+      errorMessage.value = t('login.noPermission')
+      mfaPasskeyLoading.value = false
+      return
+    }
+
+    const authPayLoad: authState = {
+      token: finishResponse.access_token,
+      remember: form.value.remember,
+    }
+
+    authStore.login(authPayLoad)
+    userStore.loginUser(userPayload)
+
+    await afterLogin(userPayload.superUser, userPayload, filteredMenus)
+  } catch (error: any) {
+    console.error('PassKey MFA验证失败:', error)
+    if (error.response) {
+      errorMessage.value = error.response.data?.detail || '通行密钥验证失败'
+    } else if (error.name === 'NotAllowedError') {
+      errorMessage.value = '通行密钥认证被取消'
+    } else {
+      errorMessage.value = '通行密钥验证失败，请重试'
+    }
+    mfaPasskeyLoading.value = false
+  }
 }
 
 // 自动登录
@@ -274,7 +562,7 @@ onMounted(async () => {
           </template>
         </VCardItem>
         <VCardText>
-          <VForm ref="refForm" autocomplete="on" @submit.prevent="() => {}">
+          <VForm ref="refForm" autocomplete="on" @submit.prevent="login">
             <VRow>
               <!-- username -->
               <VCol cols="12">
@@ -286,7 +574,7 @@ onMounted(async () => {
                   name="username"
                   autocomplete="username"
                   :rules="[requiredValidator]"
-                  @input="fetchOTP"
+                  hide-details
                 />
               </VCol>
               <!-- password -->
@@ -299,11 +587,11 @@ onMounted(async () => {
                   autocomplete="current-password"
                   :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                   :rules="[requiredValidator]"
+                  hide-details
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
               </VCol>
               <VCol cols="12">
-                <VTextField v-if="isOTP" v-model="form.otp_password" :label="t('login.otpCode')" type="input" />
                 <!-- remember me checkbox -->
                 <div class="d-flex align-center justify-space-between flex-wrap">
                   <VCheckbox v-model="form.remember" :label="t('login.stayLoggedIn')" required />
@@ -311,8 +599,20 @@ onMounted(async () => {
               </VCol>
               <VCol cols="12">
                 <!-- login button -->
-                <VBtn block type="submit" @click="login" prepend-icon="mdi-login" :loading="loading">
+                <VBtn block type="submit" prepend-icon="mdi-login" :loading="loading">
                   {{ t('login.login') }}
+                </VBtn>
+                <!-- passkey login button -->
+                <VBtn
+                  block
+                  variant="tonal"
+                  color="success"
+                  class="mt-3"
+                  prepend-icon="mdi-key-variant"
+                  :loading="passkeyLoading"
+                  @click="loginWithPassKey"
+                >
+                  使用通行密钥登录
                 </VBtn>
                 <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
                   {{ errorMessage }}
@@ -323,6 +623,56 @@ onMounted(async () => {
         </VCardText>
       </VCard>
     </div>
+
+    <!-- MFA双重验证对话框 -->
+    <VDialog v-model="mfaDialog" max-width="400" persistent>
+      <VCard>
+        <VCardTitle class="text-h5 text-center mt-4">双重验证</VCardTitle>
+        <VCardText>
+          <p class="text-center mb-4">请选择验证方式</p>
+          
+          <!-- TOTP验证 -->
+          <VCard variant="tonal" class="mb-3">
+            <VCardText>
+              <VForm @submit.prevent="loginWithOTP">
+                <VTextField
+                  v-model="form.otp_password"
+                  label="验证码"
+                  placeholder="请输入6位验证码"
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  prepend-inner-icon="mdi-shield-key"
+                  class="mb-2"
+                />
+                <VBtn block type="submit" color="primary" :disabled="!form.otp_password">
+                  使用验证码登录
+                </VBtn>
+              </VForm>
+            </VCardText>
+          </VCard>
+
+          <!-- PassKey验证 -->
+          <VCard variant="tonal">
+            <VCardText>
+              <p class="text-body-2 mb-2">或使用通行密钥进行验证</p>
+              <VBtn
+                block
+                variant="tonal"
+                color="success"
+                prepend-icon="mdi-key-variant"
+                :loading="mfaPasskeyLoading"
+                @click="verifyWithPassKey"
+              >
+                使用通行密钥验证
+              </VBtn>
+            </VCardText>
+          </VCard>
+
+          <VBtn block variant="text" class="mt-4" @click="mfaDialog = false">取消</VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 
