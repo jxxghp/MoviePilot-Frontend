@@ -693,7 +693,6 @@ watch(
     <!-- 双重验证弹窗 -->
     <VDialog v-if="otpDialog" v-model="otpDialog" max-width="45rem" scrollable>
       <VCard>
-        <VDialogCloseBtn @click="otpDialog = false" />
         <VCardText>
           <!-- 如果已启用OTP，显示清除界面 -->
           <template v-if="accountInfo.is_otp && !qrCode">
@@ -755,6 +754,7 @@ watch(
             </VForm>
           </template>
         </VCardText>
+				<VDialogCloseBtn @click="otpDialog = false" />
       </VCard>
     </VDialog>
 
