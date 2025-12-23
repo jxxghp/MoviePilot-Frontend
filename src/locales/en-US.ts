@@ -458,6 +458,18 @@ export default {
       channelHint: 'Channel to send messages, default is "all"',
       channelRequired: 'Channel Name cannot be empty',
     },
+    discord: {
+      name: 'Discord',
+      botToken: 'Bot Token',
+      botTokenHint: 'Discord Bot Token (enable Message Content Intent in Dev Portal)',
+      botTokenRequired: 'Bot Token is required',
+      guildId: 'Guild ID',
+      guildIdHint: 'Optional, restrict to a specific guild; leave blank to use any joined guild',
+      guildIdPlaceholder: '123456789012345678',
+      channelId: 'Channel ID',
+      channelIdHint: 'Optional, default broadcast channel; leave blank to auto-pick a writable channel',
+      channelIdPlaceholder: '123456789012345678',
+    },
     synologychat: {
       name: 'Synology Chat',
       webhook: 'Webhook URL',

@@ -447,6 +447,18 @@ export default {
       channel: '頻道名稱',
       channelHint: '消息發送頻道，默認`全體`',
     },
+    discord: {
+      name: 'Discord',
+      botToken: 'Bot Token',
+      botTokenHint: 'Discord Bot Token（需在開發者後台開啟 Message Content Intent）',
+      botTokenRequired: 'Bot Token不能為空',
+      guildId: '伺服器 ID',
+      guildIdHint: '可選，限制使用的伺服器；空白則使用已加入的任意伺服器',
+      guildIdPlaceholder: '123456789012345678',
+      channelId: '頻道 ID',
+      channelIdHint: '可選，預設廣播頻道；空白則自動選擇可發送消息的頻道',
+      channelIdPlaceholder: '123456789012345678',
+    },
     synologychat: {
       name: 'Synology Chat',
       webhook: '機器人傳入URL',

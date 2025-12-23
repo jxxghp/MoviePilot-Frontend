@@ -456,6 +456,18 @@ export default {
       channelHint: '消息发送频道，默认`全体`',
       channelRequired: '频道名称不能为空',
     },
+    discord: {
+      name: 'Discord',
+      botToken: 'Bot Token',
+      botTokenHint: 'Discord Bot Token（需在开发者后台开启 Message Content Intent）',
+      botTokenRequired: 'Bot Token不能为空',
+      guildId: '服务器 ID',
+      guildIdHint: '可选，限制使用的服务器；为空则使用已加入的任意服务器',
+      guildIdPlaceholder: '123456789012345678',
+      channelId: '频道 ID',
+      channelIdHint: '可选，默认广播频道；为空则自动选择可发送消息的频道',
+      channelIdPlaceholder: '123456789012345678',
+    },
     synologychat: {
       name: 'Synology Chat',
       webhook: '机器人传入URL',

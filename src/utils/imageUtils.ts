@@ -13,6 +13,7 @@ import trimemediaLogo from '@/assets/images/logos/trimemedia.png'
 import wechatLogo from '@/assets/images/logos/wechat.png'
 import telegramLogo from '@/assets/images/logos/telegram.webp'
 import slackLogo from '@/assets/images/logos/slack.webp'
+import discordLogo from '@/assets/images/logos/discord.png'
 import synologychatLogo from '@/assets/images/logos/synologychat.png'
 import vocechatLogo from '@/assets/images/logos/vocechat.png'
 import downloaderLogo from '@/assets/images/logos/downloader.png'
@@ -40,6 +41,7 @@ const logoMap: Record<string, string> = {
   wechat: wechatLogo,
   telegram: telegramLogo,
   slack: slackLogo,
+  discord: discordLogo,
   synologychat: synologychatLogo,
   vocechat: vocechatLogo,
   downloader: downloaderLogo,
