@@ -10,6 +10,10 @@ import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import { resolve } from 'node:path'
 import federation from '@originjs/vite-plugin-federation'
 import topLevelAwait from 'vite-plugin-top-level-await'
+import { readFileSync } from 'node:fs'
+
+// 读取 package.json 获取版本号
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -277,7 +281,10 @@ export default defineConfig({
       promiseImportName: i => `__mp_tla_${i}`,
     }),
   ],
-  define: { 'process.env': {} },
+  define: {
+    'process.env': {},
+    '__APP_VERSION__': JSON.stringify(`v${packageJson.version}`)
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -66,6 +66,7 @@ export default {
     serviceUnavailable: '服务不可用',
     status: '状态',
     preset: '预设',
+    newVersionAvailable: '检测到新版本，请刷新页面以获取最新功能',
   },
   mediaType: {
     movie: '电影',

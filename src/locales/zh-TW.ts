@@ -66,6 +66,7 @@ export default {
     serviceUnavailable: '服務不可用',
     status: '狀態',
     preset: '預設',
+    newVersionAvailable: '檢測到新版本，請刷新頁面以獲取最新功能',
   },
   mediaType: {
     movie: '電影',
