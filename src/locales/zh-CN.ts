@@ -1234,7 +1234,7 @@ export default {
       timezone: '时区',
       latest: '最新',
       supportingSites: '支持站点',
-      support: '支援',
+      support: '支持',
       documentation: '文档',
       feedback: '问题反馈',
       channel: '发布频道',

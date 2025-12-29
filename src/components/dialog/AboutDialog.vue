@@ -228,7 +228,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.configDir') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <code>{{ systemEnv.CONFIG_DIR }}</code>
                       </span>
                     </dd>
@@ -236,7 +236,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.dataDir') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined"
+                      <span class="flex-grow break-all"
                         ><code>{{ t('setting.about.dataDirectory') }}</code></span
                       >
                     </dd>
@@ -246,7 +246,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.timezone') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <code>{{ systemEnv.TZ }}</code>
                       </span>
                     </dd>
@@ -295,7 +295,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.documentation') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <a
                           href="https://movie-pilot.org"
                           target="_blank"
@@ -312,7 +312,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.feedback') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <a
                           href="https://github.com/jxxghp/MoviePilot/issues/new/choose"
                           target="_blank"
@@ -329,7 +329,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.channel') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <a
                           href="https://t.me/moviepilot_channel"
                           target="_blank"
