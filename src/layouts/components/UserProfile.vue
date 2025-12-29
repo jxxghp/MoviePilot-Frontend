@@ -16,6 +16,7 @@ import { saveLocalTheme } from '@/@core/utils/theme'
 import type { ThemeSwitcherTheme } from '@layouts/types'
 import { useConfirm } from '@/composables/useConfirm'
 import { themeManager } from '@/utils/themeManager'
+import { usePWA, type UIMode } from '@/composables/usePWA'
 
 // 认证 Store
 const authStore = useAuthStore()
@@ -27,6 +28,8 @@ const globalSettingsStore = useGlobalSettingsStore()
 const { t } = useI18n()
 // 显示器
 const display = useDisplay()
+// PWA
+const { uiMode, setUIMode } = usePWA()
 
 // 提示框
 const $toast = useToast()
@@ -39,6 +42,9 @@ const siteAuthDialog = ref(false)
 
 // 自定义CSS弹窗
 const cssDialog = ref(false)
+
+// UI模式菜单是否显示
+const showUIModeMenu = ref(false)
 
 // 主题菜单是否显示
 const showThemeMenu = ref(false)
@@ -231,6 +237,39 @@ const userLevel = computed(() => userStore.level)
 // 检查是否为高级模式
 const isAdvancedMode = computed(() => {
   return globalSettingsStore.get('ADVANCED_MODE') !== false
+})
+
+// UI模式相关
+const uiModes = computed(() => [
+  {
+    name: 'auto',
+    title: t('theme.autoUI'),
+    icon: 'mdi-devices',
+  },
+  {
+    name: 'desktop',
+    title: t('pwa.platforms.desktop'),
+    icon: 'mdi-monitor',
+  },
+  {
+    name: 'app',
+    title: t('pwa.platforms.mobile'),
+    icon: 'mdi-cellphone',
+  },
+])
+
+// 切换UI模式
+function changeUIMode(mode: UIMode) {
+  setUIMode(mode)
+  showUIModeMenu.value = false
+  // 刷新页面以应用更改
+  window.location.reload()
+}
+
+// 获取当前UI模式图标
+const getUIModeIcon = computed(() => {
+  const mode = uiModes.value.find(m => m.name === uiMode.value)
+  return mode?.icon || 'mdi-devices'
 })
 
 // 主题相关功能
@@ -546,6 +585,41 @@ onUnmounted(() => {
             <VListItemTitle>{{ t('user.siteAuth') }}</VListItemTitle>
           </VListItem>
 
+          <!-- 👉 UI模式设置 - 使用嵌套菜单 -->
+          <VMenu location="end" offset-x min-width="200" v-model="showUIModeMenu" :close-on-content-click="true">
+            <template v-slot:activator="{ props: menuProps }">
+              <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
+                <template #prepend>
+                  <VIcon :icon="getUIModeIcon" />
+                </template>
+                <VListItemTitle>{{ t('common.uiMode') }}</VListItemTitle>
+                <VListItemSubtitle>
+                  {{ uiModes.find(m => m.name === uiMode)?.title || t('theme.autoUI') }}
+                </VListItemSubtitle>
+                <template #append>
+                  <VIcon icon="mdi-chevron-right" size="small" />
+                </template>
+              </VListItem>
+            </template>
+            <VList>
+              <VListItem
+                v-for="mode in uiModes"
+                :key="mode.name"
+                @click="changeUIMode(mode.name as UIMode)"
+                :active="uiMode === mode.name"
+                class="mb-1"
+              >
+                <template #prepend>
+                  <VIcon :icon="mode.icon" />
+                </template>
+                <VListItemTitle>{{ mode.title }}</VListItemTitle>
+                <template #append v-if="uiMode === mode.name">
+                  <VIcon icon="mdi-check" color="primary" size="small" />
+                </template>
+              </VListItem>
+            </VList>
+          </VMenu>
+
           <!-- 👉 主题设置 - 使用嵌套菜单 -->
           <VMenu location="end" offset-x min-width="200" v-model="showThemeMenu" :close-on-content-click="true">
             <template v-slot:activator="{ props: menuProps }">
@@ -553,9 +627,10 @@ onUnmounted(() => {
                 <template #prepend>
                   <VIcon :icon="getThemeIcon" />
                 </template>
-                <VListItemTitle>
-                  {{ themes.find(t => t.name === currentThemeName)?.title || t('common.theme') }}
-                </VListItemTitle>
+                <VListItemTitle>{{ t('common.theme') }}</VListItemTitle>
+                <VListItemSubtitle>
+                  {{ themes.find(t => t.name === currentThemeName)?.title || t('theme.auto') }}
+                </VListItemSubtitle>
                 <template #append>
                   <VIcon icon="mdi-chevron-right" size="small" />
                 </template>
