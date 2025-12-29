@@ -132,7 +132,7 @@ export default {
     light: 'Light',
     dark: 'Dark',
     auto: 'Follow System',
-    autoUI: 'Auto Layout',
+    autoUI: 'Auto',
     transparent: 'Transparent',
     purple: 'Purple',
     custom: 'Custom Style',

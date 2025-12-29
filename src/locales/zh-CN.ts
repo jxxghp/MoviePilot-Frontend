@@ -132,7 +132,7 @@ export default {
     light: '浅色',
     dark: '深色',
     auto: '跟随系统',
-    autoUI: '自动布局',
+    autoUI: '自动',
     transparent: '透明',
     purple: '幻紫',
     custom: '附加样式',

@@ -132,7 +132,7 @@ export default {
     light: '淺色',
     dark: '深色',
     auto: '跟隨系統',
-    autoUI: '自動佈局',
+    autoUI: '自動',
     transparent: '透明',
     purple: '幻紫',
     custom: '附加樣式',

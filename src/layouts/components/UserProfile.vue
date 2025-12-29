@@ -262,8 +262,6 @@ const uiModes = computed(() => [
 function changeUIMode(mode: UIMode) {
   setUIMode(mode)
   showUIModeMenu.value = false
-  // 刷新页面以应用更改
-  window.location.reload()
 }
 
 // 获取当前UI模式图标
