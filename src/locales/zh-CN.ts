@@ -1226,6 +1226,7 @@ export default {
       title: '关于 MoviePilot',
       softwareVersion: '软件版本',
       frontendVersion: '前端版本',
+      browserVersion: '浏览器缓存版本',
       authVersion: '认证资源版本',
       indexerVersion: '站点资源版本',
       configDir: '配置目录',

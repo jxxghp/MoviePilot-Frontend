@@ -1229,6 +1229,7 @@ export default {
       title: 'About MoviePilot',
       softwareVersion: 'Software Version',
       frontendVersion: 'Frontend Version',
+      browserVersion: 'Browser Cached Version',
       authVersion: 'Auth Resource Version',
       indexerVersion: 'Indexer Resource Version',
       configDir: 'Config Directory',

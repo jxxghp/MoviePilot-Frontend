@@ -4,8 +4,13 @@ import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
+declare const __APP_VERSION__: string
+
 // 国际化
 const { t } = useI18n()
+
+// APP版本
+const appVersion = __APP_VERSION__
 
 // 定义事件
 const emit = defineEmits(['close'])
@@ -166,6 +171,16 @@ onMounted(() => {
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                       <span class="flex-grow flex flex-row items-center truncate">
                         <code class="truncate">{{ systemEnv.FRONTEND_VERSION }}</code>
+                      </span>
+                    </dd>
+                  </div>
+                </div>
+                <div>
+                  <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                    <dt class="block text-sm font-bold">{{ t('setting.about.browserVersion') }}</dt>
+                    <dd class="flex text-sm sm:col-span-2 sm:mt-0">
+                      <span class="flex-grow flex flex-row items-center truncate">
+                        <code class="truncate">{{ appVersion }}</code>
                       </span>
                     </dd>
                   </div>
