@@ -66,6 +66,7 @@ export default {
     serviceUnavailable: 'Service Unavailable',
     status: 'Status',
     preset: 'Preset',
+    refresh: 'Refresh',
     newVersionAvailable: 'New version detected, please refresh the page to get the latest features',
   },
   mediaType: {
