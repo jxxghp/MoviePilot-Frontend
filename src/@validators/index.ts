@@ -1,4 +1,4 @@
-import type { ValidationRule } from 'vuetify/types/services/validation'
+type ValidationRule = (value: any) => string | boolean
 
 // 必输校验
 export const requiredValidator: ValidationRule = (value: any) => {

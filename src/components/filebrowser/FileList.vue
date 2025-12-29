@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
@@ -28,7 +28,7 @@ const inProps = defineProps({
   icons: Object,
   endpoints: Object as PropType<EndPoints>,
   axios: {
-    type: Function,
+    type: Object as PropType<AxiosInstance>,
     required: true,
   },
   refreshpending: Boolean,
@@ -196,7 +196,7 @@ async function list_files() {
   }
 
   // 加载数据
-  const data = (await inProps.axios.request(config)) ?? []
+  const data = ((await inProps.axios.request(config)) as any) ?? []
   // 如果当前路径已经变化，则放弃此次加载结果
   if (prevURI !== takeURISnapshot()) {
     return;
@@ -300,7 +300,7 @@ async function download(item: FileItem) {
     responseType: 'blob',
   }
   // 加载数据
-  const result: Blob = await inProps.axios.request(config)
+  const result: Blob = (await inProps.axios.request(config)) as any
   if (result) {
     const downloadUrl = URL.createObjectURL(result)
     window.open(downloadUrl, '_blank')
@@ -318,7 +318,7 @@ async function getImgLink(item: FileItem) {
     responseType: 'blob',
   }
   // 加载二进制数据
-  const result: Blob = await inProps.axios.request(config)
+  const result: Blob = (await inProps.axios.request(config)) as any
   if (result) {
     // 创建图片地址
     currentImgLink.value = URL.createObjectURL(result)
@@ -395,7 +395,7 @@ async function rename() {
     method: inProps.endpoints?.rename.method || 'post',
     data: currentItem.value,
   }
-  const result: { [key: string]: any } = await inProps.axios?.request(config)
+  const result: { [key: string]: any } = (await inProps.axios?.request(config)) as any
   if (!result.success) {
     $toast.error(result.message)
   }
