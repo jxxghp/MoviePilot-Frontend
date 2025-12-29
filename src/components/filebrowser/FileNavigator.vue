@@ -131,7 +131,7 @@ async function loadSubdirectories(path: string) {
       data: fakeItem,
     }
 
-    const result = (await props.axios?.request(config)) as any
+    const result = (await props.axios?.request(config))
     if (result && Array.isArray(result)) {
       // 过滤出目录项
       const dirs = result.filter(item => item.type === 'dir')

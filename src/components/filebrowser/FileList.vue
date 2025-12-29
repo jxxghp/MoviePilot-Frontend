@@ -196,7 +196,7 @@ async function list_files() {
   }
 
   // 加载数据
-  const data = ((await inProps.axios.request(config)) as any) ?? []
+  const data = ((await inProps.axios.request<FileItem[], FileItem[]>(config))) ?? []
   // 如果当前路径已经变化，则放弃此次加载结果
   if (prevURI !== takeURISnapshot()) {
     return;
@@ -300,7 +300,7 @@ async function download(item: FileItem) {
     responseType: 'blob',
   }
   // 加载数据
-  const result: Blob = (await inProps.axios.request(config)) as any
+  const result: Blob = (await inProps.axios.request<Blob, Blob>(config))
   if (result) {
     const downloadUrl = URL.createObjectURL(result)
     window.open(downloadUrl, '_blank')
@@ -318,7 +318,7 @@ async function getImgLink(item: FileItem) {
     responseType: 'blob',
   }
   // 加载二进制数据
-  const result: Blob = (await inProps.axios.request(config)) as any
+  const result: Blob = (await inProps.axios.request<Blob, Blob>(config))
   if (result) {
     // 创建图片地址
     currentImgLink.value = URL.createObjectURL(result)
@@ -395,7 +395,7 @@ async function rename() {
     method: inProps.endpoints?.rename.method || 'post',
     data: currentItem.value,
   }
-  const result: { [key: string]: any } = (await inProps.axios?.request(config)) as any
+  const result: { [key: string]: any } = (await inProps.axios?.request<any, { [key: string]: any }>(config))
   if (!result.success) {
     $toast.error(result.message)
   }
