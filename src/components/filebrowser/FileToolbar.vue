@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import type { EndPoints, FileItem } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -23,7 +23,7 @@ const inProps = defineProps({
   },
   endpoints: Object as PropType<EndPoints>,
   axios: {
-    type: Function,
+    type: Object as PropType<AxiosInstance>,
     required: true,
   },
   sort: {

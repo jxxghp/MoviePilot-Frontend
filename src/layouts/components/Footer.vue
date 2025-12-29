@@ -328,6 +328,7 @@ const showDynamicButton = computed(() => {
   block-size: auto;
   inline-size: auto;
   min-block-size: 0;
+  max-width: 60px; // 限制最大宽度以便动画
 
   .footer-card-content {
     padding: 3px;
@@ -358,14 +359,12 @@ const showDynamicButton = computed(() => {
   transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
+.fade-slide-enter-from,
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateX(20px);
+  max-width: 0;
+  margin-inline-start: 0 !important;
 }
 
 @keyframes fade-in {

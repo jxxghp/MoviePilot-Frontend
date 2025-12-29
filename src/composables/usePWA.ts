@@ -12,6 +12,16 @@ const globalPwaStatus = ref<{
 const globalLoading = ref(false)
 let initPromise: Promise<void> | null = null
 
+// UI模式设置
+export type UIMode = 'auto' | 'desktop' | 'app'
+const uiMode = ref<UIMode>((localStorage.getItem('ui-mode') as UIMode) || 'auto')
+
+// 设置UI模式
+function setUIMode(mode: UIMode) {
+  uiMode.value = mode
+  localStorage.setItem('ui-mode', mode)
+}
+
 // 全局初始化函数
 async function initializePWAGlobally() {
   if (initPromise) return initPromise
@@ -50,6 +60,8 @@ export function usePWA() {
   })
 
   const appMode = computed(() => {
+    if (uiMode.value === 'app') return true
+    if (uiMode.value === 'desktop') return false
     return pwaMode.value && display.mdAndDown.value
   })
 
@@ -70,6 +82,8 @@ export function usePWA() {
     pwaMode,
     appMode,
     pwaStatus,
+    uiMode,
+    setUIMode,
     loading: globalLoading,
     initializePWA: initializePWAGlobally,
   }

@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/vue'
-import { aliases } from 'vuetify/lib/iconsets/mdi'
+import { aliases } from 'vuetify/iconsets/mdi'
 
 const alertTypeIcon = {
   success: 'mdi-check-circle-outline',

@@ -4,6 +4,7 @@ import FileToolbar from './filebrowser/FileToolbar.vue'
 import FileNavigator from './filebrowser/FileNavigator.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
 import { storageIconDict } from '@/api/constants'
+import type { AxiosInstance } from 'axios'
 
 // LocalStorage keys
 const SORT_KEY = 'fileBrowser.sort'
@@ -16,7 +17,7 @@ const props = defineProps({
   tree: Boolean,
   endpoints: Object as PropType<EndPoints>,
   axios: {
-    type: Function,
+    type: Object as PropType<AxiosInstance>,
     required: true,
   },
   axiosconfig: Object,
