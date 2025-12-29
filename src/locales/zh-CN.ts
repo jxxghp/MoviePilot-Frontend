@@ -1246,6 +1246,7 @@ export default {
       dataDirectory: '/moviepilot',
       expand: '展开',
       collapse: '收起',
+      cleanCache: '清除缓存',
     },
     system: {
       custom: '自定义',

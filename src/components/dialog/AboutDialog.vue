@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
+import { clearCachesAndServiceWorker } from '@/composables/useVersionChecker'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -120,6 +121,13 @@ function releaseTime(releaseDate: string) {
   return formatDateDifference(releaseDate)
 }
 
+// 强制清除缓存
+async function cleanCache() {
+  await clearCachesAndServiceWorker()
+  // 刷新页面
+  window.location.reload()
+}
+
 onMounted(() => {
   querySystemEnv()
   queryAllRelease()
@@ -181,6 +189,17 @@ onMounted(() => {
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                       <span class="flex-grow flex flex-row items-center truncate">
                         <code class="truncate">{{ appVersion }}</code>
+                        <VBtn
+                          size="x-small"
+                          variant="tonal"
+                          class="ms-2"
+                          @click="cleanCache"
+                        >
+                          <template #prepend>
+                            <VIcon icon="mdi-refresh" size="14" />
+                          </template>
+                          {{ t('setting.about.cleanCache') }}
+                        </VBtn>
                       </span>
                     </dd>
                   </div>

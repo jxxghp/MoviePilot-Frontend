@@ -15,6 +15,29 @@ const needsUpdate = computed(() => {
 })
 
 /**
+ * 清除所有缓存和 Service Worker
+ */
+export const clearCachesAndServiceWorker = async (): Promise<void> => {
+  try {
+    // 1. 清除所有缓存
+    if ('caches' in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map(name => caches.delete(name)))
+      console.log('[VersionChecker] 已清除所有缓存')
+    }
+
+    // 2. 注销 Service Worker
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(registrations.map(registration => registration.unregister()))
+      console.log('[VersionChecker] 已注销所有 Service Worker')
+    }
+  } catch (error) {
+    console.error('[VersionChecker] 清除缓存失败:', error)
+  }
+}
+
+/**
  * 版本检查 Composable
  *
  * 功能：
@@ -24,29 +47,6 @@ const needsUpdate = computed(() => {
  */
 export function useVersionChecker() {
   const toast = useToast()
-
-  /**
-   * 清除所有缓存和 Service Worker
-   */
-  const clearCachesAndServiceWorker = async (): Promise<void> => {
-    try {
-      // 1. 清除所有缓存
-      if ('caches' in window) {
-        const cacheNames = await caches.keys()
-        await Promise.all(cacheNames.map(name => caches.delete(name)))
-        console.log('[VersionChecker] 已清除所有缓存')
-      }
-
-      // 2. 注销 Service Worker
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations()
-        await Promise.all(registrations.map(registration => registration.unregister()))
-        console.log('[VersionChecker] 已注销所有 Service Worker')
-      }
-    } catch (error) {
-      console.error('[VersionChecker] 清除缓存失败:', error)
-    }
-  }
 
   /**
    * 显示版本更新通知（带刷新按钮）
