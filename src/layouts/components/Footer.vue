@@ -15,7 +15,6 @@ defineProps({
   },
 })
 
-
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
@@ -171,51 +170,57 @@ const showDynamicButton = computed(() => {
 <template>
   <Teleport v-if="appMode && showNav" to="body">
     <div class="footer-nav-container">
-      <VCard elevation="3" class="footer-nav-card border" rounded="pill" :class="{ 'shift-left': showDynamicButton }">
-        <VCardText class="footer-card-content">
-          <!-- 添加指示器 -->
-          <div ref="indicator" class="nav-indicator"></div>
-          <VBtnToggle class="footer-btn-group" :mandatory="true" v-model="currentMenu">
-            <!-- 遍历底部菜单项 -->
-            <VBtn
-              v-for="menu in footerMenus"
-              :key="menu.to"
-              :to="menu.to"
-              :variant="currentMenu === menu.to ? 'text' : 'plain'"
-              color="primary"
-              :ripple="false"
-              class="footer-nav-btn"
-              rounded="pill"
-              :class="{ 'footer-nav-btn-active': currentMenu === menu.to }"
-              :value="menu.to"
-            >
-              <div class="btn-content">
-                <VIcon :icon="menu.icon" size="32"></VIcon>
-                <span v-if="!isEnglish" class="text-xs">{{ menu.title }}</span>
-              </div>
-            </VBtn>
+      <TransitionGroup name="footer-nav" tag="div" class="footer-nav-group">
+        <VCard key="main-nav" elevation="3" class="footer-nav-card border" rounded="pill">
+          <VCardText class="footer-card-content">
+            <!-- 添加指示器 -->
+            <div ref="indicator" class="nav-indicator"></div>
+            <VBtnToggle class="footer-btn-group" :mandatory="true" v-model="currentMenu">
+              <!-- 遍历底部菜单项 -->
+              <VBtn
+                v-for="menu in footerMenus"
+                :key="menu.to"
+                :to="menu.to"
+                :variant="currentMenu === menu.to ? 'text' : 'plain'"
+                color="primary"
+                :ripple="false"
+                class="footer-nav-btn"
+                rounded="pill"
+                :class="{ 'footer-nav-btn-active': currentMenu === menu.to }"
+                :value="menu.to"
+              >
+                <div class="btn-content">
+                  <VIcon :icon="menu.icon" size="32"></VIcon>
+                  <span v-if="!isEnglish" class="text-xs">{{ menu.title }}</span>
+                </div>
+              </VBtn>
 
-            <!-- 更多按钮 -->
-            <VBtn
-              :variant="currentMenu === '/apps' ? 'text' : 'plain'"
-              color="primary"
-              :ripple="false"
-              to="/apps"
-              rounded="pill"
-              class="footer-nav-btn"
-              :class="{ 'footer-nav-btn-active': currentMenu === '/apps' }"
-              value="/apps"
-            >
-              <div class="btn-content">
-                <VIcon icon="mdi-dots-horizontal" size="32"></VIcon>
-                <span v-if="!isEnglish" class="text-xs">{{ t('nav.more') }}</span>
-              </div>
-            </VBtn>
-          </VBtnToggle>
-        </VCardText>
-      </VCard>
-      <Transition name="fade-slide">
-        <VCard v-if="showDynamicButton" elevation="3" class="footer-nav-card dynamic-btn-card border" rounded="pill">
+              <!-- 更多按钮 -->
+              <VBtn
+                :variant="currentMenu === '/apps' ? 'text' : 'plain'"
+                color="primary"
+                :ripple="false"
+                to="/apps"
+                rounded="pill"
+                class="footer-nav-btn"
+                :class="{ 'footer-nav-btn-active': currentMenu === '/apps' }"
+                value="/apps"
+              >
+                <div class="btn-content">
+                  <VIcon icon="mdi-dots-horizontal" size="32"></VIcon>
+                  <span v-if="!isEnglish" class="text-xs">{{ t('nav.more') }}</span>
+                </div>
+              </VBtn>
+            </VBtnToggle>
+          </VCardText>
+        </VCard>
+        <VCard
+          v-if="showDynamicButton"
+          key="dynamic-btn"
+          elevation="3"
+          class="footer-nav-card dynamic-btn-card border"
+          rounded="pill"
+        >
           <VCardText class="footer-card-content">
             <!-- 各页面的动态按钮 -->
             <VBtn
@@ -230,7 +235,7 @@ const showDynamicButton = computed(() => {
             </VBtn>
           </VCardText>
         </VCard>
-      </Transition>
+      </TransitionGroup>
     </div>
   </Teleport>
 </template>
@@ -246,6 +251,12 @@ const showDynamicButton = computed(() => {
   inset-inline: 0;
   padding-block-end: calc(6px + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
+}
+
+.footer-nav-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   // 按钮卡片之间的间距
   > .v-card + .v-card {
@@ -260,15 +271,12 @@ const showDynamicButton = computed(() => {
   background-color: rgba(var(--v-theme-surface), 0.6);
   pointer-events: auto;
   transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, max-width, opacity;
 
   // 透明主题下的特殊样式
   .v-theme--transparent & {
     backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
     background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
-  }
-
-  &.shift-left {
-    transform: translateX(0);
   }
 
   .v-btn-toggle {
@@ -328,6 +336,7 @@ const showDynamicButton = computed(() => {
   block-size: auto;
   inline-size: auto;
   min-block-size: 0;
+  max-width: 60px;
 
   .footer-card-content {
     padding: 3px;
@@ -349,23 +358,25 @@ const showDynamicButton = computed(() => {
   }
 }
 
-// 淡入滑动动画
-.fade-slide-enter-active {
+// 底部导航动画
+.footer-nav-enter-active,
+.footer-nav-leave-active {
   transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  overflow: hidden;
 }
 
-.fade-slide-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.fade-slide-enter-from {
+.footer-nav-enter-from,
+.footer-nav-leave-to {
   opacity: 0;
+  max-width: 0 !important;
+  margin-inline-start: 0 !important;
+  border-width: 0 !important;
+  padding: 0 !important;
   transform: translateX(20px);
 }
 
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
+.footer-nav-move {
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 @keyframes fade-in {
