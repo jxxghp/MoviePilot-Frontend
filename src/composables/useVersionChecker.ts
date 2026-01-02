@@ -3,16 +3,24 @@ import { useToast } from 'vue-toastification'
 import i18n from '@/plugins/i18n'
 import VersionUpdateToast from '@/components/toast/VersionUpdateToast.vue'
 
-// 声明全局变量类型
-declare const __APP_VERSION__: string
-
 // 全局状态
 const currentVersion = ref(__APP_VERSION__)
+let isListenerAdded = false
+let notificationShowTime = 0
 const serverVersion = ref<string | null>(null)
 const versionChecked = ref(false)
 const needsUpdate = computed(() => {
   return serverVersion.value !== null && serverVersion.value !== currentVersion.value
 })
+
+/**
+ * 刷新页面并添加时间戳
+ */
+export const reloadWithTimestamp = (): void => {
+  const url = new URL(window.location.href)
+  url.searchParams.set('t', Date.now().toString())
+  window.location.href = url.toString()
+}
 
 /**
  * 清除所有缓存和 Service Worker
@@ -56,6 +64,7 @@ export function useVersionChecker() {
     const component = h(VersionUpdateToast, {
       message: i18n.global.t('common.newVersionAvailable'),
       refreshText: i18n.global.t('common.refresh'),
+      onRefresh: reloadWithTimestamp,
     })
 
     toast.info(component, {
@@ -79,16 +88,46 @@ export function useVersionChecker() {
     // 更新服务端版本
     serverVersion.value = latestVersion
 
-    // 版本不同，且尚未显示通知
-    if (needsUpdate.value) {
-      versionChecked.value = true
-      console.log(`[VersionChecker] 检测到版本更新: ${currentVersion.value} -> ${latestVersion}`)
+    // 执行版本不一致时的处理逻辑
+    const handleVersionMismatch = async () => {
+      if (needsUpdate.value) {
+        versionChecked.value = true
+        console.log(`[VersionChecker] 检测到版本更新: ${currentVersion.value} -> ${latestVersion}`)
 
-      // 清除缓存和 Service Worker
-      await clearCachesAndServiceWorker()
+        // 清除缓存和 Service Worker
+        await clearCachesAndServiceWorker()
 
-      // 显示持久化通知
-      showUpdateNotification()
+        // 显示持久化通知
+        showUpdateNotification()
+      }
+    }
+
+    // 优先尝试通过 Service Worker 检查更新
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      console.log('[VersionChecker] Requesting Service Worker update check...')
+
+      const registration = await navigator.serviceWorker.getRegistration()
+
+      // 如果已经有等待中的更新，直接处理
+      if (registration?.waiting) {
+        console.log('[VersionChecker] New worker waiting, skipping manual check.')
+        handleVersionMismatch()
+        return
+      }
+
+      const messageChannel = new MessageChannel()
+
+      messageChannel.port1.onmessage = event => {
+        if (event.data && event.data.type === 'SW_NO_UPDATE_DETECTED') {
+          console.log('[VersionChecker] Service Worker reported no update, checking version manually...')
+          handleVersionMismatch()
+        }
+      }
+
+      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_SW_UPDATE' }, [messageChannel.port2])
+    } else {
+      // 如果没有 Service Worker 控制，直接进行版本比较
+      await handleVersionMismatch()
     }
   }
 
@@ -98,6 +137,32 @@ export function useVersionChecker() {
   const resetVersionCheck = (): void => {
     versionChecked.value = false
     serverVersion.value = null
+  }
+
+  // 监听 Service Worker 版本更新消息
+  if (!isListenerAdded && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      // 1. 发现新版本 -> 弹出通知
+      if (event.data && event.data.type === 'SW_VERSION_DETECTED') {
+        console.log('[VersionChecker] Detected new version:', event.data.version)
+        notificationShowTime = Date.now()
+        toast.info(i18n.global.t('common.newVersionFound'), {
+          timeout: false,
+          hideProgressBar: true,
+          closeButton: false,
+        })
+      }
+      // 2. 安装完成 -> 刷新页面
+      else if (event.data && event.data.type === 'SW_RELOAD_PAGE') {
+        const elapsed = Date.now() - notificationShowTime
+        const delay = Math.max(0, 1000 - elapsed)
+        console.log(`[VersionChecker] Update installed, reloading in ${delay}ms...`)
+        setTimeout(() => {
+          reloadWithTimestamp()
+        }, delay)
+      }
+    })
+    isListenerAdded = true
   }
 
   return {

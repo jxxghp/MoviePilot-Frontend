@@ -237,6 +237,13 @@ async function loadBackgroundImages(retryCount = 0) {
 }
 
 onMounted(async () => {
+  // 移除URL中的时间戳参数
+  const url = new URL(window.location.href)
+  if (url.searchParams.has('t')) {
+    url.searchParams.delete('t')
+    window.history.replaceState({}, '', url.toString())
+  }
+
   // 配置 ApexCharts
   configureApexCharts()
 

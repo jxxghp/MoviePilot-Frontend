@@ -1,11 +1,9 @@
 <script lang="ts" setup>
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
-import { clearCachesAndServiceWorker } from '@/composables/useVersionChecker'
+import { clearCachesAndServiceWorker, reloadWithTimestamp } from '@/composables/useVersionChecker'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
-
-declare const __APP_VERSION__: string
 
 // 国际化
 const { t } = useI18n()
@@ -124,8 +122,8 @@ function releaseTime(releaseDate: string) {
 // 强制清除缓存
 async function cleanCache() {
   await clearCachesAndServiceWorker()
-  // 刷新页面
-  window.location.reload()
+  // 刷新页面，添加时间戳参数以强制更新
+  reloadWithTimestamp()
 }
 
 onMounted(() => {

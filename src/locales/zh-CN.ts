@@ -69,6 +69,7 @@ export default {
     preset: '预设',
     refresh: '刷新',
     newVersionAvailable: '检测到新版本，请刷新页面以获取最新功能',
+    newVersionFound: '发现新版本，正在更新...',
   },
   mediaType: {
     movie: '电影',

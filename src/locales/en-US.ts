@@ -69,6 +69,7 @@ export default {
     preset: 'Preset',
     refresh: 'Refresh',
     newVersionAvailable: 'New version detected, please refresh the page to get the latest features',
+    newVersionFound: 'New version found, updating...',
   },
   mediaType: {
     movie: 'Movie',

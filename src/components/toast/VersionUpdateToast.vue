@@ -12,12 +12,17 @@
 interface Props {
   message: string
   refreshText: string
+  onRefresh?: () => void
 }
 
 const props = defineProps<Props>()
 
 const handleRefresh = () => {
-  window.location.reload()
+  if (props.onRefresh) {
+    props.onRefresh()
+  } else {
+    window.location.reload()
+  }
 }
 </script>
 
