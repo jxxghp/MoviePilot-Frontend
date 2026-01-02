@@ -15,7 +15,7 @@ import { themeManager } from '@/utils/themeManager'
 
 // 生效主题
 const { global: globalTheme } = useTheme()
-let themeValue = localStorage.getItem('theme') || 'light'
+let themeValue = localStorage.getItem('theme') || 'auto'
 const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
 globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
 
@@ -239,8 +239,8 @@ async function loadBackgroundImages(retryCount = 0) {
 onMounted(async () => {
   // 移除URL中的时间戳参数
   const url = new URL(window.location.href)
-  if (url.searchParams.has('t')) {
-    url.searchParams.delete('t')
+  if (url.searchParams.has('_t')) {
+    url.searchParams.delete('_t')
     window.history.replaceState({}, '', url.toString())
   }
 

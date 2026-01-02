@@ -7,11 +7,13 @@ import * as navigationPreload from 'workbox-navigation-preload'
 
 // Service Worker 类型声明
 declare let self: ServiceWorkerGlobalScope & {
-  __WB_MANIFEST: Array<{ url: string; revision?: string }>
+  readonly __WB_MANIFEST: Array<{ url: string; revision?: string }>
 }
 
 // 缓存版本控制
-const CACHE_VERSION = `${__APP_VERSION__}-${__BUILD_TIME__}`
+const RESOURCE_VERSION = 'V2'
+// 开发环境CACHE_VERSION回退到RESOURCE_VERSION
+const CACHE_VERSION = typeof __APP_VERSION__ !== 'undefined' ? `${__APP_VERSION__}-${__BUILD_TIME__}` : RESOURCE_VERSION
 
 // 启用导航预载
 navigationPreload.enable()
@@ -111,7 +113,7 @@ registerRoute(
 registerRoute(
   ({ request }) => request.destination === 'image',
   new CacheFirst({
-    cacheName: `image-cache-${CACHE_VERSION}`,
+    cacheName: `image-cache-${RESOURCE_VERSION}`,
     plugins: [
       new CacheableResponsePlugin({
         statuses: [0, 200],
@@ -128,7 +130,7 @@ registerRoute(
 registerRoute(
   ({ request }) => request.destination === 'font',
   new CacheFirst({
-    cacheName: `font-cache-${CACHE_VERSION}`,
+    cacheName: `font-cache-${RESOURCE_VERSION}`,
     plugins: [
       new CacheableResponsePlugin({
         statuses: [0, 200],
@@ -145,7 +147,7 @@ registerRoute(
 registerRoute(
   ({ url }) => url.hostname === 'image.tmdb.org',
   new CacheFirst({
-    cacheName: `tmdb-image-cache-${CACHE_VERSION}`,
+    cacheName: `tmdb-image-cache-${RESOURCE_VERSION}`,
     plugins: [
       new CacheableResponsePlugin({
         statuses: [0, 200],
@@ -165,7 +167,8 @@ registerRoute(
     request.method === 'GET' &&
     !url.pathname.includes('/api/v1/system/message') && // 排除 SSE 长连接
     !url.pathname.includes('/api/v1/common/message') && // 排除通用消息
-    !url.pathname.includes('/api/v1/message/'), // 排除所有消息类接口
+    !url.pathname.includes('/api/v1/message/') && // 排除所有消息类接口
+    !url.pathname.includes('/api/v1/system/global'), // 排除global接口
   new NetworkFirst({
     cacheName: `api-cache-${CACHE_VERSION}`,
     networkTimeoutSeconds: 5,
@@ -201,14 +204,23 @@ async function cleanupRuntimeCaches(onlyOld: boolean = false) {
     'font-cache',
     'api-cache',
     'tmdb-image-cache',
-    'pages-cache',
+  ]
+
+  // 当前版本的缓存全名
+  const currentCacheNames = [
+    `app-shell-${CACHE_VERSION}`,
+    `static-resources-${CACHE_VERSION}`,
+    `image-cache-${RESOURCE_VERSION}`,
+    `font-cache-${RESOURCE_VERSION}`,
+    `tmdb-image-cache-${RESOURCE_VERSION}`,
+    `api-cache-${CACHE_VERSION}`,
   ]
 
   await Promise.all(
     cacheNames.map(cacheName => {
       const isRuntimeCache = runtimeCachePrefixes.some(prefix => cacheName.startsWith(prefix))
       if (isRuntimeCache) {
-        if (!onlyOld || !cacheName.includes(CACHE_VERSION)) {
+        if (!onlyOld || !currentCacheNames.includes(cacheName)) {
           console.log('[SW] Deleting runtime cache:', cacheName)
           return caches.delete(cacheName)
         }
@@ -285,9 +297,9 @@ async function updateBadge(count: number) {
   if ('setAppBadge' in self.navigator) {
     try {
       if (count > 0) {
-        await (self.navigator as any).setAppBadge(count)
+        await self.navigator.setAppBadge(count)
       } else {
-        await (self.navigator as any).clearAppBadge()
+        await self.navigator.clearAppBadge()
       }
     } catch (error) {
       console.error('Failed to update app badge:', error)
@@ -298,7 +310,7 @@ async function updateBadge(count: number) {
 async function clearBadge() {
   if ('clearAppBadge' in self.navigator) {
     try {
-      await (self.navigator as any).clearAppBadge()
+      await self.navigator.clearAppBadge()
       await setStoredUnreadCount(0)
     } catch (error) {
       console.error('Failed to clear app badge:', error)

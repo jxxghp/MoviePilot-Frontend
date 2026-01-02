@@ -193,6 +193,35 @@
         transform: rotate(1turn);
       }
     }
+
+    /* 超时通知样式 */
+    #loading-timeout {
+      position: absolute;
+      z-index: 2500;
+      display: none;
+      inset-block-end: 20px;
+      inset-inline-start: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: sans-serif;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #timeout-btn {
+      color: var(--initial-loader-color, #9155FD);
+      text-decoration: none;
+      font-weight: bold;
+      margin-inline-start: 8px;
+      border-bottom: 1px solid var(--initial-loader-color, #9155FD);
+    }
   </style>
 
   <script>
@@ -210,7 +239,7 @@
     let primaryColor = localStorage.getItem('materio-initial-loader-color')
 
     // 检查主题设置
-    const savedTheme = localStorage.getItem('theme')
+    const savedTheme = localStorage.getItem('theme') || 'auto'
     const isAutoTheme = savedTheme === 'auto'
 
     // 如果是自动主题或者没有保存的背景色，根据系统主题设置背景色
@@ -243,6 +272,38 @@
     updateSafeArea()
     window.addEventListener('resize', updateSafeArea)
     window.addEventListener('orientationchange', updateSafeArea)
+
+    // 清除缓存处理逻辑
+    window.clearAndReload = async function() {
+      try {
+        // 1. 清除所有缓存
+        if ('caches' in window) {
+          const cacheNames = await caches.keys()
+          await Promise.all(cacheNames.map(name => caches.delete(name)))
+          console.log('[VersionChecker] 已清除所有缓存')
+        }
+        // 2. 注销 Service Worker
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations()
+          await Promise.all(registrations.map(registration => registration.unregister()))
+          console.log('[VersionChecker] 已注销所有 Service Worker')
+        }
+      } catch (e) {
+        console.error('[VersionChecker] 清除缓存时出错:', e)
+      } finally {
+        // 3. 重载页面
+        const url = new URL(window.location.href)
+        url.searchParams.set('_t', Date.now().toString())
+        window.location.replace(url.toString())
+      }
+    };
+
+    setTimeout(function() {
+      const timeoutEl = document.getElementById('loading-timeout');
+      if (timeoutEl) {
+        timeoutEl.style.display = 'block';
+      }
+    }, 15000); // 15秒后显示超时提示
   </script>
 </head>
 
@@ -256,6 +317,10 @@
       <div class="effect-1 effects"></div>
       <div class="effect-2 effects"></div>
       <div class="effect-3 effects"></div>
+    </div>
+    <!-- 超时提示 - 默认隐藏 -->
+    <div id="loading-timeout">
+      页面加载似乎遇到了阻碍，请尝试 <a href="javascript:void(0)" onclick="window.clearAndReload()" id="timeout-btn">清除缓存</a>
     </div>
   </div>
   <div id="app"></div>

@@ -45,7 +45,7 @@ const templateTypes = ref([
 
 // 编辑器主题
 const { name: themeName, global: globalTheme } = useTheme()
-const savedTheme = ref(localStorage.getItem('theme') ?? themeName)
+const savedTheme = ref(localStorage.getItem('theme') ?? 'auto')
 const currentThemeName = ref(savedTheme.value)
 const editorTheme = computed(() => (currentThemeName.value === 'light' ? 'github' : 'monokai'))
 

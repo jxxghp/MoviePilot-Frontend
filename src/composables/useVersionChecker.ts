@@ -18,8 +18,8 @@ const needsUpdate = computed(() => {
  */
 export const reloadWithTimestamp = (): void => {
   const url = new URL(window.location.href)
-  url.searchParams.set('t', Date.now().toString())
-  window.location.href = url.toString()
+  url.searchParams.set('_t', Date.now().toString())
+  window.location.replace(url.toString());
 }
 
 /**
