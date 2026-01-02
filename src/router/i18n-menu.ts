@@ -1,9 +1,8 @@
-import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
+import type { Composer } from 'vue-i18n'
 
 // 构建路由菜单，每次调用时使用当前的语言环境
-export function getNavMenus() {
-  const { t } = useI18n()
+export function getNavMenus(t: Composer['t']) {
   const globalSettingsStore = useGlobalSettingsStore()
 
   // 检查是否为高级模式
@@ -148,9 +147,7 @@ export function getNavMenus() {
 }
 
 // 获取设置标签页
-export function getSettingTabs() {
-  const { t } = useI18n()
-
+export function getSettingTabs(t: Composer['t']) {
   return [
     {
       title: t('settingTabs.system.title'),
@@ -204,9 +201,7 @@ export function getSettingTabs() {
 }
 
 // 获取电影订阅标签页
-export function getSubscribeMovieTabs() {
-  const { t } = useI18n()
-
+export function getSubscribeMovieTabs(t: Composer['t']) {
   return [
     {
       title: t('subscribeTabs.movie.mysub'),
@@ -222,9 +217,7 @@ export function getSubscribeMovieTabs() {
 }
 
 // 获取电视剧订阅标签页
-export function getSubscribeTvTabs() {
-  const { t } = useI18n()
-
+export function getSubscribeTvTabs(t: Composer['t']) {
   return [
     {
       title: t('subscribeTabs.tv.mysub'),
@@ -245,9 +238,7 @@ export function getSubscribeTvTabs() {
 }
 
 // 获取插件标签页
-export function getPluginTabs() {
-  const { t } = useI18n()
-
+export function getPluginTabs(t: Composer['t']) {
   return [
     {
       title: t('pluginTabs.installed'),
@@ -263,9 +254,7 @@ export function getPluginTabs() {
 }
 
 // 获取发现标签页
-export function getDiscoverTabs() {
-  const { t } = useI18n()
-
+export function getDiscoverTabs(t: Composer['t']) {
   return [
     {
       name: t('discoverTabs.themoviedb'),
@@ -286,9 +275,7 @@ export function getDiscoverTabs() {
 }
 
 // 获取工作流标签页
-export function getWorkflowTabs() {
-  const { t } = useI18n()
-
+export function getWorkflowTabs(t: Composer['t']) {
   return [
     {
       title: t('workflowTabs.list'),
