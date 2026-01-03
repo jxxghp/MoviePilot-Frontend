@@ -19,7 +19,7 @@ const needsUpdate = computed(() => {
 export const reloadWithTimestamp = (): void => {
   const url = new URL(window.location.href)
   url.searchParams.set('_t', Date.now().toString())
-  window.location.replace(url.toString());
+  window.location.replace(url.pathname + url.search + url.hash)
 }
 
 /**
@@ -72,6 +72,7 @@ export function useVersionChecker() {
       closeButton: false,
       closeOnClick: false,
       draggable: false,
+      toastClassName: 'version-update-toast-container',
     })
   }
 
@@ -104,13 +105,13 @@ export function useVersionChecker() {
 
     // 优先尝试通过 Service Worker 检查更新
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      console.log('[VersionChecker] Requesting Service Worker update check...')
+      console.log('[VersionChecker] 正在请求 Service Worker 检查更新...')
 
       const registration = await navigator.serviceWorker.getRegistration()
 
       // 如果已经有等待中的更新，直接处理
       if (registration?.waiting) {
-        console.log('[VersionChecker] New worker waiting, skipping manual check.')
+        console.log('[VersionChecker] Service Worker 发现新版本，跳过版本号对比')
         handleVersionMismatch()
         return
       }
@@ -119,7 +120,7 @@ export function useVersionChecker() {
 
       messageChannel.port1.onmessage = event => {
         if (event.data && event.data.type === 'SW_NO_UPDATE_DETECTED') {
-          console.log('[VersionChecker] Service Worker reported no update, checking version manually...')
+          console.log('[VersionChecker] Service Worker 报告无更新, 进行版本号检查...')
           handleVersionMismatch()
         }
       }
@@ -144,19 +145,25 @@ export function useVersionChecker() {
     navigator.serviceWorker.addEventListener('message', event => {
       // 1. 发现新版本 -> 弹出通知
       if (event.data && event.data.type === 'SW_VERSION_DETECTED') {
-        console.log('[VersionChecker] Detected new version:', event.data.version)
+        console.log('[VersionChecker] 发现新版本:', event.data.version)
         notificationShowTime = Date.now()
-        toast.info(i18n.global.t('common.newVersionFound'), {
+
+        const component = h(VersionUpdateToast, {
+          message: i18n.global.t('common.newVersionFound'),
+        })
+
+        toast.info(component, {
           timeout: false,
           hideProgressBar: true,
           closeButton: false,
+          toastClassName: 'version-update-toast-container',
         })
       }
       // 2. 安装完成 -> 刷新页面
       else if (event.data && event.data.type === 'SW_RELOAD_PAGE') {
         const elapsed = Date.now() - notificationShowTime
-        const delay = Math.max(0, 1000 - elapsed)
-        console.log(`[VersionChecker] Update installed, reloading in ${delay}ms...`)
+        const delay = Math.max(0, 1500 - elapsed)
+        console.log(`[VersionChecker] 更新已安装, 延迟 ${delay}ms 后刷新...`)
         setTimeout(() => {
           reloadWithTimestamp()
         }, delay)

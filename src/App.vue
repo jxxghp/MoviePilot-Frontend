@@ -241,7 +241,8 @@ onMounted(async () => {
   const url = new URL(window.location.href)
   if (url.searchParams.has('_t')) {
     url.searchParams.delete('_t')
-    window.history.replaceState({}, '', url.toString())
+    const newUrl = url.pathname + url.search + url.hash
+    window.history.replaceState(null, '', newUrl)
   }
 
   // 配置 ApexCharts

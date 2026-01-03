@@ -294,7 +294,7 @@
         // 3. 重载页面
         const url = new URL(window.location.href)
         url.searchParams.set('_t', Date.now().toString())
-        window.location.replace(url.toString())
+        window.location.replace(url.pathname + url.search + url.hash)
       }
     };
 
@@ -328,7 +328,16 @@
           msg = messages['zh-CN'];
         }
 
-        timeoutEl.innerHTML = msg.text + ' <a href="javascript:void(0)" onclick="window.clearAndReload()" id="timeout-btn">' + msg.btn + '</a>';
+        const textNode = document.createTextNode(msg.text + ' ');
+        const btnLink = document.createElement('a');
+        btnLink.href = 'javascript:void(0)';
+        btnLink.id = 'timeout-btn';
+        btnLink.onclick = window.clearAndReload;
+        btnLink.textContent = msg.btn;
+        
+        timeoutEl.innerHTML = '';
+        timeoutEl.appendChild(textNode);
+        timeoutEl.appendChild(btnLink);
         timeoutEl.style.display = 'block';
       }
     }, 15000); // 15秒后显示超时提示
