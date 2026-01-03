@@ -272,7 +272,7 @@ const getUIModeIcon = computed(() => {
 
 // 主题相关功能
 const { name: themeName, global: globalTheme } = useTheme()
-const savedTheme = ref(localStorage.getItem('theme') ?? themeName)
+const savedTheme = ref(localStorage.getItem('theme') ?? 'auto')
 const currentThemeName = ref(savedTheme.value)
 
 const themes: ThemeSwitcherTheme[] = [

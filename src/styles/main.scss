@@ -11,3 +11,36 @@
 @import 'vue-toastification/dist/index.css';
 @import 'vue3-perfect-scrollbar/style.css';
 @import '@vue-js-cron/vuetify/dist/vuetify.css'; 
+
+/* 版本更新通知专用样式 */
+.version-update-toast-container {
+  min-width: unset !important;
+  width: fit-content !important;
+
+  // 移动端适配：强制靠右并修正位置
+  @media only screen and (width <= 600px) {
+    max-width: calc(100vw - 1rem) !important;
+    margin-inline: 0 0.5rem !important;
+    border-radius: 8px !important;
+    position: relative !important;
+    top: calc(100vh - 12rem) !important; 
+  }
+}
+
+// 使用 :has 选择器精准控制包含更新通知的容器
+.Vue-Toastification__container:has(.version-update-toast-container) {
+  @media only screen and (width <= 600px) {
+    top: auto !important;
+    bottom: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    padding-block-end: 4.5rem !important;
+    pointer-events: none;
+
+    .version-update-toast-container {
+      pointer-events: auto;
+      margin-inline-end: 0.5rem !important;
+    }
+  }
+}

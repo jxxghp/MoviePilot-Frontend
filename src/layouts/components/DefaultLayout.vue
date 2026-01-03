@@ -197,7 +197,7 @@ const {
 // 根据分类获取菜单列表
 const getMenuList = (header: string) => {
   // 使用国际化菜单
-  const menus = getNavMenus()
+  const menus = getNavMenus(t)
   const filteredMenus = filterMenusByPermission(menus, userPermissions.value)
   return filteredMenus.filter((item: NavMenu) => item.header === header)
 }

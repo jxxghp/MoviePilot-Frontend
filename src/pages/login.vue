@@ -21,7 +21,7 @@ const authStore = useAuthStore()
 const userStore = useUserStore()
 
 // 获取有权限的菜单
-const navMenus = getNavMenus()
+const navMenus = computed(() => getNavMenus(t))
 
 // 表单
 const form = ref({
@@ -229,7 +229,7 @@ async function handleLoginSuccess(response: any) {
     ...userPayload.permissions,
   }
 
-  const filteredMenus = filterMenusByPermission(navMenus, userPermissions)
+  const filteredMenus = filterMenusByPermission(navMenus.value, userPermissions)
   if (filteredMenus.length === 0) {
     errorMessage.value = t('login.noPermission')
     return

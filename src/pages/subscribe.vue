@@ -22,9 +22,9 @@ const shareViewKey = ref(0)
 // 获取标签页
 const subscribeTabs = computed(() => {
   if (subType === '电影') {
-    return getSubscribeMovieTabs()
+    return getSubscribeMovieTabs(t)
   } else {
-    return getSubscribeTvTabs()
+    return getSubscribeTvTabs(t)
   }
 })
 

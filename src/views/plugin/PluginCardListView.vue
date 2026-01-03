@@ -32,7 +32,7 @@ const { appMode } = usePWA()
 const activeTab = ref('installed')
 
 // 获取插件标签页
-const pluginTabs = computed(() => getPluginTabs())
+const pluginTabs = computed(() => getPluginTabs(t))
 
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()

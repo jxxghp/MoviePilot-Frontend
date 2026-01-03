@@ -49,7 +49,7 @@ const userPermissions = computed(() => {
 
 // 获取导航菜单
 const navMenus = computed(() => {
-  const allMenus = getNavMenus()
+  const allMenus = getNavMenus(t)
   return filterMenusByPermission(allMenus, userPermissions.value)
 })
 

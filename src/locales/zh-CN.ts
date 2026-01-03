@@ -69,6 +69,7 @@ export default {
     preset: '预设',
     refresh: '刷新',
     newVersionAvailable: '检测到新版本，请刷新页面以获取最新功能',
+    newVersionFound: '发现新版本，正在更新...',
   },
   mediaType: {
     movie: '电影',
@@ -1246,7 +1247,7 @@ export default {
       dataDirectory: '/moviepilot',
       expand: '展开',
       collapse: '收起',
-      cleanCache: '清除缓存',
+      clearCache: '清除缓存',
     },
     system: {
       custom: '自定义',
