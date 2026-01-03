@@ -36,7 +36,8 @@ const handleRefresh = () => {
 
 .message {
   flex: 1;
-  white-space: nowrap;
+  word-break: break-all;
+  line-height: 1.4;
 }
 
 .refresh-button {
