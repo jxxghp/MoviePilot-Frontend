@@ -132,14 +132,6 @@ export function useVersionChecker() {
     }
   }
 
-  /**
-   * 重置版本检查状态（用于测试或特殊场景）
-   */
-  const resetVersionCheck = (): void => {
-    versionChecked.value = false
-    serverVersion.value = null
-  }
-
   // 监听 Service Worker 版本更新消息
   if (!isListenerAdded && 'serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', event => {
@@ -180,6 +172,5 @@ export function useVersionChecker() {
     versionChecked: computed(() => versionChecked.value),
     // 方法
     checkVersion,
-    resetVersionCheck,
   }
 }

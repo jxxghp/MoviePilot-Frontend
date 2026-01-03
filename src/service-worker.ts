@@ -12,8 +12,7 @@ declare let self: ServiceWorkerGlobalScope & {
 
 // 缓存版本控制
 const RESOURCE_VERSION = 'V2'
-// 开发环境CACHE_VERSION回退到RESOURCE_VERSION
-const CACHE_VERSION = typeof __APP_VERSION__ !== 'undefined' ? `${__APP_VERSION__}-${__BUILD_TIME__}` : RESOURCE_VERSION
+const CACHE_VERSION = `${__APP_VERSION__}-${__BUILD_TIME__}` // 开发环境下无法使用此环境变量，生产环境正常
 
 // 启用导航预载
 navigationPreload.enable()
@@ -321,35 +320,35 @@ async function clearBadge() {
 // 监控缓存大小
 async function monitorCacheSize() {
   const cacheSizes: Record<string, number> = {}
-  let totalSize = 0
+  let calculatedTotalSize = 0
 
   try {
     const cacheNames = await caches.keys()
 
-    // 并行处理所有缓存以提高性能
+    // 并行处理所有缓存
     await Promise.all(
       cacheNames.map(async cacheName => {
         const cache = await caches.open(cacheName)
-        // 使用 matchAll 一次性获取所有响应，避免循环中多次 match
-        const responses = await cache.matchAll()
+        const requests = await cache.keys()
         let cacheSize = 0
 
-        for (const response of responses) {
-          // 仅通过 Content-Length 获取大小
-          const contentLength = response.headers.get('content-length')
-          if (contentLength) {
-            cacheSize += parseInt(contentLength, 10)
+        // 遍历请求以获取响应头部，避免 matchAll 一次性加载大量响应对象到内存
+        for (const request of requests) {
+          const response = await cache.match(request)
+          if (response) {
+            const contentLength = response.headers.get('content-length')
+            if (contentLength) {
+              cacheSize += parseInt(contentLength, 10)
+            }
           }
         }
-
         cacheSizes[cacheName] = cacheSize
       }),
     )
 
-    // 计算总大小
-    totalSize = Object.values(cacheSizes).reduce((acc, size) => acc + size, 0)
+    calculatedTotalSize = Object.values(cacheSizes).reduce((acc, size) => acc + size, 0)
 
-    // 获取存储估算
+    // 获取系统级存储估算
     let quota = 0
     let usage = 0
     if (self.navigator.storage && self.navigator.storage.estimate) {
@@ -358,14 +357,18 @@ async function monitorCacheSize() {
       usage = estimate.usage || 0
     }
 
+    // 构造结果：满足 useCacheManager.ts 的需求
     const result = {
       cacheSizes,
-      totalSize,
-      totalSizeMB: (totalSize / 1024 / 1024).toFixed(2),
+      // 优先使用准确的 usage (真实磁盘占用)，如果不可用则退回到计算值
+      totalSize: usage || calculatedTotalSize,
+      totalSizeMB: ((usage || calculatedTotalSize) / 1024 / 1024).toFixed(2),
+      // 额外信息保留，供未来扩展
       quota,
       usage,
       quotaMB: (quota / 1024 / 1024).toFixed(2),
       usageMB: (usage / 1024 / 1024).toFixed(2),
+      calculatedTotalSize,
     }
 
     // 发送缓存统计信息给客户端
