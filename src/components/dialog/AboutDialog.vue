@@ -120,7 +120,7 @@ function releaseTime(releaseDate: string) {
 }
 
 // 强制清除缓存
-async function cleanCache() {
+async function clearCache() {
   await clearCachesAndServiceWorker()
   // 刷新页面，添加时间戳参数以强制更新
   reloadWithTimestamp()
@@ -191,12 +191,12 @@ onMounted(() => {
                           size="x-small"
                           variant="tonal"
                           class="ms-2"
-                          @click="cleanCache"
+                          @click="clearCache"
                         >
                           <template #prepend>
                             <VIcon icon="mdi-refresh" size="14" />
                           </template>
-                          {{ t('setting.about.cleanCache') }}
+                          {{ t('setting.about.clearCache') }}
                         </VBtn>
                       </span>
                     </dd>

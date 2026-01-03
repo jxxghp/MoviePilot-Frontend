@@ -301,6 +301,34 @@
     setTimeout(function() {
       const timeoutEl = document.getElementById('loading-timeout');
       if (timeoutEl) {
+        // 适配多语言
+        const lang = navigator.language || 'zh-CN';
+        const messages = {
+          'zh-CN': {
+            text: '页面加载似乎遇到了阻碍，请尝试',
+            btn: '清除缓存'
+          },
+          'zh-TW': {
+            text: '頁面載入似乎遇到了阻礙，請嘗試',
+            btn: '清除快取'
+          },
+          'en-US': {
+            text: 'Page loading seems to be blocked, please try',
+            btn: 'Clear Cache'
+          }
+        };
+        
+        // 默认匹配前缀，如 en-GB 匹配 en-US 的逻辑
+        let msg = messages['zh-CN'];
+        if (lang.startsWith('zh-TW') || lang.startsWith('zh-HK')) {
+          msg = messages['zh-TW'];
+        } else if (lang.startsWith('en')) {
+          msg = messages['en-US'];
+        } else if (lang.startsWith('zh')) {
+          msg = messages['zh-CN'];
+        }
+
+        timeoutEl.innerHTML = msg.text + ' <a href="javascript:void(0)" onclick="window.clearAndReload()" id="timeout-btn">' + msg.btn + '</a>';
         timeoutEl.style.display = 'block';
       }
     }, 15000); // 15秒后显示超时提示
@@ -319,9 +347,7 @@
       <div class="effect-3 effects"></div>
     </div>
     <!-- 超时提示 - 默认隐藏 -->
-    <div id="loading-timeout">
-      页面加载似乎遇到了阻碍，请尝试 <a href="javascript:void(0)" onclick="window.clearAndReload()" id="timeout-btn">清除缓存</a>
-    </div>
+    <div id="loading-timeout"></div>
   </div>
   <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>

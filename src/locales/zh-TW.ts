@@ -1235,7 +1235,7 @@ export default {
       dataDirectory: '/moviepilot',
       expand: '展開',
       collapse: '收起',
-      cleanCache: '清除緩存',
+      clearCache: '清除快取',
     },
     system: {
       custom: '自定義',

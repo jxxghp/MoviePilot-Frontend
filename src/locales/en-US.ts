@@ -1250,7 +1250,7 @@ export default {
       dataDirectory: '/moviepilot',
       expand: 'Expand',
       collapse: 'Collapse',
-      cleanCache: 'Clear Cache',
+      clearCache: 'Clear Cache',
     },
     system: {
       custom: 'Custom',
