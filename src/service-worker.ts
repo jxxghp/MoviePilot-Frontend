@@ -279,7 +279,7 @@ async function set(key: string, value: any, storeName: string = 'badge'): Promis
       tx.onerror = () => reject(tx.error)
     })
   } catch (e) {
-    // 忽略错误
+    console.error(`[SW] Failed to set IndexedDB key "${key}" in store "${storeName}":`, e)
   }
 }
 
