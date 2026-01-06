@@ -78,11 +78,8 @@ export function useVersionChecker() {
     isUpdateToastShown = true
     const component = h(VersionUpdateToast, {
       message,
-      ...(refreshText &&
-        onRefresh && {
-          refreshText,
-          onRefresh,
-        }),
+      refreshText,
+      onRefresh,
     })
 
     toast.info(component, {
@@ -145,9 +142,6 @@ export function useVersionChecker() {
 
           // 等待检查完成
           await registration.update()
-
-          // 移除监听器
-          registration.removeEventListener('updatefound', onUpdateFound)
 
           // 检查是否有更新正在进行
           // 如果发现更新，或者正在安装/等待中，则直接返回（交由 SW activated 事件处理）
