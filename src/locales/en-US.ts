@@ -68,8 +68,9 @@ export default {
     status: 'Status',
     preset: 'Preset',
     refresh: 'Refresh',
-    newVersionAvailable: 'New version detected, please refresh the page to get the latest features',
-    newVersionFound: 'New version found, updating...',
+    swUpdateReady: 'New version is ready, please refresh the page to get the latest features',
+    versionMismatch: 'Browser cache version does not match server version, please try clearing cache',
+    clearCache: 'Clear Cache',
   },
   mediaType: {
     movie: 'Movie',

@@ -68,8 +68,9 @@ export default {
     status: '狀態',
     preset: '預設',
     refresh: '刷新',
-    newVersionAvailable: '檢測到新版本，請刷新頁面以獲取最新功能',
-    newVersionFound: '發現新版本，正在更新...',
+    swUpdateReady: '新版本已就緒，請刷新頁面以獲取最新功能',
+    versionMismatch: '瀏覽器快取版本與伺服器版本不一致，請嘗試清除快取',
+    clearCache: '清除快取',
   },
   mediaType: {
     movie: '電影',
