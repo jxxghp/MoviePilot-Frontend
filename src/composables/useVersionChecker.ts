@@ -1,17 +1,20 @@
-import { ref, computed, h } from 'vue'
+import { ref, h } from 'vue'
 import { useToast } from 'vue-toastification'
+import { Workbox } from 'workbox-window'
 import i18n from '@/plugins/i18n'
 import VersionUpdateToast from '@/components/toast/VersionUpdateToast.vue'
 
 // 全局状态
 const currentVersion = ref(__APP_VERSION__)
-let isListenerAdded = false
-let notificationShowTime = 0
-const serverVersion = ref<string | null>(null)
-const versionChecked = ref(false)
-const needsUpdate = computed(() => {
-  return serverVersion.value !== null && serverVersion.value !== currentVersion.value
-})
+let isUpdateToastShown = false
+let wb: Workbox | null = null
+
+/**
+ * 普通刷新页面
+ */
+export const reloadPage = (): void => {
+  window.location.reload()
+}
 
 /**
  * 刷新页面并添加时间戳
@@ -46,25 +49,40 @@ export const clearCachesAndServiceWorker = async (): Promise<void> => {
 }
 
 /**
+ * 清除缓存并刷新
+ */
+const clearCacheAndReload = async (): Promise<void> => {
+  await clearCachesAndServiceWorker()
+  reloadWithTimestamp()
+}
+
+/**
  * 版本检查 Composable
  *
  * 功能：
- * - 检查前端版本与服务端版本是否一致
- * - 检测到版本更新时清除缓存和 Service Worker
+ * - 使用 Workbox 监听 Service Worker 更新
+ * - 检查浏览器版本与服务端版本是否一致
  * - 显示持久化更新通知
  */
 export function useVersionChecker() {
   const toast = useToast()
 
   /**
-   * 显示版本更新通知（带刷新按钮）
+   * 显示版本更新通知
+   * @param message 通知消息文本
+   * @param refreshText 按钮文本,不传则不显示按钮
+   * @param onRefresh 按钮点击事件
    */
-  const showUpdateNotification = (): void => {
-    // 使用自定义 Vue 组件作为 toast 内容，传递翻译后的文本作为 props
+  const showUpdateNotification = (message: string, refreshText?: string, onRefresh?: () => void): void => {
+    if (isUpdateToastShown) return
+    isUpdateToastShown = true
     const component = h(VersionUpdateToast, {
-      message: i18n.global.t('common.newVersionAvailable'),
-      refreshText: i18n.global.t('common.refresh'),
-      onRefresh: reloadWithTimestamp,
+      message,
+      ...(refreshText &&
+        onRefresh && {
+          refreshText,
+          onRefresh,
+        }),
     })
 
     toast.info(component, {
@@ -72,8 +90,25 @@ export function useVersionChecker() {
       closeButton: false,
       closeOnClick: false,
       draggable: false,
-      toastClassName: 'version-update-toast-container',
     })
+  }
+
+  // 初始化 Workbox
+  if (!wb && 'serviceWorker' in navigator) {
+    wb = new Workbox('/service-worker.js')
+
+    // Service Worker 激活事件 (install -> activate)
+    wb.addEventListener('activated', event => {
+      // 只有在更新时才显示通知
+      if (event.isUpdate) {
+        console.log('[VersionChecker] Service Worker 更新已就绪，等待用户刷新')
+
+        showUpdateNotification(i18n.global.t('common.swUpdateReady'), i18n.global.t('common.refresh'), reloadPage)
+      }
+    })
+
+    // 注册 Service Worker
+    wb.register()
   }
 
   /**
@@ -81,96 +116,65 @@ export function useVersionChecker() {
    * @param latestVersion 服务端返回的最新版本号
    */
   const checkVersion = async (latestVersion: string): Promise<void> => {
-    // 如果已经检查过，则跳过
-    if (versionChecked.value) {
+    // 如果已经显示过通知,说明已经检查过了
+    if (isUpdateToastShown) return
+
+    // 版本一致，无需操作
+    if (latestVersion === currentVersion.value) {
+      console.log('[VersionChecker] 版本号一致，无需操作')
       return
     }
 
-    // 更新服务端版本
-    serverVersion.value = latestVersion
+    console.log(`[VersionChecker] 检测到版本不一致: ${currentVersion.value} -> ${latestVersion}`)
 
-    // 执行版本不一致时的处理逻辑
-    const handleVersionMismatch = async () => {
-      if (needsUpdate.value) {
-        versionChecked.value = true
-        console.log(`[VersionChecker] 检测到版本更新: ${currentVersion.value} -> ${latestVersion}`)
-
-        // 清除缓存和 Service Worker
-        await clearCachesAndServiceWorker()
-
-        // 显示持久化通知
-        showUpdateNotification()
-      }
-    }
-
-    // 优先尝试通过 Service Worker 检查更新
+    // 尝试触发 Service Worker 更新检查
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      console.log('[VersionChecker] 正在请求 Service Worker 检查更新...')
+      try {
+        const registration = await navigator.serviceWorker.getRegistration()
+        if (registration) {
+          console.log('[VersionChecker] 触发 Service Worker 更新检查...')
 
-      const registration = await navigator.serviceWorker.getRegistration()
+          // 标记是否发现更新
+          let updateFound = false
+          const onUpdateFound = () => {
+            updateFound = true
+          }
 
-      // 如果已经有等待中的更新，直接处理
-      if (registration?.waiting) {
-        console.log('[VersionChecker] Service Worker 发现新版本，跳过版本号对比')
-        handleVersionMismatch()
-        return
-      }
+          // 监听 updatefound 事件
+          registration.addEventListener('updatefound', onUpdateFound, { once: true })
 
-      const messageChannel = new MessageChannel()
+          // 等待检查完成
+          await registration.update()
 
-      messageChannel.port1.onmessage = event => {
-        if (event.data && event.data.type === 'SW_NO_UPDATE_DETECTED') {
-          console.log('[VersionChecker] Service Worker 报告无更新, 进行版本号检查...')
-          handleVersionMismatch()
+          // 移除监听器
+          registration.removeEventListener('updatefound', onUpdateFound)
+
+          // 检查是否有更新正在进行
+          // 如果发现更新，或者正在安装/等待中，则直接返回（交由 SW activated 事件处理）
+          if (updateFound || registration.installing || registration.waiting) {
+            console.log('[VersionChecker] Service Worker 更新中...')
+            return
+          }
+
+          console.log('[VersionChecker] SW 无更新，但版本号不一致，可能是缓存问题')
         }
+      } catch (error) {
+        console.log('[VersionChecker] Service Worker 更新检查失败:', error)
+        // 失败继续向下执行，显示通知
       }
-
-      navigator.serviceWorker.controller.postMessage({ type: 'CHECK_SW_UPDATE' }, [messageChannel.port2])
     } else {
-      // 如果没有 Service Worker 控制，直接进行版本比较
-      await handleVersionMismatch()
+      console.log('[VersionChecker] 无 Service Worker, 直接显示通知')
     }
-  }
 
-  // 监听 Service Worker 版本更新消息
-  if (!isListenerAdded && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', event => {
-      // 1. 发现新版本 -> 弹出通知
-      if (event.data && event.data.type === 'SW_VERSION_DETECTED') {
-        console.log('[VersionChecker] 发现新版本:', event.data.version)
-        notificationShowTime = Date.now()
-
-        const component = h(VersionUpdateToast, {
-          message: i18n.global.t('common.newVersionFound'),
-        })
-
-        toast.info(component, {
-          timeout: false,
-          hideProgressBar: true,
-          closeButton: false,
-          toastClassName: 'version-update-toast-container',
-        })
-      }
-      // 2. 安装完成 -> 刷新页面
-      else if (event.data && event.data.type === 'SW_RELOAD_PAGE') {
-        const elapsed = Date.now() - notificationShowTime
-        const delay = Math.max(0, 1500 - elapsed)
-        console.log(`[VersionChecker] 更新已安装, 延迟 ${delay}ms 后刷新...`)
-        setTimeout(() => {
-          reloadWithTimestamp()
-        }, delay)
-      }
-    })
-    isListenerAdded = true
+    // 最终兜底：显示版本不一致通知（清除缓存）
+    showUpdateNotification(
+      i18n.global.t('common.versionMismatch'),
+      i18n.global.t('common.clearCache'),
+      clearCacheAndReload,
+    )
   }
 
   return {
-    // 状态
-    currentVersion: computed(() => currentVersion.value),
-    serverVersion: computed(() => serverVersion.value),
-    needsUpdate,
-    versionChecked: computed(() => versionChecked.value),
-    // 方法
     checkVersion,
   }
 }

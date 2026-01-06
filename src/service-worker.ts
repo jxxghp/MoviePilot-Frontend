@@ -23,27 +23,10 @@ cleanupOutdatedCaches()
 // 预缓存并路由
 precacheAndRoute(self.__WB_MANIFEST)
 
-// 变量记录是否为更新安装
-let isUpdate = false
-
-// 监听安装事件以检测更新
+// 监听安装事件
 self.addEventListener('install', () => {
-  // 强制等待中的 Service Worker 立即激活
+  // 强制跳过等待，自动激活
   self.skipWaiting()
-
-  // 检查是否是更新（即是否已经有激活的 Service Worker）
-  if (self.registration.active) {
-    isUpdate = true
-    // 通知客户端发现新版本
-    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(clients => {
-      clients.forEach(client => {
-        client.postMessage({
-          type: 'SW_VERSION_DETECTED',
-          version: CACHE_VERSION,
-        })
-      })
-    })
-  }
 })
 
 // 监听激活事件
@@ -55,16 +38,6 @@ self.addEventListener('activate', event => {
 
       // 清理旧版本的运行时缓存
       await cleanupRuntimeCaches(true)
-
-      // 如果是更新，则通知客户端刷新页面
-      if (isUpdate) {
-        const clients = await self.clients.matchAll({ type: 'window' })
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'SW_RELOAD_PAGE',
-          })
-        })
-      }
     })(),
   )
 })
@@ -491,20 +464,6 @@ self.addEventListener('message', function (event) {
       })
       .catch(error => {
         event.ports[0]?.postMessage({ success: false, error: error instanceof Error ? error.message : String(error) })
-      })
-  } else if (event.data && event.data.type === 'CHECK_SW_UPDATE') {
-    // 检查 Service Worker 更新
-    self.registration
-      .update()
-      .then(() => {
-        // 如果没有正在安装或等待的 worker，说明没有检测到更新
-        if (!self.registration.installing && !self.registration.waiting) {
-          event.ports[0]?.postMessage({ type: 'SW_NO_UPDATE_DETECTED' })
-        }
-      })
-      .catch(error => {
-        console.error('Failed to check for SW update:', error)
-        event.ports[0]?.postMessage({ type: 'SW_NO_UPDATE_DETECTED' })
       })
   } else if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()

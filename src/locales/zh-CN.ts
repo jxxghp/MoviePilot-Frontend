@@ -68,8 +68,9 @@ export default {
     status: '状态',
     preset: '预设',
     refresh: '刷新',
-    newVersionAvailable: '检测到新版本，请刷新页面以获取最新功能',
-    newVersionFound: '发现新版本，正在更新...',
+    swUpdateReady: '新版本已就绪，请刷新页面以获取最新功能',
+    versionMismatch: '浏览器缓存版本与服务端版本不一致，请尝试清除缓存',
+    clearCache: '清除缓存',
   },
   mediaType: {
     movie: '电影',
