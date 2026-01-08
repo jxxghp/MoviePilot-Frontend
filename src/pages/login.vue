@@ -496,7 +496,7 @@ onMounted(async () => {
                   block
                   variant="tonal"
                   color="success"
-                  class="mt-3"
+                  class="mt-3 passkey-btn"
                   prepend-icon="mdi-key-variant"
                   :loading="passkeyLoading"
                   @click="loginWithPassKey"
@@ -551,6 +551,7 @@ onMounted(async () => {
                 block
                 variant="tonal"
                 color="success"
+                class="passkey-btn"
                 prepend-icon="mdi-key-variant"
                 :loading="mfaPasskeyLoading"
                 @click="verifyWithPassKey"
@@ -588,5 +589,11 @@ onMounted(async () => {
 .glass-effect {
   backdrop-filter: blur(10px) !important;
   background: rgba(var(--v-theme-surface), 0.7) !important;
+}
+
+.v-theme--light {
+  .passkey-btn.v-btn--variant-tonal {
+    color: rgb(86, 170, 0) !important;
+  }
 }
 </style>
