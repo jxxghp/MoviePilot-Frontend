@@ -77,6 +77,9 @@ const passkeyLoading = ref(false)
 // Conditional UI 的 AbortController
 let conditionalAbortController: AbortController | null = null
 
+// 手动模式的 AbortController（用于防止重复点击）
+let manualAbortController: AbortController | null = null
+
 // 标记当前是否有手动模式的 PassKey 请求正在进行
 let isManualPassKeyActive = false
 
@@ -158,17 +161,17 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   }
 
   // 3. 转换credential为可传输格式
+  const publicKeyCredential = credential as PublicKeyCredential
+  const assertionResponse = publicKeyCredential.response as AuthenticatorAssertionResponse
   const credentialJSON = {
-    id: credential.id,
-    rawId: bufferToBase64Url((credential as any).rawId),
-    type: credential.type,
+    id: publicKeyCredential.id,
+    rawId: bufferToBase64Url(publicKeyCredential.rawId),
+    type: publicKeyCredential.type,
     response: {
-      authenticatorData: bufferToBase64Url((credential as any).response.authenticatorData),
-      clientDataJSON: bufferToBase64Url((credential as any).response.clientDataJSON),
-      signature: bufferToBase64Url((credential as any).response.signature),
-      userHandle: (credential as any).response.userHandle
-        ? bufferToBase64Url((credential as any).response.userHandle)
-        : null,
+      authenticatorData: bufferToBase64Url(assertionResponse.authenticatorData),
+      clientDataJSON: bufferToBase64Url(assertionResponse.clientDataJSON),
+      signature: bufferToBase64Url(assertionResponse.signature),
+      userHandle: assertionResponse.userHandle ? bufferToBase64Url(assertionResponse.userHandle) : null,
     },
   }
 
@@ -185,14 +188,23 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
 async function loginWithPassKey(isConditional = false) {
   errorMessage.value = ''
 
-  // 如果是手动触发(非 Conditional UI),先取消 Conditional UI 请求
-  if (!isConditional && conditionalAbortController) {
-    conditionalAbortController.abort()
-    conditionalAbortController = null
-  }
-
-  // 手动模式下，标记手动请求为活跃状态，并立即设置 loading
+  // 如果是手动触发(非 Conditional UI)
   if (!isConditional) {
+    // 取消之前的 Conditional UI 请求
+    if (conditionalAbortController) {
+      conditionalAbortController.abort()
+      conditionalAbortController = null
+    }
+
+    // 取消之前的手动请求（防止重复点击）
+    if (manualAbortController) {
+      manualAbortController.abort()
+    }
+
+    // 创建新的 AbortController
+    manualAbortController = new AbortController()
+
+    // 标记手动请求为活跃状态，并立即设置 loading
     isManualPassKeyActive = true
     passkeyLoading.value = true
   }
@@ -200,7 +212,12 @@ async function loginWithPassKey(isConditional = false) {
   try {
     const finishResponse = await authenticateWithPassKey({
       isConditional,
-      signal: isConditional && conditionalAbortController ? conditionalAbortController.signal : undefined,
+      signal:
+        isConditional && conditionalAbortController
+          ? conditionalAbortController.signal
+          : !isConditional && manualAbortController
+          ? manualAbortController.signal
+          : undefined,
     })
 
     await handleLoginSuccess(finishResponse)
@@ -210,6 +227,12 @@ async function loginWithPassKey(isConditional = false) {
     // 2. 如果是 AbortError，始终静默
     if (isConditional && (!passkeyLoading.value || error.name === 'AbortError')) {
       console.warn('[PassKey] Conditional UI silenced error:', error)
+      return
+    }
+
+    // 手动模式下的 AbortError 也应该静默（用户重复点击导致）
+    if (!isConditional && error.name === 'AbortError') {
+      console.warn('[PassKey] Manual request aborted (likely due to rapid clicking):', error)
       return
     }
 
@@ -227,6 +250,7 @@ async function loginWithPassKey(isConditional = false) {
       // 手动模式：始终清除，并取消手动活跃标记
       isManualPassKeyActive = false
       passkeyLoading.value = false
+      manualAbortController = null
     } else {
       // Conditional UI 模式：只有在没有手动请求活跃时才清除
       if (!isManualPassKeyActive && passkeyLoading.value) {
@@ -481,6 +505,10 @@ onUnmounted(() => {
   if (conditionalAbortController) {
     conditionalAbortController.abort()
     conditionalAbortController = null
+  }
+  if (manualAbortController) {
+    manualAbortController.abort()
+    manualAbortController = null
   }
 })
 </script>
