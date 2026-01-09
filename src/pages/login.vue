@@ -586,7 +586,7 @@ onUnmounted(() => {
                   :type="isPasswordVisible ? 'text' : 'password'"
                   name="password"
                   id="password"
-                  autocomplete="current-password webauthn"
+                  autocomplete="current-password"
                   :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                   :rules="[requiredValidator]"
                   hide-details
