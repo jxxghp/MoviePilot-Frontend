@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import MarkdownIt from 'markdown-it'
+import mdLinkAttributes from 'markdown-it-link-attributes'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import type { Message } from '@/api/types'
 import { formatDateDifference } from '@core/utils/formatters'
@@ -18,6 +20,21 @@ const isImageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+// 初始化 markdown-it
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+})
+
+// 插件：链接在新窗口打开
+md.use(mdLinkAttributes, {
+  attrs: {
+    target: '_blank',
+    rel: 'noopener noreferrer',
+  },
+})
 
 // 图片加载完成
 async function imageLoaded() {
@@ -42,10 +59,10 @@ function noteToJson() {
   return {}
 }
 
-// 将\n转换为html属性的换行符
-function replaceNewLine(value: string) {
+// 渲染 Markdown
+function renderMarkdown(value: string) {
   if (!value) return ''
-  return value.replace(/\n/g, '<br/>')
+  return md.render(value)
 }
 </script>
 
@@ -85,19 +102,23 @@ function replaceNewLine(value: string) {
     </VCardTitle>
     <div
       v-if="props.message?.text && props.message?.action === 0"
-      class="rounded-md text-body-1 py-2 px-4 elevation-2 bg-primary text-white chat-right mb-1"
+      class="rounded-md text-body-1 py-1 px-4 elevation-2 bg-primary text-white chat-right mb-1"
     >
-      <p class="mb-0">{{ props.message?.text }}</p>
+      <div class="markdown-body" v-html="renderMarkdown(props.message?.text)" />
     </div>
-    <VCardText v-if="props.message?.text && props.message?.action === 1" v-html="replaceNewLine(props.message?.text)" />
+    <VCardText
+      v-if="props.message?.text && props.message?.action === 1"
+      class="markdown-body"
+      v-html="renderMarkdown(props.message?.text)"
+    />
     <VCardText v-if="!isNullOrEmptyObject(props.message?.note)">
       <VList>
         <VListItem v-for="(value, key) in noteToJson()" :key="key" two-line>
           <VListItemTitle v-if="value.title_year" class="font-bold break-words whitespace-break-spaces">
-            {{ key + 1 }}. {{ value.title_year }}
+            {{ Number(key) + 1 }}. {{ value.title_year }}
           </VListItemTitle>
           <VListItemTitle v-if="value.enclosure" class="font-bold break-words whitespace-break-spaces">
-            {{ key + 1 }}. {{ value.title }} {{ value.volume_factor }} ↑{{ value.seeders }}
+            {{ Number(key) + 1 }}. {{ value.title }} {{ value.volume_factor }} ↑{{ value.seeders }}
           </VListItemTitle>
           <VListItemSubtitle v-if="value.type">
             类型：{{ value.type }} 评分：{{ value.vote_average }}
@@ -116,3 +137,78 @@ function replaceNewLine(value: string) {
     }}</span>
   </div>
 </template>
+
+<style lang="scss">
+.markdown-body {
+  word-break: break-all;
+
+  p {
+    margin-block-end: 0.5rem;
+  }
+
+  p:last-child {
+    margin-block-end: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  ul,
+  ol {
+    margin-block-end: 0.5rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  code {
+    border-radius: 4px;
+    background-color: rgba(var(--v-border-color), 0.1);
+    font-family: monospace;
+    padding-block: 0.2rem;
+    padding-inline: 0.4rem;
+  }
+
+  pre {
+    overflow: auto;
+    padding: 1rem;
+    border-radius: 8px;
+    background-color: rgba(var(--v-border-color), 0.1);
+    margin-block-end: 0.5rem;
+
+    code {
+      padding: 0;
+      background-color: transparent;
+    }
+  }
+
+  blockquote {
+    border-inline-start: 4px solid rgba(var(--v-border-color), 0.2);
+    font-style: italic;
+    margin-block-end: 0.5rem;
+    padding-inline-start: 1rem;
+  }
+
+  table {
+    border-collapse: collapse;
+    inline-size: 100%;
+    margin-block-end: 1rem;
+
+    th,
+    td {
+      padding: 0.5rem;
+      border: 1px solid rgba(var(--v-border-color), 0.1);
+      text-align: start;
+    }
+
+    th {
+      background-color: rgba(var(--v-border-color), 0.05);
+    }
+  }
+
+  img {
+    block-size: auto;
+    max-inline-size: 100%;
+  }
+}
+</style>
