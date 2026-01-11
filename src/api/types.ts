@@ -861,6 +861,16 @@ export interface User {
   nickname?: string
 }
 
+// 通行密钥
+export interface PassKey {
+  id: number
+  name: string
+  created_at: string
+  last_used_at?: string
+  aaguid?: string
+  transports?: string
+}
+
 // 存储空间
 export interface Storage {
   // 总空间
@@ -1428,4 +1438,11 @@ export interface SubscribeShareStatistics {
   share_count?: number
   // 总复用人次
   total_reuse_count?: number
+}
+
+// 通用API响应
+export interface ApiResponse<T = any> {
+  success: boolean
+  message?: string
+  data: T
 }
