@@ -12,6 +12,7 @@ import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { useTheme } from 'vuetify'
 import { getNavMenus } from '@/router/i18n-menu'
 import { filterMenusByPermission } from '@/utils/permission'
+import type { ApiResponse } from '@/api/types'
 
 // 国际化
 const { t } = useI18n()
@@ -42,7 +43,7 @@ const errorMessage = ref('')
 // 是否开启双重验证
 const isOTP = ref(false)
 
-// 双重验证对话框
+// 二次验证对话框
 const mfaDialog = ref(false)
 
 // MFA PassKey loading
@@ -92,17 +93,11 @@ interface PassKeyAuthOptions {
 
 // PassKey API 响应类型
 interface PassKeyStartResponse {
-  success: boolean
-  message?: string
-  data: {
-    options: string // JSON 字符串
-    challenge: string
-  }
+  options: string // JSON 字符串
+  challenge: string
 }
 
 interface PassKeyFinishResponse {
-  success: boolean
-  message?: string
   access_token: string
   super_user: boolean
   user_id: number
@@ -117,10 +112,10 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   const { username, isConditional = false, signal } = options
 
   // 1. 开始认证流程
-  const startResponse = (await api.post<PassKeyStartResponse>(
+  const startResponse = (await api.post(
     '/mfa/passkey/authenticate/start',
     username ? { username } : {},
-  )) as any as PassKeyStartResponse
+  )) as ApiResponse<PassKeyStartResponse>
 
   if (!startResponse.success) {
     throw new Error(startResponse.message || 'PassKey start failed')
@@ -130,7 +125,7 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   const publicKeyOptions = JSON.parse(optionsStr)
 
   // 2. 调用WebAuthn API
-  const credentialRequestOptions: any = {
+  const credentialRequestOptions: CredentialRequestOptions = {
     publicKey: {
       ...publicKeyOptions,
       challenge: base64UrlToUint8Array(publicKeyOptions.challenge),
@@ -176,17 +171,36 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   }
 
   // 4. 完成认证
-  const finishResponse = (await api.post<PassKeyFinishResponse>('/mfa/passkey/authenticate/finish', {
+  const finishResponse = (await api.post('/mfa/passkey/authenticate/finish', {
     credential: credentialJSON,
     challenge: challenge,
-  })) as any as PassKeyFinishResponse
+  })) as PassKeyFinishResponse
+
+  if (!finishResponse || !finishResponse.access_token) {
+    throw new Error('PassKey finish failed: No access token')
+  }
 
   return finishResponse
 }
 
-// 使用PassKey登录 (支持 Conditional UI)
-async function loginWithPassKey(isConditional = false) {
+// 统一处理 PassKey 认证流程
+async function handlePassKeyAuth(
+  authOptions: PassKeyAuthOptions,
+  setLoading: (loading: boolean) => void,
+  onSuccess: (response: PassKeyFinishResponse) => Promise<void>,
+) {
+  const { isConditional = false } = authOptions
   errorMessage.value = ''
+
+  // 检查浏览器环境 (仅手动触发时提示)
+  if (!isConditional && !window.PublicKeyCredential) {
+    if (!window.isSecureContext) {
+      errorMessage.value = t('login.passkeySecureContextRequired')
+    } else {
+      errorMessage.value = t('login.passkeyNotSupported')
+    }
+    return
+  }
 
   // 如果是手动触发(非 Conditional UI)
   if (!isConditional) {
@@ -206,12 +220,12 @@ async function loginWithPassKey(isConditional = false) {
 
     // 标记手动请求为活跃状态，并立即设置 loading
     isManualPassKeyActive = true
-    passkeyLoading.value = true
+    setLoading(true)
   }
 
   try {
     const finishResponse = await authenticateWithPassKey({
-      isConditional,
+      ...authOptions,
       signal:
         isConditional && conditionalAbortController
           ? conditionalAbortController.signal
@@ -220,10 +234,10 @@ async function loginWithPassKey(isConditional = false) {
           : undefined,
     })
 
-    await handleLoginSuccess(finishResponse)
+    await onSuccess(finishResponse)
   } catch (error: any) {
     // Conditional UI 模式下：
-    // 1. 如果 passkeyLoading 为 false，说明错误发生在用户选择密钥之前（如初始化失败、用户取消等），此时应静默
+    // 1. 如果 loading 为 false，说明错误发生在用户选择密钥之前（如初始化失败、用户取消等），此时应静默
     // 2. 如果是 AbortError，始终静默
     if (isConditional && (!passkeyLoading.value || error.name === 'AbortError')) {
       console.warn('[PassKey] Conditional UI silenced error:', error)
@@ -237,19 +251,17 @@ async function loginWithPassKey(isConditional = false) {
     }
 
     // 设置错误信息
-    if (error.response) {
-      errorMessage.value = error.response.data?.detail || t('login.passkeyLoginFailed')
-    } else if (error.name === 'NotAllowedError') {
+    if (error.name === 'NotAllowedError') {
       errorMessage.value = t('login.passkeyAuthCanceled')
     } else {
-      errorMessage.value = t('login.passkeyLoginRetry')
+      errorMessage.value = t('login.authFailure')
     }
   } finally {
     // 清除 loading 状态
     if (!isConditional) {
       // 手动模式：始终清除，并取消手动活跃标记
       isManualPassKeyActive = false
-      passkeyLoading.value = false
+      setLoading(false)
       manualAbortController = null
     } else {
       // Conditional UI 模式：只有在没有手动请求活跃时才清除
@@ -260,28 +272,22 @@ async function loginWithPassKey(isConditional = false) {
   }
 }
 
+// 使用PassKey登录 (支持 Conditional UI)
+async function loginWithPassKey(isConditional = false) {
+  await handlePassKeyAuth(
+    { isConditional },
+    val => (passkeyLoading.value = val),
+    async response => {
+      await handleLoginSuccess(response)
+    },
+  )
+}
+
 // 切换语言
 async function switchLanguage(locale: SupportedLocale) {
   await setI18nLanguage(locale)
   currentLocale.value = locale
   langMenu.value = false
-}
-
-// 查询是否开启双重验证
-async function fetchOTP(): Promise<boolean> {
-  if (!form.value.username) {
-    isOTP.value = false
-    return false
-  }
-  try {
-    const response: any = await api.get(`/mfa/status/${form.value.username}`)
-    isOTP.value = response.success
-    return response.success
-  } catch (error: any) {
-    console.log(error)
-    isOTP.value = false
-    return false
-  }
 }
 
 // 订阅推送通知
@@ -304,7 +310,7 @@ async function subscribeForPushNotifications() {
     try {
       await api.post('/message/webpush/subscribe', subscription)
     } catch (e) {
-      console.log(e)
+      console.error(e)
     }
   }
 }
@@ -394,26 +400,32 @@ async function login() {
     // 登录失败，显示错误提示
     if (!error.response) {
       errorMessage.value = t('login.networkError')
-    } else if (error.response.status === 401) {
-      // 401错误可能是需要MFA或者认证失败
-      // 检查响应头是否有MFA要求标识
-      const mfaRequired = error.response.headers?.['x-mfa-required'] === 'true'
-      if (mfaRequired && !form.value.otp_password) {
-        // 需要MFA验证，弹出对话框
-        isOTP.value = true
-        mfaDialog.value = true
-        return
-      }
-      // 不需要MFA或已填写OTP但认证失败
-      errorMessage.value = t('login.authFailure')
-      // 认证失败后清空OTP密码，防止下次点击不弹出对话框
-      form.value.otp_password = ''
-    } else if (error.response.status === 403) {
-      errorMessage.value = t('login.permissionDenied')
-    } else if (error.response.status === 500) {
-      errorMessage.value = t('login.serverError')
-    } else {
-      errorMessage.value = `${t('login.loginFailed')} ${error.response.status}，${t('login.checkCredentials')}`
+      return
+    }
+
+    switch (error.response.status) {
+      case 401:
+        // 401错误可能是需要MFA或者认证失败
+        // 检查响应头是否有MFA要求标识
+        if (error.response.headers?.['x-mfa-required'] === 'true' && !form.value.otp_password) {
+          // 需要MFA验证，弹出对话框
+          isOTP.value = true
+          mfaDialog.value = true
+          return
+        }
+        // 不需要MFA或已填写OTP但认证失败
+        errorMessage.value = t('login.authFailure')
+        // 认证失败后清空OTP密码，防止下次点击不弹出对话框
+        form.value.otp_password = ''
+        break
+      case 403:
+        errorMessage.value = t('login.permissionDenied')
+        break
+      case 500:
+        errorMessage.value = t('login.serverError')
+        break
+      default:
+        errorMessage.value = `${t('login.authFailure')} (Status: ${error.response.status})`
     }
   } finally {
     loading.value = false
@@ -430,29 +442,15 @@ function loginWithOTP() {
 async function verifyWithPassKey() {
   if (!form.value.username) return
 
-  mfaPasskeyLoading.value = true
-  errorMessage.value = ''
-
-  try {
-    const finishResponse = await authenticateWithPassKey({
-      username: form.value.username,
-    })
-
-    // 关闭MFA对话框
-    mfaDialog.value = false
-
-    await handleLoginSuccess(finishResponse)
-  } catch (error: any) {
-    if (error.response) {
-      errorMessage.value = error.response.data?.detail || t('login.passkeyVerifyFailed')
-    } else if (error.name === 'NotAllowedError') {
-      errorMessage.value = t('login.passkeyAuthCanceled')
-    } else {
-      errorMessage.value = t('login.passkeyVerifyFailedRetry')
-    }
-  } finally {
-    mfaPasskeyLoading.value = false
-  }
+  await handlePassKeyAuth(
+    { username: form.value.username },
+    val => (mfaPasskeyLoading.value = val),
+    async response => {
+      // 关闭MFA对话框
+      mfaDialog.value = false
+      await handleLoginSuccess(response)
+    },
+  )
 }
 
 // 自动登录
@@ -517,7 +515,7 @@ onUnmounted(() => {
   <!-- 登录页面容器 -->
   <div class="relative flex min-h-screen flex-col items-center justify-center">
     <!-- 登录表单 -->
-    <div class="auth-wrapper d-flex align-center justify-center">
+    <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
         class="auth-card px-7 py-3 w-full h-full"
         :class="{ 'glass-effect': !isTransparentTheme }"
@@ -610,7 +608,7 @@ onUnmounted(() => {
                   variant="tonal"
                   color="success"
                   class="mt-3 passkey-btn"
-                  prepend-icon="mdi-key-variant"
+                  prepend-icon="material-symbols:passkey"
                   :loading="passkeyLoading"
                   @click="loginWithPassKey(false)"
                 >
@@ -626,11 +624,11 @@ onUnmounted(() => {
       </VCard>
     </div>
 
-    <!-- MFA双重验证对话框 -->
+    <!-- MFA二次验证对话框 -->
     <VDialog v-model="mfaDialog" max-width="400" persistent>
       <VCard>
-        <VCardTitle class="text-h5 text-center mt-4">{{ t('login.twoFactorAuth') }}</VCardTitle>
-        <VCardText>
+        <VCardTitle class="text-h5 text-center mt-4 pb-2">{{ t('login.secondaryVerification') }}</VCardTitle>
+        <VCardText class="pt-0">
           <p class="text-center mb-4">{{ t('login.mfa.selectVerificationMethod') }}</p>
 
           <!-- TOTP验证 -->
@@ -665,7 +663,7 @@ onUnmounted(() => {
                 variant="tonal"
                 color="success"
                 class="passkey-btn"
-                prepend-icon="mdi-key-variant"
+                prepend-icon="material-symbols:passkey"
                 :loading="mfaPasskeyLoading"
                 @click="verifyWithPassKey"
               >
@@ -673,6 +671,11 @@ onUnmounted(() => {
               </VBtn>
             </VCardText>
           </VCard>
+
+          <!-- 错误提示 -->
+          <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
+            {{ errorMessage }}
+          </VAlert>
 
           <VBtn block variant="text" class="mt-4" @click="mfaDialog = false">{{ t('common.cancel') }}</VBtn>
         </VCardText>

@@ -23,27 +23,10 @@ cleanupOutdatedCaches()
 // 预缓存并路由
 precacheAndRoute(self.__WB_MANIFEST)
 
-// 变量记录是否为更新安装(兼容旧版前端监听逻辑)
-let isUpdate = false
-
 // 监听安装事件
 self.addEventListener('install', () => {
   // 强制等待中的 Service Worker 立即激活
   self.skipWaiting()
-
-  // 检查是否是更新(兼容旧版前端监听逻辑)
-  if (self.registration.active) {
-    isUpdate = true
-    // 通知客户端发现新版本
-    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(clients => {
-      clients.forEach(client => {
-        client.postMessage({
-          type: 'SW_VERSION_DETECTED',
-          version: CACHE_VERSION,
-        })
-      })
-    })
-  }
 })
 
 // 监听激活事件
@@ -52,19 +35,8 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     (async () => {
       await self.clients.claim()
-
       // 清理旧版本的运行时缓存
       await cleanupRuntimeCaches(true)
-
-      // 如果是更新，则通知客户端刷新页面(兼容旧版前端监听逻辑)
-      if (isUpdate) {
-        const clients = await self.clients.matchAll({ type: 'window' })
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'SW_RELOAD_PAGE',
-          })
-        })
-      }
     })(),
   )
 })
@@ -164,10 +136,13 @@ registerRoute(
   ({ url, request }) =>
     url.pathname.includes('/api/v1/') &&
     request.method === 'GET' &&
-    !url.pathname.includes('/api/v1/system/message') && // 排除 SSE 长连接
-    !url.pathname.includes('/api/v1/common/message') && // 排除通用消息
-    !url.pathname.includes('/api/v1/message/') && // 排除所有消息类接口
-    !url.pathname.includes('/api/v1/system/global'), // 排除global接口
+    !url.pathname.includes('/api/v1/system/message') && // SSE实时消息流
+    !url.pathname.includes('/api/v1/system/progress/') && // SSE实时进度流
+    !url.pathname.includes('/api/v1/system/logging') && // SSE实时日志流
+    !url.pathname.includes('/api/v1/message/') && // 用户消息接口
+    !url.pathname.includes('/api/v1/system/global') && // 系统配置接口
+    !url.pathname.includes('/api/v1/mfa/') && // 多因素认证接口
+    !url.pathname.includes('/api/v1/dashboard/'), // Dashboard实时监控数据
   new NetworkFirst({
     cacheName: `api-cache-${CACHE_VERSION}`,
     networkTimeoutSeconds: 5,
