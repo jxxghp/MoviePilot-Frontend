@@ -2601,7 +2601,7 @@ export default {
     passkeyManagement: 'Passkey Management',
     registerNewPasskey: 'Register New Passkey',
     passkeyDescription: 'Passkeys allow you to sign in quickly and securely without a password.',
-    passkeyAppDescription: 'Passkeys are a simpler, more secure alternative to passwords. You can sign in with just your fingerprint, face recognition, or screen lock. Use passkey-supported apps like iCloud Keychain, Bitwarden, or a hardware key to authenticate.',
+    passkeyAppDescription: 'Passkeys are a simpler, more secure way to sign in, serving as an alternative to passwords. You can authenticate using passkey-supported apps like iCloud Keychain, Bitwarden, or hardware keys.',
     passkeyName: 'Passkey Name',
     passkeyNamePlaceholder: 'e.g.: iPhone, Windows Hello',
     registerPasskey: 'Register Passkey',

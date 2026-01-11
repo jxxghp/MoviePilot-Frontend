@@ -2556,7 +2556,7 @@ export default {
     passkeyManagement: '通行密鑰管理',
     registerNewPasskey: '註冊新通行密鑰',
     passkeyDescription: '通行密鑰可以讓您無需密碼即可快速安全地登入。',
-    passkeyAppDescription: '通行密鑰是比傳統密碼更簡單、更安全的替代方案。您只需透過指紋、臉部辨識或螢幕鎖定即可登入。您可以使用 iCloud 鑰匙圈、Bitwarden 等支援通行密鑰的應用程式或硬體金鑰完成驗證。',
+    passkeyAppDescription: '通行密鑰是一種更簡單、更安全的登入方式，可以替代密碼進行登入。您可以使用 iCloud 鑰匙圈、Bitwarden 等支援通行密鑰的應用程式或硬體金鑰完成驗證。',
     passkeyName: '通行密鑰名稱',
     passkeyNamePlaceholder: '例如：iPhone、Windows Hello',
     registerPasskey: '註冊通行密鑰',
