@@ -93,6 +93,7 @@ const userForm = ref<ExtendedUser>({
     wechat_userid: null,
     telegram_userid: null,
     slack_userid: null,
+    discord_userid: null,
     vocechat_userid: null,
     synologychat_userid: null,
   },
@@ -519,6 +520,15 @@ onMounted(() => {
                 clearable
                 :label="t('dialog.userAddEdit.slack')"
                 prepend-inner-icon="mdi-slack"
+              />
+            </VCol>
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="userForm.settings.discord_userid"
+                density="comfortable"
+                clearable
+                :label="t('dialog.userAddEdit.discord')"
+                prepend-inner-icon="mdi-discord"
               />
             </VCol>
             <VCol cols="12" md="6">

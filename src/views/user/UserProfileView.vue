@@ -457,6 +457,15 @@ watch(
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
+                    v-model="accountInfo.settings.discord_userid"
+                    density="comfortable"
+                    clearable
+                    :label="t('profile.discordUser')"
+                    prepend-inner-icon="mdi-discord"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
                     v-model="accountInfo.settings.vocechat_userid"
                     density="comfortable"
                     clearable
