@@ -192,12 +192,14 @@ async function handlePassKeyAuth(
   const { isConditional = false } = authOptions
   errorMessage.value = ''
 
-  // 检查浏览器环境 (仅手动触发时提示)
-  if (!isConditional && !window.PublicKeyCredential) {
-    if (!window.isSecureContext) {
-      errorMessage.value = t('login.passkeySecureContextRequired')
-    } else {
-      errorMessage.value = t('login.passkeyNotSupported')
+  // 检查浏览器环境
+  if (!window.PublicKeyCredential) {
+    if (!isConditional) {
+      if (!window.isSecureContext) {
+        errorMessage.value = t('login.passkeySecureContextRequired')
+      } else {
+        errorMessage.value = t('login.passkeyNotSupported')
+      }
     }
     return
   }
@@ -253,6 +255,10 @@ async function handlePassKeyAuth(
     // 设置错误信息
     if (error.name === 'NotAllowedError') {
       errorMessage.value = t('login.passkeyAuthCanceled')
+    } else if (error.name === 'NotSupportedError') {
+      errorMessage.value = t('login.passkeyNotSupported')
+    } else if (error.message?.includes('start failed')) {
+      errorMessage.value = t('login.passkeyLoginStartFailed')
     } else {
       errorMessage.value = t('login.authFailure')
     }
