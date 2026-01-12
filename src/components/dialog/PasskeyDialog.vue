@@ -74,9 +74,9 @@ async function registerPassKey() {
   if (!window.PublicKeyCredential) {
     if (!window.isSecureContext) {
       $toast.error(t('login.passkeySecureContextRequired'))
-      return
+    } else {
+      $toast.error(t('login.passkeyNotSupported'))
     }
-    $toast.error(t('login.passkeyNotSupported'))
     return
   }
 
@@ -148,6 +148,10 @@ async function registerPassKey() {
     console.error('PassKey注册失败:', error)
     if (error.name === 'NotAllowedError') {
       $toast.error(t('profile.passkeyRegisterCancelled'))
+    } else if (error.name === 'NotSupportedError') {
+      $toast.error(t('login.passkeyNotSupported'))
+    } else if (error.message?.includes('start failed')) {
+      $toast.error(t('login.passkeyLoginStartFailed'))
     } else if (error.response) {
       $toast.error(error.response.data?.detail || t('profile.passkeyRegisterFailed'))
     } else {
