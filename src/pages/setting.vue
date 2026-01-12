@@ -12,10 +12,11 @@ import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import { getSettingTabs } from '@/router/i18n-menu'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 
+const { t } = useI18n()
 const route = useRoute()
 
 const activeTab = ref((route.query.tab as string) || '')
-const settingTabs = computed(() => getSettingTabs())
+const settingTabs = computed(() => getSettingTabs(t))
 
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()

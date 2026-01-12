@@ -231,12 +231,23 @@ registerHeaderTab({
   ],
 })
 
+// 页面是否准备就绪
+const isReady = ref(false)
+
+// 定时器
+let timer: ReturnType<typeof setTimeout>
+
 onBeforeMount(async () => {
   await loadConfig()
   initializeColors()
 })
 
 onMounted(async () => {
+  // 延迟渲染内容，避免阻塞页面切换动画
+  timer = setTimeout(() => {
+    isReady.value = true
+  }, 400)
+
   await loadExtraRecommendSources()
   // 为新增的数据源也生成颜色
   extraRecommendSources.value.forEach(source => {
@@ -244,6 +255,10 @@ onMounted(async () => {
       itemColors.value[source.name] = getItemColor(source.name)
     }
   })
+})
+
+onUnmounted(() => {
+  if (timer) clearTimeout(timer)
 })
 
 onActivated(async () => {
@@ -256,10 +271,16 @@ onActivated(async () => {
     <!-- 滚动内容区域 -->
     <div class="recommend-content">
       <TransitionGroup name="fade">
-        <MediaCardSlideView v-for="item in filteredViews" :key="item.title" v-bind="item" class="content-group" />
+        <MediaCardSlideView
+          v-for="item in filteredViews"
+          :key="item.title"
+          v-bind="item"
+          :ready="isReady"
+          class="content-group"
+        />
       </TransitionGroup>
 
-      <div v-if="filteredViews.length === 0" class="empty-category">
+      <div v-if="isReady && filteredViews.length === 0" class="empty-category">
         <VIcon icon="mdi-alert-circle-outline" size="large" class="empty-icon" />
         <p class="empty-text">{{ t('recommend.noCategoryContent') }}</p>
         <VBtn color="primary" variant="tonal" size="small" @click="dialog = true">

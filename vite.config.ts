@@ -10,6 +10,11 @@ import VueI18n from '@intlify/unplugin-vue-i18n/vite'
 import { resolve } from 'node:path'
 import federation from '@originjs/vite-plugin-federation'
 import topLevelAwait from 'vite-plugin-top-level-await'
+import { readFileSync } from 'node:fs'
+
+// 读取 package.json 获取版本号
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
+const buildTime = new Date().getTime().toString()
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -52,104 +57,10 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'service-worker.ts',
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2,ttf,otf,eot}'],
-        // 确保关键资源被预缓存
-        additionalManifestEntries: [
-          {
-            url: '/offline.html',
-            revision: null,
-          },
-          // 预缓存App Shell关键资源
-          {
-            url: '/logo.png',
-            revision: null,
-          },
-        ],
-        // 启用导航预加载
-        navigationPreload: true,
-        runtimeCaching: [
-          // App Shell缓存 - 优先缓存
-          {
-            urlPattern: /^\/$|\/index\.html$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'app-shell-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 7 * 24 * 60 * 60, // 7天
-              },
-            },
-          },
-          {
-            urlPattern: /\.(?:js|css|html)$/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'static-resources',
-            },
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|ico|webp|avif|gif|bmp|tiff)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'image-cache',
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 30 * 24 * 60 * 60, // 30天
-              },
-            },
-          },
-          {
-            urlPattern: /\.(?:woff|woff2|ttf|otf|eot)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'font-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 365 * 24 * 60 * 60, // 1年
-              },
-            },
-          },
-          {
-            urlPattern: /\/api\/v1\/.*$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 24 * 60 * 60, // 24小时
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/image\.tmdb\.org\/.*$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'tmdb-image-cache',
-              expiration: {
-                maxEntries: 300,
-                maxAgeSeconds: 7 * 24 * 60 * 60, // 7天
-              },
-            },
-          },
-          {
-            urlPattern: ({ request }) => request.destination === 'document',
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'pages-cache',
-            },
-          },
-        ],
-        navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [/.*\/api\/.*/, /\/offline\.html$/],
-        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^gclid$/],
-        skipWaiting: true,
-        clientsClaim: true,
-      },
       injectManifest: {
         rollupFormat: 'iife',
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2,ttf,otf,eot}'],
       },
       devOptions: {
         enabled: true,
@@ -277,7 +188,11 @@ export default defineConfig({
       promiseImportName: i => `__mp_tla_${i}`,
     }),
   ],
-  define: { 'process.env': {} },
+  define: {
+    'process.env': {},
+    '__APP_VERSION__': JSON.stringify(`v${packageJson.version}`),
+    '__BUILD_TIME__': JSON.stringify(buildTime),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -300,12 +215,6 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 5000,
     cssCodeSplit: false,
-    rollupOptions: {
-      output: {
-        entryFileNames: '[name].js',
-        chunkFileNames: '[name].js',
-      },
-    },
   },
   optimizeDeps: {
     exclude: ['vuetify'],
@@ -324,6 +233,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
+        api: 'modern-compiler',
         quietDeps: true,
       },
     },

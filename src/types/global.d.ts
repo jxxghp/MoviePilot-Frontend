@@ -1,5 +1,8 @@
 // PWA Badge API 类型定义
 declare global {
+  const __APP_VERSION__: string
+  const __BUILD_TIME__: string
+
   interface Navigator {
     /**
      * 设置应用徽章数量

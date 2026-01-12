@@ -122,7 +122,7 @@ function loadRecentSearches() {
 function getMenus(): NavMenu[] {
   let menus: NavMenu[] = []
   // 导航菜单
-  getNavMenus().forEach(
+  getNavMenus(t).forEach(
     item =>
       item &&
       menus.push({
@@ -134,7 +134,7 @@ function getMenus(): NavMenu[] {
       }),
   )
   // 设置标签页
-  getSettingTabs().forEach(
+  getSettingTabs(t).forEach(
     item =>
       item &&
       menus.push({

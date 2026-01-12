@@ -236,16 +236,15 @@ export function usePullDownGesture(options: PullDownOptions = {}) {
     }
   }
 
-  // PWA状态确定后，一次性决定是否添加事件监听器
+  // 监听 appMode 变化动态添加/移除事件监听器
   onMounted(() => {
-    // 等待PWA检测完成后添加事件监听器
-    const stopWatcher = watch(
+    watch(
       appMode,
       newValue => {
         if (newValue) {
           addEventListeners()
-          // PWA状态确定后停止监听
-          stopWatcher()
+        } else {
+          removeEventListeners()
         }
       },
       { immediate: true },

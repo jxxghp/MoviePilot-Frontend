@@ -1,5 +1,5 @@
 @use "sass:map";
-@use "vuetify/lib/styles/settings" as vuetify_settings;
+@use "vuetify/lib/styles/settings/_index.sass" as vuetify_settings;
 @use "@styles/variables/_vuetify.scss" as vuetify;
 
 @mixin themed($property, $light-value, $dark-value) {

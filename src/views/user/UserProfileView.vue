@@ -1,16 +1,17 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
-import QrcodeVue from 'qrcode.vue'
 import { VForm } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
-import type { User } from '@/api/types'
+import type { User, PassKey } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
+import OTPAuthDialog from '@/components/dialog/OTPAuthDialog.vue'
+import PasskeyDialog from '@/components/dialog/PasskeyDialog.vue'
 
 // 国际化
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
@@ -34,15 +35,6 @@ const isSaving = ref(false)
 // 开启双重验证窗口
 const otpDialog = ref(false)
 
-// otp uri
-const otpUri = ref('')
-
-// otp secret
-const secret = ref('')
-
-// 确认双重验证密码
-const otpPassword = ref('')
-
 // 当前头像缓存
 const currentAvatar = ref(avatar1)
 
@@ -64,8 +56,34 @@ const accountInfo = ref<User>({
   nickname: '',
 })
 
-// 二维码信息
-const qrCode = ref('')
+// PassKey列表
+const passkeyList = ref<PassKey[]>([])
+
+// PassKey对话框
+const passkeyDialog = ref(false)
+
+// 双重验证菜单
+const mfaMenu = ref(false)
+
+// 密码验证对话框
+const verifyPasswordDialog = ref(false)
+
+// 验证密码
+const verifyPassword = ref('')
+
+// 验证后的回调
+const verifyCallback = ref<((password: string) => void) | null>(null)
+
+// 验证对话框标题
+const verifyTitle = ref('')
+
+// 验证对话框提示
+const verifyText = ref('')
+
+// 检查是否已启用任何双重验证
+const hasMfaEnabled = computed(() => {
+  return accountInfo.value.is_otp || passkeyList.value.length > 0
+})
 
 // 更新头像
 function changeAvatar(file: Event) {
@@ -116,13 +134,15 @@ async function fetchUserInfo() {
       accountInfo.value.avatar = accountInfo.value.avatar ? accountInfo.value.avatar : avatar1
       currentUserName.value = accountInfo.value.name
       currentAvatar.value = accountInfo.value.avatar
+      // 同时加载PassKey列表
+      await fetchPassKeyList()
     }
   } catch (error) {
     console.log(error)
   }
 }
 
-// 保存用户信息
+// 保存账户信息
 async function saveAccountInfo() {
   if (isSaving.value) {
     $toast.error(t('profile.savingInProgress'))
@@ -195,56 +215,45 @@ async function saveAccountInfo() {
   isSaving.value = false
 }
 
-// 为当前用户获取Otp Uri
-async function getOtpUri() {
-  try {
-    const result: { [key: string]: any } = await api.post('user/otp/generate')
-    if (result.success) {
-      otpUri.value = result.data.uri
-      secret.value = result.data.secret
-      qrCode.value = result.data.uri
-      otpDialog.value = true
-    } else {
-      $toast.error(t('profile.otpGenerateFailed', { message: result.message }))
-    }
-  } catch (error) {
-    console.log(error)
-  }
+// 验证密码载荷接口
+interface VerifyPasswordPayload {
+  title: string
+  text: string
+  callback: (password: string) => void
 }
 
-// 关闭当前用户的双重验证
-async function disableOtp() {
-  try {
-    const result: { [key: string]: any } = await api.post('user/otp/disable')
-    if (result.success) {
-      accountInfo.value.is_otp = false
-      $toast.success(t('profile.otpDisableSuccess'))
-    } else {
-      $toast.error(t('profile.otpDisableFailed', { message: result.message }))
-    }
-  } catch (error) {
-    console.log(error)
-  }
+// 密码验证并执行回调
+function withPasswordVerification(title: string, text: string, callback: (password: string) => void) {
+  verifyTitle.value = title
+  verifyText.value = text
+  verifyCallback.value = callback
+  verifyPassword.value = ''
+  verifyPasswordDialog.value = true
 }
 
-// 启用Otp
-async function judgeOtpPassword() {
-  if (!otpPassword.value) {
-    $toast.error(t('profile.otpCodeRequired'))
+// 弹窗请求密码验证
+function onVerifyPassword({ title, text, callback }: VerifyPasswordPayload) {
+  withPasswordVerification(title, text, callback)
+}
+
+// 确认密码验证
+async function confirmVerifyPassword() {
+  if (!verifyPassword.value) {
+    $toast.error(t('user.passwordHint'))
     return
   }
-  try {
-    const result: { [key: string]: any } = await api.post('user/otp/judge', {
-      uri: otpUri.value,
-      otpPassword: otpPassword.value,
-    })
+  if (verifyCallback.value) {
+    verifyCallback.value(verifyPassword.value)
+  }
+  verifyPasswordDialog.value = false
+}
 
+// 获取PassKey列表
+async function fetchPassKeyList() {
+  try {
+    const result: { [key: string]: any } = await api.get('mfa/passkey/list')
     if (result.success) {
-      $toast.success(t('profile.otpEnableSuccess'))
-      otpDialog.value = false
-      accountInfo.value.is_otp = true
-    } else {
-      $toast.error(t('profile.otpEnableFailed', { message: result.message }))
+      passkeyList.value = result.data || []
     }
   } catch (error) {
     console.log(error)
@@ -301,16 +310,52 @@ watch(
                   <span v-if="display.mdAndUp.value" class="ms-2">{{ t('common.default') }}</span>
                 </VBtn>
 
-                <VBtn
-                  :color="accountInfo.is_otp ? 'warning' : 'success'"
-                  variant="tonal"
-                  @click.stop="accountInfo.is_otp ? disableOtp() : getOtpUri()"
-                >
-                  <VIcon icon="mdi-account-key" />
-                  <span v-if="display.mdAndUp.value" class="ms-2">{{
-                    accountInfo.is_otp ? t('profile.disableTwoFactor') : t('profile.enableTwoFactor')
-                  }}</span>
-                </VBtn>
+                <!-- 双重验证菜单按钮 -->
+                <VMenu v-model="mfaMenu" :close-on-content-click="false">
+                  <template #activator="{ props }">
+                    <VBtn :color="hasMfaEnabled ? 'warning' : 'success'" variant="tonal" v-bind="props">
+                      <VIcon icon="mdi-shield-key" />
+                      <span v-if="display.mdAndUp.value" class="ms-2">
+                        {{ hasMfaEnabled ? t('profile.setupMfa') : t('profile.enableMfa') }}
+                      </span>
+                      <VIcon icon="mdi-menu-down" class="ms-1" />
+                    </VBtn>
+                  </template>
+                  <VList>
+                    <VListItem
+                      @click="
+                        () => {
+                          otpDialog = true
+                          mfaMenu = false
+                        }
+                      "
+                    >
+                      <template #prepend>
+                        <VIcon icon="mdi-cellphone-key" />
+                      </template>
+                      <VListItemTitle>{{ t('profile.useAuthenticator') }}</VListItemTitle>
+                      <VListItemSubtitle v-if="accountInfo.is_otp" class="text-success">
+                        {{ t('profile.enabled') }}
+                      </VListItemSubtitle>
+                    </VListItem>
+                    <VListItem
+                      @click="
+                        () => {
+                          passkeyDialog = true
+                          mfaMenu = false
+                        }
+                      "
+                    >
+                      <template #prepend>
+                        <VIcon icon="material-symbols:passkey" />
+                      </template>
+                      <VListItemTitle>{{ t('profile.usePasskey') }}</VListItemTitle>
+                      <VListItemSubtitle v-if="passkeyList.length > 0" class="text-success">
+                        {{ t('profile.keysCount', { count: passkeyList.length }) }}
+                      </VListItemSubtitle>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </div>
 
               <p class="text-body-1 mb-0">{{ t('profile.avatarFormatTip') }}</p>
@@ -463,38 +508,43 @@ watch(
     </VRow>
 
     <!-- 双重验证弹窗 -->
-    <VDialog v-if="otpDialog" v-model="otpDialog" max-width="45rem" scrollable>
-      <!-- 开启双重验证弹窗内容 -->
+    <OTPAuthDialog
+      v-model="otpDialog"
+      v-model:is-otp="accountInfo.is_otp"
+      :passkey-list="passkeyList"
+      @verify-password="onVerifyPassword"
+    />
+
+    <!-- PassKey管理对话框 -->
+    <PasskeyDialog
+      v-model="passkeyDialog"
+      :is-otp="accountInfo.is_otp"
+      v-model:passkey-list="passkeyList"
+      @verify-password="onVerifyPassword"
+    />
+
+    <!-- 密码验证对话框 -->
+    <VDialog v-model="verifyPasswordDialog" max-width="30rem">
       <VCard>
-        <VDialogCloseBtn @click="otpDialog = false" />
+        <VCardTitle class="text-h5 text-center mt-4">{{ verifyTitle }}</VCardTitle>
         <VCardText>
-          <h4 class="text-h4 text-center mb-6 mt-5">{{ t('profile.twoFactorAuthentication') }}</h4>
-          <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.authenticatorApp') }}</h5>
-          <p class="mb-6">
-            {{ t('profile.authenticatorAppDescription') }}
-          </p>
-          <div class="my-6">
-            <QrcodeVue class="mx-auto" :value="qrCode" :size="200" max-width="25rem" />
-          </div>
-          <VAlert :title="secret" variant="tonal" type="warning" class="my-4" :text="t('profile.secretKeyTip')">
-            <template #prepend />
-          </VAlert>
-          <VForm>
+          <p class="mb-4">{{ verifyText }}</p>
+          <VForm @submit.prevent="confirmVerifyPassword">
             <VTextField
-              v-model="otpPassword"
-              type="text"
-              :label="t('profile.enterVerificationCode')"
-              autocomplete=""
-              class="mb-8"
+              v-model="verifyPassword"
+              :type="isConfirmPasswordVisible ? 'text' : 'password'"
+              :label="t('user.password')"
+              :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
               variant="outlined"
-              prepend-inner-icon="mdi-shield-key"
+              prepend-inner-icon="mdi-lock"
+              autocomplete="current-password"
+              @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
             />
-            <div class="d-flex justify-end flex-wrap gap-4">
-              <VBtn variant="outlined" color="secondary" @click="otpDialog = false"> {{ t('common.cancel') }} </VBtn>
-              <VBtn @click="judgeOtpPassword">
-                <template #prepend>
-                  <VIcon icon="mdi-check" />
-                </template>
+            <div class="d-flex justify-end gap-4 mt-4">
+              <VBtn variant="outlined" color="secondary" @click="verifyPasswordDialog = false">
+                {{ t('common.cancel') }}
+              </VBtn>
+              <VBtn type="submit" color="primary">
                 {{ t('common.confirm') }}
               </VBtn>
             </div>

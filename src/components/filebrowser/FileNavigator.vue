@@ -2,7 +2,7 @@
 import type { PropType } from 'vue'
 import type { FileItem } from '@/api/types'
 import { useDisplay } from 'vuetify'
-import type { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 
@@ -54,7 +54,7 @@ const props = defineProps({
   },
   endpoints: Object,
   axios: {
-    type: Function,
+    type: Object as PropType<AxiosInstance>,
     required: true,
   },
 })
@@ -131,7 +131,7 @@ async function loadSubdirectories(path: string) {
       data: fakeItem,
     }
 
-    const result = await props.axios?.request(config)
+    const result = (await props.axios?.request(config))
     if (result && Array.isArray(result)) {
       // 过滤出目录项
       const dirs = result.filter(item => item.type === 'dir')

@@ -17,7 +17,7 @@ const listViewKey = ref(0)
 
 // 获取标签页
 const workflowTabs = computed(() => {
-  return getWorkflowTabs()
+  return getWorkflowTabs(t)
 })
 
 // 新增工作流对话框

@@ -1,11 +1,15 @@
 <script lang="ts" setup>
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
+import { clearCachesAndServiceWorker, reloadWithTimestamp } from '@/composables/useVersionChecker'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
 // 国际化
 const { t } = useI18n()
+
+// APP版本
+const appVersion = __APP_VERSION__
 
 // 定义事件
 const emit = defineEmits(['close'])
@@ -115,6 +119,13 @@ function releaseTime(releaseDate: string) {
   return formatDateDifference(releaseDate)
 }
 
+// 强制清除缓存
+async function clearCache() {
+  await clearCachesAndServiceWorker()
+  // 刷新页面，添加时间戳参数以强制更新
+  reloadWithTimestamp()
+}
+
 onMounted(() => {
   querySystemEnv()
   queryAllRelease()
@@ -172,6 +183,27 @@ onMounted(() => {
                 </div>
                 <div>
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                    <dt class="block text-sm font-bold">{{ t('setting.about.browserVersion') }}</dt>
+                    <dd class="flex text-sm sm:col-span-2 sm:mt-0">
+                      <span class="flex-grow flex flex-row items-center truncate">
+                        <code class="truncate">{{ appVersion }}</code>
+                        <VBtn
+                          size="x-small"
+                          variant="tonal"
+                          class="ms-2"
+                          @click="clearCache"
+                        >
+                          <template #prepend>
+                            <VIcon icon="mdi-refresh" size="14" />
+                          </template>
+                          {{ t('setting.about.clearCache') }}
+                        </VBtn>
+                      </span>
+                    </dd>
+                  </div>
+                </div>
+                <div>
+                  <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.authVersion') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                       <span class="flex-grow flex flex-row items-center truncate">
@@ -194,7 +226,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.configDir') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <code>{{ systemEnv.CONFIG_DIR }}</code>
                       </span>
                     </dd>
@@ -202,7 +234,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.dataDir') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined"
+                      <span class="flex-grow break-all"
                         ><code>{{ t('setting.about.dataDirectory') }}</code></span
                       >
                     </dd>
@@ -212,7 +244,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.timezone') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <code>{{ systemEnv.TZ }}</code>
                       </span>
                     </dd>
@@ -261,7 +293,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.documentation') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <a
                           href="https://movie-pilot.org"
                           target="_blank"
@@ -278,7 +310,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.feedback') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <a
                           href="https://github.com/jxxghp/MoviePilot/issues/new/choose"
                           target="_blank"
@@ -295,7 +327,7 @@ onMounted(() => {
                   <div class="max-w-6xl py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                     <dt class="block text-sm font-bold">{{ t('setting.about.channel') }}</dt>
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
-                      <span class="flex-grow undefined">
+                      <span class="flex-grow break-all">
                         <a
                           href="https://t.me/moviepilot_channel"
                           target="_blank"

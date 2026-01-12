@@ -58,7 +58,7 @@ function initializeColors() {
 
 // 初始化发现标签
 function initDiscoverTabs() {
-  const tabs = getDiscoverTabs()
+  const tabs = getDiscoverTabs(t)
   for (const tab of tabs) {
     discoverTabs.value.push({
       name: tab.name,
