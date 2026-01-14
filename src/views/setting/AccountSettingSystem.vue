@@ -37,6 +37,9 @@ const SystemSettings = ref<any>({
     LLM_MODEL: 'deepseek-chat',
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
+    AI_RECOMMEND_ENABLED: false,
+    AI_RECOMMEND_USER_PREFERENCE: null,
+    AI_RECOMMEND_MAX_ITEMS: 50,
   },
   // 高级系统设置
   Advanced: {
@@ -714,6 +717,35 @@ onDeactivated(() => {
                   :label="t('setting.system.aiAgentGlobal')"
                   :hint="t('setting.system.aiAgentGlobalHint')"
                   persistent-hint
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VSwitch
+                  v-model="SystemSettings.Basic.AI_RECOMMEND_ENABLED"
+                  :label="t('setting.system.aiRecommendEnabled')"
+                  :hint="t('setting.system.aiRecommendEnabledHint')"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED" cols="12">
+                <VTextarea
+                  v-model="SystemSettings.Basic.AI_RECOMMEND_USER_PREFERENCE"
+                  :label="t('setting.system.aiRecommendUserPreference')"
+                  :hint="t('setting.system.aiRecommendUserPreferenceHint')"
+                  persistent-hint
+                  rows="1"
+                  auto-grow
+                  prepend-inner-icon="mdi-account-heart"
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED" cols="12" md="6">
+                <VTextField
+                  v-model.number="SystemSettings.Basic.AI_RECOMMEND_MAX_ITEMS"
+                  :label="t('setting.system.aiRecommendMaxItems')"
+                  :hint="t('setting.system.aiRecommendMaxItemsHint')"
+                  persistent-hint
+                  type="number"
+                  prepend-inner-icon="mdi-format-list-numbered"
                 />
               </VCol>
             </VRow>

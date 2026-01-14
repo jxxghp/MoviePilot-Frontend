@@ -140,7 +140,7 @@ onMounted(() => {
         </div>
       </template>
 
-      <VListItemTitle>
+      <VListItemTitle class="whitespace-normal">
         <div class="d-flex flex-row flex-wrap align-center mb-2">
           <span class="text-h6 font-weight-bold me-2">{{ media?.title ?? meta?.name }}</span>
           <VChip
@@ -153,12 +153,12 @@ onMounted(() => {
           </VChip>
         </div>
 
-        <div class="text-subtitle-2 font-weight-medium mb-2" :title="torrent?.title">
+        <div class="text-subtitle-2 font-weight-medium mb-2 break-all" :title="torrent?.title">
           {{ torrent?.title }}
         </div>
 
         <div
-          class="text-body-2 text-medium-emphasis mb-2"
+          class="text-body-2 text-medium-emphasis mb-2 break-all"
           :title="meta?.subtitle || torrent?.description || '暂无描述'"
         >
           {{ meta?.subtitle || torrent?.description || '暂无描述' }}

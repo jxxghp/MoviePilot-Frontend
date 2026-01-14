@@ -192,7 +192,11 @@ async function removeLoadingWithStateCheck() {
 
     // 并行加载关键资源
     await Promise.all([
-      globalSettingsStore.initialize().then(() => {
+      globalSettingsStore.initialize().then(async () => {
+        // 如果已登录，加载用户相关设置
+        if (isLogin.value) {
+          await globalSettingsStore.loadUserSettings()
+        }
         globalLoadingStateManager.setLoadingState('global-settings', false)
       }),
       new Promise(resolve => {

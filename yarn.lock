@@ -1145,6 +1145,27 @@
   resolved "https://registry.npmjs.org/@humanwhocodes/retry/-/retry-0.4.2.tgz"
   integrity sha512-xeO57FpIu4p1Ri3Jq/EXq4ClRm86dVF2z/+kvFnyqVYRavTZmaFaUBbWCOuuTh0o/g7DSsk6kc2vrS4Vl5oPOQ==
 
+"@iconify-json/line-md@^1.2.13":
+  version "1.2.13"
+  resolved "https://registry.yarnpkg.com/@iconify-json/line-md/-/line-md-1.2.13.tgz#19714b8471ebac5871e20036512eaffa869a04b7"
+  integrity sha512-XFXThXsEQ2Wzzn+ze2T1d+JHkkFvI1AxiVKnOox4qFbdR9EVikckZlUK+/DUsV4zSy6pMQAgXpIk+1xG8qFYPQ==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-json/lucide@^1.2.85":
+  version "1.2.85"
+  resolved "https://registry.yarnpkg.com/@iconify-json/lucide/-/lucide-1.2.85.tgz#0074b64f50798da4b89f9f74e4db5a4e56c640b1"
+  integrity sha512-VXUWT6KRDiVK4Ty/7Ypu+U0KnSbHzDAOOiSgLLPhU8u3ES5IusP1X7ahZb1iwiVKGWRG6gkKywaRUIZLgYWXyA==
+  dependencies:
+    "@iconify/types" "*"
+
+"@iconify-json/material-symbols@^1.2.51":
+  version "1.2.51"
+  resolved "https://registry.yarnpkg.com/@iconify-json/material-symbols/-/material-symbols-1.2.51.tgz#270862a21bb65a8632de4943146096b5a58863ae"
+  integrity sha512-GkxlK8ocHi3NVVozaW62jm3qR9fNY3xX2penFtIRvoe1OtNhJ2KD4KRzv8x34pugMOAZYK8sALMcU30gDgCi1A==
+  dependencies:
+    "@iconify/types" "*"
+
 "@iconify-json/mdi@^1.1.52":
   version "1.2.3"
   resolved "https://registry.npmjs.org/@iconify-json/mdi/-/mdi-1.2.3.tgz"
