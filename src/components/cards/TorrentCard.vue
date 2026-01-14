@@ -137,7 +137,7 @@ onMounted(() => {
       <!-- 媒体标题 -->
       <VCardItem class="pt-3 pb-0">
         <div class="d-flex flex-row flex-wrap justify-start mb-2 pr-8">
-          <span class="text-h6 font-weight-bold text-truncate me-2">
+          <span class="text-h6 font-weight-bold me-2">
             {{ media?.title ?? meta?.name }}
           </span>
           <VChip
@@ -183,14 +183,14 @@ onMounted(() => {
       <!-- 种子内容 -->
       <VCardText class="d-flex flex-column flex-grow-1 pa-3 overflow-hidden">
         <!-- 种子标题 -->
-        <div class="text-subtitle-2 text-high-emphasis font-weight-medium mb-1" :title="torrent?.title">
+        <div class="text-subtitle-2 text-high-emphasis font-weight-medium mb-1 break-all" :title="torrent?.title">
           {{ torrent?.title }}
         </div>
 
         <!-- 种子描述 -->
         <div
           v-if="meta?.subtitle || torrent?.description"
-          class="text-body-2 text-medium-emphasis mb-2"
+          class="text-body-2 text-medium-emphasis mb-2 break-all"
           :title="meta?.subtitle || torrent?.description"
         >
           {{ meta?.subtitle || torrent?.description }}

@@ -6,6 +6,7 @@
   "bin": "dist/service.js",
   "scripts": {
     "dev": "vite --host",
+    "prebuild": "npm run build:icons",
     "build": "vite build",
     "preview": "vite preview --port 5050",
     "typecheck": "vue-tsc --noEmit",
@@ -71,6 +72,9 @@
     "webfontloader": "^1.6.28"
   },
   "devDependencies": {
+    "@iconify-json/line-md": "^1.2.13",
+    "@iconify-json/lucide": "^1.2.85",
+    "@iconify-json/material-symbols": "^1.2.51",
     "@iconify-json/mdi": "^1.1.52",
     "@iconify/tools": "^4.0.4",
     "@iconify/vue": "^4.3.0",

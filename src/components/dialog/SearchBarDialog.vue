@@ -138,7 +138,7 @@ function getMenus(): NavMenu[] {
     item =>
       item &&
       menus.push({
-        title: t('setting') + ' -> ' + item.title,
+        title: t('navItems.setting') + ' -> ' + item.title,
         icon: item.icon,
         to: `/setting?tab=${item.tab}`,
         header: '',

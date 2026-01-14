@@ -223,7 +223,6 @@ onMounted(() => {
             <VSelect
               v-model="selectedDownloader"
               :items="downloaderOptions"
-              size="small"
               :label="t('dialog.addDownload.downloader')"
               variant="underlined"
               :placeholder="t('dialog.addDownload.defaultPlaceholder')"
@@ -236,7 +235,6 @@ onMounted(() => {
               v-model="selectedDirectory"
               :items="targetDirectories"
               :label="t('dialog.addDownload.saveDirectory')"
-              size="small"
               :placeholder="t('dialog.addDownload.autoPlaceholder')"
               variant="underlined"
               density="comfortable"
@@ -248,7 +246,6 @@ onMounted(() => {
           <VCol cols="12">
             <VBtn
               variant="text"
-              size="small"
               :prepend-icon="showAdvancedOptions ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               @click="showAdvancedOptions = !showAdvancedOptions"
             >
@@ -272,7 +269,6 @@ onMounted(() => {
               :hint="t('dialog.reorganize.mediaIdHint')"
               persistent-hint
               prepend-inner-icon="mdi-identifier"
-              size="small"
               variant="underlined"
               density="comfortable"
               @click:append-inner="mediaSelectorDialog = true"
@@ -287,7 +283,6 @@ onMounted(() => {
               :hint="t('dialog.reorganize.mediaIdHint')"
               persistent-hint
               prepend-inner-icon="mdi-identifier"
-              size="small"
               variant="underlined"
               density="comfortable"
               @click:append-inner="mediaSelectorDialog = true"

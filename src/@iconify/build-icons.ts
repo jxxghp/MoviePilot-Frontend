@@ -92,6 +92,9 @@ const sources: BundleScriptConfig = {
     // 'mdi:logout',
     // 'octicon:book-24',
     // 'octicon:code-square-24',
+    'lucide:sparkles',
+    'material-symbols:passkey',
+    'line-md:loading-twotone-loop',
   ],
 
   json: [
@@ -154,7 +157,13 @@ const target = join(__dirname, 'icons-bundle.js');
     // Sort icons by prefix
     const organizedList = organizeIconsList(sources.icons)
     for (const prefix in organizedList) {
-      const filename = require.resolve(`@iconify/json/json/${prefix}.json`)
+      let filename
+      try {
+        filename = require.resolve(`@iconify-json/${prefix}/icons.json`)
+      }
+      catch (err) {
+        filename = require.resolve(`@iconify/json/json/${prefix}.json`)
+      }
 
       sourcesJSON.push({
         filename,
