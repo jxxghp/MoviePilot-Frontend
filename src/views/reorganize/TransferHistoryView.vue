@@ -46,12 +46,37 @@ const redoTargetStorage = ref<string>()
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
 
+const getNum = (s?: string) => (s ? parseInt(s.replace(/[^0-9]/g, ''), 10) || 0 : 0);
+
+function sortByTitle(a: TransferHistory, b: TransferHistory) {
+  if (a.type !== b.type) {
+    return (a.type ?? '').localeCompare(b.type ?? '');
+  }
+  if (a.title !== b.title) {
+    return (a.title ?? '').toLocaleLowerCase().localeCompare((b.title ?? '').toLocaleLowerCase());
+  }
+  if (a.type === '电视剧') {
+    if (a.seasons !== b.seasons) {
+      return getNum(a.seasons) - getNum(b.seasons);
+    }
+    if (a.episodes !== b.episodes) {
+      return getNum(a.episodes) - getNum(b.episodes);
+    }
+  }
+  return 0
+}
+
+function sortBySourceSize(a: TransferHistory, b: TransferHistory) {
+  return (a.src_fileitem?.size ?? 0) - (b.src_fileitem?.size ?? 0)
+}
+
 // 表头
 const headers = [
   {
     title: t('transferHistory.titleColumn'),
     key: 'title',
     sortable: true,
+    sortRaw: sortByTitle,
   },
   {
     title: t('transferHistory.pathColumn'),
@@ -67,6 +92,7 @@ const headers = [
     title: t('transferHistory.sizeColumn'),
     key: 'size',
     sortable: true,
+    sortRaw: sortBySourceSize,
   },
   {
     title: t('transferHistory.dateColumn'),
@@ -91,6 +117,7 @@ const groupHeaders = [
     title: t('transferHistory.seasonEpisode'),
     key: 'title',
     sortable: true,
+    sortRaw: sortByTitle,
   },
   {
     title: t('transferHistory.pathColumn'),
@@ -106,6 +133,7 @@ const groupHeaders = [
     title: t('transferHistory.sizeColumn'),
     key: 'size',
     sortable: true,
+    sortRaw: sortBySourceSize,
   },
   {
     title: t('transferHistory.dateColumn'),
