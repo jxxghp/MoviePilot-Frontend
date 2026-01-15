@@ -136,7 +136,7 @@ onMounted(() => {
 
       <!-- 媒体标题 -->
       <VCardItem class="pt-3 pb-0">
-        <div class="d-flex flex-row flex-wrap justify-start mb-2 pr-8">
+        <div class="d-flex flex-row flex-wrap justify-start align-center mb-2 pr-8">
           <span class="text-h6 font-weight-bold me-2">
             {{ media?.title ?? meta?.name }}
           </span>

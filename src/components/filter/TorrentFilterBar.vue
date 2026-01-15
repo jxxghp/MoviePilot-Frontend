@@ -174,14 +174,31 @@ onMounted(() => {
       const el = filterBarRef.value
       if (el && el.clientWidth > 0 && el.scrollWidth > el.clientWidth) {
         // 检查当前视口范围内的最后一个元素（即右侧边缘处的元素）
+        const containerRect = el.getBoundingClientRect()
         const children = Array.from(el.children) as HTMLElement[]
-        const lastInViewport = children.filter(c => (c as HTMLElement).offsetLeft < el.clientWidth).pop() as HTMLElement
-        if (lastInViewport) {
-          const visibleWidth = el.clientWidth - lastInViewport.offsetLeft
-          const visibleRatio = visibleWidth / lastInViewport.offsetWidth
+        const lastInViewport = children
+          .filter(c => {
+            const rect = c.getBoundingClientRect()
+            return rect.left < containerRect.right
+          })
+          .pop()
 
-          // 如果视口内最后一个元素显示比例超过30%，则不需要滚动提示
-          if (visibleRatio > 0.3) {
+        if (lastInViewport) {
+          const rect = lastInViewport.getBoundingClientRect()
+          const visibleWidth = Math.min(rect.right, containerRect.right) - rect.left
+          const visibleRatio = visibleWidth / rect.width
+
+          // 判断是否是列表最后一个元素
+          const isLastItem = lastInViewport === children[children.length - 1]
+
+          // 1. 如果是最后一个元素，且显示比例超过80%，说明基本已经展示完了，不需要动画
+          if (isLastItem && visibleRatio > 0.8) {
+            return
+          }
+
+          // 2. 如果视口内最后一个元素显示比例在30%到80%之间（明显的截断状态），用户能感知到后面还有内容，不需要滚动提示
+          // 比例过小(<0.3)可能看不清，非最后一个元素且比例过大(>0.8)可能误以为是结尾，这两种情况都需要提示
+          if (visibleRatio > 0.3 && visibleRatio < 0.8) {
             return
           }
         }
