@@ -640,7 +640,6 @@ onUnmounted(() => {
                   :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'"
                   size="18"
                   class="ai-refresh-icon"
-                  :class="{ 'text-primary': isRecommending }"
                 />
                 <VTooltip activator="parent" location="top">
                   {{ t('resource.reRecommend') }}
