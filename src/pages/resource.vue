@@ -915,9 +915,10 @@ onUnmounted(() => {
 .ai-icon {
   color: rgba(var(--v-theme-on-surface), 0.6);
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
 }
 
-/* 激活状态图标：变色 + 辉光 (移除动画) */
+/* 激活状态图标：变色 + 辉光 */
 .ai-icon-active {
   color: rgb(var(--v-theme-primary));
   filter: drop-shadow(0 0 4px rgba(var(--v-theme-primary), 0.5));
@@ -928,16 +929,12 @@ onUnmounted(() => {
   color: rgba(var(--v-theme-on-surface), 0.6);
   font-weight: 600; /* 保持一致的字重防止位移 */
   font-size: 0.85rem;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease;
+  transform: translateZ(0);
 }
 
-/* 激活状态文字：渐变流光 (调整为更柔和的蓝紫色) */
+/* 激活状态文字 */
 .ai-text-active {
-  background: linear-gradient(90deg, rgb(var(--v-theme-primary)) 0%, #8b5cf6 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* 备用颜色，防止浏览器不支持 background-clip */
   color: rgb(var(--v-theme-primary));
 }
 
