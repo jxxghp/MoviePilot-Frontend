@@ -654,20 +654,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.search-header {
-  position: sticky;
-  z-index: 10;
-  backdrop-filter: blur(10px);
-  inset-block-start: 0;
-  width: 100%;
-  max-width: 100%;
-}
-
+.search-header,
 .search-header-mobile {
-  position: sticky;
-  z-index: 10;
-  backdrop-filter: blur(10px);
-  inset-block-start: 0;
   width: 100%;
   max-width: 100%;
 }
