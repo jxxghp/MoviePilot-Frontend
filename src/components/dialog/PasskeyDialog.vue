@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { formatDateDifference } from '@core/utils/formatters'
 import api from '@/api'
 import type { ApiResponse, PassKey } from '@/api/types'
+import { useGlobalSettingsStore } from '@/stores'
 
 interface Props {
   modelValue: boolean
@@ -26,6 +27,7 @@ const emit = defineEmits(['update:modelValue', 'update:passkeyList', 'verifyPass
 const { t, locale } = useI18n()
 const display = useDisplay()
 const $toast = useToast()
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 内部状态
 const show = computed({
@@ -44,6 +46,9 @@ const passkeyName = ref('')
 
 // PassKey challenge
 const passkeyChallenge = ref('')
+
+const allowPasskeyWithoutOtp = computed(() => !!globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP'))
+const canRegisterPasskey = computed(() => props.isOtp || allowPasskeyWithoutOtp.value)
 
 // 格式化日期
 function formatDate(dateStr: string) {
@@ -230,7 +235,7 @@ watch(
         </VAlert>
 
         <!-- 注册新通行密钥 -->
-        <VCard v-if="props.isOtp" variant="tonal" class="mb-6">
+        <VCard v-if="canRegisterPasskey" variant="tonal" class="mb-6">
           <VCardText>
             <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.registerNewPasskey') }}</h5>
             <p class="mb-4">{{ t('profile.passkeyDescription') }}</p>
