@@ -47,7 +47,7 @@ const passkeyName = ref('')
 // PassKey challenge
 const passkeyChallenge = ref('')
 
-const allowPasskeyWithoutOtp = computed(() => !!globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP'))
+const allowPasskeyWithoutOtp = computed(() => globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP') === true)
 const canRegisterPasskey = computed(() => props.isOtp || allowPasskeyWithoutOtp.value)
 
 // 格式化日期
