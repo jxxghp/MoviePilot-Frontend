@@ -5,6 +5,7 @@ import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import type { ApiResponse, PassKey } from '@/api/types'
+import { useGlobalSettingsStore } from '@/stores'
 
 interface Props {
   modelValue: boolean
@@ -21,6 +22,7 @@ const emit = defineEmits(['update:modelValue', 'update:isOtp', 'verifyPassword']
 const { t } = useI18n()
 const display = useDisplay()
 const $toast = useToast()
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 内部状态
 const show = computed({
@@ -36,6 +38,8 @@ const secret = ref('')
 
 // 确认双重验证密码
 const otpPassword = ref('')
+
+const allowPasskeyWithoutOtp = computed(() => globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP') === true)
 
 // 二维码图片 base64
 const qrCodeImage = ref('')
@@ -104,7 +108,7 @@ async function judgeOtpPassword() {
 // 关闭当前用户的双重验证
 function disableOtp() {
   // 如果已绑定PassKey，不允许关闭OTP
-  if (props.passkeyList && props.passkeyList.length > 0) {
+  if (props.passkeyList && props.passkeyList.length > 0 && !allowPasskeyWithoutOtp.value) {
     $toast.error(t('profile.disableOtpWithPasskeyError'))
     return
   }
