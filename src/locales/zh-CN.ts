@@ -1401,6 +1401,8 @@ export default {
       pluginAutoReloadHint: '修改插件文件后自动重新加载，开发插件时使用',
       encodingDetectionPerformanceMode: '编码探测性能模式',
       encodingDetectionPerformanceModeHint: '优先提升探测效率，但可能降低编码探测的准确性',
+      transferThreads: '文件整理线程数',
+      transferThreadsHint: '多线程整理文件可以提高速度，但可能增加系统资源占用',
       tokenizedSearch: '分词搜索',
       tokenizedSearchHint: '提升整理历史记录搜索精度，但可能增加性能开销和意外结果',
       tmdbLanguage: {

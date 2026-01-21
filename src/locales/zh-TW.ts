@@ -1402,6 +1402,8 @@ export default {
       pluginAutoReloadHint: '修改插件文件後自動重新加載，開發插件時使用',
       encodingDetectionPerformanceMode: '編碼探測性能模式',
       encodingDetectionPerformanceModeHint: '優先提升探測效率，但可能降低編碼探測的準確性',
+      transferThreads: '文件整理線程數',
+      transferThreadsHint: '多線程整理文件可以提高速度，但可能增加系統資源佔用',
       tokenizedSearch: '分詞搜索',
       tokenizedSearchHint: '提升整理歷史記錄搜索精度，但可能增加性能開銷和意外結果',
       tmdbLanguage: {
@@ -2598,8 +2600,10 @@ export default {
     passkeyDeleteSuccess: '通行密鑰已刪除',
     passkeyDeleteFailed: '刪除失敗',
     deletePasskey: '刪除通行密鑰',
-    passkeyDomainWarning: '通行密鑰（PassKey）的可用性與 {domain} 緊密相關。在公網環境下，請務必在「基本設定」中配置正確的訪問域名。域名變更或配置錯誤將導致通行密鑰無法使用。',
-    otpRequiredForPasskey: '為了安全起見，您必須先啟用 {otp} 驗證碼，然後才能註冊通行密鑰。這是為了防止在網域配置變動導致 PassKey 失效時，您仍能通過 OTP 碼登入帳戶。',
+    passkeyDomainWarning:
+      '通行密鑰（PassKey）的可用性與 {domain} 緊密相關。在公網環境下，請務必在「基本設定」中配置正確的訪問域名。域名變更或配置錯誤將導致通行密鑰無法使用。',
+    otpRequiredForPasskey:
+      '為了安全起見，您必須先啟用 {otp} 驗證碼，然後才能註冊通行密鑰。這是為了防止在網域配置變動導致 PassKey 失效時，您仍能通過 OTP 碼登入帳戶。',
     accessDomain: '訪問域名',
     otpAuthenticator: 'OTP 身份驗證器',
     otpGenerateFailed: '獲取otp uri失敗：{message}！',

@@ -1410,6 +1410,8 @@ export default {
       encodingDetectionPerformanceMode: 'Encoding Detection Performance Mode',
       encodingDetectionPerformanceModeHint:
         'Prioritize detection efficiency, but may reduce encoding detection accuracy',
+      transferThreads: 'File Transfer Threads',
+      transferThreadsHint: 'Multi-threaded file transfer can improve speed but may increase system resource usage',
       tokenizedSearch: 'Tokenized Search',
       tokenizedSearchHint:
         'Improve organization history search precision, but may increase performance overhead and unexpected results',

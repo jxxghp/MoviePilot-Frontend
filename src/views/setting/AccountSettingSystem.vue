@@ -79,6 +79,7 @@ const SystemSettings = ref<any>({
     // 实验室
     PLUGIN_AUTO_RELOAD: false,
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
+    TRANSFER_THREADS: 1,
   },
 })
 
@@ -738,7 +739,11 @@ onDeactivated(() => {
                   prepend-inner-icon="mdi-account-heart"
                 />
               </VCol>
-              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED" cols="12" md="6">
+              <VCol
+                v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.AI_RECOMMEND_ENABLED"
+                cols="12"
+                md="6"
+              >
                 <VTextField
                   v-model.number="SystemSettings.Basic.AI_RECOMMEND_MAX_ITEMS"
                   :label="t('setting.system.aiRecommendMaxItems')"
@@ -1454,6 +1459,17 @@ onDeactivated(() => {
                     :label="t('setting.system.encodingDetectionPerformanceMode')"
                     :hint="t('setting.system.encodingDetectionPerformanceModeHint')"
                     persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Advanced.TRANSFER_THREADS"
+                    :label="t('setting.system.transferThreads')"
+                    :hint="t('setting.system.transferThreadsHint')"
+                    persistent-hint
+                    type="number"
+                    min="1"
+                    prepend-inner-icon="mdi-swap-horizontal"
                   />
                 </VCol>
               </VRow>
