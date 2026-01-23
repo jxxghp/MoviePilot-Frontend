@@ -155,10 +155,21 @@ function renderMarkdown(value: string) {
     text-decoration: underline;
   }
 
-  ul,
-  ol {
+  ul {
+    list-style-type: disc;
     margin-block-end: 0.5rem;
     padding-inline-start: 1.5rem;
+  }
+
+  ol {
+    list-style-type: decimal;
+    margin-block-end: 0.5rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  li {
+    display: list-item;
+    margin-block-end: 0.25rem;
   }
 
   code {
