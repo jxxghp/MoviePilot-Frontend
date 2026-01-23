@@ -1289,6 +1289,9 @@ export default {
       llmProviderHint: '選擇使用的LLM服務提供商',
       llmModel: 'LLM模型名稱',
       llmModelHint: '指定使用的LLM模型，如gpt-3.5-turbo、deepseek-chat等',
+      llmMaxContextTokens: 'LLM 最大上下文 Token 數量 (K)',
+      llmMaxContextTokensHint:
+        '設定 LLM 記錄會話歷史的最大 Token 數量上限（千），超出後將自動修整歷史記錄以節省 Token 消耗及防止超出 LLM 限制',
       llmApiKey: 'LLM API密鑰',
       llmApiKeyHint: 'LLM服務提供商的API密鑰，用於身份驗證',
       llmApiKeyPlaceholder: '請輸入API密鑰',
@@ -1301,11 +1304,13 @@ export default {
       downloaders: '下載器',
       downloadersDesc: '只有默認下載器才會被默認使用。',
       aiRecommendEnabled: '搜索結果智能推薦',
-      aiRecommendEnabledHint: '啟用搜索結果智能推薦功能，開啟後將在搜索結果頁面顯示智能推薦按鈕，可根據用戶偏好智能推薦資源',
+      aiRecommendEnabledHint:
+        '啟用搜索結果智能推薦功能，開啟後將在搜索結果頁面顯示智能推薦按鈕，可根據用戶偏好智能推薦資源',
       aiRecommendUserPreference: '用戶偏好',
       aiRecommendUserPreferenceHint: '設置智能推薦時的用戶偏好，例如：4K WEB-DL Dolby Vision',
       aiRecommendMaxItems: '智能推薦分析條目上限',
-      aiRecommendMaxItemsHint: '限制發送給智能助手進行分析的搜索結果數量，數量越多分析越慢且消耗 Token 越多，建議先手動篩選，篩選出大致範圍後再進行智能推薦',
+      aiRecommendMaxItemsHint:
+        '限制發送給智能助手進行分析的搜索結果數量，數量越多分析越慢且消耗 Token 越多，建議先手動篩選，篩選出大致範圍後再進行智能推薦',
       mediaServers: '媒體服務器',
       mediaServersDesc: '所有啟用的媒體服務器都會被使用。',
       trimeMedia: '飛牛影視',
@@ -2586,7 +2591,8 @@ export default {
     passkeyManagement: '通行密鑰管理',
     registerNewPasskey: '註冊新通行密鑰',
     passkeyDescription: '通行密鑰可以讓您無需密碼即可快速安全地登入。',
-    passkeyAppDescription: '通行密鑰是一種更簡單、更安全的登入方式，可以替代密碼進行登入。您可以使用 iCloud 鑰匙圈、Bitwarden 等支援通行密鑰的應用程式或硬體金鑰完成驗證。',
+    passkeyAppDescription:
+      '通行密鑰是一種更簡單、更安全的登入方式，可以替代密碼進行登入。您可以使用 iCloud 鑰匙圈、Bitwarden 等支援通行密鑰的應用程式或硬體金鑰完成驗證。',
     passkeyName: '通行密鑰名稱',
     passkeyNamePlaceholder: '例如：iPhone、Windows Hello',
     registerPasskey: '註冊通行密鑰',
