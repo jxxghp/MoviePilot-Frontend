@@ -272,6 +272,8 @@ export interface MediaInfo {
   vote_average?: number
   // 描述
   overview?: string
+  // 自定义剧集组
+  episode_group?: string
   // 二级分类
   category?: string
   // 详情页面
