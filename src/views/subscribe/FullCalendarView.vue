@@ -71,7 +71,8 @@ async function eventsHander(subscribe: Subscribe) {
     }
   } else {
     // 调用API查询集信息
-    const episodes: TmdbEpisode[] = await api.get(`tmdb/${subscribe.tmdbid}/${subscribe.season}`)
+    const params = subscribe.episode_group ? { episode_group: subscribe.episode_group } : undefined
+    const episodes: TmdbEpisode[] = await api.get(`tmdb/${subscribe.tmdbid}/${subscribe.season}`, params ? { params } : undefined)
 
     interface EpisodeInfo {
       title: string
