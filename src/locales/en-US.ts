@@ -1292,23 +1292,29 @@ export default {
       llmProviderHint: 'Select the LLM service provider to use',
       llmModel: 'LLM Model Name',
       llmModelHint: 'Specify the LLM model to use, such as gpt-3.5-turbo, deepseek-chat, etc.',
+      llmMaxContextTokens: 'LLM Max Context Tokens (K)',
+      llmMaxContextTokensHint:
+        'Set the maximum number of context tokens (in thousands) for the LLM. Exceeding this limit will trigger context trimming.',
       llmApiKey: 'LLM API Key',
       llmApiKeyHint: 'API key from the LLM service provider for authentication',
       llmApiKeyPlaceholder: 'Please enter API key',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
       aiAgentGlobal: 'Global AI Assistant',
-      aiAgentGlobalHint: 'Enable global AI assistant functionality, all message conversations will be answered by the AI agent without using the /ai command',
+      aiAgentGlobalHint:
+        'Enable global AI assistant functionality, all message conversations will be answered by the AI agent without using the /ai command',
       advancedSettings: 'Advanced Settings',
       advancedSettingsDesc: 'System advanced settings, only need to be adjusted in special cases',
       downloaders: 'Downloaders',
       downloadersDesc: 'Only the default downloader will be used by default.',
       aiRecommendEnabled: 'AI Search Recommendation',
-      aiRecommendEnabledHint: 'Enable AI search recommendation. When enabled, an AI recommendation button will be displayed on the search result page, recommending resources based on user preferences.',
+      aiRecommendEnabledHint:
+        'Enable AI search recommendation. When enabled, an AI recommendation button will be displayed on the search result page, recommending resources based on user preferences.',
       aiRecommendUserPreference: 'User Preference',
       aiRecommendUserPreferenceHint: 'Set user preferences for AI recommendation, e.g., 4K WEB-DL Dolby Vision',
       aiRecommendMaxItems: 'AI Recommendation Analysis Limit',
-      aiRecommendMaxItemsHint: 'Limit the number of search results sent to the AI assistant for analysis. More items mean slower analysis and more token consumption. It is recommended to manually filter to a general range before using AI recommendation.',
+      aiRecommendMaxItemsHint:
+        'Limit the number of search results sent to the AI assistant for analysis. More items mean slower analysis and more token consumption. It is recommended to manually filter to a general range before using AI recommendation.',
       mediaServers: 'Media Servers',
       mediaServersDesc: 'All enabled media servers will be used.',
       trimeMedia: 'TrimeMedia',
@@ -2617,7 +2623,8 @@ export default {
     passkeyManagement: 'Passkey Management',
     registerNewPasskey: 'Register New Passkey',
     passkeyDescription: 'Passkeys allow you to sign in quickly and securely without a password.',
-    passkeyAppDescription: 'Passkeys are a simpler, more secure way to sign in, serving as an alternative to passwords. You can authenticate using passkey-supported apps like iCloud Keychain, Bitwarden, or hardware keys.',
+    passkeyAppDescription:
+      'Passkeys are a simpler, more secure way to sign in, serving as an alternative to passwords. You can authenticate using passkey-supported apps like iCloud Keychain, Bitwarden, or hardware keys.',
     passkeyName: 'Passkey Name',
     passkeyNamePlaceholder: 'e.g.: iPhone, Windows Hello',
     registerPasskey: 'Register Passkey',
@@ -2631,8 +2638,10 @@ export default {
     passkeyDeleteSuccess: 'Passkey deleted',
     passkeyDeleteFailed: 'Delete failed',
     deletePasskey: 'Delete Passkey',
-    passkeyDomainWarning: 'The availability of PassKeys is closely related to the {domain}. In a public network environment, please make sure to configure the correct access domain name in "Basic Settings". Domain changes or configuration errors will cause the PassKey to be unusable.',
-    otpRequiredForPasskey: 'For security reasons, you must first enable {otp} before you can register a PassKey. This is to ensure that you can still log in to your account via OTP code if the PassKey becomes invalid due to domain configuration changes.',
+    passkeyDomainWarning:
+      'The availability of PassKeys is closely related to the {domain}. In a public network environment, please make sure to configure the correct access domain name in "Basic Settings". Domain changes or configuration errors will cause the PassKey to be unusable.',
+    otpRequiredForPasskey:
+      'For security reasons, you must first enable {otp} before you can register a PassKey. This is to ensure that you can still log in to your account via OTP code if the PassKey becomes invalid due to domain configuration changes.',
     accessDomain: 'access domain name',
     otpAuthenticator: 'OTP Authenticator',
     otpGenerateFailed: 'Failed to get OTP URI: {message}!',
@@ -2641,8 +2650,10 @@ export default {
     otpCodeRequired: 'Please enter the 6-digit verification code',
     otpEnableSuccess: 'Two-factor authentication enabled successfully!',
     otpEnableFailed: 'Failed to enable OTP: {message}!',
-    otpDisableRestrictedByPasskey: 'You have registered Passkeys. Please delete all Passkeys before disabling OTP verification.',
-    confirmToDisableOtp: 'For security reasons, verifying your login password is required to disable two-factor authentication.',
+    otpDisableRestrictedByPasskey:
+      'You have registered Passkeys. Please delete all Passkeys before disabling OTP verification.',
+    confirmToDisableOtp:
+      'For security reasons, verifying your login password is required to disable two-factor authentication.',
     confirmToDeletePasskey: 'For security reasons, verifying your login password is required to delete a Passkey.',
     authenticatorAppDescription:
       'Use an authenticator app like Google Authenticator, Microsoft Authenticator, Authy, or 1Password to scan the QR code and generate a 6-digit code.',

@@ -1288,6 +1288,9 @@ export default {
       llmProviderHint: '选择使用的LLM服务提供商',
       llmModel: 'LLM模型名称',
       llmModelHint: '指定使用的LLM模型，如gpt-3.5-turbo、deepseek-chat等',
+      llmMaxContextTokens: 'LLM 最大上下文 Token 数量 (K)',
+      llmMaxContextTokensHint:
+        '设定 LLM 记录会话历史的最大 Token 数量上限（千），超出后将自动修整历史记录以节省 Token 消耗及防止超出 LLM 限制',
       llmApiKey: 'LLM API密钥',
       llmApiKeyHint: 'LLM服务提供商的API密钥，用于身份验证',
       llmApiKeyPlaceholder: '请输入API密钥',
@@ -1300,11 +1303,13 @@ export default {
       downloaders: '下载器',
       downloadersDesc: '只有默认下载器才会被默认使用。',
       aiRecommendEnabled: '搜索结果智能推荐',
-      aiRecommendEnabledHint: '启用搜索结果智能推荐功能，开启后将在搜索结果页面显示智能推荐按钮，可根据用户偏好智能推荐资源',
+      aiRecommendEnabledHint:
+        '启用搜索结果智能推荐功能，开启后将在搜索结果页面显示智能推荐按钮，可根据用户偏好智能推荐资源',
       aiRecommendUserPreference: '用户偏好',
       aiRecommendUserPreferenceHint: '设置智能推荐时的用户偏好，例如：4K WEB-DL Dolby Vision',
       aiRecommendMaxItems: '智能推荐分析条目上限',
-      aiRecommendMaxItemsHint: '限制发送给智能助手进行分析的搜索结果数量，数量越多分析越慢且消耗 Token 越多，建议先手动筛选，筛选出大致范围后再进行智能推荐',
+      aiRecommendMaxItemsHint:
+        '限制发送给智能助手进行分析的搜索结果数量，数量越多分析越慢且消耗 Token 越多，建议先手动筛选，筛选出大致范围后再进行智能推荐',
       mediaServers: '媒体服务器',
       mediaServersDesc: '所有启用的媒体服务器都会被使用。',
       trimeMedia: '飞牛影视',
@@ -2585,7 +2590,8 @@ export default {
     passkeyManagement: '通行密钥管理',
     registerNewPasskey: '注册新通行密钥',
     passkeyDescription: '通行密钥可以让您无需密码即可快速安全地登录。',
-    passkeyAppDescription: '通行密钥是一种更简单、更安全的登录方式，可以替代密码进行登录。您可以使用 iCloud 钥匙串、Bitwarden 等支持通行密钥的应用程序或硬件密钥完成验证。',
+    passkeyAppDescription:
+      '通行密钥是一种更简单、更安全的登录方式，可以替代密码进行登录。您可以使用 iCloud 钥匙串、Bitwarden 等支持通行密钥的应用程序或硬件密钥完成验证。',
     passkeyName: '通行密钥名称',
     passkeyNamePlaceholder: '例如：iPhone、Windows Hello',
     registerPasskey: '注册通行密钥',
@@ -2599,8 +2605,10 @@ export default {
     passkeyDeleteSuccess: '通行密钥已删除',
     passkeyDeleteFailed: '删除失败',
     deletePasskey: '删除通行密钥',
-    passkeyDomainWarning: '通行密钥（PassKey）的可用性与 {domain} 紧密相关。在公网环境下，请务必在“基础设置”中配置正确的访问域名。域名变更或配置错误将导致通行密钥无法使用。',
-    otpRequiredForPasskey: '为了安全起见，您必须先启用 {otp} 验证码，然后才能注册通行密钥。这是为了防止在域名配置变动导致 PassKey 失效时，您仍能通过 OTP 码登录账户。',
+    passkeyDomainWarning:
+      '通行密钥（PassKey）的可用性与 {domain} 紧密相关。在公网环境下，请务必在“基础设置”中配置正确的访问域名。域名变更或配置错误将导致通行密钥无法使用。',
+    otpRequiredForPasskey:
+      '为了安全起见，您必须先启用 {otp} 验证码，然后才能注册通行密钥。这是为了防止在域名配置变动导致 PassKey 失效时，您仍能通过 OTP 码登录账户。',
     accessDomain: '访问域名',
     otpAuthenticator: 'OTP 身份验证器',
     otpGenerateFailed: '获取otp uri失败：{message}！',

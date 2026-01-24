@@ -102,7 +102,7 @@ function renderMarkdown(value: string) {
     </VCardTitle>
     <div
       v-if="props.message?.text && props.message?.action === 0"
-      class="rounded-md text-body-1 py-1 px-4 elevation-2 bg-primary text-white chat-right mb-1"
+      class="rounded-md text-body-1 py-1 px-4 elevation-2 bg-primary text-white chat-right"
     >
       <div class="markdown-body" v-html="renderMarkdown(props.message?.text)" />
     </div>
@@ -155,10 +155,21 @@ function renderMarkdown(value: string) {
     text-decoration: underline;
   }
 
-  ul,
-  ol {
+  ul {
+    list-style-type: disc;
     margin-block-end: 0.5rem;
     padding-inline-start: 1.5rem;
+  }
+
+  ol {
+    list-style-type: decimal;
+    margin-block-end: 0.5rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  li {
+    display: list-item;
+    margin-block-end: 0.25rem;
   }
 
   code {
