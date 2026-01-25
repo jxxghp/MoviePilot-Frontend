@@ -1677,6 +1677,25 @@ export default {
       storageSaveSuccess: '存储设置保存成功',
       storageSaveFailed: '存储设置保存失败！',
     },
+    category: {
+      title: '分类策略',
+      subtitle: '配置媒体自动分类规则,按类型、语言、地区等条件自动归类',
+      movie: '电影 (Movie)',
+      tv: '电视剧 (TV)',
+      name: '分类名称 (目录名)',
+      genre: '内容类型 (Genre)',
+      language: '语种 (Language)',
+      languagePlaceholder: '如: zh,cn,en (使用逗号分隔)',
+      country: '国家/地区 (Country)',
+      countryPlaceholder: '如: US,CN,JP',
+      year: '年份 (Year)',
+      yearPlaceholder: '如: 2023, 2020-2024',
+      addMovie: '添加电影分类',
+      addTv: '添加电视剧分类',
+      saveSuccess: '分类策略保存成功',
+      loadFailed: '加载分类配置失败',
+      saveFailed: '保存失败: {message}',
+    },
     rule: {
       customRules: '自定义规则',
       customRulesDesc: '自定义优先级规则项',
@@ -3169,3 +3188,7 @@ export default {
     },
   },
 }
+
+// Apply patch to add category strings
+// This is a temporary placeholder command to show intent.
+// I will use replace_file_content to actually edit the file safely.

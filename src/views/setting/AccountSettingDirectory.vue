@@ -8,6 +8,7 @@ import { TransferDirectoryConf, StorageConf } from '@/api/types'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 import StorageCard from '@/components/cards/StorageCard.vue'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
+import CategoryEditDialog from '@/components/dialog/CategoryEditDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { storageAttributes } from '@/api/constants'
 
@@ -27,6 +28,9 @@ const $toast = useToast()
 
 // 进度框
 const progressDialog = ref(false)
+
+// 分类编辑对话框
+const categoryDialog = ref(false)
 
 // 数据源
 const sourceItems = [
@@ -292,7 +296,12 @@ onMounted(() => {
                 :directory="element"
                 :categories="mediaCategories"
                 :storages="storages"
-                @update:modelValue="(value: any) => {element.download_path = value?.download; element.library_path = value?.library}"
+                @update:modelValue="
+                  (value: any) => {
+                    element.download_path = value?.download
+                    element.library_path = value?.library
+                  }
+                "
                 @close="removeDirectory(element)"
               />
             </template>
@@ -304,8 +313,12 @@ onMounted(() => {
               <VBtn type="submit" @click="saveDirectories" prepend-icon="mdi-content-save">
                 {{ t('common.save') }}
               </VBtn>
-              <VBtn color="success" variant="tonal" @click="addDirectory">
+              <VBtn color="success" variant="tonal" @click="addDirectory" class="me-2">
                 <VIcon icon="mdi-plus" />
+              </VBtn>
+              <VSpacer />
+              <VBtn color="info" variant="tonal" prepend-icon="mdi-shape-plus" @click="categoryDialog = true">
+                {{ t('setting.category.title') }}
               </VBtn>
             </div>
           </VForm>
@@ -370,4 +383,12 @@ onMounted(() => {
   </VRow>
   <!-- 进度框 -->
   <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('setting.system.reloading')" />
+  <!-- 分类对话框 -->
+  <CategoryEditDialog
+    v-if="categoryDialog"
+    v-model="categoryDialog"
+    :categories="mediaCategories"
+    @close="categoryDialog = false"
+    @done="loadMediaCategories"
+  />
 </template>
