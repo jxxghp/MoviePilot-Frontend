@@ -1448,3 +1448,18 @@ export interface ApiResponse<T = any> {
   message?: string
   data: T
 }
+
+// 分类规则
+export interface CategoryRule {
+  genre_ids?: string
+  original_language?: string
+  production_countries?: string
+  origin_country?: string
+  release_year?: string
+}
+
+// 分类配置
+export interface CategoryConfig {
+  movie?: { [key: string]: CategoryRule }
+  tv?: { [key: string]: CategoryRule }
+}
