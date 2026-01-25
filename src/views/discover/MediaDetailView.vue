@@ -150,7 +150,8 @@ async function loadSeasonEpisodes(season: number) {
   // 加载季集信息
   if (seasonEpisodesInfo.value[season]) return
   try {
-    const result: TmdbEpisode[] = await api.get(`tmdb/${mediaDetail.value.tmdb_id}/${season}`)
+    const params = mediaDetail.value.episode_group ? { episode_group: mediaDetail.value.episode_group } : undefined
+    const result: TmdbEpisode[] = await api.get(`tmdb/${mediaDetail.value.tmdb_id}/${season}`, params ? { params } : undefined)
     seasonEpisodesInfo.value[season] = result || []
   } catch (error) {
     console.error(error)
