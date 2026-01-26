@@ -4,6 +4,10 @@ import api from '@/api'
 import type { CategoryConfig } from '@/api/types'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
+
+// 显示器宽度
+const display = useDisplay()
 
 // 定义输入参数
 defineProps<{
@@ -139,7 +143,7 @@ const countryOptions = [
 const fetchConfig = async () => {
   loading.value = true
   try {
-    const res: any = await api.get('category/')
+    const res: any = await api.get('media/category/config')
     if (res && res.data) {
       parseConfig(res.data)
     }
@@ -330,7 +334,7 @@ const saveConfig = async () => {
       }
     })
 
-    const res: any = await api.post('category/', payload)
+    const res: any = await api.post('media/category/config', payload)
     if (res && res.success) {
       toast.success(t('setting.category.saveSuccess'))
       emit('save')
@@ -352,7 +356,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VDialog :model-value="modelValue" max-width="1000" scrollable>
+  <VDialog :model-value="modelValue" max-width="1000" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard>
       <VDialogCloseBtn @click="emit('close')" />
       <VCardItem class="py-3">
