@@ -132,6 +132,7 @@ async function fetchUserInfo() {
     if (result) {
       accountInfo.value = result
       accountInfo.value.avatar = accountInfo.value.avatar ? accountInfo.value.avatar : avatar1
+      accountInfo.value.nickname = accountInfo.value.settings?.nickname ?? ''
       currentUserName.value = accountInfo.value.name
       currentAvatar.value = accountInfo.value.avatar
       // 同时加载PassKey列表
