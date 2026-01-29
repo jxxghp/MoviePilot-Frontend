@@ -162,12 +162,10 @@ async function saveAccountInfo() {
   }
 
   // 将nickname保存到settings中，后端可以直接处理JSON对象
-  if (accountInfo.value.nickname) {
-    if (!accountInfo.value.settings) {
-      accountInfo.value.settings = {}
-    }
-    accountInfo.value.settings.nickname = accountInfo.value.nickname
+  if (!accountInfo.value.settings) {
+    accountInfo.value.settings = {}
   }
+  accountInfo.value.settings.nickname = accountInfo.value.nickname ?? ''
 
   const oldUserName = accountInfo.value.name
   const oldAvatar = accountInfo.value.avatar
