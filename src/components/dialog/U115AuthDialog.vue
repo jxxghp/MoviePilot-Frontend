@@ -1,8 +1,14 @@
 <script lang="ts" setup>
 import api from '@/api'
-import QRCode from 'qrcode'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+
+// 常量定义
+const AUTH_WINDOW_WIDTH = 600
+const AUTH_WINDOW_HEIGHT = 700
+const POLL_INTERVAL = 2000
+const AUTH_STATUS_SUCCESS = 2
+const AUTH_STATUS_FAILED = -1
 
 // 显示器宽度
 const display = useDisplay()
@@ -10,7 +16,7 @@ const display = useDisplay()
 // 多语言支持
 const { t } = useI18n()
 
-// 定义输入
+// Props 定义
 const props = defineProps({
   conf: {
     type: Object as PropType<{ [key: string]: any }>,
@@ -18,27 +24,40 @@ const props = defineProps({
   },
 })
 
-// 定义事件
+// Events 定义
 const emit = defineEmits(['done', 'close'])
 
-// 二维码内容
-const qrCodeContent = ref('')
+// 响应式状态
+const authUrl = ref('')
+const authState = ref('')
+const text = ref('')
+const alertType = ref<'success' | 'info' | 'error' | 'warning'>('info')
 
-// 二维码图片 base64
-const qrCodeImage = ref('')
+// 授权窗口引用
+let authWindow: Window | null = null
+let pollTimer: NodeJS.Timeout | undefined
 
-// 下方的提示信息
-const text = ref(t('dialog.u115Auth.scanQrCode'))
+// 清理资源
+function cleanup() {
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = undefined
+  }
+  if (authWindow && !authWindow.closed) {
+    authWindow.close()
+    authWindow = null
+  }
+}
 
-// 提醒类型
-const alertType = ref<'success' | 'info' | 'error' | 'warning' | undefined>('info')
+// 设置提示消息
+function setMessage(type: typeof alertType.value, message: string) {
+  alertType.value = type
+  text.value = message
+}
 
-// timeout定时器
-let timeoutTimer: NodeJS.Timeout | undefined = undefined
-
-// 完成
-async function handleDone() {
-  clearTimeout(timeoutTimer)
+// 完成授权
+function handleDone() {
+  cleanup()
   emit('done')
 }
 
@@ -47,78 +66,118 @@ async function handleReset() {
   try {
     const result: { [key: string]: any } = await api.get('/storage/reset/u115')
     if (result.success) {
-      // 重置成功
-      alertType.value = 'success'
+      setMessage('success', t('dialog.u115Auth.authSuccess'))
       handleDone()
-    } else {
-      alertType.value = 'error'
-      text.value = result.message
     }
-  } catch (e) {
-    console.error(e)
+    else {
+      setMessage('error', result.message || t('dialog.u115Auth.authFailed'))
+    }
   }
-}
-// 调用/u115/qrcode api生成二维码
-async function getQrcode() {
-  try {
-    const result: { [key: string]: any } = await api.get('/storage/qrcode/u115')
-    if (result.success && result.data) {
-      qrCodeContent.value = result.data.codeContent
-      // 生成二维码图片
-      qrCodeImage.value = await QRCode.toDataURL(result.data.codeContent, {
-        width: 200,
-        margin: 1,
-      })
-      timeoutTimer = setTimeout(checkQrcode, 3000)
-    } else {
-      text.value = result.message
-    }
-  } catch (e) {
-    console.error(e)
+  catch (error) {
+    console.error('Reset failed:', error)
+    setMessage('error', t('dialog.u115Auth.authFailed'))
   }
 }
 
-// 调用/aliyun/check api验证二维码
-async function checkQrcode() {
+// 获取授权URL
+async function fetchAuthUrl() {
+  try {
+    const result: { [key: string]: any } = await api.get('/storage/auth_url/u115')
+
+    if (result.success && result.data) {
+      authUrl.value = result.data.authUrl
+      authState.value = result.data.state
+    }
+    else {
+      setMessage('error', result.message || t('dialog.u115Auth.urlFetchFailed'))
+    }
+  }
+  catch (error) {
+    console.error('Fetch auth URL failed:', error)
+    setMessage('error', t('dialog.u115Auth.urlFetchFailed'))
+  }
+}
+
+// 打开授权窗口
+function openAuthWindow() {
+  if (!authUrl.value) {
+    setMessage('error', t('dialog.u115Auth.urlEmpty'))
+    return
+  }
+
+  const left = (window.screen.width - AUTH_WINDOW_WIDTH) / 2
+  const top = (window.screen.height - AUTH_WINDOW_HEIGHT) / 2
+  const features = [
+    `width=${AUTH_WINDOW_WIDTH}`,
+    `height=${AUTH_WINDOW_HEIGHT}`,
+    `left=${left}`,
+    `top=${top}`,
+    'toolbar=no',
+    'location=no',
+    'status=no',
+    'menubar=no',
+    'scrollbars=yes',
+    'resizable=yes',
+  ].join(',')
+
+  authWindow = window.open(authUrl.value, '115授权', features)
+
+  if (authWindow) {
+    setMessage('info', t('dialog.u115Auth.authorizing'))
+    pollTimer = setTimeout(checkAuthStatus, POLL_INTERVAL)
+  }
+  else {
+    setMessage('error', t('dialog.u115Auth.popupBlocked'))
+  }
+}
+
+// 检查授权状态
+async function checkAuthStatus() {
   try {
     const result: { [key: string]: any } = await api.get('/storage/check/u115')
+
     if (result.success && result.data) {
-      const status = result.data.status
-      text.value = result.data.tip
-      if (status == 0) {
-        alertType.value = 'info'
-        // 新建、待扫码
-        clearTimeout(timeoutTimer)
-        timeoutTimer = setTimeout(checkQrcode, 3000)
-      } else if (status == 1) {
-        // 已扫码
-        alertType.value = 'info'
-        text.value = t('dialog.u115Auth.scanned')
-        clearTimeout(timeoutTimer)
-        timeoutTimer = setTimeout(checkQrcode, 3000)
-      } else if (status == 2) {
-        // 已确认完成
-        alertType.value = 'success'
+      const { status, tip } = result.data
+
+      if (status === AUTH_STATUS_SUCCESS) {
+        // 授权成功
+        setMessage('success', t('dialog.u115Auth.authSuccess'))
         handleDone()
-      } else {
-        // 过期或者已取消
-        alertType.value = 'error'
+        return
       }
-    } else {
-      alertType.value = 'error'
-      text.value = result.message
+
+      if (status === AUTH_STATUS_FAILED) {
+        // 授权失败或过期
+        setMessage('error', tip || t('dialog.u115Auth.authFailed'))
+        cleanup()
+        return
+      }
+
+      // status === 0 或 1，继续等待
     }
-  } catch (e) {
-    console.error(e)
   }
+  catch (error) {
+    console.error('Check auth status failed:', error)
+  }
+
+  // 检查窗口是否被用户关闭
+  if (authWindow?.closed) {
+    setMessage('warning', t('dialog.u115Auth.authCanceled'))
+    cleanup()
+    return
+  }
+
+  // 继续轮询
+  pollTimer = setTimeout(checkAuthStatus, POLL_INTERVAL)
 }
 
-onMounted(async () => {
-  await getQrcode()
+// 生命周期钩子
+onMounted(() => {
+  fetchAuthUrl()
 })
 
 onUnmounted(() => {
-  if (timeoutTimer) clearTimeout(timeoutTimer)
+  cleanup()
 })
 </script>
 
@@ -126,37 +185,63 @@ onUnmounted(() => {
   <VDialog width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard>
       <VDialogCloseBtn @click="emit('close')" />
+
       <VCardItem>
         <template #prepend>
-          <VIcon icon="mdi-qrcode" class="me-2" />
+          <VIcon icon="mdi-shield-key" class="me-2" />
         </template>
         <VCardTitle>
           {{ t('dialog.u115Auth.loginTitle') }}
         </VCardTitle>
       </VCardItem>
+
       <VDivider />
+
       <VCardText class="pt-2 flex flex-col items-center justify-center">
-        <div class="mt-6 rounded text-center p-3 border">
-          <VImg class="mx-auto" :src="qrCodeImage" width="200" height="200">
-            <template #placeholder>
-              <div class="w-full h-full">
-                <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
-              </div>
-            </template>
-          </VImg>
+        <!-- 授权按钮 -->
+        <div class="mt-6 mb-4 text-center">
+          <VBtn
+            size="x-large"
+            color="primary"
+            prepend-icon="mdi-login"
+            :disabled="!authUrl"
+            class="px-8"
+            @click="openAuthWindow"
+          >
+            {{ t('dialog.u115Auth.openAuthWindow') }}
+          </VBtn>
         </div>
-        <div>
-          <VAlert variant="tonal" :type="alertType" class="my-4 text-center" :text="text">
+
+        <!-- 状态提示 -->
+        <div v-if="text" class="w-full">
+          <VAlert
+            variant="tonal"
+            :type="alertType"
+            :text="text"
+            class="my-4 text-center"
+          >
             <template #prepend />
           </VAlert>
         </div>
       </VCardText>
+
       <VCardActions>
-        <VBtn color="error" @click="handleReset" prepend-icon="mdi-restore" class="px-5 me-3">
+        <VBtn
+          color="error"
+          prepend-icon="mdi-restore"
+          class="px-5 me-3"
+          @click="handleReset"
+        >
           {{ t('dialog.u115Auth.reset') }}
         </VBtn>
+
         <VSpacer />
-        <VBtn @click="handleDone" prepend-icon="mdi-check" class="px-5 me-3">
+
+        <VBtn
+          prepend-icon="mdi-check"
+          class="px-5 me-3"
+          @click="handleDone"
+        >
           {{ t('dialog.u115Auth.complete') }}
         </VBtn>
       </VCardActions>
