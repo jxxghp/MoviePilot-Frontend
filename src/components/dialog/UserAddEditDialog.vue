@@ -199,6 +199,7 @@ async function fetchUserInfo() {
     userForm.value = await api.get(`user/${props.username}`)
     if (userForm.value) {
       userForm.value.avatar = userForm.value.avatar || avatar1
+      userForm.value.nickname = userForm.value.settings?.nickname ?? ''
       currentAvatar.value = userForm.value.avatar
       currentUserName.value = userForm.value.name
       userName.value = userForm.value.name
@@ -273,12 +274,10 @@ async function updateUser() {
   }
 
   // 将nickname保存到settings中，后端可以直接处理JSON对象
-  if (userForm.value.nickname) {
-    if (!userForm.value.settings) {
-      userForm.value.settings = {}
-    }
-    userForm.value.settings.nickname = userForm.value.nickname
+  if (!userForm.value.settings) {
+    userForm.value.settings = {}
   }
+  userForm.value.settings.nickname = userForm.value.nickname ?? ''
 
   const oldUserName = userForm.value.name
   userForm.value.name = currentUserName.value
