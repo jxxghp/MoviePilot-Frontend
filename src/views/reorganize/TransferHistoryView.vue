@@ -177,7 +177,7 @@ const loading = ref(false)
 const totalItems = ref(0)
 
 // 是否要分组
-const group = ref(false)
+const group = ref<boolean>(route.query.grouped === 'true')
 
 // 分组条件
 const groupBy = ref<any>([
@@ -487,6 +487,9 @@ function reloadPage(resetPage = false) {
   if (currentPage.value) {
     url = addUrlQuery(url, 'currentPage', resetPage ? 1 : currentPage.value)
   }
+  if (group.value) {
+    url = addUrlQuery(url, 'grouped', 'true')
+  }
   router.push(url)
 }
 
@@ -499,6 +502,26 @@ function ensureNumber(value: any, defaultValue: number = 0) {
   }
   return value
 }
+
+// 按标题分组后的选中数量统计，键为标题，值为对应分组的选中数
+const selectedCountsGroupedByTitle = computed(() => {
+  return selected.value.reduce((acc, item) => {
+    const title = item.title || '';
+    acc[title] = (acc[title] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+});
+
+// 控制分组内所有子项的选中状态
+const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) => {
+  const values = items.map(item => item.value);
+  if (checked) {
+    selected.value = [...new Set([...selected.value, ...values])];
+  } else {
+    const itemsSet = new Set(values);
+    selected.value = selected.value.filter(item => !itemsSet.has(item));
+  }
+};
 
 // 初始加载数据
 onMounted(() => {
@@ -563,13 +586,20 @@ onMounted(() => {
       <template v-slot:group-header="{ item, columns, toggleGroup, isGroupOpen }">
         <tr>
           <td :colspan="columns.length">
-            <VBtn
-              :icon="isGroupOpen(item) ? '$expand' : '$next'"
-              size="small"
-              variant="text"
-              @click="toggleGroup(item)"
-            />
-            {{ item.value }}
+            <div class="d-flex align-center gap-2">
+              <VBtn
+                :icon="isGroupOpen(item) ? '$expand' : '$next'"
+                size="small"
+                variant="text"
+                @click="toggleGroup(item)"
+              />
+              <VCheckbox
+                :model-value="selectedCountsGroupedByTitle[item.value] == item.items.length"
+                :indeterminate="selectedCountsGroupedByTitle[item.value] < item.items.length"
+                @update:modelValue="(checked) => toggleGroupSelection(checked, item.items)"
+              />
+              {{ item.value }}
+            </div>
           </td>
         </tr>
       </template>
