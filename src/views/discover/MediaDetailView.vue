@@ -234,9 +234,14 @@ async function checkMovieSubscribed() {
   isSubscribed.value = await checkSubscribe()
 }
 
-// 过滤掉第0季
+// 季列表，第0季排在最后
 const getMediaSeasons = computed(() => {
-  return mediaDetail.value?.season_info?.filter(season => season.season_number !== 0)
+  if (!mediaDetail.value?.season_info) return []
+  return [...mediaDetail.value.season_info].sort((a, b) => {
+    if (a.season_number === 0) return 1
+    if (b.season_number === 0) return -1
+    return (a.season_number || 0) - (b.season_number || 0)
+  })
 })
 
 // 检查所有季的订阅状态
@@ -742,8 +747,9 @@ onBeforeMount(() => {
                   <template #default>
                     <div class="flex flex-row items-center justify-between">
                       <span class="font-weight-bold">{{
-                        t('media.seasonNumber', { number: season.season_number })
-                      }}</span>
+                        season.season_number === 0 && season.name ?
+                        season.name : t('media.seasonNumber', { number: season.season_number })
+                        }}</span>
                       <VChip size="small" class="ms-1">
                         {{ t('media.episodeCount', { count: season.episode_count }) }}
                       </VChip>
