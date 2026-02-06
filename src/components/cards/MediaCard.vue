@@ -138,7 +138,7 @@ async function handleAddSubscribe() {
 }
 
 // 调用API添加订阅，电视剧的话需要指定季
-async function addSubscribe(season: number | null = 0, best_version: number = 0) {
+async function addSubscribe(season: number | null = null, best_version: number = 0) {
   // 开始处理
   startNProgress()
   try {
@@ -184,7 +184,7 @@ async function addSubscribe(season: number | null = 0, best_version: number = 0)
 
 // 弹出添加订阅提示
 function showSubscribeAddToast(result: boolean, title: string, season: number | null, message: string, best_version: number) {
-  if (season) title = `${title} ${formatSeason(season.toString())}`
+  if (season !== null) title = `${title} ${formatSeason(season.toString())}`
 
   let subname = t('subscribe.normalSub')
   if (best_version > 0) subname = t('subscribe.versionSub')
@@ -222,7 +222,7 @@ async function removeSubscribe() {
 // 查询当前媒体是否已订阅
 async function handleCheckSubscribe() {
   try {
-    const result = await checkSubscribe(props.media?.season)
+    const result = await checkSubscribe(props.media?.season ?? null)
     if (result) isSubscribed.value = true
   } catch (error) {
     console.error(error)
@@ -249,7 +249,7 @@ async function handleCheckExists() {
 }
 
 // 调用API检查是否已订阅，电视剧需要指定季
-async function checkSubscribe(season = 0) {
+async function checkSubscribe(season: number | null) {
   try {
     // AbortController 现在由全局请求优化器自动管理
     const mediaid = getMediaId()
@@ -300,7 +300,7 @@ function subscribeSeasons(seasons: MediaSeason[], seasonNoExists: { [key: number
     if (season && props.media?.tmdb_id)
       // 全部存在时洗版
       best_version = !seasonNoExists[season.season_number || 0] ? 1 : 0
-    addSubscribe(season.season_number, best_version)
+    addSubscribe(season.season_number ?? null, best_version)
   })
 }
 

@@ -190,7 +190,7 @@ async function checkExists() {
 }
 
 // 查询当前媒体是否已订阅
-async function checkSubscribe(season = 0) {
+async function checkSubscribe(season: number | null = null) {
   try {
     const mediaid = getMediaId()
 
@@ -249,7 +249,7 @@ async function checkSeasonsSubscribed() {
   if (mediaDetail.value.type !== '电视剧') return
   try {
     mediaDetail.value?.season_info?.forEach(async item => {
-      seasonsSubscribed.value[item.season_number ?? 0] = await checkSubscribe(item.season_number)
+      seasonsSubscribed.value[item.season_number ?? 0] = await checkSubscribe(item.season_number ?? null)
     })
   } catch (error) {
     console.error(error)
@@ -257,13 +257,13 @@ async function checkSeasonsSubscribed() {
 }
 
 // 调用API添加订阅，电视剧的话需要指定季
-async function addSubscribe(season: number | null = 0) {
+async function addSubscribe(season: number | null) {
   // 开始处理
   startNProgress()
   try {
     // 是否洗版
     let best_version = existsItemId.value ? 1 : 0
-    if (season)
+    if (season !== null)
       // 全部存在时洗版
       best_version = !seasonsNotExisted.value[season] ? 1 : 0
     // 请求API
@@ -282,7 +282,7 @@ async function addSubscribe(season: number | null = 0) {
     if (result.success) {
       // 订阅成功
       isSubscribed.value = true
-      if (season) seasonsSubscribed.value[season] = true
+      if (season !== null) seasonsSubscribed.value[season] = true
     }
 
     // 提示
@@ -304,7 +304,7 @@ async function addSubscribe(season: number | null = 0) {
 
 // 弹出添加订阅提示
 function showSubscribeAddToast(result: boolean, title: string, season: number | null, message: string, best_version: number) {
-  if (season) title = `${title} ${formatSeason(season.toString())}`
+  if (season !== null) title = `${title} ${formatSeason(season.toString())}`
 
   let subname = t('media.subscribe.normal')
   if (best_version > 0) subname = t('media.subscribe.bestVersion')
@@ -313,7 +313,7 @@ function showSubscribeAddToast(result: boolean, title: string, season: number | 
 }
 
 // 调用API取消订阅
-async function removeSubscribe(season: number) {
+async function removeSubscribe(season: number | null) {
   // 开始处理
   startNProgress()
   try {
@@ -327,7 +327,7 @@ async function removeSubscribe(season: number) {
 
     if (result.success) {
       isSubscribed.value = false
-      if (season) seasonsSubscribed.value[season] = false
+      if (season !== null) seasonsSubscribed.value[season] = false
       $toast.success(`${mediaDetail.value?.title} ${t('media.subscribe.canceled')}`)
     } else {
       $toast.error(`${mediaDetail.value?.title} ${t('media.subscribe.cancelFailed', { reason: result.message })}`)
@@ -339,7 +339,7 @@ async function removeSubscribe(season: number) {
 }
 
 // 订阅按钮响应
-function handleSubscribe(season = 0) {
+function handleSubscribe(season: number | null = null) {
   if (isSubscribed.value) removeSubscribe(season)
   else addSubscribe(season)
 }
@@ -647,7 +647,7 @@ onBeforeMount(() => {
             class="ms-2 mb-2"
             :color="getSubscribeColor"
             variant="tonal"
-            @click="handleSubscribe(0)"
+            @click="handleSubscribe()"
           >
             <template #prepend>
               <VIcon :icon="getSubscribeIcon" />
@@ -761,7 +761,7 @@ onBeforeMount(() => {
                           class="ms-1"
                           :color="seasonsSubscribed[season.season_number || 0] ? 'error' : 'warning'"
                           variant="text"
-                          @click.stop="handleSubscribe(season.season_number)"
+                          @click.stop="handleSubscribe(season.season_number ?? null)"
                         >
                           <VIcon
                             :icon="seasonsSubscribed[season.season_number || 0] ? 'mdi-heart' : 'mdi-heart-outline'"
