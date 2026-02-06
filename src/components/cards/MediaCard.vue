@@ -138,7 +138,7 @@ async function handleAddSubscribe() {
 }
 
 // 调用API添加订阅，电视剧的话需要指定季
-async function addSubscribe(season: number = 0, best_version: number = 0) {
+async function addSubscribe(season: number | null = 0, best_version: number = 0) {
   // 开始处理
   startNProgress()
   try {
@@ -153,7 +153,7 @@ async function addSubscribe(season: number = 0, best_version: number = 0) {
       doubanid: props.media?.douban_id,
       bangumiid: props.media?.bangumi_id,
       mediaid: props.media?.media_id ? `${props.media?.mediaid_prefix}:${props.media?.media_id}` : '',
-      season,
+      season: props.media?.type === '电影' ? null : season,
       best_version,
       episode_group: episodeGroup.value,
     })
@@ -183,7 +183,7 @@ async function addSubscribe(season: number = 0, best_version: number = 0) {
 }
 
 // 弹出添加订阅提示
-function showSubscribeAddToast(result: boolean, title: string, season: number, message: string, best_version: number) {
+function showSubscribeAddToast(result: boolean, title: string, season: number | null, message: string, best_version: number) {
   if (season) title = `${title} ${formatSeason(season.toString())}`
 
   let subname = t('subscribe.normalSub')

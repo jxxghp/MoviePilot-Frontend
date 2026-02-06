@@ -13,6 +13,7 @@ dist
 dist-ssr
 dev-dist
 *.local
+package-lock.json
 
 /cypress/videos/
 /cypress/screenshots/
