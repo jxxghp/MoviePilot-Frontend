@@ -31,6 +31,9 @@ const isRefreshed = ref(false)
 const dataList = ref<MediaInfo[]>([])
 const currData = ref<MediaInfo[]>([])
 
+// 用于保存已处理过的 key
+const seenKeys = ref<Set<string>>(new Set<string>())
+
 // 拼装参数
 function getParams() {
   let params = {
@@ -39,6 +42,31 @@ function getParams() {
   if (props.params) params = { ...params, ...props.params }
 
   return params
+}
+
+// MediaInfo 去重的字段
+const dedupFields = [
+  "source",
+  "type",
+  "season",
+  "tmdb_id",
+  "imdb_id",
+  "tvdb_id",
+  "douban_id",
+  "bangumi_id",
+  "mediaid_prefix",
+  "media_id",
+] as const;
+
+function deduplicate(items: MediaInfo[]): MediaInfo[] {
+  return items.filter(item => {
+    const key = dedupFields.map(field => String(item[field])).join('~');
+    if (seenKeys.value.has(key)) {
+      return false;
+    }
+    seenKeys.value.add(key);
+    return true;
+  });
 }
 
 // 获取列表数据
@@ -71,8 +99,10 @@ async function fetchData({ done }: { done: any }) {
           done('empty')
           return
         }
+        // 去重
+        currData.value = deduplicate(currData.value)
         // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
+        dataList.value.push(...currData.value)
         // 页码+1
         page.value++
         // 返回加载成功
@@ -92,8 +122,10 @@ async function fetchData({ done }: { done: any }) {
         // 如果没有数据，跳出
         done('empty')
       } else {
+        // 去重
+        currData.value = deduplicate(currData.value)
         // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
+        dataList.value.push(...currData.value)
         // 页码+1
         page.value++
         // 返回加载成功
