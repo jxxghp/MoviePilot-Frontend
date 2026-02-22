@@ -6,6 +6,7 @@
 // 导入所有 logo 图标
 import qbittorrentLogo from '@/assets/images/logos/qbittorrent.png'
 import transmissionLogo from '@/assets/images/logos/transmission.png'
+import rtorrentLogo from '@/assets/images/logos/rtorrent.png'
 import embyLogo from '@/assets/images/logos/emby.png'
 import jellyfinLogo from '@/assets/images/logos/jellyfin.png'
 import plexLogo from '@/assets/images/logos/plex.png'
@@ -34,6 +35,7 @@ import doubanBlackLogo from '@/assets/images/logos/douban-black.png'
 const logoMap: Record<string, string> = {
   qbittorrent: qbittorrentLogo,
   transmission: transmissionLogo,
+  rtorrent: rtorrentLogo,
   emby: embyLogo,
   jellyfin: jellyfinLogo,
   plex: plexLogo,

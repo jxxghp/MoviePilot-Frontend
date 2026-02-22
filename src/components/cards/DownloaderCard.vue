@@ -206,6 +206,8 @@ const getIcon = computed(() => {
       return getLogoUrl('qbittorrent')
     case 'transmission':
       return getLogoUrl('transmission')
+    case 'rtorrent':
+      return getLogoUrl('rtorrent')
     default:
       return getLogoUrl('downloader')
   }
@@ -416,6 +418,51 @@ onUnmounted(() => {
                   :label="t('downloader.host')"
                   placeholder="http(s)://ip:port"
                   :hint="t('downloader.host')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-server"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="downloaderInfo.config.username"
+                  :label="t('downloader.username')"
+                  :hint="t('downloader.username')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-account"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="downloaderInfo.config.password"
+                  type="password"
+                  :label="t('downloader.password')"
+                  :hint="t('downloader.password')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-lock"
+                />
+              </VCol>
+            </VRow>
+            <VRow v-else-if="downloaderInfo.type == 'rtorrent'">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="downloaderInfo.name"
+                  :label="t('downloader.name')"
+                  :placeholder="t('downloader.nameRequired')"
+                  :hint="t('downloader.name')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-label"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="downloaderInfo.config.host"
+                  :label="t('downloader.host')"
+                  placeholder="http(s)://ip:port/RPC2"
+                  :hint="t('downloader.rtorrentHostHint')"
                   persistent-hint
                   active
                   prepend-inner-icon="mdi-server"

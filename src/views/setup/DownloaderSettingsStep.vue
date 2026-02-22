@@ -27,7 +27,7 @@ const { wizardData, selectDownloader, validationErrors } = useSetupWizard()
           <div class="mb-4">
             <h4 class="text-h6 mb-4">{{ t('setupWizard.downloader.type') }}</h4>
             <VRow>
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="4">
                 <VCard
                   :color="wizardData.downloader.type === 'qbittorrent' ? 'primary' : 'default'"
                   :variant="wizardData.downloader.type === 'qbittorrent' ? 'tonal' : 'outlined'"
@@ -40,7 +40,7 @@ const { wizardData, selectDownloader, validationErrors } = useSetupWizard()
                   </VCardText>
                 </VCard>
               </VCol>
-              <VCol cols="12" md="6">
+              <VCol cols="12" md="4">
                 <VCard
                   :color="wizardData.downloader.type === 'transmission' ? 'primary' : 'default'"
                   :variant="wizardData.downloader.type === 'transmission' ? 'tonal' : 'outlined'"
@@ -50,6 +50,19 @@ const { wizardData, selectDownloader, validationErrors } = useSetupWizard()
                   <VCardText class="text-center">
                     <VImg :src="getLogoUrl('transmission')" height="48" width="48" class="mx-auto mb-2" />
                     <div class="text-h6">Transmission</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="4">
+                <VCard
+                  :color="wizardData.downloader.type === 'rtorrent' ? 'primary' : 'default'"
+                  :variant="wizardData.downloader.type === 'rtorrent' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectDownloader('rtorrent')"
+                >
+                  <VCardText class="text-center">
+                    <VImg :src="getLogoUrl('rtorrent')" height="48" width="48" class="mx-auto mb-2" />
+                    <div class="text-h6">rTorrent</div>
                   </VCardText>
                 </VCard>
               </VCol>
@@ -167,6 +180,63 @@ const { wizardData, selectDownloader, validationErrors } = useSetupWizard()
                       :label="t('downloader.host')"
                       placeholder="http(s)://ip:port"
                       :hint="t('downloader.host')"
+                      :error="validationErrors.downloader.host"
+                      :error-messages="validationErrors.downloader.host ? [t('downloader.hostRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-server"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.downloader.config.username"
+                      :label="t('downloader.username')"
+                      :hint="t('downloader.username')"
+                      :error="validationErrors.downloader.username"
+                      :error-messages="validationErrors.downloader.username ? [t('downloader.usernameRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-account"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.downloader.config.password"
+                      type="password"
+                      :label="t('downloader.password')"
+                      :hint="t('downloader.password')"
+                      :error="validationErrors.downloader.password"
+                      :error-messages="validationErrors.downloader.password ? [t('downloader.passwordRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-lock"
+                      required
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.downloader.type === 'rtorrent'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.downloader.name"
+                      :label="t('downloader.name')"
+                      :placeholder="t('downloader.nameRequired')"
+                      :hint="t('downloader.name')"
+                      :error="validationErrors.downloader.name"
+                      :error-messages="validationErrors.downloader.name ? [t('downloader.nameRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.downloader.config.host"
+                      :label="t('downloader.host')"
+                      placeholder="http(s)://ip:port/RPC2"
+                      :hint="t('downloader.rtorrentHostHint')"
                       :error="validationErrors.downloader.host"
                       :error-messages="validationErrors.downloader.host ? [t('downloader.hostRequired')] : []"
                       persistent-hint
