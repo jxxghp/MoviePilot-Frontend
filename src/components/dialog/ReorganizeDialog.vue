@@ -10,6 +10,7 @@ import { FileItem, StorageConf, TransferDirectoryConf, TransferForm } from '@/ap
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import CryptoJS from 'crypto-js'
 
 // 国际化
 const { t } = useI18n()
@@ -200,25 +201,36 @@ function handleProgressMessage(event: MessageEvent) {
   }
 }
 
-// 使用优化的进度SSE连接
-const progressSSE = useProgressSSE(
-  `${import.meta.env.VITE_API_BASE_URL}system/progress/filetransfer`,
-  handleProgressMessage,
-  'reorganize-progress',
-  progressActive,
-)
+// 进度SSE连接
+const progressSSE = ref<any>(null)
 
 // 使用SSE监听加载进度
-function startLoadingProgress() {
+function startLoadingProgress(key: string) {
   progressText.value = t('dialog.reorganize.processing')
   progressActive.value = true
-  progressSSE.start()
+
+  // 如果已经有连接，先停止
+  if (progressSSE.value) {
+    progressSSE.value.stop()
+  }
+
+  // 计算MD5
+  const keyMd5 = CryptoJS.MD5(key).toString()
+  const url = `${import.meta.env.VITE_API_BASE_URL}system/progress/${keyMd5}`
+
+  // 创建新的SSE连接
+  progressSSE.value = useProgressSSE(url, handleProgressMessage, `reorganize-progress-${keyMd5}`, progressActive)
+
+  progressSSE.value.start()
 }
 
 // 停止监听加载进度
 function stopLoadingProgress() {
   progressActive.value = false
-  progressSSE.stop()
+  if (progressSSE.value) {
+    progressSSE.value.stop()
+    progressSSE.value = null
+  }
 }
 
 // 整理文件
@@ -228,14 +240,13 @@ async function transfer(background: boolean = false) {
   // 显示进度条
   progressDialog.value = true
 
-  if (!background) {
-    // 开始监听进度
-    startLoadingProgress()
-  }
-
   // 文件整理
   if (props.items) {
     for (const item of props.items) {
+      if (!background) {
+        // 开始监听进度
+        startLoadingProgress(item.path)
+      }
       await handleTransfer(item, background)
     }
   }
