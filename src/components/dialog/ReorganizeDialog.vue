@@ -64,6 +64,9 @@ const progressText = ref(t('dialog.reorganize.processing'))
 // 整理进度
 const progressValue = ref(0)
 
+// 进度SSE连接
+const progressSSE = ref<any>(null)
+
 // 所有存储
 const storages = ref<StorageConf[]>([])
 
@@ -201,9 +204,6 @@ function handleProgressMessage(event: MessageEvent) {
   }
 }
 
-// 进度SSE连接
-const progressSSE = ref<any>(null)
-
 // 使用SSE监听加载进度
 function startLoadingProgress(key: string) {
   progressText.value = t('dialog.reorganize.processing')
@@ -214,12 +214,10 @@ function startLoadingProgress(key: string) {
     progressSSE.value.stop()
   }
 
-  // 计算MD5
-  const keyMd5 = CryptoJS.MD5(key).toString()
-  const url = `${import.meta.env.VITE_API_BASE_URL}system/progress/${keyMd5}`
+  const url = `${import.meta.env.VITE_API_BASE_URL}system/progress/${key}`
 
   // 创建新的SSE连接
-  progressSSE.value = useProgressSSE(url, handleProgressMessage, `reorganize-progress-${keyMd5}`, progressActive)
+  progressSSE.value = useProgressSSE(url, handleProgressMessage, `reorganize-progress-${key}`, progressActive)
 
   progressSSE.value.start()
 }
@@ -244,8 +242,11 @@ async function transfer(background: boolean = false) {
   if (props.items) {
     for (const item of props.items) {
       if (!background) {
+        // 如果是文件，计算MD5
+        const key = item.type === 'dir' ? 'filetransfer' : CryptoJS.MD5(item.path).toString()
+
         // 开始监听进度
-        startLoadingProgress(item.path)
+        startLoadingProgress(key)
       }
       await handleTransfer(item, background)
     }
@@ -253,11 +254,14 @@ async function transfer(background: boolean = false) {
 
   // 日志整理
   if (props.logids) {
+    if (!background) {
+      // 为日志整理任务开启进度监听
+      startLoadingProgress('filetransfer')
+    }
     for (const logid of props.logids) {
       await handleTransferLog(logid, background)
     }
   }
-
   if (!background) {
     // 停止监听进度
     stopLoadingProgress()
