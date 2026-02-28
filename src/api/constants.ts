@@ -80,6 +80,10 @@ export const mediaServerOptions = [
     value: 'trimemedia',
     title: i18n.global.t('setting.system.trimeMedia'),
   },
+  {
+    value: 'ugreen',
+    title: i18n.global.t('setting.system.ugreen'),
+  },
 ]
 
 export const mediaServerDict = mediaServerOptions.reduce((dict, item) => {

@@ -46,6 +46,7 @@ export default {
     unsubscribe: '取消订阅',
     media: '媒体',
     unknown: '未知',
+    notFetched: '未获取',
     notice: '注意',
     itemsPerPage: '每页条数',
     pageText: '{0}-{1} 共 {2} 条',
@@ -313,7 +314,7 @@ export default {
   settingTabs: {
     system: {
       title: '系统',
-      description: '基础设置、下载器（Qbittorrent、Transmission）、媒体服务器（Emby、Jellyfin、Plex）',
+      description: '基础设置、下载器（Qbittorrent、Transmission）、媒体服务器（Emby、Jellyfin、Plex、飞牛影视、绿联影视）',
     },
     directory: {
       title: '存储 & 目录',
@@ -1336,6 +1337,7 @@ export default {
       emby: 'Emby',
       jellyfin: 'Jellyfin',
       plex: 'Plex',
+      ugreen: '绿联影视',
       reloadSuccess: '系统配置已生效',
       reloadFailed: '重载系统失败！',
       auxAuthEnable: '用户辅助认证',
@@ -2817,6 +2819,13 @@ export default {
     password: '密码',
     syncLibraries: '同步媒体库',
     syncLibrariesHint: '只有选中的媒体库才会被同步',
+    scanMode: '扫描模式',
+    scanModeHint: '用于全库刷新和按库刷新：新添加和修改 / 补充缺失 / 覆盖扫描',
+    scanModeOptions: {
+      newAndModified: '新添加和修改',
+      supplementMissing: '补充缺失',
+      fullOverride: '覆盖扫描',
+    },
     nameExists: '【{name}】已存在，请替换为其他名称',
     hostRequired: '地址不能为空',
     apiKeyRequired: 'API密钥不能为空',
@@ -3123,7 +3132,7 @@ export default {
       title: '媒体服务器',
       description: '配置媒体服务器',
       info: '媒体服务器配置说明',
-      infoDesc: '配置媒体服务器用于媒体库管理，可选择Emby、Jellyfin或Plex等',
+      infoDesc: '配置媒体服务器用于媒体库管理，可选择Emby、Jellyfin、Plex、飞牛影视或绿联影视',
       type: '媒体服务器类型',
       typeHint: '选择要使用的媒体服务器类型',
       name: '服务器名称',

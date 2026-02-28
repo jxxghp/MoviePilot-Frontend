@@ -885,8 +885,8 @@ export interface MediaStatistic {
   movie_count: number
   // 电视剧总数
   tv_count: number
-  // 电视剧总集数
-  episode_count: number
+  // 电视剧总集数，未获取时为 null
+  episode_count: number | null
   // 用户数量
   user_count: number
 }
@@ -1134,7 +1134,7 @@ export interface StorageConf {
 export interface MediaServerConf {
   // 名称
   name: string
-  // 类型 emby/jellyfin/plex
+  // 类型 emby/jellyfin/plex/trimemedia/ugreen
   type: string
   // 配置
   config: { [key: string]: any }

@@ -46,6 +46,7 @@ export default {
     unsubscribe: 'Unsubscribe',
     media: 'Media',
     unknown: 'Unknown',
+    notFetched: 'Not Fetched',
     notice: 'Notice',
     itemsPerPage: 'Items per page',
     pageText: '{0}-{1} of {2}',
@@ -314,7 +315,8 @@ export default {
   settingTabs: {
     system: {
       title: 'System',
-      description: 'Basic settings, downloaders (Qbittorrent, Transmission), media servers (Emby, Jellyfin, Plex)',
+      description:
+        'Basic settings, downloaders (Qbittorrent, Transmission), media servers (Emby, Jellyfin, Plex, TrimeMedia, Ugreen)',
     },
     directory: {
       title: 'Storage & Directories',
@@ -1341,6 +1343,7 @@ export default {
       emby: 'Emby',
       jellyfin: 'Jellyfin',
       plex: 'Plex',
+      ugreen: 'Ugreen',
       reloadSuccess: 'System configuration has taken effect',
       reloadFailed: 'Failed to reload system!',
       auxAuthEnable: 'User Auxiliary Authentication',
@@ -2853,6 +2856,13 @@ export default {
     password: 'Password',
     syncLibraries: 'Sync Libraries',
     syncLibrariesHint: 'Only selected libraries will be synchronized',
+    scanMode: 'Scan Mode',
+    scanModeHint: 'Applies to full-library and targeted refresh: New & Modified / Supplement Missing / Full Override',
+    scanModeOptions: {
+      newAndModified: 'New & Modified',
+      supplementMissing: 'Supplement Missing',
+      fullOverride: 'Full Override',
+    },
     hostRequired: 'Host cannot be empty',
     apiKeyRequired: 'API Key cannot be empty',
     tokenRequired: 'Token cannot be empty',
@@ -3160,7 +3170,8 @@ export default {
       title: 'Media Server',
       description: 'Configure media server',
       info: 'Media Server Configuration',
-      infoDesc: 'Configure media server for media library management, can choose Emby, Jellyfin or Plex etc.',
+      infoDesc:
+        'Configure media server for media library management, can choose Emby, Jellyfin, Plex, TrimeMedia or Ugreen.',
       type: 'Media Server Type',
       typeHint: 'Select the type of media server to use',
       name: 'Server Name',
