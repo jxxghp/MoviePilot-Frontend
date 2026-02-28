@@ -15,6 +15,20 @@ const librariesOptions = ref<{ title: string; value: string | undefined }[]>([
   },
 ])
 
+const ugreenScanModeOptions = computed(() => [
+  { title: t('mediaserver.scanModeOptions.newAndModified'), value: 'new_and_modified' },
+  { title: t('mediaserver.scanModeOptions.supplementMissing'), value: 'supplement_missing' },
+  { title: t('mediaserver.scanModeOptions.fullOverride'), value: 'full_override' },
+])
+
+function ensureUgreenScanMode() {
+  if (wizardData.value.mediaServer.type !== 'ugreen') return
+  wizardData.value.mediaServer.config = wizardData.value.mediaServer.config || {}
+  if (!wizardData.value.mediaServer.config.scan_mode) {
+    wizardData.value.mediaServer.config.scan_mode = 'supplement_missing'
+  }
+}
+
 // 调用API查询媒体库
 async function loadLibrary(server: string) {
   try {
@@ -42,6 +56,7 @@ async function loadLibrary(server: string) {
 // 选择媒体服务器并自动加载媒体库
 async function selectMediaServerWithLibrary(type: string) {
   selectMediaServer(type)
+  ensureUgreenScanMode()
   // 如果选择了媒体服务器类型，自动加载媒体库
   if (type && wizardData.value.mediaServer.name) {
     await loadLibrary(wizardData.value.mediaServer.name)
@@ -50,6 +65,7 @@ async function selectMediaServerWithLibrary(type: string) {
 
 // 组件挂载时检查是否需要加载媒体库
 onMounted(async () => {
+  ensureUgreenScanMode()
   // 如果已经有媒体服务器配置，自动加载媒体库
   if (wizardData.value.mediaServer.type && wizardData.value.mediaServer.name) {
     await loadLibrary(wizardData.value.mediaServer.name)
@@ -60,6 +76,7 @@ onMounted(async () => {
 watch(
   () => [wizardData.value.mediaServer.type, wizardData.value.mediaServer.name],
   async ([type, name]) => {
+    ensureUgreenScanMode()
     console.log('Media server changed:', { type, name })
     if (type && name) {
       await loadLibrary(name)
@@ -138,6 +155,19 @@ watch(
                   <VCardText class="text-center">
                     <VImg :src="getLogoUrl('trimemedia')" height="48" width="48" class="mx-auto mb-2" />
                     <div class="text-h6">飞牛影视</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="3">
+                <VCard
+                  :color="wizardData.mediaServer.type === 'ugreen' ? 'primary' : 'default'"
+                  :variant="wizardData.mediaServer.type === 'ugreen' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectMediaServerWithLibrary('ugreen')"
+                >
+                  <VCardText class="text-center">
+                    <VImg :src="getLogoUrl('ugreen')" height="48" width="48" class="mx-auto mb-2" />
+                    <div class="text-h6">绿联影视</div>
                   </VCardText>
                 </VCard>
               </VCol>
@@ -377,6 +407,97 @@ watch(
                       append-inner-icon="mdi-refresh"
                       prepend-inner-icon="mdi-library"
                       @click:append-inner="loadLibrary(wizardData.mediaServer.name)"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.mediaServer.type === 'ugreen'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.mediaServer.name"
+                      :label="t('common.name')"
+                      :placeholder="t('mediaserver.nameRequired')"
+                      :hint="t('mediaserver.serverAlias')"
+                      :error="validationErrors.mediaServer.name"
+                      :error-messages="validationErrors.mediaServer.name ? [t('mediaserver.nameRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.mediaServer.config.host"
+                      :label="t('mediaserver.host')"
+                      :placeholder="t('mediaserver.hostPlaceholder')"
+                      :hint="t('mediaserver.hostHint')"
+                      :error="validationErrors.mediaServer.host"
+                      :error-messages="validationErrors.mediaServer.host ? [t('mediaserver.hostRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-server"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <VTextField
+                      v-model="wizardData.mediaServer.config.play_host"
+                      :label="t('mediaserver.playHost')"
+                      :placeholder="t('mediaserver.playHostPlaceholder')"
+                      :hint="t('mediaserver.playHostHint')"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-play-network"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.mediaServer.config.username"
+                      :label="t('mediaserver.username')"
+                      :error="validationErrors.mediaServer.username"
+                      :error-messages="validationErrors.mediaServer.username ? [t('mediaserver.usernameRequired')] : []"
+                      active
+                      prepend-inner-icon="mdi-account"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      type="password"
+                      v-model="wizardData.mediaServer.config.password"
+                      :label="t('mediaserver.password')"
+                      :error="validationErrors.mediaServer.password"
+                      :error-messages="validationErrors.mediaServer.password ? [t('mediaserver.passwordRequired')] : []"
+                      active
+                      prepend-inner-icon="mdi-lock"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <VAutocomplete
+                      v-model="wizardData.mediaServer.sync_libraries"
+                      :label="t('mediaserver.syncLibraries')"
+                      :items="librariesOptions"
+                      chips
+                      multiple
+                      clearable
+                      :hint="t('mediaserver.syncLibrariesHint')"
+                      persistent-hint
+                      active
+                      append-inner-icon="mdi-refresh"
+                      prepend-inner-icon="mdi-library"
+                      @click:append-inner="loadLibrary(wizardData.mediaServer.name)"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSelect
+                      v-model="wizardData.mediaServer.config.scan_mode"
+                      :label="t('mediaserver.scanMode')"
+                      :items="ugreenScanModeOptions"
+                      :hint="t('mediaserver.scanModeHint')"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-radar"
                     />
                   </VCol>
                 </VRow>

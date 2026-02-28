@@ -28,7 +28,7 @@ async function loadMediaStatistic() {
       },
       {
         title: t('dashboard.episodes'),
-        stats: res.episode_count.toLocaleString(),
+        stats: res.episode_count == null ? t('common.notFetched') : res.episode_count.toLocaleString(),
         icon: 'mdi-television-classic',
         color: 'warning',
       },

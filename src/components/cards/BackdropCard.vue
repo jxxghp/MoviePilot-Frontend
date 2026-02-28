@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MediaServerPlayItem } from '@/api/types'
+import noImage from '@images/no-image.jpeg'
 import { openMediaServerWithAutoDetect } from '@/utils/appDeepLink'
 // 输入参数
 const props = defineProps({
@@ -10,10 +11,16 @@ const props = defineProps({
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
+const imageLoadError = ref(false)
 
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
+}
+
+// 图片加载失败响应
+function imageErrorHandler() {
+  imageLoadError.value = true
 }
 
 // 跳转播放
@@ -26,6 +33,7 @@ async function goPlay() {
 // 计算图片地址
 const getImgUrl = computed(() => {
   const image = props.media?.image || ''
+  if (!image || imageLoadError.value) return noImage
   let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
   const use_cookies = props.media?.use_cookies
   if (use_cookies) {
@@ -50,7 +58,7 @@ const getImgUrl = computed(() => {
         @click="goPlay"
       >
         <template #image>
-          <VImg :src="getImgUrl" aspect-ratio="2/3" cover @load="imageLoadHandler">
+          <VImg :src="getImgUrl" aspect-ratio="2/3" cover @load="imageLoadHandler" @error="imageErrorHandler">
             <template #placeholder>
               <div class="w-full h-full">
                 <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />

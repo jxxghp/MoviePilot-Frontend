@@ -46,6 +46,7 @@ export default {
     unsubscribe: '取消訂閱',
     media: '媒體',
     unknown: '未知',
+    notFetched: '未獲取',
     notice: '注意',
     itemsPerPage: '每頁條數',
     pageText: '{0}-{1} 共 {2} 條',
@@ -313,7 +314,7 @@ export default {
   settingTabs: {
     system: {
       title: '系統',
-      description: '基礎設置、下載器（Qbittorrent、Transmission）、媒體服務器（Emby、Jellyfin、Plex）',
+      description: '基礎設置、下載器（Qbittorrent、Transmission）、媒體服務器（Emby、Jellyfin、Plex、飛牛影視、綠聯影視）',
     },
     directory: {
       title: '存儲 & 目錄',
@@ -1337,6 +1338,7 @@ export default {
       emby: 'Emby',
       jellyfin: 'Jellyfin',
       plex: 'Plex',
+      ugreen: '綠聯影視',
       reloadSuccess: '系統配置已生效',
       reloadFailed: '重載系統失敗！',
       auxAuthEnable: '用戶輔助認證',
@@ -2823,6 +2825,13 @@ export default {
     password: '密碼',
     syncLibraries: '同步媒體庫',
     syncLibrariesHint: '只有選中的媒體庫才會被同步',
+    scanMode: '掃描模式',
+    scanModeHint: '用於全庫刷新和按庫刷新：新添加和修改 / 補充缺失 / 覆蓋掃描',
+    scanModeOptions: {
+      newAndModified: '新添加和修改',
+      supplementMissing: '補充缺失',
+      fullOverride: '覆蓋掃描',
+    },
     nameExists: '【{name}】已存在，請替換為其他名稱',
   },
   bangumi: {
@@ -3124,7 +3133,7 @@ export default {
       title: '媒體伺服器',
       description: '設定媒體伺服器',
       info: '媒體伺服器設定說明',
-      infoDesc: '設定媒體伺服器用於媒體庫管理，可選擇Emby、Jellyfin或Plex等',
+      infoDesc: '設定媒體伺服器用於媒體庫管理，可選擇Emby、Jellyfin、Plex、飛牛影視或綠聯影視',
       type: '媒體伺服器類型',
       typeHint: '選擇要使用的媒體伺服器類型',
       name: '伺服器名稱',

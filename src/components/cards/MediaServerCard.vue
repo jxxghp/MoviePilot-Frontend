@@ -61,6 +61,12 @@ const librariesOptions = ref<{ title: string; value: string | undefined }[]>([
   },
 ])
 
+const ugreenScanModeOptions = computed(() => [
+  { title: t('mediaserver.scanModeOptions.newAndModified'), value: 'new_and_modified' },
+  { title: t('mediaserver.scanModeOptions.supplementMissing'), value: 'supplement_missing' },
+  { title: t('mediaserver.scanModeOptions.fullOverride'), value: 'full_override' },
+])
+
 // 媒体服务器详情弹窗
 const mediaServerInfoDialog = ref(false)
 
@@ -77,6 +83,12 @@ function openMediaServerInfoDialog() {
   loadLibrary(props.mediaserver.name)
   // 深复制
   mediaServerInfo.value = cloneDeep(props.mediaserver)
+  if (mediaServerInfo.value.type === 'ugreen') {
+    mediaServerInfo.value.config = mediaServerInfo.value.config || {}
+  }
+  if (mediaServerInfo.value.type === 'ugreen' && !mediaServerInfo.value.config.scan_mode) {
+    mediaServerInfo.value.config.scan_mode = 'supplement_missing'
+  }
   mediaServerInfoDialog.value = true
   if (!props.mediaserver.sync_libraries) {
     mediaServerInfo.value.sync_libraries = ['all']
@@ -110,6 +122,8 @@ const getIcon = computed(() => {
       return getLogoUrl('jellyfin')
     case 'trimemedia':
       return getLogoUrl('trimemedia')
+    case 'ugreen':
+      return getLogoUrl('ugreen')
     case 'plex':
       return getLogoUrl('plex')
     default:
@@ -421,6 +435,85 @@ onMounted(() => {
                   append-inner-icon="mdi-refresh"
                   prepend-inner-icon="mdi-library"
                   @click:append-inner="loadLibrary(mediaServerInfo.name)"
+                />
+              </VCol>
+            </VRow>
+            <VRow v-else-if="mediaServerInfo.type == 'ugreen'">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="mediaServerInfo.name"
+                  :label="t('common.name')"
+                  :placeholder="t('mediaserver.nameRequired')"
+                  :hint="t('mediaserver.serverAlias')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-label"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="mediaServerInfo.config.host"
+                  :label="t('mediaserver.host')"
+                  :placeholder="t('mediaserver.hostPlaceholder')"
+                  :hint="t('mediaserver.hostHint')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-server"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="mediaServerInfo.config.play_host"
+                  :label="t('mediaserver.playHost')"
+                  :placeholder="t('mediaserver.playHostPlaceholder')"
+                  :hint="t('mediaserver.playHostHint')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-play-network"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="mediaServerInfo.config.username"
+                  :label="t('mediaserver.username')"
+                  active
+                  prepend-inner-icon="mdi-account"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  type="password"
+                  v-model="mediaServerInfo.config.password"
+                  :label="t('mediaserver.password')"
+                  active
+                  prepend-inner-icon="mdi-lock"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VAutocomplete
+                  v-model="mediaServerInfo.sync_libraries"
+                  :label="t('mediaserver.syncLibraries')"
+                  :items="librariesOptions"
+                  chips
+                  multiple
+                  clearable
+                  :hint="t('mediaserver.syncLibrariesHint')"
+                  persistent-hint
+                  active
+                  append-inner-icon="mdi-refresh"
+                  prepend-inner-icon="mdi-library"
+                  @click:append-inner="loadLibrary(mediaServerInfo.name)"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSelect
+                  v-model="mediaServerInfo.config.scan_mode"
+                  :label="t('mediaserver.scanMode')"
+                  :items="ugreenScanModeOptions"
+                  :hint="t('mediaserver.scanModeHint')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-radar"
                 />
               </VCol>
             </VRow>
