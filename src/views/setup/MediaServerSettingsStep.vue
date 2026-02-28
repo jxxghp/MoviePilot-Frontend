@@ -21,11 +21,14 @@ const ugreenScanModeOptions = computed(() => [
   { title: t('mediaserver.scanModeOptions.fullOverride'), value: 'full_override' },
 ])
 
-function ensureUgreenScanMode() {
+function ensureUgreenConfig() {
   if (wizardData.value.mediaServer.type !== 'ugreen') return
   wizardData.value.mediaServer.config = wizardData.value.mediaServer.config || {}
   if (!wizardData.value.mediaServer.config.scan_mode) {
     wizardData.value.mediaServer.config.scan_mode = 'supplement_missing'
+  }
+  if (wizardData.value.mediaServer.config.verify_ssl === undefined) {
+    wizardData.value.mediaServer.config.verify_ssl = true
   }
 }
 
@@ -56,7 +59,7 @@ async function loadLibrary(server: string) {
 // 选择媒体服务器并自动加载媒体库
 async function selectMediaServerWithLibrary(type: string) {
   selectMediaServer(type)
-  ensureUgreenScanMode()
+  ensureUgreenConfig()
   // 如果选择了媒体服务器类型，自动加载媒体库
   if (type && wizardData.value.mediaServer.name) {
     await loadLibrary(wizardData.value.mediaServer.name)
@@ -65,7 +68,7 @@ async function selectMediaServerWithLibrary(type: string) {
 
 // 组件挂载时检查是否需要加载媒体库
 onMounted(async () => {
-  ensureUgreenScanMode()
+  ensureUgreenConfig()
   // 如果已经有媒体服务器配置，自动加载媒体库
   if (wizardData.value.mediaServer.type && wizardData.value.mediaServer.name) {
     await loadLibrary(wizardData.value.mediaServer.name)
@@ -76,7 +79,7 @@ onMounted(async () => {
 watch(
   () => [wizardData.value.mediaServer.type, wizardData.value.mediaServer.name],
   async ([type, name]) => {
-    ensureUgreenScanMode()
+    ensureUgreenConfig()
     console.log('Media server changed:', { type, name })
     if (type && name) {
       await loadLibrary(name)
@@ -498,6 +501,16 @@ watch(
                       persistent-hint
                       active
                       prepend-inner-icon="mdi-radar"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VSwitch
+                      v-model="wizardData.mediaServer.config.verify_ssl"
+                      :label="t('mediaserver.verifySsl')"
+                      :hint="t('mediaserver.verifySslHint')"
+                      persistent-hint
+                      color="primary"
+                      inset
                     />
                   </VCol>
                 </VRow>
