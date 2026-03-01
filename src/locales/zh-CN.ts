@@ -2821,6 +2821,8 @@ export default {
     syncLibrariesHint: '只有选中的媒体库才会被同步',
     scanMode: '扫描模式',
     scanModeHint: '用于全库刷新和按库刷新：新添加和修改 / 补充缺失 / 覆盖扫描',
+    verifySsl: '校验 SSL 证书',
+    verifySslHint: '开启后会校验 HTTPS 证书；如使用自签名证书可关闭',
     scanModeOptions: {
       newAndModified: '新添加和修改',
       supplementMissing: '补充缺失',

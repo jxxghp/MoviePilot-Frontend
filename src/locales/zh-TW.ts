@@ -2827,6 +2827,8 @@ export default {
     syncLibrariesHint: '只有選中的媒體庫才會被同步',
     scanMode: '掃描模式',
     scanModeHint: '用於全庫刷新和按庫刷新：新添加和修改 / 補充缺失 / 覆蓋掃描',
+    verifySsl: '校驗 SSL 憑證',
+    verifySslHint: '開啟後會校驗 HTTPS 憑證；如使用自簽憑證可關閉',
     scanModeOptions: {
       newAndModified: '新添加和修改',
       supplementMissing: '補充缺失',

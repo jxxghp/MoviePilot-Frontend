@@ -85,9 +85,12 @@ function openMediaServerInfoDialog() {
   mediaServerInfo.value = cloneDeep(props.mediaserver)
   if (mediaServerInfo.value.type === 'ugreen') {
     mediaServerInfo.value.config = mediaServerInfo.value.config || {}
-  }
-  if (mediaServerInfo.value.type === 'ugreen' && !mediaServerInfo.value.config.scan_mode) {
-    mediaServerInfo.value.config.scan_mode = 'supplement_missing'
+    if (!mediaServerInfo.value.config.scan_mode) {
+      mediaServerInfo.value.config.scan_mode = 'supplement_missing'
+    }
+    if (mediaServerInfo.value.config.verify_ssl === undefined) {
+      mediaServerInfo.value.config.verify_ssl = true
+    }
   }
   mediaServerInfoDialog.value = true
   if (!props.mediaserver.sync_libraries) {
@@ -514,6 +517,16 @@ onMounted(() => {
                   persistent-hint
                   active
                   prepend-inner-icon="mdi-radar"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="mediaServerInfo.config.verify_ssl"
+                  :label="t('mediaserver.verifySsl')"
+                  :hint="t('mediaserver.verifySslHint')"
+                  persistent-hint
+                  color="primary"
+                  inset
                 />
               </VCol>
             </VRow>

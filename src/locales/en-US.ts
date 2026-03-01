@@ -2858,6 +2858,8 @@ export default {
     syncLibrariesHint: 'Only selected libraries will be synchronized',
     scanMode: 'Scan Mode',
     scanModeHint: 'Applies to full-library and targeted refresh: New & Modified / Supplement Missing / Full Override',
+    verifySsl: 'Verify SSL Certificate',
+    verifySslHint: 'When enabled, HTTPS certificates are verified; disable for self-signed certificates',
     scanModeOptions: {
       newAndModified: 'New & Modified',
       supplementMissing: 'Supplement Missing',
