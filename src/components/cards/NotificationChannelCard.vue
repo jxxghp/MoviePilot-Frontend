@@ -46,6 +46,7 @@ const notificationInfo = ref<NotificationConf>({
 const notificationTypeNames: { [key: string]: string } = {
   wechat: t('notification.wechat.name'),
   telegram: t('notification.telegram.name'),
+  qqbot: t('notification.qqbot.name'),
   vocechat: t('notification.vocechat.name'),
   synologychat: t('notification.synologychat.name'),
   slack: t('notification.slack.name'),
@@ -97,6 +98,8 @@ const getIcon = computed(() => {
       return getLogoUrl('wechat')
     case 'telegram':
       return getLogoUrl('telegram')
+    case 'qqbot':
+      return getLogoUrl('notification')
     case 'vocechat':
       return getLogoUrl('vocechat')
     case 'synologychat':
@@ -461,6 +464,56 @@ function onClose() {
                   :hint="t('notification.vocechat.channelIdHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-pound"
+                />
+              </VCol>
+            </VRow>
+            <VRow v-else-if="notificationInfo.type == 'qqbot'">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.name"
+                  :label="t('notification.name')"
+                  :placeholder="t('notification.name')"
+                  :hint="t('notification.nameHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-label"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.QQ_APP_ID"
+                  :label="t('notification.qqbot.appId')"
+                  :hint="t('notification.qqbot.appIdHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-application"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.QQ_APP_SECRET"
+                  :label="t('notification.qqbot.appSecret')"
+                  :hint="t('notification.qqbot.appSecretHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-key"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.QQ_OPENID"
+                  :label="t('notification.qqbot.openId')"
+                  :placeholder="t('notification.qqbot.openIdPlaceholder')"
+                  :hint="t('notification.qqbot.openIdHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.QQ_GROUP_OPENID"
+                  :label="t('notification.qqbot.groupOpenId')"
+                  :placeholder="t('notification.qqbot.groupOpenIdPlaceholder')"
+                  :hint="t('notification.qqbot.groupOpenIdHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-group"
                 />
               </VCol>
             </VRow>

@@ -93,6 +93,19 @@ const notificationTypes = [
               </VCol>
               <VCol cols="12" md="3">
                 <VCard
+                  :color="wizardData.notification.type === 'qqbot' ? 'primary' : 'default'"
+                  :variant="wizardData.notification.type === 'qqbot' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectNotification('qqbot')"
+                >
+                  <VCardText class="text-center">
+                    <VImg :src="getLogoUrl('notification')" height="48" width="48" class="mx-auto mb-2" />
+                    <div class="text-h6">QQ</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="3">
+                <VCard
                   :color="wizardData.notification.type === 'vocechat' ? 'primary' : 'default'"
                   :variant="wizardData.notification.type === 'vocechat' ? 'tonal' : 'outlined'"
                   class="cursor-pointer"
@@ -309,6 +322,59 @@ const notificationTypes = [
                       :hint="t('notification.telegram.apiUrlHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-web"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.notification.type === 'qqbot'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.name"
+                      :label="t('notification.name')"
+                      :placeholder="t('notification.name')"
+                      :hint="t('notification.nameHint')"
+                      :error="validationErrors.notification.name"
+                      :error-messages="validationErrors.notification.name ? [t('notification.nameRequired')] : []"
+                      persistent-hint
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.QQ_APP_ID"
+                      :label="t('notification.qqbot.appId')"
+                      :hint="t('notification.qqbot.appIdHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-application"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.QQ_APP_SECRET"
+                      :label="t('notification.qqbot.appSecret')"
+                      :hint="t('notification.qqbot.appSecretHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-key"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.QQ_OPENID"
+                      :label="t('notification.qqbot.openId')"
+                      :placeholder="t('notification.qqbot.openIdPlaceholder')"
+                      :hint="t('notification.qqbot.openIdHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.QQ_GROUP_OPENID"
+                      :label="t('notification.qqbot.groupOpenId')"
+                      :placeholder="t('notification.qqbot.groupOpenIdPlaceholder')"
+                      :hint="t('notification.qqbot.groupOpenIdHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account-group"
                     />
                   </VCol>
                 </VRow>

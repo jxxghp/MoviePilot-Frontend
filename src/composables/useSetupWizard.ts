@@ -487,6 +487,16 @@ export function useSetupWizard() {
           validationErrors.value.notification.VOCECHAT_API_KEY = true
         }
         break
+      case 'qqbot':
+        if (!config.QQ_APP_ID?.trim()) {
+          errors.push(t('notification.qqbot.appIdRequired'))
+          validationErrors.value.notification.QQ_APP_ID = true
+        }
+        if (!config.QQ_APP_SECRET?.trim()) {
+          errors.push(t('notification.qqbot.appSecretRequired'))
+          validationErrors.value.notification.QQ_APP_SECRET = true
+        }
+        break
     }
 
     return {
