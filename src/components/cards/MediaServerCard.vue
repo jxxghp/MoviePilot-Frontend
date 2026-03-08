@@ -213,7 +213,7 @@ onMounted(() => {
             <span class="me-2 mb-1">自定义媒体服务器</span>
           </div>
         </div>
-        <VImg :src="getIcon" cover class="mt-8 me-3" max-width="3rem" min-width="3rem" />
+        <VImg :src="getIcon" class="mt-8 me-3 max-h-12" max-width="3rem" min-width="3rem" />
       </VCardText>
     </VCard>
 

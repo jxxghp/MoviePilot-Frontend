@@ -11,7 +11,7 @@ import embyLogo from '@/assets/images/logos/emby.png'
 import jellyfinLogo from '@/assets/images/logos/jellyfin.png'
 import plexLogo from '@/assets/images/logos/plex.png'
 import trimemediaLogo from '@/assets/images/logos/trimemedia.png'
-import ugreenLogo from '@/assets/images/logos/ugreen.jpg'
+import ugreenLogo from '@/assets/images/logos/ugreen.png'
 import wechatLogo from '@/assets/images/logos/wechat.png'
 import telegramLogo from '@/assets/images/logos/telegram.webp'
 import slackLogo from '@/assets/images/logos/slack.webp'
@@ -31,6 +31,7 @@ import pluginLogo from '@/assets/images/logos/plugin.png'
 import siteLogo from '@/assets/images/logos/site.webp'
 import bangumiLogo from '@/assets/images/logos/bangumi.png'
 import doubanBlackLogo from '@/assets/images/logos/douban-black.png'
+import qqLogo from '@/assets/images/logos/qq.png'
 
 // 图标映射表
 const logoMap: Record<string, string> = {
@@ -61,6 +62,7 @@ const logoMap: Record<string, string> = {
   site: siteLogo,
   bangumi: bangumiLogo,
   'douban-black': doubanBlackLogo,
+  qq: qqLogo,
 }
 
 /**

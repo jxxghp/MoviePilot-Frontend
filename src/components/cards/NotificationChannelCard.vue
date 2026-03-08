@@ -99,7 +99,7 @@ const getIcon = computed(() => {
     case 'telegram':
       return getLogoUrl('telegram')
     case 'qqbot':
-      return getLogoUrl('notification')
+      return getLogoUrl('qq')
     case 'vocechat':
       return getLogoUrl('vocechat')
     case 'synologychat':
