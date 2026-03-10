@@ -55,6 +55,7 @@ const SystemSettings = ref<any>({
     AUTO_UPDATE_RESOURCE: true,
     MOVIEPILOT_AUTO_UPDATE: false,
     // 媒体
+    RECOGNIZE_PLUGIN_FIRST: false,
     TMDB_API_DOMAIN: null,
     TMDB_IMAGE_DOMAIN: null,
     TMDB_LOCALE: null,
@@ -1099,6 +1100,16 @@ onDeactivated(() => {
                     chips
                     closable-chips
                     prepend-inner-icon="mdi-translate"
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.RECOGNIZE_PLUGIN_FIRST"
+                    :label="t('setting.system.recognizePluginFirst')"
+                    :hint="t('setting.system.recognizePluginFirstHint')"
+                    persistent-hint
                   />
                 </VCol>
               </VRow>

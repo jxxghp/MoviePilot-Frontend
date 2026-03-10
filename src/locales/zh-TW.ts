@@ -1393,6 +1393,8 @@ export default {
       fanartEnableHint: '使用 fanart.tv 的圖片數據',
       fanartLang: 'Fanart語言',
       fanartLangHint: '設定Fanart圖片的語言偏好，多選時按優先級順序排列',
+      recognizePluginFirst: "優先使用插件識別",
+      recognizePluginFirstHint: "優先調用插件識別媒體信息，若插件命中則不再調用原生識別",
       githubProxy: 'Github加速代理',
       githubProxyPlaceholder: '留空表示不使用代理',
       githubProxyHint: '使用代理加速Github訪問速度',

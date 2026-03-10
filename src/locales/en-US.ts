@@ -1401,6 +1401,8 @@ export default {
       fanartEnableHint: 'Use image data from fanart.tv',
       fanartLang: 'Fanart Language',
       fanartLangHint: 'Set language preference for Fanart images, ordered by priority when multiple selected',
+      recognizePluginFirst: "Prioritize Plugin Recognition",
+      recognizePluginFirstHint: "Prioritize calling plugins for media recognition. If a plugin matches, native recognition will be skipped",
       githubProxy: 'Github Acceleration Proxy',
       githubProxyPlaceholder: 'Leave empty for no proxy',
       githubProxyHint: 'Use proxy to accelerate Github access speed',
