@@ -80,9 +80,9 @@ async function fetchRemoteModules(): Promise<RemoteModule[]> {
  * @param modules 远程模块列表
  */
 function injectRemoteModule(module: RemoteModule): void {
-  // 从浏览器地址栏获取当前地址前缀
+  // 与 API 请求一致：使用 origin + pathname 作为前缀，子路径代理时 pathname 含 /mp 等
   const baseUrl = new URL(window.location.href)
-  // 环境变量
+  const pathBase = baseUrl.pathname.replace(/\/$/, '') || ''
   let apiBase = import.meta.env.VITE_API_BASE_URL
   if (apiBase.startsWith('/')) {
     apiBase = apiBase.slice(1)
@@ -90,8 +90,10 @@ function injectRemoteModule(module: RemoteModule): void {
   if (apiBase.endsWith('/')) {
     apiBase = apiBase.slice(0, -1)
   }
+  const pathWithoutLeadingSlash = module.url.startsWith('/') ? module.url.slice(1) : module.url
+  const remoteEntryUrl = `${baseUrl.origin}${pathBase}/${apiBase}/${pathWithoutLeadingSlash}`
   __federation_method_setRemote(module.id, {
-    url: () => Promise.resolve(`${baseUrl.origin}/${apiBase}${module.url}`),
+    url: () => Promise.resolve(remoteEntryUrl),
     format: 'esm',
     from: 'vite',
   })
