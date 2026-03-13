@@ -18,9 +18,14 @@ import { hasPermission } from '@/utils/permission'
 // 国际化
 const { t } = useI18n()
 
+interface MediaCardMedia extends MediaInfo {
+  total_episode?: number
+  episode_count?: number
+}
+
 // 输入参数
 const props = defineProps({
-  media: Object as PropType<MediaInfo>,
+  media: Object as PropType<MediaCardMedia>,
   width: String,
   height: String,
 })
@@ -233,11 +238,7 @@ async function handleCheckSubscribe() {
 async function handleCheckExists() {
   try {
     // 对于总集数为 0 的电视剧季（TMDB 未返回有效集数），不展示“已入库”角标，避免误判
-    const totalEpisode =
-      (props.media as any)?.total_episode ??
-      (props.media as any)?.episode_count ??
-      (props.media as any)?.number_of_episodes ??
-      0
+    const totalEpisode = props.media?.total_episode ?? props.media?.episode_count ?? props.media?.number_of_episodes ?? 0
 
     if (props.media?.type === '电视剧' && totalEpisode === 0) {
       isExists.value = false
