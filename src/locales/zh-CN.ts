@@ -1515,6 +1515,11 @@ export default {
       episodeThumb: '缩略图',
       scrapingSwitchSaveFailed: '刮削开关设置保存失败：{message}',
       scrapingSwitchSaveError: '刮削开关设置保存失败',
+      policy: {
+        skipDesc: '跳过刮削，不生成该文件',
+        missingOnlyDesc: '仅在缺失时刮削，已存在则保持不变',
+        overwriteDesc: '始终刮削，已存在则覆盖',
+      }
     },
     site: {
       siteSync: '站点同步',

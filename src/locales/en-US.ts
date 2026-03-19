@@ -1528,6 +1528,11 @@ export default {
       episodeThumb: 'Thumb',
       scrapingSwitchSaveFailed: 'Scraping switch settings save failed: {message}',
       scrapingSwitchSaveError: 'Scraping switch settings save failed',
+      policy: {
+        skipDesc: 'Skip scraping, this file will not be generated',
+        missingOnlyDesc: 'Scrape only if missing, existing file remains unchanged',
+        overwriteDesc: 'Always scrape, existing file will be overwritten',
+      }
     },
     site: {
       siteSync: 'Site Synchronization',
