@@ -1205,9 +1205,15 @@ onDeactivated(() => {
                                 variant="tonal"
                                 rounded="lg"
                               >
-                                <VBtn value="skip" color="error" icon="mdi-file-remove" />
-                                <VBtn value="missingOnly" color="success" icon="mdi-file-plus" />
-                                <VBtn value="overwrite" color="primary" icon="mdi-file-replace" />
+                                <VBtn value="skip" color="error">
+                                  <VIcon icon="mdi-file-remove" />
+                                </VBtn>
+                                <VBtn value="missingOnly" color="success">
+                                  <VIcon icon="mdi-file-plus" />
+                                </VBtn>
+                                <VBtn value="overwrite" color="primary">
+                                  <VIcon icon="mdi-file-replace" />
+                                </VBtn>
                               </VBtnToggle>
                               <span class="ml-2">{{ t(item.label) }}</span>
                             </div>
