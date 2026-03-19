@@ -85,28 +85,57 @@ const SystemSettings = ref<any>({
   },
 })
 
-// 刮削开关设置
-const ScrapingSwitchs = ref<any>({
-  movie_nfo: true, // 电影NFO
-  movie_poster: true, // 电影海报
-  movie_backdrop: true, // 电影背景图
-  movie_logo: true, // 电影Logo
-  movie_disc: true, // 电影光盘图
-  movie_banner: true, // 电影横幅图
-  movie_thumb: true, // 电影缩略图
-  tv_nfo: true, // 电视剧NFO
-  tv_poster: true, // 电视剧海报
-  tv_backdrop: true, // 电视剧背景图
-  tv_banner: true, // 电视剧横幅图
-  tv_logo: true, // 电视剧Logo
-  tv_thumb: true, // 电视剧缩略图
-  season_nfo: true, // 季NFO
-  season_poster: true, // 季海报
-  season_banner: true, // 季横幅图
-  season_thumb: true, // 季缩略图
-  episode_nfo: true, // 集NFO
-  episode_thumb: true, // 集缩略图
-})
+// 刮削配置
+const scrapingConfig = [
+  {
+    section: 'movie',
+    items: [
+      { key: 'movie_nfo', label: 'setting.system.movieNfo' },
+      { key: 'movie_poster', label: 'setting.system.moviePoster' },
+      { key: 'movie_backdrop', label: 'setting.system.movieBackdrop' },
+      { key: 'movie_logo', label: 'setting.system.movieLogo' },
+      { key: 'movie_disc', label: 'setting.system.movieDisc' },
+      { key: 'movie_banner', label: 'setting.system.movieBanner' },
+      { key: 'movie_thumb', label: 'setting.system.movieThumb' },
+    ],
+  },
+  {
+    section: 'tv',
+    items: [
+      { key: 'tv_nfo', label: 'setting.system.tvNfo' },
+      { key: 'tv_poster', label: 'setting.system.tvPoster' },
+      { key: 'tv_backdrop', label: 'setting.system.tvBackdrop' },
+      { key: 'tv_banner', label: 'setting.system.tvBanner' },
+      { key: 'tv_logo', label: 'setting.system.tvLogo' },
+      { key: 'tv_thumb', label: 'setting.system.tvThumb' },
+    ],
+  },
+  {
+    section: 'season',
+    items: [
+      { key: 'season_nfo', label: 'setting.system.seasonNfo' },
+      { key: 'season_poster', label: 'setting.system.seasonPoster' },
+      { key: 'season_banner', label: 'setting.system.seasonBanner' },
+      { key: 'season_thumb', label: 'setting.system.seasonThumb' },
+    ],
+  },
+  {
+    section: 'episode',
+    items: [
+      { key: 'episode_nfo', label: 'setting.system.episodeNfo' },
+      { key: 'episode_thumb', label: 'setting.system.episodeThumb' },
+    ],
+  },
+]
+
+// 刮削策略设置
+const ScrapingPolicies = ref<Record<string, 'skip' | 'missingOnly' | 'overwrite'>>(
+  Object.fromEntries(
+    scrapingConfig.flatMap(section =>
+      section.items.map(item => [item.key, 'missingOnly'])
+    )
+  )
+)
 
 // 是否发送请求的总开关
 const isRequest = ref(true)
@@ -481,7 +510,13 @@ async function loadScrapingSwitchs() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/ScrapingSwitchs')
     if (result.success && result.data?.value) {
-      ScrapingSwitchs.value = { ...ScrapingSwitchs.value, ...result.data.value }
+      const loadedSwitches = result.data.value
+      for (const key in loadedSwitches) {
+        if (typeof loadedSwitches[key] === 'boolean') { // 兼容旧数据
+          loadedSwitches[key] = loadedSwitches[key] ? 'missingOnly' : 'skip'
+        }
+      }
+      ScrapingPolicies.value = { ...ScrapingPolicies.value, ...loadedSwitches }
     }
   } catch (error) {
     console.log(error)
@@ -491,7 +526,7 @@ async function loadScrapingSwitchs() {
 // 保存刮削开关设置
 async function saveScrapingSwitchs() {
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/ScrapingSwitchs', ScrapingSwitchs.value)
+    const result: { [key: string]: any } = await api.post('system/setting/ScrapingSwitchs', ScrapingPolicies.value)
     if (result.success) {
       return true
     } else {
@@ -1120,173 +1155,64 @@ onDeactivated(() => {
                   <VExpansionPanels>
                     <VExpansionPanel>
                       <VExpansionPanelTitle class="text-lg">
-                        <template #default>
-                          <VIcon icon="mdi-checkbox-multiple-outline" class="me-2" />
-                          {{ t('setting.system.scrapingSwitchSettings') }}
-                        </template>
+                        <VIcon icon="mdi-checkbox-multiple-outline" class="me-2" />
+                        {{ t('setting.system.scrapingSwitchSettings') }}
+                        <!-- 帮助图标 -->
+                        <VTooltip location="bottom" open-delay="200">
+                          <template #activator="{ props: tooltipProps }">
+                            <VBtn
+                              v-bind="tooltipProps"
+                              icon="mdi-help-circle"
+                              size="small"
+                              variant="text"
+                              color="medium-emphasis"
+                              class="ml-2"
+                              @click.stop
+                            />
+                          </template>
+                          <div class="d-flex flex-column gap-2 py-2">
+                            <div class="d-flex align-center">
+                              <VIcon icon="mdi-file-remove" color="error" class="mr-2" />
+                              <span>{{ t('setting.system.policy.skipDesc') }}</span>
+                            </div>
+                            <div class="d-flex align-center">
+                              <VIcon icon="mdi-file-plus" color="success" class="mr-2" />
+                              <span>{{ t('setting.system.policy.missingOnlyDesc') }}</span>
+                            </div>
+                            <div class="d-flex align-center">
+                              <VIcon icon="mdi-file-replace" color="primary" class="mr-2" />
+                              <span>{{ t('setting.system.policy.overwriteDesc') }}</span>
+                            </div>
+                          </div>
+                        </VTooltip>
                       </VExpansionPanelTitle>
                       <VExpansionPanelText>
-                        <VRow>
+                        <VRow v-for="section in scrapingConfig" :key="section.section">
                           <VCol cols="12" class="pb-2">
-                            <VListSubheader class="text-lg">{{ t('setting.system.movie') }}</VListSubheader>
+                            <VListSubheader class="text-lg">{{ t(`setting.system.${section.section}`) }}</VListSubheader>
                           </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_nfo"
-                              :label="t('setting.system.movieNfo')"
-                              density="compact"
-                            />
+                          <VCol
+                            v-for="item in section.items"
+                            :key="item.key"
+                            cols="12"
+                            md="4"
+                          >
+                            <div class="d-flex align-center">
+                              <VBtnToggle
+                                :model-value="ScrapingPolicies[item.key]"
+                                @update:model-value="ScrapingPolicies[item.key] = $event"
+                                color="primary"
+                                variant="tonal"
+                                rounded="lg"
+                              >
+                                <VBtn value="skip" color="error" icon="mdi-file-remove" />
+                                <VBtn value="missingOnly" color="success" icon="mdi-file-plus" />
+                                <VBtn value="overwrite" color="primary" icon="mdi-file-replace" />
+                              </VBtnToggle>
+                              <span class="ml-2">{{ t(item.label) }}</span>
+                            </div>
                           </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_poster"
-                              :label="t('setting.system.moviePoster')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_backdrop"
-                              :label="t('setting.system.movieBackdrop')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_logo"
-                              :label="t('setting.system.movieLogo')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_disc"
-                              :label="t('setting.system.movieDisc')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_banner"
-                              :label="t('setting.system.movieBanner')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.movie_thumb"
-                              :label="t('setting.system.movieThumb')"
-                              density="compact"
-                            />
-                          </VCol>
-                        </VRow>
-
-                        <VDivider class="my-4" />
-
-                        <VRow>
-                          <VCol cols="12" class="pb-2">
-                            <VListSubheader class="text-lg">{{ t('setting.system.tv') }}</VListSubheader>
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.tv_nfo"
-                              :label="t('setting.system.tvNfo')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.tv_poster"
-                              :label="t('setting.system.tvPoster')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.tv_backdrop"
-                              :label="t('setting.system.tvBackdrop')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.tv_banner"
-                              :label="t('setting.system.tvBanner')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.tv_logo"
-                              :label="t('setting.system.tvLogo')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.tv_thumb"
-                              :label="t('setting.system.tvThumb')"
-                              density="compact"
-                            />
-                          </VCol>
-                        </VRow>
-
-                        <VDivider class="my-4" />
-
-                        <VRow>
-                          <VCol cols="12" class="pb-2">
-                            <VListSubheader class="text-lg">{{ t('setting.system.season') }}</VListSubheader>
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.season_nfo"
-                              :label="t('setting.system.seasonNfo')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.season_poster"
-                              :label="t('setting.system.seasonPoster')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.season_banner"
-                              :label="t('setting.system.seasonBanner')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.season_thumb"
-                              :label="t('setting.system.seasonThumb')"
-                              density="compact"
-                            />
-                          </VCol>
-                        </VRow>
-
-                        <VDivider class="my-4" />
-
-                        <VRow>
-                          <VCol cols="12" class="pb-2">
-                            <VListSubheader class="text-lg">{{ t('setting.system.episode') }}</VListSubheader>
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.episode_nfo"
-                              :label="t('setting.system.episodeNfo')"
-                              density="compact"
-                            />
-                          </VCol>
-                          <VCol cols="6" md="3">
-                            <VCheckbox
-                              v-model="ScrapingSwitchs.episode_thumb"
-                              :label="t('setting.system.episodeThumb')"
-                              density="compact"
-                            />
-                          </VCol>
+                          <VDivider v-if="section.section !== 'episode'" class="my-4" />
                         </VRow>
                       </VExpansionPanelText>
                     </VExpansionPanel>
