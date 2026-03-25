@@ -33,6 +33,7 @@ const SystemSettings = ref<any>({
     CUSTOMIZE_WALLPAPER_API_URL: null,
     AI_AGENT_ENABLE: false,
     AI_AGENT_GLOBAL: false,
+    AI_AGENT_JOB_INTERVAL: 24,
     LLM_PROVIDER: 'deepseek',
     LLM_MODEL: 'deepseek-chat',
     LLM_API_KEY: null,
@@ -698,6 +699,25 @@ onDeactivated(() => {
                   :label="t('setting.system.aiAgentGlobal')"
                   :hint="t('setting.system.aiAgentGlobalHint')"
                   persistent-hint
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VSelect
+                  v-model="SystemSettings.Basic.AI_AGENT_JOB_INTERVAL"
+                  :label="t('setting.system.aiAgentJobInterval')"
+                  :hint="t('setting.system.aiAgentJobIntervalHint')"
+                  persistent-hint
+                  :items="[
+                    { title: t('setting.system.aiAgentJobIntervalDisabled'), value: 0 },
+                    { title: t('setting.system.aiAgentJobInterval1h'), value: 1 },
+                    { title: t('setting.system.aiAgentJobInterval3h'), value: 3 },
+                    { title: t('setting.system.aiAgentJobInterval6h'), value: 6 },
+                    { title: t('setting.system.aiAgentJobInterval12h'), value: 12 },
+                    { title: t('setting.system.aiAgentJobInterval24h'), value: 24 },
+                    { title: t('setting.system.aiAgentJobInterval1w'), value: 168 },
+                    { title: t('setting.system.aiAgentJobInterval1M'), value: 720 },
+                  ]"
+                  prepend-inner-icon="mdi-timer-outline"
                 />
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
