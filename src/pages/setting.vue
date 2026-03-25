@@ -6,7 +6,6 @@ import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
 import AccountSettingSearch from '@/views/setting/AccountSettingSearch.vue'
 import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue'
 import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
-import AccountSettingService from '@/views/setting/AccountSettingService.vue'
 import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
 import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import { getSettingTabs } from '@/router/i18n-menu'
@@ -89,15 +88,6 @@ onMounted(() => {
         <transition name="fade-slide" appear>
           <div>
             <AccountSettingSubscribe />
-          </div>
-        </transition>
-      </VWindowItem>
-
-      <!-- 服务 -->
-      <VWindowItem value="scheduler">
-        <transition name="fade-slide" appear>
-          <div>
-            <AccountSettingService />
           </div>
         </transition>
       </VWindowItem>

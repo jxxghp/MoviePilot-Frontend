@@ -7,6 +7,7 @@ import ModuleTestView from '@/views/system/ModuleTestView.vue'
 import MessageView from '@/views/system/MessageView.vue'
 import WordsView from '@/views/system/WordsView.vue'
 import CacheView from '@/views/system/CacheView.vue'
+import AccountSettingService from '@/views/system/ServiceView.vue'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
 import { getQueryValue } from '@/@core/utils'
@@ -48,6 +49,9 @@ const wordsDialog = ref(false)
 
 // 缓存管理弹窗
 const cacheDialog = ref(false)
+
+// 定时服务弹窗
+const schedulerDialog = ref(false)
 
 // 输入消息
 const user_message = ref('')
@@ -107,6 +111,13 @@ const shortcuts = [
     icon: 'mdi-database',
     dialog: 'cache',
     dialogRef: cacheDialog,
+  },
+  {
+    title: t('shortcut.scheduler.title'),
+    subtitle: t('shortcut.scheduler.subtitle'),
+    icon: 'mdi-list-box',
+    dialog: 'scheduler',
+    dialogRef: schedulerDialog,
   },
   {
     title: t('shortcut.system.title'),
@@ -275,10 +286,10 @@ onMounted(() => {
                 item.dialog === 'message'
                   ? openMessageDialog()
                   : item.dialog === 'words'
-                  ? openDialog(item.dialogRef)
-                  : item.dialog === 'cache'
-                  ? openDialog(item.dialogRef)
-                  : openDialog(item.dialogRef)
+                    ? openDialog(item.dialogRef)
+                    : item.dialog === 'cache'
+                      ? openDialog(item.dialogRef)
+                      : openDialog(item.dialogRef)
               "
             >
               <VAvatar variant="text" size="48" rounded="lg">
@@ -417,6 +428,29 @@ onMounted(() => {
       <VDivider />
       <VCardText>
         <CacheView />
+      </VCardText>
+    </VCard>
+  </VDialog>
+  <!-- 定时服务弹窗 -->
+  <VDialog
+    v-if="schedulerDialog"
+    v-model="schedulerDialog"
+    max-width="60rem"
+    scrollable
+    :fullscreen="!display.mdAndUp.value"
+  >
+    <VCard>
+      <VCardItem class="py-2">
+        <VCardTitle>
+          <VIcon icon="mdi-list-box" class="me-2" />
+          {{ t('shortcut.scheduler.subtitle') }}
+        </VCardTitle>
+        <VCardSubtitle>{{ t('setting.scheduler.subtitle') }}</VCardSubtitle>
+        <VDialogCloseBtn @click="schedulerDialog = false" />
+      </VCardItem>
+      <VDivider />
+      <VCardText class="pa-0">
+        <AccountSettingService />
       </VCardText>
     </VCard>
   </VDialog>

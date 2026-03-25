@@ -582,6 +582,10 @@ export default {
       title: 'Cache',
       subtitle: 'Manage Cache',
     },
+    scheduler: {
+      title: 'Services',
+      subtitle: 'Scheduled Services',
+    },
   },
   workflow: {
     components: 'Action Components',

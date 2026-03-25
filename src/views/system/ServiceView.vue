@@ -70,10 +70,6 @@ useDataRefresh(
 
 <template>
   <VCard>
-    <VCardItem>
-      <VCardTitle>{{ t('setting.scheduler.title') }}</VCardTitle>
-      <VCardSubtitle>{{ t('setting.scheduler.subtitle') }}</VCardSubtitle>
-    </VCardItem>
     <VTable class="text-no-wrap">
       <thead>
         <tr>

@@ -579,6 +579,10 @@ export default {
       title: '缓存',
       subtitle: '管理缓存',
     },
+    scheduler: {
+      title: '服务',
+      subtitle: '定时服务',
+    },
   },
   workflow: {
     components: '动作组件',
