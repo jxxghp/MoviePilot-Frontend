@@ -33,6 +33,7 @@ const SystemSettings = ref<any>({
     CUSTOMIZE_WALLPAPER_API_URL: null,
     AI_AGENT_ENABLE: false,
     AI_AGENT_GLOBAL: false,
+    AI_AGENT_VERBOSE: false,
     AI_AGENT_JOB_INTERVAL: 24,
     LLM_PROVIDER: 'deepseek',
     LLM_MODEL: 'deepseek-chat',
