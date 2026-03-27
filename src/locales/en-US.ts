@@ -1335,9 +1335,11 @@ export default {
       aiAgentGlobal: 'Global AI Assistant',
       aiAgentGlobalHint:
         'Enable global AI assistant functionality, all message conversations will be answered by the AI agent without using the /ai command',
-      aiAgentJobInterval: 'AI Agent Job Interval',
+      aiAgentJobInterval: 'Scheduled Wake',
       aiAgentJobIntervalHint:
-        'Set the check interval for AI agent scheduled tasks. Select "Disabled" to disable scheduled tasks.',
+        'Set the check interval for scheduled wake. Select "Disabled" to disable scheduled tasks.',
+      aiAgentVerbose: 'Verbose Mode',
+      aiAgentVerboseHint: 'When enabled, tool call process will be displayed in AI agent responses',
       aiAgentJobIntervalDisabled: 'Disabled',
       aiAgentJobInterval1h: '1 Hour',
       aiAgentJobInterval3h: '3 Hours',
