@@ -582,7 +582,7 @@ onUnmounted(() => {
                   type="text"
                   name="username"
                   id="username"
-                  autocomplete="username webauthn"
+                  autocomplete="username"
                   :rules="[requiredValidator]"
                   hide-details
                 />
