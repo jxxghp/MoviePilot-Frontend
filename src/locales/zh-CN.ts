@@ -90,6 +90,7 @@ export default {
     mediaServer: '媒体服务器',
     manual: '手动处理',
     plugin: '插件',
+    agent: '智能体',
     other: '其它',
   },
   actionStep: {

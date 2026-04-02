@@ -64,6 +64,7 @@ const notificationTypes = [
   { value: '媒体服务器', title: t('notificationSwitch.mediaServer') },
   { value: '手动处理', title: t('notificationSwitch.manual') },
   { value: '插件', title: t('notificationSwitch.plugin') },
+  { value: '智能体', title: t('notificationSwitch.agent') },
   { value: '其它', title: t('notificationSwitch.other') },
 ]
 

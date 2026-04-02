@@ -92,6 +92,10 @@ const notificationSwitchs = ref<NotificationSwitchConf[]>([
     action: 'admin',
   },
   {
+    type: '智能体',
+    action: 'admin',
+  },
+  {
     type: '其它',
     action: 'admin',
   },
@@ -214,7 +218,17 @@ function changNotificationSetting(notification: NotificationConf, name: string) 
 async function loadNotificationSwitchs() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/NotificationSwitchs')
-    if (result.data?.value && result.data?.value.length > 0) notificationSwitchs.value = result.data?.value
+    if (result.data?.value && result.data?.value.length > 0) {
+      const savedSwitchs: NotificationSwitchConf[] = result.data.value
+      // 合并默认值中存在但后端数据中缺失的类型（如新增的类型）
+      const defaults = notificationSwitchs.value
+      for (const def of defaults) {
+        if (!savedSwitchs.find(item => item.type === def.type)) {
+          savedSwitchs.push(def)
+        }
+      }
+      notificationSwitchs.value = savedSwitchs
+    }
   } catch (error) {
     console.log(error)
   }

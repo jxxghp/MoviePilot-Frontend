@@ -90,6 +90,7 @@ export default {
     mediaServer: 'Media Server',
     manual: 'Manual',
     plugin: 'Plugin',
+    agent: 'Agent',
     other: 'Other',
   },
   actionStep: {

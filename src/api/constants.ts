@@ -283,6 +283,10 @@ export const notificationSwitchOptions = [
     value: '插件',
   },
   {
+    title: i18n.global.t('notificationSwitch.agent'),
+    value: '智能体',
+  },
+  {
     title: i18n.global.t('notificationSwitch.other'),
     value: '其它',
   },
