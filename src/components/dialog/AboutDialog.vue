@@ -2,6 +2,8 @@
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 import { clearCachesAndServiceWorker, reloadWithTimestamp } from '@/composables/useVersionChecker'
+import MarkdownIt from 'markdown-it'
+import mdLinkAttributes from 'markdown-it-link-attributes'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -16,6 +18,21 @@ const emit = defineEmits(['close'])
 
 // 显示器
 const display = useDisplay()
+
+// 初始化 markdown-it
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+})
+
+// 插件：链接在新窗口打开
+md.use(mdLinkAttributes, {
+  attrs: {
+    target: '_blank',
+    rel: 'noopener noreferrer',
+  },
+})
 
 // 系统环境变量
 const systemEnv = ref<any>({})
@@ -70,7 +87,7 @@ const releaseDialogBody = ref('')
 // 打开日志对话框
 function showReleaseDialog(title: string, body: string) {
   releaseDialogTitle.value = title
-  releaseDialogBody.value = body.replaceAll('\r\n', '<br />')
+  releaseDialogBody.value = body ? md.render(body) : ''
   releaseDialog.value = true
 }
 
@@ -393,7 +410,7 @@ onMounted(() => {
           <VDialogCloseBtn @click="releaseDialog = false" />
           <VCardTitle>{{ releaseDialogTitle }} {{ t('setting.about.changelog') }}</VCardTitle>
         </VCardItem>
-        <VCardText v-html="releaseDialogBody" />
+        <VCardText class="markdown-body" v-html="releaseDialogBody" />
       </VCard>
     </VDialog>
   </VDialog>
@@ -410,5 +427,102 @@ onMounted(() => {
 
 .section {
   margin-block: 0.5rem 2.5rem;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  margin-block: 0.5rem;
+  font-weight: 600;
+}
+
+.markdown-body :deep(h1) {
+  font-size: 1.5rem;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.25rem;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.1rem;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  padding-inline-start: 1.5rem;
+  margin-block: 0.5rem;
+}
+
+.markdown-body :deep(li) {
+  margin-block: 0.25rem;
+}
+
+.markdown-body :deep(p) {
+  margin-block: 0.5rem;
+}
+
+.markdown-body :deep(a) {
+  color: rgb(99 102 241);
+  text-decoration: none;
+}
+
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-body :deep(code) {
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  background-color: rgba(127, 127, 127, 0.15);
+}
+
+.markdown-body :deep(pre) {
+  padding: 0.75rem 1rem;
+  margin-block: 0.5rem;
+  overflow-x: auto;
+  border-radius: 0.375rem;
+  background-color: rgba(127, 127, 127, 0.15);
+}
+
+.markdown-body :deep(pre code) {
+  padding: 0;
+  background-color: transparent;
+}
+
+.markdown-body :deep(blockquote) {
+  padding-inline-start: 1rem;
+  margin-block: 0.5rem;
+  border-inline-start: 3px solid rgba(127, 127, 127, 0.4);
+  color: rgba(127, 127, 127, 0.8);
+}
+
+.markdown-body :deep(hr) {
+  margin-block: 1rem;
+  border: none;
+  border-block-start: 1px solid rgba(127, 127, 127, 0.3);
+}
+
+.markdown-body :deep(table) {
+  width: 100%;
+  margin-block: 0.5rem;
+  border-collapse: collapse;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+}
+
+.markdown-body :deep(th) {
+  font-weight: 600;
+  background-color: rgba(127, 127, 127, 0.1);
+}
+
+.markdown-body :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 </style>
