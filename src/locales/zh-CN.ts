@@ -1346,6 +1346,9 @@ export default {
       advancedSettingsDesc: '系统进阶设置，特殊情况下才需要调整',
       downloaders: '下载器',
       downloadersDesc: '只有默认下载器才会被默认使用。',
+      aiAgentRetryTransfer: '文件整理失败智能接管',
+      aiAgentRetryTransferHint:
+        '启用后，当文件整理失败时，智能助手将自动接管并尝试重新整理，利用AI能力解决识别和匹配问题',
       aiRecommendEnabled: '搜索结果智能推荐',
       aiRecommendEnabledHint:
         '启用搜索结果智能推荐功能，开启后将在搜索结果页面显示智能推荐按钮，可根据用户偏好智能推荐资源',

@@ -39,6 +39,7 @@ const SystemSettings = ref<any>({
     LLM_MODEL: 'deepseek-chat',
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
+     AI_AGENT_RETRY_TRANSFER: false,
     AI_RECOMMEND_ENABLED: false,
     AI_RECOMMEND_USER_PREFERENCE: null,
     AI_RECOMMEND_MAX_ITEMS: 50,
@@ -791,6 +792,14 @@ onDeactivated(() => {
                     { title: t('setting.system.aiAgentJobInterval1M'), value: 720 },
                   ]"
                   prepend-inner-icon="mdi-timer-outline"
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                <VSwitch
+                  v-model="SystemSettings.Basic.AI_AGENT_RETRY_TRANSFER"
+                  :label="t('setting.system.aiAgentRetryTransfer')"
+                  :hint="t('setting.system.aiAgentRetryTransferHint')"
+                  persistent-hint
                 />
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">

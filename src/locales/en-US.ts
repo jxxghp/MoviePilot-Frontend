@@ -1353,6 +1353,9 @@ export default {
       advancedSettingsDesc: 'System advanced settings, only need to be adjusted in special cases',
       downloaders: 'Downloaders',
       downloadersDesc: 'Only the default downloader will be used by default.',
+      aiAgentRetryTransfer: 'AI Takeover on Transfer Failure',
+      aiAgentRetryTransferHint:
+        'When enabled, the AI assistant will automatically take over and retry when file transfer/organization fails, using AI capabilities to resolve recognition and matching issues.',
       aiRecommendEnabled: 'AI Search Recommendation',
       aiRecommendEnabledHint:
         'Enable AI search recommendation. When enabled, an AI recommendation button will be displayed on the search result page, recommending resources based on user preferences.',
