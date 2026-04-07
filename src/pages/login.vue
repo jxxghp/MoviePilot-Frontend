@@ -610,15 +610,21 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12">
                 <!-- login button -->
-                <VBtn block type="submit" prepend-icon="mdi-login" :loading="loading">
+                <VBtn block type="submit" prepend-icon="mdi-login" :loading="loading" size="large">
                   {{ t('login.login') }}
                 </VBtn>
+
+                <!-- or divider -->
+                <div class="or-divider my-4">
+                  <span class="or-divider-text">{{ t('login.orDivider') }}</span>
+                </div>
+
                 <!-- passkey login button -->
                 <VBtn
                   block
-                  variant="tonal"
+                  variant="outlined"
                   color="success"
-                  class="mt-3 passkey-btn"
+                  class="passkey-btn"
                   prepend-icon="material-symbols:passkey"
                   :loading="passkeyLoading"
                   @click="loginWithPassKey(false)"
@@ -718,8 +724,29 @@ onUnmounted(() => {
   background: rgba(var(--v-theme-surface), 0.7) !important;
 }
 
+.or-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  text-align: center;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+
+  .or-divider-text {
+    padding-inline: 12px;
+    font-size: 0.8125rem;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    white-space: nowrap;
+  }
+}
+
 .v-theme--light {
-  .passkey-btn.v-btn--variant-tonal {
+  .passkey-btn.v-btn--variant-outlined {
     color: rgb(86, 170, 0) !important;
   }
 }

@@ -257,6 +257,7 @@ export default {
     serverError: '登录失败，服务器错误！',
     loginFailed: '登录失败',
     secondaryVerification: '二次验证',
+    orDivider: '或',
     loginWithPasskey: '使用通行密钥登录',
     loginWithOtp: '使用验证码登录',
     orUsePasskey: '或使用通行密钥进行验证',

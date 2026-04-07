@@ -171,7 +171,7 @@ const showDynamicButton = computed(() => {
   <Teleport v-if="appMode && showNav" to="body">
     <div class="footer-nav-container">
       <TransitionGroup name="footer-nav" tag="div" class="footer-nav-group">
-        <VCard key="main-nav" elevation="3" class="footer-nav-card border" rounded="pill">
+        <VCard key="main-nav" :elevation="0" class="footer-nav-card" rounded="pill">
           <VCardText class="footer-card-content">
             <!-- 添加指示器 -->
             <div ref="indicator" class="nav-indicator"></div>
@@ -217,8 +217,8 @@ const showDynamicButton = computed(() => {
         <VCard
           v-if="showDynamicButton"
           key="dynamic-btn"
-          elevation="3"
-          class="footer-nav-card dynamic-btn-card border"
+          :elevation="0"
+          class="footer-nav-card dynamic-btn-card"
           rounded="pill"
         >
           <VCardText class="footer-card-content">
@@ -260,23 +260,120 @@ const showDynamicButton = computed(() => {
 
   // 按钮卡片之间的间距
   > .v-card + .v-card {
-    margin-inline-start: 2px; // 减少间距
+    margin-inline-start: 4px;
   }
 }
 
 .footer-nav-card {
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(24px);
-  background-color: rgba(var(--v-theme-surface), 0.6);
   pointer-events: auto;
   transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform, max-width, opacity;
 
+  // ===== iOS 26 Liquid Glass 效果 =====
+
+  // 强力毛玻璃背景模糊
+  backdrop-filter: blur(40px) saturate(1.8) brightness(1.05);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8) brightness(1.05);
+
+  // 半透明玻璃底色 - 浅色模式
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.25) 40%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+
+  // 多层内发光边框 - 模拟玻璃边缘折射
+  border: 0.5px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow:
+    // 外层柔和投影
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 12px rgba(0, 0, 0, 0.04),
+    // 内发光 - 上边缘高光
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    // 内发光 - 整体光泽
+    inset 0 0 20px rgba(255, 255, 255, 0.1);
+
+  // 顶部光泽反射条
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 10%;
+    z-index: 1;
+    border-radius: 0 0 50% 50%;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    block-size: 40%;
+    inline-size: 80%;
+    pointer-events: none;
+  }
+
+  // 底部微光
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: 5%;
+    z-index: 1;
+    border-radius: 50% 50% 0 0;
+    background: linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08) 0%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    block-size: 30%;
+    inline-size: 90%;
+    pointer-events: none;
+  }
+
+  // ===== 暗色模式适配 =====
+  .v-theme--dark & {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.05) 40%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+    border: 0.5px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      0 2px 12px rgba(0, 0, 0, 0.2),
+      inset 0 1px 1px rgba(255, 255, 255, 0.15),
+      inset 0 0 20px rgba(255, 255, 255, 0.03);
+
+    &::before {
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.12) 0%,
+        rgba(255, 255, 255, 0) 100%
+      );
+    }
+
+    &::after {
+      background: linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.03) 0%,
+        rgba(255, 255, 255, 0) 100%
+      );
+    }
+  }
+
   // 透明主题下的特殊样式
   .v-theme--transparent & {
-    backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
-    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
+    backdrop-filter: blur(40px) saturate(1.8) brightness(1.05);
+    -webkit-backdrop-filter: blur(40px) saturate(1.8) brightness(1.05);
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.08) 40%,
+      rgba(255, 255, 255, 0.12) 100%
+    );
   }
 
   .v-btn-toggle {
@@ -287,6 +384,7 @@ const showDynamicButton = computed(() => {
 
 .footer-card-content {
   position: relative;
+  z-index: 2;
   padding-block: 4px;
   padding-inline: 6px;
 }
@@ -309,10 +407,44 @@ const showDynamicButton = computed(() => {
   justify-content: center;
   background-color: transparent;
   block-size: 48px;
+  transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 
   &.v-btn--active {
     background-color: transparent;
     box-shadow: none;
+  }
+
+  // 选中态 - 液态玻璃胶囊高亮
+  &.footer-nav-btn-active {
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 4px 2px;
+      z-index: -1;
+      border: 0.5px solid rgba(255, 255, 255, 0.35);
+      border-radius: 16px;
+      background: linear-gradient(
+        180deg,
+        rgba(var(--v-theme-primary), 0.18) 0%,
+        rgba(var(--v-theme-primary), 0.08) 100%
+      );
+      box-shadow:
+        0 2px 8px rgba(var(--v-theme-primary), 0.15),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .v-theme--dark &::before {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: linear-gradient(
+        180deg,
+        rgba(var(--v-theme-primary), 0.25) 0%,
+        rgba(var(--v-theme-primary), 0.1) 100%
+      );
+      box-shadow:
+        0 2px 8px rgba(var(--v-theme-primary), 0.2),
+        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    }
   }
 
   .btn-content {

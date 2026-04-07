@@ -24,6 +24,7 @@ const imageLoadError = ref(false)
 // 初始化 markdown-it
 const md = new MarkdownIt({
   html: true,
+  breaks: true,
   linkify: true,
   typographer: true,
 })

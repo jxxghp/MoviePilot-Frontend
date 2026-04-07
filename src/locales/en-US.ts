@@ -258,6 +258,7 @@ export default {
     serverError: 'Login failed, server error!',
     loginFailed: 'Login Failed',
     secondaryVerification: 'Secondary Verification',
+    orDivider: 'OR',
     loginWithPasskey: 'Login with Passkey',
     loginWithOtp: 'Login with OTP',
     orUsePasskey: 'Or use Passkey for verification',

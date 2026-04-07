@@ -257,6 +257,7 @@ export default {
     noPermission: '登錄失敗，您沒有任何功能權限，請聯繫管理員！',
     loginFailed: '登錄失敗',
     secondaryVerification: '二次驗證',
+    orDivider: '或',
     loginWithPasskey: '使用通行密鑰登錄',
     loginWithOtp: '使用驗證碼登錄',
     orUsePasskey: '或使用通行密鑰進行驗證',
