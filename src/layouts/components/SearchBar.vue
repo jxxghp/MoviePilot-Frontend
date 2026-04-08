@@ -27,25 +27,66 @@ const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
 </script>
 
 <template>
-  <!-- 👉 Search Icon -->
-  <div class="d-flex align-center cursor-pointer ms-lg-n2" style="user-select: none">
-    <IconBtn @click="openSearchDialog">
-      <VIcon icon="ri-search-line" />
-    </IconBtn>
-    <span v-if="display.lgAndUp.value" class="flex align-center text-disabled ms-2" @click="openSearchDialog">
-      <span class="me-3">{{ t('common.search') }}</span>
-      <span class="meta-key">{{ metaKey }}</span>
-    </span>
+  <!-- 小屏：仅图标按钮 -->
+  <IconBtn v-if="!display.mdAndUp.value" @click="openSearchDialog">
+    <VIcon icon="mdi-magnify" />
+  </IconBtn>
+
+  <!-- 中屏及以上：胶囊搜索触发栏 -->
+  <div v-else class="search-trigger" @click="openSearchDialog">
+    <VIcon icon="mdi-magnify" size="18" class="search-trigger-icon" />
+    <span class="search-trigger-text">{{ t('common.search') }}</span>
+    <kbd class="search-trigger-kbd">{{ metaKey }}</kbd>
   </div>
+
   <!-- 搜索弹窗 -->
   <SearchBarDialog v-model="searchDialog" v-if="searchDialog" @close="searchDialog = false" />
 </template>
-<style type="scss" scoped>
-.meta-key {
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 6px;
-  block-size: 1.75rem;
-  padding-block: 0.1rem;
-  padding-inline: 0.25rem;
+
+<style scoped>
+.search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 22px;
+  background-color: rgba(var(--v-theme-on-surface), 0.03);
+  block-size: 36px;
+  cursor: pointer;
+  padding-inline: 12px;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.search-trigger:hover {
+  border-color: rgba(var(--v-theme-on-surface), 0.22);
+  background-color: rgba(var(--v-theme-on-surface), 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 4%);
+}
+
+.search-trigger-icon {
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  flex-shrink: 0;
+}
+
+.search-trigger-text {
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  font-size: 13.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.search-trigger-kbd {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 5px;
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  margin-inline-start: 4px;
+  padding-block: 3px;
+  padding-inline: 5px;
 }
 </style>

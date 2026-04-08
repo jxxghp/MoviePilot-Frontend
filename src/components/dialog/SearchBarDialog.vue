@@ -660,8 +660,9 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 底部快捷键提示 -->
-      <div class="search-footer">
+      <!-- 底部区域 -->
+      <!-- 桌面端：快捷键提示 -->
+      <div v-if="display.mdAndUp.value" class="search-footer">
         <div class="shortcut-group">
           <kbd>Esc</kbd>
           <span class="shortcut-label">{{ t('dialog.searchBar.escClose') }}</span>
@@ -670,6 +671,12 @@ onMounted(() => {
           <kbd>{{ metaKey }}</kbd>
           <span class="shortcut-label">{{ t('dialog.searchBar.openSearch') }}</span>
         </div>
+      </div>
+      <!-- 移动端：关闭图标 -->
+      <div v-else class="search-footer-mobile">
+        <VBtn icon variant="tonal" @click="emit('close')">
+          <VIcon icon="mdi-close" size="20" />
+        </VBtn>
       </div>
     </VCard>
   </VDialog>
@@ -688,7 +695,9 @@ onMounted(() => {
 
 <style scoped>
 .search-dialog {
+  display: flex;
   overflow: hidden;
+  flex-direction: column;
   border-radius: 16px !important;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 12%) !important;
 }
@@ -843,6 +852,15 @@ kbd {
 .shortcut-label {
   color: rgba(var(--v-theme-on-surface), 0.45);
   font-size: 12px;
+}
+
+/* 移动端底部关闭图标 */
+.search-footer-mobile {
+  display: flex;
+  justify-content: center;
+  margin-block-start: auto;
+  padding-block: 12px;
+  padding-block-end: calc(12px + env(safe-area-inset-bottom));
 }
 
 /* 响应式 */
