@@ -16,13 +16,17 @@ MoviePilot前端采用模块联邦(Module Federation)技术实现插件的动态
 
 ## 3. 核心概念
 
-每个插件需要提供三个标准组件：
+每个 Vue 联邦插件需要提供下列标准组件（`AppPage` 为可选，用于主界面侧栏全页入口）：
 
-| 组件名称 | 文件名 | 用途 |
-|---------|-------|------|
-| Page | Page.vue | 插件详情页面 |
-| Config | Config.vue | 插件配置页面 |
-| Dashboard | Dashboard.vue | 仪表板组件 |
+| 组件名称 | 暴露名 | 文件名 | 用途 |
+|---------|--------|--------|------|
+| Page | `./Page` | Page.vue | 插件管理中的详情弹窗 |
+| Config | `./Config` | Config.vue | 插件配置页面 |
+| Dashboard | `./Dashboard` | Dashboard.vue | 仪表盘小组件 |
+| AppPage | `./AppPage` | AppPage.vue | 主界面侧栏独立全页（主内容区由插件完全绘制） |
+| （可选） | `./AppPage{Xxx}` | 如 AppPageSettings.vue | 多 `nav_key` 时按名优先加载，见下文「多界面」 |
+
+主应用在侧栏全页路由中按 `nav_key` 解析暴露名（如 `AppPageSettings`），再回退 `AppPage` → `Page`；`nav_key` 为 `main` 时仅尝试 `AppPage` → `Page`。
 
 ## 4. 快速开始
 
@@ -56,6 +60,8 @@ export default defineConfig({
         './Page': './src/components/Page.vue',
         './Config': './src/components/Config.vue',
         './Dashboard': './src/components/Dashboard.vue',
+        './AppPage': './src/components/AppPage.vue',
+        './AppPageSettings': './src/components/AppPageSettings.vue',
       },
       shared: {
         vue: {
@@ -262,6 +268,91 @@ const props = defineProps({
     </v-hover>
   </div>
 </template>
+```
+
+### 5.4 AppPage 组件（侧栏全页）
+
+用于主应用左侧导航中的独立页面（路由 `#/plugin-app/:pluginId/:navKey?`），占据默认布局下的主内容区；与 `Page` 不同，不嵌在插件管理弹窗中。
+
+主应用传入的 props：
+
+| 属性 | 说明 |
+|------|------|
+| `api` | 与 `Page` 相同，用于 `bear` 认证的插件 HTTP 调用 |
+| `navKey` | 与侧栏声明的 `nav_key` 一致，同一插件多入口时用于区分 |
+| `pluginId` | 当前插件 ID |
+
+```vue
+<script setup lang="ts">
+const props = defineProps({
+  api: { type: Object, default: () => ({}) },
+  navKey: { type: String, default: 'main' },
+  pluginId: { type: String, default: '' },
+})
+const emit = defineEmits(['action'])
+</script>
+
+<template>
+  <div class="pa-4">
+    <div class="text-h6 mb-2">侧栏全页示例（{{ pluginId }} / {{ navKey }}）</div>
+    <v-btn size="small" @click="emit('action')">通知主应用</v-btn>
+  </div>
+</template>
+```
+
+#### 后端：注册侧栏入口
+
+插件需为 **Vue** 渲染模式（`get_render_mode` 返回 `vue`），并实现 `get_sidebar_nav`，返回列表项字段与主应用 `GET /api/v1/plugin/sidebar_nav` 一致：
+
+| 字段 | 说明 |
+|------|------|
+| `nav_key` | URL 路径段，唯一标识本入口（同一插件可多入口） |
+| `title` | 侧栏显示标题 |
+| `icon` | MDI 图标名，如 `mdi-rss` |
+| `section` | 分组：`start` / `discovery` / `subscribe` / `organize` / `system` |
+| `permission` | 可选：`subscribe` / `discovery` / `search` / `manage` / `admin`，与主应用菜单权限一致 |
+| `order` | 可选：同组内排序，数值越小越靠前 |
+
+```python
+def get_sidebar_nav(self) -> List[Dict[str, Any]]:
+    return [
+        {
+            "nav_key": "main",
+            "title": "示例订阅页",
+            "icon": "mdi-rss",
+            "section": "subscribe",
+            "permission": "subscribe",
+            "order": 10,
+        }
+    ]
+```
+
+#### 同一插件多个全页界面（多 `nav_key`）
+
+在 `get_sidebar_nav` 中**返回多条**记录，每条使用不同的 `nav_key` / `title` / `section` 等，侧栏与「更多」中会出现多个入口，路由形如 `#/plugin-app/<插件ID>/<nav_key>`。
+
+前端加载远程组件的顺序为：
+
+| `nav_key` | 依次尝试的联邦暴露名 |
+|-----------|----------------------|
+| `main` 或省略 | `./AppPage` → `./Page` |
+| 其它（如 `settings`、`my_tool`） | `./AppPage{PascalCase}` → `./AppPage` → `./Page` |
+
+`PascalCase` 规则：按 `-`、`_`、空格分段后首字母大写并拼接。例如 `nav_key=settings` → 先试 `./AppPageSettings`；`my_tool` → `./AppPageMyTool`。
+
+**两种实现方式（二选一或混用）：**
+
+1. **单文件分支**：只暴露 `./AppPage`，在组件内根据 `navKey` prop 用 `v-if` / `<component>` 切换子界面。  
+2. **多文件**：为某个入口单独暴露 `./AppPageSettings.vue` 等，主应用会优先加载对应模块，失败再回退到 `AppPage`。
+
+`vite.config` 多暴露示例：
+
+```typescript
+exposes: {
+  './AppPage': './src/components/AppPage.vue',
+  './AppPageSettings': './src/components/AppPageSettings.vue',
+  // ...
+}
 ```
 
 ## 6. 构建和部署

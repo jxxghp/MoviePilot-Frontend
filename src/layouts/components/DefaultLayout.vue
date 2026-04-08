@@ -9,8 +9,9 @@ import ShortcutBar from '@/layouts/components/ShortcutBar.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 import QuickAccess from '@/layouts/components/QuickAccess.vue'
 import HeaderTab from '@/layouts/components/HeaderTab.vue'
-import { useUserStore } from '@/stores'
+import { usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { getNavMenus } from '@/router/i18n-menu'
+import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -30,6 +31,7 @@ const route = useRoute()
 
 // 用户 Store
 const userStore = useUserStore()
+const pluginSidebarNavStore = usePluginSidebarNavStore()
 
 // 响应式的超级用户状态
 const superUser = computed(() => userStore.superUser)
@@ -229,13 +231,43 @@ function handlePluginClick() {
   showPluginQuickAccess.value = false
 }
 
-onMounted(() => {
+function appendPluginSidebarMenus() {
+  for (const { navMenu, section } of filterPluginSidebarNavEntries(
+    pluginSidebarNavStore.items,
+    t,
+    userPermissions.value,
+  )) {
+    switch (section) {
+      case 'start':
+        startMenus.value.push(navMenu)
+        break
+      case 'discovery':
+        discoveryMenus.value.push(navMenu)
+        break
+      case 'subscribe':
+        subscribeMenus.value.push(navMenu)
+        break
+      case 'organize':
+        organizeMenus.value.push(navMenu)
+        break
+      case 'system':
+      default:
+        systemMenus.value.push(navMenu)
+        break
+    }
+  }
+}
+
+onMounted(async () => {
   // 获取菜单列表
   startMenus.value = getMenuList(t('menu.start'))
   discoveryMenus.value = getMenuList(t('menu.discovery'))
   subscribeMenus.value = getMenuList(t('menu.subscribe'))
   organizeMenus.value = getMenuList(t('menu.organize'))
   systemMenus.value = getMenuList(t('menu.system'))
+
+  await pluginSidebarNavStore.ensureSidebarNav()
+  appendPluginSidebarMenus()
 
   // 监听全局未读消息事件
   const unsubscribe = onUnreadMessage(handleUnreadMessage)
