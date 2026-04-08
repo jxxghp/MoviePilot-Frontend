@@ -2008,7 +2008,7 @@ export default {
     },
     searchBar: {
       search: 'Search',
-      searchPlaceholder: 'Search features, subscriptions, settings...',
+      searchPlaceholder: 'Search movies and TV shows...',
       recentSearches: 'Recent Searches',
       noRecentSearches: 'No recent search history',
       functions: 'Functions',
@@ -2028,6 +2028,9 @@ export default {
       searchInSites: 'Search for torrent resources in sites',
       relatedResources: 'Related Resources',
       searchTip: 'You can search for movies, TV shows, actors, resources, etc.',
+      emptySearchHint: 'Enter keywords to search',
+      escClose: 'Close',
+      openSearch: 'Open search',
     },
     searchSite: {
       selectSites: 'Select Sites',

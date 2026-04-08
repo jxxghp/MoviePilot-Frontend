@@ -1980,7 +1980,7 @@ export default {
     },
     searchBar: {
       search: '搜索',
-      searchPlaceholder: '搜索功能、订阅、设置...',
+      searchPlaceholder: '搜索电影和剧集...',
       recentSearches: '最近搜索',
       noRecentSearches: '没有最近搜索记录',
       functions: '功能',
@@ -2000,6 +2000,9 @@ export default {
       searchInSites: '在站点中搜索种子资源',
       relatedResources: '相关资源',
       searchTip: '可搜索电影、电视剧、演员、资源等',
+      emptySearchHint: '输入关键字开始搜索',
+      escClose: '关闭',
+      openSearch: '打开搜索',
     },
     searchSite: {
       selectSites: '选择站点',

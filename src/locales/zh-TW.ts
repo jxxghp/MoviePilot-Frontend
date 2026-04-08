@@ -1981,7 +1981,7 @@ export default {
     },
     searchBar: {
       search: '搜索',
-      searchPlaceholder: '搜索功能、訂閱、設置...',
+      searchPlaceholder: '搜索電影和劇集...',
       recentSearches: '最近搜索',
       noRecentSearches: '沒有最近搜索記錄',
       functions: '功能',
@@ -2001,6 +2001,9 @@ export default {
       searchInSites: '在站點中搜索種子資源',
       relatedResources: '相關資源',
       searchTip: '可搜索電影、電視劇、演員、資源等',
+      emptySearchHint: '輸入關鍵字開始搜索',
+      escClose: '關閉',
+      openSearch: '打開搜索',
     },
     searchSite: {
       selectSites: '選擇站點',

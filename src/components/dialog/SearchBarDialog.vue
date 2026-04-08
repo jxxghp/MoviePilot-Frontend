@@ -98,6 +98,14 @@ const searchWordInput = ref<HTMLElement | null>(null)
 // 近期搜索词条
 const recentSearches = ref<string[]>([])
 
+// 检测操作系统是否是Mac
+function isMac() {
+  return navigator.platform.toUpperCase().indexOf('MAC') >= 0
+}
+
+// 计算属性：根据操作系统显示不同的按键提示
+const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
+
 // 保存近期搜索到本地
 function saveRecentSearches(keyword: string) {
   if (!keyword) return
@@ -379,400 +387,261 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VDialog v-model="dialog" max-width="42rem" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog v-model="dialog" max-width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard class="search-dialog">
-      <!-- 搜索输入框 -->
-      <VCardItem class="pa-4 pa-sm-5 search-box-container">
-        <VCombobox
-          ref="searchWordInput"
-          v-model="searchWord"
-          density="comfortable"
-          variant="outlined"
-          class="search-input"
-          prepend-inner-icon="mdi-magnify"
-          append-inner-icon="mdi-close"
-          @click:append-inner="emit('close')"
-          :placeholder="t('dialog.searchBar.searchPlaceholder')"
-          @keydown.enter="searchMedia('media')"
-          hide-details
-          clearable
-        />
-      </VCardItem>
+      <!-- 搜索输入框区域 -->
+      <div class="search-header">
+        <div class="search-input-wrapper">
+          <VIcon icon="mdi-magnify" size="22" class="search-input-icon" />
+          <input
+            ref="searchWordInput"
+            v-model="searchWord"
+            type="text"
+            class="search-native-input"
+            :placeholder="t('dialog.searchBar.searchPlaceholder')"
+            @keydown.enter="searchMedia('media')"
+            @keydown.escape="emit('close')"
+          />
+          <VBtn icon size="small" variant="text" class="search-submit-btn" @click="searchMedia('media')">
+            <VIcon icon="mdi-magnify" size="20" />
+          </VBtn>
+        </div>
+      </div>
 
-      <VDivider />
-
-      <!-- 主搜索结果区域 -->
-      <VCardText class="search-results-container pa-0">
-        <!-- 有搜索词时显示结果 -->
-        <VList lines="two" v-if="searchWord" class="search-list py-2">
-          <!-- 搜索结果分组标题 -->
-          <VListSubheader class="font-weight-medium text-uppercase py-2 px-4 px-sm-6">
+      <!-- 主内容区域 -->
+      <div class="search-content">
+        <!-- 有搜索词时显示搜索入口和匹配结果 -->
+        <VList lines="two" v-if="searchWord" class="search-list pa-0 py-2">
+          <!-- 媒体搜索入口 -->
+          <VListSubheader class="font-weight-medium text-uppercase px-4">
             {{ t('common.media') }}
           </VListSubheader>
 
-          <!-- 媒体搜索选项 -->
-          <VHover>
-            <template #default="hover">
-              <VListItem
-                density="comfortable"
-                link
-                rounded="xl"
-                v-bind="hover.props"
-                @click="searchMedia('media')"
-                class="search-option mx-2 mx-sm-4 my-1"
-              >
-                <template #prepend>
-                  <div class="option-icon-wrapper d-flex align-center justify-center">
-                    <VIcon
-                      icon="mdi-movie-search"
-                      :color="hover.isHovering ? 'primary' : 'medium-emphasis'"
-                      size="small"
-                    />
-                  </div>
-                </template>
-                <VListItemTitle class="font-weight-medium"
-                  >{{ t('recommend.categoryMovie') }}、{{ t('recommend.categoryTV') }}</VListItemTitle
-                >
-                <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                  {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                  {{ t('resource.title') }}
-                </VListItemSubtitle>
-                <template #append>
-                  <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                </template>
-              </VListItem>
+          <VListItem density="comfortable" link @click="searchMedia('media')" class="search-result-item mx-2 my-1">
+            <template #prepend>
+              <div class="result-icon-wrapper">
+                <VIcon icon="mdi-movie-search" size="small" color="medium-emphasis" />
+              </div>
             </template>
-          </VHover>
+            <VListItemTitle class="font-weight-medium text-body-2">
+              {{ t('recommend.categoryMovie') }}、{{ t('recommend.categoryTV') }}
+            </VListItemTitle>
+            <VListItemSubtitle class="text-caption text-medium-emphasis">
+              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+              {{ t('resource.title') }}
+            </VListItemSubtitle>
+          </VListItem>
 
-          <VHover v-if="showCollectionSearch">
-            <template #default="hover">
-              <VListItem
-                density="comfortable"
-                link
-                rounded="xl"
-                v-bind="hover.props"
-                @click="searchMedia('collection')"
-                class="search-option mx-2 mx-sm-4 my-1"
-              >
-                <template #prepend>
-                  <div class="option-icon-wrapper d-flex align-center justify-center">
-                    <VIcon
-                      icon="mdi-movie-filter"
-                      :color="hover.isHovering ? 'primary' : 'medium-emphasis'"
-                      size="small"
-                    />
-                  </div>
-                </template>
-                <VListItemTitle class="font-weight-medium">{{ t('dialog.searchBar.collections') }}</VListItemTitle>
-                <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                  {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                  {{ t('dialog.searchBar.collectionSearch') }}
-                </VListItemSubtitle>
-                <template #append>
-                  <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                </template>
-              </VListItem>
+          <VListItem
+            v-if="showCollectionSearch"
+            density="comfortable"
+            link
+            @click="searchMedia('collection')"
+            class="search-result-item mx-2 my-1"
+          >
+            <template #prepend>
+              <div class="result-icon-wrapper">
+                <VIcon icon="mdi-movie-filter" size="small" color="medium-emphasis" />
+              </div>
             </template>
-          </VHover>
+            <VListItemTitle class="font-weight-medium text-body-2">{{
+              t('dialog.searchBar.collections')
+            }}</VListItemTitle>
+            <VListItemSubtitle class="text-caption text-medium-emphasis">
+              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+              {{ t('dialog.searchBar.collectionSearch') }}
+            </VListItemSubtitle>
+          </VListItem>
 
-          <VHover>
-            <template #default="hover">
-              <VListItem
-                density="comfortable"
-                link
-                rounded="xl"
-                v-bind="hover.props"
-                @click="searchMedia('person')"
-                class="search-option mx-2 mx-sm-4 my-1"
-              >
-                <template #prepend>
-                  <div class="option-icon-wrapper d-flex align-center justify-center">
-                    <VIcon
-                      icon="mdi-account-search"
-                      :color="hover.isHovering ? 'primary' : 'medium-emphasis'"
-                      size="small"
-                    />
-                  </div>
-                </template>
-                <VListItemTitle class="font-weight-medium">{{ t('browse.actor') }}</VListItemTitle>
-                <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                  {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                  {{ t('dialog.searchBar.actorSearch') }}
-                </VListItemSubtitle>
-                <template #append>
-                  <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                </template>
-              </VListItem>
+          <VListItem density="comfortable" link @click="searchMedia('person')" class="search-result-item mx-2 my-1">
+            <template #prepend>
+              <div class="result-icon-wrapper">
+                <VIcon icon="mdi-account-search" size="small" color="medium-emphasis" />
+              </div>
             </template>
-          </VHover>
+            <VListItemTitle class="font-weight-medium text-body-2">{{ t('browse.actor') }}</VListItemTitle>
+            <VListItemSubtitle class="text-caption text-medium-emphasis">
+              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+              {{ t('dialog.searchBar.actorSearch') }}
+            </VListItemSubtitle>
+          </VListItem>
 
-          <VHover v-if="hasSubscribePermission">
-            <template #default="hover">
-              <VListItem
-                density="comfortable"
-                link
-                rounded="xl"
-                v-bind="hover.props"
-                @click="searchSubscribeShares"
-                class="search-option mx-2 mx-sm-4 my-1"
-              >
-                <template #prepend>
-                  <div class="option-icon-wrapper d-flex align-center justify-center">
-                    <VIcon
-                      icon="mdi-share-variant"
-                      :color="hover.isHovering ? 'primary' : 'medium-emphasis'"
-                      size="small"
-                    />
-                  </div>
-                </template>
-                <VListItemTitle class="font-weight-medium">{{ t('subscribe.searchShares') }}</VListItemTitle>
-                <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                  {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                  {{ t('dialog.searchBar.subscribeShareSearch') }}
-                </VListItemSubtitle>
-                <template #append>
-                  <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                </template>
-              </VListItem>
+          <VListItem
+            v-if="hasSubscribePermission"
+            density="comfortable"
+            link
+            @click="searchSubscribeShares"
+            class="search-result-item mx-2 my-1"
+          >
+            <template #prepend>
+              <div class="result-icon-wrapper">
+                <VIcon icon="mdi-share-variant" size="small" color="medium-emphasis" />
+              </div>
             </template>
-          </VHover>
+            <VListItemTitle class="font-weight-medium text-body-2">{{ t('subscribe.searchShares') }}</VListItemTitle>
+            <VListItemSubtitle class="text-caption text-medium-emphasis">
+              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+              {{ t('dialog.searchBar.subscribeShareSearch') }}
+            </VListItemSubtitle>
+          </VListItem>
 
-          <VHover v-if="hasManagePermission">
-            <template #default="hover">
-              <VListItem
-                density="comfortable"
-                link
-                rounded="xl"
-                v-bind="hover.props"
-                @click="searchHistory"
-                class="search-option mx-2 mx-sm-4 my-1"
-              >
-                <template #prepend>
-                  <div class="option-icon-wrapper d-flex align-center justify-center">
-                    <VIcon icon="mdi-history" :color="hover.isHovering ? 'primary' : 'medium-emphasis'" size="small" />
-                  </div>
-                </template>
-                <VListItemTitle class="font-weight-medium">{{ t('navItems.history') }}</VListItemTitle>
-                <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                  {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                  {{ t('dialog.searchBar.historySearch') }}
-                </VListItemSubtitle>
-                <template #append>
-                  <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                </template>
-              </VListItem>
+          <VListItem
+            v-if="hasManagePermission"
+            density="comfortable"
+            link
+            @click="searchHistory"
+            class="search-result-item mx-2 my-1"
+          >
+            <template #prepend>
+              <div class="result-icon-wrapper">
+                <VIcon icon="mdi-history" size="small" color="medium-emphasis" />
+              </div>
             </template>
-          </VHover>
+            <VListItemTitle class="font-weight-medium text-body-2">{{ t('navItems.history') }}</VListItemTitle>
+            <VListItemSubtitle class="text-caption text-medium-emphasis">
+              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+              {{ t('dialog.searchBar.historySearch') }}
+            </VListItemSubtitle>
+          </VListItem>
 
-          <!-- 其他搜索结果 -->
+          <!-- 匹配的订阅 -->
           <template v-if="matchedSubscribeItems.length > 0">
-            <VDivider class="mx-4 mx-sm-6 my-2 search-divider" />
-            <VListSubheader class="font-weight-medium text-uppercase py-2 px-4 px-sm-6">{{
-              t('dialog.searchBar.subscriptions')
-            }}</VListSubheader>
-
-            <VHover v-for="subscribe in matchedSubscribeItems" :key="subscribe.id">
-              <template #default="hover">
-                <VListItem
-                  density="comfortable"
-                  link
-                  rounded="xl"
-                  v-bind="hover.props"
-                  @click="goSubscribe(subscribe)"
-                  class="search-option mx-2 mx-sm-4 my-1"
-                >
-                  <template #prepend>
-                    <div class="option-icon-wrapper d-flex align-center justify-center">
-                      <VIcon
-                        :icon="subscribe.type === '电影' ? 'mdi-movie-roll' : 'mdi-television-classic'"
-                        :color="hover.isHovering ? 'primary' : 'medium-emphasis'"
-                        size="small"
-                      />
-                    </div>
-                  </template>
-                  <VListItemTitle class="font-weight-medium">
-                    {{ subscribe.name
-                    }}<span v-if="subscribe.season" class="text-body-2">
-                      {{ t('resource.season') }} {{ subscribe.season }}</span
-                    >
-                  </VListItemTitle>
-                  <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                    {{ subscribe.type }}
-                  </VListItemSubtitle>
-                  <template #append>
-                    <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                  </template>
-                </VListItem>
-              </template>
-            </VHover>
-          </template>
-
-          <template v-if="matchedMenuItems.length > 0">
-            <VDivider class="mx-4 mx-sm-6 my-2 search-divider" />
-            <VListSubheader class="font-weight-medium text-uppercase py-2 px-4 px-sm-6">{{
-              t('dialog.searchBar.functions')
-            }}</VListSubheader>
-
-            <VHover v-for="menu in matchedMenuItems" :key="menu.title">
-              <template #default="hover">
-                <VListItem
-                  density="comfortable"
-                  link
-                  rounded="xl"
-                  v-bind="hover.props"
-                  @click="goPage(menu.to as string)"
-                  class="search-option mx-2 mx-sm-4 my-1"
-                >
-                  <template #prepend>
-                    <div class="option-icon-wrapper d-flex align-center justify-center">
-                      <VIcon
-                        :icon="menu.icon as string"
-                        :color="hover.isHovering ? 'primary' : 'medium-emphasis'"
-                        size="small"
-                      />
-                    </div>
-                  </template>
-                  <VListItemTitle class="font-weight-medium">
-                    {{ menu.title }}
-                  </VListItemTitle>
-                  <VListItemSubtitle v-if="menu.description" class="text-body-2 text-medium-emphasis mt-1">
-                    {{ menu.description }}
-                  </VListItemSubtitle>
-                  <template #append>
-                    <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                  </template>
-                </VListItem>
-              </template>
-            </VHover>
-          </template>
-
-          <template v-if="matchedPluginItems.length > 0">
-            <VDivider class="mx-4 mx-sm-6 my-2 search-divider" />
-            <VListSubheader class="font-weight-medium text-uppercase py-2 px-4 px-sm-6">{{
-              t('dialog.searchBar.plugins')
-            }}</VListSubheader>
-
-            <VHover v-for="plugin in matchedPluginItems" :key="plugin.id">
-              <template #default="hover">
-                <VListItem
-                  density="comfortable"
-                  link
-                  rounded="xl"
-                  v-bind="hover.props"
-                  @click="showPlugin(plugin.id ?? '')"
-                  class="search-option mx-2 mx-sm-4 my-1"
-                >
-                  <template #prepend>
-                    <div class="option-icon-wrapper d-flex align-center justify-center">
-                      <VIcon icon="mdi-apps" :color="hover.isHovering ? 'primary' : 'medium-emphasis'" size="small" />
-                    </div>
-                  </template>
-                  <VListItemTitle class="font-weight-medium">
-                    {{ plugin.plugin_name }}
-                  </VListItemTitle>
-                  <VListItemSubtitle class="text-body-2 text-medium-emphasis mt-1">
-                    {{ plugin.plugin_desc }}
-                  </VListItemSubtitle>
-                  <template #append>
-                    <VIcon v-if="hover.isHovering" icon="mdi-chevron-right" color="primary" />
-                  </template>
-                </VListItem>
-              </template>
-            </VHover>
-          </template>
-
-          <!-- 将站点资源搜索移到最底部 -->
-          <template v-if="searchWord && hasSearchPermission">
-            <VDivider class="mx-4 mx-sm-6 my-2 search-divider" />
-            <VListSubheader class="font-weight-medium text-uppercase py-2 px-4 px-sm-6">{{
-              t('dialog.searchBar.siteResources')
-            }}</VListSubheader>
-
-            <VCard class="mx-3 mx-sm-6 mb-4 mt-2 site-search-card">
-              <VCardText class="pa-3 pa-sm-4">
-                <div class="d-flex flex-column">
-                  <div class="d-flex align-center">
-                    <div class="search-icon-wrapper mr-3">
-                      <VIcon icon="mdi-file-search" color="primary" size="small" />
-                    </div>
-                    <div class="flex-grow-1">
-                      <div class="font-weight-medium text-body-1">{{ t('dialog.searchBar.searchInSites') }}</div>
-                      <div class="text-caption text-medium-emphasis mt-1">
-                        {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                        {{ t('dialog.searchBar.relatedResources') }}
-                      </div>
-                    </div>
-                    <VBtn
-                      color="primary"
-                      @click="searchTorrent"
-                      prepend-icon="mdi-magnify"
-                      size="small"
-                      variant="flat"
-                      class="search-btn"
-                    >
-                      {{ t('common.search') }}
-                    </VBtn>
-                  </div>
-
-                  <div
-                    v-if="hasManagePermission"
-                    class="d-flex align-center flex-wrap site-chips-container mt-4 py-2 px-2 px-sm-3"
-                  >
-                    <div class="d-flex align-center flex-wrap flex-grow-1">
-                      <VChip
-                        v-if="selectedSites.length > 0"
-                        color="primary"
-                        size="small"
-                        variant="flat"
-                        class="mr-2 mb-1 font-weight-medium"
-                      >
-                        {{ selectedSites.length }}/{{ allSites.length }}
-                      </VChip>
-                      <VChip
-                        v-for="(site, index) in allSites.filter(s => selectedSites.includes(s.id)).slice(0, 5)"
-                        :key="site.id"
-                        size="x-small"
-                        variant="outlined"
-                        class="mr-1 mb-1 site-chip"
-                      >
-                        {{ site.name }}
-                      </VChip>
-                      <VChip
-                        v-if="selectedSites.length > 5"
-                        size="x-small"
-                        variant="outlined"
-                        class="mr-1 mb-1 site-chip text-medium-emphasis"
-                      >
-                        +{{ selectedSites.length - 5 }}
-                      </VChip>
-                    </div>
-                    <VBtn
-                      size="small"
-                      variant="tonal"
-                      color="primary"
-                      @click="openSiteDialog"
-                      class="ml-auto site-select-btn"
-                      rounded="pill"
-                    >
-                      {{ t('dialog.searchBar.selectSites') }}
-                      <VIcon size="small" class="ml-1">mdi-cog-outline</VIcon>
-                    </VBtn>
-                  </div>
+            <VDivider class="mx-4 my-2 search-divider" />
+            <VListSubheader class="font-weight-medium text-uppercase px-4">
+              {{ t('dialog.searchBar.subscriptions') }}
+            </VListSubheader>
+            <VListItem
+              v-for="subscribe in matchedSubscribeItems"
+              :key="subscribe.id"
+              density="comfortable"
+              link
+              @click="goSubscribe(subscribe)"
+              class="search-result-item mx-2 my-1"
+            >
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon
+                    :icon="subscribe.type === '电影' ? 'mdi-movie-roll' : 'mdi-television-classic'"
+                    size="small"
+                    color="medium-emphasis"
+                  />
                 </div>
-              </VCardText>
-            </VCard>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">
+                {{ subscribe.name }}
+                <span v-if="subscribe.season" class="text-caption">
+                  {{ t('resource.season') }} {{ subscribe.season }}</span
+                >
+              </VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ subscribe.type }}
+              </VListItemSubtitle>
+            </VListItem>
+          </template>
+
+          <!-- 匹配的菜单/功能 -->
+          <template v-if="matchedMenuItems.length > 0">
+            <VDivider class="mx-4 my-2 search-divider" />
+            <VListSubheader class="font-weight-medium text-uppercase px-4">
+              {{ t('dialog.searchBar.functions') }}
+            </VListSubheader>
+            <VListItem
+              v-for="menu in matchedMenuItems"
+              :key="menu.title"
+              density="comfortable"
+              link
+              @click="goPage(menu.to as string)"
+              class="search-result-item mx-2 my-1"
+            >
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon :icon="menu.icon as string" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">
+                {{ menu.title }}
+              </VListItemTitle>
+              <VListItemSubtitle v-if="menu.description" class="text-caption text-medium-emphasis">
+                {{ menu.description }}
+              </VListItemSubtitle>
+            </VListItem>
+          </template>
+
+          <!-- 匹配的插件 -->
+          <template v-if="matchedPluginItems.length > 0">
+            <VDivider class="mx-4 my-2 search-divider" />
+            <VListSubheader class="font-weight-medium text-uppercase px-4">
+              {{ t('dialog.searchBar.plugins') }}
+            </VListSubheader>
+            <VListItem
+              v-for="plugin in matchedPluginItems"
+              :key="plugin.id"
+              density="comfortable"
+              link
+              @click="showPlugin(plugin.id ?? '')"
+              class="search-result-item mx-2 my-1"
+            >
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-puzzle" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">
+                {{ plugin.plugin_name }}
+              </VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ plugin.plugin_desc }}
+              </VListItemSubtitle>
+            </VListItem>
+          </template>
+
+          <!-- 站点资源搜索 -->
+          <template v-if="hasSearchPermission">
+            <VDivider class="mx-4 my-2 search-divider" />
+            <VListSubheader class="font-weight-medium text-uppercase px-4">
+              {{ t('dialog.searchBar.siteResources') }}
+            </VListSubheader>
+
+            <VListItem density="comfortable" link @click="searchTorrent" class="search-result-item mx-2 my-1">
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-file-search" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">{{
+                t('dialog.searchBar.searchInSites')
+              }}</VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('dialog.searchBar.relatedResources') }}
+              </VListItemSubtitle>
+              <template #append>
+                <VBtn
+                  v-if="hasManagePermission"
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  rounded="pill"
+                  @click.stop="openSiteDialog"
+                >
+                  {{ t('dialog.searchBar.selectSites') }}
+                </VBtn>
+              </template>
+            </VListItem>
           </template>
         </VList>
 
-        <!-- 无搜索词时显示最近搜索和提示 -->
-        <div v-else class="recent-searches py-6 px-4 px-sm-6">
-          <div v-if="recentSearches.length > 0" class="mb-6">
-            <div class="text-h6 font-weight-medium mb-3">{{ t('dialog.searchBar.recentSearches') }}</div>
-            <div class="d-flex flex-wrap">
+        <!-- 无搜索词时显示空状态 -->
+        <div v-else class="search-empty-state">
+          <!-- 有最近搜索 -->
+          <div v-if="!searchWord && recentSearches.length > 0" class="recent-searches-section">
+            <div class="text-body-2 font-weight-medium text-medium-emphasis mb-3">
+              {{ t('dialog.searchBar.recentSearches') }}
+            </div>
+            <div class="d-flex flex-wrap gap-2">
               <VChip
                 v-for="(word, index) in recentSearches"
                 :key="index"
-                class="me-2 mb-2"
                 variant="flat"
                 color="primary"
                 size="small"
@@ -784,15 +653,24 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-else class="text-center mt-6 py-6 empty-search-state">
-            <div class="search-icon-wrapper mx-auto mb-4">
-              <VIcon icon="mdi-magnify" size="large" color="primary" />
-            </div>
-            <div class="text-h6 font-weight-medium mb-2">{{ t('dialog.searchBar.searchPlaceholder') }}</div>
-            <div class="text-body-2 text-medium-emphasis">{{ t('dialog.searchBar.searchTip') }}</div>
+          <!-- 空状态提示 -->
+          <div v-else class="empty-hint">
+            <span class="text-body-1 text-medium-emphasis">{{ t('dialog.searchBar.emptySearchHint') }}</span>
           </div>
         </div>
-      </VCardText>
+      </div>
+
+      <!-- 底部快捷键提示 -->
+      <div class="search-footer">
+        <div class="shortcut-group">
+          <kbd>Esc</kbd>
+          <span class="shortcut-label">{{ t('dialog.searchBar.escClose') }}</span>
+        </div>
+        <div class="shortcut-group">
+          <kbd>{{ metaKey }}</kbd>
+          <span class="shortcut-label">{{ t('dialog.searchBar.openSearch') }}</span>
+        </div>
+      </div>
     </VCard>
   </VDialog>
 
@@ -811,171 +689,181 @@ onMounted(() => {
 <style scoped>
 .search-dialog {
   overflow: hidden;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 8%);
+  border-radius: 16px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 12%) !important;
 }
 
-.site-dialog {
-  overflow: hidden;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 8%);
+/* 搜索头部区域 */
+.search-header {
+  padding-block: 16px 12px;
+  padding-inline: 16px;
+}
+
+/* 搜索输入框容器 */
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid rgba(var(--v-theme-on-surface), 0.15);
+  border-radius: 28px;
+  background-color: rgba(var(--v-theme-surface-variant), 0.04);
+  block-size: 48px;
+  padding-inline: 14px 6px;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.search-input-wrapper:focus-within {
+  border-color: rgba(var(--v-theme-on-surface), 0.3);
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.search-input-icon {
+  flex-shrink: 0;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  margin-inline-end: 10px;
+}
+
+.search-native-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.87);
+  font-size: 15px;
+  line-height: 1.5;
+  min-inline-size: 0;
+  outline: none;
+}
+
+.search-native-input::placeholder {
+  color: rgba(var(--v-theme-on-surface), 0.38);
+}
+
+.search-submit-btn {
+  flex-shrink: 0;
+  border-radius: 50% !important;
+  background-color: rgba(var(--v-theme-on-surface), 0.06) !important;
+  block-size: 36px !important;
+  color: rgba(var(--v-theme-on-surface), 0.6) !important;
+  inline-size: 36px !important;
+  transition: background-color 0.2s ease;
+}
+
+.search-submit-btn:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.12) !important;
+}
+
+/* 主内容区域 */
+.search-content {
+  max-block-size: 600px;
+  min-block-size: 150px;
+  overflow-y: auto;
+}
+
+.search-list {
+  background: transparent !important;
+}
+
+.search-result-item {
+  border-radius: 10px !important;
+  margin-block-end: 2px;
+  transition: background-color 0.15s ease;
+}
+
+.search-result-item:hover {
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.result-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background-color: rgba(var(--v-theme-surface-variant), 0.1);
+  block-size: 32px;
+  inline-size: 32px;
+  margin-inline-end: 12px;
 }
 
 .search-divider {
   opacity: 0.08;
 }
 
-.close-btn {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background-color: rgba(var(--v-theme-on-surface), 0.04);
-  block-size: 36px;
-  inline-size: 36px;
-  inset-block-start: 1.4rem;
-  inset-inline-end: 1.2rem;
-  transition: background-color 0.2s ease;
-}
-
-.close-btn:hover {
-  background-color: rgba(var(--v-theme-error), 0.1);
-}
-
-.search-input {
-  border-radius: 12px;
-  font-size: 16px;
-}
-
-.search-icon {
-  color: rgb(var(--v-theme-primary));
-}
-
-.option-icon-wrapper {
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.12);
-  block-size: 32px;
-  inline-size: 32px;
-  margin-inline-end: 12px;
-}
-
-.search-icon-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  background-color: rgba(var(--v-theme-primary), 0.08);
-  block-size: 36px;
-  inline-size: 36px;
-}
-
-.search-icon-wrapper.warning {
-  background-color: rgba(var(--v-theme-warning), 0.08);
-}
-
 .primary-text {
   color: rgb(var(--v-theme-primary));
 }
 
-.search-option {
-  border: 1px solid transparent;
-  margin-block-end: 2px;
-  transition: transform 0.2s ease, background-color 0.2s ease;
-}
-
-.search-option:hover {
-  background-color: rgba(var(--v-theme-primary), 0.04);
-  transform: translateX(4px);
-}
-
-.recent-searches {
-  min-block-size: 200px;
-}
-
-.site-search-card {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 14px;
-}
-
-.site-chip {
-  font-weight: normal;
-  transition: all 0.2s ease;
-}
-
-.site-chip:hover {
-  background-color: rgba(var(--v-theme-primary), 0.1);
-  color: rgb(var(--v-theme-primary));
-}
-
-.search-btn {
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  min-inline-size: 70px;
-}
-
-.empty-search-state,
-.empty-site-state {
-  animation: fade-in 0.3s ease-in-out;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.clear-icon {
-  opacity: 0.7;
-}
-
-.clear-icon:hover {
-  opacity: 1;
-}
-
-.site-select-btn {
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  min-block-size: 32px;
+/* 空状态 */
+.search-empty-state {
+  display: flex;
+  align-items: start;
+  justify-content: center;
+  min-block-size: 150px;
   padding-block: 0;
-  padding-inline: 12px;
+  padding-inline: 1.5rem;
 }
 
-.site-chips-container {
-  border-radius: 10px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.06);
+.recent-searches-section {
+  inline-size: 100%;
 }
 
+.empty-hint {
+  text-align: center;
+}
+
+/* 底部快捷键提示 */
+.search-footer {
+  display: flex;
+  align-items: center;
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  gap: 16px;
+  padding-block: 10px;
+  padding-inline: 16px;
+}
+
+.shortcut-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+kbd {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.15);
+  border-radius: 5px;
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  padding-block: 3px;
+  padding-inline: 6px;
+}
+
+.shortcut-label {
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  font-size: 12px;
+}
+
+/* 响应式 */
 @media (width <= 600px) {
-  .search-box-container {
-    padding: 16px;
+  .search-header {
+    padding-block: 12px 10px;
+    padding-inline: 12px;
   }
 
-  .search-input {
+  .search-input-wrapper {
+    block-size: 44px;
+    padding-inline: 12px 4px;
+  }
+
+  .search-native-input {
     font-size: 14px;
   }
 
-  .close-btn {
-    block-size: 32px;
-    inline-size: 32px;
-    inset-block-start: 1rem;
-    inset-inline-end: 0.8rem;
-  }
-
-  .site-chips-container {
-    padding-block: 6px;
-    padding-inline: 8px;
-  }
-
-  .site-select-btn {
-    font-size: 11px;
-    min-block-size: 28px;
+  .search-footer {
+    padding-block: 8px;
+    padding-inline: 12px;
   }
 }
 </style>
