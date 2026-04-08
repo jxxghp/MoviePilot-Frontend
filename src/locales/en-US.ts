@@ -2008,7 +2008,7 @@ export default {
     },
     searchBar: {
       search: 'Search',
-      searchPlaceholder: 'Search movies and TV shows...',
+      searchPlaceholder: 'Search movies, TV shows and more...',
       recentSearches: 'Recent Searches',
       noRecentSearches: 'No recent search history',
       functions: 'Functions',

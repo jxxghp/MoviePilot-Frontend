@@ -1980,7 +1980,7 @@ export default {
     },
     searchBar: {
       search: '搜索',
-      searchPlaceholder: '搜索电影和剧集...',
+      searchPlaceholder: '搜索电影、剧集以及更多...',
       recentSearches: '最近搜索',
       noRecentSearches: '没有最近搜索记录',
       functions: '功能',

@@ -50,7 +50,6 @@ const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
   gap: 8px;
   border: 1.5px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 22px;
-  background-color: rgba(var(--v-theme-on-surface), 0.03);
   block-size: 36px;
   cursor: pointer;
   padding-inline: 12px;

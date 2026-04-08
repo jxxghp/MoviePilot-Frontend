@@ -1981,7 +1981,7 @@ export default {
     },
     searchBar: {
       search: '搜索',
-      searchPlaceholder: '搜索電影和劇集...',
+      searchPlaceholder: '搜索電影、劇集以及更多...',
       recentSearches: '最近搜索',
       noRecentSearches: '沒有最近搜索記錄',
       functions: '功能',
