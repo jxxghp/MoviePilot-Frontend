@@ -1,4 +1,4 @@
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePWA } from '@/composables/usePWA'
 
 /**
@@ -35,19 +35,19 @@ export function useAvailableHeight(
       layoutPaddingBottom.value = parseFloat(style.paddingBottom) || 24
     }
 
-    // 测量 Footer Dock 的实际高度
-    // .footer-nav-container 是 position:fixed, padding-block-end 含 env(safe-area-inset-bottom)
-    // offsetHeight 是元素自身的渲染高度（含 padding），即 Dock 遮挡的区域大小
-    if (appMode.value) {
-      const footerEl = document.querySelector('.footer-nav-container') as HTMLElement | null
-      footerDockMeasuredHeight.value = footerEl ? footerEl.offsetHeight : 70
-    } else {
-      footerDockMeasuredHeight.value = 0
-    }
+    // 直接查询 Footer Dock DOM，无论 appMode 状态
+    // Dock 通过 Teleport 挂载到 body，存在即测量，不存在即为 0
+    const footerEl = document.querySelector('.footer-nav-container') as HTMLElement | null
+    footerDockMeasuredHeight.value = footerEl ? footerEl.offsetHeight : 0
   }
 
+  // appMode 异步变化时（PWA 检测完成、屏幕尺寸变化等），Dock 会出现/消失
+  // 需要等 DOM 更新后重新测量
+  watch(appMode, () => {
+    nextTick(updateMeasurements)
+  })
+
   onMounted(() => {
-    // 初始测量（nextTick 确保 DOM 已渲染）
     nextTick(updateMeasurements)
 
     window.addEventListener('resize', updateMeasurements)
@@ -72,7 +72,7 @@ export function useAvailableHeight(
     // 布局底部 padding
     const bottomPadding = layoutPaddingBottom.value
 
-    // 底部 Dock 栏遮挡高度（appMode 下通过 DOM 测量，含 safe-area-inset-bottom）
+    // 底部 Dock 栏遮挡高度（通过 DOM 测量，含 safe-area-inset-bottom）
     const footerDockHeight = footerDockMeasuredHeight.value
 
     const available = vh - topPadding - bottomPadding - footerDockHeight - componentOffset

@@ -23,8 +23,8 @@ const display = useDisplay()
 const { appMode } = usePWA()
 
 // 计算列表可用高度
-// componentOffset = VCardItem搜索栏(80) + VDivider(1) + 分页栏(52) + VCard边距(4) = 137
-const { availableHeight } = useAvailableHeight(137, 300)
+// componentOffset = VCardItem搜索栏(68) + VDivider(1) + 分页栏(40) + VCard边距(2) = 111
+const { availableHeight } = useAvailableHeight(125, 300)
 
 // 提示框
 const $toast = useToast()
@@ -51,21 +51,21 @@ const redoTargetStorage = ref<string>()
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
 
-const getNum = (s?: string) => (s ? parseInt(s.replace(/[^0-9]/g, ''), 10) || 0 : 0);
+const getNum = (s?: string) => (s ? parseInt(s.replace(/[^0-9]/g, ''), 10) || 0 : 0)
 
 function sortByTitle(a: TransferHistory, b: TransferHistory) {
   if (a.type !== b.type) {
-    return (a.type ?? '').localeCompare(b.type ?? '');
+    return (a.type ?? '').localeCompare(b.type ?? '')
   }
   if (a.title !== b.title) {
-    return (a.title ?? '').toLocaleLowerCase().localeCompare((b.title ?? '').toLocaleLowerCase());
+    return (a.title ?? '').toLocaleLowerCase().localeCompare((b.title ?? '').toLocaleLowerCase())
   }
   if (a.type === '电视剧') {
     if (a.seasons !== b.seasons) {
-      return getNum(a.seasons) - getNum(b.seasons);
+      return getNum(a.seasons) - getNum(b.seasons)
     }
     if (a.episodes !== b.episodes) {
-      return getNum(a.episodes) - getNum(b.episodes);
+      return getNum(a.episodes) - getNum(b.episodes)
     }
   }
   return 0
@@ -231,10 +231,13 @@ async function loadStorages() {
 
 // 存储字典
 const storageDict = computed(() => {
-  return storages.value.reduce((dict, item) => {
-    dict[item.type] = item.name
-    return dict
-  }, {} as Record<string, string>)
+  return storages.value.reduce(
+    (dict, item) => {
+      dict[item.type] = item.name
+      return dict
+    },
+    {} as Record<string, string>,
+  )
 })
 
 // 转移方式字典
@@ -246,8 +249,6 @@ const TransferDict: { [key: string]: string } = {
   rclone_copy: t('transferHistory.transferMode.rclone_copy'),
   rclone_move: t('transferHistory.transferMode.rclone_move'),
 }
-
-
 
 // 分页提示
 const pageTip = computed(() => {
@@ -488,23 +489,26 @@ function ensureNumber(value: any, defaultValue: number = 0) {
 
 // 按标题分组后的选中数量统计，键为标题，值为对应分组的选中数
 const selectedCountsGroupedByTitle = computed(() => {
-  return selected.value.reduce((acc, item) => {
-    const title = item.title || '';
-    acc[title] = (acc[title] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-});
+  return selected.value.reduce(
+    (acc, item) => {
+      const title = item.title || ''
+      acc[title] = (acc[title] || 0) + 1
+      return acc
+    },
+    {} as Record<string, number>,
+  )
+})
 
 // 控制分组内所有子项的选中状态
 const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) => {
-  const values = items.map(item => item.value);
+  const values = items.map(item => item.value)
   if (checked) {
-    selected.value = [...new Set([...selected.value, ...values])];
+    selected.value = [...new Set([...selected.value, ...values])]
   } else {
-    const itemsSet = new Set(values);
-    selected.value = selected.value.filter(item => !itemsSet.has(item));
+    const itemsSet = new Set(values)
+    selected.value = selected.value.filter(item => !itemsSet.has(item))
   }
-};
+}
 
 // 初始加载数据
 onMounted(() => {
@@ -579,7 +583,7 @@ onMounted(() => {
               <VCheckbox
                 :model-value="selectedCountsGroupedByTitle[item.value] == item.items.length"
                 :indeterminate="selectedCountsGroupedByTitle[item.value] < item.items.length"
-                @update:modelValue="(checked) => toggleGroupSelection(checked, item.items)"
+                @update:modelValue="checked => toggleGroupSelection(checked, item.items)"
               />
               {{ item.value }}
             </div>
