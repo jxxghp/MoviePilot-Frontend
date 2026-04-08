@@ -5,38 +5,18 @@ import { useDisplay } from 'vuetify'
 import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
+import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
 // 国际化
 const { t } = useI18n()
 
-// 显示器宽度
 const display = useDisplay()
 
 const { appMode } = usePWA()
 
 // 计算列表可用高度
-const availableHeight = computed(() => {
-  // 获取视口高度
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
-
-  // navbar高度
-  const navbarHeight = 72
-  // 工具栏高度
-  const toolbarHeight = 25
-  // 底部导航栏高度
-  const footerHeight = appMode.value ? 80 : 16
-  // 安全区域高度
-  const safeAreaHeight =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom')) ||
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top')) ||
-    0
-
-  // 计算可用高度，预留一些边距
-  const availableHeight = viewportHeight - navbarHeight - toolbarHeight - footerHeight - safeAreaHeight - 40
-
-  // 确保最小高度
-  return Math.max(availableHeight, 300)
-})
+// componentOffset = FileToolbar(48) = 48
+const { availableHeight } = useAvailableHeight(48, 300)
 
 // 输入参数
 const props = defineProps({

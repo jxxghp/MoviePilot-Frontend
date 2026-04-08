@@ -12,6 +12,7 @@ import { useDisplay } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
+import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
 // i18n
 const { t } = useI18n()
@@ -20,6 +21,10 @@ const { t } = useI18n()
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
+
+// 计算列表可用高度
+// componentOffset = VCardItem搜索栏(80) + VDivider(1) + 分页栏(52) + VCard边距(4) = 137
+const { availableHeight } = useAvailableHeight(137, 300)
 
 // 提示框
 const $toast = useToast()
@@ -242,29 +247,7 @@ const TransferDict: { [key: string]: string } = {
   rclone_move: t('transferHistory.transferMode.rclone_move'),
 }
 
-// 计算列表可用高度
-const availableHeight = computed(() => {
-  // 获取视口高度
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
 
-  // navbar高度
-  const navbarHeight = 72
-  // 工具栏高度
-  const toolbarHeight = 88
-  // 底部导航栏高度
-  const footerHeight = appMode.value ? 80 : 16
-  // 安全区域高度
-  const safeAreaHeight =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom')) ||
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top')) ||
-    0
-
-  // 计算可用高度，预留一些边距
-  const availableHeight = viewportHeight - navbarHeight - toolbarHeight - footerHeight - safeAreaHeight - 48
-
-  // 确保最小高度
-  return Math.max(availableHeight, 300)
-})
 
 // 分页提示
 const pageTip = computed(() => {

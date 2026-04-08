@@ -13,6 +13,7 @@ import MediaInfoDialog from '../dialog/MediaInfoDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import { usePWA } from '@/composables/usePWA'
+import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
 // 国际化
 const { t } = useI18n()
@@ -22,6 +23,10 @@ const { useProgressSSE } = useBackgroundOptimization()
 const display = useDisplay()
 
 const { appMode } = usePWA()
+
+// 计算列表可用高度
+// componentOffset = FileToolbar(48) + FileList操作栏(40) + VCard边距(4) = 92
+const { availableHeight: listAvailableHeight } = useAvailableHeight(92, 300)
 
 // 输入参数
 const inProps = defineProps({
@@ -143,29 +148,7 @@ const transferItems = ref<FileItem[]>([])
 // 当前图片地址
 const currentImgLink = ref('')
 
-// 计算列表可用高度
-const listAvailableHeight = computed(() => {
-  // 获取视口高度
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
 
-  // navbar高度
-  const navbarHeight = 72
-  // 工具栏高度（包含搜索框和按钮）
-  const toolbarHeight = 64
-  // 底部导航栏高度
-  const footerHeight = appMode.value ? 80 : 16
-  // 安全区域高度
-  const safeAreaHeight =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom')) ||
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-top')) ||
-    0
-
-  // 计算可用高度，预留一些边距
-  const availableHeight = viewportHeight - navbarHeight - toolbarHeight - footerHeight - safeAreaHeight - 40
-
-  // 确保最小高度
-  return Math.max(availableHeight, 300)
-})
 
 // 是否为图片文件
 const isImage = computed(() => {
