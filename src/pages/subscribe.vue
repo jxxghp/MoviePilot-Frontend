@@ -82,13 +82,24 @@ const filterOptions = computed(() => {
   ]
 })
 
-// 计算筛选按钮颜色
+// 当前选中的筛选选项
+const currentFilter = computed(() => {
+  return filterOptions.value.find(option => option.value === (subscribeStatusFilter.value || 'all'))
+})
+
+// 计算筛选按钮颜色 - 有名称筛选或状态筛选时高亮
 const filterButtonColor = computed(() => {
   if (subscribeFilter.value || (subscribeStatusFilter.value && subscribeStatusFilter.value !== 'all')) {
-    return 'primary'
+    return currentFilter.value?.color || 'primary'
   }
   return 'gray'
 })
+
+// 选择筛选选项
+function selectFilter(value: string) {
+  subscribeStatusFilter.value = value
+  filterSubscribeDialog.value = false
+}
 
 // VMenu activator选择器
 const filterActivator = computed(() => '[data-menu-activator="filter-btn"]')
@@ -200,44 +211,47 @@ onMounted(() => {
       </VWindowItem>
     </VWindow>
 
-    <!-- 订阅过滤弹窗 -->
+    <!-- 订阅过滤下拉菜单 -->
     <Teleport to="body" v-if="filterSubscribeDialog">
       <VMenu
         v-model="filterSubscribeDialog"
-        width="25rem"
         :close-on-content-click="false"
         :activator="filterActivator"
         location="bottom end"
       >
-        <VCard>
-          <VCardItem>
-            <VCardTitle>
-              <VIcon icon="mdi-filter-multiple-outline" class="mr-2" />
-              {{ t('subscribe.filterSubscriptions') }}
-            </VCardTitle>
-            <VDialogCloseBtn @click="filterSubscribeDialog = false" />
-          </VCardItem>
-          <VCardText>
-            <VRow>
-              <!-- 名称筛选 -->
-              <VCol cols="6">
-                <VTextField v-model="subscribeFilter" :label="t('subscribe.name')" clearable density="comfortable" />
-              </VCol>
-
-              <!-- 状态筛选 -->
-              <VCol cols="6">
-                <VSelect
-                  v-model="subscribeStatusFilter"
-                  :items="filterOptions"
-                  item-title="label"
-                  item-value="value"
-                  :label="t('common.status')"
-                  density="comfortable"
-                  clearable
-                />
-              </VCol>
-            </VRow>
-          </VCardText>
+        <VCard min-width="220">
+          <!-- 名称搜索 -->
+          <div class="px-3 pt-3 pb-1">
+            <VTextField
+              v-model="subscribeFilter"
+              :placeholder="t('subscribe.name')"
+              prepend-inner-icon="mdi-magnify"
+              density="compact"
+              variant="outlined"
+              hide-details
+              clearable
+            />
+          </div>
+          <VDivider class="mt-2" />
+          <!-- 状态筛选列表 -->
+          <VList density="compact" class="px-2 py-1">
+            <VListSubheader>{{ t('common.status') }}</VListSubheader>
+            <VListItem
+              v-for="option in filterOptions"
+              :key="option.value"
+              :active="(subscribeStatusFilter || 'all') === option.value"
+              @click="selectFilter(option.value)"
+              density="compact"
+            >
+              <template #prepend>
+                <VIcon :icon="option.icon" :color="option.color" size="small" />
+              </template>
+              <VListItemTitle>{{ option.label }}</VListItemTitle>
+              <template #append>
+                <VIcon v-if="(subscribeStatusFilter || 'all') === option.value" icon="mdi-check" color="primary" size="small" />
+              </template>
+            </VListItem>
+          </VList>
         </VCard>
       </VMenu>
     </Teleport>
