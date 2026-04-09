@@ -13,5 +13,6 @@ export default pinia
 import { useAuthStore } from './auth'
 import { useUserStore } from './user'
 import { useGlobalSettingsStore } from './global'
+import { usePluginSidebarNavStore } from './pluginSidebarNav'
 
-export { useAuthStore, useUserStore, useGlobalSettingsStore }
+export { useAuthStore, useUserStore, useGlobalSettingsStore, usePluginSidebarNavStore }

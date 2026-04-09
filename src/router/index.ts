@@ -141,6 +141,15 @@ const router = createRouter({
           },
         },
         {
+          path: '/plugin-app/:pluginId/:navKey?',
+          name: 'plugin-app',
+          component: () => import('../pages/plugin-app.vue'),
+          meta: {
+            keepAlive: true,
+            requiresAuth: true,
+          },
+        },
+        {
           path: '/setting',
           component: () => import('../pages/setting.vue'),
           meta: {

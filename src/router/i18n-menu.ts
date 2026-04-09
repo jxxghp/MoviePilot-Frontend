@@ -283,3 +283,20 @@ export function getWorkflowTabs(t: Composer['t']) {
     },
   ]
 }
+
+/** 插件侧栏分组（与后端 get_sidebar_nav 的 section 一致） */
+export type PluginSidebarSection = 'start' | 'discovery' | 'subscribe' | 'organize' | 'system'
+
+/**
+ * 将插件声明的 section 映射为与 getNavMenus 一致的已翻译 header（用于 NavMenu.header）
+ */
+export function pluginSidebarSectionToHeaderKey(section: string, t: Composer['t']): string {
+  const map: Record<string, string> = {
+    start: 'menu.start',
+    discovery: 'menu.discovery',
+    subscribe: 'menu.subscribe',
+    organize: 'menu.organize',
+    system: 'menu.system',
+  }
+  return t(map[section] ?? 'menu.system')
+}

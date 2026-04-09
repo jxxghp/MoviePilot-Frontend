@@ -656,6 +656,17 @@ export interface Plugin {
   page_open?: boolean
 }
 
+// 插件侧栏全页导航项（与后端 PluginSidebarNavItem 对齐）
+export interface PluginSidebarNavItem {
+  plugin_id: string
+  nav_key: string
+  title: string
+  icon: string
+  section: 'start' | 'discovery' | 'subscribe' | 'organize' | 'system'
+  permission?: 'subscribe' | 'discovery' | 'search' | 'manage' | 'admin' | null
+  order: number
+}
+
 // 渲染结构
 export interface RenderProps {
   component: string

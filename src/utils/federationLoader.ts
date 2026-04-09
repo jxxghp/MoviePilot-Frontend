@@ -30,6 +30,58 @@ async function fetchSingleRemoteModule(id: string): Promise<RemoteModule | null>
 }
 
 /**
+ * 将 nav_key 转为联邦暴露名的 Pascal 片段（如 settings -> Settings，my-tool -> MyTool）
+ */
+function navKeyToPascalSegment(navKey: string): string {
+  return navKey
+    .trim()
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join('')
+}
+
+/**
+ * 加载插件全页组件（支持同一插件多界面）。
+ *
+ * 解析顺序（nav_key 为 main 或空时）：
+ *   `AppPage` → `Page`
+ *
+ * 其它 nav_key（例如 settings、my_tool）：
+ *   `AppPage{Pascal}` → `AppPage` → `Page`
+ *   例：nav_key=settings → 尝试 `AppPageSettings`，再回退 `AppPage`、`Page`
+ *
+ * 也可在单个 `AppPage.vue` 内根据 `navKey` prop 分支渲染，无需多文件。
+ */
+export async function loadRemoteAppPageComponent(id: string, navKey: string = 'main') {
+  const raw = (navKey || 'main').trim()
+  const isMain = raw === '' || raw.toLowerCase() === 'main'
+
+  const candidateNames: string[] = []
+  if (isMain) {
+    candidateNames.push('AppPage', 'Page')
+  } else {
+    const pascal = navKeyToPascalSegment(raw)
+    if (pascal) {
+      candidateNames.push(`AppPage${pascal}`)
+    }
+    candidateNames.push('AppPage', 'Page')
+  }
+
+  let lastError: unknown
+  for (const name of candidateNames) {
+    try {
+      return await loadRemoteComponent(id, name)
+    } catch (error) {
+      lastError = error
+      console.debug(`[federation] 插件 ${id} 全页尝试 ./${name} 失败，回退下一候选`)
+    }
+  }
+  console.warn(`[federation] 插件 ${id} 全页均加载失败 (navKey=${raw})`, lastError)
+  throw lastError ?? new Error(`无法加载插件 ${id} 的全页组件`)
+}
+
+/**
  * 加载远程组件
  * @param id 远程模块ID
  * @param componentName 组件名称 (如 'Page')
