@@ -57,7 +57,7 @@ const filterOption = ref('all') // all, active, inactive, connected, slow, faile
 
 // 筛选选项
 const filterOptions = computed(() => [
-  { value: 'all', label: t('common.all'), icon: 'mdi-format-list-bulleted' },
+  { value: 'all', label: t('common.all'), icon: 'mdi-filter-multiple-outline' },
   { value: 'active', label: t('common.active'), icon: 'mdi-check-circle', color: 'success' },
   { value: 'inactive', label: t('common.inactive'), icon: 'mdi-stop-circle', color: 'error' },
   { value: 'connected', label: t('site.connectionNormal'), icon: 'mdi-wifi', color: 'success' },

@@ -113,7 +113,7 @@ registerHeaderTab({
 const pluginId = ref(route.query.id)
 
 // 当前排序字段
-const activeSort = ref(null)
+const activeSort = ref<string | null>(null)
 
 // 插件顺序配置
 const orderConfig = ref<{ id: string; type?: string; order?: number }[]>([])
@@ -1363,9 +1363,8 @@ function onDragStartPlugin(evt: any) {
         :close-on-content-click="false"
         :activator="'[data-menu-activator=market-filter-btn]'"
         location="bottom end"
-        max-height="80vh"
       >
-        <VCard min-width="240" max-width="300">
+        <VCard min-width="260" max-width="320">
           <!-- 名称搜索 -->
           <div class="px-3 pt-3 pb-1">
             <VTextField
@@ -1380,7 +1379,7 @@ function onDragStartPlugin(evt: any) {
           </div>
           <VDivider class="mt-2" />
           <!-- 排序 -->
-          <VList v-if="sortOptions.length > 0" density="compact" class="px-2 py-1">
+          <VList density="compact" class="px-2 py-1">
             <VListSubheader>{{ t('plugin.sortTitle') }}</VListSubheader>
             <VListItem
               v-for="option in sortOptions"
@@ -1395,63 +1394,49 @@ function onDragStartPlugin(evt: any) {
               </template>
             </VListItem>
           </VList>
-          <!-- 作者筛选 -->
-          <template v-if="authorFilterOptions.length > 0">
-            <VDivider />
-            <VList density="compact" class="px-2 py-1">
-              <VListSubheader>{{ t('plugin.author') }}</VListSubheader>
-              <VListItem
-                v-for="author in authorFilterOptions"
-                :key="author"
-                :active="filterForm.author.includes(author)"
-                @click="toggleMarketFilter('author', author)"
-                density="compact"
-              >
-                <VListItemTitle>{{ author }}</VListItemTitle>
-                <template #append>
-                  <VIcon v-if="filterForm.author.includes(author)" icon="mdi-check" color="primary" size="small" />
-                </template>
-              </VListItem>
-            </VList>
-          </template>
-          <!-- 标签筛选 -->
-          <template v-if="labelFilterOptions.length > 0">
-            <VDivider />
-            <VList density="compact" class="px-2 py-1">
-              <VListSubheader>{{ t('plugin.label') }}</VListSubheader>
-              <VListItem
-                v-for="label in labelFilterOptions"
-                :key="label"
-                :active="filterForm.label.includes(label)"
-                @click="toggleMarketFilter('label', label)"
-                density="compact"
-              >
-                <VListItemTitle>{{ label }}</VListItemTitle>
-                <template #append>
-                  <VIcon v-if="filterForm.label.includes(label)" icon="mdi-check" color="primary" size="small" />
-                </template>
-              </VListItem>
-            </VList>
-          </template>
-          <!-- 仓库筛选 -->
-          <template v-if="repoFilterOptions.length > 0">
-            <VDivider />
-            <VList density="compact" class="px-2 py-1">
-              <VListSubheader>{{ t('plugin.repository') }}</VListSubheader>
-              <VListItem
-                v-for="repo in repoFilterOptions"
-                :key="repo"
-                :active="filterForm.repo.includes(repo)"
-                @click="toggleMarketFilter('repo', repo)"
-                density="compact"
-              >
-                <VListItemTitle class="text-truncate" style="max-width: 220px">{{ repo }}</VListItemTitle>
-                <template #append>
-                  <VIcon v-if="filterForm.repo.includes(repo)" icon="mdi-check" color="primary" size="small" />
-                </template>
-              </VListItem>
-            </VList>
-          </template>
+          <!-- 下拉多选筛选项 -->
+          <VDivider />
+          <div class="px-3 py-2 d-flex flex-column gap-2">
+            <VSelect
+              v-if="authorFilterOptions.length > 0"
+              v-model="filterForm.author"
+              :items="authorFilterOptions"
+              :label="t('plugin.author')"
+              multiple
+              chips
+              closable-chips
+              density="compact"
+              variant="outlined"
+              hide-details
+              clearable
+            />
+            <VSelect
+              v-if="labelFilterOptions.length > 0"
+              v-model="filterForm.label"
+              :items="labelFilterOptions"
+              :label="t('plugin.label')"
+              multiple
+              chips
+              closable-chips
+              density="compact"
+              variant="outlined"
+              hide-details
+              clearable
+            />
+            <VSelect
+              v-if="repoFilterOptions.length > 0"
+              v-model="filterForm.repo"
+              :items="repoFilterOptions"
+              :label="t('plugin.repository')"
+              multiple
+              chips
+              closable-chips
+              density="compact"
+              variant="outlined"
+              hide-details
+              clearable
+            />
+          </div>
         </VCard>
       </VMenu>
     </Teleport>

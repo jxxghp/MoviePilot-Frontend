@@ -58,7 +58,7 @@ const searchShares = () => {
 // 筛选选项
 const filterOptions = computed(() => {
   const baseOptions = [
-    { value: 'all', label: t('common.all'), icon: 'mdi-format-list-bulleted' },
+    { value: 'all', label: t('common.all'), icon: 'mdi-filter-multiple-outline' },
     { value: 'best_version', label: t('subscribe.bestVersion'), icon: 'mdi-refresh', color: 'warning' },
   ]
 
