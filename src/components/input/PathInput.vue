@@ -103,8 +103,21 @@ const selectedPath = computed(() => {
   return ''
 })
 
+function isFileItem(value: unknown): value is FileItem {
+  return typeof value === 'object' && value !== null && 'path' in value && 'type' in value
+}
+
+function activateDir({ id }: { id: unknown }) {
+  const item = isFileItem(id) ? id : typeof id === 'string' ? findPath(treeItems.value[0], id) : null
+
+  if (!item || item.type !== 'dir') return
+
+  activedDirs.value = [item]
+}
+
 watch(activedDirs, newVal => {
   if (!newVal.length) return
+
   emit('update:modelValue', selectedPath.value)
 })
 
@@ -165,8 +178,10 @@ watch(
         activatable
         return-object
         max-height="20rem"
+        open-on-click
         expand-icon="mdi-folder"
         collapse-icon="mdi-folder-open"
+        @click:open="activateDir"
       />
     </VMenu>
   </div>
