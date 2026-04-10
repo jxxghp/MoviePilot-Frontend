@@ -86,8 +86,8 @@ const searchType = ref('title')
 const chooseSiteDialog = ref(false)
 
 // 计算主题是否为透明
-const isNonTransparentTheme = computed(() => {
-  return theme.name.value !== 'transparent'
+const isTransparentTheme = computed(() => {
+  return theme.name.value === 'transparent'
 })
 
 // 查询所有站点
@@ -567,12 +567,16 @@ onBeforeMount(() => {
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <div v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id" class="max-w-8xl mx-auto px-4">
-    <template v-if="(getBackdropUrl || getPosterUrl) && isNonTransparentTheme">
-      <div class="vue-media-back absolute left-0 top-0 w-full h-96">
+  <div
+    v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id"
+    class="max-w-8xl mx-auto px-4"
+    :class="{ 'media-detail-transparent': isTransparentTheme }"
+  >
+    <template v-if="getBackdropUrl || getPosterUrl">
+      <div class="vue-media-back vue-media-back-image absolute left-0 top-0 w-full h-96">
         <VImg class="h-96" position="top" :src="getBackdropUrl || getPosterUrl" cover />
       </div>
-      <div class="vue-media-back absolute left-0 top-0 w-full h-96" />
+      <div class="vue-media-back vue-media-back-overlay absolute left-0 top-0 w-full h-96" />
     </template>
     <div class="media-page">
       <div class="media-header">
@@ -1038,18 +1042,54 @@ onBeforeMount(() => {
 
 <style lang="scss" scoped>
 .vue-media-back {
+  --media-backdrop-edge-opacity: 1;
+
+  z-index: 0;
+  pointer-events: none;
   background-image: linear-gradient(
       180deg,
       rgba(var(--v-theme-background), 0) 50%,
-      rgba(var(--v-theme-background), 1) 100%
+      rgba(var(--v-theme-background), var(--media-backdrop-edge-opacity)) 100%
     ),
-    linear-gradient(90deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%),
-    linear-gradient(270deg, rgba(var(--v-theme-background), 0) 50%, rgba(var(--v-theme-background), 1) 100%);
+    linear-gradient(
+      0deg,
+      rgba(var(--v-theme-background), 0) 80%,
+      rgba(var(--v-theme-background), var(--media-backdrop-edge-opacity)) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(var(--v-theme-background), 0) 50%,
+      rgba(var(--v-theme-background), var(--media-backdrop-edge-opacity)) 100%
+    ),
+    linear-gradient(
+      270deg,
+      rgba(var(--v-theme-background), 0) 50%,
+      rgba(var(--v-theme-background), var(--media-backdrop-edge-opacity)) 100%
+    );
   margin-block-start: calc(-70px - env(safe-area-inset-top));
+}
+
+.vue-media-back-image {
+  background-image: none;
+}
+
+.media-detail-transparent .vue-media-back-overlay {
+  display: none;
+}
+
+.media-detail-transparent .vue-media-back-image {
+  opacity: 0.78;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  -webkit-mask-composite: source-in;
 }
 
 .media-page {
   position: relative;
+  z-index: 1;
   background-position: 50%;
   background-size: cover;
   margin-block-start: calc(-4rem - env(safe-area-inset-top));
