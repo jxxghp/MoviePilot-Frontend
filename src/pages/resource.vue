@@ -7,7 +7,6 @@ import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
@@ -15,7 +14,6 @@ import { useToast } from 'vue-toastification'
 
 // 国际化
 const { t } = useI18n()
-const { useProgressSSE } = useBackgroundOptimization()
 
 // 提示框
 const toast = useToast()
@@ -109,15 +107,18 @@ const progressEnabled = ref(false)
 // 进度是否激活
 const progressActive = ref(false)
 
+// 是否显示搜索进度
+const isSearchProgressVisible = computed(
+  () => progressActive.value || (!isRefreshed.value && (progressEnabled.value || progressValue.value > 0)),
+)
+
 // 是否显示搜索中的页面态
 const isSearchLoading = computed(
-  () => !isRefreshed.value && (progressActive.value || progressEnabled.value || progressValue.value > 0),
+  () => !isRefreshed.value && isSearchProgressVisible.value && rawDataList.value.length === 0,
 )
 
 // 归一化搜索进度，避免 SSE 异常值影响显示
-const searchProgressPercent = computed(() =>
-  Math.min(100, Math.max(0, Math.ceil(Number(progressValue.value) || 0))),
-)
+const searchProgressPercent = computed(() => Math.min(100, Math.max(0, Math.ceil(Number(progressValue.value) || 0))))
 
 // 搜索进度文案
 const searchProgressLabel = computed(() =>
@@ -132,6 +133,16 @@ const errorTitle = ref(t('resource.noData'))
 
 // 错误描述
 const errorDescription = ref(t('resource.noResourceFound'))
+
+let searchEventSource: EventSource | null = null
+
+const streamPreviewLimit = 24
+
+const streamTotalCount = ref(0)
+
+const displayResourceCount = computed(() =>
+  progressActive.value ? streamTotalCount.value : torrentFilter.totalFilteredCount.value,
+)
 
 // 监听筛选条件变化，重新筛选数据
 watch(
@@ -187,39 +198,19 @@ const watchProgressValue = watch(
   }, 60_000),
 )
 
-// 进度SSE消息处理函数
-function handleProgressMessage(event: MessageEvent) {
-  const progress = JSON.parse(event.data)
-  if (progress) {
-    progressText.value = progress.text
-    progressValue.value = progress.value
-    progressEnabled.value = progress.enable
-  }
-}
-
-// 使用优化的进度SSE连接
-const progressSSE = useProgressSSE(
-  `${import.meta.env.VITE_API_BASE_URL}system/progress/search`,
-  handleProgressMessage,
-  'resource-search-progress',
-  progressActive,
-)
-
 // 使用SSE监听加载进度
 function startLoadingProgress() {
   watchProgressValue.resume()
   progressText.value = t('resource.searching')
   progressValue.value = 0
-  progressEnabled.value = false
+  progressEnabled.value = true
   progressActive.value = true
-  progressSSE.start()
 }
 
 // 停止监听加载进度
 function stopLoadingProgress() {
   watchProgressValue.pause()
   progressActive.value = false
-  progressSSE.stop()
 
   // 确保进度显示100%，然后再渐进清零
   progressValue.value = 100
@@ -227,6 +218,203 @@ function stopLoadingProgress() {
     progressValue.value = 0
     progressEnabled.value = false
   }, 1500)
+}
+
+// 关闭SSE连接
+function closeSearchEventSource() {
+  if (searchEventSource) {
+    searchEventSource.close()
+    searchEventSource = null
+  }
+}
+
+// 获取API URL
+function getApiUrl(path: string) {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  const normalizedBaseUrl = apiBaseUrl.startsWith('http')
+    ? apiBaseUrl
+    : `${window.location.origin}${apiBaseUrl.startsWith('/') ? apiBaseUrl : `/${apiBaseUrl}`}`
+
+  return new URL(path, normalizedBaseUrl.endsWith('/') ? normalizedBaseUrl : `${normalizedBaseUrl}/`)
+}
+
+// 设置搜索参数
+function setSearchParam(params: URLSearchParams, key: string, value: unknown) {
+  if (value !== undefined && value !== null && value !== '') {
+    params.set(key, String(value))
+  }
+}
+
+// 构建搜索流URL
+function buildSearchStreamUrl() {
+  const isMediaSearch = /^[a-zA-Z]+:/.test(keyword)
+  const url = getApiUrl(isMediaSearch ? `search/media/${encodeURIComponent(keyword)}/stream` : 'search/title/stream')
+
+  if (isMediaSearch) {
+    setSearchParam(url.searchParams, 'mtype', type)
+    setSearchParam(url.searchParams, 'area', area)
+    setSearchParam(url.searchParams, 'title', title)
+    setSearchParam(url.searchParams, 'year', year)
+    setSearchParam(url.searchParams, 'season', season)
+    setSearchParam(url.searchParams, 'sites', sites)
+  } else {
+    setSearchParam(url.searchParams, 'keyword', keyword)
+    setSearchParam(url.searchParams, 'sites', sites)
+  }
+
+  return url.toString()
+}
+
+// 重置搜索结果
+function resetSearchResults() {
+  rawDataList.value = []
+  originalDataList.value = []
+  streamTotalCount.value = 0
+  aiRecommended.value = false
+  showingAiResults.value = false
+  aiRecommendedList.value = []
+  savedFilterState.value = null
+  aiStatusChecked.value = false
+  torrentFilter.clearAllFilters()
+  applyFilter()
+}
+
+// 更新搜索进度
+function updateSearchProgress(eventData: { [key: string]: any }) {
+  if (eventData.text) {
+    progressText.value = eventData.text
+  }
+  if (typeof eventData.value === 'number') {
+    progressValue.value = eventData.value
+  }
+  if (typeof eventData.total_items === 'number') {
+    streamTotalCount.value = eventData.total_items
+  }
+  progressEnabled.value = true
+}
+
+// 设置流式搜索结果
+function setStreamResults(items: Context[]) {
+  rawDataList.value = items
+  originalDataList.value = items
+  if (!progressActive.value) {
+    streamTotalCount.value = items.length
+  }
+  isRefreshed.value = true
+  applyFilter()
+}
+
+// 追加流式搜索结果
+function appendStreamResults(items: Context[]) {
+  if (!items.length) return
+
+  const nextItems = [...items, ...rawDataList.value]
+  setStreamResults(progressActive.value ? nextItems.slice(0, streamPreviewLimit) : nextItems)
+}
+
+// 获取磁力链接的key
+function getTorrentItemKey(item: Context, index: number) {
+  return (
+    item.torrent_info?.page_url ||
+    item.torrent_info?.enclosure ||
+    `${item.torrent_info?.site_name || ''}-${item.torrent_info?.title || ''}-${item.torrent_info?.description || ''}` ||
+    `torrent-${index}`
+  )
+}
+
+// 处理搜索流消息
+function handleSearchStreamMessage(eventData: { [key: string]: any }) {
+  updateSearchProgress(eventData)
+
+  if (eventData.type === 'error') {
+    errorDescription.value = eventData.message || t('resource.noResourceFound')
+    return
+  }
+
+  const items = Array.isArray(eventData.items) ? (eventData.items as Context[]) : []
+  if (eventData.type === 'append') {
+    appendStreamResults(items)
+  } else if (eventData.type === 'replace' || eventData.type === 'done') {
+    setStreamResults(items)
+  }
+}
+
+// 按请求搜索
+async function searchByRequest() {
+  let result: { [key: string]: any }
+  // 如果keyword的格式是 xxxx:xxxxx 且:前面的xxxx为字符，则按照媒体ID格式搜索
+  if (/^[a-zA-Z]+:/.test(keyword)) {
+    result = await api.get(`search/media/${keyword}`, {
+      params: {
+        mtype: type,
+        area,
+        title,
+        year,
+        season,
+        sites,
+      },
+    })
+  } else {
+    // 按标题模糊查询
+    result = await api.get(`search/title`, {
+      params: {
+        keyword,
+        sites,
+      },
+    })
+  }
+
+  if (result && result.success) {
+    streamTotalCount.value = result.data?.length || 0
+    setStreamResults(result.data || [])
+  } else {
+    errorDescription.value = result?.message || t('resource.noResourceFound')
+    streamTotalCount.value = 0
+    setStreamResults([])
+  }
+}
+
+// 按流搜索
+function searchByStream() {
+  return new Promise<void>((resolve, reject) => {
+    closeSearchEventSource()
+
+    let settled = false
+    const source = new EventSource(buildSearchStreamUrl())
+    searchEventSource = source
+
+    source.onmessage = event => {
+      try {
+        const eventData = JSON.parse(event.data)
+        handleSearchStreamMessage(eventData)
+
+        if (eventData.type === 'error') {
+          settled = true
+          closeSearchEventSource()
+          resolve()
+          return
+        }
+
+        if (eventData.type === 'done') {
+          settled = true
+          closeSearchEventSource()
+          resolve()
+        }
+      } catch (error) {
+        settled = true
+        closeSearchEventSource()
+        reject(error)
+      }
+    }
+
+    source.onerror = () => {
+      if (settled) return
+
+      settled = true
+      closeSearchEventSource()
+      reject(new Error(t('resource.noResourceFound')))
+    }
+  })
 }
 
 // 设置视图类型
@@ -251,38 +439,13 @@ async function fetchData() {
       rawDataList.value = (results as unknown as Context[]) || []
       originalDataList.value = (results as unknown as Context[]) || []
     } else {
+      resetSearchResults()
       startLoadingProgress()
-      let result: { [key: string]: any }
-      // 如果keyword的格式是 xxxx:xxxxx 且:前面的xxxx为字符，则按照媒体ID格式搜索
-      if (/^[a-zA-Z]+:/.test(keyword)) {
-        result = await api.get(`search/media/${keyword}`, {
-          params: {
-            mtype: type,
-            area,
-            title,
-            year,
-            season,
-            sites,
-          },
-        })
-      } else {
-        // 按标题模糊查询
-        result = await api.get(`search/title`, {
-          params: {
-            keyword,
-            sites,
-          },
-        })
-      }
-      if (result && result.success) {
-        rawDataList.value = result.data || []
-        originalDataList.value = result.data || []
-        // 重置智能推荐状态
-        aiRecommended.value = false
-        showingAiResults.value = false
-        aiRecommendedList.value = []
-      } else if (result && result.message) {
-        errorDescription.value = result.message
+      try {
+        await searchByStream()
+      } catch (error) {
+        console.warn('渐进式搜索连接失败，回退到普通搜索:', error)
+        await searchByRequest()
       }
       stopLoadingProgress()
       // 从浏览器历史中删除当前搜索
@@ -294,6 +457,7 @@ async function fetchData() {
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
+    closeSearchEventSource()
     stopLoadingProgress()
     isRefreshed.value = true
     return Promise.reject(error)
@@ -560,7 +724,12 @@ const hasData = computed(() => {
 // 使用 watchEffect 确保计算属性变化时立即响应
 watchEffect(() => {
   // 需要满足：AI 功能启用、数据已加载、尚未检查
-  if (aiRecommendEnabled.value && originalDataList.value.length > 0 && !aiStatusChecked.value) {
+  if (
+    aiRecommendEnabled.value &&
+    originalDataList.value.length > 0 &&
+    !progressActive.value &&
+    !aiStatusChecked.value
+  ) {
     checkAiRecommendStatus()
   }
 })
@@ -572,6 +741,7 @@ onMounted(async () => {
 
 // 卸载时停止轮询
 onUnmounted(() => {
+  closeSearchEventSource()
   stopLoadingProgress()
   stopAiRecommendPolling()
 })
@@ -581,7 +751,7 @@ onUnmounted(() => {
   <div>
     <!-- 搜索加载状态 -->
     <VFadeTransition>
-      <div v-if="isSearchLoading" class="search-loading-state">
+      <div v-if="isSearchProgressVisible" class="search-loading-state mb-3" :class="{ 'is-empty-loading': isSearchLoading }">
         <VCard elevation="0" class="search-progress-card">
           <div class="progress-header">
             <div class="progress-icon-wrap">
@@ -624,13 +794,13 @@ onUnmounted(() => {
           </div>
         </VCard>
 
-        <div v-if="viewType === 'card'" class="search-skeleton-grid">
+        <div v-if="isSearchLoading && viewType === 'card'" class="search-skeleton-grid">
           <VCard v-for="item in 6" :key="`search-card-skeleton-${item}`" class="search-skeleton-card" elevation="0">
             <VSkeletonLoader type="image, article" />
           </VCard>
         </div>
 
-        <VCard v-else class="search-skeleton-list" elevation="0">
+        <VCard v-else-if="isSearchLoading" class="search-skeleton-list" elevation="0">
           <div v-for="item in 6" :key="`search-row-skeleton-${item}`" class="search-skeleton-row">
             <VSkeletonLoader type="list-item-avatar-two-line" />
           </div>
@@ -639,7 +809,7 @@ onUnmounted(() => {
     </VFadeTransition>
 
     <!-- 精简标题栏 -->
-    <VCard v-if="isRefreshed" class="search-header d-flex align-center mb-3">
+    <VCard v-if="isRefreshed && !progressActive" class="search-header d-flex align-center mb-3">
       <div class="search-info-container">
         <div class="search-title text-moviepilot">
           <span class="d-none d-sm-inline">{{ t('resource.searchResults') }}</span>
@@ -729,11 +899,12 @@ onUnmounted(() => {
     <div v-if="isRefreshed && hasData" class="search-results-container">
       <!-- 筛选栏 -->
       <TorrentFilterBar
+        v-if="!progressActive"
         :filter-form="torrentFilter.filterForm"
         :filter-options="torrentFilter.filterOptions"
         :sort-field="torrentFilter.sortField.value"
         :sort-type="torrentFilter.sortType.value"
-        :total-filtered-count="torrentFilter.totalFilteredCount.value"
+        :total-filtered-count="displayResourceCount"
         :filter-titles="torrentFilter.filterTitles"
         :sort-titles="torrentFilter.sortTitles"
         :enable-animation="enableFilterAnimation"
@@ -762,10 +933,11 @@ onUnmounted(() => {
             <template #empty />
             <div class="grid gap-4 grid-torrent-card items-start">
               <TorrentCard
-                v-for="item in cardScroll.displayDataList.value"
-                :key="`${item.torrent_info.page_url}`"
+                v-for="(item, index) in cardScroll.displayDataList.value"
+                :key="getTorrentItemKey(item, index)"
                 :torrent="item"
                 :more="item.more"
+                class="stream-result-item"
               />
             </div>
           </VInfiniteScroll>
@@ -797,7 +969,8 @@ onUnmounted(() => {
               <template #empty />
               <div
                 v-for="(item, index) in rowScroll.displayDataList.value"
-                :key="`${item.torrent_info?.enclosure || ''}-${index}`"
+                :key="getTorrentItemKey(item, index)"
+                class="stream-result-item"
               >
                 <TorrentItem :torrent="item" />
                 <VDivider v-if="index < rowScroll.displayDataList.value.length - 1" class="my-2" />
@@ -830,6 +1003,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.search-loading-state.is-empty-loading {
   min-block-size: 50vh;
 }
 
@@ -837,10 +1013,8 @@ onUnmounted(() => {
   padding: 16px;
   border: 1px solid rgba(var(--v-theme-primary), 0.18);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 42%),
-    rgb(var(--v-theme-surface));
   backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 42%), rgb(var(--v-theme-surface));
   inline-size: 100%;
 }
 
@@ -852,9 +1026,9 @@ onUnmounted(() => {
 
 .progress-icon-wrap {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
 }
 
 .progress-copy {
@@ -863,11 +1037,11 @@ onUnmounted(() => {
 }
 
 .progress-title {
-  color: rgb(var(--v-theme-on-surface));
   display: block;
+  overflow: hidden;
+  color: rgb(var(--v-theme-on-surface));
   font-size: 1rem;
   font-weight: 600;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -888,8 +1062,8 @@ onUnmounted(() => {
 }
 
 .progress-percentage {
-  color: rgb(var(--v-theme-primary));
   flex: 0 0 auto;
+  color: rgb(var(--v-theme-primary));
   font-size: 0.95rem;
   font-weight: 700;
   min-inline-size: 44px;
@@ -912,6 +1086,22 @@ onUnmounted(() => {
 
 .search-skeleton-row + .search-skeleton-row {
   border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.stream-result-item {
+  animation: stream-result-in 0.28s ease-out both;
+}
+
+@keyframes stream-result-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 精简标题栏样式 */
@@ -944,25 +1134,27 @@ onUnmounted(() => {
 }
 
 .view-toggle-buttons {
+  position: relative;
   display: flex;
   padding: 4px;
   border-radius: 8px;
   background-color: rgba(var(--v-theme-surface-variant), 0.1);
-  position: relative;
   isolation: isolate; /* Create new stacking context */
 }
 
 .active-indicator {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 40px;
-  height: 36px;
-  background-color: rgb(var(--v-theme-surface));
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1;
+  border-radius: 6px;
+  background-color: rgb(var(--v-theme-surface));
+  block-size: 36px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 12%),
+    0 1px 2px rgba(0, 0, 0, 24%);
+  inline-size: 40px;
+  inset-block-start: 4px;
+  inset-inline-start: 4px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .active-indicator.row {
@@ -970,6 +1162,8 @@ onUnmounted(() => {
 }
 
 .view-toggle-btn {
+  position: relative;
+  z-index: 2; /* Sit on top of indicator */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -979,13 +1173,11 @@ onUnmounted(() => {
   cursor: pointer;
   inline-size: 40px;
   transition: all 0.2s ease;
-  z-index: 2; /* Sit on top of indicator */
-  position: relative;
 }
 
 .view-toggle-btn:hover:not(.active) {
-  background-color: rgba(var(--v-theme-primary), 0.05);
   border-radius: 6px;
+  background-color: rgba(var(--v-theme-primary), 0.05);
 }
 
 /* AI按钮组样式 */
@@ -995,31 +1187,31 @@ onUnmounted(() => {
 
 .ai-toggle-buttons {
   display: flex;
+  overflow: hidden;
   align-items: center;
   padding: 0;
   border-radius: 8px;
   background-color: rgba(var(--v-theme-surface-variant), 0.1);
-  overflow: hidden;
-  height: 44px; /* 36px(btn) + 4px*2(padding) to match right side exactly */
+  block-size: 44px; /* 36px(btn) + 4px*2(padding) to match right side exactly */
 }
 
 .ai-recommend-btn {
-  transition: all 0.3s ease;
   margin: 0;
-  height: 100% !important;
+  block-size: 100% !important;
+  transition: all 0.3s ease;
 }
 
 /* 仅为激活的按钮添加背景 */
 .ai-recommend-btn.ai-active {
-  background-color: rgba(var(--v-theme-primary), 0.15);
   z-index: 1;
+  background-color: rgba(var(--v-theme-primary), 0.15);
 }
 
 /* 图标基础样式 */
 .ai-icon {
   color: rgba(var(--v-theme-on-surface), 0.6);
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateZ(0);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 激活状态图标：变色 + 辉光 */
@@ -1031,10 +1223,10 @@ onUnmounted(() => {
 /* 文字基础样式 */
 .ai-text {
   color: rgba(var(--v-theme-on-surface), 0.6);
-  font-weight: 600; /* 保持一致的字重防止位移 */
   font-size: 0.85rem;
-  transition: color 0.3s ease;
+  font-weight: 600; /* 保持一致的字重防止位移 */
   transform: translateZ(0);
+  transition: color 0.3s ease;
 }
 
 /* 激活状态文字 */
@@ -1049,12 +1241,12 @@ onUnmounted(() => {
 }
 
 .ai-divider {
-  width: 0; /* 宽度设为0，不占用空间 */
-  height: 20px;
-  border-left: 1px solid rgba(var(--v-theme-on-surface), 0.12); /* 使用边框显示线条 */
-  flex-shrink: 0;
-  transition: opacity 0.3s ease;
   z-index: 0;
+  flex-shrink: 0;
+  block-size: 20px;
+  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.12); /* 使用边框显示线条 */
+  inline-size: 0; /* 宽度设为0，不占用空间 */
+  transition: opacity 0.3s ease;
 }
 
 .search-results-container {
@@ -1164,10 +1356,10 @@ onUnmounted(() => {
   }
 
   .active-indicator {
-    top: 2px;
-    left: 2px;
-    width: 36px;
-    height: 32px;
+    block-size: 32px;
+    inline-size: 36px;
+    inset-block-start: 2px;
+    inset-inline-start: 2px;
   }
 
   .active-indicator.row {
@@ -1180,7 +1372,7 @@ onUnmounted(() => {
   }
 
   .ai-toggle-buttons {
-    height: 36px;
+    block-size: 36px;
   }
 
   .ai-text {
@@ -1189,17 +1381,16 @@ onUnmounted(() => {
 
   .ai-recommend-btn,
   .ai-toggle-buttons .v-btn {
-    height: 36px !important;
-    min-width: unset !important;
+    block-size: 36px !important;
+    min-inline-size: unset !important;
   }
 
   .ai-recommend-btn {
-    padding-inline-start: 12px !important;
-    padding-inline-end: 8px !important;
+    padding-inline: 12px 8px !important;
   }
 
   .ai-toggle-buttons .v-btn:last-child {
-    min-width: 32px !important;
+    min-inline-size: 32px !important;
   }
 }
 </style>
