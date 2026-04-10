@@ -109,6 +109,24 @@ const progressEnabled = ref(false)
 // 进度是否激活
 const progressActive = ref(false)
 
+// 是否显示搜索中的页面态
+const isSearchLoading = computed(
+  () => !isRefreshed.value && (progressActive.value || progressEnabled.value || progressValue.value > 0),
+)
+
+// 归一化搜索进度，避免 SSE 异常值影响显示
+const searchProgressPercent = computed(() =>
+  Math.min(100, Math.max(0, Math.ceil(Number(progressValue.value) || 0))),
+)
+
+// 搜索进度文案
+const searchProgressLabel = computed(() =>
+  progressEnabled.value || progressValue.value > 0 ? `${searchProgressPercent.value}%` : '...',
+)
+
+// 进度未返回前使用不确定态
+const searchProgressIndeterminate = computed(() => !progressEnabled.value && searchProgressPercent.value <= 0)
+
 // 错误标题
 const errorTitle = ref(t('resource.noData'))
 
@@ -561,17 +579,60 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <!-- 加载进度条 -->
+    <!-- 搜索加载状态 -->
     <VFadeTransition>
-      <div v-if="progressValue > 0 || progressEnabled" class="search-progress-container">
-        <VCard elevation="3" class="search-progress-card">
+      <div v-if="isSearchLoading" class="search-loading-state">
+        <VCard elevation="0" class="search-progress-card">
           <div class="progress-header">
-            <VIcon icon="mdi-movie-search" color="primary" size="small" class="me-2" />
-            <span class="progress-title">{{ progressText }}</span>
+            <div class="progress-icon-wrap">
+              <VProgressCircular
+                color="primary"
+                :indeterminate="searchProgressIndeterminate"
+                :model-value="searchProgressPercent"
+                :size="56"
+                :width="5"
+              >
+                <VIcon icon="mdi-movie-search" color="primary" size="24" />
+              </VProgressCircular>
+            </div>
+            <div class="progress-copy">
+              <span class="progress-title">{{ progressText }}</span>
+              <div v-if="hasSearchTags" class="progress-tags d-flex flex-wrap">
+                <VChip v-if="keyword" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
+                  {{ t('resource.keyword') }}: {{ keyword }}
+                </VChip>
+                <VChip v-if="title" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
+                  {{ t('resource.title') }}: {{ title }}
+                </VChip>
+                <VChip v-if="year" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
+                  {{ t('resource.year') }}: {{ year }}
+                </VChip>
+                <VChip v-if="season" class="search-tag progress-tag" color="primary" size="small" variant="tonal">
+                  {{ t('resource.season') }}: {{ season }}
+                </VChip>
+              </div>
+            </div>
+            <div class="progress-percentage">{{ searchProgressLabel }}</div>
           </div>
           <div class="progress-bar-container">
-            <VProgressLinear color="primary" rounded :model-value="progressValue" />
-            <div class="progress-percentage">{{ Math.ceil(progressValue) }}%</div>
+            <VProgressLinear
+              color="primary"
+              rounded
+              :indeterminate="searchProgressIndeterminate"
+              :model-value="searchProgressPercent"
+            />
+          </div>
+        </VCard>
+
+        <div v-if="viewType === 'card'" class="search-skeleton-grid">
+          <VCard v-for="item in 6" :key="`search-card-skeleton-${item}`" class="search-skeleton-card" elevation="0">
+            <VSkeletonLoader type="image, article" />
+          </VCard>
+        </div>
+
+        <VCard v-else class="search-skeleton-list" elevation="0">
+          <div v-for="item in 6" :key="`search-row-skeleton-${item}`" class="search-skeleton-row">
+            <VSkeletonLoader type="list-item-avatar-two-line" />
           </div>
         </VCard>
       </div>
@@ -756,7 +817,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 初始加载状态 -->
-    <LoadingBanner v-else-if="!isRefreshed && !(progressEnabled || progressValue > 0)" />
+    <LoadingBanner v-else-if="!isRefreshed && !isSearchLoading" />
     <!-- 滚动到顶部按钮 -->
     <Teleport to="body" v-if="route.path === '/resource'">
       <VScrollToTopBtn />
@@ -765,49 +826,92 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.search-progress-container {
-  position: fixed;
-  z-index: 100;
+.search-loading-state {
   display: flex;
-  justify-content: center;
-  inset-block-start: env(safe-area-inset-top);
-  inset-inline: 0;
+  flex-direction: column;
+  gap: 16px;
+  min-block-size: 50vh;
 }
 
 .search-progress-card {
   padding: 16px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.1);
-  border-radius: 12px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 42%),
+    rgb(var(--v-theme-surface));
   backdrop-filter: blur(10px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 10%);
-  inline-size: 90%;
-  max-inline-size: 400px;
+  inline-size: 100%;
 }
 
 .progress-header {
   display: flex;
   align-items: center;
-  margin-block-end: 12px;
+  gap: 12px;
+}
+
+.progress-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.progress-copy {
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
 
 .progress-title {
   color: rgb(var(--v-theme-on-surface));
-  font-size: 0.9rem;
-  font-weight: 500;
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-tags {
+  gap: 6px;
+  margin-block-start: 8px;
+}
+
+.progress-tag {
+  max-inline-size: 100%;
 }
 
 .progress-bar-container {
   display: flex;
   align-items: center;
-  gap: 12px;
+  margin-block-start: 14px;
 }
 
 .progress-percentage {
   color: rgb(var(--v-theme-primary));
-  font-size: 0.8rem;
-  font-weight: 600;
-  min-inline-size: 36px;
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  font-weight: 700;
+  min-inline-size: 44px;
   text-align: end;
+}
+
+.search-skeleton-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.search-skeleton-card,
+.search-skeleton-list {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 8px;
+  background: rgb(var(--v-theme-surface));
+}
+
+.search-skeleton-row + .search-skeleton-row {
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 /* 精简标题栏样式 */
@@ -1010,6 +1114,45 @@ onUnmounted(() => {
 
   .search-tags::-webkit-scrollbar {
     display: none;
+  }
+
+  .search-loading-state {
+    gap: 12px;
+  }
+
+  .search-progress-card {
+    padding: 12px;
+  }
+
+  .progress-header {
+    align-items: flex-start;
+  }
+
+  .progress-icon-wrap {
+    padding-block-start: 2px;
+  }
+
+  .progress-title {
+    white-space: normal;
+  }
+
+  .progress-percentage {
+    font-size: 0.85rem;
+    min-inline-size: 36px;
+  }
+
+  .progress-tags {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .progress-tags::-webkit-scrollbar {
+    display: none;
+  }
+
+  .search-skeleton-grid {
+    grid-template-columns: 1fr;
   }
 
   .view-toggle-container {
