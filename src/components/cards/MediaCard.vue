@@ -237,14 +237,6 @@ async function handleCheckSubscribe() {
 // 查询当前媒体是否已入库
 async function handleCheckExists() {
   try {
-    // 对于总集数为 0 的电视剧季（TMDB 未返回有效集数），不展示“已入库”角标，避免误判
-    const totalEpisode = props.media?.total_episode ?? props.media?.episode_count ?? props.media?.number_of_episodes ?? 0
-
-    if (props.media?.type === '电视剧' && totalEpisode === 0) {
-      isExists.value = false
-      return
-    }
-
     const result: { [key: string]: any } = await api.get('mediaserver/exists', {
       params: {
         tmdbid: props.media?.tmdb_id,
