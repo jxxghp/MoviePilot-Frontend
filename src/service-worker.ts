@@ -12,7 +12,18 @@ declare let self: ServiceWorkerGlobalScope & {
 
 // 缓存版本控制
 const RESOURCE_VERSION = 'V2'
-const CACHE_VERSION = `${__APP_VERSION__}-${__BUILD_TIME__}` // 开发环境下无法使用此环境变量，生产环境正常
+// 开发态 dev-sw 可能拿不到 Vite define 注入；仅在开发环境做 dev 兜底
+const hasAppVersion = typeof __APP_VERSION__ !== 'undefined'
+const hasBuildTime = typeof __BUILD_TIME__ !== 'undefined'
+const isDev = import.meta.env.DEV
+
+if (!isDev && (!hasAppVersion || !hasBuildTime)) {
+  throw new Error('[SW] Missing __APP_VERSION__ or __BUILD_TIME__ in production build')
+}
+
+const appVersion = hasAppVersion ? __APP_VERSION__ : 'dev'
+const buildTime = hasBuildTime ? __BUILD_TIME__ : 'dev'
+const CACHE_VERSION = `${appVersion}-${buildTime}`
 
 // 启用导航预载
 navigationPreload.enable()
