@@ -23,6 +23,14 @@ export const useGlobalSettingsStore = defineStore('globalSettings', {
 
         // 检查版本更新
         if (result.FRONTEND_VERSION) {
+          const isBackendDev = Boolean(result.BACKEND_DEV)
+          const skipVersionCheck = import.meta.env.DEV || isBackendDev
+
+          if (skipVersionCheck) {
+            console.log('[VersionChecker] 开发环境下跳过版本一致性检查')
+            return
+          }
+
           const { checkVersion } = useVersionChecker()
           await checkVersion(result.FRONTEND_VERSION)
         }
