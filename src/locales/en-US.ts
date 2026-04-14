@@ -2787,7 +2787,12 @@ export default {
     loading: 'Loading...',
     pageSize: 'Items Per Page',
     pageInfo: '{begin} - {end} / {total}',
+    aiRedoDisabled: 'Please enable the AI assistant in system settings first',
+    aiRedoQueued: 'Assistant organize task submitted: {title}',
+    aiRedoFailed: 'Failed to submit assistant organize task',
     actions: {
+      aiRedo: 'Assistant Organize',
+      aiRedoPending: 'Assistant Organizing...',
       redo: 'Reorganize',
       delete: 'Delete',
     },

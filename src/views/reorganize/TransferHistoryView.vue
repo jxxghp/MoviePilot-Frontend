@@ -13,9 +13,13 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
+import { useGlobalSettingsStore } from '@/stores'
 
 // i18n
 const { t } = useI18n()
+
+// 全局设置
+const globalSettingsStore = useGlobalSettingsStore()
 
 // APP
 const display = useDisplay()
@@ -43,6 +47,9 @@ const transferQueueDialog = ref(false)
 
 // 当前操作记录
 const currentHistory = ref<TransferHistory>()
+
+// AI整理中的记录
+const aiRedoIds = ref<number[]>([])
 
 // 重新整理IDS
 const redoIds = ref<number[]>([])
@@ -425,32 +432,122 @@ function transferDone() {
   fetchData()
 }
 
-// 弹出菜单
-const dropdownItems = ref([
-  {
-    title: t('transferHistory.actions.redo'),
-    value: 1,
-    props: {
-      prependIcon: 'mdi-redo-variant',
-      click: (item: TransferHistory) => {
-        redoIds.value = [item.id]
-        redoTargetStorage.value = item.dest_storage
-        redoDialog.value = true
+// AI助手是否启用
+const aiAgentEnabled = computed(() => Boolean(globalSettingsStore.globalSettings.AI_AGENT_ENABLE))
+
+function isAiRedoing(historyId: number) {
+  return aiRedoIds.value.includes(historyId)
+}
+
+function buildAiRedoPrompt(item: TransferHistory) {
+  const sourcePath = item.src_fileitem?.path || item.src || ''
+
+  return [
+    '/ai',
+    '[系统任务 - 手动 AI 整理]',
+    '这是用户从媒体整理记录页面手动触发的一次 AI 整理请求。',
+    '当前目标是处理一条已经整理过或整理失败的历史记录，尤其用于修正识别错误、综艺命名不规范等自动接管不会触发的场景。',
+    '',
+    '请优先基于下面这条历史记录独立完成判断，不要依赖之前会话中的上下文。',
+    '',
+    '历史记录信息：',
+    `- 历史记录 ID: ${item.id}`,
+    `- 当前状态: ${item.status ? '成功' : '失败'}`,
+    `- 当前识别标题: ${item.title || '未知'}`,
+    `- 媒体类型: ${item.type || '未知'}`,
+    `- 分类: ${item.category || '未知'}`,
+    `- 年份: ${item.year || '未知'}`,
+    `- 季/集: ${item.seasons || ''}${item.episodes || ''}`.trim() || '- 季/集: 未知',
+    `- 源路径: ${sourcePath || '未知'}`,
+    `- 目标路径: ${item.dest || '未知'}`,
+    `- 转移方式: ${item.mode || '未知'}`,
+    `- 当前 TMDB ID: ${item.tmdbid || '无'}`,
+    `- 当前 豆瓣 ID: ${item.doubanid || '无'}`,
+    `- 失败原因: ${item.errmsg || '无'}`,
+    '',
+    '处理要求：',
+    '1. 先判断这条记录当前识别是否可信；如果当前识别明显错误，请重新识别正确媒体。',
+    '2. 如有需要，可使用 recognize_media、search_media、query_transfer_history 等工具辅助判断。',
+    '3. 一旦确认了正确的媒体 ID 和类型，请优先使用 run_slash_command 执行 /redo 命令完成重新整理。',
+    `4. /redo 命令格式必须是：/redo ${item.id} <tmdbid或doubanid>|电影 或 /redo ${item.id} <tmdbid或doubanid>|电视剧`,
+    '5. 只有在你能可靠确认媒体信息时才执行整理；如果无法确认，请停止并说明原因，不要盲目整理。',
+    '6. 最终只需要用中文简洁反馈处理结果。',
+  ].join('\n')
+}
+
+async function triggerAiRedo(item: TransferHistory) {
+  if (!aiAgentEnabled.value) {
+    $toast.error(t('transferHistory.aiRedoDisabled'))
+    return
+  }
+  if (isAiRedoing(item.id)) return
+
+  aiRedoIds.value = [...aiRedoIds.value, item.id]
+  try {
+    const result: { [key: string]: any } = await api.post('message/web', {
+      text: buildAiRedoPrompt(item),
+    })
+
+    if (!result.success) {
+      $toast.error(result.message || t('transferHistory.aiRedoFailed'))
+      return
+    }
+
+    $toast.success(
+      t('transferHistory.aiRedoQueued', {
+        title: item.title || sourcePathDisplay(item),
+      }),
+    )
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('transferHistory.aiRedoFailed'))
+  } finally {
+    aiRedoIds.value = aiRedoIds.value.filter(id => id !== item.id)
+  }
+}
+
+function sourcePathDisplay(item: TransferHistory) {
+  return item.src_fileitem?.name || item.src || `#${item.id}`
+}
+
+function getDropdownItems(item: TransferHistory) {
+  return [
+    {
+      title: isAiRedoing(item.id) ? t('transferHistory.actions.aiRedoPending') : t('transferHistory.actions.aiRedo'),
+      value: 0,
+      props: {
+        prependIcon: 'mdi-robot-outline',
+        disabled: !aiAgentEnabled.value || isAiRedoing(item.id),
+        click: () => {
+          triggerAiRedo(item)
+        },
       },
     },
-  },
-  {
-    title: t('transferHistory.actions.delete'),
-    value: 2,
-    props: {
-      prependIcon: 'mdi-trash-can-outline',
-      color: 'error',
-      click: (item: TransferHistory) => {
-        removeHistory(item)
+    {
+      title: t('transferHistory.actions.redo'),
+      value: 1,
+      props: {
+        prependIcon: 'mdi-redo-variant',
+        click: () => {
+          redoIds.value = [item.id]
+          redoTargetStorage.value = item.dest_storage
+          redoDialog.value = true
+        },
       },
     },
-  },
-])
+    {
+      title: t('transferHistory.actions.delete'),
+      value: 2,
+      props: {
+        prependIcon: 'mdi-trash-can-outline',
+        color: 'error',
+        click: () => {
+          removeHistory(item)
+        },
+      },
+    },
+  ]
+}
 
 // 添加url参数
 function addUrlQuery(url: string, name: string, value: any) {
@@ -642,10 +739,11 @@ onMounted(() => {
           <VMenu activator="parent" close-on-content-click>
             <VList>
               <VListItem
-                v-for="(menu, i) in dropdownItems"
+                v-for="(menu, i) in getDropdownItems(item)"
                 :key="i"
                 :base-color="menu.props.color"
-                @click="menu.props.click(item)"
+                :disabled="menu.props.disabled"
+                @click="menu.props.click()"
               >
                 <template #prepend>
                   <VIcon :icon="menu.props.prependIcon" />
@@ -728,10 +826,11 @@ onMounted(() => {
           <VMenu activator="parent" close-on-content-click>
             <VList>
               <VListItem
-                v-for="(menu, i) in dropdownItems"
+                v-for="(menu, i) in getDropdownItems(item)"
                 :key="i"
                 :base-color="menu.props.color"
-                @click="menu.props.click(item)"
+                :disabled="menu.props.disabled"
+                @click="menu.props.click()"
               >
                 <template #prepend>
                   <VIcon :icon="menu.props.prependIcon" />

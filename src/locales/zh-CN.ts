@@ -2749,7 +2749,12 @@ export default {
     loading: '加载中...',
     pageSize: '每页条数',
     pageInfo: '{begin} - {end} / {total}',
+    aiRedoDisabled: '请先在系统设置中启用 AI 智能助手',
+    aiRedoQueued: '已提交智能助手整理任务：{title}',
+    aiRedoFailed: '提交智能助手整理任务失败',
     actions: {
+      aiRedo: '智能助手整理',
+      aiRedoPending: '智能助手整理中...',
       redo: '重新整理',
       delete: '删除',
     },
