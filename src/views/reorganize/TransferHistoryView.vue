@@ -13,6 +13,7 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
+import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import { useGlobalSettingsStore } from '@/stores'
 
 // i18n
@@ -25,6 +26,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
+const { useProgressSSE } = useBackgroundOptimization()
 
 // 计算列表可用高度
 // componentOffset = VCardItem搜索栏(68) + VDivider(1) + 分页栏(40) + VCard边距(2) = 111
@@ -50,6 +52,13 @@ const currentHistory = ref<TransferHistory>()
 
 // AI整理中的记录
 const aiRedoIds = ref<number[]>([])
+
+// AI整理进度
+const aiRedoProgressDialog = ref(false)
+const aiRedoProgressActive = ref(false)
+const aiRedoProgressText = ref(t('transferHistory.actions.aiRedoPending'))
+const aiRedoProgressSSE = ref<any>(null)
+const aiRedoProgressHistoryId = ref<number>()
 
 // 重新整理IDS
 const redoIds = ref<number[]>([])
@@ -434,82 +443,107 @@ function transferDone() {
 
 // AI助手是否启用
 const aiAgentEnabled = computed(() => Boolean(globalSettingsStore.globalSettings.AI_AGENT_ENABLE))
+const hasRunningAiRedo = computed(() => aiRedoIds.value.length > 0)
 
+// AI整理中的记录
 function isAiRedoing(historyId: number) {
   return aiRedoIds.value.includes(historyId)
 }
 
-function buildAiRedoPrompt(item: TransferHistory) {
-  const sourcePath = item.src_fileitem?.path || item.src || ''
+// 停止AI整理进度
+function stopAiRedoProgress() {
+  aiRedoProgressActive.value = false
 
-  return [
-    '/ai',
-    '[系统任务 - 手动 AI 整理]',
-    '这是用户从媒体整理记录页面手动触发的一次 AI 整理请求。',
-    '当前目标是处理一条已经整理过或整理失败的历史记录，尤其用于修正识别错误、综艺命名不规范等自动接管不会触发的场景。',
-    '',
-    '请优先基于下面这条历史记录独立完成判断，不要依赖之前会话中的上下文。',
-    '',
-    '历史记录信息：',
-    `- 历史记录 ID: ${item.id}`,
-    `- 当前状态: ${item.status ? '成功' : '失败'}`,
-    `- 当前识别标题: ${item.title || '未知'}`,
-    `- 媒体类型: ${item.type || '未知'}`,
-    `- 分类: ${item.category || '未知'}`,
-    `- 年份: ${item.year || '未知'}`,
-    `- 季/集: ${item.seasons || ''}${item.episodes || ''}`.trim() || '- 季/集: 未知',
-    `- 源路径: ${sourcePath || '未知'}`,
-    `- 目标路径: ${item.dest || '未知'}`,
-    `- 转移方式: ${item.mode || '未知'}`,
-    `- 当前 TMDB ID: ${item.tmdbid || '无'}`,
-    `- 当前 豆瓣 ID: ${item.doubanid || '无'}`,
-    `- 失败原因: ${item.errmsg || '无'}`,
-    '',
-    '处理要求：',
-    '1. 先判断这条记录当前识别是否可信；如果当前识别明显错误，请重新识别正确媒体。',
-    '2. 如有需要，可使用 recognize_media、search_media、query_transfer_history 等工具辅助判断。',
-    '3. 一旦确认了正确的媒体 ID 和类型，请优先使用 run_slash_command 执行 /redo 命令完成重新整理。',
-    `4. /redo 命令格式必须是：/redo ${item.id} <tmdbid或doubanid>|电影 或 /redo ${item.id} <tmdbid或doubanid>|电视剧`,
-    '5. 只有在你能可靠确认媒体信息时才执行整理；如果无法确认，请停止并说明原因，不要盲目整理。',
-    '6. 最终只需要用中文简洁反馈处理结果。',
-  ].join('\n')
+  if (aiRedoProgressSSE.value) {
+    aiRedoProgressSSE.value.stop()
+    aiRedoProgressSSE.value = null
+  }
 }
 
+// AI整理完成
+async function finishAiRedo(success: boolean, errorMessage?: string) {
+  const historyId = aiRedoProgressHistoryId.value
+
+  stopAiRedoProgress()
+  aiRedoProgressDialog.value = false
+  aiRedoProgressHistoryId.value = undefined
+
+  if (historyId !== undefined) {
+    aiRedoIds.value = aiRedoIds.value.filter(id => id !== historyId)
+  }
+
+  await fetchData()
+
+  if (!success && errorMessage) {
+    $toast.error(errorMessage)
+  }
+}
+
+// 处理AI整理进度
+async function handleAiRedoProgressMessage(event: MessageEvent) {
+  const progress = JSON.parse(event.data)
+  if (!progress) return
+
+  aiRedoProgressText.value = progress.text || t('transferHistory.actions.aiRedoPending')
+
+  if (progress.enable === false) {
+    await finishAiRedo(progress.data?.success !== false, progress.data?.error)
+  }
+}
+
+// 开始监听整理进度
+function startAiRedoProgress(historyId: number, progressKey: string) {
+  stopAiRedoProgress()
+
+  aiRedoProgressHistoryId.value = historyId
+  aiRedoProgressDialog.value = true
+  aiRedoProgressActive.value = true
+  aiRedoProgressText.value = t('transferHistory.actions.aiRedoPending')
+
+  const url = `${import.meta.env.VITE_API_BASE_URL}system/progress/${progressKey}`
+
+  aiRedoProgressSSE.value = useProgressSSE(
+    url,
+    handleAiRedoProgressMessage,
+    `transfer-history-ai-redo-${progressKey}`,
+    aiRedoProgressActive,
+  )
+
+  aiRedoProgressSSE.value.start()
+}
+
+// 触发AI整理
 async function triggerAiRedo(item: TransferHistory) {
   if (!aiAgentEnabled.value) {
     $toast.error(t('transferHistory.aiRedoDisabled'))
     return
   }
-  if (isAiRedoing(item.id)) return
+  if (hasRunningAiRedo.value) return
 
   aiRedoIds.value = [...aiRedoIds.value, item.id]
+  let progressStarted = false
   try {
-    const result: { [key: string]: any } = await api.post('message/web', {
-      text: buildAiRedoPrompt(item),
-    })
+    const result: { [key: string]: any } = await api.post(`history/transfer/${item.id}/ai-redo`)
 
-    if (!result.success) {
+    const progressKey = result.data?.progress_key
+
+    if (!result.success || !progressKey) {
       $toast.error(result.message || t('transferHistory.aiRedoFailed'))
       return
     }
-
-    $toast.success(
-      t('transferHistory.aiRedoQueued', {
-        title: item.title || sourcePathDisplay(item),
-      }),
-    )
+    startAiRedoProgress(item.id, progressKey)
+    progressStarted = true
   } catch (error) {
     console.error(error)
     $toast.error(t('transferHistory.aiRedoFailed'))
   } finally {
-    aiRedoIds.value = aiRedoIds.value.filter(id => id !== item.id)
+    if (!progressStarted) {
+      aiRedoIds.value = aiRedoIds.value.filter(id => id !== item.id)
+    }
   }
 }
 
-function sourcePathDisplay(item: TransferHistory) {
-  return item.src_fileitem?.name || item.src || `#${item.id}`
-}
-
+// 计算下拉菜单
 function getDropdownItems(item: TransferHistory) {
   return [
     {
@@ -517,7 +551,7 @@ function getDropdownItems(item: TransferHistory) {
       value: 0,
       props: {
         prependIcon: 'mdi-robot-outline',
-        disabled: !aiAgentEnabled.value || isAiRedoing(item.id),
+        disabled: !aiAgentEnabled.value || (hasRunningAiRedo.value && !isAiRedoing(item.id)),
         click: () => {
           triggerAiRedo(item)
         },
@@ -611,6 +645,10 @@ const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) =>
 onMounted(() => {
   loadStorages()
   fetchData()
+})
+
+onUnmounted(() => {
+  stopAiRedoProgress()
 })
 </script>
 
@@ -912,6 +950,7 @@ onMounted(() => {
   </VBottomSheet>
   <!-- 进度框 -->
   <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
+  <ProgressDialog v-if="aiRedoProgressDialog" v-model="aiRedoProgressDialog" :text="aiRedoProgressText" />
   <!-- 文件整理弹窗 -->
   <ReorganizeDialog
     v-if="redoDialog"
