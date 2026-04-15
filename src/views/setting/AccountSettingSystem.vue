@@ -37,9 +37,10 @@ const SystemSettings = ref<any>({
     AI_AGENT_JOB_INTERVAL: 24,
     LLM_PROVIDER: 'deepseek',
     LLM_MODEL: 'deepseek-chat',
+    LLM_SUPPORT_IMAGE_INPUT: false,
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
-     AI_AGENT_RETRY_TRANSFER: false,
+    AI_AGENT_RETRY_TRANSFER: false,
     AI_RECOMMEND_ENABLED: false,
     AI_RECOMMEND_USER_PREFERENCE: null,
     AI_RECOMMEND_MAX_ITEMS: 50,
@@ -792,6 +793,14 @@ onDeactivated(() => {
                     { title: t('setting.system.aiAgentJobInterval1M'), value: 720 },
                   ]"
                   prepend-inner-icon="mdi-timer-outline"
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                <VSwitch
+                  v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
+                  :label="t('setting.system.llmSupportImageInput')"
+                  :hint="t('setting.system.llmSupportImageInputHint')"
+                  persistent-hint
                 />
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">

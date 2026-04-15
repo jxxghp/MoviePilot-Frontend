@@ -1321,6 +1321,9 @@ export default {
       llmProviderHint: '选择使用的LLM服务提供商',
       llmModel: 'LLM模型名称',
       llmModelHint: '指定使用的LLM模型，如gpt-3.5-turbo、deepseek-chat等',
+      llmSupportImageInput: '模型支持图片输入',
+      llmSupportImageInputHint:
+        '启用后，消息中的图片会按多模态图片发送给 LLM；关闭后图片会作为附件保存到本地，并将文件路径提供给智能助手处理',
       llmMaxContextTokens: 'LLM 最大上下文 Token 数量 (K)',
       llmMaxContextTokensHint:
         '设定 LLM 记录会话历史的最大 Token 数量上限（千），超出后将自动修整历史记录以节省 Token 消耗及防止超出 LLM 限制',
