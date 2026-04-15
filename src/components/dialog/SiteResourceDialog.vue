@@ -41,14 +41,14 @@ const resourcePage = ref(1)
 // 加载状态
 const resourceLoading = ref(false)
 
+// 移动端搜索栏是否展开
+const mobileSearchExpanded = ref(false)
+
 // 种子元数据
 const torrent = ref<TorrentInfo>()
 
 // 添加下载对话框
 const addDownloadDialog = ref(false)
-
-// 移动端每页条数
-const mobileItemsPerPage = 8
 
 // 分类选项
 const categoryOptions = computed(() => {
@@ -88,17 +88,11 @@ const resultSummaryText = computed(() => {
   return `${resourceTotalItems.value} results`
 })
 
-// 移动端分页总页数
-const mobilePageCount = computed(() => {
-  return Math.max(1, Math.ceil(resourceTotalItems.value / mobileItemsPerPage))
-})
+// 是否小屏幕
+const isMobileLayout = computed(() => display.smAndDown.value)
 
 // 移动端分页数据
-const mobileResourceList = computed(() => {
-  const start = (resourcePage.value - 1) * mobileItemsPerPage
-
-  return resourceDataList.value.slice(start, start + mobileItemsPerPage)
-})
+const mobileResourceList = computed(() => resourceDataList.value)
 
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
@@ -154,6 +148,10 @@ async function getResourceList() {
   }
 
   resourceLoading.value = false
+
+  if (isMobileLayout.value) {
+    mobileSearchExpanded.value = false
+  }
 }
 
 // 加载站点分类
@@ -174,11 +172,24 @@ watch([resourceItemsPerPage, resourceTotalItems, () => display.mdAndUp.value], (
 
     return
   }
-
-  if (resourcePage.value > mobilePageCount.value) {
-    resourcePage.value = mobilePageCount.value
-  }
 })
+
+watch(
+  () => display.mdAndUp.value,
+  isDesktop => {
+    if (isDesktop) {
+      mobileSearchExpanded.value = false
+    }
+  },
+)
+
+function toggleMobileSearch() {
+  mobileSearchExpanded.value = !mobileSearchExpanded.value
+}
+
+function closeMobileSearch() {
+  mobileSearchExpanded.value = false
+}
 
 // 装载时查询站点分类和资源
 onMounted(() => {
@@ -203,67 +214,141 @@ onMounted(() => {
       </div>
 
       <div class="pa-3 pb-2">
-        <VSheet class="site-resource-filter-panel" rounded="lg" border>
-          <div class="site-resource-filter-panel__inner">
-            <VRow class="site-resource-filter-row">
-              <VCol cols="12" md="4">
-                <VTextField
-                  v-model="keyword"
-                  class="site-resource-filter-input"
-                  size="small"
-                  density="compact"
-                  variant="solo-filled"
-                  flat
-                  :label="keywordFieldLabel"
-                  clearable
-                  prepend-inner-icon="mdi-magnify"
-                  hide-details
-                  @keyup.enter="getResourceList"
-                />
-              </VCol>
-              <VCol cols="12" md="5">
-                <VSelect
-                  v-model="selectCategory"
-                  :items="categoryOptions"
-                  class="site-resource-filter-input"
-                  size="small"
-                  density="compact"
-                  variant="solo-filled"
-                  flat
-                  chips
-                  :label="categoryFieldLabel"
-                  multiple
-                  clearable
-                  prepend-inner-icon="mdi-folder"
-                  hide-details
-                />
-              </VCol>
-              <VCol cols="12" md="3" class="d-flex align-center">
-                <VBtn
-                  color="primary"
-                  variant="flat"
-                  block
-                  size="default"
-                  rounded="lg"
-                  prepend-icon="mdi-magnify"
-                  class="site-resource-search-btn"
-                  @click="getResourceList"
-                >
-                  {{ t('dialog.siteResource.search') }}
-                </VBtn>
-              </VCol>
-            </VRow>
+        <template v-if="!isMobileLayout">
+          <VSheet class="site-resource-filter-panel" rounded="lg" border>
+            <div class="site-resource-filter-panel__inner">
+              <VRow class="site-resource-filter-row">
+                <VCol cols="12" md="4">
+                  <VTextField
+                    v-model="keyword"
+                    class="site-resource-filter-input"
+                    size="small"
+                    density="compact"
+                    variant="solo-filled"
+                    flat
+                    :label="keywordFieldLabel"
+                    clearable
+                    prepend-inner-icon="mdi-magnify"
+                    hide-details
+                    @keyup.enter="getResourceList"
+                  />
+                </VCol>
+                <VCol cols="12" md="5">
+                  <VSelect
+                    v-model="selectCategory"
+                    :items="categoryOptions"
+                    class="site-resource-filter-input"
+                    size="small"
+                    density="compact"
+                    variant="solo-filled"
+                    flat
+                    chips
+                    :label="categoryFieldLabel"
+                    multiple
+                    clearable
+                    prepend-inner-icon="mdi-folder"
+                    hide-details
+                  />
+                </VCol>
+                <VCol cols="12" md="3" class="d-flex align-center">
+                  <VBtn
+                    color="primary"
+                    variant="flat"
+                    block
+                    size="default"
+                    rounded="lg"
+                    prepend-icon="mdi-magnify"
+                    class="site-resource-search-btn"
+                    @click="getResourceList"
+                  >
+                    {{ t('dialog.siteResource.search') }}
+                  </VBtn>
+                </VCol>
+              </VRow>
 
-            <div v-if="resourceTotalItems > 0" class="d-flex justify-space-between align-center flex-wrap gap-2 mt-3">
-              <div class="text-body-2 text-medium-emphasis">
-                {{ resultSummaryText }}
+              <div
+                v-if="resourceTotalItems > 0"
+                class="d-flex justify-space-between align-center flex-wrap gap-2 mt-3"
+              >
+                <div class="text-body-2 text-medium-emphasis">
+                  {{ resultSummaryText }}
+                </div>
+                <VChip size="small" color="primary" variant="tonal" class="site-resource-result-chip">
+                  {{ resourceTotalItems }}
+                </VChip>
               </div>
-              <VChip size="small" color="primary" variant="tonal" class="site-resource-result-chip">
-                {{ resourceTotalItems }}
-              </VChip>
+            </div>
+          </VSheet>
+        </template>
+
+        <template v-else>
+          <div class="site-resource-mobile-search">
+            <VBtn
+              icon
+              variant="text"
+              color="primary"
+              class="site-resource-mobile-search__toggle"
+              @click="toggleMobileSearch"
+            >
+              <VIcon icon="mdi-magnify" />
+            </VBtn>
+            <div v-if="resourceTotalItems > 0" class="text-body-2 text-medium-emphasis">
+              {{ resultSummaryText }}
             </div>
           </div>
-        </VSheet>
+
+          <VExpandTransition>
+            <div v-if="mobileSearchExpanded" class="mt-2">
+              <VSheet class="site-resource-filter-panel" rounded="lg" border>
+                <div class="site-resource-filter-panel__inner">
+                  <VRow class="site-resource-filter-row">
+                    <VCol cols="12">
+                      <VTextField
+                        v-model="keyword"
+                        class="site-resource-filter-input"
+                        size="small"
+                        density="compact"
+                        variant="solo-filled"
+                        flat
+                        :label="keywordFieldLabel"
+                        clearable
+                        prepend-inner-icon="mdi-magnify"
+                        hide-details
+                        autofocus
+                        @keyup.enter="getResourceList"
+                      />
+                    </VCol>
+                    <VCol cols="12">
+                      <VSelect
+                        v-model="selectCategory"
+                        :items="categoryOptions"
+                        class="site-resource-filter-input"
+                        size="small"
+                        density="compact"
+                        variant="solo-filled"
+                        flat
+                        chips
+                        :label="categoryFieldLabel"
+                        multiple
+                        clearable
+                        prepend-inner-icon="mdi-folder"
+                        hide-details
+                      />
+                    </VCol>
+                    <VCol cols="12" class="d-flex gap-2">
+                      <VBtn color="primary" variant="flat" block rounded="lg" class="site-resource-search-btn" @click="getResourceList">
+                        {{ t('dialog.siteResource.search') }}
+                      </VBtn>
+                      <VBtn variant="text" rounded="lg" @click="closeMobileSearch">
+                        {{ t('common.cancel') }}
+                      </VBtn>
+                    </VCol>
+                  </VRow>
+                </div>
+              </VSheet>
+            </div>
+          </VExpandTransition>
+        </template>
       </div>
 
       <VCardText class="site-resource-content px-0 py-0 my-0">
@@ -384,9 +469,7 @@ onMounted(() => {
             <VCard
               v-for="(item, index) in mobileResourceList"
               :key="item.page_url || item.enclosure || `${item.title}-${index}`"
-              class="site-resource-card mb-3"
-              rounded="lg"
-              variant="tonal"
+              class="mb-3"
             >
               <VCardText class="pa-4">
                 <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
@@ -474,14 +557,6 @@ onMounted(() => {
               </VCardText>
             </VCard>
 
-            <VPagination
-              v-if="mobilePageCount > 1"
-              v-model="resourcePage"
-              :length="mobilePageCount"
-              :total-visible="0"
-              rounded="circle"
-              class="mt-2"
-            />
           </div>
 
           <div v-else class="px-4 py-10 text-center text-medium-emphasis">
@@ -545,6 +620,17 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.site-resource-mobile-search {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.site-resource-mobile-search__toggle {
+  flex: 0 0 auto;
+}
+
 .site-resource-title-btn {
   padding: 0;
   border: 0;
@@ -585,14 +671,6 @@ onMounted(() => {
 
 .v-table th {
   white-space: nowrap;
-}
-
-.site-resource-card {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background:
-    linear-gradient(180deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.92)),
-    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.05), rgba(var(--v-theme-secondary), 0.03));
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 6%);
 }
 
 .site-resource-card__description {
@@ -650,6 +728,10 @@ onMounted(() => {
 
   .site-resource-filter-panel__inner {
     padding: 0.7rem 0.75rem;
+  }
+
+  .site-resource-mobile-search {
+    min-block-size: 2.5rem;
   }
 }
 </style>
