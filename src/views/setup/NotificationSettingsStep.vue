@@ -345,6 +345,10 @@ const notificationTypes = [
                       v-model="wizardData.notification.config.QQ_APP_ID"
                       :label="t('notification.qqbot.appId')"
                       :hint="t('notification.qqbot.appIdHint')"
+                      :error="validationErrors.notification.QQ_APP_ID"
+                      :error-messages="
+                        validationErrors.notification.QQ_APP_ID ? [t('notification.qqbot.appIdRequired')] : []
+                      "
                       persistent-hint
                       prepend-inner-icon="mdi-application"
                     />
@@ -354,6 +358,12 @@ const notificationTypes = [
                       v-model="wizardData.notification.config.QQ_APP_SECRET"
                       :label="t('notification.qqbot.appSecret')"
                       :hint="t('notification.qqbot.appSecretHint')"
+                      :error="validationErrors.notification.QQ_APP_SECRET"
+                      :error-messages="
+                        validationErrors.notification.QQ_APP_SECRET
+                          ? [t('notification.qqbot.appSecretRequired')]
+                          : []
+                      "
                       persistent-hint
                       prepend-inner-icon="mdi-key"
                     />

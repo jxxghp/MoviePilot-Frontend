@@ -3147,6 +3147,7 @@ export default {
     saveMediaServerSettingsFailed: '保存媒体服务器设置失败',
     notificationSettingsSaved: '通知设置保存成功',
     saveNotificationSettingsFailed: '保存通知设置失败',
+    saveAgentSettingsFailed: '保存智能助手设置失败',
     preferenceSettingsSaved: '偏好设置保存成功',
     savePreferenceSettingsFailed: '保存偏好设置失败',
     passwordUpdateSuccess: '密码更新成功',
@@ -3231,6 +3232,17 @@ export default {
       senderPassword: '发送密码',
       receiverEmail: '接收邮箱',
     },
+    agent: {
+      title: '智能助手',
+      description: '配置 Agent 助手与 LLM 参数',
+      info: '智能助手配置说明',
+      infoDesc: '启用后可在消息会话中使用 Agent 能力，也可开启失败整理接管和智能推荐。',
+      providerRequired: 'LLM 提供商不能为空',
+      apiKeyRequired: 'LLM API 密钥不能为空',
+      modelRequired: 'LLM 模型名称不能为空',
+      maxContextTokensRequired: 'LLM 最大上下文 Token 数量必须大于 0',
+      recommendMaxItemsRequired: '智能推荐分析条目上限必须大于 0',
+    },
     preferences: {
       title: '资源偏好',
       description: '设置资源下载偏好',
@@ -3273,7 +3285,3 @@ export default {
     },
   },
 }
-
-// Apply patch to add category strings
-// This is a temporary placeholder command to show intent.
-// I will use replace_file_content to actually edit the file safely.

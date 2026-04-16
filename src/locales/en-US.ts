@@ -3183,6 +3183,7 @@ export default {
     saveMediaServerSettingsFailed: 'Failed to save media server settings',
     notificationSettingsSaved: 'Notification settings saved successfully',
     saveNotificationSettingsFailed: 'Failed to save notification settings',
+    saveAgentSettingsFailed: 'Failed to save AI assistant settings',
     preferenceSettingsSaved: 'Preference settings saved successfully',
     savePreferenceSettingsFailed: 'Failed to save preference settings',
     passwordUpdateSuccess: 'Password updated successfully',
@@ -3267,6 +3268,18 @@ export default {
       senderEmail: 'Sender Email',
       senderPassword: 'Sender Password',
       receiverEmail: 'Receiver Email',
+    },
+    agent: {
+      title: 'AI Assistant',
+      description: 'Configure the Agent assistant and LLM parameters',
+      info: 'AI Assistant Configuration',
+      infoDesc:
+        'After enabling it, you can use the Agent in message conversations and optionally turn on transfer-failure takeover and AI recommendations.',
+      providerRequired: 'LLM provider is required',
+      apiKeyRequired: 'LLM API key is required',
+      modelRequired: 'LLM model name is required',
+      maxContextTokensRequired: 'LLM max context tokens must be greater than 0',
+      recommendMaxItemsRequired: 'AI recommendation analysis limit must be greater than 0',
     },
     preferences: {
       title: 'Resource Preferences',

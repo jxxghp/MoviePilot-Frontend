@@ -8,6 +8,7 @@ import StorageSettingsStep from '@/views/setup/StorageSettingsStep.vue'
 import DownloaderSettingsStep from '@/views/setup/DownloaderSettingsStep.vue'
 import MediaServerSettingsStep from '@/views/setup/MediaServerSettingsStep.vue'
 import NotificationSettingsStep from '@/views/setup/NotificationSettingsStep.vue'
+import AgentSettingsStep from '@/views/setup/AgentSettingsStep.vue'
 import PreferencesSettingsStep from '@/views/setup/PreferencesSettingsStep.vue'
 import ConnectivityTest from '@/views/setup/ConnectivityTest.vue'
 import { useDisplay } from 'vuetify'
@@ -121,8 +122,13 @@ onMounted(async () => {
               <NotificationSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤6：资源偏好 -->
+            <!-- 步骤6：智能助手 -->
             <VStepperWindowItem :value="6">
+              <AgentSettingsStep />
+            </VStepperWindowItem>
+
+            <!-- 步骤7：资源偏好 -->
+            <VStepperWindowItem :value="7">
               <PreferencesSettingsStep />
             </VStepperWindowItem>
           </VStepperWindow>

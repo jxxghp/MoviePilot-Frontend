@@ -13,6 +13,8 @@ export interface WizardData {
     username: string
     password: string
     confirmPassword: string
+    recognizeSource: string
+    ocrHost: string
     proxyHost: string
     githubToken: string
   }
@@ -40,6 +42,22 @@ export interface WizardData {
     enabled: boolean
     config: any
     switchs: any[]
+  }
+  agent: {
+    enabled: boolean
+    global: boolean
+    verbose: boolean
+    provider: string
+    model: string
+    supportImageInput: boolean
+    apiKey: string
+    baseUrl: string
+    maxContextTokens: number
+    jobInterval: number
+    retryTransfer: boolean
+    recommendEnabled: boolean
+    recommendUserPreference: string
+    recommendMaxItems: number
   }
   preferences: {
     quality: string
@@ -85,11 +103,18 @@ export interface ValidationErrorState {
     name: boolean
     [key: string]: boolean
   }
+  agent: {
+    provider: boolean
+    apiKey: boolean
+    model: boolean
+    maxContextTokens: boolean
+    recommendMaxItems: boolean
+  }
 }
 
 // 全局状态，所有组件共享
 const currentStep = ref(1)
-const totalSteps = 6
+const totalSteps = 7
 
 // 加载状态
 const isLoading = ref(false)
@@ -105,6 +130,8 @@ const wizardData = ref<WizardData>({
     username: '',
     password: '',
     confirmPassword: '',
+    recognizeSource: 'themoviedb',
+    ocrHost: '',
     proxyHost: '',
     githubToken: '',
   },
@@ -132,6 +159,22 @@ const wizardData = ref<WizardData>({
     enabled: false,
     config: {},
     switchs: [],
+  },
+  agent: {
+    enabled: false,
+    global: false,
+    verbose: false,
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    supportImageInput: true,
+    apiKey: '',
+    baseUrl: 'https://api.deepseek.com',
+    maxContextTokens: 64,
+    jobInterval: 0,
+    retryTransfer: false,
+    recommendEnabled: false,
+    recommendUserPreference: '',
+    recommendMaxItems: 50,
   },
   preferences: {
     quality: '4K',
@@ -168,6 +211,13 @@ const validationErrors = ref<ValidationErrorState>({
   notification: {
     name: false,
   },
+  agent: {
+    provider: false,
+    apiKey: false,
+    model: false,
+    maxContextTokens: false,
+    recommendMaxItems: false,
+  },
 })
 
 export function useSetupWizard() {
@@ -181,6 +231,7 @@ export function useSetupWizard() {
     downloader: {
       'qbittorrent': 'QbittorrentModule',
       'transmission': 'TransmissionModule',
+      'rtorrent': 'RtorrentModule',
     },
     // 媒体服务器映射
     mediaServer: {
@@ -196,6 +247,7 @@ export function useSetupWizard() {
       'wechat': 'WechatModule',
       'slack': 'SlackModule',
       'synologychat': 'SynologyChatModule',
+      'qqbot': 'QQBotModule',
       'vocechat': 'VoceChatModule',
       'webpush': 'WebPushModule',
     },
@@ -208,6 +260,7 @@ export function useSetupWizard() {
     t('setupWizard.downloader.title'),
     t('setupWizard.mediaServer.title'),
     t('setupWizard.notification.title'),
+    t('setupWizard.agent.title'),
     t('setupWizard.preferences.title'),
   ])
 
@@ -218,6 +271,7 @@ export function useSetupWizard() {
     t('setupWizard.downloader.description'),
     t('setupWizard.mediaServer.description'),
     t('setupWizard.notification.description'),
+    t('setupWizard.agent.description'),
     t('setupWizard.preferences.description'),
   ])
 
@@ -341,6 +395,13 @@ export function useSetupWizard() {
     validationErrors.value.notification = {
       name: false,
     }
+    validationErrors.value.agent = {
+      provider: false,
+      apiKey: false,
+      model: false,
+      maxContextTokens: false,
+      recommendMaxItems: false,
+    }
   }
 
   // 验证下载器字段
@@ -361,7 +422,11 @@ export function useSetupWizard() {
     }
 
     // 根据下载器类型验证其他必输项
-    if (wizardData.value.downloader.type === 'qbittorrent' || wizardData.value.downloader.type === 'transmission') {
+    if (
+      wizardData.value.downloader.type === 'qbittorrent'
+      || wizardData.value.downloader.type === 'transmission'
+      || wizardData.value.downloader.type === 'rtorrent'
+    ) {
       if (!wizardData.value.downloader.config?.username?.trim()) {
         errors.push(t('downloader.usernameRequired'))
         validationErrors.value.downloader.username = true
@@ -487,6 +552,12 @@ export function useSetupWizard() {
           validationErrors.value.notification.VOCECHAT_API_KEY = true
         }
         break
+      case 'webpush':
+        if (!config.WEBPUSH_USERNAME?.trim()) {
+          errors.push(t('notification.webpush.usernameRequired'))
+          validationErrors.value.notification.WEBPUSH_USERNAME = true
+        }
+        break
       case 'qqbot':
         if (!config.QQ_APP_ID?.trim()) {
           errors.push(t('notification.qqbot.appIdRequired'))
@@ -497,6 +568,49 @@ export function useSetupWizard() {
           validationErrors.value.notification.QQ_APP_SECRET = true
         }
         break
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    }
+  }
+
+  // 验证智能助手字段
+  function validateAgentFields(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = []
+    clearValidationErrors()
+
+    if (!wizardData.value.agent.enabled) {
+      return {
+        isValid: true,
+        errors,
+      }
+    }
+
+    if (!wizardData.value.agent.provider?.trim()) {
+      errors.push(t('setupWizard.agent.providerRequired'))
+      validationErrors.value.agent.provider = true
+    }
+
+    if (!wizardData.value.agent.apiKey?.trim()) {
+      errors.push(t('setupWizard.agent.apiKeyRequired'))
+      validationErrors.value.agent.apiKey = true
+    }
+
+    if (!wizardData.value.agent.model?.trim()) {
+      errors.push(t('setupWizard.agent.modelRequired'))
+      validationErrors.value.agent.model = true
+    }
+
+    if (!wizardData.value.agent.maxContextTokens || wizardData.value.agent.maxContextTokens < 1) {
+      errors.push(t('setupWizard.agent.maxContextTokensRequired'))
+      validationErrors.value.agent.maxContextTokens = true
+    }
+
+    if (wizardData.value.agent.recommendEnabled && (!wizardData.value.agent.recommendMaxItems || wizardData.value.agent.recommendMaxItems < 1)) {
+      errors.push(t('setupWizard.agent.recommendMaxItemsRequired'))
+      validationErrors.value.agent.recommendMaxItems = true
     }
 
     return {
@@ -563,7 +677,14 @@ export function useSetupWizard() {
         }
         break
 
-      case 6: // 偏好设置
+      case 6: // 智能助手设置
+        if (wizardData.value.agent.enabled) {
+          const validation = validateAgentFields()
+          errors.push(...validation.errors)
+        }
+        break
+
+      case 7: // 偏好设置
         // 偏好设置有默认值，不需要验证
         break
     }
@@ -794,18 +915,21 @@ export function useSetupWizard() {
       validation.errors.forEach(error => {
         $toast.error(error)
       })
-      return
+      return false
     }
 
     // 保存当前步骤的设置
-    await saveCurrentStepSettings()
+    const saved = await saveCurrentStepSettings()
+    if (!saved) {
+      return false
+    }
 
     // 检查是否需要进行测试
     const needsTest = shouldPerformTest(currentStep.value)
     if (needsTest) {
       const testResult = await testConnectivity(currentStep.value)
       if (!testResult) {
-        return
+        return false
       }
     }
 
@@ -814,6 +938,8 @@ export function useSetupWizard() {
       currentStep.value++
       connectivityTest.value.showResult = false
     }
+
+    return true
   }
 
   // 上一步
@@ -829,35 +955,36 @@ export function useSetupWizard() {
     try {
       switch (currentStep.value) {
         case 1:
-          await saveBasicSettings()
-          break
+          return await saveBasicSettings()
         case 2:
-          await saveStorageSettings()
-          break
+          return await saveStorageSettings()
         case 3:
-          await saveDownloaderSettings()
-          break
+          return await saveDownloaderSettings()
         case 4:
-          await saveMediaServerSettings()
-          break
+          return await saveMediaServerSettings()
         case 5:
-          await saveNotificationSettings()
-          break
+          return await saveNotificationSettings()
         case 6:
-          await savePreferenceSettings()
-          break
+          return await saveAgentSettings()
+        case 7:
+          return await savePreferenceSettings()
       }
     } catch (error) {
       console.error('Save current step settings failed:', error)
       $toast.error(t('setupWizard.saveStepFailed'))
+      return false
     }
+    return true
   }
 
   // 完成向导
   async function completeWizard() {
     try {
       // 先处理下一步（保存当前步骤设置）
-      await nextStep()
+      const saved = await nextStep()
+      if (!saved) {
+        return
+      }
       // 保存设置向导完成状态
       await saveSetupWizardState()
 
@@ -910,6 +1037,8 @@ export function useSetupWizard() {
       const basicSettings = {
         APP_DOMAIN: wizardData.value.basic.appDomain,
         API_TOKEN: wizardData.value.basic.apiToken,
+        RECOGNIZE_SOURCE: wizardData.value.basic.recognizeSource,
+        OCR_HOST: wizardData.value.basic.ocrHost,
         PROXY_HOST: wizardData.value.basic.proxyHost,
         GITHUB_TOKEN: wizardData.value.basic.githubToken,
       }
@@ -917,21 +1046,23 @@ export function useSetupWizard() {
       // 保存基础设置
       const response: { [key: string]: any } = await api.post('system/env', basicSettings)
       if (!response.success) {
-        return
+        return false
       }
 
       // 如果输入了密码，验证密码一致性
       if (wizardData.value.basic.password) {
         if (wizardData.value.basic.password !== wizardData.value.basic.confirmPassword) {
           $toast.error(t('dialog.userAddEdit.passwordMismatch'))
-          return
+          return false
         }
         // 更新用户密码
         await updateUserPassword()
       }
+      return true
     } catch (error) {
       console.error('Save basic settings failed:', error)
       $toast.error(t('setupWizard.saveBasicSettingsFailed'))
+      return false
     }
   }
 
@@ -970,9 +1101,11 @@ export function useSetupWizard() {
       }
 
       await api.post('system/setting/Directories', [directory])
+      return true
     } catch (error) {
       console.error('Save storage settings failed:', error)
       $toast.error(t('setupWizard.saveStorageSettingsFailed'))
+      return false
     }
   }
 
@@ -992,13 +1125,16 @@ export function useSetupWizard() {
         }
 
         await api.post('system/setting/Downloaders', [downloader])
+        return true
       } catch (error) {
         console.error('Save downloader settings failed:', error)
         $toast.error(t('setupWizard.saveDownloaderSettingsFailed'))
+        return false
       }
     } else {
       // 没有选择下载器时，清空现有配置
       console.log('No downloader selected, skipping save')
+      return true
     }
   }
 
@@ -1019,13 +1155,16 @@ export function useSetupWizard() {
         }
 
         await api.post('system/setting/MediaServers', [mediaServer])
+        return true
       } catch (error) {
         console.error('Save media server settings failed:', error)
         $toast.error(t('setupWizard.saveMediaServerSettingsFailed'))
+        return false
       }
     } else {
       // 没有选择媒体服务器时，清空现有配置
       console.log('No media server selected, skipping save')
+      return true
     }
   }
 
@@ -1046,13 +1185,46 @@ export function useSetupWizard() {
         }
 
         await api.post('system/setting/Notifications', [notification])
+        return true
       } catch (error) {
         console.error('Save notification settings failed:', error)
         $toast.error(t('setupWizard.saveNotificationSettingsFailed'))
+        return false
       }
     } else {
       // 没有选择通知时，清空现有配置
       console.log('No notification selected, skipping save')
+      return true
+    }
+  }
+
+  // 保存智能助手设置
+  async function saveAgentSettings() {
+    try {
+      const agentSettings = {
+        AI_AGENT_ENABLE: wizardData.value.agent.enabled,
+        AI_AGENT_GLOBAL: wizardData.value.agent.enabled ? wizardData.value.agent.global : false,
+        AI_AGENT_VERBOSE: wizardData.value.agent.enabled ? wizardData.value.agent.verbose : false,
+        LLM_PROVIDER: wizardData.value.agent.provider,
+        LLM_MODEL: wizardData.value.agent.model,
+        LLM_SUPPORT_IMAGE_INPUT: wizardData.value.agent.supportImageInput,
+        LLM_API_KEY: wizardData.value.agent.apiKey,
+        LLM_BASE_URL: wizardData.value.agent.baseUrl || null,
+        LLM_MAX_CONTEXT_TOKENS: wizardData.value.agent.maxContextTokens,
+        AI_AGENT_JOB_INTERVAL: wizardData.value.agent.enabled ? wizardData.value.agent.jobInterval : 0,
+        AI_AGENT_RETRY_TRANSFER: wizardData.value.agent.enabled ? wizardData.value.agent.retryTransfer : false,
+        AI_RECOMMEND_ENABLED:
+          wizardData.value.agent.enabled && wizardData.value.agent.recommendEnabled,
+        AI_RECOMMEND_USER_PREFERENCE: wizardData.value.agent.recommendUserPreference,
+        AI_RECOMMEND_MAX_ITEMS: wizardData.value.agent.recommendMaxItems,
+      }
+
+      await api.post('system/env', agentSettings)
+      return true
+    } catch (error) {
+      console.error('Save agent settings failed:', error)
+      $toast.error(t('setupWizard.saveAgentSettingsFailed'))
+      return false
     }
   }
 
@@ -1081,9 +1253,11 @@ export function useSetupWizard() {
           console.error('Save rule sequences failed:', error)
         }
       }
+      return true
     } catch (error) {
       console.error('Save preference settings failed:', error)
       $toast.error(t('setupWizard.savePreferenceSettingsFailed'))
+      return false
     }
   }
 
@@ -1115,12 +1289,32 @@ export function useSetupWizard() {
         if (result.data.PROXY_HOST) {
           wizardData.value.basic.proxyHost = result.data.PROXY_HOST
         }
+        if (result.data.RECOGNIZE_SOURCE) {
+          wizardData.value.basic.recognizeSource = result.data.RECOGNIZE_SOURCE
+        }
+        if (result.data.OCR_HOST) {
+          wizardData.value.basic.ocrHost = result.data.OCR_HOST
+        }
         if (result.data.GITHUB_TOKEN) {
           wizardData.value.basic.githubToken = result.data.GITHUB_TOKEN
         }
         if (result.data.SUPERUSER) {
           wizardData.value.basic.username = result.data.SUPERUSER
         }
+        wizardData.value.agent.enabled = Boolean(result.data.AI_AGENT_ENABLE)
+        wizardData.value.agent.global = Boolean(result.data.AI_AGENT_GLOBAL)
+        wizardData.value.agent.verbose = Boolean(result.data.AI_AGENT_VERBOSE)
+        wizardData.value.agent.provider = result.data.LLM_PROVIDER || 'deepseek'
+        wizardData.value.agent.model = result.data.LLM_MODEL || ''
+        wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true
+        wizardData.value.agent.apiKey = result.data.LLM_API_KEY || ''
+        wizardData.value.agent.baseUrl = result.data.LLM_BASE_URL || ''
+        wizardData.value.agent.maxContextTokens = result.data.LLM_MAX_CONTEXT_TOKENS || 64
+        wizardData.value.agent.jobInterval = result.data.AI_AGENT_JOB_INTERVAL || 0
+        wizardData.value.agent.retryTransfer = Boolean(result.data.AI_AGENT_RETRY_TRANSFER)
+        wizardData.value.agent.recommendEnabled = Boolean(result.data.AI_RECOMMEND_ENABLED)
+        wizardData.value.agent.recommendUserPreference = result.data.AI_RECOMMEND_USER_PREFERENCE || ''
+        wizardData.value.agent.recommendMaxItems = result.data.AI_RECOMMEND_MAX_ITEMS || 50
 
         // 如果没有API Token，则创建一个随机的
         if (!wizardData.value.basic.apiToken) {
@@ -1234,6 +1428,7 @@ export function useSetupWizard() {
     validateDownloaderFields,
     validateMediaServerFields,
     validateNotificationFields,
+    validateAgentFields,
     clearValidationErrors,
     testConnectivity,
     nextStep,
