@@ -18,6 +18,11 @@ export interface WizardData {
     proxyHost: string
     githubToken: string
   }
+  siteAuth: {
+    auxiliaryAuthEnable: boolean
+    site: string
+    params: Record<string, string | number>
+  }
   storage: {
     downloadPath: string
     libraryPath: string
@@ -85,6 +90,10 @@ export interface ConnectivityTestState {
 }
 
 export interface ValidationErrorState {
+  siteAuth: {
+    site: boolean
+    [key: string]: boolean
+  }
   downloader: {
     name: boolean
     host: boolean
@@ -114,13 +123,29 @@ export interface ValidationErrorState {
 
 // 全局状态，所有组件共享
 const currentStep = ref(1)
-const totalSteps = 7
+const totalSteps = 8
 
 // 加载状态
 const isLoading = ref(false)
 
 // 选中的预设规则
 const selectedPreset = ref('')
+
+// 可认证站点列表
+const authSites = ref<{
+  [key: string]: {
+    name: string
+    icon: string
+    params: {
+      [key: string]: {
+        name: string
+        type: string
+        placeholder?: string
+        tooltip?: string
+      }
+    }
+  }
+}>({})
 
 // 向导数据
 const wizardData = ref<WizardData>({
@@ -134,6 +159,11 @@ const wizardData = ref<WizardData>({
     ocrHost: '',
     proxyHost: '',
     githubToken: '',
+  },
+  siteAuth: {
+    auxiliaryAuthEnable: false,
+    site: '',
+    params: {},
   },
   storage: {
     downloadPath: '',
@@ -194,6 +224,9 @@ const connectivityTest = ref<ConnectivityTestState>({
 
 // 验证错误状态
 const validationErrors = ref<ValidationErrorState>({
+  siteAuth: {
+    site: false,
+  },
   downloader: {
     name: false,
     host: false,
@@ -256,6 +289,7 @@ export function useSetupWizard() {
   // 步骤标题
   const stepTitles = computed(() => [
     t('setupWizard.basic.title'),
+    t('setupWizard.siteAuth.title'),
     t('setupWizard.storage.title'),
     t('setupWizard.downloader.title'),
     t('setupWizard.mediaServer.title'),
@@ -267,6 +301,7 @@ export function useSetupWizard() {
   // 步骤描述
   const stepDescriptions = computed(() => [
     t('setupWizard.basic.description'),
+    t('setupWizard.siteAuth.description'),
     t('setupWizard.storage.description'),
     t('setupWizard.downloader.description'),
     t('setupWizard.mediaServer.description'),
@@ -378,6 +413,9 @@ export function useSetupWizard() {
 
   // 清除验证错误状态
   function clearValidationErrors() {
+    validationErrors.value.siteAuth = {
+      site: false,
+    }
     validationErrors.value.downloader = {
       name: false,
       host: false,
@@ -401,6 +439,47 @@ export function useSetupWizard() {
       model: false,
       maxContextTokens: false,
       recommendMaxItems: false,
+    }
+  }
+
+  // 验证用户站点认证字段
+  function validateSiteAuthFields(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = []
+    clearValidationErrors()
+
+    if (!wizardData.value.siteAuth.site) {
+      return {
+        isValid: true,
+        errors,
+      }
+    }
+
+    const selectedSite = authSites.value[wizardData.value.siteAuth.site]
+    if (!selectedSite) {
+      errors.push(t('setupWizard.siteAuth.siteConfigNotExist'))
+      validationErrors.value.siteAuth.site = true
+      return {
+        isValid: false,
+        errors,
+      }
+    }
+
+    const fields = Object.keys(selectedSite.params || {}).filter(key => {
+      return selectedSite.params[key]?.name && selectedSite.params[key]?.type
+    })
+
+    fields.forEach(key => {
+      const fieldKey = `${wizardData.value.siteAuth.site.toUpperCase()}_${key.toUpperCase()}`
+      const value = wizardData.value.siteAuth.params[fieldKey]
+      if (value === undefined || value === null || value === '') {
+        errors.push(t('setupWizard.siteAuth.fieldRequired', { name: selectedSite.params[key].name }))
+        validationErrors.value.siteAuth[fieldKey] = true
+      }
+    })
+
+    return {
+      isValid: errors.length === 0,
+      errors,
     }
   }
 
@@ -645,6 +724,13 @@ export function useSetupWizard() {
         break
 
       case 2: // 存储设置
+        if (wizardData.value.siteAuth.site) {
+          const validation = validateSiteAuthFields()
+          errors.push(...validation.errors)
+        }
+        break
+
+      case 3: // 存储设置
         if (!wizardData.value.storage.downloadPath) {
           errors.push(t('setupWizard.storage.downloadPathRequired'))
         }
@@ -653,7 +739,7 @@ export function useSetupWizard() {
         }
         break
 
-      case 3: // 下载器设置
+      case 4: // 下载器设置
         if (wizardData.value.downloader.type) {
           // 如果选择了下载器，则验证必输项
           const validation = validateDownloaderFields()
@@ -661,7 +747,7 @@ export function useSetupWizard() {
         }
         break
 
-      case 4: // 媒体服务器设置
+      case 5: // 媒体服务器设置
         if (wizardData.value.mediaServer.type) {
           // 如果选择了媒体服务器，则验证必输项
           const validation = validateMediaServerFields()
@@ -669,7 +755,7 @@ export function useSetupWizard() {
         }
         break
 
-      case 5: // 通知设置
+      case 6: // 通知设置
         if (wizardData.value.notification.type) {
           // 如果选择了通知，则验证必输项
           const validation = validateNotificationFields()
@@ -677,14 +763,14 @@ export function useSetupWizard() {
         }
         break
 
-      case 6: // 智能助手设置
+      case 7: // 智能助手设置
         if (wizardData.value.agent.enabled) {
           const validation = validateAgentFields()
           errors.push(...validation.errors)
         }
         break
 
-      case 7: // 偏好设置
+      case 8: // 偏好设置
         // 偏好设置有默认值，不需要验证
         break
     }
@@ -699,12 +785,14 @@ export function useSetupWizard() {
   function shouldPerformTest(step: number): boolean {
     switch (step) {
       case 2: // 存储目录测试 - 总是需要测试
+        return false
+      case 3: // 存储目录测试 - 总是需要测试
         return true
-      case 3: // 下载器测试 - 只有选择了下载器才测试
+      case 4: // 下载器测试 - 只有选择了下载器才测试
         return !!wizardData.value.downloader.type
-      case 4: // 媒体服务器测试 - 只有选择了媒体服务器才测试
+      case 5: // 媒体服务器测试 - 只有选择了媒体服务器才测试
         return !!wizardData.value.mediaServer.type
-      case 5: // 消息通知测试 - 只有选择了通知才测试
+      case 6: // 消息通知测试 - 只有选择了通知才测试
         return !!wizardData.value.notification.type
       default:
         return false
@@ -724,15 +812,17 @@ export function useSetupWizard() {
 
       switch (step) {
         case 2: // 存储目录测试
+          break
+        case 3: // 存储目录测试
           testResult = await testStorageConnectivity()
           break
-        case 3: // 下载器测试
+        case 4: // 下载器测试
           testResult = await testDownloaderConnectivity()
           break
-        case 4: // 媒体服务器测试
+        case 5: // 媒体服务器测试
           testResult = await testMediaServerConnectivity()
           break
-        case 5: // 消息通知测试
+        case 6: // 消息通知测试
           testResult = await testNotificationConnectivity()
           break
       }
@@ -957,16 +1047,18 @@ export function useSetupWizard() {
         case 1:
           return await saveBasicSettings()
         case 2:
-          return await saveStorageSettings()
+          return await saveSiteAuthSettings()
         case 3:
-          return await saveDownloaderSettings()
+          return await saveStorageSettings()
         case 4:
-          return await saveMediaServerSettings()
+          return await saveDownloaderSettings()
         case 5:
-          return await saveNotificationSettings()
+          return await saveMediaServerSettings()
         case 6:
-          return await saveAgentSettings()
+          return await saveNotificationSettings()
         case 7:
+          return await saveAgentSettings()
+        case 8:
           return await savePreferenceSettings()
       }
     } catch (error) {
@@ -1105,6 +1197,39 @@ export function useSetupWizard() {
     } catch (error) {
       console.error('Save storage settings failed:', error)
       $toast.error(t('setupWizard.saveStorageSettingsFailed'))
+      return false
+    }
+  }
+
+  // 保存用户站点认证设置
+  async function saveSiteAuthSettings() {
+    try {
+      const envResponse: { [key: string]: any } = await api.post('system/env', {
+        AUXILIARY_AUTH_ENABLE: wizardData.value.siteAuth.auxiliaryAuthEnable,
+      })
+
+      if (!envResponse.success) {
+        return false
+      }
+
+      if (!wizardData.value.siteAuth.site) {
+        return true
+      }
+
+      const response: { [key: string]: any } = await api.post('site/auth', {
+        site: wizardData.value.siteAuth.site,
+        params: wizardData.value.siteAuth.params,
+      })
+
+      if (!response.success) {
+        $toast.error(t('setupWizard.saveSiteAuthSettingsFailed', { message: response.message }))
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('Save site auth settings failed:', error)
+      $toast.error(t('setupWizard.saveSiteAuthSettingsFailed', { message: (error as Error).message || '' }))
       return false
     }
   }
@@ -1298,6 +1423,7 @@ export function useSetupWizard() {
         if (result.data.GITHUB_TOKEN) {
           wizardData.value.basic.githubToken = result.data.GITHUB_TOKEN
         }
+        wizardData.value.siteAuth.auxiliaryAuthEnable = Boolean(result.data.AUXILIARY_AUTH_ENABLE)
         if (result.data.SUPERUSER) {
           wizardData.value.basic.username = result.data.SUPERUSER
         }
@@ -1323,6 +1449,28 @@ export function useSetupWizard() {
       }
     } catch (error) {
       console.log('Load system settings failed:', error)
+    }
+  }
+
+  // 加载用户站点认证列表
+  async function loadAuthSites() {
+    try {
+      authSites.value = (await api.get('site/auth')) || {}
+    } catch (error) {
+      console.log('Load auth sites failed:', error)
+    }
+  }
+
+  // 加载用户站点认证设置
+  async function loadSiteAuthSettings() {
+    try {
+      const result: { [key: string]: any } = await api.get('system/setting/UserSiteAuthParams')
+      if (result.success && result.data?.value) {
+        wizardData.value.siteAuth.site = result.data.value.site || ''
+        wizardData.value.siteAuth.params = result.data.value.params || {}
+      }
+    } catch (error) {
+      console.log('Load site auth settings failed:', error)
     }
   }
 
@@ -1395,6 +1543,8 @@ export function useSetupWizard() {
     isLoading.value = true
     try {
       await loadSystemSettings()
+      await loadAuthSites()
+      await loadSiteAuthSettings()
       await loadStorageSettings()
       await loadDownloaderSettings()
       await loadMediaServerSettings()
@@ -1411,6 +1561,7 @@ export function useSetupWizard() {
     stepTitles,
     stepDescriptions,
     wizardData,
+    authSites,
     selectedPreset,
     connectivityTest,
     validationErrors,
@@ -1425,6 +1576,7 @@ export function useSetupWizard() {
     selectPreset,
     updatePreferences,
     validateCurrentStep,
+    validateSiteAuthFields,
     validateDownloaderFields,
     validateMediaServerFields,
     validateNotificationFields,

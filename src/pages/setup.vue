@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSetupWizard } from '@/composables/useSetupWizard'
 import BasicSettingsStep from '@/views/setup/BasicSettingsStep.vue'
+import SiteAuthSettingsStep from '@/views/setup/SiteAuthSettingsStep.vue'
 import StorageSettingsStep from '@/views/setup/StorageSettingsStep.vue'
 import DownloaderSettingsStep from '@/views/setup/DownloaderSettingsStep.vue'
 import MediaServerSettingsStep from '@/views/setup/MediaServerSettingsStep.vue'
@@ -102,33 +103,38 @@ onMounted(async () => {
               <BasicSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤2：存储目录 -->
+            <!-- 步骤2：用户认证 -->
             <VStepperWindowItem :value="2">
+              <SiteAuthSettingsStep />
+            </VStepperWindowItem>
+
+            <!-- 步骤3：存储目录 -->
+            <VStepperWindowItem :value="3">
               <StorageSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤3：下载器 -->
-            <VStepperWindowItem :value="3">
+            <!-- 步骤4：下载器 -->
+            <VStepperWindowItem :value="4">
               <DownloaderSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤4：媒体服务器 -->
-            <VStepperWindowItem :value="4">
+            <!-- 步骤5：媒体服务器 -->
+            <VStepperWindowItem :value="5">
               <MediaServerSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤5：通知 -->
-            <VStepperWindowItem :value="5">
+            <!-- 步骤6：通知 -->
+            <VStepperWindowItem :value="6">
               <NotificationSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤6：智能助手 -->
-            <VStepperWindowItem :value="6">
+            <!-- 步骤7：智能助手 -->
+            <VStepperWindowItem :value="7">
               <AgentSettingsStep />
             </VStepperWindowItem>
 
-            <!-- 步骤7：资源偏好 -->
-            <VStepperWindowItem :value="7">
+            <!-- 步骤8：资源偏好 -->
+            <VStepperWindowItem :value="8">
               <PreferencesSettingsStep />
             </VStepperWindowItem>
           </VStepperWindow>

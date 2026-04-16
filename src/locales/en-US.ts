@@ -3183,6 +3183,7 @@ export default {
     saveMediaServerSettingsFailed: 'Failed to save media server settings',
     notificationSettingsSaved: 'Notification settings saved successfully',
     saveNotificationSettingsFailed: 'Failed to save notification settings',
+    saveSiteAuthSettingsFailed: 'Failed to save user site authentication settings: {message}',
     saveAgentSettingsFailed: 'Failed to save AI assistant settings',
     preferenceSettingsSaved: 'Preference settings saved successfully',
     savePreferenceSettingsFailed: 'Failed to save preference settings',
@@ -3204,6 +3205,17 @@ export default {
       passwordOptionalHint: 'Leave blank to keep current password',
       confirmPasswordHint: 'Confirm new password',
       apiTokenRequired: 'API Token is required',
+    },
+    siteAuth: {
+      title: 'User Authentication',
+      description: 'Configure site authentication and auxiliary authentication',
+      info: 'User Site Authentication',
+      infoDesc:
+        'Completing site authentication unlocks site capabilities and some plugin permissions. This step is optional and can also be configured later from the user menu.',
+      selectSiteHint: 'Choose a supported auth site and fill in the required credentials for that site',
+      submitHint: 'When you click Next, the wizard will immediately validate against the selected auth site and save the current parameters on success.',
+      siteConfigNotExist: 'Authentication site configuration does not exist',
+      fieldRequired: 'Please enter {name}',
     },
     storage: {
       title: 'Storage',
