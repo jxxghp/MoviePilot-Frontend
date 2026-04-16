@@ -1129,7 +1129,7 @@ export function useSetupWizard() {
       const basicSettings = {
         APP_DOMAIN: wizardData.value.basic.appDomain,
         API_TOKEN: wizardData.value.basic.apiToken,
-        RECOGNIZE_SOURCE: wizardData.value.basic.recognizeSource,
+        RECOGNIZE_SOURCE: 'themoviedb',
         OCR_HOST: wizardData.value.basic.ocrHost,
         PROXY_HOST: wizardData.value.basic.proxyHost,
         GITHUB_TOKEN: wizardData.value.basic.githubToken,
@@ -1413,9 +1413,6 @@ export function useSetupWizard() {
         }
         if (result.data.PROXY_HOST) {
           wizardData.value.basic.proxyHost = result.data.PROXY_HOST
-        }
-        if (result.data.RECOGNIZE_SOURCE) {
-          wizardData.value.basic.recognizeSource = result.data.RECOGNIZE_SOURCE
         }
         if (result.data.OCR_HOST) {
           wizardData.value.basic.ocrHost = result.data.OCR_HOST

@@ -37,11 +37,6 @@ const confirmPasswordErrorMessage = computed(() => {
   return ''
 })
 
-const recognizeSourceItems = [
-  { title: 'TheMovieDb', value: 'themoviedb' },
-  { title: '豆瓣', value: 'douban' },
-]
-
 // API Token验证
 const apiTokenError = computed(() => {
   return !wizardData.value.basic.apiToken && hasErrors.value
@@ -122,16 +117,6 @@ const usernameErrorMessage = computed(() => {
             :error="confirmPasswordError"
             :error-messages="confirmPasswordError ? [confirmPasswordErrorMessage] : []"
             clearable
-          />
-        </VCol>
-        <VCol cols="12" md="6">
-          <VSelect
-            v-model="wizardData.basic.recognizeSource"
-            :label="t('setupWizard.basic.recognizeSource')"
-            :hint="t('setupWizard.basic.recognizeSourceHint')"
-            :items="recognizeSourceItems"
-            persistent-hint
-            prepend-inner-icon="mdi-database-search"
           />
         </VCol>
         <VCol cols="12" md="6">
