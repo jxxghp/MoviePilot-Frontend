@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
+import draggable from 'vuedraggable'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -107,18 +108,8 @@ function formatRepoDisplay(url: string) {
   return url
 }
 
-function moveUp(index: number) {
-  if (index === 0) return
-  const temp = repoList.value[index]
-  repoList.value[index] = repoList.value[index - 1]
-  repoList.value[index - 1] = temp
-}
-
-function moveDown(index: number) {
-  if (index === repoList.value.length - 1) return
-  const temp = repoList.value[index]
-  repoList.value[index] = repoList.value[index + 1]
-  repoList.value[index + 1] = temp
+function repoItemKey(repo: string) {
+  return repo
 }
 
 onMounted(() => {
@@ -155,57 +146,65 @@ onMounted(() => {
 
         <div class="plugin-market-list-wrap">
           <VList v-if="repoList.length > 0" class="px-0">
-            <template v-for="(repo, index) in repoList" :key="index">
-              <VListItem class="py-2">
-                <template #prepend>
-                  <div class="d-flex align-center me-2">
-                    <VBtn
-                      icon="mdi-chevron-up"
-                      size="x-small"
-                      variant="text"
-                      @click="moveUp(index)"
-                      :disabled="index === 0"
+            <draggable
+              v-model="repoList"
+              :item-key="repoItemKey"
+              handle=".drag-handle"
+              animation="200"
+              :disabled="editingIndex !== null"
+            >
+              <template #item="{ element: repo, index }">
+                <div>
+                  <VListItem class="py-2">
+                    <template #prepend>
+                      <VBtn
+                        icon="mdi-drag-vertical"
+                        size="small"
+                        variant="text"
+                        color="primary"
+                        class="drag-handle me-2"
+                        :disabled="editingIndex !== null"
+                      />
+                    </template>
+
+                    <VListItemTitle v-if="editingIndex !== index">
+                      <span class="text-truncate" :title="repo">{{ formatRepoDisplay(repo) }}</span>
+                    </VListItemTitle>
+
+                    <VTextField
+                      v-else
+                      v-model="editingUrl"
+                      density="compact"
+                      variant="outlined"
+                      hide-details
+                      @keyup.enter="saveEdit"
+                      @keyup.escape="cancelEdit"
                     />
-                    <VBtn
-                      icon="mdi-chevron-down"
-                      size="x-small"
-                      variant="text"
-                      @click="moveDown(index)"
-                      :disabled="index === repoList.length - 1"
-                    />
-                  </div>
-                </template>
 
-                <VListItemTitle v-if="editingIndex !== index">
-                  <span class="text-truncate" :title="repo">{{ formatRepoDisplay(repo) }}</span>
-                </VListItemTitle>
+                    <template #append v-if="editingIndex !== index">
+                      <div class="d-flex align-center">
+                        <IconBtn icon="mdi-pencil" size="small" variant="text" @click="startEdit(index)" />
+                        <IconBtn
+                          icon="mdi-delete"
+                          size="small"
+                          variant="text"
+                          color="error"
+                          @click="removeRepo(index)"
+                        />
+                      </div>
+                    </template>
 
-                <VTextField
-                  v-else
-                  v-model="editingUrl"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                  @keyup.enter="saveEdit"
-                  @keyup.escape="cancelEdit"
-                />
-
-                <template #append v-if="editingIndex !== index">
-                  <div class="d-flex align-center">
-                    <IconBtn icon="mdi-pencil" size="small" variant="text" @click="startEdit(index)" />
-                    <IconBtn icon="mdi-delete" size="small" variant="text" color="error" @click="removeRepo(index)" />
-                  </div>
-                </template>
-
-                <template #append v-else>
-                  <div class="d-flex align-center">
-                    <IconBtn icon="mdi-check" size="small" variant="text" color="success" @click="saveEdit" />
-                    <IconBtn icon="mdi-close" size="small" variant="text" @click="cancelEdit" />
-                  </div>
-                </template>
-              </VListItem>
-              <VDivider v-if="index < repoList.length - 1" class="mx-4" />
-            </template>
+                    <template #append v-else>
+                      <div class="d-flex align-center">
+                        <IconBtn icon="mdi-check" size="small" variant="text" color="success" @click="saveEdit" />
+                        <IconBtn icon="mdi-close" size="small" variant="text" @click="cancelEdit" />
+                      </div>
+                    </template>
+                  </VListItem>
+                  <VDivider v-if="index < repoList.length - 1" class="mx-4" />
+                </div>
+              </template>
+            </draggable>
           </VList>
 
           <div v-else class="text-center text-medium-emphasis py-8">
