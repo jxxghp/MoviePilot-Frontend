@@ -123,6 +123,7 @@ onMounted(() => {
         <div class="plugin-market-input mb-4">
           <VTextField
             v-model="newRepoUrl"
+            density="compact"
             :placeholder="t('dialog.pluginMarketSetting.urlPlaceholder')"
             prepend-inner-icon="mdi-link-plus"
             clearable
@@ -140,8 +141,20 @@ onMounted(() => {
               <VListItem class="py-2">
                 <template #prepend>
                   <div class="d-flex align-center me-2">
-                    <VBtn icon="mdi-chevron-up" size="x-small" variant="text" @click="moveUp(index)" :disabled="index === 0" />
-                    <VBtn icon="mdi-chevron-down" size="x-small" variant="text" @click="moveDown(index)" :disabled="index === repoList.length - 1" />
+                    <VBtn
+                      icon="mdi-chevron-up"
+                      size="x-small"
+                      variant="text"
+                      @click="moveUp(index)"
+                      :disabled="index === 0"
+                    />
+                    <VBtn
+                      icon="mdi-chevron-down"
+                      size="x-small"
+                      variant="text"
+                      @click="moveDown(index)"
+                      :disabled="index === repoList.length - 1"
+                    />
                   </div>
                 </template>
 
@@ -185,7 +198,12 @@ onMounted(() => {
       </VCardText>
       <VCardActions>
         <VSpacer />
-        <VBtn @click="saveHandle" prepend-icon="mdi-content-save-check" class="px-5 me-3" :disabled="repoList.length === 0">
+        <VBtn
+          @click="saveHandle"
+          prepend-icon="mdi-content-save-check"
+          class="px-5 me-3"
+          :disabled="repoList.length === 0"
+        >
           {{ t('dialog.pluginMarketSetting.save') }}
         </VBtn>
       </VCardActions>
@@ -204,7 +222,7 @@ onMounted(() => {
   overflow: hidden;
   flex: 1;
   flex-direction: column;
-  min-height: 0;
+  min-block-size: 0;
 }
 
 .plugin-market-input {
@@ -212,8 +230,8 @@ onMounted(() => {
 }
 
 .plugin-market-list-wrap {
-  overflow-y: auto;
   flex: 1;
-  min-height: 0;
+  min-block-size: 0;
+  overflow-y: auto;
 }
 </style>

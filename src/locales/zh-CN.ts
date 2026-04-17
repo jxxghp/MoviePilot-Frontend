@@ -2219,7 +2219,7 @@ export default {
       repoUrl: '插件仓库地址',
       repoPlaceholder: '格式：https://github.com/jxxghp/MoviePilot-Plugins/,https://github.com/xxxx/xxxxxx/',
       repoHint: '多个地址使用换行分隔，仅支持Github仓库',
-      urlPlaceholder: '输入插件仓库地址后按回车添加',
+      urlPlaceholder: '输入插件仓库地址',
       noRepos: '暂无插件仓库地址',
       invalidUrl: '请输入有效的URL地址',
       duplicateUrl: '该地址已存在',

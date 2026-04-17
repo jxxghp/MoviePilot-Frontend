@@ -316,7 +316,8 @@ export default {
   settingTabs: {
     system: {
       title: '系統',
-      description: '基礎設置、下載器（Qbittorrent、Transmission）、媒體服務器（Emby、Jellyfin、Plex、飛牛影視、綠聯影視）',
+      description:
+        '基礎設置、下載器（Qbittorrent、Transmission）、媒體服務器（Emby、Jellyfin、Plex、飛牛影視、綠聯影視）',
     },
     directory: {
       title: '存儲 & 目錄',
@@ -1428,8 +1429,8 @@ export default {
       fanartEnableHint: '使用 fanart.tv 的圖片數據',
       fanartLang: 'Fanart語言',
       fanartLangHint: '設定Fanart圖片的語言偏好，多選時按優先級順序排列',
-      recognizePluginFirst: "優先使用插件識別",
-      recognizePluginFirstHint: "優先調用插件識別媒體信息，若插件命中則不再調用原生識別",
+      recognizePluginFirst: '優先使用插件識別',
+      recognizePluginFirstHint: '優先調用插件識別媒體信息，若插件命中則不再調用原生識別',
       githubProxy: 'Github加速代理',
       githubProxyPlaceholder: '留空表示不使用代理',
       githubProxyHint: '使用代理加速Github訪問速度',
@@ -1544,7 +1545,7 @@ export default {
         skipDesc: '跳過刮削，不生成該文件',
         missingOnlyDesc: '僅在缺失時刮削，已存在則保持不變',
         overwriteDesc: '始終刮削，已存在則覆蓋',
-      }
+      },
     },
     site: {
       siteSync: '站點同步',
@@ -2220,7 +2221,7 @@ export default {
       repoUrl: '插件倉庫地址',
       repoPlaceholder: '格式：https://github.com/jxxghp/MoviePilot-Plugins/,https://github.com/xxxx/xxxxxx/',
       repoHint: '多個地址使用换行分隔，僅支援Github倉庫',
-      urlPlaceholder: '輸入插件倉庫地址後按回車新增',
+      urlPlaceholder: '輸入插件倉庫地址',
       noRepos: '暫無插件倉庫地址',
       invalidUrl: '請輸入有效的URL地址',
       duplicateUrl: '該地址已存在',

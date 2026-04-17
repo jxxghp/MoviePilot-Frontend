@@ -2248,7 +2248,7 @@ export default {
       repoUrl: 'Plugin Repository URL',
       repoPlaceholder: 'Format: https://github.com/jxxghp/MoviePilot-Plugins/,https://github.com/xxxx/xxxxxx/',
       repoHint: 'Multiple URLs separated by lines, only Github repositories are supported',
-      urlPlaceholder: 'Enter plugin repository URL and press Enter to add',
+      urlPlaceholder: 'Enter plugin repository URL',
       noRepos: 'No plugin repository URLs',
       invalidUrl: 'Please enter a valid URL',
       duplicateUrl: 'This URL already exists',
