@@ -89,6 +89,24 @@ function cancelEdit() {
   editingUrl.value = ''
 }
 
+function formatRepoDisplay(url: string) {
+  try {
+    const parsedUrl = new URL(url)
+    const pathSegments = parsedUrl.pathname.split('/').filter(Boolean)
+
+    if (
+      ['github.com', 'www.github.com', 'raw.githubusercontent.com'].includes(parsedUrl.hostname)
+      && pathSegments.length >= 2
+    ) {
+      return `${pathSegments[0]}/${pathSegments[1].replace(/\.git$/, '')}`
+    }
+  } catch {
+    // Ignore malformed URLs and fall back to the original value.
+  }
+
+  return url
+}
+
 function moveUp(index: number) {
   if (index === 0) return
   const temp = repoList.value[index]
@@ -159,7 +177,7 @@ onMounted(() => {
                 </template>
 
                 <VListItemTitle v-if="editingIndex !== index">
-                  <span class="text-truncate">{{ repo }}</span>
+                  <span class="text-truncate" :title="repo">{{ formatRepoDisplay(repo) }}</span>
                 </VListItemTitle>
 
                 <VTextField
