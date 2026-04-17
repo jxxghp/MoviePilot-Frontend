@@ -1467,6 +1467,9 @@ export default {
       logFileFormatHint: 'Set the output format of log files to customize the displayed content of logs',
       pluginAutoReload: 'Plugin Hot Reload',
       pluginAutoReloadHint: 'Automatically reload after modifying plugin files, used when developing plugins',
+      pluginLocalPaths: 'Local Plugin Paths',
+      pluginLocalPathsHint:
+        'Local plugin repository directories. Separate multiple directories with commas. Relative and absolute paths are supported.',
       encodingDetectionPerformanceMode: 'Encoding Detection Performance Mode',
       encodingDetectionPerformanceModeHint:
         'Prioritize detection efficiency, but may reduce encoding detection accuracy',

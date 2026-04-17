@@ -84,6 +84,7 @@ const SystemSettings = ref<any>({
     LOG_FILE_FORMAT: '【%(levelname)s】%(asctime)s - %(message)s',
     // 实验室
     PLUGIN_AUTO_RELOAD: false,
+    PLUGIN_LOCAL_PATHS: '',
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
     TRANSFER_THREADS: 1,
   },
@@ -1456,6 +1457,15 @@ onDeactivated(() => {
                     :label="t('setting.system.pluginAutoReload')"
                     :hint="t('setting.system.pluginAutoReloadHint')"
                     persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.PLUGIN_LOCAL_PATHS"
+                    :label="t('setting.system.pluginLocalPaths')"
+                    :hint="t('setting.system.pluginLocalPathsHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-folder-code"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
