@@ -610,15 +610,18 @@ async function saveFolderPluginOrder() {
 
 // 初始化过滤选项
 function initOptions(item: Plugin) {
+  const LOCAL_REPO_LABEL = '本地'
   const optionValue = (options: Array<string>, value: string | undefined) => {
-    value && !options.includes(value) && options.push(value)
+    if (!value || options.includes(value)) return
+    if (value === LOCAL_REPO_LABEL) options.unshift(value)
+    else options.push(value)
   }
   const optionMutipleValue = (options: Array<string>, value: string | undefined) => {
     value && value.split(',').forEach(v => !options.includes(v) && options.push(v))
   }
   optionValue(authorFilterOptions.value, item.plugin_author)
   optionMutipleValue(labelFilterOptions.value, item.plugin_label)
-  optionValue(repoFilterOptions.value, handleRepoUrl(item.repo_url))
+  optionValue(repoFilterOptions.value, handleRepoUrl(item))
 }
 
 // 关闭插件市场窗口
@@ -650,7 +653,7 @@ async function installPlugin(item: Plugin) {
       enabledFilter.value = false
       installedFilter.value = null
       // 刷新
-      refreshData()
+      await refreshData()
     } else {
       $toast.error(t('plugin.installFailed', { name: item?.plugin_name, message: result.message }))
     }
@@ -750,6 +753,7 @@ async function fetchUninstalledPlugins(force: boolean = false) {
     // 排除已安装且有更新的，上面的问题在于"本地存在未安装的旧版本插件且云端有更新时"不会在插件市场展示
     marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
     // 初始化过滤选项
+    repoFilterOptions.value = []
     marketList.value.forEach(initOptions)
     // 设置APP市场加载完成
     isAppMarketLoaded.value = true
@@ -770,7 +774,7 @@ async function getPluginStatistics() {
 // 加载所有数据
 async function refreshData() {
   await fetchInstalledPlugins()
-  fetchUninstalledPlugins()
+  await fetchUninstalledPlugins()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
 }
@@ -794,7 +798,7 @@ watch([marketList, filterForm, activeSort], () => {
         filterText(filterForm.name, `${value.plugin_name} ${value.plugin_desc}`) &&
         match(filterForm.author, value.plugin_author) &&
         matchMultiple(filterForm.label, value.plugin_label) &&
-        match(filterForm.repo, handleRepoUrl(value.repo_url))
+        match(filterForm.repo, handleRepoUrl(value))
       ) {
         sortedUninstalledList.value.push(value)
       }
@@ -825,9 +829,9 @@ function pluginLabels(label: string | undefined) {
 }
 
 // 新安装了插件
-function pluginInstalled() {
+async function pluginInstalled() {
   pluginDialogClose()
-  refreshData()
+  await refreshData()
 }
 
 // 插件市场设置完成
@@ -851,8 +855,11 @@ async function refreshMarket() {
 }
 
 // 处理掉github地址的前缀
-function handleRepoUrl(url: string | undefined) {
+function handleRepoUrl(item: Plugin | string | undefined) {
+  const url = typeof item === 'string' ? item : item?.repo_url
+  if (typeof item !== 'string' && item?.is_local) return '本地'
   if (!url) return ''
+  if (url.startsWith('local://')) return '本地'
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
