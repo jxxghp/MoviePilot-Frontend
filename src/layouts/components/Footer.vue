@@ -120,6 +120,12 @@ interface DynamicButton {
   action: () => void
   show: boolean
   routePath?: string // 添加路径属性，用于标识哪个路由注册的
+  menuItems?: {
+    title: string
+    icon?: string
+    color?: string
+    action: () => void
+  }[]
 }
 
 // 提供动态按钮注册和获取的方法
@@ -146,6 +152,7 @@ if (typeof window !== 'undefined') {
 // 提供给其他组件使用
 provide('registerDynamicButton', registerDynamicButton)
 provide('unregisterDynamicButton', unregisterDynamicButton)
+provide('dynamicButton', dynamicButton)
 
 // 在组件销毁时清理
 onUnmounted(() => {
@@ -165,6 +172,8 @@ const showDynamicButton = computed(() => {
     (!dynamicButton.value.routePath || dynamicButton.value.routePath === route.path)
   )
 })
+
+const hasDynamicButtonMenu = computed(() => Boolean(dynamicButton.value?.menuItems?.length))
 </script>
 
 <template>
@@ -223,16 +232,33 @@ const showDynamicButton = computed(() => {
         >
           <VCardText class="footer-card-content">
             <!-- 各页面的动态按钮 -->
-            <VBtn
-              icon
-              variant="text"
-              :ripple="false"
-              @click="dynamicButton?.action()"
-              rounded="pill"
-              class="footer-nav-btn"
-            >
-              <VIcon color="secondary" :icon="dynamicButton?.icon || 'mdi-plus'" size="28"></VIcon>
-            </VBtn>
+            <div class="dynamic-btn-activator">
+              <VBtn
+                icon
+                variant="text"
+                :ripple="false"
+                @click="!hasDynamicButtonMenu && dynamicButton?.action()"
+                rounded="pill"
+                class="footer-nav-btn"
+              >
+                <VIcon color="secondary" :icon="dynamicButton?.icon || 'mdi-plus'" size="28"></VIcon>
+              </VBtn>
+              <VMenu v-if="hasDynamicButtonMenu" activator="parent" location="top end" close-on-content-click>
+                <VList>
+                  <VListItem
+                    v-for="(item, index) in dynamicButton?.menuItems"
+                    :key="index"
+                    :base-color="item.color"
+                    @click="item.action()"
+                  >
+                    <template #prepend>
+                      <VIcon v-if="item.icon" :icon="item.icon" />
+                    </template>
+                    <VListItemTitle>{{ item.title }}</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </div>
           </VCardText>
         </VCard>
       </TransitionGroup>

@@ -2,50 +2,34 @@
 import api from '@/api'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
-import { computed } from 'vue'
 import { useDisplay } from 'vuetify'
 
-// 显示器宽度
 const display = useDisplay()
 
-// 国际化
 const { t } = useI18n()
 const $toast = useToast()
 
-// 插件仓库设置字符串
-const repoString = ref('')
-// 用于显示的仓库地址数组
-const repoArray = ref<string[]>([])
+const repoList = ref<string[]>([])
+const newRepoUrl = ref('')
+const editingIndex = ref<number | null>(null)
+const editingUrl = ref('')
 
-// 计算属性：在数组和换行符分隔的字符串之间转换
-const displayRepos = computed({
-  get: () => repoArray.value.join('\n'),
-  set: (value: string) => {
-    repoArray.value = value.split('\n').filter((repo: string) => repo.trim() !== '')
-  },
-})
-
-// 定义事件
 const emit = defineEmits(['save', 'close'])
 
-// 查询已设置的插件仓库
 async function queryMarketRepoSetting() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/PLUGIN_MARKET')
     if (result && result.data && result.data.value) {
-      repoString.value = result.data.value
-      repoArray.value = result.data.value.split(',').filter((repo: string) => repo.trim() !== '')
+      repoList.value = result.data.value.split(',').filter((repo: string) => repo.trim() !== '')
     }
   } catch (error) {
     console.log(error)
   }
 }
 
-// 保存设置
 async function saveHandle() {
   try {
-    // 将数组转换为逗号分隔的字符串
-    const repoStringToSave = repoArray.value.join(',')
+    const repoStringToSave = repoList.value.join(',')
     const result: { [key: string]: any } = await api.post('system/setting/PLUGIN_MARKET', repoStringToSave)
 
     if (result.success) {
@@ -57,6 +41,68 @@ async function saveHandle() {
   }
 }
 
+function addRepo() {
+  const url = newRepoUrl.value.trim()
+  if (!url) return
+
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    $toast.error(t('dialog.pluginMarketSetting.invalidUrl'))
+    return
+  }
+
+  if (repoList.value.includes(url)) {
+    $toast.error(t('dialog.pluginMarketSetting.duplicateUrl'))
+    return
+  }
+
+  repoList.value.push(url)
+  newRepoUrl.value = ''
+}
+
+function removeRepo(index: number) {
+  repoList.value.splice(index, 1)
+}
+
+function startEdit(index: number) {
+  editingIndex.value = index
+  editingUrl.value = repoList.value[index]
+}
+
+function saveEdit() {
+  if (editingIndex.value === null) return
+
+  const url = editingUrl.value.trim()
+  if (!url) return
+
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    $toast.error(t('dialog.pluginMarketSetting.invalidUrl'))
+    return
+  }
+
+  repoList.value[editingIndex.value] = url
+  editingIndex.value = null
+  editingUrl.value = ''
+}
+
+function cancelEdit() {
+  editingIndex.value = null
+  editingUrl.value = ''
+}
+
+function moveUp(index: number) {
+  if (index === 0) return
+  const temp = repoList.value[index]
+  repoList.value[index] = repoList.value[index - 1]
+  repoList.value[index - 1] = temp
+}
+
+function moveDown(index: number) {
+  if (index === repoList.value.length - 1) return
+  const temp = repoList.value[index]
+  repoList.value[index] = repoList.value[index + 1]
+  repoList.value[index + 1] = temp
+}
+
 onMounted(() => {
   queryMarketRepoSetting()
 })
@@ -64,7 +110,7 @@ onMounted(() => {
 
 <template>
   <VDialog width="50rem" scrollable :fullscreen="!display.mdAndUp.value">
-    <VCard>
+    <VCard class="plugin-market-dialog-card">
       <VCardItem>
         <VCardTitle>
           <VIcon icon="mdi-store-cog" class="me-2" />
@@ -73,21 +119,101 @@ onMounted(() => {
         <VDialogCloseBtn @click="emit('close')" />
       </VCardItem>
       <VDivider />
-      <VCardText class="pt-2">
-        <VTextarea
-          v-model="displayRepos"
-          :placeholder="t('dialog.pluginMarketSetting.repoPlaceholder')"
-          :hint="t('dialog.pluginMarketSetting.repoHint')"
-          persistent-hint
-          auto-grow
-        />
+      <VCardText class="plugin-market-dialog-body pt-4">
+        <div class="plugin-market-input mb-4">
+          <VTextField
+            v-model="newRepoUrl"
+            :placeholder="t('dialog.pluginMarketSetting.urlPlaceholder')"
+            prepend-inner-icon="mdi-link-plus"
+            clearable
+            @keyup.enter="addRepo"
+          >
+            <template #append>
+              <VBtn icon="mdi-plus" variant="text" color="primary" @click="addRepo" />
+            </template>
+          </VTextField>
+        </div>
+
+        <div class="plugin-market-list-wrap">
+          <VList v-if="repoList.length > 0" class="px-0">
+            <template v-for="(repo, index) in repoList" :key="index">
+              <VListItem class="py-2">
+                <template #prepend>
+                  <div class="d-flex align-center me-2">
+                    <VBtn icon="mdi-chevron-up" size="x-small" variant="text" @click="moveUp(index)" :disabled="index === 0" />
+                    <VBtn icon="mdi-chevron-down" size="x-small" variant="text" @click="moveDown(index)" :disabled="index === repoList.length - 1" />
+                  </div>
+                </template>
+
+                <VListItemTitle v-if="editingIndex !== index">
+                  <span class="text-truncate">{{ repo }}</span>
+                </VListItemTitle>
+
+                <VTextField
+                  v-else
+                  v-model="editingUrl"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  @keyup.enter="saveEdit"
+                  @keyup.escape="cancelEdit"
+                />
+
+                <template #append v-if="editingIndex !== index">
+                  <div class="d-flex align-center">
+                    <IconBtn icon="mdi-pencil" size="small" variant="text" @click="startEdit(index)" />
+                    <IconBtn icon="mdi-delete" size="small" variant="text" color="error" @click="removeRepo(index)" />
+                  </div>
+                </template>
+
+                <template #append v-else>
+                  <div class="d-flex align-center">
+                    <IconBtn icon="mdi-check" size="small" variant="text" color="success" @click="saveEdit" />
+                    <IconBtn icon="mdi-close" size="small" variant="text" @click="cancelEdit" />
+                  </div>
+                </template>
+              </VListItem>
+              <VDivider v-if="index < repoList.length - 1" class="mx-4" />
+            </template>
+          </VList>
+
+          <div v-else class="text-center text-medium-emphasis py-8">
+            <VIcon icon="mdi-folder-open-outline" size="48" class="mb-2" />
+            <div>{{ t('dialog.pluginMarketSetting.noRepos') }}</div>
+          </div>
+        </div>
       </VCardText>
       <VCardActions>
         <VSpacer />
-        <VBtn @click="saveHandle" prepend-icon="mdi-content-save-check" class="px-5 me-3">
+        <VBtn @click="saveHandle" prepend-icon="mdi-content-save-check" class="px-5 me-3" :disabled="repoList.length === 0">
           {{ t('dialog.pluginMarketSetting.save') }}
         </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>
 </template>
+
+<style scoped lang="scss">
+.plugin-market-dialog-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.plugin-market-dialog-body {
+  display: flex;
+  overflow: hidden;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.plugin-market-input {
+  flex-shrink: 0;
+}
+
+.plugin-market-list-wrap {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+</style>

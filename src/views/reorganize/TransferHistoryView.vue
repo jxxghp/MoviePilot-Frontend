@@ -19,6 +19,64 @@ import { useGlobalSettingsStore } from '@/stores'
 // i18n
 const { t } = useI18n()
 
+// 动态按钮相关
+interface DynamicButton {
+  icon: string
+  action: () => void
+  show: boolean
+  routePath?: string
+  menuItems?: {
+    title: string
+    icon?: string
+    color?: string
+    action: () => void
+  }[]
+}
+
+const injectedRegisterDynamicButton = inject<((button: DynamicButton) => void) | null>('registerDynamicButton', null)
+const injectedUnregisterDynamicButton = inject<(() => void) | null>('unregisterDynamicButton', null)
+
+function registerHistoryDynamicButton(show: boolean) {
+  const button: DynamicButton = {
+    icon: 'mdi-chevron-up',
+    show,
+    action: () => {},
+    menuItems: [
+      {
+        title: t('transferHistory.actions.batchRedo'),
+        icon: 'mdi-redo-variant',
+        action: () => {
+          retransferBatch()
+        },
+      },
+      {
+        title: t('transferHistory.actions.batchDelete'),
+        icon: 'mdi-trash-can-outline',
+        color: 'error',
+        action: () => {
+          removeHistoryBatch()
+        },
+      },
+    ],
+  }
+
+  if (injectedRegisterDynamicButton) {
+    injectedRegisterDynamicButton(button)
+    return
+  }
+
+  if (typeof window !== 'undefined' && (window as any).__VUE_INJECT_DYNAMIC_BUTTON__) {
+    ;(window as any).__VUE_INJECT_DYNAMIC_BUTTON__(button)
+  }
+}
+
+function unregisterHistoryDynamicButton() {
+  if (injectedUnregisterDynamicButton) {
+    injectedUnregisterDynamicButton()
+    return
+  }
+}
+
 // 全局设置
 const globalSettingsStore = useGlobalSettingsStore()
 
@@ -418,7 +476,6 @@ async function removeHistoryBatch() {
   // 打开确认弹窗
   deleteConfirmDialog.value = true
 }
-
 // 批量重新整理
 async function retransferBatch() {
   if (selected.value.length === 0) return
@@ -641,14 +698,32 @@ const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) =>
   }
 }
 
+// 监听选中项变化，更新动态按钮
+watch(
+  () => selected.value.length,
+  newLength => {
+    if (appMode) {
+      registerHistoryDynamicButton(newLength > 0)
+    }
+  },
+)
+
 // 初始加载数据
 onMounted(() => {
   loadStorages()
   fetchData()
+
+  // 仅在 Docker 模式下注册动态按钮
+  if (appMode) {
+    registerHistoryDynamicButton(selected.value.length > 0)
+  }
 })
 
 onUnmounted(() => {
   stopAiRedoProgress()
+  if (appMode) {
+    unregisterHistoryDynamicButton()
+  }
 })
 </script>
 
@@ -899,32 +974,7 @@ onUnmounted(() => {
     </div>
   </VCard>
 
-  <!-- 底部操作按钮 -->
-  <Teleport to="body" v-if="route.path === '/history'">
-    <div v-if="isRefreshed && selected.length > 0">
-      <VFab
-        icon="mdi-trash-can-outline"
-        color="error"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="removeHistoryBatch"
-        :class="appMode ? 'mb-28' : 'mb-16'"
-      />
-      <VFab
-        :class="appMode ? 'mb-44' : 'mb-32'"
-        icon="mdi-redo-variant"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="retransferBatch"
-      />
-    </div>
-  </Teleport>
+  
   <!-- 底部弹窗 -->
   <VBottomSheet v-model="deleteConfirmDialog" inset>
     <VCard class="text-center">
@@ -962,6 +1012,34 @@ onUnmounted(() => {
   />
   <!-- 整理队列进度弹窗 -->
   <TransferQueueDialog v-if="transferQueueDialog" v-model="transferQueueDialog" @close="transferQueueDialog = false" />
+
+  <!-- 非 Docker 模式下的 FAB 按钮 -->
+  <Teleport to="body" v-if="!appMode && route.path === '/history'">
+    <div v-if="isRefreshed && selected.length > 0">
+      <VFab
+        icon="mdi-trash-can-outline"
+        color="error"
+        location="bottom"
+        size="x-large"
+        fixed
+        app
+        appear
+        @click="removeHistoryBatch"
+        class="mb-16"
+      />
+      <VFab
+        class="mb-32"
+        icon="mdi-redo-variant"
+        location="bottom"
+        size="x-large"
+        fixed
+        app
+        appear
+        @click="retransferBatch"
+      />
+    </div>
+  </Teleport>
+
 </template>
 
 <style lang="scss">
