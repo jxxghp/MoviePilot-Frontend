@@ -118,6 +118,9 @@ const iconPath: Ref<string> = computed(() => {
 function visitPluginPage() {
   // 将raw.githubusercontent.com转换为项目地址
   let repoUrl = props.plugin?.repo_url
+  if (props.plugin?.is_local || repoUrl?.startsWith('local://')) {
+    repoUrl = props.plugin?.author_url
+  }
   if (repoUrl) {
     if (repoUrl.includes('raw.githubusercontent.com')) {
       if (!repoUrl.endsWith('/')) repoUrl += '/'
