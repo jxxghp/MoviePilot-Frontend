@@ -2572,6 +2572,7 @@ export default {
     settings: '設置',
     projectHome: '項目主頁',
     updateHistory: '更新說明',
+    local: '本地',
     installToLocal: '安裝到本地',
     totalDownloads: '共 {count} 次下載',
     viewData: '查看數據',

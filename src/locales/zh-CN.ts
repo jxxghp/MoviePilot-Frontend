@@ -2571,6 +2571,7 @@ export default {
     settings: '设置',
     projectHome: '项目主页',
     updateHistory: '更新说明',
+    local: '本地',
     installToLocal: '安装到本地',
     totalDownloads: '共 {count} 次下载',
     viewData: '查看数据',

@@ -2601,6 +2601,7 @@ export default {
     settings: 'Settings',
     projectHome: 'Project Home',
     updateHistory: 'Update History',
+    local: 'Local',
     installToLocal: 'Install to Local',
     totalDownloads: 'Total {count} downloads',
     viewData: 'View Data',

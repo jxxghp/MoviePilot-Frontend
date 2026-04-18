@@ -34,6 +34,9 @@ const activeTab = ref('installed')
 // 获取插件标签页
 const pluginTabs = computed(() => getPluginTabs(t))
 
+// 本地插件来源显示名称
+const localRepoLabel = computed(() => t('plugin.local'))
+
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()
 
@@ -610,10 +613,9 @@ async function saveFolderPluginOrder() {
 
 // 初始化过滤选项
 function initOptions(item: Plugin) {
-  const LOCAL_REPO_LABEL = '本地'
   const optionValue = (options: Array<string>, value: string | undefined) => {
     if (!value || options.includes(value)) return
-    if (value === LOCAL_REPO_LABEL) options.unshift(value)
+    if (value === localRepoLabel.value) options.unshift(value)
     else options.push(value)
   }
   const optionMutipleValue = (options: Array<string>, value: string | undefined) => {
@@ -857,9 +859,9 @@ async function refreshMarket() {
 // 处理掉github地址的前缀
 function handleRepoUrl(item: Plugin | string | undefined) {
   const url = typeof item === 'string' ? item : item?.repo_url
-  if (typeof item !== 'string' && item?.is_local) return '本地'
+  if (typeof item !== 'string' && item?.is_local) return localRepoLabel.value
   if (!url) return ''
-  if (url.startsWith('local://')) return '本地'
+  if (url.startsWith('local://')) return localRepoLabel.value
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
