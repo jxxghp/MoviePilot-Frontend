@@ -539,7 +539,7 @@ onUnmounted(() => {
               <VImg :src="logo" width="64" height="64" />
             </div>
           </template>
-          <VCardTitle class="font-weight-bold text-2xl text-uppercase"> MoviePilot </VCardTitle>
+          <VCardTitle class="font-weight-bold text-3xl text-uppercase"> MoviePilot </VCardTitle>
 
           <!-- 语言切换按钮 -->
           <template #append>
