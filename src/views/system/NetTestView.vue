@@ -48,6 +48,7 @@ const abortControllers = new Set<AbortController>()
 const isUnmounting = ref(false)
 
 async function loadTargets() {
+  // 测试项由后端下发，前端只负责展示，避免再把可测试目标和校验规则留在客户端。
   const result: { [key: string]: any } = await api.get('system/nettest/targets')
   if (!result.success || !Array.isArray(result.data)) {
     targets.value = []
@@ -70,6 +71,7 @@ async function netTest(index: number) {
   const target = targets.value[index]
   if (!target) return
 
+  // 页面切换时需要主动中止请求，否则自动轮询中的旧请求会回写已卸载页面状态。
   const abortController = new AbortController()
   abortControllers.add(abortController)
 
@@ -111,6 +113,7 @@ async function netTest(index: number) {
 onMounted(async () => {
   isUnmounting.value = false
   await loadTargets()
+  // 逐个串行测试，避免同时触发过多外部请求导致结果受限流或代理抖动影响。
   for (let i = 0; !isUnmounting.value && i < targets.value.length; i++) await netTest(i)
 })
 onBeforeUnmount(() => {
