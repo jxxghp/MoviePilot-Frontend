@@ -14,164 +14,28 @@ interface Status {
   Doing?: string
 }
 
+interface TargetItem {
+  id: string
+  icon: string
+  name: string
+}
+
 interface Address {
+  id: string
   image: string
   name: string
-  url: string
-  proxy: boolean
   status: keyof Status
   time: string
   message: string
   btndisable: boolean
-  include?: string
 }
 
-// 测试集
-const targets = ref<Address[]>([
-  {
-    image: getLogoUrl('tmdb'),
-    name: 'api.themoviedb.org',
-    url: 'https://api.themoviedb.org/3/movie/550?api_key={TMDBAPIKEY}',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: '',
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('tmdb'),
-    name: 'api.tmdb.org',
-    url: 'https://api.tmdb.org/3/movie/550?api_key={TMDBAPIKEY}',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('tmdb'),
-    name: 'www.themoviedb.org',
-    url: 'https://www.themoviedb.org',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: tvdb,
-    name: 'api.thetvdb.com',
-    url: 'https://api.thetvdb.com/series/81189',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('fanart'),
-    name: 'webservice.fanart.tv',
-    url: 'https://webservice.fanart.tv',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('telegram'),
-    name: 'api.telegram.org',
-    url: 'https://api.telegram.org',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('wechat'),
-    name: 'qyapi.weixin.qq.com',
-    url: 'https://qyapi.weixin.qq.com/cgi-bin/gettoken',
-    proxy: false,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('douban'),
-    name: 'frodo.douban.com',
-    url: 'https://frodo.douban.com',
-    proxy: false,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('slack'),
-    name: 'slack.com',
-    url: 'https://slack.com',
-    proxy: false,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('python'),
-    name: 'pypi.org',
-    url: '{PIP_PROXY}rsa/',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-    include: 'pypi:repository-version',
-  },
-  {
-    image: getLogoUrl('github'),
-    name: 'github.com',
-    url: '{GITHUB_PROXY}https://github.com/jxxghp/MoviePilot/blob/v2/README.md',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-    include: 'MoviePilot',
-  },
-  {
-    image: getLogoUrl('github'),
-    name: 'codeload.github.com',
-    url: 'https://codeload.github.com',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('github'),
-    name: 'api.github.com',
-    url: 'https://api.github.com',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-  },
-  {
-    image: getLogoUrl('github'),
-    name: 'raw.githubusercontent.com',
-    url: '{GITHUB_PROXY}https://raw.githubusercontent.com/jxxghp/MoviePilot/v2/README.md',
-    proxy: true,
-    status: 'Normal',
-    time: '',
-    message: t('netTest.notTested'),
-    btndisable: false,
-    include: 'MoviePilot',
-  },
-])
+function resolveTargetImage(icon: string) {
+  if (icon === 'tvdb') return tvdb
+  return getLogoUrl(icon)
+}
+
+const targets = ref<Address[]>([])
 
 const resolveStatusColor: Status = {
   OK: 'success',
@@ -183,13 +47,34 @@ const resolveStatusColor: Status = {
 const abortControllers = new Set<AbortController>()
 const isUnmounting = ref(false)
 
+async function loadTargets() {
+  const result: { [key: string]: any } = await api.get('system/nettest/targets')
+  if (!result.success || !Array.isArray(result.data)) {
+    targets.value = []
+    return
+  }
+
+  targets.value = result.data.map((item: TargetItem) => ({
+    id: item.id,
+    image: resolveTargetImage(item.icon),
+    name: item.name,
+    status: 'Normal',
+    time: '',
+    message: t('netTest.notTested'),
+    btndisable: false,
+  }))
+}
+
 // 调用API测试网络连接
 async function netTest(index: number) {
+  const target = targets.value[index]
+  if (!target) return
+
+  const abortController = new AbortController()
+  abortControllers.add(abortController)
+
   try {
-    const abortController = new AbortController()
-    abortControllers.add(abortController)
     const { signal } = abortController
-    const target = targets.value[index]
 
     target.btndisable = true
     target.status = 'Doing'
@@ -197,14 +82,10 @@ async function netTest(index: number) {
 
     const result: { [key: string]: any } = await api.get('system/nettest', {
       params: {
-        url: target.url,
-        proxy: target.proxy,
-        include: target.include,
+        target_id: target.id,
       },
       signal,
     })
-
-    abortControllers.delete(abortController)
 
     if (result.success) {
       target.status = 'OK'
@@ -216,13 +97,20 @@ async function netTest(index: number) {
     target.time = result.data?.time
     target.btndisable = false
   } catch (error) {
-    console.error(error)
+    if (!isUnmounting.value) {
+      target.status = 'Fail'
+      target.message = error instanceof Error ? error.message : t('netTest.notTested')
+      target.btndisable = false
+    }
+  } finally {
+    abortControllers.delete(abortController)
   }
 }
 
 // 加载时测试所有连接
 onMounted(async () => {
   isUnmounting.value = false
+  await loadTargets()
   for (let i = 0; !isUnmounting.value && i < targets.value.length; i++) await netTest(i)
 })
 onBeforeUnmount(() => {
@@ -236,7 +124,7 @@ onBeforeUnmount(() => {
 
 <template>
   <VList lines="two" rounded>
-    <template v-for="(target, index) of targets" :key="target.name">
+    <template v-for="(target, index) of targets" :key="target.id">
       <VListItem>
         <template #prepend>
           <VAvatar :image="target.image" />
