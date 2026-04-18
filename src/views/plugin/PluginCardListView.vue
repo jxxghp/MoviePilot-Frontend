@@ -613,9 +613,9 @@ async function saveFolderPluginOrder() {
 
 // 初始化过滤选项
 function initOptions(item: Plugin) {
-  const optionValue = (options: Array<string>, value: string | undefined) => {
+  const optionValue = (options: Array<string>, value: string | undefined, preferred = false) => {
     if (!value || options.includes(value)) return
-    if (value === localRepoLabel.value) options.unshift(value)
+    if (preferred) options.unshift(value)
     else options.push(value)
   }
   const optionMutipleValue = (options: Array<string>, value: string | undefined) => {
@@ -623,7 +623,7 @@ function initOptions(item: Plugin) {
   }
   optionValue(authorFilterOptions.value, item.plugin_author)
   optionMutipleValue(labelFilterOptions.value, item.plugin_label)
-  optionValue(repoFilterOptions.value, handleRepoUrl(item))
+  optionValue(repoFilterOptions.value, handleRepoUrl(item), Boolean(item.is_local || item.repo_url?.startsWith('local://')))
 }
 
 // 关闭插件市场窗口
@@ -856,12 +856,22 @@ async function refreshMarket() {
   }
 }
 
+function parseLocalRepoPath(repoUrl: string | undefined) {
+  if (!repoUrl?.startsWith('local://')) return ''
+
+  try {
+    return new URL(repoUrl).searchParams.get('path') || ''
+  } catch (error) {
+    return decodeURIComponent(repoUrl.match(/[?&]path=([^&]+)/)?.[1] || '')
+  }
+}
+
 // 处理掉github地址的前缀
 function handleRepoUrl(item: Plugin | string | undefined) {
   const url = typeof item === 'string' ? item : item?.repo_url
-  if (typeof item !== 'string' && item?.is_local) return localRepoLabel.value
   if (!url) return ''
-  if (url.startsWith('local://')) return localRepoLabel.value
+  if (url.startsWith('local://')) return parseLocalRepoPath(url) || localRepoLabel.value
+  if (typeof item !== 'string' && item?.is_local) return parseLocalRepoPath(url) || localRepoLabel.value
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
