@@ -777,12 +777,13 @@ async function getPluginStatistics() {
 async function refreshData() {
   await fetchInstalledPlugins()
   await fetchUninstalledPlugins()
+  getPluginStatistics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
 }
 
 // 对uninstalledList进行排序到sortedUninstalledList
-watch([marketList, filterForm, activeSort], () => {
+watch([marketList, filterForm, activeSort, PluginStatistics], () => {
   // 匹配过滤函数
   const match = (filter: Array<string>, value: string | undefined) =>
     filter.length === 0 || (value && filter.includes(value))
@@ -811,7 +812,7 @@ watch([marketList, filterForm, activeSort], () => {
   if (!isNullOrEmptyObject(PluginStatistics.value)) {
     if (!activeSort.value || activeSort.value === 'count') {
       sortedUninstalledList.value = sortedUninstalledList.value.sort((a, b) => {
-        return PluginStatistics.value[b.id || '0'] - PluginStatistics.value[a.id || '0']
+        return (PluginStatistics.value[b.id || '0'] ?? 0) - (PluginStatistics.value[a.id || '0'] ?? 0)
       })
     } else if (activeSort.value) {
       sortedUninstalledList.value = sortedUninstalledList.value.sort((a: any, b: any) => {
@@ -848,7 +849,7 @@ async function refreshMarket() {
   isMarketRefreshing.value = true
   try {
     await fetchUninstalledPlugins(true)
-    await getPluginStatistics()
+    getPluginStatistics()
   } catch (error) {
     console.error(error)
   } finally {
@@ -905,7 +906,6 @@ onMounted(async () => {
   await loadPluginOrderConfig()
   await loadPluginFolders() // 加载文件夹配置
   await refreshData()
-  getPluginStatistics()
   if (activeTab.value != 'market' && pluginId.value) {
     // 找到这个插件
     const plugin = dataList.value.find(item => item.id === pluginId.value)
