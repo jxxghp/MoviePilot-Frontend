@@ -322,15 +322,15 @@ function stopDrag() {
   </div>
 
   <Teleport to="body" v-if="!appMode && showFloatingNewFolderAction">
-    <VFab
-      icon="mdi-folder-plus-outline"
-      location="bottom"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="openNewFolderDialog"
-    />
+    <div class="compact-fab-stack">
+      <VFab
+        icon="mdi-folder-plus-outline"
+        color="primary"
+        appear
+        class="compact-fab compact-fab--primary"
+        @click="openNewFolderDialog"
+      />
+    </div>
   </Teleport>
 </template>
 

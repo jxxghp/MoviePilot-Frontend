@@ -393,17 +393,15 @@ useDynamicButton({
   />
   <!-- 新增站点按钮 -->
   <Teleport to="body" v-if="route.path === '/site'">
-    <VFab
-      v-if="isRefreshed && !appMode"
-      icon="mdi-web-plus"
-      location="bottom"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="siteAddDialog = true"
-      :class="{ 'mb-12': appMode }"
-    />
+    <div v-if="isRefreshed && !appMode" class="compact-fab-stack">
+      <VFab
+        icon="mdi-web-plus"
+        color="primary"
+        appear
+        class="compact-fab compact-fab--primary"
+        @click="siteAddDialog = true"
+      />
+    </div>
   </Teleport>
   <!-- 新增站点弹窗 -->
   <SiteAddEditDialog

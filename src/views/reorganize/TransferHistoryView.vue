@@ -18,7 +18,7 @@ import { useBackgroundOptimization } from '@/composables/useBackgroundOptimizati
 import { useGlobalSettingsStore } from '@/stores'
 
 // i18n
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 // 全局设置
 const globalSettingsStore = useGlobalSettingsStore()
@@ -643,27 +643,25 @@ const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) =>
 
 const historyDynamicIcon = computed(() => (selected.value.length > 0 ? 'mdi-chevron-up' : 'mdi-timer-sand-paused'))
 const historyDynamicMenuItems = computed(() => {
-  locale.value
-
   if (selected.value.length === 0) return undefined
 
   return [
     {
-      title: t('components.transferQueue.title'),
+      titleKey: 'dialog.transferQueue.title',
       icon: 'mdi-timer-sand-paused',
       action: () => {
         transferQueueDialog.value = true
       },
     },
     {
-      title: t('transferHistory.actions.batchRedo'),
+      titleKey: 'transferHistory.actions.batchRedo',
       icon: 'mdi-redo-variant',
       action: () => {
         retransferBatch()
       },
     },
     {
-      title: t('transferHistory.actions.batchDelete'),
+      titleKey: 'transferHistory.actions.batchDelete',
       icon: 'mdi-trash-can-outline',
       color: 'error',
       action: () => {
@@ -980,40 +978,31 @@ onUnmounted(() => {
 
   <!-- 非 app 模式下的 FAB 按钮 -->
   <Teleport to="body" v-if="!appMode && route.path === '/history'">
-    <div v-if="isRefreshed">
-      <VFab
-        icon="mdi-timer-sand-paused"
-        color="info"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="transferQueueDialog = true"
-      />
-      <VFab
-        v-if="selected.length > 0"
-        class="mb-16"
-        icon="mdi-redo-variant"
-        color="primary"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="retransferBatch"
-      />
+    <div v-if="isRefreshed" class="compact-fab-stack compact-fab-stack--history">
       <VFab
         v-if="selected.length > 0"
         icon="mdi-trash-can-outline"
-        color="error"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
+        color="warning"
+        variant="tonal"
         appear
+        class="compact-fab compact-fab--secondary"
         @click="removeHistoryBatch"
-        class="mb-32"
+      />
+      <VFab
+        v-if="selected.length > 0"
+        icon="mdi-redo-variant"
+        color="success"
+        variant="tonal"
+        appear
+        class="compact-fab compact-fab--secondary"
+        @click="retransferBatch"
+      />
+      <VFab
+        icon="mdi-timer-sand-paused"
+        color="primary"
+        appear
+        class="compact-fab compact-fab--primary"
+        @click="transferQueueDialog = true"
       />
     </div>
   </Teleport>

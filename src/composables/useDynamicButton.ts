@@ -23,8 +23,10 @@ declare global {
 
 type MaybeRefValue<T> = T | Ref<T> | ComputedRef<T>
 
-interface DynamicButtonMenuItem {
-  title: string
+export interface DynamicButtonMenuItem {
+  title?: string
+  titleKey?: string
+  titleParams?: Record<string, unknown>
   icon?: string
   color?: string
   action: () => void

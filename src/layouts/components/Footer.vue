@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
 import { filterMenusByPermission } from '@/utils/permission'
 import { usePWA } from '@/composables/usePWA'
+import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 
 // 是否显示的输入参数
 defineProps({
@@ -120,12 +121,7 @@ interface DynamicButton {
   action: () => void
   show: boolean
   routePath?: string // 添加路径属性，用于标识哪个路由注册的
-  menuItems?: {
-    title: string
-    icon?: string
-    color?: string
-    action: () => void
-  }[]
+  menuItems?: DynamicButtonMenuItem[]
 }
 
 // 提供动态按钮注册和获取的方法
@@ -176,6 +172,28 @@ const showDynamicButton = computed(() => {
 })
 
 const hasDynamicButtonMenu = computed(() => Boolean(dynamicButton.value?.menuItems?.length))
+
+const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
+  'components.subscribeHistory.title': 'dialog.subscribeHistory.title',
+  'components.subscribeEdit.titleDefault': 'dialog.subscribeEdit.titleDefault',
+  'components.transferQueue.title': 'dialog.transferQueue.title',
+  'components.pluginMarketSetting.title': 'dialog.pluginMarketSetting.title',
+}
+
+function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
+  if (item.titleKey) {
+    return t(item.titleKey, item.titleParams as any)
+  }
+
+  if (!item.title) {
+    return ''
+  }
+
+  const normalizedTitleKey = legacyDynamicMenuTitleKeyMap[item.title] || item.title
+  const looksLikeI18nKey = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$/i.test(normalizedTitleKey)
+
+  return looksLikeI18nKey ? t(normalizedTitleKey, item.titleParams as any) : item.title
+}
 </script>
 
 <template>
@@ -253,14 +271,14 @@ const hasDynamicButtonMenu = computed(() => Boolean(dynamicButton.value?.menuIte
                 <VList>
                   <VListItem
                     v-for="(item, index) in dynamicButton?.menuItems"
-                    :key="index"
+                    :key="item.titleKey || item.title || index"
                     :base-color="item.color"
                     @click="item.action()"
                   >
                     <template #prepend>
                       <VIcon v-if="item.icon" :icon="item.icon" />
                     </template>
-                    <VListItemTitle>{{ item.title }}</VListItemTitle>
+                    <VListItemTitle>{{ resolveDynamicMenuItemTitle(item) }}</VListItemTitle>
                   </VListItem>
                 </VList>
               </VMenu>

@@ -99,17 +99,15 @@ useDynamicButton({
 
     <!-- 新增用户按钮 -->
     <Teleport to="body" v-if="route.path === '/user'">
-      <VFab
-        v-if="isRefreshed && !appMode"
-        icon="mdi-account-plus"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="openAddUserDialog"
-        :class="{ 'mb-12': appMode }"
-      />
+      <div v-if="isRefreshed && !appMode" class="compact-fab-stack">
+        <VFab
+          icon="mdi-account-plus"
+          color="primary"
+          appear
+          class="compact-fab compact-fab--primary"
+          @click="openAddUserDialog"
+        />
+      </div>
     </Teleport>
 
     <!-- 用户添加弹窗 -->

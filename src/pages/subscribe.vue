@@ -14,7 +14,7 @@ import { useUserStore } from '@/stores'
 import { getSubscribeMovieTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
 // 国际化
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -141,23 +141,27 @@ onUnmounted(() => {
 })
 
 const subscribeDynamicMenuItems = computed(() => {
-  locale.value
-
   if (!appMode.value) return undefined
 
   if (activeTab.value === 'mysub') {
-    const items: Array<{ title: string; icon: string; action: () => void }> = []
+    const items: Array<{
+      titleKey: string
+      titleParams?: Record<string, unknown>
+      icon: string
+      action: () => void
+    }> = []
 
     if (showSubscribeHistoryAction.value) {
       items.push({
-        title: t('components.subscribeHistory.title', { type: subType }),
+        titleKey: 'dialog.subscribeHistory.title',
+        titleParams: { type: subType },
         icon: 'mdi-history',
         action: openSubscribeHistoryDialog,
       })
     }
 
     items.push({
-      title: t('components.subscribeEdit.titleDefault'),
+      titleKey: 'dialog.subscribeEdit.titleDefault',
       icon: 'mdi-clipboard-edit-outline',
       action: openDefaultRuleDialog,
     })
@@ -353,39 +357,30 @@ onMounted(() => {
     </Teleport>
 
     <Teleport to="body" v-if="!appMode && route.path.startsWith(`/subscribe/${subType === '电影' ? 'movie' : 'tv'}`)">
-      <div>
+      <div class="compact-fab-stack">
         <VFab
           v-if="showSubscribeHistoryAction"
           icon="mdi-history"
           color="info"
-          location="bottom"
-          size="x-large"
-          fixed
-          app
+          variant="tonal"
           appear
+          class="compact-fab compact-fab--secondary"
           @click="openSubscribeHistoryDialog"
         />
         <VFab
           v-if="showDefaultRuleAction"
           icon="mdi-clipboard-edit-outline"
           color="primary"
-          location="bottom"
-          size="x-large"
-          fixed
-          app
           appear
-          :class="{ 'mb-16': showSubscribeHistoryAction }"
+          class="compact-fab compact-fab--primary"
           @click="openDefaultRuleDialog"
         />
         <VFab
           v-if="showShareStatisticsAction"
           icon="mdi-chart-line"
-          color="info"
-          location="bottom"
-          size="x-large"
-          fixed
-          app
+          color="primary"
           appear
+          class="compact-fab compact-fab--primary"
           @click="openShareStatisticsDialog"
         />
       </div>

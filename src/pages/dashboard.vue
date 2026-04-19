@@ -376,16 +376,15 @@ onDeactivated(() => {
 
   <!-- 底部操作按钮（只在非移动设备上显示） -->
   <Teleport to="body" v-if="route.path === '/dashboard'">
-    <VFab
-      v-if="!appMode"
-      icon="mdi-view-dashboard-edit"
-      location="bottom"
-      size="x-large"
-      fixed
-      app
-      appear
-      @click="dialog = true"
-    />
+    <div v-if="!appMode" class="compact-fab-stack">
+      <VFab
+        icon="mdi-view-dashboard-edit"
+        color="primary"
+        appear
+        class="compact-fab compact-fab--primary"
+        @click="dialog = true"
+      />
+    </div>
   </Teleport>
 
   <!-- 弹窗，根据配置生成选项 -->

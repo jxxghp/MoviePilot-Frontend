@@ -136,15 +136,15 @@ onMounted(() => {
     </Teleport>
 
     <Teleport to="body" v-if="!appMode && route.path === '/workflow' && activeTab === 'list'">
-      <VFab
-        icon="mdi-plus"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="openAddWorkflowDialog"
-      />
+      <div class="compact-fab-stack">
+        <VFab
+          icon="mdi-plus"
+          color="primary"
+          appear
+          class="compact-fab compact-fab--primary"
+          @click="openAddWorkflowDialog"
+        />
+      </div>
     </Teleport>
   </div>
 </template>

@@ -238,6 +238,122 @@ html.v-overlay-scroll-blocked body {
   opacity:0.75;
 }
 
+// 紧凑型悬浮操作按钮
+.compact-fab-stack {
+  position: fixed;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  inset-block-end: max(1rem, calc(env(safe-area-inset-bottom) + 1rem));
+  inset-inline-end: max(1rem, calc(env(safe-area-inset-right) + 1rem));
+  pointer-events: none;
+}
+
+.compact-fab-stack > * {
+  pointer-events: auto;
+}
+
+.compact-fab-stack--history {
+  inset-block-end: max(4.5rem, calc(env(safe-area-inset-bottom) + 4.5rem));
+}
+
+.compact-fab.v-fab {
+  display: inline-flex;
+  overflow: visible;
+  flex: none;
+  min-inline-size: 0 !important;
+  pointer-events: auto;
+}
+
+.compact-fab .v-fab__container {
+  position: static;
+  display: inline-flex;
+  overflow: visible;
+  margin: 0 !important;
+}
+
+.compact-fab .v-btn {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 16px 34px rgb(15 23 42 / 16%),
+    0 6px 16px rgb(15 23 42 / 10%);
+  opacity: 0.98;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.compact-fab--primary .v-btn {
+  block-size: 3.5rem !important;
+  box-shadow:
+    0 20px 40px rgb(15 23 42 / 20%),
+    0 8px 18px rgb(15 23 42 / 12%);
+  inline-size: 3.5rem !important;
+}
+
+.compact-fab--secondary .v-btn {
+  block-size: 3rem !important;
+  inline-size: 3rem !important;
+}
+
+.compact-fab--primary .v-icon {
+  font-size: 1.75rem !important;
+}
+
+.compact-fab--secondary .v-icon {
+  font-size: 1.5rem !important;
+}
+
+@media (hover: hover) {
+  .compact-fab .v-btn:hover {
+    box-shadow:
+      0 22px 42px rgb(15 23 42 / 22%),
+      0 8px 18px rgb(15 23 42 / 12%);
+    filter: saturate(1.03);
+    transform: translateY(-2px);
+  }
+
+  .compact-fab--primary .v-btn:hover {
+    box-shadow:
+      0 26px 46px rgb(15 23 42 / 24%),
+      0 10px 22px rgb(15 23 42 / 14%);
+  }
+}
+
+.compact-fab .v-btn:active {
+  box-shadow:
+    0 10px 22px rgb(15 23 42 / 16%),
+    0 3px 8px rgb(15 23 42 / 10%);
+  transform: translateY(0) scale(0.98);
+}
+
+@media (width <= 768px) {
+  .compact-fab-stack {
+    gap: 0.625rem;
+    inset-block-end: max(0.875rem, calc(env(safe-area-inset-bottom) + 0.875rem));
+    inset-inline-end: max(0.875rem, calc(env(safe-area-inset-right) + 0.875rem));
+  }
+
+  .compact-fab-stack--history {
+    inset-block-end: max(4rem, calc(env(safe-area-inset-bottom) + 4rem));
+  }
+
+  .compact-fab--primary .v-btn {
+    block-size: 3.5rem !important;
+    inline-size: 3.5rem !important;
+  }
+
+  .compact-fab--secondary .v-btn {
+    block-size: 3rem !important;
+    inline-size: 3rem !important;
+  }
+}
+
 .apexcharts-title-text {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)) !important;
 }
@@ -311,7 +427,28 @@ html.v-overlay-scroll-blocked body {
 
 .settings-icon-button {
   flex-shrink: 0;
-  min-inline-size: auto;
+  border-radius: 0.95rem;
+  block-size: 2.75rem;
+  inline-size: 2.75rem;
+  margin-inline-start: 0.25rem;
+  min-inline-size: 2.75rem;
+}
+
+.settings-icon-button .v-icon {
+  font-size: 1.35rem;
+}
+
+@media (width <= 768px) {
+  .settings-icon-button {
+    border-radius: 0.825rem;
+    block-size: 2.5rem;
+    inline-size: 2.5rem;
+    min-inline-size: 2.5rem;
+  }
+
+  .settings-icon-button .v-icon {
+    font-size: 1.25rem;
+  }
 }
 
 .v-infinite-scroll__side {

@@ -17,7 +17,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 
 // 国际化
-const { t, locale } = useI18n()
+const { t } = useI18n()
 
 const route = useRoute()
 
@@ -908,14 +908,12 @@ const showNewFolderAction = computed(() => activeTab.value === 'installed' && !c
 const showMarketSettingAction = computed(() => activeTab.value === 'market')
 
 const pluginDynamicMenuItems = computed(() => {
-  locale.value
-
   if (!appMode.value) return undefined
   if (!showSearchAction.value) return undefined
 
   const items = [
     {
-      title: t('plugin.searchPlugins'),
+      titleKey: 'plugin.searchPlugins',
       icon: 'mdi-magnify',
       action: openPluginSearchDialog,
     },
@@ -923,7 +921,7 @@ const pluginDynamicMenuItems = computed(() => {
 
   if (showNewFolderAction.value) {
     items.push({
-      title: t('plugin.newFolder'),
+      titleKey: 'plugin.newFolder',
       icon: 'mdi-folder-plus',
       action: showNewFolderDialog,
     })
@@ -931,7 +929,7 @@ const pluginDynamicMenuItems = computed(() => {
 
   if (showMarketSettingAction.value) {
     items.push({
-      title: t('components.pluginMarketSetting.title'),
+      titleKey: 'dialog.pluginMarketSetting.title',
       icon: 'mdi-store-cog',
       action: openMarketSettingDialog,
     })
@@ -1609,40 +1607,31 @@ function onDragStartPlugin(evt: any) {
 
   <!-- 插件搜索图标 -->
   <Teleport to="body" v-if="route.path === '/plugins'">
-    <div v-if="isRefreshed && !appMode && showSearchAction">
-      <VFab
-        icon="mdi-magnify"
-        color="info"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="openPluginSearchDialog"
-      />
-      <VFab
-        v-if="showNewFolderAction"
-        icon="mdi-folder-plus"
-        color="primary"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        class="mb-16"
-        @click="showNewFolderDialog"
-      />
+    <div v-if="isRefreshed && !appMode && showSearchAction" class="compact-fab-stack">
       <VFab
         v-if="showMarketSettingAction"
         icon="mdi-store-cog"
         color="warning"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
+        variant="tonal"
         appear
-        class="mb-16"
+        class="compact-fab compact-fab--secondary"
         @click="openMarketSettingDialog"
+      />
+      <VFab
+        v-if="showNewFolderAction"
+        icon="mdi-folder-plus"
+        color="success"
+        variant="tonal"
+        appear
+        class="compact-fab compact-fab--secondary"
+        @click="showNewFolderDialog"
+      />
+      <VFab
+        icon="mdi-magnify"
+        color="primary"
+        appear
+        class="compact-fab compact-fab--primary"
+        @click="openPluginSearchDialog"
       />
     </div>
   </Teleport>
