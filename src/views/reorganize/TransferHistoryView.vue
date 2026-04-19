@@ -12,70 +12,13 @@ import { useDisplay } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
+import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import { useGlobalSettingsStore } from '@/stores'
 
 // i18n
-const { t } = useI18n()
-
-// 动态按钮相关
-interface DynamicButton {
-  icon: string
-  action: () => void
-  show: boolean
-  routePath?: string
-  menuItems?: {
-    title: string
-    icon?: string
-    color?: string
-    action: () => void
-  }[]
-}
-
-const injectedRegisterDynamicButton = inject<((button: DynamicButton) => void) | null>('registerDynamicButton', null)
-const injectedUnregisterDynamicButton = inject<(() => void) | null>('unregisterDynamicButton', null)
-
-function registerHistoryDynamicButton(show: boolean) {
-  const button: DynamicButton = {
-    icon: 'mdi-chevron-up',
-    show,
-    action: () => {},
-    menuItems: [
-      {
-        title: t('transferHistory.actions.batchRedo'),
-        icon: 'mdi-redo-variant',
-        action: () => {
-          retransferBatch()
-        },
-      },
-      {
-        title: t('transferHistory.actions.batchDelete'),
-        icon: 'mdi-trash-can-outline',
-        color: 'error',
-        action: () => {
-          removeHistoryBatch()
-        },
-      },
-    ],
-  }
-
-  if (injectedRegisterDynamicButton) {
-    injectedRegisterDynamicButton(button)
-    return
-  }
-
-  if (typeof window !== 'undefined' && (window as any).__VUE_INJECT_DYNAMIC_BUTTON__) {
-    ;(window as any).__VUE_INJECT_DYNAMIC_BUTTON__(button)
-  }
-}
-
-function unregisterHistoryDynamicButton() {
-  if (injectedUnregisterDynamicButton) {
-    injectedUnregisterDynamicButton()
-    return
-  }
-}
+const { t, locale } = useI18n()
 
 // 全局设置
 const globalSettingsStore = useGlobalSettingsStore()
@@ -698,32 +641,55 @@ const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) =>
   }
 }
 
-// 监听选中项变化，更新动态按钮
-watch(
-  () => selected.value.length,
-  newLength => {
-    if (appMode) {
-      registerHistoryDynamicButton(newLength > 0)
-    }
+const historyDynamicIcon = computed(() => (selected.value.length > 0 ? 'mdi-chevron-up' : 'mdi-timer-sand-paused'))
+const historyDynamicMenuItems = computed(() => {
+  locale.value
+
+  if (selected.value.length === 0) return undefined
+
+  return [
+    {
+      title: t('components.transferQueue.title'),
+      icon: 'mdi-timer-sand-paused',
+      action: () => {
+        transferQueueDialog.value = true
+      },
+    },
+    {
+      title: t('transferHistory.actions.batchRedo'),
+      icon: 'mdi-redo-variant',
+      action: () => {
+        retransferBatch()
+      },
+    },
+    {
+      title: t('transferHistory.actions.batchDelete'),
+      icon: 'mdi-trash-can-outline',
+      color: 'error',
+      action: () => {
+        removeHistoryBatch()
+      },
+    },
+  ]
+})
+
+useDynamicButton({
+  icon: historyDynamicIcon,
+  onClick: () => {
+    transferQueueDialog.value = true
   },
-)
+  menuItems: historyDynamicMenuItems,
+  show: computed(() => appMode.value),
+})
 
 // 初始加载数据
 onMounted(() => {
   loadStorages()
   fetchData()
-
-  // 仅在 Docker 模式下注册动态按钮
-  if (appMode) {
-    registerHistoryDynamicButton(selected.value.length > 0)
-  }
 })
 
 onUnmounted(() => {
   stopAiRedoProgress()
-  if (appMode) {
-    unregisterHistoryDynamicButton()
-  }
 })
 </script>
 
@@ -754,7 +720,6 @@ onUnmounted(() => {
           </VCol>
           <VCol cols="4" md="6" class="text-end">
             <VBtnGroup variant="outlined" divided rounded>
-              <VBtn icon="mdi-timer-sand-paused" @click="transferQueueDialog = true" />
               <VBtn :icon="group ? 'mdi-format-list-bulleted' : 'mdi-format-list-group'" @click="group = !group" />
             </VBtnGroup>
           </VCol>
@@ -1013,10 +978,33 @@ onUnmounted(() => {
   <!-- 整理队列进度弹窗 -->
   <TransferQueueDialog v-if="transferQueueDialog" v-model="transferQueueDialog" @close="transferQueueDialog = false" />
 
-  <!-- 非 Docker 模式下的 FAB 按钮 -->
+  <!-- 非 app 模式下的 FAB 按钮 -->
   <Teleport to="body" v-if="!appMode && route.path === '/history'">
-    <div v-if="isRefreshed && selected.length > 0">
+    <div v-if="isRefreshed">
       <VFab
+        icon="mdi-timer-sand-paused"
+        color="info"
+        location="bottom"
+        size="x-large"
+        fixed
+        app
+        appear
+        @click="transferQueueDialog = true"
+      />
+      <VFab
+        v-if="selected.length > 0"
+        class="mb-16"
+        icon="mdi-redo-variant"
+        color="primary"
+        location="bottom"
+        size="x-large"
+        fixed
+        app
+        appear
+        @click="retransferBatch"
+      />
+      <VFab
+        v-if="selected.length > 0"
         icon="mdi-trash-can-outline"
         color="error"
         location="bottom"
@@ -1025,17 +1013,7 @@ onUnmounted(() => {
         app
         appear
         @click="removeHistoryBatch"
-        class="mb-16"
-      />
-      <VFab
         class="mb-32"
-        icon="mdi-redo-variant"
-        location="bottom"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="retransferBatch"
       />
     </div>
   </Teleport>

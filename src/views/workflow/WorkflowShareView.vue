@@ -30,6 +30,7 @@ const page = ref(1)
 
 // 搜索关键字
 const keyword = ref(props.keyword)
+const currentKey = ref(0)
 
 // 是否加载中
 const loading = ref(false)
@@ -52,6 +53,17 @@ async function loadEventTypes() {
     console.error('Failed to load event types:', error)
   }
 }
+
+watch(
+  () => props.keyword,
+  newKeyword => {
+    keyword.value = newKeyword || ''
+    page.value = 1
+    dataList.value = []
+    isRefreshed.value = false
+    currentKey.value++
+  },
+)
 
 // 拼装参数
 function getParams() {
@@ -141,7 +153,7 @@ onActivated(() => {
 <template>
   <VPageContentTitle v-if="keyword" :title="`${t('common.search')}：${keyword}`" />
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-2" @load="fetchData">
+  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-2" @load="fetchData" :key="currentKey">
     <template #loading />
     <template #empty />
     <div v-if="dataList.length > 0" class="grid gap-4 grid-workflow-share-card" tabindex="0">

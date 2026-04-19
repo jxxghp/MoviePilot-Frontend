@@ -6,20 +6,12 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
 import { useUserStore } from '@/stores'
-import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
-import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 
 // 国际化
 const { t } = useI18n()
-
-// 路由
-const route = useRoute()
-
-// PWA模式检测
-const { appMode } = usePWA()
 
 // 用户 Store
 const userStore = useUserStore()
@@ -183,6 +175,10 @@ async function fetchData() {
 function historyDone() {
   historyDialog.value = false
   fetchData()
+}
+
+function openHistoryDialog() {
+  historyDialog.value = true
 }
 
 // 批量管理相关函数
@@ -381,12 +377,8 @@ onActivated(async () => {
   }
 })
 
-// 使用动态按钮钩子
-useDynamicButton({
-  icon: 'mdi-history',
-  onClick: () => {
-    historyDialog.value = true
-  },
+defineExpose({
+  openHistoryDialog,
 })
 </script>
 
@@ -477,23 +469,6 @@ useDynamicButton({
     :error-title="errorTitle"
     :error-description="errorDescription"
   />
-  <!-- 底部操作按钮 -->
-  <Teleport to="body" v-if="route.path.startsWith(`/subscribe/${props.type === '电影' ? 'movie' : 'tv'}`)">
-    <div v-if="isRefreshed">
-      <VFab
-        v-if="userStore.superUser && !appMode"
-        icon="mdi-history"
-        color="info"
-        location="bottom"
-        :class="{ 'mb-12': appMode }"
-        size="x-large"
-        fixed
-        app
-        appear
-        @click="historyDialog = true"
-      />
-    </div>
-  </Teleport>
   <!-- 历史记录弹窗 -->
   <SubscribeHistoryDialog
     v-if="historyDialog"

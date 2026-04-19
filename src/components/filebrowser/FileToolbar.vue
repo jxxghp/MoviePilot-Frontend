@@ -30,6 +30,10 @@ const inProps = defineProps({
     type: String,
     default: 'name',
   },
+  showNewFolderButton: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 对外事件
@@ -109,10 +113,19 @@ async function mkdir() {
   emit('foldercreated')
 }
 
+function openNewFolderDialog() {
+  newFolderName.value = ''
+  newFolderPopper.value = true
+}
+
 // 计算排序图标
 const sortIcon = computed(() => {
   if (inProps.sort === 'time') return 'mdi-sort-clock-ascending-outline'
   else return 'mdi-sort-alphabetical-ascending'
+})
+
+defineExpose({
+  openNewFolderDialog,
 })
 </script>
 
@@ -165,9 +178,9 @@ const sortIcon = computed(() => {
     </IconBtn>
     <!-- 新建文件夹 -->
     <VDialog v-model="newFolderPopper" max-width="35rem">
-      <template #activator="{ props }">
-        <IconBtn>
-          <VIcon v-bind="props" icon="mdi-folder-plus-outline" />
+      <template v-if="showNewFolderButton" #activator="{ props }">
+        <IconBtn v-bind="props">
+          <VIcon icon="mdi-folder-plus-outline" />
         </IconBtn>
       </template>
       <VCard>

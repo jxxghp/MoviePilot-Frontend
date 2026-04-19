@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { debounce } from 'lodash-es'
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
 import SubscribePopularView from '@/views/subscribe/SubscribePopularView.vue'
 import SubscribeShareView from '@/views/subscribe/SubscribeShareView.vue'
@@ -6,18 +7,23 @@ import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
 import SubscribeShareStatisticsDialog from '@/components/dialog/SubscribeShareStatisticsDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
+import { useDynamicButton } from '@/composables/useDynamicButton'
+import { usePWA } from '@/composables/usePWA'
+import { useUserStore } from '@/stores'
 
 import { getSubscribeMovieTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
 // 国际化
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const route = useRoute()
+const userStore = useUserStore()
+const { appMode } = usePWA()
 
 const subType = route.meta.subType?.toString()
 const subId = ref(route.query.id as string)
 const activeTab = ref((route.query.tab as string) || '')
-const shareViewKey = ref(0)
+const subscribeListViewRef = ref<InstanceType<typeof SubscribeListView> | null>(null)
 
 // 获取标签页
 const subscribeTabs = computed(() => {
@@ -48,12 +54,7 @@ const subscribeStatusFilter = ref<string | null>(null)
 
 // 分享搜索词
 const shareKeyword = ref('')
-
-// 搜索分享
-const searchShares = () => {
-  searchShareDialog.value = false
-  shareViewKey.value++
-}
+const shareKeywordInput = ref('')
 
 // 筛选选项
 const filterOptions = computed(() => {
@@ -103,7 +104,98 @@ function selectFilter(value: string) {
 
 // VMenu activator选择器
 const filterActivator = computed(() => '[data-menu-activator="filter-btn"]')
-const searchActivator = computed(() => '[data-menu-activator="search-btn"]')
+const searchActivator = computed(() => '[data-menu-activator="share-filter-btn"]')
+
+const showDefaultRuleAction = computed(() => activeTab.value === 'mysub')
+const showSubscribeHistoryAction = computed(() => showDefaultRuleAction.value && userStore.superUser)
+const showShareStatisticsAction = computed(() => activeTab.value === 'share')
+
+function openDefaultRuleDialog() {
+  subscribeEditDialog.value = true
+}
+
+function openSubscribeHistoryDialog() {
+  subscribeListViewRef.value?.openHistoryDialog()
+}
+
+function openShareStatisticsDialog() {
+  shareStatisticsDialog.value = true
+}
+
+const shareKeywordUpdater = debounce((keyword: string) => {
+  shareKeyword.value = keyword.trim()
+}, 300)
+
+watch(shareKeywordInput, newKeyword => {
+  shareKeywordUpdater(newKeyword || '')
+})
+
+watch(activeTab, newTab => {
+  if (newTab !== 'share') {
+    searchShareDialog.value = false
+  }
+})
+
+onUnmounted(() => {
+  shareKeywordUpdater.cancel()
+})
+
+const subscribeDynamicMenuItems = computed(() => {
+  locale.value
+
+  if (!appMode.value) return undefined
+
+  if (activeTab.value === 'mysub') {
+    const items: Array<{ title: string; icon: string; action: () => void }> = []
+
+    if (showSubscribeHistoryAction.value) {
+      items.push({
+        title: t('components.subscribeHistory.title', { type: subType }),
+        icon: 'mdi-history',
+        action: openSubscribeHistoryDialog,
+      })
+    }
+
+    items.push({
+      title: t('components.subscribeEdit.titleDefault'),
+      icon: 'mdi-clipboard-edit-outline',
+      action: openDefaultRuleDialog,
+    })
+
+    return items.length > 1 ? items : undefined
+  }
+
+  return undefined
+})
+
+const subscribeDynamicIcon = computed(() => {
+  if (showShareStatisticsAction.value) return 'mdi-chart-line'
+  if (showSubscribeHistoryAction.value) return 'mdi-history'
+  return 'mdi-clipboard-edit-outline'
+})
+
+function handleSubscribeDynamicAction() {
+  if (showShareStatisticsAction.value) {
+    openShareStatisticsDialog()
+    return
+  }
+
+  if (showSubscribeHistoryAction.value) {
+    openSubscribeHistoryDialog()
+    return
+  }
+
+  if (showDefaultRuleAction.value) {
+    openDefaultRuleDialog()
+  }
+}
+
+useDynamicButton({
+  icon: subscribeDynamicIcon,
+  onClick: handleSubscribeDynamicAction,
+  menuItems: subscribeDynamicMenuItems,
+  show: computed(() => appMode.value && (showDefaultRuleAction.value || showShareStatisticsAction.value)),
+})
 
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()
@@ -137,36 +229,15 @@ registerHeaderTab({
       show: computed(() => activeTab.value === 'mysub'),
     },
     {
-      icon: 'mdi-chart-line',
+      icon: 'mdi-filter-multiple-outline',
       variant: 'text',
-      color: 'gray',
+      color: computed(() => (shareKeywordInput.value ? 'primary' : 'gray')),
       class: 'settings-icon-button',
-      dataAttr: 'statistics-btn',
-      action: () => {
-        shareStatisticsDialog.value = true
-      },
-      show: computed(() => activeTab.value === 'share'),
-    },
-    {
-      icon: 'mdi-movie-search-outline',
-      variant: 'text',
-      color: computed(() => (shareKeyword.value ? 'primary' : 'gray')),
-      class: 'settings-icon-button',
-      dataAttr: 'search-btn',
+      dataAttr: 'share-filter-btn',
       action: () => {
         searchShareDialog.value = true
       },
       show: computed(() => activeTab.value === 'share'),
-    },
-    {
-      icon: 'mdi-clipboard-edit-outline',
-      variant: 'text',
-      color: 'gray',
-      class: 'settings-icon-button',
-      action: () => {
-        subscribeEditDialog.value = true
-      },
-      show: computed(() => activeTab.value === 'mysub'),
     },
   ],
 })
@@ -187,6 +258,7 @@ onMounted(() => {
         <transition name="fade-slide" appear>
           <div>
             <SubscribeListView
+              ref="subscribeListViewRef"
               :type="subType"
               :subid="subId"
               :keyword="subscribeFilter"
@@ -205,7 +277,7 @@ onMounted(() => {
       <VWindowItem value="share">
         <transition name="fade-slide" appear>
           <div>
-            <SubscribeShareView :keyword="shareKeyword" :key="shareViewKey" />
+            <SubscribeShareView :keyword="shareKeyword" />
           </div>
         </transition>
       </VWindowItem>
@@ -260,28 +332,63 @@ onMounted(() => {
     <Teleport to="body" v-if="searchShareDialog">
       <VMenu
         v-model="searchShareDialog"
-        width="25rem"
         :close-on-content-click="false"
         :activator="searchActivator"
         location="bottom end"
       >
-        <VCard>
-          <VCardItem>
-            <VCardTitle>
-              <VIcon icon="mdi-movie-search-outline" class="mr-2" />
-              {{ t('subscribe.searchShares') }}
-            </VCardTitle>
-            <VDialogCloseBtn @click="searchShareDialog = false" />
-          </VCardItem>
-          <VCardText>
-            <VTextField v-model="shareKeyword" :label="t('subscribe.keyword')" clearable density="comfortable">
-              <template #append>
-                <VBtn prepend-icon="mdi-magnify" color="primary" @click="searchShares">{{ t('common.search') }}</VBtn>
-              </template>
-            </VTextField>
-          </VCardText>
+        <VCard min-width="260" max-width="320">
+          <div class="px-3 pt-3 pb-1">
+            <VTextField
+              v-model="shareKeywordInput"
+              :placeholder="t('subscribe.keyword')"
+              prepend-inner-icon="mdi-magnify"
+              density="compact"
+              variant="outlined"
+              hide-details
+              clearable
+            />
+          </div>
         </VCard>
       </VMenu>
+    </Teleport>
+
+    <Teleport to="body" v-if="!appMode && route.path.startsWith(`/subscribe/${subType === '电影' ? 'movie' : 'tv'}`)">
+      <div>
+        <VFab
+          v-if="showSubscribeHistoryAction"
+          icon="mdi-history"
+          color="info"
+          location="bottom"
+          size="x-large"
+          fixed
+          app
+          appear
+          @click="openSubscribeHistoryDialog"
+        />
+        <VFab
+          v-if="showDefaultRuleAction"
+          icon="mdi-clipboard-edit-outline"
+          color="primary"
+          location="bottom"
+          size="x-large"
+          fixed
+          app
+          appear
+          :class="{ 'mb-16': showSubscribeHistoryAction }"
+          @click="openDefaultRuleDialog"
+        />
+        <VFab
+          v-if="showShareStatisticsAction"
+          icon="mdi-chart-line"
+          color="info"
+          location="bottom"
+          size="x-large"
+          fixed
+          app
+          appear
+          @click="openShareStatisticsDialog"
+        />
+      </div>
     </Teleport>
 
     <!-- 订阅编辑弹窗 -->

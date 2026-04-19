@@ -147,6 +147,7 @@ const unregisterDynamicButton = () => {
 if (typeof window !== 'undefined') {
   // 确保在浏览器环境中
   ;(window as any).__VUE_INJECT_DYNAMIC_BUTTON__ = registerDynamicButton
+  ;(window as any).__VUE_UNINJECT_DYNAMIC_BUTTON__ = unregisterDynamicButton
 }
 
 // 提供给其他组件使用
@@ -160,6 +161,7 @@ onUnmounted(() => {
   // 清理全局方法
   if (typeof window !== 'undefined') {
     delete (window as any).__VUE_INJECT_DYNAMIC_BUTTON__
+    delete (window as any).__VUE_UNINJECT_DYNAMIC_BUTTON__
   }
 })
 
@@ -241,7 +243,11 @@ const hasDynamicButtonMenu = computed(() => Boolean(dynamicButton.value?.menuIte
                 rounded="pill"
                 class="footer-nav-btn"
               >
-                <VIcon color="secondary" :icon="dynamicButton?.icon || 'mdi-plus'" size="28"></VIcon>
+                <VIcon
+                  color="secondary"
+                  :icon="hasDynamicButtonMenu ? 'mdi-chevron-up' : dynamicButton?.icon || 'mdi-plus'"
+                  size="28"
+                ></VIcon>
               </VBtn>
               <VMenu v-if="hasDynamicButtonMenu" activator="parent" location="top end" close-on-content-click>
                 <VList>

@@ -17,7 +17,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 
 // 国际化
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const route = useRoute()
 
@@ -78,26 +78,6 @@ registerHeaderTab({
         refreshMarket()
       },
       show: computed(() => activeTab.value === 'market'),
-    },
-    {
-      icon: 'mdi-store-cog',
-      variant: 'text',
-      color: 'gray',
-      class: 'settings-icon-button',
-      action: () => {
-        MarketSettingDialog.value = true
-      },
-      show: computed(() => activeTab.value === 'market'),
-    },
-    {
-      icon: 'mdi-folder-plus',
-      variant: 'text',
-      color: 'gray',
-      class: 'settings-icon-button',
-      action: () => {
-        showNewFolderDialog()
-      },
-      show: computed(() => activeTab.value === 'installed' && !currentFolder.value),
     },
     {
       icon: 'mdi-arrow-left',
@@ -915,12 +895,56 @@ onMounted(async () => {
   }
 })
 
-// 使用动态按钮钩子
+function openPluginSearchDialog() {
+  SearchDialog.value = true
+}
+
+function openMarketSettingDialog() {
+  MarketSettingDialog.value = true
+}
+
+const showSearchAction = computed(() => activeTab.value === 'installed' || activeTab.value === 'market')
+const showNewFolderAction = computed(() => activeTab.value === 'installed' && !currentFolder.value)
+const showMarketSettingAction = computed(() => activeTab.value === 'market')
+
+const pluginDynamicMenuItems = computed(() => {
+  locale.value
+
+  if (!appMode.value) return undefined
+  if (!showSearchAction.value) return undefined
+
+  const items = [
+    {
+      title: t('plugin.searchPlugins'),
+      icon: 'mdi-magnify',
+      action: openPluginSearchDialog,
+    },
+  ]
+
+  if (showNewFolderAction.value) {
+    items.push({
+      title: t('plugin.newFolder'),
+      icon: 'mdi-folder-plus',
+      action: showNewFolderDialog,
+    })
+  }
+
+  if (showMarketSettingAction.value) {
+    items.push({
+      title: t('components.pluginMarketSetting.title'),
+      icon: 'mdi-store-cog',
+      action: openMarketSettingDialog,
+    })
+  }
+
+  return items.length > 1 ? items : undefined
+})
+
 useDynamicButton({
   icon: 'mdi-magnify',
-  onClick: () => {
-    SearchDialog.value = true
-  },
+  onClick: openPluginSearchDialog,
+  menuItems: pluginDynamicMenuItems,
+  show: computed(() => appMode.value && showSearchAction.value && isRefreshed.value),
 })
 
 // 获取插件文件夹配置
@@ -1585,9 +1609,8 @@ function onDragStartPlugin(evt: any) {
 
   <!-- 插件搜索图标 -->
   <Teleport to="body" v-if="route.path === '/plugins'">
-    <div v-if="isRefreshed">
+    <div v-if="isRefreshed && !appMode && showSearchAction">
       <VFab
-        v-if="!appMode"
         icon="mdi-magnify"
         color="info"
         location="bottom"
@@ -1595,8 +1618,31 @@ function onDragStartPlugin(evt: any) {
         fixed
         app
         appear
-        @click="SearchDialog = true"
-        :class="{ 'mb-12': appMode }"
+        @click="openPluginSearchDialog"
+      />
+      <VFab
+        v-if="showNewFolderAction"
+        icon="mdi-folder-plus"
+        color="primary"
+        location="bottom"
+        size="x-large"
+        fixed
+        app
+        appear
+        class="mb-16"
+        @click="showNewFolderDialog"
+      />
+      <VFab
+        v-if="showMarketSettingAction"
+        icon="mdi-store-cog"
+        color="warning"
+        location="bottom"
+        size="x-large"
+        fixed
+        app
+        appear
+        class="mb-16"
+        @click="openMarketSettingDialog"
       />
     </div>
   </Teleport>
