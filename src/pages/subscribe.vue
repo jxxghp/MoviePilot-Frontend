@@ -297,7 +297,7 @@ onMounted(() => {
       >
         <VCard min-width="220">
           <!-- 名称搜索 -->
-          <div class="px-3 pt-3 pb-1">
+          <div class="pa-3">
             <VTextField
               v-model="subscribeFilter"
               :placeholder="t('subscribe.name')"
@@ -324,7 +324,12 @@ onMounted(() => {
               </template>
               <VListItemTitle>{{ option.label }}</VListItemTitle>
               <template #append>
-                <VIcon v-if="(subscribeStatusFilter || 'all') === option.value" icon="mdi-check" color="primary" size="small" />
+                <VIcon
+                  v-if="(subscribeStatusFilter || 'all') === option.value"
+                  icon="mdi-check"
+                  color="primary"
+                  size="small"
+                />
               </template>
             </VListItem>
           </VList>
@@ -341,7 +346,7 @@ onMounted(() => {
         location="bottom end"
       >
         <VCard min-width="260" max-width="320">
-          <div class="px-3 pt-3 pb-1">
+          <div class="pa-3">
             <VTextField
               v-model="shareKeywordInput"
               :placeholder="t('subscribe.keyword')"

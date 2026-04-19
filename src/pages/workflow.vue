@@ -120,7 +120,7 @@ onMounted(() => {
         location="bottom end"
       >
         <VCard min-width="260" max-width="320">
-          <div class="px-3 pt-3 pb-1">
+          <div class="pa-3">
             <VTextField
               v-model="shareKeywordInput"
               :placeholder="t('workflow.searchShares')"

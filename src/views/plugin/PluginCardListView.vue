@@ -603,7 +603,11 @@ function initOptions(item: Plugin) {
   }
   optionValue(authorFilterOptions.value, item.plugin_author)
   optionMutipleValue(labelFilterOptions.value, item.plugin_label)
-  optionValue(repoFilterOptions.value, handleRepoUrl(item), Boolean(item.is_local || item.repo_url?.startsWith('local://')))
+  optionValue(
+    repoFilterOptions.value,
+    handleRepoUrl(item),
+    Boolean(item.is_local || item.repo_url?.startsWith('local://')),
+  )
 }
 
 // 关闭插件市场窗口
@@ -1350,7 +1354,7 @@ function onDragStartPlugin(evt: any) {
       >
         <VCard min-width="220">
           <!-- 名称搜索 -->
-          <div class="px-3 pt-3 pb-1">
+          <div class="pa-3">
             <VCombobox
               v-model="installedFilter"
               :items="installedPluginNames"
@@ -1366,11 +1370,7 @@ function onDragStartPlugin(evt: any) {
           <!-- 快捷筛选 -->
           <VList density="compact" class="px-2 py-1">
             <VListSubheader>{{ t('common.filter') }}</VListSubheader>
-            <VListItem
-              :active="enabledFilter"
-              @click="enabledFilter = !enabledFilter"
-              density="compact"
-            >
+            <VListItem :active="enabledFilter" @click="enabledFilter = !enabledFilter" density="compact">
               <template #prepend>
                 <VIcon icon="mdi-play-circle" color="success" size="small" />
               </template>
@@ -1379,11 +1379,7 @@ function onDragStartPlugin(evt: any) {
                 <VIcon v-if="enabledFilter" icon="mdi-check" color="primary" size="small" />
               </template>
             </VListItem>
-            <VListItem
-              :active="hasUpdateFilter"
-              @click="hasUpdateFilter = !hasUpdateFilter"
-              density="compact"
-            >
+            <VListItem :active="hasUpdateFilter" @click="hasUpdateFilter = !hasUpdateFilter" density="compact">
               <template #prepend>
                 <VIcon icon="mdi-arrow-up-circle" color="info" size="small" />
               </template>
@@ -1407,7 +1403,7 @@ function onDragStartPlugin(evt: any) {
       >
         <VCard min-width="260" max-width="320">
           <!-- 名称搜索 -->
-          <div class="px-3 pt-3 pb-1">
+          <div class="pa-3">
             <VTextField
               v-model="filterForm.name"
               :placeholder="t('plugin.name')"
