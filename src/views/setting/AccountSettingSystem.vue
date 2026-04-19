@@ -1465,7 +1465,7 @@ onDeactivated(() => {
                     :label="t('setting.system.pluginLocalRepoPaths')"
                     :hint="t('setting.system.pluginLocalRepoPathsHint')"
                     persistent-hint
-                    prepend-inner-icon="mdi-folder-code"
+                    prepend-inner-icon="mdi-folder"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
