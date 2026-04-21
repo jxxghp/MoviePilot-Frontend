@@ -56,11 +56,11 @@ html.v-overlay-scroll-blocked body {
 .app-card-summary {
   position: relative;
   display: flex;
+  overflow: hidden;
   align-items: stretch;
   justify-content: flex-start;
-  overflow: hidden;
-  min-block-size: 7.5rem;
   block-size: 7.5rem;
+  min-block-size: 7.5rem;
 }
 
 .app-card-summary__content {
@@ -71,38 +71,43 @@ html.v-overlay-scroll-blocked body {
   flex-direction: column;
   justify-content: center;
   min-inline-size: 0;
-  row-gap: 0.25rem;
   padding-block: 0.25rem 0.5rem;
+  row-gap: 0.25rem;
 }
 
 .app-card-summary__title-row {
   display: flex;
   align-items: flex-start;
-  min-inline-size: 0;
   column-gap: 0.25rem;
+  min-inline-size: 0;
+}
+
+.app-card-summary__title-row > .v-badge {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 .app-card-summary__subtitle,
 .app-card-summary__meta-item {
-  min-inline-size: 0;
   overflow: hidden;
+  min-inline-size: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .app-card-summary__title {
   display: -webkit-box;
-  flex: 0 0 auto;
-  min-inline-size: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.35;
-  max-block-size: calc(1.35em * 2);
+  flex: 0 0 auto;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+  line-height: 1.35;
+  max-block-size: calc(1.35em * 2);
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .app-card-summary__title-row .app-card-summary__title {
@@ -111,11 +116,11 @@ html.v-overlay-scroll-blocked body {
 
 .app-card-summary__meta {
   display: flex;
-  align-items: center;
-  min-inline-size: 0;
-  min-block-size: 1.5rem;
-  column-gap: 0.5rem;
   overflow: hidden;
+  align-items: center;
+  column-gap: 0.5rem;
+  min-block-size: 1.5rem;
+  min-inline-size: 0;
 }
 
 .app-card-summary--single-action .app-card-summary__content {
@@ -150,10 +155,10 @@ html.v-overlay-scroll-blocked body {
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  pointer-events: none;
   filter: brightness(1.35) saturate(1.05);
   inset-block-end: 0.75rem;
   inset-inline-end: 1rem;
+  pointer-events: none;
 }
 
 .app-card-summary--single-action .app-card-summary__media,
@@ -163,12 +168,12 @@ html.v-overlay-scroll-blocked body {
 
 .app-card-summary__image {
   flex-shrink: 0;
-  inline-size: 3.5rem;
-  min-inline-size: 3.5rem;
-  max-inline-size: 3.5rem;
   block-size: 3.5rem;
-  min-block-size: 3.5rem;
+  inline-size: 3.5rem;
   max-block-size: 3.5rem;
+  max-inline-size: 3.5rem;
+  min-block-size: 3.5rem;
+  min-inline-size: 3.5rem;
 }
 
 .app-card-summary__image .v-img__img {

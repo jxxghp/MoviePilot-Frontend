@@ -160,7 +160,7 @@ function onClose() {
         </IconBtn>
       </span>
       <VDialogCloseBtn @click="onClose" />
-      <VCardText class="app-card-summary app-card-summary--double-action">
+      <VCardText class="app-card-summary app-card-summary--double-action app-card-summary--title-subtitle">
         <div class="app-card-summary__content">
           <div class="app-card-summary__title-row">
             <VBadge v-if="props.notification.enabled" dot inline color="success" class="me-1" />
