@@ -1355,8 +1355,6 @@ export default {
       llmTestReplyPreviewValue: '結果摘要：{value}',
       llmTestErrorMessage: '錯誤信息',
       llmTestErrorMessageValue: '錯誤信息：{value}',
-      llmTestSuccessDialogTitle: '智能助手測試成功',
-      llmTestSuccessDialogDesc: '當前已保存的 LLM 配置可以正常連通並返回結果。',
       llmTestSuccessToast: 'LLM 調用測試成功',
       llmTestFailedToast: 'LLM 調用測試失敗',
       aiAgentGlobal: '全局智能助手',

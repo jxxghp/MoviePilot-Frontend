@@ -1355,8 +1355,6 @@ export default {
       llmTestReplyPreviewValue: 'Reply Preview: {value}',
       llmTestErrorMessage: 'Error Message',
       llmTestErrorMessageValue: 'Error Message: {value}',
-      llmTestSuccessDialogTitle: 'AI Assistant Test Succeeded',
-      llmTestSuccessDialogDesc: 'The saved LLM configuration is reachable and returned a valid response.',
       llmTestSuccessToast: 'LLM test call succeeded',
       llmTestFailedToast: 'LLM test call failed',
       aiAgentGlobal: 'Global AI Assistant',

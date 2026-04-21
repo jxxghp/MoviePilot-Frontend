@@ -161,7 +161,6 @@ const llmModels = ref<string[]>([])
 const loadingModels = ref(false)
 const savingBasic = ref(false)
 const testingLlm = ref(false)
-const llmTestSuccessDialog = ref(false)
 
 type LlmSettingsSnapshot = {
   AI_AGENT_ENABLE: boolean
@@ -205,7 +204,6 @@ function invalidateLlmTestState() {
     llmTestAbortController = null
   }
   testingLlm.value = false
-  llmTestSuccessDialog.value = false
   llmTestResult.value = null
 }
 
@@ -441,7 +439,6 @@ async function testLlmConnection() {
   llmTestAbortController = abortController
 
   testingLlm.value = true
-  llmTestSuccessDialog.value = false
   llmTestResult.value = null
   try {
     const result: { [key: string]: any } = await api.post('system/llm-test', null, {
@@ -460,8 +457,7 @@ async function testLlmConnection() {
       reply_preview: data.reply_preview,
       message: result?.message,
     }
-    if (result?.success) llmTestSuccessDialog.value = true
-    else $toast.error(t('setting.system.llmTestFailedToast'))
+    if (!result?.success) $toast.error(t('setting.system.llmTestFailedToast'))
   } catch (error) {
     if (requestId !== llmTestRequestId || abortController.signal.aborted || currentLlmSnapshotKey.value !== snapshotKey) {
       return
@@ -1060,14 +1056,14 @@ watch(
                   </div>
 
                   <VAlert
-                    v-if="llmTestResult && !llmTestResult.success"
-                    type="error"
+                    v-if="llmTestResult"
+                    :type="llmTestResult.success ? 'success' : 'error'"
                     variant="tonal"
                     density="comfortable"
                     class="mt-4"
                   >
                     <div class="text-subtitle-2 mb-2">
-                      {{ t('setting.system.llmTestFailed') }}
+                      {{ llmTestResult.success ? t('setting.system.llmTestSuccess') : t('setting.system.llmTestFailed') }}
                     </div>
                     <div class="text-body-2">
                       {{ t('setting.system.llmTestProviderValue', { value: llmTestResult.provider }) }}
@@ -1078,7 +1074,10 @@ watch(
                     <div v-if="llmTestResult.duration_ms !== undefined" class="text-body-2">
                       {{ t('setting.system.llmTestDurationValue', { duration: llmTestResult.duration_ms }) }}
                     </div>
-                    <div v-if="llmTestResult.message" class="text-body-2">
+                    <div v-if="llmTestResult.success && llmTestResult.reply_preview" class="text-body-2">
+                      {{ t('setting.system.llmTestReplyPreviewValue', { value: llmTestResult.reply_preview }) }}
+                    </div>
+                    <div v-else-if="llmTestResult.message" class="text-body-2">
                       {{ t('setting.system.llmTestErrorMessageValue', { value: llmTestResult.message }) }}
                     </div>
                   </VAlert>
@@ -1092,7 +1091,6 @@ watch(
                 prepend-icon="mdi-content-save"
                 :loading="savingBasic"
                 :disabled="testingLlm"
-                :block="!display.smAndUp.value"
                 class="text-no-wrap"
               >
                 {{ t('common.save') }}
@@ -1102,7 +1100,6 @@ watch(
                 @click="advancedDialog = true"
                 prepend-icon="mdi-cog"
                 append-icon="mdi-dots-horizontal"
-                :block="!display.smAndUp.value"
                 class="text-no-wrap setting-actions__secondary"
               >
                 {{ t('setting.system.advancedSettings') }}
@@ -1214,53 +1211,6 @@ watch(
       </VCard>
     </VCol>
   </VRow>
-
-  <VDialog
-    v-if="llmTestSuccessDialog && llmTestResult?.success"
-    v-model="llmTestSuccessDialog"
-    max-width="34rem"
-    :fullscreen="display.xs.value"
-  >
-    <VCard>
-      <VCardItem class="py-3">
-        <template #prepend>
-          <VIcon icon="mdi-check-circle" color="success" class="me-2" />
-        </template>
-        <VCardTitle>{{ t('setting.system.llmTestSuccessDialogTitle') }}</VCardTitle>
-        <VCardSubtitle>{{ t('setting.system.llmTestSuccessDialogDesc') }}</VCardSubtitle>
-      </VCardItem>
-      <VDialogCloseBtn @click="llmTestSuccessDialog = false" />
-      <VCardText>
-        <VAlert
-          type="success"
-          variant="tonal"
-          density="comfortable"
-        >
-          {{ t('setting.system.llmTestSuccessToast') }}
-        </VAlert>
-        <div class="d-flex flex-column gap-2 mt-4">
-          <div class="text-body-1">
-            {{ t('setting.system.llmTestProviderValue', { value: llmTestResult.provider }) }}
-          </div>
-          <div class="text-body-1">
-            {{ t('setting.system.llmTestModelValue', { value: llmTestResult.model }) }}
-          </div>
-          <div v-if="llmTestResult.duration_ms !== undefined" class="text-body-1">
-            {{ t('setting.system.llmTestDurationValue', { duration: llmTestResult.duration_ms }) }}
-          </div>
-          <div v-if="llmTestResult.reply_preview" class="text-body-2 text-medium-emphasis">
-            {{ t('setting.system.llmTestReplyPreviewValue', { value: llmTestResult.reply_preview }) }}
-          </div>
-        </div>
-      </VCardText>
-      <VCardActions class="px-6 pb-6">
-        <VSpacer />
-        <VBtn color="primary" @click="llmTestSuccessDialog = false">
-          {{ t('common.close') }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 
   <!-- 高级系统设置 -->
   <VDialog
