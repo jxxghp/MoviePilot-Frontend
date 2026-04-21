@@ -1016,16 +1016,20 @@ watch(
               <div class="text-subtitle-2 mb-2">
                 {{ llmTestResult.success ? t('setting.system.llmTestSuccess') : t('setting.system.llmTestFailed') }}
               </div>
-              <div class="text-body-2">{{ t('setting.system.llmTestProvider') }}：{{ llmTestResult.provider }}</div>
-              <div class="text-body-2">{{ t('setting.system.llmTestModel') }}：{{ llmTestResult.model }}</div>
+              <div class="text-body-2">
+                {{ t('setting.system.llmTestProviderValue', { value: llmTestResult.provider }) }}
+              </div>
+              <div class="text-body-2">
+                {{ t('setting.system.llmTestModelValue', { value: llmTestResult.model }) }}
+              </div>
               <div v-if="llmTestResult.duration_ms !== undefined" class="text-body-2">
-                {{ t('setting.system.llmTestDuration') }}：{{ llmTestResult.duration_ms }} ms
+                {{ t('setting.system.llmTestDurationValue', { duration: llmTestResult.duration_ms }) }}
               </div>
               <div v-if="llmTestResult.success && llmTestResult.reply_preview" class="text-body-2">
-                {{ t('setting.system.llmTestReplyPreview') }}：{{ llmTestResult.reply_preview }}
+                {{ t('setting.system.llmTestReplyPreviewValue', { value: llmTestResult.reply_preview }) }}
               </div>
               <div v-else-if="llmTestResult.message" class="text-body-2">
-                {{ t('setting.system.llmTestErrorMessage') }}：{{ llmTestResult.message }}
+                {{ t('setting.system.llmTestErrorMessageValue', { value: llmTestResult.message }) }}
               </div>
             </VAlert>
             <div class="d-flex flex-wrap gap-4 mt-4">
