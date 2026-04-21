@@ -170,16 +170,6 @@ type LlmSettingsSnapshot = {
   LLM_BASE_URL: string
 }
 
-type LlmTestResult = {
-  success: boolean
-  provider: string
-  model: string
-  duration_ms?: number
-  reply_preview?: string
-  message?: string
-}
-
-const llmTestResult = ref<LlmTestResult | null>(null)
 let llmTestRequestId = 0
 let llmTestAbortController: AbortController | null = null
 
@@ -197,6 +187,25 @@ function buildLlmSnapshotKey(snapshot: LlmSettingsSnapshot) {
   return JSON.stringify(snapshot)
 }
 
+function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
+  return {
+    enabled: snapshot.AI_AGENT_ENABLE,
+    provider: snapshot.LLM_PROVIDER.trim(),
+    model: snapshot.LLM_MODEL.trim(),
+    api_key: snapshot.LLM_API_KEY.trim(),
+    base_url: snapshot.LLM_BASE_URL.trim(),
+  }
+}
+
+function showLlmTestFailedToast(message?: string) {
+  const normalizedMessage = String(message ?? '').trim()
+  if (normalizedMessage) {
+    $toast.error(t('setting.system.llmTestFailedToastWithMessage', { message: normalizedMessage }))
+    return
+  }
+  $toast.error(t('setting.system.llmTestFailedToast'))
+}
+
 function invalidateLlmTestState() {
   llmTestRequestId += 1
   if (llmTestAbortController) {
@@ -204,40 +213,21 @@ function invalidateLlmTestState() {
     llmTestAbortController = null
   }
   testingLlm.value = false
-  llmTestResult.value = null
 }
-
-const savedLlmSnapshot = ref<LlmSettingsSnapshot>(buildLlmSnapshot())
 
 const currentLlmSnapshot = computed(() => buildLlmSnapshot())
 const currentLlmSnapshotKey = computed(() => buildLlmSnapshotKey(currentLlmSnapshot.value))
-const savedLlmSnapshotKey = computed(() => buildLlmSnapshotKey(savedLlmSnapshot.value))
-
-const hasSavedLlmChanges = computed(
-  () => currentLlmSnapshotKey.value !== savedLlmSnapshotKey.value,
-)
 
 const canTestLlm = computed(() => {
   const snapshot = currentLlmSnapshot.value
   return (
     snapshot.AI_AGENT_ENABLE &&
+    Boolean(snapshot.LLM_PROVIDER.trim()) &&
     Boolean(snapshot.LLM_API_KEY.trim()) &&
     Boolean(snapshot.LLM_MODEL.trim()) &&
     !savingBasic.value &&
-    !testingLlm.value &&
-    !hasSavedLlmChanges.value
+    !testingLlm.value
   )
-})
-
-const llmTestDisabledReason = computed(() => {
-  const snapshot = currentLlmSnapshot.value
-  if (!snapshot.AI_AGENT_ENABLE) return t('setting.system.llmTestDisabledAgent')
-  if (!snapshot.LLM_API_KEY.trim()) return t('setting.system.llmTestDisabledApiKey')
-  if (!snapshot.LLM_MODEL.trim()) return t('setting.system.llmTestDisabledModel')
-  if (savingBasic.value) return t('setting.system.llmTestSaving')
-  if (testingLlm.value) return t('setting.system.llmTestLoading')
-  if (hasSavedLlmChanges.value) return t('setting.system.llmTestDisabledUnsaved')
-  return ''
 })
 
 const activeTab = ref('system')
@@ -390,7 +380,6 @@ async function loadSystemSettings() {
           if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
         })
       }
-      savedLlmSnapshot.value = buildLlmSnapshot()
     }
   } catch (error) {
     console.log(error)
@@ -418,10 +407,7 @@ async function saveBasicSettings() {
   savingBasic.value = true
   try {
     if (await saveSystemSetting(SystemSettings.value.Basic)) {
-      savedLlmSnapshot.value = buildLlmSnapshot()
       $toast.success(t('setting.system.basicSaveSuccess'))
-    } else {
-      llmTestResult.value = null
     }
   } finally {
     savingBasic.value = false
@@ -433,43 +419,36 @@ async function testLlmConnection() {
 
   const snapshot = buildLlmSnapshot()
   const snapshotKey = buildLlmSnapshotKey(snapshot)
+  const payload = buildLlmTestPayload(snapshot)
   const requestId = ++llmTestRequestId
   if (llmTestAbortController) llmTestAbortController.abort()
   const abortController = new AbortController()
   llmTestAbortController = abortController
 
   testingLlm.value = true
-  llmTestResult.value = null
   try {
-    const result: { [key: string]: any } = await api.post('system/llm-test', null, {
+    const result: { [key: string]: any } = await api.post('system/llm-test', payload, {
       signal: abortController.signal,
     })
-    if (requestId !== llmTestRequestId || abortController.signal.aborted || currentLlmSnapshotKey.value !== snapshotKey) {
+    if (
+      requestId !== llmTestRequestId ||
+      abortController.signal.aborted ||
+      currentLlmSnapshotKey.value !== snapshotKey
+    ) {
       return
     }
 
-    const data = result?.data ?? {}
-    llmTestResult.value = {
-      success: Boolean(result?.success),
-      provider: data.provider ?? snapshot.LLM_PROVIDER,
-      model: data.model ?? snapshot.LLM_MODEL,
-      duration_ms: data.duration_ms,
-      reply_preview: data.reply_preview,
-      message: result?.message,
-    }
-    if (!result?.success) $toast.error(t('setting.system.llmTestFailedToast'))
+    if (result?.success) $toast.success(t('setting.system.llmTestSuccessToast'))
+    else showLlmTestFailedToast(result?.message)
   } catch (error) {
-    if (requestId !== llmTestRequestId || abortController.signal.aborted || currentLlmSnapshotKey.value !== snapshotKey) {
+    if (
+      requestId !== llmTestRequestId ||
+      abortController.signal.aborted ||
+      currentLlmSnapshotKey.value !== snapshotKey
+    ) {
       return
     }
-    const message = error instanceof Error ? error.message : String(error)
-    llmTestResult.value = {
-      success: false,
-      provider: snapshot.LLM_PROVIDER,
-      model: snapshot.LLM_MODEL,
-      message,
-    }
-    $toast.error(t('setting.system.llmTestFailedToast'))
+    showLlmTestFailedToast(error instanceof Error ? error.message : String(error))
     console.log(error)
   } finally {
     if (requestId !== llmTestRequestId) return
@@ -702,12 +681,9 @@ onBeforeUnmount(() => {
   invalidateLlmTestState()
 })
 
-watch(
-  currentLlmSnapshotKey,
-  (snapshotKey, previousSnapshotKey) => {
-    if (snapshotKey !== previousSnapshotKey) invalidateLlmTestState()
-  },
-)
+watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
+  if (snapshotKey !== previousSnapshotKey) invalidateLlmTestState()
+})
 </script>
 
 <template>
@@ -897,26 +873,43 @@ watch(
                 />
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                <VCombobox
-                  v-model="SystemSettings.Basic.LLM_MODEL"
-                  :label="t('setting.system.llmModel')"
-                  :hint="t('setting.system.llmModelHint')"
-                  :placeholder="t('setting.system.llmModelHint')"
-                  persistent-hint
-                  :items="llmModels"
-                  :loading="loadingModels"
-                  prepend-inner-icon="mdi-brain"
-                >
-                  <template #append-inner>
+                <div>
+                  <VCombobox
+                    v-model="SystemSettings.Basic.LLM_MODEL"
+                    :label="t('setting.system.llmModel')"
+                    :hint="t('setting.system.llmModelHint')"
+                    :placeholder="t('setting.system.llmModelHint')"
+                    persistent-hint
+                    :items="llmModels"
+                    :loading="loadingModels"
+                    prepend-inner-icon="mdi-brain"
+                  >
+                    <template #append-inner>
+                      <VBtn
+                        variant="text"
+                        icon="mdi-refresh"
+                        size="small"
+                        @click="loadLlmModels"
+                        :disabled="!SystemSettings.Basic.LLM_API_KEY"
+                      />
+                    </template>
+                  </VCombobox>
+
+                  <div class="d-flex justify-end mt-2">
                     <VBtn
-                      variant="text"
-                      icon="mdi-refresh"
-                      size="small"
-                      @click="loadLlmModels"
-                      :disabled="!SystemSettings.Basic.LLM_API_KEY"
-                    />
-                  </template>
-                </VCombobox>
+                      color="info"
+                      variant="tonal"
+                      density="comfortable"
+                      prepend-icon="mdi-connection"
+                      :disabled="!canTestLlm"
+                      :loading="testingLlm"
+                      class="llm-test-trigger"
+                      @click="testLlmConnection"
+                    >
+                      {{ t('setting.system.llmTestAction') }}
+                    </VBtn>
+                  </div>
+                </div>
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                 <VTextField
@@ -947,7 +940,7 @@ watch(
                   prepend-inner-icon="mdi-timer-outline"
                 />
               </VCol>
-              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                 <VSwitch
                   v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
                   :label="t('setting.system.llmSupportImageInput')"
@@ -955,7 +948,7 @@ watch(
                   persistent-hint
                 />
               </VCol>
-              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                 <VSwitch
                   v-model="SystemSettings.Basic.AI_AGENT_RETRY_TRANSFER"
                   :label="t('setting.system.aiAgentRetryTransfer')"
@@ -1005,85 +998,6 @@ watch(
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
-            <VRow v-if="SystemSettings.Basic.AI_AGENT_ENABLE" class="mt-1">
-              <VCol cols="12">
-                <VSheet
-                  border
-                  rounded="lg"
-                  class="pa-4"
-                >
-                  <div class="d-flex flex-column flex-md-row align-start align-md-center justify-space-between gap-4">
-                    <div class="flex-1-1-auto">
-                      <div class="text-subtitle-1 font-weight-medium">
-                        {{ t('setting.system.llmTestPanelTitle') }}
-                      </div>
-                      <div class="text-body-2 text-medium-emphasis mt-1">
-                        {{ t('setting.system.llmTestPanelDesc') }}
-                      </div>
-                    </div>
-                    <div class="w-100 w-md-auto">
-                      <VTooltip v-if="llmTestDisabledReason" location="top">
-                        <template #activator="{ props }">
-                          <span v-bind="props" class="d-flex">
-                            <VBtn
-                              color="secondary"
-                              variant="tonal"
-                              prepend-icon="mdi-connection"
-                              :disabled="true"
-                              :loading="testingLlm"
-                              :block="!display.smAndUp.value"
-                              class="text-no-wrap"
-                            >
-                              {{ t('setting.system.llmTestAction') }}
-                            </VBtn>
-                          </span>
-                        </template>
-                        <span>{{ llmTestDisabledReason }}</span>
-                      </VTooltip>
-                      <VBtn
-                        v-else
-                        color="secondary"
-                        variant="tonal"
-                        prepend-icon="mdi-connection"
-                        :loading="testingLlm"
-                        :block="!display.smAndUp.value"
-                        class="text-no-wrap"
-                        @click="testLlmConnection"
-                      >
-                        {{ t('setting.system.llmTestAction') }}
-                      </VBtn>
-                    </div>
-                  </div>
-
-                  <VAlert
-                    v-if="llmTestResult"
-                    :type="llmTestResult.success ? 'success' : 'error'"
-                    variant="tonal"
-                    density="comfortable"
-                    class="mt-4"
-                  >
-                    <div class="text-subtitle-2 mb-2">
-                      {{ llmTestResult.success ? t('setting.system.llmTestSuccess') : t('setting.system.llmTestFailed') }}
-                    </div>
-                    <div class="text-body-2">
-                      {{ t('setting.system.llmTestProviderValue', { value: llmTestResult.provider }) }}
-                    </div>
-                    <div class="text-body-2">
-                      {{ t('setting.system.llmTestModelValue', { value: llmTestResult.model }) }}
-                    </div>
-                    <div v-if="llmTestResult.duration_ms !== undefined" class="text-body-2">
-                      {{ t('setting.system.llmTestDurationValue', { duration: llmTestResult.duration_ms }) }}
-                    </div>
-                    <div v-if="llmTestResult.success && llmTestResult.reply_preview" class="text-body-2">
-                      {{ t('setting.system.llmTestReplyPreviewValue', { value: llmTestResult.reply_preview }) }}
-                    </div>
-                    <div v-else-if="llmTestResult.message" class="text-body-2">
-                      {{ t('setting.system.llmTestErrorMessageValue', { value: llmTestResult.message }) }}
-                    </div>
-                  </VAlert>
-                </VSheet>
-              </VCol>
-            </VRow>
             <div class="setting-actions mt-4">
               <VBtn
                 type="submit"
@@ -1110,6 +1024,7 @@ watch(
       </VCard>
     </VCol>
   </VRow>
+
   <VRow>
     <VCol cols="12">
       <VCard>
@@ -1745,19 +1660,16 @@ watch(
 <style scoped>
 .setting-actions {
   display: flex;
-  gap: 1rem;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
 }
 
 .setting-actions__secondary {
   flex-shrink: 0;
 }
 
-@media (max-width: 599px) {
-  .setting-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.llm-test-trigger {
+  min-inline-size: 0;
 }
 </style>
