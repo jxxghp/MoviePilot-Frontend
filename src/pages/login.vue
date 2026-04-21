@@ -234,8 +234,8 @@ async function handlePassKeyAuth(
         isConditional && conditionalAbortController
           ? conditionalAbortController.signal
           : !isConditional && manualAbortController
-          ? manualAbortController.signal
-          : undefined,
+            ? manualAbortController.signal
+            : undefined,
     })
 
     await onSuccess(finishResponse)
@@ -528,7 +528,7 @@ onUnmounted(() => {
     <!-- 登录表单 -->
     <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card px-7 py-3 w-full h-full"
+        class="auth-card px-7 pt-3 w-full h-full"
         :class="{ 'glass-effect': !isTransparentTheme }"
         max-width="24rem"
         border
@@ -602,7 +602,7 @@ onUnmounted(() => {
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                 />
               </VCol>
-              <VCol cols="12">
+              <VCol cols="12" class="py-0">
                 <!-- remember me checkbox -->
                 <div class="d-flex align-center justify-space-between flex-wrap">
                   <VCheckbox v-model="form.remember" :label="t('login.stayLoggedIn')" required />
@@ -732,15 +732,15 @@ onUnmounted(() => {
 
   &::before,
   &::after {
-    content: '';
     flex: 1;
     border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    content: '';
   }
 
   .or-divider-text {
-    padding-inline: 12px;
-    font-size: 0.8125rem;
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+    font-size: 0.8125rem;
+    padding-inline: 12px;
     white-space: nowrap;
   }
 }
