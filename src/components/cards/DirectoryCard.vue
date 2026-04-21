@@ -195,7 +195,7 @@ watch(
 </script>
 
 <template>
-  <VCard variant="tonal" :width="props.width" :height="props.height">
+  <VCard variant="tonal" class="app-card-shell" :width="props.width" :height="props.height">
     <VDialogCloseBtn @click="onClose" />
     <VCardItem>
       <VTextField

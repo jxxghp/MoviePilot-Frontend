@@ -205,22 +205,24 @@ function onClose() {
 
 <template>
   <div>
-    <VCard variant="tonal" @click="opengroupInfoDialog">
+    <VCard variant="tonal" class="app-card-shell" @click="opengroupInfoDialog">
       <span class="absolute top-3 right-12">
         <IconBtn>
           <VIcon class="cursor-move" icon="mdi-drag" />
         </IconBtn>
       </span>
       <VDialogCloseBtn @click="onClose" />
-      <VCardText class="flex justify-space-between align-center gap-3">
-        <div class="align-self-start">
-          <h5 class="text-h6 mb-1">{{ props.group.name }}</h5>
-          <div class="text-body-1 mb-3">
+      <VCardText class="app-card-summary app-card-summary--double-action app-card-summary--title-subtitle">
+        <div class="app-card-summary__content">
+          <h5 class="app-card-summary__title text-h6">{{ props.group.name }}</h5>
+          <div class="app-card-summary__subtitle text-body-1">
             <span v-if="!props.group.category">{{ props.group.media_type || t('common.all') }}</span>
             <span v-else>{{ props.group.category }}</span>
           </div>
         </div>
-        <VImg :src="filter_group_svg" cover class="mt-10" max-width="3rem" />
+        <div class="app-card-summary__media" aria-hidden="true">
+          <VImg :src="filter_group_svg" contain class="app-card-summary__image" />
+        </div>
       </VCardText>
     </VCard>
     <VDialog

@@ -45,7 +45,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard variant="tonal">
+  <VCard variant="tonal" class="app-card-shell">
     <span class="absolute top-3 right-12">
       <IconBtn>
         <VIcon class="cursor-move" icon="mdi-drag" />
@@ -53,7 +53,7 @@ onMounted(() => {
     </span>
     <VDialogCloseBtn @click="onClose" />
     <VCardItem>
-      <VCardTitle>{{ t('filterRule.priority') }} {{ props.pri }}</VCardTitle>
+      <VCardTitle class="pr-8">{{ t('filterRule.priority') }} {{ props.pri }}</VCardTitle>
       <VRow>
         <VCol>
           <VAutocomplete

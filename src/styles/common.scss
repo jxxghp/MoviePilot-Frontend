@@ -48,6 +48,133 @@ html.v-overlay-scroll-blocked body {
   }
 }
 
+// 应用类信息卡片：固定右侧媒体槽位，避免图片被左侧文字挤压变形
+.app-card-shell {
+  block-size: 100%;
+}
+
+.app-card-summary {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: hidden;
+  min-block-size: 7.5rem;
+  block-size: 7.5rem;
+}
+
+.app-card-summary__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-inline-size: 0;
+  row-gap: 0.25rem;
+  padding-block: 0.25rem 0.5rem;
+}
+
+.app-card-summary__title-row {
+  display: flex;
+  align-items: flex-start;
+  min-inline-size: 0;
+  column-gap: 0.25rem;
+}
+
+.app-card-summary__subtitle,
+.app-card-summary__meta-item {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-card-summary__title {
+  display: -webkit-box;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+  max-block-size: calc(1.35em * 2);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.app-card-summary__title-row .app-card-summary__title {
+  flex: 1 1 auto;
+}
+
+.app-card-summary__meta {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  min-block-size: 1.5rem;
+  column-gap: 0.5rem;
+  overflow: hidden;
+}
+
+.app-card-summary--single-action .app-card-summary__content {
+  padding-inline-end: 3.75rem;
+}
+
+.app-card-summary--double-action .app-card-summary__content {
+  padding-inline-end: 5rem;
+}
+
+.app-card-summary--title-subtitle {
+  padding-block: 0.75rem !important;
+}
+
+.app-card-summary--title-subtitle .app-card-summary__content {
+  justify-content: space-between;
+  block-size: 100%;
+  padding-block: 0;
+}
+
+.app-card-summary--title-subtitle .app-card-summary__title {
+  flex: 0 1 auto;
+}
+
+.app-card-summary--title-subtitle .app-card-summary__subtitle {
+  flex-shrink: 0;
+}
+
+.app-card-summary__media {
+  position: absolute;
+  z-index: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  pointer-events: none;
+  filter: brightness(1.35) saturate(1.05);
+  inset-block-end: 0.75rem;
+  inset-inline-end: 1rem;
+}
+
+.app-card-summary--single-action .app-card-summary__media,
+.app-card-summary--double-action .app-card-summary__media {
+  inset-inline-end: 1rem;
+}
+
+.app-card-summary__image {
+  flex-shrink: 0;
+  inline-size: 3.5rem;
+  min-inline-size: 3.5rem;
+  max-inline-size: 3.5rem;
+  block-size: 3.5rem;
+  min-block-size: 3.5rem;
+  max-block-size: 3.5rem;
+}
+
+.app-card-summary__image .v-img__img {
+  object-fit: contain;
+}
+
 // Toast通知样式
 .Vue-Toastification__container {
   z-index: 2500;

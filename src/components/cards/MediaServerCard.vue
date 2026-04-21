@@ -199,21 +199,27 @@ onMounted(() => {
 </script>
 <template>
   <div>
-    <VCard variant="tonal" @click="openMediaServerInfoDialog">
+    <VCard variant="tonal" class="app-card-shell" @click="openMediaServerInfoDialog">
       <VDialogCloseBtn @click="onClose" />
-      <VCardText class="flex justify-space-between align-center gap-3">
-        <div class="align-self-start flex-1">
-          <div class="text-h6 mb-1">{{ mediaserver.name }}</div>
-          <div v-if="mediaServerDict[mediaserver.type] && mediaserver.enabled" class="text-sm mt-5 flex flex-wrap">
-            <span v-for="item in infoItems" :key="item.title" class="me-2 mb-1">
-              <VIcon rounded :icon="item.avatar" class="me-1" />{{ item.amount }}
+      <VCardText class="app-card-summary app-card-summary--single-action">
+        <div class="app-card-summary__content">
+          <div class="app-card-summary__title text-h6">{{ mediaserver.name }}</div>
+          <div
+            v-if="mediaServerDict[mediaserver.type] && mediaserver.enabled"
+            class="grid min-h-6 grid-cols-3 gap-2 text-sm text-medium-emphasis"
+          >
+            <span v-for="item in infoItems" :key="item.title" class="flex min-w-0 items-center">
+              <VIcon rounded :icon="item.avatar" class="me-1 shrink-0" />
+              <span class="truncate">{{ item.amount }}</span>
             </span>
           </div>
-          <div v-else-if="!mediaServerDict[mediaserver.type]" class="text-sm mt-5 flex flex-wrap">
-            <span class="me-2 mb-1">自定义媒体服务器</span>
+          <div v-else-if="!mediaServerDict[mediaserver.type]" class="app-card-summary__subtitle text-sm">
+            自定义媒体服务器
           </div>
         </div>
-        <VImg :src="getIcon" class="mt-8 me-3 max-h-12" max-width="3rem" min-width="3rem" />
+        <div class="app-card-summary__media" aria-hidden="true">
+          <VImg :src="getIcon" contain class="app-card-summary__image" />
+        </div>
       </VCardText>
     </VCard>
 

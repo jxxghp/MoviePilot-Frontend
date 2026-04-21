@@ -101,19 +101,21 @@ function onClose() {
 
 <template>
   <div>
-    <VCard variant="tonal" @click="openRuleInfoDialog">
+    <VCard variant="tonal" class="app-card-shell" @click="openRuleInfoDialog">
       <span class="absolute top-3 right-12">
         <IconBtn>
           <VIcon class="cursor-move" icon="mdi-drag" />
         </IconBtn>
       </span>
       <VDialogCloseBtn @click="onClose" />
-      <VCardText class="flex justify-space-between align-center gap-3">
-        <div class="align-self-start">
-          <h5 class="text-h6 mb-1">{{ props.rule.name }}</h5>
-          <div class="text-body-1 mb-3">{{ props.rule.id }}</div>
+      <VCardText class="app-card-summary app-card-summary--double-action app-card-summary--title-subtitle">
+        <div class="app-card-summary__content">
+          <h5 class="app-card-summary__title text-h6">{{ props.rule.name }}</h5>
+          <div class="app-card-summary__subtitle text-body-1">{{ props.rule.id }}</div>
         </div>
-        <VImg :src="filter_svg" cover class="mt-7" max-width="3rem" />
+        <div class="app-card-summary__media" aria-hidden="true">
+          <VImg :src="filter_svg" contain class="app-card-summary__image" />
+        </div>
       </VCardText>
     </VCard>
     <VDialog

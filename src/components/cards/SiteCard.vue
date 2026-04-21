@@ -216,11 +216,17 @@ onMounted(() => {
       <div v-if="cardProps.site?.is_active" class="site-status-indicator" :class="statColor"></div>
 
       <!-- 主体部分 -->
-      <div class="relative flex-1 flex flex-col p-3 z-1">
+      <div class="relative z-1 flex flex-1 flex-col p-3 pr-12">
         <!-- 顶部：图标和站点名称 -->
-        <div class="flex items-center mb-1">
+        <div class="mb-1 flex min-w-0 items-center gap-2">
           <!-- 站点图标 -->
-          <VAvatar tile rounded="lg" size="32" class="me-2" :class="{ 'cursor-move': display.mdAndUp.value }">
+          <VAvatar
+            tile
+            rounded="lg"
+            size="32"
+            class="shrink-0"
+            :class="{ 'cursor-move': display.mdAndUp.value }"
+          >
             <VImg :src="siteIcon" class="w-full h-full" :alt="cardProps.site?.name" cover>
               <template #placeholder>
                 <div class="w-full h-full">
@@ -231,11 +237,11 @@ onMounted(() => {
           </VAvatar>
 
           <!-- 站点名称和特性图标 -->
-          <div class="flex-1 min-w-0 flex items-center">
-            <h3 class="text-lg font-semibold leading-tight truncate">{{ cardProps.site?.name }}</h3>
+          <div class="flex min-w-0 flex-1 items-center gap-2">
+            <h3 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight">{{ cardProps.site?.name }}</h3>
 
             <!-- 站点特性图标 -->
-            <div class="flex items-center gap-2 ml-auto mr-10">
+            <div class="ml-auto flex shrink-0 items-center gap-2">
               <div v-if="cardProps.site?.limit_interval" class="hover:bg-primary/8 transition-colors">
                 <VIcon icon="mdi-speedometer" size="16" color="primary" class="opacity-85 hover:opacity-100" />
               </div>
@@ -254,7 +260,7 @@ onMounted(() => {
 
         <!-- 中间部分：网址 -->
         <div class="my-3">
-          <div class="text-sm text-medium-emphasis truncate" @click.stop="openSitePage">
+          <div class="min-w-0 truncate text-sm text-medium-emphasis" @click.stop="openSitePage">
             {{ cardProps.site?.url }}
           </div>
         </div>

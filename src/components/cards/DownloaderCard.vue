@@ -252,6 +252,7 @@ onUnmounted(() => {
       <VCard
         v-bind="hover.props"
         variant="tonal"
+        class="app-card-shell"
         @click="openDownloaderInfoDialog"
         :class="{ 'transition transform-cpu duration-300 -translate-y-1': hover.isHovering }"
       >
@@ -261,9 +262,9 @@ onUnmounted(() => {
             <VIcon class="cursor-move" icon="mdi-drag" />
           </IconBtn>
         </span>
-        <VCardText class="flex justify-space-between align-center gap-4">
-          <div class="align-self-start flex-1">
-            <div class="flex items-center">
+        <VCardText class="app-card-summary app-card-summary--double-action">
+          <div class="app-card-summary__content">
+            <div class="app-card-summary__title-row">
               <VBadge
                 v-if="props.downloader.default && props.downloader.enabled"
                 dot
@@ -271,18 +272,21 @@ onUnmounted(() => {
                 color="success"
                 class="me-1"
               />
-              <span class="text-h6">{{ downloader.name }}</span>
+              <span class="app-card-summary__title text-h6">{{ downloader.name }}</span>
             </div>
-            <div v-if="downloaderDict[downloader.type] && props.downloader.enabled" class="mt-1 flex flex-wrap text-sm">
-              <span class="me-2">{{ `↑ ${formatFileSize(upload_rate, 1)}/s ` }}</span>
-              <span>{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
+            <div
+              v-if="downloaderDict[downloader.type] && props.downloader.enabled"
+              class="app-card-summary__meta text-sm"
+            >
+              <span class="app-card-summary__meta-item">{{ `↑ ${formatFileSize(upload_rate, 1)}/s` }}</span>
+              <span class="app-card-summary__meta-item">{{ `↓ ${formatFileSize(download_rate, 1)}/s` }}</span>
             </div>
-            <div v-else-if="!downloaderDict[downloader.type]" class="mt-1 flex flex-wrap text-sm">
-              <span class="me-2">自定义下载器</span>
+            <div v-else-if="!downloaderDict[downloader.type]" class="app-card-summary__subtitle text-sm">
+              自定义下载器
             </div>
           </div>
-          <div class="h-20">
-            <VImg :src="getIcon" cover class="mt-8 me-3" max-width="3rem" min-width="3rem" />
+          <div class="app-card-summary__media" aria-hidden="true">
+            <VImg :src="getIcon" contain class="app-card-summary__image" />
           </div>
         </VCardText>
       </VCard>

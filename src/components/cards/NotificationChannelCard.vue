@@ -153,22 +153,24 @@ function onClose() {
 </script>
 <template>
   <div>
-    <VCard variant="tonal" @click="openNotificationInfoDialog">
+    <VCard variant="tonal" class="app-card-shell" @click="openNotificationInfoDialog">
       <span class="absolute top-3 right-12">
         <IconBtn>
           <VIcon class="cursor-move" icon="mdi-drag" />
         </IconBtn>
       </span>
       <VDialogCloseBtn @click="onClose" />
-      <VCardText class="flex justify-space-between align-center gap-3">
-        <div class="align-self-start">
-          <div class="flex items-center">
+      <VCardText class="app-card-summary app-card-summary--double-action">
+        <div class="app-card-summary__content">
+          <div class="app-card-summary__title-row">
             <VBadge v-if="props.notification.enabled" dot inline color="success" class="me-1" />
-            <span class="text-h6">{{ props.notification.name }}</span>
+            <span class="app-card-summary__title text-h6">{{ props.notification.name }}</span>
           </div>
-          <div class="text-body-1 mb-3">{{ notificationTypeNames[notification.type] }}</div>
+          <div class="app-card-summary__subtitle text-body-1">{{ notificationTypeNames[notification.type] }}</div>
         </div>
-        <VImg :src="getIcon" cover class="mt-7 me-1" max-width="3rem" />
+        <div class="app-card-summary__media" aria-hidden="true">
+          <VImg :src="getIcon" contain class="app-card-summary__image" />
+        </div>
       </VCardText>
     </VCard>
 
