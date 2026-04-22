@@ -15,7 +15,7 @@ function onClick() {
 
 <template>
   <IconBtn
-    :class="props.innerClass ? props.innerClass : 'absolute right-3 top-3'"
+    :class="props.innerClass ? props.innerClass : 'absolute right-3 top-3 z-10'"
     @click.stop="onClick"
   >
     <VIcon icon="mdi-close" />

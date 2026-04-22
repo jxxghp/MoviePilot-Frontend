@@ -54,6 +54,11 @@ html.v-overlay-scroll-blocked body {
   block-size: 100%;
 }
 
+// 保证卡片右上角的浮动操作区始终高于可点击的卡片内容层，避免误触发详情打开。
+.app-card-top-action {
+  z-index: 2;
+}
+
 .app-card-summary {
   position: relative;
   display: flex;

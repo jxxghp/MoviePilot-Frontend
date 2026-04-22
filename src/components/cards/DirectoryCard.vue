@@ -204,8 +204,8 @@ watch(
         :label="t('directory.alias')"
         class="me-20 text-high-emphasis font-weight-bold"
       />
-      <span class="absolute top-3 right-12">
-        <IconBtn>
+      <span class="app-card-top-action absolute top-3 right-12">
+        <IconBtn @click.stop>
           <VIcon class="cursor-move" icon="mdi-drag" />
         </IconBtn>
       </span>

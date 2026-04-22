@@ -46,8 +46,8 @@ onMounted(() => {
 
 <template>
   <VCard variant="tonal" class="app-card-shell">
-    <span class="absolute top-3 right-12">
-      <IconBtn>
+    <span class="app-card-top-action absolute top-3 right-12">
+      <IconBtn @click.stop>
         <VIcon class="cursor-move" icon="mdi-drag" />
       </IconBtn>
     </span>
