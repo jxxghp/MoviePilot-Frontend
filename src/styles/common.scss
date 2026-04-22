@@ -50,6 +50,7 @@ html.v-overlay-scroll-blocked body {
 
 // 应用类信息卡片：固定右侧媒体槽位，避免图片被左侧文字挤压变形
 .app-card-shell {
+  position: relative;
   block-size: 100%;
 }
 
