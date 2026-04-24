@@ -966,6 +966,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               </VCol>
               <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                 <VSelect
+                  v-model="SystemSettings.Basic.LLM_THINKING_LEVEL"
+                  :label="t('setting.system.llmThinking')"
+                  :hint="t('setting.system.llmThinkingHint')"
+                  :items="thinkingLevelItems"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VSelect
                   v-model="SystemSettings.Basic.AI_AGENT_JOB_INTERVAL"
                   :label="t('setting.system.aiAgentJobInterval')"
                   :hint="t('setting.system.aiAgentJobIntervalHint')"
@@ -988,15 +997,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
                   :label="t('setting.system.llmSupportImageInput')"
                   :hint="t('setting.system.llmSupportImageInputHint')"
-                  persistent-hint
-                />
-              </VCol>
-              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                <VSelect
-                  v-model="SystemSettings.Basic.LLM_THINKING_LEVEL"
-                  :label="t('setting.system.llmThinking')"
-                  :hint="t('setting.system.llmThinkingHint')"
-                  :items="thinkingLevelItems"
                   persistent-hint
                 />
               </VCol>

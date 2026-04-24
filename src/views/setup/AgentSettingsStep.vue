@@ -130,17 +130,6 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="3">
-            <VSelect
-              v-model="wizardData.agent.thinkingLevel"
-              :label="t('setting.system.llmThinking')"
-              :hint="t('setting.system.llmThinkingHint')"
-              :items="thinkingLevelItems"
-              persistent-hint
-              color="primary"
-            />
-          </VCol>
-
           <VCol cols="12" md="6">
             <VSelect
               v-model="wizardData.agent.provider"
@@ -216,6 +205,17 @@ onMounted(() => {
               prepend-inner-icon="mdi-counter"
               type="number"
               min="1"
+            />
+          </VCol>
+
+          <VCol cols="12" md="6">
+            <VSelect
+              v-model="wizardData.agent.thinkingLevel"
+              :label="t('setting.system.llmThinking')"
+              :hint="t('setting.system.llmThinkingHint')"
+              :items="thinkingLevelItems"
+              persistent-hint
+              color="primary"
             />
           </VCol>
 
