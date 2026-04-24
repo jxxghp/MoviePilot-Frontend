@@ -100,7 +100,7 @@ onMounted(() => {
         </VCol>
 
         <template v-if="wizardData.agent.enabled">
-          <VCol cols="12" md="3">
+          <VCol cols="12" md="4">
             <VSwitch
               v-model="wizardData.agent.global"
               :label="t('setting.system.aiAgentGlobal')"
@@ -110,7 +110,7 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="3">
+          <VCol cols="12" md="4">
             <VSwitch
               v-model="wizardData.agent.verbose"
               :label="t('setting.system.aiAgentVerbose')"
@@ -120,7 +120,7 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="3">
+          <VCol cols="12" md="4">
             <VSwitch
               v-model="wizardData.agent.supportImageInput"
               :label="t('setting.system.llmSupportImageInput')"
