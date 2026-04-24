@@ -27,6 +27,17 @@ const jobIntervalItems = computed(() => [
   { title: t('setting.system.aiAgentJobInterval1M'), value: 720 },
 ])
 
+const thinkingLevelItems = computed(() => [
+  { title: t('setting.system.llmThinkingLevelOff'), value: 'off' },
+  { title: t('setting.system.llmThinkingLevelAuto'), value: 'auto' },
+  { title: t('setting.system.llmThinkingLevelMinimal'), value: 'minimal' },
+  { title: t('setting.system.llmThinkingLevelLow'), value: 'low' },
+  { title: t('setting.system.llmThinkingLevelMedium'), value: 'medium' },
+  { title: t('setting.system.llmThinkingLevelHigh'), value: 'high' },
+  { title: t('setting.system.llmThinkingLevelMax'), value: 'max' },
+  { title: t('setting.system.llmThinkingLevelXhigh'), value: 'xhigh' },
+])
+
 async function loadLlmModels() {
   if (!wizardData.value.agent.provider || !wizardData.value.agent.apiKey) {
     return
@@ -89,7 +100,7 @@ onMounted(() => {
         </VCol>
 
         <template v-if="wizardData.agent.enabled">
-          <VCol cols="12" md="4">
+          <VCol cols="12" md="3">
             <VSwitch
               v-model="wizardData.agent.global"
               :label="t('setting.system.aiAgentGlobal')"
@@ -99,7 +110,7 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="4">
+          <VCol cols="12" md="3">
             <VSwitch
               v-model="wizardData.agent.verbose"
               :label="t('setting.system.aiAgentVerbose')"
@@ -109,11 +120,22 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="4">
+          <VCol cols="12" md="3">
             <VSwitch
               v-model="wizardData.agent.supportImageInput"
               :label="t('setting.system.llmSupportImageInput')"
               :hint="t('setting.system.llmSupportImageInputHint')"
+              persistent-hint
+              color="primary"
+            />
+          </VCol>
+
+          <VCol cols="12" md="3">
+            <VSelect
+              v-model="wizardData.agent.thinkingLevel"
+              :label="t('setting.system.llmThinking')"
+              :hint="t('setting.system.llmThinkingHint')"
+              :items="thinkingLevelItems"
               persistent-hint
               color="primary"
             />

@@ -37,6 +37,7 @@ const SystemSettings = ref<any>({
     AI_AGENT_JOB_INTERVAL: 24,
     LLM_PROVIDER: 'deepseek',
     LLM_MODEL: 'deepseek-chat',
+    LLM_THINKING_LEVEL: 'off',
     LLM_SUPPORT_IMAGE_INPUT: false,
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
@@ -166,6 +167,7 @@ type LlmSettingsSnapshot = {
   AI_AGENT_ENABLE: boolean
   LLM_PROVIDER: string
   LLM_MODEL: string
+  LLM_THINKING_LEVEL: string
   LLM_API_KEY: string
   LLM_BASE_URL: string
 }
@@ -178,6 +180,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     AI_AGENT_ENABLE: Boolean(SystemSettings.value.Basic.AI_AGENT_ENABLE),
     LLM_PROVIDER: String(SystemSettings.value.Basic.LLM_PROVIDER ?? ''),
     LLM_MODEL: String(SystemSettings.value.Basic.LLM_MODEL ?? ''),
+    LLM_THINKING_LEVEL: String(SystemSettings.value.Basic.LLM_THINKING_LEVEL ?? 'off'),
     LLM_API_KEY: String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
     LLM_BASE_URL: String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
   }
@@ -192,9 +195,37 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     enabled: snapshot.AI_AGENT_ENABLE,
     provider: snapshot.LLM_PROVIDER.trim(),
     model: snapshot.LLM_MODEL.trim(),
+    thinking_level: snapshot.LLM_THINKING_LEVEL.trim(),
     api_key: snapshot.LLM_API_KEY.trim(),
     base_url: snapshot.LLM_BASE_URL.trim(),
   }
+}
+
+function normalizeThinkingLevelValue(value?: unknown) {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  if (!normalized) return ''
+
+  const aliasMap: Record<string, string> = {
+    none: 'off',
+    disabled: 'off',
+    disable: 'off',
+    enabled: 'auto',
+    enable: 'auto',
+    default: 'auto',
+    dynamic: 'auto',
+  }
+
+  return aliasMap[normalized] || normalized
+}
+
+function resolveThinkingLevelValue(data?: Record<string, any>) {
+  const explicit = normalizeThinkingLevelValue(data?.LLM_THINKING_LEVEL)
+  if (explicit) return explicit
+
+  const legacyEffort = normalizeThinkingLevelValue(data?.LLM_REASONING_EFFORT)
+  if (data?.LLM_DISABLE_THINKING === true) return 'off'
+  if (data?.LLM_DISABLE_THINKING === false) return legacyEffort || 'auto'
+  return legacyEffort || 'off'
 }
 
 function showLlmTestFailedToast(message?: string) {
@@ -229,6 +260,17 @@ const canTestLlm = computed(() => {
     !testingLlm.value
   )
 })
+
+const thinkingLevelItems = computed(() => [
+  { title: t('setting.system.llmThinkingLevelOff'), value: 'off' },
+  { title: t('setting.system.llmThinkingLevelAuto'), value: 'auto' },
+  { title: t('setting.system.llmThinkingLevelMinimal'), value: 'minimal' },
+  { title: t('setting.system.llmThinkingLevelLow'), value: 'low' },
+  { title: t('setting.system.llmThinkingLevelMedium'), value: 'medium' },
+  { title: t('setting.system.llmThinkingLevelHigh'), value: 'high' },
+  { title: t('setting.system.llmThinkingLevelMax'), value: 'max' },
+  { title: t('setting.system.llmThinkingLevelXhigh'), value: 'xhigh' },
+])
 
 const activeTab = ref('system')
 
@@ -380,6 +422,7 @@ async function loadSystemSettings() {
           if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
         })
       }
+      SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
     }
   } catch (error) {
     console.log(error)
@@ -945,6 +988,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
                   :label="t('setting.system.llmSupportImageInput')"
                   :hint="t('setting.system.llmSupportImageInputHint')"
+                  persistent-hint
+                />
+              </VCol>
+              <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                <VSelect
+                  v-model="SystemSettings.Basic.LLM_THINKING_LEVEL"
+                  :label="t('setting.system.llmThinking')"
+                  :hint="t('setting.system.llmThinkingHint')"
+                  :items="thinkingLevelItems"
                   persistent-hint
                 />
               </VCol>

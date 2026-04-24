@@ -54,6 +54,7 @@ export interface WizardData {
     verbose: boolean
     provider: string
     model: string
+    thinkingLevel: string
     supportImageInput: boolean
     apiKey: string
     baseUrl: string
@@ -119,6 +120,33 @@ export interface ValidationErrorState {
     maxContextTokens: boolean
     recommendMaxItems: boolean
   }
+}
+
+function normalizeThinkingLevelValue(value?: unknown) {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  if (!normalized) return ''
+
+  const aliasMap: Record<string, string> = {
+    none: 'off',
+    disabled: 'off',
+    disable: 'off',
+    enabled: 'auto',
+    enable: 'auto',
+    default: 'auto',
+    dynamic: 'auto',
+  }
+
+  return aliasMap[normalized] || normalized
+}
+
+function resolveThinkingLevelValue(data?: Record<string, any>) {
+  const explicit = normalizeThinkingLevelValue(data?.LLM_THINKING_LEVEL)
+  if (explicit) return explicit
+
+  const legacyEffort = normalizeThinkingLevelValue(data?.LLM_REASONING_EFFORT)
+  if (data?.LLM_DISABLE_THINKING === true) return 'off'
+  if (data?.LLM_DISABLE_THINKING === false) return legacyEffort || 'auto'
+  return legacyEffort || 'off'
 }
 
 // 全局状态，所有组件共享
@@ -196,6 +224,7 @@ const wizardData = ref<WizardData>({
     verbose: false,
     provider: 'deepseek',
     model: 'deepseek-chat',
+    thinkingLevel: 'off',
     supportImageInput: true,
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
@@ -1332,6 +1361,7 @@ export function useSetupWizard() {
         AI_AGENT_VERBOSE: wizardData.value.agent.enabled ? wizardData.value.agent.verbose : false,
         LLM_PROVIDER: wizardData.value.agent.provider,
         LLM_MODEL: wizardData.value.agent.model,
+        LLM_THINKING_LEVEL: wizardData.value.agent.thinkingLevel,
         LLM_SUPPORT_IMAGE_INPUT: wizardData.value.agent.supportImageInput,
         LLM_API_KEY: wizardData.value.agent.apiKey,
         LLM_BASE_URL: wizardData.value.agent.baseUrl || null,
@@ -1429,6 +1459,7 @@ export function useSetupWizard() {
         wizardData.value.agent.verbose = Boolean(result.data.AI_AGENT_VERBOSE)
         wizardData.value.agent.provider = result.data.LLM_PROVIDER || 'deepseek'
         wizardData.value.agent.model = result.data.LLM_MODEL || ''
+        wizardData.value.agent.thinkingLevel = resolveThinkingLevelValue(result.data)
         wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true
         wizardData.value.agent.apiKey = result.data.LLM_API_KEY || ''
         wizardData.value.agent.baseUrl = result.data.LLM_BASE_URL || ''

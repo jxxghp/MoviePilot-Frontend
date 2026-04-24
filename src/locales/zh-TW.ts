@@ -1323,6 +1323,17 @@ export default {
       llmProviderHint: '選擇使用的LLM服務提供商',
       llmModel: 'LLM模型名稱',
       llmModelHint: '指定使用的LLM模型，如gpt-3.5-turbo、deepseek-chat等',
+      llmThinking: '思考模式 / 深度',
+      llmThinkingHint:
+        '用一個設置統一控制關閉與深度：off/auto/minimal/low/medium/high/max/xhigh；不支援的級別會按 provider 能力自動映射到最近值',
+      llmThinkingLevelOff: '關閉 (off)',
+      llmThinkingLevelAuto: '自動 (auto)',
+      llmThinkingLevelMinimal: '最小 (minimal)',
+      llmThinkingLevelLow: '低 (low)',
+      llmThinkingLevelMedium: '中 (medium)',
+      llmThinkingLevelHigh: '高 (high)',
+      llmThinkingLevelMax: '極高 (max)',
+      llmThinkingLevelXhigh: '超高 (xhigh)',
       llmSupportImageInput: '模型支援圖片輸入',
       llmSupportImageInputHint:
         '啟用後，消息中的圖片會按多模態圖片發送給 LLM；關閉後圖片會作為附件保存到本地，並將檔案路徑提供給智能助手處理',

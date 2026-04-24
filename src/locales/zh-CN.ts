@@ -1321,6 +1321,17 @@ export default {
       llmProviderHint: '选择使用的LLM服务提供商',
       llmModel: 'LLM模型名称',
       llmModelHint: '指定使用的LLM模型，如gpt-3.5-turbo、deepseek-chat等',
+      llmThinking: '思考模式 / 深度',
+      llmThinkingHint:
+        '用一个设置统一控制关闭与深度：off/auto/minimal/low/medium/high/max/xhigh；不支持的级别会按 provider 能力自动映射到最近值',
+      llmThinkingLevelOff: '关闭 (off)',
+      llmThinkingLevelAuto: '自动 (auto)',
+      llmThinkingLevelMinimal: '最小 (minimal)',
+      llmThinkingLevelLow: '低 (low)',
+      llmThinkingLevelMedium: '中 (medium)',
+      llmThinkingLevelHigh: '高 (high)',
+      llmThinkingLevelMax: '极高 (max)',
+      llmThinkingLevelXhigh: '超高 (xhigh)',
       llmSupportImageInput: '模型支持图片输入',
       llmSupportImageInputHint:
         '启用后，消息中的图片会按多模态图片发送给 LLM；关闭后图片会作为附件保存到本地，并将文件路径提供给智能助手处理',

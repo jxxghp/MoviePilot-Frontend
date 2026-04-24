@@ -1326,6 +1326,17 @@ export default {
       llmProviderHint: 'Select the LLM service provider to use',
       llmModel: 'LLM Model Name',
       llmModelHint: 'Specify the LLM model to use, such as gpt-3.5-turbo, deepseek-chat, etc.',
+      llmThinking: 'Thinking Mode / Depth',
+      llmThinkingHint:
+        'Use one setting to control both thinking off and depth: off/auto/minimal/low/medium/high/max/xhigh. Unsupported levels will be mapped to the nearest provider-supported value.',
+      llmThinkingLevelOff: 'Off (off)',
+      llmThinkingLevelAuto: 'Auto (auto)',
+      llmThinkingLevelMinimal: 'Minimal (minimal)',
+      llmThinkingLevelLow: 'Low (low)',
+      llmThinkingLevelMedium: 'Medium (medium)',
+      llmThinkingLevelHigh: 'High (high)',
+      llmThinkingLevelMax: 'Max (max)',
+      llmThinkingLevelXhigh: 'XHigh (xhigh)',
       llmMaxContextTokens: 'LLM Max Context Tokens (K)',
       llmMaxContextTokensHint:
         'Set the maximum number of context tokens (in thousands) for the LLM. Exceeding this limit will trigger context trimming.',
