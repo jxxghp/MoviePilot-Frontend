@@ -480,8 +480,9 @@ onMounted(() => {
       </VCardItem>
       <VCardText class="py-0">
         <VAceEditor
+          :key="`${currentTemplate}-jinja2-json`"
           v-model:value="editorContent"
-          lang="json"
+          lang="jinja2_json"
           :theme="editorTheme"
           class="w-full h-full min-h-[30rem] rounded"
         />
