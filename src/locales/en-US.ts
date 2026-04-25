@@ -1322,13 +1322,16 @@ export default {
       aiAgent: 'Enable AI Assistant',
       aiAgentEnable: 'Enable AI Assistant',
       aiAgentEnableHint: 'Enable AI assistant functionality, requires LLM configuration',
+      aiAgentSectionTitle: 'AI Assistant Configuration',
+      aiAgentSectionDesc:
+        'After enabling it, you can use the Agent in message conversations and optionally turn on transfer-failure takeover and AI recommendations.',
       llmProvider: 'LLM Provider',
       llmProviderHint: 'Select the LLM service provider to use',
       llmModel: 'LLM Model Name',
       llmModelHint: 'Specify the LLM model to use, such as gpt-3.5-turbo, deepseek-chat, etc.',
       llmThinking: 'Thinking Mode / Depth',
       llmThinkingHint:
-        'Use one setting to control both thinking off and depth: off/auto/minimal/low/medium/high/max/xhigh. Unsupported levels will be mapped to the nearest provider-supported value.',
+        'Thinking depth: off/auto/minimal/low/medium/high/max/xhigh. Unsupported levels will be mapped to the nearest provider-supported value.',
       llmThinkingLevelOff: 'Off (off)',
       llmThinkingLevelAuto: 'Auto (auto)',
       llmThinkingLevelMinimal: 'Minimal (minimal)',
