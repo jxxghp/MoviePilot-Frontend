@@ -1731,9 +1731,8 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
 
 <style scoped>
 .ai-agent-settings-card {
-  border-color: rgba(var(--v-theme-primary), 0.16);
+  border-color: rgba(var(--v-theme-primary), 0.01);
   background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
-  box-shadow: 0 12px 24px rgba(var(--v-theme-on-surface), 0.04);
 }
 
 .setting-actions {
