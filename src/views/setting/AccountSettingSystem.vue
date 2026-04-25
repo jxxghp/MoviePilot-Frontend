@@ -11,9 +11,12 @@ import { copyToClipboard } from '@/@core/utils/navigator'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { downloaderOptions, mediaServerOptions } from '@/api/constants'
-import { useDisplay } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 
 const display = useDisplay()
+const theme = useTheme()
+
+const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 
 // 国际化
 const { t } = useI18n()
@@ -856,7 +859,10 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 />
               </VCol>
             </VRow>
-            <VCard variant="outlined" class="ai-agent-settings-card mt-6">
+            <VCard
+              variant="outlined"
+              :class="['mt-6', isTransparentTheme ? 'ai-agent-settings-card-transparent' : 'ai-agent-settings-card']"
+            >
               <VCardItem class="pb-2">
                 <template #prepend>
                   <VAvatar color="primary" variant="tonal" size="40">
@@ -1731,8 +1737,13 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
 
 <style scoped>
 .ai-agent-settings-card {
-  border-color: rgba(var(--v-theme-primary), 0.01);
+  border-color: rgba(var(--v-theme-primary), 0.15);
   background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
+}
+
+.ai-agent-settings-card-transparent {
+  border-color: rgba(var(--v-theme-primary), 0);
+  background-color: rgba(var(--v-theme-surface), 0) !important;
 }
 
 .setting-actions {
