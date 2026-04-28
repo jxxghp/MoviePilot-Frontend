@@ -14,6 +14,12 @@ import { getQueryValue } from '@/@core/utils'
 import { useI18n } from 'vue-i18n'
 import { clearAppBadge } from '@/utils/badge'
 
+type MessageViewExpose = {
+  pauseSSE?: () => void
+  resumeSSE?: () => void
+  refreshLatestMessages?: () => Promise<void> | void
+}
+
 // 国际化
 const { t } = useI18n()
 
@@ -63,7 +69,7 @@ const sendButtonDisabled = ref(false)
 const messageDialogRef = ref<any>(null)
 
 // 消息视图引用
-const messageViewRef = ref<any>(null)
+const messageViewRef = ref<MessageViewExpose | null>(null)
 
 // 滚动容器引用
 const messageContentRef = ref<any>()
@@ -153,9 +159,7 @@ async function openMessageDialog() {
   }, 600)
   // 等待对话框打开后恢复SSE连接
   nextTick(() => {
-    if (messageViewRef.value && typeof messageViewRef.value.resumeSSE === 'function') {
-      messageViewRef.value.resumeSSE()
-    }
+    messageViewRef.value?.resumeSSE?.()
   })
 }
 
@@ -203,16 +207,23 @@ function allLoggingUrl() {
 
 // 发送消息
 async function sendMessage() {
-  if (user_message.value) {
-    try {
-      sendButtonDisabled.value = true
-      await api.post(`message/web?text=${user_message.value}`)
-      user_message.value = ''
-      sendButtonDisabled.value = false
-      forceScrollToEnd() // 发送消息后强制滚动到底部
-    } catch (error) {
-      console.error(error)
-    }
+  const messageText = user_message.value.trim()
+  if (!messageText) {
+    return
+  }
+
+  try {
+    sendButtonDisabled.value = true
+    await api.post(`message/web?text=${encodeURIComponent(messageText)}`)
+    user_message.value = ''
+
+    // 发送成功后主动同步最新一页消息，避免SSE短暂断流时界面停留在旧状态。
+    await messageViewRef.value?.refreshLatestMessages?.()
+    forceScrollToEnd() // 发送消息后强制滚动到底部
+  } catch (error) {
+    console.error(error)
+  } finally {
+    sendButtonDisabled.value = false
   }
 }
 
@@ -228,7 +239,7 @@ defineExpose({
 
 // 监听消息对话框状态变化
 watch(messageDialog, newValue => {
-  if (!newValue && messageViewRef.value && typeof messageViewRef.value.pauseSSE === 'function') {
+  if (!newValue && messageViewRef.value?.pauseSSE) {
     // 对话框关闭时暂停SSE连接
     messageViewRef.value.pauseSSE()
   }

@@ -17,6 +17,10 @@ const messages = ref<Message[]>([])
 // 当前页数据
 const currData = ref<Message[]>([])
 
+// 已加载消息的签名集合
+// 使用消息内容签名去重，避免仅按秒级时间戳判断时误吞同一秒内的不同消息。
+const messageKeys = new Set<string>()
+
 // 是否完成加载
 const isLoaded = ref(false)
 
@@ -29,18 +33,72 @@ const page = ref(1)
 // 存量消息最新时间
 const lastTime = ref('')
 
+// 获取消息时间
+function getMessageTime(message: Message) {
+  return message.reg_time || message.date || ''
+}
+
+// 生成消息签名
+function getMessageKey(message: Message) {
+  return [
+    message.action ?? '',
+    message.userid ?? '',
+    message.reg_time ?? '',
+    message.date ?? '',
+    message.title ?? '',
+    message.text ?? '',
+    message.image ?? '',
+    message.link ?? '',
+    message.note ?? '',
+  ].join('::')
+}
+
+// 排序消息列表，确保最新消息始终位于底部
+function sortMessages(items: Message[]) {
+  return [...items].sort((a, b) => compareTime(getMessageTime(a), getMessageTime(b)))
+}
+
+// 记录最新消息时间
+function updateLastTime(message: Message) {
+  const messageTime = getMessageTime(message)
+  if (messageTime && compareTime(messageTime, lastTime.value) > 0) {
+    lastTime.value = messageTime
+  }
+}
+
+// 合并消息到当前列表
+function mergeMessages(items: Message[]) {
+  let hasNewMessage = false
+
+  for (const item of sortMessages(items)) {
+    const messageKey = getMessageKey(item)
+    if (messageKeys.has(messageKey)) {
+      continue
+    }
+
+    messageKeys.add(messageKey)
+    messages.value.push(item)
+    updateLastTime(item)
+    hasNewMessage = true
+  }
+
+  if (hasNewMessage) {
+    messages.value = sortMessages(messages.value)
+  }
+
+  return hasNewMessage
+}
+
 // SSE消息处理函数
 function handleSSEMessage(event: MessageEvent) {
   const message = event.data
   if (message) {
     const object = JSON.parse(message)
-    // 使用reg_time或date字段进行比较
-    const messageTime = object.reg_time || object.date
-    if (compareTime(messageTime, lastTime.value) <= 0) return
-    messages.value.push(object)
-    nextTick(() => {
-      emit('scroll') // 新消息到达时触发智能滚动
-    })
+    if (mergeMessages([object])) {
+      nextTick(() => {
+        emit('scroll') // 新消息到达时触发智能滚动
+      })
+    }
   }
 }
 
@@ -75,28 +133,10 @@ async function loadMessages({ done }: { done: any }) {
     // 已加载过
     isLoaded.value = true
     if (currData.value.length > 0) {
-      // 按时间排序，确保最新的消息在最后
-      currData.value.sort((a, b) => {
-        const timeA = a.reg_time || a.date || ''
-        const timeB = b.reg_time || b.date || ''
-        return compareTime(timeA, timeB)
-      })
-
-      // 取最后一条时间为存量消息最新时间
-      const lastMessage = currData.value[currData.value.length - 1]
-      lastTime.value = lastMessage.reg_time || lastMessage.date || ''
-
-      // 合并数据并重新排序
-      const allMessages = [...currData.value, ...messages.value]
-      allMessages.sort((a, b) => {
-        const timeA = a.reg_time || a.date || ''
-        const timeB = b.reg_time || b.date || ''
-        return compareTime(timeA, timeB)
-      })
-      messages.value = allMessages
+      const hasNewMessage = mergeMessages(currData.value)
 
       // 首次加载时滚动到底部
-      if (page.value === 1) {
+      if (page.value === 1 && hasNewMessage) {
         nextTick(() => {
           emit('scroll')
         })
@@ -115,6 +155,26 @@ async function loadMessages({ done }: { done: any }) {
     console.error('加载消息失败:', error)
     loading.value = false
     done('error')
+  }
+}
+
+// 主动刷新最新一页消息，作为SSE偶发丢流时的兜底
+async function refreshLatestMessages() {
+  try {
+    const latestMessages = (await api.get('message/web', {
+      params: {
+        page: 1,
+        size: 20,
+      },
+    })) as Message[]
+
+    if (mergeMessages(latestMessages)) {
+      nextTick(() => {
+        emit('scroll')
+      })
+    }
+  } catch (error) {
+    console.error('刷新最新消息失败:', error)
   }
 }
 
@@ -160,14 +220,19 @@ function pauseSSE() {
 // 恢复SSE连接
 function resumeSSE() {
   if (manager) {
+    // 先移除再重建监听，确保恢复时拿到一条新的SSE连接。
+    manager.removeMessageListener('message-view')
     manager.addMessageListener('message-view', handleSSEMessage)
   }
+
+  refreshLatestMessages()
 }
 
 // 暴露方法给父组件
 defineExpose({
   pauseSSE,
   resumeSSE,
+  refreshLatestMessages,
 })
 
 onMounted(() => {
@@ -194,7 +259,7 @@ onMounted(() => {
     <div>
       <div
         v-for="(msg, index) in messages"
-        :key="index"
+        :key="getMessageKey(msg) || index"
         class="chat-group d-flex mt-5 mb-8"
         :class="msg.action == 1 ? 'flex-row align-start' : 'flex-row-reverse align-end'"
       >
