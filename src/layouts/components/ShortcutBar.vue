@@ -218,7 +218,7 @@ async function sendMessage() {
     user_message.value = ''
 
     // 发送成功后主动同步最新一页消息，避免SSE短暂断流时界面停留在旧状态。
-    await messageViewRef.value?.refreshLatestMessages?.()
+    // await messageViewRef.value?.refreshLatestMessages?.()
     forceScrollToEnd() // 发送消息后强制滚动到底部
   } catch (error) {
     console.error(error)
