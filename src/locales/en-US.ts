@@ -1340,6 +1340,12 @@ export default {
       llmThinkingLevelHigh: 'High (high)',
       llmThinkingLevelMax: 'Max (max)',
       llmThinkingLevelXhigh: 'XHigh (xhigh)',
+      llmSupportImageInput: 'Model Supports Image Input',
+      llmSupportImageInputHint:
+        'When enabled, message images are sent to the LLM as multimodal image input. When disabled, images are saved locally as attachments and only the file path is passed to the AI assistant.',
+      llmSupportAudioInputOutput: 'Support Audio Input and Output',
+      llmSupportAudioInputOutputHint:
+        'When enabled, the AI assistant can transcribe incoming audio messages and reply with voice on supported channels.',
       llmMaxContextTokens: 'LLM Max Context Tokens (K)',
       llmMaxContextTokensHint:
         'Set the maximum number of context tokens (in thousands) for the LLM. Exceeding this limit will trigger context trimming.',
@@ -1348,6 +1354,23 @@ export default {
       llmApiKeyPlaceholder: 'Please enter API key',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
+      aiVoiceApiKey: 'Audio API Key',
+      aiVoiceApiKeyHint:
+        'API key used for audio transcription and speech synthesis. Falls back to the current LLM API key when left blank.',
+      aiVoiceBaseUrl: 'Audio Base URL',
+      aiVoiceBaseUrlHint:
+        'Base URL used for audio transcription and speech synthesis. Falls back to the current LLM base URL when left blank.',
+      aiVoiceSttModel: 'Audio Transcription Model',
+      aiVoiceSttModelHint: 'Model name used to convert audio content into text.',
+      aiVoiceTtsModel: 'Speech Synthesis Model',
+      aiVoiceTtsModelHint: 'Model name used to convert text content into speech.',
+      aiVoiceTtsVoice: 'Voice Preset',
+      aiVoiceTtsVoiceHint: 'Speaker or voice preset used for speech synthesis.',
+      aiVoiceLanguage: 'Recognition Language',
+      aiVoiceLanguageHint:
+        'Default language for audio transcription, such as zh or en. Leave blank to use the backend default.',
+      aiVoiceReplyWithText: 'Include Text with Voice Replies',
+      aiVoiceReplyWithTextHint: 'When sending a voice reply, also include the text version of the response.',
       llmTestAction: 'Test Call',
       llmTestSuccessToast: 'LLM test call succeeded',
       llmTestFailedToast: 'LLM test call failed',

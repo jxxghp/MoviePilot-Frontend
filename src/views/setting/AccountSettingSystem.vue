@@ -42,8 +42,16 @@ const SystemSettings = ref<any>({
     LLM_MODEL: 'deepseek-chat',
     LLM_THINKING_LEVEL: 'off',
     LLM_SUPPORT_IMAGE_INPUT: false,
+    LLM_SUPPORT_AUDIO_INPUT_OUTPUT: false,
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
+    AI_VOICE_API_KEY: null,
+    AI_VOICE_BASE_URL: null,
+    AI_VOICE_STT_MODEL: 'gpt-4o-mini-transcribe',
+    AI_VOICE_TTS_MODEL: 'gpt-4o-mini-tts',
+    AI_VOICE_TTS_VOICE: 'alloy',
+    AI_VOICE_LANGUAGE: 'zh',
+    AI_VOICE_REPLY_WITH_TEXT: false,
     AI_AGENT_RETRY_TRANSFER: false,
     AI_RECOMMEND_ENABLED: false,
     AI_RECOMMEND_USER_PREFERENCE: null,
@@ -1016,7 +1024,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="4">
                     <VSwitch
                       v-model="SystemSettings.Basic.LLM_SUPPORT_IMAGE_INPUT"
                       :label="t('setting.system.llmSupportImageInput')"
@@ -1024,7 +1032,109 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                </VRow>
+                <VRow>
+                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                    <VSwitch
+                      v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                      :label="t('setting.system.llmSupportAudioInputOutput')"
+                      :hint="t('setting.system.llmSupportAudioInputOutputHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                    md="6"
+                  >
+                    <VTextField
+                      v-model="SystemSettings.Basic.AI_VOICE_API_KEY"
+                      :label="t('setting.system.aiVoiceApiKey')"
+                      :hint="t('setting.system.aiVoiceApiKeyHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-key-variant"
+                      type="password"
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                    md="6"
+                  >
+                    <VTextField
+                      v-model="SystemSettings.Basic.AI_VOICE_BASE_URL"
+                      :label="t('setting.system.aiVoiceBaseUrl')"
+                      :hint="t('setting.system.aiVoiceBaseUrlHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-link-variant"
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                    md="6"
+                  >
+                    <VTextField
+                      v-model="SystemSettings.Basic.AI_VOICE_STT_MODEL"
+                      :label="t('setting.system.aiVoiceSttModel')"
+                      :hint="t('setting.system.aiVoiceSttModelHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-waveform"
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                    md="6"
+                  >
+                    <VTextField
+                      v-model="SystemSettings.Basic.AI_VOICE_TTS_MODEL"
+                      :label="t('setting.system.aiVoiceTtsModel')"
+                      :hint="t('setting.system.aiVoiceTtsModelHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-waveform"
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                    md="6"
+                  >
+                    <VTextField
+                      v-model="SystemSettings.Basic.AI_VOICE_TTS_VOICE"
+                      :label="t('setting.system.aiVoiceTtsVoice')"
+                      :hint="t('setting.system.aiVoiceTtsVoiceHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account-voice"
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                    md="6"
+                  >
+                    <VTextField
+                      v-model="SystemSettings.Basic.AI_VOICE_LANGUAGE"
+                      :label="t('setting.system.aiVoiceLanguage')"
+                      :hint="t('setting.system.aiVoiceLanguageHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-translate"
+                    />
+                  </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
+                    cols="12"
+                  >
+                    <VSwitch
+                      v-model="SystemSettings.Basic.AI_VOICE_REPLY_WITH_TEXT"
+                      :label="t('setting.system.aiVoiceReplyWithText')"
+                      :hint="t('setting.system.aiVoiceReplyWithTextHint')"
+                      persistent-hint
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
                     <VSwitch
                       v-model="SystemSettings.Basic.AI_AGENT_RETRY_TRANSFER"
                       :label="t('setting.system.aiAgentRetryTransfer')"
@@ -1032,6 +1142,8 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       persistent-hint
                     />
                   </VCol>
+                </VRow>
+                <VRow>
                   <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
                     <VSwitch
                       v-model="SystemSettings.Basic.AI_RECOMMEND_ENABLED"

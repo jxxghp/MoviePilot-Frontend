@@ -56,9 +56,17 @@ export interface WizardData {
     model: string
     thinkingLevel: string
     supportImageInput: boolean
+    supportAudioInputOutput: boolean
     apiKey: string
     baseUrl: string
     maxContextTokens: number
+    voiceApiKey: string
+    voiceBaseUrl: string
+    voiceSttModel: string
+    voiceTtsModel: string
+    voiceTtsVoice: string
+    voiceLanguage: string
+    voiceReplyWithText: boolean
     jobInterval: number
     retryTransfer: boolean
     recommendEnabled: boolean
@@ -226,9 +234,17 @@ const wizardData = ref<WizardData>({
     model: 'deepseek-chat',
     thinkingLevel: 'off',
     supportImageInput: true,
+    supportAudioInputOutput: false,
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
     maxContextTokens: 64,
+    voiceApiKey: '',
+    voiceBaseUrl: '',
+    voiceSttModel: 'gpt-4o-mini-transcribe',
+    voiceTtsModel: 'gpt-4o-mini-tts',
+    voiceTtsVoice: 'alloy',
+    voiceLanguage: 'zh',
+    voiceReplyWithText: false,
     jobInterval: 0,
     retryTransfer: false,
     recommendEnabled: false,
@@ -1363,9 +1379,17 @@ export function useSetupWizard() {
         LLM_MODEL: wizardData.value.agent.model,
         LLM_THINKING_LEVEL: wizardData.value.agent.thinkingLevel,
         LLM_SUPPORT_IMAGE_INPUT: wizardData.value.agent.supportImageInput,
+        LLM_SUPPORT_AUDIO_INPUT_OUTPUT: wizardData.value.agent.supportAudioInputOutput,
         LLM_API_KEY: wizardData.value.agent.apiKey,
         LLM_BASE_URL: wizardData.value.agent.baseUrl || null,
         LLM_MAX_CONTEXT_TOKENS: wizardData.value.agent.maxContextTokens,
+        AI_VOICE_API_KEY: wizardData.value.agent.voiceApiKey || null,
+        AI_VOICE_BASE_URL: wizardData.value.agent.voiceBaseUrl || null,
+        AI_VOICE_STT_MODEL: wizardData.value.agent.voiceSttModel,
+        AI_VOICE_TTS_MODEL: wizardData.value.agent.voiceTtsModel,
+        AI_VOICE_TTS_VOICE: wizardData.value.agent.voiceTtsVoice,
+        AI_VOICE_LANGUAGE: wizardData.value.agent.voiceLanguage,
+        AI_VOICE_REPLY_WITH_TEXT: wizardData.value.agent.voiceReplyWithText,
         AI_AGENT_JOB_INTERVAL: wizardData.value.agent.enabled ? wizardData.value.agent.jobInterval : 0,
         AI_AGENT_RETRY_TRANSFER: wizardData.value.agent.enabled ? wizardData.value.agent.retryTransfer : false,
         AI_RECOMMEND_ENABLED:
@@ -1461,9 +1485,17 @@ export function useSetupWizard() {
         wizardData.value.agent.model = result.data.LLM_MODEL || ''
         wizardData.value.agent.thinkingLevel = resolveThinkingLevelValue(result.data)
         wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true
+        wizardData.value.agent.supportAudioInputOutput = Boolean(result.data.LLM_SUPPORT_AUDIO_INPUT_OUTPUT)
         wizardData.value.agent.apiKey = result.data.LLM_API_KEY || ''
         wizardData.value.agent.baseUrl = result.data.LLM_BASE_URL || ''
         wizardData.value.agent.maxContextTokens = result.data.LLM_MAX_CONTEXT_TOKENS || 64
+        wizardData.value.agent.voiceApiKey = result.data.AI_VOICE_API_KEY || ''
+        wizardData.value.agent.voiceBaseUrl = result.data.AI_VOICE_BASE_URL || ''
+        wizardData.value.agent.voiceSttModel = result.data.AI_VOICE_STT_MODEL || 'gpt-4o-mini-transcribe'
+        wizardData.value.agent.voiceTtsModel = result.data.AI_VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
+        wizardData.value.agent.voiceTtsVoice = result.data.AI_VOICE_TTS_VOICE || 'alloy'
+        wizardData.value.agent.voiceLanguage = result.data.AI_VOICE_LANGUAGE || 'zh'
+        wizardData.value.agent.voiceReplyWithText = Boolean(result.data.AI_VOICE_REPLY_WITH_TEXT)
         wizardData.value.agent.jobInterval = result.data.AI_AGENT_JOB_INTERVAL || 0
         wizardData.value.agent.retryTransfer = Boolean(result.data.AI_AGENT_RETRY_TRANSFER)
         wizardData.value.agent.recommendEnabled = Boolean(result.data.AI_RECOMMEND_ENABLED)

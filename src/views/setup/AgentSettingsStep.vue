@@ -100,7 +100,7 @@ onMounted(() => {
         </VCol>
 
         <template v-if="wizardData.agent.enabled">
-          <VCol cols="12" md="4">
+          <VCol cols="12" md="3">
             <VSwitch
               v-model="wizardData.agent.global"
               :label="t('setting.system.aiAgentGlobal')"
@@ -110,21 +110,11 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="4">
+          <VCol cols="12" md="3">
             <VSwitch
               v-model="wizardData.agent.verbose"
               :label="t('setting.system.aiAgentVerbose')"
               :hint="t('setting.system.aiAgentVerboseHint')"
-              persistent-hint
-              color="primary"
-            />
-          </VCol>
-
-          <VCol cols="12" md="4">
-            <VSwitch
-              v-model="wizardData.agent.supportImageInput"
-              :label="t('setting.system.llmSupportImageInput')"
-              :hint="t('setting.system.llmSupportImageInputHint')"
               persistent-hint
               color="primary"
             />
@@ -219,7 +209,100 @@ onMounted(() => {
             />
           </VCol>
 
-          <VCol cols="12" md="6">
+          <VCol cols="12">
+            <VSwitch
+              v-model="wizardData.agent.supportImageInput"
+              :label="t('setting.system.llmSupportImageInput')"
+              :hint="t('setting.system.llmSupportImageInputHint')"
+              persistent-hint
+              color="primary"
+            />
+          </VCol>
+
+          <VCol cols="12">
+            <VSwitch
+              v-model="wizardData.agent.supportAudioInputOutput"
+              :label="t('setting.system.llmSupportAudioInputOutput')"
+              :hint="t('setting.system.llmSupportAudioInputOutputHint')"
+              persistent-hint
+              color="primary"
+            />
+          </VCol>
+
+          <template v-if="wizardData.agent.supportAudioInputOutput">
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.voiceApiKey"
+                :label="t('setting.system.aiVoiceApiKey')"
+                :hint="t('setting.system.aiVoiceApiKeyHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-key-variant"
+                type="password"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.voiceBaseUrl"
+                :label="t('setting.system.aiVoiceBaseUrl')"
+                :hint="t('setting.system.aiVoiceBaseUrlHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-link-variant"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.voiceSttModel"
+                :label="t('setting.system.aiVoiceSttModel')"
+                :hint="t('setting.system.aiVoiceSttModelHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-waveform"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.voiceTtsModel"
+                :label="t('setting.system.aiVoiceTtsModel')"
+                :hint="t('setting.system.aiVoiceTtsModelHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-waveform"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.voiceTtsVoice"
+                :label="t('setting.system.aiVoiceTtsVoice')"
+                :hint="t('setting.system.aiVoiceTtsVoiceHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-account-voice"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.voiceLanguage"
+                :label="t('setting.system.aiVoiceLanguage')"
+                :hint="t('setting.system.aiVoiceLanguageHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-translate"
+              />
+            </VCol>
+
+            <VCol cols="12">
+              <VSwitch
+                v-model="wizardData.agent.voiceReplyWithText"
+                :label="t('setting.system.aiVoiceReplyWithText')"
+                :hint="t('setting.system.aiVoiceReplyWithTextHint')"
+                persistent-hint
+                color="primary"
+              />
+            </VCol>
+          </template>
+
+          <VCol cols="12">
             <VSelect
               v-model="wizardData.agent.jobInterval"
               :label="t('setting.system.aiAgentJobInterval')"
