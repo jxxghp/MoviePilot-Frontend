@@ -1463,7 +1463,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       </VExpansionPanelTitle>
                       <VExpansionPanelText>
                         <VRow v-for="section in scrapingConfig" :key="section.section">
-                          <VCol cols="12" class="pb-2">
+                          <VCol cols="12">
                             <VListSubheader class="text-lg">
                               {{ t(`setting.system.${section.section}`) }}
                             </VListSubheader>
@@ -1475,15 +1475,16 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                                 @update:model-value="ScrapingPolicies[item.key] = $event"
                                 color="primary"
                                 variant="tonal"
+                                size="small"
                                 rounded="lg"
                               >
-                                <VBtn value="skip" color="error">
+                                <VBtn value="skip" color="error" size="small">
                                   <VIcon icon="mdi-file-remove" />
                                 </VBtn>
-                                <VBtn value="missingOnly" color="success">
+                                <VBtn value="missingOnly" color="success" size="small">
                                   <VIcon icon="mdi-file-plus" />
                                 </VBtn>
-                                <VBtn value="overwrite" color="primary">
+                                <VBtn value="overwrite" color="primary" size="small">
                                   <VIcon icon="mdi-file-replace" />
                                 </VBtn>
                               </VBtnToggle>
