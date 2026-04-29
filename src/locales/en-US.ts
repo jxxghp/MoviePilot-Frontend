@@ -460,7 +460,8 @@ export default {
       botSecret: 'Bot Secret',
       botSecretHint: 'WebSocket secret of the WeChat Work AI bot',
       botChatId: 'Default Target',
-      botChatIdHint: 'Use user userid; for proactive group messages use group:chatid. Leave empty to notify known interacted users',
+      botChatIdHint:
+        'Use user userid; for proactive group messages use group:chatid. Leave empty to notify known interacted users',
       botChatIdPlaceholder: 'userid or group:chatid',
       botWsUrl: 'WebSocket URL',
       botWsUrlHint: 'WebSocket endpoint for the WeChat Work AI bot, usually the default value',
@@ -1475,8 +1476,9 @@ export default {
       fanartEnableHint: 'Use image data from fanart.tv',
       fanartLang: 'Fanart Language',
       fanartLangHint: 'Set language preference for Fanart images, ordered by priority when multiple selected',
-      recognizePluginFirst: "Prioritize Plugin Recognition",
-      recognizePluginFirstHint: "Prioritize calling plugins for media recognition. If a plugin matches, native recognition will be skipped",
+      recognizePluginFirst: 'Prioritize Plugin Recognition',
+      recognizePluginFirstHint:
+        'Prioritize calling plugins for media recognition. If a plugin matches, native recognition will be skipped',
       githubProxy: 'Github Acceleration Proxy',
       githubProxyPlaceholder: 'Leave empty for no proxy',
       githubProxyHint: 'Use proxy to accelerate Github access speed',
@@ -1598,7 +1600,7 @@ export default {
         skipDesc: 'Skip scraping, this file will not be generated',
         missingOnlyDesc: 'Scrape only if missing, existing file remains unchanged',
         overwriteDesc: 'Always scrape, existing file will be overwritten',
-      }
+      },
     },
     site: {
       siteSync: 'Site Synchronization',
@@ -2842,6 +2844,7 @@ export default {
     actions: {
       aiRedo: 'Assistant Organize',
       aiRedoPending: 'Assistant Organizing...',
+      batchAiRedo: 'Assistant Batch Organize',
       redo: 'Reorganize',
       delete: 'Delete',
       batchRedo: 'Batch Reorganize',
@@ -3265,7 +3268,8 @@ export default {
       infoDesc:
         'Completing site authentication unlocks site capabilities and some plugin permissions. This step is optional and can also be configured later from the user menu.',
       selectSiteHint: 'Choose a supported auth site and fill in the required credentials for that site',
-      submitHint: 'When you click Next, the wizard will immediately validate against the selected auth site and save the current parameters on success.',
+      submitHint:
+        'When you click Next, the wizard will immediately validate against the selected auth site and save the current parameters on success.',
       siteConfigNotExist: 'Authentication site configuration does not exist',
       fieldRequired: 'Please enter {name}',
     },

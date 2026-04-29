@@ -2801,6 +2801,7 @@ export default {
     actions: {
       aiRedo: '智能助手整理',
       aiRedoPending: '智能助手整理中...',
+      batchAiRedo: '智能助手批量整理',
       redo: '重新整理',
       delete: '刪除',
       batchRedo: '批量重新整理',
