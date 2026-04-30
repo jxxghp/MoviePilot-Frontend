@@ -12,6 +12,7 @@ import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { downloaderOptions, mediaServerOptions } from '@/api/constants'
 import { useDisplay, useTheme } from 'vuetify'
+import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
 
 const display = useDisplay()
 const theme = useTheme()
@@ -168,9 +169,6 @@ const progressDialog = ref(false)
 // 高级设置对话框
 const advancedDialog = ref(false)
 
-// LLM 模型列表
-const llmModels = ref<string[]>([])
-const loadingModels = ref(false)
 const savingBasic = ref(false)
 const testingLlm = ref(false)
 
@@ -185,6 +183,73 @@ type LlmSettingsSnapshot = {
 
 let llmTestRequestId = 0
 let llmTestAbortController: AbortController | null = null
+
+const llmProviderRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_PROVIDER ?? ''),
+  set: value => {
+    SystemSettings.value.Basic.LLM_PROVIDER = value || ''
+  },
+})
+
+const llmApiKeyRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
+  set: value => {
+    SystemSettings.value.Basic.LLM_API_KEY = value || ''
+  },
+})
+
+const llmBaseUrlRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
+  set: value => {
+    SystemSettings.value.Basic.LLM_BASE_URL = value || ''
+  },
+})
+
+const llmModelRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_MODEL ?? ''),
+  set: value => {
+    SystemSettings.value.Basic.LLM_MODEL = value || ''
+  },
+})
+
+const llmMaxContextRef = computed({
+  get: () => Number(SystemSettings.value.Basic.LLM_MAX_CONTEXT_TOKENS ?? 0),
+  set: value => {
+    SystemSettings.value.Basic.LLM_MAX_CONTEXT_TOKENS = value || 0
+  },
+})
+
+const {
+  providerItems: llmProviderItems,
+  models: llmModels,
+  selectedProvider: selectedLlmProvider,
+  selectedModel: selectedLlmModel,
+  loadingProviders: loadingLlmProviders,
+  loadingModels,
+  providerConnected,
+  showBaseUrlField,
+  showApiKeyField,
+  canRefreshModels,
+  authDialogVisible,
+  authPolling,
+  authPopupBlocked,
+  authSession,
+  handleProviderSelection,
+  applyModelMetadata,
+  loadProviders: loadLlmProviders,
+  loadModels: loadLlmModels,
+  openAuthPage,
+  startAuth: startLlmProviderAuth,
+  pollAuthSession,
+  disconnectAuth: disconnectLlmProviderAuth,
+  closeAuthDialog,
+} = useLlmProviderDirectory({
+  provider: llmProviderRef,
+  apiKey: llmApiKeyRef,
+  baseUrl: llmBaseUrlRef,
+  model: llmModelRef,
+  maxContextTokens: llmMaxContextRef,
+})
 
 function buildLlmSnapshot(): LlmSettingsSnapshot {
   return {
@@ -261,13 +326,22 @@ function invalidateLlmTestState() {
 
 const currentLlmSnapshot = computed(() => buildLlmSnapshot())
 const currentLlmSnapshotKey = computed(() => buildLlmSnapshotKey(currentLlmSnapshot.value))
+const llmProviderAuthMethods = computed(() => selectedLlmProvider.value?.oauth_methods || [])
+const llmProviderAuthLabel = computed(() => selectedLlmProvider.value?.auth_status?.label || '')
+const selectedLlmModelInfo = computed(() => {
+  if (!selectedLlmModel.value?.context_tokens_k) return ''
+  return t('setting.system.llmModelResolvedHint', {
+    context: selectedLlmModel.value.context_tokens_k,
+    source: selectedLlmModel.value.source || 'models.dev',
+  })
+})
 
 const canTestLlm = computed(() => {
   const snapshot = currentLlmSnapshot.value
   return (
     snapshot.AI_AGENT_ENABLE &&
     Boolean(snapshot.LLM_PROVIDER.trim()) &&
-    Boolean(snapshot.LLM_API_KEY.trim()) &&
+    (Boolean(snapshot.LLM_API_KEY.trim()) || providerConnected.value) &&
     Boolean(snapshot.LLM_MODEL.trim()) &&
     !savingBasic.value &&
     !testingLlm.value
@@ -320,28 +394,42 @@ const logLevelItems = [
 // 安全域名添加变量
 const newSecurityDomain = ref('')
 
-// 加载LLM模型列表
-async function loadLlmModels() {
-  loadingModels.value = true
+// 加载 LLM 模型列表与 provider 目录
+async function refreshLlmModels(forceRefresh = true) {
   try {
-    const result: { [key: string]: any } = await api.get('system/llm-models', {
-      params: {
-        provider: SystemSettings.value.Basic.LLM_PROVIDER,
-        api_key: SystemSettings.value.Basic.LLM_API_KEY,
-        base_url: SystemSettings.value.Basic.LLM_BASE_URL,
-      },
-    })
-
-    if (result.success) {
-      llmModels.value = result.data
-      if (llmModels.value.length > 0) SystemSettings.value.Basic.LLM_MODEL = llmModels.value[0]
-    } else {
-      $toast.error(result.message)
-    }
+    await loadLlmModels(forceRefresh)
   } catch (error) {
+    $toast.error(error instanceof Error ? error.message : String(error))
     console.log(error)
   }
-  loadingModels.value = false
+}
+
+async function handleLlmProviderChanged() {
+  handleProviderSelection(true)
+  if (canRefreshModels.value) {
+    await refreshLlmModels(false)
+  }
+}
+
+function handleLlmModelChanged() {
+  applyModelMetadata()
+}
+
+async function startProviderAuth(methodId: string) {
+  try {
+    await startLlmProviderAuth(methodId)
+  } catch (error) {
+    $toast.error(error instanceof Error ? error.message : String(error))
+  }
+}
+
+async function disconnectProviderAuth() {
+  try {
+    await disconnectLlmProviderAuth()
+    $toast.success(t('setting.system.llmProviderDisconnected'))
+  } catch (error) {
+    $toast.error(error instanceof Error ? error.message : String(error))
+  }
 }
 
 // 添加安全域名
@@ -436,6 +524,10 @@ async function loadSystemSettings() {
         })
       }
       SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
+      await loadLlmProviders()
+      if (SystemSettings.value.Basic.AI_AGENT_ENABLE && canRefreshModels.value) {
+        await refreshLlmModels(false)
+      }
     }
   } catch (error) {
     console.log(error)
@@ -483,7 +575,7 @@ async function testLlmConnection() {
 
   testingLlm.value = true
   try {
-    const result: { [key: string]: any } = await api.post('system/llm-test', payload, {
+    const result: { [key: string]: any } = await api.post('llm/test', payload, {
       signal: abortController.signal,
     })
     if (
@@ -916,15 +1008,13 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       :label="t('setting.system.llmProvider')"
                       :hint="t('setting.system.llmProviderHint')"
                       persistent-hint
-                      :items="[
-                        { title: 'OpenAI', value: 'openai' },
-                        { title: 'Google', value: 'google' },
-                        { title: 'DeepSeek', value: 'deepseek' },
-                      ]"
+                      :items="llmProviderItems"
+                      :loading="loadingLlmProviders"
                       prepend-inner-icon="mdi-robot"
+                      @update:model-value="handleLlmProviderChanged"
                     />
                   </VCol>
-                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Basic.LLM_BASE_URL"
                       :label="t('setting.system.llmBaseUrl')"
@@ -934,26 +1024,73 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-link"
                     />
                   </VCol>
-                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showApiKeyField" cols="12" md="6">
                     <VTextField
                       v-model="SystemSettings.Basic.LLM_API_KEY"
-                      :label="t('setting.system.llmApiKey')"
-                      :hint="t('setting.system.llmApiKeyHint')"
+                      :label="selectedLlmProvider?.api_key_label || t('setting.system.llmApiKey')"
+                      :hint="selectedLlmProvider?.api_key_hint || t('setting.system.llmApiKeyHint')"
                       :placeholder="t('setting.system.llmApiKeyPlaceholder')"
                       persistent-hint
                       type="password"
                       prepend-inner-icon="mdi-key-variant"
                     />
                   </VCol>
+                  <VCol
+                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0"
+                    cols="12"
+                  >
+                    <VAlert type="info" variant="tonal">
+                      <div class="d-flex flex-column flex-md-row justify-space-between ga-3">
+                        <div>
+                          <div class="text-subtitle-2">{{ t('setting.system.llmProviderAuth') }}</div>
+                          <div class="text-body-2">
+                            {{ selectedLlmProvider?.description || t('setting.system.llmProviderAuthHint') }}
+                          </div>
+                          <div v-if="providerConnected" class="text-body-2 mt-2">
+                            {{ t('setting.system.llmProviderConnectedAs', { label: llmProviderAuthLabel || selectedLlmProvider?.name }) }}
+                          </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap ga-2">
+                          <VBtn
+                            v-for="method in llmProviderAuthMethods"
+                            :key="method.id"
+                            color="primary"
+                            variant="tonal"
+                            prepend-icon="mdi-account-arrow-right-outline"
+                            @click="startProviderAuth(method.id)"
+                          >
+                            {{ method.label }}
+                          </VBtn>
+
+                          <VBtn
+                            v-if="providerConnected"
+                            color="error"
+                            variant="text"
+                            prepend-icon="mdi-link-off"
+                            @click="disconnectProviderAuth"
+                          >
+                            {{ t('setting.system.llmProviderDisconnect') }}
+                          </VBtn>
+                        </div>
+                      </div>
+                    </VAlert>
+                  </VCol>
                   <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                     <div>
                       <VCombobox
-                        v-model="SystemSettings.Basic.LLM_MODEL"
+                        :model-value="SystemSettings.Basic.LLM_MODEL"
+                        @update:model-value="(val: any) => {
+                          SystemSettings.Basic.LLM_MODEL = typeof val === 'object' && val !== null ? val.id : val;
+                          handleLlmModelChanged();
+                        }"
                         :label="t('setting.system.llmModel')"
                         :hint="t('setting.system.llmModelHint')"
                         :placeholder="t('setting.system.llmModelHint')"
                         persistent-hint
                         :items="llmModels"
+                        item-title="name"
+                        item-value="id"
                         :loading="loadingModels"
                         prepend-inner-icon="mdi-brain"
                       >
@@ -962,11 +1099,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                             variant="text"
                             icon="mdi-refresh"
                             size="small"
-                            @click="loadLlmModels"
-                            :disabled="!SystemSettings.Basic.LLM_API_KEY"
+                            @click="refreshLlmModels(true)"
+                            :disabled="!canRefreshModels"
                           />
                         </template>
                       </VCombobox>
+
+                      <VAlert v-if="selectedLlmModelInfo" type="info" variant="tonal" density="compact" class="mt-2">
+                        {{ selectedLlmModelInfo }}
+                      </VAlert>
 
                       <div class="d-flex justify-end mt-2">
                         <VBtn
@@ -1843,6 +1984,50 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
             </VBtn>
           </div>
         </VForm>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <VDialog v-model="authDialogVisible" max-width="560">
+    <VCard>
+      <VCardTitle>{{ t('setting.system.llmProviderAuthDialogTitle') }}</VCardTitle>
+      <VCardText class="d-flex flex-column ga-4">
+        <VAlert v-if="authSession?.instructions" type="info" variant="tonal">
+          {{ authSession.instructions }}
+        </VAlert>
+
+        <VAlert v-if="authPopupBlocked" type="warning" variant="tonal">
+          {{ t('setting.system.llmProviderPopupBlocked') }}
+        </VAlert>
+
+        <div v-if="authSession?.user_code">
+          <div class="text-caption text-medium-emphasis mb-1">{{ t('setting.system.llmProviderDeviceCode') }}</div>
+          <div class="text-h5 font-weight-bold">{{ authSession.user_code }}</div>
+        </div>
+
+        <div v-if="authSession?.message" class="text-body-2">
+          {{ authSession.message }}
+        </div>
+
+        <div class="d-flex flex-wrap ga-2">
+          <VBtn color="primary" prepend-icon="mdi-open-in-new" @click="openAuthPage">
+            {{ t('setting.system.llmProviderOpenAuthPage') }}
+          </VBtn>
+          <VBtn
+            variant="tonal"
+            prepend-icon="mdi-refresh"
+            :loading="authPolling"
+            @click="pollAuthSession"
+          >
+            {{ t('setting.system.llmProviderCheckAuthStatus') }}
+          </VBtn>
+        </div>
+      </VCardText>
+      <VCardActions>
+        <VSpacer />
+        <VBtn variant="text" @click="closeAuthDialog">
+          {{ t('common.close') }}
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

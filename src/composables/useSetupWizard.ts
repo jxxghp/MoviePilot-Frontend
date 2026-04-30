@@ -53,6 +53,7 @@ export interface WizardData {
     global: boolean
     verbose: boolean
     provider: string
+    authConnected: boolean
     model: string
     thinkingLevel: string
     supportImageInput: boolean
@@ -231,6 +232,7 @@ const wizardData = ref<WizardData>({
     global: false,
     verbose: false,
     provider: 'deepseek',
+    authConnected: false,
     model: 'deepseek-chat',
     thinkingLevel: 'off',
     supportImageInput: true,
@@ -717,8 +719,8 @@ export function useSetupWizard() {
       validationErrors.value.agent.provider = true
     }
 
-    if (!wizardData.value.agent.apiKey?.trim()) {
-      errors.push(t('setupWizard.agent.apiKeyRequired'))
+    if (!wizardData.value.agent.apiKey?.trim() && !wizardData.value.agent.authConnected) {
+      errors.push(t('setupWizard.agent.authOrApiKeyRequired'))
       validationErrors.value.agent.apiKey = true
     }
 
@@ -1482,6 +1484,7 @@ export function useSetupWizard() {
         wizardData.value.agent.global = Boolean(result.data.AI_AGENT_GLOBAL)
         wizardData.value.agent.verbose = Boolean(result.data.AI_AGENT_VERBOSE)
         wizardData.value.agent.provider = result.data.LLM_PROVIDER || 'deepseek'
+        wizardData.value.agent.authConnected = false
         wizardData.value.agent.model = result.data.LLM_MODEL || ''
         wizardData.value.agent.thinkingLevel = resolveThinkingLevelValue(result.data)
         wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true

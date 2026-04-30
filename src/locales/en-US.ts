@@ -1330,6 +1330,7 @@ export default {
       llmProviderHint: 'Select the LLM service provider to use',
       llmModel: 'LLM Model Name',
       llmModelHint: 'Specify the LLM model to use, such as gpt-3.5-turbo, deepseek-chat, etc.',
+      llmModelResolvedHint: 'Max context has been auto-filled to {context}K from the model catalog. Source: {source}',
       llmThinking: 'Thinking Mode / Depth',
       llmThinkingHint:
         'Thinking depth: off/auto/minimal/low/medium/high/max/xhigh. Unsupported levels will be mapped to the nearest provider-supported value.',
@@ -1355,6 +1356,18 @@ export default {
       llmApiKeyPlaceholder: 'Please enter API key',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
+      llmProviderAuth: 'Provider Authorization',
+      llmProviderAuthHint:
+        'Providers that support account authorization can complete sign-in here and reuse the saved auth state.',
+      llmProviderConnectedAs: 'Connected as: {label}',
+      llmProviderDisconnect: 'Disconnect Authorization',
+      llmProviderDisconnected: 'Provider authorization disconnected',
+      llmProviderAuthDialogTitle: 'Provider Authorization',
+      llmProviderPopupBlocked:
+        'The browser blocked the authorization popup. Use the button below to continue manually.',
+      llmProviderDeviceCode: 'Device Code',
+      llmProviderOpenAuthPage: 'Open Authorization Page',
+      llmProviderCheckAuthStatus: 'Check Authorization Status',
       aiVoiceApiKey: 'Audio API Key',
       aiVoiceApiKeyHint:
         'API key used for audio transcription and speech synthesis. Falls back to the current LLM API key when left blank.',
@@ -3345,6 +3358,7 @@ export default {
         'After enabling it, you can use the Agent in message conversations and optionally turn on transfer-failure takeover and AI recommendations.',
       providerRequired: 'LLM provider is required',
       apiKeyRequired: 'LLM API key is required',
+      authOrApiKeyRequired: 'Provide an LLM API key or complete provider authorization first',
       modelRequired: 'LLM model name is required',
       maxContextTokensRequired: 'LLM max context tokens must be greater than 0',
       recommendMaxItemsRequired: 'AI recommendation analysis limit must be greater than 0',
