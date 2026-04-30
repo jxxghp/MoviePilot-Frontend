@@ -1324,7 +1324,7 @@ export default {
       llmProvider: 'LLM提供商',
       llmProviderHint: '選擇使用的LLM服務提供商',
       llmModel: 'LLM模型名稱',
-      llmModelHint: '指定使用的LLM模型，如gpt-3.5-turbo、deepseek-chat等',
+      llmModelHint: '指定使用的LLM模型，如deepseek-v4-flash、gpt-5.4等',
       llmModelResolvedHint: '已根據模型目錄自動回填最大上下文為 {context}K，來源：{source}',
       llmThinking: '思考模式 / 深度',
       llmThinkingHint:

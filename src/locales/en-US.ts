@@ -1329,7 +1329,7 @@ export default {
       llmProvider: 'LLM Provider',
       llmProviderHint: 'Select the LLM service provider to use',
       llmModel: 'LLM Model Name',
-      llmModelHint: 'Specify the LLM model to use, such as gpt-3.5-turbo, deepseek-chat, etc.',
+      llmModelHint: 'Specify the LLM model to use, such as deepseek-v4-flash, gpt-5.4, etc.',
       llmModelResolvedHint: 'Max context has been auto-filled to {context}K from the model catalog. Source: {source}',
       llmThinking: 'Thinking Mode / Depth',
       llmThinkingHint:
