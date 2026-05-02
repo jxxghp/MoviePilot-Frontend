@@ -472,10 +472,8 @@ async function refreshSearch() {
   if (isRefreshing.value || progressActive.value) return
   isRefreshing.value = true
   try {
-    // 如正在显示AI推荐结果，先切回原始结果，确保状态干净
-    if (showingAiResults.value) {
-      await switchToOriginalResults()
-    }
+    // 重新搜索时退出 AI 视图，其余状态由 fetchData 内部重置
+    showingAiResults.value = false
     await fetchData()
   } catch (error) {
     console.error('重新搜索失败:', error)
@@ -828,8 +826,8 @@ onUnmounted(() => {
       </div>
     </VFadeTransition>
 
-    <!-- 精简标题栏 -->
-    <VCard v-if="isRefreshed && !progressActive" class="search-header d-flex align-center mb-3">
+    <!-- 精简标题栏：搜索过后保持挂载，加载中由按钮 :disabled / :loading 表达状态 -->
+    <VCard v-if="isRefreshed" class="search-header d-flex align-center mb-3">
       <div class="search-info-container">
         <div class="search-title text-moviepilot">
           <span class="d-none d-sm-inline">{{ t('resource.searchResults') }}</span>
