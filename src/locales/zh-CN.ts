@@ -993,6 +993,7 @@ export default {
     aiRecommend: '智能推荐',
     reRecommend: '重新生成推荐',
     aiRecommendError: '智能推荐失败',
+    refreshSearch: '重新搜索',
   },
   browse: {
     actor: '演员',

@@ -95,6 +95,9 @@ const cardScroll = useInfiniteScroll(filteredCardDataList)
 // 是否刷新过
 const isRefreshed = ref(false)
 
+// 是否正在重新搜索
+const isRefreshing = ref(false)
+
 // 加载进度文本
 const progressText = ref(t('common.pleaseWait'))
 
@@ -461,6 +464,23 @@ async function fetchData() {
     stopLoadingProgress()
     isRefreshed.value = true
     return Promise.reject(error)
+  }
+}
+
+// 重新搜索（使用相同参数重新触发搜索）
+async function refreshSearch() {
+  if (isRefreshing.value || progressActive.value) return
+  isRefreshing.value = true
+  try {
+    // 如正在显示AI推荐结果，先切回原始结果，确保状态干净
+    if (showingAiResults.value) {
+      await switchToOriginalResults()
+    }
+    await fetchData()
+  } catch (error) {
+    console.error('重新搜索失败:', error)
+  } finally {
+    isRefreshing.value = false
   }
 }
 
@@ -833,6 +853,22 @@ onUnmounted(() => {
 
       <VSpacer />
 
+      <!-- 重新搜索按钮 -->
+      <VBtn
+        variant="text"
+        size="small"
+        icon
+        class="me-2 refresh-search-btn"
+        :loading="isRefreshing"
+        :disabled="isRefreshing || progressActive"
+        @click="refreshSearch"
+      >
+        <VIcon icon="mdi-refresh" size="20" />
+        <VTooltip activator="parent" location="top">
+          {{ t('resource.refreshSearch') }}
+        </VTooltip>
+      </VBtn>
+
       <!-- AI操作按钮组 -->
       <div v-if="aiRecommendEnabled && originalDataList.length > 0" class="ai-toggle-container me-2">
         <div class="ai-toggle-buttons">
@@ -1180,6 +1216,14 @@ onUnmounted(() => {
   background-color: rgba(var(--v-theme-primary), 0.05);
 }
 
+/* 重新搜索按钮 */
+.refresh-search-btn {
+  block-size: 44px !important;
+  inline-size: 44px !important;
+  border-radius: 8px !important;
+  background-color: rgba(var(--v-theme-surface-variant), 0.1);
+}
+
 /* AI按钮组样式 */
 .ai-toggle-container {
   position: relative;
@@ -1369,6 +1413,11 @@ onUnmounted(() => {
   .view-toggle-btn {
     block-size: 32px;
     inline-size: 36px;
+  }
+
+  .refresh-search-btn {
+    block-size: 36px !important;
+    inline-size: 36px !important;
   }
 
   .ai-toggle-buttons {
