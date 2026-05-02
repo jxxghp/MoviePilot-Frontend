@@ -998,6 +998,7 @@ export default {
     aiRecommend: 'AI Recommendation',
     reRecommend: 'Regenerate Recommendation',
     aiRecommendError: 'AI Recommendation Failed',
+    refreshSearch: 'Re-search',
   },
   browse: {
     actor: 'Actor',

@@ -994,6 +994,7 @@ export default {
     aiRecommend: '智能推薦',
     reRecommend: '重新生成推薦',
     aiRecommendError: '智能推薦失敗',
+    refreshSearch: '重新搜尋',
   },
   browse: {
     actor: '演員',
