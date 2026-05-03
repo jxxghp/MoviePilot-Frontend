@@ -221,6 +221,7 @@ const llmMaxContextRef = computed({
 
 const {
   providerItems: llmProviderItems,
+  baseUrlPresetItems: llmBaseUrlPresetItems,
   models: llmModels,
   selectedProvider: selectedLlmProvider,
   selectedModel: selectedLlmModel,
@@ -1015,11 +1016,24 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     />
                   </VCol>
                   <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                    <VSelect
+                      v-if="llmBaseUrlPresetItems.length > 0"
+                      :model-value="SystemSettings.Basic.LLM_BASE_URL"
+                      @update:model-value="(value: any) => {
+                        SystemSettings.Basic.LLM_BASE_URL = value || '';
+                      }"
+                      :label="t('setting.system.llmBaseUrlPreset')"
+                      :hint="t('setting.system.llmBaseUrlPresetHint')"
+                      :items="llmBaseUrlPresetItems"
+                      persistent-hint
+                      prepend-inner-icon="mdi-format-list-bulleted-square"
+                      class="mb-3"
+                    />
                     <VTextField
                       v-model="SystemSettings.Basic.LLM_BASE_URL"
                       :label="t('setting.system.llmBaseUrl')"
                       :hint="t('setting.system.llmBaseUrlHint')"
-                      placeholder="https://api.deepseek.com"
+                      :placeholder="selectedLlmProvider?.default_base_url || 'https://api.deepseek.com'"
                       persistent-hint
                       prepend-inner-icon="mdi-link"
                     />

@@ -1355,6 +1355,8 @@ export default {
       llmApiKey: 'LLM API Key',
       llmApiKeyHint: 'API key from the LLM service provider for authentication',
       llmApiKeyPlaceholder: 'Please enter API key',
+      llmBaseUrlPreset: 'LLM URL Preset',
+      llmBaseUrlPresetHint: 'Start with a provider preset URL, then edit the actual request URL below if needed',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
       llmProviderAuth: 'Provider Authorization',

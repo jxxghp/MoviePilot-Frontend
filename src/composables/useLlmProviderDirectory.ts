@@ -16,11 +16,17 @@ export interface LlmProviderAuthStatus {
   updated_at?: number | null
 }
 
+export interface LlmProviderUrlPreset {
+  label: string
+  value: string
+}
+
 export interface LlmProvider {
   id: string
   name: string
   runtime: string
   default_base_url: string
+  base_url_presets?: LlmProviderUrlPreset[]
   base_url_editable: boolean
   requires_base_url: boolean
   supports_api_key: boolean
@@ -96,9 +102,15 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     () => models.value.find(item => item.id === normalizeValue(options.model.value)) || null,
   )
   const providerItems = computed(() => providers.value.map(item => ({ title: item.name, value: item.id })))
+  const baseUrlPresetItems = computed(() =>
+    (selectedProvider.value?.base_url_presets || []).map(item => ({
+      title: item.label,
+      value: item.value,
+    })),
+  )
   const providerConnected = computed(() => Boolean(selectedProvider.value?.auth_status?.connected))
   const showBaseUrlField = computed(
-    () => Boolean(selectedProvider.value?.requires_base_url || selectedProvider.value?.base_url_editable),
+    () => Boolean(selectedProvider.value && (selectedProvider.value.oauth_methods || []).length === 0),
   )
   const showApiKeyField = computed(() => selectedProvider.value?.supports_api_key !== false)
   const hasUsableCredential = computed(() => {
@@ -333,6 +345,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   return {
     providers,
     providerItems,
+    baseUrlPresetItems,
     models,
     selectedProvider,
     selectedModel,

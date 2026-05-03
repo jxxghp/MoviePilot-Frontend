@@ -1350,6 +1350,8 @@ export default {
       llmApiKey: 'LLM API密鑰',
       llmApiKeyHint: 'LLM服務提供商的API密鑰，用於身份驗證',
       llmApiKeyPlaceholder: '請輸入API密鑰',
+      llmBaseUrlPreset: 'LLM位址預設',
+      llmBaseUrlPresetHint: '可先選擇提供商預設位址，再按需修改下方實際調用位址',
       llmBaseUrl: 'LLM基礎URL',
       llmBaseUrlHint: 'LLM API的基礎URL地址，用於自定義API端點',
       llmProviderAuth: '提供商授權',

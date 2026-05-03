@@ -53,6 +53,7 @@ const authConnectedRef = computed({
 
 const {
   providerItems,
+  baseUrlPresetItems,
   models: llmModels,
   selectedProvider,
   selectedModel,
@@ -228,11 +229,24 @@ onMounted(async () => {
           </VCol>
 
           <VCol v-if="showBaseUrlField" cols="12" md="6">
+            <VSelect
+              v-if="baseUrlPresetItems.length > 0"
+              :model-value="wizardData.agent.baseUrl"
+              @update:model-value="(value: any) => {
+                wizardData.agent.baseUrl = value || '';
+              }"
+              :label="t('setting.system.llmBaseUrlPreset')"
+              :hint="t('setting.system.llmBaseUrlPresetHint')"
+              :items="baseUrlPresetItems"
+              persistent-hint
+              prepend-inner-icon="mdi-format-list-bulleted-square"
+              class="mb-3"
+            />
             <VTextField
               v-model="wizardData.agent.baseUrl"
               :label="t('setting.system.llmBaseUrl')"
               :hint="t('setting.system.llmBaseUrlHint')"
-              placeholder="https://api.deepseek.com"
+              :placeholder="selectedProvider?.default_base_url || 'https://api.deepseek.com'"
               persistent-hint
               prepend-inner-icon="mdi-link-variant"
             />
