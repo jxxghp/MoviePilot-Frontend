@@ -21,6 +21,12 @@ export interface LlmProviderUrlPreset {
   value: string
 }
 
+export interface LlmProviderUrlPresetItem {
+  title: string
+  value: string
+  subtitle?: string
+}
+
 export interface LlmProvider {
   id: string
   name: string
@@ -102,10 +108,11 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     () => models.value.find(item => item.id === normalizeValue(options.model.value)) || null,
   )
   const providerItems = computed(() => providers.value.map(item => ({ title: item.name, value: item.id })))
-  const baseUrlPresetItems = computed(() =>
+  const baseUrlPresetItems = computed<LlmProviderUrlPresetItem[]>(() =>
     (selectedProvider.value?.base_url_presets || []).map(item => ({
-      title: item.label,
+      title: item.value,
       value: item.value,
+      subtitle: item.label,
     })),
   )
   const providerConnected = computed(() => Boolean(selectedProvider.value?.auth_status?.connected))

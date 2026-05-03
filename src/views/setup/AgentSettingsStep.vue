@@ -229,27 +229,24 @@ onMounted(async () => {
           </VCol>
 
           <VCol v-if="showBaseUrlField" cols="12" md="6">
-            <VSelect
-              v-if="baseUrlPresetItems.length > 0"
+            <VCombobox
               :model-value="wizardData.agent.baseUrl"
               @update:model-value="(value: any) => {
-                wizardData.agent.baseUrl = value || '';
+                wizardData.agent.baseUrl = typeof value === 'object' && value !== null ? value.value : (value || '');
               }"
-              :label="t('setting.system.llmBaseUrlPreset')"
-              :hint="t('setting.system.llmBaseUrlPresetHint')"
-              :items="baseUrlPresetItems"
-              persistent-hint
-              prepend-inner-icon="mdi-format-list-bulleted-square"
-              class="mb-3"
-            />
-            <VTextField
-              v-model="wizardData.agent.baseUrl"
               :label="t('setting.system.llmBaseUrl')"
               :hint="t('setting.system.llmBaseUrlHint')"
               :placeholder="selectedProvider?.default_base_url || 'https://api.deepseek.com'"
+              :items="baseUrlPresetItems"
+              item-title="title"
+              item-value="value"
               persistent-hint
               prepend-inner-icon="mdi-link-variant"
-            />
+            >
+              <template #item="{ props, item }">
+                <VListItem v-bind="props" :subtitle="item.raw.subtitle" />
+              </template>
+            </VCombobox>
           </VCol>
 
           <VCol v-if="showApiKeyField" cols="12" md="6">
