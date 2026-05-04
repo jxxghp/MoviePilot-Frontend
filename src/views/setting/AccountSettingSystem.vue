@@ -1004,7 +1004,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     />
                   </VCol>
                   <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
-                    <VSelect
+                    <VAutocomplete
                       v-model="SystemSettings.Basic.LLM_PROVIDER"
                       :label="t('setting.system.llmProvider')"
                       :hint="t('setting.system.llmProviderHint')"

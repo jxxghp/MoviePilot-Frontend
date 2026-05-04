@@ -214,7 +214,7 @@ onMounted(async () => {
           </VCol>
 
           <VCol cols="12" md="6">
-            <VSelect
+            <VAutocomplete
               v-model="wizardData.agent.provider"
               :label="t('setting.system.llmProvider')"
               :hint="t('setting.system.llmProviderHint')"
