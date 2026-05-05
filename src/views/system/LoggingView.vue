@@ -1,148 +1,977 @@
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { isToday } from '@/@core/utils/index'
-import dayjs from 'dayjs'
+import { useTheme } from 'vuetify'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 
-// 定义输入变量
+type LogEntry = {
+  id: number
+  raw: string
+  level: string
+  appName: string
+  timestamp: string
+  timestampMs: number | null
+  secondKey: string
+  secondDisplay: string
+  timeDisplay: string
+  displayLevel: string
+  source: string
+  message: string
+  structured: boolean
+}
+
+type LogGroup = {
+  id: string
+  level: string
+  secondKey: string
+  secondDisplay: string
+  items: LogEntry[]
+  lastTimestampMs: number | null
+}
+
+type ParsedLog = {
+  level: string
+  appName: string
+  timestamp: string
+  source: string
+  message: string
+  structured: boolean
+}
+
 const props = defineProps<{
   logfile: string
 }>()
 
-// 国际化
 const { t } = useI18n()
+const theme = useTheme()
 const { useSSE } = useBackgroundOptimization()
 
-// 已解析的日志列表
-const parsedLogs = ref<{ level: string; date: string; time: string; program: string; content: string }[]>([])
+const DEFAULT_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+const MAX_LOG_LINES = 600
+const FLUSH_DELAY = 80
+const GROUP_GAP_MS = 100
+const SCROLL_BOTTOM_THRESHOLD = 32
+const ANSI_PATTERN = /\u001B\[[0-9;]*m/g
+const TIMESTAMP_PATTERN = /\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?(?:,\d{3})?)?/
 
-// 组件是否已挂载
+const parsedLogs = ref<LogEntry[]>([])
+const logViewportRef = ref<HTMLElement | null>(null)
 const isMounted = ref(false)
+const followTail = ref(true)
+const isStreamPaused = ref(false)
+const searchQuery = ref<string | null>('')
+const selectedLevel = ref('ALL')
+const pendingLogCount = ref(0)
 
-// 表头
-const headers = [
-  { title: t('logging.level'), value: 'level' },
-  { title: t('logging.time'), value: 'time' },
-  { title: t('logging.program'), value: 'program' },
-  { title: t('logging.content'), value: 'content' },
-]
+let timeoutId: number | null = null
+let mountTimerId: number | null = null
+let logSequence = 0
+const buffer: string[] = []
 
-// 日志颜色映射表
+const listenerId = `logging-${props.logfile}`
+
 const logColorMap: Record<string, string> = {
+  TRACE: 'secondary',
   DEBUG: 'secondary',
-  INFO: 'info',
+  INFO: 'success',
   WARNING: 'warning',
   ERROR: 'error',
+  CRITICAL: 'error',
 }
 
-// 获取日志颜色
-function getLogColor(level: string): string {
-  return logColorMap[level] || 'secondary'
-}
+const isDarkTheme = computed(() => theme.global.current.value.dark)
+const isTransparentTheme = computed(() => theme.name.value === 'transparent')
+const normalizedSearchQuery = computed(() => (searchQuery.value ?? '').trim().toLowerCase())
 
-// 日志缓冲区和超时处理
-const buffer: string[] = []
-let timeoutId: number | null = null
+const levelOptions = computed(() => {
+  const extraLevels = parsedLogs.value.map(item => item.level).filter(level => level && !DEFAULT_LEVELS.includes(level))
 
-// SSE消息处理函数
-function handleSSEMessage(event: MessageEvent) {
-  const message = event.data
-  if (message) {
-    buffer.push(message)
-    if (!timeoutId) {
-      timeoutId = window.setTimeout(() => {
-        // 解析新日志
-        const newParsedLogs = buffer
-          .map(log => {
-            const logPattern = /^【(.*?)】\s*([\d]{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)\s+(.*?)\s*-\s*(.*?)\s*-\s*(.*)$/
-            const matches = log.match(logPattern)
-            if (matches) {
-              const [, level, date, time, program, content] = matches
-              return { level, date, time, program, content }
-            }
-            return null
-          })
-          .filter(Boolean)
-        // 倒序后插入parsedLogs顶部
-        parsedLogs.value.unshift(...(newParsedLogs.reverse() as any[]))
-        // 保留最新的200条日志
-        parsedLogs.value = parsedLogs.value.slice(0, 200)
-        // 重置buffer
-        buffer.length = 0
-        timeoutId = null
-      }, 100)
+  return ['ALL', ...DEFAULT_LEVELS, ...new Set(extraLevels)]
+})
+
+const groupedLogs = computed(() => {
+  const groups: LogGroup[] = []
+
+  for (const item of parsedLogs.value) {
+    const lastGroup = groups.at(-1)
+    if (lastGroup && canMergeIntoGroup(lastGroup, item)) {
+      lastGroup.items.push(item)
+      if (item.timestampMs !== null) {
+        lastGroup.lastTimestampMs = item.timestampMs
+      }
+      continue
     }
+
+    groups.push({
+      id: `${item.secondKey || 'log'}-${item.level || 'plain'}-${item.id}`,
+      level: item.level,
+      secondKey: item.secondKey,
+      secondDisplay: item.secondDisplay,
+      items: [item],
+      lastTimestampMs: item.timestampMs,
+    })
+  }
+
+  return groups
+})
+
+const filteredGroups = computed(() => {
+  return groupedLogs.value
+    .map(group => ({
+      ...group,
+      items: group.items.filter(matchesLogFilter),
+    }))
+    .filter(group => group.items.length > 0)
+})
+
+const visibleLogCount = computed(() => {
+  return filteredGroups.value.reduce((count, group) => count + group.items.length, 0)
+})
+
+const lastVisibleLogId = computed(() => {
+  return filteredGroups.value.at(-1)?.items.at(-1)?.id ?? 0
+})
+
+function normalizeLevel(level: string) {
+  const normalizedLevel = level.trim().replace(/:$/, '').toUpperCase()
+
+  if (normalizedLevel === 'WARN') {
+    return 'WARNING'
+  }
+
+  if (normalizedLevel === 'FATAL') {
+    return 'CRITICAL'
+  }
+
+  return normalizedLevel
+}
+
+function stripAnsi(text: string) {
+  return text.replace(ANSI_PATTERN, '')
+}
+
+function extractTimestamp(text: string) {
+  return text.match(TIMESTAMP_PATTERN)?.[0] ?? ''
+}
+
+function getTimestampMs(timestamp: string) {
+  if (!timestamp) {
+    return null
+  }
+
+  const normalizedTimestamp = timestamp.replace(' ', 'T').replace(',', '.')
+  const parsedTimestamp = Date.parse(normalizedTimestamp)
+
+  return Number.isNaN(parsedTimestamp) ? null : parsedTimestamp
+}
+
+function getSecondKey(timestamp: string) {
+  if (!timestamp) {
+    return ''
+  }
+
+  return timestamp.replace('T', ' ').slice(0, 19)
+}
+
+function getSecondDisplay(secondKey: string) {
+  return secondKey ? secondKey.replaceAll('-', '/') : ''
+}
+
+function getTimeDisplay(timestamp: string) {
+  if (!timestamp) {
+    return ''
+  }
+
+  return timestamp.split(' ').at(-1) ?? timestamp
+}
+
+function extractMessage(text: string) {
+  return (
+    text
+      .split(/\s+-\s+/)
+      .slice(1)
+      .join(' - ') || text
+  )
+}
+
+function createLogEntry(raw: string, parsed?: ParsedLog | null): LogEntry {
+  const level = parsed?.level ?? ''
+  const appName = parsed?.appName ?? ''
+  const timestamp = parsed?.timestamp ?? extractTimestamp(raw)
+  const secondKey = getSecondKey(timestamp)
+
+  return {
+    id: ++logSequence,
+    raw,
+    level,
+    appName,
+    timestamp,
+    timestampMs: getTimestampMs(timestamp),
+    secondKey,
+    secondDisplay: getSecondDisplay(secondKey),
+    timeDisplay: getTimeDisplay(timestamp),
+    displayLevel: `${level || 'LOG'}:`,
+    source: parsed?.source ?? '',
+    message: parsed?.message ?? raw,
+    structured: parsed?.structured ?? false,
   }
 }
 
-// 使用优化的SSE连接，添加延迟确保弹窗完全打开
+function parsePythonStyleLog(raw: string): ParsedLog | null {
+  const match = raw.match(/^([A-Za-z]+):\s+(.*)$/)
+  if (!match) {
+    return null
+  }
+
+  const [, rawLevel, remainder] = match
+  const level = normalizeLevel(rawLevel)
+  if (!DEFAULT_LEVELS.includes(level)) {
+    return null
+  }
+
+  const body = remainder.trim()
+  const bodyMatch = body.match(
+    /^(?:\[([^\]]+)\]\s+)?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+([^\s]+)\s+-\s+(.*)$/,
+  )
+
+  return {
+    level,
+    appName: bodyMatch?.[1] ?? '',
+    timestamp: bodyMatch?.[2] ?? extractTimestamp(body),
+    source: bodyMatch?.[3] ?? '',
+    message: bodyMatch?.[4] ?? extractMessage(body),
+    structured: Boolean(bodyMatch),
+  }
+}
+
+function parseBracketStyleLog(raw: string): ParsedLog | null {
+  const match = raw.match(/^【([^】]+)】\s*(.*)$/)
+  if (!match) {
+    return null
+  }
+
+  const [, rawLevel, remainder] = match
+  const level = normalizeLevel(rawLevel)
+  const body = remainder.trim()
+  const bodyMatch = body.match(
+    /^(?:\[([^\]]+)\]\s+)?(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d{3})?)\s+([^\s]+)\s+-\s+(.*)$/,
+  )
+
+  return {
+    level,
+    appName: bodyMatch?.[1] ?? '',
+    timestamp: bodyMatch?.[2] ?? extractTimestamp(body),
+    source: bodyMatch?.[3] ?? '',
+    message: bodyMatch?.[4] ?? extractMessage(body),
+    structured: Boolean(bodyMatch),
+  }
+}
+
+function parseTimestampFirstLog(raw: string): ParsedLog | null {
+  const match = raw.match(new RegExp(`^(${TIMESTAMP_PATTERN.source})\\s+\\[?([A-Za-z]+)\\]?\\s*(.*)$`))
+  if (!match) {
+    return null
+  }
+
+  const [, timestamp, rawLevel, remainder] = match
+  const level = normalizeLevel(rawLevel)
+  if (!DEFAULT_LEVELS.includes(level)) {
+    return null
+  }
+
+  const body = remainder.trim()
+  const bodyMatch = body.match(/^(?:\[([^\]]+)\]\s+)?([^\s]+)\s+-\s+(.*)$/)
+
+  return {
+    level,
+    appName: bodyMatch?.[1] ?? '',
+    timestamp,
+    source: bodyMatch?.[2] ?? '',
+    message: bodyMatch?.[3] ?? extractMessage(body),
+    structured: Boolean(bodyMatch),
+  }
+}
+
+function parseInlineLevelLog(raw: string): ParsedLog | null {
+  const match = raw.match(/^\[?([A-Za-z]+)\]?:?\s+(.*)$/)
+  if (!match) {
+    return null
+  }
+
+  const [, rawLevel, remainder] = match
+  const level = normalizeLevel(rawLevel)
+  if (!DEFAULT_LEVELS.includes(level)) {
+    return null
+  }
+
+  const body = remainder.trim()
+  const timestamp = extractTimestamp(body)
+  const bodyWithoutTimestamp = timestamp ? body.replace(timestamp, '').trim() : body
+  const bodyMatch = bodyWithoutTimestamp.match(/^(?:\[([^\]]+)\]\s+)?([^\s]+)\s+-\s+(.*)$/)
+
+  return {
+    level,
+    appName: bodyMatch?.[1] ?? '',
+    timestamp,
+    source: bodyMatch?.[2] ?? '',
+    message: bodyMatch?.[3] ?? extractMessage(bodyWithoutTimestamp),
+    structured: Boolean(bodyMatch),
+  }
+}
+
+function parseLogLine(log: string): LogEntry {
+  const raw = stripAnsi(log).replace(/\r/g, '').trimEnd()
+  const parsed =
+    parsePythonStyleLog(raw) ?? parseBracketStyleLog(raw) ?? parseTimestampFirstLog(raw) ?? parseInlineLevelLog(raw)
+
+  return createLogEntry(raw, parsed)
+}
+
+function matchesLogFilter(item: LogEntry) {
+  const matchesLevel = selectedLevel.value === 'ALL' || item.level === selectedLevel.value
+  if (!matchesLevel) {
+    return false
+  }
+
+  if (!normalizedSearchQuery.value) {
+    return true
+  }
+
+  return [item.raw, item.level, item.appName, item.timestamp, item.source, item.message]
+    .join(' ')
+    .toLowerCase()
+    .includes(normalizedSearchQuery.value)
+}
+
+function canMergeIntoGroup(group: LogGroup, item: LogEntry) {
+  if (!group.secondKey || !item.secondKey) {
+    return false
+  }
+
+  if (group.secondKey !== item.secondKey || group.level !== item.level) {
+    return false
+  }
+
+  if (group.lastTimestampMs !== null && item.timestampMs !== null) {
+    return item.timestampMs - group.lastTimestampMs <= GROUP_GAP_MS
+  }
+
+  return true
+}
+
+function isNearBottom() {
+  if (!logViewportRef.value) {
+    return true
+  }
+
+  const { scrollTop, scrollHeight, clientHeight } = logViewportRef.value
+  return scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD
+}
+
+function scrollToBottom(behavior: ScrollBehavior = 'auto') {
+  if (!logViewportRef.value) {
+    return
+  }
+
+  logViewportRef.value.scrollTo({
+    top: logViewportRef.value.scrollHeight,
+    behavior,
+  })
+}
+
+function enableFollow(behavior: ScrollBehavior = 'auto') {
+  followTail.value = true
+  pendingLogCount.value = 0
+
+  nextTick(() => {
+    scrollToBottom(behavior)
+  })
+}
+
+function flushBuffer() {
+  if (timeoutId) {
+    clearTimeout(timeoutId)
+    timeoutId = null
+  }
+
+  if (buffer.length === 0) {
+    return
+  }
+
+  const incomingLogs = buffer
+    .flatMap(item => item.split(/\r?\n/))
+    .filter(item => item.length > 0)
+    .map(parseLogLine)
+
+  buffer.length = 0
+
+  if (incomingLogs.length === 0) {
+    return
+  }
+
+  const shouldFollow = isNearBottom()
+
+  parsedLogs.value = [...parsedLogs.value, ...incomingLogs].slice(-MAX_LOG_LINES)
+
+  followTail.value = shouldFollow
+
+  if (shouldFollow) {
+    enableFollow()
+    return
+  }
+
+  pendingLogCount.value += incomingLogs.length
+}
+
+function scheduleFlush() {
+  if (timeoutId) {
+    return
+  }
+
+  timeoutId = window.setTimeout(() => {
+    flushBuffer()
+  }, FLUSH_DELAY)
+}
+
+function handleSSEMessage(event: MessageEvent) {
+  if (!event.data) {
+    return
+  }
+
+  isConnected.value = true
+  buffer.push(String(event.data))
+  scheduleFlush()
+}
+
 const { manager, isConnected } = useSSE(
-  `${import.meta.env.VITE_API_BASE_URL}system/logging?logfile=${encodeURIComponent(props.logfile) ?? 'moviepilot.log'}`,
+  `${import.meta.env.VITE_API_BASE_URL}system/logging?logfile=${encodeURIComponent(props.logfile ?? 'moviepilot.log')}`,
   handleSSEMessage,
-  `logging-${props.logfile}`,
+  listenerId,
   {
     backgroundCloseDelay: 5000,
     reconnectDelay: 3000,
     maxReconnectAttempts: 3,
-    connectDelay: 300, // 延迟300ms建立连接，确保弹窗完全打开
+    connectDelay: 300,
   },
 )
 
-// 监听弹窗状态变化，确保弹窗完全打开后再建立连接
+function pauseStream() {
+  if (isStreamPaused.value) {
+    return
+  }
+
+  flushBuffer()
+  isStreamPaused.value = true
+  isConnected.value = false
+  manager.removeMessageListener(listenerId)
+}
+
+function resumeStream() {
+  if (!isStreamPaused.value) {
+    return
+  }
+
+  isStreamPaused.value = false
+  isConnected.value = false
+  manager.addMessageListener(listenerId, handleSSEMessage)
+}
+
+function toggleStreamState() {
+  if (isStreamPaused.value) {
+    resumeStream()
+    return
+  }
+
+  pauseStream()
+}
+
+function handleScroll() {
+  if (isNearBottom()) {
+    followTail.value = true
+    pendingLogCount.value = 0
+    return
+  }
+
+  followTail.value = false
+}
+
+watch(lastVisibleLogId, (currentId, previousId) => {
+  if (!followTail.value || currentId === previousId) {
+    return
+  }
+
+  nextTick(() => {
+    scrollToBottom()
+  })
+})
+
 onMounted(() => {
-  // 延迟标记组件已挂载，确保弹窗完全渲染
-  setTimeout(() => {
+  mountTimerId = window.setTimeout(() => {
     isMounted.value = true
   }, 200)
 })
 
-// 监听连接状态变化
-watch(isConnected, connected => {})
+onUnmounted(() => {
+  if (mountTimerId) {
+    clearTimeout(mountTimerId)
+  }
 
-// 监听日志数据变化
-watch(parsedLogs, logs => {}, { deep: true })
+  flushBuffer()
+})
 </script>
 
 <template>
-  <LoadingBanner
-    v-if="!isMounted || !isConnected || parsedLogs.length === 0"
-    class="mt-12"
-    :text="!isMounted ? t('logging.initializing') + ' ...' : t('logging.refreshing') + ' ...'"
-  />
-  <div v-else>
-    <VTable class="table-rounded" hide-default-footer disable-sort>
-      <tbody>
-        <VDataTableVirtual
-          :headers="headers"
-          :items="parsedLogs"
-          height="100%"
-          density="compact"
-          hover
-          hide-default-header
+  <VProgressLinear v-if="!isStreamPaused" class="logging-live-progress" indeterminate color="primary" height="1" />
+  <div class="logging-view" :class="{ 'is-dark-theme': isDarkTheme, 'is-transparent-theme': isTransparentTheme }">
+    <div class="logging-toolbar px-3">
+      <VTextField
+        v-model="searchQuery"
+        class="logging-search"
+        density="compact"
+        variant="plain"
+        hide-details
+        clearable
+        @click:clear="searchQuery = ''"
+        prepend-inner-icon="mdi-magnify"
+        :placeholder="t('logging.searchPlaceholder')"
+      />
+
+      <VBtn
+        variant="text"
+        icon
+        class="logging-stream-action"
+        :class="{ 'is-live': !isStreamPaused }"
+        :title="isStreamPaused ? t('logging.resumeStream') : t('logging.pauseStream')"
+        @click="toggleStreamState"
+      >
+        <VIcon :icon="isStreamPaused ? 'mdi-play' : 'mdi-pause'" />
+      </VBtn>
+    </div>
+
+    <div class="logging-levels px-3">
+      <VChip
+        v-for="level in levelOptions"
+        :key="level"
+        size="small"
+        variant="tonal"
+        :color="selectedLevel === level ? (level === 'ALL' ? 'primary' : logColorMap[level] || 'secondary') : undefined"
+        :class="{ 'logging-level-chip--active': selectedLevel === level }"
+        @click="selectedLevel = level"
+      >
+        {{ level === 'ALL' ? t('logging.allLevels') : level }}
+      </VChip>
+    </div>
+
+    <div ref="logViewportRef" class="logging-shell is-wrap" @scroll.passive="handleScroll">
+      <div v-if="!isMounted" class="logging-loading-overlay">
+        <LoadingBanner :text="t('logging.initializing') + ' ...'" />
+      </div>
+
+      <div v-else-if="filteredGroups.length === 0" class="logging-empty">
+        <VIcon :icon="parsedLogs.length === 0 ? 'mdi-console-line' : 'mdi-filter-remove-outline'" size="20" />
+        <span>
+          {{ parsedLogs.length === 0 ? t('logging.waitingForLogs') : t('common.noMatchingData') }}
+        </span>
+      </div>
+
+      <div v-else class="logging-list">
+        <div v-for="(group, index) in filteredGroups" :key="group.id" class="logging-record">
+          <div class="logging-record-time">{{ group.secondDisplay || '...' }}</div>
+
+          <div class="logging-record-panel" :class="index % 2 === 0 ? 'is-even' : 'is-odd'">
+            <div
+              class="logging-record-accent"
+              :class="[`level-${(group.level || 'plain').toLowerCase()}`, { 'is-burst': group.items.length > 1 }]"
+            />
+
+            <div class="logging-record-lines">
+              <div v-for="item in group.items" :key="item.id" class="logging-record-line">
+                <span class="logging-record-level" :class="`level-${(item.level || 'plain').toLowerCase()}`">
+                  {{ item.displayLevel }}
+                </span>
+
+                <span v-if="item.appName" class="logging-record-app">[{{ item.appName }}]</span>
+
+                <span v-if="item.timeDisplay" class="logging-record-inline-time">{{ item.timeDisplay }}</span>
+
+                <span class="logging-record-body">{{ item.message }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="pendingLogCount > 0 && !followTail" class="logging-latest-action">
+        <VBtn
+          size="small"
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-arrow-down"
+          @click="enableFollow('smooth')"
         >
-          <template #item.level="{ item }">
-            <VChip size="small" :color="getLogColor(item.level)" variant="elevated" v-text="item.level" />
-          </template>
-          <template #item.time="{ item }">
-            <span class="text-sm">
-              {{
-                isToday(dayjs(item.date).toDate())
-                  ? item.time
-                  : `${item.date}
-              ${item.time}`
-              }}
-            </span>
-          </template>
-          <template #item.program="{ item }">
-            <h6 class="text-sm font-weight-medium">{{ item.program }}</h6>
-          </template>
-          <template #item.content="{ item }">
-            <span class="text-sm" :class="`text-${getLogColor(item.level)}`">
-              {{ item.content }}
-            </span>
-          </template>
-        </VDataTableVirtual>
-      </tbody>
-    </VTable>
+          {{ t('logging.jumpToLatest', { count: pendingLogCount }) }}
+        </VBtn>
+      </div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+.logging-view {
+  --logging-shell-bg: rgba(var(--v-theme-surface), 0.96);
+  --logging-record-bg-even: rgba(var(--v-theme-surface-variant), 0.01);
+  --logging-record-bg-odd: rgba(var(--v-theme-surface-variant), 0.005);
+  --logging-border: rgba(var(--v-theme-on-surface), 0.08);
+  --logging-text: rgba(var(--v-theme-on-surface), 0.88);
+  --logging-muted: rgba(var(--v-theme-on-surface), 0.56);
+  --logging-shadow: 0 10px 32px rgba(15, 23, 42, 6%);
+
+  display: flex;
+  flex-direction: column;
+  block-size: min(85vh, 48rem);
+  gap: 0.75rem;
+  min-block-size: 24rem;
+}
+
+.logging-view.is-dark-theme {
+  --logging-shell-bg: rgba(var(--v-theme-surface), 0.72);
+  --logging-record-bg-even: rgba(var(--v-theme-on-surface), 0.02);
+  --logging-record-bg-odd: rgba(var(--v-theme-on-surface), 0.008);
+  --logging-border: rgba(var(--v-theme-on-surface), 0.12);
+  --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 4%);
+}
+
+.logging-view.is-transparent-theme {
+  --logging-shell-bg: transparent;
+  --logging-record-bg-even: transparent;
+  --logging-record-bg-odd: transparent;
+  --logging-border: rgba(var(--v-theme-on-surface), 0.1);
+  --logging-shadow: none;
+}
+
+.logging-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logging-search {
+  flex: 1 1 18rem;
+  min-inline-size: 14rem;
+}
+
+.logging-stream-action {
+  color: var(--logging-muted);
+}
+
+.logging-stream-action.is-live {
+  color: rgb(var(--v-theme-success));
+}
+
+.logging-search :deep(.v-field) {
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.logging-search :deep(.v-field__outline),
+.logging-search :deep(.v-field__overlay) {
+  display: none;
+}
+
+.logging-search :deep(.v-field__input) {
+  padding-inline-start: 0;
+}
+
+.logging-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.logging-level-chip--active {
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.logging-shell {
+  position: relative;
+  overflow: auto;
+  flex: 1 1 auto;
+  padding: 0.875rem;
+  border: 1px solid var(--logging-border);
+  background: linear-gradient(180deg, var(--logging-shell-bg), rgba(var(--v-theme-surface), 0.9));
+  box-shadow: var(--logging-shadow);
+}
+
+.logging-view.is-transparent-theme .logging-shell {
+  backdrop-filter: none;
+  background: transparent;
+}
+
+.logging-loading-overlay {
+  position: sticky;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 0.72), rgba(var(--v-theme-surface), 0.64));
+  inset-block-start: 0;
+  margin-block-end: 0.75rem;
+  margin-inline: -0.875rem;
+  padding-block: 0.5rem 0.75rem;
+  padding-inline: 0.875rem;
+}
+
+.logging-view.is-dark-theme .logging-loading-overlay {
+  background: linear-gradient(180deg, rgba(var(--v-theme-surface), 0.62), rgba(var(--v-theme-surface), 0.52));
+}
+
+.logging-view.is-transparent-theme .logging-loading-overlay {
+  backdrop-filter: none;
+  background: transparent;
+}
+
+.logging-loading-overlay :deep(.initial-loading-container) {
+  min-block-size: 10rem;
+}
+
+.logging-live-progress :deep(.v-progress-linear__background) {
+  opacity: 0.12;
+}
+
+.logging-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 100%;
+  color: var(--logging-muted);
+  gap: 0.5rem;
+  min-block-size: 16rem;
+}
+
+.logging-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-inline-size: 100%;
+}
+
+.logging-record {
+  display: grid;
+  align-items: start;
+  grid-template-columns: 11rem minmax(0, 1fr);
+}
+
+.logging-record-time {
+  color: rgb(var(--v-theme-primary));
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  padding-block: 0.625rem;
+  white-space: nowrap;
+}
+
+.logging-record-panel {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.04);
+  border-radius: 8px;
+  gap: 0.75rem;
+  min-inline-size: 0;
+  padding-block: 0.5rem;
+  padding-inline: 0.5rem;
+}
+
+.logging-record-panel.is-even {
+  background: var(--logging-record-bg-even);
+}
+
+.logging-record-panel.is-odd {
+  background: var(--logging-record-bg-odd);
+}
+
+.logging-view.is-dark-theme .logging-record-panel {
+  border-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.logging-record-accent {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  border-radius: 999px;
+  background-color: rgba(var(--v-theme-on-surface), 0.24);
+  block-size: 0.5rem;
+  inline-size: 0.5rem;
+  margin-block-start: 0.45rem;
+}
+
+.logging-record-accent.is-burst {
+  align-self: stretch;
+  border-radius: 999px;
+  block-size: auto;
+  inline-size: 0.5rem;
+  margin-block-start: 0;
+}
+
+.logging-record-lines {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-inline-size: 0;
+}
+
+.logging-record-line {
+  display: flex;
+  align-items: flex-start;
+  color: var(--logging-text);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.8125rem;
+  gap: 0.75rem;
+  line-height: 1.6;
+  min-inline-size: max-content;
+}
+
+.logging-shell.is-wrap .logging-record-line {
+  min-inline-size: 0;
+}
+
+.logging-record-level {
+  flex: 0 0 4rem;
+  font-weight: 700;
+  min-inline-size: 4rem;
+}
+
+.logging-record-body {
+  color: var(--logging-text);
+  min-inline-size: 0;
+  white-space: pre;
+}
+
+.logging-record-app,
+.logging-record-inline-time {
+  flex: 0 0 auto;
+  color: var(--logging-muted);
+}
+
+.logging-record-app {
+  color: rgba(var(--v-theme-on-surface), 0.72);
+}
+
+.logging-shell.is-wrap .logging-record-body {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.logging-record-level.level-trace,
+.logging-record-level.level-debug {
+  color: rgb(var(--v-theme-secondary));
+}
+
+.logging-record-level.level-info {
+  color: rgb(var(--v-theme-success));
+}
+
+.logging-record-level.level-warning {
+  color: rgb(var(--v-theme-warning));
+}
+
+.logging-record-level.level-error,
+.logging-record-level.level-critical {
+  color: rgb(var(--v-theme-error));
+}
+
+.logging-record-level.level-plain {
+  color: var(--logging-muted);
+}
+
+.logging-record-accent.level-trace,
+.logging-record-accent.level-debug {
+  background-color: rgb(var(--v-theme-secondary));
+}
+
+.logging-record-accent.level-info {
+  background-color: rgb(var(--v-theme-success));
+}
+
+.logging-record-accent.level-warning {
+  background-color: rgb(var(--v-theme-warning));
+}
+
+.logging-record-accent.level-error,
+.logging-record-accent.level-critical {
+  background-color: rgb(var(--v-theme-error));
+}
+
+.logging-record-accent.level-plain {
+  background-color: rgba(var(--v-theme-on-surface), 0.24);
+}
+
+.logging-latest-action {
+  position: sticky;
+  display: flex;
+  justify-content: flex-end;
+  inset-block-end: 0.75rem;
+  margin-block-start: 0.75rem;
+  pointer-events: none;
+}
+
+.logging-latest-action :deep(.v-btn) {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 16%);
+  pointer-events: auto;
+}
+
+@media (width <= 960px) {
+  .logging-view {
+    block-size: min(calc(100dvh - 7rem), 48rem);
+    min-block-size: 0;
+  }
+
+  .logging-record {
+    gap: 0.375rem;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+  }
+
+  .logging-record-level {
+    flex-basis: 4.75rem;
+    min-inline-size: 4.75rem;
+  }
+}
+
+@media (width <= 640px) {
+  .logging-view {
+    block-size: calc(100dvh - 6rem);
+    gap: 0.5rem;
+    min-block-size: 0;
+  }
+
+  .logging-record {
+    gap: 0.25rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .logging-record-time {
+    padding-block: 0;
+  }
+
+  .logging-record-panel {
+    padding-block: 0.5rem;
+    padding-inline: 0.625rem;
+  }
+
+  .logging-record-line {
+    gap: 0.5rem;
+  }
+
+  .logging-shell {
+    padding: 0.625rem;
+  }
+
+  .logging-loading-overlay {
+    margin-inline: -0.625rem;
+    padding-inline: 0.625rem;
+  }
+}
+</style>

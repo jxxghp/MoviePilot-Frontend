@@ -566,13 +566,13 @@ watch(
     </VDialog>
 
     <!-- 实时日志弹窗 -->
-    <VDialog
-      v-if="loggingDialog"
-      v-model="loggingDialog"
-      scrollable
-      max-width="60rem"
-      :fullscreen="!display.mdAndUp.value"
-    >
+      <VDialog
+        v-if="loggingDialog"
+        v-model="loggingDialog"
+        scrollable
+        max-width="72rem"
+        :fullscreen="!display.mdAndUp.value"
+      >
       <VCard>
         <VDialogCloseBtn @click="loggingDialog = false" />
         <VCardItem>
@@ -588,7 +588,7 @@ watch(
           </VCardTitle>
         </VCardItem>
         <VDivider />
-        <VCardText>
+        <VCardText class="pa-0">
           <LoggingView :logfile="`plugins/${props.plugin?.id?.toLowerCase()}.log`" />
         </VCardText>
       </VCard>

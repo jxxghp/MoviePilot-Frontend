@@ -361,13 +361,13 @@ onMounted(() => {
     </VCard>
   </VDialog>
   <!-- 实时日志弹窗 -->
-  <VDialog
-    v-if="loggingDialog"
-    v-model="loggingDialog"
-    scrollable
-    max-width="70rem"
-    :fullscreen="!display.mdAndUp.value"
-  >
+    <VDialog
+      v-if="loggingDialog"
+      v-model="loggingDialog"
+      scrollable
+      max-width="80rem"
+      :fullscreen="!display.mdAndUp.value"
+    >
     <VCard>
       <VDialogCloseBtn @click="loggingDialog = false" />
       <VCardItem>
@@ -383,7 +383,7 @@ onMounted(() => {
         </VCardTitle>
       </VCardItem>
       <VDivider />
-      <VCardText>
+      <VCardText class="pa-0">
         <LoggingView logfile="moviepilot.log" />
       </VCardText>
     </VCard>
