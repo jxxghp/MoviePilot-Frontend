@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
+import { useDisplay } from 'vuetify'
 
 type LogEntry = {
   id: number
@@ -44,6 +45,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const theme = useTheme()
+const display = useDisplay()
 const { useSSE } = useBackgroundOptimization()
 
 const DEFAULT_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
@@ -85,7 +87,7 @@ const normalizedSearchQuery = computed(() => (searchQuery.value ?? '').trim().to
 const { availableHeight } = useAvailableHeight(136, 320)
 
 const loggingViewStyle = computed(() => ({
-  blockSize: `${availableHeight.value}px`,
+  blockSize: display.mdAndUp.value ? `${availableHeight.value}px` : '100%',
 }))
 
 const levelOptions = computed(() => {
@@ -638,6 +640,7 @@ onUnmounted(() => {
 
   display: flex;
   flex-direction: column;
+  block-size: 100%;
   gap: 0.75rem;
   min-block-size: 20rem;
 }
