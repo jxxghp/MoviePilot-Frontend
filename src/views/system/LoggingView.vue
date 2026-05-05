@@ -2,6 +2,7 @@
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
 type LogEntry = {
   id: number
@@ -81,6 +82,11 @@ const logColorMap: Record<string, string> = {
 const isDarkTheme = computed(() => theme.global.current.value.dark)
 const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 const normalizedSearchQuery = computed(() => (searchQuery.value ?? '').trim().toLowerCase())
+const { availableHeight } = useAvailableHeight(136, 320)
+
+const loggingViewStyle = computed(() => ({
+  blockSize: `${availableHeight.value}px`,
+}))
 
 const levelOptions = computed(() => {
   const extraLevels = parsedLogs.value.map(item => item.level).filter(level => level && !DEFAULT_LEVELS.includes(level))
@@ -521,7 +527,11 @@ onUnmounted(() => {
 
 <template>
   <VProgressLinear v-if="!isStreamPaused" class="logging-live-progress" indeterminate color="primary" height="1" />
-  <div class="logging-view" :class="{ 'is-dark-theme': isDarkTheme, 'is-transparent-theme': isTransparentTheme }">
+  <div
+    class="logging-view"
+    :class="{ 'is-dark-theme': isDarkTheme, 'is-transparent-theme': isTransparentTheme }"
+    :style="loggingViewStyle"
+  >
     <div class="logging-toolbar px-3">
       <VTextField
         v-model="searchQuery"
@@ -628,9 +638,8 @@ onUnmounted(() => {
 
   display: flex;
   flex-direction: column;
-  block-size: min(85vh, 48rem);
   gap: 0.75rem;
-  min-block-size: 24rem;
+  min-block-size: 20rem;
 }
 
 .logging-view.is-dark-theme {
@@ -924,11 +933,6 @@ onUnmounted(() => {
 }
 
 @media (width <= 960px) {
-  .logging-view {
-    block-size: min(calc(100dvh - 7rem), 48rem);
-    min-block-size: 0;
-  }
-
   .logging-record {
     gap: 0.375rem;
     grid-template-columns: 9.5rem minmax(0, 1fr);
@@ -942,7 +946,6 @@ onUnmounted(() => {
 
 @media (width <= 640px) {
   .logging-view {
-    block-size: calc(100dvh - 6rem);
     gap: 0.5rem;
     min-block-size: 0;
   }

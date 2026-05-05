@@ -526,9 +526,6 @@ async function loadSystemSettings() {
       }
       SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
       await loadLlmProviders()
-      if (SystemSettings.value.Basic.AI_AGENT_ENABLE && canRefreshModels.value) {
-        await refreshLlmModels(false)
-      }
     }
   } catch (error) {
     console.log(error)
