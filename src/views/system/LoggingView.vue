@@ -84,7 +84,7 @@ const logColorMap: Record<string, string> = {
 const isDarkTheme = computed(() => theme.global.current.value.dark)
 const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 const normalizedSearchQuery = computed(() => (searchQuery.value ?? '').trim().toLowerCase())
-const { availableHeight } = useAvailableHeight(136, 320)
+const { availableHeight } = useAvailableHeight(96, 320)
 
 const loggingViewStyle = computed(() => ({
   blockSize: display.mdAndUp.value ? `${availableHeight.value}px` : '100%',
@@ -535,6 +535,37 @@ onUnmounted(() => {
     :style="loggingViewStyle"
   >
     <div class="logging-toolbar px-3">
+      <VSelect
+        v-model="selectedLevel"
+        :items="levelOptions"
+        density="compact"
+        variant="plain"
+        hide-details
+        class="logging-level-select"
+        :menu-props="{ width: 'auto' }"
+      >
+        <template #selection="{ item }">
+          <span
+            :class="item.value === 'ALL' ? 'text-primary' : `text-${logColorMap[item.value] || 'secondary'}`"
+            class="font-weight-medium"
+          >
+            {{ item.value === 'ALL' ? t('logging.allLevels') : item.value }}
+          </span>
+        </template>
+        <template #item="{ props, item }">
+          <VListItem v-bind="props" density="compact">
+            <template #title>
+              <span
+                :class="item.value === 'ALL' ? 'text-primary' : `text-${logColorMap[item.value] || 'secondary'}`"
+                class="font-weight-medium"
+              >
+                {{ item.value === 'ALL' ? t('logging.allLevels') : item.value }}
+              </span>
+            </template>
+          </VListItem>
+        </template>
+      </VSelect>
+
       <VTextField
         v-model="searchQuery"
         class="logging-search"
@@ -557,20 +588,6 @@ onUnmounted(() => {
       >
         <VIcon :icon="isStreamPaused ? 'mdi-play' : 'mdi-pause'" />
       </VBtn>
-    </div>
-
-    <div class="logging-levels px-3">
-      <VChip
-        v-for="level in levelOptions"
-        :key="level"
-        size="small"
-        variant="tonal"
-        :color="selectedLevel === level ? (level === 'ALL' ? 'primary' : logColorMap[level] || 'secondary') : undefined"
-        :class="{ 'logging-level-chip--active': selectedLevel === level }"
-        @click="selectedLevel = level"
-      >
-        {{ level === 'ALL' ? t('logging.allLevels') : level }}
-      </VChip>
     </div>
 
     <div ref="logViewportRef" class="logging-shell is-wrap" @scroll.passive="handleScroll">
@@ -642,7 +659,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  gap: 0.75rem;
   min-block-size: 20rem;
 }
 
@@ -666,12 +682,12 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .logging-search {
-  flex: 1 1 18rem;
-  min-inline-size: 14rem;
+  flex: 1 1 9rem;
+  min-inline-size: 5rem;
 }
 
 .logging-stream-action {
@@ -697,14 +713,24 @@ onUnmounted(() => {
   padding-inline-start: 0;
 }
 
-.logging-levels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.logging-level-select {
+  flex: 0 0 7rem;
+  min-inline-size: 7rem;
 }
 
-.logging-level-chip--active {
-  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.08);
+.logging-level-select :deep(.v-field) {
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.logging-level-select :deep(.v-field__outline),
+.logging-level-select :deep(.v-field__overlay) {
+  display: none;
+}
+
+.logging-level-select :deep(.v-field__input) {
+  padding-inline: 0;
 }
 
 .logging-shell {
