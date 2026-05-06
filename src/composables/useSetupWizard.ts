@@ -107,6 +107,7 @@ export interface ValidationErrorState {
   downloader: {
     name: boolean
     host: boolean
+    apikey: boolean
     username: boolean
     password: boolean
   }
@@ -277,6 +278,7 @@ const validationErrors = ref<ValidationErrorState>({
   downloader: {
     name: false,
     host: false,
+    apikey: false,
     username: false,
     password: false,
   },
@@ -466,6 +468,7 @@ export function useSetupWizard() {
     validationErrors.value.downloader = {
       name: false,
       host: false,
+      apikey: false,
       username: false,
       password: false,
     }
@@ -548,9 +551,18 @@ export function useSetupWizard() {
     }
 
     // 根据下载器类型验证其他必输项
-    if (
-      wizardData.value.downloader.type === 'qbittorrent'
-      || wizardData.value.downloader.type === 'transmission'
+    if (wizardData.value.downloader.type === 'qbittorrent') {
+      const hasApiKey = !!wizardData.value.downloader.config?.apikey?.trim()
+      if (!hasApiKey && !wizardData.value.downloader.config?.username?.trim()) {
+        errors.push(t('downloader.usernameRequired'))
+        validationErrors.value.downloader.username = true
+      }
+      if (!hasApiKey && !wizardData.value.downloader.config?.password?.trim()) {
+        errors.push(t('downloader.passwordRequired'))
+        validationErrors.value.downloader.password = true
+      }
+    } else if (
+      wizardData.value.downloader.type === 'transmission'
       || wizardData.value.downloader.type === 'rtorrent'
     ) {
       if (!wizardData.value.downloader.config?.username?.trim()) {

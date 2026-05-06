@@ -106,15 +106,27 @@ const { wizardData, selectDownloader, validationErrors } = useSetupWizard()
                   </VCol>
                   <VCol cols="12" md="6">
                     <VTextField
+                      v-model="wizardData.downloader.config.apikey"
+                      type="password"
+                      :label="t('downloader.apiKey')"
+                      :hint="t('downloader.qbittorrentApiKeyHint')"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-key-variant"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
                       v-model="wizardData.downloader.config.username"
                       :label="t('downloader.username')"
                       :hint="t('downloader.username')"
                       :error="validationErrors.downloader.username"
                       :error-messages="validationErrors.downloader.username ? [t('downloader.usernameRequired')] : []"
+                      :disabled="!!wizardData.downloader.config.apikey"
                       persistent-hint
                       active
                       prepend-inner-icon="mdi-account"
-                      required
+                      :required="!wizardData.downloader.config.apikey"
                     />
                   </VCol>
                   <VCol cols="12" md="6">
@@ -125,10 +137,11 @@ const { wizardData, selectDownloader, validationErrors } = useSetupWizard()
                       :hint="t('downloader.password')"
                       :error="validationErrors.downloader.password"
                       :error-messages="validationErrors.downloader.password ? [t('downloader.passwordRequired')] : []"
+                      :disabled="!!wizardData.downloader.config.apikey"
                       persistent-hint
                       active
                       prepend-inner-icon="mdi-lock"
-                      required
+                      :required="!wizardData.downloader.config.apikey"
                     />
                   </VCol>
                   <VCol cols="12" md="6">

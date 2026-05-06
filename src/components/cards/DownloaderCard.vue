@@ -348,9 +348,21 @@ onUnmounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
+                  v-model="downloaderInfo.config.apikey"
+                  type="password"
+                  :label="t('downloader.apiKey')"
+                  :hint="t('downloader.qbittorrentApiKeyHint')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-key-variant"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
                   v-model="downloaderInfo.config.username"
                   :label="t('downloader.username')"
                   :hint="t('downloader.username')"
+                  :disabled="!!downloaderInfo.config.apikey"
                   persistent-hint
                   active
                   prepend-inner-icon="mdi-account"
@@ -362,6 +374,7 @@ onUnmounted(() => {
                   type="password"
                   :label="t('downloader.password')"
                   :hint="t('downloader.password')"
+                  :disabled="!!downloaderInfo.config.apikey"
                   persistent-hint
                   active
                   prepend-inner-icon="mdi-lock"
