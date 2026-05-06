@@ -597,15 +597,16 @@ onUnmounted(() => {
 
             <div class="logging-record-lines">
               <div v-for="item in group.items" :key="item.id" class="logging-record-line">
-                <span class="logging-record-level" :class="`level-${(item.level || 'plain').toLowerCase()}`">
+                <div class="logging-record-level" :class="`level-${(item.level || 'plain').toLowerCase()}`">
                   {{ item.displayLevel }}
-                </span>
+                </div>
 
-                <span v-if="item.appName" class="logging-record-app">[{{ item.appName }}]</span>
+                <div v-if="item.appName" class="logging-record-app">[{{ item.appName }}]</div>
 
-                <span v-if="item.timeDisplay" class="logging-record-inline-time">{{ item.timeDisplay }}</span>
-
-                <span class="logging-record-body">{{ item.message }}</span>
+                <div class="logging-record-body">
+                  <span v-if="item.timeDisplay" class="logging-record-inline-time">{{ item.timeDisplay }}</span>
+                  {{ item.message }}
+                </div>
               </div>
             </div>
           </div>
