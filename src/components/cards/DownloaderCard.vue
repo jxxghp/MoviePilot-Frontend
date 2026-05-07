@@ -346,7 +346,7 @@ onUnmounted(() => {
                   prepend-inner-icon="mdi-server"
                 />
               </VCol>
-              <VCol cols="12" md="6">
+              <VCol cols="12">
                 <VTextField
                   v-model="downloaderInfo.config.apikey"
                   type="password"
