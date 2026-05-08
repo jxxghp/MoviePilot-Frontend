@@ -30,6 +30,13 @@ const baseUrlRef = computed({
   },
 })
 
+const baseUrlPresetRef = computed({
+  get: () => wizardData.value.agent.baseUrlPreset,
+  set: value => {
+    wizardData.value.agent.baseUrlPreset = value || ''
+  },
+})
+
 const modelRef = computed({
   get: () => wizardData.value.agent.model,
   set: value => {
@@ -63,6 +70,7 @@ const {
   showBaseUrlField,
   showApiKeyField,
   canRefreshModels,
+  setBaseUrlPreset,
   authDialogVisible,
   authPolling,
   authPopupBlocked,
@@ -80,6 +88,7 @@ const {
   provider: providerRef,
   apiKey: apiKeyRef,
   baseUrl: baseUrlRef,
+  baseUrlPreset: baseUrlPresetRef,
   model: modelRef,
   maxContextTokens: maxContextTokensRef,
   authConnected: authConnectedRef,
@@ -232,7 +241,11 @@ onMounted(async () => {
             <VCombobox
               :model-value="wizardData.agent.baseUrl"
               @update:model-value="(value: any) => {
-                wizardData.agent.baseUrl = typeof value === 'object' && value !== null ? value.value : (value || '');
+                if (typeof value === 'object' && value !== null) {
+                  setBaseUrlPreset(value.id, value.value);
+                } else {
+                  setBaseUrlPreset('', value || '');
+                }
               }"
               :label="t('setting.system.llmBaseUrl')"
               :hint="t('setting.system.llmBaseUrlHint')"

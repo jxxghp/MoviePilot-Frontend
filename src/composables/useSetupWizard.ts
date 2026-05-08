@@ -60,6 +60,7 @@ export interface WizardData {
     supportAudioInputOutput: boolean
     apiKey: string
     baseUrl: string
+    baseUrlPreset: string
     maxContextTokens: number
     voiceApiKey: string
     voiceBaseUrl: string
@@ -240,6 +241,7 @@ const wizardData = ref<WizardData>({
     supportAudioInputOutput: false,
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
+    baseUrlPreset: '',
     maxContextTokens: 64,
     voiceApiKey: '',
     voiceBaseUrl: '',
@@ -1396,6 +1398,7 @@ export function useSetupWizard() {
         LLM_SUPPORT_AUDIO_INPUT_OUTPUT: wizardData.value.agent.supportAudioInputOutput,
         LLM_API_KEY: wizardData.value.agent.apiKey,
         LLM_BASE_URL: wizardData.value.agent.baseUrl || null,
+        LLM_BASE_URL_PRESET: wizardData.value.agent.baseUrlPreset || null,
         LLM_MAX_CONTEXT_TOKENS: wizardData.value.agent.maxContextTokens,
         AI_VOICE_API_KEY: wizardData.value.agent.voiceApiKey || null,
         AI_VOICE_BASE_URL: wizardData.value.agent.voiceBaseUrl || null,
@@ -1503,6 +1506,7 @@ export function useSetupWizard() {
         wizardData.value.agent.supportAudioInputOutput = Boolean(result.data.LLM_SUPPORT_AUDIO_INPUT_OUTPUT)
         wizardData.value.agent.apiKey = result.data.LLM_API_KEY || ''
         wizardData.value.agent.baseUrl = result.data.LLM_BASE_URL || ''
+        wizardData.value.agent.baseUrlPreset = result.data.LLM_BASE_URL_PRESET || ''
         wizardData.value.agent.maxContextTokens = result.data.LLM_MAX_CONTEXT_TOKENS || 64
         wizardData.value.agent.voiceApiKey = result.data.AI_VOICE_API_KEY || ''
         wizardData.value.agent.voiceBaseUrl = result.data.AI_VOICE_BASE_URL || ''

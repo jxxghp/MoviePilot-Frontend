@@ -17,11 +17,13 @@ export interface LlmProviderAuthStatus {
 }
 
 export interface LlmProviderUrlPreset {
+  id: string
   label: string
   value: string
 }
 
 export interface LlmProviderUrlPresetItem {
+  id: string
   title: string
   value: string
   subtitle?: string
@@ -80,6 +82,7 @@ interface UseLlmProviderDirectoryOptions {
   provider: Ref<string>
   apiKey: Ref<string>
   baseUrl: Ref<string>
+  baseUrlPreset?: Ref<string>
   model: Ref<string>
   maxContextTokens?: Ref<number>
   authConnected?: Ref<boolean>
@@ -110,6 +113,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
   const providerItems = computed(() => providers.value.map(item => ({ title: item.name, value: item.id })))
   const baseUrlPresetItems = computed<LlmProviderUrlPresetItem[]>(() =>
     (selectedProvider.value?.base_url_presets || []).map(item => ({
+      id: item.id,
       title: item.value,
       value: item.value,
       subtitle: item.label,
@@ -150,13 +154,36 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
 
     const currentBaseUrl = normalizeValue(options.baseUrl.value)
     const defaultBaseUrl = provider.default_base_url || ''
+    const defaultPresetId = normalizeValue(provider.base_url_presets?.[0]?.id)
     if (reset) {
       options.baseUrl.value = defaultBaseUrl
+      if (options.baseUrlPreset) {
+        options.baseUrlPreset.value = defaultPresetId
+      }
       return
     }
 
     if (!currentBaseUrl && defaultBaseUrl) {
       options.baseUrl.value = defaultBaseUrl
+    }
+
+    if (!options.baseUrlPreset) return
+
+    const currentPresetId = normalizeValue(options.baseUrlPreset.value)
+    if (currentPresetId) return
+
+    const matchedPreset = (provider.base_url_presets || []).find(
+      item => normalizeValue(item.value) === normalizeValue(options.baseUrl.value),
+    )
+    options.baseUrlPreset.value = matchedPreset?.id || defaultPresetId
+  }
+
+  function setBaseUrlPreset(presetId?: string, presetValue?: string) {
+    if (!options.baseUrlPreset) return
+
+    options.baseUrlPreset.value = normalizeValue(presetId)
+    if (presetValue !== undefined) {
+      options.baseUrl.value = presetValue || ''
     }
   }
 
@@ -225,6 +252,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
           provider: normalizeValue(options.provider.value),
           api_key: normalizeValue(options.apiKey.value) || undefined,
           base_url: normalizeValue(options.baseUrl.value) || undefined,
+          base_url_preset: normalizeValue(options.baseUrlPreset?.value) || undefined,
           force_refresh: forceRefresh,
         },
       })
@@ -363,6 +391,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
     showApiKeyField,
     hasUsableCredential,
     canRefreshModels,
+    setBaseUrlPreset,
     authDialogVisible,
     authPolling,
     authPopupBlocked,

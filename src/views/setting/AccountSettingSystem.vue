@@ -46,6 +46,7 @@ const SystemSettings = ref<any>({
     LLM_SUPPORT_AUDIO_INPUT_OUTPUT: false,
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
+    LLM_BASE_URL_PRESET: null,
     AI_VOICE_API_KEY: null,
     AI_VOICE_BASE_URL: null,
     AI_VOICE_STT_MODEL: 'gpt-4o-mini-transcribe',
@@ -179,6 +180,7 @@ type LlmSettingsSnapshot = {
   LLM_THINKING_LEVEL: string
   LLM_API_KEY: string
   LLM_BASE_URL: string
+  LLM_BASE_URL_PRESET: string
 }
 
 let llmTestRequestId = 0
@@ -202,6 +204,13 @@ const llmBaseUrlRef = computed({
   get: () => String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
   set: value => {
     SystemSettings.value.Basic.LLM_BASE_URL = value || ''
+  },
+})
+
+const llmBaseUrlPresetRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
+  set: value => {
+    SystemSettings.value.Basic.LLM_BASE_URL_PRESET = value || ''
   },
 })
 
@@ -231,6 +240,7 @@ const {
   showBaseUrlField,
   showApiKeyField,
   canRefreshModels,
+  setBaseUrlPreset,
   authDialogVisible,
   authPolling,
   authPopupBlocked,
@@ -248,6 +258,7 @@ const {
   provider: llmProviderRef,
   apiKey: llmApiKeyRef,
   baseUrl: llmBaseUrlRef,
+  baseUrlPreset: llmBaseUrlPresetRef,
   model: llmModelRef,
   maxContextTokens: llmMaxContextRef,
 })
@@ -260,6 +271,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_THINKING_LEVEL: String(SystemSettings.value.Basic.LLM_THINKING_LEVEL ?? 'off'),
     LLM_API_KEY: String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
     LLM_BASE_URL: String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
+    LLM_BASE_URL_PRESET: String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
   }
 }
 
@@ -275,6 +287,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     thinking_level: snapshot.LLM_THINKING_LEVEL.trim(),
     api_key: snapshot.LLM_API_KEY.trim(),
     base_url: snapshot.LLM_BASE_URL.trim(),
+    base_url_preset: snapshot.LLM_BASE_URL_PRESET.trim(),
   }
 }
 
@@ -1016,7 +1029,11 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     <VCombobox
                       :model-value="SystemSettings.Basic.LLM_BASE_URL"
                       @update:model-value="(value: any) => {
-                        SystemSettings.Basic.LLM_BASE_URL = typeof value === 'object' && value !== null ? value.value : (value || '');
+                        if (typeof value === 'object' && value !== null) {
+                          setBaseUrlPreset(value.id, value.value);
+                        } else {
+                          setBaseUrlPreset('', value || '');
+                        }
                       }"
                       :label="t('setting.system.llmBaseUrl')"
                       :hint="t('setting.system.llmBaseUrlHint')"
