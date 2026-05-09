@@ -4,7 +4,7 @@ import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
@@ -68,7 +68,7 @@ const { loading: dataLoading } = useDataRefresh(
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <VPullToRefresh v-model="loading" @load="onRefresh" :pull-down-threshold="64">
-    <VirtualCardGrid
+    <ProgressiveCardGrid
       v-if="filteredDataList.length > 0"
       :items="filteredDataList"
       :get-item-key="item => item.hash || item.name"
@@ -78,7 +78,7 @@ const { loading: dataLoading } = useDataRefresh(
       <template #default="{ item }">
         <DownloadingCard :info="item" :downloader-name="props.name" />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="filteredDataList.length === 0 && isRefreshed"
       error-code="404"

@@ -3,7 +3,7 @@ import api from '@/api'
 import type { WorkflowShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import WorkflowShareCard from '@/components/cards/WorkflowShareCard.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -157,7 +157,7 @@ onActivated(() => {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-2" @load="fetchData" :key="currentKey">
     <template #loading />
     <template #empty />
-    <VirtualCardGrid
+    <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
       :get-item-key="item => item.id"
@@ -173,7 +173,7 @@ onActivated(() => {
           @update="emit('update')"
         />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

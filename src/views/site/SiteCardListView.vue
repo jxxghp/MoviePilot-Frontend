@@ -7,7 +7,7 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import SiteStatisticsDialog from '@/components/dialog/SiteStatisticsDialog.vue'
 import SiteImportDialog from '@/components/dialog/SiteImportDialog.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
@@ -422,12 +422,11 @@ useDynamicButton({
         />
       </template>
     </draggable>
-    <VirtualCardGrid
+    <ProgressiveCardGrid
       v-else-if="draggableSiteList.length > 0 && shouldVirtualizeList"
       :items="draggableSiteList"
       :get-item-key="item => item.id"
       :min-item-width="256"
-      :estimated-item-height="240"
       class="px-2"
     >
       <template #default="{ item }">
@@ -441,7 +440,7 @@ useDynamicButton({
           @refresh-stats="handleRefreshStats"
         />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
   </div>
   <NoDataFound
     v-if="draggableSiteList.length === 0 && isRefreshed"

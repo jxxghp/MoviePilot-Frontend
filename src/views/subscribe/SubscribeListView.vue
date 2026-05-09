@@ -5,7 +5,7 @@ import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
@@ -513,12 +513,11 @@ defineExpose({
       />
     </template>
   </draggable>
-  <VirtualCardGrid
+  <ProgressiveCardGrid
     v-else-if="displayList.length > 0 && shouldVirtualizeList"
     :items="displayList"
     :get-item-key="item => item.id"
     :min-item-width="240"
-    :estimated-item-height="300"
     :scroll-to-index="scrollToIndex"
     class="px-2"
   >
@@ -534,7 +533,7 @@ defineExpose({
         @select="toggleSelectSubscribe(item.id)"
       />
     </template>
-  </VirtualCardGrid>
+  </ProgressiveCardGrid>
   <NoDataFound
     v-if="displayList.length === 0 && isRefreshed"
     error-code="404"

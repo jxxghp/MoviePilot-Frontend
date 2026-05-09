@@ -2,7 +2,7 @@
 import api from '@/api'
 import type { Person } from '@/api/types'
 import PersonCard from '@/components/cards/PersonCard.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -123,11 +123,11 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-3" @load="fetchData">
     <template #loading />
     <template #empty />
-    <VirtualCardGrid v-if="dataList.length > 0" :items="dataList" :get-item-key="item => item.id" tabindex="0">
+    <ProgressiveCardGrid v-if="dataList.length > 0" :items="dataList" :get-item-key="item => item.id" tabindex="0">
       <template #default="{ item }">
         <PersonCard :person="item" />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

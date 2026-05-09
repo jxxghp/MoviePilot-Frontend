@@ -5,7 +5,7 @@ import api from '@/api'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/global'
@@ -1051,7 +1051,7 @@ onUnmounted(() => {
               class="stream-result-item"
             />
           </div>
-          <VirtualCardGrid
+          <ProgressiveCardGrid
             v-else-if="filteredCardDataList.length > 0"
             :items="filteredCardDataList"
             :get-item-key="getTorrentItemKey"
@@ -1061,7 +1061,7 @@ onUnmounted(() => {
             <template #default="{ item }">
               <TorrentCard :torrent="item" :more="item.more" />
             </template>
-          </VirtualCardGrid>
+          </ProgressiveCardGrid>
           <!-- 无结果时显示 -->
           <div v-if="!progressActive && filteredCardDataList.length === 0" class="no-results">
             <VIcon icon="mdi-file-search-outline" size="64" color="grey-lighten-1" />

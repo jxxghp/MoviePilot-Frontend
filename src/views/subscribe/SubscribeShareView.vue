@@ -3,7 +3,7 @@ import api from '@/api'
 import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -295,7 +295,7 @@ function removeData(id: number) {
   >
     <template #loading />
     <template #empty />
-    <VirtualCardGrid
+    <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
       :get-item-key="item => item.id || `${item.tmdbid || item.doubanid || item.name}-${item.share_user}`"
@@ -306,7 +306,7 @@ function removeData(id: number) {
       <template #default="{ item }">
         <SubscribeShareCard :media="item" @delete="removeData(item.id || 0)" />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

@@ -2,7 +2,7 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -154,7 +154,7 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible pt-3 px-2" @load="fetchData">
     <template #loading />
     <template #empty />
-    <VirtualCardGrid
+    <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
       :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
@@ -163,7 +163,7 @@ async function fetchData({ done }: { done: any }) {
       <template #default="{ item }">
         <MediaCard :media="item" />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

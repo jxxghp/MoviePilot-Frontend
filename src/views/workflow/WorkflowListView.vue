@@ -4,7 +4,7 @@ import { Workflow } from '@/api/types'
 import WorkflowAddEditDialog from '@/components/dialog/WorkflowAddEditDialog.vue'
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -67,7 +67,7 @@ defineExpose({
 <template>
   <div>
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-    <VirtualCardGrid
+    <ProgressiveCardGrid
       v-if="workflowList.length > 0 && isRefreshed"
       :items="workflowList"
       :get-item-key="item => item.id"
@@ -78,7 +78,7 @@ defineExpose({
       <template #default="{ item }">
         <WorkflowTaskCard :workflow="item" :event-types="eventTypes" @refresh="fetchData" />
       </template>
-    </VirtualCardGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="workflowList.length === 0 && isRefreshed"
       error-code="404"

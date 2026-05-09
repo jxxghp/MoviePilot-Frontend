@@ -13,7 +13,7 @@ import PluginMarketSettingDialog from '@/components/dialog/PluginMarketSettingDi
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
-import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 
@@ -1566,12 +1566,11 @@ function onDragStartPlugin(evt: any) {
                     />
                   </template>
                 </draggable>
-                <VirtualCardGrid
+                <ProgressiveCardGrid
                   v-else-if="shouldVirtualizeInstalledMainList"
                   :items="mixedSortList"
                   :get-item-key="item => `${item.type}:${item.id}`"
                   :min-item-width="256"
-                  :estimated-item-height="260"
                   :scroll-to-index="installedScrollToIndex"
                 >
                   <template #default="{ item }">
@@ -1593,7 +1592,7 @@ function onDragStartPlugin(evt: any) {
                       @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
                     />
                   </template>
-                </VirtualCardGrid>
+                </ProgressiveCardGrid>
               </template>
 
               <template v-else>
@@ -1625,12 +1624,11 @@ function onDragStartPlugin(evt: any) {
                     />
                   </template>
                 </draggable>
-                <VirtualCardGrid
+                <ProgressiveCardGrid
                   v-else-if="shouldVirtualizeInstalledFolderList"
                   :items="draggableFolderPlugins"
                   :get-item-key="item => item.id"
                   :min-item-width="256"
-                  :estimated-item-height="260"
                 >
                   <template #default="{ item }">
                     <PluginMixedSortCard
@@ -1648,7 +1646,7 @@ function onDragStartPlugin(evt: any) {
                       @remove-from-folder="removeFromFolder"
                     />
                   </template>
-                </VirtualCardGrid>
+                </ProgressiveCardGrid>
               </template>
             </div>
 
@@ -1679,7 +1677,7 @@ function onDragStartPlugin(evt: any) {
             >
               <template #loading />
               <template #empty />
-              <VirtualCardGrid
+              <ProgressiveCardGrid
                 v-if="displayUninstalledList.length > 0"
                 :items="displayUninstalledList"
                 :get-item-key="item => `${item.id}_v${item.plugin_version}`"
@@ -1689,7 +1687,7 @@ function onDragStartPlugin(evt: any) {
                 <template #default="{ item }">
                   <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
                 </template>
-              </VirtualCardGrid>
+              </ProgressiveCardGrid>
             </VInfiniteScroll>
             <NoDataFound
               v-if="displayUninstalledList.length === 0 && isAppMarketLoaded"
