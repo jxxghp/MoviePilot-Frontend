@@ -8,7 +8,6 @@ import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import SiteStatisticsDialog from '@/components/dialog/SiteStatisticsDialog.vue'
 import SiteImportDialog from '@/components/dialog/SiteImportDialog.vue'
 import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
-import { useDisplay } from 'vuetify'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
@@ -23,9 +22,7 @@ const $toast = useToast()
 // 路由
 const route = useRoute()
 
-// APP
-const display = useDisplay()
-// PWA模式检测
+// APP 模式检测
 const { appMode } = usePWA()
 
 // 站点列表
@@ -232,6 +229,18 @@ function toggleSortMode() {
   sortMode.value = !sortMode.value
 }
 
+function openSiteAddDialog() {
+  siteAddDialog.value = true
+}
+
+function openSiteImportDialog() {
+  siteImportDialog.value = true
+}
+
+function openSiteStatisticsDialog() {
+  siteStatsDialog.value = true
+}
+
 // 导出站点数据
 async function exportSites() {
   try {
@@ -306,71 +315,55 @@ watch(
   { immediate: true },
 )
 
+const shouldShowFloatingActions = computed(() => route.path === '/site' && isRefreshed.value)
+
+// App 模式下将站点操作收纳到 Footer 动态菜单中，和插件页保持一致。
+const siteDynamicMenuItems = computed(() => [
+  {
+    titleKey: 'site.actions.add',
+    icon: 'mdi-web-plus',
+    action: openSiteAddDialog,
+  },
+  {
+    titleKey: 'site.actions.import',
+    icon: 'mdi-import',
+    action: openSiteImportDialog,
+  },
+  {
+    titleKey: 'site.actions.export',
+    icon: 'mdi-export',
+    action: exportSites,
+  },
+  {
+    titleKey: 'site.statistics',
+    icon: 'mdi-chart-line',
+    action: openSiteStatisticsDialog,
+  },
+])
+
 // 使用动态按钮钩子
 useDynamicButton({
   icon: 'mdi-web-plus',
-  onClick: () => {
-    siteAddDialog.value = true
-  },
+  onClick: openSiteAddDialog,
+  menuItems: siteDynamicMenuItems,
+  show: computed(() => appMode.value && shouldShowFloatingActions.value),
 })
 </script>
 
 <template>
   <div class="card-list-container">
-    <!-- 页面标题和筛选按钮 -->
+    <!-- 页面标题和筛选/排序按钮 -->
     <div class="d-flex justify-space-between align-center mb-4">
-      <VPageContentTitle :title="t('navItems.siteManager')" class="my-0" style="margin-top: 0; margin-bottom: 0;" />
-      <!-- 右侧按钮组 -->
-      <div class="d-flex align-center gap-2">
-        <!-- 导入按钮 -->
-        <VBtn :icon="display.smAndDown.value" variant="text" color="success" @click="siteImportDialog = true">
-          <VIcon icon="mdi-import" />
-          <span v-if="!display.smAndDown.value" class="ml-2">
-            {{ t('site.actions.import') }}
-          </span>
-        </VBtn>
-        <!-- 导出按钮 -->
-        <VBtn :icon="display.smAndDown.value" variant="text" color="warning" @click="exportSites">
-          <VIcon icon="mdi-export" />
-          <span v-if="!display.smAndDown.value" class="ml-2">
-            {{ t('site.actions.export') }}
-          </span>
-        </VBtn>
-        <!-- 统计信息按钮 -->
-        <VBtn :icon="display.smAndDown.value" variant="text" color="info" @click="siteStatsDialog = true">
-          <VIcon icon="mdi-chart-line" />
-          <span v-if="!display.smAndDown.value" class="ml-2">
-            {{ t('site.statistics') }}
-          </span>
-        </VBtn>
-        <VBtn
-          :icon="display.smAndDown.value"
-          variant="text"
-          :color="sortMode ? 'warning' : 'gray'"
-          @click="toggleSortMode"
-        >
-          <VIcon icon="mdi-sort-variant" />
-          <span v-if="!display.smAndDown.value" class="ml-2">
-            {{ t('common.sortMode') }}
-          </span>
-        </VBtn>
+      <VPageContentTitle :title="t('navItems.siteManager')" class="my-0" style="margin-block: 0" />
+      <!-- 右侧按钮组：保留筛选和排序，其他页面动作移到 FAB -->
+      <div class="d-flex align-center gap-1">
         <!-- 筛选按钮 -->
         <VMenu v-model="filterMenu" offset-y :close-on-content-click="false" location="bottom end">
           <template #activator="{ props }">
-            <VBtn
-              v-bind="props"
-              :icon="display.smAndDown.value"
-              :variant="filterOption === 'all' ? 'text' : 'tonal'"
-              :color="currentFilter?.color"
-            >
+            <IconBtn v-bind="props" :variant="filterOption === 'all' ? 'text' : 'tonal'" :color="currentFilter?.color">
               <VIcon :icon="currentFilter?.icon || 'mdi-filter'" />
-              <span v-if="!display.smAndDown.value" class="ml-2">
-                {{ currentFilter?.label }}
-              </span>
-              <VIcon v-if="!display.smAndDown.value" icon="mdi-chevron-down" class="ml-1" />
-            </VBtn>
+            </IconBtn>
           </template>
-
           <!-- 筛选菜单 -->
           <VCard min-width="200">
             <VList class="px-2">
@@ -392,13 +385,17 @@ useDynamicButton({
             </VList>
           </VCard>
         </VMenu>
+        <!-- 排序按钮 -->
+        <IconBtn variant="text" :color="sortMode ? 'warning' : 'gray'" @click="toggleSortMode">
+          <VIcon icon="mdi-sort-variant" />
+        </IconBtn>
       </div>
     </div>
 
     <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
       <div class="d-flex flex-wrap align-center justify-space-between gap-2">
         <span>{{ t('common.sortModeHint') }}</span>
-        <VBtn size="small" variant="text" color="warning" @click="sortMode = false">
+        <VBtn variant="tonal" color="error" @click="sortMode = false">
           {{ t('common.exit') }}
         </VBtn>
       </div>
@@ -454,13 +451,37 @@ useDynamicButton({
   />
   <!-- 新增站点按钮 -->
   <Teleport to="body" v-if="route.path === '/site'">
-    <div v-if="isRefreshed && !appMode" class="compact-fab-stack">
+    <div v-if="shouldShowFloatingActions && !appMode" class="compact-fab-stack">
+      <VFab
+        icon="mdi-chart-line"
+        color="info"
+        variant="tonal"
+        appear
+        class="compact-fab compact-fab--secondary"
+        @click="openSiteStatisticsDialog"
+      />
+      <VFab
+        icon="mdi-export"
+        color="warning"
+        variant="tonal"
+        appear
+        class="compact-fab compact-fab--secondary"
+        @click="exportSites"
+      />
+      <VFab
+        icon="mdi-import"
+        color="success"
+        variant="tonal"
+        appear
+        class="compact-fab compact-fab--secondary"
+        @click="openSiteImportDialog"
+      />
       <VFab
         icon="mdi-web-plus"
         color="primary"
         appear
         class="compact-fab compact-fab--primary"
-        @click="siteAddDialog = true"
+        @click="openSiteAddDialog"
       />
     </div>
   </Teleport>

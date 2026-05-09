@@ -1525,7 +1525,7 @@ function onDragStartPlugin(evt: any) {
             <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
               <div class="d-flex flex-wrap align-center justify-space-between gap-2">
                 <span>{{ t('common.sortModeHint') }}</span>
-                <VBtn size="small" variant="text" color="warning" @click="sortMode = false">
+                <VBtn variant="tonal" color="error" @click="sortMode = false">
                   {{ t('common.exit') }}
                 </VBtn>
               </div>
