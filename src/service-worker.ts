@@ -147,6 +147,7 @@ registerRoute(
   ({ url, request }) =>
     url.pathname.includes('/api/v1/') &&
     request.method === 'GET' &&
+    !url.pathname.includes('/api/v1/search/') && // 搜索接口结果动态变化，避免缓存导致重复搜索失效
     !url.pathname.includes('/api/v1/system/message') && // SSE实时消息流
     !url.pathname.includes('/api/v1/system/progress/') && // SSE实时进度流
     !url.pathname.includes('/api/v1/system/logging') && // SSE实时日志流

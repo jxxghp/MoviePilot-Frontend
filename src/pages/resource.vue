@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { debounce } from 'lodash-es'
+import type { LocationQuery } from 'vue-router'
 import NoDataFound from '@/components/NoDataFound.vue'
 import api from '@/api'
 import type { Context } from '@/api/types'
@@ -26,27 +27,60 @@ const torrentFilter = useTorrentFilter()
 
 // 路由参数
 const route = useRoute()
+const router = useRouter()
+
+interface SearchParams {
+  keyword: string
+  type: string
+  area: string
+  title: string
+  year: string
+  season: string
+  sites: string
+}
+
+function createSearchParams(query: LocationQuery): SearchParams {
+  return {
+    keyword: query?.keyword?.toString() ?? '',
+    type: query?.type?.toString() ?? '',
+    area: query?.area?.toString() ?? '',
+    title: query?.title?.toString() ?? '',
+    year: query?.year?.toString() ?? '',
+    season: query?.season?.toString() ?? '',
+    sites: query?.sites?.toString() ?? '',
+  }
+}
+
+function getSearchParamsKey(params: SearchParams): string {
+  return JSON.stringify(params)
+}
+
+function createSearchRequestToken(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+const activeSearchParams = ref<SearchParams>(createSearchParams(route.query))
 
 // 查询TMDBID或标题
-const keyword = route.query?.keyword?.toString() ?? ''
+const keyword = computed(() => activeSearchParams.value.keyword)
 
 // 查询类型
-const type = route.query?.type?.toString() ?? ''
+const type = computed(() => activeSearchParams.value.type)
 
 // 搜索字段
-const area = route.query?.area?.toString() ?? ''
+const area = computed(() => activeSearchParams.value.area)
 
 // 搜索标题
-const title = route.query?.title?.toString() ?? ''
+const title = computed(() => activeSearchParams.value.title)
 
 // 搜索年份
-const year = route.query?.year
+const year = computed(() => activeSearchParams.value.year)
 
 // 搜索季
-const season = route.query?.season?.toString() ?? ''
+const season = computed(() => activeSearchParams.value.season)
 
 // 搜索站点，以,分离多个
-const sites = route.query?.sites?.toString() ?? ''
+const sites = computed(() => activeSearchParams.value.sites)
 
 // 视图类型，从localStorage中读取
 const viewType = ref<string>(localStorage.getItem('MPTorrentsViewType') ?? 'card')
@@ -68,7 +102,7 @@ let aiStatusCheckInterval: ReturnType<typeof setInterval> | null = null // AI状
 
 // 是否有搜索标签
 const hasSearchTags = computed(() => {
-  return !!(keyword || title || year || season)
+  return !!(keyword.value || title.value || year.value || season.value)
 })
 
 // 是否启用筛选栏动画
@@ -305,20 +339,24 @@ function setSearchParam(params: URLSearchParams, key: string, value: unknown) {
 }
 
 // 构建搜索流URL
-function buildSearchStreamUrl() {
-  const isMediaSearch = /^[a-zA-Z]+:/.test(keyword)
-  const url = getApiUrl(isMediaSearch ? `search/media/${encodeURIComponent(keyword)}/stream` : 'search/title/stream')
+function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
+  const isMediaSearch = /^[a-zA-Z]+:/.test(params.keyword)
+  const url = getApiUrl(isMediaSearch ? `search/media/${encodeURIComponent(params.keyword)}/stream` : 'search/title/stream')
 
   if (isMediaSearch) {
-    setSearchParam(url.searchParams, 'mtype', type)
-    setSearchParam(url.searchParams, 'area', area)
-    setSearchParam(url.searchParams, 'title', title)
-    setSearchParam(url.searchParams, 'year', year)
-    setSearchParam(url.searchParams, 'season', season)
-    setSearchParam(url.searchParams, 'sites', sites)
+    setSearchParam(url.searchParams, 'mtype', params.type)
+    setSearchParam(url.searchParams, 'area', params.area)
+    setSearchParam(url.searchParams, 'title', params.title)
+    setSearchParam(url.searchParams, 'year', params.year)
+    setSearchParam(url.searchParams, 'season', params.season)
+    setSearchParam(url.searchParams, 'sites', params.sites)
   } else {
-    setSearchParam(url.searchParams, 'keyword', keyword)
-    setSearchParam(url.searchParams, 'sites', sites)
+    setSearchParam(url.searchParams, 'keyword', params.keyword)
+    setSearchParam(url.searchParams, 'sites', params.sites)
+  }
+
+  if (requestToken) {
+    setSearchParam(url.searchParams, '_ts', requestToken)
   }
 
   return url.toString()
@@ -422,26 +460,28 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
 }
 
 // 按请求搜索
-async function searchByRequest() {
+async function searchByRequest(params: SearchParams, requestToken?: string) {
   let result: { [key: string]: any }
   // 如果keyword的格式是 xxxx:xxxxx 且:前面的xxxx为字符，则按照媒体ID格式搜索
-  if (/^[a-zA-Z]+:/.test(keyword)) {
-    result = await api.get(`search/media/${keyword}`, {
+  if (/^[a-zA-Z]+:/.test(params.keyword)) {
+    result = await api.get(`search/media/${params.keyword}`, {
       params: {
-        mtype: type,
-        area,
-        title,
-        year,
-        season,
-        sites,
+        mtype: params.type,
+        area: params.area,
+        title: params.title,
+        year: params.year,
+        season: params.season,
+        sites: params.sites,
+        _ts: requestToken,
       },
     })
   } else {
     // 按标题模糊查询
     result = await api.get(`search/title`, {
       params: {
-        keyword,
-        sites,
+        keyword: params.keyword,
+        sites: params.sites,
+        _ts: requestToken,
       },
     })
   }
@@ -457,12 +497,12 @@ async function searchByRequest() {
 }
 
 // 按流搜索
-function searchByStream() {
+function searchByStream(params: SearchParams, requestToken?: string) {
   return new Promise<void>((resolve, reject) => {
     closeSearchEventSource()
 
     let settled = false
-    const source = new EventSource(buildSearchStreamUrl())
+    const source = new EventSource(buildSearchStreamUrl(params, requestToken))
     searchEventSource = source
 
     source.onmessage = event => {
@@ -512,25 +552,32 @@ function changeViewType(newType: string) {
 }
 
 // 获取搜索列表数据
-async function fetchData() {
+async function fetchData(options: { force?: boolean } = {}) {
+  const currentSearchParams = { ...activeSearchParams.value }
+  const requestToken = options.force || Boolean(currentSearchParams.keyword) ? createSearchRequestToken() : undefined
+
   try {
     enableFilterAnimation.value = true
-    if (!keyword) {
+    if (!currentSearchParams.keyword) {
       // 查询上次搜索结果
-      const results = await api.get('search/last')
+      const results = await api.get('search/last', {
+        params: requestToken ? { _ts: requestToken } : undefined,
+      })
       setStreamResults((results as unknown as Context[]) || [])
     } else {
       resetSearchResults()
       startLoadingProgress()
       try {
-        await searchByStream()
+        await searchByStream(currentSearchParams, requestToken)
       } catch (error) {
         console.warn('渐进式搜索连接失败，回退到普通搜索:', error)
-        await searchByRequest()
+        await searchByRequest(currentSearchParams, requestToken)
       }
       stopLoadingProgress()
-      // 从浏览器历史中删除当前搜索
-      window.history.replaceState(null, '', window.location.pathname)
+      // 搜索完成后移除地址栏参数，避免分享/刷新残留搜索条件
+      if (Object.keys(route.query).length > 0) {
+        await router.replace({ path: route.path, query: {} })
+      }
     }
     // 标记已刷新
     isRefreshed.value = true
@@ -550,7 +597,7 @@ async function refreshSearch() {
   try {
     // 重新搜索时退出 AI 视图，其余状态由 fetchData 内部重置
     showingAiResults.value = false
-    await fetchData()
+    await fetchData({ force: true })
   } catch (error) {
     console.error('重新搜索失败:', error)
   } finally {
@@ -828,13 +875,27 @@ watchEffect(() => {
     !progressActive.value &&
     !aiStatusChecked.value
   ) {
-    checkAiRecommendStatus()
+    void checkAiRecommendStatus()
   }
 })
 
+watch(
+  () => route.query,
+  query => {
+    if (Object.keys(query).length === 0) return
+
+    const nextSearchParams = createSearchParams(query)
+    if (getSearchParamsKey(nextSearchParams) === getSearchParamsKey(activeSearchParams.value)) return
+
+    activeSearchParams.value = nextSearchParams
+    void fetchData()
+  },
+  { deep: true },
+)
+
 // 加载数据
 onMounted(async () => {
-  fetchData()
+  void fetchData()
 })
 
 // 卸载时停止轮询
