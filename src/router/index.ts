@@ -48,6 +48,7 @@ const router = createRouter({
           path: '/resource',
           component: () => import('../pages/resource.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -190,6 +191,7 @@ const router = createRouter({
           path: '/filemanager',
           component: () => import('../pages/filemanager.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
             hideFooter: true,
           },
@@ -198,6 +200,7 @@ const router = createRouter({
           path: '/apps',
           component: () => import('../pages/appcenter.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
