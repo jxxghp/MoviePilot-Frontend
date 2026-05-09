@@ -1527,11 +1527,11 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           <VTab value="network">
             <div>{{ t('setting.system.network') }}</div>
           </VTab>
-          <VTab value="log">
-            <div>{{ t('setting.system.log') }}</div>
-          </VTab>
           <VTab value="data">
             <div>{{ t('setting.system.data') }}</div>
+          </VTab>
+          <VTab value="log">
+            <div>{{ t('setting.system.log') }}</div>
           </VTab>
           <VTab value="dev">
             <div>{{ t('setting.system.lab') }}</div>
@@ -1921,6 +1921,74 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               </VRow>
             </div>
           </VWindowItem>
+          <VWindowItem value="data">
+            <div>
+              <VRow>
+                <VCol cols="12">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.DATA_CLEANUP_ENABLE"
+                    :label="t('setting.system.dataCleanupEnable')"
+                    :hint="t('setting.system.dataCleanupEnableHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <template v-if="SystemSettings.Advanced.DATA_CLEANUP_ENABLE">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_MESSAGE_DAYS"
+                      :label="t('setting.system.dataCleanupMessageDays')"
+                      :hint="t('setting.system.dataCleanupMessageDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-email-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_DOWNLOAD_HISTORY_DAYS"
+                      :label="t('setting.system.dataCleanupDownloadHistoryDays')"
+                      :hint="t('setting.system.dataCleanupDownloadHistoryDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-download-circle-outline"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_SITE_USERDATA_DAYS"
+                      :label="t('setting.system.dataCleanupSiteUserDataDays')"
+                      :hint="t('setting.system.dataCleanupSiteUserDataDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-chart-line"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model.number="SystemSettings.Advanced.DATA_CLEANUP_TRANSFER_HISTORY_DAYS"
+                      :label="t('setting.system.dataCleanupTransferHistoryDays')"
+                      :hint="t('setting.system.dataCleanupTransferHistoryDaysHint')"
+                      persistent-hint
+                      min="0"
+                      type="number"
+                      :suffix="t('setting.system.day')"
+                      :rules="dataCleanupFieldRules"
+                      prepend-inner-icon="mdi-swap-horizontal"
+                    />
+                  </VCol>
+                </template>
+              </VRow>
+            </div>
+          </VWindowItem>
           <VWindowItem value="log">
             <div>
               <VRow>
@@ -1981,77 +2049,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :hint="t('setting.system.logFileFormatHint')"
                     persistent-hint
                     prepend-inner-icon="mdi-format-text"
-                  />
-                </VCol>
-              </VRow>
-            </div>
-          </VWindowItem>
-          <VWindowItem value="data">
-            <div>
-              <VRow>
-                <VCol cols="12">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.DATA_CLEANUP_ENABLE"
-                    :label="t('setting.system.dataCleanupEnable')"
-                    :hint="t('setting.system.dataCleanupEnableHint')"
-                    persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12">
-                  <VAlert type="info" variant="tonal">
-                    {{ t('setting.system.downloadFilesCleanupNotice') }}
-                  </VAlert>
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.DATA_CLEANUP_MESSAGE_DAYS"
-                    :label="t('setting.system.dataCleanupMessageDays')"
-                    :hint="t('setting.system.dataCleanupMessageDaysHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.day')"
-                    :rules="dataCleanupFieldRules"
-                    prepend-inner-icon="mdi-email-outline"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.DATA_CLEANUP_DOWNLOAD_HISTORY_DAYS"
-                    :label="t('setting.system.dataCleanupDownloadHistoryDays')"
-                    :hint="t('setting.system.dataCleanupDownloadHistoryDaysHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.day')"
-                    :rules="dataCleanupFieldRules"
-                    prepend-inner-icon="mdi-download-circle-outline"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.DATA_CLEANUP_SITE_USERDATA_DAYS"
-                    :label="t('setting.system.dataCleanupSiteUserDataDays')"
-                    :hint="t('setting.system.dataCleanupSiteUserDataDaysHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.day')"
-                    :rules="dataCleanupFieldRules"
-                    prepend-inner-icon="mdi-chart-line"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.DATA_CLEANUP_TRANSFER_HISTORY_DAYS"
-                    :label="t('setting.system.dataCleanupTransferHistoryDays')"
-                    :hint="t('setting.system.dataCleanupTransferHistoryDaysHint')"
-                    persistent-hint
-                    min="0"
-                    type="number"
-                    :suffix="t('setting.system.day')"
-                    :rules="dataCleanupFieldRules"
-                    prepend-inner-icon="mdi-swap-horizontal"
                   />
                 </VCol>
               </VRow>
