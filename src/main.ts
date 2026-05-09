@@ -1,11 +1,9 @@
 // 1. 配置与兼容性
-import './ace-config'
 import '@/@core/utils/compatibility'
-import '@/@iconify/icons-bundle'
 import '@/plugins/webfontloader'
 
 // 2. 核心插件和 UI 框架
-import { createApp } from 'vue'
+import { createApp, defineAsyncComponent } from 'vue'
 import vuetify from '@/plugins/vuetify'
 import router from '@/router'
 import pinia from '@/stores/index'
@@ -13,9 +11,7 @@ import i18n from '@/plugins/i18n'
 
 // 3. 全局组件
 import App from '@/App.vue'
-import { VAceEditor } from 'vue3-ace-editor'
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar'
-import { CronVuetify } from '@vue-js-cron/vuetify'
 
 // 4. 工具函数和其他辅助模块
 import { loadRemoteComponents } from './utils/federationLoader'
@@ -23,22 +19,12 @@ import { loadRemoteComponents } from './utils/federationLoader'
 // 5. 其他插件和功能模块
 import Toast from 'vue-toastification'
 import ConfirmDialog from '@/composables/useConfirm'
-import VueApexCharts from 'vue3-apexcharts'
+import { configureApexChartsTheme } from '@/utils/apexCharts'
 
 // 6. 注册自定义组件
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import ScrollToTopBtn from '@/@core/components/ScrollToTopBtn.vue'
 import PageContentTitle from './@core/components/PageContentTitle.vue'
-import MediaCard from './components/cards/MediaCard.vue'
-import PosterCard from './components/cards/PosterCard.vue'
-import BackdropCard from './components/cards/BackdropCard.vue'
-import PersonCard from './components/cards/PersonCard.vue'
-import MediaInfoCard from './components/cards/MediaInfoCard.vue'
-import TorrentCard from './components/cards/TorrentCard.vue'
-import MediaIdSelector from './components/misc/MediaIdSelector.vue'
-import CronField from './components/field/CronField.vue'
-import PathField from './components/field/PathField.vue'
-import HeaderTab from './layouts/components/HeaderTab.vue'
 
 // 7. 样式文件 - 合并为单一导入
 import '@/styles/main.scss'
@@ -49,6 +35,34 @@ import stateRestorePlugin from '@/plugins/stateRestore'
 // 9. 后台优化工具
 import { backgroundManager } from '@/utils/backgroundManager'
 import { sseManagerSingleton } from '@/utils/sseManager'
+
+const iconBundlePromise = import('@/@iconify/icons-bundle').catch(error => {
+  console.error('Failed to load icon bundle', error)
+})
+
+const AsyncAceEditor = defineAsyncComponent(async () => {
+  await import('./ace-config')
+  return (await import('vue3-ace-editor')).VAceEditor
+})
+
+const AsyncApexChart = defineAsyncComponent(async () => {
+  const component = (await import('vue3-apexcharts')).default
+  const themeName = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme') || 'light'
+  configureApexChartsTheme(themeName)
+  return component
+})
+
+const AsyncCronVuetify = defineAsyncComponent(async () => {
+  return (await import('@vue-js-cron/vuetify')).CronVuetify
+})
+
+const AsyncCronField = defineAsyncComponent(async () => {
+  return (await import('./components/field/CronField.vue')).default
+})
+
+const AsyncPathField = defineAsyncComponent(async () => {
+  return (await import('./components/field/PathField.vue')).default
+})
 
 // 创建Vue实例
 const app = createApp(App)
@@ -72,21 +86,13 @@ app.use(stateRestorePlugin)
 
 // 5. 注册全局组件
 app
-  .component('VAceEditor', VAceEditor)
-  .component('VApexChart', VueApexCharts)
-  .component('VCronVuetify', CronVuetify)
+  .component('VAceEditor', AsyncAceEditor)
+  .component('VApexChart', AsyncApexChart)
+  .component('VCronVuetify', AsyncCronVuetify)
   .component('VDialogCloseBtn', DialogCloseBtn)
   .component('VScrollToTopBtn', ScrollToTopBtn)
-  .component('VMediaCard', MediaCard)
-  .component('VPosterCard', PosterCard)
-  .component('VBackdropCard', BackdropCard)
-  .component('VPersonCard', PersonCard)
-  .component('VMediaInfoCard', MediaInfoCard)
-  .component('VTorrentCard', TorrentCard)
-  .component('VMediaIdSelector', MediaIdSelector)
-  .component('VCronField', CronField)
-  .component('VPathField', PathField)
-  .component('VHeaderTab', HeaderTab)
+  .component('VCronField', AsyncCronField)
+  .component('VPathField', AsyncPathField)
   .component('VPageContentTitle', PageContentTitle)
 
 // 6. 注册其他插件
@@ -98,7 +104,9 @@ app
   })
   .use(ConfirmDialog)
   .use(i18n)
-  .mount('#app')
+
+await iconBundlePromise
+app.mount('#app')
 
 // 页面卸载时清理后台管理器
 window.addEventListener('beforeunload', () => {

@@ -14,6 +14,12 @@ import SubscribeSeasonDialog from '../dialog/SubscribeSeasonDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { mediaTypeDict } from '@/api/constants'
 import { hasPermission } from '@/utils/permission'
+import {
+  getCachedMediaExistsStatus,
+  getCachedMediaSubscribeStatus,
+  setCachedMediaExistsStatus,
+  setCachedMediaSubscribeStatus,
+} from '@/utils/mediaStatusCache'
 
 // 国际化
 const { t } = useI18n()
@@ -123,6 +129,22 @@ function getMediaId() {
   else return `${props.media?.mediaid_prefix}:${props.media?.media_id}`
 }
 
+function getSubscribeStatusKey(season: number | null = props.media?.season ?? null) {
+  return `${getMediaId()}::${season ?? 'all'}`
+}
+
+function getExistsStatusKey() {
+  return [
+    props.media?.tmdb_id ?? '',
+    props.media?.title ?? '',
+    props.media?.year ?? '',
+    props.media?.season ?? '',
+    props.media?.type ?? '',
+    props.media?.mediaid_prefix ?? '',
+    props.media?.media_id ?? '',
+  ].join('::')
+}
+
 // 角标颜色
 function getChipColor(type: string) {
   if (type === '电影') return 'border-blue-500 bg-blue-600'
@@ -167,6 +189,7 @@ async function addSubscribe(season: number | null = null, best_version: number =
     if (result.success) {
       // 订阅成功
       isSubscribed.value = true
+      setCachedMediaSubscribeStatus(getSubscribeStatusKey(season), true)
     }
 
     // 提示
@@ -213,6 +236,7 @@ async function removeSubscribe() {
 
     if (result.success) {
       isSubscribed.value = false
+      setCachedMediaSubscribeStatus(getSubscribeStatusKey(props.media?.season ?? null), false)
       $toast.success(`${props.media?.title} ${t('subscribe.cancelSuccess')}`)
     } else {
       $toast.error(`${props.media?.title} ${t('subscribe.cancelFailed', { message: result.message })}`)
@@ -227,8 +251,10 @@ async function removeSubscribe() {
 // 查询当前媒体是否已订阅
 async function handleCheckSubscribe() {
   try {
-    const result = await checkSubscribe(props.media?.season ?? null)
-    if (result) isSubscribed.value = true
+    const subscribed = await getCachedMediaSubscribeStatus(getSubscribeStatusKey(props.media?.season ?? null), () =>
+      checkSubscribe(props.media?.season ?? null),
+    )
+    isSubscribed.value = subscribed
   } catch (error) {
     console.error(error)
   }
@@ -237,17 +263,22 @@ async function handleCheckSubscribe() {
 // 查询当前媒体是否已入库
 async function handleCheckExists() {
   try {
-    const result: { [key: string]: any } = await api.get('mediaserver/exists', {
-      params: {
-        tmdbid: props.media?.tmdb_id,
-        title: props.media?.title,
-        year: props.media?.year,
-        season: props.media?.season,
-        mtype: props.media?.type,
-      },
+    const exists = await getCachedMediaExistsStatus(getExistsStatusKey(), async () => {
+      const result: { [key: string]: any } = await api.get('mediaserver/exists', {
+        params: {
+          tmdbid: props.media?.tmdb_id,
+          title: props.media?.title,
+          year: props.media?.year,
+          season: props.media?.season,
+          mtype: props.media?.type,
+        },
+      })
+
+      return Boolean(result.success)
     })
 
-    if (result.success) isExists.value = true
+    isExists.value = exists
+    setCachedMediaExistsStatus(getExistsStatusKey(), exists)
   } catch (error) {
     console.error(error)
   }
@@ -265,12 +296,14 @@ async function checkSubscribe(season: number | null) {
       },
     })
 
-    return result.id || null
-  } catch (error) {
-    console.error(error)
-  }
+    return Boolean(result.id)
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return false
+    }
 
-  return null
+    throw error
+  }
 }
 
 // 查询订阅弹窗规则

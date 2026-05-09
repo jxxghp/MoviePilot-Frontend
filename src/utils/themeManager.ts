@@ -9,6 +9,7 @@ class ThemeManager {
   private themes: Map<string, ThemeConfig> = new Map()
   private currentTheme: string = 'default'
   private loadedLinks: Map<string, HTMLLinkElement> = new Map()
+  private themeListeners: Map<(theme: string) => void, EventListener> = new Map()
 
   constructor() {
     // 注册所有可用主题
@@ -190,18 +191,29 @@ class ThemeManager {
    * 监听主题变更事件
    */
   onThemeChange(callback: (theme: string) => void): void {
-    document.addEventListener('themechange', (event: any) => {
-      callback(event.detail.theme)
-    })
+    if (this.themeListeners.has(callback)) {
+      return
+    }
+
+    const listener: EventListener = event => {
+      callback((event as CustomEvent<{ theme: string }>).detail.theme)
+    }
+
+    this.themeListeners.set(callback, listener)
+    document.addEventListener('themechange', listener)
   }
 
   /**
    * 移除主题变更监听器
    */
   offThemeChange(callback: (theme: string) => void): void {
-    document.removeEventListener('themechange', (event: any) => {
-      callback(event.detail.theme)
-    })
+    const listener = this.themeListeners.get(callback)
+    if (!listener) {
+      return
+    }
+
+    document.removeEventListener('themechange', listener)
+    this.themeListeners.delete(callback)
   }
 }
 

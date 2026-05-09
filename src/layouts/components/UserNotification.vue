@@ -12,6 +12,7 @@ const hasNewMessage = ref(false)
 
 // 通知列表
 const notificationList = ref<SystemNotification[]>([])
+const MAX_NOTIFICATIONS = 100
 
 // 弹窗
 const appsMenu = ref(false)
@@ -31,6 +32,9 @@ function handleMessage(event: MessageEvent) {
   if (event.data) {
     const noti: SystemNotification = JSON.parse(event.data)
     notificationList.value.unshift(noti)
+    if (notificationList.value.length > MAX_NOTIFICATIONS) {
+      notificationList.value.length = MAX_NOTIFICATIONS
+    }
     hasNewMessage.value = true
   }
 }

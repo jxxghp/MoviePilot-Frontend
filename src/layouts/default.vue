@@ -7,7 +7,7 @@ const route = useRoute()
 <template>
   <DefaultLayout>
     <router-view v-slot="{ Component }">
-      <keep-alive>
+      <keep-alive :max="12">
         <component :is="Component" v-if="route.meta.keepAlive" :key="route.fullPath" />
       </keep-alive>
       <component :is="Component" v-if="!route.meta.keepAlive" :key="route.fullPath" />

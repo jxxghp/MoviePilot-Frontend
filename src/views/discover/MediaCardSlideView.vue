@@ -3,6 +3,7 @@ import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import SlideView from '@/components/slide/SlideView.vue'
+import VirtualSlideView from '@/components/slide/VirtualSlideView.vue'
 import { useI18n } from 'vue-i18n'
 import { useIntersectionObserver, until } from '@vueuse/core'
 
@@ -27,8 +28,8 @@ const componentLoaded = ref(false)
 // 是否已尝试加载
 const hasTriedLoading = ref(false)
 
-// 数据列表
-const dataList = ref<MediaInfo[]>([])
+// 使用 shallowRef 避免横向卡片区的大数组深层代理
+const dataList = shallowRef<MediaInfo[]>([])
 
 // 容器引用
 const containerRef = ref<HTMLElement | null>(null)
@@ -74,13 +75,15 @@ onActivated(() => {
 
 <template>
   <div ref="containerRef">
-    <SlideView v-if="componentLoaded">
-      <template #content>
-        <template v-for="data in dataList" :key="data.tmdb_id || data.douban_id || data.bangumi_id">
-          <MediaCard :media="data" width="9rem" />
-        </template>
+    <VirtualSlideView
+      v-if="componentLoaded"
+      :items="dataList"
+      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+    >
+      <template #item="{ item }">
+        <MediaCard :media="item" width="9rem" />
       </template>
-    </SlideView>
+    </VirtualSlideView>
     <SlideView v-else-if="!componentLoaded">
       <template #content>
         <div v-for="i in 10" :key="i" style="width: 9rem">

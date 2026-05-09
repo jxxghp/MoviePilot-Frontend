@@ -28,11 +28,24 @@ export function useBackgroundOptimization() {
     // 使用独立的SSE管理器，确保每个监听器都有独立的连接
     const manager = sseManagerSingleton.getIndependentManager(url, listenerId, options)
     const isConnected = ref(false)
+    let connectTimer: ReturnType<typeof setTimeout> | null = null
+
+    const cleanup = () => {
+      if (connectTimer) {
+        clearTimeout(connectTimer)
+        connectTimer = null
+      }
+
+      manager.removeMessageListener(listenerId)
+      sseManagerSingleton.closeIndependentManager(url, listenerId)
+      isConnected.value = false
+    }
 
     onMounted(() => {
       // 延迟建立连接，确保组件完全挂载
       const connectDelay = options?.connectDelay || 100
-      setTimeout(() => {
+      connectTimer = setTimeout(() => {
+        connectTimer = null
         try {
           manager.addMessageListener(listenerId, event => {
             messageHandler(event)
@@ -44,15 +57,12 @@ export function useBackgroundOptimization() {
       }, connectDelay)
     })
 
-    onUnmounted(() => {
-      manager.removeMessageListener(listenerId)
-      isConnected.value = false
-    })
+    onUnmounted(cleanup)
 
     return {
       manager,
       readyState: () => manager.readyState,
-      close: () => manager.removeMessageListener(listenerId),
+      close: cleanup,
       isConnected,
       forceReconnect: () => manager.forceReconnect(),
     }
@@ -104,21 +114,31 @@ export function useBackgroundOptimization() {
   ) => {
     // 使用独立的SSE管理器，确保每个监听器都有独立的连接
     const manager = sseManagerSingleton.getIndependentManager(url, listenerId, options)
+    let connectTimer: ReturnType<typeof setTimeout> | null = null
+
+    const cleanup = () => {
+      if (connectTimer) {
+        clearTimeout(connectTimer)
+        connectTimer = null
+      }
+
+      manager.removeMessageListener(listenerId)
+      sseManagerSingleton.closeIndependentManager(url, listenerId)
+    }
 
     onMounted(() => {
-      setTimeout(() => {
+      connectTimer = setTimeout(() => {
+        connectTimer = null
         manager.addMessageListener(listenerId, messageHandler)
       }, delay)
     })
 
-    onUnmounted(() => {
-      manager.removeMessageListener(listenerId)
-    })
+    onUnmounted(cleanup)
 
     return {
       manager,
       readyState: () => manager.readyState,
-      close: () => manager.removeMessageListener(listenerId),
+      close: cleanup,
     }
   }
 
@@ -135,31 +155,50 @@ export function useBackgroundOptimization() {
     listenerId: string,
     isActive: Ref<boolean>,
   ) => {
-    // 使用独立的SSE管理器，确保每个监听器都有独立的连接
-    const manager = sseManagerSingleton.getIndependentManager(url, listenerId, {
-      backgroundCloseDelay: 1000, // 进度SSE更快关闭
-      reconnectDelay: 1000,
-      maxReconnectAttempts: 5,
-    })
+    const getManager = () =>
+      sseManagerSingleton.getIndependentManager(url, listenerId, {
+        backgroundCloseDelay: 1000, // 进度SSE更快关闭
+        reconnectDelay: 1000,
+        maxReconnectAttempts: 5,
+      })
+
+    let manager: ReturnType<typeof getManager> | null = null
+    let isListening = false
 
     const startProgress = () => {
-      if (isActive.value) {
-        manager.addMessageListener(listenerId, messageHandler)
-      }
+      if (!isActive.value || isListening) return
+
+      manager ??= getManager()
+      manager.addMessageListener(listenerId, messageHandler)
+      isListening = true
     }
 
-    const stopProgress = () => {
+    const stopProgress = (destroyManager = true) => {
+      if (!manager) {
+        isListening = false
+        return
+      }
+
       manager.removeMessageListener(listenerId)
+
+      if (destroyManager) {
+        sseManagerSingleton.closeIndependentManager(url, listenerId)
+        manager = null
+      }
+
+      isListening = false
     }
 
     onUnmounted(() => {
-      stopProgress()
+      stopProgress(true)
     })
 
     return {
       start: startProgress,
       stop: stopProgress,
-      manager,
+      get manager() {
+        return manager
+      },
     }
   }
 

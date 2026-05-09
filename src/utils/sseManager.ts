@@ -16,6 +16,16 @@ export class SSEManager {
   }
   private reconnectAttempts = 0
   private isConnecting = false
+  private readonly handleVisibilityChange = () => {
+    if (document.hidden) {
+      this.handleBackground()
+    } else {
+      this.handleForeground()
+    }
+  }
+  private readonly handleBeforeUnload = () => {
+    this.destroy()
+  }
 
   constructor(url: string, options: Partial<typeof SSEManager.prototype.options> = {}) {
     this.url = url
@@ -30,18 +40,13 @@ export class SSEManager {
   }
 
   private setupVisibilityListener() {
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        this.handleBackground()
-      } else {
-        this.handleForeground()
-      }
-    })
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    window.addEventListener('beforeunload', this.handleBeforeUnload)
+  }
 
-    // 页面卸载时关闭连接
-    window.addEventListener('beforeunload', () => {
-      this.close()
-    })
+  private removeVisibilityListener() {
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    window.removeEventListener('beforeunload', this.handleBeforeUnload)
   }
 
   private handleBackground() {
@@ -172,6 +177,18 @@ export class SSEManager {
    * 关闭连接
    */
   close() {
+    this.resetConnectionState()
+  }
+
+  /**
+   * 销毁管理器并清理所有引用
+   */
+  destroy() {
+    this.resetConnectionState(true)
+    this.removeVisibilityListener()
+  }
+
+  private resetConnectionState(clearListeners = false) {
     if (this.eventSource) {
       this.eventSource.close()
       this.eventSource = null
@@ -187,7 +204,10 @@ export class SSEManager {
       this.backgroundCloseTimer = null
     }
 
-    this.listeners.clear()
+    if (clearListeners) {
+      this.listeners.clear()
+    }
+
     this.isConnecting = false
     this.reconnectAttempts = 0
   }
@@ -210,8 +230,9 @@ export class SSEManager {
    * 强制重新连接
    */
   forceReconnect() {
+    const hasActiveListeners = this.listeners.size > 0
     this.close()
-    if (!this.isBackground && this.listeners.size > 0) {
+    if (!this.isBackground && hasActiveListeners) {
       this.reconnectSSE()
     }
   }
@@ -243,6 +264,10 @@ export class SSEManager {
  */
 class SSEManagerSingleton {
   private managers: Map<string, SSEManager> = new Map()
+
+  private getIndependentManagerKey(url: string, listenerId: string): string {
+    return `${url}::${listenerId}`
+  }
 
   /**
    * 获取或创建SSE管理器
@@ -285,8 +310,20 @@ class SSEManagerSingleton {
   closeManager(url: string) {
     const manager = this.managers.get(url)
     if (manager) {
-      manager.close()
+      manager.destroy()
       this.managers.delete(url)
+    }
+  }
+
+  /**
+   * 关闭独立管理器
+   */
+  closeIndependentManager(url: string, listenerId: string) {
+    const managerKey = this.getIndependentManagerKey(url, listenerId)
+    const manager = this.managers.get(managerKey)
+    if (manager) {
+      manager.destroy()
+      this.managers.delete(managerKey)
     }
   }
 
@@ -294,7 +331,7 @@ class SSEManagerSingleton {
    * 关闭所有管理器
    */
   closeAllManagers() {
-    this.managers.forEach(manager => manager.close())
+    this.managers.forEach(manager => manager.destroy())
     this.managers.clear()
   }
 }

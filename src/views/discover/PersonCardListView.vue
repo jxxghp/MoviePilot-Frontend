@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import api from '@/api'
+import type { Person } from '@/api/types'
 import PersonCard from '@/components/cards/PersonCard.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -27,9 +29,18 @@ const loading = ref(false)
 // 是否加载完成
 const isRefreshed = ref(false)
 
-// 数据列表
-const dataList = ref<any>([])
-const currData = ref<any>([])
+// 使用 shallowRef 避免长列表中的深层代理开销
+const dataList = shallowRef<Person[]>([])
+
+function appendData(items: Person[]) {
+  dataList.value = dataList.value.concat(items)
+}
+
+async function loadPageData() {
+  return api.get(props.apipath!, {
+    params: getParams(),
+  }) as Promise<Person[]>
+}
 
 // 拼装参数
 function getParams() {
@@ -59,20 +70,18 @@ async function fetchData({ done }: { done: any }) {
         // 设置加载中
         loading.value = true
         // 请求API
-        currData.value = await api.get(props.apipath, {
-          params: getParams(),
-        })
+        const currentData = await loadPageData()
         // 取消加载中
         loading.value = false
         // 标计为已请求完成
         isRefreshed.value = true
-        if (currData.value.length === 0) {
+        if (currentData.length === 0) {
           // 如果没有数据，跳出
           done('empty')
           return
         } else {
           // 合并数据
-          dataList.value = [...dataList.value, ...currData.value]
+          appendData(currentData)
           // 页码+1
           page.value++
           // 返回加载成功
@@ -84,17 +93,15 @@ async function fetchData({ done }: { done: any }) {
       // 设置加载中
       loading.value = true
       // 请求API
-      currData.value = await api.get(props.apipath, {
-        params: getParams(),
-      })
+      const currentData = await loadPageData()
       // 标计为已请求完成
       isRefreshed.value = true
-      if (currData.value.length === 0) {
+      if (currentData.length === 0) {
         // 如果没有数据，跳出
         done('empty')
       } else {
         // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
+        appendData(currentData)
         // 页码+1
         page.value++
         // 返回加载成功
@@ -116,9 +123,11 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-3" @load="fetchData">
     <template #loading />
     <template #empty />
-    <div v-if="dataList.length > 0" class="grid gap-4 grid-media-card" tabindex="0">
-      <PersonCard v-for="data in dataList" :key="data.id" :person="data" />
-    </div>
+    <VirtualCardGrid v-if="dataList.length > 0" :items="dataList" :get-item-key="item => item.id" tabindex="0">
+      <template #default="{ item }">
+        <PersonCard :person="item" />
+      </template>
+    </VirtualCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

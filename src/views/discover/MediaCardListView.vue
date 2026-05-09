@@ -2,6 +2,7 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -27,12 +28,11 @@ const loading = ref(false)
 // 是否加载完成
 const isRefreshed = ref(false)
 
-// 数据列表
-const dataList = ref<MediaInfo[]>([])
-const currData = ref<MediaInfo[]>([])
+// 使用 shallowRef 避免长列表中的深层代理开销
+const dataList = shallowRef<MediaInfo[]>([])
 
 // 用于保存已处理过的 key
-const seenKeys = ref<Set<string>>(new Set<string>())
+const seenKeys = new Set<string>()
 
 // 拼装参数
 function getParams() {
@@ -46,27 +46,42 @@ function getParams() {
 
 // MediaInfo 去重的字段
 const dedupFields = [
-  "source",
-  "type",
-  "season",
-  "tmdb_id",
-  "imdb_id",
-  "tvdb_id",
-  "douban_id",
-  "bangumi_id",
-  "mediaid_prefix",
-  "media_id",
-] as const;
+  'source',
+  'type',
+  'season',
+  'tmdb_id',
+  'imdb_id',
+  'tvdb_id',
+  'douban_id',
+  'bangumi_id',
+  'mediaid_prefix',
+  'media_id',
+] as const
 
 function deduplicate(items: MediaInfo[]): MediaInfo[] {
   return items.filter(item => {
-    const key = dedupFields.map(field => String(item[field])).join('~');
-    if (seenKeys.value.has(key)) {
-      return false;
+    const key = dedupFields.map(field => String(item[field])).join('~')
+    if (seenKeys.has(key)) {
+      return false
     }
-    seenKeys.value.add(key);
-    return true;
-  });
+    seenKeys.add(key)
+    return true
+  })
+}
+
+function appendData(items: MediaInfo[]) {
+  dataList.value = dataList.value.concat(items)
+}
+
+async function loadPageData() {
+  const rawData: MediaInfo[] = await api.get(props.apipath!, {
+    params: getParams(),
+  })
+
+  return {
+    rawCount: rawData.length,
+    uniqueData: deduplicate(rawData),
+  }
 }
 
 // 获取列表数据
@@ -87,22 +102,18 @@ async function fetchData({ done }: { done: any }) {
         // 设置加载中
         loading.value = true
         // 请求API
-        currData.value = await api.get(props.apipath, {
-          params: getParams(),
-        })
+        const { rawCount, uniqueData } = await loadPageData()
         // 取消加载中
         loading.value = false
         // 标计为已请求完成
         isRefreshed.value = true
-        if (currData.value.length === 0) {
+        if (rawCount === 0) {
           // 如果没有数据，跳出
           done('empty')
           return
         }
-        // 去重
-        currData.value = deduplicate(currData.value)
         // 合并数据
-        dataList.value.push(...currData.value)
+        appendData(uniqueData)
         // 页码+1
         page.value++
         // 返回加载成功
@@ -113,19 +124,15 @@ async function fetchData({ done }: { done: any }) {
       // 设置加载中
       loading.value = true
       // 请求API
-      currData.value = await api.get(props.apipath, {
-        params: getParams(),
-      })
+      const { rawCount, uniqueData } = await loadPageData()
       // 标计为已请求完成
       isRefreshed.value = true
-      if (currData.value.length === 0) {
+      if (rawCount === 0) {
         // 如果没有数据，跳出
         done('empty')
       } else {
-        // 去重
-        currData.value = deduplicate(currData.value)
         // 合并数据
-        dataList.value.push(...currData.value)
+        appendData(uniqueData)
         // 页码+1
         page.value++
         // 返回加载成功
@@ -147,9 +154,16 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible pt-3 px-2" @load="fetchData">
     <template #loading />
     <template #empty />
-    <div v-if="dataList.length > 0" class="grid gap-4 grid-media-card" tabindex="0">
-      <MediaCard v-for="data in dataList" :key="data.tmdb_id || data.douban_id" :media="data" />
-    </div>
+    <VirtualCardGrid
+      v-if="dataList.length > 0"
+      :items="dataList"
+      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+      tabindex="0"
+    >
+      <template #default="{ item }">
+        <MediaCard :media="item" />
+      </template>
+    </VirtualCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

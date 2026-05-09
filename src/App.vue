@@ -12,6 +12,7 @@ import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 import { themeManager } from '@/utils/themeManager'
+import { configureApexChartsTheme } from '@/utils/apexCharts'
 
 // 生效主题
 const { global: globalTheme } = useTheme()
@@ -41,13 +42,6 @@ const isTransparentTheme = computed(() => globalTheme.name.value === 'transparen
 // 心跳检测
 let heartbeatInterval: number | null = null
 
-// ApexCharts 全局配置
-declare global {
-  interface Window {
-    Apex: any
-  }
-}
-
 // 启动心跳
 const startHeartbeat = () => {
   // 如果已经有心跳，则先停止
@@ -72,44 +66,6 @@ const stopHeartbeat = () => {
   if (heartbeatInterval) {
     window.clearInterval(heartbeatInterval)
     heartbeatInterval = null
-  }
-}
-
-// 配置 ApexCharts 全局选项
-function configureApexCharts() {
-  if (typeof window !== 'undefined' && window.Apex) {
-    try {
-      // 获取当前主题
-      const currentTheme = globalTheme.name.value
-      const isDark = currentTheme === 'dark' || currentTheme === 'transparent'
-
-      // 数据标签
-      window.Apex.dataLabels = {
-        formatter: function (_: number, { seriesIndex, w }: { seriesIndex: number; w: any }) {
-          // 如果有小数点，保留两位小数，否则保留整数
-          const data = w.config.series[seriesIndex]
-          return data.toFixed(data % 1 === 0 ? 0 : 1)
-        },
-      }
-      // 图例
-      window.Apex.legend = {
-        labels: {
-          useSeriesColors: true,
-        },
-      }
-      // 标题
-      window.Apex.title = {
-        style: {
-          color: 'rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity))',
-        },
-      }
-      // 鼠标悬浮提示
-      window.Apex.tooltip = {
-        theme: isDark ? 'dark' : 'light',
-      }
-    } catch (error) {
-      console.warn('ApexCharts 全局配置失败:', error)
-    }
   }
 }
 
@@ -250,7 +206,7 @@ onMounted(async () => {
   }
 
   // 配置 ApexCharts
-  configureApexCharts()
+  configureApexChartsTheme(globalTheme.name.value)
 
   // 初始化data-theme属性
   updateHtmlThemeAttribute(globalTheme.name.value)
@@ -265,7 +221,7 @@ onMounted(async () => {
       // 更新HTML主题属性
       updateHtmlThemeAttribute(newTheme)
       // 重新配置ApexCharts以适应新主题
-      configureApexCharts()
+      configureApexChartsTheme(newTheme)
     },
   )
 

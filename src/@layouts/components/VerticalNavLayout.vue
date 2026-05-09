@@ -19,6 +19,11 @@ export default defineComponent({
     const scrollDistance = ref(window.scrollY)
     const isDialogOpen = ref(false)
     const wasScrolledBeforeDialog = ref(false)
+    let dialogObserver: MutationObserver | null = null
+
+    const handleScroll = () => {
+      scrollDistance.value = window.scrollY
+    }
 
     // 监听弹窗状态变化
     const checkDialogState = () => {
@@ -32,19 +37,23 @@ export default defineComponent({
     }
 
     onMounted(() => {
-      window.addEventListener('scroll', () => {
-        scrollDistance.value = window.scrollY
-      })
+      window.addEventListener('scroll', handleScroll)
 
       // 初始检查弹窗状态
       checkDialogState()
 
       // 监听 DOM 变化以检测弹窗状态
-      const observer = new MutationObserver(checkDialogState)
-      observer.observe(document.documentElement, {
+      dialogObserver = new MutationObserver(checkDialogState)
+      dialogObserver.observe(document.documentElement, {
         attributes: true,
         attributeFilter: ['class'],
       })
+    })
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('scroll', handleScroll)
+      dialogObserver?.disconnect()
+      dialogObserver = null
     })
 
     return () => {

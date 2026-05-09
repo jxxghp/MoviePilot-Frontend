@@ -17,6 +17,7 @@ import { createRequire } from 'node:module'
 
 // Get current directory
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const projectSrcDir = join(__dirname, '..')
 
 // Create require function for importing JSON files in ESM
 const require = createRequire(import.meta.url)
@@ -86,36 +87,12 @@ const sources: BundleScriptConfig = {
   ],
 
   icons: [
-    // 'mdi:home',
-    // 'mdi:account',
-    // 'mdi:login',
-    // 'mdi:logout',
-    // 'octicon:book-24',
-    // 'octicon:code-square-24',
     'lucide:sparkles',
     'material-symbols:passkey',
     'line-md:loading-twotone-loop',
   ],
 
-  json: [
-    // Custom JSON file
-    // 'json/gg.json',
-
-    // Iconify JSON file (@iconify/json is a package name, /json/ is directory where files are, then filename)
-    require.resolve('@iconify-json/mdi/icons.json'),
-
-    // Custom file with only few icons
-    // {
-    //   filename: require.resolve('@iconify-json/line-md/icons.json'),
-    //   icons: [
-    //     'home-twotone-alt',
-    //     'github',
-    //     'document-list',
-    //     'document-code',
-    //     'image-twotone',
-    //   ],
-    // },
-  ],
+  json: [],
 }
 
 // Iconify component (this changes import statement in generated file)
@@ -133,6 +110,15 @@ const target = join(__dirname, 'icons-bundle.js');
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity
 (async function () {
+  const scannedIcons = await collectUsedIcons(projectSrcDir)
+
+  if (sources.icons) {
+    sources.icons.push(...scannedIcons)
+    sources.icons = Array.from(new Set(sources.icons)).sort()
+  } else {
+    sources.icons = scannedIcons
+  }
+
   let bundle = commonJS
     ? `const { addCollection } = require('${component}');\n\n`
     : `import { addCollection } from '${component}';\n\n`
@@ -279,6 +265,56 @@ const target = join(__dirname, 'icons-bundle.js');
 })().catch((err) => {
   console.error(err)
 })
+
+async function collectUsedIcons(rootDir: string): Promise<string[]> {
+  const icons = new Set<string>()
+  const files = await walkDirectory(rootDir)
+  const sourceFiles = files.filter(file => /\.(vue|ts|js|tsx|jsx)$/.test(file))
+
+  for (const file of sourceFiles) {
+    if (file.includes('/@iconify/')) {
+      continue
+    }
+
+    const content = await fs.readFile(file, 'utf8')
+
+    for (const match of content.matchAll(/\b(lucide|material-symbols|line-md|tabler):([a-z0-9-]+)\b/g)) {
+      icons.add(`${match[1]}:${match[2]}`)
+    }
+
+    for (const match of content.matchAll(/\bmdi:([a-z0-9-]+)\b/g)) {
+      icons.add(`mdi:${match[1]}`)
+    }
+
+    for (const match of content.matchAll(/\btabler-([a-z0-9-]+)\b/g)) {
+      icons.add(`tabler:${match[1]}`)
+    }
+
+    for (const match of content.matchAll(/\bmdi-([a-z0-9-]+)\b/g)) {
+      icons.add(`mdi:${match[1]}`)
+    }
+  }
+
+  return Array.from(icons).sort()
+}
+
+async function walkDirectory(dir: string): Promise<string[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true })
+  const files: string[] = []
+
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name)
+
+    if (entry.isDirectory()) {
+      files.push(...(await walkDirectory(fullPath)))
+      continue
+    }
+
+    files.push(fullPath)
+  }
+
+  return files
+}
 
 /**
  * Remove metadata from icon set

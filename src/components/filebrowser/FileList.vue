@@ -148,7 +148,12 @@ const transferItems = ref<FileItem[]>([])
 // 当前图片地址
 const currentImgLink = ref('')
 
+function revokeCurrentImgLink() {
+  if (!currentImgLink.value) return
 
+  URL.revokeObjectURL(currentImgLink.value)
+  currentImgLink.value = ''
+}
 
 // 是否为图片文件
 const isImage = computed(() => {
@@ -287,6 +292,9 @@ async function download(item: FileItem) {
   if (result) {
     const downloadUrl = URL.createObjectURL(result)
     window.open(downloadUrl, '_blank')
+    setTimeout(() => {
+      URL.revokeObjectURL(downloadUrl)
+    }, 60000)
   }
 }
 
@@ -304,6 +312,7 @@ async function getImgLink(item: FileItem) {
   const result: Blob = (await inProps.axios.request<Blob, Blob>(config))
   if (result) {
     // 创建图片地址
+    revokeCurrentImgLink()
     currentImgLink.value = URL.createObjectURL(result)
   }
 }
@@ -314,7 +323,10 @@ watch(
   async () => {
     if (isImage.value && isFile.value) {
       await getImgLink(inProps.item)
+      return
     }
+
+    revokeCurrentImgLink()
   },
   { immediate: true },
 )
@@ -596,6 +608,11 @@ function stopLoadingProgress() {
 
 onMounted(() => {
   list_files()
+})
+
+onUnmounted(() => {
+  revokeCurrentImgLink()
+  stopLoadingProgress()
 })
 </script>
 
