@@ -3,6 +3,7 @@ import api from '@/api'
 import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -294,11 +295,18 @@ function removeData(id: number) {
   >
     <template #loading />
     <template #empty />
-    <div v-if="dataList.length > 0" class="grid gap-4 grid-subscribe-card" tabindex="0">
-      <div v-for="data in dataList" :key="data.id">
-        <SubscribeShareCard :media="data" @delete="removeData(data.id || 0)" />
-      </div>
-    </div>
+    <VirtualCardGrid
+      v-if="dataList.length > 0"
+      :items="dataList"
+      :get-item-key="item => item.id || `${item.tmdbid || item.doubanid || item.name}-${item.share_user}`"
+      :min-item-width="240"
+      :estimated-item-height="260"
+      tabindex="0"
+    >
+      <template #default="{ item }">
+        <SubscribeShareCard :media="item" @delete="removeData(item.id || 0)" />
+      </template>
+    </VirtualCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

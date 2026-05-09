@@ -4,6 +4,7 @@ import { Workflow } from '@/api/types'
 import WorkflowAddEditDialog from '@/components/dialog/WorkflowAddEditDialog.vue'
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -66,9 +67,18 @@ defineExpose({
 <template>
   <div>
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-    <div v-if="workflowList.length > 0 && isRefreshed" class="grid gap-4 grid-workflow-card px-2">
-      <WorkflowTaskCard v-for="item in workflowList" :key="item.id" :workflow="item" :event-types="eventTypes" @refresh="fetchData" />
-    </div>
+    <VirtualCardGrid
+      v-if="workflowList.length > 0 && isRefreshed"
+      :items="workflowList"
+      :get-item-key="item => item.id"
+      :min-item-width="288"
+      :estimated-item-height="420"
+      class="px-2"
+    >
+      <template #default="{ item }">
+        <WorkflowTaskCard :workflow="item" :event-types="eventTypes" @refresh="fetchData" />
+      </template>
+    </VirtualCardGrid>
     <NoDataFound
       v-if="workflowList.length === 0 && isRefreshed"
       error-code="404"

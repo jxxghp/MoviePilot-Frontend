@@ -4,6 +4,8 @@ import { formatFileSize, formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Context } from '@/api/types'
 import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
+import { getCachedSiteIcon } from '@/utils/siteIconCache'
+import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDownloadCache'
 
 // 输入参数
 const props = defineProps({
@@ -22,37 +24,31 @@ const meta = ref(props.torrent?.meta_info)
 // 站点图标
 const siteIcon = ref('')
 
-// 站点图标加载状态
-const iconLoading = ref(false)
-const iconError = ref(false)
-
-// 存储是否已经下载过的记录
-const downloaded = ref<string[]>([])
+const isDownloaded = computed(() => Boolean(torrent.value?.enclosure && downloadedTorrentMap[torrent.value.enclosure]))
 
 // 添加下载对话框
 const addDownloadDialog = ref(false)
 
 // 查询站点图标
 async function getSiteIcon() {
-  if (!torrent?.value?.site || iconLoading.value) {
+  if (!torrent?.value?.site) {
     return
   }
 
-  iconLoading.value = true
-  iconError.value = false
-
   try {
-    const response = await api.get(`site/icon/${torrent.value.site}`)
-    if (response && response.data && response.data.icon) {
-      siteIcon.value = response.data.icon
-    } else {
-      iconError.value = true
-    }
+    siteIcon.value = await getCachedSiteIcon(torrent.value.site, async () => {
+      try {
+        const response = await api.get(`site/icon/${torrent.value?.site}`)
+
+        return response?.data?.icon || ''
+      } catch (error) {
+        console.error('Failed to load site icon:', error)
+        return ''
+      }
+    })
   } catch (error) {
     console.error('Failed to load site icon:', error)
-    iconError.value = true
-  } finally {
-    iconLoading.value = false
+    siteIcon.value = ''
   }
 }
 
@@ -83,8 +79,7 @@ async function handleAddDownload() {
 // 添加下载成功
 function addDownloadSuccess(url: string) {
   addDownloadDialog.value = false
-  // 添加下载成功
-  downloaded.value.push(url)
+  markTorrentDownloaded(url)
 }
 
 // 添加下载失败
@@ -97,10 +92,16 @@ function openTorrentDetail() {
   window.open(torrent.value?.page_url, '_blank')
 }
 
-// 装载时查询站点图标
-onMounted(() => {
-  getSiteIcon()
-})
+watch(
+  () => props.torrent,
+  value => {
+    torrent.value = value?.torrent_info
+    media.value = value?.media_info
+    meta.value = value?.meta_info
+    getSiteIcon()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -108,7 +109,7 @@ onMounted(() => {
     <VListItem
       :value="props.torrent?.torrent_info?.enclosure"
       class="pa-3 mb-2 rounded torrent-item transition-all duration-300 hover:-translate-y-1 overflow-hidden"
-      :class="{ 'border-start border-success border-3 opacity-85': downloaded.includes(torrent?.enclosure || '') }"
+      :class="{ 'border-start border-success border-3 opacity-85': isDownloaded }"
       @click="handleAddDownload"
     >
       <!-- 优惠标签 -->

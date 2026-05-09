@@ -5,11 +5,11 @@ import api from '@/api'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
-import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
 import { useToast } from 'vue-toastification'
 
 // 国际化
@@ -85,12 +85,6 @@ interface SearchTorrent extends Context {
   more?: Array<Context>
 }
 const filteredCardDataList = ref<Array<SearchTorrent>>([])
-
-// 使用无限滚动 composable（行视图）
-const rowScroll = useInfiniteScroll(filteredRowDataList)
-
-// 使用无限滚动 composable（卡片视图）
-const cardScroll = useInfiniteScroll(filteredCardDataList)
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -1057,29 +1051,19 @@ onUnmounted(() => {
               class="stream-result-item"
             />
           </div>
-          <!-- 资源列表 -->
-          <VInfiniteScroll
-            v-else
-            mode="intersect"
-            side="end"
-            :items="cardScroll.displayDataList.value"
-            class="overflow-visible"
-            @load="cardScroll.loadMore"
+          <VirtualCardGrid
+            v-else-if="filteredCardDataList.length > 0"
+            :items="filteredCardDataList"
+            :get-item-key="getTorrentItemKey"
+            :min-item-width="300"
+            :estimated-item-height="400"
           >
-            <template #loading />
-            <template #empty />
-            <div class="grid gap-4 grid-torrent-card items-start">
-              <TorrentCard
-                v-for="(item, index) in cardScroll.displayDataList.value"
-                :key="getTorrentItemKey(item, index)"
-                :torrent="item"
-                :more="item.more"
-                class="stream-result-item"
-              />
-            </div>
-          </VInfiniteScroll>
+            <template #default="{ item }">
+              <TorrentCard :torrent="item" :more="item.more" />
+            </template>
+          </VirtualCardGrid>
           <!-- 无结果时显示 -->
-          <div v-if="!progressActive && cardScroll.displayDataList.value.length === 0" class="no-results">
+          <div v-if="!progressActive && filteredCardDataList.length === 0" class="no-results">
             <VIcon icon="mdi-file-search-outline" size="64" color="grey-lighten-1" />
             <div class="text-h6 text-grey mt-4">{{ t('torrent.noResults') }}</div>
           </div>
@@ -1089,7 +1073,7 @@ onUnmounted(() => {
         <div v-else-if="viewType === 'row'" key="row">
           <VCard class="resource-list-container">
             <!-- 无结果时显示 -->
-            <div v-if="!progressActive && rowScroll.displayDataList.value.length === 0" class="no-results">
+            <div v-if="!progressActive && filteredRowDataList.length === 0" class="no-results">
               <VIcon icon="mdi-file-search-outline" size="64" color="grey-lighten-1" />
               <div class="text-h6 text-grey mt-4">{{ t('torrent.noResults') }}</div>
             </div>
@@ -1103,26 +1087,16 @@ onUnmounted(() => {
                 <VDivider v-if="index < streamPreviewDataList.length - 1" class="my-2" />
               </div>
             </div>
-            <!-- 资源列表 -->
-            <VInfiniteScroll
-              v-else
-              mode="intersect"
-              side="end"
-              :items="rowScroll.displayDataList.value"
-              class="resource-list overflow-visible"
-              @load="rowScroll.loadMore"
-            >
-              <template #loading />
-              <template #empty />
-              <div
-                v-for="(item, index) in rowScroll.displayDataList.value"
-                :key="getTorrentItemKey(item, index)"
-                class="stream-result-item"
-              >
-                <TorrentItem :torrent="item" />
-                <VDivider v-if="index < rowScroll.displayDataList.value.length - 1" class="my-2" />
-              </div>
-            </VInfiniteScroll>
+            <div v-else-if="filteredRowDataList.length > 0" class="resource-list">
+              <VVirtualScroll renderless :items="filteredRowDataList" :item-height="240">
+                <template #default="{ item, index, itemRef }">
+                  <div :ref="itemRef" :key="getTorrentItemKey(item, index)">
+                    <TorrentItem :torrent="item" />
+                    <VDivider v-if="index < filteredRowDataList.length - 1" class="my-2" />
+                  </div>
+                </template>
+              </VVirtualScroll>
+            </div>
           </VCard>
         </div>
       </VFadeTransition>
@@ -1422,9 +1396,7 @@ onUnmounted(() => {
 }
 
 .resource-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: block;
 }
 
 /* 无结果提示 */

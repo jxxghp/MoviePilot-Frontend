@@ -3,6 +3,7 @@ import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -274,15 +275,24 @@ async function fetchData({ done }: { done: any }) {
   >
     <template #loading />
     <template #empty />
-    <div v-if="dataList.length > 0" class="grid gap-4 grid-media-card" tabindex="0">
-      <div v-for="data in dataList" :key="data.tmdb_id || data.douban_id">
-        <MediaCard :media="data" />
-        <div v-if="data.popularity" class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
-          <VIcon icon="mdi-fire" color="error" />
-          <span> {{ data.popularity.toLocaleString() }}</span>
+    <VirtualCardGrid
+      v-if="dataList.length > 0"
+      :items="dataList"
+      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+      :min-item-width="144"
+      :estimated-item-height="320"
+      tabindex="0"
+    >
+      <template #default="{ item }">
+        <div>
+          <MediaCard :media="item" />
+          <div v-if="item.popularity" class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
+            <VIcon icon="mdi-fire" color="error" />
+            <span> {{ item.popularity.toLocaleString() }}</span>
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </VirtualCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

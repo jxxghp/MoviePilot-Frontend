@@ -5,6 +5,8 @@ import api from '@/api'
 import type { Context } from '@/api/types'
 import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
+import { getCachedSiteIcon } from '@/utils/siteIconCache'
+import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDownloadCache'
 
 // 输入参数
 const props = defineProps({
@@ -32,8 +34,7 @@ const downloadItem = ref(props.torrent)
 // 站点图标
 const siteIcons = ref<Record<number, string>>({})
 
-// 存储是否已经下载过的记录
-const downloaded = ref<string[]>([])
+const isDownloaded = computed(() => Boolean(torrent.value?.enclosure && downloadedTorrentMap[torrent.value.enclosure]))
 
 // 添加下载对话框
 const addDownloadDialog = ref(false)
@@ -41,8 +42,7 @@ const addDownloadDialog = ref(false)
 // 添加下载成功
 function addDownloadSuccess(url: string) {
   addDownloadDialog.value = false
-  // 添加下载成功
-  downloaded.value.push(url)
+  markTorrentDownloaded(url)
 }
 
 // 添加下载失败
@@ -53,10 +53,21 @@ function addDownloadError(error: string) {
 // 查询站点图标
 async function getSiteIcon(site: number | undefined) {
   if (!site) return
+
   try {
-    siteIcons.value[site] = (await api.get(`site/icon/${site}`)).data.icon
+    siteIcons.value[site] = await getCachedSiteIcon(site, async () => {
+      try {
+        const response = await api.get(`site/icon/${site}`)
+
+        return response?.data?.icon || ''
+      } catch (error) {
+        console.error(error)
+        return ''
+      }
+    })
   } catch (error) {
     console.error(error)
+    siteIcons.value[site] = ''
   }
 }
 
@@ -109,20 +120,27 @@ async function openMoreTorrentsDialog() {
   showMoreTorrents.value = true
 }
 
-// 装载时查询站点图标
-onMounted(() => {
-  getSiteIcon(props.torrent?.torrent_info?.site)
-})
+watch(
+  () => props.torrent,
+  value => {
+    torrent.value = value?.torrent_info
+    media.value = value?.media_info
+    meta.value = value?.meta_info
+    downloadItem.value = value
+    getSiteIcon(value?.torrent_info?.site)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div class="h-full">
     <VCard
       :width="props.width || '100%'"
-      :variant="downloaded.includes(torrent?.enclosure || '') ? 'outlined' : 'flat'"
+      :variant="isDownloaded ? 'outlined' : 'flat'"
       @click="handleAddDownload(props.torrent)"
       class="h-full cursor-pointer transition-transform hover:-translate-y-1 duration-300 d-flex flex-column overflow-hidden torrent-card"
-      :class="{ 'border-success border-2 opacity-85': downloaded.includes(torrent?.enclosure || '') }"
+      :class="{ 'border-success border-2 opacity-85': isDownloaded }"
       hover
     >
       <!-- 优惠标签 -->

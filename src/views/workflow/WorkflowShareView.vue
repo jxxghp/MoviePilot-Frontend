@@ -3,6 +3,7 @@ import api from '@/api'
 import type { WorkflowShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import WorkflowShareCard from '@/components/cards/WorkflowShareCard.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -156,16 +157,23 @@ onActivated(() => {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-2" @load="fetchData" :key="currentKey">
     <template #loading />
     <template #empty />
-    <div v-if="dataList.length > 0" class="grid gap-4 grid-workflow-share-card" tabindex="0">
-      <div v-for="data in dataList" :key="data.id">
+    <VirtualCardGrid
+      v-if="dataList.length > 0"
+      :items="dataList"
+      :get-item-key="item => item.id"
+      :min-item-width="288"
+      :estimated-item-height="220"
+      tabindex="0"
+    >
+      <template #default="{ item }">
         <WorkflowShareCard
-          :workflow="data"
+          :workflow="item"
           :event-types="eventTypes"
-          @delete="removeData(data.id || '')"
+          @delete="removeData(item.id || '')"
           @update="emit('update')"
         />
-      </div>
-    </div>
+      </template>
+    </VirtualCardGrid>
     <NoDataFound
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"

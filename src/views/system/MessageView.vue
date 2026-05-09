@@ -149,12 +149,11 @@ async function loadMessages({ done }: { done: any }) {
       // 没有新数据
       done('empty')
     }
-    // 取消加载中
-    loading.value = false
   } catch (error) {
     console.error('加载消息失败:', error)
-    loading.value = false
     done('error')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -256,17 +255,19 @@ onMounted(() => {
       <LoadingBanner />
     </template>
     <template #empty> {{ t('message.noMoreData') }} </template>
-    <div>
-      <div
-        v-for="(msg, index) in messages"
-        :key="getMessageKey(msg) || index"
-        class="chat-group d-flex mt-5 mb-8"
-        :class="msg.action == 1 ? 'flex-row align-start' : 'flex-row-reverse align-end'"
-      >
-        <div class="d-inline-flex flex-column" :class="msg.action == 1 ? 'align-start' : 'align-end'">
-          <MessageCard :message="msg" @imageload="handleImageLoad" />
+    <VVirtualScroll renderless :items="messages" :item-height="160">
+      <template #default="{ item, index, itemRef }">
+        <div
+          :ref="itemRef"
+          :key="getMessageKey(item) || index"
+          class="chat-group d-flex mt-5 mb-8"
+          :class="item.action == 1 ? 'flex-row align-start' : 'flex-row-reverse align-end'"
+        >
+          <div class="d-inline-flex flex-column" :class="item.action == 1 ? 'align-start' : 'align-end'">
+            <MessageCard :message="item" @imageload="handleImageLoad" />
+          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </VVirtualScroll>
   </VInfiniteScroll>
 </template>
