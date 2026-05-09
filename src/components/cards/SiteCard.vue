@@ -123,6 +123,22 @@ function openSitePage() {
   window.open(cardProps.site?.url, '_blank')
 }
 
+function handleCardClick() {
+  if (cardProps.sortable) {
+    return
+  }
+
+  handleResourceBrowse()
+}
+
+function handleSiteUrlClick() {
+  if (cardProps.sortable) {
+    return
+  }
+
+  openSitePage()
+}
+
 // 调用API删除站点信息
 async function deleteSiteInfo() {
   const isConfirmed = await createConfirm({
@@ -210,21 +226,24 @@ onMounted(() => {
 <template>
   <div>
     <VCard
-      class="site-card relative h-full flex flex-col overflow-hidden group transition-all duration-300 cursor-pointer hover:-translate-y-1"
+      class="site-card relative h-full flex flex-col overflow-hidden group transition-all duration-300"
       :class="[
         cardProps.site?.is_active ? '' : 'opacity-70',
         {
           'border-error': statColor === 'error',
           'border-warning': statColor === 'warning',
           'border-success': statColor === 'success',
+          'cursor-pointer hover:-translate-y-1': !cardProps.sortable,
+          'cursor-move': cardProps.sortable,
+          'site-card--sortable': cardProps.sortable,
         },
       ]"
       :ripple="false"
       variant="flat"
       elevation="0"
       rounded="lg"
-      hover
-      @click="handleResourceBrowse"
+      :hover="!cardProps.sortable"
+      @click="handleCardClick"
     >
       <!-- 装饰性状态指示器 -->
       <div v-if="cardProps.site?.is_active" class="site-status-indicator" :class="statColor"></div>
@@ -256,17 +275,37 @@ onMounted(() => {
 
             <!-- 站点特性图标 -->
             <div class="ml-auto flex shrink-0 items-center gap-2">
-              <div v-if="cardProps.site?.limit_interval" class="hover:bg-primary/8 transition-colors">
-                <VIcon icon="mdi-speedometer" size="16" color="primary" class="opacity-85 hover:opacity-100" />
+              <div v-if="cardProps.site?.limit_interval" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
+                <VIcon
+                  icon="mdi-speedometer"
+                  size="16"
+                  color="primary"
+                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                />
               </div>
-              <div v-if="cardProps.site?.proxy" class="hover:bg-primary/8 transition-colors">
-                <VIcon icon="mdi-network-outline" size="16" color="primary" class="opacity-85 hover:opacity-100" />
+              <div v-if="cardProps.site?.proxy" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
+                <VIcon
+                  icon="mdi-network-outline"
+                  size="16"
+                  color="primary"
+                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                />
               </div>
-              <div v-if="cardProps.site?.render" class="hover:bg-primary/8 transition-colors">
-                <VIcon icon="mdi-apple-safari" size="16" color="primary" class="opacity-85 hover:opacity-100" />
+              <div v-if="cardProps.site?.render" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
+                <VIcon
+                  icon="mdi-apple-safari"
+                  size="16"
+                  color="primary"
+                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                />
               </div>
-              <div v-if="cardProps.site?.filter" class="hover:bg-primary/8 transition-colors">
-                <VIcon icon="mdi-filter-cog-outline" size="16" color="primary" class="opacity-85 hover:opacity-100" />
+              <div v-if="cardProps.site?.filter" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
+                <VIcon
+                  icon="mdi-filter-cog-outline"
+                  size="16"
+                  color="primary"
+                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                />
               </div>
             </div>
           </div>
@@ -274,10 +313,10 @@ onMounted(() => {
 
         <!-- 中间部分：网址 -->
         <div class="my-3">
-          <div class="min-w-0 truncate text-sm text-medium-emphasis" @click.stop="openSitePage">
-            {{ cardProps.site?.url }}
+            <div class="min-w-0 truncate text-sm text-medium-emphasis" @click.stop="handleSiteUrlClick">
+              {{ cardProps.site?.url }}
+            </div>
           </div>
-        </div>
 
         <!-- 底部：数据统计 -->
         <div class="flex-1 flex flex-col justify-end">
@@ -309,7 +348,7 @@ onMounted(() => {
       </div>
 
       <!-- 右侧操作按钮区 -->
-      <VSheet class="site-card-actions absolute inset-y-0 right-0 z-20 flex flex-col py-2 px-1">
+      <VSheet v-if="!cardProps.sortable" class="site-card-actions absolute inset-y-0 right-0 z-20 flex flex-col py-2 px-1">
         <!-- 测试按钮 -->
         <VBtn
           icon
@@ -432,7 +471,7 @@ onMounted(() => {
 }
 
 /* 站点卡片悬停时状态指示器变化 */
-.site-card:hover .site-status-indicator {
+.site-card:not(.site-card--sortable):hover .site-status-indicator {
   block-size: 2px;
   opacity: 0.8;
 }

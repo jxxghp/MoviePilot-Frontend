@@ -491,7 +491,6 @@ defineExpose({
     v-if="displayList.length > 0 && canDragSort"
     v-model="displayList"
     @end="saveSubscribeOrder"
-    handle=".cursor-move"
     item-key="id"
     tag="div"
     :component-data="{ class: 'grid gap-4 grid-subscribe-card px-2' }"

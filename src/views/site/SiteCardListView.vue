@@ -404,7 +404,6 @@ useDynamicButton({
       v-if="draggableSiteList.length > 0 && canDragSort"
       v-model="draggableSiteList"
       @end="savaSitesPriority"
-      handle=".cursor-move"
       item-key="id"
       tag="div"
       :component-data="{ 'class': 'grid gap-4 grid-site-card px-2' }"

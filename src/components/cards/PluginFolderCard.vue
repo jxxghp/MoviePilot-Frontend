@@ -169,6 +169,14 @@ function openFolder() {
   emit('open', props.folderName)
 }
 
+function handleCardClick() {
+  if (props.sortable) {
+    return
+  }
+
+  openFolder()
+}
+
 // 重命名文件夹
 function showRenameDialog() {
   newFolderName.value = props.folderName || ''
@@ -279,11 +287,12 @@ const dropdownItems = ref([
           :width="props.width"
           :height="props.height"
           min-height="8.5rem"
-          @click="openFolder"
+          @click="handleCardClick"
           class="plugin-folder-card h-full"
           :class="{
             'plugin-folder-card--mobile': display.mobile,
-            'plugin-folder-card--hover': hover.isHovering,
+            'plugin-folder-card--hover': hover.isHovering && !props.sortable,
+            'plugin-folder-card--sortable': props.sortable,
           }"
         >
           <template v-if="backgroundImage" #image>
@@ -325,7 +334,7 @@ const dropdownItems = ref([
             </div>
 
             <!-- 更多菜单按钮 - 右下角 -->
-            <div class="absolute top-0 right-0">
+            <div v-if="!props.sortable" class="absolute top-0 right-0">
               <VMenu v-model="menuVisible" location="top end" :close-on-content-click="true">
                 <template #activator="{ props: menuProps }">
                   <IconBtn v-bind="menuProps" @click.stop>
@@ -494,6 +503,10 @@ const dropdownItems = ref([
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &--sortable {
+    cursor: move;
+  }
 
   &--hover {
     transform: translateY(-4px);

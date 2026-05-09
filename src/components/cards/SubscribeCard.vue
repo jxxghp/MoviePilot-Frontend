@@ -313,6 +313,10 @@ function onSubscribeEditRemove() {
 
 // 处理卡片点击事件
 function handleCardClick() {
+  if (props.sortable) {
+    return
+  }
+
   if (props.batchMode) {
     // 批量模式下触发选择事件
     emit('select')
@@ -330,7 +334,7 @@ function handleCardClick() {
         <div
           class="w-full h-full rounded-lg overflow-hidden"
           :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
+            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
             'outline-dashed outline-1': props.media?.best_version && imageLoaded,
             'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
           }"
@@ -341,13 +345,14 @@ function handleCardClick() {
             class="flex flex-col h-full"
             :class="{
               'opacity-70': subscribeState === 'S',
+              'cursor-move': props.sortable,
             }"
             rounded="0"
             min-height="150"
             @click="handleCardClick"
-            :ripple="!props.batchMode"
+            :ripple="!props.batchMode && !props.sortable"
           >
-            <div class="me-n3 absolute top-1 right-4">
+            <div v-if="!props.sortable" class="me-n3 absolute top-1 right-4">
               <IconBtn>
                 <VIcon icon="mdi-dots-vertical" color="white" />
                 <VMenu activator="parent" close-on-content-click>
@@ -405,8 +410,15 @@ function handleCardClick() {
               </VCardText>
               <VCardText class="flex justify-space-between align-center flex-wrap px-3">
                 <div class="flex align-center">
+                  <VIcon
+                    v-if="props.media?.total_episode && props.sortable"
+                    icon="mdi-progress-download"
+                    size="small"
+                    color="white"
+                    class="me-1"
+                  />
                   <IconBtn
-                    v-if="props.media?.total_episode"
+                    v-else-if="props.media?.total_episode"
                     size="small"
                     v-bind="props"
                     icon="mdi-progress-download"
@@ -416,7 +428,8 @@ function handleCardClick() {
                     {{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
                     {{ props.media?.total_episode }}
                   </div>
-                  <IconBtn v-if="props.media?.username" icon="mdi-account" size="small" color="white" />
+                  <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="me-1" />
+                  <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" />
                   <span v-if="props.media?.username" class="text-subtitle-2 text-white">
                     {{ props.media?.username }}
                   </span>

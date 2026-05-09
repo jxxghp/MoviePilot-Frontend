@@ -273,6 +273,14 @@ function openPluginDetail() {
   else showPluginConfig()
 }
 
+function handleCardClick() {
+  if (props.sortable) {
+    return
+  }
+
+  openPluginDetail()
+}
+
 // 配置完成
 function configDone() {
   pluginConfigDialog.value = false
@@ -438,11 +446,13 @@ watch(
           v-bind="hover.props"
           :width="props.width"
           :height="props.height"
-          @click="openPluginDetail"
+          @click="handleCardClick"
           class="flex flex-col h-full"
           :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
+            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
+            'cursor-move': props.sortable,
           }"
+          :ripple="!props.sortable"
         >
           <div
             class="flex-grow"
@@ -487,7 +497,11 @@ watch(
                     <VIcon v-if="!isAvatarLoaded" size="small" icon="mdi-github" class="me-1" />
                   </template>
                 </VImg>
+                <span v-if="props.sortable" class="overflow-hidden text-ellipsis whitespace-nowrap">
+                  {{ props.plugin?.plugin_author }}
+                </span>
                 <a
+                  v-else
                   :href="props.plugin?.author_url"
                   target="_blank"
                   @click.stop
@@ -501,7 +515,7 @@ watch(
                 <span class="text-sm">{{ formatDownloadCount(props.count) }}</span>
               </span>
             </div>
-            <div class="absolute bottom-0 right-0">
+            <div v-if="!props.sortable" class="absolute bottom-0 right-0">
               <IconBtn>
                 <VIcon icon="mdi-dots-vertical" />
                 <VMenu v-model="menuVisible" activator="parent" close-on-content-click>

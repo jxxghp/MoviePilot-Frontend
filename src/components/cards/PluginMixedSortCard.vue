@@ -113,7 +113,7 @@ function handleDropToFolder(event: DragEvent) {
 
       <!-- 移出文件夹按钮（仅在文件夹内显示） -->
       <VBtn
-        v-if="showRemoveButton"
+        v-if="showRemoveButton && !sortable"
         icon="mdi-folder-remove"
         variant="text"
         color="warning"

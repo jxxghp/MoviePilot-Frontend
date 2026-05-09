@@ -75,7 +75,7 @@ export default {
     versionMismatch: '瀏覽器快取版本與服務端版本不一致，請嘗試清除快取',
     clearCache: '清除快取',
     sortMode: '排序模式',
-    sortModeHint: '已關閉大列表虛擬渲染，方便拖拽排序，但頁面流暢度可能下降。',
+    sortModeHint: '已進入拖拽排序模式',
   },
   mediaType: {
     movie: '電影',
