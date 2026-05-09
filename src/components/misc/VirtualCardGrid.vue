@@ -22,16 +22,20 @@ const props = withDefaults(
 )
 
 const containerRef = ref<HTMLElement | null>(null)
+const gridRef = ref<HTMLElement | null>(null)
 const columnCount = ref(1)
 const itemWidth = ref(props.minItemWidth)
 const itemHeight = ref(props.minItemWidth * props.itemAspectRatio)
+const measuredItemHeight = ref(0)
 const startIndex = ref(0)
 const endIndex = ref(0)
+const layoutSignature = ref('')
 
 let resizeObserver: ResizeObserver | null = null
 let animationFrameId: number | null = null
 
-const effectiveItemHeight = computed(() => props.estimatedItemHeight ?? itemHeight.value)
+const baseItemHeight = computed(() => props.estimatedItemHeight ?? itemHeight.value)
+const effectiveItemHeight = computed(() => Math.max(baseItemHeight.value, measuredItemHeight.value))
 const rowStep = computed(() => effectiveItemHeight.value + props.gap)
 const totalRows = computed(() => Math.ceil(props.items.length / columnCount.value))
 
@@ -89,6 +93,38 @@ function resolveItemKey(item: any, index: number) {
   return startIndex.value + index
 }
 
+function updateMeasuredItemHeight() {
+  const grid = gridRef.value
+  if (!grid || !grid.childElementCount) {
+    return
+  }
+
+  const nextSignature = `${columnCount.value}:${Math.round(itemWidth.value)}`
+  const childHeights = Array.from(grid.children).reduce((maxHeight, child) => {
+    if (!(child instanceof HTMLElement)) {
+      return maxHeight
+    }
+
+    return Math.max(maxHeight, Math.ceil(child.getBoundingClientRect().height))
+  }, 0)
+
+  if (!childHeights) {
+    return
+  }
+
+  if (layoutSignature.value !== nextSignature) {
+    layoutSignature.value = nextSignature
+    measuredItemHeight.value = childHeights
+    queueSyncVisibleRange()
+    return
+  }
+
+  if (childHeights > measuredItemHeight.value) {
+    measuredItemHeight.value = childHeights
+    queueSyncVisibleRange()
+  }
+}
+
 function syncVisibleRange() {
   if (typeof window === 'undefined') {
     return
@@ -131,6 +167,10 @@ function queueSyncVisibleRange() {
   animationFrameId = window.requestAnimationFrame(() => {
     animationFrameId = null
     syncVisibleRange()
+
+    void nextTick(() => {
+      updateMeasuredItemHeight()
+    })
   })
 }
 
@@ -169,6 +209,10 @@ onMounted(() => {
   if (containerRef.value) {
     resizeObserver.observe(containerRef.value)
   }
+
+  if (gridRef.value) {
+    resizeObserver.observe(gridRef.value)
+  }
 })
 
 onUnmounted(() => {
@@ -202,6 +246,14 @@ watch(
 )
 
 watch(
+  () => columnCount.value,
+  () => {
+    layoutSignature.value = ''
+    measuredItemHeight.value = 0
+  },
+)
+
+watch(
   [() => props.scrollToIndex, () => props.items.length],
   ([scrollToIndex]) => {
     if (scrollToIndex === undefined || scrollToIndex < 0) {
@@ -218,7 +270,7 @@ watch(
 
 <template>
   <div ref="containerRef" class="virtual-card-grid">
-    <div class="grid" :style="gridStyle">
+    <div ref="gridRef" class="grid" :style="gridStyle">
       <template v-for="(item, index) in visibleItems" :key="resolveItemKey(item, index)">
         <slot :item="item" :index="startIndex + index" />
       </template>
