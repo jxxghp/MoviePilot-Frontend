@@ -13,6 +13,7 @@ import PluginMarketSettingDialog from '@/components/dialog/PluginMarketSettingDi
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 
@@ -30,6 +31,7 @@ const { appMode } = usePWA()
 
 // 当前标签
 const activeTab = ref('installed')
+const sortMode = ref(false)
 
 // 获取插件标签页
 const pluginTabs = computed(() => getPluginTabs(t))
@@ -55,6 +57,16 @@ registerHeaderTab({
       dataAttr: 'installed-filter-btn',
       action: () => {
         filterInstalledPluginDialog.value = true
+      },
+      show: computed(() => activeTab.value === 'installed'),
+    },
+    {
+      icon: 'mdi-sort-variant',
+      variant: 'text',
+      color: computed(() => (sortMode.value ? 'warning' : 'gray')),
+      class: 'settings-icon-button',
+      action: () => {
+        sortMode.value = !sortMode.value
       },
       show: computed(() => activeTab.value === 'installed'),
     },
@@ -249,6 +261,41 @@ const newFolderDialog = ref(false)
 // 新文件夹名称
 const newFolderName = ref('')
 
+const pluginByIdMap = computed(() => new Map(dataList.value.map(plugin => [plugin.id, plugin])))
+const orderValueMap = computed(() => {
+  const map = new Map<string, number>()
+
+  orderConfig.value.forEach((item, index) => {
+    map.set(`${item.type || 'plugin'}:${item.id}`, item.order ?? index)
+  })
+
+  return map
+})
+
+const folderedPluginIds = computed(() => {
+  const pluginIds = new Set<string>()
+
+  Object.values(pluginFolders.value).forEach(folderData => {
+    const plugins = Array.isArray(folderData) ? folderData : folderData.plugins || []
+    plugins.forEach((pluginId: string) => pluginIds.add(pluginId))
+  })
+
+  return pluginIds
+})
+
+const canDragSort = computed(() => sortMode.value && activeTab.value === 'installed')
+const shouldVirtualizeInstalledMainList = computed(() => !sortMode.value && !currentFolder.value)
+const shouldVirtualizeInstalledFolderList = computed(() => !sortMode.value && !!currentFolder.value)
+const installedScrollToIndex = computed(() => {
+  if (sortMode.value || currentFolder.value || !pluginId.value) {
+    return undefined
+  }
+
+  const targetIndex = mixedSortList.value.findIndex(item => item.type === 'plugin' && item.id === pluginId.value)
+
+  return targetIndex >= 0 ? targetIndex : undefined
+})
+
 // 获取文件夹内筛选后的插件
 const getFilteredFolderPlugins = (folderName: string) => {
   const folderData = pluginFolders.value[folderName]
@@ -257,7 +304,7 @@ const getFilteredFolderPlugins = (folderName: string) => {
   // 获取文件夹内的插件并应用筛选条件
   const folderPlugins: Plugin[] = []
   folderPluginIds.forEach((pluginId: string) => {
-    const plugin = dataList.value.find(p => p.id === pluginId)
+    const plugin = pluginByIdMap.value.get(pluginId)
     if (plugin) {
       folderPlugins.push(plugin)
     }
@@ -288,12 +335,7 @@ const getFilteredFolderPlugins = (folderName: string) => {
 const displayedPlugins = computed(() => {
   if (!currentFolder.value) {
     // 主列表：显示未归类的插件
-    const folderedPluginIds = new Set()
-    Object.values(pluginFolders.value).forEach(folderData => {
-      const plugins = Array.isArray(folderData) ? folderData : folderData.plugins || []
-      plugins.forEach((pid: string) => folderedPluginIds.add(pid))
-    })
-    return filteredDataList.value.filter(plugin => !folderedPluginIds.has(plugin.id))
+    return filteredDataList.value.filter(plugin => !folderedPluginIds.value.has(plugin.id))
   } else {
     // 文件夹内：返回筛选后的插件
     return getFilteredFolderPlugins(currentFolder.value)
@@ -365,23 +407,21 @@ function updateMixedSortList() {
 
     // 添加文件夹项目
     displayedFolders.value.forEach(folder => {
-      const orderItem = orderConfig.value.find((item: any) => item.type === 'folder' && item.id === folder.name)
       allItems.push({
         type: 'folder',
         id: folder.name,
         data: folder,
-        order: orderItem?.order ?? 999,
+        order: orderValueMap.value.get(`folder:${folder.name}`) ?? 999,
       })
     })
 
     // 添加插件项目
     displayedPlugins.value.forEach(plugin => {
-      const orderItem = orderConfig.value.find((item: any) => item.type === 'plugin' && item.id === plugin.id)
       allItems.push({
         type: 'plugin',
         id: plugin.id || '',
         data: plugin,
-        order: orderItem?.order ?? 999,
+        order: orderValueMap.value.get(`plugin:${plugin.id}`) ?? 999,
       })
     })
 
@@ -463,9 +503,10 @@ function sortPluginOrder() {
     return
   }
   dataList.value.sort((a, b) => {
-    const aIndex = orderConfig.value.findIndex((item: { id: string }) => item.id === a.id)
-    const bIndex = orderConfig.value.findIndex((item: { id: string }) => item.id === b.id)
-    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
+    const aIndex = orderValueMap.value.get(`plugin:${a.id}`) ?? Number.MAX_SAFE_INTEGER
+    const bIndex = orderValueMap.value.get(`plugin:${b.id}`) ?? Number.MAX_SAFE_INTEGER
+
+    return aIndex - bIndex
   })
 }
 
@@ -505,7 +546,7 @@ async function saveMixedSortOrder() {
     Object.values(pluginFolders.value).forEach(folderData => {
       const plugins = Array.isArray(folderData) ? folderData : folderData.plugins || []
       plugins.forEach((id: string) => {
-        const folderPlugin = dataList.value.find(p => p.id === id)
+        const folderPlugin = pluginByIdMap.value.get(id)
         if (folderPlugin && !newPluginOrder.find(p => p.id === id)) {
           newPluginOrder.push(folderPlugin)
         }
@@ -994,12 +1035,8 @@ async function loadPluginFolders() {
     // 设置文件夹排序 - 使用全局排序配置
     const folderNames = Object.keys(processedFolders)
     folderOrder.value = folderNames.sort((a, b) => {
-      // 从全局排序配置中查找文件夹的order
-      const aOrderItem = orderConfig.value.find((item: any) => item.type === 'folder' && item.id === a)
-      const bOrderItem = orderConfig.value.find((item: any) => item.type === 'folder' && item.id === b)
-
-      const aOrder = aOrderItem?.order ?? processedFolders[a].order ?? 999
-      const bOrder = bOrderItem?.order ?? processedFolders[b].order ?? 999
+      const aOrder = orderValueMap.value.get(`folder:${a}`) ?? processedFolders[a].order ?? 999
+      const bOrder = orderValueMap.value.get(`folder:${b}`) ?? processedFolders[b].order ?? 999
 
       return aOrder - bOrder
     })
@@ -1228,7 +1265,7 @@ async function handleDropToFolder(event: DragEvent, folderName: string) {
     }
 
     // 验证插件ID
-    const plugin = filteredDataList.value.find(p => p.id === pluginId)
+    const plugin = pluginByIdMap.value.get(pluginId)
 
     if (!plugin) {
       return
@@ -1485,6 +1522,9 @@ function onDragStartPlugin(evt: any) {
           <div>
             <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+            <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
+              {{ t('common.sortModeHint') }}
+            </VAlert>
 
             <!-- 文件夹和插件网格 -->
             <div v-if="(mixedSortList.length > 0 || displayedPlugins.length > 0) && isRefreshed">
@@ -1492,6 +1532,7 @@ function onDragStartPlugin(evt: any) {
               <template v-if="!currentFolder">
                 <!-- 主列表：使用draggable进行混合排序 -->
                 <draggable
+                  v-if="canDragSort"
                   v-model="mixedSortList"
                   @end="saveMixedSortOrder"
                   @start="onDragStartPlugin"
@@ -1506,6 +1547,7 @@ function onDragStartPlugin(evt: any) {
                       :item="element"
                       :plugin-statistics="PluginStatistics"
                       :plugin-actions="pluginActions"
+                      :sortable="true"
                       @open-folder="openFolder"
                       @delete-folder="deleteFolder"
                       @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
@@ -1520,11 +1562,40 @@ function onDragStartPlugin(evt: any) {
                     />
                   </template>
                 </draggable>
+                <VirtualCardGrid
+                  v-else-if="shouldVirtualizeInstalledMainList"
+                  :items="mixedSortList"
+                  :get-item-key="item => `${item.type}:${item.id}`"
+                  :min-item-width="256"
+                  :estimated-item-height="260"
+                  :scroll-to-index="installedScrollToIndex"
+                >
+                  <template #default="{ item }">
+                    <PluginMixedSortCard
+                      :item="item"
+                      :plugin-statistics="PluginStatistics"
+                      :plugin-actions="pluginActions"
+                      :sortable="false"
+                      @open-folder="openFolder"
+                      @delete-folder="deleteFolder"
+                      @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
+                      @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
+                      @refresh-data="refreshData"
+                      @action-done="
+                        pluginId => {
+                          pluginActions[pluginId] = false
+                        }
+                      "
+                      @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
+                    />
+                  </template>
+                </VirtualCardGrid>
               </template>
 
               <template v-else>
                 <!-- 文件夹内：使用draggable排序 + 移出按钮 -->
                 <draggable
+                  v-if="canDragSort"
                   v-model="draggableFolderPlugins"
                   @end="saveFolderPluginOrder"
                   @start="onDragStartPlugin"
@@ -1539,6 +1610,7 @@ function onDragStartPlugin(evt: any) {
                       :item="{ type: 'plugin', id: element.id, data: element, order: 0 }"
                       :plugin-statistics="PluginStatistics"
                       :plugin-actions="pluginActions"
+                      :sortable="true"
                       :show-remove-button="true"
                       @refresh-data="refreshData"
                       @action-done="
@@ -1550,6 +1622,30 @@ function onDragStartPlugin(evt: any) {
                     />
                   </template>
                 </draggable>
+                <VirtualCardGrid
+                  v-else-if="shouldVirtualizeInstalledFolderList"
+                  :items="draggableFolderPlugins"
+                  :get-item-key="item => item.id"
+                  :min-item-width="256"
+                  :estimated-item-height="260"
+                >
+                  <template #default="{ item }">
+                    <PluginMixedSortCard
+                      :item="{ type: 'plugin', id: item.id, data: item, order: 0 }"
+                      :plugin-statistics="PluginStatistics"
+                      :plugin-actions="pluginActions"
+                      :sortable="false"
+                      :show-remove-button="true"
+                      @refresh-data="refreshData"
+                      @action-done="
+                        pluginId => {
+                          pluginActions[pluginId] = false
+                        }
+                      "
+                      @remove-from-folder="removeFromFolder"
+                    />
+                  </template>
+                </VirtualCardGrid>
               </template>
             </div>
 
@@ -1580,14 +1676,17 @@ function onDragStartPlugin(evt: any) {
             >
               <template #loading />
               <template #empty />
-              <div class="grid gap-4 grid-plugin-card">
-                <template
-                  v-for="(data, index) in displayUninstalledList"
-                  :key="`${data.id}_v${data.plugin_version}_${index}`"
-                >
-                  <PluginAppCard :plugin="data" :count="PluginStatistics[data.id || '0']" @install="pluginInstalled" />
+              <VirtualCardGrid
+                v-if="displayUninstalledList.length > 0"
+                :items="displayUninstalledList"
+                :get-item-key="item => `${item.id}_v${item.plugin_version}`"
+                :min-item-width="256"
+                :estimated-item-height="260"
+              >
+                <template #default="{ item }">
+                  <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
                 </template>
-              </div>
+              </VirtualCardGrid>
             </VInfiniteScroll>
             <NoDataFound
               v-if="displayUninstalledList.length === 0 && isAppMarketLoaded"

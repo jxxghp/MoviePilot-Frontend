@@ -46,6 +46,9 @@ const searchShareDialog = ref(false)
 // 订阅分享统计弹窗
 const shareStatisticsDialog = ref(false)
 
+// 排序模式
+const subscribeSortMode = ref(false)
+
 // 订阅过滤词
 const subscribeFilter = ref('')
 
@@ -120,6 +123,10 @@ function openSubscribeHistoryDialog() {
 
 function openShareStatisticsDialog() {
   shareStatisticsDialog.value = true
+}
+
+function toggleSubscribeSortMode() {
+  subscribeSortMode.value = !subscribeSortMode.value
 }
 
 const shareKeywordUpdater = debounce((keyword: string) => {
@@ -221,6 +228,14 @@ registerHeaderTab({
       show: computed(() => activeTab.value === 'mysub'),
     },
     {
+      icon: 'mdi-sort-variant',
+      variant: 'text',
+      color: computed(() => (subscribeSortMode.value ? 'warning' : 'gray')),
+      class: 'settings-icon-button',
+      action: toggleSubscribeSortMode,
+      show: computed(() => activeTab.value === 'mysub'),
+    },
+    {
       icon: 'mdi-checkbox-multiple-marked-outline',
       variant: 'text',
       color: 'gray',
@@ -267,6 +282,8 @@ onMounted(() => {
               :subid="subId"
               :keyword="subscribeFilter"
               :status-filter="subscribeStatusFilter ?? ''"
+              :sort-mode="subscribeSortMode"
+              @update:sort-mode="subscribeSortMode = $event"
             />
           </div>
         </transition>

@@ -12,6 +12,7 @@ import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useConfirm } from '@/composables/useConfirm'
+import { getCachedSiteIcon } from '@/utils/siteIconCache'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
@@ -25,6 +26,10 @@ const cardProps = defineProps({
   site: Object as PropType<Site>,
   data: Object as PropType<SiteUserData>,
   stats: Object as PropType<SiteStatistic>,
+  sortable: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 定义触发的自定义事件
@@ -34,7 +39,8 @@ const emit = defineEmits(['update', 'remove', 'refresh-stats'])
 const createConfirm = useConfirm()
 
 // 图标
-const siteIcon = ref<string>('')
+const defaultSiteIcon = getLogoUrl('site')
+const siteIcon = ref<string>(defaultSiteIcon)
 
 // 提示框
 const $toast = useToast()
@@ -59,12 +65,20 @@ const siteUserDataDialog = ref(false)
 
 // 查询站点图标
 async function getSiteIcon() {
+  const siteId = cardProps.site?.id
+  if (!siteId) {
+    siteIcon.value = defaultSiteIcon
+    return
+  }
+
   try {
-    siteIcon.value = (await api.get(`site/icon/${cardProps.site?.id}`)).data.icon
-    if (!siteIcon.value) {
-      siteIcon.value = getLogoUrl('site')
-    }
+    siteIcon.value = await getCachedSiteIcon(siteId, async () => {
+      const response = await api.get(`site/icon/${siteId}`)
+
+      return response?.data?.icon || defaultSiteIcon
+    })
   } catch (error) {
+    siteIcon.value = defaultSiteIcon
     console.error(error)
   }
 }
@@ -225,7 +239,7 @@ onMounted(() => {
             rounded="lg"
             size="32"
             class="shrink-0"
-            :class="{ 'cursor-move': display.mdAndUp.value }"
+            :class="{ 'cursor-move': cardProps.sortable && display.mdAndUp.value }"
           >
             <VImg :src="siteIcon" class="w-full h-full" :alt="cardProps.site?.name" cover>
               <template #placeholder>

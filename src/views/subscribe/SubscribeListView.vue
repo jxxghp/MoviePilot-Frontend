@@ -5,6 +5,7 @@ import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
@@ -32,7 +33,15 @@ const props = defineProps({
   subid: String,
   keyword: String,
   statusFilter: String,
+  sortMode: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+const emit = defineEmits<{
+  'update:sortMode': [value: boolean]
+}>()
 
 // 是否刷新过
 let isRefreshed = ref(false)
@@ -55,6 +64,27 @@ const displayList = ref<Subscribe[]>([])
 // 批量管理相关状态
 const isBatchMode = ref(false)
 const selectedSubscribes = ref<number[]>([])
+
+const normalizedKeyword = computed(() => props.keyword?.trim().toLowerCase() || '')
+const selectedSubscribesSet = computed(() => new Set(selectedSubscribes.value))
+const canSortContext = computed(
+  () => !normalizedKeyword.value && (!props.statusFilter || props.statusFilter === 'all') && !isBatchMode.value,
+)
+const sortMode = computed({
+  get: () => props.sortMode,
+  set: value => emit('update:sortMode', value),
+})
+const canDragSort = computed(() => sortMode.value && canSortContext.value)
+const shouldVirtualizeList = computed(() => !sortMode.value)
+const scrollToIndex = computed(() => {
+  if (!props.subid || sortMode.value) {
+    return undefined
+  }
+
+  const targetIndex = displayList.value.findIndex(item => item.id.toString() === props.subid?.toString())
+
+  return targetIndex >= 0 ? targetIndex : undefined
+})
 
 // 根据订阅数据判断订阅状态
 function getSubscribeStatus(subscribe: Subscribe) {
@@ -95,26 +125,52 @@ function getSubscribeStatus(subscribe: Subscribe) {
 // API请求键值（计算属性）
 const orderRequestKey = computed(() => (props.type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'))
 
-// 监听dataList变化，同步更新displayList
-watch([dataList, () => props.keyword, () => props.statusFilter], () => {
-  if (superUser)
-    displayList.value = dataList.value.filter(
-      data =>
-        data.type === props.type &&
-        (!props.keyword || data.name.toLowerCase().includes(props.keyword.toLowerCase())) &&
-        (!props.statusFilter || props.statusFilter === 'all' || getSubscribeStatus(data) === props.statusFilter),
-    )
-  else
-    displayList.value = dataList.value.filter(
-      data =>
-        data.type === props.type &&
-        data.username === userName &&
-        (!props.keyword || data.name.toLowerCase().includes(props.keyword.toLowerCase())) &&
-        (!props.statusFilter || props.statusFilter === 'all' || getSubscribeStatus(data) === props.statusFilter),
-    )
-  // 排序
-  sortSubscribeOrder()
-})
+// 监听数据和筛选变化，同步更新显示列表
+watch(
+  [dataList, normalizedKeyword, () => props.statusFilter, orderConfig],
+  () => {
+    const orderIndexMap = new Map(orderConfig.value.map((item, index) => [item.id, index]))
+    const nextDisplayList = dataList.value.filter(data => {
+      if (data.type !== props.type) {
+        return false
+      }
+
+      if (!superUser && data.username !== userName) {
+        return false
+      }
+
+      if (normalizedKeyword.value && !data.name?.toLowerCase().includes(normalizedKeyword.value)) {
+        return false
+      }
+
+      if (props.statusFilter && props.statusFilter !== 'all' && getSubscribeStatus(data) !== props.statusFilter) {
+        return false
+      }
+
+      return true
+    })
+
+    nextDisplayList.sort((a, b) => {
+      const aIndex = orderIndexMap.get(a.id) ?? Number.MAX_SAFE_INTEGER
+      const bIndex = orderIndexMap.get(b.id) ?? Number.MAX_SAFE_INTEGER
+
+      return aIndex - bIndex
+    })
+
+    displayList.value = nextDisplayList
+  },
+  { immediate: true },
+)
+
+watch(
+  canSortContext,
+  canSort => {
+    if (!canSort && sortMode.value) {
+      sortMode.value = false
+    }
+  },
+  { immediate: true },
+)
 
 // 加载顺序
 async function loadSubscribeOrderConfig() {
@@ -127,22 +183,6 @@ async function loadSubscribeOrderConfig() {
     console.error('Failed to load subscribe order config:', error)
     orderConfig.value = []
   }
-}
-
-// 按order的顺序排序
-async function sortSubscribeOrder() {
-  if (!orderConfig.value) {
-    return
-  }
-  if (displayList.value.length === 0) {
-    return
-  }
-  await loadSubscribeOrderConfig()
-  displayList.value.sort((a, b) => {
-    const aIndex = orderConfig.value.findIndex((item: { id: number }) => item.id === a.id)
-    const bIndex = orderConfig.value.findIndex((item: { id: number }) => item.id === b.id)
-    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
-  })
 }
 
 // 保存顺序设置
@@ -164,10 +204,11 @@ async function fetchData() {
   try {
     loading.value = true
     dataList.value = await api.get('subscribe/')
-    loading.value = false
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -352,6 +393,7 @@ const errorTitle = computed(() => {
 })
 
 onMounted(async () => {
+  await loadSubscribeOrderConfig()
   await fetchData()
   if (props.subid) {
     // 找到这个订阅
@@ -441,28 +483,54 @@ defineExpose({
     </VCard>
   </div>
 
+  <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 mx-2">
+    {{ t('common.sortModeHint') }}
+  </VAlert>
+
   <draggable
-    v-if="displayList.length > 0"
+    v-if="displayList.length > 0 && canDragSort"
     v-model="displayList"
     @end="saveSubscribeOrder"
     handle=".cursor-move"
     item-key="id"
     tag="div"
     :component-data="{ class: 'grid gap-4 grid-subscribe-card px-2' }"
-    :disabled="props.keyword || (props.statusFilter && props.statusFilter !== 'all') || isBatchMode"
   >
     <template #item="{ element }">
       <SubscribeCard
         :key="element.id"
         :media="element"
         :batch-mode="isBatchMode"
-        :selected="selectedSubscribes.includes(element.id)"
+        :selected="selectedSubscribesSet.has(element.id)"
+        :sortable="true"
         @remove="fetchData"
         @save="fetchData"
         @select="toggleSelectSubscribe(element.id)"
       />
     </template>
   </draggable>
+  <VirtualCardGrid
+    v-else-if="displayList.length > 0 && shouldVirtualizeList"
+    :items="displayList"
+    :get-item-key="item => item.id"
+    :min-item-width="240"
+    :estimated-item-height="300"
+    :scroll-to-index="scrollToIndex"
+    class="px-2"
+  >
+    <template #default="{ item }">
+      <SubscribeCard
+        :key="item.id"
+        :media="item"
+        :batch-mode="isBatchMode"
+        :selected="selectedSubscribesSet.has(item.id)"
+        :sortable="false"
+        @remove="fetchData"
+        @save="fetchData"
+        @select="toggleSelectSubscribe(item.id)"
+      />
+    </template>
+  </VirtualCardGrid>
   <NoDataFound
     v-if="displayList.length === 0 && isRefreshed"
     error-code="404"

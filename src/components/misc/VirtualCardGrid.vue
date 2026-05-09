@@ -4,6 +4,8 @@ const props = withDefaults(
     items: any[]
     minItemWidth?: number
     itemAspectRatio?: number
+    estimatedItemHeight?: number
+    scrollToIndex?: number
     gap?: number
     overscanRows?: number
     getItemKey?: (item: any, index: number) => string | number
@@ -11,6 +13,8 @@ const props = withDefaults(
   {
     minItemWidth: 144,
     itemAspectRatio: 1.5,
+    estimatedItemHeight: undefined,
+    scrollToIndex: undefined,
     gap: 16,
     overscanRows: 4,
     getItemKey: undefined,
@@ -27,7 +31,8 @@ const endIndex = ref(0)
 let resizeObserver: ResizeObserver | null = null
 let animationFrameId: number | null = null
 
-const rowStep = computed(() => itemHeight.value + props.gap)
+const effectiveItemHeight = computed(() => props.estimatedItemHeight ?? itemHeight.value)
+const rowStep = computed(() => effectiveItemHeight.value + props.gap)
 const totalRows = computed(() => Math.ceil(props.items.length / columnCount.value))
 
 const visibleItems = computed(() => props.items.slice(startIndex.value, endIndex.value))
@@ -104,7 +109,7 @@ function syncVisibleRange() {
   const columns = Math.max(1, Math.floor((containerWidth + props.gap) / (props.minItemWidth + props.gap)))
   columnCount.value = columns
   itemWidth.value = (containerWidth - props.gap * (columns - 1)) / columns
-  itemHeight.value = itemWidth.value * props.itemAspectRatio
+  itemHeight.value = props.estimatedItemHeight ?? itemWidth.value * props.itemAspectRatio
 
   const rowHeight = rowStep.value || 1
   const containerTop = window.scrollY + container.getBoundingClientRect().top
@@ -127,6 +132,30 @@ function queueSyncVisibleRange() {
     animationFrameId = null
     syncVisibleRange()
   })
+}
+
+function scrollToItemIndex(index: number) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const container = containerRef.value
+  if (!container || props.items.length === 0 || index < 0) {
+    return
+  }
+
+  syncVisibleRange()
+
+  const safeIndex = Math.min(index, props.items.length - 1)
+  const targetRow = Math.floor(safeIndex / columnCount.value)
+  const targetTop = window.scrollY + container.getBoundingClientRect().top + targetRow * rowStep.value
+
+  window.scrollTo({
+    top: Math.max(targetTop - props.gap, 0),
+    behavior: 'auto',
+  })
+
+  queueSyncVisibleRange()
 }
 
 onMounted(() => {
@@ -157,10 +186,30 @@ onUnmounted(() => {
 })
 
 watch(
-  () => props.items.length,
+  [
+    () => props.items.length,
+    () => props.minItemWidth,
+    () => props.itemAspectRatio,
+    () => props.estimatedItemHeight,
+    () => props.gap,
+  ],
   () => {
     nextTick(() => {
       queueSyncVisibleRange()
+    })
+  },
+  { immediate: true },
+)
+
+watch(
+  [() => props.scrollToIndex, () => props.items.length],
+  ([scrollToIndex]) => {
+    if (scrollToIndex === undefined || scrollToIndex < 0) {
+      return
+    }
+
+    nextTick(() => {
+      scrollToItemIndex(scrollToIndex)
     })
   },
   { immediate: true },

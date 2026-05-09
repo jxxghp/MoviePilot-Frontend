@@ -25,6 +25,10 @@ const props = defineProps({
   action: Boolean, // 动作标识
   width: String,
   height: String,
+  sortable: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 定义触发的自定义事件
@@ -420,6 +424,7 @@ watch(
   (newOpenState, _) => {
     if (newOpenState) openPluginDetail()
   },
+  { immediate: true },
 )
 </script>
 
@@ -458,7 +463,7 @@ watch(
                   {{ props.plugin?.plugin_desc }}
                 </div>
               </div>
-              <div class="relative flex-shrink-0 self-center pb-3" :class="{ 'cursor-move': display.mdAndUp.value }">
+              <div class="relative flex-shrink-0 self-center pb-3" :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }">
                 <VAvatar size="48">
                   <VImg
                     ref="imageRef"

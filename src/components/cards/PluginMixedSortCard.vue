@@ -14,12 +14,14 @@ interface Props {
   pluginStatistics?: { [key: string]: number }
   pluginActions?: { [key: string]: boolean }
   showRemoveButton?: boolean
+  sortable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   pluginStatistics: () => ({}),
   pluginActions: () => ({}),
   showRemoveButton: false,
+  sortable: false,
 })
 
 const emit = defineEmits<{
@@ -36,7 +38,7 @@ const emit = defineEmits<{
 // 拖拽事件处理
 function handleDragOver(event: DragEvent) {
   // 只有当拖拽的是插件时才允许放入文件夹
-  if (props.item.type === 'folder') {
+  if (props.sortable && props.item.type === 'folder') {
     event.preventDefault()
     event.stopPropagation()
     event.dataTransfer!.dropEffect = 'move'
@@ -46,14 +48,14 @@ function handleDragOver(event: DragEvent) {
 }
 
 function handleDragEnter(event: DragEvent) {
-  if (props.item.type === 'folder') {
+  if (props.sortable && props.item.type === 'folder') {
     event.preventDefault()
     event.stopPropagation()
   }
 }
 
 function handleDragLeave(event: DragEvent) {
-  if (props.item.type === 'folder') {
+  if (props.sortable && props.item.type === 'folder') {
     event.preventDefault()
     event.stopPropagation()
     const target = event.currentTarget as HTMLElement
@@ -62,7 +64,7 @@ function handleDragLeave(event: DragEvent) {
 }
 
 function handleDropToFolder(event: DragEvent) {
-  if (props.item.type === 'folder') {
+  if (props.sortable && props.item.type === 'folder') {
     event.preventDefault()
     event.stopPropagation()
     const target = event.currentTarget as HTMLElement
@@ -89,6 +91,7 @@ function handleDropToFolder(event: DragEvent) {
         :folder-name="item.data.name"
         :plugin-count="item.data.pluginCount"
         :folder-config="item.data.config"
+        :sortable="sortable"
         @open="$emit('openFolder', item.id)"
         @delete="$emit('deleteFolder', item.id)"
         @rename="(oldName, newName) => $emit('renameFolder', oldName, newName)"
@@ -102,6 +105,7 @@ function handleDropToFolder(event: DragEvent) {
         :count="pluginStatistics[item.id] || 0"
         :plugin="item.data"
         :action="pluginActions[item.id] || false"
+        :sortable="sortable"
         @remove="$emit('refreshData')"
         @save="$emit('refreshData')"
         @action-done="$emit('actionDone', item.id)"

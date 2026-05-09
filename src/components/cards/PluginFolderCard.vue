@@ -25,6 +25,10 @@ const props = defineProps({
   },
   width: String,
   height: String,
+  sortable: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 定义触发的自定义事件
@@ -302,14 +306,14 @@ const dropdownItems = ref([
                   :icon="folderIcon"
                   :size="display.mobile ? 56 : 72"
                   :color="iconColor"
-                  :class="{ 'cursor-move': display.mdAndUp.value }"
+                  :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                 />
               </div>
 
               <!-- 文件夹信息 -->
               <div
                 class="plugin-folder-card__info"
-                :class="{ 'cursor-move': display.mdAndUp.value, 'plugin-folder-card__info--no-icon': !shouldShowIcon }"
+                :class="{ 'cursor-move': props.sortable && display.mdAndUp.value, 'plugin-folder-card__info--no-icon': !shouldShowIcon }"
               >
                 <!-- 文件夹名称 -->
                 <h3 class="plugin-folder-card__name">

@@ -74,6 +74,8 @@ export default {
     descending: 'Descending',
     versionMismatch: 'The browser cache version is inconsistent with the server version, please try to clear the cache',
     clearCache: 'Clear Cache',
+    sortMode: 'Sort Mode',
+    sortModeHint: 'Virtualization is disabled for large lists to allow drag sorting, which may reduce smoothness.',
   },
   mediaType: {
     movie: 'Movie',

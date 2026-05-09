@@ -29,6 +29,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  sortable: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // 从 provide 中获取全局设置
@@ -266,6 +270,7 @@ watch(
   (newOpenState, _) => {
     if (newOpenState) editSubscribeDialog()
   },
+  { immediate: true },
 )
 
 // 监听订阅状态
@@ -380,7 +385,7 @@ function handleCardClick() {
                 <div
                   class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md"
                   v-if="imageLoaded"
-                  :class="{ 'cursor-move': display.mdAndUp.value }"
+                  :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                 >
                   <VImg :src="posterUrl" aspect-ratio="2/3" cover>
                     <template #placeholder>

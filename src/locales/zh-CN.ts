@@ -74,6 +74,8 @@ export default {
     descending: '降序',
     versionMismatch: '浏览器缓存版本与服务端版本不一致，请尝试清除缓存',
     clearCache: '清除缓存',
+    sortMode: '排序模式',
+    sortModeHint: '已关闭大列表虚拟渲染，方便拖拽排序，但页面流畅度可能下降。',
   },
   mediaType: {
     movie: '电影',

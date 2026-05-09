@@ -7,6 +7,7 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
 import SiteStatisticsDialog from '@/components/dialog/SiteStatisticsDialog.vue'
 import SiteImportDialog from '@/components/dialog/SiteImportDialog.vue'
+import VirtualCardGrid from '@/components/misc/VirtualCardGrid.vue'
 import { useDisplay } from 'vuetify'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
@@ -50,6 +51,7 @@ const siteStatsDialog = ref(false)
 
 // 导入站点对话框
 const siteImportDialog = ref(false)
+const sortMode = ref(false)
 
 // 筛选相关
 const filterMenu = ref(false)
@@ -96,6 +98,21 @@ const draggableSiteList = computed({
   },
 })
 
+const siteUserDataMap = computed<Record<string, SiteUserData | undefined>>(() => {
+  const map: Record<string, SiteUserData | undefined> = {}
+
+  userDataList.value.forEach(userData => {
+    if (userData.domain) {
+      map[userData.domain] = userData
+    }
+  })
+
+  return map
+})
+
+const canDragSort = computed(() => sortMode.value && filterOption.value === 'all')
+const shouldVirtualizeList = computed(() => !sortMode.value)
+
 // 当前筛选选项的显示信息
 const currentFilter = computed(() => {
   return filterOptions.value.find(option => option.value === filterOption.value)
@@ -106,12 +123,13 @@ async function fetchData() {
   try {
     loading.value = true
     siteList.value = await api.get('site/')
-    loading.value = false
     isRefreshed.value = true
     // 获取站点列表后，获取统计数据
     await fetchSiteStats()
   } catch (error) {
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -182,16 +200,6 @@ async function savaSitesPriority() {
   }
 }
 
-// 根据站点ID获取站点数据
-function getUserData(domain: string) {
-  return userDataList.value.find(userData => userData.domain === domain)
-}
-
-// 根据站点域名获取统计数据
-function getSiteStats(domain: string) {
-  return siteStatsList.value[domain] || {}
-}
-
 // 处理站点统计数据刷新请求
 async function handleRefreshStats(domain?: string) {
   if (domain) {
@@ -218,6 +226,10 @@ function onSiteSave() {
 function selectFilter(value: string) {
   filterOption.value = value
   filterMenu.value = false
+}
+
+function toggleSortMode() {
+  sortMode.value = !sortMode.value
 }
 
 // 导出站点数据
@@ -284,6 +296,16 @@ onActivated(() => {
   }
 })
 
+watch(
+  () => filterOption.value,
+  value => {
+    if (value !== 'all' && sortMode.value) {
+      sortMode.value = false
+    }
+  },
+  { immediate: true },
+)
+
 // 使用动态按钮钩子
 useDynamicButton({
   icon: 'mdi-web-plus',
@@ -319,6 +341,17 @@ useDynamicButton({
           <VIcon icon="mdi-chart-line" />
           <span v-if="!display.smAndDown.value" class="ml-2">
             {{ t('site.statistics') }}
+          </span>
+        </VBtn>
+        <VBtn
+          :icon="display.smAndDown.value"
+          variant="text"
+          :color="sortMode ? 'warning' : 'gray'"
+          @click="toggleSortMode"
+        >
+          <VIcon icon="mdi-sort-variant" />
+          <span v-if="!display.smAndDown.value" class="ml-2">
+            {{ t('common.sortMode') }}
           </span>
         </VBtn>
         <!-- 筛选按钮 -->
@@ -362,28 +395,52 @@ useDynamicButton({
       </div>
     </div>
 
+    <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
+      {{ t('common.sortModeHint') }}
+    </VAlert>
+
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
     <draggable
-      v-if="draggableSiteList.length > 0"
+      v-if="draggableSiteList.length > 0 && canDragSort"
       v-model="draggableSiteList"
       @end="savaSitesPriority"
       handle=".cursor-move"
       item-key="id"
       tag="div"
       :component-data="{ 'class': 'grid gap-4 grid-site-card px-2' }"
-      :disabled="filterOption !== 'all'"
     >
       <template #item="{ element }">
         <SiteCard
           :site="element"
-          :data="getUserData(element.domain)"
-          :stats="getSiteStats(element.domain)"
+          :data="siteUserDataMap[element.domain]"
+          :stats="siteStatsList[element.domain] || {}"
+          :sortable="true"
           @remove="fetchData"
           @update="fetchData"
           @refresh-stats="handleRefreshStats"
         />
       </template>
     </draggable>
+    <VirtualCardGrid
+      v-else-if="draggableSiteList.length > 0 && shouldVirtualizeList"
+      :items="draggableSiteList"
+      :get-item-key="item => item.id"
+      :min-item-width="256"
+      :estimated-item-height="240"
+      class="px-2"
+    >
+      <template #default="{ item }">
+        <SiteCard
+          :site="item"
+          :data="siteUserDataMap[item.domain]"
+          :stats="siteStatsList[item.domain] || {}"
+          :sortable="false"
+          @remove="fetchData"
+          @update="fetchData"
+          @refresh-stats="handleRefreshStats"
+        />
+      </template>
+    </VirtualCardGrid>
   </div>
   <NoDataFound
     v-if="draggableSiteList.length === 0 && isRefreshed"
