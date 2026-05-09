@@ -1504,6 +1504,9 @@ export default {
       recognizePluginFirst: 'Prioritize Plugin Recognition',
       recognizePluginFirstHint:
         'Prioritize calling plugins for media recognition. If a plugin matches, native recognition will be skipped',
+      mediaRecognizeShare: 'Use Shared Media Recognition',
+      mediaRecognizeShareHint:
+        'Report successful keyword to media ID mappings and reuse shared recognition results when local recognition fails',
       githubProxy: 'Github Acceleration Proxy',
       githubProxyPlaceholder: 'Leave empty for no proxy',
       githubProxyHint: 'Use proxy to accelerate Github access speed',

@@ -1486,6 +1486,8 @@ export default {
       fanartLangHint: '设置Fanart图片的语言偏好，多选时按优先级顺序排列',
       recognizePluginFirst: "优先使用插件识别",
       recognizePluginFirstHint: "优先调用插件识别媒体信息，若插件命中则不再调用原生识别",
+      mediaRecognizeShare: '共享使用媒体识别数据',
+      mediaRecognizeShareHint: '识别成功后上报关键字与媒体ID，识别失败时优先回查共享识别结果',
       githubProxy: 'Github加速代理',
       githubProxyPlaceholder: '留空表示不使用代理',
       githubProxyHint: '使用代理加速Github访问速度',

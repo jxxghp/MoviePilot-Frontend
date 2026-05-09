@@ -74,6 +74,7 @@ const SystemSettings = ref<any>({
     MOVIEPILOT_AUTO_UPDATE: false,
     // 媒体
     RECOGNIZE_PLUGIN_FIRST: false,
+    MEDIA_RECOGNIZE_SHARE: true,
     TMDB_API_DOMAIN: null,
     TMDB_IMAGE_DOMAIN: null,
     TMDB_LOCALE: null,
@@ -1028,13 +1029,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
                     <VCombobox
                       :model-value="SystemSettings.Basic.LLM_BASE_URL"
-                      @update:model-value="(value: any) => {
-                        if (typeof value === 'object' && value !== null) {
-                          setBaseUrlPreset(value.id, value.value);
-                        } else {
-                          setBaseUrlPreset('', value || '');
+                      @update:model-value="
+                        (value: any) => {
+                          if (typeof value === 'object' && value !== null) {
+                            setBaseUrlPreset(value.id, value.value)
+                          } else {
+                            setBaseUrlPreset('', value || '')
+                          }
                         }
-                      }"
+                      "
                       :label="t('setting.system.llmBaseUrl')"
                       :hint="t('setting.system.llmBaseUrlHint')"
                       :placeholder="selectedLlmProvider?.default_base_url || 'https://api.deepseek.com'"
@@ -1060,10 +1063,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                       prepend-inner-icon="mdi-key-variant"
                     />
                   </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0"
-                    cols="12"
-                  >
+                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0" cols="12">
                     <VAlert type="info" variant="tonal">
                       <div class="d-flex flex-column flex-md-row justify-space-between ga-3">
                         <div>
@@ -1072,7 +1072,11 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                             {{ selectedLlmProvider?.description || t('setting.system.llmProviderAuthHint') }}
                           </div>
                           <div v-if="providerConnected" class="text-body-2 mt-2">
-                            {{ t('setting.system.llmProviderConnectedAs', { label: llmProviderAuthLabel || selectedLlmProvider?.name }) }}
+                            {{
+                              t('setting.system.llmProviderConnectedAs', {
+                                label: llmProviderAuthLabel || selectedLlmProvider?.name,
+                              })
+                            }}
                           </div>
                         </div>
 
@@ -1105,10 +1109,12 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     <div>
                       <VCombobox
                         :model-value="SystemSettings.Basic.LLM_MODEL"
-                        @update:model-value="(val: any) => {
-                          SystemSettings.Basic.LLM_MODEL = typeof val === 'object' && val !== null ? val.id : val;
-                          handleLlmModelChanged();
-                        }"
+                        @update:model-value="
+                          (val: any) => {
+                            SystemSettings.Basic.LLM_MODEL = typeof val === 'object' && val !== null ? val.id : val
+                            handleLlmModelChanged()
+                          }
+                        "
                         :label="t('setting.system.llmModel')"
                         :hint="t('setting.system.llmModelHint')"
                         :placeholder="t('setting.system.llmModelHint')"
@@ -1669,6 +1675,26 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     persistent-hint
                   />
                 </VCol>
+              </VRow>
+              <VRow>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.RECOGNIZE_PLUGIN_FIRST"
+                    :label="t('setting.system.recognizePluginFirst')"
+                    :hint="t('setting.system.recognizePluginFirstHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.MEDIA_RECOGNIZE_SHARE"
+                    :label="t('setting.system.mediaRecognizeShare')"
+                    :hint="t('setting.system.mediaRecognizeShareHint')"
+                    persistent-hint
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
                 <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.FANART_ENABLE"
@@ -1688,16 +1714,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     chips
                     closable-chips
                     prepend-inner-icon="mdi-translate"
-                  />
-                </VCol>
-              </VRow>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VSwitch
-                    v-model="SystemSettings.Advanced.RECOGNIZE_PLUGIN_FIRST"
-                    :label="t('setting.system.recognizePluginFirst')"
-                    :hint="t('setting.system.recognizePluginFirstHint')"
-                    persistent-hint
                   />
                 </VCol>
               </VRow>
@@ -2038,12 +2054,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           <VBtn color="primary" prepend-icon="mdi-open-in-new" @click="openAuthPage">
             {{ t('setting.system.llmProviderOpenAuthPage') }}
           </VBtn>
-          <VBtn
-            variant="tonal"
-            prepend-icon="mdi-refresh"
-            :loading="authPolling"
-            @click="pollAuthSession"
-          >
+          <VBtn variant="tonal" prepend-icon="mdi-refresh" :loading="authPolling" @click="pollAuthSession">
             {{ t('setting.system.llmProviderCheckAuthStatus') }}
           </VBtn>
         </div>
