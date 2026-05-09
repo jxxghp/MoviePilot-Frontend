@@ -2,7 +2,6 @@
 import PersonCard from '@/components/cards/PersonCard.vue'
 import type { Person } from '@/api/types'
 import api from '@/api'
-import SlideView from '@/components/slide/SlideView.vue'
 import VirtualSlideView from '@/components/slide/VirtualSlideView.vue'
 import { useIntersectionObserver } from '@vueuse/core'
 
@@ -64,19 +63,17 @@ onActivated(() => {
 
 <template>
   <div ref="containerRef">
-    <VirtualSlideView v-if="componentLoaded" :items="dataList" :get-item-key="item => item.id">
+    <VirtualSlideView :items="dataList" :loading="!componentLoaded" :get-item-key="item => item.id">
       <template #item="{ item }">
         <PersonCard :person="item" width="9rem" />
       </template>
-    </VirtualSlideView>
-    <SlideView v-else>
-      <template #content>
+      <template #loading>
         <div v-for="i in 10" :key="i" style="width: 9rem">
           <VCard class="outline-none overflow-hidden">
             <div style="padding-bottom: 150%"></div>
           </VCard>
         </div>
       </template>
-    </SlideView>
+    </VirtualSlideView>
   </div>
 </template>

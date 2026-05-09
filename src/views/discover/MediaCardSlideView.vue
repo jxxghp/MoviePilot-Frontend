@@ -2,7 +2,6 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
-import SlideView from '@/components/slide/SlideView.vue'
 import VirtualSlideView from '@/components/slide/VirtualSlideView.vue'
 import { useI18n } from 'vue-i18n'
 import { useIntersectionObserver, until } from '@vueuse/core'
@@ -76,22 +75,20 @@ onActivated(() => {
 <template>
   <div ref="containerRef">
     <VirtualSlideView
-      v-if="componentLoaded"
       :items="dataList"
+      :loading="!componentLoaded"
       :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
     >
       <template #item="{ item }">
         <MediaCard :media="item" width="9rem" />
       </template>
-    </VirtualSlideView>
-    <SlideView v-else-if="!componentLoaded">
-      <template #content>
+      <template #loading>
         <div v-for="i in 10" :key="i" style="width: 9rem">
           <VCard class="outline-none overflow-hidden">
             <div style="padding-bottom: 150%"></div>
           </VCard>
         </div>
       </template>
-    </SlideView>
+    </VirtualSlideView>
   </div>
 </template>

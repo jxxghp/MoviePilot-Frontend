@@ -9,12 +9,14 @@ const props = withDefaults(
     itemGap?: number
     overscanItems?: number
     getItemKey?: (item: any, index: number) => string | number
+    loading?: boolean
   }>(),
   {
     itemWidth: 144,
     itemGap: 16,
     overscanItems: 4,
     getItemKey: undefined,
+    loading: false,
   },
 )
 
@@ -211,23 +213,31 @@ watch(
     <div class="slider-content-wrapper">
       <div class="slider-content-container">
         <div ref="slideContentRef" class="slider-content" tabindex="0" @scroll="handleContentScroll">
-          <div class="virtual-track" :style="{ width: `${totalContentWidth}px` }">
-            <div v-if="leadingSpaceWidth > 0" class="virtual-spacer" :style="{ width: `${leadingSpaceWidth}px` }" />
+          <template v-if="loading">
+            <slot name="loading" />
+          </template>
+          <template v-else-if="items.length > 0">
+            <div class="virtual-track" :style="{ width: `${totalContentWidth}px` }">
+              <div v-if="leadingSpaceWidth > 0" class="virtual-spacer" :style="{ width: `${leadingSpaceWidth}px` }" />
 
-            <template v-for="(item, index) in visibleItems" :key="resolveItemKey(item, index)">
-              <div
-                class="virtual-slide-item"
-                :style="{
-                  marginInlineEnd: index === visibleItems.length - 1 ? '0px' : `${itemGap}px`,
-                  width: `${itemWidth}px`,
-                }"
-              >
-                <slot name="item" :item="item" :index="startIndex + index" />
-              </div>
-            </template>
+              <template v-for="(item, index) in visibleItems" :key="resolveItemKey(item, index)">
+                <div
+                  class="virtual-slide-item"
+                  :style="{
+                    marginInlineEnd: index === visibleItems.length - 1 ? '0px' : `${itemGap}px`,
+                    width: `${itemWidth}px`,
+                  }"
+                >
+                  <slot name="item" :item="item" :index="startIndex + index" />
+                </div>
+              </template>
 
-            <div v-if="trailingSpaceWidth > 0" class="virtual-spacer" :style="{ width: `${trailingSpaceWidth}px` }" />
-          </div>
+              <div v-if="trailingSpaceWidth > 0" class="virtual-spacer" :style="{ width: `${trailingSpaceWidth}px` }" />
+            </div>
+          </template>
+          <template v-else>
+            <slot name="empty" />
+          </template>
         </div>
       </div>
 
