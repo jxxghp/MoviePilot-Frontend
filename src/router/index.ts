@@ -48,7 +48,6 @@ const router = createRouter({
           path: '/resource',
           component: () => import('../pages/resource.vue'),
           meta: {
-            keepAlive: true,
             requiresAuth: true,
           },
         },

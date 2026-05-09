@@ -140,12 +140,22 @@ const errorDescription = ref(t('resource.noResourceFound'))
 let searchEventSource: EventSource | null = null
 
 const streamPreviewLimit = 24
+const streamUiFlushDelay = 1000
+const streamPreviewBufferLimit = streamPreviewLimit * 4
 
 const streamTotalCount = ref(0)
+const streamPreviewDataList = ref<Array<Context>>([])
 
 const displayResourceCount = computed(() =>
   progressActive.value ? streamTotalCount.value : torrentFilter.totalFilteredCount.value,
 )
+
+let pendingStreamItems: Array<Context> = []
+let streamFlushTimer: ReturnType<typeof setTimeout> | null = null
+let streamFinalResultApplied = false
+let pendingProgressText: string | null = null
+let pendingProgressValue: number | null = null
+let pendingStreamTotalCount: number | null = null
 
 // 监听筛选条件变化，重新筛选数据
 watch(
@@ -231,6 +241,58 @@ function closeSearchEventSource() {
   }
 }
 
+// 渐进式搜索期间只保留有限预览数据，避免每个批次都触发完整筛选和分组计算。
+function clearStreamFlushTimer() {
+  if (streamFlushTimer) {
+    clearTimeout(streamFlushTimer)
+    streamFlushTimer = null
+  }
+}
+
+function clearStreamPreviewState(resetFinalState: boolean = false) {
+  clearStreamFlushTimer()
+  pendingStreamItems = []
+  pendingProgressText = null
+  pendingProgressValue = null
+  pendingStreamTotalCount = null
+  streamPreviewDataList.value = []
+  if (resetFinalState) {
+    streamFinalResultApplied = false
+  }
+}
+
+// 将进度和预览列表放到同一个节奏刷新，避免 SSE 到来时多处 UI 各自抖动。
+function flushBufferedStreamState() {
+  clearStreamFlushTimer()
+
+  if (pendingProgressText !== null) {
+    progressText.value = pendingProgressText
+  }
+  if (pendingProgressValue !== null) {
+    progressValue.value = pendingProgressValue
+  }
+  if (pendingStreamTotalCount !== null) {
+    streamTotalCount.value = pendingStreamTotalCount
+  }
+
+  pendingProgressText = null
+  pendingProgressValue = null
+  pendingStreamTotalCount = null
+
+  if (!pendingStreamItems.length) return
+
+  streamPreviewDataList.value = [...pendingStreamItems, ...streamPreviewDataList.value].slice(0, streamPreviewLimit)
+  pendingStreamItems = []
+  isRefreshed.value = true
+}
+
+function scheduleStreamFlush() {
+  if (streamFlushTimer) return
+  streamFlushTimer = setTimeout(() => {
+    flushBufferedStreamState()
+  }, streamUiFlushDelay)
+}
+
 // 获取API URL
 function getApiUrl(path: string) {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
@@ -270,6 +332,7 @@ function buildSearchStreamUrl() {
 
 // 重置搜索结果
 function resetSearchResults() {
+  clearStreamPreviewState(true)
   rawDataList.value = []
   originalDataList.value = []
   streamTotalCount.value = 0
@@ -283,21 +346,28 @@ function resetSearchResults() {
 }
 
 // 更新搜索进度
-function updateSearchProgress(eventData: { [key: string]: any }) {
+function updateSearchProgress(eventData: { [key: string]: any }, flushNow: boolean = false) {
   if (eventData.text) {
-    progressText.value = eventData.text
+    pendingProgressText = eventData.text
   }
   if (typeof eventData.value === 'number') {
-    progressValue.value = eventData.value
+    pendingProgressValue = eventData.value
   }
   if (typeof eventData.total_items === 'number') {
-    streamTotalCount.value = eventData.total_items
+    pendingStreamTotalCount = eventData.total_items
   }
   progressEnabled.value = true
+
+  if (flushNow) {
+    flushBufferedStreamState()
+  } else {
+    scheduleStreamFlush()
+  }
 }
 
 // 设置流式搜索结果
 function setStreamResults(items: Context[]) {
+  clearStreamPreviewState()
   rawDataList.value = items
   originalDataList.value = items
   if (!progressActive.value) {
@@ -307,12 +377,21 @@ function setStreamResults(items: Context[]) {
   applyFilter()
 }
 
-// 追加流式搜索结果
+// 追加流式搜索预览结果
 function appendStreamResults(items: Context[]) {
   if (!items.length) return
 
-  const nextItems = [...items, ...rawDataList.value]
-  setStreamResults(progressActive.value ? nextItems.slice(0, streamPreviewLimit) : nextItems)
+  pendingStreamItems.unshift(...items)
+  if (pendingStreamItems.length > streamPreviewBufferLimit) {
+    pendingStreamItems = pendingStreamItems.slice(0, streamPreviewBufferLimit)
+  }
+  scheduleStreamFlush()
+}
+
+function applyFinalStreamResults(items: Context[]) {
+  streamFinalResultApplied = true
+  flushBufferedStreamState()
+  setStreamResults(items)
 }
 
 // 获取磁力链接的key
@@ -327,18 +406,24 @@ function getTorrentItemKey(item: Context, index: number) {
 
 // 处理搜索流消息
 function handleSearchStreamMessage(eventData: { [key: string]: any }) {
-  updateSearchProgress(eventData)
-
   if (eventData.type === 'error') {
+    updateSearchProgress(eventData, true)
     errorDescription.value = eventData.message || t('resource.noResourceFound')
     return
   }
 
   const items = Array.isArray(eventData.items) ? (eventData.items as Context[]) : []
   if (eventData.type === 'append') {
+    updateSearchProgress(eventData)
     appendStreamResults(items)
-  } else if (eventData.type === 'replace' || eventData.type === 'done') {
-    setStreamResults(items)
+  } else if (eventData.type === 'replace') {
+    updateSearchProgress(eventData, true)
+    applyFinalStreamResults(items)
+  } else if (eventData.type === 'done' && items.length > 0 && !streamFinalResultApplied) {
+    updateSearchProgress(eventData, true)
+    applyFinalStreamResults(items)
+  } else {
+    updateSearchProgress(eventData)
   }
 }
 
@@ -439,8 +524,7 @@ async function fetchData() {
     if (!keyword) {
       // 查询上次搜索结果
       const results = await api.get('search/last')
-      rawDataList.value = (results as unknown as Context[]) || []
-      originalDataList.value = (results as unknown as Context[]) || []
+      setStreamResults((results as unknown as Context[]) || [])
     } else {
       resetSearchResults()
       startLoadingProgress()
@@ -454,8 +538,6 @@ async function fetchData() {
       // 从浏览器历史中删除当前搜索
       window.history.replaceState(null, '', window.location.pathname)
     }
-    // 应用筛选
-    applyFilter()
     // 标记已刷新
     isRefreshed.value = true
   } catch (error) {
@@ -731,6 +813,10 @@ async function checkAiRecommendStatus() {
 
 // 计算当前显示的数据是否有数据
 const hasData = computed(() => {
+  if (progressActive.value) {
+    return streamPreviewDataList.value.length > 0 || rawDataList.value.length > 0
+  }
+
   if (viewType.value === 'row') {
     return filteredRowDataList.value.length > 0 || rawDataList.value.length > 0
   } else {
@@ -762,6 +848,7 @@ onUnmounted(() => {
   closeSearchEventSource()
   stopLoadingProgress()
   stopAiRecommendPolling()
+  clearStreamPreviewState()
 })
 </script>
 
@@ -769,7 +856,11 @@ onUnmounted(() => {
   <div>
     <!-- 搜索加载状态 -->
     <VFadeTransition>
-      <div v-if="isSearchProgressVisible" class="search-loading-state mb-3" :class="{ 'is-empty-loading': isSearchLoading }">
+      <div
+        v-if="isSearchProgressVisible"
+        class="search-loading-state mb-3"
+        :class="{ 'is-empty-loading': isSearchLoading }"
+      >
         <VCard elevation="0" class="search-progress-card">
           <div class="progress-header">
             <div class="progress-icon-wrap">
@@ -955,8 +1046,20 @@ onUnmounted(() => {
       <VFadeTransition mode="out-in">
         <!-- 卡片视图模式 -->
         <div v-if="viewType === 'card'" key="card">
+          <div
+            v-if="progressActive && streamPreviewDataList.length > 0"
+            class="grid gap-4 grid-torrent-card items-start"
+          >
+            <TorrentCard
+              v-for="(item, index) in streamPreviewDataList"
+              :key="getTorrentItemKey(item, index)"
+              :torrent="item"
+              class="stream-result-item"
+            />
+          </div>
           <!-- 资源列表 -->
           <VInfiniteScroll
+            v-else
             mode="intersect"
             side="end"
             :items="cardScroll.displayDataList.value"
@@ -976,7 +1079,7 @@ onUnmounted(() => {
             </div>
           </VInfiniteScroll>
           <!-- 无结果时显示 -->
-          <div v-if="cardScroll.displayDataList.value.length === 0" class="no-results">
+          <div v-if="!progressActive && cardScroll.displayDataList.value.length === 0" class="no-results">
             <VIcon icon="mdi-file-search-outline" size="64" color="grey-lighten-1" />
             <div class="text-h6 text-grey mt-4">{{ t('torrent.noResults') }}</div>
           </div>
@@ -986,9 +1089,19 @@ onUnmounted(() => {
         <div v-else-if="viewType === 'row'" key="row">
           <VCard class="resource-list-container">
             <!-- 无结果时显示 -->
-            <div v-if="rowScroll.displayDataList.value.length === 0" class="no-results">
+            <div v-if="!progressActive && rowScroll.displayDataList.value.length === 0" class="no-results">
               <VIcon icon="mdi-file-search-outline" size="64" color="grey-lighten-1" />
               <div class="text-h6 text-grey mt-4">{{ t('torrent.noResults') }}</div>
+            </div>
+            <div v-else-if="progressActive && streamPreviewDataList.length > 0" class="resource-list overflow-visible">
+              <div
+                v-for="(item, index) in streamPreviewDataList"
+                :key="getTorrentItemKey(item, index)"
+                class="stream-result-item"
+              >
+                <TorrentItem :torrent="item" />
+                <VDivider v-if="index < streamPreviewDataList.length - 1" class="my-2" />
+              </div>
             </div>
             <!-- 资源列表 -->
             <VInfiniteScroll
@@ -1216,10 +1329,10 @@ onUnmounted(() => {
 
 /* 重新搜索按钮 */
 .refresh-search-btn {
-  block-size: 44px !important;
-  inline-size: 44px !important;
   border-radius: 8px !important;
   background-color: rgba(var(--v-theme-surface-variant), 0.1);
+  block-size: 44px !important;
+  inline-size: 44px !important;
 }
 
 /* AI按钮组样式 */
