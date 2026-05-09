@@ -319,7 +319,7 @@ useDynamicButton({
   <div class="card-list-container">
     <!-- 页面标题和筛选按钮 -->
     <div class="d-flex justify-space-between align-center mb-4">
-      <VPageContentTitle :title="t('navItems.siteManager')" class="mb-0" />
+      <VPageContentTitle :title="t('navItems.siteManager')" class="my-0" style="margin-top: 0; margin-bottom: 0;" />
       <!-- 右侧按钮组 -->
       <div class="d-flex align-center gap-2">
         <!-- 导入按钮 -->
