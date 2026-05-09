@@ -396,7 +396,12 @@ useDynamicButton({
     </div>
 
     <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
-      {{ t('common.sortModeHint') }}
+      <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+        <span>{{ t('common.sortModeHint') }}</span>
+        <VBtn size="small" variant="text" color="warning" @click="sortMode = false">
+          {{ t('common.exit') }}
+        </VBtn>
+      </div>
     </VAlert>
 
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />

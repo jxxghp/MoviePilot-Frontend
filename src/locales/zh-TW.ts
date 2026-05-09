@@ -76,6 +76,7 @@ export default {
     clearCache: '清除快取',
     sortMode: '排序模式',
     sortModeHint: '已進入拖拽排序模式',
+    exit: '退出',
   },
   mediaType: {
     movie: '電影',

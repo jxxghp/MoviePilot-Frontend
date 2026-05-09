@@ -76,6 +76,7 @@ export default {
     clearCache: 'Clear Cache',
     sortMode: 'Sort Mode',
     sortModeHint: 'Drag sorting mode is active',
+    exit: 'Exit',
   },
   mediaType: {
     movie: 'Movie',

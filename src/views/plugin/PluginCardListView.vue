@@ -1523,7 +1523,12 @@ function onDragStartPlugin(evt: any) {
             <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
             <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
-              {{ t('common.sortModeHint') }}
+              <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+                <span>{{ t('common.sortModeHint') }}</span>
+                <VBtn size="small" variant="text" color="warning" @click="sortMode = false">
+                  {{ t('common.exit') }}
+                </VBtn>
+              </div>
             </VAlert>
 
             <!-- 文件夹和插件网格 -->
