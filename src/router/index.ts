@@ -74,7 +74,6 @@ const router = createRouter({
           path: '/subscribe-share',
           component: () => import('../pages/subscribe-share.vue'),
           meta: {
-            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -98,6 +97,7 @@ const router = createRouter({
           path: '/downloading',
           component: () => import('../pages/downloading.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -105,6 +105,7 @@ const router = createRouter({
           path: '/history',
           component: () => import('../pages/history.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
             hideFooter: true,
           },
