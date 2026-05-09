@@ -214,7 +214,9 @@ watch(
       <div class="slider-content-container">
         <div ref="slideContentRef" class="slider-content" tabindex="0" @scroll="handleContentScroll">
           <template v-if="loading">
-            <slot name="loading" />
+            <div class="loading-track" :style="{ gap: `${itemGap}px` }">
+              <slot name="loading" />
+            </div>
           </template>
           <template v-else-if="items.length > 0">
             <div class="virtual-track" :style="{ width: `${totalContentWidth}px` }">
@@ -356,8 +358,15 @@ watch(
   inline-size: max-content;
 }
 
+.loading-track {
+  display: flex;
+  inline-size: max-content;
+  min-inline-size: 100%;
+}
+
 .virtual-slide-item,
-.virtual-spacer {
+.virtual-spacer,
+.loading-track > * {
   flex: 0 0 auto;
 }
 
