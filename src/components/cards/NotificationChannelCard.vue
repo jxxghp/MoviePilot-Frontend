@@ -83,6 +83,18 @@ interface WechatClawBotStatus {
   base_url?: string | null
 }
 
+interface WechatClawBotStatusFetchOptions {
+  autoGenerateQrcode?: boolean
+  silent?: boolean
+  autoRefreshExpired?: boolean
+  showErrorToast?: boolean
+}
+
+interface WechatClawBotRefreshOptions {
+  silent?: boolean
+  showToast?: boolean
+}
+
 function ensureWechatConfigDefaults(notification: NotificationConf) {
   if (notification.type !== 'wechat') {
     return
@@ -117,6 +129,7 @@ const wechatClawBotLoading = ref(false)
 const wechatClawBotActionLoading = ref(false)
 const wechatClawBotStatus = ref<WechatClawBotStatus | null>(null)
 const wechatClawBotQrImage = ref('')
+const wechatClawBotExpiredRefreshAttempted = ref(false)
 let wechatClawBotTimer: number | null = null
 
 function isImageSource(value?: string | null) {
@@ -201,7 +214,10 @@ function openNotificationInfoDialog() {
   ensureWechatClawBotConfigDefaults(notificationInfo.value)
   notificationInfoDialog.value = true
   if (notificationInfo.value.type === 'wechatclawbot') {
-    fetchWechatClawBotStatus(true)
+    fetchWechatClawBotStatus({
+      autoGenerateQrcode: true,
+      autoRefreshExpired: true,
+    })
   }
 }
 
@@ -240,16 +256,27 @@ function scheduleWechatClawBotRefresh() {
   const pendingStatus = ['waiting', 'scanned'].includes((wechatClawBotStatus.value?.qrcode_status || '').toLowerCase())
   if (connected || pendingStatus) {
     wechatClawBotTimer = window.setTimeout(() => {
-      fetchWechatClawBotStatus(false)
+      fetchWechatClawBotStatus({
+        silent: true,
+        autoRefreshExpired: true,
+      })
     }, connected ? 10000 : 3000)
   }
 }
 
-async function fetchWechatClawBotStatus(autoGenerateQrcode = false) {
+async function fetchWechatClawBotStatus(options: WechatClawBotStatusFetchOptions = {}) {
+  const {
+    autoGenerateQrcode = false,
+    silent = false,
+    autoRefreshExpired = false,
+    showErrorToast = true,
+  } = options
   if (notificationInfo.value.type !== 'wechatclawbot' || !notificationInfo.value.name) {
     return
   }
-  wechatClawBotLoading.value = true
+  if (!silent) {
+    wechatClawBotLoading.value = true
+  }
   try {
     const result: { [key: string]: any } = await api.get('notification/wechatclawbot/status', {
       params: getWechatClawBotRequestParams({ auto_generate_qrcode: autoGenerateQrcode }),
@@ -257,27 +284,53 @@ async function fetchWechatClawBotStatus(autoGenerateQrcode = false) {
     if (result.success) {
       wechatClawBotStatus.value = result.data
       await updateWechatClawBotQrImage(result.data)
+      const status = (result.data?.qrcode_status || '').toLowerCase()
+      if (status !== 'expired') {
+        wechatClawBotExpiredRefreshAttempted.value = false
+      }
+      if (
+        autoRefreshExpired &&
+        !result.data?.connected &&
+        status === 'expired' &&
+        !wechatClawBotExpiredRefreshAttempted.value
+      ) {
+        wechatClawBotExpiredRefreshAttempted.value = true
+        await refreshWechatClawBotQrcode({
+          silent: true,
+          showToast: false,
+        })
+        return
+      }
       scheduleWechatClawBotRefresh()
     } else {
       wechatClawBotStatus.value = null
       wechatClawBotQrImage.value = ''
       clearWechatClawBotTimer()
-      $toast.error(result.message || t('notification.wechatclawbot.statusLoadFailed'))
+      if (showErrorToast) {
+        $toast.error(result.message || t('notification.wechatclawbot.statusLoadFailed'))
+      }
     }
   } catch (error) {
     console.error(error)
     clearWechatClawBotTimer()
-    $toast.error(t('notification.wechatclawbot.statusLoadFailed'))
+    if (showErrorToast) {
+      $toast.error(t('notification.wechatclawbot.statusLoadFailed'))
+    }
   } finally {
-    wechatClawBotLoading.value = false
+    if (!silent) {
+      wechatClawBotLoading.value = false
+    }
   }
 }
 
-async function refreshWechatClawBotQrcode() {
+async function refreshWechatClawBotQrcode(options: WechatClawBotRefreshOptions = {}) {
+  const { silent = false, showToast = true } = options
   if (!notificationInfo.value.name) {
     return
   }
-  wechatClawBotActionLoading.value = true
+  if (!silent) {
+    wechatClawBotActionLoading.value = true
+  }
   try {
     const result: { [key: string]: any } = await api.post('notification/wechatclawbot/refresh', null, {
       params: getWechatClawBotRequestParams(),
@@ -285,16 +338,25 @@ async function refreshWechatClawBotQrcode() {
     if (result.success) {
       wechatClawBotStatus.value = result.data
       await updateWechatClawBotQrImage(result.data)
+      wechatClawBotExpiredRefreshAttempted.value = false
       scheduleWechatClawBotRefresh()
-      $toast.success(t('notification.wechatclawbot.qrcodeRefreshSuccess'))
+      if (showToast) {
+        $toast.success(t('notification.wechatclawbot.qrcodeRefreshSuccess'))
+      }
     } else {
-      $toast.error(result.message || t('notification.wechatclawbot.qrcodeRefreshFailed'))
+      if (showToast) {
+        $toast.error(result.message || t('notification.wechatclawbot.qrcodeRefreshFailed'))
+      }
     }
   } catch (error) {
     console.error(error)
-    $toast.error(t('notification.wechatclawbot.qrcodeRefreshFailed'))
+    if (showToast) {
+      $toast.error(t('notification.wechatclawbot.qrcodeRefreshFailed'))
+    }
   } finally {
-    wechatClawBotActionLoading.value = false
+    if (!silent) {
+      wechatClawBotActionLoading.value = false
+    }
   }
 }
 
@@ -309,7 +371,10 @@ async function logoutWechatClawBot() {
     })
     if (result.success) {
       $toast.success(result.message || t('notification.wechatclawbot.logoutSuccess'))
-      await fetchWechatClawBotStatus(true)
+      await fetchWechatClawBotStatus({
+        autoGenerateQrcode: true,
+        autoRefreshExpired: true,
+      })
     } else {
       $toast.error(result.message || t('notification.wechatclawbot.logoutFailed'))
     }
@@ -381,6 +446,7 @@ watch(notificationInfoDialog, value => {
   if (!value) {
     clearWechatClawBotTimer()
     wechatClawBotQrImage.value = ''
+    wechatClawBotExpiredRefreshAttempted.value = false
   }
 })
 </script>
@@ -642,7 +708,7 @@ watch(notificationInfoDialog, value => {
                         size="small"
                         variant="tonal"
                         :loading="wechatClawBotLoading"
-                        @click.stop="fetchWechatClawBotStatus(true)"
+                        @click.stop="fetchWechatClawBotStatus({ autoGenerateQrcode: true, autoRefreshExpired: true })"
                       >
                         {{ t('common.refresh') }}
                       </VBtn>
