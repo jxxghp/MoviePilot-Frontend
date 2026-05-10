@@ -16,30 +16,6 @@ import { readFileSync } from 'node:fs'
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const buildTime = new Date().getTime().toString()
 
-function getManualChunk(id: string) {
-  if (id.includes('ace-builds') || id.includes('vue3-ace-editor')) {
-    return 'vendor-ace'
-  }
-
-  if (id.includes('apexcharts') || id.includes('vue3-apexcharts')) {
-    return 'vendor-charts'
-  }
-
-  if (id.includes('@fullcalendar')) {
-    return 'vendor-calendar'
-  }
-
-  if (id.includes('@vue-flow')) {
-    return 'vendor-workflow'
-  }
-
-  if (id.includes('@vue-js-cron')) {
-    return 'vendor-cron'
-  }
-
-  return undefined
-}
-
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
@@ -231,11 +207,6 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'terser',
-    rollupOptions: {
-      output: {
-        manualChunks: getManualChunk,
-      },
-    },
     terserOptions: {
       compress: {
         drop_console: true,
