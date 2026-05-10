@@ -299,12 +299,15 @@ onMounted(() => {
                 <VIcon icon="mdi-plus" />
                 <VMenu :activator="'parent'" :close-on-content-click="true">
                   <VList>
-                    <VListItem @click="addNotification('wechat')">
-                      <VListItemTitle>{{ t('setting.notification.wechat') }}</VListItemTitle>
-                    </VListItem>
-                    <VListItem @click="addNotification('telegram')">
-                      <VListItemTitle>{{ t('setting.notification.telegram') }}</VListItemTitle>
-                    </VListItem>
+                     <VListItem @click="addNotification('wechat')">
+                       <VListItemTitle>{{ t('setting.notification.wechat') }}</VListItemTitle>
+                     </VListItem>
+                     <VListItem @click="addNotification('wechatclawbot')">
+                       <VListItemTitle>{{ t('setting.notification.wechatClawBot') }}</VListItemTitle>
+                     </VListItem>
+                     <VListItem @click="addNotification('telegram')">
+                       <VListItemTitle>{{ t('setting.notification.telegram') }}</VListItemTitle>
+                     </VListItem>
                     <VListItem @click="addNotification('slack')">
                       <VListItemTitle>{{ t('setting.notification.slack') }}</VListItemTitle>
                     </VListItem>

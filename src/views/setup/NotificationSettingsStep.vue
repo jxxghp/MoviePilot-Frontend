@@ -49,7 +49,20 @@ const notificationTypes = [
                 >
                   <VCardText class="text-center">
                     <VImg :src="getLogoUrl('wechat')" height="48" width="48" class="mx-auto mb-2" />
-                    <div class="text-h6">微信</div>
+                    <div class="text-h6">企业微信</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="3">
+                <VCard
+                  :color="wizardData.notification.type === 'wechatclawbot' ? 'primary' : 'default'"
+                  :variant="wizardData.notification.type === 'wechatclawbot' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectNotification('wechatclawbot')"
+                >
+                  <VCardText class="text-center">
+                    <VImg :src="getLogoUrl('wechatclawbot')" height="48" width="48" class="mx-auto mb-2" />
+                    <div class="text-h6">WeChat ClawBot</div>
                   </VCardText>
                 </VCard>
               </VCol>
@@ -246,6 +259,50 @@ const notificationTypes = [
                       :label="t('notification.wechat.admins')"
                       :placeholder="t('notification.wechat.adminsPlaceholder')"
                       :hint="t('notification.wechat.adminsHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account-supervisor"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.notification.type === 'wechatclawbot'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.name"
+                      :label="t('notification.name')"
+                      :placeholder="t('notification.name')"
+                      :hint="t('notification.nameHint')"
+                      :error="validationErrors.notification.name"
+                      :error-messages="validationErrors.notification.name ? [t('notification.nameRequired')] : []"
+                      persistent-hint
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.WECHATCLAWBOT_BASE_URL"
+                      :label="t('notification.wechatclawbot.baseUrl')"
+                      :hint="t('notification.wechatclawbot.baseUrlHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-web"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.WECHATCLAWBOT_DEFAULT_TARGET"
+                      :label="t('notification.wechatclawbot.defaultTarget')"
+                      :placeholder="t('notification.wechatclawbot.defaultTargetPlaceholder')"
+                      :hint="t('notification.wechatclawbot.defaultTargetHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account-arrow-right"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.WECHATCLAWBOT_ADMINS"
+                      :label="t('notification.wechatclawbot.admins')"
+                      :placeholder="t('notification.wechatclawbot.adminsPlaceholder')"
+                      :hint="t('notification.wechatclawbot.adminsHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-account-supervisor"
                     />

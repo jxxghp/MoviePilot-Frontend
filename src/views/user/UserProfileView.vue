@@ -438,6 +438,15 @@ watch(
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
+                    v-model="accountInfo.settings.wechatclawbot_userid"
+                    density="comfortable"
+                    clearable
+                    :label="t('profile.wechatClawBotUser')"
+                    prepend-inner-icon="mdi-robot-happy-outline"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
                     v-model="accountInfo.settings.telegram_userid"
                     density="comfortable"
                     clearable

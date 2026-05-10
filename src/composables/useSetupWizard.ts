@@ -329,6 +329,7 @@ export function useSetupWizard() {
     notification: {
       'telegram': 'TelegramModule',
       'wechat': 'WechatModule',
+      'wechatclawbot': 'WechatClawBotModule',
       'slack': 'SlackModule',
       'synologychat': 'SynologyChatModule',
       'qqbot': 'QQBotModule',
@@ -423,7 +424,17 @@ export function useSetupWizard() {
       wizardData.value.notification.type = type
       // 如果名称为空或为默认名称，则设置默认名称
       if (!wizardData.value.notification.name || wizardData.value.notification.name.includes('通知')) {
-        wizardData.value.notification.name = `${type} 通知`
+        const displayNameMap: Record<string, string> = {
+          wechat: '企业微信',
+          wechatclawbot: '微信 ClawBot',
+          telegram: 'Telegram',
+          slack: 'Slack',
+          synologychat: 'SynologyChat',
+          qqbot: 'QQ',
+          vocechat: 'VoceChat',
+          webpush: 'WebPush',
+        }
+        wizardData.value.notification.name = `${displayNameMap[type] || type} 通知`
       }
       wizardData.value.notification.enabled = true
       // 不清空config和switchs，保留用户已输入的值
@@ -656,6 +667,8 @@ export function useSetupWizard() {
           validationErrors.value.notification.WECHAT_APP_SECRET = true
         }
         break
+      case 'wechatclawbot':
+        break
       case 'telegram':
         if (!config.TELEGRAM_TOKEN?.trim()) {
           errors.push(t('notification.telegram.tokenRequired'))
@@ -854,7 +867,7 @@ export function useSetupWizard() {
       case 5: // 媒体服务器测试 - 只有选择了媒体服务器才测试
         return !!wizardData.value.mediaServer.type
       case 6: // 消息通知测试 - 只有选择了通知才测试
-        return !!wizardData.value.notification.type
+        return !!wizardData.value.notification.type && wizardData.value.notification.type !== 'wechatclawbot'
       default:
         return false
     }
