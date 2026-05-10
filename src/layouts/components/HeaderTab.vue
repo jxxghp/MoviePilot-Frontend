@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useTabStateRestore } from '@/composables/useStateRestore'
-import { isMobileDevice } from '@/@core/utils/navigator'
 
 const props = defineProps({
   modelValue: {
@@ -65,6 +64,10 @@ const showTabsScrollIndicator = ref(false)
 const showLeftButton = ref(false)
 const showRightButton = ref(false)
 
+const isTouchDevice = () => {
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches || navigator.maxTouchPoints > 0
+}
+
 // Function to scroll the tabs
 const scrollTabs = (direction: 'left' | 'right') => {
   const el = tabsContainerRef.value
@@ -90,17 +93,17 @@ const updateTabsIndicator = () => {
   const el = tabsContainerRef.value
   if (!el) return
 
-  // 在移动端不显示滚动指示器
-  const isMobile = isMobileDevice()
+  // 仅在触摸设备上隐藏按钮，非触摸小屏设备仍需支持横向切换
+  const shouldHideScrollControls = isTouchDevice()
 
   const tolerance = 1 // Allow 1px tolerance
   const hasOverflow = el.scrollWidth > el.clientWidth + tolerance
   const isScrolledToEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - tolerance
   const isScrolledToStart = el.scrollLeft <= tolerance
 
-  showTabsScrollIndicator.value = hasOverflow && !isScrolledToEnd && !isMobile
-  showLeftButton.value = hasOverflow && !isScrolledToStart && !isMobile
-  showRightButton.value = hasOverflow && !isScrolledToEnd && !isMobile
+  showTabsScrollIndicator.value = hasOverflow && !isScrolledToEnd && !shouldHideScrollControls
+  showLeftButton.value = hasOverflow && !isScrolledToStart && !shouldHideScrollControls
+  showRightButton.value = hasOverflow && !isScrolledToEnd && !shouldHideScrollControls
 }
 
 // Debounce resize handler
@@ -185,8 +188,8 @@ onUnmounted(() => {
     margin-inline-start: 6px;
   }
 
-  // 在移动端隐藏滚动按钮
-  @media (width <= 768px) {
+  // 触摸设备支持手势横向滚动，无需额外按钮
+  @media (hover: none) and (pointer: coarse) {
     display: none !important;
   }
 }
@@ -231,8 +234,8 @@ onUnmounted(() => {
     opacity: 1;
   }
 
-  // 在移动端隐藏渐变指示器
-  @media (width <= 768px) {
+  // 触摸设备支持手势横向滚动，无需额外指示器
+  @media (hover: none) and (pointer: coarse) {
     &::after {
       display: none !important;
     }
