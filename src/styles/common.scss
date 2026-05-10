@@ -515,6 +515,7 @@ html.v-overlay-scroll-blocked body {
 .v-overlay__content .v-list{
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.9) !important;
+  padding-inline: 0.5rem !important;
 }
 
 .v-overlay__content .v-card:not(.bg-primary){
