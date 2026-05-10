@@ -107,6 +107,8 @@ const notificationTime = ref({
   end: '23:59',
 })
 
+const wechatClawBotRenameMap = ref<Record<string, string>>({})
+
 // 添加通知渠道
 function addNotification(notification: string) {
   let name = `${t('setting.notification.channel')}${notifications.value.length + 1}`
@@ -127,11 +129,52 @@ function removeNotification(notification: NotificationConf) {
   if (index > -1) notifications.value.splice(index, 1)
 }
 
+function trackWechatClawBotRename(oldName: string, newName: string) {
+  if (!oldName || !newName || oldName === newName) {
+    return
+  }
+  const renameMap = { ...wechatClawBotRenameMap.value }
+  for (const [source, target] of Object.entries(renameMap)) {
+    if (target === oldName) {
+      renameMap[source] = newName
+    }
+  }
+  if (renameMap[oldName]) {
+    renameMap[oldName] = newName
+  } else {
+    renameMap[oldName] = newName
+  }
+  wechatClawBotRenameMap.value = Object.fromEntries(
+    Object.entries(renameMap).filter(([source, target]) => source && target && source !== target),
+  )
+}
+
+async function migrateWechatClawBotRenames() {
+  const activeWechatClawBotNames = new Set(
+    notifications.value.filter(item => item.type === 'wechatclawbot').map(item => item.name),
+  )
+  const renameEntries = Object.entries(wechatClawBotRenameMap.value).filter(
+    ([oldName, newName]) => oldName && newName && oldName !== newName && activeWechatClawBotNames.has(newName),
+  )
+  for (const [oldName, newName] of renameEntries) {
+    const result: { [key: string]: any } = await api.post('notification/wechatclawbot/migrate', null, {
+      params: {
+        old_source: oldName,
+        new_source: newName,
+      },
+    })
+    if (!result.success) {
+      throw new Error(result.message || `failed to migrate ${oldName} -> ${newName}`)
+    }
+  }
+}
+
 // 调用API查询通知渠道设置
 async function loadNotificationSetting() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/Notifications')
     notifications.value = result.data?.value ?? []
+    wechatClawBotRenameMap.value = {}
   } catch (error) {
     console.log(error)
   }
@@ -187,12 +230,15 @@ async function loadNotificationTime() {
 // 调用API保存通知设置
 async function saveNotificationSetting() {
   try {
+    await migrateWechatClawBotRenames()
     const result: { [key: string]: any } = await api.post('system/setting/Notifications', notifications.value)
     if (result.success) {
+      wechatClawBotRenameMap.value = {}
       $toast.success(t('setting.notification.saveSuccess'))
     } else $toast.error(t('setting.notification.saveFailed'))
   } catch (error) {
     console.log(error)
+    $toast.error(t('setting.notification.saveFailed'))
   }
 }
 
@@ -211,7 +257,13 @@ async function saveNotificationTime() {
 // 通知渠道设置变化时赋值
 function changNotificationSetting(notification: NotificationConf, name: string) {
   const index = notifications.value.findIndex(item => item.name === name)
-  if (index !== -1) notifications.value[index] = notification
+  if (index !== -1) {
+    const previous = notifications.value[index]
+    notifications.value[index] = notification
+    if (previous?.type === 'wechatclawbot' && previous.name !== notification.name) {
+      trackWechatClawBotRename(previous.name, notification.name)
+    }
+  }
 }
 
 // 加载消息类型开关
