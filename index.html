@@ -92,6 +92,11 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 
   <style>
+    html,
+    body {
+      background: var(--initial-loader-bg, #fff);
+    }
+
     #app {
       min-block-size: 100%;
       -webkit-overflow-scrolling: touch;
@@ -100,11 +105,12 @@
 
     #loading-bg {
       position: fixed;
+      inset: 0;
       z-index: 99999;
       display: block;
       background: var(--initial-loader-bg, #fff);
-      block-size: 100vh;
-      inline-size: 100vw;
+      min-block-size: 100vh;
+      min-block-size: 100dvh;
       transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease;
     }
 
