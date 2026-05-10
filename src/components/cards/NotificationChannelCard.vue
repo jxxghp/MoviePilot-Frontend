@@ -4,6 +4,7 @@ import { NotificationConf } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useToast } from 'vue-toastification'
 import { cloneDeep } from 'lodash-es'
+import QRCode from 'qrcode'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -115,7 +116,56 @@ function ensureWechatClawBotConfigDefaults(notification: NotificationConf) {
 const wechatClawBotLoading = ref(false)
 const wechatClawBotActionLoading = ref(false)
 const wechatClawBotStatus = ref<WechatClawBotStatus | null>(null)
+const wechatClawBotQrImage = ref('')
 let wechatClawBotTimer: number | null = null
+
+function isImageSource(value?: string | null) {
+  if (!value) {
+    return false
+  }
+  const raw = value.trim()
+  if (!raw) {
+    return false
+  }
+  if (raw.toLowerCase().startsWith('data:image/')) {
+    return true
+  }
+  return /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(raw)
+}
+
+function getWechatClawBotQrText(status?: WechatClawBotStatus | null) {
+  const directUrl = status?.qrcode_url?.trim()
+  if (directUrl) {
+    return directUrl
+  }
+  const qrcode = status?.qrcode?.trim()
+  if (!qrcode) {
+    return ''
+  }
+  return `https://liteapp.weixin.qq.com/q/7GiQu1?qrcode=${encodeURIComponent(qrcode)}&bot_type=3`
+}
+
+async function updateWechatClawBotQrImage(status?: WechatClawBotStatus | null) {
+  const directUrl = status?.qrcode_url?.trim()
+  if (isImageSource(directUrl)) {
+    wechatClawBotQrImage.value = directUrl || ''
+    return
+  }
+  const qrText = getWechatClawBotQrText(status)
+  if (!qrText) {
+    wechatClawBotQrImage.value = ''
+    return
+  }
+  try {
+    wechatClawBotQrImage.value = await QRCode.toDataURL(qrText, {
+      width: 220,
+      margin: 1,
+    })
+  } catch (error) {
+    console.error(error)
+    wechatClawBotQrImage.value = ''
+  }
+}
 
 function getWechatClawBotRequestParams(extraParams: Record<string, any> = {}) {
   const config = notificationInfo.value.config || {}
@@ -206,9 +256,11 @@ async function fetchWechatClawBotStatus(autoGenerateQrcode = false) {
     })
     if (result.success) {
       wechatClawBotStatus.value = result.data
+      await updateWechatClawBotQrImage(result.data)
       scheduleWechatClawBotRefresh()
     } else {
       wechatClawBotStatus.value = null
+      wechatClawBotQrImage.value = ''
       clearWechatClawBotTimer()
       $toast.error(result.message || t('notification.wechatclawbot.statusLoadFailed'))
     }
@@ -232,6 +284,7 @@ async function refreshWechatClawBotQrcode() {
     })
     if (result.success) {
       wechatClawBotStatus.value = result.data
+      await updateWechatClawBotQrImage(result.data)
       scheduleWechatClawBotRefresh()
       $toast.success(t('notification.wechatclawbot.qrcodeRefreshSuccess'))
     } else {
@@ -327,6 +380,7 @@ function onClose() {
 watch(notificationInfoDialog, value => {
   if (!value) {
     clearWechatClawBotTimer()
+    wechatClawBotQrImage.value = ''
   }
 })
 </script>
@@ -617,8 +671,8 @@ watch(notificationInfoDialog, value => {
                     <VCol cols="12" md="5">
                       <div class="rounded text-center p-3 border h-100 d-flex align-center justify-center min-h-[16rem]">
                         <VImg
-                          v-if="wechatClawBotStatus?.qrcode_url"
-                          :src="wechatClawBotStatus.qrcode_url"
+                          v-if="wechatClawBotQrImage"
+                          :src="wechatClawBotQrImage"
                           width="220"
                           height="220"
                           class="mx-auto"
