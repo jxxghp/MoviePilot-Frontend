@@ -137,7 +137,7 @@ function startBackgroundRotation() {
 function animateAndRemoveLoader() {
   const loadingBg = document.querySelector('#loading-bg') as HTMLElement
   if (loadingBg) {
-    // 先淡出启动层，再移除节点，避免 iOS 在主题容器完全接管前露出底部空白。
+    // 只收掉启动内容，背景层保持实色直到节点被移除，避免底部 safe area 先透出页面内容。
     loadingBg.classList.add('loading-complete')
     window.setTimeout(() => {
       removeEl('#loading-bg')
@@ -145,7 +145,7 @@ function animateAndRemoveLoader() {
       // 启动阶段会锁定根节点滚动，待应用布局接管后再恢复，避免首屏出现瞬时纵向滚动条。
       document.documentElement.style.removeProperty('overflow')
       document.body.style.removeProperty('overflow')
-    }, 180)
+    }, 120)
   }
 }
 

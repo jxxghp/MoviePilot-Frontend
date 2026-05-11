@@ -127,7 +127,6 @@
       background-color: var(--initial-loader-bg, #0E1116);
       block-size: var(--initial-loader-height, 100svh);
       inline-size: 100%;
-      transition: opacity 0.18s ease-out;
     }
 
     .loading-shell {
@@ -136,6 +135,7 @@
       grid-template-rows: minmax(0, 1fr) auto;
       block-size: 100%;
       inline-size: 100%;
+      transition: opacity 0.12s ease-out, transform 0.12s ease-out;
       padding:
         calc(env(safe-area-inset-top, 0px) + 24px)
         24px
@@ -171,8 +171,10 @@
       min-block-size: clamp(72px, 14vh, 120px);
     }
 
-    .loading-complete {
+    .loading-complete .loading-shell,
+    .loading-complete #loading-timeout {
       opacity: 0;
+      transform: translate3d(0, 6px, 0);
     }
 
     .loading {
