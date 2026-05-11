@@ -321,7 +321,7 @@ export default {
     system: {
       title: 'System',
       description:
-        'Basic settings, downloaders (Qbittorrent, Transmission), media servers (Emby, Jellyfin, Plex, TrimeMedia, Ugreen)',
+        'Basic settings, downloaders (Qbittorrent, Transmission), media servers (Emby, ZSpace, Jellyfin, Plex, TrimeMedia, Ugreen)',
     },
     directory: {
       title: 'Storage & Directories',
@@ -920,6 +920,7 @@ export default {
       plex: 'Plex',
       jellyfin: 'Jellyfin',
       emby: 'Emby',
+      zspace: 'ZSpace',
       appLaunchFailed: 'App launch failed, redirecting to web version',
       appNotInstalled: 'App not detected, redirecting to web version',
       downloadApp: 'Download App',
@@ -1493,6 +1494,7 @@ export default {
       transmission: 'Transmission',
       rtorrent: 'rTorrent',
       emby: 'Emby',
+      zspace: 'ZSpace',
       jellyfin: 'Jellyfin',
       plex: 'Plex',
       ugreen: 'Ugreen',
@@ -3392,12 +3394,13 @@ export default {
       description: 'Configure media server',
       info: 'Media Server Configuration',
       infoDesc:
-        'Configure media server for media library management, can choose Emby, Jellyfin, Plex, TrimeMedia or Ugreen.',
+        'Configure media server for media library management, can choose Emby, ZSpace, Jellyfin, Plex, TrimeMedia or Ugreen.',
       type: 'Media Server Type',
       typeHint: 'Select the type of media server to use',
       name: 'Server Name',
       nameHint: 'Set a name for the media server',
       embyConfig: 'Emby Configuration',
+      zspaceConfig: 'ZSpace Configuration',
       jellyfinConfig: 'Jellyfin Configuration',
       plexConfig: 'Plex Configuration',
       host: 'Server Address',

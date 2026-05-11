@@ -320,6 +320,7 @@ export function useSetupWizard() {
     // 媒体服务器映射
     mediaServer: {
       'emby': 'EmbyModule',
+      'zspace': 'ZSpaceModule',
       'jellyfin': 'JellyfinModule',
       'plex': 'PlexModule',
       'trimemedia': 'TrimeMediaModule',
@@ -616,6 +617,15 @@ export function useSetupWizard() {
       if (!wizardData.value.mediaServer.config?.apikey?.trim()) {
         errors.push(t('mediaserver.apiKeyRequired'))
         validationErrors.value.mediaServer.apikey = true
+      }
+    } else if (wizardData.value.mediaServer.type === 'zspace') {
+      if (!wizardData.value.mediaServer.config?.username?.trim()) {
+        errors.push(t('mediaserver.usernameRequired'))
+        validationErrors.value.mediaServer.username = true
+      }
+      if (!wizardData.value.mediaServer.config?.password?.trim()) {
+        errors.push(t('mediaserver.passwordRequired'))
+        validationErrors.value.mediaServer.password = true
       }
     } else if (wizardData.value.mediaServer.type === 'plex') {
       if (!wizardData.value.mediaServer.config?.token?.trim()) {

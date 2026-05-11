@@ -40,6 +40,7 @@ function imageErrorHandler() {
 function getDefaultImage() {
   if (props.media?.server_type === 'plex') return plex
   else if (props.media?.server_type === 'emby') return emby
+  else if (props.media?.server_type === 'zspace') return getLogoUrl('zspace')
   else if (props.media?.server_type === 'jellyfin') return jellyfin
   else if (props.media?.server_type === 'trimemedia') return getLogoUrl('trimemedia')
   else if (props.media?.server_type === 'ugreen') return getLogoUrl('ugreen')

@@ -124,6 +124,19 @@ watch(
               </VCol>
               <VCol cols="12" md="3">
                 <VCard
+                  :color="wizardData.mediaServer.type === 'zspace' ? 'primary' : 'default'"
+                  :variant="wizardData.mediaServer.type === 'zspace' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectMediaServerWithLibrary('zspace')"
+                >
+                  <VCardText class="text-center">
+                    <VImg :src="getLogoUrl('zspace')" height="48" width="48" class="mx-auto mb-2" />
+                    <div class="text-h6">极影视</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="3">
+                <VCard
                   :color="wizardData.mediaServer.type === 'jellyfin' ? 'primary' : 'default'"
                   :variant="wizardData.mediaServer.type === 'jellyfin' ? 'tonal' : 'outlined'"
                   class="cursor-pointer"
@@ -243,6 +256,89 @@ watch(
                       persistent-hint
                       active
                       prepend-inner-icon="mdi-key"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <VAutocomplete
+                      v-model="wizardData.mediaServer.sync_libraries"
+                      :label="t('mediaserver.syncLibraries')"
+                      :items="librariesOptions"
+                      chips
+                      multiple
+                      clearable
+                      :hint="t('mediaserver.syncLibrariesHint')"
+                      persistent-hint
+                      active
+                      append-inner-icon="mdi-refresh"
+                      prepend-inner-icon="mdi-library"
+                      @click:append-inner="loadLibrary(wizardData.mediaServer.name)"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.mediaServer.type === 'zspace'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.mediaServer.name"
+                      :label="t('common.name')"
+                      :placeholder="t('mediaserver.nameRequired')"
+                      :hint="t('mediaserver.serverAlias')"
+                      :error="validationErrors.mediaServer.name"
+                      :error-messages="validationErrors.mediaServer.name ? [t('mediaserver.nameRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.mediaServer.config.host"
+                      :label="t('mediaserver.host')"
+                      :placeholder="t('mediaserver.hostPlaceholder')"
+                      :hint="t('mediaserver.hostHint')"
+                      :error="validationErrors.mediaServer.host"
+                      :error-messages="validationErrors.mediaServer.host ? [t('mediaserver.hostRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-server"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12">
+                    <VTextField
+                      v-model="wizardData.mediaServer.config.play_host"
+                      :label="t('mediaserver.playHost')"
+                      :placeholder="t('mediaserver.playHostPlaceholder')"
+                      :hint="t('mediaserver.playHostHint')"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-play-network"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.mediaServer.config.username"
+                      :label="t('mediaserver.username')"
+                      :hint="t('mediaserver.usernameHint')"
+                      :error="validationErrors.mediaServer.username"
+                      :error-messages="validationErrors.mediaServer.username ? [t('mediaserver.usernameRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-account"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      type="password"
+                      v-model="wizardData.mediaServer.config.password"
+                      :label="t('mediaserver.password')"
+                      :error="validationErrors.mediaServer.password"
+                      :error-messages="validationErrors.mediaServer.password ? [t('mediaserver.passwordRequired')] : []"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-lock"
                       required
                     />
                   </VCol>

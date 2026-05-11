@@ -1,6 +1,6 @@
 /**
  * 通用APP深度链接工具类
- * 支持媒体服务器（Plex、Jellyfin、Emby）和豆瓣的APP跳转和网页跳转
+ * 支持媒体服务器（Plex、Jellyfin、Emby、极影视、飞牛影视）和豆瓣的APP跳转和网页跳转
  *
  * 深度链接格式参考：
  * - Plex: https://forums.plex.tv/t/plex-mobile-app-deep-linking/123456
@@ -12,7 +12,7 @@
 import { isMobileDevice, isIOSDevice, isAndroidDevice } from '@/@core/utils'
 
 // APP类型
-export type AppType = 'plex' | 'jellyfin' | 'emby' | 'trimemedia' | 'douban'
+export type AppType = 'plex' | 'jellyfin' | 'emby' | 'zspace' | 'trimemedia' | 'douban'
 
 // 深度链接配置
 interface DeepLinkConfig {
@@ -36,6 +36,11 @@ const DEEP_LINK_CONFIGS: Record<AppType, DeepLinkConfig> = {
   emby: {
     appScheme: 'emby://',
     webUrl: 'https://emby.media',
+    timeout: 2000,
+  },
+  zspace: {
+    appScheme: 'emby://',
+    webUrl: 'https://www.zspace.com.cn',
     timeout: 2000,
   },
   trimemedia: {
@@ -133,6 +138,9 @@ function buildDeepLinkUrl(appType: AppType, params: string | DoubanAppParams): s
       return buildJellyfinDeepLink(params as string)
 
     case 'emby':
+      return buildEmbyDeepLink(params as string)
+
+    case 'zspace':
       return buildEmbyDeepLink(params as string)
 
     case 'trimemedia':
@@ -634,7 +642,7 @@ export async function openMediaServerWithAutoDetect(
   // 优先使用传入的 serverType 参数
   if (serverType) {
     const type = serverType.toLowerCase()
-    if (type === 'plex' || type === 'jellyfin' || type === 'emby' || type === 'trimemedia') {
+    if (type === 'plex' || type === 'jellyfin' || type === 'emby' || type === 'zspace' || type === 'trimemedia') {
       detectedServerType = type as AppType
     }
   }
@@ -649,6 +657,8 @@ export async function openMediaServerWithAutoDetect(
       detectedServerType = 'jellyfin'
     } else if (url.includes('emby')) {
       detectedServerType = 'emby'
+    } else if (url.includes('zspace')) {
+      detectedServerType = 'zspace'
     }
   }
 
@@ -698,6 +708,8 @@ export function getAppDownloadUrl(appType: AppType): string {
       return 'https://jellyfin.org/downloads/'
     case 'emby':
       return 'https://emby.media/download.html'
+    case 'zspace':
+      return 'https://www.zspace.com.cn/'
     case 'trimemedia':
       return 'https://trimemedia.com/download'
     case 'douban':

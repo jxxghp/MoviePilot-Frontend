@@ -8,6 +8,7 @@ import qbittorrentLogo from '@/assets/images/logos/qbittorrent.png'
 import transmissionLogo from '@/assets/images/logos/transmission.png'
 import rtorrentLogo from '@/assets/images/logos/rtorrent.png'
 import embyLogo from '@/assets/images/logos/emby.png'
+import zspaceLogo from '@/assets/images/logos/zspace.webp'
 import jellyfinLogo from '@/assets/images/logos/jellyfin.png'
 import plexLogo from '@/assets/images/logos/plex.png'
 import trimemediaLogo from '@/assets/images/logos/trimemedia.png'
@@ -40,6 +41,7 @@ const logoMap: Record<string, string> = {
   transmission: transmissionLogo,
   rtorrent: rtorrentLogo,
   emby: embyLogo,
+  zspace: zspaceLogo,
   jellyfin: jellyfinLogo,
   plex: plexLogo,
   trimemedia: trimemediaLogo,

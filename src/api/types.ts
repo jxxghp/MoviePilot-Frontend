@@ -1145,7 +1145,7 @@ export interface StorageConf {
 export interface MediaServerConf {
   // 名称
   name: string
-  // 类型 emby/jellyfin/plex/trimemedia/ugreen
+  // 类型 emby/zspace/jellyfin/plex/trimemedia/ugreen
   type: string
   // 配置
   config: { [key: string]: any }

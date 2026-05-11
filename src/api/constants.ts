@@ -69,6 +69,10 @@ export const mediaServerOptions = [
     title: i18n.global.t('setting.system.emby'),
   },
   {
+    value: 'zspace',
+    title: i18n.global.t('setting.system.zspace'),
+  },
+  {
     value: 'jellyfin',
     title: i18n.global.t('setting.system.jellyfin'),
   },
