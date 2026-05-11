@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="zh-CN" style="
-    overflow: hidden auto;
-    min-block-size: 100vh;
-    min-block-size: 100dvh;
+    overflow: hidden;
+    block-size: 100%;
+    min-block-size: 100%;
     --safe-area-inset-bottom: env(safe-area-inset-bottom);
     --safe-area-inset-top: env(safe-area-inset-top);
-    background: var(--initial-loader-bg, #fff);
+    --initial-loader-bg: #0E1116;
+    --initial-loader-color: #9155FD;
+    --initial-loader-height: 100svh;
+    --initial-loader-width: 100vw;
+    background: var(--initial-loader-bg, #0E1116);
+    background-color: var(--initial-loader-bg, #0E1116);
   ">
 
 <head>
@@ -94,54 +99,89 @@
   <style>
     html,
     body {
-      background: var(--initial-loader-bg, #fff);
+      background: var(--initial-loader-bg, #0E1116);
+      background-color: var(--initial-loader-bg, #0E1116);
+      overflow: hidden;
+    }
+
+    body {
+      min-block-size: var(--initial-loader-height, 100svh);
     }
 
     #app {
-      min-block-size: 100%;
+      min-block-size: var(--initial-loader-height, 100svh);
+      background: var(--initial-loader-bg, #0E1116);
+      background-color: var(--initial-loader-bg, #0E1116);
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
     }
 
     #loading-bg {
       position: fixed;
-      inset: 0;
+      inset-block-start: 0;
+      inset-inline-start: 0;
       z-index: 99999;
       display: block;
-      background: var(--initial-loader-bg, #fff);
-      min-block-size: 100vh;
-      min-block-size: 100dvh;
-      transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease;
+      overflow: hidden;
+      background: var(--initial-loader-bg, #0E1116);
+      background-color: var(--initial-loader-bg, #0E1116);
+      block-size: var(--initial-loader-height, 100svh);
+      inline-size: 100%;
+      transition: opacity 0.18s ease-out;
+    }
+
+    .loading-shell {
+      box-sizing: border-box;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      block-size: 100%;
+      inline-size: 100%;
+      padding:
+        calc(env(safe-area-inset-top, 0px) + 24px)
+        24px
+        calc(env(safe-area-inset-bottom, 0px) + 48px);
+    }
+
+    .loading-main {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-block-size: 0;
     }
 
     .loading-logo {
-      position: absolute;
-      inset-block-start: 35%;
-      inset-inline-start: calc(50% - 5rem);
-      transition: opacity 0.8s ease, transform 0.8s ease, filter 0.8s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      inline-size: min(160px, 36vw);
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
     }
 
-    .loading-complete .loading-logo {
-      filter: blur(10px);
-      opacity: 0;
-      transform: scale(1.5);
+    .loading-logo img {
+      display: block;
+      block-size: auto;
+      inline-size: 100%;
+    }
+
+    .loading-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-block-size: clamp(72px, 14vh, 120px);
     }
 
     .loading-complete {
-      filter: blur(15px);
       opacity: 0;
-      transform: scale(1.2);
     }
 
     .loading {
-      position: absolute;
+      position: relative;
       box-sizing: border-box;
       border: 3px solid transparent;
       border-radius: 50%;
-      block-size: 55px;
-      inline-size: 55px;
-      inset-block-start: 80%;
-      inset-inline-start: calc(50% - 27.5px);
+      block-size: 46px;
+      inline-size: 46px;
       transition: opacity 0.6s ease;
     }
 
@@ -204,7 +244,7 @@
       position: absolute;
       z-index: 2500;
       display: none;
-      inset-block-end: 20px;
+      inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 24px);
       inset-inline-start: 50%;
       transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.8);
@@ -215,7 +255,8 @@
       font-family: sans-serif;
       text-align: center;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-      white-space: nowrap;
+      max-inline-size: calc(100% - 32px);
+      white-space: normal;
       backdrop-filter: blur(4px);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
@@ -239,25 +280,66 @@
       }
     }
 
-    // 主题色彩初始化
-    let loaderColor = localStorage.getItem('materio-initial-loader-bg')
-    let primaryColor = localStorage.getItem('materio-initial-loader-color')
-
-    // 检查主题设置
-    const savedTheme = localStorage.getItem('theme') || 'auto'
-    const isAutoTheme = savedTheme === 'auto'
-
-    // 如果是自动主题或者没有保存的背景色，根据系统主题设置背景色
-    if (isAutoTheme || !loaderColor) {
-      loaderColor = checkPrefersColorSchemeIsDark() ? '#0E1116' : '#FFFFFF'
+    // 根据当前主题提前确定启动屏色彩，避免 iOS PWA 从原生启动图切到网页时露出默认白底。
+    const launchThemeBackgrounds = {
+      light: '#F4F5FA',
+      dark: '#0E1116',
+      purple: '#28243D',
+      transparent: '#1C1C1C',
+      default: '#F4F5FA',
     }
+
+    const savedTheme = localStorage.getItem('theme') || 'auto'
+    const resolvedLaunchTheme = savedTheme === 'auto'
+      ? (checkPrefersColorSchemeIsDark() ? 'dark' : 'light')
+      : savedTheme
+
+    let loaderColor = localStorage.getItem('materio-initial-loader-bg')
+      || launchThemeBackgrounds[resolvedLaunchTheme]
+      || launchThemeBackgrounds.light
+
+    let primaryColor = localStorage.getItem('materio-initial-loader-color')
     if (!primaryColor) {
       primaryColor = '#9155FD'
     }
 
+    // 在应用脚本接管前锁定一次启动期视口，避免 iOS 独立模式首次重算 safe area 时把 logo 顶下去。
+    function syncInitialViewport(force) {
+      const viewport = window.visualViewport
+      const nextHeight = Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight || 0)
+      const nextWidth = Math.round(viewport?.width || window.innerWidth || document.documentElement.clientWidth || 0)
+      const currentHeight = parseInt(
+        document.documentElement.style.getPropertyValue('--initial-loader-height') || '0',
+        10,
+      )
+
+      if (!nextHeight || !nextWidth) {
+        return
+      }
+
+      if (!force && currentHeight && Math.abs(nextHeight - currentHeight) < 120) {
+        return
+      }
+
+      document.documentElement.style.setProperty('--initial-loader-height', `${nextHeight}px`)
+      document.documentElement.style.setProperty('--initial-loader-width', `${nextWidth}px`)
+      document.documentElement.style.setProperty('--vh', `${nextHeight * 0.01}px`)
+    }
+
     // 应用主题色彩
+    document.documentElement.setAttribute('data-launch-theme', resolvedLaunchTheme)
     document.documentElement.style.setProperty('--initial-loader-bg', loaderColor)
     document.documentElement.style.setProperty('--initial-loader-color', primaryColor)
+    document.documentElement.style.backgroundColor = loaderColor
+    syncInitialViewport(true)
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.style.backgroundColor = loaderColor
+    })
+
+    window.addEventListener('orientationchange', () => {
+      window.setTimeout(() => syncInitialViewport(true), 160)
+    })
 
     // 状态栏适配
     if (window.navigator.standalone) {
@@ -349,14 +431,20 @@
 
 <body style="margin: 0; overflow: hidden; overscroll-behavior: none; -webkit-overflow-scrolling: touch">
   <div id="loading-bg">
-    <div class="loading-logo">
-      <!-- Logo -->
-      <img src="/logo.svg" alt="MoviePilot" width="160px" height="160px" />
-    </div>
-    <div class="loading">
-      <div class="effect-1 effects"></div>
-      <div class="effect-2 effects"></div>
-      <div class="effect-3 effects"></div>
+    <div class="loading-shell">
+      <div class="loading-main">
+        <div class="loading-logo">
+          <!-- Logo -->
+          <img src="/logo.svg" alt="MoviePilot" width="160" height="160" />
+        </div>
+      </div>
+      <div class="loading-footer">
+        <div class="loading">
+          <div class="effect-1 effects"></div>
+          <div class="effect-2 effects"></div>
+          <div class="effect-3 effects"></div>
+        </div>
+      </div>
     </div>
     <!-- 超时提示 - 默认隐藏 -->
     <div id="loading-timeout"></div>

@@ -20,6 +20,16 @@ let themeValue = localStorage.getItem('theme') || 'auto'
 const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
 globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
 
+// 启动屏和 iOS safe area 在同一层显示，根节点底色需要尽早和当前主题保持一致。
+function syncRootLaunchPalette() {
+  const { background, primary } = globalTheme.current.value.colors
+
+  document.documentElement.style.setProperty('--initial-loader-bg', background)
+  document.documentElement.style.setProperty('--initial-loader-color', primary)
+  document.documentElement.style.backgroundColor = background
+  document.body.style.backgroundColor = background
+}
+
 // 生效语言
 const localeValue = getBrowserLocale()
 setI18nLanguage(localeValue as SupportedLocale)
@@ -73,6 +83,7 @@ const stopHeartbeat = () => {
 function updateHtmlThemeAttribute(themeName: string) {
   document.documentElement.setAttribute('data-theme', themeName)
   document.body.setAttribute('data-theme', themeName)
+  syncRootLaunchPalette()
 }
 
 // 获取背景图片
@@ -126,8 +137,15 @@ function startBackgroundRotation() {
 function animateAndRemoveLoader() {
   const loadingBg = document.querySelector('#loading-bg') as HTMLElement
   if (loadingBg) {
-    removeEl('#loading-bg')
-    document.documentElement.style.removeProperty('background')
+    // 先淡出启动层，再移除节点，避免 iOS 在主题容器完全接管前露出底部空白。
+    loadingBg.classList.add('loading-complete')
+    window.setTimeout(() => {
+      removeEl('#loading-bg')
+
+      // 启动阶段会锁定根节点滚动，待应用布局接管后再恢复，避免首屏出现瞬时纵向滚动条。
+      document.documentElement.style.removeProperty('overflow')
+      document.body.style.removeProperty('overflow')
+    }, 180)
   }
 }
 
