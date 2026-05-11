@@ -142,7 +142,8 @@ function animateAndRemoveLoader() {
     window.setTimeout(() => {
       removeEl('#loading-bg')
 
-      // 启动阶段会锁定根节点滚动，待应用布局接管后再恢复，避免首屏出现瞬时纵向滚动条。
+      // 启动阶段的根节点锁定只在 loader 存在时生效，移除后恢复正常页面与弹窗布局。
+      document.documentElement.removeAttribute('data-launch-loading')
       document.documentElement.style.removeProperty('overflow')
       document.body.style.removeProperty('overflow')
     }, 120)

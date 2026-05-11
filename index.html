@@ -1,8 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh-CN" style="
+<html lang="zh-CN" data-launch-loading="true" style="
     overflow: hidden;
-    block-size: 100%;
-    min-block-size: 100%;
     --safe-area-inset-bottom: env(safe-area-inset-bottom);
     --safe-area-inset-top: env(safe-area-inset-top);
     --initial-loader-bg: #0E1116;
@@ -101,14 +99,18 @@
     body {
       background: var(--initial-loader-bg, #0E1116);
       background-color: var(--initial-loader-bg, #0E1116);
+    }
+
+    html[data-launch-loading="true"],
+    html[data-launch-loading="true"] body {
       overflow: hidden;
     }
 
-    body {
+    html[data-launch-loading="true"] body {
       min-block-size: var(--initial-loader-height, 100svh);
     }
 
-    #app {
+    html[data-launch-loading="true"] #app {
       min-block-size: var(--initial-loader-height, 100svh);
       background: var(--initial-loader-bg, #0E1116);
       background-color: var(--initial-loader-bg, #0E1116);
@@ -118,23 +120,21 @@
 
     #loading-bg {
       position: fixed;
-      inset-block-start: 0;
-      inset-inline-start: 0;
+      inset: 0;
       z-index: 99999;
       display: block;
       overflow: hidden;
       background: var(--initial-loader-bg, #0E1116);
       background-color: var(--initial-loader-bg, #0E1116);
-      block-size: var(--initial-loader-height, 100svh);
-      inline-size: 100%;
     }
 
     .loading-shell {
       box-sizing: border-box;
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
-      block-size: 100%;
+      block-size: var(--initial-loader-height, 100svh);
       inline-size: 100%;
+      min-block-size: var(--initial-loader-height, 100svh);
       transition: opacity 0.12s ease-out, transform 0.12s ease-out;
       padding:
         calc(env(safe-area-inset-top, 0px) + 24px)
@@ -305,7 +305,7 @@
       primaryColor = '#9155FD'
     }
 
-    // 在应用脚本接管前锁定一次启动期视口，避免 iOS 独立模式首次重算 safe area 时把 logo 顶下去。
+    // 在应用脚本接管前锁定一次启动层内容高度，避免 iOS 独立模式首次重算 safe area 时把 logo 顶下去。
     function syncInitialViewport(force) {
       const viewport = window.visualViewport
       const nextHeight = Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight || 0)
@@ -325,7 +325,6 @@
 
       document.documentElement.style.setProperty('--initial-loader-height', `${nextHeight}px`)
       document.documentElement.style.setProperty('--initial-loader-width', `${nextWidth}px`)
-      document.documentElement.style.setProperty('--vh', `${nextHeight * 0.01}px`)
     }
 
     // 应用主题色彩
