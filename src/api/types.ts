@@ -1311,6 +1311,57 @@ export interface TransferForm {
   library_category_folder?: boolean
   // 剧集组编号
   episode_group?: string
+  // 预览模式
+  preview?: boolean
+}
+
+// 手动整理请求
+export interface ManualTransferPayload extends TransferForm {}
+
+// 手动整理预览统计
+export interface ManualTransferPreviewSummary {
+  // 总数
+  total: number
+  // 成功数
+  success: number
+  // 失败数
+  failed: number
+}
+
+// 手动整理预览项
+export interface ManualTransferPreviewItem {
+  // 原始路径
+  source?: string
+  // 目标路径
+  target?: string
+  // 目标目录
+  target_dir?: string
+  // 是否成功
+  success?: boolean
+  // 提示信息
+  message?: string
+  // 媒体类型
+  type?: string
+  // 媒体标题
+  title?: string
+  // 季
+  season?: number | string
+  // 开始集
+  episode?: number | string
+  // 结束集
+  episode_end?: number | string
+  // Part
+  part?: string
+}
+
+// 手动整理预览数据
+export interface ManualTransferPreviewData {
+  // 统计信息
+  summary: ManualTransferPreviewSummary
+  // 预览结果
+  items: ManualTransferPreviewItem[]
+  // 额外消息
+  message?: string
 }
 
 // 整理队列
