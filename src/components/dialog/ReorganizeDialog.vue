@@ -80,11 +80,11 @@ const progressSSE = ref<any>(null)
 // 预览加载状态
 const previewLoading = ref(false)
 
+// 预览面板显隐
+const previewVisible = ref(false)
+
 // 是否已加载预览
 const previewLoaded = ref(false)
-
-// 预览错误
-const previewRequestError = ref('')
 
 // 预览数据
 const previewData = ref<ManualTransferPreviewData>()
@@ -427,8 +427,16 @@ const previewNeedsWideLayout = computed(() => {
 // 弹窗宽度
 const dialogMaxWidth = computed(() => {
   if (!display.mdAndUp.value) return '100%'
-  const preferredWidth = previewLoaded.value && previewNeedsWideLayout.value ? '132rem' : '99rem'
+
+  if (!previewVisible.value) return 'min(45rem, calc(100vw - 2rem))'
+
+  const preferredWidth = previewNeedsWideLayout.value ? '126rem' : '110rem'
   return `min(${preferredWidth}, calc(100vw - 2rem))`
+})
+
+// 预览按钮图标
+const previewToggleIcon = computed(() => {
+  return previewVisible.value ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
 })
 
 // 构造整理请求
@@ -464,6 +472,26 @@ function getDefaultPreviewData(): ManualTransferPreviewData {
   }
 }
 
+function resetPreviewState() {
+  previewData.value = undefined
+  previewLoaded.value = false
+  previewPage.value = 1
+}
+
+function previewHasFailures(data?: ManualTransferPreviewData) {
+  if (!data) return false
+
+  return (data.summary.failed ?? 0) > 0 || (data.items ?? []).some(item => item.success === false)
+}
+
+function getPreviewFailureMessage(data?: ManualTransferPreviewData) {
+  return (
+    data?.items.find(item => item.success === false)?.message ||
+    data?.message ||
+    t('dialog.reorganize.previewRequestFailed')
+  )
+}
+
 // 合并多次预览结果
 function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTransferPreviewData) {
   if (!incoming) return
@@ -485,31 +513,12 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
   }
 }
 
-function appendPreviewFailure(target: ManualTransferPreviewData, options: { source?: string; message?: string }) {
-  const message = options.message || t('dialog.reorganize.previewRequestFailed')
-  mergePreviewData(target, {
-    summary: {
-      total: 1,
-      success: 0,
-      failed: 1,
-    },
-    items: [
-      {
-        source: options.source,
-        success: false,
-        message,
-      },
-    ],
-    message,
-  })
-}
-
 // 预览整理结果
 async function previewTransfer() {
   if (!props.logids && !props.items) return
 
   previewLoading.value = true
-  previewRequestError.value = ''
+  resetPreviewState()
 
   const mergedPreviewData = getDefaultPreviewData()
 
@@ -523,15 +532,13 @@ async function previewTransfer() {
             const result = await requestManualTransfer<ManualTransferPreviewData>(
               createTransferPayload({ item, preview: true }),
             )
-            if (result.success) {
-              mergePreviewData(mergedPreviewData, result.data)
-            } else {
-              console.warn(`预览失败: ${result.message}`)
-              appendPreviewFailure(mergedPreviewData, { source: item.path, message: result.message })
-            }
+            if (!result.success) throw new Error(result.message || t('dialog.reorganize.previewRequestFailed'))
+
+            mergePreviewData(mergedPreviewData, result.data)
           } catch (err: any) {
             console.warn(`预览请求异常: ${err?.message}`)
-            appendPreviewFailure(mergedPreviewData, { source: item.path, message: err?.message })
+            const label = item.name || item.path
+            throw new Error(`${label}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`)
           }
         }),
       )
@@ -544,19 +551,12 @@ async function previewTransfer() {
             const result = await requestManualTransfer<ManualTransferPreviewData>(
               createTransferPayload({ logid, preview: true }),
             )
-            if (result.success) {
-              mergePreviewData(mergedPreviewData, result.data)
-            } else {
-              console.warn(`预览失败: ${result.message}`)
-              appendPreviewFailure(mergedPreviewData, {
-                message: `历史记录 ${logid}: ${result.message || t('dialog.reorganize.previewRequestFailed')}`,
-              })
-            }
+            if (!result.success) throw new Error(result.message || t('dialog.reorganize.previewRequestFailed'))
+
+            mergePreviewData(mergedPreviewData, result.data)
           } catch (err: any) {
             console.warn(`预览请求异常: ${err?.message}`)
-            appendPreviewFailure(mergedPreviewData, {
-              message: `历史记录 ${logid}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
-            })
+            throw new Error(`历史记录 ${logid}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`)
           }
         }),
       )
@@ -564,15 +564,32 @@ async function previewTransfer() {
 
     await Promise.all(tasks)
 
+    if (previewHasFailures(mergedPreviewData)) {
+      throw new Error(getPreviewFailureMessage(mergedPreviewData))
+    }
+
     previewData.value = mergedPreviewData
     previewLoaded.value = true
     nextTick(() => updatePreviewPageSize())
   } catch (error: any) {
-    previewRequestError.value = error?.message || t('dialog.reorganize.previewRequestFailed')
-    $toast.error(t('dialog.reorganize.previewRequestFailed'))
+    previewVisible.value = false
+    resetPreviewState()
+    $toast.error(error?.message || t('dialog.reorganize.previewRequestFailed'))
   } finally {
     previewLoading.value = false
   }
+}
+
+async function togglePreview() {
+  if (previewLoading.value) return
+
+  if (previewVisible.value) {
+    previewVisible.value = false
+    return
+  }
+
+  previewVisible.value = true
+  await previewTransfer()
 }
 
 // 根据可用高度自动计算每页条数，保持统一行高
@@ -603,19 +620,16 @@ function setupPreviewFileBodyObserver() {
   previewFileBodyResizeObserver.observe(previewFileBodyRef.value)
 }
 
-watch(
-  () => previewLoaded.value,
-  loaded => {
-    if (loaded) {
-      nextTick(() => {
-        setupPreviewFileBodyObserver()
-        updatePreviewPageSize()
-      })
-    } else {
-      previewFileBodyResizeObserver?.disconnect()
-    }
-  },
-)
+watch([() => previewLoaded.value, () => previewVisible.value], ([loaded, visible]) => {
+  if (loaded && visible) {
+    nextTick(() => {
+      setupPreviewFileBodyObserver()
+      updatePreviewPageSize()
+    })
+  } else {
+    previewFileBodyResizeObserver?.disconnect()
+  }
+})
 
 // 整理文件
 async function handleTransfer(item: FileItem, background: boolean = false) {
@@ -729,8 +743,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
-    <VCard class="reorganize-dialog-card">
+  <VDialog :scrollable="!previewVisible || !display.mdAndUp.value" :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
+    <VCard class="reorganize-dialog-card" :class="{ 'reorganize-dialog-card--split': previewVisible && display.mdAndUp.value }">
       <VCardItem class="py-2">
         <template #prepend> <VIcon icon="mdi-folder-move" class="me-2" /> </template>
         <VCardTitle>{{ dialogTitle }}</VCardTitle>
@@ -738,8 +752,8 @@ onUnmounted(() => {
       </VCardItem>
       <VDialogCloseBtn @click="emit('close')" />
       <VDivider />
-      <VCardText class="pa-0">
-        <div class="reorganize-main-row">
+      <VCardText class="pa-0 reorganize-dialog-card__body">
+        <div class="reorganize-main-row" :class="{ 'reorganize-main-row--preview-visible': previewVisible }">
           <div class="reorganize-form-pane">
             <div class="reorganize-form-pane__content pa-6">
               <VForm @submit.prevent="() => {}">
@@ -938,10 +952,12 @@ onUnmounted(() => {
               </VForm>
               <VCardActions class="reorganize-form-pane__actions pt-3 px-0 pb-0">
                 <VBtn
-                  color="primary"
-                  @click="previewTransfer"
-                  prepend-icon="mdi-eye-outline"
+                  color="info"
+                  :variant="previewVisible ? 'tonal' : 'text'"
+                  @click="togglePreview"
+                  :prepend-icon="previewToggleIcon"
                   class="reorganize-action-btn reorganize-action-btn--preview"
+                  :class="{ 'reorganize-action-btn--active': previewVisible }"
                   :loading="previewLoading"
                 >
                   {{ t('dialog.reorganize.previewResult') }}
@@ -964,122 +980,119 @@ onUnmounted(() => {
               </VCardActions>
             </div>
           </div>
-          <div class="reorganize-preview-pane">
+          <div v-show="previewVisible" class="reorganize-preview-pane">
             <div class="reorganize-preview-pane__header">
-              <div class="reorganize-preview-pane__header-main">
-                <div class="reorganize-preview-pane__title-block">
-                  <div class="reorganize-preview-pane__title-row">
-                    <div class="text-h6">{{ t('dialog.reorganize.previewTitle') }}</div>
-                    <div v-if="previewLoaded" class="preview-title-stats">
-                      <VChip color="primary" variant="tonal" size="small">
-                        {{ t('dialog.reorganize.previewTotal', { count: previewSummary.total }) }}
-                      </VChip>
-                      <VChip color="success" variant="tonal" size="small">
-                        {{ t('dialog.reorganize.previewSuccess', { count: previewSummary.success }) }}
-                      </VChip>
-                      <VChip color="error" variant="tonal" size="small">
-                        {{ t('dialog.reorganize.previewFailed', { count: previewSummary.failed }) }}
-                      </VChip>
-                    </div>
+              <div class="reorganize-preview-pane__title-block">
+                <div class="reorganize-preview-pane__title-row">
+                  <div class="text-h6">{{ t('dialog.reorganize.previewTitle') }}</div>
+                  <div v-if="previewLoaded" class="preview-title-stats">
+                    <VChip color="primary" variant="tonal" size="small">
+                      {{ t('dialog.reorganize.previewTotal', { count: previewSummary.total }) }}
+                    </VChip>
+                    <VChip color="success" variant="tonal" size="small">
+                      {{ t('dialog.reorganize.previewSuccess', { count: previewSummary.success }) }}
+                    </VChip>
+                    <VChip color="error" variant="tonal" size="small">
+                      {{ t('dialog.reorganize.previewFailed', { count: previewSummary.failed }) }}
+                    </VChip>
                   </div>
                 </div>
-                <div v-if="previewLoaded" class="reorganize-preview-pane__overview">
-                  <div class="preview-overview-card">
-                    <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaName') }}</span>
-                    <span class="preview-overview-card__value">{{ previewMediaInfo.title }}</span>
-                  </div>
-                  <div class="preview-overview-card">
-                    <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaType') }}</span>
-                    <span class="preview-overview-card__value">{{ previewMediaInfo.type }}</span>
-                  </div>
-                  <div v-if="!previewIsMovie" class="preview-overview-card">
-                    <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewSeasonLabel') }}</span>
-                    <span class="preview-overview-card__value">{{ previewSeasonText }}</span>
-                  </div>
-                  <div v-if="!previewIsMovie" class="preview-overview-card">
-                    <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewEpisodeCount') }}</span>
-                    <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
-                  </div>
+                <div class="text-body-2 text-medium-emphasis mt-2">
+                  {{ t('dialog.reorganize.previewSubtitle') }}
                 </div>
               </div>
             </div>
-            <VAlert v-if="previewRequestError" type="error" variant="tonal" class="mx-4 mb-4">
-              {{ previewRequestError }}
-            </VAlert>
-            <div v-if="previewLoading" class="reorganize-preview-pane__loading">
-              <VProgressCircular indeterminate color="primary" />
-              <div class="text-body-2 text-medium-emphasis mt-3">{{ t('dialog.reorganize.previewLoading') }}</div>
-            </div>
-            <template v-else-if="previewLoaded">
-              <VAlert v-if="previewData?.message" type="info" variant="tonal" density="comfortable" class="mx-4 mb-4">
-                {{ previewData.message }}
-              </VAlert>
-              <div class="reorganize-preview-pane__scroll">
-                <div class="reorganize-preview-list">
-                  <div class="preview-file-header">
-                    <div class="preview-file-header__cell preview-file-header__cell--target">
-                      {{ t('dialog.reorganize.previewAfterColumn') }}
+            <div class="reorganize-preview-pane__body">
+              <div v-if="previewLoading" class="reorganize-preview-pane__loading">
+                <VProgressCircular indeterminate color="info" />
+                <div class="text-body-2 text-medium-emphasis mt-3">{{ t('dialog.reorganize.previewLoading') }}</div>
+              </div>
+              <template v-else-if="previewLoaded">
+                <div class="reorganize-preview-pane__scroll">
+                  <div class="reorganize-preview-pane__summary">
+                    <div v-if="previewData?.message" class="preview-note">
+                      {{ previewData.message }}
                     </div>
-                    <div class="preview-file-header__cell preview-file-header__cell--source">
-                      {{ t('dialog.reorganize.previewBeforeColumn') }}
-                    </div>
-                  </div>
-                  <div v-if="pagedPreviewRows.length" ref="previewFileBodyRef" class="preview-file-body">
-                    <div class="preview-file-panel preview-file-panel--target">
-                      <div class="preview-file-panel__scroll">
-                        <div class="preview-file-panel__content">
-                          <div
-                            v-for="(item, index) in pagedPreviewRows"
-                            :key="`target-${item.source}-${index}`"
-                            class="preview-file-row"
-                          >
-                            <span class="preview-file-text">{{ item.targetName }}</span>
-                          </div>
-                        </div>
+                    <div class="preview-summary-grid">
+                      <div class="preview-overview-card preview-overview-card--path">
+                        <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewSourcePath') }}</span>
+                        <span class="preview-overview-card__value preview-overview-card__value--path">{{
+                          previewSourcePath
+                        }}</span>
                       </div>
-                    </div>
-                    <div class="preview-file-panel preview-file-panel--source">
-                      <div class="preview-file-panel__scroll">
-                        <div class="preview-file-panel__content">
-                          <div
-                            v-for="(item, index) in pagedPreviewRows"
-                            :key="`source-${item.source}-${index}`"
-                            class="preview-file-row"
-                          >
-                            <span class="preview-file-text">{{ item.sourceName }}</span>
-                          </div>
-                        </div>
+                      <div class="preview-overview-card preview-overview-card--path">
+                        <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewTargetPath') }}</span>
+                        <span class="preview-overview-card__value preview-overview-card__value--path">{{
+                          previewTargetPath
+                        }}</span>
+                      </div>
+                      <div class="preview-overview-card">
+                        <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaName') }}</span>
+                        <span class="preview-overview-card__value">{{ previewMediaInfo.title }}</span>
+                      </div>
+                      <div class="preview-overview-card">
+                        <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaType') }}</span>
+                        <span class="preview-overview-card__value">{{ previewMediaInfo.type }}</span>
+                      </div>
+                      <div v-if="!previewIsMovie" class="preview-overview-card">
+                        <span class="preview-overview-card__label">{{
+                          t('dialog.reorganize.previewSeasonLabel')
+                        }}</span>
+                        <span class="preview-overview-card__value">{{ previewSeasonText }}</span>
+                      </div>
+                      <div v-if="!previewIsMovie" class="preview-overview-card">
+                        <span class="preview-overview-card__label">{{
+                          t('dialog.reorganize.previewEpisodeCount')
+                        }}</span>
+                        <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
                       </div>
                     </div>
                   </div>
-                  <div v-else class="reorganize-preview-list__empty">
-                    {{ t('dialog.reorganize.noPreviewData') }}
+                  <div class="reorganize-preview-list">
+                    <div v-if="pagedPreviewRows.length" ref="previewFileBodyRef" class="preview-file-body">
+                      <div
+                        v-for="(item, index) in pagedPreviewRows"
+                        :key="`${item.source}-${item.target}-${index}`"
+                        class="preview-file-row"
+                      >
+                        <div class="preview-file-row__card preview-file-row__card--source">
+                          <span class="preview-file-row__label">{{ t('dialog.reorganize.previewBeforeColumn') }}</span>
+                          <span class="preview-file-row__name">{{ item.sourceName }}</span>
+                          <span class="preview-file-row__path">{{ item.source || '-' }}</span>
+                        </div>
+                        <div class="preview-file-row__arrow">
+                          <VIcon icon="mdi-arrow-right" size="18" />
+                        </div>
+                        <div class="preview-file-row__card preview-file-row__card--target">
+                          <span class="preview-file-row__label">{{ t('dialog.reorganize.previewAfterColumn') }}</span>
+                          <span class="preview-file-row__name">{{ item.targetName }}</span>
+                          <span class="preview-file-row__path">{{ item.target || '-' }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="reorganize-preview-list__empty">
+                      {{ t('dialog.reorganize.noPreviewData') }}
+                    </div>
+                  </div>
+                  <div v-if="previewTotalPages > 1" class="reorganize-preview-pane__pagination">
+                    <VBtn
+                      size="x-small"
+                      icon="mdi-chevron-left"
+                      variant="text"
+                      :disabled="previewPage <= 1"
+                      @click="previewPage--"
+                    />
+                    <span class="text-caption">{{ previewPage }} / {{ previewTotalPages }}</span>
+                    <VBtn
+                      size="x-small"
+                      icon="mdi-chevron-right"
+                      variant="text"
+                      :disabled="previewPage >= previewTotalPages"
+                      @click="previewPage++"
+                    />
                   </div>
                 </div>
-                <div v-if="previewTotalPages > 1" class="reorganize-preview-pane__pagination">
-                  <VBtn
-                    size="x-small"
-                    icon="mdi-chevron-left"
-                    variant="text"
-                    :disabled="previewPage <= 1"
-                    @click="previewPage--"
-                  />
-                  <span class="text-caption">{{ previewPage }} / {{ previewTotalPages }}</span>
-                  <VBtn
-                    size="x-small"
-                    icon="mdi-chevron-right"
-                    variant="text"
-                    :disabled="previewPage >= previewTotalPages"
-                    @click="previewPage++"
-                  />
-                </div>
-              </div>
-            </template>
-            <div v-else class="reorganize-preview-pane__empty">
-              <div class="text-subtitle-1">{{ t('dialog.reorganize.previewEmptyTitle') }}</div>
-              <div class="text-body-2 text-medium-emphasis mt-2">
-                {{ t('dialog.reorganize.previewEmptyDescription') }}
-              </div>
+              </template>
             </div>
           </div>
         </div>
@@ -1106,32 +1119,73 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+.reorganize-dialog-card {
+  max-block-size: min(92vh, 64rem);
+}
+
+.reorganize-dialog-card__body {
+  min-block-size: 0;
+}
+
+.reorganize-dialog-card--split {
+  display: flex;
+  flex-direction: column;
+  block-size: min(92vh, 64rem);
+}
+
+.reorganize-dialog-card--split .reorganize-dialog-card__body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.reorganize-dialog-card--split .reorganize-main-row {
+  flex: 1 1 auto;
+  block-size: 100%;
+}
+
 .reorganize-main-row {
   display: grid;
   overflow: hidden;
   align-items: stretch;
-  grid-template-columns: 45% 55%;
+  grid-template-columns: minmax(0, 1fr);
+  min-block-size: 0;
   inline-size: 100%;
+  transition: grid-template-columns 0.25s ease;
+}
 
-  @media (width <= 959px) {
-    grid-template-columns: 1fr;
-  }
+.reorganize-main-row--preview-visible {
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
 }
 
 .reorganize-form-pane {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  min-block-size: 0;
   max-inline-size: none;
   min-inline-size: 0;
+}
+
+.reorganize-main-row--preview-visible .reorganize-form-pane {
+  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .reorganize-form-pane__content {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-block-size: 100%;
+  min-block-size: 0;
+}
+
+.reorganize-dialog-card--split .reorganize-form-pane,
+.reorganize-dialog-card--split .reorganize-preview-pane {
+  block-size: 100%;
+}
+
+.reorganize-dialog-card--split .reorganize-form-pane__content {
+  overflow: auto;
 }
 
 .reorganize-form-pane__actions {
@@ -1146,10 +1200,16 @@ onUnmounted(() => {
   min-inline-size: 0;
 }
 
+.reorganize-action-btn--active {
+  background: rgba(var(--v-theme-info), 0.12);
+}
+
 .reorganize-preview-pane {
   display: flex;
   overflow: hidden;
   flex-direction: column;
+  background: rgb(var(--v-theme-surface));
+  min-block-size: 0;
   min-inline-size: 0;
 }
 
@@ -1164,15 +1224,8 @@ onUnmounted(() => {
   padding-inline: 1.5rem;
 }
 
-.reorganize-preview-pane__header-main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 0.875rem;
-  min-inline-size: 0;
-}
-
 .reorganize-preview-pane__title-block {
+  flex: 1 1 auto;
   min-inline-size: 0;
 }
 
@@ -1183,11 +1236,12 @@ onUnmounted(() => {
   gap: 0.75rem 1rem;
 }
 
-.reorganize-preview-pane__overview {
+.reorganize-preview-pane__body {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  min-block-size: 0;
 }
 
 .preview-title-stats {
@@ -1197,17 +1251,46 @@ onUnmounted(() => {
   min-inline-size: 0;
 }
 
-.preview-overview-card {
+.reorganize-preview-pane__summary {
   display: flex;
-  flex: 1 1 12rem;
+  flex: 0 0 auto;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.75rem;
-  background: rgba(var(--v-theme-surface));
-  gap: 0.25rem;
-  min-inline-size: 0;
+  gap: 0.875rem;
+  padding-block-start: 1.25rem;
+  padding-inline: 1.5rem;
+}
+
+.preview-note {
+  border: 1px solid rgba(var(--v-theme-info), 0.16);
+  border-radius: 0.875rem;
+  background: rgba(var(--v-theme-info), 0.08);
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  line-height: 1.5;
   padding-block: 0.75rem;
   padding-inline: 0.875rem;
+}
+
+.preview-summary-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.preview-overview-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 1rem;
+  background: rgb(var(--v-theme-surface));
+  gap: 0.375rem;
+  min-inline-size: 0;
+  padding-block: 0.875rem;
+  padding-inline: 1rem;
+}
+
+.preview-overview-card--path {
+  grid-column: 1 / -1;
 }
 
 .preview-overview-card__label {
@@ -1221,9 +1304,17 @@ onUnmounted(() => {
   overflow: hidden;
   color: rgb(var(--v-theme-on-surface));
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.preview-overview-card__value--path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .reorganize-preview-pane__scroll {
@@ -1231,9 +1322,9 @@ onUnmounted(() => {
   overflow: hidden auto;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   min-block-size: 0;
-  padding-block-start: 0.75rem;
+  padding-block-end: 1rem;
 }
 
 .reorganize-preview-pane__pagination {
@@ -1241,13 +1332,12 @@ onUnmounted(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   gap: 0.25rem;
-  padding-block: 0.5rem;
+  padding-block: 0 1rem;
+  padding-inline: 1rem;
 }
 
-.reorganize-preview-pane__loading,
-.reorganize-preview-pane__empty {
+.reorganize-preview-pane__loading {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1258,118 +1348,101 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.reorganize-preview-table {
-  padding-block: 0 1rem;
-  padding-inline: 1rem;
-}
-
 .reorganize-preview-list {
   display: flex;
-  overflow: hidden;
-  flex: 1;
+  overflow: visible;
+  flex: 0 0 auto;
   flex-direction: column;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 1rem;
+  background: rgba(var(--v-theme-surface), 1);
+  margin-block-end: 1.5rem;
+  margin-inline: 1.5rem;
   min-block-size: 0;
   min-inline-size: 0;
-  padding-block: 0 1rem;
-  padding-inline: 1rem;
-}
-
-.preview-file-header {
-  display: grid;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0.5rem 0.5rem 0 0;
-  background: rgba(var(--v-theme-surface));
-  border-block-end: none;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.875rem;
-  font-weight: 500;
-  grid-template-columns: 50% 50%;
-}
-
-.preview-file-header__cell {
-  padding-block: 0.75rem;
-  padding-inline: 0.75rem;
-}
-
-.preview-file-header__cell--target {
-  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .preview-file-body {
-  display: grid;
-  overflow: hidden;
-  flex: 1 1 auto;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 0 0 0.5rem 0.5rem;
-  grid-template-columns: 50% 50%;
-  min-block-size: 0;
-  min-inline-size: 0;
-}
-
-.preview-file-panel {
   display: flex;
-  overflow: hidden;
+  overflow: visible;
+  flex: 0 0 auto;
   flex-direction: column;
+  gap: 0.75rem;
   min-block-size: 0;
   min-inline-size: 0;
-}
-
-.preview-file-panel--target {
-  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-.preview-file-panel__scroll {
-  overflow: auto hidden;
-  flex: 1 1 auto;
-  min-block-size: 0;
-  min-inline-size: 0;
-  scrollbar-color: rgba(var(--v-border-color), var(--v-border-opacity)) transparent;
-  scrollbar-width: thin;
-
-  &::-webkit-scrollbar {
-    block-size: 4px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    border-radius: 2px;
-    background: rgba(var(--v-border-color), var(--v-border-opacity));
-  }
-}
-
-.preview-file-panel__content {
-  display: flex;
-  flex-direction: column;
-  min-block-size: 100%;
-  min-inline-size: max-content;
+  padding-block: 1rem;
+  padding-inline: 1rem;
 }
 
 .preview-file-row {
-  display: flex;
-  box-sizing: border-box;
+  display: grid;
   align-items: center;
-  min-block-size: 2.75rem;
-  min-inline-size: max-content;
-  padding-block: 0.625rem;
-  padding-inline: 0.75rem;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.95rem;
+  background: rgb(var(--v-theme-surface));
+  gap: 0.875rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  min-block-size: 5.25rem;
+  min-inline-size: 0;
+  padding-block: 0.875rem;
+  padding-inline: 1rem;
 }
 
-.preview-file-row + .preview-file-row {
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+.preview-file-row__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-inline-size: 0;
 }
 
-.preview-file-text {
+.preview-file-row__label {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.preview-file-row__name {
+  overflow: hidden;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.preview-file-row__path {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-file-row__card--target .preview-file-row__name {
+  color: rgb(var(--v-theme-primary));
+}
+
+.preview-file-row__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(var(--v-border-color), 0.08);
+  block-size: 2rem;
+  color: rgb(var(--v-theme-info));
+  inline-size: 2rem;
 }
 
 .reorganize-preview-list__empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  padding-block: 1rem;
-  padding-inline: 0.5rem;
-  white-space: nowrap;
+  padding-block: 2rem;
+  padding-inline: 1rem;
+  text-align: center;
 }
 
 @media (width <= 1200px) {
@@ -1377,9 +1450,47 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .preview-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-overview-card--path {
+    grid-column: auto;
+  }
+
+  .preview-file-row {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-file-row__arrow {
+    justify-self: start;
+    transform: rotate(90deg);
+  }
 }
 
 @media (width <= 959px) {
+  .reorganize-dialog-card,
+  .reorganize-dialog-card--split {
+    max-block-size: none;
+    block-size: auto;
+  }
+
+  .reorganize-dialog-card--split .reorganize-dialog-card__body,
+  .reorganize-dialog-card--split .reorganize-form-pane__content {
+    overflow: visible;
+  }
+
+  .reorganize-main-row,
+  .reorganize-main-row--preview-visible {
+    grid-template-columns: 1fr;
+  }
+
+  .reorganize-main-row--preview-visible .reorganize-form-pane {
+    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-inline-end: none;
+  }
+
   .reorganize-form-pane__actions {
     display: grid;
     justify-content: stretch;
@@ -1389,6 +1500,15 @@ onUnmounted(() => {
   .reorganize-action-btn {
     inline-size: 100%;
     min-block-size: 2.75rem;
+  }
+
+  .reorganize-preview-pane__summary {
+    padding-inline: 1rem;
+  }
+
+  .reorganize-preview-list {
+    margin-block-end: 1rem;
+    margin-inline: 1rem;
   }
 }
 
@@ -1404,6 +1524,18 @@ onUnmounted(() => {
 
   .reorganize-action-btn--primary {
     grid-column: 1 / -1;
+  }
+
+  .reorganize-preview-pane__header {
+    padding-inline: 1rem;
+  }
+
+  .preview-file-body {
+    padding-inline: 0.75rem;
+  }
+
+  .preview-file-row {
+    padding-inline: 0.875rem;
   }
 }
 
