@@ -68,6 +68,19 @@ const notificationTypes = [
               </VCol>
               <VCol cols="12" md="3">
                 <VCard
+                  :color="wizardData.notification.type === 'feishu' ? 'primary' : 'default'"
+                  :variant="wizardData.notification.type === 'feishu' ? 'tonal' : 'outlined'"
+                  class="cursor-pointer"
+                  @click="selectNotification('feishu')"
+                >
+                  <VCardText class="text-center">
+                    <VImg :src="getLogoUrl('feishu')" height="48" width="48" class="mx-auto mb-2" />
+                    <div class="text-h6">飞书</div>
+                  </VCardText>
+                </VCard>
+              </VCol>
+              <VCol cols="12" md="3">
+                <VCard
                   :color="wizardData.notification.type === 'telegram' ? 'primary' : 'default'"
                   :variant="wizardData.notification.type === 'telegram' ? 'tonal' : 'outlined'"
                   class="cursor-pointer"
@@ -305,6 +318,93 @@ const notificationTypes = [
                       :hint="t('notification.wechatclawbot.adminsHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-account-supervisor"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow v-else-if="wizardData.notification.type === 'feishu'">
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.name"
+                      :label="t('notification.name')"
+                      :placeholder="t('notification.name')"
+                      :hint="t('notification.nameHint')"
+                      :error="validationErrors.notification.name"
+                      :error-messages="validationErrors.notification.name ? [t('notification.nameRequired')] : []"
+                      persistent-hint
+                      prepend-inner-icon="mdi-label"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_APP_ID"
+                      :label="t('notification.feishu.appId')"
+                      :hint="t('notification.feishu.appIdHint')"
+                      :error="validationErrors.notification.FEISHU_APP_ID"
+                      :error-messages="validationErrors.notification.FEISHU_APP_ID ? [t('notification.feishu.appIdRequired')] : []"
+                      persistent-hint
+                      prepend-inner-icon="mdi-application"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_APP_SECRET"
+                      :label="t('notification.feishu.appSecret')"
+                      :hint="t('notification.feishu.appSecretHint')"
+                      :error="validationErrors.notification.FEISHU_APP_SECRET"
+                      :error-messages="validationErrors.notification.FEISHU_APP_SECRET ? [t('notification.feishu.appSecretRequired')] : []"
+                      persistent-hint
+                      prepend-inner-icon="mdi-key"
+                      required
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_OPEN_ID"
+                      :label="t('notification.feishu.openId')"
+                      :placeholder="t('notification.feishu.openIdPlaceholder')"
+                      :hint="t('notification.feishu.openIdHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_CHAT_ID"
+                      :label="t('notification.feishu.chatId')"
+                      :placeholder="t('notification.feishu.chatIdPlaceholder')"
+                      :hint="t('notification.feishu.chatIdHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-chat-processing"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_ADMINS"
+                      :label="t('notification.feishu.admins')"
+                      :placeholder="t('notification.feishu.adminsPlaceholder')"
+                      :hint="t('notification.feishu.adminsHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-account-supervisor"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_VERIFICATION_TOKEN"
+                      :label="t('notification.feishu.verificationToken')"
+                      :hint="t('notification.feishu.verificationTokenHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-shield-key"
+                    />
+                  </VCol>
+                  <VCol cols="12" md="6">
+                    <VTextField
+                      v-model="wizardData.notification.config.FEISHU_ENCRYPT_KEY"
+                      :label="t('notification.feishu.encryptKey')"
+                      :hint="t('notification.feishu.encryptKeyHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-lock"
                     />
                   </VCol>
                 </VRow>

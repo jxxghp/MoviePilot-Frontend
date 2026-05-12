@@ -14,6 +14,7 @@ import plexLogo from '@/assets/images/logos/plex.png'
 import trimemediaLogo from '@/assets/images/logos/trimemedia.png'
 import ugreenLogo from '@/assets/images/logos/ugreen.png'
 import wechatLogo from '@/assets/images/logos/wechat.png'
+import feishuLogo from '@/assets/images/logos/feishu.png'
 import clawbotLogo from '@/assets/images/logos/clawbot.png'
 import telegramLogo from '@/assets/images/logos/telegram.webp'
 import slackLogo from '@/assets/images/logos/slack.webp'
@@ -47,6 +48,7 @@ const logoMap: Record<string, string> = {
   trimemedia: trimemediaLogo,
   ugreen: ugreenLogo,
   wechat: wechatLogo,
+  feishu: feishuLogo,
   wechatclawbot: clawbotLogo,
   telegram: telegramLogo,
   slack: slackLogo,

@@ -47,6 +47,7 @@ const notificationInfo = ref<NotificationConf>({
 // 各通知类型的名称字典
 const notificationTypeNames: { [key: string]: string } = {
   wechat: t('notification.wechat.name'),
+  feishu: t('notification.feishu.name'),
   wechatclawbot: t('notification.wechatclawbot.name'),
   telegram: t('notification.telegram.name'),
   qqbot: t('notification.qqbot.name'),
@@ -417,6 +418,8 @@ const getIcon = computed(() => {
       return getLogoUrl('wechat')
     case 'wechatclawbot':
       return getLogoUrl('wechatclawbot')
+    case 'feishu':
+      return getLogoUrl('feishu')
     case 'telegram':
       return getLogoUrl('telegram')
     case 'qqbot':
@@ -775,6 +778,84 @@ watch(notificationInfoDialog, value => {
                     </VCol>
                   </VRow>
                 </VCard>
+              </VCol>
+            </VRow>
+            <VRow v-else-if="notificationInfo.type == 'feishu'">
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.name"
+                  :label="t('notification.name')"
+                  :placeholder="t('notification.name')"
+                  :hint="t('notification.nameHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-label"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_APP_ID"
+                  :label="t('notification.feishu.appId')"
+                  :hint="t('notification.feishu.appIdHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-application"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_APP_SECRET"
+                  :label="t('notification.feishu.appSecret')"
+                  :hint="t('notification.feishu.appSecretHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-key"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_OPEN_ID"
+                  :label="t('notification.feishu.openId')"
+                  :placeholder="t('notification.feishu.openIdPlaceholder')"
+                  :hint="t('notification.feishu.openIdHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_CHAT_ID"
+                  :label="t('notification.feishu.chatId')"
+                  :placeholder="t('notification.feishu.chatIdPlaceholder')"
+                  :hint="t('notification.feishu.chatIdHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-chat-processing"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_ADMINS"
+                  :label="t('notification.feishu.admins')"
+                  :placeholder="t('notification.feishu.adminsPlaceholder')"
+                  :hint="t('notification.feishu.adminsHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-supervisor"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_VERIFICATION_TOKEN"
+                  :label="t('notification.feishu.verificationToken')"
+                  :hint="t('notification.feishu.verificationTokenHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-shield-key"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.FEISHU_ENCRYPT_KEY"
+                  :label="t('notification.feishu.encryptKey')"
+                  :hint="t('notification.feishu.encryptKeyHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-lock"
+                />
               </VCol>
             </VRow>
             <VRow v-else-if="notificationInfo.type == 'telegram'">

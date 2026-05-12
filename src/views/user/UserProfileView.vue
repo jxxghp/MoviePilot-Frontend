@@ -447,6 +447,15 @@ watch(
                 </VCol>
                 <VCol cols="12" md="6">
                   <VTextField
+                    v-model="accountInfo.settings.feishu_openid"
+                    density="comfortable"
+                    clearable
+                    :label="t('profile.feishuUser')"
+                    prepend-inner-icon="mdi-message-badge-outline"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
                     v-model="accountInfo.settings.telegram_userid"
                     density="comfortable"
                     clearable

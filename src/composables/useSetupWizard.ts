@@ -328,6 +328,7 @@ export function useSetupWizard() {
     },
     // 通知映射
     notification: {
+      'feishu': 'FeishuModule',
       'telegram': 'TelegramModule',
       'wechat': 'WechatModule',
       'wechatclawbot': 'WechatClawBotModule',
@@ -427,6 +428,7 @@ export function useSetupWizard() {
       if (!wizardData.value.notification.name || wizardData.value.notification.name.includes('通知')) {
         const displayNameMap: Record<string, string> = {
           wechat: '企业微信',
+          feishu: '飞书',
           wechatclawbot: '微信 ClawBot',
           telegram: 'Telegram',
           slack: 'Slack',
@@ -678,6 +680,16 @@ export function useSetupWizard() {
         }
         break
       case 'wechatclawbot':
+        break
+      case 'feishu':
+        if (!config.FEISHU_APP_ID?.trim()) {
+          errors.push(t('notification.feishu.appIdRequired'))
+          validationErrors.value.notification.FEISHU_APP_ID = true
+        }
+        if (!config.FEISHU_APP_SECRET?.trim()) {
+          errors.push(t('notification.feishu.appSecretRequired'))
+          validationErrors.value.notification.FEISHU_APP_SECRET = true
+        }
         break
       case 'telegram':
         if (!config.TELEGRAM_TOKEN?.trim()) {
