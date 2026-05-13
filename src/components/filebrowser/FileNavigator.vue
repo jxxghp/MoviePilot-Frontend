@@ -14,6 +14,11 @@ const display = useDisplay()
 
 const { appMode } = usePWA()
 
+type TreeRow =
+  | { type: 'root'; key: string; level: number }
+  | { type: 'loading'; key: string; path: string; level: number }
+  | { type: 'directory'; key: string; dir: FileItem; level: number }
+
 // 计算列表可用高度
 // componentOffset = FileToolbar(48) = 48
 const { availableHeight } = useAvailableHeight(48, 300)
@@ -132,37 +137,6 @@ async function loadRootDirectories() {
   await loadSubdirectories('/')
 }
 
-// 检索所有目录节点
-function getAllDirectories() {
-  const allDirs: { dir: FileItem; level: number; parentPath: string }[] = []
-
-  // 添加根目录的子目录
-  if (treeCache.value['/']) {
-    treeCache.value['/'].forEach(dir => {
-      allDirs.push({ dir, level: 0, parentPath: '/' })
-      addSubdirectories(dir.path || '', 1, allDirs)
-    })
-  }
-
-  return allDirs
-}
-
-// 递归添加子目录
-function addSubdirectories(
-  parentPath: string,
-  level: number,
-  result: { dir: FileItem; level: number; parentPath: string }[],
-) {
-  if (treeCache.value[parentPath]) {
-    treeCache.value[parentPath].forEach(dir => {
-      result.push({ dir, level, parentPath })
-      if (isFolderExpanded(dir.path || '')) {
-        addSubdirectories(dir.path || '', level + 1, result)
-      }
-    })
-  }
-}
-
 // 监听当前路径变化，自动展开当前路径
 watch(
   () => props.currentPath,
@@ -224,38 +198,51 @@ const rootDirectories = computed(() => {
   return treeCache.value['/'] || []
 })
 
-// 扁平化的目录树
-const flattenedDirectories = computed(() => {
-  return getAllDirectories()
-})
+// 只生成当前可见的目录行，避免折叠/隐藏节点继续留在 DOM 中
+const visibleTreeRows = computed<TreeRow[]>(() => {
+  const rows: TreeRow[] = [{ type: 'root', key: 'root', level: 0 }]
 
-// 检查路径是否为指定目录的子目录或后代
-function isChildOrDescendant(path: string, ancestorPath: string) {
-  if (!path || !ancestorPath) return false
-  if (ancestorPath === '/') return true
-
-  // 确保路径以斜杠结尾，便于比较
-  const normalizedPath = path.endsWith('/') ? path : path + '/'
-  const normalizedAncestorPath = ancestorPath.endsWith('/') ? ancestorPath : ancestorPath + '/'
-
-  // 检查路径是否以祖先路径开头，但不是祖先路径本身
-  return normalizedPath.startsWith(normalizedAncestorPath) && normalizedPath !== normalizedAncestorPath
-}
-
-// 计算目录相对于其祖先的缩进级别
-function getIndentLevel(path: string, ancestorPath: string) {
-  if (!path || !ancestorPath) return 0
-
-  // 根目录特殊处理
-  if (ancestorPath === '/') {
-    return path.split('/').filter(p => p).length - 1
+  if (loading.value['/']) {
+    rows.push({ type: 'loading', key: 'loading:/', path: '/', level: 0 })
+    return rows
   }
 
-  // 计算路径中斜杠的数量差异
-  const pathParts = path.split('/').filter(p => p).length
-  const ancestorParts = ancestorPath.split('/').filter(p => p).length
+  rootDirectories.value.forEach(dir => addVisibleDirectoryRows(dir, 0, rows))
 
-  return pathParts - ancestorParts
+  return rows
+})
+
+function addVisibleDirectoryRows(dir: FileItem, level: number, rows: TreeRow[]) {
+  const path = dir.path || ''
+
+  rows.push({
+    type: 'directory',
+    key: path || `${level}:${dir.name}`,
+    dir,
+    level,
+  })
+
+  if (!path || !isFolderExpanded(path)) {
+    return
+  }
+
+  if (loading.value[path]) {
+    rows.push({
+      type: 'loading',
+      key: `loading:${path}`,
+      path,
+      level: level + 1,
+    })
+    return
+  }
+
+  treeCache.value[path]?.forEach(child => addVisibleDirectoryRows(child, level + 1, rows))
+}
+
+function getTreeRowStyle(level: number) {
+  return {
+    paddingInlineStart: level > 0 ? `${16 + level * 12}px` : undefined,
+  }
 }
 
 // 组件挂载时初始加载
@@ -267,117 +254,75 @@ onMounted(async () => {
 
 <template>
   <VCard class="file-navigator rounded-e-0 rounded-t-0" v-if="!isMobile" :height="`${availableHeight}px`">
-    <div class="tree-container">
-      <!-- 根目录项 -->
-      <div
-        class="tree-item root-item"
-        :class="{ 'active': currentPath === '/' }"
-        @click="
-          handleFolderClick({
-            storage: storage,
-            type: 'dir',
-            name: '/',
-            path: '/',
-          })
-        "
-      >
-        <div class="folder-content">
-          <VIcon icon="mdi-home" class="me-2" color="primary" />
-          <span>{{ t('file.rootDirectory') }}</span>
-        </div>
-      </div>
-      <!-- 加载根目录 -->
-      <div v-if="loading['/']" class="tree-loading">
-        <VProgressCircular indeterminate size="24" color="primary" class="ma-2" />
-        <span>{{ t('file.loadingDirectoryStructure') }}</span>
-      </div>
-
-      <!-- 目录树结构 -->
-      <template v-else>
-        <!-- 一级目录(根目录下的目录) -->
-        <div v-for="directory in rootDirectories" :key="directory.path" class="tree-item-container">
-          <!-- 目录项 -->
-          <div class="tree-item" :class="{ 'active': currentPath === directory.path }">
-            <div class="folder-toggle" @click.stop="toggleFolder(directory.path || '')">
-              <VProgressCircular
-                v-if="loading[directory.path || '']"
-                indeterminate
-                size="14"
-                width="2"
-                color="primary"
-              />
-              <VIcon
-                v-else
-                size="small"
-                :icon="isFolderExpanded(directory.path || '') ? 'mdi-chevron-down' : 'mdi-chevron-right'"
-              />
-            </div>
-            <div class="folder-content" @click.stop="handleFolderClick(directory)">
-              <VIcon
-                size="small"
-                :icon="renderFolderIcon(isFolderExpanded(directory.path || ''))"
-                :color="currentPath === directory.path ? 'primary' : 'amber-darken-1'"
-                class="me-1"
-              />
-              <span class="folder-name">
-                {{ directory.name }}
-              </span>
-            </div>
+    <VVirtualScroll :items="visibleTreeRows" :item-height="32" class="tree-container">
+      <template #default="{ item }">
+        <div
+          v-if="item.type === 'root'"
+          :key="item.key"
+          class="tree-item root-item"
+          :class="{ 'active': currentPath === '/' }"
+          @click="
+            handleFolderClick({
+              storage: storage,
+              type: 'dir',
+              name: '/',
+              path: '/',
+            })
+          "
+        >
+          <div class="folder-content">
+            <VIcon icon="mdi-home" class="me-2" color="primary" />
+            <span>{{ t('file.rootDirectory') }}</span>
           </div>
+        </div>
 
-          <!-- 子目录容器 - 如果该目录被展开，显示其所有子目录 -->
-          <div v-if="isFolderExpanded(directory.path || '')">
-            <!-- 加载中状态 -->
-            <div v-if="loading[directory.path || '']" class="tree-loading pl-8">
-              <VProgressCircular indeterminate size="14" color="primary" class="ma-2" />
-              <span class="text-caption">{{ t('common.loading') }}</span>
-            </div>
+        <div
+          v-else-if="item.type === 'loading'"
+          :key="item.key"
+          class="tree-loading"
+          :style="getTreeRowStyle(item.level)"
+        >
+          <VProgressCircular indeterminate size="14" color="primary" class="ma-2" />
+          <span class="text-caption">
+            {{ item.path === '/' ? t('file.loadingDirectoryStructure') : t('common.loading') }}
+          </span>
+        </div>
 
-            <!-- 所有层级的子目录列表 -->
-            <div v-else>
-              <!-- 遍历所有扁平化的目录列表，查找对应层级的目录 -->
-              <div
-                v-for="item in flattenedDirectories"
-                :key="item.dir.path"
-                v-show="isChildOrDescendant(item.dir.path || '', directory.path || '')"
-                class="tree-item"
-                :class="{ 'active': currentPath === item.dir.path }"
-                :style="{ paddingLeft: 16 + getIndentLevel(item.dir.path || '', directory.path || '') * 12 + 'px' }"
-              >
-                <!-- 展开/折叠按钮 -->
-                <div class="folder-toggle" @click.stop="toggleFolder(item.dir.path || '')">
-                  <VProgressCircular
-                    v-if="loading[item.dir.path || '']"
-                    indeterminate
-                    size="14"
-                    width="2"
-                    color="primary"
-                  />
-                  <VIcon
-                    v-else
-                    size="small"
-                    :icon="isFolderExpanded(item.dir.path || '') ? 'mdi-chevron-down' : 'mdi-chevron-right'"
-                  />
-                </div>
-
-                <!-- 文件夹图标和名称 -->
-                <div class="folder-content" @click.stop="handleFolderClick(item.dir)">
-                  <VIcon
-                    size="small"
-                    :icon="renderFolderIcon(isFolderExpanded(item.dir.path || ''))"
-                    :color="currentPath === item.dir.path ? 'primary' : 'amber-darken-1'"
-                    class="me-1"
-                  />
-                  <span class="folder-name">
-                    {{ item.dir.name }}
-                  </span>
-                </div>
-              </div>
-            </div>
+        <div
+          v-else
+          :key="item.key"
+          class="tree-item"
+          :class="{ 'active': currentPath === item.dir.path }"
+          :style="getTreeRowStyle(item.level)"
+        >
+          <div class="folder-toggle" @click.stop="toggleFolder(item.dir.path || '')">
+            <VProgressCircular
+              v-if="loading[item.dir.path || '']"
+              indeterminate
+              size="14"
+              width="2"
+              color="primary"
+            />
+            <VIcon
+              v-else
+              size="small"
+              :icon="isFolderExpanded(item.dir.path || '') ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+            />
+          </div>
+          <div class="folder-content" @click.stop="handleFolderClick(item.dir)">
+            <VIcon
+              size="small"
+              :icon="renderFolderIcon(isFolderExpanded(item.dir.path || ''))"
+              :color="currentPath === item.dir.path ? 'primary' : 'amber-darken-1'"
+              class="me-1"
+            />
+            <span class="folder-name">
+              {{ item.dir.name }}
+            </span>
           </div>
         </div>
       </template>
-    </div>
+    </VVirtualScroll>
   </VCard>
 </template>
 
@@ -402,8 +347,8 @@ onMounted(async () => {
 }
 
 .tree-container {
-  overflow: hidden auto;
   flex: 1;
+  min-block-size: 0;
 }
 
 .tree-item-container {

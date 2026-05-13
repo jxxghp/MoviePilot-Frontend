@@ -39,6 +39,8 @@ interface SearchParams {
   sites: string
 }
 
+const resourceSearchParamsStorageKey = 'MP_ResourceSearchParams'
+
 function createSearchParams(query: LocationQuery): SearchParams {
   return {
     keyword: query?.keyword?.toString() ?? '',
@@ -51,15 +53,62 @@ function createSearchParams(query: LocationQuery): SearchParams {
   }
 }
 
-function getSearchParamsKey(params: SearchParams): string {
-  return JSON.stringify(params)
+function normalizeSearchParams(params?: Partial<SearchParams> | null): SearchParams {
+  return {
+    keyword: params?.keyword?.toString() ?? '',
+    type: params?.type?.toString() ?? '',
+    area: params?.area?.toString() ?? '',
+    title: params?.title?.toString() ?? '',
+    year: params?.year?.toString() ?? '',
+    season: params?.season?.toString() ?? '',
+    sites: params?.sites?.toString() ?? '',
+  }
+}
+
+function hasSearchKeyword(params: SearchParams): boolean {
+  return params.keyword.trim().length > 0
 }
 
 function createSearchRequestToken(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-const activeSearchParams = ref<SearchParams>(createSearchParams(route.query))
+function loadStoredSearchParams(): SearchParams | null {
+  try {
+    const rawParams = localStorage.getItem(resourceSearchParamsStorageKey)
+    if (!rawParams) return null
+
+    const params = normalizeSearchParams(JSON.parse(rawParams) as Partial<SearchParams>)
+    return hasSearchKeyword(params) ? params : null
+  } catch (error) {
+    console.warn('读取资源搜索参数失败:', error)
+    localStorage.removeItem(resourceSearchParamsStorageKey)
+    return null
+  }
+}
+
+function saveStoredSearchParams(params: SearchParams) {
+  if (!hasSearchKeyword(params)) return
+  localStorage.setItem(resourceSearchParamsStorageKey, JSON.stringify(params))
+}
+
+const initialSearchParams = createSearchParams(route.query)
+const activeSearchParams = ref<SearchParams>(initialSearchParams)
+const lastSearchParams = ref<SearchParams | null>(
+  hasSearchKeyword(initialSearchParams) ? { ...initialSearchParams } : loadStoredSearchParams(),
+)
+
+function rememberSearchParams(params: SearchParams) {
+  if (!hasSearchKeyword(params)) return
+
+  const nextParams = { ...params }
+  lastSearchParams.value = nextParams
+  saveStoredSearchParams(nextParams)
+}
+
+if (hasSearchKeyword(initialSearchParams)) {
+  rememberSearchParams(initialSearchParams)
+}
 
 // 查询TMDBID或标题
 const keyword = computed(() => activeSearchParams.value.keyword)
@@ -552,13 +601,17 @@ function changeViewType(newType: string) {
 }
 
 // 获取搜索列表数据
-async function fetchData(options: { force?: boolean } = {}) {
-  const currentSearchParams = { ...activeSearchParams.value }
+async function fetchData(options: { force?: boolean; params?: SearchParams } = {}) {
+  const currentSearchParams = { ...(options.params ?? activeSearchParams.value) }
+  if (hasSearchKeyword(currentSearchParams)) {
+    activeSearchParams.value = { ...currentSearchParams }
+    rememberSearchParams(currentSearchParams)
+  }
   const requestToken = options.force || Boolean(currentSearchParams.keyword) ? createSearchRequestToken() : undefined
 
   try {
     enableFilterAnimation.value = true
-    if (!currentSearchParams.keyword) {
+    if (!hasSearchKeyword(currentSearchParams)) {
       // 查询上次搜索结果
       const results = await api.get('search/last', {
         params: requestToken ? { _ts: requestToken } : undefined,
@@ -593,11 +646,12 @@ async function fetchData(options: { force?: boolean } = {}) {
 // 重新搜索（使用相同参数重新触发搜索）
 async function refreshSearch() {
   if (isRefreshing.value || progressActive.value) return
+  const refreshParams = lastSearchParams.value ?? activeSearchParams.value
   isRefreshing.value = true
   try {
     // 重新搜索时退出 AI 视图，其余状态由 fetchData 内部重置
     showingAiResults.value = false
-    await fetchData({ force: true })
+    await fetchData({ force: true, params: refreshParams })
   } catch (error) {
     console.error('重新搜索失败:', error)
   } finally {
@@ -885,7 +939,7 @@ watch(
     if (Object.keys(query).length === 0) return
 
     const nextSearchParams = createSearchParams(query)
-    if (getSearchParamsKey(nextSearchParams) === getSearchParamsKey(activeSearchParams.value)) return
+    if (!hasSearchKeyword(nextSearchParams)) return
 
     activeSearchParams.value = nextSearchParams
     void fetchData()

@@ -8,6 +8,16 @@ import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import CryptoJS from 'crypto-js'
 
+type TransferTask = TransferQueue['tasks'][number]
+
+interface MediaTaskGroup {
+  media: TransferQueue['media']
+  titleYear: string
+  tasks: TransferTask[]
+  total: number
+  completed: number
+}
+
 // 多语言支持
 const { t } = useI18n()
 const { useProgressSSE } = useBackgroundOptimization()
@@ -28,9 +38,6 @@ const overallProgress = ref({
 
 // 文件进度映射
 const fileProgressMap = ref<Map<string, { enable: boolean; value: number }>>(new Map())
-
-// 数据可刷新标志
-const refreshFlag = ref(false)
 
 // 进度是否激活
 const progressActive = ref(false)
@@ -58,49 +65,58 @@ function getStateColor(state: string) {
   else return 'error'
 }
 
-// 从dataList中提取所有的媒体信息，合并相同title_year的记录
-const mediaList = computed(() => {
-  const mediaMap = new Map<string, any>()
+// 按媒体聚合队列，避免模板中按 tab 重复扫描 dataList
+const mediaTaskGroups = computed<MediaTaskGroup[]>(() => {
+  const groupMap = new Map<string, MediaTaskGroup>()
 
   dataList.value.forEach(item => {
     const titleYear = item.media.title_year || ''
-    if (!mediaMap.has(titleYear)) {
-      mediaMap.set(titleYear, item.media)
+    let group = groupMap.get(titleYear)
+
+    if (!group) {
+      group = {
+        media: item.media,
+        titleYear,
+        tasks: [],
+        total: 0,
+        completed: 0,
+      }
+      groupMap.set(titleYear, group)
     }
+
+    group.tasks.push(...item.tasks)
+    group.total += item.tasks.length
+    group.completed += item.tasks.filter(task => task.state === 'completed').length
   })
 
-  return Array.from(mediaMap.values())
+  return Array.from(groupMap.values())
+})
+
+// 从dataList中提取所有的媒体信息，合并相同title_year的记录
+const mediaList = computed(() => {
+  return mediaTaskGroups.value.map(group => group.media)
 })
 
 // 按media计算总数和完成数，返回 x/x
 function getMediaCount(title_year: string) {
-  // 按title_year查询出所有media列表
-  const medias = dataList.value.filter(item => item.media.title_year === title_year)
-  // 计算media下任务的总数
-  const total = medias.reduce((acc, cur) => acc + cur.tasks.length, 0)
-  // 计算media下任务的完成数
-  const completed = medias.reduce((acc, cur) => acc + cur.tasks.filter(task => task.state === 'completed').length, 0)
-  return `${completed} / ${total}`
+  const group = mediaTaskGroups.value.find(item => item.titleYear === title_year)
+  return `${group?.completed ?? 0} / ${group?.total ?? 0}`
 }
 
 // 根据媒体信息获取对应的整理任务，合并相同title_year的所有任务
 const activeTasks = computed(() => {
-  const tasks = dataList.value.filter(item => item.media.title_year === activeTab.value).flatMap(item => item.tasks)
-  return tasks
+  return mediaTaskGroups.value.find(item => item.titleYear === activeTab.value)?.tasks ?? []
 })
 
 // 根据媒体title_year获取对应的任务列表
 function getTasksByMedia(title_year: string) {
-  return dataList.value.filter(item => item.media.title_year === title_year).flatMap(item => item.tasks)
+  return mediaTaskGroups.value.find(item => item.titleYear === title_year)?.tasks ?? []
 }
 
 // 计算整体进度
 const overallProgressComputed = computed(() => {
-  if (dataList.value.length === 0) return 0
-
-  const allTasks = dataList.value.flatMap(item => item.tasks)
-  const totalTasks = allTasks.length
-  const completedTasks = allTasks.filter(task => task.state === 'completed').length
+  const totalTasks = mediaTaskGroups.value.reduce((total, group) => total + group.total, 0)
+  const completedTasks = mediaTaskGroups.value.reduce((total, group) => total + group.completed, 0)
 
   return totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
 })

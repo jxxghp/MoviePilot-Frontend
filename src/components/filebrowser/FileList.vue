@@ -129,33 +129,36 @@ function globToRegex(pattern: string, flags: string = ''): RegExp {
 }
 
 // 通用过滤
-const getFilteredItems = (type: 'dir' | 'file') => {
+const filteredItems = computed(() => {
   const filterValue = filter.value
   if (!filterValue) {
-    return items.value.filter(item => item.type === type)
+    return items.value
   }
 
   // 通配符模式
   if (filterValue.includes('*') || filterValue.includes('?')) {
     const flags = ignoreCase.value ? 'i' : ''
     const regex = globToRegex(filterValue, flags)
-    return items.value.filter(item => item.type === type && regex.test(item.name ?? ''))
+    return items.value.filter(item => regex.test(item.name ?? ''))
   }
 
   // 子字符串模式
   if (ignoreCase.value) {
     const lowerCaseFilter = filterValue.toLowerCase()
-    return items.value.filter(item => item.type === type && (item.name ?? '').toLowerCase().includes(lowerCaseFilter))
+    return items.value.filter(item => (item.name ?? '').toLowerCase().includes(lowerCaseFilter))
   } else {
-    return items.value.filter(item => item.type === type && (item.name ?? '').includes(filterValue))
+    return items.value.filter(item => (item.name ?? '').includes(filterValue))
   }
-}
+})
 
 // 目录过滤
-const dirs = computed(() => getFilteredItems('dir'))
+const dirs = computed(() => filteredItems.value.filter(item => item.type === 'dir'))
 
 // 文件过滤
-const files = computed(() => getFilteredItems('file'))
+const files = computed(() => filteredItems.value.filter(item => item.type === 'file'))
+
+// 虚拟列表数据，保持引用稳定，避免模板内联展开数组导致虚拟列表重算。
+const displayItems = computed(() => [...dirs.value, ...files.value])
 // 是否文件
 const isFile = computed(() => inProps.item.type == 'file')
 
@@ -716,7 +719,7 @@ onUnmounted(() => {
           class="text-high-emphasis file-list-container"
           :style="{ height: `${listAvailableHeight}px`, maxHeight: `${listAvailableHeight}px` }"
         >
-          <VVirtualScroll :items="[...dirs, ...files]" style="block-size: 100%">
+          <VVirtualScroll :items="displayItems" style="block-size: 100%">
             <template #default="{ item }">
               <VHover>
                 <template #default="hover">
