@@ -2682,6 +2682,7 @@ export default {
     close: '关闭',
     loadingDirectoryStructure: '加载目录结构...',
     reorganize: '整理',
+    filterPlaceholder: '搜索（支持 * ? 通配符）',
   },
   person: {
     alias: '别名：',

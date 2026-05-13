@@ -119,6 +119,15 @@ const dropdownItems = ref<{ [key: string]: any }[]>([])
 // 进度是否激活
 const progressActive = ref(false)
 
+// 将 glob 模式转换为正则表达式
+function globToRegex(pattern: string, flags: string = ''): RegExp {
+  const regexStr = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
+  return new RegExp(`^${regexStr}$`, flags)
+}
+
 // 通用过滤
 const getFilteredItems = (type: 'dir' | 'file') => {
   const filterValue = filter.value
@@ -126,11 +135,19 @@ const getFilteredItems = (type: 'dir' | 'file') => {
     return items.value.filter(item => item.type === type)
   }
 
+  // 通配符模式
+  if (filterValue.includes('*') || filterValue.includes('?')) {
+    const flags = ignoreCase.value ? 'i' : ''
+    const regex = globToRegex(filterValue, flags)
+    return items.value.filter(item => item.type === type && regex.test(item.name ?? ''))
+  }
+
+  // 子字符串模式
   if (ignoreCase.value) {
     const lowerCaseFilter = filterValue.toLowerCase()
-    return items.value.filter(item => item.type === type && item.name.toLowerCase().includes(lowerCaseFilter))
+    return items.value.filter(item => item.type === type && (item.name ?? '').toLowerCase().includes(lowerCaseFilter))
   } else {
-    return items.value.filter(item => item.type === type && item.name.includes(filterValue))
+    return items.value.filter(item => item.type === type && (item.name ?? '').includes(filterValue))
   }
 }
 
@@ -639,8 +656,8 @@ onUnmounted(() => {
           flat
           density="compact"
           variant="plain"
-          :placeholder="t('common.search')"
-          prepend-inner-icon="mdi-filter-outline"
+          :placeholder="t('file.filterPlaceholder')"
+          :prepend-inner-icon="(filter.includes('*') || filter.includes('?')) ? 'mdi-asterisk' : 'mdi-filter-outline'"
           class="mx-2"
           rounded
         />
