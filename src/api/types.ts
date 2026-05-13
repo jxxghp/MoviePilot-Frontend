@@ -1,3 +1,6 @@
+// 订阅洗版模式，控制电视剧洗版时分集推进与全集收口的取舍。
+export type BestVersionMode = 'episode' | 'whole_only'
+
 // 订阅
 export interface Subscribe {
   // 订阅ID
@@ -58,6 +61,8 @@ export interface Subscribe {
   sites: number[]
   // 是否洗版，数字或者boolean
   best_version: any
+  // 洗版模式：episode 分集（优先全集），whole_only 仅全集
+  best_version_mode?: BestVersionMode | '' | null
   // 使用 imdbid 搜索
   search_imdbid?: any
   // 当前优先级

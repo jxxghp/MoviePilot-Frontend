@@ -52,6 +52,7 @@ const subscribeForm = ref<Subscribe>({
   username: '',
   sites: [],
   best_version: undefined,
+  best_version_mode: '',
   current_priority: 0,
   downloader: '',
   date: '',
@@ -143,10 +144,40 @@ const filterRuleGroupOptions = computed(() => {
   }))
 })
 
+// TV 洗版模式选项，空值表示沿用系统默认。
+const bestVersionModeOptions = computed(() => [
+  {
+    title: t('dialog.subscribeEdit.bestVersionModeDefault'),
+    value: '',
+  },
+  {
+    title: t('dialog.subscribeEdit.bestVersionModeEpisode'),
+    value: 'episode',
+  },
+  {
+    title: t('dialog.subscribeEdit.bestVersionModeWholeOnly'),
+    value: 'whole_only',
+  },
+])
+
+// 只有 TV 洗版订阅才需要展示洗版模式。
+const showBestVersionMode = computed(() => {
+  if (props.default && props.type === '电视剧') return true
+  return subscribeForm.value.type === '电视剧' && !!subscribeForm.value.best_version
+})
+
+// 构造订阅保存载荷，单个订阅使用 null 表示不覆盖系统默认洗版模式。
+function buildSubscribeUpdatePayload() {
+  return {
+    ...subscribeForm.value,
+    best_version_mode: subscribeForm.value.best_version_mode || null,
+  }
+}
+
 // 调用API修改订阅
 async function updateSubscribeInfo() {
   try {
-    const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm.value)
+    const result: { [key: string]: any } = await api.put('subscribe/', buildSubscribeUpdatePayload())
     // 提示
     if (result.success) {
       $toast.success(`${subscribeForm.value.name} 更新成功！`)
@@ -418,7 +449,7 @@ onMounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol cols="12" md="4">
+                  <VCol cols="12" md="6">
                     <VSwitch
                       v-model="subscribeForm.best_version"
                       :label="t('dialog.subscribeEdit.bestVersion')"
@@ -426,7 +457,19 @@ onMounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="4">
+                  <VCol v-if="showBestVersionMode" cols="12" md="6">
+                    <VSelect
+                      v-model="subscribeForm.best_version_mode"
+                      :items="bestVersionModeOptions"
+                      :label="t('dialog.subscribeEdit.bestVersionMode')"
+                      :hint="t('dialog.subscribeEdit.bestVersionModeHint')"
+                      persistent-hint
+                      prepend-inner-icon="mdi-format-list-checks"
+                    />
+                  </VCol>
+                </VRow>
+                <VRow>
+                  <VCol cols="12" :md="props.default ? 6 : 12">
                     <VSwitch
                       v-model="subscribeForm.search_imdbid"
                       :label="t('dialog.subscribeEdit.searchImdbid')"
@@ -434,7 +477,7 @@ onMounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol v-if="props.default" cols="12" md="4">
+                  <VCol v-if="props.default" cols="12" md="6">
                     <VSwitch
                       v-model="subscribeForm.show_edit_dialog"
                       :label="t('dialog.subscribeEdit.showEditDialog')"

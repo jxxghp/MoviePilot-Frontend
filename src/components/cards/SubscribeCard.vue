@@ -67,6 +67,13 @@ const subscribeState = ref<string>(props.media?.state ?? 'P')
 // 上一次更新时间
 const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDifference(props.media.last_update) : ''))
 
+// TV 洗版模式标签，帮助区分全集优先和仅全集策略。
+const bestVersionModeText = computed(() => {
+  if (!props.media?.best_version || props.media?.type !== '电视剧') return ''
+  if (props.media.best_version_mode === 'whole_only') return t('dialog.subscribeEdit.bestVersionModeWholeOnlyShort')
+  return t('dialog.subscribeEdit.bestVersionModeEpisodeShort')
+})
+
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
@@ -428,6 +435,15 @@ function handleCardClick() {
                     {{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
                     {{ props.media?.total_episode }}
                   </div>
+                  <VChip
+                    v-if="bestVersionModeText"
+                    size="x-small"
+                    color="primary"
+                    variant="flat"
+                    class="me-2 flex-shrink-0"
+                  >
+                    {{ bestVersionModeText }}
+                  </VChip>
                   <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="flex-shrink-0 me-1" />
                   <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" class="flex-shrink-0" />
                   <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
