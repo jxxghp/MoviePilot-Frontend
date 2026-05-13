@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import PosterCard from '@/components/cards/PosterCard.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -67,9 +68,18 @@ onActivated(() => {
             <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
           </VCardItem>
 
-          <div class="grid gap-4 grid-media-card mx-3 mb-3" tabindex="0">
-            <PosterCard v-for="item in data" :key="item.id" :media="item" />
-          </div>
+          <ProgressiveCardGrid
+            :items="data"
+            :get-item-key="item => item.id || item.link || item.title"
+            :min-item-width="144"
+            :item-aspect-ratio="1.5"
+            class="mx-3 mb-3"
+            tabindex="0"
+          >
+            <template #default="{ item }">
+              <PosterCard :media="item" />
+            </template>
+          </ProgressiveCardGrid>
         </VCard>
       </template>
     </VHover>

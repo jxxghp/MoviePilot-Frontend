@@ -2,6 +2,7 @@
 import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import BackdropCard from '@/components/cards/BackdropCard.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -70,9 +71,18 @@ onActivated(() => {
           <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
         </VCardItem>
 
-        <div class="grid gap-4 grid-backdrop-card mx-3 mb-3" tabindex="0">
-          <BackdropCard v-for="item in playingList" :key="item.id" :media="item" height="10rem" />
-        </div>
+        <ProgressiveCardGrid
+          :items="playingList"
+          :get-item-key="item => item.id || item.link || item.title"
+          :min-item-width="240"
+          :estimated-item-height="160"
+          class="mx-3 mb-3"
+          tabindex="0"
+        >
+          <template #default="{ item }">
+            <BackdropCard :media="item" height="10rem" />
+          </template>
+        </ProgressiveCardGrid>
       </VCard>
     </template>
   </VHover>

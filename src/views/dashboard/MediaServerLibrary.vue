@@ -2,6 +2,7 @@
 import api from '@/api'
 import type { MediaServerConf, MediaServerLibrary } from '@/api/types'
 import LibraryCard from '@/components/cards/LibraryCard.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -69,9 +70,18 @@ onActivated(() => {
           </template>
           <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
         </VCardItem>
-        <div class="grid gap-4 grid-backdrop-card mx-3 mb-3" tabindex="0">
-          <LibraryCard v-for="item in libraryList" :key="item.id" :media="item" height="10rem" />
-        </div>
+        <ProgressiveCardGrid
+          :items="libraryList"
+          :get-item-key="item => item.id || item.name"
+          :min-item-width="240"
+          :estimated-item-height="160"
+          class="mx-3 mb-3"
+          tabindex="0"
+        >
+          <template #default="{ item }">
+            <LibraryCard :media="item" height="10rem" />
+          </template>
+        </ProgressiveCardGrid>
       </VCard>
     </template>
   </VHover>
