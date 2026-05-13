@@ -408,8 +408,8 @@ function handleCardClick() {
                   </div>
                 </div>
               </VCardText>
-              <VCardText class="flex justify-space-between align-center flex-wrap px-3">
-                <div class="flex align-center">
+              <VCardText class="flex min-w-0 justify-space-between align-center flex-wrap px-3">
+                <div class="flex min-w-0 max-w-full align-center">
                   <VIcon
                     v-if="props.media?.total_episode && props.sortable"
                     icon="mdi-progress-download"
@@ -424,13 +424,14 @@ function handleCardClick() {
                     icon="mdi-progress-download"
                     color="white"
                   />
-                  <div v-if="props.media?.season" class="text-subtitle-2 me-2 text-white">
+                  <div v-if="props.media?.season" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
                     {{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
                     {{ props.media?.total_episode }}
                   </div>
-                  <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="me-1" />
-                  <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" />
-                  <span v-if="props.media?.username" class="text-subtitle-2 text-white">
+                  <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="flex-shrink-0 me-1" />
+                  <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" class="flex-shrink-0" />
+                  <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
+                  <span v-if="props.media?.username" class="min-w-0 truncate text-subtitle-2 text-white" :title="props.media?.username">
                     {{ props.media?.username }}
                   </span>
                 </div>
