@@ -2531,6 +2531,8 @@ export default {
       savePathHint: '指定该订阅的下载保存路径，留空自动使用设定的下载目录',
       bestVersion: '洗版',
       bestVersionHint: '根据洗版优先级进行洗版订阅',
+      bestVersionFull: '全集洗版',
+      bestVersionFullHint: '只下载覆盖全集的整包资源，不按单集拆包下载',
       searchImdbid: '使用 ImdbID 搜索',
       searchImdbidHint: '开使用 ImdbID 精确搜索资源',
       showEditDialog: '订阅时编辑更多规则',

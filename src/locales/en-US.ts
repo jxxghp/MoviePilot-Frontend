@@ -2576,6 +2576,8 @@ export default {
       savePathHint: 'Specify download save path for this subscription, leave empty to use default download directory',
       bestVersion: 'Version Upgrade',
       bestVersionHint: 'Perform version upgrade subscription based on upgrade priorities',
+      bestVersionFull: 'Full Season Upgrade',
+      bestVersionFullHint: 'Only download full-season packs and do not split packs by episode',
       searchImdbid: 'Search Using ImdbID',
       searchImdbidHint: 'Use ImdbID for precise resource searching',
       showEditDialog: 'Edit More Rules When Subscribing',

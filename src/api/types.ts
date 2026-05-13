@@ -58,6 +58,8 @@ export interface Subscribe {
   sites: number[]
   // 是否洗版，数字或者boolean
   best_version: any
+  // 是否只洗全集整包，数字或者boolean
+  best_version_full?: any
   // 使用 imdbid 搜索
   search_imdbid?: any
   // 当前优先级
