@@ -2480,8 +2480,6 @@ export default {
       previewTotal: '总数 {count}',
       previewSuccess: '成功 {count}',
       previewFailed: '失败 {count}',
-      previewSourcePath: '原始路径',
-      previewTargetPath: '目的路径',
       previewMediaInfo: '媒体信息',
       previewMediaName: '名称',
       previewMediaType: '类型',

@@ -249,39 +249,6 @@ function getFileName(path?: string) {
   return normalizedPath.split('/').pop() || normalizedPath
 }
 
-// 获取目录路径
-function getDirectoryPath(path?: string) {
-  const normalizedPath = normalizePath(path)
-  if (!normalizedPath) return ''
-  if (normalizedPath.endsWith('/')) return normalizedPath
-
-  const parts = normalizedPath.split('/')
-  parts.pop()
-  const joined = parts.join('/')
-  return joined ? `${joined}/` : '/'
-}
-
-// 计算公共路径
-function getCommonPath(paths: string[]) {
-  const validPaths = paths.map(item => normalizePath(item)).filter(Boolean)
-  if (validPaths.length === 0) return ''
-  if (validPaths.length === 1) return validPaths[0]
-
-  const splitPaths = validPaths.map(path => path.split('/'))
-  const commonParts: string[] = []
-
-  for (let index = 0; index < splitPaths[0].length; index++) {
-    const part = splitPaths[0][index]
-    if (splitPaths.every(pathParts => pathParts[index] === part)) {
-      commonParts.push(part)
-    } else {
-      break
-    }
-  }
-
-  return commonParts.join('/') || '/'
-}
-
 // 获取唯一非空值
 function getUniqueValues(values: (string | undefined)[]) {
   return [...new Set(values.map(item => item?.trim()).filter(Boolean) as string[])]
@@ -323,18 +290,6 @@ function getPreviewSeasonNumber(item: ManualTransferPreviewItem) {
     (toPreviewNumber(item.episode) !== undefined && !previewIsMovie.value ? 1 : undefined)
   )
 }
-
-// 顶部原始路径
-const previewSourcePath = computed(() => {
-  const paths = filteredPreviewItems.value.map(item => getDirectoryPath(item.source))
-  return getCommonPath(paths) || '-'
-})
-
-// 顶部目的路径
-const previewTargetPath = computed(() => {
-  const targetDirs = filteredPreviewItems.value.map(item => item.target_dir || getDirectoryPath(item.target))
-  return getCommonPath(targetDirs) || '-'
-})
 
 // 顶部媒体信息
 const previewMediaInfo = computed(() => {
@@ -415,11 +370,7 @@ const previewFileRows = computed(() => {
 
 // 是否需要拓宽窗口
 const previewNeedsWideLayout = computed(() => {
-  const candidates = [
-    previewSourcePath.value,
-    previewTargetPath.value,
-    ...previewFileRows.value.map(item => `${item.sourceName}${item.targetName}`),
-  ]
+  const candidates = [...previewFileRows.value.map(item => `${item.sourceName}${item.targetName}`)]
 
   return candidates.some(item => item.length > 72)
 })
@@ -1014,18 +965,6 @@ onUnmounted(() => {
                       {{ previewData.message }}
                     </div>
                     <div class="preview-summary-grid">
-                      <div class="preview-overview-card preview-overview-card--path">
-                        <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewSourcePath') }}</span>
-                        <span class="preview-overview-card__value preview-overview-card__value--path">{{
-                          previewSourcePath
-                        }}</span>
-                      </div>
-                      <div class="preview-overview-card preview-overview-card--path">
-                        <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewTargetPath') }}</span>
-                        <span class="preview-overview-card__value preview-overview-card__value--path">{{
-                          previewTargetPath
-                        }}</span>
-                      </div>
                       <div class="preview-overview-card">
                         <span class="preview-overview-card__label">{{ t('dialog.reorganize.previewMediaName') }}</span>
                         <span class="preview-overview-card__value">{{ previewMediaInfo.title }}</span>
@@ -1286,10 +1225,6 @@ onUnmounted(() => {
   padding-inline: 1rem;
 }
 
-.preview-overview-card--path {
-  grid-column: 1 / -1;
-}
-
 .preview-overview-card__label {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
@@ -1304,14 +1239,6 @@ onUnmounted(() => {
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.preview-overview-card__value--path {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-  text-overflow: clip;
-  white-space: normal;
 }
 
 .reorganize-preview-pane__scroll {
@@ -1449,10 +1376,6 @@ onUnmounted(() => {
 
   .preview-summary-grid {
     grid-template-columns: 1fr;
-  }
-
-  .preview-overview-card--path {
-    grid-column: auto;
   }
 
   .preview-file-row {

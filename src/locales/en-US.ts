@@ -2525,8 +2525,6 @@ export default {
       previewTotal: 'Total {count}',
       previewSuccess: 'Success {count}',
       previewFailed: 'Failed {count}',
-      previewSourcePath: 'Source Path',
-      previewTargetPath: 'Target Path',
       previewMediaInfo: 'Media',
       previewMediaName: 'Name',
       previewMediaType: 'Type',
