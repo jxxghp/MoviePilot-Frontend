@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { useIntersectionObserver } from '@vueuse/core'
+import type { ComponentPublicInstance } from 'vue'
+
+type ItemKey = string | number
+type ScrollTarget = Window | HTMLElement
 
 const props = withDefaults(
   defineProps<{
@@ -9,6 +12,7 @@ const props = withDefaults(
     estimatedItemHeight?: number
     scrollToIndex?: number
     gap?: number
+    columns?: number
     initialCount?: number
     batchSize?: number
     overscanRows?: number
@@ -20,6 +24,7 @@ const props = withDefaults(
     estimatedItemHeight: undefined,
     scrollToIndex: undefined,
     gap: 16,
+    columns: undefined,
     initialCount: 24,
     batchSize: 24,
     overscanRows: 4,
@@ -27,24 +32,194 @@ const props = withDefaults(
   },
 )
 
+interface VirtualCell {
+  item: any
+  index: number
+  key: ItemKey
+}
+
 const containerRef = ref<HTMLElement | null>(null)
-const sentinelRef = ref<HTMLElement | null>(null)
-const renderedCount = ref(0)
+const trackRef = ref<HTMLElement | null>(null)
 
-let animationFrameId: number | null = null
+const layoutWidth = ref(0)
+const viewportTop = ref(0)
+const viewportBottom = ref(0)
+const heightVersion = ref(0)
 
-const safeInitialCount = computed(() => Math.max(1, props.initialCount))
-const safeBatchSize = computed(() => Math.max(1, props.batchSize))
-const hasMoreItems = computed(() => renderedCount.value < props.items.length)
-const visibleItems = computed(() => props.items.slice(0, renderedCount.value))
+const itemHeights = new Map<ItemKey, number>()
+const observedElements = new Map<HTMLElement, ItemKey>()
+const keyElements = new Map<ItemKey, HTMLElement>()
+const itemRefCallbacks = new Map<ItemKey, (element: Element | ComponentPublicInstance | null) => void>()
+
+let resizeObserver: ResizeObserver | null = null
+let itemResizeObserver: ResizeObserver | null = null
+let scrollTarget: ScrollTarget | null = null
+let layoutFrameId: number | null = null
+let scrollFrameId: number | null = null
+let mounted = false
+let pendingRevealIndex: number | null = null
+let lastMeasuredColumnCount = 0
+let lastMeasuredColumnWidth = 0
+
+const safeGap = computed(() => Math.max(0, props.gap))
+const safeMinItemWidth = computed(() => Math.max(1, props.minItemWidth))
+const safeOverscanRows = computed(() => Math.max(1, props.overscanRows))
+
+const columnCount = computed(() => {
+  if (props.columns && props.columns > 0) {
+    return Math.max(1, Math.floor(props.columns))
+  }
+
+  if (!layoutWidth.value) {
+    return 1
+  }
+
+  return Math.max(1, Math.floor((layoutWidth.value + safeGap.value) / (safeMinItemWidth.value + safeGap.value)))
+})
+
+const columnWidth = computed(() => {
+  const columns = columnCount.value
+  const width = layoutWidth.value || safeMinItemWidth.value
+
+  return Math.max(1, (width - safeGap.value * (columns - 1)) / columns)
+})
+
+const estimatedHeight = computed(() => {
+  if (props.estimatedItemHeight && props.estimatedItemHeight > 0) {
+    return props.estimatedItemHeight
+  }
+
+  return Math.max(1, columnWidth.value * props.itemAspectRatio)
+})
+
+const itemKeys = computed(() => props.items.map((item, index) => getComparableKey(item, index)))
+
+const keyIndexMap = computed(() => {
+  const map = new Map<ItemKey, number>()
+
+  itemKeys.value.forEach((key, index) => {
+    map.set(key, index)
+  })
+
+  return map
+})
+
+const rowMetrics = computed(() => {
+  heightVersion.value
+
+  const rows = Math.ceil(props.items.length / columnCount.value)
+  const heights: number[] = []
+  const measuredRows: boolean[] = []
+  const offsets: number[] = [0]
+
+  for (let row = 0; row < rows; row += 1) {
+    const startIndex = row * columnCount.value
+    const endIndex = Math.min(startIndex + columnCount.value, props.items.length)
+    let rowHeight = 0
+    let hasUnmeasuredItem = false
+
+    for (let index = startIndex; index < endIndex; index += 1) {
+      const height = itemHeights.get(itemKeys.value[index])
+      if (height && height > 0) {
+        rowHeight = Math.max(rowHeight, height)
+      } else {
+        hasUnmeasuredItem = true
+      }
+    }
+
+    if (hasUnmeasuredItem) {
+      rowHeight = Math.max(rowHeight, estimatedHeight.value)
+    } else {
+      rowHeight = Math.max(rowHeight, 1)
+    }
+
+    heights.push(rowHeight)
+    measuredRows.push(!hasUnmeasuredItem)
+    offsets.push(offsets[row] + rowHeight + (row < rows - 1 ? safeGap.value : 0))
+  }
+
+  return {
+    heights,
+    measuredRows,
+    offsets,
+    rowCount: rows,
+    totalHeight: offsets[rows] ?? 0,
+  }
+})
+
+const totalHeight = computed(() => rowMetrics.value.totalHeight)
+
+const visibleRange = computed(() => {
+  const { heights, offsets, rowCount } = rowMetrics.value
+
+  if (!props.items.length || rowCount === 0) {
+    return {
+      endIndex: 0,
+      endRow: 0,
+      startIndex: 0,
+      startRow: 0,
+    }
+  }
+
+  const top = Math.max(0, Math.min(viewportTop.value, totalHeight.value))
+  const bottom = Math.max(top, Math.min(viewportBottom.value, totalHeight.value))
+  const firstVisibleRow = findFirstRowAtOrAfterOffset(offsets, heights, top)
+  const lastVisibleRow = findLastRowAtOrBeforeOffset(offsets, rowCount, bottom)
+  const startRow = clamp(firstVisibleRow - safeOverscanRows.value, 0, rowCount - 1)
+  const endRow = clamp(lastVisibleRow + safeOverscanRows.value, startRow, rowCount - 1)
+
+  return {
+    endIndex: Math.min(props.items.length, (endRow + 1) * columnCount.value),
+    endRow,
+    startIndex: startRow * columnCount.value,
+    startRow,
+  }
+})
+
+const visibleCells = computed<VirtualCell[]>(() => {
+  const cells: VirtualCell[] = []
+
+  for (let index = visibleRange.value.startIndex; index < visibleRange.value.endIndex; index += 1) {
+    cells.push({
+      item: props.items[index],
+      index,
+      key: itemKeys.value[index],
+    })
+  }
+
+  return cells
+})
+
+const topSpacerHeight = computed(() => rowMetrics.value.offsets[visibleRange.value.startRow] ?? 0)
+
+const visibleBlockHeight = computed(() => {
+  if (!props.items.length || visibleRange.value.endIndex <= visibleRange.value.startIndex) {
+    return 0
+  }
+
+  return Math.max(
+    (rowMetrics.value.offsets[visibleRange.value.endRow] ?? 0) +
+      (rowMetrics.value.heights[visibleRange.value.endRow] ?? 0) -
+      (rowMetrics.value.offsets[visibleRange.value.startRow] ?? 0),
+    0,
+  )
+})
+
+const bottomSpacerHeight = computed(() => {
+  return Math.max(totalHeight.value - topSpacerHeight.value - visibleBlockHeight.value, 0)
+})
 
 const gridStyle = computed(() => ({
-  columnGap: `${props.gap}px`,
-  gridTemplateColumns: `repeat(auto-fill, minmax(${props.minItemWidth}px, 1fr))`,
-  rowGap: `${props.gap}px`,
+  columnGap: `${safeGap.value}px`,
+  gridTemplateColumns: `repeat(${columnCount.value}, minmax(0, 1fr))`,
+  rowGap: `${safeGap.value}px`,
 }))
 
-function getComparableKey(item: any, index: number) {
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function getComparableKey(item: any, index: number): ItemKey {
   if (props.getItemKey) {
     return props.getItemKey(item, index)
   }
@@ -52,48 +227,353 @@ function getComparableKey(item: any, index: number) {
   return index
 }
 
-function resolveItemKey(item: any, index: number) {
-  return getComparableKey(item, index)
-}
+function findFirstRowAtOrAfterOffset(offsets: number[], heights: number[], offset: number) {
+  let low = 0
+  let high = heights.length - 1
+  let answer = 0
 
-function appendNextBatch() {
-  renderedCount.value = Math.min(props.items.length, renderedCount.value + safeBatchSize.value)
-}
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2)
+    const rowEnd = offsets[mid] + heights[mid]
 
-function hasPageScroll() {
-  if (typeof window === 'undefined') {
-    return true
+    if (rowEnd >= offset) {
+      answer = mid
+      high = mid - 1
+    } else {
+      low = mid + 1
+    }
   }
 
-  const scrollHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
-
-  return scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
+  return answer
 }
 
-async function fillViewport() {
-  if (typeof window === 'undefined') {
+function findLastRowAtOrBeforeOffset(offsets: number[], rowCount: number, offset: number) {
+  let low = 0
+  let high = rowCount - 1
+  let answer = 0
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2)
+
+    if (offsets[mid] <= offset) {
+      answer = mid
+      low = mid + 1
+    } else {
+      high = mid - 1
+    }
+  }
+
+  return answer
+}
+
+function getElementFromRef(element: Element | ComponentPublicInstance | null): HTMLElement | null {
+  if (!element || typeof HTMLElement === 'undefined') {
+    return null
+  }
+
+  if (element instanceof HTMLElement) {
+    return element
+  }
+
+  if (!('$el' in element)) {
+    return null
+  }
+
+  const componentElement = element.$el
+
+  return componentElement instanceof HTMLElement ? componentElement : null
+}
+
+function getRowHeight(row: number) {
+  const startIndex = row * columnCount.value
+  const endIndex = Math.min(startIndex + columnCount.value, props.items.length)
+  let rowHeight = 0
+  let hasUnmeasuredItem = false
+
+  for (let index = startIndex; index < endIndex; index += 1) {
+    const height = itemHeights.get(itemKeys.value[index])
+    if (height && height > 0) {
+      rowHeight = Math.max(rowHeight, height)
+    } else {
+      hasUnmeasuredItem = true
+    }
+  }
+
+  if (hasUnmeasuredItem) {
+    return Math.max(rowHeight, estimatedHeight.value)
+  }
+
+  return Math.max(rowHeight, 1)
+}
+
+function ensureItemResizeObserver() {
+  if (itemResizeObserver || typeof ResizeObserver === 'undefined') {
     return
   }
 
-  const maxIterations = Math.ceil(props.items.length / safeBatchSize.value)
-  let iterations = 0
+  itemResizeObserver = new ResizeObserver(entries => {
+    let shouldUpdate = false
+    let scrollAdjustment = 0
+    const currentViewportTop = viewportTop.value
+    const currentOffsets = rowMetrics.value.offsets
 
-  while (!hasPageScroll() && hasMoreItems.value && iterations < maxIterations) {
-    appendNextBatch()
-    iterations += 1
-    await nextTick()
-  }
-}
+    entries.forEach(entry => {
+      const element = entry.target
+      if (!(element instanceof HTMLElement)) {
+        return
+      }
 
-function queueFillViewport() {
-  if (typeof window === 'undefined' || animationFrameId !== null) {
-    return
-  }
+      const key = observedElements.get(element)
+      const index = key === undefined ? undefined : keyIndexMap.value.get(key)
 
-  animationFrameId = window.requestAnimationFrame(() => {
-    animationFrameId = null
-    void fillViewport()
+      if (key === undefined || index === undefined) {
+        return
+      }
+
+      const nextHeight = getResizeEntryHeight(entry)
+      const previousHeight = itemHeights.get(key)
+
+      if (!nextHeight || Math.abs((previousHeight ?? 0) - nextHeight) < 0.5) {
+        return
+      }
+
+      const row = Math.floor(index / columnCount.value)
+      const rowWasFullyMeasured = rowMetrics.value.measuredRows[row]
+      const previousRowHeight = getRowHeight(row)
+      const previousRowBottom = (currentOffsets[row] ?? 0) + previousRowHeight
+
+      if (
+        rowWasFullyMeasured &&
+        previousHeight !== undefined &&
+        previousHeight < previousRowHeight - 0.5 &&
+        nextHeight <= previousRowHeight + 0.5
+      ) {
+        return
+      }
+
+      itemHeights.set(key, nextHeight)
+
+      const nextRowHeight = getRowHeight(row)
+      const delta = nextRowHeight - previousRowHeight
+
+      if (Math.abs(delta) >= 0.5 && previousRowBottom < currentViewportTop) {
+        scrollAdjustment += delta
+      }
+
+      shouldUpdate = true
+    })
+
+    if (!shouldUpdate) {
+      return
+    }
+
+    heightVersion.value += 1
+
+    if (Math.abs(scrollAdjustment) >= 0.5) {
+      adjustScrollTop(scrollAdjustment)
+    }
+
+    queueViewportSync()
   })
+}
+
+function getResizeEntryHeight(entry: ResizeObserverEntry) {
+  const borderSize = Array.isArray(entry.borderBoxSize) ? entry.borderBoxSize[0] : entry.borderBoxSize
+
+  return borderSize?.blockSize || entry.contentRect.height
+}
+
+function setItemRef(element: Element | ComponentPublicInstance | null, key: ItemKey) {
+  const htmlElement = getElementFromRef(element)
+  const previousElement = keyElements.get(key)
+
+  if (!htmlElement) {
+    if (previousElement) {
+      itemResizeObserver?.unobserve(previousElement)
+      observedElements.delete(previousElement)
+      keyElements.delete(key)
+    }
+
+    return
+  }
+
+  if (previousElement === htmlElement) {
+    return
+  }
+
+  ensureItemResizeObserver()
+
+  if (previousElement) {
+    itemResizeObserver?.unobserve(previousElement)
+    observedElements.delete(previousElement)
+  }
+
+  observedElements.set(htmlElement, key)
+  keyElements.set(key, htmlElement)
+  itemResizeObserver?.observe(htmlElement)
+}
+
+function getItemRef(key: ItemKey) {
+  const existingCallback = itemRefCallbacks.get(key)
+
+  if (existingCallback) {
+    return existingCallback
+  }
+
+  const callback = (element: Element | ComponentPublicInstance | null) => setItemRef(element, key)
+  itemRefCallbacks.set(key, callback)
+
+  return callback
+}
+
+function findScrollTarget(): ScrollTarget {
+  let parent = containerRef.value?.parentElement ?? null
+
+  while (parent && parent !== document.body && parent !== document.documentElement) {
+    const overflowY = window.getComputedStyle(parent).overflowY
+
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+      return parent
+    }
+
+    parent = parent.parentElement
+  }
+
+  return window
+}
+
+function addScrollListener(target: ScrollTarget) {
+  target.addEventListener('scroll', queueViewportSync, { passive: true })
+}
+
+function removeScrollListener(target: ScrollTarget | null) {
+  target?.removeEventListener('scroll', queueViewportSync)
+}
+
+function refreshScrollTarget() {
+  if (!mounted) {
+    return
+  }
+
+  const nextTarget = findScrollTarget()
+
+  if (scrollTarget === nextTarget) {
+    return
+  }
+
+  removeScrollListener(scrollTarget)
+  scrollTarget = nextTarget
+  addScrollListener(scrollTarget)
+}
+
+function syncLayoutWidth() {
+  const element = trackRef.value
+
+  if (!element) {
+    layoutWidth.value = 0
+    return
+  }
+
+  layoutWidth.value = element.clientWidth
+}
+
+function syncViewport() {
+  const element = trackRef.value
+
+  if (!element) {
+    viewportTop.value = 0
+    viewportBottom.value = 0
+    return
+  }
+
+  const trackRect = element.getBoundingClientRect()
+  const viewportRect =
+    scrollTarget && scrollTarget !== window
+      ? (scrollTarget as HTMLElement).getBoundingClientRect()
+      : {
+          bottom: window.innerHeight,
+          top: 0,
+        }
+
+  viewportTop.value = viewportRect.top - trackRect.top
+  viewportBottom.value = viewportRect.bottom - trackRect.top
+}
+
+function queueLayoutSync() {
+  if (typeof window === 'undefined' || layoutFrameId !== null) {
+    return
+  }
+
+  layoutFrameId = window.requestAnimationFrame(() => {
+    layoutFrameId = null
+    syncLayoutWidth()
+    refreshScrollTarget()
+    syncViewport()
+    flushPendingReveal()
+  })
+}
+
+function queueViewportSync() {
+  if (typeof window === 'undefined' || scrollFrameId !== null) {
+    return
+  }
+
+  scrollFrameId = window.requestAnimationFrame(() => {
+    scrollFrameId = null
+    syncViewport()
+  })
+}
+
+function getTrackScrollTop() {
+  const element = trackRef.value
+
+  if (!element || !scrollTarget || scrollTarget === window) {
+    return (element?.getBoundingClientRect().top ?? 0) + window.scrollY
+  }
+
+  const scrollElement = scrollTarget as HTMLElement
+  const trackRect = element.getBoundingClientRect()
+  const scrollRect = scrollElement.getBoundingClientRect()
+
+  return trackRect.top - scrollRect.top + scrollElement.scrollTop
+}
+
+function adjustScrollTop(delta: number) {
+  if (!scrollTarget || Math.abs(delta) < 0.5) {
+    return
+  }
+
+  if (scrollTarget === window) {
+    window.scrollBy({
+      behavior: 'auto',
+      top: delta,
+    })
+  } else {
+    const scrollElement = scrollTarget as HTMLElement
+    scrollElement.scrollTop += delta
+  }
+}
+
+function scrollToRelativeTop(top: number) {
+  if (!scrollTarget) {
+    return
+  }
+
+  const targetTop = getTrackScrollTop() + top
+
+  if (scrollTarget === window) {
+    window.scrollTo({
+      behavior: 'auto',
+      top: targetTop,
+    })
+  } else {
+    ;(scrollTarget as HTMLElement).scrollTo({
+      behavior: 'auto',
+      top: targetTop,
+    })
+  }
+
+  queueViewportSync()
 }
 
 async function revealItem(index: number) {
@@ -101,120 +581,191 @@ async function revealItem(index: number) {
     return
   }
 
-  const minRenderedCount = Math.ceil((index + 1) / safeBatchSize.value) * safeBatchSize.value
-  renderedCount.value = Math.min(props.items.length, Math.max(renderedCount.value, minRenderedCount))
-
   await nextTick()
 
-  const target = containerRef.value?.querySelector(`[data-progressive-grid-index="${index}"]`)
-  if (target instanceof HTMLElement) {
-    target.scrollIntoView({
-      behavior: 'auto',
-      block: 'start',
-      inline: 'nearest',
-    })
-  }
+  const row = Math.floor(index / columnCount.value)
+  const top = rowMetrics.value.offsets[row] ?? 0
+
+  scrollToRelativeTop(top)
 }
 
-function resetVisibleItems() {
-  renderedCount.value = Math.min(props.items.length, safeInitialCount.value)
+function requestRevealItem(index: number) {
+  pendingRevealIndex = index
 
-  nextTick(() => {
-    if (props.scrollToIndex !== undefined && props.scrollToIndex >= 0) {
-      void revealItem(props.scrollToIndex)
-      return
-    }
-
-    queueFillViewport()
-  })
-}
-
-function didItemsAppend(nextItems: any[], previousItems: any[]) {
-  if (!previousItems.length || nextItems.length < previousItems.length) {
-    return false
-  }
-
-  return previousItems.every((item, index) => getComparableKey(item, index) === getComparableKey(nextItems[index], index))
-}
-
-function syncVisibleItems(nextItems: any[], previousItems: any[] = []) {
-  if (didItemsAppend(nextItems, previousItems)) {
-    renderedCount.value = Math.min(nextItems.length, Math.max(renderedCount.value, previousItems.length))
-
-    nextTick(() => {
-      if (props.scrollToIndex !== undefined && props.scrollToIndex >= 0) {
-        void revealItem(props.scrollToIndex)
-        return
-      }
-
-      queueFillViewport()
-    })
-
+  if (!mounted) {
     return
   }
 
-  resetVisibleItems()
+  queueLayoutSync()
 }
 
-const { stop } = useIntersectionObserver(
-  sentinelRef,
-  ([entry]) => {
-    if (!entry?.isIntersecting || !hasMoreItems.value) {
-      return
-    }
+function flushPendingReveal() {
+  if (pendingRevealIndex === null || !mounted || !scrollTarget || layoutWidth.value <= 0) {
+    return
+  }
 
-    appendNextBatch()
-    queueFillViewport()
-  },
-  {
-    rootMargin: '1200px 0px',
-  },
-)
+  const index = pendingRevealIndex
+  pendingRevealIndex = null
+
+  void revealItem(index)
+}
+
+function pruneMeasurements() {
+  const keys = new Set(itemKeys.value)
+  let changed = false
+
+  Array.from(itemHeights.keys()).forEach(key => {
+    if (!keys.has(key)) {
+      itemHeights.delete(key)
+      changed = true
+    }
+  })
+
+  Array.from(keyElements.entries()).forEach(([key, element]) => {
+    if (!keys.has(key)) {
+      itemResizeObserver?.unobserve(element)
+      observedElements.delete(element)
+      keyElements.delete(key)
+    }
+  })
+
+  Array.from(itemRefCallbacks.keys()).forEach(key => {
+    if (!keys.has(key)) {
+      itemRefCallbacks.delete(key)
+    }
+  })
+
+  if (changed) {
+    heightVersion.value += 1
+  }
+}
+
+function didKeysAppend(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
+  if (!previousKeys.length || nextKeys.length < previousKeys.length) {
+    return false
+  }
+
+  return previousKeys.every((key, index) => key === nextKeys[index])
+}
+
+function syncMeasurementsForItems(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
+  if (!didKeysAppend(nextKeys, previousKeys) && itemHeights.size) {
+    itemHeights.clear()
+    heightVersion.value += 1
+  }
+
+  pruneMeasurements()
+}
+
+function invalidateMeasurementsForLayoutChange() {
+  const nextColumnCount = columnCount.value
+  const nextColumnWidth = columnWidth.value
+
+  if (
+    lastMeasuredColumnCount === nextColumnCount &&
+    Math.abs(lastMeasuredColumnWidth - nextColumnWidth) < 1
+  ) {
+    return
+  }
+
+  lastMeasuredColumnCount = nextColumnCount
+  lastMeasuredColumnWidth = nextColumnWidth
+
+  if (!itemHeights.size) {
+    return
+  }
+
+  itemHeights.clear()
+  heightVersion.value += 1
+}
 
 onMounted(() => {
-  window.addEventListener('resize', queueFillViewport, { passive: true })
+  mounted = true
+  scrollTarget = findScrollTarget()
+  addScrollListener(scrollTarget)
+
+  resizeObserver = new ResizeObserver(queueLayoutSync)
+  if (trackRef.value) {
+    resizeObserver.observe(trackRef.value)
+  }
+
+  window.addEventListener('resize', queueLayoutSync, { passive: true })
+
+  queueLayoutSync()
+})
+
+onActivated(() => {
+  mounted = true
+  refreshScrollTarget()
+  queueLayoutSync()
+})
+
+onDeactivated(() => {
+  mounted = false
+  removeScrollListener(scrollTarget)
+  scrollTarget = null
 })
 
 onUnmounted(() => {
-  stop()
-  window.removeEventListener('resize', queueFillViewport)
+  mounted = false
+  removeScrollListener(scrollTarget)
+  scrollTarget = null
 
-  if (animationFrameId !== null) {
-    window.cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
+  window.removeEventListener('resize', queueLayoutSync)
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  itemResizeObserver?.disconnect()
+  itemResizeObserver = null
+
+  if (layoutFrameId !== null) {
+    window.cancelAnimationFrame(layoutFrameId)
+    layoutFrameId = null
+  }
+
+  if (scrollFrameId !== null) {
+    window.cancelAnimationFrame(scrollFrameId)
+    scrollFrameId = null
   }
 })
+
+watch(
+  itemKeys,
+  (nextKeys, previousKeys) => {
+    syncMeasurementsForItems(nextKeys, previousKeys)
+    queueLayoutSync()
+  },
+  { immediate: true },
+)
 
 watch(
   [
     () => props.minItemWidth,
-    () => props.initialCount,
-    () => props.batchSize,
+    () => props.gap,
+    () => props.estimatedItemHeight,
+    () => props.itemAspectRatio,
+    () => props.columns,
   ],
   () => {
-    queueFillViewport()
+    queueLayoutSync()
   },
-  { immediate: true },
 )
 
 watch(
-  () => props.items,
-  (nextItems, previousItems) => {
-    syncVisibleItems(nextItems, previousItems)
+  [columnCount, columnWidth],
+  () => {
+    invalidateMeasurementsForLayoutChange()
+    queueViewportSync()
   },
-  { immediate: true },
 )
 
 watch(
-  [() => props.scrollToIndex, () => props.items.length],
+  [() => props.scrollToIndex, () => props.items.length, columnCount],
   ([scrollToIndex]) => {
-    if (scrollToIndex === undefined || scrollToIndex < 0) {
+    if (scrollToIndex === undefined || scrollToIndex < 0 || scrollToIndex >= props.items.length) {
       return
     }
 
-    nextTick(() => {
-      void revealItem(scrollToIndex)
-    })
+    requestRevealItem(scrollToIndex)
   },
   { immediate: true },
 )
@@ -222,17 +773,31 @@ watch(
 
 <template>
   <div ref="containerRef" class="progressive-card-grid">
-    <div class="grid" :style="gridStyle">
+    <div ref="trackRef" class="progressive-card-grid__track">
       <div
-        v-for="(item, index) in visibleItems"
-        :key="resolveItemKey(item, index)"
-        class="progressive-card-grid__item"
-        :data-progressive-grid-index="index"
-      >
-        <slot :item="item" :index="index" />
+        v-if="topSpacerHeight > 0"
+        class="progressive-card-grid__spacer"
+        :style="{ blockSize: `${topSpacerHeight}px` }"
+        aria-hidden="true"
+      />
+      <div v-if="visibleCells.length > 0" class="progressive-card-grid__grid" :style="gridStyle">
+        <div
+          v-for="cell in visibleCells"
+          :key="cell.key"
+          :ref="getItemRef(cell.key)"
+          class="progressive-card-grid__item"
+          :data-progressive-grid-index="cell.index"
+        >
+          <slot :item="cell.item" :index="cell.index" />
+        </div>
       </div>
+      <div
+        v-if="bottomSpacerHeight > 0"
+        class="progressive-card-grid__spacer"
+        :style="{ blockSize: `${bottomSpacerHeight}px` }"
+        aria-hidden="true"
+      />
     </div>
-    <div v-if="hasMoreItems" ref="sentinelRef" class="progressive-card-grid__sentinel" aria-hidden="true" />
   </div>
 </template>
 
@@ -241,12 +806,23 @@ watch(
   inline-size: 100%;
 }
 
+.progressive-card-grid__track {
+  inline-size: 100%;
+  min-block-size: 1px;
+  overflow-anchor: none;
+}
+
+.progressive-card-grid__grid {
+  display: grid;
+}
+
 .progressive-card-grid__item {
+  inline-size: 100%;
   min-inline-size: 0;
 }
 
-.progressive-card-grid__sentinel {
-  block-size: 1px;
+.progressive-card-grid__item > :deep(*) {
+  block-size: 100%;
   inline-size: 100%;
 }
 </style>

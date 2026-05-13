@@ -427,6 +427,7 @@ useDynamicButton({
       :items="draggableSiteList"
       :get-item-key="item => item.id"
       :min-item-width="256"
+      :estimated-item-height="168"
       class="px-2"
     >
       <template #default="{ item }">

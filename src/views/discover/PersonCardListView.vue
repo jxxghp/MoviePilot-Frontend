@@ -123,7 +123,13 @@ async function fetchData({ done }: { done: any }) {
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-3" @load="fetchData">
     <template #loading />
     <template #empty />
-    <ProgressiveCardGrid v-if="dataList.length > 0" :items="dataList" :get-item-key="item => item.id" tabindex="0">
+    <ProgressiveCardGrid
+      v-if="dataList.length > 0"
+      :items="dataList"
+      :item-aspect-ratio="1.5"
+      :get-item-key="item => item.id"
+      tabindex="0"
+    >
       <template #default="{ item }">
         <PersonCard :person="item" />
       </template>

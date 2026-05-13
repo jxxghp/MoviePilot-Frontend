@@ -4,6 +4,7 @@ import type { Site, TorrentInfo, SiteCategory } from '@/api/types'
 import { formatFileSize } from '@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -93,6 +94,10 @@ const isMobileLayout = computed(() => display.smAndDown.value)
 
 // 移动端分页数据
 const mobileResourceList = computed(() => resourceDataList.value)
+
+function getResourceItemKey(item: TorrentInfo, index: number) {
+  return item.page_url || item.enclosure || `${item.title}-${item.pubdate || ''}-${index}`
+}
 
 // 打开种子详情页面
 function openTorrentDetail(page_url: string) {
@@ -465,98 +470,115 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-else-if="mobileResourceList.length > 0" class="px-3 pb-4">
-            <VCard
-              v-for="(item, index) in mobileResourceList"
-              :key="item.page_url || item.enclosure || `${item.title}-${index}`"
-              class="mb-3"
+          <div v-else-if="mobileResourceList.length > 0" class="site-resource-mobile__list px-3 pb-4">
+            <ProgressiveCardGrid
+              :items="mobileResourceList"
+              :columns="1"
+              :gap="12"
+              :estimated-item-height="320"
+              :overscan-rows="5"
+              :get-item-key="getResourceItemKey"
             >
-              <VCardText class="pa-4">
-                <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
-                  <div class="text-body-1 font-weight-medium text-high-emphasis">
-                    {{ item.title }}
-                  </div>
-                  <div
-                    v-if="item.description"
-                    class="site-resource-card__description mt-2 text-body-2 text-medium-emphasis"
-                  >
-                    {{ item.description }}
-                  </div>
-                </button>
+              <template #default="{ item }">
+                <VCard>
+                  <VCardText class="pa-4">
+                    <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
+                      <div class="text-body-1 font-weight-medium text-high-emphasis">
+                        {{ item.title }}
+                      </div>
+                      <div
+                        v-if="item.description"
+                        class="site-resource-card__description mt-2 text-body-2 text-medium-emphasis"
+                      >
+                        {{ item.description }}
+                      </div>
+                    </button>
 
-                <div class="mt-3">
-                  <VChip v-if="item.hit_and_run" variant="elevated" size="small" class="me-1 mb-1 text-white bg-black">
-                    H&amp;R
-                  </VChip>
-                  <VChip v-if="item.freedate_diff" variant="elevated" color="secondary" size="small" class="me-1 mb-1">
-                    {{ item.freedate_diff }}
-                  </VChip>
-                  <VChip
-                    v-for="(label, chipIndex) in item.labels"
-                    :key="chipIndex"
-                    variant="elevated"
-                    size="small"
-                    color="primary"
-                    class="me-1 mb-1"
-                  >
-                    {{ label }}
-                  </VChip>
-                  <VChip
-                    v-if="item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1"
-                    :class="getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)"
-                    variant="elevated"
-                    size="small"
-                    class="me-1 mb-1"
-                  >
-                    {{ item.volume_factor }}
-                  </VChip>
-                </div>
+                    <div class="mt-3">
+                      <VChip
+                        v-if="item.hit_and_run"
+                        variant="elevated"
+                        size="small"
+                        class="me-1 mb-1 text-white bg-black"
+                      >
+                        H&amp;R
+                      </VChip>
+                      <VChip
+                        v-if="item.freedate_diff"
+                        variant="elevated"
+                        color="secondary"
+                        size="small"
+                        class="me-1 mb-1"
+                      >
+                        {{ item.freedate_diff }}
+                      </VChip>
+                      <VChip
+                        v-for="(label, chipIndex) in item.labels"
+                        :key="chipIndex"
+                        variant="elevated"
+                        size="small"
+                        color="primary"
+                        class="me-1 mb-1"
+                      >
+                        {{ label }}
+                      </VChip>
+                      <VChip
+                        v-if="item.downloadvolumefactor !== 1 || item.uploadvolumefactor !== 1"
+                        :class="getVolumeFactorClass(item.downloadvolumefactor, item.uploadvolumefactor)"
+                        variant="elevated"
+                        size="small"
+                        class="me-1 mb-1"
+                      >
+                        {{ item.volume_factor }}
+                      </VChip>
+                    </div>
 
-                <div class="site-resource-card__meta mt-4">
-                  <div class="site-resource-card__meta-item">
-                    <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.timeColumn') }}</div>
-                    <div class="text-body-2 font-weight-medium">{{ item.date_elapsed || item.pubdate || '-' }}</div>
-                    <div v-if="item.pubdate" class="text-caption text-medium-emphasis mt-1">{{ item.pubdate }}</div>
-                  </div>
-                  <div class="site-resource-card__meta-item">
-                    <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.sizeColumn') }}</div>
-                    <div class="text-body-2 font-weight-medium">{{ formatFileSize(item.size) }}</div>
-                  </div>
-                  <div class="site-resource-card__meta-item">
-                    <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.seedersColumn') }}</div>
-                    <div class="text-body-2 font-weight-medium">{{ item.seeders }}</div>
-                  </div>
-                  <div class="site-resource-card__meta-item">
-                    <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.peersColumn') }}</div>
-                    <div class="text-body-2 font-weight-medium">{{ item.peers }}</div>
-                  </div>
-                </div>
+                    <div class="site-resource-card__meta mt-4">
+                      <div class="site-resource-card__meta-item">
+                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.timeColumn') }}</div>
+                        <div class="text-body-2 font-weight-medium">{{ item.date_elapsed || item.pubdate || '-' }}</div>
+                        <div v-if="item.pubdate" class="text-caption text-medium-emphasis mt-1">{{ item.pubdate }}</div>
+                      </div>
+                      <div class="site-resource-card__meta-item">
+                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.sizeColumn') }}</div>
+                        <div class="text-body-2 font-weight-medium">{{ formatFileSize(item.size) }}</div>
+                      </div>
+                      <div class="site-resource-card__meta-item">
+                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.seedersColumn') }}</div>
+                        <div class="text-body-2 font-weight-medium">{{ item.seeders }}</div>
+                      </div>
+                      <div class="site-resource-card__meta-item">
+                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.peersColumn') }}</div>
+                        <div class="text-body-2 font-weight-medium">{{ item.peers }}</div>
+                      </div>
+                    </div>
 
-                <div class="site-resource-card__actions mt-4">
-                  <VBtn color="primary" variant="flat" block prepend-icon="mdi-download" @click="addDownload(item)">
-                    {{ t('actionStep.addDownload') }}
-                  </VBtn>
-                  <div class="site-resource-card__secondary-actions mt-2">
-                    <VBtn
-                      variant="tonal"
-                      prepend-icon="mdi-open-in-new"
-                      @click="openTorrentDetail(item.page_url || '')"
-                    >
-                      {{ t('common.viewDetails') }}
-                    </VBtn>
-                    <VBtn
-                      v-if="item.enclosure?.startsWith('http')"
-                      variant="tonal"
-                      prepend-icon="mdi-tray-arrow-down"
-                      @click="downloadTorrentFile(item.enclosure)"
-                    >
-                      {{ t('dialog.siteResource.downloadTorrent') }}
-                    </VBtn>
-                  </div>
-                </div>
-              </VCardText>
-            </VCard>
-
+                    <div class="site-resource-card__actions mt-4">
+                      <VBtn color="primary" variant="flat" block prepend-icon="mdi-download" @click="addDownload(item)">
+                        {{ t('actionStep.addDownload') }}
+                      </VBtn>
+                      <div class="site-resource-card__secondary-actions mt-2">
+                        <VBtn
+                          variant="tonal"
+                          prepend-icon="mdi-open-in-new"
+                          @click="openTorrentDetail(item.page_url || '')"
+                        >
+                          {{ t('common.viewDetails') }}
+                        </VBtn>
+                        <VBtn
+                          v-if="item.enclosure?.startsWith('http')"
+                          variant="tonal"
+                          prepend-icon="mdi-tray-arrow-down"
+                          @click="downloadTorrentFile(item.enclosure)"
+                        >
+                          {{ t('dialog.siteResource.downloadTorrent') }}
+                        </VBtn>
+                      </div>
+                    </div>
+                  </VCardText>
+                </VCard>
+              </template>
+            </ProgressiveCardGrid>
           </div>
 
           <div v-else class="px-4 py-10 text-center text-medium-emphasis">
@@ -667,6 +689,15 @@ onMounted(() => {
 
 .site-resource-table :deep(.v-data-table-footer) {
   flex: 0 0 auto;
+}
+
+.site-resource-mobile {
+  overflow-y: auto;
+  block-size: 100%;
+}
+
+.site-resource-mobile__list {
+  min-block-size: 100%;
 }
 
 .v-table th {

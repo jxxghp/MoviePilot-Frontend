@@ -157,6 +157,7 @@ async function fetchData({ done }: { done: any }) {
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
+      :item-aspect-ratio="1.5"
       :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
       tabindex="0"
     >

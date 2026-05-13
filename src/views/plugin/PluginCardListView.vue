@@ -1571,6 +1571,7 @@ function onDragStartPlugin(evt: any) {
                   :items="mixedSortList"
                   :get-item-key="item => `${item.type}:${item.id}`"
                   :min-item-width="256"
+                  :estimated-item-height="180"
                   :scroll-to-index="installedScrollToIndex"
                 >
                   <template #default="{ item }">
@@ -1629,6 +1630,7 @@ function onDragStartPlugin(evt: any) {
                   :items="draggableFolderPlugins"
                   :get-item-key="item => item.id"
                   :min-item-width="256"
+                  :estimated-item-height="180"
                 >
                   <template #default="{ item }">
                     <PluginMixedSortCard

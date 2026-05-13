@@ -4,6 +4,7 @@ import type { User } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import UserCard from '@/components/cards/UserCard.vue'
 import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
@@ -80,17 +81,19 @@ useDynamicButton({
     <!-- 加载中提示 -->
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
     <!-- 用户卡片网格 -->
-    <div v-if="allUsers.length > 0 && isRefreshed" class="grid gap-4 grid-user-card px-2">
+    <ProgressiveCardGrid
+      v-if="allUsers.length > 0 && isRefreshed"
+      :items="allUsers"
+      :min-item-width="288"
+      :estimated-item-height="260"
+      :get-item-key="user => user.id"
+      class="px-2"
+    >
       <!-- 普通用户卡片 -->
-      <UserCard
-        v-for="user in allUsers"
-        :key="user.id"
-        :user="user"
-        :users="allUsers"
-        @remove="loadAllUsers"
-        @save="loadAllUsers"
-      />
-    </div>
+      <template #default="{ item }">
+        <UserCard :user="item" :users="allUsers" @remove="loadAllUsers" @save="loadAllUsers" />
+      </template>
+    </ProgressiveCardGrid>
 
     <!-- 无数据提示 -->
     <div v-if="allUsers.length === 0 && isRefreshed">

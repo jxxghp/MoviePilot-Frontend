@@ -1149,14 +1149,19 @@ onUnmounted(() => {
               </div>
             </div>
             <div v-else-if="filteredRowDataList.length > 0" class="resource-list">
-              <VVirtualScroll renderless :items="filteredRowDataList" :item-height="240">
-                <template #default="{ item, index, itemRef }">
-                  <div :ref="itemRef" :key="getTorrentItemKey(item, index)">
-                    <TorrentItem :torrent="item" />
-                    <VDivider v-if="index < filteredRowDataList.length - 1" class="my-2" />
-                  </div>
+              <ProgressiveCardGrid
+                :items="filteredRowDataList"
+                :columns="1"
+                :gap="8"
+                :estimated-item-height="240"
+                :overscan-rows="6"
+                :get-item-key="getTorrentItemKey"
+              >
+                <template #default="{ item, index }">
+                  <TorrentItem :torrent="item" />
+                  <VDivider v-if="index < filteredRowDataList.length - 1" class="my-2" />
                 </template>
-              </VVirtualScroll>
+              </ProgressiveCardGrid>
             </div>
           </VCard>
         </div>

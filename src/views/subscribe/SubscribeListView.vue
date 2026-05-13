@@ -518,6 +518,7 @@ defineExpose({
     :items="displayList"
     :get-item-key="item => item.id"
     :min-item-width="240"
+    :estimated-item-height="300"
     :scroll-to-index="scrollToIndex"
     class="px-2"
   >
