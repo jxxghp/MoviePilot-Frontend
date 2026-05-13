@@ -58,7 +58,7 @@ const customCSS = ref('')
 // 透明度相关
 const transparencyOpacity = ref(parseFloat(localStorage.getItem('transparency-opacity') || '0.3'))
 const transparencyBlur = ref(parseFloat(localStorage.getItem('transparency-blur') || '10'))
-const backgroundPosterOpacity = ref(parseFloat(localStorage.getItem('transparency-background-poster-opacity') || '1'))
+const backgroundPosterOpacity = ref(parseFloat(localStorage.getItem('transparency-background-poster-opacity') || '0'))
 const backgroundBlur = ref(parseFloat(localStorage.getItem('transparency-background-blur') || '16'))
 const transparencyLevel = ref(localStorage.getItem('transparency-level') || 'medium')
 const isTransparentTheme = computed(() => currentThemeName.value === 'transparent')
@@ -401,7 +401,7 @@ function applyTransparencySettings() {
   root.style.setProperty('--transparent-blur', `${transparencyBlur.value}px`)
   root.style.setProperty('--transparent-blur-light', `${transparencyBlur.value * 0.6}px`)
   root.style.setProperty('--transparent-blur-heavy', `${transparencyBlur.value * 1.6}px`)
-  root.style.setProperty('--transparent-background-poster-opacity', backgroundPosterOpacity.value.toString())
+  root.style.setProperty('--transparent-background-poster-opacity', (1 - backgroundPosterOpacity.value).toString())
   root.style.setProperty('--transparent-background-blur', `${backgroundBlur.value}px`)
 
   // 保存到本地存储
@@ -463,7 +463,7 @@ function onBackgroundBlurChange() {
 function resetTransparencySettings() {
   transparencyOpacity.value = 0.3
   transparencyBlur.value = 10
-  backgroundPosterOpacity.value = 1
+  backgroundPosterOpacity.value = 0
   backgroundBlur.value = 16
   transparencyLevel.value = 'medium'
   applyTransparencySettings()

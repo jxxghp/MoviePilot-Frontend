@@ -59,7 +59,7 @@ function getStoredNumber(key: string, fallback: number, min: number, max: number
 function applyTransparentBackgroundSettings() {
   document.documentElement.style.setProperty(
     '--transparent-background-poster-opacity',
-    getStoredNumber('transparency-background-poster-opacity', 1, 0, 1).toString(),
+    (1 - getStoredNumber('transparency-background-poster-opacity', 0, 0, 1)).toString(),
   )
   document.documentElement.style.setProperty(
     '--transparent-background-blur',
