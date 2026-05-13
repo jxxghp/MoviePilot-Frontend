@@ -5,6 +5,25 @@ import PageRender from '@/components/render/PageRender.vue'
 import api from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
+import { defineComponent, h } from 'vue'
+
+const AsyncLoadingComponent = defineComponent({
+  name: 'AsyncLoadingComponent',
+  setup() {
+    return () => h('div', { class: 'pa-4 text-medium-emphasis' }, '组件加载中...')
+  },
+})
+
+const AsyncErrorComponent = defineComponent({
+  name: 'AsyncErrorComponent',
+  setup() {
+    return () =>
+      h('div', { class: 'pa-4' }, [
+        h('div', { class: 'text-error text-subtitle-1 mb-2' }, '组件加载错误'),
+        h('div', { class: 'text-body-2' }, '无法加载组件，请稍后再试'),
+      ])
+  },
+})
 
 // 输入参数
 const props = defineProps({
@@ -58,19 +77,9 @@ const dynamicComponent = defineAsyncComponent({
     }
   },
   // 加载中显示的组件
-  loadingComponent: {
-    template: '<VSkeletonLoader type="card"></VSkeletonLoader>',
-  },
+  loadingComponent: AsyncLoadingComponent,
   // 添加错误处理
-  errorComponent: {
-    template: `
-      <div class="pa-4">
-        <VAlert type="error" title="组件加载错误">
-          无法加载组件，请稍后再试
-        </VAlert>
-      </div>
-    `,
-  },
+  errorComponent: AsyncErrorComponent,
   // 添加超时设置
   timeout: 20000,
 })

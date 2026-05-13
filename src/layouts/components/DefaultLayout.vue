@@ -231,6 +231,14 @@ function handlePluginClick() {
   showPluginQuickAccess.value = false
 }
 
+let cleanupUnreadMessageListener: (() => void) | null = null
+
+function cleanupServiceWorkerListener() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+  }
+}
+
 function appendPluginSidebarMenus() {
   for (const { navMenu, section } of filterPluginSidebarNavEntries(
     pluginSidebarNavStore.items,
@@ -270,20 +278,20 @@ onMounted(async () => {
   appendPluginSidebarMenus()
 
   // 监听全局未读消息事件
-  const unsubscribe = onUnreadMessage(handleUnreadMessage)
+  cleanupUnreadMessageListener = onUnreadMessage(handleUnreadMessage)
 
   // 监听Service Worker消息
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
   }
+})
 
-  // 组件卸载时清理监听
-  onBeforeUnmount(() => {
-    unsubscribe()
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
-    }
-  })
+onBeforeUnmount(() => {
+  if (cleanupUnreadMessageListener) {
+    cleanupUnreadMessageListener()
+    cleanupUnreadMessageListener = null
+  }
+  cleanupServiceWorkerListener()
 })
 </script>
 
@@ -450,7 +458,9 @@ onMounted(async () => {
   border-radius: 50%;
   backdrop-filter: blur(20px);
   background: rgba(var(--v-theme-surface), 0.3);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 10%), 0 1px 3px rgba(0, 0, 0, 6%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 10%),
+    0 1px 3px rgba(0, 0, 0, 6%);
   inset-block-start: 80px;
   inset-inline-start: 50%;
   pointer-events: none;
@@ -475,7 +485,9 @@ html[class*='mica'] .pull-indicator,
 html[class*='acrylic'] .pull-indicator {
   border: 1px solid rgba(255, 255, 255, 20%);
   background: rgba(255, 255, 255, 95%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 12%), 0 4px 16px rgba(0, 0, 0, 8%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 12%),
+    0 4px 16px rgba(0, 0, 0, 8%);
 }
 
 html[class*='transparent'] .indicator-icon,
@@ -489,7 +501,9 @@ html[data-theme='dark'][class*='mica'] .pull-indicator,
 html[data-theme='dark'][class*='acrylic'] .pull-indicator {
   border: 1px solid rgba(255, 255, 255, 10%);
   background: rgba(18, 18, 18, 95%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 30%), 0 4px 16px rgba(0, 0, 0, 20%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 30%),
+    0 4px 16px rgba(0, 0, 0, 20%);
 }
 
 html[data-theme='dark'][class*='transparent'] .indicator-icon,

@@ -8,6 +8,25 @@ import FormRender from '../render/FormRender.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { loadRemoteComponent } from '@/utils/federationLoader'
+import { defineComponent, h } from 'vue'
+
+const AsyncLoadingComponent = defineComponent({
+  name: 'AsyncLoadingComponent',
+  setup() {
+    return () => h('div', { class: 'pa-4 text-medium-emphasis' }, '组件加载中...')
+  },
+})
+
+const AsyncErrorComponent = defineComponent({
+  name: 'AsyncErrorComponent',
+  setup() {
+    return () =>
+      h('div', { class: 'pa-4' }, [
+        h('div', { class: 'text-error text-subtitle-1 mb-2' }, '组件加载错误'),
+        h('div', { class: 'text-body-2' }, '无法加载组件，请稍后再试'),
+      ])
+  },
+})
 
 // 国际化
 const { t } = useI18n()
@@ -34,6 +53,9 @@ let pluginFormItems = reactive([])
 // 进度框
 const progressDialog = ref(false)
 
+// 保存中
+const saving = ref(false)
+
 // 进度文字
 const progressText = ref('')
 
@@ -42,6 +64,9 @@ const $toast = useToast()
 
 // 是否刷新
 const isRefreshed = ref(false)
+
+// 最近一次保存时间，用于通知联邦组件刷新关联状态
+const lastSavedAt = ref(0)
 
 // 渲染模式: 'vuetify' 或 'vue'
 const renderMode = ref('vuetify')
@@ -65,19 +90,9 @@ const dynamicComponent = defineAsyncComponent({
     }
   },
   // 加载中显示的组件
-  loadingComponent: {
-    template: '<VSkeletonLoader type="card"></VSkeletonLoader>',
-  },
+  loadingComponent: AsyncLoadingComponent,
   // 添加错误处理
-  errorComponent: {
-    template: `
-      <div class="pa-4">
-        <VAlert type="error" title="组件加载错误">
-          无法加载组件，请稍后再试
-        </VAlert>
-      </div>
-    `,
-  },
+  errorComponent: AsyncErrorComponent,
   // 添加超时设置
   timeout: 20000,
 })
@@ -125,12 +140,18 @@ function handleVueComponentSave(newConfig: Record<string, any>) {
 
 // 调用API保存配置数据
 async function savePluginConf() {
+  if (saving.value) {
+    return
+  }
+
   // 显示等待提示框
+  saving.value = true
   progressDialog.value = true
   progressText.value = t('dialog.pluginConfig.saving', { name: props.plugin?.plugin_name })
   try {
     const result: { [key: string]: any } = await api.put(`plugin/${props.plugin?.id}`, pluginConfigForm.value)
     if (result.success) {
+      lastSavedAt.value = Date.now()
       $toast.success(t('dialog.pluginConfig.saveSuccess', { name: props.plugin?.plugin_name }))
       // 通知父组件刷新
       emit('save')
@@ -139,8 +160,10 @@ async function savePluginConf() {
     }
   } catch (error) {
     console.error(error)
+  } finally {
+    saving.value = false
+    progressDialog.value = false
   }
-  progressDialog.value = false
 }
 
 onBeforeMount(async () => {
@@ -166,7 +189,14 @@ onBeforeMount(async () => {
         </VBtn>
         <VSpacer />
         <!-- 只有Vuetify模式显示默认保存按钮，Vue模式由组件内部控制 -->
-        <VBtn v-if="renderMode === 'vuetify'" @click="savePluginConf" prepend-icon="mdi-content-save" class="px-5">
+        <VBtn
+          v-if="renderMode === 'vuetify'"
+          :loading="saving"
+          :disabled="saving"
+          @click="savePluginConf"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
           保存
         </VBtn>
       </VCardActions>
@@ -178,6 +208,8 @@ onBeforeMount(async () => {
           :is="dynamicComponent"
           :initial-config="pluginConfigForm"
           :api="api"
+          :last-saved-at="lastSavedAt"
+          :saving="saving"
           @save="handleVueComponentSave"
           @switch="emit('switch')"
           @close="emit('close')"
