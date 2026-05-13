@@ -2482,8 +2482,6 @@ export default {
       previewTotal: '總數 {count}',
       previewSuccess: '成功 {count}',
       previewFailed: '失敗 {count}',
-      previewSourcePath: '原始路徑',
-      previewTargetPath: '目的路徑',
       previewMediaInfo: '媒體資訊',
       previewMediaName: '名稱',
       previewMediaType: '類型',
