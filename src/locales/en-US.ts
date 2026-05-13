@@ -2727,6 +2727,7 @@ export default {
     close: 'Close',
     loadingDirectoryStructure: 'Loading directory structure...',
     reorganize: 'Reorganize',
+    filterPlaceholder: 'Filter (supports * ? wildcards)',
   },
   person: {
     alias: 'Also Known As:',

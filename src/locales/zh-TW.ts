@@ -2684,6 +2684,7 @@ export default {
     close: '關閉',
     loadingDirectoryStructure: '加載目錄結構...',
     reorganize: '整理',
+    filterPlaceholder: '搜尋（支援 * ? 萬用字元）',
   },
   person: {
     alias: '別名：',
