@@ -149,6 +149,8 @@ export default {
     transparencyAdjust: 'Transparency Adjustment',
     transparencyOpacity: 'Opacity',
     transparencyBlur: 'Blur',
+    backgroundPosterOpacity: 'Background Opacity',
+    backgroundBlur: 'Background Frosted Blur',
     transparencyReset: 'Reset',
     transparencyLow: 'Low Transparency',
     transparencyMedium: 'Medium Transparency',

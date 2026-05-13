@@ -149,6 +149,8 @@ export default {
     transparencyAdjust: '透明度調整',
     transparencyOpacity: '透明度',
     transparencyBlur: '模糊度',
+    backgroundPosterOpacity: '背景透明度',
+    backgroundBlur: '背景磨砂效果',
     transparencyReset: '重置',
     transparencyLow: '低透明度',
     transparencyMedium: '中等透明度',

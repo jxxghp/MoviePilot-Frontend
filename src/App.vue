@@ -49,6 +49,26 @@ const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 
+function getStoredNumber(key: string, fallback: number, min: number, max: number) {
+  const parsed = Number.parseFloat(localStorage.getItem(key) || '')
+  if (!Number.isFinite(parsed)) return fallback
+
+  return Math.min(max, Math.max(min, parsed))
+}
+
+function applyTransparentBackgroundSettings() {
+  document.documentElement.style.setProperty(
+    '--transparent-background-poster-opacity',
+    getStoredNumber('transparency-background-poster-opacity', 1, 0, 1).toString(),
+  )
+  document.documentElement.style.setProperty(
+    '--transparent-background-blur',
+    `${getStoredNumber('transparency-background-blur', 16, 0, 30)}px`,
+  )
+}
+
+applyTransparentBackgroundSettings()
+
 // 心跳检测
 let heartbeatInterval: number | null = null
 
@@ -266,7 +286,11 @@ onUnmounted(() => {
 <template>
   <div class="app-wrapper">
     <!-- 透明主题背景 -->
-    <div v-if="backgroundImages.length > 0 && (isTransparentTheme || !isLogin)" class="background-container">
+    <div
+      v-if="backgroundImages.length > 0 && (isTransparentTheme || !isLogin)"
+      class="background-container"
+      :class="{ 'is-transparent-theme': isTransparentTheme && isLogin }"
+    >
       <div
         v-for="(imageUrl, index) in backgroundImages"
         :key="`bg-${index}-${loginStateKey}`"
@@ -331,11 +355,15 @@ onUnmounted(() => {
   }
 }
 
+.background-container.is-transparent-theme .background-image.active {
+  opacity: var(--transparent-background-poster-opacity, 1);
+}
+
 /* 全局磨砂层 */
 .global-blur-layer {
   position: absolute;
   z-index: 1;
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--transparent-background-blur, 16px));
   background-color: rgba(128, 128, 128, 30%);
   block-size: 100%;
   inline-size: 100%;

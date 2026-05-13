@@ -58,6 +58,8 @@ const customCSS = ref('')
 // 透明度相关
 const transparencyOpacity = ref(parseFloat(localStorage.getItem('transparency-opacity') || '0.3'))
 const transparencyBlur = ref(parseFloat(localStorage.getItem('transparency-blur') || '10'))
+const backgroundPosterOpacity = ref(parseFloat(localStorage.getItem('transparency-background-poster-opacity') || '1'))
+const backgroundBlur = ref(parseFloat(localStorage.getItem('transparency-background-blur') || '16'))
 const transparencyLevel = ref(localStorage.getItem('transparency-level') || 'medium')
 const isTransparentTheme = computed(() => currentThemeName.value === 'transparent')
 const showTransparencyDialog = ref(false)
@@ -383,6 +385,15 @@ async function saveCustomCSS() {
 function applyTransparencySettings() {
   const root = document.documentElement
 
+  if (!Number.isFinite(backgroundPosterOpacity.value)) {
+    backgroundPosterOpacity.value = 1
+  }
+  backgroundPosterOpacity.value = Math.min(1, Math.max(0, backgroundPosterOpacity.value))
+  if (!Number.isFinite(backgroundBlur.value)) {
+    backgroundBlur.value = 16
+  }
+  backgroundBlur.value = Math.min(30, Math.max(0, backgroundBlur.value))
+
   // 设置CSS变量
   root.style.setProperty('--transparent-opacity', transparencyOpacity.value.toString())
   root.style.setProperty('--transparent-opacity-light', (transparencyOpacity.value * 0.67).toString())
@@ -390,10 +401,14 @@ function applyTransparencySettings() {
   root.style.setProperty('--transparent-blur', `${transparencyBlur.value}px`)
   root.style.setProperty('--transparent-blur-light', `${transparencyBlur.value * 0.6}px`)
   root.style.setProperty('--transparent-blur-heavy', `${transparencyBlur.value * 1.6}px`)
+  root.style.setProperty('--transparent-background-poster-opacity', backgroundPosterOpacity.value.toString())
+  root.style.setProperty('--transparent-background-blur', `${backgroundBlur.value}px`)
 
   // 保存到本地存储
   localStorage.setItem('transparency-opacity', transparencyOpacity.value.toString())
   localStorage.setItem('transparency-blur', transparencyBlur.value.toString())
+  localStorage.setItem('transparency-background-poster-opacity', backgroundPosterOpacity.value.toString())
+  localStorage.setItem('transparency-background-blur', backgroundBlur.value.toString())
 }
 
 // 调整透明度预设
@@ -434,10 +449,22 @@ function onBlurChange() {
   transparencyLevel.value = ''
 }
 
+// 背景海报透明度变化处理
+function onBackgroundPosterOpacityChange() {
+  applyTransparencySettings()
+}
+
+// 背景磨砂变化处理
+function onBackgroundBlurChange() {
+  applyTransparencySettings()
+}
+
 // 重置透明度设置
 function resetTransparencySettings() {
   transparencyOpacity.value = 0.3
   transparencyBlur.value = 10
+  backgroundPosterOpacity.value = 1
+  backgroundBlur.value = 16
   transparencyLevel.value = 'medium'
   applyTransparencySettings()
 }
@@ -818,6 +845,38 @@ onUnmounted(() => {
               :step="1"
               color="primary"
               @update:model-value="onBlurChange"
+            />
+          </div>
+
+          <!-- 背景海报透明度滑动条 -->
+          <div>
+            <div class="d-flex align-center justify-space-between mb-2">
+              <span class="text-body-2">{{ t('theme.backgroundPosterOpacity') }}</span>
+              <span class="text-caption">{{ Math.round(backgroundPosterOpacity * 100) }}%</span>
+            </div>
+            <VSlider
+              v-model="backgroundPosterOpacity"
+              :min="0"
+              :max="1"
+              :step="0.01"
+              color="primary"
+              @update:model-value="onBackgroundPosterOpacityChange"
+            />
+          </div>
+
+          <!-- 背景磨砂滑动条 -->
+          <div>
+            <div class="d-flex align-center justify-space-between mb-2">
+              <span class="text-body-2">{{ t('theme.backgroundBlur') }}</span>
+              <span class="text-caption">{{ backgroundBlur }}px</span>
+            </div>
+            <VSlider
+              v-model="backgroundBlur"
+              :min="0"
+              :max="30"
+              :step="1"
+              color="primary"
+              @update:model-value="onBackgroundBlurChange"
             />
           </div>
 
