@@ -984,6 +984,8 @@ export default {
     ranking: 'Ranking',
     noStatisticsData: 'No share statistics data available',
     bestVersion: 'Version Upgrading',
+    bestVersionEpisodeShort: 'Episode',
+    bestVersionWholeShort: 'Full',
     completed: 'Completed',
     subscribing: 'Subscribing',
     notStarted: 'Not Started',
