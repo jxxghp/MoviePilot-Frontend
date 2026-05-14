@@ -51,9 +51,25 @@ export const clearCachesAndServiceWorker = async (): Promise<void> => {
 /**
  * 清除缓存并刷新
  */
-const clearCacheAndReload = async (): Promise<void> => {
-  await clearCachesAndServiceWorker()
-  reloadWithTimestamp()
+export const clearCacheAndReload = async (): Promise<void> => {
+  let isReloading = false
+  const reload = () => {
+    if (isReloading) return
+    isReloading = true
+    reloadWithTimestamp()
+  }
+
+  const reloadTimer = window.setTimeout(reload, 3000)
+
+  try {
+    await Promise.race([
+      clearCachesAndServiceWorker(),
+      new Promise(resolve => window.setTimeout(resolve, 2500)),
+    ])
+  } finally {
+    window.clearTimeout(reloadTimer)
+    reload()
+  }
 }
 
 /**

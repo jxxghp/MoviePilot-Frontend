@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
-import { clearCachesAndServiceWorker, reloadWithTimestamp } from '@/composables/useVersionChecker'
+import { clearCacheAndReload } from '@/composables/useVersionChecker'
 import MarkdownIt from 'markdown-it'
 import mdLinkAttributes from 'markdown-it-link-attributes'
 import { useI18n } from 'vue-i18n'
@@ -138,9 +138,7 @@ function releaseTime(releaseDate: string) {
 
 // 强制清除缓存
 async function clearCache() {
-  await clearCachesAndServiceWorker()
-  // 刷新页面，添加时间戳参数以强制更新
-  reloadWithTimestamp()
+  await clearCacheAndReload()
 }
 
 onMounted(() => {
