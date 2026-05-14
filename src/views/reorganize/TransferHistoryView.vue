@@ -227,6 +227,9 @@ const progressValue = ref(0)
 // 是否已刷新
 const isRefreshed = ref(false)
 
+// 是否已完成首次激活
+const hasActivatedOnce = ref(false)
+
 // 删除确认对话框
 const deleteConfirmDialog = ref(false)
 
@@ -749,6 +752,17 @@ useDynamicButton({
 onMounted(() => {
   loadStorages()
   fetchData()
+})
+
+onActivated(() => {
+  if (!hasActivatedOnce.value) {
+    hasActivatedOnce.value = true
+    return
+  }
+
+  if (!loading.value) {
+    fetchData()
+  }
 })
 
 onUnmounted(() => {
