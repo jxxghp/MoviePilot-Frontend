@@ -459,12 +459,35 @@ function previewHasFailures(data?: ManualTransferPreviewData) {
   return (data.summary.failed ?? 0) > 0 || (data.items ?? []).some(item => item.success === false)
 }
 
-function getPreviewFailureMessage(data?: ManualTransferPreviewData) {
-  return (
-    data?.items.find(item => item.success === false)?.message ||
-    data?.message ||
-    t('dialog.reorganize.previewRequestFailed')
-  )
+function getPreviewResultSummaryMessage(data?: ManualTransferPreviewData) {
+  const success = data?.summary.success ?? 0
+  const failed = data?.summary.failed ?? 0
+
+  return [
+    t('dialog.reorganize.previewSuccess', { count: success }),
+    t('dialog.reorganize.previewFailed', { count: failed }),
+  ].join('，')
+}
+
+function createFailedPreviewData(options: { source?: string; type?: string; title?: string; message?: string }) {
+  const failedItem: ManualTransferPreviewItem = {
+    source: options.source,
+    target: '',
+    success: false,
+    message: options.message || t('dialog.reorganize.previewRequestFailed'),
+    type: options.type,
+    title: options.title,
+  }
+
+  return {
+    summary: {
+      total: 1,
+      success: 0,
+      failed: 1,
+    },
+    items: [failedItem],
+    message: failedItem.message,
+  } satisfies ManualTransferPreviewData
 }
 
 // 合并多次预览结果
@@ -511,13 +534,31 @@ async function previewTransfer() {
             const result = await requestManualTransfer<ManualTransferPreviewData>(
               createTransferPayload({ item, preview: true }),
             )
-            if (!result.success) throw new Error(result.message || t('dialog.reorganize.previewRequestFailed'))
+            if (!result.success) {
+              mergePreviewData(
+                mergedPreviewData,
+                createFailedPreviewData({
+                  source: item.path || item.name,
+                  type: item.type,
+                  title: item.name,
+                  message: result.message || t('dialog.reorganize.previewRequestFailed'),
+                }),
+              )
+              return
+            }
 
             mergePreviewData(mergedPreviewData, result.data)
           } catch (err: any) {
             console.warn(`预览请求异常: ${err?.message}`)
-            const label = item.name || item.path
-            throw new Error(`${label}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`)
+            mergePreviewData(
+              mergedPreviewData,
+              createFailedPreviewData({
+                source: item.path || item.name,
+                type: item.type,
+                title: item.name,
+                message: `${item.name || item.path}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
+              }),
+            )
           }
         }),
       )
@@ -530,12 +571,27 @@ async function previewTransfer() {
             const result = await requestManualTransfer<ManualTransferPreviewData>(
               createTransferPayload({ logid, preview: true }),
             )
-            if (!result.success) throw new Error(result.message || t('dialog.reorganize.previewRequestFailed'))
+            if (!result.success) {
+              mergePreviewData(
+                mergedPreviewData,
+                createFailedPreviewData({
+                  source: `历史记录 ${logid}`,
+                  message: result.message || t('dialog.reorganize.previewRequestFailed'),
+                }),
+              )
+              return
+            }
 
             mergePreviewData(mergedPreviewData, result.data)
           } catch (err: any) {
             console.warn(`预览请求异常: ${err?.message}`)
-            throw new Error(`历史记录 ${logid}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`)
+            mergePreviewData(
+              mergedPreviewData,
+              createFailedPreviewData({
+                source: `历史记录 ${logid}`,
+                message: `历史记录 ${logid}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
+              }),
+            )
           }
         }),
       )
@@ -543,13 +599,13 @@ async function previewTransfer() {
 
     await Promise.all(tasks)
 
-    if (previewHasFailures(mergedPreviewData)) {
-      throw new Error(getPreviewFailureMessage(mergedPreviewData))
-    }
-
     previewData.value = mergedPreviewData
     previewLoaded.value = true
     nextTick(() => updatePreviewPageSize())
+
+    if (previewHasFailures(mergedPreviewData)) {
+      $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
+    }
   } catch (error: any) {
     previewVisible.value = false
     resetPreviewState()
@@ -1021,6 +1077,7 @@ onUnmounted(() => {
                         v-for="(item, index) in pagedPreviewRows"
                         :key="`${item.source}-${item.target}-${index}`"
                         class="preview-file-row"
+                        :class="{ 'preview-file-row--failed': item.success === false }"
                       >
                         <div class="preview-file-row__card preview-file-row__card--source">
                           <span class="preview-file-row__label">{{ t('dialog.reorganize.previewBeforeColumn') }}</span>
@@ -1034,6 +1091,9 @@ onUnmounted(() => {
                           <span class="preview-file-row__label">{{ t('dialog.reorganize.previewAfterColumn') }}</span>
                           <span class="preview-file-row__name">{{ item.targetName }}</span>
                           <span class="preview-file-row__path">{{ item.target || '-' }}</span>
+                          <span v-if="item.success === false && item.message" class="preview-file-row__message">
+                            {{ item.message }}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1227,13 +1287,13 @@ onUnmounted(() => {
 }
 
 .preview-note {
-  border: 1px solid rgba(var(--v-theme-info), 0.16);
-  border-radius: 0.875rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 1rem;
+  color: rgb(var(--v-theme-error));
   font-size: 0.875rem;
   line-height: 1.5;
-  padding-block: 0.75rem;
-  padding-inline: 0.875rem;
+  padding-block: 0.875rem;
+  padding-inline: 1rem;
 }
 
 .preview-summary-grid {
@@ -1340,6 +1400,10 @@ onUnmounted(() => {
   border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
+.preview-file-row--failed {
+  background: rgba(var(--v-theme-error), 0.04);
+}
+
 .preview-file-row__card {
   display: flex;
   flex-direction: column;
@@ -1373,6 +1437,16 @@ onUnmounted(() => {
 
 .preview-file-row__card--target .preview-file-row__name {
   color: rgb(var(--v-theme-primary));
+}
+
+.preview-file-row--failed .preview-file-row__card--target .preview-file-row__name {
+  color: rgb(var(--v-theme-error));
+}
+
+.preview-file-row__message {
+  color: rgb(var(--v-theme-error));
+  font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
 .preview-file-row__arrow {
