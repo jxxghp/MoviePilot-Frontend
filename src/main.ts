@@ -13,32 +13,47 @@ import i18n from '@/plugins/i18n'
 import App from '@/App.vue'
 import { PerfectScrollbarPlugin } from 'vue3-perfect-scrollbar'
 
-// 4. 工具函数和其他辅助模块
-import { loadRemoteComponents } from './utils/federationLoader'
-
-// 5. 其他插件和功能模块
+// 4. 其他插件和功能模块
 import Toast from 'vue-toastification'
 import ConfirmDialog from '@/composables/useConfirm'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 
-// 6. 注册自定义组件
+// 5. 注册自定义组件
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import ScrollToTopBtn from '@/@core/components/ScrollToTopBtn.vue'
 import PageContentTitle from './@core/components/PageContentTitle.vue'
 
-// 7. 样式文件 - 合并为单一导入
+// 6. 样式文件 - 合并为单一导入
 import '@/styles/main.scss'
 
-// 8. 状态恢复插件
+// 7. 状态恢复插件
 import stateRestorePlugin from '@/plugins/stateRestore'
 
-// 9. 后台优化工具
-import { backgroundManager } from '@/utils/backgroundManager'
-import { sseManagerSingleton } from '@/utils/sseManager'
+function runWhenBrowserIdle(callback: () => void, timeout = 1500) {
+  const requestIdle = globalThis.requestIdleCallback
+  if (requestIdle) {
+    requestIdle(callback, { timeout })
+    return
+  }
 
-const iconBundlePromise = import('@/@iconify/icons-bundle').catch(error => {
-  console.error('Failed to load icon bundle', error)
-})
+  globalThis.setTimeout(callback, 0)
+}
+
+function loadIconBundle() {
+  import('@/@iconify/icons-bundle').catch(error => {
+    console.error('Failed to load icon bundle', error)
+  })
+}
+
+function loadRemoteComponentsAfterLogin() {
+  import('./utils/federationLoader')
+    .then(({ loadRemoteComponents }) => loadRemoteComponents())
+    .catch(error => {
+      console.error('Failed to load remote components', error)
+    })
+}
+
+let remoteComponentsInitialized = false
 
 const AsyncAceEditor = defineAsyncComponent(async () => {
   await import('./ace-config')
@@ -70,11 +85,6 @@ const app = createApp(App)
 // 1. 注册pinia
 app.use(pinia)
 
-// 异步加载远程组件（不阻塞启动）
-loadRemoteComponents().catch(error => {
-  console.error('Failed to load remote components', error)
-})
-
 // 2. 注册 UI 框架
 app.use(vuetify)
 
@@ -105,11 +115,20 @@ app
   .use(ConfirmDialog)
   .use(i18n)
 
-await iconBundlePromise
 app.mount('#app')
 
-// 页面卸载时清理后台管理器
-window.addEventListener('beforeunload', () => {
-  backgroundManager.destroy()
-  sseManagerSingleton.closeAllManagers()
+// 图标全集很大，延后到首屏挂载后的空闲时间加载，避免阻塞登录页首次渲染。
+runWhenBrowserIdle(loadIconBundle)
+
+// 插件远程入口只在登录后有用，延后初始化可以减少未登录首屏请求和解析成本。
+router.isReady().then(() => {
+  const loadIfAuthenticated = () => {
+    if (!remoteComponentsInitialized && pinia.state.value.auth?.token) {
+      remoteComponentsInitialized = true
+      runWhenBrowserIdle(loadRemoteComponentsAfterLogin)
+    }
+  }
+
+  loadIfAuthenticated()
+  router.afterEach(loadIfAuthenticated)
 })

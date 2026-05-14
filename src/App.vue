@@ -14,6 +14,8 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 import { themeManager } from '@/utils/themeManager'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 
+const LOGIN_WALLPAPER_ROUTE = '/login'
+
 // 生效主题
 const { global: globalTheme } = useTheme()
 let themeValue = localStorage.getItem('theme') || 'auto'
@@ -37,6 +39,7 @@ setI18nLanguage(localeValue as SupportedLocale)
 // 检查是否登录
 const authStore = useAuthStore()
 const isLogin = computed(() => authStore.token)
+const route = useRoute()
 
 // 全局设置store
 const globalSettingsStore = useGlobalSettingsStore()
@@ -48,6 +51,12 @@ const loginStateKey = computed(() => (isLogin.value ? 'logged-in' : 'logged-out'
 const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
+const shouldLoadBackgroundImages = computed(
+  () => (!isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE) || (Boolean(isLogin.value) && isTransparentTheme.value),
+)
+let backgroundRetryTimer: number | null = null
+let backgroundRequestController: AbortController | null = null
+let authenticatedStateTimer: number | null = null
 
 function getStoredNumber(key: string, fallback: number, min: number, max: number) {
   const parsed = Number.parseFloat(localStorage.getItem(key) || '')
@@ -109,9 +118,10 @@ function updateHtmlThemeAttribute(themeName: string) {
 // 获取背景图片
 async function fetchBackgroundImages() {
   try {
-    const controller = new AbortController()
+    backgroundRequestController?.abort()
+    backgroundRequestController = new AbortController()
     backgroundImages.value = await api.get(`/login/wallpapers`, {
-      signal: controller.signal,
+      signal: backgroundRequestController.signal,
     })
     activeImageIndex.value = 0
   } catch (e) {
@@ -153,6 +163,42 @@ function startBackgroundRotation() {
   }
 }
 
+function stopBackgroundLoading() {
+  backgroundRequestController?.abort()
+  backgroundRequestController = null
+
+  if (backgroundRetryTimer) {
+    window.clearTimeout(backgroundRetryTimer)
+    backgroundRetryTimer = null
+  }
+
+  removeBackgroundTimer('background-rotation')
+}
+
+async function initializeAuthenticatedState() {
+  if (!isLogin.value) return
+
+  try {
+    globalLoadingStateManager.setLoadingState('global-settings', true)
+    await globalSettingsStore.initialize()
+    await globalSettingsStore.loadUserSettings()
+  } finally {
+    globalLoadingStateManager.setLoadingState('global-settings', false)
+  }
+}
+
+function scheduleAuthenticatedStateInitialization() {
+  if (authenticatedStateTimer) {
+    window.clearTimeout(authenticatedStateTimer)
+  }
+
+  // 登录后会立刻发生路由切换，稍后再拉取设置可避开导航中止请求。
+  authenticatedStateTimer = window.setTimeout(() => {
+    authenticatedStateTimer = null
+    initializeAuthenticatedState()
+  }, 150)
+}
+
 // 添加logo动画效果并延迟移除加载界面
 function animateAndRemoveLoader() {
   const loadingBg = document.querySelector('#loading-bg') as HTMLElement
@@ -175,8 +221,6 @@ async function removeLoadingWithStateCheck() {
   try {
     // 设置各个组件的加载状态
     globalLoadingStateManager.setLoadingState('pwa-state', true)
-    globalLoadingStateManager.setLoadingState('global-settings', true)
-    globalLoadingStateManager.setLoadingState('background-images', true)
 
     // 静默检查PWA状态恢复
     const pwaController = (window as any).pwaStateController
@@ -185,22 +229,7 @@ async function removeLoadingWithStateCheck() {
     }
     globalLoadingStateManager.setLoadingState('pwa-state', false)
 
-    // 并行加载关键资源
-    await Promise.all([
-      globalSettingsStore.initialize().then(async () => {
-        // 如果已登录，加载用户相关设置
-        if (isLogin.value) {
-          await globalSettingsStore.loadUserSettings()
-        }
-        globalLoadingStateManager.setLoadingState('global-settings', false)
-      }),
-      new Promise(resolve => {
-        setTimeout(() => {
-          globalLoadingStateManager.setLoadingState('background-images', false)
-          resolve(void 0)
-        }, 50)
-      }),
-    ])
+    await initializeAuthenticatedState()
 
     // 等待所有加载完成
     await globalLoadingStateManager.waitForAllComplete()
@@ -209,7 +238,9 @@ async function removeLoadingWithStateCheck() {
     animateAndRemoveLoader()
 
     // 检查未读消息
-    checkAndEmitUnreadMessages()
+    if (isLogin.value) {
+      checkAndEmitUnreadMessages()
+    }
   } catch (error) {
     // 即使出错也要移除加载界面
     globalLoadingStateManager.reset()
@@ -228,7 +259,8 @@ async function loadBackgroundImages(retryCount = 0) {
     if (retryCount < maxRetries) {
       const baseDelay = isAbortError ? 1000 : 3000
       const retryDelay = Math.min(baseDelay * Math.pow(2, retryCount), 10000)
-      setTimeout(() => {
+      backgroundRetryTimer = window.setTimeout(() => {
+        backgroundRetryTimer = null
         loadBackgroundImages(retryCount + 1)
       }, retryDelay)
     }
@@ -264,20 +296,51 @@ onMounted(async () => {
     },
   )
 
-  // 加载背景图片
-  loadBackgroundImages()
+  // 登录页壁纸仅在未登录登录页需要，避免其他首屏额外发起图片列表请求。
+  watch(
+    shouldLoadBackgroundImages,
+    shouldLoad => {
+      stopBackgroundLoading()
+      if (shouldLoad) {
+        loadBackgroundImages()
+      } else if (!isTransparentTheme.value) {
+        backgroundImages.value = []
+      }
+    },
+    { immediate: true },
+  )
 
   // 使用优化后的加载界面移除逻辑
   ensureRenderComplete(() => {
     nextTick(removeLoadingWithStateCheck)
   })
   // 启动心跳
-  startHeartbeat()
+  if (isLogin.value) {
+    startHeartbeat()
+  }
+
+  // 登录状态可能在当前单页会话中变化，这里按需补齐登录后初始化和心跳。
+  watch(isLogin, loggedIn => {
+    if (loggedIn) {
+      startHeartbeat()
+      scheduleAuthenticatedStateInitialization()
+    } else {
+      if (authenticatedStateTimer) {
+        window.clearTimeout(authenticatedStateTimer)
+        authenticatedStateTimer = null
+      }
+      stopHeartbeat()
+    }
+  })
 })
 
 onUnmounted(() => {
   // 清除背景轮换定时器
-  removeBackgroundTimer('background-rotation')
+  stopBackgroundLoading()
+  if (authenticatedStateTimer) {
+    window.clearTimeout(authenticatedStateTimer)
+    authenticatedStateTimer = null
+  }
   // 停止心跳
   stopHeartbeat()
 })

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { VForm } from 'vuetify/components/VForm'
-import { useAuthStore, useUserStore, useGlobalSettingsStore } from '@/stores'
+import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
@@ -20,9 +20,6 @@ const { t } = useI18n()
 const authStore = useAuthStore()
 //用户 Store
 const userStore = useUserStore()
-// 全局设置 Store
-const globalSettingsStore = useGlobalSettingsStore()
-
 // 获取有权限的菜单
 const navMenus = computed(() => getNavMenus(t))
 
@@ -372,9 +369,6 @@ async function handleLoginSuccess(response: any) {
 
   authStore.login(authPayLoad)
   userStore.loginUser(userPayload)
-
-  // 登录后加载用户相关的全局设置
-  await globalSettingsStore.loadUserSettings()
 
   await afterLogin(userPayload.superUser, userPayload, filteredMenus)
 }

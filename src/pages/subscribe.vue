@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { debounce } from 'lodash-es'
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
-import SubscribePopularView from '@/views/subscribe/SubscribePopularView.vue'
-import SubscribeShareView from '@/views/subscribe/SubscribeShareView.vue'
-import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
-import SubscribeShareStatisticsDialog from '@/components/dialog/SubscribeShareStatisticsDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useDynamicButton } from '@/composables/useDynamicButton'
@@ -19,6 +15,14 @@ const { t } = useI18n()
 const route = useRoute()
 const userStore = useUserStore()
 const { appMode } = usePWA()
+
+// 非默认标签页和弹窗按需加载，避免进入订阅列表时同步下载分享/统计相关代码。
+const SubscribePopularView = defineAsyncComponent(() => import('@/views/subscribe/SubscribePopularView.vue'))
+const SubscribeShareView = defineAsyncComponent(() => import('@/views/subscribe/SubscribeShareView.vue'))
+const SubscribeEditDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeEditDialog.vue'))
+const SubscribeShareStatisticsDialog = defineAsyncComponent(
+  () => import('@/components/dialog/SubscribeShareStatisticsDialog.vue'),
+)
 
 const subType = route.meta.subType?.toString()
 const subId = ref(route.query.id as string)

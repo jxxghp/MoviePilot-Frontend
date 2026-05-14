@@ -1,20 +1,21 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
-import draggable from 'vuedraggable'
-import { VRow } from 'vuetify/lib/components/index.mjs'
 import api from '@/api'
 import { TransferDirectoryConf, StorageConf } from '@/api/types'
 import DirectoryCard from '@/components/cards/DirectoryCard.vue'
 import StorageCard from '@/components/cards/StorageCard.vue'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
-import CategoryEditDialog from '@/components/dialog/CategoryEditDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { storageAttributes } from '@/api/constants'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
+
+// 拖拽排序和分类编辑弹窗按需加载，避免设置框架预加载目录页时带上这些交互依赖。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const CategoryEditDialog = defineAsyncComponent(() => import('@/components/dialog/CategoryEditDialog.vue'))
 
 // 所有下载目录
 const directories = ref<TransferDirectoryConf[]>([])
@@ -264,7 +265,7 @@ onMounted(() => {
           <VCardSubtitle>{{ t('setting.directory.storageDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="storages"
             handle=".cursor-move"
             item-key="name"
@@ -274,7 +275,7 @@ onMounted(() => {
             <template #item="{ element }">
               <StorageCard :storage="element" @close="removeStorage(element)" @done="loadStorages" />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
@@ -309,7 +310,7 @@ onMounted(() => {
           <VCardSubtitle>{{ t('setting.directory.directoryDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="directories"
             handle=".cursor-move"
             item-key="pri"
@@ -331,7 +332,7 @@ onMounted(() => {
                 @close="removeDirectory(element)"
               />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">

@@ -1,15 +1,12 @@
 <script lang="ts" setup>
-import draggable from 'vuedraggable'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
-import PluginAppCard from '@/components/cards/PluginAppCard.vue'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { getPluginTabs } from '@/router/i18n-menu'
-import PluginMarketSettingDialog from '@/components/dialog/PluginMarketSettingDialog.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
@@ -21,6 +18,11 @@ import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 const { t } = useI18n()
 
 const route = useRoute()
+
+// 市场卡片、拖拽排序和市场设置只在对应标签/操作中需要，延迟到真正使用时加载。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const PluginAppCard = defineAsyncComponent(() => import('@/components/cards/PluginAppCard.vue'))
+const PluginMarketSettingDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketSettingDialog.vue'))
 
 // 显示器宽度
 const display = useDisplay()
@@ -1536,7 +1538,7 @@ function onDragStartPlugin(evt: any) {
               <!-- 混合排序列表（文件夹和插件） -->
               <template v-if="!currentFolder">
                 <!-- 主列表：使用draggable进行混合排序 -->
-                <draggable
+                <Draggable
                   v-if="canDragSort"
                   v-model="mixedSortList"
                   @end="saveMixedSortOrder"
@@ -1565,7 +1567,7 @@ function onDragStartPlugin(evt: any) {
                       @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
                     />
                   </template>
-                </draggable>
+                </Draggable>
                 <ProgressiveCardGrid
                   v-else-if="shouldVirtualizeInstalledMainList"
                   :items="mixedSortList"
@@ -1598,7 +1600,7 @@ function onDragStartPlugin(evt: any) {
 
               <template v-else>
                 <!-- 文件夹内：使用draggable排序 + 移出按钮 -->
-                <draggable
+                <Draggable
                   v-if="canDragSort"
                   v-model="draggableFolderPlugins"
                   @end="saveFolderPluginOrder"
@@ -1624,7 +1626,7 @@ function onDragStartPlugin(evt: any) {
                       @remove-from-folder="removeFromFolder"
                     />
                   </template>
-                </draggable>
+                </Draggable>
                 <ProgressiveCardGrid
                   v-else-if="shouldVirtualizeInstalledFolderList"
                   :items="draggableFolderPlugins"

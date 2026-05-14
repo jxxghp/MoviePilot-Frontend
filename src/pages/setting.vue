@@ -1,13 +1,6 @@
 <script lang="ts" setup>
 import { useRoute } from 'vue-router'
 import router from '@/router'
-import AccountSettingNotification from '@/views/setting/AccountSettingNotification.vue'
-import AccountSettingSite from '@/views/setting/AccountSettingSite.vue'
-import AccountSettingSearch from '@/views/setting/AccountSettingSearch.vue'
-import AccountSettingSubscribe from '@/views/setting/AccountSettingSubscribe.vue'
-import AccountSettingSystem from '@/views/setting/AccountSettingSystem.vue'
-import AccountSettingDirectory from '@/views/setting/AccountSettingDirectory.vue'
-import AccountSettingRule from '@/views/setting/AccountSettingRule.vue'
 import { getSettingTabs } from '@/router/i18n-menu'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 
@@ -16,6 +9,15 @@ const route = useRoute()
 
 const activeTab = ref((route.query.tab as string) || '')
 const settingTabs = computed(() => getSettingTabs(t))
+
+// 设置页的每个大类都很重，按标签页拆包，避免进入设置时一次性下载全部配置面板。
+const AccountSettingSystem = defineAsyncComponent(() => import('@/views/setting/AccountSettingSystem.vue'))
+const AccountSettingDirectory = defineAsyncComponent(() => import('@/views/setting/AccountSettingDirectory.vue'))
+const AccountSettingSite = defineAsyncComponent(() => import('@/views/setting/AccountSettingSite.vue'))
+const AccountSettingRule = defineAsyncComponent(() => import('@/views/setting/AccountSettingRule.vue'))
+const AccountSettingSearch = defineAsyncComponent(() => import('@/views/setting/AccountSettingSearch.vue'))
+const AccountSettingSubscribe = defineAsyncComponent(() => import('@/views/setting/AccountSettingSubscribe.vue'))
+const AccountSettingNotification = defineAsyncComponent(() => import('@/views/setting/AccountSettingNotification.vue'))
 
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()

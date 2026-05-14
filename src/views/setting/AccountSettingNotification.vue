@@ -1,10 +1,8 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
-import draggable from 'vuedraggable'
 import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { notificationSwitchDict } from '@/api/constants'
 import { useTheme, useDisplay } from 'vuetify'
@@ -14,6 +12,10 @@ const display = useDisplay()
 
 // 国际化
 const { t } = useI18n()
+
+// 通知渠道排序和进度弹窗按需加载，避免通知设置 chunk 直接包含拖拽库。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
 // 初始化模板配置字典
 const templateConfigs = ref<Record<string, string>>({
@@ -324,7 +326,7 @@ onMounted(() => {
           <VCardSubtitle>{{ t('setting.notification.channelsDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="notifications"
             handle=".cursor-move"
             item-key="name"
@@ -339,7 +341,7 @@ onMounted(() => {
                 @close="removeNotification(element)"
               />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">

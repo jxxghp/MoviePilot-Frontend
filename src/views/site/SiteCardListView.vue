@@ -1,12 +1,8 @@
 <script lang="ts" setup>
-import draggable from 'vuedraggable'
 import api from '@/api'
 import type { Site, SiteUserData } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import SiteAddEditDialog from '@/components/dialog/SiteAddEditDialog.vue'
-import SiteStatisticsDialog from '@/components/dialog/SiteStatisticsDialog.vue'
-import SiteImportDialog from '@/components/dialog/SiteImportDialog.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
@@ -24,6 +20,12 @@ const route = useRoute()
 
 // APP 模式检测
 const { appMode } = usePWA()
+
+// 拖拽排序和站点弹窗都不是站点列表首屏必需，打开对应功能时再加载。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const SiteAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/SiteAddEditDialog.vue'))
+const SiteStatisticsDialog = defineAsyncComponent(() => import('@/components/dialog/SiteStatisticsDialog.vue'))
+const SiteImportDialog = defineAsyncComponent(() => import('@/components/dialog/SiteImportDialog.vue'))
 
 // 站点列表
 const siteList = ref<Site[]>([])
@@ -402,7 +404,7 @@ useDynamicButton({
     </VAlert>
 
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-    <draggable
+    <Draggable
       v-if="draggableSiteList.length > 0 && canDragSort"
       v-model="draggableSiteList"
       @end="savaSitesPriority"
@@ -421,7 +423,7 @@ useDynamicButton({
           @refresh-stats="handleRefreshStats"
         />
       </template>
-    </draggable>
+    </Draggable>
     <ProgressiveCardGrid
       v-else-if="draggableSiteList.length > 0 && shouldVirtualizeList"
       :items="draggableSiteList"

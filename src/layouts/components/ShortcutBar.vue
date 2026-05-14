@@ -1,13 +1,4 @@
 <script lang="ts" setup>
-import NameTestView from '@/views/system/NameTestView.vue'
-import NetTestView from '@/views/system/NetTestView.vue'
-import LoggingView from '@/views/system/LoggingView.vue'
-import RuleTestView from '@/views/system/RuleTestView.vue'
-import ModuleTestView from '@/views/system/ModuleTestView.vue'
-import MessageView from '@/views/system/MessageView.vue'
-import WordsView from '@/views/system/WordsView.vue'
-import CacheView from '@/views/system/CacheView.vue'
-import AccountSettingService from '@/views/system/ServiceView.vue'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
 import { getQueryValue } from '@/@core/utils'
@@ -25,6 +16,17 @@ const { t } = useI18n()
 
 // 显示器宽度
 const display = useDisplay()
+
+// 快捷工具只在弹窗打开时使用，按需加载避免默认布局首屏带上所有 system 视图。
+const NameTestView = defineAsyncComponent(() => import('@/views/system/NameTestView.vue'))
+const NetTestView = defineAsyncComponent(() => import('@/views/system/NetTestView.vue'))
+const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
+const RuleTestView = defineAsyncComponent(() => import('@/views/system/RuleTestView.vue'))
+const ModuleTestView = defineAsyncComponent(() => import('@/views/system/ModuleTestView.vue'))
+const MessageView = defineAsyncComponent(() => import('@/views/system/MessageView.vue'))
+const WordsView = defineAsyncComponent(() => import('@/views/system/WordsView.vue'))
+const CacheView = defineAsyncComponent(() => import('@/views/system/CacheView.vue'))
+const AccountSettingService = defineAsyncComponent(() => import('@/views/system/ServiceView.vue'))
 
 // App捷径
 const appsMenu = ref(false)

@@ -11,12 +11,14 @@ import VersionHistory from '@/components/misc/VersionHistory.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
 import PluginConfigDialog from '../dialog/PluginConfigDialog.vue'
 import PluginDataDialog from '../dialog/PluginDataDialog.vue'
-import LoggingView from '@/views/system/LoggingView.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
 // 显示器宽度
 const display = useDisplay()
+
+// 插件日志面板只有点击“查看日志”时才需要，延后加载可减轻插件列表首屏。
+const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 
 // 输入参数
 const props = defineProps({

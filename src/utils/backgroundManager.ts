@@ -11,56 +11,61 @@ export class BackgroundManager {
     runInBackground?: boolean
   }> = new Map()
   
+  private readonly activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
+  private readonly handleVisibilityChange = () => {
+    const wasBackground = this.isBackground
+    this.isBackground = document.hidden
+
+    if (this.isBackground && !wasBackground) {
+      console.log('Background: 进入后台，暂停定时器')
+      this.pauseAllTimers()
+    } else if (!this.isBackground && wasBackground) {
+      console.log('Background: 回到前台，恢复定时器')
+      this.resumeAllTimers()
+    }
+  }
+  private readonly handleBeforeUnload = () => {
+    this.destroy()
+  }
+  private readonly updateActivity = () => {
+    this.lastActivityTime = Date.now()
+  }
+
   private isBackground = false
   private isDestroyed = false
   private lastActivityTime = Date.now()
-  private activityTimer: ReturnType<typeof setInterval> | null = null
+  private isInitialized = false
 
-  constructor() {
+  private ensureInitialized() {
+    if (this.isInitialized || this.isDestroyed) return
+
+    this.isInitialized = true
+    this.isBackground = document.hidden
     this.setupVisibilityListener()
     this.setupActivityTracking()
   }
 
   private setupVisibilityListener() {
-    document.addEventListener('visibilitychange', () => {
-      const wasBackground = this.isBackground
-      this.isBackground = document.hidden
-      
-      if (this.isBackground && !wasBackground) {
-        console.log('Background: 进入后台，暂停定时器')
-        this.pauseAllTimers()
-      } else if (!this.isBackground && wasBackground) {
-        console.log('Background: 回到前台，恢复定时器')
-        this.resumeAllTimers()
-      }
-    })
-
-    // 页面卸载时清理
-    window.addEventListener('beforeunload', () => {
-      this.destroy()
-    })
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    window.addEventListener('beforeunload', this.handleBeforeUnload)
   }
 
   private setupActivityTracking() {
-    // 跟踪用户活动
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
-    
-    const updateActivity = () => {
-      this.lastActivityTime = Date.now()
-    }
-
-    events.forEach(event => {
-      document.addEventListener(event, updateActivity, { passive: true })
+    // 按需跟踪用户活动，避免应用启动时就注册一批全局监听。
+    this.activityEvents.forEach(event => {
+      document.addEventListener(event, this.updateActivity, { passive: true })
     })
+  }
 
-    // 定期更新活动状态
-    this.activityTimer = setInterval(() => {
-      // 如果超过5分钟没有活动，可以考虑减少后台活动
-      const inactiveTime = Date.now() - this.lastActivityTime
-      if (inactiveTime > 5 * 60 * 1000) {
-        console.log('Background: 用户长时间不活跃')
-      }
-    }, 60000) // 每分钟检查一次
+  private removeLifecycleListeners() {
+    if (!this.isInitialized) return
+
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    window.removeEventListener('beforeunload', this.handleBeforeUnload)
+    this.activityEvents.forEach(event => {
+      document.removeEventListener(event, this.updateActivity)
+    })
+    this.isInitialized = false
   }
 
   /**
@@ -76,6 +81,9 @@ export class BackgroundManager {
     } = {}
   ) {
     const { runInBackground = false, skipInitialRun = false } = options
+
+    if (this.isDestroyed) return
+    this.ensureInitialized()
     
     this.removeTimer(id)
     
@@ -122,6 +130,11 @@ export class BackgroundManager {
       }
       this.timers.delete(id)
       console.log(`Background: 移除定时器 ${id}`)
+
+      // 没有任务时释放监听，首屏只导入模块不会产生常驻开销。
+      if (this.timers.size === 0) {
+        this.removeLifecycleListeners()
+      }
     }
   }
 
@@ -237,11 +250,8 @@ export class BackgroundManager {
     })
     this.timers.clear()
 
-    // 清理活动跟踪定时器
-    if (this.activityTimer) {
-      clearInterval(this.activityTimer)
-      this.activityTimer = null
-    }
+    // 清理按需注册的生命周期与活动监听
+    this.removeLifecycleListeners()
 
     console.log('Background: 管理器已销毁')
   }

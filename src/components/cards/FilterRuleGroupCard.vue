@@ -1,10 +1,8 @@
 <script lang="ts" setup>
-import draggable from 'vuedraggable'
 import { copyToClipboard } from '@/@core/utils/navigator'
 import { CustomRule, FilterRuleGroup } from '@/api/types'
 import FilterRuleCard from '@/components/cards/FilterRuleCard.vue'
 import { useToast } from 'vue-toastification'
-import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
 import filter_group_svg from '@images/svg/filter-group.svg'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
@@ -15,6 +13,10 @@ const display = useDisplay()
 
 // 获取i18n实例
 const { t } = useI18n()
+
+// 规则组详情弹窗内才需要拖拽和导入代码，避免规则组卡片列表首屏带入重交互依赖。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const ImportCodeDialog = defineAsyncComponent(() => import('@/components/dialog/ImportCodeDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -273,7 +275,7 @@ function onClose() {
           </VRow>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="filterRuleCards"
             handle=".cursor-move"
             item-key="pri"
@@ -291,7 +293,7 @@ function onClose() {
                 @close="filterCardClose(element.pri)"
               />
             </template>
-          </draggable>
+          </Draggable>
           <div class="text-center" v-if="filterRuleCards.length == 0">{{ t('filterRule.add') }}</div>
         </VCardText>
         <VCardActions class="pt-3">

@@ -1,14 +1,11 @@
 <!-- eslint-disable sonarjs/no-duplicate-string -->
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
-import { VRow } from 'vuetify/lib/components/index.mjs'
-import draggable from 'vuedraggable'
 import api from '@/api'
 import { DownloaderConf, MediaServerConf } from '@/api/types'
 import DownloaderCard from '@/components/cards/DownloaderCard.vue'
 import MediaServerCard from '@/components/cards/MediaServerCard.vue'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { downloaderOptions, mediaServerOptions } from '@/api/constants'
 import { useDisplay, useTheme } from 'vuetify'
@@ -21,6 +18,10 @@ const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 
 // 国际化
 const { t } = useI18n()
+
+// 下载器/媒体服务器排序和进度弹窗按需加载，降低系统设置页入口解析量。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
 // 系统设置项
 const SystemSettings = ref<any>({
@@ -1405,7 +1406,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           <VCardSubtitle>{{ t('setting.system.downloadersDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="downloaders"
             handle=".cursor-move"
             item-key="name"
@@ -1421,7 +1422,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 :allow-refresh="isRequest"
               />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
@@ -1456,7 +1457,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           <VCardSubtitle>{{ t('setting.system.mediaServersDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="mediaServers"
             handle=".cursor-move"
             item-key="name"
@@ -1471,7 +1472,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 @change="onMediaServerChange"
               />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">

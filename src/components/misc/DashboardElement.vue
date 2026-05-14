@@ -1,20 +1,69 @@
 <script setup lang="ts">
+import { h, resolveComponent } from 'vue'
 import api from '@/api'
 import { DashboardItem } from '@/api/types'
-import AnalyticsMediaStatistic from '@/views/dashboard/AnalyticsMediaStatistic.vue'
-import AnalyticsScheduler from '@/views/dashboard/AnalyticsScheduler.vue'
-import AnalyticsSpeed from '@/views/dashboard/AnalyticsSpeed.vue'
-import AnalyticsStorage from '@/views/dashboard/AnalyticsStorage.vue'
-import AnalyticsWeeklyOverview from '@/views/dashboard/AnalyticsWeeklyOverview.vue'
-import AnalyticsCpu from '@/views/dashboard/AnalyticsCpu.vue'
-import AnalyticsMemory from '@/views/dashboard/AnalyticsMemory.vue'
-import AnalyticsNetwork from '@/views/dashboard/AnalyticsNetwork.vue'
-import MediaServerLatest from '@/views/dashboard/MediaServerLatest.vue'
-import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
-import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
 import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
+
+const DashboardSkeleton = {
+  setup() {
+    const SkeletonLoader = resolveComponent('VSkeletonLoader')
+
+    // 用 render 函数避免 runtime-only Vue 为异步 loadingComponent 解析模板。
+    return () => h(SkeletonLoader, { type: 'card' })
+  },
+}
+
+const asyncDashboardOptions = {
+  loadingComponent: DashboardSkeleton,
+}
+
+// 内置仪表盘按需加载，关闭的卡片不再挤进 dashboard 首屏 chunk。
+const AnalyticsStorage = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsStorage.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsMediaStatistic = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsMediaStatistic.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsWeeklyOverview = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsWeeklyOverview.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsSpeed = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsSpeed.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsScheduler = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsScheduler.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsCpu = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsCpu.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsMemory = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsMemory.vue'),
+  ...asyncDashboardOptions,
+})
+const AnalyticsNetwork = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/AnalyticsNetwork.vue'),
+  ...asyncDashboardOptions,
+})
+const MediaServerLibrary = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/MediaServerLibrary.vue'),
+  ...asyncDashboardOptions,
+})
+const MediaServerPlaying = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/MediaServerPlaying.vue'),
+  ...asyncDashboardOptions,
+})
+const MediaServerLatest = defineAsyncComponent({
+  loader: () => import('@/views/dashboard/MediaServerLatest.vue'),
+  ...asyncDashboardOptions,
+})
 
 // 输入参数
 const props = defineProps({
@@ -53,9 +102,7 @@ const dynamicPluginComponent = defineAsyncComponent({
     }
   },
   // 加载中显示的组件
-  loadingComponent: {
-    template: '<VSkeletonLoader type="card"></VSkeletonLoader>',
-  },
+  loadingComponent: DashboardSkeleton,
   // 添加错误处理
   errorComponent: {
     template: `

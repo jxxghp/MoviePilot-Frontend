@@ -264,6 +264,8 @@ const target = join(__dirname, 'icons-bundle.js');
   console.log(`Saved ${target} (${bundle.length} bytes)`)
 })().catch((err) => {
   console.error(err)
+  // 构建图标失败时必须终止构建，避免继续发布上一次遗留的超大 icons-bundle。
+  process.exitCode = 1
 })
 
 async function collectUsedIcons(rootDir: string): Promise<string[]> {

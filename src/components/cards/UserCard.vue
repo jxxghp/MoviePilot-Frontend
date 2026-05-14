@@ -123,10 +123,10 @@ onMounted(() => {
       'transition-transform duration-300 hover:-translate-y-1',
       !props.user.is_active ? 'opacity-85 bg-surface-lighten-1' : '',
     ]"
-    class="flex flex-column"
+    class="user-card flex flex-column h-full"
     @click="userEditDialog = true"
   >
-    <div class="flex-grow">
+    <div class="user-card__body flex-grow flex-grow-1">
       <!-- 用户头像和基本信息 -->
       <VCardItem :class="[user.is_superuser ? 'admin-header' : '']">
         <template v-slot:prepend>
@@ -247,7 +247,7 @@ onMounted(() => {
     </div>
     <!-- 独立的邮箱显示 -->
     <VDivider class="mx-4" />
-    <div>
+    <div class="user-card__footer">
       <VCardText class="d-flex align-center py-2 px-4 text-medium-emphasis">
         <VIcon icon="mdi-email-outline" size="small" color="primary" class="mr-2 opacity-70" />
         <span class="text-body-2 truncate">{{ user.email || t('user.noEmail') }}</span>
@@ -308,6 +308,16 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.user-card {
+  block-size: 100%;
+}
+
+/* 让邮箱和订阅统计固定在卡片底部，保证同一行用户卡片视觉等高。 */
+.user-card__footer {
+  flex-shrink: 0;
+  margin-block-start: auto;
+}
+
 .admin-decoration {
   position: absolute;
   z-index: 1;

@@ -2,16 +2,18 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import { copyToClipboard } from '@/@core/utils/navigator'
-import draggable from 'vuedraggable'
 import api from '@/api'
 import { CustomRule, FilterRuleGroup } from '@/api/types'
 import CustomerRuleCard from '@/components/cards/CustomRuleCard.vue'
 import FilterRuleGroupCard from '@/components/cards/FilterRuleGroupCard.vue'
-import ImportCodeDialog from '@/components/dialog/ImportCodeDialog.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
+
+// 拖拽库和导入弹窗只在规则编辑交互中需要，拆出设置页入口 chunk。
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+const ImportCodeDialog = defineAsyncComponent(() => import('@/components/dialog/ImportCodeDialog.vue'))
 
 // 自定义规则列表
 const customRules = ref<CustomRule[]>([])
@@ -381,7 +383,7 @@ onMounted(() => {
           <VCardSubtitle>{{ t('setting.rule.customRulesDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="customRules"
             handle=".cursor-move"
             item-key="name"
@@ -396,7 +398,7 @@ onMounted(() => {
                 @change="onRuleChange"
               />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
@@ -432,7 +434,7 @@ onMounted(() => {
           <VCardSubtitle>{{ t('setting.rule.priorityRuleGroupsDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <draggable
+          <Draggable
             v-model="filterRuleGroups"
             handle=".cursor-move"
             item-key="name"
@@ -449,7 +451,7 @@ onMounted(() => {
                 @change="changeRuleGroup"
               />
             </template>
-          </draggable>
+          </Draggable>
         </VCardText>
         <VCardText>
           <VForm @submit.prevent="() => {}">
