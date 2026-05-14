@@ -44,17 +44,22 @@ const SystemSettings = ref<any>({
     LLM_MODEL: 'deepseek-chat',
     LLM_THINKING_LEVEL: 'off',
     LLM_SUPPORT_IMAGE_INPUT: false,
-    LLM_SUPPORT_AUDIO_INPUT_OUTPUT: false,
+    LLM_SUPPORT_AUDIO_INPUT: false,
+    LLM_SUPPORT_AUDIO_OUTPUT: false,
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
     LLM_BASE_URL_PRESET: null,
-    AI_VOICE_API_KEY: null,
-    AI_VOICE_BASE_URL: null,
-    AI_VOICE_STT_MODEL: 'gpt-4o-mini-transcribe',
-    AI_VOICE_TTS_MODEL: 'gpt-4o-mini-tts',
-    AI_VOICE_TTS_VOICE: 'alloy',
-    AI_VOICE_LANGUAGE: 'zh',
-    AI_VOICE_REPLY_WITH_TEXT: false,
+    AUDIO_INPUT_PROVIDER: 'openai',
+    AUDIO_INPUT_API_KEY: null,
+    AUDIO_INPUT_BASE_URL: null,
+    AUDIO_INPUT_MODEL: 'gpt-4o-mini-transcribe',
+    AUDIO_INPUT_LANGUAGE: 'zh',
+    AUDIO_OUTPUT_PROVIDER: 'openai',
+    AUDIO_OUTPUT_API_KEY: null,
+    AUDIO_OUTPUT_BASE_URL: null,
+    AUDIO_OUTPUT_MODEL: 'gpt-4o-mini-tts',
+    AUDIO_OUTPUT_VOICE: 'alloy',
+    AUDIO_OUTPUT_INCLUDE_TEXT: false,
     AI_AGENT_RETRY_TRANSFER: false,
     AI_RECOMMEND_ENABLED: false,
     AI_RECOMMEND_USER_PREFERENCE: null,
@@ -110,6 +115,12 @@ const SystemSettings = ref<any>({
     TRANSFER_THREADS: 1,
   },
 })
+
+const audioProviderItems = computed(() => [
+  { title: t('setting.system.audioProviderOpenAiAudio'), value: 'openai' },
+  { title: t('setting.system.audioProviderChatAudio'), value: 'openai_chat_audio' },
+  { title: t('setting.system.audioProviderMimo'), value: 'mimo' },
+])
 
 // 刮削配置
 const scrapingConfig = [
@@ -1216,105 +1227,168 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     />
                   </VCol>
                 </VRow>
-                <VRow>
-                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
-                    <VSwitch
-                      v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                      :label="t('setting.system.llmSupportAudioInputOutput')"
-                      :hint="t('setting.system.llmSupportAudioInputOutputHint')"
-                      persistent-hint
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                    md="6"
-                  >
-                    <VTextField
-                      v-model="SystemSettings.Basic.AI_VOICE_API_KEY"
-                      :label="t('setting.system.aiVoiceApiKey')"
-                      :hint="t('setting.system.aiVoiceApiKeyHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-key-variant"
-                      type="password"
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                    md="6"
-                  >
-                    <VTextField
-                      v-model="SystemSettings.Basic.AI_VOICE_BASE_URL"
-                      :label="t('setting.system.aiVoiceBaseUrl')"
-                      :hint="t('setting.system.aiVoiceBaseUrlHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-link-variant"
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                    md="6"
-                  >
-                    <VTextField
-                      v-model="SystemSettings.Basic.AI_VOICE_STT_MODEL"
-                      :label="t('setting.system.aiVoiceSttModel')"
-                      :hint="t('setting.system.aiVoiceSttModelHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-waveform"
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                    md="6"
-                  >
-                    <VTextField
-                      v-model="SystemSettings.Basic.AI_VOICE_TTS_MODEL"
-                      :label="t('setting.system.aiVoiceTtsModel')"
-                      :hint="t('setting.system.aiVoiceTtsModelHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-waveform"
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                    md="6"
-                  >
-                    <VTextField
-                      v-model="SystemSettings.Basic.AI_VOICE_TTS_VOICE"
-                      :label="t('setting.system.aiVoiceTtsVoice')"
-                      :hint="t('setting.system.aiVoiceTtsVoiceHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-account-voice"
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                    md="6"
-                  >
-                    <VTextField
-                      v-model="SystemSettings.Basic.AI_VOICE_LANGUAGE"
-                      :label="t('setting.system.aiVoiceLanguage')"
-                      :hint="t('setting.system.aiVoiceLanguageHint')"
-                      persistent-hint
-                      prepend-inner-icon="mdi-translate"
-                    />
-                  </VCol>
-                  <VCol
-                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT_OUTPUT"
-                    cols="12"
-                  >
-                    <VSwitch
-                      v-model="SystemSettings.Basic.AI_VOICE_REPLY_WITH_TEXT"
-                      :label="t('setting.system.aiVoiceReplyWithText')"
-                      :hint="t('setting.system.aiVoiceReplyWithTextHint')"
-                      persistent-hint
-                    />
-                  </VCol>
+	                <VRow>
+	                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+	                    <VSwitch
+	                      v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+	                      :label="t('setting.system.llmSupportAudioInput')"
+	                      :hint="t('setting.system.llmSupportAudioInputHint')"
+	                      persistent-hint
+	                    />
+	                  </VCol>
+	                  <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+	                    <VSwitch
+	                      v-model="SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                      :label="t('setting.system.llmSupportAudioOutput')"
+	                      :hint="t('setting.system.llmSupportAudioOutputHint')"
+	                      persistent-hint
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VSelect
+	                      v-model="SystemSettings.Basic.AUDIO_INPUT_PROVIDER"
+	                      :label="t('setting.system.audioInputProvider')"
+	                      :hint="t('setting.system.audioInputProviderHint')"
+	                      :items="audioProviderItems"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-microphone-message"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_INPUT_MODEL"
+	                      :label="t('setting.system.audioInputModel')"
+	                      :hint="t('setting.system.audioInputModelHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-waveform"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_INPUT_API_KEY"
+	                      :label="t('setting.system.audioInputApiKey')"
+	                      :hint="t('setting.system.audioInputApiKeyHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-key-variant"
+	                      type="password"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_INPUT_BASE_URL"
+	                      :label="t('setting.system.audioInputBaseUrl')"
+	                      :hint="t('setting.system.audioInputBaseUrlHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-link-variant"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_INPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_INPUT_LANGUAGE"
+	                      :label="t('setting.system.audioInputLanguage')"
+	                      :hint="t('setting.system.audioInputLanguageHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-translate"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VSelect
+	                      v-model="SystemSettings.Basic.AUDIO_OUTPUT_PROVIDER"
+	                      :label="t('setting.system.audioOutputProvider')"
+	                      :hint="t('setting.system.audioOutputProviderHint')"
+	                      :items="audioProviderItems"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-account-voice"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_OUTPUT_MODEL"
+	                      :label="t('setting.system.audioOutputModel')"
+	                      :hint="t('setting.system.audioOutputModelHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-waveform"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_OUTPUT_API_KEY"
+	                      :label="t('setting.system.audioOutputApiKey')"
+	                      :hint="t('setting.system.audioOutputApiKeyHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-key-variant"
+	                      type="password"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_OUTPUT_BASE_URL"
+	                      :label="t('setting.system.audioOutputBaseUrl')"
+	                      :hint="t('setting.system.audioOutputBaseUrlHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-link-variant"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                    cols="12"
+	                    md="6"
+	                  >
+	                    <VTextField
+	                      v-model="SystemSettings.Basic.AUDIO_OUTPUT_VOICE"
+	                      :label="t('setting.system.audioOutputVoice')"
+	                      :hint="t('setting.system.audioOutputVoiceHint')"
+	                      persistent-hint
+	                      prepend-inner-icon="mdi-account-voice"
+	                    />
+	                  </VCol>
+	                  <VCol
+	                    v-if="SystemSettings.Basic.AI_AGENT_ENABLE && SystemSettings.Basic.LLM_SUPPORT_AUDIO_OUTPUT"
+	                    cols="12"
+	                  >
+	                    <VSwitch
+	                      v-model="SystemSettings.Basic.AUDIO_OUTPUT_INCLUDE_TEXT"
+	                      :label="t('setting.system.audioOutputIncludeText')"
+	                      :hint="t('setting.system.audioOutputIncludeTextHint')"
+	                      persistent-hint
+	                    />
+	                  </VCol>
                 </VRow>
                 <VRow>
                   <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">

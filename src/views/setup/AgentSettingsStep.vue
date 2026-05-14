@@ -116,6 +116,12 @@ const thinkingLevelItems = computed(() => [
   { title: t('setting.system.llmThinkingLevelXhigh'), value: 'xhigh' },
 ])
 
+const audioProviderItems = computed(() => [
+  { title: t('setting.system.audioProviderOpenAiAudio'), value: 'openai' },
+  { title: t('setting.system.audioProviderChatAudio'), value: 'openai_chat_audio' },
+  { title: t('setting.system.audioProviderMimo'), value: 'mimo' },
+])
+
 const providerAuthMethods = computed(() => selectedProvider.value?.oauth_methods || [])
 const providerAuthLabel = computed(() => selectedProvider.value?.auth_status?.label || '')
 const selectedModelInfo = computed(() => {
@@ -390,20 +396,41 @@ onMounted(async () => {
 
           <VCol cols="12">
             <VSwitch
-              v-model="wizardData.agent.supportAudioInputOutput"
-              :label="t('setting.system.llmSupportAudioInputOutput')"
-              :hint="t('setting.system.llmSupportAudioInputOutputHint')"
+              v-model="wizardData.agent.supportAudioInput"
+              :label="t('setting.system.llmSupportAudioInput')"
+              :hint="t('setting.system.llmSupportAudioInputHint')"
               persistent-hint
               color="primary"
             />
           </VCol>
 
-          <template v-if="wizardData.agent.supportAudioInputOutput">
+          <template v-if="wizardData.agent.supportAudioInput">
+            <VCol cols="12" md="6">
+              <VSelect
+                v-model="wizardData.agent.audioInputProvider"
+                :label="t('setting.system.audioInputProvider')"
+                :hint="t('setting.system.audioInputProviderHint')"
+                :items="audioProviderItems"
+                persistent-hint
+                prepend-inner-icon="mdi-microphone-message"
+              />
+            </VCol>
+
             <VCol cols="12" md="6">
               <VTextField
-                v-model="wizardData.agent.voiceApiKey"
-                :label="t('setting.system.aiVoiceApiKey')"
-                :hint="t('setting.system.aiVoiceApiKeyHint')"
+                v-model="wizardData.agent.audioInputModel"
+                :label="t('setting.system.audioInputModel')"
+                :hint="t('setting.system.audioInputModelHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-waveform"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.audioInputApiKey"
+                :label="t('setting.system.audioInputApiKey')"
+                :hint="t('setting.system.audioInputApiKeyHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-key-variant"
                 type="password"
@@ -412,9 +439,9 @@ onMounted(async () => {
 
             <VCol cols="12" md="6">
               <VTextField
-                v-model="wizardData.agent.voiceBaseUrl"
-                :label="t('setting.system.aiVoiceBaseUrl')"
-                :hint="t('setting.system.aiVoiceBaseUrlHint')"
+                v-model="wizardData.agent.audioInputBaseUrl"
+                :label="t('setting.system.audioInputBaseUrl')"
+                :hint="t('setting.system.audioInputBaseUrlHint')"
                 persistent-hint
                 prepend-inner-icon="mdi-link-variant"
               />
@@ -422,29 +449,32 @@ onMounted(async () => {
 
             <VCol cols="12" md="6">
               <VTextField
-                v-model="wizardData.agent.voiceSttModel"
-                :label="t('setting.system.aiVoiceSttModel')"
-                :hint="t('setting.system.aiVoiceSttModelHint')"
+                v-model="wizardData.agent.audioInputLanguage"
+                :label="t('setting.system.audioInputLanguage')"
+                :hint="t('setting.system.audioInputLanguageHint')"
                 persistent-hint
-                prepend-inner-icon="mdi-waveform"
+                prepend-inner-icon="mdi-translate"
               />
             </VCol>
+          </template>
 
-            <VCol cols="12" md="6">
-              <VTextField
-                v-model="wizardData.agent.voiceTtsModel"
-                :label="t('setting.system.aiVoiceTtsModel')"
-                :hint="t('setting.system.aiVoiceTtsModelHint')"
-                persistent-hint
-                prepend-inner-icon="mdi-waveform"
-              />
-            </VCol>
+          <VCol cols="12">
+            <VSwitch
+              v-model="wizardData.agent.supportAudioOutput"
+              :label="t('setting.system.llmSupportAudioOutput')"
+              :hint="t('setting.system.llmSupportAudioOutputHint')"
+              persistent-hint
+              color="primary"
+            />
+          </VCol>
 
+          <template v-if="wizardData.agent.supportAudioOutput">
             <VCol cols="12" md="6">
-              <VTextField
-                v-model="wizardData.agent.voiceTtsVoice"
-                :label="t('setting.system.aiVoiceTtsVoice')"
-                :hint="t('setting.system.aiVoiceTtsVoiceHint')"
+              <VSelect
+                v-model="wizardData.agent.audioOutputProvider"
+                :label="t('setting.system.audioOutputProvider')"
+                :hint="t('setting.system.audioOutputProviderHint')"
+                :items="audioProviderItems"
                 persistent-hint
                 prepend-inner-icon="mdi-account-voice"
               />
@@ -452,19 +482,50 @@ onMounted(async () => {
 
             <VCol cols="12" md="6">
               <VTextField
-                v-model="wizardData.agent.voiceLanguage"
-                :label="t('setting.system.aiVoiceLanguage')"
-                :hint="t('setting.system.aiVoiceLanguageHint')"
+                v-model="wizardData.agent.audioOutputModel"
+                :label="t('setting.system.audioOutputModel')"
+                :hint="t('setting.system.audioOutputModelHint')"
                 persistent-hint
-                prepend-inner-icon="mdi-translate"
+                prepend-inner-icon="mdi-waveform"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.audioOutputApiKey"
+                :label="t('setting.system.audioOutputApiKey')"
+                :hint="t('setting.system.audioOutputApiKeyHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-key-variant"
+                type="password"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.audioOutputBaseUrl"
+                :label="t('setting.system.audioOutputBaseUrl')"
+                :hint="t('setting.system.audioOutputBaseUrlHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-link-variant"
+              />
+            </VCol>
+
+            <VCol cols="12" md="6">
+              <VTextField
+                v-model="wizardData.agent.audioOutputVoice"
+                :label="t('setting.system.audioOutputVoice')"
+                :hint="t('setting.system.audioOutputVoiceHint')"
+                persistent-hint
+                prepend-inner-icon="mdi-account-voice"
               />
             </VCol>
 
             <VCol cols="12">
               <VSwitch
-                v-model="wizardData.agent.voiceReplyWithText"
-                :label="t('setting.system.aiVoiceReplyWithText')"
-                :hint="t('setting.system.aiVoiceReplyWithTextHint')"
+                v-model="wizardData.agent.audioOutputIncludeText"
+                :label="t('setting.system.audioOutputIncludeText')"
+                :hint="t('setting.system.audioOutputIncludeTextHint')"
                 persistent-hint
                 color="primary"
               />

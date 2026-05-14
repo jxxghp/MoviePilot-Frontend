@@ -57,18 +57,23 @@ export interface WizardData {
     model: string
     thinkingLevel: string
     supportImageInput: boolean
-    supportAudioInputOutput: boolean
+    supportAudioInput: boolean
+    supportAudioOutput: boolean
     apiKey: string
     baseUrl: string
     baseUrlPreset: string
     maxContextTokens: number
-    voiceApiKey: string
-    voiceBaseUrl: string
-    voiceSttModel: string
-    voiceTtsModel: string
-    voiceTtsVoice: string
-    voiceLanguage: string
-    voiceReplyWithText: boolean
+    audioInputProvider: string
+    audioInputApiKey: string
+    audioInputBaseUrl: string
+    audioInputModel: string
+    audioInputLanguage: string
+    audioOutputProvider: string
+    audioOutputApiKey: string
+    audioOutputBaseUrl: string
+    audioOutputModel: string
+    audioOutputVoice: string
+    audioOutputIncludeText: boolean
     jobInterval: number
     retryTransfer: boolean
     recommendEnabled: boolean
@@ -238,18 +243,23 @@ const wizardData = ref<WizardData>({
     model: 'deepseek-chat',
     thinkingLevel: 'off',
     supportImageInput: true,
-    supportAudioInputOutput: false,
+    supportAudioInput: false,
+    supportAudioOutput: false,
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
     baseUrlPreset: '',
     maxContextTokens: 64,
-    voiceApiKey: '',
-    voiceBaseUrl: '',
-    voiceSttModel: 'gpt-4o-mini-transcribe',
-    voiceTtsModel: 'gpt-4o-mini-tts',
-    voiceTtsVoice: 'alloy',
-    voiceLanguage: 'zh',
-    voiceReplyWithText: false,
+    audioInputProvider: 'openai',
+    audioInputApiKey: '',
+    audioInputBaseUrl: '',
+    audioInputModel: 'gpt-4o-mini-transcribe',
+    audioInputLanguage: 'zh',
+    audioOutputProvider: 'openai',
+    audioOutputApiKey: '',
+    audioOutputBaseUrl: '',
+    audioOutputModel: 'gpt-4o-mini-tts',
+    audioOutputVoice: 'alloy',
+    audioOutputIncludeText: false,
     jobInterval: 0,
     retryTransfer: false,
     recommendEnabled: false,
@@ -1430,18 +1440,23 @@ export function useSetupWizard() {
         LLM_MODEL: wizardData.value.agent.model,
         LLM_THINKING_LEVEL: wizardData.value.agent.thinkingLevel,
         LLM_SUPPORT_IMAGE_INPUT: wizardData.value.agent.supportImageInput,
-        LLM_SUPPORT_AUDIO_INPUT_OUTPUT: wizardData.value.agent.supportAudioInputOutput,
+        LLM_SUPPORT_AUDIO_INPUT: wizardData.value.agent.supportAudioInput,
+        LLM_SUPPORT_AUDIO_OUTPUT: wizardData.value.agent.supportAudioOutput,
         LLM_API_KEY: wizardData.value.agent.apiKey,
         LLM_BASE_URL: wizardData.value.agent.baseUrl || null,
         LLM_BASE_URL_PRESET: wizardData.value.agent.baseUrlPreset || null,
         LLM_MAX_CONTEXT_TOKENS: wizardData.value.agent.maxContextTokens,
-        AI_VOICE_API_KEY: wizardData.value.agent.voiceApiKey || null,
-        AI_VOICE_BASE_URL: wizardData.value.agent.voiceBaseUrl || null,
-        AI_VOICE_STT_MODEL: wizardData.value.agent.voiceSttModel,
-        AI_VOICE_TTS_MODEL: wizardData.value.agent.voiceTtsModel,
-        AI_VOICE_TTS_VOICE: wizardData.value.agent.voiceTtsVoice,
-        AI_VOICE_LANGUAGE: wizardData.value.agent.voiceLanguage,
-        AI_VOICE_REPLY_WITH_TEXT: wizardData.value.agent.voiceReplyWithText,
+        AUDIO_INPUT_PROVIDER: wizardData.value.agent.audioInputProvider || 'openai',
+        AUDIO_INPUT_API_KEY: wizardData.value.agent.audioInputApiKey || null,
+        AUDIO_INPUT_BASE_URL: wizardData.value.agent.audioInputBaseUrl || null,
+        AUDIO_INPUT_MODEL: wizardData.value.agent.audioInputModel,
+        AUDIO_INPUT_LANGUAGE: wizardData.value.agent.audioInputLanguage,
+        AUDIO_OUTPUT_PROVIDER: wizardData.value.agent.audioOutputProvider || 'openai',
+        AUDIO_OUTPUT_API_KEY: wizardData.value.agent.audioOutputApiKey || null,
+        AUDIO_OUTPUT_BASE_URL: wizardData.value.agent.audioOutputBaseUrl || null,
+        AUDIO_OUTPUT_MODEL: wizardData.value.agent.audioOutputModel,
+        AUDIO_OUTPUT_VOICE: wizardData.value.agent.audioOutputVoice,
+        AUDIO_OUTPUT_INCLUDE_TEXT: wizardData.value.agent.audioOutputIncludeText,
         AI_AGENT_JOB_INTERVAL: wizardData.value.agent.enabled ? wizardData.value.agent.jobInterval : 0,
         AI_AGENT_RETRY_TRANSFER: wizardData.value.agent.enabled ? wizardData.value.agent.retryTransfer : false,
         AI_RECOMMEND_ENABLED:
@@ -1538,18 +1553,23 @@ export function useSetupWizard() {
         wizardData.value.agent.model = result.data.LLM_MODEL || ''
         wizardData.value.agent.thinkingLevel = resolveThinkingLevelValue(result.data)
         wizardData.value.agent.supportImageInput = result.data.LLM_SUPPORT_IMAGE_INPUT ?? true
-        wizardData.value.agent.supportAudioInputOutput = Boolean(result.data.LLM_SUPPORT_AUDIO_INPUT_OUTPUT)
+        wizardData.value.agent.supportAudioInput = Boolean(result.data.LLM_SUPPORT_AUDIO_INPUT)
+        wizardData.value.agent.supportAudioOutput = Boolean(result.data.LLM_SUPPORT_AUDIO_OUTPUT)
         wizardData.value.agent.apiKey = result.data.LLM_API_KEY || ''
         wizardData.value.agent.baseUrl = result.data.LLM_BASE_URL || ''
         wizardData.value.agent.baseUrlPreset = result.data.LLM_BASE_URL_PRESET || ''
         wizardData.value.agent.maxContextTokens = result.data.LLM_MAX_CONTEXT_TOKENS || 64
-        wizardData.value.agent.voiceApiKey = result.data.AI_VOICE_API_KEY || ''
-        wizardData.value.agent.voiceBaseUrl = result.data.AI_VOICE_BASE_URL || ''
-        wizardData.value.agent.voiceSttModel = result.data.AI_VOICE_STT_MODEL || 'gpt-4o-mini-transcribe'
-        wizardData.value.agent.voiceTtsModel = result.data.AI_VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
-        wizardData.value.agent.voiceTtsVoice = result.data.AI_VOICE_TTS_VOICE || 'alloy'
-        wizardData.value.agent.voiceLanguage = result.data.AI_VOICE_LANGUAGE || 'zh'
-        wizardData.value.agent.voiceReplyWithText = Boolean(result.data.AI_VOICE_REPLY_WITH_TEXT)
+        wizardData.value.agent.audioInputProvider = result.data.AUDIO_INPUT_PROVIDER || 'openai'
+        wizardData.value.agent.audioInputApiKey = result.data.AUDIO_INPUT_API_KEY || ''
+        wizardData.value.agent.audioInputBaseUrl = result.data.AUDIO_INPUT_BASE_URL || ''
+        wizardData.value.agent.audioInputModel = result.data.AUDIO_INPUT_MODEL || 'gpt-4o-mini-transcribe'
+        wizardData.value.agent.audioInputLanguage = result.data.AUDIO_INPUT_LANGUAGE || 'zh'
+        wizardData.value.agent.audioOutputProvider = result.data.AUDIO_OUTPUT_PROVIDER || 'openai'
+        wizardData.value.agent.audioOutputApiKey = result.data.AUDIO_OUTPUT_API_KEY || ''
+        wizardData.value.agent.audioOutputBaseUrl = result.data.AUDIO_OUTPUT_BASE_URL || ''
+        wizardData.value.agent.audioOutputModel = result.data.AUDIO_OUTPUT_MODEL || 'gpt-4o-mini-tts'
+        wizardData.value.agent.audioOutputVoice = result.data.AUDIO_OUTPUT_VOICE || 'alloy'
+        wizardData.value.agent.audioOutputIncludeText = Boolean(result.data.AUDIO_OUTPUT_INCLUDE_TEXT)
         wizardData.value.agent.jobInterval = result.data.AI_AGENT_JOB_INTERVAL || 0
         wizardData.value.agent.retryTransfer = Boolean(result.data.AI_AGENT_RETRY_TRANSFER)
         wizardData.value.agent.recommendEnabled = Boolean(result.data.AI_RECOMMEND_ENABLED)

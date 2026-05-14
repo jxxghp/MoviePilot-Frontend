@@ -1418,9 +1418,12 @@ export default {
       llmSupportImageInput: 'Model Supports Image Input',
       llmSupportImageInputHint:
         'When enabled, message images are sent to the LLM as multimodal image input. When disabled, images are saved locally as attachments and only the file path is passed to the AI assistant.',
-      llmSupportAudioInputOutput: 'Support Audio Input and Output',
-      llmSupportAudioInputOutputHint:
-        'When enabled, the AI assistant can transcribe incoming audio messages and reply with voice on supported channels.',
+      llmSupportAudioInput: 'Support Audio Input',
+      llmSupportAudioInputHint:
+        'When enabled, incoming audio messages are transcribed before being handled by the AI assistant.',
+      llmSupportAudioOutput: 'Support Audio Output',
+      llmSupportAudioOutputHint:
+        'When enabled, the AI assistant can send voice replies on supported channels.',
       llmMaxContextTokens: 'LLM Max Context Tokens (K)',
       llmMaxContextTokensHint:
         'Set the maximum number of context tokens (in thousands) for the LLM. Exceeding this limit will trigger context trimming.',
@@ -1441,23 +1444,36 @@ export default {
       llmProviderDeviceCode: 'Device Code',
       llmProviderOpenAuthPage: 'Open Authorization Page',
       llmProviderCheckAuthStatus: 'Check Authorization Status',
-      aiVoiceApiKey: 'Audio API Key',
-      aiVoiceApiKeyHint:
-        'API key used for audio transcription and speech synthesis. Falls back to the current LLM API key when left blank.',
-      aiVoiceBaseUrl: 'Audio Base URL',
-      aiVoiceBaseUrlHint:
-        'Base URL used for audio transcription and speech synthesis. Falls back to the current LLM base URL when left blank.',
-      aiVoiceSttModel: 'Audio Transcription Model',
-      aiVoiceSttModelHint: 'Model name used to convert audio content into text.',
-      aiVoiceTtsModel: 'Speech Synthesis Model',
-      aiVoiceTtsModelHint: 'Model name used to convert text content into speech.',
-      aiVoiceTtsVoice: 'Voice Preset',
-      aiVoiceTtsVoiceHint: 'Speaker or voice preset used for speech synthesis.',
-      aiVoiceLanguage: 'Recognition Language',
-      aiVoiceLanguageHint:
+      audioInputProvider: 'Audio Input Provider',
+      audioInputProviderHint:
+        'Service used to transcribe incoming audio messages. Supports OpenAI audio, Chat Audio compatible APIs, and Xiaomi MiMo.',
+      audioProviderOpenAiAudio: 'OpenAI Audio Compatible',
+      audioProviderChatAudio: 'Chat Audio Compatible',
+      audioProviderMimo: 'Xiaomi MiMo',
+      audioInputApiKey: 'Audio Input API Key',
+      audioInputApiKeyHint: 'API key used for audio transcription.',
+      audioInputBaseUrl: 'Audio Input Base URL',
+      audioInputBaseUrlHint:
+        'Base URL for audio input. Use the matching compatible endpoint for Chat Audio services; MiMo defaults to https://api.xiaomimimo.com/v1.',
+      audioInputModel: 'Audio Input Model',
+      audioInputModelHint: 'Model name used to convert audio content into text.',
+      audioInputLanguage: 'Recognition Language',
+      audioInputLanguageHint:
         'Default language for audio transcription, such as zh or en. Leave blank to use the backend default.',
-      aiVoiceReplyWithText: 'Include Text with Voice Replies',
-      aiVoiceReplyWithTextHint: 'When sending a voice reply, also include the text version of the response.',
+      audioOutputProvider: 'Audio Output Provider',
+      audioOutputProviderHint:
+        'Service used to generate voice replies. Supports OpenAI audio, Chat Audio compatible APIs, and Xiaomi MiMo.',
+      audioOutputApiKey: 'Audio Output API Key',
+      audioOutputApiKeyHint: 'API key used for speech synthesis.',
+      audioOutputBaseUrl: 'Audio Output Base URL',
+      audioOutputBaseUrlHint:
+        'Base URL for audio output. Use the matching compatible endpoint for Chat Audio services; MiMo defaults to https://api.xiaomimimo.com/v1.',
+      audioOutputModel: 'Audio Output Model',
+      audioOutputModelHint: 'Model name used to convert text content into speech.',
+      audioOutputVoice: 'Voice Preset',
+      audioOutputVoiceHint: 'Speaker or voice preset used for speech synthesis.',
+      audioOutputIncludeText: 'Include Text with Voice Replies',
+      audioOutputIncludeTextHint: 'When sending a voice reply, also include the text version of the response.',
       llmTestAction: 'Test Call',
       llmTestSuccessToast: 'LLM test call succeeded',
       llmTestFailedToast: 'LLM test call failed',
