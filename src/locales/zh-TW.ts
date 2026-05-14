@@ -979,6 +979,8 @@ export default {
     ranking: '排名',
     noStatisticsData: '暫無分享統計數據',
     bestVersion: '洗版中',
+    bestVersionEpisodeShort: '分集',
+    bestVersionWholeShort: '全集',
     completed: '訂閱完成',
     subscribing: '訂閱中',
     notStarted: '未開始',

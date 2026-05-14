@@ -67,6 +67,25 @@ const subscribeState = ref<string>(props.media?.state ?? 'P')
 // 上一次更新时间
 const lastUpdateText = computed(() => (props.media?.last_update ? formatDateDifference(props.media.last_update) : ''))
 
+// 判断后端数字/布尔开关是否启用
+function isEnabledFlag(value: any) {
+  return value === true || value === 1 || value === '1'
+}
+
+// 订阅列表接口通常返回中文媒体类型，插件或缓存数据可能只保留剧集字段
+function isTvSubscribe(media?: Subscribe) {
+  return media?.type === '电视剧' || media?.type === 'tv' || !!media?.season || !!media?.total_episode
+}
+
+// TV 洗版订阅在卡片上展示分集或全集短标签
+const bestVersionModeLabel = computed(() => {
+  if (!isEnabledFlag(props.media?.best_version) || !isTvSubscribe(props.media)) return ''
+
+  return isEnabledFlag(props.media?.best_version_full)
+    ? t('subscribe.bestVersionWholeShort')
+    : t('subscribe.bestVersionEpisodeShort')
+})
+
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
@@ -428,6 +447,15 @@ function handleCardClick() {
                     {{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
                     {{ props.media?.total_episode }}
                   </div>
+                  <VChip
+                    v-if="bestVersionModeLabel"
+                    size="x-small"
+                    color="primary"
+                    variant="flat"
+                    class="me-2 flex-shrink-0"
+                  >
+                    {{ bestVersionModeLabel }}
+                  </VChip>
                   <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="flex-shrink-0 me-1" />
                   <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" class="flex-shrink-0" />
                   <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
