@@ -89,6 +89,27 @@ const previewLoaded = ref(false)
 // 预览数据
 const previewData = ref<ManualTransferPreviewData>()
 
+function getFileItemKey(item?: FileItem) {
+  return [item?.storage ?? '', item?.type ?? '', item?.path ?? ''].join('|')
+}
+
+function dedupeFileItems(fileItems?: FileItem[]) {
+  if (!fileItems?.length) return []
+
+  const uniqueItems = new Map<string, FileItem>()
+  fileItems.forEach(item => {
+    uniqueItems.set(getFileItemKey(item), item)
+  })
+
+  return Array.from(uniqueItems.values())
+}
+
+function getPreviewItemKey(item: ManualTransferPreviewItem) {
+  return [item.source ?? '', item.target ?? '', item.success === false ? 'failed' : 'success'].join('|')
+}
+
+const normalizedItems = computed(() => dedupeFileItems(props.items))
+
 // 分页
 const previewPage = ref(1)
 const previewPageSize = ref(10)
@@ -128,18 +149,21 @@ const dialogTitle = computed(() => {
 
 // 副标题
 const dialogSubtitle = computed(() => {
-  if (props.items) {
-    if (props.items.length > 1) return t('dialog.reorganize.multipleItemsTitle', { count: props.items.length })
-    return t('dialog.reorganize.singleItemTitle', { path: props.items[0].path })
+  if (normalizedItems.value.length) {
+    if (normalizedItems.value.length > 1) {
+      return t('dialog.reorganize.multipleItemsTitle', { count: normalizedItems.value.length })
+    }
+
+    return t('dialog.reorganize.singleItemTitle', { path: normalizedItems.value[0].path })
   } else if (props.logids) {
     return t('dialog.reorganize.multipleItemsTitle', { count: props.logids.length })
   }
 })
 // 禁用指定集数
 const disableEpisodeDetail = computed(() => {
-  if (props.items) {
+  if (normalizedItems.value.length) {
     if (transferForm.episode_format) return false
-    return !(props.items.length === 1 && props.items[0].type !== 'dir')
+    return !(normalizedItems.value.length === 1 && normalizedItems.value[0].type !== 'dir')
   }
 })
 
@@ -447,17 +471,21 @@ function getPreviewFailureMessage(data?: ManualTransferPreviewData) {
 function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTransferPreviewData) {
   if (!incoming) return
 
-  const incomingItems = incoming.items ?? []
-  const incomingSummary = incoming.summary ?? {
-    total: incomingItems.length,
-    success: incomingItems.filter(item => item.success).length,
-    failed: incomingItems.filter(item => item.success === false).length,
-  }
+  const mergedItems = [...(target.items ?? [])]
+  const existingItemKeys = new Set(mergedItems.map(item => getPreviewItemKey(item)))
 
-  target.summary.total += incomingSummary.total ?? 0
-  target.summary.success += incomingSummary.success ?? 0
-  target.summary.failed += incomingSummary.failed ?? 0
-  target.items.push(...incomingItems)
+  ;(incoming.items ?? []).forEach(item => {
+    const itemKey = getPreviewItemKey(item)
+    if (existingItemKeys.has(itemKey)) return
+
+    existingItemKeys.add(itemKey)
+    mergedItems.push(item)
+  })
+
+  target.items = mergedItems
+  target.summary.total = mergedItems.length
+  target.summary.success = mergedItems.filter(item => item.success !== false).length
+  target.summary.failed = mergedItems.filter(item => item.success === false).length
 
   if (incoming.message) {
     target.message = [target.message, incoming.message].filter(Boolean).join('；')
@@ -466,7 +494,7 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
 
 // 预览整理结果
 async function previewTransfer() {
-  if (!props.logids && !props.items) return
+  if (!props.logids && !normalizedItems.value.length) return
 
   previewLoading.value = true
   resetPreviewState()
@@ -476,9 +504,9 @@ async function previewTransfer() {
   try {
     const tasks: Promise<void>[] = []
 
-    if (props.items) {
+    if (normalizedItems.value.length) {
       tasks.push(
-        ...props.items.map(async item => {
+        ...normalizedItems.value.map(async item => {
           try {
             const result = await requestManualTransfer<ManualTransferPreviewData>(
               createTransferPayload({ item, preview: true }),
@@ -642,14 +670,14 @@ function stopLoadingProgress() {
 
 // 整理文件
 async function transfer(background: boolean = false) {
-  if (!props.logids && !props.items) return
+  if (!props.logids && !normalizedItems.value.length) return
 
   // 显示进度条
   progressDialog.value = true
 
   // 文件整理
-  if (props.items) {
-    for (const item of props.items) {
+  if (normalizedItems.value.length) {
+    for (const item of normalizedItems.value) {
       if (!background) {
         // 如果是文件，计算MD5
         const key = item.type === 'dir' ? 'filetransfer' : CryptoJS.MD5(item.path).toString()
