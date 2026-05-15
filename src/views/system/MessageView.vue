@@ -4,6 +4,7 @@ import MessageCard from '@/components/cards/MessageCard.vue'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import type { InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 
 // 国际化
 const { t } = useI18n()
@@ -11,8 +12,6 @@ const { useSSE } = useBackgroundOptimization()
 
 // 消息列表
 const messages = ref<Message[]>([])
-// 当前页数据
-const currData = ref<Message[]>([])
 
 // 已加载消息的签名集合
 // 使用消息内容签名去重，避免仅按秒级时间戳判断时误吞同一秒内的不同消息。
@@ -214,7 +213,7 @@ const { manager, isConnected } = useSSE(
 )
 
 // 调用API加载存量消息
-async function loadMessages({ done }: { done: any }) {
+async function loadMessages({ done }: { done: InfiniteScrollDone }) {
   // 如果正在加载中，直接返回
   if (loading.value) {
     done('ok')
@@ -223,7 +222,7 @@ async function loadMessages({ done }: { done: any }) {
   try {
     // 设置加载中
     loading.value = true
-    currData.value = await api.get('message/web', {
+    const currentData: Message[] = await api.get('message/web', {
       params: {
         page: page.value,
         size: 20,
@@ -231,8 +230,8 @@ async function loadMessages({ done }: { done: any }) {
     })
     // 已加载过
     isLoaded.value = true
-    if (currData.value.length > 0) {
-      const hasNewMessage = mergeMessages(currData.value)
+    if (currentData.length > 0) {
+      const hasNewMessage = mergeMessages(currentData)
 
       // 首次加载时滚动到底部
       if (page.value === 1 && hasNewMessage) {

@@ -4,6 +4,7 @@ import type { WorkflowShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import WorkflowShareCard from '@/components/cards/WorkflowShareCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { loadPaginatedInfiniteScroll, type InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -17,11 +18,6 @@ const props = defineProps({
 
 // 定义事件
 const emit = defineEmits(['update'])
-
-// 判断是否有滚动条
-function hasScroll() {
-  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
-}
 
 // API
 const apipath = 'workflow/shares'
@@ -39,9 +35,8 @@ const loading = ref(false)
 // 是否加载完成
 const isRefreshed = ref(false)
 
-// 数据列表
-const dataList = ref<WorkflowShare[]>([])
-const currData = ref<WorkflowShare[]>([])
+// 使用 shallowRef 避免长列表中的深层代理开销
+const dataList = shallowRef<WorkflowShare[]>([])
 
 // 事件类型列表
 const eventTypes = ref<Array<{ title: string; value: string }>>([])
@@ -76,68 +71,31 @@ function getParams() {
   return params
 }
 
-// 获取列表数据
-async function fetchData({ done }: { done: any }) {
-  try {
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
-      return
-    }
+function appendData(items: WorkflowShare[]) {
+  dataList.value.push(...items)
+  triggerRef(dataList)
+}
 
-    // 加载到满屏或者加载出错
-    if (!hasScroll()) {
-      // 加载多次
-      while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        currData.value = await api.get(apipath, {
-          params: getParams(),
-        })
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
-        isRefreshed.value = true
-        if (currData.value.length === 0) {
-          // 如果没有数据，跳出
-          done('empty')
-          return
-        }
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    } else {
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      currData.value = await api.get(apipath, {
-        params: getParams(),
-      })
-      loading.value = false
-      // 标计为已请求完成
+async function loadPageData() {
+  return api.get(apipath, {
+    params: getParams(),
+  }) as Promise<WorkflowShare[]>
+}
+
+// 获取列表数据
+async function fetchData({ done }: { done: InfiniteScrollDone }) {
+  await loadPaginatedInfiniteScroll({
+    advancePage: () => {
+      page.value++
+    },
+    appendItems: appendData,
+    done,
+    loadPage: loadPageData,
+    loading,
+    markLoaded: () => {
       isRefreshed.value = true
-      if (currData.value.length === 0) {
-        // 如果没有数据，跳出
-        done('empty')
-      } else {
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    }
-  } catch (error) {
-    console.error(error)
-    // 返回加载失败
-    done('error')
-  }
+    },
+  })
 }
 
 // 将数据从列表中移除

@@ -4,6 +4,7 @@ import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import { loadPaginatedInfiniteScroll, type InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -13,11 +14,6 @@ const props = defineProps({
   apipath: String,
   params: Object as PropType<{ [key: string]: any }>,
 })
-
-// 判断是否有滚动条
-function hasScroll() {
-  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
-}
 
 // 当前页码
 const page = ref(1)
@@ -60,7 +56,7 @@ const dedupFields = [
 
 function deduplicate(items: MediaInfo[]): MediaInfo[] {
   return items.filter(item => {
-    const key = dedupFields.map(field => String(item[field])).join('~')
+    const key = getMediaDedupKey(item)
     if (seenKeys.has(key)) {
       return false
     }
@@ -70,7 +66,16 @@ function deduplicate(items: MediaInfo[]): MediaInfo[] {
 }
 
 function appendData(items: MediaInfo[]) {
-  dataList.value = dataList.value.concat(items)
+  dataList.value.push(...items)
+  triggerRef(dataList)
+}
+
+function getMediaDedupKey(item: MediaInfo) {
+  return dedupFields.map(field => String(item[field] ?? '')).join('~')
+}
+
+function getMediaItemKey(item: MediaInfo) {
+  return [getMediaDedupKey(item), item.title ?? ''].join('~')
 }
 
 async function loadPageData() {
@@ -79,73 +84,30 @@ async function loadPageData() {
   })
 
   return {
-    rawCount: rawData.length,
-    uniqueData: deduplicate(rawData),
+    isLastPage: rawData.length === 0,
+    items: deduplicate(rawData),
   }
 }
 
 // 获取列表数据
-async function fetchData({ done }: { done: any }) {
-  try {
-    if (!props.apipath) return
-
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
-      return
-    }
-
-    // 加载到满屏或者加载出错
-    if (!hasScroll()) {
-      // 加载多次
-      while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        const { rawCount, uniqueData } = await loadPageData()
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
-        isRefreshed.value = true
-        if (rawCount === 0) {
-          // 如果没有数据，跳出
-          done('empty')
-          return
-        }
-        // 合并数据
-        appendData(uniqueData)
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    } else {
-      // 加载一次
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      const { rawCount, uniqueData } = await loadPageData()
-      // 标计为已请求完成
-      isRefreshed.value = true
-      if (rawCount === 0) {
-        // 如果没有数据，跳出
-        done('empty')
-      } else {
-        // 合并数据
-        appendData(uniqueData)
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    }
-    // 取消加载中
-    loading.value = false
-  } catch (error) {
-    console.error(error)
-    // 返回加载失败
-    done('error')
+async function fetchData({ done }: { done: InfiniteScrollDone }) {
+  if (!props.apipath) {
+    done('empty')
+    return
   }
+
+  await loadPaginatedInfiniteScroll({
+    advancePage: () => {
+      page.value++
+    },
+    appendItems: appendData,
+    done,
+    loadPage: loadPageData,
+    loading,
+    markLoaded: () => {
+      isRefreshed.value = true
+    },
+  })
 }
 </script>
 
@@ -158,7 +120,7 @@ async function fetchData({ done }: { done: any }) {
       v-if="dataList.length > 0"
       :items="dataList"
       :item-aspect-ratio="1.5"
-      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+      :get-item-key="getMediaItemKey"
       tabindex="0"
     >
       <template #default="{ item }">
