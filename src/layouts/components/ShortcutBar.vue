@@ -11,6 +11,10 @@ type MessageViewExpose = {
   refreshLatestMessages?: () => Promise<void> | void
 }
 
+type MessageScrollPayload = {
+  force?: boolean
+}
+
 // 国际化
 const { t } = useI18n()
 
@@ -165,14 +169,19 @@ async function openMessageDialog() {
   })
 }
 
-// 智能滚动到底部（只有用户在底部附近时才滚动）
-function scrollMessageToEnd() {
+// 智能滚动到底部：首次打开时允许强制滚动，后续实时消息尊重用户当前位置。
+function scrollMessageToEnd(payload?: MessageScrollPayload) {
   // 使用更长的延迟确保DOM已更新
   setTimeout(() => {
     try {
       // 查找消息弹窗的滚动容器
       const cardText = document.querySelector('.v-dialog .v-card-text')
       if (cardText) {
+        if (payload?.force) {
+          cardText.scrollTop = cardText.scrollHeight
+          return
+        }
+
         const { scrollTop, scrollHeight, clientHeight } = cardText
         // 计算距离底部的距离
         const distanceFromBottom = scrollHeight - scrollTop - clientHeight

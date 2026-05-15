@@ -9,8 +9,14 @@ import { useBackgroundOptimization } from '@/composables/useBackgroundOptimizati
 const { t } = useI18n()
 const { useSSE } = useBackgroundOptimization()
 
+type ScrollPayload = {
+  force?: boolean
+}
+
 // 定义事件
-const emit = defineEmits(['scroll'])
+const emit = defineEmits<{
+  (e: 'scroll', payload?: ScrollPayload): void
+}>()
 
 // 消息列表
 const messages = ref<Message[]>([])
@@ -66,6 +72,13 @@ function updateLastTime(message: Message) {
   }
 }
 
+// 请求父组件滚动，首屏历史消息需要强制到底，实时消息继续使用智能滚动。
+function requestScrollToEnd(force = false) {
+  nextTick(() => {
+    emit('scroll', { force })
+  })
+}
+
 // 合并消息到当前列表
 function mergeMessages(items: Message[]) {
   let hasNewMessage = false
@@ -95,9 +108,7 @@ function handleSSEMessage(event: MessageEvent) {
   if (message) {
     const object = JSON.parse(message)
     if (mergeMessages([object])) {
-      nextTick(() => {
-        emit('scroll') // 新消息到达时触发智能滚动
-      })
+      requestScrollToEnd() // 新消息到达时触发智能滚动
     }
   }
 }
@@ -137,9 +148,7 @@ async function loadMessages({ done }: { done: any }) {
 
       // 首次加载时滚动到底部
       if (page.value === 1 && hasNewMessage) {
-        nextTick(() => {
-          emit('scroll')
-        })
+        requestScrollToEnd(true)
       }
       // 页码+1
       page.value++
@@ -168,9 +177,7 @@ async function refreshLatestMessages() {
     })) as Message[]
 
     if (mergeMessages(latestMessages)) {
-      nextTick(() => {
-        emit('scroll')
-      })
+      requestScrollToEnd()
     }
   } catch (error) {
     console.error('刷新最新消息失败:', error)
@@ -206,7 +213,7 @@ function compareTime(time1: string, time2: string) {
 
 // 图片加载完成时触发智能滚动
 function handleImageLoad() {
-  emit('scroll')
+  requestScrollToEnd()
 }
 
 // 暂停SSE连接
@@ -236,9 +243,7 @@ defineExpose({
 
 onMounted(() => {
   // 组件挂载后触发一次滚动事件
-  nextTick(() => {
-    emit('scroll')
-  })
+  requestScrollToEnd()
 })
 </script>
 
