@@ -8,6 +8,11 @@ import { useIntersectionObserver, until } from '@vueuse/core'
 
 const { t } = useI18n()
 
+// 模块级数据缓存：当外层用 VirtualList 虚拟化时，SlideView 会随滚动
+// 反复 unmount/mount，没有缓存会每次重新请求后端（公网部署还会打到 TMDB）。
+// 缓存按 apipath 维度，跨实例共享，刷新页面即失效。
+const dataCache = new Map<string, MediaInfo[]>()
+
 // 输入参数
 const props = defineProps({
   apipath: String,
@@ -37,7 +42,15 @@ const containerRef = ref<HTMLElement | null>(null)
 async function fetchData() {
   try {
     if (!props.apipath) return
+    const cached = dataCache.get(props.apipath)
+    if (cached) {
+      dataList.value = cached
+      if (cached.length > 0) await until(() => props.ready).toBe(true)
+      componentLoaded.value = true
+      return
+    }
     dataList.value = await api.get(props.apipath)
+    dataCache.set(props.apipath, dataList.value)
     if (dataList.value.length > 0) {
       // 数据获取后，等待 ready 信号再渲染，避免阻塞动画
       await until(() => props.ready).toBe(true)
@@ -52,6 +65,9 @@ async function fetchData() {
 }
 
 // 使用 IntersectionObserver 实现懒加载
+// rootMargin 收窄到 100px：仅在 SlideView 真正接近视口时才触发，
+// 避免页面初次挂载时多个 SlideView 同时落在探测区导致的层叠 fire +
+// 后续 layout shift 引发的"自动一直往下刷"假象。
 const { stop } = useIntersectionObserver(
   containerRef,
   ([{ isIntersecting }]) => {
@@ -61,7 +77,7 @@ const { stop } = useIntersectionObserver(
     }
   },
   {
-    rootMargin: '300px', // 提前加载距离
+    rootMargin: '100px',
   },
 )
 
