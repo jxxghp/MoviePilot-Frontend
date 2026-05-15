@@ -21,38 +21,36 @@
     2. estimateItemHeight 兜底
     （v1 不做 mount 后实测回填——masonry 实测会引发已布局项位移）
 
+  列数由调用方决定（与 VirtualGrid 一致，组件本身不感知容器）：
+    用 useBreakpointCols / useResponsiveCols / 显式数值喂给 :columns。
+
   典型用法：
-    <VirtualMasonry
-      :items="people"
-      :breakpoints="{ xs: 2, sm: 3, md: 4, lg: 5 }"
-      :estimate-item-height="280"
-      :get-item-height="p => p.height ?? 280"
-      key-field="id"
-      @load-more="fetchMore">
-      <template #item="{ item }"> <PersonCard :person="item" /> </template>
-    </VirtualMasonry>
+    <script setup>
+    const cols = useBreakpointCols({ xs: 2, sm: 3, md: 4, lg: 5 })
+    </script>
+    <template>
+      <VirtualMasonry
+        :items="people"
+        :columns="cols"
+        :estimate-item-height="280"
+        :get-item-height="p => p.height ?? 280"
+        key-field="id"
+        @load-more="fetchMore">
+        <template #item="{ item }"> <PersonCard :person="item" /> </template>
+      </VirtualMasonry>
+    </template>
 -->
 
 <script setup lang="ts" generic="T extends Record<string, any>">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { useDisplay } from 'vuetify'
 import { useWindowScrollMargin } from '@/composables/virtual/useWindowScrollMargin'
 import { useLoadMoreSentinel } from '@/composables/virtual/useLoadMoreSentinel'
-
-interface Breakpoints {
-  xs?: number
-  sm?: number
-  md?: number
-  lg?: number
-  xl?: number
-  xxl?: number
-}
 
 const props = withDefaults(
   defineProps<{
     items: T[]
-    /** Vuetify 断点对应列数 */
-    breakpoints?: Breakpoints
+    /** 列数（必填）。调用方用 useBreakpointCols / useResponsiveCols / 显式数值喂进来 */
+    columns: number
     /** 估算项高度（px），未提供 getItemHeight 时用这个 */
     estimateItemHeight?: number
     /** 从 item 计算实际高度（如已知图片宽高比） */
@@ -63,31 +61,18 @@ const props = withDefaults(
     gap?: number
     /** 视口外预渲染像素（上下各 overscan px）*/
     overscan?: number
-    /** 触底加载阈值（剩余项数）*/
-    loadMoreThreshold?: number
   }>(),
   {
-    breakpoints: () => ({ xs: 2, sm: 3, md: 4, lg: 5, xl: 6, xxl: 6 }),
     estimateItemHeight: 300,
     gap: 12,
     overscan: 600,
-    loadMoreThreshold: 3,
   },
 )
 
 const emit = defineEmits<{ loadMore: [] }>()
 
-const display = useDisplay()
-
-const cols = computed(() => {
-  const bp = props.breakpoints
-  if (display.xs.value) return bp.xs ?? 2
-  if (display.sm.value) return bp.sm ?? 3
-  if (display.md.value) return bp.md ?? 4
-  if (display.lg.value) return bp.lg ?? 5
-  if (display.xl.value) return bp.xl ?? 6
-  return bp.xxl ?? 6
-})
+// 列数兜底为 1，避免外部传 0/负数时除零
+const cols = computed(() => Math.max(1, Math.floor(props.columns) || 1))
 
 interface LayoutItem {
   item: T

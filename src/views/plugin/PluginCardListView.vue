@@ -12,8 +12,12 @@ import { useI18n } from 'vue-i18n'
 import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import VirtualList from '@/components/virtual/VirtualList.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
+
+// 列数：按视口断点（路由级全宽页，三个 VirtualGrid 共用：已安装/插件文件夹/插件市场）
+const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 // 国际化
 const { t } = useI18n()
@@ -1585,7 +1589,7 @@ function onDragStartPlugin(evt: any) {
                   v-else-if="shouldVirtualizeInstalledMainList"
                   ref="installedGridRef"
                   :items="mixedSortList"
-                  :breakpoints="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 }"
+                  :columns="cols"
                   :row-estimate-size="260"
                   :gap="16"
                   :overscan="3"
@@ -1645,7 +1649,7 @@ function onDragStartPlugin(evt: any) {
                 <VirtualGrid
                   v-else-if="shouldVirtualizeInstalledFolderList"
                   :items="draggableFolderPlugins"
-                  :breakpoints="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 }"
+                  :columns="cols"
                   :row-estimate-size="260"
                   :gap="16"
                   :overscan="3"
@@ -1693,11 +1697,10 @@ function onDragStartPlugin(evt: any) {
               v-if="isAppMarketLoaded && !isMarketRefreshing && displayUninstalledList.length > 0"
               ref="marketGridRef"
               :items="displayUninstalledList"
-              :breakpoints="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 }"
+              :columns="cols"
               :row-estimate-size="280"
               :gap="16"
               :overscan="3"
-              :load-more-threshold="3"
               use-window-scroll
               class="overflow-visible"
               @load-more="loadMarketMore"

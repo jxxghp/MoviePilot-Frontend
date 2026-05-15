@@ -6,10 +6,14 @@ import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 // 国际化
 const { t } = useI18n()
@@ -530,7 +534,7 @@ defineExpose({
     v-else-if="displayList.length > 0 && shouldVirtualizeList"
     ref="gridRef"
     :items="displayList"
-    :breakpoints="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 }"
+    :columns="cols"
     :row-estimate-size="280"
     :gap="16"
     :overscan="3"

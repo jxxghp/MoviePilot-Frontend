@@ -4,9 +4,13 @@ import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 const props = defineProps({
   keyword: String,
@@ -203,7 +207,7 @@ onMounted(() => {
     v-if="isRefreshed && dataList.length > 0"
     :key="currentKey"
     :items="dataList"
-    :breakpoints="{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 }"
+    :columns="cols"
     :row-estimate-size="260"
     :gap="12"
     :overscan="3"

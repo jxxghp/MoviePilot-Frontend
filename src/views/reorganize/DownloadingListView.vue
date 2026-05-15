@@ -8,8 +8,12 @@ import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 3 })
 const { useDataRefresh } = useBackgroundOptimization()
 
 const props = defineProps<{
@@ -60,7 +64,7 @@ const { loading: dataLoading } = useDataRefresh(
     <VirtualGrid
       v-if="filteredDataList.length > 0"
       :items="filteredDataList"
-      :breakpoints="{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 3 }"
+      :columns="cols"
       :row-estimate-size="230"
       :gap="12"
       :overscan="3"

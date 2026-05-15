@@ -8,11 +8,15 @@ import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import VirtualList from '@/components/virtual/VirtualList.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
 import { useToast } from 'vue-toastification'
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 })
 
 // 国际化
 const { t } = useI18n()
@@ -1170,7 +1174,7 @@ onUnmounted(() => {
           <VirtualGrid
             v-else-if="filteredCardDataList.length > 0"
             :items="filteredCardDataList"
-            :breakpoints="{ xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }"
+            :columns="cols"
             :row-estimate-size="400"
             :gap="16"
             :overscan="3"

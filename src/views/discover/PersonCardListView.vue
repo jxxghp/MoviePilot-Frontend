@@ -4,9 +4,13 @@ import type { Person } from '@/api/types'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 })
 
 // 输入参数
 const props = defineProps({
@@ -59,7 +63,7 @@ onMounted(() => {
   <VirtualGrid
     v-if="isRefreshed && dataList.length > 0"
     :items="dataList"
-    :breakpoints="{ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 }"
+    :columns="cols"
     :row-estimate-size="260"
     :gap="16"
     :overscan="3"

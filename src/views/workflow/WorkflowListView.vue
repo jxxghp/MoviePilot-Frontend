@@ -5,9 +5,13 @@ import WorkflowAddEditDialog from '@/components/dialog/WorkflowAddEditDialog.vue
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 })
 
 const isRefreshed = ref(false)
 const addDialog = ref(false)
@@ -60,7 +64,7 @@ defineExpose({
     <VirtualGrid
       v-if="workflowList.length > 0 && isRefreshed"
       :items="workflowList"
-      :breakpoints="{ xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }"
+      :columns="cols"
       :row-estimate-size="420"
       :gap="12"
       :overscan="2"

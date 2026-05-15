@@ -4,80 +4,76 @@
   ============================================================
 
   设计目标：
-    - 内部把扁平 items[] 按 Vuetify 响应式断点打包成 rows[][]
+    - 内部把扁平 items[] 按外部传入的 `columns` 数值打包成 rows[][]
     - 对业务屏蔽 row chunking 细节，业务只写「一项卡片」
     - 网格只在垂直方向虚拟化（行），水平方向用 CSS Grid 等分
     - 支持两种滚动模式：容器内 scroll（默认）+ 页面 window scroll（useWindowScroll=true）
+    - 不感知容器：组件本身不读视口、不测自身宽度。
+      cols 由调用方算好喂进来（useBreakpointCols / useResponsiveCols / 显式数值）。
+      容器自适应需求请用 <AutoSizer> 或 useResponsiveCols。
 
-  典型用法（路由主页，window scroll）：
-    <VirtualGrid :items="dataList"
-                 :breakpoints="{ xs: 2, sm: 3, md: 4, lg: 5, xl: 6 }"
-                 :row-estimate-size="320" key-field="id"
-                 use-window-scroll @load-more="fetchData">
-      <template #item="{ item }"> <MediaCard :media="item" /> </template>
-    </VirtualGrid>
+  典型用法（路由主页，window scroll，视口断点决定列数）：
+    <script setup>
+    const cols = useBreakpointCols({ xs: 2, sm: 3, md: 4, lg: 5, xl: 6 })
+    </script>
+    <template>
+      <VirtualGrid :items="dataList" :columns="cols"
+                   :row-estimate-size="320" key-field="id"
+                   use-window-scroll @load-more="fetchData">
+        <template #item="{ item }"> <MediaCard :media="item" /> </template>
+      </VirtualGrid>
+    </template>
+
+  典型用法（dashboard 卡片，容器宽度决定列数）：
+    <AutoSizer #default="{ width }">
+      <VirtualGrid :columns="Math.max(1, Math.floor(width / 240))"
+                   :items="data" :container-height="'10rem'" ... />
+    </AutoSizer>
 -->
 
 <script setup lang="ts" generic="T extends Record<string, any>">
 import { computed, ref } from 'vue'
-import { useDisplay } from 'vuetify'
 import { useWindowScrollMargin } from '@/composables/virtual/useWindowScrollMargin'
 import { useLoadMoreSentinel } from '@/composables/virtual/useLoadMoreSentinel'
 import { useVirtualizerBridge } from '@/composables/virtual/useVirtualizerBridge'
 
-interface Breakpoints {
-  xs?: number
-  sm?: number
-  md?: number
-  lg?: number
-  xl?: number
-  xxl?: number
-}
-
 const props = withDefaults(
   defineProps<{
     items: T[]
-    /** Vuetify 断点对应列数 */
-    breakpoints?: Breakpoints
+    /** 列数（必填）。调用方用 useBreakpointCols / useResponsiveCols / 显式数值喂进来 */
+    columns: number
     /** 行高估算（px） */
     rowEstimateSize?: number
     /** 卡片间距 + 容器内边距 */
     gap?: number | string
     /** 视口外预渲染的行数 */
     overscan?: number
-    /** key 字段名 */
+    /** key 字段名。若同时给了 getItemKey 则后者优先 */
     keyField?: keyof T
+    /**
+     * 取 key 的函数式入口，优先级高于 keyField。
+     * 用于 fallback 链场景，如 `(item) => item.id || item.link || item.title`。
+     * `index` 是 item 在扁平 items[] 中的 0 起始下标。
+     */
+    getItemKey?: (item: T, index: number) => string | number
     /** 容器内 scroll 模式下的容器高度（useWindowScroll=false 时生效） */
     containerHeight?: string | number
-    /** 末尾还剩多少行时触发 load-more */
-    loadMoreThreshold?: number
     /** 使用页面 window scroll（路由主页推荐） */
     useWindowScroll?: boolean
   }>(),
   {
-    breakpoints: () => ({ xs: 2, sm: 3, md: 4, lg: 5, xl: 6, xxl: 6 }),
     rowEstimateSize: 320,
     gap: 12,
     overscan: 3,
     containerHeight: '100%',
-    loadMoreThreshold: 3,
     useWindowScroll: false,
   },
 )
 
 const emit = defineEmits<{ loadMore: []; scroll: [event: Event] }>()
 
-const display = useDisplay()
-
-const cols = computed(() => {
-  const bp = props.breakpoints
-  if (display.xs.value) return bp.xs ?? 2
-  if (display.sm.value) return bp.sm ?? 3
-  if (display.md.value) return bp.md ?? 4
-  if (display.lg.value) return bp.lg ?? 5
-  if (display.xl.value) return bp.xl ?? 6
-  return bp.xxl ?? 6
-})
+// 列数兜底为 1，避免外部传 0/负数时切片死循环
+const cols = computed(() => Math.max(1, Math.floor(props.columns) || 1))
 
 const rows = computed<T[][]>(() => {
   const n = cols.value
@@ -112,6 +108,11 @@ const { sentinel: loadMoreSentinel } = useLoadMoreSentinel({
 })
 
 function rowItemKey(item: T, rowIdx: number, colIdx: number): string | number {
+  // 优先级：getItemKey 函数 > keyField 字段 > 位置 fallback
+  if (props.getItemKey) {
+    const k = props.getItemKey(item, rowIdx * cols.value + colIdx)
+    if (typeof k === 'string' || typeof k === 'number') return k
+  }
   if (props.keyField) {
     const k = (item as Record<string, any>)[props.keyField as string]
     if (typeof k === 'string' || typeof k === 'number') return k

@@ -4,9 +4,13 @@ import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 })
 
 // 输入参数
 const props = defineProps({
@@ -97,11 +101,10 @@ onMounted(() => {
   <VirtualGrid
     v-if="isRefreshed && dataList.length > 0"
     :items="dataList"
-    :breakpoints="{ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 }"
+    :columns="cols"
     :row-estimate-size="280"
     :gap="16"
     :overscan="3"
-    :load-more-threshold="3"
     use-window-scroll
     class="pt-3 px-3"
     @load-more="fetchData"
