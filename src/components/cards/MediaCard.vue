@@ -437,7 +437,9 @@ function setupIntersectionObserver() {
 // 计算图片地址
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value) return noImage
-  const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
+  // 卡片在网格中显示宽度 ~150-220px，w342 在 2x DPR 下足够清晰，
+  // 比 w500 减少约 53% 的解码位图内存
+  const url = props.media?.poster_path?.replace('original', 'w342') ?? noImage
   // 使用图片缓存
   if (globalSettings.GLOBAL_IMAGE_CACHE)
     return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
