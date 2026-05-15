@@ -41,6 +41,8 @@ async function fetchData() {
   }
 }
 
+// rootMargin 收窄到 100px，避免页面初次挂载时多个 SlideView 同时落在探测区
+// 引起层叠 fire（与 MediaCardSlideView 保持一致）。
 const { stop } = useIntersectionObserver(
   containerRef,
   ([{ isIntersecting }]) => {
@@ -50,7 +52,7 @@ const { stop } = useIntersectionObserver(
     }
   },
   {
-    rootMargin: '300px',
+    rootMargin: '100px',
   },
 )
 

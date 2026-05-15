@@ -3,48 +3,41 @@ import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 })
 
 // 输入参数
 const props = defineProps({
   type: String,
 })
 
-// 判断是否有滚动条
-function hasScroll() {
-  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
-}
-
 // API
 const apipath = 'subscribe/popular'
 
-// 当前页码
 const page = ref(1)
-
-// 是否加载中
 const loading = ref(false)
-
-// 是否加载完成
 const isRefreshed = ref(false)
+const hasMore = ref(true)
 
-// 数据列表
 const dataList = ref<MediaInfo[]>([])
-const currData = ref<MediaInfo[]>([])
 
 // 筛选参数
 const filterParams = reactive({
-  genre_id: '', // 空字符串表示选中"全部"
+  genre_id: '',
   min_rating: 0,
   max_rating: 10,
   min_sub: 1,
-  sort_type: 'count', // 默认按热度排序
+  sort_type: 'count',
 })
 
-// 当前Key（用于重新加载数据）
+// 当前 Key（用于在筛选条件变化时重置 VirtualGrid 内部状态）
 const currentKey = ref(0)
 
 // TMDB电影风格字典
@@ -90,115 +83,62 @@ const tmdbTvGenreDict: Record<string, string> = {
   '37': t('tmdb.genreType.western'),
 }
 
-// 获取当前类型对应的风格字典
 const currentGenreDict = computed(() => {
   return props.type === '电影' ? tmdbMovieGenreDict : tmdbTvGenreDict
 })
 
-// 监听筛选参数变化
+// 筛选变化 → 重置列表
 watch(
   filterParams,
   () => {
-    // 重置数据
     dataList.value = []
     page.value = 1
+    hasMore.value = true
     isRefreshed.value = false
     currentKey.value++
+    void fetchData()
   },
   { deep: true },
 )
 
 // 拼装参数
 function getParams() {
-  let params: { [key: string]: any } = {
+  const params: { [key: string]: any } = {
     stype: props.type,
     page: page.value,
     count: 30,
   }
-
-  // 添加筛选参数
-  if (filterParams.genre_id) {
-    params.genre_id = parseInt(filterParams.genre_id)
-  }
-  if (filterParams.min_rating > 0) {
-    params.min_rating = filterParams.min_rating
-  }
-  if (filterParams.max_rating < 10) {
-    params.max_rating = filterParams.max_rating
-  }
-  if (filterParams.min_sub > 1) {
-    params.min_sub = filterParams.min_sub
-  }
-  if (filterParams.sort_type) {
-    params.sort_type = filterParams.sort_type
-  }
-
+  if (filterParams.genre_id) params.genre_id = parseInt(filterParams.genre_id)
+  if (filterParams.min_rating > 0) params.min_rating = filterParams.min_rating
+  if (filterParams.max_rating < 10) params.max_rating = filterParams.max_rating
+  if (filterParams.min_sub > 1) params.min_sub = filterParams.min_sub
+  if (filterParams.sort_type) params.sort_type = filterParams.sort_type
   return params
 }
 
-// 获取列表数据
-async function fetchData({ done }: { done: any }) {
+async function fetchData() {
+  if (loading.value || !hasMore.value) return
+  loading.value = true
   try {
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
+    const data: MediaInfo[] = await api.get(apipath, { params: getParams() })
+    isRefreshed.value = true
+    if (!data || data.length === 0) {
+      hasMore.value = false
       return
     }
-
-    // 加载到满屏或者加载出错
-    if (!hasScroll()) {
-      // 加载多次
-      while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        currData.value = await api.get(apipath, {
-          params: getParams(),
-        })
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
-        isRefreshed.value = true
-        if (currData.value.length === 0) {
-          // 如果没有数据，跳出
-          done('empty')
-          return
-        }
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    } else {
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      currData.value = await api.get(apipath, {
-        params: getParams(),
-      })
-      loading.value = false
-      // 标计为已请求完成
-      isRefreshed.value = true
-      if (currData.value.length === 0) {
-        // 如果没有数据，跳出
-        done('empty')
-      } else {
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    }
+    dataList.value = [...dataList.value, ...data]
+    page.value++
+    if (data.length < 30) hasMore.value = false
   } catch (error) {
     console.error(error)
-    // 返回加载失败
-    done('error')
+  } finally {
+    loading.value = false
   }
 }
+
+onMounted(() => {
+  void fetchData()
+})
 </script>
 
 <template>
@@ -226,21 +166,16 @@ async function fetchData({ done }: { done: any }) {
         <VLabel>{{ t('tmdb.genre') }}</VLabel>
       </div>
       <VChipGroup v-model="filterParams.genre_id">
-        <VChip
-          :color="filterParams.genre_id == '' ? 'primary' : ''"
-          filter
-          tile
-          value=""
-        >
+        <VChip :color="filterParams.genre_id == '' ? 'primary' : ''" filter tile value="">
           {{ t('common.all') }}
         </VChip>
         <VChip
+          v-for="(value, key) in currentGenreDict"
+          :key="key"
           :color="filterParams.genre_id == key ? 'primary' : ''"
           filter
           tile
           :value="key"
-          v-for="(value, key) in currentGenreDict"
-          :key="key"
         >
           {{ value }}
         </VChip>
@@ -259,45 +194,37 @@ async function fetchData({ done }: { done: any }) {
         :step="1"
         class="align-center"
         hide-details
-      >
-      </VSlider>
+      />
     </div>
   </div>
 
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VInfiniteScroll
-    mode="intersect"
-    side="end"
-    :items="dataList"
-    class="overflow-visible px-2"
-    @load="fetchData"
+  <VirtualGrid
+    v-if="isRefreshed && dataList.length > 0"
     :key="currentKey"
+    :items="dataList"
+    :columns="cols"
+    :row-estimate-size="320"
+    :gap="16"
+    :overscan="3"
+    use-window-scroll
+    class="pt-2 px-3"
+    @load-more="fetchData"
   >
-    <template #loading />
-    <template #empty />
-    <ProgressiveCardGrid
-      v-if="dataList.length > 0"
-      :items="dataList"
-      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
-      :min-item-width="144"
-      :estimated-item-height="320"
-      tabindex="0"
-    >
-      <template #default="{ item }">
-        <div>
-          <MediaCard :media="item" />
-          <div v-if="item.popularity" class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
-            <VIcon icon="mdi-fire" color="error" />
-            <span> {{ item.popularity.toLocaleString() }}</span>
-          </div>
+    <template #item="{ item }">
+      <div>
+        <MediaCard :media="item" />
+        <div v-if="item.popularity" class="mt-2 flex flex-row justify-center align-center text-subtitle-2">
+          <VIcon icon="mdi-fire" color="error" />
+          <span> {{ item.popularity.toLocaleString() }}</span>
         </div>
-      </template>
-    </ProgressiveCardGrid>
-    <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
-      error-code="404"
-      :error-title="t('common.noData')"
-      :error-description="t('subscribe.noPopularData')"
-    />
-  </VInfiniteScroll>
+      </div>
+    </template>
+  </VirtualGrid>
+  <NoDataFound
+    v-if="dataList.length === 0 && isRefreshed"
+    error-code="404"
+    :error-title="t('common.noData')"
+    :error-description="t('subscribe.noPopularData')"
+  />
 </template>

@@ -2,11 +2,15 @@
 import api from '@/api'
 import type { Person } from '@/api/types'
 import PersonCard from '@/components/cards/PersonCard.vue'
-import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 })
 
 // 输入参数
 const props = defineProps({
@@ -15,130 +19,67 @@ const props = defineProps({
   type: String,
 })
 
-// 判断是否有滚动条
-function hasScroll() {
-  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
-}
-
-// 当前页码
 const page = ref(1)
-
-// 是否加载中
 const loading = ref(false)
-
-// 是否加载完成
 const isRefreshed = ref(false)
-
-// 使用 shallowRef 避免长列表中的深层代理开销
+const hasMore = ref(true)
 const dataList = shallowRef<Person[]>([])
 
-function appendData(items: Person[]) {
-  dataList.value = dataList.value.concat(items)
-}
-
-async function loadPageData() {
-  return api.get(props.apipath!, {
-    params: getParams(),
-  }) as Promise<Person[]>
-}
-
-// 拼装参数
 function getParams() {
-  let params = {
-    page: page.value,
-  }
+  let params = { page: page.value }
   if (props.params) params = { ...params, ...props.params }
-
   return params
 }
 
-// 获取列表数据
-async function fetchData({ done }: { done: any }) {
+async function fetchData() {
+  if (!props.apipath) return
+  if (loading.value || !hasMore.value) return
+  loading.value = true
   try {
-    if (!props.apipath) return
-
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
+    const currentData = (await api.get(props.apipath, {
+      params: getParams(),
+    })) as Person[]
+    isRefreshed.value = true
+    if (!currentData || currentData.length === 0) {
+      hasMore.value = false
       return
     }
-
-    // 加载到满屏或者加载出错
-    if (!hasScroll()) {
-      // 加载多次
-      while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        const currentData = await loadPageData()
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
-        isRefreshed.value = true
-        if (currentData.length === 0) {
-          // 如果没有数据，跳出
-          done('empty')
-          return
-        } else {
-          // 合并数据
-          appendData(currentData)
-          // 页码+1
-          page.value++
-          // 返回加载成功
-          done('ok')
-        }
-      }
-    } else {
-      // 加载一次
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      const currentData = await loadPageData()
-      // 标计为已请求完成
-      isRefreshed.value = true
-      if (currentData.length === 0) {
-        // 如果没有数据，跳出
-        done('empty')
-      } else {
-        // 合并数据
-        appendData(currentData)
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-      // 取消加载中
-      loading.value = false
-    }
+    dataList.value = dataList.value.concat(currentData)
+    page.value++
   } catch (error) {
     console.error(error)
-    // 返回加载失败
-    done('error')
+  } finally {
+    loading.value = false
   }
 }
+
+onMounted(() => {
+  void fetchData()
+})
 </script>
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible px-3" @load="fetchData">
-    <template #loading />
-    <template #empty />
-    <ProgressiveCardGrid
-      v-if="dataList.length > 0"
-      :items="dataList"
-      :item-aspect-ratio="1.5"
-      :get-item-key="item => item.id"
-      tabindex="0"
-    >
-      <template #default="{ item }">
-        <PersonCard :person="item" />
-      </template>
-    </ProgressiveCardGrid>
-    <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
-      error-code="404"
-      :error-title="t('common.noData')"
-      :error-description="t('error.networkError')"
-    />
-  </VInfiniteScroll>
+  <VirtualGrid
+    v-if="isRefreshed && dataList.length > 0"
+    :items="dataList"
+    :columns="cols"
+    :row-estimate-size="260"
+    :gap="16"
+    :overscan="3"
+    key-field="id"
+    use-window-scroll
+    class="pt-3 px-3"
+    @load-more="fetchData"
+  >
+    <template #item="{ item }">
+      <PersonCard :person="item" />
+    </template>
+  </VirtualGrid>
+  <NoDataFound
+    v-if="dataList.length === 0 && isRefreshed"
+    error-code="404"
+    :error-title="t('common.noData')"
+    :error-description="t('error.networkError')"
+  />
 </template>

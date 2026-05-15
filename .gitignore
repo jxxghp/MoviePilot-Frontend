@@ -35,3 +35,6 @@ package-lock.json
 # iconify dist files
 src/@iconify/*.js
 public/plugin_icon/**
+
+# AI
+.omc/

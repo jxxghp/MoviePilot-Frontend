@@ -2,6 +2,7 @@
 import api from '@/api'
 import { RecommendSource } from '@/api/types'
 import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
+import VirtualList from '@/components/virtual/VirtualList.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
@@ -269,16 +270,25 @@ onActivated(async () => {
 <template>
   <div class="mp-recommend">
     <!-- 滚动内容区域 -->
+    <!--
+      用 VirtualList 纵向虚拟化 13 个 SlideView：
+      原先 TransitionGroup 把所有 SlideView 一直挂在 DOM 上，导致
+      13 × ~15 visible cards = 195 张卡 + 195 张 decoded bitmap 常驻；
+      虚拟化后只挂载视口附近 2-3 个 SlideView。
+      estimate-size=320 ≈ 9rem 卡片高(216px) + 标题/边距(~100px)。
+    -->
     <div class="recommend-content">
-      <TransitionGroup name="fade">
-        <MediaCardSlideView
-          v-for="item in filteredViews"
-          :key="item.title"
-          v-bind="item"
-          :ready="isReady"
-          class="content-group"
-        />
-      </TransitionGroup>
+      <VirtualList
+        :items="filteredViews"
+        :estimate-size="320"
+        key-field="title"
+        :overscan="2"
+        use-window-scroll
+      >
+        <template #item="{ item }">
+          <MediaCardSlideView v-bind="item" :ready="isReady" class="content-group" />
+        </template>
+      </VirtualList>
 
       <div v-if="isReady && filteredViews.length === 0" class="empty-category">
         <VIcon icon="mdi-alert-circle-outline" size="large" class="empty-icon" />

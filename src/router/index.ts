@@ -32,7 +32,6 @@ const router = createRouter({
           path: '/recommend',
           component: () => import('../pages/recommend.vue'),
           meta: {
-            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -40,7 +39,6 @@ const router = createRouter({
           path: '/discover',
           component: () => import('../pages/discover.vue'),
           meta: {
-            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -55,7 +53,6 @@ const router = createRouter({
           path: '/subscribe/movie',
           component: () => import('../pages/subscribe.vue'),
           meta: {
-            keepAlive: true,
             requiresAuth: true,
             subType: '电影',
           },
@@ -64,7 +61,6 @@ const router = createRouter({
           path: '/subscribe/tv',
           component: () => import('../pages/subscribe.vue'),
           meta: {
-            keepAlive: true,
             requiresAuth: true,
             subType: '电视剧',
           },

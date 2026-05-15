@@ -2,11 +2,15 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
-import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
+import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+// 列数：按视口断点（路由级全宽页）
+const cols = useBreakpointCols({ xs: 3, sm: 4, md: 6, lg: 8, xl: 10, xxl: 12 })
 
 // 输入参数
 const props = defineProps({
@@ -14,33 +18,28 @@ const props = defineProps({
   params: Object as PropType<{ [key: string]: any }>,
 })
 
-// 判断是否有滚动条
-function hasScroll() {
-  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
-}
-
 // 当前页码
 const page = ref(1)
 
-// 是否加载中
+// 是否加载中（同时作为触底加载的锁）
 const loading = ref(false)
 
 // 是否加载完成
 const isRefreshed = ref(false)
 
+// 是否还有更多
+const hasMore = ref(true)
+
 // 使用 shallowRef 避免长列表中的深层代理开销
 const dataList = shallowRef<MediaInfo[]>([])
 
-// 用于保存已处理过的 key
+// 用于保存已处理过的 key（去重）
 const seenKeys = new Set<string>()
 
 // 拼装参数
 function getParams() {
-  let params = {
-    page: page.value,
-  }
+  let params = { page: page.value }
   if (props.params) params = { ...params, ...props.params }
-
   return params
 }
 
@@ -61,115 +60,63 @@ const dedupFields = [
 function deduplicate(items: MediaInfo[]): MediaInfo[] {
   return items.filter(item => {
     const key = dedupFields.map(field => String(item[field])).join('~')
-    if (seenKeys.has(key)) {
-      return false
-    }
+    if (seenKeys.has(key)) return false
     seenKeys.add(key)
     return true
   })
 }
 
-function appendData(items: MediaInfo[]) {
-  dataList.value = dataList.value.concat(items)
-}
-
-async function loadPageData() {
-  const rawData: MediaInfo[] = await api.get(props.apipath!, {
-    params: getParams(),
-  })
-
-  return {
-    rawCount: rawData.length,
-    uniqueData: deduplicate(rawData),
-  }
-}
-
-// 获取列表数据
-async function fetchData({ done }: { done: any }) {
+// 获取列表数据（VirtualGrid @load-more 触发）
+async function fetchData() {
+  if (!props.apipath) return
+  if (loading.value || !hasMore.value) return
+  loading.value = true
   try {
-    if (!props.apipath) return
-
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
+    const rawData: MediaInfo[] = await api.get(props.apipath, {
+      params: getParams(),
+    })
+    isRefreshed.value = true
+    if (!rawData || rawData.length === 0) {
+      hasMore.value = false
       return
     }
-
-    // 加载到满屏或者加载出错
-    if (!hasScroll()) {
-      // 加载多次
-      while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        const { rawCount, uniqueData } = await loadPageData()
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
-        isRefreshed.value = true
-        if (rawCount === 0) {
-          // 如果没有数据，跳出
-          done('empty')
-          return
-        }
-        // 合并数据
-        appendData(uniqueData)
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    } else {
-      // 加载一次
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      const { rawCount, uniqueData } = await loadPageData()
-      // 标计为已请求完成
-      isRefreshed.value = true
-      if (rawCount === 0) {
-        // 如果没有数据，跳出
-        done('empty')
-      } else {
-        // 合并数据
-        appendData(uniqueData)
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-      }
-    }
-    // 取消加载中
-    loading.value = false
+    const uniqueData = deduplicate(rawData)
+    dataList.value = dataList.value.concat(uniqueData)
+    page.value++
   } catch (error) {
     console.error(error)
-    // 返回加载失败
-    done('error')
+  } finally {
+    loading.value = false
   }
 }
+
+// 初始加载
+onMounted(() => {
+  void fetchData()
+})
 </script>
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible pt-3 px-2" @load="fetchData">
-    <template #loading />
-    <template #empty />
-    <ProgressiveCardGrid
-      v-if="dataList.length > 0"
-      :items="dataList"
-      :item-aspect-ratio="1.5"
-      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
-      tabindex="0"
-    >
-      <template #default="{ item }">
-        <MediaCard :media="item" />
-      </template>
-    </ProgressiveCardGrid>
-    <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
-      error-code="404"
-      :error-title="t('common.noData')"
-      :error-description="t('error.networkError')"
-    />
-  </VInfiniteScroll>
+  <VirtualGrid
+    v-if="isRefreshed && dataList.length > 0"
+    :items="dataList"
+    :columns="cols"
+    :row-estimate-size="280"
+    :gap="16"
+    :overscan="3"
+    use-window-scroll
+    class="pt-3 px-3"
+    @load-more="fetchData"
+  >
+    <template #item="{ item }">
+      <MediaCard :media="item" />
+    </template>
+  </VirtualGrid>
+  <NoDataFound
+    v-if="dataList.length === 0 && isRefreshed"
+    error-code="404"
+    :error-title="t('common.noData')"
+    :error-description="t('error.networkError')"
+  />
 </template>
