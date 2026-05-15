@@ -6,7 +6,6 @@ import { useDisplay } from 'vuetify'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { mediaTypeDict } from '@/api/constants'
-import type { InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 
 // 国际化
 const { t } = useI18n()
@@ -24,6 +23,9 @@ const emit = defineEmits(['close', 'save'])
 
 // 订阅历史列表
 const historyList = ref<Subscribe[]>([])
+
+// 当前加载数据
+const currData = ref<Subscribe[]>([])
 
 // 当前页
 const currentPage = ref(1)
@@ -44,7 +46,7 @@ const progressDialog = ref(false)
 const progressText = ref('')
 
 // 调用API查询列表
-async function loadHistory({ done }: { done: InfiniteScrollDone }) {
+async function loadHistory({ done }: { done: any }) {
   // 如果正在加载中，直接返回
   if (loading.value) {
     done('ok')
@@ -55,7 +57,7 @@ async function loadHistory({ done }: { done: InfiniteScrollDone }) {
   try {
     // 设置加载中
     loading.value = true
-    const currentData: Subscribe[] = await api.get(`subscribe/history/${props.type}`, {
+    currData.value = await api.get(`subscribe/history/${props.type}`, {
       params: {
         page: currentPage.value,
         count: pageSize.value,
@@ -63,12 +65,12 @@ async function loadHistory({ done }: { done: InfiniteScrollDone }) {
     })
     // 标计为已请求完成
     isRefreshed.value = true
-    if (currentData.length === 0) {
+    if (currData.value.length === 0) {
       // 如果没有数据，跳出
       done('empty')
     } else {
       // 合并数据
-      historyList.value.push(...currentData)
+      historyList.value = [...historyList.value, ...currData.value]
       // 页码+1
       currentPage.value++
       // 返回加载成功

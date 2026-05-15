@@ -4,7 +4,6 @@ import type { Person } from '@/api/types'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import { loadPaginatedInfiniteScroll, type InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -15,6 +14,11 @@ const props = defineProps({
   params: Object as PropType<{ [key: string]: any }>,
   type: String,
 })
+
+// 判断是否有滚动条
+function hasScroll() {
+  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
+}
 
 // 当前页码
 const page = ref(1)
@@ -29,8 +33,7 @@ const isRefreshed = ref(false)
 const dataList = shallowRef<Person[]>([])
 
 function appendData(items: Person[]) {
-  dataList.value.push(...items)
-  triggerRef(dataList)
+  dataList.value = dataList.value.concat(items)
 }
 
 async function loadPageData() {
@@ -50,24 +53,68 @@ function getParams() {
 }
 
 // 获取列表数据
-async function fetchData({ done }: { done: InfiniteScrollDone }) {
-  if (!props.apipath) {
-    done('empty')
-    return
-  }
+async function fetchData({ done }: { done: any }) {
+  try {
+    if (!props.apipath) return
 
-  await loadPaginatedInfiniteScroll({
-    advancePage: () => {
-      page.value++
-    },
-    appendItems: appendData,
-    done,
-    loadPage: loadPageData,
-    loading,
-    markLoaded: () => {
+    // 如果正在加载中，直接返回
+    if (loading.value) {
+      done('ok')
+      return
+    }
+
+    // 加载到满屏或者加载出错
+    if (!hasScroll()) {
+      // 加载多次
+      while (!hasScroll()) {
+        // 设置加载中
+        loading.value = true
+        // 请求API
+        const currentData = await loadPageData()
+        // 取消加载中
+        loading.value = false
+        // 标计为已请求完成
+        isRefreshed.value = true
+        if (currentData.length === 0) {
+          // 如果没有数据，跳出
+          done('empty')
+          return
+        } else {
+          // 合并数据
+          appendData(currentData)
+          // 页码+1
+          page.value++
+          // 返回加载成功
+          done('ok')
+        }
+      }
+    } else {
+      // 加载一次
+      // 设置加载中
+      loading.value = true
+      // 请求API
+      const currentData = await loadPageData()
+      // 标计为已请求完成
       isRefreshed.value = true
-    },
-  })
+      if (currentData.length === 0) {
+        // 如果没有数据，跳出
+        done('empty')
+      } else {
+        // 合并数据
+        appendData(currentData)
+        // 页码+1
+        page.value++
+        // 返回加载成功
+        done('ok')
+      }
+      // 取消加载中
+      loading.value = false
+    }
+  } catch (error) {
+    console.error(error)
+    // 返回加载失败
+    done('error')
+  }
 }
 </script>
 

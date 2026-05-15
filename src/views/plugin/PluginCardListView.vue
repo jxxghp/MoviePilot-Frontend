@@ -13,7 +13,6 @@ import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
-import type { InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 
 // 国际化
 const { t } = useI18n()
@@ -921,14 +920,9 @@ watch([dataList, installedFilter, hasUpdateFilter, enabledFilter], () => {
 })
 
 // 插件市场加载更多数据
-function loadMarketMore({ done }: { done: InfiniteScrollDone }) {
+function loadMarketMore({ done }: { done: any }) {
   // 从 dataList 中获取最前面的 20 个元素
   const itemsToMove = sortedUninstalledList.value.splice(0, 20)
-  if (itemsToMove.length === 0) {
-    done('empty')
-    return
-  }
-
   displayUninstalledList.value.push(...itemsToMove)
   done('ok')
 }

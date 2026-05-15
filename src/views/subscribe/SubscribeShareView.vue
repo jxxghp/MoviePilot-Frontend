@@ -4,7 +4,6 @@ import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
-import { loadPaginatedInfiniteScroll, type InfiniteScrollDone } from '@/composables/usePaginatedInfiniteScroll'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -15,6 +14,11 @@ const props = defineProps({
   // 过滤关键字
   keyword: String,
 })
+
+// 判断是否有滚动条
+function hasScroll() {
+  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
+}
 
 // API
 const apipath = 'subscribe/shares'
@@ -117,8 +121,9 @@ const loading = ref(false)
 // 是否加载完成
 const isRefreshed = ref(false)
 
-// 使用 shallowRef 避免长列表中的深层代理开销
-const dataList = shallowRef<SubscribeShare[]>([])
+// 数据列表
+const dataList = ref<SubscribeShare[]>([])
+const currData = ref<SubscribeShare[]>([])
 
 // 拼装参数
 function getParams() {
@@ -145,31 +150,68 @@ function getParams() {
   return params
 }
 
-function appendData(items: SubscribeShare[]) {
-  dataList.value.push(...items)
-  triggerRef(dataList)
-}
-
-async function loadPageData() {
-  return api.get(apipath, {
-    params: getParams(),
-  }) as Promise<SubscribeShare[]>
-}
-
 // 获取列表数据
-async function fetchData({ done }: { done: InfiniteScrollDone }) {
-  await loadPaginatedInfiniteScroll({
-    advancePage: () => {
-      page.value++
-    },
-    appendItems: appendData,
-    done,
-    loadPage: loadPageData,
-    loading,
-    markLoaded: () => {
+async function fetchData({ done }: { done: any }) {
+  try {
+    // 如果正在加载中，直接返回
+    if (loading.value) {
+      done('ok')
+      return
+    }
+
+    // 加载到满屏或者加载出错
+    if (!hasScroll()) {
+      // 加载多次
+      while (!hasScroll()) {
+        // 设置加载中
+        loading.value = true
+        // 请求API
+        currData.value = await api.get(apipath, {
+          params: getParams(),
+        })
+        // 取消加载中
+        loading.value = false
+        // 标计为已请求完成
+        isRefreshed.value = true
+        if (currData.value.length === 0) {
+          // 如果没有数据，跳出
+          done('empty')
+          return
+        }
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value]
+        // 页码+1
+        page.value++
+        // 返回加载成功
+        done('ok')
+      }
+    } else {
+      // 设置加载中
+      loading.value = true
+      // 请求API
+      currData.value = await api.get(apipath, {
+        params: getParams(),
+      })
+      loading.value = false
+      // 标计为已请求完成
       isRefreshed.value = true
-    },
-  })
+      if (currData.value.length === 0) {
+        // 如果没有数据，跳出
+        done('empty')
+      } else {
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value]
+        // 页码+1
+        page.value++
+        // 返回加载成功
+        done('ok')
+      }
+    }
+  } catch (error) {
+    console.error(error)
+    // 返回加载失败
+    done('error')
+  }
 }
 
 // 将数据从列表中移除
