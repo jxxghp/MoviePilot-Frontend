@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import noImage from '@images/no-image.jpeg'
 import { getLogoUrl } from '@/utils/imageUtils'
+import axios from 'axios'
 import api from '@/api'
 import { useToast } from 'vue-toastification'
 import { formatSeason, formatRating } from '@/@core/utils/formatters'
@@ -256,6 +257,8 @@ async function handleCheckSubscribe() {
     )
     isSubscribed.value = subscribed
   } catch (error) {
+    // 路由切换会主动 abort 在途请求，cancel 不是错误，静默忽略
+    if (axios.isCancel(error)) return
     console.error(error)
   }
 }
@@ -280,6 +283,8 @@ async function handleCheckExists() {
     isExists.value = exists
     setCachedMediaExistsStatus(getExistsStatusKey(), exists)
   } catch (error) {
+    // 路由切换会主动 abort 在途请求，cancel 不是错误，静默忽略
+    if (axios.isCancel(error)) return
     console.error(error)
   }
 }
@@ -434,19 +439,36 @@ function setupIntersectionObserver() {
   }
 }
 
+// 包装 URL：根据全局开关走系统图片缓存或 douban 代理
+function wrapPosterUrl(url: string): string {
+  if (globalSettings.GLOBAL_IMAGE_CACHE)
+    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
+  if (url.includes('doubanio.com'))
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
+  return url
+}
+
 // 计算图片地址
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value) return noImage
   // 卡片在网格中显示宽度 ~150-220px，w342 在 2x DPR 下足够清晰，
   // 比 w500 减少约 53% 的解码位图内存
-  const url = props.media?.poster_path?.replace('original', 'w342') ?? noImage
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  // 如果地址中包含douban则使用中转代理
-  if (url.includes('doubanio.com'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
-  return url
+  const url = props.media?.poster_path?.replace('original', 'w342')
+  if (!url) return noImage
+  return wrapPosterUrl(url)
+})
+
+// 计算低画质占位图（LQIP）— TMDB 自带 w92 缩略图 ~5KB，
+// 公网/慢源场景先秒铺 w92 模糊预览，再淡入 w342 清晰图。
+// 当 poster_path 不包含 'original' 串（如 Douban）时 replace 退化为 no-op，
+// 此时返回空串：VImg 不要设 lazy-src（避免重复请求同一 URL），
+// 占位回退到 #placeholder 槽里的 skeleton。
+const getLqipUrl: Ref<string> = computed(() => {
+  const path = props.media?.poster_path
+  if (!path) return ''
+  const lqip = path.replace('original', 'w92')
+  if (lqip === path) return ''
+  return wrapPosterUrl(lqip)
 })
 
 // 移除订阅
@@ -468,6 +490,13 @@ onBeforeUnmount(() => {
   observer.value?.disconnect()
   observer.value = null
 })
+
+// keep-alive 缓存场景下 onBeforeUnmount 不会触发，需要在 onDeactivated 主动 disconnect
+// 防止冻结的卡片继续持有 observer 引用
+onDeactivated(() => {
+  observer.value?.disconnect()
+  observer.value = null
+})
 </script>
 
 <template>
@@ -485,15 +514,22 @@ onBeforeUnmount(() => {
           }"
           @click.stop="goMediaDetail(hover.isHovering ?? false)"
         >
+          <!--
+            lazy-src 和 #placeholder 不能同时给 VImg：
+            placeholder 槽里的 skeleton 会被 Vuetify 叠在 lazy-src 上层渲染，
+            主图加载期间 skeleton 把 LQIP 模糊预览盖成灰屏。
+            有 lazy-src 就让它自己当占位；无 lazy-src（Douban）才走 skeleton。
+          -->
           <VImg
             aspect-ratio="2/3"
             :src="getImgUrl"
+            :lazy-src="getLqipUrl || undefined"
             class="object-cover aspect-w-2 aspect-h-3"
             cover
             @load="isImageLoaded = true"
             @error="imageLoadError = true"
           >
-            <template #placeholder>
+            <template v-if="!getLqipUrl" #placeholder>
               <div class="w-full h-full">
                 <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
               </div>
@@ -595,6 +631,17 @@ onBeforeUnmount(() => {
   />
 </template>
 <style scoped>
+.media-card {
+  /*
+    告诉浏览器：当本卡片远离视口时跳过 paint 和图片解码。
+    被跳过期间浏览器可以丢弃解码后的 bitmap（图片缓存大头）；
+    重新进入视口时按 contain-intrinsic-size 撑出位置后再 paint。
+    auto 关键字让首次 paint 后记忆实际尺寸，避免滚动条跳动。
+  */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px;
+}
+
 .media-card-title {
   font-size: 1.125rem;
   line-height: 1.25rem;
