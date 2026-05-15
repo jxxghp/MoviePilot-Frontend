@@ -39,6 +39,14 @@ interface SearchParams {
   sites: string
 }
 
+interface LastSearchContextResponse {
+  success?: boolean
+  data?: {
+    params?: Partial<SearchParams>
+    results?: Context[]
+  }
+}
+
 const resourceSearchParamsStorageKey = 'MP_ResourceSearchParams'
 
 function createSearchParams(query: LocationQuery): SearchParams {
@@ -106,8 +114,53 @@ function rememberSearchParams(params: SearchParams) {
   saveStoredSearchParams(nextParams)
 }
 
+function applyRememberedSearchParams(params?: Partial<SearchParams> | null, syncActive: boolean = false) {
+  const nextParams = normalizeSearchParams(params)
+  if (!hasSearchKeyword(nextParams)) return null
+
+  rememberSearchParams(nextParams)
+  if (syncActive || !hasSearchKeyword(activeSearchParams.value)) {
+    activeSearchParams.value = { ...nextParams }
+  }
+  return nextParams
+}
+
 if (hasSearchKeyword(initialSearchParams)) {
   rememberSearchParams(initialSearchParams)
+}
+
+async function fetchLastSearchContext() {
+  try {
+    const result = (await api.get('search/last/context')) as LastSearchContextResponse
+    applyRememberedSearchParams(result?.data?.params, true)
+    return Array.isArray(result?.data?.results) ? result.data.results : []
+  } catch (error) {
+    console.warn('读取上次搜索上下文失败，回退到仅加载结果:', error)
+    const results = await api.get('search/last')
+    return (results as unknown as Context[]) || []
+  }
+}
+
+async function resolveRefreshSearchParams() {
+  if (hasSearchKeyword(activeSearchParams.value)) {
+    return { ...activeSearchParams.value }
+  }
+  if (lastSearchParams.value && hasSearchKeyword(lastSearchParams.value)) {
+    return { ...lastSearchParams.value }
+  }
+
+  const storedParams = loadStoredSearchParams()
+  if (storedParams) {
+    applyRememberedSearchParams(storedParams, true)
+    return { ...storedParams }
+  }
+
+  await fetchLastSearchContext()
+  if (lastSearchParams.value && hasSearchKeyword(lastSearchParams.value)) {
+    return { ...lastSearchParams.value }
+  }
+
+  return null
 }
 
 // 查询TMDBID或标题
@@ -612,11 +665,9 @@ async function fetchData(options: { force?: boolean; params?: SearchParams } = {
   try {
     enableFilterAnimation.value = true
     if (!hasSearchKeyword(currentSearchParams)) {
-      // 查询上次搜索结果
-      const results = await api.get('search/last', {
-        params: requestToken ? { _ts: requestToken } : undefined,
-      })
-      setStreamResults((results as unknown as Context[]) || [])
+      // 查询上次搜索结果，并同步可重放的搜索参数
+      const results = await fetchLastSearchContext()
+      setStreamResults(results || [])
     } else {
       resetSearchResults()
       startLoadingProgress()
@@ -646,11 +697,15 @@ async function fetchData(options: { force?: boolean; params?: SearchParams } = {
 // 重新搜索（使用相同参数重新触发搜索）
 async function refreshSearch() {
   if (isRefreshing.value || progressActive.value) return
-  const refreshParams = lastSearchParams.value ?? activeSearchParams.value
   isRefreshing.value = true
   try {
     // 重新搜索时退出 AI 视图，其余状态由 fetchData 内部重置
     showingAiResults.value = false
+    const refreshParams = await resolveRefreshSearchParams()
+    if (!refreshParams) {
+      console.warn('未找到可用于重新搜索的搜索参数')
+      return
+    }
     await fetchData({ force: true, params: refreshParams })
   } catch (error) {
     console.error('重新搜索失败:', error)
