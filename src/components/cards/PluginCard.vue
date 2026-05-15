@@ -108,20 +108,11 @@ watch(
 )
 
 // 图片加载完成
-function imageLoaded() {
+async function imageLoaded() {
   isImageLoaded.value = true
-  const imageElement = imageRef.value?.$el?.querySelector('img') as HTMLImageElement | null
-  if (!imageElement) return
-  // ColorThief 走 canvas 解码会阻塞主线程，放到 idle 中执行
-  const extract = () => {
-    getDominantColor(imageElement)
-      .then(c => {
-        backgroundColor.value = c
-      })
-      .catch(() => {})
-  }
-  if (typeof requestIdleCallback === 'function') requestIdleCallback(extract, { timeout: 1500 })
-  else setTimeout(extract, 50)
+  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
+  // 从图片中提取背景色
+  backgroundColor.value = await getDominantColor(imageElement)
 }
 
 // 显示更新日志

@@ -68,76 +68,60 @@ export function useDynamicHeaderTab() {
       },
     }
 
-    // 收集所有 watch 句柄，组件 scope 销毁时主动 stop——
-    // 即使在 keep-alive 缓存的页面里，scope 仍归属当前组件，显式 stop
-    // 可保证 ReactiveEffect/Dep 链条释放，避免长跑场景累积。
-    const watchStops: Array<() => void> = []
-
     // 如果启用了PWA状态恢复，监听PWA状态变化并同步到modelValue
     // 但只在非激活状态下响应，避免干扰页面激活时的状态
     if (pwaTabState) {
-      watchStops.push(
-        watch(pwaTabState.activeTab, newTab => {
-          if (newTab && newTab !== config.modelValue.value) {
-            config.modelValue.value = newTab
-            // 更新tabConfig并重新注册
-            tabConfig.modelValue = newTab
-            if (registerDynamicHeaderTab) {
-              registerDynamicHeaderTab(tabConfig)
-            }
+      watch(pwaTabState.activeTab, newTab => {
+        if (newTab && newTab !== config.modelValue.value) {
+          config.modelValue.value = newTab
+          // 更新tabConfig并重新注册
+          tabConfig.modelValue = newTab
+          if (registerDynamicHeaderTab) {
+            registerDynamicHeaderTab(tabConfig)
           }
-        }),
-      )
+        }
+      })
     }
 
     // 监听modelValue变化并更新配置
-    watchStops.push(
-      watch(config.modelValue, newValue => {
-        tabConfig.modelValue = newValue
-        // 同步到PWA状态
-        if (pwaTabState && newValue) {
-          pwaTabState.activeTab.value = newValue
+    watch(config.modelValue, newValue => {
+      tabConfig.modelValue = newValue
+      // 同步到PWA状态
+      if (pwaTabState && newValue) {
+        pwaTabState.activeTab.value = newValue
+      }
+      // 重新注册以更新值
+      if (registerDynamicHeaderTab) {
+        registerDynamicHeaderTab(tabConfig)
+      } else if (typeof window !== 'undefined') {
+        // 使用全局方法作为备用
+        const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
+        if (globalRegister) {
+          globalRegister(tabConfig)
         }
-        // 重新注册以更新值
-        if (registerDynamicHeaderTab) {
-          registerDynamicHeaderTab(tabConfig)
-        } else if (typeof window !== 'undefined') {
-          // 使用全局方法作为备用
-          const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
-          if (globalRegister) {
-            globalRegister(tabConfig)
-          }
-        }
-      }),
-    )
+      }
+    })
 
     // 如果items是computed或ref，也需要监听其变化
     if (!Array.isArray(config.items)) {
-      watchStops.push(
-        watch(
-          config.items,
-          newItems => {
-            tabConfig.items = newItems
-            // 重新注册以更新items
-            if (registerDynamicHeaderTab) {
-              registerDynamicHeaderTab(tabConfig)
-            } else if (typeof window !== 'undefined') {
-              // 使用全局方法作为备用
-              const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
-              if (globalRegister) {
-                globalRegister(tabConfig)
-              }
+      watch(
+        config.items,
+        newItems => {
+          tabConfig.items = newItems
+          // 重新注册以更新items
+          if (registerDynamicHeaderTab) {
+            registerDynamicHeaderTab(tabConfig)
+          } else if (typeof window !== 'undefined') {
+            // 使用全局方法作为备用
+            const globalRegister = (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
+            if (globalRegister) {
+              globalRegister(tabConfig)
             }
-          },
-          { deep: true },
-        ),
+          }
+        },
+        { deep: true },
       )
     }
-
-    onScopeDispose(() => {
-      watchStops.forEach(stop => stop())
-      watchStops.length = 0
-    })
 
     // 注册函数
     const doRegister = () => {

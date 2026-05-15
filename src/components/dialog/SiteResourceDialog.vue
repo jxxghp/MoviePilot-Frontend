@@ -4,7 +4,7 @@ import type { Site, TorrentInfo, SiteCategory } from '@/api/types'
 import { formatFileSize } from '@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
-import VirtualList from '@/components/virtual/VirtualList.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -471,14 +471,15 @@ onMounted(() => {
           </div>
 
           <div v-else-if="mobileResourceList.length > 0" class="site-resource-mobile__list px-3 pb-4">
-            <VirtualList
+            <ProgressiveCardGrid
               :items="mobileResourceList"
-              :estimate-size="320"
-              :overscan="5"
+              :columns="1"
+              :gap="12"
+              :estimated-item-height="320"
+              :overscan-rows="5"
               :get-item-key="getResourceItemKey"
-              container-height="100%"
             >
-              <template #item="{ item }">
+              <template #default="{ item }">
                 <VCard>
                   <VCardText class="pa-4">
                     <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
@@ -577,7 +578,7 @@ onMounted(() => {
                   </VCardText>
                 </VCard>
               </template>
-            </VirtualList>
+            </ProgressiveCardGrid>
           </div>
 
           <div v-else class="px-4 py-10 text-center text-medium-emphasis">

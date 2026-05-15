@@ -258,9 +258,6 @@ function appendPluginSidebarMenus() {
   }
 }
 
-// 未读消息订阅句柄，在 onMounted 里赋值、onBeforeUnmount 里回收
-let unsubscribeUnread: (() => void) | null = null
-
 onMounted(async () => {
   // 获取菜单列表
   startMenus.value = getMenuList(t('menu.start'))
@@ -273,23 +270,20 @@ onMounted(async () => {
   appendPluginSidebarMenus()
 
   // 监听全局未读消息事件
-  unsubscribeUnread = onUnreadMessage(handleUnreadMessage)
+  const unsubscribe = onUnreadMessage(handleUnreadMessage)
 
   // 监听Service Worker消息
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
   }
-})
 
-// 卸载清理必须同步注册：放在 onMounted 的 async 回调里、且在 await 之后，
-// Vue 的"当前组件实例"上下文已丢失，onBeforeUnmount 会报
-// "no active component instance" 并且监听器永远不会被回收。
-onBeforeUnmount(() => {
-  unsubscribeUnread?.()
-  unsubscribeUnread = null
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
-  }
+  // 组件卸载时清理监听
+  onBeforeUnmount(() => {
+    unsubscribe()
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+    }
+  })
 })
 </script>
 

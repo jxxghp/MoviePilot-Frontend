@@ -45,13 +45,6 @@ api.interceptors.response.use(
     return response.data
   },
   error => {
-    // 请求被主动取消（路由切换 / 组件卸载触发 requestOptimizer abort）。
-    // 这不是错误：原样透传 cancel error，让调用方用 axios.isCancel() 识别并静默处理。
-    // 不能落到下面 new Error(error.message) 分支——那会把 cancel 签名抹掉，
-    // 调用方只能看到一个 message='canceled' 的普通 Error，被迫当错误打日志。
-    if (axios.isCancel(error)) {
-      return Promise.reject(error)
-    }
     if (!error.response) {
       // 网络错误或请求超时 - 通知离线状态管理系统
       const isNetworkError =

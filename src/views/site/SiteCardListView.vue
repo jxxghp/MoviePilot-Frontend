@@ -3,15 +3,11 @@ import api from '@/api'
 import type { Site, SiteUserData } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
-
-// 列数：按视口断点（路由级全宽页）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 // 国际化
 const { t } = useI18n()
@@ -428,18 +424,15 @@ useDynamicButton({
         />
       </template>
     </Draggable>
-    <VirtualGrid
+    <ProgressiveCardGrid
       v-else-if="draggableSiteList.length > 0 && shouldVirtualizeList"
       :items="draggableSiteList"
-      :columns="cols"
-      :row-estimate-size="220"
-      :gap="16"
-      :overscan="3"
-      key-field="id"
-      use-window-scroll
+      :get-item-key="item => item.id"
+      :min-item-width="256"
+      :estimated-item-height="168"
       class="px-2"
     >
-      <template #item="{ item }">
+      <template #default="{ item }">
         <SiteCard
           :site="item"
           :data="siteUserDataMap[item.domain]"
@@ -450,7 +443,7 @@ useDynamicButton({
           @refresh-stats="handleRefreshStats"
         />
       </template>
-    </VirtualGrid>
+    </ProgressiveCardGrid>
   </div>
   <NoDataFound
     v-if="draggableSiteList.length === 0 && isRefreshed"

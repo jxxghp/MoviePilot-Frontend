@@ -26,9 +26,7 @@ function getPersonImage() {
   let url = ''
   if (personProps.person?.source === 'themoviedb') {
     if (!personInfo.value?.profile_path) return personIcon
-    // 头像在 VAvatar size=100 内裁剪显示，w185 已覆盖到 3x DPR，
-    // 比原来的 w600_and_h900_bestv2 减少约 90% 的解码位图内存
-    url = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w185${personInfo.value?.profile_path}`
+    url = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w600_and_h900_bestv2${personInfo.value?.profile_path}`
   } else if (personProps.person?.source === 'douban') {
     if (!personInfo.value?.avatar) return personIcon
     if (typeof personInfo.value?.avatar === 'object') {

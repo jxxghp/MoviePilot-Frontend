@@ -6,17 +6,12 @@ import api from '@/api'
 import type { Context } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import VirtualList from '@/components/virtual/VirtualList.vue'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
 import { useToast } from 'vue-toastification'
-
-// 列数：按视口断点（路由级全宽页）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 })
 
 // 国际化
 const { t } = useI18n()
@@ -1171,19 +1166,17 @@ onUnmounted(() => {
               class="stream-result-item"
             />
           </div>
-          <VirtualGrid
+          <ProgressiveCardGrid
             v-else-if="filteredCardDataList.length > 0"
             :items="filteredCardDataList"
-            :columns="cols"
-            :row-estimate-size="400"
-            :gap="16"
-            :overscan="3"
-            use-window-scroll
+            :get-item-key="getTorrentItemKey"
+            :min-item-width="300"
+            :estimated-item-height="400"
           >
-            <template #item="{ item }">
+            <template #default="{ item }">
               <TorrentCard :torrent="item" :more="item.more" />
             </template>
-          </VirtualGrid>
+          </ProgressiveCardGrid>
           <!-- 无结果时显示 -->
           <div v-if="!progressActive && filteredCardDataList.length === 0" class="no-results">
             <VIcon icon="mdi-file-search-outline" size="64" color="grey-lighten-1" />
@@ -1210,19 +1203,19 @@ onUnmounted(() => {
               </div>
             </div>
             <div v-else-if="filteredRowDataList.length > 0" class="resource-list">
-              <VirtualList
+              <ProgressiveCardGrid
                 :items="filteredRowDataList"
-                :estimate-size="240"
-                :overscan="5"
-                use-window-scroll
+                :columns="1"
+                :gap="8"
+                :estimated-item-height="240"
+                :overscan-rows="6"
+                :get-item-key="getTorrentItemKey"
               >
-                <template #item="{ item, index }">
-                  <div :key="getTorrentItemKey(item, index)">
-                    <TorrentItem :torrent="item" />
-                    <VDivider v-if="index < filteredRowDataList.length - 1" class="my-2" />
-                  </div>
+                <template #default="{ item, index }">
+                  <TorrentItem :torrent="item" />
+                  <VDivider v-if="index < filteredRowDataList.length - 1" class="my-2" />
                 </template>
-              </VirtualList>
+              </ProgressiveCardGrid>
             </div>
           </VCard>
         </div>

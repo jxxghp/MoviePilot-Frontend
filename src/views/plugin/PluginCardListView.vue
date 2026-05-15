@@ -10,14 +10,9 @@ import { getPluginTabs } from '@/router/i18n-menu'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import VirtualList from '@/components/virtual/VirtualList.vue'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
-
-// 列数：按视口断点（路由级全宽页，三个 VirtualGrid 共用：已安装/插件文件夹/插件市场）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 // 国际化
 const { t } = useI18n()
@@ -301,19 +296,6 @@ const installedScrollToIndex = computed(() => {
   const targetIndex = mixedSortList.value.findIndex(item => item.type === 'plugin' && item.id === pluginId.value)
 
   return targetIndex >= 0 ? targetIndex : undefined
-})
-
-// VirtualGrid 实例 ref（用于命令式 scrollToRow，桥接 installedScrollToIndex 跳卡片需求）
-const installedGridRef = ref<any>(null)
-const marketGridRef = ref<any>(null)
-
-watch(installedScrollToIndex, idx => {
-  if (idx === undefined || !installedGridRef.value) return
-  const cols = installedGridRef.value.cols?.value ?? 4
-  const rowIdx = Math.floor(idx / cols)
-  requestAnimationFrame(() => {
-    installedGridRef.value?.scrollToRow(rowIdx)
-  })
 })
 
 // 获取文件夹内筛选后的插件
@@ -937,11 +919,12 @@ watch([dataList, installedFilter, hasUpdateFilter, enabledFilter], () => {
   })
 })
 
-// 插件市场加载更多数据（VirtualGrid @load-more 触发）
-function loadMarketMore() {
-  if (sortedUninstalledList.value.length === 0) return
+// 插件市场加载更多数据
+function loadMarketMore({ done }: { done: any }) {
+  // 从 dataList 中获取最前面的 20 个元素
   const itemsToMove = sortedUninstalledList.value.splice(0, 20)
   displayUninstalledList.value.push(...itemsToMove)
+  done('ok')
 }
 
 // 组件挂载后
@@ -1585,17 +1568,15 @@ function onDragStartPlugin(evt: any) {
                     />
                   </template>
                 </Draggable>
-                <VirtualGrid
+                <ProgressiveCardGrid
                   v-else-if="shouldVirtualizeInstalledMainList"
-                  ref="installedGridRef"
                   :items="mixedSortList"
-                  :columns="cols"
-                  :row-estimate-size="260"
-                  :gap="16"
-                  :overscan="3"
-                  use-window-scroll
+                  :get-item-key="item => `${item.type}:${item.id}`"
+                  :min-item-width="256"
+                  :estimated-item-height="180"
+                  :scroll-to-index="installedScrollToIndex"
                 >
-                  <template #item="{ item }">
+                  <template #default="{ item }">
                     <PluginMixedSortCard
                       :item="item"
                       :plugin-statistics="PluginStatistics"
@@ -1614,7 +1595,7 @@ function onDragStartPlugin(evt: any) {
                       @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
                     />
                   </template>
-                </VirtualGrid>
+                </ProgressiveCardGrid>
               </template>
 
               <template v-else>
@@ -1646,17 +1627,14 @@ function onDragStartPlugin(evt: any) {
                     />
                   </template>
                 </Draggable>
-                <VirtualGrid
+                <ProgressiveCardGrid
                   v-else-if="shouldVirtualizeInstalledFolderList"
                   :items="draggableFolderPlugins"
-                  :columns="cols"
-                  :row-estimate-size="260"
-                  :gap="16"
-                  :overscan="3"
-                  key-field="id"
-                  use-window-scroll
+                  :get-item-key="item => item.id"
+                  :min-item-width="256"
+                  :estimated-item-height="180"
                 >
-                  <template #item="{ item }">
+                  <template #default="{ item }">
                     <PluginMixedSortCard
                       :item="{ type: 'plugin', id: item.id, data: item, order: 0 }"
                       :plugin-statistics="PluginStatistics"
@@ -1672,7 +1650,7 @@ function onDragStartPlugin(evt: any) {
                       @remove-from-folder="removeFromFolder"
                     />
                   </template>
-                </VirtualGrid>
+                </ProgressiveCardGrid>
               </template>
             </div>
 
@@ -1693,22 +1671,28 @@ function onDragStartPlugin(evt: any) {
           <div>
             <LoadingBanner v-if="!isAppMarketLoaded || isMarketRefreshing" class="mt-12" />
             <!-- 资源列表 -->
-            <VirtualGrid
-              v-if="isAppMarketLoaded && !isMarketRefreshing && displayUninstalledList.length > 0"
-              ref="marketGridRef"
+            <VInfiniteScroll
+              v-if="isAppMarketLoaded && !isMarketRefreshing"
+              mode="intersect"
+              side="end"
               :items="displayUninstalledList"
-              :columns="cols"
-              :row-estimate-size="280"
-              :gap="16"
-              :overscan="3"
-              use-window-scroll
+              @load="loadMarketMore"
               class="overflow-visible"
-              @load-more="loadMarketMore"
             >
-              <template #item="{ item }">
-                <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
-              </template>
-            </VirtualGrid>
+              <template #loading />
+              <template #empty />
+              <ProgressiveCardGrid
+                v-if="displayUninstalledList.length > 0"
+                :items="displayUninstalledList"
+                :get-item-key="item => `${item.id}_v${item.plugin_version}`"
+                :min-item-width="256"
+                :estimated-item-height="260"
+              >
+                <template #default="{ item }">
+                  <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
+                </template>
+              </ProgressiveCardGrid>
+            </VInfiniteScroll>
             <NoDataFound
               v-if="displayUninstalledList.length === 0 && isAppMarketLoaded"
               error-code="404"
@@ -1783,8 +1767,8 @@ function onDragStartPlugin(evt: any) {
       </VToolbar>
       <VDialogCloseBtn @click="closeSearchDialog" />
       <VList v-if="filterPlugins.length > 0" lines="two">
-        <VirtualList :items="filterPlugins" :estimate-size="80" :overscan="6" container-height="60vh">
-          <template #item="{ item }">
+        <VVirtualScroll :items="filterPlugins">
+          <template #default="{ item }">
             <VListItem @click="openPlugin(item)">
               <template #prepend>
                 <VAvatar>
@@ -1816,7 +1800,7 @@ function onDragStartPlugin(evt: any) {
               </VListItemSubtitle>
             </VListItem>
           </template>
-        </VirtualList>
+        </VVirtualScroll>
       </VList>
     </VCard>
   </VDialog>

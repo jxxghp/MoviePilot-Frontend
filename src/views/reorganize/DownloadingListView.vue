@@ -4,27 +4,30 @@ import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
 
+// 国际化
 const { t } = useI18n()
-
-// 列数：按视口断点（路由级全宽页）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 3 })
 const { useDataRefresh } = useBackgroundOptimization()
 
+// 定义输入参数
 const props = defineProps<{
   name: string
 }>()
 
+// 用户 Store
 const userStore = useUserStore()
 
+// 数据列表
 const dataList = ref<DownloadingInfo[]>([])
+
+// 是否刷新过
 const isRefreshed = ref(false)
 
+// 获取订阅列表数据
 async function fetchData() {
   try {
     dataList.value = await api.get('download/', { params: { name: props.name } })
@@ -34,15 +37,19 @@ async function fetchData() {
   }
 }
 
+// 刷新状态
 const loading = ref(false)
 
+// 下拉刷新
 function onRefresh() {
   loading.value = true
   fetchData()
   loading.value = false
 }
 
+// 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
 const filteredDataList = computed(() => {
+  // 从 Store 中获取用户信息
   const superUser = userStore.superUser
   const userName = userStore.userName
   if (superUser) return dataList.value
@@ -53,27 +60,25 @@ const filteredDataList = computed(() => {
 const { loading: dataLoading } = useDataRefresh(
   'downloading-list',
   fetchData,
-  3000,
-  true,
+  3000, // 3秒间隔
+  true // 立即执行
 )
 </script>
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <VPullToRefresh v-model="loading" @load="onRefresh" :pull-down-threshold="64">
-    <VirtualGrid
+    <ProgressiveCardGrid
       v-if="filteredDataList.length > 0"
       :items="filteredDataList"
-      :columns="cols"
-      :row-estimate-size="230"
-      :gap="12"
-      :overscan="3"
-      use-window-scroll
+      :get-item-key="item => item.hash || item.name"
+      :min-item-width="320"
+      :estimated-item-height="230"
     >
-      <template #item="{ item }">
+      <template #default="{ item }">
         <DownloadingCard :info="item" :downloader-name="props.name" />
       </template>
-    </VirtualGrid>
+    </ProgressiveCardGrid>
     <NoDataFound
       v-if="filteredDataList.length === 0 && isRefreshed"
       error-code="404"

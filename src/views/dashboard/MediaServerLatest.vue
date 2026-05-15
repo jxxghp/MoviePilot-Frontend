@@ -3,8 +3,7 @@ import { ref, onMounted } from 'vue'
 import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import PosterCard from '@/components/cards/PosterCard.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import { useResponsiveCols } from '@/composables/virtual/useResponsiveCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -15,11 +14,6 @@ const latestList = ref<{ [key: string]: MediaServerPlayItem[] }>({})
 
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
-
-// 容器宽度驱动列数（dashboard 卡片宽度由布局决定，不能用视口断点）。
-// 多个服务器段落共用一个 wrapRef —— 它们在 dashboard 中竖向堆叠、宽度相同。
-const wrapRef = ref<HTMLElement | null>(null)
-const cols = useResponsiveCols(wrapRef, { minItemWidth: 144 })
 
 // 调用API查询媒体服务器设置
 async function loadMediaServerSetting() {
@@ -63,7 +57,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <div ref="wrapRef">
+  <div>
     <VHover v-for="(data, name) in latestList" :key="name">
       <template #default="hover">
         <VCard v-bind="hover.props">
@@ -74,20 +68,18 @@ onActivated(() => {
             <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
           </VCardItem>
 
-          <VirtualGrid
+          <ProgressiveCardGrid
             :items="data"
-            :columns="cols"
-            :row-estimate-size="240"
-            :gap="12"
-            :get-item-key="(item: MediaServerPlayItem) => item.id || item.link || item.title"
-            use-window-scroll
+            :get-item-key="item => item.id || item.link || item.title"
+            :min-item-width="144"
+            :item-aspect-ratio="1.5"
             class="mx-3 mb-3"
             tabindex="0"
           >
-            <template #item="{ item }">
+            <template #default="{ item }">
               <PosterCard :media="item" />
             </template>
-          </VirtualGrid>
+          </ProgressiveCardGrid>
         </VCard>
       </template>
     </VHover>

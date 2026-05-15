@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { formatDateDifference } from '@/@core/utils/formatters'
-import { tmdbResize } from '@/@core/utils/image'
 import type { SubscribeShare } from '@/api/types'
 import router from '@/router'
 import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
@@ -40,19 +39,19 @@ function imageLoadHandler() {
 // 分享时间
 const dateText = ref(props.media && props.media?.date ? formatDateDifference(props.media.date) : '')
 
-// 计算backdrop图片地址（卡片 backdrop 宽度 ~400-600px，w780 在 TMDB 上足够覆盖 2x DPR）
+// 计算backdrop图片地址
 const backdropUrl = computed(() => {
-  const raw = props.media?.backdrop || props.media?.poster
-  const url = tmdbResize(raw, 'w780') || raw
+  const url = props.media?.backdrop || props.media?.poster
+  // 使用图片缓存
   if (globalSettings.GLOBAL_IMAGE_CACHE && url)
     return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
   return url
 })
 
-// 计算海报图片地址（缩略 64×96 显示，w185 已覆盖 3x DPR）
+// 计算海报图片地址
 const posterUrl = computed(() => {
-  const raw = props.media?.poster
-  const url = tmdbResize(raw, 'w185') || raw
+  const url = props.media?.poster
+  // 使用图片缓存
   if (globalSettings.GLOBAL_IMAGE_CACHE && url)
     return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
   return url

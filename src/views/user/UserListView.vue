@@ -4,14 +4,10 @@ import type { User } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import UserCard from '@/components/cards/UserCard.vue'
 import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
-
-// 列数：按视口断点（路由级全宽页，min-item-width=288 → 1xs 2sm 3md 4lg 5xl）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 // 国际化
 const { t } = useI18n()
@@ -85,21 +81,19 @@ useDynamicButton({
     <!-- 加载中提示 -->
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
     <!-- 用户卡片网格 -->
-    <VirtualGrid
+    <ProgressiveCardGrid
       v-if="allUsers.length > 0 && isRefreshed"
       :items="allUsers"
-      :columns="cols"
-      :row-estimate-size="260"
-      :gap="16"
-      key-field="id"
-      use-window-scroll
+      :min-item-width="288"
+      :estimated-item-height="260"
+      :get-item-key="user => user.id"
       class="px-2"
     >
       <!-- 普通用户卡片 -->
-      <template #item="{ item }">
+      <template #default="{ item }">
         <UserCard :user="item" :users="allUsers" @remove="loadAllUsers" @save="loadAllUsers" />
       </template>
-    </VirtualGrid>
+    </ProgressiveCardGrid>
 
     <!-- 无数据提示 -->
     <div v-if="allUsers.length === 0 && isRefreshed">

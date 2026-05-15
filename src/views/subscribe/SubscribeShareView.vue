@@ -3,37 +3,44 @@ import api from '@/api'
 import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
+// 国际化
 const { t } = useI18n()
 
-// 列数：按视口断点（路由级全宽页）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
-
+// 定义输入参数
 const props = defineProps({
+  // 过滤关键字
   keyword: String,
 })
 
+// 判断是否有滚动条
+function hasScroll() {
+  return document.body.scrollHeight - (window.innerHeight || document.documentElement.clientHeight) > 2
+}
+
+// API
 const apipath = 'subscribe/shares'
 
+// 当前页码
 const page = ref(1)
+
+// 搜索关键字
 const keyword = ref(props.keyword)
-const loading = ref(false)
-const isRefreshed = ref(false)
-const hasMore = ref(true)
-const currentKey = ref(0)
 
-const dataList = ref<SubscribeShare[]>([])
-
+// 筛选参数
 const filterParams = reactive({
-  genre_id: '',
+  genre_id: '', // 空字符串表示选中"全部"
   min_rating: 0,
   max_rating: 10,
-  sort_type: 'time',
+  sort_type: 'time', // 默认按时间排序
 })
 
+// 当前Key（用于重新加载数据）
+const currentKey = ref(0)
+
+// TMDB电影风格字典
 const tmdbMovieGenreDict: Record<string, string> = {
   '28': t('tmdb.genreType.action'),
   '12': t('tmdb.genreType.adventure'),
@@ -56,6 +63,7 @@ const tmdbMovieGenreDict: Record<string, string> = {
   '37': t('tmdb.genreType.western'),
 }
 
+// TMDB电视剧风格字典
 const tmdbTvGenreDict: Record<string, string> = {
   '10759': t('tmdb.genreType.actionAdventure'),
   '16': t('tmdb.genreType.animation'),
@@ -75,77 +83,145 @@ const tmdbTvGenreDict: Record<string, string> = {
   '37': t('tmdb.genreType.western'),
 }
 
-const currentGenreDict = computed(() => ({ ...tmdbMovieGenreDict, ...tmdbTvGenreDict }))
+// 获取当前类型对应的风格字典（订阅分享包含电影和电视剧，所以显示所有风格）
+const currentGenreDict = computed(() => {
+  // 合并电影和电视剧风格字典
+  return { ...tmdbMovieGenreDict, ...tmdbTvGenreDict }
+})
 
+// 监听 props.keyword 变化
 watch(
   () => props.keyword,
   newKeyword => {
     keyword.value = newKeyword || ''
-    dataList.value = []
+    // 重置页码和数据
     page.value = 1
-    hasMore.value = true
+    dataList.value = []
     isRefreshed.value = false
     currentKey.value++
-    void fetchData()
   },
 )
 
+// 监听筛选参数变化
 watch(
   filterParams,
   () => {
+    // 重置数据
     dataList.value = []
     page.value = 1
-    hasMore.value = true
     isRefreshed.value = false
     currentKey.value++
-    void fetchData()
   },
   { deep: true },
 )
 
+// 是否加载中
+const loading = ref(false)
+
+// 是否加载完成
+const isRefreshed = ref(false)
+
+// 数据列表
+const dataList = ref<SubscribeShare[]>([])
+const currData = ref<SubscribeShare[]>([])
+
+// 拼装参数
 function getParams() {
-  const params: { [key: string]: any } = {
+  let params: { [key: string]: any } = {
     page: page.value,
     count: 30,
     name: keyword.value,
   }
-  if (filterParams.genre_id) params.genre_id = parseInt(filterParams.genre_id)
-  if (filterParams.min_rating > 0) params.min_rating = filterParams.min_rating
-  if (filterParams.max_rating < 10) params.max_rating = filterParams.max_rating
-  if (filterParams.sort_type) params.sort_type = filterParams.sort_type
+
+  // 添加筛选参数
+  if (filterParams.genre_id) {
+    params.genre_id = parseInt(filterParams.genre_id)
+  }
+  if (filterParams.min_rating > 0) {
+    params.min_rating = filterParams.min_rating
+  }
+  if (filterParams.max_rating < 10) {
+    params.max_rating = filterParams.max_rating
+  }
+  if (filterParams.sort_type) {
+    params.sort_type = filterParams.sort_type
+  }
+
   return params
 }
 
-async function fetchData() {
-  if (loading.value || !hasMore.value) return
-  loading.value = true
+// 获取列表数据
+async function fetchData({ done }: { done: any }) {
   try {
-    const data: SubscribeShare[] = await api.get(apipath, { params: getParams() })
-    isRefreshed.value = true
-    if (!data || data.length === 0) {
-      hasMore.value = false
+    // 如果正在加载中，直接返回
+    if (loading.value) {
+      done('ok')
       return
     }
-    dataList.value = [...dataList.value, ...data]
-    page.value++
-    if (data.length < 30) hasMore.value = false
+
+    // 加载到满屏或者加载出错
+    if (!hasScroll()) {
+      // 加载多次
+      while (!hasScroll()) {
+        // 设置加载中
+        loading.value = true
+        // 请求API
+        currData.value = await api.get(apipath, {
+          params: getParams(),
+        })
+        // 取消加载中
+        loading.value = false
+        // 标计为已请求完成
+        isRefreshed.value = true
+        if (currData.value.length === 0) {
+          // 如果没有数据，跳出
+          done('empty')
+          return
+        }
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value]
+        // 页码+1
+        page.value++
+        // 返回加载成功
+        done('ok')
+      }
+    } else {
+      // 设置加载中
+      loading.value = true
+      // 请求API
+      currData.value = await api.get(apipath, {
+        params: getParams(),
+      })
+      loading.value = false
+      // 标计为已请求完成
+      isRefreshed.value = true
+      if (currData.value.length === 0) {
+        // 如果没有数据，跳出
+        done('empty')
+      } else {
+        // 合并数据
+        dataList.value = [...dataList.value, ...currData.value]
+        // 页码+1
+        page.value++
+        // 返回加载成功
+        done('ok')
+      }
+    }
   } catch (error) {
     console.error(error)
-  } finally {
-    loading.value = false
+    // 返回加载失败
+    done('error')
   }
 }
 
+// 将数据从列表中移除
 function removeData(id: number) {
   dataList.value = dataList.value.filter(item => item.id !== id)
 }
-
-onMounted(() => {
-  void fetchData()
-})
 </script>
 
 <template>
+  <!-- 筛选器 -->
   <div class="px-3 mb-4">
     <div class="flex justify-start align-center mb-3">
       <div class="mr-5">
@@ -169,16 +245,21 @@ onMounted(() => {
         <VLabel>{{ t('tmdb.genre') }}</VLabel>
       </div>
       <VChipGroup v-model="filterParams.genre_id">
-        <VChip :color="filterParams.genre_id == '' ? 'primary' : ''" filter tile value="">
+        <VChip
+          :color="filterParams.genre_id == '' ? 'primary' : ''"
+          filter
+          tile
+          value=""
+        >
           {{ t('common.all') }}
         </VChip>
         <VChip
-          v-for="(value, key) in currentGenreDict"
-          :key="key"
           :color="filterParams.genre_id == key ? 'primary' : ''"
           filter
           tile
           :value="key"
+          v-for="(value, key) in currentGenreDict"
+          :key="key"
         >
           {{ value }}
         </VChip>
@@ -197,32 +278,40 @@ onMounted(() => {
         :step="1"
         class="align-center"
         hide-details
-      />
+      >
+      </VSlider>
     </div>
   </div>
 
   <VPageContentTitle v-if="keyword" :title="`${t('common.search')}：${keyword}`" />
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VirtualGrid
-    v-if="isRefreshed && dataList.length > 0"
-    :key="currentKey"
+  <VInfiniteScroll
+    mode="intersect"
+    side="end"
     :items="dataList"
-    :columns="cols"
-    :row-estimate-size="260"
-    :gap="12"
-    :overscan="3"
-    use-window-scroll
-    class="pt-2"
-    @load-more="fetchData"
+    class="overflow-visible px-2"
+    @load="fetchData"
+    :key="currentKey"
   >
-    <template #item="{ item }">
-      <SubscribeShareCard :media="item" @delete="removeData(item.id || 0)" />
-    </template>
-  </VirtualGrid>
-  <NoDataFound
-    v-if="dataList.length === 0 && isRefreshed"
-    error-code="404"
-    :error-title="t('common.noData')"
-    :error-description="keyword ? t('common.noContent') : t('subscribe.noShareData')"
-  />
+    <template #loading />
+    <template #empty />
+    <ProgressiveCardGrid
+      v-if="dataList.length > 0"
+      :items="dataList"
+      :get-item-key="item => item.id || `${item.tmdbid || item.doubanid || item.name}-${item.share_user}`"
+      :min-item-width="240"
+      :estimated-item-height="260"
+      tabindex="0"
+    >
+      <template #default="{ item }">
+        <SubscribeShareCard :media="item" @delete="removeData(item.id || 0)" />
+      </template>
+    </ProgressiveCardGrid>
+    <NoDataFound
+      v-if="dataList.length === 0 && isRefreshed"
+      error-code="404"
+      :error-title="t('common.noData')"
+      :error-description="keyword ? t('common.noContent') : t('subscribe.noShareData')"
+    />
+  </VInfiniteScroll>
 </template>

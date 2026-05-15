@@ -6,7 +6,6 @@ import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
-import VirtualList from '@/components/virtual/VirtualList.vue'
 
 // 国际化
 const { t } = useI18n()
@@ -255,16 +254,11 @@ onMounted(async () => {
 
 <template>
   <VCard class="file-navigator rounded-e-0 rounded-t-0" v-if="!isMobile" :height="`${availableHeight}px`">
-    <VirtualList
-      :items="visibleTreeRows"
-      :estimate-size="32"
-      key-field="key"
-      container-height="100%"
-      class="tree-container"
-    >
-      <template #item="{ item }">
+    <VVirtualScroll :items="visibleTreeRows" :item-height="32" class="tree-container">
+      <template #default="{ item }">
         <div
           v-if="item.type === 'root'"
+          :key="item.key"
           class="tree-item root-item"
           :class="{ 'active': currentPath === '/' }"
           @click="
@@ -284,6 +278,7 @@ onMounted(async () => {
 
         <div
           v-else-if="item.type === 'loading'"
+          :key="item.key"
           class="tree-loading"
           :style="getTreeRowStyle(item.level)"
         >
@@ -295,6 +290,7 @@ onMounted(async () => {
 
         <div
           v-else
+          :key="item.key"
           class="tree-item"
           :class="{ 'active': currentPath === item.dir.path }"
           :style="getTreeRowStyle(item.level)"
@@ -326,7 +322,7 @@ onMounted(async () => {
           </div>
         </div>
       </template>
-    </VirtualList>
+    </VVirtualScroll>
   </VCard>
 </template>
 

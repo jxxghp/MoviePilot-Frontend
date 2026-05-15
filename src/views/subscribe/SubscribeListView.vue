@@ -5,15 +5,11 @@ import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import { useBreakpointCols } from '@/composables/virtual/useBreakpointCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
-
-// 列数：按视口断点（路由级全宽页）
-const cols = useBreakpointCols({ xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 5 })
 
 // 国际化
 const { t } = useI18n()
@@ -88,19 +84,6 @@ const scrollToIndex = computed(() => {
   const targetIndex = displayList.value.findIndex(item => item.id.toString() === props.subid?.toString())
 
   return targetIndex >= 0 ? targetIndex : undefined
-})
-
-// VirtualGrid 实例 ref（用于命令式 scrollToRow，桥接 scrollToIndex 跳卡片需求）
-const gridRef = ref<any>(null)
-
-watch(scrollToIndex, idx => {
-  if (idx === undefined || !gridRef.value) return
-  const cols = gridRef.value.cols?.value ?? 4
-  const rowIdx = Math.floor(idx / cols)
-  // 等下一帧再跳，确保 virtualizer 已经把 totalSize 算稳定
-  requestAnimationFrame(() => {
-    gridRef.value?.scrollToRow(rowIdx)
-  })
 })
 
 // 根据订阅数据判断订阅状态
@@ -530,19 +513,16 @@ defineExpose({
       />
     </template>
   </draggable>
-  <VirtualGrid
+  <ProgressiveCardGrid
     v-else-if="displayList.length > 0 && shouldVirtualizeList"
-    ref="gridRef"
     :items="displayList"
-    :columns="cols"
-    :row-estimate-size="280"
-    :gap="16"
-    :overscan="3"
-    key-field="id"
-    use-window-scroll
+    :get-item-key="item => item.id"
+    :min-item-width="240"
+    :estimated-item-height="300"
+    :scroll-to-index="scrollToIndex"
     class="px-2"
   >
-    <template #item="{ item }">
+    <template #default="{ item }">
       <SubscribeCard
         :key="item.id"
         :media="item"
@@ -554,7 +534,7 @@ defineExpose({
         @select="toggleSelectSubscribe(item.id)"
       />
     </template>
-  </VirtualGrid>
+  </ProgressiveCardGrid>
   <NoDataFound
     v-if="displayList.length === 0 && isRefreshed"
     error-code="404"

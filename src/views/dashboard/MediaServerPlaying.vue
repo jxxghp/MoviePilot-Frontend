@@ -2,8 +2,7 @@
 import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import BackdropCard from '@/components/cards/BackdropCard.vue'
-import VirtualGrid from '@/components/virtual/VirtualGrid.vue'
-import { useResponsiveCols } from '@/composables/virtual/useResponsiveCols'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -14,10 +13,6 @@ const playingList = ref<MediaServerPlayItem[]>([])
 
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
-
-// 容器宽度驱动列数（dashboard 卡片宽度由布局决定，不能用视口断点）
-const wrapRef = ref<HTMLElement | null>(null)
-const cols = useResponsiveCols(wrapRef, { minItemWidth: 240 })
 
 // 调用API查询媒体服务器设置
 async function loadMediaServerSetting() {
@@ -76,21 +71,18 @@ onActivated(() => {
           <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
         </VCardItem>
 
-        <div ref="wrapRef" class="mx-3 mb-3">
-          <VirtualGrid
-            :items="playingList"
-            :columns="cols"
-            :row-estimate-size="180"
-            :gap="12"
-            :get-item-key="(item: MediaServerPlayItem) => item.id || item.link || item.title"
-            use-window-scroll
-            tabindex="0"
-          >
-            <template #item="{ item }">
-              <BackdropCard :media="item" height="10rem" />
-            </template>
-          </VirtualGrid>
-        </div>
+        <ProgressiveCardGrid
+          :items="playingList"
+          :get-item-key="item => item.id || item.link || item.title"
+          :min-item-width="240"
+          :estimated-item-height="160"
+          class="mx-3 mb-3"
+          tabindex="0"
+        >
+          <template #default="{ item }">
+            <BackdropCard :media="item" height="10rem" />
+          </template>
+        </ProgressiveCardGrid>
       </VCard>
     </template>
   </VHover>
