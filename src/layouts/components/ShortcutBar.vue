@@ -73,9 +73,6 @@ const messageDialogRef = ref<any>(null)
 // 消息视图引用
 const messageViewRef = ref<MessageViewExpose | null>(null)
 
-// 滚动容器引用
-const messageContentRef = ref<any>()
-
 // 定义捷径列表
 const shortcuts = [
   {
@@ -163,28 +160,6 @@ async function openMessageDialog() {
   nextTick(() => {
     messageViewRef.value?.resumeSSE?.()
   })
-}
-
-// 智能滚动到底部（只有用户在底部附近时才滚动）
-function scrollMessageToEnd() {
-  // 使用更长的延迟确保DOM已更新
-  setTimeout(() => {
-    try {
-      // 查找消息弹窗的滚动容器
-      const cardText = document.querySelector('.v-dialog .v-card-text')
-      if (cardText) {
-        const { scrollTop, scrollHeight, clientHeight } = cardText
-        // 计算距离底部的距离
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-        // 如果用户距离底部小于1/3屏幕高度，认为用户在底部附近，执行自动滚动
-        if (distanceFromBottom <= clientHeight / 3) {
-          cardText.scrollTop = cardText.scrollHeight
-        }
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }, 500) // 增加延迟时间
 }
 
 // 强制滚动到底部（用于发送消息后）
@@ -507,8 +482,8 @@ onMounted(() => {
         <VDialogCloseBtn @click="messageDialog = false" />
       </VCardItem>
       <VDivider />
-      <VCardText ref="messageContentRef">
-        <MessageView ref="messageViewRef" @scroll="scrollMessageToEnd" />
+      <VCardText>
+        <MessageView ref="messageViewRef" />
       </VCardText>
       <VDivider />
       <VCardActions class="pa-4">

@@ -37,8 +37,14 @@ const props = withDefaults(
     estimateSize?: number
     /** 视口外预渲染项数。调高减少回滚白屏，调低减少内存 */
     overscan?: number
-    /** key 字段名，强烈建议传 */
+    /** key 字段名，强烈建议传。若同时给了 getItemKey 则后者优先 */
     keyField?: keyof T
+    /**
+     * 取 key 的函数式入口，优先级高于 keyField。
+     * 用途：单字段 keyField 表达不了的场景，如 fallback 链
+     * `(m) => getMessageKey(m) || index`、组合 id 等。
+     */
+    getItemKey?: (item: T, index: number) => string | number
     /** 容器内 scroll 模式下的容器高度（useWindowScroll=false 时生效） */
     containerHeight?: string | number
     /** 末尾还剩多少项时触发 load-more */
@@ -85,8 +91,13 @@ const { virtualizer, totalSize, virtualItems, measureRef } = useVirtualizerBridg
   scrollMargin: () => scrollMargin.value,
   getScrollElement: () => scrollEl.value,
   useWindowScroll: props.useWindowScroll,
-  getItemKey: (i: number) =>
-    props.keyField ? (props.items[i]?.[props.keyField] as string | number) : i,
+  // 优先级：getItemKey 函数 > keyField 字段 > index 兜底
+  getItemKey: (i: number) => {
+    const item = props.items[i]
+    if (props.getItemKey && item !== undefined) return props.getItemKey(item, i)
+    if (props.keyField && item !== undefined) return item[props.keyField] as string | number
+    return i
+  },
 })
 
 // Base Layer：触底加载哨兵。容器内 scroll 模式需把 IntersectionObserver root
