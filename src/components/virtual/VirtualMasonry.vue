@@ -34,9 +34,10 @@
 -->
 
 <script setup lang="ts" generic="T extends Record<string, any>">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useDisplay } from 'vuetify'
-import { useIntersectionObserver } from '@vueuse/core'
+import { useWindowScrollMargin } from '@/composables/virtual/useWindowScrollMargin'
+import { useLoadMoreSentinel } from '@/composables/virtual/useLoadMoreSentinel'
 
 interface Breakpoints {
   xs?: number
@@ -140,19 +141,13 @@ const layout = computed<{ positions: LayoutItem[]; totalHeight: number }>(() => 
 })
 
 const scrollEl = ref<HTMLElement | null>(null)
-const scrollMargin = ref(0)
 const scrollY = ref(0)
 const viewportH = ref(typeof window !== 'undefined' ? window.innerHeight : 800)
 let rafId: number | null = null
-let resizeObserver: ResizeObserver | null = null
 
-function updateScrollMargin() {
-  if (!scrollEl.value || typeof window === 'undefined') {
-    scrollMargin.value = 0
-    return
-  }
-  scrollMargin.value = scrollEl.value.getBoundingClientRect().top + window.scrollY
-}
+// Base Layer：scrollMargin 追踪。Masonry 永远是 window scroll，enabled 恒为 true。
+// （window resize + body ResizeObserver 由 composable 自管理 + 卸载清理）
+const { scrollMargin } = useWindowScrollMargin(scrollEl, () => true)
 
 function onScroll() {
   if (rafId !== null) return
@@ -164,17 +159,13 @@ function onScroll() {
 
 function onResize() {
   viewportH.value = window.innerHeight
-  updateScrollMargin()
 }
 
 onMounted(() => {
   if (typeof window === 'undefined') return
   scrollY.value = window.scrollY
-  updateScrollMargin()
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onResize, { passive: true })
-  resizeObserver = new ResizeObserver(updateScrollMargin)
-  if (document.body) resizeObserver.observe(document.body)
 })
 
 onBeforeUnmount(() => {
@@ -186,8 +177,6 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(rafId)
     rafId = null
   }
-  resizeObserver?.disconnect()
-  resizeObserver = null
 })
 
 // 可视范围内的项（含 overscan）：
@@ -200,40 +189,11 @@ const visibleItems = computed(() => {
   return layout.value.positions.filter(p => p.top + p.height >= vTop && p.top <= vBottom)
 })
 
-// loadMore sentinel — 与 VirtualGrid/VirtualList 同款锁：
-//   sentinel 在视口内 + items 自上次 fire 已增长 → fire
-//   sentinel 离开视口 → 解锁
-//   sentinel 持续 intersecting 时靠 watch(items.length) 兜底重新评估
-const loadMoreSentinel = ref<HTMLElement | null>(null)
-let isSentinelIntersecting = false
-let lastFireItemsLen = -1
-
-function tryFireLoadMore() {
-  if (!isSentinelIntersecting) return
-  if (lastFireItemsLen >= 0 && props.items.length === lastFireItemsLen) return
-  lastFireItemsLen = props.items.length
-  emit('loadMore')
-}
-
-useIntersectionObserver(
-  loadMoreSentinel,
-  ([entry]: IntersectionObserverEntry[]) => {
-    isSentinelIntersecting = entry.isIntersecting
-    if (isSentinelIntersecting) tryFireLoadMore()
-  },
-  { rootMargin: '200px', threshold: 0 },
-)
-
-watch(
-  () => props.items.length,
-  (len: number) => {
-    if (len === 0) {
-      lastFireItemsLen = -1
-      return
-    }
-    nextTick(() => tryFireLoadMore())
-  },
-)
+// Base Layer：触底加载哨兵（sentinel + IntersectionObserver + items.length 兜底）
+const { sentinel: loadMoreSentinel } = useLoadMoreSentinel({
+  itemsLength: () => props.items.length,
+  onFire: () => emit('loadMore'),
+})
 
 defineExpose({
   getScrollElement: () => scrollEl.value,

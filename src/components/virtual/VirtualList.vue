@@ -25,9 +25,10 @@
 -->
 
 <script setup lang="ts" generic="T extends Record<string, any>">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useVirtualizer, useWindowVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
-import { useIntersectionObserver } from '@vueuse/core'
+import { computed, ref } from 'vue'
+import { useWindowScrollMargin } from '@/composables/virtual/useWindowScrollMargin'
+import { useLoadMoreSentinel } from '@/composables/virtual/useLoadMoreSentinel'
+import { useVirtualizerBridge } from '@/composables/virtual/useVirtualizerBridge'
 
 const props = withDefaults(
   defineProps<{
@@ -72,149 +73,39 @@ const emit = defineEmits<{
 }>()
 
 const scrollEl = ref<HTMLElement | null>(null)
-const scrollMargin = ref(0)
-let resizeObserver: ResizeObserver | null = null
 
-function updateScrollMargin() {
-  if (!props.useWindowScroll || !scrollEl.value || typeof window === 'undefined') {
-    scrollMargin.value = 0
-    return
-  }
-  scrollMargin.value = scrollEl.value.getBoundingClientRect().top + window.scrollY
-}
+// Base Layer：scrollMargin 追踪（window resize + body ResizeObserver 自管理 + 卸载清理）
+const { scrollMargin } = useWindowScrollMargin(scrollEl, () => props.useWindowScroll)
 
-onMounted(() => {
-  updateScrollMargin()
-  if (props.useWindowScroll && typeof window !== 'undefined') {
-    window.addEventListener('resize', updateScrollMargin, { passive: true })
-    resizeObserver = new ResizeObserver(updateScrollMargin)
-    if (document.body) resizeObserver.observe(document.body)
-  }
+// Base Layer：tanstack 桥接（useVirtualizer/useWindowVirtualizer 二选一 + measureRef null 转发）
+const { virtualizer, totalSize, virtualItems, measureRef } = useVirtualizerBridge({
+  count: () => props.items.length,
+  estimateSize: () => props.estimateSize,
+  overscan: () => props.overscan,
+  scrollMargin: () => scrollMargin.value,
+  getScrollElement: () => scrollEl.value,
+  useWindowScroll: props.useWindowScroll,
+  getItemKey: (i: number) =>
+    props.keyField ? (props.items[i]?.[props.keyField] as string | number) : i,
 })
 
-onBeforeUnmount(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', updateScrollMargin)
-  }
-  resizeObserver?.disconnect()
-  resizeObserver = null
-})
-
-// 必须根据 useWindowScroll 切换：scroll 事件不冒泡到 <html>，
-// useVirtualizer + document.scrollingElement 会让 virtualizer 永远以为
-// scrollOffset=0 → 虚拟化失效。
-const virtualizer = (props.useWindowScroll
-  ? useWindowVirtualizer({
-      get count() {
-        return props.items.length
-      },
-      estimateSize: () => props.estimateSize,
-      get overscan() {
-        return props.overscan
-      },
-      get scrollMargin() {
-        return scrollMargin.value
-      },
-      getItemKey: (i: number) =>
-        props.keyField ? (props.items[i]?.[props.keyField] as string | number) : i,
-    })
-  : useVirtualizer({
-      get count() {
-        return props.items.length
-      },
-      getScrollElement: () => scrollEl.value,
-      estimateSize: () => props.estimateSize,
-      get overscan() {
-        return props.overscan
-      },
-      get scrollMargin() {
-        return scrollMargin.value
-      },
-      getItemKey: (i: number) =>
-        props.keyField ? (props.items[i]?.[props.keyField] as string | number) : i,
-    })) as unknown as ReturnType<typeof useVirtualizer<Element, Element>>
-
-const totalSize = computed(() => virtualizer.value.getTotalSize())
-const virtualItems = computed<VirtualItem[]>(() => virtualizer.value.getVirtualItems())
-
-/**
- * 触底 / 触顶加载哨兵：
- * sentinel 在视口内 + items 自上次 fire 起已变化 → fire；
- * sentinel 离开视口 → 解锁；
- * 关键：IntersectionObserver 只在 isIntersecting 边沿变化时回调，
- * 短列表里 sentinel 可能持续 intersecting，需要 items.length watcher 兜底
- * 让 tryFire 重新评估，否则只能 fire 一次后死锁。
- * 业务侧的 loadMore / loadMoreReverse 仍需自己持有 loading 锁防并发。
- */
-const loadMoreSentinel = ref<HTMLElement | null>(null)
-const loadMoreReverseSentinel = ref<HTMLElement | null>(null)
-let isSentinelIntersecting = false
-let isReverseSentinelIntersecting = false
-let lastFireItemsLen = -1
-let lastReverseFireItemsLen = -1
-
+// Base Layer：触底加载哨兵。容器内 scroll 模式需把 IntersectionObserver root
+// 指向滚动容器（window scroll 模式传 null = 视口）。
 const sentinelRoot = computed(() => (props.useWindowScroll ? null : scrollEl.value))
 
-function tryFireLoadMore() {
-  if (!isSentinelIntersecting) return
-  if (lastFireItemsLen >= 0 && props.items.length === lastFireItemsLen) return
-  lastFireItemsLen = props.items.length
-  emit('loadMore')
-}
+const { sentinel: loadMoreSentinel } = useLoadMoreSentinel({
+  itemsLength: () => props.items.length,
+  onFire: () => emit('loadMore'),
+  root: sentinelRoot,
+})
 
-function tryFireLoadMoreReverse() {
-  if (props.loadMoreReverseThreshold <= 0) return
-  if (!isReverseSentinelIntersecting) return
-  if (lastReverseFireItemsLen >= 0 && props.items.length === lastReverseFireItemsLen) return
-  lastReverseFireItemsLen = props.items.length
-  emit('loadMoreReverse')
-}
-
-useIntersectionObserver(
-  loadMoreSentinel,
-  ([entry]: IntersectionObserverEntry[]) => {
-    isSentinelIntersecting = entry.isIntersecting
-    if (isSentinelIntersecting) tryFireLoadMore()
-  },
-  { root: sentinelRoot, rootMargin: '200px', threshold: 0 },
-)
-
-useIntersectionObserver(
-  loadMoreReverseSentinel,
-  ([entry]: IntersectionObserverEntry[]) => {
-    isReverseSentinelIntersecting = entry.isIntersecting
-    if (isReverseSentinelIntersecting) tryFireLoadMoreReverse()
-  },
-  { root: sentinelRoot, rootMargin: '200px', threshold: 0 },
-)
-
-watch(
-  () => props.items.length,
-  (len: number) => {
-    if (len === 0) {
-      lastFireItemsLen = -1
-      lastReverseFireItemsLen = -1
-      return
-    }
-    nextTick(() => {
-      tryFireLoadMore()
-      tryFireLoadMoreReverse()
-    })
-  },
-)
-
-function measureRef(el: any) {
-  if (el instanceof HTMLElement) {
-    virtualizer.value.measureElement(el)
-  } else {
-    // 项卸载时 Vue 用 null 调用本回调。必须把 null 转发给 measureElement，
-    // 否则 @tanstack/virtual-core 永远不会执行 elementsCache 的清理分支
-    // （它只在 measureElement(null) 时遍历并 unobserve 掉 !isConnected 的元素）。
-    // 不转发的话 ResizeObserver 会强引用每一个曾渲染过的项元素，
-    // detached DOM 无法 GC → 钉住其下所有 Vue 组件实例（内存泄漏根因）。
-    virtualizer.value.measureElement(null)
-  }
-}
+// 反向加载（聊天/消息流往上加载更早内容）：再调一次哨兵，按阈值启用。
+const { sentinel: loadMoreReverseSentinel } = useLoadMoreSentinel({
+  itemsLength: () => props.items.length,
+  onFire: () => emit('loadMoreReverse'),
+  root: sentinelRoot,
+  enabled: () => props.loadMoreReverseThreshold > 0,
+})
 
 defineExpose({
   scrollToIndex: (idx: number, opts?: { align?: 'start' | 'center' | 'end' | 'auto' }) =>
