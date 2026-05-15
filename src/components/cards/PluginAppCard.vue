@@ -62,11 +62,21 @@ const releaseDialog = ref(false)
 const detailDialog = ref(false)
 
 // 图片加载完成
-async function imageLoaded() {
+function imageLoaded() {
   isImageLoaded.value = true
-  const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
-  // 从图片中提取背景色
-  backgroundColor.value = await getDominantColor(imageElement)
+  const imageElement = imageRef.value?.$el?.querySelector('img') as HTMLImageElement | null
+  if (!imageElement) return
+  // 主色调提取（ColorThief 走 canvas 解码）会阻塞主线程，
+  // 滚动时挤掉浏览器自身的图片解码窗口，放到 idle 中执行更安全。
+  const extract = () => {
+    getDominantColor(imageElement)
+      .then(c => {
+        backgroundColor.value = c
+      })
+      .catch(() => {})
+  }
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(extract, { timeout: 1500 })
+  else setTimeout(extract, 50)
 }
 
 // 安装插件
