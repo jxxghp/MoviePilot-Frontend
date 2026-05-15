@@ -80,6 +80,15 @@ const messageViewRef = ref<MessageViewExpose | null>(null)
 // 滚动容器引用
 const messageContentRef = ref<any>()
 
+// 消息滚动状态
+const shouldAutoScrollMessage = ref(true)
+const isSyncingMessageScroll = ref(false)
+
+const MESSAGE_AUTO_SCROLL_THRESHOLD = 64
+
+let messageScrollTimer: number | undefined
+let messageScrollReleaseTimer: number | undefined
+
 // 定义捷径列表
 const shortcuts = [
   {
@@ -152,63 +161,107 @@ function openDialog(dialogRef: any) {
   dialogRef.value = true
 }
 
-// 打开消息弹窗并清除徽章
-async function openMessageDialog() {
+// 打开消息弹窗
+function openMessageDialog() {
   messageDialog.value = true
-  // 延迟清除徽章，确保对话框已经打开
-  setTimeout(async () => {
-    await clearAppBadge()
-  }, 500)
-  // 延迟滚动到底部，确保弹窗完全打开
-  setTimeout(() => {
-    forceScrollToEnd()
-  }, 600)
-  // 等待对话框打开后恢复SSE连接
-  nextTick(() => {
-    messageViewRef.value?.resumeSSE?.()
+}
+
+function getMessageScrollContainer() {
+  const container = messageContentRef.value?.$el ?? messageContentRef.value
+
+  return container instanceof HTMLElement ? container : null
+}
+
+function isMessageNearBottom(container: HTMLElement) {
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+
+  return distanceFromBottom <= Math.max(MESSAGE_AUTO_SCROLL_THRESHOLD, container.clientHeight / 3)
+}
+
+function updateMessageAutoScrollState() {
+  const container = getMessageScrollContainer()
+  if (!container || isSyncingMessageScroll.value) {
+    return
+  }
+
+  shouldAutoScrollMessage.value = isMessageNearBottom(container)
+}
+
+function handleMessageScroll() {
+  updateMessageAutoScrollState()
+}
+
+function bindMessageScrollListener() {
+  const container = getMessageScrollContainer()
+  if (!container) {
+    return
+  }
+
+  container.removeEventListener('scroll', handleMessageScroll)
+  container.addEventListener('scroll', handleMessageScroll, { passive: true })
+  updateMessageAutoScrollState()
+}
+
+function unbindMessageScrollListener() {
+  getMessageScrollContainer()?.removeEventListener('scroll', handleMessageScroll)
+}
+
+function scrollMessageContainerToEnd() {
+  const container = getMessageScrollContainer()
+  if (!container) {
+    return
+  }
+
+  isSyncingMessageScroll.value = true
+  container.scrollTop = container.scrollHeight
+
+  requestAnimationFrame(() => {
+    const latestContainer = getMessageScrollContainer()
+    if (!latestContainer) {
+      isSyncingMessageScroll.value = false
+      return
+    }
+
+    latestContainer.scrollTop = latestContainer.scrollHeight
+    shouldAutoScrollMessage.value = true
+
+    if (messageScrollReleaseTimer) {
+      window.clearTimeout(messageScrollReleaseTimer)
+    }
+
+    messageScrollReleaseTimer = window.setTimeout(() => {
+      isSyncingMessageScroll.value = false
+      updateMessageAutoScrollState()
+    }, 80)
   })
+}
+
+function scheduleMessageScroll(force = false) {
+  if (!force && !shouldAutoScrollMessage.value) {
+    return
+  }
+
+  if (messageScrollTimer) {
+    window.clearTimeout(messageScrollTimer)
+  }
+
+  messageScrollTimer = window.setTimeout(() => {
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        scrollMessageContainerToEnd()
+      })
+    })
+  }, force ? 0 : 80)
 }
 
 // 智能滚动到底部：首次打开时允许强制滚动，后续实时消息尊重用户当前位置。
 function scrollMessageToEnd(payload?: MessageScrollPayload) {
-  // 使用更长的延迟确保DOM已更新
-  setTimeout(() => {
-    try {
-      // 查找消息弹窗的滚动容器
-      const cardText = document.querySelector('.v-dialog .v-card-text')
-      if (cardText) {
-        if (payload?.force) {
-          cardText.scrollTop = cardText.scrollHeight
-          return
-        }
-
-        const { scrollTop, scrollHeight, clientHeight } = cardText
-        // 计算距离底部的距离
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-        // 如果用户距离底部小于1/3屏幕高度，认为用户在底部附近，执行自动滚动
-        if (distanceFromBottom <= clientHeight / 3) {
-          cardText.scrollTop = cardText.scrollHeight
-        }
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }, 500) // 增加延迟时间
+  scheduleMessageScroll(Boolean(payload?.force))
 }
 
 // 强制滚动到底部（用于发送消息后）
 function forceScrollToEnd() {
-  setTimeout(() => {
-    try {
-      // 查找消息弹窗的滚动容器
-      const cardText = document.querySelector('.v-dialog .v-card-text')
-      if (cardText) {
-        cardText.scrollTop = cardText.scrollHeight
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }, 500)
+  scheduleMessageScroll(true)
 }
 
 // 拼接全部日志url
@@ -249,11 +302,40 @@ defineExpose({
 })
 
 // 监听消息对话框状态变化
-watch(messageDialog, newValue => {
-  if (!newValue && messageViewRef.value?.pauseSSE) {
+watch(messageDialog, async newValue => {
+  if (newValue) {
+    shouldAutoScrollMessage.value = true
+
+    await nextTick()
+    bindMessageScrollListener()
+    messageViewRef.value?.resumeSSE?.()
+    forceScrollToEnd()
+
+    window.setTimeout(() => {
+      void clearAppBadge()
+    }, 500)
+
+    return
+  }
+
+  unbindMessageScrollListener()
+
+  if (messageViewRef.value?.pauseSSE) {
     // 对话框关闭时暂停SSE连接
     messageViewRef.value.pauseSSE()
   }
+})
+
+onBeforeUnmount(() => {
+  if (messageScrollTimer) {
+    window.clearTimeout(messageScrollTimer)
+  }
+
+  if (messageScrollReleaseTimer) {
+    window.clearTimeout(messageScrollReleaseTimer)
+  }
+
+  unbindMessageScrollListener()
 })
 
 onMounted(() => {
