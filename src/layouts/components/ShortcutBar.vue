@@ -9,10 +9,7 @@ type MessageViewExpose = {
   pauseSSE?: () => void
   resumeSSE?: () => void
   refreshLatestMessages?: () => Promise<void> | void
-}
-
-type MessageScrollPayload = {
-  force?: boolean
+  forceScrollToEnd?: () => void
 }
 
 // 国际化
@@ -71,23 +68,8 @@ const user_message = ref('')
 // 发送按钮是否可用
 const sendButtonDisabled = ref(false)
 
-// 消息对话框引用
-const messageDialogRef = ref<any>(null)
-
 // 消息视图引用
 const messageViewRef = ref<MessageViewExpose | null>(null)
-
-// 滚动容器引用
-const messageContentRef = ref<any>()
-
-// 消息滚动状态
-const shouldAutoScrollMessage = ref(true)
-const isSyncingMessageScroll = ref(false)
-
-const MESSAGE_AUTO_SCROLL_THRESHOLD = 64
-
-let messageScrollTimer: number | undefined
-let messageScrollReleaseTimer: number | undefined
 
 // 定义捷径列表
 const shortcuts = [
@@ -166,104 +148,6 @@ function openMessageDialog() {
   messageDialog.value = true
 }
 
-function getMessageScrollContainer() {
-  const container = messageContentRef.value?.$el ?? messageContentRef.value
-
-  return container instanceof HTMLElement ? container : null
-}
-
-function isMessageNearBottom(container: HTMLElement) {
-  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-
-  return distanceFromBottom <= Math.max(MESSAGE_AUTO_SCROLL_THRESHOLD, container.clientHeight / 3)
-}
-
-function updateMessageAutoScrollState() {
-  const container = getMessageScrollContainer()
-  if (!container || isSyncingMessageScroll.value) {
-    return
-  }
-
-  shouldAutoScrollMessage.value = isMessageNearBottom(container)
-}
-
-function handleMessageScroll() {
-  updateMessageAutoScrollState()
-}
-
-function bindMessageScrollListener() {
-  const container = getMessageScrollContainer()
-  if (!container) {
-    return
-  }
-
-  container.removeEventListener('scroll', handleMessageScroll)
-  container.addEventListener('scroll', handleMessageScroll, { passive: true })
-  updateMessageAutoScrollState()
-}
-
-function unbindMessageScrollListener() {
-  getMessageScrollContainer()?.removeEventListener('scroll', handleMessageScroll)
-}
-
-function scrollMessageContainerToEnd() {
-  const container = getMessageScrollContainer()
-  if (!container) {
-    return
-  }
-
-  isSyncingMessageScroll.value = true
-  container.scrollTop = container.scrollHeight
-
-  requestAnimationFrame(() => {
-    const latestContainer = getMessageScrollContainer()
-    if (!latestContainer) {
-      isSyncingMessageScroll.value = false
-      return
-    }
-
-    latestContainer.scrollTop = latestContainer.scrollHeight
-    shouldAutoScrollMessage.value = true
-
-    if (messageScrollReleaseTimer) {
-      window.clearTimeout(messageScrollReleaseTimer)
-    }
-
-    messageScrollReleaseTimer = window.setTimeout(() => {
-      isSyncingMessageScroll.value = false
-      updateMessageAutoScrollState()
-    }, 80)
-  })
-}
-
-function scheduleMessageScroll(force = false) {
-  if (!force && !shouldAutoScrollMessage.value) {
-    return
-  }
-
-  if (messageScrollTimer) {
-    window.clearTimeout(messageScrollTimer)
-  }
-
-  messageScrollTimer = window.setTimeout(() => {
-    nextTick(() => {
-      requestAnimationFrame(() => {
-        scrollMessageContainerToEnd()
-      })
-    })
-  }, force ? 0 : 80)
-}
-
-// 智能滚动到底部：首次打开时允许强制滚动，后续实时消息尊重用户当前位置。
-function scrollMessageToEnd(payload?: MessageScrollPayload) {
-  scheduleMessageScroll(Boolean(payload?.force))
-}
-
-// 强制滚动到底部（用于发送消息后）
-function forceScrollToEnd() {
-  scheduleMessageScroll(true)
-}
-
 // 拼接全部日志url
 function allLoggingUrl() {
   return `${import.meta.env.VITE_API_BASE_URL}system/logging?length=-1`
@@ -283,7 +167,7 @@ async function sendMessage() {
 
     // 发送成功后主动同步最新一页消息，避免SSE短暂断流时界面停留在旧状态。
     // await messageViewRef.value?.refreshLatestMessages?.()
-    forceScrollToEnd() // 发送消息后强制滚动到底部
+    messageViewRef.value?.forceScrollToEnd?.()
   } catch (error) {
     console.error(error)
   } finally {
@@ -304,12 +188,9 @@ defineExpose({
 // 监听消息对话框状态变化
 watch(messageDialog, async newValue => {
   if (newValue) {
-    shouldAutoScrollMessage.value = true
-
     await nextTick()
-    bindMessageScrollListener()
     messageViewRef.value?.resumeSSE?.()
-    forceScrollToEnd()
+    messageViewRef.value?.forceScrollToEnd?.()
 
     window.setTimeout(() => {
       void clearAppBadge()
@@ -318,24 +199,10 @@ watch(messageDialog, async newValue => {
     return
   }
 
-  unbindMessageScrollListener()
-
   if (messageViewRef.value?.pauseSSE) {
     // 对话框关闭时暂停SSE连接
     messageViewRef.value.pauseSSE()
   }
-})
-
-onBeforeUnmount(() => {
-  if (messageScrollTimer) {
-    window.clearTimeout(messageScrollTimer)
-  }
-
-  if (messageScrollReleaseTimer) {
-    window.clearTimeout(messageScrollReleaseTimer)
-  }
-
-  unbindMessageScrollListener()
 })
 
 onMounted(() => {
@@ -587,7 +454,6 @@ onMounted(() => {
     max-width="50rem"
     scrollable
     :fullscreen="!display.mdAndUp.value"
-    ref="messageDialogRef"
   >
     <VCard>
       <VCardItem>
@@ -598,8 +464,8 @@ onMounted(() => {
         <VDialogCloseBtn @click="messageDialog = false" />
       </VCardItem>
       <VDivider />
-      <VCardText ref="messageContentRef">
-        <MessageView ref="messageViewRef" @scroll="scrollMessageToEnd" />
+      <VCardText>
+        <MessageView ref="messageViewRef" />
       </VCardText>
       <VDivider />
       <VCardActions class="pa-4">
