@@ -38,6 +38,13 @@ interface VirtualCell {
   key: ItemKey
 }
 
+interface VirtualRange {
+  endIndex: number
+  endRow: number
+  startIndex: number
+  startRow: number
+}
+
 const containerRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
 
@@ -45,6 +52,8 @@ const layoutWidth = ref(0)
 const viewportTop = ref(0)
 const viewportBottom = ref(0)
 const heightVersion = ref(0)
+const frozenVisibleRange = ref<VirtualRange | null>(null)
+const isOverlayGrid = ref(false)
 
 const itemHeights = new Map<ItemKey, number>()
 const observedElements = new Map<HTMLElement, ItemKey>()
@@ -53,6 +62,7 @@ const itemRefCallbacks = new Map<ItemKey, (element: Element | ComponentPublicIns
 
 let resizeObserver: ResizeObserver | null = null
 let itemResizeObserver: ResizeObserver | null = null
+let overlayLockObserver: MutationObserver | null = null
 let scrollTarget: ScrollTarget | null = null
 let layoutFrameId: number | null = null
 let scrollFrameId: number | null = null
@@ -149,7 +159,18 @@ const rowMetrics = computed(() => {
 
 const totalHeight = computed(() => rowMetrics.value.totalHeight)
 
-const visibleRange = computed(() => {
+const calculatedVisibleRange = computed<VirtualRange>(() => {
+  if (isOverlayGrid.value) {
+    const rowCount = Math.max(1, Math.ceil(props.items.length / columnCount.value))
+
+    return {
+      endIndex: props.items.length,
+      endRow: rowCount - 1,
+      startIndex: 0,
+      startRow: 0,
+    }
+  }
+
   const { heights, offsets, rowCount } = rowMetrics.value
 
   if (!props.items.length || rowCount === 0) {
@@ -176,6 +197,8 @@ const visibleRange = computed(() => {
   }
 })
 
+const visibleRange = computed(() => frozenVisibleRange.value ?? calculatedVisibleRange.value)
+
 const visibleCells = computed<VirtualCell[]>(() => {
   const cells: VirtualCell[] = []
 
@@ -190,7 +213,13 @@ const visibleCells = computed<VirtualCell[]>(() => {
   return cells
 })
 
-const topSpacerHeight = computed(() => rowMetrics.value.offsets[visibleRange.value.startRow] ?? 0)
+const topSpacerHeight = computed(() => {
+  if (isOverlayGrid.value) {
+    return 0
+  }
+
+  return rowMetrics.value.offsets[visibleRange.value.startRow] ?? 0
+})
 
 const visibleBlockHeight = computed(() => {
   if (!props.items.length || visibleRange.value.endIndex <= visibleRange.value.startIndex) {
@@ -206,6 +235,10 @@ const visibleBlockHeight = computed(() => {
 })
 
 const bottomSpacerHeight = computed(() => {
+  if (isOverlayGrid.value) {
+    return 0
+  }
+
   return Math.max(totalHeight.value - topSpacerHeight.value - visibleBlockHeight.value, 0)
 })
 
@@ -266,6 +299,45 @@ function findLastRowAtOrBeforeOffset(offsets: number[], rowCount: number, offset
   return answer
 }
 
+function isDocumentOverlayLocked() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('v-overlay-scroll-blocked')
+}
+
+function isGridInsideOverlay() {
+  return Boolean(containerRef.value?.closest('.v-overlay, .v-overlay__content'))
+}
+
+function syncOverlayGridState() {
+  isOverlayGrid.value = isGridInsideOverlay()
+}
+
+function shouldPauseVirtualSync() {
+  return isDocumentOverlayLocked() && !isOverlayGrid.value
+}
+
+function freezeVisibleRange() {
+  if (frozenVisibleRange.value) {
+    return
+  }
+
+  // 弹窗打开期间固定当前渲染窗口，防止 body 锁滚动造成坐标跳变并卸载触发弹窗的卡片。
+  frozenVisibleRange.value = { ...calculatedVisibleRange.value }
+}
+
+function releaseVisibleRange() {
+  frozenVisibleRange.value = null
+}
+
+function handleOverlayLockChange() {
+  if (shouldPauseVirtualSync()) {
+    freezeVisibleRange()
+    return
+  }
+
+  releaseVisibleRange()
+  queueLayoutSync()
+}
+
 function getElementFromRef(element: Element | ComponentPublicInstance | null): HTMLElement | null {
   if (!element || typeof HTMLElement === 'undefined') {
     return null
@@ -312,6 +384,11 @@ function ensureItemResizeObserver() {
   }
 
   itemResizeObserver = new ResizeObserver(entries => {
+    if (shouldPauseVirtualSync()) {
+      freezeVisibleRange()
+      return
+    }
+
     let shouldUpdate = false
     let scrollAdjustment = 0
     const currentViewportTop = viewportTop.value
@@ -506,6 +583,15 @@ function queueLayoutSync() {
 
   layoutFrameId = window.requestAnimationFrame(() => {
     layoutFrameId = null
+
+    if (shouldPauseVirtualSync()) {
+      freezeVisibleRange()
+      return
+    }
+
+    // 弹窗内容已经由 overlay 限定生命周期，直接完整渲染可避免弹窗内交互被虚拟回收打断。
+    syncOverlayGridState()
+    releaseVisibleRange()
     syncLayoutWidth()
     refreshScrollTarget()
     syncViewport()
@@ -520,6 +606,13 @@ function queueViewportSync() {
 
   scrollFrameId = window.requestAnimationFrame(() => {
     scrollFrameId = null
+
+    if (shouldPauseVirtualSync()) {
+      freezeVisibleRange()
+      return
+    }
+
+    releaseVisibleRange()
     syncViewport()
   })
 }
@@ -681,12 +774,21 @@ function invalidateMeasurementsForLayoutChange() {
 
 onMounted(() => {
   mounted = true
+  syncOverlayGridState()
   scrollTarget = findScrollTarget()
   addScrollListener(scrollTarget)
 
   resizeObserver = new ResizeObserver(queueLayoutSync)
   if (trackRef.value) {
     resizeObserver.observe(trackRef.value)
+  }
+
+  if (typeof MutationObserver !== 'undefined') {
+    overlayLockObserver = new MutationObserver(handleOverlayLockChange)
+    overlayLockObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
   }
 
   window.addEventListener('resize', queueLayoutSync, { passive: true })
@@ -716,6 +818,8 @@ onUnmounted(() => {
   resizeObserver = null
   itemResizeObserver?.disconnect()
   itemResizeObserver = null
+  overlayLockObserver?.disconnect()
+  overlayLockObserver = null
 
   if (layoutFrameId !== null) {
     window.cancelAnimationFrame(layoutFrameId)
