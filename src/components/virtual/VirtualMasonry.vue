@@ -1,0 +1,282 @@
+<!--
+  ============================================================
+  VirtualMasonry - 不等高瀑布流 + 窗口虚拟化
+  ============================================================
+
+  与 VirtualGrid 的区别：
+    - VirtualGrid 假定每张卡等高（适合海报这种 2:3 等比卡）
+    - VirtualMasonry 支持每项独立高度（Pinterest 风、混排）
+
+  布局算法：
+    - 把 items[] 按到 N 列；每来一项放进当前最矮的那一列
+    - 总高度 = max(列高)；可视范围按 scrollY+overscan 过滤位置
+
+  虚拟化策略：
+    - 不依赖 @tanstack/vue-virtual：masonry 没有"行"的概念
+    - 监听 window.scroll 计算可视 Y 区间，只渲染 top..top+vh+overscan 范围的项
+    - 用 requestAnimationFrame 节流，滚动帧率不丢
+
+  高度来源（优先级从高到低）：
+    1. 用户传入 getItemHeight(item) 回调（如根据 aspect ratio 计算）
+    2. estimateItemHeight 兜底
+    （v1 不做 mount 后实测回填——masonry 实测会引发已布局项位移）
+
+  典型用法：
+    <VirtualMasonry
+      :items="people"
+      :breakpoints="{ xs: 2, sm: 3, md: 4, lg: 5 }"
+      :estimate-item-height="280"
+      :get-item-height="p => p.height ?? 280"
+      key-field="id"
+      @load-more="fetchMore">
+      <template #item="{ item }"> <PersonCard :person="item" /> </template>
+    </VirtualMasonry>
+-->
+
+<script setup lang="ts" generic="T extends Record<string, any>">
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useDisplay } from 'vuetify'
+import { useIntersectionObserver } from '@vueuse/core'
+
+interface Breakpoints {
+  xs?: number
+  sm?: number
+  md?: number
+  lg?: number
+  xl?: number
+  xxl?: number
+}
+
+const props = withDefaults(
+  defineProps<{
+    items: T[]
+    /** Vuetify 断点对应列数 */
+    breakpoints?: Breakpoints
+    /** 估算项高度（px），未提供 getItemHeight 时用这个 */
+    estimateItemHeight?: number
+    /** 从 item 计算实际高度（如已知图片宽高比） */
+    getItemHeight?: (item: T) => number | undefined
+    /** key 字段名（去重 + 复用 DOM） */
+    keyField?: keyof T
+    /** 列间距（px） */
+    gap?: number
+    /** 视口外预渲染像素（上下各 overscan px）*/
+    overscan?: number
+    /** 触底加载阈值（剩余项数）*/
+    loadMoreThreshold?: number
+  }>(),
+  {
+    breakpoints: () => ({ xs: 2, sm: 3, md: 4, lg: 5, xl: 6, xxl: 6 }),
+    estimateItemHeight: 300,
+    gap: 12,
+    overscan: 600,
+    loadMoreThreshold: 3,
+  },
+)
+
+const emit = defineEmits<{ loadMore: [] }>()
+
+const display = useDisplay()
+
+const cols = computed(() => {
+  const bp = props.breakpoints
+  if (display.xs.value) return bp.xs ?? 2
+  if (display.sm.value) return bp.sm ?? 3
+  if (display.md.value) return bp.md ?? 4
+  if (display.lg.value) return bp.lg ?? 5
+  if (display.xl.value) return bp.xl ?? 6
+  return bp.xxl ?? 6
+})
+
+interface LayoutItem {
+  item: T
+  key: string | number
+  top: number
+  leftPct: number
+  widthPct: number
+  height: number
+  col: number
+  index: number
+}
+
+const layout = computed<{ positions: LayoutItem[]; totalHeight: number }>(() => {
+  const n = cols.value
+  const colHeights = new Array<number>(n).fill(0)
+  const positions: LayoutItem[] = []
+  const widthPct = 100 / n
+  const gap = props.gap
+
+  for (let i = 0; i < props.items.length; i++) {
+    const item = props.items[i]
+    // 找最矮列
+    let c = 0
+    let minH = colHeights[0]
+    for (let j = 1; j < n; j++) {
+      if (colHeights[j] < minH) {
+        minH = colHeights[j]
+        c = j
+      }
+    }
+    const top = colHeights[c]
+    const h = props.getItemHeight?.(item) ?? props.estimateItemHeight
+    const key = props.keyField
+      ? ((item as Record<string, any>)[props.keyField as string] ?? i)
+      : i
+    positions.push({
+      item,
+      key,
+      top,
+      leftPct: c * widthPct,
+      widthPct,
+      height: h,
+      col: c,
+      index: i,
+    })
+    colHeights[c] = top + h + gap
+  }
+
+  const totalHeight = colHeights.reduce((m, v) => (v > m ? v : m), 0)
+  return { positions, totalHeight }
+})
+
+const scrollEl = ref<HTMLElement | null>(null)
+const scrollMargin = ref(0)
+const scrollY = ref(0)
+const viewportH = ref(typeof window !== 'undefined' ? window.innerHeight : 800)
+let rafId: number | null = null
+let resizeObserver: ResizeObserver | null = null
+
+function updateScrollMargin() {
+  if (!scrollEl.value || typeof window === 'undefined') {
+    scrollMargin.value = 0
+    return
+  }
+  scrollMargin.value = scrollEl.value.getBoundingClientRect().top + window.scrollY
+}
+
+function onScroll() {
+  if (rafId !== null) return
+  rafId = requestAnimationFrame(() => {
+    scrollY.value = window.scrollY
+    rafId = null
+  })
+}
+
+function onResize() {
+  viewportH.value = window.innerHeight
+  updateScrollMargin()
+}
+
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  scrollY.value = window.scrollY
+  updateScrollMargin()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onResize, { passive: true })
+  resizeObserver = new ResizeObserver(updateScrollMargin)
+  if (document.body) resizeObserver.observe(document.body)
+})
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('scroll', onScroll)
+    window.removeEventListener('resize', onResize)
+  }
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
+// 可视范围内的项（含 overscan）：
+// 本组件 Y 坐标系从 0（容器顶）开始；窗口里看到的容器顶 Y =
+// scrollY - scrollMargin（scrollMargin 是容器在文档里的偏移）。
+// 所以可视区间 [vTop, vBottom] 是容器内坐标。
+const visibleItems = computed(() => {
+  const vTop = scrollY.value - scrollMargin.value - props.overscan
+  const vBottom = scrollY.value - scrollMargin.value + viewportH.value + props.overscan
+  return layout.value.positions.filter(p => p.top + p.height >= vTop && p.top <= vBottom)
+})
+
+// loadMore sentinel — 与 VirtualGrid/VirtualList 同款锁：
+//   sentinel 在视口内 + items 自上次 fire 已增长 → fire
+//   sentinel 离开视口 → 解锁
+//   sentinel 持续 intersecting 时靠 watch(items.length) 兜底重新评估
+const loadMoreSentinel = ref<HTMLElement | null>(null)
+let isSentinelIntersecting = false
+let lastFireItemsLen = -1
+
+function tryFireLoadMore() {
+  if (!isSentinelIntersecting) return
+  if (lastFireItemsLen >= 0 && props.items.length === lastFireItemsLen) return
+  lastFireItemsLen = props.items.length
+  emit('loadMore')
+}
+
+useIntersectionObserver(
+  loadMoreSentinel,
+  ([entry]: IntersectionObserverEntry[]) => {
+    isSentinelIntersecting = entry.isIntersecting
+    if (isSentinelIntersecting) tryFireLoadMore()
+  },
+  { rootMargin: '200px', threshold: 0 },
+)
+
+watch(
+  () => props.items.length,
+  (len: number) => {
+    if (len === 0) {
+      lastFireItemsLen = -1
+      return
+    }
+    nextTick(() => tryFireLoadMore())
+  },
+)
+
+defineExpose({
+  getScrollElement: () => scrollEl.value,
+  getLayout: () => layout.value,
+  cols,
+})
+
+const gapStr = computed(() => `${props.gap}px`)
+</script>
+
+<template>
+  <div ref="scrollEl" style="position: relative; width: 100%">
+    <slot v-if="!items.length" name="empty" />
+
+    <!-- 撑出总高度，让滚动条反映真实长度 -->
+    <div :style="{ position: 'relative', height: `${layout.totalHeight}px`, width: '100%' }">
+      <div
+        v-for="p in visibleItems"
+        :key="String(p.key)"
+        :data-index="p.index"
+        :style="{
+          position: 'absolute',
+          top: `${p.top}px`,
+          left: `${p.leftPct}%`,
+          width: `${p.widthPct}%`,
+          height: `${p.height}px`,
+          paddingRight: p.col < cols - 1 ? gapStr : '0',
+          paddingBottom: gapStr,
+          boxSizing: 'border-box',
+          contain: 'layout style',
+        }"
+      >
+        <slot name="item" :item="p.item" :index="p.index" />
+      </div>
+    </div>
+
+    <div
+      v-if="items.length"
+      ref="loadMoreSentinel"
+      aria-hidden="true"
+      style="height: 1px; width: 100%"
+    />
+
+    <slot name="loading" />
+  </div>
+</template>
