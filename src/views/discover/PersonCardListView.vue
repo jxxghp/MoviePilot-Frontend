@@ -86,6 +86,7 @@ async function fetchData({ done }: { done: any }) {
           page.value++
           // 返回加载成功
           done('ok')
+          await nextTick()
         }
       }
     } else {

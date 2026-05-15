@@ -923,6 +923,11 @@ watch([dataList, installedFilter, hasUpdateFilter, enabledFilter], () => {
 function loadMarketMore({ done }: { done: any }) {
   // 从 dataList 中获取最前面的 20 个元素
   const itemsToMove = sortedUninstalledList.value.splice(0, 20)
+  if (itemsToMove.length === 0) {
+    done('empty')
+    return
+  }
+
   displayUninstalledList.value.push(...itemsToMove)
   done('ok')
 }
