@@ -202,12 +202,7 @@ onMounted(() => {
                     <dd class="flex text-sm sm:col-span-2 sm:mt-0">
                       <span class="flex-grow flex flex-row items-center truncate">
                         <code class="truncate">{{ appVersion }}</code>
-                        <VBtn
-                          size="x-small"
-                          variant="tonal"
-                          class="ms-2"
-                          @click="clearCache"
-                        >
+                        <VBtn size="x-small" variant="tonal" class="ms-2" @click="clearCache">
                           <template #prepend>
                             <VIcon icon="mdi-refresh" size="14" />
                           </template>
@@ -402,7 +397,7 @@ onMounted(() => {
         </div>
       </VCardText>
     </VCard>
-    <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
+    <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable max-height="85vh">
       <VCard>
         <VCardItem>
           <VDialogCloseBtn @click="releaseDialog = false" />
@@ -430,8 +425,8 @@ onMounted(() => {
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3) {
-  margin-block: 0.5rem;
   font-weight: 600;
+  margin-block: 0.5rem;
 }
 
 .markdown-body :deep(h1) {
@@ -448,8 +443,8 @@ onMounted(() => {
 
 .markdown-body :deep(ul),
 .markdown-body :deep(ol) {
-  padding-inline-start: 1.5rem;
   margin-block: 0.5rem;
+  padding-inline-start: 1.5rem;
 }
 
 .markdown-body :deep(li) {
@@ -470,18 +465,20 @@ onMounted(() => {
 }
 
 .markdown-body :deep(code) {
-  padding: 0.15rem 0.4rem;
   border-radius: 0.25rem;
+  background-color: rgba(127, 127, 127, 15%);
   font-size: 0.875em;
-  background-color: rgba(127, 127, 127, 0.15);
+  padding-block: 0.15rem;
+  padding-inline: 0.4rem;
 }
 
 .markdown-body :deep(pre) {
-  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  background-color: rgba(127, 127, 127, 15%);
   margin-block: 0.5rem;
   overflow-x: auto;
-  border-radius: 0.375rem;
-  background-color: rgba(127, 127, 127, 0.15);
+  padding-block: 0.75rem;
+  padding-inline: 1rem;
 }
 
 .markdown-body :deep(pre code) {
@@ -490,37 +487,38 @@ onMounted(() => {
 }
 
 .markdown-body :deep(blockquote) {
-  padding-inline-start: 1rem;
+  border-inline-start: 3px solid rgba(127, 127, 127, 40%);
+  color: rgba(127, 127, 127, 80%);
   margin-block: 0.5rem;
-  border-inline-start: 3px solid rgba(127, 127, 127, 0.4);
-  color: rgba(127, 127, 127, 0.8);
+  padding-inline-start: 1rem;
 }
 
 .markdown-body :deep(hr) {
-  margin-block: 1rem;
   border: none;
-  border-block-start: 1px solid rgba(127, 127, 127, 0.3);
+  border-block-start: 1px solid rgba(127, 127, 127, 30%);
+  margin-block: 1rem;
 }
 
 .markdown-body :deep(table) {
-  width: 100%;
-  margin-block: 0.5rem;
   border-collapse: collapse;
+  inline-size: 100%;
+  margin-block: 0.5rem;
 }
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  padding: 0.4rem 0.75rem;
-  border: 1px solid rgba(127, 127, 127, 0.3);
+  border: 1px solid rgba(127, 127, 127, 30%);
+  padding-block: 0.4rem;
+  padding-inline: 0.75rem;
 }
 
 .markdown-body :deep(th) {
+  background-color: rgba(127, 127, 127, 10%);
   font-weight: 600;
-  background-color: rgba(127, 127, 127, 0.1);
 }
 
 .markdown-body :deep(img) {
-  max-width: 100%;
-  height: auto;
+  block-size: auto;
+  max-inline-size: 100%;
 }
 </style>
