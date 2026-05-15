@@ -484,7 +484,10 @@ watch(
                   {{ props.plugin?.plugin_desc }}
                 </div>
               </div>
-              <div class="relative flex-shrink-0 self-center pb-3" :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }">
+              <div
+                class="relative flex-shrink-0 self-center pb-3"
+                :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
+              >
                 <VAvatar size="48">
                   <VImg
                     ref="imageRef"
@@ -527,7 +530,7 @@ watch(
               </span>
             </div>
             <div v-if="!props.sortable" class="absolute bottom-0 right-0">
-              <IconBtn>
+              <IconBtn @click.stop>
                 <VIcon icon="mdi-dots-vertical" />
                 <VMenu v-model="menuVisible" activator="parent" close-on-content-click>
                   <VList>
@@ -578,7 +581,7 @@ watch(
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
 
     <!-- 更新日志 -->
-    <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable :fullscreen="!display.mdAndUp.value">
+    <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable max-height="85vh">
       <VCard :title="t('plugin.updateHistoryTitle', { name: props.plugin?.plugin_name })">
         <VDialogCloseBtn @click="releaseDialog = false" />
         <VDivider />
@@ -596,13 +599,13 @@ watch(
     </VDialog>
 
     <!-- 实时日志弹窗 -->
-      <VDialog
-        v-if="loggingDialog"
-        v-model="loggingDialog"
-        scrollable
-        max-width="72rem"
-        :fullscreen="!display.mdAndUp.value"
-      >
+    <VDialog
+      v-if="loggingDialog"
+      v-model="loggingDialog"
+      scrollable
+      max-width="72rem"
+      :fullscreen="!display.mdAndUp.value"
+    >
       <VCard>
         <VDialogCloseBtn @click="loggingDialog = false" />
         <VCardItem>

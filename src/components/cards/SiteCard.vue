@@ -386,7 +386,7 @@ onMounted(() => {
         </VBtn>
 
         <!-- 更多选项按钮 -->
-        <VBtn icon variant="text" class="mt-auto" size="36">
+        <VBtn icon variant="text" class="mt-auto" size="36" @click.stop>
           <VIcon icon="mdi-dots-vertical" size="20" />
           <VMenu :activator="'parent'" :close-on-content-click="true" :location="'left'">
             <VList>

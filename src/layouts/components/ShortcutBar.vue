@@ -9,6 +9,7 @@ type MessageViewExpose = {
   pauseSSE?: () => void
   resumeSSE?: () => void
   refreshLatestMessages?: () => Promise<void> | void
+  forceScrollToEnd?: () => void
 }
 
 // 国际化
@@ -66,9 +67,6 @@ const user_message = ref('')
 
 // 发送按钮是否可用
 const sendButtonDisabled = ref(false)
-
-// 消息对话框引用
-const messageDialogRef = ref<any>(null)
 
 // 消息视图引用
 const messageViewRef = ref<MessageViewExpose | null>(null)
@@ -145,36 +143,9 @@ function openDialog(dialogRef: any) {
   dialogRef.value = true
 }
 
-// 打开消息弹窗并清除徽章
-async function openMessageDialog() {
+// 打开消息弹窗
+function openMessageDialog() {
   messageDialog.value = true
-  // 延迟清除徽章，确保对话框已经打开
-  setTimeout(async () => {
-    await clearAppBadge()
-  }, 500)
-  // 延迟滚动到底部，确保弹窗完全打开
-  setTimeout(() => {
-    forceScrollToEnd()
-  }, 600)
-  // 等待对话框打开后恢复SSE连接
-  nextTick(() => {
-    messageViewRef.value?.resumeSSE?.()
-  })
-}
-
-// 强制滚动到底部（用于发送消息后）
-function forceScrollToEnd() {
-  setTimeout(() => {
-    try {
-      // 查找消息弹窗的滚动容器
-      const cardText = document.querySelector('.v-dialog .v-card-text')
-      if (cardText) {
-        cardText.scrollTop = cardText.scrollHeight
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }, 500)
 }
 
 // 拼接全部日志url
@@ -196,7 +167,7 @@ async function sendMessage() {
 
     // 发送成功后主动同步最新一页消息，避免SSE短暂断流时界面停留在旧状态。
     // await messageViewRef.value?.refreshLatestMessages?.()
-    forceScrollToEnd() // 发送消息后强制滚动到底部
+    messageViewRef.value?.forceScrollToEnd?.()
   } catch (error) {
     console.error(error)
   } finally {
@@ -215,8 +186,20 @@ defineExpose({
 })
 
 // 监听消息对话框状态变化
-watch(messageDialog, newValue => {
-  if (!newValue && messageViewRef.value?.pauseSSE) {
+watch(messageDialog, async newValue => {
+  if (newValue) {
+    await nextTick()
+    messageViewRef.value?.resumeSSE?.()
+    messageViewRef.value?.forceScrollToEnd?.()
+
+    window.setTimeout(() => {
+      void clearAppBadge()
+    }, 500)
+
+    return
+  }
+
+  if (messageViewRef.value?.pauseSSE) {
     // 对话框关闭时暂停SSE连接
     messageViewRef.value.pauseSSE()
   }
@@ -471,7 +454,6 @@ onMounted(() => {
     max-width="50rem"
     scrollable
     :fullscreen="!display.mdAndUp.value"
-    ref="messageDialogRef"
   >
     <VCard>
       <VCardItem>

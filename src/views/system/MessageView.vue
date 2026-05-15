@@ -10,7 +10,7 @@ import { useBackgroundOptimization } from '@/composables/useBackgroundOptimizati
 const { t } = useI18n()
 const { useSSE } = useBackgroundOptimization()
 
-// 消息列表（按时间升序：旧 → 新，最新在底部）
+// 消息列表（按时间升序：旧 -> 新，最新在底部）
 const messages = ref<Message[]>([])
 
 // 已加载消息的签名集合，仅按秒级时间戳会误吞同一秒内的不同消息
@@ -27,13 +27,21 @@ const page = ref(1)
 // 存量消息最新时间
 const lastTime = ref('')
 
-// 反向加载阈值。首屏完成 + scrollToBottom 之后才打开 —— 否则
-// reverse sentinel 在 items 首次渲染时本就在视口内，会和 onMounted
-// 的"跳到底"竞速直接抢拉第 2 页，造成多拉一页。
+// 反向加载阈值。首屏完成 + forceScrollToEnd 之后才打开，否则
+// reverse sentinel 在 items 首次渲染时会和跳到底部竞速，多拉一页。
 const reverseThreshold = ref(0)
 
 // 虚拟列表实例引用：用于读取 scrollEl 做智能滚动
 const messageListRef = ref<any>(null)
+
+// 自动滚动状态
+const shouldAutoScroll = ref(true)
+const isSyncingScroll = ref(false)
+
+const MESSAGE_AUTO_SCROLL_THRESHOLD = 64
+
+let scrollTimer: number | undefined
+let scrollReleaseTimer: number | undefined
 
 // 获取消息时间
 function getMessageTime(message: Message) {
@@ -68,6 +76,84 @@ function updateLastTime(message: Message) {
   }
 }
 
+function getScrollContainer() {
+  const container =
+    messageListRef.value?.getScrollElement?.() ?? messageListRef.value?.$el ?? messageListRef.value
+
+  return container instanceof HTMLElement ? container : null
+}
+
+function isNearBottom(container: HTMLElement) {
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+
+  return distanceFromBottom <= Math.max(MESSAGE_AUTO_SCROLL_THRESHOLD, container.clientHeight / 3)
+}
+
+function updateAutoScrollState() {
+  const container = getScrollContainer()
+  if (!container || isSyncingScroll.value) {
+    return
+  }
+
+  shouldAutoScroll.value = isNearBottom(container)
+}
+
+function handleScroll() {
+  updateAutoScrollState()
+}
+
+function scrollContainerToEnd() {
+  const container = getScrollContainer()
+  if (!container) {
+    return
+  }
+
+  isSyncingScroll.value = true
+  container.scrollTop = container.scrollHeight
+
+  requestAnimationFrame(() => {
+    const latestContainer = getScrollContainer()
+    if (!latestContainer) {
+      isSyncingScroll.value = false
+      return
+    }
+
+    latestContainer.scrollTop = latestContainer.scrollHeight
+    shouldAutoScroll.value = true
+
+    if (scrollReleaseTimer) {
+      window.clearTimeout(scrollReleaseTimer)
+    }
+
+    scrollReleaseTimer = window.setTimeout(() => {
+      isSyncingScroll.value = false
+      updateAutoScrollState()
+    }, 80)
+  })
+}
+
+function requestScrollToEnd(force = false) {
+  if (!force && !shouldAutoScroll.value) {
+    return
+  }
+
+  if (scrollTimer) {
+    window.clearTimeout(scrollTimer)
+  }
+
+  scrollTimer = window.setTimeout(() => {
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        scrollContainerToEnd()
+      })
+    })
+  }, force ? 0 : 80)
+}
+
+function forceScrollToEnd() {
+  requestScrollToEnd(true)
+}
+
 function mergeMessages(items: Message[]) {
   let hasNewMessage = false
   for (const item of sortMessages(items)) {
@@ -82,12 +168,15 @@ function mergeMessages(items: Message[]) {
   return hasNewMessage
 }
 
-// SSE 新消息到达 → 智能跟随到底
+// SSE 新消息到达 -> 智能跟随到底
 function handleSSEMessage(event: MessageEvent) {
   const message = event.data
   if (!message) return
+
   const object = JSON.parse(message)
-  if (mergeMessages([object])) nextTick(smartScrollToEnd)
+  if (mergeMessages([object])) {
+    requestScrollToEnd()
+  }
 }
 
 // 使用优化的 SSE 连接
@@ -108,7 +197,12 @@ async function loadOlderMessages() {
     })) as Message[]
     isLoaded.value = true
     if (data.length > 0) {
-      mergeMessages(data)
+      const hasNewMessage = mergeMessages(data)
+
+      if (page.value === 1 && hasNewMessage) {
+        requestScrollToEnd(true)
+      }
+
       page.value++
     } else {
       hasMoreOlder.value = false
@@ -126,7 +220,10 @@ async function refreshLatestMessages() {
     const latestMessages = (await api.get('message/web', {
       params: { page: 1, size: 20 },
     })) as Message[]
-    if (mergeMessages(latestMessages)) nextTick(smartScrollToEnd)
+
+    if (mergeMessages(latestMessages)) {
+      requestScrollToEnd()
+    }
   } catch (error) {
     console.error('刷新最新消息失败:', error)
   }
@@ -149,33 +246,9 @@ function compareTime(time1: string, time2: string) {
   }
 }
 
-// 智能滚动到底：仅当用户已在底部 1/3 屏幕范围内时才跟随到底（chat 标准行为）。
-// setTimeout(0) 让 DOM 先把新消息布局完再读 scrollHeight。
-function smartScrollToEnd() {
-  setTimeout(() => {
-    try {
-      const el = messageListRef.value?.getScrollElement?.()
-      if (!el) return
-      const { scrollTop, scrollHeight, clientHeight } = el
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-      if (distanceFromBottom <= clientHeight / 3) {
-        el.scrollTop = el.scrollHeight
-      }
-    } catch (e) {
-      console.error('智能滚动失败:', e)
-    }
-  }, 0)
-}
-
-// 无条件滚动到底：用于首屏加载完成后跳到最新
-function scrollToBottom() {
-  const el = messageListRef.value?.getScrollElement?.()
-  if (el) el.scrollTop = el.scrollHeight
-}
-
-// 图片加载完成 → 智能跟随（图片把行撑高,需要重判距底距离）
+// 图片加载完成 -> 智能跟随（图片把行撑高，需要重判距底距离）
 function handleImageLoad() {
-  smartScrollToEnd()
+  requestScrollToEnd()
 }
 
 // 暂停/恢复 SSE
@@ -195,17 +268,26 @@ defineExpose({
   pauseSSE,
   resumeSSE,
   refreshLatestMessages,
-  smartScrollToEnd,
-  scrollToBottom,
+  forceScrollToEnd,
 })
 
 onMounted(async () => {
-  // 首屏：先拉最新一页 → 跳到底 → 再打开反向加载阈值
-  // 顺序很关键，详见 reverseThreshold 注释
   await loadOlderMessages()
   await nextTick()
-  scrollToBottom()
-  reverseThreshold.value = 1
+  scrollContainerToEnd()
+  requestAnimationFrame(() => {
+    reverseThreshold.value = 1
+  })
+})
+
+onBeforeUnmount(() => {
+  if (scrollTimer) {
+    window.clearTimeout(scrollTimer)
+  }
+
+  if (scrollReleaseTimer) {
+    window.clearTimeout(scrollReleaseTimer)
+  }
 })
 </script>
 
@@ -219,6 +301,7 @@ onMounted(async () => {
     container-height="100%"
     class="h-full overflow-auto"
     @load-more-reverse="loadOlderMessages"
+    @scroll="handleScroll"
   >
     <template #empty>
       <div class="d-flex justify-center align-center h-full text-medium-emphasis">

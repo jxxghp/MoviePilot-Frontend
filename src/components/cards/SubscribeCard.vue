@@ -372,7 +372,7 @@ function handleCardClick() {
             :ripple="!props.batchMode && !props.sortable"
           >
             <div v-if="!props.sortable" class="me-n3 absolute top-1 right-4">
-              <IconBtn>
+              <IconBtn @click.stop>
                 <VIcon icon="mdi-dots-vertical" color="white" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>

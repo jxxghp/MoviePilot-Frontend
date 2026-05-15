@@ -262,7 +262,7 @@ const dropdownItems = ref([
               </div>
             </div>
             <div class="absolute bottom-0 right-0">
-              <IconBtn>
+              <IconBtn @click.stop>
                 <VIcon size="small" icon="mdi-dots-vertical" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
@@ -283,7 +283,7 @@ const dropdownItems = ref([
     <!-- 安装插件进度框 -->
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
     <!-- 更新日志 -->
-    <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" scrollable>
+    <VDialog v-if="releaseDialog" v-model="releaseDialog" width="600" max-height="85vh" scrollable>
       <VCard :title="t('plugin.updateHistoryTitle', { name: props.plugin?.plugin_name })">
         <VDialogCloseBtn @click="releaseDialog = false" />
         <VDivider />
