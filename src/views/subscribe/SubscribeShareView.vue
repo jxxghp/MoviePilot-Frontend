@@ -4,6 +4,7 @@ import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -13,6 +14,10 @@ const { t } = useI18n()
 const props = defineProps({
   // 过滤关键字
   keyword: String,
+  active: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 判断是否有滚动条
@@ -39,6 +44,13 @@ const filterParams = reactive({
 
 // 当前Key（用于重新加载数据）
 const currentKey = ref(0)
+
+function resetData() {
+  dataList.value = []
+  page.value = 1
+  isRefreshed.value = false
+  currentKey.value++
+}
 
 // TMDB电影风格字典
 const tmdbMovieGenreDict: Record<string, string> = {
@@ -94,11 +106,7 @@ watch(
   () => props.keyword,
   newKeyword => {
     keyword.value = newKeyword || ''
-    // 重置页码和数据
-    page.value = 1
-    dataList.value = []
-    isRefreshed.value = false
-    currentKey.value++
+    resetData()
   },
 )
 
@@ -106,11 +114,7 @@ watch(
 watch(
   filterParams,
   () => {
-    // 重置数据
-    dataList.value = []
-    page.value = 1
-    isRefreshed.value = false
-    currentKey.value++
+    resetData()
   },
   { deep: true },
 )
@@ -124,6 +128,10 @@ const isRefreshed = ref(false)
 // 数据列表
 const dataList = ref<SubscribeShare[]>([])
 const currData = ref<SubscribeShare[]>([])
+
+useKeepAliveRefresh(resetData, {
+  active: computed(() => props.active),
+})
 
 // 拼装参数
 function getParams() {

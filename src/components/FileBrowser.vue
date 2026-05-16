@@ -31,6 +31,10 @@ const props = defineProps({
     type: Array as PropType<FileItem[]>,
     default: () => [],
   },
+  active: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 对外事件
@@ -308,6 +312,7 @@ function stopDrag() {
           :refreshpending="refreshPending"
           :sort="sort"
           :showTree="showDirTree"
+          :active="active"
           :style="{ flex: 1 }"
           @pathchanged="pathChanged"
           @loading="loadingChanged"

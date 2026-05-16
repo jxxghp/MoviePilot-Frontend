@@ -10,6 +10,7 @@ import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -36,6 +37,10 @@ const props = defineProps({
   sortMode: {
     type: Boolean,
     default: false,
+  },
+  active: {
+    type: Boolean,
+    default: true,
   },
 })
 
@@ -413,10 +418,8 @@ onUnmounted(() => {
   window.removeEventListener('toggle-batch-mode', toggleBatchMode)
 })
 
-onActivated(async () => {
-  if (!loading.value) {
-    fetchData()
-  }
+useKeepAliveRefresh(fetchData, {
+  active: computed(() => props.active),
 })
 
 defineExpose({

@@ -287,6 +287,7 @@ onMounted(() => {
               :keyword="subscribeFilter"
               :status-filter="subscribeStatusFilter ?? ''"
               :sort-mode="subscribeSortMode"
+              :active="activeTab === 'mysub'"
               @update:sort-mode="subscribeSortMode = $event"
             />
           </div>
@@ -295,14 +296,14 @@ onMounted(() => {
       <VWindowItem value="popular">
         <transition name="fade-slide" appear>
           <div>
-            <SubscribePopularView :type="subType" />
+            <SubscribePopularView :type="subType" :active="activeTab === 'popular'" />
           </div>
         </transition>
       </VWindowItem>
       <VWindowItem value="share">
         <transition name="fade-slide" appear>
           <div>
-            <SubscribeShareView :keyword="shareKeyword" />
+            <SubscribeShareView :keyword="shareKeyword" :active="activeTab === 'share'" />
           </div>
         </transition>
       </VWindowItem>

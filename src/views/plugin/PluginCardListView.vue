@@ -13,6 +13,7 @@ import PluginMixedSortCard from '@/components/cards/PluginMixedSortCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -360,6 +361,9 @@ const draggableFolderPlugins = ref<Plugin[]>([])
 
 // 是否正在拖拽排序中
 const isDraggingSortMode = ref(false)
+
+// 插件市场分页 key，重置后让 VInfiniteScroll 重新触发首屏加载。
+const marketInfiniteKey = ref(0)
 
 // 显示的文件夹列表（按排序显示）
 const displayedFolders = computed(() => {
@@ -749,10 +753,11 @@ async function fetchInstalledPlugins() {
     })
     // 排序
     sortPluginOrder()
-    loading.value = false
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -776,7 +781,6 @@ async function fetchUninstalledPlugins(force: boolean = false) {
         }
       }
     }
-    loading.value = false
     isRefreshed.value = true
     // 更新插件市场列表
     // 排除已安装且有更新的，上面的问题在于"本地存在未安装的旧版本插件且云端有更新时"不会在插件市场展示
@@ -788,6 +792,8 @@ async function fetchUninstalledPlugins(force: boolean = false) {
     isAppMarketLoaded.value = true
   } catch (error) {
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -804,6 +810,7 @@ async function getPluginStatistics() {
 async function refreshData() {
   await fetchInstalledPlugins()
   await fetchUninstalledPlugins()
+  marketInfiniteKey.value++
   getPluginStatistics()
   // 重新加载文件夹配置，确保分身插件能正确显示在文件夹中
   await loadPluginFolders()
@@ -877,11 +884,31 @@ async function refreshMarket() {
   try {
     await fetchUninstalledPlugins(true)
     getPluginStatistics()
+    marketInfiniteKey.value++
   } catch (error) {
     console.error(error)
   } finally {
     isMarketRefreshing.value = false
   }
+}
+
+async function refreshActiveTabData() {
+  if (sortMode.value || isDraggingSortMode.value) return
+
+  if (activeTab.value === 'market') {
+    isAppMarketLoaded.value = false
+    await fetchInstalledPlugins()
+    await fetchUninstalledPlugins()
+    getPluginStatistics()
+    marketInfiniteKey.value++
+    return
+  }
+
+  await fetchInstalledPlugins()
+  await fetchUninstalledPlugins()
+  getPluginStatistics()
+  // 文件夹配置可能在其它入口被插件操作改变，重新进入时同步一次。
+  await loadPluginFolders()
 }
 
 function parseLocalRepoPath(repoUrl: string | undefined) {
@@ -945,6 +972,14 @@ onMounted(async () => {
       plugin.page_open = true
     }
   }
+})
+
+const { refresh: refreshKeepAliveData } = useKeepAliveRefresh(refreshActiveTabData)
+
+watch(activeTab, (newTab, oldTab) => {
+  if (!oldTab || newTab === oldTab) return
+
+  refreshKeepAliveData()
 })
 
 function openPluginSearchDialog() {
@@ -1681,6 +1716,7 @@ function onDragStartPlugin(evt: any) {
               mode="intersect"
               side="end"
               :items="displayUninstalledList"
+              :key="marketInfiniteKey"
               @load="loadMarketMore"
               class="overflow-visible"
             >

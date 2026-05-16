@@ -4,6 +4,7 @@ import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -12,6 +13,10 @@ const { t } = useI18n()
 // 输入参数
 const props = defineProps({
   type: String,
+  active: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 判断是否有滚动条
@@ -46,6 +51,13 @@ const filterParams = reactive({
 
 // 当前Key（用于重新加载数据）
 const currentKey = ref(0)
+
+function resetData() {
+  dataList.value = []
+  page.value = 1
+  isRefreshed.value = false
+  currentKey.value++
+}
 
 // TMDB电影风格字典
 const tmdbMovieGenreDict: Record<string, string> = {
@@ -99,14 +111,14 @@ const currentGenreDict = computed(() => {
 watch(
   filterParams,
   () => {
-    // 重置数据
-    dataList.value = []
-    page.value = 1
-    isRefreshed.value = false
-    currentKey.value++
+    resetData()
   },
   { deep: true },
 )
+
+useKeepAliveRefresh(resetData, {
+  active: computed(() => props.active),
+})
 
 // 拼装参数
 function getParams() {

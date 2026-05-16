@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -43,6 +44,10 @@ const inProps = defineProps({
   },
   sort: String,
   showTree: Boolean,
+  active: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 // 对外事件
@@ -235,28 +240,33 @@ async function list_files() {
   const prevURI = takeURISnapshot();
   emit('loading', true)
 
-  // 参数
-  const url = inProps.endpoints?.list.url.replace(/{sort}/g, inProps.sort || 'name')
+  try {
+    // 参数
+    const url = inProps.endpoints?.list.url.replace(/{sort}/g, inProps.sort || 'name')
 
-  const config: AxiosRequestConfig<FileItem> = {
-    url,
-    method: inProps.endpoints?.list.method || 'get',
-    data: inProps.item,
+    const config: AxiosRequestConfig<FileItem> = {
+      url,
+      method: inProps.endpoints?.list.method || 'get',
+      data: inProps.item,
+    }
+
+    // 加载数据
+    const data = ((await inProps.axios.request<FileItem[], FileItem[]>(config))) ?? []
+    // 如果当前路径已经变化，则放弃此次加载结果
+    if (prevURI !== takeURISnapshot()) {
+      return
+    }
+    items.value = data
+    syncSelectedItems(data)
+
+    // 通知父组件文件列表更新
+    emit('items-updated', items.value)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    emit('loading', false)
+    loading.value = false
   }
-
-  // 加载数据
-  const data = ((await inProps.axios.request<FileItem[], FileItem[]>(config))) ?? []
-  // 如果当前路径已经变化，则放弃此次加载结果
-  if (prevURI !== takeURISnapshot()) {
-    return;
-  }
-  items.value = data
-  syncSelectedItems(data)
-  emit('loading', false)
-  loading.value = false
-
-  // 通知父组件文件列表更新
-  emit('items-updated', items.value)
 }
 
 // 删除项目
@@ -665,6 +675,10 @@ function stopLoadingProgress() {
 
 onMounted(() => {
   list_files()
+})
+
+useKeepAliveRefresh(list_files, {
+  active: computed(() => inProps.active),
 })
 
 onUnmounted(() => {
