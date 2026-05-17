@@ -3,11 +3,11 @@ import type { Message } from '@/api/types'
 import MessageCard from '@/components/cards/MessageCard.vue'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 国际化
 const { t } = useI18n()
-const { useSSE } = useBackgroundOptimization()
+const { useSSE } = useBackground()
 
 // 消息列表
 const messages = ref<Message[]>([])
@@ -201,7 +201,7 @@ function handleSSEMessage(event: MessageEvent) {
   }
 }
 
-// 使用优化的SSE连接
+// 使用SSE连接
 const { manager, isConnected } = useSSE(
   `${import.meta.env.VITE_API_BASE_URL}system/message?role=user`,
   handleSSEMessage,

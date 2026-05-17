@@ -3,11 +3,11 @@ import { useTheme } from 'vuetify'
 import { hexToRgb } from '@layouts/utils'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 国际化
 const { t } = useI18n()
-const { useDataRefresh } = useBackgroundOptimization()
+const { useDataRefresh } = useBackground()
 
 // 输入参数
 const props = defineProps({
@@ -122,7 +122,7 @@ async function loadCpuData() {
   }
 }
 
-// 使用优化的数据刷新定时器
+// 使用数据刷新定时器
 const { loading } = useDataRefresh(
   'analytics-cpu',
   loadCpuData,

@@ -5,7 +5,7 @@ import api from '@/api'
 import { FileItem, TransferQueue } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 import CryptoJS from 'crypto-js'
 
 type TransferTask = TransferQueue['tasks'][number]
@@ -20,7 +20,7 @@ interface MediaTaskGroup {
 
 // 多语言支持
 const { t } = useI18n()
-const { useProgressSSE } = useBackgroundOptimization()
+const { useProgressSSE } = useBackground()
 
 // 显示器宽度
 const display = useDisplay()

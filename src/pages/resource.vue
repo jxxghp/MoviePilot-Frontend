@@ -240,6 +240,8 @@ const progressEnabled = ref(false)
 // 进度是否激活
 const progressActive = ref(false)
 
+let progressResetTimer: ReturnType<typeof setTimeout> | null = null
+
 // 是否显示搜索进度
 const isSearchProgressVisible = computed(
   () => progressActive.value || (!isRefreshed.value && (progressEnabled.value || progressValue.value > 0)),
@@ -268,10 +270,12 @@ const errorTitle = ref(t('resource.noData'))
 const errorDescription = ref(t('resource.noResourceFound'))
 
 let searchEventSource: EventSource | null = null
+let searchStreamIdleTimer: ReturnType<typeof setTimeout> | null = null
 
 const streamPreviewLimit = 24
 const streamUiFlushDelay = 1000
 const streamPreviewBufferLimit = streamPreviewLimit * 4
+const searchStreamIdleTimeout = 90_000
 
 const streamTotalCount = ref(0)
 const streamPreviewDataList = ref<Array<Context>>([])
@@ -343,6 +347,7 @@ const watchProgressValue = watch(
 
 // 使用SSE监听加载进度
 function startLoadingProgress() {
+  clearProgressResetTimer()
   watchProgressValue.resume()
   progressText.value = t('resource.searching')
   progressValue.value = 0
@@ -357,17 +362,40 @@ function stopLoadingProgress() {
 
   // 确保进度显示100%，然后再渐进清零
   progressValue.value = 100
-  setTimeout(() => {
+  clearProgressResetTimer()
+  progressResetTimer = setTimeout(() => {
+    progressResetTimer = null
     progressValue.value = 0
     progressEnabled.value = false
   }, 1500)
 }
 
+function clearProgressResetTimer() {
+  if (progressResetTimer) {
+    clearTimeout(progressResetTimer)
+    progressResetTimer = null
+  }
+}
+
 // 关闭SSE连接
-function closeSearchEventSource() {
+function closeSearchEventSource(source?: EventSource) {
+  if (source && searchEventSource !== source) {
+    source.close()
+    return
+  }
+
   if (searchEventSource) {
     searchEventSource.close()
     searchEventSource = null
+  }
+
+  clearSearchStreamIdleTimer()
+}
+
+function clearSearchStreamIdleTimer() {
+  if (searchStreamIdleTimer) {
+    clearTimeout(searchStreamIdleTimer)
+    searchStreamIdleTimer = null
   }
 }
 
@@ -607,36 +635,48 @@ function searchByStream(params: SearchParams, requestToken?: string) {
     const source = new EventSource(buildSearchStreamUrl(params, requestToken))
     searchEventSource = source
 
+    const settleSearchStream = (callback: () => void) => {
+      if (settled) return
+
+      settled = true
+      closeSearchEventSource(source)
+      callback()
+    }
+
+    const resetIdleTimeout = () => {
+      clearSearchStreamIdleTimer()
+      searchStreamIdleTimer = setTimeout(() => {
+        settleSearchStream(() => reject(new Error(t('resource.noResourceFound'))))
+      }, searchStreamIdleTimeout)
+    }
+
+    resetIdleTimeout()
+
     source.onmessage = event => {
+      if (source !== searchEventSource || settled) return
+
       try {
+        resetIdleTimeout()
         const eventData = JSON.parse(event.data)
         handleSearchStreamMessage(eventData)
 
         if (eventData.type === 'error') {
-          settled = true
-          closeSearchEventSource()
-          resolve()
+          settleSearchStream(resolve)
           return
         }
 
         if (eventData.type === 'done') {
-          settled = true
-          closeSearchEventSource()
-          resolve()
+          settleSearchStream(resolve)
         }
       } catch (error) {
-        settled = true
-        closeSearchEventSource()
-        reject(error)
+        settleSearchStream(() => reject(error))
       }
     }
 
     source.onerror = () => {
-      if (settled) return
+      if (source !== searchEventSource || settled) return
 
-      settled = true
-      closeSearchEventSource()
-      reject(new Error(t('resource.noResourceFound')))
+      settleSearchStream(() => reject(new Error(t('resource.noResourceFound'))))
     }
   })
 }
@@ -1011,6 +1051,7 @@ onMounted(async () => {
 onUnmounted(() => {
   closeSearchEventSource()
   stopLoadingProgress()
+  clearProgressResetTimer()
   stopAiRecommendPolling()
   clearStreamPreviewState()
 })

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useDisplay } from 'vuetify'
 
@@ -46,7 +46,7 @@ const props = defineProps<{
 const { t } = useI18n()
 const theme = useTheme()
 const display = useDisplay()
-const { useSSE } = useBackgroundOptimization()
+const { useSSE } = useBackground()
 
 const DEFAULT_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 const MAX_LOG_LINES = 600

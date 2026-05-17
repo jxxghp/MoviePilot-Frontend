@@ -3,11 +3,11 @@ import { formatSeconds } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Process } from '@/api/types'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 国际化
 const { t } = useI18n()
-const { useDataRefresh } = useBackgroundOptimization()
+const { useDataRefresh } = useBackground()
 
 // 表头
 const headers = [
@@ -31,7 +31,7 @@ async function loadProcessList() {
   }
 }
 
-// 使用优化的数据刷新定时器
+// 使用数据刷新定时器
 useDataRefresh(
   'dashboard-processes',
   loadProcessList,

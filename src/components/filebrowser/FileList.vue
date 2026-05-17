@@ -11,14 +11,14 @@ import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useDisplay } from 'vuetify'
 import MediaInfoDialog from '../dialog/MediaInfoDialog.vue'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
-const { useProgressSSE } = useBackgroundOptimization()
+const { useProgressSSE } = useBackground()
 
 // 显示器宽度
 const display = useDisplay()
@@ -652,7 +652,7 @@ function handleProgressMessage(event: MessageEvent) {
   }
 }
 
-// 使用优化的进度SSE连接
+// 使用进度SSE连接
 const progressSSE = useProgressSSE(
   `${import.meta.env.VITE_API_BASE_URL}system/progress/batchrename`,
   handleProgressMessage,

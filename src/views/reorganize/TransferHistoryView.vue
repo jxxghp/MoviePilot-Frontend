@@ -14,7 +14,7 @@ import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore } from '@/stores'
 
 // i18n
@@ -27,7 +27,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
-const { useProgressSSE } = useBackgroundOptimization()
+const { useProgressSSE } = useBackground()
 
 // 计算列表可用高度
 // componentOffset = VCardItem搜索栏(68) + VDivider(1) + 分页栏(40) + VCard边距(2) = 111

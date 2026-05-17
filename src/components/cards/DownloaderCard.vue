@@ -9,14 +9,14 @@ import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 import { downloaderDict, storageAttributes } from '@/api/constants'
 import { useDisplay } from 'vuetify'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 显示器宽度
 const display = useDisplay()
 
 // 获取i18n实例
 const { t } = useI18n()
-const { useConditionalDataRefresh } = useBackgroundOptimization()
+const { useConditionalDataRefresh } = useBackground()
 
 // 定义输入
 const props = defineProps({

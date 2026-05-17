@@ -2,10 +2,10 @@
 import { formatDateDifference } from '@core/utils/formatters'
 import { SystemNotification } from '@/api/types'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 const { t } = useI18n()
-const { useDelayedSSE } = useBackgroundOptimization()
+const { useDelayedSSE } = useBackground()
 
 // 是否有新消息
 const hasNewMessage = ref(false)
@@ -39,7 +39,7 @@ function handleMessage(event: MessageEvent) {
   }
 }
 
-// 使用优化的SSE连接，延迟3秒启动，避免认证问题
+// 延迟3秒启动SSE连接，避免认证信息尚未准备好。
 useDelayedSSE(
   `${import.meta.env.VITE_API_BASE_URL}system/message`,
   handleMessage,

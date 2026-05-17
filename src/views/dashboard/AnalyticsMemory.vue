@@ -4,11 +4,11 @@ import { hexToRgb } from '@layouts/utils'
 import api from '@/api'
 import { formatBytes } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 国际化
 const { t } = useI18n()
-const { useDataRefresh } = useBackgroundOptimization()
+const { useDataRefresh } = useBackground()
 
 // 输入参数
 const props = defineProps({
@@ -127,7 +127,7 @@ async function loadMemoryData() {
   }
 }
 
-// 使用优化的数据刷新定时器
+// 使用数据刷新定时器
 const { loading } = useDataRefresh(
   'analytics-memory',
   loadMemoryData,

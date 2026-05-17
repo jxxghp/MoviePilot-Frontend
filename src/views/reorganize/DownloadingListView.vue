@@ -7,11 +7,11 @@ import DownloadingCard from '@/components/cards/DownloadingCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 国际化
 const { t } = useI18n()
-const { useDataRefresh } = useBackgroundOptimization()
+const { useDataRefresh } = useBackground()
 
 // 定义输入参数
 const props = defineProps<{
@@ -56,7 +56,7 @@ const filteredDataList = computed(() => {
   else return dataList.value.filter(data => data.userid === userName || data.username === userName)
 })
 
-// 使用优化的数据刷新定时器
+// 使用数据刷新定时器
 const { loading: dataLoading } = useDataRefresh(
   'downloading-list',
   fetchData,

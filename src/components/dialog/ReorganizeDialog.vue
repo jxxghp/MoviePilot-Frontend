@@ -14,7 +14,7 @@ import {
   TransferDirectoryConf,
   TransferForm,
 } from '@/api/types'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
@@ -24,7 +24,7 @@ import { useGlobalSettingsStore } from '@/stores'
 
 // 国际化
 const { t } = useI18n()
-const { useProgressSSE } = useBackgroundOptimization()
+const { useProgressSSE } = useBackground()
 
 // 显示器宽度
 const display = useDisplay()

@@ -3,11 +3,11 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { ScheduleInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
-import { useBackgroundOptimization } from '@/composables/useBackgroundOptimization'
+import { useBackground } from '@/composables/useBackground'
 
 // 国际化
 const { t } = useI18n()
-const { useDataRefresh } = useBackgroundOptimization()
+const { useDataRefresh } = useBackground()
 
 // 提示框
 const $toast = useToast()
@@ -59,7 +59,7 @@ function runCommand(id: string) {
   }
 }
 
-// 使用优化的数据刷新定时器
+// 使用数据刷新定时器
 useDataRefresh(
   'scheduler-list',
   loadSchedulerList,
