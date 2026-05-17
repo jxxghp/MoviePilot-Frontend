@@ -1139,95 +1139,100 @@ onUnmounted(() => {
       </div>
     </VFadeTransition>
 
-    <!-- 精简标题栏：搜索过后保持挂载，加载中由按钮 :disabled / :loading 表达状态 -->
-    <VCard v-if="isRefreshed" class="search-header d-flex align-center mb-3">
-      <div class="search-info-container">
-        <div class="search-title text-moviepilot">
-          <span class="d-none d-sm-inline">{{ t('resource.searchResults') }}</span>
-          <span class="d-inline d-sm-none">{{ t('navItems.searchResult') }}</span>
-        </div>
-        <div v-if="hasSearchTags" class="search-tags d-flex flex-wrap mt-1">
-          <VChip v-if="keyword" class="search-tag" color="primary" size="small" variant="flat">
-            {{ t('resource.keyword') }}: {{ keyword }}
-          </VChip>
-          <VChip v-if="title" class="search-tag" color="primary" size="small" variant="flat">
-            {{ t('resource.title') }}: {{ title }}
-          </VChip>
-          <VChip v-if="year" class="search-tag" color="primary" size="small" variant="flat">
-            {{ t('resource.year') }}: {{ year }}
-          </VChip>
-          <VChip v-if="season" class="search-tag" color="primary" size="small" variant="flat">
-            {{ t('resource.season') }}: {{ season }}
-          </VChip>
-        </div>
-      </div>
+    <!-- 结果抬头：只承载搜索上下文和快捷动作，筛选控制交给下方工具条。 -->
+    <VCard v-if="isRefreshed" class="search-header result-toolbar mb-2" elevation="0">
+      <div class="result-toolbar__content">
+        <VAvatar class="result-toolbar__icon" rounded="lg" size="42">
+          <VIcon icon="mdi-movie-search" size="24" />
+        </VAvatar>
 
-      <VSpacer />
-
-      <!-- 重新搜索按钮 -->
-      <VBtn
-        variant="text"
-        size="small"
-        icon
-        class="me-2 refresh-search-btn"
-        :loading="isRefreshing"
-        :disabled="isRefreshing || progressActive"
-        @click="refreshSearch"
-      >
-        <VIcon icon="mdi-refresh" size="20" />
-        <VTooltip activator="parent" location="top">
-          {{ t('resource.refreshSearch') }}
-        </VTooltip>
-      </VBtn>
-
-      <!-- AI操作按钮组 -->
-      <div v-if="aiRecommendEnabled && originalDataList.length > 0" class="ai-toggle-container me-2">
-        <div class="ai-toggle-buttons">
-          <VBtn
-            variant="text"
-            size="small"
-            rounded="0"
-            @click="toggleAiRecommend"
-            :disabled="isRecommending || !aiStatusChecked"
-            height="44"
-            class="ps-4 pe-3 ai-recommend-btn"
-            :class="{ 'ai-active': showingAiResults }"
-          >
-            <template #prepend>
-              <VIcon icon="lucide:sparkles" size="18" class="ai-icon" :class="{ 'ai-icon-active': showingAiResults }" />
-            </template>
-            <span class="ai-text" :class="{ 'ai-text-active': showingAiResults }">
-              {{ t('resource.aiRecommend') }}
-            </span>
-          </VBtn>
-
-          <VExpandXTransition>
-            <div v-if="aiRecommended || isRecommending" class="d-flex align-center">
-              <div class="ai-divider" :style="{ opacity: showingAiResults ? 0 : 1 }"></div>
-              <VBtn
-                variant="text"
-                size="small"
-                rounded="0"
-                :disabled="isRecommending || !aiStatusChecked"
-                @click="reRecommend"
-                height="44"
-                min-width="38"
-                class="px-0"
-              >
-                <VIcon
-                  :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'"
-                  size="18"
-                  class="ai-refresh-icon"
-                />
-                <VTooltip activator="parent" location="top">
-                  {{ t('resource.reRecommend') }}
-                </VTooltip>
-              </VBtn>
-            </div>
-          </VExpandXTransition>
+        <div class="search-info-container">
+          <div class="search-title text-moviepilot">
+            <span class="d-none d-sm-inline">{{ t('resource.searchResults') }}</span>
+            <span class="d-inline d-sm-none">{{ t('navItems.searchResult') }}</span>
+          </div>
+          <div v-if="hasSearchTags" class="search-tags d-flex flex-wrap mt-1">
+            <VChip v-if="keyword" class="search-tag" color="primary" size="small" variant="tonal">
+              {{ t('resource.keyword') }}: {{ keyword }}
+            </VChip>
+            <VChip v-if="title" class="search-tag" color="primary" size="small" variant="tonal">
+              {{ t('resource.title') }}: {{ title }}
+            </VChip>
+            <VChip v-if="year" class="search-tag" color="primary" size="small" variant="tonal">
+              {{ t('resource.year') }}: {{ year }}
+            </VChip>
+            <VChip v-if="season" class="search-tag" color="primary" size="small" variant="tonal">
+              {{ t('resource.season') }}: {{ season }}
+            </VChip>
+          </div>
         </div>
       </div>
 
+      <div class="result-toolbar__actions">
+        <!-- 重新搜索按钮 -->
+        <VBtn
+          variant="text"
+          size="small"
+          icon
+          class="refresh-search-btn"
+          :loading="isRefreshing"
+          :disabled="isRefreshing || progressActive"
+          @click="refreshSearch"
+        >
+          <VIcon icon="mdi-refresh" size="20" />
+          <VTooltip activator="parent" location="top">
+            {{ t('resource.refreshSearch') }}
+          </VTooltip>
+        </VBtn>
+
+        <!-- AI操作按钮组 -->
+        <div v-if="aiRecommendEnabled && originalDataList.length > 0" class="ai-toggle-container">
+          <div class="ai-toggle-buttons">
+            <VBtn
+              variant="text"
+              size="small"
+              rounded="0"
+              @click="toggleAiRecommend"
+              :disabled="isRecommending || !aiStatusChecked"
+              height="44"
+              class="ps-4 pe-3 ai-recommend-btn"
+              :class="{ 'ai-active': showingAiResults }"
+            >
+              <template #prepend>
+                <VIcon icon="lucide:sparkles" size="18" class="ai-icon" :class="{ 'ai-icon-active': showingAiResults }" />
+              </template>
+              <span class="ai-text" :class="{ 'ai-text-active': showingAiResults }">
+                {{ t('resource.aiRecommend') }}
+              </span>
+            </VBtn>
+
+            <VExpandXTransition>
+              <div v-if="aiRecommended || isRecommending" class="d-flex align-center">
+                <div class="ai-divider" :style="{ opacity: showingAiResults ? 0 : 1 }"></div>
+                <VBtn
+                  variant="text"
+                  size="small"
+                  rounded="0"
+                  :disabled="isRecommending || !aiStatusChecked"
+                  @click="reRecommend"
+                  height="44"
+                  min-width="38"
+                  class="px-0"
+                >
+                  <VIcon
+                    :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'"
+                    size="18"
+                    class="ai-refresh-icon"
+                  />
+                  <VTooltip activator="parent" location="top">
+                    {{ t('resource.reRecommend') }}
+                  </VTooltip>
+                </VBtn>
+              </div>
+            </VExpandXTransition>
+          </div>
+        </div>
+      </div>
     </VCard>
 
     <!-- 搜索结果 -->
@@ -1459,27 +1464,64 @@ onUnmounted(() => {
   }
 }
 
-/* 精简标题栏样式 */
+/* 结果抬头样式 */
 .search-header {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  padding-block: 8px;
-  padding-inline: 12px;
+  border: 1px solid rgba(var(--v-theme-primary), 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-surface), 0) 44%),
+    rgb(var(--v-theme-surface));
 }
 
-.search-info-container {
+.result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-block: 12px;
+  padding-inline: 14px;
+}
+
+.result-toolbar__content {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
   gap: 12px;
+  min-inline-size: 0;
 }
 
-.search-title {
-  font-size: 1.2rem;
-  font-weight: 600;
+.result-toolbar__icon {
+  flex: 0 0 auto;
+  background: rgba(var(--v-theme-primary), 0.12);
+  color: rgb(var(--v-theme-primary));
 }
 
-.search-tags {
+.result-toolbar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
   gap: 8px;
 }
 
+.search-info-container {
+  min-inline-size: 0;
+}
+
+.search-title {
+  overflow: hidden;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-tags {
+  gap: 6px;
+}
+
 .search-tag {
+  max-inline-size: min(100%, 220px);
   font-size: 0.75rem;
 }
 
@@ -1592,12 +1634,31 @@ onUnmounted(() => {
 
 @media (width <= 600px) {
   .search-header {
-    padding-block: 6px;
-    padding-inline: 12px;
+    border-radius: 8px;
+  }
+
+  .result-toolbar {
+    align-items: flex-start;
+    gap: 10px;
+    padding-block: 10px;
+    padding-inline: 10px;
+  }
+
+  .result-toolbar__content {
+    gap: 10px;
+  }
+
+  .result-toolbar__icon {
+    block-size: 36px !important;
+    inline-size: 36px !important;
+  }
+
+  .result-toolbar__actions {
+    gap: 6px;
   }
 
   .search-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     white-space: nowrap;
   }
 

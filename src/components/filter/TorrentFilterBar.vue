@@ -218,7 +218,7 @@ onMounted(() => {
 <template>
   <!-- PC端头部和筛选栏 -->
   <div class="search-header d-none d-sm-block">
-    <VCard class="view-header mb-3">
+    <VCard class="view-header filter-toolbar-card mb-3" elevation="0">
       <div class="d-flex align-center pa-3">
         <!-- 固定位置：资源数量和排序 -->
         <div class="d-flex align-center flex-shrink-0">
@@ -405,7 +405,7 @@ onMounted(() => {
   </div>
 
   <!-- 移动端头部和筛选区域 -->
-  <VCard class="d-block d-sm-none search-header-mobile mb-3">
+  <VCard class="d-block d-sm-none search-header-mobile filter-toolbar-card mb-3" elevation="0">
     <div class="view-header">
       <div class="d-flex align-center flex-wrap pa-2">
         <div class="d-flex align-center w-100">
@@ -664,6 +664,13 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.filter-toolbar-card {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.82);
+}
+
 .search-count {
   font-weight: 500;
 }
@@ -695,7 +702,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
   flex: 1;
   width: 0;
@@ -722,6 +729,7 @@ onMounted(() => {
 
 .filter-btn {
   min-inline-size: 0;
+  background: rgba(var(--v-theme-surface-variant), 0.1);
   transition: opacity 0.2s;
 }
 
@@ -770,8 +778,9 @@ onMounted(() => {
 
 .selected-filters {
   overflow: hidden;
-  background-color: rgba(var(--v-theme-surface-variant), 0.08);
-  padding-block: 8px;
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  background-color: rgba(var(--v-theme-surface-variant), 0.05);
+  padding-block: 7px;
   padding-inline: 12px;
 }
 
@@ -788,7 +797,7 @@ onMounted(() => {
   justify-content: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface), 0.5);
+  background-color: rgba(var(--v-theme-surface-variant), 0.08);
   block-size: auto;
   min-block-size: 48px;
   padding-block: 4px;
@@ -813,5 +822,22 @@ onMounted(() => {
 
 .filter-section {
   background-color: rgba(var(--v-theme-surface-variant), 0.08);
+}
+
+@media (width <= 600px) {
+  .filter-toolbar-card {
+    border-radius: 8px;
+  }
+
+  .filter-buttons-grid {
+    gap: 6px;
+  }
+
+  .filter-label {
+    overflow: hidden;
+    max-inline-size: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 </style>
