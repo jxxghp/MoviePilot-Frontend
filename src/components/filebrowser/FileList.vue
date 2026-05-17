@@ -14,7 +14,7 @@ import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
-import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
+import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -234,11 +234,15 @@ function changeSelectMode() {
 }
 
 // 调API加载文件夹内的内容
-async function list_files() {
-  loading.value = true
-  const takeURISnapshot = () => [inProps.item.storage, inProps.item.path].join(':/');
-  const prevURI = takeURISnapshot();
-  emit('loading', true)
+async function list_files(context: KeepAliveRefreshContext = {}) {
+  const silentRefresh = Boolean(context.silent && items.value.length > 0)
+  const takeURISnapshot = () => [inProps.item.storage, inProps.item.path].join(':/')
+  const prevURI = takeURISnapshot()
+
+  if (!silentRefresh) {
+    loading.value = true
+    emit('loading', true)
+  }
 
   try {
     // 参数
@@ -264,8 +268,10 @@ async function list_files() {
   } catch (error) {
     console.error(error)
   } finally {
-    emit('loading', false)
-    loading.value = false
+    if (!silentRefresh) {
+      emit('loading', false)
+      loading.value = false
+    }
   }
 }
 
@@ -672,10 +678,6 @@ function stopLoadingProgress() {
   progressActive.value = false
   progressSSE.stop()
 }
-
-onMounted(() => {
-  list_files()
-})
 
 useKeepAliveRefresh(list_files, {
   active: computed(() => inProps.active),

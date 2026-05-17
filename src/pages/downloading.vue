@@ -5,6 +5,7 @@ import DownloadingListView from '@/views/reorganize/DownloadingListView.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -52,7 +53,7 @@ onMounted(async () => {
   registerTabs()
 })
 
-onActivated(async () => {
+useKeepAliveRefresh(async () => {
   await loadDownloaderSetting()
   registerTabs()
 })

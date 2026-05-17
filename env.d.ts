@@ -4,8 +4,13 @@ declare module 'vue-router' {
   interface RouteMeta {
     action?: string
     subject?: string
+    keepAlive?: boolean
+    keepAliveKey?: string
     layoutWrapperClasses?: string
     navActiveLink?: RouteLocationRaw
+    requiresAuth?: boolean
+    subType?: string
+    hideFooter?: boolean
   }
 }
 

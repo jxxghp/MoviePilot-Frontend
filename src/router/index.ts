@@ -48,6 +48,7 @@ const router = createRouter({
           path: '/resource',
           component: () => import('../pages/resource.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
@@ -56,6 +57,7 @@ const router = createRouter({
           component: () => import('../pages/subscribe.vue'),
           meta: {
             keepAlive: true,
+            keepAliveKey: 'subscribe-movie',
             requiresAuth: true,
             subType: '电影',
           },
@@ -65,6 +67,7 @@ const router = createRouter({
           component: () => import('../pages/subscribe.vue'),
           meta: {
             keepAlive: true,
+            keepAliveKey: 'subscribe-tv',
             requiresAuth: true,
             subType: '电视剧',
           },

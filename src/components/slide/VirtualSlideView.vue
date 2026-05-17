@@ -60,6 +60,15 @@ const trailingSpaceWidth = computed(() => {
   return Math.max(totalContentWidth.value - leadingSpaceWidth.value - visibleItemsWidth.value, 0)
 })
 
+function getFallbackViewportWidth() {
+  if (typeof window === 'undefined') {
+    return itemStep.value * Math.max(props.overscanItems, 1)
+  }
+
+  // keep-alive 激活的首帧偶尔测不到容器宽度，先按视口宽度渲染一屏，避免右侧短暂空白。
+  return Math.max(window.innerWidth, itemStep.value * Math.max(props.overscanItems, 1))
+}
+
 function resolveItemKey(item: any, index: number) {
   if (props.getItemKey) {
     return props.getItemKey(item, startIndex.value + index)
@@ -87,7 +96,7 @@ function updateVisibleRange() {
     return
   }
 
-  const viewportWidth = element.clientWidth
+  const viewportWidth = element.clientWidth || getFallbackViewportWidth()
   if (!viewportWidth || !props.items.length) {
     startIndex.value = 0
     endIndex.value = Math.min(props.items.length, props.overscanItems)
@@ -185,6 +194,7 @@ onActivated(() => {
   }
 
   nextTick(syncLayoutState)
+  requestAnimationFrame(syncLayoutState)
 })
 
 watch(

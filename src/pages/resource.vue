@@ -14,6 +14,7 @@ import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilt
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -611,6 +612,13 @@ function handleSearchStreamMessage(eventData: { [key: string]: any }) {
 
 // 按请求搜索
 async function searchByRequest(params: SearchParams, requestToken?: string) {
+  const items = await requestSearchResults(params, requestToken)
+  streamTotalCount.value = items.length
+  setStreamResults(items)
+}
+
+// 静默刷新使用普通请求，保留当前结果直到新数据完整返回，避免返回页面时露出搜索进度态。
+async function requestSearchResults(params: SearchParams, requestToken?: string) {
   let result: { [key: string]: any }
   // 如果keyword的格式是 xxxx:xxxxx 且:前面的xxxx为字符，则按照媒体ID格式搜索
   if (/^[a-zA-Z]+:/.test(params.keyword)) {
@@ -637,13 +645,11 @@ async function searchByRequest(params: SearchParams, requestToken?: string) {
   }
 
   if (result && result.success) {
-    streamTotalCount.value = result.data?.length || 0
-    setStreamResults(result.data || [])
-  } else {
-    errorDescription.value = result?.message || t('resource.noResourceFound')
-    streamTotalCount.value = 0
-    setStreamResults([])
+    return (result.data || []) as Context[]
   }
+
+  errorDescription.value = result?.message || t('resource.noResourceFound')
+  throw new Error(errorDescription.value)
 }
 
 // 按流搜索
@@ -714,13 +720,14 @@ function changeViewType(newType: string) {
 }
 
 // 获取搜索列表数据
-async function fetchData(options: { force?: boolean; params?: SearchParams } = {}) {
+async function fetchData(options: { force?: boolean; params?: SearchParams; silent?: boolean } = {}) {
   const currentSearchParams = { ...(options.params ?? activeSearchParams.value) }
   if (hasSearchKeyword(currentSearchParams)) {
     activeSearchParams.value = { ...currentSearchParams }
     rememberSearchParams(currentSearchParams)
   }
   const requestToken = options.force || Boolean(currentSearchParams.keyword) ? createSearchRequestToken() : undefined
+  const silentRefresh = Boolean(options.silent && isRefreshed.value && rawDataList.value.length > 0)
 
   try {
     enableFilterAnimation.value = true
@@ -728,6 +735,11 @@ async function fetchData(options: { force?: boolean; params?: SearchParams } = {
       // 查询上次搜索结果，并同步可重放的搜索参数
       const results = await fetchLastSearchContext()
       setStreamResults(results || [])
+    } else if (silentRefresh) {
+      // keep-alive 重新进入时后台刷新，旧结果继续显示，等新结果完整返回后一次性替换。
+      const results = await requestSearchResults(currentSearchParams, requestToken)
+      streamTotalCount.value = results.length
+      setStreamResults(results)
     } else {
       resetSearchResults()
       startLoadingProgress()
@@ -1065,6 +1077,15 @@ watch(
 // 加载数据
 onMounted(async () => {
   void fetchData()
+})
+
+useKeepAliveRefresh(async () => {
+  if (progressActive.value || isRefreshing.value || isRecommending.value || showingAiResults.value) return
+
+  const refreshParams = await resolveRefreshSearchParams()
+  if (!refreshParams) return
+
+  await fetchData({ force: true, params: refreshParams, silent: true })
 })
 
 // 卸载时停止轮询

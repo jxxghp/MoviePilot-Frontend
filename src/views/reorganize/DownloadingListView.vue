@@ -8,7 +8,7 @@ import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
-import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
+import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -30,7 +30,7 @@ const dataList = ref<DownloadingInfo[]>([])
 const isRefreshed = ref(false)
 
 // 获取订阅列表数据
-async function fetchData() {
+async function fetchData(_context: KeepAliveRefreshContext = {}) {
   try {
     dataList.value = await api.get('download/', { params: { name: props.name } })
     isRefreshed.value = true
@@ -45,8 +45,9 @@ const loading = ref(false)
 // 下拉刷新
 function onRefresh() {
   loading.value = true
-  fetchData()
-  loading.value = false
+  void fetchData().finally(() => {
+    loading.value = false
+  })
 }
 
 // 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
@@ -63,8 +64,10 @@ const { loading: dataLoading } = useDataRefresh(
   'downloading-list',
   fetchData,
   3000, // 3秒间隔
-  true // 立即执行
+  false // 初始加载交给 keep-alive 页面自身，避免同时发起两次请求
 )
+
+onMounted(fetchData)
 
 useKeepAliveRefresh(fetchData, {
   active: computed(() => props.active !== false),

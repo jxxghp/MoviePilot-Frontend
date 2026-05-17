@@ -8,6 +8,7 @@ import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
+import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -118,17 +119,27 @@ const currentFilter = computed(() => {
 })
 
 // 获取站点列表数据
-async function fetchData() {
+async function fetchData(context: KeepAliveRefreshContext = {}) {
+  const showLoading = !context.silent || !isRefreshed.value
+
   try {
-    loading.value = true
-    siteList.value = await api.get('site/')
+    if (showLoading) {
+      loading.value = true
+    }
+
+    const [sites] = await Promise.all([
+      api.get<Site[], Site[]>('site/'),
+      // 站点统计在列表请求期间并行预取，减少刷新时卡片分两轮明显重绘。
+      fetchSiteStats(),
+    ])
+    siteList.value = sites
     isRefreshed.value = true
-    // 获取站点列表后，获取统计数据
-    await fetchSiteStats()
   } catch (error) {
     console.error(error)
   } finally {
-    loading.value = false
+    if (showLoading) {
+      loading.value = false
+    }
   }
 }
 
@@ -300,11 +311,10 @@ onBeforeMount(() => {
   fetchUserData()
 })
 
-onActivated(() => {
-  if (!loading.value) {
-    fetchData()
-    fetchUserData()
-  }
+useKeepAliveRefresh(async context => {
+  if (loading.value) return
+
+  await Promise.all([fetchData(context), fetchUserData()])
 })
 
 watch(

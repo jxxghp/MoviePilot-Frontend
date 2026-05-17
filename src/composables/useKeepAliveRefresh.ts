@@ -1,6 +1,12 @@
 import { nextTick, onActivated, onMounted, toValue, watch, type MaybeRefOrGetter } from 'vue'
 
-type RefreshHandler = () => void | Promise<void>
+export interface KeepAliveRefreshContext {
+  /** 重新进入页面时已有旧内容可用，刷新应尽量避免切换主 loading 或清空列表。 */
+  silent?: boolean
+  source?: 'activated' | 'tab' | 'manual'
+}
+
+type RefreshHandler = (context?: KeepAliveRefreshContext) => void | Promise<void>
 
 interface KeepAliveRefreshOptions {
   /**
@@ -26,7 +32,7 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
 
   const isActive = () => options.active === undefined || Boolean(toValue(options.active))
 
-  async function runRefresh() {
+  async function runRefresh(context: KeepAliveRefreshContext = { silent: true, source: 'manual' }) {
     if (!isActive()) return
 
     // 避免路由激活和 tab 激活在同一轮里叠加出并发请求。
@@ -37,25 +43,25 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
 
     refreshing = true
     try {
-      await refresh()
+      await refresh(context)
     } finally {
       refreshing = false
 
       if (pendingRefresh) {
         pendingRefresh = false
-        await runRefresh()
+        await runRefresh(context)
       }
     }
   }
 
-  function requestRefresh() {
+  function requestRefresh(source: KeepAliveRefreshContext['source']) {
     // 同一轮激活里可能同时触发路由激活和 tab 激活，合并成一次静默刷新。
     if (refreshScheduled) return
 
     refreshScheduled = true
     void nextTick(async () => {
       refreshScheduled = false
-      await runRefresh()
+      await runRefresh({ silent: true, source })
     })
   }
 
@@ -70,7 +76,7 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
       // KeepAlive 首次挂载也会触发 activated，初始加载交给页面自己的 mounted 逻辑。
       if (activatedCount === 1) return
 
-      requestRefresh()
+      requestRefresh('activated')
     })
   }
 
@@ -80,7 +86,7 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
       (active, oldActive) => {
         if (!mounted || !active || oldActive !== false) return
 
-        requestRefresh()
+        requestRefresh('tab')
       },
       { flush: 'post' },
     )

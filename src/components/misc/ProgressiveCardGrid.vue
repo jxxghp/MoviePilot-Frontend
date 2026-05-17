@@ -260,6 +260,15 @@ function getComparableKey(item: any, index: number): ItemKey {
   return index
 }
 
+function getFallbackLayoutWidth() {
+  if (typeof window === 'undefined') {
+    return safeMinItemWidth.value
+  }
+
+  // keep-alive 激活首帧可能还拿不到网格宽度，先用视口宽度兜底，避免只渲染一小列。
+  return Math.max(document.documentElement.clientWidth || window.innerWidth || 0, safeMinItemWidth.value)
+}
+
 function findFirstRowAtOrAfterOffset(offsets: number[], heights: number[], offset: number) {
   let low = 0
   let high = heights.length - 1
@@ -547,19 +556,31 @@ function syncLayoutWidth() {
   const element = trackRef.value
 
   if (!element) {
-    layoutWidth.value = 0
+    if (layoutWidth.value <= 0) {
+      layoutWidth.value = getFallbackLayoutWidth()
+    }
     return
   }
 
-  layoutWidth.value = element.clientWidth
+  const nextWidth = element.clientWidth
+  if (nextWidth > 0) {
+    layoutWidth.value = nextWidth
+    return
+  }
+
+  if (layoutWidth.value <= 0) {
+    layoutWidth.value = getFallbackLayoutWidth()
+  }
 }
 
 function syncViewport() {
   const element = trackRef.value
 
   if (!element) {
-    viewportTop.value = 0
-    viewportBottom.value = 0
+    if (viewportBottom.value <= viewportTop.value) {
+      viewportTop.value = 0
+      viewportBottom.value = typeof window === 'undefined' ? 0 : window.innerHeight
+    }
     return
   }
 
@@ -572,8 +593,13 @@ function syncViewport() {
           top: 0,
         }
 
-  viewportTop.value = viewportRect.top - trackRect.top
-  viewportBottom.value = viewportRect.bottom - trackRect.top
+  const nextViewportTop = viewportRect.top - trackRect.top
+  const nextViewportBottom = viewportRect.bottom - trackRect.top
+
+  if (nextViewportBottom > nextViewportTop) {
+    viewportTop.value = nextViewportTop
+    viewportBottom.value = nextViewportBottom
+  }
 }
 
 function queueLayoutSync() {
@@ -800,6 +826,7 @@ onActivated(() => {
   mounted = true
   refreshScrollTarget()
   queueLayoutSync()
+  requestAnimationFrame(queueLayoutSync)
 })
 
 onDeactivated(() => {
