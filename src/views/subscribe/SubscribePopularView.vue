@@ -4,7 +4,6 @@ import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
-import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -13,10 +12,6 @@ const { t } = useI18n()
 // 输入参数
 const props = defineProps({
   type: String,
-  active: {
-    type: Boolean,
-    default: true,
-  },
 })
 
 // 判断是否有滚动条
@@ -115,10 +110,6 @@ watch(
   },
   { deep: true },
 )
-
-useKeepAliveRefresh(resetData, {
-  active: computed(() => props.active),
-})
 
 // 拼装参数
 function getParams() {

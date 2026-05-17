@@ -8,6 +8,7 @@ import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -16,6 +17,7 @@ const { useDataRefresh } = useBackground()
 // 定义输入参数
 const props = defineProps<{
   name: string
+  active?: boolean
 }>()
 
 // 用户 Store
@@ -63,6 +65,10 @@ const { loading: dataLoading } = useDataRefresh(
   3000, // 3秒间隔
   true // 立即执行
 )
+
+useKeepAliveRefresh(fetchData, {
+  active: computed(() => props.active !== false),
+})
 </script>
 
 <template>

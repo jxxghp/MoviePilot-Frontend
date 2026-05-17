@@ -296,14 +296,14 @@ onMounted(() => {
       <VWindowItem value="popular">
         <transition name="fade-slide" appear>
           <div>
-            <SubscribePopularView :type="subType" :active="activeTab === 'popular'" />
+            <SubscribePopularView :type="subType" />
           </div>
         </transition>
       </VWindowItem>
       <VWindowItem value="share">
         <transition name="fade-slide" appear>
           <div>
-            <SubscribeShareView :keyword="shareKeyword" :active="activeTab === 'share'" />
+            <SubscribeShareView :keyword="shareKeyword" />
           </div>
         </transition>
       </VWindowItem>

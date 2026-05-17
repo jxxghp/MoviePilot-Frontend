@@ -61,10 +61,10 @@ onActivated(async () => {
 <template>
   <div v-if="downloaders.length > 0">
     <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
-      <VWindowItem v-for="item in downloaders" :value="item.name">
+      <VWindowItem v-for="item in downloaders" :key="item.name" :value="item.name">
         <transition name="fade-slide" appear>
           <div>
-            <DownloadingListView :name="item.name" />
+            <DownloadingListView :name="item.name" :active="activeTab === item.name" />
           </div>
         </transition>
       </VWindowItem>

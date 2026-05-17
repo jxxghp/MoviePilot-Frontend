@@ -146,9 +146,8 @@ function removeData(id: string) {
   dataList.value = dataList.value.filter(item => item.id !== id)
 }
 
-onActivated(() => {
+onMounted(() => {
   loadEventTypes()
-  fetchData({ done: () => {} })
 })
 </script>
 

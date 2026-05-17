@@ -4,7 +4,6 @@ import type { SubscribeShare } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeShareCard from '@/components/cards/SubscribeShareCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
-import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -14,10 +13,6 @@ const { t } = useI18n()
 const props = defineProps({
   // 过滤关键字
   keyword: String,
-  active: {
-    type: Boolean,
-    default: true,
-  },
 })
 
 // 判断是否有滚动条
@@ -128,10 +123,6 @@ const isRefreshed = ref(false)
 // 数据列表
 const dataList = ref<SubscribeShare[]>([])
 const currData = ref<SubscribeShare[]>([])
-
-useKeepAliveRefresh(resetData, {
-  active: computed(() => props.active),
-})
 
 // 拼装参数
 function getParams() {

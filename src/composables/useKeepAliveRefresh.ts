@@ -22,6 +22,7 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
   let activatedCount = 0
   let refreshing = false
   let pendingRefresh = false
+  let refreshScheduled = false
 
   const isActive = () => options.active === undefined || Boolean(toValue(options.active))
 
@@ -48,7 +49,14 @@ export function useKeepAliveRefresh(refresh: RefreshHandler, options: KeepAliveR
   }
 
   function requestRefresh() {
-    void nextTick(runRefresh)
+    // 同一轮激活里可能同时触发路由激活和 tab 激活，合并成一次静默刷新。
+    if (refreshScheduled) return
+
+    refreshScheduled = true
+    void nextTick(async () => {
+      refreshScheduled = false
+      await runRefresh()
+    })
   }
 
   onMounted(() => {

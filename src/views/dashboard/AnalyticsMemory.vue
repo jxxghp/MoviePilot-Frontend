@@ -5,6 +5,7 @@ import api from '@/api'
 import { formatBytes } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -29,8 +30,6 @@ const variableTheme = controlledComputed(
   () => vuetifyTheme.name.value,
   () => vuetifyTheme.current.value.variables,
 )
-
-const chartKey = ref(0)
 
 // 时间序列
 const series = ref([
@@ -128,19 +127,14 @@ async function loadMemoryData() {
 }
 
 // 使用数据刷新定时器
-const { loading } = useDataRefresh(
+const { loading, refresh } = useDataRefresh(
   'analytics-memory',
   loadMemoryData,
   3000, // 3秒间隔
   true // 立即执行
 )
 
-onActivated(() => {
-  // 使用nextTick确保DOM准备完成后再更新chartKey
-  nextTick(() => {
-    chartKey.value += 1
-  })
-})
+useKeepAliveRefresh(refresh)
 </script>
 
 <template>
@@ -154,7 +148,7 @@ onActivated(() => {
           <VCardTitle>{{ t('dashboard.memory') }}</VCardTitle>
         </VCardItem>
         <VCardText>
-          <VApexChart :key="chartKey" type="area" :options="chartOptions" :series="series" :height="150" />
+          <VApexChart type="area" :options="chartOptions" :series="series" :height="150" />
           <p class="text-center font-weight-medium mb-0">{{ t('dashboard.current') }}：{{ formatBytes(usedMemory) }}</p>
         </VCardText>
       </VCard>

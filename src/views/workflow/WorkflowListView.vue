@@ -6,6 +6,7 @@ import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
+import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 
 // 国际化
 const { t } = useI18n()
@@ -52,9 +53,7 @@ onMounted(() => {
   fetchData()
 })
 
-onActivated(() => {
-  fetchData()
-})
+useKeepAliveRefresh(fetchData)
 
 function openAddDialog() {
   addDialog.value = true
@@ -62,6 +61,7 @@ function openAddDialog() {
 
 defineExpose({
   openAddDialog,
+  refresh: fetchData,
 })
 </script>
 <template>

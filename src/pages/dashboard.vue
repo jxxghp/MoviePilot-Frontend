@@ -280,6 +280,40 @@ async function getPluginDashboardMeta() {
   }
 }
 
+function clearPluginDashboardTimer(pluginDashboardId: string) {
+  if (!refreshTimers.value[pluginDashboardId]) return
+
+  clearTimeout(refreshTimers.value[pluginDashboardId])
+  delete refreshTimers.value[pluginDashboardId]
+}
+
+function schedulePluginDashboardRefresh(item: DashboardItem) {
+  const pluginDashboardId = buildPluginDashboardId(item.id, item.key)
+  clearPluginDashboardTimer(pluginDashboardId)
+
+  if (
+    item.attrs?.refresh &&
+    pluginDashboardRefreshStatus.value[pluginDashboardId] &&
+    enableConfig.value[pluginDashboardId] &&
+    isRequest.value
+  ) {
+    refreshTimers.value[pluginDashboardId] = setTimeout(() => {
+      getPluginDashboard(item.id, item.key)
+    }, item.attrs.refresh * 1000)
+  }
+}
+
+function refreshEnabledPluginDashboards() {
+  if (!superUser || isNullOrEmptyObject(pluginDashboardMeta.value)) return
+
+  pluginDashboardMeta.value.forEach((pluginDashboard: { id: string; key: string }) => {
+    const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
+    if (enableConfig.value[pluginDashboardId]) {
+      getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
+    }
+  })
+}
+
 // 获取一个插件的仪表板配置项
 async function getPluginDashboard(id: string, key: string) {
   try {
@@ -309,22 +343,7 @@ async function getPluginDashboard(id: string, key: string) {
         }
         const pluginDashboardId = buildPluginDashboardId(id, key)
         // 定时刷新
-        if (
-          res.attrs?.refresh &&
-          pluginDashboardRefreshStatus.value[pluginDashboardId] &&
-          enableConfig.value[pluginDashboardId] &&
-          isRequest.value
-        ) {
-          // 清除之前的定时器
-          if (refreshTimers.value[pluginDashboardId]) {
-            clearTimeout(refreshTimers.value[pluginDashboardId])
-          }
-          // 设置新的定时器
-          let timer = setTimeout(() => {
-            getPluginDashboard(id, key)
-          }, res.attrs.refresh * 1000)
-          refreshTimers.value[pluginDashboardId] = timer
-        }
+        schedulePluginDashboardRefresh(res)
       }
     })
   } catch (error) {
@@ -346,10 +365,12 @@ onBeforeMount(async () => {
 
 onActivated(() => {
   isRequest.value = true
+  refreshEnabledPluginDashboards()
 })
 
 onDeactivated(() => {
   isRequest.value = false
+  Object.keys(refreshTimers.value).forEach(clearPluginDashboardTimer)
 })
 </script>
 

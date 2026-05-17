@@ -15,7 +15,6 @@ const route = useRoute()
 const { appMode } = usePWA()
 
 const activeTab = ref((route.query.tab as string) || 'list')
-const listViewKey = ref(0)
 const workflowListViewRef = ref<InstanceType<typeof WorkflowListView> | null>(null)
 
 // 获取标签页
@@ -35,6 +34,10 @@ const searchActivator = computed(() => '[data-menu-activator="share-filter-btn"]
 
 function openAddWorkflowDialog() {
   workflowListViewRef.value?.openAddDialog()
+}
+
+function refreshWorkflowList() {
+  workflowListViewRef.value?.refresh()
 }
 
 const shareKeywordUpdater = debounce((keyword: string) => {
@@ -98,14 +101,14 @@ onMounted(() => {
       <VWindowItem value="list">
         <transition name="fade-slide" appear>
           <div>
-            <WorkflowListView ref="workflowListViewRef" :key="listViewKey" />
+            <WorkflowListView ref="workflowListViewRef" />
           </div>
         </transition>
       </VWindowItem>
       <VWindowItem value="share">
         <transition name="fade-slide" appear>
           <div>
-            <WorkflowShareView :keyword="shareKeyword" @update="listViewKey++" />
+            <WorkflowShareView :keyword="shareKeyword" @update="refreshWorkflowList" />
           </div>
         </transition>
       </VWindowItem>
