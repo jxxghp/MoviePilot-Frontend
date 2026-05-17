@@ -64,10 +64,19 @@ const lastY = ref(0)
 const lastTime = ref(0)
 const velocity = ref(0)
 const startedFromBottomArea = ref(false)
+const quickAccessRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 
 // 插件弹窗相关状态
 const showPluginDataDialog = ref(false)
 const currentPlugin = ref<Plugin | null>(null)
+
+// Vuetify 组件 ref 在不同构建下可能返回组件实例，这里统一解析为真实 DOM 节点。
+function getQuickAccessElement() {
+  const element = quickAccessRef.value
+  if (!element) return null
+
+  return element instanceof HTMLElement ? element : element.$el ?? null
+}
 
 // 计算显示状态
 const isVisible = computed(() => {
@@ -211,20 +220,27 @@ function manageScrollLock() {
   if (isVisible.value) {
     // 使用 nextTick 确保 DOM 已经更新
     nextTick(() => {
-      // 先恢复之前的锁定状态，避免重复锁定
-      const scrollableElement = document.querySelector('.all-plugins-grid')
-      if (scrollableElement) {
-        // 确保元素存在且可见
-        if ((scrollableElement as HTMLElement).offsetHeight > 0) {
-          disableBodyScroll(scrollableElement as HTMLElement)
-        }
+      const panelElement = getQuickAccessElement()
+      if (!panelElement) return
+
+      // 锁定整层快捷入口，只有插件列表内部允许惯性滚动，避免底部手势漏给首页背景。
+      disableBodyScroll(panelElement, {
+        allowTouchMove: el => Boolean((el as HTMLElement).closest('.quick-access-scroll')),
+      })
+
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.add('quick-access-scroll-locked')
       }
     })
   } else {
     // 恢复背景滚动
-    const scrollableElement = document.querySelector('.all-plugins-grid')
-    if (scrollableElement) {
-      enableBodyScroll(scrollableElement as HTMLElement)
+    const panelElement = getQuickAccessElement()
+    if (panelElement) {
+      enableBodyScroll(panelElement)
+    }
+
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('quick-access-scroll-locked')
     }
   }
 }
@@ -254,9 +270,13 @@ onMounted(() => {
 
 // 组件卸载时确保恢复背景滚动
 onUnmounted(() => {
-  const scrollableElement = document.querySelector('.all-plugins-grid')
-  if (scrollableElement) {
-    enableBodyScroll(scrollableElement as HTMLElement)
+  const panelElement = getQuickAccessElement()
+  if (panelElement) {
+    enableBodyScroll(panelElement)
+  }
+
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.remove('quick-access-scroll-locked')
   }
 })
 
@@ -297,6 +317,10 @@ function handleTouchMove(event: TouchEvent) {
   // 只有从 bottom-drag-area 开始的触摸才处理上滑关闭
   if (!startedFromBottomArea.value) return
 
+  // 底部关闭手势从第一帧开始接管，防止 iOS 将早期位移传递给背景页面滚动。
+  event.preventDefault()
+  event.stopPropagation()
+
   // 检查当前触摸是否在插件网格内，如果是则不处理拖拽关闭
   const target = event.target as HTMLElement
   if (target.closest('.plugin-grid')) {
@@ -319,7 +343,6 @@ function handleTouchMove(event: TouchEvent) {
     if (deltaY >= 0) {
       // 向上拖拽，更新偏移量
       dragOffset.value = Math.min(deltaY, SWIPE_CONFIG.MAX_DRAG_DISTANCE)
-      event.preventDefault()
     } else {
       // 向下拖拽，停止拖拽
       isDraggingToClose.value = false
@@ -330,7 +353,6 @@ function handleTouchMove(event: TouchEvent) {
     if (deltaY > SWIPE_CONFIG.START_THRESHOLD) {
       isDraggingToClose.value = true
       dragOffset.value = Math.min(deltaY, SWIPE_CONFIG.MAX_DRAG_DISTANCE)
-      event.preventDefault()
     }
   }
 
@@ -366,6 +388,27 @@ function handleTouchEnd() {
   startedFromBottomArea.value = false
 }
 
+// 底部手势区域不参与页面滚动，从触摸开始就阻止事件冒泡到全局下拉监听。
+function handleBottomTouchStart(event: TouchEvent) {
+  if (!props.visible) return
+
+  event.stopPropagation()
+  handleTouchStart(event)
+}
+
+function handleBottomTouchMove(event: TouchEvent) {
+  if (!props.visible) return
+
+  handleTouchMove(event)
+}
+
+function handleBottomTouchEnd(event: TouchEvent) {
+  if (!props.visible) return
+
+  event.stopPropagation()
+  handleTouchEnd()
+}
+
 // 点击底部空白区域关闭
 function handleBackdropClick(event: MouseEvent) {
   const target = event.target as HTMLElement
@@ -383,6 +426,7 @@ function handleBackdropClick(event: MouseEvent) {
 
 <template>
   <VCard
+    ref="quickAccessRef"
     :ripple="false"
     class="plugin-quick-access"
     :class="{ 'visible': isVisible }"
@@ -408,7 +452,7 @@ function handleBackdropClick(event: MouseEvent) {
     </div>
 
     <!-- 插件网格 -->
-    <div class="plugin-grid">
+    <div class="plugin-grid quick-access-scroll">
       <!-- 加载状态 -->
       <LoadingBanner v-if="loading" />
 
@@ -457,7 +501,7 @@ function handleBackdropClick(event: MouseEvent) {
         </div>
 
         <div v-if="pluginsWithPage.length > 0" class="all-plugins-container">
-          <div class="all-plugins-grid">
+          <div class="all-plugins-grid quick-access-scroll">
             <div
               v-for="plugin in pluginsWithPage"
               :key="plugin.id"
@@ -500,7 +544,14 @@ function handleBackdropClick(event: MouseEvent) {
     </div>
 
     <!-- 底部拖动区域 -->
-    <div class="bottom-drag-area" @click="handleBackdropClick">
+    <div
+      class="bottom-drag-area"
+      @click="handleBackdropClick"
+      @touchstart.stop="handleBottomTouchStart"
+      @touchmove.prevent.stop="handleBottomTouchMove"
+      @touchend.stop="handleBottomTouchEnd"
+      @touchcancel.stop="handleBottomTouchEnd"
+    >
       <!-- 底部指示器 -->
       <div class="bottom-indicator">
         <div
@@ -767,6 +818,15 @@ function handleBackdropClick(event: MouseEvent) {
   cursor: pointer;
   padding-block: 8px 0;
   padding-inline: 20px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+:global(html.quick-access-scroll-locked),
+:global(html.quick-access-scroll-locked body) {
+  overflow: hidden !important;
+  overscroll-behavior: none;
 }
 
 @media (hover: none) and (pointer: coarse) {
