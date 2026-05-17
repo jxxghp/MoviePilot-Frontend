@@ -3,18 +3,21 @@ import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import type { PropType } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
-import ReorganizeDialog from '../dialog/ReorganizeDialog.vue'
 import { formatBytes } from '@core/utils/formatters'
 import type { Context, EndPoints, FileItem } from '@/api/types'
 import api from '@/api'
-import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useDisplay } from 'vuetify'
-import MediaInfoDialog from '../dialog/MediaInfoDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const FileRenameDialog = defineAsyncComponent(() => import('../dialog/FileRenameDialog.vue'))
+const MediaInfoDialog = defineAsyncComponent(() => import('../dialog/MediaInfoDialog.vue'))
+const ProgressDialog = defineAsyncComponent(() => import('../dialog/ProgressDialog.vue'))
+const ReorganizeDialog = defineAsyncComponent(() => import('../dialog/ReorganizeDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -76,9 +79,6 @@ const loading = ref(true)
 // 重命名loading
 const renameLoading = ref(false)
 
-// 识别进度条
-const progressDialog = ref(false)
-
 // 识别进度文本
 const progressText = ref(t('common.pleaseWait'))
 
@@ -93,12 +93,6 @@ const filter = ref('')
 
 // 是否忽略大小写
 const ignoreCase = ref(true)
-
-// 重命名弹窗
-const renamePopper = ref(false)
-
-// 整理弹窗
-const transferPopper = ref(false)
 
 // 新名称
 const newName = ref('')
@@ -156,8 +150,20 @@ function setItemSelected(item: FileItem, checked: boolean) {
 // 识别结果
 const nameTestResult = ref<Context>()
 
-// 识别结果对话框
-const nameTestDialog = ref(false)
+let renameDialogController: ReturnType<typeof openSharedDialog> | null = null
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开共享进度弹窗并记录控制器，方便 SSE 更新文本和进度值。
+function openProgressDialog(text = progressText.value, value = progressValue.value) {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text, value }, {}, { closeOn: false })
+}
+
+// 关闭当前共享进度弹窗。
+function closeProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = null
+}
 
 // 弹出菜单
 const dropdownItems = ref<{ [key: string]: any }[]>([])
@@ -318,17 +324,18 @@ async function batchDelete() {
   if (!confirmed) return
 
   // 显示进度条
-  progressDialog.value = true
   progressValue.value = 0
+  openProgressDialog(progressText.value, progressValue.value)
 
   // 删除选中的项目
   selected.value.every(async item => {
     progressText.value = t('file.deleting', { name: item.name })
+    progressDialogController?.updateProps({ text: progressText.value })
     await deleteItem(item, false)
   })
 
   // 关闭进度条
-  progressDialog.value = false
+  closeProgressDialog()
 
   // 重新加载
   list_files()
@@ -408,12 +415,39 @@ function showRenmae(item: FileItem) {
   currentItem.value = item
   newName.value = item.name
   renameAll.value = false
-  renamePopper.value = true
+  openRenameDialog()
+}
+
+// 打开共享重命名弹窗，并双向同步当前文件名和递归选项。
+function openRenameDialog() {
+  renameDialogController = openSharedDialog(
+    FileRenameDialog,
+    {
+      item: currentItem.value,
+      loading: renameLoading.value,
+      name: newName.value,
+      recursive: renameAll.value,
+    },
+    {
+      'auto-name': get_recommend_name,
+      rename,
+      'update:name': (value: string) => {
+        newName.value = value
+        renameDialogController?.updateProps({ name: value })
+      },
+      'update:recursive': (value: boolean) => {
+        renameAll.value = value
+        renameDialogController?.updateProps({ recursive: value })
+      },
+    },
+    { closeOn: ['close'] },
+  )
 }
 
 // 调用API获取新名称
 async function get_recommend_name() {
   renameLoading.value = true
+  renameDialogController?.updateProps({ loading: true })
   try {
     const result: { [key: string]: any } = await api.get('transfer/name', {
       params: {
@@ -430,23 +464,21 @@ async function get_recommend_name() {
     console.error(error)
   }
   renameLoading.value = false
+  renameDialogController?.updateProps({ loading: false, name: newName.value })
 }
 
 // 重命名
 async function rename() {
   emit('loading', true)
 
-  // 关闭弹窗
-  renamePopper.value = false
-
   // 显示进度条
-  progressDialog.value = true
   progressValue.value = 0
   if (renameAll.value) {
     progressText.value = t('file.renamingAll', { path: currentItem.value?.path })
   } else {
     progressText.value = t('file.renaming', { name: currentItem.value?.name })
   }
+  openProgressDialog(progressText.value, progressValue.value)
   if (renameAll.value) {
     startLoadingProgress()
   }
@@ -471,11 +503,13 @@ async function rename() {
   if (renameAll.value) {
     stopLoadingProgress()
   }
-  progressDialog.value = false
+  closeProgressDialog()
 
   // 通知重新加载
   newName.value = ''
   renameAll.value = false
+  renameDialogController?.close()
+  renameDialogController = null
   emit('loading', false)
   emit('renamed')
 }
@@ -483,19 +517,33 @@ async function rename() {
 // 显示整理对话框
 function showTransfer(item: FileItem) {
   transferItems.value = [item]
-  transferPopper.value = true
+  openTransferDialog()
 }
 
 // 显示批量整理对话框
 function showBatchTransfer() {
   transferItems.value = dedupeFileItems(selected.value)
-  transferPopper.value = true
+  openTransferDialog()
 }
 
 // 整理完成
 function transferDone() {
-  transferPopper.value = false
   list_files()
+}
+
+// 打开共享文件整理弹窗，整理完成后刷新当前目录。
+function openTransferDialog() {
+  openSharedDialog(
+    ReorganizeDialog,
+    {
+      items: transferItems.value,
+      target_storage: inProps.item.storage,
+    },
+    {
+      done: transferDone,
+    },
+    { closeOn: ['close', 'done'] },
+  )
 }
 
 // 将文件修改时间（timestape）转换为本地时间
@@ -528,7 +576,6 @@ watch(
     selected.value = []
     // 关闭弹窗
     nameTestResult.value = undefined
-    nameTestDialog.value = false
     // 重置菜单
     dropdownItems.value = [
       {
@@ -591,19 +638,22 @@ watch(
 async function recognize(path: string) {
   try {
     // 显示进度条
-    progressDialog.value = true
     progressText.value = t('file.recognizing', { path })
     progressValue.value = 0
+    openProgressDialog(progressText.value, progressValue.value)
     nameTestResult.value = await api.get('media/recognize_file', {
       params: {
         path,
       },
     })
     // 关闭进度条
-    progressDialog.value = false
+    closeProgressDialog()
     if (!nameTestResult.value) $toast.error(t('file.recognizeFailed', { path }))
-    nameTestDialog.value = !!nameTestResult.value?.meta_info?.name
+    if (nameTestResult.value?.meta_info?.name) {
+      openSharedDialog(MediaInfoDialog, { context: nameTestResult.value }, {}, { closeOn: ['close'] })
+    }
   } catch (error) {
+    closeProgressDialog()
     console.error(error)
   }
 }
@@ -621,16 +671,17 @@ async function scrape(item: FileItem, confirm: boolean = true) {
     }
 
     // 显示进度条
-    progressDialog.value = true
     progressText.value = t('file.scraping', { path: item.path })
+    openProgressDialog(progressText.value)
 
     const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.item.storage}`, item)
 
     // 关闭进度条
-    progressDialog.value = false
+    closeProgressDialog()
     if (!result.success) $toast.error(result.message)
     else $toast.success(t('file.scrapeCompleted', { path: item.path }))
   } catch (error) {
+    closeProgressDialog()
     console.error(error)
   }
 }
@@ -655,6 +706,7 @@ function handleProgressMessage(event: MessageEvent) {
   if (progress) {
     progressText.value = progress.text
     progressValue.value = progress.value
+    progressDialogController?.updateProps({ text: progressText.value, value: progressValue.value })
   }
 }
 
@@ -686,6 +738,8 @@ useKeepAliveRefresh(list_files, {
 onUnmounted(() => {
   revokeCurrentImgLink()
   stopLoadingProgress()
+  closeProgressDialog()
+  renameDialogController?.close()
 })
 </script>
 
@@ -850,59 +904,5 @@ onUnmounted(() => {
         {{ t('file.emptyDirectory') }}
       </VCardText>
     </VCard>
-    <!-- 重命名弹窗 -->
-    <VDialog v-if="renamePopper" v-model="renamePopper" max-width="35rem">
-      <VCard>
-        <VCardItem>
-          <template #prepend>
-            <VIcon icon="mdi-pencil" class="me-2" />
-          </template>
-          <VCardTitle>{{ t('file.rename') }}</VCardTitle>
-        </VCardItem>
-        <VDialogCloseBtn @click="renamePopper = false" />
-        <VDivider />
-        <VCardText>
-          <VRow>
-            <VCol cols="12">
-              <VTextField
-                v-model="newName"
-                :label="t('file.newName')"
-                :loading="renameLoading"
-                prepend-inner-icon="mdi-format-text"
-              />
-            </VCol>
-            <VCol cols="12" v-if="currentItem && currentItem.type == 'dir'">
-              <VSwitch v-model="renameAll" :label="t('file.includeSubfolders')" />
-            </VCol>
-          </VRow>
-        </VCardText>
-        <VCardActions>
-          <VBtn color="success" @click="get_recommend_name" prepend-icon="mdi-magic" class="px-5 me-3">
-            {{ t('file.autoRecognizeName') }}
-          </VBtn>
-          <VBtn :disabled="!newName" @click="rename" prepend-icon="mdi-check" class="px-5 me-3">
-            {{ t('common.confirm') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
-    <!-- 文件整理弹窗 -->
-    <ReorganizeDialog
-      v-if="transferPopper"
-      v-model="transferPopper"
-      :items="transferItems"
-      :target_storage="inProps.item.storage"
-      @done="transferDone"
-      @close="transferPopper = false"
-    />
-    <!-- 进度框 -->
-    <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
-    <!-- 识别结果对话框 -->
-    <MediaInfoDialog
-      v-if="nameTestDialog"
-      v-model="nameTestDialog"
-      :context="nameTestResult"
-      @close="nameTestDialog = false"
-    />
   </div>
 </template>

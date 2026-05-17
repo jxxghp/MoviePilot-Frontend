@@ -3,12 +3,10 @@ import { useToast } from 'vue-toastification'
 import router from '@/router'
 import avatar1 from '@images/avatars/avatar-1.png'
 import api from '@/api'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
-import UserAuthDialog from '@/components/dialog/UserAuthDialog.vue'
-import AboutDialog from '@/components/dialog/AboutDialog.vue'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useAuthStore, useUserStore, useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
-import { useDisplay, useTheme } from 'vuetify'
+import { useTheme } from 'vuetify'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
@@ -17,6 +15,13 @@ import type { ThemeSwitcherTheme } from '@layouts/types'
 import { useConfirm } from '@/composables/useConfirm'
 import { themeManager } from '@/utils/themeManager'
 import { usePWA, type UIMode } from '@/composables/usePWA'
+import { applyStoredTransparencySettings } from '@/composables/useTransparencySettings'
+
+const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
+const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const TransparencySettingsDialog = defineAsyncComponent(() => import('@/components/dialog/TransparencySettingsDialog.vue'))
+const UserAuthDialog = defineAsyncComponent(() => import('@/components/dialog/UserAuthDialog.vue'))
 
 // 认证 Store
 const authStore = useAuthStore()
@@ -26,22 +31,11 @@ const userStore = useUserStore()
 const globalSettingsStore = useGlobalSettingsStore()
 // 国际化
 const { t } = useI18n()
-// 显示器
-const display = useDisplay()
 // PWA
 const { uiMode, setUIMode } = usePWA()
 
 // 提示框
 const $toast = useToast()
-
-// 进度框
-const progressDialog = ref(false)
-
-// 站点认证对话框
-const siteAuthDialog = ref(false)
-
-// 自定义CSS弹窗
-const cssDialog = ref(false)
 
 // UI模式菜单是否显示
 const showUIModeMenu = ref(false)
@@ -55,41 +49,14 @@ const showLanguageMenu = ref(false)
 // 自定义CSS
 const customCSS = ref('')
 
-// 透明度相关
-const transparencyOpacity = ref(parseFloat(localStorage.getItem('transparency-opacity') || '0.3'))
-const transparencyBlur = ref(parseFloat(localStorage.getItem('transparency-blur') || '10'))
-const backgroundPosterOpacity = ref(parseFloat(localStorage.getItem('transparency-background-poster-opacity') || '0'))
-const backgroundBlur = ref(parseFloat(localStorage.getItem('transparency-background-blur') || '16'))
-const transparencyLevel = ref(localStorage.getItem('transparency-level') || 'medium')
 const isTransparentTheme = computed(() => currentThemeName.value === 'transparent')
-const showTransparencyDialog = ref(false)
-
-// 关于对话框
-const aboutDialog = ref(false)
-
-// 预设值配置
-const transparencyPresets = {
-  low: { opacity: 0.1, blur: 5 },
-  medium: { opacity: 0.3, blur: 10 },
-  high: { opacity: 0.6, blur: 15 },
-}
-
-// 判断当前值是否匹配预设值
-const currentPresetLevel = computed(() => {
-  for (const [level, preset] of Object.entries(transparencyPresets)) {
-    if (
-      Math.abs(transparencyOpacity.value - preset.opacity) < 0.01 &&
-      Math.abs(transparencyBlur.value - preset.blur) < 0.1
-    ) {
-      return level
-    }
-  }
-  return null
-})
 
 // 重启轮询控制标识
 const restartPollingId = ref<number | null>(null)
 const isRestarting = ref(false)
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+let siteAuthDialogController: ReturnType<typeof openSharedDialog> | null = null
+let customCssDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 确认框
 const { createConfirm } = useConfirm()
@@ -108,6 +75,18 @@ function logout() {
   userStore.reset()
   // 重定向到登录页面或其他适当的页面
   router.push('/login')
+}
+
+/** 打开重启进度共享弹窗。 */
+function showRestartProgress() {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text: t('app.restarting') }, {}, { closeOn: false })
+}
+
+/** 关闭重启进度共享弹窗。 */
+function closeRestartProgress() {
+  progressDialogController?.close()
+  progressDialogController = null
 }
 
 // 检测服务状态
@@ -144,7 +123,7 @@ async function pollServiceStatus() {
     if (isServiceUp) {
       // 服务已恢复，清理状态并执行注销
       isRestarting.value = false
-      progressDialog.value = false
+      closeRestartProgress()
       restartPollingId.value = null
 
       setTimeout(() => {
@@ -156,7 +135,7 @@ async function pollServiceStatus() {
     if (retryCount >= maxRetries) {
       // 超时未恢复，清理状态并提示用户
       isRestarting.value = false
-      progressDialog.value = false
+      closeRestartProgress()
       restartPollingId.value = null
       $toast.error(t('app.restartTimeout'))
       return
@@ -178,19 +157,19 @@ async function restart() {
   // 调用API重启
   try {
     // 显示等待框
-    progressDialog.value = true
+    showRestartProgress()
     const result: { [key: string]: any } = await api.get('system/restart')
     if (!result?.success) {
       // 重启失败，清理状态
       isRestarting.value = false
-      progressDialog.value = false
+      closeRestartProgress()
       $toast.error(result.message)
       return
     }
   } catch (error) {
     // 重启失败，清理状态
     isRestarting.value = false
-    progressDialog.value = false
+    closeRestartProgress()
     console.error(error)
     return
   }
@@ -214,19 +193,28 @@ async function showRestartDialog() {
   await restart()
 }
 
-// 显示站点认证对话框
+/** 显示站点认证共享弹窗。 */
 function showSiteAuthDialog() {
-  siteAuthDialog.value = true
+  siteAuthDialogController?.close()
+  siteAuthDialogController = openSharedDialog(
+    UserAuthDialog,
+    {},
+    {
+      done: siteAuthDone,
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
 }
 
-// 显示关于对话框
+/** 显示关于共享弹窗。 */
 function showAboutDialog() {
-  aboutDialog.value = true
+  openSharedDialog(AboutDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
 }
 
-// 用户站点认证成功
+/** 用户站点认证成功后关闭弹窗并退出登录。 */
 function siteAuthDone() {
-  siteAuthDialog.value = false
+  siteAuthDialogController?.close()
+  siteAuthDialogController = null
   logout()
 }
 
@@ -335,7 +323,7 @@ async function changeTheme(theme: string) {
 
   // 如果是透明主题，应用透明度设置
   if (theme === 'transparent') {
-    applyTransparencySettings()
+    applyStoredTransparencySettings()
   }
 
   // 保存主题到服务端
@@ -365,108 +353,45 @@ async function getCustomCSS() {
   }
 }
 
-// 保存自定义 CSS
-async function saveCustomCSS() {
-  cssDialog.value = false
+/** 打开自定义 CSS 共享弹窗。 */
+function showCustomCssDialog() {
+  customCssDialogController?.close()
+  customCssDialogController = openSharedDialog(
+    CustomCssDialog,
+    {
+      css: customCSS.value,
+      editorTheme: editorTheme.value,
+    },
+    {
+      save: saveCustomCSS,
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+/** 打开透明主题设置共享弹窗。 */
+function showTransparencySettingsDialog() {
+  openSharedDialog(TransparencySettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
+}
+
+/** 保存自定义 CSS。 */
+async function saveCustomCSS(css: string) {
+  customCSS.value = css
   try {
-    const result: { [key: string]: any } = await api.post('system/setting/UserCustomCSS', customCSS.value, {
+    const result: { [key: string]: any } = await api.post('system/setting/UserCustomCSS', css, {
       headers: {
         'Content-Type': 'text/plain',
       },
     })
 
-    if (result.success) $toast.success(t('theme.customCssSaveSuccess'))
+    if (result.success) {
+      customCssDialogController?.close()
+      customCssDialogController = null
+      $toast.success(t('theme.customCssSaveSuccess'))
+    }
   } catch (e) {
     console.error(t('theme.customCssSaveFailed'))
   }
-}
-
-// 应用透明度设置
-function applyTransparencySettings() {
-  const root = document.documentElement
-
-  if (!Number.isFinite(backgroundPosterOpacity.value)) {
-    backgroundPosterOpacity.value = 1
-  }
-  backgroundPosterOpacity.value = Math.min(1, Math.max(0, backgroundPosterOpacity.value))
-  if (!Number.isFinite(backgroundBlur.value)) {
-    backgroundBlur.value = 16
-  }
-  backgroundBlur.value = Math.min(30, Math.max(0, backgroundBlur.value))
-
-  // 设置CSS变量
-  root.style.setProperty('--transparent-opacity', transparencyOpacity.value.toString())
-  root.style.setProperty('--transparent-opacity-light', (transparencyOpacity.value * 0.67).toString())
-  root.style.setProperty('--transparent-opacity-heavy', (transparencyOpacity.value * 1.67).toString())
-  root.style.setProperty('--transparent-blur', `${transparencyBlur.value}px`)
-  root.style.setProperty('--transparent-blur-light', `${transparencyBlur.value * 0.6}px`)
-  root.style.setProperty('--transparent-blur-heavy', `${transparencyBlur.value * 1.6}px`)
-  root.style.setProperty('--transparent-background-poster-opacity', (1 - backgroundPosterOpacity.value).toString())
-  root.style.setProperty('--transparent-background-blur', `${backgroundBlur.value}px`)
-
-  // 保存到本地存储
-  localStorage.setItem('transparency-opacity', transparencyOpacity.value.toString())
-  localStorage.setItem('transparency-blur', transparencyBlur.value.toString())
-  localStorage.setItem('transparency-background-poster-opacity', backgroundPosterOpacity.value.toString())
-  localStorage.setItem('transparency-background-blur', backgroundBlur.value.toString())
-}
-
-// 调整透明度预设
-function adjustTransparency(level: string) {
-  transparencyLevel.value = level
-  localStorage.setItem('transparency-level', level)
-
-  // 设置预设值
-  switch (level) {
-    case 'low':
-      transparencyOpacity.value = 0.1
-      transparencyBlur.value = 5
-      break
-    case 'medium':
-      transparencyOpacity.value = 0.3
-      transparencyBlur.value = 10
-      break
-    case 'high':
-      transparencyOpacity.value = 0.6
-      transparencyBlur.value = 15
-      break
-  }
-
-  applyTransparencySettings()
-}
-
-// 透明度变化处理
-function onOpacityChange() {
-  applyTransparencySettings()
-  // 清除预设级别，因为用户手动调整了
-  transparencyLevel.value = ''
-}
-
-// 模糊度变化处理
-function onBlurChange() {
-  applyTransparencySettings()
-  // 清除预设级别，因为用户手动调整了
-  transparencyLevel.value = ''
-}
-
-// 背景海报透明度变化处理
-function onBackgroundPosterOpacityChange() {
-  applyTransparencySettings()
-}
-
-// 背景磨砂变化处理
-function onBackgroundBlurChange() {
-  applyTransparencySettings()
-}
-
-// 重置透明度设置
-function resetTransparencySettings() {
-  transparencyOpacity.value = 0.3
-  transparencyBlur.value = 10
-  backgroundPosterOpacity.value = 0
-  backgroundBlur.value = 16
-  transparencyLevel.value = 'medium'
-  applyTransparencySettings()
 }
 
 // 监听主题变化
@@ -477,7 +402,7 @@ watch(
 
     // 如果切换到透明主题，应用透明度设置
     if (currentThemeName.value === 'transparent') {
-      applyTransparencySettings()
+      applyStoredTransparencySettings()
     }
   },
 )
@@ -534,7 +459,7 @@ onMounted(() => {
 
   // 初始化透明度设置
   if (isTransparentTheme.value) {
-    applyTransparencySettings()
+    applyStoredTransparencySettings()
   }
 })
 
@@ -546,6 +471,9 @@ onUnmounted(() => {
     restartPollingId.value = null
   }
   isRestarting.value = false
+  closeRestartProgress()
+  siteAuthDialogController?.close()
+  customCssDialogController?.close()
 })
 </script>
 
@@ -677,7 +605,7 @@ onUnmounted(() => {
                   <VIcon icon="mdi-check" color="primary" size="small" />
                 </template>
               </VListItem>
-              <VListItem @click="cssDialog = true">
+              <VListItem @click="showCustomCssDialog">
                 <template #prepend>
                   <VIcon icon="mdi-palette" />
                 </template>
@@ -687,7 +615,7 @@ onUnmounted(() => {
               <!-- 透明度调整 - 仅在透明主题下显示 -->
               <template v-if="isTransparentTheme">
                 <VDivider class="my-2" />
-                <VListItem @click="showTransparencyDialog = true">
+                <VListItem @click="showTransparencySettingsDialog">
                   <template #prepend>
                     <VIcon icon="mdi-opacity" />
                   </template>
@@ -774,161 +702,6 @@ onUnmounted(() => {
     </VMenu>
     <!-- !SECTION -->
   </VAvatar>
-
-  <!-- 重启进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('app.restarting')" />
-  <!-- 用户认证对话框 -->
-  <UserAuthDialog v-if="siteAuthDialog" v-model="siteAuthDialog" @done="siteAuthDone" @close="siteAuthDialog = false" />
-  <!-- 自定义 CSS -->
-  <VDialog v-if="cssDialog" v-model="cssDialog" max-width="50rem" scrollable :fullscreen="!display.mdAndUp.value">
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-palette" class="me-2" />
-          {{ t('theme.custom') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="cssDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VAceEditor v-model:value="customCSS" lang="css" :theme="editorTheme" class="w-full min-h-[30rem]" />
-      <VDivider />
-      <VCardText class="text-center">
-        <VBtn @click="saveCustomCSS" class="w-1/2">
-          <template #prepend>
-            <VIcon icon="mdi-content-save" />
-          </template>
-          {{ t('common.save') }}
-        </VBtn>
-      </VCardText>
-    </VCard>
-  </VDialog>
-
-  <!-- 透明度调整对话框 -->
-  <VDialog v-if="showTransparencyDialog" v-model="showTransparencyDialog" max-width="30rem">
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-opacity" class="me-2" />
-          {{ t('theme.transparencyAdjust') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="showTransparencyDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <div class="space-y-6">
-          <!-- 透明度滑动条 -->
-          <div>
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-body-2">{{ t('theme.transparencyOpacity') }}</span>
-              <span class="text-caption">{{ Math.round(transparencyOpacity * 100) }}%</span>
-            </div>
-            <VSlider
-              v-model="transparencyOpacity"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              color="primary"
-              @update:model-value="onOpacityChange"
-            />
-          </div>
-
-          <!-- 模糊度滑动条 -->
-          <div>
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-body-2">{{ t('theme.transparencyBlur') }}</span>
-              <span class="text-caption">{{ transparencyBlur }}px</span>
-            </div>
-            <VSlider
-              v-model="transparencyBlur"
-              :min="0"
-              :max="30"
-              :step="1"
-              color="primary"
-              @update:model-value="onBlurChange"
-            />
-          </div>
-
-          <!-- 背景海报透明度滑动条 -->
-          <div>
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-body-2">{{ t('theme.backgroundPosterOpacity') }}</span>
-              <span class="text-caption">{{ Math.round(backgroundPosterOpacity * 100) }}%</span>
-            </div>
-            <VSlider
-              v-model="backgroundPosterOpacity"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              color="primary"
-              @update:model-value="onBackgroundPosterOpacityChange"
-            />
-          </div>
-
-          <!-- 背景磨砂滑动条 -->
-          <div>
-            <div class="d-flex align-center justify-space-between mb-2">
-              <span class="text-body-2">{{ t('theme.backgroundBlur') }}</span>
-              <span class="text-caption">{{ backgroundBlur }}px</span>
-            </div>
-            <VSlider
-              v-model="backgroundBlur"
-              :min="0"
-              :max="30"
-              :step="1"
-              color="primary"
-              @update:model-value="onBackgroundBlurChange"
-            />
-          </div>
-
-          <!-- 预设按钮 -->
-          <div>
-            <span class="text-body-2 d-block mb-2">{{ t('common.preset') }}</span>
-            <VBtnGroup density="compact" variant="outlined" class="w-full">
-              <VBtn
-                size="small"
-                :color="currentPresetLevel === 'low' ? 'primary' : undefined"
-                @click="adjustTransparency('low')"
-                class="flex-1"
-              >
-                {{ t('theme.transparencyLow') }}
-              </VBtn>
-              <VBtn
-                size="small"
-                :color="currentPresetLevel === 'medium' ? 'primary' : undefined"
-                @click="adjustTransparency('medium')"
-                class="flex-1"
-              >
-                {{ t('theme.transparencyMedium') }}
-              </VBtn>
-              <VBtn
-                size="small"
-                :color="currentPresetLevel === 'high' ? 'primary' : undefined"
-                @click="adjustTransparency('high')"
-                class="flex-1"
-              >
-                {{ t('theme.transparencyHigh') }}
-              </VBtn>
-            </VBtnGroup>
-          </div>
-        </div>
-      </VCardText>
-      <VDivider />
-      <VCardText class="text-center">
-        <VBtn @click="resetTransparencySettings" variant="outlined" class="me-2">
-          <template #prepend>
-            <VIcon icon="mdi-refresh" />
-          </template>
-          {{ t('theme.transparencyReset') }}
-        </VBtn>
-        <VBtn @click="showTransparencyDialog = false" color="primary">
-          {{ t('common.confirm') }}
-        </VBtn>
-      </VCardText>
-    </VCard>
-  </VDialog>
-
-  <!-- 关于对话框 -->
-  <AboutDialog v-if="aboutDialog" v-model="aboutDialog" @close="aboutDialog = false" />
 </template>
 
 <style lang="scss" scoped>

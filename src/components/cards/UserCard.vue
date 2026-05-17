@@ -5,9 +5,11 @@ import { useUserStore } from '@/stores'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
-import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const UserAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/UserAddEditDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -45,9 +47,6 @@ const emit = defineEmits(['remove', 'save'])
 
 // 确认框
 const createConfirm = useConfirm()
-
-// 用户信息弹窗
-const userEditDialog = ref(false)
 
 // 提示框
 const $toast = useToast()
@@ -104,12 +103,22 @@ async function removeUser() {
 
 // 编辑用户
 function editUser() {
-  userEditDialog.value = true
+  openSharedDialog(
+    UserAddEditDialog,
+    {
+      username: props.user?.name,
+      usernames: props.users.map(item => item.name),
+      oper: 'edit',
+    },
+    {
+      save: onUserUpdate,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 // 用户更新完成时
 function onUserUpdate() {
-  userEditDialog.value = false
   emit('save')
 }
 
@@ -124,7 +133,7 @@ onMounted(() => {
       !props.user.is_active ? 'opacity-85 bg-surface-lighten-1' : '',
     ]"
     class="user-card flex flex-column h-full"
-    @click="userEditDialog = true"
+    @click="editUser"
   >
     <div class="user-card__body flex-grow flex-grow-1">
       <!-- 用户头像和基本信息 -->
@@ -294,17 +303,6 @@ onMounted(() => {
       </VCardText>
     </div>
   </VCard>
-
-  <!-- 用户编辑弹窗 -->
-  <UserAddEditDialog
-    v-if="userEditDialog"
-    v-model="userEditDialog"
-    :username="props.user?.name"
-    :usernames="props.users.map(item => item.name)"
-    oper="edit"
-    @save="onUserUpdate"
-    @close="userEditDialog = false"
-  />
 </template>
 
 <style scoped>

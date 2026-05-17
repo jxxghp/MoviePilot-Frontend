@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { getDiscoverTabs } from '@/router/i18n-menu'
-import draggable from 'vuedraggable'
 import TheMovieDbView from '@/views/discover/TheMovieDbView.vue'
 import DoubanView from '@/views/discover/DoubanView.vue'
 import BangumiView from '@/views/discover/BangumiView.vue'
@@ -8,11 +7,11 @@ import ExtraSourceView from '@/views/discover/ExtraSourceView.vue'
 import { DiscoverSource } from '@/api/types'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
-import { useDisplay } from 'vuetify'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
-const display = useDisplay()
+const DiscoverTabOrderDialog = defineAsyncComponent(() => import('@/components/dialog/DiscoverTabOrderDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -42,11 +41,38 @@ const discoverTabItems = computed(() => {
 // 额外的数据源
 const extraDiscoverSources = ref<DiscoverSource[]>([])
 
-// 排序对话框
-const orderConfigDialog = ref(false)
-
 // 为每个项目生成随机颜色
 const itemColors = ref<{ [key: string]: string }>({})
+
+let orderDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开发现页标签排序共享弹窗。
+function openOrderConfigDialog() {
+  orderDialogController?.close()
+  orderDialogController = openSharedDialog(
+    DiscoverTabOrderDialog,
+    {
+      colors: itemColors.value,
+      tabs: discoverTabs.value,
+    },
+    {
+      close: () => {
+        orderDialogController = null
+      },
+      save: saveTabOrder,
+      'update:modelValue': (value: boolean) => {
+        if (!value) orderDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+// 关闭发现页标签排序共享弹窗。
+function closeOrderConfigDialog() {
+  orderDialogController?.close()
+  orderDialogController = null
+}
 
 // 初始化颜色
 function initializeColors() {
@@ -123,8 +149,8 @@ async function loadOrderConfig() {
 }
 
 // 保存顺序设置
-async function saveTabOrder() {
-  orderConfigDialog.value = false
+async function saveTabOrder(tabs = discoverTabs.value) {
+  discoverTabs.value = [...tabs]
   // 顺序配置
   const orderObj = discoverTabs.value.map(item => ({ name: item.name }))
   orderConfig.value = orderObj
@@ -137,6 +163,7 @@ async function saveTabOrder() {
   } catch (error) {
     console.error(error)
   }
+  closeOrderConfigDialog()
 }
 
 // 使用动态标签页
@@ -152,9 +179,7 @@ registerHeaderTab({
       variant: 'text',
       color: 'grey',
       class: 'settings-icon-button',
-      action: () => {
-        orderConfigDialog.value = true
-      },
+      action: openOrderConfigDialog,
     },
   ],
 })
@@ -215,146 +240,9 @@ onActivated(async () => {
         </transition>
       </VWindowItem>
     </VWindow>
-    <!-- 弹窗，根据配置生成选项 -->
-    <VDialog
-      v-if="orderConfigDialog"
-      v-model="orderConfigDialog"
-      max-width="35rem"
-      scrollable
-      :fullscreen="!display.mdAndUp.value"
-    >
-      <VCard>
-        <VCardItem>
-          <VCardTitle>
-            <VIcon icon="mdi-order-alphabetical-ascending" size="small" class="me-2" />
-            {{ t('discover.setTabOrder') }}
-          </VCardTitle>
-          <VDialogCloseBtn @click="orderConfigDialog = false" />
-        </VCardItem>
-        <VDivider />
-        <VCardText>
-          <p class="settings-hint">{{ t('discover.dragToReorder') }}</p>
-          <draggable
-            v-model="discoverTabs"
-            handle=".cursor-move"
-            item-key="mediaid_prefix"
-            tag="div"
-            :component-data="{ 'class': 'settings-grid' }"
-          >
-            <template #item="{ element }">
-              <VCard
-                variant="text"
-                class="setting-item enabled"
-                :style="{ '--item-color': itemColors[element.mediaid_prefix] }"
-              >
-                <div class="setting-item-inner">
-                  <span class="setting-label">{{ element.name }}</span>
-                  <VIcon icon="mdi-drag" class="drag-icon cursor-move" />
-                </div>
-              </VCard>
-            </template>
-          </draggable>
-        </VCardText>
-        <VCardActions class="pt-3">
-          <VSpacer />
-          <VBtn @click="saveTabOrder">
-            <template #prepend>
-              <VIcon icon="mdi-content-save" />
-            </template>
-            {{ t('common.save') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
     <!-- 快速滚动到顶部按钮 -->
     <Teleport to="body" v-if="route.path === '/discover'">
       <VScrollToTopBtn />
     </Teleport>
   </div>
 </template>
-<style lang="scss" scoped>
-.settings-card-header {
-  padding-block: 16px;
-  padding-inline: 20px;
-}
-
-.settings-hint {
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  font-size: 0.9rem;
-  margin-block-end: 16px;
-}
-
-.settings-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-}
-
-.setting-label {
-  flex: 1;
-  color: rgba(var(--v-theme-on-surface), 0.8);
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.2;
-  transition: color 0.2s ease;
-}
-
-.setting-item {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.3);
-  cursor: pointer;
-  padding-block: 10px;
-  padding-inline: 12px;
-  transition: all 0.2s ease;
-
-  &::before {
-    position: absolute;
-    background-color: var(--item-color, #4caf50);
-    block-size: 100%;
-    content: '';
-    inline-size: 4px;
-    inset-block-start: 0;
-    inset-inline-start: 0;
-    transition: background-color 0.3s ease;
-  }
-
-  &:hover {
-    transform: translateY(-2px);
-  }
-
-  &.enabled {
-    border-color: rgba(var(--v-theme-primary), 0.3);
-    background-color: rgba(var(--v-theme-primary), 0.1);
-
-    .setting-label {
-      color: rgba(var(--v-theme-primary), 0.9);
-      font-weight: 500;
-    }
-  }
-}
-
-.setting-item-inner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.setting-check {
-  flex-shrink: 0;
-}
-
-.drag-icon {
-  flex-shrink: 0;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-  cursor: move;
-}
-
-@media (width <= 600px) {
-  .settings-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-</style>

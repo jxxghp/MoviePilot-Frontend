@@ -8,18 +8,20 @@ import { doneNProgress, startNProgress } from '@/api/nprogress'
 import type { MediaInfo, Subscribe, MediaSeason, Site } from '@/api/types'
 import router from '@/router'
 import { useUserStore, useGlobalSettingsStore } from '@/stores'
-import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
-import SearchSiteDialog from '@/components/dialog/SearchSiteDialog.vue'
-import SubscribeSeasonDialog from '../dialog/SubscribeSeasonDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { mediaTypeDict } from '@/api/constants'
 import { hasPermission } from '@/utils/permission'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import {
   getCachedMediaExistsStatus,
   getCachedMediaSubscribeStatus,
   setCachedMediaExistsStatus,
   setCachedMediaSubscribeStatus,
 } from '@/utils/mediaStatusCache'
+
+const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
+const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
+const SubscribeSeasonDialog = defineAsyncComponent(() => import('../dialog/SubscribeSeasonDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -59,15 +61,6 @@ const isSubscribed = ref(false)
 // 本地存在状态
 const isExists = ref(false)
 
-// 订阅季弹窗
-const subscribeSeasonDialog = ref(false)
-
-// 订阅编辑弹窗
-const subscribeEditDialog = ref(false)
-
-// 订阅ID
-const subscribeId = ref<number>()
-
 // 选中的订阅季
 const seasonsSelected = ref<MediaSeason[]>([])
 
@@ -93,11 +86,47 @@ const selectedSites = ref<number[]>([])
 // 搜索菜单显示状态
 const searchMenuShow = ref(false)
 
-// 选择站点对话框
-const chooseSiteDialog = ref(false)
-
 // 选择的剧集组
 const episodeGroup = ref('')
+
+// 打开订阅季选择弹窗，避免每个媒体卡片都持有弹窗实例。
+function openSubscribeSeasonDialog() {
+  openSharedDialog(
+    SubscribeSeasonDialog,
+    { media: props.media },
+    {
+      subscribe: subscribeSeasons,
+    },
+    { closeOn: ['close', 'subscribe'] },
+  )
+}
+
+// 打开订阅编辑弹窗，保存、关闭或删除时释放共享弹窗实例。
+function openSubscribeEditDialog(subid: number) {
+  openSharedDialog(
+    SubscribeEditDialog,
+    { subid },
+    {
+      remove: onRemoveSubscribe,
+    },
+    { closeOn: ['close', 'save', 'remove'] },
+  )
+}
+
+// 打开站点选择弹窗，并把选择结果交回当前媒体卡片继续搜索。
+function openSearchSiteDialog() {
+  openSharedDialog(
+    SearchSiteDialog,
+    {
+      sites: allSites.value,
+      selected: selectedSites.value,
+    },
+    {
+      search: searchSites,
+    },
+    { closeOn: ['close', 'search'] },
+  )
+}
 
 // 查询所有站点
 async function querySites() {
@@ -157,7 +186,7 @@ async function handleAddSubscribe() {
   if (props.media?.type === '电视剧') {
     // 弹出季选择列表，支持多选
     seasonsSelected.value = []
-    subscribeSeasonDialog.value = true
+    openSubscribeSeasonDialog()
   } else {
     // 电影
     addSubscribe()
@@ -199,8 +228,7 @@ async function addSubscribe(season: number | null = null, best_version: number =
     if (result.success && seasonsSelected.value.length <= 1) {
       const show_edit_dialog = await queryDefaultSubscribeConfig()
       if (show_edit_dialog) {
-        subscribeId.value = result.data.id
-        subscribeEditDialog.value = true
+        openSubscribeEditDialog(result.data.id)
       }
     }
   } catch (error) {
@@ -330,7 +358,6 @@ function handleSubscribe() {
 
 // 订阅多季
 function subscribeSeasons(seasons: MediaSeason[], seasonNoExists: { [key: number]: number }, groudId: string) {
-  subscribeSeasonDialog.value = false
   episodeGroup.value = groudId
   seasonsSelected.value = seasons || []
   seasonsSelected.value.forEach(season => {
@@ -375,7 +402,7 @@ async function clickSearch() {
     await querySelectedSites()
   }
   if (allSites.value?.length > 0) {
-    chooseSiteDialog.value = true
+    openSearchSiteDialog()
   } else {
     handleSearch()
   }
@@ -399,7 +426,6 @@ function handleSearch() {
 
 // 搜索多站点
 function searchSites(sites: number[]) {
-  chooseSiteDialog.value = false
   selectedSites.value = sites
   handleSearch()
 }
@@ -449,7 +475,7 @@ const getImgUrl: Ref<string> = computed(() => {
 
 // 移除订阅
 function onRemoveSubscribe() {
-  subscribeEditDialog.value = false
+  isSubscribed.value = false
 }
 
 // 获取媒体类型文本
@@ -565,32 +591,6 @@ onBeforeUnmount(() => {
       </div>
     </template>
   </VHover>
-  <!-- 订阅季弹窗 -->
-  <subscribeSeasonDialog
-    v-if="subscribeSeasonDialog"
-    v-model="subscribeSeasonDialog"
-    :media="media"
-    @subscribe="subscribeSeasons"
-    @close="subscribeSeasonDialog = false"
-  />
-  <!-- 订阅编辑弹窗 -->
-  <SubscribeEditDialog
-    v-if="subscribeEditDialog"
-    v-model="subscribeEditDialog"
-    :subid="subscribeId"
-    @close="subscribeEditDialog = false"
-    @save="subscribeEditDialog = false"
-    @remove="onRemoveSubscribe"
-  />
-  <!-- 站点选择对话框 -->
-  <SearchSiteDialog
-    v-if="chooseSiteDialog"
-    v-model="chooseSiteDialog"
-    :sites="allSites"
-    :selected="selectedSites"
-    @search="searchSites"
-    @close="chooseSiteDialog = false"
-  />
 </template>
 <style scoped>
 .media-card-title {

@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { useDisplay } from 'vuetify'
 import { useEventListener } from '@vueuse/core'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
-// 显示器宽度
-const display = useDisplay()
+const TorrentAllFiltersDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentAllFiltersDialog.vue'))
+const TorrentSingleFilterDialog = defineAsyncComponent(() => import('@/components/dialog/TorrentSingleFilterDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -41,15 +41,11 @@ const emit = defineEmits<{
 }>()
 
 // 过滤菜单相关
-const filterMenuOpen = ref(false)
 const currentFilter = ref('site')
 const currentFilterTitle = computed(() => props.filterTitles[currentFilter.value])
-const currentFilterOptions = computed(() => {
-  return props.filterOptions[currentFilter.value]
-})
 
-// 添加全部筛选菜单相关
-const allFilterMenuOpen = ref(false)
+let allFilterDialogController: ReturnType<typeof openSharedDialog> | null = null
+let filterDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 计算已选择的过滤条件数量
 const getFilterCount = computed(() => {
@@ -85,18 +81,97 @@ function getFilterIcon(key: string) {
   return icons[key] || 'mdi-filter-variant'
 }
 
-// 开关全部筛选菜单
-function toggleAllFilterMenu() {
-  allFilterMenuOpen.value = !allFilterMenuOpen.value
+// 生成全部筛选共享弹窗的最新参数。
+function getAllFiltersDialogProps() {
+  return {
+    filterForm: props.filterForm,
+    filterOptions: props.filterOptions,
+    filterTitles: props.filterTitles,
+  }
 }
 
-// 添加toggleFilterMenu函数
+// 生成单项筛选共享弹窗的最新参数。
+function getSingleFilterDialogProps() {
+  return {
+    filterForm: props.filterForm,
+    filterKey: currentFilter.value,
+    filterOptions: props.filterOptions,
+    filterTitle: currentFilterTitle.value,
+  }
+}
+
+// 关闭全部筛选共享弹窗。
+function closeAllFilterDialog() {
+  allFilterDialogController?.close()
+  allFilterDialogController = null
+}
+
+// 关闭单项筛选共享弹窗。
+function closeFilterDialog() {
+  filterDialogController?.close()
+  filterDialogController = null
+}
+
+// 打开全部筛选共享弹窗。
+function openAllFilterDialog() {
+  allFilterDialogController?.close()
+  allFilterDialogController = openSharedDialog(
+    TorrentAllFiltersDialog,
+    getAllFiltersDialogProps(),
+    {
+      clearAllFilters,
+      clearFilter,
+      close: () => {
+        allFilterDialogController = null
+      },
+      selectAll,
+      'update:filterForm': handleFilterChange,
+      'update:modelValue': (value: boolean) => {
+        if (!value) allFilterDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+// 打开单项筛选共享弹窗。
+function openFilterDialog() {
+  if (filterDialogController) {
+    filterDialogController.updateProps(getSingleFilterDialogProps())
+    return
+  }
+
+  filterDialogController = openSharedDialog(
+    TorrentSingleFilterDialog,
+    getSingleFilterDialogProps(),
+    {
+      clearFilter,
+      close: () => {
+        filterDialogController = null
+      },
+      selectAll,
+      'update:filterForm': handleFilterChange,
+      'update:modelValue': (value: boolean) => {
+        if (!value) filterDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+// 开关全部筛选菜单。
+function toggleAllFilterMenu() {
+  if (allFilterDialogController) closeAllFilterDialog()
+  else openAllFilterDialog()
+}
+
+// 切换单项筛选共享弹窗。
 function toggleFilterMenu(key: string) {
-  if (currentFilter.value === key && filterMenuOpen.value) {
-    filterMenuOpen.value = false
+  if (currentFilter.value === key && filterDialogController) {
+    closeFilterDialog()
   } else {
     currentFilter.value = key
-    filterMenuOpen.value = true
+    openFilterDialog()
   }
 }
 
@@ -519,138 +594,6 @@ onMounted(() => {
     </div>
   </VCard>
 
-  <!-- 全部筛选弹窗 -->
-  <VDialog
-    v-model="allFilterMenuOpen"
-    max-width="50rem"
-    location="center"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard>
-      <VDialogCloseBtn @click="allFilterMenuOpen = false" />
-      <VCardTitle class="py-3 d-flex align-center">
-        <VIcon icon="mdi-filter-variant" class="me-2"></VIcon>
-        <span>{{ t('torrent.allFilters') }}</span>
-        <VSpacer />
-        <VBtn
-          v-if="getFilterCount > 0"
-          class="me-10"
-          variant="text"
-          size="small"
-          color="error"
-          @click="clearAllFilters"
-        >
-          {{ t('torrent.clearAll') }}
-        </VBtn>
-      </VCardTitle>
-      <VDivider />
-      <VCardText>
-        <div class="all-filters-grid">
-          <VCard
-            v-for="(title, key) in filterTitles"
-            variant="tonal"
-            :key="key"
-            class="filter-section"
-            v-show="filterOptions[key].length > 0"
-          >
-            <VCardItem class="py-2">
-              <template #prepend>
-                <VIcon :icon="getFilterIcon(key)" class="me-2"></VIcon>
-              </template>
-              <VCardTitle>{{ title }}</VCardTitle>
-              <template #append>
-                <VBtn variant="text" size="small" color="primary" @click="selectAll(key)">
-                  {{ t('torrent.selectAll') }}
-                </VBtn>
-                <VBtn
-                  v-if="filterForm[key].length > 0"
-                  variant="text"
-                  size="small"
-                  color="error"
-                  @click="clearFilter(key)"
-                >
-                  {{ t('torrent.clear') }}
-                </VBtn>
-              </template>
-            </VCardItem>
-            <VCardText>
-              <VChipGroup
-                :model-value="filterForm[key]"
-                @update:model-value="(val: string[]) => handleFilterChange(key, val)"
-                column
-                multiple
-                class="filter-options"
-              >
-                <VChip
-                  v-for="option in filterOptions[key]"
-                  :key="option"
-                  :value="option"
-                  filter
-                  variant="elevated"
-                  class="ma-1 filter-chip"
-                  size="small"
-                >
-                  {{ option }}
-                </VChip>
-              </VChipGroup>
-            </VCardText>
-          </VCard>
-        </div>
-      </VCardText>
-    </VCard>
-  </VDialog>
-
-  <!-- 筛选弹窗 -->
-  <VDialog v-model="filterMenuOpen" max-width="25rem" max-height="85vh" location="center" scrollable>
-    <VCard>
-      <VCardTitle class="py-3 d-flex align-center">
-        <VIcon :icon="getFilterIcon(currentFilter)" class="me-2"></VIcon>
-        <span>{{ currentFilterTitle }}</span>
-        <VSpacer />
-        <VBtn
-          v-if="filterForm[currentFilter].length > 0"
-          variant="text"
-          size="small"
-          color="error"
-          @click="clearFilter(currentFilter)"
-        >
-          {{ t('torrent.clear') }}
-        </VBtn>
-        <VBtn variant="text" size="small" color="primary" @click="selectAll(currentFilter)">
-          {{ t('torrent.selectAll') }}
-        </VBtn>
-      </VCardTitle>
-      <VDivider />
-      <VCardText>
-        <VChipGroup
-          :model-value="filterForm[currentFilter]"
-          @update:model-value="(val: string[]) => handleFilterChange(currentFilter, val)"
-          column
-          multiple
-          class="filter-options"
-        >
-          <VChip
-            v-for="option in currentFilterOptions"
-            :key="option"
-            :value="option"
-            filter
-            variant="elevated"
-            class="ma-1 filter-chip"
-            size="small"
-          >
-            {{ option }}
-          </VChip>
-        </VChipGroup>
-      </VCardText>
-      <VCardActions>
-        <VSpacer />
-        <VBtn color="primary" prepend-icon="mdi-check" class="px-5" @click="filterMenuOpen = false">
-          {{ t('torrent.confirm') }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>
 
 <style scoped>
@@ -812,16 +755,6 @@ onMounted(() => {
 .filter-label {
   font-size: 0.8rem;
   text-align: center;
-}
-
-.all-filters-grid {
-  display: grid;
-  gap: 24px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-}
-
-.filter-section {
-  background-color: rgba(var(--v-theme-surface-variant), 0.08);
 }
 
 @media (width <= 600px) {

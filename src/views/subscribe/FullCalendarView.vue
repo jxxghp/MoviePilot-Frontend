@@ -8,15 +8,14 @@ import type { Ref } from 'vue'
 import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
 import api from '@/api'
 import { formatEp, parseDate } from '@/@core/utils/formatters'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { getCurrentLocale } from '@/plugins/i18n'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
-
-// 进度框
-const progressDialog = ref(false)
 
 // 加载中
 const loading = ref(false)
@@ -26,6 +25,20 @@ const isLoaded = ref(false)
 
 // 获取当前语言
 const currentLocale = getCurrentLocale().split('-')[0]
+
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开订阅日历共享进度弹窗。
+function openProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text: `${t('common.loading')} ...` }, {}, { closeOn: false })
+}
+
+// 关闭订阅日历共享进度弹窗。
+function closeProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = null
+}
 
 // 日历属性
 const calendarOptions: Ref<CalendarOptions> = ref({
@@ -115,7 +128,7 @@ async function eventsHander(subscribe: Subscribe) {
 
 // 调用API查询所有订阅
 async function getSubscribes() {
-  if (!isLoaded.value) progressDialog.value = true
+  if (!isLoaded.value) openProgressDialog()
   try {
     // 订阅
     loading.value = true
@@ -127,8 +140,9 @@ async function getSubscribes() {
     isLoaded.value = true
   } catch (error) {
     console.error(error)
+  } finally {
+    closeProgressDialog()
   }
-  progressDialog.value = false
 }
 
 // 页面加载时调用API查询所有订阅
@@ -208,7 +222,6 @@ onActivated(() => {
       </div>
     </template>
   </FullCalendar>
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('common.loading') + ' ...'" />
 </template>
 
 <style lang="scss">

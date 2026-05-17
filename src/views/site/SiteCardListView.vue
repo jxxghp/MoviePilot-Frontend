@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 // 国际化
 const { t } = useI18n()
@@ -43,14 +44,6 @@ const isRefreshed = ref(false)
 // 是否加载中
 const loading = ref(false)
 
-// 新增站点对话框
-const siteAddDialog = ref(false)
-
-// 统计信息对话框
-const siteStatsDialog = ref(false)
-
-// 导入站点对话框
-const siteImportDialog = ref(false)
 const sortMode = ref(false)
 
 // 筛选相关
@@ -228,7 +221,6 @@ async function handleRefreshStats(domain?: string) {
 
 // 更新站点事件时
 function onSiteSave() {
-  siteAddDialog.value = false
   fetchData()
 }
 
@@ -243,15 +235,29 @@ function toggleSortMode() {
 }
 
 function openSiteAddDialog() {
-  siteAddDialog.value = true
+  openSharedDialog(
+    SiteAddEditDialog,
+    { oper: 'add' },
+    {
+      save: onSiteSave,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 function openSiteImportDialog() {
-  siteImportDialog.value = true
+  openSharedDialog(
+    SiteImportDialog,
+    {},
+    {
+      'import-success': fetchData,
+    },
+    { closeOn: ['update:modelValue'] },
+  )
 }
 
 function openSiteStatisticsDialog() {
-  siteStatsDialog.value = true
+  openSharedDialog(SiteStatisticsDialog, { sites: siteList.value }, {}, { closeOn: ['update:modelValue'] })
 }
 
 // 导出站点数据
@@ -497,18 +503,4 @@ useDynamicButton({
       />
     </div>
   </Teleport>
-  <!-- 新增站点弹窗 -->
-  <SiteAddEditDialog
-    v-if="siteAddDialog"
-    v-model="siteAddDialog"
-    oper="add"
-    @save="onSiteSave"
-    @close="siteAddDialog = false"
-  />
-
-  <!-- 统计信息弹窗 -->
-  <SiteStatisticsDialog v-if="siteStatsDialog" v-model="siteStatsDialog" :sites="siteList" />
-
-  <!-- 导入站点弹窗 -->
-  <SiteImportDialog v-if="siteImportDialog" v-model="siteImportDialog" @import-success="fetchData" />
 </template>

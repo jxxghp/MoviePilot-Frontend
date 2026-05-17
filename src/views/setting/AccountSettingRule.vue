@@ -8,6 +8,7 @@ import CustomerRuleCard from '@/components/cards/CustomRuleCard.vue'
 import FilterRuleGroupCard from '@/components/cards/FilterRuleGroupCard.vue'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 // 国际化
 const { t } = useI18n()
@@ -34,12 +35,6 @@ const selectedTorrentPriority = ref<string[]>(['seeder'])
 
 // 二级分类策略
 const mediaCategories = ref<{ [key: string]: any }>({})
-
-// 导入代码弹窗
-const importCodeDialog = ref(false)
-
-// 导入代码类型
-const importCodeType = ref('')
 
 // 提示框
 const $toast = useToast()
@@ -187,8 +182,17 @@ async function shareRules(rules: CustomRule[] | FilterRuleGroup[], type: string)
 
 // 打开弹窗
 async function importRules(ruleType: string) {
-  importCodeType.value = ruleType
-  importCodeDialog.value = true
+  openSharedDialog(
+    ImportCodeDialog,
+    {
+      title: ruleType === 'custom' ? t('setting.rule.importCustomRules') : t('setting.rule.importRuleGroups'),
+      dataType: ruleType,
+    },
+    {
+      save: saveCodeString,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 // 保存导入的代码
@@ -492,14 +496,6 @@ useSilentSettingRefresh(loadPageData, {
       </VCard>
     </VCol>
   </VRow>
-  <ImportCodeDialog
-    v-if="importCodeDialog"
-    v-model="importCodeDialog"
-    :title="importCodeType === 'custom' ? t('setting.rule.importCustomRules') : t('setting.rule.importRuleGroups')"
-    :dataType="importCodeType"
-    @close="importCodeDialog = false"
-    @save="saveCodeString"
-  />
   <VRow>
     <VCol cols="12">
       <VCard>

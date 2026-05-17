@@ -1,24 +1,23 @@
 <script lang="ts" setup>
 import * as Mousetrap from 'mousetrap'
 import SearchBarDialog from '@/components/dialog/SearchBarDialog.vue'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 
 const display = useDisplay()
 const { t } = useI18n()
 
-const searchDialog = ref(false)
-
 // 注册快捷键
 Mousetrap.bind(['command+k', 'ctrl+k'], openSearchDialog)
 
-// 打开搜索弹窗
+/** 打开全局共享搜索弹窗。 */
 function openSearchDialog() {
-  searchDialog.value = true
+  openSharedDialog(SearchBarDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
   return false
 }
 
-// 检测操作系统是否是Mac
+/** 检测操作系统是否是 Mac。 */
 function isMac() {
   return navigator.platform.toUpperCase().indexOf('MAC') >= 0
 }
@@ -38,9 +37,6 @@ const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
     <span class="search-trigger-text">{{ t('common.search') }}</span>
     <kbd class="search-trigger-kbd">{{ metaKey }}</kbd>
   </div>
-
-  <!-- 搜索弹窗 -->
-  <SearchBarDialog v-model="searchDialog" v-if="searchDialog" @close="searchDialog = false" />
 </template>
 
 <style scoped>

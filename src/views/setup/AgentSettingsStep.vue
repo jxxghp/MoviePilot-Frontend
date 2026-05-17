@@ -1,9 +1,12 @@
 <script lang="ts" setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useSetupWizard } from '@/composables/useSetupWizard'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const LlmProviderAuthDialog = defineAsyncComponent(() => import('@/components/dialog/LlmProviderAuthDialog.vue'))
 
 const { t } = useI18n()
 const $toast = useToast()
@@ -94,6 +97,54 @@ const {
   authConnected: authConnectedRef,
 })
 
+let authDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 生成 LLM 授权共享弹窗所需的最新状态。
+function getProviderAuthDialogProps() {
+  return {
+    authSession: authSession.value,
+    polling: authPolling.value,
+    popupBlocked: authPopupBlocked.value,
+  }
+}
+
+// 打开或刷新 LLM 授权共享弹窗。
+function openProviderAuthDialog() {
+  const dialogProps = getProviderAuthDialogProps()
+  if (authDialogController) {
+    authDialogController.updateProps(dialogProps)
+    return
+  }
+
+  authDialogController = openSharedDialog(
+    LlmProviderAuthDialog,
+    dialogProps,
+    {
+      close: () => {
+        closeAuthDialog()
+        authDialogController = null
+      },
+      openAuthPage,
+      poll: () => {
+        void pollAuthSession()
+      },
+      'update:modelValue': (value: boolean) => {
+        if (!value) {
+          closeAuthDialog()
+          authDialogController = null
+        }
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+// 关闭 LLM 授权共享弹窗控制器。
+function closeProviderAuthDialog() {
+  authDialogController?.close()
+  authDialogController = null
+}
+
 const jobIntervalItems = computed(() => [
   { title: t('setting.system.aiAgentJobIntervalDisabled'), value: 0 },
   { title: t('setting.system.aiAgentJobInterval1h'), value: 1 },
@@ -168,6 +219,19 @@ async function disconnectProviderAuth() {
     $toast.error(error instanceof Error ? error.message : String(error))
   }
 }
+
+watch(authDialogVisible, visible => {
+  if (visible) {
+    openProviderAuthDialog()
+    return
+  }
+
+  closeProviderAuthDialog()
+})
+
+watch([authSession, authPolling, authPopupBlocked], () => {
+  authDialogController?.updateProps(getProviderAuthDialogProps())
+})
 
 onMounted(async () => {
   try {
@@ -594,48 +658,4 @@ onMounted(async () => {
       </VRow>
     </VCardText>
   </VCard>
-
-  <VDialog v-model="authDialogVisible" max-width="560">
-    <VCard>
-      <VCardTitle>{{ t('setting.system.llmProviderAuthDialogTitle') }}</VCardTitle>
-      <VCardText class="d-flex flex-column ga-4">
-        <VAlert v-if="authSession?.instructions" type="info" variant="tonal">
-          {{ authSession.instructions }}
-        </VAlert>
-
-        <VAlert v-if="authPopupBlocked" type="warning" variant="tonal">
-          {{ t('setting.system.llmProviderPopupBlocked') }}
-        </VAlert>
-
-        <div v-if="authSession?.user_code">
-          <div class="text-caption text-medium-emphasis mb-1">{{ t('setting.system.llmProviderDeviceCode') }}</div>
-          <div class="text-h5 font-weight-bold">{{ authSession.user_code }}</div>
-        </div>
-
-        <div v-if="authSession?.message" class="text-body-2">
-          {{ authSession.message }}
-        </div>
-
-        <div class="d-flex flex-wrap ga-2">
-          <VBtn color="primary" prepend-icon="mdi-open-in-new" @click="openAuthPage">
-            {{ t('setting.system.llmProviderOpenAuthPage') }}
-          </VBtn>
-          <VBtn
-            variant="tonal"
-            prepend-icon="mdi-refresh"
-            :loading="authPolling"
-            @click="pollAuthSession"
-          >
-            {{ t('setting.system.llmProviderCheckAuthStatus') }}
-          </VBtn>
-        </div>
-      </VCardText>
-      <VCardActions>
-        <VSpacer />
-        <VBtn variant="text" @click="closeAuthDialog">
-          {{ t('common.close') }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>

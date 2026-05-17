@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { storageAttributes } from '@/api/constants'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
@@ -22,7 +23,6 @@ const props = defineProps({
 
 // 拖拽排序和分类编辑弹窗按需加载，避免设置框架预加载目录页时带上这些交互依赖。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
-const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 const CategoryEditDialog = defineAsyncComponent(() => import('@/components/dialog/CategoryEditDialog.vue'))
 
 // 所有下载目录
@@ -36,12 +36,6 @@ const mediaCategories = ref<{ [key: string]: any }>({})
 
 // 提示框
 const $toast = useToast()
-
-// 进度框
-const progressDialog = ref(false)
-
-// 分类编辑对话框
-const categoryDialog = ref(false)
 
 // 数据源
 const sourceItems = [
@@ -77,6 +71,18 @@ const renameEditorOptions = {
   tabSize: 2,
   showLineNumbers: true,
   showGutter: true,
+}
+
+// 打开共享分类编辑弹窗，保存后刷新本页分类配置。
+function openCategoryDialog() {
+  openSharedDialog(
+    CategoryEditDialog,
+    {},
+    {
+      save: loadMediaCategories,
+    },
+    { closeOn: ['close', 'save', 'update:modelValue'] },
+  )
 }
 
 const movieRenameFormat = computed({
@@ -357,7 +363,7 @@ useSilentSettingRefresh(loadPageData, {
                 <VIcon icon="mdi-plus" />
               </VBtn>
               <VSpacer />
-              <VBtn color="info" variant="tonal" prepend-icon="mdi-shape-plus" @click="categoryDialog = true">
+              <VBtn color="info" variant="tonal" prepend-icon="mdi-shape-plus" @click="openCategoryDialog">
                 {{ t('setting.category.title') }}
               </VBtn>
             </div>
@@ -443,16 +449,6 @@ useSilentSettingRefresh(loadPageData, {
       </VCard>
     </VCol>
   </VRow>
-  <!-- 进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('setting.system.reloading')" />
-  <!-- 分类对话框 -->
-  <CategoryEditDialog
-    v-if="categoryDialog"
-    v-model="categoryDialog"
-    :categories="mediaCategories"
-    @close="categoryDialog = false"
-    @done="loadMediaCategories"
-  />
 </template>
 
 <style scoped>

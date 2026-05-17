@@ -4,6 +4,7 @@ import type { Plugin } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 import { useRecentPlugins } from '@/composables/useRecentPlugins'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import PluginDataDialog from '@/components/dialog/PluginDataDialog.vue'
 import { VCard } from 'vuetify/components'
 import { getDominantColor } from '@/@core/utils/image'
@@ -65,10 +66,6 @@ const lastTime = ref(0)
 const velocity = ref(0)
 const startedFromBottomArea = ref(false)
 const quickAccessRef = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
-
-// 插件弹窗相关状态
-const showPluginDataDialog = ref(false)
-const currentPlugin = ref<Plugin | null>(null)
 
 // Vuetify 组件 ref 在不同构建下可能返回组件实例，这里统一解析为真实 DOM 节点。
 function getQuickAccessElement() {
@@ -199,20 +196,20 @@ function handlePluginClick(plugin: Plugin) {
 
   emit('plugin-click', plugin)
 
-  // 设置当前插件并显示数据弹窗
-  currentPlugin.value = plugin
-  showPluginDataDialog.value = true
+  openSharedDialog(
+    PluginDataDialog,
+    {
+      plugin,
+      show_switch: false,
+    },
+    {},
+    { closeOn: ['close', 'update:modelValue'] },
+  )
 }
 
 // 关闭面板
 function handleClose() {
   emit('close')
-}
-
-// 关闭插件数据弹窗
-function handleClosePluginDataDialog() {
-  showPluginDataDialog.value = false
-  currentPlugin.value = null
 }
 
 // 管理滚动状态
@@ -571,15 +568,6 @@ function handleBackdropClick(event: MouseEvent) {
       </div>
     </div>
   </VCard>
-
-  <!-- 插件数据弹窗 -->
-  <PluginDataDialog
-    v-if="showPluginDataDialog && currentPlugin"
-    v-model="showPluginDataDialog"
-    :plugin="currentPlugin"
-    :show_switch="false"
-    @close="handleClosePluginDataDialog"
-  />
 </template>
 
 <style lang="scss" scoped>

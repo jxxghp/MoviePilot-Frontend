@@ -3,6 +3,9 @@ import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import type { EndPoints, FileItem } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const FileNewFolderDialog = defineAsyncComponent(() => import('../dialog/FileNewFolderDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -39,11 +42,9 @@ const inProps = defineProps({
 // 对外事件
 const emit = defineEmits(['storagechanged', 'pathchanged', 'loading', 'foldercreated', 'sortchanged'])
 
-// 新建文件夹名称
-const newFolderPopper = ref(false)
-
 // 新建文件名称
 const newFolderName = ref('')
+let newFolderDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 调整排序方式
 function changeSort() {
@@ -105,7 +106,8 @@ async function mkdir() {
   // 调API
   await inProps.axios.request(config)
 
-  newFolderPopper.value = false
+  newFolderDialogController?.close()
+  newFolderDialogController = null
   newFolderName.value = ''
   emit('loading', false)
 
@@ -115,13 +117,28 @@ async function mkdir() {
 
 function openNewFolderDialog() {
   newFolderName.value = ''
-  newFolderPopper.value = true
+  newFolderDialogController = openSharedDialog(
+    FileNewFolderDialog,
+    { name: newFolderName.value },
+    {
+      create: mkdir,
+      'update:name': (value: string) => {
+        newFolderName.value = value
+        newFolderDialogController?.updateProps({ name: value })
+      },
+    },
+    { closeOn: ['close'] },
+  )
 }
 
 // 计算排序图标
 const sortIcon = computed(() => {
   if (inProps.sort === 'time') return 'mdi-sort-clock-ascending-outline'
   else return 'mdi-sort-alphabetical-ascending'
+})
+
+onUnmounted(() => {
+  newFolderDialogController?.close()
 })
 
 defineExpose({
@@ -176,32 +193,8 @@ defineExpose({
     <IconBtn v-if="pathSegments.length > 0" @click="goUp">
       <VIcon icon="mdi-arrow-up-bold-outline" />
     </IconBtn>
-    <!-- 新建文件夹 -->
-    <VDialog v-model="newFolderPopper" max-width="35rem">
-      <template v-if="showNewFolderButton" #activator="{ props }">
-        <IconBtn v-bind="props">
-          <VIcon icon="mdi-folder-plus-outline" />
-        </IconBtn>
-      </template>
-      <VCard>
-        <VCardItem>
-          <template #prepend>
-            <VIcon icon="mdi-folder-plus-outline" class="me-2" />
-          </template>
-          <VCardTitle>{{ t('file.newFolder') }}</VCardTitle>
-        </VCardItem>
-        <VDialogCloseBtn @click="newFolderPopper = false" />
-        <VDivider />
-        <VCardText>
-          <VTextField v-model="newFolderName" :label="t('common.name')" prepend-inner-icon="mdi-format-text" />
-        </VCardText>
-        <VCardActions>
-          <div class="flex-grow-1" />
-          <VBtn :disabled="!newFolderName" @click="mkdir" prepend-icon="mdi-folder-plus" class="px-5 me-3">
-            {{ t('common.create') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
+    <IconBtn v-if="showNewFolderButton" @click="openNewFolderDialog">
+      <VIcon icon="mdi-folder-plus-outline" />
+    </IconBtn>
   </VToolbar>
 </template>

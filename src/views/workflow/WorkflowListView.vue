@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import api from '@/api'
 import { Workflow } from '@/api/types'
-import WorkflowAddEditDialog from '@/components/dialog/WorkflowAddEditDialog.vue'
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const WorkflowAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/WorkflowAddEditDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
 
 // 是否刷新
 const isRefreshed = ref(false)
-
-// 新增对话框
-const addDialog = ref(false)
 
 // 所有任务
 const workflowList = ref<Workflow[]>([])
@@ -44,7 +43,6 @@ async function fetchData() {
 
 // 新增完成
 function addDone() {
-  addDialog.value = false
   fetchData()
 }
 
@@ -56,7 +54,14 @@ onMounted(() => {
 useKeepAliveRefresh(fetchData)
 
 function openAddDialog() {
-  addDialog.value = true
+  openSharedDialog(
+    WorkflowAddEditDialog,
+    {},
+    {
+      save: addDone,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 defineExpose({
@@ -85,7 +90,5 @@ defineExpose({
       :error-title="t('workflow.noWorkflow')"
       :error-description="t('workflow.noWorkflowDescription')"
     />
-    <!-- 新增对话框 -->
-    <WorkflowAddEditDialog v-if="addDialog" v-model="addDialog" @close="addDialog = false" @save="addDone" />
   </div>
 </template>

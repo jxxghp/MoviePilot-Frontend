@@ -6,6 +6,7 @@ import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/stores'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 import { getSubscribeMovieTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
@@ -38,17 +39,11 @@ const subscribeTabs = computed(() => {
   }
 })
 
-// 默认订阅设置弹窗
-const subscribeEditDialog = ref(false)
-
 // 订阅过滤弹窗
 const filterSubscribeDialog = ref(false)
 
 // 搜索订阅分享弹窗
 const searchShareDialog = ref(false)
-
-// 订阅分享统计弹窗
-const shareStatisticsDialog = ref(false)
 
 // 排序模式
 const subscribeSortMode = ref(false)
@@ -118,7 +113,15 @@ const showSubscribeHistoryAction = computed(() => showDefaultRuleAction.value &&
 const showShareStatisticsAction = computed(() => activeTab.value === 'share')
 
 function openDefaultRuleDialog() {
-  subscribeEditDialog.value = true
+  openSharedDialog(
+    SubscribeEditDialog,
+    {
+      default: true,
+      type: subType,
+    },
+    {},
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 function openSubscribeHistoryDialog() {
@@ -126,7 +129,7 @@ function openSubscribeHistoryDialog() {
 }
 
 function openShareStatisticsDialog() {
-  shareStatisticsDialog.value = true
+  openSharedDialog(SubscribeShareStatisticsDialog, {}, {}, { closeOn: ['close'] })
 }
 
 function toggleSubscribeSortMode() {
@@ -413,22 +416,6 @@ onMounted(() => {
       </div>
     </Teleport>
 
-    <!-- 订阅编辑弹窗 -->
-    <SubscribeEditDialog
-      v-if="subscribeEditDialog"
-      v-model="subscribeEditDialog"
-      :default="true"
-      :type="subType"
-      @save="subscribeEditDialog = false"
-      @close="subscribeEditDialog = false"
-    />
-
-    <!-- 订阅分享统计弹窗 -->
-    <SubscribeShareStatisticsDialog
-      v-if="shareStatisticsDialog"
-      v-model="shareStatisticsDialog"
-      @close="shareStatisticsDialog = false"
-    />
   </div>
 </template>
 

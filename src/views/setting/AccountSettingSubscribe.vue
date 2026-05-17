@@ -2,7 +2,6 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { FilterRuleGroup, Site } from '@/api/types'
-import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
@@ -18,9 +17,6 @@ const props = defineProps({
 
 // 提示框
 const $toast = useToast()
-
-// 进度框
-const progressDialog = ref(false)
 
 // 所有站点
 const allSites = ref<Site[]>([])
@@ -345,5 +341,4 @@ useSilentSettingRefresh(loadPageData, {
     </VCol>
   </VRow>
   <!-- 进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="t('setting.system.reloading')" />
 </template>

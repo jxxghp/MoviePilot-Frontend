@@ -3,11 +3,13 @@ import api from '@/api'
 import type { User } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import UserCard from '@/components/cards/UserCard.vue'
-import UserAddEditDialog from '@/components/dialog/UserAddEditDialog.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const UserAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/UserAddEditDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -23,9 +25,6 @@ const isRefreshed = ref(false)
 
 // 是否加载中
 const loading = ref(false)
-
-// 新增用户窗口
-const addUserDialog = ref(false)
 
 // 所有用户信息
 const allUsers = ref<User[]>([])
@@ -45,13 +44,22 @@ async function loadAllUsers() {
 
 // 用户新增完成
 const onUserAdd = () => {
-  addUserDialog.value = false
   loadAllUsers()
 }
 
 // 打开添加用户对话框
 const openAddUserDialog = () => {
-  addUserDialog.value = true
+  openSharedDialog(
+    UserAddEditDialog,
+    {
+      oper: 'add',
+      maxWidth: '45rem',
+    },
+    {
+      save: onUserAdd,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 // 加载当前用户数据
@@ -113,14 +121,5 @@ useDynamicButton({
       </div>
     </Teleport>
 
-    <!-- 用户添加弹窗 -->
-    <UserAddEditDialog
-      v-if="addUserDialog"
-      v-model="addUserDialog"
-      oper="add"
-      max-width="45rem"
-      @save="onUserAdd"
-      @close="addUserDialog = false"
-    />
   </div>
 </template>

@@ -11,6 +11,7 @@ import { preloadImage } from './@core/utils/image'
 import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
+import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import { themeManager } from '@/utils/themeManager'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 
@@ -367,6 +368,8 @@ onUnmounted(() => {
     <!-- 页面内容 -->
     <VApp>
       <RouterView />
+      <!-- 全局共享弹窗入口，列表与卡片按需在这里挂载业务弹窗。 -->
+      <SharedDialogHost />
       <!-- PWA安装提示 -->
       <PWAInstallPrompt />
     </VApp>

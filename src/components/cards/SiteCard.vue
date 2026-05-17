@@ -3,10 +3,6 @@ import type { PropType } from 'vue'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
-import SiteAddEditDialog from '../dialog/SiteAddEditDialog.vue'
-import SiteUserDataDialog from '../dialog/SiteUserDataDialog.vue'
-import SiteResourceDialog from '../dialog/SiteResourceDialog.vue'
-import SiteCookieUpdateDialog from '../dialog/SiteCookieUpdateDialog.vue'
 import api from '@/api'
 import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -14,6 +10,12 @@ import { formatFileSize } from '@/@core/utils/formatters'
 import { useConfirm } from '@/composables/useConfirm'
 import { getCachedSiteIcon } from '@/utils/siteIconCache'
 import { useDisplay } from 'vuetify'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const SiteAddEditDialog = defineAsyncComponent(() => import('../dialog/SiteAddEditDialog.vue'))
+const SiteCookieUpdateDialog = defineAsyncComponent(() => import('../dialog/SiteCookieUpdateDialog.vue'))
+const SiteResourceDialog = defineAsyncComponent(() => import('../dialog/SiteResourceDialog.vue'))
+const SiteUserDataDialog = defineAsyncComponent(() => import('../dialog/SiteUserDataDialog.vue'))
 
 // 显示器宽度
 const display = useDisplay()
@@ -50,18 +52,6 @@ const testButtonText = ref(t('site.testConnectivity'))
 
 // 测试按钮可用性
 const testButtonDisable = ref(false)
-
-// 更新站点Cookie UA弹窗
-const siteCookieDialog = ref(false)
-
-// 站点编辑弹窗
-const siteEditDialog = ref(false)
-
-// 资源浏览弹窗
-const resourceDialog = ref(false)
-
-// 用户数据弹窗
-const siteUserDataDialog = ref(false)
 
 // 查询站点图标
 async function getSiteIcon() {
@@ -105,17 +95,44 @@ async function testSite() {
 
 // 打开更新站点Cookie UA弹窗
 async function handleSiteUpdate() {
-  siteCookieDialog.value = true
+  openSharedDialog(
+    SiteCookieUpdateDialog,
+    { site: cardProps.site },
+    {
+      done: onSiteCookieUpdated,
+    },
+    { closeOn: ['close', 'done'] },
+  )
 }
 
 // 打开资源浏览弹窗
 async function handleResourceBrowse() {
-  resourceDialog.value = true
+  openSharedDialog(
+    SiteResourceDialog,
+    { site: cardProps.site },
+    {
+      close: onSiteResourceDone,
+    },
+    { closeOn: ['close'] },
+  )
 }
 
 // 打开站点用户数据弹窗
 async function handleSiteUserData() {
-  siteUserDataDialog.value = true
+  openSharedDialog(SiteUserDataDialog, { site: cardProps.site }, {}, { closeOn: ['close'] })
+}
+
+// 打开站点编辑弹窗
+function handleSiteEdit() {
+  openSharedDialog(
+    SiteAddEditDialog,
+    { siteid: cardProps.site?.id },
+    {
+      save: saveSite,
+      remove: () => emit('remove'),
+    },
+    { closeOn: ['close', 'save', 'remove'] },
+  )
 }
 
 // 打开站点页面
@@ -199,20 +216,17 @@ const getDownloadPercent = computed(() => {
 
 // 保存站点
 function saveSite() {
-  siteEditDialog.value = false
   emit('update')
 }
 
 // 更新站点Cookie UA后的回调
 function onSiteCookieUpdated() {
-  siteCookieDialog.value = false
   // Cookie更新后刷新统计数据
   emit('refresh-stats', cardProps.site?.domain)
 }
 
 // 资源浏览弹窗关闭后的回调
 function onSiteResourceDone() {
-  resourceDialog.value = false
   // 资源操作完成后刷新统计数据
   emit('refresh-stats', cardProps.site?.domain)
 }
@@ -390,7 +404,7 @@ onMounted(() => {
           <VIcon icon="mdi-dots-vertical" size="20" />
           <VMenu :activator="'parent'" :close-on-content-click="true" :location="'left'">
             <VList>
-              <VListItem @click="siteEditDialog = true" base-color="info">
+              <VListItem @click="handleSiteEdit" base-color="info">
                 <template #prepend>
                   <VIcon icon="mdi-file-edit-outline" size="20" />
                 </template>
@@ -407,35 +421,6 @@ onMounted(() => {
         </VBtn>
       </VSheet>
     </VCard>
-
-    <!-- 对话框组件 -->
-    <SiteCookieUpdateDialog
-      v-if="siteCookieDialog"
-      v-model="siteCookieDialog"
-      :site="cardProps.site"
-      @close="siteCookieDialog = false"
-      @done="onSiteCookieUpdated"
-    />
-    <SiteAddEditDialog
-      v-if="siteEditDialog"
-      v-model="siteEditDialog"
-      :siteid="cardProps.site?.id"
-      @save="saveSite"
-      @remove="emit('remove')"
-      @close="siteEditDialog = false"
-    />
-    <SiteUserDataDialog
-      v-if="siteUserDataDialog"
-      v-model="siteUserDataDialog"
-      :site="cardProps.site"
-      @close="siteUserDataDialog = false"
-    />
-    <SiteResourceDialog
-      v-if="resourceDialog"
-      v-model="resourceDialog"
-      :site="cardProps.site"
-      @close="onSiteResourceDone"
-    />
   </div>
 </template>
 

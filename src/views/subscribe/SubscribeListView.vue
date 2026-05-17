@@ -4,13 +4,15 @@ import api from '@/api'
 import type { Subscribe } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
-import SubscribeHistoryDialog from '@/components/dialog/SubscribeHistoryDialog.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const SubscribeHistoryDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeHistoryDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -56,9 +58,6 @@ const loading = ref(false)
 
 // 数据列表
 const dataList = ref<Subscribe[]>([])
-
-// 历史记录弹窗
-const historyDialog = ref(false)
 
 // 订阅顺序配置
 const orderConfig = ref<{ id: number }[]>([])
@@ -225,12 +224,18 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
 
 // 历史记录窗口完成
 function historyDone() {
-  historyDialog.value = false
   fetchData()
 }
 
 function openHistoryDialog() {
-  historyDialog.value = true
+  openSharedDialog(
+    SubscribeHistoryDialog,
+    { type: props.type },
+    {
+      save: historyDone,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 // 批量管理相关函数
@@ -549,13 +554,5 @@ defineExpose({
     error-code="404"
     :error-title="errorTitle"
     :error-description="errorDescription"
-  />
-  <!-- 历史记录弹窗 -->
-  <SubscribeHistoryDialog
-    v-if="historyDialog"
-    v-model="historyDialog"
-    :type="props.type"
-    @close="historyDialog = false"
-    @save="historyDone"
   />
 </template>

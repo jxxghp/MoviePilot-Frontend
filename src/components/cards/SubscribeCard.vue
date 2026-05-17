@@ -1,9 +1,6 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
-import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
-import SubscribeFilesDialog from '../dialog/SubscribeFilesDialog.vue'
-import SubscribeShareDialog from '../dialog/SubscribeShareDialog.vue'
 import { formatDateDifference, formatSeason } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
@@ -11,6 +8,11 @@ import router from '@/router'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
+const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
+const SubscribeShareDialog = defineAsyncComponent(() => import('../dialog/SubscribeShareDialog.vue'))
 
 // 显示器宽度
 const display = useDisplay()
@@ -51,15 +53,6 @@ const $toast = useToast()
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
-
-// 订阅弹窗
-const subscribeEditDialog = ref(false)
-
-// 订阅文件信息弹窗
-const subscribeFilesDialog = ref(false)
-
-// 分享订阅弹窗
-const subscribeShareDialog = ref(false)
 
 // 当前的订阅状态
 const subscribeState = ref<string>(props.media?.state ?? 'P')
@@ -176,12 +169,22 @@ async function resetSubscribe() {
 
 //  分享订阅
 async function shareSubscribe() {
-  subscribeShareDialog.value = true
+  if (!props.media) return
+
+  openSharedDialog(SubscribeShareDialog, { sub: props.media }, {}, { closeOn: ['close'] })
 }
 
 // 编辑订阅响应
 async function editSubscribeDialog() {
-  subscribeEditDialog.value = true
+  openSharedDialog(
+    SubscribeEditDialog,
+    { subid: props.media?.id },
+    {
+      remove: onSubscribeEditRemove,
+      save: onSubscribeEditSave,
+    },
+    { closeOn: ['close', 'save', 'remove'] },
+  )
 }
 
 // 获得mediaid
@@ -207,7 +210,7 @@ async function viewMediaDetail() {
 
 // 查看文件详情
 async function viewSubscribeFiles() {
-  subscribeFilesDialog.value = true
+  openSharedDialog(SubscribeFilesDialog, { subid: props.media?.id }, {}, { closeOn: ['close'] })
 }
 
 // 弹出菜单
@@ -320,13 +323,11 @@ const posterUrl = computed(() => {
 
 // 订阅编辑保存
 function onSubscribeEditSave() {
-  subscribeEditDialog.value = false
   emit('save')
 }
 
 // 订阅编辑取消
 function onSubscribeEditRemove() {
-  subscribeEditDialog.value = false
   emit('remove')
 }
 
@@ -484,30 +485,6 @@ function handleCardClick() {
         </div>
       </template>
     </VHover>
-    <!-- 订阅编辑弹窗 -->
-    <SubscribeEditDialog
-      v-if="subscribeEditDialog"
-      v-model="subscribeEditDialog"
-      :subid="props.media?.id"
-      @remove="onSubscribeEditRemove"
-      @save="onSubscribeEditSave"
-      @close="subscribeEditDialog = false"
-    />
-
-    <!-- 订阅文件信息弹窗 -->
-    <SubscribeFilesDialog
-      v-if="subscribeFilesDialog"
-      v-model="subscribeFilesDialog"
-      :subid="props.media?.id"
-      @close="subscribeFilesDialog = false"
-    />
-    <!-- 分享订阅弹窗 -->
-    <SubscribeShareDialog
-      v-if="subscribeShareDialog"
-      v-model="subscribeShareDialog"
-      :sub="props.media"
-      @close="subscribeShareDialog = false"
-    />
   </div>
 </template>
 <style lang="scss" scoped>

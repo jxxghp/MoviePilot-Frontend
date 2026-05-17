@@ -7,8 +7,11 @@ import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
-import OTPAuthDialog from '@/components/dialog/OTPAuthDialog.vue'
-import PasskeyDialog from '@/components/dialog/PasskeyDialog.vue'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const OTPAuthDialog = defineAsyncComponent(() => import('@/components/dialog/OTPAuthDialog.vue'))
+const PasskeyDialog = defineAsyncComponent(() => import('@/components/dialog/PasskeyDialog.vue'))
+const VerifyPasswordDialog = defineAsyncComponent(() => import('@/components/dialog/VerifyPasswordDialog.vue'))
 
 // 国际化
 const { t, locale } = useI18n()
@@ -31,9 +34,6 @@ const refInputEl = ref<HTMLElement>()
 
 // 正在保存
 const isSaving = ref(false)
-
-// 开启双重验证窗口
-const otpDialog = ref(false)
 
 // 当前头像缓存
 const currentAvatar = ref(avatar1)
@@ -59,14 +59,8 @@ const accountInfo = ref<User>({
 // PassKey列表
 const passkeyList = ref<PassKey[]>([])
 
-// PassKey对话框
-const passkeyDialog = ref(false)
-
 // 双重验证菜单
 const mfaMenu = ref(false)
-
-// 密码验证对话框
-const verifyPasswordDialog = ref(false)
 
 // 验证密码
 const verifyPassword = ref('')
@@ -84,6 +78,83 @@ const verifyText = ref('')
 const hasMfaEnabled = computed(() => {
   return accountInfo.value.is_otp || passkeyList.value.length > 0
 })
+
+let otpDialogController: ReturnType<typeof openSharedDialog> | null = null
+let passkeyDialogController: ReturnType<typeof openSharedDialog> | null = null
+let verifyPasswordDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开共享 OTP 管理弹窗，并把状态变更回写到用户资料。
+function openOtpDialog() {
+  mfaMenu.value = false
+  otpDialogController?.close()
+  otpDialogController = openSharedDialog(
+    OTPAuthDialog,
+    {
+      isOtp: accountInfo.value.is_otp,
+      passkeyList: passkeyList.value,
+    },
+    {
+      'update:isOtp': (value: boolean) => {
+        accountInfo.value.is_otp = value
+      },
+      'update:modelValue': (value: boolean) => {
+        if (!value) otpDialogController = null
+      },
+      verifyPassword: onVerifyPassword,
+    },
+    { closeOn: ['update:modelValue'] },
+  )
+}
+
+// 打开共享 PassKey 管理弹窗，并同步最新 PassKey 列表。
+function openPasskeyDialog() {
+  mfaMenu.value = false
+  passkeyDialogController?.close()
+  passkeyDialogController = openSharedDialog(
+    PasskeyDialog,
+    {
+      isOtp: accountInfo.value.is_otp,
+    },
+    {
+      'update:modelValue': (value: boolean) => {
+        if (!value) passkeyDialogController = null
+      },
+      'update:passkeyList': (value: PassKey[]) => {
+        passkeyList.value = value
+      },
+      verifyPassword: onVerifyPassword,
+    },
+    { closeOn: ['update:modelValue'] },
+  )
+}
+
+// 打开共享密码验证弹窗。
+function openVerifyPasswordDialog() {
+  verifyPasswordDialogController?.close()
+  verifyPasswordDialogController = openSharedDialog(
+    VerifyPasswordDialog,
+    {
+      text: verifyText.value,
+      title: verifyTitle.value,
+    },
+    {
+      close: () => {
+        verifyPasswordDialogController = null
+      },
+      confirm: confirmVerifyPassword,
+      'update:modelValue': (value: boolean) => {
+        if (!value) verifyPasswordDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+// 关闭共享密码验证弹窗并清理控制器。
+function closeVerifyPasswordDialog() {
+  verifyPasswordDialogController?.close()
+  verifyPasswordDialogController = null
+}
 
 // 更新头像
 function changeAvatar(file: Event) {
@@ -227,7 +298,7 @@ function withPasswordVerification(title: string, text: string, callback: (passwo
   verifyText.value = text
   verifyCallback.value = callback
   verifyPassword.value = ''
-  verifyPasswordDialog.value = true
+  openVerifyPasswordDialog()
 }
 
 // 弹窗请求密码验证
@@ -236,7 +307,8 @@ function onVerifyPassword({ title, text, callback }: VerifyPasswordPayload) {
 }
 
 // 确认密码验证
-async function confirmVerifyPassword() {
+async function confirmVerifyPassword(password = verifyPassword.value) {
+  verifyPassword.value = password
   if (!verifyPassword.value) {
     $toast.error(t('user.passwordHint'))
     return
@@ -244,7 +316,7 @@ async function confirmVerifyPassword() {
   if (verifyCallback.value) {
     verifyCallback.value(verifyPassword.value)
   }
-  verifyPasswordDialog.value = false
+  closeVerifyPasswordDialog()
 }
 
 // 获取PassKey列表
@@ -321,14 +393,7 @@ watch(
                     </VBtn>
                   </template>
                   <VList>
-                    <VListItem
-                      @click="
-                        () => {
-                          otpDialog = true
-                          mfaMenu = false
-                        }
-                      "
-                    >
+                    <VListItem @click="openOtpDialog">
                       <template #prepend>
                         <VIcon icon="mdi-cellphone-key" />
                       </template>
@@ -337,14 +402,7 @@ watch(
                         {{ t('profile.enabled') }}
                       </VListItemSubtitle>
                     </VListItem>
-                    <VListItem
-                      @click="
-                        () => {
-                          passkeyDialog = true
-                          mfaMenu = false
-                        }
-                      "
-                    >
+                    <VListItem @click="openPasskeyDialog">
                       <template #prepend>
                         <VIcon icon="material-symbols:passkey" />
                       </template>
@@ -523,51 +581,5 @@ watch(
         </VCard>
       </VCol>
     </VRow>
-
-    <!-- 双重验证弹窗 -->
-    <OTPAuthDialog
-      v-model="otpDialog"
-      v-model:is-otp="accountInfo.is_otp"
-      :passkey-list="passkeyList"
-      @verify-password="onVerifyPassword"
-    />
-
-    <!-- PassKey管理对话框 -->
-    <PasskeyDialog
-      v-model="passkeyDialog"
-      :is-otp="accountInfo.is_otp"
-      v-model:passkey-list="passkeyList"
-      @verify-password="onVerifyPassword"
-    />
-
-    <!-- 密码验证对话框 -->
-    <VDialog v-model="verifyPasswordDialog" max-width="30rem">
-      <VCard>
-        <VCardTitle class="text-h5 text-center mt-4">{{ verifyTitle }}</VCardTitle>
-        <VCardText>
-          <p class="mb-4">{{ verifyText }}</p>
-          <VForm @submit.prevent="confirmVerifyPassword">
-            <VTextField
-              v-model="verifyPassword"
-              :type="isConfirmPasswordVisible ? 'text' : 'password'"
-              :label="t('user.password')"
-              :append-inner-icon="isConfirmPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-              variant="outlined"
-              prepend-inner-icon="mdi-lock"
-              autocomplete="current-password"
-              @click:append-inner="isConfirmPasswordVisible = !isConfirmPasswordVisible"
-            />
-            <div class="d-flex justify-end gap-4 mt-4">
-              <VBtn variant="outlined" color="secondary" @click="verifyPasswordDialog = false">
-                {{ t('common.cancel') }}
-              </VBtn>
-              <VBtn type="submit" color="primary">
-                {{ t('common.confirm') }}
-              </VBtn>
-            </div>
-          </VForm>
-        </VCardText>
-      </VCard>
-    </VDialog>
   </div>
 </template>

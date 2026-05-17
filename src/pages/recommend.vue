@@ -3,13 +3,14 @@ import api from '@/api'
 import { RecommendSource } from '@/api/types'
 import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
 import { useI18n } from 'vue-i18n'
-import { useDisplay } from 'vuetify'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
-const display = useDisplay()
+const ContentToggleSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/ContentToggleSettingsDialog.vue'))
+
 const { appMode } = usePWA()
 
 // 国际化
@@ -24,8 +25,35 @@ const currentCategory = ref(t('recommend.all'))
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()
 
+let settingsDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开推荐内容共享设置弹窗。
 function openRecommendSettings() {
-  dialog.value = true
+  settingsDialogController?.close()
+  settingsDialogController = openSharedDialog(
+    ContentToggleSettingsDialog,
+    {
+      colors: itemColors.value,
+      enabled: enableConfig.value,
+      hint: t('recommend.selectContentToDisplay'),
+      items: viewList,
+      selectAllText: t('recommend.selectAll'),
+      selectNoneText: t('recommend.selectNone'),
+      showBulkActions: true,
+      title: t('recommend.customizeContent'),
+      valueGetter: (item: { title: string }) => item.title,
+    },
+    {
+      close: () => {
+        settingsDialogController = null
+      },
+      save: saveConfig,
+      'update:modelValue': (value: boolean) => {
+        if (!value) settingsDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
 }
 
 const viewList = reactive<{ apipath: string; linkurl: string; title: string; type: string }[]>([
@@ -133,9 +161,6 @@ function initializeColors() {
   })
 }
 
-// 弹窗
-const dialog = ref(false)
-
 // 额外的数据源
 const extraRecommendSources = ref<RecommendSource[]>([])
 
@@ -178,7 +203,11 @@ async function loadConfig() {
 }
 
 // 设置项目
-async function saveConfig() {
+async function saveConfig(payload?: { enabled?: Record<string, boolean> }) {
+  if (payload?.enabled) {
+    enableConfig.value = payload.enabled
+  }
+
   // 启用配置
   const enableString = JSON.stringify(enableConfig.value)
   localStorage.setItem('MP_RECOMMEND', enableString)
@@ -189,7 +218,8 @@ async function saveConfig() {
   } catch (error) {
     console.error(error)
   }
-  dialog.value = false
+  settingsDialogController?.close()
+  settingsDialogController = null
 }
 
 // 标签图标映射
@@ -285,66 +315,11 @@ onActivated(async () => {
       <div v-if="isReady && filteredViews.length === 0" class="empty-category">
         <VIcon icon="mdi-alert-circle-outline" size="large" class="empty-icon" />
         <p class="empty-text">{{ t('recommend.noCategoryContent') }}</p>
-        <VBtn color="primary" variant="tonal" size="small" @click="dialog = true">
+        <VBtn color="primary" variant="tonal" size="small" @click="openRecommendSettings">
           {{ t('recommend.configureContent') }}
         </VBtn>
       </div>
     </div>
-
-    <!-- 设置面板 -->
-    <VDialog v-model="dialog" width="35rem" class="settings-dialog" scrollable :fullscreen="!display.mdAndUp.value">
-      <VCard class="settings-card">
-        <VCardItem class="settings-card-header">
-          <VCardTitle>
-            <VIcon icon="mdi-tune" size="small" class="me-2" />
-            {{ t('recommend.customizeContent') }}
-          </VCardTitle>
-          <VDialogCloseBtn @click="dialog = false" />
-        </VCardItem>
-        <VDivider />
-        <VCardText>
-          <p class="settings-hint">{{ t('recommend.selectContentToDisplay') }}</p>
-          <div class="settings-grid">
-            <VCard
-              v-for="item in viewList"
-              :key="item.title"
-              class="setting-item"
-              :class="{
-                'enabled': enableConfig[item.title],
-              }"
-              :style="{ '--item-color': itemColors[item.title] }"
-              @click="enableConfig[item.title] = !enableConfig[item.title]"
-            >
-              <div class="setting-item-inner">
-                <div class="setting-check">
-                  <VIcon
-                    :icon="enableConfig[item.title] ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    :color="enableConfig[item.title] ? 'primary' : undefined"
-                    size="small"
-                  />
-                </div>
-                <span class="setting-label">{{ item.title }}</span>
-              </div>
-            </VCard>
-          </div>
-        </VCardText>
-        <VCardActions class="pt-3">
-          <VBtn variant="text" @click="Object.keys(enableConfig).forEach(key => (enableConfig[key] = true))">
-            {{ t('recommend.selectAll') }}
-          </VBtn>
-          <VBtn variant="text" @click="Object.keys(enableConfig).forEach(key => (enableConfig[key] = false))">
-            {{ t('recommend.selectNone') }}
-          </VBtn>
-          <VSpacer />
-          <VBtn @click="saveConfig" color="primary" class="px-5">
-            <template #prepend>
-              <VIcon icon="mdi-content-save" />
-            </template>
-            {{ t('common.save') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
 
     <!-- 快速滚动到顶部按钮 -->
     <Teleport to="body" v-if="route.path === '/recommend'">
@@ -411,83 +386,4 @@ onActivated(async () => {
   margin-block-end: 16px;
 }
 
-/* Settings Dialog Styles */
-.settings-card-header {
-  padding-block: 16px;
-  padding-inline: 20px;
-}
-
-.settings-hint {
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  font-size: 0.9rem;
-  margin-block-end: 16px;
-}
-
-.settings-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-}
-
-.setting-item {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.3);
-  cursor: pointer;
-  padding-block: 10px;
-  padding-inline: 12px;
-  transition: all 0.2s ease;
-
-  &::before {
-    position: absolute;
-    background-color: var(--item-color, #4caf50);
-    block-size: 100%;
-    content: '';
-    inline-size: 4px;
-    inset-block-start: 0;
-    inset-inline-start: 0;
-    transition: background-color 0.3s ease;
-  }
-
-  &.enabled {
-    border-color: rgba(var(--v-theme-primary), 0.3);
-    background-color: rgba(var(--v-theme-primary), 0.1);
-  }
-
-  &:hover {
-    box-shadow: 0 4px 12px rgba(var(--v-theme-on-surface), 0.1);
-    transform: translateY(-2px);
-  }
-}
-
-.setting-item-inner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.setting-check {
-  flex-shrink: 0;
-}
-
-.setting-label {
-  flex: 1;
-  color: rgba(var(--v-theme-on-surface), 0.8);
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.2;
-  transition: color 0.2s ease;
-}
-
-.enabled .setting-label {
-  color: rgba(var(--v-theme-primary), 0.9);
-}
-
-@media (width <= 600px) {
-  .settings-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
 </style>

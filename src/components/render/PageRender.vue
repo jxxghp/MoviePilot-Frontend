@@ -2,8 +2,10 @@
 import { isNullOrEmptyObject } from '@/@core/utils'
 import api from '@/api'
 import { type PropType } from 'vue'
-import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { RenderProps } from '@/api/types'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const ProgressDialog = defineAsyncComponent(() => import('../dialog/ProgressDialog.vue'))
 
 // 定议外部事件
 const emit = defineEmits(['action'])
@@ -13,16 +15,27 @@ const props = defineProps({
   config: Object as PropType<RenderProps>,
 })
 
-// 进度框
-const progressDialog = ref(false)
-
 // 进度框文本
 const progressText = ref('正在处理...')
+
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开共享进度弹窗，避免渲染节点直接持有弹窗实例。
+function openProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text: progressText.value }, {}, { closeOn: false })
+}
+
+// 关闭当前共享进度弹窗。
+function closeProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = null
+}
 
 // 元素API事件响应
 async function commonAction(api_path: string, method: string, params = {}) {
   if (!api_path || !method) return
-  progressDialog.value = true
+  openProgressDialog()
   try {
     if (method.toUpperCase() === 'GET') {
       await api.get(api_path, {
@@ -34,8 +47,9 @@ async function commonAction(api_path: string, method: string, params = {}) {
     emit('action')
   } catch (error) {
     console.error(error)
+  } finally {
+    closeProgressDialog()
   }
-  progressDialog.value = false
 }
 
 // 组装事件
@@ -70,6 +84,4 @@ watchEffect(() => {
     v-html="config?.html"
     v-on="componentEvents"
   />
-  <!-- 进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" />
 </template>

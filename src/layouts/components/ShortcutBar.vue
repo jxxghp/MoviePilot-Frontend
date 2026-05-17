@@ -1,33 +1,37 @@
 <script lang="ts" setup>
-import api from '@/api'
-import { useDisplay } from 'vuetify'
+import type { Component } from 'vue'
 import { getQueryValue } from '@/@core/utils'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useI18n } from 'vue-i18n'
-import { clearAppBadge } from '@/utils/badge'
-
-type MessageViewExpose = {
-  pauseSSE?: () => void
-  resumeSSE?: () => void
-  refreshLatestMessages?: () => Promise<void> | void
-  forceScrollToEnd?: () => void
-}
 
 // 国际化
 const { t } = useI18n()
 
-// 显示器宽度
-const display = useDisplay()
-
 // 快捷工具只在弹窗打开时使用，按需加载避免默认布局首屏带上所有 system 视图。
 const NameTestView = defineAsyncComponent(() => import('@/views/system/NameTestView.vue'))
 const NetTestView = defineAsyncComponent(() => import('@/views/system/NetTestView.vue'))
-const LoggingView = defineAsyncComponent(() => import('@/views/system/LoggingView.vue'))
 const RuleTestView = defineAsyncComponent(() => import('@/views/system/RuleTestView.vue'))
 const ModuleTestView = defineAsyncComponent(() => import('@/views/system/ModuleTestView.vue'))
-const MessageView = defineAsyncComponent(() => import('@/views/system/MessageView.vue'))
 const WordsView = defineAsyncComponent(() => import('@/views/system/WordsView.vue'))
 const CacheView = defineAsyncComponent(() => import('@/views/system/CacheView.vue'))
 const AccountSettingService = defineAsyncComponent(() => import('@/views/system/ServiceView.vue'))
+const ShortcutLogDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutLogDialog.vue'))
+const ShortcutMessageDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutMessageDialog.vue'))
+const ShortcutToolDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutToolDialog.vue'))
+
+type ShortcutItem = {
+  bodyClass?: string
+  cardClass?: string
+  component?: Component
+  customDialog?: Component
+  dialog: string
+  dialogSubtitle?: string
+  icon: string
+  maxWidth?: string
+  subtitle: string
+  title: string
+  titleText?: string
+}
 
 // App捷径
 const appsMenu = ref(false)
@@ -35,149 +39,119 @@ const appsMenu = ref(false)
 // 菜单最大宽度
 const menuMaxWidth = ref(420)
 
-// 名称测试弹窗
-const nameTestDialog = ref(false)
-
-// 网络测试弹窗
-const netTestDialog = ref(false)
-
-// 实时日志弹窗
-const loggingDialog = ref(false)
-
-// 过滤规则弹窗
-const ruleTestDialog = ref(false)
-
-// 系统健康检查弹窗
-const systemTestDialog = ref(false)
-
-// 消息中心弹窗
-const messageDialog = ref(false)
-
-// 词表设置弹窗
-const wordsDialog = ref(false)
-
-// 缓存管理弹窗
-const cacheDialog = ref(false)
-
-// 定时服务弹窗
-const schedulerDialog = ref(false)
-
-// 输入消息
-const user_message = ref('')
-
-// 发送按钮是否可用
-const sendButtonDisabled = ref(false)
-
-// 消息视图引用
-const messageViewRef = ref<MessageViewExpose | null>(null)
-
 // 定义捷径列表
-const shortcuts = [
+const shortcuts: ShortcutItem[] = [
   {
     title: t('shortcut.recognition.title'),
     subtitle: t('shortcut.recognition.subtitle'),
     icon: 'mdi-text-recognition',
     dialog: 'nameTest',
-    dialogRef: nameTestDialog,
+    component: NameTestView,
+    maxWidth: '45rem',
+    titleText: t('shortcut.recognition.title'),
   },
   {
     title: t('shortcut.rule.title'),
     subtitle: t('shortcut.rule.subtitle'),
     icon: 'mdi-filter-cog',
     dialog: 'ruleTest',
-    dialogRef: ruleTestDialog,
+    component: RuleTestView,
+    titleText: t('shortcut.rule.subtitle'),
   },
   {
     title: t('shortcut.log.title'),
     subtitle: t('shortcut.log.subtitle'),
     icon: 'mdi-file-document',
     dialog: 'logging',
-    dialogRef: loggingDialog,
+    customDialog: ShortcutLogDialog,
   },
   {
     title: t('shortcut.network.title'),
     subtitle: t('shortcut.network.subtitle'),
     icon: 'mdi-network',
     dialog: 'netTest',
-    dialogRef: netTestDialog,
+    component: NetTestView,
+    titleText: t('shortcut.network.subtitle'),
   },
   {
     title: t('shortcut.words.title'),
     subtitle: t('shortcut.words.subtitle'),
     icon: 'mdi-file-word-box',
     dialog: 'words',
-    dialogRef: wordsDialog,
+    component: WordsView,
+    maxWidth: '60rem',
+    titleText: t('shortcut.words.subtitle'),
   },
   {
     title: t('shortcut.cache.title'),
     subtitle: t('shortcut.cache.subtitle'),
     icon: 'mdi-database',
     dialog: 'cache',
-    dialogRef: cacheDialog,
+    component: CacheView,
+    maxWidth: '90rem',
+    titleText: t('shortcut.cache.subtitle'),
   },
   {
     title: t('shortcut.scheduler.title'),
     subtitle: t('shortcut.scheduler.subtitle'),
     icon: 'mdi-list-box',
     dialog: 'scheduler',
-    dialogRef: schedulerDialog,
+    bodyClass: 'pa-0',
+    component: AccountSettingService,
+    maxWidth: '60rem',
+    titleText: t('shortcut.scheduler.subtitle'),
+    dialogSubtitle: t('setting.scheduler.subtitle'),
   },
   {
     title: t('shortcut.system.title'),
     subtitle: t('shortcut.system.subtitle'),
     icon: 'mdi-cog',
     dialog: 'systemTest',
-    dialogRef: systemTestDialog,
+    bodyClass: 'system-health-dialog-body pa-0',
+    cardClass: 'system-health-dialog-card',
+    component: ModuleTestView,
+    titleText: t('shortcut.system.subtitle'),
   },
   {
     title: t('shortcut.message.title'),
     subtitle: t('shortcut.message.subtitle'),
     icon: 'mdi-message',
     dialog: 'message',
-    dialogRef: messageDialog,
+    customDialog: ShortcutMessageDialog,
   },
 ]
 
-// 打开对话框
-function openDialog(dialogRef: any) {
-  dialogRef.value = true
-}
+/** 打开快捷工具对应的共享弹窗。 */
+function openShortcutDialog(item: (typeof shortcuts)[number]) {
+  appsMenu.value = false
 
-// 打开消息弹窗
-function openMessageDialog() {
-  messageDialog.value = true
-}
-
-// 拼接全部日志url
-function allLoggingUrl() {
-  return `${import.meta.env.VITE_API_BASE_URL}system/logging?length=-1`
-}
-
-// 发送消息
-async function sendMessage() {
-  const messageText = user_message.value.trim()
-  if (!messageText) {
+  if (item.customDialog) {
+    openSharedDialog(item.customDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
     return
   }
 
-  try {
-    sendButtonDisabled.value = true
-    await api.post(`message/web?text=${encodeURIComponent(messageText)}`)
-    user_message.value = ''
+  if (!item.component) return
 
-    // 发送成功后主动同步最新一页消息，避免SSE短暂断流时界面停留在旧状态。
-    // await messageViewRef.value?.refreshLatestMessages?.()
-    messageViewRef.value?.forceScrollToEnd?.()
-  } catch (error) {
-    console.error(error)
-  } finally {
-    sendButtonDisabled.value = false
-  }
+  openSharedDialog(
+    ShortcutToolDialog,
+    {
+      bodyClass: item.bodyClass,
+      cardClass: item.cardClass,
+      icon: item.icon,
+      maxWidth: item.maxWidth ?? '35rem',
+      subtitle: item.dialogSubtitle,
+      title: item.titleText ?? item.title,
+      view: item.component,
+    },
+    {},
+    { closeOn: ['close', 'update:modelValue'] },
+  )
 }
 
-// 供外部调用的打开消息弹窗方法
+/** 供外部调用的打开消息弹窗方法。 */
 function openMessageDialogFromExternal() {
-  openMessageDialog()
+  const messageShortcut = shortcuts.find(item => item.dialog === 'message')
+  if (messageShortcut) openShortcutDialog(messageShortcut)
 }
 
 // 暴露方法给父组件
@@ -185,32 +159,12 @@ defineExpose({
   openMessageDialog: openMessageDialogFromExternal,
 })
 
-// 监听消息对话框状态变化
-watch(messageDialog, async newValue => {
-  if (newValue) {
-    await nextTick()
-    messageViewRef.value?.resumeSSE?.()
-    messageViewRef.value?.forceScrollToEnd?.()
-
-    window.setTimeout(() => {
-      void clearAppBadge()
-    }, 500)
-
-    return
-  }
-
-  if (messageViewRef.value?.pauseSSE) {
-    // 对话框关闭时暂停SSE连接
-    messageViewRef.value.pauseSSE()
-  }
-})
-
 onMounted(() => {
   const shortcut = getQueryValue('shortcut')
   if (shortcut) {
     const found = shortcuts.find(item => item.dialog === shortcut)
     if (found) {
-      found.dialogRef.value = true
+      openShortcutDialog(found)
     }
   }
 })
@@ -253,15 +207,7 @@ onMounted(() => {
               flat
               class="pa-2 d-flex align-center cursor-pointer transition-transform duration-300 hover:-translate-y-1 border h-full"
               hover
-              @click="
-                item.dialog === 'message'
-                  ? openMessageDialog()
-                  : item.dialog === 'words'
-                    ? openDialog(item.dialogRef)
-                    : item.dialog === 'cache'
-                      ? openDialog(item.dialogRef)
-                      : openDialog(item.dialogRef)
-              "
+              @click="openShortcutDialog(item)"
             >
               <VAvatar variant="text" size="48" rounded="lg">
                 <VIcon color="primary" :icon="item.icon" size="24" />
@@ -276,240 +222,4 @@ onMounted(() => {
       </div>
     </VCard>
   </VMenu>
-  <!-- 名称测试弹窗 -->
-  <VDialog
-    v-if="nameTestDialog"
-    v-model="nameTestDialog"
-    max-width="45rem"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-text-recognition" class="me-2" />
-          {{ t('shortcut.recognition.title') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="nameTestDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <NameTestView />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 网络测试弹窗 -->
-  <VDialog
-    v-if="netTestDialog"
-    v-model="netTestDialog"
-    max-width="35rem"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-network" class="me-2" />
-          {{ t('shortcut.network.subtitle') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="netTestDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <NetTestView />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 实时日志弹窗 -->
-    <VDialog
-      v-if="loggingDialog"
-      v-model="loggingDialog"
-      scrollable
-      max-width="80rem"
-      :fullscreen="!display.mdAndUp.value"
-    >
-    <VCard>
-      <VDialogCloseBtn @click="loggingDialog = false" />
-      <VCardItem>
-        <VCardTitle class="d-inline-flex">
-          <VIcon icon="mdi-file-document" class="me-2" />
-          {{ t('shortcut.log.subtitle') }}
-          <a class="mx-2 d-inline-flex align-center" :href="allLoggingUrl()" target="_blank">
-            <VChip color="grey-darken-1" size="small" class="ml-2">
-              <VIcon icon="mdi-open-in-new" size="small" start />
-              {{ t('common.openInNewWindow') }}
-            </VChip>
-          </a>
-        </VCardTitle>
-      </VCardItem>
-      <VDivider />
-      <VCardText class="pa-0">
-        <LoggingView logfile="moviepilot.log" />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 过滤规则弹窗 -->
-  <VDialog
-    v-if="ruleTestDialog"
-    v-model="ruleTestDialog"
-    max-width="35rem"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-filter-cog" class="me-2" />
-          {{ t('shortcut.rule.subtitle') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="ruleTestDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <RuleTestView />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 词表设置弹窗 -->
-  <VDialog v-if="wordsDialog" v-model="wordsDialog" max-width="60rem" scrollable :fullscreen="!display.mdAndUp.value">
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-file-word-box" class="me-2" />
-          {{ t('shortcut.words.subtitle') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="wordsDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <WordsView />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 缓存管理弹窗 -->
-  <VDialog v-if="cacheDialog" v-model="cacheDialog" max-width="90rem" scrollable :fullscreen="!display.mdAndUp.value">
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-database" class="me-2" />
-          {{ t('shortcut.cache.subtitle') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="cacheDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <CacheView />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 定时服务弹窗 -->
-  <VDialog
-    v-if="schedulerDialog"
-    v-model="schedulerDialog"
-    max-width="60rem"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard>
-      <VCardItem class="py-2">
-        <VCardTitle>
-          <VIcon icon="mdi-list-box" class="me-2" />
-          {{ t('shortcut.scheduler.subtitle') }}
-        </VCardTitle>
-        <VCardSubtitle>{{ t('setting.scheduler.subtitle') }}</VCardSubtitle>
-        <VDialogCloseBtn @click="schedulerDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText class="pa-0">
-        <AccountSettingService />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 系统健康检查弹窗 -->
-  <VDialog
-    v-if="systemTestDialog"
-    v-model="systemTestDialog"
-    max-width="35rem"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard class="system-health-dialog-card">
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-cog" class="me-2" />
-          {{ t('shortcut.system.subtitle') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="systemTestDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText class="system-health-dialog-body pa-0">
-        <ModuleTestView />
-      </VCardText>
-    </VCard>
-  </VDialog>
-  <!-- 消息中心弹窗 -->
-  <VDialog
-    v-if="messageDialog"
-    v-model="messageDialog"
-    max-width="50rem"
-    scrollable
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-message" class="me-2" />
-          {{ t('shortcut.message.subtitle') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="messageDialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <MessageView ref="messageViewRef" />
-      </VCardText>
-      <VDivider />
-      <VCardActions class="pa-4">
-        <div class="d-flex w-100 gap-2">
-          <VTextField
-            v-model="user_message"
-            variant="outlined"
-            hide-details
-            density="compact"
-            :placeholder="t('common.inputMessage')"
-            @keyup.enter="sendMessage"
-          />
-          <VBtn
-            variant="elevated"
-            :disabled="sendButtonDisabled"
-            @click="sendMessage"
-            :loading="sendButtonDisabled"
-            color="primary"
-            prepend-icon="mdi-send"
-            >{{ t('common.send') }}
-          </VBtn>
-        </div>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>
-
-<style scoped>
-.system-health-dialog-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.system-health-dialog-body {
-  /* 弹窗正文本身不滚动，滚动只交给健康检查结果列表。 */
-  display: flex;
-  flex: 1 1 auto;
-  block-size: min(42rem, calc(100dvh - 8rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
-  min-block-size: 0;
-  overflow: hidden !important;
-}
-
-:global(.v-dialog--fullscreen) .system-health-dialog-body {
-  block-size: auto;
-}
-</style>

@@ -13,6 +13,9 @@ import { useTheme } from 'vuetify'
 import { getNavMenus } from '@/router/i18n-menu'
 import { filterMenusByPermission } from '@/utils/permission'
 import type { ApiResponse } from '@/api/types'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const LoginMfaDialog = defineAsyncComponent(() => import('@/components/dialog/LoginMfaDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -47,6 +50,7 @@ const mfaDialog = ref(false)
 
 // MFA PassKey loading
 const mfaPasskeyLoading = ref(false)
+let mfaDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 用户名称输入框
 const usernameInput = ref()
@@ -82,6 +86,46 @@ let manualAbortController: AbortController | null = null
 
 // 标记当前是否有手动模式的 PassKey 请求正在进行
 let isManualPassKeyActive = false
+
+// 生成 MFA 共享弹窗使用的最新 props。
+function getMfaDialogProps() {
+  return {
+    errorMessage: errorMessage.value,
+    otpPassword: form.value.otp_password,
+    passkeyLoading: mfaPasskeyLoading.value,
+  }
+}
+
+// 打开 MFA 共享弹窗。
+function openMfaDialog() {
+  mfaDialog.value = true
+  const dialogProps = getMfaDialogProps()
+  if (mfaDialogController) {
+    mfaDialogController.updateProps(dialogProps)
+    return
+  }
+
+  mfaDialogController = openSharedDialog(
+    LoginMfaDialog,
+    dialogProps,
+    {
+      close: closeMfaDialog,
+      otp: loginWithOTP,
+      passkey: verifyWithPassKey,
+      'update:otpPassword': (value: string) => {
+        form.value.otp_password = value
+      },
+    },
+    { closeOn: ['close'] },
+  )
+}
+
+// 关闭 MFA 共享弹窗。
+function closeMfaDialog() {
+  mfaDialog.value = false
+  mfaDialogController?.close()
+  mfaDialogController = null
+}
 
 // PassKey 认证核心函数 - 处理 WebAuthn 认证流程
 interface PassKeyAuthOptions {
@@ -415,7 +459,7 @@ async function login() {
         if (error.response.headers?.['x-mfa-required'] === 'true' && !form.value.otp_password) {
           // 需要MFA验证，弹出对话框
           isOTP.value = true
-          mfaDialog.value = true
+          openMfaDialog()
           return
         }
         // 不需要MFA或已填写OTP但认证失败
@@ -439,7 +483,7 @@ async function login() {
 
 // 使用OTP码继续登录
 function loginWithOTP() {
-  mfaDialog.value = false
+  closeMfaDialog()
   login()
 }
 
@@ -452,11 +496,15 @@ async function verifyWithPassKey() {
     val => (mfaPasskeyLoading.value = val),
     async response => {
       // 关闭MFA对话框
-      mfaDialog.value = false
+      closeMfaDialog()
       await handleLoginSuccess(response)
     },
   )
 }
+
+watch([mfaPasskeyLoading, errorMessage, () => form.value.otp_password], () => {
+  mfaDialogController?.updateProps(getMfaDialogProps())
+})
 
 // 自动登录
 onMounted(async () => {
@@ -634,64 +682,6 @@ onUnmounted(() => {
         </VCardText>
       </VCard>
     </div>
-
-    <!-- MFA二次验证对话框 -->
-    <VDialog v-model="mfaDialog" max-width="400" persistent>
-      <VCard>
-        <VCardTitle class="text-h5 text-center mt-4 pb-2">{{ t('login.secondaryVerification') }}</VCardTitle>
-        <VCardText class="pt-0">
-          <p class="text-center mb-4">{{ t('login.mfa.selectVerificationMethod') }}</p>
-
-          <!-- TOTP验证 -->
-          <VCard variant="tonal" class="mb-3">
-            <VCardText>
-              <VForm @submit.prevent="loginWithOTP">
-                <VTextField
-                  v-model="form.otp_password"
-                  :label="t('login.otpCode')"
-                  :placeholder="t('login.otpPlaceholder')"
-                  type="text"
-                  name="otp"
-                  id="otp"
-                  autocomplete="one-time-code"
-                  inputmode="numeric"
-                  prepend-inner-icon="mdi-shield-key"
-                  class="mb-2"
-                />
-                <VBtn block type="submit" color="primary" :disabled="!form.otp_password">
-                  {{ t('login.loginWithOtp') }}
-                </VBtn>
-              </VForm>
-            </VCardText>
-          </VCard>
-
-          <!-- PassKey验证 -->
-          <VCard variant="tonal">
-            <VCardText>
-              <p class="text-body-2 mb-2">{{ t('login.orUsePasskey') }}</p>
-              <VBtn
-                block
-                variant="tonal"
-                color="success"
-                class="passkey-btn"
-                prepend-icon="material-symbols:passkey"
-                :loading="mfaPasskeyLoading"
-                @click="verifyWithPassKey"
-              >
-                {{ t('login.verifyWithPasskey') }}
-              </VBtn>
-            </VCardText>
-          </VCard>
-
-          <!-- 错误提示 -->
-          <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
-            {{ errorMessage }}
-          </VAlert>
-
-          <VBtn block variant="text" class="mt-4" @click="mfaDialog = false">{{ t('common.cancel') }}</VBtn>
-        </VCardText>
-      </VCard>
-    </VDialog>
   </div>
 </template>
 

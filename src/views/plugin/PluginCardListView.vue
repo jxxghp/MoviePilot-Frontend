@@ -3,7 +3,6 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
-import { getLogoUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { getPluginTabs } from '@/router/i18n-menu'
@@ -14,6 +13,7 @@ import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { usePWA } from '@/composables/usePWA'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 // 国际化
 const { t } = useI18n()
@@ -23,7 +23,10 @@ const route = useRoute()
 // 市场卡片、拖拽排序和市场设置只在对应标签/操作中需要，延迟到真正使用时加载。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const PluginAppCard = defineAsyncComponent(() => import('@/components/cards/PluginAppCard.vue'))
+const PluginFolderCreateDialog = defineAsyncComponent(() => import('@/components/dialog/PluginFolderCreateDialog.vue'))
 const PluginMarketSettingDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketSettingDialog.vue'))
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const PluginSearchDialog = defineAsyncComponent(() => import('@/components/dialog/PluginSearchDialog.vue'))
 
 // 显示器宽度
 const display = useDisplay()
@@ -163,20 +166,11 @@ const PluginAppDialog = ref(false)
 // 插件安装统计
 const PluginStatistics = ref<{ [key: string]: number }>({})
 
-// 搜索窗口
-const SearchDialog = ref(false)
-
-// 插件市场设置窗口
-const MarketSettingDialog = ref(false)
-
 // 插件市场刷新状态
 const isMarketRefreshing = ref(false)
 
 // 搜索关键字
 const keyword = ref('')
-
-// 每一个插件的图标加载状态
-const pluginIconLoaded = ref<{ [key: string]: boolean }>({})
 
 // 每一个插件的动作标识
 const pluginActions: Ref<{ [key: string]: boolean }> = ref({})
@@ -184,11 +178,11 @@ const pluginActions: Ref<{ [key: string]: boolean }> = ref({})
 // 提示框
 const $toast = useToast()
 
-// 进度框
-const progressDialog = ref(false)
-
 // 进度框文本
 const progressText = ref(t('plugin.installingPlugin'))
+let folderCreateDialogController: ReturnType<typeof openSharedDialog> | null = null
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+let searchDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 过滤表单
 const filterForm = reactive({
@@ -259,8 +253,6 @@ const folderOrder = ref<string[]>([])
 const currentFolder = ref('')
 
 // 新建文件夹对话框
-const newFolderDialog = ref(false)
-
 // 新文件夹名称
 const newFolderName = ref('')
 
@@ -659,12 +651,24 @@ function pluginDialogClose() {
   PluginAppDialog.value = false
 }
 
+// 打开插件安装进度弹窗。
+function openPluginProgressDialog(text: string) {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text }, {}, { closeOn: false })
+}
+
+// 关闭插件安装进度弹窗。
+function closePluginProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = null
+}
+
 // 安装插件
 async function installPlugin(item: Plugin) {
   try {
     // 显示等待提示框
-    progressDialog.value = true
     progressText.value = t('plugin.installing', { name: item?.plugin_name, version: item?.plugin_version })
+    openPluginProgressDialog(progressText.value)
 
     const result: { [key: string]: any } = await api.get(`plugin/install/${item?.id}`, {
       params: {
@@ -674,7 +678,7 @@ async function installPlugin(item: Plugin) {
     })
 
     // 隐藏等待提示框
-    progressDialog.value = false
+    closePluginProgressDialog()
 
     if (result.success) {
       $toast.success(t('plugin.installSuccess', { name: item?.plugin_name }))
@@ -688,6 +692,7 @@ async function installPlugin(item: Plugin) {
       $toast.error(t('plugin.installFailed', { name: item?.plugin_name, message: result.message }))
     }
   } catch (error) {
+    closePluginProgressDialog()
     console.error(error)
   }
 }
@@ -707,23 +712,8 @@ function openPlugin(item: Plugin) {
 
 // 关闭插件搜索窗口
 function closeSearchDialog() {
-  SearchDialog.value = false
-}
-
-// 插件图标加载错误
-function pluginIconError(item: Plugin) {
-  pluginIconLoaded.value[item.id || '0'] = false
-}
-
-// 插件图标地址
-function pluginIcon(item: Plugin) {
-  // 如果图片加载错误
-  if (pluginIconLoaded.value[item.id || '0'] === false) return getLogoUrl('plugin')
-  // 如果是网络图片则使用代理后返回
-  if (item?.plugin_icon?.startsWith('http'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/1?imgurl=${encodeURIComponent(item?.plugin_icon)}&cache=true`
-
-  return `./plugin_icon/${item?.plugin_icon}`
+  searchDialogController?.close()
+  searchDialogController = null
 }
 
 // 过滤插件
@@ -867,12 +857,6 @@ watch([marketList, filterForm, activeSort, PluginStatistics], () => {
   displayUninstalledList.value = sortedUninstalledList.value.splice(0, 20)
 })
 
-// 标签转换
-function pluginLabels(label: string | undefined) {
-  if (!label) return []
-  return label.split(',')
-}
-
 // 新安装了插件
 async function pluginInstalled() {
   pluginDialogClose()
@@ -881,7 +865,6 @@ async function pluginInstalled() {
 
 // 插件市场设置完成
 function marketSettingDone() {
-  MarketSettingDialog.value = false
   // 重新加载数据
   refreshData()
 }
@@ -990,12 +973,39 @@ watch(activeTab, (newTab, oldTab) => {
   refreshKeepAliveData({ silent: true, source: 'tab' })
 })
 
+onUnmounted(() => {
+  closePluginProgressDialog()
+  folderCreateDialogController?.close()
+  searchDialogController?.close()
+})
+
 function openPluginSearchDialog() {
-  SearchDialog.value = true
+  searchDialogController = openSharedDialog(
+    PluginSearchDialog,
+    {
+      keyword: keyword.value,
+      plugins: filterPlugins.value,
+    },
+    {
+      'open-plugin': openPlugin,
+      'update:keyword': (value: string) => {
+        keyword.value = value
+        searchDialogController?.updateProps({ keyword: value, plugins: filterPlugins.value })
+      },
+    },
+    { closeOn: ['close'] },
+  )
 }
 
 function openMarketSettingDialog() {
-  MarketSettingDialog.value = true
+  openSharedDialog(
+    PluginMarketSettingDialog,
+    {},
+    {
+      save: marketSettingDone,
+    },
+    { closeOn: ['close', 'save'] },
+  )
 }
 
 const showSearchAction = computed(() => activeTab.value === 'installed' || activeTab.value === 'market')
@@ -1147,7 +1157,8 @@ async function createNewFolder() {
     // 保存到后端
     await savePluginFolders()
 
-    newFolderDialog.value = false
+    folderCreateDialogController?.close()
+    folderCreateDialogController = null
     newFolderName.value = ''
     $toast.success(t('plugin.folderCreateSuccess'))
   } catch (error) {
@@ -1244,7 +1255,18 @@ async function deleteFolder(folderName: string) {
 // 显示新建文件夹对话框
 function showNewFolderDialog() {
   newFolderName.value = ''
-  newFolderDialog.value = true
+  folderCreateDialogController = openSharedDialog(
+    PluginFolderCreateDialog,
+    { name: newFolderName.value },
+    {
+      create: createNewFolder,
+      'update:name': (value: string) => {
+        newFolderName.value = value
+        folderCreateDialogController?.updateProps({ name: value })
+      },
+    },
+    { closeOn: ['close'] },
+  )
 }
 
 // 移出文件夹
@@ -1786,108 +1808,4 @@ function onDragStartPlugin(evt: any) {
       />
     </div>
   </Teleport>
-  <!-- 插件市场设置窗口 -->
-  <PluginMarketSettingDialog
-    v-if="MarketSettingDialog"
-    v-model="MarketSettingDialog"
-    @close="MarketSettingDialog = false"
-    @save="marketSettingDone"
-  />
-
-  <!-- 插件搜索窗口 -->
-  <VDialog
-    v-if="SearchDialog"
-    v-model="SearchDialog"
-    scrollable
-    max-width="40rem"
-    :max-height="!display.mdAndUp.value ? '' : '85vh'"
-    :fullscreen="!display.mdAndUp.value"
-  >
-    <VCard class="mx-auto" width="100%">
-      <VToolbar flat class="p-0">
-        <VTextField
-          v-model="keyword"
-          :label="t('plugin.searchPlugins')"
-          single-line
-          :placeholder="t('plugin.searchPlaceholder')"
-          variant="solo"
-          prepend-inner-icon="mdi-magnify"
-          flat
-          class="mx-1"
-        />
-      </VToolbar>
-      <VDialogCloseBtn @click="closeSearchDialog" />
-      <VList v-if="filterPlugins.length > 0" lines="two">
-        <VVirtualScroll :items="filterPlugins">
-          <template #default="{ item }">
-            <VListItem @click="openPlugin(item)">
-              <template #prepend>
-                <VAvatar>
-                  <VImg :src="pluginIcon(item)" @error="pluginIconError(item)">
-                    <template #placeholder>
-                      <div class="w-full h-full">
-                        <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
-                      </div>
-                    </template>
-                  </VImg>
-                </VAvatar>
-              </template>
-              <VListItemTitle>
-                {{ item.plugin_name }}<span class="text-sm ms-2 mt-1 text-gray-500">v{{ item?.plugin_version }}</span>
-                <VIcon v-if="item.installed" color="success" icon="mdi-check-circle" class="ms-2" size="small" />
-              </VListItemTitle>
-              <VListItemSubtitle>
-                <VChip
-                  v-for="label in pluginLabels(item.plugin_label)"
-                  variant="tonal"
-                  size="small"
-                  class="me-1 my-1"
-                  color="info"
-                  label
-                >
-                  {{ label }}
-                </VChip>
-                {{ item.plugin_desc }}
-              </VListItemSubtitle>
-            </VListItem>
-          </template>
-        </VVirtualScroll>
-      </VList>
-    </VCard>
-  </VDialog>
-
-  <!-- 安装插件进度框 -->
-  <VDialog v-if="progressDialog" v-model="progressDialog" :scrim="false" width="25rem">
-    <VCard color="primary">
-      <VCardText class="text-center">
-        {{ progressText }}
-        <VProgressLinear indeterminate color="white" class="mb-0 mt-1" />
-      </VCardText>
-    </VCard>
-  </VDialog>
-
-  <!-- 新建文件夹对话框 -->
-  <VDialog v-if="newFolderDialog" v-model="newFolderDialog" max-width="400">
-    <VCard>
-      <VDialogCloseBtn @click="newFolderDialog = false" />
-      <VCardItem>
-        <VCardTitle>{{ t('plugin.newFolder') }}</VCardTitle>
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <VTextField
-          v-model="newFolderName"
-          :label="t('plugin.folderName')"
-          variant="outlined"
-          @keyup.enter="createNewFolder"
-        />
-      </VCardText>
-      <VCardActions>
-        <VSpacer />
-        <VBtn color="primary" @click="createNewFolder" prepend-icon="mdi-folder-plus" class="px-5">{{
-          t('plugin.create')
-        }}</VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>

@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import { formatDateDifference } from '@/@core/utils/formatters'
 import type { WorkflowShare } from '@/api/types'
-import ForkWorkflowDialog from '../dialog/ForkWorkflowDialog.vue'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const ForkWorkflowDialog = defineAsyncComponent(() => import('../dialog/ForkWorkflowDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -14,9 +16,6 @@ const props = defineProps({
 
 // 定义删除事件
 const emit = defineEmits(['delete', 'update'])
-
-// 复用工作流弹窗
-const forkWorkflowDialog = ref(false)
 
 // 工作流ID
 const workflowId = ref<string>()
@@ -65,19 +64,28 @@ onMounted(() => {
 
 // 复用工作流
 function showForkWorkflow() {
-  forkWorkflowDialog.value = true
+  openSharedDialog(
+    ForkWorkflowDialog,
+    {
+      workflow: props.workflow,
+      eventTypes: props.eventTypes,
+    },
+    {
+      fork: finishForkWorkflow,
+      delete: doDelete,
+    },
+    { closeOn: ['close', 'fork', 'delete'] },
+  )
 }
 
 // 完成复用工作流
 function finishForkWorkflow(wid: string) {
   workflowId.value = wid
-  forkWorkflowDialog.value = false
   emit('update')
 }
 
 // 删除工作流分享时处理
 function doDelete() {
-  forkWorkflowDialog.value = false
   // 通知父组件刷新
   emit('delete')
 }
@@ -134,15 +142,5 @@ function doDelete() {
         </div>
       </template>
     </VHover>
-    <!-- 复用工作流弹窗 -->
-    <ForkWorkflowDialog
-      v-if="forkWorkflowDialog"
-      v-model="forkWorkflowDialog"
-      :workflow="props.workflow"
-      :event-types="props.eventTypes"
-      @close="forkWorkflowDialog = false"
-      @fork="finishForkWorkflow"
-      @delete="doDelete"
-    />
   </div>
 </template>

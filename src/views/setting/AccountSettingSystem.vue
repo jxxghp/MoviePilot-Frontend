@@ -11,6 +11,7 @@ import { downloaderOptions, mediaServerOptions } from '@/api/constants'
 import { useDisplay, useTheme } from 'vuetify'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const display = useDisplay()
 const theme = useTheme()
@@ -27,9 +28,9 @@ const props = defineProps({
   },
 })
 
-// 下载器/媒体服务器排序和进度弹窗按需加载，降低系统设置页入口解析量。
+// 下载器/媒体服务器排序按需加载，降低系统设置页入口解析量。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
-const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const LlmProviderAuthDialog = defineAsyncComponent(() => import('@/components/dialog/LlmProviderAuthDialog.vue'))
 
 // 系统设置项
 const SystemSettings = ref<any>({
@@ -190,9 +191,6 @@ const downloaders = ref<DownloaderConf[]>([])
 // 提示框
 const $toast = useToast()
 
-// 进度框
-const progressDialog = ref(false)
-
 // 高级设置对话框
 const advancedDialog = ref(false)
 
@@ -291,6 +289,54 @@ const {
   model: llmModelRef,
   maxContextTokens: llmMaxContextRef,
 })
+
+let authDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 生成 LLM 授权共享弹窗所需的最新状态。
+function getProviderAuthDialogProps() {
+  return {
+    authSession: authSession.value,
+    polling: authPolling.value,
+    popupBlocked: authPopupBlocked.value,
+  }
+}
+
+// 打开或刷新 LLM 授权共享弹窗。
+function openProviderAuthDialog() {
+  const dialogProps = getProviderAuthDialogProps()
+  if (authDialogController) {
+    authDialogController.updateProps(dialogProps)
+    return
+  }
+
+  authDialogController = openSharedDialog(
+    LlmProviderAuthDialog,
+    dialogProps,
+    {
+      close: () => {
+        closeAuthDialog()
+        authDialogController = null
+      },
+      openAuthPage,
+      poll: () => {
+        void pollAuthSession()
+      },
+      'update:modelValue': (value: boolean) => {
+        if (!value) {
+          closeAuthDialog()
+          authDialogController = null
+        }
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
+// 关闭 LLM 授权共享弹窗控制器。
+function closeProviderAuthDialog() {
+  authDialogController?.close()
+  authDialogController = null
+}
 
 function buildLlmSnapshot(): LlmSettingsSnapshot {
   return {
@@ -873,9 +919,22 @@ onBeforeUnmount(() => {
   invalidateLlmTestState()
 })
 
+watch(authDialogVisible, visible => {
+  if (visible) {
+    openProviderAuthDialog()
+    return
+  }
+
+  closeProviderAuthDialog()
+})
+
+watch([authSession, authPolling, authPopupBlocked], () => {
+  authDialogController?.updateProps(getProviderAuthDialogProps())
+})
+
 useSilentSettingRefresh(
   async () => {
-    if (progressDialog.value || advancedDialog.value || testingLlm.value || savingBasic.value) return
+    if (advancedDialog.value || testingLlm.value || savingBasic.value) return
     await loadPageData()
   },
   {
@@ -889,13 +948,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
 </script>
 
 <template>
-  <ProgressDialog
-    v-if="progressDialog"
-    v-model="progressDialog"
-    :text="t('setting.system.reloading')"
-    :indeterminate="true"
-  />
-
   <VRow>
     <VCol cols="12">
       <VCard>
@@ -2221,45 +2273,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
             </VBtn>
           </div>
         </VForm>
-      </VCardActions>
-    </VCard>
-  </VDialog>
-
-  <VDialog v-model="authDialogVisible" max-width="560">
-    <VCard>
-      <VCardTitle>{{ t('setting.system.llmProviderAuthDialogTitle') }}</VCardTitle>
-      <VCardText class="d-flex flex-column ga-4">
-        <VAlert v-if="authSession?.instructions" type="info" variant="tonal">
-          {{ authSession.instructions }}
-        </VAlert>
-
-        <VAlert v-if="authPopupBlocked" type="warning" variant="tonal">
-          {{ t('setting.system.llmProviderPopupBlocked') }}
-        </VAlert>
-
-        <div v-if="authSession?.user_code">
-          <div class="text-caption text-medium-emphasis mb-1">{{ t('setting.system.llmProviderDeviceCode') }}</div>
-          <div class="text-h5 font-weight-bold">{{ authSession.user_code }}</div>
-        </div>
-
-        <div v-if="authSession?.message" class="text-body-2">
-          {{ authSession.message }}
-        </div>
-
-        <div class="d-flex flex-wrap ga-2">
-          <VBtn color="primary" prepend-icon="mdi-open-in-new" @click="openAuthPage">
-            {{ t('setting.system.llmProviderOpenAuthPage') }}
-          </VBtn>
-          <VBtn variant="tonal" prepend-icon="mdi-refresh" :loading="authPolling" @click="pollAuthSession">
-            {{ t('setting.system.llmProviderCheckAuthStatus') }}
-          </VBtn>
-        </div>
-      </VCardText>
-      <VCardActions>
-        <VSpacer />
-        <VBtn variant="text" @click="closeAuthDialog">
-          {{ t('common.close') }}
-        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

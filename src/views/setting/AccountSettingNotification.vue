@@ -5,11 +5,9 @@ import type { NotificationConf, NotificationSwitchConf } from '@/api/types'
 import NotificationChannelCard from '@/components/cards/NotificationChannelCard.vue'
 import { useI18n } from 'vue-i18n'
 import { notificationSwitchDict } from '@/api/constants'
-import { useTheme, useDisplay } from 'vuetify'
+import { useTheme } from 'vuetify'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
-
-// 显示器宽度
-const display = useDisplay()
+import { openSharedDialog } from '@/composables/useSharedDialog'
 
 // 国际化
 const { t } = useI18n()
@@ -21,9 +19,11 @@ const props = defineProps({
   },
 })
 
-// 通知渠道排序和进度弹窗按需加载，避免通知设置 chunk 直接包含拖拽库。
+// 通知渠道排序按需加载，避免通知设置 chunk 直接包含拖拽库。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
-const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const NotificationTemplateEditorDialog = defineAsyncComponent(
+  () => import('@/components/dialog/NotificationTemplateEditorDialog.vue'),
+)
 
 // 初始化模板配置字典
 const templateConfigs = ref<Record<string, string>>({
@@ -65,9 +65,7 @@ const notifications = ref<NotificationConf[]>([])
 // 提示框
 const $toast = useToast()
 
-// 进度框
-const progressDialog = ref(false)
-const editorVisible = ref(false)
+const editorDialogOpen = ref(false)
 const currentTemplate = ref('')
 const editorContent = ref('')
 
@@ -118,6 +116,47 @@ const notificationTime = ref({
 })
 
 const wechatClawBotRenameMap = ref<Record<string, string>>({})
+
+let editorDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 关闭通知模板共享弹窗，并同步本页的弹窗占用状态。
+function closeTemplateEditorDialog() {
+  editorDialogOpen.value = false
+  editorDialogController?.close()
+  editorDialogController = null
+}
+
+// 打开通知模板共享弹窗，保持内容通过事件回写到设置页。
+function openTemplateEditorDialog(type: string) {
+  closeTemplateEditorDialog()
+  editorDialogOpen.value = true
+  editorDialogController = openSharedDialog(
+    NotificationTemplateEditorDialog,
+    {
+      content: editorContent.value,
+      editorTheme: editorTheme.value,
+      subtitle: templateTypes.value.find(item => item.type === type)?.label ?? '',
+      templateType: type,
+    },
+    {
+      close: () => {
+        editorDialogOpen.value = false
+        editorDialogController = null
+      },
+      save: saveTemplate,
+      'update:content': (value: string) => {
+        editorContent.value = value
+      },
+      'update:modelValue': (value: boolean) => {
+        if (!value) {
+          editorDialogOpen.value = false
+          editorDialogController = null
+        }
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
 
 // 添加通知渠道
 function addNotification(notification: string) {
@@ -196,21 +235,21 @@ async function openEditor(type: string) {
     const result: { [key: string]: any } = await api.get('system/setting/NotificationTemplates')
     templateConfigs.value = result.data?.value || {}
     editorContent.value = templateConfigs.value[type] || '{}'
-    editorVisible.value = true
+    openTemplateEditorDialog(type)
   } catch (error) {
     console.error(error)
     $toast.error(t('setting.notification.templateLoadFailed'))
   }
 }
 
-async function saveTemplate() {
+async function saveTemplate(value = editorContent.value) {
   try {
     await api.post('system/setting/NotificationTemplates', {
       ...templateConfigs.value,
-      [currentTemplate.value]: editorContent.value,
+      [currentTemplate.value]: value,
     })
     $toast.success(t('setting.notification.templateSaveSuccess'))
-    editorVisible.value = false
+    closeTemplateEditorDialog()
   } catch (error) {
     console.error(error)
     $toast.error(t('setting.notification.templateSaveFailed'))
@@ -331,7 +370,7 @@ onMounted(() => {
 })
 
 useSilentSettingRefresh(loadPageData, {
-  active: computed(() => props.active && !editorVisible.value),
+  active: computed(() => props.active && !editorDialogOpen.value),
 })
 </script>
 
@@ -534,44 +573,6 @@ useSilentSettingRefresh(loadPageData, {
       </VCard>
     </VCol>
   </VRow>
-  <!-- 进度框 -->
-  <ProgressDialog
-    v-if="progressDialog"
-    v-model="progressDialog"
-    :text="t('setting.system.reloading')"
-    :indeterminate="true"
-  />
-  <!-- 模板编辑器对话框 -->
-  <VDialog v-model="editorVisible" v-if="editorVisible" max-width="50rem" :fullscreen="!display.mdAndUp.value">
-    <VCard>
-      <VCardItem class="py-2">
-        <template #prepend>
-          <VIcon icon="mdi-code-json" class="me-2" />
-        </template>
-        <VCardTitle>
-          {{ t('setting.notification.templateConfigTitle') }}
-        </VCardTitle>
-        <VCardSubtitle>
-          {{ templateTypes.find(t => t.type === currentTemplate)?.label }}
-        </VCardSubtitle>
-        <VDialogCloseBtn @click="editorVisible = false" />
-      </VCardItem>
-      <VCardText class="py-0">
-        <VAceEditor
-          :key="`${currentTemplate}-jinja2-json`"
-          v-model:value="editorContent"
-          lang="jinja2_json"
-          :theme="editorTheme"
-          class="w-full h-full min-h-[30rem] rounded"
-        />
-      </VCardText>
-      <VCardActions class="pt-3">
-        <VBtn color="primary" @click="saveTemplate" prepend-icon="mdi-content-save" class="px-5">
-          {{ t('common.save') }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>
 <style scoped>
 /* Monaco编辑器容器样式 */

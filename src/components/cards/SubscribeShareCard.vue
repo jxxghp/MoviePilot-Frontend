@@ -2,9 +2,11 @@
 import { formatDateDifference } from '@/@core/utils/formatters'
 import type { SubscribeShare } from '@/api/types'
 import router from '@/router'
-import SubscribeEditDialog from '../dialog/SubscribeEditDialog.vue'
-import ForkSubscribeDialog from '../dialog/ForkSubscribeDialog.vue'
 import { useGlobalSettingsStore } from '@/stores'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const ForkSubscribeDialog = defineAsyncComponent(() => import('../dialog/ForkSubscribeDialog.vue'))
+const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -21,15 +23,6 @@ const globalSettings = globalSettingsStore.globalSettings
 
 // 图片是否加载完成
 const imageLoaded = ref(false)
-
-// 订阅编辑弹窗
-const subscribeEditDialog = ref(false)
-
-// 复用订阅弹窗
-const forkSubscribeDialog = ref(false)
-
-// 订阅ID
-const subscribeId = ref<number>()
 
 // 图片加载完成响应
 function imageLoadHandler() {
@@ -78,19 +71,24 @@ async function viewMediaDetail() {
 
 // 复用订阅
 function showForkSubscribe() {
-  forkSubscribeDialog.value = true
+  openSharedDialog(
+    ForkSubscribeDialog,
+    { media: props.media },
+    {
+      fork: finishForkSubscribe,
+      delete: doDelete,
+    },
+    { closeOn: ['close', 'fork', 'delete'] },
+  )
 }
 
 // 完成复用订阅
 function finishForkSubscribe(subid: number) {
-  subscribeId.value = subid
-  forkSubscribeDialog.value = false
-  subscribeEditDialog.value = true
+  openSharedDialog(SubscribeEditDialog, { subid }, {}, { closeOn: ['close', 'save', 'remove'] })
 }
 
 // 删除订阅分享时处理
 function doDelete() {
-  forkSubscribeDialog.value = false
   // 通知父组件刷新
   emit('delete')
 }
@@ -167,24 +165,6 @@ function doDelete() {
         </div>
       </template>
     </VHover>
-    <!-- 订阅编辑弹窗 -->
-    <SubscribeEditDialog
-      v-if="subscribeEditDialog"
-      v-model="subscribeEditDialog"
-      :subid="subscribeId"
-      @close="subscribeEditDialog = false"
-      @save="subscribeEditDialog = false"
-      @remove="subscribeEditDialog = false"
-    />
-    <!-- 复用订阅弹窗 -->
-    <ForkSubscribeDialog
-      v-if="forkSubscribeDialog"
-      v-model="forkSubscribeDialog"
-      :media="props.media"
-      @close="forkSubscribeDialog = false"
-      @fork="finishForkSubscribe"
-      @delete="doDelete"
-    />
   </div>
 </template>
 <style lang="scss" scoped>

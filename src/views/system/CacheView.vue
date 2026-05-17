@@ -7,6 +7,9 @@ import { formatFileSize, formatDateDifference } from '@core/utils/formatters'
 import { useConfirm } from '@/composables/useConfirm'
 import { useGlobalSettingsStore } from '@/stores'
 import { usePWA } from '@/composables/usePWA'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const CacheReidentifyDialog = defineAsyncComponent(() => import('@/components/dialog/CacheReidentifyDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -61,11 +64,9 @@ const selectedItems = ref<string[]>([])
 // 加载状态
 const loading = ref(false)
 
-// 重新识别对话框
-const reidentifyDialog = ref(false)
 const currentReidentifyItem = ref<TorrentCacheItem | null>(null)
-const tmdbId = ref<number | undefined>()
-const doubanId = ref<string | undefined>()
+
+let reidentifyDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 const tableStyle = computed(() => {
   return appMode ? '' : 'height: calc(100vh - 21rem - env(safe-area-inset-bottom)'
@@ -175,20 +176,37 @@ async function deleteSingleItem(item: TorrentCacheItem) {
 // 打开重新识别对话框
 function openReidentifyDialog(item: TorrentCacheItem) {
   currentReidentifyItem.value = item
-  tmdbId.value = undefined
-  doubanId.value = undefined
-  reidentifyDialog.value = true
+  reidentifyDialogController?.close()
+  reidentifyDialogController = openSharedDialog(
+    CacheReidentifyDialog,
+    {
+      itemTitle: item.title,
+      loading: loading.value,
+      recognizeSource: globalSettings.RECOGNIZE_SOURCE,
+    },
+    {
+      close: () => {
+        reidentifyDialogController = null
+      },
+      confirm: performReidentify,
+      'update:modelValue': (value: boolean) => {
+        if (!value) reidentifyDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
 }
 
 // 重新识别
-async function performReidentify() {
+async function performReidentify(payload: { doubanId?: string; tmdbId?: number } = {}) {
   if (!currentReidentifyItem.value) return
 
   try {
     loading.value = true
+    reidentifyDialogController?.updateProps({ loading: true })
     const params: any = {}
-    if (tmdbId.value) params.tmdbid = tmdbId.value
-    if (doubanId.value) params.doubanid = doubanId.value
+    if (payload.tmdbId) params.tmdbid = payload.tmdbId
+    if (payload.doubanId) params.doubanid = payload.doubanId
 
     const res: any = await api.post(
       `torrent/cache/reidentify/${currentReidentifyItem.value.domain}/${currentReidentifyItem.value.hash}`,
@@ -200,12 +218,14 @@ async function performReidentify() {
 
     $toast.success(res.message || t('setting.cache.reidentifySuccess'))
     await loadCacheData()
-    reidentifyDialog.value = false
+    reidentifyDialogController?.close()
+    reidentifyDialogController = null
   } catch (e) {
     console.log(e)
     $toast.error(t('setting.cache.reidentifyFailed'))
   } finally {
     loading.value = false
+    reidentifyDialogController?.updateProps({ loading: false })
   }
 }
 
@@ -446,54 +466,5 @@ onMounted(() => {
         </div>
       </template>
     </VDataTable>
-
-    <!-- 重新识别对话框 -->
-    <VDialog v-model="reidentifyDialog" scrollable max-width="35rem">
-      <VCard>
-        <VCardItem class="py-2">
-          <template #prepend>
-            <VIcon>mdi-text-recognition</VIcon>
-          </template>
-          <VCardTitle>{{ t('setting.cache.reidentifyDialog.title') }}</VCardTitle>
-          <VCardSubtitle>{{ currentReidentifyItem?.title }}</VCardSubtitle>
-        </VCardItem>
-        <VDialogCloseBtn @click="reidentifyDialog = false" />
-        <VDivider />
-        <VCardText>
-          <VRow>
-            <VCol cols="12">
-              <VTextField
-                v-if="globalSettings.RECOGNIZE_SOURCE === 'themoviedb'"
-                v-model="tmdbId"
-                :label="t('setting.cache.reidentifyDialog.tmdbId')"
-                :hint="t('setting.cache.reidentifyDialog.tmdbIdHint')"
-                clearable
-                prepend-inner-icon="mdi-id-card"
-                persistent-hint
-              />
-              <VTextField
-                v-else
-                v-model="doubanId"
-                :label="t('setting.cache.reidentifyDialog.doubanId')"
-                :hint="t('setting.cache.reidentifyDialog.doubanIdHint')"
-                clearable
-                prepend-inner-icon="mdi-id-card"
-                persistent-hint
-              />
-            </VCol>
-          </VRow>
-          <VAlert type="info" variant="tonal" class="mt-4">
-            {{ t('setting.cache.reidentifyDialog.autoHint') }}
-          </VAlert>
-        </VCardText>
-
-        <VCardActions>
-          <VSpacer />
-          <VBtn color="primary" :loading="loading" prepend-icon="mdi-check" @click="performReidentify">
-            {{ t('setting.cache.reidentifyDialog.confirm') }}
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
   </div>
 </template>

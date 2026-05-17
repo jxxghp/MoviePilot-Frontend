@@ -3,9 +3,11 @@ import type { PropType } from 'vue'
 import { formatFileSize, formatDateDifference } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { Context } from '@/api/types'
-import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
 import { getCachedSiteIcon } from '@/utils/siteIconCache'
 import { downloadedTorrentMap, markTorrentDownloaded } from '@/utils/torrentDownloadCache'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const AddDownloadDialog = defineAsyncComponent(() => import('../dialog/AddDownloadDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -25,9 +27,6 @@ const meta = ref(props.torrent?.meta_info)
 const siteIcon = ref('')
 
 const isDownloaded = computed(() => Boolean(torrent.value?.enclosure && downloadedTorrentMap[torrent.value.enclosure]))
-
-// 添加下载对话框
-const addDownloadDialog = ref(false)
 
 // 查询站点图标
 async function getSiteIcon() {
@@ -73,18 +72,29 @@ function getPromotionChipClass(downloadVolumeFactor: number | undefined, uploadV
 // 询问并添加下载
 async function handleAddDownload() {
   // 打开下载对话框
-  addDownloadDialog.value = true
+  openSharedDialog(
+    AddDownloadDialog,
+    {
+      title: `${media.value?.title_year || meta.value?.name} ${meta.value?.season_episode || ''}`,
+      media: media.value,
+      torrent: torrent.value,
+    },
+    {
+      done: addDownloadSuccess,
+      error: addDownloadError,
+    },
+    { closeOn: ['close', 'done', 'error'] },
+  )
 }
 
 // 添加下载成功
 function addDownloadSuccess(url: string) {
-  addDownloadDialog.value = false
   markTorrentDownloaded(url)
 }
 
 // 添加下载失败
 function addDownloadError(error: string) {
-  addDownloadDialog.value = false
+  console.error(error)
 }
 
 // 打开种子详情页面
@@ -241,17 +251,6 @@ watch(
         </div>
       </template>
     </VListItem>
-
-    <AddDownloadDialog
-      v-if="addDownloadDialog"
-      v-model="addDownloadDialog"
-      :title="`${media?.title_year || meta?.name} ${meta?.season_episode || ''}`"
-      :media="media"
-      :torrent="torrent"
-      @done="addDownloadSuccess"
-      @error="addDownloadError"
-      @close="addDownloadDialog = false"
-    />
   </div>
 </template>
 

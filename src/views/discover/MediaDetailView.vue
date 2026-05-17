@@ -10,13 +10,15 @@ import { formatSeason } from '@/@core/utils/formatters'
 import router from '@/router'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useUserStore } from '@/stores'
-import SubscribeEditDialog from '@/components/dialog/SubscribeEditDialog.vue'
-import SearchSiteDialog from '@/components/dialog/SearchSiteDialog.vue'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { hasPermission } from '@/utils/permission'
 import { useGlobalSettingsStore } from '@/stores'
 import { openMediaServerWithAutoDetect, openDoubanApp } from '@/utils/appDeepLink'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
+const SubscribeEditDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeEditDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -46,9 +48,6 @@ const theme = useTheme()
 // 媒体详情
 const mediaDetail = ref<MediaInfo>({} as MediaInfo)
 
-// 订阅编辑弹窗
-const subscribeEditDialog = ref(false)
-
 // 本地是否存在，存在则包括Item信息
 const existsItemId = ref('')
 
@@ -70,9 +69,6 @@ const seasonsNotExisted = ref<{ [key: number]: number }>({})
 // 各季的订阅状态
 const seasonsSubscribed = ref<{ [key: number]: boolean }>({})
 
-// 订阅编号
-const subscribeId = ref<number>()
-
 // 所有站点
 const allSites = ref<Site[]>([])
 
@@ -82,13 +78,37 @@ const selectedSites = ref<number[]>([])
 // 搜索方式 title/imdbid
 const searchType = ref('title')
 
-// 选择站点对话框
-const chooseSiteDialog = ref(false)
-
 // 计算主题是否为透明
 const isTransparentTheme = computed(() => {
   return theme.name.value === 'transparent'
 })
+
+// 打开订阅编辑弹窗，关闭和保存时由共享 Host 自动释放实例。
+function openSubscribeEditDialog(subid: number) {
+  openSharedDialog(
+    SubscribeEditDialog,
+    { subid },
+    {
+      remove: onSubscribeEditRemove,
+    },
+    { closeOn: ['close', 'save', 'remove'] },
+  )
+}
+
+// 打开站点选择弹窗，并把站点选择结果交回详情页执行搜索。
+function openSearchSiteDialog() {
+  openSharedDialog(
+    SearchSiteDialog,
+    {
+      sites: allSites.value,
+      selected: selectedSites.value,
+    },
+    {
+      search: searchSites,
+    },
+    { closeOn: ['close', 'search'] },
+  )
+}
 
 // 查询所有站点
 async function querySites() {
@@ -292,8 +312,7 @@ async function addSubscribe(season: number | null) {
     if (result.success) {
       const show_edit_dialog = await queryDefaultSubscribeConfig()
       if (show_edit_dialog) {
-        subscribeId.value = result.data.id
-        subscribeEditDialog.value = true
+        openSubscribeEditDialog(result.data.id)
       }
     }
   } catch (error) {
@@ -534,7 +553,6 @@ async function queryDefaultSubscribeConfig() {
 
 // 删除订阅处理
 function onSubscribeEditRemove() {
-  subscribeEditDialog.value = false
   if (mediaDetail.value.type === '电影') checkMovieSubscribed()
   else checkSeasonsSubscribed()
 }
@@ -547,7 +565,7 @@ async function clickSearch(type: string) {
     await querySelectedSites()
   }
   if (allSites.value?.length > 0) {
-    chooseSiteDialog.value = true
+    openSearchSiteDialog()
   } else {
     handleSearch()
   }
@@ -555,7 +573,6 @@ async function clickSearch(type: string) {
 
 // 搜索多站点
 function searchSites(sites: number[]) {
-  chooseSiteDialog.value = false
   selectedSites.value = sites
   handleSearch()
 }
@@ -1019,24 +1036,6 @@ onBeforeMount(() => {
     error-code="500"
     :error-title="t('media.error.title')"
     :error-description="t('media.error.noMediaInfo')"
-  />
-  <!-- 订阅编辑弹窗 -->
-  <SubscribeEditDialog
-    v-if="subscribeEditDialog"
-    v-model="subscribeEditDialog"
-    :subid="subscribeId"
-    @close="subscribeEditDialog = false"
-    @save="subscribeEditDialog = false"
-    @remove="onSubscribeEditRemove"
-  />
-  <!-- 站点选择对话框 -->
-  <SearchSiteDialog
-    v-if="chooseSiteDialog"
-    v-model="chooseSiteDialog"
-    :sites="allSites"
-    :selected="selectedSites"
-    @search="searchSites"
-    @close="chooseSiteDialog = false"
   />
 </template>
 

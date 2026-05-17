@@ -16,6 +16,9 @@ import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore } from '@/stores'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const TransferHistoryDeleteDialog = defineAsyncComponent(() => import('@/components/dialog/TransferHistoryDeleteDialog.vue'))
 
 // i18n
 const { t } = useI18n()
@@ -38,15 +41,11 @@ const $toast = useToast()
 
 // 路由
 const route = useRoute()
+let syncingRouteQuery = false
+let fetchDataRequestSeed = 0
 
 // 组合式输入法状态
 const isComposing = ref(false)
-
-// 重新整理对话框
-const redoDialog = ref(false)
-
-// 整理队列对话框
-const transferQueueDialog = ref(false)
 
 // 当前操作记录
 const currentHistory = ref<TransferHistory>()
@@ -55,11 +54,13 @@ const currentHistory = ref<TransferHistory>()
 const aiRedoIds = ref<number[]>([])
 
 // AI整理进度
-const aiRedoProgressDialog = ref(false)
 const aiRedoProgressActive = ref(false)
 const aiRedoProgressText = ref(t('transferHistory.actions.aiRedoPending'))
 const aiRedoProgressSSE = ref<any>(null)
 const aiRedoProgressHistoryIds = ref<number[]>([])
+let aiRedoProgressDialogController: ReturnType<typeof openSharedDialog> | null = null
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+let deleteDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 重新整理IDS
 const redoIds = ref<number[]>([])
@@ -188,7 +189,7 @@ const pageRangeValues = pageRange.map(item => item.value)
 const dataList = ref<TransferHistory[]>([])
 
 // 搜索
-const search = ref(route.query.search as string)
+const search = ref(getRouteQueryString(route.query.search))
 
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
@@ -213,12 +214,9 @@ const groupBy = ref<any>([
 const itemsPerPage = ref<number>(ensurePageSize(route.query.itemsPerPage, 50))
 
 // 当前页码
-const currentPage = ref<number>(ensureNumber(route.query.currentPage, 1))
+const currentPage = ref<number>(Math.max(1, ensureNumber(route.query.currentPage, 1)))
 
 // 进度条
-const progressDialog = ref(false)
-
-// 进度文本
 const progressText = ref(t('transferHistory.progress.pleaseWait'))
 
 // 进度值
@@ -229,9 +227,6 @@ const isRefreshed = ref(false)
 
 // 是否已完成首次激活
 const hasActivatedOnce = ref(false)
-
-// 删除确认对话框
-const deleteConfirmDialog = ref(false)
 
 // 确认框标题
 const confirmTitle = ref('')
@@ -248,6 +243,65 @@ async function loadStorages() {
   } catch (error) {
     console.log(error)
   }
+}
+
+// 打开共享进度弹窗，长任务完成后统一关闭。
+function openProgressDialog(text = progressText.value, value = progressValue.value) {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text, value }, {}, { closeOn: false })
+}
+
+// 关闭共享进度弹窗。
+function closeProgressDialog() {
+  progressDialogController?.close()
+  progressDialogController = null
+}
+
+// 打开整理队列进度弹窗。
+function openTransferQueueDialog() {
+  openSharedDialog(TransferQueueDialog, {}, {}, { closeOn: ['close'] })
+}
+
+// 打开共享删除确认弹窗。
+function openDeleteConfirmDialog() {
+  deleteDialogController?.close()
+  deleteDialogController = openSharedDialog(
+    TransferHistoryDeleteDialog,
+    {
+      title: confirmTitle.value,
+    },
+    {
+      close: () => {
+        deleteDialogController = null
+      },
+      delete: deleteConfirmHandler,
+      'update:modelValue': (value: boolean) => {
+        if (!value) deleteDialogController = null
+      },
+    },
+    { closeOn: ['close', 'delete', 'update:modelValue'] },
+  )
+}
+
+// 关闭共享删除确认弹窗。
+function closeDeleteConfirmDialog() {
+  deleteDialogController?.close()
+  deleteDialogController = null
+}
+
+// 打开重新整理弹窗，完成后刷新历史列表。
+function openRedoDialog() {
+  openSharedDialog(
+    ReorganizeDialog,
+    {
+      logids: redoIds.value,
+      target_storage: redoTargetStorage.value,
+    },
+    {
+      done: transferDone,
+    },
+    { closeOn: ['close', 'done'] },
+  )
 }
 
 // 存储字典
@@ -287,27 +341,53 @@ const totalPage = computed(() => {
   return Math.max(1, total)
 })
 
+// 延迟同步分页参数到地址栏，避免快速翻页时连续触发请求。
+const debouncedReloadPage = debounce(() => {
+  void reloadPage()
+}, 1000)
+
+// 延迟同步搜索参数到地址栏，输入完成后再重置页码并刷新。
+const debouncedReloadSearchPage = debounce(() => {
+  console.log('search: ' + search.value)
+  void reloadPage(true)
+}, 1000)
+
 // 切换页签
-watch(
-  [() => currentPage.value, () => itemsPerPage.value],
-  debounce(async () => {
-    reloadPage()
-  }, 1000),
-)
+watch([() => currentPage.value, () => itemsPerPage.value], () => {
+  if (syncingRouteQuery) return
+
+  debouncedReloadPage()
+})
 
 // 搜索监听
+watch([() => search.value, () => isComposing.value], () => {
+  if (syncingRouteQuery || isComposing.value) return
+
+  debouncedReloadSearchPage()
+})
+
+// 分组模式变化时同步到地址栏，方便返回页面时恢复用户选择。
 watch(
-  [() => search.value, () => isComposing.value],
-  debounce(async () => {
-    if (!isComposing.value) {
-      console.log('search: ' + search.value)
-      reloadPage(true)
-    }
-  }, 1000),
+  () => group.value,
+  () => {
+    if (syncingRouteQuery) return
+
+    void reloadPage()
+  },
+)
+
+// 路由参数变化时同步页面状态并重新请求列表数据。
+watch(
+  () => route.query,
+  () => {
+    void refreshDataFromRouteQuery()
+  },
+  { deep: true },
 )
 
 // 获取历史记录数据，keep-alive 重新进入时可静默刷新，避免表格出现重新加载感。
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
+  const requestSeed = ++fetchDataRequestSeed
   if (!options.silent) {
     loading.value = true
   }
@@ -320,19 +400,69 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
         title: search.value,
       },
     })
+    if (requestSeed !== fetchDataRequestSeed) return
+
+    const list: TransferHistory[] = Array.isArray(result.data?.list) ? result.data.list : []
+
     isRefreshed.value = true
-    dataList.value = result.data?.list
-    totalItems.value = result.data?.total
-    searchHintList.value = ['失败', '成功', ...new Set(dataList.value.map(item => item.title || ''))].filter(
-      title => title !== '',
+    dataList.value = list
+    totalItems.value = ensureNumber(result.data?.total, 0)
+    searchHintList.value = ['失败', '成功', ...new Set(list.map((item: TransferHistory) => item.title || ''))].filter(
+      (title): title is string => title !== '',
     )
+
+    return {
+      list,
+      total: totalItems.value,
+    }
   } catch (error) {
     console.error(error)
   } finally {
-    if (!options.silent) {
+    if (requestSeed === fetchDataRequestSeed && !options.silent) {
       loading.value = false
     }
   }
+}
+
+// 从路由查询参数中取出单值字符串，统一处理数组和空值场景。
+function getRouteQueryString(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.find(item => typeof item === 'string') ?? ''
+  }
+
+  return typeof value === 'string' ? value : ''
+}
+
+// 将当前路由查询参数同步回页面状态，并避免触发本地监听器反向写入地址栏。
+async function syncStateFromRouteQuery() {
+  syncingRouteQuery = true
+  try {
+    search.value = getRouteQueryString(route.query.search)
+    itemsPerPage.value = ensurePageSize(route.query.itemsPerPage, 50)
+    currentPage.value = Math.max(1, ensureNumber(route.query.currentPage, 1))
+    group.value = route.query.grouped === 'true'
+  } finally {
+    await nextTick()
+    syncingRouteQuery = false
+  }
+}
+
+// 根据地址栏中的查询参数刷新历史列表。
+async function refreshDataFromRouteQuery(options: { silent?: boolean } = {}) {
+  await syncStateFromRouteQuery()
+  await fetchData(currentPage.value, itemsPerPage.value, options)
+}
+
+// 操作完成后刷新列表；如果当前页被删空，则跳回最后一个有效页。
+async function refreshDataAfterOperation() {
+  const result = await fetchData()
+  if (!result) return
+
+  const lastAvailablePage = Math.max(1, Math.ceil(result.total / itemsPerPage.value))
+  if (currentPage.value <= lastAvailablePage) return
+
+  await router.replace(createHistoryUrl(false, lastAvailablePage))
+  await refreshDataFromRouteQuery()
 }
 
 // 根据 type 返回不同的图标
@@ -350,7 +480,7 @@ async function removeHistory(item: TransferHistory) {
     seasons: item.seasons || '',
     episodes: item.episodes || '',
   })
-  deleteConfirmDialog.value = true
+  openDeleteConfirmDialog()
 }
 
 // 调用API删除记录
@@ -372,20 +502,20 @@ async function remove(item: TransferHistory, deleteSrc: boolean, deleteDest: boo
 // 删除单条记录
 async function removeSingle(deleteSrc: boolean, deleteDest: boolean) {
   // 关闭弹窗
-  deleteConfirmDialog.value = false
+  closeDeleteConfirmDialog()
   if (!currentHistory.value) return
 
   // 删除
   await remove(currentHistory.value, deleteSrc, deleteDest)
   // 刷新
-  fetchData()
+  await refreshDataAfterOperation()
 }
 
 // 批量删除记录
 async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   if (hasRunningAiRedo.value) return
   // 关闭弹窗
-  deleteConfirmDialog.value = false
+  closeDeleteConfirmDialog()
   // 总条数
   const total = selected.value.length
   if (total === 0) return
@@ -393,7 +523,7 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   // 已处理条数
   let handled = 0
   // 显示进度条
-  progressDialog.value = true
+  openProgressDialog()
   // 循环调用removeHistory
   for (const item of selected.value) {
     // 开始删除
@@ -402,13 +532,14 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
     // 删除完成
     handled++
     progressValue.value = (handled / total) * 100
+    progressDialogController?.updateProps({ text: progressText.value, value: progressValue.value })
   }
   // 清空选中项
   selected.value = []
   // 隐藏进度条
-  progressDialog.value = false
+  closeProgressDialog()
   // 重新获取数据
-  fetchData()
+  await refreshDataAfterOperation()
 }
 
 // 响应删除操作
@@ -428,7 +559,7 @@ async function removeHistoryBatch() {
     count: selected.value.length,
   })
   // 打开确认弹窗
-  deleteConfirmDialog.value = true
+  openDeleteConfirmDialog()
 }
 // 批量重新整理
 async function retransferBatch() {
@@ -440,17 +571,16 @@ async function retransferBatch() {
   // 重新整理IDS
   redoIds.value = selected.value.map(item => item.id)
   // 打开识别弹窗
-  redoDialog.value = true
+  openRedoDialog()
 }
 
 // 整理完成
-function transferDone() {
-  redoDialog.value = false
+async function transferDone() {
   // 清空当前操作记录
   currentHistory.value = undefined
   selected.value = []
   // 刷新
-  fetchData()
+  await refreshDataAfterOperation()
 }
 
 // AI助手是否启用
@@ -478,12 +608,13 @@ async function finishAiRedo(success: boolean, errorMessage?: string) {
   const historyIdSet = new Set(historyIds)
 
   stopAiRedoProgress()
-  aiRedoProgressDialog.value = false
+  aiRedoProgressDialogController?.close()
+  aiRedoProgressDialogController = null
   aiRedoProgressHistoryIds.value = []
   aiRedoIds.value = aiRedoIds.value.filter(id => !historyIdSet.has(id))
   selected.value = selected.value.filter(item => !historyIdSet.has(item.id))
 
-  await fetchData()
+  await refreshDataAfterOperation()
 
   if (!success && errorMessage) {
     $toast.error(errorMessage)
@@ -496,6 +627,7 @@ async function handleAiRedoProgressMessage(event: MessageEvent) {
   if (!progress) return
 
   aiRedoProgressText.value = progress.text || t('transferHistory.actions.aiRedoPending')
+  aiRedoProgressDialogController?.updateProps({ text: aiRedoProgressText.value })
 
   if (progress.enable === false) {
     await finishAiRedo(progress.data?.success !== false, progress.data?.error)
@@ -512,9 +644,14 @@ function startAiRedoProgressBatch(historyIds: number[], progressKey: string) {
   stopAiRedoProgress()
 
   aiRedoProgressHistoryIds.value = historyIds
-  aiRedoProgressDialog.value = true
   aiRedoProgressActive.value = true
   aiRedoProgressText.value = t('transferHistory.actions.aiRedoPending')
+  aiRedoProgressDialogController = openSharedDialog(
+    ProgressDialog,
+    { text: aiRedoProgressText.value },
+    {},
+    { closeOn: false },
+  )
 
   const url = `${import.meta.env.VITE_API_BASE_URL}system/progress/${progressKey}`
 
@@ -619,7 +756,7 @@ function getDropdownItems(item: TransferHistory) {
         click: () => {
           redoIds.value = [item.id]
           redoTargetStorage.value = item.dest_storage
-          redoDialog.value = true
+          openRedoDialog()
         },
       },
     },
@@ -637,29 +774,32 @@ function getDropdownItems(item: TransferHistory) {
   ]
 }
 
-// 添加url参数
-function addUrlQuery(url: string, name: string, value: any) {
-  if (!url || !name || !value) return url
-  const separator = url.includes('?') ? '&' : '?'
-  return url + separator + name + '=' + encodeURIComponent(value)
-}
+// 生成历史记录页地址，确保刷新入口和分页入口使用一致的查询参数。
+function createHistoryUrl(resetPage = false, page = resetPage ? 1 : currentPage.value) {
+  const query: Record<string, string> = {}
 
-// 重载页面
-function reloadPage(resetPage = false) {
-  let url = '/history'
   if (search.value) {
-    url = addUrlQuery(url, 'search', search.value)
+    query.search = search.value
   }
   if (itemsPerPage.value) {
-    url = addUrlQuery(url, 'itemsPerPage', itemsPerPage.value)
+    query.itemsPerPage = String(itemsPerPage.value)
   }
-  if (currentPage.value) {
-    url = addUrlQuery(url, 'currentPage', resetPage ? 1 : currentPage.value)
+  if (page) {
+    query.currentPage = String(page)
   }
   if (group.value) {
-    url = addUrlQuery(url, 'grouped', 'true')
+    query.grouped = 'true'
   }
-  router.push(url)
+
+  return {
+    path: '/history',
+    query,
+  }
+}
+
+// 重载页面，先更新路由，再由路由监听统一拉取列表数据。
+async function reloadPage(resetPage = false) {
+  await router.push(createHistoryUrl(resetPage))
 }
 
 // 确保值为number类型
@@ -708,9 +848,7 @@ const historyDynamicMenuItems = computed(() => {
     {
       titleKey: 'dialog.transferQueue.title',
       icon: 'mdi-timer-sand-paused',
-      action: () => {
-        transferQueueDialog.value = true
-      },
+      action: openTransferQueueDialog,
     },
   ]
 
@@ -746,17 +884,15 @@ const historyDynamicMenuItems = computed(() => {
 
 useDynamicButton({
   icon: historyDynamicIcon,
-  onClick: () => {
-    transferQueueDialog.value = true
-  },
+  onClick: openTransferQueueDialog,
   menuItems: historyDynamicMenuItems,
   show: computed(() => appMode.value),
 })
 
 // 初始加载数据
 onMounted(() => {
-  loadStorages()
-  fetchData()
+  void loadStorages()
+  void refreshDataFromRouteQuery()
 })
 
 onActivated(() => {
@@ -766,12 +902,16 @@ onActivated(() => {
   }
 
   if (!loading.value) {
-    fetchData(currentPage.value, itemsPerPage.value, { silent: true })
+    void refreshDataFromRouteQuery({ silent: true })
   }
 })
 
 onUnmounted(() => {
+  debouncedReloadPage.cancel()
+  debouncedReloadSearchPage.cancel()
   stopAiRedoProgress()
+  closeProgressDialog()
+  aiRedoProgressDialogController?.close()
 })
 </script>
 
@@ -1021,45 +1161,6 @@ onUnmounted(() => {
     </div>
   </VCard>
 
-  
-  <!-- 底部弹窗 -->
-  <VBottomSheet v-model="deleteConfirmDialog" inset>
-    <VCard class="text-center">
-      <VDialogCloseBtn @click="deleteConfirmDialog = false" />
-      <VCardTitle class="pe-10">
-        {{ confirmTitle }}
-      </VCardTitle>
-      <div class="d-flex flex-column flex-lg-row justify-center my-3">
-        <VBtn color="primary" class="mb-2 mx-2" @click="deleteConfirmHandler(false, false)">
-          {{ t('transferHistory.deleteRecordOnly') }}
-        </VBtn>
-        <VBtn color="warning" class="mb-2 mx-2" @click="deleteConfirmHandler(true, false)">
-          {{ t('transferHistory.deleteSourceOnly') }}
-        </VBtn>
-        <VBtn color="info" class="mb-2 mx-2" @click="deleteConfirmHandler(false, true)">
-          {{ t('transferHistory.deleteDestOnly') }}
-        </VBtn>
-        <VBtn color="error" class="mb-2 mx-2" @click="deleteConfirmHandler(true, true)">
-          {{ t('transferHistory.deleteAll') }}
-        </VBtn>
-      </div>
-    </VCard>
-  </VBottomSheet>
-  <!-- 进度框 -->
-  <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
-  <ProgressDialog v-if="aiRedoProgressDialog" v-model="aiRedoProgressDialog" :text="aiRedoProgressText" />
-  <!-- 文件整理弹窗 -->
-  <ReorganizeDialog
-    v-if="redoDialog"
-    v-model="redoDialog"
-    :logids="redoIds"
-    :target_storage="redoTargetStorage"
-    @done="transferDone"
-    @close="redoDialog = false"
-  />
-  <!-- 整理队列进度弹窗 -->
-  <TransferQueueDialog v-if="transferQueueDialog" v-model="transferQueueDialog" @close="transferQueueDialog = false" />
-
   <!-- 非 app 模式下的 FAB 按钮 -->
   <Teleport to="body" v-if="!appMode && route.path === '/history'">
     <div v-if="isRefreshed" class="compact-fab-stack compact-fab-stack--history">
@@ -1095,7 +1196,7 @@ onUnmounted(() => {
         color="primary"
         appear
         class="compact-fab compact-fab--primary"
-        @click="transferQueueDialog = true"
+        @click="openTransferQueueDialog"
       />
     </div>
   </Teleport>

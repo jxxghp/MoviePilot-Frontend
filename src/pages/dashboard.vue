@@ -5,18 +5,17 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { DashboardItem } from '@/api/types'
 import { useUserStore } from '@/stores'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
-import { useDisplay } from 'vuetify'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
-import { VCardActions } from 'vuetify/components'
 import { usePWA } from '@/composables/usePWA'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
+import { openSharedDialog } from '@/composables/useSharedDialog'
+
+const ContentToggleSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/ContentToggleSettingsDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
 
-// APP
-const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
 
@@ -159,9 +158,6 @@ const pluginDashboardMeta = ref<any[]>([])
 // 插件仪表板的刷新状态
 const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
 
-// 弹窗
-const dialog = ref(false)
-
 // 为每个项目生成随机颜色
 const itemColors = ref<{ [key: string]: string }>({})
 
@@ -175,11 +171,43 @@ function initializeColors() {
 }
 
 // 使用动态按钮钩子
+let settingsDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+// 打开仪表板共享设置弹窗。
+function openDashboardSettings() {
+  settingsDialogController?.close()
+  settingsDialogController = openSharedDialog(
+    ContentToggleSettingsDialog,
+    {
+      colors: itemColors.value,
+      elevated: isElevated.value,
+      enabled: enableConfig.value,
+      hint: t('dashboard.chooseContent'),
+      items: dashboardConfigs.value,
+      labelGetter: (item: DashboardItem) => item.attrs?.title ?? item.name,
+      switchLabel: t('dashboard.adaptiveHeight'),
+      title: t('dashboard.settings'),
+      valueGetter: (item: DashboardItem) => buildPluginDashboardId(item.id, item.key),
+    },
+    {
+      close: () => {
+        settingsDialogController = null
+      },
+      save: saveDashboardConfig,
+      'update:elevated': (value: boolean) => {
+        isElevated.value = value
+      },
+      'update:modelValue': (value: boolean) => {
+        if (!value) settingsDialogController = null
+      },
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
 useDynamicButton({
   icon: 'mdi-view-dashboard-edit',
-  onClick: () => {
-    dialog.value = true
-  },
+  onClick: openDashboardSettings,
 })
 
 // 加载用户监控面板配置（本地无配置时才加载）
@@ -229,7 +257,14 @@ function sortDashboardConfigs() {
 }
 
 // 设置项目
-async function saveDashboardConfig() {
+async function saveDashboardConfig(payload?: { elevated?: boolean; enabled?: Record<string, boolean> }) {
+  if (payload?.enabled) {
+    enableConfig.value = payload.enabled
+  }
+  if (payload?.elevated !== undefined) {
+    isElevated.value = payload.elevated
+  }
+
   // 启用配置
   const enableString = JSON.stringify(enableConfig.value)
   localStorage.setItem('MP_DASHBOARD', enableString)
@@ -251,7 +286,8 @@ async function saveDashboardConfig() {
   }
   // 保存后重新获取插件仪表板
   getPluginDashboardMeta()
-  dialog.value = false
+  settingsDialogController?.close()
+  settingsDialogController = null
 }
 
 // 构造插件仪表板主ID
@@ -403,145 +439,9 @@ onDeactivated(() => {
         color="primary"
         appear
         class="compact-fab compact-fab--primary"
-        @click="dialog = true"
+        @click="openDashboardSettings"
       />
     </div>
   </Teleport>
 
-  <!-- 弹窗，根据配置生成选项 -->
-  <VDialog v-if="dialog" v-model="dialog" max-width="35rem" :fullscreen="!display.mdAndUp.value" scrollable>
-    <VCard>
-      <VCardItem>
-        <VCardTitle>
-          <VIcon icon="mdi-tune" size="small" class="me-2" />
-          {{ t('dashboard.settings') }}
-        </VCardTitle>
-        <VDialogCloseBtn @click="dialog = false" />
-      </VCardItem>
-      <VDivider />
-      <VCardText>
-        <p class="settings-hint">{{ t('dashboard.chooseContent') }}</p>
-        <div class="settings-grid">
-          <div
-            v-for="item in dashboardConfigs"
-            :key="buildPluginDashboardId(item.id, item.key)"
-            class="setting-item"
-            :class="{
-              'enabled': enableConfig[buildPluginDashboardId(item.id, item.key)],
-            }"
-            :style="{ '--item-color': itemColors[buildPluginDashboardId(item.id, item.key)] }"
-            @click="
-              enableConfig[buildPluginDashboardId(item.id, item.key)] =
-                !enableConfig[buildPluginDashboardId(item.id, item.key)]
-            "
-          >
-            <div class="setting-item-inner">
-              <div class="setting-check">
-                <VIcon
-                  :icon="
-                    enableConfig[buildPluginDashboardId(item.id, item.key)] ? 'mdi-check-circle' : 'mdi-circle-outline'
-                  "
-                  :color="enableConfig[buildPluginDashboardId(item.id, item.key)] ? 'primary' : undefined"
-                  size="small"
-                />
-              </div>
-              <span class="setting-label">{{ item.attrs?.title ?? item.name }}</span>
-            </div>
-          </div>
-        </div>
-        <p class="mt-3">
-          <VSwitch v-model="isElevated" :label="t('dashboard.adaptiveHeight')" />
-        </p>
-      </VCardText>
-      <VCardActions class="pt-3">
-        <VSpacer />
-        <VBtn @click="saveDashboardConfig">
-          <template #prepend>
-            <VIcon icon="mdi-content-save" />
-          </template>
-          {{ t('common.save') }}
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
 </template>
-<style lang="scss" scoped>
-.settings-card-header {
-  padding-block: 16px;
-  padding-inline: 20px;
-}
-
-.settings-hint {
-  color: rgba(var(--v-theme-on-surface), 0.7);
-  font-size: 0.9rem;
-  margin-block-end: 16px;
-}
-
-.settings-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-}
-
-.setting-label {
-  flex: 1;
-  color: rgba(var(--v-theme-on-surface), 0.8);
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.2;
-  transition: color 0.2s ease;
-}
-
-.setting-item {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.3);
-  cursor: pointer;
-  padding-block: 10px;
-  padding-inline: 12px;
-  transition: all 0.2s ease;
-
-  &::before {
-    position: absolute;
-    background-color: var(--item-color, #4caf50);
-    block-size: 100%;
-    content: '';
-    inline-size: 4px;
-    inset-block-start: 0;
-    inset-inline-start: 0;
-    transition: background-color 0.3s ease;
-  }
-
-  &:hover {
-    transform: translateY(-2px);
-  }
-
-  &.enabled {
-    border-color: rgba(var(--v-theme-primary), 0.3);
-    background-color: rgba(var(--v-theme-primary), 0.1);
-
-    .setting-label {
-      color: rgba(var(--v-theme-primary), 0.9);
-      font-weight: 500;
-    }
-  }
-}
-
-.setting-item-inner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.setting-check {
-  flex-shrink: 0;
-}
-
-@media (width <= 600px) {
-  .settings-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-</style>
