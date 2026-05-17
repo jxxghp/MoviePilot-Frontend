@@ -1444,7 +1444,8 @@ export default {
       audioInputApiKey: '音頻輸入 API密鑰',
       audioInputApiKeyHint: '音頻輸入轉寫使用的 API 密鑰',
       audioInputBaseUrl: '音頻輸入基礎URL',
-      audioInputBaseUrlHint: '音頻輸入接口基礎URL，Chat Audio 類服務可填寫對應兼容地址，MiMo 預設 https://api.xiaomimimo.com/v1',
+      audioInputBaseUrlHint:
+        '音頻輸入接口基礎URL，Chat Audio 類服務可填寫對應兼容地址，MiMo 預設 https://api.xiaomimimo.com/v1',
       audioInputModel: '音頻輸入模型',
       audioInputModelHint: '用於將音頻內容轉換為文字的模型名稱',
       audioInputLanguage: '識別語言',
@@ -1454,7 +1455,8 @@ export default {
       audioOutputApiKey: '音頻輸出 API密鑰',
       audioOutputApiKeyHint: '文字轉語音使用的 API 密鑰',
       audioOutputBaseUrl: '音頻輸出基礎URL',
-      audioOutputBaseUrlHint: '音頻輸出接口基礎URL，Chat Audio 類服務可填寫對應兼容地址，MiMo 預設 https://api.xiaomimimo.com/v1',
+      audioOutputBaseUrlHint:
+        '音頻輸出接口基礎URL，Chat Audio 類服務可填寫對應兼容地址，MiMo 預設 https://api.xiaomimimo.com/v1',
       audioOutputModel: '音頻輸出模型',
       audioOutputModelHint: '用於將文字內容轉換為語音的模型名稱',
       audioOutputVoice: '語音音色',
@@ -1720,7 +1722,7 @@ export default {
       siteDataRefresh: '站點數據刷新',
       siteOptions: '站點選項',
       browserEmulation: '瀏覽器仿真',
-      browserEmulationHint: '站點訪問仿真方式，支援 Playwright 或 FlareSolverr',
+      browserEmulationHint: '站點訪問仿真方式，支援 CloakBrowser 或 FlareSolverr',
       flaresolverrUrl: 'FlareSolverr 服務地址',
       flaresolverrUrlHint: '當仿真方式為 FlareSolverr 時生效，例如：http://127.0.0.1:8191',
       siteDataRefreshInterval: '站點數據刷新間隔',

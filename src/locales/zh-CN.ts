@@ -321,7 +321,8 @@ export default {
   settingTabs: {
     system: {
       title: '系统',
-      description: '基础设置、下载器（Qbittorrent、Transmission）、媒体服务器（Emby、极影视、Jellyfin、Plex、飞牛影视、绿联影视）',
+      description:
+        '基础设置、下载器（Qbittorrent、Transmission）、媒体服务器（Emby、极影视、Jellyfin、Plex、飞牛影视、绿联影视）',
     },
     directory: {
       title: '存储 & 目录',
@@ -1442,7 +1443,8 @@ export default {
       audioInputApiKey: '音频输入 API密钥',
       audioInputApiKeyHint: '音频输入转写使用的 API 密钥',
       audioInputBaseUrl: '音频输入基础URL',
-      audioInputBaseUrlHint: '音频输入接口基础URL，Chat Audio 类服务可填写对应兼容地址，MiMo 默认 https://api.xiaomimimo.com/v1',
+      audioInputBaseUrlHint:
+        '音频输入接口基础URL，Chat Audio 类服务可填写对应兼容地址，MiMo 默认 https://api.xiaomimimo.com/v1',
       audioInputModel: '音频输入模型',
       audioInputModelHint: '用于将音频内容转换为文字的模型名称',
       audioInputLanguage: '识别语言',
@@ -1452,7 +1454,8 @@ export default {
       audioOutputApiKey: '音频输出 API密钥',
       audioOutputApiKeyHint: '文字转语音使用的 API 密钥',
       audioOutputBaseUrl: '音频输出基础URL',
-      audioOutputBaseUrlHint: '音频输出接口基础URL，Chat Audio 类服务可填写对应兼容地址，MiMo 默认 https://api.xiaomimimo.com/v1',
+      audioOutputBaseUrlHint:
+        '音频输出接口基础URL，Chat Audio 类服务可填写对应兼容地址，MiMo 默认 https://api.xiaomimimo.com/v1',
       audioOutputModel: '音频输出模型',
       audioOutputModelHint: '用于将文字内容转换为语音的模型名称',
       audioOutputVoice: '语音音色',
@@ -1560,8 +1563,8 @@ export default {
       fanartEnableHint: '使用 fanart.tv 的图片数据',
       fanartLang: 'Fanart语言',
       fanartLangHint: '设置Fanart图片的语言偏好，多选时按优先级顺序排列',
-      recognizePluginFirst: "优先使用插件识别",
-      recognizePluginFirstHint: "优先调用插件识别媒体信息，若插件命中则不再调用原生识别",
+      recognizePluginFirst: '优先使用插件识别',
+      recognizePluginFirstHint: '优先调用插件识别媒体信息，若插件命中则不再调用原生识别',
       mediaRecognizeShare: '共享使用媒体识别数据',
       mediaRecognizeShareHint: '识别成功后上报关键字与媒体ID，识别失败时优先回查共享识别结果',
       githubProxy: 'Github加速代理',
@@ -1694,7 +1697,7 @@ export default {
         skipDesc: '跳过刮削，不生成该文件',
         missingOnlyDesc: '仅在缺失时刮削，已存在则保持不变',
         overwriteDesc: '始终刮削，已存在则覆盖',
-      }
+      },
     },
     site: {
       siteSync: '站点同步',
@@ -1718,7 +1721,7 @@ export default {
       siteDataRefresh: '站点数据刷新',
       siteOptions: '站点选项',
       browserEmulation: '浏览器仿真',
-      browserEmulationHint: '站点访问仿真方式，支持 Playwright 或 FlareSolverr',
+      browserEmulationHint: '站点访问仿真方式，支持 CloakBrowser 或 FlareSolverr',
       flaresolverrUrl: 'FlareSolverr 服务地址',
       flaresolverrUrlHint: '当仿真方式为 FlareSolverr 时生效，例如：http://127.0.0.1:8191',
       siteDataRefreshInterval: '站点数据刷新间隔',

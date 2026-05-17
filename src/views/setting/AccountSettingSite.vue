@@ -45,7 +45,7 @@ const siteSetting = ref<any>({
   Site: {
     SITEDATA_REFRESH_INTERVAL: 0,
     SITE_MESSAGE: false,
-    BROWSER_EMULATION: 'playwright',
+    BROWSER_EMULATION: 'cloakbrowser',
     FLARESOLVERR_URL: '',
   },
 })
@@ -73,7 +73,7 @@ const SiteDataRefreshIntervalItems = [
 
 // 站点访问仿真方式
 const BrowserEmulationItems = [
-  { title: 'Playwright', value: 'playwright' },
+  { title: 'CloakBrowser', value: 'cloakbrowser' },
   { title: 'FlareSolverr', value: 'flaresolverr' },
 ]
 
