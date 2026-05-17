@@ -191,6 +191,11 @@ const dataList = ref<TransferHistory[]>([])
 // 搜索
 const search = ref(getRouteQueryString(route.query.search))
 
+// 写入搜索值时统一把空字符串归一为 null，避免 VCombobox 把空字符串当作已有值。
+function setSearchValue(value: unknown) {
+  search.value = typeof value === 'string' && value !== '' ? value : null
+}
+
 // 搜索提示词列表
 const searchHintList = ref<string[]>([])
 
@@ -348,7 +353,7 @@ const debouncedReloadPage = debounce(() => {
 
 // 延迟同步搜索参数到地址栏，输入完成后再重置页码并刷新。
 const debouncedReloadSearchPage = debounce(() => {
-  console.log('search: ' + search.value)
+  console.log('search: ' + (search.value ?? ''))
   void reloadPage(true)
 }, 1000)
 
@@ -398,7 +403,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
       params: {
         page,
         count,
-        title: search.value,
+        title: search.value ?? '',
       },
     })
     if (requestSeed !== fetchDataRequestSeed) return
@@ -426,13 +431,13 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
   }
 }
 
-// 从路由查询参数中取出单值字符串，统一处理数组和空值场景。
-function getRouteQueryString(value: unknown) {
+// 从路由查询参数中取出单值字符串，空搜索统一返回 null 以保持输入框 placeholder 可见。
+function getRouteQueryString(value: unknown): string | null {
   if (Array.isArray(value)) {
-    return value.find(item => typeof item === 'string') ?? ''
+    return value.find(item => typeof item === 'string' && item !== '') ?? null
   }
 
-  return typeof value === 'string' ? value : ''
+  return typeof value === 'string' && value !== '' ? value : null
 }
 
 // 将当前路由查询参数同步回页面状态，并避免触发本地监听器反向写入地址栏。
@@ -925,7 +930,8 @@ onUnmounted(() => {
           <VCol cols="8" md="6" class="flex">
             <VCombobox
               key="search_navbar"
-              v-model="search"
+              :model-value="search"
+              @update:model-value="setSearchValue"
               :items="searchHintList"
               @compositionstart="isComposing = true"
               @compositionend="isComposing = false"
