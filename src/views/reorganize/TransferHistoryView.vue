@@ -388,7 +388,8 @@ watch(
 // 获取历史记录数据，keep-alive 重新进入时可静默刷新，避免表格出现重新加载感。
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
   const requestSeed = ++fetchDataRequestSeed
-  if (!options.silent) {
+  const shouldShowLoading = !options.silent
+  if (shouldShowLoading) {
     loading.value = true
   }
 
@@ -418,7 +419,8 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
   } catch (error) {
     console.error(error)
   } finally {
-    if (requestSeed === fetchDataRequestSeed && !options.silent) {
+    // 静默刷新可能会接管前一个可见请求，也需要负责清掉遗留的表格加载态。
+    if (requestSeed === fetchDataRequestSeed && (shouldShowLoading || loading.value)) {
       loading.value = false
     }
   }
