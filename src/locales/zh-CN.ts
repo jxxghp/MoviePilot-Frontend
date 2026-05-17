@@ -1025,7 +1025,7 @@ export default {
     doubanGlobalTVRankings: '豆瓣全球剧集榜',
     noCategoryContent: '当前分类下没有可显示的内容',
     configureContent: '设置显示内容',
-    customizeContent: '自定义内容',
+    customizeContent: '自定义推荐',
     selectContentToDisplay: '选择您想在页面显示的内容',
     selectAll: '全选',
     selectNone: '全不选',
@@ -2904,7 +2904,7 @@ export default {
   },
   transferHistory: {
     title: '转移历史',
-    searchPlaceholder: '搜索转移记录',
+    searchPlaceholder: '搜索（支持 * ? 通配符）',
     titleColumn: '标题',
     pathColumn: '路径',
     modeColumn: '转移方式',

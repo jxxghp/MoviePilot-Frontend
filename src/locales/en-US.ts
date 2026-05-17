@@ -1031,7 +1031,7 @@ export default {
     doubanGlobalTVRankings: 'Douban Global TV Rankings',
     noCategoryContent: 'No content to display in current category',
     configureContent: 'Configure Display Content',
-    customizeContent: 'Customize Content',
+    customizeContent: 'Customize Recommendations',
     selectContentToDisplay: 'Select content you want to display on the page',
     selectAll: 'Select All',
     selectNone: 'Select None',
@@ -2959,7 +2959,7 @@ export default {
   },
   transferHistory: {
     title: 'Transfer History',
-    searchPlaceholder: 'Search transfer records',
+    searchPlaceholder: 'Search (supports * ? wildcards)',
     titleColumn: 'Title',
     pathColumn: 'Path',
     modeColumn: 'Mode',

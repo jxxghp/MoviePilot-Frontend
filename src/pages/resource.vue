@@ -11,10 +11,14 @@ import TorrentFilterBar from '@/components/filter/TorrentFilterBar.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores/global'
 import { useTorrentFilter, type FilterState } from '@/composables/useTorrentFilter'
+import { useDynamicButton } from '@/composables/useDynamicButton'
+import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 
 // 国际化
 const { t } = useI18n()
+
+const { appMode } = usePWA()
 
 // 提示框
 const toast = useToast()
@@ -224,6 +228,19 @@ const filteredCardDataList = ref<Array<SearchTorrent>>([])
 
 // 是否刷新过
 const isRefreshed = ref(false)
+
+const viewToggleIcon = computed(() => (viewType.value === 'card' ? 'mdi-view-list-outline' : 'mdi-view-grid-outline'))
+
+// 搜索结果视图切换收纳到页面动态按钮中，和仪表盘的设置按钮保持一致。
+function toggleViewType() {
+  changeViewType(viewType.value === 'card' ? 'row' : 'card')
+}
+
+useDynamicButton({
+  icon: viewToggleIcon,
+  onClick: toggleViewType,
+  show: computed(() => appMode.value && isRefreshed.value),
+})
 
 // 是否正在重新搜索
 const isRefreshing = ref(false)
@@ -1211,18 +1228,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- 重新设计的视图切换按钮 -->
-      <div class="view-toggle-container">
-        <div class="view-toggle-buttons">
-          <div class="active-indicator" :class="viewType"></div>
-          <button class="view-toggle-btn" :class="{ active: viewType === 'card' }" @click="changeViewType('card')">
-            <VIcon icon="mdi-view-grid-outline" :color="viewType === 'card' ? 'primary' : undefined" />
-          </button>
-          <button class="view-toggle-btn" :class="{ active: viewType === 'row' }" @click="changeViewType('row')">
-            <VIcon icon="mdi-view-list-outline" :color="viewType === 'row' ? 'primary' : undefined" />
-          </button>
-        </div>
-      </div>
     </VCard>
 
     <!-- 搜索结果 -->
@@ -1328,9 +1333,22 @@ onUnmounted(() => {
 
     <!-- 初始加载状态 -->
     <LoadingBanner v-else-if="!isRefreshed && !isSearchLoading" />
+
+    <Teleport to="body" v-if="route.path === '/resource'">
+      <div v-if="isRefreshed && !appMode" class="compact-fab-stack">
+        <VFab
+          :icon="viewToggleIcon"
+          color="primary"
+          appear
+          class="compact-fab compact-fab--primary"
+          @click="toggleViewType"
+        />
+      </div>
+    </Teleport>
+
     <!-- 滚动到顶部按钮 -->
     <Teleport to="body" v-if="route.path === '/resource'">
-      <VScrollToTopBtn />
+      <VScrollToTopBtn :offset-fab="isRefreshed && !appMode" />
     </Teleport>
   </div>
 </template>
@@ -1463,58 +1481,6 @@ onUnmounted(() => {
 
 .search-tag {
   font-size: 0.75rem;
-}
-
-/* 重新设计的视图切换按钮 */
-.view-toggle-container {
-  position: relative;
-}
-
-.view-toggle-buttons {
-  position: relative;
-  display: flex;
-  padding: 4px;
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.1);
-  isolation: isolate; /* Create new stacking context */
-}
-
-.active-indicator {
-  position: absolute;
-  z-index: 1;
-  border-radius: 6px;
-  background-color: rgb(var(--v-theme-surface));
-  block-size: 36px;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 12%),
-    0 1px 2px rgba(0, 0, 0, 24%);
-  inline-size: 40px;
-  inset-block-start: 4px;
-  inset-inline-start: 4px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.active-indicator.row {
-  transform: translateX(40px);
-}
-
-.view-toggle-btn {
-  position: relative;
-  z-index: 2; /* Sit on top of indicator */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  block-size: 36px;
-  cursor: pointer;
-  inline-size: 40px;
-  transition: all 0.2s ease;
-}
-
-.view-toggle-btn:hover:not(.active) {
-  border-radius: 6px;
-  background-color: rgba(var(--v-theme-primary), 0.05);
 }
 
 /* 重新搜索按钮 */
@@ -1688,30 +1654,6 @@ onUnmounted(() => {
 
   .search-skeleton-grid {
     grid-template-columns: 1fr;
-  }
-
-  .view-toggle-container {
-    flex-shrink: 0;
-  }
-
-  .view-toggle-buttons {
-    padding: 2px;
-  }
-
-  .active-indicator {
-    block-size: 32px;
-    inline-size: 36px;
-    inset-block-start: 2px;
-    inset-inline-start: 2px;
-  }
-
-  .active-indicator.row {
-    transform: translateX(36px);
-  }
-
-  .view-toggle-btn {
-    block-size: 32px;
-    inline-size: 36px;
   }
 
   .refresh-search-btn {

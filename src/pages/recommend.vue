@@ -5,9 +5,12 @@ import MediaCardSlideView from '@/views/discover/MediaCardSlideView.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
+import { useDynamicButton } from '@/composables/useDynamicButton'
+import { usePWA } from '@/composables/usePWA'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 
 const display = useDisplay()
+const { appMode } = usePWA()
 
 // 国际化
 const { t } = useI18n()
@@ -20,6 +23,10 @@ const currentCategory = ref(t('recommend.all'))
 
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()
+
+function openRecommendSettings() {
+  dialog.value = true
+}
 
 const viewList = reactive<{ apipath: string; linkurl: string; title: string; type: string }[]>([
   {
@@ -218,17 +225,12 @@ const categoryItems = computed(() => [
 registerHeaderTab({
   items: categoryItems,
   modelValue: currentCategory,
-  appendButtons: [
-    {
-      icon: 'mdi-tune',
-      variant: 'text',
-      color: 'grey',
-      class: 'settings-icon-button',
-      action: () => {
-        dialog.value = true
-      },
-    },
-  ],
+})
+
+useDynamicButton({
+  icon: 'mdi-tune',
+  onClick: openRecommendSettings,
+  show: computed(() => appMode.value),
 })
 
 // 页面是否准备就绪
@@ -346,7 +348,19 @@ onActivated(async () => {
 
     <!-- 快速滚动到顶部按钮 -->
     <Teleport to="body" v-if="route.path === '/recommend'">
-      <VScrollToTopBtn />
+      <div v-if="!appMode" class="compact-fab-stack">
+        <VFab
+          icon="mdi-tune"
+          color="primary"
+          appear
+          class="compact-fab compact-fab--primary"
+          @click="openRecommendSettings"
+        />
+      </div>
+    </Teleport>
+
+    <Teleport to="body" v-if="route.path === '/recommend'">
+      <VScrollToTopBtn :offset-fab="!appMode" />
     </Teleport>
   </div>
 </template>
