@@ -301,6 +301,9 @@ const displayResourceCount = computed(() =>
   progressActive.value ? streamTotalCount.value : torrentFilter.totalFilteredCount.value,
 )
 
+// 搜索中只显示进度区域，避免结果抬头和进度条同时占用顶部空间。
+const showResultHeader = computed(() => isRefreshed.value && !progressActive.value)
+
 let pendingStreamItems: Array<Context> = []
 let streamFlushTimer: ReturnType<typeof setTimeout> | null = null
 let streamFinalResultApplied = false
@@ -1140,7 +1143,7 @@ onUnmounted(() => {
     </VFadeTransition>
 
     <!-- 结果抬头：只承载搜索上下文和快捷动作，筛选控制交给下方工具条。 -->
-    <VCard v-if="isRefreshed" class="search-header result-toolbar mb-2" elevation="0">
+    <VCard v-if="showResultHeader" class="search-header result-toolbar mb-2" elevation="0">
       <div class="result-toolbar__content">
         <VAvatar class="result-toolbar__icon" rounded="lg" size="42">
           <VIcon icon="mdi-movie-search" size="24" />
