@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { downloaderOptions, mediaServerOptions } from '@/api/constants'
 import { useDisplay, useTheme } from 'vuetify'
 import { useLlmProviderDirectory } from '@/composables/useLlmProviderDirectory'
+import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
 const display = useDisplay()
 const theme = useTheme()
@@ -18,6 +19,13 @@ const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 
 // 国际化
 const { t } = useI18n()
+
+const props = defineProps({
+  active: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 // 下载器/媒体服务器排序和进度弹窗按需加载，降低系统设置页入口解析量。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -847,12 +855,11 @@ async function saveScrapingSwitchs() {
 }
 
 // 加载数据
-onMounted(() => {
-  loadDownloaderSetting()
-  loadMediaServerSetting()
-  loadSystemSettings()
-  loadScrapingSwitchs()
-})
+async function loadPageData() {
+  await Promise.all([loadDownloaderSetting(), loadMediaServerSetting(), loadSystemSettings(), loadScrapingSwitchs()])
+}
+
+onMounted(loadPageData)
 
 onActivated(async () => {
   isRequest.value = true
@@ -865,6 +872,16 @@ onDeactivated(() => {
 onBeforeUnmount(() => {
   invalidateLlmTestState()
 })
+
+useSilentSettingRefresh(
+  async () => {
+    if (progressDialog.value || advancedDialog.value || testingLlm.value || savingBasic.value) return
+    await loadPageData()
+  },
+  {
+    active: computed(() => props.active),
+  },
+)
 
 watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
   if (snapshotKey !== previousSnapshotKey) invalidateLlmTestState()

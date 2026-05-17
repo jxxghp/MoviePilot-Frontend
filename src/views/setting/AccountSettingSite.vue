@@ -3,9 +3,17 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import ProgressDialog from '@/components/dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
+import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
 // 国际化
 const { t } = useI18n()
+
+const props = defineProps({
+  active: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 // 提示框
 const $toast = useToast()
@@ -121,6 +129,10 @@ async function saveSiteSetting(value: { [key: string]: any }) {
 // 加载数据
 onMounted(() => {
   loadSiteSettings()
+})
+
+useSilentSettingRefresh(loadSiteSettings, {
+  active: computed(() => props.active),
 })
 </script>
 

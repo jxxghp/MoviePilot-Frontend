@@ -7,9 +7,17 @@ import { CustomRule, FilterRuleGroup } from '@/api/types'
 import CustomerRuleCard from '@/components/cards/CustomRuleCard.vue'
 import FilterRuleGroupCard from '@/components/cards/FilterRuleGroupCard.vue'
 import { useI18n } from 'vue-i18n'
+import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
 // 国际化
 const { t } = useI18n()
+
+const props = defineProps({
+  active: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 // 拖拽库和导入弹窗只在规则编辑交互中需要，拆出设置页入口 chunk。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -365,12 +373,17 @@ async function saveTorrentPriority() {
   }
 }
 
+async function loadPageData() {
+  await Promise.all([loadMediaCategories(), queryCustomRules(), queryFilterRuleGroups(), queryTorrentPriority()])
+}
+
 // 加载数据
 onMounted(() => {
-  loadMediaCategories()
-  queryCustomRules()
-  queryFilterRuleGroups()
-  queryTorrentPriority()
+  loadPageData()
+})
+
+useSilentSettingRefresh(loadPageData, {
+  active: computed(() => props.active),
 })
 </script>
 

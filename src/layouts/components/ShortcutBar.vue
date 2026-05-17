@@ -433,7 +433,7 @@ onMounted(() => {
     scrollable
     :fullscreen="!display.mdAndUp.value"
   >
-    <VCard>
+    <VCard class="system-health-dialog-card">
       <VCardItem>
         <VCardTitle>
           <VIcon icon="mdi-cog" class="me-2" />
@@ -442,7 +442,7 @@ onMounted(() => {
         <VDialogCloseBtn @click="systemTestDialog = false" />
       </VCardItem>
       <VDivider />
-      <VCardText class="pa-0">
+      <VCardText class="system-health-dialog-body pa-0">
         <ModuleTestView />
       </VCardText>
     </VCard>
@@ -492,3 +492,24 @@ onMounted(() => {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.system-health-dialog-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.system-health-dialog-body {
+  /* 弹窗正文本身不滚动，滚动只交给健康检查结果列表。 */
+  display: flex;
+  flex: 1 1 auto;
+  block-size: min(42rem, calc(100dvh - 8rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  min-block-size: 0;
+  overflow: hidden !important;
+}
+
+:global(.v-dialog--fullscreen) .system-health-dialog-body {
+  block-size: auto;
+}
+</style>

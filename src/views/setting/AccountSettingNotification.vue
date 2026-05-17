@@ -6,12 +6,20 @@ import NotificationChannelCard from '@/components/cards/NotificationChannelCard.
 import { useI18n } from 'vue-i18n'
 import { notificationSwitchDict } from '@/api/constants'
 import { useTheme, useDisplay } from 'vuetify'
+import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
 // 显示器宽度
 const display = useDisplay()
 
 // 国际化
 const { t } = useI18n()
+
+const props = defineProps({
+  active: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 // 通知渠道排序和进度弹窗按需加载，避免通知设置 chunk 直接包含拖拽库。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -308,12 +316,22 @@ function getNotificationSwitchText(type: string | undefined) {
   return notificationSwitchDict[type]
 }
 
+async function loadPageData() {
+  await Promise.all([
+    loadNotificationSetting(),
+    loadNotificationSwitchs(),
+    loadNotificationTime(),
+    loadTemplateConfigs(),
+  ])
+}
+
 // 加载数据
 onMounted(() => {
-  loadNotificationSetting()
-  loadNotificationSwitchs()
-  loadNotificationTime()
-  loadTemplateConfigs()
+  loadPageData()
+})
+
+useSilentSettingRefresh(loadPageData, {
+  active: computed(() => props.active && !editorVisible.value),
 })
 </script>
 

@@ -8,9 +8,17 @@ import StorageCard from '@/components/cards/StorageCard.vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { storageAttributes } from '@/api/constants'
+import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
+
+const props = defineProps({
+  active: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 // 拖拽排序和分类编辑弹窗按需加载，避免设置框架预加载目录页时带上这些交互依赖。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -247,12 +255,17 @@ async function saveSystemSettings(value: any) {
   }
 }
 
+async function loadPageData() {
+  await Promise.all([loadDirectories(), loadStorages(), loadMediaCategories(), loadSystemSettings()])
+}
+
 // 加载数据
 onMounted(() => {
-  loadDirectories()
-  loadStorages()
-  loadMediaCategories()
-  loadSystemSettings()
+  loadPageData()
+})
+
+useSilentSettingRefresh(loadPageData, {
+  active: computed(() => props.active),
 })
 </script>
 

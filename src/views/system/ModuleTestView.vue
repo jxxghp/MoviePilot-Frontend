@@ -231,6 +231,10 @@ onMounted(getModules)
 .system-health-check {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
 }
 
 .progress-container {
@@ -316,6 +320,7 @@ onMounted(getModules)
   flex: 1;
   min-block-size: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-block: 0 16px;
   padding-inline: 16px;
 }

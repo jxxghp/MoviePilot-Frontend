@@ -156,6 +156,7 @@ const router = createRouter({
           path: '/setting',
           component: () => import('../pages/setting.vue'),
           meta: {
+            keepAlive: true,
             requiresAuth: true,
           },
         },
