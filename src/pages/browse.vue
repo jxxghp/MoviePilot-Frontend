@@ -34,7 +34,7 @@ function getApiPath(paths: string[] | string) {
     <VPageContentTitle :title="title" />
     <PersonCardListView v-if="type === 'person'" :apipath="getApiPath(props.paths || '')" :params="route.query" />
     <MediaCardListView v-else :apipath="getApiPath(props.paths || '')" :params="route.query" />
-    <Teleport to="body" v-if="route.path === '/browse'">
+    <Teleport to="body">
       <VScrollToTopBtn />
     </Teleport>
   </div>
