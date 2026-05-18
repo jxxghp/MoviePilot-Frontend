@@ -63,7 +63,7 @@ function submitCustomCSS() {
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" max-width="50rem" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog v-if="visible" v-model="visible" max-width="50rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="custom-css-dialog">
       <VCardItem class="custom-css-header py-3">
         <template #prepend>
@@ -76,7 +76,7 @@ function submitCustomCSS() {
         </VCardTitle>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
-      <div>
+      <div class="custom-css-editor-body">
         <VAceEditor
           v-model:value="editableCSS"
           lang="css"
@@ -97,11 +97,20 @@ function submitCustomCSS() {
 
 <style scoped>
 .custom-css-dialog {
+  display: flex;
+  flex-direction: column;
+  max-block-size: calc(100dvh - 2rem);
   overflow: hidden;
 }
 
 .custom-css-header {
+  flex: 0 0 auto;
   border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.custom-css-editor-body {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 .custom-css-editor {
@@ -112,18 +121,31 @@ function submitCustomCSS() {
 }
 
 .custom-css-actions {
+  flex: 0 0 auto;
   border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   padding-block: 0.875rem;
   padding-inline: 1rem;
 }
 
-@media (width <= 600px) {
-  .custom-css-body {
-    padding: 0.75rem;
+@media (width <= 960px) {
+  .custom-css-dialog {
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+  }
+
+  .custom-css-editor-body {
+    display: flex;
+    flex-direction: column;
   }
 
   .custom-css-editor {
-    block-size: calc(100dvh - 10rem);
+    flex: 1 1 auto;
+    min-block-size: 0;
+    block-size: auto;
+  }
+
+  .custom-css-actions {
+    padding-block-end: max(0.875rem, calc(env(safe-area-inset-bottom) + 0.75rem));
   }
 }
 </style>
