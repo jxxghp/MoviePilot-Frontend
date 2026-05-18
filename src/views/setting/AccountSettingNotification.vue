@@ -25,39 +25,51 @@ const NotificationTemplateEditorDialog = defineAsyncComponent(
   () => import('@/components/dialog/NotificationTemplateEditorDialog.vue'),
 )
 
-// 初始化模板配置字典
-const templateConfigs = ref<Record<string, string>>({
-  organizeSuccess: '{}',
-  downloadAdded: '{}',
-  subscribeAdded: '{}',
-  subscribeComplete: '{}',
-})
-
-// 模板类型配置
-const templateTypes = ref([
+// 通知模板入口的图标和强调色统一维护，避免模板中散落长判断。
+const templateTypeDefaults = [
   {
     type: 'organizeSuccess',
-    label: t('setting.notification.organizeSuccess'),
+    icon: 'mdi-folder-check',
+    color: 'primary',
   },
   {
     type: 'downloadAdded',
-    label: t('setting.notification.downloadAdded'),
+    icon: 'mdi-download-box',
+    color: 'info',
   },
   {
     type: 'subscribeAdded',
-    label: t('setting.notification.subscribeAdded'),
+    icon: 'mdi-rss-box',
+    color: 'warning',
   },
   {
     type: 'subscribeComplete',
-    label: t('setting.notification.subscribeComplete'),
+    icon: 'mdi-check-circle',
+    color: 'success',
   },
-])
+] as const
 
-// 编辑器主题
-const { name: themeName, global: globalTheme } = useTheme()
-const savedTheme = ref(localStorage.getItem('theme') ?? 'auto')
-const currentThemeName = ref(savedTheme.value)
-const editorTheme = computed(() => (currentThemeName.value === 'light' ? 'github' : 'monokai'))
+type NotificationTemplateType = (typeof templateTypeDefaults)[number]['type']
+
+// 初始化模板配置字典
+const templateConfigs = ref<Record<string, string>>(
+  templateTypeDefaults.reduce<Record<string, string>>((configs, item) => {
+    configs[item.type] = '{}'
+    return configs
+  }, {}),
+)
+
+// 模板类型配置
+const templateTypes = computed(() =>
+  templateTypeDefaults.map(item => ({
+    ...item,
+    label: t(`setting.notification.${item.type}`),
+  })),
+)
+
+// Ace 直接跟随 Vuetify 当前生效主题，auto 模式下也能按实际明暗色切换。
+const { global: globalTheme } = useTheme()
+const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 
 // 所有消息渠道
 const notifications = ref<NotificationConf[]>([])
@@ -66,7 +78,7 @@ const notifications = ref<NotificationConf[]>([])
 const $toast = useToast()
 
 const editorDialogOpen = ref(false)
-const currentTemplate = ref('')
+const currentTemplate = ref<NotificationTemplateType | ''>('')
 const editorContent = ref('')
 
 // 消息类型开关
@@ -127,7 +139,7 @@ function closeTemplateEditorDialog() {
 }
 
 // 打开通知模板共享弹窗，保持内容通过事件回写到设置页。
-function openTemplateEditorDialog(type: string) {
+function openTemplateEditorDialog(type: NotificationTemplateType) {
   closeTemplateEditorDialog()
   editorDialogOpen.value = true
   editorDialogController = openSharedDialog(
@@ -157,6 +169,13 @@ function openTemplateEditorDialog(type: string) {
     { closeOn: ['close', 'update:modelValue'] },
   )
 }
+
+// 共享弹窗的 props 是打开时写入的，主题切换时主动推送给已打开的编辑器。
+watch(editorTheme, theme => {
+  if (!editorDialogOpen.value) return
+
+  editorDialogController?.updateProps({ editorTheme: theme })
+})
 
 // 添加通知渠道
 function addNotification(notification: string) {
@@ -229,7 +248,7 @@ async function loadNotificationSetting() {
   }
 }
 
-async function openEditor(type: string) {
+async function openEditor(type: NotificationTemplateType) {
   try {
     currentTemplate.value = type
     const result: { [key: string]: any } = await api.get('system/setting/NotificationTemplates')
@@ -460,34 +479,25 @@ useSilentSettingRefresh(loadPageData, {
           <VCardSubtitle>{{ t('setting.notification.templateConfigDesc') }}</VCardSubtitle>
         </VCardItem>
         <VCardText>
-          <VRow>
-            <VCol v-for="item in templateTypes" :key="item.type" cols="12" sm="6" md="3">
-              <VCard variant="tonal" class="template-card" :class="{ 'on-hover': true }" @click="openEditor(item.type)">
-                <VCardItem>
-                  <template #prepend>
-                    <VAvatar color="primary" variant="tonal" rounded size="42" class="me-3">
-                      <VIcon
-                        size="24"
-                        :icon="
-                          item.type === 'organizeSuccess'
-                            ? 'mdi-folder-check'
-                            : item.type === 'downloadAdded'
-                            ? 'mdi-download'
-                            : item.type === 'subscribeAdded'
-                            ? 'mdi-rss'
-                            : 'mdi-check-circle'
-                        "
-                      />
-                    </VAvatar>
-                  </template>
-                  <VCardTitle>{{ item.label }}</VCardTitle>
-                  <template #append>
-                    <VIcon icon="mdi-chevron-right" />
-                  </template>
-                </VCardItem>
-              </VCard>
-            </VCol>
-          </VRow>
+          <div class="notification-template-grid">
+            <button
+              v-for="item in templateTypes"
+              :key="item.type"
+              type="button"
+              class="notification-template-card"
+              :class="`template-accent-${item.color}`"
+              @click="openEditor(item.type)"
+            >
+              <span class="template-card-icon">
+                <VIcon :icon="item.icon" size="24" />
+              </span>
+              <span class="template-card-copy">
+                <span class="template-card-title">{{ item.label }}</span>
+                <span class="template-card-subtitle">Jinja2 JSON</span>
+              </span>
+              <VIcon class="template-card-arrow" icon="mdi-chevron-right" size="22" />
+            </button>
+          </div>
         </VCardText>
       </VCard>
     </VCol>
@@ -575,20 +585,126 @@ useSilentSettingRefresh(loadPageData, {
   </VRow>
 </template>
 <style scoped>
-/* Monaco编辑器容器样式 */
-.monaco-editor-container {
+/* 模板入口保持设置页的紧凑密度，同时用轻量强调色区分不同通知场景。 */
+.notification-template-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.notification-template-card {
+  position: relative;
+  display: flex;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  align-items: center;
+  border: 1px solid rgba(var(--template-accent), 0.18);
   border-radius: 8px;
-  margin-block-start: 1rem;
-}
-
-.template-card {
+  background:
+    linear-gradient(135deg, rgba(var(--template-accent), 0.12), rgba(var(--v-theme-surface), 0) 58%),
+    rgba(var(--v-theme-surface), 0.72);
+  color: rgb(var(--v-theme-on-surface));
   cursor: pointer;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  gap: 0.875rem;
+  inline-size: 100%;
+  min-block-size: 5.25rem;
+  padding: 1rem;
+  text-align: start;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.template-card.on-hover:hover {
-  transform: translateY(-4px);
+.notification-template-card::before {
+  position: absolute;
+  background: rgb(var(--template-accent));
+  block-size: 100%;
+  content: "";
+  inline-size: 0.25rem;
+  inset-block: 0;
+  inset-inline-start: 0;
+  opacity: 0.86;
+}
+
+.notification-template-card:hover {
+  border-color: rgba(var(--template-accent), 0.36);
+  box-shadow: 0 0.75rem 1.75rem rgba(var(--template-accent), 0.12);
+  transform: translateY(-2px);
+}
+
+.notification-template-card:focus-visible {
+  outline: 2px solid rgba(var(--template-accent), 0.7);
+  outline-offset: 3px;
+}
+
+.template-card-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(var(--template-accent), 0.16);
+  block-size: 2.75rem;
+  color: rgb(var(--template-accent));
+  inline-size: 2.75rem;
+}
+
+.template-card-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.template-card-title {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-card-subtitle {
+  margin-block-start: 0.25rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.template-card-arrow {
+  flex: 0 0 auto;
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.notification-template-card:hover .template-card-arrow {
+  color: rgb(var(--template-accent));
+  transform: translateX(2px);
+}
+
+.template-accent-primary {
+  --template-accent: var(--v-theme-primary);
+}
+
+.template-accent-info {
+  --template-accent: var(--v-theme-info);
+}
+
+.template-accent-warning {
+  --template-accent: var(--v-theme-warning);
+}
+
+.template-accent-success {
+  --template-accent: var(--v-theme-success);
+}
+
+@media (width <= 600px) {
+  .notification-template-grid {
+    gap: 0.75rem;
+  }
+
+  .notification-template-card {
+    min-block-size: 4.75rem;
+    padding: 0.875rem;
+  }
 }
 </style>

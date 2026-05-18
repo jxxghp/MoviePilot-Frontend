@@ -14,6 +14,10 @@ import modeIniUrl from 'ace-builds/src-noconflict/mode-ini?url'
 
 import themeGithubUrl from 'ace-builds/src-noconflict/theme-github?url'
 
+import themeGithubDarkUrl from 'ace-builds/src-noconflict/theme-github_dark?url'
+
+import themeGithubLightDefaultUrl from 'ace-builds/src-noconflict/theme-github_light_default?url'
+
 import themeChromeUrl from 'ace-builds/src-noconflict/theme-chrome?url'
 
 import themeMonokaiUrl from 'ace-builds/src-noconflict/theme-monokai?url'
@@ -533,6 +537,8 @@ ace.config.setModuleUrl('ace/mode/yaml', modeYamlUrl)
 ace.config.setModuleUrl('ace/mode/css', modeCssUrl)
 ace.config.setModuleUrl('ace/mode/ini', modeIniUrl)
 ace.config.setModuleUrl('ace/theme/github', themeGithubUrl)
+ace.config.setModuleUrl('ace/theme/github_dark', themeGithubDarkUrl)
+ace.config.setModuleUrl('ace/theme/github_light_default', themeGithubLightDefaultUrl)
 ace.config.setModuleUrl('ace/theme/chrome', themeChromeUrl)
 ace.config.setModuleUrl('ace/theme/monokai', themeMonokaiUrl)
 ace.config.setModuleUrl('ace/mode/base', workerBaseUrl)

@@ -64,7 +64,8 @@ const SystemSettings = ref<any>({
 })
 
 // 编辑器主题
-const editorTheme = computed(() => (globalTheme.name.value === 'light' ? 'github' : 'monokai'))
+// Ace 跟随 Vuetify 当前生效主题，auto 模式下也按实际明暗色渲染。
+const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 
 const renameEditorOptions = {
   fontSize: 14,

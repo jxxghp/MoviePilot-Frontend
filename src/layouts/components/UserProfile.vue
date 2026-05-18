@@ -293,8 +293,8 @@ const themes: ThemeSwitcherTheme[] = [
   },
 ]
 
-// 编辑器主题
-const editorTheme = computed(() => (currentThemeName.value === 'light' ? 'github' : 'monokai'))
+// Ace 跟随 Vuetify 当前生效主题，避免 auto 模式或弹窗打开后切主题时颜色不同步。
+const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 
 // 更新主题
 async function updateTheme() {
@@ -368,6 +368,11 @@ function showCustomCssDialog() {
     { closeOn: ['close', 'update:modelValue'] },
   )
 }
+
+// 共享弹窗打开后也要同步主题变化，否则 Ace 会停留在打开时的配色。
+watch(editorTheme, theme => {
+  customCssDialogController?.updateProps({ editorTheme: theme })
+})
 
 /** 打开透明主题设置共享弹窗。 */
 function showTransparencySettingsDialog() {

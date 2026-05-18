@@ -38,6 +38,14 @@ const visible = computed({
 })
 
 const editableContent = ref(props.content)
+const editorOptions = {
+  displayIndentGuides: true,
+  fontSize: 14,
+  highlightActiveLine: true,
+  scrollPastEnd: 0.2,
+  showPrintMargin: false,
+  tabSize: 2,
+}
 
 watch(
   () => props.content,
@@ -58,10 +66,12 @@ function submitTemplate() {
 
 <template>
   <VDialog v-if="visible" v-model="visible" max-width="50rem" :fullscreen="!display.mdAndUp.value">
-    <VCard>
-      <VCardItem class="py-2">
+    <VCard class="notification-template-editor-dialog">
+      <VCardItem class="template-editor-header py-3">
         <template #prepend>
-          <VIcon icon="mdi-code-json" class="me-2" />
+          <VAvatar color="primary" variant="tonal" rounded size="40" class="me-2">
+            <VIcon icon="mdi-code-json" size="22" />
+          </VAvatar>
         </template>
         <VCardTitle>
           {{ t('setting.notification.templateConfigTitle') }}
@@ -71,16 +81,18 @@ function submitTemplate() {
         </VCardSubtitle>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
-      <VCardText class="py-0">
+      <div>
         <VAceEditor
           :key="`${props.templateType}-jinja2-json`"
           v-model:value="editableContent"
           lang="jinja2_json"
           :theme="props.editorTheme"
-          class="w-full h-full min-h-[30rem] rounded"
+          :options="editorOptions"
+          wrap
+          class="template-ace-editor"
         />
-      </VCardText>
-      <VCardActions class="pt-3">
+      </div>
+      <VCardActions class="template-editor-actions">
         <VBtn color="primary" prepend-icon="mdi-content-save" class="px-5" @click="submitTemplate">
           {{ t('common.save') }}
         </VBtn>
@@ -88,3 +100,36 @@ function submitTemplate() {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.notification-template-editor-dialog {
+  overflow: hidden;
+}
+
+.template-editor-header {
+  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.template-ace-editor {
+  overflow: hidden;
+  background: rgb(var(--v-theme-surface));
+  block-size: min(62vh, 34rem);
+  inline-size: 100%;
+}
+
+.template-editor-actions {
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  padding-block: 0.875rem;
+  padding-inline: 1rem;
+}
+
+@media (width <= 600px) {
+  .template-editor-body {
+    padding: 0.75rem;
+  }
+
+  .template-ace-editor {
+    block-size: calc(100dvh - 11rem);
+  }
+}
+</style>
