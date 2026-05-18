@@ -37,6 +37,19 @@ html[data-theme="transparent"] {
     }
   }
 
+  // 设置页彩色卡片保留透明主题的玻璃质感，只叠加非常轻的图标主色。
+  .app-card-colorful {
+    background:
+      linear-gradient(
+        135deg,
+        rgba(var(--app-card-accent-rgb), var(--app-card-accent-start-opacity, 0.04)),
+        rgba(var(--app-card-accent-end-rgb, var(--app-card-accent-rgb)), var(--app-card-accent-end-opacity, 0.012)) 46%,
+        rgba(var(--v-theme-surface), 0) 76%
+      ),
+      rgba(var(--v-theme-surface), var(--transparent-opacity-light)) !important;
+    border: 0 !important;
+  }
+
   // 工具栏
   .v-toolbar {
     backdrop-filter: blur(var(--transparent-blur));

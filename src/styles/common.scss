@@ -29,6 +29,12 @@ html.v-overlay-scroll-blocked body {
   }
 }
 
+// 全局卡片阴影 token：卡片统一不使用投影，避免透明主题和密集布局下出现脏边。
+html {
+  --app-card-rest-shadow: none;
+  --app-card-hover-shadow: none;
+}
+
 // 进度条样式
 #nprogress .bar {
   background: rgb(var(--v-theme-primary)) !important;
@@ -48,10 +54,101 @@ html.v-overlay-scroll-blocked body {
   }
 }
 
-// 应用类信息卡片：固定右侧媒体槽位，避免图片被左侧文字挤压变形
+// 统一系统内卡片阴影，显式覆盖 Vuetify elevation 或局部卡片默认投影。
+.v-card,
+.v-application .v-card.v-card[class] {
+  box-shadow: none !important;
+  transition: box-shadow 0.2s ease;
+}
+
+@media (hover: hover) {
+  .v-card:hover,
+  .v-application .v-card.v-card[class]:hover {
+    box-shadow: none !important;
+  }
+}
+
+// 应用类信息卡片：固定右侧媒体槽位，避免图片被左侧文字挤压变形。
 .app-card-shell {
   position: relative;
   block-size: 100%;
+}
+
+// 设置项强调卡片：复用通知模板入口的强调条、轻渐变与悬浮反馈。
+.app-card-colorful {
+  overflow: hidden;
+  border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity)) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--app-card-accent-rgb), var(--app-card-accent-start-opacity)),
+      rgba(var(--app-card-accent-end-rgb), var(--app-card-accent-end-opacity)) 46%,
+      rgba(var(--v-theme-surface), 0) 76%
+    ),
+    rgba(var(--v-theme-surface), var(--app-card-surface-opacity)) !important;
+  box-shadow: var(--app-card-rest-shadow) !important;
+  color: rgb(var(--v-theme-on-surface));
+  --app-card-accent-rgb: var(--v-theme-primary);
+  --app-card-accent-end-rgb: var(--app-card-accent-rgb);
+  --app-card-accent-start-opacity: 0.09;
+  --app-card-accent-end-opacity: 0.02;
+  --app-card-border-opacity: 0.2;
+  --app-card-hover-border-opacity: 0.34;
+  --app-card-stripe-opacity: 0.78;
+  --app-card-surface-opacity: 0.92;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.app-card-colorful::before {
+  position: absolute;
+  background: rgb(var(--app-card-accent-rgb));
+  block-size: 100%;
+  content: "";
+  inline-size: 0.25rem;
+  inset-block: 0;
+  inset-inline-start: 0;
+  opacity: var(--app-card-stripe-opacity);
+  pointer-events: none;
+}
+
+.app-card-colorful:hover {
+  border-color: rgba(var(--app-card-accent-rgb), var(--app-card-hover-border-opacity)) !important;
+  box-shadow: var(--app-card-hover-shadow) !important;
+  transform: translateY(-2px);
+}
+
+.app-card-colorful:focus-visible {
+  outline: 2px solid rgba(var(--app-card-accent-rgb), 0.7);
+  outline-offset: 3px;
+}
+
+.app-card-color-probe {
+  position: absolute;
+  block-size: 3rem;
+  inline-size: 3rem;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+html[data-theme="transparent"] .app-card-colorful,
+.v-theme--transparent .app-card-colorful {
+  backdrop-filter: blur(var(--transparent-blur, 10px));
+  border: 0 !important;
+  --app-card-accent-start-opacity: 0.04;
+  --app-card-accent-end-opacity: 0.012;
+  --app-card-border-opacity: 0;
+  --app-card-hover-border-opacity: 0;
+  --app-card-stripe-opacity: 0.42;
+  --app-card-surface-opacity: var(--transparent-opacity-light, 0.2);
+}
+
+html[data-theme="transparent"],
+.v-theme--transparent {
+  --app-card-rest-shadow: none;
+  --app-card-hover-shadow: none;
 }
 
 // 保证卡片右上角的浮动操作区始终高于可点击的卡片内容层，避免误触发详情打开。
@@ -256,7 +353,7 @@ html.v-overlay-scroll-blocked body {
 }
 
 .grid-directory-card {
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
 }
 
 .grid-filterrule-card {

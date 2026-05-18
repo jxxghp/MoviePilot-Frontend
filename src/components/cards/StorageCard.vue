@@ -13,6 +13,7 @@ import { useToast } from 'vue-toastification'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
 const AliyunAuthDialog = defineAsyncComponent(() => import('../dialog/AliyunAuthDialog.vue'))
 const U115AuthDialog = defineAsyncComponent(() => import('../dialog/U115AuthDialog.vue'))
@@ -23,6 +24,7 @@ const StorageCustomConfigDialog = defineAsyncComponent(() => import('../dialog/S
 
 // 国际化
 const { t } = useI18n()
+const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor('#FFB400')
 
 // 定义输入
 const props = defineProps({
@@ -142,15 +144,28 @@ function onClose() {
 </script>
 
 <template>
-  <VCard variant="tonal" @click="openStorageDialog">
-    <VDialogCloseBtn @click="onClose" class="absolute top-1 right-1" />
+  <VCard
+    variant="tonal"
+    class="app-card-shell app-card-colorful"
+    :style="{ '--app-card-accent-rgb': accentRgb }"
+    @click="openStorageDialog"
+  >
+    <VDialogCloseBtn @click="onClose" />
     <VCardText class="flex justify-space-between align-center gap-3">
       <div class="align-self-start flex-1">
         <h5 class="text-h6 mb-1">{{ storage.name }}</h5>
         <div class="mb-3 text-sm" v-if="total">{{ formatBytes(used, 1) }} / {{ formatBytes(total, 1) }}</div>
         <div v-else-if="isNullOrEmptyObject(storage.config)">{{ t('storage.notConfigured') }}</div>
       </div>
-      <VImg :src="getIcon" cover class="mt-8" max-width="3rem" min-width="3rem" />
+      <VImg
+        ref="imageRef"
+        :src="getIcon"
+        cover
+        class="mt-8"
+        max-width="3rem"
+        min-width="3rem"
+        @load="updateAccentColor"
+      />
     </VCardText>
     <div class="w-full absolute bottom-0">
       <VProgressLinear v-if="usage > 0" :model-value="usage" :bg-color="progressColor" :color="progressColor" />

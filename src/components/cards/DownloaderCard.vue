@@ -7,12 +7,14 @@ import { useI18n } from 'vue-i18n'
 import { downloaderDict } from '@/api/constants'
 import { useBackground } from '@/composables/useBackground'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
 const DownloaderInfoDialog = defineAsyncComponent(() => import('@/components/dialog/DownloaderInfoDialog.vue'))
 
 // 获取i18n实例
 const { t } = useI18n()
 const { useConditionalDataRefresh } = useBackground()
+const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor()
 
 // 定义输入
 const props = defineProps({
@@ -122,9 +124,9 @@ onUnmounted(() => {
     <VCard
       v-bind="hover.props"
       variant="tonal"
-      class="app-card-shell"
+      class="app-card-shell app-card-colorful"
+      :style="{ '--app-card-accent-rgb': accentRgb }"
       @click="openDownloaderInfoDialog"
-      :class="{ 'transition transform-cpu duration-300 -translate-y-1': hover.isHovering }"
     >
       <VDialogCloseBtn @click="onClose" />
       <span class="app-card-top-action absolute top-3 right-12">
@@ -153,7 +155,7 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="app-card-summary__media" aria-hidden="true">
-          <VImg :src="getIcon" contain class="app-card-summary__image" />
+          <VImg ref="imageRef" :src="getIcon" contain class="app-card-summary__image" @load="updateAccentColor" />
         </div>
       </VCardText>
     </VCard>

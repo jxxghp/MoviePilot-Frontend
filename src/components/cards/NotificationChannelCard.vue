@@ -3,10 +3,12 @@ import type { NotificationConf } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
 const NotificationChannelInfoDialog = defineAsyncComponent(() => import('@/components/dialog/NotificationChannelInfoDialog.vue'))
 
 const { t } = useI18n()
+const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor()
 
 // 定义输入
 const props = defineProps({
@@ -91,7 +93,12 @@ function onClose() {
 </script>
 
 <template>
-  <VCard variant="tonal" class="app-card-shell" @click="openNotificationInfoDialog">
+  <VCard
+    variant="tonal"
+    class="app-card-shell app-card-colorful"
+    :style="{ '--app-card-accent-rgb': accentRgb }"
+    @click="openNotificationInfoDialog"
+  >
     <span class="app-card-top-action absolute top-3 right-12">
       <IconBtn @click.stop>
         <VIcon class="cursor-move" icon="mdi-drag" />
@@ -107,7 +114,7 @@ function onClose() {
         <div class="app-card-summary__subtitle text-body-1">{{ notificationTypeNames[notification.type] }}</div>
       </div>
       <div class="app-card-summary__media" aria-hidden="true">
-        <VImg :src="getIcon" contain class="app-card-summary__image" />
+        <VImg ref="imageRef" :src="getIcon" contain class="app-card-summary__image" @load="updateAccentColor" />
       </div>
     </VCardText>
   </VCard>

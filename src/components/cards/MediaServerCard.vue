@@ -5,11 +5,13 @@ import { getLogoUrl } from '@/utils/imageUtils'
 import { useI18n } from 'vue-i18n'
 import { mediaServerDict } from '@/api/constants'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
 const MediaServerInfoDialog = defineAsyncComponent(() => import('@/components/dialog/MediaServerInfoDialog.vue'))
 
 // 获取i18n实例
 const { t } = useI18n()
+const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor('#56CA00')
 
 // 定义输入
 const props = defineProps({
@@ -127,7 +129,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <VCard variant="tonal" class="app-card-shell" @click="openMediaServerInfoDialog">
+  <VCard
+    variant="tonal"
+    class="app-card-shell app-card-colorful"
+    :style="{ '--app-card-accent-rgb': accentRgb }"
+    @click="openMediaServerInfoDialog"
+  >
     <VDialogCloseBtn @click="onClose" />
     <VCardText class="app-card-summary app-card-summary--single-action">
       <div class="app-card-summary__content">
@@ -146,7 +153,7 @@ onMounted(() => {
         </div>
       </div>
       <div class="app-card-summary__media" aria-hidden="true">
-        <VImg :src="getIcon" contain class="app-card-summary__image" />
+        <VImg ref="imageRef" :src="getIcon" contain class="app-card-summary__image" @load="updateAccentColor" />
       </div>
     </VCardText>
   </VCard>

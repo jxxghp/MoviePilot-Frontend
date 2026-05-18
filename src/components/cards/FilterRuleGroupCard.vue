@@ -3,11 +3,13 @@ import type { CustomRule, FilterRuleGroup } from '@/api/types'
 import filter_group_svg from '@images/svg/filter-group.svg'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
 const FilterRuleGroupInfoDialog = defineAsyncComponent(() => import('@/components/dialog/FilterRuleGroupInfoDialog.vue'))
 
 // 获取i18n实例
 const { t } = useI18n()
+const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor('#8A8D93')
 
 // 输入参数
 const props = defineProps({
@@ -58,7 +60,12 @@ function onClose() {
 </script>
 
 <template>
-  <VCard variant="tonal" class="app-card-shell" @click="openGroupInfoDialog">
+  <VCard
+    variant="tonal"
+    class="app-card-shell app-card-colorful"
+    :style="{ '--app-card-accent-rgb': accentRgb }"
+    @click="openGroupInfoDialog"
+  >
     <span class="app-card-top-action absolute top-3 right-12">
       <IconBtn @click.stop>
         <VIcon class="cursor-move" icon="mdi-drag" />
@@ -74,7 +81,7 @@ function onClose() {
         </div>
       </div>
       <div class="app-card-summary__media" aria-hidden="true">
-        <VImg :src="filter_group_svg" contain class="app-card-summary__image" />
+        <VImg ref="imageRef" :src="filter_group_svg" contain class="app-card-summary__image" @load="updateAccentColor" />
       </div>
     </VCardText>
   </VCard>

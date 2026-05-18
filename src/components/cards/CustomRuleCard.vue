@@ -2,8 +2,10 @@
 import type { CustomRule } from '@/api/types'
 import filter_svg from '@images/svg/filter.svg'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useCardAccentColor } from '@/composables/useCardAccentColor'
 
 const CustomRuleInfoDialog = defineAsyncComponent(() => import('@/components/dialog/CustomRuleInfoDialog.vue'))
+const { accentRgb, imageRef, updateAccentColor } = useCardAccentColor('#8A8D93')
 
 // 输入参数
 const props = defineProps({
@@ -45,7 +47,12 @@ function onClose() {
 </script>
 
 <template>
-  <VCard variant="tonal" class="app-card-shell" @click="openRuleInfoDialog">
+  <VCard
+    variant="tonal"
+    class="app-card-shell app-card-colorful"
+    :style="{ '--app-card-accent-rgb': accentRgb }"
+    @click="openRuleInfoDialog"
+  >
     <span class="app-card-top-action absolute top-3 right-12">
       <IconBtn @click.stop>
         <VIcon class="cursor-move" icon="mdi-drag" />
@@ -58,7 +65,7 @@ function onClose() {
         <div class="app-card-summary__subtitle text-body-1">{{ props.rule.id }}</div>
       </div>
       <div class="app-card-summary__media" aria-hidden="true">
-        <VImg :src="filter_svg" contain class="app-card-summary__image" />
+        <VImg ref="imageRef" :src="filter_svg" contain class="app-card-summary__image" @load="updateAccentColor" />
       </div>
     </VCardText>
   </VCard>

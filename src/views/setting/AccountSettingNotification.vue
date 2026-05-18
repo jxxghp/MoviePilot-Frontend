@@ -30,22 +30,22 @@ const templateTypeDefaults = [
   {
     type: 'organizeSuccess',
     icon: 'mdi-folder-check',
-    color: 'primary',
+    accentRgb: 'var(--v-theme-primary)',
   },
   {
     type: 'downloadAdded',
     icon: 'mdi-download-box',
-    color: 'info',
+    accentRgb: 'var(--v-theme-info)',
   },
   {
     type: 'subscribeAdded',
     icon: 'mdi-rss-box',
-    color: 'warning',
+    accentRgb: 'var(--v-theme-warning)',
   },
   {
     type: 'subscribeComplete',
     icon: 'mdi-check-circle',
-    color: 'success',
+    accentRgb: 'var(--v-theme-success)',
   },
 ] as const
 
@@ -66,6 +66,10 @@ const templateTypes = computed(() =>
     label: t(`setting.notification.${item.type}`),
   })),
 )
+
+function getTemplateAccentStyle(item: (typeof templateTypes.value)[number]) {
+  return { '--app-card-accent-rgb': item.accentRgb }
+}
 
 // Ace 直接跟随 Vuetify 当前生效主题，auto 模式下也能按实际明暗色切换。
 const { global: globalTheme } = useTheme()
@@ -484,8 +488,8 @@ useSilentSettingRefresh(loadPageData, {
               v-for="item in templateTypes"
               :key="item.type"
               type="button"
-              class="notification-template-card"
-              :class="`template-accent-${item.color}`"
+              class="notification-template-card app-card-shell app-card-colorful"
+              :style="getTemplateAccentStyle(item)"
               @click="openEditor(item.type)"
             >
               <span class="template-card-icon">
@@ -585,7 +589,7 @@ useSilentSettingRefresh(loadPageData, {
   </VRow>
 </template>
 <style scoped>
-/* 模板入口保持设置页的紧凑密度，同时用轻量强调色区分不同通知场景。 */
+/* 模板入口保持设置页的紧凑密度，卡片壳层复用全局 app-card-shell。 */
 .notification-template-grid {
   display: grid;
   gap: 1rem;
@@ -595,43 +599,13 @@ useSilentSettingRefresh(loadPageData, {
 .notification-template-card {
   position: relative;
   display: flex;
-  overflow: hidden;
   align-items: center;
-  border: 1px solid rgba(var(--template-accent), 0.18);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(var(--template-accent), 0.12), rgba(var(--v-theme-surface), 0) 58%),
-    rgba(var(--v-theme-surface), 0.72);
-  color: rgb(var(--v-theme-on-surface));
   cursor: pointer;
   gap: 0.875rem;
   inline-size: 100%;
   min-block-size: 5.25rem;
   padding: 1rem;
   text-align: start;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.notification-template-card::before {
-  position: absolute;
-  background: rgb(var(--template-accent));
-  block-size: 100%;
-  content: "";
-  inline-size: 0.25rem;
-  inset-block: 0;
-  inset-inline-start: 0;
-  opacity: 0.86;
-}
-
-.notification-template-card:hover {
-  border-color: rgba(var(--template-accent), 0.36);
-  box-shadow: 0 0.75rem 1.75rem rgba(var(--template-accent), 0.12);
-  transform: translateY(-2px);
-}
-
-.notification-template-card:focus-visible {
-  outline: 2px solid rgba(var(--template-accent), 0.7);
-  outline-offset: 3px;
 }
 
 .template-card-icon {
@@ -640,9 +614,9 @@ useSilentSettingRefresh(loadPageData, {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: rgba(var(--template-accent), 0.16);
+  background: rgba(var(--app-card-accent-rgb), 0.16);
   block-size: 2.75rem;
-  color: rgb(var(--template-accent));
+  color: rgb(var(--app-card-accent-rgb));
   inline-size: 2.75rem;
 }
 
@@ -677,24 +651,8 @@ useSilentSettingRefresh(loadPageData, {
 }
 
 .notification-template-card:hover .template-card-arrow {
-  color: rgb(var(--template-accent));
+  color: rgb(var(--app-card-accent-rgb));
   transform: translateX(2px);
-}
-
-.template-accent-primary {
-  --template-accent: var(--v-theme-primary);
-}
-
-.template-accent-info {
-  --template-accent: var(--v-theme-info);
-}
-
-.template-accent-warning {
-  --template-accent: var(--v-theme-warning);
-}
-
-.template-accent-success {
-  --template-accent: var(--v-theme-success);
 }
 
 @media (width <= 600px) {
