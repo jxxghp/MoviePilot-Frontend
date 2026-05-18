@@ -1252,7 +1252,7 @@ onUnmounted(() => {
                 :disabled="isRecommending || !aiStatusChecked"
                 @click="reRecommend"
               >
-                <VIcon :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'" />
+                <VIcon :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-auto-fix'" />
                 <VTooltip activator="parent" location="top">
                   {{ t('resource.reRecommend') }}
                 </VTooltip>
