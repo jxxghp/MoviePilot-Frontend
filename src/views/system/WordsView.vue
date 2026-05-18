@@ -13,6 +13,7 @@ const $toast = useToast()
 
 // 集数定位规则
 interface EpisodeFormatRule {
+  _localId: string
   name: string
   enabled: boolean
   order: number
@@ -22,15 +23,40 @@ interface EpisodeFormatRule {
 
 const episodeFormatRules = ref<EpisodeFormatRule[]>([])
 
+function createEpisodeRuleLocalId() {
+  return `episode-rule-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function createEpisodeRule(rule?: Partial<Omit<EpisodeFormatRule, '_localId'>>): EpisodeFormatRule {
+  return {
+    _localId: createEpisodeRuleLocalId(),
+    name: rule?.name ?? '',
+    enabled: rule?.enabled ?? true,
+    order: rule?.order ?? episodeFormatRules.value.length + 1,
+    pattern: rule?.pattern ?? '',
+    min_file_size_mb: rule?.min_file_size_mb ?? 500,
+  }
+}
+
+function normalizeEpisodeFormatRules(
+  rules: Array<Partial<Omit<EpisodeFormatRule, '_localId'>> & { _localId?: string }> = [],
+) {
+  return rules.map(rule => createEpisodeRule(rule))
+}
+
+function buildEpisodeFormatRulePayload() {
+  return episodeFormatRules.value.map((rule, index) => ({
+    name: rule.name,
+    enabled: rule.enabled,
+    order: index + 1,
+    pattern: rule.pattern,
+    min_file_size_mb: Number(rule.min_file_size_mb) || 0,
+  }))
+}
+
 // 添加集数定位规则
 function addEpisodeRule() {
-  episodeFormatRules.value.push({
-    name: '',
-    enabled: true,
-    order: episodeFormatRules.value.length + 1,
-    pattern: '',
-    min_file_size_mb: 500,
-  })
+  episodeFormatRules.value.push(createEpisodeRule())
 }
 
 // 自定义识别词
@@ -150,7 +176,7 @@ async function queryEpisodeFormatRules() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
     if (result && result.data && result.data.value) {
-      episodeFormatRules.value = result.data.value
+      episodeFormatRules.value = normalizeEpisodeFormatRules(result.data.value)
     } else {
       episodeFormatRules.value = []
     }
@@ -164,20 +190,18 @@ async function saveEpisodeFormatRules() {
   // 基础校验
   for (const rule of episodeFormatRules.value) {
     if (!rule.name || !rule.pattern) {
-      $toast.error('名称和正则表达式不能为空')
+      $toast.error(t('setting.words.episodeFormatRuleEmptyError'))
       return
     }
   }
 
   try {
+    const payload = buildEpisodeFormatRulePayload()
     episodeFormatRules.value.forEach((rule, index) => {
-      rule.order = index + 1
-      rule.min_file_size_mb = Number(rule.min_file_size_mb) || 0
+      rule.order = payload[index].order
+      rule.min_file_size_mb = payload[index].min_file_size_mb
     })
-    const result: { [key: string]: any } = await api.post(
-      'system/setting/EpisodeFormatRuleTable',
-      episodeFormatRules.value,
-    )
+    const result: { [key: string]: any } = await api.post('system/setting/EpisodeFormatRuleTable', payload)
     if (result.success) {
       $toast.success(t('setting.words.episodeFormatRuleSaveSuccess'))
       queryEpisodeFormatRules()
@@ -345,7 +369,7 @@ onMounted(() => {
           <Draggable
             v-model="episodeFormatRules"
             handle=".cursor-move"
-            item-key="name"
+            item-key="_localId"
             tag="div"
             :component-data="{ class: 'd-flex flex-column gap-3' }"
             @end="onEpisodeRuleDragEnd"
@@ -413,10 +437,7 @@ onMounted(() => {
         </VCardText>
         <VCardText>
           <VAlert type="info" variant="tonal" :title="t('setting.words.episodeFormatRuleGuideTitle')">
-            <div
-              style="white-space: pre-line"
-              v-html="t('setting.words.episodeFormatRuleGuideContent').split('\n').join('<br>')"
-            ></div>
+            <div style="white-space: pre-line" v-html="t('setting.words.episodeFormatRuleGuideContent')"></div>
           </VAlert>
         </VCardText>
         <VCardText>

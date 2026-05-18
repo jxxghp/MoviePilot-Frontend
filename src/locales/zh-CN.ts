@@ -1854,6 +1854,7 @@ export default {
       episodeFormatRuleAdd: '新增规则',
       episodeFormatRuleEdit: '编辑规则',
       episodeFormatRuleDeleteConfirm: '确定要删除该规则吗？',
+      episodeFormatRuleEmptyError: '名称和正则表达式不能为空',
       episodeFormatRuleSaveSuccess: '集数定位规则保存成功',
       episodeFormatRuleSaveFailed: '集数定位规则保存失败！',
     },

@@ -1857,6 +1857,7 @@ export default {
       episodeFormatRuleDeleteConfirm: '確定要刪除該規則嗎？',
       episodeFormatRuleSaveSuccess: '集數定位規則保存成功',
       episodeFormatRuleSaveFailed: '集數定位規則保存失敗！',
+      episodeFormatRuleEmptyError: '規則名稱和正則表達式不能為空',
     },
     search: {
       basicSettings: '基礎設置',

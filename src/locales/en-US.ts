@@ -1891,6 +1891,7 @@ export default {
       episodeFormatRuleDeleteConfirm: 'Are you sure you want to delete this rule?',
       episodeFormatRuleSaveSuccess: 'Episode format rules saved successfully',
       episodeFormatRuleSaveFailed: 'Failed to save episode format rules!',
+      episodeFormatRuleEmptyError: 'Rule name and regular expression cannot be empty',
     },
     search: {
       basicSettings: 'Basic Settings',
