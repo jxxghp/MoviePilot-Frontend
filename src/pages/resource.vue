@@ -212,35 +212,6 @@ const hasSearchTags = computed(() => {
   return !!(keyword.value || title.value || year.value || season.value)
 })
 
-// 搜索结果抬头副标题，优先展示可读标题，避免媒体ID类关键词直接占据视觉重点。
-const searchHeaderSubtitle = computed(() => createSearchHeaderSubtitle(activeSearchParams.value))
-
-// 生成搜索结果抬头副标题，将搜索条件压缩成单行可读上下文。
-function createSearchHeaderSubtitle(params: SearchParams) {
-  const normalizedKeyword = params.keyword.trim()
-  const normalizedTitle = params.title.trim()
-  const normalizedYear = params.year.trim()
-  const normalizedSeason = params.season.trim()
-  const isMediaKeyword = /^[a-zA-Z]+:/.test(normalizedKeyword)
-  const primaryKeyword = normalizedTitle || normalizedKeyword
-  const subtitleParts: string[] = []
-
-  if (primaryKeyword) {
-    subtitleParts.push(primaryKeyword)
-  }
-  if (normalizedYear) {
-    subtitleParts.push(normalizedYear)
-  }
-  if (normalizedSeason) {
-    subtitleParts.push(`${t('resource.season')} ${normalizedSeason}`)
-  }
-  if (normalizedTitle && normalizedKeyword && !isMediaKeyword && normalizedTitle !== normalizedKeyword) {
-    subtitleParts.push(`${t('resource.keyword')}: ${normalizedKeyword}`)
-  }
-
-  return subtitleParts.join(' · ')
-}
-
 // 是否启用筛选栏动画
 const enableFilterAnimation = ref(true)
 
@@ -1200,9 +1171,6 @@ onUnmounted(() => {
           class="resource-page-header__title my-0"
           style="margin-block: 0"
         />
-        <div v-if="searchHeaderSubtitle" class="resource-page-header__subtitle">
-          {{ searchHeaderSubtitle }}
-        </div>
       </div>
 
       <div class="resource-page-header__actions d-flex align-center gap-1">
@@ -1505,17 +1473,6 @@ onUnmounted(() => {
   max-inline-size: 100%;
 }
 
-.resource-page-header__subtitle {
-  overflow: hidden;
-  margin-block-start: -8px;
-  margin-inline: 16px 12px;
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.875rem;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .resource-page-header__actions {
   flex: 0 0 auto;
   align-self: center;
@@ -1588,15 +1545,6 @@ onUnmounted(() => {
 @media (width <= 600px) {
   .resource-page-header {
     gap: 8px;
-  }
-
-  .resource-page-header__subtitle {
-    display: -webkit-box;
-    overflow: hidden;
-    margin-inline: 16px 0;
-    white-space: normal;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 
   .search-loading-state {
