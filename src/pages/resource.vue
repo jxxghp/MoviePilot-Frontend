@@ -1650,7 +1650,7 @@ onUnmounted(() => {
   .resource-page-header__subtitle {
     display: -webkit-box;
     overflow: hidden;
-    margin-inline: 16px 0;
+    margin-inline: 8px ;
     white-space: normal;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
