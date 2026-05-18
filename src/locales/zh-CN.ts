@@ -1726,6 +1726,8 @@ export default {
       flaresolverrUrlHint: '当仿真方式为 FlareSolverr 时生效，例如：http://127.0.0.1:8191',
       siteDataRefreshInterval: '站点数据刷新间隔',
       siteDataRefreshIntervalHint: '刷新站点用户上传下载等数据的时间间隔',
+      searchResourcePages: '搜索资源获取页数',
+      searchResourcePagesHint: '站点资源搜索时从当前页开始连续获取的页数，默认 1 页',
       readSiteMessage: '阅读站点消息',
       readSiteMessageHint: '刷新数据时读取站点消息并发送通知',
       siteReset: '站点重置',

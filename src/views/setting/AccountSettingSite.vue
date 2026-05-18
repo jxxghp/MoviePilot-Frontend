@@ -41,6 +41,7 @@ const siteSetting = ref<any>({
   Site: {
     SITEDATA_REFRESH_INTERVAL: 0,
     SITE_MESSAGE: false,
+    SEARCH_RESOURCE_PAGES: 1,
     BROWSER_EMULATION: 'cloakbrowser',
     FLARESOLVERR_URL: '',
   },
@@ -234,6 +235,19 @@ useSilentSettingRefresh(loadSiteSettings, {
                   :hint="t('setting.site.siteDataRefreshIntervalHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-refresh"
+                />
+              </VCol>
+
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model.number="siteSetting.Site.SEARCH_RESOURCE_PAGES"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :label="t('setting.site.searchResourcePages')"
+                  :hint="t('setting.site.searchResourcePagesHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-file-search"
                 />
               </VCol>
 

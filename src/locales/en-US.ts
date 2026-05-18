@@ -1755,6 +1755,8 @@ export default {
       siteOptions: 'Site Options',
       siteDataRefreshInterval: 'Site Data Refresh Interval',
       siteDataRefreshIntervalHint: 'Time interval for refreshing site user upload/download data',
+      searchResourcePages: 'Search Resource Pages',
+      searchResourcePagesHint: 'Number of consecutive pages to fetch from the current page when searching site resources. Default is 1.',
       readSiteMessage: 'Read Site Messages',
       readSiteMessageHint: 'Read site messages and send notifications when refreshing data',
       siteReset: 'Site Reset',
