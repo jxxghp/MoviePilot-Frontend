@@ -1221,21 +1221,31 @@ onUnmounted(() => {
         </IconBtn>
 
         <!-- AI操作按钮组 -->
-        <template v-if="aiRecommendEnabled && originalDataList.length > 0">
-          <IconBtn
+        <div
+          v-if="aiRecommendEnabled && originalDataList.length > 0"
+          class="ai-action-group"
+          :class="{ 'ai-action-group--active': showingAiResults }"
+        >
+          <VBtn
             :variant="showingAiResults ? 'tonal' : 'text'"
             :color="showingAiResults ? 'primary' : 'gray'"
             :disabled="isRecommending || !aiStatusChecked"
+            size="small"
+            height="40"
+            class="ai-action-group__primary"
             @click="toggleAiRecommend"
           >
-            <VIcon icon="lucide:sparkles" />
+            <template #prepend>
+              <VIcon icon="lucide:sparkles" size="18" />
+            </template>
+            <span class="ai-action-group__label">{{ t('resource.aiRecommend') }}</span>
             <VTooltip activator="parent" location="top">
               {{ t('resource.aiRecommend') }}
             </VTooltip>
-          </IconBtn>
+          </VBtn>
 
           <VExpandXTransition>
-            <div v-if="aiRecommended || isRecommending" class="d-flex align-center">
+            <div v-if="aiRecommended || isRecommending" class="ai-action-group__more">
               <IconBtn
                 variant="text"
                 color="gray"
@@ -1249,7 +1259,7 @@ onUnmounted(() => {
               </IconBtn>
             </div>
           </VExpandXTransition>
-        </template>
+        </div>
       </div>
     </div>
 
@@ -1514,6 +1524,35 @@ onUnmounted(() => {
 .search-tag {
   max-inline-size: min(100%, 220px);
   font-size: 0.75rem;
+}
+
+.ai-action-group {
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+}
+
+.ai-action-group--active {
+  border-color: rgba(var(--v-theme-primary), 0.24);
+  background-color: rgba(var(--v-theme-primary), 0.08);
+}
+
+.ai-action-group__primary {
+  border-radius: 8px 0 0 8px !important;
+  padding-inline: 14px 12px !important;
+}
+
+.ai-action-group__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ai-action-group__more {
+  display: flex;
+  align-items: center;
+  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
 
 .search-results-container {
