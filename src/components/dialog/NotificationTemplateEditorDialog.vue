@@ -81,7 +81,7 @@ function submitTemplate() {
         </VCardSubtitle>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
-      <div>
+      <div class="template-editor-body">
         <VAceEditor
           :key="`${props.templateType}-jinja2-json`"
           v-model:value="editableContent"
@@ -103,11 +103,20 @@ function submitTemplate() {
 
 <style scoped>
 .notification-template-editor-dialog {
+  display: flex;
+  flex-direction: column;
+  max-block-size: calc(100dvh - 2rem);
   overflow: hidden;
 }
 
 .template-editor-header {
+  flex: 0 0 auto;
   border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.template-editor-body {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 .template-ace-editor {
@@ -118,18 +127,31 @@ function submitTemplate() {
 }
 
 .template-editor-actions {
+  flex: 0 0 auto;
   border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   padding-block: 0.875rem;
   padding-inline: 1rem;
 }
 
-@media (width <= 600px) {
+@media (width <= 960px) {
+  .notification-template-editor-dialog {
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+  }
+
   .template-editor-body {
-    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
   }
 
   .template-ace-editor {
-    block-size: calc(100dvh - 11rem);
+    flex: 1 1 auto;
+    min-block-size: 0;
+    block-size: auto;
+  }
+
+  .template-editor-actions {
+    padding-block-end: max(0.875rem, calc(env(safe-area-inset-bottom) + 0.75rem));
   }
 }
 </style>
