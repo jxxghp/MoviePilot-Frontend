@@ -3,11 +3,61 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+
 // 国际化
 const { t } = useI18n()
 
 // 提示框
 const $toast = useToast()
+
+// 集数定位规则
+interface EpisodeFormatRule {
+  _localId: string
+  name: string
+  enabled: boolean
+  order: number
+  pattern: string
+  min_file_size_mb: number
+}
+
+const episodeFormatRules = ref<EpisodeFormatRule[]>([])
+
+function createEpisodeRuleLocalId() {
+  return `episode-rule-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function createEpisodeRule(rule?: Partial<Omit<EpisodeFormatRule, '_localId'>>): EpisodeFormatRule {
+  return {
+    _localId: createEpisodeRuleLocalId(),
+    name: rule?.name ?? '',
+    enabled: rule?.enabled ?? true,
+    order: rule?.order ?? episodeFormatRules.value.length + 1,
+    pattern: rule?.pattern ?? '',
+    min_file_size_mb: rule?.min_file_size_mb ?? 500,
+  }
+}
+
+function normalizeEpisodeFormatRules(
+  rules: Array<Partial<Omit<EpisodeFormatRule, '_localId'>> & { _localId?: string }> = [],
+) {
+  return rules.map(rule => createEpisodeRule(rule))
+}
+
+function buildEpisodeFormatRulePayload() {
+  return episodeFormatRules.value.map((rule, index) => ({
+    name: rule.name,
+    enabled: rule.enabled,
+    order: index + 1,
+    pattern: rule.pattern,
+    min_file_size_mb: Number(rule.min_file_size_mb) || 0,
+  }))
+}
+
+// 添加集数定位规则
+function addEpisodeRule() {
+  episodeFormatRules.value.push(createEpisodeRule())
+}
 
 // 自定义识别词
 const customIdentifiers = ref('')
@@ -121,11 +171,67 @@ async function saveTransferExcludeWords() {
   }
 }
 
+// 查询集数定位规则
+async function queryEpisodeFormatRules() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
+    if (result && result.data && result.data.value) {
+      episodeFormatRules.value = normalizeEpisodeFormatRules(result.data.value)
+    } else {
+      episodeFormatRules.value = []
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 保存集数定位规则
+async function saveEpisodeFormatRules() {
+  // 基础校验
+  for (const rule of episodeFormatRules.value) {
+    if (!rule.name || !rule.pattern) {
+      $toast.error(t('setting.words.episodeFormatRuleEmptyError'))
+      return
+    }
+  }
+
+  try {
+    const payload = buildEpisodeFormatRulePayload()
+    episodeFormatRules.value.forEach((rule, index) => {
+      rule.order = payload[index].order
+      rule.min_file_size_mb = payload[index].min_file_size_mb
+    })
+    const result: { [key: string]: any } = await api.post('system/setting/EpisodeFormatRuleTable', payload)
+    if (result.success) {
+      $toast.success(t('setting.words.episodeFormatRuleSaveSuccess'))
+      queryEpisodeFormatRules()
+    } else {
+      $toast.error(result.message || t('setting.words.episodeFormatRuleSaveFailed'))
+    }
+  } catch (error) {
+    console.log(error)
+    $toast.error(t('setting.words.episodeFormatRuleSaveFailed'))
+  }
+}
+
+// 删除集数定位规则
+function deleteEpisodeRule(index: number) {
+  if (confirm(t('setting.words.episodeFormatRuleDeleteConfirm'))) {
+    episodeFormatRules.value.splice(index, 1)
+  }
+}
+
+// 拖拽结束
+function onEpisodeRuleDragEnd() {
+  saveEpisodeFormatRules()
+}
+
 onMounted(() => {
   queryCustomIdentifiers()
   queryCustomReleaseGroups()
   queryCustomization()
   queryTransferExcludeWords()
+  queryEpisodeFormatRules()
 })
 </script>
 
@@ -247,4 +353,165 @@ onMounted(() => {
       </VCard>
     </VCol>
   </VRow>
+  <VRow>
+    <VCol cols="12">
+      <VCard>
+        <VCardItem>
+          <template #append>
+            <VBtn color="primary" @click="addEpisodeRule" prepend-icon="mdi-plus">
+              {{ t('setting.words.episodeFormatRuleAdd') }}
+            </VBtn>
+          </template>
+          <VCardTitle>{{ t('setting.words.episodeFormatRule') }}</VCardTitle>
+          <VCardSubtitle>{{ t('setting.words.episodeFormatRuleDesc') }}</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
+          <Draggable
+            v-model="episodeFormatRules"
+            handle=".cursor-move"
+            item-key="_localId"
+            tag="div"
+            :component-data="{ class: 'd-flex flex-column gap-3' }"
+            @end="onEpisodeRuleDragEnd"
+          >
+            <template #item="{ element, index }">
+              <VCard variant="outlined" class="episode-rule-card">
+                <VCardText class="py-4">
+                  <div class="episode-rule-row d-flex align-center gap-2">
+                    <IconBtn
+                      icon="mdi-drag"
+                      variant="text"
+                      size="small"
+                      class="episode-rule-control episode-rule-drag cursor-move flex-0-0"
+                    />
+                    <VCheckbox
+                      v-model="element.enabled"
+                      color="primary"
+                      density="compact"
+                      hide-details
+                      class="episode-rule-control episode-rule-enabled flex-0-0"
+                    />
+                    <div class="episode-rule-field episode-rule-name">
+                      <VTextField
+                        v-model="element.name"
+                        :label="t('setting.words.episodeFormatRuleName')"
+                        hide-details="auto"
+                        density="comfortable"
+                        required
+                      />
+                    </div>
+                    <div class="episode-rule-field episode-rule-pattern">
+                      <VTextField
+                        v-model="element.pattern"
+                        :label="t('setting.words.episodeFormatRulePattern')"
+                        hide-details="auto"
+                        density="comfortable"
+                        required
+                      />
+                    </div>
+                    <div class="episode-rule-field episode-rule-size">
+                      <VTextField
+                        v-model.number="element.min_file_size_mb"
+                        :label="t('setting.words.episodeFormatRuleMinSize')"
+                        type="number"
+                        min="0"
+                        hide-details="auto"
+                        density="comfortable"
+                        required
+                      />
+                    </div>
+                    <IconBtn
+                      variant="text"
+                      size="small"
+                      color="error"
+                      class="episode-rule-control episode-rule-delete flex-0-0"
+                      @click="deleteEpisodeRule(index)"
+                    >
+                      <VIcon icon="mdi-delete" />
+                    </IconBtn>
+                  </div>
+                </VCardText>
+              </VCard>
+            </template>
+          </Draggable>
+        </VCardText>
+        <VCardText>
+          <VAlert type="info" variant="tonal" :title="t('setting.words.episodeFormatRuleGuideTitle')">
+            <div style="white-space: pre-line" v-html="t('setting.words.episodeFormatRuleGuideContent')"></div>
+          </VAlert>
+        </VCardText>
+        <VCardText>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveEpisodeFormatRules" prepend-icon="mdi-content-save">
+                {{ t('common.save') }}
+              </VBtn>
+            </div>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </VCol>
+  </VRow>
 </template>
+
+<style scoped>
+.episode-rule-card {
+  border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.episode-rule-row {
+  flex-wrap: nowrap;
+}
+
+.episode-rule-name {
+  flex: 0.8 1 9rem;
+  min-inline-size: 7rem;
+}
+
+.episode-rule-pattern {
+  flex: 3.7 1 26rem;
+  min-inline-size: 0;
+}
+
+.episode-rule-size {
+  flex: 0 0 8rem;
+  min-inline-size: 8rem;
+}
+
+@media (width <= 959px) {
+  .episode-rule-row {
+    flex-wrap: wrap;
+    align-items: flex-start !important;
+  }
+
+  .episode-rule-drag {
+    order: 1;
+  }
+
+  .episode-rule-enabled {
+    order: 2;
+  }
+
+  .episode-rule-delete {
+    order: 3;
+    margin-inline-start: auto;
+  }
+
+  .episode-rule-name {
+    flex: 1 1 calc(50% - 0.25rem);
+    order: 4;
+    min-inline-size: 0;
+  }
+
+  .episode-rule-size {
+    flex: 1 1 calc(50% - 0.25rem);
+    order: 5;
+    min-inline-size: 0;
+  }
+
+  .episode-rule-pattern {
+    flex: 1 1 100%;
+    order: 6;
+  }
+}
+</style>

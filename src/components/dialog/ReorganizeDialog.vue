@@ -89,6 +89,30 @@ const previewLoaded = ref(false)
 // 预览数据
 const previewData = ref<ManualTransferPreviewData>()
 
+interface EpisodeFormatRecommendData {
+  rule_name?: string
+  rule_index?: number
+  pattern?: string
+  episode_format?: string
+  sample_file?: string
+  min_file_size_mb?: number
+  message?: string
+}
+
+const episodeFormatRecommendState = reactive<{
+  loading: boolean
+  ruleName?: string
+  sampleFile?: string
+  lastMessage?: string
+}>({
+  loading: false,
+  ruleName: undefined,
+  sampleFile: undefined,
+  lastMessage: undefined,
+})
+
+const episodeFormatRuleConfigured = ref<boolean | undefined>(undefined)
+
 function getFileItemKey(item?: FileItem) {
   return [item?.storage ?? '', item?.type ?? '', item?.path ?? ''].join('|')
 }
@@ -414,6 +438,40 @@ const previewToggleIcon = computed(() => {
   return previewVisible.value ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
 })
 
+const episodeFormatRecommendSourceItem = computed<FileItem | undefined>(() => {
+  if (transferForm.fileitem?.path) return transferForm.fileitem
+  if (normalizedItems.value.length !== 1) return undefined
+  return normalizedItems.value[0]
+})
+
+const canRecommendEpisodeFormat = computed(() => {
+  return (
+    Boolean(episodeFormatRecommendSourceItem.value?.path) &&
+    !progressDialog.value &&
+    !episodeFormatRecommendState.loading
+  )
+})
+
+const episodeFormatRecommendTooltip = computed(() => {
+  if (episodeFormatRecommendState.loading) return t('dialog.reorganize.episodeFormatRecommendLoading')
+  if (!episodeFormatRecommendSourceItem.value?.path) return t('dialog.reorganize.episodeFormatRecommendSelectFile')
+  if (episodeFormatRuleConfigured.value === false) return t('dialog.reorganize.episodeFormatRecommendNeedWords')
+  return t('dialog.reorganize.episodeFormatRecommendAction')
+})
+
+watch(
+  () => getFileItemKey(episodeFormatRecommendSourceItem.value),
+  sourceKey => {
+    transferForm.fileitem = episodeFormatRecommendSourceItem.value ?? ({} as FileItem)
+    if (!sourceKey) {
+      episodeFormatRecommendState.ruleName = undefined
+      episodeFormatRecommendState.sampleFile = undefined
+      episodeFormatRecommendState.lastMessage = undefined
+    }
+  },
+  { immediate: true },
+)
+
 // 构造整理请求
 function createTransferPayload(options: { item?: FileItem; logid?: number; preview?: boolean }) {
   const payload: ManualTransferPayload = {
@@ -432,6 +490,65 @@ async function requestManualTransfer<T = any>(
   background: boolean = false,
 ): Promise<ApiResponse<T>> {
   return await api.post(`transfer/manual?background=${background}`, payload)
+}
+
+async function loadEpisodeFormatRuleConfiguration() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
+    episodeFormatRuleConfigured.value = Boolean(result.data?.value?.length)
+  } catch (error) {
+    console.log(error)
+    episodeFormatRuleConfigured.value = undefined
+  }
+}
+
+async function handleRecommendEpisodeFormat() {
+  const sourceItem = episodeFormatRecommendSourceItem.value
+  if (!sourceItem?.path) {
+    $toast.warning(t('dialog.reorganize.episodeFormatRecommendSelectFile'))
+    return
+  }
+
+  if (episodeFormatRuleConfigured.value === false) {
+    $toast.warning(t('dialog.reorganize.episodeFormatRecommendNeedWords'))
+    return
+  }
+
+  episodeFormatRecommendState.loading = true
+
+  try {
+    const hasExistingEpisodeFormat = Boolean(transferForm.episode_format?.trim())
+    const result = await api.post('transfer/episode-format/recommend', {
+      fileitem: sourceItem,
+    })
+
+    if (!result.success) {
+      $toast.error(result.message || t('dialog.reorganize.episodeFormatRecommendFailed'))
+      return
+    }
+
+    const data = (result.data ?? {}) as EpisodeFormatRecommendData
+    if (!data.episode_format) {
+      $toast.error(t('dialog.reorganize.episodeFormatRecommendFailed'))
+      return
+    }
+
+    transferForm.episode_format = data.episode_format
+    episodeFormatRecommendState.ruleName = data.rule_name
+    episodeFormatRecommendState.sampleFile = data.sample_file
+    episodeFormatRecommendState.lastMessage = data.message
+
+    $toast.success(
+      hasExistingEpisodeFormat
+        ? t('dialog.reorganize.episodeFormatRecommendOverwriteSuccess')
+        : t('dialog.reorganize.episodeFormatRecommendSuccess'),
+    )
+  } catch (error: any) {
+    console.log(error)
+    $toast.error(error?.message || t('dialog.reorganize.episodeFormatRecommendFailed'))
+  } finally {
+    episodeFormatRecommendState.loading = false
+  }
 }
 
 // 默认预览数据
@@ -769,6 +886,7 @@ async function transfer(background: boolean = false) {
 onMounted(() => {
   loadDirectories()
   loadStorages()
+  loadEpisodeFormatRuleConfiguration()
 })
 
 onUnmounted(() => {
@@ -778,8 +896,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VDialog :scrollable="!previewVisible || !display.mdAndUp.value" :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
-    <VCard class="reorganize-dialog-card" :class="{ 'reorganize-dialog-card--split': previewVisible && display.mdAndUp.value }">
+  <VDialog
+    :scrollable="!previewVisible || !display.mdAndUp.value"
+    :max-width="dialogMaxWidth"
+    :fullscreen="!display.mdAndUp.value"
+  >
+    <VCard
+      class="reorganize-dialog-card"
+      :class="{ 'reorganize-dialog-card--split': previewVisible && display.mdAndUp.value }"
+    >
       <VCardItem class="py-2">
         <template #prepend> <VIcon icon="mdi-folder-move" class="me-2" /> </template>
         <VCardTitle>{{ dialogTitle }}</VCardTitle>
@@ -914,7 +1039,29 @@ onUnmounted(() => {
                       :hint="t('dialog.reorganize.episodeFormatHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-format-text"
-                    />
+                    >
+                      <template #append-inner>
+                        <VTooltip location="top">
+                          <template #activator="{ props: tooltipProps }">
+                            <IconBtn
+                              v-bind="tooltipProps"
+                              type="button"
+                              color="primary"
+                              variant="text"
+                              size="small"
+                              class="ms-1"
+                              icon="mdi-auto-fix"
+                              :loading="episodeFormatRecommendState.loading"
+                              :disabled="!canRecommendEpisodeFormat"
+                              @click.stop="handleRecommendEpisodeFormat"
+                            />
+                          </template>
+                          <span>
+                            {{ episodeFormatRecommendTooltip }}
+                          </span>
+                        </VTooltip>
+                      </template>
+                    </VTextField>
                   </VCol>
                   <VCol cols="12" md="6">
                     <VTextField
@@ -1162,9 +1309,9 @@ onUnmounted(() => {
 
 .reorganize-dialog-card--split .reorganize-dialog-card__body {
   display: flex;
-  flex-direction: column;
   overflow: hidden;
   flex: 1 1 auto;
+  flex-direction: column;
 }
 
 .reorganize-dialog-card--split .reorganize-main-row {
@@ -1177,8 +1324,8 @@ onUnmounted(() => {
   overflow: hidden;
   align-items: stretch;
   grid-template-columns: minmax(0, 1fr);
-  min-block-size: 0;
   inline-size: 100%;
+  min-block-size: 0;
   transition: grid-template-columns 0.25s ease;
 }
 
@@ -1190,8 +1337,8 @@ onUnmounted(() => {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  min-block-size: 0;
   max-inline-size: none;
+  min-block-size: 0;
   min-inline-size: 0;
 }
 
@@ -1264,9 +1411,9 @@ onUnmounted(() => {
 
 .reorganize-preview-pane__body {
   display: flex;
+  overflow: hidden;
   flex: 1 1 auto;
   flex-direction: column;
-  overflow: hidden;
   min-block-size: 0;
 }
 
@@ -1493,8 +1640,8 @@ onUnmounted(() => {
 @media (width <= 959px) {
   .reorganize-dialog-card,
   .reorganize-dialog-card--split {
-    max-block-size: none;
     block-size: auto;
+    max-block-size: none;
   }
 
   .reorganize-dialog-card--split .reorganize-dialog-card__body,

@@ -1756,7 +1756,8 @@ export default {
       siteDataRefreshInterval: 'Site Data Refresh Interval',
       siteDataRefreshIntervalHint: 'Time interval for refreshing site user upload/download data',
       searchResourcePages: 'Search Resource Pages',
-      searchResourcePagesHint: 'Number of consecutive pages to fetch from the current page when searching site resources. Default is 1.',
+      searchResourcePagesHint:
+        'Number of consecutive pages to fetch from the current page when searching site resources. Default is 1.',
       readSiteMessage: 'Read Site Messages',
       readSiteMessageHint: 'Read site messages and send notifications when refreshing data',
       siteReset: 'Site Reset',
@@ -1868,6 +1869,29 @@ export default {
       excludeWordsHint: 'Support regular expressions, special characters need \\ escape, one line for each block word',
       excludeWordsSaveSuccess: 'File organization block words saved successfully',
       excludeWordsSaveFailed: 'Failed to save file organization block words!',
+
+      episodeFormatRule: 'Manual Reorganize Episode Format Rules',
+      episodeFormatRuleDesc: 'Extract episode number from filename via regex.',
+      episodeFormatRuleName: 'Rule Name',
+      episodeFormatRuleNameHint: 'Enter the rule name',
+      episodeFormatRulePattern: 'Regular Expression',
+      episodeFormatRulePatternHint: 'Must contain (?&lt;ep&gt;...) named group',
+      episodeFormatRuleMinSize: 'Min Size (MB)',
+      episodeFormatRuleMinSizeHint: 'Files smaller than this will be ignored',
+      episodeFormatRuleGuideTitle: 'Tips',
+      episodeFormatRuleGuideContent:
+        'Rules are matched from top to bottom, and the first matched rule will be used.\n' +
+        'Write matching rules based on the actual filename structure:\n' +
+        'Match fixed text directly, and mark the episode number with the named group (?&lt;ep&gt;...);\n' +
+        'For other variable but position-sensitive parts, use named groups like (?&lt;a&gt;...) and (?&lt;b&gt;...).\n' +
+        'Escape special characters such as [](). when they should be matched literally;\n' +
+        'it is recommended to use ^ and $ to constrain the full filename, especially $, to avoid false positives from partial matches.',
+      episodeFormatRuleAdd: 'Add Rule',
+      episodeFormatRuleEdit: 'Edit Rule',
+      episodeFormatRuleDeleteConfirm: 'Are you sure you want to delete this rule?',
+      episodeFormatRuleSaveSuccess: 'Episode format rules saved successfully',
+      episodeFormatRuleSaveFailed: 'Failed to save episode format rules!',
+      episodeFormatRuleEmptyError: 'Rule name and regular expression cannot be empty',
     },
     search: {
       basicSettings: 'Basic Settings',
@@ -2522,6 +2546,16 @@ export default {
       episodeFormat: 'Episode Positioning',
       episodeFormatHint: 'Use {ep} to position episode number part in filename to assist recognition',
       episodeFormatPlaceholder: 'Use {ep} to position episode',
+      episodeFormatRecommendAction: 'Generate',
+      episodeFormatRecommendLoading: 'Generating...',
+      episodeFormatRecommendSelectFile: 'Please select a single file or directory first',
+      episodeFormatRecommendNeedWords:
+        'Manual episode positioning rules are empty, please fill them in on the words page first',
+      episodeFormatRecommendSuccess: 'Episode format template generated',
+      episodeFormatRecommendOverwriteSuccess: 'Current episode format has been overwritten by the generated result',
+      episodeFormatRecommendFailed: 'Failed to generate episode format, please try again later',
+      episodeFormatRecommendRule: 'Matched Rule: {rule}',
+      episodeFormatRecommendSample: 'Sample File: {file}',
       episodeOffset: 'Episode Offset',
       episodeOffsetHint: 'Episode offset calculation, e.g. -10 or EP*2',
       episodeOffsetPlaceholder: 'e.g. -10',
