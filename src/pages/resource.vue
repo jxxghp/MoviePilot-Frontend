@@ -1207,68 +1207,49 @@ onUnmounted(() => {
 
       <div class="resource-page-header__actions d-flex align-center gap-1">
         <!-- 重新搜索按钮 -->
-        <VBtn
+        <IconBtn
           variant="text"
-          size="small"
-          icon
-          class="refresh-search-btn"
+          color="gray"
           :loading="isRefreshing"
           :disabled="isRefreshing || progressActive"
           @click="refreshSearch"
         >
-          <VIcon icon="mdi-refresh" size="20" />
+          <VIcon icon="mdi-refresh" />
           <VTooltip activator="parent" location="top">
             {{ t('resource.refreshSearch') }}
           </VTooltip>
-        </VBtn>
+        </IconBtn>
 
         <!-- AI操作按钮组 -->
-        <div v-if="aiRecommendEnabled && originalDataList.length > 0" class="ai-toggle-container">
-          <div class="ai-toggle-buttons">
-            <VBtn
-              variant="text"
-              size="small"
-              rounded="0"
-              @click="toggleAiRecommend"
-              :disabled="isRecommending || !aiStatusChecked"
-              height="44"
-              class="ps-4 pe-3 ai-recommend-btn"
-              :class="{ 'ai-active': showingAiResults }"
-            >
-              <template #prepend>
-                <VIcon icon="lucide:sparkles" size="18" class="ai-icon" :class="{ 'ai-icon-active': showingAiResults }" />
-              </template>
-              <span class="ai-text" :class="{ 'ai-text-active': showingAiResults }">
-                {{ t('resource.aiRecommend') }}
-              </span>
-            </VBtn>
+        <template v-if="aiRecommendEnabled && originalDataList.length > 0">
+          <IconBtn
+            :variant="showingAiResults ? 'tonal' : 'text'"
+            :color="showingAiResults ? 'primary' : 'gray'"
+            :disabled="isRecommending || !aiStatusChecked"
+            @click="toggleAiRecommend"
+          >
+            <VIcon icon="lucide:sparkles" />
+            <VTooltip activator="parent" location="top">
+              {{ t('resource.aiRecommend') }}
+            </VTooltip>
+          </IconBtn>
 
-            <VExpandXTransition>
-              <div v-if="aiRecommended || isRecommending" class="d-flex align-center">
-                <div class="ai-divider" :style="{ opacity: showingAiResults ? 0 : 1 }"></div>
-                <VBtn
-                  variant="text"
-                  size="small"
-                  rounded="0"
-                  :disabled="isRecommending || !aiStatusChecked"
-                  @click="reRecommend"
-                  height="44"
-                  min-width="38"
-                  class="px-0"
-                >
-                  <VIcon
-                    :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'"
-                    size="18"
-                    class="ai-refresh-icon"
-                  />
-                  <VTooltip activator="parent" location="top">
-                    {{ t('resource.reRecommend') }}
-                  </VTooltip>
-                </VBtn>
-              </div>
-            </VExpandXTransition>
-          </div>
-        </div>
+          <VExpandXTransition>
+            <div v-if="aiRecommended || isRecommending" class="d-flex align-center">
+              <IconBtn
+                variant="text"
+                color="gray"
+                :disabled="isRecommending || !aiStatusChecked"
+                @click="reRecommend"
+              >
+                <VIcon :icon="isRecommending ? 'line-md:loading-twotone-loop' : 'mdi-refresh'" />
+                <VTooltip activator="parent" location="top">
+                  {{ t('resource.reRecommend') }}
+                </VTooltip>
+              </IconBtn>
+            </div>
+          </VExpandXTransition>
+        </template>
       </div>
     </div>
 
@@ -1516,7 +1497,7 @@ onUnmounted(() => {
 
 .resource-page-header__subtitle {
   overflow: hidden;
-  margin-block-start: -4px;
+  margin-block-start: -8px;
   margin-inline: 16px 12px;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 0.875rem;
@@ -1533,83 +1514,6 @@ onUnmounted(() => {
 .search-tag {
   max-inline-size: min(100%, 220px);
   font-size: 0.75rem;
-}
-
-/* 重新搜索按钮 */
-.refresh-search-btn {
-  border-radius: 8px !important;
-  background-color: rgba(var(--v-theme-surface-variant), 0.1);
-  block-size: 44px !important;
-  inline-size: 44px !important;
-}
-
-/* AI按钮组样式 */
-.ai-toggle-container {
-  position: relative;
-}
-
-.ai-toggle-buttons {
-  display: flex;
-  overflow: hidden;
-  align-items: center;
-  padding: 0;
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.1);
-  block-size: 44px; /* 36px(btn) + 4px*2(padding) to match right side exactly */
-}
-
-.ai-recommend-btn {
-  margin: 0;
-  block-size: 100% !important;
-  transition: all 0.3s ease;
-}
-
-/* 仅为激活的按钮添加背景 */
-.ai-recommend-btn.ai-active {
-  z-index: 1;
-  background-color: rgba(var(--v-theme-primary), 0.15);
-}
-
-/* 图标基础样式 */
-.ai-icon {
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  transform: translateZ(0);
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* 激活状态图标：变色 + 辉光 */
-.ai-icon-active {
-  color: rgb(var(--v-theme-primary));
-  filter: drop-shadow(0 0 4px rgba(var(--v-theme-primary), 0.5));
-}
-
-/* 文字基础样式 */
-.ai-text {
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  font-size: 0.85rem;
-  font-weight: 600; /* 保持一致的字重防止位移 */
-  transform: translateZ(0);
-  transition: color 0.3s ease;
-}
-
-/* 激活状态文字 */
-.ai-text-active {
-  color: rgb(var(--v-theme-primary));
-}
-
-/* 刷新图标样式 */
-.ai-refresh-icon {
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  transition: color 0.3s ease;
-}
-
-.ai-divider {
-  z-index: 0;
-  flex-shrink: 0;
-  block-size: 20px;
-  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.12); /* 使用边框显示线条 */
-  inline-size: 0; /* 宽度设为0，不占用空间 */
-  transition: opacity 0.3s ease;
 }
 
 .search-results-container {
@@ -1650,7 +1554,7 @@ onUnmounted(() => {
   .resource-page-header__subtitle {
     display: -webkit-box;
     overflow: hidden;
-    margin-inline: 8px ;
+    margin-inline: 16px 0;
     white-space: normal;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -1693,33 +1597,6 @@ onUnmounted(() => {
 
   .search-skeleton-grid {
     grid-template-columns: 1fr;
-  }
-
-  .refresh-search-btn {
-    block-size: 36px !important;
-    inline-size: 36px !important;
-  }
-
-  .ai-toggle-buttons {
-    block-size: 36px;
-  }
-
-  .ai-text {
-    font-size: 0.8rem;
-  }
-
-  .ai-recommend-btn,
-  .ai-toggle-buttons .v-btn {
-    block-size: 36px !important;
-    min-inline-size: unset !important;
-  }
-
-  .ai-recommend-btn {
-    padding-inline: 12px 8px !important;
-  }
-
-  .ai-toggle-buttons .v-btn:last-child {
-    min-inline-size: 32px !important;
   }
 }
 </style>
