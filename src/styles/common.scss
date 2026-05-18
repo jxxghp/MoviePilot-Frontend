@@ -92,7 +92,7 @@ html {
   --app-card-accent-rgb: var(--v-theme-primary);
   --app-card-accent-end-rgb: var(--app-card-accent-rgb);
   --app-card-accent-start-opacity: 0.09;
-  --app-card-accent-end-opacity: 0.02;
+  --app-card-accent-end-opacity: 0.06;
   --app-card-border-opacity: 0.2;
   --app-card-hover-border-opacity: 0.34;
   --app-card-stripe-opacity: 0.78;
@@ -115,7 +115,6 @@ html {
 .app-card-colorful:hover {
   border-color: rgba(var(--app-card-accent-rgb), var(--app-card-hover-border-opacity)) !important;
   box-shadow: var(--app-card-hover-shadow) !important;
-  transform: translateY(-2px);
 }
 
 .app-card-colorful:focus-visible {
@@ -138,7 +137,7 @@ html[data-theme="transparent"] .app-card-colorful,
   backdrop-filter: blur(var(--transparent-blur, 10px));
   border: 0 !important;
   --app-card-accent-start-opacity: 0.04;
-  --app-card-accent-end-opacity: 0.012;
+  --app-card-accent-end-opacity: 0.03;
   --app-card-border-opacity: 0;
   --app-card-hover-border-opacity: 0;
   --app-card-stripe-opacity: 0.42;

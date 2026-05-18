@@ -43,7 +43,7 @@ html[data-theme="transparent"] {
       linear-gradient(
         135deg,
         rgba(var(--app-card-accent-rgb), var(--app-card-accent-start-opacity, 0.04)),
-        rgba(var(--app-card-accent-end-rgb, var(--app-card-accent-rgb)), var(--app-card-accent-end-opacity, 0.012)) 46%,
+        rgba(var(--app-card-accent-end-rgb, var(--app-card-accent-rgb)), var(--app-card-accent-end-opacity, 0.03)) 46%,
         rgba(var(--v-theme-surface), 0) 76%
       ),
       rgba(var(--v-theme-surface), var(--transparent-opacity-light)) !important;

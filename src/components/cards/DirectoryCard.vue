@@ -4,25 +4,9 @@ import api from '@/api'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storageRemoteDict } from '@/api/constants'
-import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
-import storage_png from '@images/misc/storage.png'
-import alipan_png from '@images/misc/alipan.webp'
-import u115_png from '@images/misc/u115.png'
-import rclone_png from '@images/misc/rclone.png'
-import alist_png from '@images/misc/openlist.svg'
-import smb_png from '@images/misc/smb.png'
 
 const DEFAULT_DIRECTORY_ACCENT_RGB = '145, 85, 253'
-const STORAGE_ICON_MAP = {
-  local: storage_png,
-  alipan: alipan_png,
-  u115: u115_png,
-  rclone: rclone_png,
-  alist: alist_png,
-  smb: smb_png,
-}
-
-const STORAGE_FALLBACK_COLOR_MAP = {
+const STORAGE_ACCENT_COLOR_MAP = {
   local: '#FFB400',
   alipan: '#00A7F2',
   u115: '#17B26A',
@@ -35,7 +19,6 @@ const STORAGE_FALLBACK_COLOR_MAP = {
 const { t } = useI18n()
 const downloadAccentRgb = ref(DEFAULT_DIRECTORY_ACCENT_RGB)
 const libraryAccentRgb = ref(DEFAULT_DIRECTORY_ACCENT_RGB)
-let accentUpdateToken = 0
 
 // 输入参数
 const props = defineProps({
@@ -92,12 +75,8 @@ const transferSourceItems = computed(() => [
   { title: t('directory.manualTransfer'), value: 'manual' },
 ])
 
-function hasKnownStorageType(storageType?: string): storageType is keyof typeof STORAGE_ICON_MAP {
-  return !!storageType && Object.prototype.hasOwnProperty.call(STORAGE_ICON_MAP, storageType)
-}
-
-function getStorageIcon(storageType?: string) {
-  return hasKnownStorageType(storageType) ? STORAGE_ICON_MAP[storageType] : storage_png
+function hasKnownStorageType(storageType?: string): storageType is keyof typeof STORAGE_ACCENT_COLOR_MAP {
+  return !!storageType && Object.prototype.hasOwnProperty.call(STORAGE_ACCENT_COLOR_MAP, storageType)
 }
 
 function hexToRgbString(hexColor: string) {
@@ -109,46 +88,18 @@ function hexToRgbString(hexColor: string) {
   return `${(colorValue >> 16) & 255}, ${(colorValue >> 8) & 255}, ${colorValue & 255}`
 }
 
-function rgbToHex(value: number) {
-  return Math.round(value).toString(16).padStart(2, '0')
+function getCustomStoragePaletteColor(storageType?: string) {
+  const customStorageIndex = Math.max(Number(storageType?.match(/\d+$/)?.[0] ?? 1) - 1, 0)
+  const customStorageColors = ['#F97316', '#8B5CF6', '#06B6D4', '#84CC16', '#EC4899', '#14B8A6']
+
+  return customStorageColors[customStorageIndex % customStorageColors.length]
 }
 
-function hslToHex(hue: number, saturation: number, lightness: number) {
-  const normalizedSaturation = saturation / 100
-  const normalizedLightness = lightness / 100
-  const chroma = (1 - Math.abs(2 * normalizedLightness - 1)) * normalizedSaturation
-  const secondComponent = chroma * (1 - Math.abs(((hue / 60) % 2) - 1))
-  const lightnessMatch = normalizedLightness - chroma / 2
-  let red = 0
-  let green = 0
-  let blue = 0
+function getStorageAccentColor(storageType?: string) {
+  if (hasKnownStorageType(storageType)) return STORAGE_ACCENT_COLOR_MAP[storageType]
 
-  if (hue < 60) [red, green, blue] = [chroma, secondComponent, 0]
-  else if (hue < 120) [red, green, blue] = [secondComponent, chroma, 0]
-  else if (hue < 180) [red, green, blue] = [0, chroma, secondComponent]
-  else if (hue < 240) [red, green, blue] = [0, secondComponent, chroma]
-  else if (hue < 300) [red, green, blue] = [secondComponent, 0, chroma]
-  else [red, green, blue] = [chroma, 0, secondComponent]
-
-  return `#${rgbToHex((red + lightnessMatch) * 255)}${rgbToHex((green + lightnessMatch) * 255)}${rgbToHex((blue + lightnessMatch) * 255)}`
-}
-
-function getStableStorageColor(storageType?: string) {
-  const source = storageType || 'custom'
-  let hash = 0
-
-  for (let index = 0; index < source.length; index += 1) {
-    hash = Math.imul(31, hash) + source.charCodeAt(index)
-  }
-
-  return hslToHex(Math.abs(hash) % 360, 66, 54)
-}
-
-function getStorageFallbackColor(storageType?: string) {
-  if (hasKnownStorageType(storageType)) return STORAGE_FALLBACK_COLOR_MAP[storageType]
-
-  // 自定义存储没有固定品牌图标，按类型生成稳定颜色，保证切换 custom1/custom2 时也有变化。
-  return getStableStorageColor(storageType)
+  // 自定义存储没有固定品牌图标，使用离散调色板，保证连续 custom1/custom2 也能明显区分。
+  return getCustomStoragePaletteColor(storageType)
 }
 
 // 目录卡片用下载存储和媒体库存储两端的图标主色生成轻渐变，体现整理链路的两个存储端点。
@@ -157,50 +108,12 @@ const directoryAccentStyle = computed(() => ({
   '--app-card-accent-end-rgb': libraryAccentRgb.value,
 }))
 
-function loadStorageIconImage(storageType?: string) {
-  return new Promise<HTMLImageElement | null>(resolve => {
-    if (typeof Image === 'undefined') {
-      resolve(null)
-      return
-    }
-
-    const image = new Image()
-
-    image.onload = () => resolve(image)
-    image.onerror = () => resolve(null)
-    image.src = getStorageIcon(storageType)
-
-    if (image.complete) resolve(image)
-  })
-}
-
-async function getStorageAccentRgb(storageType?: string) {
-  const fallbackColor = getStorageFallbackColor(storageType)
-
-  if (!hasKnownStorageType(storageType)) return hexToRgbString(fallbackColor)
-
-  const image = await loadStorageIconImage(storageType)
-
-  return getCardAccentRgbFromImage(image, fallbackColor)
-}
-
-async function updateDirectoryAccentColors() {
-  const currentToken = ++accentUpdateToken
+function updateDirectoryAccentColors() {
   const downloadStorage = props.directory.storage
   const libraryStorage = props.directory.library_storage || props.directory.storage
 
-  downloadAccentRgb.value = hexToRgbString(getStorageFallbackColor(downloadStorage))
-  libraryAccentRgb.value = hexToRgbString(getStorageFallbackColor(libraryStorage))
-
-  const [downloadRgb, libraryRgb] = await Promise.all([
-    getStorageAccentRgb(downloadStorage),
-    getStorageAccentRgb(libraryStorage),
-  ])
-
-  if (currentToken !== accentUpdateToken) return
-
-  downloadAccentRgb.value = downloadRgb
-  libraryAccentRgb.value = libraryRgb
+  downloadAccentRgb.value = hexToRgbString(getStorageAccentColor(downloadStorage))
+  libraryAccentRgb.value = hexToRgbString(getStorageAccentColor(libraryStorage))
 }
 
 // 监控模式下拉字典
