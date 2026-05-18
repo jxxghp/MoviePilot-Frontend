@@ -351,18 +351,23 @@ onMounted(() => {
             @end="onEpisodeRuleDragEnd"
           >
             <template #item="{ element, index }">
-              <VCard variant="outlined">
+              <VCard variant="outlined" class="episode-rule-card">
                 <VCardText class="py-4">
-                  <div class="d-flex align-center flex-nowrap gap-2">
-                    <IconBtn icon="mdi-drag" variant="text" size="small" class="cursor-move flex-0-0" />
+                  <div class="episode-rule-row d-flex align-center gap-2">
+                    <IconBtn
+                      icon="mdi-drag"
+                      variant="text"
+                      size="small"
+                      class="episode-rule-control episode-rule-drag cursor-move flex-0-0"
+                    />
                     <VCheckbox
                       v-model="element.enabled"
                       color="primary"
                       density="compact"
                       hide-details
-                      class="flex-0-0"
+                      class="episode-rule-control episode-rule-enabled flex-0-0"
                     />
-                    <div style="flex: 0.8 1 9rem; min-inline-size: 7rem">
+                    <div class="episode-rule-field episode-rule-name">
                       <VTextField
                         v-model="element.name"
                         :label="t('setting.words.episodeFormatRuleName')"
@@ -371,7 +376,7 @@ onMounted(() => {
                         required
                       />
                     </div>
-                    <div style="flex: 3.7 1 26rem; min-inline-size: 0">
+                    <div class="episode-rule-field episode-rule-pattern">
                       <VTextField
                         v-model="element.pattern"
                         :label="t('setting.words.episodeFormatRulePattern')"
@@ -380,7 +385,7 @@ onMounted(() => {
                         required
                       />
                     </div>
-                    <div style="flex: 0 0 8rem; min-inline-size: 8rem">
+                    <div class="episode-rule-field episode-rule-size">
                       <VTextField
                         v-model.number="element.min_file_size_mb"
                         :label="t('setting.words.episodeFormatRuleMinSize')"
@@ -395,7 +400,7 @@ onMounted(() => {
                       variant="text"
                       size="small"
                       color="error"
-                      class="flex-0-0"
+                      class="episode-rule-control episode-rule-delete flex-0-0"
                       @click="deleteEpisodeRule(index)"
                     >
                       <VIcon icon="mdi-delete" />
@@ -427,3 +432,65 @@ onMounted(() => {
     </VCol>
   </VRow>
 </template>
+
+<style scoped>
+.episode-rule-card {
+  border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.episode-rule-row {
+  flex-wrap: nowrap;
+}
+
+.episode-rule-name {
+  flex: 0.8 1 9rem;
+  min-inline-size: 7rem;
+}
+
+.episode-rule-pattern {
+  flex: 3.7 1 26rem;
+  min-inline-size: 0;
+}
+
+.episode-rule-size {
+  flex: 0 0 8rem;
+  min-inline-size: 8rem;
+}
+
+@media (width <= 959px) {
+  .episode-rule-row {
+    flex-wrap: wrap;
+    align-items: flex-start !important;
+  }
+
+  .episode-rule-drag {
+    order: 1;
+  }
+
+  .episode-rule-enabled {
+    order: 2;
+  }
+
+  .episode-rule-delete {
+    order: 3;
+    margin-inline-start: auto;
+  }
+
+  .episode-rule-name {
+    flex: 1 1 calc(50% - 0.25rem);
+    order: 4;
+    min-inline-size: 0;
+  }
+
+  .episode-rule-size {
+    flex: 1 1 calc(50% - 0.25rem);
+    order: 5;
+    min-inline-size: 0;
+  }
+
+  .episode-rule-pattern {
+    flex: 1 1 100%;
+    order: 6;
+  }
+}
+</style>
