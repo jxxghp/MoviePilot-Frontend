@@ -212,6 +212,35 @@ const hasSearchTags = computed(() => {
   return !!(keyword.value || title.value || year.value || season.value)
 })
 
+// 搜索结果抬头副标题，优先展示可读标题，避免媒体ID类关键词直接占据视觉重点。
+const searchHeaderSubtitle = computed(() => createSearchHeaderSubtitle(activeSearchParams.value))
+
+// 生成搜索结果抬头副标题，将搜索条件压缩成单行可读上下文。
+function createSearchHeaderSubtitle(params: SearchParams) {
+  const normalizedKeyword = params.keyword.trim()
+  const normalizedTitle = params.title.trim()
+  const normalizedYear = params.year.trim()
+  const normalizedSeason = params.season.trim()
+  const isMediaKeyword = /^[a-zA-Z]+:/.test(normalizedKeyword)
+  const primaryKeyword = normalizedTitle || normalizedKeyword
+  const subtitleParts: string[] = []
+
+  if (primaryKeyword) {
+    subtitleParts.push(primaryKeyword)
+  }
+  if (normalizedYear) {
+    subtitleParts.push(normalizedYear)
+  }
+  if (normalizedSeason) {
+    subtitleParts.push(`${t('resource.season')} ${normalizedSeason}`)
+  }
+  if (normalizedTitle && normalizedKeyword && !isMediaKeyword && normalizedTitle !== normalizedKeyword) {
+    subtitleParts.push(`${t('resource.keyword')}: ${normalizedKeyword}`)
+  }
+
+  return subtitleParts.join(' · ')
+}
+
 // 是否启用筛选栏动画
 const enableFilterAnimation = ref(true)
 
@@ -1163,36 +1192,20 @@ onUnmounted(() => {
       </div>
     </VFadeTransition>
 
-    <!-- 结果抬头：只承载搜索上下文和快捷动作，筛选控制交给下方工具条。 -->
-    <VCard v-if="showResultHeader" class="search-header result-toolbar mb-2" elevation="0">
-      <div class="result-toolbar__content">
-        <VAvatar class="result-toolbar__icon" rounded="lg" size="42">
-          <VIcon icon="mdi-movie-search" size="24" />
-        </VAvatar>
-
-        <div class="search-info-container">
-          <div class="search-title text-moviepilot">
-            <span class="d-none d-sm-inline">{{ t('resource.searchResults') }}</span>
-            <span class="d-inline d-sm-none">{{ t('navItems.searchResult') }}</span>
-          </div>
-          <div v-if="hasSearchTags" class="search-tags d-flex flex-wrap mt-1">
-            <VChip v-if="keyword" class="search-tag" color="primary" size="small" variant="tonal">
-              {{ t('resource.keyword') }}: {{ keyword }}
-            </VChip>
-            <VChip v-if="title" class="search-tag" color="primary" size="small" variant="tonal">
-              {{ t('resource.title') }}: {{ title }}
-            </VChip>
-            <VChip v-if="year" class="search-tag" color="primary" size="small" variant="tonal">
-              {{ t('resource.year') }}: {{ year }}
-            </VChip>
-            <VChip v-if="season" class="search-tag" color="primary" size="small" variant="tonal">
-              {{ t('resource.season') }}: {{ season }}
-            </VChip>
-          </div>
+    <!-- 结果抬头：保持和站点管理一致的页面标题结构，筛选控制交给下方工具条。 -->
+    <div v-if="showResultHeader" class="resource-page-header d-flex justify-space-between align-center mb-4">
+      <div class="resource-page-header__copy">
+        <VPageContentTitle
+          :title="t('resource.searchResults')"
+          class="resource-page-header__title my-0"
+          style="margin-block: 0"
+        />
+        <div v-if="searchHeaderSubtitle" class="resource-page-header__subtitle">
+          {{ searchHeaderSubtitle }}
         </div>
       </div>
 
-      <div class="result-toolbar__actions">
+      <div class="resource-page-header__actions d-flex align-center gap-1">
         <!-- 重新搜索按钮 -->
         <VBtn
           variant="text"
@@ -1257,7 +1270,7 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-    </VCard>
+    </div>
 
     <!-- 搜索结果 -->
     <div v-if="isRefreshed && hasData" class="search-results-container">
@@ -1488,60 +1501,33 @@ onUnmounted(() => {
   }
 }
 
-/* 结果抬头样式 */
-.search-header {
-  border: 1px solid rgba(var(--v-theme-primary), 0.16);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-surface), 0) 44%),
-    rgb(var(--v-theme-surface));
-}
-
-.result-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding-block: 12px;
-  padding-inline: 14px;
-}
-
-.result-toolbar__content {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
+.resource-page-header {
   gap: 12px;
+}
+
+.resource-page-header__copy {
+  flex: 1 1 auto;
   min-inline-size: 0;
 }
 
-.result-toolbar__icon {
-  flex: 0 0 auto;
-  background: rgba(var(--v-theme-primary), 0.12);
-  color: rgb(var(--v-theme-primary));
+.resource-page-header__title {
+  max-inline-size: 100%;
 }
 
-.result-toolbar__actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-}
-
-.search-info-container {
-  min-inline-size: 0;
-}
-
-.search-title {
+.resource-page-header__subtitle {
   overflow: hidden;
-  font-size: 1.1rem;
-  font-weight: 600;
-  line-height: 1.2;
+  margin-block-start: -4px;
+  margin-inline: 16px 12px;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.875rem;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.search-tags {
-  gap: 6px;
+.resource-page-header__actions {
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 .search-tag {
@@ -1657,49 +1643,17 @@ onUnmounted(() => {
 }
 
 @media (width <= 600px) {
-  .search-header {
-    border-radius: 8px;
-  }
-
-  .result-toolbar {
-    align-items: flex-start;
-    gap: 10px;
-    padding-block: 10px;
-    padding-inline: 10px;
-  }
-
-  .result-toolbar__content {
-    gap: 10px;
-  }
-
-  .result-toolbar__icon {
-    block-size: 36px !important;
-    inline-size: 36px !important;
-  }
-
-  .result-toolbar__actions {
-    gap: 6px;
-  }
-
-  .search-title {
-    font-size: 1rem;
-    white-space: nowrap;
-  }
-
-  .search-info-container {
+  .resource-page-header {
     gap: 8px;
-    min-inline-size: 0;
   }
 
-  .search-tags {
-    flex-wrap: nowrap;
-    margin-inline-end: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .search-tags::-webkit-scrollbar {
-    display: none;
+  .resource-page-header__subtitle {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-inline: 16px 0;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .search-loading-state {
