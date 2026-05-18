@@ -3,11 +3,35 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 
+const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
+
 // 国际化
 const { t } = useI18n()
 
 // 提示框
 const $toast = useToast()
+
+// 集数定位规则
+interface EpisodeFormatRule {
+  name: string
+  enabled: boolean
+  order: number
+  pattern: string
+  min_file_size_mb: number
+}
+
+const episodeFormatRules = ref<EpisodeFormatRule[]>([])
+
+// 添加集数定位规则
+function addEpisodeRule() {
+  episodeFormatRules.value.push({
+    name: '',
+    enabled: true,
+    order: episodeFormatRules.value.length + 1,
+    pattern: '',
+    min_file_size_mb: 500,
+  })
+}
 
 // 自定义识别词
 const customIdentifiers = ref('')
@@ -121,11 +145,69 @@ async function saveTransferExcludeWords() {
   }
 }
 
+// 查询集数定位规则
+async function queryEpisodeFormatRules() {
+  try {
+    const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
+    if (result && result.data && result.data.value) {
+      episodeFormatRules.value = result.data.value
+    } else {
+      episodeFormatRules.value = []
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 保存集数定位规则
+async function saveEpisodeFormatRules() {
+  // 基础校验
+  for (const rule of episodeFormatRules.value) {
+    if (!rule.name || !rule.pattern) {
+      $toast.error('名称和正则表达式不能为空')
+      return
+    }
+  }
+
+  try {
+    episodeFormatRules.value.forEach((rule, index) => {
+      rule.order = index + 1
+      rule.min_file_size_mb = Number(rule.min_file_size_mb) || 0
+    })
+    const result: { [key: string]: any } = await api.post(
+      'system/setting/EpisodeFormatRuleTable',
+      episodeFormatRules.value,
+    )
+    if (result.success) {
+      $toast.success(t('setting.words.episodeFormatRuleSaveSuccess'))
+      queryEpisodeFormatRules()
+    } else {
+      $toast.error(result.message || t('setting.words.episodeFormatRuleSaveFailed'))
+    }
+  } catch (error) {
+    console.log(error)
+    $toast.error(t('setting.words.episodeFormatRuleSaveFailed'))
+  }
+}
+
+// 删除集数定位规则
+function deleteEpisodeRule(index: number) {
+  if (confirm(t('setting.words.episodeFormatRuleDeleteConfirm'))) {
+    episodeFormatRules.value.splice(index, 1)
+  }
+}
+
+// 拖拽结束
+function onEpisodeRuleDragEnd() {
+  saveEpisodeFormatRules()
+}
+
 onMounted(() => {
   queryCustomIdentifiers()
   queryCustomReleaseGroups()
   queryCustomization()
   queryTransferExcludeWords()
+  queryEpisodeFormatRules()
 })
 </script>
 
@@ -239,6 +321,103 @@ onMounted(() => {
           <VForm @submit.prevent="() => {}">
             <div class="d-flex flex-wrap gap-4 mt-4">
               <VBtn type="submit" @click="saveTransferExcludeWords" prepend-icon="mdi-content-save">
+                {{ t('common.save') }}
+              </VBtn>
+            </div>
+          </VForm>
+        </VCardText>
+      </VCard>
+    </VCol>
+  </VRow>
+  <VRow>
+    <VCol cols="12">
+      <VCard>
+        <VCardItem>
+          <template #append>
+            <VBtn color="primary" @click="addEpisodeRule" prepend-icon="mdi-plus">
+              {{ t('setting.words.episodeFormatRuleAdd') }}
+            </VBtn>
+          </template>
+          <VCardTitle>{{ t('setting.words.episodeFormatRule') }}</VCardTitle>
+          <VCardSubtitle>{{ t('setting.words.episodeFormatRuleDesc') }}</VCardSubtitle>
+        </VCardItem>
+        <VCardText>
+          <Draggable
+            v-model="episodeFormatRules"
+            handle=".cursor-move"
+            item-key="name"
+            tag="div"
+            :component-data="{ class: 'd-flex flex-column gap-3' }"
+            @end="onEpisodeRuleDragEnd"
+          >
+            <template #item="{ element, index }">
+              <VCard variant="outlined">
+                <VCardText class="py-4">
+                  <div class="d-flex align-center flex-nowrap gap-2">
+                    <IconBtn icon="mdi-drag" variant="text" size="small" class="cursor-move flex-0-0" />
+                    <VCheckbox
+                      v-model="element.enabled"
+                      color="primary"
+                      density="compact"
+                      hide-details
+                      class="flex-0-0"
+                    />
+                    <div style="flex: 0.8 1 9rem; min-inline-size: 7rem">
+                      <VTextField
+                        v-model="element.name"
+                        :label="t('setting.words.episodeFormatRuleName')"
+                        hide-details="auto"
+                        density="comfortable"
+                        required
+                      />
+                    </div>
+                    <div style="flex: 3.7 1 26rem; min-inline-size: 0">
+                      <VTextField
+                        v-model="element.pattern"
+                        :label="t('setting.words.episodeFormatRulePattern')"
+                        hide-details="auto"
+                        density="comfortable"
+                        required
+                      />
+                    </div>
+                    <div style="flex: 0 0 8rem; min-inline-size: 8rem">
+                      <VTextField
+                        v-model.number="element.min_file_size_mb"
+                        :label="t('setting.words.episodeFormatRuleMinSize')"
+                        type="number"
+                        min="0"
+                        hide-details="auto"
+                        density="comfortable"
+                        required
+                      />
+                    </div>
+                    <IconBtn
+                      variant="text"
+                      size="small"
+                      color="error"
+                      class="flex-0-0"
+                      @click="deleteEpisodeRule(index)"
+                    >
+                      <VIcon icon="mdi-delete" />
+                    </IconBtn>
+                  </div>
+                </VCardText>
+              </VCard>
+            </template>
+          </Draggable>
+        </VCardText>
+        <VCardText>
+          <VAlert type="info" variant="tonal" :title="t('setting.words.episodeFormatRuleGuideTitle')">
+            <div
+              style="white-space: pre-line"
+              v-html="t('setting.words.episodeFormatRuleGuideContent').split('\n').join('<br>')"
+            ></div>
+          </VAlert>
+        </VCardText>
+        <VCardText>
+          <VForm @submit.prevent="() => {}">
+            <div class="d-flex flex-wrap gap-4 mt-4">
+              <VBtn type="submit" @click="saveEpisodeFormatRules" prepend-icon="mdi-content-save">
                 {{ t('common.save') }}
               </VBtn>
             </div>

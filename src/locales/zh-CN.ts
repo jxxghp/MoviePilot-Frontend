@@ -1834,6 +1834,28 @@ export default {
       excludeWordsHint: '支持正则表达式，特殊字符需要\\转义，一行代表一个屏蔽词',
       excludeWordsSaveSuccess: '文件整理屏蔽词保存成功',
       excludeWordsSaveFailed: '文件整理屏蔽词保存失败！',
+
+      episodeFormatRule: '手动整理集数定位规则',
+      episodeFormatRuleDesc: '用于匹配媒体文件名，命中后自动生成对应的集数定位正则。',
+      episodeFormatRuleName: '规则名称',
+      episodeFormatRuleNameHint: '输入规则的名称',
+      episodeFormatRulePattern: '正则表达式',
+      episodeFormatRulePatternHint: '必须包含 (?&lt;ep&gt;...) 命名组',
+      episodeFormatRuleMinSize: '最小大小（MB）',
+      episodeFormatRuleMinSizeHint: '小于此大小的文件将不参与匹配',
+      episodeFormatRuleGuideTitle: '提示',
+      episodeFormatRuleGuideContent:
+        '从上到下依次匹配，第一个匹配的则使用该规则。\n' +
+        '按文件名实际结构编写匹配规则：\n' +
+        '固定文本直接匹配，集数必须使用命名分组 (?&lt;ep&gt;...) 标记；\n' +
+        '其余不固定但需要保留位置的内容，可使用 (?&lt;a&gt;...)、(?&lt;b&gt;...) 等命名分组承接。\n' +
+        '如需按字面量匹配 [](). 等特殊字符，请进行转义；\n' +
+        '建议使用 ^ 和 $ 完整约束整条文件名，其中 $ 尤其重要，可避免只匹配前半段就被误判为命中。',
+      episodeFormatRuleAdd: '新增规则',
+      episodeFormatRuleEdit: '编辑规则',
+      episodeFormatRuleDeleteConfirm: '确定要删除该规则吗？',
+      episodeFormatRuleSaveSuccess: '集数定位规则保存成功',
+      episodeFormatRuleSaveFailed: '集数定位规则保存失败！',
     },
     search: {
       basicSettings: '基础设置',
