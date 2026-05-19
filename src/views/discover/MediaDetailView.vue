@@ -325,10 +325,11 @@ async function addSubscribe(season: number | null) {
 function showSubscribeAddToast(result: boolean, title: string, season: number | null, message: string, best_version: number) {
   if (season !== null) title = `${title} ${formatSeason(season.toString())}`
 
-  let subname = t('media.subscribe.normal')
-  if (best_version > 0) subname = t('media.subscribe.bestVersion')
+  let subname = t('subscribe.normalSub')
+  if (best_version > 0) subname = t('subscribe.versionSub')
 
-  if (!result) $toast.error(`${title} ${t('media.subscribe.addFailed', { reason: message })}`)
+  if (result) $toast.success(`${title} ${t('subscribe.addSuccess', { name: subname })}`)
+  else $toast.error(`${title} ${t('media.subscribe.addFailed', { reason: message })}`)
 }
 
 // 调用API取消订阅
