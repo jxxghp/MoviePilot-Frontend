@@ -388,7 +388,6 @@ onMounted(() => {
                         color="primary"
                         density="compact"
                         hide-details
-                        :label="t('common.enable')"
                         class="episode-rule-enabled"
                       />
                     </div>
