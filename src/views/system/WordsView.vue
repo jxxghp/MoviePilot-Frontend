@@ -356,7 +356,7 @@ onMounted(() => {
       <VCard>
         <VCardItem class="episode-rule-section-header">
           <template #append>
-            <VBtn color="primary" class="episode-rule-add-btn" prepend-icon="mdi-plus" @click="addEpisodeRule">
+            <VBtn color="success" class="episode-rule-add-btn" prepend-icon="mdi-plus" @click="addEpisodeRule">
               {{ t('setting.words.episodeFormatRuleAdd') }}
             </VBtn>
           </template>
@@ -383,7 +383,7 @@ onMounted(() => {
                         size="small"
                         class="episode-rule-drag cursor-move"
                       />
-                      <VCheckbox
+                      <VSwitch
                         v-model="element.enabled"
                         color="primary"
                         density="compact"
