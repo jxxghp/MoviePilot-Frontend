@@ -423,7 +423,12 @@ onMounted(() => {
                   <div class="text-body-2 text-disabled">{{ t('common.noData') }}</div>
                 </div>
 
-                <VCard v-for="(row, index) in pathMappingRows" :key="row.id" variant="outlined" class="my-2">
+                <VCard
+                  v-for="(row, index) in pathMappingRows"
+                  :key="row.id"
+                  variant="outlined"
+                  class="path-mapping-card my-2"
+                >
                   <VCardText class="pa-3">
                     <VRow align="center" no-gutters>
                       <VCol cols="12" class="mb-2">
@@ -432,7 +437,7 @@ onMounted(() => {
                           <span class="text-caption text-medium-emphasis">{{ t('downloader.storagePath') }}</span>
                         </div>
                         <VRow no-gutters>
-                          <VCol cols="12" sm="4" class="pe-2">
+                          <VCol cols="12" sm="4" class="path-storage-select-col pe-sm-2">
                             <VSelect
                               :model-value="getStorageType(row.storage)"
                               :items="prefixOptions"
@@ -505,3 +510,15 @@ onMounted(() => {
       </VCard>
     </VDialog>
 </template>
+
+<style scoped>
+.path-mapping-card {
+  border-color: rgba(var(--v-border-color), 0.08) !important;
+}
+
+@media (max-width: 599.98px) {
+  .path-storage-select-col {
+    margin-block-end: 8px;
+  }
+}
+</style>
