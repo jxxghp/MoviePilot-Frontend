@@ -216,9 +216,7 @@ async function saveEpisodeFormatRules() {
 
 // 删除集数定位规则
 function deleteEpisodeRule(index: number) {
-  if (confirm(t('setting.words.episodeFormatRuleDeleteConfirm'))) {
-    episodeFormatRules.value.splice(index, 1)
-  }
+  episodeFormatRules.value.splice(index, 1)
 }
 
 // 拖拽结束
