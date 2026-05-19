@@ -469,14 +469,19 @@ onMounted(() => {
                           <VIcon icon="mdi-download-outline" size="18" class="me-1 text-success" />
                           <span class="text-caption text-medium-emphasis">{{ t('downloader.downloadPath') }}</span>
                         </div>
-                        <VTextField
-                          v-model="row.download"
-                          :placeholder="'/path/to/download'"
-                          density="compact"
-                          variant="outlined"
-                          hide-details="auto"
-                          :rules="pathValidationRules"
-                        />
+                        <VRow no-gutters>
+                          <VCol cols="12" sm="4" class="d-none d-sm-block" />
+                          <VCol cols="12" sm="8">
+                            <VTextField
+                              v-model="row.download"
+                              :placeholder="'/path/to/download'"
+                              density="compact"
+                              variant="outlined"
+                              hide-details="auto"
+                              :rules="pathValidationRules"
+                            />
+                          </VCol>
+                        </VRow>
                       </VCol>
 
                       <VCol cols="12" class="d-flex justify-end pt-1">
