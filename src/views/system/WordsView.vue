@@ -356,9 +356,9 @@ onMounted(() => {
   <VRow>
     <VCol cols="12">
       <VCard>
-        <VCardItem>
+        <VCardItem class="episode-rule-section-header">
           <template #append>
-            <VBtn color="primary" @click="addEpisodeRule" prepend-icon="mdi-plus">
+            <VBtn color="primary" class="episode-rule-add-btn" prepend-icon="mdi-plus" @click="addEpisodeRule">
               {{ t('setting.words.episodeFormatRuleAdd') }}
             </VBtn>
           </template>
@@ -376,21 +376,24 @@ onMounted(() => {
           >
             <template #item="{ element, index }">
               <VCard variant="outlined" class="episode-rule-card">
-                <VCardText class="py-4">
-                  <div class="episode-rule-row d-flex align-center gap-2">
-                    <IconBtn
-                      icon="mdi-drag"
-                      variant="text"
-                      size="small"
-                      class="episode-rule-control episode-rule-drag cursor-move flex-0-0"
-                    />
-                    <VCheckbox
-                      v-model="element.enabled"
-                      color="primary"
-                      density="compact"
-                      hide-details
-                      class="episode-rule-control episode-rule-enabled flex-0-0"
-                    />
+                <VCardText class="episode-rule-card-content">
+                  <div class="episode-rule-row">
+                    <div class="episode-rule-toolbar">
+                      <IconBtn
+                        icon="mdi-drag"
+                        variant="text"
+                        size="small"
+                        class="episode-rule-drag cursor-move"
+                      />
+                      <VCheckbox
+                        v-model="element.enabled"
+                        color="primary"
+                        density="compact"
+                        hide-details
+                        :label="t('common.enable')"
+                        class="episode-rule-enabled"
+                      />
+                    </div>
                     <div class="episode-rule-field episode-rule-name">
                       <VTextField
                         v-model="element.name"
@@ -424,10 +427,11 @@ onMounted(() => {
                       variant="text"
                       size="small"
                       color="error"
-                      class="episode-rule-control episode-rule-delete flex-0-0"
-                      @click="deleteEpisodeRule(index)"
+                      class="episode-rule-delete"
+                      @click.stop="deleteEpisodeRule(index)"
                     >
                       <VIcon icon="mdi-delete" />
+                      <VTooltip activator="parent" location="top">{{ t('common.delete') }}</VTooltip>
                     </IconBtn>
                   </div>
                 </VCardText>
@@ -455,63 +459,149 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.episode-rule-section-header {
+  align-items: flex-start;
+}
+
+.episode-rule-add-btn {
+  flex-shrink: 0;
+}
+
 .episode-rule-card {
   border-color: rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
+.episode-rule-card-content {
+  padding: 1rem;
+}
+
 .episode-rule-row {
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: max-content minmax(8rem, 0.9fr) minmax(18rem, 3fr) minmax(8rem, 0.7fr) max-content;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.episode-rule-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 4.75rem;
+}
+
+.episode-rule-drag,
+.episode-rule-delete {
+  flex: 0 0 auto;
+}
+
+.episode-rule-enabled {
+  flex: 0 0 auto;
+}
+
+.episode-rule-enabled :deep(.v-label) {
+  display: none;
+}
+
+.episode-rule-field {
+  min-inline-size: 0;
 }
 
 .episode-rule-name {
-  flex: 0.8 1 9rem;
-  min-inline-size: 7rem;
+  min-inline-size: 0;
 }
 
 .episode-rule-pattern {
-  flex: 3.7 1 26rem;
   min-inline-size: 0;
 }
 
 .episode-rule-size {
-  flex: 0 0 8rem;
-  min-inline-size: 8rem;
+  min-inline-size: 0;
 }
 
 @media (width <= 959px) {
-  .episode-rule-row {
-    flex-wrap: wrap;
-    align-items: flex-start !important;
+  .episode-rule-section-header {
+    display: grid;
+    grid-template-areas:
+      "content"
+      "append";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
   }
 
-  .episode-rule-drag {
-    order: 1;
+  .episode-rule-section-header :deep(.v-card-item__content) {
+    grid-area: content;
+  }
+
+  .episode-rule-section-header :deep(.v-card-item__append) {
+    grid-area: append;
+    justify-self: stretch;
+    margin-inline-start: 0;
+  }
+
+  .episode-rule-add-btn {
+    inline-size: 100%;
+  }
+
+  .episode-rule-row {
+    grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.42fr) max-content;
+    grid-template-areas:
+      "toolbar toolbar delete"
+      "name size size"
+      "pattern pattern pattern";
+    align-items: start;
+    gap: 0.875rem;
+  }
+
+  .episode-rule-toolbar {
+    grid-area: toolbar;
+    min-block-size: 2.5rem;
+    min-inline-size: 0;
   }
 
   .episode-rule-enabled {
-    order: 2;
+    margin-inline-start: 0.125rem;
+  }
+
+  .episode-rule-enabled :deep(.v-label) {
+    display: inline-flex;
+    opacity: var(--v-medium-emphasis-opacity);
   }
 
   .episode-rule-delete {
-    order: 3;
-    margin-inline-start: auto;
+    grid-area: delete;
+    align-self: center;
   }
 
   .episode-rule-name {
-    flex: 1 1 calc(50% - 0.25rem);
-    order: 4;
-    min-inline-size: 0;
+    grid-area: name;
   }
 
   .episode-rule-size {
-    flex: 1 1 calc(50% - 0.25rem);
-    order: 5;
-    min-inline-size: 0;
+    grid-area: size;
   }
 
   .episode-rule-pattern {
-    flex: 1 1 100%;
-    order: 6;
+    grid-area: pattern;
+  }
+}
+
+@media (width <= 599px) {
+  .episode-rule-card-content {
+    padding: 0.875rem;
+  }
+
+  .episode-rule-row {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      "toolbar delete"
+      "name name"
+      "pattern pattern"
+      "size size";
+    gap: 0.75rem;
+  }
+
+  .episode-rule-field :deep(.v-field__input) {
+    min-block-size: 2.75rem;
   }
 }
 </style>
