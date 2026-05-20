@@ -28,19 +28,18 @@ function filtersChanged(value: string[]) {
 }
 
 // 过滤规则下拉框
-const selectFilterOptions = ref<{ [key: string]: string }[]>([])
-
-onMounted(() => {
-  selectFilterOptions.value = cloneDeep(innerFilterRules)
-  if (props.custom_rules) {
-    console.log(props.custom_rules)
-    props.custom_rules.map(rule => {
-      selectFilterOptions.value.push({
-        title: rule.name,
-        value: rule.id,
-      })
+// 同时包含内置规则与用户自定义规则；使用 computed 而非 onMounted 一次性赋值，
+// 是为了在父组件异步加载完 custom_rules 或后续新增/删除规则时，
+// 选项与已选 chip 的显示名（title）能跟随刷新，避免回退到原始 ID（如 "zhong"）。
+const selectFilterOptions = computed<{ [key: string]: string }[]>(() => {
+  const options = cloneDeep(innerFilterRules)
+  props.custom_rules?.forEach(rule => {
+    options.push({
+      title: rule.name,
+      value: rule.id,
     })
-  }
+  })
+  return options
 })
 </script>
 
