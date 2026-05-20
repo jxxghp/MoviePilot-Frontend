@@ -528,6 +528,11 @@ function resetSearchResults() {
   applyFilter()
 }
 
+// 判断当前页面是否已经完成过一次带关键词的空结果搜索，避免 keep-alive 返回时自动重搜。
+function hasLoadedEmptySearchResult() {
+  return isRefreshed.value && !progressActive.value && rawDataList.value.length === 0 && hasSearchKeyword(activeSearchParams.value)
+}
+
 // 更新搜索进度
 function updateSearchProgress(eventData: { [key: string]: any }, flushNow: boolean = false) {
   if (eventData.text) {
@@ -1081,6 +1086,7 @@ onMounted(async () => {
 
 useKeepAliveRefresh(async () => {
   if (progressActive.value || isRefreshing.value || isRecommending.value || showingAiResults.value) return
+  if (hasLoadedEmptySearchResult()) return
 
   const refreshParams = await resolveRefreshSearchParams()
   if (!refreshParams) return

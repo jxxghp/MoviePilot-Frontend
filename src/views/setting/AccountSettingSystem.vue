@@ -96,6 +96,7 @@ const SystemSettings = ref<any>({
     RECOGNIZE_PLUGIN_FIRST: false,
     MEDIA_RECOGNIZE_SHARE: true,
     TMDB_API_DOMAIN: null,
+    TMDB_API_KEY: null,
     TMDB_IMAGE_DOMAIN: null,
     TMDB_LOCALE: null,
     META_CACHE_EXPIRE: 0,
@@ -1796,6 +1797,17 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :items="['api.themoviedb.org', 'api.tmdb.org']"
                     :rules="[(v: string) => !!v || t('setting.system.tmdbApiDomainRequired')]"
                     prepend-inner-icon="mdi-api"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.TMDB_API_KEY"
+                    :label="t('setting.system.tmdbApiKey')"
+                    :hint="t('setting.system.tmdbApiKeyHint')"
+                    persistent-hint
+                    :placeholder="t('setting.system.tmdbApiKeyPlaceholder')"
+                    :rules="[(v: string) => !!v || t('setting.system.tmdbApiKeyRequired')]"
+                    prepend-inner-icon="mdi-key-variant"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
