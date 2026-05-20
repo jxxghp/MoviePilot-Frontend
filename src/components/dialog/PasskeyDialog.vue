@@ -206,6 +206,7 @@ watch(
       passkeyList.value = []
     }
   },
+  { immediate: true },
 )
 </script>
 
