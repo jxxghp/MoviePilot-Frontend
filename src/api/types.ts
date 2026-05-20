@@ -646,6 +646,12 @@ export interface Plugin {
   has_page?: boolean
   // 是否有新版本
   has_update?: boolean
+  // 主系统版本是否兼容
+  system_version_compatible?: boolean
+  // 主系统版本兼容提示
+  system_version_message?: string
+  // 主系统版本限定范围
+  system_version?: string
   // 是否本地插件
   is_local?: boolean
   // 插件仓库地址

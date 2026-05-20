@@ -665,6 +665,11 @@ function closePluginProgressDialog() {
 
 // 安装插件
 async function installPlugin(item: Plugin) {
+  if (item?.system_version_compatible === false) {
+    $toast.error(item.system_version_message || t('plugin.incompatibleSystemVersion'))
+    return
+  }
+
   try {
     // 显示等待提示框
     progressText.value = t('plugin.installing', { name: item?.plugin_name, version: item?.plugin_version })
@@ -775,6 +780,9 @@ async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliv
           data.has_update = true
           data.repo_url = uninstalled.repo_url
           data.history = uninstalled.history
+          data.system_version = uninstalled.system_version
+          data.system_version_compatible = uninstalled.system_version_compatible
+          data.system_version_message = uninstalled.system_version_message
         }
       }
     }

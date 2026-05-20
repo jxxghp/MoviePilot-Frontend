@@ -226,6 +226,11 @@ async function resetPlugin() {
 
 // 更新插件
 async function updatePlugin() {
+  if (props.plugin?.system_version_compatible === false) {
+    $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
+    return
+  }
+
   try {
     // 显示等待提示框
     showPluginProgress(t('plugin.updating', { name: props.plugin?.plugin_name }))

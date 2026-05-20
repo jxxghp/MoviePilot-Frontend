@@ -98,6 +98,11 @@ function visitPluginPage() {
 
 /** 安装插件并通知父级刷新市场列表。 */
 async function installPlugin() {
+  if (props.plugin?.system_version_compatible === false) {
+    $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
+    return
+  }
+
   try {
     showInstallProgress(
       t('plugin.installing', {
@@ -176,9 +181,28 @@ onUnmounted(() => {
                       </span>
                     </VListItemTitle>
                   </VListItem>
+                  <VListItem v-if="props.plugin?.system_version" class="ps-0">
+                    <VListItemTitle class="text-center text-md-left">
+                      <span class="font-weight-medium">{{ t('plugin.systemVersion') }}：</span>
+                      <span class="text-body-1">{{ props.plugin?.system_version }}</span>
+                    </VListItemTitle>
+                  </VListItem>
                 </VList>
+                <VAlert
+                  v-if="props.plugin?.system_version_compatible === false"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                  :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
+                />
                 <div class="text-center text-md-left">
-                  <VBtn color="primary" @click="installPlugin" prepend-icon="mdi-download">
+                  <VBtn
+                    color="primary"
+                    @click="installPlugin"
+                    prepend-icon="mdi-download"
+                    :disabled="props.plugin?.system_version_compatible === false"
+                  >
                     {{ t('plugin.installToLocal') }}
                   </VBtn>
                   <div class="text-xs mt-2" v-if="props.count">

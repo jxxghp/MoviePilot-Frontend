@@ -2842,6 +2842,8 @@ export default {
     projectHome: 'Project Home',
     updateHistory: 'Update History',
     local: 'Local',
+    systemVersion: 'System Version',
+    incompatibleSystemVersion: 'The current MoviePilot version does not meet this plugin requirement.',
     installToLocal: 'Install to Local',
     totalDownloads: 'Total {count} downloads',
     viewData: 'View Data',

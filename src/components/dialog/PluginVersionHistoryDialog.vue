@@ -49,7 +49,15 @@ function handleUpdate() {
       <template v-if="props.showUpdateAction">
         <VDivider />
         <VCardItem>
-          <VBtn @click="handleUpdate" block>
+          <VAlert
+            v-if="props.plugin?.system_version_compatible === false"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+            :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
+          />
+          <VBtn @click="handleUpdate" block :disabled="props.plugin?.system_version_compatible === false">
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
             </template>
