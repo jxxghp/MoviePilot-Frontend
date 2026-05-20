@@ -294,6 +294,7 @@ const streamPreviewLimit = 24
 const streamUiFlushDelay = 1000
 const streamPreviewBufferLimit = streamPreviewLimit * 4
 const searchStreamIdleTimeout = 90_000
+const searchStreamDoneCloseDelay = 1500
 
 const streamTotalCount = ref(0)
 const streamPreviewDataList = ref<Array<Context>>([])
@@ -663,6 +664,7 @@ function searchByStream(params: SearchParams, requestToken?: string) {
     closeSearchEventSource()
 
     let settled = false
+    let receivedDone = false
     const source = new EventSource(buildSearchStreamUrl(params, requestToken))
     searchEventSource = source
 
@@ -697,7 +699,12 @@ function searchByStream(params: SearchParams, requestToken?: string) {
         }
 
         if (eventData.type === 'done') {
-          settleSearchStream(resolve)
+          // 收到 done 后给后端留出收尾时间，避免过早关闭连接中断搜索结果缓存写入
+          receivedDone = true
+          clearSearchStreamIdleTimer()
+          searchStreamIdleTimer = setTimeout(() => {
+            settleSearchStream(resolve)
+          }, searchStreamDoneCloseDelay)
         }
       } catch (error) {
         settleSearchStream(() => reject(error))
@@ -706,6 +713,11 @@ function searchByStream(params: SearchParams, requestToken?: string) {
 
     source.onerror = () => {
       if (source !== searchEventSource || settled) return
+
+      if (receivedDone) {
+        settleSearchStream(resolve)
+        return
+      }
 
       settleSearchStream(() => reject(new Error(t('resource.noResourceFound'))))
     }
@@ -1014,8 +1026,8 @@ async function checkAiRecommendStatus() {
     const { success, data } = result
     const status = data?.status
 
-    // 只要有数据且状态不是disabled，就标记已检查（允许重试）
-    if (data && status !== 'disabled') {
+    // 状态检查只是初始化已有推荐结果，非禁用状态下即使后端暂无历史状态也不应锁住按钮
+    if (status !== 'disabled') {
       aiStatusChecked.value = true
     }
 
@@ -1035,6 +1047,8 @@ async function checkAiRecommendStatus() {
     }
   } catch (error) {
     console.error('检查AI状态失败:', error)
+    // 检查失败不影响用户手动发起智能推荐，避免按钮永久不可用
+    aiStatusChecked.value = true
   }
 }
 
