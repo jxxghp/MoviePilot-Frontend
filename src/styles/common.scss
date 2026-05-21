@@ -74,7 +74,7 @@ html {
   block-size: 100%;
 }
 
-// 设置项强调卡片：复用通知模板入口的强调条、轻渐变与悬浮反馈。
+// 设置项强调卡片：复用通知模板入口的弱强调条、轻渐变与悬浮反馈。
 .app-card-colorful {
   overflow: hidden;
   border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity)) !important;
@@ -91,11 +91,11 @@ html {
   color: rgb(var(--v-theme-on-surface));
   --app-card-accent-rgb: var(--v-theme-primary);
   --app-card-accent-end-rgb: var(--app-card-accent-rgb);
-  --app-card-accent-start-opacity: 0.09;
-  --app-card-accent-end-opacity: 0.06;
-  --app-card-border-opacity: 0.2;
-  --app-card-hover-border-opacity: 0.34;
-  --app-card-stripe-opacity: 0.78;
+  --app-card-accent-start-opacity: 0.025;
+  --app-card-accent-end-opacity: 0.012;
+  --app-card-border-opacity: 0.08;
+  --app-card-hover-border-opacity: 0.16;
+  --app-card-stripe-opacity: 0.22;
   --app-card-surface-opacity: 0.92;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -105,7 +105,7 @@ html {
   background: rgb(var(--app-card-accent-rgb));
   block-size: 100%;
   content: "";
-  inline-size: 0.25rem;
+  inline-size: 0.125rem;
   inset-block: 0;
   inset-inline-start: 0;
   opacity: var(--app-card-stripe-opacity);
@@ -136,11 +136,11 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-theme--transparent .app-card-colorful {
   backdrop-filter: blur(var(--transparent-blur, 10px));
   border: 0 !important;
-  --app-card-accent-start-opacity: 0.04;
-  --app-card-accent-end-opacity: 0.03;
+  --app-card-accent-start-opacity: 0.018;
+  --app-card-accent-end-opacity: 0.01;
   --app-card-border-opacity: 0;
   --app-card-hover-border-opacity: 0;
-  --app-card-stripe-opacity: 0.42;
+  --app-card-stripe-opacity: 0.16;
   --app-card-surface-opacity: var(--transparent-opacity-light, 0.2);
 }
 
