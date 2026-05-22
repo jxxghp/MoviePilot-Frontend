@@ -79,18 +79,67 @@ const bestVersionModeLabel = computed(() => {
     : t('subscribe.bestVersionEpisodeShort')
 })
 
+// 已下载集数：total_episode - lack_episode
+const downloadedEpisode = computed(() => {
+  const total = props.media?.total_episode || 0
+  if (!total) return 0
+  return Math.min(Math.max(total - (props.media?.lack_episode || 0), 0), total)
+})
+
+// 是否为洗版订阅（影响进度条与 tooltip 的展示分支）
+const isBestVersion = computed(() => isEnabledFlag(props.media?.best_version) && isTvSubscribe(props.media))
+
+// 已洗版集数：取后端派生字段 completed_episode。普通订阅下其值等于已下载集数，洗版订阅下为
+// (start-1) + [start, total] 范围内 priority==100 命中数。
+const completedEpisode = computed(() => {
+  const total = props.media?.total_episode || 0
+  return Math.min(Math.max(props.media?.completed_episode ?? 0, 0), total)
+})
+
+// 卡片主文案：已下载集数 / 总集数
+const subscribeProgressText = computed(() => {
+  const total = props.media?.total_episode || 0
+  if (!total) return ''
+  return `${downloadedEpisode.value} / ${total}`
+})
+
+// 订阅卡片 hover 文案：
+// - 普通订阅：「已下载 X · 共 Y 集」
+// - 洗版订阅：「已下载 X · 已洗版 N · 共 Y 集」
+const subscribeProgressTooltip = computed(() => {
+  const total = props.media?.total_episode || 0
+  if (!total) return ''
+
+  if (isBestVersion.value) {
+    return t('subscribe.bestVersionEpisodeProgressTooltip', {
+      completed: completedEpisode.value,
+      downloaded: downloadedEpisode.value,
+      total,
+    })
+  }
+
+  return t('subscribe.subscribeProgressTooltip', { downloaded: downloadedEpisode.value, total })
+})
+
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
 }
 
-// 计算百分比
+// 进度条 model 段百分比：洗版订阅表示"已洗版"占比（亮段），普通订阅表示"已下载"占比
 function getPercentage() {
-  if (props.media?.total_episode === 0) return 0
+  const total = props.media?.total_episode || 0
+  if (!total) return 0
+  const value = isBestVersion.value ? completedEpisode.value : downloadedEpisode.value
+  return Math.round((value / total) * 100)
+}
 
-  return Math.round(
-    (((props.media?.total_episode ?? 0) - (props.media?.lack_episode ?? 0)) / (props.media?.total_episode ?? 1)) * 100,
-  )
+// 洗版进度条的 buffer 段百分比：表示"已下载"的占比，叠在底色之上、高亮段之外。
+// 普通订阅 buffer 与 model 等值（视觉上呈单段），此函数仅在洗版场景被模板调用。
+function getBufferPercentage() {
+  const total = props.media?.total_episode || 0
+  if (!isBestVersion.value || !total) return 0
+  return Math.round((downloadedEpisode.value / total) * 100)
 }
 
 // 删除订阅
@@ -444,9 +493,12 @@ function handleCardClick() {
                     icon="mdi-progress-download"
                     color="white"
                   />
-                  <div v-if="props.media?.season" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
-                    {{ (props.media?.total_episode || 0) - (props.media?.lack_episode || 0) }} /
-                    {{ props.media?.total_episode }}
+                  <!-- 守卫改用 total_episode：电视剧订阅可能不带 season 字段（旧数据或自定义来源），仍应展示集数进度 -->
+                  <div v-if="props.media?.total_episode" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
+                    {{ subscribeProgressText }}
+                    <VTooltip v-if="subscribeProgressTooltip" activator="parent" location="top">
+                      {{ subscribeProgressTooltip }}
+                    </VTooltip>
                   </div>
                   <VChip
                     v-if="bestVersionModeLabel"
@@ -473,8 +525,22 @@ function handleCardClick() {
                 {{ lastUpdateText }}
               </VCardText>
               <div class="w-full absolute bottom-0">
+                <!--
+                  分集洗版模式：底色保持深绿、buffer 段显示"已下载未洗版"为浅绿、model 段显示"已洗版完成"为亮绿，
+                  形成两段语义；其余订阅维持原有单段进度条
+                -->
                 <VProgressLinear
-                  v-if="getPercentage() > 0"
+                  v-if="isBestVersion && getBufferPercentage() > 0"
+                  :model-value="getPercentage()"
+                  :buffer-value="getBufferPercentage()"
+                  bg-color="success"
+                  bg-opacity="0.25"
+                  color="success"
+                  buffer-color="success"
+                  buffer-opacity="0.55"
+                />
+                <VProgressLinear
+                  v-else-if="getPercentage() > 0"
                   :model-value="getPercentage()"
                   bg-color="success"
                   color="success"
