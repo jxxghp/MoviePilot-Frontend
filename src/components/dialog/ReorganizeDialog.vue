@@ -438,15 +438,37 @@ const previewToggleIcon = computed(() => {
   return previewVisible.value ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
 })
 
+function getFileParentKey(item?: FileItem) {
+  if (!item?.path) return ''
+  const storage = item.storage ?? 'local'
+  const pathParts = item.path.split('/')
+  pathParts.pop()
+  const parentPath = pathParts.join('/') || '/'
+  return `${storage}|${parentPath}`
+}
+
+const episodeFormatRecommendSelectedFileItems = computed(() => {
+  return shouldUseBatchFileItems(normalizedItems.value) ? normalizedItems.value : []
+})
+
+const episodeFormatRecommendHasValidSelectedFiles = computed(() => {
+  if (episodeFormatRecommendSelectedFileItems.value.length <= 1) return false
+
+  const directoryKeys = new Set(
+    episodeFormatRecommendSelectedFileItems.value.map(item => getFileParentKey(item)),
+  )
+  return directoryKeys.size === 1
+})
+
 const episodeFormatRecommendSourceItem = computed<FileItem | undefined>(() => {
-  if (transferForm.fileitem?.path) return transferForm.fileitem
   if (normalizedItems.value.length !== 1) return undefined
   return normalizedItems.value[0]
 })
 
 const canRecommendEpisodeFormat = computed(() => {
   return (
-    Boolean(episodeFormatRecommendSourceItem.value?.path) &&
+    (Boolean(episodeFormatRecommendSourceItem.value?.path) ||
+      episodeFormatRecommendHasValidSelectedFiles.value) &&
     !progressDialog.value &&
     !episodeFormatRecommendState.loading
   )
@@ -454,7 +476,15 @@ const canRecommendEpisodeFormat = computed(() => {
 
 const episodeFormatRecommendTooltip = computed(() => {
   if (episodeFormatRecommendState.loading) return t('dialog.reorganize.episodeFormatRecommendLoading')
-  if (!episodeFormatRecommendSourceItem.value?.path) return t('dialog.reorganize.episodeFormatRecommendSelectFile')
+  if (
+    normalizedItems.value.length > 1 &&
+    !episodeFormatRecommendHasValidSelectedFiles.value
+  ) {
+    return t('dialog.reorganize.episodeFormatRecommendInvalidSelection')
+  }
+  if (!episodeFormatRecommendSourceItem.value?.path && !episodeFormatRecommendHasValidSelectedFiles.value) {
+    return t('dialog.reorganize.episodeFormatRecommendSelectFile')
+  }
   if (episodeFormatRuleConfigured.value === false) return t('dialog.reorganize.episodeFormatRecommendNeedWords')
   return t('dialog.reorganize.episodeFormatRecommendAction')
 })
@@ -472,14 +502,35 @@ watch(
   { immediate: true },
 )
 
+function shouldUseBatchFileItems(items: FileItem[]) {
+  return items.length > 0 && items.every(item => item.type === 'file')
+}
+
+function getBatchItemsLabel(items: FileItem[]) {
+  if (items.length === 1) return items[0].path || items[0].name
+  return t('dialog.reorganize.multipleItemsTitle', { count: items.length })
+}
+
 // 构造整理请求
-function createTransferPayload(options: { item?: FileItem; logid?: number; preview?: boolean }) {
+function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; logid?: number; preview?: boolean }) {
+  const sourceItem =
+    options.item ??
+    (options.items?.length
+      ? options.items[0]
+      : ({} as FileItem))
   const payload: ManualTransferPayload = {
     ...transferForm,
-    fileitem: options.item ?? ({} as FileItem),
+    fileitem: sourceItem,
     logid: options.logid ?? 0,
   }
 
+  if (options.items?.length) {
+    payload.fileitems = options.items
+    if (!options.item) {
+      // 文件集合请求以 fileitems 为准，避免残留 fileitem 状态把请求误导成目录语义。
+      delete payload.fileitem
+    }
+  }
   if (options.preview) payload.preview = true
   return payload
 }
@@ -504,8 +555,14 @@ async function loadEpisodeFormatRuleConfiguration() {
 
 async function handleRecommendEpisodeFormat() {
   const sourceItem = episodeFormatRecommendSourceItem.value
-  if (!sourceItem?.path) {
-    $toast.warning(t('dialog.reorganize.episodeFormatRecommendSelectFile'))
+  const selectedFileItems = episodeFormatRecommendSelectedFileItems.value
+  const hasValidSelectedFiles = episodeFormatRecommendHasValidSelectedFiles.value
+  if (!sourceItem?.path && !hasValidSelectedFiles) {
+    $toast.warning(
+      normalizedItems.value.length > 1
+        ? t('dialog.reorganize.episodeFormatRecommendInvalidSelection')
+        : t('dialog.reorganize.episodeFormatRecommendSelectFile'),
+    )
     return
   }
 
@@ -518,9 +575,16 @@ async function handleRecommendEpisodeFormat() {
 
   try {
     const hasExistingEpisodeFormat = Boolean(transferForm.episode_format?.trim())
-    const result = await api.post('transfer/episode-format/recommend', {
-      fileitem: sourceItem,
-    })
+    const result = await api.post(
+      'transfer/episode-format/recommend',
+      hasValidSelectedFiles
+        ? {
+            fileitems: selectedFileItems,
+          }
+        : {
+            fileitem: sourceItem,
+          },
+    )
 
     if (!result.success) {
       $toast.error(result.message || t('dialog.reorganize.episodeFormatRecommendFailed'))
@@ -645,40 +709,68 @@ async function previewTransfer() {
     const tasks: Promise<void>[] = []
 
     if (normalizedItems.value.length) {
-      tasks.push(
-        ...normalizedItems.value.map(async item => {
-          try {
-            const result = await requestManualTransfer<ManualTransferPreviewData>(
-              createTransferPayload({ item, preview: true }),
+      if (shouldUseBatchFileItems(normalizedItems.value)) {
+        try {
+          const result = await requestManualTransfer<ManualTransferPreviewData>(
+            createTransferPayload({ items: normalizedItems.value, preview: true }),
+          )
+          if (!result.success) {
+            mergePreviewData(
+              mergedPreviewData,
+              createFailedPreviewData({
+                source: getBatchItemsLabel(normalizedItems.value),
+                message: result.message || t('dialog.reorganize.previewRequestFailed'),
+              }),
             )
-            if (!result.success) {
+          } else {
+            mergePreviewData(mergedPreviewData, result.data)
+          }
+        } catch (err: any) {
+          console.warn(`预览请求异常: ${err?.message}`)
+          mergePreviewData(
+            mergedPreviewData,
+            createFailedPreviewData({
+              source: getBatchItemsLabel(normalizedItems.value),
+              message: `${getBatchItemsLabel(normalizedItems.value)}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
+            }),
+          )
+        }
+      } else {
+        tasks.push(
+          ...normalizedItems.value.map(async item => {
+            try {
+              const result = await requestManualTransfer<ManualTransferPreviewData>(
+                createTransferPayload({ item, preview: true }),
+              )
+              if (!result.success) {
+                mergePreviewData(
+                  mergedPreviewData,
+                  createFailedPreviewData({
+                    source: item.path || item.name,
+                    type: item.type,
+                    title: item.name,
+                    message: result.message || t('dialog.reorganize.previewRequestFailed'),
+                  }),
+                )
+                return
+              }
+
+              mergePreviewData(mergedPreviewData, result.data)
+            } catch (err: any) {
+              console.warn(`预览请求异常: ${err?.message}`)
               mergePreviewData(
                 mergedPreviewData,
                 createFailedPreviewData({
                   source: item.path || item.name,
                   type: item.type,
                   title: item.name,
-                  message: result.message || t('dialog.reorganize.previewRequestFailed'),
+                  message: `${item.name || item.path}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
                 }),
               )
-              return
             }
-
-            mergePreviewData(mergedPreviewData, result.data)
-          } catch (err: any) {
-            console.warn(`预览请求异常: ${err?.message}`)
-            mergePreviewData(
-              mergedPreviewData,
-              createFailedPreviewData({
-                source: item.path || item.name,
-                type: item.type,
-                title: item.name,
-                message: `${item.name || item.path}: ${err?.message || t('dialog.reorganize.previewRequestFailed')}`,
-              }),
-            )
-          }
-        }),
-      )
+          }),
+        )
+      }
     }
 
     if (props.logids) {
@@ -794,6 +886,16 @@ async function handleTransfer(item: FileItem, background: boolean = false) {
   }
 }
 
+async function handleTransferBatch(items: FileItem[], background: boolean = false) {
+  try {
+    const result: { [key: string]: any } = await requestManualTransfer(createTransferPayload({ items }), background)
+    if (!result.success) $toast.error(result.message)
+    else if (background) $toast.success(t('dialog.reorganize.successMessage', { name: getBatchItemsLabel(items) }))
+  } catch (e) {
+    console.log(e)
+  }
+}
+
 // 整理日志
 async function handleTransferLog(logid: number, background: boolean = false) {
   try {
@@ -850,15 +952,22 @@ async function transfer(background: boolean = false) {
 
   // 文件整理
   if (normalizedItems.value.length) {
-    for (const item of normalizedItems.value) {
+    if (shouldUseBatchFileItems(normalizedItems.value)) {
       if (!background) {
-        // 如果是文件，计算MD5
-        const key = item.type === 'dir' ? 'filetransfer' : CryptoJS.MD5(item.path).toString()
-
-        // 开始监听进度
-        startLoadingProgress(key)
+        startLoadingProgress('filetransfer')
       }
-      await handleTransfer(item, background)
+      await handleTransferBatch(normalizedItems.value, background)
+    } else {
+      for (const item of normalizedItems.value) {
+        if (!background) {
+          // 如果是文件，计算MD5
+          const key = item.type === 'dir' ? 'filetransfer' : CryptoJS.MD5(item.path).toString()
+
+          // 开始监听进度
+          startLoadingProgress(key)
+        }
+        await handleTransfer(item, background)
+      }
     }
   }
 
