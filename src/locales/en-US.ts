@@ -986,6 +986,8 @@ export default {
     bestVersion: 'Version Upgrading',
     bestVersionEpisodeShort: 'Episode',
     bestVersionWholeShort: 'Full',
+    bestVersionEpisodeProgressTooltip: 'Upgraded {completed} · Downloaded {downloaded} · Total {total}',
+    subscribeProgressTooltip: 'Downloaded {downloaded} · Total {total}',
     completed: 'Completed',
     subscribing: 'Subscribing',
     notStarted: 'Not Started',

@@ -109,10 +109,11 @@ function getSubscribeStatus(subscribe: Subscribe) {
     return 'all'
   }
 
-  // 电视剧根据集数情况判断
+  // 电视剧根据集数情况判断：completed_episode 由后端按订阅类型派生
+  // （普通=已入库集数，洗版=起始集前 + [start, total] 范围内 priority==100 命中）
   if (subscribe.total_episode && subscribe.total_episode > 0) {
     const lackEpisode = subscribe.lack_episode || 0
-    const completedEpisode = subscribe.total_episode - lackEpisode
+    const completedEpisode = subscribe.completed_episode ?? 0
 
     if (lackEpisode === 0) {
       return 'completed' // 订阅完成

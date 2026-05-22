@@ -46,6 +46,8 @@ export interface Subscribe {
   start_episode?: number
   // 缺失集数
   lack_episode?: number
+  // 已完成集数（普通订阅 = 已入库集数，洗版订阅 = 起始集前 + [start, total] 范围内 priority==100 命中数）
+  completed_episode?: number
   // 附加信息
   note?: string
   // 状态：N-新建 R-订阅中 P-待定 S-暂停
@@ -64,6 +66,8 @@ export interface Subscribe {
   search_imdbid?: any
   // 当前优先级
   current_priority: number
+  // 洗版时已下载剧集的优先级状态
+  episode_priority?: Record<string, number>
   // 保存目录
   save_path?: string
   // 时间

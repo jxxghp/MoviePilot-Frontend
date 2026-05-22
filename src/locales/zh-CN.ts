@@ -981,6 +981,8 @@ export default {
     bestVersion: '洗版中',
     bestVersionEpisodeShort: '分集',
     bestVersionWholeShort: '全集',
+    bestVersionEpisodeProgressTooltip: '已洗版 {completed} · 已下载 {downloaded} · 共 {total} 集',
+    subscribeProgressTooltip: '已下载 {downloaded} · 共 {total} 集',
     completed: '订阅完成',
     subscribing: '订阅中',
     notStarted: '未开始',
