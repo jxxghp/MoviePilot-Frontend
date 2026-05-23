@@ -121,7 +121,7 @@ const SystemSettings = ref<any>({
     // 实验室
     PLUGIN_AUTO_RELOAD: false,
     PLUGIN_LOCAL_REPO_PATHS: '',
-    RUST_ACCEL: true,
+    RUST_ACCEL: false,
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
     TRANSFER_THREADS: 1,
   },
@@ -624,8 +624,9 @@ async function loadSystemSettings() {
           if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
         })
       }
-      rustAccelAvailable.value = Boolean(result.data.RUST_ACCEL_AVAILABLE)
-      if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
+      const accelEnabled = Boolean(result.data.RUST_ACCEL_ENABLED)
+      rustAccelAvailable.value = accelEnabled
+      if (!accelEnabled) SystemSettings.value.Advanced.RUST_ACCEL = false
       SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
       await loadLlmProviders()
     }
@@ -2246,6 +2247,28 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
             <div>
               <VRow>
                 <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.PLUGIN_LOCAL_REPO_PATHS"
+                    :label="t('setting.system.pluginLocalRepoPaths')"
+                    :hint="t('setting.system.pluginLocalRepoPathsHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-folder"
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model.number="SystemSettings.Advanced.TRANSFER_THREADS"
+                    :label="t('setting.system.transferThreads')"
+                    :hint="t('setting.system.transferThreadsHint')"
+                    persistent-hint
+                    type="number"
+                    min="1"
+                    prepend-inner-icon="mdi-swap-horizontal"
+                  />
+                </VCol>
+              </VRow>
+              <VRow>
+                <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.PLUGIN_AUTO_RELOAD"
                     :label="t('setting.system.pluginAutoReload')"
@@ -2268,26 +2291,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :hint="rustAccelHint"
                     :disabled="!rustAccelAvailable"
                     persistent-hint
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.PLUGIN_LOCAL_REPO_PATHS"
-                    :label="t('setting.system.pluginLocalRepoPaths')"
-                    :hint="t('setting.system.pluginLocalRepoPathsHint')"
-                    persistent-hint
-                    prepend-inner-icon="mdi-folder"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VTextField
-                    v-model.number="SystemSettings.Advanced.TRANSFER_THREADS"
-                    :label="t('setting.system.transferThreads')"
-                    :hint="t('setting.system.transferThreadsHint')"
-                    persistent-hint
-                    type="number"
-                    min="1"
-                    prepend-inner-icon="mdi-swap-horizontal"
                   />
                 </VCol>
               </VRow>
