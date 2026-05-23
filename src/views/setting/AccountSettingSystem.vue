@@ -2254,15 +2254,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   />
                 </VCol>
                 <VCol cols="12" md="6">
-                  <VTextField
-                    v-model="SystemSettings.Advanced.PLUGIN_LOCAL_REPO_PATHS"
-                    :label="t('setting.system.pluginLocalRepoPaths')"
-                    :hint="t('setting.system.pluginLocalRepoPathsHint')"
-                    persistent-hint
-                    prepend-inner-icon="mdi-folder"
-                  />
-                </VCol>
-                <VCol cols="12" md="6">
                   <VSwitch
                     v-model="SystemSettings.Advanced.ENCODING_DETECTION_PERFORMANCE_MODE"
                     :label="t('setting.system.encodingDetectionPerformanceMode')"
@@ -2277,6 +2268,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     :hint="rustAccelHint"
                     :disabled="!rustAccelAvailable"
                     persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VTextField
+                    v-model="SystemSettings.Advanced.PLUGIN_LOCAL_REPO_PATHS"
+                    :label="t('setting.system.pluginLocalRepoPaths')"
+                    :hint="t('setting.system.pluginLocalRepoPathsHint')"
+                    persistent-hint
+                    prepend-inner-icon="mdi-folder"
                   />
                 </VCol>
                 <VCol cols="12" md="6">
