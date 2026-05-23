@@ -121,6 +121,7 @@ const SystemSettings = ref<any>({
     // 实验室
     PLUGIN_AUTO_RELOAD: false,
     PLUGIN_LOCAL_REPO_PATHS: '',
+    RUST_ACCEL: true,
     ENCODING_DETECTION_PERFORMANCE_MODE: true,
     TRANSFER_THREADS: 1,
   },
@@ -197,6 +198,7 @@ const advancedDialog = ref(false)
 
 const savingBasic = ref(false)
 const testingLlm = ref(false)
+const rustAccelAvailable = ref(false)
 
 // 智能助手配置项较多，默认收起以降低基础设置页的视觉占用。
 const aiAgentSettingsCollapsed = ref(true)
@@ -438,6 +440,10 @@ const canTestLlm = computed(() => {
   )
 })
 
+const rustAccelHint = computed(() =>
+  rustAccelAvailable.value ? t('setting.system.rustAccelHint') : t('setting.system.rustAccelUnavailableHint'),
+)
+
 const thinkingLevelItems = computed(() => [
   { title: t('setting.system.llmThinkingLevelOff'), value: 'off' },
   { title: t('setting.system.llmThinkingLevelAuto'), value: 'auto' },
@@ -618,6 +624,8 @@ async function loadSystemSettings() {
           if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
         })
       }
+      rustAccelAvailable.value = Boolean(result.data.RUST_ACCEL_AVAILABLE)
+      if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
       SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
       await loadLlmProviders()
     }
@@ -699,6 +707,7 @@ async function testLlmConnection() {
 
 // 保存高级设置
 async function saveAdvancedSettings() {
+  if (!rustAccelAvailable.value) SystemSettings.value.Advanced.RUST_ACCEL = false
   cleanEmptyFields(SystemSettings.value.Advanced, ['LOG_FILE_FORMAT'])
 
   // 同时保存高级设置和刮削开关设置
@@ -2258,6 +2267,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     v-model="SystemSettings.Advanced.ENCODING_DETECTION_PERFORMANCE_MODE"
                     :label="t('setting.system.encodingDetectionPerformanceMode')"
                     :hint="t('setting.system.encodingDetectionPerformanceModeHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.RUST_ACCEL"
+                    :label="t('setting.system.rustAccel')"
+                    :hint="rustAccelHint"
+                    :disabled="!rustAccelAvailable"
                     persistent-hint
                   />
                 </VCol>
