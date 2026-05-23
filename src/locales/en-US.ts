@@ -2554,7 +2554,8 @@ export default {
       episodeFormatPlaceholder: 'Use {ep} to position episode',
       episodeFormatRecommendAction: 'Generate',
       episodeFormatRecommendLoading: 'Generating...',
-      episodeFormatRecommendSelectFile: 'Please select a single file or directory first',
+      episodeFormatRecommendSelectFile: 'Please select a single file, a single directory, or multiple files first',
+      episodeFormatRecommendInvalidSelection: 'Current selection cannot be used for template generation',
       episodeFormatRecommendNeedWords:
         'Manual episode positioning rules are empty, please fill them in on the words page first',
       episodeFormatRecommendSuccess: 'Episode format template generated',

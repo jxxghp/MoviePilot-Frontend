@@ -1328,7 +1328,12 @@ export interface TransferForm {
 }
 
 // 手动整理请求
-export interface ManualTransferPayload extends TransferForm {}
+export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem'> {
+  // 文件项
+  fileitem?: FileItem
+  // 多选文件批量请求
+  fileitems?: FileItem[]
+}
 
 // 手动整理预览统计
 export interface ManualTransferPreviewSummary {
