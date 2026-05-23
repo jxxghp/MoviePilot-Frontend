@@ -772,11 +772,8 @@ onUnmounted(() => {
           rounded
         />
         <VSpacer v-if="isFile" />
-        <IconBtn v-if="!isFile" @click="ignoreCase = !ignoreCase">
+        <IconBtn v-if="!isFile && !selectMode" @click="ignoreCase = !ignoreCase">
           <VIcon :color="ignoreCase ? 'primary' : 'error'" icon="mdi-format-letter-case" />
-        </IconBtn>
-        <IconBtn v-if="!isFile" @click="changeSelectMode">
-          <VIcon color="primary" :icon="selectMode ? 'mdi-selection-remove' : 'mdi-select'" />
         </IconBtn>
         <IconBtn v-if="isFile" @click="recognize(inProps.item.path || '')">
           <VIcon color="primary"> mdi-text-recognition </VIcon>
@@ -784,7 +781,7 @@ onUnmounted(() => {
         <IconBtn v-if="isFile && items.length > 0" @click="download(items[0])">
           <VIcon color="primary"> mdi-download </VIcon>
         </IconBtn>
-        <IconBtn v-if="!isFile" @click="list_files">
+        <IconBtn v-if="!isFile && !selectMode" @click="list_files">
           <VIcon color="primary"> mdi-refresh </VIcon>
         </IconBtn>
         <!-- 批量操作按钮 -->
@@ -799,6 +796,9 @@ onUnmounted(() => {
             <VIcon icon="mdi-delete-outline" color="error" />
           </IconBtn>
         </span>
+        <IconBtn v-if="!isFile" @click="changeSelectMode">
+          <VIcon color="primary" :icon="selectMode ? 'mdi-selection-remove' : 'mdi-select'" />
+        </IconBtn>
       </div>
       <LoadingBanner v-if="loading" />
       <!-- 文件详情 -->

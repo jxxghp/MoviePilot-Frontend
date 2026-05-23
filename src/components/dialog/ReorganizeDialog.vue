@@ -113,10 +113,12 @@ const episodeFormatRecommendState = reactive<{
 
 const episodeFormatRuleConfigured = ref<boolean | undefined>(undefined)
 
+// 生成文件项稳定键，用于去重和状态同步。
 function getFileItemKey(item?: FileItem) {
   return [item?.storage ?? '', item?.type ?? '', item?.path ?? ''].join('|')
 }
 
+// 按存储、类型和路径去重文件项。
 function dedupeFileItems(fileItems?: FileItem[]) {
   if (!fileItems?.length) return []
 
@@ -128,6 +130,7 @@ function dedupeFileItems(fileItems?: FileItem[]) {
   return Array.from(uniqueItems.values())
 }
 
+// 生成预览项稳定键，避免合并多次预览结果时重复展示。
 function getPreviewItemKey(item: ManualTransferPreviewItem) {
   return [item.source ?? '', item.target ?? '', item.success === false ? 'failed' : 'success'].join('|')
 }
@@ -438,6 +441,7 @@ const previewToggleIcon = computed(() => {
   return previewVisible.value ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
 })
 
+// 获取文件父目录键，用于判断多文件是否来自同一目录。
 function getFileParentKey(item?: FileItem) {
   if (!item?.path) return ''
   const storage = item.storage ?? 'local'
@@ -502,10 +506,12 @@ watch(
   { immediate: true },
 )
 
+// 判断文件集合是否可以按批量文件请求提交。
 function shouldUseBatchFileItems(items: FileItem[]) {
   return items.length > 0 && items.every(item => item.type === 'file')
 }
 
+// 生成批量文件在提示和错误信息中的显示名称。
 function getBatchItemsLabel(items: FileItem[]) {
   if (items.length === 1) return items[0].path || items[0].name
   return t('dialog.reorganize.multipleItemsTitle', { count: items.length })
@@ -540,9 +546,10 @@ async function requestManualTransfer<T = any>(
   payload: ManualTransferPayload,
   background: boolean = false,
 ): Promise<ApiResponse<T>> {
-  return await api.post(`transfer/manual?background=${background}`, payload)
+  return await api.post<ApiResponse<T>, ApiResponse<T>>(`transfer/manual?background=${background}`, payload)
 }
 
+// 加载剧集格式规则配置状态，用于决定是否允许自动推荐。
 async function loadEpisodeFormatRuleConfiguration() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
@@ -553,6 +560,7 @@ async function loadEpisodeFormatRuleConfiguration() {
   }
 }
 
+// 根据当前文件或同目录多文件请求推荐剧集格式。
 async function handleRecommendEpisodeFormat() {
   const sourceItem = episodeFormatRecommendSourceItem.value
   const selectedFileItems = episodeFormatRecommendSelectedFileItems.value
@@ -575,7 +583,7 @@ async function handleRecommendEpisodeFormat() {
 
   try {
     const hasExistingEpisodeFormat = Boolean(transferForm.episode_format?.trim())
-    const result = await api.post(
+    const result = await api.post<ApiResponse<EpisodeFormatRecommendData>, ApiResponse<EpisodeFormatRecommendData>>(
       'transfer/episode-format/recommend',
       hasValidSelectedFiles
         ? {
@@ -591,7 +599,7 @@ async function handleRecommendEpisodeFormat() {
       return
     }
 
-    const data = (result.data ?? {}) as EpisodeFormatRecommendData
+    const data = result.data ?? {}
     if (!data.episode_format) {
       $toast.error(t('dialog.reorganize.episodeFormatRecommendFailed'))
       return
@@ -615,7 +623,7 @@ async function handleRecommendEpisodeFormat() {
   }
 }
 
-// 默认预览数据
+// 创建空预览数据，作为多次预览结果的合并目标。
 function getDefaultPreviewData(): ManualTransferPreviewData {
   return {
     summary: {
@@ -628,18 +636,21 @@ function getDefaultPreviewData(): ManualTransferPreviewData {
   }
 }
 
+// 重置预览数据和分页状态。
 function resetPreviewState() {
   previewData.value = undefined
   previewLoaded.value = false
   previewPage.value = 1
 }
 
+// 判断预览结果中是否存在失败项。
 function previewHasFailures(data?: ManualTransferPreviewData) {
   if (!data) return false
 
   return (data.summary.failed ?? 0) > 0 || (data.items ?? []).some(item => item.success === false)
 }
 
+// 生成预览结果成功和失败数量摘要。
 function getPreviewResultSummaryMessage(data?: ManualTransferPreviewData) {
   const success = data?.summary.success ?? 0
   const failed = data?.summary.failed ?? 0
@@ -650,6 +661,7 @@ function getPreviewResultSummaryMessage(data?: ManualTransferPreviewData) {
   ].join('，')
 }
 
+// 构造单条失败预览数据，便于把异常请求合并到预览列表。
 function createFailedPreviewData(options: { source?: string; type?: string; title?: string; message?: string }) {
   const failedItem: ManualTransferPreviewItem = {
     source: options.source,
@@ -824,6 +836,7 @@ async function previewTransfer() {
   }
 }
 
+// 切换预览面板，首次展开时拉取最新预览结果。
 async function togglePreview() {
   if (previewLoading.value) return
 
@@ -886,6 +899,7 @@ async function handleTransfer(item: FileItem, background: boolean = false) {
   }
 }
 
+// 批量整理文件并按后台模式决定是否提示入队成功。
 async function handleTransferBatch(items: FileItem[], background: boolean = false) {
   try {
     const result: { [key: string]: any } = await requestManualTransfer(createTransferPayload({ items }), background)
