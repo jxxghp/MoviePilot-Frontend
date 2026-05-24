@@ -186,9 +186,15 @@ function episodeGroupItemProps(item: { title: string; subtitle?: string }) {
   }
 }
 
-// 剧集组选项，保留空值作为不指定剧集组。
-const episodeGroupOptions = computed(() => {
-  const options = (
+interface EpisodeGroupOption {
+  title: string
+  subtitle: string
+  value: string | null
+}
+
+// 剧集组选项，保留 null 作为不指定剧集组。
+const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
+  const options: EpisodeGroupOption[] = (
     episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]
   ).map(item => {
     return {
@@ -204,7 +210,7 @@ const episodeGroupOptions = computed(() => {
   options.unshift({
     title: t('dialog.reorganize.defaultEpisodeGroup'),
     subtitle: t('dialog.reorganize.defaultEpisodeGroupHint'),
-    value: '',
+    value: null,
   })
 
   return options
@@ -264,6 +270,7 @@ const transferForm = reactive<TransferForm>({
   min_filesize: 0,
   scrape: false,
   from_history: false,
+  episode_group: null,
 })
 
 // 所有媒体库目录
@@ -316,7 +323,7 @@ watch(
 watch(
   () => transferForm.tmdbid,
   tmdbid => {
-    transferForm.episode_group = ''
+    transferForm.episode_group = null
     episodeGroups.value = []
     if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
     if (transferForm.type_name !== '电视剧' || mediaSource.value !== 'themoviedb') return
@@ -332,7 +339,7 @@ watch(
       getEpisodeGroups(transferForm.tmdbid)
       return
     }
-    transferForm.episode_group = ''
+    transferForm.episode_group = null
     episodeGroups.value = []
   },
 )
@@ -613,7 +620,7 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     ...transferForm,
     fileitem: sourceItem,
     logid: options.logid ?? 0,
-    episode_group: transferForm.episode_group?.trim() || undefined,
+    episode_group: transferForm.episode_group?.trim() || null,
   }
 
   if (options.items?.length) {

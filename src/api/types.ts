@@ -1322,7 +1322,7 @@ export interface TransferForm {
   // 媒体库类别子目录
   library_category_folder?: boolean
   // 剧集组编号
-  episode_group?: string
+  episode_group?: string | null
   // 预览模式
   preview?: boolean
 }
