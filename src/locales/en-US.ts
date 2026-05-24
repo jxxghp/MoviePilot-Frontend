@@ -1850,7 +1850,7 @@ export default {
         'Word to replace => Replacement\n' +
         'Front word <> Back word >> Episode offset (EP)\n' +
         'Word to replace => Replacement && Front word <> Back word >> Episode offset (EP)\n' +
-        'Replacement format supports: &#123;[tmdbid/doubanid=xxx;type=movie/tv;s=xxx;e=xxx]&#125; to directly specify TMDBID/Douban ID, where s and e are season and episode numbers (optional)',
+        'Replacement format supports: &#123;[tmdbid/doubanid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to directly specify TMDBID/Douban ID, where g is the episode group ID and s/e are season and episode numbers (all optional)',
       identifierSaveSuccess: 'Custom identifiers saved successfully',
       identifierSaveFailed: 'Failed to save custom identifiers!',
 
@@ -2544,9 +2544,13 @@ export default {
       doubanId: 'Douban ID',
       mediaIdHint: 'Query media ID by name, leave empty for auto recognition',
       mediaIdPlaceholder: 'Leave empty for auto recognition',
-      episodeGroup: 'Episode Group ID',
-      episodeGroupHint: 'Specify episode group',
-      episodeGroupPlaceholder: 'Manually query episode group',
+      episodeGroup: 'Episode Group',
+      episodeGroupHint: 'After entering a TMDB ID, episode groups are queried automatically; group IDs can still be entered manually',
+      episodeGroupPlaceholder: 'Enter TMDB ID first',
+      defaultEpisodeGroup: 'No episode group',
+      defaultEpisodeGroupHint: 'Use TMDB default season and episode order',
+      seasonCount: '{count} seasons',
+      episodeCount: '{count} episodes',
       season: 'Season',
       seasonHint: 'Which season',
       episodeDetail: 'Episode',
@@ -2660,7 +2664,7 @@ export default {
       customWords: 'Custom Recognition Words',
       customWordsHint: 'Recognition words only used for this subscription',
       customWordsPlaceholder:
-        'Block word\nReplaced word => Replacement word\nPrefix <> Suffix >> Episode offset (EP)\nReplaced word => Replacement word && Prefix <> Suffix >> Episode offset (EP)\nReplacement word supports format: &#123; tmdbid/doubanid=xxx;type=movie/tv;s=xxx;e=xxx &#125; to directly specify TMDBID/Douban ID recognition, where s, e are season and episode numbers (optional)',
+        'Block word\nReplaced word => Replacement word\nPrefix <> Suffix >> Episode offset (EP)\nReplaced word => Replacement word && Prefix <> Suffix >> Episode offset (EP)\nReplacement word supports format: &#123;[tmdbid/doubanid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; to directly specify TMDBID/Douban ID recognition, where g is the episode group ID and s/e are season and episode numbers (all optional)',
       cancelSubscribe: 'Cancel Subscription',
       save: 'Save',
       cancelSubscribeConfirm: 'Are you sure you want to cancel the subscription?',

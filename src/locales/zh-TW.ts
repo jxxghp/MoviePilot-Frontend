@@ -1820,7 +1820,7 @@ export default {
         '被替換詞 => 替換詞\n' +
         '前定位詞 <> 後定位詞 >> 集偏移量（EP）\n' +
         '被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n' +
-        '其中替換詞支持格式：&#123;[tmdbid/doubanid=xxx;type=movie/tv;s=xxx;e=xxx]&#125; 直接指定TMDBID/豆瓣ID識別，其中s、e為季數和集數（可選）',
+        '其中替換詞支持格式：&#123;[tmdbid/doubanid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定TMDBID/豆瓣ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
       identifierSaveSuccess: '自定義識別詞保存成功',
       identifierSaveFailed: '自定義識別詞保存失敗！',
 
@@ -2499,9 +2499,13 @@ export default {
       doubanId: '豆瓣編號',
       mediaIdHint: '按名稱查詢媒體編號，留空自動識別',
       mediaIdPlaceholder: '留空自動識別',
-      episodeGroup: '劇集組編號',
-      episodeGroupHint: '指定劇集組',
-      episodeGroupPlaceholder: '手動查詢劇集組',
+      episodeGroup: '劇集組',
+      episodeGroupHint: '輸入 TMDB 編號後自動查詢劇集組，也可手動填寫劇集組編號',
+      episodeGroupPlaceholder: '先輸入 TMDB 編號',
+      defaultEpisodeGroup: '不指定劇集組',
+      defaultEpisodeGroupHint: '使用 TMDB 預設季集排序',
+      seasonCount: '{count} 季',
+      episodeCount: '{count} 集',
       season: '季',
       seasonHint: '第幾季',
       episodeDetail: '集',
@@ -2614,7 +2618,7 @@ export default {
       customWords: '自定義識別詞',
       customWordsHint: '只對該訂閱使用的識別詞',
       customWordsPlaceholder:
-        '屏蔽詞\n被替換詞 => 替換詞\n前定位詞 <> 後定位詞 >> 集偏移量（EP）\n被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n其中替換詞支援格式：&#123; tmdbid/doubanid=xxx;type=movie/tv;s=xxx;e=xxx &#125; 直接指定TMDBID/豆瓣ID識別，其中s、e為季數和集數（可選）',
+        '屏蔽詞\n被替換詞 => 替換詞\n前定位詞 <> 後定位詞 >> 集偏移量（EP）\n被替換詞 => 替換詞 && 前定位詞 <> 後定位詞 >> 集偏移量（EP）\n其中替換詞支援格式：&#123;[tmdbid/doubanid=xxx;type=movie/tv;g=xxx;s=xxx;e=xxx]&#125; 直接指定TMDBID/豆瓣ID識別，其中g為劇集組編號，s、e為季數和集數（均可選）',
       cancelSubscribe: '取消訂閱',
       save: '儲存',
       cancelSubscribeConfirm: '是否確認取消訂閱？',

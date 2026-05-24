@@ -150,6 +150,15 @@ let previewFileBodyResizeObserver: ResizeObserver | undefined
 // 所有存储
 const storages = ref<StorageConf[]>([])
 
+// 所有剧集组
+const episodeGroups = ref<{ [key: string]: any }[]>([])
+
+// 剧集组加载状态
+const episodeGroupLoading = ref(false)
+
+// 剧集组查询防抖句柄
+let episodeGroupQueryTimer: ReturnType<typeof setTimeout> | undefined
+
 // 查询存储
 async function loadStorages() {
   try {
@@ -168,6 +177,57 @@ const storageOptions = computed(() => {
     value: item.type,
   }))
 })
+
+// 剧集组选项属性
+function episodeGroupItemProps(item: { title: string; subtitle?: string }) {
+  return {
+    title: item.title,
+    subtitle: item.subtitle,
+  }
+}
+
+// 剧集组选项，保留空值作为不指定剧集组。
+const episodeGroupOptions = computed(() => {
+  const options = (
+    episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]
+  ).map(item => {
+    return {
+      title: item.name,
+      subtitle: `${t('dialog.reorganize.seasonCount', { count: item.group_count })} • ${t(
+        'dialog.reorganize.episodeCount',
+        { count: item.episode_count },
+      )}`,
+      value: item.id,
+    }
+  })
+
+  options.unshift({
+    title: t('dialog.reorganize.defaultEpisodeGroup'),
+    subtitle: t('dialog.reorganize.defaultEpisodeGroupHint'),
+    value: '',
+  })
+
+  return options
+})
+
+// 查询指定 TMDB 剧集的所有剧集组。
+async function getEpisodeGroups(tmdbid?: number | string) {
+  const normalizedTmdbId = Number(tmdbid)
+  if (!Number.isInteger(normalizedTmdbId) || normalizedTmdbId <= 0) {
+    episodeGroups.value = []
+    return
+  }
+
+  episodeGroupLoading.value = true
+  try {
+    episodeGroups.value = await api.get(`media/groups/${normalizedTmdbId}`)
+  } catch (error) {
+    console.error(error)
+    episodeGroups.value = []
+  } finally {
+    episodeGroupLoading.value = false
+  }
+}
 
 // 标题
 const dialogTitle = computed(() => {
@@ -249,6 +309,31 @@ watch(
       transferForm.library_type_folder = undefined
       transferForm.library_category_folder = undefined
     }
+  },
+)
+
+// 监听 TMDB 编号变化，自动加载可用剧集组并清空旧选择。
+watch(
+  () => transferForm.tmdbid,
+  tmdbid => {
+    transferForm.episode_group = ''
+    episodeGroups.value = []
+    if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
+    if (transferForm.type_name !== '电视剧' || mediaSource.value !== 'themoviedb') return
+    episodeGroupQueryTimer = setTimeout(() => getEpisodeGroups(tmdbid), 400)
+  },
+)
+
+// 切换媒体类型或识别源时，非 TMDB 电视剧不保留剧集组选择。
+watch(
+  [() => transferForm.type_name, () => mediaSource.value],
+  ([typeName, source]) => {
+    if (typeName === '电视剧' && source === 'themoviedb' && transferForm.tmdbid) {
+      getEpisodeGroups(transferForm.tmdbid)
+      return
+    }
+    transferForm.episode_group = ''
+    episodeGroups.value = []
   },
 )
 
@@ -528,6 +613,7 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     ...transferForm,
     fileitem: sourceItem,
     logid: options.logid ?? 0,
+    episode_group: transferForm.episode_group?.trim() || undefined,
   }
 
   if (options.items?.length) {
@@ -1014,6 +1100,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopLoadingProgress()
+  if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
   previewFileBodyResizeObserver?.disconnect()
 })
 </script>
@@ -1123,9 +1210,14 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
                 <VRow v-show="transferForm.type_name === '电视剧'">
-                  <VCol cols="12" md="6">
-                    <VTextField
+                  <VCol v-if="mediaSource === 'themoviedb'" cols="12" md="6">
+                    <VCombobox
                       v-model="transferForm.episode_group"
+                      :items="episodeGroupOptions"
+                      :item-props="episodeGroupItemProps"
+                      :loading="episodeGroupLoading"
+                      :disabled="!transferForm.tmdbid"
+                      clearable
                       :label="t('dialog.reorganize.episodeGroup')"
                       :placeholder="t('dialog.reorganize.episodeGroupPlaceholder')"
                       :hint="t('dialog.reorganize.episodeGroupHint')"
