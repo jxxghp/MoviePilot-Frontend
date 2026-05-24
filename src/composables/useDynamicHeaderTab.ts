@@ -10,6 +10,7 @@ interface DynamicHeaderTabButton {
   class?: string
   action?: () => void
   show?: boolean | ComputedRef<boolean>
+  loading?: boolean | ComputedRef<boolean>
   dataAttr?: string // 用于VMenu定位的data属性
 }
 

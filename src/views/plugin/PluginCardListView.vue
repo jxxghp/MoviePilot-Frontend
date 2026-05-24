@@ -92,6 +92,7 @@ registerHeaderTab({
       variant: 'text',
       color: 'gray',
       class: 'settings-icon-button',
+      loading: computed(() => isMarketRefreshing.value),
       action: () => {
         refreshMarket()
       },
@@ -879,19 +880,16 @@ function marketSettingDone() {
 
 // 手动刷新插件市场
 async function refreshMarket() {
-  const showMarketLoading = !isAppMarketLoaded.value
-  if (showMarketLoading) {
-    isMarketRefreshing.value = true
-  }
+  if (isMarketRefreshing.value) return
+
+  isMarketRefreshing.value = true
   try {
-    await fetchUninstalledPlugins(true, { silent: isAppMarketLoaded.value, source: 'manual' })
+    await fetchUninstalledPlugins(true, { silent: false, source: 'manual' })
     await getPluginStatistics()
   } catch (error) {
     console.error(error)
   } finally {
-    if (showMarketLoading) {
-      isMarketRefreshing.value = false
-    }
+    isMarketRefreshing.value = false
   }
 }
 

@@ -79,6 +79,7 @@ interface DynamicHeaderTab {
     class?: string
     action?: () => void
     show?: boolean | ComputedRef<boolean>
+    loading?: boolean | ComputedRef<boolean>
     dataAttr?: string
   }>
   routePath?: string // 用于标识哪个路由注册的
@@ -395,6 +396,7 @@ onMounted(async () => {
                 :color="typeof button.color === 'string' ? button.color : (button.color as any)?.value || 'gray'"
                 :size="button.size || 'default'"
                 :class="button.class || 'settings-icon-button'"
+                :loading="typeof button.loading === 'boolean' ? button.loading : (button.loading as any)?.value || false"
                 :data-menu-activator="button.dataAttr"
                 @click="button.action"
               />
