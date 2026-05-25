@@ -1678,6 +1678,11 @@ export default {
       securityImageDomainsHint: '允許緩存的圖片域名白名單，用於控制可信任的圖片來源',
       noSecurityImageDomains: '暫無安全域名',
       securityImageDomainAdd: '添加域名，如：image.tmdb.org',
+      imageProxyAllowedPrivateRanges: '圖片代理允許非公網網段',
+      imageProxyAllowedPrivateRangesHint:
+        '僅對已命中安全圖片域名的地址生效，用於 TUN 映射、內網 CDN 等特殊場景；配置過寬會降低 SSRF 防護強度',
+      noImageProxyAllowedPrivateRanges: '暫無允許網段',
+      imageProxyAllowedPrivateRangeAdd: '添加 CIDR，如：198.18.0.0/15',
       proxyHost: '代理服務器',
       proxyHostHint: '設置代理服務器地址，支持：http(s)、socks5、socks5h 等協議',
       moviePilotAutoUpdate: '自動更新MoviePilot',

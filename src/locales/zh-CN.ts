@@ -1677,6 +1677,11 @@ export default {
       securityImageDomainsHint: '允许缓存的图片域名白名单，用于控制可信任的图片来源',
       noSecurityImageDomains: '暂无安全域名',
       securityImageDomainAdd: '添加域名，如：image.tmdb.org',
+      imageProxyAllowedPrivateRanges: '图片代理允许非公网网段',
+      imageProxyAllowedPrivateRangesHint:
+        '仅对已命中安全图片域名的地址生效，用于 TUN 映射、内网 CDN 等特殊场景；配置过宽会降低 SSRF 防护强度',
+      noImageProxyAllowedPrivateRanges: '暂无允许网段',
+      imageProxyAllowedPrivateRangeAdd: '添加 CIDR，如：198.18.0.0/15',
       proxyHost: '代理服务器',
       proxyHostHint: '设置代理服务器地址，支持：http(s)、socks5、socks5h 等协议',
       moviePilotAutoUpdate: '自动更新MoviePilot',
