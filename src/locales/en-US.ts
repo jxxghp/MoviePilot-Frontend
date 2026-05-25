@@ -1697,6 +1697,11 @@ export default {
       securityImageDomainsHint: 'Allowed image domains whitelist for caching, used to control trusted image sources',
       noSecurityImageDomains: 'No security domains',
       securityImageDomainAdd: 'Add domain, e.g.: image.tmdb.org',
+      imageProxyAllowedPrivateRanges: 'Image Proxy Allowed Private Ranges',
+      imageProxyAllowedPrivateRangesHint:
+        'Only applies after a URL matches a security image domain. Use for TUN mappings or internal CDNs; broad ranges weaken SSRF protection',
+      noImageProxyAllowedPrivateRanges: 'No allowed ranges',
+      imageProxyAllowedPrivateRangeAdd: 'Add CIDR, e.g.: 198.18.0.0/15',
       proxyHost: 'Proxy Server',
       proxyHostHint: 'Set proxy server address, support: http(s), socks5, socks5h, etc.',
       moviePilotAutoUpdate: 'Auto Update MoviePilot',

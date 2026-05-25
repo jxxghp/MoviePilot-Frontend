@@ -112,6 +112,7 @@ const SystemSettings = ref<any>({
     DOH_RESOLVERS: null,
     DOH_DOMAINS: null,
     SECURITY_IMAGE_DOMAINS: [],
+    IMAGE_PROXY_ALLOWED_PRIVATE_RANGES: [],
     // 日志
     DEBUG: false,
     LOG_LEVEL: 'INFO',
@@ -494,6 +495,8 @@ const dataCleanupFieldRules = [
 
 // 安全域名添加变量
 const newSecurityDomain = ref('')
+// 图片代理允许非公网网段添加变量
+const newImageProxyAllowedPrivateRange = ref('')
 
 // 加载 LLM 模型列表与 provider 目录
 async function refreshLlmModels(forceRefresh = true) {
@@ -541,6 +544,19 @@ function addSecurityDomain() {
   ) {
     SystemSettings.value.Advanced.SECURITY_IMAGE_DOMAINS.push(newSecurityDomain.value)
     newSecurityDomain.value = ''
+  }
+}
+
+// 添加图片代理允许访问的非公网网段
+function addImageProxyAllowedPrivateRange() {
+  if (
+    newImageProxyAllowedPrivateRange.value &&
+    !SystemSettings.value.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.includes(
+      newImageProxyAllowedPrivateRange.value,
+    )
+  ) {
+    SystemSettings.value.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.push(newImageProxyAllowedPrivateRange.value)
+    newImageProxyAllowedPrivateRange.value = ''
   }
 }
 
@@ -2098,6 +2114,51 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                           >
                             <template #append>
                               <VBtn icon color="primary" @click="addSecurityDomain" :disabled="!newSecurityDomain">
+                                <VIcon icon="mdi-plus" />
+                              </VBtn>
+                            </template>
+                          </VTextField>
+                        </div>
+                        <VDivider class="my-4" />
+                        <div class="text-subtitle-2 mb-1">
+                          {{ t('setting.system.imageProxyAllowedPrivateRanges') }}
+                        </div>
+                        <div class="text-caption text-medium-emphasis mb-3">
+                          {{ t('setting.system.imageProxyAllowedPrivateRangesHint') }}
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                          <VChip
+                            v-for="(range, index) in SystemSettings.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES"
+                            :key="index"
+                            closable
+                            @click:close="
+                              SystemSettings.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.splice(index, 1)
+                            "
+                          >
+                            {{ range }}
+                          </VChip>
+                          <VChip
+                            v-if="SystemSettings.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.length === 0"
+                            color="warning"
+                          >
+                            {{ t('setting.system.noImageProxyAllowedPrivateRanges') }}
+                          </VChip>
+                        </div>
+                        <div class="d-flex align-center gap-2">
+                          <VTextField
+                            v-model="newImageProxyAllowedPrivateRange"
+                            :placeholder="t('setting.system.imageProxyAllowedPrivateRangeAdd')"
+                            hide-details
+                            density="compact"
+                            prepend-inner-icon="mdi-ip-network"
+                          >
+                            <template #append>
+                              <VBtn
+                                icon
+                                color="primary"
+                                @click="addImageProxyAllowedPrivateRange"
+                                :disabled="!newImageProxyAllowedPrivateRange"
+                              >
                                 <VIcon icon="mdi-plus" />
                               </VBtn>
                             </template>
