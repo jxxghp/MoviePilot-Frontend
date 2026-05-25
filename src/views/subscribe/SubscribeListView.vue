@@ -79,8 +79,18 @@ const selectedSubscribes = ref<number[]>([])
 const normalizedKeyword = computed(() => props.keyword?.trim().toLowerCase() || '')
 const selectedSubscribesSet = computed(() => new Set(selectedSubscribes.value))
 const hasCustomOrder = computed(() => orderConfig.value.length > 0)
+
+// 归一化订阅排序方式，电影订阅不使用缺失集数排序。
+const normalizedSortBy = computed<SubscribeSortBy | ''>(() => {
+  const sortBy = props.sortBy as SubscribeSortBy | ''
+  if (props.type === '电影' && sortBy === 'lack_episode') {
+    return 'date'
+  }
+
+  return sortBy
+})
 const effectiveSortBy = computed<SubscribeSortBy>(() => {
-  return (props.sortBy as SubscribeSortBy) || (hasCustomOrder.value ? 'custom' : 'date')
+  return normalizedSortBy.value || (hasCustomOrder.value ? 'custom' : 'date')
 })
 const canSortContext = computed(
   () =>

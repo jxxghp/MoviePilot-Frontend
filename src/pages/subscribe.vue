@@ -91,15 +91,28 @@ const filterOptions = computed(() => {
 })
 
 // 排序选项
-const sortOptions = computed<Array<{ value: SubscribeSortBy; label: string }>>(() => [
-  { value: 'custom', label: t('subscribe.sort.custom') },
-  { value: 'last_update', label: t('subscribe.sort.lastUpdate') },
-  { value: 'date', label: t('subscribe.sort.addTime') },
-  { value: 'lack_episode', label: t('subscribe.sort.lackEpisode') },
-])
+const sortOptions = computed<Array<{ value: SubscribeSortBy; label: string }>>(() => {
+  const options: Array<{ value: SubscribeSortBy; label: string }> = [
+    { value: 'custom', label: t('subscribe.sort.custom') },
+    { value: 'last_update', label: t('subscribe.sort.lastUpdate') },
+    { value: 'date', label: t('subscribe.sort.addTime') },
+  ]
+
+  if (subType !== '电影') {
+    options.push({ value: 'lack_episode', label: t('subscribe.sort.lackEpisode') })
+  }
+
+  return options
+})
 
 // 当前选中的排序选项
-const currentSortBy = computed<SubscribeSortBy>(() => subscribeSortBy.value || 'date')
+const currentSortBy = computed<SubscribeSortBy>(() => {
+  if (subscribeSortBy.value && sortOptions.value.some(option => option.value === subscribeSortBy.value)) {
+    return subscribeSortBy.value
+  }
+
+  return 'date'
+})
 
 // 当前选中的筛选选项
 const currentFilter = computed(() => {
@@ -122,6 +135,10 @@ function selectFilter(value: string) {
 
 // 选择订阅排序选项，非自定义排序会退出拖拽排序模式。
 function selectSubscribeSort(value: SubscribeSortBy) {
+  if (!sortOptions.value.some(option => option.value === value)) {
+    return
+  }
+
   subscribeSortBy.value = value
   if (value !== 'custom') {
     subscribeSortMode.value = false
