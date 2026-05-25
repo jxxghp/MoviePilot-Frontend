@@ -152,6 +152,7 @@ watch(
       otpPassword.value = ''
     }
   },
+  { immediate: true },
 )
 </script>
 
