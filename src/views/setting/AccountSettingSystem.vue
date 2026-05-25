@@ -82,6 +82,7 @@ const SystemSettings = ref<any>({
     GLOBAL_IMAGE_CACHE: false,
     SUBSCRIBE_STATISTIC_SHARE: true,
     PLUGIN_STATISTIC_SHARE: true,
+    USAGE_STATISTIC_SHARE: true,
     WORKFLOW_STATISTIC_SHARE: true,
     BIG_MEMORY_MODE: false,
     DB_WAL_ENABLE: false,
@@ -1764,6 +1765,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                     v-model="SystemSettings.Advanced.PLUGIN_STATISTIC_SHARE"
                     :label="t('setting.system.pluginStatisticShare')"
                     :hint="t('setting.system.pluginStatisticShareHint')"
+                    persistent-hint
+                  />
+                </VCol>
+                <VCol cols="12" md="6">
+                  <VSwitch
+                    v-model="SystemSettings.Advanced.USAGE_STATISTIC_SHARE"
+                    :label="t('setting.system.usageStatisticShare')"
+                    :hint="t('setting.system.usageStatisticShareHint')"
                     persistent-hint
                   />
                 </VCol>

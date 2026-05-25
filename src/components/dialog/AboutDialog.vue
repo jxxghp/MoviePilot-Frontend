@@ -84,11 +84,51 @@ const releaseDialogTitle = ref('')
 // 变更日志对话框内容
 const releaseDialogBody = ref('')
 
+// 版本统计对话框
+const versionStatisticDialog = ref(false)
+
+// 版本统计加载状态
+const versionStatisticLoading = ref(false)
+
+// 版本统计数据
+const versionStatistic = ref<any>({})
+
+// 后端版本统计
+const backendVersionStatistics = computed(() => versionStatistic.value?.backend_versions ?? [])
+
+// 前端版本统计
+const frontendVersionStatistics = computed(() => versionStatistic.value?.frontend_versions ?? [])
+
+// 活跃用户统计
+const activeUsers = computed(() => versionStatistic.value?.active_users ?? {})
+
 // 打开日志对话框
 function showReleaseDialog(title: string, body: string) {
   releaseDialogTitle.value = title
   releaseDialogBody.value = body ? md.render(body) : ''
   releaseDialog.value = true
+}
+
+// 查询版本统计
+async function queryVersionStatistic() {
+  if (!systemEnv.value.USAGE_STATISTIC_SHARE) return
+  versionStatisticLoading.value = true
+  try {
+    const result: { [key: string]: any } = await api.get('system/usage/statistic')
+
+    versionStatistic.value = result.data ?? {}
+  } catch (error) {
+    console.log(error)
+    versionStatistic.value = {}
+  } finally {
+    versionStatisticLoading.value = false
+  }
+}
+
+// 打开版本统计对话框
+async function showVersionStatisticDialog() {
+  versionStatisticDialog.value = true
+  await queryVersionStatistic()
 }
 
 // 查询系统环境变量
@@ -182,6 +222,18 @@ onMounted(() => {
                             {{ t('setting.about.latest') }}
                           </span>
                         </a>
+                        <VTooltip v-if="systemEnv.USAGE_STATISTIC_SHARE" :text="t('setting.about.versionStatistic')">
+                          <template #activator="{ props }">
+                            <VBtn
+                              v-bind="props"
+                              icon="mdi-chart-bar"
+                              size="x-small"
+                              variant="text"
+                              class="ms-2 flex-shrink-0"
+                              @click="showVersionStatisticDialog"
+                            />
+                          </template>
+                        </VTooltip>
                       </span>
                     </dd>
                   </div>
@@ -406,6 +458,86 @@ onMounted(() => {
         <VCardText class="markdown-body" v-html="releaseDialogBody" />
       </VCard>
     </VDialog>
+    <VDialog v-if="versionStatisticDialog" v-model="versionStatisticDialog" width="680" scrollable max-height="85vh">
+      <VCard>
+        <VCardItem>
+          <VDialogCloseBtn @click="versionStatisticDialog = false" />
+          <VCardTitle>
+            <VIcon icon="mdi-chart-bar" class="me-2" />
+            {{ t('setting.about.versionStatisticTitle') }}
+          </VCardTitle>
+        </VCardItem>
+        <VDivider />
+        <VProgressLinear v-if="versionStatisticLoading" indeterminate color="primary" />
+        <VCardText>
+          <div class="version-stat-summary">
+            <div>
+              <div class="text-caption text-medium-emphasis">{{ t('setting.about.totalInstallUsers') }}</div>
+              <div class="version-stat-number">{{ versionStatistic.total_users ?? 0 }}</div>
+            </div>
+            <div>
+              <div class="text-caption text-medium-emphasis">{{ t('setting.about.activeToday') }}</div>
+              <div class="version-stat-number">{{ activeUsers.today ?? 0 }}</div>
+            </div>
+            <div>
+              <div class="text-caption text-medium-emphasis">{{ t('setting.about.active7Days') }}</div>
+              <div class="version-stat-number">{{ activeUsers.last_7_days ?? 0 }}</div>
+            </div>
+            <div>
+              <div class="text-caption text-medium-emphasis">{{ t('setting.about.active30Days') }}</div>
+              <div class="version-stat-number">{{ activeUsers.last_30_days ?? 0 }}</div>
+            </div>
+          </div>
+          <div class="mt-5">
+            <div class="text-subtitle-2 mb-2">{{ t('setting.about.backendVersionStatistic') }}</div>
+            <VTable density="compact">
+              <thead>
+                <tr>
+                  <th>{{ t('setting.about.version') }}</th>
+                  <th class="text-end">{{ t('setting.about.users') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in backendVersionStatistics" :key="`backend-${item.version}`">
+                  <td>
+                    <code>{{ item.version }}</code>
+                  </td>
+                  <td class="text-end">{{ item.count }}</td>
+                </tr>
+                <tr v-if="!backendVersionStatistics.length">
+                  <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
+                </tr>
+              </tbody>
+            </VTable>
+          </div>
+          <div class="mt-5">
+            <div class="text-subtitle-2 mb-2">{{ t('setting.about.frontendVersionStatistic') }}</div>
+            <VTable density="compact">
+              <thead>
+                <tr>
+                  <th>{{ t('setting.about.version') }}</th>
+                  <th class="text-end">{{ t('setting.about.users') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in frontendVersionStatistics" :key="`frontend-${item.version}`">
+                  <td>
+                    <code>{{ item.version }}</code>
+                  </td>
+                  <td class="text-end">{{ item.count }}</td>
+                </tr>
+                <tr v-if="!frontendVersionStatistics.length">
+                  <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
+                </tr>
+              </tbody>
+            </VTable>
+          </div>
+          <div v-if="versionStatistic.updated_at" class="mt-4 text-caption text-medium-emphasis">
+            {{ t('setting.about.lastUpdated') }}: {{ versionStatistic.updated_at }}
+          </div>
+        </VCardText>
+      </VCard>
+    </VDialog>
   </VDialog>
 </template>
 
@@ -420,6 +552,18 @@ onMounted(() => {
 
 .section {
   margin-block: 0.5rem 2.5rem;
+}
+
+.version-stat-summary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+}
+
+.version-stat-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
 }
 
 .markdown-body :deep(h1),
