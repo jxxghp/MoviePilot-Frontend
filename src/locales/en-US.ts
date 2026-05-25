@@ -1470,15 +1470,16 @@ export default {
       llmProviderCheckAuthStatus: 'Check Authorization Status',
       audioInputProvider: 'Audio Input Provider',
       audioInputProviderHint:
-        'Service used to transcribe incoming audio messages. Supports OpenAI audio, Chat Audio compatible APIs, and Xiaomi MiMo.',
+        'Service used to transcribe incoming audio messages. Supports OpenAI audio, Chat Audio compatible APIs, Xiaomi MiMo, and MiniMax.',
       audioProviderOpenAiAudio: 'OpenAI Audio Compatible',
       audioProviderChatAudio: 'Chat Audio Compatible',
       audioProviderMimo: 'Xiaomi MiMo',
+      audioProviderMinimax: 'MiniMax',
       audioInputApiKey: 'Audio Input API Key',
       audioInputApiKeyHint: 'API key used for audio transcription.',
       audioInputBaseUrl: 'Audio Input Base URL',
       audioInputBaseUrlHint:
-        'Base URL for audio input. Use the matching compatible endpoint for Chat Audio services; MiMo defaults to https://api.xiaomimimo.com/v1.',
+        'Base URL for audio input. Use the matching compatible endpoint for Chat Audio services; MiMo defaults to https://api.xiaomimimo.com/v1, MiniMax defaults to https://api.minimaxi.com/v1.',
       audioInputModel: 'Audio Input Model',
       audioInputModelHint: 'Model name used to convert audio content into text.',
       audioInputLanguage: 'Recognition Language',
@@ -1486,12 +1487,12 @@ export default {
         'Default language for audio transcription, such as zh or en. Leave blank to use the backend default.',
       audioOutputProvider: 'Audio Output Provider',
       audioOutputProviderHint:
-        'Service used to generate voice replies. Supports OpenAI audio, Chat Audio compatible APIs, and Xiaomi MiMo.',
+        'Service used to generate voice replies. Supports OpenAI audio, Chat Audio compatible APIs, Xiaomi MiMo, and MiniMax.',
       audioOutputApiKey: 'Audio Output API Key',
       audioOutputApiKeyHint: 'API key used for speech synthesis.',
       audioOutputBaseUrl: 'Audio Output Base URL',
       audioOutputBaseUrlHint:
-        'Base URL for audio output. Use the matching compatible endpoint for Chat Audio services; MiMo defaults to https://api.xiaomimimo.com/v1.',
+        'Base URL for audio output. Use the matching compatible endpoint for Chat Audio services; MiMo defaults to https://api.xiaomimimo.com/v1, MiniMax defaults to https://api.minimaxi.com/v1.',
       audioOutputModel: 'Audio Output Model',
       audioOutputModelHint: 'Model name used to convert text content into speech.',
       audioOutputVoice: 'Voice Preset',

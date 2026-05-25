@@ -133,6 +133,7 @@ const audioProviderItems = computed(() => [
   { title: t('setting.system.audioProviderOpenAiAudio'), value: 'openai' },
   { title: t('setting.system.audioProviderChatAudio'), value: 'openai_chat_audio' },
   { title: t('setting.system.audioProviderMimo'), value: 'mimo' },
+  { title: t('setting.system.audioProviderMinimax'), value: 'minimax' },
 ])
 
 // 刮削配置
