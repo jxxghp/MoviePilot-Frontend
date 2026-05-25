@@ -41,42 +41,69 @@ const otpPassword = ref('')
 
 const allowPasskeyWithoutOtp = computed(() => globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP') === true)
 
+// OTP 初始化加载状态
+const otpLoading = ref(false)
+
+// OTP 初始化失败信息
+const otpGenerateError = ref('')
+
 // 二维码图片 base64
 const qrCodeImage = ref('')
 
 // 二维码信息
 const qrCode = ref('')
 
-// 为当前用户获取Otp Uri
+// 清空当前 OTP 设置流程的临时数据。
+function resetOtpSetupState() {
+  qrCodeImage.value = ''
+  qrCode.value = ''
+  otpUri.value = ''
+  secret.value = ''
+  otpGenerateError.value = ''
+}
+
+// 标记 OTP 初始化失败，并向用户显示明确错误。
+function setOtpGenerateError(message?: string) {
+  const errorMessage = message || t('common.error')
+  otpGenerateError.value = t('profile.otpGenerateFailed', { message: errorMessage })
+  $toast.error(otpGenerateError.value)
+}
+
+// 为当前用户获取 OTP URI 并生成二维码图片。
 async function getOtpUri() {
+  resetOtpSetupState()
   // 如果已经启用OTP，只打开对话框，不生成新的二维码
   if (props.isOtp) {
-    qrCode.value = '' // 清空二维码，这样对话框会显示清除界面
-    qrCodeImage.value = ''
     return
   }
 
   // 未启用OTP，生成新的二维码
+  otpLoading.value = true
   try {
     const result = (await api.post('mfa/otp/generate')) as ApiResponse<{
       uri: string
       secret: string
     }>
-    if (result.success) {
-      otpUri.value = result.data.uri
-      secret.value = result.data.secret
-      qrCode.value = result.data.uri
+    const uri = result.data?.uri?.trim()
+    const otpSecret = result.data?.secret?.trim()
+
+    if (result.success && uri) {
+      otpUri.value = uri
+      secret.value = otpSecret || ''
+      qrCode.value = uri
       // 生成二维码图片
-      qrCodeImage.value = await QRCode.toDataURL(result.data.uri, {
+      qrCodeImage.value = await QRCode.toDataURL(uri, {
         width: 200,
         margin: 1,
       })
     } else {
-      $toast.error(t('profile.otpGenerateFailed', { message: result.message }))
+      setOtpGenerateError(result.message || 'empty otp uri')
     }
   } catch (error) {
     console.error(error)
-    $toast.error(t('profile.otpGenerateFailed', { message: error instanceof Error ? error.message : String(error) }))
+    setOtpGenerateError(error instanceof Error ? error.message : String(error))
+  } finally {
+    otpLoading.value = false
   }
 }
 
@@ -145,10 +172,8 @@ watch(
       otpPassword.value = ''
     } else {
       // 弹窗关闭时，清空数据
-      qrCodeImage.value = ''
-      qrCode.value = ''
-      otpUri.value = ''
-      secret.value = ''
+      resetOtpSetupState()
+      otpLoading.value = false
       otpPassword.value = ''
     }
   },
@@ -194,16 +219,29 @@ watch(
 
         <!-- 设置新的OTP -->
         <template v-else>
-          <div class="my-6 rounded text-center p-3 border" style="width: fit-content; margin: 0 auto">
-            <VImg class="mx-auto" :src="qrCodeImage" width="200" height="200">
-              <template #placeholder>
-                <div class="w-full h-full">
-                  <VSkeletonLoader class="object-cover aspect-w-1 aspect-h-1" />
-                </div>
-              </template>
-            </VImg>
+          <div
+            class="my-6 rounded text-center p-3 border d-flex align-center justify-center"
+            style="width: 226px; height: 226px; margin: 0 auto"
+          >
+            <img
+              v-if="qrCodeImage"
+              class="mx-auto d-block otp-qrcode-image"
+              :src="qrCodeImage"
+              :alt="t('profile.setupAuthenticator')"
+              width="200"
+              height="200"
+            />
+            <VProgressCircular v-else-if="otpLoading" indeterminate color="primary" />
+            <div v-else class="w-100">
+              <VAlert type="error" variant="tonal" density="compact" class="mb-3">
+                {{ otpGenerateError || t('profile.otpGenerateFailed', { message: t('common.error') }) }}
+              </VAlert>
+              <VBtn size="small" variant="tonal" prepend-icon="mdi-refresh" @click="getOtpUri">
+                {{ t('common.retry') }}
+              </VBtn>
+            </div>
           </div>
-          <VAlert :title="secret" variant="tonal" type="warning" class="my-4" :text="t('profile.secretKeyTip')">
+          <VAlert v-if="secret" :title="secret" variant="tonal" type="warning" class="my-4" :text="t('profile.secretKeyTip')">
             <template #prepend />
           </VAlert>
           <VForm @submit.prevent="judgeOtpPassword">
@@ -221,7 +259,7 @@ watch(
               <VBtn variant="outlined" color="secondary" @click="show = false">
                 {{ t('common.cancel') }}
               </VBtn>
-              <VBtn type="submit">
+              <VBtn type="submit" :disabled="!otpUri || otpLoading">
                 <template #prepend>
                   <VIcon icon="mdi-check" />
                 </template>
@@ -234,3 +272,10 @@ watch(
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.otp-qrcode-image {
+  inline-size: 200px;
+  block-size: 200px;
+}
+</style>
