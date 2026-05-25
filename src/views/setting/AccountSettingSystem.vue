@@ -642,9 +642,9 @@ async function loadSystemSettings() {
           if (result.data.hasOwnProperty(key)) (SystemSettings.value[sectionKey] as any)[key] = result.data[key]
         })
       }
-      const accelEnabled = Boolean(result.data.RUST_ACCEL_ENABLED)
-      rustAccelAvailable.value = accelEnabled
-      if (!accelEnabled) SystemSettings.value.Advanced.RUST_ACCEL = false
+      const accelAvailable = Boolean(result.data.RUST_ACCEL_AVAILABLE ?? result.data.RUST_ACCEL_ENABLED)
+      rustAccelAvailable.value = accelAvailable
+      if (!accelAvailable) SystemSettings.value.Advanced.RUST_ACCEL = false
       SystemSettings.value.Basic.LLM_THINKING_LEVEL = resolveThinkingLevelValue(result.data)
       await loadLlmProviders()
     }
