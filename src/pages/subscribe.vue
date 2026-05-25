@@ -54,6 +54,11 @@ const subscribeFilter = ref('')
 // 订阅状态筛选
 const subscribeStatusFilter = ref<string | null>(null)
 
+type SubscribeSortBy = 'custom' | 'last_update' | 'date' | 'lack_episode'
+
+// 订阅排序方式
+const subscribeSortBy = ref<SubscribeSortBy | ''>('')
+
 // 分享搜索词
 const shareKeyword = ref('')
 const shareKeywordInput = ref('')
@@ -85,6 +90,17 @@ const filterOptions = computed(() => {
   ]
 })
 
+// 排序选项
+const sortOptions = computed<Array<{ value: SubscribeSortBy; label: string }>>(() => [
+  { value: 'custom', label: t('subscribe.sort.custom') },
+  { value: 'last_update', label: t('subscribe.sort.lastUpdate') },
+  { value: 'date', label: t('subscribe.sort.addTime') },
+  { value: 'lack_episode', label: t('subscribe.sort.lackEpisode') },
+])
+
+// 当前选中的排序选项
+const currentSortBy = computed<SubscribeSortBy>(() => subscribeSortBy.value || 'date')
+
 // 当前选中的筛选选项
 const currentFilter = computed(() => {
   return filterOptions.value.find(option => option.value === (subscribeStatusFilter.value || 'all'))
@@ -102,6 +118,14 @@ const filterButtonColor = computed(() => {
 function selectFilter(value: string) {
   subscribeStatusFilter.value = value
   filterSubscribeDialog.value = false
+}
+
+// 选择订阅排序选项，非自定义排序会退出拖拽排序模式。
+function selectSubscribeSort(value: SubscribeSortBy) {
+  subscribeSortBy.value = value
+  if (value !== 'custom') {
+    subscribeSortMode.value = false
+  }
 }
 
 // VMenu activator选择器
@@ -132,7 +156,11 @@ function openShareStatisticsDialog() {
   openSharedDialog(SubscribeShareStatisticsDialog, {}, {}, { closeOn: ['close'] })
 }
 
+// 切换订阅拖拽排序模式，进入时固定使用自定义排序。
 function toggleSubscribeSortMode() {
+  if (!subscribeSortMode.value) {
+    subscribeSortBy.value = 'custom'
+  }
   subscribeSortMode.value = !subscribeSortMode.value
 }
 
@@ -290,8 +318,10 @@ onMounted(() => {
               :keyword="subscribeFilter"
               :status-filter="subscribeStatusFilter ?? ''"
               :sort-mode="subscribeSortMode"
+              :sort-by="subscribeSortBy"
               :active="activeTab === 'mysub'"
               @update:sort-mode="subscribeSortMode = $event"
+              @update:sort-by="subscribeSortBy = $event"
             />
           </div>
         </transition>
@@ -355,6 +385,23 @@ onMounted(() => {
                   color="primary"
                   size="small"
                 />
+              </template>
+            </VListItem>
+          </VList>
+          <VDivider />
+          <!-- 排序 -->
+          <VList density="compact" class="px-2 py-1">
+            <VListSubheader>{{ t('subscribe.sortTitle') }}</VListSubheader>
+            <VListItem
+              v-for="option in sortOptions"
+              :key="option.value"
+              :active="currentSortBy === option.value"
+              @click="selectSubscribeSort(option.value)"
+              density="compact"
+            >
+              <VListItemTitle>{{ option.label }}</VListItemTitle>
+              <template #append>
+                <VIcon v-if="currentSortBy === option.value" icon="mdi-check" color="primary" size="small" />
               </template>
             </VListItem>
           </VList>

@@ -995,6 +995,13 @@ export default {
     paused: 'Paused',
     cardStatePaused: 'Paused',
     cardStatePending: 'Pending',
+    sortTitle: 'Sort',
+    sort: {
+      custom: 'Custom',
+      lastUpdate: 'Last Updated',
+      addTime: 'Added Time',
+      lackEpisode: 'Missing Episodes',
+    },
     selectedCount: 'Selected {count}/{total} items',
     noSelectedItems: 'Please select subscriptions to operate',
     batchEnable: 'Batch Enable',

@@ -990,6 +990,13 @@ export default {
     paused: '暫停',
     cardStatePaused: '已暫停',
     cardStatePending: '待定中',
+    sortTitle: '排序',
+    sort: {
+      custom: '自定義',
+      lastUpdate: '最後更新時間',
+      addTime: '添加時間',
+      lackEpisode: '缺失集數',
+    },
     selectedCount: '已選擇 {count}/{total} 項',
     noSelectedItems: '請先選擇要操作的訂閱',
     batchEnable: '批量啟用',

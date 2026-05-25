@@ -990,6 +990,13 @@ export default {
     paused: '暂停',
     cardStatePaused: '已暂停',
     cardStatePending: '待定中',
+    sortTitle: '排序',
+    sort: {
+      custom: '自定义',
+      lastUpdate: '最后更新时间',
+      addTime: '添加时间',
+      lackEpisode: '缺失集数',
+    },
     selectedCount: '已选择 {count}/{total} 项',
     noSelectedItems: '请先选择要操作的订阅',
     batchEnable: '批量启用',

@@ -40,6 +40,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  sortBy: {
+    type: String,
+    default: '',
+  },
   active: {
     type: Boolean,
     default: true,
@@ -48,7 +52,10 @@ const props = defineProps({
 
 const emit = defineEmits<{
   'update:sortMode': [value: boolean]
+  'update:sortBy': [value: SubscribeSortBy]
 }>()
+
+type SubscribeSortBy = 'custom' | 'last_update' | 'date' | 'lack_episode'
 
 // 是否刷新过
 let isRefreshed = ref(false)
@@ -71,8 +78,16 @@ const selectedSubscribes = ref<number[]>([])
 
 const normalizedKeyword = computed(() => props.keyword?.trim().toLowerCase() || '')
 const selectedSubscribesSet = computed(() => new Set(selectedSubscribes.value))
+const hasCustomOrder = computed(() => orderConfig.value.length > 0)
+const effectiveSortBy = computed<SubscribeSortBy>(() => {
+  return (props.sortBy as SubscribeSortBy) || (hasCustomOrder.value ? 'custom' : 'date')
+})
 const canSortContext = computed(
-  () => !normalizedKeyword.value && (!props.statusFilter || props.statusFilter === 'all') && !isBatchMode.value,
+  () =>
+    effectiveSortBy.value === 'custom' &&
+    !normalizedKeyword.value &&
+    (!props.statusFilter || props.statusFilter === 'all') &&
+    !isBatchMode.value,
 )
 const sortMode = computed({
   get: () => props.sortMode,
@@ -130,11 +145,62 @@ function getSubscribeStatus(subscribe: Subscribe) {
 // API请求键值（计算属性）
 const orderRequestKey = computed(() => (props.type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'))
 
-// 监听数据和筛选变化，同步更新显示列表
+// 转换订阅时间字段为可排序时间戳。
+function getSubscribeTimeValue(value?: string) {
+  if (!value) return 0
+
+  const directTime = Date.parse(value)
+  if (!Number.isNaN(directTime)) return directTime
+
+  const compatibleTime = Date.parse(value.replace(/-/g, '/'))
+  return Number.isNaN(compatibleTime) ? 0 : compatibleTime
+}
+
+// 按自定义顺序排序订阅，未配置顺序的订阅按添加时间倒序补齐。
+function sortByCustomOrder(a: Subscribe, b: Subscribe, orderIndexMap: Map<number, number>) {
+  const aIndex = orderIndexMap.get(a.id) ?? Number.MAX_SAFE_INTEGER
+  const bIndex = orderIndexMap.get(b.id) ?? Number.MAX_SAFE_INTEGER
+
+  if (aIndex !== bIndex) {
+    return aIndex - bIndex
+  }
+
+  return getSubscribeTimeValue(b.date) - getSubscribeTimeValue(a.date)
+}
+
+// 按当前排序选项调整订阅列表顺序。
+function sortSubscribeList(list: Subscribe[]) {
+  const orderIndexMap = new Map(orderConfig.value.map((item, index) => [item.id, index]))
+
+  list.sort((a, b) => {
+    if (effectiveSortBy.value === 'custom') {
+      return sortByCustomOrder(a, b, orderIndexMap)
+    }
+
+    if (effectiveSortBy.value === 'last_update') {
+      return getSubscribeTimeValue(b.last_update) - getSubscribeTimeValue(a.last_update)
+    }
+
+    if (effectiveSortBy.value === 'lack_episode') {
+      const lackEpisodeDiff = (b.lack_episode || 0) - (a.lack_episode || 0)
+      return lackEpisodeDiff || getSubscribeTimeValue(b.date) - getSubscribeTimeValue(a.date)
+    }
+
+    return getSubscribeTimeValue(b.date) - getSubscribeTimeValue(a.date)
+  })
+}
+
+// 同步订阅排序默认值给父组件。
+function syncDefaultSortBy() {
+  if (!props.sortBy) {
+    emit('update:sortBy', hasCustomOrder.value ? 'custom' : 'date')
+  }
+}
+
+// 监听数据、筛选和排序变化，同步更新显示列表
 watch(
-  [dataList, normalizedKeyword, () => props.statusFilter, orderConfig],
+  [dataList, normalizedKeyword, () => props.statusFilter, orderConfig, effectiveSortBy],
   () => {
-    const orderIndexMap = new Map(orderConfig.value.map((item, index) => [item.id, index]))
     const nextDisplayList = dataList.value.filter(data => {
       if (data.type !== props.type) {
         return false
@@ -155,12 +221,7 @@ watch(
       return true
     })
 
-    nextDisplayList.sort((a, b) => {
-      const aIndex = orderIndexMap.get(a.id) ?? Number.MAX_SAFE_INTEGER
-      const bIndex = orderIndexMap.get(b.id) ?? Number.MAX_SAFE_INTEGER
-
-      return aIndex - bIndex
-    })
+    sortSubscribeList(nextDisplayList)
 
     displayList.value = nextDisplayList
   },
@@ -184,9 +245,11 @@ async function loadSubscribeOrderConfig() {
     if (response && response.data && response.data.value) {
       orderConfig.value = response.data.value
     }
+    syncDefaultSortBy()
   } catch (error) {
     console.error('Failed to load subscribe order config:', error)
     orderConfig.value = []
+    syncDefaultSortBy()
   }
 }
 
@@ -195,6 +258,7 @@ async function saveSubscribeOrder() {
   // 顺序配置
   const orderObj = displayList.value.map(item => ({ id: item.id }))
   orderConfig.value = orderObj
+  emit('update:sortBy', 'custom')
 
   // 保存到服务端
   try {
