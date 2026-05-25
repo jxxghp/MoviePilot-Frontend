@@ -70,15 +70,6 @@ function isTvSubscribe(media?: Subscribe) {
   return media?.type === '电视剧' || media?.type === 'tv' || !!media?.season || !!media?.total_episode
 }
 
-// TV 洗版订阅在卡片上展示分集或全集短标签
-const bestVersionModeLabel = computed(() => {
-  if (!isEnabledFlag(props.media?.best_version) || !isTvSubscribe(props.media)) return ''
-
-  return isEnabledFlag(props.media?.best_version_full)
-    ? t('subscribe.bestVersionWholeShort')
-    : t('subscribe.bestVersionEpisodeShort')
-})
-
 // 已下载集数：total_episode - lack_episode
 const downloadedEpisode = computed(() => {
   const total = props.media?.total_episode || 0
@@ -89,8 +80,26 @@ const downloadedEpisode = computed(() => {
 // 是否为洗版订阅（影响进度条与 tooltip 的展示分支）
 const isBestVersion = computed(() => isEnabledFlag(props.media?.best_version) && isTvSubscribe(props.media))
 
-// 已洗版集数：取后端派生字段 completed_episode。普通订阅下其值等于已下载集数，洗版订阅下为
-// (start-1) + [start, total] 范围内 priority==100 命中数。
+const rightBottomStateDisplay = computed(() => {
+  if (subscribeState.value === 'S') {
+    return { icon: 'mdi-pause-circle', label: '已暂停' }
+  }
+  if (subscribeState.value === 'P') {
+    return { icon: 'mdi-clock', label: '待定中' }
+  }
+  return null
+})
+
+// 洗版徽标：共用 mdi-shimmer 图标，分集 / 全集 由 full 标记区分背景
+const bestVersionBadge = computed(() => {
+  if (!isEnabledFlag(props.media?.best_version)) return null
+  return {
+    icon: 'mdi-shimmer',
+    full: isEnabledFlag(props.media?.best_version_full),
+  }
+})
+
+// 已洗版集数：取后端派生字段 completed_episode
 const completedEpisode = computed(() => {
   const total = props.media?.total_episode || 0
   return Math.min(Math.max(props.media?.completed_episode ?? 0, 0), total)
@@ -134,8 +143,7 @@ function getPercentage() {
   return Math.round((value / total) * 100)
 }
 
-// 洗版进度条的 buffer 段百分比：表示"已下载"的占比，叠在底色之上、高亮段之外。
-// 普通订阅 buffer 与 model 等值（视觉上呈单段），此函数仅在洗版场景被模板调用。
+// 洗版进度条的 buffer 段百分比：表示"已下载"占比，仅在洗版场景被模板调用
 function getBufferPercentage() {
   const total = props.media?.total_episode || 0
   if (!isBestVersion.value || !total) return 0
@@ -401,11 +409,11 @@ function handleCardClick() {
     <VHover>
       <template #default="hover">
         <div
-          class="w-full h-full rounded-lg overflow-hidden"
+          class="w-full h-full rounded-lg overflow-hidden relative"
           :class="{
             'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
-            'outline-dashed outline-1': props.media?.best_version && imageLoaded,
             'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
+            'subscribe-card-pending-tint': subscribeState === 'P',
           }"
         >
           <VCard
@@ -413,7 +421,7 @@ function handleCardClick() {
             :key="props.media?.id"
             class="flex flex-col h-full"
             :class="{
-              'opacity-70': subscribeState === 'S',
+              'subscribe-card-paused': subscribeState === 'S',
               'cursor-move': props.sortable,
             }"
             rounded="0"
@@ -421,6 +429,13 @@ function handleCardClick() {
             @click="handleCardClick"
             :ripple="!props.batchMode && !props.sortable"
           >
+            <div
+              v-if="bestVersionBadge && imageLoaded"
+              class="best-version-badge"
+              :class="{ 'best-version-badge-full': bestVersionBadge.full }"
+            >
+              <VIcon :icon="bestVersionBadge.icon" color="white" size="16" />
+            </div>
             <div v-if="!props.sortable" class="me-n3 absolute top-1 right-4">
               <IconBtn @click.stop>
                 <VIcon icon="mdi-dots-vertical" color="white" />
@@ -449,15 +464,11 @@ function handleCardClick() {
                   <div class="absolute inset-0 outline-none subscribe-card-background"></div>
                 </template>
               </VImg>
-              <div
-                v-if="subscribeState === 'P'"
-                class="absolute inset-0 bg-yellow-900 opacity-80 pointer-events-none"
-              />
             </template>
             <div>
               <VCardText class="flex items-center pt-3 pb-2">
                 <div
-                  class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md"
+                  class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
                   v-if="imageLoaded"
                   :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                 >
@@ -500,15 +511,6 @@ function handleCardClick() {
                       {{ subscribeProgressTooltip }}
                     </VTooltip>
                   </div>
-                  <VChip
-                    v-if="bestVersionModeLabel"
-                    size="x-small"
-                    color="primary"
-                    variant="flat"
-                    class="me-2 flex-shrink-0"
-                  >
-                    {{ bestVersionModeLabel }}
-                  </VChip>
                   <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="flex-shrink-0 me-1" />
                   <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" class="flex-shrink-0" />
                   <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
@@ -517,8 +519,16 @@ function handleCardClick() {
                   </span>
                 </div>
               </VCardText>
+              <!-- 右下角元数据：暂停 / 待定时替换"x 天前"为状态文案 -->
               <VCardText
-                v-if="lastUpdateText"
+                v-if="rightBottomStateDisplay"
+                class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
+              >
+                <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
+                {{ rightBottomStateDisplay.label }}
+              </VCardText>
+              <VCardText
+                v-else-if="lastUpdateText"
                 class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
               >
                 <VIcon icon="mdi-download" class="me-1" />
@@ -556,5 +566,55 @@ function handleCardClick() {
 <style lang="scss" scoped>
 .subscribe-card-background {
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
+}
+
+/**
+ * 暂停：降低不透明度表达"已停止活动"
+ */
+.subscribe-card-paused {
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+
+/**
+ * 待定：用 ::after 浮层在 VCard 之上渲染 sky 漫反射式内发光
+ */
+.subscribe-card-pending-tint {
+  position: relative;
+}
+.subscribe-card-pending-tint::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 8px;
+  box-shadow: inset 0 0 48px rgba(56, 189, 248, 0.4); // sky-400
+  z-index: 3;
+}
+
+/**
+ * 洗版标识：卡片左上角 24x24 圆形徽标
+ * 分集：深色半透底 + 模糊
+ * 全集：磨砂玻璃半透白底 + 大模糊
+ */
+.best-version-badge {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+.best-version-badge-full {
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
 }
 </style>
