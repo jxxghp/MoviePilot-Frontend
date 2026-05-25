@@ -988,6 +988,8 @@ export default {
     notStarted: '未開始',
     pending: '待定',
     paused: '暫停',
+    cardStatePaused: '已暫停',
+    cardStatePending: '待定中',
     selectedCount: '已選擇 {count}/{total} 項',
     noSelectedItems: '請先選擇要操作的訂閱',
     batchEnable: '批量啟用',
