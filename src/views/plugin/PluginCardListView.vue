@@ -903,6 +903,7 @@ async function refreshActiveTabData(context: KeepAliveRefreshContext = {}) {
   }
 
   await fetchInstalledPlugins(context)
+  await fetchUninstalledPlugins(false, context)
   await getPluginStatistics()
   // 文件夹配置可能在其它入口被插件操作改变，重新进入时同步一次。
   await loadPluginFolders()
