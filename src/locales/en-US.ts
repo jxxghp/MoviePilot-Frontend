@@ -993,6 +993,8 @@ export default {
     notStarted: 'Not Started',
     pending: 'Pending',
     paused: 'Paused',
+    cardStatePaused: 'Paused',
+    cardStatePending: 'Pending',
     selectedCount: 'Selected {count}/{total} items',
     noSelectedItems: 'Please select subscriptions to operate',
     batchEnable: 'Batch Enable',

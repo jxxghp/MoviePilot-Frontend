@@ -82,10 +82,10 @@ const isBestVersion = computed(() => isEnabledFlag(props.media?.best_version) &&
 
 const rightBottomStateDisplay = computed(() => {
   if (subscribeState.value === 'S') {
-    return { icon: 'mdi-pause-circle', label: '已暂停' }
+    return { icon: 'mdi-pause-circle', label: t('subscribe.cardStatePaused') }
   }
   if (subscribeState.value === 'P') {
-    return { icon: 'mdi-clock', label: '待定中' }
+    return { icon: 'mdi-clock', label: t('subscribe.cardStatePending') }
   }
   return null
 })
