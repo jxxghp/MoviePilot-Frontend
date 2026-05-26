@@ -58,6 +58,7 @@ const SystemSettings = ref<any>({
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
     LLM_BASE_URL_PRESET: null,
+    LLM_MAX_CONTEXT_TOKENS: 64,
     LLM_USER_AGENT: null,
     AUDIO_INPUT_PROVIDER: 'openai',
     AUDIO_INPUT_API_KEY: null,
@@ -74,7 +75,6 @@ const SystemSettings = ref<any>({
     AI_RECOMMEND_ENABLED: false,
     AI_RECOMMEND_USER_PREFERENCE: null,
     AI_RECOMMEND_MAX_ITEMS: 50,
-    LLM_MAX_CONTEXT_TOKENS: 64,
   },
   // 高级系统设置
   Advanced: {
@@ -1217,15 +1217,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         prepend-inner-icon="mdi-key-variant"
                       />
                     </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.LLM_USER_AGENT"
-                        :label="t('setting.system.llmUserAgent')"
-                        :hint="t('setting.system.llmUserAgentHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-card-account-details-outline"
-                      />
-                    </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0" cols="12">
                       <VAlert type="info" variant="tonal">
                         <div class="d-flex flex-column flex-md-row justify-space-between ga-3">
@@ -1327,6 +1318,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         persistent-hint
                         type="number"
                         prepend-inner-icon="mdi-counter"
+                      />
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                      <VTextField
+                        v-model="SystemSettings.Basic.LLM_USER_AGENT"
+                        :label="t('setting.system.llmUserAgent')"
+                        :hint="t('setting.system.llmUserAgentHint')"
+                        persistent-hint
+                        prepend-inner-icon="mdi-card-account-details-outline"
                       />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">

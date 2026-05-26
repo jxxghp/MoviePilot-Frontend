@@ -357,16 +357,6 @@ onMounted(async () => {
             />
           </VCol>
 
-          <VCol v-if="showBaseUrlField" cols="12" md="6">
-            <VTextField
-              v-model="wizardData.agent.userAgent"
-              :label="t('setting.system.llmUserAgent')"
-              :hint="t('setting.system.llmUserAgentHint')"
-              persistent-hint
-              prepend-inner-icon="mdi-card-account-details-outline"
-            />
-          </VCol>
-
           <VCol v-if="providerAuthMethods.length > 0" cols="12">
             <VAlert type="info" variant="tonal">
               <div class="d-flex flex-column ga-3">
@@ -453,6 +443,16 @@ onMounted(async () => {
               prepend-inner-icon="mdi-counter"
               type="number"
               min="1"
+            />
+          </VCol>
+
+          <VCol v-if="showBaseUrlField" cols="12" md="6">
+            <VTextField
+              v-model="wizardData.agent.userAgent"
+              :label="t('setting.system.llmUserAgent')"
+              :hint="t('setting.system.llmUserAgentHint')"
+              persistent-hint
+              prepend-inner-icon="mdi-card-account-details-outline"
             />
           </VCol>
 

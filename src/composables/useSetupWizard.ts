@@ -62,8 +62,8 @@ export interface WizardData {
     apiKey: string
     baseUrl: string
     baseUrlPreset: string
-    userAgent: string
     maxContextTokens: number
+    userAgent: string
     audioInputProvider: string
     audioInputApiKey: string
     audioInputBaseUrl: string
@@ -249,8 +249,8 @@ const wizardData = ref<WizardData>({
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
     baseUrlPreset: '',
-    userAgent: '',
     maxContextTokens: 64,
+    userAgent: '',
     audioInputProvider: 'openai',
     audioInputApiKey: '',
     audioInputBaseUrl: '',
@@ -1447,8 +1447,8 @@ export function useSetupWizard() {
         LLM_API_KEY: wizardData.value.agent.apiKey,
         LLM_BASE_URL: wizardData.value.agent.baseUrl || null,
         LLM_BASE_URL_PRESET: wizardData.value.agent.baseUrlPreset || null,
-        LLM_USER_AGENT: wizardData.value.agent.userAgent || null,
         LLM_MAX_CONTEXT_TOKENS: wizardData.value.agent.maxContextTokens,
+        LLM_USER_AGENT: wizardData.value.agent.userAgent || null,
         AUDIO_INPUT_PROVIDER: wizardData.value.agent.audioInputProvider || 'openai',
         AUDIO_INPUT_API_KEY: wizardData.value.agent.audioInputApiKey || null,
         AUDIO_INPUT_BASE_URL: wizardData.value.agent.audioInputBaseUrl || null,
@@ -1561,8 +1561,8 @@ export function useSetupWizard() {
         wizardData.value.agent.apiKey = result.data.LLM_API_KEY || ''
         wizardData.value.agent.baseUrl = result.data.LLM_BASE_URL || ''
         wizardData.value.agent.baseUrlPreset = result.data.LLM_BASE_URL_PRESET || ''
-        wizardData.value.agent.userAgent = result.data.LLM_USER_AGENT || ''
         wizardData.value.agent.maxContextTokens = result.data.LLM_MAX_CONTEXT_TOKENS || 64
+        wizardData.value.agent.userAgent = result.data.LLM_USER_AGENT || ''
         wizardData.value.agent.audioInputProvider = result.data.AUDIO_INPUT_PROVIDER || 'openai'
         wizardData.value.agent.audioInputApiKey = result.data.AUDIO_INPUT_API_KEY || ''
         wizardData.value.agent.audioInputBaseUrl = result.data.AUDIO_INPUT_BASE_URL || ''
