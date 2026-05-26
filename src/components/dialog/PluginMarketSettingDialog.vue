@@ -199,13 +199,13 @@ function startEdit(index: number) {
 }
 
 /** 保存当前行内编辑的仓库地址。 */
-function saveEdit() {
-  if (editingIndex.value === null) return
+function saveEdit(index = editingIndex.value) {
+  if (index === null) return
 
   const url = editingUrl.value.trim()
-  if (!validateRepoUrl(url, editingIndex.value)) return
+  if (!validateRepoUrl(url, index)) return
 
-  repoList.value[editingIndex.value] = url
+  repoList.value[index] = url
   syncTextFromList()
   editingIndex.value = null
   editingUrl.value = ''
@@ -330,10 +330,10 @@ onMounted(() => {
                         <VListItemTitle>
                           <div class="plugin-market-repo-title">
                             <span class="plugin-market-repo-index">{{ index + 1 }}</span>
-                            <span class="text-truncate" :title="repo">{{ formatRepoDisplay(repo) }}</span>
+                            <span class="plugin-market-repo-name" :title="repo">{{ formatRepoDisplay(repo) }}</span>
                           </div>
                         </VListItemTitle>
-                        <VListItemSubtitle class="text-truncate mt-1" :title="repo">
+                        <VListItemSubtitle class="plugin-market-repo-url mt-1" :title="repo">
                           {{ repo }}
                         </VListItemSubtitle>
                       </template>
@@ -345,7 +345,7 @@ onMounted(() => {
                         variant="outlined"
                         hide-details
                         autofocus
-                        @keyup.enter="saveEdit"
+                        @keyup.enter="saveEdit(index)"
                         @keyup.escape="cancelEdit"
                       />
 
@@ -364,8 +364,13 @@ onMounted(() => {
 
                       <template #append v-else>
                         <div class="d-flex align-center">
-                          <IconBtn icon="mdi-check" size="small" variant="text" color="success" @click="saveEdit" />
-                          <IconBtn icon="mdi-close" size="small" variant="text" @click="cancelEdit" />
+                          <VBtn
+                            icon="mdi-check"
+                            size="small"
+                            variant="text"
+                            color="success"
+                            @click.stop="saveEdit(index)"
+                          />
                         </div>
                       </template>
                     </VListItem>
@@ -383,16 +388,17 @@ onMounted(() => {
         </div>
 
         <div v-else class="plugin-market-text-panel">
-          <VTextarea
-            v-model="repoText"
-            class="plugin-market-textarea"
-            rows="8"
-            variant="outlined"
-            prepend-inner-icon="mdi-text-box-edit-outline"
-            :placeholder="t('dialog.pluginMarketSetting.textPlaceholder')"
-            :hint="t('dialog.pluginMarketSetting.textHint')"
-            persistent-hint
-          />
+          <div class="plugin-market-textarea-field">
+            <VIcon icon="mdi-text-box-edit-outline" class="plugin-market-textarea-icon" />
+            <textarea
+              v-model="repoText"
+              class="plugin-market-textarea"
+              :placeholder="t('dialog.pluginMarketSetting.textPlaceholder')"
+            />
+          </div>
+          <div class="plugin-market-text-hint">
+            {{ t('dialog.pluginMarketSetting.textHint') }}
+          </div>
 
           <VAlert
             v-if="parsedTextRepos.invalidRepos.length > 0"
@@ -488,7 +494,7 @@ onMounted(() => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-block-size: 0;
 }
 
@@ -520,6 +526,22 @@ onMounted(() => {
   min-inline-size: 0;
 }
 
+.plugin-market-repo-name,
+.plugin-market-repo-url {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-break: anywhere;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.plugin-market-repo-url {
+  line-height: 1.4;
+}
+
 .plugin-market-repo-index {
   flex: 0 0 auto;
   color: rgba(var(--v-theme-on-surface), 0.48);
@@ -536,29 +558,56 @@ onMounted(() => {
   min-block-size: 14rem;
 }
 
+.plugin-market-textarea-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.72);
+  min-block-size: 0;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus-within {
+    border-color: rgb(var(--v-theme-primary));
+    box-shadow: 0 0 0 1px rgb(var(--v-theme-primary));
+  }
+}
+
+.plugin-market-textarea-icon {
+  position: absolute;
+  z-index: 1;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  inset-block-start: 1.25rem;
+  inset-inline-start: 1rem;
+  pointer-events: none;
+}
+
 .plugin-market-textarea {
   flex: 1;
+  border: 0;
+  background: transparent;
+  block-size: 100%;
+  color: rgb(var(--v-theme-on-surface));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1rem;
+  line-height: 1.6;
   min-block-size: 0;
+  outline: none;
+  overflow-y: auto;
+  padding: 1rem 1rem 1rem 3.25rem;
+  resize: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
-  :deep(.v-input__control),
-  :deep(.v-field),
-  :deep(.v-field__field) {
-    block-size: 100%;
-    min-block-size: 0;
-  }
-
-  :deep(.v-field__input) {
-    align-items: stretch;
-    block-size: 100%;
-    min-block-size: 0;
-  }
-
-  :deep(textarea) {
-    block-size: 100%;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    line-height: 1.6;
-    overflow-y: auto;
-  }
+.plugin-market-text-hint {
+  flex: 0 0 auto;
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  padding-inline: 1rem;
 }
 
 .plugin-market-invalid-alert {
