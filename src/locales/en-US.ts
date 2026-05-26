@@ -1456,6 +1456,9 @@ export default {
       llmApiKeyPlaceholder: 'Please enter API key',
       llmBaseUrl: 'LLM Base URL',
       llmBaseUrlHint: 'Base URL for LLM API, used for custom API endpoints',
+      llmUseProxy: 'Use System Proxy',
+      llmUseProxyHint:
+        'When enabled, Agent connections to the current LLM provider use the system proxy from advanced settings.',
       llmUserAgent: 'User-Agent',
       llmUserAgentHint: 'User-Agent sent to OpenAI-compatible APIs. Leave empty to use the SDK default.',
       llmProviderAuth: 'Provider Authorization',

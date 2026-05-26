@@ -57,6 +57,7 @@ const SystemSettings = ref<any>({
     LLM_SUPPORT_AUDIO_OUTPUT: false,
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
+    LLM_USE_PROXY: true,
     LLM_BASE_URL_PRESET: null,
     LLM_MAX_CONTEXT_TOKENS: 64,
     LLM_USER_AGENT: null,
@@ -214,6 +215,7 @@ type LlmSettingsSnapshot = {
   LLM_THINKING_LEVEL: string
   LLM_API_KEY: string
   LLM_BASE_URL: string
+  LLM_USE_PROXY: boolean
   LLM_BASE_URL_PRESET: string
   LLM_USER_AGENT: string
 }
@@ -246,6 +248,13 @@ const llmBaseUrlPresetRef = computed({
   get: () => String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
   set: value => {
     SystemSettings.value.Basic.LLM_BASE_URL_PRESET = value || ''
+  },
+})
+
+const llmUseProxyRef = computed({
+  get: () => Boolean(SystemSettings.value.Basic.LLM_USE_PROXY),
+  set: value => {
+    SystemSettings.value.Basic.LLM_USE_PROXY = Boolean(value)
   },
 })
 
@@ -301,6 +310,7 @@ const {
   apiKey: llmApiKeyRef,
   baseUrl: llmBaseUrlRef,
   baseUrlPreset: llmBaseUrlPresetRef,
+  useProxy: llmUseProxyRef,
   userAgent: llmUserAgentRef,
   model: llmModelRef,
   maxContextTokens: llmMaxContextRef,
@@ -362,6 +372,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_THINKING_LEVEL: String(SystemSettings.value.Basic.LLM_THINKING_LEVEL ?? 'off'),
     LLM_API_KEY: String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
     LLM_BASE_URL: String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
+    LLM_USE_PROXY: Boolean(SystemSettings.value.Basic.LLM_USE_PROXY),
     LLM_BASE_URL_PRESET: String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
     LLM_USER_AGENT: String(SystemSettings.value.Basic.LLM_USER_AGENT ?? ''),
   }
@@ -379,6 +390,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     thinking_level: snapshot.LLM_THINKING_LEVEL.trim(),
     api_key: snapshot.LLM_API_KEY.trim(),
     base_url: snapshot.LLM_BASE_URL.trim(),
+    use_proxy: snapshot.LLM_USE_PROXY,
     base_url_preset: snapshot.LLM_BASE_URL_PRESET.trim(),
     user_agent: snapshot.LLM_USER_AGENT.trim(),
   }
@@ -1205,6 +1217,14 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                           <VListItem v-bind="props" :subtitle="item.raw.subtitle" />
                         </template>
                       </VCombobox>
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12">
+                      <VSwitch
+                        v-model="SystemSettings.Basic.LLM_USE_PROXY"
+                        :label="t('setting.system.llmUseProxy')"
+                        :hint="t('setting.system.llmUseProxyHint')"
+                        persistent-hint
+                      />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showApiKeyField" cols="12" md="6">
                       <VTextField

@@ -40,6 +40,13 @@ const baseUrlPresetRef = computed({
   },
 })
 
+const useProxyRef = computed({
+  get: () => wizardData.value.agent.useProxy,
+  set: value => {
+    wizardData.value.agent.useProxy = Boolean(value)
+  },
+})
+
 const userAgentRef = computed({
   get: () => wizardData.value.agent.userAgent,
   set: value => {
@@ -99,6 +106,7 @@ const {
   apiKey: apiKeyRef,
   baseUrl: baseUrlRef,
   baseUrlPreset: baseUrlPresetRef,
+  useProxy: useProxyRef,
   userAgent: userAgentRef,
   model: modelRef,
   maxContextTokens: maxContextTokensRef,
@@ -339,6 +347,16 @@ onMounted(async () => {
                 <VListItem v-bind="props" :subtitle="item.raw.subtitle" />
               </template>
             </VCombobox>
+          </VCol>
+
+          <VCol v-if="showBaseUrlField" cols="12">
+            <VSwitch
+              v-model="wizardData.agent.useProxy"
+              :label="t('setting.system.llmUseProxy')"
+              :hint="t('setting.system.llmUseProxyHint')"
+              persistent-hint
+              color="primary"
+            />
           </VCol>
 
           <VCol v-if="showApiKeyField" cols="12" md="6">

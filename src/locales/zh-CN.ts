@@ -1448,6 +1448,8 @@ export default {
       llmApiKeyPlaceholder: '请输入API密钥',
       llmBaseUrl: 'LLM基础URL',
       llmBaseUrlHint: 'LLM API的基础URL地址，用于自定义API端点',
+      llmUseProxy: '使用系统代理',
+      llmUseProxyHint: '启用后，Agent 连接当前 LLM 提供商时会应用高级设置中的系统代理',
       llmUserAgent: 'User-Agent',
       llmUserAgentHint: 'OpenAI 兼容接口请求使用的 User-Agent，留空则使用 SDK 默认值',
       llmProviderAuth: '提供商授权',
