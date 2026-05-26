@@ -40,6 +40,13 @@ const baseUrlPresetRef = computed({
   },
 })
 
+const userAgentRef = computed({
+  get: () => wizardData.value.agent.userAgent,
+  set: value => {
+    wizardData.value.agent.userAgent = value || ''
+  },
+})
+
 const modelRef = computed({
   get: () => wizardData.value.agent.model,
   set: value => {
@@ -92,6 +99,7 @@ const {
   apiKey: apiKeyRef,
   baseUrl: baseUrlRef,
   baseUrlPreset: baseUrlPresetRef,
+  userAgent: userAgentRef,
   model: modelRef,
   maxContextTokens: maxContextTokensRef,
   authConnected: authConnectedRef,
@@ -346,6 +354,16 @@ onMounted(async () => {
               persistent-hint
               prepend-inner-icon="mdi-key-variant"
               type="password"
+            />
+          </VCol>
+
+          <VCol v-if="showBaseUrlField" cols="12" md="6">
+            <VTextField
+              v-model="wizardData.agent.userAgent"
+              :label="t('setting.system.llmUserAgent')"
+              :hint="t('setting.system.llmUserAgentHint')"
+              persistent-hint
+              prepend-inner-icon="mdi-card-account-details-outline"
             />
           </VCol>
 

@@ -83,6 +83,7 @@ interface UseLlmProviderDirectoryOptions {
   apiKey: Ref<string>
   baseUrl: Ref<string>
   baseUrlPreset?: Ref<string>
+  userAgent?: Ref<string>
   model: Ref<string>
   maxContextTokens?: Ref<number>
   authConnected?: Ref<boolean>
@@ -253,6 +254,7 @@ export function useLlmProviderDirectory(options: UseLlmProviderDirectoryOptions)
           api_key: normalizeValue(options.apiKey.value) || undefined,
           base_url: normalizeValue(options.baseUrl.value) || undefined,
           base_url_preset: normalizeValue(options.baseUrlPreset?.value) || undefined,
+          user_agent: normalizeValue(options.userAgent?.value) || undefined,
           force_refresh: forceRefresh,
         },
       })

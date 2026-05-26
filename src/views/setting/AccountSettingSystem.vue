@@ -58,6 +58,7 @@ const SystemSettings = ref<any>({
     LLM_API_KEY: null,
     LLM_BASE_URL: 'https://api.deepseek.com',
     LLM_BASE_URL_PRESET: null,
+    LLM_USER_AGENT: null,
     AUDIO_INPUT_PROVIDER: 'openai',
     AUDIO_INPUT_API_KEY: null,
     AUDIO_INPUT_BASE_URL: null,
@@ -214,6 +215,7 @@ type LlmSettingsSnapshot = {
   LLM_API_KEY: string
   LLM_BASE_URL: string
   LLM_BASE_URL_PRESET: string
+  LLM_USER_AGENT: string
 }
 
 let llmTestRequestId = 0
@@ -244,6 +246,13 @@ const llmBaseUrlPresetRef = computed({
   get: () => String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
   set: value => {
     SystemSettings.value.Basic.LLM_BASE_URL_PRESET = value || ''
+  },
+})
+
+const llmUserAgentRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_USER_AGENT ?? ''),
+  set: value => {
+    SystemSettings.value.Basic.LLM_USER_AGENT = value || ''
   },
 })
 
@@ -292,6 +301,7 @@ const {
   apiKey: llmApiKeyRef,
   baseUrl: llmBaseUrlRef,
   baseUrlPreset: llmBaseUrlPresetRef,
+  userAgent: llmUserAgentRef,
   model: llmModelRef,
   maxContextTokens: llmMaxContextRef,
 })
@@ -353,6 +363,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_API_KEY: String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
     LLM_BASE_URL: String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
     LLM_BASE_URL_PRESET: String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
+    LLM_USER_AGENT: String(SystemSettings.value.Basic.LLM_USER_AGENT ?? ''),
   }
 }
 
@@ -369,6 +380,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     api_key: snapshot.LLM_API_KEY.trim(),
     base_url: snapshot.LLM_BASE_URL.trim(),
     base_url_preset: snapshot.LLM_BASE_URL_PRESET.trim(),
+    user_agent: snapshot.LLM_USER_AGENT.trim(),
   }
 }
 
@@ -1203,6 +1215,15 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         persistent-hint
                         type="password"
                         prepend-inner-icon="mdi-key-variant"
+                      />
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
+                      <VTextField
+                        v-model="SystemSettings.Basic.LLM_USER_AGENT"
+                        :label="t('setting.system.llmUserAgent')"
+                        :hint="t('setting.system.llmUserAgentHint')"
+                        persistent-hint
+                        prepend-inner-icon="mdi-card-account-details-outline"
                       />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && llmProviderAuthMethods.length > 0" cols="12">
