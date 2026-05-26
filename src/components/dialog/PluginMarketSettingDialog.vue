@@ -236,15 +236,6 @@ function formatRepoDisplay(url: string) {
   return url
 }
 
-/** 获取仓库地址的主机名用于辅助显示。 */
-function formatRepoHost(url: string) {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return ''
-  }
-}
-
 /** 返回拖拽列表项的稳定键。 */
 function repoItemKey(repo: string) {
   return repo
@@ -256,26 +247,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <VDialog width="56rem" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog width="56rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="plugin-market-dialog-card">
-      <VCardItem>
+      <VCardItem class="plugin-market-card-item">
         <div class="plugin-market-header">
-          <div class="plugin-market-title-block">
-            <VCardTitle class="d-flex align-center pa-0">
-              <VIcon icon="mdi-store-cog" class="me-2" />
-              {{ t('dialog.pluginMarketSetting.title') }}
-            </VCardTitle>
-            <div class="plugin-market-subtitle">
-              {{ t('dialog.pluginMarketSetting.description') }}
-            </div>
-          </div>
-          <VChip color="primary" variant="tonal" prepend-icon="mdi-source-repository">
-            {{ t('dialog.pluginMarketSetting.repoCount', { count: activeRepoCount }) }}
-          </VChip>
+          <VCardTitle class="plugin-market-title d-flex align-center pa-0">
+            <VIcon icon="mdi-store-cog" class="me-2" />
+            {{ t('dialog.pluginMarketSetting.title') }}
+          </VCardTitle>
         </div>
         <VDialogCloseBtn @click="emit('close')" />
       </VCardItem>
-      <VDivider />
 
       <VCardText class="plugin-market-dialog-body pt-4">
         <div class="plugin-market-toolbar">
@@ -295,10 +277,6 @@ onMounted(() => {
               {{ t('dialog.pluginMarketSetting.textMode') }}
             </VBtn>
           </VBtnToggle>
-
-          <div class="plugin-market-toolbar-info">
-            {{ editorMode === 'list' ? t('dialog.pluginMarketSetting.listHint') : t('dialog.pluginMarketSetting.textHint') }}
-          </div>
         </div>
 
         <div v-if="editorMode === 'list'" class="plugin-market-list-panel">
@@ -353,15 +331,6 @@ onMounted(() => {
                           <div class="plugin-market-repo-title">
                             <span class="plugin-market-repo-index">{{ index + 1 }}</span>
                             <span class="text-truncate" :title="repo">{{ formatRepoDisplay(repo) }}</span>
-                            <VChip
-                              v-if="formatRepoHost(repo)"
-                              size="x-small"
-                              variant="tonal"
-                              color="secondary"
-                              class="plugin-market-host-chip"
-                            >
-                              {{ formatRepoHost(repo) }}
-                            </VChip>
                           </div>
                         </VListItemTitle>
                         <VListItemSubtitle class="text-truncate mt-1" :title="repo">
@@ -417,37 +386,13 @@ onMounted(() => {
           <VTextarea
             v-model="repoText"
             class="plugin-market-textarea"
-            rows="11"
-            auto-grow
-            max-rows="18"
+            rows="8"
             variant="outlined"
             prepend-inner-icon="mdi-text-box-edit-outline"
             :placeholder="t('dialog.pluginMarketSetting.textPlaceholder')"
             :hint="t('dialog.pluginMarketSetting.textHint')"
             persistent-hint
           />
-
-          <div class="plugin-market-text-summary">
-            <VChip color="primary" variant="tonal" prepend-icon="mdi-check-circle-outline">
-              {{ t('dialog.pluginMarketSetting.repoCount', { count: parsedTextRepos.repos.length }) }}
-            </VChip>
-            <VChip
-              v-if="parsedTextRepos.duplicateRepos.length > 0"
-              color="warning"
-              variant="tonal"
-              prepend-icon="mdi-content-duplicate"
-            >
-              {{ t('dialog.pluginMarketSetting.duplicateCount', { count: parsedTextRepos.duplicateRepos.length }) }}
-            </VChip>
-            <VChip
-              v-if="parsedTextRepos.invalidRepos.length > 0"
-              color="error"
-              variant="tonal"
-              prepend-icon="mdi-alert-circle-outline"
-            >
-              {{ t('dialog.pluginMarketSetting.invalidCount', { count: parsedTextRepos.invalidRepos.length }) }}
-            </VChip>
-          </div>
 
           <VAlert
             v-if="parsedTextRepos.invalidRepos.length > 0"
@@ -473,15 +418,8 @@ onMounted(() => {
         </div>
       </VCardText>
 
-      <VDivider />
       <VCardActions class="plugin-market-actions">
-        <div class="plugin-market-footer-summary">
-          {{ t('dialog.pluginMarketSetting.repoCount', { count: activeRepoCount }) }}
-        </div>
         <VSpacer />
-        <VBtn variant="text" @click="emit('close')">
-          {{ t('dialog.pluginMarketSetting.close') }}
-        </VBtn>
         <VBtn
           color="primary"
           variant="flat"
@@ -501,25 +439,24 @@ onMounted(() => {
 .plugin-market-dialog-card {
   display: flex;
   flex-direction: column;
-  max-block-size: min(82vh, 50rem);
+  block-size: min(82vh, 50rem);
+}
+
+.plugin-market-card-item {
+  flex: 0 0 auto;
+  padding-block: 0.875rem;
 }
 
 .plugin-market-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding-inline-end: 2rem;
 }
 
-.plugin-market-title-block {
+.plugin-market-title {
   min-inline-size: 0;
-}
-
-.plugin-market-subtitle {
-  color: rgba(var(--v-theme-on-surface), 0.68);
-  font-size: 0.875rem;
-  margin-block-start: 0.25rem;
 }
 
 .plugin-market-dialog-body {
@@ -527,33 +464,23 @@ onMounted(() => {
   overflow: hidden;
   flex: 1;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.875rem;
   min-block-size: 0;
+  padding-block: 0.875rem !important;
 }
 
 .plugin-market-toolbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.18);
-  padding: 0.75rem;
+  flex-shrink: 0;
 }
 
 .plugin-market-mode-toggle {
-  flex-shrink: 0;
+  inline-size: 100%;
 
   :deep(.v-btn) {
-    min-inline-size: 7rem;
+    flex: 1;
+    min-inline-size: 0;
   }
-}
-
-.plugin-market-toolbar-info {
-  color: rgba(var(--v-theme-on-surface), 0.68);
-  font-size: 0.875rem;
-  text-align: end;
 }
 
 .plugin-market-list-panel,
@@ -561,7 +488,7 @@ onMounted(() => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
   min-block-size: 0;
 }
 
@@ -574,7 +501,7 @@ onMounted(() => {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 0.72);
-  min-block-size: 14rem;
+  min-block-size: 0;
   overflow-y: auto;
 }
 
@@ -601,10 +528,6 @@ onMounted(() => {
   inline-size: 1.75rem;
 }
 
-.plugin-market-host-chip {
-  flex: 0 0 auto;
-}
-
 .plugin-market-empty {
   display: flex;
   align-items: center;
@@ -614,16 +537,28 @@ onMounted(() => {
 }
 
 .plugin-market-textarea {
+  flex: 1;
+  min-block-size: 0;
+
+  :deep(.v-input__control),
+  :deep(.v-field),
+  :deep(.v-field__field) {
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
+  :deep(.v-field__input) {
+    align-items: stretch;
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
   :deep(textarea) {
+    block-size: 100%;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     line-height: 1.6;
+    overflow-y: auto;
   }
-}
-
-.plugin-market-text-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .plugin-market-invalid-alert {
@@ -633,28 +568,34 @@ onMounted(() => {
 }
 
 .plugin-market-actions {
+  flex: 0 0 auto;
   gap: 0.5rem;
-}
-
-.plugin-market-footer-summary {
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.875rem;
-  margin-inline-start: 0.5rem;
+  padding: 0.75rem 1.5rem 1rem;
 }
 
 @media (max-width: 600px) {
   .plugin-market-dialog-card {
-    max-block-size: 100vh;
+    block-size: 100dvh;
   }
 
-  .plugin-market-header,
-  .plugin-market-toolbar {
-    align-items: stretch;
-    flex-direction: column;
+  .plugin-market-card-item {
+    padding: 0.75rem 1rem 0.625rem;
   }
 
-  .plugin-market-toolbar-info {
-    text-align: start;
+  .plugin-market-header {
+    align-items: center;
+    gap: 0.5rem;
+    padding-inline-end: 2.25rem;
+  }
+
+  .plugin-market-header :deep(.v-card-title) {
+    font-size: 1.125rem;
+    line-height: 1.35;
+  }
+
+  .plugin-market-dialog-body {
+    gap: 0.625rem;
+    padding: 0.75rem 1rem !important;
   }
 
   .plugin-market-mode-toggle {
@@ -666,8 +607,21 @@ onMounted(() => {
     }
   }
 
-  .plugin-market-footer-summary {
-    display: none;
+  .plugin-market-list-panel,
+  .plugin-market-text-panel {
+    gap: 0.625rem;
+  }
+
+  .plugin-market-list-wrap {
+    min-block-size: 0;
+  }
+
+  .plugin-market-empty {
+    min-block-size: 10rem;
+  }
+
+  .plugin-market-actions {
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
   }
 }
 </style>
