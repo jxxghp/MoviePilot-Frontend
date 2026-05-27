@@ -102,6 +102,15 @@ const frontendVersionStatistics = computed(() => versionStatistic.value?.fronten
 // 活跃用户统计
 const activeUsers = computed(() => versionStatistic.value?.active_users ?? {})
 
+/** 格式化版本安装统计数字为千分位展示。 */
+function formatVersionStatisticNumber(value: unknown) {
+  const numberValue = Number(value ?? 0)
+
+  if (!Number.isFinite(numberValue)) return '0'
+
+  return numberValue.toLocaleString()
+}
+
 // 打开日志对话框
 function showReleaseDialog(title: string, body: string) {
   releaseDialogTitle.value = title
@@ -473,19 +482,19 @@ onMounted(() => {
           <div class="version-stat-summary">
             <div>
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.totalInstallUsers') }}</div>
-              <div class="version-stat-number">{{ versionStatistic.total_users ?? 0 }}</div>
+              <div class="version-stat-number">{{ formatVersionStatisticNumber(versionStatistic.total_users) }}</div>
             </div>
             <div>
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.activeToday') }}</div>
-              <div class="version-stat-number">{{ activeUsers.today ?? 0 }}</div>
+              <div class="version-stat-number">{{ formatVersionStatisticNumber(activeUsers.today) }}</div>
             </div>
             <div>
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.active7Days') }}</div>
-              <div class="version-stat-number">{{ activeUsers.last_7_days ?? 0 }}</div>
+              <div class="version-stat-number">{{ formatVersionStatisticNumber(activeUsers.last_7_days) }}</div>
             </div>
             <div>
               <div class="text-caption text-medium-emphasis">{{ t('setting.about.active30Days') }}</div>
-              <div class="version-stat-number">{{ activeUsers.last_30_days ?? 0 }}</div>
+              <div class="version-stat-number">{{ formatVersionStatisticNumber(activeUsers.last_30_days) }}</div>
             </div>
           </div>
           <div class="mt-5">
@@ -502,7 +511,7 @@ onMounted(() => {
                   <td>
                     <code>{{ item.version }}</code>
                   </td>
-                  <td class="text-end">{{ item.count }}</td>
+                  <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
                 </tr>
                 <tr v-if="!backendVersionStatistics.length">
                   <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
@@ -524,7 +533,7 @@ onMounted(() => {
                   <td>
                     <code>{{ item.version }}</code>
                   </td>
-                  <td class="text-end">{{ item.count }}</td>
+                  <td class="text-end">{{ formatVersionStatisticNumber(item.count) }}</td>
                 </tr>
                 <tr v-if="!frontendVersionStatistics.length">
                   <td colspan="2" class="text-medium-emphasis">{{ t('setting.about.noVersionStatisticData') }}</td>
