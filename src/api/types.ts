@@ -1369,6 +1369,14 @@ export interface ManualTransferPreviewItem {
   episode_end?: number | string
   // Part
   part?: string
+  // 原始识别字符串
+  org_string?: string
+  // 应用的自定义识别词
+  apply_words?: string[]
+  // 制作组/字幕组
+  resource_team?: string
+  // 自定义占位符
+  customization?: string
 }
 
 // 手动整理预览数据

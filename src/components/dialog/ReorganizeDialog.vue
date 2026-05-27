@@ -511,6 +511,22 @@ const previewFileRows = computed(() => {
   })
 })
 
+// 标准化预览项中的识别词命中详情
+function getPreviewApplyWords(item: ManualTransferPreviewItem) {
+  return (item.apply_words ?? []).filter(Boolean)
+}
+
+// 手动整理识别词应用详情
+const previewCustomWordDetails = computed(() => {
+  return filteredPreviewItems.value
+    .map(item => ({
+      sourceName: getFileName(item.source),
+      orgString: item.org_string,
+      applyWords: getPreviewApplyWords(item),
+    }))
+    .filter(item => item.applyWords.length > 0)
+})
+
 // 是否需要拓宽窗口
 const previewNeedsWideLayout = computed(() => {
   const candidates = [...previewFileRows.value.map(item => `${item.sourceName}${item.targetName}`)]
@@ -1439,6 +1455,36 @@ onUnmounted(() => {
                         <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
                       </div>
                     </div>
+                    <div v-if="previewCustomWordDetails.length" class="preview-custom-words">
+                      <div class="preview-custom-words__title">
+                        <VIcon icon="mdi-tag-text-outline" size="16" />
+                        <span>{{ t('dialog.reorganize.customWordsApplied') }}</span>
+                      </div>
+                      <div class="preview-custom-words__items">
+                        <div
+                          v-for="(detail, index) in previewCustomWordDetails"
+                          :key="`${detail.sourceName}-${index}`"
+                          class="preview-custom-words__item"
+                        >
+                          <div class="preview-custom-words__source">{{ detail.sourceName }}</div>
+                          <div v-if="detail.orgString" class="preview-custom-words__original">
+                            {{ detail.orgString }}
+                          </div>
+                          <div class="preview-custom-words__chips">
+                            <VChip
+                              v-for="(word, wordIndex) in detail.applyWords"
+                              :key="`${word}-${wordIndex}`"
+                              variant="outlined"
+                              color="info"
+                              size="small"
+                              class="preview-custom-words__chip"
+                            >
+                              {{ word }}
+                            </VChip>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div class="reorganize-preview-list">
                     <div v-if="pagedPreviewRows.length" ref="previewFileBodyRef" class="preview-file-body">
@@ -1698,6 +1744,66 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.preview-custom-words {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.75rem;
+  gap: 0.75rem;
+  padding-block: 0.875rem;
+  padding-inline: 1rem;
+}
+
+.preview-custom-words__title {
+  display: inline-flex;
+  align-items: center;
+  color: rgb(var(--v-theme-info));
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.375rem;
+}
+
+.preview-custom-words__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+.preview-custom-words__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+.preview-custom-words__source {
+  overflow-wrap: anywhere;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.preview-custom-words__original {
+  overflow-wrap: anywhere;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.preview-custom-words__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+.preview-custom-words__chip {
+  max-inline-size: 100%;
+  white-space: normal;
+}
+
 .reorganize-preview-pane__scroll {
   display: flex;
   overflow: hidden auto;
@@ -1797,11 +1903,13 @@ onUnmounted(() => {
 }
 
 .preview-file-row__path {
-  overflow: hidden;
+  overflow: visible;
+  overflow-wrap: anywhere;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.8125rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-all;
 }
 
 .preview-file-row__card--target .preview-file-row__name {

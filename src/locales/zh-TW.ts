@@ -2597,6 +2597,7 @@ export default {
       previewSeasonInfo: '季資訊',
       previewSeasonLabel: '季',
       previewEpisodeCount: '總集數',
+      customWordsApplied: '識別詞應用詳情',
       previewAfterColumn: '整理後',
       previewBeforeColumn: '整理前',
       previewFileNameColumn: '文件名',

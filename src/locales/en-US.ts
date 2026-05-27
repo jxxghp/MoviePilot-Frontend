@@ -2643,6 +2643,7 @@ export default {
       previewSeasonInfo: 'Season',
       previewSeasonLabel: 'Season',
       previewEpisodeCount: 'Episodes',
+      customWordsApplied: 'Recognition Word Details',
       previewAfterColumn: 'After',
       previewBeforeColumn: 'Before',
       previewFileNameColumn: 'Filename',
