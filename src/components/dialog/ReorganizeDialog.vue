@@ -10,6 +10,7 @@ import {
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
+  ManualTransferTargetPathData,
   StorageConf,
   TransferDirectoryConf,
   TransferForm,
@@ -112,6 +113,14 @@ const episodeFormatRecommendState = reactive<{
 })
 
 const episodeFormatRuleConfigured = ref<boolean | undefined>(undefined)
+
+interface ManualTransferTargetPathRequest {
+  fileitem?: FileItem
+  fileitems?: FileItem[]
+  logid?: number
+  logids?: number[]
+  target_storage?: string | null
+}
 
 // 生成文件项稳定键，用于去重和状态同步。
 function getFileItemKey(item?: FileItem) {
@@ -265,7 +274,7 @@ const transferForm = reactive<TransferForm>({
   fileitem: {} as FileItem,
   logid: 0,
   target_storage: props.target_storage ?? 'local',
-  target_path: props.target_path ?? '',
+  target_path: normalizeTargetPath(props.target_path),
   transfer_type: '',
   min_filesize: 0,
   scrape: false,
@@ -291,6 +300,79 @@ const targetDirectories = computed(() => {
   const libraryDirectories = directories.value.map(item => item.library_path)
   return [...new Set(libraryDirectories)]
 })
+
+// 构造目的路径自动匹配请求，只传用户真实上下文，避免用默认存储误导后端匹配。
+function createTargetPathMatchRequest(): ManualTransferTargetPathRequest | undefined {
+  const payload: ManualTransferTargetPathRequest = {}
+
+  if (props.target_storage) {
+    payload.target_storage = props.target_storage
+  }
+
+  if (normalizedItems.value.length === 1) {
+    payload.fileitem = normalizedItems.value[0]
+    return payload
+  }
+
+  if (normalizedItems.value.length > 1) {
+    payload.fileitems = normalizedItems.value
+    return payload
+  }
+
+  if (props.logids?.length) {
+    if (props.logids.length > 1) {
+      payload.logids = props.logids
+      return payload
+    }
+
+    payload.logid = props.logids[0]
+    return payload
+  }
+}
+
+// 应用后端匹配到的目的路径配置，未匹配时保持 null 等待用户手工选择。
+function applyMatchedTargetPath(data?: ManualTransferTargetPathData) {
+  const matchedTargetPath = normalizeTargetPath(data?.target_path)
+  if (!matchedTargetPath) {
+    transferForm.target_path = null
+    return
+  }
+
+  transferForm.target_storage = data?.target_storage || transferForm.target_storage || 'local'
+  transferForm.transfer_type = data?.transfer_type || transferForm.transfer_type
+  transferForm.scrape = data?.scrape ?? false
+  transferForm.library_type_folder = data?.library_type_folder ?? false
+  transferForm.library_category_folder = data?.library_category_folder ?? false
+  transferForm.target_path = matchedTargetPath
+}
+
+// 请求后端按源目录匹配最合适的手动整理目的路径。
+async function autoSelectTargetPath() {
+  if (normalizeTargetPath(props.target_path) || transferForm.target_path) return
+
+  const payload = createTargetPathMatchRequest()
+  if (!payload) {
+    transferForm.target_path = null
+    return
+  }
+
+  try {
+    const result = await api.post<ApiResponse<ManualTransferTargetPathData>, ApiResponse<ManualTransferTargetPathData>>(
+      'transfer/manual/target-path',
+      payload,
+    )
+
+    if (!result.success) {
+      transferForm.target_path = null
+      return
+    }
+
+    applyMatchedTargetPath(result.data)
+  } catch (error) {
+    console.log(error)
+    transferForm.target_path = null
+  }
+}
 
 // 监听目的路径变化，配置默认值
 watch(
@@ -395,6 +477,12 @@ function getFileName(path?: string) {
 // 获取唯一非空值
 function getUniqueValues(values: (string | undefined)[]) {
   return [...new Set(values.map(item => item?.trim()).filter(Boolean) as string[])]
+}
+
+// 归一化可选目的路径，保证未指定时向接口传递 null 而不是空字符串。
+function normalizeTargetPath(path?: string | null) {
+  const normalizedPath = path?.trim()
+  return normalizedPath || null
 }
 
 // 统一解析接口返回的数字字段，兼容 string/number
@@ -636,6 +724,7 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     ...transferForm,
     fileitem: sourceItem,
     logid: options.logid ?? 0,
+    target_path: normalizeTargetPath(transferForm.target_path),
     episode_group: transferForm.episode_group?.trim() || null,
   }
 
@@ -1115,8 +1204,9 @@ async function transfer(background: boolean = false) {
   emit('done')
 }
 
-onMounted(() => {
-  loadDirectories()
+onMounted(async () => {
+  await loadDirectories()
+  await autoSelectTargetPath()
   loadStorages()
   loadEpisodeFormatRuleConfiguration()
 })

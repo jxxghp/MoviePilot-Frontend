@@ -1292,7 +1292,7 @@ export interface TransferForm {
   // 目标存储
   target_storage: string
   // 目标路径
-  target_path: string
+  target_path: string | null
   // TMDB ID
   tmdbid?: number
   // 豆瓣 ID
@@ -1333,6 +1333,22 @@ export interface ManualTransferPayload extends Omit<TransferForm, 'fileitem'> {
   fileitem?: FileItem
   // 多选文件批量请求
   fileitems?: FileItem[]
+}
+
+// 手动整理目的路径匹配结果
+export interface ManualTransferTargetPathData {
+  // 目标存储
+  target_storage?: string | null
+  // 目标路径
+  target_path?: string | null
+  // 整理方式
+  transfer_type?: string | null
+  // 刮削
+  scrape?: boolean
+  // 媒体库类型子目录
+  library_type_folder?: boolean
+  // 媒体库类别子目录
+  library_category_folder?: boolean
 }
 
 // 手动整理预览统计
