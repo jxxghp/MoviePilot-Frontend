@@ -10,7 +10,7 @@ const props = defineProps({
     type: Array as PropType<Site[]>,
     required: true,
   },
-  selected: Array as PropType<Number[]>,
+  selected: Array as PropType<number[]>,
 })
 
 // 定义事件
@@ -20,38 +20,66 @@ const emit = defineEmits(['close', 'search', 'reload'])
 const siteFilter = ref('')
 
 // 已选择站点
-const selectedSites = ref<any[]>(props.selected || [])
+const selectedSites = ref<number[]>([])
+
+// 根据当前可用站点清理选中项，避免停用或已删除站点参与计数。
+function normalizeSelectedSites(selectedSiteIds: number[] = []) {
+  const availableSiteIds = new Set(props.sites.map((site: Site) => site.id))
+  const normalizedSiteIds: number[] = []
+
+  selectedSiteIds.forEach(siteId => {
+    if (availableSiteIds.has(siteId) && !normalizedSiteIds.includes(siteId)) {
+      normalizedSiteIds.push(siteId)
+    }
+  })
+
+  return normalizedSiteIds
+}
 
 watch(
-  () => props.selected,
-  value => {
-    if (selectedSites.value.length == 0 && value) {
-      selectedSites.value = value
-    }
+  [() => props.selected, () => props.sites],
+  ([value]) => {
+    selectedSites.value = normalizeSelectedSites(value || [])
   },
+  { immediate: true },
 )
 
 // 全选/全不选按钮文字
 const checkAllText = computed(() => {
-  return selectedSites.value.length < props.sites?.length
+  return selectedSites.value.length < props.sites.length
     ? t('dialog.searchSite.selectAll')
     : t('dialog.searchSite.deselectAll')
 })
 
 // 全选/全不选
 const checkAllSitesorNot = () => {
-  if (selectedSites.value.length < props.sites?.length) {
-    selectedSites.value = props.sites?.map((item: Site) => item.id)
+  if (selectedSites.value.length < props.sites.length) {
+    selectedSites.value = props.sites.map((item: Site) => item.id)
   } else {
     selectedSites.value = []
   }
+}
+
+// 切换单个站点的选择状态。
+function toggleSiteSelection(siteId: number) {
+  const index = selectedSites.value.indexOf(siteId)
+  if (index === -1) {
+    selectedSites.value.push(siteId)
+  } else {
+    selectedSites.value.splice(index, 1)
+  }
+}
+
+// 确认搜索时只提交当前可用站点。
+function confirmSearch() {
+  emit('search', normalizeSelectedSites(selectedSites.value))
 }
 
 // 根据筛选条件过滤站点
 const filteredSites = computed(() => {
   if (!siteFilter.value) return props.sites
   const filter = siteFilter.value.toLowerCase()
-  return props.sites?.filter((site: Site) => site.name.toLowerCase().includes(filter))
+  return props.sites.filter((site: Site) => site.name.toLowerCase().includes(filter))
 })
 </script>
 <template>
@@ -107,16 +135,7 @@ const filteredSites = computed(() => {
                       'site-hover': isHovering && !selectedSites.includes(site.id),
                     },
                   ]"
-                  @click="
-                    () => {
-                      const index = selectedSites.indexOf(site.id)
-                      if (index === -1) {
-                        selectedSites.push(site.id)
-                      } else {
-                        selectedSites.splice(index, 1)
-                      }
-                    }
-                  "
+                  @click="toggleSiteSelection(site.id)"
                 >
                   <VIcon
                     :icon="selectedSites.includes(site.id) ? 'mdi-check-circle' : 'mdi-checkbox-blank-circle-outline'"
@@ -161,7 +180,7 @@ const filteredSites = computed(() => {
         <VBtn
           color="primary"
           :disabled="selectedSites.length === 0"
-          @click="emit('search', selectedSites)"
+          @click="confirmSearch"
           prepend-icon="mdi-magnify"
           class="d-flex align-center justify-center px-5"
         >
