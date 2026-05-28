@@ -75,6 +75,12 @@ interface MediaServerLinkTarget {
   server_type?: string
 }
 
+// Emby hash 路由中的目标参数
+interface EmbyHashTarget {
+  mediaId: string | null
+  serverId: string | null
+}
+
 /**
  * 判断链接参数是否为有效值。
  * @param value 待检查的链接参数
@@ -103,6 +109,43 @@ function getTargetServerId(target?: MediaServerLinkTarget): string | null {
 }
 
 /**
+ * 解析媒体服务器网页链接中的 hash 查询参数。
+ * @param playUrl 原始播放链接
+ */
+function getHashRouteParams(playUrl: string): { hashPath: string; params: URLSearchParams } | null {
+  const url = new URL(playUrl)
+  const hash = url.hash || ''
+  const queryIndex = hash.indexOf('?')
+  if (queryIndex === -1) return null
+  return {
+    hashPath: hash.slice(0, queryIndex),
+    params: new URLSearchParams(hash.slice(queryIndex + 1)),
+  }
+}
+
+/**
+ * 从 Emby 网页链接中提取 App 跳转需要的媒体ID和服务器ID。
+ * @param playUrl 原始播放链接
+ */
+function getEmbyHashTarget(playUrl: string): EmbyHashTarget {
+  const hashRoute = getHashRouteParams(playUrl)
+  if (!hashRoute) return { mediaId: null, serverId: null }
+
+  const serverId = getValidLinkValue(hashRoute.params.get('serverId'))
+  if (hashRoute.hashPath.includes('/videos')) {
+    return {
+      mediaId: getValidLinkValue(hashRoute.params.get('parentId')),
+      serverId,
+    }
+  }
+
+  return {
+    mediaId: getValidLinkValue(hashRoute.params.get('id')),
+    serverId,
+  }
+}
+
+/**
  * 使用后端返回的真实ID修正Emby网页链接。
  * @param playUrl 原始播放链接
  * @param target 媒体服务器跳转目标
@@ -110,17 +153,19 @@ function getTargetServerId(target?: MediaServerLinkTarget): string | null {
 function normalizeEmbyWebUrl(playUrl: string, target?: MediaServerLinkTarget): string {
   try {
     const url = new URL(playUrl)
-    const hash = url.hash || ''
-    const queryIndex = hash.indexOf('?')
-    if (queryIndex === -1) return playUrl
+    const hashRoute = getHashRouteParams(playUrl)
+    if (!hashRoute) return playUrl
 
-    const hashPath = hash.slice(0, queryIndex)
-    const params = new URLSearchParams(hash.slice(queryIndex + 1))
+    const { hashPath, params } = hashRoute
     const itemId = getTargetItemId(target)
     const serverId = getTargetServerId(target)
 
     if (itemId && (hashPath.includes('/item') || params.has('id'))) {
       params.set('id', itemId)
+    }
+
+    if (itemId && (hashPath.includes('/videos') || params.has('parentId'))) {
+      params.set('parentId', itemId)
     }
 
     if (serverId) {
@@ -506,12 +551,13 @@ function buildEmbyDeepLink(playUrl: string): string {
     const serverAddress = url.hostname + (url.port ? `:${url.port}` : '')
 
     // 尝试多种格式提取媒体ID
-    let mediaId: string | null = null
-    let serverId: string | null = null
+    const hashTarget = getEmbyHashTarget(playUrl)
+    let mediaId: string | null = hashTarget.mediaId
+    let serverId: string | null = hashTarget.serverId
 
     // 格式1: /web/index.html#!/item?id=xxx&context=home&serverId=xxx (后台返回的格式)
-    const itemHashMatch = playUrl.match(/\/item\?id=([^&]+)/)
-    if (itemHashMatch) {
+    const itemHashMatch = !mediaId ? playUrl.match(/\/item\?id=([^&]+)/) : null
+    if (!mediaId && itemHashMatch) {
       mediaId = itemHashMatch[1]
       // 提取serverId
       const serverIdMatch = playUrl.match(/serverId=([^&]+)/)
@@ -521,8 +567,8 @@ function buildEmbyDeepLink(playUrl: string): string {
     }
 
     // 格式2: /web/index.html#!/videos?serverId=xxx&parentId=xxx (后台返回的格式)
-    const videosHashMatch = playUrl.match(/\/videos\?serverId=([^&]+)&parentId=([^&]+)/)
-    if (videosHashMatch) {
+    const videosHashMatch = !mediaId ? playUrl.match(/\/videos\?serverId=([^&]+)&parentId=([^&]+)/) : null
+    if (!mediaId && videosHashMatch) {
       // 对于videos格式，我们使用parentId作为媒体ID
       mediaId = videosHashMatch[2]
       serverId = getValidLinkValue(videosHashMatch[1])
@@ -562,22 +608,22 @@ function buildEmbyDeepLink(playUrl: string): string {
 
     if (mediaId) {
       let deepLink: string
+      const encodedMediaId = encodeURIComponent(mediaId)
+      const encodedServerId = serverId ? encodeURIComponent(serverId) : null
 
       // 根据设备类型使用不同的深度链接格式
       if (isIOSDevice()) {
         // iOS格式: emby://items?serverId={SERVER_ID}&itemId={ITEM_ID}
-        if (serverId) {
-          deepLink = `emby://items?serverId=${serverId}&itemId=${mediaId}`
+        if (encodedServerId) {
+          deepLink = `emby://items?serverId=${encodedServerId}&itemId=${encodedMediaId}`
         } else {
-          // 如果没有serverId，尝试使用服务器地址作为serverId
-          deepLink = `emby://items?serverId=${serverAddress}&itemId=${mediaId}`
+          deepLink = `emby://items?itemId=${encodedMediaId}`
         }
+      } else if (encodedServerId) {
+        // Android格式: emby://items/{SERVER_ID}/{ITEM_ID}
+        deepLink = `emby://items/${encodedServerId}/${encodedMediaId}`
       } else {
-        // Android格式: emby://{服务器地址}/item/{媒体ID}
-        deepLink = `emby://${serverAddress}/item/${mediaId}`
-        if (serverId) {
-          deepLink += `?serverId=${serverId}`
-        }
+        deepLink = `emby://${serverAddress}/item/${encodedMediaId}`
       }
 
       console.log('Emby深度链接构建成功:', {

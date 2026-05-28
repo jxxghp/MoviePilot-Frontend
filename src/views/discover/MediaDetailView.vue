@@ -14,7 +14,7 @@ import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { hasPermission } from '@/utils/permission'
 import { useGlobalSettingsStore } from '@/stores'
-import { openMediaServerWithAutoDetect, openDoubanApp } from '@/utils/appDeepLink'
+import { openMediaServerItem, openDoubanApp } from '@/utils/appDeepLink'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
@@ -526,7 +526,12 @@ async function handlePlay() {
     const result: { [key: string]: any } = await api.get(`mediaserver/play/${existsItemId.value}`)
     if (result?.success) {
       // 使用深度链接工具，优先跳转到APP，失败后跳转到网页
-      await openMediaServerWithAutoDetect(result.data.url, undefined, result.data.server_type)
+      await openMediaServerItem({
+        link: result.data.url,
+        item_id: result.data.item_id,
+        server_id: result.data.server_id,
+        server_type: result.data.server_type,
+      })
     } else {
       $toast.error(`获取播放链接失败：${result.message}！`)
     }
