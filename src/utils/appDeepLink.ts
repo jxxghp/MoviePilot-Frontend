@@ -64,6 +64,104 @@ interface DoubanAppParams {
   fallbackUrl?: string
 }
 
+// 媒体服务器卡片跳转所需的最小字段集合
+interface MediaServerLinkTarget {
+  id?: string | number
+  item_id?: string | number
+  itemId?: string | number
+  server_id?: string
+  serverId?: string
+  link?: string
+  server_type?: string
+}
+
+/**
+ * 判断链接参数是否为有效值。
+ * @param value 待检查的链接参数
+ */
+function getValidLinkValue(value?: string | number | null): string | null {
+  if (value === undefined || value === null) return null
+  const stringValue = String(value).trim()
+  if (!stringValue || ['none', 'null', 'undefined'].includes(stringValue.toLowerCase())) return null
+  return stringValue
+}
+
+/**
+ * 获取媒体服务器条目的真实项目ID。
+ * @param target 媒体服务器跳转目标
+ */
+function getTargetItemId(target?: MediaServerLinkTarget): string | null {
+  return getValidLinkValue(target?.item_id ?? target?.itemId)
+}
+
+/**
+ * 获取媒体服务器条目的真实服务器ID。
+ * @param target 媒体服务器跳转目标
+ */
+function getTargetServerId(target?: MediaServerLinkTarget): string | null {
+  return getValidLinkValue(target?.server_id ?? target?.serverId)
+}
+
+/**
+ * 使用后端返回的真实ID修正Emby网页链接。
+ * @param playUrl 原始播放链接
+ * @param target 媒体服务器跳转目标
+ */
+function normalizeEmbyWebUrl(playUrl: string, target?: MediaServerLinkTarget): string {
+  try {
+    const url = new URL(playUrl)
+    const hash = url.hash || ''
+    const queryIndex = hash.indexOf('?')
+    if (queryIndex === -1) return playUrl
+
+    const hashPath = hash.slice(0, queryIndex)
+    const params = new URLSearchParams(hash.slice(queryIndex + 1))
+    const itemId = getTargetItemId(target)
+    const serverId = getTargetServerId(target)
+
+    if (itemId && (hashPath.includes('/item') || params.has('id'))) {
+      params.set('id', itemId)
+    }
+
+    if (serverId) {
+      params.set('serverId', serverId)
+    } else if (params.has('serverId') && !getValidLinkValue(params.get('serverId'))) {
+      params.delete('serverId')
+    }
+
+    url.hash = `${hashPath}?${params.toString()}`
+    return url.toString()
+  } catch (error) {
+    console.warn('修正Emby网页链接失败:', error)
+    return playUrl
+  }
+}
+
+/**
+ * 获取媒体服务器卡片可用的跳转链接。
+ * @param target 媒体服务器跳转目标
+ */
+function getMediaServerPlayUrl(target: MediaServerLinkTarget): string | null {
+  const playUrl = getValidLinkValue(target.link)
+  if (!playUrl) return null
+
+  const serverType = target.server_type?.toLowerCase()
+  if (serverType === 'emby' || serverType === 'zspace') {
+    return normalizeEmbyWebUrl(playUrl, target)
+  }
+  return playUrl
+}
+
+/**
+ * 打开媒体服务器卡片对应的播放页面。
+ * @param target 媒体服务器跳转目标
+ */
+export async function openMediaServerItem(target: MediaServerLinkTarget): Promise<void> {
+  const playUrl = getMediaServerPlayUrl(target)
+  if (!playUrl) return
+  await openMediaServerWithAutoDetect(playUrl, undefined, target.server_type)
+}
+
 /**
  * 尝试跳转到APP，如果失败则跳转到网页
  * @param appType APP类型
@@ -418,7 +516,7 @@ function buildEmbyDeepLink(playUrl: string): string {
       // 提取serverId
       const serverIdMatch = playUrl.match(/serverId=([^&]+)/)
       if (serverIdMatch) {
-        serverId = serverIdMatch[1]
+        serverId = getValidLinkValue(serverIdMatch[1])
       }
     }
 
@@ -427,7 +525,7 @@ function buildEmbyDeepLink(playUrl: string): string {
     if (videosHashMatch) {
       // 对于videos格式，我们使用parentId作为媒体ID
       mediaId = videosHashMatch[2]
-      serverId = videosHashMatch[1]
+      serverId = getValidLinkValue(videosHashMatch[1])
     }
 
     // 格式3: ?id=xxx (通用格式)

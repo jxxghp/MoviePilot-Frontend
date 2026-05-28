@@ -1025,6 +1025,10 @@ export interface FileItem {
 export interface MediaServerPlayItem {
   // ID
   id?: string | number
+  // 媒体服务器项目ID
+  item_id?: string | number
+  // 媒体服务器ID
+  server_id?: string
   // 标题
   title: string
   // 副标题
@@ -1049,6 +1053,10 @@ export interface MediaServerLibrary {
   server: string
   // ID
   id?: string | number
+  // 媒体服务器项目ID
+  item_id?: string | number
+  // 媒体服务器ID
+  server_id?: string
   // 名称
   name: string
   // 路径

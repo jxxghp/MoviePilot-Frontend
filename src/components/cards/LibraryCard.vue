@@ -4,7 +4,7 @@ import plex from '@images/misc/plex.png'
 import emby from '@images/misc/emby.png'
 import jellyfin from '@images/misc/jellyfin.png'
 import { getLogoUrl } from '@/utils/imageUtils'
-import { openMediaServerWithAutoDetect } from '@/utils/appDeepLink'
+import { openMediaServerItem } from '@/utils/appDeepLink'
 
 // 输入参数
 const props = defineProps({
@@ -49,8 +49,8 @@ function getDefaultImage() {
 
 // 跳转播放
 async function goPlay() {
-  if (props.media?.link) {
-    await openMediaServerWithAutoDetect(props.media.link, undefined, props.media.server_type)
+  if (props.media) {
+    await openMediaServerItem(props.media)
   }
 }
 

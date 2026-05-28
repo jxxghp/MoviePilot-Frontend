@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { MediaServerPlayItem } from '@/api/types'
 import noImage from '@images/no-image.jpeg'
-import { openMediaServerWithAutoDetect } from '@/utils/appDeepLink'
+import { openMediaServerItem } from '@/utils/appDeepLink'
 // 输入参数
 const props = defineProps({
   media: Object as PropType<MediaServerPlayItem>,
@@ -25,8 +25,8 @@ function imageErrorHandler() {
 
 // 跳转播放
 async function goPlay() {
-  if (props.media?.link) {
-    await openMediaServerWithAutoDetect(props.media.link, undefined, props.media.server_type)
+  if (props.media) {
+    await openMediaServerItem(props.media)
   }
 }
 
