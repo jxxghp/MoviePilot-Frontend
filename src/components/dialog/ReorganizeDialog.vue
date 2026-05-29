@@ -426,6 +426,16 @@ watch(
   },
 )
 
+watch(
+  () => transferForm.episode_group,
+  episodeGroup => {
+    const normalizedEpisodeGroup = normalizeEpisodeGroup(episodeGroup)
+    if (episodeGroup !== normalizedEpisodeGroup) {
+      transferForm.episode_group = normalizedEpisodeGroup
+    }
+  },
+)
+
 // 过滤后的预览数据
 const filteredPreviewItems = computed(() => {
   return previewData.value?.items ?? []
@@ -483,6 +493,22 @@ function getUniqueValues(values: (string | undefined)[]) {
 function normalizeTargetPath(path?: string | null) {
   const normalizedPath = path?.trim()
   return normalizedPath || null
+}
+
+// 归一化剧集组值，兼容历史对象态值。
+function normalizeEpisodeGroup(
+  episodeGroup?: string | { value?: string | null } | null,
+) {
+  if (!episodeGroup) return null
+  if (typeof episodeGroup === 'string') {
+    const normalizedEpisodeGroup = episodeGroup.trim()
+    return normalizedEpisodeGroup || null
+  }
+  if (typeof episodeGroup === 'object' && typeof episodeGroup.value === 'string') {
+    const normalizedEpisodeGroup = episodeGroup.value.trim()
+    return normalizedEpisodeGroup || null
+  }
+  return null
 }
 
 // 统一解析接口返回的数字字段，兼容 string/number
@@ -725,7 +751,7 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     fileitem: sourceItem,
     logid: options.logid ?? 0,
     target_path: normalizeTargetPath(transferForm.target_path),
-    episode_group: transferForm.episode_group?.trim() || null,
+    episode_group: normalizeEpisodeGroup(transferForm.episode_group),
   }
 
   if (options.items?.length) {
@@ -1324,9 +1350,11 @@ onUnmounted(() => {
                 </VRow>
                 <VRow v-show="transferForm.type_name === '电视剧'">
                   <VCol v-if="mediaSource === 'themoviedb'" cols="12" md="6">
-                    <VCombobox
+                    <VSelect
                       v-model="transferForm.episode_group"
                       :items="episodeGroupOptions"
+                      item-title="title"
+                      item-value="value"
                       :item-props="episodeGroupItemProps"
                       :loading="episodeGroupLoading"
                       :disabled="!transferForm.tmdbid"
