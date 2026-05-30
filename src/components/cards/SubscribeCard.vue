@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
 const SubscribeFilesDialog = defineAsyncComponent(() => import('../dialog/SubscribeFilesDialog.vue'))
@@ -363,19 +364,13 @@ watch(
 // 计算backdrop图片地址
 const backdropUrl = computed(() => {
   const url = props.media?.backdrop || props.media?.poster
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 计算海报图片地址
 const posterUrl = computed(() => {
   const url = props.media?.poster
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 订阅编辑保存

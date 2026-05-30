@@ -4,6 +4,7 @@ import type { SubscribeShare } from '@/api/types'
 import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const ForkSubscribeDialog = defineAsyncComponent(() => import('../dialog/ForkSubscribeDialog.vue'))
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
@@ -35,19 +36,13 @@ const dateText = ref(props.media && props.media?.date ? formatDateDifference(pro
 // 计算backdrop图片地址
 const backdropUrl = computed(() => {
   const url = props.media?.backdrop || props.media?.poster
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 计算海报图片地址
 const posterUrl = computed(() => {
   const url = props.media?.poster
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url || '', globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 获得mediaid

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import noImage from '@images/no-image.jpeg'
-import { getLogoUrl } from '@/utils/imageUtils'
+import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import api from '@/api'
 import { useToast } from 'vue-toastification'
 import { formatSeason, formatRating } from '@/@core/utils/formatters'
@@ -464,13 +464,7 @@ function setupIntersectionObserver() {
 const getImgUrl: Ref<string> = computed(() => {
   if (imageLoadError.value) return noImage
   const url = props.media?.poster_path?.replace('original', 'w500') ?? noImage
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  // 如果地址中包含douban则使用中转代理
-  if (url.includes('doubanio.com'))
-    return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 })
 
 // 移除订阅

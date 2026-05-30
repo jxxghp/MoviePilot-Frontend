@@ -3,6 +3,7 @@ import personIcon from '@images/misc/person-icon.png'
 import type { Person } from '@/api/types'
 import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const personProps = defineProps({
   person: Object as PropType<Person>,
@@ -40,9 +41,7 @@ function getPersonImage() {
   } else {
     return personIcon
   }
-  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
 // 人物姓名

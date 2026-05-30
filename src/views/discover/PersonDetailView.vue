@@ -6,6 +6,7 @@ import type { Person } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 // 国际化
 const { t } = useI18n()
@@ -64,10 +65,7 @@ function getPersonImage() {
   } else {
     return personIcon
   }
-  // 使用图片缓存
-  if (globalSettings.GLOBAL_IMAGE_CACHE && url)
-    return `${import.meta.env.VITE_API_BASE_URL}system/cache/image?url=${encodeURIComponent(url)}`
-  return url
+  return getDisplayImageUrl(url, globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
 // 将别名数组拆分为、分隔的字符串
