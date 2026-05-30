@@ -15,7 +15,7 @@ const messages = ref<Message[]>([])
 const currData = ref<Message[]>([])
 
 // 已加载消息的签名集合
-// 使用消息内容签名去重，避免仅按秒级时间戳判断时误吞同一秒内的不同消息。
+// SSE 消息与数据库消息的字段来源不同（date vs reg_time, null vs {}），签名已归一化处理。
 const messageKeys = new Set<string>()
 
 // 是否完成加载
@@ -42,24 +42,32 @@ const MESSAGE_AUTO_SCROLL_THRESHOLD = 64
 let scrollTimer: number | undefined
 let scrollReleaseTimer: number | undefined
 
-// 获取消息时间
-function getMessageTime(message: Message) {
-  return message.reg_time || message.date || ''
+// 生成消息去重签名
+// SSE 消息只有 date 没有 reg_time，数据库消息只有 reg_time 没有 date；
+// note 在 SSE 侧为 null，数据库侧为 {}，需要归一化。
+function normalizeNote(note: Message['note']): string {
+  if (note == null) return ''
+  if (typeof note === 'string') return note
+  if (typeof note === 'object' && !Array.isArray(note) && Object.keys(note).length === 0) return ''
+  return JSON.stringify(note)
 }
 
-// 生成消息签名
 function getMessageKey(message: Message) {
   return [
     message.action ?? '',
     message.userid ?? '',
-    message.reg_time ?? '',
-    message.date ?? '',
+    message.reg_time || message.date || '',
     message.title ?? '',
     message.text ?? '',
     message.image ?? '',
     message.link ?? '',
-    message.note ?? '',
+    normalizeNote(message.note),
   ].join('::')
+}
+
+// 获取消息时间
+function getMessageTime(message: Message) {
+  return message.reg_time || message.date || ''
 }
 
 // 排序消息列表，确保最新消息始终位于底部
