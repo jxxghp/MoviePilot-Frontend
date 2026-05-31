@@ -2602,7 +2602,7 @@ export default {
       previewSeasonInfo: '季資訊',
       previewSeasonLabel: '季',
       previewEpisodeCount: '總集數',
-      customWordsApplied: '自定義識別詞匹配中',
+      customWordsApplied: '識別詞應用詳情',
       customWordsSameRules: '{count} 個文件套用相同識別詞',
       previewAfterColumn: '整理後',
       previewBeforeColumn: '整理前',
