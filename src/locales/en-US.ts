@@ -2648,7 +2648,7 @@ export default {
       previewSeasonInfo: 'Season',
       previewSeasonLabel: 'Season',
       previewEpisodeCount: 'Episodes',
-      customWordsApplied: 'Custom Recognition Words Matched',
+      customWordsApplied: 'Recognition Word Details',
       customWordsSameRules: '{count} files applied the same recognition words',
       previewAfterColumn: 'After',
       previewBeforeColumn: 'Before',

@@ -2601,7 +2601,7 @@ export default {
       previewSeasonInfo: '季信息',
       previewSeasonLabel: '季',
       previewEpisodeCount: '总集数',
-      customWordsApplied: '自定义识别词匹配中',
+      customWordsApplied: '识别词应用详情',
       customWordsSameRules: '{count} 个文件应用相同识别词',
       previewAfterColumn: '整理后',
       previewBeforeColumn: '整理前',
