@@ -103,11 +103,15 @@ interface EpisodeFormatRecommendData {
 const episodeFormatRecommendState = reactive<{
   loading: boolean
   ruleName?: string
+  rulePattern?: string
+  generatedFormat?: string
   sampleFile?: string
   lastMessage?: string
 }>({
   loading: false,
   ruleName: undefined,
+  rulePattern: undefined,
+  generatedFormat: undefined,
   sampleFile: undefined,
   lastMessage: undefined,
 })
@@ -627,18 +631,99 @@ const previewFileRows = computed(() => {
 
 // 标准化预览项中的识别词命中详情
 function getPreviewApplyWords(item: ManualTransferPreviewItem) {
-  return (item.apply_words ?? []).filter(Boolean)
+  return [
+    ...new Set(
+      (item.apply_words ?? [])
+        .map(word => word?.trim())
+        .filter((word): word is string => Boolean(word)),
+    ),
+  ]
 }
 
 // 手动整理识别词应用详情
 const previewCustomWordDetails = computed(() => {
-  return filteredPreviewItems.value
-    .map(item => ({
-      sourceName: getFileName(item.source),
-      orgString: item.org_string,
-      applyWords: getPreviewApplyWords(item),
-    }))
-    .filter(item => item.applyWords.length > 0)
+  const groupedDetails = new Map<string, { sourceNames: string[]; orgString?: string; applyWords: string[] }>()
+
+  filteredPreviewItems.value.forEach(item => {
+    const applyWords = getPreviewApplyWords(item)
+    if (!applyWords.length) return
+
+    const sourceName = getFileName(item.source)
+    const orgString = item.org_string?.trim() || undefined
+    const detailKey = JSON.stringify(applyWords)
+    const existingDetail = groupedDetails.get(detailKey)
+
+    if (existingDetail) {
+      if (!existingDetail.sourceNames.includes(sourceName)) existingDetail.sourceNames.push(sourceName)
+      return
+    }
+
+    groupedDetails.set(detailKey, {
+      sourceNames: [sourceName],
+      orgString,
+      applyWords,
+    })
+  })
+
+  return [...groupedDetails.values()].map(detail => ({
+    sourceName:
+      detail.sourceNames.length > 1
+        ? t('dialog.reorganize.customWordsSameRules', { count: detail.sourceNames.length })
+        : detail.sourceNames[0],
+    orgString: detail.sourceNames.length > 1 ? undefined : detail.orgString,
+    applyWords: detail.applyWords,
+  }))
+})
+
+const previewEpisodeFormatRuleDetails = computed(() => {
+  const episodeFormat = transferForm.episode_format?.trim()
+  if (!episodeFormat) return []
+
+  const rulePattern = episodeFormatRecommendState.rulePattern?.trim()
+  const isGeneratedEpisodeFormat =
+    Boolean(episodeFormatRecommendState.generatedFormat) &&
+    episodeFormatRecommendState.generatedFormat === episodeFormat
+
+  if (!isGeneratedEpisodeFormat || !episodeFormatRecommendState.ruleName) {
+    return [
+      {
+        sourceName: t('dialog.reorganize.episodeFormatManualInput'),
+        orgString: t('dialog.reorganize.episodeFormatFinal', {
+          format: episodeFormat,
+        }),
+        applyWords: [],
+      },
+    ]
+  }
+
+  return [
+    {
+      sourceName: t('dialog.reorganize.episodeFormatRecommendRule', {
+        rule: episodeFormatRecommendState.ruleName,
+      }),
+      orgString: t('dialog.reorganize.episodeFormatFinal', {
+        format: episodeFormat,
+      }),
+      applyWords: rulePattern
+        ? [
+            t('dialog.reorganize.episodeFormatRulePattern', {
+              pattern: rulePattern,
+            }),
+          ]
+        : [],
+    },
+  ]
+})
+
+const previewRecognitionDetails = computed(() => [
+  ...previewCustomWordDetails.value,
+  ...previewEpisodeFormatRuleDetails.value,
+])
+
+const previewRecognitionDetailTitle = computed(() => {
+  return previewCustomWordDetails.value.length
+    ? t('dialog.reorganize.customWordsApplied')
+    : t('dialog.reorganize.episodeFormatRuleDetails')
 })
 
 // 是否需要拓宽窗口
@@ -700,6 +785,12 @@ const canRecommendEpisodeFormat = computed(() => {
   )
 })
 
+const episodeFormatRecommendSelectionKey = computed(() => {
+  const sourceItem = episodeFormatRecommendSourceItem.value
+  if (sourceItem) return getFileItemKey(sourceItem)
+  return episodeFormatRecommendSelectedFileItems.value.map(item => getFileItemKey(item)).join('||')
+})
+
 const episodeFormatRecommendTooltip = computed(() => {
   if (episodeFormatRecommendState.loading) return t('dialog.reorganize.episodeFormatRecommendLoading')
   if (
@@ -716,14 +807,14 @@ const episodeFormatRecommendTooltip = computed(() => {
 })
 
 watch(
-  () => getFileItemKey(episodeFormatRecommendSourceItem.value),
-  sourceKey => {
+  episodeFormatRecommendSelectionKey,
+  () => {
     transferForm.fileitem = episodeFormatRecommendSourceItem.value ?? ({} as FileItem)
-    if (!sourceKey) {
-      episodeFormatRecommendState.ruleName = undefined
-      episodeFormatRecommendState.sampleFile = undefined
-      episodeFormatRecommendState.lastMessage = undefined
-    }
+    episodeFormatRecommendState.ruleName = undefined
+    episodeFormatRecommendState.rulePattern = undefined
+    episodeFormatRecommendState.generatedFormat = undefined
+    episodeFormatRecommendState.sampleFile = undefined
+    episodeFormatRecommendState.lastMessage = undefined
   },
   { immediate: true },
 )
@@ -831,6 +922,8 @@ async function handleRecommendEpisodeFormat() {
 
     transferForm.episode_format = data.episode_format
     episodeFormatRecommendState.ruleName = data.rule_name
+    episodeFormatRecommendState.rulePattern = data.pattern
+    episodeFormatRecommendState.generatedFormat = data.episode_format
     episodeFormatRecommendState.sampleFile = data.sample_file
     episodeFormatRecommendState.lastMessage = data.message
 
@@ -1573,14 +1666,14 @@ onUnmounted(() => {
                         <span class="preview-overview-card__value">{{ previewEpisodeCountText }}</span>
                       </div>
                     </div>
-                    <div v-if="previewCustomWordDetails.length" class="preview-custom-words">
+                    <div v-if="previewRecognitionDetails.length" class="preview-custom-words">
                       <div class="preview-custom-words__title">
                         <VIcon icon="mdi-tag-text-outline" size="16" />
-                        <span>{{ t('dialog.reorganize.customWordsApplied') }}</span>
+                        <span>{{ previewRecognitionDetailTitle }}</span>
                       </div>
                       <div class="preview-custom-words__items">
                         <div
-                          v-for="(detail, index) in previewCustomWordDetails"
+                          v-for="(detail, index) in previewRecognitionDetails"
                           :key="`${detail.sourceName}-${index}`"
                           class="preview-custom-words__item"
                         >
@@ -1588,7 +1681,7 @@ onUnmounted(() => {
                           <div v-if="detail.orgString" class="preview-custom-words__original">
                             {{ detail.orgString }}
                           </div>
-                          <div class="preview-custom-words__chips">
+                          <div v-if="detail.applyWords.length" class="preview-custom-words__chips">
                             <VChip
                               v-for="(word, wordIndex) in detail.applyWords"
                               :key="`${word}-${wordIndex}`"
