@@ -239,6 +239,12 @@ function changeSelectMode() {
   if (!selectMode.value) selected.value = []
 }
 
+// 退出多选模式
+function exitSelectMode() {
+  selectMode.value = false
+  selected.value = []
+}
+
 // 调API加载文件夹内的内容
 async function list_files(context: KeepAliveRefreshContext = {}) {
   const silentRefresh = Boolean(context.silent && items.value.length > 0)
@@ -316,6 +322,8 @@ async function deleteItem(item: FileItem, confirm: boolean = true) {
 
 // 批量删除
 async function batchDelete() {
+  if (!selected.value.length) return
+
   const confirmed = await createConfirm({
     title: t('common.confirm'),
     content: t('file.confirmBatchDelete', { count: selected.value.length }),
@@ -327,18 +335,24 @@ async function batchDelete() {
   progressValue.value = 0
   openProgressDialog(progressText.value, progressValue.value)
 
-  // 删除选中的项目
-  selected.value.every(async item => {
-    progressText.value = t('file.deleting', { name: item.name })
-    progressDialogController?.updateProps({ text: progressText.value })
-    await deleteItem(item, false)
-  })
+  try {
+    const selectedItems = dedupeFileItems(selected.value)
 
-  // 关闭进度条
-  closeProgressDialog()
+    // 删除选中的项目
+    for (const item of selectedItems) {
+      progressText.value = t('file.deleting', { name: item.name })
+      progressDialogController?.updateProps({ text: progressText.value })
+      await deleteItem(item, false)
+    }
 
-  // 重新加载
-  list_files()
+    exitSelectMode()
+  } finally {
+    // 关闭进度条
+    closeProgressDialog()
+
+    // 重新加载
+    list_files()
+  }
 }
 
 // 切换路径
@@ -528,6 +542,7 @@ function showBatchTransfer() {
 
 // 整理完成
 function transferDone() {
+  exitSelectMode()
   list_files()
 }
 
@@ -688,6 +703,8 @@ async function scrape(item: FileItem, confirm: boolean = true) {
 
 // 批量刮削
 async function batchScrape() {
+  if (!selected.value.length) return
+
   // 确认
   const confirmed = await createConfirm({
     title: t('common.confirm'),
@@ -695,9 +712,17 @@ async function batchScrape() {
   })
   if (!confirmed) return
 
-  selected.value.map(item => {
-    scrape(item, false)
-  })
+  try {
+    const selectedItems = dedupeFileItems(selected.value)
+
+    for (const item of selectedItems) {
+      await scrape(item, false)
+    }
+
+    exitSelectMode()
+  } finally {
+    list_files({ silent: true })
+  }
 }
 
 // 进度SSE消息处理函数
