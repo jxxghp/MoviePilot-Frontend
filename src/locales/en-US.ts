@@ -2452,6 +2452,7 @@ export default {
       updating: 'Updating {site} Cookie & UA...',
       success: '{site} Cookie & UA updated successfully!',
       failed: '{site} update failed: {message}',
+      requestFailed: 'Request failed, please try again later',
       updateButton: 'Start Update',
     },
     siteAddEdit: {

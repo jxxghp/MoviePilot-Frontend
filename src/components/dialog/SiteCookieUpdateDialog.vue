@@ -50,23 +50,34 @@ async function updateSiteCookie() {
     progressDialog.value = true
     progressText.value = t('dialog.siteCookieUpdate.updating', { site: cardProps.site?.name })
 
-    const result: { [key: string]: any } = await api.get(`site/cookie/${cardProps.site?.id}`, {
-      params: {
-        username: userPwForm.value.username,
-        password: userPwForm.value.password,
-        code: userPwForm.value.code,
-      },
+    const result: { [key: string]: any } = await api.post(`site/cookie/${cardProps.site?.id}`, {
+      username: userPwForm.value.username,
+      password: userPwForm.value.password,
+      code: userPwForm.value.code,
     })
 
     if (result.success) {
       $toast.success(t('dialog.siteCookieUpdate.success', { site: cardProps.site?.name }))
       emit('done')
-    } else $toast.error(t('dialog.siteCookieUpdate.failed', { site: cardProps.site?.name, message: result.message }))
-
+    } else {
+      $toast.error(
+        t('dialog.siteCookieUpdate.failed', {
+          site: cardProps.site?.name,
+          message: result.message || t('dialog.siteCookieUpdate.requestFailed'),
+        }),
+      )
+    }
+  } catch (error: any) {
+    console.error(error)
+    const detail = error?.response?.data?.detail
+    const message =
+      error?.response?.data?.message ||
+      (typeof detail === 'string' ? detail : error?.message) ||
+      t('dialog.siteCookieUpdate.requestFailed')
+    $toast.error(t('dialog.siteCookieUpdate.failed', { site: cardProps.site?.name, message }))
+  } finally {
     progressDialog.value = false
     updateButtonDisable.value = false
-  } catch (error) {
-    console.error(error)
   }
 }
 </script>

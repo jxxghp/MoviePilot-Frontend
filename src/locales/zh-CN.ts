@@ -2406,6 +2406,7 @@ export default {
       updating: '正在更新 {site} Cookie & UA...',
       success: '{site} 更新Cookie & UA成功！',
       failed: '{site} 更新失败：{message}',
+      requestFailed: '请求失败，请稍后重试',
       updateButton: '开始更新',
     },
     siteAddEdit: {
