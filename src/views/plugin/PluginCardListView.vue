@@ -222,6 +222,23 @@ function toggleMarketFilter(field: 'author' | 'label' | 'repo', value: string) {
   }
 }
 
+// 关闭插件市场过滤菜单。
+function closeMarketFilterMenu() {
+  filterMarketPluginDialog.value = false
+}
+
+// 选择插件市场排序项并关闭过滤菜单。
+function selectMarketSort(value: string) {
+  activeSort.value = value
+  closeMarketFilterMenu()
+}
+
+// 提交插件市场关键字过滤并关闭过滤菜单。
+function submitMarketNameFilter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  closeMarketFilterMenu()
+}
+
 // 插件过滤条件
 const installedFilter = ref(null)
 
@@ -236,6 +253,29 @@ const filterInstalledPluginDialog = ref(false)
 
 // 插件市场过滤窗口
 const filterMarketPluginDialog = ref(false)
+
+// 关闭已安装插件过滤菜单。
+function closeInstalledFilterMenu() {
+  filterInstalledPluginDialog.value = false
+}
+
+// 切换已启用插件过滤条件并关闭过滤菜单。
+function toggleEnabledInstalledFilter() {
+  enabledFilter.value = !enabledFilter.value
+  closeInstalledFilterMenu()
+}
+
+// 切换有新版本插件过滤条件并关闭过滤菜单。
+function toggleHasUpdateInstalledFilter() {
+  hasUpdateFilter.value = !hasUpdateFilter.value
+  closeInstalledFilterMenu()
+}
+
+// 提交已安装插件关键字过滤并关闭过滤菜单。
+function submitInstalledNameFilter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  closeInstalledFilterMenu()
+}
 
 // 作者过滤项
 const authorFilterOptions = ref<string[]>([])
@@ -1480,13 +1520,14 @@ function onDragStartPlugin(evt: any) {
               variant="outlined"
               hide-details
               clearable
+              @keyup.enter="submitInstalledNameFilter"
             />
           </div>
           <VDivider class="mt-2" />
           <!-- 快捷筛选 -->
           <VList density="compact" class="px-2 py-1">
             <VListSubheader>{{ t('common.filter') }}</VListSubheader>
-            <VListItem :active="enabledFilter" @click="enabledFilter = !enabledFilter" density="compact">
+            <VListItem :active="enabledFilter" @click="toggleEnabledInstalledFilter" density="compact">
               <template #prepend>
                 <VIcon icon="mdi-play-circle" color="success" size="small" />
               </template>
@@ -1495,7 +1536,7 @@ function onDragStartPlugin(evt: any) {
                 <VIcon v-if="enabledFilter" icon="mdi-check" color="primary" size="small" />
               </template>
             </VListItem>
-            <VListItem :active="hasUpdateFilter" @click="hasUpdateFilter = !hasUpdateFilter" density="compact">
+            <VListItem :active="hasUpdateFilter" @click="toggleHasUpdateInstalledFilter" density="compact">
               <template #prepend>
                 <VIcon icon="mdi-arrow-up-circle" color="info" size="small" />
               </template>
@@ -1528,6 +1569,7 @@ function onDragStartPlugin(evt: any) {
               variant="outlined"
               hide-details
               clearable
+              @keyup.enter="submitMarketNameFilter"
             />
           </div>
           <VDivider class="mt-2" />
@@ -1538,7 +1580,7 @@ function onDragStartPlugin(evt: any) {
               v-for="option in sortOptions"
               :key="option.value"
               :active="(activeSort || 'count') === option.value"
-              @click="activeSort = option.value"
+              @click="selectMarketSort(option.value)"
               density="compact"
             >
               <VListItemTitle>{{ option.title }}</VListItemTitle>
