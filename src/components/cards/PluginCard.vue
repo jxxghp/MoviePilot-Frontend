@@ -102,10 +102,10 @@ async function imageLoaded() {
 }
 
 // 显示更新日志
-function showUpdateHistory() {
+function showUpdateHistory(showUpdateAction: boolean = false) {
   openSharedDialog(
     PluginVersionHistoryDialog,
-    { plugin: props.plugin, showUpdateAction: true },
+    { plugin: props.plugin, showUpdateAction },
     { update: updatePlugin },
     { closeOn: ['close', 'update', 'update:modelValue'] },
   )
@@ -371,7 +371,7 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-arrow-up-circle-outline',
       color: 'success',
-      click: updatePlugin,
+      click: () => showUpdateHistory(true),
     },
   },
   {
@@ -380,7 +380,7 @@ const dropdownItems = ref([
     show: !props.plugin?.has_update,
     props: {
       prependIcon: 'mdi-update',
-      click: showUpdateHistory,
+      click: () => showUpdateHistory(false),
     },
   },
   {
