@@ -2918,6 +2918,8 @@ export default {
     resetSuccess: 'Plugin {name} data has been reset',
     resetFailed: 'Plugin {name} reset failed: {message}',
     updateHistoryTitle: '{name} Update History',
+    updateHistoryEmpty: 'No update history available yet',
+    updateHistoryLoadFailed: 'Failed to load update history. Please try again later.',
     updateToLatest: 'Update to Latest Version',
     updatingTo: 'Updating {name} to v{version} ...',
     folderNameEmpty: 'Folder name cannot be empty',

@@ -3,7 +3,6 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
-import { isNullOrEmptyObject } from '@core/utils'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { getDominantColor } from '@/@core/utils/image'
 import { formatDownloadCount } from '@/@core/utils/formatters'
@@ -104,17 +103,12 @@ async function imageLoaded() {
 
 // 显示更新日志
 function showUpdateHistory() {
-  // 检查当前版本是否有更新日志
-  if (isNullOrEmptyObject(props.plugin?.history)) {
-    updatePlugin()
-  } else {
-    openSharedDialog(
-      PluginVersionHistoryDialog,
-      { plugin: props.plugin, showUpdateAction: true },
-      { update: updatePlugin },
-      { closeOn: ['close', 'update', 'update:modelValue'] },
-    )
-  }
+  openSharedDialog(
+    PluginVersionHistoryDialog,
+    { plugin: props.plugin, showUpdateAction: true },
+    { update: updatePlugin },
+    { closeOn: ['close', 'update', 'update:modelValue'] },
+  )
 }
 
 // 调用API卸载插件
@@ -377,6 +371,15 @@ const dropdownItems = ref([
     props: {
       prependIcon: 'mdi-arrow-up-circle-outline',
       color: 'success',
+      click: updatePlugin,
+    },
+  },
+  {
+    title: t('plugin.updateHistory'),
+    value: 9,
+    show: !props.plugin?.has_update,
+    props: {
+      prependIcon: 'mdi-update',
       click: showUpdateHistory,
     },
   },
@@ -428,6 +431,9 @@ watch(
   (newHasUpdate, _) => {
     const updateItemIndex = dropdownItems.value.findIndex(item => item.value === 3)
     if (updateItemIndex !== -1) dropdownItems.value[updateItemIndex].show = newHasUpdate
+
+    const updateHistoryItemIndex = dropdownItems.value.findIndex(item => item.value === 9)
+    if (updateHistoryItemIndex !== -1) dropdownItems.value[updateHistoryItemIndex].show = !newHasUpdate
   },
 )
 

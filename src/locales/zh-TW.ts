@@ -2869,6 +2869,8 @@ export default {
     resetSuccess: '插件 {name} 數據已重置',
     resetFailed: '插件 {name} 重置失敗：{message}',
     updateHistoryTitle: '{name} 更新說明',
+    updateHistoryEmpty: '暫未獲取到更新說明',
+    updateHistoryLoadFailed: '讀取更新說明失敗，請稍後重試',
     updateToLatest: '更新到最新版本',
     updatingTo: '正在更新 {name} 至 v{version} ...',
     folderNameEmpty: '文件夾名稱不能為空',
