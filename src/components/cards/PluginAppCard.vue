@@ -129,7 +129,7 @@ const dropdownItems = ref([
     },
   },
   {
-    title: t('plugin.updateHistory'),
+    title: t('plugin.versionHistory'),
     value: 2,
     show: !isNullOrEmptyObject(props.plugin?.history || {}),
     props: {

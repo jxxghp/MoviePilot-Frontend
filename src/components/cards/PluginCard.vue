@@ -258,9 +258,44 @@ async function updatePlugin() {
   }
 }
 
-// 访问作者主页
-function visitAuthorPage() {
-  window.open(props.plugin?.author_url, '_blank')
+// 访问插件项目主页
+async function visitPluginPage() {
+  let pluginDetail = props.plugin
+
+  try {
+    pluginDetail = await api.get(`plugin/history/${props.plugin?.id}`, {
+      params: {
+        force: false,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+  }
+
+  let repoUrl = pluginDetail?.repo_url
+  if (pluginDetail?.is_local || repoUrl?.startsWith('local://')) {
+    repoUrl = pluginDetail?.author_url
+  }
+  if (repoUrl) {
+    if (repoUrl.includes('raw.githubusercontent.com')) {
+      if (!repoUrl.endsWith('/')) repoUrl += '/'
+
+      if (repoUrl.split('/').length < 6) repoUrl = `${repoUrl}main/`
+
+      try {
+        const [user, repo] = repoUrl.split('/').slice(-4, -2)
+        repoUrl = `https://github.com/${user}/${repo}`
+      } catch (error) {
+        return
+      }
+    }
+  } else {
+    repoUrl = pluginDetail?.author_url
+  }
+
+  if (repoUrl) {
+    window.open(repoUrl, '_blank')
+  }
 }
 
 // 打开插件详情
@@ -375,15 +410,6 @@ const dropdownItems = ref([
     },
   },
   {
-    title: t('plugin.updateHistory'),
-    value: 9,
-    show: !props.plugin?.has_update,
-    props: {
-      prependIcon: 'mdi-update',
-      click: () => showUpdateHistory(false),
-    },
-  },
-  {
     title: t('plugin.reset'),
     value: 4,
     show: true,
@@ -404,6 +430,15 @@ const dropdownItems = ref([
     },
   },
   {
+    title: t('plugin.versionHistory'),
+    value: 9,
+    show: !props.plugin?.has_update,
+    props: {
+      prependIcon: 'mdi-update',
+      click: () => showUpdateHistory(false),
+    },
+  },
+  {
     title: t('plugin.viewLogs'),
     value: 6,
     show: true,
@@ -415,12 +450,12 @@ const dropdownItems = ref([
     },
   },
   {
-    title: t('plugin.authorHome'),
+    title: t('plugin.projectHome'),
     value: 7,
     show: true,
     props: {
-      prependIcon: 'mdi-home-circle-outline',
-      click: visitAuthorPage,
+      prependIcon: 'mdi-github',
+      click: visitPluginPage,
     },
   },
 ])
