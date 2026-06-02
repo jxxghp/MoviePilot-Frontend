@@ -95,12 +95,16 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
       </div>
       <div class="theme-customizer-header-actions">
         <VBadge color="error" dot :model-value="isCustomized" location="top end" offset-x="2" offset-y="2">
-          <IconBtn :aria-label="t('theme.customizer.reset')" @click="resetSettings">
-            <VIcon icon="mdi-refresh" />
+          <IconBtn
+            class="theme-customizer-header-icon-btn"
+            :aria-label="t('theme.customizer.reset')"
+            @click="resetSettings"
+          >
+            <VIcon class="theme-customizer-header-icon" icon="mdi-refresh" />
           </IconBtn>
         </VBadge>
-        <IconBtn :aria-label="t('common.close')" @click="drawer = false">
-          <VIcon icon="mdi-close" />
+        <IconBtn class="theme-customizer-header-icon-btn" :aria-label="t('common.close')" @click="drawer = false">
+          <VIcon class="theme-customizer-header-icon" icon="mdi-close" />
         </IconBtn>
       </div>
     </div>
@@ -113,7 +117,7 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
 
         <h3 class="theme-customizer-section-title">{{ t('theme.customizer.primaryColor') }}</h3>
         <div class="theme-customizer-color-grid">
-          <button
+          <div
             v-for="color in themeCustomizerPrimaryColors"
             :key="color.value"
             type="button"
@@ -123,9 +127,9 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
             @click="setPrimaryColor(color.value)"
           >
             <span class="theme-customizer-color-swatch" :style="{ backgroundColor: color.value }" />
-          </button>
+          </div>
 
-          <button
+          <div
             type="button"
             class="theme-customizer-color-option theme-customizer-color-option--picker"
             :class="{
@@ -134,7 +138,7 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
             :aria-label="t('theme.customizer.chooseCustomColor')"
             @click="openColorPicker"
           >
-            <VIcon icon="mdi-palette-outline" size="30" />
+            <VIcon class="theme-customizer-native-icon" icon="mdi-palette-outline" size="30" />
             <input
               ref="customColorInput"
               class="theme-customizer-native-color"
@@ -142,12 +146,12 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
               :value="settings.primaryColor"
               @input="handleCustomColorInput"
             />
-          </button>
+          </div>
         </div>
 
         <h3 class="theme-customizer-section-title">{{ t('common.theme') }}</h3>
         <div class="theme-customizer-option-grid theme-customizer-option-grid--theme">
-          <button
+          <div
             v-for="theme in themeOptions"
             :key="theme.value"
             type="button"
@@ -155,14 +159,14 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
             :class="{ 'is-active': settings.theme === theme.value }"
             @click="setTheme(theme.value)"
           >
-            <VIcon :icon="theme.icon" size="36" />
+            <VIcon class="theme-customizer-theme-icon" :icon="theme.icon" size="36" />
             <span>{{ theme.title }}</span>
-          </button>
+          </div>
         </div>
 
         <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
         <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
-          <button
+          <div
             v-for="skin in skinOptions"
             :key="skin.value"
             type="button"
@@ -184,7 +188,7 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
               </span>
             </span>
             <span>{{ skin.title }}</span>
-          </button>
+          </div>
         </div>
 
         <div v-if="showSemiDarkMenuOption" class="theme-customizer-semi-dark">
@@ -206,7 +210,7 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
 
         <h3 class="theme-customizer-section-title"></h3>
         <div class="theme-customizer-preview-grid">
-          <button
+          <div
             v-for="layout in layoutOptions"
             :key="layout.value"
             type="button"
@@ -227,7 +231,7 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
               </span>
             </span>
             <span>{{ layout.title }}</span>
-          </button>
+          </div>
         </div>
       </section>
     </PerfectScrollbar>
@@ -252,7 +256,14 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
 html[data-theme='transparent'] .theme-customizer-drawer {
   backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
   background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5)) !important;
-  box-shadow: -2px 0 6px rgba(0, 0, 0, 16%) !important;
+}
+
+:is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-card-option .theme-customizer-theme-icon,
+:is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-color-option .theme-customizer-native-icon,
+:is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-header-icon {
+  backdrop-filter: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .theme-customizer-header {
@@ -337,6 +348,7 @@ html[data-theme='transparent'] .theme-customizer-drawer {
   justify-content: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 10px;
+  appearance: none;
   aspect-ratio: 1;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   cursor: pointer;
@@ -390,6 +402,7 @@ html[data-theme='transparent'] .theme-customizer-drawer {
   align-items: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 10px;
+  appearance: none;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   cursor: pointer;
   font-size: 1rem;
