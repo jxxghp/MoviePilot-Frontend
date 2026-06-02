@@ -187,8 +187,6 @@ async function handleResetSettings() {
 
         <PerfectScrollbar class="theme-customizer-body" :options="{ wheelPropagation: false }">
           <section class="theme-customizer-section">
-            <span class="theme-customizer-chip">{{ t('theme.customizer.theming') }}</span>
-
             <h3 class="theme-customizer-section-title">{{ t('theme.customizer.primaryColor') }}</h3>
             <div class="theme-customizer-color-grid">
               <div
@@ -236,6 +234,8 @@ async function handleResetSettings() {
               </div>
             </div>
 
+            <VDivider class="mt-7" />
+
             <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
             <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
               <div
@@ -277,9 +277,7 @@ async function handleResetSettings() {
           <VDivider v-if="showLayoutSection" />
 
           <section v-if="showLayoutSection" class="theme-customizer-section">
-            <span class="theme-customizer-chip">{{ t('theme.customizer.layout') }}</span>
-
-            <h3 class="theme-customizer-section-title"></h3>
+            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.layout') }}</h3>
             <div class="theme-customizer-preview-grid">
               <div
                 v-for="layout in layoutOptions"
@@ -316,13 +314,13 @@ async function handleResetSettings() {
 .theme-customizer-drawer {
   position: fixed !important;
   z-index: 12000 !important;
+  overflow: hidden;
   block-size: 100dvh !important;
   border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
   box-shadow: -2px 0 6px rgba(0, 0, 0, 10%) !important;
   inset-block: 0 !important;
   inset-inline-end: 0 !important;
   max-block-size: 100dvh !important;
-  overflow: hidden;
 
   .v-navigation-drawer__content {
     position: relative;
@@ -379,7 +377,6 @@ html[data-theme='transparent'] .theme-customizer-panel--dialog {
 }
 
 :is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-glass-backdrop {
-  -webkit-backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
   backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
   background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
   opacity: 1;
@@ -453,26 +450,13 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
 }
 
 .theme-customizer-section {
-  padding-block: 28px;
+  padding-block-end: 28px;
   padding-inline: 32px;
-}
-
-.theme-customizer-chip {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 6px;
-  background: rgba(var(--v-theme-primary), 0.14);
-  color: rgb(var(--v-theme-primary));
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.1;
-  padding-block: 6px;
-  padding-inline: 14px;
 }
 
 .theme-customizer-section-title {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.25;
   margin-block: 28px 16px;
