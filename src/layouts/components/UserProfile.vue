@@ -425,10 +425,8 @@ function showTransparencySettingsDialog() {
   openSharedDialog(TransparencySettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
 }
 
-/** 从用户菜单打开主题定制器，App 模式下入口不显示，这里仍保留保护。 */
+/** 从用户菜单打开主题定制器，App 模式会在面板内部隐藏布局设置。 */
 function showThemeCustomizerDrawer() {
-  if (appMode.value) return
-
   showThemeMenu.value = false
   showThemeCustomizer.value = true
 }
@@ -651,7 +649,7 @@ onUnmounted(() => {
               </VListItem>
             </template>
             <VList>
-              <VListItem v-if="!appMode" @click="showThemeCustomizerDrawer">
+              <VListItem @click="showThemeCustomizerDrawer">
                 <template #prepend>
                   <VIcon icon="mdi-tune-variant" />
                 </template>
@@ -660,23 +658,6 @@ onUnmounted(() => {
                   <VIcon icon="mdi-chevron-right" size="small" />
                 </template>
               </VListItem>
-              <template v-else>
-                <VListItem
-                  v-for="theme in themes"
-                  :key="theme.name"
-                  @click="changeTheme(theme.name)"
-                  :active="currentThemeName === theme.name"
-                  class="mb-1"
-                >
-                  <template #prepend>
-                    <VIcon :icon="theme.icon" />
-                  </template>
-                  <VListItemTitle>{{ theme.title }}</VListItemTitle>
-                  <template #append v-if="currentThemeName === theme.name">
-                    <VIcon icon="mdi-check" color="primary" size="small" />
-                  </template>
-                </VListItem>
-              </template>
 
               <VDivider class="my-2" />
 

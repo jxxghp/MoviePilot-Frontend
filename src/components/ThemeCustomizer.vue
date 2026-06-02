@@ -30,6 +30,7 @@ const { isCustomized, resetSettings, setLayout, setPrimaryColor, setSemiDarkMenu
 const { appMode } = usePWA()
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
+const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 
 const drawer = computed({
   get: () => props.modelValue,
@@ -55,9 +56,23 @@ const layoutOptions = computed<Array<{ icon: string; title: string; value: Theme
   { title: t('theme.customizer.layoutHorizontal'), value: 'horizontal', icon: 'mdi-dock-top' },
 ])
 
+const showLayoutSection = computed(() => !appMode.value)
+
+const hasAppModeCustomization = computed(() => {
+  return (
+    settings.value.primaryColor !== defaultPrimaryColor ||
+    settings.value.skin !== 'default' ||
+    settings.value.theme !== 'auto'
+  )
+})
+
+const showResetBadge = computed(() => (appMode.value ? hasAppModeCustomization.value : isCustomized.value))
+
 const showSemiDarkMenuOption = computed(() => {
   return (
-    !globalTheme.current.value.dark && (settings.value.layout === 'vertical' || settings.value.layout === 'collapsed')
+    !appMode.value &&
+    !globalTheme.current.value.dark &&
+    (settings.value.layout === 'vertical' || settings.value.layout === 'collapsed')
   )
 })
 
@@ -77,6 +92,19 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
 
   setLayout(layout)
 }
+
+async function handleResetSettings() {
+  if (!appMode.value) {
+    await resetSettings()
+
+    return
+  }
+
+  // App 模式共享定制器，但保留桌面导航相关偏好，只重置 App 侧可调整的外观设置。
+  await setPrimaryColor(defaultPrimaryColor)
+  await setSkin('default')
+  await setTheme('auto')
+}
 </script>
 
 <template>
@@ -94,11 +122,11 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
         <p class="theme-customizer-subtitle">{{ t('theme.customizer.subtitle') }}</p>
       </div>
       <div class="theme-customizer-header-actions">
-        <VBadge color="error" dot :model-value="isCustomized" location="top end" offset-x="2" offset-y="2">
+        <VBadge color="error" dot :model-value="showResetBadge" location="top end" offset-x="2" offset-y="2">
           <IconBtn
             class="theme-customizer-header-icon-btn"
             :aria-label="t('theme.customizer.reset')"
-            @click="resetSettings"
+            @click="handleResetSettings"
           >
             <VIcon class="theme-customizer-header-icon" icon="mdi-refresh" />
           </IconBtn>
@@ -203,9 +231,9 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
         </div>
       </section>
 
-      <VDivider />
+      <VDivider v-if="showLayoutSection" />
 
-      <section class="theme-customizer-section">
+      <section v-if="showLayoutSection" class="theme-customizer-section">
         <span class="theme-customizer-chip">{{ t('theme.customizer.layout') }}</span>
 
         <h3 class="theme-customizer-section-title"></h3>
