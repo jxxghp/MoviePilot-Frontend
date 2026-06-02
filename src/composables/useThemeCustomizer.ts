@@ -9,10 +9,17 @@ export const THEME_CUSTOMIZER_CHANGE_EVENT = 'moviepilot-theme-customizer-change
 
 export const themeCustomizerPrimaryColors = [
   { name: 'Purple', value: '#9155FD' },
+  { name: 'Indigo', value: '#3F51B5' },
+  { name: 'Blue', value: '#1976D2' },
+  { name: 'Cyan', value: '#00BCD4' },
   { name: 'Teal', value: '#009688' },
+  { name: 'Green', value: '#4CAF50' },
   { name: 'Amber', value: '#FFB400' },
+  { name: 'Orange', value: '#FF9800' },
   { name: 'Coral', value: '#FF4C51' },
+  { name: 'Pink', value: '#E91E63' },
   { name: 'Sky', value: '#16B1FF' },
+  { name: 'Slate', value: '#607D8B' },
 ] as const
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'

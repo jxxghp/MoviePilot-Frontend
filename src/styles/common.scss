@@ -502,6 +502,10 @@ html[data-theme="transparent"],
   opacity:0.75;
 }
 
+:root {
+  --theme-customizer-fab-offset: 420px;
+}
+
 // 紧凑型悬浮操作按钮
 .compact-fab-stack {
   position: fixed;
@@ -513,6 +517,7 @@ html[data-theme="transparent"],
   inset-block-end: max(1rem, calc(env(safe-area-inset-bottom) + 1rem));
   inset-inline-end: max(1rem, calc(env(safe-area-inset-right) + 1rem));
   pointer-events: none;
+  transition: inset-inline-end 0.2s ease;
 }
 
 .compact-fab-stack > * {
@@ -615,6 +620,24 @@ html[data-theme="transparent"],
   .compact-fab--secondary .v-btn {
     block-size: 3rem !important;
     inline-size: 3rem !important;
+  }
+}
+
+@media (min-width: 601px) {
+  html[data-theme-customizer-open='true'] .compact-fab-stack {
+    inset-inline-end: calc(var(--theme-customizer-fab-offset) + max(1rem, calc(env(safe-area-inset-right) + 1rem)));
+  }
+
+  html[data-theme-customizer-open='true'] .global-action-buttons {
+    inset-inline-end: calc(var(--theme-customizer-fab-offset) + 2rem);
+  }
+}
+
+@media (min-width: 601px) and (max-width: 768px) {
+  html[data-theme-customizer-open='true'] .compact-fab-stack {
+    inset-inline-end: calc(
+      var(--theme-customizer-fab-offset) + max(0.875rem, calc(env(safe-area-inset-right) + 0.875rem))
+    );
   }
 }
 
