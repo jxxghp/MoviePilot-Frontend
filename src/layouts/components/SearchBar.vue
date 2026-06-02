@@ -43,25 +43,28 @@ const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
 .search-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border: 1.5px solid rgba(var(--v-theme-on-surface), 0.12);
+  border: 1.5px solid rgba(var(--v-theme-primary), 0.6);
   border-radius: 22px;
   block-size: 36px;
   cursor: pointer;
+  gap: 8px;
   padding-inline: 12px;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
   user-select: none;
 }
 
 .search-trigger:hover {
-  border-color: rgba(var(--v-theme-on-surface), 0.22);
+  border-color: rgb(var(--v-theme-primary));
   background-color: rgba(var(--v-theme-on-surface), 0.06);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 4%);
 }
 
 .search-trigger-icon {
-  color: rgba(var(--v-theme-on-surface), 0.4);
   flex-shrink: 0;
+  color: rgba(var(--v-theme-on-surface), 0.4);
 }
 
 .search-trigger-text {

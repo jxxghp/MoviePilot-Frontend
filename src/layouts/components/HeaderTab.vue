@@ -7,7 +7,7 @@ const props = defineProps({
     default: '',
   },
   items: {
-    type: Array as PropType<{ title: string; icon: string; tab: string }[]>,
+    type: Array as PropType<{ title: string; icon?: string; tab: string }[]>,
     default: () => [],
   },
   // 新增：是否启用PWA状态恢复

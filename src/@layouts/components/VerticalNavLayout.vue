@@ -2,6 +2,12 @@
 import { Transition } from 'vue'
 import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
+import {
+  readThemeCustomizerSettings,
+  THEME_CUSTOMIZER_CHANGE_EVENT,
+  type ThemeCustomizerSettings,
+} from '@/composables/useThemeCustomizer'
+import { usePWA } from '@/composables/usePWA'
 
 export default defineComponent({
   setup(props, { slots }) {
@@ -11,6 +17,11 @@ export default defineComponent({
 
     const route = useRoute()
     const { mdAndDown } = useDisplay()
+    const { appMode } = usePWA()
+    const themeLayout = ref(readThemeCustomizerSettings().layout)
+    const canUseDesktopLayout = computed(() => !mdAndDown.value && !appMode.value)
+    const isCollapsedLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'collapsed')
+    const isHorizontalLayout = computed(() => canUseDesktopLayout.value && themeLayout.value === 'horizontal')
 
     // ℹ️ This is alternative to below two commented watcher
     // We want to show overlay if overlay nav is visible and want to hide overlay if overlay is hidden and vice versa.
@@ -23,6 +34,10 @@ export default defineComponent({
 
     const handleScroll = () => {
       scrollDistance.value = window.scrollY
+    }
+
+    const handleThemeCustomizerChange = (event: Event) => {
+      themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
     }
 
     // 监听弹窗状态变化
@@ -38,6 +53,7 @@ export default defineComponent({
 
     onMounted(() => {
       window.addEventListener('scroll', handleScroll)
+      window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
 
       // 初始检查弹窗状态
       checkDialogState()
@@ -52,6 +68,7 @@ export default defineComponent({
 
     onBeforeUnmount(() => {
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
       dialogObserver?.disconnect()
       dialogObserver = null
     })
@@ -127,6 +144,8 @@ export default defineComponent({
             'layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid',
             'layout-navbar-fixed',
             mdAndDown.value && 'layout-overlay-nav',
+            isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
+            isHorizontalLayout.value && 'layout-horizontal-nav-active',
             route.meta.layoutWrapperClasses,
             (scrollDistance.value > 5 || (isDialogOpen.value && wasScrolledBeforeDialog.value)) && 'window-scrolled',
           ],
@@ -223,6 +242,140 @@ export default defineComponent({
   // Adjust right column pl when vertical nav is collapsed
   &.layout-vertical-nav-collapsed .layout-content-wrapper {
     padding-inline-start: variables.$layout-vertical-nav-collapsed-width;
+
+    .page-content-container > div:first-child {
+      inline-size: calc(100vw - variables.$layout-vertical-nav-collapsed-width - 1rem);
+    }
+  }
+
+  &.layout-vertical-nav-collapsed .layout-navbar {
+    inline-size: calc(100vw - variables.$layout-vertical-nav-collapsed-width - 0.5rem);
+  }
+
+  &.layout-vertical-nav-collapsed .layout-vertical-nav:not(.overlay-nav) {
+    .nav-header {
+      justify-content: center;
+      padding-inline: 0;
+      margin-inline: 0;
+    }
+
+    .app-logo {
+      justify-content: center;
+      inline-size: 100%;
+      transform: none !important;
+    }
+
+    .app-logo > div {
+      display: flex;
+      overflow: hidden;
+      align-items: center;
+      justify-content: center;
+      block-size: 2.75rem;
+      inline-size: 2.75rem;
+    }
+
+    .app-logo svg {
+      block-size: 2.5rem;
+      inline-size: 2.5rem;
+    }
+
+    .app-logo h1,
+    .nav-item-title,
+    .nav-section-title {
+      display: none;
+    }
+
+    .nav-link > a {
+      justify-content: center;
+      border-radius: 0.75rem !important;
+      block-size: 2.75rem;
+      margin-inline: 0.75rem;
+      padding-inline: 0;
+    }
+
+    .nav-item-icon {
+      margin-inline-end: 0 !important;
+    }
+  }
+
+  &.layout-horizontal-nav-active {
+    .layout-vertical-nav:not(.overlay-nav) {
+      pointer-events: none;
+      transform: translateX(-100%);
+      visibility: hidden;
+    }
+
+    .layout-content-wrapper {
+      padding-inline-start: 0;
+    }
+
+    .layout-navbar {
+      border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+      background: rgb(var(--v-theme-background));
+      inline-size: 100%;
+      max-inline-size: none;
+      padding-inline: 0;
+    }
+
+    .navbar-content-container {
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      inline-size: 100%;
+      max-inline-size: variables.$layout-boxed-content-width;
+      margin-inline: auto;
+      padding-inline: 1.5rem;
+    }
+
+    .layout-page-content {
+      inline-size: 100%;
+      max-inline-size: variables.$layout-boxed-content-width;
+      margin-inline: auto;
+      padding-inline: 1rem;
+    }
+
+    .page-content-container > div:first-child {
+      inline-size: 100%;
+    }
+  }
+
+  @at-root {
+    html[data-theme='transparent'] .layout-wrapper.layout-horizontal-nav-active .layout-navbar,
+    .v-theme--transparent .layout-wrapper.layout-horizontal-nav-active .layout-navbar {
+      backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
+      background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
+      border-block-end-color: rgba(var(--v-theme-on-surface), 0.06);
+    }
+
+    html[data-theme='light'][data-theme-semi-dark-menu='true'][data-theme-layout='vertical']
+      .layout-wrapper.layout-nav-type-vertical:not(.layout-horizontal-nav-active)
+      .layout-vertical-nav:not(.overlay-nav),
+    html[data-theme='light'][data-theme-semi-dark-menu='true'][data-theme-layout='collapsed']
+      .layout-wrapper.layout-nav-type-vertical:not(.layout-horizontal-nav-active)
+      .layout-vertical-nav:not(.overlay-nav) {
+      background: #2f3349;
+      color: #e7e3fc;
+
+      .app-logo h1,
+      .nav-section-title,
+      .nav-link > a,
+      .nav-item-icon {
+        color: rgba(231, 227, 252, 0.78) !important;
+      }
+
+      .nav-link > a:hover {
+        background-color: rgba(231, 227, 252, 0.06);
+      }
+
+      .nav-link > .router-link-exact-active {
+        color: #fff !important;
+
+        .nav-item-icon,
+        .nav-item-title {
+          color: #fff !important;
+        }
+      }
+    }
   }
 
   // 👉 Content height fixed
