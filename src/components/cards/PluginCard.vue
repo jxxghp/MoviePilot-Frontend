@@ -260,6 +260,7 @@ async function updatePlugin() {
 
 // 访问插件项目主页
 async function visitPluginPage() {
+  const popup = window.open('', '_blank', 'noopener,noreferrer')
   let pluginDetail = props.plugin
 
   try {
@@ -294,8 +295,16 @@ async function visitPluginPage() {
   }
 
   if (repoUrl) {
+    if (popup) {
+      popup.location.href = repoUrl
+      return
+    }
+
     window.open(repoUrl, '_blank')
+    return
   }
+
+  popup?.close()
 }
 
 // 打开插件详情
