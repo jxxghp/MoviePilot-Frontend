@@ -141,15 +141,11 @@ async function handleResetSettings() {
         </div>
         <div class="theme-customizer-header-actions">
           <VBadge color="error" dot :model-value="showResetBadge" location="top end" offset-x="2" offset-y="2">
-            <IconBtn
-              class="theme-customizer-header-icon-btn"
-              :aria-label="t('theme.customizer.reset')"
-              @click="handleResetSettings"
-            >
+            <IconBtn :aria-label="t('theme.customizer.reset')" @click="handleResetSettings">
               <VIcon class="theme-customizer-header-icon" icon="mdi-refresh" />
             </IconBtn>
           </VBadge>
-          <IconBtn class="theme-customizer-header-icon-btn" :aria-label="t('common.close')" @click="drawer = false">
+          <IconBtn :aria-label="t('common.close')" @click="drawer = false">
             <VIcon class="theme-customizer-header-icon" icon="mdi-close" />
           </IconBtn>
         </div>
@@ -346,8 +342,9 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-panel--
 }
 
 :is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-card-option .theme-customizer-theme-icon,
-:is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-color-option .theme-customizer-native-icon,
-:is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-header-icon {
+:is(html[data-theme='transparent'], .v-theme--transparent)
+  .theme-customizer-color-option
+  .theme-customizer-native-icon {
   backdrop-filter: none !important;
   background: transparent !important;
   box-shadow: none !important;
