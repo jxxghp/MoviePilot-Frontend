@@ -274,16 +274,40 @@ function normalizePluginRepoUrl(repoUrl?: string) {
   return repoUrl
 }
 
+/** 判断插件当前是否已经有可用的远程项目地址。 */
+function hasRemoteRepoUrl(plugin?: Plugin) {
+  return Boolean(plugin?.repo_url && !plugin.repo_url.startsWith('local://'))
+}
+
 /** 优先解析插件仓库地址，本地插件或缺少仓库地址时回退到作者主页。 */
 function resolvePluginPageUrl(plugin?: Plugin) {
   if (!plugin) return ''
 
   const repoUrl =
-    plugin.is_local || plugin.repo_url?.startsWith('local://')
-      ? plugin.author_url
-      : normalizePluginRepoUrl(plugin.repo_url)
+    hasRemoteRepoUrl(plugin)
+      ? normalizePluginRepoUrl(plugin.repo_url)
+      : plugin.author_url
 
   return repoUrl || plugin.author_url || ''
+}
+
+/** 从插件市场中查找同 ID 插件，补齐已安装插件缺失的 repo_url。 */
+async function fetchMarketPlugin(pluginId?: string) {
+  if (!pluginId) return null
+
+  try {
+    const marketPlugins: Plugin[] = await api.get('plugin/', {
+      params: {
+        state: 'market',
+        force: false,
+      },
+    })
+
+    return marketPlugins.find(plugin => plugin.id === pluginId) || null
+  } catch (error) {
+    console.error(error)
+    return null
+  }
 }
 
 // 访问插件项目主页
@@ -306,6 +330,15 @@ async function visitPluginPage() {
     }
   } catch (error) {
     console.error(error)
+  }
+
+  if (!hasRemoteRepoUrl(pluginDetail)) {
+    const marketPlugin = await fetchMarketPlugin(props.plugin?.id)
+
+    if (marketPlugin) {
+      // 插件市场条目通常包含真实仓库地址，优先使用它来对齐市场卡片跳转。
+      pluginDetail = { ...(pluginDetail || {}), ...marketPlugin } as Plugin
+    }
   }
 
   const repoUrl = resolvePluginPageUrl(pluginDetail)

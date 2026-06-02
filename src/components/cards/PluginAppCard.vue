@@ -8,7 +8,9 @@ import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const PluginMarketDetailDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketDetailDialog.vue'))
-const PluginVersionHistoryDialog = defineAsyncComponent(() => import('@/components/dialog/PluginVersionHistoryDialog.vue'))
+const PluginVersionHistoryDialog = defineAsyncComponent(
+  () => import('@/components/dialog/PluginVersionHistoryDialog.vue'),
+)
 
 // 输入参数
 const props = defineProps({
@@ -120,15 +122,6 @@ function showPluginDetail() {
 // 弹出菜单
 const dropdownItems = ref([
   {
-    title: t('plugin.projectHome'),
-    value: 1,
-    show: true,
-    props: {
-      prependIcon: 'mdi-github',
-      click: visitPluginPage,
-    },
-  },
-  {
     title: t('plugin.versionHistory'),
     value: 2,
     show: !isNullOrEmptyObject(props.plugin?.history || {}),
@@ -137,8 +130,16 @@ const dropdownItems = ref([
       click: showUpdateHistory,
     },
   },
+  {
+    title: t('plugin.projectHome'),
+    value: 1,
+    show: true,
+    props: {
+      prependIcon: 'mdi-github',
+      click: visitPluginPage,
+    },
+  },
 ])
-
 </script>
 
 <template>
