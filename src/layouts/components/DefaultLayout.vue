@@ -10,15 +10,7 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
 import QuickAccess from '@/layouts/components/QuickAccess.vue'
 import HeaderTab from '@/layouts/components/HeaderTab.vue'
 import { usePluginSidebarNavStore, useUserStore } from '@/stores'
-import {
-  getDiscoverTabs,
-  getNavMenus,
-  getPluginTabs,
-  getSettingTabs,
-  getSubscribeMovieTabs,
-  getSubscribeTvTabs,
-  getWorkflowTabs,
-} from '@/router/i18n-menu'
+import { getNavMenus } from '@/router/i18n-menu'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
@@ -210,20 +202,6 @@ const visibleHorizontalHeaderButtons = computed(() => {
   return (dynamicHeaderTab.value?.appendButtons ?? []).filter(button => resolveMaybeRefValue(button.show, true) !== false)
 })
 
-const staticHorizontalNavTabs = computed<Record<string, DynamicHeaderTabItem[]>>(() => ({
-  '/recommend': getRecommendTabs(),
-  '/discover': getDiscoverTabs(t).map(tab => ({
-    title: tab.name,
-    icon: tab.icon,
-    tab: tab.tab,
-  })),
-  '/subscribe/movie': getSubscribeMovieTabs(t),
-  '/subscribe/tv': getSubscribeTvTabs(t),
-  '/workflow': getWorkflowTabs(t),
-  '/plugins': getPluginTabs(t),
-  '/setting': getSettingTabs(t),
-}))
-
 // 在组件销毁时清理
 onUnmounted(() => {
   dynamicHeaderTab.value = null
@@ -370,17 +348,7 @@ function getHorizontalNavTabs(item: NavMenu): DynamicHeaderTabItem[] {
     return dynamicHeaderTab.value?.items ?? []
   }
 
-  return staticHorizontalNavTabs.value[targetPath] ?? []
-}
-
-function getRecommendTabs(): DynamicHeaderTabItem[] {
-  return [
-    { title: t('recommend.all'), icon: 'mdi-filmstrip-box-multiple', tab: t('recommend.all') },
-    { title: t('recommend.categoryMovie'), icon: 'mdi-movie', tab: t('recommend.categoryMovie') },
-    { title: t('recommend.categoryTV'), icon: 'mdi-television-classic', tab: t('recommend.categoryTV') },
-    { title: t('recommend.categoryAnime'), icon: 'mdi-animation', tab: t('recommend.categoryAnime') },
-    { title: t('recommend.categoryRankings'), icon: 'mdi-trophy', tab: t('recommend.categoryRankings') },
-  ]
+  return item.tabs ?? []
 }
 
 function applyPendingHorizontalTab() {

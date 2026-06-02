@@ -44,7 +44,7 @@ const { registerHeaderTab } = useDynamicHeaderTab()
 
 // 注册动态标签页
 registerHeaderTab({
-  items: settingTabs.value,
+  items: settingTabs,
   modelValue: activeTab,
 })
 

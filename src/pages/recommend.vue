@@ -8,6 +8,7 @@ import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { getRecommendTabs } from '@/router/i18n-menu'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/ContentToggleSettingsDialog.vue'))
 
@@ -222,34 +223,8 @@ async function saveConfig(payload?: { enabled?: Record<string, boolean> }) {
   settingsDialogController = null
 }
 
-// 标签图标映射
-const categoryItems = computed(() => [
-  {
-    title: t('recommend.all'),
-    icon: 'mdi-filmstrip-box-multiple',
-    tab: t('recommend.all'),
-  },
-  {
-    title: t('recommend.categoryMovie'),
-    icon: 'mdi-movie',
-    tab: t('recommend.categoryMovie'),
-  },
-  {
-    title: t('recommend.categoryTV'),
-    icon: 'mdi-television-classic',
-    tab: t('recommend.categoryTV'),
-  },
-  {
-    title: t('recommend.categoryAnime'),
-    icon: 'mdi-animation',
-    tab: t('recommend.categoryAnime'),
-  },
-  {
-    title: t('recommend.categoryRankings'),
-    icon: 'mdi-trophy',
-    tab: t('recommend.categoryRankings'),
-  },
-])
+// 推荐分类标签与导航三级菜单共用同一份定义。
+const categoryItems = computed(() => getRecommendTabs(t))
 
 // 注册动态标签页
 registerHeaderTab({

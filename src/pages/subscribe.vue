@@ -313,7 +313,7 @@ const { registerHeaderTab } = useDynamicHeaderTab()
 
 // 注册动态标签页
 registerHeaderTab({
-  items: subscribeTabs.value,
+  items: subscribeTabs,
   modelValue: activeTab,
   appendButtons: [
     {
