@@ -11,7 +11,7 @@ import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { useTheme } from 'vuetify'
 import { getNavMenus } from '@/router/i18n-menu'
-import { filterMenusByPermission } from '@/utils/permission'
+import { filterMenusByPermission, DEFAULT_PERMISSIONS } from '@/utils/permission'
 import type { ApiResponse } from '@/api/types'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
@@ -397,6 +397,7 @@ async function handleLoginSuccess(response: any) {
 
   const userPermissions = {
     is_superuser: userPayload.superUser,
+    ...DEFAULT_PERMISSIONS,
     ...userPayload.permissions,
   }
 
@@ -506,8 +507,150 @@ watch([mfaPasskeyLoading, errorMessage, () => form.value.otp_password], () => {
   mfaDialogController?.updateProps(getMfaDialogProps())
 })
 
+// OIDC 登录是否启用
+const oidcEnabled = ref(false)
+const oidcLoading = ref(false)
+
+// 检查 OIDC 是否启用
+async function checkOidcEnabled() {
+  try {
+    const result: { [key: string]: any } = await api.get('login/oidc/enabled')
+    oidcEnabled.value = !!result?.data?.enabled
+  } catch {
+    oidcEnabled.value = false
+  }
+}
+
+// 处理 OIDC 弹窗回调消息
+function handleOidcMessage(event: MessageEvent) {
+  if (event.data?.type !== 'oidc_callback') return
+
+  // 移除监听
+  window.removeEventListener('message', handleOidcMessage)
+  oidcLoading.value = false
+
+  if (event.data.success) {
+    const data = event.data.data
+    handleOidcLoginSuccess(data)
+  } else {
+    const errorCode = event.data.error
+    const errorMsg = event.data.message || ''
+    switch (errorCode) {
+      case 'oidc_unbound':
+        errorMessage.value = t('login.oidcUnbound')
+        break
+      case 'oidc_error':
+        errorMessage.value = t('login.oidcError') + (errorMsg ? `: ${errorMsg}` : '')
+        break
+      case 'user_inactive':
+        errorMessage.value = t('login.userInactive')
+        break
+      default:
+        errorMessage.value = t('login.authFailure')
+    }
+  }
+}
+
+// OIDC 登录成功处理
+async function handleOidcLoginSuccess(data: Record<string, any>) {
+  const userPayload: userState = {
+    superUser: !!data.super_user,
+    userID: parseInt(data.user_id) || 0,
+    userName: data.user_name || '',
+    avatar: data.avatar || '',
+    level: parseInt(data.level) || 1,
+    permissions: data.permissions || {},
+    wizard: !!data.wizard,
+  }
+
+  const navMenus = getNavMenus(t)
+  const userPermissions = {
+    is_superuser: userPayload.superUser,
+    ...DEFAULT_PERMISSIONS,
+    ...userPayload.permissions,
+  }
+  const filteredMenus = filterMenusByPermission(navMenus, userPermissions)
+  if (filteredMenus.length === 0) {
+    errorMessage.value = t('login.noPermission')
+    return
+  }
+
+  const authPayLoad: authState = {
+    token: data.token,
+    remember: true,
+  }
+
+  authStore.login(authPayLoad)
+  userStore.loginUser(userPayload)
+
+  if (userPayload.wizard) {
+    router.push('/setup-wizard')
+  } else {
+    router.push(filteredMenus[0].to)
+  }
+}
+
+// OIDC 登录（弹窗方式）
+function loginWithOIDC() {
+  oidcLoading.value = true
+  errorMessage.value = ''
+  window.addEventListener('message', handleOidcMessage)
+
+  const authorizeUrl = `${import.meta.env.VITE_API_BASE_URL}login/oidc/authorize`
+  const popup = window.open(
+    authorizeUrl,
+    'oidc_login',
+    'width=600,height=700,left=200,top=100',
+  )
+
+  // 如果弹窗被浏览器阻止
+  if (!popup) {
+    oidcLoading.value = false
+    window.removeEventListener('message', handleOidcMessage)
+    errorMessage.value = t('login.authFailure')
+  }
+
+  // 轮询检测弹窗是否已关闭
+  const popupCheck = setInterval(() => {
+    if (popup?.closed) {
+      clearInterval(popupCheck)
+      window.removeEventListener('message', handleOidcMessage)
+
+      // 弹窗关闭后，如果 postMessage 未成功（跨域导致 window.opener 丢失），
+      // callback.vue 会将 token 写入 localStorage（Pinia persist），
+      // 检查 authStore 是否已有 token 来判断是否登录成功
+      if (oidcLoading.value) {
+        // 重新读取 Pinia 持久化的 auth store
+        authStore.$hydrate()
+        if (authStore.token) {
+          // callback.vue 已完成登录，刷新用户信息并跳转
+          userStore.$hydrate()
+          const navMenus = getNavMenus(t)
+          const userPermissions = {
+            is_superuser: userStore.superUser,
+            ...DEFAULT_PERMISSIONS,
+            ...userStore.permissions,
+          }
+          const filteredMenus = filterMenusByPermission(navMenus, userPermissions)
+          if (filteredMenus.length > 0) {
+            router.push(userStore.wizard ? '/setup-wizard' : filteredMenus[0].to)
+          } else {
+            errorMessage.value = t('login.noPermission')
+          }
+        } else {
+          // 用户手动关闭弹窗或登录未完成，静默处理，不显示错误
+        }
+        oidcLoading.value = false
+      }
+    }
+  }, 500)
+}
+
 // 自动登录
 onMounted(async () => {
+  // 检查 OIDC 是否启用
+  await checkOidcEnabled()
+
   // 获取token和remember状态
   const token = authStore.token
   const remember = authStore.remember
@@ -672,6 +815,20 @@ onUnmounted(() => {
                   @click="loginWithPassKey(false)"
                 >
                   {{ t('login.loginWithPasskey') }}
+                </VBtn>
+
+                <!-- OIDC login button -->
+                <VBtn
+                  v-if="oidcEnabled"
+                  block
+                  variant="outlined"
+                  color="cyan"
+                  class="mt-3"
+                  prepend-icon="mdi-openid"
+                  :loading="oidcLoading"
+                  @click="loginWithOIDC"
+                >
+                  {{ t('login.loginWithOIDC') }}
                 </VBtn>
                 <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
                   {{ errorMessage }}

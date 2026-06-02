@@ -882,6 +882,8 @@ export interface User {
   settings: { [key: string]: string | null }
   // 昵称
   nickname?: string
+  // OpenID Connect Subject ID
+  openid_sub?: string
 }
 
 // 通行密钥

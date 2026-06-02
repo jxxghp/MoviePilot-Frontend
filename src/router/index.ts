@@ -226,6 +226,10 @@ const router = createRouter({
           },
         },
         {
+          path: 'oidc/callback',
+          component: () => import('../pages/oidc/callback.vue'),
+        },
+        {
           path: '/:pathMatch(.*)*',
           component: () => import('../pages/[...all].vue'),
         },

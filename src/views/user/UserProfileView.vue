@@ -59,6 +59,9 @@ const accountInfo = ref<User>({
 // PassKey列表
 const passkeyList = ref<PassKey[]>([])
 
+// OIDC 是否启用
+const oidcEnabled = ref(false)
+
 // 双重验证菜单
 const mfaMenu = ref(false)
 
@@ -208,6 +211,20 @@ async function fetchUserInfo() {
       currentAvatar.value = accountInfo.value.avatar
       // 同时加载PassKey列表
       await fetchPassKeyList()
+      // 同时查询OIDC启用状态
+      await fetchOidcStatus()
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 查询OIDC启用状态
+async function fetchOidcStatus() {
+  try {
+    const result: { [key: string]: any } = await api.get('user/oidc/status')
+    if (result.success) {
+      oidcEnabled.value = !!result.data?.enabled
     }
   } catch (error) {
     console.log(error)
@@ -564,6 +581,16 @@ watch(
                     clearable
                     :label="t('profile.doubanUser')"
                     prepend-inner-icon="mdi-movie"
+                  />
+                </VCol>
+                <VCol v-if="oidcEnabled" cols="12" md="6">
+                  <VTextField
+                    :model-value="accountInfo.openid_sub || ''"
+                    density="comfortable"
+                    readonly
+                    :label="t('profile.oidcUser')"
+                    prepend-inner-icon="mdi-openid"
+                    :placeholder="t('profile.oidcUserPlaceholder')"
                   />
                 </VCol>
               </VRow>

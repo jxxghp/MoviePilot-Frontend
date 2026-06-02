@@ -193,6 +193,7 @@ onMounted(() => {
                 {{ user.is_active ? t('user.active') : t('user.inactive') }}
               </VChip>
               <VChip v-if="user.is_otp" size="x-small" color="info" variant="tonal" label>2FA</VChip>
+              <VChip v-if="user.openid_sub" size="x-small" color="cyan" variant="tonal" label>{{ t('user.oidcBound') }}</VChip>
             </div>
           </div>
 
