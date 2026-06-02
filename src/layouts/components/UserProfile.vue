@@ -677,9 +677,10 @@ onUnmounted(() => {
                 </VListItem>
               </template>
 
+              <VDivider class="my-2" />
+
               <!-- 透明度调整 - 仅在透明主题下显示 -->
               <template v-if="isTransparentTheme">
-                <VDivider class="my-2" />
                 <VListItem @click="showTransparencySettingsDialog">
                   <template #prepend>
                     <VIcon icon="mdi-opacity" />
@@ -689,17 +690,17 @@ onUnmounted(() => {
                     <VIcon icon="mdi-chevron-right" size="small" />
                   </template>
                 </VListItem>
-
-                <VListItem @click="showCustomCssDialog">
-                  <template #prepend>
-                    <VIcon icon="mdi-palette" />
-                  </template>
-                  <VListItemTitle>{{ t('theme.custom') }}</VListItemTitle>
-                  <template #append>
-                    <VIcon icon="mdi-chevron-right" size="small" />
-                  </template>
-                </VListItem>
               </template>
+
+              <VListItem @click="showCustomCssDialog">
+                <template #prepend>
+                  <VIcon icon="mdi-palette" />
+                </template>
+                <VListItemTitle>{{ t('theme.custom') }}</VListItemTitle>
+                <template #append>
+                  <VIcon icon="mdi-chevron-right" size="small" />
+                </template>
+              </VListItem>
             </VList>
           </VMenu>
 
