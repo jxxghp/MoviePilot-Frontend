@@ -61,19 +61,21 @@ const visible = computed({
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .system-health-dialog-card {
   display: flex;
-  flex-direction: column;
   overflow: hidden;
+  flex-direction: column;
 }
 
 .system-health-dialog-body {
   /* 弹窗正文本身不滚动，滚动只交给健康检查结果列表。 */
   display: flex;
+  overflow: hidden !important;
   flex: 1 1 auto;
   block-size: min(42rem, calc(100dvh - 8rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
   min-block-size: 0;
-  overflow: hidden !important;
 }
 
 :global(.v-dialog--fullscreen) .system-health-dialog-body {

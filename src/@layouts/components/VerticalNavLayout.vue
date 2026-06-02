@@ -47,7 +47,7 @@ export default defineComponent({
 
       // 当弹窗刚打开时，记录当前的滚动状态
       if (!wasDialogOpen && isDialogOpen.value) {
-        wasScrolledBeforeDialog.value = scrollDistance.value > 0
+        wasScrolledBeforeDialog.value = scrollDistance.value > 10
       }
     }
 
@@ -160,6 +160,8 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
+/* stylelint-disable no-descending-specificity */
+
 @use '@configured-variables' as variables;
 @use '@layouts/styles/placeholders';
 @use '@layouts/styles/mixins';
@@ -257,8 +259,8 @@ export default defineComponent({
   &.layout-vertical-nav-collapsed .layout-vertical-nav:not(.overlay-nav) {
     .nav-header {
       justify-content: center;
-      padding-inline: 0;
       margin-inline: 0;
+      padding-inline: 0;
     }
 
     .app-logo {
@@ -312,8 +314,8 @@ export default defineComponent({
     }
 
     .layout-navbar {
-      border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
       background: rgb(var(--v-theme-background));
+      border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
       inline-size: 100%;
       max-inline-size: none;
       padding-inline: 0;
@@ -324,15 +326,15 @@ export default defineComponent({
       border-radius: 0 !important;
       background: transparent !important;
       inline-size: 100%;
-      max-inline-size: variables.$layout-boxed-content-width;
       margin-inline: auto;
+      max-inline-size: variables.$layout-boxed-content-width;
       padding-inline: 1.5rem;
     }
 
     .layout-page-content {
       inline-size: 100%;
-      max-inline-size: variables.$layout-boxed-content-width;
       margin-inline: auto;
+      max-inline-size: variables.$layout-boxed-content-width;
       padding-inline: 1rem;
     }
 
@@ -371,8 +373,8 @@ export default defineComponent({
     .v-theme--transparent .layout-wrapper.layout-horizontal-nav-active .layout-navbar {
       backdrop-filter: none !important;
       background: transparent !important;
-      box-shadow: none !important;
       border-block-end-color: rgba(var(--v-theme-on-surface), 0.04);
+      box-shadow: none !important;
     }
 
     html[data-theme='transparent'] .layout-wrapper.layout-horizontal-nav-active .navbar-content-container,
@@ -431,11 +433,11 @@ export default defineComponent({
       .nav-section-title,
       .nav-link > a,
       .nav-item-icon {
-        color: rgba(231, 227, 252, 0.78) !important;
+        color: rgba(231, 227, 252, 78%) !important;
       }
 
       .nav-link > a:hover {
-        background-color: rgba(231, 227, 252, 0.06);
+        background-color: rgba(231, 227, 252, 6%);
       }
 
       .nav-link > .router-link-exact-active {
@@ -458,8 +460,7 @@ export default defineComponent({
     .layout-page-content {
       // display: flex;
       // 使用 clip 替代 hidden，避免 Chrome 144+ 滚动锁定问题
-      overflow-x: clip;
-      overflow-y: auto;
+      overflow: clip auto;
 
       .page-content-container {
         inline-size: 100%;

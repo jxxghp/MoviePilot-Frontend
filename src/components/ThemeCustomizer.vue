@@ -10,6 +10,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import { VDialog, VNavigationDrawer } from 'vuetify/components'
+import { useDisplay } from 'vuetify'
 
 const props = withDefaults(
   defineProps<{
@@ -31,6 +32,7 @@ const { isCustomized, resetSettings, setLayout, setPrimaryColor, setSemiDarkMenu
 const { appMode } = usePWA()
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
+const display = useDisplay()
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 
 const drawer = computed({
@@ -41,11 +43,12 @@ const drawer = computed({
 const customizerContainer = computed(() => (appMode.value ? VDialog : VNavigationDrawer))
 
 const customizerContainerProps = computed(() => {
-  if (appMode.value) {
+  if (appMode.value && display.mdAndDown.value) {
     return {
       class: 'theme-customizer-dialog-overlay',
-      maxWidth: 420,
       scrim: true,
+      fullscreen: !display.mdAndUp.value,
+      scrollable: true,
     }
   }
 
@@ -55,6 +58,7 @@ const customizerContainerProps = computed(() => {
     scrim: false,
     temporary: true,
     width: 420,
+    persistent: false,
   }
 })
 
@@ -129,16 +133,11 @@ async function handleResetSettings() {
 </script>
 
 <template>
-  <component
-    :is="customizerContainer"
-    v-model="drawer"
-    v-bind="customizerContainerProps"
-  >
+  <component :is="customizerContainer" v-model="drawer" v-bind="customizerContainerProps">
     <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode }">
-      <div class="theme-customizer-header">
+      <div class="theme-customizer-header py-5 px-4">
         <div>
           <h2 class="theme-customizer-title">{{ t('theme.customizer.title') }}</h2>
-          <p class="theme-customizer-subtitle">{{ t('theme.customizer.subtitle') }}</p>
         </div>
         <div class="theme-customizer-header-actions">
           <VBadge color="error" dot :model-value="showResetBadge" location="top end" offset-x="2" offset-y="2">
@@ -167,7 +166,6 @@ async function handleResetSettings() {
             <div
               v-for="color in themeCustomizerPrimaryColors"
               :key="color.value"
-              type="button"
               class="theme-customizer-color-option"
               :class="{ 'is-active': settings.primaryColor === color.value }"
               :aria-label="t('theme.customizer.usePrimaryColor', { color: color.name })"
@@ -177,7 +175,7 @@ async function handleResetSettings() {
             </div>
 
             <div
-              type="button"
+              v-if="!appMode"
               class="theme-customizer-color-option theme-customizer-color-option--picker"
               :class="{
                 'is-active': !themeCustomizerPrimaryColors.some(color => color.value === settings.primaryColor),
@@ -201,7 +199,6 @@ async function handleResetSettings() {
             <div
               v-for="theme in themeOptions"
               :key="theme.value"
-              type="button"
               class="theme-customizer-card-option"
               :class="{ 'is-active': settings.theme === theme.value }"
               @click="setTheme(theme.value)"
@@ -216,7 +213,6 @@ async function handleResetSettings() {
             <div
               v-for="skin in skinOptions"
               :key="skin.value"
-              type="button"
               class="theme-customizer-preview-option"
               :class="{ 'is-active': settings.skin === skin.value }"
               @click="setSkin(skin.value)"
@@ -260,7 +256,6 @@ async function handleResetSettings() {
             <div
               v-for="layout in layoutOptions"
               :key="layout.value"
-              type="button"
               class="theme-customizer-preview-option"
               :class="{ 'is-active': settings.layout === layout.value, 'is-disabled': appMode }"
               @click="handleLayoutChange(layout.value)"
@@ -287,11 +282,13 @@ async function handleResetSettings() {
 </template>
 
 <style lang="scss">
+/* stylelint-disable no-descending-specificity */
+
 .theme-customizer-drawer {
   position: fixed !important;
   z-index: 12000 !important;
-  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
   block-size: 100dvh !important;
+  border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
   box-shadow: -2px 0 6px rgba(0, 0, 0, 10%) !important;
   inset-block: 0 !important;
   inset-inline-end: 0 !important;
@@ -321,16 +318,11 @@ async function handleResetSettings() {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 16px;
   background: rgb(var(--v-theme-surface));
-  block-size: auto;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 12%);
-  inline-size: min(420px, calc(100vw - 32px));
-  max-block-size: 85vh;
-  max-block-size: 85dvh;
+  block-size: 100dvh;
 }
 
 .theme-customizer-panel--dialog .theme-customizer-body {
-  max-block-size: calc(85vh - 104px);
-  max-block-size: calc(85dvh - 104px);
+  block-size: calc(100dvh - 80px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
 }
 
 .theme-customizer-drawer.v-theme--transparent,
@@ -363,11 +355,9 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-panel--
 
 .theme-customizer-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-block: 28px 26px;
-  padding-inline: 32px 24px;
 }
 
 .theme-customizer-title {
@@ -376,14 +366,6 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-panel--
   font-size: 1.45rem;
   font-weight: 600;
   line-height: 1.2;
-}
-
-.theme-customizer-subtitle {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 1rem;
-  line-height: 1.35;
-  margin-block: 8px 0;
-  margin-inline: 0;
 }
 
 .theme-customizer-header-actions {
