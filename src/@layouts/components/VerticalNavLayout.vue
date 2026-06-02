@@ -117,6 +117,7 @@ export default defineComponent({
 
       // 👉 根据路由 meta 决定 footer 高度
       const shouldShowFooter = !route.meta.hideFooter
+      const isNavbarScrolled = scrollDistance.value > 5 || (isDialogOpen.value && wasScrolledBeforeDialog.value)
 
       // 👉 Footer
       const footer = h('footer', { class: 'layout-footer' }, [
@@ -146,8 +147,9 @@ export default defineComponent({
             mdAndDown.value && 'layout-overlay-nav',
             isCollapsedLayout.value && 'layout-vertical-nav-collapsed',
             isHorizontalLayout.value && 'layout-horizontal-nav-active',
+            isHorizontalLayout.value && isNavbarScrolled && 'layout-horizontal-nav-scrolled',
             route.meta.layoutWrapperClasses,
-            (scrollDistance.value > 5 || (isDialogOpen.value && wasScrolledBeforeDialog.value)) && 'window-scrolled',
+            !isHorizontalLayout.value && isNavbarScrolled && 'window-scrolled',
           ],
         },
         [verticalNav, h('div', { class: 'layout-content-wrapper' }, [navbar, main, footer]), layoutOverlay],
@@ -340,11 +342,80 @@ export default defineComponent({
   }
 
   @at-root {
+    .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+      backdrop-filter: blur(12px) saturate(1.2);
+      background: rgb(var(--v-theme-surface)) !important;
+      box-shadow: 0 4px 8px -4px rgb(94 86 105 / 42%);
+    }
+
+    .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .navbar-content-container {
+      backdrop-filter: none !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      filter: none !important;
+      padding-inline: 1.5rem !important;
+
+      &::before {
+        display: none !important;
+        backdrop-filter: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        content: none !important;
+        filter: none !important;
+      }
+    }
+
     html[data-theme='transparent'] .layout-wrapper.layout-horizontal-nav-active .layout-navbar,
     .v-theme--transparent .layout-wrapper.layout-horizontal-nav-active .layout-navbar {
-      backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
-      background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-      border-block-end-color: rgba(var(--v-theme-on-surface), 0.06);
+      backdrop-filter: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      border-block-end-color: rgba(var(--v-theme-on-surface), 0.04);
+    }
+
+    html[data-theme='transparent'] .layout-wrapper.layout-horizontal-nav-active .navbar-content-container,
+    .v-theme--transparent .layout-wrapper.layout-horizontal-nav-active .navbar-content-container {
+      backdrop-filter: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    // 透明主题的水平导航不叠加滚动磨砂层，避免中间区域出现一块更深的背景。
+    html[data-theme='transparent']
+      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .layout-navbar,
+    .v-theme--transparent
+      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .layout-navbar {
+      backdrop-filter: blur(var(--transparent-blur-light, 6px)) !important;
+      background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2)) !important;
+      box-shadow: none !important;
+    }
+
+    // 透明主题滚动时只让外层导航栏承载整屏背景，避免内部最大宽度容器单独变深。
+    html[data-theme='transparent']
+      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .navbar-content-container,
+    .v-theme--transparent
+      .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+      .navbar-content-container {
+      backdrop-filter: none !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      box-shadow: none !important;
+      filter: none !important;
+      padding-inline: 1.5rem !important;
+
+      &::before {
+        display: none !important;
+        backdrop-filter: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        content: none !important;
+        filter: none !important;
+      }
     }
 
     html[data-theme='light'][data-theme-semi-dark-menu='true'][data-theme-layout='vertical']

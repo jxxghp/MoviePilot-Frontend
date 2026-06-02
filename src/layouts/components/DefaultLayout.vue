@@ -10,12 +10,20 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
 import QuickAccess from '@/layouts/components/QuickAccess.vue'
 import HeaderTab from '@/layouts/components/HeaderTab.vue'
 import { usePluginSidebarNavStore, useUserStore } from '@/stores'
-import { getNavMenus } from '@/router/i18n-menu'
+import {
+  getDiscoverTabs,
+  getNavMenus,
+  getPluginTabs,
+  getSettingTabs,
+  getSubscribeMovieTabs,
+  getSubscribeTvTabs,
+  getWorkflowTabs,
+} from '@/router/i18n-menu'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { filterMenusByPermission } from '@/utils/permission'
 import { onUnreadMessage } from '@/utils/badge'
 import { usePullDownGesture } from '@/composables/usePullDownGesture'
@@ -34,6 +42,7 @@ const display = useDisplay()
 const { appMode } = usePWA()
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const themeLayout = ref(readThemeCustomizerSettings().layout)
 
 // 用户 Store
@@ -133,6 +142,7 @@ interface DynamicHeaderTab {
 // 提供动态标签页注册和获取的方法
 const dynamicHeaderTab = ref<DynamicHeaderTab | null>(null)
 const openHorizontalNavGroup = ref<string | null>(null)
+const pendingHorizontalTab = ref<{ path: string; tab: string } | null>(null)
 
 // 提供一个方法让其他组件注册动态标签页
 const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
@@ -140,6 +150,7 @@ const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
   tab.routePath = route.path
   // 强制更新，确保响应式系统能检测到变化
   dynamicHeaderTab.value = { ...tab }
+  applyPendingHorizontalTab()
 }
 
 // 提供一个方法让其他组件取消注册动态标签页
@@ -198,6 +209,20 @@ const visibleHorizontalHeaderButtons = computed(() => {
 
   return (dynamicHeaderTab.value?.appendButtons ?? []).filter(button => resolveMaybeRefValue(button.show, true) !== false)
 })
+
+const staticHorizontalNavTabs = computed<Record<string, DynamicHeaderTabItem[]>>(() => ({
+  '/recommend': getRecommendTabs(),
+  '/discover': getDiscoverTabs(t).map(tab => ({
+    title: tab.name,
+    icon: tab.icon,
+    tab: tab.tab,
+  })),
+  '/subscribe/movie': getSubscribeMovieTabs(t),
+  '/subscribe/tv': getSubscribeTvTabs(t),
+  '/workflow': getWorkflowTabs(t),
+  '/plugins': getPluginTabs(t),
+  '/setting': getSettingTabs(t),
+}))
 
 // 在组件销毁时清理
 onUnmounted(() => {
@@ -269,10 +294,10 @@ function handleThemeCustomizerChange(event: Event) {
 }
 
 function isHorizontalNavActive(item: NavMenu) {
-  if (typeof item.to !== 'string') return false
+  const targetPath = normalizeMenuPath(item.to)
+  if (!targetPath) return false
 
-  const targetPath = item.to.replace(/\/$/, '')
-  const currentPath = route.path.replace(/\/$/, '')
+  const currentPath = normalizeMenuPath(route.path)
 
   return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`)
 }
@@ -282,15 +307,25 @@ function isHorizontalNavGroupActive(group: { items: NavMenu[] }) {
 }
 
 function hasHorizontalDynamicTabs(item: NavMenu) {
-  return showHorizontalThemeNav.value && hasDynamicHeaderTab.value && isHorizontalNavActive(item)
+  return showHorizontalThemeNav.value && getHorizontalNavTabs(item).length > 0
 }
 
 function isHorizontalDynamicTabActive(tab: DynamicHeaderTabItem) {
   return dynamicHeaderTab.value?.modelValue === tab.tab
 }
 
-function handleHorizontalDynamicTabSelect(tab: DynamicHeaderTabItem) {
-  handleTabChange(tab.tab)
+async function handleHorizontalDynamicTabSelect(item: NavMenu, tab: DynamicHeaderTabItem) {
+  const targetPath = normalizeMenuPath(item.to)
+  const currentPath = normalizeMenuPath(route.path)
+
+  if (targetPath && currentPath !== targetPath) {
+    // 三级菜单可能在目标页面挂载前点击，先记录待切换 tab，页面注册动态 tab 后再应用。
+    pendingHorizontalTab.value = { path: targetPath, tab: tab.tab }
+    await router.push(targetPath)
+  } else {
+    handleTabChange(tab.tab)
+  }
+
   openHorizontalNavGroup.value = null
 }
 
@@ -308,6 +343,57 @@ function resolveHeaderButtonColor(button: DynamicHeaderTabButton) {
 
 function resolveHeaderButtonLoading(button: DynamicHeaderTabButton) {
   return resolveMaybeRefValue(button.loading, false)
+}
+
+function getHorizontalTabIcon(tab: DynamicHeaderTabItem) {
+  const icon = tab.icon?.trim()
+
+  // 部分页面会把业务来源标识（如 themoviedb/douban/bangumi）放进 icon 字段，
+  // 这些值不是菜单里的可渲染图标，三级菜单统一回退到默认图标。
+  if (!icon || (!icon.startsWith('mdi-') && !icon.startsWith('tabler-') && !icon.includes(':'))) {
+    return 'mdi-circle-medium'
+  }
+
+  return icon
+}
+
+function normalizeMenuPath(value: unknown) {
+  if (typeof value !== 'string') return ''
+
+  return value.replace(/\/$/, '') || '/'
+}
+
+function getHorizontalNavTabs(item: NavMenu): DynamicHeaderTabItem[] {
+  const targetPath = normalizeMenuPath(item.to)
+
+  if (targetPath && isHorizontalNavActive(item) && hasDynamicHeaderTab.value) {
+    return dynamicHeaderTab.value?.items ?? []
+  }
+
+  return staticHorizontalNavTabs.value[targetPath] ?? []
+}
+
+function getRecommendTabs(): DynamicHeaderTabItem[] {
+  return [
+    { title: t('recommend.all'), icon: 'mdi-filmstrip-box-multiple', tab: t('recommend.all') },
+    { title: t('recommend.categoryMovie'), icon: 'mdi-movie', tab: t('recommend.categoryMovie') },
+    { title: t('recommend.categoryTV'), icon: 'mdi-television-classic', tab: t('recommend.categoryTV') },
+    { title: t('recommend.categoryAnime'), icon: 'mdi-animation', tab: t('recommend.categoryAnime') },
+    { title: t('recommend.categoryRankings'), icon: 'mdi-trophy', tab: t('recommend.categoryRankings') },
+  ]
+}
+
+function applyPendingHorizontalTab() {
+  if (!pendingHorizontalTab.value || !hasDynamicHeaderTab.value) return
+
+  const pending = pendingHorizontalTab.value
+  if (normalizeMenuPath(route.path) !== pending.path) return
+
+  const tabExists = dynamicHeaderTab.value?.items.some(item => item.tab === pending.tab)
+  if (!tabExists) return
+
+  handleTabChange(pending.tab)
+  pendingHorizontalTab.value = null
 }
 
 // 处理未读消息事件
@@ -439,15 +525,22 @@ onMounted(async () => {
           <VIcon icon="mdi-arrow-left" size="32" />
         </IconBtn>
         <!-- 👉 Search Bar -->
-        <SearchBar />
+        <SearchBar v-if="!showHorizontalThemeNav" />
         <!-- 👉 Spacer -->
         <VSpacer />
-        <!-- 👉 Shortcuts -->
-        <ShortcutBar v-if="superUser" ref="shortcutBarRef" />
-        <!-- 👉 Notification -->
-        <UserNofification />
-        <!-- 👉 UserProfile -->
-        <UserProfile />
+        <div
+          class="theme-navbar-actions d-flex align-center"
+          :class="{ 'theme-navbar-actions--horizontal': showHorizontalThemeNav }"
+        >
+          <!-- 👉 Horizontal Search Icon -->
+          <SearchBar v-if="showHorizontalThemeNav" icon-only />
+          <!-- 👉 Shortcuts -->
+          <ShortcutBar v-if="superUser" ref="shortcutBarRef" />
+          <!-- 👉 Notification -->
+          <UserNofification />
+          <!-- 👉 UserProfile -->
+          <UserProfile />
+        </div>
       </div>
       <div v-if="showHorizontalThemeNav" class="theme-horizontal-nav">
         <VMenu
@@ -479,6 +572,9 @@ onMounted(async () => {
                 v-if="hasHorizontalDynamicTabs(item)"
                 location="end top"
                 offset="8"
+                open-on-hover
+                :open-delay="0"
+                :close-delay="120"
                 :close-on-content-click="true"
               >
                 <template #activator="{ props: subMenuProps }">
@@ -495,13 +591,13 @@ onMounted(async () => {
 
                 <VList class="theme-horizontal-nav__submenu" min-width="12rem" density="comfortable">
                   <VListItem
-                    v-for="tab in dynamicHeaderTab!.items"
+                    v-for="tab in getHorizontalNavTabs(item)"
                     :key="`${item.to}-${tab.tab}`"
                     :active="isHorizontalDynamicTabActive(tab)"
-                    @click="handleHorizontalDynamicTabSelect(tab)"
+                    @click="handleHorizontalDynamicTabSelect(item, tab)"
                   >
-                    <template v-if="tab.icon" #prepend>
-                      <VIcon :icon="tab.icon" />
+                    <template #prepend>
+                      <VIcon :icon="getHorizontalTabIcon(tab)" />
                     </template>
                     <VListItemTitle>{{ tab.title }}</VListItemTitle>
                   </VListItem>
@@ -675,6 +771,35 @@ onMounted(async () => {
 .theme-horizontal-logo__text {
   font-size: 1.125rem;
   white-space: nowrap;
+}
+
+.theme-navbar-actions--horizontal {
+  gap: 0.85rem;
+
+  :deep(.ms-2),
+  :deep(.ms-3) {
+    margin-inline-start: 0 !important;
+  }
+
+  :deep(.v-btn.v-btn--icon) {
+    flex: 0 0 auto;
+    border-radius: 12px;
+    block-size: 2.75rem;
+    color: rgba(var(--v-theme-on-surface), 0.78);
+    inline-size: 2.75rem;
+  }
+
+  :deep(.v-btn.v-btn--icon .v-icon) {
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+
+  :deep(.v-avatar.cursor-pointer) {
+    flex: 0 0 auto;
+    block-size: 2.75rem !important;
+    inline-size: 2.75rem !important;
+    margin-inline-start: 0 !important;
+  }
 }
 
 .theme-horizontal-nav {

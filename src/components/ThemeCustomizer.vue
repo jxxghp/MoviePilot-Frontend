@@ -240,22 +240,37 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
 
 <style lang="scss">
 .theme-customizer-drawer {
+  position: fixed !important;
   z-index: 12000 !important;
   border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
+  block-size: 100dvh !important;
   box-shadow: -2px 0 6px rgba(0, 0, 0, 10%) !important;
+  inset-block: 0 !important;
+  inset-inline-end: 0 !important;
+  max-block-size: 100dvh !important;
 
   .v-navigation-drawer__content {
     display: flex;
     overflow: hidden;
     flex-direction: column;
+    block-size: 100%;
   }
 }
 
-.theme-customizer-drawer .v-theme--transparent,
+.theme-customizer-drawer.v-theme--transparent,
 .v-theme--transparent .theme-customizer-drawer,
 html[data-theme='transparent'] .theme-customizer-drawer {
   backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
   background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5)) !important;
+}
+
+// 透明主题的全局 overlay 毛玻璃会影响临时抽屉绘制，主题定制器改由 drawer 自身承担背景。
+html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer),
+.v-theme--transparent .v-overlay__content:has(.theme-customizer-drawer) {
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 :is(html[data-theme='transparent'], .v-theme--transparent) .theme-customizer-card-option .theme-customizer-theme-icon,
