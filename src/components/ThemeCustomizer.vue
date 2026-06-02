@@ -142,11 +142,11 @@ async function handleResetSettings() {
         <div class="theme-customizer-header-actions">
           <VBadge color="error" dot :model-value="showResetBadge" location="top end" offset-x="2" offset-y="2">
             <IconBtn :aria-label="t('theme.customizer.reset')" @click="handleResetSettings">
-              <VIcon class="theme-customizer-header-icon" icon="mdi-refresh" />
+              <VIcon class="text-high-emphasis" icon="mdi-refresh" />
             </IconBtn>
           </VBadge>
           <IconBtn :aria-label="t('common.close')" @click="drawer = false">
-            <VIcon class="theme-customizer-header-icon" icon="mdi-close" />
+            <VIcon class="text-high-emphasis" icon="mdi-close" />
           </IconBtn>
         </div>
       </div>
@@ -332,9 +332,7 @@ html[data-theme='transparent'] .theme-customizer-panel--dialog {
 
 // 透明主题的全局 overlay 毛玻璃会影响临时抽屉绘制，主题定制器改由 drawer 自身承担背景。
 html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer),
-.v-theme--transparent .v-overlay__content:has(.theme-customizer-drawer),
-html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-panel--dialog),
-.v-theme--transparent .v-overlay__content:has(.theme-customizer-panel--dialog) {
+.v-theme--transparent .v-overlay__content:has(.theme-customizer-drawer) {
   border-radius: 0 !important;
   backdrop-filter: none !important;
   background: transparent !important;
