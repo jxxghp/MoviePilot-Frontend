@@ -34,7 +34,6 @@ const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizon
 const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
 const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent']
 
-const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings())
 let themeApplyVersion = 0
 
 function isBrowser() {
@@ -100,6 +99,9 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
     return fallback
   }
 }
+
+// 生产构建会改写导出函数的声明形式，状态初始化必须放在读取函数定义之后，避免首屏执行时引用未完成赋值的函数。
+const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings())
 
 function persistThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   if (!isBrowser()) return
