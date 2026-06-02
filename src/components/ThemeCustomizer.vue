@@ -9,6 +9,7 @@ import {
 import { usePWA } from '@/composables/usePWA'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
+import { VDialog, VNavigationDrawer } from 'vuetify/components'
 
 const props = withDefaults(
   defineProps<{
@@ -35,6 +36,26 @@ const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const drawer = computed({
   get: () => props.modelValue,
   set: value => emit('update:modelValue', value),
+})
+
+const customizerContainer = computed(() => (appMode.value ? VDialog : VNavigationDrawer))
+
+const customizerContainerProps = computed(() => {
+  if (appMode.value) {
+    return {
+      class: 'theme-customizer-dialog-overlay',
+      maxWidth: 420,
+      scrim: true,
+    }
+  }
+
+  return {
+    class: 'theme-customizer-drawer',
+    location: 'right' as const,
+    scrim: false,
+    temporary: true,
+    width: 420,
+  }
 })
 
 const themeOptions = computed<Array<{ icon: string; title: string; value: ThemeCustomizerTheme }>>(() => [
@@ -108,162 +129,161 @@ async function handleResetSettings() {
 </script>
 
 <template>
-  <VNavigationDrawer
+  <component
+    :is="customizerContainer"
     v-model="drawer"
-    class="theme-customizer-drawer"
-    location="right"
-    temporary
-    width="420"
-    :scrim="false"
+    v-bind="customizerContainerProps"
   >
-    <div class="theme-customizer-header">
-      <div>
-        <h2 class="theme-customizer-title">{{ t('theme.customizer.title') }}</h2>
-        <p class="theme-customizer-subtitle">{{ t('theme.customizer.subtitle') }}</p>
-      </div>
-      <div class="theme-customizer-header-actions">
-        <VBadge color="error" dot :model-value="showResetBadge" location="top end" offset-x="2" offset-y="2">
-          <IconBtn
-            class="theme-customizer-header-icon-btn"
-            :aria-label="t('theme.customizer.reset')"
-            @click="handleResetSettings"
-          >
-            <VIcon class="theme-customizer-header-icon" icon="mdi-refresh" />
+    <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode }">
+      <div class="theme-customizer-header">
+        <div>
+          <h2 class="theme-customizer-title">{{ t('theme.customizer.title') }}</h2>
+          <p class="theme-customizer-subtitle">{{ t('theme.customizer.subtitle') }}</p>
+        </div>
+        <div class="theme-customizer-header-actions">
+          <VBadge color="error" dot :model-value="showResetBadge" location="top end" offset-x="2" offset-y="2">
+            <IconBtn
+              class="theme-customizer-header-icon-btn"
+              :aria-label="t('theme.customizer.reset')"
+              @click="handleResetSettings"
+            >
+              <VIcon class="theme-customizer-header-icon" icon="mdi-refresh" />
+            </IconBtn>
+          </VBadge>
+          <IconBtn class="theme-customizer-header-icon-btn" :aria-label="t('common.close')" @click="drawer = false">
+            <VIcon class="theme-customizer-header-icon" icon="mdi-close" />
           </IconBtn>
-        </VBadge>
-        <IconBtn class="theme-customizer-header-icon-btn" :aria-label="t('common.close')" @click="drawer = false">
-          <VIcon class="theme-customizer-header-icon" icon="mdi-close" />
-        </IconBtn>
+        </div>
       </div>
-    </div>
 
-    <VDivider />
+      <VDivider />
 
-    <PerfectScrollbar class="theme-customizer-body" :options="{ wheelPropagation: false }">
-      <section class="theme-customizer-section">
-        <span class="theme-customizer-chip">{{ t('theme.customizer.theming') }}</span>
+      <PerfectScrollbar class="theme-customizer-body" :options="{ wheelPropagation: false }">
+        <section class="theme-customizer-section">
+          <span class="theme-customizer-chip">{{ t('theme.customizer.theming') }}</span>
 
-        <h3 class="theme-customizer-section-title">{{ t('theme.customizer.primaryColor') }}</h3>
-        <div class="theme-customizer-color-grid">
-          <div
-            v-for="color in themeCustomizerPrimaryColors"
-            :key="color.value"
-            type="button"
-            class="theme-customizer-color-option"
-            :class="{ 'is-active': settings.primaryColor === color.value }"
-            :aria-label="t('theme.customizer.usePrimaryColor', { color: color.name })"
-            @click="setPrimaryColor(color.value)"
-          >
-            <span class="theme-customizer-color-swatch" :style="{ backgroundColor: color.value }" />
+          <h3 class="theme-customizer-section-title">{{ t('theme.customizer.primaryColor') }}</h3>
+          <div class="theme-customizer-color-grid">
+            <div
+              v-for="color in themeCustomizerPrimaryColors"
+              :key="color.value"
+              type="button"
+              class="theme-customizer-color-option"
+              :class="{ 'is-active': settings.primaryColor === color.value }"
+              :aria-label="t('theme.customizer.usePrimaryColor', { color: color.name })"
+              @click="setPrimaryColor(color.value)"
+            >
+              <span class="theme-customizer-color-swatch" :style="{ backgroundColor: color.value }" />
+            </div>
+
+            <div
+              type="button"
+              class="theme-customizer-color-option theme-customizer-color-option--picker"
+              :class="{
+                'is-active': !themeCustomizerPrimaryColors.some(color => color.value === settings.primaryColor),
+              }"
+              :aria-label="t('theme.customizer.chooseCustomColor')"
+              @click="openColorPicker"
+            >
+              <VIcon class="theme-customizer-native-icon" icon="mdi-palette-outline" size="30" />
+              <input
+                ref="customColorInput"
+                class="theme-customizer-native-color"
+                type="color"
+                :value="settings.primaryColor"
+                @input="handleCustomColorInput"
+              />
+            </div>
           </div>
 
-          <div
-            type="button"
-            class="theme-customizer-color-option theme-customizer-color-option--picker"
-            :class="{
-              'is-active': !themeCustomizerPrimaryColors.some(color => color.value === settings.primaryColor),
-            }"
-            :aria-label="t('theme.customizer.chooseCustomColor')"
-            @click="openColorPicker"
-          >
-            <VIcon class="theme-customizer-native-icon" icon="mdi-palette-outline" size="30" />
-            <input
-              ref="customColorInput"
-              class="theme-customizer-native-color"
-              type="color"
-              :value="settings.primaryColor"
-              @input="handleCustomColorInput"
+          <h3 class="theme-customizer-section-title">{{ t('common.theme') }}</h3>
+          <div class="theme-customizer-option-grid theme-customizer-option-grid--theme">
+            <div
+              v-for="theme in themeOptions"
+              :key="theme.value"
+              type="button"
+              class="theme-customizer-card-option"
+              :class="{ 'is-active': settings.theme === theme.value }"
+              @click="setTheme(theme.value)"
+            >
+              <VIcon class="theme-customizer-theme-icon" :icon="theme.icon" size="36" />
+              <span>{{ theme.title }}</span>
+            </div>
+          </div>
+
+          <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
+          <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
+            <div
+              v-for="skin in skinOptions"
+              :key="skin.value"
+              type="button"
+              class="theme-customizer-preview-option"
+              :class="{ 'is-active': settings.skin === skin.value }"
+              @click="setSkin(skin.value)"
+            >
+              <span class="theme-customizer-mini-layout" :class="`theme-customizer-mini-layout--${skin.value}`">
+                <span class="mini-sidebar">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span class="mini-content">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </span>
+              <span>{{ skin.title }}</span>
+            </div>
+          </div>
+
+          <div v-if="showSemiDarkMenuOption" class="theme-customizer-semi-dark">
+            <span>{{ t('theme.customizer.semiDarkMenu') }}</span>
+            <VSwitch
+              :model-value="settings.semiDarkMenu"
+              color="primary"
+              inset
+              hide-details
+              @update:model-value="setSemiDarkMenu(Boolean($event))"
             />
           </div>
-        </div>
+        </section>
 
-        <h3 class="theme-customizer-section-title">{{ t('common.theme') }}</h3>
-        <div class="theme-customizer-option-grid theme-customizer-option-grid--theme">
-          <div
-            v-for="theme in themeOptions"
-            :key="theme.value"
-            type="button"
-            class="theme-customizer-card-option"
-            :class="{ 'is-active': settings.theme === theme.value }"
-            @click="setTheme(theme.value)"
-          >
-            <VIcon class="theme-customizer-theme-icon" :icon="theme.icon" size="36" />
-            <span>{{ theme.title }}</span>
+        <VDivider v-if="showLayoutSection" />
+
+        <section v-if="showLayoutSection" class="theme-customizer-section">
+          <span class="theme-customizer-chip">{{ t('theme.customizer.layout') }}</span>
+
+          <h3 class="theme-customizer-section-title"></h3>
+          <div class="theme-customizer-preview-grid">
+            <div
+              v-for="layout in layoutOptions"
+              :key="layout.value"
+              type="button"
+              class="theme-customizer-preview-option"
+              :class="{ 'is-active': settings.layout === layout.value, 'is-disabled': appMode }"
+              @click="handleLayoutChange(layout.value)"
+            >
+              <span class="theme-customizer-mini-layout" :class="`theme-customizer-mini-layout--${layout.value}`">
+                <span class="mini-sidebar">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span class="mini-content">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </span>
+              <span>{{ layout.title }}</span>
+            </div>
           </div>
-        </div>
-
-        <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
-        <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
-          <div
-            v-for="skin in skinOptions"
-            :key="skin.value"
-            type="button"
-            class="theme-customizer-preview-option"
-            :class="{ 'is-active': settings.skin === skin.value }"
-            @click="setSkin(skin.value)"
-          >
-            <span class="theme-customizer-mini-layout" :class="`theme-customizer-mini-layout--${skin.value}`">
-              <span class="mini-sidebar">
-                <i />
-                <i />
-                <i />
-                <i />
-              </span>
-              <span class="mini-content">
-                <i />
-                <i />
-                <i />
-              </span>
-            </span>
-            <span>{{ skin.title }}</span>
-          </div>
-        </div>
-
-        <div v-if="showSemiDarkMenuOption" class="theme-customizer-semi-dark">
-          <span>{{ t('theme.customizer.semiDarkMenu') }}</span>
-          <VSwitch
-            :model-value="settings.semiDarkMenu"
-            color="primary"
-            inset
-            hide-details
-            @update:model-value="setSemiDarkMenu(Boolean($event))"
-          />
-        </div>
-      </section>
-
-      <VDivider v-if="showLayoutSection" />
-
-      <section v-if="showLayoutSection" class="theme-customizer-section">
-        <span class="theme-customizer-chip">{{ t('theme.customizer.layout') }}</span>
-
-        <h3 class="theme-customizer-section-title"></h3>
-        <div class="theme-customizer-preview-grid">
-          <div
-            v-for="layout in layoutOptions"
-            :key="layout.value"
-            type="button"
-            class="theme-customizer-preview-option"
-            :class="{ 'is-active': settings.layout === layout.value, 'is-disabled': appMode }"
-            @click="handleLayoutChange(layout.value)"
-          >
-            <span class="theme-customizer-mini-layout" :class="`theme-customizer-mini-layout--${layout.value}`">
-              <span class="mini-sidebar">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span class="mini-content">
-                <i />
-                <i />
-                <i />
-              </span>
-            </span>
-            <span>{{ layout.title }}</span>
-          </div>
-        </div>
-      </section>
-    </PerfectScrollbar>
-  </VNavigationDrawer>
+        </section>
+      </PerfectScrollbar>
+    </div>
+  </component>
 </template>
 
 <style lang="scss">
@@ -285,16 +305,48 @@ async function handleResetSettings() {
   }
 }
 
+.theme-customizer-dialog-overlay {
+  z-index: 12000 !important;
+}
+
+.theme-customizer-panel {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.theme-customizer-panel--dialog {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 16px;
+  background: rgb(var(--v-theme-surface));
+  block-size: auto;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 12%);
+  inline-size: min(420px, calc(100vw - 32px));
+  max-block-size: 85vh;
+  max-block-size: 85dvh;
+}
+
+.theme-customizer-panel--dialog .theme-customizer-body {
+  max-block-size: calc(85vh - 104px);
+  max-block-size: calc(85dvh - 104px);
+}
+
 .theme-customizer-drawer.v-theme--transparent,
 .v-theme--transparent .theme-customizer-drawer,
-html[data-theme='transparent'] .theme-customizer-drawer {
+html[data-theme='transparent'] .theme-customizer-drawer,
+.v-theme--transparent .theme-customizer-panel--dialog,
+html[data-theme='transparent'] .theme-customizer-panel--dialog {
   backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
   background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5)) !important;
 }
 
 // 透明主题的全局 overlay 毛玻璃会影响临时抽屉绘制，主题定制器改由 drawer 自身承担背景。
 html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer),
-.v-theme--transparent .v-overlay__content:has(.theme-customizer-drawer) {
+.v-theme--transparent .v-overlay__content:has(.theme-customizer-drawer),
+html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-panel--dialog),
+.v-theme--transparent .v-overlay__content:has(.theme-customizer-panel--dialog) {
   border-radius: 0 !important;
   backdrop-filter: none !important;
   background: transparent !important;
@@ -380,8 +432,8 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
 
 .theme-customizer-color-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, 48px);
 }
 
 .theme-customizer-color-option {
@@ -392,9 +444,10 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 10px;
   appearance: none;
-  aspect-ratio: 1;
+  block-size: 48px;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   cursor: pointer;
+  inline-size: 48px;
   transition:
     border-color 0.18s ease,
     background-color 0.18s ease,
@@ -409,9 +462,9 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
 
 .theme-customizer-color-swatch {
   display: block;
-  border-radius: 9px;
-  block-size: 68%;
-  inline-size: 68%;
+  border-radius: 8px;
+  block-size: 30px;
+  inline-size: 30px;
 }
 
 .theme-customizer-color-option--picker {
@@ -592,7 +645,6 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
     padding-inline: 22px;
   }
 
-  .theme-customizer-color-grid,
   .theme-customizer-preview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
