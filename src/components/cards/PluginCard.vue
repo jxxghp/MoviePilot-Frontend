@@ -258,45 +258,61 @@ async function updatePlugin() {
   }
 }
 
-// 访问插件项目主页
-async function visitPluginPage() {
-  const popup = window.open('', '_blank', 'noopener,noreferrer')
-  let pluginDetail = props.plugin
+/** 将 raw.githubusercontent.com 插件地址转换为可访问的 GitHub 项目主页。 */
+function normalizePluginRepoUrl(repoUrl?: string) {
+  if (!repoUrl || !repoUrl.includes('raw.githubusercontent.com')) return repoUrl
 
   try {
-    pluginDetail = await api.get(`plugin/history/${props.plugin?.id}`, {
-      params: {
-        force: false,
-      },
-    })
+    const rawUrl = new URL(repoUrl)
+    const [user, repo] = rawUrl.pathname.split('/').filter(Boolean)
+
+    if (user && repo) return `https://github.com/${user}/${repo}`
   } catch (error) {
     console.error(error)
   }
 
-  let repoUrl = pluginDetail?.repo_url
-  if (pluginDetail?.is_local || repoUrl?.startsWith('local://')) {
-    repoUrl = pluginDetail?.author_url
-  }
-  if (repoUrl) {
-    if (repoUrl.includes('raw.githubusercontent.com')) {
-      if (!repoUrl.endsWith('/')) repoUrl += '/'
+  return repoUrl
+}
 
-      if (repoUrl.split('/').length < 6) repoUrl = `${repoUrl}main/`
+/** 优先解析插件仓库地址，本地插件或缺少仓库地址时回退到作者主页。 */
+function resolvePluginPageUrl(plugin?: Plugin) {
+  if (!plugin) return ''
 
-      try {
-        const [user, repo] = repoUrl.split('/').slice(-4, -2)
-        repoUrl = `https://github.com/${user}/${repo}`
-      } catch (error) {
-        return
-      }
+  const repoUrl =
+    plugin.is_local || plugin.repo_url?.startsWith('local://')
+      ? plugin.author_url
+      : normalizePluginRepoUrl(plugin.repo_url)
+
+  return repoUrl || plugin.author_url || ''
+}
+
+// 访问插件项目主页
+async function visitPluginPage() {
+  const popup = window.open('about:blank', '_blank')
+  let pluginDetail = props.plugin
+
+  if (popup) popup.opener = null
+
+  try {
+    if (props.plugin?.id) {
+      const historyPlugin: Plugin = await api.get(`plugin/history/${props.plugin.id}`, {
+        params: {
+          force: false,
+        },
+      })
+
+      // 历史接口可能只返回部分字段，合并原卡片数据避免丢失 author_url 兜底。
+      pluginDetail = { ...(props.plugin || {}), ...(historyPlugin || {}) } as Plugin
     }
-  } else {
-    repoUrl = pluginDetail?.author_url
+  } catch (error) {
+    console.error(error)
   }
+
+  const repoUrl = resolvePluginPageUrl(pluginDetail)
 
   if (repoUrl) {
     if (popup) {
-      popup.location.href = repoUrl
+      popup.location.replace(repoUrl)
       return
     }
 
