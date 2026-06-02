@@ -320,9 +320,10 @@ function getThemeLayoutTitle(layout: ThemeCustomizerSettings['layout']) {
 
 const currentThemeSummary = computed(() => {
   const themeTitle = themes.find(theme => theme.name === currentThemeName.value)?.title || t('theme.auto')
-  const layoutTitle = getThemeLayoutTitle(themeCustomizerSettings.value.layout)
+  const layoutTitle = appMode.value ? '' : getThemeLayoutTitle(themeCustomizerSettings.value.layout)
 
-  return `${themeTitle} · ${layoutTitle}`
+  if (layoutTitle) return `${themeTitle} · ${layoutTitle}`
+  return themeTitle
 })
 
 // Ace 跟随 Vuetify 当前生效主题，避免 auto 模式或弹窗打开后切主题时颜色不同步。

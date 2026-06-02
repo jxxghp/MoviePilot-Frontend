@@ -159,7 +159,7 @@ export default {
     customCssSaveFailed: '保存自定义CSS到服务端失败',
     deviceNotSupport: '当前设备不支持监听系统主题变化',
     customizer: {
-      title: '主题定制器',
+      title: '主题定制',
       subtitle: '实时自定义与预览',
       theming: '主题',
       primaryColor: '主色',
