@@ -173,6 +173,22 @@ registerRoute(
   }),
 )
 
+// API 非 GET 请求 - 直接走网络（不缓存）
+registerRoute(
+  ({ url, request }) =>
+    url.pathname.includes('/api/v1/') &&
+    request.method !== 'GET',
+  new NetworkFirst({
+    cacheName: `api-post-${CACHE_VERSION}`,
+    networkTimeoutSeconds: 10,
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+    ],
+  }),
+)
+
 // 设置默认离线页面
 setCatchHandler(async ({ request }) => {
   if (request?.destination === 'document') {

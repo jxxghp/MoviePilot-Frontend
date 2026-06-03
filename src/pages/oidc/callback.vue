@@ -22,23 +22,46 @@ onMounted(async () => {
 
     if (error) {
       // 处理各种错误
+      let errorMsg = ''
+      const rawMessage = urlParams.get('message') || ''
       switch (error) {
         case 'oidc_unbound':
-          errorMessage.value = t('login.oidcUnbound')
+          errorMsg = t('login.oidcUnbound')
           break
         case 'oidc_error':
-          errorMessage.value = t('login.oidcError') + (urlParams.get('message') ? `: ${urlParams.get('message')}` : '')
+          errorMsg = t('login.oidcError') + (rawMessage ? `: ${rawMessage}` : '')
           break
         case 'user_inactive':
-          errorMessage.value = t('login.userInactive')
+          errorMsg = t('login.userInactive')
           break
         default:
-          errorMessage.value = t('login.authFailure')
+          errorMsg = t('login.authFailure')
       }
+      errorMessage.value = errorMsg
 
-      // 3秒后跳转登录页
+      // 通知父窗口错误信息（通过 postMessage + localStorage 双通道）
+      const errorPayload = {
+        type: 'oidc_callback',
+        success: false,
+        error,
+        message: rawMessage,
+      }
+      if (window.opener) {
+        try {
+          window.opener.postMessage(errorPayload, window.location.origin)
+        } catch (e) {
+          // postMessage 失败，忽略
+        }
+      }
+      // 使用 localStorage 作为备选通信方式
+      localStorage.setItem('oidc_callback_error', JSON.stringify(errorPayload))
+      window.close()
+
+      // 如果弹窗未关闭（非弹窗模式），3秒后跳转登录页
       setTimeout(() => {
-        router.push('/login')
+        if (!window.closed) {
+          router.push('/login')
+        }
       }, 3000)
       return
     }
@@ -109,7 +132,7 @@ onMounted(async () => {
             permissions,
             wizard,
           },
-        }, '*')
+        }, window.location.origin)
       } catch (e) {
         // postMessage 失败，尝试让父窗口刷新以读取 localStorage 中的 token
         try {

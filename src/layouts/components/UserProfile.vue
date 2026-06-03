@@ -224,81 +224,6 @@ const userName = computed(() => userStore.userName)
 const avatar = computed(() => userStore.avatar || avatar1)
 const userLevel = computed(() => userStore.level)
 
-// OIDC 绑定状态
-const oidcStatus = ref<{ bound: boolean; enabled: boolean }>({ bound: false, enabled: false })
-
-// 查询 OIDC 绑定状态
-async function fetchOidcStatus() {
-  try {
-    const result: { [key: string]: any } = await api.get('user/oidc/status')
-    if (result?.success) {
-      oidcStatus.value = result.data
-    }
-  } catch {
-    oidcStatus.value = { bound: false, enabled: false }
-  }
-}
-
-// OIDC 绑定（弹窗方式）
-const oidcBindLoading = ref(false)
-
-function handleOidcBindMessage(event: MessageEvent) {
-  if (event.data?.type !== 'oidc_bind_callback') return
-  window.removeEventListener('message', handleOidcBindMessage)
-  oidcBindLoading.value = false
-
-  if (event.data.success) {
-    $toast.success(t('user.bindOidcSuccess'))
-    fetchOidcStatus()
-  } else {
-    $toast.error(event.data.message || t('user.bindOidcFailed'))
-  }
-}
-
-function bindOidc() {
-  oidcBindLoading.value = true
-  window.addEventListener('message', handleOidcBindMessage)
-
-  const authorizeUrl = `${import.meta.env.VITE_API_BASE_URL}user/oidc/bind/authorize?access_token=${encodeURIComponent(authStore.token || '')}`
-  const popup = window.open(authorizeUrl, 'oidc_bind', 'width=600,height=700,left=200,top=100')
-
-  if (!popup) {
-    oidcBindLoading.value = false
-    window.removeEventListener('message', handleOidcBindMessage)
-    $toast.error(t('user.bindOidcFailed'))
-  }
-
-  const popupCheck = setInterval(() => {
-    if (popup?.closed) {
-      clearInterval(popupCheck)
-      if (oidcBindLoading.value) {
-        oidcBindLoading.value = false
-        window.removeEventListener('message', handleOidcBindMessage)
-      }
-    }
-  }, 500)
-}
-
-// OIDC 解绑
-async function unbindOidc() {
-  const isConfirmed = await createConfirm({
-    title: t('common.confirm'),
-    content: t('user.confirmUnbindOidc'),
-  })
-  if (!isConfirmed) return
-  try {
-    const result: { [key: string]: any } = await api.post('user/oidc/unbind')
-    if (result.success) {
-      $toast.success(t('user.unbindOidcSuccess'))
-      oidcStatus.value.bound = false
-    } else {
-      $toast.error(result.message || t('user.unbindOidcFailed'))
-    }
-  } catch {
-    $toast.error(t('user.unbindOidcFailed'))
-  }
-}
-
 // 检查是否为高级模式
 const isAdvancedMode = computed(() => {
   return globalSettingsStore.get('ADVANCED_MODE') !== false
@@ -536,7 +461,6 @@ const getThemeIcon = computed(() => {
 
 onMounted(() => {
   getCustomCSS()
-  fetchOidcStatus()
 
   // 初始化透明度设置
   if (isTransparentTheme.value) {
@@ -570,7 +494,6 @@ onUnmounted(() => {
       class="user-menu"
       :close-on-content-click="true"
       scrim
-      @update:model-value="val => val && fetchOidcStatus()"
     >
       <VList class="pt-0">
         <!-- 👉 User Avatar & Name -->
@@ -597,20 +520,6 @@ onUnmounted(() => {
               <VIcon icon="mdi-account-outline" />
             </template>
             <VListItemTitle>{{ t('user.profile') }}</VListItemTitle>
-          </VListItem>
-
-          <!-- 👉 OIDC 绑定/解绑 -->
-          <VListItem v-if="oidcStatus.enabled && !oidcStatus.bound" link :loading="oidcBindLoading" @click="bindOidc" class="mb-1 rounded-lg" hover>
-            <template #prepend>
-              <VIcon icon="mdi-openid" />
-            </template>
-            <VListItemTitle>{{ t('user.bindOidc') }}</VListItemTitle>
-          </VListItem>
-          <VListItem v-if="oidcStatus.enabled && oidcStatus.bound" link @click="unbindOidc" class="mb-1 rounded-lg" hover>
-            <template #prepend>
-              <VIcon icon="mdi-link-off" />
-            </template>
-            <VListItemTitle>{{ t('user.unbindOidc') }}</VListItemTitle>
           </VListItem>
 
           <VListItem

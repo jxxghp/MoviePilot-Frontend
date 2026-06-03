@@ -76,13 +76,6 @@ const SystemSettings = ref<any>({
     AI_RECOMMEND_ENABLED: false,
     AI_RECOMMEND_USER_PREFERENCE: null,
     AI_RECOMMEND_MAX_ITEMS: 50,
-    // OIDC 登录
-    OIDC_ENABLE: false,
-    OIDC_ISSUER: null as string | null,
-    OIDC_CLIENT_ID: null as string | null,
-    OIDC_CLIENT_SECRET: null as string | null,
-    OIDC_SCOPES: 'openid profile email',
-    OIDC_REDIRECT_URI: null as string | null,
   },
   // 高级系统设置
   Advanced: {
@@ -215,39 +208,9 @@ const rustAccelAvailable = ref(false)
 // 智能助手配置项较多，默认收起以降低基础设置页的视觉占用。
 const aiAgentSettingsCollapsed = ref(true)
 
-// OIDC 登录配置区域，默认收起
-const oidcSettingsCollapsed = ref(true)
-const oidcEnabled = computed(() => !!SystemSettings.value.Basic.OIDC_ENABLE && !!SystemSettings.value.Basic.OIDC_ISSUER)
-const oidcTesting = ref(false)
-const oidcTestResult = ref<{ success: boolean; message: string } | null>(null)
-const oidcConfigChanged = ref(false)
-const oidcShowSecret = ref(false)
-const computedOidcRedirectUri = computed(() => {
-  // 根据当前浏览器地址自动推算回调地址
-  const baseUrl = window.location.origin
-  return `${baseUrl}/api/v1/login/oidc/callback`
-})
-
-// OIDC 配置变更时需要重新测试才能保存
-watch(
-  () => [
-    SystemSettings.value.Basic.OIDC_ENABLE,
-    SystemSettings.value.Basic.OIDC_ISSUER,
-    SystemSettings.value.Basic.OIDC_CLIENT_ID,
-    SystemSettings.value.Basic.OIDC_CLIENT_SECRET,
-    SystemSettings.value.Basic.OIDC_SCOPES,
-  ],
-  () => {
-    oidcConfigChanged.value = true
-    oidcTestResult.value = null
-  },
-)
-
-// 保存基础设置时，OIDC 开关打开且配置有变更时需要先测试通过
+// 保存基础设置
 const canSaveBasic = computed(() => {
   if (testingLlm.value) return false
-  if (SystemSettings.value.Basic.OIDC_ENABLE && oidcConfigChanged.value)
-    return !!oidcTestResult.value?.success
   return true
 })
 
@@ -742,7 +705,6 @@ async function saveBasicSettings() {
   try {
     if (await saveSystemSetting(SystemSettings.value.Basic)) {
       $toast.success(t('setting.system.basicSaveSuccess'))
-      oidcConfigChanged.value = false
     }
   } finally {
     savingBasic.value = false
@@ -1000,33 +962,6 @@ async function saveScrapingSwitchs() {
 // 加载数据
 async function loadPageData() {
   await Promise.all([loadDownloaderSetting(), loadMediaServerSetting(), loadSystemSettings(), loadScrapingSwitchs()])
-  oidcConfigChanged.value = false
-  oidcTestResult.value = null
-}
-
-// OIDC 连接测试
-async function testOidcConnection() {
-  if (!SystemSettings.value.Basic.OIDC_ISSUER) {
-    $toast.warning(t('setting.oidc.issuerRequired'))
-    return
-  }
-  oidcTesting.value = true
-  oidcTestResult.value = null
-  try {
-    const result: { [key: string]: any } = await api.get('login/oidc/test')
-    if (result.success) {
-      oidcTestResult.value = { success: true, message: t('setting.oidc.testSuccess') }
-      oidcConfigChanged.value = false
-    } else {
-      oidcTestResult.value = { success: false, message: result.message || t('setting.oidc.testError', { error: 'Unknown' }) }
-    }
-  }
-  catch (error: any) {
-    oidcTestResult.value = { success: false, message: t('setting.oidc.testError', { error: error.message || String(error) }) }
-  }
-  finally {
-    oidcTesting.value = false
-  }
 }
 
 onMounted(loadPageData)
@@ -1189,173 +1124,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 />
               </VCol>
             </VRow>
-            <!-- OIDC 登录配置 -->
-            <VCard
-              variant="outlined"
-              :class="['mt-6', isTransparentTheme ? 'oidc-settings-card-transparent' : 'oidc-settings-card']"
-            >
-              <VCardItem class="pb-3">
-                <template #prepend>
-                  <VAvatar color="info" variant="tonal" size="40">
-                    <VIcon icon="mdi-openid" />
-                  </VAvatar>
-                </template>
-                <VCardTitle class="text-subtitle-1">
-                  {{ t('setting.oidc.title') }}
-                </VCardTitle>
-                <VCardSubtitle>
-                  {{ t('setting.oidc.description') }}
-                </VCardSubtitle>
-                <template #append>
-                  <VTooltip location="top">
-                    <template #activator="{ props }">
-                      <VBtn
-                        v-bind="props"
-                        :icon="oidcSettingsCollapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'"
-                        variant="text"
-                        color="info"
-                        size="small"
-                        :aria-label="oidcSettingsCollapsed ? t('setting.about.expand') : t('setting.about.collapse')"
-                        @click="oidcSettingsCollapsed = !oidcSettingsCollapsed"
-                      />
-                    </template>
-                    <span>{{
-                      oidcSettingsCollapsed ? t('setting.about.expand') : t('setting.about.collapse')
-                    }}</span>
-                  </VTooltip>
-                </template>
-              </VCardItem>
-              <VExpandTransition>
-                <VCardText v-show="!oidcSettingsCollapsed" class="pt-2">
-                  <VRow>
-                    <VCol cols="12">
-                      <div class="d-flex align-center justify-space-between">
-                        <div>
-                          <VAlert
-                            v-if="oidcEnabled"
-                            type="success"
-                            variant="tonal"
-                            density="compact"
-                          >
-                            {{ t('setting.oidc.enabledStatus') }}
-                          </VAlert>
-                          <VAlert
-                            v-else
-                            type="info"
-                            variant="tonal"
-                            density="compact"
-                          >
-                            {{ t('setting.oidc.disabledStatus') }}
-                          </VAlert>
-                        </div>
-                        <VSwitch
-                          v-model="SystemSettings.Basic.OIDC_ENABLE"
-                          color="primary"
-                          hide-details
-                          class="flex-shrink-0"
-                        />
-                      </div>
-                    </VCol>
-                  </VRow>
-                  <template v-if="SystemSettings.Basic.OIDC_ENABLE">
-                  <VRow>
-                    <VCol cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.OIDC_ISSUER"
-                        :label="t('setting.oidc.issuer')"
-                        :placeholder="t('setting.oidc.issuerPlaceholder')"
-                        :hint="t('setting.oidc.issuerHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-openid"
-                        clearable
-                      />
-                    </VCol>
-                    <VCol cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.OIDC_CLIENT_ID"
-                        :label="t('setting.oidc.clientId')"
-                        :placeholder="t('setting.oidc.clientIdPlaceholder')"
-                        prepend-inner-icon="mdi-identifier"
-                        clearable
-                      />
-                    </VCol>
-                    <VCol cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.OIDC_CLIENT_SECRET"
-                        :label="t('setting.oidc.clientSecret')"
-                        :placeholder="t('setting.oidc.clientSecretPlaceholder')"
-                        :type="oidcShowSecret ? 'text' : 'password'"
-                        :append-inner-icon="oidcShowSecret ? 'mdi-eye-off' : 'mdi-eye'"
-                        prepend-inner-icon="mdi-key"
-                        clearable
-                        @click:append-inner="oidcShowSecret = !oidcShowSecret"
-                      />
-                    </VCol>
-                    <VCol cols="12" md="6">
-                      <VTextField
-                        v-model="SystemSettings.Basic.OIDC_SCOPES"
-                        :label="t('setting.oidc.scopes')"
-                        :placeholder="'openid profile email'"
-                        :hint="t('setting.oidc.scopesHint')"
-                        persistent-hint
-                        prepend-inner-icon="mdi-format-list-checks"
-                      />
-                    </VCol>
-
-                  </VRow>
-                  <div class="d-flex flex-wrap gap-4 mt-4 align-center">
-                    <VBtn
-                      variant="tonal"
-                      color="info"
-                      prepend-icon="mdi-connection"
-                      :loading="oidcTesting"
-                      @click="testOidcConnection"
-                    >
-                      {{ t('setting.oidc.testConnection') }}
-                    </VBtn>
-                    <VAlert
-                      v-if="oidcTestResult"
-                      :type="oidcTestResult.success ? 'success' : 'error'"
-                      variant="tonal"
-                      density="compact"
-                      class="flex-grow-1"
-                    >
-                      {{ oidcTestResult.message }}
-                    </VAlert>
-                  </div>
-                  <VExpansionPanels class="mt-4">
-                    <VExpansionPanel>
-                      <VExpansionPanelTitle class="text-body-2">
-                        <VIcon icon="mdi-help-circle-outline" class="me-2" />
-                        {{ t('setting.oidc.usageGuide') }}
-                      </VExpansionPanelTitle>
-                      <VExpansionPanelText>
-                        <div class="text-body-2">
-                          <p class="mb-2">{{ t('setting.oidc.guideStep1') }}</p>
-                          <p class="mb-2">
-                            {{ t('setting.oidc.guideStep2') }}
-                            <VChip
-                              variant="tonal"
-                              size="small"
-                              color="primary"
-                              class="mx-1"
-                              @click="copyValue(computedOidcRedirectUri)"
-                            >
-                              <VIcon icon="mdi-content-copy" size="x-small" class="me-1" />
-                              {{ computedOidcRedirectUri }}
-                            </VChip>
-                          </p>
-                          <p class="mb-2">{{ t('setting.oidc.guideStep3') }}</p>
-                          <p class="mb-2">{{ t('setting.oidc.guideStep4') }}</p>
-                          <p class="mb-0">{{ t('setting.oidc.guideStep5') }}</p>
-                        </div>
-                      </VExpansionPanelText>
-                    </VExpansionPanel>
-                  </VExpansionPanels>
-                  </template>
-                </VCardText>
-              </VExpandTransition>
-            </VCard>
             <VCard
               variant="outlined"
               :class="['mt-6', isTransparentTheme ? 'ai-agent-settings-card-transparent' : 'ai-agent-settings-card']"
@@ -2669,16 +2437,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
 
 .ai-agent-settings-card-transparent {
   border-color: rgba(var(--v-theme-primary), 0);
-  background-color: rgba(var(--v-theme-surface), 0) !important;
-}
-
-.oidc-settings-card {
-  border-color: rgba(var(--v-theme-info), 0.15);
-  background: linear-gradient(180deg, rgba(var(--v-theme-info), 0.04) 0%, rgba(var(--v-theme-surface), 0.92) 100%);
-}
-
-.oidc-settings-card-transparent {
-  border-color: rgba(var(--v-theme-info), 0);
   background-color: rgba(var(--v-theme-surface), 0) !important;
 }
 

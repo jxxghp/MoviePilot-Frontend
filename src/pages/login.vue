@@ -510,6 +510,8 @@ watch([mfaPasskeyLoading, errorMessage, () => form.value.otp_password], () => {
 // OIDC 登录是否启用
 const oidcEnabled = ref(false)
 const oidcLoading = ref(false)
+// 标记 postMessage 是否已收到，避免轮询中误移除监听器导致消息丢失
+let oidcMessageReceived = false
 
 // 检查 OIDC 是否启用
 async function checkOidcEnabled() {
@@ -523,10 +525,11 @@ async function checkOidcEnabled() {
 
 // 处理 OIDC 弹窗回调消息
 function handleOidcMessage(event: MessageEvent) {
+  // 只处理 oidc_callback 类型的消息
   if (event.data?.type !== 'oidc_callback') return
-
   // 移除监听
   window.removeEventListener('message', handleOidcMessage)
+  oidcMessageReceived = true
   oidcLoading.value = false
 
   if (event.data.success) {
@@ -593,6 +596,7 @@ async function handleOidcLoginSuccess(data: Record<string, any>) {
 // OIDC 登录（弹窗方式）
 function loginWithOIDC() {
   oidcLoading.value = true
+  oidcMessageReceived = false
   errorMessage.value = ''
   window.addEventListener('message', handleOidcMessage)
 
@@ -616,14 +620,46 @@ function loginWithOIDC() {
       clearInterval(popupCheck)
       window.removeEventListener('message', handleOidcMessage)
 
-      // 弹窗关闭后，如果 postMessage 未成功（跨域导致 window.opener 丢失），
-      // callback.vue 会将 token 写入 localStorage（Pinia persist），
-      // 检查 authStore 是否已有 token 来判断是否登录成功
+      // 如果已通过 postMessage 收到结果，不再处理
+      if (oidcMessageReceived) {
+        oidcMessageReceived = false
+        return
+      }
+
       if (oidcLoading.value) {
-        // 重新读取 Pinia 持久化的 auth store
+        // 先检查 localStorage 中是否有错误信息（跨域 postMessage 的备选方案）
+        const storedError = localStorage.getItem('oidc_callback_error')
+        if (storedError) {
+          try {
+            const payload = JSON.parse(storedError)
+            if (payload.type === 'oidc_callback' && !payload.success) {
+              const errorCode = payload.error
+              const errorMsg = payload.message || ''
+              switch (errorCode) {
+                case 'oidc_unbound':
+                  errorMessage.value = t('login.oidcUnbound')
+                  break
+                case 'oidc_error':
+                  errorMessage.value = t('login.oidcError') + (errorMsg ? `: ${errorMsg}` : '')
+                  break
+                case 'user_inactive':
+                  errorMessage.value = t('login.userInactive')
+                  break
+                default:
+                  errorMessage.value = t('login.authFailure')
+              }
+            }
+          } catch (e) {
+            // 解析失败，忽略
+          }
+          localStorage.removeItem('oidc_callback_error')
+          oidcLoading.value = false
+          return
+        }
+
+        // 重新读取 Pinia 持久化的 auth store，检查是否已登录成功
         authStore.$hydrate()
         if (authStore.token) {
-          // callback.vue 已完成登录，刷新用户信息并跳转
           userStore.$hydrate()
           const navMenus = getNavMenus(t)
           const userPermissions = {
@@ -637,10 +673,10 @@ function loginWithOIDC() {
           } else {
             errorMessage.value = t('login.noPermission')
           }
-        } else {
-          // 用户手动关闭弹窗或登录未完成，静默处理，不显示错误
         }
+        // 没有错误也没有 token：用户手动关闭弹窗
         oidcLoading.value = false
+        errorMessage.value = t('login.oidcAuthCanceled')
       }
     }
   }, 500)
@@ -804,32 +840,35 @@ onUnmounted(() => {
                   <span class="or-divider-text">{{ t('login.orDivider') }}</span>
                 </div>
 
-                <!-- passkey login button -->
-                <VBtn
-                  block
-                  variant="outlined"
-                  color="success"
-                  class="passkey-btn"
-                  prepend-icon="material-symbols:passkey"
-                  :loading="passkeyLoading"
-                  @click="loginWithPassKey(false)"
-                >
-                  {{ t('login.loginWithPasskey') }}
-                </VBtn>
+                <!-- passkey & OIDC login buttons -->
+                <div :class="oidcEnabled ? 'd-flex gap-3' : ''">
+                  <VBtn
+                    variant="outlined"
+                    color="success"
+                    class="passkey-btn"
+                    :class="oidcEnabled ? 'flex-grow-1' : ''"
+                    :size="oidcEnabled ? 'small' : 'default'"
+                    prepend-icon="material-symbols:passkey"
+                    :loading="passkeyLoading"
+                    :block="!oidcEnabled"
+                    @click="loginWithPassKey(false)"
+                  >
+                    {{ t('login.loginWithPasskey') }}
+                  </VBtn>
 
-                <!-- OIDC login button -->
-                <VBtn
-                  v-if="oidcEnabled"
-                  block
-                  variant="outlined"
-                  color="cyan"
-                  class="mt-3"
-                  prepend-icon="mdi-openid"
-                  :loading="oidcLoading"
-                  @click="loginWithOIDC"
-                >
-                  {{ t('login.loginWithOIDC') }}
-                </VBtn>
+                  <VBtn
+                    v-if="oidcEnabled"
+                    variant="outlined"
+                    color="cyan"
+                    class="flex-grow-1"
+                    size="small"
+                    prepend-icon="mdi-openid"
+                    :loading="oidcLoading"
+                    @click="loginWithOIDC"
+                  >
+                    {{ t('login.loginWithOIDC') }}
+                  </VBtn>
+                </div>
                 <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
                   {{ errorMessage }}
                 </VAlert>

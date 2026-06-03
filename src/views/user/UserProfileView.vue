@@ -5,13 +5,15 @@ import api from '@/api'
 import type { User, PassKey } from '@/api/types'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useDisplay } from 'vuetify'
-import { useUserStore } from '@/stores'
+import { useUserStore, useAuthStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useConfirm } from '@/composables/useConfirm'
 
 const OTPAuthDialog = defineAsyncComponent(() => import('@/components/dialog/OTPAuthDialog.vue'))
 const PasskeyDialog = defineAsyncComponent(() => import('@/components/dialog/PasskeyDialog.vue'))
 const VerifyPasswordDialog = defineAsyncComponent(() => import('@/components/dialog/VerifyPasswordDialog.vue'))
+const OidcSettingDialog = defineAsyncComponent(() => import('@/components/dialog/OidcSettingDialog.vue'))
 
 // 国际化
 const { t, locale } = useI18n()
@@ -26,9 +28,13 @@ const confirmPassword = ref('')
 
 // 用户 Store
 const userStore = useUserStore()
+const authStore = useAuthStore()
 
 // 提示框
 const $toast = useToast()
+
+// 确认弹窗
+const { createConfirm } = useConfirm()
 
 const refInputEl = ref<HTMLElement>()
 
@@ -61,9 +67,19 @@ const passkeyList = ref<PassKey[]>([])
 
 // OIDC 是否启用
 const oidcEnabled = ref(false)
+// OIDC 是否已绑定
+const oidcBound = ref(false)
+// OIDC 已绑定的脱敏账号
+const oidcMaskedSub = ref('')
+
+// OIDC 设置弹窗
+const oidcDialog = ref(false)
 
 // 双重验证菜单
 const mfaMenu = ref(false)
+
+// OIDC 绑定 loading
+const oidcBindLoading = ref(false)
 
 // 验证密码
 const verifyPassword = ref('')
@@ -222,12 +238,91 @@ async function fetchUserInfo() {
 // 查询OIDC启用状态
 async function fetchOidcStatus() {
   try {
-    const result: { [key: string]: any } = await api.get('user/oidc/status')
+    const result: { [key: string]: any } = await api.get('user/oidc/status', { params: { _t: Date.now() } })
     if (result.success) {
       oidcEnabled.value = !!result.data?.enabled
+      oidcBound.value = !!result.data?.bound
+      oidcMaskedSub.value = result.data?.masked_sub || ''
     }
   } catch (error) {
     console.log(error)
+  }
+}
+
+// 打开 OIDC 设置弹窗（管理员）
+function openOidcDialog() {
+  mfaMenu.value = false
+  oidcDialog.value = true
+}
+
+// OIDC 绑定/解绑点击处理
+function handleOidcBindClick() {
+  mfaMenu.value = false
+  if (!oidcEnabled.value) return
+  if (oidcBound.value) {
+    unbindOidc()
+  } else {
+    bindOidc()
+  }
+}
+
+// 绑定 OIDC 账号
+function handleOidcBindMessage(event: MessageEvent) {
+  if (event.origin !== window.location.origin) return
+  if (event.data?.type !== 'oidc_bind_callback') return
+  window.removeEventListener('message', handleOidcBindMessage)
+  oidcBindLoading.value = false
+
+  if (event.data.success) {
+    $toast.success(t('user.bindOidcSuccess'))
+    fetchOidcStatus()
+  } else {
+    $toast.error(event.data.message || t('user.bindOidcFailed'))
+  }
+}
+
+function bindOidc() {
+  oidcBindLoading.value = true
+  window.addEventListener('message', handleOidcBindMessage)
+
+  const authorizeUrl = `${import.meta.env.VITE_API_BASE_URL}user/oidc/bind/authorize?access_token=${encodeURIComponent(authStore.token || '')}`
+  const popup = window.open(authorizeUrl, 'oidc_bind', 'width=600,height=700,left=200,top=100')
+
+  if (!popup) {
+    oidcBindLoading.value = false
+    window.removeEventListener('message', handleOidcBindMessage)
+    $toast.error(t('user.bindOidcFailed'))
+  }
+
+  const popupCheck = setInterval(() => {
+    if (popup?.closed) {
+      clearInterval(popupCheck)
+      if (oidcBindLoading.value) {
+        oidcBindLoading.value = false
+        window.removeEventListener('message', handleOidcBindMessage)
+      }
+      // 弹窗关闭后刷新OIDC状态
+      fetchOidcStatus()
+    }
+  }, 500)
+}
+
+async function unbindOidc() {
+  const isConfirmed = await createConfirm({
+    title: t('common.confirm'),
+    content: t('user.confirmUnbindOidc'),
+  })
+  if (!isConfirmed) return
+  try {
+    const result: { [key: string]: any } = await api.post('user/oidc/unbind')
+    if (result.success) {
+      $toast.success(t('user.unbindOidcSuccess'))
+      await fetchOidcStatus()
+    } else {
+      $toast.error(result.message || t('user.unbindOidcFailed'))
+    }
+  } catch {
+    $toast.error(t('user.unbindOidcFailed'))
   }
 }
 
@@ -353,6 +448,11 @@ onMounted(() => {
   fetchUserInfo()
 })
 
+// keep-alive 缓存的组件重新激活时刷新数据
+onActivated(() => {
+  fetchOidcStatus()
+})
+
 // 监听 localStorage 中的用户头像变化
 watch(
   () => userStore.avatar,
@@ -426,6 +526,22 @@ watch(
                       <VListItemTitle>{{ t('profile.usePasskey') }}</VListItemTitle>
                       <VListItemSubtitle v-if="passkeyList.length > 0" class="text-success">
                         {{ t('profile.keysCount', { count: passkeyList.length }) }}
+                      </VListItemSubtitle>
+                    </VListItem>
+                    <VListItem v-if="accountInfo.is_superuser" @click="openOidcDialog">
+                      <template #prepend>
+                        <VIcon icon="mdi-openid" />
+                      </template>
+                      <VListItemTitle>{{ t('profile.configOidc') }}</VListItemTitle>
+                    </VListItem>
+                    <VListItem @click="handleOidcBindClick" :disabled="!oidcEnabled">
+                      <template #prepend>
+                        <VIcon icon="mdi-openid" />
+                      </template>
+                      <VListItemTitle v-if="oidcBound">{{ t('user.unbindOidc') }}</VListItemTitle>
+                      <VListItemTitle v-else>{{ t('user.bindOidc') }}</VListItemTitle>
+                      <VListItemSubtitle v-if="!oidcEnabled" class="text-grey">
+                        {{ t('profile.oidcNotEnabled') }}
                       </VListItemSubtitle>
                     </VListItem>
                   </VList>
@@ -583,14 +699,16 @@ watch(
                     prepend-inner-icon="mdi-movie"
                   />
                 </VCol>
+                <!-- OIDC 账号字段保留在账户绑定区域 -->
                 <VCol v-if="oidcEnabled" cols="12" md="6">
                   <VTextField
-                    :model-value="accountInfo.openid_sub || ''"
+                    :model-value="oidcBound ? t('user.oidcBoundWith', { sub: oidcMaskedSub }) : t('profile.oidcUserPlaceholder')"
                     density="comfortable"
                     readonly
                     :label="t('profile.oidcUser')"
                     prepend-inner-icon="mdi-openid"
-                    :placeholder="t('profile.oidcUserPlaceholder')"
+                    variant="outlined"
+                    hide-details
                   />
                 </VCol>
               </VRow>
@@ -608,5 +726,12 @@ watch(
         </VCard>
       </VCol>
     </VRow>
+
+    <!-- OIDC 设置弹窗（仅管理员使用） -->
+    <OidcSettingDialog
+      v-model="oidcDialog"
+      :oidc-enabled="oidcEnabled"
+      @update:oidc-enabled="val => oidcEnabled = val"
+    />
   </div>
 </template>
