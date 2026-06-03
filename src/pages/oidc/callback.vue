@@ -48,7 +48,7 @@ onMounted(async () => {
       }
       if (window.opener) {
         try {
-          window.opener.postMessage(errorPayload, window.location.origin)
+          window.opener.postMessage(errorPayload, '*')
         } catch (e) {
           // postMessage 失败，忽略
         }
@@ -132,7 +132,7 @@ onMounted(async () => {
             permissions,
             wizard,
           },
-        }, window.location.origin)
+        }, '*')
       } catch (e) {
         // postMessage 失败，尝试让父窗口刷新以读取 localStorage 中的 token
         try {

@@ -263,7 +263,7 @@ export default {
     loginFailed: '登錄失敗',
     secondaryVerification: '二次驗證',
     orDivider: '或',
-    loginWithPasskey: '通行密鑰',
+    loginWithPasskey: '通行密鑰登入',
     loginWithOtp: '使用驗證碼登錄',
     orUsePasskey: '或使用通行密鑰進行驗證',
     verifyWithPasskey: '使用通行密鑰驗證',

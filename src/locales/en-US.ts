@@ -264,7 +264,7 @@ export default {
     loginFailed: 'Login Failed',
     secondaryVerification: 'Secondary Verification',
     orDivider: 'OR',
-    loginWithPasskey: 'Passkey',
+    loginWithPasskey: 'Passkey Login',
     loginWithOtp: 'Login with OTP',
     orUsePasskey: 'Or use Passkey for verification',
     verifyWithPasskey: 'Verify with Passkey',
