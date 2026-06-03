@@ -16,11 +16,20 @@ import { useConfirm } from '@/composables/useConfirm'
 import { themeManager } from '@/utils/themeManager'
 import { usePWA, type UIMode } from '@/composables/usePWA'
 import { applyStoredTransparencySettings } from '@/composables/useTransparencySettings'
+import {
+  persistPartialThemeCustomizerSettings,
+  readThemeCustomizerSettings,
+  THEME_CUSTOMIZER_CHANGE_EVENT,
+  type ThemeCustomizerSettings,
+} from '@/composables/useThemeCustomizer'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
 const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
-const TransparencySettingsDialog = defineAsyncComponent(() => import('@/components/dialog/TransparencySettingsDialog.vue'))
+const TransparencySettingsDialog = defineAsyncComponent(
+  () => import('@/components/dialog/TransparencySettingsDialog.vue'),
+)
+const ThemeCustomizer = defineAsyncComponent(() => import('@/components/ThemeCustomizer.vue'))
 const UserAuthDialog = defineAsyncComponent(() => import('@/components/dialog/UserAuthDialog.vue'))
 
 // 认证 Store
@@ -32,7 +41,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 // 国际化
 const { t } = useI18n()
 // PWA
-const { uiMode, setUIMode } = usePWA()
+const { appMode, uiMode, setUIMode } = usePWA()
 
 // 提示框
 const $toast = useToast()
@@ -42,6 +51,9 @@ const showUIModeMenu = ref(false)
 
 // 主题菜单是否显示
 const showThemeMenu = ref(false)
+
+// 主题定制器面板是否显示
+const showThemeCustomizer = ref(false)
 
 // 语言菜单是否显示
 const showLanguageMenu = ref(false)
@@ -264,6 +276,7 @@ const getUIModeIcon = computed(() => {
 const { name: themeName, global: globalTheme } = useTheme()
 const savedTheme = ref(localStorage.getItem('theme') ?? 'auto')
 const currentThemeName = ref(savedTheme.value)
+const themeCustomizerSettings = ref(readThemeCustomizerSettings())
 
 const themes: ThemeSwitcherTheme[] = [
   {
@@ -292,6 +305,26 @@ const themes: ThemeSwitcherTheme[] = [
     icon: 'mdi-gradient-horizontal',
   },
 ]
+
+function getThemeLayoutTitle(layout: ThemeCustomizerSettings['layout']) {
+  switch (layout) {
+    case 'collapsed':
+      return t('theme.customizer.layoutCollapsed')
+    case 'horizontal':
+      return t('theme.customizer.layoutHorizontal')
+    case 'vertical':
+    default:
+      return t('theme.customizer.layoutVertical')
+  }
+}
+
+const currentThemeSummary = computed(() => {
+  const themeTitle = themes.find(theme => theme.name === currentThemeName.value)?.title || t('theme.auto')
+  const layoutTitle = appMode.value ? '' : getThemeLayoutTitle(themeCustomizerSettings.value.layout)
+
+  if (layoutTitle) return `${themeTitle} · ${layoutTitle}`
+  return themeTitle
+})
 
 // Ace 跟随 Vuetify 当前生效主题，避免 auto 模式或弹窗打开后切主题时颜色不同步。
 const editorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
@@ -328,12 +361,25 @@ async function changeTheme(theme: string) {
 
   // 保存主题到服务端
   try {
+    persistPartialThemeCustomizerSettings({ theme: theme as ThemeCustomizerSettings['theme'] })
     api.post('/user/config/Layout', {
       theme,
     })
   } catch (e) {
     console.error(e)
   }
+}
+
+function handleThemeCustomizerSettingsChange(event: Event) {
+  const nextSettings = (event as CustomEvent<ThemeCustomizerSettings>).detail
+  const nextTheme = nextSettings.theme
+
+  themeCustomizerSettings.value = nextSettings
+
+  if (currentThemeName.value === nextTheme) return
+
+  currentThemeName.value = nextTheme
+  savedTheme.value = nextTheme
 }
 
 // 获取自定义 CSS
@@ -377,6 +423,12 @@ watch(editorTheme, theme => {
 /** 打开透明主题设置共享弹窗。 */
 function showTransparencySettingsDialog() {
   openSharedDialog(TransparencySettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
+}
+
+/** 从用户菜单打开主题定制器，App 模式会在面板内部隐藏布局设置。 */
+function showThemeCustomizerDrawer() {
+  showThemeMenu.value = false
+  showThemeCustomizer.value = true
 }
 
 /** 保存自定义 CSS。 */
@@ -461,6 +513,7 @@ const getThemeIcon = computed(() => {
 
 onMounted(() => {
   getCustomCSS()
+  window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerSettingsChange)
 
   // 初始化透明度设置
   if (isTransparentTheme.value) {
@@ -479,6 +532,7 @@ onUnmounted(() => {
   closeRestartProgress()
   siteAuthDialogController?.close()
   customCssDialogController?.close()
+  window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerSettingsChange)
 })
 </script>
 
@@ -587,7 +641,7 @@ onUnmounted(() => {
                 </template>
                 <VListItemTitle>{{ t('common.theme') }}</VListItemTitle>
                 <VListItemSubtitle>
-                  {{ themes.find(t => t.name === currentThemeName)?.title || t('theme.auto') }}
+                  {{ currentThemeSummary }}
                 </VListItemSubtitle>
                 <template #append>
                   <VIcon icon="mdi-chevron-right" size="small" />
@@ -595,31 +649,20 @@ onUnmounted(() => {
               </VListItem>
             </template>
             <VList>
-              <VListItem
-                v-for="theme in themes"
-                :key="theme.name"
-                @click="changeTheme(theme.name)"
-                :active="currentThemeName === theme.name"
-                class="mb-1"
-              >
+              <VListItem @click="showThemeCustomizerDrawer">
                 <template #prepend>
-                  <VIcon :icon="theme.icon" />
+                  <VIcon icon="mdi-tune-variant" />
                 </template>
-                <VListItemTitle>{{ theme.title }}</VListItemTitle>
-                <template #append v-if="currentThemeName === theme.name">
-                  <VIcon icon="mdi-check" color="primary" size="small" />
+                <VListItemTitle>{{ t('theme.customizer.title') }}</VListItemTitle>
+                <template #append>
+                  <VIcon icon="mdi-chevron-right" size="small" />
                 </template>
               </VListItem>
-              <VListItem @click="showCustomCssDialog">
-                <template #prepend>
-                  <VIcon icon="mdi-palette" />
-                </template>
-                <VListItemTitle>{{ t('theme.custom') }}</VListItemTitle>
-              </VListItem>
+
+              <VDivider class="my-2" />
 
               <!-- 透明度调整 - 仅在透明主题下显示 -->
               <template v-if="isTransparentTheme">
-                <VDivider class="my-2" />
                 <VListItem @click="showTransparencySettingsDialog">
                   <template #prepend>
                     <VIcon icon="mdi-opacity" />
@@ -630,6 +673,16 @@ onUnmounted(() => {
                   </template>
                 </VListItem>
               </template>
+
+              <VListItem @click="showCustomCssDialog">
+                <template #prepend>
+                  <VIcon icon="mdi-palette" />
+                </template>
+                <VListItemTitle>{{ t('theme.custom') }}</VListItemTitle>
+                <template #append>
+                  <VIcon icon="mdi-chevron-right" size="small" />
+                </template>
+              </VListItem>
             </VList>
           </VMenu>
 
@@ -707,6 +760,7 @@ onUnmounted(() => {
     </VMenu>
     <!-- !SECTION -->
   </VAvatar>
+  <ThemeCustomizer v-model="showThemeCustomizer" />
 </template>
 
 <style lang="scss" scoped>

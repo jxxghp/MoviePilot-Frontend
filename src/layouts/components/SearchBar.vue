@@ -5,6 +5,15 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 
+const props = withDefaults(
+  defineProps<{
+    iconOnly?: boolean
+  }>(),
+  {
+    iconOnly: false,
+  },
+)
+
 const display = useDisplay()
 const { t } = useI18n()
 
@@ -23,17 +32,18 @@ function isMac() {
 }
 // 计算属性：根据操作系统显示不同的按键提示
 const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
+const showIconOnly = computed(() => props.iconOnly || !display.mdAndUp.value)
 </script>
 
 <template>
-  <!-- 小屏：仅图标按钮 -->
-  <IconBtn v-if="!display.mdAndUp.value" @click="openSearchDialog">
-    <VIcon icon="mdi-magnify" />
+  <!-- 小屏或水平导航右侧工具区：仅显示搜索图标。 -->
+  <IconBtn v-if="showIconOnly" class="search-icon-trigger" @click="openSearchDialog">
+    <VIcon class="search-icon-trigger__icon" icon="mdi-magnify" />
   </IconBtn>
 
   <!-- 中屏及以上：胶囊搜索触发栏 -->
   <div v-else class="search-trigger" @click="openSearchDialog">
-    <VIcon icon="mdi-magnify" size="18" class="search-trigger-icon" />
+    <VIcon icon="mdi-magnify" size="30" class="search-trigger-icon" />
     <span class="search-trigger-text">{{ t('common.search') }}</span>
     <kbd class="search-trigger-kbd">{{ metaKey }}</kbd>
   </div>
@@ -43,45 +53,65 @@ const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
 .search-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border: 1.5px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 22px;
-  block-size: 36px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 999px;
+  background: rgba(var(--v-theme-surface), 0.44);
+  block-size: 44px;
   cursor: pointer;
-  padding-inline: 12px;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 12px;
+  min-inline-size: 168px;
+  padding-inline: 18px 10px;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
   user-select: none;
 }
 
 .search-trigger:hover {
-  border-color: rgba(var(--v-theme-on-surface), 0.22);
-  background-color: rgba(var(--v-theme-on-surface), 0.06);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 4%);
+  border-color: rgba(var(--v-theme-on-surface), 0.18);
+  background-color: rgba(var(--v-theme-surface), 0.62);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 6%);
 }
 
 .search-trigger-icon {
-  color: rgba(var(--v-theme-on-surface), 0.4);
   flex-shrink: 0;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 1.8rem;
 }
 
 .search-trigger-text {
-  color: rgba(var(--v-theme-on-surface), 0.4);
-  font-size: 13.5px;
+  color: rgba(var(--v-theme-on-surface), 0.42);
+  font-size: 1rem;
   line-height: 1;
   white-space: nowrap;
 }
 
 .search-trigger-kbd {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 5px;
-  background-color: rgba(var(--v-theme-on-surface), 0.04);
-  color: rgba(var(--v-theme-on-surface), 0.4);
+  border-radius: 8px;
+  background-color: rgba(var(--v-theme-surface), 0.5);
+  color: rgba(var(--v-theme-on-surface), 0.42);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 500;
   line-height: 1;
   margin-inline-start: 4px;
-  padding-block: 3px;
-  padding-inline: 5px;
+  padding-block: 6px;
+  padding-inline: 8px;
+}
+
+html[data-theme='transparent'] .search-trigger,
+.v-theme--transparent .search-trigger {
+  backdrop-filter: none;
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
+}
+
+.search-icon-trigger {
+  flex: 0 0 auto;
+}
+
+.search-icon-trigger__icon {
+  transform: scaleX(-1);
 }
 </style>

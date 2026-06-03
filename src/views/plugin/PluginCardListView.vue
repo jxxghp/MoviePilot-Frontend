@@ -50,7 +50,7 @@ const { registerHeaderTab } = useDynamicHeaderTab()
 
 // 注册动态标签页（在setup顶层立即执行）
 registerHeaderTab({
-  items: pluginTabs.value,
+  items: pluginTabs,
   modelValue: activeTab,
   appendButtons: [
     {

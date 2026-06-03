@@ -56,8 +56,52 @@ const subscribeStatusFilter = ref<string | null>(null)
 
 type SubscribeSortBy = 'custom' | 'last_update' | 'date' | 'lack_episode'
 
+const subscribeSortStorageKeyPrefix = 'MPSubscribeSortBy'
+
+// 获取当前订阅类型对应的排序本地存储键。
+function getSubscribeSortStorageKey() {
+  return `${subscribeSortStorageKeyPrefix}:${subType || 'default'}`
+}
+
+// 判断排序值是否适用于当前订阅类型。
+function isValidSubscribeSortBy(value: string | null): value is SubscribeSortBy {
+  if (!value) return false
+
+  const sortValues: SubscribeSortBy[] = ['custom', 'last_update', 'date']
+  if (subType !== '电影') {
+    sortValues.push('lack_episode')
+  }
+
+  return sortValues.includes(value as SubscribeSortBy)
+}
+
+// 从本地读取上次选择的订阅排序方式。
+function loadSubscribeSortBy() {
+  try {
+    const storedSortBy = localStorage.getItem(getSubscribeSortStorageKey())
+    return isValidSubscribeSortBy(storedSortBy) ? storedSortBy : ''
+  } catch (error) {
+    console.warn('读取订阅排序方式失败:', error)
+    return ''
+  }
+}
+
+// 保存当前选择的订阅排序方式到本地。
+function saveSubscribeSortBy(value: SubscribeSortBy | '') {
+  try {
+    const storageKey = getSubscribeSortStorageKey()
+    if (value) {
+      localStorage.setItem(storageKey, value)
+    } else {
+      localStorage.removeItem(storageKey)
+    }
+  } catch (error) {
+    console.warn('保存订阅排序方式失败:', error)
+  }
+}
+
 // 订阅排序方式
-const subscribeSortBy = ref<SubscribeSortBy | ''>('')
+const subscribeSortBy = ref<SubscribeSortBy | ''>(loadSubscribeSortBy())
 
 // 分享搜索词
 const shareKeyword = ref('')
@@ -195,6 +239,10 @@ watch(activeTab, newTab => {
   }
 })
 
+watch(subscribeSortBy, newSortBy => {
+  saveSubscribeSortBy(newSortBy)
+})
+
 onUnmounted(() => {
   shareKeywordUpdater.cancel()
 })
@@ -265,7 +313,7 @@ const { registerHeaderTab } = useDynamicHeaderTab()
 
 // 注册动态标签页
 registerHeaderTab({
-  items: subscribeTabs.value,
+  items: subscribeTabs,
   modelValue: activeTab,
   appendButtons: [
     {

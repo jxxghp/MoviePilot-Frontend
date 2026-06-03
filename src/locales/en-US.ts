@@ -158,6 +158,24 @@ export default {
     customCssSaveSuccess: 'Custom CSS saved successfully, please refresh the page to take effect!',
     customCssSaveFailed: 'Failed to save custom CSS to server',
     deviceNotSupport: 'Current device does not support monitoring system theme changes',
+    customizer: {
+      title: 'Theme Customizer',
+      subtitle: 'Customize & Preview in Real Time',
+      theming: 'Theming',
+      primaryColor: 'Primary Color',
+      usePrimaryColor: 'Use {color} primary color',
+      chooseCustomColor: 'Choose custom primary color',
+      skins: 'Framework',
+      skinDefault: 'Default',
+      skinBordered: 'Bordered',
+      semiDarkMenu: 'Semi Dark Menu',
+      layout: 'Layout',
+      layoutVertical: 'Vertical',
+      layoutCollapsed: 'Collapsed',
+      layoutHorizontal: 'Horizontal',
+      reset: 'Reset theme customizer',
+      appModeLayoutLocked: 'App mode keeps mobile navigation fixed. Switch to desktop UI mode to customize layout.',
+    },
   },
   app: {
     moviepilot: 'MoviePilot',
@@ -1696,8 +1714,10 @@ export default {
       encodingDetectionPerformanceModeHint:
         'Prioritize detection efficiency, but may reduce encoding detection accuracy',
       rustAccel: 'Rust Acceleration',
-      rustAccelHint: 'Use the backend Rust extension to accelerate filtering, RSS, indexer parsing, and recognition hot paths',
-      rustAccelUnavailableHint: 'The backend Rust acceleration extension is not installed or loaded, so this cannot be enabled',
+      rustAccelHint:
+        'Use the backend Rust extension to accelerate filtering, RSS, indexer parsing, and recognition hot paths',
+      rustAccelUnavailableHint:
+        'The backend Rust acceleration extension is not installed or loaded, so this cannot be enabled',
       transferThreads: 'File Transfer Threads',
       transferThreadsHint: 'Multi-threaded file transfer can improve speed but may increase system resource usage',
       tokenizedSearch: 'Tokenized Search',
@@ -2644,7 +2664,8 @@ export default {
       mediaIdHint: 'Query media ID by name, leave empty for auto recognition',
       mediaIdPlaceholder: 'Leave empty for auto recognition',
       episodeGroup: 'Episode Group',
-      episodeGroupHint: 'After entering a TMDB ID, episode groups are queried automatically; group IDs can still be entered manually',
+      episodeGroupHint:
+        'After entering a TMDB ID, episode groups are queried automatically; group IDs can still be entered manually',
       episodeGroupPlaceholder: 'Enter TMDB ID first',
       defaultEpisodeGroup: 'No episode group',
       defaultEpisodeGroupHint: 'Use TMDB default season and episode order',

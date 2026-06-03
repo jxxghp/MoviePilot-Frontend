@@ -87,7 +87,7 @@ function initDiscoverTabs() {
   const tabs = getDiscoverTabs(t)
   for (const tab of tabs) {
     discoverTabs.value.push({
-      name: tab.name,
+      name: tab.title,
       mediaid_prefix: tab.tab,
       api_path: '',
       filter_params: {},

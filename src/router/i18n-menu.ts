@@ -1,4 +1,5 @@
 import { useGlobalSettingsStore } from '@/stores'
+import type { NavMenuTabItem } from '@/@layouts/types'
 import type { Composer } from 'vue-i18n'
 
 // 构建路由菜单，每次调用时使用当前的语言环境
@@ -34,6 +35,7 @@ export function getNavMenus(t: Composer['t']) {
       admin: false,
       footer: true,
       permission: 'discovery',
+      tabs: getRecommendTabs(t),
     },
     {
       title: t('navItems.explore'),
@@ -43,6 +45,7 @@ export function getNavMenus(t: Composer['t']) {
       admin: false,
       footer: true,
       permission: 'discovery',
+      tabs: getDiscoverTabs(t),
     },
     {
       title: t('navItems.movie'),
@@ -53,6 +56,7 @@ export function getNavMenus(t: Composer['t']) {
       admin: false,
       footer: false,
       permission: 'subscribe',
+      tabs: getSubscribeMovieTabs(t),
     },
     {
       title: t('navItems.tv'),
@@ -63,6 +67,7 @@ export function getNavMenus(t: Composer['t']) {
       admin: false,
       footer: false,
       permission: 'subscribe',
+      tabs: getSubscribeTvTabs(t),
     },
     {
       title: t('navItems.workflow'),
@@ -73,6 +78,7 @@ export function getNavMenus(t: Composer['t']) {
       admin: true,
       footer: false,
       permission: 'manage',
+      tabs: getWorkflowTabs(t),
     },
     {
       title: t('navItems.calendar'),
@@ -114,6 +120,7 @@ export function getNavMenus(t: Composer['t']) {
       header: t('menu.system'),
       admin: true,
       permission: 'manage',
+      tabs: getPluginTabs(t),
     },
     {
       title: t('navItems.siteManager'),
@@ -140,14 +147,26 @@ export function getNavMenus(t: Composer['t']) {
             header: t('menu.system'),
             admin: true,
             permission: 'admin',
+            tabs: getSettingTabs(t),
           },
         ]
       : []),
   ]
 }
 
+// 获取推荐标签页
+export function getRecommendTabs(t: Composer['t']): NavMenuTabItem[] {
+  return [
+    { title: t('recommend.all'), icon: 'mdi-filmstrip-box-multiple', tab: t('recommend.all') },
+    { title: t('recommend.categoryMovie'), icon: 'mdi-movie', tab: t('recommend.categoryMovie') },
+    { title: t('recommend.categoryTV'), icon: 'mdi-television-classic', tab: t('recommend.categoryTV') },
+    { title: t('recommend.categoryAnime'), icon: 'mdi-animation', tab: t('recommend.categoryAnime') },
+    { title: t('recommend.categoryRankings'), icon: 'mdi-trophy', tab: t('recommend.categoryRankings') },
+  ]
+}
+
 // 获取设置标签页
-export function getSettingTabs(t: Composer['t']) {
+export function getSettingTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
       title: t('settingTabs.system.title'),
@@ -195,7 +214,7 @@ export function getSettingTabs(t: Composer['t']) {
 }
 
 // 获取电影订阅标签页
-export function getSubscribeMovieTabs(t: Composer['t']) {
+export function getSubscribeMovieTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
       title: t('subscribeTabs.movie.mysub'),
@@ -211,7 +230,7 @@ export function getSubscribeMovieTabs(t: Composer['t']) {
 }
 
 // 获取电视剧订阅标签页
-export function getSubscribeTvTabs(t: Composer['t']) {
+export function getSubscribeTvTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
       title: t('subscribeTabs.tv.mysub'),
@@ -232,7 +251,7 @@ export function getSubscribeTvTabs(t: Composer['t']) {
 }
 
 // 获取插件标签页
-export function getPluginTabs(t: Composer['t']) {
+export function getPluginTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
       title: t('pluginTabs.installed'),
@@ -248,28 +267,28 @@ export function getPluginTabs(t: Composer['t']) {
 }
 
 // 获取发现标签页
-export function getDiscoverTabs(t: Composer['t']) {
+export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
-      name: t('discoverTabs.themoviedb'),
+      title: t('discoverTabs.themoviedb'),
       tab: 'themoviedb',
-      icon: 'themoviedb',
+      icon: 'mdi-movie-search-outline',
     },
     {
-      name: t('discoverTabs.douban'),
+      title: t('discoverTabs.douban'),
       tab: 'douban',
-      icon: 'douban',
+      icon: 'mdi-book-open-page-variant-outline',
     },
     {
-      name: t('discoverTabs.bangumi'),
+      title: t('discoverTabs.bangumi'),
       tab: 'bangumi',
-      icon: 'bangumi',
+      icon: 'mdi-calendar-star-outline',
     },
   ]
 }
 
 // 获取工作流标签页
-export function getWorkflowTabs(t: Composer['t']) {
+export function getWorkflowTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
       title: t('workflowTabs.list'),

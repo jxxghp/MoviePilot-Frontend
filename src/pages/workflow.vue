@@ -69,7 +69,7 @@ const { registerHeaderTab } = useDynamicHeaderTab()
 
 // 注册动态标签页
 registerHeaderTab({
-  items: workflowTabs.value,
+  items: workflowTabs,
   modelValue: activeTab,
   appendButtons: [
     {

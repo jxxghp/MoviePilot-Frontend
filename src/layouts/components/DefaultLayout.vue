@@ -15,19 +15,27 @@ import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { filterMenusByPermission } from '@/utils/permission'
 import { onUnreadMessage } from '@/utils/badge'
 import { usePullDownGesture } from '@/composables/usePullDownGesture'
 import { usePWA } from '@/composables/usePWA'
 import OfflinePage from '@/layouts/components/OfflinePage.vue'
 import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
+import {
+  readThemeCustomizerSettings,
+  THEME_CUSTOMIZER_CHANGE_EVENT,
+  type ThemeCustomizerSettings,
+} from '@/composables/useThemeCustomizer'
+import logo from '@images/logo.svg?raw'
 
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
+const themeLayout = ref(readThemeCustomizerSettings().layout)
 
 // 用户 Store
 const userStore = useUserStore()
@@ -60,6 +68,35 @@ const organizeMenus = ref<NavMenu[]>([])
 // 系统菜单项
 const systemMenus = ref<NavMenu[]>([])
 
+// 主题定制器的水平布局只在桌面 UI 中启用，App 模式始终保留移动端导航。
+const showHorizontalThemeNav = computed(() => {
+  return themeLayout.value === 'horizontal' && !appMode.value && !display.mdAndDown.value
+})
+
+const horizontalNavGroups = computed(() =>
+  [
+    { title: t('menu.start'), icon: 'mdi-home-outline', items: startMenus.value },
+    { title: t('menu.discovery'), icon: 'mdi-compass-outline', items: discoveryMenus.value },
+    { title: t('menu.subscribe'), icon: 'mdi-rss', items: subscribeMenus.value },
+    { title: t('menu.organize'), icon: 'mdi-folder-play-outline', items: organizeMenus.value },
+    { title: t('menu.system'), icon: 'mdi-cog-outline', items: systemMenus.value },
+  ].filter(group => group.items.length > 0),
+)
+
+const navbarExtraHeight = computed(() => {
+  const dynamicTabHeight = showDynamicHeaderTab.value ? 2.5 : 0
+  const horizontalNavHeight = showHorizontalThemeNav.value ? 3.25 : 0
+
+  return `${dynamicTabHeight + horizontalNavHeight}rem`
+})
+
+const mainContentPaddingTop = computed(() => {
+  const dynamicTabPadding = showDynamicHeaderTab.value ? 3 : 0
+  const horizontalNavPadding = showHorizontalThemeNav.value ? 3.5 : 0
+
+  return `${dynamicTabPadding + horizontalNavPadding}rem`
+})
+
 // 插件快速访问相关状态
 const showPluginQuickAccess = ref(false)
 
@@ -68,26 +105,36 @@ const { setAppOffline, isOffline } = useGlobalOfflineStatus()
 
 // 动态标签页相关
 // 定义动态标签页类型
+interface DynamicHeaderTabButton {
+  icon: string
+  color?: string | ComputedRef<string>
+  variant?: 'flat' | 'text' | 'elevated' | 'tonal' | 'outlined' | 'plain'
+  size?: string
+  class?: string
+  action?: () => void
+  show?: boolean | ComputedRef<boolean>
+  loading?: boolean | ComputedRef<boolean>
+  dataAttr?: string
+}
+
+interface DynamicHeaderTabItem {
+  title: string
+  icon?: string
+  tab: string
+}
+
 interface DynamicHeaderTab {
-  items: Array<{ title: string; icon: string; tab: string }>
+  items: DynamicHeaderTabItem[]
   modelValue: string
-  appendButtons?: Array<{
-    icon: string
-    color?: string | ComputedRef<string>
-    variant?: 'flat' | 'text' | 'elevated' | 'tonal' | 'outlined' | 'plain'
-    size?: string
-    class?: string
-    action?: () => void
-    show?: boolean | ComputedRef<boolean>
-    loading?: boolean | ComputedRef<boolean>
-    dataAttr?: string
-  }>
+  appendButtons?: DynamicHeaderTabButton[]
   routePath?: string // 用于标识哪个路由注册的
   onUpdateModelValue?: (value: string) => void // 用于通知值更新
 }
 
 // 提供动态标签页注册和获取的方法
 const dynamicHeaderTab = ref<DynamicHeaderTab | null>(null)
+const openHorizontalNavGroup = ref<string | null>(null)
+const pendingHorizontalTab = ref<{ path: string; tab: string } | null>(null)
 
 // 提供一个方法让其他组件注册动态标签页
 const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
@@ -95,6 +142,7 @@ const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
   tab.routePath = route.path
   // 强制更新，确保响应式系统能检测到变化
   dynamicHeaderTab.value = { ...tab }
+  applyPendingHorizontalTab()
 }
 
 // 提供一个方法让其他组件取消注册动态标签页
@@ -138,11 +186,20 @@ watch(
   { immediate: false },
 )
 
-// 显示动态标签页
-const showDynamicHeaderTab = computed(() => {
+// 当前路由是否注册了动态标签页。
+const hasDynamicHeaderTab = computed(() => {
   return (
     dynamicHeaderTab.value && dynamicHeaderTab.value.items.length > 0 && dynamicHeaderTab.value.routePath === route.path
   )
+})
+
+// 水平布局下动态标签页会并入顶部导航三级菜单，不再额外显示标签页栏。
+const showDynamicHeaderTab = computed(() => hasDynamicHeaderTab.value && !showHorizontalThemeNav.value)
+
+const visibleHorizontalHeaderButtons = computed(() => {
+  if (!showHorizontalThemeNav.value || !hasDynamicHeaderTab.value) return []
+
+  return (dynamicHeaderTab.value?.appendButtons ?? []).filter(button => resolveMaybeRefValue(button.show, true) !== false)
 })
 
 // 在组件销毁时清理
@@ -208,6 +265,103 @@ const getMenuList = (header: string) => {
 // 返回上一页
 function goBack() {
   history.back()
+}
+
+function handleThemeCustomizerChange(event: Event) {
+  themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
+}
+
+function isHorizontalNavActive(item: NavMenu) {
+  const targetPath = normalizeMenuPath(item.to)
+  if (!targetPath) return false
+
+  const currentPath = normalizeMenuPath(route.path)
+
+  return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`)
+}
+
+function isHorizontalNavGroupActive(group: { items: NavMenu[] }) {
+  return group.items.some(isHorizontalNavActive)
+}
+
+function hasHorizontalDynamicTabs(item: NavMenu) {
+  return showHorizontalThemeNav.value && getHorizontalNavTabs(item).length > 0
+}
+
+function isHorizontalDynamicTabActive(tab: DynamicHeaderTabItem) {
+  return dynamicHeaderTab.value?.modelValue === tab.tab
+}
+
+async function handleHorizontalDynamicTabSelect(item: NavMenu, tab: DynamicHeaderTabItem) {
+  const targetPath = normalizeMenuPath(item.to)
+  const currentPath = normalizeMenuPath(route.path)
+
+  if (targetPath && currentPath !== targetPath) {
+    // 三级菜单可能在目标页面挂载前点击，先记录待切换 tab，页面注册动态 tab 后再应用。
+    pendingHorizontalTab.value = { path: targetPath, tab: tab.tab }
+    await router.push(targetPath)
+  } else {
+    handleTabChange(tab.tab)
+  }
+
+  openHorizontalNavGroup.value = null
+}
+
+function closeHorizontalNavGroup() {
+  openHorizontalNavGroup.value = null
+}
+
+function resolveMaybeRefValue<T>(value: T | ComputedRef<T> | undefined, fallback: T): T {
+  return isRef(value) ? value.value : value ?? fallback
+}
+
+function resolveHeaderButtonColor(button: DynamicHeaderTabButton) {
+  return resolveMaybeRefValue(button.color, 'gray')
+}
+
+function resolveHeaderButtonLoading(button: DynamicHeaderTabButton) {
+  return resolveMaybeRefValue(button.loading, false)
+}
+
+function getHorizontalTabIcon(tab: DynamicHeaderTabItem) {
+  const icon = tab.icon?.trim()
+
+  // 部分页面会把业务来源标识（如 themoviedb/douban/bangumi）放进 icon 字段，
+  // 这些值不是菜单里的可渲染图标，三级菜单统一回退到默认图标。
+  if (!icon || (!icon.startsWith('mdi-') && !icon.startsWith('tabler-') && !icon.includes(':'))) {
+    return 'mdi-circle-medium'
+  }
+
+  return icon
+}
+
+function normalizeMenuPath(value: unknown) {
+  if (typeof value !== 'string') return ''
+
+  return value.replace(/\/$/, '') || '/'
+}
+
+function getHorizontalNavTabs(item: NavMenu): DynamicHeaderTabItem[] {
+  const targetPath = normalizeMenuPath(item.to)
+
+  if (targetPath && isHorizontalNavActive(item) && hasDynamicHeaderTab.value) {
+    return dynamicHeaderTab.value?.items ?? []
+  }
+
+  return item.tabs ?? []
+}
+
+function applyPendingHorizontalTab() {
+  if (!pendingHorizontalTab.value || !hasDynamicHeaderTab.value) return
+
+  const pending = pendingHorizontalTab.value
+  if (normalizeMenuPath(route.path) !== pending.path) return
+
+  const tabExists = dynamicHeaderTab.value?.items.some(item => item.tab === pending.tab)
+  if (!tabExists) return
+
+  handleTabChange(pending.tab)
+  pendingHorizontalTab.value = null
 }
 
 // 处理未读消息事件
@@ -278,9 +432,12 @@ onMounted(async () => {
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
   }
 
+  window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+
   // 组件卸载时清理监听
   onBeforeUnmount(() => {
     unsubscribe()
+    window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
     }
@@ -316,10 +473,17 @@ onMounted(async () => {
       />
     </div>
   </div>
-  <VerticalNavLayout :style="{ '--navbar-tab-height': showDynamicHeaderTab ? '2.5rem' : '0px' }">
+  <VerticalNavLayout :style="{ '--navbar-tab-height': navbarExtraHeight }">
     <!-- 👉 Navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
-      <div class="d-flex h-14 align-center mx-1">
+      <div
+        class="theme-navbar-row d-flex h-14 align-center mx-1"
+        :class="{ 'theme-navbar-row--horizontal': showHorizontalThemeNav }"
+      >
+        <RouterLink v-if="showHorizontalThemeNav" to="/dashboard" class="theme-horizontal-logo">
+          <span class="theme-horizontal-logo__mark" v-html="logo" />
+          <span class="theme-horizontal-logo__text">MOVIEPILOT</span>
+        </RouterLink>
         <!-- 👉 Vertical Nav Toggle -->
         <IconBtn v-if="!appMode && display.mdAndDown.value" class="ms-n2" @click="toggleVerticalOverlayNavActive(true)">
           <VIcon icon="mdi-menu" />
@@ -329,15 +493,113 @@ onMounted(async () => {
           <VIcon icon="mdi-arrow-left" size="32" />
         </IconBtn>
         <!-- 👉 Search Bar -->
-        <SearchBar />
+        <SearchBar v-if="!showHorizontalThemeNav" />
         <!-- 👉 Spacer -->
         <VSpacer />
-        <!-- 👉 Shortcuts -->
-        <ShortcutBar v-if="superUser" ref="shortcutBarRef" />
-        <!-- 👉 Notification -->
-        <UserNofification />
-        <!-- 👉 UserProfile -->
-        <UserProfile />
+        <div
+          class="theme-navbar-actions d-flex align-center"
+          :class="{ 'theme-navbar-actions--horizontal': showHorizontalThemeNav }"
+        >
+          <!-- 👉 Horizontal Search Icon -->
+          <SearchBar v-if="showHorizontalThemeNav" icon-only />
+          <!-- 👉 Shortcuts -->
+          <ShortcutBar v-if="superUser" ref="shortcutBarRef" />
+          <!-- 👉 Notification -->
+          <UserNofification />
+          <!-- 👉 UserProfile -->
+          <UserProfile />
+        </div>
+      </div>
+      <div v-if="showHorizontalThemeNav" class="theme-horizontal-nav">
+        <VMenu
+          v-for="group in horizontalNavGroups"
+          :key="group.title"
+          :model-value="openHorizontalNavGroup === group.title"
+          location="bottom start"
+          offset="8"
+          :close-on-content-click="false"
+          @update:model-value="openHorizontalNavGroup = $event ? group.title : null"
+        >
+          <template #activator="{ props: menuProps }">
+            <VBtn
+              v-bind="menuProps"
+              :prepend-icon="group.icon"
+              append-icon="mdi-chevron-down"
+              :variant="isHorizontalNavGroupActive(group) ? 'tonal' : 'text'"
+              :color="isHorizontalNavGroupActive(group) ? 'primary' : 'default'"
+              rounded="pill"
+              class="theme-horizontal-nav__item"
+            >
+              {{ group.title }}
+            </VBtn>
+          </template>
+
+          <VList class="theme-horizontal-nav__menu" min-width="13rem" density="comfortable">
+            <template v-for="item in group.items" :key="`${group.title}-${item.title}-${item.to}`">
+              <VMenu
+                v-if="hasHorizontalDynamicTabs(item)"
+                location="end top"
+                offset="8"
+                open-on-hover
+                :open-delay="0"
+                :close-delay="120"
+                :close-on-content-click="true"
+              >
+                <template #activator="{ props: subMenuProps }">
+                  <VListItem v-bind="subMenuProps" :active="isHorizontalNavActive(item)">
+                    <template #prepend>
+                      <VIcon :icon="String(item.icon || '')" />
+                    </template>
+                    <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
+                    <template #append>
+                      <VIcon icon="mdi-chevron-right" size="small" />
+                    </template>
+                  </VListItem>
+                </template>
+
+                <VList class="theme-horizontal-nav__submenu" min-width="12rem" density="comfortable">
+                  <VListItem
+                    v-for="tab in getHorizontalNavTabs(item)"
+                    :key="`${item.to}-${tab.tab}`"
+                    :active="isHorizontalDynamicTabActive(tab)"
+                    @click="handleHorizontalDynamicTabSelect(item, tab)"
+                  >
+                    <template #prepend>
+                      <VIcon :icon="getHorizontalTabIcon(tab)" />
+                    </template>
+                    <VListItemTitle>{{ tab.title }}</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+
+              <VListItem
+                v-else
+                :to="item.to || undefined"
+                :active="isHorizontalNavActive(item)"
+                @click="closeHorizontalNavGroup"
+              >
+                <template #prepend>
+                  <VIcon :icon="String(item.icon || '')" />
+                </template>
+                <VListItemTitle>{{ item.full_title || item.title }}</VListItemTitle>
+              </VListItem>
+            </template>
+          </VList>
+        </VMenu>
+        <div v-if="visibleHorizontalHeaderButtons.length" class="theme-horizontal-nav__actions">
+          <VBtn
+            v-for="button in visibleHorizontalHeaderButtons"
+            :key="button.icon"
+            :icon="button.icon"
+            :variant="button.variant || 'text'"
+            :color="resolveHeaderButtonColor(button)"
+            :size="button.size || 'default'"
+            :class="button.class || 'settings-icon-button'"
+            :loading="resolveHeaderButtonLoading(button)"
+            :data-menu-activator="button.dataAttr"
+            @click="button.action"
+          />
+        </div>
       </div>
     </template>
 
@@ -412,7 +674,7 @@ onMounted(async () => {
       :style="{
         transform: contentTransform,
         transition: contentTransition,
-        paddingTop: showDynamicHeaderTab ? '3rem' : '0px',
+        paddingTop: mainContentPaddingTop,
       }"
     >
       <slot />
@@ -441,6 +703,103 @@ onMounted(async () => {
   inline-size: 100%;
   transform: translateZ(0);
   will-change: transform;
+}
+
+.theme-navbar-row--horizontal {
+  gap: 1rem;
+  margin-inline: 0 !important;
+}
+
+.theme-horizontal-logo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  column-gap: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.theme-horizontal-logo__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 2rem;
+  inline-size: 2rem;
+}
+
+.theme-horizontal-logo__mark :deep(svg) {
+  display: block;
+  block-size: 1.8rem;
+  inline-size: 1.8rem;
+}
+
+.theme-horizontal-logo__text {
+  font-size: 1.125rem;
+  white-space: nowrap;
+}
+
+.theme-navbar-actions--horizontal {
+  gap: 0.85rem;
+
+  :deep(.ms-2),
+  :deep(.ms-3) {
+    margin-inline-start: 0 !important;
+  }
+
+  :deep(.v-btn.v-btn--icon) {
+    flex: 0 0 auto;
+    border-radius: 12px;
+    block-size: 2.75rem;
+    color: rgba(var(--v-theme-on-surface), 0.78);
+    inline-size: 2.75rem;
+  }
+
+  :deep(.v-btn.v-btn--icon .v-icon) {
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+
+  :deep(.v-avatar.cursor-pointer) {
+    flex: 0 0 auto;
+    block-size: 2.75rem !important;
+    inline-size: 2.75rem !important;
+    margin-inline-start: 0 !important;
+  }
+}
+
+.theme-horizontal-nav {
+  display: flex;
+  overflow-x: auto;
+  align-items: center;
+  block-size: 3.25rem;
+  gap: 0.25rem;
+  padding-block: 0.25rem 0.5rem;
+  padding-inline: 0.5rem;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.theme-horizontal-nav__item {
+  flex: 0 0 auto;
+  letter-spacing: 0;
+}
+
+.theme-horizontal-nav__menu,
+.theme-horizontal-nav__submenu {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.theme-horizontal-nav__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-inline-start: auto;
 }
 
 .pull-indicator {

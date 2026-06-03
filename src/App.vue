@@ -12,16 +12,19 @@ import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
+import { applyStoredThemeCustomizerAppearance } from '@/composables/useThemeCustomizer'
 import { themeManager } from '@/utils/themeManager'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 
 // 生效主题
-const { global: globalTheme } = useTheme()
+const vuetifyTheme = useTheme()
+const { global: globalTheme } = vuetifyTheme
 let themeValue = localStorage.getItem('theme') || 'auto'
 const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
 globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
+applyStoredThemeCustomizerAppearance(vuetifyTheme)
 
 // 启动屏和 iOS safe area 在同一层显示，根节点底色需要尽早和当前主题保持一致。
 function syncRootLaunchPalette() {
@@ -285,6 +288,8 @@ onMounted(async () => {
 
   // 初始化主题管理器 - 统一处理主题初始化
   await themeManager.setTheme(themeValue)
+  applyStoredThemeCustomizerAppearance(vuetifyTheme)
+  updateHtmlThemeAttribute(globalTheme.name.value)
 
   // 监听主题变化
   watch(

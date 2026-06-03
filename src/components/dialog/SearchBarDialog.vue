@@ -712,7 +712,7 @@ onMounted(() => {
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  border: 1.5px solid rgba(var(--v-theme-on-surface), 0.15);
+  border: 1.5px solid rgba(var(--v-theme-primary), 0.4);
   border-radius: 28px;
   background-color: rgba(var(--v-theme-surface-variant), 0.04);
   block-size: 48px;
@@ -723,7 +723,7 @@ onMounted(() => {
 }
 
 .search-input-wrapper:focus-within {
-  border-color: rgba(var(--v-theme-on-surface), 0.3);
+  border-color: rgb(var(--v-theme-primary));
   box-shadow: 0 0 0 3px rgba(var(--v-theme-on-surface), 0.04);
 }
 
