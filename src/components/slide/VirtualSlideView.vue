@@ -287,6 +287,9 @@ watch(
 .slider-container {
   position: relative;
   margin-block-end: 8px;
+
+  --slider-shadow-bleed-start: 28px;
+  --slider-shadow-bleed-end: 56px;
 }
 
 .slider-header {
@@ -350,11 +353,13 @@ watch(
 }
 
 .slider-content {
-  margin-block-end: -8px;
+  // 横向滚动会让纵向 visible 被浏览器计算成可裁剪区域，这里用缓冲区承接卡片阴影。
+  margin-block: calc(var(--slider-shadow-bleed-start) * -1) calc(var(--slider-shadow-bleed-end) * -1);
   -ms-overflow-style: none !important;
-  overflow: scroll visible;
+  overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: contain !important;
-  padding-block: 0 8px;
+  padding-block: var(--slider-shadow-bleed-start) var(--slider-shadow-bleed-end);
   padding-inline: 12px;
   scroll-behavior: smooth;
   scrollbar-width: none !important;
