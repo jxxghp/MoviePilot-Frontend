@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
 import {
   themeCustomizerPrimaryColors,
   useThemeCustomizer,
@@ -44,11 +45,25 @@ const { t } = useI18n()
 const { global: globalTheme } = useTheme()
 const display = useDisplay()
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
+const customizerViewportHeight = ref('100dvh')
 
 const drawer = computed({
   get: () => props.modelValue,
   set: value => emit('update:modelValue', value),
 })
+
+function getVisibleViewportHeight() {
+  if (typeof window === 'undefined') return '100dvh'
+
+  const height = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight
+
+  return height > 0 ? `${Math.round(height)}px` : '100dvh'
+}
+
+// iOS 小屏的可见视口会随地址栏和独立模式 safe area 变化，面板高度需要跟随真实可见高度。
+function syncCustomizerViewportHeight() {
+  customizerViewportHeight.value = getVisibleViewportHeight()
+}
 
 // 将主题定制器打开状态同步到根节点，供全局悬浮按钮避让右侧面板。
 function syncThemeCustomizerOpenState(isOpen: boolean) {
@@ -71,9 +86,37 @@ function clearThemeCustomizerOpenState() {
 }
 
 watch(drawer, syncThemeCustomizerOpenState, { immediate: true })
+watch(drawer, isOpen => {
+  if (isOpen) nextTick(syncCustomizerViewportHeight)
+})
+
+onMounted(() => {
+  syncCustomizerViewportHeight()
+  window.addEventListener('resize', syncCustomizerViewportHeight)
+  window.addEventListener('orientationchange', syncCustomizerViewportHeight)
+  window.visualViewport?.addEventListener('resize', syncCustomizerViewportHeight)
+  window.visualViewport?.addEventListener('scroll', syncCustomizerViewportHeight)
+})
+
 onScopeDispose(clearThemeCustomizerOpenState)
+onScopeDispose(() => {
+  if (typeof window === 'undefined') return
+
+  window.removeEventListener('resize', syncCustomizerViewportHeight)
+  window.removeEventListener('orientationchange', syncCustomizerViewportHeight)
+  window.visualViewport?.removeEventListener('resize', syncCustomizerViewportHeight)
+  window.visualViewport?.removeEventListener('scroll', syncCustomizerViewportHeight)
+})
 
 const customizerContainer = computed(() => (appMode.value ? VDialog : VNavigationDrawer))
+
+const customizerContainerStyle = computed<CSSProperties>(() => {
+  if (!appMode.value) return {}
+
+  return {
+    '--theme-customizer-viewport-height': customizerViewportHeight.value,
+  }
+})
 
 const customizerContainerProps = computed(() => {
   if (appMode.value && display.mdAndDown.value) {
@@ -201,7 +244,12 @@ async function handleResetSettings() {
       />
     </Transition>
 
-    <component :is="customizerContainer" v-model="drawer" v-bind="customizerContainerProps">
+    <component
+      :is="customizerContainer"
+      v-model="drawer"
+      v-bind="customizerContainerProps"
+      :style="customizerContainerStyle"
+    >
       <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode }">
         <div class="theme-customizer-header py-5 px-4">
           <div>
@@ -398,7 +446,16 @@ async function handleResetSettings() {
 }
 
 .theme-customizer-dialog-overlay {
+  --theme-customizer-viewport-height: 100dvh;
+
   z-index: 12000 !important;
+}
+
+.theme-customizer-dialog-overlay > .v-overlay__content {
+  overflow: hidden;
+  block-size: var(--theme-customizer-viewport-height);
+  margin-block: 0 !important;
+  max-block-size: var(--theme-customizer-viewport-height);
 }
 
 .theme-customizer-panel {
@@ -414,11 +471,13 @@ async function handleResetSettings() {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 16px;
   background: rgb(var(--v-theme-surface));
-  block-size: 100dvh;
+  block-size: var(--theme-customizer-viewport-height, 100dvh);
+  max-block-size: var(--theme-customizer-viewport-height, 100dvh);
 }
 
 .theme-customizer-panel--dialog .theme-customizer-body {
-  block-size: calc(100dvh - 80px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
+  block-size: auto;
+  padding-block-end: env(safe-area-inset-bottom);
 }
 
 .theme-customizer-drawer.v-theme--transparent,
