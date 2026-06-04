@@ -95,52 +95,60 @@ function doDelete() {
   <div class="h-full">
     <VHover>
       <template #default="hover">
-        <div
-          class="w-full h-full rounded-lg overflow-hidden"
+        <VCard
+          v-bind="hover.props"
+          :key="props.workflow?.id"
+          class="workflow-share-card flex flex-col h-full cursor-pointer overflow-hidden"
           :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
+            'workflow-share-card--hovering': hover.isHovering,
           }"
+          rounded="lg"
+          min-height="150"
+          :style="{ background: gradientStyle }"
+          @click="showForkWorkflow"
         >
-          <VCard
-            v-bind="hover.props"
-            :key="props.workflow?.id"
-            class="flex flex-col h-full"
-            rounded="0"
-            min-height="150"
-            :style="{ background: gradientStyle }"
-            @click="showForkWorkflow"
-          >
-            <div class="h-full flex flex-col">
-              <VCardText class="flex items-center pa-3 pb-1 grow">
-                <div class="flex flex-col justify-center w-full">
-                  <VCardTitle class="text-lg text-bold text-white line-clamp-2 break-words">
-                    {{ props.workflow?.share_title }}
-                  </VCardTitle>
-                  <div class="px-4 text-white text-opacity-90 overflow-hidden line-clamp-3 break-all ...">
-                    {{ props.workflow?.share_comment }}
-                  </div>
+          <div class="h-full flex flex-col">
+            <VCardText class="flex items-center pa-3 pb-1 grow">
+              <div class="flex flex-col justify-center w-full">
+                <VCardTitle class="text-lg text-bold text-white line-clamp-2 break-words">
+                  {{ props.workflow?.share_title }}
+                </VCardTitle>
+                <div class="px-4 text-white text-opacity-90 overflow-hidden line-clamp-3 break-all ...">
+                  {{ props.workflow?.share_comment }}
                 </div>
-              </VCardText>
-              <VCardText class="flex justify-space-between align-center flex-wrap py-2">
-                <div class="flex align-center">
-                  <IconBtn v-bind="props" icon="mdi-account" class="me-1 text-white" />
-                  <div class="text-subtitle-2 me-4 text-white text-opacity-90">
-                    {{ props.workflow?.share_user }}
-                  </div>
-                  <IconBtn v-if="props.workflow?.count" icon="mdi-fire" class="me-1 text-white" />
-                  <span v-if="props.workflow?.count" class="text-subtitle-2 me-4 text-white text-opacity-90">
-                    {{ props.workflow?.count.toLocaleString() }}
-                  </span>
+              </div>
+            </VCardText>
+            <VCardText class="flex justify-space-between align-center flex-wrap py-2">
+              <div class="flex align-center">
+                <IconBtn v-bind="props" icon="mdi-account" class="me-1 text-white" />
+                <div class="text-subtitle-2 me-4 text-white text-opacity-90">
+                  {{ props.workflow?.share_user }}
                 </div>
-              </VCardText>
-              <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-white text-sm text-opacity-75">
-                <VIcon icon="mdi-calendar" size="small" class="me-1" />
-                {{ dateText }}
-              </VCardText>
-            </div>
-          </VCard>
-        </div>
+                <IconBtn v-if="props.workflow?.count" icon="mdi-fire" class="me-1 text-white" />
+                <span v-if="props.workflow?.count" class="text-subtitle-2 me-4 text-white text-opacity-90">
+                  {{ props.workflow?.count.toLocaleString() }}
+                </span>
+              </div>
+            </VCardText>
+            <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-white text-sm text-opacity-75">
+              <VIcon icon="mdi-calendar" size="small" class="me-1" />
+              {{ dateText }}
+            </VCardText>
+          </div>
+        </VCard>
       </template>
     </VHover>
   </div>
 </template>
+
+<style lang="scss" scoped>
+// 阴影需要落在实际卡片上，不能被额外的 overflow 容器裁掉。
+.workflow-share-card {
+  transition: transform 0.3s ease, box-shadow 0.2s ease;
+  transform: translateZ(0);
+}
+
+.workflow-share-card--hovering {
+  transform: translate3d(0, -0.25rem, 0);
+}
+</style>

@@ -71,9 +71,22 @@ async function deleteDownload() {
 </script>
 
 <template>
-  <VCard v-if="cardState" :key="props.info?.hash" class="flex flex-col h-full" min-height="150">
+  <VCard
+    v-if="cardState"
+    :key="props.info?.hash"
+    class="downloading-card flex flex-col h-full overflow-hidden"
+    rounded="lg"
+    min-height="150"
+  >
     <template #image>
-      <VImg :src="props.info?.media.image" aspect-ratio="2/3" cover @load="imageLoadHandler" position="top">
+      <VImg
+        :src="props.info?.media.image"
+        class="downloading-card-image"
+        aspect-ratio="2/3"
+        cover
+        @load="imageLoadHandler"
+        position="top"
+      >
         <template #placeholder>
           <div class="w-full h-full">
             <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
@@ -116,7 +129,33 @@ async function deleteDownload() {
 </template>
 
 <style lang="scss" scoped>
+.downloading-card {
+  position: relative;
+  isolation: isolate;
+  background-color: rgb(31, 41, 55) !important;
+}
+
+// 图片槽和渐变遮罩统一继承卡片圆角，避免阴影增强后四角露出页面底色。
+.downloading-card :deep(.v-card__image),
+.downloading-card :deep(.v-responsive),
+.downloading-card :deep(.v-img),
+.downloading-card :deep(.v-img__img),
+.downloading-card :deep(.v-responsive__content) {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.downloading-card :deep(.v-card__image) {
+  background-color: rgb(31, 41, 55);
+}
+
+.downloading-card-image {
+  block-size: 100%;
+}
+
 .downloading-card-background {
+  border-radius: inherit;
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
+  pointer-events: none;
 }
 </style>
