@@ -301,7 +301,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-block-end: 8px;
+  margin-block-end: 12px;
   padding-block: 0;
   padding-inline: 8px;
 
@@ -361,8 +361,7 @@ watch(
   // 横向滚动会让纵向 visible 被浏览器计算成可裁剪区域，这里用缓冲区承接卡片阴影。
   margin-block: calc(var(--slider-shadow-bleed-start) * -1) calc(var(--slider-shadow-bleed-end) * -1);
   -ms-overflow-style: none !important;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: auto hidden;
   overscroll-behavior-x: contain !important;
   padding-block: var(--slider-shadow-bleed-start) var(--slider-shadow-bleed-end);
   padding-inline: 12px;

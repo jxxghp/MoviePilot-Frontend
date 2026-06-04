@@ -459,8 +459,7 @@ export default defineComponent({
 
     .layout-page-content {
       // display: flex;
-      // 使用 clip 替代 hidden，避免 Chrome 144+ 滚动锁定问题
-      overflow: clip auto;
+      overflow: auto;
 
       .page-content-container {
         inline-size: 100%;

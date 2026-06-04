@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { VPullToRefresh } from 'vuetify/labs/VPullToRefresh'
 import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
 import NoDataFound from '@/components/NoDataFound.vue'
@@ -39,17 +38,6 @@ async function fetchData(_context: KeepAliveRefreshContext = {}) {
   }
 }
 
-// 刷新状态
-const loading = ref(false)
-
-// 下拉刷新
-function onRefresh() {
-  loading.value = true
-  void fetchData().finally(() => {
-    loading.value = false
-  })
-}
-
 // 过滤数据，管理员用户显示全部，非管理员只显示自己的订阅
 const filteredDataList = computed(() => {
   // 从 Store 中获取用户信息
@@ -64,7 +52,7 @@ const { loading: dataLoading } = useDataRefresh(
   'downloading-list',
   fetchData,
   3000, // 3秒间隔
-  false // 初始加载交给 keep-alive 页面自身，避免同时发起两次请求
+  false, // 初始加载交给 keep-alive 页面自身，避免同时发起两次请求
 )
 
 onMounted(fetchData)
@@ -76,36 +64,21 @@ useKeepAliveRefresh(fetchData, {
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VPullToRefresh
-    v-model="loading"
-    class="downloading-refresh-shell"
-    @load="onRefresh"
-    :pull-down-threshold="64"
+  <ProgressiveCardGrid
+    v-if="filteredDataList.length > 0"
+    :items="filteredDataList"
+    :get-item-key="item => item.hash || item.name"
+    :min-item-width="320"
+    :estimated-item-height="230"
   >
-    <ProgressiveCardGrid
-      v-if="filteredDataList.length > 0"
-      :items="filteredDataList"
-      :get-item-key="item => item.hash || item.name"
-      :min-item-width="320"
-      :estimated-item-height="230"
-    >
-      <template #default="{ item }">
-        <DownloadingCard :info="item" :downloader-name="props.name" />
-      </template>
-    </ProgressiveCardGrid>
-    <NoDataFound
-      v-if="filteredDataList.length === 0 && isRefreshed"
-      error-code="404"
-      :error-title="t('downloading.noTask')"
-      :error-description="t('downloading.noTaskDescription')"
-    />
-  </VPullToRefresh>
+    <template #default="{ item }">
+      <DownloadingCard :info="item" :downloader-name="props.name" />
+    </template>
+  </ProgressiveCardGrid>
+  <NoDataFound
+    v-if="filteredDataList.length === 0 && isRefreshed"
+    error-code="404"
+    :error-title="t('downloading.noTask')"
+    :error-description="t('downloading.noTaskDescription')"
+  />
 </template>
-
-<style lang="scss" scoped>
-// VPullToRefresh 自带 overflow: hidden，给下载卡阴影预留裁剪范围内的缓冲区。
-.downloading-refresh-shell {
-  margin: -2rem;
-  padding: 2rem;
-}
-</style>
