@@ -286,6 +286,7 @@ watch(
 <style lang="scss" scoped>
 .slider-container {
   position: relative;
+  isolation: isolate;
   margin-block-end: 8px;
 
   --slider-shadow-bleed-start: 28px;
@@ -293,6 +294,9 @@ watch(
 }
 
 .slider-header {
+  // 阴影缓冲区会把滚动区域上移，标题层级需高于滚动区域以保留按钮点击。
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -344,6 +348,7 @@ watch(
 
 .slider-content-wrapper {
   position: relative;
+  z-index: 1;
   inline-size: 100%;
 }
 
