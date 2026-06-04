@@ -37,8 +37,34 @@ const workflowForm = ref<Workflow>(
     event_type: undefined,
     state: 'P',
     run_count: 0,
+    execution_config: {},
   },
 )
+
+// 将并发数清洗为正整数，空值表示使用后端默认值
+const normalizePositiveInteger = (value: any) => {
+  if (value === undefined || value === null || value === '') return undefined
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue) || numberValue < 1) return undefined
+  return Math.floor(numberValue)
+}
+
+// 工作流级执行配置中的最大并行数
+const workflowMaxWorkers = computed<number | null>({
+  get() {
+    return normalizePositiveInteger(workflowForm.value.execution_config?.max_workers) ?? null
+  },
+  set(value) {
+    const executionConfig = { ...(workflowForm.value.execution_config || {}) }
+    const maxWorkers = normalizePositiveInteger(value)
+    if (maxWorkers) {
+      executionConfig.max_workers = maxWorkers
+    } else {
+      delete executionConfig.max_workers
+    }
+    workflowForm.value.execution_config = Object.keys(executionConfig).length ? executionConfig : undefined
+  },
+})
 
 // 监听props变化，处理存量数据
 watch(
@@ -49,7 +75,10 @@ watch(
       if (!newWorkflow.trigger_type) {
         newWorkflow.trigger_type = 'timer'
       }
-      workflowForm.value = { ...newWorkflow }
+      workflowForm.value = {
+        ...newWorkflow,
+        execution_config: { ...(newWorkflow.execution_config || {}) },
+      }
     }
   },
   { immediate: true },
@@ -99,6 +128,18 @@ watch(
 // 提示框
 const $toast = useToast()
 
+// 保存前统一清洗工作流执行配置
+function normalizeWorkflowExecutionConfig() {
+  const executionConfig = { ...(workflowForm.value.execution_config || {}) }
+  const maxWorkers = normalizePositiveInteger(executionConfig.max_workers)
+  if (maxWorkers) {
+    executionConfig.max_workers = maxWorkers
+  } else {
+    delete executionConfig.max_workers
+  }
+  workflowForm.value.execution_config = Object.keys(executionConfig).length ? executionConfig : undefined
+}
+
 // 调用API 新增任务
 async function addWorkflow() {
   if (!workflowForm.value.name) {
@@ -122,6 +163,7 @@ async function addWorkflow() {
     return
   }
 
+  normalizeWorkflowExecutionConfig()
   startNProgress()
   try {
     const result: { [key: string]: string } = await api.post('workflow/', workflowForm.value)
@@ -160,6 +202,7 @@ async function editWorkflow() {
     return
   }
 
+  normalizeWorkflowExecutionConfig()
   startNProgress()
   try {
     const result: { [key: string]: string } = await api.put(`workflow/${workflowForm.value.id}`, workflowForm.value)
@@ -254,6 +297,16 @@ onMounted(() => {
                 :label="t('dialog.workflowAddEdit.desc')"
                 :placeholder="t('dialog.workflowAddEdit.descPlaceholder')"
                 prepend-inner-icon="mdi-text-box-outline"
+              />
+            </VCol>
+            <VCol cols="12">
+              <VTextField
+                v-model.number="workflowMaxWorkers"
+                type="number"
+                min="1"
+                clearable
+                :label="t('dialog.workflowAddEdit.maxWorkers')"
+                prepend-inner-icon="mdi-call-split"
               />
             </VCol>
           </VRow>

@@ -1489,6 +1489,10 @@ export interface Workflow {
   actions?: any[]
   // 动作流
   flows?: any[]
+  // 工作流执行配置
+  execution_config?: { [key: string]: any }
+  // 工作流结构化执行状态
+  execution_state?: { [key: string]: any }
   // 创建时间
   add_time?: string
   // 最后执行时间
