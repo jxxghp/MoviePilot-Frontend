@@ -473,6 +473,8 @@ async function handleResetSettings() {
   background: rgb(var(--v-theme-surface));
   block-size: var(--theme-customizer-viewport-height, 100dvh);
   max-block-size: var(--theme-customizer-viewport-height, 100dvh);
+  /* fullscreen dialog 会贴到 viewport-fit=cover 顶部，iOS 需要在面板内部避开系统状态栏。 */
+  padding-block-start: env(safe-area-inset-top);
 }
 
 .theme-customizer-panel--dialog .theme-customizer-body {
