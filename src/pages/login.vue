@@ -119,9 +119,7 @@ const systemPasskeyProvider = computed(() =>
 const pluginAuthProviders = computed(() =>
   authProviders.value.filter(provider => provider.type === 'plugin' && provider.remote && provider.enabled !== false),
 )
-const showPasskeyLogin = computed(
-  () => !!systemPasskeyProvider.value?.enabled,
-)
+const showPasskeyLogin = computed(() => !!systemPasskeyProvider.value?.enabled)
 
 // 生成 MFA 共享弹窗使用的最新 props。
 function getMfaDialogProps() {
@@ -678,7 +676,7 @@ onUnmounted(() => {
     <!-- 登录表单 -->
     <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card px-7 pt-3 w-full h-full"
+        class="auth-card pa-7 w-full h-full"
         :class="{ 'glass-effect': !isTransparentTheme }"
         max-width="24rem"
         border
