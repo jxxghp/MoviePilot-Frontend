@@ -76,7 +76,12 @@ useKeepAliveRefresh(fetchData, {
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-  <VPullToRefresh v-model="loading" @load="onRefresh" :pull-down-threshold="64">
+  <VPullToRefresh
+    v-model="loading"
+    class="downloading-refresh-shell"
+    @load="onRefresh"
+    :pull-down-threshold="64"
+  >
     <ProgressiveCardGrid
       v-if="filteredDataList.length > 0"
       :items="filteredDataList"
@@ -96,3 +101,11 @@ useKeepAliveRefresh(fetchData, {
     />
   </VPullToRefresh>
 </template>
+
+<style lang="scss" scoped>
+// VPullToRefresh 自带 overflow: hidden，给下载卡阴影预留裁剪范围内的缓冲区。
+.downloading-refresh-shell {
+  margin: -1rem;
+  padding: 1rem;
+}
+</style>
