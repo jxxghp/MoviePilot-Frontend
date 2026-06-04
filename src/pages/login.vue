@@ -107,8 +107,6 @@ interface PluginAuthPayload {
 
 // 登录认证提供方
 const authProviders = ref<LoginAuthProvider[]>([])
-const authProvidersLoaded = ref(false)
-const authProvidersFailed = ref(false)
 const selectedAuthProvider = ref<LoginAuthProvider | null>(null)
 const RemoteAuthView = shallowRef<Component | null>(null)
 const pluginAuthDialog = ref(false)
@@ -122,7 +120,7 @@ const pluginAuthProviders = computed(() =>
   authProviders.value.filter(provider => provider.type === 'plugin' && provider.remote && provider.enabled !== false),
 )
 const showPasskeyLogin = computed(
-  () => !authProvidersLoaded.value || authProvidersFailed.value || !!systemPasskeyProvider.value?.enabled,
+  () => !!systemPasskeyProvider.value?.enabled,
 )
 
 // 生成 MFA 共享弹窗使用的最新 props。
@@ -170,13 +168,9 @@ async function loadAuthProviders() {
   try {
     const result = (await api.get('auth/providers')) as LoginAuthProvider[]
     authProviders.value = Array.isArray(result) ? result : []
-    authProvidersFailed.value = false
   } catch (error) {
     console.error('加载认证提供方失败:', error)
     authProviders.value = []
-    authProvidersFailed.value = true
-  } finally {
-    authProvidersLoaded.value = true
   }
 }
 
