@@ -13,7 +13,6 @@ html {
 body {
   background: rgb(var(--v-theme-background));
   overscroll-behavior-y: contain;
-  // Chrome 144+ 兼容性：覆盖 Vuetify 的内联 overflow: hidden 样式
   overflow: visible !important;
 
   --webkit-overflow-scrolling: touch;
@@ -37,9 +36,7 @@ body,
 .layout-page-content {
   @include mixins.boxed-content(true);
 
-  // Chrome 144+ 兼容性：使用 clip 替代 hidden，避免滚动锁定问题
-  // overflow: hidden 在新版 Chrome 中可能意外阻止垂直滚动
-  overflow: clip;
+  overflow: visible;
   flex-grow: 1;
 
   // TODO: Use grid gutter variable here;
