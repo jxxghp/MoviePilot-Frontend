@@ -33,8 +33,62 @@ html.v-overlay-scroll-blocked body {
 
 // 全局卡片阴影 token：卡片统一不使用投影，避免透明主题和密集布局下出现脏边。
 html {
+  --app-shadow-rgb: 15, 23, 42;
   --app-card-rest-shadow: none;
   --app-card-hover-shadow: none;
+  --app-fab-shadow: none;
+  --app-fab-shadow-strong: none;
+  --app-fab-shadow-hover: none;
+  --app-fab-shadow-strong-hover: none;
+  --app-fab-shadow-active: none;
+  --app-overlay-shadow: none;
+  --app-surface-shadow: none;
+  --app-surface-hover-shadow: none;
+}
+
+html[data-theme='dark'],
+html[data-theme='purple'],
+html[data-theme='transparent'] {
+  --app-shadow-rgb: 0, 0, 0;
+}
+
+html[data-theme-shadow='low'] {
+  --app-card-rest-shadow: 0 10px 24px rgba(var(--app-shadow-rgb), 0.06), 0 2px 8px rgba(var(--app-shadow-rgb), 0.04);
+  --app-card-hover-shadow: 0 14px 30px rgba(var(--app-shadow-rgb), 0.08), 0 4px 12px rgba(var(--app-shadow-rgb), 0.05);
+  --app-fab-shadow: 0 16px 34px rgba(var(--app-shadow-rgb), 0.16), 0 6px 16px rgba(var(--app-shadow-rgb), 0.1);
+  --app-fab-shadow-strong: 0 20px 40px rgba(var(--app-shadow-rgb), 0.2), 0 8px 18px rgba(var(--app-shadow-rgb), 0.12);
+  --app-fab-shadow-hover: 0 22px 42px rgba(var(--app-shadow-rgb), 0.22), 0 8px 18px rgba(var(--app-shadow-rgb), 0.12);
+  --app-fab-shadow-strong-hover: 0 26px 46px rgba(var(--app-shadow-rgb), 0.24), 0 10px 22px rgba(var(--app-shadow-rgb), 0.14);
+  --app-fab-shadow-active: 0 10px 22px rgba(var(--app-shadow-rgb), 0.16), 0 3px 8px rgba(var(--app-shadow-rgb), 0.1);
+  --app-overlay-shadow: 0 18px 42px rgba(var(--app-shadow-rgb), 0.14), 0 6px 18px rgba(var(--app-shadow-rgb), 0.08);
+  --app-surface-shadow: 0 10px 24px rgba(var(--app-shadow-rgb), 0.07), 0 2px 8px rgba(var(--app-shadow-rgb), 0.05);
+  --app-surface-hover-shadow: 0 14px 30px rgba(var(--app-shadow-rgb), 0.09), 0 4px 12px rgba(var(--app-shadow-rgb), 0.06);
+}
+
+html[data-theme-shadow='medium'] {
+  --app-card-rest-shadow: 0 14px 32px rgba(var(--app-shadow-rgb), 0.09), 0 4px 12px rgba(var(--app-shadow-rgb), 0.06);
+  --app-card-hover-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.11), 0 6px 16px rgba(var(--app-shadow-rgb), 0.07);
+  --app-fab-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.2), 0 7px 18px rgba(var(--app-shadow-rgb), 0.12);
+  --app-fab-shadow-strong: 0 24px 48px rgba(var(--app-shadow-rgb), 0.24), 0 10px 24px rgba(var(--app-shadow-rgb), 0.14);
+  --app-fab-shadow-hover: 0 24px 46px rgba(var(--app-shadow-rgb), 0.24), 0 10px 22px rgba(var(--app-shadow-rgb), 0.14);
+  --app-fab-shadow-strong-hover: 0 30px 54px rgba(var(--app-shadow-rgb), 0.28), 0 12px 28px rgba(var(--app-shadow-rgb), 0.16);
+  --app-fab-shadow-active: 0 12px 26px rgba(var(--app-shadow-rgb), 0.18), 0 4px 10px rgba(var(--app-shadow-rgb), 0.12);
+  --app-overlay-shadow: 0 24px 56px rgba(var(--app-shadow-rgb), 0.18), 0 10px 24px rgba(var(--app-shadow-rgb), 0.1);
+  --app-surface-shadow: 0 14px 32px rgba(var(--app-shadow-rgb), 0.1), 0 4px 12px rgba(var(--app-shadow-rgb), 0.07);
+  --app-surface-hover-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.12), 0 6px 16px rgba(var(--app-shadow-rgb), 0.08);
+}
+
+html[data-theme-shadow='high'] {
+  --app-card-rest-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.12), 0 6px 18px rgba(var(--app-shadow-rgb), 0.08);
+  --app-card-hover-shadow: 0 22px 50px rgba(var(--app-shadow-rgb), 0.15), 0 8px 22px rgba(var(--app-shadow-rgb), 0.1);
+  --app-fab-shadow: 0 22px 48px rgba(var(--app-shadow-rgb), 0.24), 0 10px 24px rgba(var(--app-shadow-rgb), 0.14);
+  --app-fab-shadow-strong: 0 28px 58px rgba(var(--app-shadow-rgb), 0.3), 0 12px 30px rgba(var(--app-shadow-rgb), 0.18);
+  --app-fab-shadow-hover: 0 28px 56px rgba(var(--app-shadow-rgb), 0.28), 0 12px 28px rgba(var(--app-shadow-rgb), 0.17);
+  --app-fab-shadow-strong-hover: 0 34px 64px rgba(var(--app-shadow-rgb), 0.34), 0 14px 32px rgba(var(--app-shadow-rgb), 0.2);
+  --app-fab-shadow-active: 0 14px 30px rgba(var(--app-shadow-rgb), 0.22), 0 5px 12px rgba(var(--app-shadow-rgb), 0.14);
+  --app-overlay-shadow: 0 30px 70px rgba(var(--app-shadow-rgb), 0.22), 0 14px 30px rgba(var(--app-shadow-rgb), 0.12);
+  --app-surface-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.13), 0 6px 18px rgba(var(--app-shadow-rgb), 0.09);
+  --app-surface-hover-shadow: 0 22px 50px rgba(var(--app-shadow-rgb), 0.16), 0 8px 22px rgba(var(--app-shadow-rgb), 0.11);
 }
 
 // 进度条样式
@@ -59,15 +113,31 @@ html {
 // 统一系统内卡片阴影，显式覆盖 Vuetify elevation 或局部卡片默认投影。
 .v-card,
 .v-application .v-card.v-card[class] {
-  box-shadow: none !important;
+  box-shadow: var(--app-surface-shadow) !important;
   transition: box-shadow 0.2s ease;
 }
 
 @media (hover: hover) {
   .v-card:hover,
   .v-application .v-card.v-card[class]:hover {
-    box-shadow: none !important;
+    box-shadow: var(--app-surface-hover-shadow) !important;
   }
+}
+
+// 只给外层 surface 加阴影，卡片内部的子组件保持平面，避免层级噪声。
+.v-card .v-card,
+.v-card .v-sheet,
+.v-card .v-list,
+.v-card .v-expansion-panel,
+.v-card .v-table,
+.v-card .v-window,
+.v-card .v-toolbar,
+.v-card .v-navigation-drawer,
+.v-card .v-stepper,
+.v-card .v-alert,
+.v-card .v-avatar,
+.v-card .v-chip {
+  box-shadow: none !important;
 }
 
 // 主题定制器的 bordered 皮肤：保持原布局密度，只给主要容器增加清晰边界。
@@ -78,6 +148,12 @@ html[data-theme-skin='bordered'] {
   .v-expansion-panel,
   .v-list {
     border: 1px solid rgba(var(--v-theme-on-surface), 0.1) !important;
+  }
+
+  .v-sheet,
+  .v-table,
+  .v-expansion-panel,
+  .v-list {
     box-shadow: none !important;
   }
 
@@ -173,12 +249,6 @@ html[data-theme="transparent"] .app-card-colorful,
   --app-card-hover-border-opacity: 0;
   --app-card-stripe-opacity: 0.16;
   --app-card-surface-opacity: var(--transparent-opacity-light, 0.2);
-}
-
-html[data-theme="transparent"],
-.v-theme--transparent {
-  --app-card-rest-shadow: none;
-  --app-card-hover-shadow: none;
 }
 
 // 保证卡片右上角的浮动操作区始终高于可点击的卡片内容层，避免误触发详情打开。
@@ -546,9 +616,7 @@ html[data-theme="transparent"],
 .compact-fab .v-btn {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   backdrop-filter: blur(14px);
-  box-shadow:
-    0 16px 34px rgb(15 23 42 / 16%),
-    0 6px 16px rgb(15 23 42 / 10%);
+  box-shadow: var(--app-fab-shadow) !important;
   opacity: 0.98;
   transition:
     transform 0.18s ease,
@@ -559,9 +627,7 @@ html[data-theme="transparent"],
 
 .compact-fab--primary .v-btn {
   block-size: 3rem !important;
-  box-shadow:
-    0 20px 40px rgb(15 23 42 / 20%),
-    0 8px 18px rgb(15 23 42 / 12%);
+  box-shadow: var(--app-fab-shadow-strong) !important;
   inline-size: 3rem !important;
 }
 
@@ -580,24 +646,18 @@ html[data-theme="transparent"],
 
 @media (hover: hover) {
   .compact-fab .v-btn:hover {
-    box-shadow:
-      0 22px 42px rgb(15 23 42 / 22%),
-      0 8px 18px rgb(15 23 42 / 12%);
+    box-shadow: var(--app-fab-shadow-hover) !important;
     filter: saturate(1.03);
     transform: translateY(-2px);
   }
 
   .compact-fab--primary .v-btn:hover {
-    box-shadow:
-      0 26px 46px rgb(15 23 42 / 24%),
-      0 10px 22px rgb(15 23 42 / 14%);
+    box-shadow: var(--app-fab-shadow-strong-hover) !important;
   }
 }
 
 .compact-fab .v-btn:active {
-  box-shadow:
-    0 10px 22px rgb(15 23 42 / 16%),
-    0 3px 8px rgb(15 23 42 / 10%);
+  box-shadow: var(--app-fab-shadow-active) !important;
   transform: translateY(0) scale(0.98);
 }
 
@@ -623,7 +683,7 @@ html[data-theme="transparent"],
   }
 }
 
-@media (min-width: 601px) {
+@media (width >= 601px) {
   html[data-theme-customizer-open='true'] .compact-fab-stack {
     inset-inline-end: calc(var(--theme-customizer-fab-offset) + max(1rem, calc(env(safe-area-inset-right) + 1rem)));
   }
@@ -633,7 +693,7 @@ html[data-theme="transparent"],
   }
 }
 
-@media (min-width: 601px) and (max-width: 768px) {
+@media (width >= 601px) and (width <= 768px) {
   html[data-theme-customizer-open='true'] .compact-fab-stack {
     inset-inline-end: calc(
       var(--theme-customizer-fab-offset) + max(0.875rem, calc(env(safe-area-inset-right) + 0.875rem))
@@ -665,16 +725,19 @@ html[data-theme="transparent"],
 .v-overlay__content .v-list{
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.9) !important;
+  box-shadow: none !important;
   padding-inline: 0.5rem !important;
 }
 
 .v-overlay__content .v-card:not(.bg-primary){
   backdrop-filter: blur(8px);
   background-color: rgb(var(--v-theme-surface), 0.95) !important;
+  box-shadow: none !important;
 
   .v-list, .v-table {
     backdrop-filter: none;
     background-color: transparent !important;
+    box-shadow: none !important;
   }
 }
 
@@ -693,16 +756,22 @@ html[data-theme="transparent"],
 }
 
 .v-overlay__content {
+  background: transparent !important;
+  box-shadow: none !important;
   margin-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
-  transition: opacity 0.2s ease !important;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease !important;
 }
 
 .v-menu > .v-overlay__content {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .v-dialog--fullscreen > .v-overlay__content > .v-card {
   padding-block-end: calc(env(safe-area-inset-top) + env(safe-area-inset-bottom));
+}
+
+.v-dialog--fullscreen > .v-overlay__content {
+  box-shadow: none !important;
 }
 
 .v-dialog > .v-overlay__content {
@@ -711,6 +780,18 @@ html[data-theme="transparent"],
 
 .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card {
   padding-block-end: env(safe-area-inset-bottom);
+}
+
+.v-dialog > .v-overlay__content > .v-card,
+.v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card,
+.v-menu > .v-overlay__content > .v-card,
+.v-menu > .v-overlay__content > .v-list {
+  overflow: hidden;
+  box-shadow: var(--app-overlay-shadow) !important;
+}
+
+.v-dialog--fullscreen > .v-overlay__content > .v-card {
+  box-shadow: none !important;
 }
 
 .settings-icon-button {

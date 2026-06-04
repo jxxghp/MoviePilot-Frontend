@@ -2,6 +2,7 @@ import { computed, onMounted, onScopeDispose, readonly, ref } from 'vue'
 import { useTheme } from 'vuetify'
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { saveLocalTheme } from '@/@core/utils/theme'
+import vuetify from '@/plugins/vuetify'
 import { themeManager } from '@/utils/themeManager'
 
 export const THEME_CUSTOMIZER_STORAGE_KEY = 'moviepilot-theme-customizer'
@@ -23,6 +24,7 @@ export const themeCustomizerPrimaryColors = [
 ] as const
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
+export type ThemeCustomizerShadow = 'none' | 'low' | 'medium' | 'high'
 export type ThemeCustomizerSkin = 'bordered' | 'default'
 export type ThemeCustomizerTheme = 'auto' | 'dark' | 'light' | 'purple' | 'transparent'
 
@@ -30,6 +32,7 @@ export interface ThemeCustomizerSettings {
   layout: ThemeCustomizerLayout
   primaryColor: string
   semiDarkMenu: boolean
+  shadow: ThemeCustomizerShadow
   skin: ThemeCustomizerSkin
   theme: ThemeCustomizerTheme
 }
@@ -38,6 +41,7 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
+const validShadows: ThemeCustomizerShadow[] = ['none', 'low', 'medium', 'high']
 const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
 const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent']
 
@@ -64,6 +68,7 @@ function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     semiDarkMenu: false,
+    shadow: 'none',
     skin: 'default',
     theme: readStoredThemePreference(),
   }
@@ -78,7 +83,12 @@ function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSetti
       : fallback.layout,
     primaryColor: isHexColor(settings.primaryColor) ? settings.primaryColor.toUpperCase() : fallback.primaryColor,
     semiDarkMenu: typeof settings.semiDarkMenu === 'boolean' ? settings.semiDarkMenu : fallback.semiDarkMenu,
-    skin: validSkins.includes(settings.skin as ThemeCustomizerSkin) ? (settings.skin as ThemeCustomizerSkin) : fallback.skin,
+    shadow: validShadows.includes(settings.shadow as ThemeCustomizerShadow)
+      ? (settings.shadow as ThemeCustomizerShadow)
+      : fallback.shadow,
+    skin: validSkins.includes(settings.skin as ThemeCustomizerSkin)
+      ? (settings.skin as ThemeCustomizerSkin)
+      : fallback.skin,
     theme: validThemes.includes(settings.theme as ThemeCustomizerTheme)
       ? (settings.theme as ThemeCustomizerTheme)
       : fallback.theme,
@@ -151,15 +161,19 @@ export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyTheme
   localStorage.setItem('materio-initial-loader-color', color)
 }
 
-/** 布局、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */
-export function applyThemeCustomizerRootSettings(settings: Pick<ThemeCustomizerSettings, 'layout' | 'semiDarkMenu' | 'skin'>) {
+/** 布局、阴影、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */
+export function applyThemeCustomizerRootSettings(
+  settings: Pick<ThemeCustomizerSettings, 'layout' | 'semiDarkMenu' | 'shadow' | 'skin'>,
+) {
   if (!isBrowser()) return
 
   document.documentElement.setAttribute('data-theme-layout', settings.layout)
   document.documentElement.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
+  document.documentElement.setAttribute('data-theme-shadow', settings.shadow)
   document.documentElement.setAttribute('data-theme-skin', settings.skin)
   document.body.setAttribute('data-theme-layout', settings.layout)
   document.body.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
+  document.body.setAttribute('data-theme-shadow', settings.shadow)
   document.body.setAttribute('data-theme-skin', settings.skin)
 }
 
@@ -210,6 +224,7 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
 
   settingsState.value = nextSettings
   persistThemeCustomizerSettings(nextSettings)
+  applyPrimaryColorToVuetify(nextSettings.primaryColor, vuetify.theme)
   applyThemeCustomizerRootSettings(nextSettings)
   dispatchThemeCustomizerChange(nextSettings)
 
@@ -221,6 +236,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     semiDarkMenu: false,
+    shadow: 'none',
     skin: 'default',
     theme: 'auto',
   })
@@ -229,6 +245,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     settings.layout === defaults.layout &&
     settings.primaryColor === defaults.primaryColor &&
     settings.semiDarkMenu === defaults.semiDarkMenu &&
+    settings.shadow === defaults.shadow &&
     settings.skin === defaults.skin &&
     settings.theme === defaults.theme
   )
@@ -251,7 +268,10 @@ export function useThemeCustomizer() {
     applyPrimaryColorToVuetify(nextSettings.primaryColor, themeApi)
     applyThemeCustomizerRootSettings(nextSettings)
 
-    if (previousTheme !== nextSettings.theme || themeApi.global.name.value !== getResolvedThemeName(nextSettings.theme)) {
+    if (
+      previousTheme !== nextSettings.theme ||
+      themeApi.global.name.value !== getResolvedThemeName(nextSettings.theme)
+    ) {
       await applyThemePreference(nextSettings.theme, themeApi)
     }
 
@@ -264,6 +284,10 @@ export function useThemeCustomizer() {
 
   function setTheme(theme: ThemeCustomizerTheme) {
     return updateSettings({ theme })
+  }
+
+  function setShadow(shadow: ThemeCustomizerShadow) {
+    return updateSettings({ shadow })
   }
 
   function setSkin(skin: ThemeCustomizerSkin) {
@@ -283,6 +307,7 @@ export function useThemeCustomizer() {
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       semiDarkMenu: false,
+      shadow: 'none',
       skin: 'default',
       theme: 'auto',
     })
@@ -315,6 +340,7 @@ export function useThemeCustomizer() {
     setLayout,
     setPrimaryColor,
     setSemiDarkMenu,
+    setShadow,
     setSkin,
     setTheme,
     settings: readonly(settings),

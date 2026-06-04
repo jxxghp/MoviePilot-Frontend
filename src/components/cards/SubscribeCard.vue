@@ -404,7 +404,7 @@ function handleCardClick() {
     <VHover>
       <template #default="hover">
         <div
-          class="w-full h-full rounded-lg overflow-hidden relative"
+          class="w-full h-full rounded-lg relative"
           :class="{
             'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
             'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
@@ -414,12 +414,12 @@ function handleCardClick() {
           <VCard
             v-bind="hover.props"
             :key="props.media?.id"
-            class="flex flex-col h-full"
+            class="flex flex-col h-full overflow-hidden"
             :class="{
               'subscribe-card-paused': subscribeState === 'S',
               'cursor-move': props.sortable,
             }"
-            rounded="0"
+            rounded="lg"
             min-height="150"
             @click="handleCardClick"
             :ripple="!props.batchMode && !props.sortable"
@@ -506,10 +506,26 @@ function handleCardClick() {
                       {{ subscribeProgressTooltip }}
                     </VTooltip>
                   </div>
-                  <VIcon v-if="props.media?.username && props.sortable" icon="mdi-account" size="small" color="white" class="flex-shrink-0 me-1" />
-                  <IconBtn v-else-if="props.media?.username" icon="mdi-account" size="small" color="white" class="flex-shrink-0" />
+                  <VIcon
+                    v-if="props.media?.username && props.sortable"
+                    icon="mdi-account"
+                    size="small"
+                    color="white"
+                    class="flex-shrink-0 me-1"
+                  />
+                  <IconBtn
+                    v-else-if="props.media?.username"
+                    icon="mdi-account"
+                    size="small"
+                    color="white"
+                    class="flex-shrink-0"
+                  />
                   <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
-                  <span v-if="props.media?.username" class="min-w-0 truncate text-subtitle-2 text-white" :title="props.media?.username">
+                  <span
+                    v-if="props.media?.username"
+                    class="min-w-0 truncate text-subtitle-2 text-white"
+                    :title="props.media?.username"
+                  >
                     {{ props.media?.username }}
                   </span>
                 </div>
@@ -577,14 +593,15 @@ function handleCardClick() {
 .subscribe-card-pending-tint {
   position: relative;
 }
+
 .subscribe-card-pending-tint::after {
-  content: '';
   position: absolute;
+  z-index: 3;
+  border-radius: 8px;
+  box-shadow: inset 0 0 48px rgba(56, 189, 248, 40%); // sky-400
+  content: '';
   inset: 0;
   pointer-events: none;
-  border-radius: 8px;
-  box-shadow: inset 0 0 48px rgba(56, 189, 248, 0.4); // sky-400
-  z-index: 3;
 }
 
 /**
@@ -594,22 +611,23 @@ function handleCardClick() {
  */
 .best-version-badge {
   position: absolute;
-  top: 6px;
-  left: 8px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.75);
+  z-index: 4;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 4;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
   backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 75%);
+  block-size: 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 50%);
+  inline-size: 24px;
+  inset-block-start: 6px;
+  inset-inline-start: 8px;
 }
+
 .best-version-badge-full {
-  background: rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 22%);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 15%);
 }
 </style>

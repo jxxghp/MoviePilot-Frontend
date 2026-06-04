@@ -38,53 +38,21 @@ onConnect((connection: Connection) => {
 // 当前选中的流程边ID
 const selectedEdgeId = ref<string | null>(null)
 
-// 当前选中的动作节点ID
-const selectedNodeId = ref<string | null>(null)
-
 // 流程边配置表单
 const edgeForm = ref({
   condition: '',
-  join_policy: '',
-  branch_policy: '',
 })
 
-// 动作节点执行配置表单
-const nodeForm = ref({
-  inputs_text: '',
-  outputs_text: '',
-  join_policy: '',
-  fail_policy: '',
-  branch_policy: '',
-  concurrency_key: '',
-  timeout: null as number | null,
-  retry_max_attempts: null as number | null,
-  retry_interval: null as number | null,
-  retry_backoff: null as number | null,
+// 后端动作固定契约，供条件构造器读取上一节点输出
+const actionDefinitions = ref<any[]>([])
+
+// 动作类型到契约的映射
+const actionContractMap = computed(() => {
+  return actionDefinitions.value.reduce((result, action) => {
+    result[action.type] = action.contract || {}
+    return result
+  }, {} as Record<string, any>)
 })
-
-// 汇合策略选项
-const joinPolicyOptions = computed(() => [
-  { title: t('dialog.workflowActions.joinPolicyDefault'), value: '' },
-  { title: t('dialog.workflowActions.joinPolicyAllSuccess'), value: 'all_success' },
-  { title: t('dialog.workflowActions.joinPolicyAnySuccess'), value: 'any_success' },
-  { title: t('dialog.workflowActions.joinPolicyAllDone'), value: 'all_done' },
-  { title: t('dialog.workflowActions.joinPolicyFailFast'), value: 'fail_fast' },
-])
-
-// 分支策略选项
-const branchPolicyOptions = computed(() => [
-  { title: t('dialog.workflowActions.branchPolicyDefault'), value: '' },
-  { title: t('dialog.workflowActions.branchPolicyParallel'), value: 'parallel' },
-  { title: t('dialog.workflowActions.branchPolicyExclusive'), value: 'exclusive' },
-])
-
-// 失败策略选项
-const failPolicyOptions = computed(() => [
-  { title: t('dialog.workflowActions.failPolicyDefault'), value: '' },
-  { title: t('dialog.workflowActions.failPolicyStop'), value: 'stop' },
-  { title: t('dialog.workflowActions.failPolicyContinue'), value: 'continue' },
-  { title: t('dialog.workflowActions.failPolicyIgnore'), value: 'ignore' },
-])
 
 // 获取指定节点端口的类型（输入/输出）
 const getPortType = (node: GraphNode, handleId: string) => {
@@ -122,30 +90,30 @@ const getEdgeConfigValue = (edge: any, key: string) => {
   return edge?.[key] ?? edge?.data?.[key] ?? ''
 }
 
-// 统一流程边数据结构，确保条件和汇合策略能被后端读取
+// 复制对象并移除不再由前端编辑的高级配置
+const omitConfigKeys = (value: any, keys: string[]) => {
+  const result = { ...(value || {}) }
+  keys.forEach(key => delete result[key])
+  return result
+}
+
+// 统一流程边数据结构，前端只编辑边条件，汇合和分支策略由执行器默认处理
 const normalizeWorkflowEdge = (edge: any) => {
   const condition = String(getEdgeConfigValue(edge, 'condition') || '').trim()
-  const joinPolicy = String(getEdgeConfigValue(edge, 'join_policy') || '').trim()
-  const branchPolicy = String(getEdgeConfigValue(edge, 'branch_policy') || '').trim()
   const edgeClass = String(edge?.class || '')
     .replace(/\bworkflow-conditional-edge\b/g, '')
     .trim()
-  const data = {
-    ...(edge?.data || {}),
-    condition: condition || undefined,
-    join_policy: joinPolicy || undefined,
-    branch_policy: branchPolicy || undefined,
-  }
+  const data = omitConfigKeys(edge?.data, ['join_policy', 'branch_policy'])
+  data.condition = condition || undefined
+  const edgePayload = omitConfigKeys(edge, ['join_policy', 'branch_policy'])
 
   return {
-    ...edge,
+    ...edgePayload,
     animated: edge?.animated ?? true,
     type: edge?.type || 'animation',
     label: condition ? t('dialog.workflowActions.edgeConditionalLabel') : undefined,
     class: [edgeClass, condition ? 'workflow-conditional-edge' : ''].filter(Boolean).join(' ') || undefined,
     condition: condition || undefined,
-    join_policy: joinPolicy || undefined,
-    branch_policy: branchPolicy || undefined,
     data,
   }
 }
@@ -155,129 +123,25 @@ const normalizeWorkflowEdges = () => {
   edges.value = (edges.value || []).map(edge => normalizeWorkflowEdge(edge))
 }
 
-// 判断扩展配置是否为空，避免旧 data 中的空值覆盖顶层字段
-const isEmptyConfigValue = (value: any) => {
-  if (value === undefined || value === null || value === '') return true
-  if (Array.isArray(value)) return value.length === 0
-  if (typeof value === 'object') return Object.keys(value).length === 0
-  return false
-}
-
-// 读取动作节点扩展配置，兼容顶层字段与 data 字段
-const getNodeConfigValue = (node: any, key: string) => {
-  const nodeValue = node?.[key]
-  if (!isEmptyConfigValue(nodeValue)) return nodeValue
-  const dataValue = node?.data?.[key]
-  return isEmptyConfigValue(dataValue) ? undefined : dataValue
-}
-
-// 将输入声明统一为路径数组
-const normalizeInputPaths = (value: any) => {
-  if (Array.isArray(value)) {
-    return value.map(item => String(item).trim()).filter(Boolean)
-  }
-  if (typeof value === 'string') {
-    return value
-      .split(/[\n,]+/)
-      .map(item => item.trim())
-      .filter(Boolean)
-  }
-  return []
-}
-
-// 解析 JSON 形式的结构化配置
-const parseStructuredConfig = (value: string, label: string) => {
-  const text = String(value || '').trim()
-  if (!text) return undefined
-  try {
-    const parsed = JSON.parse(text)
-    if (parsed && (Array.isArray(parsed) || typeof parsed === 'object')) {
-      return parsed
-    }
-  } catch (error) {
-    console.error(error)
-  }
-  throw new Error(t('dialog.workflowActions.invalidJsonConfig', { label }))
-}
-
-// 尝试把存量结构化配置标准化为对象或数组
-const normalizeStructuredConfig = (value: any) => {
-  if (isEmptyConfigValue(value)) return undefined
-  if (Array.isArray(value) || typeof value === 'object') return value
-  if (typeof value !== 'string') return undefined
-  try {
-    const parsed = JSON.parse(value)
-    return parsed && (Array.isArray(parsed) || typeof parsed === 'object') ? parsed : undefined
-  } catch {
-    return undefined
-  }
-}
-
-// 将结构化配置格式化为面板中的 JSON 文本
-const stringifyStructuredConfig = (value: any) => {
-  const normalizedValue = normalizeStructuredConfig(value)
-  return normalizedValue ? JSON.stringify(normalizedValue, null, 2) : ''
-}
-
-// 数值字段统一清洗，空值会在保存时被移除
-const normalizeNumber = (value: any, minValue = 0, integer = false) => {
-  if (value === undefined || value === null || value === '') return undefined
-  const numberValue = Number(value)
-  if (!Number.isFinite(numberValue) || numberValue < minValue) return undefined
-  return integer ? Math.floor(numberValue) : numberValue
-}
-
-// 读取节点重试策略
-const normalizeRetryConfig = (value: any) => {
-  const retryConfig = normalizeStructuredConfig(value)
-  return retryConfig && !Array.isArray(retryConfig) ? retryConfig : {}
-}
-
-// 根据面板表单构造重试策略
-const buildRetryConfigFromForm = () => {
-  const retryConfig: Record<string, number> = {}
-  const maxAttempts = normalizeNumber(nodeForm.value.retry_max_attempts, 1, true)
-  const interval = normalizeNumber(nodeForm.value.retry_interval, 0)
-  const backoff = normalizeNumber(nodeForm.value.retry_backoff, 1)
-  if (maxAttempts !== undefined) retryConfig.max_attempts = maxAttempts
-  if (interval !== undefined) retryConfig.interval = interval
-  if (backoff !== undefined) retryConfig.backoff = backoff
-  return Object.keys(retryConfig).length ? retryConfig : undefined
-}
-
-// 统一动作节点数据结构，确保执行策略能被后端读取
+// 统一动作节点数据结构，高级运行配置由后端默认值和动作契约接管
 const normalizeWorkflowNode = (node: any) => {
-  const inputPaths = normalizeInputPaths(getNodeConfigValue(node, 'inputs'))
-  const outputs = normalizeStructuredConfig(getNodeConfigValue(node, 'outputs'))
-  const joinPolicy = String(getNodeConfigValue(node, 'join_policy') || '').trim()
-  const failPolicy = String(getNodeConfigValue(node, 'fail_policy') || '').trim()
-  const branchPolicy = String(getNodeConfigValue(node, 'branch_policy') || '').trim()
-  const concurrencyKey = String(getNodeConfigValue(node, 'concurrency_key') || '').trim()
-  const timeout = normalizeNumber(getNodeConfigValue(node, 'timeout'), 1, true)
-  const retryConfig = normalizeRetryConfig(getNodeConfigValue(node, 'retry'))
-  const retry = Object.keys(retryConfig).length ? retryConfig : undefined
-  const data = {
-    ...(node?.data || {}),
-    inputs: inputPaths.length ? inputPaths : undefined,
-    outputs: outputs || undefined,
-    join_policy: joinPolicy || undefined,
-    fail_policy: failPolicy || undefined,
-    branch_policy: branchPolicy || undefined,
-    concurrency_key: concurrencyKey || undefined,
-    timeout: timeout || undefined,
-    retry,
-  }
+  const hiddenConfigKeys = [
+    'inputs',
+    'outputs',
+    'join_policy',
+    'fail_policy',
+    'branch_policy',
+    'concurrency_key',
+    'timeout',
+    'retry',
+    'contract',
+    '_contract',
+  ]
+  const data = omitConfigKeys(node?.data, hiddenConfigKeys)
+  const nodePayload = omitConfigKeys(node, hiddenConfigKeys)
 
   return {
-    ...node,
-    inputs: inputPaths.length ? inputPaths : undefined,
-    outputs: outputs || undefined,
-    join_policy: joinPolicy || undefined,
-    fail_policy: failPolicy || undefined,
-    branch_policy: branchPolicy || undefined,
-    concurrency_key: concurrencyKey || undefined,
-    timeout: timeout || undefined,
-    retry,
+    ...nodePayload,
     data,
   }
 }
@@ -293,16 +157,39 @@ const getNodeName = (nodeId?: string) => {
   return (node as any)?.name || node?.data?.label || nodeId || ''
 }
 
+// 获取流程边源节点可用于条件判断的输出字段
+const getEdgeConditionFields = (edge: any) => {
+  const sourceNode = edge
+    ? nodes.value.find(node => node.id === edge.source)
+    : null
+  const contract = sourceNode ? actionContractMap.value[sourceNode.type] || {} : {}
+  const fields = contract.condition_fields || contract.outputs || []
+  return Array.isArray(fields)
+    ? fields.filter((field: any) => field?.name || field)
+    : []
+}
+
+// 判断流程边是否存在可编辑条件
+const canConfigureEdge = (edge: any) => {
+  const condition = String(getEdgeConfigValue(edge, 'condition') || '').trim()
+  return Boolean(condition || getEdgeConditionFields(edge).length)
+}
+
 // 选中流程边时打开设置面板
-function handleEdgeClick(params: any) {
+async function handleEdgeClick(params: any) {
   const edge = params?.edge
   if (!edge) return
-  selectedNodeId.value = null
+  if (!actionDefinitions.value.length) {
+    await loadActionDefinitions()
+  }
+  if (!canConfigureEdge(edge)) {
+    closeEdgeSettings()
+    $toast.info(t('dialog.workflowActions.edgeNoConditionFields'))
+    return
+  }
   selectedEdgeId.value = edge.id
   edgeForm.value = {
     condition: String(getEdgeConfigValue(edge, 'condition') || ''),
-    join_policy: String(getEdgeConfigValue(edge, 'join_policy') || ''),
-    branch_policy: String(getEdgeConfigValue(edge, 'branch_policy') || ''),
   }
 }
 
@@ -311,8 +198,6 @@ function closeEdgeSettings() {
   selectedEdgeId.value = null
   edgeForm.value = {
     condition: '',
-    join_policy: '',
-    branch_policy: '',
   }
 }
 
@@ -324,14 +209,10 @@ function saveEdgeSettings() {
     return normalizeWorkflowEdge({
       ...edge,
       condition: edgeForm.value.condition,
-      join_policy: edgeForm.value.join_policy,
       data: {
         ...(edge.data || {}),
         condition: edgeForm.value.condition,
-        join_policy: edgeForm.value.join_policy,
-        branch_policy: edgeForm.value.branch_policy,
       },
-      branch_policy: edgeForm.value.branch_policy,
     })
   })
   $toast.success(t('dialog.workflowActions.edgeSaveSuccess'))
@@ -350,106 +231,49 @@ const selectedEdge = computed(() => {
   return edges.value.find(edge => edge.id === selectedEdgeId.value) || null
 })
 
-// 当前选中的动作节点
-const selectedNode = computed(() => {
-  if (!selectedNodeId.value) return null
-  return nodes.value.find(node => node.id === selectedNodeId.value) || null
-})
+// 当前边可用于条件判断的输出字段
+const selectedEdgeConditionFields = computed(() => (
+  selectedEdge.value ? getEdgeConditionFields(selectedEdge.value) : []
+))
 
-// 将节点数据填入右侧执行配置面板
-function fillNodeForm(node: any) {
-  const retryConfig = normalizeRetryConfig(getNodeConfigValue(node, 'retry'))
-  nodeForm.value = {
-    inputs_text: normalizeInputPaths(getNodeConfigValue(node, 'inputs')).join('\n'),
-    outputs_text: stringifyStructuredConfig(getNodeConfigValue(node, 'outputs')),
-    join_policy: String(getNodeConfigValue(node, 'join_policy') || ''),
-    fail_policy: String(getNodeConfigValue(node, 'fail_policy') || ''),
-    branch_policy: String(getNodeConfigValue(node, 'branch_policy') || ''),
-    concurrency_key: String(getNodeConfigValue(node, 'concurrency_key') || ''),
-    timeout: normalizeNumber(getNodeConfigValue(node, 'timeout'), 1, true) ?? null,
-    retry_max_attempts: normalizeNumber(retryConfig.max_attempts, 1, true) ?? null,
-    retry_interval: normalizeNumber(retryConfig.interval, 0) ?? null,
-    retry_backoff: normalizeNumber(retryConfig.backoff, 1) ?? null,
-  }
-}
-
-// 选中动作节点时打开执行配置面板
-function handleNodeClick(params: any) {
-  const node = params?.node
-  if (!node) return
-  if (node.name == '备注') return
-  selectedEdgeId.value = null
-  selectedNodeId.value = node.id
-  fillNodeForm(node)
-}
-
-// 关闭动作节点执行配置面板
-function closeNodeSettings() {
-  selectedNodeId.value = null
-  nodeForm.value = {
-    inputs_text: '',
-    outputs_text: '',
-    join_policy: '',
-    fail_policy: '',
-    branch_policy: '',
-    concurrency_key: '',
-    timeout: null,
-    retry_max_attempts: null,
-    retry_interval: null,
-    retry_backoff: null,
-  }
-}
-
-// 根据面板表单构造动作节点执行配置
-function buildNodeConfigFromForm() {
-  return {
-    inputs: normalizeInputPaths(nodeForm.value.inputs_text),
-    outputs: parseStructuredConfig(nodeForm.value.outputs_text, t('dialog.workflowActions.nodeOutputsLabel')),
-    join_policy: nodeForm.value.join_policy,
-    fail_policy: nodeForm.value.fail_policy,
-    branch_policy: nodeForm.value.branch_policy,
-    concurrency_key: nodeForm.value.concurrency_key,
-    timeout: normalizeNumber(nodeForm.value.timeout, 1, true),
-    retry: buildRetryConfigFromForm(),
-  }
-}
-
-// 保存动作节点执行配置
-function saveNodeSettings() {
-  if (!selectedNodeId.value) return
-  let nodeConfig: any
-  try {
-    nodeConfig = buildNodeConfigFromForm()
-  } catch (error: any) {
-    $toast.error(error.message)
-    return
-  }
-  nodes.value = nodes.value.map(node => {
-    if (node.id !== selectedNodeId.value) return node
-    return normalizeWorkflowNode({
-      ...node,
-      inputs: nodeConfig.inputs,
-      outputs: nodeConfig.outputs,
-      join_policy: nodeConfig.join_policy,
-      fail_policy: nodeConfig.fail_policy,
-      branch_policy: nodeConfig.branch_policy,
-      concurrency_key: nodeConfig.concurrency_key,
-      timeout: nodeConfig.timeout,
-      retry: nodeConfig.retry,
-      data: {
-        ...(node.data || {}),
-        inputs: nodeConfig.inputs,
-        outputs: nodeConfig.outputs,
-        join_policy: nodeConfig.join_policy,
-        fail_policy: nodeConfig.fail_policy,
-        branch_policy: nodeConfig.branch_policy,
-        concurrency_key: nodeConfig.concurrency_key,
-        timeout: nodeConfig.timeout,
-        retry: nodeConfig.retry,
-      },
+// 当前边的条件下拉选项，按源节点固定输出自动生成
+const edgeConditionOptions = computed(() => {
+  const sourceNode = selectedEdge.value
+    ? nodes.value.find(node => node.id === selectedEdge.value?.source)
+    : null
+  const options = [{ title: t('dialog.workflowActions.conditionAlways'), value: '' }]
+  selectedEdgeConditionFields.value.forEach((field: any) => {
+    const fieldName = field.name || field
+    if (!fieldName) return
+    const fieldLabel = field.label || fieldName
+    if (field.kind === 'list') {
+      options.push({
+        title: t('dialog.workflowActions.conditionHasOutput', { field: fieldLabel }),
+        value: `outputs.${sourceNode?.id}.${fieldName}.count > 0`,
+      })
+      options.push({
+        title: t('dialog.workflowActions.conditionNoOutput', { field: fieldLabel }),
+        value: `outputs.${sourceNode?.id}.${fieldName}.count == 0`,
+      })
+      return
+    }
+    options.push({
+      title: t('dialog.workflowActions.conditionHasValue', { field: fieldLabel }),
+      value: `outputs.${sourceNode?.id}.${fieldName} != None`,
     })
   })
-  $toast.success(t('dialog.workflowActions.nodeSaveSuccess'))
+  if (edgeForm.value.condition && !options.some(item => item.value === edgeForm.value.condition)) {
+    options.push({
+      title: t('dialog.workflowActions.conditionCustom'),
+      value: edgeForm.value.condition,
+    })
+  }
+  return options
+})
+
+// 选中动作节点时关闭可能打开的边条件面板，不再提供节点运行设置
+function handleNodeClick() {
+  closeEdgeSettings()
 }
 
 // 自定义节点类型
@@ -476,6 +300,17 @@ for (const path in components) {
   loadComponent(componentName).then(component => {
     nodeTypes.value[componentName] = markRaw(component)
   })
+}
+
+// 加载动作契约，供边条件构造器使用
+async function loadActionDefinitions() {
+  try {
+    const actionList = await api.get('workflow/actions')
+    actionDefinitions.value = Array.isArray(actionList) ? actionList : []
+  } catch (error) {
+    console.error(error)
+    actionDefinitions.value = []
+  }
 }
 
 // 定义输入参数
@@ -590,6 +425,7 @@ function shareWorkflow() {
 }
 
 onMounted(() => {
+  loadActionDefinitions()
   if (props.workflow) {
     nodes.value = props.workflow.actions ?? []
     edges.value = props.workflow.flows ?? []
@@ -611,8 +447,8 @@ watch(
 watch(
   nodes,
   () => {
-    if (selectedNodeId.value && !selectedNode.value) {
-      closeNodeSettings()
+    if (selectedEdge.value && !canConfigureEdge(selectedEdge.value)) {
+      closeEdgeSettings()
     }
   },
   { deep: true },
@@ -691,33 +527,11 @@ const isMacOS = computed(() => {
               <span>{{ getNodeName(selectedEdge.target) }}</span>
             </div>
 
-            <VTextarea
+            <VSelect
               v-model="edgeForm.condition"
+              :items="edgeConditionOptions"
               :label="t('dialog.workflowActions.edgeConditionLabel')"
-              :placeholder="t('dialog.workflowActions.edgeConditionPlaceholder')"
-              rows="3"
-              auto-grow
               clearable
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-
-            <VSelect
-              v-model="edgeForm.join_policy"
-              :items="joinPolicyOptions"
-              :label="t('dialog.workflowActions.edgeJoinPolicyLabel')"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-
-            <VSelect
-              v-model="edgeForm.branch_policy"
-              :items="branchPolicyOptions"
-              :label="t('dialog.workflowActions.edgeBranchPolicyLabel')"
               item-title="title"
               item-value="value"
               variant="outlined"
@@ -734,121 +548,6 @@ const isMacOS = computed(() => {
                 {{ t('dialog.workflowActions.edgeCancel') }}
               </VBtn>
               <VBtn color="primary" @click="saveEdgeSettings">
-                {{ t('dialog.workflowActions.edgeSave') }}
-              </VBtn>
-            </div>
-          </div>
-
-          <div v-if="selectedNode" class="workflow-edge-panel workflow-node-panel">
-            <div class="edge-panel-header">
-              <div class="edge-panel-title">
-                <VIcon icon="mdi-tune-variant" size="20" />
-                <span>{{ t('dialog.workflowActions.nodeSettingsTitle') }}</span>
-              </div>
-              <VBtn icon variant="text" size="small" @click="closeNodeSettings">
-                <VIcon icon="mdi-close" />
-              </VBtn>
-            </div>
-
-            <div class="edge-route">
-              <VIcon icon="mdi-checkbox-blank-circle-outline" size="16" />
-              <span>{{ getNodeName(selectedNode.id) }}</span>
-            </div>
-
-            <VSelect
-              v-model="nodeForm.join_policy"
-              :items="joinPolicyOptions"
-              :label="t('dialog.workflowActions.nodeJoinPolicyLabel')"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-
-            <VSelect
-              v-model="nodeForm.fail_policy"
-              :items="failPolicyOptions"
-              :label="t('dialog.workflowActions.nodeFailPolicyLabel')"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-
-            <VSelect
-              v-model="nodeForm.branch_policy"
-              :items="branchPolicyOptions"
-              :label="t('dialog.workflowActions.nodeBranchPolicyLabel')"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-
-            <VTextField
-              v-model="nodeForm.concurrency_key"
-              :label="t('dialog.workflowActions.nodeConcurrencyKeyLabel')"
-              :placeholder="t('dialog.workflowActions.nodeConcurrencyKeyPlaceholder')"
-              clearable
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-            />
-
-            <div class="workflow-number-grid">
-              <VTextField
-                v-model.number="nodeForm.timeout"
-                type="number"
-                min="1"
-                :label="t('dialog.workflowActions.nodeTimeoutLabel')"
-                clearable
-                variant="outlined"
-                density="comfortable"
-                hide-details="auto"
-              />
-              <VTextField
-                v-model.number="nodeForm.retry_max_attempts"
-                type="number"
-                min="1"
-                :label="t('dialog.workflowActions.nodeRetryAttemptsLabel')"
-                clearable
-                variant="outlined"
-                density="comfortable"
-                hide-details="auto"
-              />
-              <VTextField
-                v-model.number="nodeForm.retry_interval"
-                type="number"
-                min="0"
-                step="0.1"
-                :label="t('dialog.workflowActions.nodeRetryIntervalLabel')"
-                clearable
-                variant="outlined"
-                density="comfortable"
-                hide-details="auto"
-              />
-              <VTextField
-                v-model.number="nodeForm.retry_backoff"
-                type="number"
-                min="1"
-                step="0.1"
-                :label="t('dialog.workflowActions.nodeRetryBackoffLabel')"
-                clearable
-                variant="outlined"
-                density="comfortable"
-                hide-details="auto"
-              />
-            </div>
-
-            <div class="edge-panel-actions">
-              <VSpacer />
-              <VBtn variant="text" @click="closeNodeSettings">
-                {{ t('dialog.workflowActions.edgeCancel') }}
-              </VBtn>
-              <VBtn color="primary" @click="saveNodeSettings">
                 {{ t('dialog.workflowActions.edgeSave') }}
               </VBtn>
             </div>
@@ -914,10 +613,6 @@ const isMacOS = computed(() => {
   overflow-y: auto;
 }
 
-.workflow-node-panel {
-  inline-size: min(420px, calc(100vw - 32px));
-}
-
 .edge-panel-header {
   display: flex;
   align-items: center;
@@ -956,12 +651,6 @@ const isMacOS = computed(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.workflow-number-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .vue-flow__minimap {
@@ -1042,8 +731,5 @@ const isMacOS = computed(() => {
     max-block-size: min(72vh, calc(100% - 112px));
   }
 
-  .workflow-number-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>
