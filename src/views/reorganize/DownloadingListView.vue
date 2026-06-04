@@ -105,7 +105,7 @@ useKeepAliveRefresh(fetchData, {
 <style lang="scss" scoped>
 // VPullToRefresh 自带 overflow: hidden，给下载卡阴影预留裁剪范围内的缓冲区。
 .downloading-refresh-shell {
-  margin: -1rem;
-  padding: 1rem;
+  margin: -2rem;
+  padding: 2rem;
 }
 </style>
