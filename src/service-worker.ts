@@ -155,6 +155,7 @@ registerRoute(
     !url.pathname.includes('/api/v1/message/') && // 用户消息接口
     !url.pathname.includes('/api/v1/system/global') && // 系统配置接口
     !url.pathname.includes('/api/v1/mfa/') && // 多因素认证接口
+    !url.pathname.includes('/api/v1/auth/') && // 登录认证入口与票据交换
     !url.pathname.includes('/api/v1/dashboard/') && // Dashboard实时监控数据
     !url.pathname.includes('/api/v1/plugin/')&& // 插件接口
     !url.pathname.includes('/api/v1/subscribe/'), // 订阅接口

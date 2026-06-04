@@ -10,9 +10,10 @@ import {
 const federationController = new AbortController()
 
 // 定义远程模块接口
-interface RemoteModule {
+export interface RemoteModule {
   id: string
   url: string
+  name?: string
 }
 
 /**
@@ -113,6 +114,17 @@ export async function loadRemoteComponent(id: string, componentName: string = 'P
 }
 
 /**
+ * 使用后端发现接口返回的 remote 信息加载指定组件。
+ * @param remoteModule 远程模块信息
+ * @param componentName 组件名称
+ */
+export async function loadRemoteComponentFromModule(remoteModule: RemoteModule, componentName: string = 'Page') {
+  injectRemoteModule(remoteModule)
+  const module = await __federation_method_getRemote(remoteModule.id, `./${componentName}`)
+  return __federation_method_unwrapDefault(module)
+}
+
+/**
  * 从API获取远程模块列表
  */
 async function fetchRemoteModules(): Promise<RemoteModule[]> {
@@ -131,7 +143,7 @@ async function fetchRemoteModules(): Promise<RemoteModule[]> {
  * 动态注入Federation Remote模块
  * @param modules 远程模块列表
  */
-function injectRemoteModule(module: RemoteModule): void {
+export function injectRemoteModule(module: RemoteModule): void {
   // 与 API 请求一致：使用 origin + pathname 作为前缀，子路径代理时 pathname 含 /mp 等
   const baseUrl = new URL(window.location.href)
   const pathBase = baseUrl.pathname.replace(/\/$/, '') || ''
