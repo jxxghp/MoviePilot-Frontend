@@ -24,7 +24,7 @@ export const themeCustomizerPrimaryColors = [
 ] as const
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
-export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'small' | 'square'
+export type ThemeCustomizerRadius = 'default' | 'extra' | 'huge' | 'large' | 'small'
 export type ThemeCustomizerShadow = 'none' | 'low' | 'medium' | 'high'
 export type ThemeCustomizerSkin = 'bordered' | 'default'
 export type ThemeCustomizerTheme = 'auto' | 'dark' | 'light' | 'purple' | 'transparent'
@@ -43,7 +43,7 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
-const validRadii: ThemeCustomizerRadius[] = ['square', 'small', 'default', 'large', 'extra']
+const validRadii: ThemeCustomizerRadius[] = ['small', 'default', 'large', 'extra', 'huge']
 const validShadows: ThemeCustomizerShadow[] = ['none', 'low', 'medium', 'high']
 const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
 const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent']

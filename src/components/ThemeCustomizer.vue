@@ -185,11 +185,6 @@ const radiusOptions = computed<
   }>
 >(() => [
   {
-    previewRadius: '0',
-    title: t('theme.customizer.radiusSquare'),
-    value: 'square',
-  },
-  {
     previewRadius: '4px',
     title: t('theme.customizer.radiusSmall'),
     value: 'small',
@@ -208,6 +203,11 @@ const radiusOptions = computed<
     previewRadius: '16px',
     title: t('theme.customizer.radiusExtra'),
     value: 'extra',
+  },
+  {
+    previewRadius: '24px',
+    title: t('theme.customizer.radiusHuge'),
+    value: 'huge',
   },
 ])
 

@@ -48,10 +48,6 @@ html {
   --app-surface-hover-shadow: none;
 }
 
-html[data-theme-radius='square'] {
-  --app-surface-radius: 0;
-}
-
 html[data-theme-radius='small'] {
   --app-surface-radius: 4px;
 }
@@ -62,6 +58,10 @@ html[data-theme-radius='large'] {
 
 html[data-theme-radius='extra'] {
   --app-surface-radius: 16px;
+}
+
+html[data-theme-radius='huge'] {
+  --app-surface-radius: 24px;
 }
 
 html[data-theme='dark'],
@@ -134,6 +134,11 @@ html[data-theme-shadow='high'] {
   border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-surface-shadow) !important;
   transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+}
+
+// 底部导航卡片原本就是胶囊形态，不参与主题圆角切换。
+.footer-nav-card.v-card {
+  border-radius: 9999px !important;
 }
 
 @media (hover: hover) {
@@ -822,6 +827,27 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
   border-radius: 0 !important;
   box-shadow: none !important;
+}
+
+// 小屏全屏弹窗仍贴底铺满，但顶部两个角跟随主题定制器圆角。
+@media (width <= 600px) {
+  .v-dialog--fullscreen > .v-overlay__content {
+    overflow: hidden;
+    border-end-end-radius: 0 !important;
+    border-end-start-radius: 0 !important;
+    border-start-end-radius: var(--app-surface-radius) !important;
+    border-start-start-radius: var(--app-surface-radius) !important;
+  }
+
+  .v-dialog--fullscreen > .v-overlay__content > .v-card,
+  .v-dialog--fullscreen > .v-overlay__content > .v-sheet,
+  .v-dialog--fullscreen > .v-overlay__content > form > .v-card,
+  .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
+    border-end-end-radius: 0 !important;
+    border-end-start-radius: 0 !important;
+    border-start-end-radius: var(--app-surface-radius) !important;
+    border-start-start-radius: var(--app-surface-radius) !important;
+  }
 }
 
 .settings-icon-button {
