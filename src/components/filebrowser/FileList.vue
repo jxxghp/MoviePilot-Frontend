@@ -778,7 +778,7 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <VCard class="d-flex flex-column w-full h-full rounded-t-0" :class="{ 'rounded-s-0': showTree }">
+    <VCard class="d-flex flex-column w-full h-full">
       <div v-if="!loading" class="flex">
         <IconBtn v-if="display.mdAndUp.value">
           <VIcon v-if="showTree" icon="mdi-file-tree" @click="switchFileTree(false)" />

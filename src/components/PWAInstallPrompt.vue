@@ -178,7 +178,7 @@ const instructions = computed(() => {
   position: fixed;
   z-index: 1000;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 12px;
+  border-radius: var(--app-surface-radius);
   background: rgb(var(--v-theme-surface));
   box-shadow: 0 4px 20px rgba(0, 0, 0, 10%);
   inset-block-end: 5rem;

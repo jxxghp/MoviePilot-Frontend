@@ -200,7 +200,7 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   <Teleport v-if="appMode && showNav" to="body">
     <div class="footer-nav-container">
       <TransitionGroup name="footer-nav" tag="div" class="footer-nav-group">
-        <VCard key="main-nav" elevation="3" class="footer-nav-card border" rounded="pill">
+        <VCard key="main-nav" elevation="3" class="footer-nav-card border">
           <VCardText class="footer-card-content">
             <!-- 添加指示器 -->
             <div ref="indicator" class="nav-indicator"></div>
@@ -248,7 +248,6 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
           key="dynamic-btn"
           elevation="3"
           class="footer-nav-card dynamic-btn-card border"
-          rounded="pill"
         >
           <VCardText class="footer-card-content">
             <!-- 各页面的动态按钮 -->

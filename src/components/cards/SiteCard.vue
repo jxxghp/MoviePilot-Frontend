@@ -255,7 +255,6 @@ onMounted(() => {
       :ripple="false"
       variant="flat"
       elevation="0"
-      rounded="lg"
       :hover="!cardProps.sortable"
       @click="handleCardClick"
     >

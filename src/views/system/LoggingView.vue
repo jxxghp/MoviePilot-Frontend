@@ -817,7 +817,7 @@ onUnmounted(() => {
   display: flex;
   align-items: stretch;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.04);
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   gap: 0.75rem;
   min-inline-size: 0;
   padding-block: 0.5rem;

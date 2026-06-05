@@ -94,7 +94,7 @@ function doDelete() {
     <VHover>
       <template #default="hover">
         <div
-          class="w-full h-full rounded-lg overflow-hidden"
+          class="w-full h-full overflow-hidden"
           :class="{
             'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
           }"
@@ -103,7 +103,6 @@ function doDelete() {
             v-bind="hover.props"
             :key="props.media?.id"
             class="flex flex-col h-full"
-            rounded="0"
             min-height="150"
             @click="showForkSubscribe"
           >

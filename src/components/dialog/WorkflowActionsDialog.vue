@@ -602,7 +602,7 @@ const isMacOS = computed(() => {
   flex-direction: column;
   padding: 16px;
   border: 1px solid rgb(var(--v-theme-primary));
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background-color: rgb(var(--v-theme-surface));
   box-shadow: 0 8px 24px rgba(var(--v-shadow-key-umbra-color), 0.32);
   gap: 14px;
@@ -656,7 +656,7 @@ const isMacOS = computed(() => {
 .vue-flow__minimap {
   overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background-color: rgba(var(--v-theme-surface), 0.8);
   box-shadow: 0 4px 15px rgba(var(--v-shadow-key-umbra-color), 0.1);
   inset-block-end: 20px;
@@ -687,7 +687,7 @@ const isMacOS = computed(() => {
 // 自定义节点样式
 .vue-flow__node {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 12px;
+  border-radius: var(--app-surface-radius);
 
   &:hover {
     box-shadow: 0 8px 16px rgba(var(--v-shadow-key-umbra-color), 0.15) !important;

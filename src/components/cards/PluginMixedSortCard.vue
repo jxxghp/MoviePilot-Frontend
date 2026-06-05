@@ -137,7 +137,7 @@ function handleDropToFolder(event: DragEvent) {
 
   &.sortable-ghost {
     border: 2px dashed #2196f3;
-    border-radius: 16px;
+    border-radius: var(--app-surface-radius);
     background: rgba(33, 150, 243, 10%);
     opacity: 0.3;
   }
@@ -151,7 +151,7 @@ function handleDropToFolder(event: DragEvent) {
 
   &.drag-over {
     border: 2px dashed #2196f3;
-    border-radius: 16px;
+    border-radius: var(--app-surface-radius);
     box-shadow: 0 0 20px rgba(33, 150, 243, 50%);
     transform: scale(1.02);
   }

@@ -719,7 +719,7 @@ onMounted(() => {
 
 .site-resource-card__meta-item {
   border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7));
-  border-radius: 0.6rem;
+  border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), 0.78);
   min-block-size: 0;
   padding-block: 0.55rem;

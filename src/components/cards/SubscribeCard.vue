@@ -404,7 +404,7 @@ function handleCardClick() {
     <VHover>
       <template #default="hover">
         <div
-          class="w-full h-full rounded-lg relative"
+          class="subscribe-card-shell w-full h-full relative"
           :class="{
             'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
             'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
@@ -419,7 +419,6 @@ function handleCardClick() {
               'subscribe-card-paused': subscribeState === 'S',
               'cursor-move': props.sortable,
             }"
-            rounded="lg"
             min-height="150"
             @click="handleCardClick"
             :ripple="!props.batchMode && !props.sortable"
@@ -594,10 +593,14 @@ function handleCardClick() {
   position: relative;
 }
 
+.subscribe-card-shell {
+  border-radius: var(--app-surface-radius);
+}
+
 .subscribe-card-pending-tint::after {
   position: absolute;
   z-index: 3;
-  border-radius: 8px;
+  border-radius: inherit;
   box-shadow: inset 0 0 48px rgba(56, 189, 248, 40%); // sky-400
   content: '';
   inset: 0;

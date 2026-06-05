@@ -253,7 +253,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <VCard class="file-navigator rounded-e-0 rounded-t-0" v-if="!isMobile" :height="`${availableHeight}px`">
+  <VCard class="file-navigator" v-if="!isMobile" :height="`${availableHeight}px`">
     <VVirtualScroll :items="visibleTreeRows" :item-height="32" class="tree-container">
       <template #default="{ item }">
         <div

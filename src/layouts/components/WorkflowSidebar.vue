@@ -281,7 +281,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 10px;
-  border-radius: 12px;
+  border-radius: var(--app-surface-radius);
   background-color: rgb(var(--v-theme-surface-variant));
   transition: all 0.2s ease;
 

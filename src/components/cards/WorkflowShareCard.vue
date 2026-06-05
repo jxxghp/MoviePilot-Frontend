@@ -102,7 +102,6 @@ function doDelete() {
           :class="{
             'workflow-share-card--hovering': hover.isHovering,
           }"
-          rounded="lg"
           min-height="150"
           :style="{ background: gradientStyle }"
           @click="showForkWorkflow"

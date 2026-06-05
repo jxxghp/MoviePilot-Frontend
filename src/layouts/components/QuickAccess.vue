@@ -733,7 +733,7 @@ function handleBackdropClick(event: MouseEvent) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: var(--app-surface-radius);
   block-size: 120px;
   cursor: pointer;
   gap: 4px;

@@ -32,8 +32,9 @@ html.v-overlay-scroll-blocked body {
   }
 }
 
-// 全局卡片阴影 token：卡片统一不使用投影，避免透明主题和密集布局下出现脏边。
+// 全局卡片外观 token：圆角和阴影在主题定制器中即时切换。
 html {
+  --app-surface-radius: 8px;
   --app-shadow-rgb: 15, 23, 42;
   --app-card-rest-shadow: none;
   --app-card-hover-shadow: none;
@@ -45,6 +46,22 @@ html {
   --app-overlay-shadow: none;
   --app-surface-shadow: none;
   --app-surface-hover-shadow: none;
+}
+
+html[data-theme-radius='square'] {
+  --app-surface-radius: 0;
+}
+
+html[data-theme-radius='small'] {
+  --app-surface-radius: 4px;
+}
+
+html[data-theme-radius='large'] {
+  --app-surface-radius: 12px;
+}
+
+html[data-theme-radius='extra'] {
+  --app-surface-radius: 16px;
 }
 
 html[data-theme='dark'],
@@ -114,8 +131,9 @@ html[data-theme-shadow='high'] {
 // 统一系统内卡片阴影，显式覆盖 Vuetify elevation 或局部卡片默认投影。
 .v-card,
 .v-application .v-card.v-card[class] {
+  border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-surface-shadow) !important;
-  transition: box-shadow 0.2s ease;
+  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
 @media (hover: hover) {
@@ -183,7 +201,7 @@ html[data-theme-skin='bordered'] {
 .app-card-colorful {
   overflow: hidden;
   border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity)) !important;
-  border-radius: 8px !important;
+  border-radius: var(--app-surface-radius) !important;
   background:
     linear-gradient(
       135deg,
@@ -724,6 +742,8 @@ html[data-theme="transparent"] .app-card-colorful,
 
 // 弹出层样式
 .v-overlay__content .v-list{
+  overflow: hidden;
+  border-radius: var(--app-surface-radius) !important;
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.9) !important;
   box-shadow: none !important;
@@ -731,6 +751,7 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .v-overlay__content .v-card:not(.bg-primary){
+  border-radius: var(--app-surface-radius) !important;
   backdrop-filter: blur(8px);
   background-color: rgb(var(--v-theme-surface), 0.95) !important;
   box-shadow: none !important;
@@ -772,6 +793,7 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .v-dialog--fullscreen > .v-overlay__content {
+  border-radius: 0 !important;
   box-shadow: none !important;
 }
 
@@ -784,13 +806,21 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .v-dialog > .v-overlay__content > .v-card,
+.v-dialog > .v-overlay__content > .v-sheet,
+.v-dialog > .v-overlay__content > form > .v-card,
+.v-dialog > .v-overlay__content > form > .v-sheet,
 .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-list {
+  border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-overlay-shadow) !important;
 }
 
-.v-dialog--fullscreen > .v-overlay__content > .v-card {
+.v-dialog--fullscreen > .v-overlay__content > .v-card,
+.v-dialog--fullscreen > .v-overlay__content > .v-sheet,
+.v-dialog--fullscreen > .v-overlay__content > form > .v-card,
+.v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
+  border-radius: 0 !important;
   box-shadow: none !important;
 }
 

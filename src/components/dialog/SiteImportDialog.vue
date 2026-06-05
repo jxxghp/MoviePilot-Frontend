@@ -394,7 +394,7 @@ watch(selectedFile, async newFile => {
 .upload-zone {
   padding: 2rem;
   border: 2px dashed #ccc;
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   text-align: center;
   transition: all 0.3s ease;
 }

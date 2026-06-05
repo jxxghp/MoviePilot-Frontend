@@ -610,7 +610,7 @@ onMounted(() => {
 .filter-toolbar-card {
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), 0.82);
 }
 
@@ -759,7 +759,7 @@ onMounted(() => {
 
 @media (width <= 600px) {
   .filter-toolbar-card {
-    border-radius: 8px;
+    border-radius: var(--app-surface-radius);
   }
 
   .filter-buttons-grid {

@@ -4,6 +4,7 @@ import {
   themeCustomizerPrimaryColors,
   useThemeCustomizer,
   type ThemeCustomizerLayout,
+  type ThemeCustomizerRadius,
   type ThemeCustomizerShadow,
   type ThemeCustomizerSkin,
   type ThemeCustomizerTheme,
@@ -34,6 +35,7 @@ const {
   resetSettings,
   setLayout,
   setPrimaryColor,
+  setRadius,
   setSemiDarkMenu,
   setShadow,
   setSkin,
@@ -175,6 +177,40 @@ const shadowOptions = computed<
   },
 ])
 
+const radiusOptions = computed<
+  Array<{
+    previewRadius: string
+    title: string
+    value: ThemeCustomizerRadius
+  }>
+>(() => [
+  {
+    previewRadius: '0',
+    title: t('theme.customizer.radiusSquare'),
+    value: 'square',
+  },
+  {
+    previewRadius: '4px',
+    title: t('theme.customizer.radiusSmall'),
+    value: 'small',
+  },
+  {
+    previewRadius: '8px',
+    title: t('theme.customizer.radiusDefault'),
+    value: 'default',
+  },
+  {
+    previewRadius: '12px',
+    title: t('theme.customizer.radiusLarge'),
+    value: 'large',
+  },
+  {
+    previewRadius: '16px',
+    title: t('theme.customizer.radiusExtra'),
+    value: 'extra',
+  },
+])
+
 const layoutOptions = computed<Array<{ icon: string; title: string; value: ThemeCustomizerLayout }>>(() => [
   { title: t('theme.customizer.layoutVertical'), value: 'vertical', icon: 'mdi-dock-left' },
   { title: t('theme.customizer.layoutCollapsed'), value: 'collapsed', icon: 'mdi-dock-window' },
@@ -186,6 +222,7 @@ const showLayoutSection = computed(() => !appMode.value)
 const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
+    settings.value.radius !== 'default' ||
     settings.value.shadow !== 'none' ||
     settings.value.skin !== 'default' ||
     settings.value.theme !== 'auto'
@@ -228,6 +265,7 @@ async function handleResetSettings() {
 
   // App 模式共享定制器，但保留桌面导航相关偏好，只重置 App 侧可调整的外观设置。
   await setPrimaryColor(defaultPrimaryColor)
+  await setRadius('default')
   await setShadow('none')
   await setSkin('default')
   await setTheme('auto')
@@ -343,6 +381,31 @@ async function handleResetSettings() {
                   </span>
                 </span>
                 <span>{{ skin.title }}</span>
+              </div>
+            </div>
+
+            <VDivider class="mt-7" />
+
+            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.radius') }}</h3>
+            <div class="theme-customizer-preview-grid theme-customizer-preview-grid--radius">
+              <div
+                v-for="radius in radiusOptions"
+                :key="radius.value"
+                class="theme-customizer-preview-option"
+                :class="{ 'is-active': settings.radius === radius.value }"
+                @click="setRadius(radius.value)"
+              >
+                <span
+                  class="theme-customizer-radius-scene"
+                  :style="{ '--theme-customizer-radius-preview': radius.previewRadius }"
+                >
+                  <span class="theme-customizer-radius-scene__card">
+                    <span class="theme-customizer-radius-scene__badge" />
+                    <span class="theme-customizer-radius-scene__line" />
+                    <span class="theme-customizer-radius-scene__line theme-customizer-radius-scene__line--short" />
+                  </span>
+                </span>
+                <span>{{ radius.title }}</span>
               </div>
             </div>
 
@@ -469,7 +532,7 @@ async function handleResetSettings() {
 .theme-customizer-panel--dialog {
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 16px;
+  border-radius: var(--app-surface-radius);
   background: rgb(var(--v-theme-surface));
   block-size: var(--theme-customizer-viewport-height, 100dvh);
   max-block-size: var(--theme-customizer-viewport-height, 100dvh);
@@ -703,6 +766,10 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.theme-customizer-preview-grid--radius {
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+}
+
 .theme-customizer-preview-option {
   align-items: flex-start;
   padding: 0;
@@ -715,6 +782,7 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
     box-shadow: none !important;
 
     .theme-customizer-mini-layout,
+    .theme-customizer-radius-scene,
     .theme-customizer-shadow-scene {
       border-width: 2px;
       border-color: rgb(var(--v-theme-primary));
@@ -801,6 +869,54 @@ html[data-theme='transparent'] .v-overlay__content:has(.theme-customizer-drawer)
     border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
     background: transparent;
   }
+}
+
+.theme-customizer-radius-scene {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-on-surface), 0.02), rgba(var(--v-theme-on-surface), 0.05)),
+    rgb(var(--v-theme-surface));
+  block-size: 90px;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.theme-customizer-radius-scene__card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: var(--theme-customizer-radius-preview);
+  background: rgb(var(--v-theme-surface));
+  gap: 8px;
+  inset: 16px;
+  padding-block: 12px;
+  padding-inline: 14px;
+}
+
+.theme-customizer-radius-scene__badge,
+.theme-customizer-radius-scene__line {
+  display: block;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.1);
+}
+
+.theme-customizer-radius-scene__badge {
+  block-size: 8px;
+  inline-size: 42%;
+  min-inline-size: 28px;
+}
+
+.theme-customizer-radius-scene__line {
+  block-size: 7px;
+}
+
+.theme-customizer-radius-scene__line--short {
+  inline-size: 66%;
 }
 
 .theme-customizer-shadow-scene {

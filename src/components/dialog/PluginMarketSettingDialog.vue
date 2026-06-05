@@ -505,7 +505,7 @@ onMounted(() => {
 .plugin-market-list-wrap {
   flex: 1;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), 0.72);
   min-block-size: 0;
   overflow-y: auto;
@@ -563,7 +563,7 @@ onMounted(() => {
   display: flex;
   flex: 1;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), 0.72);
   min-block-size: 0;
   overflow: hidden;

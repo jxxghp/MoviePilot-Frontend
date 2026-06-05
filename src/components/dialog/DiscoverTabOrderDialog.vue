@@ -118,7 +118,7 @@ function submitOrder() {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-primary), 0.3);
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background-color: rgba(var(--v-theme-primary), 0.08);
   cursor: grab;
   padding-block: 10px;

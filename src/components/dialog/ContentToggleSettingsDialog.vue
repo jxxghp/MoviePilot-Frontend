@@ -196,7 +196,7 @@ function submitSettings() {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   background-color: rgba(var(--v-theme-surface-variant), 0.3);
   cursor: pointer;
   padding-block: 10px;

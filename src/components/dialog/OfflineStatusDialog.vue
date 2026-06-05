@@ -116,7 +116,7 @@ const colorTheme = computed(() => {
 
 <style scoped>
 .offline-dialog {
-  border-radius: 16px;
+  border-radius: var(--app-surface-radius);
 }
 
 .status-icon-wrapper {

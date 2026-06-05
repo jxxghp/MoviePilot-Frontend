@@ -75,7 +75,6 @@ async function deleteDownload() {
     <VCard
       :key="props.info?.hash"
       class="downloading-card flex flex-col h-full overflow-hidden"
-      rounded="lg"
       min-height="150"
     >
       <template #image>
@@ -133,11 +132,11 @@ async function deleteDownload() {
 // 外层壳承载主题阴影，避免 VCard 的圆角裁切层影响阴影外扩。
 .downloading-card-shadow-shell {
   position: relative;
-  border-radius: 8px;
+  border-radius: var(--app-surface-radius);
   block-size: 100%;
   box-shadow: var(--app-surface-shadow);
   inline-size: 100%;
-  transition: box-shadow 0.2s ease;
+  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
 @media (hover: hover) {

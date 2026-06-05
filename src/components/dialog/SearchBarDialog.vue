@@ -698,7 +698,7 @@ onMounted(() => {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  border-radius: 16px !important;
+  border-radius: var(--app-surface-radius) !important;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 12%) !important;
 }
 

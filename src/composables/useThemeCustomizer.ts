@@ -24,6 +24,7 @@ export const themeCustomizerPrimaryColors = [
 ] as const
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
+export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'small' | 'square'
 export type ThemeCustomizerShadow = 'none' | 'low' | 'medium' | 'high'
 export type ThemeCustomizerSkin = 'bordered' | 'default'
 export type ThemeCustomizerTheme = 'auto' | 'dark' | 'light' | 'purple' | 'transparent'
@@ -31,6 +32,7 @@ export type ThemeCustomizerTheme = 'auto' | 'dark' | 'light' | 'purple' | 'trans
 export interface ThemeCustomizerSettings {
   layout: ThemeCustomizerLayout
   primaryColor: string
+  radius: ThemeCustomizerRadius
   semiDarkMenu: boolean
   shadow: ThemeCustomizerShadow
   skin: ThemeCustomizerSkin
@@ -41,6 +43,7 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
+const validRadii: ThemeCustomizerRadius[] = ['square', 'small', 'default', 'large', 'extra']
 const validShadows: ThemeCustomizerShadow[] = ['none', 'low', 'medium', 'high']
 const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
 const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent']
@@ -67,6 +70,7 @@ function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
   return {
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
+    radius: 'default',
     semiDarkMenu: false,
     shadow: 'none',
     skin: 'default',
@@ -82,6 +86,9 @@ function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSetti
       ? (settings.layout as ThemeCustomizerLayout)
       : fallback.layout,
     primaryColor: isHexColor(settings.primaryColor) ? settings.primaryColor.toUpperCase() : fallback.primaryColor,
+    radius: validRadii.includes(settings.radius as ThemeCustomizerRadius)
+      ? (settings.radius as ThemeCustomizerRadius)
+      : fallback.radius,
     semiDarkMenu: typeof settings.semiDarkMenu === 'boolean' ? settings.semiDarkMenu : fallback.semiDarkMenu,
     shadow: validShadows.includes(settings.shadow as ThemeCustomizerShadow)
       ? (settings.shadow as ThemeCustomizerShadow)
@@ -161,17 +168,19 @@ export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyTheme
   localStorage.setItem('materio-initial-loader-color', color)
 }
 
-/** 布局、阴影、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */
+/** 布局、圆角、阴影、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */
 export function applyThemeCustomizerRootSettings(
-  settings: Pick<ThemeCustomizerSettings, 'layout' | 'semiDarkMenu' | 'shadow' | 'skin'>,
+  settings: Pick<ThemeCustomizerSettings, 'layout' | 'radius' | 'semiDarkMenu' | 'shadow' | 'skin'>,
 ) {
   if (!isBrowser()) return
 
   document.documentElement.setAttribute('data-theme-layout', settings.layout)
+  document.documentElement.setAttribute('data-theme-radius', settings.radius)
   document.documentElement.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
   document.documentElement.setAttribute('data-theme-shadow', settings.shadow)
   document.documentElement.setAttribute('data-theme-skin', settings.skin)
   document.body.setAttribute('data-theme-layout', settings.layout)
+  document.body.setAttribute('data-theme-radius', settings.radius)
   document.body.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
   document.body.setAttribute('data-theme-shadow', settings.shadow)
   document.body.setAttribute('data-theme-skin', settings.skin)
@@ -235,6 +244,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
   const defaults = normalizeThemeCustomizerSettings({
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
+    radius: 'default',
     semiDarkMenu: false,
     shadow: 'none',
     skin: 'default',
@@ -244,6 +254,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
   return (
     settings.layout === defaults.layout &&
     settings.primaryColor === defaults.primaryColor &&
+    settings.radius === defaults.radius &&
     settings.semiDarkMenu === defaults.semiDarkMenu &&
     settings.shadow === defaults.shadow &&
     settings.skin === defaults.skin &&
@@ -282,6 +293,10 @@ export function useThemeCustomizer() {
     return updateSettings({ primaryColor: color })
   }
 
+  function setRadius(radius: ThemeCustomizerRadius) {
+    return updateSettings({ radius })
+  }
+
   function setTheme(theme: ThemeCustomizerTheme) {
     return updateSettings({ theme })
   }
@@ -306,6 +321,7 @@ export function useThemeCustomizer() {
     await updateSettings({
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
+      radius: 'default',
       semiDarkMenu: false,
       shadow: 'none',
       skin: 'default',
@@ -339,6 +355,7 @@ export function useThemeCustomizer() {
     resetSettings,
     setLayout,
     setPrimaryColor,
+    setRadius,
     setSemiDarkMenu,
     setShadow,
     setSkin,
