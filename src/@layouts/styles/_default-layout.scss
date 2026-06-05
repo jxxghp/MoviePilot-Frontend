@@ -11,9 +11,9 @@ html {
 }
 
 body {
+  overflow: visible !important;
   background: rgb(var(--v-theme-background));
   overscroll-behavior-y: contain;
-  overflow: visible !important;
 
   --webkit-overflow-scrolling: touch;
 }
@@ -36,8 +36,8 @@ body,
 .layout-page-content {
   @include mixins.boxed-content(true);
 
-  overflow: visible;
   flex-grow: 1;
+  overflow: clip visible;
 
   // TODO: Use grid gutter variable here;
   padding-block: 1.5rem;
