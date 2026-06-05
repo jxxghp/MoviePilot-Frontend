@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { useTheme } from 'vuetify'
-import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
 import api from '@/api'
 import { useAuthStore, useGlobalSettingsStore } from '@/stores'
@@ -14,6 +13,7 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import { applyStoredThemeCustomizerAppearance } from '@/composables/useThemeCustomizer'
 import { themeManager } from '@/utils/themeManager'
+import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
@@ -22,18 +22,19 @@ const LOGIN_WALLPAPER_ROUTE = '/login'
 const vuetifyTheme = useTheme()
 const { global: globalTheme } = vuetifyTheme
 let themeValue = localStorage.getItem('theme') || 'auto'
-const autoTheme = checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
-globalTheme.name.value = themeValue === 'auto' ? autoTheme : themeValue
+globalTheme.name.value = resolveThemeName(themeValue)
 applyStoredThemeCustomizerAppearance(vuetifyTheme)
 
 // 启动屏和 iOS safe area 在同一层显示，根节点底色需要尽早和当前主题保持一致。
 function syncRootLaunchPalette() {
   const { background, primary } = globalTheme.current.value.colors
 
-  document.documentElement.style.setProperty('--initial-loader-bg', background)
-  document.documentElement.style.setProperty('--initial-loader-color', primary)
-  document.documentElement.style.backgroundColor = background
-  document.body.style.backgroundColor = background
+  applyDocumentThemeChrome(themeValue, {
+    background,
+    persistLoaderColors: true,
+    primary,
+    resolvedTheme: globalTheme.name.value,
+  })
 }
 
 // 生效语言
@@ -84,6 +85,7 @@ applyTransparentBackgroundSettings()
 
 // 心跳检测
 let heartbeatInterval: number | null = null
+let prefersColorSchemeMediaQuery: MediaQueryList | null = null
 
 // 启动心跳
 const startHeartbeat = () => {
@@ -117,6 +119,45 @@ function updateHtmlThemeAttribute(themeName: string) {
   document.documentElement.setAttribute('data-theme', themeName)
   document.body.setAttribute('data-theme', themeName)
   syncRootLaunchPalette()
+}
+
+function syncThemePreferenceFromStorage() {
+  themeValue = localStorage.getItem('theme') || 'auto'
+
+  const resolvedTheme = resolveThemeName(themeValue)
+  if (globalTheme.name.value !== resolvedTheme) {
+    globalTheme.name.value = resolvedTheme
+  }
+
+  applyStoredThemeCustomizerAppearance(vuetifyTheme)
+  updateHtmlThemeAttribute(resolvedTheme)
+  configureApexChartsTheme(resolvedTheme)
+
+  // 前台恢复时重新跑一次主题管理器，补齐 transparent CSS 和 auto 的实际 DOM 主题。
+  void themeManager
+    .setTheme(themeValue)
+    .then(() => {
+      updateHtmlThemeAttribute(globalTheme.name.value)
+    })
+    .catch(error => {
+      console.error('同步主题管理器失败:', error)
+    })
+}
+
+function handleSystemThemeChange() {
+  if ((localStorage.getItem('theme') || 'auto') === 'auto') {
+    syncThemePreferenceFromStorage()
+  }
+}
+
+function handleVisibilityThemeSync() {
+  if (document.visibilityState === 'visible') {
+    syncThemePreferenceFromStorage()
+  }
+}
+
+function handlePageShowThemeSync() {
+  syncThemePreferenceFromStorage()
 }
 
 // 获取背景图片
@@ -302,6 +343,12 @@ onMounted(async () => {
     },
   )
 
+  prefersColorSchemeMediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)') ?? null
+  prefersColorSchemeMediaQuery?.addEventListener('change', handleSystemThemeChange)
+  document.addEventListener('visibilitychange', handleVisibilityThemeSync)
+  window.addEventListener('pageshow', handlePageShowThemeSync)
+  window.addEventListener('focus', handlePageShowThemeSync)
+
   // 登录页壁纸仅在未登录登录页需要，避免其他首屏额外发起图片列表请求。
   watch(
     shouldLoadBackgroundImages,
@@ -349,6 +396,11 @@ onUnmounted(() => {
   }
   // 停止心跳
   stopHeartbeat()
+  prefersColorSchemeMediaQuery?.removeEventListener('change', handleSystemThemeChange)
+  prefersColorSchemeMediaQuery = null
+  document.removeEventListener('visibilitychange', handleVisibilityThemeSync)
+  window.removeEventListener('pageshow', handlePageShowThemeSync)
+  window.removeEventListener('focus', handlePageShowThemeSync)
 })
 </script>
 

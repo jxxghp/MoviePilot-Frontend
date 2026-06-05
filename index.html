@@ -7,8 +7,10 @@
     --initial-loader-color: #9155FD;
     --initial-loader-height: 100svh;
     --initial-loader-width: 100vw;
+    --initial-color-scheme: dark;
     background: var(--initial-loader-bg, #0E1116);
     background-color: var(--initial-loader-bg, #0E1116);
+    color-scheme: dark;
   ">
 
 <head>
@@ -99,6 +101,7 @@
     body {
       background: var(--initial-loader-bg, #0E1116);
       background-color: var(--initial-loader-bg, #0E1116);
+      color-scheme: var(--initial-color-scheme, dark);
     }
 
     html[data-launch-loading="true"],
@@ -282,27 +285,113 @@
       }
     }
 
-    // 根据当前主题提前确定启动屏色彩，避免 iOS PWA 从原生启动图切到网页时露出默认白底。
-    const launchThemeBackgrounds = {
-      light: '#F4F5FA',
-      dark: '#0E1116',
-      purple: '#28243D',
-      transparent: '#1C1C1C',
-      default: '#F4F5FA',
+    function getLocalStorageValue(key) {
+      try {
+        return localStorage.getItem(key)
+      } catch (e) {
+        return null
+      }
     }
 
-    const savedTheme = localStorage.getItem('theme') || 'auto'
-    const resolvedLaunchTheme = savedTheme === 'auto'
-      ? (checkPrefersColorSchemeIsDark() ? 'dark' : 'light')
-      : savedTheme
+    // 根据当前主题提前确定启动屏色彩，避免 iOS PWA 从原生启动图切到网页时露出默认白底。
+    const launchThemePalettes = {
+      light: {
+        background: '#F4F5FA',
+        primary: '#9155FD',
+      },
+      dark: {
+        background: '#0E1116',
+        primary: '#6E66ED',
+      },
+      purple: {
+        background: '#28243D',
+        primary: '#9155FD',
+      },
+      transparent: {
+        background: '#1C1C1C',
+        primary: '#A370F7',
+      },
+    }
 
-    let loaderColor = localStorage.getItem('materio-initial-loader-bg')
-      || launchThemeBackgrounds[resolvedLaunchTheme]
-      || launchThemeBackgrounds.light
+    function getSavedThemePreference() {
+      return getLocalStorageValue('theme') || 'auto'
+    }
 
-    let primaryColor = localStorage.getItem('materio-initial-loader-color')
-    if (!primaryColor) {
-      primaryColor = '#9155FD'
+    function resolveLaunchTheme(themePreference) {
+      if (themePreference === 'auto') {
+        return checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
+      }
+
+      if (themePreference === 'default') {
+        return 'light'
+      }
+
+      return launchThemePalettes[themePreference] ? themePreference : 'light'
+    }
+
+    function getLaunchColorScheme(themeName) {
+      return ['dark', 'purple', 'transparent'].includes(themeName) ? 'dark' : 'light'
+    }
+
+    function setMetaContent(selector, content) {
+      document.querySelectorAll(selector).forEach(meta => {
+        meta.setAttribute('content', content)
+      })
+    }
+
+    function syncThemeColorMeta(themeColor) {
+      const metas = document.querySelectorAll('meta[name="theme-color"]')
+
+      if (metas.length) {
+        metas.forEach(meta => {
+          meta.setAttribute('content', themeColor)
+        })
+
+        return
+      }
+
+      const meta = document.createElement('meta')
+      meta.name = 'theme-color'
+      meta.content = themeColor
+      document.head.appendChild(meta)
+    }
+
+    function applyLaunchThemeChrome() {
+      const themePreference = getSavedThemePreference()
+      const resolvedLaunchTheme = resolveLaunchTheme(themePreference)
+      const colorScheme = getLaunchColorScheme(resolvedLaunchTheme)
+      const palette = launchThemePalettes[resolvedLaunchTheme] || launchThemePalettes.light
+
+      // auto 模式下系统明暗可能已变化，不能复用旧的启动背景缓存。
+      const storedLoaderColor = themePreference === 'auto' ? null : getLocalStorageValue('materio-initial-loader-bg')
+      const loaderColor = storedLoaderColor || palette.background
+      const primaryColor = getLocalStorageValue('materio-initial-loader-color') || palette.primary
+
+      document.documentElement.setAttribute('data-launch-theme', resolvedLaunchTheme)
+      document.documentElement.setAttribute('data-theme', resolvedLaunchTheme)
+      document.documentElement.setAttribute('data-theme-preference', themePreference)
+      document.documentElement.style.setProperty('--initial-loader-bg', loaderColor)
+      document.documentElement.style.setProperty('--initial-loader-color', primaryColor)
+      document.documentElement.style.setProperty('--initial-color-scheme', colorScheme)
+      document.documentElement.style.backgroundColor = loaderColor
+      document.documentElement.style.colorScheme = colorScheme
+
+      if (document.body) {
+        document.body.setAttribute('data-theme', resolvedLaunchTheme)
+        document.body.setAttribute('data-theme-preference', themePreference)
+        document.body.style.backgroundColor = loaderColor
+        document.body.style.colorScheme = colorScheme
+      }
+
+      setMetaContent('meta[name="color-scheme"]', colorScheme === 'dark' ? 'dark light' : 'light dark')
+      syncThemeColorMeta(loaderColor)
+
+      return {
+        background: loaderColor,
+        colorScheme,
+        resolvedLaunchTheme,
+        themePreference,
+      }
     }
 
     // 在应用脚本接管前锁定一次启动层内容高度，避免 iOS 独立模式首次重算 safe area 时把 logo 顶下去。
@@ -328,19 +417,38 @@
     }
 
     // 应用主题色彩
-    document.documentElement.setAttribute('data-launch-theme', resolvedLaunchTheme)
-    document.documentElement.style.setProperty('--initial-loader-bg', loaderColor)
-    document.documentElement.style.setProperty('--initial-loader-color', primaryColor)
-    document.documentElement.style.backgroundColor = loaderColor
+    applyLaunchThemeChrome()
     syncInitialViewport(true)
 
     document.addEventListener('DOMContentLoaded', () => {
-      document.body.style.backgroundColor = loaderColor
+      applyLaunchThemeChrome()
+    })
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        applyLaunchThemeChrome()
+      }
+    })
+
+    window.addEventListener('pageshow', () => {
+      applyLaunchThemeChrome()
+    })
+
+    window.addEventListener('focus', () => {
+      applyLaunchThemeChrome()
     })
 
     window.addEventListener('orientationchange', () => {
       window.setTimeout(() => syncInitialViewport(true), 160)
     })
+
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        applyLaunchThemeChrome()
+      })
+    } catch (e) {
+      // 老浏览器不支持监听系统主题变化时，运行时主题管理器仍会继续接管。
+    }
 
     // 状态栏适配
     if (window.navigator.standalone) {

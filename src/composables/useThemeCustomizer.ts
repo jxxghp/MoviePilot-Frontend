@@ -198,7 +198,7 @@ async function applyThemePreference(themePreference: ThemeCustomizerTheme, theme
 
   await themeManager.setTheme(themePreference)
 
-  // auto 模式传给 themeManager 后会写入 data-theme="auto"，这里再同步为实际生效主题。
+  // 这里再同步一次实际主题，确保自定义主题色应用后根节点底色也保持最新。
   if (currentVersion === themeApplyVersion) {
     syncThemeAttribute(resolvedTheme)
     saveLocalTheme(themePreference, themeApi.global)

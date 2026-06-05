@@ -1,3 +1,5 @@
+import { applyDocumentThemeChrome } from '@/utils/themePalette'
+
 // 主题管理器 - 动态加载主题CSS
 export interface ThemeConfig {
   name: string
@@ -116,18 +118,13 @@ class ThemeManager {
    * 应用主题到DOM
    */
   private applyTheme(themeName: string): void {
-    // 移除之前的主题属性
-    document.documentElement.removeAttribute('data-theme')
-
-    // 设置新主题（除了default主题）
-    if (themeName !== 'default') {
-      document.documentElement.setAttribute('data-theme', themeName)
-    }
+    // auto 是用户偏好，DOM 上必须落到实际主题，避免恢复前台时短暂匹配不到深色样式。
+    const { resolvedTheme } = applyDocumentThemeChrome(themeName)
 
     this.currentTheme = themeName
 
     // 触发主题变更事件
-    this.dispatchThemeChangeEvent(themeName)
+    this.dispatchThemeChangeEvent(resolvedTheme)
   }
 
   /**
