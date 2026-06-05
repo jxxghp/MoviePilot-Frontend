@@ -1,3 +1,4 @@
+/* stylelint-disable no-duplicate-selectors */
 /* stylelint-disable scss/at-rule-no-unknown */
 /* stylelint-disable no-descending-specificity */
 // 公共样式 - 所有主题都需要
@@ -786,7 +787,6 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-list {
-  overflow: hidden;
   box-shadow: var(--app-overlay-shadow) !important;
 }
 
