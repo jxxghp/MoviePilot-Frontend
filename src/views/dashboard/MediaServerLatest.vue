@@ -63,7 +63,7 @@ onActivated(() => {
         <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
       </VCardItem>
 
-      <div class="px-3 pb-3">
+      <div class="px-5 pb-3">
         <ProgressiveCardGrid
           class="dashboard-media-grid"
           :items="data"
