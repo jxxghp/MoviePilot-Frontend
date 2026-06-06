@@ -16,6 +16,8 @@ const props = withDefaults(
     items: UnknownRecord[]
     labelGetter?: (item: UnknownRecord) => string
     modelValue?: boolean
+    resetIcon?: string
+    resetText?: string
     selectAllText?: string
     selectNoneText?: string
     showBulkActions?: boolean
@@ -28,6 +30,8 @@ const props = withDefaults(
     elevated: false,
     labelGetter: undefined,
     modelValue: true,
+    resetIcon: 'mdi-restore',
+    resetText: '',
     selectAllText: '',
     selectNoneText: '',
     showBulkActions: false,
@@ -38,6 +42,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: 'close'): void
+  (event: 'reset'): void
   (event: 'save', payload: { elevated: boolean; enabled: Record<string, boolean> }): void
   (event: 'update:elevated', value: boolean): void
   (event: 'update:modelValue', value: boolean): void
@@ -99,6 +104,11 @@ function setAllItems(value: boolean) {
   })
 }
 
+// 触发调用方提供的重置动作。
+function triggerResetAction() {
+  emit('reset')
+}
+
 // 提交通用内容开关设置。
 function submitSettings() {
   emit('save', {
@@ -147,6 +157,12 @@ function submitSettings() {
         </p>
       </VCardText>
       <VCardActions class="pt-3">
+        <VBtn v-if="props.resetText" variant="text" color="secondary" @click="triggerResetAction">
+          <template #prepend>
+            <VIcon :icon="props.resetIcon" />
+          </template>
+          {{ props.resetText }}
+        </VBtn>
         <VBtn v-if="props.showBulkActions" variant="text" @click="setAllItems(true)">
           {{ props.selectAllText }}
         </VBtn>

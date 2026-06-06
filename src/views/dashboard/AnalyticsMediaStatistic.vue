@@ -56,11 +56,8 @@ onActivated(() => {
 <template>
   <VHover>
     <template #default="hover">
-      <VCard v-bind="hover.props">
+      <VCard v-bind="hover.props" class="dashboard-summary-card">
         <VCardItem>
-          <template #append>
-            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-          </template>
           <VCardTitle>{{ t('dashboard.mediaStatistic') }}</VCardTitle>
         </VCardItem>
 
@@ -88,3 +85,9 @@ onActivated(() => {
     </template>
   </VHover>
 </template>
+
+<style scoped>
+.dashboard-summary-card {
+  min-block-size: 160px;
+}
+</style>

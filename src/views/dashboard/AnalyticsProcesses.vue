@@ -43,9 +43,6 @@ useDataRefresh(
 <template>
   <VCard>
     <VCardItem>
-      <template #append>
-        <VIcon class="cursor-move">mdi-drag</VIcon>
-      </template>
       <VCardTitle>{{ t('dashboard.processes.title') }}</VCardTitle>
     </VCardItem>
     <VTable item-key="fullName" class="table-rounded" hide-default-footer disable-sort>

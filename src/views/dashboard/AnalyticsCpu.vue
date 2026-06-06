@@ -135,11 +135,8 @@ useKeepAliveRefresh(refresh)
 <template>
   <VHover>
     <template #default="hover">
-      <VCard v-bind="hover.props">
+      <VCard v-bind="hover.props" class="dashboard-chart-card">
         <VCardItem>
-          <template #append>
-            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-          </template>
           <VCardTitle>CPU</VCardTitle>
         </VCardItem>
         <VCardText>
@@ -150,3 +147,9 @@ useKeepAliveRefresh(refresh)
     </template>
   </VHover>
 </template>
+
+<style scoped>
+.dashboard-chart-card {
+  min-block-size: 256px;
+}
+</style>

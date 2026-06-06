@@ -65,9 +65,6 @@ onActivated(() => {
     <template #default="hover">
       <VCard v-bind="hover.props">
         <VCardItem>
-          <template #append>
-            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-          </template>
           <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
         </VCardItem>
         <div class="dashboard-card-grid-wrap">

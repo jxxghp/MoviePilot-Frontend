@@ -89,11 +89,8 @@ const { loading } = useDataRefresh(
 <template>
   <VHover>
     <template #default="hover">
-      <VCard v-bind="hover.props">
+      <VCard v-bind="hover.props" class="dashboard-work-card">
         <VCardItem>
-          <template #append>
-            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-          </template>
           <VCardTitle>{{ t('dashboard.realTimeSpeed') }}</VCardTitle>
         </VCardItem>
 
@@ -130,5 +127,9 @@ const { loading } = useDataRefresh(
 <style lang="scss" scoped>
 .card-list {
   --v-card-list-gap: 1rem;
+}
+
+.dashboard-work-card {
+  min-block-size: 352px;
 }
 </style>

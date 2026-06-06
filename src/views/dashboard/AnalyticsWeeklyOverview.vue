@@ -133,11 +133,8 @@ onActivated(() => {
 <template>
   <VHover>
     <template #default="hover">
-      <VCard v-bind="hover.props">
+      <VCard v-bind="hover.props" class="dashboard-work-card">
         <VCardItem>
-          <template #append>
-            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-          </template>
           <VCardTitle>{{ t('dashboard.weeklyOverview') }}</VCardTitle>
         </VCardItem>
 
@@ -156,3 +153,9 @@ onActivated(() => {
     </template>
   </VHover>
 </template>
+
+<style scoped>
+.dashboard-work-card {
+  min-block-size: 352px;
+}
+</style>

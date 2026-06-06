@@ -148,17 +148,11 @@ onUnmounted(() => {
             <VCardText class="p-0">
               <DashboardRender v-for="(item, index) in props.config?.elements" :key="index" :config="item" />
             </VCardText>
-            <div v-if="hover.isHovering" class="absolute right-5 top-5">
-              <VIcon class="cursor-move">mdi-drag</VIcon>
-            </div>
           </VCard>
         </div>
         <!-- 有边框 -->
         <VCard v-else v-bind="hover.props">
           <VCardItem v-if="props.config?.attrs.border !== false">
-            <template #append>
-              <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-            </template>
             <VCardTitle>
               {{ props.config?.attrs?.title ?? props.config?.name }}
             </VCardTitle>

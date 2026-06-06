@@ -60,11 +60,8 @@ onActivated(() => {
   <div>
     <VHover v-for="(data, name) in latestList" :key="name">
       <template #default="hover">
-        <VCard v-bind="hover.props">
+        <VCard v-bind="hover.props" class="dashboard-work-card">
           <VCardItem>
-            <template #append>
-              <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-            </template>
             <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
           </VCardItem>
 
@@ -90,6 +87,11 @@ onActivated(() => {
 <style scoped>
 .dashboard-card-grid-wrap {
   /* 用内边距提供卡片留白，避免 100% 宽度网格叠加横向外边距后在 iOS 小屏溢出。 */
+  min-block-size: 260px;
   padding: 0 0.75rem 0.75rem;
+}
+
+.dashboard-work-card {
+  min-block-size: 352px;
 }
 </style>

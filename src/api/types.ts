@@ -702,6 +702,8 @@ export interface DashboardItem {
   attrs: { [key: string]: any }
   // col列数
   cols: { [key: string]: number }
+  // Grid行数
+  rows?: number
   // 页面元素
   elements: RenderProps[]
   // 渲染方式

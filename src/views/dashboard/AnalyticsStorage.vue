@@ -49,13 +49,10 @@ onActivated(() => {
 <template>
   <VHover>
     <template #default="hover">
-      <VCard v-bind="hover.props">
+      <VCard v-bind="hover.props" class="dashboard-summary-card">
         <!-- Triangle Background -->
         <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
         <VCardItem>
-          <template #append>
-            <VIcon class="cursor-move" v-if="hover.isHovering">mdi-drag</VIcon>
-          </template>
           <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
         </VCardItem>
         <VCardText>
@@ -89,5 +86,9 @@ onActivated(() => {
   inline-size: 4.9375rem;
   inset-block-end: 2rem;
   inset-inline-end: 2rem;
+}
+
+.dashboard-summary-card {
+  min-block-size: 160px;
 }
 </style>
