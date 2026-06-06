@@ -2585,6 +2585,7 @@ export default {
       failedState: 'Failed',
       cancelledState: 'Cancelled',
       noTasks: 'No tasks being organized',
+      noTasksHint: 'Task progress and status will appear here once organization starts.',
       processing: 'Please wait ...',
       stopAll: 'Stop All',
       startAll: 'Start All',

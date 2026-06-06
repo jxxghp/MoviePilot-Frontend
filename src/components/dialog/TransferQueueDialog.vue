@@ -311,8 +311,16 @@ onUnmounted(() => {
       <VProgressLinear v-if="dataList.length > 0" :model-value="overallProgressComputed" color="primary" />
       <VDivider v-else />
 
-      <VCardText v-if="dataList.length === 0" class="text-center">
-        {{ t('dialog.transferQueue.noTasks') }}
+      <VCardText v-if="dataList.length === 0" class="transfer-queue-empty">
+        <VIcon class="transfer-queue-empty__icon" icon="mdi-sync" size="30" />
+
+        <div class="transfer-queue-empty__headline">
+          {{ t('dialog.transferQueue.noTasks') }}
+        </div>
+
+        <div class="transfer-queue-empty__description">
+          {{ t('dialog.transferQueue.noTasksHint') }}
+        </div>
       </VCardText>
 
       <VCardText v-if="dataList.length > 0">
@@ -366,3 +374,51 @@ onUnmounted(() => {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.transfer-queue-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-block-size: 13rem;
+  padding-block: 2.5rem !important;
+  padding-inline: 1.5rem !important;
+  text-align: center;
+}
+
+.transfer-queue-empty__icon {
+  color: rgba(var(--v-theme-on-surface), 0.32);
+}
+
+.transfer-queue-empty__headline {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.transfer-queue-empty__description {
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  max-inline-size: 25rem;
+}
+
+@media (width <= 600px) {
+  .transfer-queue-empty {
+    min-block-size: 11rem;
+    padding-block: 2rem !important;
+    padding-inline: 1rem !important;
+  }
+
+  .transfer-queue-empty__headline {
+    font-size: 1.05rem;
+  }
+
+  .transfer-queue-empty__description {
+    font-size: 0.9rem;
+  }
+}
+</style>

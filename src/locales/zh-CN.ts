@@ -2537,6 +2537,7 @@ export default {
       failedState: '失败',
       cancelledState: '已取消',
       noTasks: '没有正在整理的任务',
+      noTasksHint: '开始整理后，这里会显示任务进度和状态。',
       processing: '请稍候 ...',
       stopAll: '全部停止',
       startAll: '全部开始',
