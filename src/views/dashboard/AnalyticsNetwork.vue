@@ -171,30 +171,26 @@ useKeepAliveRefresh(refresh)
 </script>
 
 <template>
-  <VHover>
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-chart-card">
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.network') }}</VCardTitle>
-        </VCardItem>
-        <VCardText class="dashboard-chart-content">
-          <div class="dashboard-chart-plot">
-            <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
-          </div>
-          <div class="d-flex justify-space-between">
-            <p class="text-center font-weight-medium mb-0">
-              <span class="text-warning">{{ t('dashboard.upload') }}</span
-              >：{{ formatBytes(currentUpload) }}
-            </p>
-            <p class="text-center font-weight-medium mb-0">
-              <span class="text-info">{{ t('dashboard.download') }}</span
-              >：{{ formatBytes(currentDownload) }}
-            </p>
-          </div>
-        </VCardText>
-      </VCard>
-    </template>
-  </VHover>
+  <VCard class="dashboard-chart-card">
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.network') }}</VCardTitle>
+    </VCardItem>
+    <VCardText class="dashboard-chart-content">
+      <div class="dashboard-chart-plot">
+        <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
+      </div>
+      <div class="d-flex justify-space-between">
+        <p class="text-center font-weight-medium mb-0">
+          <span class="text-warning">{{ t('dashboard.upload') }}</span
+          >：{{ formatBytes(currentUpload) }}
+        </p>
+        <p class="text-center font-weight-medium mb-0">
+          <span class="text-info">{{ t('dashboard.download') }}</span
+          >：{{ formatBytes(currentDownload) }}
+        </p>
+      </div>
+    </VCardText>
+  </VCard>
 </template>
 
 <style scoped>

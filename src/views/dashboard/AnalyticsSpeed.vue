@@ -87,41 +87,37 @@ const { loading } = useDataRefresh(
 </script>
 
 <template>
-  <VHover>
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-work-card">
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.realTimeSpeed') }}</VCardTitle>
-        </VCardItem>
+  <VCard class="dashboard-work-card">
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.realTimeSpeed') }}</VCardTitle>
+    </VCardItem>
 
-        <VCardText class="dashboard-work-content pt-4">
-          <div>
-            <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
-            <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
-          </div>
-          <VList class="card-list mt-9">
-            <VListItem v-for="item in infoItems" :key="item.title">
-              <template #prepend>
-                <VIcon rounded :icon="item.avatar" />
-              </template>
+    <VCardText class="dashboard-work-content pt-4">
+      <div>
+        <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
+        <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
+      </div>
+      <VList class="card-list mt-9">
+        <VListItem v-for="item in infoItems" :key="item.title">
+          <template #prepend>
+            <VIcon rounded :icon="item.avatar" />
+          </template>
 
-              <VListItemTitle class="text-sm font-weight-medium mb-1">
-                {{ item.title }}
-              </VListItemTitle>
+          <VListItemTitle class="text-sm font-weight-medium mb-1">
+            {{ item.title }}
+          </VListItemTitle>
 
-              <template #append>
-                <div>
-                  <h6 class="text-sm font-weight-medium mb-2">
-                    {{ item.amount }}
-                  </h6>
-                </div>
-              </template>
-            </VListItem>
-          </VList>
-        </VCardText>
-      </VCard>
-    </template>
-  </VHover>
+          <template #append>
+            <div>
+              <h6 class="text-sm font-weight-medium mb-2">
+                {{ item.amount }}
+              </h6>
+            </div>
+          </template>
+        </VListItem>
+      </VList>
+    </VCardText>
+  </VCard>
 </template>
 
 <style lang="scss" scoped>

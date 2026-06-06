@@ -44,46 +44,42 @@ useDataRefresh(
 </script>
 
 <template>
-  <VHover>
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-work-card">
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.scheduler') }}</VCardTitle>
-        </VCardItem>
+  <VCard class="dashboard-work-card">
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.scheduler') }}</VCardTitle>
+    </VCardItem>
 
-        <VCardText class="dashboard-work-content">
-          <VList class="card-list">
-            <VListItem v-for="item in schedulerList" :key="item.id">
-              <template #prepend>
-                <VAvatar size="40" variant="tonal" color="" class="me-3">
-                  {{ item.name[0] }}
-                </VAvatar>
-              </template>
+    <VCardText class="dashboard-work-content">
+      <VList class="card-list">
+        <VListItem v-for="item in schedulerList" :key="item.id">
+          <template #prepend>
+            <VAvatar size="40" variant="tonal" color="" class="me-3">
+              {{ item.name[0] }}
+            </VAvatar>
+          </template>
 
-              <VListItemTitle class="mb-1">
-                <span class="text-sm font-weight-medium">{{ item.name }}</span>
-              </VListItemTitle>
+          <VListItemTitle class="mb-1">
+            <span class="text-sm font-weight-medium">{{ item.name }}</span>
+          </VListItemTitle>
 
-              <VListItemSubtitle class="text-xs">
-                {{ item.next_run }}
-              </VListItemSubtitle>
+          <VListItemSubtitle class="text-xs">
+            {{ item.next_run }}
+          </VListItemSubtitle>
 
-              <template #append>
-                <div>
-                  <h4 class="font-weight-medium">
-                    {{ item.status }}
-                  </h4>
-                </div>
-              </template>
-            </VListItem>
-            <VListItem v-if="schedulerList.length === 0">
-              <VListItemTitle class="text-center"> {{ t('dashboard.noSchedulers') }} </VListItemTitle>
-            </VListItem>
-          </VList>
-        </VCardText>
-      </VCard>
-    </template>
-  </VHover>
+          <template #append>
+            <div>
+              <h4 class="font-weight-medium">
+                {{ item.status }}
+              </h4>
+            </div>
+          </template>
+        </VListItem>
+        <VListItem v-if="schedulerList.length === 0">
+          <VListItemTitle class="text-center"> {{ t('dashboard.noSchedulers') }} </VListItemTitle>
+        </VListItem>
+      </VList>
+    </VCardText>
+  </VCard>
 </template>
 
 <style lang="scss" scoped>

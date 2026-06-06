@@ -131,29 +131,25 @@ onActivated(() => {
 </script>
 
 <template>
-  <VHover>
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-work-card">
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.weeklyOverview') }}</VCardTitle>
-        </VCardItem>
+  <VCard class="dashboard-work-card">
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.weeklyOverview') }}</VCardTitle>
+    </VCardItem>
 
-        <VCardText class="dashboard-work-content">
-          <div class="dashboard-work-chart">
-            <VApexChart type="bar" :options="options" :series="series" height="100%" />
-          </div>
-          <div class="d-flex align-center mb-3">
-            <h5 class="text-h5 me-4">
-              {{ totalCount }}
-            </h5>
-            <p>{{ t('dashboard.weeklyOverviewDescription', { count: totalCount }) }} 😎</p>
-          </div>
+    <VCardText class="dashboard-work-content">
+      <div class="dashboard-work-chart">
+        <VApexChart type="bar" :options="options" :series="series" height="100%" />
+      </div>
+      <div class="d-flex align-center mb-3">
+        <h5 class="text-h5 me-4">
+          {{ totalCount }}
+        </h5>
+        <p>{{ t('dashboard.weeklyOverviewDescription', { count: totalCount }) }} 😎</p>
+      </div>
 
-          <VBtn v-if="superUser" block to="/history"> {{ t('common.viewDetails') }} </VBtn>
-        </VCardText>
-      </VCard>
-    </template>
-  </VHover>
+      <VBtn v-if="superUser" block to="/history"> {{ t('common.viewDetails') }} </VBtn>
+    </VCardText>
+  </VCard>
 </template>
 
 <style scoped>

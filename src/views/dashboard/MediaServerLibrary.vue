@@ -61,28 +61,24 @@ onActivated(() => {
 </script>
 
 <template>
-  <VHover v-if="libraryList.length > 0">
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-media-card">
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
-        </VCardItem>
-        <div class="dashboard-card-grid-wrap">
-          <ProgressiveCardGrid
-            :items="libraryList"
-            :get-item-key="item => item.id || item.name"
-            :min-item-width="240"
-            :estimated-item-height="160"
-            tabindex="0"
-          >
-            <template #default="{ item }">
-              <LibraryCard :media="item" height="10rem" />
-            </template>
-          </ProgressiveCardGrid>
-        </div>
-      </VCard>
-    </template>
-  </VHover>
+  <VCard v-if="libraryList.length > 0" class="dashboard-media-card">
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
+    </VCardItem>
+    <div class="dashboard-card-grid-wrap">
+      <ProgressiveCardGrid
+        :items="libraryList"
+        :get-item-key="item => item.id || item.name"
+        :min-item-width="240"
+        :estimated-item-height="160"
+        tabindex="0"
+      >
+        <template #default="{ item }">
+          <LibraryCard :media="item" height="10rem" />
+        </template>
+      </ProgressiveCardGrid>
+    </div>
+  </VCard>
 </template>
 
 <style scoped>

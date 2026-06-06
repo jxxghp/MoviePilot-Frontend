@@ -58,29 +58,25 @@ onActivated(() => {
 
 <template>
   <div>
-    <VHover v-for="(data, name) in latestList" :key="name">
-      <template #default="hover">
-        <VCard v-bind="hover.props" class="dashboard-work-card dashboard-media-card">
-          <VCardItem>
-            <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
-          </VCardItem>
+    <VCard v-for="(data, name) in latestList" :key="name" class="dashboard-work-card dashboard-media-card">
+      <VCardItem>
+        <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
+      </VCardItem>
 
-          <div class="dashboard-card-grid-wrap">
-            <ProgressiveCardGrid
-              :items="data"
-              :get-item-key="item => item.id || item.link || item.title"
-              :min-item-width="144"
-              :item-aspect-ratio="1.5"
-              tabindex="0"
-            >
-              <template #default="{ item }">
-                <PosterCard :media="item" />
-              </template>
-            </ProgressiveCardGrid>
-          </div>
-        </VCard>
-      </template>
-    </VHover>
+      <div class="dashboard-card-grid-wrap">
+        <ProgressiveCardGrid
+          :items="data"
+          :get-item-key="item => item.id || item.link || item.title"
+          :min-item-width="144"
+          :item-aspect-ratio="1.5"
+          tabindex="0"
+        >
+          <template #default="{ item }">
+            <PosterCard :media="item" />
+          </template>
+        </ProgressiveCardGrid>
+      </div>
+    </VCard>
   </div>
 </template>
 

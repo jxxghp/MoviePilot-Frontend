@@ -138,21 +138,17 @@ useKeepAliveRefresh(refresh)
 </script>
 
 <template>
-  <VHover>
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-chart-card">
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.memory') }}</VCardTitle>
-        </VCardItem>
-        <VCardText class="dashboard-chart-content">
-          <div class="dashboard-chart-plot">
-            <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
-          </div>
-          <p class="text-center font-weight-medium mb-0">{{ t('dashboard.current') }}：{{ formatBytes(usedMemory) }}</p>
-        </VCardText>
-      </VCard>
-    </template>
-  </VHover>
+  <VCard class="dashboard-chart-card">
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.memory') }}</VCardTitle>
+    </VCardItem>
+    <VCardText class="dashboard-chart-content">
+      <div class="dashboard-chart-plot">
+        <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
+      </div>
+      <p class="text-center font-weight-medium mb-0">{{ t('dashboard.current') }}：{{ formatBytes(usedMemory) }}</p>
+    </VCardText>
+  </VCard>
 </template>
 
 <style scoped>

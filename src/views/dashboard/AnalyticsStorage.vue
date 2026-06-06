@@ -47,28 +47,24 @@ onActivated(() => {
 </script>
 
 <template>
-  <VHover>
-    <template #default="hover">
-      <VCard v-bind="hover.props" class="dashboard-summary-card">
-        <!-- Triangle Background -->
-        <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
-        <VCardItem>
-          <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
-        </VCardItem>
-        <VCardText>
-          <h5 class="text-2xl font-weight-medium text-primary">
-            {{ formatFileSize(storage) }}
-          </h5>
-          <p class="mt-2">{{ t('storage.usedPercent', { percent: usedPercent }) }} 🚀</p>
-          <p class="mt-1">
-            <VProgressLinear :model-value="usedPercent" color="primary" />
-          </p>
-        </VCardText>
-        <!-- Trophy -->
-        <VImg :src="trophy" class="trophy" />
-      </VCard>
-    </template>
-  </VHover>
+  <VCard class="dashboard-summary-card">
+    <!-- Triangle Background -->
+    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
+    <VCardItem>
+      <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
+    </VCardItem>
+    <VCardText>
+      <h5 class="text-2xl font-weight-medium text-primary">
+        {{ formatFileSize(storage) }}
+      </h5>
+      <p class="mt-2">{{ t('storage.usedPercent', { percent: usedPercent }) }} 🚀</p>
+      <p class="mt-1">
+        <VProgressLinear :model-value="usedPercent" color="primary" />
+      </p>
+    </VCardText>
+    <!-- Trophy -->
+    <VImg :src="trophy" class="trophy" />
+  </VCard>
 </template>
 
 <style lang="scss" scoped>
