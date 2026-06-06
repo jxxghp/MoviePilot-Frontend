@@ -94,7 +94,7 @@ const { loading } = useDataRefresh(
           <VCardTitle>{{ t('dashboard.realTimeSpeed') }}</VCardTitle>
         </VCardItem>
 
-        <VCardText class="pt-4">
+        <VCardText class="dashboard-work-content pt-4">
           <div>
             <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
             <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
@@ -127,9 +127,16 @@ const { loading } = useDataRefresh(
 <style lang="scss" scoped>
 .card-list {
   --v-card-list-gap: 1rem;
+
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
 }
 
-.dashboard-work-card {
-  min-block-size: 352px;
+.dashboard-work-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
 }
 </style>

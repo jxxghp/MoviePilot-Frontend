@@ -60,7 +60,7 @@ onActivated(() => {
   <div>
     <VHover v-for="(data, name) in latestList" :key="name">
       <template #default="hover">
-        <VCard v-bind="hover.props" class="dashboard-work-card">
+        <VCard v-bind="hover.props" class="dashboard-work-card dashboard-media-card">
           <VCardItem>
             <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
           </VCardItem>
@@ -87,11 +87,9 @@ onActivated(() => {
 <style scoped>
 .dashboard-card-grid-wrap {
   /* 用内边距提供卡片留白，避免 100% 宽度网格叠加横向外边距后在 iOS 小屏溢出。 */
-  min-block-size: 260px;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
   padding: 0 0.75rem 0.75rem;
-}
-
-.dashboard-work-card {
-  min-block-size: 352px;
 }
 </style>

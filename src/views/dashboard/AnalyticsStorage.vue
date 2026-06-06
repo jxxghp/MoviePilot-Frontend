@@ -88,7 +88,4 @@ onActivated(() => {
   inset-inline-end: 2rem;
 }
 
-.dashboard-summary-card {
-  min-block-size: 160px;
-}
 </style>

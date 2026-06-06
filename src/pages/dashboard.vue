@@ -71,6 +71,7 @@ const dashboardGridPendingContentResize = new Set<GridItemHTMLElement>()
 
 let dashboardGridContentObserver: ResizeObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
+let dashboardGridResizeRefreshFrame: number | null = null
 
 // 是否正在手动缩放组件，避免自动测高抢回用户拖动中的高度。
 const isDashboardGridResizing = ref(false)
@@ -590,6 +591,7 @@ function initializeDashboardGrid() {
 
   dashboardGrid.value.on('dragstop', handleDashboardGridDragStop)
   dashboardGrid.value.on('resizestart', handleDashboardGridResizeStart)
+  dashboardGrid.value.on('resize', handleDashboardGridResize)
   dashboardGrid.value.on('resizestop', handleDashboardGridResizeStop)
   updateDashboardGridEditableState(isLayoutEditing.value)
   syncDashboardGrid()
@@ -724,6 +726,12 @@ function handleDashboardGridResizeStart(_event: Event, element: GridItemHTMLElem
 
   isDashboardGridResizing.value = true
   dashboardGridResizeStartHeights.set(id, element.gridstackNode?.h)
+  notifyDashboardContentResize()
+}
+
+// 在用户缩放过程中通知图表、虚拟网格等内容重新读取容器尺寸。
+function handleDashboardGridResize() {
+  notifyDashboardContentResize()
 }
 
 // 保存用户拖动后的位置，并保持未手动调高组件继续按内容自适应。
@@ -740,7 +748,18 @@ function handleDashboardGridResizeStop(_event: Event, element: GridItemHTMLEleme
 
   dashboardGridResizeStartHeights.delete(id)
   isDashboardGridResizing.value = false
+  notifyDashboardContentResize()
   compactAndPersistDashboardGrid(heightChanged ? id : false)
+}
+
+// 合并连续 resize 通知，模拟浏览器窗口变化让组件内部内容自适配新尺寸。
+function notifyDashboardContentResize() {
+  if (typeof window === 'undefined' || dashboardGridResizeRefreshFrame !== null) return
+
+  dashboardGridResizeRefreshFrame = window.requestAnimationFrame(() => {
+    dashboardGridResizeRefreshFrame = null
+    window.dispatchEvent(new Event('resize'))
+  })
 }
 
 // 将 GridStack 保存结果归一化为本地布局覆盖表。
@@ -831,6 +850,10 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(dashboardGridContentResizeFrame)
     dashboardGridContentResizeFrame = null
   }
+  if (dashboardGridResizeRefreshFrame !== null) {
+    cancelAnimationFrame(dashboardGridResizeRefreshFrame)
+    dashboardGridResizeRefreshFrame = null
+  }
   dashboardGridPendingContentResize.clear()
   dashboardGridResizeStartHeights.clear()
   dashboardGrid.value?.destroy(false)
@@ -900,6 +923,17 @@ onBeforeUnmount(() => {
   margin-block: -6px 0;
 }
 
+.dashboard-grid :deep(.v-card) {
+  overflow: hidden;
+  box-shadow: var(--app-surface-shadow) !important;
+}
+
+@media (hover: hover) {
+  .dashboard-grid :deep(.v-card:hover) {
+    box-shadow: var(--app-surface-hover-shadow) !important;
+  }
+}
+
 .dashboard-grid-item.is-manual-height :deep(.v-card) {
   block-size: 100%;
 }
@@ -926,6 +960,39 @@ onBeforeUnmount(() => {
 
 .dashboard-grid.is-editing :deep(.v-card) {
   block-size: 100%;
+}
+
+.dashboard-grid :deep(.dashboard-chart-card),
+.dashboard-grid :deep(.dashboard-summary-card),
+.dashboard-grid :deep(.dashboard-work-card),
+.dashboard-grid :deep(.dashboard-media-card) {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.dashboard-grid :deep(.dashboard-chart-card .v-card-text),
+.dashboard-grid :deep(.dashboard-work-card .v-card-text),
+.dashboard-grid :deep(.dashboard-card-grid-wrap) {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.dashboard-grid:not(.is-editing) .dashboard-grid-item:not(.is-manual-height) :deep(.dashboard-summary-card) {
+  min-block-size: 160px;
+}
+
+.dashboard-grid:not(.is-editing) .dashboard-grid-item:not(.is-manual-height) :deep(.dashboard-chart-card) {
+  min-block-size: 256px;
+}
+
+.dashboard-grid:not(.is-editing) .dashboard-grid-item:not(.is-manual-height) :deep(.dashboard-work-card) {
+  min-block-size: 352px;
+}
+
+.dashboard-grid.is-editing :deep(.v-card-text),
+.dashboard-grid-item.is-manual-height :deep(.v-card-text) {
+  overflow: auto;
 }
 
 .dashboard-grid-drag-handle {

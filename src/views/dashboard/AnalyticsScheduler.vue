@@ -51,8 +51,8 @@ useDataRefresh(
           <VCardTitle>{{ t('dashboard.scheduler') }}</VCardTitle>
         </VCardItem>
 
-        <VCardText>
-          <VList class="card-list" height="260">
+        <VCardText class="dashboard-work-content">
+          <VList class="card-list">
             <VListItem v-for="item in schedulerList" :key="item.id">
               <template #prepend>
                 <VAvatar size="40" variant="tonal" color="" class="me-3">
@@ -89,10 +89,17 @@ useDataRefresh(
 <style lang="scss" scoped>
 .card-list {
   --v-card-list-gap: 1.5rem;
+
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
 }
 
-.dashboard-work-card {
-  min-block-size: 352px;
+.dashboard-work-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
 }
 
 .card-list::-webkit-scrollbar {

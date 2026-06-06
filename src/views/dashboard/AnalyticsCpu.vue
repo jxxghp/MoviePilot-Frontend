@@ -139,8 +139,10 @@ useKeepAliveRefresh(refresh)
         <VCardItem>
           <VCardTitle>CPU</VCardTitle>
         </VCardItem>
-        <VCardText>
-          <VApexChart type="line" :options="chartOptions" :series="series" :height="150" />
+        <VCardText class="dashboard-chart-content">
+          <div class="dashboard-chart-plot">
+            <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
+          </div>
           <p class="text-center font-weight-medium mb-0">{{ t('dashboard.current') }}：{{ current }}%</p>
         </VCardText>
       </VCard>
@@ -149,7 +151,21 @@ useKeepAliveRefresh(refresh)
 </template>
 
 <style scoped>
-.dashboard-chart-card {
-  min-block-size: 256px;
+.dashboard-chart-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.dashboard-chart-plot {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.dashboard-chart-plot :deep(.vue-apexcharts),
+.dashboard-chart-plot :deep(.apexcharts-canvas),
+.dashboard-chart-plot :deep(svg) {
+  block-size: 100% !important;
 }
 </style>

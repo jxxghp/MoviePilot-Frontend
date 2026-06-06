@@ -85,9 +85,3 @@ onActivated(() => {
     </template>
   </VHover>
 </template>
-
-<style scoped>
-.dashboard-summary-card {
-  min-block-size: 160px;
-}
-</style>
