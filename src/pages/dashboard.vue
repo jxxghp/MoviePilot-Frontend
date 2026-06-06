@@ -345,13 +345,27 @@ function openDashboardSettings() {
   )
 }
 
-// 清除用户本地布局覆盖，并恢复内置组件和插件声明的默认占位。
-function resetDashboardGridLayout() {
+// 退出仪表板布局编辑模式；如果刚恢复默认布局，则跳过本次本地持久化。
+function exitDashboardLayoutEditing() {
+  if (isDashboardGridLayoutResetPending.value) {
+    isDashboardGridLayoutResetPending.value = false
+  } else {
+    compactAndPersistDashboardGrid()
+  }
+
+  isLayoutEditing.value = false
+}
+
+// 清除用户本地布局覆盖，并恢复内置组件和插件声明的默认占位，然后退出编辑模式。
+async function resetDashboardGridLayout() {
   dashboardGridLayout.value = {}
   localStorage.removeItem(DASHBOARD_GRID_LAYOUT_STORAGE_KEY)
   dashboardGrid.value?.removeAll(false, false)
   isDashboardGridLayoutResetPending.value = true
-  nextTick(syncDashboardGrid)
+  await syncDashboardGrid()
+  if (isLayoutEditing.value) {
+    exitDashboardLayoutEditing()
+  }
 }
 
 // 生成 appMode 底部动态按钮菜单，普通 Web 模式由页面内 FAB 承接。
@@ -395,12 +409,7 @@ useDynamicButton({
 // 切换仪表板布局编辑模式，退出编辑时压实并保存当前布局。
 function toggleDashboardLayoutEditing() {
   if (isLayoutEditing.value) {
-    if (isDashboardGridLayoutResetPending.value) {
-      isDashboardGridLayoutResetPending.value = false
-    } else {
-      compactAndPersistDashboardGrid()
-    }
-    isLayoutEditing.value = false
+    exitDashboardLayoutEditing()
     return
   }
 
