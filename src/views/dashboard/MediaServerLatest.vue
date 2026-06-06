@@ -57,14 +57,15 @@ onActivated(() => {
 </script>
 
 <template>
-  <div>
+  <div class="dashboard-media-stack">
     <VCard v-for="(data, name) in latestList" :key="name" class="dashboard-work-card dashboard-media-card">
       <VCardItem>
         <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
       </VCardItem>
 
-      <div class="dashboard-card-grid-wrap">
+      <div class="px-3 pb-3">
         <ProgressiveCardGrid
+          class="dashboard-media-grid"
           :items="data"
           :get-item-key="item => item.id || item.link || item.title"
           :min-item-width="144"
@@ -81,11 +82,26 @@ onActivated(() => {
 </template>
 
 <style scoped>
-.dashboard-card-grid-wrap {
-  /* 用内边距提供卡片留白，避免 100% 宽度网格叠加横向外边距后在 iOS 小屏溢出。 */
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
+.dashboard-media-stack {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.dashboard-media-stack > .dashboard-media-card {
   flex: 1 1 auto;
   min-block-size: 0;
-  overflow: auto;
-  padding: 0 0.75rem 0.75rem;
+}
+
+.dashboard-media-grid {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.dashboard-media-grid :deep(.progressive-card-grid__track) {
+  min-block-size: 100%;
 }
 </style>

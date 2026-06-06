@@ -66,8 +66,9 @@ onActivated(() => {
       <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
     </VCardItem>
 
-    <div class="dashboard-card-grid-wrap">
+    <div class="px-3 pb-3">
       <ProgressiveCardGrid
+        class="dashboard-media-grid"
         :items="playingList"
         :get-item-key="item => item.id || item.link || item.title"
         :min-item-width="240"
@@ -83,11 +84,14 @@ onActivated(() => {
 </template>
 
 <style scoped>
-.dashboard-card-grid-wrap {
-  /* 用内边距提供卡片留白，避免 100% 宽度网格叠加横向外边距后在 iOS 小屏溢出。 */
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
+.dashboard-media-grid {
   flex: 1 1 auto;
   min-block-size: 0;
-  overflow: auto;
-  padding: 0 0.75rem 0.75rem;
+}
+
+.dashboard-media-grid :deep(.progressive-card-grid__track) {
+  min-block-size: 100%;
 }
 </style>

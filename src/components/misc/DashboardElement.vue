@@ -136,7 +136,7 @@ onUnmounted(() => {
   <!-- 插件仪表板 -->
   <template v-else-if="!isNullOrEmptyObject(props.config)">
     <!-- Vue 渲染模式 -->
-    <div v-if="pluginRenderMode === 'vue'">
+    <div v-if="pluginRenderMode === 'vue'" class="dashboard-plugin-vue-renderer">
       <component :is="dynamicPluginComponent" :config="props.config" :allow-refresh="props.allowRefresh" :api="api" />
     </div>
     <!-- Vuetify 渲染模式 -->
@@ -168,3 +168,20 @@ onUnmounted(() => {
     </VCard>
   </template>
 </template>
+
+<style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
+.dashboard-plugin-vue-renderer {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  inline-size: 100%;
+  min-block-size: 0;
+}
+
+.dashboard-plugin-vue-renderer :deep(> *) {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+</style>
