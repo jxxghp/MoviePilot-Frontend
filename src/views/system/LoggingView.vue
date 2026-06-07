@@ -651,10 +651,8 @@ onUnmounted(() => {
   --logging-shell-bg: rgba(var(--v-theme-surface), 0.96);
   --logging-record-bg-even: rgba(var(--v-theme-surface-variant), 0.01);
   --logging-record-bg-odd: rgba(var(--v-theme-surface-variant), 0.005);
-  --logging-border: rgba(var(--v-theme-on-surface), 0.08);
   --logging-text: rgba(var(--v-theme-on-surface), 0.88);
   --logging-muted: rgba(var(--v-theme-on-surface), 0.56);
-  --logging-shadow: 0 10px 32px rgba(15, 23, 42, 6%);
 
   display: flex;
   flex-direction: column;
@@ -666,16 +664,12 @@ onUnmounted(() => {
   --logging-shell-bg: rgba(var(--v-theme-surface), 0.72);
   --logging-record-bg-even: rgba(var(--v-theme-on-surface), 0.02);
   --logging-record-bg-odd: rgba(var(--v-theme-on-surface), 0.008);
-  --logging-border: rgba(var(--v-theme-on-surface), 0.12);
-  --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 4%);
 }
 
 .logging-view.is-transparent-theme {
   --logging-shell-bg: transparent;
   --logging-record-bg-even: transparent;
   --logging-record-bg-odd: transparent;
-  --logging-border: rgba(var(--v-theme-on-surface), 0.1);
-  --logging-shadow: none;
 }
 
 .logging-toolbar {
@@ -699,7 +693,7 @@ onUnmounted(() => {
 }
 
 .logging-search :deep(.v-field) {
-  border-radius: 0;
+  border-radius: var(--app-field-radius);
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -719,7 +713,7 @@ onUnmounted(() => {
 }
 
 .logging-level-select :deep(.v-field) {
-  border-radius: 0;
+  border-radius: var(--app-field-radius);
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -738,9 +732,7 @@ onUnmounted(() => {
   overflow: auto;
   flex: 1 1 auto;
   padding: 0.875rem;
-  border: 1px solid var(--logging-border);
   background: linear-gradient(180deg, var(--logging-shell-bg), rgba(var(--v-theme-surface), 0.9));
-  box-shadow: var(--logging-shadow);
 }
 
 .logging-view.is-transparent-theme .logging-shell {
@@ -816,8 +808,6 @@ onUnmounted(() => {
 .logging-record-panel {
   display: flex;
   align-items: stretch;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.04);
-  border-radius: var(--app-surface-radius);
   gap: 0.75rem;
   min-inline-size: 0;
   padding-block: 0.5rem;
@@ -830,10 +820,6 @@ onUnmounted(() => {
 
 .logging-record-panel.is-odd {
   background: var(--logging-record-bg-odd);
-}
-
-.logging-view.is-dark-theme .logging-record-panel {
-  border-color: rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .logging-record-accent {

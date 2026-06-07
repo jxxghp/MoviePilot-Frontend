@@ -698,8 +698,6 @@ onMounted(() => {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  border-radius: var(--app-surface-radius) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 12%) !important;
 }
 
 /* 搜索头部区域 */
@@ -774,7 +772,6 @@ onMounted(() => {
 }
 
 .search-result-item {
-  border-radius: 10px !important;
   margin-block-end: 2px;
   transition: background-color 0.15s ease;
 }

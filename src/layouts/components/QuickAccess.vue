@@ -425,7 +425,7 @@ function handleBackdropClick(event: MouseEvent) {
   <VCard
     ref="quickAccessRef"
     :ripple="false"
-    class="plugin-quick-access"
+    class="plugin-quick-access app-surface-square app-surface-flat app-surface-borderless"
     :class="{ 'visible': isVisible }"
     :style="{
       opacity: componentOpacity,
@@ -463,7 +463,7 @@ function handleBackdropClick(event: MouseEvent) {
           <div
             v-for="plugin in recentPlugins"
             :key="`recent-${plugin.id}`"
-            class="plugin-item"
+            class="plugin-item app-surface-shape"
             @click="handlePluginClick(plugin)"
           >
             <VBadge dot :color="plugin.state ? 'success' : 'secondary'" location="top end">
@@ -502,7 +502,7 @@ function handleBackdropClick(event: MouseEvent) {
             <div
               v-for="plugin in pluginsWithPage"
               :key="plugin.id"
-              class="plugin-item"
+              class="plugin-item app-surface-shape"
               @click="handlePluginClick(plugin)"
             >
               <VBadge
@@ -733,7 +733,6 @@ function handleBackdropClick(event: MouseEvent) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: var(--app-surface-radius);
   block-size: 120px;
   cursor: pointer;
   gap: 4px;

@@ -41,7 +41,7 @@ html[data-theme="transparent"] {
 
   // 设置页彩色卡片保留透明主题的玻璃质感，只叠加极轻的图标主色。
   .app-card-colorful {
-    border: 0 !important;
+    border: 0;
     background:
       linear-gradient(
         135deg,
@@ -49,7 +49,7 @@ html[data-theme="transparent"] {
         rgba(var(--app-card-accent-end-rgb, var(--app-card-accent-rgb)), var(--app-card-accent-end-opacity, 0.01)) 46%,
         rgba(var(--v-theme-surface), 0) 76%
       ),
-      rgba(var(--v-theme-surface), var(--transparent-opacity-light)) !important;
+      rgba(var(--v-theme-surface), var(--transparent-opacity-light));
   }
 
   // 工具栏
@@ -113,17 +113,17 @@ html[data-theme="transparent"] {
   
   // 弹出层内容
   .v-overlay__content {
-    border-radius: 12px !important;
-    backdrop-filter: blur(var(--transparent-blur)) !important;
+    border-radius: var(--app-surface-radius);
+    backdrop-filter: blur(var(--transparent-blur));
 
     .v-card:not(.bg-primary) {
       backdrop-filter: blur(var(--transparent-blur));
-      background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+      background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
     }
 
     .v-list {
       backdrop-filter: blur(var(--transparent-blur));
-      background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+      background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
     }
 
     .v-table__wrapper table thead {

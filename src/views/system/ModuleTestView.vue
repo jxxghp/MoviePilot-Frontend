@@ -131,7 +131,7 @@ onMounted(getModules)
   <div class="system-health-check">
     <!-- 动态进度框 - 固定在顶部 -->
     <div class="progress-container">
-      <div class="progress-card" :class="{ 'dark-theme': theme.global.current.value.dark }">
+      <div class="progress-card app-surface" :class="{ 'dark-theme': theme.global.current.value.dark }">
         <div class="progress-header">
           <VIcon
             :icon="isChecking ? 'mdi-cog-sync' : checkComplete ? 'mdi-check-circle' : 'mdi-cog'"
@@ -184,7 +184,7 @@ onMounted(getModules)
         <Transition v-for="(module, index) in modules" :key="module.id" name="module-item" appear>
           <div
             v-show="module.visible"
-            class="module-item"
+            class="module-item app-surface"
             :class="[module.state, { 'dark-theme': theme.global.current.value.dark }]"
           >
             <div class="module-header">
@@ -244,7 +244,6 @@ onMounted(getModules)
 
 .progress-card {
   padding: 20px;
-  border-radius: var(--app-surface-radius);
   margin: 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -333,8 +332,6 @@ onMounted(getModules)
 
 .module-item {
   padding: 12px;
-  border: 1px solid var(--v-border-color);
-  border-radius: 8px;
   background: var(--v-surface);
   transition: all 0.3s ease;
 }

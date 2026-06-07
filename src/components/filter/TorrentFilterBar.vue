@@ -609,8 +609,6 @@ onMounted(() => {
 
 .filter-toolbar-card {
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), 0.82);
 }
 
@@ -630,11 +628,6 @@ onMounted(() => {
 
 .sort-btn :deep(.v-btn__prepend) {
   margin-inline-end: 2px !important;
-}
-
-.sort-menu-list {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
 .sort-menu-list :deep(.v-list-item__prepend > .v-icon) {
@@ -758,10 +751,6 @@ onMounted(() => {
 }
 
 @media (width <= 600px) {
-  .filter-toolbar-card {
-    border-radius: var(--app-surface-radius);
-  }
-
   .filter-buttons-grid {
     gap: 6px;
   }

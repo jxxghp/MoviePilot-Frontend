@@ -1387,8 +1387,6 @@ onUnmounted(() => {
 
 .search-progress-card {
   padding: 16px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.18);
-  border-radius: var(--app-surface-radius);
   backdrop-filter: blur(10px);
   background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), transparent 42%), rgb(var(--v-theme-surface));
   inline-size: 100%;
@@ -1455,8 +1453,6 @@ onUnmounted(() => {
 .search-skeleton-card,
 .search-skeleton-list {
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--app-surface-radius);
   background: rgb(var(--v-theme-surface));
 }
 
@@ -1545,8 +1541,6 @@ onUnmounted(() => {
 /* 列表视图样式 */
 .resource-list-container {
   padding: 8px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--app-surface-radius);
 }
 
 .resource-list {

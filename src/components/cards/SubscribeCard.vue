@@ -593,10 +593,6 @@ function handleCardClick() {
   position: relative;
 }
 
-.subscribe-card-shell {
-  border-radius: var(--app-surface-radius);
-}
-
 .subscribe-card-pending-tint::after {
   position: absolute;
   z-index: 3;

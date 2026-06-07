@@ -1913,8 +1913,6 @@ onUnmounted(() => {
 }
 
 .preview-note {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: var(--app-surface-radius);
   color: rgb(var(--v-theme-error));
   font-size: 0.875rem;
   line-height: 1.5;
@@ -1931,8 +1929,6 @@ onUnmounted(() => {
 .preview-overview-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: var(--app-surface-radius);
   gap: 0.375rem;
   min-inline-size: 0;
   padding-block: 0.875rem;
@@ -1958,8 +1954,6 @@ onUnmounted(() => {
 .preview-custom-words {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: var(--app-surface-radius);
   gap: 0.75rem;
   padding-block: 0.875rem;
   padding-inline: 1rem;
@@ -2051,8 +2045,6 @@ onUnmounted(() => {
   overflow: visible;
   flex: 0 0 auto;
   flex-direction: column;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: var(--app-surface-radius);
   margin-block-end: 1.5rem;
   margin-inline: 1.5rem;
   min-block-size: 0;

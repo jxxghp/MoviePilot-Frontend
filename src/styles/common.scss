@@ -34,7 +34,11 @@ html.v-overlay-scroll-blocked body {
 
 // 全局卡片外观 token：圆角和阴影在主题定制器中即时切换。
 html {
-  --app-surface-radius: 8px;
+  --app-theme-surface-radius: 8px;
+  --app-surface-radius: var(--app-theme-surface-radius);
+  --app-field-radius: var(--app-theme-surface-radius);
+  --app-surface-border-opacity: 0.06;
+  --app-surface-border: 1px solid rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
   --app-shadow-rgb: 15, 23, 42;
   --app-card-rest-shadow: none;
   --app-card-hover-shadow: none;
@@ -48,20 +52,24 @@ html {
   --app-surface-hover-shadow: none;
 }
 
+html[data-theme-skin='bordered'] {
+  --app-surface-border-opacity: 0.1;
+}
+
 html[data-theme-radius='small'] {
-  --app-surface-radius: 4px;
+  --app-theme-surface-radius: 4px;
 }
 
 html[data-theme-radius='large'] {
-  --app-surface-radius: 12px;
+  --app-theme-surface-radius: 12px;
 }
 
 html[data-theme-radius='extra'] {
-  --app-surface-radius: 16px;
+  --app-theme-surface-radius: 16px;
 }
 
 html[data-theme-radius='huge'] {
-  --app-surface-radius: 24px;
+  --app-theme-surface-radius: 24px;
 }
 
 html[data-theme='dark'],
@@ -128,71 +136,105 @@ html[data-theme-shadow='high'] {
   }
 }
 
-// 统一系统内卡片阴影，显式覆盖 Vuetify elevation 或局部卡片默认投影。
+// 统一系统内主要 surface 的边框、圆角和阴影，局部组件通过变量覆盖。
+.app-surface,
 .v-card,
-.v-application .v-card.v-card[class] {
+.v-sheet,
+.v-list,
+.v-table,
+.v-expansion-panel {
+  border: var(--app-surface-border);
   border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-surface-shadow) !important;
-  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
 // 底部导航卡片原本就是胶囊形态，不参与主题圆角切换。
 .footer-nav-card.v-card {
-  border-radius: 9999px !important;
+  --app-surface-radius: 9999px;
 }
 
 @media (hover: hover) {
+  .app-surface:hover,
   .v-card:hover,
-  .v-application .v-card.v-card[class]:hover {
+  .v-sheet:hover,
+  .v-list:hover,
+  .v-table:hover,
+  .v-expansion-panel:hover {
     box-shadow: var(--app-surface-hover-shadow) !important;
   }
 }
 
-// 只给外层 surface 加阴影，卡片内部的子组件保持平面，避免层级噪声。
-.v-card .v-card,
-.v-card .v-sheet,
-.v-card .v-list,
-.v-card .v-expansion-panel,
-.v-card .v-table,
-.v-card .v-window,
-.v-card .v-toolbar,
-.v-card .v-navigation-drawer,
-.v-card .v-stepper,
-.v-card .v-alert,
-.v-card .v-avatar,
-.v-card .v-chip {
-  box-shadow: none !important;
+// 局部需要退出全局 surface 风格时使用这些工具类，避免再用 !important 抢优先级。
+.app-surface-borderless {
+  --app-surface-border: 0 solid transparent;
 }
 
-// 主题定制器的 bordered 皮肤：保持原布局密度，只给主要容器增加清晰边界。
+.app-surface-flat,
+.app-surface-flat:hover {
+  --app-surface-hover-shadow: none;
+  --app-surface-shadow: none;
+}
+
+.app-surface-square {
+  --app-surface-radius: 0;
+}
+
+.app-surface-shape {
+  border-radius: var(--app-surface-radius);
+}
+
+// 统一文本输入、下拉框、文本域等有框表单控件的圆角，显式 rounded 控件保留特殊形态。
+.v-field:not(.v-field--variant-plain, .v-field--variant-underlined, .v-field--rounded, [class^='rounded-'], [class*=' rounded-']) {
+  border-radius: var(--app-field-radius);
+  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+}
+
+// 只给外层 surface 加边框和阴影，卡片内部的列表、表格等子组件保持平面，避免层级噪声。
+.v-card .v-list:not(.app-surface),
+.v-card .v-sheet:not(.app-surface),
+.v-card .v-table:not(.app-surface),
+.v-card .v-expansion-panel:not(.app-surface),
+.v-card .v-window:not(.app-surface),
+.v-card .v-toolbar:not(.app-surface),
+.v-card .v-navigation-drawer:not(.app-surface),
+.v-card .v-stepper:not(.app-surface),
+.v-card .v-alert:not(.app-surface),
+.v-card .v-avatar,
+.v-card .v-chip {
+  --app-surface-hover-shadow: none;
+  --app-surface-shadow: none;
+}
+
+// 弹窗内容里的嵌套卡片默认保持平面；弹窗自身仍由 overlay 规则控制阴影和圆角。
+.v-dialog > .v-overlay__content > .v-card :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful),
+.v-dialog > .v-overlay__content > .v-sheet :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful) {
+  --app-surface-hover-shadow: none;
+  --app-surface-shadow: none;
+}
+
+// 菜单只让直接承载层拥有弹出阴影，内部嵌套 surface 不再重复制造层级。
+.v-menu
+  > .v-overlay__content
+  > :where(.v-card, .v-sheet, .v-list)
+  :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful) {
+  --app-surface-hover-shadow: none;
+  --app-surface-shadow: none;
+}
+
+// 主题定制器的 bordered 皮肤：保持原布局密度，只给非 Vuetify 外壳增加清晰边界。
 html[data-theme-skin='bordered'] {
-  .v-card:not(.bg-primary),
-  .v-sheet,
-  .v-table,
-  .v-expansion-panel,
-  .v-list {
-    border: 1px solid rgba(var(--v-theme-on-surface), 0.1) !important;
+  .layout-vertical-nav {
+    border: var(--app-surface-border);
   }
 
-  .v-sheet,
-  .v-table,
-  .v-expansion-panel,
-  .v-list {
-    box-shadow: none !important;
+  .navbar-content-container {
+    border-block-end: var(--app-surface-border);
   }
-
-  .layout-vertical-nav,
-  .footer-nav-card {
-    border: 1px solid rgba(var(--v-theme-on-surface), 0.1) !important;
-  }
-
-    .navbar-content-container {
-      border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.1) !important;
-    }
 
   .layout-vertical-nav {
-    border-block: 0 !important;
-    border-inline-start: 0 !important;
+    border-block: 0;
+    border-inline-start: 0;
   }
 }
 
@@ -205,8 +247,6 @@ html[data-theme-skin='bordered'] {
 // 设置项强调卡片：复用通知模板入口的弱强调条、轻渐变与悬浮反馈。
 .app-card-colorful {
   overflow: hidden;
-  border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity)) !important;
-  border-radius: var(--app-surface-radius) !important;
   background:
     linear-gradient(
       135deg,
@@ -214,8 +254,8 @@ html[data-theme-skin='bordered'] {
       rgba(var(--app-card-accent-end-rgb), var(--app-card-accent-end-opacity)) 46%,
       rgba(var(--v-theme-surface), 0) 76%
     ),
-    rgba(var(--v-theme-surface), var(--app-card-surface-opacity)) !important;
-  box-shadow: var(--app-card-rest-shadow) !important;
+    rgba(var(--v-theme-surface), var(--app-card-surface-opacity));
+  box-shadow: var(--app-card-rest-shadow);
   color: rgb(var(--v-theme-on-surface));
 
   --app-card-accent-rgb: var(--v-theme-primary);
@@ -226,6 +266,9 @@ html[data-theme-skin='bordered'] {
   --app-card-hover-border-opacity: 0.16;
   --app-card-stripe-opacity: 0.22;
   --app-card-surface-opacity: 0.92;
+  --app-surface-border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity));
+  --app-surface-hover-shadow: var(--app-card-hover-shadow);
+  --app-surface-shadow: var(--app-card-rest-shadow);
 
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -243,8 +286,7 @@ html[data-theme-skin='bordered'] {
 }
 
 .app-card-colorful:hover {
-  border-color: rgba(var(--app-card-accent-rgb), var(--app-card-hover-border-opacity)) !important;
-  box-shadow: var(--app-card-hover-shadow) !important;
+  --app-surface-border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-hover-border-opacity));
 }
 
 .app-card-colorful:focus-visible {
@@ -264,7 +306,6 @@ html[data-theme-skin='bordered'] {
 
 html[data-theme="transparent"] .app-card-colorful,
 .v-theme--transparent .app-card-colorful {
-  border: 0 !important;
   backdrop-filter: blur(var(--transparent-blur, 10px));
 
   --app-card-accent-start-opacity: 0.018;
@@ -273,6 +314,7 @@ html[data-theme="transparent"] .app-card-colorful,
   --app-card-hover-border-opacity: 0;
   --app-card-stripe-opacity: 0.16;
   --app-card-surface-opacity: var(--transparent-opacity-light, 0.2);
+  --app-surface-border: 0 solid transparent;
 }
 
 // 保证卡片右上角的浮动操作区始终高于可点击的卡片内容层，避免误触发详情打开。
@@ -640,7 +682,7 @@ html[data-theme="transparent"] .app-card-colorful,
 .compact-fab .v-btn {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   backdrop-filter: blur(14px);
-  box-shadow: var(--app-fab-shadow) !important;
+  box-shadow: var(--app-fab-shadow);
   opacity: 0.98;
   transition:
     transform 0.18s ease,
@@ -651,7 +693,7 @@ html[data-theme="transparent"] .app-card-colorful,
 
 .compact-fab--primary .v-btn {
   block-size: 3rem !important;
-  box-shadow: var(--app-fab-shadow-strong) !important;
+  box-shadow: var(--app-fab-shadow-strong);
   inline-size: 3rem !important;
 }
 
@@ -670,18 +712,18 @@ html[data-theme="transparent"] .app-card-colorful,
 
 @media (hover: hover) {
   .compact-fab .v-btn:hover {
-    box-shadow: var(--app-fab-shadow-hover) !important;
+    box-shadow: var(--app-fab-shadow-hover);
     filter: saturate(1.03);
     transform: translateY(-2px);
   }
 
   .compact-fab--primary .v-btn:hover {
-    box-shadow: var(--app-fab-shadow-strong-hover) !important;
+    box-shadow: var(--app-fab-shadow-strong-hover);
   }
 }
 
 .compact-fab .v-btn:active {
-  box-shadow: var(--app-fab-shadow-active) !important;
+  box-shadow: var(--app-fab-shadow-active);
   transform: translateY(0) scale(0.98);
 }
 
@@ -748,29 +790,29 @@ html[data-theme="transparent"] .app-card-colorful,
 // 弹出层样式
 .v-overlay__content .v-list{
   overflow: hidden;
-  border-radius: var(--app-surface-radius) !important;
+  border-radius: var(--app-surface-radius);
   backdrop-filter: blur(6px);
-  background-color: rgb(var(--v-theme-surface), 0.9) !important;
-  box-shadow: none !important;
+  background-color: rgb(var(--v-theme-surface), 0.9);
+  box-shadow: none;
   padding-inline: 0.5rem !important;
 }
 
 .v-overlay__content .v-card:not(.bg-primary){
-  border-radius: var(--app-surface-radius) !important;
+  border-radius: var(--app-surface-radius);
   backdrop-filter: blur(8px);
-  background-color: rgb(var(--v-theme-surface), 0.95) !important;
-  box-shadow: none !important;
+  background-color: rgb(var(--v-theme-surface), 0.95);
+  box-shadow: none;
 
   .v-list, .v-table {
     backdrop-filter: none;
-    background-color: transparent !important;
-    box-shadow: none !important;
+    background-color: transparent;
+    box-shadow: none;
   }
 }
 
 .v-menu {
   .v-list-item:hover {
-    background-color: rgba(var(--v-theme-on-surface), 0.04) !important;
+    background-color: rgba(var(--v-theme-on-surface), 0.04);
   }
 }
 
@@ -783,10 +825,10 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .v-overlay__content {
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
   margin-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
-  transition: opacity 0.2s ease, box-shadow 0.2s ease !important;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
 .v-menu > .v-overlay__content {
@@ -817,7 +859,6 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-list {
-  border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-overlay-shadow) !important;
 }
 
@@ -825,7 +866,6 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-dialog--fullscreen > .v-overlay__content > .v-sheet,
 .v-dialog--fullscreen > .v-overlay__content > form > .v-card,
 .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
-  border-radius: 0 !important;
   box-shadow: none !important;
 }
 
@@ -835,8 +875,8 @@ html[data-theme="transparent"] .app-card-colorful,
     overflow: hidden;
     border-end-end-radius: 0 !important;
     border-end-start-radius: 0 !important;
-    border-start-end-radius: var(--app-surface-radius) !important;
-    border-start-start-radius: var(--app-surface-radius) !important;
+    border-start-end-radius: var(--app-theme-surface-radius) !important;
+    border-start-start-radius: var(--app-theme-surface-radius) !important;
   }
 
   .v-dialog--fullscreen > .v-overlay__content > .v-card,
@@ -845,8 +885,8 @@ html[data-theme="transparent"] .app-card-colorful,
   .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
     border-end-end-radius: 0 !important;
     border-end-start-radius: 0 !important;
-    border-start-end-radius: var(--app-surface-radius) !important;
-    border-start-start-radius: var(--app-surface-radius) !important;
+    border-start-end-radius: var(--app-theme-surface-radius) !important;
+    border-start-start-radius: var(--app-theme-surface-radius) !important;
   }
 }
 
@@ -881,5 +921,5 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .v-menu .v-overlay__content {
-  box-shadow: none !important;
+  box-shadow: none;
 } 

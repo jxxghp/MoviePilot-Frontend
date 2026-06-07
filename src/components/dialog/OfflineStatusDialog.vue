@@ -115,10 +115,6 @@ const colorTheme = computed(() => {
 </template>
 
 <style scoped>
-.offline-dialog {
-  border-radius: var(--app-surface-radius);
-}
-
 .status-icon-wrapper {
   padding-block: 24px 0;
   padding-inline: 24px;

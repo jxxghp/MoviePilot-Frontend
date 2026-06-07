@@ -220,7 +220,7 @@ onMounted(() => {
 
       <div class="pa-3 pb-2">
         <template v-if="!isMobileLayout">
-          <VSheet class="site-resource-filter-panel" rounded="lg" border>
+          <VSheet class="site-resource-filter-panel">
             <div class="site-resource-filter-panel__inner">
               <VRow class="site-resource-filter-row">
                 <VCol cols="12" md="4">
@@ -304,7 +304,7 @@ onMounted(() => {
 
           <VExpandTransition>
             <div v-if="mobileSearchExpanded" class="mt-2">
-              <VSheet class="site-resource-filter-panel" rounded="lg" border>
+              <VSheet class="site-resource-filter-panel">
                 <div class="site-resource-filter-panel__inner">
                   <VRow class="site-resource-filter-row">
                     <VCol cols="12">
@@ -611,11 +611,9 @@ onMounted(() => {
 }
 
 .site-resource-filter-panel {
-  border-color: rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.9));
   background:
     radial-gradient(circle at top left, rgba(var(--v-theme-primary), 0.06), transparent 40%),
     linear-gradient(180deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.93));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 4%);
 }
 
 .site-resource-filter-panel__inner {
@@ -623,7 +621,7 @@ onMounted(() => {
 }
 
 .site-resource-filter-input :deep(.v-field) {
-  border-radius: 0.75rem;
+  border-radius: var(--app-field-radius);
   background: rgba(var(--v-theme-surface), 0.92);
   box-shadow: inset 0 0 0 1px rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.8));
 }
@@ -718,8 +716,6 @@ onMounted(() => {
 }
 
 .site-resource-card__meta-item {
-  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7));
-  border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), 0.78);
   min-block-size: 0;
   padding-block: 0.55rem;

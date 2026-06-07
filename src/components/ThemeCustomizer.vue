@@ -288,7 +288,7 @@ async function handleResetSettings() {
       v-bind="customizerContainerProps"
       :style="customizerContainerStyle"
     >
-      <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode }">
+      <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode, 'app-surface': appMode }">
         <div class="theme-customizer-header py-5 px-4">
           <div>
             <h2 class="theme-customizer-title">{{ t('theme.customizer.title') }}</h2>
@@ -531,8 +531,6 @@ async function handleResetSettings() {
 
 .theme-customizer-panel--dialog {
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--app-surface-radius);
   background: rgb(var(--v-theme-surface));
   block-size: var(--theme-customizer-viewport-height, 100dvh);
   max-block-size: var(--theme-customizer-viewport-height, 100dvh);

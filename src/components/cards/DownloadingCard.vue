@@ -71,90 +71,67 @@ async function deleteDownload() {
 </script>
 
 <template>
-  <div v-if="cardState" class="downloading-card-shadow-shell">
-    <VCard
-      :key="props.info?.hash"
-      class="downloading-card flex flex-col h-full overflow-hidden"
-      min-height="150"
-    >
-      <template #image>
-        <VImg
-          :src="props.info?.media.image"
-          class="downloading-card-image"
-          aspect-ratio="2/3"
-          cover
-          @load="imageLoadHandler"
-          position="top"
-        >
-          <template #placeholder>
-            <div class="w-full h-full">
-              <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-            </div>
-          </template>
-          <template #default>
-            <div class="absolute inset-0 outline-none downloading-card-background"></div>
-          </template>
-        </VImg>
-      </template>
+  <VCard
+    v-if="cardState"
+    :key="props.info?.hash"
+    class="downloading-card flex flex-col h-full overflow-hidden"
+    min-height="150"
+  >
+    <template #image>
+      <VImg
+        :src="props.info?.media.image"
+        class="downloading-card-image"
+        aspect-ratio="2/3"
+        cover
+        @load="imageLoadHandler"
+        position="top"
+      >
+        <template #placeholder>
+          <div class="w-full h-full">
+            <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+          </div>
+        </template>
+        <template #default>
+          <div class="absolute inset-0 outline-none downloading-card-background"></div>
+        </template>
+      </VImg>
+    </template>
 
-      <div>
-        <VCardTitle class="break-words whitespace-normal text-white">
-          {{ props.info?.media.title || props.info?.name }}
-          {{
-            props.info?.media.episode
-              ? `${props.info?.media.season} ${props.info?.media.episode}`
-              : props.info?.season_episode
-          }}
-        </VCardTitle>
+    <div>
+      <VCardTitle class="break-words whitespace-normal text-white">
+        {{ props.info?.media.title || props.info?.name }}
+        {{
+          props.info?.media.episode
+            ? `${props.info?.media.season} ${props.info?.media.episode}`
+            : props.info?.season_episode
+        }}
+      </VCardTitle>
 
-        <VCardSubtitle class="break-words whitespace-normal text-white">
-          {{ props.info?.title }}
-        </VCardSubtitle>
+      <VCardSubtitle class="break-words whitespace-normal text-white">
+        {{ props.info?.title }}
+      </VCardSubtitle>
 
-        <VCardText class="text-subtitle-1 pt-3 pb-1 text-white">
-          {{ getSpeedText() }}
-        </VCardText>
+      <VCardText class="text-subtitle-1 pt-3 pb-1 text-white">
+        {{ getSpeedText() }}
+      </VCardText>
 
-        <VCardText v-if="getPercentage() > 0" class="text-white">
-          <VProgressLinear :model-value="getPercentage()" bg-color="success" color="success" />
-        </VCardText>
+      <VCardText v-if="getPercentage() > 0" class="text-white">
+        <VProgressLinear :model-value="getPercentage()" bg-color="success" color="success" />
+      </VCardText>
 
-        <VCardActions class="justify-space-between">
-          <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
-          <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
-        </VCardActions>
-      </div>
-    </VCard>
-  </div>
+      <VCardActions class="justify-space-between">
+        <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
+        <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
+      </VCardActions>
+    </div>
+  </VCard>
 </template>
 
 <style lang="scss" scoped>
-// 外层壳承载主题阴影，避免 VCard 的圆角裁切层影响阴影外扩。
-.downloading-card-shadow-shell {
-  position: relative;
-  border-radius: var(--app-surface-radius);
-  block-size: 100%;
-  box-shadow: var(--app-surface-shadow);
-  inline-size: 100%;
-  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
-}
-
-@media (hover: hover) {
-  .downloading-card-shadow-shell:hover {
-    box-shadow: var(--app-surface-hover-shadow);
-  }
-}
-
 .downloading-card {
   position: relative;
   isolation: isolate;
   background-color: rgb(31, 41, 55) !important;
-}
-
-// 阴影已经交给外层壳，内层卡片只负责裁切图片和内容圆角。
-.downloading-card.downloading-card.v-card[class],
-.downloading-card.downloading-card.v-card[class]:hover {
-  box-shadow: none !important;
 }
 
 // 图片槽和渐变遮罩统一继承卡片圆角，避免阴影增强后四角露出页面底色。

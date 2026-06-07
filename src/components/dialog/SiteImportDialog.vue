@@ -237,7 +237,7 @@ watch(selectedFile, async newFile => {
         <!-- 阶段1：选择文件阶段 -->
         <div v-if="currentStage === ImportStage.SELECT_FILE" class="upload-area">
           <div
-            class="upload-zone"
+            class="upload-zone app-surface-shape"
             :class="{ 'dragging': isDragging }"
             @dragover="handleDragOver"
             @dragleave="handleDragLeave"
@@ -394,7 +394,6 @@ watch(selectedFile, async newFile => {
 .upload-zone {
   padding: 2rem;
   border: 2px dashed #ccc;
-  border-radius: var(--app-surface-radius);
   text-align: center;
   transition: all 0.3s ease;
 }
