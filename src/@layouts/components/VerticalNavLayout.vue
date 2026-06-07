@@ -347,7 +347,9 @@ export default defineComponent({
     .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
       backdrop-filter: blur(12px) saturate(1.2);
       background: rgb(var(--v-theme-surface)) !important;
-      box-shadow: 0 4px 8px -4px rgb(94 86 105 / 42%);
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 4%),
+        0 1px 2px rgba(0, 0, 0, 2%);
     }
 
     .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed

@@ -5,13 +5,13 @@
 // Vertical nav scrolled sticky elevated nav
 %default-layout-vertical-nav-scrolled-sticky-elevated-nav {
   background-color: rgb(var(--v-theme-surface));
-  box-shadow: 0 4px 8px -4px rgb(94 86 105 / 42%);
+  box-shadow: var(--app-surface-shadow);
 }
 
 // Floating navbar and sticky elevated navbar scrolled
 %default-layout-vertical-nav-floating-navbar-and-sticky-elevated-navbar-scrolled {
   background-color: rgb(var(--v-theme-surface));
-  box-shadow: 0 4px 8px -4px rgb(94 86 105 / 42%);
+  box-shadow: var(--app-surface-shadow);
 }
 
 // Floating navbar overlay

@@ -222,7 +222,7 @@ html[data-theme-shadow='high'] {
   }
 }
 
-.v-btn:not(.v-btn--variant-plain, .v-btn--variant-text, .v-btn--flat) {
+.v-btn:not(.v-btn--variant-plain, .v-btn--variant-text, .v-btn--flat, .theme-horizontal-nav__item) {
   box-shadow: var(--app-surface-shadow) !important;
   transition: box-shadow 0.2s ease;
 }
