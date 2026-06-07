@@ -204,7 +204,7 @@ onMounted(loadDownloadDirectories)
 </script>
 
 <template>
-  <div class="file-browser-view app-surface">
+  <div class="file-browser-view app-surface-static">
     <FileBrowser
       v-if="operItem"
       :storages="storages"

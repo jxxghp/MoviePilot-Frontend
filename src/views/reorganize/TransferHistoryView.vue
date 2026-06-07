@@ -18,7 +18,9 @@ import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
-const TransferHistoryDeleteDialog = defineAsyncComponent(() => import('@/components/dialog/TransferHistoryDeleteDialog.vue'))
+const TransferHistoryDeleteDialog = defineAsyncComponent(
+  () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
+)
 
 // i18n
 const { t } = useI18n()
@@ -33,8 +35,7 @@ const { appMode } = usePWA()
 const { useProgressSSE } = useBackground()
 
 // 计算列表可用高度
-// componentOffset = VCardItem搜索栏(68) + VDivider(1) + 分页栏(40) + VCard边距(2) = 111
-const { availableHeight } = useAvailableHeight(125, 300)
+const { availableHeight } = useAvailableHeight(135, 300)
 
 // 提示框
 const $toast = useToast()
@@ -1209,7 +1210,6 @@ onUnmounted(() => {
       />
     </div>
   </Teleport>
-
 </template>
 
 <style lang="scss">

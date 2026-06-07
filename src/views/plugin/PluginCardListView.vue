@@ -24,7 +24,9 @@ const route = useRoute()
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const PluginAppCard = defineAsyncComponent(() => import('@/components/cards/PluginAppCard.vue'))
 const PluginFolderCreateDialog = defineAsyncComponent(() => import('@/components/dialog/PluginFolderCreateDialog.vue'))
-const PluginMarketSettingDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketSettingDialog.vue'))
+const PluginMarketSettingDialog = defineAsyncComponent(
+  () => import('@/components/dialog/PluginMarketSettingDialog.vue'),
+)
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 const PluginSearchDialog = defineAsyncComponent(() => import('@/components/dialog/PluginSearchDialog.vue'))
 
@@ -1643,8 +1645,8 @@ function onDragStartPlugin(evt: any) {
           <div>
             <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-            <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
-              <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+            <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 py-0 app-surface-static">
+              <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">
                 <span>{{ t('common.sortModeHint') }}</span>
                 <VBtn variant="tonal" color="error" @click="sortMode = false">
                   {{ t('common.exit') }}

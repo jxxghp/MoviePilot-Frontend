@@ -410,8 +410,8 @@ useDynamicButton({
       </div>
     </div>
 
-    <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4">
-      <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+    <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 py-0 app-surface-static">
+      <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">
         <span>{{ t('common.sortModeHint') }}</span>
         <VBtn variant="tonal" color="error" @click="sortMode = false">
           {{ t('common.exit') }}

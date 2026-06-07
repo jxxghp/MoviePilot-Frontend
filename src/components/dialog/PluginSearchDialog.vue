@@ -90,7 +90,7 @@ function closeDialog() {
         />
       </VToolbar>
       <VDialogCloseBtn @click="closeDialog" />
-      <VList v-if="plugins.length > 0" lines="two">
+      <VList v-if="plugins.length > 0" class="plugin-search-list" lines="two">
         <VVirtualScroll :items="plugins">
           <template #default="{ item }">
             <VListItem @click="emit('open-plugin', item)">
@@ -130,4 +130,8 @@ function closeDialog() {
     </VCard>
   </VDialog>
 </template>
-
+<style lang="scss" scoped>
+.plugin-search-list {
+  border-radius: 0 !important;
+}
+</style>

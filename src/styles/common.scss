@@ -148,6 +148,15 @@ html[data-theme-shadow='high'] {
   transition: border-color 0.2s ease, border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
+.app-surface-static {
+  border-radius: var(--app-surface-radius) !important;
+  box-shadow: var(--app-surface-shadow) !important;
+}
+
+.app-surface-static:hover {
+  box-shadow: var(--app-surface-shadow) !important;
+}
+
 // 底部导航卡片原本就是胶囊形态，不参与主题圆角切换。
 .footer-nav-card.v-card {
   --app-surface-radius: 9999px;
@@ -183,19 +192,50 @@ html[data-theme-shadow='high'] {
 }
 
 // 统一文本输入、下拉框、文本域等有框表单控件的圆角，显式 rounded 控件保留特殊形态。
-.v-field:not(.v-field--variant-plain, .v-field--variant-underlined, .v-field--rounded, [class^='rounded-'], [class*=' rounded-']) {
+.v-field:not(
+  .v-field--variant-plain,
+  .v-field--variant-underlined,
+  .v-field--rounded,
+  [class^='rounded-'],
+  [class*=' rounded-']
+) {
   border-radius: var(--app-field-radius);
   transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
-.v-btn:not(.v-btn--variant-plain, .v-btn--variant-text) {
+// 自定义字段圆角时，outlined 字段带左侧 inner icon 需要同步放大左侧描边弧度。
+.v-field:not(
+  .v-field--variant-plain,
+  .v-field--variant-underlined,
+  .v-field--rounded,
+  [class^='rounded-'],
+  [class*=' rounded-']
+).v-field--variant-outlined.v-field--prepended {
+  --app-field-outline-start-size: max(12px, calc(var(--app-field-radius) + 8px));
+
+  .v-field__outline__start {
+    flex-basis: var(--app-field-outline-start-size);
+  }
+
+  .v-field__outline__notch {
+    max-inline-size: calc(100% - var(--app-field-outline-start-size));
+  }
+}
+
+.v-btn:not(.v-btn--variant-plain, .v-btn--variant-text, .v-btn--flat) {
   box-shadow: var(--app-surface-shadow) !important;
   transition: box-shadow 0.2s ease;
 }
 
-.v-btn:not(.v-btn--rounded, [class^='rounded-'], [class*=' rounded-']) {
+.v-btn:not(.v-btn--rounded, .v-btn--flat, .v-btn--icon, [class^='rounded-'], [class*=' rounded-']) {
   border-radius: var(--app-surface-radius);
   transition: border-radius 0.2s ease;
+}
+
+.v-btn-group:not(.v-btn-group--variant-plain, .v-btn-group--variant-text) {
+  border-radius: var(--app-surface-radius);
+  box-shadow: var(--app-surface-shadow) !important;
+  transition: box-shadow 0.2s ease, border-radius 0.2s ease;
 }
 
 // 只给外层 surface 加边框和阴影，卡片内部的列表、表格等子组件保持平面，避免层级噪声。
@@ -246,6 +286,7 @@ html[data-theme-skin='bordered'] {
 // 设置项强调卡片：复用通知模板入口的弱强调条、轻渐变与悬浮反馈。
 .app-card-colorful {
   overflow: hidden;
+  border-radius: var(--app-surface-radius);
   background:
     linear-gradient(
       135deg,
@@ -254,8 +295,9 @@ html[data-theme-skin='bordered'] {
       rgba(var(--v-theme-surface), 0) 76%
     ),
     rgba(var(--v-theme-surface), var(--app-card-surface-opacity));
-  box-shadow: var(--app-card-rest-shadow);
+  box-shadow: var(--app-surface-shadow);
   color: rgb(var(--v-theme-on-surface));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 
   --app-card-accent-rgb: var(--v-theme-primary);
   --app-card-accent-end-rgb: var(--app-card-accent-rgb);
@@ -268,8 +310,6 @@ html[data-theme-skin='bordered'] {
   --app-surface-border: 1px solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity));
   --app-surface-hover-shadow: var(--app-card-hover-shadow);
   --app-surface-shadow: var(--app-card-rest-shadow);
-
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .app-card-colorful::before {
@@ -459,10 +499,11 @@ html[data-theme="transparent"] .app-card-colorful,
     padding-block: 4.5rem;
     padding-inline: 1rem;
   }
+}
 
-  .Vue-Toastification__toast {
-    border-radius: 8px;
-  }
+.Vue-Toastification__toast {
+  border-radius: var(--app-surface-radius);
+  box-shadow: var(--app-overlay-shadow);
 }
 
 // 对话框样式
@@ -621,11 +662,6 @@ html[data-theme="transparent"] .app-card-colorful,
   border-radius: var(--app-surface-radius);
   background: rgb(var(--v-table-header-background));
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-}
-
-.Vue-Toastification__toast {
-  border-radius: var(--app-surface-radius);
-  box-shadow: var(--app-overlay-shadow);
 }
 
 .backdrop-blur {
@@ -794,7 +830,6 @@ html[data-theme="transparent"] .app-card-colorful,
 
 // 弹出层样式
 .v-overlay__content .v-list{
-  overflow: hidden;
   border-radius: var(--app-surface-radius);
   backdrop-filter: blur(6px);
   background-color: rgb(var(--v-theme-surface), 0.9);

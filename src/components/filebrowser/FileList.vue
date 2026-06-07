@@ -29,8 +29,7 @@ const display = useDisplay()
 const { appMode } = usePWA()
 
 // 计算列表可用高度
-// componentOffset = FileToolbar(48) + FileList操作栏(40) + VCard边距(4) = 92
-const { availableHeight: listAvailableHeight } = useAvailableHeight(89, 300)
+const { availableHeight: listAvailableHeight } = useAvailableHeight(100, 300)
 
 // 输入参数
 const inProps = defineProps({

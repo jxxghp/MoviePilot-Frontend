@@ -4,7 +4,6 @@ import type { FileItem } from '@/api/types'
 import { useDisplay } from 'vuetify'
 import type { AxiosRequestConfig, AxiosInstance } from 'axios'
 import { useI18n } from 'vue-i18n'
-import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 
 // 国际化
@@ -12,16 +11,13 @@ const { t } = useI18n()
 
 const display = useDisplay()
 
-const { appMode } = usePWA()
-
 type TreeRow =
   | { type: 'root'; key: string; level: number }
   | { type: 'loading'; key: string; path: string; level: number }
   | { type: 'directory'; key: string; dir: FileItem; level: number }
 
 // 计算列表可用高度
-// componentOffset = FileToolbar(48) = 48
-const { availableHeight } = useAvailableHeight(48, 300)
+const { availableHeight } = useAvailableHeight(58, 300)
 
 // 输入参数
 const props = defineProps({
@@ -326,7 +322,6 @@ onMounted(async () => {
   flex-direction: column;
   flex-shrink: 0;
   border-radius: 0 !important;
-  background: rgb(var(--v-table-header-background));
   block-size: 100%;
   box-shadow: none !important;
   inline-size: 240px;

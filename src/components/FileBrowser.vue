@@ -346,7 +346,7 @@ function stopDrag() {
   justify-content: center;
   background-color: transparent;
   cursor: col-resize;
-  inline-size: 4px;
+  inline-size: 1px;
   transition: background-color 0.2s ease;
   user-select: none;
 }

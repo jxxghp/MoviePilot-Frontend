@@ -2741,6 +2741,7 @@ export default {
       resubscribeTv: '正在重新訂閱 {name} 第 {season} 季...',
       season: '第 {season} 季',
       noData: '沒有已完成的訂閱',
+      noDataHint: '完成的訂閱會顯示在這裡',
     },
     siteUserData: {
       title: '站點用戶數據',

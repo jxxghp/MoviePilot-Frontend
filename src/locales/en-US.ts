@@ -2790,6 +2790,7 @@ export default {
       resubscribeTv: 'Resubscribing {name} Season {season}...',
       season: 'Season {season}',
       noData: 'No completed subscriptions',
+      noDataHint: 'Completed subscription history will be displayed here',
     },
     siteUserData: {
       title: 'Site User Data',

@@ -31,7 +31,12 @@ let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 // 打开订阅日历共享进度弹窗。
 function openProgressDialog() {
   progressDialogController?.close()
-  progressDialogController = openSharedDialog(ProgressDialog, { text: `${t('common.loading')} ...` }, {}, { closeOn: false })
+  progressDialogController = openSharedDialog(
+    ProgressDialog,
+    { text: `${t('common.loading')} ...` },
+    {},
+    { closeOn: false },
+  )
 }
 
 // 关闭订阅日历共享进度弹窗。
@@ -85,7 +90,10 @@ async function eventsHander(subscribe: Subscribe) {
   } else {
     // 调用API查询集信息
     const params = subscribe.episode_group ? { episode_group: subscribe.episode_group } : undefined
-    const episodes: TmdbEpisode[] = await api.get(`tmdb/${subscribe.tmdbid}/${subscribe.season}`, params ? { params } : undefined)
+    const episodes: TmdbEpisode[] = await api.get(
+      `tmdb/${subscribe.tmdbid}/${subscribe.season}`,
+      params ? { params } : undefined,
+    )
 
     interface EpisodeInfo {
       title: string
@@ -160,8 +168,8 @@ onActivated(() => {
 <template>
   <FullCalendar :options="calendarOptions">
     <template #eventContent="arg">
-      <div class="hidden md:block overflow-hidden">
-        <VCard>
+      <div class="hidden md:block">
+        <VCard class="app-surface">
           <div class="d-flex justify-space-between flex-nowrap flex-row">
             <div class="ma-auto">
               <VImg
@@ -432,12 +440,6 @@ onActivated(() => {
 
 .v-application .fc .fc-list-event {
   background-color: transparent !important;
-}
-
-.v-application .fc .fc-popover {
-  border-radius: 6px;
-  box-shadow: 0 4px 14px -4px var(--v-shadow-key-umbra-opacity), 0 4px 8px -4px var(--v-shadow-key-penumbra-opacity),
-    0 4px 8px -4px var(--v-shadow-key-ambient-opacity);
 }
 
 .v-application .fc .fc-popover .fc-popover-header,

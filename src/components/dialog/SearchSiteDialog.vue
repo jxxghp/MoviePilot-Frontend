@@ -129,7 +129,7 @@ const filteredSites = computed(() => {
                 <div
                   v-bind="props"
                   :class="[
-                    'site-checkbox-wrapper pa-2 pa-sm-3 rounded-lg d-flex align-center',
+                    'site-checkbox-wrapper pa-2 pa-sm-3 d-flex align-center',
                     {
                       'site-selected': selectedSites.includes(site.id),
                       'site-hover': isHovering && !selectedSites.includes(site.id),
@@ -193,8 +193,11 @@ const filteredSites = computed(() => {
 <style scoped>
 .site-checkbox-wrapper {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: var(--app-surface-radius);
   cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .site-checkbox-wrapper:hover {
