@@ -418,17 +418,14 @@ watch(
 )
 
 // 切换媒体类型或识别源时，非 TMDB 电视剧不保留剧集组选择。
-watch(
-  [() => transferForm.type_name, () => mediaSource.value],
-  ([typeName, source]) => {
-    if (typeName === '电视剧' && source === 'themoviedb' && transferForm.tmdbid) {
-      getEpisodeGroups(transferForm.tmdbid)
-      return
-    }
-    transferForm.episode_group = null
-    episodeGroups.value = []
-  },
-)
+watch([() => transferForm.type_name, () => mediaSource.value], ([typeName, source]) => {
+  if (typeName === '电视剧' && source === 'themoviedb' && transferForm.tmdbid) {
+    getEpisodeGroups(transferForm.tmdbid)
+    return
+  }
+  transferForm.episode_group = null
+  episodeGroups.value = []
+})
 
 watch(
   () => transferForm.episode_group,
@@ -500,9 +497,7 @@ function normalizeTargetPath(path?: string | null) {
 }
 
 // 归一化剧集组值，兼容历史对象态值。
-function normalizeEpisodeGroup(
-  episodeGroup?: string | { value?: string | null } | null,
-) {
+function normalizeEpisodeGroup(episodeGroup?: string | { value?: string | null } | null) {
   if (!episodeGroup) return null
   if (typeof episodeGroup === 'string') {
     const normalizedEpisodeGroup = episodeGroup.trim()
@@ -632,11 +627,7 @@ const previewFileRows = computed(() => {
 // 标准化预览项中的识别词命中详情
 function getPreviewApplyWords(item: ManualTransferPreviewItem) {
   return [
-    ...new Set(
-      (item.apply_words ?? [])
-        .map(word => word?.trim())
-        .filter((word): word is string => Boolean(word)),
-    ),
+    ...new Set((item.apply_words ?? []).map(word => word?.trim()).filter((word): word is string => Boolean(word))),
   ]
 }
 
@@ -765,9 +756,7 @@ const episodeFormatRecommendSelectedFileItems = computed(() => {
 const episodeFormatRecommendHasValidSelectedFiles = computed(() => {
   if (episodeFormatRecommendSelectedFileItems.value.length <= 1) return false
 
-  const directoryKeys = new Set(
-    episodeFormatRecommendSelectedFileItems.value.map(item => getFileParentKey(item)),
-  )
+  const directoryKeys = new Set(episodeFormatRecommendSelectedFileItems.value.map(item => getFileParentKey(item)))
   return directoryKeys.size === 1
 })
 
@@ -778,8 +767,7 @@ const episodeFormatRecommendSourceItem = computed<FileItem | undefined>(() => {
 
 const canRecommendEpisodeFormat = computed(() => {
   return (
-    (Boolean(episodeFormatRecommendSourceItem.value?.path) ||
-      episodeFormatRecommendHasValidSelectedFiles.value) &&
+    (Boolean(episodeFormatRecommendSourceItem.value?.path) || episodeFormatRecommendHasValidSelectedFiles.value) &&
     !progressDialog.value &&
     !episodeFormatRecommendState.loading
   )
@@ -793,10 +781,7 @@ const episodeFormatRecommendSelectionKey = computed(() => {
 
 const episodeFormatRecommendTooltip = computed(() => {
   if (episodeFormatRecommendState.loading) return t('dialog.reorganize.episodeFormatRecommendLoading')
-  if (
-    normalizedItems.value.length > 1 &&
-    !episodeFormatRecommendHasValidSelectedFiles.value
-  ) {
+  if (normalizedItems.value.length > 1 && !episodeFormatRecommendHasValidSelectedFiles.value) {
     return t('dialog.reorganize.episodeFormatRecommendInvalidSelection')
   }
   if (!episodeFormatRecommendSourceItem.value?.path && !episodeFormatRecommendHasValidSelectedFiles.value) {
@@ -832,11 +817,7 @@ function getBatchItemsLabel(items: FileItem[]) {
 
 // 构造整理请求
 function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; logid?: number; preview?: boolean }) {
-  const sourceItem =
-    options.item ??
-    (options.items?.length
-      ? options.items[0]
-      : ({} as FileItem))
+  const sourceItem = options.item ?? (options.items?.length ? options.items[0] : ({} as FileItem))
   const payload: ManualTransferPayload = {
     ...transferForm,
     fileitem: sourceItem,
@@ -1702,7 +1683,7 @@ onUnmounted(() => {
                       <div
                         v-for="(item, index) in pagedPreviewRows"
                         :key="`${item.source}-${item.target}-${index}`"
-                        class="preview-file-row"
+                        class="preview-file-row app-surface-shape"
                         :class="{ 'preview-file-row--failed': item.success === false }"
                       >
                         <div class="preview-file-row__card preview-file-row__card--source">
@@ -1983,18 +1964,18 @@ onUnmounted(() => {
 }
 
 .preview-custom-words__source {
-  overflow-wrap: anywhere;
   color: rgb(var(--v-theme-on-surface));
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .preview-custom-words__original {
-  overflow-wrap: anywhere;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .preview-custom-words__chips {
@@ -2107,10 +2088,10 @@ onUnmounted(() => {
 
 .preview-file-row__path {
   overflow: visible;
-  overflow-wrap: anywhere;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.8125rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-all;
 }

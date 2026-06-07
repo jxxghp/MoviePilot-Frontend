@@ -288,7 +288,10 @@ async function handleResetSettings() {
       v-bind="customizerContainerProps"
       :style="customizerContainerStyle"
     >
-      <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode, 'app-surface': appMode }">
+      <div
+        class="theme-customizer-panel"
+        :class="{ 'theme-customizer-panel--dialog': appMode, 'app-surface': appMode }"
+      >
         <div class="theme-customizer-header py-5 px-4">
           <div>
             <h2 class="theme-customizer-title">{{ t('theme.customizer.title') }}</h2>
@@ -493,7 +496,7 @@ async function handleResetSettings() {
   overflow: hidden;
   block-size: 100dvh !important;
   border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
-  box-shadow: -2px 0 6px rgba(0, 0, 0, 10%) !important;
+  box-shadow: var(--app-surface-shadow) !important;
   inset-block: 0 !important;
   inset-inline-end: 0 !important;
   max-block-size: 100dvh !important;
@@ -534,6 +537,7 @@ async function handleResetSettings() {
   background: rgb(var(--v-theme-surface));
   block-size: var(--theme-customizer-viewport-height, 100dvh);
   max-block-size: var(--theme-customizer-viewport-height, 100dvh);
+
   /* fullscreen dialog 会贴到 viewport-fit=cover 顶部，iOS 需要在面板内部避开系统状态栏。 */
   padding-block-start: env(safe-area-inset-top);
 }

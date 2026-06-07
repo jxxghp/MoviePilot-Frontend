@@ -30,7 +30,7 @@ const { appMode } = usePWA()
 
 // 计算列表可用高度
 // componentOffset = FileToolbar(48) + FileList操作栏(40) + VCard边距(4) = 92
-const { availableHeight: listAvailableHeight } = useAvailableHeight(92, 300)
+const { availableHeight: listAvailableHeight } = useAvailableHeight(89, 300)
 
 // 输入参数
 const inProps = defineProps({
@@ -267,7 +267,7 @@ async function list_files(context: KeepAliveRefreshContext = {}) {
     }
 
     // 加载数据
-    const data = ((await inProps.axios.request<FileItem[], FileItem[]>(config))) ?? []
+    const data = (await inProps.axios.request<FileItem[], FileItem[]>(config)) ?? []
     // 如果当前路径已经变化，则放弃此次加载结果
     if (prevURI !== takeURISnapshot()) {
       return
@@ -381,7 +381,7 @@ async function download(item: FileItem) {
     responseType: 'blob',
   }
   // 加载数据
-  const result: Blob = (await inProps.axios.request<Blob, Blob>(config))
+  const result: Blob = await inProps.axios.request<Blob, Blob>(config)
   if (result) {
     const downloadUrl = URL.createObjectURL(result)
     window.open(downloadUrl, '_blank')
@@ -402,7 +402,7 @@ async function getImgLink(item: FileItem) {
     responseType: 'blob',
   }
   // 加载二进制数据
-  const result: Blob = (await inProps.axios.request<Blob, Blob>(config))
+  const result: Blob = await inProps.axios.request<Blob, Blob>(config)
   if (result) {
     // 创建图片地址
     revokeCurrentImgLink()
@@ -508,7 +508,7 @@ async function rename() {
     method: inProps.endpoints?.rename.method || 'post',
     data: currentItem.value,
   }
-  const result: { [key: string]: any } = (await inProps.axios?.request<any, { [key: string]: any }>(config))
+  const result: { [key: string]: any } = await inProps.axios?.request<any, { [key: string]: any }>(config)
   if (!result.success) {
     $toast.error(result.message)
   }
@@ -768,17 +768,9 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.file-list-container {
-  overflow: hidden auto;
-  block-size: 100%;
-  max-block-size: 100%;
-}
-</style>
-
 <template>
   <div>
-    <VCard class="d-flex flex-column w-full h-full">
+    <VCard class="d-flex flex-column w-full h-full file-list">
       <div v-if="!loading" class="flex">
         <IconBtn v-if="display.mdAndUp.value">
           <VIcon v-if="showTree" icon="mdi-file-tree" @click="switchFileTree(false)" />
@@ -792,7 +784,7 @@ onUnmounted(() => {
           density="compact"
           variant="plain"
           :placeholder="t('file.filterPlaceholder')"
-          :prepend-inner-icon="(filter.includes('*') || filter.includes('?')) ? 'mdi-asterisk' : 'mdi-filter-outline'"
+          :prepend-inner-icon="filter.includes('*') || filter.includes('?') ? 'mdi-asterisk' : 'mdi-filter-outline'"
           class="mx-2"
           rounded
         />
@@ -931,3 +923,17 @@ onUnmounted(() => {
     </VCard>
   </div>
 </template>
+
+<style scoped>
+.file-list {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.file-list-container {
+  overflow: hidden auto;
+  border-radius: 0 !important;
+  block-size: 100%;
+  max-block-size: 100%;
+}
+</style>

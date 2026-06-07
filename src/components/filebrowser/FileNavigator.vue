@@ -116,7 +116,7 @@ async function loadSubdirectories(path: string) {
       data: fakeItem,
     }
 
-    const result = (await props.axios?.request(config))
+    const result = await props.axios?.request(config)
     if (result && Array.isArray(result)) {
       // 过滤出目录项
       const dirs = result.filter(item => item.type === 'dir')
@@ -249,7 +249,6 @@ function getTreeRowStyle(level: number) {
 onMounted(async () => {
   await loadRootDirectories()
 })
-
 </script>
 
 <template>
@@ -296,13 +295,7 @@ onMounted(async () => {
           :style="getTreeRowStyle(item.level)"
         >
           <div class="folder-toggle" @click.stop="toggleFolder(item.dir.path || '')">
-            <VProgressCircular
-              v-if="loading[item.dir.path || '']"
-              indeterminate
-              size="14"
-              width="2"
-              color="primary"
-            />
+            <VProgressCircular v-if="loading[item.dir.path || '']" indeterminate size="14" width="2" color="primary" />
             <VIcon
               v-else
               size="small"
@@ -332,9 +325,10 @@ onMounted(async () => {
   overflow: hidden;
   flex-direction: column;
   flex-shrink: 0;
+  border-radius: 0 !important;
   background: rgb(var(--v-table-header-background));
   block-size: 100%;
-  border-end-start-radius: 12px;
+  box-shadow: none !important;
   inline-size: 240px;
 }
 

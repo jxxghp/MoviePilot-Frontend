@@ -144,8 +144,8 @@ onMounted(getModules)
               isChecking
                 ? t('moduleTest.checking')
                 : checkComplete
-                ? t('moduleTest.complete')
-                : t('moduleTest.preparing')
+                  ? t('moduleTest.complete')
+                  : t('moduleTest.preparing')
             }}
           </h3>
         </div>
@@ -230,16 +230,15 @@ onMounted(getModules)
 <style scoped>
 .system-health-check {
   display: flex;
-  flex-direction: column;
+  overflow: hidden;
   flex: 1 1 auto;
+  flex-direction: column;
   block-size: 100%;
   min-block-size: 0;
-  overflow: hidden;
 }
 
 .progress-container {
   flex-shrink: 0;
-  background: var(--v-surface-variant);
 }
 
 .progress-card {
@@ -334,10 +333,6 @@ onMounted(getModules)
   padding: 12px;
   background: var(--v-surface);
   transition: all 0.3s ease;
-}
-
-.module-item:hover {
-  transform: translateY(-2px);
 }
 
 .module-item.success {

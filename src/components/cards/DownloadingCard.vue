@@ -71,82 +71,72 @@ async function deleteDownload() {
 </script>
 
 <template>
-  <VCard
-    v-if="cardState"
-    :key="props.info?.hash"
-    class="downloading-card flex flex-col h-full overflow-hidden"
-    min-height="150"
-  >
-    <template #image>
-      <VImg
-        :src="props.info?.media.image"
-        class="downloading-card-image"
-        aspect-ratio="2/3"
-        cover
-        @load="imageLoadHandler"
-        position="top"
+  <VHover>
+    <template #default="hover">
+      <VCard
+        v-if="cardState"
+        v-bind="hover.props"
+        :key="props.info?.hash"
+        class="downloading-card app-surface flex flex-col h-full overflow-hidden"
+        :class="{
+          'transition transform-cpu duration-300  -translate-y-1': hover.isHovering,
+        }"
+        min-height="150"
       >
-        <template #placeholder>
-          <div class="w-full h-full">
-            <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-          </div>
+        <template #image>
+          <VImg
+            :src="props.info?.media.image"
+            class="downloading-card-image"
+            aspect-ratio="2/3"
+            cover
+            @load="imageLoadHandler"
+            position="top"
+          >
+            <template #placeholder>
+              <div class="w-full h-full">
+                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+              </div>
+            </template>
+            <template #default>
+              <div class="absolute inset-0 outline-none downloading-card-background"></div>
+            </template>
+          </VImg>
         </template>
-        <template #default>
-          <div class="absolute inset-0 outline-none downloading-card-background"></div>
-        </template>
-      </VImg>
+
+        <div>
+          <VCardTitle class="break-words whitespace-normal text-white">
+            {{ props.info?.media.title || props.info?.name }}
+            {{
+              props.info?.media.episode
+                ? `${props.info?.media.season} ${props.info?.media.episode}`
+                : props.info?.season_episode
+            }}
+          </VCardTitle>
+
+          <VCardSubtitle class="break-words whitespace-normal text-white">
+            {{ props.info?.title }}
+          </VCardSubtitle>
+
+          <VCardText class="text-subtitle-1 pt-3 pb-1 text-white">
+            {{ getSpeedText() }}
+          </VCardText>
+
+          <VCardText v-if="getPercentage() > 0" class="text-white">
+            <VProgressLinear :model-value="getPercentage()" bg-color="success" color="success" />
+          </VCardText>
+
+          <VCardActions class="justify-space-between">
+            <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
+            <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
+          </VCardActions>
+        </div>
+      </VCard>
     </template>
-
-    <div>
-      <VCardTitle class="break-words whitespace-normal text-white">
-        {{ props.info?.media.title || props.info?.name }}
-        {{
-          props.info?.media.episode
-            ? `${props.info?.media.season} ${props.info?.media.episode}`
-            : props.info?.season_episode
-        }}
-      </VCardTitle>
-
-      <VCardSubtitle class="break-words whitespace-normal text-white">
-        {{ props.info?.title }}
-      </VCardSubtitle>
-
-      <VCardText class="text-subtitle-1 pt-3 pb-1 text-white">
-        {{ getSpeedText() }}
-      </VCardText>
-
-      <VCardText v-if="getPercentage() > 0" class="text-white">
-        <VProgressLinear :model-value="getPercentage()" bg-color="success" color="success" />
-      </VCardText>
-
-      <VCardActions class="justify-space-between">
-        <VBtn :icon="`${isDownloading ? 'mdi-pause' : 'mdi-play'}`" @click="toggleDownload" />
-        <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
-      </VCardActions>
-    </div>
-  </VCard>
+  </VHover>
 </template>
 
 <style lang="scss" scoped>
-.downloading-card {
-  position: relative;
-  isolation: isolate;
-  background-color: rgb(31, 41, 55) !important;
-}
-
-// 图片槽和渐变遮罩统一继承卡片圆角，避免阴影增强后四角露出页面底色。
-.downloading-card :deep(.v-card__image),
-.downloading-card :deep(.v-responsive),
-.downloading-card :deep(.v-img),
-.downloading-card :deep(.v-img__img),
-.downloading-card :deep(.v-responsive__content) {
-  overflow: hidden;
-  border-radius: inherit;
-}
-
-.downloading-card :deep(.v-card__image) {
-  background-color: rgb(31, 41, 55);
-}
+/* stylelint-disable selector-pseudo-class-no-unknown */
 
 .downloading-card-image {
   block-size: 100%;

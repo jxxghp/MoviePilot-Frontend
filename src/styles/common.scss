@@ -141,7 +141,6 @@ html[data-theme-shadow='high'] {
 .v-card,
 .v-sheet,
 .v-list,
-.v-table,
 .v-expansion-panel {
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius) !important;
@@ -159,7 +158,6 @@ html[data-theme-shadow='high'] {
   .v-card:hover,
   .v-sheet:hover,
   .v-list:hover,
-  .v-table:hover,
   .v-expansion-panel:hover {
     box-shadow: var(--app-surface-hover-shadow) !important;
   }
@@ -190,6 +188,16 @@ html[data-theme-shadow='high'] {
   transition: border-radius 0.2s ease, box-shadow 0.2s ease;
 }
 
+.v-btn:not(.v-btn--variant-plain, .v-btn--variant-text) {
+  box-shadow: var(--app-surface-shadow) !important;
+  transition: box-shadow 0.2s ease;
+}
+
+.v-btn:not(.v-btn--rounded, [class^='rounded-'], [class*=' rounded-']) {
+  border-radius: var(--app-surface-radius);
+  transition: border-radius 0.2s ease;
+}
+
 // 只给外层 surface 加边框和阴影，卡片内部的列表、表格等子组件保持平面，避免层级噪声。
 .v-card .v-list:not(.app-surface),
 .v-card .v-sheet:not(.app-surface),
@@ -209,15 +217,6 @@ html[data-theme-shadow='high'] {
 // 弹窗内容里的嵌套卡片默认保持平面；弹窗自身仍由 overlay 规则控制阴影和圆角。
 .v-dialog > .v-overlay__content > .v-card :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful),
 .v-dialog > .v-overlay__content > .v-sheet :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful) {
-  --app-surface-hover-shadow: none;
-  --app-surface-shadow: none;
-}
-
-// 菜单只让直接承载层拥有弹出阴影，内部嵌套 surface 不再重复制造层级。
-.v-menu
-  > .v-overlay__content
-  > :where(.v-card, .v-sheet, .v-list)
-  :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful) {
   --app-surface-hover-shadow: none;
   --app-surface-shadow: none;
 }
@@ -619,8 +618,14 @@ html[data-theme="transparent"] .app-card-colorful,
 
 // 组件样式
 .v-alert--variant-elevated, .v-alert--variant-flat {
+  border-radius: var(--app-surface-radius);
   background: rgb(var(--v-table-header-background));
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
+
+.Vue-Toastification__toast {
+  border-radius: var(--app-surface-radius);
+  box-shadow: var(--app-overlay-shadow);
 }
 
 .backdrop-blur {

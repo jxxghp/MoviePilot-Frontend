@@ -77,14 +77,14 @@ function findCommonPath(paths: string[]): string {
 const STORAGE_KEY = 'fileBrowserView.activeStorage'
 
 interface BrowserInitialParams {
-  storage: string;
-  path: string;
-  name: string;
+  storage: string
+  path: string
+  name: string
 }
- // determine which entry to select initially
+// determine which entry to select initially
 function determineBrowserInitialParams(downloadDirectories: TransferDirectoryConf[]): BrowserInitialParams {
-  const isAvailable = (storage: string) => storageTypes.value.includes(storage);
-  const buckets = downloadDirectories.reduce<Map<string, string[]>>((dict, item) => { 
+  const isAvailable = (storage: string) => storageTypes.value.includes(storage)
+  const buckets = downloadDirectories.reduce<Map<string, string[]>>((dict, item) => {
     // filter out directories whose storage is not available
     if (!isAvailable(item.storage)) {
       return dict
@@ -98,37 +98,35 @@ function determineBrowserInitialParams(downloadDirectories: TransferDirectoryCon
       dict.get(item.storage)!.push(item.download_path)
     }
     return dict
-  }, new Map());
+  }, new Map())
 
-  const cachedStorage = localStorage.getItem(STORAGE_KEY) || '';
+  const cachedStorage = localStorage.getItem(STORAGE_KEY) || ''
   // if no download directories are configured, fall back to cached storage or first available storage
   if (buckets.size === 0) {
     return {
-      storage: isAvailable(cachedStorage)
-        ? cachedStorage
-        : (storageTypes.value[0] || 'local'),
+      storage: isAvailable(cachedStorage) ? cachedStorage : storageTypes.value[0] || 'local',
       path: '/',
       name: '/',
     }
   }
-  let selectedEntry: [string, string[]];
+  let selectedEntry: [string, string[]]
   if (cachedStorage && buckets.has(cachedStorage)) {
-    selectedEntry = [cachedStorage, buckets.get(cachedStorage)!];
+    selectedEntry = [cachedStorage, buckets.get(cachedStorage)!]
   } else {
     // if no storage selected previously, use the most populous one
     selectedEntry = Array.from(buckets.entries()).reduce((prev, curr) => {
-      return curr[1].length > prev[1].length ? curr : prev;
-    });
+      return curr[1].length > prev[1].length ? curr : prev
+    })
   }
 
-  const path = findCommonPath(selectedEntry[1]);
+  const path = findCommonPath(selectedEntry[1])
   return {
     storage: selectedEntry[0],
     path,
     name: path.split('/').filter(Boolean).pop() ?? '',
   }
 }
-      
+
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
@@ -138,7 +136,7 @@ async function loadDownloadDirectories() {
 
     const result: { [key: string]: any } = await api.get('system/setting/Directories')
     if (result.success && result.data?.value) {
-      const { storage, path, name } = determineBrowserInitialParams(result.data.value);
+      const { storage, path, name } = determineBrowserInitialParams(result.data.value)
       // operItem初始化
       operItem.value = {
         type: 'dir',
@@ -154,8 +152,8 @@ async function loadDownloadDirectories() {
           name: '/',
           path: '/',
           fileid: 'root',
-        }
-      ];
+        },
+      ]
       // 将初始数据拆分到堆栈中
       const paths = path.split('/').filter(Boolean)
       paths.map((name, index) => {
@@ -206,7 +204,7 @@ onMounted(loadDownloadDirectories)
 </script>
 
 <template>
-  <div class="file-browser-view">
+  <div class="file-browser-view app-surface">
     <FileBrowser
       v-if="operItem"
       :storages="storages"
@@ -223,6 +221,7 @@ onMounted(loadDownloadDirectories)
 <style lang="scss" scoped>
 .file-browser-view {
   position: relative;
+  overflow: hidden;
   block-size: 100%;
 }
 </style>

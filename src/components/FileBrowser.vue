@@ -161,15 +161,15 @@ const isDragging = ref(false)
 const dragStartX = ref(0)
 const dragStartWidth = ref(0)
 
-watch(sort, (val) => {
+watch(sort, val => {
   localStorage.setItem(SORT_KEY, val)
 })
 
-watch(showDirTree, (val) => {
+watch(showDirTree, val => {
   localStorage.setItem(SHOW_TREE_KEY, String(val))
 })
 
-watch(navigatorWidth, (val) => {
+watch(navigatorWidth, val => {
   localStorage.setItem(NAV_WIDTH_KEY, String(val))
 })
 
@@ -181,7 +181,6 @@ const storagesArray = computed(() => {
     icon: storageIconDict[item.type] ?? 'mdi-server-network-outline',
   }))
 })
-
 
 // 方法
 function loadingChanged(isLoading: number) {
@@ -272,7 +271,7 @@ function stopDrag() {
 </script>
 
 <template>
-  <div class="mx-auto" :loading="loading > 0">
+  <div class="mx-auto overflow-hidden" :loading="loading > 0">
     <div v-if="item">
       <FileToolbar
         ref="toolbarRef"
