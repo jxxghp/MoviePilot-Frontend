@@ -1007,6 +1007,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <LoadingBanner v-if="!isDashboardRevealed" class="mt-12" />
+
   <!-- 仪表板 -->
   <div
     ref="dashboardGridRef"

@@ -142,7 +142,6 @@ html[data-theme-shadow='high'] {
 .v-sheet,
 .v-list,
 .v-expansion-panel {
-  border: var(--app-surface-border);
   border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-surface-shadow) !important;
   transition: border-color 0.2s ease, border-radius 0.2s ease, box-shadow 0.2s ease;
@@ -274,6 +273,14 @@ html[data-theme-skin='bordered'] {
   .layout-vertical-nav {
     border-block: 0;
     border-inline-start: 0;
+  }
+
+  .app-surface,
+  .v-card,
+  .v-sheet,
+  .v-list,
+  .v-expansion-panel {
+    border: var(--app-surface-border);
   }
 }
 
