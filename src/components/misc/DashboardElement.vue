@@ -6,6 +6,8 @@ import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 
+type DashboardComponentLoader = () => Promise<any>
+
 const DashboardSkeleton = {
   setup() {
     const SkeletonLoader = resolveComponent('VSkeletonLoader')
@@ -19,51 +21,59 @@ const asyncDashboardOptions = {
   loadingComponent: DashboardSkeleton,
 }
 
+const builtInDashboardComponentLoaders: Record<string, DashboardComponentLoader> = {
+  storage: () => import('@/views/dashboard/AnalyticsStorage.vue'),
+  mediaStatistic: () => import('@/views/dashboard/AnalyticsMediaStatistic.vue'),
+  weeklyOverview: () => import('@/views/dashboard/AnalyticsWeeklyOverview.vue'),
+  speed: () => import('@/views/dashboard/AnalyticsSpeed.vue'),
+  scheduler: () => import('@/views/dashboard/AnalyticsScheduler.vue'),
+  cpu: () => import('@/views/dashboard/AnalyticsCpu.vue'),
+  memory: () => import('@/views/dashboard/AnalyticsMemory.vue'),
+  network: () => import('@/views/dashboard/AnalyticsNetwork.vue'),
+  library: () => import('@/views/dashboard/MediaServerLibrary.vue'),
+  playing: () => import('@/views/dashboard/MediaServerPlaying.vue'),
+  latest: () => import('@/views/dashboard/MediaServerLatest.vue'),
+}
+
+const builtInDashboardComponentPromises = new Map<string, Promise<any>>()
+
+// 复用内置仪表盘组件加载 Promise，让页面层可以等待异步组件模块真正加载完成。
+function loadBuiltInDashboardComponent(id: string) {
+  const loader = builtInDashboardComponentLoaders[id]
+  if (!loader) return Promise.resolve()
+
+  let loadPromise = builtInDashboardComponentPromises.get(id)
+  if (!loadPromise) {
+    loadPromise = loader().catch(error => {
+      builtInDashboardComponentPromises.delete(id)
+      throw error
+    })
+    builtInDashboardComponentPromises.set(id, loadPromise)
+  }
+
+  return loadPromise
+}
+
+// 创建内置仪表盘异步组件，并与加载完成上报共享同一份加载 Promise。
+function createAsyncDashboardComponent(id: string) {
+  return defineAsyncComponent({
+    loader: () => loadBuiltInDashboardComponent(id),
+    ...asyncDashboardOptions,
+  })
+}
+
 // 内置仪表盘按需加载，关闭的卡片不再挤进 dashboard 首屏 chunk。
-const AnalyticsStorage = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsStorage.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsMediaStatistic = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsMediaStatistic.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsWeeklyOverview = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsWeeklyOverview.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsSpeed = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsSpeed.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsScheduler = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsScheduler.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsCpu = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsCpu.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsMemory = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsMemory.vue'),
-  ...asyncDashboardOptions,
-})
-const AnalyticsNetwork = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/AnalyticsNetwork.vue'),
-  ...asyncDashboardOptions,
-})
-const MediaServerLibrary = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/MediaServerLibrary.vue'),
-  ...asyncDashboardOptions,
-})
-const MediaServerPlaying = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/MediaServerPlaying.vue'),
-  ...asyncDashboardOptions,
-})
-const MediaServerLatest = defineAsyncComponent({
-  loader: () => import('@/views/dashboard/MediaServerLatest.vue'),
-  ...asyncDashboardOptions,
-})
+const AnalyticsStorage = createAsyncDashboardComponent('storage')
+const AnalyticsMediaStatistic = createAsyncDashboardComponent('mediaStatistic')
+const AnalyticsWeeklyOverview = createAsyncDashboardComponent('weeklyOverview')
+const AnalyticsSpeed = createAsyncDashboardComponent('speed')
+const AnalyticsScheduler = createAsyncDashboardComponent('scheduler')
+const AnalyticsCpu = createAsyncDashboardComponent('cpu')
+const AnalyticsMemory = createAsyncDashboardComponent('memory')
+const AnalyticsNetwork = createAsyncDashboardComponent('network')
+const MediaServerLibrary = createAsyncDashboardComponent('library')
+const MediaServerPlaying = createAsyncDashboardComponent('playing')
+const MediaServerLatest = createAsyncDashboardComponent('latest')
 
 // 输入参数
 const props = defineProps({
@@ -78,27 +88,43 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:refreshStatus'])
+const emit = defineEmits(['update:refreshStatus', 'loaded'])
+
+// 当前仪表盘节点是否已经向页面层报告过加载完成。
+const isDashboardElementLoaded = ref(false)
+
+let isDashboardElementUnmounted = false
+let pluginDashboardComponentLoadPromise: Promise<any> | null = null
 
 // 插件UI渲染模式 ('vuetify' 或 'vue')
 const pluginRenderMode = computed(() => props.config?.render_mode || 'vuetify')
+
+// 加载 Vue 模式的插件仪表盘远程组件，并缓存当前节点的加载 Promise。
+function loadPluginDashboardComponent() {
+  if (!props.config?.id) return Promise.reject(new Error('插件ID不存在'))
+
+  if (!pluginDashboardComponentLoadPromise) {
+    pluginDashboardComponentLoadPromise = loadRemoteComponent(props.config.id, 'Dashboard').catch(error => {
+      pluginDashboardComponentLoadPromise = null
+      throw error
+    })
+  }
+
+  return pluginDashboardComponentLoadPromise
+}
 
 // Vue 模式：动态加载的组件
 const dynamicPluginComponent = defineAsyncComponent({
   // 工厂函数
   loader: async () => {
     try {
-      if (!props.config?.id) {
-        throw new Error('插件ID不存在')
-      }
-
-      // 动态加载远程组件
-      const module = await loadRemoteComponent(props.config.id, 'Dashboard')
+      const module = await loadPluginDashboardComponent()
 
       // 直接返回加载的组件，无需再获取default
       return module
     } catch (error) {
       console.error('加载远程组件失败:', error)
+      throw error
     }
   },
   // 加载中显示的组件
@@ -115,7 +141,53 @@ const dynamicPluginComponent = defineAsyncComponent({
   },
 })
 
+// 判断当前配置是否对应内置异步仪表盘组件。
+function isBuiltInDashboardElement() {
+  return !!props.config?.id && !!builtInDashboardComponentLoaders[props.config.id]
+}
+
+// 判断当前配置是否需要等待插件 Vue 远程组件加载。
+function isVuePluginDashboardElement() {
+  return !isBuiltInDashboardElement() && pluginRenderMode.value === 'vue' && !isNullOrEmptyObject(props.config)
+}
+
+// 向页面层上报当前仪表盘节点已完成首次组件加载。
+function emitDashboardElementLoaded() {
+  if (isDashboardElementLoaded.value || isDashboardElementUnmounted) return
+
+  isDashboardElementLoaded.value = true
+  emit('loaded')
+}
+
+// 等待当前仪表盘节点的异步组件加载完成，静态渲染模式则等待一次 DOM 更新。
+async function waitForDashboardElementLoaded() {
+  if (isDashboardElementLoaded.value) return
+
+  try {
+    if (isBuiltInDashboardElement() && props.config?.id) {
+      await loadBuiltInDashboardComponent(props.config.id)
+    } else if (isVuePluginDashboardElement()) {
+      await loadPluginDashboardComponent()
+    }
+
+    await nextTick()
+  } catch (error) {
+    console.error(error)
+  } finally {
+    emitDashboardElementLoaded()
+  }
+}
+
+watch(
+  () => [props.config?.id, props.config?.key, pluginRenderMode.value],
+  () => {
+    void waitForDashboardElementLoaded()
+  },
+  { immediate: true },
+)
+
 onUnmounted(() => {
+  isDashboardElementUnmounted = true
   // 组件卸载时禁用刷新状态
   emit('update:refreshStatus', false)
 })
@@ -177,11 +249,6 @@ onUnmounted(() => {
   flex-direction: column;
   block-size: 100%;
   inline-size: 100%;
-  min-block-size: 0;
-}
-
-.dashboard-plugin-vue-renderer :deep(> *) {
-  flex: 1 1 auto;
   min-block-size: 0;
 }
 </style>

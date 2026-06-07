@@ -61,6 +61,15 @@ const dashboardGridRef = ref<HTMLElement | null>(null)
 // GridStack 实例
 const dashboardGrid = shallowRef<GridStack | null>(null)
 
+// 仪表板配置是否已完成首次加载，包含插件仪表板配置。
+const isDashboardConfigLoaded = ref(false)
+
+// 仪表板是否已完成首次整体渐现。
+const isDashboardRevealed = ref(false)
+
+// 已完成组件模块加载的仪表板项目 ID。
+const loadedDashboardGridItemIds = ref<Set<string>>(new Set())
+
 // 是否正在由 Vue 同步 GridStack，避免初始化写入覆盖用户布局
 const isSyncingDashboardGrid = ref(false)
 
@@ -77,6 +86,8 @@ const dashboardGridObservedContentHeights = new Map<string, number>()
 let dashboardGridContentObserver: ResizeObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
 let dashboardGridResizeRefreshFrame: number | null = null
+let dashboardRevealFrame: number | null = null
+let isDashboardRevealPending = false
 
 // 是否正在手动缩放组件，避免自动测高抢回用户拖动中的高度。
 const isDashboardGridResizing = ref(false)
@@ -225,6 +236,79 @@ const dashboardGridItems = computed<DashboardGridItem[]>(() =>
       }
     }),
 )
+
+// 获取当前可渲染仪表板项目 ID 列表。
+function getDashboardGridItemIds() {
+  return dashboardGridItems.value.map(item => item.id)
+}
+
+// 清理已经不在当前仪表板列表中的加载完成标记。
+function syncDashboardLoadedItemIds() {
+  const currentIds = new Set(getDashboardGridItemIds())
+  const nextLoadedIds = new Set([...loadedDashboardGridItemIds.value].filter(id => currentIds.has(id)))
+
+  if (nextLoadedIds.size !== loadedDashboardGridItemIds.value.size) {
+    loadedDashboardGridItemIds.value = nextLoadedIds
+  }
+}
+
+// 判断当前启用的仪表板项目是否都已经完成组件加载。
+function areDashboardGridItemsLoaded() {
+  return getDashboardGridItemIds().every(id => loadedDashboardGridItemIds.value.has(id))
+}
+
+// 判断 GridStack 是否已经可承载当前仪表板项目。
+function isDashboardGridReadyForReveal() {
+  return getDashboardGridItemIds().length === 0 || !!dashboardGrid.value
+}
+
+// 在配置、组件和 GridStack 都就绪后安排仪表板整体渐现。
+function scheduleDashboardReveal() {
+  if (
+    isDashboardRevealed.value ||
+    isDashboardRevealPending ||
+    dashboardRevealFrame !== null ||
+    !isDashboardConfigLoaded.value ||
+    !isDashboardGridReadyForReveal() ||
+    !areDashboardGridItemsLoaded()
+  ) {
+    return
+  }
+
+  isDashboardRevealPending = true
+  void nextTick(() => {
+    isDashboardRevealPending = false
+    if (
+      isDashboardRevealed.value ||
+      !isDashboardConfigLoaded.value ||
+      !isDashboardGridReadyForReveal() ||
+      !areDashboardGridItemsLoaded()
+    ) {
+      return
+    }
+
+    resizeAutoDashboardItemsToContent()
+
+    if (typeof window === 'undefined') {
+      isDashboardRevealed.value = true
+      return
+    }
+
+    dashboardRevealFrame = window.requestAnimationFrame(() => {
+      dashboardRevealFrame = null
+      isDashboardRevealed.value = true
+      notifyDashboardContentResize()
+    })
+  })
+}
+
+// 标记单个仪表板项目已经完成首次组件加载。
+function markDashboardGridItemLoaded(id: string) {
+  if (loadedDashboardGridItemIds.value.has(id)) return
+
+  loadedDashboardGridItemIds.value = new Set([...loadedDashboardGridItemIds.value, id])
+  scheduleDashboardReveal()
+}
 
 // 将未知数值限制到 GridStack 可接受的整数区间。
 function clampGridNumber(value: unknown, min: number, max: number, fallback: number) {
@@ -486,7 +570,7 @@ async function saveDashboardConfig(payload?: { enabled?: Record<string, boolean>
     console.error(error)
   }
   // 保存后重新获取插件仪表板
-  getPluginDashboardMeta()
+  void getPluginDashboardMeta()
   settingsDialogController?.close()
   settingsDialogController = null
 }
@@ -501,16 +585,19 @@ function buildPluginDashboardId(plugin_id: string, key: string) {
 async function getPluginDashboardMeta() {
   // 只有超级用户才能获取
   if (!superUser) return
-  pluginDashboardMeta.value = await api.get('/plugin/dashboard/meta')
+
   try {
+    pluginDashboardMeta.value = (await api.get('/plugin/dashboard/meta')) ?? []
     if (!isNullOrEmptyObject(pluginDashboardMeta.value)) {
       // 下载插件仪表板配置
-      pluginDashboardMeta.value.forEach(async (pluginDashboard: { id: string; key: string }) => {
-        const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
-        // 初始化插件仪表板的刷新状态
-        pluginDashboardRefreshStatus.value[pluginDashboardId] = true
-        await getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
-      })
+      await Promise.all(
+        pluginDashboardMeta.value.map(async (pluginDashboard: { id: string; key: string }) => {
+          const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
+          // 初始化插件仪表板的刷新状态
+          pluginDashboardRefreshStatus.value[pluginDashboardId] = true
+          await getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
+        }),
+      )
     }
   } catch (error) {
     console.error(error)
@@ -535,7 +622,7 @@ function schedulePluginDashboardRefresh(item: DashboardItem) {
     isRequest.value
   ) {
     refreshTimers.value[pluginDashboardId] = setTimeout(() => {
-      getPluginDashboard(item.id, item.key)
+      void getPluginDashboard(item.id, item.key)
     }, item.attrs.refresh * 1000)
   }
 }
@@ -546,7 +633,7 @@ function refreshEnabledPluginDashboards() {
   pluginDashboardMeta.value.forEach((pluginDashboard: { id: string; key: string }) => {
     const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
     if (enableConfig.value[pluginDashboardId]) {
-      getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
+      void getPluginDashboard(pluginDashboard.id, pluginDashboard.key)
     }
   })
 }
@@ -555,34 +642,32 @@ function refreshEnabledPluginDashboards() {
 async function getPluginDashboard(id: string, key: string) {
   try {
     const url = key ? `/plugin/dashboard/${id}/${key}` : `/plugin/dashboard/${id}`
-    api.get(url).then((res: any) => {
-      if (res) {
-        // 名称替换为元信息的名称
-        const meta = pluginDashboardMeta.value.find(
-          (item: { id: string; key: string }) => item.id === id && item.key === key,
-        )
-        if (meta) res.name = meta.name
-        // 保存到仪表板配置中，如果已经存在则替换
-        const index = dashboardConfigs.value.findIndex(
-          (item: { id: string; key: string }) => item.id === id && item.key === key,
-        )
-        if (index !== -1) {
-          dashboardConfigs.value[index] = res
-        } else {
-          dashboardConfigs.value.push(res)
-          // 为新增的插件仪表板生成颜色
-          const pluginDashboardId = buildPluginDashboardId(id, key)
-          if (!itemColors.value[pluginDashboardId]) {
-            itemColors.value[pluginDashboardId] = getItemColor(pluginDashboardId)
-          }
-          // 排序
-          sortDashboardConfigs()
-        }
+    const res: DashboardItem | undefined = await api.get(url)
+    if (res) {
+      // 名称替换为元信息的名称
+      const meta = pluginDashboardMeta.value.find(
+        (item: { id: string; key: string }) => item.id === id && item.key === key,
+      )
+      if (meta) res.name = meta.name
+      // 保存到仪表板配置中，如果已经存在则替换
+      const index = dashboardConfigs.value.findIndex(
+        (item: { id: string; key: string }) => item.id === id && item.key === key,
+      )
+      if (index !== -1) {
+        dashboardConfigs.value[index] = res
+      } else {
+        dashboardConfigs.value.push(res)
+        // 为新增的插件仪表板生成颜色
         const pluginDashboardId = buildPluginDashboardId(id, key)
-        // 定时刷新
-        schedulePluginDashboardRefresh(res)
+        if (!itemColors.value[pluginDashboardId]) {
+          itemColors.value[pluginDashboardId] = getItemColor(pluginDashboardId)
+        }
+        // 排序
+        sortDashboardConfigs()
       }
-    })
+      // 定时刷新
+      schedulePluginDashboardRefresh(res)
+    }
   } catch (error) {
     console.error(error)
   }
@@ -689,7 +774,10 @@ async function syncDashboardGrid() {
     grid.batchUpdate(false)
     updateDashboardGridEditableState(isLayoutEditing.value)
     observeDashboardGridContent()
-    nextTick(resizeAutoDashboardItemsToContent)
+    nextTick(() => {
+      resizeAutoDashboardItemsToContent()
+      scheduleDashboardReveal()
+    })
   } finally {
     isSyncingDashboardGrid.value = false
   }
@@ -731,8 +819,7 @@ function shouldScheduleDashboardContentResize(element: GridItemHTMLElement, next
   dashboardGridObservedContentHeights.set(id, nextHeight)
 
   return (
-    previousHeight === undefined ||
-    Math.abs(nextHeight - previousHeight) >= DASHBOARD_GRID_CONTENT_RESIZE_THRESHOLD
+    previousHeight === undefined || Math.abs(nextHeight - previousHeight) >= DASHBOARD_GRID_CONTENT_RESIZE_THRESHOLD
   )
 }
 
@@ -865,7 +952,9 @@ watch(isLayoutEditing, value => {
 watch(
   dashboardGridItems,
   () => {
+    syncDashboardLoadedItemIds()
     syncDashboardGrid()
+    scheduleDashboardReveal()
   },
   { deep: true },
 )
@@ -873,7 +962,9 @@ watch(
 onBeforeMount(async () => {
   await loadDashboardConfig()
   initializeColors()
-  getPluginDashboardMeta()
+  await getPluginDashboardMeta()
+  isDashboardConfigLoaded.value = true
+  scheduleDashboardReveal()
 })
 
 onMounted(() => {
@@ -903,6 +994,10 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(dashboardGridResizeRefreshFrame)
     dashboardGridResizeRefreshFrame = null
   }
+  if (dashboardRevealFrame !== null) {
+    cancelAnimationFrame(dashboardRevealFrame)
+    dashboardRevealFrame = null
+  }
   dashboardGridPendingContentResize.clear()
   dashboardGridObservedContentHeights.clear()
   dashboardGridResizeStartHeights.clear()
@@ -913,7 +1008,11 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- 仪表板 -->
-  <div ref="dashboardGridRef" class="grid-stack dashboard-grid" :class="{ 'is-editing': isLayoutEditing }">
+  <div
+    ref="dashboardGridRef"
+    class="grid-stack dashboard-grid"
+    :class="{ 'is-editing': isLayoutEditing, 'is-ready': isDashboardRevealed }"
+  >
     <div
       v-for="gridItem in dashboardGridItems"
       :key="gridItem.id"
@@ -935,6 +1034,7 @@ onBeforeUnmount(() => {
               :config="gridItem.config"
               :allow-refresh="isRequest"
               v-model:refreshStatus="pluginDashboardRefreshStatus[gridItem.id]"
+              @loaded="markDashboardGridItemLoaded(gridItem.id)"
             />
           </div>
           <span v-if="isLayoutEditing" class="dashboard-grid-drag-handle" :aria-label="t('dashboard.dragHandle')">
@@ -979,18 +1079,19 @@ onBeforeUnmount(() => {
 /* stylelint-disable selector-pseudo-class-no-unknown */
 
 .dashboard-grid {
-  margin-block: -6px 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1),
+    transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: opacity, transform;
 }
 
-.dashboard-grid :deep(.v-card) {
-  overflow: hidden;
-  box-shadow: var(--app-surface-shadow) !important;
-}
-
-@media (hover: hover) {
-  .dashboard-grid :deep(.v-card:hover) {
-    box-shadow: var(--app-surface-hover-shadow) !important;
-  }
+.dashboard-grid.is-ready {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .dashboard-grid-item.is-manual-height :deep(.v-card) {
@@ -1089,5 +1190,12 @@ onBeforeUnmount(() => {
   inline-size: 24px;
   inset-block-end: -4px;
   inset-inline-end: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-grid {
+    transform: none;
+    transition: none;
+  }
 }
 </style>

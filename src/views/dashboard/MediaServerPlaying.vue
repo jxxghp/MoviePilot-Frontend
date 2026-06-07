@@ -90,8 +90,4 @@ onActivated(() => {
   flex: 1 1 auto;
   min-block-size: 0;
 }
-
-.dashboard-media-grid :deep(.progressive-card-grid__track) {
-  min-block-size: 100%;
-}
 </style>

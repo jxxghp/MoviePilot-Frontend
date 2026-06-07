@@ -206,9 +206,4 @@ useKeepAliveRefresh(refresh)
   min-block-size: 0;
 }
 
-.dashboard-chart-plot :deep(.vue-apexcharts),
-.dashboard-chart-plot :deep(.apexcharts-canvas),
-.dashboard-chart-plot :deep(svg) {
-  block-size: 100% !important;
-}
 </style>

@@ -164,10 +164,4 @@ onActivated(() => {
   flex: 1 1 auto;
   min-block-size: 0;
 }
-
-.dashboard-work-chart :deep(.vue-apexcharts),
-.dashboard-work-chart :deep(.apexcharts-canvas),
-.dashboard-work-chart :deep(svg) {
-  block-size: 100% !important;
-}
 </style>
