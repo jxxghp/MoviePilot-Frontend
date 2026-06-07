@@ -147,13 +147,7 @@ onUnmounted(() => {
           <div class="d-flex justify-space-between flex-wrap flex-md-nowrap flex-column flex-md-row">
             <div class="mx-auto mt-5">
               <VAvatar size="64">
-                <VImg
-                  ref="imageRef"
-                  :src="pluginIconPath()"
-                  aspect-ratio="4/3"
-                  cover
-                  @error="imageLoadError = true"
-                />
+                <VImg ref="imageRef" :src="pluginIconPath()" aspect-ratio="4/3" cover @error="imageLoadError = true" />
               </VAvatar>
             </div>
             <div class="flex-grow">
@@ -166,7 +160,7 @@ onUnmounted(() => {
                 >
                   {{ props.plugin?.plugin_desc }}
                 </VCardSubtitle>
-                <VList lines="one">
+                <VList lines="one" class="border-0">
                   <VListItem class="ps-0">
                     <VListItemTitle class="text-center text-md-left">
                       <span class="font-weight-medium">{{ t('common.version') }}：</span>

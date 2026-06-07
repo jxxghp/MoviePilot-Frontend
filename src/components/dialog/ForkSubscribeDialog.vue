@@ -201,7 +201,7 @@ onMounted(() => {
                 >
                   {{ props.media?.share_comment }}
                 </VCardSubtitle>
-                <VList lines="one">
+                <VList lines="one" class="border-0">
                   <VListItem class="ps-0">
                     <VListItemTitle class="text-center text-md-left">
                       <span class="font-weight-medium">{{ t('subscribe.sharer') }}：</span>
