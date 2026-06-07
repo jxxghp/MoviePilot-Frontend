@@ -26,18 +26,32 @@ export const usePluginSidebarNavStore = defineStore('pluginSidebarNav', {
       if (this.inflight) {
         return this.inflight
       }
-      this.inflight = (async () => {
+      this.inflight = this._doFetchSidebarNav()
+      return this.inflight
+    },
+
+    async _doFetchSidebarNav(): Promise<void> {
+      const maxRetries = 1
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           const res = await api.get('plugin/sidebar_nav')
+          if (!this.inflight) return
           this.items = Array.isArray(res) ? res : []
-        } catch {
-          this.items = []
-        } finally {
           this.loaded = true
           this.inflight = null
+          return
+        } catch (e) {
+          if (attempt < maxRetries) {
+            // 短暂延迟后重试，应对登录后导航过渡期的请求中断
+            await new Promise(resolve => setTimeout(resolve, 500))
+            if (!this.inflight) return
+          }
         }
-      })()
-      return this.inflight
+      }
+      // 重试全部失败，不缓存失败状态以允许后续调用方再次尝试
+      if (!this.inflight) return
+      this.items = []
+      this.inflight = null
     },
 
     reset() {
