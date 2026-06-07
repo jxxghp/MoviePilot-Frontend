@@ -146,8 +146,9 @@ onActivated(() => {
         </h5>
         <p>{{ t('dashboard.weeklyOverviewDescription', { count: totalCount }) }} 😎</p>
       </div>
-
-      <VBtn v-if="superUser" block to="/history"> {{ t('common.viewDetails') }} </VBtn>
+      <div>
+        <VBtn v-if="superUser" block to="/history"> {{ t('common.viewDetails') }} </VBtn>
+      </div>
     </VCardText>
   </VCard>
 </template>
