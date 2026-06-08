@@ -586,6 +586,9 @@ export default {
       channel: 'Channel Name',
       channelHint: 'Channel to send messages, default is "all"',
       channelRequired: 'Channel Name cannot be empty',
+      admins: 'Admin Whitelist',
+      adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
+      adminsPlaceholder: 'User IDs list, separated by commas',
     },
     discord: {
       name: 'Discord',
@@ -598,6 +601,9 @@ export default {
       channelId: 'Channel ID',
       channelIdHint: 'Optional, default broadcast channel; leave blank to auto-pick a writable channel',
       channelIdPlaceholder: '123456789012345678',
+      admins: 'Admin Whitelist',
+      adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
+      adminsPlaceholder: 'User IDs list, separated by commas',
     },
     synologychat: {
       name: 'Synology Chat',
@@ -606,6 +612,9 @@ export default {
       webhookRequired: 'Webhook URL cannot be empty',
       token: 'Token',
       tokenHint: 'Synology Chat bot token',
+      admins: 'Admin Whitelist',
+      adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
+      adminsPlaceholder: 'User IDs list, separated by commas',
     },
     vocechat: {
       name: 'VoceChat',
@@ -617,6 +626,9 @@ export default {
       apiKeyRequired: 'API Key cannot be empty',
       channelId: 'Channel ID',
       channelIdHint: 'VoceChat channel ID, without #',
+      admins: 'Admin Whitelist',
+      adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
+      adminsPlaceholder: 'User IDs list, separated by commas',
     },
     webpush: {
       name: 'WebPush',
@@ -638,6 +650,9 @@ export default {
       groupOpenId: 'Group OpenID',
       groupOpenIdHint: 'Default group openid (group chat), use either this or User OpenID',
       groupOpenIdPlaceholder: 'Group openid',
+      admins: 'Admin Whitelist',
+      adminsHint: 'User IDs that can use admin menu and commands, separated by commas',
+      adminsPlaceholder: 'User IDs list, separated by commas',
     },
   },
   shortcut: {

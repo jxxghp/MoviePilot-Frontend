@@ -582,6 +582,9 @@ export default {
       channel: '頻道名稱',
       channelHint: '消息發送頻道，默認`全體`',
       channelRequired: '頻道名稱不能為空',
+      admins: '管理員白名單',
+      adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
+      adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
     },
     discord: {
       name: 'Discord',
@@ -594,6 +597,9 @@ export default {
       channelId: '頻道 ID',
       channelIdHint: '可選，預設廣播頻道；空白則自動選擇可發送消息的頻道',
       channelIdPlaceholder: '123456789012345678',
+      admins: '管理員白名單',
+      adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
+      adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
     },
     synologychat: {
       name: 'Synology Chat',
@@ -602,6 +608,9 @@ export default {
       webhookRequired: 'Webhook URL不能為空',
       token: '令牌',
       tokenHint: 'Synology Chat機器人令牌',
+      admins: '管理員白名單',
+      adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
+      adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
     },
     vocechat: {
       name: 'VoceChat',
@@ -613,6 +622,9 @@ export default {
       apiKeyRequired: 'API密鑰不能為空',
       channelId: '頻道ID',
       channelIdHint: 'VoceChat的頻道ID，不包含#號',
+      admins: '管理員白名單',
+      adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
+      adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
     },
     webpush: {
       name: 'WebPush',
@@ -634,6 +646,9 @@ export default {
       groupOpenId: '群組 OpenID',
       groupOpenIdHint: '默認群組 openid（群聊），與用戶 OpenID 二選一',
       groupOpenIdPlaceholder: '群組 openid',
+      admins: '管理員白名單',
+      adminsHint: '可使用管理菜單及命令的用戶ID列表，多個ID使用,分隔',
+      adminsPlaceholder: '用戶ID列表，多個ID使用,分隔',
     },
   },
   shortcut: {

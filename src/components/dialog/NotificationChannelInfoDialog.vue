@@ -915,6 +915,16 @@ onMounted(() => {
                   prepend-inner-icon="mdi-pound"
                 />
               </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.SLACK_ADMINS"
+                  :label="t('notification.slack.admins')"
+                  :placeholder="t('notification.slack.adminsPlaceholder')"
+                  :hint="t('notification.slack.adminsHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-supervisor"
+                />
+              </VCol>
             </VRow>
             <VRow v-else-if="notificationInfo.type == 'discord'">
               <VCol cols="12" md="6">
@@ -956,6 +966,16 @@ onMounted(() => {
                   prepend-inner-icon="mdi-pound-box"
                 />
               </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.DISCORD_ADMINS"
+                  :label="t('notification.discord.admins')"
+                  :placeholder="t('notification.discord.adminsPlaceholder')"
+                  :hint="t('notification.discord.adminsHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-supervisor"
+                />
+              </VCol>
             </VRow>
             <VRow v-else-if="notificationInfo.type == 'synologychat'">
               <VCol cols="12" md="6">
@@ -984,6 +1004,16 @@ onMounted(() => {
                   :hint="t('notification.synologychat.tokenHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-key"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.SYNOLOGYCHAT_ADMINS"
+                  :label="t('notification.synologychat.admins')"
+                  :placeholder="t('notification.synologychat.adminsPlaceholder')"
+                  :hint="t('notification.synologychat.adminsHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-supervisor"
                 />
               </VCol>
             </VRow>
@@ -1024,6 +1054,16 @@ onMounted(() => {
                   :hint="t('notification.vocechat.channelIdHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-pound"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.VOCECHAT_ADMINS"
+                  :label="t('notification.vocechat.admins')"
+                  :placeholder="t('notification.vocechat.adminsPlaceholder')"
+                  :hint="t('notification.vocechat.adminsHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-supervisor"
                 />
               </VCol>
             </VRow>
@@ -1074,6 +1114,16 @@ onMounted(() => {
                   :hint="t('notification.qqbot.groupOpenIdHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-account-group"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="notificationInfo.config.QQBOT_ADMINS"
+                  :label="t('notification.qqbot.admins')"
+                  :placeholder="t('notification.qqbot.adminsPlaceholder')"
+                  :hint="t('notification.qqbot.adminsHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-account-supervisor"
                 />
               </VCol>
             </VRow>
