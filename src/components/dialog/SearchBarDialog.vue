@@ -79,6 +79,7 @@ const SubscribeItems = ref<Subscribe[]>([])
 const chooseSiteDialog = ref(false)
 const selectedSites = ref<number[]>([])
 const allSites = ref<Site[]>([])
+const siteSearchType = ref<'torrent' | 'subtitle'>('torrent')
 
 // 定义事件
 const emit = defineEmits(['close', 'update:modelValue'])
@@ -247,7 +248,8 @@ async function queryAllSites() {
 }
 
 // 打开站点选择对话框
-const openSiteDialog = () => {
+const openSiteDialog = (type: 'torrent' | 'subtitle' = 'torrent') => {
+  siteSearchType.value = type
   chooseSiteDialog.value = true
 }
 
@@ -265,6 +267,10 @@ const matchedSubscribeItems = computed(() => {
 function searchSites(sites: number[]) {
   chooseSiteDialog.value = false
   selectedSites.value = sites
+  if (siteSearchType.value === 'subtitle') {
+    searchSubtitle()
+    return
+  }
   searchTorrent()
 }
 
@@ -279,10 +285,28 @@ function searchTorrent() {
     query: {
       keyword: searchWord.value,
       area: 'title',
+      result_type: 'torrent',
       sites: selectedSites.value.join(','),
     },
   })
   // 关闭搜索对话框
+  dialog.value = false
+  emit('close')
+}
+
+// 搜索字幕资源
+function searchSubtitle() {
+  if (!searchWord.value) return
+  saveRecentSearches(searchWord.value)
+  router.push({
+    path: '/resource',
+    query: {
+      keyword: searchWord.value,
+      area: 'title',
+      result_type: 'subtitle',
+      sites: selectedSites.value.join(','),
+    },
+  })
   dialog.value = false
   emit('close')
 }
@@ -537,6 +561,33 @@ onMounted(() => {
                 {{ subscribe.type }}
               </VListItemSubtitle>
             </VListItem>
+
+            <VListItem density="comfortable" link @click="searchSubtitle" class="search-result-item mx-2 my-1">
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-subtitles-outline" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">{{
+                t('dialog.searchBar.searchSubtitlesInSites')
+              }}</VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('dialog.searchBar.relatedSubtitles') }}
+              </VListItemSubtitle>
+              <template #append>
+                <VBtn
+                  v-if="hasManagePermission"
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  rounded="pill"
+                  @click.stop="openSiteDialog('subtitle')"
+                >
+                  {{ t('dialog.searchBar.selectSites') }}
+                </VBtn>
+              </template>
+            </VListItem>
           </template>
 
           <!-- 匹配的菜单/功能 -->
@@ -622,7 +673,7 @@ onMounted(() => {
                   variant="tonal"
                   color="primary"
                   rounded="pill"
-                  @click.stop="openSiteDialog"
+                  @click.stop="openSiteDialog('torrent')"
                 >
                   {{ t('dialog.searchBar.selectSites') }}
                 </VBtn>

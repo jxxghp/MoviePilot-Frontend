@@ -768,6 +768,52 @@ export interface TorrentInfo {
   category: string
 }
 
+// 字幕信息
+export interface SubtitleInfo {
+  // 站点ID
+  site?: number
+  // 站点名称
+  site_name?: string
+  // 站点Cookie
+  site_cookie?: string
+  // 站点UA
+  site_ua?: string
+  // 站点是否使用代理
+  site_proxy?: boolean
+  // 站点优先级
+  site_order?: number
+  // 字幕标题
+  title?: string
+  // 字幕描述
+  description?: string
+  // 字幕下载链接
+  enclosure?: string
+  // 详情页面
+  page_url?: string
+  // 语言
+  language?: string
+  // 语言图标
+  language_icon?: string
+  // 字幕大小
+  size?: number
+  // 发布时间
+  pubdate?: string
+  // 已过时间
+  date_elapsed?: string
+  // 点击/下载次数
+  grabs?: number
+  // 上传者
+  uploader?: string
+  // 举报页面
+  report_url?: string
+  // 种子ID
+  torrent_id?: string
+  // 字幕ID
+  subtitle_id?: string
+  // 下载文件名
+  file_name?: string
+}
+
 // 识别元数据
 export interface MetaInfo {
   // 是否处理的文件
