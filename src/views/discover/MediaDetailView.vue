@@ -40,6 +40,10 @@ const globalSettings = globalSettingsStore.globalSettings
 // 用户 Store
 const userStore = useUserStore()
 
+const canSearch = computed(() =>
+  hasPermission({ is_superuser: userStore.superUser, ...userStore.permissions }, 'search'),
+)
+
 // 提示框
 const $toast = useToast()
 
@@ -491,9 +495,16 @@ function joinArray(arr: string[]) {
   return arr.join('、')
 }
 
+interface MediaSearchOptions {
+  season?: number | null
+  episode?: number | null
+}
+
 // 开始搜索
-function handleSearch() {
+function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: MediaSearchOptions = {}) {
   const keyword = getMediaId()
+  const season = options.season ?? mediaDetail.value.season
+  const episode = options.episode ?? null
   router.push({
     path: '/resource',
     query: {
@@ -502,8 +513,10 @@ function handleSearch() {
       area: searchType.value,
       title: mediaDetail.value.title,
       year: mediaDetail.value.year,
-      season: mediaDetail.value.season,
+      season,
+      episode,
       sites: selectedSites.value.join(','),
+      result_type: resultType,
     },
   })
 }
@@ -572,6 +585,16 @@ function searchSites(sites: number[]) {
   handleSearch()
 }
 
+// 搜索字幕
+function handleSubtitleSearch() {
+  handleSearch('subtitle')
+}
+
+// 搜索单集字幕
+function handleEpisodeSubtitleSearch(season: number | null, episode: number | null) {
+  handleSearch('subtitle', { season, episode })
+}
+
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -637,7 +660,7 @@ onBeforeMount(() => {
           <VBtn
             v-if="
               (mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) &&
-              hasPermission({ is_superuser: userStore.superUser, ...userStore.permissions }, 'search')
+              canSearch
             "
             variant="tonal"
             color="info"
@@ -657,6 +680,21 @@ onBeforeMount(() => {
                 </VListItem>
               </VList>
             </VMenu>
+          </VBtn>
+          <VBtn
+            v-if="
+              (mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) &&
+              canSearch
+            "
+            variant="tonal"
+            color="info"
+            class="ms-2 mb-2"
+            @click="handleSubtitleSearch"
+          >
+            <template #prepend>
+              <VIcon icon="mdi-subtitles-outline" />
+            </template>
+            {{ t('media.actions.searchSubtitle') }}
           </VBtn>
           <VBtn
             v-if="mediaDetail.type === '电影' || mediaDetail.douban_id || mediaDetail.bangumi_id"
@@ -816,6 +854,25 @@ onBeforeMount(() => {
                               class="ms-2"
                               size="small"
                             />
+                            <VTooltip v-if="canSearch" location="top">
+                              <template #activator="{ props }">
+                                <IconBtn
+                                  class="ms-1"
+                                  color="info"
+                                  variant="text"
+                                  v-bind="props"
+                                  @click.stop="
+                                    handleEpisodeSubtitleSearch(
+                                      season.season_number ?? null,
+                                      episode.episode_number ?? null,
+                                    )
+                                  "
+                                >
+                                  <VIcon icon="mdi-subtitles-outline" size="small" />
+                                </IconBtn>
+                              </template>
+                              <span>{{ t('media.actions.searchSubtitle') }}</span>
+                            </VTooltip>
                           </div>
                           <p>{{ episode.overview }}</p>
                         </div>

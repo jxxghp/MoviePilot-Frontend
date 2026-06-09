@@ -949,6 +949,7 @@ export default {
     episodeCount: '{count}集',
     actions: {
       searchResource: '搜索资源',
+      searchSubtitle: '搜索字幕',
       subscribe: '订阅',
       playOnline: '在线播放',
       playInApp: 'APP播放',

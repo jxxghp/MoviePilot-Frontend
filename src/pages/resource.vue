@@ -43,6 +43,7 @@ interface SearchParams {
   title: string
   year: string
   season: string
+  episode: string
   sites: string
   result_type: string
 }
@@ -65,6 +66,7 @@ function createSearchParams(query: LocationQuery): SearchParams {
     title: query?.title?.toString() ?? '',
     year: query?.year?.toString() ?? '',
     season: query?.season?.toString() ?? '',
+    episode: query?.episode?.toString() ?? '',
     sites: query?.sites?.toString() ?? '',
     result_type: query?.result_type?.toString() === 'subtitle' ? 'subtitle' : 'torrent',
   }
@@ -78,6 +80,7 @@ function normalizeSearchParams(params?: Partial<SearchParams> | null): SearchPar
     title: params?.title?.toString() ?? '',
     year: params?.year?.toString() ?? '',
     season: params?.season?.toString() ?? '',
+    episode: params?.episode?.toString() ?? '',
     sites: params?.sites?.toString() ?? '',
     result_type: params?.result_type?.toString() === 'subtitle' ? 'subtitle' : 'torrent',
   }
@@ -528,13 +531,22 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
   const isMediaSearch = /^[a-zA-Z]+:/.test(params.keyword)
   const url = getApiUrl(
     params.result_type === 'subtitle'
-      ? 'search/subtitle/title/stream'
+      ? isMediaSearch
+        ? `search/subtitle/media/${encodeURIComponent(params.keyword)}/stream`
+        : 'search/subtitle/title/stream'
       : isMediaSearch
         ? `search/media/${encodeURIComponent(params.keyword)}/stream`
         : 'search/title/stream',
   )
 
-  if (params.result_type === 'subtitle') {
+  if (params.result_type === 'subtitle' && isMediaSearch) {
+    setSearchParam(url.searchParams, 'mtype', params.type)
+    setSearchParam(url.searchParams, 'title', params.title)
+    setSearchParam(url.searchParams, 'year', params.year)
+    setSearchParam(url.searchParams, 'season', params.season)
+    setSearchParam(url.searchParams, 'episode', params.episode)
+    setSearchParam(url.searchParams, 'sites', params.sites)
+  } else if (params.result_type === 'subtitle') {
     setSearchParam(url.searchParams, 'keyword', params.keyword)
     setSearchParam(url.searchParams, 'sites', params.sites)
   } else if (isMediaSearch) {
@@ -732,8 +744,21 @@ async function searchByRequest(params: SearchParams, requestToken?: string) {
 // 静默刷新使用普通请求，保留当前结果直到新数据完整返回，避免返回页面时露出搜索进度态。
 async function requestSearchResults(params: SearchParams, requestToken?: string) {
   let result: { [key: string]: any }
+  const isMediaSearch = /^[a-zA-Z]+:/.test(params.keyword)
   // 如果keyword的格式是 xxxx:xxxxx 且:前面的xxxx为字符，则按照媒体ID格式搜索
-  if (params.result_type === 'subtitle') {
+  if (params.result_type === 'subtitle' && isMediaSearch) {
+    result = await api.get(`search/subtitle/media/${params.keyword}`, {
+      params: {
+        mtype: params.type,
+        title: params.title,
+        year: params.year,
+        season: params.season,
+        episode: params.episode,
+        sites: params.sites,
+        _ts: requestToken,
+      },
+    })
+  } else if (params.result_type === 'subtitle') {
     result = await api.get('search/subtitle/title', {
       params: {
         keyword: params.keyword,
@@ -741,7 +766,7 @@ async function requestSearchResults(params: SearchParams, requestToken?: string)
         _ts: requestToken,
       },
     })
-  } else if (/^[a-zA-Z]+:/.test(params.keyword)) {
+  } else if (isMediaSearch) {
     result = await api.get(`search/media/${params.keyword}`, {
       params: {
         mtype: params.type,

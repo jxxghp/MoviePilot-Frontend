@@ -953,6 +953,7 @@ export default {
     episodeCount: '{count} Episodes',
     actions: {
       searchResource: 'Search Resource',
+      searchSubtitle: 'Search Subtitle',
       subscribe: 'Subscribe',
       playOnline: 'Play Online',
       playInApp: 'Play in App',
