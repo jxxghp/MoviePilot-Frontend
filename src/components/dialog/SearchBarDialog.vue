@@ -561,33 +561,6 @@ onMounted(() => {
                 {{ subscribe.type }}
               </VListItemSubtitle>
             </VListItem>
-
-            <VListItem density="comfortable" link @click="searchSubtitle" class="search-result-item mx-2 my-1">
-              <template #prepend>
-                <div class="result-icon-wrapper">
-                  <VIcon icon="mdi-subtitles-outline" size="small" color="medium-emphasis" />
-                </div>
-              </template>
-              <VListItemTitle class="font-weight-medium text-body-2">{{
-                t('dialog.searchBar.searchSubtitlesInSites')
-              }}</VListItemTitle>
-              <VListItemSubtitle class="text-caption text-medium-emphasis">
-                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                {{ t('dialog.searchBar.relatedSubtitles') }}
-              </VListItemSubtitle>
-              <template #append>
-                <VBtn
-                  v-if="hasManagePermission"
-                  size="x-small"
-                  variant="tonal"
-                  color="primary"
-                  rounded="pill"
-                  @click.stop="openSiteDialog('subtitle')"
-                >
-                  {{ t('dialog.searchBar.selectSites') }}
-                </VBtn>
-              </template>
-            </VListItem>
           </template>
 
           <!-- 匹配的菜单/功能 -->
@@ -674,6 +647,33 @@ onMounted(() => {
                   color="primary"
                   rounded="pill"
                   @click.stop="openSiteDialog('torrent')"
+                >
+                  {{ t('dialog.searchBar.selectSites') }}
+                </VBtn>
+              </template>
+            </VListItem>
+
+            <VListItem density="comfortable" link @click="searchSubtitle" class="search-result-item mx-2 my-1">
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-subtitles-outline" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">{{
+                t('dialog.searchBar.searchSubtitlesInSites')
+              }}</VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('dialog.searchBar.relatedSubtitles') }}
+              </VListItemSubtitle>
+              <template #append>
+                <VBtn
+                  v-if="hasManagePermission"
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  rounded="pill"
+                  @click.stop="openSiteDialog('subtitle')"
                 >
                   {{ t('dialog.searchBar.selectSites') }}
                 </VBtn>
