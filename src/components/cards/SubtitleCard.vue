@@ -127,6 +127,9 @@ watch(
           </div>
 
           <div class="d-flex align-center gap-2">
+            <VChip v-if="subtitle?.season_episode" size="x-small" color="secondary" variant="tonal" class="rounded-sm">
+              {{ subtitle.season_episode }}
+            </VChip>
             <VChip v-if="subtitle?.language" size="x-small" color="info" variant="tonal" class="rounded-sm">
               <VImg
                 v-if="subtitle?.language_icon"

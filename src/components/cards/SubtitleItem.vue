@@ -129,6 +129,9 @@ watch(
       <VListItemTitle class="whitespace-normal">
         <div class="d-flex flex-row flex-wrap align-center gap-2 mb-2">
           <span class="text-h6 font-weight-bold me-1">{{ subtitle?.site_name }}</span>
+          <VChip v-if="subtitle?.season_episode" size="x-small" color="secondary" variant="tonal" class="rounded-sm">
+            {{ subtitle.season_episode }}
+          </VChip>
           <VChip v-if="subtitle?.language" size="x-small" color="info" variant="tonal" class="rounded-sm">
             <VImg
               v-if="subtitle?.language_icon"

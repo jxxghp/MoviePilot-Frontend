@@ -812,6 +812,12 @@ export interface SubtitleInfo {
   subtitle_id?: string
   // 下载文件名
   file_name?: string
+  // 识别元数据
+  meta_info?: MetaInfo
+  // SxxExx
+  season_episode?: string
+  // 集列表
+  episode_list?: number[]
 }
 
 // 识别元数据

@@ -82,6 +82,17 @@ const selectedSites = ref<number[]>([])
 // 搜索方式 title/imdbid
 const searchType = ref('title')
 
+interface MediaSearchOptions {
+  season?: number | null
+  episode?: number | null
+}
+
+// 站点选择后待执行的搜索类型
+const pendingSearchResultType = ref<'torrent' | 'subtitle'>('torrent')
+
+// 站点选择后待执行的季集参数
+const pendingSearchOptions = ref<MediaSearchOptions>({})
+
 // 计算主题是否为透明
 const isTransparentTheme = computed(() => {
   return theme.name.value === 'transparent'
@@ -494,11 +505,6 @@ function joinArray(arr: string[]) {
   return arr.join('、')
 }
 
-interface MediaSearchOptions {
-  season?: number | null
-  episode?: number | null
-}
-
 // 开始搜索
 function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: MediaSearchOptions = {}) {
   const keyword = getMediaId()
@@ -563,9 +569,11 @@ function onSubscribeEditRemove() {
   else checkSeasonsSubscribed()
 }
 
-// 点击搜索
-async function clickSearch(type: string) {
+// 搜索前弹出站点选择框，确认后执行资源或字幕搜索。
+async function clickSearch(type: string, resultType: 'torrent' | 'subtitle' = 'torrent', options: MediaSearchOptions = {}) {
   searchType.value = type
+  pendingSearchResultType.value = resultType
+  pendingSearchOptions.value = options
   if (allSites.value?.length == 0) {
     await querySites()
     await querySelectedSites()
@@ -573,24 +581,24 @@ async function clickSearch(type: string) {
   if (allSites.value?.length > 0) {
     openSearchSiteDialog()
   } else {
-    handleSearch()
+    handleSearch(pendingSearchResultType.value, pendingSearchOptions.value)
   }
 }
 
 // 搜索多站点
 function searchSites(sites: number[]) {
   selectedSites.value = sites
-  handleSearch()
+  handleSearch(pendingSearchResultType.value, pendingSearchOptions.value)
 }
 
 // 搜索字幕
-function handleSubtitleSearch() {
-  handleSearch('subtitle')
+async function handleSubtitleSearch() {
+  await clickSearch('title', 'subtitle')
 }
 
 // 搜索单集字幕
-function handleEpisodeSubtitleSearch(season: number | null, episode: number | null) {
-  handleSearch('subtitle', { season, episode })
+async function handleEpisodeSubtitleSearch(season: number | null, episode: number | null) {
+  await clickSearch('title', 'subtitle', { season, episode })
 }
 
 onBeforeMount(() => {
