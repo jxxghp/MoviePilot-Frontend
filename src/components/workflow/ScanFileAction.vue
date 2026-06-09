@@ -22,7 +22,7 @@ const storages = ref<StorageConf[]>([])
 
 // 查询存储
 async function loadStorages() {
-  const result: { [key: string]: any } = await api.get('system/setting/Storages')
+  const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
   storages.value = result.data?.value ?? []
 }
 

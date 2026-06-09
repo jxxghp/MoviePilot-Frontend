@@ -7,8 +7,14 @@ import { useDisplay } from 'vuetify'
 import { useConfirm } from '@/composables/useConfirm'
 import { useI18n } from 'vue-i18n'
 import { qualityOptions, resolutionOptions, effectOptions } from '@/api/constants'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 // i18n
 const { t } = useI18n()
+const userStore = useUserStore()
+const canAdmin = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
+)
 
 // 显示器宽度
 const display = useDisplay()
@@ -128,6 +134,8 @@ async function loadDownloaderSetting() {
 
 // 加载规则组
 async function queryFilterRuleGroups() {
+  if (!canAdmin.value) return
+
   try {
     const result: { [key: string]: any } = await api.get('system/setting/UserFilterRuleGroups')
     filterRuleGroups.value = result.data?.value ?? []
@@ -163,6 +171,8 @@ async function updateSubscribeInfo() {
 
 // 设置用户设置的默认订阅规则
 async function saveDefaultSubscribeConfig() {
+  if (!canAdmin.value) return
+
   try {
     let subscribe_config_url = ''
     if (props.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
@@ -183,8 +193,8 @@ async function saveDefaultSubscribeConfig() {
 async function queryDefaultSubscribeConfig() {
   try {
     let subscribe_config_url = ''
-    if (props.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
-    else subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+    if (props.type === '电影') subscribe_config_url = 'system/setting/public/DefaultMovieSubscribeConfig'
+    else subscribe_config_url = 'system/setting/public/DefaultTvSubscribeConfig'
 
     const result: { [key: string]: any } = await api.get(subscribe_config_url)
 
@@ -260,7 +270,7 @@ async function removeSubscribe() {
 // 查询下载目录
 async function loadDownloadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Directories')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
     if (result.success && result.data?.value) {
       downloadDirectories.value = result.data.value
     }

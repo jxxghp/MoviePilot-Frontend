@@ -4,7 +4,7 @@ import { getNavMenus } from '@/router/i18n-menu'
 import { usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
-import { filterMenusByPermission } from '@/utils/permission'
+import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 
 // 国际化
 const { t } = useI18n()
@@ -13,10 +13,7 @@ const userStore = useUserStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 
 // 获取用户权限信息
-const userPermissions = computed(() => ({
-  is_superuser: userStore.superUser,
-  ...userStore.permissions,
-}))
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 
 // 应用分组（以header分组）
 const appGroups = ref<Record<string, NavMenu[]>>({})

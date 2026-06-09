@@ -4,7 +4,7 @@ import { useDisplay } from 'vuetify'
 import { NavMenu } from '@/@layouts/types'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
-import { filterMenusByPermission } from '@/utils/permission'
+import { buildUserPermissionContext, filterItemsByPermission, filterMenusByPermission, hasItemPermission } from '@/utils/permission'
 import { usePWA } from '@/composables/usePWA'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 
@@ -42,10 +42,7 @@ const userPermissions = computed(() => {
     }
   }
 
-  return {
-    is_superuser: userStore.superUser,
-    ...userStore.permissions,
-  }
+  return buildUserPermissionContext(userStore.superUser, userStore.permissions)
 })
 
 // 获取导航菜单
@@ -119,6 +116,7 @@ watch(
 interface DynamicButton {
   icon: string
   action: () => void
+  permission?: DynamicButtonMenuItem['permission']
   show: boolean
   routePath?: string // 添加路径属性，用于标识哪个路由注册的
   menuItems?: DynamicButtonMenuItem[]
@@ -166,12 +164,17 @@ const showDynamicButton = computed(() => {
   return (
     dynamicButton.value &&
     dynamicButton.value.show &&
+    hasItemPermission(dynamicButton.value, userPermissions.value) &&
     // 确保只在注册的路由路径下显示按钮
     (!dynamicButton.value.routePath || dynamicButton.value.routePath === route.path)
   )
 })
 
-const hasDynamicButtonMenu = computed(() => Boolean(dynamicButton.value?.menuItems?.length))
+const visibleDynamicButtonMenuItems = computed(() => {
+  return filterItemsByPermission(dynamicButton.value?.menuItems ?? [], userPermissions.value)
+})
+
+const hasDynamicButtonMenu = computed(() => visibleDynamicButtonMenuItems.value.length > 0)
 
 const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
   'components.subscribeHistory.title': 'dialog.subscribeHistory.title',
@@ -193,6 +196,18 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   const looksLikeI18nKey = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$/i.test(normalizedTitleKey)
 
   return looksLikeI18nKey ? t(normalizedTitleKey, item.titleParams as any) : item.title
+}
+
+function handleDynamicButtonClick() {
+  if (!dynamicButton.value || !hasItemPermission(dynamicButton.value, userPermissions.value)) return
+
+  dynamicButton.value.action()
+}
+
+function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
+  if (!hasItemPermission(item, userPermissions.value)) return
+
+  item.action()
 }
 </script>
 
@@ -257,7 +272,7 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
                 icon
                 variant="text"
                 :ripple="false"
-                @click="!hasDynamicButtonMenu && dynamicButton?.action()"
+                @click="!hasDynamicButtonMenu && handleDynamicButtonClick()"
                 rounded="pill"
                 class="footer-nav-btn"
               >
@@ -270,10 +285,10 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
               <VMenu v-if="hasDynamicButtonMenu" activator="parent" location="top end" close-on-content-click>
                 <VList>
                   <VListItem
-                    v-for="(item, index) in dynamicButton?.menuItems"
+                    v-for="(item, index) in visibleDynamicButtonMenuItems"
                     :key="item.titleKey || item.title || index"
                     :base-color="item.color"
-                    @click="item.action()"
+                    @click="handleDynamicMenuItemClick(item)"
                   >
                     <template #prepend>
                       <VIcon v-if="item.icon" :icon="item.icon" />

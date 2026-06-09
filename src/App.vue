@@ -98,7 +98,7 @@ const startHeartbeat = () => {
   heartbeatInterval = window.setInterval(async () => {
     try {
       if (isLogin.value) {
-        await api.get('dashboard/cpu')
+        await api.get('system/ping')
       }
     } catch (error) {
       console.warn('Heartbeat request failed:', error)

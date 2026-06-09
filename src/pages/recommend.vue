@@ -9,6 +9,8 @@ import { usePWA } from '@/composables/usePWA'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getRecommendTabs } from '@/router/i18n-menu'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/ContentToggleSettingsDialog.vue'))
 
@@ -16,9 +18,13 @@ const { appMode } = usePWA()
 
 // 国际化
 const { t } = useI18n()
+const userStore = useUserStore()
 
 // 路由
 const route = useRoute()
+const canDiscovery = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'discovery'),
+)
 
 // 当前选择的分类
 const currentCategory = ref(t('recommend.all'))
@@ -235,6 +241,7 @@ registerHeaderTab({
 useDynamicButton({
   icon: 'mdi-tune',
   onClick: openRecommendSettings,
+  permission: 'discovery',
   show: computed(() => appMode.value),
 })
 
@@ -298,7 +305,7 @@ onActivated(async () => {
 
     <!-- 快速滚动到顶部按钮 -->
     <Teleport to="body" v-if="route.path === '/recommend'">
-      <div v-if="!appMode" class="compact-fab-stack">
+      <div v-if="!appMode && canDiscovery" class="compact-fab-stack">
         <VFab
           icon="mdi-tune"
           color="primary"

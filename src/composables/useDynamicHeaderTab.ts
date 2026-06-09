@@ -1,5 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import { useTabStateRestore } from '@/composables/useStateRestore'
+import type { UserPermissionKey } from '@/utils/permission'
 
 // 动态标签页相关类型
 interface DynamicHeaderTabButton {
@@ -9,6 +10,7 @@ interface DynamicHeaderTabButton {
   size?: string
   class?: string
   action?: () => void
+  permission?: UserPermissionKey
   show?: boolean | ComputedRef<boolean>
   loading?: boolean | ComputedRef<boolean>
   dataAttr?: string // 用于VMenu定位的data属性

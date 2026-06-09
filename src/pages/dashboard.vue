@@ -5,13 +5,14 @@ import 'gridstack/dist/gridstack.min.css'
 import api from '@/api'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import type { DashboardItem } from '@/api/types'
-import { useUserStore } from '@/stores'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
@@ -22,12 +23,13 @@ const { t } = useI18n()
 
 // PWA模式检测
 const { appMode } = usePWA()
+const userStore = useUserStore()
+const canAdmin = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
+)
 
 // 路由
 const route = useRoute()
-
-// 从用户 Store 中获取superuser信息
-const superUser = useUserStore().superUser
 
 const DASHBOARD_GRID_COLUMNS = 12
 const DASHBOARD_GRID_CELL_HEIGHT = 16
@@ -461,6 +463,7 @@ const dashboardDynamicButtonMenuItems = computed<DynamicButtonMenuItem[] | undef
       title: isLayoutEditing.value ? t('dashboard.exitEditMode') : t('dashboard.editLayout'),
       icon: isLayoutEditing.value ? 'mdi-check' : 'mdi-view-dashboard-edit',
       color: 'primary',
+      permission: 'admin',
       action: toggleDashboardLayoutEditing,
     },
   ]
@@ -470,6 +473,7 @@ const dashboardDynamicButtonMenuItems = computed<DynamicButtonMenuItem[] | undef
       title: t('dashboard.resetLayout'),
       icon: 'mdi-restore',
       color: 'warning',
+      permission: 'admin',
       action: resetDashboardGridLayout,
     })
   }
@@ -478,6 +482,7 @@ const dashboardDynamicButtonMenuItems = computed<DynamicButtonMenuItem[] | undef
     title: t('dashboard.settings'),
     icon: 'mdi-tune',
     color: 'info',
+    permission: 'admin',
     action: openDashboardSettings,
   })
 
@@ -487,6 +492,7 @@ const dashboardDynamicButtonMenuItems = computed<DynamicButtonMenuItem[] | undef
 useDynamicButton({
   icon: 'mdi-view-dashboard-edit',
   menuItems: dashboardDynamicButtonMenuItems,
+  permission: 'admin',
   show: computed(() => appMode.value && route.path === '/dashboard'),
 })
 
@@ -583,9 +589,6 @@ function buildPluginDashboardId(plugin_id: string, key: string) {
 
 // 调用API获取所有插件的仪表板元信息
 async function getPluginDashboardMeta() {
-  // 只有超级用户才能获取
-  if (!superUser) return
-
   try {
     pluginDashboardMeta.value = (await api.get('/plugin/dashboard/meta')) ?? []
     if (!isNullOrEmptyObject(pluginDashboardMeta.value)) {
@@ -628,7 +631,7 @@ function schedulePluginDashboardRefresh(item: DashboardItem) {
 }
 
 function refreshEnabledPluginDashboards() {
-  if (!superUser || isNullOrEmptyObject(pluginDashboardMeta.value)) return
+  if (isNullOrEmptyObject(pluginDashboardMeta.value)) return
 
   pluginDashboardMeta.value.forEach((pluginDashboard: { id: string; key: string }) => {
     const pluginDashboardId = buildPluginDashboardId(pluginDashboard.id, pluginDashboard.key)
@@ -1048,7 +1051,7 @@ onBeforeUnmount(() => {
   </div>
 
   <Teleport to="body" v-if="!appMode && route.path === '/dashboard'">
-    <div class="compact-fab-stack">
+    <div v-if="canAdmin" class="compact-fab-stack">
       <VFab
         icon="mdi-tune"
         color="info"

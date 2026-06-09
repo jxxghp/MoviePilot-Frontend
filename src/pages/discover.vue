@@ -179,6 +179,7 @@ registerHeaderTab({
       variant: 'text',
       color: 'grey',
       class: 'settings-icon-button',
+      permission: 'discovery',
       action: openOrderConfigDialog,
     },
   ],

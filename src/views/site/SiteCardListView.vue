@@ -4,12 +4,14 @@ import type { Site, SiteUserData } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
-import { useDynamicButton } from '@/composables/useDynamicButton'
+import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
 const { t } = useI18n()
@@ -22,6 +24,10 @@ const route = useRoute()
 
 // APP 模式检测
 const { appMode } = usePWA()
+const userStore = useUserStore()
+const canManage = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'manage'),
+)
 
 // 拖拽排序和站点弹窗都不是站点列表首屏必需，打开对应功能时再加载。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
@@ -333,28 +339,32 @@ watch(
   { immediate: true },
 )
 
-const shouldShowFloatingActions = computed(() => route.path === '/site' && isRefreshed.value)
+const shouldShowFloatingActions = computed(() => route.path === '/site' && isRefreshed.value && canManage.value)
 
 // App 模式下将站点操作收纳到 Footer 动态菜单中，和插件页保持一致。
-const siteDynamicMenuItems = computed(() => [
+const siteDynamicMenuItems = computed<DynamicButtonMenuItem[]>(() => [
   {
     titleKey: 'site.actions.add',
     icon: 'mdi-web-plus',
+    permission: 'manage',
     action: openSiteAddDialog,
   },
   {
     titleKey: 'site.actions.import',
     icon: 'mdi-import',
+    permission: 'manage',
     action: openSiteImportDialog,
   },
   {
     titleKey: 'site.actions.export',
     icon: 'mdi-export',
+    permission: 'manage',
     action: exportSites,
   },
   {
     titleKey: 'site.statistics',
     icon: 'mdi-chart-line',
+    permission: 'manage',
     action: openSiteStatisticsDialog,
   },
 ])
@@ -364,6 +374,7 @@ useDynamicButton({
   icon: 'mdi-web-plus',
   onClick: openSiteAddDialog,
   menuItems: siteDynamicMenuItems,
+  permission: 'manage',
   show: computed(() => appMode.value && shouldShowFloatingActions.value),
 })
 </script>

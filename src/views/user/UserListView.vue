@@ -8,6 +8,8 @@ import { useDynamicButton } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const UserAddEditDialog = defineAsyncComponent(() => import('@/components/dialog/UserAddEditDialog.vue'))
 
@@ -16,6 +18,10 @@ const { t } = useI18n()
 
 // 路由
 const route = useRoute()
+const userStore = useUserStore()
+const canAdmin = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
+)
 
 // PWA模式检测
 const { appMode } = usePWA()
@@ -79,6 +85,7 @@ useDynamicButton({
   onClick: () => {
     openAddUserDialog()
   },
+  permission: 'admin',
 })
 </script>
 
@@ -110,7 +117,7 @@ useDynamicButton({
 
     <!-- 新增用户按钮 -->
     <Teleport to="body" v-if="route.path === '/user'">
-      <div v-if="isRefreshed && !appMode" class="compact-fab-stack">
+      <div v-if="isRefreshed && !appMode && canAdmin" class="compact-fab-stack">
         <VFab
           icon="mdi-account-plus"
           color="primary"

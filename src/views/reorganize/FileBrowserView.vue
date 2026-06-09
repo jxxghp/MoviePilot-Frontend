@@ -131,10 +131,10 @@ function determineBrowserInitialParams(downloadDirectories: TransferDirectoryCon
 async function loadDownloadDirectories() {
   try {
     // fetch available storages
-    const storageResult: { [key: string]: any } = await api.get('system/setting/Storages')
+    const storageResult: { [key: string]: any } = await api.get('system/setting/public/Storages')
     storages.value = storageResult.data?.value ?? []
 
-    const result: { [key: string]: any } = await api.get('system/setting/Directories')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
     if (result.success && result.data?.value) {
       const { storage, path, name } = determineBrowserInitialParams(result.data.value)
       // operItem初始化

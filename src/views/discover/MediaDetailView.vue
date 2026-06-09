@@ -12,7 +12,7 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import { useUserStore } from '@/stores'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
-import { hasPermission } from '@/utils/permission'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { useGlobalSettingsStore } from '@/stores'
 import { openMediaServerItem, openDoubanApp } from '@/utils/appDeepLink'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -39,10 +39,9 @@ const globalSettings = globalSettingsStore.globalSettings
 
 // 用户 Store
 const userStore = useUserStore()
-
-const canSearch = computed(() =>
-  hasPermission({ is_superuser: userStore.superUser, ...userStore.permissions }, 'search'),
-)
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
+const canSearch = computed(() => hasPermission(userPermissions.value, 'search'))
+const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
 
 // 提示框
 const $toast = useToast()
@@ -130,7 +129,7 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/IndexerSites')
+    const result: { [key: string]: any } = await api.get('system/setting/public/IndexerSites')
 
     selectedSites.value = result.data?.value ?? []
   } catch (error) {
@@ -543,12 +542,11 @@ async function handlePlay() {
 }
 
 async function queryDefaultSubscribeConfig() {
-  // 非管理员不显示
-  if (!userStore.superUser) return false
+  if (!canSubscribe.value) return false
   try {
     let subscribe_config_url = ''
-    if (mediaProps.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
-    else subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+    if (mediaProps.type === '电影') subscribe_config_url = 'system/setting/public/DefaultMovieSubscribeConfig'
+    else subscribe_config_url = 'system/setting/public/DefaultTvSubscribeConfig'
 
     const result: { [key: string]: any } = await api.get(subscribe_config_url)
 
@@ -697,7 +695,7 @@ onBeforeMount(() => {
             {{ t('media.actions.searchSubtitle') }}
           </VBtn>
           <VBtn
-            v-if="mediaDetail.type === '电影' || mediaDetail.douban_id || mediaDetail.bangumi_id"
+            v-if="canSubscribe && (mediaDetail.type === '电影' || mediaDetail.douban_id || mediaDetail.bangumi_id)"
             class="ms-2 mb-2"
             :color="getSubscribeColor"
             variant="tonal"
@@ -812,6 +810,7 @@ onBeforeMount(() => {
                           {{ getExistText(season.season_number || 0) }}
                         </VChip>
                         <IconBtn
+                          v-if="canSubscribe"
                           class="ms-1"
                           :color="seasonsSubscribed[season.season_number || 0] ? 'error' : 'warning'"
                           variant="text"

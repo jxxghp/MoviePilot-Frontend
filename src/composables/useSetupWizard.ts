@@ -1619,7 +1619,7 @@ export function useSetupWizard() {
   // 加载存储设置
   async function loadStorageSettings() {
     try {
-      const result: { [key: string]: any } = await api.get('system/setting/Directories')
+      const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
       if (result.success && result.data?.value && result.data.value.length > 0) {
         const directory = result.data.value[0]
         wizardData.value.storage.downloadPath = directory.download_path || ''

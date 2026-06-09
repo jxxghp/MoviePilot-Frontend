@@ -51,7 +51,7 @@ function toggleExpand() {
 // 加载follow用户列表
 async function queryFollowUsers() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/FollowSubscribers')
+    const result: { [key: string]: any } = await api.get('system/setting/public/FollowSubscribers')
     followUsers.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)

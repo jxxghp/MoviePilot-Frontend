@@ -128,7 +128,7 @@ function orderDirectoryCards() {
 // 查询存储
 async function loadStorages() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Storages')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
 
     storages.value = result.data?.value ?? []
   } catch (error) {
@@ -150,7 +150,7 @@ async function saveStorages() {
 // 查询目录
 async function loadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Directories')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
     directories.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)

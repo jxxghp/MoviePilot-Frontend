@@ -17,11 +17,17 @@ import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
 const { t } = useI18n()
 
 const { appMode } = usePWA()
+const userStore = useUserStore()
+const canSearch = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'search'),
+)
 
 // 提示框
 const toast = useToast()
@@ -257,6 +263,7 @@ function toggleViewType() {
 useDynamicButton({
   icon: viewToggleIcon,
   onClick: toggleViewType,
+  permission: 'search',
   show: computed(() => appMode.value && isRefreshed.value),
 })
 
@@ -1579,7 +1586,7 @@ onUnmounted(() => {
     <LoadingBanner v-else-if="!isRefreshed && !isSearchLoading" />
 
     <Teleport to="body" v-if="route.path === '/resource'">
-      <div v-if="isRefreshed && !appMode" class="compact-fab-stack">
+      <div v-if="isRefreshed && !appMode && canSearch" class="compact-fab-stack">
         <VFab
           :icon="viewToggleIcon"
           color="primary"

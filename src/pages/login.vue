@@ -12,7 +12,7 @@ import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { useTheme } from 'vuetify'
 import { getNavMenus } from '@/router/i18n-menu'
-import { filterMenusByPermission } from '@/utils/permission'
+import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 import type { ApiResponse } from '@/api/types'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federationLoader'
@@ -539,10 +539,7 @@ async function handleLoginSuccess(response: any) {
     wizard: response.wizard,
   }
 
-  const userPermissions = {
-    is_superuser: userPayload.superUser,
-    ...userPayload.permissions,
-  }
+  const userPermissions = buildUserPermissionContext(userPayload.superUser, userPayload.permissions)
 
   const filteredMenus = filterMenusByPermission(navMenus.value, userPermissions)
   if (filteredMenus.length === 0) {

@@ -7,7 +7,7 @@ import { useUserStore, useGlobalSettingsStore } from '@/stores'
 import SearchSiteDialog from '@/components/dialog/SearchSiteDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
-import { hasPermission, filterMenusByPermission } from '@/utils/permission'
+import { buildUserPermissionContext, hasPermission, filterMenusByPermission } from '@/utils/permission'
 
 // 显示器宽度
 const display = useDisplay()
@@ -30,41 +30,29 @@ const userStore = useUserStore()
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
-// 超级用户
-const superUser = userStore.superUser
-
 // 当前用户名
 const userName = userStore.userName
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 
 // 权限检查
 const hasSearchPermission = computed(() => {
-  return hasPermission(
-    {
-      is_superuser: userStore.superUser,
-      ...userStore.permissions,
-    },
-    'search',
-  )
+  return hasPermission(userPermissions.value, 'search')
+})
+
+const hasDiscoveryPermission = computed(() => {
+  return hasPermission(userPermissions.value, 'discovery')
 })
 
 const hasSubscribePermission = computed(() => {
-  return hasPermission(
-    {
-      is_superuser: userStore.superUser,
-      ...userStore.permissions,
-    },
-    'subscribe',
-  )
+  return hasPermission(userPermissions.value, 'subscribe')
 })
 
 const hasManagePermission = computed(() => {
-  return hasPermission(
-    {
-      is_superuser: userStore.superUser,
-      ...userStore.permissions,
-    },
-    'manage',
-  )
+  return hasPermission(userPermissions.value, 'manage')
+})
+
+const hasAdminPermission = computed(() => {
+  return hasPermission(userPermissions.value, 'admin')
 })
 
 // 是否显示合集搜索项（当SEARCH_SOURCE包含themoviedb时显示）
@@ -140,6 +128,7 @@ function getMenus(): NavMenu[] {
         to: item.to,
         header: item.header,
         admin: item.admin,
+        permission: item.permission,
       }),
   )
   // 设置标签页
@@ -152,18 +141,13 @@ function getMenus(): NavMenu[] {
         to: `/setting?tab=${item.tab}`,
         header: '',
         admin: true,
+        permission: 'admin',
         description: item.description,
       }),
   )
 
   return menus
 }
-
-// 获取用户权限信息
-const userPermissions = computed(() => ({
-  is_superuser: userStore.superUser,
-  ...userStore.permissions,
-}))
 
 // 匹配的菜单列表
 const matchedMenuItems = computed(() => {
@@ -202,7 +186,7 @@ async function fetchInstalledPlugins() {
 // 匹配的插件列表
 const matchedPluginItems = computed(() => {
   if (!searchWord.value) return []
-  if (!hasManagePermission.value) return []
+  if (!hasAdminPermission.value) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   return pluginItems.value.filter((item: Plugin) => {
     if (!item.plugin_name && !item.plugin_desc) return false
@@ -222,7 +206,7 @@ async function fetchSubscribes() {
 // 从接口加载用户站点偏好设置
 const loadUserSitePreferences = async () => {
   try {
-    const result = await api.get('system/setting/IndexerSites')
+    const result = await api.get('system/setting/public/IndexerSites')
     if (result && result.data && result.data.value) {
       selectedSites.value = result.data.value
       return
@@ -259,7 +243,7 @@ const matchedSubscribeItems = computed(() => {
   if (!hasSubscribePermission.value) return []
   const lowerWord = (searchWord.value as string).toLowerCase()
   return SubscribeItems.value.filter((item: Subscribe) => {
-    return (item.name.toLowerCase().includes(lowerWord) && (superUser || userName === item.username)) || false
+    return (item.name.toLowerCase().includes(lowerWord) && (userStore.superUser || userName === item.username)) || false
   })
 })
 
@@ -276,7 +260,7 @@ function searchSites(sites: number[]) {
 
 // 搜索资源
 function searchTorrent() {
-  if (!searchWord.value) return
+  if (!searchWord.value || !hasSearchPermission.value) return
   // 记录搜索词
   saveRecentSearches(searchWord.value)
   // 跳转到搜索页面
@@ -296,7 +280,7 @@ function searchTorrent() {
 
 // 搜索字幕资源
 function searchSubtitle() {
-  if (!searchWord.value) return
+  if (!searchWord.value || !hasSearchPermission.value) return
   saveRecentSearches(searchWord.value)
   router.push({
     path: '/resource',
@@ -314,7 +298,7 @@ function searchSubtitle() {
 // 跳转媒体搜索页面
 function searchMedia(searchType: string) {
   // 搜索类型 media/person
-  if (!searchWord.value) return
+  if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
   router.push({
     path: '/browse/media/search',
@@ -395,7 +379,7 @@ onMounted(() => {
     searchWordInput.value?.focus()
   }, 500)
   // 根据权限加载不同的数据
-  if (hasManagePermission.value) {
+  if (hasAdminPermission.value) {
     fetchInstalledPlugins()
   }
   if (hasSubscribePermission.value) {
@@ -437,58 +421,60 @@ onMounted(() => {
         <!-- 有搜索词时显示搜索入口和匹配结果 -->
         <VList lines="two" v-if="searchWord" class="search-list pa-0 py-2">
           <!-- 媒体搜索入口 -->
-          <VListSubheader class="font-weight-medium text-uppercase px-4">
-            {{ t('common.media') }}
-          </VListSubheader>
+          <template v-if="hasDiscoveryPermission">
+            <VListSubheader class="font-weight-medium text-uppercase px-4">
+              {{ t('common.media') }}
+            </VListSubheader>
 
-          <VListItem density="comfortable" link @click="searchMedia('media')" class="search-result-item mx-2 my-1">
-            <template #prepend>
-              <div class="result-icon-wrapper">
-                <VIcon icon="mdi-movie-search" size="small" color="medium-emphasis" />
-              </div>
-            </template>
-            <VListItemTitle class="font-weight-medium text-body-2">
-              {{ t('recommend.categoryMovie') }}、{{ t('recommend.categoryTV') }}
-            </VListItemTitle>
-            <VListItemSubtitle class="text-caption text-medium-emphasis">
-              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-              {{ t('resource.title') }}
-            </VListItemSubtitle>
-          </VListItem>
+            <VListItem density="comfortable" link @click="searchMedia('media')" class="search-result-item mx-2 my-1">
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-movie-search" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">
+                {{ t('recommend.categoryMovie') }}、{{ t('recommend.categoryTV') }}
+              </VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('resource.title') }}
+              </VListItemSubtitle>
+            </VListItem>
 
-          <VListItem
-            v-if="showCollectionSearch"
-            density="comfortable"
-            link
-            @click="searchMedia('collection')"
-            class="search-result-item mx-2 my-1"
-          >
-            <template #prepend>
-              <div class="result-icon-wrapper">
-                <VIcon icon="mdi-movie-filter" size="small" color="medium-emphasis" />
-              </div>
-            </template>
-            <VListItemTitle class="font-weight-medium text-body-2">{{
-              t('dialog.searchBar.collections')
-            }}</VListItemTitle>
-            <VListItemSubtitle class="text-caption text-medium-emphasis">
-              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-              {{ t('dialog.searchBar.collectionSearch') }}
-            </VListItemSubtitle>
-          </VListItem>
+            <VListItem
+              v-if="showCollectionSearch"
+              density="comfortable"
+              link
+              @click="searchMedia('collection')"
+              class="search-result-item mx-2 my-1"
+            >
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-movie-filter" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">{{
+                t('dialog.searchBar.collections')
+              }}</VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('dialog.searchBar.collectionSearch') }}
+              </VListItemSubtitle>
+            </VListItem>
 
-          <VListItem density="comfortable" link @click="searchMedia('person')" class="search-result-item mx-2 my-1">
-            <template #prepend>
-              <div class="result-icon-wrapper">
-                <VIcon icon="mdi-account-search" size="small" color="medium-emphasis" />
-              </div>
-            </template>
-            <VListItemTitle class="font-weight-medium text-body-2">{{ t('browse.actor') }}</VListItemTitle>
-            <VListItemSubtitle class="text-caption text-medium-emphasis">
-              {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-              {{ t('dialog.searchBar.actorSearch') }}
-            </VListItemSubtitle>
-          </VListItem>
+            <VListItem density="comfortable" link @click="searchMedia('person')" class="search-result-item mx-2 my-1">
+              <template #prepend>
+                <div class="result-icon-wrapper">
+                  <VIcon icon="mdi-account-search" size="small" color="medium-emphasis" />
+                </div>
+              </template>
+              <VListItemTitle class="font-weight-medium text-body-2">{{ t('browse.actor') }}</VListItemTitle>
+              <VListItemSubtitle class="text-caption text-medium-emphasis">
+                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
+                {{ t('dialog.searchBar.actorSearch') }}
+              </VListItemSubtitle>
+            </VListItem>
+          </template>
 
           <VListItem
             v-if="hasSubscribePermission"

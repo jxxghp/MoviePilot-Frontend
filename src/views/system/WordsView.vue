@@ -174,7 +174,7 @@ async function saveTransferExcludeWords() {
 // 查询集数定位规则
 async function queryEpisodeFormatRules() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
+    const result: { [key: string]: any } = await api.get('system/setting/public/EpisodeFormatRuleTable')
     if (result && result.data && result.data.value) {
       episodeFormatRules.value = normalizeEpisodeFormatRules(result.data.value)
     } else {

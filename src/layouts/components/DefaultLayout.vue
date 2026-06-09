@@ -16,7 +16,14 @@ import { NavMenu } from '@/@layouts/types'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { filterMenusByPermission } from '@/utils/permission'
+import {
+  buildUserPermissionContext,
+  filterItemsByPermission,
+  filterMenusByPermission,
+  hasItemPermission,
+  hasPermission,
+  type UserPermissionKey,
+} from '@/utils/permission'
 import { onUnreadMessage } from '@/utils/badge'
 import { usePullDownGesture } from '@/composables/usePullDownGesture'
 import { usePWA } from '@/composables/usePWA'
@@ -41,17 +48,12 @@ const themeLayout = ref(readThemeCustomizerSettings().layout)
 const userStore = useUserStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
 
-// 响应式的超级用户状态
-const superUser = computed(() => userStore.superUser)
-
 // ShortcutBar 引用
 const shortcutBarRef = ref<InstanceType<typeof ShortcutBar> | null>(null)
 
 // 获取用户权限信息
-const userPermissions = computed(() => ({
-  is_superuser: userStore.superUser,
-  ...userStore.permissions,
-}))
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
+const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
 
 // 开始菜单项
 const startMenus = ref<NavMenu[]>([])
@@ -112,6 +114,7 @@ interface DynamicHeaderTabButton {
   size?: string
   class?: string
   action?: () => void
+  permission?: UserPermissionKey
   show?: boolean | ComputedRef<boolean>
   loading?: boolean | ComputedRef<boolean>
   dataAttr?: string
@@ -196,10 +199,19 @@ const hasDynamicHeaderTab = computed(() => {
 // 水平布局下动态标签页会并入顶部导航三级菜单，不再额外显示标签页栏。
 const showDynamicHeaderTab = computed(() => hasDynamicHeaderTab.value && !showHorizontalThemeNav.value)
 
-const visibleHorizontalHeaderButtons = computed(() => {
-  if (!showHorizontalThemeNav.value || !hasDynamicHeaderTab.value) return []
+const visibleDynamicHeaderButtons = computed(() => {
+  if (!hasDynamicHeaderTab.value) return []
 
-  return (dynamicHeaderTab.value?.appendButtons ?? []).filter(button => resolveMaybeRefValue(button.show, true) !== false)
+  const visibleButtons = (dynamicHeaderTab.value?.appendButtons ?? []).filter(
+    button => resolveMaybeRefValue(button.show, true) !== false,
+  )
+  return filterItemsByPermission(visibleButtons, userPermissions.value)
+})
+
+const visibleHorizontalHeaderButtons = computed(() => {
+  if (!showHorizontalThemeNav.value) return []
+
+  return visibleDynamicHeaderButtons.value
 })
 
 // 在组件销毁时清理
@@ -227,7 +239,7 @@ const canUsePullGesture = () => {
   // 检查是否在dashboard页面
   const isDashboard = route.path === '/dashboard' || route.path === '/'
   // 检查是否是管理员
-  const isAdmin = superUser.value
+  const isAdmin = canAdmin.value
   // 检查插件快速访问面板是否已显示
   const quickAccessOpen = showPluginQuickAccess.value
   // 检查是否离线
@@ -323,6 +335,12 @@ function resolveHeaderButtonLoading(button: DynamicHeaderTabButton) {
   return resolveMaybeRefValue(button.loading, false)
 }
 
+function handleHeaderButtonClick(button: DynamicHeaderTabButton) {
+  if (!hasItemPermission(button, userPermissions.value)) return
+
+  button.action?.()
+}
+
 function getHorizontalTabIcon(tab: DynamicHeaderTabItem) {
   const icon = tab.icon?.trim()
 
@@ -366,7 +384,7 @@ function applyPendingHorizontalTab() {
 
 // 处理未读消息事件
 function handleUnreadMessage(count: number) {
-  if (superUser.value && count > 0) {
+  if (canAdmin.value && count > 0) {
     // 延迟一点时间确保组件已渲染
     setTimeout(() => {
       if (shortcutBarRef.value && typeof shortcutBarRef.value.openMessageDialog === 'function') {
@@ -480,7 +498,7 @@ onMounted(async () => {
         class="theme-navbar-row d-flex h-14 align-center mx-1"
         :class="{ 'theme-navbar-row--horizontal': showHorizontalThemeNav }"
       >
-        <RouterLink v-if="showHorizontalThemeNav" to="/dashboard" class="theme-horizontal-logo">
+        <RouterLink v-if="showHorizontalThemeNav" :to="canAdmin ? '/dashboard' : '/apps'" class="theme-horizontal-logo">
           <span class="theme-horizontal-logo__mark" v-html="logo" />
           <span class="theme-horizontal-logo__text">MOVIEPILOT</span>
         </RouterLink>
@@ -503,7 +521,7 @@ onMounted(async () => {
           <!-- 👉 Horizontal Search Icon -->
           <SearchBar v-if="showHorizontalThemeNav" icon-only />
           <!-- 👉 Shortcuts -->
-          <ShortcutBar v-if="superUser" ref="shortcutBarRef" />
+          <ShortcutBar v-if="canAdmin" ref="shortcutBarRef" />
           <!-- 👉 Notification -->
           <UserNofification />
           <!-- 👉 UserProfile -->
@@ -597,7 +615,7 @@ onMounted(async () => {
             :class="button.class || 'settings-icon-button'"
             :loading="resolveHeaderButtonLoading(button)"
             :data-menu-activator="button.dataAttr"
-            @click="button.action"
+            @click="handleHeaderButtonClick(button)"
           />
         </div>
       </div>
@@ -650,17 +668,16 @@ onMounted(async () => {
           @update:model-value="handleTabChange"
         >
           <template #append>
-            <template v-for="button in dynamicHeaderTab!.appendButtons" :key="button.icon">
+            <template v-for="button in visibleDynamicHeaderButtons" :key="button.icon">
               <VBtn
-                v-if="typeof button.show === 'boolean' ? button.show !== false : (button.show as any)?.value !== false"
                 :icon="button.icon"
                 :variant="button.variant || 'text'"
-                :color="typeof button.color === 'string' ? button.color : (button.color as any)?.value || 'gray'"
+                :color="resolveHeaderButtonColor(button)"
                 :size="button.size || 'default'"
                 :class="button.class || 'settings-icon-button'"
-                :loading="typeof button.loading === 'boolean' ? button.loading : (button.loading as any)?.value || false"
+                :loading="resolveHeaderButtonLoading(button)"
                 :data-menu-activator="button.dataAttr"
-                @click="button.action"
+                @click="handleHeaderButtonClick(button)"
               />
             </template>
           </template>

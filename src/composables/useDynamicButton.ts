@@ -12,6 +12,7 @@ import {
   type ComputedRef,
   type Ref,
 } from 'vue'
+import type { UserPermissionKey } from '@/utils/permission'
 
 // 声明全局变量类型
 declare global {
@@ -29,6 +30,7 @@ export interface DynamicButtonMenuItem {
   titleParams?: Record<string, unknown>
   icon?: string
   color?: string
+  permission?: UserPermissionKey
   action: () => void
 }
 
@@ -57,11 +59,12 @@ export function useDynamicButton(options: {
   icon: MaybeRefValue<string>
   onClick?: () => void
   menuItems?: MaybeRefValue<DynamicButtonMenuItem[] | undefined>
+  permission?: UserPermissionKey
   show?: MaybeRefValue<boolean>
   autoRegister?: boolean // 是否自动注册，默认为true
 }) {
   // 提取配置
-  const { icon, onClick, menuItems, show, autoRegister = true } = options
+  const { icon, onClick, menuItems, permission, show, autoRegister = true } = options
 
   // 动态按钮相关
   const registerDynamicButton = inject<((button: any) => void) | null>('registerDynamicButton', null)
@@ -81,6 +84,7 @@ export function useDynamicButton(options: {
     return {
       icon: resolvedIcon.value,
       action: onClick || (() => {}),
+      permission,
       show: resolvedShow.value,
       menuItems: buttonMenuItems && buttonMenuItems.length > 0 ? buttonMenuItems : undefined,
     }
@@ -174,7 +178,7 @@ export function useDynamicButton(options: {
       cleanupDynamicButton()
     })
 
-    watch([resolvedIcon, resolvedShow, resolvedMenuItems], () => {
+    watch([resolvedIcon, resolvedShow, resolvedMenuItems, () => permission], () => {
       if (!componentActive.value) return
 
       setupDynamicButton()

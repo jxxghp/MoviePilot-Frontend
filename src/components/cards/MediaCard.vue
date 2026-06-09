@@ -10,7 +10,7 @@ import router from '@/router'
 import { useUserStore, useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { mediaTypeDict } from '@/api/constants'
-import { hasPermission } from '@/utils/permission'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import {
   getCachedMediaExistsStatus,
@@ -45,6 +45,9 @@ const globalSettings = globalSettingsStore.globalSettings
 
 // 用户 Store
 const userStore = useUserStore()
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
+const canSearch = computed(() => hasPermission(userPermissions.value, 'search'))
+const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
 
 // 提示框
 const $toast = useToast()
@@ -143,7 +146,7 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/IndexerSites')
+    const result: { [key: string]: any } = await api.get('system/setting/public/IndexerSites')
     selectedSites.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)
@@ -336,12 +339,11 @@ async function checkSubscribe(season: number | null) {
 
 // 查询订阅弹窗规则
 async function queryDefaultSubscribeConfig() {
-  // 非管理员不显示
-  if (!userStore.superUser) return false
+  if (!canSubscribe.value) return false
   try {
     let subscribe_config_url = ''
-    if (props.media?.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
-    else subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
+    if (props.media?.type === '电影') subscribe_config_url = 'system/setting/public/DefaultMovieSubscribeConfig'
+    else subscribe_config_url = 'system/setting/public/DefaultTvSubscribeConfig'
     const result: { [key: string]: any } = await api.get(subscribe_config_url)
     if (result.data?.value) return result.data.value.show_edit_dialog
   } catch (error) {
@@ -534,7 +536,7 @@ onBeforeUnmount(() => {
             <div v-if="props.media?.collection_id" class="mb-3" @click.stop=""></div>
             <div v-else class="flex align-center justify-between">
               <IconBtn
-                v-if="hasPermission({ is_superuser: userStore.superUser, ...userStore.permissions }, 'search')"
+                v-if="canSearch"
                 icon="mdi-magnify"
                 color="white"
                 size="small"
@@ -542,6 +544,7 @@ onBeforeUnmount(() => {
               />
               <VSpacer />
               <IconBtn
+                v-if="canSubscribe"
                 icon="mdi-heart"
                 :color="isSubscribed ? 'error' : 'white'"
                 size="small"

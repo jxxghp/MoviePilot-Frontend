@@ -92,7 +92,7 @@ async function queryFilterRuleGroups() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/IndexerSites')
+    const result: { [key: string]: any } = await api.get('system/setting/public/IndexerSites')
 
     selectedSites.value = result.data?.value ?? []
   } catch (error) {

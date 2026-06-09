@@ -3,8 +3,14 @@ import api from '@/api'
 import { NotificationConf } from '@/api/types'
 import { Handle, Position } from '@vue-flow/core'
 import { useI18n } from 'vue-i18n'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const { t } = useI18n()
+const userStore = useUserStore()
+const canAdmin = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
+)
 
 defineProps({
   id: {
@@ -22,6 +28,8 @@ const notifications = ref<NotificationConf[]>([])
 
 // 调用API查询通知渠道设置
 async function loadNotificationSetting() {
+  if (!canAdmin.value) return
+
   try {
     const result: { [key: string]: any } = await api.get('system/setting/Notifications')
     notifications.value = result.data?.value ?? []

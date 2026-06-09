@@ -7,6 +7,7 @@ import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 import { getSubscribeMovieTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
@@ -193,9 +194,12 @@ function selectSubscribeSort(value: SubscribeSortBy) {
 const filterActivator = computed(() => '[data-menu-activator="filter-btn"]')
 const searchActivator = computed(() => '[data-menu-activator="share-filter-btn"]')
 
-const showDefaultRuleAction = computed(() => activeTab.value === 'mysub')
-const showSubscribeHistoryAction = computed(() => showDefaultRuleAction.value && userStore.superUser)
-const showShareStatisticsAction = computed(() => activeTab.value === 'share')
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
+const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
+const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscribe'))
+const showDefaultRuleAction = computed(() => activeTab.value === 'mysub' && canAdmin.value)
+const showSubscribeHistoryAction = computed(() => showDefaultRuleAction.value && canAdmin.value)
+const showShareStatisticsAction = computed(() => activeTab.value === 'share' && canSubscribe.value)
 
 function openDefaultRuleDialog() {
   openSharedDialog(
@@ -255,6 +259,7 @@ const subscribeDynamicMenuItems = computed(() => {
       titleKey: string
       titleParams?: Record<string, unknown>
       icon: string
+      permission: 'admin'
       action: () => void
     }> = []
 
@@ -263,6 +268,7 @@ const subscribeDynamicMenuItems = computed(() => {
         titleKey: 'dialog.subscribeHistory.title',
         titleParams: { type: subType },
         icon: 'mdi-history',
+        permission: 'admin',
         action: openSubscribeHistoryDialog,
       })
     }
@@ -270,6 +276,7 @@ const subscribeDynamicMenuItems = computed(() => {
     items.push({
       titleKey: 'dialog.subscribeEdit.titleDefault',
       icon: 'mdi-clipboard-edit-outline',
+      permission: 'admin',
       action: openDefaultRuleDialog,
     })
 
@@ -305,6 +312,7 @@ useDynamicButton({
   icon: subscribeDynamicIcon,
   onClick: handleSubscribeDynamicAction,
   menuItems: subscribeDynamicMenuItems,
+  permission: 'subscribe',
   show: computed(() => appMode.value && (showDefaultRuleAction.value || showShareStatisticsAction.value)),
 })
 
@@ -322,6 +330,7 @@ registerHeaderTab({
       color: filterButtonColor,
       class: 'settings-icon-button',
       dataAttr: 'filter-btn',
+      permission: 'subscribe',
       action: () => {
         filterSubscribeDialog.value = true
       },
@@ -332,6 +341,7 @@ registerHeaderTab({
       variant: 'text',
       color: computed(() => (subscribeSortMode.value ? 'warning' : 'gray')),
       class: 'settings-icon-button',
+      permission: 'subscribe',
       action: toggleSubscribeSortMode,
       show: computed(() => activeTab.value === 'mysub'),
     },
@@ -340,6 +350,7 @@ registerHeaderTab({
       variant: 'text',
       color: 'gray',
       class: 'settings-icon-button',
+      permission: 'subscribe',
       action: () => {
         // 触发批量管理模式
         const event = new CustomEvent('toggle-batch-mode')
@@ -353,6 +364,7 @@ registerHeaderTab({
       color: computed(() => (shareKeywordInput.value ? 'primary' : 'gray')),
       class: 'settings-icon-button',
       dataAttr: 'share-filter-btn',
+      permission: 'subscribe',
       action: () => {
         searchShareDialog.value = true
       },

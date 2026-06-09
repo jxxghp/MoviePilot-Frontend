@@ -12,11 +12,12 @@ import { useDisplay } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
-import { useDynamicButton } from '@/composables/useDynamicButton'
+import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackground } from '@/composables/useBackground'
-import { useGlobalSettingsStore } from '@/stores'
+import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -42,6 +43,10 @@ const $toast = useToast()
 
 // 路由
 const route = useRoute()
+const userStore = useUserStore()
+const canManage = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'manage'),
+)
 let syncingRouteQuery = false
 let fetchDataRequestSeed = 0
 
@@ -243,7 +248,7 @@ const storages = ref<StorageConf[]>([])
 // 查询存储
 async function loadStorages() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Storages')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
 
     storages.value = result.data?.value ?? []
   } catch (error) {
@@ -852,10 +857,11 @@ const historyDynamicIcon = computed(() => (selected.value.length > 0 ? 'mdi-chev
 const historyDynamicMenuItems = computed(() => {
   if (selected.value.length === 0) return undefined
 
-  const items: Array<{ titleKey: string; icon: string; action: () => void; color?: string }> = [
+  const items: DynamicButtonMenuItem[] = [
     {
       titleKey: 'dialog.transferQueue.title',
       icon: 'mdi-timer-sand-paused',
+      permission: 'manage',
       action: openTransferQueueDialog,
     },
   ]
@@ -865,6 +871,7 @@ const historyDynamicMenuItems = computed(() => {
       {
         titleKey: 'transferHistory.actions.batchAiRedo',
         icon: 'mdi-robot-outline',
+        permission: 'manage',
         action: () => {
           triggerBatchAiRedo()
         },
@@ -872,6 +879,7 @@ const historyDynamicMenuItems = computed(() => {
       {
         titleKey: 'transferHistory.actions.batchRedo',
         icon: 'mdi-redo-variant',
+        permission: 'manage',
         action: () => {
           retransferBatch()
         },
@@ -880,6 +888,7 @@ const historyDynamicMenuItems = computed(() => {
         titleKey: 'transferHistory.actions.batchDelete',
         icon: 'mdi-trash-can-outline',
         color: 'error',
+        permission: 'manage',
         action: () => {
           removeHistoryBatch()
         },
@@ -894,6 +903,7 @@ useDynamicButton({
   icon: historyDynamicIcon,
   onClick: openTransferQueueDialog,
   menuItems: historyDynamicMenuItems,
+  permission: 'manage',
   show: computed(() => appMode.value),
 })
 
@@ -1173,7 +1183,7 @@ onUnmounted(() => {
 
   <!-- 非 app 模式下的 FAB 按钮 -->
   <Teleport to="body" v-if="!appMode && route.path === '/history'">
-    <div v-if="isRefreshed" class="compact-fab-stack compact-fab-stack--history">
+    <div v-if="isRefreshed && canManage" class="compact-fab-stack compact-fab-stack--history">
       <VFab
         v-if="selected.length > 0 && !hasRunningAiRedo"
         icon="mdi-trash-can-outline"

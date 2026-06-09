@@ -1,9 +1,9 @@
 import { useGlobalSettingsStore } from '@/stores'
-import type { NavMenuTabItem } from '@/@layouts/types'
+import type { NavMenu, NavMenuTabItem } from '@/@layouts/types'
 import type { Composer } from 'vue-i18n'
 
 // 构建路由菜单，每次调用时使用当前的语言环境
-export function getNavMenus(t: Composer['t']) {
+export function getNavMenus(t: Composer['t']): NavMenu[] {
   const globalSettingsStore = useGlobalSettingsStore()
 
   // 检查是否为高级模式
@@ -17,7 +17,7 @@ export function getNavMenus(t: Composer['t']) {
       header: t('menu.start'),
       admin: false,
       footer: true,
-      permission: 'manage',
+      permission: 'admin',
     },
     {
       title: t('navItems.searchResult'),
@@ -119,7 +119,7 @@ export function getNavMenus(t: Composer['t']) {
       to: '/plugins',
       header: t('menu.system'),
       admin: true,
-      permission: 'manage',
+      permission: 'admin',
       tabs: getPluginTabs(t),
     },
     {
@@ -148,7 +148,7 @@ export function getNavMenus(t: Composer['t']) {
             admin: true,
             permission: 'admin',
             tabs: getSettingTabs(t),
-          },
+          } as NavMenu,
         ]
       : []),
   ]

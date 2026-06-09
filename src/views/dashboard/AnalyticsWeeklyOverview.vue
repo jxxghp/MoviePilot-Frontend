@@ -2,17 +2,12 @@
 import { useTheme } from 'vuetify'
 import api from '@/api'
 import { hexToRgb } from '@layouts/utils'
-import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
 
 const vuetifyTheme = useTheme()
-
-// 用户 Store
-const userStore = useUserStore()
-const superUser = userStore.superUser
 
 const options = controlledComputed(
   () => vuetifyTheme.name.value,
@@ -147,7 +142,7 @@ onActivated(() => {
         <p>{{ t('dashboard.weeklyOverviewDescription', { count: totalCount }) }} 😎</p>
       </div>
       <div>
-        <VBtn v-if="superUser" block to="/history"> {{ t('common.viewDetails') }} </VBtn>
+        <VBtn block to="/history"> {{ t('common.viewDetails') }} </VBtn>
       </div>
     </VCardText>
   </VCard>

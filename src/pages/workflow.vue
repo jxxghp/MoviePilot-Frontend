@@ -7,12 +7,18 @@ import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useDynamicButton } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { getWorkflowTabs } from '@/router/i18n-menu'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 // 国际化
 const { t } = useI18n()
 
 const route = useRoute()
 const { appMode } = usePWA()
+const userStore = useUserStore()
+const canManage = computed(() =>
+  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'manage'),
+)
 
 const activeTab = ref((route.query.tab as string) || 'list')
 const workflowListViewRef = ref<InstanceType<typeof WorkflowListView> | null>(null)
@@ -61,6 +67,7 @@ onUnmounted(() => {
 useDynamicButton({
   icon: 'mdi-plus',
   onClick: openAddWorkflowDialog,
+  permission: 'manage',
   show: computed(() => appMode.value && activeTab.value === 'list'),
 })
 
@@ -78,6 +85,7 @@ registerHeaderTab({
       color: computed(() => (shareKeywordInput.value ? 'primary' : 'gray')),
       class: 'settings-icon-button',
       dataAttr: 'share-filter-btn',
+      permission: 'manage',
       show: computed(() => activeTab.value === 'share'),
       action: () => {
         searchShareDialog.value = true
@@ -138,7 +146,7 @@ onMounted(() => {
       </VMenu>
     </Teleport>
 
-    <Teleport to="body" v-if="!appMode && route.path === '/workflow' && activeTab === 'list'">
+    <Teleport to="body" v-if="!appMode && route.path === '/workflow' && activeTab === 'list' && canManage">
       <div class="compact-fab-stack">
         <VFab
           icon="mdi-plus"

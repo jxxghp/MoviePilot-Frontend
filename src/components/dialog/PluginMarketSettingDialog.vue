@@ -108,7 +108,7 @@ function switchEditorMode(mode: EditorMode | undefined) {
 /** 加载插件市场仓库配置。 */
 async function queryMarketRepoSetting() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/PLUGIN_MARKET')
+    const result: { [key: string]: any } = await api.get('system/setting/public/PLUGIN_MARKET')
     if (result && result.data && result.data.value) {
       repoList.value = parseRepoInput(result.data.value).repos
       syncTextFromList()

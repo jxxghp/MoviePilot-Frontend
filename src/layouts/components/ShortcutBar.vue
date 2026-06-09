@@ -3,9 +3,13 @@ import type { Component } from 'vue'
 import { getQueryValue } from '@/@core/utils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useI18n } from 'vue-i18n'
+import { useUserStore } from '@/stores'
+import { buildUserPermissionContext, filterItemsByPermission, hasItemPermission, type PermissionProtectedItem } from '@/utils/permission'
 
 // 国际化
 const { t } = useI18n()
+const userStore = useUserStore()
+const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 
 // 快捷工具只在弹窗打开时使用，按需加载避免默认布局首屏带上所有 system 视图。
 const NameTestView = defineAsyncComponent(() => import('@/views/system/NameTestView.vue'))
@@ -19,7 +23,7 @@ const ShortcutLogDialog = defineAsyncComponent(() => import('@/components/dialog
 const ShortcutMessageDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutMessageDialog.vue'))
 const ShortcutToolDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutToolDialog.vue'))
 
-type ShortcutItem = {
+type ShortcutItem = PermissionProtectedItem & {
   bodyClass?: string
   cardClass?: string
   component?: Component
@@ -119,10 +123,14 @@ const shortcuts: ShortcutItem[] = [
     dialog: 'message',
     customDialog: ShortcutMessageDialog,
   },
-]
+].map(item => ({ ...item, permission: 'admin' }))
+
+const visibleShortcuts = computed(() => filterItemsByPermission(shortcuts, userPermissions.value))
 
 /** 打开快捷工具对应的共享弹窗。 */
 function openShortcutDialog(item: (typeof shortcuts)[number]) {
+  if (!hasItemPermission(item, userPermissions.value)) return
+
   appsMenu.value = false
 
   if (item.customDialog) {
@@ -150,7 +158,7 @@ function openShortcutDialog(item: (typeof shortcuts)[number]) {
 
 /** 供外部调用的打开消息弹窗方法。 */
 function openMessageDialogFromExternal() {
-  const messageShortcut = shortcuts.find(item => item.dialog === 'message')
+  const messageShortcut = visibleShortcuts.value.find(item => item.dialog === 'message')
   if (messageShortcut) openShortcutDialog(messageShortcut)
 }
 
@@ -162,7 +170,7 @@ defineExpose({
 onMounted(() => {
   const shortcut = getQueryValue('shortcut')
   if (shortcut) {
-    const found = shortcuts.find(item => item.dialog === shortcut)
+    const found = visibleShortcuts.value.find(item => item.dialog === shortcut)
     if (found) {
       openShortcutDialog(found)
     }
@@ -202,7 +210,7 @@ onMounted(() => {
       <div class="pa-3">
         <div class="grid grid-cols-2 gap-3">
           <!-- 循环渲染快捷方式 -->
-          <div v-for="(item, index) in shortcuts" :key="index">
+          <div v-for="(item, index) in visibleShortcuts" :key="index">
             <VCard
               flat
               class="pa-2 d-flex align-center cursor-pointer transition-transform duration-300 hover:-translate-y-1 border h-full"

@@ -175,7 +175,7 @@ let episodeGroupQueryTimer: ReturnType<typeof setTimeout> | undefined
 // 查询存储
 async function loadStorages() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Storages')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Storages')
 
     storages.value = result.data?.value ?? []
   } catch (error) {
@@ -292,7 +292,7 @@ const directories = ref<TransferDirectoryConf[]>([])
 // 查询目录
 async function loadDirectories() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/Directories')
+    const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
     directories.value = result.data?.value ?? []
   } catch (error) {
     console.log(error)
@@ -848,7 +848,7 @@ async function requestManualTransfer<T = any>(
 // 加载剧集格式规则配置状态，用于决定是否允许自动推荐。
 async function loadEpisodeFormatRuleConfiguration() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/EpisodeFormatRuleTable')
+    const result: { [key: string]: any } = await api.get('system/setting/public/EpisodeFormatRuleTable')
     episodeFormatRuleConfigured.value = Boolean(result.data?.value?.length)
   } catch (error) {
     console.log(error)
