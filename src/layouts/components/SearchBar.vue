@@ -37,30 +37,45 @@ const showIconOnly = computed(() => props.iconOnly || !display.mdAndUp.value)
 
 <template>
   <!-- 小屏或水平导航右侧工具区：仅显示搜索图标。 -->
-  <IconBtn v-if="showIconOnly" class="search-icon-trigger" @click="openSearchDialog">
+  <IconBtn
+    v-if="showIconOnly"
+    class="search-icon-trigger"
+    :aria-label="t('dialog.searchBar.openSearch')"
+    @click="openSearchDialog"
+  >
     <VIcon class="search-icon-trigger__icon" icon="mdi-magnify" />
   </IconBtn>
 
-  <!-- 中屏及以上：胶囊搜索触发栏 -->
-  <div v-else class="search-trigger" @click="openSearchDialog">
-    <VIcon icon="mdi-magnify" size="30" class="search-trigger-icon" />
-    <span class="search-trigger-text">{{ t('common.search') }}</span>
-    <kbd class="search-trigger-kbd">{{ metaKey }}</kbd>
-  </div>
+  <!-- 中屏及以上：与用户头像同尺寸的搜索入口。 -->
+  <VTooltip v-else :text="`${t('dialog.searchBar.openSearch')} (${metaKey})`">
+    <template #activator="{ props: tooltipProps }">
+      <button
+        v-bind="tooltipProps"
+        class="search-trigger"
+        type="button"
+        :aria-label="t('dialog.searchBar.openSearch')"
+        @click="openSearchDialog"
+      >
+        <VIcon icon="mdi-magnify" size="24" class="search-trigger-icon" />
+      </button>
+    </template>
+  </VTooltip>
 </template>
 
 <style scoped>
 .search-trigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 999px;
+  border-radius: 50%;
   background: rgba(var(--v-theme-surface), 0.44);
-  block-size: 44px;
+  block-size: 40px;
+  color: rgba(var(--v-theme-on-surface), 0.72);
   cursor: pointer;
-  gap: 12px;
-  min-inline-size: 168px;
-  padding-inline: 18px 10px;
+  flex: 0 0 auto;
+  inline-size: 40px;
+  padding: 0;
   transition:
     border-color 0.2s ease,
     background-color 0.2s ease,
@@ -76,29 +91,6 @@ const showIconOnly = computed(() => props.iconOnly || !display.mdAndUp.value)
 
 .search-trigger-icon {
   flex-shrink: 0;
-  color: rgba(var(--v-theme-on-surface), 0.72);
-  font-size: 1.8rem;
-}
-
-.search-trigger-text {
-  color: rgba(var(--v-theme-on-surface), 0.42);
-  font-size: 1rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.search-trigger-kbd {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface), 0.5);
-  color: rgba(var(--v-theme-on-surface), 0.42);
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1;
-  margin-inline-start: 4px;
-  padding-block: 6px;
-  padding-inline: 8px;
 }
 
 html[data-theme='transparent'] .search-trigger,
