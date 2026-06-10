@@ -57,9 +57,6 @@ let mfaDialogController: ReturnType<typeof openSharedDialog> | null = null
 // 用户名称输入框
 const usernameInput = ref()
 
-// 登录自动填充同步的延时任务
-const autofillSyncTimerIds: number[] = []
-
 // 语言选择菜单
 const langMenu = ref(false)
 
@@ -123,44 +120,6 @@ const pluginAuthProviders = computed(() =>
   authProviders.value.filter(provider => provider.type === 'plugin' && provider.remote && provider.enabled !== false),
 )
 const showPasskeyLogin = computed(() => !!systemPasskeyProvider.value?.enabled)
-
-// 获取登录表单中的原生账号和密码输入框。
-function getLoginCredentialInputs() {
-  const formElement = refForm.value?.$el as HTMLFormElement | undefined
-  const root = formElement || document
-
-  return {
-    username: root.querySelector<HTMLInputElement>('input[name="username"]'),
-    password: root.querySelector<HTMLInputElement>('input[name="password"]'),
-  }
-}
-
-// 将密码管理器写入 DOM 的账号密码同步回响应式表单。
-function syncLoginCredentialValues() {
-  const { username, password } = getLoginCredentialInputs()
-
-  if (username && username.value !== form.value.username) {
-    form.value.username = username.value
-  }
-
-  if (password && password.value !== form.value.password) {
-    form.value.password = password.value
-  }
-}
-
-// 清理尚未执行的登录自动填充同步任务。
-function clearLoginAutofillSyncTimers() {
-  autofillSyncTimerIds.forEach(timerId => window.clearTimeout(timerId))
-  autofillSyncTimerIds.length = 0
-}
-
-// 延迟多次同步自动填充值，兼容只对聚焦字段派发事件的密码管理器。
-function scheduleLoginAutofillSync() {
-  clearLoginAutofillSyncTimers()
-  syncLoginCredentialValues()
-  autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 50))
-  autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 250))
-}
 
 // 生成 MFA 共享弹窗使用的最新 props。
 function getMfaDialogProps() {
@@ -705,7 +664,6 @@ onUnmounted(() => {
     manualAbortController.abort()
     manualAbortController = null
   }
-  clearLoginAutofillSyncTimers()
 })
 </script>
 
@@ -772,8 +730,6 @@ onUnmounted(() => {
                   autocomplete="username"
                   :rules="[requiredValidator]"
                   hide-details
-                  @input="scheduleLoginAutofillSync"
-                  @change="scheduleLoginAutofillSync"
                 />
               </VCol>
               <!-- password -->
@@ -789,8 +745,6 @@ onUnmounted(() => {
                   :rules="[requiredValidator]"
                   hide-details
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
-                  @input="scheduleLoginAutofillSync"
-                  @change="scheduleLoginAutofillSync"
                 />
               </VCol>
               <VCol cols="12" class="py-0">
