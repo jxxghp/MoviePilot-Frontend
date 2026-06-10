@@ -36,6 +36,13 @@ const form = ref({
   remember: true,
 })
 
+const savedLoginCredentialKey = 'MP_SAVED_LOGIN_CREDENTIAL'
+
+interface SavedLoginCredential {
+  username: string
+  password: string
+}
+
 const refForm = ref<InstanceType<typeof VForm> | null>(null)
 
 // 密码输入
@@ -120,6 +127,33 @@ const pluginAuthProviders = computed(() =>
   authProviders.value.filter(provider => provider.type === 'plugin' && provider.remote && provider.enabled !== false),
 )
 const showPasskeyLogin = computed(() => !!systemPasskeyProvider.value?.enabled)
+
+// 读取上次成功登录的账号密码，用于 token 过期后回到登录页时自动回填。
+function restoreSavedLoginCredential() {
+  try {
+    const credential = JSON.parse(localStorage.getItem(savedLoginCredentialKey) || 'null') as SavedLoginCredential | null
+    if (!credential?.username || !credential?.password) return
+
+    form.value.username = credential.username
+    form.value.password = credential.password
+  } catch (error) {
+    console.warn('恢复登录凭据失败:', error)
+    localStorage.removeItem(savedLoginCredentialKey)
+  }
+}
+
+// 保存当前成功登录的账号密码，方便下次 token 失效后直接点击登录。
+function saveLoginCredential() {
+  if (!form.value.username || !form.value.password) return
+
+  localStorage.setItem(
+    savedLoginCredentialKey,
+    JSON.stringify({
+      username: form.value.username,
+      password: form.value.password,
+    }),
+  )
+}
 
 // 生成 MFA 共享弹窗使用的最新 props。
 function getMfaDialogProps() {
@@ -503,7 +537,7 @@ async function handleLoginSuccess(response: any) {
   const filteredMenus = filterMenusByPermission(navMenus.value, userPermissions)
   if (filteredMenus.length === 0) {
     errorMessage.value = t('login.noPermission')
-    return
+    return false
   }
 
   const authPayLoad: authState = {
@@ -514,7 +548,9 @@ async function handleLoginSuccess(response: any) {
   authStore.login(authPayLoad)
   userStore.loginUser(userPayload)
 
+  saveLoginCredential()
   await afterLogin(userPayload.superUser, userPayload, filteredMenus)
+  return true
 }
 
 // 登录获取token事件
@@ -608,6 +644,8 @@ watch([mfaPasskeyLoading, errorMessage, () => form.value.otp_password], () => {
 
 // 自动登录
 onMounted(async () => {
+  restoreSavedLoginCredential()
+
   // 获取token和remember状态
   const token = authStore.token
   const remember = authStore.remember
