@@ -289,11 +289,6 @@ const isSearchProgressVisible = computed(
   () => progressActive.value || (!isRefreshed.value && (progressEnabled.value || progressValue.value > 0)),
 )
 
-// 是否显示搜索中的页面态
-const isSearchLoading = computed(
-  () => !isRefreshed.value && isSearchProgressVisible.value && rawDataList.value.length === 0,
-)
-
 // 归一化搜索进度，避免 SSE 异常值影响显示
 const searchProgressPercent = computed(() => Math.min(100, Math.max(0, Math.ceil(Number(progressValue.value) || 0))))
 
@@ -323,6 +318,15 @@ const searchStreamDoneCloseDelay = 1500
 const streamTotalCount = ref(0)
 const streamPreviewDataList = ref<Array<Context>>([])
 const streamPreviewSubtitleDataList = ref<Array<SubtitleInfo>>([])
+
+// 搜索过程中还没有任何可展示结果时，显示骨架卡片，等搜索结束后再切换为空态。
+const isSearchLoading = computed(() => {
+  if (!isSearchProgressVisible.value) return false
+
+  return isSubtitleSearch.value
+    ? rawSubtitleDataList.value.length === 0 && streamPreviewSubtitleDataList.value.length === 0
+    : rawDataList.value.length === 0 && streamPreviewDataList.value.length === 0
+})
 
 const displayResourceCount = computed(() =>
   progressActive.value
@@ -578,6 +582,8 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
 // 重置搜索结果
 function resetSearchResults() {
   clearStreamPreviewState(true)
+  // 新搜索开始时先回到未完成态，避免上一轮空态在 SSE 返回前抢先显示。
+  isRefreshed.value = false
   rawDataList.value = []
   rawSubtitleDataList.value = []
   originalDataList.value = []
@@ -1575,7 +1581,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 无数据显示 -->
-    <div v-else-if="isRefreshed" class="d-flex flex-column align-center justify-center py-8">
+    <div v-else-if="isRefreshed && !progressActive" class="d-flex flex-column align-center justify-center py-8">
       <NoDataFound :errorTitle="errorTitle" :errorDescription="errorDescription" />
       <VBtn rounded="pill" class="mt-4" color="primary" prepend-icon="mdi-home" to="/">
         {{ t('resource.backToHome') }}
@@ -1677,7 +1683,7 @@ onUnmounted(() => {
 .search-skeleton-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .search-skeleton-card,
