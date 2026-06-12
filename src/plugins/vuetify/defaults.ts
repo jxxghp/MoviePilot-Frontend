@@ -34,16 +34,19 @@ export default {
   },
   VMenu: {
     elevation: 0,
+    transition: 'mp-popover-transition',
   },
   VChip: {
     elevation: 0,
   },
   VBottomSheet: {
     elevation: 0,
+    transition: 'mp-bottom-sheet-transition',
   },
   VDialog: {
     elevation: 0,
     rounded: 'lg',
+    transition: 'mp-dialog-transition',
   },
   VExpansionPanels: {
     elevation: 0,
@@ -68,6 +71,7 @@ export default {
   VTooltip: {
     // set v-tooltip default location to top
     location: 'top',
+    transition: 'mp-popover-transition',
   },
   VCheckboxBtn: {
     color: 'primary',

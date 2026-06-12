@@ -50,6 +50,10 @@ html {
   --app-overlay-shadow: none;
   --app-surface-shadow: none;
   --app-surface-hover-shadow: none;
+  --mp-motion-duration-page: 180ms;
+  --mp-motion-duration-overlay: 160ms;
+  --mp-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --mp-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 html[data-theme-skin='bordered'] {
@@ -154,6 +158,190 @@ html[data-theme-shadow='high'] {
 
 .app-surface-static:hover {
   box-shadow: var(--app-surface-shadow) !important;
+}
+
+// 全局页面与 overlay 动效：短距离、轻缩放，保持快速但不生硬。
+.mp-page-route {
+  inline-size: 100%;
+  min-block-size: 100%;
+}
+
+.mp-page-route--entering {
+  animation: mp-page-route-enter var(--mp-motion-duration-page) var(--mp-motion-ease-standard) both;
+  will-change: opacity, transform;
+}
+
+@keyframes mp-page-route-enter {
+  from {
+    filter: blur(1px);
+    opacity: 0;
+    transform: translate3d(0, 0.5rem, 0) scale(0.992);
+  }
+
+  to {
+    filter: blur(0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.mp-page-enter-active,
+.mp-page-leave-active {
+  backface-visibility: hidden;
+  transform-origin: center top;
+  transition:
+    opacity var(--mp-motion-duration-page) var(--mp-motion-ease-standard),
+    transform var(--mp-motion-duration-page) var(--mp-motion-ease-standard),
+    filter var(--mp-motion-duration-page) var(--mp-motion-ease-standard);
+  will-change: opacity, transform;
+}
+
+.mp-page-leave-active {
+  transition-duration: 120ms;
+  transition-timing-function: var(--mp-motion-ease-exit);
+}
+
+.mp-page-enter-from {
+  filter: blur(1px);
+  opacity: 0;
+  transform: translate3d(0, 0.5rem, 0) scale(0.992);
+}
+
+.mp-page-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -0.25rem, 0) scale(0.998);
+}
+
+.mp-dialog-transition-enter-active,
+.mp-dialog-transition-leave-active,
+.dialog-transition-enter-active,
+.dialog-transition-leave-active,
+.v-overlay__content.mp-dialog-transition-enter-active,
+.v-overlay__content.mp-dialog-transition-leave-active,
+.v-overlay__content.dialog-transition-enter-active,
+.v-overlay__content.dialog-transition-leave-active {
+  transition:
+    opacity var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard),
+    transform var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard),
+    filter var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard);
+  will-change: opacity, transform;
+}
+
+.mp-dialog-transition-leave-active,
+.dialog-transition-leave-active {
+  transition-duration: 120ms;
+  transition-timing-function: var(--mp-motion-ease-exit);
+}
+
+.mp-dialog-transition-enter-from,
+.mp-dialog-transition-leave-to,
+.dialog-transition-enter-from,
+.dialog-transition-leave-to {
+  filter: blur(0.5px);
+  opacity: 0;
+  transform: translate3d(0, 0.625rem, 0) scale(0.985);
+}
+
+.mp-popover-transition-enter-active,
+.mp-popover-transition-leave-active,
+.v-overlay__content.mp-popover-transition-enter-active,
+.v-overlay__content.mp-popover-transition-leave-active {
+  transition:
+    opacity 120ms var(--mp-motion-ease-standard),
+    transform 120ms var(--mp-motion-ease-standard);
+  will-change: opacity, transform;
+}
+
+.mp-popover-transition-leave-active {
+  transition-duration: 90ms;
+  transition-timing-function: var(--mp-motion-ease-exit);
+}
+
+.mp-popover-transition-enter-from,
+.mp-popover-transition-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -0.25rem, 0) scale(0.98);
+}
+
+.mp-bottom-sheet-transition-enter-active,
+.mp-bottom-sheet-transition-leave-active,
+.dialog-bottom-transition-enter-active,
+.dialog-bottom-transition-leave-active,
+.v-overlay__content.mp-bottom-sheet-transition-enter-active,
+.v-overlay__content.mp-bottom-sheet-transition-leave-active,
+.v-overlay__content.dialog-bottom-transition-enter-active,
+.v-overlay__content.dialog-bottom-transition-leave-active {
+  transition:
+    opacity var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard),
+    transform var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard);
+  will-change: opacity, transform;
+}
+
+.mp-bottom-sheet-transition-leave-active,
+.dialog-bottom-transition-leave-active {
+  transition-duration: 120ms;
+  transition-timing-function: var(--mp-motion-ease-exit);
+}
+
+.mp-bottom-sheet-transition-enter-from,
+.mp-bottom-sheet-transition-leave-to,
+.dialog-bottom-transition-enter-from,
+.dialog-bottom-transition-leave-to {
+  opacity: 0;
+  transform: translate3d(0, 1.25rem, 0);
+}
+
+.v-dialog > .v-overlay__content {
+  transform-origin: center;
+}
+
+.v-menu > .v-overlay__content,
+.v-tooltip > .v-overlay__content {
+  transform-origin: top center;
+}
+
+.v-overlay__scrim,
+.v-navigation-drawer__scrim {
+  transition:
+    background-color var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard),
+    opacity var(--mp-motion-duration-overlay) var(--mp-motion-ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-page-route--entering {
+    animation-duration: 1ms !important;
+  }
+
+  .mp-page-enter-active,
+  .mp-page-leave-active,
+  .mp-dialog-transition-enter-active,
+  .mp-dialog-transition-leave-active,
+  .dialog-transition-enter-active,
+  .dialog-transition-leave-active,
+  .mp-popover-transition-enter-active,
+  .mp-popover-transition-leave-active,
+  .mp-bottom-sheet-transition-enter-active,
+  .mp-bottom-sheet-transition-leave-active,
+  .dialog-bottom-transition-enter-active,
+  .dialog-bottom-transition-leave-active {
+    transition-duration: 1ms !important;
+  }
+
+  .mp-page-enter-from,
+  .mp-page-leave-to,
+  .mp-dialog-transition-enter-from,
+  .mp-dialog-transition-leave-to,
+  .dialog-transition-enter-from,
+  .dialog-transition-leave-to,
+  .mp-popover-transition-enter-from,
+  .mp-popover-transition-leave-to,
+  .mp-bottom-sheet-transition-enter-from,
+  .mp-bottom-sheet-transition-leave-to,
+  .dialog-bottom-transition-enter-from,
+  .dialog-bottom-transition-leave-to {
+    filter: none !important;
+    transform: none !important;
+  }
 }
 
 // 底部导航卡片原本就是胶囊形态，不参与主题圆角切换。

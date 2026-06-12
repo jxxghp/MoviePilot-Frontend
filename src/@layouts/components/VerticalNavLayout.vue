@@ -1,5 +1,4 @@
 <script lang="ts">
-import { Transition } from 'vue'
 import { useDisplay } from 'vuetify'
 import VerticalNav from '@layouts/components/VerticalNav.vue'
 import {
@@ -110,9 +109,7 @@ export default defineComponent({
       const main = h(
         'main',
         { class: 'layout-page-content' },
-        h(Transition, { name: 'fade-slide', mode: 'out-in', appear: true }, () =>
-          h('section', { class: 'page-content-container' }, slots.default?.()),
-        ),
+        h('section', { class: 'page-content-container' }, slots.default?.()),
       )
 
       // 👉 根据路由 meta 决定 footer 高度
