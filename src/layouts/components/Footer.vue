@@ -5,11 +5,12 @@ import { NavMenu } from '@/@layouts/types'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, filterItemsByPermission, filterMenusByPermission, hasItemPermission } from '@/utils/permission'
+import { useLaunchLoading } from '@/composables/useLaunchLoading'
 import { usePWA } from '@/composables/usePWA'
 import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 
 // 是否显示的输入参数
-defineProps({
+const props = defineProps({
   showNav: {
     type: Boolean,
     default: true,
@@ -19,6 +20,7 @@ defineProps({
 const display = useDisplay()
 // PWA模式检测
 const { appMode } = usePWA()
+const { isLaunchLoading } = useLaunchLoading()
 const { t, locale } = useI18n()
 
 // 判断当前是否为英文环境
@@ -175,6 +177,8 @@ const visibleDynamicButtonMenuItems = computed(() => {
 })
 
 const hasDynamicButtonMenu = computed(() => visibleDynamicButtonMenuItems.value.length > 0)
+const shouldRenderFooterNav = computed(() => appMode.value && props.showNav)
+const shouldRevealFooterNav = computed(() => shouldRenderFooterNav.value && !isLaunchLoading.value)
 
 const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
   'components.subscribeHistory.title': 'dialog.subscribeHistory.title',
@@ -212,8 +216,8 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
 </script>
 
 <template>
-  <Teleport v-if="appMode && showNav" to="body">
-    <div class="footer-nav-container">
+  <Teleport v-if="shouldRenderFooterNav" to="body">
+    <div v-show="shouldRevealFooterNav" class="footer-nav-container">
       <TransitionGroup name="footer-nav" tag="div" class="footer-nav-group">
         <VCard key="main-nav" elevation="3" class="footer-nav-card border" rounded="pill">
           <VCardText class="footer-card-content">

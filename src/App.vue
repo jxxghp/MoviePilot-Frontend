@@ -12,6 +12,8 @@ import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundMan
 import PWAInstallPrompt from '@/components/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import { applyStoredThemeCustomizerAppearance } from '@/composables/useThemeCustomizer'
+import { completeLaunchLoading } from '@/composables/useLaunchLoading'
+import { usePWA } from '@/composables/usePWA'
 import { themeManager } from '@/utils/themeManager'
 import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
@@ -45,6 +47,7 @@ setI18nLanguage(localeValue as SupportedLocale)
 const authStore = useAuthStore()
 const isLogin = computed(() => authStore.token)
 const route = useRoute()
+const { initializePWA } = usePWA()
 
 // 全局设置store
 const globalSettingsStore = useGlobalSettingsStore()
@@ -245,19 +248,25 @@ function scheduleAuthenticatedStateInitialization() {
 }
 
 // 添加logo动画效果并延迟移除加载界面
-function animateAndRemoveLoader() {
+async function animateAndRemoveLoader() {
   const loadingBg = document.querySelector('#loading-bg') as HTMLElement
   if (loadingBg) {
     // 只收掉启动内容，背景层保持实色直到节点被移除，避免底部 safe area 先透出页面内容。
     loadingBg.classList.add('loading-complete')
-    window.setTimeout(() => {
-      removeEl('#loading-bg')
+    await new Promise<void>(resolve => {
+      window.setTimeout(() => {
+        removeEl('#loading-bg')
 
-      // 启动阶段的根节点锁定只在 loader 存在时生效，移除后恢复正常页面与弹窗布局。
-      document.documentElement.removeAttribute('data-launch-loading')
-      document.documentElement.style.removeProperty('overflow')
-      document.body.style.removeProperty('overflow')
-    }, 120)
+        // 启动阶段的根节点锁定只在 loader 存在时生效，移除后恢复正常页面与弹窗布局。
+        document.documentElement.removeAttribute('data-launch-loading')
+        document.documentElement.style.removeProperty('overflow')
+        document.body.style.removeProperty('overflow')
+        completeLaunchLoading()
+        resolve()
+      }, 120)
+    })
+  } else {
+    completeLaunchLoading()
   }
 }
 
@@ -274,13 +283,15 @@ async function removeLoadingWithStateCheck() {
     }
     globalLoadingStateManager.setLoadingState('pwa-state', false)
 
+    // PWA/App 模式会影响布局和底部导航，必须在启动屏退场前稳定下来。
+    await initializePWA()
     await initializeAuthenticatedState()
 
     // 等待所有加载完成
     await globalLoadingStateManager.waitForAllComplete()
 
     // 移除加载界面
-    animateAndRemoveLoader()
+    await animateAndRemoveLoader()
 
     // 检查未读消息
     if (isLogin.value) {
@@ -289,7 +300,7 @@ async function removeLoadingWithStateCheck() {
   } catch (error) {
     // 即使出错也要移除加载界面
     globalLoadingStateManager.reset()
-    animateAndRemoveLoader()
+    await animateAndRemoveLoader()
   }
 }
 

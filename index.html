@@ -121,6 +121,12 @@
       overscroll-behavior: contain;
     }
 
+    html[data-launch-loading="true"] .footer-nav-container {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
+
     #loading-bg {
       position: fixed;
       inset: 0;
