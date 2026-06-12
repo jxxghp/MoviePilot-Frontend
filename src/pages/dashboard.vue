@@ -66,9 +66,6 @@ const dashboardGrid = shallowRef<GridStack | null>(null)
 // 仪表板配置是否已完成首次加载，包含插件仪表板配置。
 const isDashboardConfigLoaded = ref(false)
 
-// 仪表板是否已完成首次整体渐现。
-const isDashboardRevealed = ref(false)
-
 // 已完成组件模块加载的仪表板项目 ID。
 const loadedDashboardGridItemIds = ref<Set<string>>(new Set())
 
@@ -267,7 +264,6 @@ function isDashboardGridReadyForReveal() {
 // 在配置、组件和 GridStack 都就绪后安排仪表板整体渐现。
 function scheduleDashboardReveal() {
   if (
-    isDashboardRevealed.value ||
     isDashboardRevealPending ||
     dashboardRevealFrame !== null ||
     !isDashboardConfigLoaded.value ||
@@ -280,25 +276,18 @@ function scheduleDashboardReveal() {
   isDashboardRevealPending = true
   void nextTick(() => {
     isDashboardRevealPending = false
-    if (
-      isDashboardRevealed.value ||
-      !isDashboardConfigLoaded.value ||
-      !isDashboardGridReadyForReveal() ||
-      !areDashboardGridItemsLoaded()
-    ) {
+    if (!isDashboardConfigLoaded.value || !isDashboardGridReadyForReveal() || !areDashboardGridItemsLoaded()) {
       return
     }
 
     resizeAutoDashboardItemsToContent()
 
     if (typeof window === 'undefined') {
-      isDashboardRevealed.value = true
       return
     }
 
     dashboardRevealFrame = window.requestAnimationFrame(() => {
       dashboardRevealFrame = null
-      isDashboardRevealed.value = true
       notifyDashboardContentResize()
     })
   })
@@ -1010,14 +999,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <LoadingBanner v-if="!isDashboardRevealed" class="mt-12" />
-
   <!-- 仪表板 -->
-  <div
-    ref="dashboardGridRef"
-    class="grid-stack dashboard-grid"
-    :class="{ 'is-editing': isLayoutEditing, 'is-ready': isDashboardRevealed }"
-  >
+  <div ref="dashboardGridRef" class="grid-stack dashboard-grid" :class="{ 'is-editing': isLayoutEditing }">
     <div
       v-for="gridItem in dashboardGridItems"
       :key="gridItem.id"
@@ -1084,19 +1067,11 @@ onBeforeUnmount(() => {
 /* stylelint-disable selector-pseudo-class-no-unknown */
 
 .dashboard-grid {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(8px);
+  pointer-events: auto;
   transition:
     opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1),
     transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: opacity, transform;
-}
-
-.dashboard-grid.is-ready {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
 }
 
 .dashboard-grid-item.is-manual-height :deep(.v-card) {
