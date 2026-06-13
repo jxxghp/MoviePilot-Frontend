@@ -177,14 +177,14 @@ const dropdownItems = ref([
                   {{ props.plugin?.plugin_desc }}
                 </div>
                 <!-- 插件标签 -->
-                <div v-if="pluginLabels.length > 0" class="plugin-app-card__tags-section px-2">
+                <div v-if="pluginLabels.length > 0" class="plugin-app-card__tags-section px-2 mb-2">
                   <VChip
                     v-for="tag in pluginLabels"
                     :key="tag"
                     size="x-small"
                     variant="tonal"
                     color="info"
-                    class="me-1 mb-1"
+                    class="plugin-app-card__tag"
                     tile
                   >
                     {{ tag }}
@@ -246,3 +246,25 @@ const dropdownItems = ref([
     </VHover>
   </div>
 </template>
+
+<style scoped>
+.plugin-app-card__tags-section {
+  display: flex;
+  overflow: hidden;
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-inline-size: 100%;
+}
+
+.plugin-app-card__tag {
+  flex: 0 0 auto;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.plugin-app-card__tag :deep(.v-chip__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
