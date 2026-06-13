@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { GridStack } from 'gridstack'
-import type { GridItemHTMLElement, GridStackWidget } from 'gridstack'
+import type { ColumnOptions, GridItemHTMLElement, GridStackWidget } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
 import api from '@/api'
 import { isNullOrEmptyObject } from '@/@core/utils'
@@ -13,6 +13,7 @@ import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { useDisplay } from 'vuetify'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
@@ -23,6 +24,7 @@ const { t } = useI18n()
 
 // PWA模式检测
 const { appMode } = usePWA()
+const display = useDisplay()
 const userStore = useUserStore()
 const canAdmin = computed(() =>
   hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
@@ -32,22 +34,27 @@ const canAdmin = computed(() =>
 const route = useRoute()
 
 const DASHBOARD_GRID_COLUMNS = 12
+const DASHBOARD_GRID_DESKTOP_BREAKPOINT = 1280
+const DASHBOARD_GRID_TABLET_BREAKPOINT = 960
+const DASHBOARD_GRID_MOBILE_BREAKPOINT = 640
 const DASHBOARD_GRID_CELL_HEIGHT = 16
 const DASHBOARD_GRID_FALLBACK_ROWS = 4
 const DASHBOARD_GRID_MARGIN = 8
 const DASHBOARD_GRID_CONTENT_RESIZE_THRESHOLD = 4
 const DASHBOARD_ENABLE_STORAGE_KEY = 'MP_DASHBOARD'
 const DASHBOARD_ORDER_STORAGE_KEY = 'MP_DASHBOARD_ORDER'
-const DASHBOARD_GRID_LAYOUT_STORAGE_KEY = 'MP_DASHBOARD_GRID_LAYOUT'
+const DASHBOARD_GRID_LAYOUT_STORAGE_KEY_PREFIX = 'MP_DASHBOARD_GRID_LAYOUT'
 const DASHBOARD_ENABLE_CONFIG_KEY = 'Dashboard'
 const DASHBOARD_ORDER_CONFIG_KEY = 'DashboardOrder'
 const DASHBOARD_GRID_LAYOUT_CONFIG_KEY = 'DashboardGridLayout'
+const DASHBOARD_GRID_LAYOUT_CONFIG_KEY_PREFIX = 'DashboardGridLayout'
 
 type DashboardEnableConfig = Record<string, boolean>
 type DashboardOrderConfig = { id: string; key: string }[]
 type DashboardGridLayoutConfig = Record<string, DashboardGridLayoutItem>
 type DashboardConfigNormalizer<T> = (value: unknown) => T | undefined
 type DashboardConfigRemoteValueBuilder<T> = (value: T) => unknown
+type DashboardLayoutProfile = 'desktop' | 'tablet' | 'mobile'
 
 interface DashboardGridLayoutItem {
   x?: number
@@ -85,6 +92,9 @@ const isSyncingDashboardGrid = ref(false)
 
 // 仪表板本地布局覆盖配置
 const dashboardGridLayout = ref<Record<string, DashboardGridLayoutItem>>({})
+
+// 当前仪表板布局档位，按 GridStack 响应式列数拆分跨端配置。
+const dashboardLayoutProfile = ref<DashboardLayoutProfile>('desktop')
 
 // 是否刚恢复过默认布局，用于避免退出编辑时立即把默认布局写回本地覆盖。
 const isDashboardGridLayoutResetPending = ref(false)
@@ -384,6 +394,58 @@ function buildRemoteDashboardGridLayout(layout: DashboardGridLayoutConfig) {
   return { items: layout }
 }
 
+// 根据当前视口判断仪表板布局档位，避免手机和桌面共用 Grid 坐标。
+function resolveDashboardLayoutProfile(): DashboardLayoutProfile {
+  const width = display.width.value || (typeof window === 'undefined' ? DASHBOARD_GRID_DESKTOP_BREAKPOINT : window.innerWidth)
+
+  if (width <= DASHBOARD_GRID_MOBILE_BREAKPOINT) return 'mobile'
+  if (width <= DASHBOARD_GRID_TABLET_BREAKPOINT) return 'tablet'
+
+  return 'desktop'
+}
+
+// 获取当前布局档位对应的 GridStack 列数。
+function getDashboardGridColumnsForProfile(profile: DashboardLayoutProfile) {
+  if (profile === 'mobile') return 1
+  if (profile === 'tablet') return 6
+
+  return DASHBOARD_GRID_COLUMNS
+}
+
+// 获取当前 Grid 实际列数，用于按布局档位保存当前坐标。
+function getCurrentDashboardGridColumns() {
+  return dashboardGrid.value?.getColumn() ?? getDashboardGridColumnsForProfile(dashboardLayoutProfile.value)
+}
+
+// 获取当前布局档位的 GridStack 列变化策略。
+function getDashboardGridColumnLayout(profile: DashboardLayoutProfile): ColumnOptions {
+  return profile === 'mobile' ? 'list' : 'moveScale'
+}
+
+// 获取布局档位对应的本地存储键，桌面沿用旧键以兼容已有配置。
+function getDashboardGridLayoutStorageKey(profile: DashboardLayoutProfile) {
+  if (profile === 'desktop') return DASHBOARD_GRID_LAYOUT_STORAGE_KEY_PREFIX
+
+  return `${DASHBOARD_GRID_LAYOUT_STORAGE_KEY_PREFIX}_${profile.toUpperCase()}`
+}
+
+// 获取布局档位对应的用户配置键，桌面沿用旧键以兼容已同步配置。
+function getDashboardGridLayoutConfigKey(profile: DashboardLayoutProfile) {
+  if (profile === 'desktop') return DASHBOARD_GRID_LAYOUT_CONFIG_KEY
+
+  return `${DASHBOARD_GRID_LAYOUT_CONFIG_KEY_PREFIX}${profile === 'mobile' ? 'Mobile' : 'Tablet'}`
+}
+
+// 加载指定布局档位的 Grid 布局配置。
+async function loadDashboardGridLayoutConfig(profile: DashboardLayoutProfile) {
+  return await loadSharedDashboardConfig(
+    getDashboardGridLayoutConfigKey(profile),
+    getDashboardGridLayoutStorageKey(profile),
+    normalizeDashboardGridLayout,
+    buildRemoteDashboardGridLayout,
+  )
+}
+
 // 从本地存储读取并归一化指定的仪表板配置。
 function readLocalDashboardConfig<T>(storageKey: string, normalize: DashboardConfigNormalizer<T>) {
   const rawConfig = localStorage.getItem(storageKey)
@@ -439,9 +501,10 @@ async function loadSharedDashboardConfig<T>(
 
 // 将当前仪表板布局覆盖配置保存到本地和用户配置。
 function saveDashboardGridLayout(layout: Record<string, DashboardGridLayoutItem>) {
-  saveLocalDashboardConfig(DASHBOARD_GRID_LAYOUT_STORAGE_KEY, layout)
-  void saveUserDashboardConfig(DASHBOARD_GRID_LAYOUT_CONFIG_KEY, buildRemoteDashboardGridLayout(layout)).catch(error =>
-    console.error(error),
+  const profile = dashboardLayoutProfile.value
+  saveLocalDashboardConfig(getDashboardGridLayoutStorageKey(profile), layout)
+  void saveUserDashboardConfig(getDashboardGridLayoutConfigKey(profile), buildRemoteDashboardGridLayout(layout)).catch(
+    error => console.error(error),
   )
 }
 
@@ -458,9 +521,10 @@ function getDefaultDashboardGridRows(item?: DashboardItem) {
 // 合并插件/内置组件默认尺寸与用户本地布局覆盖。
 function buildDashboardGridWidget(item: DashboardItem, id: string): GridStackWidget {
   const savedLayout = dashboardGridLayout.value[id]
+  const gridColumns = getDashboardGridColumnsForProfile(dashboardLayoutProfile.value)
   const width = savedLayout?.w ?? getDefaultDashboardGridWidth(item)
   const height = savedLayout?.h ?? getDefaultDashboardGridRows(item)
-  const normalizedWidth = clampGridNumber(width, 1, DASHBOARD_GRID_COLUMNS, DASHBOARD_GRID_COLUMNS)
+  const normalizedWidth = clampGridNumber(width, 1, gridColumns, gridColumns)
   const widget: GridStackWidget = {
     id,
     w: normalizedWidth,
@@ -470,7 +534,7 @@ function buildDashboardGridWidget(item: DashboardItem, id: string): GridStackWid
   }
 
   if (savedLayout?.x !== undefined && savedLayout?.y !== undefined) {
-    widget.x = clampGridNumber(savedLayout.x, 0, DASHBOARD_GRID_COLUMNS - normalizedWidth, 0)
+    widget.x = clampGridNumber(savedLayout.x, 0, gridColumns - normalizedWidth, 0)
     widget.y = clampGridNumber(savedLayout.y, 0, 999, 0)
   } else {
     widget.autoPosition = true
@@ -597,6 +661,7 @@ function toggleDashboardLayoutEditing() {
 
 // 加载用户监控面板配置，优先使用服务端用户配置以支持跨浏览器同步。
 async function loadDashboardConfig() {
+  dashboardLayoutProfile.value = resolveDashboardLayoutProfile()
   // 显示配置
   const enable = await loadSharedDashboardConfig(
     DASHBOARD_ENABLE_CONFIG_KEY,
@@ -616,12 +681,8 @@ async function loadDashboardConfig() {
     orderConfig.value = order
   }
   // Grid 布局覆盖
-  const gridLayout = await loadSharedDashboardConfig(
-    DASHBOARD_GRID_LAYOUT_CONFIG_KEY,
-    DASHBOARD_GRID_LAYOUT_STORAGE_KEY,
-    normalizeDashboardGridLayout,
-    buildRemoteDashboardGridLayout,
-  )
+  const gridLayoutProfile = dashboardLayoutProfile.value
+  const gridLayout = await loadDashboardGridLayoutConfig(gridLayoutProfile)
   dashboardGridLayout.value = gridLayout ?? {}
   // 排序
   if (orderConfig.value) {
@@ -774,9 +835,9 @@ function initializeDashboardGrid() {
       column: DASHBOARD_GRID_COLUMNS,
       columnOpts: {
         breakpoints: [
-          { w: 640, c: 1, layout: 'list' },
-          { w: 960, c: 6, layout: 'moveScale' },
-          { w: 1280, c: DASHBOARD_GRID_COLUMNS, layout: 'moveScale' },
+          { w: DASHBOARD_GRID_MOBILE_BREAKPOINT, c: 1, layout: 'list' },
+          { w: DASHBOARD_GRID_TABLET_BREAKPOINT, c: 6, layout: 'moveScale' },
+          { w: DASHBOARD_GRID_DESKTOP_BREAKPOINT, c: DASHBOARD_GRID_COLUMNS, layout: 'moveScale' },
         ],
         layout: 'moveScale',
       },
@@ -991,7 +1052,8 @@ function notifyDashboardContentResize() {
 function persistDashboardGridLayout(manualHeightId: string | false = false) {
   if (!dashboardGrid.value || isSyncingDashboardGrid.value) return
 
-  const savedWidgets = dashboardGrid.value.save(false, false, undefined, DASHBOARD_GRID_COLUMNS)
+  const gridColumns = getCurrentDashboardGridColumns()
+  const savedWidgets = dashboardGrid.value.save(false, false, undefined, gridColumns)
   const widgets = Array.isArray(savedWidgets) ? savedWidgets : (savedWidgets.children ?? [])
   const nextLayout = { ...dashboardGridLayout.value }
 
@@ -999,10 +1061,10 @@ function persistDashboardGridLayout(manualHeightId: string | false = false) {
     if (!widget.id) return
 
     const id = String(widget.id)
-    const width = clampGridNumber(widget.w, 1, DASHBOARD_GRID_COLUMNS, getDefaultDashboardGridWidthById(id))
+    const width = clampGridNumber(widget.w, 1, gridColumns, getDefaultDashboardGridWidthById(id, gridColumns))
     const previousLayout = dashboardGridLayout.value[id]
     const nextItemLayout: DashboardGridLayoutItem = {
-      x: clampGridNumber(widget.x, 0, DASHBOARD_GRID_COLUMNS - width, 0),
+      x: clampGridNumber(widget.x, 0, gridColumns - width, 0),
       y: clampGridNumber(widget.y, 0, 999, 0),
       w: width,
     }
@@ -1020,10 +1082,10 @@ function persistDashboardGridLayout(manualHeightId: string | false = false) {
 }
 
 // 根据组件 ID 查找默认宽度，保存布局时用于兜底。
-function getDefaultDashboardGridWidthById(id: string) {
+function getDefaultDashboardGridWidthById(id: string, maxColumns = DASHBOARD_GRID_COLUMNS) {
   const item = dashboardConfigs.value.find(config => buildPluginDashboardId(config.id, config.key) === id)
 
-  return item ? getDefaultDashboardGridWidth(item) : DASHBOARD_GRID_COLUMNS
+  return item ? Math.min(getDefaultDashboardGridWidth(item), maxColumns) : maxColumns
 }
 
 // 压实 GridStack 布局并保存本地占位信息。
@@ -1047,6 +1109,25 @@ watch(
     scheduleDashboardReveal()
   },
   { deep: true },
+)
+
+watch(
+  () => display.width.value,
+  async () => {
+    const nextProfile = resolveDashboardLayoutProfile()
+    if (nextProfile === dashboardLayoutProfile.value) return
+
+    if (dashboardGrid.value && !isSyncingDashboardGrid.value && !isDashboardGridLayoutResetPending.value) {
+      persistDashboardGridLayout(false)
+    }
+
+    dashboardLayoutProfile.value = nextProfile
+    dashboardGridLayout.value = (await loadDashboardGridLayoutConfig(nextProfile)) ?? {}
+    dashboardGrid.value?.column(getDashboardGridColumnsForProfile(nextProfile), getDashboardGridColumnLayout(nextProfile))
+    dashboardGrid.value?.removeAll(false, false)
+    await syncDashboardGrid()
+    notifyDashboardContentResize()
+  },
 )
 
 onBeforeMount(async () => {
