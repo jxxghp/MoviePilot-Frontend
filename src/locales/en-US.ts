@@ -14,6 +14,7 @@ export default {
     success: 'Success',
     error: 'Error',
     openInNewWindow: 'Open in new window',
+    download: 'Download',
     inputMessage: 'Enter message or command',
     send: 'Send',
     noData: 'No data',

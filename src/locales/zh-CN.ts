@@ -14,6 +14,7 @@ export default {
     success: '成功',
     error: '错误',
     openInNewWindow: '在新窗口中打开',
+    download: '下载',
     inputMessage: '输入消息或命令',
     send: '发送',
     noData: '暂无数据',

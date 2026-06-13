@@ -42,6 +42,12 @@ function openLoggerWindow() {
   }system/logging?length=-1&logfile=plugins/${props.plugin?.id?.toLowerCase()}.log`
   window.open(url, '_blank')
 }
+
+/** 下载当前插件日志压缩包。 */
+function downloadLogger() {
+  const url = `${import.meta.env.VITE_API_BASE_URL}system/logging/download/${props.plugin?.id?.toLowerCase()}`
+  window.open(url, '_blank')
+}
 </script>
 
 <template>
@@ -52,12 +58,20 @@ function openLoggerWindow() {
         <VCardTitle class="d-inline-flex">
           <VIcon icon="mdi-file-document" class="me-2" />
           {{ t('plugin.logTitle') }}
-          <a class="mx-2 d-inline-flex align-center cursor-pointer" @click="openLoggerWindow">
-            <VChip color="grey-darken-1" size="small" class="ml-2">
-              <VIcon icon="mdi-open-in-new" size="small" start />
-              {{ t('common.openInNewWindow') }}
-            </VChip>
-          </a>
+          <span class="ms-4 d-inline-flex align-center ga-1">
+            <a class="d-inline-flex align-center cursor-pointer" @click="downloadLogger">
+              <VChip color="grey-darken-1" size="small">
+                <VIcon icon="mdi-download" size="small" start />
+                {{ t('common.download') }}
+              </VChip>
+            </a>
+            <a class="d-inline-flex align-center cursor-pointer" @click="openLoggerWindow">
+              <VChip color="grey-darken-1" size="small">
+                <VIcon icon="mdi-open-in-new" size="small" start />
+                {{ t('common.openInNewWindow') }}
+              </VChip>
+            </a>
+          </span>
         </VCardTitle>
       </VCardItem>
       <VDivider />
