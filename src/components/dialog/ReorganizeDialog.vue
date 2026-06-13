@@ -10,7 +10,6 @@ import {
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
-  ManualTransferTargetPathData,
   StorageConf,
   TransferDirectoryConf,
   TransferForm,
@@ -117,14 +116,6 @@ const episodeFormatRecommendState = reactive<{
 })
 
 const episodeFormatRuleConfigured = ref<boolean | undefined>(undefined)
-
-interface ManualTransferTargetPathRequest {
-  fileitem?: FileItem
-  fileitems?: FileItem[]
-  logid?: number
-  logids?: number[]
-  target_storage?: string | null
-}
 
 interface TargetDirectoryOption {
   title: string
@@ -297,16 +288,20 @@ const disableEpisodeDetail = computed(() => {
   }
 })
 
+const initialTargetPath = normalizeTargetPath(props.target_path)
+
 // 表单
 const transferForm = reactive<TransferForm>({
   fileitem: {} as FileItem,
   logid: 0,
-  target_storage: props.target_storage ?? 'local',
-  target_path: normalizeTargetPath(props.target_path),
+  target_storage: initialTargetPath ? props.target_storage ?? 'local' : null,
+  target_path: initialTargetPath,
   transfer_type: null,
   min_filesize: 0,
-  scrape: false,
+  scrape: initialTargetPath ? false : null,
   from_history: false,
+  library_type_folder: null,
+  library_category_folder: null,
   episode_group: null,
 })
 
@@ -354,51 +349,6 @@ const targetPathSelection = computed({
   },
 })
 
-// 构造目的路径自动匹配请求，只传用户真实上下文，避免用默认存储误导后端匹配。
-function createTargetPathMatchRequest(): ManualTransferTargetPathRequest | undefined {
-  const payload: ManualTransferTargetPathRequest = {}
-
-  if (props.target_storage) {
-    payload.target_storage = props.target_storage
-  }
-
-  if (normalizedItems.value.length === 1) {
-    payload.fileitem = normalizedItems.value[0]
-    return payload
-  }
-
-  if (normalizedItems.value.length > 1) {
-    payload.fileitems = normalizedItems.value
-    return payload
-  }
-
-  if (props.logids?.length) {
-    if (props.logids.length > 1) {
-      payload.logids = props.logids
-      return payload
-    }
-
-    payload.logid = props.logids[0]
-    return payload
-  }
-}
-
-// 应用后端匹配到的目的路径配置，未匹配时保持 null 等待用户手工选择。
-function applyMatchedTargetPath(data?: ManualTransferTargetPathData) {
-  const matchedTargetPath = normalizeTargetPath(data?.target_path)
-  if (!matchedTargetPath) {
-    resetAutomaticTargetConfig()
-    return
-  }
-
-  transferForm.target_storage = data?.target_storage || transferForm.target_storage || 'local'
-  transferForm.transfer_type = data?.transfer_type || transferForm.transfer_type
-  transferForm.scrape = data?.scrape ?? false
-  transferForm.library_type_folder = data?.library_type_folder ?? false
-  transferForm.library_category_folder = data?.library_category_folder ?? false
-  transferForm.target_path = matchedTargetPath
-}
-
 // 重置为完全自动匹配状态，提交时不携带目标路径及其派生配置。
 function resetAutomaticTargetConfig() {
   transferForm.target_storage = null
@@ -407,34 +357,6 @@ function resetAutomaticTargetConfig() {
   transferForm.scrape = null
   transferForm.library_type_folder = null
   transferForm.library_category_folder = null
-}
-
-// 请求后端按源目录匹配最合适的手动整理目的路径。
-async function autoSelectTargetPath() {
-  if (normalizeTargetPath(props.target_path) || transferForm.target_path) return
-
-  const payload = createTargetPathMatchRequest()
-  if (!payload) {
-    resetAutomaticTargetConfig()
-    return
-  }
-
-  try {
-    const result = await api.post<ApiResponse<ManualTransferTargetPathData>, ApiResponse<ManualTransferTargetPathData>>(
-      'transfer/manual/target-path',
-      payload,
-    )
-
-    if (!result.success) {
-      resetAutomaticTargetConfig()
-      return
-    }
-
-    applyMatchedTargetPath(result.data)
-  } catch (error) {
-    console.log(error)
-    resetAutomaticTargetConfig()
-  }
 }
 
 // 监听目的路径变化，配置默认值
@@ -1374,7 +1296,6 @@ async function transfer(background: boolean = false) {
 
 onMounted(async () => {
   await loadDirectories()
-  await autoSelectTargetPath()
   loadStorages()
   loadEpisodeFormatRuleConfiguration()
 })
