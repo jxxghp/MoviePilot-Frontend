@@ -34,6 +34,11 @@ const visible = computed({
 function allLoggingUrl() {
   return `${import.meta.env.VITE_API_BASE_URL}system/logging?length=-1`
 }
+
+/** 拼接主程序日志下载 URL。 */
+function allLoggingDownloadUrl() {
+  return `${import.meta.env.VITE_API_BASE_URL}system/logging/download/moviepilot`
+}
 </script>
 
 <template>
@@ -44,12 +49,20 @@ function allLoggingUrl() {
         <VCardTitle class="d-inline-flex">
           <VIcon icon="mdi-file-document" class="me-2" />
           {{ t('shortcut.log.subtitle') }}
-          <a class="mx-2 d-inline-flex align-center" :href="allLoggingUrl()" target="_blank">
-            <VChip color="grey-darken-1" size="small" class="ml-2">
-              <VIcon icon="mdi-open-in-new" size="small" start />
-              {{ t('common.openInNewWindow') }}
-            </VChip>
-          </a>
+          <span class="ms-4 d-inline-flex align-center ga-1">
+            <a class="d-inline-flex align-center" :href="allLoggingDownloadUrl()" target="_blank">
+              <VChip color="grey-darken-1" size="small">
+                <VIcon icon="mdi-download" size="small" start />
+                {{ t('common.download') }}
+              </VChip>
+            </a>
+            <a class="d-inline-flex align-center" :href="allLoggingUrl()" target="_blank">
+              <VChip color="grey-darken-1" size="small">
+                <VIcon icon="mdi-open-in-new" size="small" start />
+                {{ t('common.openInNewWindow') }}
+              </VChip>
+            </a>
+          </span>
         </VCardTitle>
       </VCardItem>
       <VDivider />
