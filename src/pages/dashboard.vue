@@ -36,7 +36,18 @@ const DASHBOARD_GRID_CELL_HEIGHT = 16
 const DASHBOARD_GRID_FALLBACK_ROWS = 4
 const DASHBOARD_GRID_MARGIN = 8
 const DASHBOARD_GRID_CONTENT_RESIZE_THRESHOLD = 4
+const DASHBOARD_ENABLE_STORAGE_KEY = 'MP_DASHBOARD'
+const DASHBOARD_ORDER_STORAGE_KEY = 'MP_DASHBOARD_ORDER'
 const DASHBOARD_GRID_LAYOUT_STORAGE_KEY = 'MP_DASHBOARD_GRID_LAYOUT'
+const DASHBOARD_ENABLE_CONFIG_KEY = 'Dashboard'
+const DASHBOARD_ORDER_CONFIG_KEY = 'DashboardOrder'
+const DASHBOARD_GRID_LAYOUT_CONFIG_KEY = 'DashboardGridLayout'
+
+type DashboardEnableConfig = Record<string, boolean>
+type DashboardOrderConfig = { id: string; key: string }[]
+type DashboardGridLayoutConfig = Record<string, DashboardGridLayoutItem>
+type DashboardConfigNormalizer<T> = (value: unknown) => T | undefined
+type DashboardConfigRemoteValueBuilder<T> = (value: T) => unknown
 
 interface DashboardGridLayoutItem {
   x?: number
@@ -309,42 +320,129 @@ function clampGridNumber(value: unknown, min: number, max: number, fallback: num
   return Math.min(max, Math.max(min, Math.round(numericValue)))
 }
 
-// 读取并校验本地仪表板布局覆盖配置。
-function readDashboardGridLayout() {
-  const rawLayout = localStorage.getItem(DASHBOARD_GRID_LAYOUT_STORAGE_KEY)
-  if (!rawLayout) return {}
+// 校验并归一化仪表板显示配置，避免异常用户配置影响页面渲染。
+function normalizeDashboardEnableConfig(value: unknown): DashboardEnableConfig | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
 
-  try {
-    const parsedLayout = JSON.parse(rawLayout) as Record<string, DashboardGridLayoutItem>
-    const normalizedLayout: Record<string, DashboardGridLayoutItem> = {}
+  return Object.entries(value).reduce<DashboardEnableConfig>((config, [key, enabled]) => {
+    config[key] = Boolean(enabled)
 
-    Object.entries(parsedLayout).forEach(([id, layout]) => {
-      if (!layout || typeof layout !== 'object') return
-      const width = clampGridNumber(layout.w, 1, DASHBOARD_GRID_COLUMNS, DASHBOARD_GRID_COLUMNS)
-      const normalizedItemLayout: DashboardGridLayoutItem = {
-        x: clampGridNumber(layout.x, 0, DASHBOARD_GRID_COLUMNS - width, 0),
-        y: clampGridNumber(layout.y, 0, 999, 0),
-        w: width,
-      }
+    return config
+  }, {})
+}
 
-      if (layout.h !== undefined) {
-        normalizedItemLayout.h = clampGridNumber(layout.h, 1, 96, getDefaultDashboardGridRows())
-      }
+// 校验并归一化仪表板顺序配置，只保留具备组件 ID 的项目。
+function normalizeDashboardOrderConfig(value: unknown): DashboardOrderConfig | undefined {
+  if (!Array.isArray(value)) return undefined
 
-      normalizedLayout[id] = normalizedItemLayout
+  return value.reduce<DashboardOrderConfig>((config, item) => {
+    if (!item || typeof item !== 'object') return config
+
+    const rawItem = item as { id?: unknown; key?: unknown }
+    if (typeof rawItem.id !== 'string' || !rawItem.id) return config
+
+    config.push({
+      id: rawItem.id,
+      key: typeof rawItem.key === 'string' ? rawItem.key : '',
     })
 
-    return normalizedLayout
+    return config
+  }, [])
+}
+
+// 校验并归一化仪表板 Grid 布局覆盖配置，兼容旧版裸布局和新版服务端包装结构。
+function normalizeDashboardGridLayout(value: unknown): DashboardGridLayoutConfig | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+
+  const configValue = value as { items?: unknown }
+  const layoutValue = configValue.items && typeof configValue.items === 'object' ? configValue.items : value
+  const normalizedLayout: DashboardGridLayoutConfig = {}
+
+  Object.entries(layoutValue).forEach(([id, layout]) => {
+    if (!layout || typeof layout !== 'object') return
+
+    const rawLayout = layout as DashboardGridLayoutItem
+    const width = clampGridNumber(rawLayout.w, 1, DASHBOARD_GRID_COLUMNS, DASHBOARD_GRID_COLUMNS)
+    const normalizedItemLayout: DashboardGridLayoutItem = {
+      x: clampGridNumber(rawLayout.x, 0, DASHBOARD_GRID_COLUMNS - width, 0),
+      y: clampGridNumber(rawLayout.y, 0, 999, 0),
+      w: width,
+    }
+
+    if (rawLayout.h !== undefined) {
+      normalizedItemLayout.h = clampGridNumber(rawLayout.h, 1, 96, getDefaultDashboardGridRows())
+    }
+
+    normalizedLayout[id] = normalizedItemLayout
+  })
+
+  return normalizedLayout
+}
+
+// 构造服务端 Grid 布局配置，避免空布局被后端按空值删除后又被其他浏览器旧缓存回填。
+function buildRemoteDashboardGridLayout(layout: DashboardGridLayoutConfig) {
+  return { items: layout }
+}
+
+// 从本地存储读取并归一化指定的仪表板配置。
+function readLocalDashboardConfig<T>(storageKey: string, normalize: DashboardConfigNormalizer<T>) {
+  const rawConfig = localStorage.getItem(storageKey)
+  if (!rawConfig) return undefined
+
+  try {
+    return normalize(JSON.parse(rawConfig))
   } catch (error) {
     console.error(error)
 
-    return {}
+    return undefined
   }
 }
 
-// 将当前仪表板布局覆盖配置保存到本地。
+// 将仪表板配置写入本地存储，保留离线和接口失败时的兜底能力。
+function saveLocalDashboardConfig(storageKey: string, value: unknown) {
+  localStorage.setItem(storageKey, JSON.stringify(value))
+}
+
+// 将仪表板配置写入用户配置，用于跨浏览器共享。
+async function saveUserDashboardConfig(configKey: string, value: unknown) {
+  await api.post(`/user/config/${configKey}`, value)
+}
+
+// 优先加载用户配置；服务端缺失时使用本地历史配置并回填到用户配置。
+async function loadSharedDashboardConfig<T>(
+  configKey: string,
+  storageKey: string,
+  normalize: DashboardConfigNormalizer<T>,
+  buildRemoteValue: DashboardConfigRemoteValueBuilder<T> = value => value,
+) {
+  const localConfig = readLocalDashboardConfig(storageKey, normalize)
+
+  try {
+    const response = await api.get(`/user/config/${configKey}`)
+    const remoteConfig = normalize(response?.data?.value)
+
+    if (remoteConfig !== undefined) {
+      saveLocalDashboardConfig(storageKey, remoteConfig)
+
+      return remoteConfig
+    }
+
+    if (localConfig !== undefined) {
+      await saveUserDashboardConfig(configKey, buildRemoteValue(localConfig))
+    }
+  } catch (error) {
+    console.error(error)
+  }
+
+  return localConfig
+}
+
+// 将当前仪表板布局覆盖配置保存到本地和用户配置。
 function saveDashboardGridLayout(layout: Record<string, DashboardGridLayoutItem>) {
-  localStorage.setItem(DASHBOARD_GRID_LAYOUT_STORAGE_KEY, JSON.stringify(layout))
+  saveLocalDashboardConfig(DASHBOARD_GRID_LAYOUT_STORAGE_KEY, layout)
+  void saveUserDashboardConfig(DASHBOARD_GRID_LAYOUT_CONFIG_KEY, buildRemoteDashboardGridLayout(layout)).catch(error =>
+    console.error(error),
+  )
 }
 
 // 获取仪表板组件的默认宽度，优先兼容插件旧版 cols.md / cols.cols 配置。
@@ -434,7 +532,7 @@ function exitDashboardLayoutEditing() {
 // 清除用户本地布局覆盖，并恢复内置组件和插件声明的默认占位，然后退出编辑模式。
 async function resetDashboardGridLayout() {
   dashboardGridLayout.value = {}
-  localStorage.removeItem(DASHBOARD_GRID_LAYOUT_STORAGE_KEY)
+  saveDashboardGridLayout({})
   dashboardGrid.value?.removeAll(false, false)
   isDashboardGridLayoutResetPending.value = true
   await syncDashboardGrid()
@@ -497,32 +595,34 @@ function toggleDashboardLayoutEditing() {
   nextTick(syncDashboardGrid)
 }
 
-// 加载用户监控面板配置（本地无配置时才加载）
+// 加载用户监控面板配置，优先使用服务端用户配置以支持跨浏览器同步。
 async function loadDashboardConfig() {
   // 显示配置
-  const local_enable = localStorage.getItem('MP_DASHBOARD')
-  if (local_enable) {
-    enableConfig.value = JSON.parse(local_enable)
-  } else {
-    const response = await api.get('/user/config/Dashboard')
-    if (response && response.data && response.data.value) {
-      enableConfig.value = response.data.value
-      localStorage.setItem('MP_DASHBOARD', JSON.stringify(response.data.value))
-    }
+  const enable = await loadSharedDashboardConfig(
+    DASHBOARD_ENABLE_CONFIG_KEY,
+    DASHBOARD_ENABLE_STORAGE_KEY,
+    normalizeDashboardEnableConfig,
+  )
+  if (enable !== undefined) {
+    enableConfig.value = enable
   }
   // 顺序配置
-  const local_order = localStorage.getItem('MP_DASHBOARD_ORDER')
-  if (local_order) {
-    orderConfig.value = JSON.parse(local_order)
-  } else {
-    const response2 = await api.get('/user/config/DashboardOrder')
-    if (response2 && response2.data && response2.data.value) {
-      orderConfig.value = response2.data.value
-      localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify(orderConfig.value))
-    }
+  const order = await loadSharedDashboardConfig(
+    DASHBOARD_ORDER_CONFIG_KEY,
+    DASHBOARD_ORDER_STORAGE_KEY,
+    normalizeDashboardOrderConfig,
+  )
+  if (order !== undefined) {
+    orderConfig.value = order
   }
-  // 本地 Grid 布局覆盖
-  dashboardGridLayout.value = readDashboardGridLayout()
+  // Grid 布局覆盖
+  const gridLayout = await loadSharedDashboardConfig(
+    DASHBOARD_GRID_LAYOUT_CONFIG_KEY,
+    DASHBOARD_GRID_LAYOUT_STORAGE_KEY,
+    normalizeDashboardGridLayout,
+    buildRemoteDashboardGridLayout,
+  )
+  dashboardGridLayout.value = gridLayout ?? {}
   // 排序
   if (orderConfig.value) {
     sortDashboardConfigs()
@@ -549,18 +649,16 @@ async function saveDashboardConfig(payload?: { enabled?: Record<string, boolean>
   }
 
   // 启用配置
-  const enableString = JSON.stringify(enableConfig.value)
-  localStorage.setItem('MP_DASHBOARD', enableString)
+  saveLocalDashboardConfig(DASHBOARD_ENABLE_STORAGE_KEY, enableConfig.value)
 
   // 顺序配置，从dashboardConfigs中提取
   const orderObj = dashboardConfigs.value.map(item => ({ id: item.id, key: item.key }))
-  const orderString = JSON.stringify(orderObj)
-  localStorage.setItem('MP_DASHBOARD_ORDER', orderString)
+  saveLocalDashboardConfig(DASHBOARD_ORDER_STORAGE_KEY, orderObj)
 
   // 保存到服务端
   try {
-    await api.post('/user/config/Dashboard', enableConfig.value)
-    await api.post('/user/config/DashboardOrder', orderObj)
+    await saveUserDashboardConfig(DASHBOARD_ENABLE_CONFIG_KEY, enableConfig.value)
+    await saveUserDashboardConfig(DASHBOARD_ORDER_CONFIG_KEY, orderObj)
   } catch (error) {
     console.error(error)
   }
