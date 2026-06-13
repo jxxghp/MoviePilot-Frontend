@@ -117,9 +117,20 @@ function generateId() {
   return Math.random().toString(36).substring(2, 9)
 }
 
+/** 初始化下载器新增配置项的兼容默认值。 */
+function initializeDownloaderConfigDefaults() {
+  if (!['qbittorrent', 'transmission'].includes(downloaderInfo.value.type)) return
+  if (!downloaderInfo.value.config) downloaderInfo.value.config = {}
+  if (downloaderInfo.value.type === 'qbittorrent' && downloaderInfo.value.config.incomplete_files_ext === undefined)
+    downloaderInfo.value.config.incomplete_files_ext = true
+  if (downloaderInfo.value.type === 'transmission' && downloaderInfo.value.config.rename_partial_files === undefined)
+    downloaderInfo.value.config.rename_partial_files = true
+}
+
 /** 初始化下载器编辑表单数据。 */
 function initializeDownloaderInfo() {
   downloaderInfo.value = cloneDeep(props.downloader)
+  initializeDownloaderConfigDefaults()
   pathMappingRows.value = (downloaderInfo.value.path_mapping || []).map(item => ({
     id: generateId(),
     storage: item[0],
@@ -299,6 +310,15 @@ onMounted(() => {
                   active
                 />
               </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="downloaderInfo.config.incomplete_files_ext"
+                  :label="t('downloader.incomplete_files_ext')"
+                  :hint="t('downloader.incomplete_files_extHint')"
+                  persistent-hint
+                  active
+                />
+              </VCol>
             </VRow>
             <VRow v-else-if="downloaderInfo.type == 'transmission'">
               <VCol cols="12" md="6">
@@ -342,6 +362,15 @@ onMounted(() => {
                   persistent-hint
                   active
                   prepend-inner-icon="mdi-lock"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VSwitch
+                  v-model="downloaderInfo.config.rename_partial_files"
+                  :label="t('downloader.rename_partial_files')"
+                  :hint="t('downloader.rename_partial_filesHint')"
+                  persistent-hint
+                  active
                 />
               </VCol>
             </VRow>
