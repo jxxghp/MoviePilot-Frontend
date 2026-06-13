@@ -126,6 +126,13 @@ interface ManualTransferTargetPathRequest {
   target_storage?: string | null
 }
 
+interface TargetDirectoryOption {
+  title: string
+  value: string
+}
+
+const AUTO_TARGET_PATH_VALUE = '__moviepilot_auto_target_path__'
+
 // 生成文件项稳定键，用于去重和状态同步。
 function getFileItemKey(item?: FileItem) {
   return [item?.storage ?? '', item?.type ?? '', item?.path ?? ''].join('|')
@@ -185,10 +192,27 @@ async function loadStorages() {
 
 // 存储字典
 const storageOptions = computed(() => {
-  return storages.value.map(item => ({
-    title: item.name,
-    value: item.type,
-  }))
+  return [
+    {
+      title: t('dialog.reorganize.auto'),
+      value: null,
+    },
+    ...storages.value.map(item => ({
+      title: item.name,
+      value: item.type,
+    })),
+  ]
+})
+
+// 整理方式选项，包含可提交 null 的自动项。
+const manualTransferTypeOptions = computed(() => {
+  return [
+    {
+      title: t('dialog.reorganize.auto'),
+      value: null,
+    },
+    ...transferTypeOptions,
+  ]
 })
 
 // 剧集组选项属性
@@ -279,7 +303,7 @@ const transferForm = reactive<TransferForm>({
   logid: 0,
   target_storage: props.target_storage ?? 'local',
   target_path: normalizeTargetPath(props.target_path),
-  transfer_type: '',
+  transfer_type: null,
   min_filesize: 0,
   scrape: false,
   from_history: false,
@@ -299,10 +323,35 @@ async function loadDirectories() {
   }
 }
 
-// 目的目录下拉框
-const targetDirectories = computed(() => {
-  const libraryDirectories = directories.value.map(item => item.library_path)
-  return [...new Set(libraryDirectories)]
+// 目的目录下拉框，第一项用于把目标路径显式重置为后端自动匹配。
+const targetDirectoryOptions = computed<TargetDirectoryOption[]>(() => {
+  const libraryDirectories = directories.value.map(item => item.library_path).filter(Boolean) as string[]
+  return [
+    {
+      title: t('dialog.reorganize.auto'),
+      value: AUTO_TARGET_PATH_VALUE,
+    },
+    ...[...new Set(libraryDirectories)].map(path => ({
+      title: path,
+      value: path,
+    })),
+  ]
+})
+
+// 目标路径选择值，用哨兵值把界面上的“自动”和接口里的 null 解耦。
+const targetPathSelection = computed({
+  get() {
+    return transferForm.target_path ?? AUTO_TARGET_PATH_VALUE
+  },
+  set(value: string | null) {
+    const targetPath = normalizeTargetPath(value)
+    if (!targetPath || targetPath === AUTO_TARGET_PATH_VALUE) {
+      resetAutomaticTargetConfig()
+      return
+    }
+
+    transferForm.target_path = targetPath
+  },
 })
 
 // 构造目的路径自动匹配请求，只传用户真实上下文，避免用默认存储误导后端匹配。
@@ -338,7 +387,7 @@ function createTargetPathMatchRequest(): ManualTransferTargetPathRequest | undef
 function applyMatchedTargetPath(data?: ManualTransferTargetPathData) {
   const matchedTargetPath = normalizeTargetPath(data?.target_path)
   if (!matchedTargetPath) {
-    transferForm.target_path = null
+    resetAutomaticTargetConfig()
     return
   }
 
@@ -350,13 +399,23 @@ function applyMatchedTargetPath(data?: ManualTransferTargetPathData) {
   transferForm.target_path = matchedTargetPath
 }
 
+// 重置为完全自动匹配状态，提交时不携带目标路径及其派生配置。
+function resetAutomaticTargetConfig() {
+  transferForm.target_storage = null
+  transferForm.target_path = null
+  transferForm.transfer_type = null
+  transferForm.scrape = null
+  transferForm.library_type_folder = null
+  transferForm.library_category_folder = null
+}
+
 // 请求后端按源目录匹配最合适的手动整理目的路径。
 async function autoSelectTargetPath() {
   if (normalizeTargetPath(props.target_path) || transferForm.target_path) return
 
   const payload = createTargetPathMatchRequest()
   if (!payload) {
-    transferForm.target_path = null
+    resetAutomaticTargetConfig()
     return
   }
 
@@ -367,14 +426,14 @@ async function autoSelectTargetPath() {
     )
 
     if (!result.success) {
-      transferForm.target_path = null
+      resetAutomaticTargetConfig()
       return
     }
 
     applyMatchedTargetPath(result.data)
   } catch (error) {
     console.log(error)
-    transferForm.target_path = null
+    resetAutomaticTargetConfig()
   }
 }
 
@@ -391,6 +450,7 @@ watch(
         transferForm.library_category_folder = directory.library_category_folder ?? false
         transferForm.library_type_folder = directory.library_type_folder ?? false
       } else {
+        transferForm.target_storage = transferForm.target_storage || 'local'
         transferForm.transfer_type = transferForm.transfer_type || 'copy'
         transferForm.scrape = false
         transferForm.library_category_folder = false
@@ -398,9 +458,9 @@ watch(
       }
     } else {
       // 路径为空时, 恢复到`自动`条件
-      transferForm.transfer_type = ''
-      transferForm.library_type_folder = undefined
-      transferForm.library_category_folder = undefined
+      transferForm.transfer_type = null
+      transferForm.library_type_folder = null
+      transferForm.library_category_folder = null
     }
   },
 )
@@ -494,6 +554,12 @@ function getUniqueValues(values: (string | undefined)[]) {
 function normalizeTargetPath(path?: string | null) {
   const normalizedPath = path?.trim()
   return normalizedPath || null
+}
+
+// 归一化可选文本参数，保证自动项提交 null 而不是空字符串。
+function normalizeOptionalText(value?: string | null) {
+  const normalizedValue = value?.trim()
+  return normalizedValue || null
 }
 
 // 归一化剧集组值，兼容历史对象态值。
@@ -822,7 +888,9 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     ...transferForm,
     fileitem: sourceItem,
     logid: options.logid ?? 0,
+    target_storage: normalizeOptionalText(transferForm.target_storage),
     target_path: normalizeTargetPath(transferForm.target_path),
+    transfer_type: normalizeOptionalText(transferForm.transfer_type),
     episode_group: normalizeEpisodeGroup(transferForm.episode_group),
   }
 
@@ -1356,20 +1424,19 @@ onUnmounted(() => {
                     <VSelect
                       v-model="transferForm.transfer_type"
                       :label="t('dialog.reorganize.transferType')"
-                      :items="transferTypeOptions"
+                      :items="manualTransferTypeOptions"
                       :hint="t('dialog.reorganize.transferTypeHint')"
                       persistent-hint
                       prepend-inner-icon="mdi-swap-horizontal"
-                    >
-                      <template v-slot:selection="{ item }">
-                        {{ transferForm.transfer_type === '' ? t('dialog.reorganize.auto') : item.title }}
-                      </template>
-                    </VSelect>
+                    />
                   </VCol>
                   <VCol cols="12">
                     <VCombobox
-                      v-model="transferForm.target_path"
-                      :items="targetDirectories"
+                      v-model="targetPathSelection"
+                      :items="targetDirectoryOptions"
+                      item-title="title"
+                      item-value="value"
+                      :return-object="false"
                       :label="t('dialog.reorganize.targetPath')"
                       :placeholder="t('dialog.reorganize.targetPathPlaceholder')"
                       :hint="t('dialog.reorganize.targetPathHint')"
@@ -1528,7 +1595,7 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol cols="12" md="6" v-if="transferForm.target_path">
+                  <VCol cols="12" md="6">
                     <VSwitch
                       v-model="transferForm.library_type_folder"
                       :label="t('dialog.reorganize.typeFolderOption')"
@@ -1536,7 +1603,7 @@ onUnmounted(() => {
                       persistent-hint
                     />
                   </VCol>
-                  <VCol cols="12" md="6" v-if="transferForm.target_path">
+                  <VCol cols="12" md="6">
                     <VSwitch
                       v-model="transferForm.library_category_folder"
                       :label="t('dialog.reorganize.categoryFolderOption')"

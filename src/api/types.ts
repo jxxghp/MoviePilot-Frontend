@@ -1352,7 +1352,7 @@ export interface TransferForm {
   // 历史ID
   logid: number
   // 目标存储
-  target_storage: string
+  target_storage: string | null
   // 目标路径
   target_path: string | null
   // TMDB ID
@@ -1364,7 +1364,7 @@ export interface TransferForm {
   // 类型
   type_name?: string
   // 整理方式
-  transfer_type: string
+  transfer_type: string | null
   // 自定义格式
   episode_format?: string
   // 指定集数
@@ -1376,13 +1376,13 @@ export interface TransferForm {
   // 最小文件大小
   min_filesize: number
   // 刮削
-  scrape: boolean
+  scrape: boolean | null
   // 复用历史识别信息
   from_history: boolean
   // 媒体库类型子目录
-  library_type_folder?: boolean
+  library_type_folder?: boolean | null
   // 媒体库类别子目录
-  library_category_folder?: boolean
+  library_category_folder?: boolean | null
   // 剧集组编号
   episode_group?: string | null
   // 预览模式
@@ -1406,11 +1406,11 @@ export interface ManualTransferTargetPathData {
   // 整理方式
   transfer_type?: string | null
   // 刮削
-  scrape?: boolean
+  scrape?: boolean | null
   // 媒体库类型子目录
-  library_type_folder?: boolean
+  library_type_folder?: boolean | null
   // 媒体库类别子目录
-  library_category_folder?: boolean
+  library_category_folder?: boolean | null
 }
 
 // 手动整理预览统计
