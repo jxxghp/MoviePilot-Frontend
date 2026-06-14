@@ -78,7 +78,6 @@ watch(visible, async newValue => {
   if (newValue) {
     await nextTick()
     messageViewRef.value?.resumeSSE?.()
-    messageViewRef.value?.forceScrollToEnd?.()
 
     clearUnreadMessageState()
 
@@ -90,8 +89,6 @@ watch(visible, async newValue => {
 
 onMounted(async () => {
   await nextTick()
-  messageViewRef.value?.resumeSSE?.()
-  messageViewRef.value?.forceScrollToEnd?.()
 
   clearUnreadMessageState()
 })

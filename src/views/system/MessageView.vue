@@ -41,6 +41,7 @@ const MESSAGE_AUTO_SCROLL_THRESHOLD = 64
 
 let scrollTimer: number | undefined
 let scrollReleaseTimer: number | undefined
+let boundScrollContainer: HTMLElement | null = null
 
 // 生成消息去重签名
 // SSE 消息只有 date 没有 reg_time，数据库消息只有 reg_time 没有 date；
@@ -83,10 +84,34 @@ function updateLastTime(message: Message) {
   }
 }
 
-function getScrollContainer() {
-  const container = messageListRef.value?.$el ?? messageListRef.value
+/** 判断元素自身是否是真正承载滚动的位置。 */
+function isScrollableElement(element: HTMLElement) {
+  const { overflowY } = window.getComputedStyle(element)
+  const canScroll = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay'
 
-  return container instanceof HTMLElement ? container : null
+  return canScroll && element.scrollHeight > element.clientHeight + 1
+}
+
+/** 获取消息列表所在的真实滚动容器。 */
+function getScrollContainer() {
+  const element = messageListRef.value?.$el ?? messageListRef.value
+
+  if (!(element instanceof HTMLElement)) {
+    return null
+  }
+
+  let container: HTMLElement | null = element
+  while (container) {
+    if (isScrollableElement(container)) {
+      return container
+    }
+
+    container = container.parentElement
+  }
+
+  const dialogCardText = element.closest('.v-card-text')
+
+  return dialogCardText instanceof HTMLElement ? dialogCardText : element
 }
 
 function isNearBottom(container: HTMLElement) {
@@ -114,23 +139,31 @@ function bindScrollListener() {
     return
   }
 
+  if (boundScrollContainer && boundScrollContainer !== container) {
+    boundScrollContainer.removeEventListener('scroll', handleScroll)
+  }
+
   container.removeEventListener('scroll', handleScroll)
   container.addEventListener('scroll', handleScroll, { passive: true })
+  boundScrollContainer = container
   updateAutoScrollState()
 }
 
 function unbindScrollListener() {
-  getScrollContainer()?.removeEventListener('scroll', handleScroll)
+  boundScrollContainer?.removeEventListener('scroll', handleScroll)
+  boundScrollContainer = null
 }
 
-function scrollContainerToEnd() {
+/** 滚动到底部，并在布局稳定前连续几帧校正滚动位置。 */
+function scrollContainerToEnd(retryCount = 1) {
   const container = getScrollContainer()
   if (!container) {
     return
   }
 
+  bindScrollListener()
   isSyncingScroll.value = true
-  container.scrollTop = container.scrollHeight
+  container.scrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
 
   requestAnimationFrame(() => {
     const latestContainer = getScrollContainer()
@@ -139,8 +172,13 @@ function scrollContainerToEnd() {
       return
     }
 
-    latestContainer.scrollTop = latestContainer.scrollHeight
+    latestContainer.scrollTop = Math.max(0, latestContainer.scrollHeight - latestContainer.clientHeight)
     shouldAutoScroll.value = true
+
+    if (retryCount > 0) {
+      scrollContainerToEnd(retryCount - 1)
+      return
+    }
 
     if (scrollReleaseTimer) {
       window.clearTimeout(scrollReleaseTimer)
@@ -165,7 +203,7 @@ function requestScrollToEnd(force = false) {
   scrollTimer = window.setTimeout(() => {
     nextTick(() => {
       requestAnimationFrame(() => {
-        scrollContainerToEnd()
+        scrollContainerToEnd(force ? 6 : 1)
       })
     })
   }, force ? 0 : 80)
@@ -231,6 +269,8 @@ async function loadMessages({ done }: { done: any }) {
   try {
     // 设置加载中
     loading.value = true
+    const isFirstPage = page.value === 1
+
     currData.value = await api.get('message/web', {
       params: {
         page: page.value,
@@ -240,16 +280,17 @@ async function loadMessages({ done }: { done: any }) {
     // 已加载过
     isLoaded.value = true
     if (currData.value.length > 0) {
-      const hasNewMessage = mergeMessages(currData.value)
+      mergeMessages(currData.value)
 
-      // 首次加载时滚动到底部
-      if (page.value === 1 && hasNewMessage) {
-        requestScrollToEnd(true)
-      }
       // 页码+1
       page.value++
       // 完成
       done('ok')
+
+      // 首次加载完成后再滚动，避免列表尚未完成布局时滚动失效。
+      if (isFirstPage) {
+        requestScrollToEnd(true)
+      }
     } else {
       // 没有新数据
       done('empty')
@@ -341,7 +382,6 @@ defineExpose({
 onMounted(() => {
   nextTick(() => {
     bindScrollListener()
-    requestScrollToEnd(true)
   })
 })
 
@@ -372,19 +412,15 @@ onBeforeUnmount(() => {
       <LoadingBanner />
     </template>
     <template #empty> {{ t('message.noMoreData') }} </template>
-    <VVirtualScroll renderless :items="messages" :item-height="160">
-      <template #default="{ item, index, itemRef }">
-        <div
-          :ref="itemRef"
-          :key="getMessageKey(item) || index"
-          class="chat-group d-flex mt-5 mb-8"
-          :class="item.action == 1 ? 'flex-row align-start' : 'flex-row-reverse align-end'"
-        >
-          <div class="d-inline-flex flex-column" :class="item.action == 1 ? 'align-start' : 'align-end'">
-            <MessageCard :message="item" @imageload="handleImageLoad" />
-          </div>
-        </div>
-      </template>
-    </VVirtualScroll>
+    <div
+      v-for="(item, index) in messages"
+      :key="getMessageKey(item) || index"
+      class="chat-group d-flex mt-5 mb-8"
+      :class="item.action == 1 ? 'flex-row align-start' : 'flex-row-reverse align-end'"
+    >
+      <div class="d-inline-flex flex-column" :class="item.action == 1 ? 'align-start' : 'align-end'">
+        <MessageCard :message="item" @imageload="handleImageLoad" />
+      </div>
+    </div>
   </VInfiniteScroll>
 </template>
