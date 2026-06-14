@@ -24,11 +24,14 @@ const repoText = ref('')
 const newRepoUrl = ref('')
 const editingIndex = ref<number | null>(null)
 const editingUrl = ref('')
+const syncingWiki = ref(false)
 
 const emit = defineEmits(['save', 'close'])
 
 const parsedTextRepos = computed(() => parseRepoInput(repoText.value))
-const activeRepoCount = computed(() => (editorMode.value === 'text' ? parsedTextRepos.value.repos.length : repoList.value.length))
+const activeRepoCount = computed(() =>
+  editorMode.value === 'text' ? parsedTextRepos.value.repos.length : repoList.value.length,
+)
 const saveDisabled = computed(
   () => activeRepoCount.value === 0 || (editorMode.value === 'text' && parsedTextRepos.value.invalidRepos.length > 0),
 )
@@ -136,6 +139,35 @@ async function saveHandle() {
   }
 }
 
+/** 从 Wiki 同步公开插件仓库清单并写入配置。 */
+async function syncWikiRepos() {
+  try {
+    syncingWiki.value = true
+    const result: { [key: string]: any } = await api.post('system/setting/PLUGIN_MARKET/sync-wiki', {})
+
+    if (result.success) {
+      const repos = Array.isArray(result.data?.repos)
+        ? result.data.repos
+        : parseRepoInput(result.data?.value || '').repos
+      repoList.value = repos
+      syncTextFromList()
+      $toast.success(
+        t('dialog.pluginMarketSetting.syncSuccess', {
+          added: result.data?.added_count ?? 0,
+          total: result.data?.total_count ?? repos.length,
+        }),
+      )
+    } else {
+      $toast.error(t('dialog.pluginMarketSetting.syncFailed', { message: result?.message }))
+    }
+  } catch (error) {
+    console.log(error)
+    $toast.error(t('dialog.pluginMarketSetting.syncFailed', { message: error instanceof Error ? error.message : '' }))
+  } finally {
+    syncingWiki.value = false
+  }
+}
+
 /** 获取当前维护模式下可保存的仓库地址。 */
 function normalizeCurrentRepos() {
   if (editorMode.value === 'text') {
@@ -224,8 +256,8 @@ function formatRepoDisplay(url: string) {
     const pathSegments = parsedUrl.pathname.split('/').filter(Boolean)
 
     if (
-      ['github.com', 'www.github.com', 'raw.githubusercontent.com'].includes(parsedUrl.hostname)
-      && pathSegments.length >= 2
+      ['github.com', 'www.github.com', 'raw.githubusercontent.com'].includes(parsedUrl.hostname) &&
+      pathSegments.length >= 2
     ) {
       return `${pathSegments[0]}/${pathSegments[1].replace(/\.git$/, '')}`
     }
@@ -261,22 +293,44 @@ onMounted(() => {
 
       <VCardText class="plugin-market-dialog-body pt-4">
         <div class="plugin-market-toolbar">
-          <VBtnToggle
-            :model-value="editorMode"
-            mandatory
-            color="primary"
-            density="comfortable"
-            variant="tonal"
-            class="plugin-market-mode-toggle"
-            @update:model-value="switchEditorMode"
-          >
-            <VBtn value="list" prepend-icon="mdi-format-list-bulleted">
-              {{ t('dialog.pluginMarketSetting.listMode') }}
-            </VBtn>
-            <VBtn value="text" prepend-icon="mdi-text-box-edit-outline">
-              {{ t('dialog.pluginMarketSetting.textMode') }}
-            </VBtn>
-          </VBtnToggle>
+          <div class="plugin-market-toolbar-hint">
+            <VIcon icon="mdi-information-outline" size="18" />
+            <span>{{ t('dialog.pluginMarketSetting.repoCountHint', { count: activeRepoCount }) }}</span>
+          </div>
+          <div class="plugin-market-mode-switch" role="tablist" :aria-label="t('dialog.pluginMarketSetting.title')">
+            <VTooltip :text="t('dialog.pluginMarketSetting.listMode')" location="top">
+              <template #activator="{ props }">
+                <button
+                  v-bind="props"
+                  type="button"
+                  class="plugin-market-mode-button"
+                  :class="{ 'is-active': editorMode === 'list' }"
+                  role="tab"
+                  :aria-label="t('dialog.pluginMarketSetting.listMode')"
+                  :aria-selected="editorMode === 'list'"
+                  @click="switchEditorMode('list')"
+                >
+                  <VIcon icon="mdi-format-list-bulleted" size="20" />
+                </button>
+              </template>
+            </VTooltip>
+            <VTooltip :text="t('dialog.pluginMarketSetting.textMode')" location="top">
+              <template #activator="{ props }">
+                <button
+                  v-bind="props"
+                  type="button"
+                  class="plugin-market-mode-button"
+                  :class="{ 'is-active': editorMode === 'text' }"
+                  role="tab"
+                  :aria-label="t('dialog.pluginMarketSetting.textMode')"
+                  :aria-selected="editorMode === 'text'"
+                  @click="switchEditorMode('text')"
+                >
+                  <VIcon icon="mdi-text-box-edit-outline" size="20" />
+                </button>
+              </template>
+            </VTooltip>
+          </div>
         </div>
 
         <div v-if="editorMode === 'list'" class="plugin-market-list-panel">
@@ -425,6 +479,16 @@ onMounted(() => {
       </VCardText>
 
       <VCardActions class="plugin-market-actions">
+        <VBtn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-cloud-sync-outline"
+          :loading="syncingWiki"
+          :disabled="syncingWiki"
+          @click="syncWikiRepos"
+        >
+          {{ t('dialog.pluginMarketSetting.syncWiki') }}
+        </VBtn>
         <VSpacer />
         <VBtn
           color="primary"
@@ -478,14 +542,70 @@ onMounted(() => {
 .plugin-market-toolbar {
   display: flex;
   flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-block-size: 2.25rem;
 }
 
-.plugin-market-mode-toggle {
-  inline-size: 100%;
+.plugin-market-toolbar-hint {
+  display: flex;
+  align-items: center;
+  border-radius: 0.375rem;
+  background: rgba(var(--v-theme-info), 0.08);
+  color: rgb(var(--v-theme-info));
+  font-size: 0.875rem;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding-block: 0.5rem;
+  padding-inline: 1rem;
 
-  :deep(.v-btn) {
-    flex: 1;
-    min-inline-size: 0;
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.plugin-market-mode-switch {
+  display: inline-flex;
+  padding: 0.125rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 0.375rem;
+  background: rgba(var(--v-theme-surface), 0.72);
+  gap: 0.125rem;
+}
+
+.plugin-market-mode-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  block-size: 2.25rem;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  cursor: pointer;
+  font: inherit;
+  inline-size: 2.25rem;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
+
+  &:hover {
+    background: rgba(var(--v-theme-primary), 0.07);
+    color: rgb(var(--v-theme-on-surface));
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(var(--v-theme-primary), 0.48);
+    outline-offset: 2px;
+  }
+
+  &.is-active {
+    background: rgba(var(--v-theme-primary), 0.12);
+    color: rgb(var(--v-theme-primary));
   }
 }
 
@@ -529,8 +649,8 @@ onMounted(() => {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
   line-break: anywhere;
+  -webkit-line-clamp: 2;
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
@@ -550,20 +670,22 @@ onMounted(() => {
 
 .plugin-market-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
   min-block-size: 14rem;
 }
 
 .plugin-market-textarea-field {
   position: relative;
   display: flex;
+  overflow: hidden;
   flex: 1;
   background: rgba(var(--v-theme-surface), 0.72);
   min-block-size: 0;
-  overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:focus-within {
     border-color: rgb(var(--v-theme-primary));
@@ -586,13 +708,14 @@ onMounted(() => {
   background: transparent;
   block-size: 100%;
   color: rgb(var(--v-theme-on-surface));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   font-size: 1rem;
   line-height: 1.6;
   min-block-size: 0;
   outline: none;
   overflow-y: auto;
-  padding: 1rem 1rem 1rem 3.25rem;
+  padding-block: 1rem;
+  padding-inline: 3.25rem 1rem;
   resize: none;
   white-space: pre-wrap;
   word-break: break-word;
@@ -615,16 +738,22 @@ onMounted(() => {
 .plugin-market-actions {
   flex: 0 0 auto;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem 1rem;
+  padding-block: 0.75rem 1rem;
+  padding-inline: 1.5rem;
+
+  :deep(.v-btn) {
+    flex: 0 0 auto;
+  }
 }
 
-@media (max-width: 600px) {
+@media (width <= 600px) {
   .plugin-market-dialog-card {
     block-size: 100dvh;
   }
 
   .plugin-market-card-item {
-    padding: 0.75rem 1rem 0.625rem;
+    padding-block: 0.75rem 0.625rem;
+    padding-inline: 1rem;
   }
 
   .plugin-market-header {
@@ -640,16 +769,22 @@ onMounted(() => {
 
   .plugin-market-dialog-body {
     gap: 0.625rem;
-    padding: 0.75rem 1rem !important;
+    padding-block: 0.75rem !important;
+    padding-inline: 1rem !important;
   }
 
-  .plugin-market-mode-toggle {
-    inline-size: 100%;
+  .plugin-market-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 
-    :deep(.v-btn) {
-      flex: 1;
-      min-inline-size: 0;
-    }
+  .plugin-market-mode-switch {
+    flex: 0 0 auto;
+  }
+
+  .plugin-market-toolbar-hint {
+    flex: 1 1 auto;
   }
 
   .plugin-market-list-panel,
@@ -666,7 +801,18 @@ onMounted(() => {
   }
 
   .plugin-market-actions {
-    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+    padding-inline: 1rem;
+
+    :deep(.v-btn) {
+      flex: 1 1 9rem;
+      min-inline-size: 0;
+    }
+
+    :deep(.v-spacer) {
+      display: none;
+    }
   }
 }
 </style>
