@@ -11,15 +11,6 @@ Frontend project for [MoviePilot](https://github.com/jxxghp/MoviePilot), NodeJS 
 - Multi-language support (Chinese/English)
 - Complete plugin system with dynamic remote component loading
 
-## Module Federation
-
-MoviePilot now supports Module Federation, allowing plugin developers to create dynamically loadable remote components for richer plugin user interfaces.
-
-### Documentation
-
-- [Module Federation Troubleshooting Guide](docs/federation-troubleshooting.md) - Common issues and solutions
-- [Plugin Remote Component Example](examples/plugin-component/) - Complete example project for developing plugin components
-
 ## Development
 
 ### Recommended IDE Setup
@@ -57,3 +48,10 @@ yarn build
 ```shell
 node dist/service.js
 ``` 
+
+### Module Federation
+
+MoviePilot now supports Module Federation, allowing plugin developers to create dynamically loadable remote components for richer plugin user interfaces.
+
+- [Module Federation Troubleshooting Guide](docs/federation-troubleshooting.md) - Common issues and solutions
+- [Plugin Remote Component Example](examples/plugin-component/) - Complete example project for developing plugin components

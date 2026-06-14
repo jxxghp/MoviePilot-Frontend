@@ -11,15 +11,6 @@
 - 支持多语言（中文/英文）
 - 完整的插件系统支持，包括远程组件动态加载
 
-## 模块联邦功能
-
-MoviePilot 现已支持模块联邦（Module Federation）功能，允许插件开发者创建可动态加载的远程组件，实现更丰富的插件用户界面。
-
-### 相关文档
-
-- [模块联邦开发指南](docs/module-federation-guide.md) - 如何开发远程组件插件
-- [模块联邦问题排查指南](docs/federation-troubleshooting.md) - 常见问题和解决方案
-- [插件远程组件示例](examples/plugin-component/) - 开发插件组件的完整示例项目 
 
 ## 开发部署
 
@@ -58,3 +49,12 @@ yarn build
 ```shell
 node dist/service.js
 ```
+
+
+### 模块联邦功能
+
+MoviePilot 现已支持模块联邦（Module Federation）功能，允许插件开发者创建可动态加载的远程组件，实现更丰富的插件用户界面。
+
+- [模块联邦开发指南](docs/module-federation-guide.md) - 如何开发远程组件插件
+- [模块联邦问题排查指南](docs/federation-troubleshooting.md) - 常见问题和解决方案
+- [插件远程组件示例](examples/plugin-component/) - 开发插件组件的完整示例项目 
