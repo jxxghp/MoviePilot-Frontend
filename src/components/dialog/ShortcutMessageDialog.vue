@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import api from '@/api'
-import { clearAppBadge } from '@/utils/badge'
+import { clearUnreadMessages } from '@/utils/badge'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 
@@ -67,15 +67,20 @@ async function sendMessage() {
   }
 }
 
+/** 清除未读消息计数和桌面角标。 */
+function clearUnreadMessageState() {
+  window.setTimeout(() => {
+    void clearUnreadMessages()
+  }, 500)
+}
+
 watch(visible, async newValue => {
   if (newValue) {
     await nextTick()
     messageViewRef.value?.resumeSSE?.()
     messageViewRef.value?.forceScrollToEnd?.()
 
-    window.setTimeout(() => {
-      void clearAppBadge()
-    }, 500)
+    clearUnreadMessageState()
 
     return
   }
@@ -88,9 +93,7 @@ onMounted(async () => {
   messageViewRef.value?.resumeSSE?.()
   messageViewRef.value?.forceScrollToEnd?.()
 
-  window.setTimeout(() => {
-    void clearAppBadge()
-  }, 500)
+  clearUnreadMessageState()
 })
 
 onUnmounted(() => {

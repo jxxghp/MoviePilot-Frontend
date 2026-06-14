@@ -96,28 +96,41 @@ export async function checkAndEmitUnreadMessages() {
   }
 }
 
+// 清除未读消息计数，并通知前端同步隐藏未读红点。
+export async function clearUnreadMessages(): Promise<boolean> {
+  emitUnreadMessageEvent(0)
+  return clearAppBadge()
+}
+
 // 清除桌面图标徽章
 export async function clearAppBadge(): Promise<boolean> {
-  try {
-    // 如果浏览器支持原生Badge API，直接调用
-    if ('clearAppBadge' in navigator) {
-      await navigator.clearAppBadge()
-    }
+  let nativeBadgeCleared = true
 
+  // 如果浏览器支持原生Badge API，直接调用
+  if ('clearAppBadge' in navigator) {
+    try {
+      await navigator.clearAppBadge()
+    } catch (error) {
+      nativeBadgeCleared = false
+      console.error('Failed to clear native app badge:', error)
+    }
+  }
+
+  try {
     // 向service worker发送清除徽章消息
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       const messageChannel = new MessageChannel()
 
       return new Promise(resolve => {
         messageChannel.port1.onmessage = event => {
-          resolve(event.data.success)
+          resolve(Boolean(event.data.success) && nativeBadgeCleared)
         }
 
         navigator.serviceWorker.controller?.postMessage({ type: 'CLEAR_BADGE' }, [messageChannel.port2])
       })
     }
 
-    return true
+    return nativeBadgeCleared
   } catch (error) {
     console.error('Failed to clear app badge:', error)
     return false

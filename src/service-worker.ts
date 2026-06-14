@@ -297,14 +297,20 @@ async function updateBadge(count: number) {
   }
 }
 
+// 清除桌面角标和本地未读计数，确保不支持 Badge API 时也能归零。
 async function clearBadge() {
   if ('clearAppBadge' in self.navigator) {
     try {
       await self.navigator.clearAppBadge()
-      await setStoredUnreadCount(0)
     } catch (error) {
-      console.error('Failed to clear app badge:', error)
+      console.error('Failed to clear native app badge:', error)
     }
+  }
+
+  try {
+    await setStoredUnreadCount(0)
+  } catch (error) {
+    console.error('Failed to clear unread count:', error)
   }
 }
 

@@ -24,7 +24,6 @@ import {
   hasPermission,
   type UserPermissionKey,
 } from '@/utils/permission'
-import { onUnreadMessage } from '@/utils/badge'
 import { usePullDownGesture } from '@/composables/usePullDownGesture'
 import { usePWA } from '@/composables/usePWA'
 import OfflinePage from '@/layouts/components/OfflinePage.vue'
@@ -47,9 +46,6 @@ const themeLayout = ref(readThemeCustomizerSettings().layout)
 // 用户 Store
 const userStore = useUserStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
-
-// ShortcutBar 引用
-const shortcutBarRef = ref<InstanceType<typeof ShortcutBar> | null>(null)
 
 // 获取用户权限信息
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
@@ -382,18 +378,6 @@ function applyPendingHorizontalTab() {
   pendingHorizontalTab.value = null
 }
 
-// 处理未读消息事件
-function handleUnreadMessage(count: number) {
-  if (canAdmin.value && count > 0) {
-    // 延迟一点时间确保组件已渲染
-    setTimeout(() => {
-      if (shortcutBarRef.value && typeof shortcutBarRef.value.openMessageDialog === 'function') {
-        shortcutBarRef.value.openMessageDialog()
-      }
-    }, 500)
-  }
-}
-
 // 关闭插件快速访问
 function handleClosePluginQuickAccess() {
   showPluginQuickAccess.value = false
@@ -442,9 +426,6 @@ onMounted(async () => {
   await pluginSidebarNavStore.ensureSidebarNav()
   appendPluginSidebarMenus()
 
-  // 监听全局未读消息事件
-  const unsubscribe = onUnreadMessage(handleUnreadMessage)
-
   // 监听Service Worker消息
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
@@ -454,7 +435,6 @@ onMounted(async () => {
 
   // 组件卸载时清理监听
   onBeforeUnmount(() => {
-    unsubscribe()
     window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
@@ -521,7 +501,7 @@ onMounted(async () => {
           <!-- 👉 Horizontal Search Icon -->
           <SearchBar v-if="showHorizontalThemeNav" icon-only />
           <!-- 👉 Shortcuts -->
-          <ShortcutBar v-if="canAdmin" ref="shortcutBarRef" />
+          <ShortcutBar v-if="canAdmin" />
           <!-- 👉 Notification -->
           <UserNofification />
           <!-- 👉 UserProfile -->
