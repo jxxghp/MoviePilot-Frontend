@@ -536,8 +536,9 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardActions class="pt-3">
-          <VBtn @click="saveDownloaderInfo" prepend-icon="mdi-content-save" class="px-5">
+        <VCardActions class="app-dialog-actions">
+          <VSpacer />
+          <VBtn color="primary" variant="flat" @click="saveDownloaderInfo" prepend-icon="mdi-content-save" class="px-5">
             {{ t('common.save') }}
           </VBtn>
         </VCardActions>

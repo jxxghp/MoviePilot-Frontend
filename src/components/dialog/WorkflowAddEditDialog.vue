@@ -312,12 +312,19 @@ onMounted(() => {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn v-if="workflow" color="primary" @click="editWorkflow" prepend-icon="mdi-content-save" class="px-5">
+        <VBtn
+          v-if="workflow"
+          color="primary"
+          variant="flat"
+          @click="editWorkflow"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
           {{ t('dialog.workflowAddEdit.confirm') }}
         </VBtn>
-        <VBtn v-else color="primary" @click="addWorkflow" prepend-icon="mdi-plus" class="px-5">
+        <VBtn v-else color="primary" variant="flat" @click="addWorkflow" prepend-icon="mdi-plus" class="px-5">
           {{ t('dialog.workflowAddEdit.confirm') }}
         </VBtn>
       </VCardActions>

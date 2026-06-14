@@ -160,13 +160,26 @@ onBeforeMount(async () => {
           <div v-if="!pluginFormItems || pluginFormItems.length === 0">此插件没有可配置项</div>
         </div>
       </VCardText>
-      <VCardActions class="pt-3">
-        <VBtn v-if="props.plugin?.has_page" @click="emit('switch')" color="info">
+      <VCardActions class="app-dialog-actions">
+        <VBtn
+          v-if="props.plugin?.has_page"
+          color="info"
+          variant="tonal"
+          prepend-icon="mdi-database-eye-outline"
+          @click="emit('switch')"
+        >
           {{ t('dialog.pluginConfig.viewData') }}
         </VBtn>
         <VSpacer />
         <!-- 只有Vuetify模式显示默认保存按钮，Vue模式由组件内部控制 -->
-        <VBtn v-if="renderMode === 'vuetify'" @click="savePluginConf" prepend-icon="mdi-content-save" class="px-5">
+        <VBtn
+          v-if="renderMode === 'vuetify'"
+          color="primary"
+          variant="flat"
+          @click="savePluginConf"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
           保存
         </VBtn>
       </VCardActions>

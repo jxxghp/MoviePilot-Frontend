@@ -591,8 +591,15 @@ onMounted(() => {
             </VRow>
           </VForm>
         </VCardText>
-        <VCardActions class="pt-3">
-          <VBtn @click="saveMediaServerInfo" prepend-icon="mdi-content-save" class="px-5">
+        <VCardActions class="app-dialog-actions">
+          <VSpacer />
+          <VBtn
+            color="primary"
+            variant="flat"
+            @click="saveMediaServerInfo"
+            prepend-icon="mdi-content-save"
+            class="px-5"
+          >
             {{ t('common.confirm') }}
           </VBtn>
         </VCardActions>

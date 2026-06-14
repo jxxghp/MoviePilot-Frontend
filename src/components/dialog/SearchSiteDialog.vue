@@ -175,10 +175,11 @@ const filteredSites = computed(() => {
         </div>
       </VCardText>
 
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
         <VBtn
           color="primary"
+          variant="flat"
           :disabled="selectedSites.length === 0"
           @click="confirmSearch"
           prepend-icon="mdi-magnify"

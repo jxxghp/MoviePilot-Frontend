@@ -299,8 +299,9 @@ watch(
         </VAlert>
       </VCardText>
 
-      <VCardActions class="justify-end px-6 pb-4">
-        <VBtn variant="outlined" @click="show = false">{{ t('common.close') }}</VBtn>
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
+        <VBtn color="primary" variant="flat" class="px-5" @click="show = false">{{ t('common.close') }}</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

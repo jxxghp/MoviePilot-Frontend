@@ -383,7 +383,7 @@ onMounted(() => {
           </VTab>
         </VTabs>
 
-        <div v-if="loading" class="d-flex justify-center align-center" style="min-height: 300px">
+        <div v-if="loading" class="d-flex justify-center align-center" style="min-block-size: 300px">
           <VProgressCircular indeterminate color="primary" size="64" />
         </div>
 
@@ -610,12 +610,16 @@ onMounted(() => {
         </VWindow>
       </VCardText>
 
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn variant="text" @click="emit('close')">
-          {{ t('common.cancel') }}
-        </VBtn>
-        <VBtn color="primary" :loading="saving" prepend-icon="mdi-content-save" class="px-5" @click="saveConfig">
+        <VBtn
+          color="primary"
+          variant="flat"
+          :loading="saving"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+          @click="saveConfig"
+        >
           {{ t('common.save') }}
         </VBtn>
       </VCardActions>

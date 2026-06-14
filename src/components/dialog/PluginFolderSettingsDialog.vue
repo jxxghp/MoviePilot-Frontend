@@ -201,9 +201,11 @@ onMounted(() => {
           </VCol>
         </VRow>
       </VCardText>
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" prepend-icon="mdi-content-save" class="px-5" @click="saveSettings">保存</VBtn>
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-content-save" class="px-5" @click="saveSettings">
+          保存
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

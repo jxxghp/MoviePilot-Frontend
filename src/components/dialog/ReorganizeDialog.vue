@@ -294,7 +294,7 @@ const initialTargetPath = normalizeTargetPath(props.target_path)
 const transferForm = reactive<TransferForm>({
   fileitem: {} as FileItem,
   logid: 0,
-  target_storage: initialTargetPath ? props.target_storage ?? 'local' : null,
+  target_storage: initialTargetPath ? (props.target_storage ?? 'local') : null,
   target_path: initialTargetPath,
   transfer_type: null,
   min_filesize: 0,
@@ -1550,35 +1550,39 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
               </VForm>
-              <VCardActions class="reorganize-form-pane__actions pt-3 px-0 pb-0">
-                <VBtn
-                  color="info"
-                  :variant="previewVisible ? 'tonal' : 'text'"
-                  @click="togglePreview"
-                  :prepend-icon="previewToggleIcon"
-                  class="reorganize-action-btn reorganize-action-btn--preview"
-                  :class="{ 'reorganize-action-btn--active': previewVisible }"
-                  :loading="previewLoading"
-                >
-                  {{ t('dialog.reorganize.previewResult') }}
-                </VBtn>
-                <VBtn
-                  color="success"
-                  @click="transfer(true)"
-                  prepend-icon="mdi-plus"
-                  class="reorganize-action-btn reorganize-action-btn--queue"
-                >
-                  {{ t('dialog.reorganize.addToQueue') }}
-                </VBtn>
-                <VBtn
-                  @click="transfer(false)"
-                  prepend-icon="mdi-arrow-right-bold"
-                  class="reorganize-action-btn reorganize-action-btn--primary"
-                >
-                  {{ t('dialog.reorganize.reorganizeNow') }}
-                </VBtn>
-              </VCardActions>
             </div>
+            <VCardActions class="app-dialog-actions reorganize-form-pane__actions">
+              <VBtn
+                color="info"
+                variant="tonal"
+                @click="togglePreview"
+                :prepend-icon="previewToggleIcon"
+                class="reorganize-action-btn reorganize-action-btn--preview"
+                :class="{ 'reorganize-action-btn--active': previewVisible }"
+                :loading="previewLoading"
+              >
+                {{ t('dialog.reorganize.previewResult') }}
+              </VBtn>
+              <VBtn
+                color="success"
+                variant="tonal"
+                @click="transfer(true)"
+                prepend-icon="mdi-plus"
+                class="reorganize-action-btn reorganize-action-btn--queue"
+              >
+                {{ t('dialog.reorganize.addToQueue') }}
+              </VBtn>
+              <VSpacer />
+              <VBtn
+                color="primary"
+                variant="flat"
+                @click="transfer(false)"
+                prepend-icon="mdi-arrow-right-bold"
+                class="reorganize-action-btn reorganize-action-btn--primary"
+              >
+                {{ t('dialog.reorganize.reorganizeNow') }}
+              </VBtn>
+            </VCardActions>
           </div>
           <div v-show="previewVisible" class="reorganize-preview-pane">
             <div class="reorganize-preview-pane__header">
@@ -1811,15 +1815,7 @@ onUnmounted(() => {
 }
 
 .reorganize-form-pane__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.75rem;
   margin-block-start: auto;
-}
-
-.reorganize-action-btn {
-  min-inline-size: 0;
 }
 
 .reorganize-action-btn--active {
@@ -2161,15 +2157,9 @@ onUnmounted(() => {
     border-inline-end: none;
   }
 
-  .reorganize-form-pane__actions {
-    display: grid;
-    justify-content: stretch;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .reorganize-action-btn {
-    inline-size: 100%;
     min-block-size: 2.75rem;
+    padding-inline: 1rem;
   }
 
   .reorganize-preview-pane__summary {
@@ -2184,12 +2174,8 @@ onUnmounted(() => {
 
 @media (width <= 640px) {
   .reorganize-form-pane__actions {
-    justify-content: stretch;
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .reorganize-action-btn {
-    min-inline-size: 0;
   }
 
   .reorganize-action-btn--primary {

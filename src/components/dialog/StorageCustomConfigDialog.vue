@@ -89,8 +89,9 @@ function handleDone() {
           </VCol>
         </VRow>
       </VCardText>
-      <VCardActions class="pt-3">
-        <VBtn @click="handleDone" prepend-icon="mdi-content-save" class="px-5">
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
+        <VBtn color="primary" variant="flat" @click="handleDone" prepend-icon="mdi-content-save" class="px-5">
           {{ t('common.save') }}
         </VBtn>
       </VCardActions>

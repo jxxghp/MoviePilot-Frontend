@@ -97,9 +97,9 @@ function updateFilter(values: string[]) {
           </VChip>
         </VChipGroup>
       </VCardText>
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" prepend-icon="mdi-check" class="px-5" @click="visible = false">
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-check" class="px-5" @click="visible = false">
           {{ t('torrent.confirm') }}
         </VBtn>
       </VCardActions>

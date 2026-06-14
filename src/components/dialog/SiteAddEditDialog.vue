@@ -340,12 +340,26 @@ onMounted(async () => {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn v-if="props.oper === 'add'" color="primary" @click="addSite" prepend-icon="mdi-plus" class="px-5">
+        <VBtn
+          v-if="props.oper === 'add'"
+          color="primary"
+          variant="flat"
+          @click="addSite"
+          prepend-icon="mdi-plus"
+          class="px-5"
+        >
           {{ t('site.actions.add') }}
         </VBtn>
-        <VBtn v-else color="primary" @click="updateSiteInfo" prepend-icon="mdi-content-save" class="px-5">
+        <VBtn
+          v-else
+          color="primary"
+          variant="flat"
+          @click="updateSiteInfo"
+          prepend-icon="mdi-content-save"
+          class="px-5"
+        >
           {{ t('common.save') }}
         </VBtn>
       </VCardActions>

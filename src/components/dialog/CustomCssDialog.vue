@@ -86,8 +86,9 @@ function submitCustomCSS() {
           class="custom-css-editor"
         />
       </div>
-      <VCardActions class="custom-css-actions">
-        <VBtn color="primary" prepend-icon="mdi-content-save" class="px-5" @click="submitCustomCSS">
+      <VCardActions class="app-dialog-actions custom-css-actions">
+        <VSpacer />
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-content-save" class="px-5" @click="submitCustomCSS">
           {{ t('common.save') }}
         </VBtn>
       </VCardActions>

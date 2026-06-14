@@ -36,9 +36,9 @@ function handleImport() {
       <VCardText class="pt-2">
         <VTextarea v-model="codeString" prepend-inner-icon="mdi-code-json" />
       </VCardText>
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn @click="handleImport" prepend-icon="mdi-import" class="px-5 me-3">
+        <VBtn color="primary" variant="flat" @click="handleImport" prepend-icon="mdi-import" class="px-5">
           {{ t('dialog.importCode.import') }}
         </VBtn>
       </VCardActions>

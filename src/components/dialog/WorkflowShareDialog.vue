@@ -125,9 +125,17 @@ const $toast = useToast()
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn :disabled="shareDoing" @click="doShare" prepend-icon="mdi-share" class="px-5" :loading="shareDoing">
+        <VBtn
+          color="primary"
+          variant="flat"
+          :disabled="shareDoing"
+          @click="doShare"
+          prepend-icon="mdi-share"
+          class="px-5"
+          :loading="shareDoing"
+        >
           {{ t('dialog.workflowShare.confirmShare') }}
         </VBtn>
       </VCardActions>

@@ -559,12 +559,14 @@ onMounted(() => {
           </VWindow>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
-        <VBtn v-if="!props.default" color="error" @click="removeSubscribe" class="me-3">
+      <VCardActions class="app-dialog-actions">
+        <VBtn v-if="!props.default" color="error" variant="tonal" @click="removeSubscribe">
           {{ t('dialog.subscribeEdit.cancelSubscribe') }}
         </VBtn>
         <VSpacer />
         <VBtn
+          color="primary"
+          variant="flat"
           @click=";`${props.default ? saveDefaultSubscribeConfig() : updateSubscribeInfo()}`"
           prepend-icon="mdi-content-save"
           class="px-5"

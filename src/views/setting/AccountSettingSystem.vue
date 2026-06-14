@@ -2410,14 +2410,11 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
           </VWindowItem>
         </VWindow>
       </VCardText>
-      <VCardActions class="pt-3">
-        <VForm @submit.prevent="() => {}">
-          <div class="d-flex flex-wrap gap-4 mt-4">
-            <VBtn color="primary" prepend-icon="mdi-content-save" @click="saveAdvancedSettings" class="px-5">
-              {{ t('common.save') }}
-            </VBtn>
-          </div>
-        </VForm>
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-content-save" @click="saveAdvancedSettings" class="px-5">
+          {{ t('common.save') }}
+        </VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

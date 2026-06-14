@@ -153,15 +153,15 @@ function submitSettings() {
           <VSwitch v-model="elevatedValue" :label="props.switchLabel" />
         </p>
       </VCardText>
-      <VCardActions class="pt-3">
-        <VBtn v-if="props.showBulkActions" variant="text" @click="setAllItems(true)">
+      <VCardActions class="app-dialog-actions">
+        <VBtn v-if="props.showBulkActions" color="success" variant="tonal" @click="setAllItems(true)">
           {{ props.selectAllText }}
         </VBtn>
-        <VBtn v-if="props.showBulkActions" variant="text" @click="setAllItems(false)">
+        <VBtn v-if="props.showBulkActions" color="warning" variant="tonal" @click="setAllItems(false)">
           {{ props.selectNoneText }}
         </VBtn>
         <VSpacer />
-        <VBtn color="primary" class="px-5" @click="submitSettings">
+        <VBtn color="primary" variant="flat" class="px-5" @click="submitSettings">
           <template #prepend>
             <VIcon icon="mdi-content-save" />
           </template>

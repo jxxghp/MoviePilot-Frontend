@@ -706,6 +706,53 @@ html[data-theme="transparent"] .app-card-colorful,
   padding: 16px;
 }
 
+// 弹窗底部左右动作区：对齐插件仓库设置弹窗的按钮间距、主次样式和移动端铺排。
+.app-dialog-actions {
+  flex: 0 0 auto;
+  gap: 0.5rem;
+  padding-block: 0.75rem 1rem !important;
+  padding-inline: 1.5rem !important;
+
+  > .v-btn {
+    flex: 0 0 auto;
+  }
+
+  > .app-dialog-actions__icon-btn {
+    inline-size: 2.5rem;
+    min-inline-size: 2.5rem;
+    padding-inline: 0;
+  }
+}
+
+@media (width <= 960px) {
+  .app-dialog-actions {
+    padding-block-end: calc(0.75rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (width <= 600px) {
+  .app-dialog-actions {
+    flex-wrap: wrap;
+    padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    padding-inline: 1rem !important;
+
+    > .v-btn:not(.app-dialog-actions__icon-btn) {
+      flex: 1 1 9rem;
+      min-inline-size: 0;
+    }
+
+    > .app-dialog-actions__icon-btn {
+      flex: 0 0 2.75rem;
+      inline-size: 2.75rem;
+      min-inline-size: 2.75rem;
+    }
+
+    > .v-spacer {
+      display: none;
+    }
+  }
+}
+
 // 路由过渡动画
 .fade-slide-leave-active,
 .fade-slide-enter-active {
@@ -1077,6 +1124,19 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-dialog--fullscreen > .v-overlay__content {
   border-radius: 0 !important;
   box-shadow: none !important;
+  display: flex;
+  inline-size: 100%;
+  inset-inline: 0 !important;
+  justify-content: center;
+  margin-inline: auto;
+}
+
+// 全屏弹窗触发后，未横向铺满的卡片仍保持居中。
+.v-dialog--fullscreen > .v-overlay__content > .v-card,
+.v-dialog--fullscreen > .v-overlay__content > .v-sheet,
+.v-dialog--fullscreen > .v-overlay__content > form {
+  margin-inline: auto;
+  max-inline-size: 100%;
 }
 
 .v-dialog > .v-overlay__content {

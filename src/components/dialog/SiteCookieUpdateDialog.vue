@@ -110,9 +110,11 @@ async function updateSiteCookie() {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="mx-auto">
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
         <VBtn
-          size="large"
+          color="primary"
+          variant="flat"
           @click="updateSiteCookie"
           :disabled="updateButtonDisable"
           :loading="updateButtonDisable"

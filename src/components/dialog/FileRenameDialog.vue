@@ -81,11 +81,19 @@ function closeDialog() {
           </VCol>
         </VRow>
       </VCardText>
-      <VCardActions>
-        <VBtn color="success" prepend-icon="mdi-magic" class="px-5 me-3" @click="emit('auto-name')">
+      <VCardActions class="app-dialog-actions">
+        <VBtn color="success" variant="tonal" prepend-icon="mdi-magic" @click="emit('auto-name')">
           {{ t('file.autoRecognizeName') }}
         </VBtn>
-        <VBtn :disabled="!renameName" prepend-icon="mdi-check" class="px-5 me-3" @click="emit('rename')">
+        <VSpacer />
+        <VBtn
+          color="primary"
+          variant="flat"
+          :disabled="!renameName"
+          prepend-icon="mdi-check"
+          class="px-5"
+          @click="emit('rename')"
+        >
           {{ t('common.confirm') }}
         </VBtn>
       </VCardActions>

@@ -54,9 +54,9 @@ function closeDialog() {
           @keyup.enter="emit('create')"
         />
       </VCardText>
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" prepend-icon="mdi-folder-plus" class="px-5" @click="emit('create')">
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-folder-plus" class="px-5" @click="emit('create')">
           {{ t('plugin.create') }}
         </VBtn>
       </VCardActions>

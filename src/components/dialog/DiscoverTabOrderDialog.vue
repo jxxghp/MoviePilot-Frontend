@@ -88,9 +88,9 @@ function submitOrder() {
           </template>
         </draggable>
       </VCardText>
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn @click="submitOrder">
+        <VBtn color="primary" variant="flat" class="px-5" @click="submitOrder">
           <template #prepend>
             <VIcon icon="mdi-content-save" />
           </template>

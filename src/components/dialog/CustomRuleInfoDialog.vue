@@ -199,8 +199,9 @@ onMounted(() => {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
-        <VBtn @click="saveRuleInfo" prepend-icon="mdi-content-save" class="px-5">
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
+        <VBtn color="primary" variant="flat" @click="saveRuleInfo" prepend-icon="mdi-content-save" class="px-5">
           {{ t('customRule.action.confirm') }}
         </VBtn>
       </VCardActions>

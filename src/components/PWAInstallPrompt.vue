@@ -163,9 +163,9 @@ const instructions = computed(() => {
         </VAlert>
       </VCardText>
 
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" variant="text" @click="showInstructions = false">
+        <VBtn color="primary" variant="flat" class="px-5" @click="showInstructions = false">
           {{ t('pwa.gotIt') }}
         </VBtn>
       </VCardActions>

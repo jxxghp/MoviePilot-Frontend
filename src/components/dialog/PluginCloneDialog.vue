@@ -154,10 +154,11 @@ onMounted(() => {
           </VRow>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
         <VBtn
           color="primary"
+          variant="flat"
           @click="submitClone"
           prepend-icon="mdi-content-copy"
           class="px-5"

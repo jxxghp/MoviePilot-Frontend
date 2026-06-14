@@ -52,9 +52,16 @@ function closeDialog() {
       <VCardText>
         <VTextField v-model="folderName" :label="t('common.name')" prepend-inner-icon="mdi-format-text" />
       </VCardText>
-      <VCardActions>
-        <div class="flex-grow-1" />
-        <VBtn :disabled="!folderName" prepend-icon="mdi-folder-plus" class="px-5 me-3" @click="emit('create')">
+      <VCardActions class="app-dialog-actions">
+        <VSpacer />
+        <VBtn
+          color="primary"
+          variant="flat"
+          :disabled="!folderName"
+          prepend-icon="mdi-folder-plus"
+          class="px-5"
+          @click="emit('create')"
+        >
           {{ t('common.create') }}
         </VBtn>
       </VCardActions>

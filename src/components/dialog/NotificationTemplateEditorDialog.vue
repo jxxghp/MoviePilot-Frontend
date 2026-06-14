@@ -92,8 +92,9 @@ function submitTemplate() {
           class="template-ace-editor"
         />
       </div>
-      <VCardActions class="template-editor-actions">
-        <VBtn color="primary" prepend-icon="mdi-content-save" class="px-5" @click="submitTemplate">
+      <VCardActions class="app-dialog-actions template-editor-actions">
+        <VSpacer />
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-content-save" class="px-5" @click="submitTemplate">
           {{ t('common.save') }}
         </VBtn>
       </VCardActions>

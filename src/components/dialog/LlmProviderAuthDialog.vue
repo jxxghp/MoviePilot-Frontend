@@ -43,7 +43,10 @@ function closeDialog() {
 <template>
   <VDialog v-if="visible" v-model="visible" max-width="560">
     <VCard>
-      <VCardTitle>{{ t('setting.system.llmProviderAuthDialogTitle') }}</VCardTitle>
+      <VCardItem>
+        <VCardTitle>{{ t('setting.system.llmProviderAuthDialogTitle') }}</VCardTitle>
+      </VCardItem>
+      <VDivider />
       <VCardText class="d-flex flex-column ga-4">
         <VAlert v-if="props.authSession?.instructions" type="info" variant="tonal">
           {{ props.authSession.instructions }}
@@ -71,9 +74,9 @@ function closeDialog() {
           </VBtn>
         </div>
       </VCardText>
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn variant="text" @click="closeDialog">
+        <VBtn color="primary" variant="flat" class="px-5" @click="closeDialog">
           {{ t('common.close') }}
         </VBtn>
       </VCardActions>

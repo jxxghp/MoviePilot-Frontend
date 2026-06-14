@@ -294,18 +294,23 @@ onMounted(() => {
           </Draggable>
           <div class="text-center" v-if="filterRuleCards.length == 0">{{ t('filterRule.add') }}</div>
         </VCardText>
-        <VCardActions class="pt-3">
-          <VBtn color="primary" @click="addFilterCard">
+        <VCardActions class="app-dialog-actions">
+          <VBtn color="primary" variant="tonal" class="app-dialog-actions__icon-btn" @click="addFilterCard">
             <VIcon icon="mdi-plus" />
           </VBtn>
-          <VBtn color="success" @click="importRules('priority')">
+          <VBtn
+            color="success"
+            variant="tonal"
+            class="app-dialog-actions__icon-btn"
+            @click="importRules('priority')"
+          >
             <VIcon icon="mdi-import" />
           </VBtn>
-          <VBtn color="info" @click="shareRules">
+          <VBtn color="info" variant="tonal" class="app-dialog-actions__icon-btn" @click="shareRules">
             <VIcon icon="mdi-share" />
           </VBtn>
           <VSpacer />
-          <VBtn @click="saveGroupInfo" prepend-icon="mdi-content-save" class="px-5">
+          <VBtn color="primary" variant="flat" @click="saveGroupInfo" prepend-icon="mdi-content-save" class="px-5">
             {{ t('common.save') }}
           </VBtn>
         </VCardActions>

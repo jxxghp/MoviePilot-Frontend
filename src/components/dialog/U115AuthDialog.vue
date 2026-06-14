@@ -225,11 +225,11 @@ onUnmounted(() => {
         </div>
       </VCardText>
 
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VBtn
           color="error"
+          variant="tonal"
           prepend-icon="mdi-restore"
-          class="px-5 me-3"
           @click="handleReset"
         >
           {{ t('dialog.u115Auth.reset') }}
@@ -238,8 +238,10 @@ onUnmounted(() => {
         <VSpacer />
 
         <VBtn
+          color="primary"
+          variant="flat"
           prepend-icon="mdi-check"
-          class="px-5 me-3"
+          class="px-5"
           @click="handleDone"
         >
           {{ t('dialog.u115Auth.complete') }}

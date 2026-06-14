@@ -290,7 +290,7 @@ onMounted(() => {
         </div>
         <VDialogCloseBtn @click="emit('close')" />
       </VCardItem>
-
+      <VDivider />
       <VCardText class="plugin-market-dialog-body pt-4">
         <div class="plugin-market-toolbar">
           <div class="plugin-market-toolbar-hint">
@@ -478,9 +478,9 @@ onMounted(() => {
         </div>
       </VCardText>
 
-      <VCardActions class="plugin-market-actions">
+      <VCardActions class="app-dialog-actions">
         <VBtn
-          color="primary"
+          color="success"
           variant="tonal"
           prepend-icon="mdi-cloud-sync-outline"
           :loading="syncingWiki"
@@ -735,17 +735,6 @@ onMounted(() => {
   }
 }
 
-.plugin-market-actions {
-  flex: 0 0 auto;
-  gap: 0.5rem;
-  padding-block: 0.75rem 1rem;
-  padding-inline: 1.5rem;
-
-  :deep(.v-btn) {
-    flex: 0 0 auto;
-  }
-}
-
 @media (width <= 600px) {
   .plugin-market-dialog-card {
     block-size: 100dvh;
@@ -798,21 +787,6 @@ onMounted(() => {
 
   .plugin-market-empty {
     min-block-size: 10rem;
-  }
-
-  .plugin-market-actions {
-    flex-wrap: wrap;
-    padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
-    padding-inline: 1rem;
-
-    :deep(.v-btn) {
-      flex: 1 1 9rem;
-      min-inline-size: 0;
-    }
-
-    :deep(.v-spacer) {
-      display: none;
-    }
   }
 }
 </style>

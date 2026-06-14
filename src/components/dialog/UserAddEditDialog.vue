@@ -612,12 +612,13 @@ onMounted(() => {
           </div>
         </VForm>
       </VCardText>
-      <VCardActions class="pt-3">
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
         <VBtn
           v-if="props.oper === 'add'"
           :disabled="isAdding"
           color="primary"
+          variant="flat"
           @click="addUser"
           prepend-icon="mdi-plus"
           class="px-5"
@@ -629,6 +630,7 @@ onMounted(() => {
           v-else
           :disabled="isUpdating"
           color="primary"
+          variant="flat"
           @click="updateUser"
           prepend-icon="mdi-content-save"
           class="px-5"

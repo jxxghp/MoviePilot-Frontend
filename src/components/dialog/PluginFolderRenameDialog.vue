@@ -57,9 +57,9 @@ function confirmRename() {
           @keyup.enter="confirmRename"
         />
       </VCardText>
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" prepend-icon="mdi-check" class="px-5" @click="confirmRename">确认</VBtn>
+        <VBtn color="primary" variant="flat" prepend-icon="mdi-check" class="px-5" @click="confirmRename">确认</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

@@ -84,9 +84,16 @@ function submitReidentify() {
         </VAlert>
       </VCardText>
 
-      <VCardActions>
+      <VCardActions class="app-dialog-actions">
         <VSpacer />
-        <VBtn color="primary" :loading="props.loading" prepend-icon="mdi-check" @click="submitReidentify">
+        <VBtn
+          color="primary"
+          variant="flat"
+          :loading="props.loading"
+          prepend-icon="mdi-check"
+          class="px-5"
+          @click="submitReidentify"
+        >
           {{ t('setting.cache.reidentifyDialog.confirm') }}
         </VBtn>
       </VCardActions>

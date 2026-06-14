@@ -138,12 +138,12 @@ onUnmounted(() => {
           </VAlert>
         </div>
       </VCardText>
-      <VCardActions>
-        <VBtn color="error" @click="handleReset" prepend-icon="mdi-restore" class="px-5 me-3">
+      <VCardActions class="app-dialog-actions">
+        <VBtn color="error" variant="tonal" @click="handleReset" prepend-icon="mdi-restore">
           {{ t('dialog.aliyunAuth.reset') }}
         </VBtn>
         <VSpacer />
-        <VBtn @click="handleDone" prepend-icon="mdi-check" class="px-5 me-3">
+        <VBtn color="primary" variant="flat" @click="handleDone" prepend-icon="mdi-check" class="px-5">
           {{ t('dialog.aliyunAuth.complete') }}
         </VBtn>
       </VCardActions>
