@@ -1565,7 +1565,7 @@ export default {
       llmTestFailedToast: 'LLM 調用測試失敗',
       llmTestFailedToastWithMessage: 'LLM 調用測試失敗：{message}',
       aiAgentGlobal: '全局智能助手',
-      aiAgentGlobalHint: '啟用全域智慧助手後，所有對話將預設使用智慧助手，使用 /noai 指令可切換為傳統搜尋互動；關閉全域智慧助手後，將預設使用傳統搜尋互動，使用 /ai 指令可與智慧助手互動',
+      aiAgentGlobalHint: '啟用全域智慧助手：預設使用智慧體互動，使用 /noai 暫時切換為傳統互動；停用全域智慧助手：預設使用傳統互動，使用 /ai 暫時切換為智慧體互動',
       aiAgentJobInterval: '定時喚醒',
       aiAgentJobIntervalHint: '設置定時喚醒的檢查間隔，選擇「不啟用」則不執行定時任務',
       aiAgentVerbose: '囉嗦模式',
