@@ -20,7 +20,14 @@ import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federa
 const LoginMfaDialog = defineAsyncComponent(() => import('@/components/dialog/LoginMfaDialog.vue'))
 
 // 国际化
-const { t } = useI18n()
+const { t, te } = useI18n()
+
+// 应用版本号（构建时注入，形如 v2.13.10）
+const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : ''
+
+// 版权年份
+const copyrightYear = new Date().getFullYear()
+
 // 认证 Store
 const authStore = useAuthStore()
 //用户 Store
@@ -711,53 +718,49 @@ onUnmounted(() => {
 
 <template>
   <!-- 登录页面容器 -->
-  <div class="relative flex min-h-screen flex-col items-center justify-center">
+  <div class="login-root">
+    <!-- 顶部漂浮语言切换 -->
+    <VMenu v-model="langMenu" :close-on-content-click="false">
+      <template #activator="{ props }">
+        <VBtn variant="text" size="small" v-bind="props" class="lang-switch-btn">
+          <span v-if="SUPPORTED_LOCALES[currentLocale].flag">{{ SUPPORTED_LOCALES[currentLocale].flag }}</span>
+          <VIcon v-else icon="mdi-translate" />
+          <span class="ms-1">{{ SUPPORTED_LOCALES[currentLocale].title }}</span>
+        </VBtn>
+      </template>
+      <VCard min-width="180">
+        <VList>
+          <VListItem
+            v-for="locale in locales"
+            :key="locale.name"
+            :value="locale.name"
+            @click="switchLanguage(locale.name as SupportedLocale)"
+          >
+            <template #prepend>
+              <span v-if="locale.flag" class="mr-2">{{ locale.flag }}</span>
+              <VIcon v-else icon="mdi-translate" size="small" />
+            </template>
+            <VListItemTitle>{{ locale.title }}</VListItemTitle>
+          </VListItem>
+        </VList>
+      </VCard>
+    </VMenu>
+
     <!-- 登录表单 -->
     <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card pa-7 w-full h-full"
+        class="auth-card login-card pa-7 pa-sm-8 w-full h-full login-card--enter"
         :class="{ 'glass-effect': !isTransparentTheme }"
-        max-width="24rem"
-        border
+        max-width="23rem"
+        flat
       >
-        <VCardItem class="justify-center">
-          <template #prepend>
-            <div class="d-flex pe-0">
-              <VImg :src="logo" width="64" height="64" />
-            </div>
-          </template>
-          <VCardTitle class="font-weight-bold text-3xl text-uppercase"> MoviePilot </VCardTitle>
+        <!-- 卡片头部：Logo + 标题 + 标语 -->
+        <div class="login-head">
+          <VImg :src="logo" width="72" height="72" class="login-logo" />
+          <h1 class="login-title">MoviePilot</h1>
+        </div>
 
-          <!-- 语言切换按钮 -->
-          <template #append>
-            <VMenu v-model="langMenu" :close-on-content-click="false">
-              <template #activator="{ props }">
-                <VBtn variant="text" size="small" v-bind="props" class="lang-switch-btn">
-                  <span v-if="SUPPORTED_LOCALES[currentLocale].flag">{{ SUPPORTED_LOCALES[currentLocale].flag }}</span>
-                  <VIcon v-else icon="mdi-translate" />
-                  <span class="ms-1">{{ SUPPORTED_LOCALES[currentLocale].title }}</span>
-                </VBtn>
-              </template>
-              <VCard min-width="180">
-                <VList>
-                  <VListItem
-                    v-for="locale in locales"
-                    :key="locale.name"
-                    :value="locale.name"
-                    @click="switchLanguage(locale.name as SupportedLocale)"
-                  >
-                    <template #prepend>
-                      <span v-if="locale.flag" class="mr-2">{{ locale.flag }}</span>
-                      <VIcon v-else icon="mdi-translate" size="small" />
-                    </template>
-                    <VListItemTitle>{{ locale.title }}</VListItemTitle>
-                  </VListItem>
-                </VList>
-              </VCard>
-            </VMenu>
-          </template>
-        </VCardItem>
-        <VCardText>
+        <VCardText class="login-body">
           <VForm ref="refForm" autocomplete="on" @submit.prevent="login">
             <VRow>
               <!-- username -->
@@ -772,6 +775,8 @@ onUnmounted(() => {
                   autocomplete="username"
                   :rules="[requiredValidator]"
                   hide-details
+                  variant="outlined"
+                  density="comfortable"
                   @input="scheduleLoginAutofillSync"
                   @change="scheduleLoginAutofillSync"
                 />
@@ -788,6 +793,8 @@ onUnmounted(() => {
                   :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                   :rules="[requiredValidator]"
                   hide-details
+                  variant="outlined"
+                  density="comfortable"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                   @input="scheduleLoginAutofillSync"
                   @change="scheduleLoginAutofillSync"
@@ -796,17 +803,23 @@ onUnmounted(() => {
               <VCol cols="12" class="py-0">
                 <!-- remember me checkbox -->
                 <div class="d-flex align-center justify-space-between flex-wrap">
-                  <VCheckbox v-model="form.remember" :label="t('login.stayLoggedIn')" required />
+                  <VCheckbox
+                    v-model="form.remember"
+                    :label="t('login.stayLoggedIn')"
+                    required
+                    hide-details
+                    density="compact"
+                  />
                 </div>
               </VCol>
               <VCol cols="12">
                 <!-- login button -->
-                <VBtn block type="submit" prepend-icon="mdi-login" :loading="loading" size="large">
+                <VBtn block type="submit" prepend-icon="mdi-login" :loading="loading" size="large" class="login-submit">
                   {{ t('login.login') }}
                 </VBtn>
 
                 <!-- or divider -->
-                <div v-if="showPasskeyLogin || pluginAuthProviders.length > 0" class="or-divider my-4">
+                <div v-if="showPasskeyLogin || pluginAuthProviders.length > 0" class="or-divider my-5">
                   <span class="or-divider-text">{{ t('login.orDivider') }}</span>
                 </div>
 
@@ -843,6 +856,12 @@ onUnmounted(() => {
             </VRow>
           </VForm>
         </VCardText>
+
+        <!-- 卡片页脚：版权 + 版本 -->
+        <div class="login-foot">
+          <span>{{ t('login.copyright', { year: copyrightYear }) }}</span>
+          <span v-if="appVersion" class="login-version">{{ appVersion }}</span>
+        </div>
       </VCard>
     </div>
     <VDialog v-model="pluginAuthDialog" max-width="520" persistent>
@@ -875,28 +894,154 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 @use '@core/scss/pages/page-auth';
 
-.v-card-item__prepend {
-  padding-inline-end: 0 !important;
+/* ===================== 布局根容器 ===================== */
+.login-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
 }
 
-.auth-wrapper {
-  overflow: hidden;
-  block-size: auto;
+/* 登录页需要透出 App.vue 注入的壁纸层。 */
+:global(.v-application:has(.login-root)) {
+  background: transparent !important;
 }
 
+/* ===================== 浮动语言切换 ===================== */
 .lang-switch-btn {
   position: absolute;
-  inset-block-start: 8px;
-  inset-inline-end: 8px;
+  z-index: 3;
+  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.6));
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  background: rgba(var(--v-theme-surface), 0.55);
+  inset-block-start: 16px;
+  inset-inline-end: 16px;
 }
 
+/* ===================== 表单容器 ===================== */
+.auth-wrapper {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  block-size: auto;
+  inline-size: 100%;
+  padding-inline: 16px;
+}
+
+/* ===================== 玻璃卡片 ===================== */
+.login-card {
+  position: relative;
+  z-index: 1;
+  border: none !important;
+  border-radius: var(--app-surface-radius, 16px) !important;
+  box-shadow: var(
+    --app-overlay-shadow,
+    0 18px 42px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.14),
+    0 6px 18px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.08)
+  ) !important;
+
+  /* 顶部高光线，营造立体感 */
+  &::before {
+    position: absolute;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 40%), transparent);
+    block-size: 1px;
+    content: '';
+    inset-block-start: 0;
+    inset-inline: 0;
+    pointer-events: none;
+  }
+}
+
+/* 非透明主题：磨砂玻璃卡片 */
 .glass-effect {
-  backdrop-filter: blur(10px) !important;
-  background: rgba(var(--v-theme-surface), 0.7) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  background: rgba(var(--v-theme-surface), 0.72) !important;
 }
 
+/* 深色主题上叠一条更亮的描边，区分背景 */
+:deep(.v-theme--dark) .login-card,
+:deep(.v-theme--purple) .login-card,
+:deep(.v-theme--transparent) .login-card {
+  border: 1px solid rgba(255, 255, 255, 8%) !important;
+}
+
+:deep(.v-theme--light) .login-card {
+  border: 1px solid rgba(255, 255, 255, 65%) !important;
+}
+
+/* ===================== 卡片头部 ===================== */
+.login-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-block-end: 6px;
+  text-align: center;
+}
+
+.login-logo {
+  filter: drop-shadow(0 6px 16px rgba(var(--v-theme-primary), 0.35));
+  margin-block-end: 4px;
+}
+
+.login-title {
+  margin: 0;
+  background: linear-gradient(120deg, rgb(var(--v-theme-on-surface)), rgba(var(--v-theme-primary), 1));
+  background-clip: text;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+}
+
+.login-tagline {
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* ===================== 卡片主体 ===================== */
+.login-body {
+  padding-block: 8px !important;
+}
+
+/* 输入框聚焦时增加主色光晕 */
+:deep(.login-body .v-field.v-field--focused) {
+  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.18);
+}
+
+/* 登录按钮：主色 + 悬浮抬升 */
+.login-submit {
+  box-shadow: 0 8px 20px rgba(var(--v-theme-primary), 0.35);
+  letter-spacing: 0.02em;
+  transition:
+    transform var(--mp-motion-duration-overlay, 160ms) var(--mp-motion-ease-standard, ease),
+    box-shadow var(--mp-motion-duration-overlay, 160ms) var(--mp-motion-ease-standard, ease);
+
+  &:hover {
+    box-shadow: 0 12px 26px rgba(var(--v-theme-primary), 0.42);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* or 分隔线 */
 .or-divider {
   position: relative;
   display: flex;
@@ -912,15 +1057,77 @@ onUnmounted(() => {
 
   .or-divider-text {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-    font-size: 0.8125rem;
-    padding-inline: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding-inline: 14px;
+    text-transform: uppercase;
     white-space: nowrap;
   }
 }
 
-.v-theme--light {
-  .passkey-btn.v-btn--variant-outlined {
-    color: rgb(86, 170, 0) !important;
+/* 浅色主题下 passkey 按钮保持绿色辨识度 */
+:deep(.v-theme--light) .passkey-btn.v-btn--variant-outlined {
+  color: rgb(86, 170, 0) !important;
+}
+
+/* ===================== 卡片页脚 ===================== */
+.login-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--v-theme-on-surface), calc(var(--v-disabled-opacity) * 1.4));
+  font-size: 0.72rem;
+  gap: 8px;
+  letter-spacing: 0.02em;
+  margin-block-start: 8px;
+}
+
+.login-version {
+  border-inline-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding-inline: 6px;
+}
+
+/* ===================== 入场动画 ===================== */
+.login-card--enter {
+  animation: login-enter 520ms var(--mp-motion-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+@keyframes login-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===================== 无障碍：尊重减少动态偏好 ===================== */
+@media (prefers-reduced-motion: reduce) {
+  .login-card--enter {
+    animation-duration: 1ms !important;
+  }
+
+  .login-submit {
+    transition: none !important;
+  }
+}
+
+/* ===================== 小屏适配 ===================== */
+@media (width <= 480px) {
+  .auth-wrapper {
+    padding-inline: 12px;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+
+  .login-card {
+    padding: 1.5rem !important;
   }
 }
 </style>

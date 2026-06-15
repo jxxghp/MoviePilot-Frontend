@@ -280,6 +280,8 @@ export default {
   },
   login: {
     wallpapers: '壁纸',
+    tagline: '你的智能影视媒体库',
+    copyright: '© {year} MoviePilot',
     username: '用户名',
     password: '密码',
     otpCode: '验证码',

@@ -281,6 +281,8 @@ export default {
   },
   login: {
     wallpapers: 'Wallpapers',
+    tagline: 'Your smart media library',
+    copyright: '© {year} MoviePilot',
     username: 'Username',
     password: 'Password',
     otpCode: 'Verification Code',
