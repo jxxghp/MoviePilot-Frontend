@@ -756,7 +756,7 @@ onUnmounted(() => {
       >
         <!-- 卡片头部：Logo + 标题 + 标语 -->
         <div class="login-head">
-          <VImg :src="logo" width="72" height="72" class="login-logo" />
+          <VImg :src="logo" width="68" height="68" class="login-logo" />
           <h1 class="login-title">MoviePilot</h1>
         </div>
 
@@ -923,8 +923,8 @@ onUnmounted(() => {
   border-radius: 999px;
   backdrop-filter: blur(10px);
   background: rgba(var(--v-theme-surface), 0.55);
-  inset-block-start: 16px;
-  inset-inline-end: 16px;
+  inset-block-start: calc(env(safe-area-inset-top, 0px) + 16px);
+  inset-inline-end: calc(env(safe-area-inset-right, 0px) + 16px);
 }
 
 /* ===================== 表单容器 ===================== */
@@ -997,9 +997,9 @@ onUnmounted(() => {
   margin: 0;
   background: linear-gradient(120deg, rgb(var(--v-theme-on-surface)), rgba(var(--v-theme-primary), 1));
   background-clip: text;
-  font-size: 1.75rem;
+  font-size: 1.8rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.025em;
   line-height: 1.2;
   -webkit-text-fill-color: transparent;
   text-transform: uppercase;
