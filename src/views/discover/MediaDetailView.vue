@@ -7,6 +7,7 @@ import type { MediaInfo, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from 
 import NoDataFound from '@/components/NoDataFound.vue'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
 import { formatSeason } from '@/@core/utils/formatters'
+import { formatSeasonLabel } from '@/@core/utils/season'
 import router from '@/router'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { useUserStore } from '@/stores'
@@ -807,8 +808,9 @@ onBeforeMount(() => {
                   <template #default>
                     <div class="flex flex-row items-center justify-between">
                       <span class="font-weight-bold">{{
-                        season.season_number === 0 && season.name ?
-                        season.name : t('media.seasonNumber', { number: season.season_number })
+                        season.season_number === 0
+                          ? season.name || formatSeasonLabel(0, t('media.specials'))
+                          : t('media.seasonNumber', { number: season.season_number })
                         }}</span>
                       <VChip size="small" class="ms-1">
                         {{ t('media.episodeCount', { count: season.episode_count }) }}

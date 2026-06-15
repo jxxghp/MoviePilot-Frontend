@@ -950,6 +950,7 @@ export default {
     minutes: 'minutes',
     overview: 'Overview',
     seasons: 'Seasons',
+    specials: 'Specials',
     seasonNumber: 'Season {number}',
     episodeCount: '{count} Episodes',
     actions: {

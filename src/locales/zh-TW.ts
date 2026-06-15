@@ -946,6 +946,7 @@ export default {
     minutes: '分鐘',
     overview: '簡介',
     seasons: '季',
+    specials: '特別篇',
     seasonNumber: '第 {number} 季',
     episodeCount: '{count}集',
     actions: {

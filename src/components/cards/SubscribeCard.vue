@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
-import { formatDateDifference, formatSeason } from '@/@core/utils/formatters'
+import { formatDateDifference } from '@/@core/utils/formatters'
+import { formatSeasonLabel } from '@/@core/utils/season'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
 import router from '@/router'
@@ -478,7 +479,7 @@ function handleCardClick() {
                   <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
                   <div class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden line-clamp-2 ...">
                     {{ props.media?.name }}
-                    {{ formatSeason(props.media?.season ? props.media?.season.toString() : '') }}
+                    {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
                   </div>
                 </div>
               </VCardText>
