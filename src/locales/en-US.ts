@@ -1577,7 +1577,7 @@ export default {
       llmTestFailedToastWithMessage: 'LLM test call failed: {message}',
       aiAgentGlobal: 'Global AI Assistant',
       aiAgentGlobalHint:
-        'Enable global AI assistant functionality, all message conversations will be answered by the AI agent without using the /ai command',
+        'Global AI Assistant On: AI assistant by default. Use /noai for traditional search; Global AI Assistant Off: Traditional search by default. Use /ai for AI assistant.',
       aiAgentJobInterval: 'Scheduled Wake',
       aiAgentJobIntervalHint:
         'Set the check interval for scheduled wake. Select "Disabled" to disable scheduled tasks.',
