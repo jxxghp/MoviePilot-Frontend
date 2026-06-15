@@ -1155,6 +1155,12 @@ export default {
   },
   calendar: {
     episode: '第{number}集',
+    libraryProgress: '已入库 {completed}/{total}',
+    currentEpisodeInLibrary: '本集已入库',
+    currentEpisodePartiallyInLibrary: '本集部分入库',
+    currentEpisodeNotInLibrary: '本集未入库',
+    libraryUpdatedAt: '最近更新 {time}',
+    libraryUpdatedAtShort: '{time}',
   },
   storage: {
     name: '名称',

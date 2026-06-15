@@ -1160,6 +1160,12 @@ export default {
   },
   calendar: {
     episode: 'Episode {number}',
+    libraryProgress: 'In library {completed}/{total}',
+    currentEpisodeInLibrary: 'Current in library',
+    currentEpisodePartiallyInLibrary: 'Partially in library',
+    currentEpisodeNotInLibrary: 'Current not in library',
+    libraryUpdatedAt: 'Updated {time}',
+    libraryUpdatedAtShort: '{time}',
   },
   storage: {
     name: 'Name',

@@ -7,8 +7,9 @@ import FullCalendar from '@fullcalendar/vue3'
 import type { Ref } from 'vue'
 import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
 import api from '@/api'
-import { formatEp, parseDate } from '@/@core/utils/formatters'
+import { formatDateDifference, formatEp, parseDate } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 import { getCurrentLocale } from '@/plugins/i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
@@ -16,6 +17,9 @@ const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/Pr
 
 // 国际化
 const { t } = useI18n()
+
+// 跟随 Vuetify 断点，MD 及以下使用小屏海报模式。
+const display = useDisplay()
 
 // 加载中
 const loading = ref(false)
@@ -27,6 +31,25 @@ const isLoaded = ref(false)
 const currentLocale = getCurrentLocale().split('-')[0]
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+type CalendarLibraryState = 'none' | 'partial' | 'complete'
+
+interface CalendarEventInfo {
+  title: string
+  subtitle: string
+  start: Date | null
+  allDay: boolean
+  posterPath: string | undefined
+  mediaType: string
+  len: number
+  episodeNumbers: number[]
+  libraryEpisode: number
+  lackEpisode: number
+  totalEpisode: number
+  libraryEpisodeNumbers: number[]
+  libraryState: CalendarLibraryState
+  libraryUpdateText: string
+}
 
 // 打开订阅日历共享进度弹窗。
 function openProgressDialog() {
@@ -62,6 +85,10 @@ const calendarOptions: Ref<CalendarOptions> = ref({
     center: 'title',
     right: 'next',
   },
+  // 日历页需要完整展示每天所有订阅条目，避免折叠成 "+ more" 后隐藏关键信息。
+  dayMaxEvents: false,
+  dayMaxEventRows: false,
+  eventDisplay: 'block',
   views: {
     week: {
       titleFormat: { day: 'numeric' },
@@ -69,6 +96,116 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   },
   events: [],
 })
+
+function clampEpisodeCount(value: number, total: number) {
+  return Math.min(Math.max(value, 0), total)
+}
+
+function getLibraryEpisodeCount(subscribe: Subscribe) {
+  const totalEpisode = subscribe.total_episode || 0
+  if (!totalEpisode) return 0
+
+  const libraryEpisode =
+    typeof subscribe.lack_episode === 'number'
+      ? totalEpisode - subscribe.lack_episode
+      : subscribe.completed_episode ?? 0
+
+  return clampEpisodeCount(libraryEpisode, totalEpisode)
+}
+
+function getLackEpisodeCount(subscribe: Subscribe) {
+  const totalEpisode = subscribe.total_episode || 0
+  if (!totalEpisode) return 0
+
+  return clampEpisodeCount(subscribe.lack_episode ?? totalEpisode - getLibraryEpisodeCount(subscribe), totalEpisode)
+}
+
+function normalizeEpisodeNumbers(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(number => Number(number))
+    .filter(number => Number.isFinite(number) && number > 0)
+}
+
+function isEnabledFlag(value: unknown) {
+  return value === true || value === 1 || value === '1'
+}
+
+function getLibraryEpisodeNumbers(subscribe: Subscribe) {
+  if (isEnabledFlag(subscribe.best_version)) {
+    return Object.entries(subscribe.episode_priority || {})
+      .filter(([episode, priority]) => Number.isFinite(Number(episode)) && priority === 100)
+      .map(([episode]) => Number(episode))
+  }
+
+  return normalizeEpisodeNumbers(subscribe.note)
+}
+
+function getLibraryState(
+  episodeNumbers: number[],
+  libraryEpisode: number,
+  libraryEpisodeNumbers: number[],
+): CalendarLibraryState {
+  const validEpisodeNumbers = episodeNumbers.filter(number => Number.isFinite(number) && number > 0)
+  if (!validEpisodeNumbers.length || !libraryEpisode) return 'none'
+
+  // 后端存在具体集号时优先精确匹配；缺少明细时才按聚合进度做保守降级展示。
+  const matchedEpisodeCount = libraryEpisodeNumbers.length
+    ? validEpisodeNumbers.filter(number => libraryEpisodeNumbers.includes(number)).length
+    : validEpisodeNumbers.filter(number => number <= libraryEpisode).length
+  if (!matchedEpisodeCount) return 'none'
+
+  return matchedEpisodeCount === validEpisodeNumbers.length ? 'complete' : 'partial'
+}
+
+function buildCalendarEventInfo(
+  subscribe: Subscribe,
+  payload: Pick<CalendarEventInfo, 'subtitle' | 'start' | 'episodeNumbers' | 'len'>,
+): CalendarEventInfo {
+  const totalEpisode = subscribe.total_episode || 0
+  const libraryEpisode = getLibraryEpisodeCount(subscribe)
+  const lackEpisode = getLackEpisodeCount(subscribe)
+  const libraryEpisodeNumbers = getLibraryEpisodeNumbers(subscribe)
+
+  return {
+    title: subscribe.name || '',
+    allDay: false,
+    posterPath: subscribe.poster,
+    mediaType: subscribe.type || '',
+    totalEpisode,
+    libraryEpisode,
+    lackEpisode,
+    libraryEpisodeNumbers,
+    libraryState: getLibraryState(payload.episodeNumbers, libraryEpisode, libraryEpisodeNumbers),
+    libraryUpdateText: libraryEpisode > 0 && subscribe.last_update ? formatDateDifference(subscribe.last_update) : '',
+    ...payload,
+  }
+}
+
+function getCalendarEventTooltip(event: any) {
+  const props = event.extendedProps as CalendarEventInfo
+  const parts = [event.title]
+
+  if (props.subtitle) parts.push(t('calendar.episode', { number: props.subtitle }))
+  if (props.totalEpisode) {
+    parts.push(t('calendar.libraryProgress', { completed: props.libraryEpisode, total: props.totalEpisode }))
+  }
+  if (props.libraryUpdateText) parts.push(t('calendar.libraryUpdatedAt', { time: props.libraryUpdateText }))
+
+  return parts.filter(Boolean).join(' · ')
+}
+
+function getLibraryStateText(state: CalendarLibraryState) {
+  if (state === 'complete') return t('calendar.currentEpisodeInLibrary')
+  if (state === 'partial') return t('calendar.currentEpisodePartiallyInLibrary')
+  return t('calendar.currentEpisodeNotInLibrary')
+}
+
+function getLibraryStateIcon(state: CalendarLibraryState) {
+  if (state === 'none') return 'mdi-minus-circle-outline'
+  return 'mdi-check-circle-outline'
+}
 
 async function eventsHander(subscribe: Subscribe) {
   // 如果是电影直接返回
@@ -78,15 +215,12 @@ async function eventsHander(subscribe: Subscribe) {
       params: { type_name: subscribe.type },
     })
 
-    return {
-      title: subscribe.name,
+    return buildCalendarEventInfo(subscribe, {
       subtitle: '',
       start: parseDate(movie.release_date || ''),
-      allDay: false,
-      posterPath: subscribe.poster,
-      mediaType: subscribe.type,
       len: 1,
-    }
+      episodeNumbers: [],
+    })
   } else {
     // 调用API查询集信息
     const params = subscribe.episode_group ? { episode_group: subscribe.episode_group } : undefined
@@ -95,40 +229,35 @@ async function eventsHander(subscribe: Subscribe) {
       params ? { params } : undefined,
     )
 
-    interface EpisodeInfo {
-      title: string
-      subtitle: string
-      start: Date | null
-      allDay: boolean
-      posterPath: string | undefined
-      mediaType: string
-      len: number
-    }
-
     interface EpisodesDictionary {
-      [key: string]: EpisodeInfo
+      [key: string]: CalendarEventInfo
     }
 
     const dictEpisode: EpisodesDictionary = {}
     episodes.forEach((episode: TmdbEpisode) => {
       const air_date = episode.air_date ?? ''
+      const episodeNumber = episode.episode_number || 0
       if (dictEpisode[air_date]) {
-        dictEpisode[air_date].subtitle += `,${episode.episode_number}`
+        dictEpisode[air_date].episodeNumbers.push(episodeNumber)
         dictEpisode[air_date].len++
       } else {
-        dictEpisode[air_date] = {
-          title: subscribe.name,
-          subtitle: `${episode.episode_number}`,
+        dictEpisode[air_date] = buildCalendarEventInfo(subscribe, {
+          subtitle: '',
           start: parseDate(episode.air_date || ''),
-          allDay: false,
-          posterPath: subscribe.poster,
-          mediaType: subscribe.type,
           len: 1,
-        }
+          episodeNumbers: [episodeNumber],
+        })
       }
     })
-    for (const key in dictEpisode)
-      dictEpisode[key].subtitle = formatEp(dictEpisode[key].subtitle.split(',').map(Number))
+    for (const key in dictEpisode) {
+      const episodeNumbers = dictEpisode[key].episodeNumbers.filter(number => Number.isFinite(number) && number > 0)
+      dictEpisode[key].subtitle = formatEp(episodeNumbers)
+      dictEpisode[key].libraryState = getLibraryState(
+        episodeNumbers,
+        dictEpisode[key].libraryEpisode,
+        dictEpisode[key].libraryEpisodeNumbers,
+      )
+    }
 
     return Object.values(dictEpisode)
   }
@@ -168,46 +297,19 @@ onActivated(() => {
 <template>
   <FullCalendar :options="calendarOptions">
     <template #eventContent="arg">
-      <div class="hidden md:block">
-        <VCard class="app-surface">
-          <div class="d-flex justify-space-between flex-nowrap flex-row">
-            <div class="ma-auto">
-              <VImg
-                height="75"
-                width="50"
-                :src="arg.event.extendedProps.posterPath"
-                aspect-ratio="2/3"
-                class="object-cover rounded ring-gray-500"
-                cover
-              >
-                <template #placeholder>
-                  <div class="w-full h-full">
-                    <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                  </div>
-                </template>
-              </VImg>
-            </div>
-            <div>
-              <VCardSubtitle class="pa-1 px-2 font-bold break-words whitespace-break-spaces">
-                {{ arg.event.title }}
-              </VCardSubtitle>
-              <VCardText v-if="arg.event.extendedProps.subtitle" class="pa-0 px-2 break-words">
-                {{ t('calendar.episode', { number: arg.event.extendedProps.subtitle }) }}
-              </VCardText>
-            </div>
-          </div>
-        </VCard>
-      </div>
-      <div class="md:hidden">
-        <VTooltip :text="`${arg.event.title} ${t('calendar.episode', { number: arg.event.extendedProps.subtitle })}`">
-          <template #activator="{ props }">
+      <div v-if="display.lgAndUp.value">
+        <div
+          class="calendar-event-card"
+          :class="`calendar-event-card--${arg.event.extendedProps.libraryState}`"
+          :title="getCalendarEventTooltip(arg.event)"
+        >
+          <div class="calendar-event-poster">
             <VImg
-              height="60"
-              width="40"
+              height="74"
+              width="50"
               :src="arg.event.extendedProps.posterPath"
-              v-bind="props"
               aspect-ratio="2/3"
-              class="object-cover rounded ring-gray-500"
+              class="calendar-event-image object-cover"
               cover
             >
               <template #placeholder>
@@ -215,18 +317,72 @@ onActivated(() => {
                   <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
                 </div>
               </template>
-              <VChip
-                v-if="arg.event.extendedProps.len > 1"
-                variant="elevated"
-                color="primary"
-                size="x-small"
-                class="absolute right-0 top-0"
-              >
-                {{ arg.event.extendedProps.len }}
-              </VChip>
             </VImg>
+            <span
+              v-if="arg.event.extendedProps.libraryState === 'complete'"
+              class="calendar-library-check"
+            >
+              <VIcon icon="mdi-check" size="12" />
+            </span>
+          </div>
+
+          <div class="calendar-event-content">
+            <div class="calendar-event-title">
+              {{ arg.event.title }}
+            </div>
+            <div v-if="arg.event.extendedProps.subtitle" class="calendar-event-episode">
+              <VIcon icon="mdi-calendar-blank-outline" size="13" />
+              {{ t('calendar.episode', { number: arg.event.extendedProps.subtitle }) }}
+            </div>
+            <div v-if="arg.event.extendedProps.totalEpisode" class="calendar-event-library-row">
+              <span
+                v-if="arg.event.extendedProps.libraryState !== 'complete'"
+                class="calendar-event-status"
+                :class="`calendar-event-status--${arg.event.extendedProps.libraryState}`"
+              >
+                <VIcon :icon="getLibraryStateIcon(arg.event.extendedProps.libraryState)" size="13" />
+                {{ getLibraryStateText(arg.event.extendedProps.libraryState) }}
+              </span>
+              <span class="calendar-event-progress">
+                <VIcon icon="mdi-library" size="13" />
+                {{
+                  t('calendar.libraryProgress', {
+                    completed: arg.event.extendedProps.libraryEpisode,
+                    total: arg.event.extendedProps.totalEpisode,
+                  })
+                }}
+              </span>
+            </div>
+            <div v-if="arg.event.extendedProps.libraryUpdateText" class="calendar-event-time">
+              <VIcon icon="mdi-clock-outline" size="13" />
+              {{ t('calendar.libraryUpdatedAtShort', { time: arg.event.extendedProps.libraryUpdateText }) }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else>
+        <VImg
+          :src="arg.event.extendedProps.posterPath"
+          aspect-ratio="2/3"
+          class="calendar-mobile-image object-cover ring-gray-500"
+          cover
+          :title="getCalendarEventTooltip(arg.event)"
+        >
+          <template #placeholder>
+            <div class="w-full h-full">
+              <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+            </div>
           </template>
-        </VTooltip>
+          <span
+            v-if="arg.event.extendedProps.libraryState === 'complete'"
+            class="calendar-library-check calendar-library-check--mobile"
+          >
+            <VIcon icon="mdi-check" size="11" />
+          </span>
+          <span v-if="arg.event.extendedProps.subtitle" class="calendar-mobile-episode">
+            {{ arg.event.extendedProps.subtitle }}
+          </span>
+        </VImg>
       </div>
     </template>
   </FullCalendar>
@@ -402,17 +558,21 @@ onActivated(() => {
   min-block-size: 40.625rem;
 }
 
-.v-application .fc .fc-event {
+.v-application .fc .fc-event,
+.v-application .fc .fc-h-event,
+.v-application .fc .fc-daygrid-event {
   border-color: transparent;
+  background: transparent !important;
+  box-shadow: none;
   margin-block-end: 0.3rem;
-  padding-inline: 0.3125rem;
+  padding: 0 !important;
 }
 
 .v-application .fc .fc-event-main {
   color: inherit;
   font-size: 0.75rem;
   font-weight: 500;
-  padding-inline: 0.25rem;
+  padding: 0 !important;
 }
 
 .v-application .fc tbody[role='rowgroup'] > tr > td[role='presentation'] {
@@ -505,10 +665,169 @@ onActivated(() => {
 }
 
 .v-application .fc-v-event {
-  background-color: transparent;
+  border: 0 !important;
+  background-color: transparent !important;
 }
 
-@media (width <= 776px) {
+.calendar-event-card {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  padding: 0.4rem;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.72);
+  overflow: hidden;
+}
+
+.calendar-event-poster {
+  position: relative;
+  flex: 0 0 56px;
+  inline-size: 56px;
+}
+
+.calendar-event-image {
+  border-radius: 6px;
+  block-size: 84px !important;
+  inline-size: 56px !important;
+}
+
+.calendar-library-check {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.18rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgb(var(--v-theme-surface));
+  border-radius: 50%;
+  background: rgb(var(--v-theme-success));
+  block-size: 1.15rem;
+  color: rgb(var(--v-theme-on-success));
+  inline-size: 1.15rem;
+}
+
+.calendar-library-check--mobile {
+  top: 0.12rem;
+  right: 0.12rem;
+  block-size: 1rem;
+  inline-size: 1rem;
+}
+
+.calendar-event-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-inline-size: 0;
+}
+
+.calendar-event-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.28;
+  max-block-size: calc(0.88rem * 1.28 * 2);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.calendar-event-episode {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  column-gap: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-event-episode,
+.calendar-event-time {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  column-gap: 0.2rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-event-library-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem 0.3rem;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.calendar-event-status,
+.calendar-event-progress {
+  display: inline-flex;
+  align-items: center;
+  color: rgb(var(--v-theme-success));
+  column-gap: 0.16rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.calendar-event-status--none {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.calendar-event-progress {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.calendar-event-time {
+  font-size: 0.64rem;
+}
+
+.calendar-event-status,
+.calendar-event-progress,
+.calendar-event-time {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-mobile-image {
+  border-radius: 6px;
+  block-size: clamp(60px, 8.7vw, 96px) !important;
+  inline-size: clamp(40px, 5.8vw, 64px) !important;
+}
+
+.calendar-mobile-episode {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.25;
+  padding-block: 0.1rem;
+  padding-inline: 0.2rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (width <= 1279px) {
   .fc-daygrid-event-harness {
     display: flex;
     align-items: center;

@@ -49,7 +49,7 @@ export interface Subscribe {
   // 已完成集数（普通订阅 = 已入库集数，洗版订阅 = 起始集前 + [start, total] 范围内 priority==100 命中数）
   completed_episode?: number
   // 附加信息
-  note?: string
+  note?: string | number[]
   // 状态：N-新建 R-订阅中 P-待定 S-暂停
   state: string
   // 最后更新时间
