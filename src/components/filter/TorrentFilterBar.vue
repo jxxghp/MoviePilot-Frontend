@@ -372,7 +372,7 @@ onMounted(() => {
             :key="key"
             variant="tonal"
             size="small"
-            :color="filterForm[key].length > 0 ? 'primary' : undefined"
+            color="primary"
             :prepend-icon="getFilterIcon(key)"
             class="filter-btn"
             rounded="pill"
@@ -555,7 +555,7 @@ onMounted(() => {
             v-for="(title, key) in filterTitles"
             v-show="filterOptions[key].length > 0"
             :key="key"
-            variant="text"
+            variant="tonal"
             color="primary"
             class="filter-btn-mobile"
             @click="toggleFilterMenu(key)"
@@ -575,7 +575,7 @@ onMounted(() => {
           </VBtn>
 
           <!-- 全部筛选按钮 -->
-          <VBtn variant="text" color="primary" class="filter-btn-mobile" @click="toggleAllFilterMenu">
+          <VBtn variant="tonal" color="primary" class="filter-btn-mobile" @click="toggleAllFilterMenu">
             <VIcon icon="mdi-filter-variant" class="filter-icon me-1"></VIcon>
             <span class="filter-label">
               {{ t('torrent.allFilters') }}
@@ -665,7 +665,6 @@ onMounted(() => {
 
 .filter-btn {
   min-inline-size: 0;
-  background: rgba(var(--v-theme-surface-variant), 0.1);
   transition: opacity 0.2s;
 }
 
@@ -733,7 +732,6 @@ onMounted(() => {
   justify-content: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 8px;
-  background-color: rgba(var(--v-theme-surface-variant), 0.08);
   block-size: auto;
   min-block-size: 48px;
   padding-block: 4px;
