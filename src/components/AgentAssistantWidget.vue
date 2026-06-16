@@ -1413,6 +1413,9 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-messages {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 12rem);
@@ -1422,11 +1425,13 @@ onScopeDispose(() => {
 
 .agent-assistant-empty {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   color: rgba(var(--v-theme-on-surface), 0.7);
-  min-block-size: 100%;
+  min-block-size: 0;
   padding-block: 2rem 1.25rem;
   padding-inline: 0.25rem;
   text-align: center;
@@ -1463,6 +1468,7 @@ onScopeDispose(() => {
 
 .agent-assistant-message {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   margin-block-end: 1rem;
 }
