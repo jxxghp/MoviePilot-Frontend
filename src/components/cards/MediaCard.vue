@@ -577,6 +577,7 @@ onBeforeUnmount(() => {
           <!--来源图标-->
           <VAvatar
             size="24"
+            variant="plain"
             density="compact"
             class="absolute bottom-1 right-1"
             tile
