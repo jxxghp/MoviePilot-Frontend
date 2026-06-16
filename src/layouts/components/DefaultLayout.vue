@@ -476,7 +476,7 @@ onMounted(async () => {
     <!-- 👉 Navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div
-        class="theme-navbar-row d-flex h-full align-center mx-1"
+        class="theme-navbar-row d-flex h-16 align-center mx-1"
         :class="{ 'theme-navbar-row--horizontal': showHorizontalThemeNav }"
       >
         <RouterLink v-if="showHorizontalThemeNav" :to="canAdmin ? '/dashboard' : '/apps'" class="theme-horizontal-logo">
