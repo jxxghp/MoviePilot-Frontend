@@ -9,7 +9,9 @@ import ShortcutBar from '@/layouts/components/ShortcutBar.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 import QuickAccess from '@/layouts/components/QuickAccess.vue'
 import HeaderTab from '@/layouts/components/HeaderTab.vue'
-import { usePluginSidebarNavStore, useUserStore } from '@/stores'
+import AgentAssistantWidget from '@/components/AgentAssistantWidget.vue'
+import ThemeCustomizer from '@/components/ThemeCustomizer.vue'
+import { useGlobalSettingsStore, usePluginSidebarNavStore, useUserStore } from '@/stores'
 import { getNavMenus } from '@/router/i18n-menu'
 import { filterPluginSidebarNavEntries } from '@/utils/pluginSidebarNav'
 import { NavMenu } from '@/@layouts/types'
@@ -31,6 +33,7 @@ import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
 import {
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
+  THEME_CUSTOMIZER_OPEN_EVENT,
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
 import logo from '@images/logo.svg?raw'
@@ -42,14 +45,17 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const themeLayout = ref(readThemeCustomizerSettings().layout)
+const showThemeCustomizer = ref(false)
 
 // 用户 Store
 const userStore = useUserStore()
 const pluginSidebarNavStore = usePluginSidebarNavStore()
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 获取用户权限信息
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
+const showAgentAssistant = computed(() => canAdmin.value && globalSettingsStore.get('AI_AGENT_ENABLE') === true)
 
 // 开始菜单项
 const startMenus = ref<NavMenu[]>([])
@@ -279,6 +285,10 @@ function handleThemeCustomizerChange(event: Event) {
   themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
 }
 
+function handleThemeCustomizerOpen() {
+  showThemeCustomizer.value = true
+}
+
 function isHorizontalNavActive(item: NavMenu) {
   const targetPath = normalizeMenuPath(item.to)
   if (!targetPath) return false
@@ -416,6 +426,10 @@ function appendPluginSidebarMenus() {
 }
 
 onMounted(async () => {
+  // 主题定制器由布局统一承载，监听需要尽早注册，避免异步加载菜单期间丢失打开事件。
+  window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+  window.addEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
+
   // 获取菜单列表
   startMenus.value = getMenuList(t('menu.start'))
   discoveryMenus.value = getMenuList(t('menu.discovery'))
@@ -431,11 +445,10 @@ onMounted(async () => {
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
   }
 
-  window.addEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
-
   // 组件卸载时清理监听
   onBeforeUnmount(() => {
     window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+    window.removeEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
     }
@@ -692,6 +705,12 @@ onMounted(async () => {
     @close="handleClosePluginQuickAccess"
     @plugin-click="handlePluginClick"
   />
+
+  <!-- 👉 Theme Customizer -->
+  <ThemeCustomizer v-if="showThemeCustomizer" @close="showThemeCustomizer = false" />
+
+  <!-- 👉 Agent Assistant -->
+  <AgentAssistantWidget v-if="showAgentAssistant" />
 </template>
 
 <style lang="scss" scoped>

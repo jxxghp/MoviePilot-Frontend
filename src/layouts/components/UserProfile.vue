@@ -20,6 +20,7 @@ import {
   persistPartialThemeCustomizerSettings,
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_CHANGE_EVENT,
+  THEME_CUSTOMIZER_OPEN_EVENT,
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
@@ -30,7 +31,6 @@ const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/Pr
 const TransparencySettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransparencySettingsDialog.vue'),
 )
-const ThemeCustomizer = defineAsyncComponent(() => import('@/components/ThemeCustomizer.vue'))
 const UserAuthDialog = defineAsyncComponent(() => import('@/components/dialog/UserAuthDialog.vue'))
 
 // 认证 Store
@@ -50,11 +50,11 @@ const $toast = useToast()
 // UI模式菜单是否显示
 const showUIModeMenu = ref(false)
 
+// 用户头像主菜单是否显示；打开布局级面板前需要主动关闭，避免菜单 overlay 残留。
+const showUserMenu = ref(false)
+
 // 主题菜单是否显示
 const showThemeMenu = ref(false)
-
-// 主题定制器面板是否显示
-const showThemeCustomizer = ref(false)
 
 // 语言菜单是否显示
 const showLanguageMenu = ref(false)
@@ -442,8 +442,11 @@ function showTransparencySettingsDialog() {
 
 /** 从用户菜单打开主题定制器，App 模式会在面板内部隐藏布局设置。 */
 function showThemeCustomizerDrawer() {
+  showUserMenu.value = false
   showThemeMenu.value = false
-  showThemeCustomizer.value = true
+
+  // 主题定制器由 DefaultLayout 统一挂载
+  window.dispatchEvent(new CustomEvent(THEME_CUSTOMIZER_OPEN_EVENT))
 }
 
 /** 保存自定义 CSS。 */
@@ -558,6 +561,7 @@ onUnmounted(() => {
     <VImg :src="avatar" />
 
     <VMenu
+      v-model="showUserMenu"
       activator="parent"
       width="15rem"
       location="bottom end"
@@ -777,7 +781,6 @@ onUnmounted(() => {
     </VMenu>
     <!-- !SECTION -->
   </VAvatar>
-  <ThemeCustomizer v-model="showThemeCustomizer" />
 </template>
 
 <style lang="scss" scoped>

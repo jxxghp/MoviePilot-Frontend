@@ -99,9 +99,9 @@ function submitCustomCSS() {
 <style scoped>
 .custom-css-dialog {
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   max-block-size: calc(100dvh - 2rem);
-  overflow: hidden;
 }
 
 .custom-css-header {
@@ -111,7 +111,7 @@ function submitCustomCSS() {
 
 .custom-css-editor-body {
   flex: 1 1 auto;
-  min-block-size: 0;
+  min-block-size: 240px;
 }
 
 .custom-css-editor {
@@ -141,8 +141,8 @@ function submitCustomCSS() {
 
   .custom-css-editor {
     flex: 1 1 auto;
-    min-block-size: 0;
     block-size: auto;
+    min-block-size: 0;
   }
 
   .custom-css-actions {

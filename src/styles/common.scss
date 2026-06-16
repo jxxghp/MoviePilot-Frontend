@@ -922,6 +922,7 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 :root {
+  --agent-assistant-fab-offset: 30rem;
   --theme-customizer-fab-offset: 420px;
 }
 
@@ -1040,12 +1041,26 @@ html[data-theme="transparent"] .app-card-colorful,
   html[data-theme-customizer-open='true'] .global-action-buttons {
     inset-inline-end: calc(var(--theme-customizer-fab-offset) + 2rem);
   }
+
+  html[data-agent-assistant-open='true'] .compact-fab-stack {
+    inset-inline-end: calc(var(--agent-assistant-fab-offset) + max(1rem, calc(env(safe-area-inset-right) + 1rem)));
+  }
+
+  html[data-agent-assistant-open='true'] .global-action-buttons {
+    inset-inline-end: calc(var(--agent-assistant-fab-offset) + 2rem);
+  }
 }
 
 @media (width >= 601px) and (width <= 768px) {
   html[data-theme-customizer-open='true'] .compact-fab-stack {
     inset-inline-end: calc(
       var(--theme-customizer-fab-offset) + max(0.875rem, calc(env(safe-area-inset-right) + 0.875rem))
+    );
+  }
+
+  html[data-agent-assistant-open='true'] .compact-fab-stack {
+    inset-inline-end: calc(
+      var(--agent-assistant-fab-offset) + max(0.875rem, calc(env(safe-area-inset-right) + 0.875rem))
     );
   }
 }

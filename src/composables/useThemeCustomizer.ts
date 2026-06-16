@@ -7,6 +7,7 @@ import { themeManager } from '@/utils/themeManager'
 
 export const THEME_CUSTOMIZER_STORAGE_KEY = 'moviepilot-theme-customizer'
 export const THEME_CUSTOMIZER_CHANGE_EVENT = 'moviepilot-theme-customizer-change'
+export const THEME_CUSTOMIZER_OPEN_EVENT = 'moviepilot-theme-customizer-open'
 
 export const themeCustomizerPrimaryColors = [
   { name: 'Purple', value: '#9155FD' },
