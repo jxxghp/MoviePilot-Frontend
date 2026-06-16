@@ -130,4 +130,34 @@ html[data-theme="transparent"] {
       background-color: rgba(var(--v-theme-surface), var(--transparent-opacity));
     }
   }
+
+  // 主题定制器面板
+  .theme-customizer-panel-host {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+    border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
+  }
+
+  .theme-customizer-panel {
+    backdrop-filter: blur(var(--transparent-blur));
+    background-color: transparent;
+  }
+
+  // 智能助手面板
+  .agent-assistant-panel {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+    border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  }
+
+  .agent-assistant-shell {
+    --agent-assistant-panel-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
+    --agent-assistant-panel-blur: var(--transparent-blur);
+    --agent-assistant-assistant-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
+  }
+
+  .agent-assistant-fab {
+    backdrop-filter: blur(var(--transparent-blur));
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
+  }
 } 

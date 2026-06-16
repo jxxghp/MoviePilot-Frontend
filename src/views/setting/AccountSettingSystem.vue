@@ -698,6 +698,8 @@ async function saveBasicSettings() {
   savingBasic.value = true
   try {
     if (await saveSystemSetting(SystemSettings.value.Basic)) {
+      // 更新全局设置store，使Web Agent图标实时生效
+      globalSettingsStore.setData({ ...globalSettingsStore.getData, ...SystemSettings.value.Basic })
       $toast.success(t('setting.system.basicSaveSuccess'))
     }
   } finally {
