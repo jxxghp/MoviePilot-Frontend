@@ -82,14 +82,14 @@ const horizontalNavGroups = computed(() =>
 )
 
 const navbarExtraHeight = computed(() => {
-  const dynamicTabHeight = showDynamicHeaderTab.value ? 2.5 : 0
+  const dynamicTabHeight = showDynamicHeaderTab.value ? 2.75 : 0
   const horizontalNavHeight = showHorizontalThemeNav.value ? 3.25 : 0
 
   return `${dynamicTabHeight + horizontalNavHeight}rem`
 })
 
 const mainContentPaddingTop = computed(() => {
-  const dynamicTabPadding = showDynamicHeaderTab.value ? 3 : 0
+  const dynamicTabPadding = showDynamicHeaderTab.value ? 3.25 : 0
   const horizontalNavPadding = showHorizontalThemeNav.value ? 3.5 : 0
 
   return `${dynamicTabPadding + horizontalNavPadding}rem`
@@ -706,6 +706,10 @@ onMounted(async () => {
 .theme-navbar-row--horizontal {
   gap: 1rem;
   margin-inline: 0 !important;
+}
+
+:deep(.layout-dynamic-header-tab) {
+  padding-block-end: 0.25rem;
 }
 
 .theme-horizontal-logo {
