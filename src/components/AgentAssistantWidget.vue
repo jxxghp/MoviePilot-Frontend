@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
 import mdLinkAttributes from 'markdown-it-link-attributes'
+import type { PerfectScrollbarExpose } from 'vue3-perfect-scrollbar'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useUserStore } from '@/stores'
@@ -51,6 +52,14 @@ interface AgentChatMessage {
   choices: AgentChoiceCard[]
 }
 
+interface AgentSessionHistoryItem {
+  sessionId: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: AgentChatMessage[]
+}
+
 interface AgentStreamEvent {
   type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'done' | 'error'
   attachment?: AgentMessageAttachment
@@ -91,16 +100,22 @@ const authStore = useAuthStore()
 const userStore = useUserStore()
 
 const STORAGE_KEY = 'moviepilot-agent-assistant-state'
+const HISTORY_STORAGE_KEY = 'moviepilot-agent-assistant-history'
+const MAX_HISTORY_SESSIONS = 20
 const MAX_PERSISTED_MESSAGES = 30
+const HISTORY_TITLE_LENGTH = 36
+const HISTORY_PREVIEW_LENGTH = 72
 
 const drawer = ref(false)
 const drawerViewportHeight = ref('100dvh')
 const inputText = ref('')
 const messages = ref<AgentChatMessage[]>([])
+const historySessions = ref<AgentSessionHistoryItem[]>([])
 const sessionId = ref('')
 const sending = ref(false)
 const streamError = ref('')
-const messageListRef = ref<HTMLElement | null>(null)
+const historyMenuOpen = ref(false)
+const messageListRef = ref<PerfectScrollbarExpose | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const pendingAttachments = ref<AgentPendingAttachment[]>([])
@@ -126,6 +141,7 @@ const canSend = computed(
 // 窄屏下直接全屏，避免聊天内容被压成半屏窄栏。
 const drawerWidth = computed(() => (display.mdAndDown.value ? '100vw' : '30rem'))
 const hasMessages = computed(() => messages.value.length > 0)
+const hasHistorySessions = computed(() => historySessions.value.length > 0)
 const currentUserName = computed(() => userStore.getUserName || t('common.user'))
 const drawerStyle = computed(() => ({
   '--agent-assistant-viewport-height': drawerViewportHeight.value,
@@ -151,30 +167,161 @@ function normalizeStoredMessages(value: unknown) {
   })) as AgentChatMessage[]
 }
 
+// 规范化本地历史会话，过滤无效数据并按最近更新时间排序。
+function normalizeHistorySessions(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(item => {
+      const messages = normalizeStoredMessages(item?.messages)
+      const sessionIdValue = typeof item?.sessionId === 'string' ? item.sessionId : ''
+      if (!sessionIdValue || messages.length === 0) return null
+
+      const firstMessageTime = messages[0]?.createdAt || Date.now()
+      const lastMessageTime = messages.at(-1)?.createdAt || firstMessageTime
+
+      return {
+        sessionId: sessionIdValue,
+        title: typeof item?.title === 'string' && item.title.trim() ? item.title.trim() : buildSessionHistoryTitle(messages),
+        createdAt: Number(item?.createdAt) || firstMessageTime,
+        updatedAt: Number(item?.updatedAt) || lastMessageTime,
+        messages,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b!.updatedAt - a!.updatedAt)
+    .slice(0, MAX_HISTORY_SESSIONS) as AgentSessionHistoryItem[]
+}
+
+// 从 localStorage 读取历史会话索引，读取失败时回退为空列表。
+function restoreHistorySessions() {
+  try {
+    historySessions.value = normalizeHistorySessions(JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]'))
+  } catch (error) {
+    historySessions.value = []
+  }
+}
+
 function restoreState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      sessionId.value = createSessionId()
+      const latestSession = historySessions.value[0]
+      if (latestSession) {
+        sessionId.value = latestSession.sessionId
+        messages.value = normalizeStoredMessages(latestSession.messages)
+      } else {
+        sessionId.value = createSessionId()
+      }
+
       return
     }
 
     const state = JSON.parse(raw)
     sessionId.value = state.sessionId || createSessionId()
     messages.value = normalizeStoredMessages(state.messages)
+    upsertCurrentSessionHistory()
   } catch (error) {
     sessionId.value = createSessionId()
   }
 }
 
-function persistState() {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      sessionId: sessionId.value,
-      messages: messages.value.slice(-MAX_PERSISTED_MESSAGES),
-    }),
-  )
+// 将历史会话列表写入 localStorage，空间不足时保留最近的一半会话重试。
+function persistHistorySessions() {
+  const sessions = historySessions.value.slice(0, MAX_HISTORY_SESSIONS)
+
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(sessions))
+  } catch (error) {
+    const retainedCount = Math.max(1, Math.ceil(sessions.length / 2))
+    historySessions.value = sessions.slice(0, retainedCount)
+
+    try {
+      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(historySessions.value))
+    } catch (retryError) {
+      // 浏览器本地空间不足时放弃本次历史写入，不影响当前对话继续使用。
+    }
+  }
+}
+
+// 生成会话列表里显示的短标题，优先取第一条用户消息。
+function buildSessionHistoryTitle(sessionMessages: AgentChatMessage[]) {
+  const firstUserMessage = sessionMessages.find(message => message.role === 'user' && getMessageSummaryText(message))
+  const firstReadableMessage = firstUserMessage || sessionMessages.find(message => getMessageSummaryText(message))
+  const title = firstReadableMessage ? getMessageSummaryText(firstReadableMessage) : ''
+
+  return truncateHistoryText(title || t('agentAssistant.untitledSession'), HISTORY_TITLE_LENGTH)
+}
+
+// 生成会话列表里的预览文本，优先展示最近一条可读消息。
+function getSessionHistoryPreview(session: AgentSessionHistoryItem) {
+  const latestMessage = [...session.messages].reverse().find(message => getMessageSummaryText(message))
+  if (!latestMessage) return ''
+
+  return truncateHistoryText(getMessageSummaryText(latestMessage), HISTORY_PREVIEW_LENGTH)
+}
+
+// 提取消息的可读摘要，纯附件消息会使用附件名称或附件占位文本。
+function getMessageSummaryText(message: AgentChatMessage) {
+  const text = message.content.replace(/\s+/g, ' ').trim()
+  if (text) return text
+
+  const firstAttachment = message.attachments[0]
+  if (firstAttachment) return firstAttachment.name || t('agentAssistant.attachmentMessage')
+
+  return ''
+}
+
+// 按指定长度截断历史列表文本，避免长提示词撑开面板。
+function truncateHistoryText(value: string, maxLength: number) {
+  if (value.length <= maxLength) return value
+
+  return `${value.slice(0, maxLength).trim()}...`
+}
+
+// 将当前会话同步到历史索引，空会话不会进入历史列表。
+function upsertCurrentSessionHistory() {
+  if (!sessionId.value || messages.value.length === 0) return
+
+  const storedMessages = normalizeStoredMessages(messages.value)
+  const existingSession = historySessions.value.find(item => item.sessionId === sessionId.value)
+  const createdAt = existingSession?.createdAt || storedMessages[0]?.createdAt || Date.now()
+  const updatedAt = storedMessages.at(-1)?.createdAt || Date.now()
+  const nextSession: AgentSessionHistoryItem = {
+    sessionId: sessionId.value,
+    title: buildSessionHistoryTitle(storedMessages),
+    createdAt,
+    updatedAt,
+    messages: storedMessages,
+  }
+
+  historySessions.value = [
+    nextSession,
+    ...historySessions.value.filter(item => item.sessionId !== sessionId.value),
+  ]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MAX_HISTORY_SESSIONS)
+
+  persistHistorySessions()
+}
+
+// 持久化当前会话状态，并按需同步到历史会话列表。
+function persistState(options: { syncHistory?: boolean } = {}) {
+  const { syncHistory = true } = options
+
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        sessionId: sessionId.value,
+        messages: messages.value.slice(-MAX_PERSISTED_MESSAGES),
+      }),
+    )
+  } catch (error) {
+    // 浏览器本地空间不足时保留内存态，避免发送过程被持久化异常打断。
+  }
+
+  if (syncHistory) upsertCurrentSessionHistory()
 }
 
 function renderMarkdown(value: string) {
@@ -187,11 +334,20 @@ function resolveApiUrl(path: string) {
   return `${baseUrl.replace(/\/?$/, '/')}${path.replace(/^\//, '')}`
 }
 
+// 获取 PerfectScrollbar 内部滚动元素，供自动滚动和滚动条刷新使用。
+function getMessageScrollerElement() {
+  return messageListRef.value?.ps?.element || null
+}
+
 function scrollToBottom() {
   nextTick(() => {
     requestAnimationFrame(() => {
-      if (!messageListRef.value) return
-      messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+      const scroller = getMessageScrollerElement()
+      if (!scroller) return
+
+      messageListRef.value?.ps?.update()
+      scroller.scrollTop = scroller.scrollHeight
+      messageListRef.value?.ps?.update()
     })
   })
 }
@@ -206,6 +362,12 @@ function syncInputHeight() {
   })
 }
 
+// 刷新消息数组引用，确保流式回调中的消息字段变更能稳定触发当前会话视图更新。
+function refreshMessageList() {
+  messages.value = [...messages.value]
+}
+
+// 添加一条聊天消息，并返回消息列表中的响应式对象供后续流式更新使用。
 function addMessage(
   role: AgentMessageRole,
   content: string,
@@ -223,9 +385,11 @@ function addMessage(
     tools: [],
   }
   messages.value.push(message)
+  const reactiveMessage = messages.value[messages.value.length - 1]
+
   persistState()
   scrollToBottom()
-  return message
+  return reactiveMessage
 }
 
 function normalizeToolMessage(message: string) {
@@ -277,10 +441,13 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       markToolsDone(assistantMessage)
       break
     case 'start':
+      if (event.session_id) sessionId.value = event.session_id
+      break
     default:
       break
   }
 
+  refreshMessageList()
   persistState()
   scrollToBottom()
 }
@@ -514,11 +681,13 @@ async function streamAgentMessage(
     if (assistantMessage.status === 'streaming') {
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
+      refreshMessageList()
     }
   } catch (error: any) {
     if (error?.name === 'AbortError') {
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
+      refreshMessageList()
       return
     }
 
@@ -526,6 +695,7 @@ async function streamAgentMessage(
     assistantMessage.content = error?.message || t('agentAssistant.error')
     streamError.value = assistantMessage.content
     markToolsDone(assistantMessage)
+    refreshMessageList()
   } finally {
     abortController = null
     persistState()
@@ -583,12 +753,14 @@ async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceBut
     choice.status = 'selected'
     choice.selected_label = result.data?.feedback?.selected_label || button.label
     choice.selected_value = result.data?.feedback?.selected_value || result.data?.message
+    refreshMessageList()
     persistState()
 
     await streamAgentMessage(String(result.data?.message || ''), [], [], [], false)
   } catch (error: any) {
     choice.status = 'expired'
     streamError.value = error?.message || t('agentAssistant.choiceExpired')
+    refreshMessageList()
     persistState()
   } finally {
     sending.value = false
@@ -604,8 +776,53 @@ function startNewSession() {
   sessionId.value = createSessionId()
   messages.value = []
   streamError.value = ''
+  historyMenuOpen.value = false
   clearPendingAttachments()
   persistState()
+}
+
+// 从历史列表恢复指定会话，同时把它设为当前本地会话。
+function loadHistorySession(targetSessionId: string) {
+  if (sending.value) return
+
+  const historySession = historySessions.value.find(item => item.sessionId === targetSessionId)
+  if (!historySession) return
+
+  stopGeneration()
+  sessionId.value = historySession.sessionId
+  messages.value = normalizeStoredMessages(historySession.messages)
+  streamError.value = ''
+  historyMenuOpen.value = false
+  clearPendingAttachments()
+  persistState({ syncHistory: false })
+  scrollToBottom()
+}
+
+// 删除指定历史会话；若删除的是当前会话，则切换到新的空会话。
+function deleteHistorySession(targetSessionId: string) {
+  if (sending.value && targetSessionId === sessionId.value) return
+
+  historySessions.value = historySessions.value.filter(item => item.sessionId !== targetSessionId)
+  persistHistorySessions()
+
+  if (targetSessionId === sessionId.value) startNewSession()
+}
+
+// 判断历史项是否为当前打开的会话，用于高亮列表状态。
+function isCurrentHistorySession(targetSessionId: string) {
+  return targetSessionId === sessionId.value
+}
+
+// 格式化历史会话时间，显示为本地日期和时间。
+function formatHistoryTime(timestamp: number) {
+  if (!timestamp) return ''
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(timestamp))
 }
 
 function openDrawer() {
@@ -657,6 +874,7 @@ watch(drawerWidth, () => {
 })
 
 onMounted(() => {
+  restoreHistorySessions()
   restoreState()
   syncDrawerViewportHeight()
   syncInputHeight()
@@ -689,7 +907,7 @@ onScopeDispose(() => {
     :title="t('agentAssistant.title')"
     @click="openDrawer"
   >
-    <VIcon icon="lucide:bot" size="21" />
+    <VIcon class="agent-assistant-fab__icon" icon="lucide:bot" size="21" />
   </button>
 
   <aside
@@ -713,6 +931,73 @@ onScopeDispose(() => {
           </div>
         </div>
         <div class="d-flex align-center gap-1">
+          <VMenu
+            v-model="historyMenuOpen"
+            :close-on-content-click="false"
+            content-class="agent-assistant-history-overlay"
+            location="bottom end"
+            offset="8"
+            max-width="360"
+            :z-index="2103"
+          >
+            <template #activator="{ props }">
+              <IconBtn
+                v-bind="props"
+                :title="t('agentAssistant.history')"
+                :aria-label="t('agentAssistant.history')"
+              >
+                <VIcon icon="mdi-history" />
+              </IconBtn>
+            </template>
+            <VCard class="agent-assistant-history-menu" elevation="10">
+              <div class="agent-assistant-history-menu__header">
+                <span>{{ t('agentAssistant.history') }}</span>
+                <VBtn
+                  size="small"
+                  variant="text"
+                  color="primary"
+                  :disabled="sending"
+                  @click="startNewSession"
+                >
+                  {{ t('agentAssistant.newChat') }}
+                </VBtn>
+              </div>
+              <VDivider />
+              <PerfectScrollbar class="agent-assistant-history-list" :options="{ wheelPropagation: false }">
+                <div v-if="!hasHistorySessions" class="agent-assistant-history-empty">
+                  {{ t('agentAssistant.noHistory') }}
+                </div>
+                <button
+                  v-for="historySession in historySessions"
+                  :key="historySession.sessionId"
+                  class="agent-assistant-history-item"
+                  :class="{ 'is-active': isCurrentHistorySession(historySession.sessionId) }"
+                  type="button"
+                  :disabled="sending"
+                  @click="loadHistorySession(historySession.sessionId)"
+                >
+                  <span class="agent-assistant-history-item__content">
+                    <span class="agent-assistant-history-item__title">{{ historySession.title }}</span>
+                    <span class="agent-assistant-history-item__preview">
+                      {{ getSessionHistoryPreview(historySession) }}
+                    </span>
+                    <span class="agent-assistant-history-item__time">
+                      {{ formatHistoryTime(historySession.updatedAt) }}
+                    </span>
+                  </span>
+                  <IconBtn
+                    size="x-small"
+                    :disabled="sending"
+                    :title="t('agentAssistant.deleteHistory')"
+                    :aria-label="t('agentAssistant.deleteHistory')"
+                    @click.stop="deleteHistorySession(historySession.sessionId)"
+                  >
+                    <VIcon icon="mdi-delete-outline" size="16" />
+                  </IconBtn>
+                </button>
+              </PerfectScrollbar>
+            </VCard>
+          </VMenu>
           <IconBtn
             :disabled="sending"
             :title="t('agentAssistant.newChat')"
@@ -727,7 +1012,12 @@ onScopeDispose(() => {
         </div>
       </header>
 
-      <main ref="messageListRef" class="agent-assistant-messages">
+      <PerfectScrollbar
+        ref="messageListRef"
+        tag="main"
+        class="agent-assistant-messages"
+        :options="{ wheelPropagation: false }"
+      >
         <div v-if="!hasMessages" class="agent-assistant-empty">
           <div class="agent-assistant-empty__mark">
             <VIcon icon="lucide:sparkles" size="28" />
@@ -865,13 +1155,17 @@ onScopeDispose(() => {
             <span />
           </div>
         </div>
-      </main>
+      </PerfectScrollbar>
 
       <footer class="agent-assistant-composer">
         <VAlert v-if="streamError" type="error" variant="tonal" density="compact" class="mb-3">
           {{ streamError }}
         </VAlert>
-        <div v-if="pendingAttachments.length" class="agent-assistant-pending-files">
+        <PerfectScrollbar
+          v-if="pendingAttachments.length"
+          class="agent-assistant-pending-files"
+          :options="{ wheelPropagation: false }"
+        >
           <div v-for="attachment in pendingAttachments" :key="attachment.id" class="agent-assistant-pending-file">
             <img
               v-if="attachment.kind === 'image' && attachment.preview_url"
@@ -894,7 +1188,7 @@ onScopeDispose(() => {
               <VIcon icon="mdi-close" size="16" />
             </IconBtn>
           </div>
-        </div>
+        </PerfectScrollbar>
         <div class="agent-assistant-input">
           <input
             ref="fileInputRef"
@@ -938,6 +1232,12 @@ onScopeDispose(() => {
   </aside>
 </template>
 
+<style lang="scss">
+.agent-assistant-history-overlay {
+  z-index: 2103 !important;
+}
+</style>
+
 <style lang="scss" scoped>
 /* stylelint-disable selector-pseudo-class-no-unknown */
 /* stylelint-disable no-descending-specificity */
@@ -970,10 +1270,20 @@ onScopeDispose(() => {
   transform: translate(0, -50%);
 }
 
+.agent-assistant-fab__icon {
+  transform: rotate(-90deg);
+  transition: transform 0.18s ease;
+}
+
+.agent-assistant-fab:hover .agent-assistant-fab__icon {
+  transform: rotate(0);
+}
+
 .agent-assistant-panel {
   position: fixed;
   z-index: 2101;
   overflow: hidden;
+  overscroll-behavior: contain;
   background: rgb(var(--v-theme-surface));
   block-size: var(--agent-assistant-viewport-height, 100dvh) !important;
   border-inline-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
@@ -1030,7 +1340,103 @@ onScopeDispose(() => {
   font-size: 0.78rem;
 }
 
+.agent-assistant-history-menu {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 12px;
+  inline-size: min(22rem, calc(100vw - 2rem));
+  overflow: hidden;
+}
+
+.agent-assistant-history-menu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-block-size: 3rem;
+  padding-block: 0.45rem;
+  padding-inline: 0.9rem 0.55rem;
+}
+
+.agent-assistant-history-list {
+  max-block-size: min(26rem, calc(var(--agent-assistant-viewport-height, 100dvh) - 7rem));
+  overscroll-behavior: contain;
+  padding-block: 0.35rem;
+
+  :deep(.ps__rail-x),
+  :deep(.ps__rail-y) {
+    display: none !important;
+  }
+}
+
+.agent-assistant-history-empty {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 0.85rem;
+  padding-block: 1.5rem;
+  padding-inline: 1rem;
+  text-align: center;
+}
+
+.agent-assistant-history-item {
+  display: grid;
+  align-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  column-gap: 0.4rem;
+  cursor: pointer;
+  grid-template-columns: minmax(0, 1fr) auto;
+  inline-size: calc(100% - 0.7rem);
+  margin-inline: 0.35rem;
+  padding-block: 0.55rem;
+  padding-inline: 0.65rem 0.25rem;
+  text-align: start;
+}
+
+.agent-assistant-history-item:hover,
+.agent-assistant-history-item.is-active {
+  background: rgba(var(--v-theme-primary), 0.1);
+}
+
+.agent-assistant-history-item:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.agent-assistant-history-item__content {
+  display: grid;
+  min-inline-size: 0;
+  row-gap: 0.15rem;
+}
+
+.agent-assistant-history-item__title,
+.agent-assistant-history-item__preview,
+.agent-assistant-history-item__time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-assistant-history-item__title {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.agent-assistant-history-item__preview {
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.75rem;
+}
+
+.agent-assistant-history-item__time {
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  font-size: 0.7rem;
+}
+
 .agent-assistant-messages {
+  overscroll-behavior: contain;
   overflow-y: auto;
   padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 12rem);
   padding-inline: 1rem;
@@ -1265,6 +1671,7 @@ onScopeDispose(() => {
   gap: 0.45rem;
   margin-block-end: 0.55rem;
   max-block-size: 8rem;
+  overscroll-behavior: contain;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -1469,6 +1876,10 @@ onScopeDispose(() => {
   :deep(ol) {
     margin-block-end: 0.5rem;
     padding-inline-start: 1.25rem;
+  }
+
+  :deep(li) {
+    margin-block: 0.25rem;
   }
 }
 
