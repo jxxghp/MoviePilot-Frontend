@@ -182,7 +182,8 @@ function normalizeHistorySessions(value: unknown) {
 
       return {
         sessionId: sessionIdValue,
-        title: typeof item?.title === 'string' && item.title.trim() ? item.title.trim() : buildSessionHistoryTitle(messages),
+        title:
+          typeof item?.title === 'string' && item.title.trim() ? item.title.trim() : buildSessionHistoryTitle(messages),
         createdAt: Number(item?.createdAt) || firstMessageTime,
         updatedAt: Number(item?.updatedAt) || lastMessageTime,
         messages,
@@ -295,10 +296,7 @@ function upsertCurrentSessionHistory() {
     messages: storedMessages,
   }
 
-  historySessions.value = [
-    nextSession,
-    ...historySessions.value.filter(item => item.sessionId !== sessionId.value),
-  ]
+  historySessions.value = [nextSession, ...historySessions.value.filter(item => item.sessionId !== sessionId.value)]
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, MAX_HISTORY_SESSIONS)
 
@@ -941,26 +939,13 @@ onScopeDispose(() => {
             :z-index="2103"
           >
             <template #activator="{ props }">
-              <IconBtn
-                v-bind="props"
-                :title="t('agentAssistant.history')"
-                :aria-label="t('agentAssistant.history')"
-              >
+              <IconBtn v-bind="props" :title="t('agentAssistant.history')" :aria-label="t('agentAssistant.history')">
                 <VIcon icon="mdi-history" />
               </IconBtn>
             </template>
             <VCard class="agent-assistant-history-menu" elevation="10">
               <div class="agent-assistant-history-menu__header">
                 <span>{{ t('agentAssistant.history') }}</span>
-                <VBtn
-                  size="small"
-                  variant="text"
-                  color="primary"
-                  :disabled="sending"
-                  @click="startNewSession"
-                >
-                  {{ t('agentAssistant.newChat') }}
-                </VBtn>
               </div>
               <VDivider />
               <PerfectScrollbar class="agent-assistant-history-list" :options="{ wheelPropagation: false }">
@@ -1283,7 +1268,6 @@ onScopeDispose(() => {
   position: fixed;
   z-index: 2101;
   overflow: hidden;
-  overscroll-behavior: contain;
   background: rgb(var(--v-theme-surface));
   block-size: var(--agent-assistant-viewport-height, 100dvh) !important;
   border-inline-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
@@ -1292,6 +1276,7 @@ onScopeDispose(() => {
   inset-block-start: 0;
   inset-inline-end: 0;
   max-block-size: var(--agent-assistant-viewport-height, 100dvh) !important;
+  overscroll-behavior: contain;
 }
 
 .agent-assistant-shell {
@@ -1341,10 +1326,10 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-history-menu {
+  overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 12px;
   inline-size: min(22rem, calc(100vw - 2rem));
-  overflow: hidden;
 }
 
 .agent-assistant-history-menu__header {
@@ -1436,8 +1421,8 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-messages {
-  overscroll-behavior: contain;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 12rem);
   padding-inline: 1rem;
   scrollbar-width: thin;
@@ -1510,7 +1495,10 @@ onScopeDispose(() => {
 .agent-assistant-message__bubble {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 16px;
+  font-size: 0.92rem;
+  line-height: 1.55;
   max-inline-size: min(100%, 34rem);
+  min-inline-size: 0;
   padding-block: 0.75rem;
   padding-inline: 0.85rem;
 }
@@ -1671,8 +1659,8 @@ onScopeDispose(() => {
   gap: 0.45rem;
   margin-block-end: 0.55rem;
   max-block-size: 8rem;
-  overscroll-behavior: contain;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
 }
 
@@ -1839,6 +1827,26 @@ onScopeDispose(() => {
   overflow-wrap: anywhere;
   word-break: break-word;
 
+  :deep(h1),
+  :deep(h2),
+  :deep(h3) {
+    margin-block: 0.5rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  :deep(h1) {
+    font-size: 1.5rem;
+  }
+
+  :deep(h2) {
+    font-size: 1.25rem;
+  }
+
+  :deep(h3) {
+    font-size: 1.1rem;
+  }
+
   :deep(p) {
     margin-block-end: 0.5rem;
   }
@@ -1852,19 +1860,21 @@ onScopeDispose(() => {
     text-decoration: underline;
   }
 
+  :deep(code) {
+    border-radius: 4px;
+    background: rgba(var(--v-theme-on-surface), 0.08);
+    font-family: monospace;
+    padding-block: 0.1rem;
+    padding-inline: 0.3rem;
+  }
+
   :deep(pre) {
     overflow: auto;
     padding: 0.75rem;
     border-radius: 10px;
     background: rgba(var(--v-theme-on-surface), 0.08);
     margin-block: 0.5rem;
-  }
-
-  :deep(code) {
-    border-radius: 4px;
-    background: rgba(var(--v-theme-on-surface), 0.08);
-    padding-block: 0.1rem;
-    padding-inline: 0.3rem;
+    max-inline-size: 100%;
   }
 
   :deep(pre code) {
@@ -1875,11 +1885,61 @@ onScopeDispose(() => {
   :deep(ul),
   :deep(ol) {
     margin-block-end: 0.5rem;
-    padding-inline-start: 1.25rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  :deep(ul) {
+    list-style-type: disc;
+  }
+
+  :deep(ol) {
+    list-style-type: decimal;
   }
 
   :deep(li) {
+    display: list-item;
     margin-block: 0.25rem;
+  }
+
+  :deep(blockquote) {
+    border-inline-start: 4px solid rgba(var(--v-border-color), 0.2);
+    color: rgba(var(--v-theme-on-surface), 0.74);
+    font-style: italic;
+    margin-block: 0.5rem;
+    padding-inline-start: 1rem;
+  }
+
+  :deep(table) {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+    inline-size: max-content;
+    max-inline-size: 100%;
+    margin-block: 0.5rem;
+  }
+
+  :deep(th),
+  :deep(td) {
+    border: 1px solid rgba(var(--v-border-color), 0.16);
+    padding-block: 0.4rem;
+    padding-inline: 0.65rem;
+    text-align: start;
+  }
+
+  :deep(th) {
+    background: rgba(var(--v-border-color), 0.08);
+    font-weight: 600;
+  }
+
+  :deep(hr) {
+    border: none;
+    border-block-start: 1px solid rgba(var(--v-border-color), 0.24);
+    margin-block: 1rem;
+  }
+
+  :deep(img) {
+    block-size: auto;
+    max-inline-size: 100%;
   }
 }
 
