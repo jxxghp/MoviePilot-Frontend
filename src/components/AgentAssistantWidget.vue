@@ -8,6 +8,7 @@ import { useAuthStore, useUserStore } from '@/stores'
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
 type AgentAttachmentKind = 'audio' | 'file' | 'image'
+type AgentChoiceStatus = 'pending' | 'selected' | 'expired'
 
 interface AgentToolCall {
   id: string
@@ -24,6 +25,21 @@ interface AgentMessageAttachment {
   size?: number
 }
 
+interface AgentChoiceButton {
+  label: string
+  callback_data: string
+}
+
+interface AgentChoiceCard {
+  id: string
+  title?: string
+  prompt: string
+  buttons: AgentChoiceButton[]
+  status: AgentChoiceStatus
+  selected_label?: string
+  selected_value?: string
+}
+
 interface AgentChatMessage {
   id: string
   role: AgentMessageRole
@@ -32,14 +48,41 @@ interface AgentChatMessage {
   status: AgentMessageStatus
   tools: AgentToolCall[]
   attachments: AgentMessageAttachment[]
+  choices: AgentChoiceCard[]
 }
 
 interface AgentStreamEvent {
-  type: 'start' | 'delta' | 'tool' | 'attachment' | 'done' | 'error'
+  type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'done' | 'error'
   attachment?: AgentMessageAttachment
+  choice?: Omit<AgentChoiceCard, 'status'>
   content?: string
   message?: string
   session_id?: string
+}
+
+interface AgentPendingAttachment {
+  id: string
+  file: File
+  kind: AgentAttachmentKind
+  name: string
+  mime_type: string
+  size: number
+  preview_url?: string
+}
+
+interface AgentOutgoingFile {
+  ref: string
+  name?: string
+  mime_type?: string
+  size?: number
+  local_path?: string
+  status?: string
+}
+
+interface PreparedAgentAttachments {
+  images: string[]
+  files: AgentOutgoingFile[]
+  userAttachments: AgentMessageAttachment[]
 }
 
 const { t } = useI18n()
@@ -59,10 +102,12 @@ const sending = ref(false)
 const streamError = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const pendingAttachments = ref<AgentPendingAttachment[]>([])
 let abortController: AbortController | null = null
 
 const md = new MarkdownIt({
-  html: false,
+  html: true,
   breaks: true,
   linkify: true,
   typographer: true,
@@ -75,7 +120,9 @@ md.use(mdLinkAttributes, {
   },
 })
 
-const canSend = computed(() => inputText.value.trim().length > 0 && !sending.value)
+const canSend = computed(
+  () => (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value,
+)
 // 窄屏下直接全屏，避免聊天内容被压成半屏窄栏。
 const drawerWidth = computed(() => (display.mdAndDown.value ? '100vw' : '30rem'))
 const hasMessages = computed(() => messages.value.length > 0)
@@ -99,6 +146,7 @@ function normalizeStoredMessages(value: unknown) {
   return value.slice(-MAX_PERSISTED_MESSAGES).map(message => ({
     ...message,
     attachments: Array.isArray(message.attachments) ? message.attachments : [],
+    choices: Array.isArray(message.choices) ? message.choices : [],
     tools: Array.isArray(message.tools) ? message.tools : [],
   })) as AgentChatMessage[]
 }
@@ -158,14 +206,20 @@ function syncInputHeight() {
   })
 }
 
-function addMessage(role: AgentMessageRole, content: string, status: AgentMessageStatus = 'idle') {
+function addMessage(
+  role: AgentMessageRole,
+  content: string,
+  status: AgentMessageStatus = 'idle',
+  attachments: AgentMessageAttachment[] = [],
+) {
   const message: AgentChatMessage = {
     id: createId(role),
     role,
     content,
     createdAt: Date.now(),
     status,
-    attachments: [],
+    attachments,
+    choices: [],
     tools: [],
   }
   messages.value.push(message)
@@ -200,6 +254,14 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
     case 'attachment':
       if (event.attachment?.url) {
         assistantMessage.attachments.push(event.attachment)
+      }
+      break
+    case 'choice':
+      if (event.choice?.id) {
+        assistantMessage.choices.push({
+          ...event.choice,
+          status: 'pending',
+        })
       }
       break
     case 'done':
@@ -279,7 +341,7 @@ function getAttachmentName(attachment: AgentMessageAttachment) {
   return attachment.name || (attachment.kind === 'image' ? 'image' : 'attachment')
 }
 
-function getAttachmentIcon(attachment: AgentMessageAttachment) {
+function getAttachmentIcon(attachment: { kind: AgentAttachmentKind }) {
   if (attachment.kind === 'audio') return 'mdi-volume-high'
   if (attachment.kind === 'image') return 'mdi-image-outline'
   return 'mdi-file-outline'
@@ -290,6 +352,113 @@ function formatAttachmentSize(size?: number) {
   if (size < 1024) return `${size} B`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
   return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function getFileKind(file: File): AgentAttachmentKind {
+  if (file.type.startsWith('image/')) return 'image'
+  if (file.type.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
+function openFilePicker() {
+  fileInputRef.value?.click()
+}
+
+function handleFileSelection(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  const nextAttachments = files.map(file => {
+    const kind = getFileKind(file)
+
+    return {
+      id: createId('attachment'),
+      file,
+      kind,
+      name: file.name,
+      mime_type: file.type || 'application/octet-stream',
+      size: file.size,
+      preview_url: kind === 'image' ? URL.createObjectURL(file) : undefined,
+    }
+  })
+
+  pendingAttachments.value.push(...nextAttachments)
+  input.value = ''
+}
+
+function removePendingAttachment(id: string) {
+  const attachment = pendingAttachments.value.find(item => item.id === id)
+  if (attachment?.preview_url) URL.revokeObjectURL(attachment.preview_url)
+  pendingAttachments.value = pendingAttachments.value.filter(item => item.id !== id)
+}
+
+function clearPendingAttachments() {
+  pendingAttachments.value.forEach(item => {
+    if (item.preview_url) URL.revokeObjectURL(item.preview_url)
+  })
+  pendingAttachments.value = []
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error(t('agentAssistant.uploadFailed')))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function uploadAgentAttachment(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('session_id', sessionId.value)
+
+  const response = await fetch(resolveApiUrl('message/agent/upload'), {
+    method: 'POST',
+    headers: {
+      ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
+    },
+    body: formData,
+    credentials: 'include',
+  })
+
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+
+  const result = await response.json()
+  if (!result?.success) throw new Error(result?.message || t('agentAssistant.uploadFailed'))
+
+  return result.data as AgentMessageAttachment & AgentOutgoingFile
+}
+
+async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise<PreparedAgentAttachments> {
+  const images: string[] = []
+  const files: AgentOutgoingFile[] = []
+  const userAttachments: AgentMessageAttachment[] = []
+
+  for (const item of items) {
+    const imageDataUrl = item.kind === 'image' ? await readFileAsDataUrl(item.file) : ''
+    const uploaded = await uploadAgentAttachment(item.file)
+    const displayAttachment: AgentMessageAttachment = {
+      kind: item.kind,
+      url: item.kind === 'image' ? imageDataUrl : uploaded.url,
+      download_url: uploaded.download_url || uploaded.url,
+      name: item.name,
+      mime_type: item.mime_type,
+      size: item.size,
+    }
+
+    if (imageDataUrl) images.push(imageDataUrl)
+    files.push({
+      ref: uploaded.ref || uploaded.url,
+      name: uploaded.name || item.name,
+      mime_type: uploaded.mime_type || item.mime_type,
+      size: uploaded.size || item.size,
+      local_path: uploaded.local_path,
+      status: uploaded.status || 'ready',
+    })
+    userAttachments.push(displayAttachment)
+  }
+
+  return { images, files, userAttachments }
 }
 
 function getVisibleViewportHeight() {
@@ -305,18 +474,20 @@ function syncDrawerViewportHeight() {
   drawerViewportHeight.value = getVisibleViewportHeight()
 }
 
-async function sendMessage() {
-  const text = inputText.value.trim()
-  if (!text || sending.value) return
+async function streamAgentMessage(
+  text: string,
+  images: string[] = [],
+  files: AgentOutgoingFile[] = [],
+  userAttachments: AgentMessageAttachment[] = [],
+  echoUser = true,
+) {
+  const content = text.trim()
+  if (!content && !images.length && !files.length) return
 
-  streamError.value = ''
-  inputText.value = ''
-  syncInputHeight()
-  addMessage('user', text, 'done')
+  if (echoUser) addMessage('user', content, 'done', userAttachments)
   const assistantMessage = addMessage('assistant', '', 'streaming')
 
   abortController = new AbortController()
-  sending.value = true
 
   try {
     const response = await fetch(resolveApiUrl('message/agent/stream'), {
@@ -326,8 +497,10 @@ async function sendMessage() {
         ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
       },
       body: JSON.stringify({
-        text,
+        text: content,
         session_id: sessionId.value,
+        images,
+        files,
       }),
       credentials: 'include',
       signal: abortController.signal,
@@ -354,10 +527,71 @@ async function sendMessage() {
     streamError.value = assistantMessage.content
     markToolsDone(assistantMessage)
   } finally {
-    sending.value = false
     abortController = null
     persistState()
     scrollToBottom()
+  }
+}
+
+async function sendMessage() {
+  const text = inputText.value.trim()
+  const attachments = [...pendingAttachments.value]
+  if ((!text && !attachments.length) || sending.value) return
+
+  streamError.value = ''
+  inputText.value = ''
+  clearPendingAttachments()
+  syncInputHeight()
+  sending.value = true
+
+  try {
+    const prepared = await prepareAgentAttachments(attachments)
+    await streamAgentMessage(text, prepared.images, prepared.files, prepared.userAttachments)
+  } catch (error: any) {
+    streamError.value = error?.message || t('agentAssistant.uploadFailed')
+    addMessage('assistant', streamError.value, 'error')
+  } finally {
+    sending.value = false
+  }
+}
+
+async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceButton) {
+  if (sending.value || choice.status !== 'pending') return
+
+  sending.value = true
+  streamError.value = ''
+
+  try {
+    const response = await fetch(resolveApiUrl('message/agent/callback'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
+      },
+      body: JSON.stringify({
+        session_id: sessionId.value,
+        callback_data: button.callback_data,
+      }),
+      credentials: 'include',
+    })
+
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+
+    const result = await response.json()
+    if (!result?.success) throw new Error(result?.message || t('agentAssistant.choiceExpired'))
+
+    choice.status = 'selected'
+    choice.selected_label = result.data?.feedback?.selected_label || button.label
+    choice.selected_value = result.data?.feedback?.selected_value || result.data?.message
+    persistState()
+
+    await streamAgentMessage(String(result.data?.message || ''), [], [], [], false)
+  } catch (error: any) {
+    choice.status = 'expired'
+    streamError.value = error?.message || t('agentAssistant.choiceExpired')
+    persistState()
+  } finally {
+    sending.value = false
   }
 }
 
@@ -370,6 +604,7 @@ function startNewSession() {
   sessionId.value = createSessionId()
   messages.value = []
   streamError.value = ''
+  clearPendingAttachments()
   persistState()
 }
 
@@ -433,6 +668,7 @@ onMounted(() => {
 })
 
 onScopeDispose(clearAgentAssistantOpenState)
+onScopeDispose(clearPendingAttachments)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
@@ -531,6 +767,35 @@ onScopeDispose(() => {
             v-html="renderMarkdown(message.content)"
           />
 
+          <div v-if="message.choices.length" class="agent-assistant-choices">
+            <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
+              <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
+              <div class="agent-assistant-choice__prompt">{{ choice.prompt }}</div>
+              <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
+                <VIcon icon="mdi-check-circle-outline" size="16" />
+                <span>{{ t('agentAssistant.choiceSelected', { option: choice.selected_label }) }}</span>
+              </div>
+              <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
+                <VIcon icon="mdi-alert-circle-outline" size="16" />
+                <span>{{ t('agentAssistant.choiceExpired') }}</span>
+              </div>
+              <div class="agent-assistant-choice__buttons">
+                <VBtn
+                  v-for="button in choice.buttons"
+                  :key="button.callback_data"
+                  size="small"
+                  rounded="lg"
+                  variant="tonal"
+                  color="primary"
+                  :disabled="sending || choice.status !== 'pending'"
+                  @click="handleChoiceClick(choice, button)"
+                >
+                  {{ button.label }}
+                </VBtn>
+              </div>
+            </div>
+          </div>
+
           <div v-if="message.attachments.length" class="agent-assistant-attachments">
             <div
               v-for="attachment in message.attachments"
@@ -587,7 +852,12 @@ onScopeDispose(() => {
           </div>
 
           <div
-            v-if="!message.content && !message.attachments.length && message.status === 'streaming'"
+            v-if="
+              !message.content &&
+              !message.attachments.length &&
+              !message.choices.length &&
+              message.status === 'streaming'
+            "
             class="agent-assistant-typing"
           >
             <span />
@@ -601,7 +871,48 @@ onScopeDispose(() => {
         <VAlert v-if="streamError" type="error" variant="tonal" density="compact" class="mb-3">
           {{ streamError }}
         </VAlert>
+        <div v-if="pendingAttachments.length" class="agent-assistant-pending-files">
+          <div v-for="attachment in pendingAttachments" :key="attachment.id" class="agent-assistant-pending-file">
+            <img
+              v-if="attachment.kind === 'image' && attachment.preview_url"
+              class="agent-assistant-pending-file__preview"
+              :src="attachment.preview_url"
+              :alt="attachment.name"
+            />
+            <VIcon v-else :icon="getAttachmentIcon(attachment)" size="18" />
+            <div class="agent-assistant-pending-file__text">
+              <span>{{ attachment.name }}</span>
+              <small>{{ formatAttachmentSize(attachment.size) || attachment.mime_type }}</small>
+            </div>
+            <IconBtn
+              size="x-small"
+              :disabled="sending"
+              :title="t('agentAssistant.removeAttachment')"
+              :aria-label="t('agentAssistant.removeAttachment')"
+              @click="removePendingAttachment(attachment.id)"
+            >
+              <VIcon icon="mdi-close" size="16" />
+            </IconBtn>
+          </div>
+        </div>
         <div class="agent-assistant-input">
+          <input
+            ref="fileInputRef"
+            class="agent-assistant-file-input"
+            type="file"
+            multiple
+            :disabled="sending"
+            @change="handleFileSelection"
+          />
+          <IconBtn
+            class="agent-assistant-attach"
+            :disabled="sending"
+            :title="t('agentAssistant.attachFile')"
+            :aria-label="t('agentAssistant.attachFile')"
+            @click="openFilePicker"
+          >
+            <VIcon icon="mdi-plus" />
+          </IconBtn>
           <textarea
             ref="inputRef"
             v-model="inputText"
@@ -721,7 +1032,7 @@ onScopeDispose(() => {
 
 .agent-assistant-messages {
   overflow-y: auto;
-  padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 8.4rem);
+  padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 12rem);
   padding-inline: 1rem;
   scrollbar-width: thin;
 }
@@ -830,6 +1141,80 @@ onScopeDispose(() => {
   padding-inline: 0.6rem;
 }
 
+.agent-assistant-choices {
+  display: grid;
+  gap: 0.55rem;
+  inline-size: min(100%, 34rem);
+  margin-block-start: 0.5rem;
+}
+
+.agent-assistant-choice {
+  display: grid;
+  border: 1px solid rgba(25, 178, 160, 28%);
+  border-radius: 14px;
+  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  background: rgba(25, 178, 160, 8%);
+  gap: 0.65rem;
+  padding-block: 0.75rem;
+  padding-inline: 0.8rem;
+}
+
+.agent-assistant-choice__title {
+  color: rgba(var(--v-theme-on-surface), 0.82);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.agent-assistant-choice__prompt {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.agent-assistant-choice__selected {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(25, 178, 160, 28%);
+  border-radius: 10px;
+  background: rgba(25, 178, 160, 10%);
+  color: rgba(var(--v-theme-on-surface), 0.78);
+  column-gap: 0.4rem;
+  font-size: 0.8rem;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding-block: 0.35rem;
+  padding-inline: 0.5rem;
+}
+
+.agent-assistant-choice__selected span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-assistant-choice__selected.is-expired {
+  border-color: rgba(var(--v-theme-warning), 0.28);
+  background: rgba(var(--v-theme-warning), 0.1);
+}
+
+.agent-assistant-choice__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+
+  :deep(.v-btn) {
+    max-inline-size: 100%;
+  }
+
+  :deep(.v-btn__content) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .agent-assistant-typing {
   display: inline-flex;
   border: 1px solid var(--agent-assistant-assistant-border);
@@ -869,6 +1254,56 @@ onScopeDispose(() => {
   pointer-events: auto;
 }
 
+.agent-assistant-pending-files {
+  display: grid;
+  padding: 0.55rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: 14px;
+  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  background: var(--agent-assistant-panel-bg);
+  box-shadow: var(--app-surface-shadow);
+  gap: 0.45rem;
+  margin-block-end: 0.55rem;
+  max-block-size: 8rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.agent-assistant-pending-file {
+  display: grid;
+  align-items: center;
+  border-radius: 10px;
+  column-gap: 0.55rem;
+  grid-template-columns: auto 1fr auto;
+  min-inline-size: 0;
+  padding-block: 0.25rem;
+  padding-inline: 0.35rem 0.15rem;
+}
+
+.agent-assistant-pending-file__preview {
+  border-radius: 8px;
+  block-size: 2.1rem;
+  inline-size: 2.1rem;
+  object-fit: cover;
+}
+
+.agent-assistant-pending-file__text {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.agent-assistant-pending-file__text span,
+.agent-assistant-pending-file__text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-assistant-pending-file__text small {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 0.72rem;
+}
+
 .agent-assistant-input {
   display: grid;
   align-items: center;
@@ -877,10 +1312,19 @@ onScopeDispose(() => {
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
-  grid-template-columns: 1fr auto;
+  column-gap: 0.25rem;
+  grid-template-columns: auto 1fr auto;
   min-block-size: 3.25rem;
-  padding-inline: 0.85rem 0.35rem;
+  padding-inline: 0.35rem;
   pointer-events: auto;
+}
+
+.agent-assistant-file-input {
+  display: none;
+}
+
+.agent-assistant-attach {
+  align-self: center;
 }
 
 .agent-assistant-textarea {
@@ -1055,7 +1499,7 @@ onScopeDispose(() => {
   }
 
   .agent-assistant-messages {
-    padding-block: 0.85rem calc(env(safe-area-inset-bottom, 0px) + 8.2rem);
+    padding-block: 0.85rem calc(env(safe-area-inset-bottom, 0px) + 11.8rem);
     padding-inline: 0.85rem;
   }
 

@@ -55,7 +55,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 // 获取用户权限信息
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissions.value, 'admin'))
-const showAgentAssistant = computed(() => canAdmin.value && globalSettingsStore.get('AI_AGENT_ENABLE') === true)
+const showAgentAssistant = computed(() => globalSettingsStore.get('AI_AGENT_ENABLE') === true)
 
 // 开始菜单项
 const startMenus = ref<NavMenu[]>([])
