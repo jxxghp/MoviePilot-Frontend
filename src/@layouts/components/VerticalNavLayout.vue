@@ -170,6 +170,10 @@ export default defineComponent({
 }
 
 .layout-wrapper.layout-nav-type-vertical {
+  --layout-navbar-block-size: calc(
+    env(safe-area-inset-top, 0px) + #{variables.$layout-vertical-nav-navbar-height} + var(--navbar-tab-height)
+  );
+
   // TODO(v2): Check why we need height in vertical nav & min-height in horizontal nav
   min-block-size: 100%;
 
@@ -185,13 +189,16 @@ export default defineComponent({
   .layout-navbar {
     position: fixed;
     z-index: variables.$layout-vertical-nav-layout-navbar-z-index;
+    // iOS Safari 在地址栏收起和惯性滚动时可能把 fixed 顶栏和页面滚动层合成到一起，
+    // 单独提升顶栏图层可避免导航栏短暂上移到安全区下方。
+    backface-visibility: hidden;
+    block-size: var(--layout-navbar-block-size);
     inline-size: calc(100vw - variables.$layout-vertical-nav-width - 0.5rem);
     inset-block-start: 0;
+    transform: translate3d(0, 0, 0);
 
     .navbar-content-container {
-      block-size: calc(
-        env(safe-area-inset-top) + variables.$layout-vertical-nav-navbar-height + var(--navbar-tab-height)
-      );
+      block-size: var(--layout-navbar-block-size);
     }
 
     @at-root {

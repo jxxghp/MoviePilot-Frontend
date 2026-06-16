@@ -15,7 +15,7 @@ body {
   background: rgb(var(--v-theme-background));
   overscroll-behavior-y: contain;
 
-  --webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch;
 }
 
 body,

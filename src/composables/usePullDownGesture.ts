@@ -85,7 +85,10 @@ export function usePullDownGesture(options: PullDownOptions = {}) {
   })
 
   const indicatorTransform = computed(() => {
-    return `translate(-50%, ${Math.min(60 + pullDistance.value - config.SHOW_INDICATOR, 70)}px)`
+    // 顶部基准位置由布局 CSS 负责，这里只让指示器跟随下拉手势轻微移动。
+    const followOffset = Math.min(Math.max(pullDistance.value - config.SHOW_INDICATOR, 0), 16)
+
+    return `translate3d(-50%, ${followOffset}px, 0)`
   })
 
   // 弹窗检测函数

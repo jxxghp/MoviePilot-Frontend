@@ -452,6 +452,7 @@ onMounted(async () => {
     v-if="appMode && showPullIndicator"
     class="pull-indicator"
     :style="{
+      '--pull-indicator-navbar-extra-height': navbarExtraHeight,
       opacity: indicatorOpacity,
       transform: indicatorTransform,
     }"
@@ -475,7 +476,7 @@ onMounted(async () => {
     <!-- 👉 Navbar -->
     <template #navbar="{ toggleVerticalOverlayNavActive }">
       <div
-        class="theme-navbar-row d-flex h-14 align-center mx-1"
+        class="theme-navbar-row d-flex h-full align-center mx-1"
         :class="{ 'theme-navbar-row--horizontal': showHorizontalThemeNav }"
       >
         <RouterLink v-if="showHorizontalThemeNav" :to="canAdmin ? '/dashboard' : '/apps'" class="theme-horizontal-logo">
@@ -801,6 +802,7 @@ onMounted(async () => {
 
 .pull-indicator {
   position: fixed;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -809,11 +811,14 @@ onMounted(async () => {
   backdrop-filter: blur(20px);
   background: rgba(var(--v-theme-surface), 0.3);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 10%), 0 1px 3px rgba(0, 0, 0, 6%);
-  inset-block-start: 80px;
+  inset-block-start: calc(
+    env(safe-area-inset-top, 0px) + 4rem + var(--pull-indicator-navbar-extra-height, 0rem) + 0.75rem
+  );
   inset-inline-start: 50%;
   pointer-events: none;
-  transform: translateX(-50%);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translate3d(-50%, 0, 0);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
 }
 
 .indicator-icon {

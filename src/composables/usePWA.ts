@@ -1,6 +1,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useDisplay } from 'vuetify'
-import { checkPWAStatus, isPWADisplayMode } from '@/@core/utils/navigator'
+import { checkPWAStatus, isMobileDevice, isPWADisplayMode } from '@/@core/utils/navigator'
 
 // 全局PWA状态，确保只初始化一次
 const globalPwaStatus = ref<{
@@ -34,11 +34,14 @@ async function initializePWAGlobally() {
       globalPwaStatus.value = await checkPWAStatus()
     } catch (error) {
       console.error('Failed to detect PWA status', error)
+      const isStandaloneMode = isPWADisplayMode()
+
       // 即使检测失败，也设置一个合理的默认值
       globalPwaStatus.value = {
         hasPWAFeatures: false,
-        isStandaloneMode: isPWADisplayMode(),
-        isPWAEnvironment: isPWADisplayMode(),
+        isStandaloneMode,
+        // iOS Safari 浏览器模式可能取不到 Service Worker 注册信息，但移动端仍应使用 App 交互。
+        isPWAEnvironment: isStandaloneMode || isMobileDevice(),
         isFullPWA: false,
       }
     } finally {
@@ -56,7 +59,8 @@ export function usePWA() {
 
   // 基于新的PWA状态结构
   const pwaMode = computed(() => {
-    return globalPwaStatus.value?.isPWAEnvironment ?? false
+    // PWA 状态异步恢复前先用移动端特征兜底，避免 Safari 浏览器首屏阶段缺少移动端交互。
+    return globalPwaStatus.value?.isPWAEnvironment ?? isMobileDevice()
   })
 
   const appMode = computed(() => {
