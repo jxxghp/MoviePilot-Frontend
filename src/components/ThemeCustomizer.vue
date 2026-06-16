@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { CSSProperties } from 'vue'
 import {
   themeCustomizerPrimaryColors,
   useThemeCustomizer,
@@ -35,20 +34,6 @@ const { appMode } = usePWA()
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
-const customizerViewportHeight = ref('100dvh')
-
-function getVisibleViewportHeight() {
-  if (typeof window === 'undefined') return '100dvh'
-
-  const height = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight
-
-  return height > 0 ? `${Math.round(height)}px` : '100dvh'
-}
-
-// iOS 小屏的可见视口会随地址栏和独立模式 safe area 变化，面板高度需要跟随真实可见高度。
-function syncCustomizerViewportHeight() {
-  customizerViewportHeight.value = getVisibleViewportHeight()
-}
 
 // 将主题定制器打开状态同步到根节点，供全局悬浮按钮避让右侧面板。
 function syncThemeCustomizerOpenState(isOpen: boolean) {
@@ -76,12 +61,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  syncCustomizerViewportHeight()
   window.addEventListener('keydown', handleGlobalKeydown)
-  window.addEventListener('resize', syncCustomizerViewportHeight)
-  window.addEventListener('orientationchange', syncCustomizerViewportHeight)
-  window.visualViewport?.addEventListener('resize', syncCustomizerViewportHeight)
-  window.visualViewport?.addEventListener('scroll', syncCustomizerViewportHeight)
 })
 
 onScopeDispose(clearThemeCustomizerOpenState)
@@ -89,15 +69,7 @@ onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
   window.removeEventListener('keydown', handleGlobalKeydown)
-  window.removeEventListener('resize', syncCustomizerViewportHeight)
-  window.removeEventListener('orientationchange', syncCustomizerViewportHeight)
-  window.visualViewport?.removeEventListener('resize', syncCustomizerViewportHeight)
-  window.visualViewport?.removeEventListener('scroll', syncCustomizerViewportHeight)
 })
-
-const customizerContainerStyle = computed<CSSProperties>(() => ({
-  '--theme-customizer-viewport-height': customizerViewportHeight.value,
-}))
 
 const themeOptions = computed<Array<{ icon: string; title: string; value: ThemeCustomizerTheme }>>(() => [
   { title: t('theme.light'), value: 'light', icon: 'mdi-white-balance-sunny' },
@@ -234,7 +206,6 @@ async function handleResetSettings() {
 <template>
   <aside
     class="theme-customizer-panel-host"
-    :style="customizerContainerStyle"
     role="dialog"
     :aria-label="t('theme.customizer.title')"
   >
@@ -443,13 +414,23 @@ async function handleResetSettings() {
   overflow: hidden;
   border-radius: 0;
   background: rgb(var(--v-theme-surface));
-  block-size: var(--theme-customizer-viewport-height, 100dvh) !important;
+
+  /* 背景层保持完整视口高度，避免 iOS 键盘触发 visual viewport resize 后露出底层页面。 */
+  block-size: 100vh !important;
   border-inline-start: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
   box-shadow: var(--app-surface-shadow) !important;
   inline-size: 420px !important;
   inset-block-start: 0 !important;
   inset-inline-end: 0 !important;
-  max-block-size: var(--theme-customizer-viewport-height, 100dvh) !important;
+  max-block-size: none !important;
+  min-block-size: 100vh !important;
+}
+
+@supports (block-size: 100lvh) {
+  .theme-customizer-panel-host {
+    block-size: 100lvh !important;
+    min-block-size: 100lvh !important;
+  }
 }
 
 .theme-customizer-panel {
@@ -467,12 +448,12 @@ async function handleResetSettings() {
   max-block-size: 100%;
 
   /* 独立 App 模式会贴近 viewport-fit=cover 顶部，面板内部需要避开 iOS 状态栏。 */
-  padding-block-start: env(safe-area-inset-top);
+  padding-block-start: env(safe-area-inset-top, 0px);
 }
 
 .theme-customizer-panel--dialog .theme-customizer-body {
   block-size: auto;
-  padding-block-end: env(safe-area-inset-bottom);
+  padding-block-end: env(safe-area-inset-bottom, 0px);
 }
 
 @media (width <= 600px) {

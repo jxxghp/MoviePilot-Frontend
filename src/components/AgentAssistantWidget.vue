@@ -107,7 +107,6 @@ const HISTORY_TITLE_LENGTH = 36
 const HISTORY_PREVIEW_LENGTH = 72
 
 const drawer = ref(false)
-const drawerViewportHeight = ref('100dvh')
 const inputText = ref('')
 const messages = ref<AgentChatMessage[]>([])
 const historySessions = ref<AgentSessionHistoryItem[]>([])
@@ -144,7 +143,6 @@ const hasMessages = computed(() => messages.value.length > 0)
 const hasHistorySessions = computed(() => historySessions.value.length > 0)
 const currentUserName = computed(() => userStore.getUserName || t('common.user'))
 const drawerStyle = computed(() => ({
-  '--agent-assistant-viewport-height': drawerViewportHeight.value,
   '--agent-assistant-panel-width': drawerWidth.value,
 }))
 
@@ -626,19 +624,6 @@ async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise
   return { images, files, userAttachments }
 }
 
-function getVisibleViewportHeight() {
-  if (typeof window === 'undefined') return '100dvh'
-
-  const height = window.visualViewport?.height || window.innerHeight || document.documentElement.clientHeight
-
-  return height > 0 ? `${Math.round(height)}px` : '100dvh'
-}
-
-// iOS 独立模式和地址栏收起时可见高度会变化，抽屉需要跟随真实 viewport。
-function syncDrawerViewportHeight() {
-  drawerViewportHeight.value = getVisibleViewportHeight()
-}
-
 async function streamAgentMessage(
   text: string,
   images: string[] = [],
@@ -874,13 +859,8 @@ watch(drawerWidth, () => {
 onMounted(() => {
   restoreHistorySessions()
   restoreState()
-  syncDrawerViewportHeight()
   syncInputHeight()
-  window.addEventListener('resize', syncDrawerViewportHeight)
-  window.addEventListener('orientationchange', syncDrawerViewportHeight)
   window.addEventListener('keydown', handleGlobalKeydown)
-  window.visualViewport?.addEventListener('resize', syncDrawerViewportHeight)
-  window.visualViewport?.addEventListener('scroll', syncDrawerViewportHeight)
 })
 
 onScopeDispose(clearAgentAssistantOpenState)
@@ -888,11 +868,7 @@ onScopeDispose(clearPendingAttachments)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
-  window.removeEventListener('resize', syncDrawerViewportHeight)
-  window.removeEventListener('orientationchange', syncDrawerViewportHeight)
   window.removeEventListener('keydown', handleGlobalKeydown)
-  window.visualViewport?.removeEventListener('resize', syncDrawerViewportHeight)
-  window.visualViewport?.removeEventListener('scroll', syncDrawerViewportHeight)
 })
 </script>
 
@@ -1269,14 +1245,24 @@ onScopeDispose(() => {
   z-index: 2101;
   overflow: hidden;
   background: rgb(var(--v-theme-surface));
-  block-size: var(--agent-assistant-viewport-height, 100dvh) !important;
+
+  /* 背景层必须覆盖完整视口，不能跟随 iOS 键盘后的 visual viewport 缩短。 */
+  block-size: 100vh !important;
   border-inline-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   box-shadow: var(--app-surface-shadow);
   inline-size: var(--agent-assistant-panel-width, 30rem);
   inset-block-start: 0;
   inset-inline-end: 0;
-  max-block-size: var(--agent-assistant-viewport-height, 100dvh) !important;
+  max-block-size: none !important;
+  min-block-size: 100vh !important;
   overscroll-behavior: contain;
+}
+
+@supports (block-size: 100lvh) {
+  .agent-assistant-panel {
+    block-size: 100lvh !important;
+    min-block-size: 100lvh !important;
+  }
 }
 
 .agent-assistant-shell {
@@ -1345,13 +1331,19 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-history-list {
-  max-block-size: min(26rem, calc(var(--agent-assistant-viewport-height, 100dvh) - 7rem));
+  max-block-size: min(26rem, calc(100vh - 7rem));
   overscroll-behavior: contain;
   padding-block: 0.35rem;
 
   :deep(.ps__rail-x),
   :deep(.ps__rail-y) {
     display: none !important;
+  }
+}
+
+@supports (block-size: 100lvh) {
+  .agent-assistant-history-list {
+    max-block-size: min(26rem, calc(100lvh - 7rem));
   }
 }
 
