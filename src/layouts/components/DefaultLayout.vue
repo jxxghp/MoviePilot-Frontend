@@ -320,7 +320,7 @@ function closeHorizontalNavGroup() {
 }
 
 function resolveMaybeRefValue<T>(value: T | ComputedRef<T> | undefined, fallback: T): T {
-  return isRef(value) ? value.value : value ?? fallback
+  return isRef(value) ? value.value : (value ?? fallback)
 }
 
 function resolveHeaderButtonColor(button: DynamicHeaderTabButton) {
@@ -695,6 +695,8 @@ onMounted(async () => {
 </template>
 
 <style lang="scss" scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .main-content-wrapper {
   backface-visibility: hidden;
   block-size: 100%;
@@ -774,10 +776,10 @@ onMounted(async () => {
 
 .theme-horizontal-nav {
   display: flex;
-  overflow-x: auto;
   align-items: center;
   block-size: 3.25rem;
   gap: 0.25rem;
+  overflow-x: auto;
   padding-block: 0.25rem 0.5rem;
   padding-inline: 0.5rem;
   scrollbar-width: none;
@@ -814,14 +816,18 @@ onMounted(async () => {
   border-radius: 50%;
   backdrop-filter: blur(20px);
   background: rgba(var(--v-theme-surface), 0.3);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 10%), 0 1px 3px rgba(0, 0, 0, 6%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 10%),
+    0 1px 3px rgba(0, 0, 0, 6%);
   inset-block-start: calc(
     env(safe-area-inset-top, 0px) + 4rem + var(--pull-indicator-navbar-extra-height, 0rem) + 0.75rem
   );
   inset-inline-start: 50%;
   pointer-events: none;
   transform: translate3d(-50%, 0, 0);
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity, transform;
 }
 
@@ -842,7 +848,9 @@ html[class*='mica'] .pull-indicator,
 html[class*='acrylic'] .pull-indicator {
   border: 1px solid rgba(255, 255, 255, 20%);
   background: rgba(255, 255, 255, 95%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 12%), 0 4px 16px rgba(0, 0, 0, 8%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 12%),
+    0 4px 16px rgba(0, 0, 0, 8%);
 }
 
 html[class*='transparent'] .indicator-icon,
@@ -856,7 +864,9 @@ html[data-theme='dark'][class*='mica'] .pull-indicator,
 html[data-theme='dark'][class*='acrylic'] .pull-indicator {
   border: 1px solid rgba(255, 255, 255, 10%);
   background: rgba(18, 18, 18, 95%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 30%), 0 4px 16px rgba(0, 0, 0, 20%);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 30%),
+    0 4px 16px rgba(0, 0, 0, 20%);
 }
 
 html[data-theme='dark'][class*='transparent'] .indicator-icon,
