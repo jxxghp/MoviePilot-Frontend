@@ -493,8 +493,11 @@ onScopeDispose(() => {
 
       <main ref="messageListRef" class="agent-assistant-messages">
         <div v-if="!hasMessages" class="agent-assistant-empty">
-          <VIcon icon="mdi-creation-outline" size="34" />
-          <div class="text-subtitle-2 mt-3">{{ t('agentAssistant.emptyTitle') }}</div>
+          <div class="agent-assistant-empty__mark">
+            <VIcon icon="lucide:sparkles" size="28" />
+          </div>
+          <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
+          <div class="agent-assistant-empty__subtitle">{{ t('agentAssistant.emptySubtitle') }}</div>
         </div>
 
         <div
@@ -630,7 +633,7 @@ onScopeDispose(() => {
 
 .agent-assistant-fab {
   position: fixed;
-  z-index: 2100;
+  z-index: 1000;
   display: grid;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 999px 0 0 999px;
@@ -644,7 +647,7 @@ onScopeDispose(() => {
   inset-block-start: 50%;
   inset-inline-end: 0;
   place-items: center;
-  transform: translate(1.35rem, -50%);
+  transform: translate(1rem, -50%);
   transition:
     inset-inline-end 0.2s ease,
     transform 0.18s ease,
@@ -724,11 +727,44 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-empty {
-  display: grid;
-  color: rgba(var(--v-theme-on-surface), 0.58);
-  min-block-size: 55%;
-  place-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  min-block-size: 100%;
+  padding-block: 2rem 1.25rem;
+  padding-inline: 0.25rem;
   text-align: center;
+}
+
+.agent-assistant-empty__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(var(--v-theme-primary), 0.18);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-primary), 0.1);
+  block-size: 3.75rem;
+  box-shadow: inset 0 1px 0 rgba(var(--v-theme-on-primary), 0.1);
+  color: rgb(var(--v-theme-primary));
+  inline-size: 3.75rem;
+  margin-block-end: 1rem;
+}
+
+.agent-assistant-empty__title {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.agent-assistant-empty__subtitle {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  margin-block-start: 0.4rem;
+  max-inline-size: 21rem;
 }
 
 .agent-assistant-message {
@@ -1013,13 +1049,9 @@ onScopeDispose(() => {
 }
 
 @media (width <= 600px) {
-  .agent-assistant-fab {
-    inset-block: auto max(5rem, calc(env(safe-area-inset-bottom, 0px) + 5rem));
-    transform: translateX(1.35rem);
-  }
-
-  .agent-assistant-fab:hover {
-    transform: translateX(0);
+  .agent-assistant-empty {
+    justify-content: flex-start;
+    padding-block-start: 2.75rem;
   }
 
   .agent-assistant-messages {

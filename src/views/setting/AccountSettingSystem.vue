@@ -2,6 +2,7 @@
 <script lang="ts" setup>
 import { useToast } from 'vue-toastification'
 import api from '@/api'
+import { useGlobalSettingsStore } from '@/stores'
 import { DownloaderConf, MediaServerConf } from '@/api/types'
 import DownloaderCard from '@/components/cards/DownloaderCard.vue'
 import MediaServerCard from '@/components/cards/MediaServerCard.vue'
@@ -17,6 +18,7 @@ const display = useDisplay()
 const theme = useTheme()
 
 const isTransparentTheme = computed(() => theme.name.value === 'transparent')
+const globalSettingsStore = useGlobalSettingsStore()
 
 // 国际化
 const { t } = useI18n()
