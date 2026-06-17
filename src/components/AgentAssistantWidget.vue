@@ -348,6 +348,20 @@ function scrollToBottom() {
   })
 }
 
+// 新会话展示空态时必须回到顶部，避免复用上一段长会话的滚动位置导致空白。
+function scrollToTop() {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const scroller = getMessageScrollerElement()
+      if (!scroller) return
+
+      messageListRef.value?.ps?.update()
+      scroller.scrollTop = 0
+      messageListRef.value?.ps?.update()
+    })
+  })
+}
+
 function syncInputHeight() {
   nextTick(() => {
     const input = inputRef.value
@@ -762,6 +776,7 @@ function startNewSession() {
   historyMenuOpen.value = false
   clearPendingAttachments()
   persistState()
+  scrollToTop()
 }
 
 // 从历史列表恢复指定会话，同时把它设为当前本地会话。
@@ -1418,18 +1433,18 @@ onScopeDispose(() => {
   min-block-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 12rem);
+  padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 6rem);
   padding-inline: 1rem;
   scrollbar-width: thin;
 }
 
 .agent-assistant-empty {
   display: flex;
+  box-sizing: border-box;
   flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-sizing: border-box;
   color: rgba(var(--v-theme-on-surface), 0.7);
   min-block-size: 0;
   padding-block: 2rem 1.25rem;
@@ -1441,13 +1456,7 @@ onScopeDispose(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(var(--v-theme-primary), 0.18);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-primary), 0.1);
-  block-size: 3.75rem;
-  box-shadow: inset 0 1px 0 rgba(var(--v-theme-on-primary), 0.1);
   color: rgb(var(--v-theme-primary));
-  inline-size: 3.75rem;
   margin-block-end: 1rem;
 }
 
@@ -1828,9 +1837,9 @@ onScopeDispose(() => {
   :deep(h1),
   :deep(h2),
   :deep(h3) {
-    margin-block: 0.5rem;
     font-weight: 600;
     line-height: 1.3;
+    margin-block: 0.5rem;
   }
 
   :deep(h1) {
@@ -1909,11 +1918,11 @@ onScopeDispose(() => {
 
   :deep(table) {
     display: block;
-    overflow-x: auto;
     border-collapse: collapse;
     inline-size: max-content;
-    max-inline-size: 100%;
     margin-block: 0.5rem;
+    max-inline-size: 100%;
+    overflow-x: auto;
   }
 
   :deep(th),
