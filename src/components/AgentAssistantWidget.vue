@@ -462,8 +462,8 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       break
     case 'error':
       assistantMessage.status = 'error'
-      streamError.value = event.message || t('agentAssistant.error')
-      if (!assistantMessage.content) assistantMessage.content = streamError.value
+      // 后端流式错误已经以 AI 消息展示，避免底部提示条重复且持续占位。
+      assistantMessage.content ||= event.message || t('agentAssistant.error')
       markToolsDone(assistantMessage)
       break
     case 'start':
@@ -715,7 +715,6 @@ async function streamAgentMessage(
 
     assistantMessage.status = 'error'
     assistantMessage.content = error?.message || t('agentAssistant.error')
-    streamError.value = assistantMessage.content
     markToolsDone(assistantMessage)
     refreshMessageList()
   } finally {
@@ -740,8 +739,8 @@ async function sendMessage() {
     const prepared = await prepareAgentAttachments(attachments)
     await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments)
   } catch (error: any) {
-    streamError.value = error?.message || t('agentAssistant.uploadFailed')
-    addMessage('assistant', streamError.value, 'error')
+    // 附件准备失败同样落到对话消息里，底部提示条只保留给没有消息承载的本地错误。
+    addMessage('assistant', error?.message || t('agentAssistant.uploadFailed'), 'error')
   } finally {
     sending.value = false
   }
