@@ -992,6 +992,7 @@ onScopeDispose(() => {
         ref="messageListRef"
         tag="main"
         class="agent-assistant-messages"
+        :class="{ 'agent-assistant-messages--has-content': hasMessages }"
         :options="{ wheelPropagation: false }"
       >
         <div v-if="!hasMessages" class="agent-assistant-empty">
@@ -1428,14 +1429,25 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-messages {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-block-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-block: 1rem calc(env(safe-area-inset-bottom, 0px) + 6rem);
+  padding-block: 1rem;
   padding-inline: 1rem;
   scrollbar-width: thin;
+
+  :deep(.ps__rail-x),
+  :deep(.ps__rail-y) {
+    display: none !important;
+  }
+}
+
+/* 只有消息态预留输入框空间，避免 iOS 空态被 padding 撑出不可滚动的滚动条。 */
+.agent-assistant-messages--has-content {
+  padding-block-end: calc(env(safe-area-inset-bottom, 0px) + 6rem);
 }
 
 .agent-assistant-empty {
@@ -1977,8 +1989,12 @@ onScopeDispose(() => {
   }
 
   .agent-assistant-messages {
-    padding-block: 0.85rem calc(env(safe-area-inset-bottom, 0px) + 11.8rem);
+    padding-block: 0.85rem;
     padding-inline: 0.85rem;
+  }
+
+  .agent-assistant-messages--has-content {
+    padding-block-end: calc(env(safe-area-inset-bottom, 0px) + 11.8rem);
   }
 
   .agent-assistant-composer {
