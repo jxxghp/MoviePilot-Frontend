@@ -5,7 +5,6 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, filterItemsByPermission, hasItemPermission, type PermissionProtectedItem } from '@/utils/permission'
-import { clearUnreadMessages, getUnreadCount, onUnreadMessage } from '@/utils/badge'
 
 // 国际化
 const { t } = useI18n()
@@ -21,7 +20,6 @@ const WordsView = defineAsyncComponent(() => import('@/views/system/WordsView.vu
 const CacheView = defineAsyncComponent(() => import('@/views/system/CacheView.vue'))
 const AccountSettingService = defineAsyncComponent(() => import('@/views/system/ServiceView.vue'))
 const ShortcutLogDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutLogDialog.vue'))
-const ShortcutMessageDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutMessageDialog.vue'))
 const ShortcutToolDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutToolDialog.vue'))
 
 type ShortcutItem = PermissionProtectedItem & {
@@ -43,12 +41,6 @@ const appsMenu = ref(false)
 
 // 菜单最大宽度
 const menuMaxWidth = ref(420)
-
-// 未读消息数量，用于控制消息捷径卡片上的红点。
-const unreadMessageCount = ref(0)
-const hasUnreadMessages = computed(() => unreadMessageCount.value > 0)
-let unreadStateRevision = 0
-let stopUnreadMessageListener: (() => void) | null = null
 
 // 定义捷径列表
 const shortcuts: ShortcutItem[] = [
@@ -123,54 +115,15 @@ const shortcuts: ShortcutItem[] = [
     component: ModuleTestView,
     titleText: t('shortcut.system.subtitle'),
   },
-  {
-    title: t('shortcut.message.title'),
-    subtitle: t('shortcut.message.subtitle'),
-    icon: 'mdi-message',
-    dialog: 'message',
-    customDialog: ShortcutMessageDialog,
-  },
 ].map(item => ({ ...item, permission: 'admin' }))
 
 const visibleShortcuts = computed(() => filterItemsByPermission(shortcuts, userPermissions.value))
-
-/** 设置消息捷径卡片的未读数量。 */
-function setUnreadMessageCount(count: number) {
-  unreadMessageCount.value = Math.max(0, count)
-}
-
-/** 同步全局未读消息数量到消息捷径卡片。 */
-function handleUnreadMessage(count: number) {
-  unreadStateRevision += 1
-  setUnreadMessageCount(count)
-}
-
-/** 从 Service Worker 读取当前未读数量，避免错过启动早期事件。 */
-async function syncUnreadMessageStateFromBadge() {
-  const revision = unreadStateRevision
-  const count = await getUnreadCount()
-
-  if (revision === unreadStateRevision) {
-    setUnreadMessageCount(count)
-  }
-}
-
-/** 清空未读消息数量和 PWA 桌面角标。 */
-function clearUnreadMessageState() {
-  unreadStateRevision += 1
-  setUnreadMessageCount(0)
-  void clearUnreadMessages()
-}
 
 /** 打开快捷工具对应的共享弹窗。 */
 function openShortcutDialog(item: (typeof shortcuts)[number]) {
   if (!hasItemPermission(item, userPermissions.value)) return
 
   appsMenu.value = false
-
-  if (item.dialog === 'message') {
-    clearUnreadMessageState()
-  }
 
   if (item.customDialog) {
     openSharedDialog(item.customDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
@@ -195,21 +148,7 @@ function openShortcutDialog(item: (typeof shortcuts)[number]) {
   )
 }
 
-/** 供外部调用的打开消息弹窗方法。 */
-function openMessageDialogFromExternal() {
-  const messageShortcut = visibleShortcuts.value.find(item => item.dialog === 'message')
-  if (messageShortcut) openShortcutDialog(messageShortcut)
-}
-
-// 暴露方法给父组件
-defineExpose({
-  openMessageDialog: openMessageDialogFromExternal,
-})
-
 onMounted(() => {
-  stopUnreadMessageListener = onUnreadMessage(handleUnreadMessage)
-  void syncUnreadMessageStateFromBadge()
-
   const shortcut = getQueryValue('shortcut')
   if (shortcut) {
     const found = visibleShortcuts.value.find(item => item.dialog === shortcut)
@@ -217,10 +156,6 @@ onMounted(() => {
       openShortcutDialog(found)
     }
   }
-})
-
-onBeforeUnmount(() => {
-  stopUnreadMessageListener?.()
 })
 </script>
 
@@ -257,30 +192,20 @@ onBeforeUnmount(() => {
         <div class="grid grid-cols-2 gap-3">
           <!-- 循环渲染快捷方式 -->
           <div v-for="(item, index) in visibleShortcuts" :key="index">
-            <VBadge
-              :model-value="item.dialog === 'message' && hasUnreadMessages"
-              dot
-              color="error"
-              location="top end"
-              offset-x="8"
-              offset-y="8"
-              class="d-block h-full w-100"
+            <VCard
+              flat
+              class="pa-2 d-flex align-center cursor-pointer transition-transform duration-300 hover:-translate-y-1 border h-full w-100"
+              hover
+              @click="openShortcutDialog(item)"
             >
-              <VCard
-                flat
-                class="pa-2 d-flex align-center cursor-pointer transition-transform duration-300 hover:-translate-y-1 border h-full w-100"
-                hover
-                @click="openShortcutDialog(item)"
-              >
-                <VAvatar variant="text" size="48" rounded="lg">
-                  <VIcon color="primary" :icon="item.icon" size="24" />
-                </VAvatar>
-                <div>
-                  <div class="text-body-1 text-high-emphasis font-weight-medium">{{ item.title }}</div>
-                  <div class="text-caption text-medium-emphasis">{{ item.subtitle }}</div>
-                </div>
-              </VCard>
-            </VBadge>
+              <VAvatar variant="text" size="48" rounded="lg">
+                <VIcon color="primary" :icon="item.icon" size="24" />
+              </VAvatar>
+              <div>
+                <div class="text-body-1 text-high-emphasis font-weight-medium">{{ item.title }}</div>
+                <div class="text-caption text-medium-emphasis">{{ item.subtitle }}</div>
+              </div>
+            </VCard>
           </div>
         </div>
       </div>

@@ -676,10 +676,6 @@ export default {
       title: '系统',
       subtitle: '健康检查',
     },
-    message: {
-      title: '消息',
-      subtitle: '消息中心',
-    },
     words: {
       title: '词表',
       subtitle: '词表设置',

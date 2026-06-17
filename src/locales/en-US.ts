@@ -680,10 +680,6 @@ export default {
       title: 'System',
       subtitle: 'Health Check',
     },
-    message: {
-      title: 'Messages',
-      subtitle: 'Message Center',
-    },
     words: {
       title: 'Words',
       subtitle: 'Word Settings',

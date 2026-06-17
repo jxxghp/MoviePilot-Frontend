@@ -1131,6 +1131,12 @@ export interface MediaServerLibrary {
 
 // 消息通知
 export interface Message {
+  // 消息ID
+  id?: number
+  // 消息渠道
+  channel?: string
+  // 消息来源
+  source?: string
   // 消息类型
   mtype?: string
   // 消息标题
@@ -1150,19 +1156,15 @@ export interface Message {
   // 消息方向：0-接收，1-发送
   action?: number
   // JSON
-  note?: string
+  note?: string | any[] | Record<string, any>
 }
 
 // 系统通知
-export interface SystemNotification {
-  // 通知类型 user/system/plugin
-  type: string
-  // 通知标题
-  title: string
-  // 通知内容
-  text: string
+export interface SystemNotification extends Message {
+  // 通知类型 user/system/plugin/notification
+  type?: string
   // 通知时间
-  date: string
+  date?: string
   // 是否已读
   read?: boolean
 }
