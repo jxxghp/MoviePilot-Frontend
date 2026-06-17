@@ -91,6 +91,7 @@ interface AgentOutgoingFile {
 interface PreparedAgentAttachments {
   images: string[]
   files: AgentOutgoingFile[]
+  audioRefs: string[]
   userAttachments: AgentMessageAttachment[]
 }
 
@@ -118,7 +119,14 @@ const messageListRef = ref<PerfectScrollbarExpose | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const pendingAttachments = ref<AgentPendingAttachment[]>([])
+const recording = ref(false)
+const recordingStartedAt = ref(0)
+const recordingDuration = ref(0)
 let abortController: AbortController | null = null
+let mediaRecorder: MediaRecorder | null = null
+let mediaRecorderStream: MediaStream | null = null
+let recordingTimer: number | null = null
+let recordingChunks: BlobPart[] = []
 
 const md = new MarkdownIt({
   html: true,
@@ -135,8 +143,16 @@ md.use(mdLinkAttributes, {
 })
 
 const canSend = computed(
-  () => (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value,
+  () => (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
 )
+const canRecord = computed(() => !sending.value && !recording.value)
+const recordingTimeText = computed(() => {
+  const seconds = Math.max(0, recordingDuration.value)
+  const minutes = Math.floor(seconds / 60)
+  const remainSeconds = seconds % 60
+
+  return `${minutes}:${String(remainSeconds).padStart(2, '0')}`
+})
 // 窄屏下直接全屏，避免聊天内容被压成半屏窄栏。
 const drawerWidth = computed(() => (display.mdAndDown.value ? '100vw' : '30rem'))
 const hasMessages = computed(() => messages.value.length > 0)
@@ -609,6 +625,7 @@ async function uploadAgentAttachment(file: File) {
 async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise<PreparedAgentAttachments> {
   const images: string[] = []
   const files: AgentOutgoingFile[] = []
+  const audioRefs: string[] = []
   const userAttachments: AgentMessageAttachment[] = []
 
   for (const item of items) {
@@ -624,29 +641,36 @@ async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise
     }
 
     if (imageDataUrl) images.push(imageDataUrl)
-    files.push({
+    const outgoingFile = {
       ref: uploaded.ref || uploaded.url,
       name: uploaded.name || item.name,
       mime_type: uploaded.mime_type || item.mime_type,
       size: uploaded.size || item.size,
       local_path: uploaded.local_path,
       status: uploaded.status || 'ready',
-    })
+    }
+
+    if (item.kind === 'audio') {
+      audioRefs.push(outgoingFile.ref)
+    } else {
+      files.push(outgoingFile)
+    }
     userAttachments.push(displayAttachment)
   }
 
-  return { images, files, userAttachments }
+  return { images, files, audioRefs, userAttachments }
 }
 
 async function streamAgentMessage(
   text: string,
   images: string[] = [],
   files: AgentOutgoingFile[] = [],
+  audioRefs: string[] = [],
   userAttachments: AgentMessageAttachment[] = [],
   echoUser = true,
 ) {
   const content = text.trim()
-  if (!content && !images.length && !files.length) return
+  if (!content && !images.length && !files.length && !audioRefs.length) return
 
   if (echoUser) addMessage('user', content, 'done', userAttachments)
   const assistantMessage = addMessage('assistant', '', 'streaming')
@@ -665,6 +689,7 @@ async function streamAgentMessage(
         session_id: sessionId.value,
         images,
         files,
+        audio_refs: audioRefs,
       }),
       credentials: 'include',
       signal: abortController.signal,
@@ -713,13 +738,138 @@ async function sendMessage() {
 
   try {
     const prepared = await prepareAgentAttachments(attachments)
-    await streamAgentMessage(text, prepared.images, prepared.files, prepared.userAttachments)
+    await streamAgentMessage(text, prepared.images, prepared.files, prepared.audioRefs, prepared.userAttachments)
   } catch (error: any) {
     streamError.value = error?.message || t('agentAssistant.uploadFailed')
     addMessage('assistant', streamError.value, 'error')
   } finally {
     sending.value = false
   }
+}
+
+function getRecorderMimeType() {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+  return candidates.find(type => MediaRecorder.isTypeSupported(type)) || ''
+}
+
+function getRecordingFileExtension(mimeType: string) {
+  if (mimeType.includes('mp4')) return 'm4a'
+  if (mimeType.includes('ogg')) return 'ogg'
+  return 'webm'
+}
+
+function stopRecordingStream() {
+  mediaRecorderStream?.getTracks().forEach(track => track.stop())
+  mediaRecorderStream = null
+}
+
+function clearRecordingTimer() {
+  if (recordingTimer === null) return
+
+  window.clearInterval(recordingTimer)
+  recordingTimer = null
+}
+
+function finishRecordingState() {
+  recording.value = false
+  recordingStartedAt.value = 0
+  recordingDuration.value = 0
+  mediaRecorder = null
+  clearRecordingTimer()
+  stopRecordingStream()
+}
+
+async function startVoiceRecording() {
+  if (!canRecord.value) return
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    streamError.value = t('agentAssistant.recordUnsupported')
+    return
+  }
+
+  try {
+    streamError.value = ''
+    recordingChunks = []
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const mimeType = getRecorderMimeType()
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
+
+    mediaRecorderStream = stream
+    mediaRecorder = recorder
+    recording.value = true
+    recordingStartedAt.value = Date.now()
+    recordingDuration.value = 0
+    recordingTimer = window.setInterval(() => {
+      recordingDuration.value = Math.floor((Date.now() - recordingStartedAt.value) / 1000)
+    }, 500)
+
+    recorder.ondataavailable = event => {
+      if (event.data.size > 0) recordingChunks.push(event.data)
+    }
+    recorder.onstop = () => {
+      const recordedMimeType = recorder.mimeType || mimeType || 'audio/webm'
+      const audioBlob = new Blob(recordingChunks, { type: recordedMimeType })
+      const extension = getRecordingFileExtension(recordedMimeType)
+      const file = new File([audioBlob], `voice-${Date.now()}.${extension}`, { type: recordedMimeType })
+
+      finishRecordingState()
+      recordingChunks = []
+
+      if (audioBlob.size <= 0) {
+        streamError.value = t('agentAssistant.recordFailed')
+        return
+      }
+
+      pendingAttachments.value.push({
+        id: createId('recording'),
+        file,
+        kind: 'audio',
+        name: file.name,
+        mime_type: recordedMimeType,
+        size: file.size,
+      })
+      sendMessage()
+    }
+    recorder.onerror = () => {
+      finishRecordingState()
+      recordingChunks = []
+      streamError.value = t('agentAssistant.recordFailed')
+    }
+    recorder.start()
+  } catch (error: any) {
+    finishRecordingState()
+    recordingChunks = []
+    streamError.value = error?.message || t('agentAssistant.recordPermissionDenied')
+  }
+}
+
+function stopVoiceRecording() {
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+    finishRecordingState()
+    return
+  }
+
+  mediaRecorder.stop()
+}
+
+function cancelVoiceRecording() {
+  if (mediaRecorder) {
+    mediaRecorder.ondataavailable = null
+    mediaRecorder.onstop = null
+    mediaRecorder.onerror = null
+    if (mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+  }
+  mediaRecorder = null
+  recordingChunks = []
+  finishRecordingState()
+}
+
+function toggleVoiceRecording() {
+  if (recording.value) {
+    stopVoiceRecording()
+    return
+  }
+
+  startVoiceRecording()
 }
 
 async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceButton) {
@@ -753,7 +903,7 @@ async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceBut
     refreshMessageList()
     persistState()
 
-    await streamAgentMessage(String(result.data?.message || ''), [], [], [], false)
+    await streamAgentMessage(String(result.data?.message || ''), [], [], [], [], false)
   } catch (error: any) {
     choice.status = 'expired'
     streamError.value = error?.message || t('agentAssistant.choiceExpired')
@@ -880,6 +1030,7 @@ onMounted(() => {
 
 onScopeDispose(clearAgentAssistantOpenState)
 onScopeDispose(clearPendingAttachments)
+onScopeDispose(cancelVoiceRecording)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
@@ -1085,6 +1236,7 @@ onScopeDispose(() => {
                 </div>
                 <audio class="agent-assistant-attachment__audio" controls :src="resolveAttachmentUrl(attachment.url)" />
                 <VBtn
+                  class="agent-assistant-surface-btn"
                   :href="getAttachmentDownloadUrl(attachment)"
                   :download="getAttachmentName(attachment)"
                   size="small"
@@ -1104,6 +1256,7 @@ onScopeDispose(() => {
                     <small>{{ attachment.mime_type || formatAttachmentSize(attachment.size) }}</small>
                   </div>
                   <VBtn
+                    class="agent-assistant-surface-btn"
                     :href="getAttachmentDownloadUrl(attachment)"
                     :download="getAttachmentName(attachment)"
                     icon
@@ -1156,6 +1309,7 @@ onScopeDispose(() => {
               <small>{{ formatAttachmentSize(attachment.size) || attachment.mime_type }}</small>
             </div>
             <IconBtn
+              class="agent-assistant-surface-btn"
               size="x-small"
               :disabled="sending"
               :title="t('agentAssistant.removeAttachment')"
@@ -1176,8 +1330,8 @@ onScopeDispose(() => {
             @change="handleFileSelection"
           />
           <IconBtn
-            class="agent-assistant-attach"
-            :disabled="sending"
+            class="agent-assistant-attach agent-assistant-surface-btn"
+            :disabled="sending || recording"
             :title="t('agentAssistant.attachFile')"
             :aria-label="t('agentAssistant.attachFile')"
             @click="openFilePicker"
@@ -1189,13 +1343,27 @@ onScopeDispose(() => {
             v-model="inputText"
             class="agent-assistant-textarea"
             rows="1"
-            :disabled="sending"
+            :disabled="sending || recording"
             :placeholder="t('agentAssistant.placeholder')"
             @input="syncInputHeight"
             @keydown="handleInputKeydown"
           />
           <IconBtn
-            class="agent-assistant-send"
+            class="agent-assistant-record agent-assistant-surface-btn"
+            :class="{ 'is-recording': recording }"
+            :disabled="!recording && !canRecord"
+            :title="
+              recording ? t('agentAssistant.stopRecording', { time: recordingTimeText }) : t('agentAssistant.recordVoice')
+            "
+            :aria-label="
+              recording ? t('agentAssistant.stopRecording', { time: recordingTimeText }) : t('agentAssistant.recordVoice')
+            "
+            @click="toggleVoiceRecording"
+          >
+            <VIcon :icon="recording ? 'mdi-stop-circle-outline' : 'mdi-microphone-outline'" />
+          </IconBtn>
+          <IconBtn
+            class="agent-assistant-send agent-assistant-surface-btn"
             :disabled="!sending && !canSend"
             :title="sending ? t('agentAssistant.stop') : t('common.send')"
             :aria-label="sending ? t('agentAssistant.stop') : t('common.send')"
@@ -1232,7 +1400,8 @@ onScopeDispose(() => {
   box-shadow: var(--app-surface-shadow);
   color: rgb(var(--v-theme-primary));
   inline-size: 2.8rem;
-  inset-block-start: 50%;
+  /* 入口避开屏幕正中，放到视觉上更轻的下三分之一位置。 */
+  inset-block-start: clamp(8rem, 66.666vh, calc(100vh - 8rem));
   inset-inline-end: 0;
   place-items: center;
   transform: translate(1rem, -50%);
@@ -1727,7 +1896,7 @@ onScopeDispose(() => {
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
   column-gap: 0.25rem;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   min-block-size: 3.25rem;
   padding-inline: 0.35rem;
   pointer-events: auto;
@@ -1737,8 +1906,28 @@ onScopeDispose(() => {
   display: none;
 }
 
+// 面板内文件下载、附件和发送按钮使用全局阴影 token，跟随主题阴影设置即时变化。
+.agent-assistant-surface-btn {
+  box-shadow: var(--app-surface-shadow) !important;
+  transition: box-shadow 0.2s ease;
+}
+
+@media (hover: hover) {
+  .agent-assistant-surface-btn:hover {
+    box-shadow: var(--app-surface-hover-shadow) !important;
+  }
+}
+
 .agent-assistant-attach {
   align-self: center;
+}
+
+.agent-assistant-record {
+  align-self: center;
+}
+
+.agent-assistant-record.is-recording {
+  color: rgb(var(--v-theme-error));
 }
 
 .agent-assistant-textarea {
