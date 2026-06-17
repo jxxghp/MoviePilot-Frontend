@@ -488,6 +488,18 @@ async function handleResetSettings() {
 .theme-customizer-body {
   flex: 1 1 auto;
   min-block-size: 0;
+  -ms-overflow-style: none;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  :deep(.ps__rail-x),
+  :deep(.ps__rail-y) {
+    display: none !important;
+  }
 }
 
 .theme-customizer-section {
