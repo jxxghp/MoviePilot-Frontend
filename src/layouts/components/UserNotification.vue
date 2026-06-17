@@ -19,7 +19,6 @@ const hasNewMessage = ref(false)
 const notificationList = ref<SystemNotification[]>([])
 const page = ref(1)
 const loading = ref(false)
-const loadedOnce = ref(false)
 const hasMore = ref(true)
 const notificationKeys = new Set<string>()
 
@@ -37,7 +36,9 @@ function getNotificationTime(item: SystemNotification) {
 }
 
 function normalizeText(value: unknown) {
-  return String(value ?? '').replace(/\s+/g, ' ').trim()
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function getNotificationKind(item: SystemNotification) {
@@ -152,8 +153,6 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
       },
     })) as SystemNotification[]
 
-    loadedOnce.value = true
-
     if (items.length === 0) {
       hasMore.value = false
       done('empty')
@@ -185,12 +184,13 @@ function handleMessage(event: MessageEvent) {
   }
 }
 
-/** 将通知列表标记为已读，并同步清理应用角标和未读红点。 */
+/** 将通知列表标记为已读，并同步清理应用角标、未读红点和通知弹窗。 */
 function markAllAsRead() {
   hasNewMessage.value = false
   notificationList.value.forEach(item => {
     item.read = true
   })
+  appsMenu.value = false
   void clearUnreadMessages()
 }
 
@@ -289,6 +289,10 @@ useDelayedSSE(
             <div v-if="notificationList.length > 0" class="py-3 text-center text-caption text-medium-emphasis">
               {{ t('message.noMoreData') }}
             </div>
+            <div v-else class="notification-empty">
+              <VIcon icon="mdi-bell-sleep-outline" size="40" class="mb-3" />
+              <div>{{ t('notification.empty') }}</div>
+            </div>
           </template>
 
           <VVirtualScroll
@@ -339,11 +343,6 @@ useDelayedSSE(
               </div>
             </template>
           </VVirtualScroll>
-
-          <div v-if="notificationList.length === 0 && loadedOnce && !loading" class="notification-empty">
-            <VIcon icon="mdi-bell-sleep-outline" size="40" class="mb-3" />
-            <div>{{ t('notification.empty') }}</div>
-          </div>
         </VInfiniteScroll>
       </div>
     </VCard>
@@ -356,8 +355,8 @@ useDelayedSSE(
 }
 
 .notification-list-container {
-  max-block-size: min(560px, 62vh);
   overflow: hidden;
+  max-block-size: min(560px, 62vh);
   scrollbar-width: thin;
 }
 
@@ -367,7 +366,7 @@ useDelayedSSE(
 }
 
 .notification-virtual-item {
-  block-size: 104px;
+  block-size: 110px;
   padding-block: 4px;
   padding-inline: 8px;
 }
@@ -376,15 +375,15 @@ useDelayedSSE(
   position: relative;
   display: flex;
   align-items: flex-start;
-  inline-size: 100%;
-  block-size: 100%;
+  padding: 10px;
   border: 0;
   border-radius: 8px;
   background: transparent;
+  block-size: 100%;
   color: inherit;
   cursor: pointer;
   gap: 12px;
-  padding: 10px;
+  inline-size: 100%;
   text-align: start;
   transition:
     background-color 0.2s ease,
@@ -406,15 +405,15 @@ useDelayedSSE(
 .notification-media {
   overflow: hidden;
   flex: 0 0 56px;
-  block-size: 76px;
   border-radius: 6px;
   background: rgba(var(--v-theme-on-surface), 0.06);
+  block-size: 84px;
 }
 
 .notification-media__image,
 .notification-media__fallback {
-  inline-size: 100%;
   block-size: 100%;
+  inline-size: 100%;
 }
 
 .notification-media__fallback,
@@ -425,14 +424,14 @@ useDelayedSSE(
 
 .notification-icon {
   flex: 0 0 40px;
-  block-size: 40px;
   border-radius: 8px;
   background: rgba(var(--v-theme-on-surface), 0.06);
+  block-size: 40px;
 }
 
 .notification-content {
-  min-inline-size: 0;
   flex: 1;
+  min-inline-size: 0;
 }
 
 .notification-title-row {
@@ -453,33 +452,33 @@ useDelayedSSE(
 
 .notification-unread-dot {
   flex: 0 0 7px;
-  inline-size: 7px;
-  block-size: 7px;
   border-radius: 999px;
   background: rgb(var(--v-theme-error));
+  block-size: 7px;
+  inline-size: 7px;
 }
 
 .notification-text {
   display: -webkit-box;
   overflow: hidden;
-  margin-block-start: 4px;
+  -webkit-box-orient: vertical;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.8125rem;
-  line-height: 1.45;
-  -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-height: 1.45;
+  margin-block-start: 4px;
   white-space: pre-wrap;
 }
 
 .notification-meta {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-block-start: 6px;
+  align-items: center;
   color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
   font-size: 0.75rem;
+  gap: 6px;
   line-height: 1.2;
+  margin-block-start: 6px;
 }
 
 .notification-type {
@@ -491,8 +490,9 @@ useDelayedSSE(
 }
 
 .notification-empty {
-  padding: 32px 16px;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  padding-block: 32px;
+  padding-inline: 16px;
   text-align: center;
 }
 </style>
