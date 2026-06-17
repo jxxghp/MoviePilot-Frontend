@@ -85,7 +85,7 @@ function updateFilter(values: string[]) {
           @update:model-value="updateFilter"
         >
           <VChip
-          v-for="option in options"
+            v-for="option in options"
             :key="option"
             :value="option"
             filter
@@ -106,3 +106,30 @@ function updateFilter(values: string[]) {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  margin: 4px;
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
+  color: rgba(var(--v-theme-on-surface), 0.9) !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  background-color: rgba(var(--v-theme-primary), 0.15) !important;
+}
+
+.filter-chip.v-chip--selected {
+  background-color: rgba(var(--v-theme-primary), 0.85) !important;
+  box-shadow: 0 2px 4px rgba(var(--v-theme-primary), 0.3);
+  color: rgb(var(--v-theme-on-primary)) !important;
+  font-weight: 600;
+}
+</style>

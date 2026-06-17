@@ -142,4 +142,24 @@ function handleDetail(item: Context) {
   max-block-size: 60vh;
   overflow-y: auto;
 }
+
+.chip-season {
+  background-color: #3f51b5;
+  color: white;
+}
+
+.chip-free {
+  background-color: #4caf50;
+  color: white;
+}
+
+.chip-discount {
+  background-color: #ff5722;
+  color: white;
+}
+
+.chip-bonus {
+  background-color: #9c27b0;
+  color: white;
+}
 </style>
