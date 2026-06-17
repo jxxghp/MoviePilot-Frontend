@@ -1194,6 +1194,7 @@ export default {
     currentEpisodeNotInLibrary: 'Current not in library',
     libraryUpdatedAt: 'Updated {time}',
     libraryUpdatedAtShort: '{time}',
+    expandDayEvents: 'Show {count} more items for this day',
   },
   storage: {
     name: 'Name',

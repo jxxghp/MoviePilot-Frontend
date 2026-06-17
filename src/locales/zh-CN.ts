@@ -1189,6 +1189,7 @@ export default {
     currentEpisodeNotInLibrary: '本集未入库',
     libraryUpdatedAt: '最近更新 {time}',
     libraryUpdatedAtShort: '{time}',
+    expandDayEvents: '展开当天剩余 {count} 个条目',
   },
   storage: {
     name: '名称',

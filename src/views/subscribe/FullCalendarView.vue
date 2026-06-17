@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { CalendarOptions, EventSourceInput } from '@fullcalendar/core'
+import type { CalendarOptions, EventInput, EventSourceInput } from '@fullcalendar/core'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
@@ -14,6 +14,10 @@ import { getCurrentLocale } from '@/plugins/i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+
+const COLLAPSED_DAY_CARD_LIMIT = 5
+const COLLAPSED_VISIBLE_CARD_LIMIT = COLLAPSED_DAY_CARD_LIMIT
+const DAY_GROUP_EVENT_PREFIX = 'calendar-day-group-'
 
 // 国际化
 const { t } = useI18n()
@@ -35,6 +39,7 @@ let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 type CalendarLibraryState = 'none' | 'partial' | 'complete'
 
 interface CalendarEventInfo {
+  id?: string
   title: string
   subtitle: string
   start: Date | null
@@ -49,6 +54,9 @@ interface CalendarEventInfo {
   libraryEpisodeNumbers: number[]
   libraryState: CalendarLibraryState
   libraryUpdateText: string
+  dateKey?: string
+  hiddenEventCount?: number
+  calendarSortIndex?: number
 }
 
 // 打开订阅日历共享进度弹窗。
@@ -85,10 +93,12 @@ const calendarOptions: Ref<CalendarOptions> = ref({
     center: 'title',
     right: 'next',
   },
-  // 日历页需要完整展示每天所有订阅条目，避免折叠成 "+ more" 后隐藏关键信息。
+  // 折叠逻辑由组件自行控制，点击展开时可以直接扩展当前日期格子。
   dayMaxEvents: false,
   dayMaxEventRows: false,
   eventDisplay: 'block',
+  eventOrder: 'start,calendarSortIndex,title',
+  eventOrderStrict: true,
   views: {
     week: {
       titleFormat: { day: 'numeric' },
@@ -96,6 +106,91 @@ const calendarOptions: Ref<CalendarOptions> = ref({
   },
   events: [],
 })
+
+// 原始日历事件与已展开日期分离，避免依赖 FullCalendar 的弹窗式 more 链接。
+const rawCalendarEvents = ref<CalendarEventInfo[]>([])
+const expandedDateKeys = ref(new Set<string>())
+const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
+
+function getDateKey(date: Date | null) {
+  if (!date) return ''
+
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getDayGroupEventId(dateKey: string) {
+  return `${DAY_GROUP_EVENT_PREFIX}${dateKey}`
+}
+
+function createDayGroupCalendarEvent(dateKey: string, events: CalendarEventInfo[]): EventInput {
+  const isExpanded = expandedDateKeys.value.has(dateKey)
+  const visibleEvents = isExpanded ? events : events.slice(0, COLLAPSED_VISIBLE_CARD_LIMIT)
+
+  return {
+    id: getDayGroupEventId(dateKey),
+    title: '',
+    start: events[0]?.start || undefined,
+    allDay: false,
+    interactive: false,
+    calendarSortIndex: events[0]?.calendarSortIndex ?? 0,
+    dateKey,
+    hiddenEventCount: isExpanded ? 0 : Math.max(events.length - COLLAPSED_VISIBLE_CARD_LIMIT, 0),
+    isDayGroup: true,
+    visibleEvents,
+  }
+}
+
+function normalizeCalendarEventOrder(events: CalendarEventInfo[]) {
+  return events
+    .sort((first, second) => {
+      const firstTime = first.start?.getTime() ?? 0
+      const secondTime = second.start?.getTime() ?? 0
+
+      return firstTime - secondTime || first.title.localeCompare(second.title)
+    })
+    .map((event, index) => ({
+      ...event,
+      calendarSortIndex: index,
+    }))
+}
+
+function renderVisibleCalendarEvents() {
+  const groupedEvents = new Map<string, CalendarEventInfo[]>()
+
+  rawCalendarEvents.value.forEach(event => {
+    const dateKey = getDateKey(event.start)
+    if (!dateKey) return
+
+    groupedEvents.set(dateKey, [...(groupedEvents.get(dateKey) || []), event])
+  })
+
+  calendarOptions.value.events = Array.from(groupedEvents.entries()).map(([dateKey, events]) =>
+    createDayGroupCalendarEvent(dateKey, events),
+  ) as EventSourceInput
+}
+
+function expandCalendarDay(dateKey: string) {
+  const currentScrollY = window.scrollY
+  const events = rawCalendarEvents.value.filter(event => getDateKey(event.start) === dateKey)
+  const calendarApi = calendarRef.value?.getApi()
+
+  expandedDateKeys.value = new Set(expandedDateKeys.value).add(dateKey)
+
+  // 只更新当天这个聚合事件的内容，避免重置整个 FullCalendar 导致页面回到顶部。
+  if (calendarApi) {
+    const event = calendarApi.getEventById(getDayGroupEventId(dateKey))
+    event?.setExtendedProp('visibleEvents', events)
+    event?.setExtendedProp('hiddenEventCount', 0)
+
+    requestAnimationFrame(() => window.scrollTo({ top: currentScrollY, left: window.scrollX }))
+  } else {
+    renderVisibleCalendarEvents()
+  }
+}
 
 function clampEpisodeCount(value: number, total: number) {
   return Math.min(Math.max(value, 0), total)
@@ -183,15 +278,20 @@ function buildCalendarEventInfo(
   }
 }
 
-function getCalendarEventTooltip(event: any) {
+function getExpandCalendarEventLabel(event: any) {
   const props = event.extendedProps as CalendarEventInfo
+
+  return t('calendar.expandDayEvents', { count: props.hiddenEventCount || 0 })
+}
+
+function getCalendarEventInfoTooltip(event: CalendarEventInfo) {
   const parts = [event.title]
 
-  if (props.subtitle) parts.push(t('calendar.episode', { number: props.subtitle }))
-  if (props.totalEpisode) {
-    parts.push(t('calendar.libraryProgress', { completed: props.libraryEpisode, total: props.totalEpisode }))
+  if (event.subtitle) parts.push(t('calendar.episode', { number: event.subtitle }))
+  if (event.totalEpisode) {
+    parts.push(t('calendar.libraryProgress', { completed: event.libraryEpisode, total: event.totalEpisode }))
   }
-  if (props.libraryUpdateText) parts.push(t('calendar.libraryUpdatedAt', { time: props.libraryUpdateText }))
+  if (event.libraryUpdateText) parts.push(t('calendar.libraryUpdatedAt', { time: event.libraryUpdateText }))
 
   return parts.filter(Boolean).join(' · ')
 }
@@ -273,7 +373,8 @@ async function getSubscribes() {
     loading.value = false
     const subEvents = await Promise.allSettled(subscribes.map(async sub => eventsHander(sub)))
     const succEvents = subEvents.filter(result => result.status === 'fulfilled').map(result => result.value)
-    calendarOptions.value.events = succEvents.flat().filter(event => event.start) as EventSourceInput
+    rawCalendarEvents.value = normalizeCalendarEventOrder(succEvents.flat().filter(event => event.start))
+    renderVisibleCalendarEvents()
     isLoaded.value = true
   } catch (error) {
     console.error(error)
@@ -295,19 +396,24 @@ onActivated(() => {
 </script>
 
 <template>
-  <FullCalendar :options="calendarOptions">
+  <FullCalendar ref="calendarRef" :options="calendarOptions">
     <template #eventContent="arg">
-      <div v-if="display.lgAndUp.value">
+      <div
+        v-if="arg.event.extendedProps.isDayGroup"
+        class="calendar-day-events"
+      >
         <div
+          v-for="calendarEvent in arg.event.extendedProps.visibleEvents"
+          :key="`${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
           class="calendar-event-card"
-          :class="`calendar-event-card--${arg.event.extendedProps.libraryState}`"
-          :title="getCalendarEventTooltip(arg.event)"
+          :class="`calendar-event-card--${calendarEvent.libraryState}`"
+          :title="getCalendarEventInfoTooltip(calendarEvent)"
         >
-          <div class="calendar-event-poster">
+          <div v-if="display.lgAndUp.value" class="calendar-event-poster">
             <VImg
               height="74"
               width="50"
-              :src="arg.event.extendedProps.posterPath"
+              :src="calendarEvent.posterPath"
               aspect-ratio="2/3"
               class="calendar-event-image object-cover"
               cover
@@ -319,70 +425,82 @@ onActivated(() => {
               </template>
             </VImg>
             <span
-              v-if="arg.event.extendedProps.libraryState === 'complete'"
+              v-if="calendarEvent.libraryState === 'complete'"
               class="calendar-library-check"
             >
               <VIcon icon="mdi-check" size="12" />
             </span>
           </div>
 
-          <div class="calendar-event-content">
+          <VImg
+            v-else
+            :src="calendarEvent.posterPath"
+            aspect-ratio="2/3"
+            class="calendar-mobile-image object-cover ring-gray-500"
+            cover
+            :title="getCalendarEventInfoTooltip(calendarEvent)"
+          >
+            <template #placeholder>
+              <div class="w-full h-full">
+                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+              </div>
+            </template>
+            <span
+              v-if="calendarEvent.libraryState === 'complete'"
+              class="calendar-library-check calendar-library-check--mobile"
+            >
+              <VIcon icon="mdi-check" size="11" />
+            </span>
+            <span v-if="calendarEvent.subtitle" class="calendar-mobile-episode">
+              {{ calendarEvent.subtitle }}
+            </span>
+          </VImg>
+
+          <div v-if="display.lgAndUp.value" class="calendar-event-content">
             <div class="calendar-event-title">
-              {{ arg.event.title }}
+              {{ calendarEvent.title }}
             </div>
-            <div v-if="arg.event.extendedProps.subtitle" class="calendar-event-episode">
+            <div v-if="calendarEvent.subtitle" class="calendar-event-episode">
               <VIcon icon="mdi-calendar-blank-outline" size="13" />
-              {{ t('calendar.episode', { number: arg.event.extendedProps.subtitle }) }}
+              {{ t('calendar.episode', { number: calendarEvent.subtitle }) }}
             </div>
-            <div v-if="arg.event.extendedProps.totalEpisode" class="calendar-event-library-row">
+            <div v-if="calendarEvent.totalEpisode" class="calendar-event-library-row">
               <span
-                v-if="arg.event.extendedProps.libraryState !== 'complete'"
+                v-if="calendarEvent.libraryState !== 'complete'"
                 class="calendar-event-status"
-                :class="`calendar-event-status--${arg.event.extendedProps.libraryState}`"
+                :class="`calendar-event-status--${calendarEvent.libraryState}`"
               >
-                <VIcon :icon="getLibraryStateIcon(arg.event.extendedProps.libraryState)" size="13" />
-                {{ getLibraryStateText(arg.event.extendedProps.libraryState) }}
+                <VIcon :icon="getLibraryStateIcon(calendarEvent.libraryState)" size="13" />
+                {{ getLibraryStateText(calendarEvent.libraryState) }}
               </span>
               <span class="calendar-event-progress">
                 <VIcon icon="mdi-library" size="13" />
                 {{
                   t('calendar.libraryProgress', {
-                    completed: arg.event.extendedProps.libraryEpisode,
-                    total: arg.event.extendedProps.totalEpisode,
+                    completed: calendarEvent.libraryEpisode,
+                    total: calendarEvent.totalEpisode,
                   })
                 }}
               </span>
             </div>
-            <div v-if="arg.event.extendedProps.libraryUpdateText" class="calendar-event-time">
+            <div v-if="calendarEvent.libraryUpdateText" class="calendar-event-time">
               <VIcon icon="mdi-clock-outline" size="13" />
-              {{ t('calendar.libraryUpdatedAtShort', { time: arg.event.extendedProps.libraryUpdateText }) }}
+              {{ t('calendar.libraryUpdatedAtShort', { time: calendarEvent.libraryUpdateText }) }}
             </div>
           </div>
         </div>
-      </div>
-      <div v-else>
-        <VImg
-          :src="arg.event.extendedProps.posterPath"
-          aspect-ratio="2/3"
-          class="calendar-mobile-image object-cover ring-gray-500"
-          cover
-          :title="getCalendarEventTooltip(arg.event)"
+
+        <button
+          v-if="arg.event.extendedProps.hiddenEventCount"
+          type="button"
+          class="calendar-expand-card"
+          :title="getExpandCalendarEventLabel(arg.event)"
+          :aria-label="getExpandCalendarEventLabel(arg.event)"
+          @click.stop.prevent="expandCalendarDay(arg.event.extendedProps.dateKey)"
         >
-          <template #placeholder>
-            <div class="w-full h-full">
-              <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-            </div>
-          </template>
-          <span
-            v-if="arg.event.extendedProps.libraryState === 'complete'"
-            class="calendar-library-check calendar-library-check--mobile"
-          >
-            <VIcon icon="mdi-check" size="11" />
-          </span>
-          <span v-if="arg.event.extendedProps.subtitle" class="calendar-mobile-episode">
-            {{ arg.event.extendedProps.subtitle }}
-          </span>
-        </VImg>
+          <VIcon icon="mdi-unfold-more-horizontal" size="18" />
+          <span class="calendar-expand-count">+{{ arg.event.extendedProps.hiddenEventCount }}</span>
+        </button>
       </div>
     </template>
   </FullCalendar>
@@ -679,6 +797,38 @@ onActivated(() => {
   overflow: hidden;
 }
 
+.calendar-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  inline-size: 100%;
+}
+
+.calendar-expand-card {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 2.1rem;
+  border: 1px dashed rgba(var(--v-theme-primary), 0.44);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-primary), 0.08);
+  color: rgb(var(--v-theme-primary));
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  inline-size: 100%;
+  padding: 0;
+}
+
+.calendar-expand-card:hover {
+  background: rgba(var(--v-theme-primary), 0.14);
+}
+
+.calendar-expand-count {
+  line-height: 1;
+}
+
 .calendar-event-poster {
   position: relative;
   flex: 0 0 56px;
@@ -828,10 +978,27 @@ onActivated(() => {
 }
 
 @media (width <= 1279px) {
+  .calendar-day-events {
+    align-items: center;
+  }
+
+  .calendar-event-card,
   .fc-daygrid-event-harness {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .calendar-expand-card {
+    flex-direction: column;
+    gap: 0.12rem;
+    min-block-size: 0;
+    block-size: clamp(60px, 8.7vw, 96px);
+    inline-size: clamp(40px, 5.8vw, 64px);
+  }
+
+  .calendar-expand-count {
+    font-size: 0.68rem;
   }
 }
 </style>
