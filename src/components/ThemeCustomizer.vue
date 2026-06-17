@@ -61,6 +61,8 @@ function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  // 面板一挂载就代表已打开，及时同步根节点状态让全局 FAB 预留右侧空间。
+  syncThemeCustomizerOpenState(true)
   window.addEventListener('keydown', handleGlobalKeydown)
 })
 
