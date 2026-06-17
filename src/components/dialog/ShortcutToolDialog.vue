@@ -39,10 +39,21 @@ const visible = computed({
     if (!value) emit('close')
   },
 })
+
+const isFullscreen = computed(() => !display.mdAndUp.value)
+
+// 仅系统健康检查弹窗需要在全屏时取消固定高度，避免其它快捷弹窗被误伤。
+const bodyClasses = computed(() => [
+  props.bodyClass,
+  {
+    'system-health-dialog-body--fullscreen':
+      isFullscreen.value && props.bodyClass.split(/\s+/).includes('system-health-dialog-body'),
+  },
+])
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" :max-width="props.maxWidth" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog v-if="visible" v-model="visible" :max-width="props.maxWidth" scrollable :fullscreen="isFullscreen">
     <VCard :class="props.cardClass">
       <VCardItem>
         <VCardTitle>
@@ -53,7 +64,7 @@ const visible = computed({
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
       <VDivider />
-      <VCardText :class="props.bodyClass">
+      <VCardText :class="bodyClasses">
         <Component :is="props.view" v-bind="props.viewProps" />
       </VCardText>
     </VCard>
@@ -61,8 +72,6 @@ const visible = computed({
 </template>
 
 <style scoped>
-/* stylelint-disable selector-pseudo-class-no-unknown */
-
 .system-health-dialog-card {
   display: flex;
   overflow: hidden;
@@ -78,7 +87,7 @@ const visible = computed({
   min-block-size: 0;
 }
 
-:global(.v-dialog--fullscreen) .system-health-dialog-body {
+.system-health-dialog-body--fullscreen {
   block-size: auto;
 }
 </style>

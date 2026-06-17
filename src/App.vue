@@ -59,8 +59,9 @@ const loginStateKey = computed(() => (isLogin.value ? 'logged-in' : 'logged-out'
 const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
+const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const shouldLoadBackgroundImages = computed(
-  () => (!isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE) || (Boolean(isLogin.value) && isTransparentTheme.value),
+  () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isTransparentTheme.value),
 )
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
@@ -434,7 +435,7 @@ onUnmounted(() => {
       <div v-if="isLogin && isTransparentTheme" class="global-blur-layer"></div>
     </div>
     <!-- 页面内容 -->
-    <VApp>
+    <VApp :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }">
       <RouterView />
       <!-- 全局共享弹窗入口，列表与卡片按需在这里挂载业务弹窗。 -->
       <SharedDialogHost />
@@ -503,5 +504,10 @@ onUnmounted(() => {
   inline-size: 100%;
   inset-block-start: 0;
   inset-inline-start: 0;
+}
+
+/* 登录页壁纸在 VApp 外层渲染，登录页 VApp 需要透明才能露出壁纸。 */
+.app-shell--login-wallpaper.v-application {
+  background: transparent !important;
 }
 </style>

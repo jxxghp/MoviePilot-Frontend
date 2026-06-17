@@ -810,12 +810,6 @@ function handleBackdropClick(event: MouseEvent) {
   -webkit-user-select: none;
 }
 
-:global(html.quick-access-scroll-locked),
-:global(html.quick-access-scroll-locked body) {
-  overflow: hidden !important;
-  overscroll-behavior: none;
-}
-
 @media (hover: none) and (pointer: coarse) {
   .plugin-item:hover {
     background: transparent;

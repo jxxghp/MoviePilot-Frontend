@@ -894,8 +894,6 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
-/* stylelint-disable selector-pseudo-class-no-unknown */
-
 @use '@core/scss/pages/page-auth';
 
 /* ===================== 布局根容器 ===================== */
@@ -908,11 +906,6 @@ onUnmounted(() => {
   isolation: isolate;
   min-block-size: 100vh;
   min-block-size: 100dvh;
-}
-
-/* 登录页需要透出 App.vue 注入的壁纸层。 */
-:global(.v-application:has(.login-root)) {
-  background: transparent !important;
 }
 
 /* ===================== 浮动语言切换 ===================== */

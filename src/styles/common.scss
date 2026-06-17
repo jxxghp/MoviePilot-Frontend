@@ -17,6 +17,12 @@ html.v-overlay-scroll-blocked body {
   inset-block-start: var(--v-body-scroll-y);
 }
 
+html.quick-access-scroll-locked,
+html.quick-access-scroll-locked body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 @mixin hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
