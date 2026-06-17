@@ -185,6 +185,7 @@ function handleMessage(event: MessageEvent) {
   }
 }
 
+/** 将通知列表标记为已读，并同步清理应用角标和未读红点。 */
 function markAllAsRead() {
   hasNewMessage.value = false
   notificationList.value.forEach(item => {
@@ -262,7 +263,7 @@ useDelayedSSE(
         <template #append>
           <VTooltip :text="t('notification.markRead')">
             <template #activator="{ props }">
-              <IconBtn v-bind="props" :disabled="!hasUnreadNotifications && !hasNewMessage" @click.stop="markAllAsRead">
+              <IconBtn v-bind="props" @click.stop="markAllAsRead">
                 <VIcon icon="mdi-email-check-outline" size="20" />
               </IconBtn>
             </template>
