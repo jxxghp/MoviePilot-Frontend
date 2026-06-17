@@ -409,7 +409,6 @@ function handleCardClick() {
           :class="{
             'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
             'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
-            'subscribe-card-pending-tint': subscribeState === 'P',
           }"
         >
           <VCard
@@ -418,6 +417,7 @@ function handleCardClick() {
             class="flex flex-col h-full overflow-hidden"
             :class="{
               'subscribe-card-paused': subscribeState === 'S',
+              'subscribe-card-pending-tint': subscribeState === 'P',
               'cursor-move': props.sortable,
             }"
             min-height="150"
@@ -588,7 +588,7 @@ function handleCardClick() {
 }
 
 /**
- * 待定：用 ::after 浮层在 VCard 之上渲染 sky 漫反射式内发光
+ * 待定：内发光挂在实际 VCard 上，跟随卡片圆角并被 overflow-hidden 裁剪。
  */
 .subscribe-card-pending-tint {
   position: relative;
