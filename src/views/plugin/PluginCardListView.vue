@@ -678,23 +678,57 @@ async function saveFolderPluginOrder() {
   }
 }
 
+/** 将插件市场运行时字段转换为可安全比较的文本。 */
+function normalizeMarketText(value: unknown) {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return ''
+}
+
+/** 将插件市场逗号分隔字段转换为去重前的文本数组。 */
+function splitMarketValues(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeMarketText).map(item => item.trim()).filter(Boolean)
+  }
+
+  return normalizeMarketText(value)
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+}
+
+/** 判断插件是否来源于本地插件仓库。 */
+function isLocalRepoSource(item: Plugin | string | undefined) {
+  if (!item) return false
+
+  const repoUrl = typeof item === 'string' ? item : normalizeMarketText(item.repo_url)
+
+  return Boolean((typeof item !== 'string' && item.is_local) || repoUrl.startsWith('local://'))
+}
+
+/** 解码本地插件仓库路径，避免异常路径中断市场列表加载。 */
+function decodeLocalRepoPath(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch (error) {
+    return value
+  }
+}
+
 // 初始化过滤选项
 function initOptions(item: Plugin) {
-  const optionValue = (options: Array<string>, value: string | undefined, preferred = false) => {
-    if (!value || options.includes(value)) return
-    if (preferred) options.unshift(value)
-    else options.push(value)
+  const optionValue = (options: Array<string>, value: unknown, preferred = false) => {
+    const text = normalizeMarketText(value).trim()
+    if (!text || options.includes(text)) return
+    if (preferred) options.unshift(text)
+    else options.push(text)
   }
-  const optionMutipleValue = (options: Array<string>, value: string | undefined) => {
-    value && value.split(',').forEach(v => !options.includes(v) && options.push(v))
+  const optionMutipleValue = (options: Array<string>, value: unknown) => {
+    splitMarketValues(value).forEach(v => !options.includes(v) && options.push(v))
   }
   optionValue(authorFilterOptions.value, item.plugin_author)
   optionMutipleValue(labelFilterOptions.value, item.plugin_label)
-  optionValue(
-    repoFilterOptions.value,
-    handleRepoUrl(item),
-    Boolean(item.is_local || item.repo_url?.startsWith('local://')),
-  )
+  optionValue(repoFilterOptions.value, handleRepoUrl(item), isLocalRepoSource(item))
 }
 
 // 关闭插件市场窗口
@@ -775,12 +809,13 @@ function closeSearchDialog() {
 // 过滤插件
 const filterPlugins = computed(() => {
   const all_list = [...dataList.value, ...uninstalledList.value]
+  const normalizedKeyword = normalizeMarketText(keyword.value).toLowerCase()
   return all_list.filter((item: Plugin) => {
     // 需要忽略大小写
     return (
-      item.plugin_name?.toLowerCase().includes(keyword.value.toLowerCase()) ||
-      item.plugin_desc?.toLowerCase().includes(keyword.value.toLowerCase()) ||
-      !keyword
+      !normalizedKeyword ||
+      normalizeMarketText(item.plugin_name).toLowerCase().includes(normalizedKeyword) ||
+      normalizeMarketText(item.plugin_desc).toLowerCase().includes(normalizedKeyword)
     )
   })
 })
@@ -818,12 +853,13 @@ async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliv
     if (showLoading) {
       loading.value = true
     }
-    uninstalledList.value = await api.get('plugin/', {
+    const marketResponse = await api.get('plugin/', {
       params: {
         state: 'market',
         force: force,
       },
     })
+    uninstalledList.value = Array.isArray(marketResponse) ? marketResponse : []
     // 设置更新状态
     for (const uninstalled of uninstalledList.value) {
       for (const data of dataList.value) {
@@ -842,6 +878,8 @@ async function fetchUninstalledPlugins(force: boolean = false, context: KeepAliv
     // 排除已安装且有更新的，上面的问题在于"本地存在未安装的旧版本插件且云端有更新时"不会在插件市场展示
     marketList.value = uninstalledList.value.filter(item => !(item.has_update && item.installed))
     // 初始化过滤选项
+    authorFilterOptions.value = []
+    labelFilterOptions.value = []
     repoFilterOptions.value = []
     marketList.value.forEach(initOptions)
     // 设置APP市场加载完成
@@ -876,12 +914,18 @@ async function refreshData(context: KeepAliveRefreshContext = {}) {
 // 对uninstalledList进行排序到sortedUninstalledList
 watch([marketList, filterForm, activeSort, PluginStatistics], () => {
   // 匹配过滤函数
-  const match = (filter: Array<string>, value: string | undefined) =>
-    filter.length === 0 || (value && filter.includes(value))
-  const matchMultiple = (filter: Array<string>, value: string | undefined) =>
-    filter.length === 0 || (value && value.split(',').some(v => filter.includes(v)))
-  const filterText = (filter: string, value: string | undefined) =>
-    !filter || (value && value.toLowerCase().includes(filter.toLowerCase()))
+  const match = (filter: Array<string>, value: unknown) => {
+    const text = normalizeMarketText(value).trim()
+
+    return filter.length === 0 || (!!text && filter.includes(text))
+  }
+  const matchMultiple = (filter: Array<string>, value: unknown) =>
+    filter.length === 0 || splitMarketValues(value).some(v => filter.includes(v))
+  const filterText = (filter: string, value: unknown) => {
+    const text = normalizeMarketText(value).toLowerCase()
+
+    return !filter || (!!text && text.includes(filter.toLowerCase()))
+  }
 
   sortedUninstalledList.value = []
 
@@ -889,7 +933,7 @@ watch([marketList, filterForm, activeSort, PluginStatistics], () => {
   marketList.value.forEach(value => {
     if (value) {
       if (
-        filterText(filterForm.name, `${value.plugin_name} ${value.plugin_desc}`) &&
+        filterText(filterForm.name, `${normalizeMarketText(value.plugin_name)} ${normalizeMarketText(value.plugin_desc)}`) &&
         match(filterForm.author, value.plugin_author) &&
         matchMultiple(filterForm.label, value.plugin_label) &&
         match(filterForm.repo, handleRepoUrl(value))
@@ -960,21 +1004,21 @@ async function refreshActiveTabData(context: KeepAliveRefreshContext = {}) {
 }
 
 function parseLocalRepoPath(repoUrl: string | undefined) {
-  if (!repoUrl?.startsWith('local://')) return ''
+  const text = normalizeMarketText(repoUrl)
+  if (!text.startsWith('local://')) return ''
 
   try {
-    return new URL(repoUrl).searchParams.get('path') || ''
+    return new URL(text).searchParams.get('path') || ''
   } catch (error) {
-    return decodeURIComponent(repoUrl.match(/[?&]path=([^&]+)/)?.[1] || '')
+    return decodeLocalRepoPath(text.match(/[?&]path=([^&]+)/)?.[1] || '')
   }
 }
 
 // 处理掉github地址的前缀
 function handleRepoUrl(item: Plugin | string | undefined) {
-  const url = typeof item === 'string' ? item : item?.repo_url
+  const url = typeof item === 'string' ? item : normalizeMarketText(item?.repo_url)
   if (!url) return ''
-  if (url.startsWith('local://')) return parseLocalRepoPath(url) || localRepoLabel.value
-  if (typeof item !== 'string' && item?.is_local) return parseLocalRepoPath(url) || localRepoLabel.value
+  if (isLocalRepoSource(item)) return parseLocalRepoPath(url) || localRepoLabel.value
   return url.replace('https://github.com/', '').replace('https://raw.githubusercontent.com/', '')
 }
 
