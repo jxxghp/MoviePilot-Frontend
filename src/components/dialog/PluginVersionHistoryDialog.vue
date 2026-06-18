@@ -137,7 +137,7 @@ async function loadPluginHistory() {
 }
 
 async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPlugin.value, force = false) {
-  if (!plugin?.id || !plugin?.repo_url || !plugin.release) {
+  if (!plugin?.id || !plugin?.repo_url || !plugin?.release) {
     releaseDetail.value = null
     releaseError.value = ''
     return
