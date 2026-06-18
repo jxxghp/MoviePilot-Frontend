@@ -475,26 +475,26 @@ onMounted(() => {
               :items="mobileResourceList"
               :columns="1"
               :gap="12"
-              :estimated-item-height="320"
+              :estimated-item-height="220"
               :overscan-rows="5"
               :get-item-key="getResourceItemKey"
             >
               <template #default="{ item }">
-                <VCard>
-                  <VCardText class="pa-4">
+                <VCard class="site-resource-card" variant="flat">
+                  <VCardText class="pa-3">
                     <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
-                      <div class="text-body-1 font-weight-medium text-high-emphasis">
+                      <div class="site-resource-card__title text-body-1 font-weight-medium text-high-emphasis">
                         {{ item.title }}
                       </div>
                       <div
                         v-if="item.description"
-                        class="site-resource-card__description mt-2 text-body-2 text-medium-emphasis"
+                        class="site-resource-card__description mt-1 text-body-2 text-medium-emphasis"
                       >
                         {{ item.description }}
                       </div>
                     </button>
 
-                    <div class="mt-3">
+                    <div class="site-resource-card__chips mt-2">
                       <VChip
                         v-if="item.hit_and_run"
                         variant="elevated"
@@ -533,47 +533,82 @@ onMounted(() => {
                       </VChip>
                     </div>
 
-                    <div class="site-resource-card__meta mt-4">
-                      <div class="site-resource-card__meta-item">
-                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.timeColumn') }}</div>
-                        <div class="text-body-2 font-weight-medium">{{ item.date_elapsed || item.pubdate || '-' }}</div>
-                        <div v-if="item.pubdate" class="text-caption text-medium-emphasis mt-1">{{ item.pubdate }}</div>
+                    <!-- 移动端在操作区前展示关键资源指标，方便点击前快速判断。 -->
+                    <div class="site-resource-card__summary mt-3">
+                      <div class="site-resource-card__stat">
+                        <VIcon icon="mdi-clock-outline" size="15" />
+                        <span>{{ item.date_elapsed || item.pubdate || '-' }}</span>
                       </div>
-                      <div class="site-resource-card__meta-item">
-                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.sizeColumn') }}</div>
-                        <div class="text-body-2 font-weight-medium">{{ formatFileSize(item.size) }}</div>
+                      <div class="site-resource-card__stat">
+                        <VIcon icon="mdi-harddisk" size="15" />
+                        <span>{{ formatFileSize(item.size) }}</span>
                       </div>
-                      <div class="site-resource-card__meta-item">
-                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.seedersColumn') }}</div>
-                        <div class="text-body-2 font-weight-medium">{{ item.seeders }}</div>
+                      <div class="site-resource-card__stat site-resource-card__stat--success">
+                        <VIcon icon="mdi-arrow-up" size="15" />
+                        <span>{{ item.seeders ?? '-' }}</span>
                       </div>
-                      <div class="site-resource-card__meta-item">
-                        <div class="text-caption text-medium-emphasis">{{ t('dialog.siteResource.peersColumn') }}</div>
-                        <div class="text-body-2 font-weight-medium">{{ item.peers }}</div>
+                      <div class="site-resource-card__stat site-resource-card__stat--warning">
+                        <VIcon icon="mdi-arrow-down" size="15" />
+                        <span>{{ item.peers ?? '-' }}</span>
                       </div>
                     </div>
 
-                    <div class="site-resource-card__actions mt-4">
-                      <VBtn color="primary" variant="flat" block prepend-icon="mdi-download" @click="addDownload(item)">
+                    <!-- 下载保留文本，其它低频操作改为图标按钮并保持同一行。 -->
+                    <div class="site-resource-card__actions mt-2">
+                      <VBtn
+                        color="primary"
+                        variant="flat"
+                        class="site-resource-card__download-btn"
+                        prepend-icon="mdi-download"
+                        @click="addDownload(item)"
+                      >
                         {{ t('actionStep.addDownload') }}
                       </VBtn>
-                      <div class="site-resource-card__secondary-actions mt-2">
-                        <VBtn
-                          variant="tonal"
-                          prepend-icon="mdi-open-in-new"
-                          @click="openTorrentDetail(item.page_url || '')"
-                        >
-                          {{ t('common.viewDetails') }}
-                        </VBtn>
-                        <VBtn
-                          v-if="item.enclosure?.startsWith('http')"
-                          variant="tonal"
-                          prepend-icon="mdi-tray-arrow-down"
-                          @click="downloadTorrentFile(item.enclosure)"
-                        >
-                          {{ t('dialog.siteResource.downloadTorrent') }}
-                        </VBtn>
-                      </div>
+                      <VTooltip :text="t('common.viewDetails')" location="top">
+                        <template #activator="{ props: tooltipProps }">
+                          <VBtn
+                            v-bind="tooltipProps"
+                            icon
+                            variant="tonal"
+                            color="primary"
+                            class="site-resource-card__icon-btn"
+                            :aria-label="t('common.viewDetails')"
+                            @click="openTorrentDetail(item.page_url || '')"
+                          >
+                            <VIcon icon="mdi-open-in-new" />
+                          </VBtn>
+                        </template>
+                      </VTooltip>
+                      <VTooltip
+                        v-if="item.enclosure?.startsWith('http')"
+                        :text="t('dialog.siteResource.downloadTorrent')"
+                        location="top"
+                      >
+                        <template #activator="{ props: tooltipProps }">
+                          <VBtn
+                            v-bind="tooltipProps"
+                            icon
+                            variant="tonal"
+                            color="primary"
+                            class="site-resource-card__icon-btn"
+                            :aria-label="t('dialog.siteResource.downloadTorrent')"
+                            @click="downloadTorrentFile(item.enclosure)"
+                          >
+                            <VIcon icon="mdi-file-download-outline" />
+                          </VBtn>
+                        </template>
+                      </VTooltip>
+                      <VBtn
+                        v-else
+                        icon
+                        variant="tonal"
+                        color="primary"
+                        disabled
+                        class="site-resource-card__icon-btn"
+                        :aria-label="t('dialog.siteResource.downloadTorrent')"
+                      >
+                        <VIcon icon="mdi-file-download-outline" />
+                      </VBtn>
                     </div>
                   </VCardText>
                 </VCard>
@@ -702,44 +737,107 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.site-resource-card {
+  --site-resource-card-bg:
+    linear-gradient(180deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.94)),
+    radial-gradient(circle at top right, rgba(var(--v-theme-primary), 0.08), transparent 34%);
+
+  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.9));
+  background: var(--site-resource-card-bg);
+}
+
+:global(html[data-theme="transparent"]) .site-resource-card {
+  --site-resource-card-bg: rgba(var(--v-theme-surface), var(--transparent-opacity));
+
+  backdrop-filter: blur(var(--transparent-blur));
+}
+
+.site-resource-card__summary {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(2.5rem, 0.62fr) minmax(2.5rem, 0.62fr);
+  align-items: center;
+}
+
+.site-resource-card__stat {
+  display: inline-flex;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  border-radius: 6px;
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1;
+  min-block-size: 1.65rem;
+  min-inline-size: 0;
+  padding-inline: 0.4rem;
+}
+
+.site-resource-card__stat span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-resource-card__stat--success {
+  color: rgb(var(--v-theme-success));
+}
+
+.site-resource-card__stat--warning {
+  color: rgb(var(--v-theme-warning));
+}
+
+.site-resource-card__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.38;
+}
+
 .site-resource-card__description {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
 }
 
-.site-resource-card__meta {
+.site-resource-card__chips {
+  max-block-size: 4.75rem;
+  overflow: hidden;
+}
+
+.site-resource-card__actions {
   display: grid;
-  gap: 0.55rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  grid-template-columns: minmax(0, 1fr) 2.5rem 2.5rem;
+  align-items: center;
 }
 
-.site-resource-card__meta-item {
-  background: rgba(var(--v-theme-surface), 0.78);
-  min-block-size: 0;
-  padding-block: 0.55rem;
-  padding-inline: 0.65rem;
+.site-resource-card__download-btn {
+  min-block-size: 2.5rem;
+  min-inline-size: 0;
+  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.17);
 }
 
-.site-resource-card__meta-item :deep(.text-caption) {
-  font-size: 0.72rem !important;
-  line-height: 1.2;
+.site-resource-card__download-btn :deep(.v-btn__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.site-resource-card__meta-item :deep(.text-body-2) {
-  font-size: 0.82rem !important;
-  line-height: 1.25;
+.site-resource-card__icon-btn {
+  block-size: 2.5rem;
+  inline-size: 2.5rem;
+  min-inline-size: 2.5rem;
 }
 
-.site-resource-card__secondary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.site-resource-card__secondary-actions :deep(.v-btn) {
-  flex: 1 1 12rem;
+.site-resource-card__icon-btn :deep(.v-btn__content) {
+  font-size: 1.05rem;
 }
 
 @media (width >= 960px) {
@@ -759,6 +857,16 @@ onMounted(() => {
 
   .site-resource-mobile-search {
     min-block-size: 2.5rem;
+  }
+}
+
+@media (width <= 420px) {
+  .site-resource-card__summary {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(2.3rem, 0.55fr) minmax(2.3rem, 0.55fr);
+  }
+
+  .site-resource-card__stat {
+    padding-inline: 0.3rem;
   }
 }
 </style>
