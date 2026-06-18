@@ -10,6 +10,8 @@ type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
 type AgentAttachmentKind = 'audio' | 'file' | 'image'
 type AgentChoiceStatus = 'pending' | 'selected' | 'expired'
+type InfiniteScrollSide = 'start' | 'end' | 'both'
+type InfiniteScrollStatus = 'empty' | 'error' | 'loading' | 'ok'
 
 interface AgentToolCall {
   id: string
@@ -24,6 +26,7 @@ interface AgentMessageAttachment {
   name?: string
   mime_type?: string
   size?: number
+  local_path?: string
 }
 
 interface AgentChoiceButton {
@@ -54,7 +57,11 @@ interface AgentChatMessage {
 
 interface AgentSessionHistoryItem {
   sessionId: string
+  clientSessionId?: string
   title: string
+  preview?: string
+  channel?: string
+  source?: string
   createdAt: number
   updatedAt: number
   messages: AgentChatMessage[]
@@ -95,6 +102,18 @@ interface PreparedAgentAttachments {
   userAttachments: AgentMessageAttachment[]
 }
 
+interface AgentServerSession {
+  session_id: string
+  client_session_id?: string
+  title?: string
+  preview?: string
+  channel?: string
+  source?: string
+  created_at?: string
+  updated_at?: string
+  messages?: AgentChatMessage[]
+}
+
 const { t } = useI18n()
 const display = useDisplay()
 const authStore = useAuthStore()
@@ -102,10 +121,11 @@ const userStore = useUserStore()
 
 const STORAGE_KEY = 'moviepilot-agent-assistant-state'
 const HISTORY_STORAGE_KEY = 'moviepilot-agent-assistant-history'
-const MAX_HISTORY_SESSIONS = 20
+const HISTORY_PAGE_SIZE = 30
+const MAX_LOCAL_HISTORY_SESSIONS = 120
 const MAX_PERSISTED_MESSAGES = 30
 const HISTORY_TITLE_LENGTH = 36
-const HISTORY_PREVIEW_LENGTH = 72
+const HISTORY_ITEM_HEIGHT = 76
 
 const drawer = ref(false)
 const inputText = ref('')
@@ -122,6 +142,10 @@ const pendingAttachments = ref<AgentPendingAttachment[]>([])
 const recording = ref(false)
 const recordingStartedAt = ref(0)
 const recordingDuration = ref(0)
+const historyLoading = ref(false)
+const historyLoadingMore = ref(false)
+const historyPage = ref(1)
+const historyHasMore = ref(true)
 let abortController: AbortController | null = null
 let mediaRecorder: MediaRecorder | null = null
 let mediaRecorderStream: MediaStream | null = null
@@ -181,6 +205,13 @@ function normalizeStoredMessages(value: unknown) {
   })) as AgentChatMessage[]
 }
 
+function parseServerTime(value?: string) {
+  if (!value) return Date.now()
+  const parsed = Date.parse(value.replace(' ', 'T'))
+
+  return Number.isFinite(parsed) ? parsed : Date.now()
+}
+
 // 规范化本地历史会话，过滤无效数据并按最近更新时间排序。
 function normalizeHistorySessions(value: unknown) {
   if (!Array.isArray(value)) return []
@@ -189,15 +220,19 @@ function normalizeHistorySessions(value: unknown) {
     .map(item => {
       const messages = normalizeStoredMessages(item?.messages)
       const sessionIdValue = typeof item?.sessionId === 'string' ? item.sessionId : ''
-      if (!sessionIdValue || messages.length === 0) return null
+      if (!sessionIdValue || (messages.length === 0 && !item?.title && !item?.preview)) return null
 
       const firstMessageTime = messages[0]?.createdAt || Date.now()
       const lastMessageTime = messages.at(-1)?.createdAt || firstMessageTime
 
       return {
         sessionId: sessionIdValue,
+        clientSessionId: typeof item?.clientSessionId === 'string' ? item.clientSessionId : undefined,
         title:
           typeof item?.title === 'string' && item.title.trim() ? item.title.trim() : buildSessionHistoryTitle(messages),
+        preview: typeof item?.preview === 'string' ? item.preview : undefined,
+        channel: typeof item?.channel === 'string' ? item.channel : undefined,
+        source: typeof item?.source === 'string' ? item.source : undefined,
         createdAt: Number(item?.createdAt) || firstMessageTime,
         updatedAt: Number(item?.updatedAt) || lastMessageTime,
         messages,
@@ -205,7 +240,68 @@ function normalizeHistorySessions(value: unknown) {
     })
     .filter(Boolean)
     .sort((a, b) => b!.updatedAt - a!.updatedAt)
-    .slice(0, MAX_HISTORY_SESSIONS) as AgentSessionHistoryItem[]
+    .slice(0, MAX_LOCAL_HISTORY_SESSIONS) as AgentSessionHistoryItem[]
+}
+
+function normalizeServerSession(item: AgentServerSession, withMessages = false): AgentSessionHistoryItem | null {
+  const sessionIdValue = typeof item?.session_id === 'string' ? item.session_id : ''
+  if (!sessionIdValue) return null
+
+  const messages = normalizeStoredMessages(item.messages || [])
+  const createdAt = parseServerTime(item.created_at)
+  const updatedAt = parseServerTime(item.updated_at)
+
+  return {
+    sessionId: sessionIdValue,
+    clientSessionId: item.client_session_id,
+    title: item.title?.trim() || (messages.length ? buildSessionHistoryTitle(messages) : t('agentAssistant.untitledSession')),
+    preview: item.preview,
+    channel: item.channel,
+    source: item.source,
+    createdAt,
+    updatedAt,
+    messages: withMessages ? messages : [],
+  }
+}
+
+function getHistoryIdentity(session: AgentSessionHistoryItem) {
+  return session.clientSessionId || session.sessionId
+}
+
+function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
+  const serverSessions = sessions.filter(item => item.sessionId.startsWith('web-agent:'))
+  const serverClientIds = new Set(serverSessions.map(getHistoryIdentity))
+  const seen = new Set<string>()
+  const deduped: AgentSessionHistoryItem[] = []
+
+  for (const session of sessions) {
+    const identity = getHistoryIdentity(session)
+    if (!session.sessionId.startsWith('web-agent:') && serverClientIds.has(identity)) continue
+    if (seen.has(identity) || seen.has(session.sessionId)) continue
+    seen.add(identity)
+    seen.add(session.sessionId)
+    deduped.push(session)
+  }
+
+  return deduped.sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+async function fetchAgentApi(path: string, options: RequestInit = {}) {
+  const headers = new Headers(options.headers || {})
+  if (authStore.token) headers.set('Authorization', `Bearer ${authStore.token}`)
+
+  const response = await fetch(resolveApiUrl(path), {
+    ...options,
+    headers,
+    credentials: 'include',
+  })
+
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+
+  const result = await response.json()
+  if (!result?.success) throw new Error(result?.message || t('agentAssistant.error'))
+
+  return result.data
 }
 
 // 从 localStorage 读取历史会话索引，读取失败时回退为空列表。
@@ -217,12 +313,83 @@ function restoreHistorySessions() {
   }
 }
 
+async function loadServerHistorySessions() {
+  historyPage.value = 1
+  historyHasMore.value = true
+  historyLoading.value = true
+  try {
+    const data = await fetchAgentApi(`message/agent/sessions?page=1&count=${HISTORY_PAGE_SIZE}`)
+    const sessions = Array.isArray(data)
+      ? data.map(item => normalizeServerSession(item as AgentServerSession)).filter(Boolean) as AgentSessionHistoryItem[]
+      : []
+    historySessions.value = dedupeHistorySessions(sessions)
+    historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
+    persistHistorySessions()
+  } catch (error) {
+    restoreHistorySessions()
+    historyHasMore.value = false
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function loadMoreServerHistorySessions(options?: { done?: (status: InfiniteScrollStatus) => void }) {
+  if (historyLoading.value || historyLoadingMore.value || !historyHasMore.value) {
+    options?.done?.(historyHasMore.value ? 'ok' : 'empty')
+    return
+  }
+
+  historyLoadingMore.value = true
+  try {
+    const nextPage = historyPage.value + 1
+    const data = await fetchAgentApi(`message/agent/sessions?page=${nextPage}&count=${HISTORY_PAGE_SIZE}`)
+    const sessions = Array.isArray(data)
+      ? data.map(item => normalizeServerSession(item as AgentServerSession)).filter(Boolean) as AgentSessionHistoryItem[]
+      : []
+    const existingIds = new Set(historySessions.value.map(item => item.sessionId))
+    historySessions.value = dedupeHistorySessions([
+      ...historySessions.value,
+      ...sessions.filter(item => !existingIds.has(item.sessionId)),
+    ])
+      .slice(0, MAX_LOCAL_HISTORY_SESSIONS)
+    historyPage.value = nextPage
+    historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
+    persistHistorySessions()
+    options?.done?.(sessions.length ? 'ok' : 'empty')
+  } catch (error) {
+    options?.done?.('error')
+  } finally {
+    historyLoadingMore.value = false
+  }
+}
+
+async function handleHistoryInfiniteLoad({
+  done,
+}: {
+  side: InfiniteScrollSide
+  done: (status: InfiniteScrollStatus) => void
+}) {
+  await loadMoreServerHistorySessions({ done })
+}
+
+async function loadServerHistorySession(targetSessionId: string) {
+  const data = await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`)
+  const session = normalizeServerSession(data as AgentServerSession, true)
+  if (!session) throw new Error(t('agentAssistant.historyLoadFailed'))
+
+  historySessions.value = dedupeHistorySessions([session, ...historySessions.value.filter(item => item.sessionId !== targetSessionId)])
+    .slice(0, MAX_LOCAL_HISTORY_SESSIONS)
+  persistHistorySessions()
+
+  return session
+}
+
 function restoreState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
       const latestSession = historySessions.value[0]
-      if (latestSession) {
+      if (latestSession?.messages.length) {
         sessionId.value = latestSession.sessionId
         messages.value = normalizeStoredMessages(latestSession.messages)
       } else {
@@ -243,7 +410,8 @@ function restoreState() {
 
 // 将历史会话列表写入 localStorage，空间不足时保留最近的一半会话重试。
 function persistHistorySessions() {
-  const sessions = historySessions.value.slice(0, MAX_HISTORY_SESSIONS)
+  const sessions = dedupeHistorySessions(historySessions.value).slice(0, MAX_LOCAL_HISTORY_SESSIONS)
+  historySessions.value = sessions
 
   try {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(sessions))
@@ -268,12 +436,13 @@ function buildSessionHistoryTitle(sessionMessages: AgentChatMessage[]) {
   return truncateHistoryText(title || t('agentAssistant.untitledSession'), HISTORY_TITLE_LENGTH)
 }
 
-// 生成会话列表里的预览文本，优先展示最近一条可读消息。
-function getSessionHistoryPreview(session: AgentSessionHistoryItem) {
-  const latestMessage = [...session.messages].reverse().find(message => getMessageSummaryText(message))
-  if (!latestMessage) return ''
+function getSessionChannelLabel(session: AgentSessionHistoryItem) {
+  if (session.channel === 'WebAgent') return t('agentAssistant.webAgentChannel')
 
-  return truncateHistoryText(getMessageSummaryText(latestMessage), HISTORY_PREVIEW_LENGTH)
+  const parts = [session.channel, session.source].filter(Boolean)
+  if (!parts.length) return t('agentAssistant.unknownChannel')
+
+  return parts.join(' / ')
 }
 
 // 提取消息的可读摘要，纯附件消息会使用附件名称或附件占位文本。
@@ -304,17 +473,35 @@ function upsertCurrentSessionHistory() {
   const updatedAt = storedMessages.at(-1)?.createdAt || Date.now()
   const nextSession: AgentSessionHistoryItem = {
     sessionId: sessionId.value,
+    clientSessionId: existingSession?.clientSessionId || sessionId.value,
     title: buildSessionHistoryTitle(storedMessages),
+    preview: existingSession?.preview,
+    channel: existingSession?.channel || 'WebAgent',
+    source: existingSession?.source || 'web-agent',
     createdAt,
     updatedAt,
     messages: storedMessages,
   }
 
-  historySessions.value = [nextSession, ...historySessions.value.filter(item => item.sessionId !== sessionId.value)]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, MAX_HISTORY_SESSIONS)
+  historySessions.value = dedupeHistorySessions([nextSession, ...historySessions.value.filter(item => item.sessionId !== sessionId.value)])
+    .slice(0, MAX_LOCAL_HISTORY_SESSIONS)
 
   persistHistorySessions()
+}
+
+async function saveCurrentSessionToServer() {
+  if (!sessionId.value || messages.value.length === 0) return
+
+  await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/display`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title: buildSessionHistoryTitle(messages.value),
+      messages: normalizeStoredMessages(messages.value),
+    }),
+  })
 }
 
 // 持久化当前会话状态，并按需同步到历史会话列表。
@@ -690,6 +877,7 @@ async function streamAgentMessage(
         images,
         files,
         audio_refs: audioRefs,
+        echo_user: echoUser,
       }),
       credentials: 'include',
       signal: abortController.signal,
@@ -720,6 +908,12 @@ async function streamAgentMessage(
   } finally {
     abortController = null
     persistState()
+    try {
+      await saveCurrentSessionToServer()
+      await loadServerHistorySessions()
+    } catch (error) {
+      // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
+    }
     scrollToBottom()
   }
 }
@@ -929,28 +1123,43 @@ function startNewSession() {
 }
 
 // 从历史列表恢复指定会话，同时把它设为当前本地会话。
-function loadHistorySession(targetSessionId: string) {
+async function loadHistorySession(targetSessionId: string) {
   if (sending.value) return
 
-  const historySession = historySessions.value.find(item => item.sessionId === targetSessionId)
+  let historySession = historySessions.value.find(item => item.sessionId === targetSessionId)
   if (!historySession) return
 
-  stopGeneration()
-  sessionId.value = historySession.sessionId
-  messages.value = normalizeStoredMessages(historySession.messages)
-  streamError.value = ''
-  historyMenuOpen.value = false
-  clearPendingAttachments()
-  persistState({ syncHistory: false })
-  scrollToBottom()
+  try {
+    stopGeneration()
+    if (!historySession.messages.length) {
+      historySession = await loadServerHistorySession(targetSessionId)
+    }
+    sessionId.value = historySession.sessionId
+    messages.value = normalizeStoredMessages(historySession.messages)
+    streamError.value = ''
+    historyMenuOpen.value = false
+    clearPendingAttachments()
+    persistState({ syncHistory: false })
+    scrollToBottom()
+  } catch (error: any) {
+    streamError.value = error?.message || t('agentAssistant.historyLoadFailed')
+  }
 }
 
 // 删除指定历史会话；若删除的是当前会话，则切换到新的空会话。
-function deleteHistorySession(targetSessionId: string) {
+async function deleteHistorySession(targetSessionId: string) {
   if (sending.value && targetSessionId === sessionId.value) return
 
-  historySessions.value = historySessions.value.filter(item => item.sessionId !== targetSessionId)
-  persistHistorySessions()
+  try {
+    await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`, {
+      method: 'DELETE',
+    })
+  } catch (error) {
+    // 删除接口失败时仍允许清理本地兜底历史，避免坏记录一直挡在列表里。
+  } finally {
+    historySessions.value = historySessions.value.filter(item => item.sessionId !== targetSessionId)
+    persistHistorySessions()
+  }
 
   if (targetSessionId === sessionId.value) startNewSession()
 }
@@ -1023,6 +1232,7 @@ watch(drawerWidth, () => {
 onMounted(() => {
   restoreHistorySessions()
   restoreState()
+  loadServerHistorySessions()
   syncInputHeight()
   window.addEventListener('keydown', handleGlobalKeydown)
 })
@@ -1089,39 +1299,68 @@ onScopeDispose(() => {
                 <span>{{ t('agentAssistant.history') }}</span>
               </div>
               <VDivider />
-              <PerfectScrollbar class="agent-assistant-history-list" :options="{ wheelPropagation: false }">
-                <div v-if="!hasHistorySessions" class="agent-assistant-history-empty">
+              <div
+                class="agent-assistant-history-list"
+                :class="{ 'agent-assistant-history-list--empty': historyLoading || !hasHistorySessions }"
+              >
+                <div v-if="historyLoading" class="agent-assistant-history-empty">
+                  {{ t('agentAssistant.historyLoading') }}
+                </div>
+                <div v-else-if="!hasHistorySessions" class="agent-assistant-history-empty">
                   {{ t('agentAssistant.noHistory') }}
                 </div>
-                <button
-                  v-for="historySession in historySessions"
-                  :key="historySession.sessionId"
-                  class="agent-assistant-history-item"
-                  :class="{ 'is-active': isCurrentHistorySession(historySession.sessionId) }"
-                  type="button"
-                  :disabled="sending"
-                  @click="loadHistorySession(historySession.sessionId)"
+                <VInfiniteScroll
+                  v-else
+                  mode="intersect"
+                  side="end"
+                  :items="historySessions"
+                  class="agent-assistant-history-infinite"
+                  @load="handleHistoryInfiniteLoad"
                 >
-                  <span class="agent-assistant-history-item__content">
-                    <span class="agent-assistant-history-item__title">{{ historySession.title }}</span>
-                    <span class="agent-assistant-history-item__preview">
-                      {{ getSessionHistoryPreview(historySession) }}
-                    </span>
-                    <span class="agent-assistant-history-item__time">
-                      {{ formatHistoryTime(historySession.updatedAt) }}
-                    </span>
-                  </span>
-                  <IconBtn
-                    size="x-small"
-                    :disabled="sending"
-                    :title="t('agentAssistant.deleteHistory')"
-                    :aria-label="t('agentAssistant.deleteHistory')"
-                    @click.stop="deleteHistorySession(historySession.sessionId)"
+                  <VVirtualScroll
+                    renderless
+                    :items="historySessions"
+                    :item-height="HISTORY_ITEM_HEIGHT"
                   >
-                    <VIcon icon="mdi-delete-outline" size="16" />
-                  </IconBtn>
-                </button>
-              </PerfectScrollbar>
+                    <template #default="{ item: historySession, itemRef }">
+                      <button
+                        :ref="itemRef"
+                        :key="historySession.sessionId"
+                        class="agent-assistant-history-item"
+                        :class="{ 'is-active': isCurrentHistorySession(historySession.sessionId) }"
+                        type="button"
+                        :disabled="sending"
+                        @click="loadHistorySession(historySession.sessionId)"
+                      >
+                        <span class="agent-assistant-history-item__content">
+                          <span class="agent-assistant-history-item__title">{{ historySession.title }}</span>
+                          <span class="agent-assistant-history-item__channel">
+                            {{ getSessionChannelLabel(historySession) }}
+                          </span>
+                          <span class="agent-assistant-history-item__time">
+                            {{ formatHistoryTime(historySession.updatedAt) }}
+                          </span>
+                        </span>
+                        <IconBtn
+                          size="x-small"
+                          :disabled="sending"
+                          :title="t('agentAssistant.deleteHistory')"
+                          :aria-label="t('agentAssistant.deleteHistory')"
+                          @click.stop="deleteHistorySession(historySession.sessionId)"
+                        >
+                          <VIcon icon="mdi-delete-outline" size="16" />
+                        </IconBtn>
+                      </button>
+                    </template>
+                  </VVirtualScroll>
+                  <template #empty />
+                  <template #loading>
+                    <div class="agent-assistant-history-loading">
+                      {{ t('agentAssistant.historyLoading') }}
+                    </div>
+                  </template>
+                </VInfiniteScroll>
+              </div>
             </VCard>
           </VMenu>
           <IconBtn
@@ -1515,20 +1754,32 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-history-list {
+  block-size: min(26rem, calc(100vh - 7rem));
   max-block-size: min(26rem, calc(100vh - 7rem));
   overscroll-behavior: contain;
+  overflow-y: auto;
   padding-block: 0.35rem;
+}
 
-  :deep(.ps__rail-x),
-  :deep(.ps__rail-y) {
-    display: none !important;
-  }
+.agent-assistant-history-list--empty {
+  block-size: auto;
+  max-block-size: none;
 }
 
 @supports (block-size: 100lvh) {
   .agent-assistant-history-list {
+    block-size: min(26rem, calc(100lvh - 7rem));
     max-block-size: min(26rem, calc(100lvh - 7rem));
   }
+
+  .agent-assistant-history-list--empty {
+    block-size: auto;
+    max-block-size: none;
+  }
+}
+
+.agent-assistant-history-infinite {
+  min-block-size: 100%;
 }
 
 .agent-assistant-history-empty {
@@ -1536,6 +1787,13 @@ onScopeDispose(() => {
   font-size: 0.85rem;
   padding-block: 1.5rem;
   padding-inline: 1rem;
+  text-align: center;
+}
+
+.agent-assistant-history-loading {
+  color: rgba(var(--v-theme-on-surface), 0.48);
+  font-size: 0.75rem;
+  padding-block: 0.75rem;
   text-align: center;
 }
 
@@ -1549,6 +1807,7 @@ onScopeDispose(() => {
   column-gap: 0.4rem;
   cursor: pointer;
   grid-template-columns: minmax(0, 1fr) auto;
+  min-block-size: 4.75rem;
   inline-size: calc(100% - 0.7rem);
   margin-inline: 0.35rem;
   padding-block: 0.55rem;
@@ -1573,7 +1832,7 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-history-item__title,
-.agent-assistant-history-item__preview,
+.agent-assistant-history-item__channel,
 .agent-assistant-history-item__time {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1586,9 +1845,17 @@ onScopeDispose(() => {
   font-weight: 700;
 }
 
-.agent-assistant-history-item__preview {
-  color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 0.75rem;
+.agent-assistant-history-item__channel {
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-primary), 0.1);
+  color: rgba(var(--v-theme-primary), 0.9);
+  font-size: 0.68rem;
+  font-weight: 700;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding-block: 0.1rem;
+  padding-inline: 0.4rem;
 }
 
 .agent-assistant-history-item__time {
