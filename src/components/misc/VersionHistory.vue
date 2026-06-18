@@ -3,9 +3,9 @@ import type { PropType } from 'vue'
 import MarkdownIt from 'markdown-it'
 import mdLinkAttributes from 'markdown-it-link-attributes'
 
-// 初始化 markdown-it
+// 版本历史可能来自插件市场或 Release 内容，禁止透传原始 HTML，避免外部内容注入脚本或事件属性。
 const md = new MarkdownIt({
-  html: true,
+  html: false,
   linkify: true,
   typographer: true,
 })
