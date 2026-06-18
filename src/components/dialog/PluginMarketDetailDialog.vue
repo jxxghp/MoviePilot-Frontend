@@ -227,12 +227,11 @@ onUnmounted(() => {
                   class="mb-3"
                   :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
                 />
-                <div class="text-center text-md-left">
+                <div class="plugin-market-detail-actions">
                   <VBtn
                     variant="tonal"
                     @click="showUpdateHistory"
                     prepend-icon="mdi-update"
-                    class="me-2"
                   >
                     {{ t('plugin.versionHistory') }}
                   </VBtn>
@@ -244,7 +243,7 @@ onUnmounted(() => {
                   >
                     {{ t('plugin.installToLocal') }}
                   </VBtn>
-                  <div class="text-xs mt-2" v-if="props.count">
+                  <div class="plugin-market-detail-actions__downloads" v-if="props.count">
                     <VIcon icon="mdi-fire" />
                     {{ t('plugin.totalDownloads', { count: formatDownloadCount(props.count) }) }}
                   </div>
@@ -257,3 +256,30 @@ onUnmounted(() => {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+.plugin-market-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.plugin-market-detail-actions__downloads {
+  flex-basis: 100%;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+@media (min-width: 960px) {
+  .plugin-market-detail-actions {
+    justify-content: flex-start;
+  }
+
+  .plugin-market-detail-actions__downloads {
+    text-align: start;
+  }
+}
+</style>
