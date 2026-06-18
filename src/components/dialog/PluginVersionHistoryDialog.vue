@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { Plugin } from '@/api/types'
+import type { Plugin, PluginReleaseVersion, PluginReleaseVersionsResponse } from '@/api/types'
 import VersionHistory from '@/components/misc/VersionHistory.vue'
 import { useI18n } from 'vue-i18n'
 
 // 多语言
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 // 输入参数
 const props = defineProps({
@@ -21,14 +21,25 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  actionMode: {
+    type: String as PropType<'install' | 'update'>,
+    default: 'update',
+  },
 })
 
 // 定义触发的自定义事件
-const emit = defineEmits(['update:modelValue', 'close', 'update'])
+const emit = defineEmits<{
+  (event: 'update:modelValue', value: boolean): void
+  (event: 'close'): void
+  (event: 'update', releaseVersion?: string, repoUrl?: string): void
+}>()
 
 const loading = ref(false)
 const loadError = ref('')
 const pluginDetail = ref<Plugin | null>(null)
+const releaseLoading = ref(false)
+const releaseError = ref('')
+const releaseDetail = ref<PluginReleaseVersionsResponse | null>(null)
 
 // 弹窗显示状态
 const visible = computed({
@@ -41,19 +52,66 @@ const visible = computed({
 
 const resolvedPlugin = computed(() => pluginDetail.value ?? props.plugin)
 
-const resolvedHistory = computed(() => resolvedPlugin.value?.history || {})
+const resolvedHistory = computed(() => {
+  const history = { ...(resolvedPlugin.value?.history || {}) }
+  releaseItems.value.forEach(item => {
+    const key = normalizeHistoryVersion(item.version)
+    if (!(key in history)) history[key] = item.body || ''
+  })
+  return history
+})
 
 const hasHistory = computed(() => Object.keys(resolvedHistory.value).length > 0)
+
+const latestActionText = computed(() => props.actionMode === 'install' ? t('plugin.installReleaseVersion') : t('plugin.updateToLatest'))
+
+const releaseItems = computed(() => releaseDetail.value?.items || [])
+
+const releaseByHistoryVersion = computed(() => {
+  const releaseMap = new Map<string, PluginReleaseVersion>()
+  releaseItems.value.forEach(item => {
+    releaseMap.set(normalizeHistoryVersion(item.version), item)
+  })
+  return releaseMap
+})
+
+function normalizeHistoryVersion(version: string) {
+  return version.startsWith('v') ? version : `v${version}`
+}
+
+function formatReleaseDate(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(locale.value)
+}
+
+function releaseItemByHistoryVersion(version: string) {
+  return releaseByHistoryVersion.value.get(version)
+}
 
 async function loadPluginHistory() {
   if (!props.plugin?.id) {
     pluginDetail.value = null
     loadError.value = ''
+    releaseDetail.value = null
+    releaseError.value = ''
     return
   }
 
   loading.value = true
   loadError.value = ''
+  releaseDetail.value = null
+  releaseError.value = ''
+
+  // 插件市场条目已经携带远端信息；history 接口只查询已安装插件，
+  // 未安装插件打开版本历史时只能基于传入的市场数据和 Release 列表展示。
+  if (props.actionMode === 'install' && props.plugin?.repo_url) {
+    pluginDetail.value = null
+    loading.value = false
+    loadPluginReleases(props.plugin, false)
+    return
+  }
 
   try {
     pluginDetail.value = await api.get(`plugin/history/${props.plugin.id}`, {
@@ -61,6 +119,7 @@ async function loadPluginHistory() {
         force: true,
       },
     })
+    loadPluginReleases(pluginDetail.value ?? props.plugin, true)
   } catch (error) {
     pluginDetail.value = null
     loadError.value = t('plugin.updateHistoryLoadFailed')
@@ -70,35 +129,107 @@ async function loadPluginHistory() {
   }
 }
 
+async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPlugin.value, force = false) {
+  if (!plugin?.id || !plugin?.repo_url) {
+    releaseDetail.value = null
+    releaseError.value = ''
+    return
+  }
+
+  releaseLoading.value = true
+  releaseError.value = ''
+
+  try {
+    releaseDetail.value = await api.get(`plugin/releases/${plugin.id}`, {
+      params: {
+        repo_url: plugin.repo_url,
+        force,
+      },
+    })
+  } catch (error) {
+    releaseDetail.value = null
+    releaseError.value = t('plugin.releaseVersionsLoadFailed')
+    console.error(error)
+  } finally {
+    releaseLoading.value = false
+  }
+}
+
 /** 触发插件更新操作。 */
-function handleUpdate() {
-  emit('update')
+function handleUpdate(releaseItem?: PluginReleaseVersion) {
+  emit('update', releaseItem?.is_latest ? undefined : releaseItem?.version, resolvedPlugin.value?.repo_url)
 }
 
 watch(
   () => [visible.value, props.plugin?.id],
   ([isVisible]) => {
-    if (isVisible) loadPluginHistory()
+    if (isVisible) {
+      loadPluginHistory()
+    }
   },
   { immediate: true },
 )
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" width="600" max-height="85vh" scrollable>
+  <VDialog v-if="visible" v-model="visible" width="680" max-height="85vh" scrollable>
     <VCard :title="t('plugin.updateHistoryTitle', { name: resolvedPlugin?.plugin_name })">
       <VDialogCloseBtn v-model="visible" />
       <VDivider />
+      <VProgressLinear v-if="releaseLoading && !loading" indeterminate color="primary" height="2" />
       <div v-if="loading" class="plugin-version-history-dialog__loading">
         <VProgressCircular indeterminate color="primary" />
       </div>
       <VCardText v-else-if="loadError && !hasHistory">
         <VAlert type="warning" variant="tonal" density="compact" :text="loadError" />
       </VCardText>
-      <VCardText v-else-if="!hasHistory">
+      <VCardText v-else-if="!hasHistory && !releaseLoading">
         <VAlert type="info" variant="tonal" density="compact" :text="t('plugin.updateHistoryEmpty')" />
       </VCardText>
-      <VersionHistory v-else :history="resolvedHistory" />
+      <template v-else>
+        <VCardText v-if="releaseError" class="pb-0">
+          <VAlert type="warning" variant="tonal" density="compact" :text="releaseError" />
+        </VCardText>
+        <VersionHistory :history="resolvedHistory">
+          <template #action="{ version }">
+            <div class="plugin-release-action" v-if="releaseItemByHistoryVersion(version)">
+              <template v-if="releaseItemByHistoryVersion(version)">
+                <div class="plugin-release-action__meta">
+                  <VChip v-if="releaseItemByHistoryVersion(version)?.is_current" size="x-small" color="success" variant="tonal">
+                    {{ t('plugin.currentVersion') }}
+                  </VChip>
+                  <VChip v-if="releaseItemByHistoryVersion(version)?.is_latest" size="x-small" color="primary" variant="tonal">
+                    {{ t('plugin.latestVersion') }}
+                  </VChip>
+                  <span v-if="formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at)" class="text-caption text-medium-emphasis">
+                    {{ formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at) }}
+                  </span>
+                </div>
+                <VBtn
+                  size="small"
+                  min-width="5.5rem"
+                  :block="$vuetify.display.xs"
+                  :color="releaseItemByHistoryVersion(version)?.is_latest ? 'primary' : undefined"
+                  :variant="releaseItemByHistoryVersion(version)?.is_latest ? 'flat' : 'tonal'"
+                  :disabled="
+                    releaseItemByHistoryVersion(version)?.is_current ||
+                    (releaseItemByHistoryVersion(version)?.is_latest && resolvedPlugin?.system_version_compatible === false)
+                  "
+                  @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
+                >
+                  {{
+                    releaseItemByHistoryVersion(version)?.is_current
+                      ? t('plugin.installed')
+                      : releaseItemByHistoryVersion(version)?.is_latest
+                        ? latestActionText
+                        : t('plugin.installReleaseVersion')
+                  }}
+                </VBtn>
+              </template>
+            </div>
+          </template>
+        </VersionHistory>
+      </template>
       <template v-if="props.showUpdateAction">
         <VDivider />
         <VCardItem>
@@ -110,7 +241,7 @@ watch(
             class="mb-3"
             :text="resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
           />
-          <VBtn @click="handleUpdate" block :disabled="resolvedPlugin?.system_version_compatible === false">
+          <VBtn @click="handleUpdate()" block :disabled="resolvedPlugin?.system_version_compatible === false">
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
             </template>
@@ -128,5 +259,34 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.plugin-release-action,
+.plugin-release-action__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.plugin-release-action {
+  justify-content: flex-end;
+  min-width: 10rem;
+}
+
+.plugin-release-action__meta {
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .plugin-release-action,
+  .plugin-release-action__meta {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .plugin-release-action {
+    min-width: 0;
+  }
 }
 </style>

@@ -1,16 +1,20 @@
 <script lang="ts" setup>
+import api from '@/api'
 import type { Plugin } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
 import { getDominantColor } from '@/@core/utils/image'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { formatDownloadCount } from '@/@core/utils/formatters'
+import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useConfirm } from '@/composables/useConfirm'
 
 const PluginMarketDetailDialog = defineAsyncComponent(() => import('@/components/dialog/PluginMarketDetailDialog.vue'))
 const PluginVersionHistoryDialog = defineAsyncComponent(
   () => import('@/components/dialog/PluginVersionHistoryDialog.vue'),
 )
+const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 
 // 输入参数
 const props = defineProps({
@@ -25,6 +29,11 @@ const emit = defineEmits(['install'])
 
 // 多语言
 const { t } = useI18n()
+
+// 提示框
+const $toast = useToast()
+
+const createConfirm = useConfirm()
 
 // 背景颜色
 const backgroundColor = ref('#28A9E1')
@@ -47,6 +56,21 @@ const isImageLoaded = ref(false)
 
 // 图片是否加载失败
 const imageLoadError = ref(false)
+
+let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
+
+/** 打开插件安装进度弹窗。 */
+function showInstallProgress(text: string) {
+  progressDialogController?.close()
+  progressDialogController = openSharedDialog(ProgressDialog, { text }, {}, { closeOn: false })
+}
+
+/** 关闭插件安装进度弹窗。 */
+function closeInstallProgress() {
+  progressDialogController?.close()
+  progressDialogController = null
+}
 
 // 图片加载完成
 async function imageLoaded() {
@@ -96,12 +120,67 @@ function visitPluginPage() {
 
 // 显示更新日志
 function showUpdateHistory() {
-  openSharedDialog(
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = openSharedDialog(
     PluginVersionHistoryDialog,
-    { plugin: props.plugin },
-    {},
+    { plugin: props.plugin, actionMode: 'install' },
+    {
+      update: installPlugin,
+    },
     { closeOn: ['close', 'update:modelValue'] },
   )
+}
+
+/** 从插件市场版本历史安装指定 Release；最新版本走普通安装路径以保留主程序兼容校验。 */
+async function installPlugin(releaseVersion?: string, repoUrl?: string) {
+  if (!releaseVersion && props.plugin?.system_version_compatible === false) {
+    $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
+    return
+  }
+
+  if (releaseVersion) {
+    const isConfirmed = await createConfirm({
+      title: t('common.confirm'),
+      content: t('plugin.confirmInstallOldRelease', {
+        name: props.plugin?.plugin_name,
+        version: releaseVersion,
+      }),
+      confirmText: t('common.confirm'),
+    })
+
+    if (!isConfirmed) return
+  }
+
+  try {
+    showInstallProgress(
+      t('plugin.installing', {
+        name: props.plugin?.plugin_name,
+        version: releaseVersion || props.plugin?.plugin_version,
+      }),
+    )
+
+    const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
+      params: {
+        repo_url: repoUrl || props.plugin?.repo_url,
+        release_version: releaseVersion,
+        force: props.plugin?.has_update || Boolean(releaseVersion),
+      },
+    })
+
+    closeInstallProgress()
+
+    if (result.success) {
+      $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
+      versionHistoryDialogController?.close()
+      versionHistoryDialogController = null
+      emit('install')
+    } else {
+      $toast.error(t('plugin.installFailed', { name: props.plugin?.plugin_name, message: result.message }))
+    }
+  } catch (error) {
+    closeInstallProgress()
+    console.error(error)
+  }
 }
 
 /** 打开共享插件市场详情弹窗。 */
@@ -140,6 +219,11 @@ const dropdownItems = ref([
     },
   },
 ])
+
+onUnmounted(() => {
+  closeInstallProgress()
+  versionHistoryDialogController?.close()
+})
 </script>
 
 <template>

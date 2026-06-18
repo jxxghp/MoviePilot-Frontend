@@ -2986,6 +2986,12 @@ export default {
     projectHome: '项目主页',
     updateHistory: '更新说明',
     versionHistory: '版本历史',
+    releaseVersionsLoadFailed: 'Release 版本加载失败',
+    latestVersion: '最新',
+    currentVersion: '当前',
+    installReleaseVersion: '安装',
+    confirmInstallOldRelease:
+      '是否确认安装 {name} v{version}？该版本缺少主程序兼容元数据，安装后可能无法加载或运行异常。',
     local: '本地',
     systemVersion: '系统版本',
     incompatibleSystemVersion: '当前 MoviePilot 版本不满足插件要求，无法安装',

@@ -2987,6 +2987,12 @@ export default {
     projectHome: '項目主頁',
     updateHistory: '更新說明',
     versionHistory: '版本歷史',
+    releaseVersionsLoadFailed: 'Release 版本載入失敗',
+    latestVersion: '最新',
+    currentVersion: '當前',
+    installReleaseVersion: '安裝',
+    confirmInstallOldRelease:
+      '是否確認安裝 {name} v{version}？該版本缺少主程序兼容元數據，安裝後可能無法載入或運行異常。',
     local: '本地',
     installToLocal: '安裝到本地',
     totalDownloads: '共 {count} 次下載',
