@@ -67,6 +67,8 @@ const latestActionText = computed(() => props.actionMode === 'install' ? t('plug
 
 const releaseItems = computed(() => releaseDetail.value?.items || [])
 
+const shouldShowUpdatePanel = computed(() => props.showUpdateAction)
+
 const releaseByHistoryVersion = computed(() => {
   const releaseMap = new Map<string, PluginReleaseVersion>()
   releaseItems.value.forEach(item => {
@@ -88,6 +90,11 @@ function formatReleaseDate(value?: string) {
 
 function releaseItemByHistoryVersion(version: string) {
   return releaseByHistoryVersion.value.get(version)
+}
+
+function shouldShowReleaseButton(item?: PluginReleaseVersion) {
+  if (!item || item.is_current) return false
+  return !(item.is_latest && shouldShowUpdatePanel.value && props.actionMode === 'update')
 }
 
 async function loadPluginHistory() {
@@ -130,7 +137,7 @@ async function loadPluginHistory() {
 }
 
 async function loadPluginReleases(plugin: Plugin | null | undefined = resolvedPlugin.value, force = false) {
-  if (!plugin?.id || !plugin?.repo_url) {
+  if (!plugin?.id || !plugin?.repo_url || !plugin.release) {
     releaseDetail.value = null
     releaseError.value = ''
     return
@@ -190,47 +197,47 @@ watch(
         <VCardText v-if="releaseError" class="pb-0">
           <VAlert type="warning" variant="tonal" density="compact" :text="releaseError" />
         </VCardText>
-        <VersionHistory :history="resolvedHistory">
-          <template #action="{ version }">
-            <div class="plugin-release-action" v-if="releaseItemByHistoryVersion(version)">
-              <template v-if="releaseItemByHistoryVersion(version)">
-                <div class="plugin-release-action__meta">
-                  <VChip v-if="releaseItemByHistoryVersion(version)?.is_current" size="x-small" color="success" variant="tonal">
-                    {{ t('plugin.currentVersion') }}
-                  </VChip>
-                  <VChip v-if="releaseItemByHistoryVersion(version)?.is_latest" size="x-small" color="primary" variant="tonal">
-                    {{ t('plugin.latestVersion') }}
-                  </VChip>
-                  <span v-if="formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at)" class="text-caption text-medium-emphasis">
-                    {{ formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at) }}
-                  </span>
-                </div>
-                <VBtn
-                  size="small"
-                  min-width="5.5rem"
-                  :block="$vuetify.display.xs"
-                  :color="releaseItemByHistoryVersion(version)?.is_latest ? 'primary' : undefined"
-                  :variant="releaseItemByHistoryVersion(version)?.is_latest ? 'flat' : 'tonal'"
-                  :disabled="
-                    releaseItemByHistoryVersion(version)?.is_current ||
-                    (releaseItemByHistoryVersion(version)?.is_latest && resolvedPlugin?.system_version_compatible === false)
-                  "
-                  @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
-                >
-                  {{
-                    releaseItemByHistoryVersion(version)?.is_current
-                      ? t('plugin.installed')
-                      : releaseItemByHistoryVersion(version)?.is_latest
-                        ? latestActionText
-                        : t('plugin.installReleaseVersion')
-                  }}
-                </VBtn>
-              </template>
+        <VersionHistory
+          :history="resolvedHistory"
+          :has-action="version => shouldShowReleaseButton(releaseItemByHistoryVersion(version))"
+        >
+          <template #meta="{ version }">
+            <div v-if="releaseItemByHistoryVersion(version)" class="plugin-release-meta">
+              <span v-if="formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at)" class="plugin-release-meta__date">
+                {{ formatReleaseDate(releaseItemByHistoryVersion(version)?.published_at) }}
+              </span>
+              <VChip v-if="releaseItemByHistoryVersion(version)?.is_latest" size="x-small" color="primary" variant="tonal">
+                {{ t('plugin.latestVersion') }}
+              </VChip>
+              <VChip v-if="releaseItemByHistoryVersion(version)?.is_current" size="x-small" color="success" variant="tonal">
+                {{ t('plugin.currentVersion') }}
+              </VChip>
             </div>
+          </template>
+          <template #action="{ version }">
+            <VBtn
+              v-if="shouldShowReleaseButton(releaseItemByHistoryVersion(version))"
+              class="plugin-release-button"
+              size="small"
+              min-width="5rem"
+              :color="releaseItemByHistoryVersion(version)?.is_latest ? 'primary' : undefined"
+              :variant="releaseItemByHistoryVersion(version)?.is_latest ? 'flat' : 'tonal'"
+              :disabled="
+                releaseItemByHistoryVersion(version)?.is_current ||
+                (releaseItemByHistoryVersion(version)?.is_latest && resolvedPlugin?.system_version_compatible === false)
+              "
+              @click.stop="handleUpdate(releaseItemByHistoryVersion(version))"
+            >
+              {{
+                releaseItemByHistoryVersion(version)?.is_latest
+                    ? latestActionText
+                    : t('plugin.installReleaseVersion')
+              }}
+            </VBtn>
           </template>
         </VersionHistory>
       </template>
-      <template v-if="props.showUpdateAction">
+      <template v-if="shouldShowUpdatePanel">
         <VDivider />
         <VCardItem>
           <VAlert
@@ -241,7 +248,11 @@ watch(
             class="mb-3"
             :text="resolvedPlugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
           />
-          <VBtn @click="handleUpdate()" block :disabled="resolvedPlugin?.system_version_compatible === false">
+          <VBtn
+            @click="handleUpdate()"
+            block
+            :disabled="resolvedPlugin?.system_version_compatible === false"
+          >
             <template #prepend>
               <VIcon icon="mdi-arrow-up-circle-outline" />
             </template>
@@ -261,32 +272,22 @@ watch(
   justify-content: center;
 }
 
-.plugin-release-action,
-.plugin-release-action__meta {
+.plugin-release-button {
+  white-space: nowrap;
+}
+
+.plugin-release-meta {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
-.plugin-release-action {
-  justify-content: flex-end;
-  min-width: 10rem;
+.plugin-release-meta__date {
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
-.plugin-release-action__meta {
-  justify-content: flex-end;
-}
-
-@media (max-width: 600px) {
-  .plugin-release-action,
-  .plugin-release-action__meta {
-    justify-content: flex-start;
-    width: 100%;
-  }
-
-  .plugin-release-action {
-    min-width: 0;
-  }
-}
 </style>
