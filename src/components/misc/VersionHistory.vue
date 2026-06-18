@@ -31,19 +31,39 @@ const props = defineProps({
 </script>
 
 <template>
-  <VCardText>
-    <VList>
-      <VListItem v-for="(value, key) in props.history" :key="key">
+  <VCardText class="version-history">
+    <VList bg-color="transparent" class="version-history__list">
+      <VListItem v-for="(value, key) in props.history" :key="key" class="version-history__item">
         <VListItemTitle class="font-bold text-lg">
           {{ key }}
         </VListItemTitle>
         <div class="markdown-body text-gray-500" v-html="renderMarkdown(value)" />
+        <template v-if="$slots.action" #append>
+          <slot name="action" :version="String(key)" />
+        </template>
       </VListItem>
     </VList>
   </VCardText>
 </template>
 
 <style scoped>
+.version-history {
+  padding-block: 1rem;
+}
+
+.version-history__list {
+  padding-block: 0;
+}
+
+.version-history__item {
+  align-items: start;
+  padding-block: 0.75rem;
+}
+
+.version-history__item + .version-history__item {
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3) {
@@ -111,5 +131,26 @@ const props = defineProps({
   margin-block: 0.5rem;
   border-inline-start: 3px solid rgba(127, 127, 127, 0.4);
   color: rgba(127, 127, 127, 0.8);
+}
+
+@media (max-width: 600px) {
+  .version-history {
+    padding-inline: 0.75rem;
+  }
+
+  .version-history__item {
+    padding-inline: 0;
+  }
+
+  :deep(.version-history__item .v-list-item__append) {
+    align-self: stretch;
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    padding-block-start: 0.75rem;
+  }
+
+  :deep(.version-history__item .v-list-item__content) {
+    overflow: visible;
+  }
 }
 </style>

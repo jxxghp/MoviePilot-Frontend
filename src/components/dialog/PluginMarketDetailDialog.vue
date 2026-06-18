@@ -6,14 +6,20 @@ import { getLogoUrl } from '@/utils/imageUtils'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useConfirm } from '@/composables/useConfirm'
 
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
+const PluginVersionHistoryDialog = defineAsyncComponent(
+  () => import('@/components/dialog/PluginVersionHistoryDialog.vue'),
+)
 
 // 多语言
 const { t } = useI18n()
 
 // 提示框
 const $toast = useToast()
+
+const createConfirm = useConfirm()
 
 // 输入参数
 const props = defineProps({
@@ -47,6 +53,7 @@ const imageRef = ref<any>()
 const imageLoadError = ref(false)
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
+let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 /** 打开插件安装进度弹窗。 */
 function showInstallProgress(text: string) {
@@ -97,24 +104,38 @@ function visitPluginPage() {
 }
 
 /** 安装插件并通知父级刷新市场列表。 */
-async function installPlugin() {
-  if (props.plugin?.system_version_compatible === false) {
+async function installPlugin(releaseVersion?: string, repoUrl?: string) {
+  if (!releaseVersion && props.plugin?.system_version_compatible === false) {
     $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
     return
+  }
+
+  if (releaseVersion) {
+    const isConfirmed = await createConfirm({
+      title: t('common.confirm'),
+      content: t('plugin.confirmInstallOldRelease', {
+        name: props.plugin?.plugin_name,
+        version: releaseVersion,
+      }),
+      confirmText: t('common.confirm'),
+    })
+
+    if (!isConfirmed) return
   }
 
   try {
     showInstallProgress(
       t('plugin.installing', {
         name: props.plugin?.plugin_name,
-        version: props?.plugin?.plugin_version,
+        version: releaseVersion || props?.plugin?.plugin_version,
       }),
     )
 
     const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
       params: {
-        repo_url: props.plugin?.repo_url,
-        force: props.plugin?.has_update,
+        repo_url: repoUrl || props.plugin?.repo_url,
+        release_version: releaseVersion,
+        force: props.plugin?.has_update || Boolean(releaseVersion),
       },
     })
 
@@ -122,6 +143,8 @@ async function installPlugin() {
 
     if (result.success) {
       $toast.success(t('plugin.installSuccess', { name: props.plugin?.plugin_name }))
+      versionHistoryDialogController?.close()
+      versionHistoryDialogController = null
       visible.value = false
       emit('install')
     } else {
@@ -133,8 +156,22 @@ async function installPlugin() {
   }
 }
 
+/** 打开版本历史并支持从 Release 资产安装指定版本。 */
+function showUpdateHistory() {
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = openSharedDialog(
+    PluginVersionHistoryDialog,
+    { plugin: props.plugin, actionMode: 'install' },
+    {
+      update: installPlugin,
+    },
+    { closeOn: ['close', 'update:modelValue'] },
+  )
+}
+
 onUnmounted(() => {
   closeInstallProgress()
+  versionHistoryDialogController?.close()
 })
 </script>
 
@@ -192,8 +229,16 @@ onUnmounted(() => {
                 />
                 <div class="text-center text-md-left">
                   <VBtn
+                    variant="tonal"
+                    @click="showUpdateHistory"
+                    prepend-icon="mdi-update"
+                    class="me-2"
+                  >
+                    {{ t('plugin.versionHistory') }}
+                  </VBtn>
+                  <VBtn
                     color="primary"
-                    @click="installPlugin"
+                    @click="installPlugin()"
                     prepend-icon="mdi-download"
                     :disabled="props.plugin?.system_version_compatible === false"
                   >

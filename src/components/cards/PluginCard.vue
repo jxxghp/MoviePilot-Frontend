@@ -69,6 +69,7 @@ const imageLoadError = ref(false)
 
 let progressDialogController: ReturnType<typeof openSharedDialog> | null = null
 let cloneDialogController: ReturnType<typeof openSharedDialog> | null = null
+let versionHistoryDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 /** 打开插件操作进度弹窗，插件卡片自身不再持有进度弹窗实例。 */
 function showPluginProgress(text: string) {
@@ -103,11 +104,12 @@ async function imageLoaded() {
 
 // 显示更新日志
 function showUpdateHistory(showUpdateAction: boolean = false) {
-  openSharedDialog(
+  versionHistoryDialogController?.close()
+  versionHistoryDialogController = openSharedDialog(
     PluginVersionHistoryDialog,
     { plugin: props.plugin, showUpdateAction },
     { update: updatePlugin },
-    { closeOn: ['close', 'update', 'update:modelValue'] },
+    { closeOn: ['close', 'update:modelValue'] },
   )
 }
 
@@ -219,19 +221,37 @@ async function resetPlugin() {
 }
 
 // 更新插件
-async function updatePlugin() {
-  if (props.plugin?.system_version_compatible === false) {
+async function updatePlugin(releaseVersion?: string, repoUrl?: string) {
+  if (!releaseVersion && props.plugin?.system_version_compatible === false) {
     $toast.error(props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion'))
     return
   }
 
+  if (releaseVersion) {
+    const isConfirmed = await createConfirm({
+      title: t('common.confirm'),
+      content: t('plugin.confirmInstallOldRelease', {
+        name: props.plugin?.plugin_name,
+        version: releaseVersion,
+      }),
+      confirmText: t('common.confirm'),
+    })
+
+    if (!isConfirmed) return
+  }
+
   try {
     // 显示等待提示框
-    showPluginProgress(t('plugin.updating', { name: props.plugin?.plugin_name }))
+    showPluginProgress(
+      releaseVersion
+        ? t('plugin.installing', { name: props.plugin?.plugin_name, version: releaseVersion })
+        : t('plugin.updating', { name: props.plugin?.plugin_name }),
+    )
 
     const result: { [key: string]: any } = await api.get(`plugin/install/${props.plugin?.id}`, {
       params: {
-        repo_url: props.plugin?.repo_url,
+        repo_url: repoUrl || props.plugin?.repo_url,
+        release_version: releaseVersion,
         force: true,
       },
     })
@@ -241,6 +261,8 @@ async function updatePlugin() {
 
     if (result.success) {
       $toast.success(t('plugin.updateSuccess', { name: props.plugin?.plugin_name }))
+      versionHistoryDialogController?.close()
+      versionHistoryDialogController = null
 
       // 通知父组件刷新
       emit('save')

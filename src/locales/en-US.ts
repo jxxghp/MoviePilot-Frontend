@@ -3036,6 +3036,12 @@ export default {
     projectHome: 'Project Home',
     updateHistory: 'Update History',
     versionHistory: 'Version History',
+    releaseVersionsLoadFailed: 'Failed to load Release versions',
+    latestVersion: 'Latest',
+    currentVersion: 'Current',
+    installReleaseVersion: 'Install',
+    confirmInstallOldRelease:
+      'Install {name} v{version}? This version has no MoviePilot compatibility metadata and may fail to load or run.',
     local: 'Local',
     systemVersion: 'System Version',
     incompatibleSystemVersion: 'The current MoviePilot version does not meet this plugin requirement.',

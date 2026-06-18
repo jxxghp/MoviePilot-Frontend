@@ -656,6 +656,8 @@ export interface Plugin {
   system_version_message?: string
   // 主系统版本限定范围
   system_version?: string
+  // 是否声明支持通过 GitHub Release 资产安装
+  release?: boolean
   // 是否本地插件
   is_local?: boolean
   // 插件仓库地址
@@ -666,6 +668,38 @@ export interface Plugin {
   add_time?: number
   // 页面打开状态
   page_open?: boolean
+}
+
+// 插件 Release 可安装版本
+export interface PluginReleaseVersion {
+  // 插件版本
+  version: string
+  // GitHub Release tag
+  tag_name: string
+  // Release 标题
+  name?: string
+  // 发布时间
+  published_at?: string
+  // Release 说明
+  body?: string
+  // 匹配到的资产文件名
+  asset_name?: string
+  // 是否为当前市场最新版本
+  is_latest?: boolean
+  // 是否为本地已安装版本
+  is_current?: boolean
+}
+
+// 插件 Release 可安装版本响应
+export interface PluginReleaseVersionsResponse {
+  // 当前插件是否存在可直接安装的 Release 资产
+  release_supported: boolean
+  // 当前市场 package 声明的最新版本
+  latest_version?: string | null
+  // 本地已安装版本
+  current_version?: string | null
+  // 可安装版本列表
+  items: PluginReleaseVersion[]
 }
 
 // 插件侧栏全页导航项（与后端 PluginSidebarNavItem 对齐）
