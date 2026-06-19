@@ -24,9 +24,37 @@ export const themeCustomizerPrimaryColors = [
   { name: 'Slate', value: '#607D8B' },
 ] as const
 
+export const themeCustomizerShadowLevels = [
+  '0',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '10',
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '19',
+  '20',
+  '21',
+  '22',
+  '23',
+  '24',
+] as const
+
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
-export type ThemeCustomizerRadius = 'default' | 'extra' | 'huge' | 'large' | 'small'
-export type ThemeCustomizerShadow = 'none' | 'low' | 'medium' | 'high'
+export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'none' | 'small'
+export type ThemeCustomizerShadow = (typeof themeCustomizerShadowLevels)[number]
 export type ThemeCustomizerSkin = 'bordered' | 'default'
 export type ThemeCustomizerTheme = 'auto' | 'dark' | 'light' | 'purple' | 'transparent'
 
@@ -44,10 +72,16 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
-const validRadii: ThemeCustomizerRadius[] = ['small', 'default', 'large', 'extra', 'huge']
-const validShadows: ThemeCustomizerShadow[] = ['none', 'low', 'medium', 'high']
+const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
+const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
 const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
 const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent']
+const legacyShadowMap: Record<string, ThemeCustomizerShadow> = {
+  high: '24',
+  low: '6',
+  medium: '12',
+  none: '0',
+}
 
 let themeApplyVersion = 0
 
@@ -73,27 +107,35 @@ function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
     primaryColor: defaultPrimaryColor,
     radius: 'default',
     semiDarkMenu: false,
-    shadow: 'none',
+    shadow: '0',
     skin: 'default',
     theme: readStoredThemePreference(),
   }
 }
 
+/** 将旧版语义阴影档位迁移到 Vuetify elevation 数值档位。 */
+function normalizeThemeCustomizerShadow(shadow: unknown): ThemeCustomizerShadow {
+  if (validShadows.includes(shadow as ThemeCustomizerShadow)) return shadow as ThemeCustomizerShadow
+  if (typeof shadow === 'string' && legacyShadowMap[shadow]) return legacyShadowMap[shadow]
+
+  return getDefaultThemeCustomizerSettings().shadow
+}
+
 function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSettings>): ThemeCustomizerSettings {
   const fallback = getDefaultThemeCustomizerSettings()
+  const storedRadius = settings.radius as string | undefined
+  const radius = storedRadius === 'huge' ? 'extra' : storedRadius
 
   return {
     layout: validLayouts.includes(settings.layout as ThemeCustomizerLayout)
       ? (settings.layout as ThemeCustomizerLayout)
       : fallback.layout,
     primaryColor: isHexColor(settings.primaryColor) ? settings.primaryColor.toUpperCase() : fallback.primaryColor,
-    radius: validRadii.includes(settings.radius as ThemeCustomizerRadius)
-      ? (settings.radius as ThemeCustomizerRadius)
+    radius: validRadii.includes(radius as ThemeCustomizerRadius)
+      ? (radius as ThemeCustomizerRadius)
       : fallback.radius,
     semiDarkMenu: typeof settings.semiDarkMenu === 'boolean' ? settings.semiDarkMenu : fallback.semiDarkMenu,
-    shadow: validShadows.includes(settings.shadow as ThemeCustomizerShadow)
-      ? (settings.shadow as ThemeCustomizerShadow)
-      : fallback.shadow,
+    shadow: normalizeThemeCustomizerShadow(settings.shadow),
     skin: validSkins.includes(settings.skin as ThemeCustomizerSkin)
       ? (settings.skin as ThemeCustomizerSkin)
       : fallback.skin,
@@ -247,7 +289,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     primaryColor: defaultPrimaryColor,
     radius: 'default',
     semiDarkMenu: false,
-    shadow: 'none',
+    shadow: '0',
     skin: 'default',
     theme: 'auto',
   })
@@ -324,7 +366,7 @@ export function useThemeCustomizer() {
       primaryColor: defaultPrimaryColor,
       radius: 'default',
       semiDarkMenu: false,
-      shadow: 'none',
+      shadow: '0',
       skin: 'default',
       theme: 'auto',
     })

@@ -1,6 +1,30 @@
+/* stylelint-disable custom-property-pattern */
 /* stylelint-disable no-duplicate-selectors */
 /* stylelint-disable scss/at-rule-no-unknown */
 /* stylelint-disable no-descending-specificity */
+@use 'sass:map';
+@use 'vuetify/settings' as vuetify-settings;
+
+// 返回 Vuetify 指定 elevation 的完整三层 box-shadow，供主题定制器映射全局阴影档位。
+@function app-vuetify-elevation($level) {
+  @return map.get(vuetify-settings.$shadow-key-umbra, $level),
+    map.get(vuetify-settings.$shadow-key-penumbra, $level),
+    map.get(vuetify-settings.$shadow-key-ambient, $level);
+}
+
+// 将相对阴影层级限制在 Vuetify elevation 的 0 到 24 档范围内。
+@function app-clamp-elevation($level) {
+  @if $level < 0 {
+    @return 0;
+  }
+
+  @if $level > 24 {
+    @return 24;
+  }
+
+  @return $level;
+}
+
 // 公共样式 - 所有主题都需要
 @tailwind base;
 @tailwind components;
@@ -38,24 +62,36 @@ html.quick-access-scroll-locked body {
   }
 }
 
-// 全局卡片外观 token：圆角和阴影在主题定制器中即时切换。
+// 全局外观 token：圆角和阴影复用 Vuetify 的 rounded / elevation 分级。
 html {
-  --app-theme-surface-radius: 8px;
+  --app-vuetify-rounded-0: #{map.get(vuetify-settings.$rounded, 0)};
+  --app-vuetify-rounded-sm: #{map.get(vuetify-settings.$rounded, 'sm')};
+  --app-vuetify-rounded: #{map.get(vuetify-settings.$rounded, null)};
+  --app-vuetify-rounded-lg: #{map.get(vuetify-settings.$rounded, 'lg')};
+  --app-vuetify-rounded-xl: #{map.get(vuetify-settings.$rounded, 'xl')};
+  --app-vuetify-rounded-pill: #{map.get(vuetify-settings.$rounded, 'pill')};
+
+  @for $level from 0 through 24 {
+    --app-elevation-#{$level}: #{app-vuetify-elevation($level)};
+  }
+
+  --app-theme-surface-radius: var(--app-vuetify-rounded);
   --app-surface-radius: var(--app-theme-surface-radius);
-  --app-field-radius: var(--app-theme-surface-radius);
+  --app-field-radius: var(--app-vuetify-rounded);
+  --app-control-radius: var(--app-vuetify-rounded);
+  --app-overlay-radius: var(--app-vuetify-rounded);
   --app-surface-border-opacity: 0.06;
   --app-surface-border: 1px solid rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
-  --app-shadow-rgb: 15, 23, 42;
-  --app-card-rest-shadow: none;
-  --app-card-hover-shadow: none;
-  --app-fab-shadow: none;
-  --app-fab-shadow-strong: none;
-  --app-fab-shadow-hover: none;
-  --app-fab-shadow-strong-hover: none;
-  --app-fab-shadow-active: none;
-  --app-overlay-shadow: none;
-  --app-surface-shadow: none;
-  --app-surface-hover-shadow: none;
+  --app-card-rest-shadow: var(--app-elevation-0);
+  --app-card-hover-shadow: var(--app-elevation-0);
+  --app-fab-shadow: var(--app-elevation-0);
+  --app-fab-shadow-strong: var(--app-elevation-0);
+  --app-fab-shadow-hover: var(--app-elevation-0);
+  --app-fab-shadow-strong-hover: var(--app-elevation-0);
+  --app-fab-shadow-active: var(--app-elevation-0);
+  --app-overlay-shadow: var(--app-elevation-0);
+  --app-surface-shadow: var(--app-elevation-0);
+  --app-surface-hover-shadow: var(--app-elevation-0);
   --mp-motion-duration-page: 180ms;
   --mp-motion-duration-overlay: 160ms;
   --mp-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -66,65 +102,47 @@ html[data-theme-skin='bordered'] {
   --app-surface-border-opacity: 0.1;
 }
 
+html[data-theme-radius='none'] {
+  --app-theme-surface-radius: var(--app-vuetify-rounded-0);
+  --app-field-radius: var(--app-vuetify-rounded-0);
+  --app-control-radius: var(--app-vuetify-rounded-0);
+  --app-overlay-radius: var(--app-vuetify-rounded-0);
+}
+
 html[data-theme-radius='small'] {
-  --app-theme-surface-radius: 4px;
+  --app-theme-surface-radius: var(--app-vuetify-rounded-sm);
+  --app-field-radius: var(--app-vuetify-rounded-sm);
+  --app-control-radius: var(--app-vuetify-rounded-sm);
+  --app-overlay-radius: var(--app-vuetify-rounded-sm);
 }
 
 html[data-theme-radius='large'] {
-  --app-theme-surface-radius: 12px;
+  --app-theme-surface-radius: var(--app-vuetify-rounded-lg);
+  --app-field-radius: var(--app-vuetify-rounded-lg);
+  --app-control-radius: var(--app-vuetify-rounded-lg);
+  --app-overlay-radius: var(--app-vuetify-rounded-lg);
 }
 
 html[data-theme-radius='extra'] {
-  --app-theme-surface-radius: 16px;
+  --app-theme-surface-radius: var(--app-vuetify-rounded-xl);
+  --app-field-radius: var(--app-vuetify-rounded-xl);
+  --app-control-radius: var(--app-vuetify-rounded-xl);
+  --app-overlay-radius: var(--app-vuetify-rounded-xl);
 }
 
-html[data-theme-radius='huge'] {
-  --app-theme-surface-radius: 24px;
-}
-
-html[data-theme='dark'],
-html[data-theme='purple'],
-html[data-theme='transparent'] {
-  --app-shadow-rgb: 0, 0, 0;
-}
-
-html[data-theme-shadow='low'] {
-  --app-card-rest-shadow: 0 10px 24px rgba(var(--app-shadow-rgb), 0.06), 0 2px 8px rgba(var(--app-shadow-rgb), 0.04);
-  --app-card-hover-shadow: 0 14px 30px rgba(var(--app-shadow-rgb), 0.08), 0 4px 12px rgba(var(--app-shadow-rgb), 0.05);
-  --app-fab-shadow: 0 16px 34px rgba(var(--app-shadow-rgb), 0.16), 0 6px 16px rgba(var(--app-shadow-rgb), 0.1);
-  --app-fab-shadow-strong: 0 20px 40px rgba(var(--app-shadow-rgb), 0.2), 0 8px 18px rgba(var(--app-shadow-rgb), 0.12);
-  --app-fab-shadow-hover: 0 22px 42px rgba(var(--app-shadow-rgb), 0.22), 0 8px 18px rgba(var(--app-shadow-rgb), 0.12);
-  --app-fab-shadow-strong-hover: 0 26px 46px rgba(var(--app-shadow-rgb), 0.24), 0 10px 22px rgba(var(--app-shadow-rgb), 0.14);
-  --app-fab-shadow-active: 0 10px 22px rgba(var(--app-shadow-rgb), 0.16), 0 3px 8px rgba(var(--app-shadow-rgb), 0.1);
-  --app-overlay-shadow: 0 18px 42px rgba(var(--app-shadow-rgb), 0.14), 0 6px 18px rgba(var(--app-shadow-rgb), 0.08);
-  --app-surface-shadow: 0 10px 24px rgba(var(--app-shadow-rgb), 0.07), 0 2px 8px rgba(var(--app-shadow-rgb), 0.05);
-  --app-surface-hover-shadow: 0 14px 30px rgba(var(--app-shadow-rgb), 0.09), 0 4px 12px rgba(var(--app-shadow-rgb), 0.06);
-}
-
-html[data-theme-shadow='medium'] {
-  --app-card-rest-shadow: 0 14px 32px rgba(var(--app-shadow-rgb), 0.09), 0 4px 12px rgba(var(--app-shadow-rgb), 0.06);
-  --app-card-hover-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.11), 0 6px 16px rgba(var(--app-shadow-rgb), 0.07);
-  --app-fab-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.2), 0 7px 18px rgba(var(--app-shadow-rgb), 0.12);
-  --app-fab-shadow-strong: 0 24px 48px rgba(var(--app-shadow-rgb), 0.24), 0 10px 24px rgba(var(--app-shadow-rgb), 0.14);
-  --app-fab-shadow-hover: 0 24px 46px rgba(var(--app-shadow-rgb), 0.24), 0 10px 22px rgba(var(--app-shadow-rgb), 0.14);
-  --app-fab-shadow-strong-hover: 0 30px 54px rgba(var(--app-shadow-rgb), 0.28), 0 12px 28px rgba(var(--app-shadow-rgb), 0.16);
-  --app-fab-shadow-active: 0 12px 26px rgba(var(--app-shadow-rgb), 0.18), 0 4px 10px rgba(var(--app-shadow-rgb), 0.12);
-  --app-overlay-shadow: 0 24px 56px rgba(var(--app-shadow-rgb), 0.18), 0 10px 24px rgba(var(--app-shadow-rgb), 0.1);
-  --app-surface-shadow: 0 14px 32px rgba(var(--app-shadow-rgb), 0.1), 0 4px 12px rgba(var(--app-shadow-rgb), 0.07);
-  --app-surface-hover-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.12), 0 6px 16px rgba(var(--app-shadow-rgb), 0.08);
-}
-
-html[data-theme-shadow='high'] {
-  --app-card-rest-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.12), 0 6px 18px rgba(var(--app-shadow-rgb), 0.08);
-  --app-card-hover-shadow: 0 22px 50px rgba(var(--app-shadow-rgb), 0.15), 0 8px 22px rgba(var(--app-shadow-rgb), 0.1);
-  --app-fab-shadow: 0 22px 48px rgba(var(--app-shadow-rgb), 0.24), 0 10px 24px rgba(var(--app-shadow-rgb), 0.14);
-  --app-fab-shadow-strong: 0 28px 58px rgba(var(--app-shadow-rgb), 0.3), 0 12px 30px rgba(var(--app-shadow-rgb), 0.18);
-  --app-fab-shadow-hover: 0 28px 56px rgba(var(--app-shadow-rgb), 0.28), 0 12px 28px rgba(var(--app-shadow-rgb), 0.17);
-  --app-fab-shadow-strong-hover: 0 34px 64px rgba(var(--app-shadow-rgb), 0.34), 0 14px 32px rgba(var(--app-shadow-rgb), 0.2);
-  --app-fab-shadow-active: 0 14px 30px rgba(var(--app-shadow-rgb), 0.22), 0 5px 12px rgba(var(--app-shadow-rgb), 0.14);
-  --app-overlay-shadow: 0 30px 70px rgba(var(--app-shadow-rgb), 0.22), 0 14px 30px rgba(var(--app-shadow-rgb), 0.12);
-  --app-surface-shadow: 0 18px 40px rgba(var(--app-shadow-rgb), 0.13), 0 6px 18px rgba(var(--app-shadow-rgb), 0.09);
-  --app-surface-hover-shadow: 0 22px 50px rgba(var(--app-shadow-rgb), 0.16), 0 8px 22px rgba(var(--app-shadow-rgb), 0.11);
+@for $level from 1 through 24 {
+  html[data-theme-shadow='#{$level}'] {
+    --app-card-rest-shadow: var(--app-elevation-#{app-clamp-elevation($level - 1)});
+    --app-card-hover-shadow: var(--app-elevation-#{app-clamp-elevation($level + 1)});
+    --app-fab-shadow: var(--app-elevation-#{$level});
+    --app-fab-shadow-active: var(--app-elevation-#{app-clamp-elevation($level - 2)});
+    --app-fab-shadow-hover: var(--app-elevation-#{app-clamp-elevation($level + 3)});
+    --app-fab-shadow-strong: var(--app-elevation-#{app-clamp-elevation($level + 2)});
+    --app-fab-shadow-strong-hover: var(--app-elevation-#{app-clamp-elevation($level + 4)});
+    --app-overlay-shadow: var(--app-elevation-#{app-clamp-elevation($level + 6)});
+    --app-surface-shadow: var(--app-elevation-#{$level});
+    --app-surface-hover-shadow: var(--app-elevation-#{app-clamp-elevation($level + 2)});
+  }
 }
 
 // 进度条样式
@@ -421,12 +439,12 @@ html[data-theme-shadow='high'] {
 }
 
 .v-btn:not(.v-btn--rounded, .v-btn--flat, .v-btn--icon, [class^='rounded-'], [class*=' rounded-']) {
-  border-radius: var(--app-surface-radius);
+  border-radius: var(--app-control-radius);
   transition: border-radius 0.2s ease;
 }
 
 .v-btn-group:not(.v-btn-group--variant-plain, .v-btn-group--variant-text) {
-  border-radius: var(--app-surface-radius);
+  border-radius: var(--app-control-radius);
   box-shadow: var(--app-surface-shadow) !important;
   transition: box-shadow 0.2s ease, border-radius 0.2s ease;
 }
@@ -703,7 +721,7 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .Vue-Toastification__toast {
-  border-radius: var(--app-surface-radius);
+  border-radius: var(--app-overlay-radius);
   box-shadow: var(--app-overlay-shadow);
 }
 
@@ -1175,6 +1193,7 @@ html[data-theme="transparent"] .app-card-colorful,
 .v-bottom-sheet > .v-bottom-sheet__content.v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-card,
 .v-menu > .v-overlay__content > .v-list {
+  border-radius: var(--app-overlay-radius) !important;
   box-shadow: var(--app-overlay-shadow) !important;
 }
 
@@ -1191,8 +1210,8 @@ html[data-theme="transparent"] .app-card-colorful,
     overflow: hidden;
     border-end-end-radius: 0 !important;
     border-end-start-radius: 0 !important;
-    border-start-end-radius: var(--app-theme-surface-radius) !important;
-    border-start-start-radius: var(--app-theme-surface-radius) !important;
+    border-start-end-radius: var(--app-overlay-radius) !important;
+    border-start-start-radius: var(--app-overlay-radius) !important;
   }
 
   .v-dialog--fullscreen > .v-overlay__content > .v-card,
@@ -1201,8 +1220,8 @@ html[data-theme="transparent"] .app-card-colorful,
   .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
     border-end-end-radius: 0 !important;
     border-end-start-radius: 0 !important;
-    border-start-end-radius: var(--app-theme-surface-radius) !important;
-    border-start-start-radius: var(--app-theme-surface-radius) !important;
+    border-start-end-radius: var(--app-overlay-radius) !important;
+    border-start-start-radius: var(--app-overlay-radius) !important;
   }
 }
 

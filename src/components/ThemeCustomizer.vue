@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   themeCustomizerPrimaryColors,
+  themeCustomizerShadowLevels,
   useThemeCustomizer,
   type ThemeCustomizerLayout,
   type ThemeCustomizerRadius,
@@ -86,61 +87,34 @@ const skinOptions = computed<Array<{ title: string; value: ThemeCustomizerSkin }
   { title: t('theme.customizer.skinBordered'), value: 'bordered' },
 ])
 
-const shadowOptions = computed<
-  Array<{
-    title: string
-    value: ThemeCustomizerShadow
-  }>
->(() => [
-  {
-    title: t('theme.customizer.shadowNone'),
-    value: 'none',
-  },
-  {
-    title: t('theme.customizer.shadowLow'),
-    value: 'low',
-  },
-  {
-    title: t('theme.customizer.shadowMedium'),
-    value: 'medium',
-  },
-  {
-    title: t('theme.customizer.shadowHigh'),
-    value: 'high',
-  },
-])
+// 当前阴影滑杆数值，界面使用 number，主题设置继续存储 Vuetify elevation 字符串档位。
+const shadowSliderValue = computed(() => Number(settings.value.shadow))
 
 const radiusOptions = computed<
   Array<{
-    previewRadius: string
     title: string
     value: ThemeCustomizerRadius
   }>
 >(() => [
   {
-    previewRadius: '4px',
+    title: t('theme.customizer.radiusNone'),
+    value: 'none',
+  },
+  {
     title: t('theme.customizer.radiusSmall'),
     value: 'small',
   },
   {
-    previewRadius: '8px',
     title: t('theme.customizer.radiusDefault'),
     value: 'default',
   },
   {
-    previewRadius: '12px',
     title: t('theme.customizer.radiusLarge'),
     value: 'large',
   },
   {
-    previewRadius: '16px',
     title: t('theme.customizer.radiusExtra'),
     value: 'extra',
-  },
-  {
-    previewRadius: '24px',
-    title: t('theme.customizer.radiusHuge'),
-    value: 'huge',
   },
 ])
 
@@ -156,7 +130,7 @@ const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
     settings.value.radius !== 'default' ||
-    settings.value.shadow !== 'none' ||
+    settings.value.shadow !== '0' ||
     settings.value.skin !== 'default' ||
     settings.value.theme !== 'auto'
   )
@@ -189,6 +163,19 @@ function handleLayoutChange(layout: ThemeCustomizerLayout) {
   setLayout(layout)
 }
 
+// 将 Vuetify 滑杆的数字步进写回字符串型 elevation 档位。
+function handleShadowSliderChange(value: unknown) {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  const numericValue = Number(rawValue)
+
+  if (!Number.isFinite(numericValue)) return
+
+  const clampedValue = Math.min(24, Math.max(0, Math.round(numericValue)))
+  const shadow = String(clampedValue) as ThemeCustomizerShadow
+
+  if (themeCustomizerShadowLevels.includes(shadow)) setShadow(shadow)
+}
+
 async function handleResetSettings() {
   if (!appMode.value) {
     await resetSettings()
@@ -199,7 +186,7 @@ async function handleResetSettings() {
   // App 模式共享定制器，但保留桌面导航相关偏好，只重置 App 侧可调整的外观设置。
   await setPrimaryColor(defaultPrimaryColor)
   await setRadius('default')
-  await setShadow('none')
+  await setShadow('0')
   await setSkin('default')
   await setTheme('auto')
 }
@@ -320,7 +307,7 @@ async function handleResetSettings() {
             >
               <span
                 class="theme-customizer-radius-scene"
-                :style="{ '--theme-customizer-radius-preview': radius.previewRadius }"
+                :class="`theme-customizer-radius-scene--${radius.value}`"
               >
                 <span class="theme-customizer-radius-scene__card">
                   <span class="theme-customizer-radius-scene__badge" />
@@ -335,29 +322,41 @@ async function handleResetSettings() {
           <VDivider class="mt-7" />
 
           <h3 class="theme-customizer-section-title">{{ t('theme.customizer.shadow') }}</h3>
-          <div class="theme-customizer-preview-grid theme-customizer-preview-grid--shadow">
-            <div
-              v-for="shadow in shadowOptions"
-              :key="shadow.value"
-              class="theme-customizer-preview-option"
-              :class="{ 'is-active': settings.shadow === shadow.value }"
-              @click="setShadow(shadow.value)"
-            >
-              <span class="theme-customizer-shadow-scene" :class="`theme-customizer-shadow-scene--${shadow.value}`">
-                <span class="theme-customizer-shadow-scene__panel">
-                  <span class="theme-customizer-shadow-scene__panel-line" />
-                  <span
-                    class="theme-customizer-shadow-scene__panel-line theme-customizer-shadow-scene__panel-line--short"
-                  />
-                </span>
-
-                <span class="theme-customizer-shadow-scene__card">
-                  <span class="theme-customizer-shadow-scene__badge" />
-                  <span class="theme-customizer-shadow-scene__line theme-customizer-shadow-scene__line--short" />
-                  <span class="theme-customizer-shadow-scene__line" />
-                </span>
+          <div class="theme-customizer-shadow-slider">
+            <div class="theme-customizer-shadow-slider__header">
+              <span>{{ t('theme.customizer.shadowLevel', { level: settings.shadow }) }}</span>
+              <span>0 - 24</span>
+            </div>
+            <div class="theme-customizer-shadow-slider__control">
+              <span
+                class="theme-customizer-shadow-slider__sample"
+                :style="{ boxShadow: `var(--app-elevation-${settings.shadow})` }"
+              >
+                <span class="theme-customizer-shadow-slider__sample-accent" />
+                <span class="theme-customizer-shadow-slider__sample-line" />
+                <span class="theme-customizer-shadow-slider__sample-line theme-customizer-shadow-slider__sample-line--short" />
               </span>
-              <span>{{ shadow.title }}</span>
+              <VSlider
+                :model-value="shadowSliderValue"
+                :aria-label="t('theme.customizer.shadow')"
+                :max="24"
+                :min="0"
+                :step="1"
+                color="primary"
+                density="comfortable"
+                hide-details
+                show-ticks="always"
+                thumb-label
+                tick-size="2"
+                @update:model-value="handleShadowSliderChange"
+              />
+            </div>
+            <div
+              class="theme-customizer-shadow-slider__scale"
+              aria-hidden="true"
+            >
+              <span>0</span>
+              <span>24</span>
             </div>
           </div>
 
@@ -626,10 +625,6 @@ async function handleResetSettings() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.theme-customizer-preview-grid--shadow {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .theme-customizer-preview-grid--radius {
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
 }
@@ -646,8 +641,7 @@ async function handleResetSettings() {
     box-shadow: none !important;
 
     .theme-customizer-mini-layout,
-    .theme-customizer-radius-scene,
-    .theme-customizer-shadow-scene {
+    .theme-customizer-radius-scene {
       border-width: 2px;
       border-color: rgb(var(--v-theme-primary));
       background: rgba(var(--v-theme-primary), 0.04);
@@ -747,6 +741,24 @@ async function handleResetSettings() {
   block-size: 90px;
   inline-size: 100%;
   min-inline-size: 0;
+
+  --theme-customizer-preview-radius: var(--app-vuetify-rounded);
+}
+
+.theme-customizer-radius-scene--none {
+  --theme-customizer-preview-radius: var(--app-vuetify-rounded-0);
+}
+
+.theme-customizer-radius-scene--small {
+  --theme-customizer-preview-radius: var(--app-vuetify-rounded-sm);
+}
+
+.theme-customizer-radius-scene--large {
+  --theme-customizer-preview-radius: var(--app-vuetify-rounded-lg);
+}
+
+.theme-customizer-radius-scene--extra {
+  --theme-customizer-preview-radius: var(--app-vuetify-rounded-xl);
 }
 
 .theme-customizer-radius-scene__card {
@@ -754,7 +766,7 @@ async function handleResetSettings() {
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--theme-customizer-radius-preview);
+  border-radius: var(--theme-customizer-preview-radius);
   background: rgb(var(--v-theme-surface));
   gap: 8px;
   inset: 16px;
@@ -765,17 +777,18 @@ async function handleResetSettings() {
 .theme-customizer-radius-scene__badge,
 .theme-customizer-radius-scene__line {
   display: block;
-  border-radius: 999px;
   background: rgba(var(--v-theme-on-surface), 0.1);
 }
 
 .theme-customizer-radius-scene__badge {
+  border-radius: var(--theme-customizer-preview-radius);
   block-size: 8px;
   inline-size: 42%;
   min-inline-size: 28px;
 }
 
 .theme-customizer-radius-scene__line {
+  border-radius: var(--theme-customizer-preview-radius);
   block-size: 7px;
 }
 
@@ -783,112 +796,89 @@ async function handleResetSettings() {
   inline-size: 66%;
 }
 
-.theme-customizer-shadow-scene {
-  position: relative;
-  display: block;
-  overflow: hidden;
+.theme-customizer-shadow-slider {
+  padding: 16px 18px 12px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(var(--v-theme-on-surface), 0.02), rgba(var(--v-theme-on-surface), 0.06)),
-    rgb(var(--v-theme-surface));
-  block-size: 110px;
-  inline-size: 100%;
-  min-inline-size: 0;
+  border-radius: var(--app-vuetify-rounded-lg);
+  background: rgba(var(--v-theme-surface), 0.72);
 }
 
-.theme-customizer-shadow-scene__panel,
-.theme-customizer-shadow-scene__card {
-  position: absolute;
+.theme-customizer-shadow-slider__header,
+.theme-customizer-shadow-slider__scale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-customizer-shadow-slider__header {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  line-height: 1.3;
+  margin-block-end: 14px;
+
+  > span:first-child {
+    color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+    font-weight: 600;
+  }
+}
+
+.theme-customizer-shadow-slider__control {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.theme-customizer-shadow-slider__sample {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  border-radius: var(--app-vuetify-rounded);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   background: rgb(var(--v-theme-surface));
-  box-shadow: none;
-  transition: box-shadow 0.18s ease;
+  block-size: 42px;
+  gap: 5px;
+  inline-size: 42px;
+  padding-block: 8px;
+  padding-inline: 9px;
 }
 
-.theme-customizer-shadow-scene__panel {
-  padding: 12px;
-  gap: 8px;
-  inset-block-start: 16px;
-  inset-inline: 14px;
-  min-block-size: 54px;
-}
-
-.theme-customizer-shadow-scene__card {
-  gap: 8px;
-  inset-block-end: 12px;
-  inset-inline: 20px 16px;
-  min-block-size: 46px;
-  padding-block: 10px;
-  padding-inline: 12px;
-}
-
-.theme-customizer-shadow-scene__panel-line,
-.theme-customizer-shadow-scene__line,
-.theme-customizer-shadow-scene__badge {
+.theme-customizer-shadow-slider__sample-accent,
+.theme-customizer-shadow-slider__sample-line {
   display: block;
   border-radius: 999px;
-  background: rgba(var(--v-theme-on-surface), 0.1);
 }
 
-.theme-customizer-shadow-scene__badge {
-  block-size: 6px;
-  inline-size: 34%;
-  min-inline-size: 28px;
+.theme-customizer-shadow-slider__sample-accent {
+  background: rgba(var(--v-theme-primary), 0.48);
+  block-size: 5px;
+  inline-size: 44%;
 }
 
-.theme-customizer-shadow-scene__panel-line,
-.theme-customizer-shadow-scene__line {
-  block-size: 7px;
+.theme-customizer-shadow-slider__sample-line {
+  background: rgba(var(--v-theme-on-surface), 0.12);
+  block-size: 4px;
+  inline-size: 100%;
 }
 
-.theme-customizer-shadow-scene__panel-line--short,
-.theme-customizer-shadow-scene__line--short {
-  inline-size: 62%;
+.theme-customizer-shadow-slider__sample-line--short {
+  inline-size: 68%;
 }
 
-.theme-customizer-shadow-scene--low {
-  .theme-customizer-shadow-scene__panel {
-    box-shadow:
-      0 8px 18px rgba(var(--v-theme-on-surface), 0.08),
-      0 2px 6px rgba(var(--v-theme-on-surface), 0.05);
-  }
-
-  .theme-customizer-shadow-scene__card {
-    box-shadow:
-      0 10px 22px rgba(var(--v-theme-on-surface), 0.1),
-      0 4px 10px rgba(var(--v-theme-on-surface), 0.06);
-  }
+.theme-customizer-shadow-slider__scale {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1;
+  margin-block-start: 2px;
+  margin-inline-start: 72px;
 }
 
-.theme-customizer-shadow-scene--medium {
-  .theme-customizer-shadow-scene__panel {
-    box-shadow:
-      0 12px 28px rgba(var(--v-theme-on-surface), 0.12),
-      0 4px 12px rgba(var(--v-theme-on-surface), 0.08);
-  }
-
-  .theme-customizer-shadow-scene__card {
-    box-shadow:
-      0 16px 34px rgba(var(--v-theme-on-surface), 0.14),
-      0 6px 16px rgba(var(--v-theme-on-surface), 0.09);
-  }
+.theme-customizer-shadow-slider :deep(.v-slider.v-input) {
+  margin: 0;
 }
 
-.theme-customizer-shadow-scene--high {
-  .theme-customizer-shadow-scene__panel {
-    box-shadow:
-      0 16px 38px rgba(var(--v-theme-on-surface), 0.16),
-      0 6px 18px rgba(var(--v-theme-on-surface), 0.1);
-  }
-
-  .theme-customizer-shadow-scene__card {
-    box-shadow:
-      0 22px 48px rgba(var(--v-theme-on-surface), 0.18),
-      0 8px 22px rgba(var(--v-theme-on-surface), 0.12);
-  }
+.theme-customizer-shadow-slider :deep(.v-slider-track__tick) {
+  opacity: 0.5;
 }
 
 @media (width <= 600px) {

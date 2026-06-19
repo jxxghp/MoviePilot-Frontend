@@ -223,7 +223,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
           <VCardText class="footer-card-content">
             <!-- 添加指示器 -->
             <div ref="indicator" class="nav-indicator"></div>
-            <VBtnToggle class="footer-btn-group" :mandatory="true" v-model="currentMenu">
+            <VBtnToggle class="footer-btn-group" :mandatory="true" variant="plain" v-model="currentMenu">
               <!-- 遍历底部菜单项 -->
               <VBtn
                 v-for="menu in footerMenus"
@@ -343,6 +343,9 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
   transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform, max-inline-size, opacity;
 
+  --app-control-radius: var(--app-vuetify-rounded-pill);
+  --app-surface-radius: var(--app-vuetify-rounded-pill);
+
   // 透明主题下的特殊样式
   .v-theme--transparent & {
     backdrop-filter: blur(var(--transparent-blur-heavy, 16px));
@@ -361,13 +364,19 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
   padding-inline: 6px;
 }
 
-.footer-btn-group {
+.footer-nav-card .footer-btn-group.v-btn-group {
   position: relative;
   display: flex;
   justify-content: space-around;
   border: none;
+  border-radius: 9999px !important;
   background-color: transparent;
+  box-shadow: none !important;
   inline-size: 100%;
+
+  &:hover {
+    box-shadow: none !important;
+  }
 }
 
 .footer-nav-btn {
@@ -377,12 +386,15 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
   flex-grow: 1;
   align-items: center;
   justify-content: center;
+  border-radius: 9999px !important;
   background-color: transparent;
   block-size: 48px;
+  box-shadow: none !important;
 
+  &:hover,
   &.v-btn--active {
     background-color: transparent;
-    box-shadow: none;
+    box-shadow: none !important;
   }
 
   .btn-content {
