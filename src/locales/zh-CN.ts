@@ -465,6 +465,8 @@ export default {
     clearSuccess: '通知已清理',
     clearFailed: '通知清理失败',
     empty: '暂无通知',
+    systemMessages: '系统类消息',
+    mediaMessages: '媒体消息',
     channel: '通知渠道',
     name: '名称',
     nameHint: '通知渠道名称',

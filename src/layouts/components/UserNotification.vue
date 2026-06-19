@@ -8,6 +8,10 @@ import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 
+type NotificationDisplayItem =
+  | { kind: 'section'; key: string; title: string; count: number }
+  | { kind: 'notification'; key: string; notification: SystemNotification }
+
 const { t } = useI18n()
 const { useDelayedSSE } = useBackground()
 const $toast = useToast()
@@ -31,6 +35,7 @@ const notificationClearBefore = ref(readNotificationClearBefore())
 const expandedNotificationKeys = ref(new Set<string>())
 
 const hasUnreadNotifications = computed(() => notificationList.value.some(item => item.read === false))
+const notificationDisplayList = computed(() => buildNotificationDisplayList(notificationList.value))
 
 /** 从本地存储读取通知清理时间戳，用于过滤已清理的历史通知。 */
 function readNotificationClearBefore() {
@@ -342,6 +347,37 @@ function isMediaNotification(item: SystemNotification) {
   return Boolean(item.image)
 }
 
+/** 按系统类消息和媒体消息生成带分组标题的虚拟列表数据。 */
+function buildNotificationDisplayList(items: SystemNotification[]) {
+  const systemItems = items.filter(item => !isMediaNotification(item))
+  const mediaItems = items.filter(isMediaNotification)
+  const sections = [
+    { key: 'system', title: t('notification.systemMessages'), items: systemItems },
+    { key: 'media', title: t('notification.mediaMessages'), items: mediaItems },
+  ]
+  const displayItems: NotificationDisplayItem[] = []
+
+  sections.forEach(section => {
+    if (section.items.length === 0) return
+
+    displayItems.push({
+      kind: 'section',
+      key: `section:${section.key}`,
+      title: section.title,
+      count: section.items.length,
+    })
+    section.items.forEach(item => {
+      displayItems.push({
+        kind: 'notification',
+        key: `notification:${getNotificationKey(item)}`,
+        notification: item,
+      })
+    })
+  })
+
+  return displayItems
+}
+
 /** 判断通知正文是否已经展开。 */
 function isNotificationExpanded(item: SystemNotification) {
   return expandedNotificationKeys.value.has(getNotificationExpansionKey(item))
@@ -457,50 +493,65 @@ useDelayedSSE(
           <VVirtualScroll
             v-if="notificationList.length > 0"
             renderless
-            :items="notificationList"
+            :items="notificationDisplayList"
             :item-height="NOTIFICATION_ITEM_HEIGHT"
           >
             <template #default="{ item, itemRef }">
-              <div :ref="itemRef" :key="getNotificationKey(item)" class="notification-virtual-item">
+              <div
+                :ref="itemRef"
+                :key="item.key"
+                class="notification-virtual-item"
+                :class="{ 'notification-virtual-item--section': item.kind === 'section' }"
+              >
+                <div v-if="item.kind === 'section'" class="notification-section-heading">
+                  <span class="notification-section-heading__title">{{ item.title }}</span>
+                  <span class="notification-section-heading__count">{{ item.count }}</span>
+                </div>
                 <div
+                  v-else
                   class="notification-row"
                   :class="{
-                    'notification-row--unread': item.read === false,
-                    'notification-row--media': isMediaNotification(item),
+                    'notification-row--unread': item.notification.read === false,
+                    'notification-row--media': isMediaNotification(item.notification),
                   }"
                   role="button"
                   tabindex="0"
-                  :aria-expanded="item.text ? isNotificationExpanded(item) : undefined"
-                  @click="toggleNotificationExpanded(item)"
-                  @keydown.enter.prevent="toggleNotificationExpanded(item)"
-                  @keydown.space.prevent="toggleNotificationExpanded(item)"
+                  :aria-expanded="item.notification.text ? isNotificationExpanded(item.notification) : undefined"
+                  @click="toggleNotificationExpanded(item.notification)"
+                  @keydown.enter.prevent="toggleNotificationExpanded(item.notification)"
+                  @keydown.space.prevent="toggleNotificationExpanded(item.notification)"
                 >
-                  <div v-if="item.image" class="notification-media">
-                    <VImg v-if="item.image" :src="item.image" cover class="notification-media__image">
+                  <div v-if="item.notification.image" class="notification-media">
+                    <VImg
+                      v-if="item.notification.image"
+                      :src="item.notification.image"
+                      cover
+                      class="notification-media__image"
+                    >
                       <template #placeholder>
                         <VSkeletonLoader class="h-100 w-100" />
                       </template>
                     </VImg>
                   </div>
-                  <div v-else class="notification-icon" :class="`text-${getNotificationColor(item)}`">
-                    <VIcon :icon="getNotificationIcon(item)" size="22" />
+                  <div v-else class="notification-icon" :class="`text-${getNotificationColor(item.notification)}`">
+                    <VIcon :icon="getNotificationIcon(item.notification)" size="22" />
                   </div>
 
                   <div class="notification-content">
                     <div class="notification-title-row">
-                      <span class="notification-title">{{ item.title }}</span>
-                      <span v-if="item.read === false" class="notification-unread-dot" />
+                      <span class="notification-title">{{ item.notification.title }}</span>
+                      <span v-if="item.notification.read === false" class="notification-unread-dot" />
                     </div>
                     <div
-                      v-if="item.text"
+                      v-if="item.notification.text"
                       class="notification-text"
-                      :class="{ 'notification-text--expanded': isNotificationExpanded(item) }"
+                      :class="{ 'notification-text--expanded': isNotificationExpanded(item.notification) }"
                     >
-                      {{ item.text }}
+                      {{ item.notification.text }}
                     </div>
                     <div class="notification-meta">
-                      <span v-if="item.mtype" class="notification-type">{{ item.mtype }}</span>
-                      <span>{{ formatDateDifference(getNotificationTime(item)) }}</span>
+                      <span v-if="item.notification.mtype" class="notification-type">{{ item.notification.mtype }}</span>
+                      <span>{{ formatDateDifference(getNotificationTime(item.notification)) }}</span>
                     </div>
                   </div>
                 </div>
@@ -538,6 +589,34 @@ useDelayedSSE(
 .notification-virtual-item {
   padding-block: 4px;
   padding-inline: 8px;
+}
+
+.notification-virtual-item--section {
+  padding-block: 10px 2px;
+}
+
+.notification-section-heading {
+  display: flex;
+  align-items: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  gap: 8px;
+  letter-spacing: 0;
+  padding-inline: 10px;
+}
+
+.notification-section-heading__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.notification-section-heading__count {
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  font-size: 0.6875rem;
+  line-height: 1;
+  padding-block: 3px;
+  padding-inline: 6px;
 }
 
 .notification-row {

@@ -467,6 +467,8 @@ export default {
     clearSuccess: 'Notifications cleared',
     clearFailed: 'Failed to clear notifications',
     empty: 'No Notifications',
+    systemMessages: 'System Messages',
+    mediaMessages: 'Media Messages',
     channel: 'Notification Channel',
     name: 'Name',
     nameHint: 'Name of notification channel',
