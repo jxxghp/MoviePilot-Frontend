@@ -62,7 +62,7 @@ const SystemSettings = ref<any>({
     LLM_BASE_URL: 'https://api.deepseek.com',
     LLM_USE_PROXY: true,
     LLM_BASE_URL_PRESET: null,
-    LLM_MAX_CONTEXT_TOKENS: 64,
+    LLM_MAX_CONTEXT_TOKENS: 128,
     LLM_USER_AGENT: null,
     AUDIO_INPUT_PROVIDER: 'openai',
     AUDIO_INPUT_API_KEY: null,
