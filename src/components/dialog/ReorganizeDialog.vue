@@ -18,7 +18,6 @@ import { useBackground } from '@/composables/useBackground'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
-import { nextTick } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 
@@ -150,13 +149,7 @@ const normalizedItems = computed(() => dedupeFileItems(props.items))
 
 // 分页
 const previewPage = ref(1)
-const previewPageSize = ref(10)
-
-// 预览列表主体元素
-const previewFileBodyRef = ref<HTMLElement>()
-
-// 预览列表尺寸观察器
-let previewFileBodyResizeObserver: ResizeObserver | undefined
+const previewPageSize = ref(20)
 
 // 所有存储
 const storages = ref<StorageConf[]>([])
@@ -419,9 +412,39 @@ watch(
   },
 )
 
-// 过滤后的预览数据
+// 过滤并排序后的预览数据
 const filteredPreviewItems = computed(() => {
-  return previewData.value?.items ?? []
+  const items = [...(previewData.value?.items ?? [])]
+
+  return items.sort((a, b) => {
+    // 1. 获取季号（如果有的话优先按季号排）
+    const seasonA = getPreviewSeasonNumber(a)
+    const seasonB = getPreviewSeasonNumber(b)
+    if (seasonA !== seasonB) {
+      if (seasonA === undefined) return 1
+      if (seasonB === undefined) return -1
+      return seasonA - seasonB
+    }
+
+    // 2. 获取集数
+    const epA = toPreviewNumber(a.episode)
+    const epB = toPreviewNumber(b.episode)
+
+    // 如果都有集数，按集数排序
+    if (epA !== undefined && epB !== undefined) {
+      if (epA !== epB) return epA - epB
+      // 集数相同（可能是同集的视频、字幕等），退化到按文件名排序，保证相关文件挨在一起
+    }
+
+    // 3. 有集数的排前面，没集数的（通常是其他文件）排后面
+    if (epA !== undefined && epB === undefined) return -1
+    if (epA === undefined && epB !== undefined) return 1
+
+    // 4. 如果都没集数，或者集数完全相同，则按照目标路径（或源路径）的字母顺序排
+    const nameA = a.target || a.source || ''
+    const nameB = b.target || b.source || ''
+    return nameA.localeCompare(nameB, undefined, { numeric: true })
+  })
 })
 
 // 分页后的预览数据（含文件名解析）
@@ -1110,7 +1133,6 @@ async function previewTransfer() {
 
     previewData.value = mergedPreviewData
     previewLoaded.value = true
-    nextTick(() => updatePreviewPageSize())
 
     if (previewHasFailures(mergedPreviewData)) {
       $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
@@ -1136,45 +1158,6 @@ async function togglePreview() {
   previewVisible.value = true
   await previewTransfer()
 }
-
-// 根据可用高度自动计算每页条数，保持统一行高
-function updatePreviewPageSize() {
-  const bodyHeight = previewFileBodyRef.value?.clientHeight ?? 0
-  if (bodyHeight <= 0) return
-
-  const firstRow = previewFileBodyRef.value?.querySelector('.preview-file-row')
-  const rowHeight = firstRow?.getBoundingClientRect().height ?? 46
-  const pageSize = Math.max(1, Math.floor(bodyHeight / rowHeight))
-  previewPageSize.value = pageSize
-
-  const totalPages = Math.max(1, Math.ceil(filteredPreviewItems.value.length / pageSize))
-  if (previewPage.value > totalPages) {
-    previewPage.value = totalPages
-  }
-}
-
-// 启动预览列表高度监听
-function setupPreviewFileBodyObserver() {
-  previewFileBodyResizeObserver?.disconnect()
-
-  if (!previewFileBodyRef.value || typeof ResizeObserver === 'undefined') return
-
-  previewFileBodyResizeObserver = new ResizeObserver(() => {
-    updatePreviewPageSize()
-  })
-  previewFileBodyResizeObserver.observe(previewFileBodyRef.value)
-}
-
-watch([() => previewLoaded.value, () => previewVisible.value], ([loaded, visible]) => {
-  if (loaded && visible) {
-    nextTick(() => {
-      setupPreviewFileBodyObserver()
-      updatePreviewPageSize()
-    })
-  } else {
-    previewFileBodyResizeObserver?.disconnect()
-  }
-})
 
 // 整理文件
 async function handleTransfer(item: FileItem, background: boolean = false) {
@@ -1303,7 +1286,6 @@ onMounted(async () => {
 onUnmounted(() => {
   stopLoadingProgress()
   if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
-  previewFileBodyResizeObserver?.disconnect()
 })
 </script>
 
@@ -1671,7 +1653,7 @@ onUnmounted(() => {
                     </div>
                   </div>
                   <div class="reorganize-preview-list">
-                    <div v-if="pagedPreviewRows.length" ref="previewFileBodyRef" class="preview-file-body">
+                    <div v-if="pagedPreviewRows.length" class="preview-file-body">
                       <div
                         v-for="(item, index) in pagedPreviewRows"
                         :key="`${item.source}-${item.target}-${index}`"
@@ -1894,6 +1876,8 @@ onUnmounted(() => {
 .preview-overview-card {
   display: flex;
   flex-direction: column;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.5rem;
   gap: 0.375rem;
   min-inline-size: 0;
   padding-block: 0.875rem;
@@ -1919,6 +1903,8 @@ onUnmounted(() => {
 .preview-custom-words {
   display: flex;
   flex-direction: column;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.5rem;
   gap: 0.75rem;
   padding-block: 0.875rem;
   padding-inline: 1rem;
@@ -1970,8 +1956,12 @@ onUnmounted(() => {
 }
 
 .preview-custom-words__chip {
+  block-size: auto !important;
   max-inline-size: 100%;
+  min-block-size: 1.5rem;
+  padding-block: 0.25rem;
   white-space: normal;
+  word-break: break-all;
 }
 
 .reorganize-preview-pane__scroll {
@@ -2011,9 +2001,9 @@ onUnmounted(() => {
   flex: 0 0 auto;
   flex-direction: column;
   margin-block-end: 1.5rem;
-  margin-inline: 1.5rem;
   min-block-size: 0;
   min-inline-size: 0;
+  padding-inline: 1.5rem;
 }
 
 .preview-file-body {
@@ -2024,23 +2014,19 @@ onUnmounted(() => {
   gap: 0.75rem;
   min-block-size: 0;
   min-inline-size: 0;
-  padding-block: 1rem;
-  padding-inline: 1rem;
 }
 
 .preview-file-row {
   display: grid;
   align-items: center;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 0.5rem;
   gap: 0.875rem;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   min-block-size: 5.25rem;
   min-inline-size: 0;
   padding-block: 0.875rem;
   padding-inline: 1rem;
-}
-
-.preview-file-row + .preview-file-row {
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .preview-file-row--failed {
@@ -2168,7 +2154,7 @@ onUnmounted(() => {
 
   .reorganize-preview-list {
     margin-block-end: 1rem;
-    margin-inline: 1rem;
+    padding-inline: 1rem;
   }
 }
 
