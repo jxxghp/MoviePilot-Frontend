@@ -443,7 +443,7 @@ const filteredPreviewItems = computed(() => {
     // 4. 如果都没集数，或者集数完全相同，则按照目标路径（或源路径）的字母顺序排
     const nameA = a.target || a.source || ''
     const nameB = b.target || b.source || ''
-    return nameA.localeCompare(nameB)
+    return nameA.localeCompare(nameB, undefined, { numeric: true })
   })
 })
 
