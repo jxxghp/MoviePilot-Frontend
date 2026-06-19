@@ -14,8 +14,8 @@ const $toast = useToast()
 const createConfirm = useConfirm()
 
 const PAGE_SIZE = 20
-// 固定通知项高度，配合 VVirtualScroll 避免历史通知过多时一次性渲染全部 DOM。
-const NOTIFICATION_ITEM_HEIGHT = 104
+// 虚拟滚动的默认通知项高度，展开后的实际高度由 VVirtualScroll 的 itemRef 动态测量。
+const NOTIFICATION_ITEM_HEIGHT = 136
 const CLEAR_NOTIFICATION_ENDPOINTS = ['message/notification', 'message/notification/clear']
 const NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY = 'moviepilot-notification-clear-before'
 
@@ -28,6 +28,7 @@ const clearing = ref(false)
 const hasMore = ref(true)
 const notificationKeys = new Set<string>()
 const notificationClearBefore = ref(readNotificationClearBefore())
+const expandedNotificationKeys = ref(new Set<string>())
 
 const hasUnreadNotifications = computed(() => notificationList.value.some(item => item.read === false))
 
@@ -99,6 +100,11 @@ function getNotificationKeys(item: SystemNotification) {
 /** 获取用于虚拟列表渲染的稳定 key。 */
 function getNotificationKey(item: SystemNotification) {
   return item.id ? `id:${item.id}` : `content:${getNotificationContentKey(item)}`
+}
+
+/** 获取通知正文展开状态使用的稳定 key。 */
+function getNotificationExpansionKey(item: SystemNotification) {
+  return getNotificationKey(item)
 }
 
 /** 将通知时间解析成时间戳，用于列表降序排序。 */
@@ -181,6 +187,7 @@ function mergeNotifications(items: SystemNotification[], options: { prepend?: bo
 function resetNotifications() {
   notificationList.value = []
   notificationKeys.clear()
+  expandedNotificationKeys.value = new Set()
   page.value = 1
   hasMore.value = true
   hasNewMessage.value = false
@@ -335,12 +342,28 @@ function isMediaNotification(item: SystemNotification) {
   return Boolean(item.image)
 }
 
-/** 打开通知链接，并在需要时同步清理未读角标。 */
-function openNotification(item: SystemNotification) {
+/** 判断通知正文是否已经展开。 */
+function isNotificationExpanded(item: SystemNotification) {
+  return expandedNotificationKeys.value.has(getNotificationExpansionKey(item))
+}
+
+/** 标记单条通知为已读，并在全部已读时同步清理未读角标。 */
+function markNotificationAsRead(item: SystemNotification) {
   item.read = true
   hasNewMessage.value = hasUnreadNotifications.value
   if (!hasUnreadNotifications.value) void clearUnreadMessages()
-  if (item.link) window.open(item.link, '_blank')
+}
+
+/** 切换通知正文展开状态。 */
+function toggleNotificationExpanded(item: SystemNotification) {
+  markNotificationAsRead(item)
+  if (!item.text) return
+
+  const key = getNotificationExpansionKey(item)
+  const expandedKeys = new Set(expandedNotificationKeys.value)
+  if (expandedKeys.has(key)) expandedKeys.delete(key)
+  else expandedKeys.add(key)
+  expandedNotificationKeys.value = expandedKeys
 }
 
 useDelayedSSE(
@@ -362,7 +385,7 @@ useDelayedSSE(
     width="420"
     max-width="calc(100vw - 24px)"
     transition="scale-transition"
-    close-on-content-click
+    :close-on-content-click="false"
     class="notification-menu"
     scrim
   >
@@ -439,14 +462,18 @@ useDelayedSSE(
           >
             <template #default="{ item, itemRef }">
               <div :ref="itemRef" :key="getNotificationKey(item)" class="notification-virtual-item">
-                <button
-                  type="button"
+                <div
                   class="notification-row"
                   :class="{
                     'notification-row--unread': item.read === false,
                     'notification-row--media': isMediaNotification(item),
                   }"
-                  @click="openNotification(item)"
+                  role="button"
+                  tabindex="0"
+                  :aria-expanded="item.text ? isNotificationExpanded(item) : undefined"
+                  @click="toggleNotificationExpanded(item)"
+                  @keydown.enter.prevent="toggleNotificationExpanded(item)"
+                  @keydown.space.prevent="toggleNotificationExpanded(item)"
                 >
                   <div v-if="item.image" class="notification-media">
                     <VImg v-if="item.image" :src="item.image" cover class="notification-media__image">
@@ -464,7 +491,11 @@ useDelayedSSE(
                       <span class="notification-title">{{ item.title }}</span>
                       <span v-if="item.read === false" class="notification-unread-dot" />
                     </div>
-                    <div v-if="item.text" class="notification-text">
+                    <div
+                      v-if="item.text"
+                      class="notification-text"
+                      :class="{ 'notification-text--expanded': isNotificationExpanded(item) }"
+                    >
                       {{ item.text }}
                     </div>
                     <div class="notification-meta">
@@ -472,7 +503,7 @@ useDelayedSSE(
                       <span>{{ formatDateDifference(getNotificationTime(item)) }}</span>
                     </div>
                   </div>
-                </button>
+                </div>
               </div>
             </template>
           </VVirtualScroll>
@@ -505,7 +536,6 @@ useDelayedSSE(
 }
 
 .notification-virtual-item {
-  block-size: 110px;
   padding-block: 4px;
   padding-inline: 8px;
 }
@@ -518,7 +548,6 @@ useDelayedSSE(
   border: 0;
   border-radius: 8px;
   background: transparent;
-  block-size: 100%;
   color: inherit;
   cursor: pointer;
   gap: 12px;
@@ -573,18 +602,22 @@ useDelayedSSE(
 
 .notification-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  min-block-size: 20px;
+  min-block-size: 24px;
 }
 
 .notification-title {
+  display: -webkit-box;
   overflow: hidden;
+  flex: 1 1 auto;
+  -webkit-box-orient: vertical;
   font-size: 0.925rem;
   font-weight: 600;
   line-height: 1.35;
+  -webkit-line-clamp: 2;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .notification-unread-dot {
@@ -593,18 +626,29 @@ useDelayedSSE(
   background: rgb(var(--v-theme-error));
   block-size: 7px;
   inline-size: 7px;
+  margin-block-start: 0.45rem;
 }
 
 .notification-text {
-  display: -webkit-box;
+  display: block;
   overflow: hidden;
-  -webkit-box-orient: vertical;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  block-size: auto;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  cursor: pointer;
   font-size: 0.8125rem;
-  -webkit-line-clamp: 2;
   line-height: 1.45;
   margin-block-start: 4px;
+  max-block-size: calc(0.8125rem * 1.45 * 3);
+  text-align: start;
   white-space: pre-wrap;
+}
+
+.notification-text--expanded {
+  max-block-size: none;
+  overflow: visible;
 }
 
 .notification-meta {
