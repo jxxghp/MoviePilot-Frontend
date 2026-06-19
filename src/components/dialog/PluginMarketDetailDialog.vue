@@ -228,21 +228,19 @@ onUnmounted(() => {
                   :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
                 />
                 <div class="plugin-market-detail-actions">
-                  <VBtn
-                    variant="tonal"
-                    @click="showUpdateHistory"
-                    prepend-icon="mdi-update"
-                  >
-                    {{ t('plugin.versionHistory') }}
-                  </VBtn>
-                  <VBtn
-                    color="primary"
-                    @click="installPlugin()"
-                    prepend-icon="mdi-download"
-                    :disabled="props.plugin?.system_version_compatible === false"
-                  >
-                    {{ t('plugin.installToLocal') }}
-                  </VBtn>
+                  <div>
+                    <VBtn
+                      color="primary"
+                      @click="installPlugin()"
+                      prepend-icon="mdi-download"
+                      :disabled="props.plugin?.system_version_compatible === false"
+                    >
+                      {{ t('plugin.installToLocal') }}
+                    </VBtn>
+                    <VBtn variant="tonal" @click="showUpdateHistory" prepend-icon="mdi-update" class="ms-2">
+                      {{ t('plugin.versionHistory') }}
+                    </VBtn>
+                  </div>
                   <div class="plugin-market-detail-actions__downloads" v-if="props.count">
                     <VIcon icon="mdi-fire" />
                     {{ t('plugin.totalDownloads', { count: formatDownloadCount(props.count) }) }}
@@ -261,9 +259,9 @@ onUnmounted(() => {
 .plugin-market-detail-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
   align-items: center;
   justify-content: center;
+  gap: 0.75rem;
 }
 
 .plugin-market-detail-actions__downloads {
@@ -273,7 +271,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-@media (min-width: 960px) {
+@media (width >= 960px) {
   .plugin-market-detail-actions {
     justify-content: flex-start;
   }
