@@ -18,7 +18,6 @@ import { useBackground } from '@/composables/useBackground'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
-import { nextTick } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useGlobalSettingsStore } from '@/stores'
 
@@ -419,9 +418,11 @@ const filteredPreviewItems = computed(() => {
 
   return items.sort((a, b) => {
     // 1. 获取季号（如果有的话优先按季号排）
-    const seasonA = getPreviewSeasonNumber(a) ?? -1
-    const seasonB = getPreviewSeasonNumber(b) ?? -1
+    const seasonA = getPreviewSeasonNumber(a)
+    const seasonB = getPreviewSeasonNumber(b)
     if (seasonA !== seasonB) {
+      if (seasonA === undefined) return 1
+      if (seasonB === undefined) return -1
       return seasonA - seasonB
     }
 
@@ -1132,7 +1133,6 @@ async function previewTransfer() {
 
     previewData.value = mergedPreviewData
     previewLoaded.value = true
-    nextTick(() => updatePreviewPageSize())
 
     if (previewHasFailures(mergedPreviewData)) {
       $toast.warning(getPreviewResultSummaryMessage(mergedPreviewData))
