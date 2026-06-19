@@ -598,25 +598,22 @@ useDelayedSSE(
 .notification-section-heading {
   display: flex;
   align-items: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  color: rgba(var(--v-theme-on-surface), 0.42);
   gap: 8px;
   letter-spacing: 0;
   padding-inline: 10px;
 }
 
 .notification-section-heading__title {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.6875rem;
+  font-weight: 500;
   line-height: 1.2;
 }
 
 .notification-section-heading__count {
-  border-radius: 999px;
-  background: rgba(var(--v-theme-on-surface), 0.08);
-  font-size: 0.6875rem;
+  color: rgba(var(--v-theme-on-surface), 0.34);
+  font-size: 0.625rem;
   line-height: 1;
-  padding-block: 3px;
-  padding-inline: 6px;
 }
 
 .notification-row {
