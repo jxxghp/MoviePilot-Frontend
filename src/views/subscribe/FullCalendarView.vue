@@ -203,7 +203,7 @@ function getLibraryEpisodeCount(subscribe: Subscribe) {
   const libraryEpisode =
     typeof subscribe.lack_episode === 'number'
       ? totalEpisode - subscribe.lack_episode
-      : subscribe.completed_episode ?? 0
+      : (subscribe.completed_episode ?? 0)
 
   return clampEpisodeCount(libraryEpisode, totalEpisode)
 }
@@ -218,9 +218,7 @@ function getLackEpisodeCount(subscribe: Subscribe) {
 function normalizeEpisodeNumbers(value: unknown) {
   if (!Array.isArray(value)) return []
 
-  return value
-    .map(number => Number(number))
-    .filter(number => Number.isFinite(number) && number > 0)
+  return value.map(number => Number(number)).filter(number => Number.isFinite(number) && number > 0)
 }
 
 function isEnabledFlag(value: unknown) {
@@ -398,10 +396,7 @@ onActivated(() => {
 <template>
   <FullCalendar ref="calendarRef" :options="calendarOptions">
     <template #eventContent="arg">
-      <div
-        v-if="arg.event.extendedProps.isDayGroup"
-        class="calendar-day-events"
-      >
+      <div v-if="arg.event.extendedProps.isDayGroup" class="calendar-day-events">
         <div
           v-for="calendarEvent in arg.event.extendedProps.visibleEvents"
           :key="`${calendarEvent.title}-${calendarEvent.subtitle}-${calendarEvent.calendarSortIndex}`"
@@ -424,10 +419,7 @@ onActivated(() => {
                 </div>
               </template>
             </VImg>
-            <span
-              v-if="calendarEvent.libraryState === 'complete'"
-              class="calendar-library-check"
-            >
+            <span v-if="calendarEvent.libraryState === 'complete'" class="calendar-library-check">
               <VIcon icon="mdi-check" size="12" />
             </span>
           </div>
@@ -679,18 +671,18 @@ onActivated(() => {
 .v-application .fc .fc-event,
 .v-application .fc .fc-h-event,
 .v-application .fc .fc-daygrid-event {
+  padding: 0 !important;
   border-color: transparent;
   background: transparent !important;
   box-shadow: none;
   margin-block-end: 0.3rem;
-  padding: 0 !important;
 }
 
 .v-application .fc .fc-event-main {
+  padding: 0 !important;
   color: inherit;
   font-size: 0.75rem;
   font-weight: 500;
-  padding: 0 !important;
 }
 
 .v-application .fc tbody[role='rowgroup'] > tr > td[role='presentation'] {
@@ -789,12 +781,12 @@ onActivated(() => {
 
 .calendar-event-card {
   display: flex;
-  gap: 0.55rem;
+  overflow: hidden;
   align-items: flex-start;
   padding: 0.4rem;
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 0.72);
-  overflow: hidden;
+  gap: 0.55rem;
 }
 
 .calendar-day-events {
@@ -806,10 +798,9 @@ onActivated(() => {
 
 .calendar-expand-card {
   display: flex;
-  gap: 0.35rem;
   align-items: center;
   justify-content: center;
-  min-block-size: 2.1rem;
+  padding: 0;
   border: 1px dashed rgba(var(--v-theme-primary), 0.44);
   border-radius: 8px;
   background: rgba(var(--v-theme-primary), 0.08);
@@ -817,8 +808,9 @@ onActivated(() => {
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 700;
+  gap: 0.35rem;
   inline-size: 100%;
-  padding: 0;
+  min-block-size: 2.1rem;
 }
 
 .calendar-expand-card:hover {
@@ -843,24 +835,24 @@ onActivated(() => {
 
 .calendar-library-check {
   position: absolute;
-  top: 0.18rem;
-  right: 0.18rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgb(var(--v-theme-surface));
+  border: 2px solid rgba(var(--v-theme-surface), 0.5);
   border-radius: 50%;
   background: rgb(var(--v-theme-success));
   block-size: 1.15rem;
   color: rgb(var(--v-theme-on-success));
   inline-size: 1.15rem;
+  inset-block-start: 0.18rem;
+  inset-inline-end: 0.18rem;
 }
 
 .calendar-library-check--mobile {
-  top: 0.12rem;
-  right: 0.12rem;
   block-size: 1rem;
   inline-size: 1rem;
+  inset-block-start: 0.12rem;
+  inset-inline-end: 0.12rem;
 }
 
 .calendar-event-content {
@@ -874,23 +866,23 @@ onActivated(() => {
 .calendar-event-title {
   display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   font-size: 0.88rem;
   font-weight: 700;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   line-height: 1.28;
   max-block-size: calc(0.88rem * 1.28 * 2);
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .calendar-event-episode {
   display: inline-flex;
-  align-items: center;
   overflow: hidden;
+  align-items: center;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   column-gap: 0.2rem;
   font-size: 0.72rem;
@@ -903,8 +895,8 @@ onActivated(() => {
 .calendar-event-episode,
 .calendar-event-time {
   display: inline-flex;
-  align-items: center;
   overflow: hidden;
+  align-items: center;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   column-gap: 0.2rem;
   line-height: 1.25;
@@ -915,8 +907,8 @@ onActivated(() => {
 .calendar-event-library-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.18rem 0.3rem;
   align-items: center;
+  gap: 0.18rem 0.3rem;
   min-inline-size: 0;
 }
 
@@ -946,8 +938,8 @@ onActivated(() => {
 .calendar-event-status,
 .calendar-event-progress,
 .calendar-event-time {
-  max-inline-size: 100%;
   overflow: hidden;
+  max-inline-size: 100%;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -960,15 +952,14 @@ onActivated(() => {
 
 .calendar-mobile-episode {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   display: block;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.58);
+  background: rgba(0, 0, 0, 58%);
   color: #fff;
   font-size: 0.62rem;
   font-weight: 700;
+  inset-block-end: 0;
+  inset-inline: 0;
   line-height: 1.25;
   padding-block: 0.1rem;
   padding-inline: 0.2rem;
@@ -991,10 +982,10 @@ onActivated(() => {
 
   .calendar-expand-card {
     flex-direction: column;
-    gap: 0.12rem;
-    min-block-size: 0;
     block-size: clamp(60px, 8.7vw, 96px);
+    gap: 0.12rem;
     inline-size: clamp(40px, 5.8vw, 64px);
+    min-block-size: 0;
   }
 
   .calendar-expand-count {

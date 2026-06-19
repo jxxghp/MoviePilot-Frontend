@@ -167,7 +167,8 @@ md.use(mdLinkAttributes, {
 })
 
 const canSend = computed(
-  () => (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
+  () =>
+    (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
 )
 const canRecord = computed(() => !sending.value && !recording.value)
 const recordingTimeText = computed(() => {
@@ -254,7 +255,9 @@ function normalizeServerSession(item: AgentServerSession, withMessages = false):
   return {
     sessionId: sessionIdValue,
     clientSessionId: item.client_session_id,
-    title: item.title?.trim() || (messages.length ? buildSessionHistoryTitle(messages) : t('agentAssistant.untitledSession')),
+    title:
+      item.title?.trim() ||
+      (messages.length ? buildSessionHistoryTitle(messages) : t('agentAssistant.untitledSession')),
     preview: item.preview,
     channel: item.channel,
     source: item.source,
@@ -320,7 +323,9 @@ async function loadServerHistorySessions() {
   try {
     const data = await fetchAgentApi(`message/agent/sessions?page=1&count=${HISTORY_PAGE_SIZE}`)
     const sessions = Array.isArray(data)
-      ? data.map(item => normalizeServerSession(item as AgentServerSession)).filter(Boolean) as AgentSessionHistoryItem[]
+      ? (data
+          .map(item => normalizeServerSession(item as AgentServerSession))
+          .filter(Boolean) as AgentSessionHistoryItem[])
       : []
     historySessions.value = dedupeHistorySessions(sessions)
     historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
@@ -344,14 +349,15 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
     const nextPage = historyPage.value + 1
     const data = await fetchAgentApi(`message/agent/sessions?page=${nextPage}&count=${HISTORY_PAGE_SIZE}`)
     const sessions = Array.isArray(data)
-      ? data.map(item => normalizeServerSession(item as AgentServerSession)).filter(Boolean) as AgentSessionHistoryItem[]
+      ? (data
+          .map(item => normalizeServerSession(item as AgentServerSession))
+          .filter(Boolean) as AgentSessionHistoryItem[])
       : []
     const existingIds = new Set(historySessions.value.map(item => item.sessionId))
     historySessions.value = dedupeHistorySessions([
       ...historySessions.value,
       ...sessions.filter(item => !existingIds.has(item.sessionId)),
-    ])
-      .slice(0, MAX_LOCAL_HISTORY_SESSIONS)
+    ]).slice(0, MAX_LOCAL_HISTORY_SESSIONS)
     historyPage.value = nextPage
     historyHasMore.value = sessions.length >= HISTORY_PAGE_SIZE
     persistHistorySessions()
@@ -377,8 +383,10 @@ async function loadServerHistorySession(targetSessionId: string) {
   const session = normalizeServerSession(data as AgentServerSession, true)
   if (!session) throw new Error(t('agentAssistant.historyLoadFailed'))
 
-  historySessions.value = dedupeHistorySessions([session, ...historySessions.value.filter(item => item.sessionId !== targetSessionId)])
-    .slice(0, MAX_LOCAL_HISTORY_SESSIONS)
+  historySessions.value = dedupeHistorySessions([
+    session,
+    ...historySessions.value.filter(item => item.sessionId !== targetSessionId),
+  ]).slice(0, MAX_LOCAL_HISTORY_SESSIONS)
   persistHistorySessions()
 
   return session
@@ -483,8 +491,10 @@ function upsertCurrentSessionHistory() {
     messages: storedMessages,
   }
 
-  historySessions.value = dedupeHistorySessions([nextSession, ...historySessions.value.filter(item => item.sessionId !== sessionId.value)])
-    .slice(0, MAX_LOCAL_HISTORY_SESSIONS)
+  historySessions.value = dedupeHistorySessions([
+    nextSession,
+    ...historySessions.value.filter(item => item.sessionId !== sessionId.value),
+  ]).slice(0, MAX_LOCAL_HISTORY_SESSIONS)
 
   persistHistorySessions()
 }
@@ -1317,11 +1327,7 @@ onScopeDispose(() => {
                   class="agent-assistant-history-infinite"
                   @load="handleHistoryInfiniteLoad"
                 >
-                  <VVirtualScroll
-                    renderless
-                    :items="historySessions"
-                    :item-height="HISTORY_ITEM_HEIGHT"
-                  >
+                  <VVirtualScroll renderless :items="historySessions" :item-height="HISTORY_ITEM_HEIGHT">
                     <template #default="{ item: historySession, itemRef }">
                       <button
                         :ref="itemRef"
@@ -1591,10 +1597,14 @@ onScopeDispose(() => {
             :class="{ 'is-recording': recording }"
             :disabled="!recording && !canRecord"
             :title="
-              recording ? t('agentAssistant.stopRecording', { time: recordingTimeText }) : t('agentAssistant.recordVoice')
+              recording
+                ? t('agentAssistant.stopRecording', { time: recordingTimeText })
+                : t('agentAssistant.recordVoice')
             "
             :aria-label="
-              recording ? t('agentAssistant.stopRecording', { time: recordingTimeText }) : t('agentAssistant.recordVoice')
+              recording
+                ? t('agentAssistant.stopRecording', { time: recordingTimeText })
+                : t('agentAssistant.recordVoice')
             "
             @click="toggleVoiceRecording"
           >
@@ -1638,6 +1648,7 @@ onScopeDispose(() => {
   box-shadow: var(--app-surface-shadow);
   color: rgb(var(--v-theme-primary));
   inline-size: 2.8rem;
+
   /* 入口避开屏幕正中，放到视觉上更轻的下三分之一位置。 */
   inset-block-start: clamp(8rem, 66.666vh, calc(100vh - 8rem));
   inset-inline-end: 0;
@@ -1756,8 +1767,8 @@ onScopeDispose(() => {
 .agent-assistant-history-list {
   block-size: min(26rem, calc(100vh - 7rem));
   max-block-size: min(26rem, calc(100vh - 7rem));
-  overscroll-behavior: contain;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-block: 0.35rem;
 }
 
@@ -1779,6 +1790,7 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-history-infinite {
+  gap: 0.25rem;
   min-block-size: 100%;
 }
 
@@ -1807,9 +1819,9 @@ onScopeDispose(() => {
   column-gap: 0.4rem;
   cursor: pointer;
   grid-template-columns: minmax(0, 1fr) auto;
-  min-block-size: 4.75rem;
   inline-size: calc(100% - 0.7rem);
   margin-inline: 0.35rem;
+  min-block-size: 4.75rem;
   padding-block: 0.55rem;
   padding-inline: 0.65rem 0.25rem;
   text-align: start;
@@ -1864,8 +1876,8 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-messages {
-  box-sizing: border-box;
   display: flex;
+  box-sizing: border-box;
   flex-direction: column;
   min-block-size: 0;
   overflow-y: auto;
