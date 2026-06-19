@@ -462,6 +462,10 @@ export default {
   notification: {
     center: 'Notification Center',
     markRead: 'Mark as Read',
+    clear: 'Clear Notifications',
+    clearConfirm: 'Clear all notification history from Notification Center?',
+    clearSuccess: 'Notifications cleared',
+    clearFailed: 'Failed to clear notifications',
     empty: 'No Notifications',
     channel: 'Notification Channel',
     name: 'Name',
@@ -1616,6 +1620,9 @@ export default {
         'Set the check interval for scheduled wake. Select "Disabled" to disable scheduled tasks.',
       aiAgentVerbose: 'Verbose Mode',
       aiAgentVerboseHint: 'When enabled, tool call process will be displayed in AI agent responses',
+      aiAgentHideEntry: 'Hide Global Entry',
+      aiAgentHideEntryHint:
+        'Only hide the floating AI assistant entry in the bottom-right corner. Message channels and background assistant features are not affected.',
       aiAgentJobIntervalDisabled: 'Disabled',
       aiAgentJobInterval1h: '1 Hour',
       aiAgentJobInterval3h: '3 Hours',

@@ -49,6 +49,7 @@ const SystemSettings = ref<any>({
     CUSTOMIZE_WALLPAPER_API_URL: null,
     AI_AGENT_ENABLE: false,
     AI_AGENT_GLOBAL: false,
+    AI_AGENT_HIDE_ENTRY: false,
     AI_AGENT_VERBOSE: false,
     AI_AGENT_JOB_INTERVAL: 24,
     LLM_PROVIDER: 'deepseek',
@@ -1160,7 +1161,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               <VExpandTransition>
                 <VCardText v-show="!aiAgentSettingsCollapsed" class="pt-2">
                   <VRow>
-                    <VCol cols="12" md="4">
+                    <VCol cols="12" md="6">
                       <VSwitch
                         v-model="SystemSettings.Basic.AI_AGENT_ENABLE"
                         :label="t('setting.system.aiAgentEnable')"
@@ -1168,7 +1169,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         persistent-hint
                       />
                     </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="4">
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                       <VSwitch
                         v-model="SystemSettings.Basic.AI_AGENT_GLOBAL"
                         :label="t('setting.system.aiAgentGlobal')"
@@ -1176,11 +1177,19 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         persistent-hint
                       />
                     </VCol>
-                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="4">
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
                       <VSwitch
                         v-model="SystemSettings.Basic.AI_AGENT_VERBOSE"
                         :label="t('setting.system.aiAgentVerbose')"
                         :hint="t('setting.system.aiAgentVerboseHint')"
+                        persistent-hint
+                      />
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                      <VSwitch
+                        v-model="SystemSettings.Basic.AI_AGENT_HIDE_ENTRY"
+                        :label="t('setting.system.aiAgentHideEntry')"
+                        :hint="t('setting.system.aiAgentHideEntryHint')"
                         persistent-hint
                       />
                     </VCol>

@@ -4,26 +4,49 @@ import api from '@/api'
 import { clearUnreadMessages } from '@/utils/badge'
 import { formatDateDifference } from '@core/utils/formatters'
 import { useBackground } from '@/composables/useBackground'
+import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const { useDelayedSSE } = useBackground()
+const $toast = useToast()
+const createConfirm = useConfirm()
 
 const PAGE_SIZE = 20
 // 固定通知项高度，配合 VVirtualScroll 避免历史通知过多时一次性渲染全部 DOM。
 const NOTIFICATION_ITEM_HEIGHT = 104
-const MEDIA_NOTIFICATION_TYPES = ['资源下载', '整理入库', '订阅', '媒体服务器', '手动处理']
+const CLEAR_NOTIFICATION_ENDPOINTS = ['message/notification', 'message/notification/clear']
+const NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY = 'moviepilot-notification-clear-before'
 
 const appsMenu = ref(false)
 const hasNewMessage = ref(false)
 const notificationList = ref<SystemNotification[]>([])
 const page = ref(1)
 const loading = ref(false)
+const clearing = ref(false)
 const hasMore = ref(true)
 const notificationKeys = new Set<string>()
+const notificationClearBefore = ref(readNotificationClearBefore())
 
 const hasUnreadNotifications = computed(() => notificationList.value.some(item => item.read === false))
 
+/** 从本地存储读取通知清理时间戳，用于过滤已清理的历史通知。 */
+function readNotificationClearBefore() {
+  if (typeof localStorage === 'undefined') return 0
+
+  return Number(localStorage.getItem(NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY) || 0)
+}
+
+/** 写入通知清理时间戳，使清理结果在刷新后仍然生效。 */
+function writeNotificationClearBefore(value: number) {
+  notificationClearBefore.value = value
+  if (typeof localStorage === 'undefined') return
+
+  localStorage.setItem(NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY, String(value))
+}
+
+/** 将通知备注统一转换成稳定字符串，用于生成去重 key。 */
 function normalizeNote(note: SystemNotification['note']) {
   if (note == null) return ''
   if (typeof note === 'string') return note
@@ -31,26 +54,31 @@ function normalizeNote(note: SystemNotification['note']) {
   return JSON.stringify(note)
 }
 
+/** 获取通知时间字段，兼容历史数据中的不同命名。 */
 function getNotificationTime(item: SystemNotification) {
   return item.reg_time || item.date || ''
 }
 
+/** 归一化文本内容，避免空白差异影响通知去重。 */
 function normalizeText(value: unknown) {
   return String(value ?? '')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
+/** 获取通知分类，统一插件、系统等历史字段差异。 */
 function getNotificationKind(item: SystemNotification) {
   if (item.type === 'plugin' || item.mtype === '插件') return 'plugin'
   if (item.type === 'system' || item.mtype === '其它') return 'system'
   return item.mtype || item.type || ''
 }
 
+/** 按分钟生成时间桶，降低同一通知秒级差异导致的重复展示。 */
 function getNotificationTimeBucket(item: SystemNotification) {
   return getNotificationTime(item).slice(0, 16)
 }
 
+/** 基于主要展示字段生成内容去重 key。 */
 function getNotificationContentKey(item: SystemNotification) {
   return [
     getNotificationKind(item),
@@ -63,25 +91,39 @@ function getNotificationContentKey(item: SystemNotification) {
   ].join('::')
 }
 
+/** 生成通知可用于去重的全部 key。 */
 function getNotificationKeys(item: SystemNotification) {
   return [item.id ? `id:${item.id}` : '', `content:${getNotificationContentKey(item)}`].filter(Boolean)
 }
 
+/** 获取用于虚拟列表渲染的稳定 key。 */
 function getNotificationKey(item: SystemNotification) {
   return item.id ? `id:${item.id}` : `content:${getNotificationContentKey(item)}`
 }
 
+/** 将通知时间解析成时间戳，用于列表降序排序。 */
 function parseNotificationTime(value: string) {
   if (!value) return 0
   return new Date(value.includes('T') ? value : value.replaceAll(/-/g, '/')).getTime() || 0
 }
 
+/** 判断历史通知是否早于本地清理时间，需要从列表中过滤。 */
+function isClearedHistoryNotification(item: SystemNotification) {
+  const clearBefore = notificationClearBefore.value
+  if (!clearBefore) return false
+
+  const notificationTime = parseNotificationTime(getNotificationTime(item))
+  return notificationTime > 0 && notificationTime <= clearBefore
+}
+
+/** 按通知时间倒序重排当前列表。 */
 function sortNotifications() {
   notificationList.value = [...notificationList.value].sort(
     (a, b) => parseNotificationTime(getNotificationTime(b)) - parseNotificationTime(getNotificationTime(a)),
   )
 }
 
+/** 压缩当前通知列表，移除同一内容或同一 ID 的重复项。 */
 function compactNotifications(items: SystemNotification[]) {
   const contentKeys = new Set<string>()
   const idKeys = new Set<string>()
@@ -101,6 +143,7 @@ function compactNotifications(items: SystemNotification[]) {
   return compactedItems
 }
 
+/** 规范化通知展示字段，并补齐默认标题、类型和已读状态。 */
 function normalizeNotification(item: SystemNotification, read = true): SystemNotification {
   return {
     ...item,
@@ -110,6 +153,7 @@ function normalizeNotification(item: SystemNotification, read = true): SystemNot
   }
 }
 
+/** 合并新通知到当前列表，并维护去重集合、排序和已读状态。 */
 function mergeNotifications(items: SystemNotification[], options: { prepend?: boolean; read?: boolean } = {}) {
   const normalizedItems = items.map(item => normalizeNotification(item, options.read ?? true))
   const acceptedItems: SystemNotification[] = []
@@ -133,6 +177,76 @@ function mergeNotifications(items: SystemNotification[], options: { prepend?: bo
   return true
 }
 
+/** 重置通知分页状态，用于清理后重新进入空列表状态。 */
+function resetNotifications() {
+  notificationList.value = []
+  notificationKeys.clear()
+  page.value = 1
+  hasMore.value = true
+  hasNewMessage.value = false
+}
+
+/** 通过后端接口清理通知历史，兼容新旧后端可能暴露的清理路径。 */
+async function deleteNotificationHistory() {
+  let lastError: unknown = null
+
+  for (const endpoint of CLEAR_NOTIFICATION_ENDPOINTS) {
+    try {
+      return await api.delete(endpoint)
+    } catch (error: any) {
+      lastError = error
+      if (error?.response?.status !== 404 && error?.response?.status !== 405) break
+    }
+  }
+
+  throw lastError
+}
+
+/** 尝试调用后端清理接口，不支持时回退为本地清理。 */
+async function tryDeleteNotificationHistory() {
+  try {
+    const result: { [key: string]: any } = await deleteNotificationHistory()
+    return result?.success !== false
+  } catch (error: any) {
+    if (error?.response?.status === 404 || error?.response?.status === 405) return true
+    throw error
+  }
+}
+
+/** 确认并清空通知中心历史，同时同步清理未读角标。 */
+async function clearNotifications() {
+  if (clearing.value || notificationList.value.length === 0) return
+
+  const confirmed = await createConfirm({
+    type: 'warn',
+    title: t('notification.clear'),
+    content: t('notification.clearConfirm'),
+    confirmText: t('notification.clear'),
+  })
+  if (!confirmed) return
+
+  clearing.value = true
+  try {
+    const cleared = await tryDeleteNotificationHistory()
+    if (!cleared) {
+      $toast.error(t('notification.clearFailed'))
+      return
+    }
+
+    writeNotificationClearBefore(Date.now())
+    resetNotifications()
+    await clearUnreadMessages()
+    appsMenu.value = false
+    hasMore.value = false
+    $toast.success(t('notification.clearSuccess'))
+  } catch (error: any) {
+    $toast.error(error?.response?.data?.message || error?.message || t('notification.clearFailed'))
+  } finally {
+    clearing.value = false
+  }
+}
+
+/** 按页加载历史通知，并合并到当前虚拟列表。 */
 async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'error') => void }) {
   if (loading.value) {
     done('ok')
@@ -159,9 +273,10 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
       return
     }
 
-    mergeNotifications(items, { read: true })
+    const visibleItems = items.filter(item => !isClearedHistoryNotification(item))
+    mergeNotifications(visibleItems, { read: true })
     page.value += 1
-    hasMore.value = items.length >= PAGE_SIZE
+    hasMore.value = visibleItems.length === items.length && items.length >= PAGE_SIZE
     done(hasMore.value ? 'ok' : 'empty')
   } catch (error) {
     console.error('加载通知失败:', error)
@@ -171,6 +286,7 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
   }
 }
 
+/** 处理 SSE 推送的新通知，并置为未读状态展示红点。 */
 function handleMessage(event: MessageEvent) {
   if (!event.data) return
 
@@ -194,6 +310,7 @@ function markAllAsRead() {
   void clearUnreadMessages()
 }
 
+/** 根据通知分类和业务类型选择列表图标。 */
 function getNotificationIcon(item: SystemNotification) {
   if (getNotificationKind(item) === 'plugin') return 'mdi-puzzle-outline'
   if (item.mtype === '资源下载') return 'mdi-download'
@@ -203,6 +320,7 @@ function getNotificationIcon(item: SystemNotification) {
   return getNotificationKind(item) === 'system' ? 'mdi-alert-circle-outline' : 'mdi-bell-outline'
 }
 
+/** 根据通知分类和业务类型选择图标颜色。 */
 function getNotificationColor(item: SystemNotification) {
   if (getNotificationKind(item) === 'system') return 'error'
   if (getNotificationKind(item) === 'plugin') return 'warning'
@@ -212,10 +330,12 @@ function getNotificationColor(item: SystemNotification) {
   return 'secondary'
 }
 
+/** 判断通知是否有真实媒体图，决定是否使用媒体缩略图样式。 */
 function isMediaNotification(item: SystemNotification) {
-  return Boolean(item.image) || MEDIA_NOTIFICATION_TYPES.includes(item.mtype || '')
+  return Boolean(item.image)
 }
 
+/** 打开通知链接，并在需要时同步清理未读角标。 */
 function openNotification(item: SystemNotification) {
   item.read = true
   hasNewMessage.value = hasUnreadNotifications.value
@@ -249,11 +369,11 @@ useDelayedSSE(
     <template #activator="{ props }">
       <VBadge v-if="hasNewMessage" dot color="error" :offset-x="5" :offset-y="5" v-bind="props">
         <IconBtn>
-          <VIcon icon="mdi-bell-outline" />
+          <VIcon icon="mdi-bell-outline" size="22" />
         </IconBtn>
       </VBadge>
       <IconBtn v-else v-bind="props">
-        <VIcon icon="mdi-bell-outline" />
+        <VIcon icon="mdi-bell-outline" size="22" />
       </IconBtn>
     </template>
 
@@ -261,13 +381,27 @@ useDelayedSSE(
       <VCardItem class="py-3">
         <VCardTitle>{{ t('notification.center') }}</VCardTitle>
         <template #append>
-          <VTooltip :text="t('notification.markRead')">
-            <template #activator="{ props }">
-              <IconBtn v-bind="props" @click.stop="markAllAsRead">
-                <VIcon icon="mdi-email-check-outline" size="20" />
-              </IconBtn>
-            </template>
-          </VTooltip>
+          <div class="notification-actions">
+            <VTooltip :text="t('notification.clear')">
+              <template #activator="{ props }">
+                <IconBtn
+                  v-bind="props"
+                  :disabled="notificationList.length === 0 || clearing"
+                  @click.stop="clearNotifications"
+                >
+                  <VProgressCircular v-if="clearing" indeterminate size="18" width="2" />
+                  <VIcon v-else icon="mdi-trash-can-outline" size="20" />
+                </IconBtn>
+              </template>
+            </VTooltip>
+            <VTooltip :text="t('notification.markRead')">
+              <template #activator="{ props }">
+                <IconBtn v-bind="props" :disabled="!hasUnreadNotifications" @click.stop="markAllAsRead">
+                  <VIcon icon="mdi-email-check-outline" size="20" />
+                </IconBtn>
+              </template>
+            </VTooltip>
+          </div>
         </template>
       </VCardItem>
       <VDivider />
@@ -290,7 +424,9 @@ useDelayedSSE(
               {{ t('message.noMoreData') }}
             </div>
             <div v-else class="notification-empty">
-              <VIcon icon="mdi-bell-sleep-outline" size="40" class="mb-3" />
+              <div class="notification-empty__icon">
+                <VIcon icon="mdi-bell-sleep-outline" size="22" />
+              </div>
               <div>{{ t('notification.empty') }}</div>
             </div>
           </template>
@@ -312,15 +448,12 @@ useDelayedSSE(
                   }"
                   @click="openNotification(item)"
                 >
-                  <div v-if="isMediaNotification(item)" class="notification-media">
+                  <div v-if="item.image" class="notification-media">
                     <VImg v-if="item.image" :src="item.image" cover class="notification-media__image">
                       <template #placeholder>
                         <VSkeletonLoader class="h-100 w-100" />
                       </template>
                     </VImg>
-                    <div v-else class="notification-media__fallback">
-                      <VIcon :icon="getNotificationIcon(item)" size="24" />
-                    </div>
                   </div>
                   <div v-else class="notification-icon" :class="`text-${getNotificationColor(item)}`">
                     <VIcon :icon="getNotificationIcon(item)" size="22" />
@@ -352,6 +485,12 @@ useDelayedSSE(
 <style scoped>
 .notification-panel {
   overflow: hidden;
+}
+
+.notification-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .notification-list-container {
@@ -410,13 +549,11 @@ useDelayedSSE(
   block-size: 84px;
 }
 
-.notification-media__image,
-.notification-media__fallback {
+.notification-media__image {
   block-size: 100%;
   inline-size: 100%;
 }
 
-.notification-media__fallback,
 .notification-icon {
   display: grid;
   place-items: center;
@@ -494,5 +631,15 @@ useDelayedSSE(
   padding-block: 32px;
   padding-inline: 16px;
   text-align: center;
+}
+
+.notification-empty__icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  block-size: 40px;
+  inline-size: 40px;
+  margin-block-end: 12px;
 }
 </style>
