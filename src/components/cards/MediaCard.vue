@@ -493,14 +493,14 @@ onBeforeUnmount(() => {
 <template>
   <VHover>
     <template #default="hover">
-      <div ref="mediaCardRef">
+      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <div ref="mediaCardRef" v-bind="hover.props" class="media-card-hover-area">
         <VCard
-          v-bind="hover.props"
           :height="props.height"
           :width="props.width"
           class="outline-none ring-gray-500 media-card"
           :class="{
-            'transition transform-cpu duration-300  -translate-y-1': hover.isHovering,
+            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
             'ring-1': isImageLoaded,
           }"
           @click.stop="goMediaDetail(hover.isHovering ?? false)"
@@ -591,6 +591,10 @@ onBeforeUnmount(() => {
   </VHover>
 </template>
 <style scoped>
+.media-card-hover-area {
+  width: 100%;
+}
+
 .media-card-title {
   font-size: 1.125rem;
   line-height: 1.25rem;
