@@ -228,7 +228,7 @@ onUnmounted(() => {
                   :text="props.plugin?.system_version_message || t('plugin.incompatibleSystemVersion')"
                 />
                 <div class="plugin-market-detail-actions">
-                  <div>
+                  <div class="plugin-market-detail-actions__buttons">
                     <VBtn
                       color="primary"
                       @click="installPlugin()"
@@ -237,7 +237,7 @@ onUnmounted(() => {
                     >
                       {{ t('plugin.installToLocal') }}
                     </VBtn>
-                    <VBtn variant="tonal" @click="showUpdateHistory" prepend-icon="mdi-update" class="ms-2">
+                    <VBtn variant="tonal" @click="showUpdateHistory" prepend-icon="mdi-update">
                       {{ t('plugin.versionHistory') }}
                     </VBtn>
                   </div>
@@ -264,6 +264,14 @@ onUnmounted(() => {
   gap: 0.75rem;
 }
 
+.plugin-market-detail-actions__buttons {
+  /* 窄屏换行时用统一 gap 控制按钮间距，避免第二个按钮带左边距导致视觉偏移。 */
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 .plugin-market-detail-actions__downloads {
   flex-basis: 100%;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
@@ -273,6 +281,10 @@ onUnmounted(() => {
 
 @media (width >= 960px) {
   .plugin-market-detail-actions {
+    justify-content: flex-start;
+  }
+
+  .plugin-market-detail-actions__buttons {
     justify-content: flex-start;
   }
 
