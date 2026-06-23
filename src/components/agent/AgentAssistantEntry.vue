@@ -1322,7 +1322,7 @@ defineExpose({
   z-index: 6;
   block-size: 1.16rem;
   inset-block-start: 3.08rem;
-  inset-inline-start: 0.7rem;
+  inset-inline-start: 0.66rem;
   animation: agent-fab-action-wave-arm-left 2.3s ease-in-out both;
   transform-origin: top center;
 }
@@ -1511,23 +1511,23 @@ defineExpose({
   }
 
   16% {
-    transform: translateX(-0.08rem) rotate(-64deg);
+    transform: translateX(-0.08rem) rotate(64deg);
   }
 
   30% {
-    transform: translateX(-0.11rem) rotate(-132deg);
+    transform: translateX(-0.14rem) rotate(132deg);
   }
 
   44% {
-    transform: translateX(-0.08rem) rotate(-92deg);
+    transform: translateX(-0.1rem) rotate(92deg);
   }
 
   58% {
-    transform: translateX(-0.11rem) rotate(-132deg);
+    transform: translateX(-0.14rem) rotate(132deg);
   }
 
   72% {
-    transform: translateX(-0.08rem) rotate(-64deg);
+    transform: translateX(-0.08rem) rotate(64deg);
   }
 }
 
