@@ -48,6 +48,19 @@ const FAB_NOTIFICATION_BUBBLE_DURATION = 7000
 const FAB_MAX_BUBBLES = 4
 const FAB_DEFAULT_RIGHT_OFFSET = 18
 const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
+const FAB_RANDOM_ACTION_MIN_DELAY = 14000
+const FAB_RANDOM_ACTION_MAX_DELAY = 32000
+
+const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint'] as const
+
+type FabRandomAction = (typeof FAB_RANDOM_ACTIONS)[number]
+
+const FAB_RANDOM_ACTION_DURATIONS: Record<FabRandomAction, number> = {
+  wave: 2300,
+  sit: 4200,
+  'eye-roll': 1900,
+  faint: 4800,
+}
 
 // 入口位置只保存在当前页面生命周期内，刷新后回到默认位置。
 interface FabPosition {
@@ -73,9 +86,20 @@ interface FabDragState {
   moved: boolean
 }
 
+interface FabPointerPoint {
+  clientX: number
+  clientY: number
+}
+
 const fabDocked = ref(false)
 const fabPosition = ref<FabPosition | null>(null)
 const fabPointerStyle = ref({
+  '--agent-assistant-body-x': '0px',
+  '--agent-assistant-body-y': '0px',
+  '--agent-assistant-eye-x': '0px',
+  '--agent-assistant-eye-y': '0px',
+  '--agent-assistant-head-x': '0px',
+  '--agent-assistant-head-y': '0px',
   '--agent-assistant-pointer-x': '0px',
   '--agent-assistant-pointer-y': '0px',
   '--agent-assistant-robot-tilt': '0deg',
@@ -92,10 +116,16 @@ const fabPositionStyle = computed(() => {
 const fabPressed = ref(false)
 const fabBubbles = ref<AgentAssistantEntryBubble[]>([])
 const fabDragging = ref(false)
+const fabRandomAction = ref<FabRandomAction | null>(null)
 
 let fabIdleTimer: number | null = null
 let fabDragState: FabDragState | null = null
 let fabSuppressNextClick = false
+let fabPointerFrame = 0
+let fabPendingPointerPoint: FabPointerPoint | null = null
+let fabLastRandomAction: FabRandomAction | null = null
+let fabRandomActionTimer: number | null = null
+let fabRandomActionEndTimer: number | null = null
 let stopNotificationBubbleListener: (() => void) | null = null
 
 const fabBubbleTimers = new Map<string, number>()
@@ -218,6 +248,11 @@ function updateFabPosition(position: FabPosition) {
   fabPosition.value = clampFabPosition(position)
 }
 
+// 将数值限制在指定范围内，避免指针和随机动作计算产生过大的位移。
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
 function resetFabPosition() {
   fabPosition.value = getDefaultFabPosition()
   if (isFabNearRightEdge()) scheduleFabAutoDock()
@@ -244,25 +279,68 @@ function stripMarkdownPreview(value: string) {
     .trim()
 }
 
-// 将指针位置压成小幅 CSS 变量，驱动机器人眼睛和身体的跟随动效。
-function updateFabPointer(event: PointerEvent) {
-  const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 2
-  const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 2
-  const normalizedX = Math.max(-1, Math.min(1, offsetX))
-  const normalizedY = Math.max(-1, Math.min(1, offsetY))
+// 根据页面坐标更新机器人注视方向，即使指针不在机器人热区内也能跟随。
+function updateFabPointerFromPoint(point: FabPointerPoint) {
+  const face = document.querySelector('.agent-assistant-fab__face') as HTMLElement | null
+  const bot = document.querySelector('.agent-assistant-fab__bot') as HTMLElement | null
+  const rect = face?.getBoundingClientRect() || bot?.getBoundingClientRect()
+
+  if (!rect || rect.width <= 0 || rect.height <= 0) return
+
+  const viewport = getViewportSize()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const normalizedX = clampNumber((point.clientX - centerX) / Math.max(96, viewport.width * 0.26), -1, 1)
+  const normalizedY = clampNumber((point.clientY - centerY) / Math.max(72, viewport.height * 0.22), -1, 1)
 
   fabPointerStyle.value = {
-    '--agent-assistant-pointer-x': `${(normalizedX * 4).toFixed(2)}px`,
-    '--agent-assistant-pointer-y': `${(normalizedY * 3).toFixed(2)}px`,
-    '--agent-assistant-robot-tilt': `${(normalizedX * 5).toFixed(2)}deg`,
+    '--agent-assistant-body-x': `${(normalizedX * 0.42).toFixed(2)}px`,
+    '--agent-assistant-body-y': `${(normalizedY * 0.18).toFixed(2)}px`,
+    '--agent-assistant-eye-x': `${(normalizedX * 5).toFixed(2)}px`,
+    '--agent-assistant-eye-y': `${(normalizedY * 3.4).toFixed(2)}px`,
+    '--agent-assistant-head-x': `${(normalizedX * 0.85).toFixed(2)}px`,
+    '--agent-assistant-head-y': `${(normalizedY * 0.42).toFixed(2)}px`,
+    '--agent-assistant-pointer-x': `${(normalizedX * 5).toFixed(2)}px`,
+    '--agent-assistant-pointer-y': `${(normalizedY * 3.4).toFixed(2)}px`,
+    '--agent-assistant-robot-tilt': `${(normalizedX * 2.4).toFixed(2)}deg`,
   }
+}
+
+// 使用 requestAnimationFrame 合并高频指针事件，降低全局跟随的渲染开销。
+function queueFabPointerUpdate(clientX: number, clientY: number) {
+  if (!props.active) return
+
+  fabPendingPointerPoint = { clientX, clientY }
+  if (fabPointerFrame) return
+
+  fabPointerFrame = window.requestAnimationFrame(() => {
+    fabPointerFrame = 0
+    if (!fabPendingPointerPoint) return
+
+    updateFabPointerFromPoint(fabPendingPointerPoint)
+    fabPendingPointerPoint = null
+  })
+}
+
+// 接收全局 PointerEvent，让鼠标移动和触摸按下都能驱动机器人眼神。
+function handleGlobalFabPointer(event: PointerEvent) {
+  queueFabPointerUpdate(event.clientX, event.clientY)
+}
+
+// 在拖拽事件中同步眼神方向，保持捕获指针后的跟随连续性。
+function updateFabPointer(event: PointerEvent) {
+  queueFabPointerUpdate(event.clientX, event.clientY)
 }
 
 function resetFabPointer() {
   fabPressed.value = false
   fabPointerStyle.value = {
+    '--agent-assistant-body-x': '0px',
+    '--agent-assistant-body-y': '0px',
+    '--agent-assistant-eye-x': '0px',
+    '--agent-assistant-eye-y': '0px',
+    '--agent-assistant-head-x': '0px',
+    '--agent-assistant-head-y': '0px',
     '--agent-assistant-pointer-x': '0px',
     '--agent-assistant-pointer-y': '0px',
     '--agent-assistant-robot-tilt': '0deg',
@@ -278,9 +356,14 @@ function clearFabIdleTimer() {
 
 function scheduleFabAutoDock() {
   clearFabIdleTimer()
-  if (fabDocked.value || hasKeepOpenFabBubbles.value || !isFabNearRightEdge()) return
+  if (fabDocked.value || hasKeepOpenFabBubbles.value || fabRandomAction.value || !isFabNearRightEdge()) return
 
   fabIdleTimer = window.setTimeout(() => {
+    if (fabRandomAction.value) {
+      scheduleFabAutoDock()
+      return
+    }
+
     setFabDocked(true)
     fabIdleTimer = null
   }, FAB_IDLE_DOCK_DELAY)
@@ -288,6 +371,106 @@ function scheduleFabAutoDock() {
 
 function pauseFabAutoDock() {
   clearFabIdleTimer()
+}
+
+// 返回下一次趣味动作的随机等待时间，让动作出现节奏更自然。
+function getFabRandomActionDelay() {
+  return FAB_RANDOM_ACTION_MIN_DELAY + Math.round(Math.random() * (FAB_RANDOM_ACTION_MAX_DELAY - FAB_RANDOM_ACTION_MIN_DELAY))
+}
+
+// 判断当前交互状态是否适合播放随机动作，避免干扰半隐藏、拖拽和思考态。
+function canRunFabRandomAction() {
+  return props.active && !fabDocked.value && !fabDragging.value && !fabPressed.value && !props.thinking
+}
+
+// 随机选择一个不同于上一次的趣味动作，减少连续重复带来的机械感。
+function pickFabRandomAction(): FabRandomAction {
+  const candidates = FAB_RANDOM_ACTIONS.filter(action => action !== fabLastRandomAction)
+  const action = candidates[Math.floor(Math.random() * candidates.length)] || FAB_RANDOM_ACTIONS[0]
+
+  fabLastRandomAction = action
+  return action
+}
+
+// 清理等待中的随机动作计时器。
+function clearFabRandomActionTimer() {
+  if (fabRandomActionTimer === null) return
+
+  window.clearTimeout(fabRandomActionTimer)
+  fabRandomActionTimer = null
+}
+
+// 清理正在播放动作的结束计时器。
+function clearFabRandomActionEndTimer() {
+  if (fabRandomActionEndTimer === null) return
+
+  window.clearTimeout(fabRandomActionEndTimer)
+  fabRandomActionEndTimer = null
+}
+
+// 停止当前随机动作并清理相关计时器。
+function clearFabRandomAction() {
+  clearFabRandomActionTimer()
+  clearFabRandomActionEndTimer()
+  fabRandomAction.value = null
+}
+
+// 安排下一次随机动作，只在机器人完全可见且空闲时生效。
+function scheduleFabRandomAction() {
+  clearFabRandomActionTimer()
+  if (!canRunFabRandomAction() || fabRandomAction.value || fabRandomActionEndTimer !== null) return
+
+  fabRandomActionTimer = window.setTimeout(() => {
+    fabRandomActionTimer = null
+    runFabRandomAction()
+  }, getFabRandomActionDelay())
+}
+
+// 完成当前随机动作后恢复空闲态，并继续排队下一次动作。
+function finishFabRandomAction() {
+  clearFabRandomActionEndTimer()
+  fabRandomAction.value = null
+
+  const shouldAutoDock = !fabDocked.value && isFabNearRightEdge()
+
+  if (shouldAutoDock) {
+    scheduleFabAutoDock()
+    return
+  }
+
+  scheduleFabRandomAction()
+}
+
+// 播放一个随机趣味动作，动作期间由 CSS 类驱动部件动画。
+function runFabRandomAction() {
+  if (!canRunFabRandomAction()) return
+
+  const action = pickFabRandomAction()
+
+  fabRandomAction.value = action
+  fabRandomActionEndTimer = window.setTimeout(finishFabRandomAction, FAB_RANDOM_ACTION_DURATIONS[action])
+}
+
+// 根据当前显示和交互状态同步随机动作队列。
+function syncFabRandomActionSchedule() {
+  if (canRunFabRandomAction()) {
+    if (!fabRandomAction.value && fabRandomActionTimer === null && fabRandomActionEndTimer === null) scheduleFabRandomAction()
+    return
+  }
+
+  clearFabRandomAction()
+}
+
+// 取消挂起的全局指针帧并移除监听器。
+function teardownFabPointerTracking() {
+  if (fabPointerFrame) {
+    window.cancelAnimationFrame(fabPointerFrame)
+    fabPointerFrame = 0
+  }
+
+  fabPendingPointerPoint = null
+  window.removeEventListener('pointermove', handleGlobalFabPointer)
+  window.removeEventListener('pointerdown', handleGlobalFabPointer)
 }
 
 function buildNotificationBubbleTitle(payload: AgentAssistantNotificationBubblePayload) {
@@ -398,7 +581,7 @@ function setFabDocked(docked: boolean) {
   const currentPosition = getCurrentFabPosition()
 
   fabDocked.value = docked
-  resetFabPointer()
+  fabPressed.value = false
 
   if (docked) {
     clearFabIdleTimer()
@@ -490,7 +673,6 @@ function handleFabTriggerClick() {
 }
 
 function handleFabPointerLeave() {
-  resetFabPointer()
   if (!fabDocked.value && isFabNearRightEdge()) scheduleFabAutoDock()
 }
 
@@ -501,7 +683,10 @@ function handleFabPointerEnter() {
 onMounted(() => {
   nextTick(resetFabPosition)
   window.addEventListener('resize', handleWindowResize)
+  window.addEventListener('pointermove', handleGlobalFabPointer, { passive: true })
+  window.addEventListener('pointerdown', handleGlobalFabPointer, { passive: true })
   stopNotificationBubbleListener = onAgentAssistantNotificationBubble(showNotificationBubble)
+  scheduleFabRandomAction()
 })
 
 watch(
@@ -514,15 +699,21 @@ watch(
 
     clearBubbles()
     clearFabIdleTimer()
+    clearFabRandomAction()
+    resetFabPointer()
   },
 )
 
+watch([() => props.active, () => props.thinking, fabDocked, fabDragging, fabPressed], syncFabRandomActionSchedule)
+
 onScopeDispose(clearFabIdleTimer)
+onScopeDispose(clearFabRandomAction)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(() => {
   stopNotificationBubbleListener?.()
   stopNotificationBubbleListener = null
   window.removeEventListener('resize', handleWindowResize)
+  teardownFabPointerTracking()
 })
 
 defineExpose({
@@ -545,6 +736,7 @@ defineExpose({
       'is-pressed': fabPressed,
       'is-thinking': props.thinking,
       'is-bubble-visible': hasFabBubbles,
+      [`is-action-${fabRandomAction}`]: fabRandomAction,
     }"
     :style="fabPositionStyle"
     @pointermove="updateFabPointer"
@@ -624,6 +816,8 @@ defineExpose({
   --agent-assistant-robot-play: #fff;
   --agent-assistant-robot-shadow: rgba(54, 0, 126, 28%);
   --agent-assistant-robot-shadow-strong: rgba(54, 0, 126, 34%);
+  --agent-assistant-bot-scale: 1;
+  --agent-assistant-bot-pressed-scale: 0.96;
   --agent-assistant-fab-x: calc(100vw - 14.3rem);
   --agent-assistant-fab-y: calc(100vh - 13.2rem);
 
@@ -819,14 +1013,12 @@ defineExpose({
 .agent-assistant-fab__bot {
   position: absolute;
   display: block;
-  animation: agent-fab-float 3.4s ease-in-out infinite;
   block-size: 4.7rem;
   filter: drop-shadow(0 0.55rem 0.55rem var(--agent-assistant-robot-shadow));
   inline-size: 3.85rem;
   inset-block-end: 0.1rem;
   inset-inline-end: 1.42rem;
-  transform: translate(var(--agent-assistant-pointer-x), var(--agent-assistant-pointer-y))
-    rotate(var(--agent-assistant-robot-tilt));
+  transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
   transform-origin: 50% 72%;
   transition:
     inset-inline-end 0.24s ease,
@@ -844,7 +1036,8 @@ defineExpose({
   inline-size: 0.18rem;
   inset-block-start: 0.72rem;
   inset-inline-start: 2.62rem;
-  transform: rotate(22deg);
+  animation: agent-fab-antenna-idle 3.9s ease-in-out infinite;
+  transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
   transform-origin: bottom center;
   transition:
     opacity 0.2s ease,
@@ -881,6 +1074,9 @@ defineExpose({
   inline-size: 2.82rem;
   inset-block-start: 1.42rem;
   inset-inline-start: 0.88rem;
+  animation: agent-fab-head-idle 4.6s ease-in-out infinite;
+  transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y));
+  transform-origin: 50% 85%;
 }
 
 .agent-assistant-fab__face {
@@ -898,6 +1094,7 @@ defineExpose({
   inline-size: 2.1rem;
   inset-block-start: 0.33rem;
   inset-inline-start: 0.25rem;
+  overflow: hidden;
 }
 
 .agent-assistant-fab__eye {
@@ -909,7 +1106,7 @@ defineExpose({
   border-block-end: 0.15rem solid var(--agent-assistant-robot-eye);
   inline-size: 0.42rem;
   inset-block-start: 0.36rem;
-  transform: translate(var(--agent-assistant-pointer-x), var(--agent-assistant-pointer-y));
+  transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
 }
 
 .agent-assistant-fab__eye--left {
@@ -938,6 +1135,9 @@ defineExpose({
   inline-size: 1.88rem;
   inset-block-start: 3.24rem;
   inset-inline-start: 1.32rem;
+  animation: agent-fab-body-idle 4.2s ease-in-out infinite;
+  transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
+  transform-origin: 50% 18%;
   transition:
     opacity 0.2s ease,
     transform 0.22s ease;
@@ -991,14 +1191,14 @@ defineExpose({
 }
 
 .agent-assistant-fab__arm--left {
-  animation: agent-fab-wave-left 2.8s ease-in-out infinite;
+  animation: agent-fab-arm-left-idle 3.8s ease-in-out infinite;
   inset-inline-start: 0.9rem;
   transform: rotate(17deg);
   transform-origin: top center;
 }
 
 .agent-assistant-fab__arm--right {
-  animation: agent-fab-wave-right 2.8s ease-in-out infinite;
+  animation: agent-fab-arm-right-idle 4.1s ease-in-out infinite;
   inset-inline-start: 3.08rem;
   transform: rotate(-17deg);
   transform-origin: top center;
@@ -1012,11 +1212,15 @@ defineExpose({
 }
 
 .agent-assistant-fab__leg--left {
+  animation: agent-fab-leg-left-idle 4.8s ease-in-out infinite;
   inset-inline-start: 1.48rem;
+  transform-origin: top center;
 }
 
 .agent-assistant-fab__leg--right {
+  animation: agent-fab-leg-right-idle 4.8s ease-in-out 0.35s infinite;
   inset-inline-start: 2.46rem;
+  transform-origin: top center;
 }
 
 .agent-assistant-fab.is-bubble-visible .agent-assistant-fab__bubble:hover {
@@ -1028,8 +1232,8 @@ defineExpose({
 }
 
 .agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
-  transform: translate(var(--agent-assistant-pointer-x), calc(var(--agent-assistant-pointer-y) + 0.22rem))
-    rotate(var(--agent-assistant-robot-tilt)) scale(0.96);
+  transform: translateY(0.22rem) scale(var(--agent-assistant-bot-pressed-scale))
+    rotate(var(--agent-assistant-robot-tilt));
 }
 
 .agent-assistant-fab.is-thinking .agent-assistant-fab__face {
@@ -1044,17 +1248,13 @@ defineExpose({
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__bot {
   inset-inline-end: -0.42rem;
-  transform: translate(
-      calc(var(--agent-assistant-pointer-x) * 0.24),
-      calc(var(--agent-assistant-pointer-y) * 0.24 - 0.2rem)
-    )
-    rotate(-19deg);
+  transform: translateY(-0.2rem) scale(var(--agent-assistant-bot-scale)) rotate(-19deg);
 }
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__eye {
   transform: translate(
-    calc(var(--agent-assistant-pointer-x) * 0.24 - 0.22rem),
-    calc(var(--agent-assistant-pointer-y) * 0.24)
+    calc(var(--agent-assistant-eye-x) * 0.24 - 0.22rem),
+    calc(var(--agent-assistant-eye-y) * 0.24)
   );
 }
 
@@ -1082,40 +1282,490 @@ defineExpose({
 }
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__antenna {
+  animation: none;
   opacity: 0.75;
   transform: translate(0.34rem, 0.02rem) rotate(2deg) scale(0.82);
 }
 
-@keyframes agent-fab-float {
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__antenna,
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__antenna,
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__antenna,
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna,
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__head,
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__head,
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head,
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__head,
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__body,
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__body,
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__body,
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__body,
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm,
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm,
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__arm,
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm,
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__leg,
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg,
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__leg,
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg {
+  transition: none;
+}
+
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__bot {
+  animation: agent-fab-action-wave-bot 2.3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__head {
+  animation: agent-fab-action-wave-head 2.3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--left {
+  z-index: 6;
+  block-size: 1.16rem;
+  inset-block-start: 2.98rem;
+  inset-inline-start: 0.82rem;
+  animation: agent-fab-action-wave-arm-left 2.3s ease-in-out both;
+  transform-origin: top center;
+}
+
+.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-wave-arm-right 2.3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__bot {
+  animation: agent-fab-action-sit-bot 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__head {
+  animation: agent-fab-action-sit-head 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__body {
+  animation: agent-fab-action-sit-body 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm--left {
+  animation: agent-fab-action-sit-arm-left 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-sit-arm-right 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg--left {
+  z-index: 5;
+  animation: agent-fab-action-sit-leg-left 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg--right {
+  z-index: 5;
+  animation: agent-fab-action-sit-leg-right 4.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head {
+  animation: agent-fab-action-eye-roll-head 1.9s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__eye {
+  animation:
+    agent-fab-blink 4.8s ease-in-out infinite,
+    agent-fab-action-eye-roll 0.95s ease-in-out 2;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__bot {
+  animation: agent-fab-action-faint-bot 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna {
+  animation: agent-fab-action-faint-antenna 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__head {
+  animation: agent-fab-action-faint-head 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__body {
+  animation: agent-fab-action-faint-body 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm--left {
+  animation: agent-fab-action-faint-arm-left 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-faint-arm-right 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--left {
+  animation: agent-fab-action-faint-leg-left 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--right {
+  animation: agent-fab-action-faint-leg-right 4.8s ease-in-out both;
+}
+
+@keyframes agent-fab-head-idle {
   0%,
   100% {
-    translate: 0 0;
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
   }
 
   50% {
-    translate: 0 -0.32rem;
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.06rem)) rotate(-1.8deg);
   }
 }
 
-@keyframes agent-fab-wave-left {
+@keyframes agent-fab-body-idle {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
+  }
+
+  50% {
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.04rem)) scaleY(0.97);
+  }
+}
+
+@keyframes agent-fab-antenna-idle {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  50% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(15deg);
+  }
+}
+
+@keyframes agent-fab-arm-left-idle {
   0%,
   100% {
     transform: rotate(17deg);
   }
 
   50% {
-    transform: rotate(7deg);
+    transform: rotate(12deg) translateY(0.05rem);
   }
 }
 
-@keyframes agent-fab-wave-right {
+@keyframes agent-fab-arm-right-idle {
   0%,
   100% {
     transform: rotate(-17deg);
   }
 
   50% {
-    transform: rotate(-7deg);
+    transform: rotate(-11deg) translateY(0.05rem);
+  }
+}
+
+@keyframes agent-fab-leg-left-idle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(4deg) translateY(0.03rem);
+  }
+}
+
+@keyframes agent-fab-leg-right-idle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(-4deg) translateY(0.03rem);
+  }
+}
+
+@keyframes agent-fab-action-wave-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  22%,
+  66% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) - 4deg));
+  }
+}
+
+@keyframes agent-fab-action-wave-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  30%,
+  66% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.1rem)) rotate(-4deg);
+  }
+}
+
+@keyframes agent-fab-action-wave-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  16% {
+    transform: rotate(-122deg);
+  }
+
+  30% {
+    transform: rotate(-156deg);
+  }
+
+  44% {
+    transform: rotate(-116deg);
+  }
+
+  58% {
+    transform: rotate(-156deg);
+  }
+
+  72% {
+    transform: rotate(-122deg);
+  }
+}
+
+@keyframes agent-fab-action-wave-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  30%,
+  70% {
+    transform: rotate(-28deg) translateY(0.06rem);
+  }
+}
+
+@keyframes agent-fab-action-sit-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  22%,
+  84% {
+    transform: translateY(0.36rem) scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+}
+
+@keyframes agent-fab-action-sit-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  22%,
+  84% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.1rem)) rotate(2deg);
+  }
+}
+
+@keyframes agent-fab-action-sit-body {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
+  }
+
+  22%,
+  84% {
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.22rem)) scaleY(0.82);
+  }
+}
+
+@keyframes agent-fab-action-sit-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  22%,
+  84% {
+    transform: translate(0.08rem, 0.22rem) rotate(76deg);
+  }
+}
+
+@keyframes agent-fab-action-sit-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  22%,
+  84% {
+    transform: translate(-0.08rem, 0.22rem) rotate(-76deg);
+  }
+}
+
+@keyframes agent-fab-action-sit-leg-left {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  22%,
+  84% {
+    transform: translate(0.18rem, -0.18rem) rotate(94deg);
+  }
+}
+
+@keyframes agent-fab-action-sit-leg-right {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  22%,
+  84% {
+    transform: translate(-0.18rem, -0.18rem) rotate(-94deg);
+  }
+}
+
+@keyframes agent-fab-action-eye-roll-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  24% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.06rem)) rotate(-6deg);
+  }
+
+  52% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(5deg);
+  }
+
+  78% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.03rem)) rotate(-3deg);
+  }
+}
+
+@keyframes agent-fab-action-eye-roll {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
+  }
+
+  22% {
+    transform: translate(0.22rem, -0.2rem);
+  }
+
+  48% {
+    transform: translate(0, -0.3rem);
+  }
+
+  72% {
+    transform: translate(-0.22rem, -0.2rem);
+  }
+}
+
+@keyframes agent-fab-action-faint-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  26% {
+    transform: translateY(-0.1rem) scale(var(--agent-assistant-bot-scale)) rotate(12deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(0.58rem, 1.08rem) scale(var(--agent-assistant-bot-scale)) rotate(98deg);
+  }
+}
+
+@keyframes agent-fab-action-faint-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(0.08rem, 0.02rem) rotate(-18deg);
+  }
+}
+
+@keyframes agent-fab-action-faint-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  28% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.04rem)) rotate(9deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(0.04rem, 0.02rem) rotate(-3deg);
+  }
+}
+
+@keyframes agent-fab-action-faint-body {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
+  }
+
+  34%,
+  86% {
+    transform: translate(0.04rem, 0.02rem) scaleY(0.9);
+  }
+}
+
+@keyframes agent-fab-action-faint-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(-0.12rem, 0.16rem) rotate(118deg);
+  }
+}
+
+@keyframes agent-fab-action-faint-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(0.12rem, 0.16rem) rotate(-118deg);
+  }
+}
+
+@keyframes agent-fab-action-faint-leg-left {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(-0.24rem, -0.02rem) rotate(82deg);
+  }
+}
+
+@keyframes agent-fab-action-faint-leg-right {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  34%,
+  86% {
+    transform: translate(0.24rem, -0.02rem) rotate(-82deg);
   }
 }
 
@@ -1184,21 +1834,17 @@ defineExpose({
 
   .agent-assistant-fab__bot {
     inset-inline-end: 1.02rem;
-    transform: scale(0.82) translate(var(--agent-assistant-pointer-x), var(--agent-assistant-pointer-y))
-      rotate(var(--agent-assistant-robot-tilt));
     transform-origin: 70% 78%;
   }
 
-  .agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
-    transform: scale(0.78) translate(var(--agent-assistant-pointer-x), calc(var(--agent-assistant-pointer-y) + 0.18rem))
-      rotate(var(--agent-assistant-robot-tilt));
+  .agent-assistant-fab {
+    --agent-assistant-bot-scale: 0.82;
+    --agent-assistant-bot-pressed-scale: 0.78;
   }
 
   .agent-assistant-fab.is-docked .agent-assistant-fab__bot {
     inset-inline-end: -0.48rem;
-    transform: scale(0.82)
-      translate(calc(var(--agent-assistant-pointer-x) * 0.24), calc(var(--agent-assistant-pointer-y) * 0.24 - 0.16rem))
-      rotate(-19deg);
+    transform: translateY(-0.16rem) scale(var(--agent-assistant-bot-scale)) rotate(-19deg);
   }
 }
 
