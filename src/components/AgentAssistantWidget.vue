@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
 import mdLinkAttributes from 'markdown-it-link-attributes'
-import type { PerfectScrollbarExpose } from 'vue3-perfect-scrollbar'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useUserStore } from '@/stores'
@@ -129,6 +128,8 @@ const MAX_LOCAL_HISTORY_SESSIONS = 120
 const MAX_PERSISTED_MESSAGES = 30
 const HISTORY_TITLE_LENGTH = 36
 const HISTORY_ITEM_HEIGHT = 76
+const MESSAGE_SCROLL_FOLLOW_THRESHOLD = 96
+const STREAM_STATE_PERSIST_DELAY = 1000
 
 const drawer = ref(false)
 const inputText = ref('')
@@ -138,7 +139,7 @@ const sessionId = ref('')
 const sending = ref(false)
 const streamError = ref('')
 const historyMenuOpen = ref(false)
-const messageListRef = ref<PerfectScrollbarExpose | null>(null)
+const messageListRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const pendingAttachments = ref<AgentPendingAttachment[]>([])
@@ -167,6 +168,9 @@ let recordingChunks: BlobPart[] = []
 let fabIdleTimer: number | null = null
 let fabDragStart: { pointerId: number; x: number; y: number } | null = null
 let fabSuppressNextClick = false
+let messageScrollFrame: number | null = null
+let pendingMessageScrollToBottom = false
+let streamPersistTimer: number | null = null
 
 const md = new MarkdownIt({
   html: true,
@@ -570,21 +574,46 @@ function resolveApiUrl(path: string) {
   return `${baseUrl.replace(/\/?$/, '/')}${path.replace(/^\//, '')}`
 }
 
-// 获取 PerfectScrollbar 内部滚动元素，供自动滚动和滚动条刷新使用。
+// 消息主列表使用原生滚动，避免流式回复时 JS 滚动库频繁测量影响手感。
 function getMessageScrollerElement() {
-  return messageListRef.value?.ps?.element || null
+  return messageListRef.value
 }
 
-function scrollToBottom() {
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      const scroller = getMessageScrollerElement()
-      if (!scroller) return
+function isMessageScrollerNearBottom() {
+  const scroller = getMessageScrollerElement()
+  if (!scroller) return true
 
-      messageListRef.value?.ps?.update()
-      scroller.scrollTop = scroller.scrollHeight
-      messageListRef.value?.ps?.update()
-    })
+  return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= MESSAGE_SCROLL_FOLLOW_THRESHOLD
+}
+
+function scheduleMessageScrollerUpdate(options: { toBottom?: boolean } = {}) {
+  const { toBottom = false } = options
+  pendingMessageScrollToBottom ||= toBottom
+  if (messageScrollFrame !== null) return
+
+  messageScrollFrame = window.requestAnimationFrame(() => {
+    messageScrollFrame = null
+    const scroller = getMessageScrollerElement()
+    if (!scroller) return
+
+    if (pendingMessageScrollToBottom) scroller.scrollTop = scroller.scrollHeight
+    pendingMessageScrollToBottom = false
+  })
+}
+
+function scrollToBottom(options: { smooth?: boolean } = {}) {
+  const { smooth = false } = options
+  nextTick(() => {
+    const scroller = getMessageScrollerElement()
+    if (!scroller) return
+
+    if (smooth) {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+      scheduleMessageScrollerUpdate()
+      return
+    }
+
+    scheduleMessageScrollerUpdate({ toBottom: true })
   })
 }
 
@@ -595,11 +624,32 @@ function scrollToTop() {
       const scroller = getMessageScrollerElement()
       if (!scroller) return
 
-      messageListRef.value?.ps?.update()
       scroller.scrollTop = 0
-      messageListRef.value?.ps?.update()
     })
   })
+}
+
+function clearStreamPersistTimer() {
+  if (streamPersistTimer === null) return
+
+  window.clearTimeout(streamPersistTimer)
+  streamPersistTimer = null
+}
+
+function clearMessageScrollFrame() {
+  if (messageScrollFrame === null) return
+
+  window.cancelAnimationFrame(messageScrollFrame)
+  messageScrollFrame = null
+  pendingMessageScrollToBottom = false
+}
+
+function scheduleStreamPersist() {
+  clearStreamPersistTimer()
+  streamPersistTimer = window.setTimeout(() => {
+    persistState()
+    streamPersistTimer = null
+  }, STREAM_STATE_PERSIST_DELAY)
 }
 
 function syncInputHeight() {
@@ -653,6 +703,8 @@ function markToolsDone(message: AgentChatMessage) {
 }
 
 function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage) {
+  const shouldFollowBottom = isMessageScrollerNearBottom()
+
   switch (event.type) {
     case 'delta':
       assistantMessage.content += event.content || ''
@@ -699,9 +751,10 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       break
   }
 
-  refreshMessageList()
-  persistState()
-  scrollToBottom()
+  scheduleStreamPersist()
+  nextTick(() => {
+    scheduleMessageScrollerUpdate({ toBottom: shouldFollowBottom })
+  })
 }
 
 function parseSseBlock(block: string) {
@@ -902,6 +955,7 @@ async function streamAgentMessage(
   const assistantMessage = addMessage('assistant', '', 'streaming')
 
   abortController = new AbortController()
+  let shouldFollowBottomAfterStream = true
 
   try {
     const response = await fetch(resolveApiUrl('message/agent/stream'), {
@@ -927,6 +981,7 @@ async function streamAgentMessage(
     }
 
     await readAgentStream(response, assistantMessage)
+    shouldFollowBottomAfterStream = isMessageScrollerNearBottom()
     if (assistantMessage.status === 'streaming') {
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
@@ -946,6 +1001,7 @@ async function streamAgentMessage(
     refreshMessageList()
   } finally {
     abortController = null
+    clearStreamPersistTimer()
     persistState()
     try {
       await saveCurrentSessionToServer()
@@ -953,7 +1009,7 @@ async function streamAgentMessage(
     } catch (error) {
       // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
     }
-    scrollToBottom()
+    if (shouldFollowBottomAfterStream) scrollToBottom()
   }
 }
 
@@ -1427,6 +1483,8 @@ onScopeDispose(clearAgentAssistantOpenState)
 onScopeDispose(clearPendingAttachments)
 onScopeDispose(cancelVoiceRecording)
 onScopeDispose(clearFabIdleTimer)
+onScopeDispose(clearMessageScrollFrame)
+onScopeDispose(clearStreamPersistTimer)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
@@ -1617,153 +1675,157 @@ onScopeDispose(() => {
         </div>
       </header>
 
-      <PerfectScrollbar
+      <main
         ref="messageListRef"
-        tag="main"
         class="agent-assistant-messages"
         :class="{ 'agent-assistant-messages--has-content': hasMessages }"
-        :options="{ wheelPropagation: false }"
       >
-        <div v-if="!hasMessages" class="agent-assistant-empty">
-          <div class="agent-assistant-empty__mark">
-            <VIcon icon="lucide:sparkles" size="28" />
-          </div>
-          <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
-          <div class="agent-assistant-empty__subtitle">{{ t('agentAssistant.emptySubtitle') }}</div>
-        </div>
-
-        <div
-          v-for="message in messages"
-          :key="message.id"
-          class="agent-assistant-message"
-          :class="`agent-assistant-message--${message.role}`"
-        >
-          <div class="agent-assistant-message__meta">
-            <VIcon :icon="message.role === 'user' ? 'mdi-account-circle-outline' : 'lucide:bot'" size="16" />
-            <span>{{ message.role === 'user' ? currentUserName : t('agentAssistant.assistant') }}</span>
-          </div>
-
-          <div v-if="message.tools.length" class="agent-assistant-tools">
-            <div v-for="tool in message.tools" :key="tool.id" class="agent-assistant-tool">
-              <VIcon
-                :icon="
-                  tool.status === 'running' && message.status === 'streaming'
-                    ? 'line-md:loading-twotone-loop'
-                    : 'mdi-check-circle-outline'
-                "
-                size="16"
-              />
-              <span>{{ tool.message }}</span>
+        <div class="agent-assistant-messages__content">
+          <div v-if="!hasMessages" class="agent-assistant-empty">
+            <div class="agent-assistant-empty__mark">
+              <VIcon icon="lucide:sparkles" size="28" />
             </div>
+            <div class="agent-assistant-empty__title">{{ t('agentAssistant.emptyTitle') }}</div>
+            <div class="agent-assistant-empty__subtitle">{{ t('agentAssistant.emptySubtitle') }}</div>
           </div>
 
           <div
-            v-if="message.content"
-            class="agent-assistant-message__bubble markdown-body"
-            v-html="renderMarkdown(message.content)"
-          />
+            v-for="message in messages"
+            :key="message.id"
+            class="agent-assistant-message"
+            :class="`agent-assistant-message--${message.role}`"
+          >
+            <div class="agent-assistant-message__meta">
+              <VIcon :icon="message.role === 'user' ? 'mdi-account-circle-outline' : 'lucide:bot'" size="16" />
+              <span>{{ message.role === 'user' ? currentUserName : t('agentAssistant.assistant') }}</span>
+            </div>
 
-          <div v-if="message.choices.length" class="agent-assistant-choices">
-            <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
-              <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
-              <div class="agent-assistant-choice__prompt">{{ choice.prompt }}</div>
-              <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
-                <VIcon icon="mdi-check-circle-outline" size="16" />
-                <span>{{ t('agentAssistant.choiceSelected', { option: choice.selected_label }) }}</span>
-              </div>
-              <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
-                <VIcon icon="mdi-alert-circle-outline" size="16" />
-                <span>{{ t('agentAssistant.choiceExpired') }}</span>
-              </div>
-              <div class="agent-assistant-choice__buttons">
-                <VBtn
-                  v-for="button in choice.buttons"
-                  :key="button.callback_data"
-                  size="small"
-                  rounded="lg"
-                  variant="tonal"
-                  color="primary"
-                  :disabled="sending || choice.status !== 'pending'"
-                  @click="handleChoiceClick(choice, button)"
-                >
-                  {{ button.label }}
-                </VBtn>
+            <div v-if="message.tools.length" class="agent-assistant-tools">
+              <div v-for="tool in message.tools" :key="tool.id" class="agent-assistant-tool">
+                <VIcon
+                  :icon="
+                    tool.status === 'running' && message.status === 'streaming'
+                      ? 'line-md:loading-twotone-loop'
+                      : 'mdi-check-circle-outline'
+                  "
+                  size="16"
+                />
+                <span>{{ tool.message }}</span>
               </div>
             </div>
-          </div>
 
-          <div v-if="message.attachments.length" class="agent-assistant-attachments">
             <div
-              v-for="attachment in message.attachments"
-              :key="`${message.id}-${attachment.url}`"
-              class="agent-assistant-attachment"
-              :class="`agent-assistant-attachment--${attachment.kind}`"
-            >
-              <img
-                v-if="attachment.kind === 'image'"
-                class="agent-assistant-attachment__image"
-                :src="resolveAttachmentUrl(attachment.url)"
-                :alt="getAttachmentName(attachment)"
-                loading="lazy"
-              />
+              v-if="message.content"
+              class="agent-assistant-message__bubble markdown-body"
+              v-html="renderMarkdown(message.content)"
+            />
 
-              <template v-else-if="attachment.kind === 'audio'">
-                <div class="agent-assistant-attachment__meta">
-                  <VIcon :icon="getAttachmentIcon(attachment)" size="18" />
-                  <span>{{ getAttachmentName(attachment) }}</span>
+            <div v-if="message.choices.length" class="agent-assistant-choices">
+              <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
+                <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
+                <div class="agent-assistant-choice__prompt">{{ choice.prompt }}</div>
+                <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
+                  <VIcon icon="mdi-check-circle-outline" size="16" />
+                  <span>{{ t('agentAssistant.choiceSelected', { option: choice.selected_label }) }}</span>
                 </div>
-                <audio class="agent-assistant-attachment__audio" controls :src="resolveAttachmentUrl(attachment.url)" />
-                <VBtn
-                  class="agent-assistant-surface-btn"
-                  :href="getAttachmentDownloadUrl(attachment)"
-                  :download="getAttachmentName(attachment)"
-                  size="small"
-                  variant="tonal"
-                  color="primary"
-                  prepend-icon="mdi-download"
-                >
-                  {{ t('agentAssistant.download') }}
-                </VBtn>
-              </template>
+                <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
+                  <VIcon icon="mdi-alert-circle-outline" size="16" />
+                  <span>{{ t('agentAssistant.choiceExpired') }}</span>
+                </div>
+                <div class="agent-assistant-choice__buttons">
+                  <VBtn
+                    v-for="button in choice.buttons"
+                    :key="button.callback_data"
+                    size="small"
+                    rounded="lg"
+                    variant="tonal"
+                    color="primary"
+                    :disabled="sending || choice.status !== 'pending'"
+                    @click="handleChoiceClick(choice, button)"
+                  >
+                    {{ button.label }}
+                  </VBtn>
+                </div>
+              </div>
+            </div>
 
-              <template v-else>
-                <div class="agent-assistant-attachment__file">
-                  <VIcon :icon="getAttachmentIcon(attachment)" size="22" />
-                  <div class="agent-assistant-attachment__file-text">
+            <div v-if="message.attachments.length" class="agent-assistant-attachments">
+              <div
+                v-for="attachment in message.attachments"
+                :key="`${message.id}-${attachment.url}`"
+                class="agent-assistant-attachment"
+                :class="`agent-assistant-attachment--${attachment.kind}`"
+              >
+                <img
+                  v-if="attachment.kind === 'image'"
+                  class="agent-assistant-attachment__image"
+                  :src="resolveAttachmentUrl(attachment.url)"
+                  :alt="getAttachmentName(attachment)"
+                  loading="lazy"
+                />
+
+                <template v-else-if="attachment.kind === 'audio'">
+                  <div class="agent-assistant-attachment__meta">
+                    <VIcon :icon="getAttachmentIcon(attachment)" size="18" />
                     <span>{{ getAttachmentName(attachment) }}</span>
-                    <small>{{ attachment.mime_type || formatAttachmentSize(attachment.size) }}</small>
                   </div>
+                  <audio
+                    class="agent-assistant-attachment__audio"
+                    controls
+                    :src="resolveAttachmentUrl(attachment.url)"
+                  />
                   <VBtn
                     class="agent-assistant-surface-btn"
                     :href="getAttachmentDownloadUrl(attachment)"
                     :download="getAttachmentName(attachment)"
-                    icon
-                    variant="text"
+                    size="small"
+                    variant="tonal"
                     color="primary"
-                    :aria-label="t('agentAssistant.download')"
+                    prepend-icon="mdi-download"
                   >
-                    <VIcon icon="mdi-download" />
+                    {{ t('agentAssistant.download') }}
                   </VBtn>
-                </div>
-              </template>
+                </template>
+
+                <template v-else>
+                  <div class="agent-assistant-attachment__file">
+                    <VIcon :icon="getAttachmentIcon(attachment)" size="22" />
+                    <div class="agent-assistant-attachment__file-text">
+                      <span>{{ getAttachmentName(attachment) }}</span>
+                      <small>{{ attachment.mime_type || formatAttachmentSize(attachment.size) }}</small>
+                    </div>
+                    <VBtn
+                      class="agent-assistant-surface-btn"
+                      :href="getAttachmentDownloadUrl(attachment)"
+                      :download="getAttachmentName(attachment)"
+                      icon
+                      variant="text"
+                      color="primary"
+                      :aria-label="t('agentAssistant.download')"
+                    >
+                      <VIcon icon="mdi-download" />
+                    </VBtn>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div
+              v-if="
+                !message.content &&
+                !message.attachments.length &&
+                !message.choices.length &&
+                message.status === 'streaming'
+              "
+              class="agent-assistant-typing"
+            >
+              <span />
+              <span />
+              <span />
             </div>
           </div>
-
-          <div
-            v-if="
-              !message.content &&
-              !message.attachments.length &&
-              !message.choices.length &&
-              message.status === 'streaming'
-            "
-            class="agent-assistant-typing"
-          >
-            <span />
-            <span />
-            <span />
-          </div>
         </div>
-      </PerfectScrollbar>
+      </main>
 
       <footer class="agent-assistant-composer">
         <VAlert v-if="streamError" type="error" variant="tonal" density="compact" class="mb-3">
@@ -2317,7 +2379,7 @@ onScopeDispose(() => {
   position: relative;
   display: grid;
   block-size: 100%;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 0;
 
   --agent-assistant-assistant-bg: rgba(var(--v-theme-surface), 0.92);
@@ -2601,25 +2663,28 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-messages {
-  display: flex;
   box-sizing: border-box;
-  flex-direction: column;
+  block-size: 100%;
   min-block-size: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding-block: 1rem;
   padding-inline: 1rem;
+  scroll-behavior: auto;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
+}
 
-  :deep(.ps__rail-x),
-  :deep(.ps__rail-y) {
-    display: none !important;
-  }
+.agent-assistant-messages__content {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100%;
 }
 
 /* 只有消息态预留输入框空间，避免 iOS 空态被 padding 撑出不可滚动的滚动条。 */
 .agent-assistant-messages--has-content {
-  padding-block-end: calc(env(safe-area-inset-bottom, 0px) + 6rem);
+  padding-block-end: calc(env(safe-area-inset-bottom, 0px) + 8.75rem);
 }
 
 .agent-assistant-empty {
