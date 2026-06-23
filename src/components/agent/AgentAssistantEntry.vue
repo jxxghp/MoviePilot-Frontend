@@ -1321,8 +1321,8 @@ defineExpose({
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--left {
   z-index: 6;
   block-size: 1.16rem;
-  inset-block-start: 2.98rem;
-  inset-inline-start: 0.82rem;
+  inset-block-start: 3.08rem;
+  inset-inline-start: 0.7rem;
   animation: agent-fab-action-wave-arm-left 2.3s ease-in-out both;
   transform-origin: top center;
 }
@@ -1507,27 +1507,27 @@ defineExpose({
 @keyframes agent-fab-action-wave-arm-left {
   0%,
   100% {
-    transform: rotate(17deg);
+    transform: translateX(-0.04rem) rotate(18deg);
   }
 
   16% {
-    transform: rotate(-122deg);
+    transform: translateX(-0.08rem) rotate(-64deg);
   }
 
   30% {
-    transform: rotate(-156deg);
+    transform: translateX(-0.11rem) rotate(-132deg);
   }
 
   44% {
-    transform: rotate(-116deg);
+    transform: translateX(-0.08rem) rotate(-92deg);
   }
 
   58% {
-    transform: rotate(-156deg);
+    transform: translateX(-0.11rem) rotate(-132deg);
   }
 
   72% {
-    transform: rotate(-122deg);
+    transform: translateX(-0.08rem) rotate(-64deg);
   }
 }
 
@@ -1843,7 +1843,7 @@ defineExpose({
   }
 
   .agent-assistant-fab.is-docked .agent-assistant-fab__bot {
-    inset-inline-end: -0.48rem;
+    inset-inline-end: -0.72rem;
     transform: translateY(-0.16rem) scale(var(--agent-assistant-bot-scale)) rotate(-19deg);
   }
 }
