@@ -157,6 +157,10 @@ html[data-theme="transparent"] {
   }
 
   .agent-assistant-fab {
+    background-color: transparent;
+  }
+
+  .agent-assistant-fab__bubble {
     backdrop-filter: blur(var(--transparent-blur));
     background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
   }

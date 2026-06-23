@@ -121,6 +121,9 @@ const userStore = useUserStore()
 
 const STORAGE_KEY = 'moviepilot-agent-assistant-state'
 const HISTORY_STORAGE_KEY = 'moviepilot-agent-assistant-history'
+const FAB_DOCK_STORAGE_KEY = 'moviepilot-agent-assistant-entry-docked'
+const FAB_IDLE_DOCK_DELAY = 4200
+const FAB_DOCK_REVEAL_DISTANCE = 18
 const HISTORY_PAGE_SIZE = 30
 const MAX_LOCAL_HISTORY_SESSIONS = 120
 const MAX_PERSISTED_MESSAGES = 30
@@ -146,11 +149,24 @@ const historyLoading = ref(false)
 const historyLoadingMore = ref(false)
 const historyPage = ref(1)
 const historyHasMore = ref(true)
+const fabDocked = ref(false)
+const fabPointerStyle = ref({
+  '--agent-assistant-pointer-x': '0px',
+  '--agent-assistant-pointer-y': '0px',
+  '--agent-assistant-robot-tilt': '0deg',
+})
+const fabPressed = ref(false)
+const fabBubbleVisible = ref(false)
+const fabBubblePreview = ref('')
+const fabDragging = ref(false)
 let abortController: AbortController | null = null
 let mediaRecorder: MediaRecorder | null = null
 let mediaRecorderStream: MediaStream | null = null
 let recordingTimer: number | null = null
 let recordingChunks: BlobPart[] = []
+let fabIdleTimer: number | null = null
+let fabDragStart: { pointerId: number; x: number; y: number } | null = null
+let fabSuppressNextClick = false
 
 const md = new MarkdownIt({
   html: true,
@@ -538,6 +554,17 @@ function renderMarkdown(value: string) {
   return md.render(value)
 }
 
+function stripMarkdownPreview(value: string) {
+  return value
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
+    .replace(/[#>*_~\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function resolveApiUrl(path: string) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/'
   return `${baseUrl.replace(/\/?$/, '/')}${path.replace(/^\//, '')}`
@@ -629,6 +656,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
   switch (event.type) {
     case 'delta':
       assistantMessage.content += event.content || ''
+      showAssistantReplyPreview(assistantMessage.content)
       break
     case 'tool':
       markToolsDone(assistantMessage)
@@ -661,6 +689,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
       assistantMessage.status = 'error'
       // 后端流式错误已经以 AI 消息展示，避免底部提示条重复且持续占位。
       assistantMessage.content ||= event.message || t('agentAssistant.error')
+      showAssistantReplyPreview(assistantMessage.content)
       markToolsDone(assistantMessage)
       break
     case 'start':
@@ -1121,6 +1150,150 @@ function stopGeneration() {
   abortController?.abort()
 }
 
+// 将指针位置压成小幅 CSS 变量，驱动机器人眼睛和身体的跟随动效。
+function updateFabPointer(event: PointerEvent) {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  const offsetX = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+  const offsetY = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+  const normalizedX = Math.max(-1, Math.min(1, offsetX))
+  const normalizedY = Math.max(-1, Math.min(1, offsetY))
+
+  fabPointerStyle.value = {
+    '--agent-assistant-pointer-x': `${(normalizedX * 4).toFixed(2)}px`,
+    '--agent-assistant-pointer-y': `${(normalizedY * 3).toFixed(2)}px`,
+    '--agent-assistant-robot-tilt': `${(normalizedX * 5).toFixed(2)}deg`,
+  }
+}
+
+function resetFabPointer() {
+  fabPressed.value = false
+  fabPointerStyle.value = {
+    '--agent-assistant-pointer-x': '0px',
+    '--agent-assistant-pointer-y': '0px',
+    '--agent-assistant-robot-tilt': '0deg',
+  }
+}
+
+function clearFabIdleTimer() {
+  if (fabIdleTimer === null) return
+
+  window.clearTimeout(fabIdleTimer)
+  fabIdleTimer = null
+}
+
+function scheduleFabAutoDock() {
+  clearFabIdleTimer()
+  if (fabDocked.value || drawer.value) return
+
+  fabIdleTimer = window.setTimeout(() => {
+    setFabDocked(true, { persist: false })
+    fabIdleTimer = null
+  }, FAB_IDLE_DOCK_DELAY)
+}
+
+function pauseFabAutoDock() {
+  clearFabIdleTimer()
+}
+
+function showAssistantReplyPreview(value: string) {
+  if (drawer.value) return
+
+  const preview = stripMarkdownPreview(value)
+  if (!preview) return
+
+  fabBubblePreview.value = preview
+  fabBubbleVisible.value = true
+  setFabDocked(false, { persist: false })
+}
+
+function closeFabBubble() {
+  fabBubbleVisible.value = false
+  fabBubblePreview.value = ''
+  scheduleFabAutoDock()
+}
+
+function setFabDocked(docked: boolean, options: { persist?: boolean } = {}) {
+  const { persist = true } = options
+  fabDocked.value = docked
+  resetFabPointer()
+  if (docked) clearFabIdleTimer()
+  else scheduleFabAutoDock()
+  if (!persist) return
+
+  try {
+    localStorage.setItem(FAB_DOCK_STORAGE_KEY, JSON.stringify(fabDocked.value))
+  } catch (error) {
+    // 停靠状态只是入口偏好，写入失败时保持当前内存状态即可。
+  }
+}
+
+function restoreFabDockState() {
+  try {
+    fabDocked.value = JSON.parse(localStorage.getItem(FAB_DOCK_STORAGE_KEY) || 'true') !== false
+  } catch (error) {
+    fabDocked.value = true
+  }
+}
+
+function handleFabTriggerPointerDown(event: PointerEvent) {
+  fabPressed.value = true
+  pauseFabAutoDock()
+
+  if (!fabDocked.value) return
+
+  fabDragStart = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+  }
+  ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
+}
+
+function handleFabTriggerPointerMove(event: PointerEvent) {
+  updateFabPointer(event)
+  if (!fabDocked.value || !fabDragStart) return
+
+  const movedX = fabDragStart.x - event.clientX
+  const movedY = Math.abs(fabDragStart.y - event.clientY)
+  if (movedX > FAB_DOCK_REVEAL_DISTANCE && movedY < 48) {
+    fabDragging.value = true
+    fabSuppressNextClick = true
+    setFabDocked(false, { persist: false })
+  }
+}
+
+function handleFabTriggerPointerUp(event: PointerEvent) {
+  fabPressed.value = false
+  fabDragging.value = false
+  fabDragStart = null
+  ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
+  if (!fabDocked.value && !drawer.value) scheduleFabAutoDock()
+}
+
+function handleFabTriggerClick() {
+  if (fabSuppressNextClick) {
+    fabSuppressNextClick = false
+    return
+  }
+
+  if (fabDocked.value) {
+    setFabDocked(false, { persist: false })
+    return
+  }
+
+  openDrawer()
+}
+
+function handleFabPointerLeave() {
+  resetFabPointer()
+  if (!drawer.value && !fabDocked.value) scheduleFabAutoDock()
+}
+
+function handleFabPointerEnter() {
+  pauseFabAutoDock()
+}
+
 function startNewSession() {
   stopGeneration()
   sessionId.value = createSessionId()
@@ -1193,6 +1366,8 @@ function formatHistoryTime(timestamp: number) {
 
 function openDrawer() {
   drawer.value = true
+  closeFabBubble()
+  setFabDocked(true, { persist: false })
   scrollToBottom()
 }
 
@@ -1242,6 +1417,7 @@ watch(drawerWidth, () => {
 onMounted(() => {
   restoreHistorySessions()
   restoreState()
+  restoreFabDockState()
   loadServerHistorySessions()
   syncInputHeight()
   window.addEventListener('keydown', handleGlobalKeydown)
@@ -1250,6 +1426,7 @@ onMounted(() => {
 onScopeDispose(clearAgentAssistantOpenState)
 onScopeDispose(clearPendingAttachments)
 onScopeDispose(cancelVoiceRecording)
+onScopeDispose(clearFabIdleTimer)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
@@ -1258,16 +1435,64 @@ onScopeDispose(() => {
 </script>
 
 <template>
-  <button
+  <div
     v-if="!drawer"
     class="agent-assistant-fab"
-    type="button"
-    :aria-label="t('agentAssistant.title')"
-    :title="t('agentAssistant.title')"
-    @click="openDrawer"
+    :class="{
+      'is-docked': fabDocked,
+      'is-pressed': fabPressed,
+      'is-thinking': sending,
+      'is-bubble-visible': fabBubbleVisible && !!fabBubblePreview,
+    }"
+    :style="fabPointerStyle"
+    @pointermove="updateFabPointer"
+    @pointerenter="handleFabPointerEnter"
+    @pointerleave="handleFabPointerLeave"
   >
-    <VIcon class="agent-assistant-fab__icon" icon="lucide:bot" size="21" />
-  </button>
+    <button
+      class="agent-assistant-fab__trigger"
+      type="button"
+      :aria-label="t('agentAssistant.title')"
+      :title="t('agentAssistant.title')"
+      @pointerdown="handleFabTriggerPointerDown"
+      @pointermove="handleFabTriggerPointerMove"
+      @pointerup="handleFabTriggerPointerUp"
+      @pointercancel="handleFabTriggerPointerUp"
+      @click="handleFabTriggerClick"
+    >
+      <span v-if="fabBubblePreview" class="agent-assistant-fab__bubble">
+        <span>{{ fabBubblePreview }}</span>
+        <span
+          class="agent-assistant-fab__bubble-close"
+          role="button"
+          tabindex="0"
+          :aria-label="t('common.close')"
+          :title="t('common.close')"
+          @click.stop="closeFabBubble"
+          @keydown.enter.prevent.stop="closeFabBubble"
+          @keydown.space.prevent.stop="closeFabBubble"
+        >
+          <VIcon icon="mdi-close" size="14" />
+        </span>
+      </span>
+      <span class="agent-assistant-fab__bot" aria-hidden="true">
+        <span class="agent-assistant-fab__antenna" />
+        <span class="agent-assistant-fab__head">
+          <span class="agent-assistant-fab__face">
+            <span class="agent-assistant-fab__eye agent-assistant-fab__eye--left" />
+            <span class="agent-assistant-fab__eye agent-assistant-fab__eye--right" />
+          </span>
+        </span>
+        <span class="agent-assistant-fab__body">
+          <span class="agent-assistant-fab__core" />
+        </span>
+        <span class="agent-assistant-fab__arm agent-assistant-fab__arm--left" />
+        <span class="agent-assistant-fab__arm agent-assistant-fab__arm--right" />
+        <span class="agent-assistant-fab__leg agent-assistant-fab__leg--left" />
+        <span class="agent-assistant-fab__leg agent-assistant-fab__leg--right" />
+      </span>
+    </button>
+  </div>
 
   <aside
     v-show="drawer"
@@ -1280,7 +1505,16 @@ onScopeDispose(() => {
       <header class="agent-assistant-header">
         <div class="agent-assistant-title">
           <div class="agent-assistant-title__mark">
-            <VIcon icon="lucide:bot" size="22" />
+            <span class="agent-assistant-mini-bot" aria-hidden="true">
+              <span class="agent-assistant-mini-bot__antenna" />
+              <span class="agent-assistant-mini-bot__head">
+                <span class="agent-assistant-mini-bot__face">
+                  <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--left" />
+                  <span class="agent-assistant-mini-bot__eye agent-assistant-mini-bot__eye--right" />
+                </span>
+              </span>
+              <span class="agent-assistant-mini-bot__body" />
+            </span>
           </div>
           <div>
             <div class="text-subtitle-1 font-weight-semibold">{{ t('agentAssistant.title') }}</div>
@@ -1638,40 +1872,416 @@ onScopeDispose(() => {
 .agent-assistant-fab {
   position: fixed;
   z-index: 1000;
-  display: grid;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 999px 0 0 999px;
-  backdrop-filter: blur(10px);
-  background: rgba(var(--v-theme-surface), 0.86);
-  block-size: 2.5rem;
-  border-inline-end: 0;
-  box-shadow: var(--app-surface-shadow);
-  color: rgb(var(--v-theme-primary));
-  inline-size: 2.8rem;
+  block-size: 7.2rem;
+  inline-size: 13.2rem;
 
-  /* 入口避开屏幕正中，放到视觉上更轻的下三分之一位置。 */
-  inset-block-start: clamp(8rem, 66.666vh, calc(100vh - 8rem));
-  inset-inline-end: 0;
-  place-items: center;
-  transform: translate(1rem, -50%);
+  /* 入口停在右下侧，但保留一点悬浮感，避免挡住底部导航和常用操作。 */
+  inset-block-start: clamp(12rem, 66vh, calc(100vh - 8.2rem));
+  inset-inline-end: max(1.1rem, env(safe-area-inset-right));
+  pointer-events: none;
+  transform: translateY(-50%);
   transition:
-    inset-inline-end 0.2s ease,
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
+    inline-size 0.24s ease,
+    inset-inline-end 0.24s ease,
+    transform 0.24s ease;
 }
 
-.agent-assistant-fab:hover {
-  box-shadow: var(--app-surface-hover-shadow);
-  transform: translate(0, -50%);
+.agent-assistant-fab.is-docked {
+  inline-size: 3.85rem;
+  inset-inline-end: max(-1.55rem, calc(env(safe-area-inset-right) - 1.55rem));
 }
 
-.agent-assistant-fab__icon {
-  transform: rotate(-90deg);
-  transition: transform 0.18s ease;
+.agent-assistant-fab__trigger {
+  position: absolute;
+  display: block;
+  border: 0;
+  background: transparent;
+  block-size: 100%;
+  color: inherit;
+  cursor: pointer;
+  inline-size: 100%;
+  inset: 0;
+  padding: 0;
+  pointer-events: auto;
+  text-align: start;
+  touch-action: manipulation;
 }
 
-.agent-assistant-fab:hover .agent-assistant-fab__icon {
+.agent-assistant-fab__trigger::after {
+  position: absolute;
+  z-index: 1;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-on-surface), 0.14);
+  block-size: 3.2rem;
+  content: '';
+  inline-size: 0.18rem;
+  inset-block-end: 0.95rem;
+  inset-inline-end: 0.32rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__trigger::after {
+  opacity: 1;
+}
+
+.agent-assistant-fab__bubble {
+  position: absolute;
+  display: grid;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  background: rgba(var(--v-theme-surface), 0.92);
+  box-shadow: var(--app-surface-shadow);
+  inline-size: 13.2rem;
+  inset-block-end: 4.45rem;
+  inset-inline-end: 2.75rem;
+  max-inline-size: calc(100vw - 6.4rem);
+  opacity: 0;
+  padding-block: 0.7rem;
+  padding-inline: 0.85rem 1.85rem;
+  pointer-events: none;
+  transform: translateY(0.22rem) scale(0.96);
+  transform-origin: 100% 100%;
+  transition:
+    opacity 0.2s ease,
+    transform 0.24s ease;
+}
+
+.agent-assistant-fab__bubble span {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.42;
+  text-align: start;
+  white-space: normal;
+}
+
+.agent-assistant-fab__bubble::before {
+  position: absolute;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-block-start: 0;
+  border-inline-start: 0;
+  background: inherit;
+  block-size: 0.62rem;
+  content: '';
+  inline-size: 0.62rem;
+  inset-block-end: -0.34rem;
+  inset-inline-end: 1.85rem;
+  transform: rotate(45deg);
+}
+
+.agent-assistant-fab__bubble-close {
+  position: absolute;
+  display: inline-flex !important;
+  align-items: center;
+  -webkit-box-orient: initial !important;
+  -webkit-line-clamp: unset !important;
+  justify-content: center;
+  border-radius: 999px;
+  block-size: 1.25rem;
+  color: rgba(var(--v-theme-on-surface), 0.58) !important;
+  cursor: pointer;
+  inline-size: 1.25rem;
+  inset-block-start: 0.34rem;
+  inset-inline-end: 0.34rem;
+  opacity: 0;
+  pointer-events: auto;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.agent-assistant-fab__bubble:hover .agent-assistant-fab__bubble-close,
+.agent-assistant-fab__bubble-close:focus-visible {
+  opacity: 1;
+}
+
+.agent-assistant-fab__bubble-close:hover {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  color: rgba(var(--v-theme-on-surface), 0.86) !important;
+}
+
+.agent-assistant-fab.is-bubble-visible:not(.is-docked) .agent-assistant-fab__bubble {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__bubble {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(1.4rem) scale(0.9);
+}
+
+.agent-assistant-fab__bot,
+.agent-assistant-fab__bot span {
+  box-sizing: border-box;
+}
+
+.agent-assistant-fab__bot {
+  position: absolute;
+  display: block;
+  animation: agent-fab-float 3.4s ease-in-out infinite;
+  block-size: 4.7rem;
+  filter: drop-shadow(0 0.55rem 0.55rem rgba(12, 30, 88, 24%));
+  inline-size: 3.85rem;
+  inset-block-end: 0.1rem;
+  inset-inline-end: 1.42rem;
+  transform:
+    translate(var(--agent-assistant-pointer-x), var(--agent-assistant-pointer-y))
+    rotate(var(--agent-assistant-robot-tilt));
+  transform-origin: 50% 72%;
+  transition:
+    inset-inline-end 0.24s ease,
+    filter 0.18s ease,
+    transform 0.14s ease;
+}
+
+.agent-assistant-fab__antenna {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  border-radius: 999px;
+  background: #18398f;
+  block-size: 0.66rem;
+  inline-size: 0.18rem;
+  inset-block-start: 0.72rem;
+  inset-inline-start: 2.62rem;
+  transform: rotate(22deg);
+  transform-origin: bottom center;
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease;
+}
+
+.agent-assistant-fab__antenna::after {
+  position: absolute;
+  border: 2px solid #173a9d;
+  border-radius: 999px;
+  background: #8fbaff;
+  block-size: 0.38rem;
+  content: '';
+  inline-size: 0.38rem;
+  inset-block-start: -0.34rem;
+  inset-inline-start: -0.13rem;
+}
+
+.agent-assistant-fab__head {
+  position: absolute;
+  z-index: 4;
+  display: block;
+  border: 2px solid #173a9d;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #4b86ff 0%, #2b55d7 100%);
+  block-size: 2.05rem;
+  box-shadow:
+    inset 0 -0.2rem 0 rgba(6, 22, 79, 0.28),
+    inset 0.15rem 0.14rem 0 rgba(255, 255, 255, 0.24);
+  inline-size: 2.82rem;
+  inset-block-start: 1.42rem;
+  inset-inline-start: 0.88rem;
+}
+
+.agent-assistant-fab__face {
+  position: absolute;
+  display: block;
+  border: 2px solid #0c2a79;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #142859 0%, #0b173e 100%);
+  block-size: 1.28rem;
+  box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 0.08);
+  inline-size: 2.1rem;
+  inset-block-start: 0.33rem;
+  inset-inline-start: 0.25rem;
+}
+
+.agent-assistant-fab__eye {
+  position: absolute;
+  display: block;
+  animation: agent-fab-blink 4.8s ease-in-out infinite;
+  border-radius: 0 0 999px 999px;
+  border-block-end: 0.15rem solid #72fff0;
+  block-size: 0.42rem;
+  inline-size: 0.42rem;
+  inset-block-start: 0.36rem;
+  transform: translate(var(--agent-assistant-pointer-x), var(--agent-assistant-pointer-y));
+}
+
+.agent-assistant-fab__eye--left {
+  inset-inline-start: 0.43rem;
+}
+
+.agent-assistant-fab__eye--right {
+  inset-inline-end: 0.43rem;
+}
+
+.agent-assistant-fab__body {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  border: 2px solid #173a9d;
+  border-radius: 0.65rem 0.65rem 0.55rem 0.55rem;
+  background: linear-gradient(145deg, #6da4ff 0%, #345fe1 82%);
+  block-size: 1.34rem;
+  box-shadow:
+    inset 0 -0.18rem 0 rgba(6, 22, 79, 0.26),
+    inset 0.16rem 0.12rem 0 rgba(255, 255, 255, 0.24);
+  inline-size: 1.88rem;
+  inset-block-start: 3.24rem;
+  inset-inline-start: 1.32rem;
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease;
+}
+
+.agent-assistant-fab__core {
+  position: absolute;
+  display: block;
+  block-size: 0.46rem;
+  inline-size: 0.6rem;
+  inset-block-start: 0.34rem;
+  inset-inline-start: 0.62rem;
+}
+
+.agent-assistant-fab__core::before,
+.agent-assistant-fab__core::after {
+  position: absolute;
+  border-radius: 999px;
+  background: #e9f6ff;
+  block-size: 0.13rem;
+  content: '';
+  inline-size: 0.48rem;
+  inset-block-start: 0.08rem;
+  inset-inline-start: 0.04rem;
+  transform: rotate(24deg);
+}
+
+.agent-assistant-fab__core::after {
+  block-size: 0.26rem;
+  inline-size: 0.26rem;
+  inset-block-start: 0.12rem;
+  inset-inline-start: 0.28rem;
   transform: rotate(0);
+}
+
+.agent-assistant-fab__arm,
+.agent-assistant-fab__leg {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  border: 2px solid #173a9d;
+  background: linear-gradient(160deg, #5c92ff 0%, #2549cb 100%);
+  box-shadow: inset 0 -0.12rem 0 rgba(5, 21, 78, 0.26);
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease;
+}
+
+.agent-assistant-fab__arm {
+  border-radius: 999px;
+  block-size: 1rem;
+  inline-size: 0.46rem;
+  inset-block-start: 3.3rem;
+}
+
+.agent-assistant-fab__arm--left {
+  animation: agent-fab-wave-left 2.8s ease-in-out infinite;
+  inset-inline-start: 0.9rem;
+  transform: rotate(17deg);
+  transform-origin: top center;
+}
+
+.agent-assistant-fab__arm--right {
+  animation: agent-fab-wave-right 2.8s ease-in-out infinite;
+  inset-inline-start: 3.08rem;
+  transform: rotate(-17deg);
+  transform-origin: top center;
+}
+
+.agent-assistant-fab__leg {
+  border-radius: 0.35rem;
+  block-size: 0.66rem;
+  inline-size: 0.48rem;
+  inset-block-start: 4.36rem;
+}
+
+.agent-assistant-fab__leg--left {
+  inset-inline-start: 1.48rem;
+}
+
+.agent-assistant-fab__leg--right {
+  inset-inline-start: 2.46rem;
+}
+
+.agent-assistant-fab.is-bubble-visible .agent-assistant-fab__trigger:hover .agent-assistant-fab__bubble {
+  box-shadow: var(--app-surface-hover-shadow);
+  transform: translateY(-0.08rem) scale(1);
+}
+
+.agent-assistant-fab__trigger:hover .agent-assistant-fab__bot {
+  filter: drop-shadow(0 0.7rem 0.7rem rgba(12, 30, 88, 30%));
+}
+
+.agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
+  transform:
+    translate(var(--agent-assistant-pointer-x), calc(var(--agent-assistant-pointer-y) + 0.22rem))
+    rotate(var(--agent-assistant-robot-tilt))
+    scale(0.96);
+}
+
+.agent-assistant-fab.is-thinking .agent-assistant-fab__face {
+  box-shadow:
+    inset 0 0.1rem 0 rgba(255, 255, 255, 0.08),
+    0 0 0.65rem rgba(114, 255, 240, 0.5);
+}
+
+.agent-assistant-fab.is-thinking .agent-assistant-fab__core {
+  animation: agent-fab-core-pulse 0.9s ease-in-out infinite;
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__bot {
+  inset-inline-end: -0.42rem;
+  transform:
+    translate(calc(var(--agent-assistant-pointer-x) * 0.24), calc(var(--agent-assistant-pointer-y) * 0.24 - 0.2rem))
+    rotate(-19deg);
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__eye {
+  transform: translate(calc(var(--agent-assistant-pointer-x) * 0.24 - 0.22rem), calc(var(--agent-assistant-pointer-y) * 0.24));
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__body,
+.agent-assistant-fab.is-docked .agent-assistant-fab__leg {
+  opacity: 0;
+  transform: translateX(0.8rem) scale(0.72);
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__arm--left,
+.agent-assistant-fab.is-docked .agent-assistant-fab__arm--right {
+  animation: none;
+  opacity: 0;
+  transform: translateX(0.8rem) scale(0.72);
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__arm--left {
+  z-index: 5;
+  opacity: 1;
+  block-size: 0.95rem;
+  inline-size: 0.42rem;
+  inset-block-start: 3.62rem;
+  inset-inline-start: 1.86rem;
+  transform: rotate(78deg) scale(0.9);
+}
+
+.agent-assistant-fab.is-docked .agent-assistant-fab__antenna {
+  opacity: 0.75;
+  transform: translate(0.34rem, 0.02rem) rotate(2deg) scale(0.82);
 }
 
 .agent-assistant-panel {
@@ -1738,6 +2348,101 @@ onScopeDispose(() => {
   block-size: 2.5rem;
   color: rgb(var(--v-theme-primary));
   inline-size: 2.5rem;
+}
+
+.agent-assistant-mini-bot,
+.agent-assistant-mini-bot span {
+  box-sizing: border-box;
+}
+
+.agent-assistant-mini-bot {
+  position: relative;
+  display: block;
+  block-size: 1.85rem;
+  inline-size: 1.85rem;
+}
+
+.agent-assistant-mini-bot__antenna {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: #18398f;
+  block-size: 0.42rem;
+  inline-size: 0.12rem;
+  inset-block-start: 0;
+  inset-inline-start: 1.18rem;
+  transform: rotate(20deg);
+  transform-origin: bottom center;
+}
+
+.agent-assistant-mini-bot__antenna::after {
+  position: absolute;
+  border: 1.5px solid #173a9d;
+  border-radius: 999px;
+  background: #8fbaff;
+  block-size: 0.28rem;
+  content: '';
+  inline-size: 0.28rem;
+  inset-block-start: -0.24rem;
+  inset-inline-start: -0.09rem;
+}
+
+.agent-assistant-mini-bot__head {
+  position: absolute;
+  display: block;
+  border: 1.5px solid #173a9d;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #4b86ff 0%, #2b55d7 100%);
+  block-size: 1.04rem;
+  box-shadow:
+    inset 0 -0.12rem 0 rgba(6, 22, 79, 0.24),
+    inset 0.08rem 0.08rem 0 rgba(255, 255, 255, 0.22);
+  inline-size: 1.45rem;
+  inset-block-start: 0.42rem;
+  inset-inline-start: 0.2rem;
+}
+
+.agent-assistant-mini-bot__face {
+  position: absolute;
+  display: block;
+  border: 1.5px solid #0c2a79;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #142859 0%, #0b173e 100%);
+  block-size: 0.62rem;
+  inline-size: 1rem;
+  inset-block-start: 0.18rem;
+  inset-inline-start: 0.16rem;
+}
+
+.agent-assistant-mini-bot__eye {
+  position: absolute;
+  display: block;
+  animation: agent-fab-blink 4.8s ease-in-out infinite;
+  border-radius: 0 0 999px 999px;
+  border-block-end: 0.1rem solid #72fff0;
+  block-size: 0.24rem;
+  inline-size: 0.22rem;
+  inset-block-start: 0.16rem;
+}
+
+.agent-assistant-mini-bot__eye--left {
+  inset-inline-start: 0.22rem;
+}
+
+.agent-assistant-mini-bot__eye--right {
+  inset-inline-end: 0.22rem;
+}
+
+.agent-assistant-mini-bot__body {
+  position: absolute;
+  display: block;
+  border: 1.5px solid #173a9d;
+  border-radius: 0.4rem;
+  background: linear-gradient(145deg, #6da4ff 0%, #345fe1 82%);
+  block-size: 0.54rem;
+  inline-size: 0.98rem;
+  inset-block-start: 1.3rem;
+  inset-inline-start: 0.44rem;
 }
 
 .agent-assistant-status {
@@ -2443,6 +3148,67 @@ onScopeDispose(() => {
   }
 }
 
+@keyframes agent-fab-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -0.32rem;
+  }
+}
+
+@keyframes agent-fab-wave-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+@keyframes agent-fab-wave-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  50% {
+    transform: rotate(-7deg);
+  }
+}
+
+@keyframes agent-fab-core-pulse {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes agent-fab-blink {
+  0%,
+  4%,
+  8%,
+  100% {
+    opacity: 1;
+    scale: 1 1;
+  }
+
+  6% {
+    opacity: 0.45;
+    scale: 1 0.15;
+  }
+}
+
 @media (width <= 960px) {
   .agent-assistant-panel {
     inline-size: 100vw !important;
@@ -2450,6 +3216,56 @@ onScopeDispose(() => {
 }
 
 @media (width <= 600px) {
+  .agent-assistant-fab {
+    block-size: 6.65rem;
+    inline-size: min(12.4rem, calc(100vw - 1rem));
+    inset-block-start: auto;
+    inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 5.6rem);
+    inset-inline-end: 0.7rem;
+    transform: none;
+  }
+
+  .agent-assistant-fab.is-docked {
+    inline-size: 3.45rem;
+    inset-inline-end: -1.28rem;
+  }
+
+  .agent-assistant-fab__bubble {
+    inline-size: min(9.6rem, calc(100vw - 5.6rem));
+    inset-inline-end: 2.35rem;
+    padding-block: 0.56rem;
+    padding-inline: 0.72rem 1.62rem;
+  }
+
+  .agent-assistant-fab__bubble strong {
+    font-size: 0.8rem;
+  }
+
+  .agent-assistant-fab__bubble span {
+    font-size: 0.68rem;
+  }
+
+  .agent-assistant-fab__bot {
+    inset-inline-end: 1.02rem;
+    transform: scale(0.82)
+      translate(var(--agent-assistant-pointer-x), var(--agent-assistant-pointer-y))
+      rotate(var(--agent-assistant-robot-tilt));
+    transform-origin: 70% 78%;
+  }
+
+  .agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
+    transform: scale(0.78)
+      translate(var(--agent-assistant-pointer-x), calc(var(--agent-assistant-pointer-y) + 0.18rem))
+      rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  .agent-assistant-fab.is-docked .agent-assistant-fab__bot {
+    inset-inline-end: -0.48rem;
+    transform: scale(0.82)
+      translate(calc(var(--agent-assistant-pointer-x) * 0.24), calc(var(--agent-assistant-pointer-y) * 0.24 - 0.16rem))
+      rotate(-19deg);
+  }
+
   .agent-assistant-empty {
     justify-content: flex-start;
     padding-block-start: 2.75rem;
@@ -2467,6 +3283,17 @@ onScopeDispose(() => {
   .agent-assistant-composer {
     inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 0.7rem);
     inset-inline: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-assistant-fab,
+  .agent-assistant-fab *,
+  .agent-assistant-typing span {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 </style>
