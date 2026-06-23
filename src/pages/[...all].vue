@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 
 // 国际化

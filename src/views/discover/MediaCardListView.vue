@@ -3,7 +3,7 @@ import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import MediaCard from '@/components/cards/MediaCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()

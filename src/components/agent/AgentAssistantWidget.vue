@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AgentAssistantEntry from '@/components/AgentAssistantEntry.vue'
-import AgentAssistantPanel from '@/components/AgentAssistantPanel.vue'
+import AgentAssistantEntry from './AgentAssistantEntry.vue'
+import AgentAssistantPanel from './AgentAssistantPanel.vue'
 
 type AgentAssistantEntryRef = InstanceType<typeof AgentAssistantEntry>
 

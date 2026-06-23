@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import FileList from './filebrowser/FileList.vue'
-import FileToolbar from './filebrowser/FileToolbar.vue'
-import FileNavigator from './filebrowser/FileNavigator.vue'
+import FileList from './FileList.vue'
+import FileToolbar from './FileToolbar.vue'
+import FileNavigator from './FileNavigator.vue'
 import type { EndPoints, FileItem, StorageConf } from '@/api/types'
 import { storageIconDict } from '@/api/constants'
 import type { AxiosInstance } from 'axios'

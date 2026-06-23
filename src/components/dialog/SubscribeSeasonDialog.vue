@@ -2,7 +2,7 @@
 import api from '@/api'
 import { MediaInfo, MediaSeason, NotExistMediaInfo } from '@/api/types'
 import { PropType } from 'vue'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 

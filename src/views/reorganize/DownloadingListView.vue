@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import type { DownloadingInfo } from '@/api/types'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import DownloadingCard from '@/components/cards/DownloadingCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'

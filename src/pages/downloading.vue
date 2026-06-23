@@ -2,7 +2,7 @@
 import api from '@/api'
 import { DownloaderConf } from '@/api/types'
 import DownloadingListView from '@/views/reorganize/DownloadingListView.vue'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'

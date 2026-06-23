@@ -2,7 +2,7 @@
 import api from '@/api'
 import { Workflow } from '@/api/types'
 import WorkflowTaskCard from '@/components/cards/WorkflowTaskCard.vue'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'

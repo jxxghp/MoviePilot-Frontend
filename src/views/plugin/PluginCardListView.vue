@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useDisplay } from 'vuetify'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { getPluginTabs } from '@/router/i18n-menu'

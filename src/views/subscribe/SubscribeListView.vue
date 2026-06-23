@@ -2,7 +2,7 @@
 import draggable from 'vuedraggable'
 import api from '@/api'
 import type { Subscribe } from '@/api/types'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import SubscribeCard from '@/components/cards/SubscribeCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useUserStore } from '@/stores'

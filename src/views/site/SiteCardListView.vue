@@ -2,7 +2,7 @@
 import api from '@/api'
 import type { Site, SiteUserData } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'

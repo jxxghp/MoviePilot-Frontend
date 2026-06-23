@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { debounce } from 'lodash-es'
 import type { LocationQuery } from 'vue-router'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import api from '@/api'
 import type { Context, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'

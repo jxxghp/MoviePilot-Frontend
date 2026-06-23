@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import { FileItem, StorageConf, TransferDirectoryConf } from '@/api/types'
-import FileBrowser from '@/components/FileBrowser.vue'
+import FileBrowser from '@/components/filebrowser/FileBrowser.vue'
 
 const endpoints = {
   list: {

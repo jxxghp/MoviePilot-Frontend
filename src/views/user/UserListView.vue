@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import api from '@/api'
 import type { User } from '@/api/types'
-import NoDataFound from '@/components/NoDataFound.vue'
+import NoDataFound from '@/components/states/NoDataFound.vue'
 import UserCard from '@/components/cards/UserCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton } from '@/composables/useDynamicButton'

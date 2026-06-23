@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import DefaultLayout from './components/DefaultLayout.vue'
+import DefaultLayout from './default/components/DefaultLayout.vue'
 
 const route = useRoute()
 
