@@ -2154,20 +2154,24 @@ onScopeDispose(() => {
 .agent-assistant-fab__core {
   position: absolute;
   display: block;
-  block-size: 0.62rem;
-  inline-size: 0.72rem;
-  inset-block-start: 0.32rem;
-  inset-inline-start: 0.6rem;
+  background: transparent;
+  block-size: 100%;
+  box-shadow: none;
+  inline-size: 100%;
+  inset: 0;
+  pointer-events: none;
 }
 
 .agent-assistant-fab__core::before {
   position: absolute;
-  border-block-end: 0.2rem solid transparent;
-  border-block-start: 0.2rem solid transparent;
-  border-inline-start: 0.36rem solid var(--agent-assistant-robot-play);
+  background: var(--agent-assistant-robot-play);
+  block-size: 0.46rem;
+  clip-path: polygon(18% 8%, 18% 92%, 90% 50%);
   content: '';
-  inset-block-start: 0.11rem;
-  inset-inline-start: 0.22rem;
+  inline-size: 0.48rem;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-42%, -50%);
 }
 
 .agent-assistant-fab__arm,
