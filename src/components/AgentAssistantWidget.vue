@@ -1872,6 +1872,17 @@ onScopeDispose(() => {
 .agent-assistant-fab {
   position: fixed;
   z-index: 1000;
+  --agent-assistant-robot-outline: #5b00c5;
+  --agent-assistant-robot-outline-soft: #7432df;
+  --agent-assistant-robot-shell-start: #d3bbff;
+  --agent-assistant-robot-shell-mid: #a576ff;
+  --agent-assistant-robot-shell-end: #8d51f9;
+  --agent-assistant-robot-face-start: #24124e;
+  --agent-assistant-robot-face-end: #100525;
+  --agent-assistant-robot-eye: #f1dcff;
+  --agent-assistant-robot-play: #fff;
+  --agent-assistant-robot-shadow: rgba(54, 0, 126, 0.28);
+  --agent-assistant-robot-shadow-strong: rgba(54, 0, 126, 0.34);
   block-size: 7.2rem;
   inline-size: 13.2rem;
 
@@ -2029,7 +2040,7 @@ onScopeDispose(() => {
   display: block;
   animation: agent-fab-float 3.4s ease-in-out infinite;
   block-size: 4.7rem;
-  filter: drop-shadow(0 0.55rem 0.55rem rgba(12, 30, 88, 24%));
+  filter: drop-shadow(0 0.55rem 0.55rem var(--agent-assistant-robot-shadow));
   inline-size: 3.85rem;
   inset-block-end: 0.1rem;
   inset-inline-end: 1.42rem;
@@ -2048,7 +2059,7 @@ onScopeDispose(() => {
   z-index: 3;
   display: block;
   border-radius: 999px;
-  background: #18398f;
+  background: var(--agent-assistant-robot-outline);
   block-size: 0.66rem;
   inline-size: 0.18rem;
   inset-block-start: 0.72rem;
@@ -2062,9 +2073,9 @@ onScopeDispose(() => {
 
 .agent-assistant-fab__antenna::after {
   position: absolute;
-  border: 2px solid #173a9d;
+  border: 2px solid var(--agent-assistant-robot-outline);
   border-radius: 999px;
-  background: #8fbaff;
+  background: var(--agent-assistant-robot-shell-start);
   block-size: 0.38rem;
   content: '';
   inline-size: 0.38rem;
@@ -2076,12 +2087,12 @@ onScopeDispose(() => {
   position: absolute;
   z-index: 4;
   display: block;
-  border: 2px solid #173a9d;
+  border: 2px solid var(--agent-assistant-robot-outline);
   border-radius: 11px;
-  background: linear-gradient(145deg, #4b86ff 0%, #2b55d7 100%);
+  background: linear-gradient(145deg, var(--agent-assistant-robot-shell-start) 0%, var(--agent-assistant-robot-shell-end) 100%);
   block-size: 2.05rem;
   box-shadow:
-    inset 0 -0.2rem 0 rgba(6, 22, 79, 0.28),
+    inset 0 -0.2rem 0 rgba(54, 0, 126, 0.26),
     inset 0.15rem 0.14rem 0 rgba(255, 255, 255, 0.24);
   inline-size: 2.82rem;
   inset-block-start: 1.42rem;
@@ -2091,9 +2102,9 @@ onScopeDispose(() => {
 .agent-assistant-fab__face {
   position: absolute;
   display: block;
-  border: 2px solid #0c2a79;
+  border: 2px solid var(--agent-assistant-robot-outline-soft);
   border-radius: 8px;
-  background: linear-gradient(180deg, #142859 0%, #0b173e 100%);
+  background: linear-gradient(180deg, var(--agent-assistant-robot-face-start) 0%, var(--agent-assistant-robot-face-end) 100%);
   block-size: 1.28rem;
   box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 0.08);
   inline-size: 2.1rem;
@@ -2106,7 +2117,7 @@ onScopeDispose(() => {
   display: block;
   animation: agent-fab-blink 4.8s ease-in-out infinite;
   border-radius: 0 0 999px 999px;
-  border-block-end: 0.15rem solid #72fff0;
+  border-block-end: 0.15rem solid var(--agent-assistant-robot-eye);
   block-size: 0.42rem;
   inline-size: 0.42rem;
   inset-block-start: 0.36rem;
@@ -2125,12 +2136,12 @@ onScopeDispose(() => {
   position: absolute;
   z-index: 3;
   display: block;
-  border: 2px solid #173a9d;
+  border: 2px solid var(--agent-assistant-robot-outline);
   border-radius: 0.65rem 0.65rem 0.55rem 0.55rem;
-  background: linear-gradient(145deg, #6da4ff 0%, #345fe1 82%);
+  background: linear-gradient(145deg, var(--agent-assistant-robot-shell-mid) 0%, var(--agent-assistant-robot-shell-end) 82%);
   block-size: 1.34rem;
   box-shadow:
-    inset 0 -0.18rem 0 rgba(6, 22, 79, 0.26),
+    inset 0 -0.18rem 0 rgba(54, 0, 126, 0.24),
     inset 0.16rem 0.12rem 0 rgba(255, 255, 255, 0.24);
   inline-size: 1.88rem;
   inset-block-start: 3.24rem;
@@ -2143,31 +2154,20 @@ onScopeDispose(() => {
 .agent-assistant-fab__core {
   position: absolute;
   display: block;
-  block-size: 0.46rem;
-  inline-size: 0.6rem;
-  inset-block-start: 0.34rem;
-  inset-inline-start: 0.62rem;
+  block-size: 0.62rem;
+  inline-size: 0.72rem;
+  inset-block-start: 0.32rem;
+  inset-inline-start: 0.6rem;
 }
 
-.agent-assistant-fab__core::before,
-.agent-assistant-fab__core::after {
+.agent-assistant-fab__core::before {
   position: absolute;
-  border-radius: 999px;
-  background: #e9f6ff;
-  block-size: 0.13rem;
+  border-block-end: 0.2rem solid transparent;
+  border-block-start: 0.2rem solid transparent;
+  border-inline-start: 0.36rem solid var(--agent-assistant-robot-play);
   content: '';
-  inline-size: 0.48rem;
-  inset-block-start: 0.08rem;
-  inset-inline-start: 0.04rem;
-  transform: rotate(24deg);
-}
-
-.agent-assistant-fab__core::after {
-  block-size: 0.26rem;
-  inline-size: 0.26rem;
-  inset-block-start: 0.12rem;
-  inset-inline-start: 0.28rem;
-  transform: rotate(0);
+  inset-block-start: 0.11rem;
+  inset-inline-start: 0.22rem;
 }
 
 .agent-assistant-fab__arm,
@@ -2175,9 +2175,9 @@ onScopeDispose(() => {
   position: absolute;
   z-index: 2;
   display: block;
-  border: 2px solid #173a9d;
-  background: linear-gradient(160deg, #5c92ff 0%, #2549cb 100%);
-  box-shadow: inset 0 -0.12rem 0 rgba(5, 21, 78, 0.26);
+  border: 2px solid var(--agent-assistant-robot-outline);
+  background: linear-gradient(160deg, var(--agent-assistant-robot-shell-mid) 0%, var(--agent-assistant-robot-outline-soft) 100%);
+  box-shadow: inset 0 -0.12rem 0 rgba(54, 0, 126, 0.24);
   transition:
     opacity 0.2s ease,
     transform 0.22s ease;
@@ -2225,7 +2225,7 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-fab__trigger:hover .agent-assistant-fab__bot {
-  filter: drop-shadow(0 0.7rem 0.7rem rgba(12, 30, 88, 30%));
+  filter: drop-shadow(0 0.7rem 0.7rem var(--agent-assistant-robot-shadow-strong));
 }
 
 .agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
@@ -2344,6 +2344,14 @@ onScopeDispose(() => {
   align-items: center;
   justify-content: center;
   border-radius: 12px;
+  --agent-assistant-mini-robot-outline: #5b00c5;
+  --agent-assistant-mini-robot-outline-soft: #7432df;
+  --agent-assistant-mini-robot-shell-start: #d3bbff;
+  --agent-assistant-mini-robot-shell-mid: #a576ff;
+  --agent-assistant-mini-robot-shell-end: #8d51f9;
+  --agent-assistant-mini-robot-face-start: #24124e;
+  --agent-assistant-mini-robot-face-end: #100525;
+  --agent-assistant-mini-robot-eye: #f1dcff;
   background: rgba(var(--v-theme-primary), 0.12);
   block-size: 2.5rem;
   color: rgb(var(--v-theme-primary));
@@ -2366,7 +2374,7 @@ onScopeDispose(() => {
   position: absolute;
   display: block;
   border-radius: 999px;
-  background: #18398f;
+  background: var(--agent-assistant-mini-robot-outline);
   block-size: 0.42rem;
   inline-size: 0.12rem;
   inset-block-start: 0;
@@ -2377,9 +2385,9 @@ onScopeDispose(() => {
 
 .agent-assistant-mini-bot__antenna::after {
   position: absolute;
-  border: 1.5px solid #173a9d;
+  border: 1.5px solid var(--agent-assistant-mini-robot-outline);
   border-radius: 999px;
-  background: #8fbaff;
+  background: var(--agent-assistant-mini-robot-shell-start);
   block-size: 0.28rem;
   content: '';
   inline-size: 0.28rem;
@@ -2390,12 +2398,16 @@ onScopeDispose(() => {
 .agent-assistant-mini-bot__head {
   position: absolute;
   display: block;
-  border: 1.5px solid #173a9d;
+  border: 1.5px solid var(--agent-assistant-mini-robot-outline);
   border-radius: 8px;
-  background: linear-gradient(145deg, #4b86ff 0%, #2b55d7 100%);
+  background: linear-gradient(
+    145deg,
+    var(--agent-assistant-mini-robot-shell-start) 0%,
+    var(--agent-assistant-mini-robot-shell-end) 100%
+  );
   block-size: 1.04rem;
   box-shadow:
-    inset 0 -0.12rem 0 rgba(6, 22, 79, 0.24),
+    inset 0 -0.12rem 0 rgba(54, 0, 126, 0.22),
     inset 0.08rem 0.08rem 0 rgba(255, 255, 255, 0.22);
   inline-size: 1.45rem;
   inset-block-start: 0.42rem;
@@ -2405,9 +2417,9 @@ onScopeDispose(() => {
 .agent-assistant-mini-bot__face {
   position: absolute;
   display: block;
-  border: 1.5px solid #0c2a79;
+  border: 1.5px solid var(--agent-assistant-mini-robot-outline-soft);
   border-radius: 6px;
-  background: linear-gradient(180deg, #142859 0%, #0b173e 100%);
+  background: linear-gradient(180deg, var(--agent-assistant-mini-robot-face-start) 0%, var(--agent-assistant-mini-robot-face-end) 100%);
   block-size: 0.62rem;
   inline-size: 1rem;
   inset-block-start: 0.18rem;
@@ -2419,7 +2431,7 @@ onScopeDispose(() => {
   display: block;
   animation: agent-fab-blink 4.8s ease-in-out infinite;
   border-radius: 0 0 999px 999px;
-  border-block-end: 0.1rem solid #72fff0;
+  border-block-end: 0.1rem solid var(--agent-assistant-mini-robot-eye);
   block-size: 0.24rem;
   inline-size: 0.22rem;
   inset-block-start: 0.16rem;
@@ -2436,9 +2448,13 @@ onScopeDispose(() => {
 .agent-assistant-mini-bot__body {
   position: absolute;
   display: block;
-  border: 1.5px solid #173a9d;
+  border: 1.5px solid var(--agent-assistant-mini-robot-outline);
   border-radius: 0.4rem;
-  background: linear-gradient(145deg, #6da4ff 0%, #345fe1 82%);
+  background: linear-gradient(
+    145deg,
+    var(--agent-assistant-mini-robot-shell-mid) 0%,
+    var(--agent-assistant-mini-robot-shell-end) 82%
+  );
   block-size: 0.54rem;
   inline-size: 0.98rem;
   inset-block-start: 1.3rem;
