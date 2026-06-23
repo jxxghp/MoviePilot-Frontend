@@ -11,6 +11,8 @@ import { useConfirm } from '@/composables/useConfirm'
 type NotificationDisplayItem =
   | { kind: 'section'; key: string; title: string; count: number }
   | { kind: 'notification'; key: string; notification: SystemNotification }
+type NotificationClearScope = 'all' | 'system' | 'media'
+type NotificationClearBefore = Record<NotificationClearScope, number>
 
 const { t } = useI18n()
 const { useDelayedSSE } = useBackground()
@@ -20,6 +22,7 @@ const createConfirm = useConfirm()
 const PAGE_SIZE = 20
 // 虚拟滚动的默认通知项高度，展开后的实际高度由 VVirtualScroll 的 itemRef 动态测量。
 const NOTIFICATION_ITEM_HEIGHT = 136
+const MAX_FILTERED_PAGES_PER_LOAD = 5
 const CLEAR_NOTIFICATION_ENDPOINTS = ['message/notification', 'message/notification/clear']
 const NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY = 'moviepilot-notification-clear-before'
 
@@ -36,20 +39,83 @@ const expandedNotificationKeys = ref(new Set<string>())
 
 const hasUnreadNotifications = computed(() => notificationList.value.some(item => item.read === false))
 const notificationDisplayList = computed(() => buildNotificationDisplayList(notificationList.value))
+const notificationClearCounts = computed(() => getNotificationClearCounts())
+const notificationClearOptions = computed(() => [
+  {
+    scope: 'system' as const,
+    title: t('notification.clearSystemMessages'),
+    icon: 'mdi-alert-circle-outline',
+    color: 'error',
+    count: notificationClearCounts.value.system,
+  },
+  {
+    scope: 'media' as const,
+    title: t('notification.clearMediaMessages'),
+    icon: 'mdi-image-outline',
+    color: 'primary',
+    count: notificationClearCounts.value.media,
+  },
+  {
+    scope: 'all' as const,
+    title: t('notification.clearAllMessages'),
+    icon: 'mdi-trash-can-outline',
+    color: 'secondary',
+    count: notificationClearCounts.value.all,
+  },
+])
+
+/** 生成默认清理时间，分别记录全部、系统消息和媒体消息的清理范围。 */
+function createDefaultNotificationClearBefore(): NotificationClearBefore {
+  return {
+    all: 0,
+    system: 0,
+    media: 0,
+  }
+}
+
+/** 规范化清理时间，兼容旧版本只存一个数字的本地存储格式。 */
+function normalizeNotificationClearBefore(value: unknown): NotificationClearBefore {
+  const clearBefore = createDefaultNotificationClearBefore()
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    clearBefore.all = value
+    return clearBefore
+  }
+
+  if (!value || typeof value !== 'object') return clearBefore
+
+  const scopes: NotificationClearScope[] = ['all', 'system', 'media']
+  scopes.forEach(scope => {
+    const scopeValue = Number((value as Partial<NotificationClearBefore>)[scope] || 0)
+    clearBefore[scope] = Number.isFinite(scopeValue) ? scopeValue : 0
+  })
+
+  return clearBefore
+}
 
 /** 从本地存储读取通知清理时间戳，用于过滤已清理的历史通知。 */
 function readNotificationClearBefore() {
-  if (typeof localStorage === 'undefined') return 0
+  if (typeof localStorage === 'undefined') return createDefaultNotificationClearBefore()
 
-  return Number(localStorage.getItem(NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY) || 0)
+  const storedValue = localStorage.getItem(NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY)
+  if (!storedValue) return createDefaultNotificationClearBefore()
+
+  try {
+    return normalizeNotificationClearBefore(JSON.parse(storedValue))
+  } catch {
+    return normalizeNotificationClearBefore(Number(storedValue))
+  }
 }
 
-/** 写入通知清理时间戳，使清理结果在刷新后仍然生效。 */
-function writeNotificationClearBefore(value: number) {
-  notificationClearBefore.value = value
+/** 写入指定范围的通知清理时间戳，使清理结果在刷新后仍然生效。 */
+function writeNotificationClearBefore(scope: NotificationClearScope, value: number) {
+  notificationClearBefore.value = {
+    ...notificationClearBefore.value,
+    [scope]: value,
+  }
   if (typeof localStorage === 'undefined') return
 
-  localStorage.setItem(NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY, String(value))
+  localStorage.setItem(NOTIFICATION_CLEAR_BEFORE_STORAGE_KEY, JSON.stringify(notificationClearBefore.value))
 }
 
 /** 将通知备注统一转换成稳定字符串，用于生成去重 key。 */
@@ -120,7 +186,8 @@ function parseNotificationTime(value: string) {
 
 /** 判断历史通知是否早于本地清理时间，需要从列表中过滤。 */
 function isClearedHistoryNotification(item: SystemNotification) {
-  const clearBefore = notificationClearBefore.value
+  const scope = getNotificationClearScope(item)
+  const clearBefore = Math.max(notificationClearBefore.value.all, notificationClearBefore.value[scope])
   if (!clearBefore) return false
 
   const notificationTime = parseNotificationTime(getNotificationTime(item))
@@ -198,7 +265,74 @@ function resetNotifications() {
   hasNewMessage.value = false
 }
 
-/** 通过后端接口清理通知历史，兼容新旧后端可能暴露的清理路径。 */
+/** 重新根据当前列表生成去重 key，避免分类清理后遗留已移除消息的去重状态。 */
+function rebuildNotificationKeys() {
+  notificationKeys.clear()
+  notificationList.value.forEach(item => {
+    getNotificationKeys(item).forEach(key => notificationKeys.add(key))
+  })
+}
+
+/** 清理已移除通知的展开状态，避免虚拟列表复用时保留无效 key。 */
+function rebuildExpandedNotificationKeys() {
+  const currentKeys = new Set(notificationList.value.map(getNotificationExpansionKey))
+  expandedNotificationKeys.value = new Set(
+    [...expandedNotificationKeys.value].filter(key => currentKeys.has(key)),
+  )
+}
+
+/** 列表内容变化后同步未读红点和应用角标状态。 */
+function syncUnreadStateAfterListChange() {
+  hasNewMessage.value = hasUnreadNotifications.value
+  if (!hasUnreadNotifications.value) void clearUnreadMessages()
+}
+
+/** 统计当前已加载通知中各清理范围的数量，用于菜单展示和禁用空操作。 */
+function getNotificationClearCounts() {
+  const counts: Record<NotificationClearScope, number> = {
+    all: notificationList.value.length,
+    system: 0,
+    media: 0,
+  }
+
+  notificationList.value.forEach(item => {
+    counts[getNotificationClearScope(item)] += 1
+  })
+
+  return counts
+}
+
+/** 移除指定范围的通知，并让分页从第一页重新校验，方便继续加载剩余分类历史。 */
+function removeNotificationsByScope(scope: NotificationClearScope) {
+  if (scope === 'all') {
+    resetNotifications()
+    hasMore.value = false
+    return
+  }
+
+  notificationList.value = notificationList.value.filter(item => getNotificationClearScope(item) !== scope)
+  page.value = 1
+  hasMore.value = true
+  rebuildNotificationKeys()
+  rebuildExpandedNotificationKeys()
+  syncUnreadStateAfterListChange()
+}
+
+/** 获取不同清理范围的确认文案。 */
+function getClearConfirmText(scope: NotificationClearScope) {
+  if (scope === 'system') return t('notification.clearSystemConfirm')
+  if (scope === 'media') return t('notification.clearMediaConfirm')
+  return t('notification.clearAllConfirm')
+}
+
+/** 获取不同清理范围的成功文案。 */
+function getClearSuccessText(scope: NotificationClearScope) {
+  if (scope === 'system') return t('notification.clearSystemSuccess')
+  if (scope === 'media') return t('notification.clearMediaSuccess')
+  return t('notification.clearAllSuccess')
+}
+
+/** 通过后端接口清理全部通知历史，兼容新旧后端可能暴露的清理路径。 */
 async function deleteNotificationHistory() {
   let lastError: unknown = null
 
@@ -214,8 +348,10 @@ async function deleteNotificationHistory() {
   throw lastError
 }
 
-/** 尝试调用后端清理接口，不支持时回退为本地清理。 */
-async function tryDeleteNotificationHistory() {
+/** 尝试调用后端清理接口；分类清理使用本地时间戳过滤以兼容当前全量接口语义。 */
+async function tryDeleteNotificationHistory(scope: NotificationClearScope) {
+  if (scope !== 'all') return true
+
   try {
     const result: { [key: string]: any } = await deleteNotificationHistory()
     return result?.success !== false
@@ -226,31 +362,32 @@ async function tryDeleteNotificationHistory() {
 }
 
 /** 确认并清空通知中心历史，同时同步清理未读角标。 */
-async function clearNotifications() {
-  if (clearing.value || notificationList.value.length === 0) return
+async function clearNotifications(scope: NotificationClearScope) {
+  if (clearing.value || notificationClearCounts.value[scope] === 0) return
 
   const confirmed = await createConfirm({
     type: 'warn',
     title: t('notification.clear'),
-    content: t('notification.clearConfirm'),
+    content: getClearConfirmText(scope),
     confirmText: t('notification.clear'),
   })
   if (!confirmed) return
 
   clearing.value = true
   try {
-    const cleared = await tryDeleteNotificationHistory()
+    const cleared = await tryDeleteNotificationHistory(scope)
     if (!cleared) {
       $toast.error(t('notification.clearFailed'))
       return
     }
 
-    writeNotificationClearBefore(Date.now())
-    resetNotifications()
-    await clearUnreadMessages()
-    appsMenu.value = false
-    hasMore.value = false
-    $toast.success(t('notification.clearSuccess'))
+    writeNotificationClearBefore(scope, Date.now())
+    removeNotificationsByScope(scope)
+    if (scope === 'all') {
+      await clearUnreadMessages()
+      appsMenu.value = false
+    }
+    $toast.success(getClearSuccessText(scope))
   } catch (error: any) {
     $toast.error(error?.response?.data?.message || error?.message || t('notification.clearFailed'))
   } finally {
@@ -272,23 +409,30 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
 
   try {
     loading.value = true
-    const items = (await api.get('message/notification', {
-      params: {
-        page: page.value,
-        count: PAGE_SIZE,
-      },
-    })) as SystemNotification[]
+    let accepted = false
+    let loadedPages = 0
 
-    if (items.length === 0) {
-      hasMore.value = false
-      done('empty')
-      return
+    // 清理后的分页里可能连续出现已被本地过滤的历史消息，循环跳过这些空页。
+    while (hasMore.value && !accepted && loadedPages < MAX_FILTERED_PAGES_PER_LOAD) {
+      const items = (await api.get('message/notification', {
+        params: {
+          page: page.value,
+          count: PAGE_SIZE,
+        },
+      })) as SystemNotification[]
+
+      if (items.length === 0) {
+        hasMore.value = false
+        break
+      }
+
+      const visibleItems = items.filter(item => !isClearedHistoryNotification(item))
+      accepted = mergeNotifications(visibleItems, { read: true })
+      page.value += 1
+      loadedPages += 1
+      hasMore.value = items.length >= PAGE_SIZE
     }
 
-    const visibleItems = items.filter(item => !isClearedHistoryNotification(item))
-    mergeNotifications(visibleItems, { read: true })
-    page.value += 1
-    hasMore.value = visibleItems.length === items.length && items.length >= PAGE_SIZE
     done(hasMore.value ? 'ok' : 'empty')
   } catch (error) {
     console.error('加载通知失败:', error)
@@ -304,6 +448,8 @@ function handleMessage(event: MessageEvent) {
 
   try {
     const notification = JSON.parse(event.data) as SystemNotification
+    if (isClearedHistoryNotification(notification)) return
+
     if (mergeNotifications([notification], { prepend: true, read: false })) {
       hasNewMessage.value = true
     }
@@ -345,6 +491,11 @@ function getNotificationColor(item: SystemNotification) {
 /** 判断通知是否有真实媒体图，决定是否使用媒体缩略图样式。 */
 function isMediaNotification(item: SystemNotification) {
   return Boolean(item.image)
+}
+
+/** 获取通知清理范围，目前通知中心展示上以是否包含图片区分媒体和系统消息。 */
+function getNotificationClearScope(item: SystemNotification): Exclude<NotificationClearScope, 'all'> {
+  return isMediaNotification(item) ? 'media' : 'system'
 }
 
 /** 按系统类消息和媒体消息生成带分组标题的虚拟列表数据。 */
@@ -443,14 +594,34 @@ useDelayedSSE(
           <div class="notification-actions">
             <VTooltip :text="t('notification.clear')">
               <template #activator="{ props }">
-                <IconBtn
-                  v-bind="props"
-                  :disabled="notificationList.length === 0 || clearing"
-                  @click.stop="clearNotifications"
-                >
-                  <VProgressCircular v-if="clearing" indeterminate size="18" width="2" />
-                  <VIcon v-else icon="mdi-trash-can-outline" size="20" />
-                </IconBtn>
+                <VMenu location="bottom end" :close-on-content-click="true">
+                  <template #activator="{ props: menuProps }">
+                    <IconBtn
+                      v-bind="{ ...props, ...menuProps }"
+                      :disabled="notificationList.length === 0 || clearing"
+                      @click.stop
+                    >
+                      <VProgressCircular v-if="clearing" indeterminate size="18" width="2" />
+                      <VIcon v-else icon="mdi-trash-can-outline" size="20" />
+                    </IconBtn>
+                  </template>
+                  <VList density="compact" min-width="180">
+                    <VListItem
+                      v-for="option in notificationClearOptions"
+                      :key="option.scope"
+                      :disabled="option.count === 0 || clearing"
+                      @click="clearNotifications(option.scope)"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="option.icon" :color="option.color" size="20" />
+                      </template>
+                      <VListItemTitle>{{ option.title }}</VListItemTitle>
+                      <template #append>
+                        <span class="notification-clear-count">{{ option.count }}</span>
+                      </template>
+                    </VListItem>
+                  </VList>
+                </VMenu>
               </template>
             </VTooltip>
             <VTooltip :text="t('notification.markRead')">
@@ -573,6 +744,13 @@ useDelayedSSE(
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.notification-clear-count {
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  font-size: 0.75rem;
+  line-height: 1;
+  margin-inline-start: 16px;
 }
 
 .notification-list-container {
