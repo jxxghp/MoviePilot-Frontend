@@ -27,9 +27,11 @@ interface AgentAssistantEntryBubbleInput {
 
 const props = withDefaults(
   defineProps<{
+    active?: boolean
     thinking?: boolean
   }>(),
   {
+    active: true,
     thinking: false,
   },
 )
@@ -40,24 +42,50 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const FAB_DOCK_STORAGE_KEY = 'moviepilot-agent-assistant-entry-docked'
 const FAB_IDLE_DOCK_DELAY = 4200
-const FAB_DOCK_REVEAL_DISTANCE = 18
+const FAB_RIGHT_EDGE_DOCK_DISTANCE = 88
 const FAB_NOTIFICATION_BUBBLE_DURATION = 7000
 const FAB_MAX_BUBBLES = 4
+const FAB_DEFAULT_RIGHT_OFFSET = 18
+const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
+
+// 入口位置只保存在当前页面生命周期内，刷新后回到默认位置。
+interface FabPosition {
+  x: number
+  y: number
+}
+
+interface FabDragState {
+  pointerId: number
+  startClientX: number
+  startClientY: number
+  startX: number
+  startY: number
+  moved: boolean
+}
 
 const fabDocked = ref(false)
+const fabPosition = ref<FabPosition | null>(null)
 const fabPointerStyle = ref({
   '--agent-assistant-pointer-x': '0px',
   '--agent-assistant-pointer-y': '0px',
   '--agent-assistant-robot-tilt': '0deg',
+})
+const fabPositionStyle = computed(() => {
+  const position = fabPosition.value || getDefaultFabPosition()
+
+  return {
+    ...fabPointerStyle.value,
+    '--agent-assistant-fab-x': `${position.x}px`,
+    '--agent-assistant-fab-y': `${position.y}px`,
+  }
 })
 const fabPressed = ref(false)
 const fabBubbles = ref<AgentAssistantEntryBubble[]>([])
 const fabDragging = ref(false)
 
 let fabIdleTimer: number | null = null
-let fabDragStart: { pointerId: number; x: number; y: number } | null = null
+let fabDragState: FabDragState | null = null
 let fabSuppressNextClick = false
 let stopNotificationBubbleListener: (() => void) | null = null
 
@@ -68,6 +96,94 @@ const hasKeepOpenFabBubbles = computed(() => fabBubbles.value.some(item => item.
 
 function createBubbleId(prefix = 'bubble') {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function getViewportSize() {
+  return {
+    height: window.innerHeight || document.documentElement.clientHeight || 0,
+    width: window.innerWidth || document.documentElement.clientWidth || 0,
+  }
+}
+
+function getOpenFabSize() {
+  const viewport = getViewportSize()
+  const isMobile = viewport.width <= 600
+
+  return {
+    height: isMobile ? 106 : 115,
+    width: isMobile ? Math.min(198, Math.max(0, viewport.width - 16)) : 211,
+  }
+}
+
+function getDockedFabX() {
+  return Math.max(0, getViewportSize().width - 42)
+}
+
+function getFabSize() {
+  const root = document.querySelector('.agent-assistant-fab') as HTMLElement | null
+  const rect = root?.getBoundingClientRect()
+
+  return {
+    height: rect?.height || 115,
+    width: rect?.width || 211,
+  }
+}
+
+function getDefaultFabPosition() {
+  if (typeof window === 'undefined') return { x: 0, y: 0 }
+
+  const viewport = getViewportSize()
+  const size = getOpenFabSize()
+
+  // 默认落点放在视窗约 2/3 高度，避开页面底部 FAB 和移动端底部导航。
+  return clampFabPosition({
+    x: viewport.width - size.width - FAB_DEFAULT_RIGHT_OFFSET,
+    y: Math.round(viewport.height * FAB_DEFAULT_VERTICAL_RATIO - size.height / 2),
+  })
+}
+
+function clampFabPosition(position: FabPosition) {
+  if (typeof window === 'undefined') return position
+
+  const viewport = getViewportSize()
+  const size = fabDocked.value ? getFabSize() : getOpenFabSize()
+  const maxX = Math.max(0, viewport.width - size.width)
+  const maxY = Math.max(0, viewport.height - size.height)
+
+  return {
+    x: Math.min(maxX, Math.max(0, position.x)),
+    y: Math.min(maxY, Math.max(0, position.y)),
+  }
+}
+
+function getCurrentFabPosition() {
+  return fabPosition.value || getDefaultFabPosition()
+}
+
+function isFabNearRightEdge(position = getCurrentFabPosition()) {
+  const viewport = getViewportSize()
+  const size = getFabSize()
+
+  return viewport.width - (position.x + size.width) <= FAB_RIGHT_EDGE_DOCK_DISTANCE
+}
+
+function updateFabPosition(position: FabPosition) {
+  fabPosition.value = clampFabPosition(position)
+}
+
+function resetFabPosition() {
+  fabPosition.value = getDefaultFabPosition()
+  if (isFabNearRightEdge()) scheduleFabAutoDock()
+}
+
+function handleWindowResize() {
+  updateFabPosition(getCurrentFabPosition())
+  if (fabDocked.value && isFabNearRightEdge()) {
+    fabPosition.value = {
+      ...getCurrentFabPosition(),
+      x: getDockedFabX(),
+    }
+  }
 }
 
 function stripMarkdownPreview(value: string) {
@@ -115,10 +231,10 @@ function clearFabIdleTimer() {
 
 function scheduleFabAutoDock() {
   clearFabIdleTimer()
-  if (fabDocked.value || hasKeepOpenFabBubbles.value) return
+  if (fabDocked.value || hasKeepOpenFabBubbles.value || !isFabNearRightEdge()) return
 
   fabIdleTimer = window.setTimeout(() => {
-    setFabDocked(true, { persist: false })
+    setFabDocked(true)
     fabIdleTimer = null
   }, FAB_IDLE_DOCK_DELAY)
 }
@@ -154,7 +270,7 @@ function scheduleFabBubbleRemoval(id: string, duration = FAB_NOTIFICATION_BUBBLE
 }
 
 function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose?: boolean; duration?: number } = {}) {
-  if (!bubble.text) return
+  if (!props.active || !bubble.text) return
 
   const existingBubbles = fabBubbles.value.filter(item => item.id !== bubble.id)
   fabBubbles.value = [bubble, ...existingBubbles].slice(0, FAB_MAX_BUBBLES)
@@ -166,7 +282,7 @@ function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose
   })
 
   if (options.autoClose) scheduleFabBubbleRemoval(bubble.id, options.duration)
-  setFabDocked(false, { persist: false })
+  setFabDocked(false)
 }
 
 function showBubble(input: AgentAssistantEntryBubbleInput) {
@@ -231,62 +347,84 @@ function resetFabBubbles() {
   fabBubbles.value = []
 }
 
-function setFabDocked(docked: boolean, options: { persist?: boolean } = {}) {
-  const { persist = true } = options
+function setFabDocked(docked: boolean) {
+  const currentPosition = getCurrentFabPosition()
+
   fabDocked.value = docked
   resetFabPointer()
-  if (docked) clearFabIdleTimer()
-  else scheduleFabAutoDock()
-  if (!persist) return
 
-  try {
-    localStorage.setItem(FAB_DOCK_STORAGE_KEY, JSON.stringify(fabDocked.value))
-  } catch (error) {
-    // 停靠状态只是入口偏好，写入失败时保持当前内存状态即可。
+  if (docked) {
+    clearFabIdleTimer()
+    fabPosition.value = {
+      ...currentPosition,
+      x: getDockedFabX(),
+    }
+    return
   }
-}
 
-function restoreFabDockState() {
-  try {
-    fabDocked.value = JSON.parse(localStorage.getItem(FAB_DOCK_STORAGE_KEY) || 'true') !== false
-  } catch (error) {
-    fabDocked.value = true
-  }
+  updateFabPosition({
+    ...currentPosition,
+    x: Math.min(currentPosition.x, Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET)),
+  })
+  scheduleFabAutoDock()
 }
 
 function handleFabTriggerPointerDown(event: PointerEvent) {
   fabPressed.value = true
   pauseFabAutoDock()
 
-  if (!fabDocked.value) return
-
-  fabDragStart = {
+  const currentPosition = getCurrentFabPosition()
+  fabDragState = {
     pointerId: event.pointerId,
-    x: event.clientX,
-    y: event.clientY,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startX: currentPosition.x,
+    startY: currentPosition.y,
+    moved: false,
   }
+
   ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
 }
 
 function handleFabTriggerPointerMove(event: PointerEvent) {
   updateFabPointer(event)
-  if (!fabDocked.value || !fabDragStart) return
+  if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
 
-  const movedX = fabDragStart.x - event.clientX
-  const movedY = Math.abs(fabDragStart.y - event.clientY)
-  if (movedX > FAB_DOCK_REVEAL_DISTANCE && movedY < 48) {
-    fabDragging.value = true
-    fabSuppressNextClick = true
-    setFabDocked(false, { persist: false })
-  }
+  const deltaX = event.clientX - fabDragState.startClientX
+  const deltaY = event.clientY - fabDragState.startClientY
+  const movedDistance = Math.hypot(deltaX, deltaY)
+
+  if (movedDistance < 4 && !fabDragState.moved) return
+
+  fabDragState.moved = true
+  fabDragging.value = true
+  fabSuppressNextClick = true
+  fabDocked.value = false
+  updateFabPosition({
+    x: fabDragState.startX + deltaX,
+    y: fabDragState.startY + deltaY,
+  })
 }
 
 function handleFabTriggerPointerUp(event: PointerEvent) {
   fabPressed.value = false
+  const wasDragging = fabDragging.value
+
   fabDragging.value = false
-  fabDragStart = null
+  fabDragState = null
   ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
-  if (!fabDocked.value) scheduleFabAutoDock()
+
+  if (!wasDragging) {
+    scheduleFabAutoDock()
+    return
+  }
+
+  if (isFabNearRightEdge()) {
+    scheduleFabAutoDock()
+  } else {
+    clearFabIdleTimer()
+    fabDocked.value = false
+  }
 }
 
 function handleFabTriggerClick() {
@@ -296,18 +434,17 @@ function handleFabTriggerClick() {
   }
 
   if (fabDocked.value) {
-    setFabDocked(false, { persist: false })
+    setFabDocked(false)
     return
   }
 
   clearBubbles()
-  setFabDocked(true, { persist: false })
   emit('open')
 }
 
 function handleFabPointerLeave() {
   resetFabPointer()
-  if (!fabDocked.value) scheduleFabAutoDock()
+  if (!fabDocked.value && isFabNearRightEdge()) scheduleFabAutoDock()
 }
 
 function handleFabPointerEnter() {
@@ -315,15 +452,30 @@ function handleFabPointerEnter() {
 }
 
 onMounted(() => {
-  restoreFabDockState()
+  nextTick(resetFabPosition)
+  window.addEventListener('resize', handleWindowResize)
   stopNotificationBubbleListener = onAgentAssistantNotificationBubble(showNotificationBubble)
 })
+
+watch(
+  () => props.active,
+  active => {
+    if (active) {
+      if (isFabNearRightEdge()) scheduleFabAutoDock()
+      return
+    }
+
+    clearBubbles()
+    clearFabIdleTimer()
+  },
+)
 
 onScopeDispose(clearFabIdleTimer)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(() => {
   stopNotificationBubbleListener?.()
   stopNotificationBubbleListener = null
+  window.removeEventListener('resize', handleWindowResize)
 })
 
 defineExpose({
@@ -338,14 +490,16 @@ defineExpose({
 
 <template>
   <div
+    v-show="props.active"
     class="agent-assistant-fab"
     :class="{
       'is-docked': fabDocked,
+      'is-dragging': fabDragging,
       'is-pressed': fabPressed,
       'is-thinking': props.thinking,
       'is-bubble-visible': hasFabBubbles,
     }"
-    :style="fabPointerStyle"
+    :style="fabPositionStyle"
     @pointermove="updateFabPointer"
     @pointerenter="handleFabPointerEnter"
     @pointerleave="handleFabPointerLeave"
@@ -408,7 +562,9 @@ defineExpose({
 
 .agent-assistant-fab {
   position: fixed;
-  z-index: 1000;
+
+  /* 保持高于菜单浮层，但低于 agent 会话面板（2101）。 */
+  z-index: 2100;
 
   --agent-assistant-robot-outline: #5b00c5;
   --agent-assistant-robot-outline-soft: #7432df;
@@ -421,24 +577,27 @@ defineExpose({
   --agent-assistant-robot-play: #fff;
   --agent-assistant-robot-shadow: rgba(54, 0, 126, 28%);
   --agent-assistant-robot-shadow-strong: rgba(54, 0, 126, 34%);
+  --agent-assistant-fab-x: calc(100vw - 14.3rem);
+  --agent-assistant-fab-y: calc(100vh - 13.2rem);
 
   block-size: 7.2rem;
   inline-size: 13.2rem;
-
-  /* 入口停在右下侧，但保留一点悬浮感，避免挡住底部导航和常用操作。 */
-  inset-block-start: clamp(12rem, 66vh, calc(100vh - 8.2rem));
-  inset-inline-end: max(1.1rem, env(safe-area-inset-right));
+  inset-block-start: 0;
+  inset-inline-start: 0;
   pointer-events: none;
-  transform: translateY(-50%);
+  transform: translate3d(var(--agent-assistant-fab-x), var(--agent-assistant-fab-y), 0);
   transition:
     inline-size 0.24s ease,
-    inset-inline-end 0.24s ease,
     transform 0.24s ease;
+  user-select: none;
 }
 
 .agent-assistant-fab.is-docked {
   inline-size: 3.85rem;
-  inset-inline-end: max(-1.55rem, calc(env(safe-area-inset-right) - 1.55rem));
+}
+
+.agent-assistant-fab.is-dragging {
+  transition: none;
 }
 
 .agent-assistant-fab__trigger {
@@ -447,14 +606,19 @@ defineExpose({
   padding: 0;
   border: 0;
   background: transparent;
-  block-size: 100%;
+  block-size: 5.1rem;
   color: inherit;
   cursor: pointer;
-  inline-size: 100%;
-  inset: 0;
+  inline-size: 5.4rem;
+  inset-block: auto 0;
+  inset-inline: auto 0;
   pointer-events: auto;
   text-align: start;
-  touch-action: manipulation;
+  touch-action: none;
+}
+
+.agent-assistant-fab.is-dragging .agent-assistant-fab__trigger {
+  cursor: grabbing;
 }
 
 .agent-assistant-fab__trigger::after {
@@ -940,14 +1104,10 @@ defineExpose({
   .agent-assistant-fab {
     block-size: 6.65rem;
     inline-size: min(12.4rem, calc(100vw - 1rem));
-    inset-block: auto calc(env(safe-area-inset-bottom, 0px) + 5.6rem);
-    inset-inline-end: 0.7rem;
-    transform: none;
   }
 
   .agent-assistant-fab.is-docked {
     inline-size: 3.45rem;
-    inset-inline-end: -1.28rem;
   }
 
   .agent-assistant-fab__bubbles {
@@ -968,6 +1128,11 @@ defineExpose({
 
   .agent-assistant-fab__bubble span {
     font-size: 0.68rem;
+  }
+
+  .agent-assistant-fab__trigger {
+    block-size: 4.8rem;
+    inline-size: 5rem;
   }
 
   .agent-assistant-fab__bot {

@@ -21,6 +21,6 @@ function handleAssistantPreview(value: string) {
 </script>
 
 <template>
-  <AgentAssistantEntry ref="entryRef" :thinking="thinking" @open="openPanel" />
+  <AgentAssistantEntry ref="entryRef" :active="!panelOpen" :thinking="thinking" @open="openPanel" />
   <AgentAssistantPanel v-model="panelOpen" @assistant-preview="handleAssistantPreview" @thinking-change="thinking = $event" />
 </template>
