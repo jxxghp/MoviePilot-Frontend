@@ -55,6 +55,15 @@ interface FabPosition {
   y: number
 }
 
+interface FabInteractiveBounds {
+  height: number
+  offsetX: number
+  offsetY: number
+  rootHeight: number
+  rootWidth: number
+  width: number
+}
+
 interface FabDragState {
   pointerId: number
   startClientX: number
@@ -115,8 +124,44 @@ function getOpenFabSize() {
   }
 }
 
+function getFallbackFabInteractiveBounds(): FabInteractiveBounds {
+  const viewport = getViewportSize()
+  const rootSize = getOpenFabSize()
+  const triggerSize = viewport.width <= 600 ? { height: 77, width: 80 } : { height: 82, width: 86 }
+
+  return {
+    height: triggerSize.height,
+    offsetX: rootSize.width - triggerSize.width,
+    offsetY: rootSize.height - triggerSize.height,
+    rootHeight: rootSize.height,
+    rootWidth: rootSize.width,
+    width: triggerSize.width,
+  }
+}
+
 function getDockedFabX() {
   return Math.max(0, getViewportSize().width - 42)
+}
+
+function getFabInteractiveBounds(): FabInteractiveBounds {
+  const root = document.querySelector('.agent-assistant-fab') as HTMLElement | null
+  const trigger = root?.querySelector('.agent-assistant-fab__trigger') as HTMLElement | null
+  const rootRect = root?.getBoundingClientRect()
+  const triggerRect = trigger?.getBoundingClientRect()
+
+  // 拖拽边界按实际机器人热区计算，避免外层气泡容器的空白区域阻止贴边。
+  if (rootRect && triggerRect && triggerRect.width > 0 && triggerRect.height > 0) {
+    return {
+      height: triggerRect.height,
+      offsetX: triggerRect.left - rootRect.left,
+      offsetY: triggerRect.top - rootRect.top,
+      rootHeight: rootRect.height,
+      rootWidth: rootRect.width,
+      width: triggerRect.width,
+    }
+  }
+
+  return getFallbackFabInteractiveBounds()
 }
 
 function getFabSize() {
@@ -146,13 +191,15 @@ function clampFabPosition(position: FabPosition) {
   if (typeof window === 'undefined') return position
 
   const viewport = getViewportSize()
-  const size = fabDocked.value ? getFabSize() : getOpenFabSize()
-  const maxX = Math.max(0, viewport.width - size.width)
-  const maxY = Math.max(0, viewport.height - size.height)
+  const bounds = getFabInteractiveBounds()
+  const minX = -bounds.offsetX
+  const minY = -bounds.offsetY
+  const maxX = Math.max(minX, viewport.width - bounds.offsetX - bounds.width)
+  const maxY = Math.max(minY, viewport.height - bounds.offsetY - bounds.height)
 
   return {
-    x: Math.min(maxX, Math.max(0, position.x)),
-    y: Math.min(maxY, Math.max(0, position.y)),
+    x: Math.min(maxX, Math.max(minX, position.x)),
+    y: Math.min(maxY, Math.max(minY, position.y)),
   }
 }
 
