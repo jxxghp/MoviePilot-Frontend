@@ -48,10 +48,10 @@ const FAB_NOTIFICATION_BUBBLE_DURATION = 7000
 const FAB_MAX_BUBBLES = 4
 const FAB_DEFAULT_RIGHT_OFFSET = 18
 const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
-const FAB_RANDOM_ACTION_MIN_DELAY = 14000
-const FAB_RANDOM_ACTION_MAX_DELAY = 32000
+const FAB_RANDOM_ACTION_MIN_DELAY = 8000
+const FAB_RANDOM_ACTION_MAX_DELAY = 18000
 
-const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint'] as const
+const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint', 'disassemble'] as const
 
 type FabRandomAction = (typeof FAB_RANDOM_ACTIONS)[number]
 
@@ -60,6 +60,7 @@ const FAB_RANDOM_ACTION_DURATIONS: Record<FabRandomAction, number> = {
   sit: 4200,
   'eye-roll': 1900,
   faint: 4800,
+  disassemble: 6200,
 }
 
 // 入口位置只保存在当前页面生命周期内，刷新后回到默认位置。
@@ -1107,6 +1108,8 @@ defineExpose({
   inline-size: 0.42rem;
   inset-block-start: 0.36rem;
   transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
+  /* 触屏设备没有连续 hover 轨迹，给眼神位移补过渡避免点按时瞬移。 */
+  transition: transform 0.2s ease-out;
 }
 
 .agent-assistant-fab__eye--left {
@@ -1291,22 +1294,27 @@ defineExpose({
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__antenna,
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__antenna,
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna,
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__antenna,
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__head,
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__head,
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head,
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__head,
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__head,
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__body,
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__body,
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__body,
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__body,
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__body,
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__arm,
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__arm,
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__arm,
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__arm,
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm,
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__leg,
 .agent-assistant-fab.is-action-sit .agent-assistant-fab__leg,
 .agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg {
+.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg,
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg {
   transition: none;
 }
 
@@ -1401,6 +1409,38 @@ defineExpose({
 
 .agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--right {
   animation: agent-fab-action-faint-leg-right 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__bot {
+  animation: agent-fab-action-disassemble-bot 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__antenna {
+  animation: agent-fab-action-disassemble-antenna 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__head {
+  animation: agent-fab-action-disassemble-head 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__body {
+  animation: agent-fab-action-disassemble-body 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm--left {
+  animation: agent-fab-action-disassemble-arm-left 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-disassemble-arm-right 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg--left {
+  animation: agent-fab-action-disassemble-leg-left 6.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg--right {
+  animation: agent-fab-action-disassemble-leg-right 6.2s ease-in-out both;
 }
 
 @keyframes agent-fab-head-idle {
@@ -1766,6 +1806,167 @@ defineExpose({
   34%,
   86% {
     transform: translate(0.24rem, -0.02rem) rotate(-82deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-bot {
+  /* 34%-70% 让散落状态停留片刻，再用 84% 的轻微过冲表现回装吸附感。 */
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  12% {
+    transform: translateY(-0.08rem) scale(var(--agent-assistant-bot-scale)) rotate(-5deg);
+  }
+
+  24%,
+  72% {
+    transform: translateY(0.18rem) scale(var(--agent-assistant-bot-scale)) rotate(0deg);
+  }
+
+  86% {
+    transform: translateY(-0.04rem) scale(var(--agent-assistant-bot-scale)) rotate(3deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  16% {
+    transform: translate(0.02rem, -0.14rem) rotate(44deg);
+  }
+
+  32%,
+  70% {
+    transform: translate(0.96rem, 3.42rem) rotate(268deg);
+  }
+
+  84% {
+    transform: translate(-0.05rem, -0.08rem) rotate(8deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  16% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.24rem)) rotate(-8deg);
+  }
+
+  32%,
+  70% {
+    transform: translate(-1.18rem, 2.72rem) rotate(-46deg);
+  }
+
+  84% {
+    transform: translate(0.08rem, -0.1rem) rotate(6deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-body {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
+  }
+
+  18% {
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.08rem)) rotate(4deg);
+  }
+
+  34%,
+  70% {
+    transform: translate(0.26rem, 1.56rem) rotate(18deg);
+  }
+
+  84% {
+    transform: translate(-0.05rem, -0.08rem) rotate(-5deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  18% {
+    transform: translate(-0.16rem, -0.08rem) rotate(78deg);
+  }
+
+  34%,
+  70% {
+    transform: translate(-1.72rem, 1.84rem) rotate(248deg);
+  }
+
+  84% {
+    transform: translate(0.08rem, -0.04rem) rotate(-4deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  18% {
+    transform: translate(0.16rem, -0.08rem) rotate(-78deg);
+  }
+
+  34%,
+  70% {
+    transform: translate(1.58rem, 1.72rem) rotate(-238deg);
+  }
+
+  84% {
+    transform: translate(-0.08rem, -0.04rem) rotate(4deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-leg-left {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  20% {
+    transform: translate(-0.12rem, 0.18rem) rotate(34deg);
+  }
+
+  34%,
+  70% {
+    transform: translate(-0.98rem, 0.96rem) rotate(112deg);
+  }
+
+  84% {
+    transform: translate(0.07rem, -0.08rem) rotate(-8deg);
+  }
+}
+
+@keyframes agent-fab-action-disassemble-leg-right {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  20% {
+    transform: translate(0.12rem, 0.18rem) rotate(-34deg);
+  }
+
+  34%,
+  70% {
+    transform: translate(0.92rem, 1.04rem) rotate(-118deg);
+  }
+
+  84% {
+    transform: translate(-0.07rem, -0.08rem) rotate(8deg);
   }
 }
 
