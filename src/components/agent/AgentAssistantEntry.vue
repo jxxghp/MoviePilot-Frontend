@@ -824,7 +824,7 @@ defineExpose({
         role="status"
       >
         <strong v-if="bubble.title" class="agent-assistant-fab__bubble-title">
-          <VIcon class="agent-assistant-fab__bubble-icon" :icon="getBubbleIcon(bubble.variant)" size="18" />
+          <VIcon class="agent-assistant-fab__bubble-icon" :icon="getBubbleIcon(bubble.variant)" size="20" />
           <span>{{ bubble.title }}</span>
         </strong>
         <span>{{ bubble.text }}</span>
@@ -1026,8 +1026,8 @@ defineExpose({
   grid-template-columns: auto minmax(0, 1fr);
   color: rgba(var(--agent-assistant-bubble-accent-rgb), 0.92);
   column-gap: 0.32rem;
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 800;
   line-height: 1.25;
   margin-block-end: 0.22rem;
 }
@@ -1046,10 +1046,10 @@ defineExpose({
   overflow: hidden;
   -webkit-box-orient: vertical;
   color: rgba(var(--v-theme-on-surface), 0.9);
-  font-size: 0.84rem;
+  font-size: 1rem;
   font-weight: 600;
   -webkit-line-clamp: 8;
-  line-height: 1.42;
+  line-height: 1.46;
   text-align: start;
   white-space: normal;
 }
