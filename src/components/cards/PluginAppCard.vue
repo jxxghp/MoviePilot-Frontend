@@ -230,16 +230,17 @@ onUnmounted(() => {
   <div>
     <VHover>
       <template #default="hover">
-        <VCard
-          v-bind="hover.props"
-          :width="props.width"
-          :height="props.height"
-          @click="showPluginDetail"
-          class="flex flex-col h-full"
-          :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
-          }"
-        >
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <div v-bind="hover.props" class="plugin-app-card-hover-area h-full">
+          <VCard
+            :width="props.width"
+            :height="props.height"
+            @click="showPluginDetail"
+            class="app-hover-lift-card flex flex-col h-full"
+            :class="{
+              'app-hover-lift-card--hovering': hover.isHovering,
+            }"
+          >
           <div
             class="flex-grow"
             :style="`background: linear-gradient(rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.5) 100%), linear-gradient(${backgroundColor} 0%, ${backgroundColor} 100%)`"
@@ -325,13 +326,18 @@ onUnmounted(() => {
               </IconBtn>
             </div>
           </VCardText>
-        </VCard>
+          </VCard>
+        </div>
       </template>
     </VHover>
   </div>
 </template>
 
 <style scoped>
+.plugin-app-card-hover-area {
+  inline-size: 100%;
+}
+
 .plugin-app-card__tags-section {
   display: flex;
   overflow: hidden;

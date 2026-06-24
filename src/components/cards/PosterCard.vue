@@ -47,16 +47,17 @@ async function goPlay(isHovering: boolean | null = false) {
 <template>
   <VHover>
     <template #default="hover">
-      <VCard
-        v-bind="hover.props"
-        :height="props.height"
-        :width="props.width"
-        class="outline-none ring-gray-500"
-        :class="{
-          'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
-          'ring-1': isImageLoaded,
-        }"
-      >
+      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <div v-bind="hover.props" class="poster-card-hover-area">
+        <VCard
+          :height="props.height"
+          :width="props.width"
+          class="app-hover-lift-card outline-none ring-gray-500"
+          :class="{
+            'app-hover-lift-card--hovering': hover.isHovering,
+            'ring-1': isImageLoaded,
+          }"
+        >
         <VImg
           aspect-ratio="2/3"
           :src="getImgUrl"
@@ -93,7 +94,14 @@ async function goPlay(isHovering: boolean | null = false) {
             {{ props.media?.title }}
           </h1>
         </VCardText>
-      </VCard>
+        </VCard>
+      </div>
     </template>
   </VHover>
 </template>
+
+<style scoped>
+.poster-card-hover-area {
+  inline-size: 100%;
+}
+</style>

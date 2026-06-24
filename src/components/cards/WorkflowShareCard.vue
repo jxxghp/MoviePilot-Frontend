@@ -95,17 +95,18 @@ function doDelete() {
   <div class="h-full">
     <VHover>
       <template #default="hover">
-        <VCard
-          v-bind="hover.props"
-          :key="props.workflow?.id"
-          class="workflow-share-card flex flex-col h-full cursor-pointer overflow-hidden"
-          :class="{
-            'workflow-share-card--hovering': hover.isHovering,
-          }"
-          min-height="150"
-          :style="{ background: gradientStyle }"
-          @click="showForkWorkflow"
-        >
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <div v-bind="hover.props" class="workflow-share-card-hover-area h-full">
+          <VCard
+            :key="props.workflow?.id"
+            class="workflow-share-card app-hover-lift-card flex flex-col h-full cursor-pointer overflow-hidden"
+            :class="{
+              'app-hover-lift-card--hovering': hover.isHovering,
+            }"
+            min-height="150"
+            :style="{ background: gradientStyle }"
+            @click="showForkWorkflow"
+          >
           <div class="h-full flex flex-col">
             <VCardText class="flex items-center pa-3 pb-1 grow">
               <div class="flex flex-col justify-center w-full">
@@ -134,20 +135,16 @@ function doDelete() {
               {{ dateText }}
             </VCardText>
           </div>
-        </VCard>
+          </VCard>
+        </div>
       </template>
     </VHover>
   </div>
 </template>
 
 <style lang="scss" scoped>
-// 阴影需要落在实际卡片上，不能被额外的 overflow 容器裁掉。
-.workflow-share-card {
-  transition: transform 0.3s ease, box-shadow 0.2s ease;
-  transform: translateZ(0);
+.workflow-share-card-hover-area {
+  inline-size: 100%;
 }
 
-.workflow-share-card--hovering {
-  transform: translate3d(0, -0.25rem, 0);
-}
 </style>

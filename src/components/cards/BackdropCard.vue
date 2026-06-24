@@ -46,17 +46,18 @@ const getImgUrl = computed(() => {
 <template>
   <VHover>
     <template #default="hover">
-      <VCard
-        v-bind="hover.props"
-        :height="props.height"
-        :width="props.width"
-        class="ring-gray-500"
-        :class="{
-          'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
-          'ring-1': imageLoaded,
-        }"
-        @click="goPlay"
-      >
+      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <div v-bind="hover.props" class="backdrop-card-hover-area">
+        <VCard
+          :height="props.height"
+          :width="props.width"
+          class="app-hover-lift-card ring-gray-500"
+          :class="{
+            'app-hover-lift-card--hovering': hover.isHovering,
+            'ring-1': imageLoaded,
+          }"
+          @click="goPlay"
+        >
         <template #image>
           <VImg :src="getImgUrl" aspect-ratio="2/3" cover @load="imageLoadHandler" @error="imageErrorHandler">
             <template #placeholder>
@@ -86,7 +87,14 @@ const getImgUrl = computed(() => {
             color="success"
           />
         </div>
-      </VCard>
+        </VCard>
+      </div>
     </template>
   </VHover>
 </template>
+
+<style scoped>
+.backdrop-card-hover-area {
+  inline-size: 100%;
+}
+</style>

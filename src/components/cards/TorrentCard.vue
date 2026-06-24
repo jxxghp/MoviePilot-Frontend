@@ -146,12 +146,13 @@ watch(
 </script>
 
 <template>
-  <div class="h-full">
+  <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+  <div class="torrent-card-hover-area h-full">
     <VCard
       :width="props.width || '100%'"
       :variant="isDownloaded ? 'outlined' : 'flat'"
       @click="handleAddDownload(props.torrent)"
-      class="h-full cursor-pointer transition-transform hover:-translate-y-1 duration-300 d-flex flex-column overflow-hidden torrent-card"
+      class="app-hover-lift-card h-full cursor-pointer d-flex flex-column overflow-hidden torrent-card"
       :class="{ 'border-success border-2 opacity-85': isDownloaded }"
       hover
     >
@@ -316,12 +317,20 @@ watch(
   inset-inline-end: 0;
 }
 
+.torrent-card-hover-area {
+  inline-size: 100%;
+}
+
+.torrent-card-hover-area:hover .torrent-card {
+  transform: translate3d(0, -0.25rem, 0);
+}
+
 /* 卡片悬停效果 */
 .torrent-card {
   border: 1px solid transparent;
 }
 
-.torrent-card:hover {
+.torrent-card-hover-area:hover .torrent-card {
   border-color: rgba(var(--v-theme-primary), 0.3);
 }
 

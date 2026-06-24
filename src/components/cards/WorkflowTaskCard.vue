@@ -220,14 +220,15 @@ const resolveProgress = (item: Workflow) => {
 <template>
   <div class="h-full">
     <VHover v-slot="hover">
-      <VCard
-        v-bind="hover.props"
-        class="mx-auto h-full"
-        @click="handleFlow(workflow)"
-        :ripple="false"
-        :loading="loading"
-        :class="{ 'transition transform-cpu duration-300 -translate-y-1': hover.isHovering }"
-      >
+      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <div v-bind="hover.props" class="workflow-task-card-hover-area h-full">
+        <VCard
+          class="app-hover-lift-card mx-auto h-full"
+          @click="handleFlow(workflow)"
+          :ripple="false"
+          :loading="loading"
+          :class="{ 'app-hover-lift-card--hovering': hover.isHovering }"
+        >
         <VCardItem
           class="px-2 py-2"
           :style="{
@@ -367,7 +368,14 @@ const resolveProgress = (item: Workflow) => {
             </div>
           </div>
         </VCardText>
-      </VCard>
+        </VCard>
+      </div>
     </VHover>
   </div>
 </template>
+
+<style scoped>
+.workflow-task-card-hover-area {
+  inline-size: 100%;
+}
+</style>

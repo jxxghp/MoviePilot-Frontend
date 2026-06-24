@@ -184,6 +184,16 @@ html[data-theme-radius='extra'] {
   box-shadow: var(--app-surface-shadow) !important;
 }
 
+// 统一卡片上浮反馈；hover 命中区域应放在静止外层，避免上浮后底边反复触发 mouseleave。
+.app-hover-lift-card {
+  transition: transform 0.3s ease, box-shadow 0.2s ease;
+  transform: translateZ(0);
+}
+
+.app-hover-lift-card--hovering {
+  transform: translate3d(0, -0.25rem, 0);
+}
+
 // 全局页面与 overlay 动效：短距离、轻缩放，保持快速但不生硬。
 .mp-page-route {
   inline-size: 100%;

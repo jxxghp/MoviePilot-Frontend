@@ -157,11 +157,12 @@ onMounted(() => {
         <VCardText>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ t('setupWizard.preferences.quickPresetsDesc') }}</p>
           <VRow>
-            <VCol v-for="(preset, key) in presetConfigs" :key="key" cols="12" sm="6" md="3">
+            <!-- Hover 命中区域保持静止，避免预设卡片上浮后底边反复触发 mouseleave。 -->
+            <VCol v-for="(preset, key) in presetConfigs" :key="key" class="preset-card-hover-area" cols="12" sm="6" md="3">
               <VCard
                 :color="selectedPreset === key ? preset.color : 'default'"
                 :variant="selectedPreset === key ? 'tonal' : 'outlined'"
-                class="cursor-pointer preset-card"
+                class="app-hover-lift-card cursor-pointer preset-card"
                 @click="selectPreset(key)"
               >
                 <VCardText class="text-center pa-4">
@@ -218,11 +219,10 @@ onMounted(() => {
 <style scoped>
 .cursor-pointer {
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-.preset-card:hover {
-  transform: translateY(-4px);
+.preset-card-hover-area:hover .preset-card {
+  transform: translate3d(0, -0.25rem, 0);
 }
 
 .preset-card:active {

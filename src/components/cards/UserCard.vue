@@ -127,14 +127,16 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VCard
-    :class="[
-      'transition-transform duration-300 hover:-translate-y-1',
-      !props.user.is_active ? 'opacity-85 bg-surface-lighten-1' : '',
-    ]"
-    class="user-card flex flex-column h-full"
-    @click="editUser"
-  >
+  <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+  <div class="user-card-hover-area h-full">
+    <VCard
+      :class="[
+        'app-hover-lift-card',
+        !props.user.is_active ? 'opacity-85 bg-surface-lighten-1' : '',
+      ]"
+      class="user-card flex flex-column h-full"
+      @click="editUser"
+    >
     <div class="user-card__body flex-grow flex-grow-1">
       <!-- 用户头像和基本信息 -->
       <VCardItem :class="[user.is_superuser ? 'admin-header' : '']">
@@ -302,10 +304,19 @@ onMounted(() => {
         </div>
       </VCardText>
     </div>
-  </VCard>
+    </VCard>
+  </div>
 </template>
 
 <style scoped>
+.user-card-hover-area {
+  inline-size: 100%;
+}
+
+.user-card-hover-area:hover .user-card {
+  transform: translate3d(0, -0.25rem, 0);
+}
+
 .user-card {
   block-size: 100%;
 }

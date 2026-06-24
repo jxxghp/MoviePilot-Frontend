@@ -498,9 +498,9 @@ onBeforeUnmount(() => {
         <VCard
           :height="props.height"
           :width="props.width"
-          class="outline-none ring-gray-500 media-card"
+          class="app-hover-lift-card outline-none ring-gray-500 media-card"
           :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
+            'app-hover-lift-card--hovering': hover.isHovering,
             'ring-1': isImageLoaded,
           }"
           @click.stop="goMediaDetail(hover.isHovering ?? false)"

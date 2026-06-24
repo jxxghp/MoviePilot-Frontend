@@ -73,16 +73,16 @@ async function deleteDownload() {
 <template>
   <VHover>
     <template #default="hover">
-      <VCard
-        v-if="cardState"
-        v-bind="hover.props"
-        :key="props.info?.hash"
-        class="downloading-card app-surface flex flex-col h-full overflow-hidden"
-        :class="{
-          'transition transform-cpu duration-300  -translate-y-1': hover.isHovering,
-        }"
-        min-height="150"
-      >
+      <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+      <div v-if="cardState" v-bind="hover.props" class="downloading-card-hover-area h-full">
+        <VCard
+          :key="props.info?.hash"
+          class="downloading-card app-hover-lift-card app-surface flex flex-col h-full overflow-hidden"
+          :class="{
+            'app-hover-lift-card--hovering': hover.isHovering,
+          }"
+          min-height="150"
+        >
         <template #image>
           <VImg
             :src="props.info?.media.image"
@@ -130,13 +130,18 @@ async function deleteDownload() {
             <VBtn color="error" icon="mdi-trash-can-outline" @click="deleteDownload" />
           </VCardActions>
         </div>
-      </VCard>
+        </VCard>
+      </div>
     </template>
   </VHover>
 </template>
 
 <style lang="scss" scoped>
 /* stylelint-disable selector-pseudo-class-no-unknown */
+
+.downloading-card-hover-area {
+  inline-size: 100%;
+}
 
 .downloading-card-image {
   block-size: 100%;

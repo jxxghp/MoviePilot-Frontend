@@ -567,19 +567,19 @@ watch(
     <!-- 插件卡片 -->
     <VHover>
       <template #default="hover">
-        <VCard
-          v-if="isVisible"
-          v-bind="hover.props"
-          :width="props.width"
-          :height="props.height"
-          @click="handleCardClick"
-          class="flex flex-col h-full"
-          :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
-            'cursor-move': props.sortable,
-          }"
-          :ripple="!props.sortable"
-        >
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <div v-if="isVisible" v-bind="hover.props" class="plugin-card-hover-area h-full">
+          <VCard
+            :width="props.width"
+            :height="props.height"
+            @click="handleCardClick"
+            class="app-hover-lift-card flex flex-col h-full"
+            :class="{
+              'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
+              'cursor-move': props.sortable,
+            }"
+            :ripple="!props.sortable"
+          >
           <div
             class="flex-grow"
             :style="`background: linear-gradient(rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.5) 100%), linear-gradient(${backgroundColor} 0%, ${backgroundColor} 100%)`"
@@ -669,7 +669,8 @@ watch(
           <div v-if="props.plugin?.has_update" class="me-n3 absolute top-0 right-5">
             <VIcon icon="mdi-new-box" class="text-white" />
           </div>
-        </VCard>
+          </VCard>
+        </div>
       </template>
     </VHover>
 
@@ -677,6 +678,10 @@ watch(
 </template>
 
 <style lang="scss" scoped>
+.plugin-card-hover-area {
+  inline-size: 100%;
+}
+
 .card-cover-blurred::before {
   position: absolute;
   /* stylelint-disable-next-line property-no-vendor-prefix */

@@ -211,20 +211,21 @@ const dropdownItems = ref([
     <!-- 文件夹卡片 -->
     <VHover>
       <template #default="hover">
-        <VCard
-          v-bind="hover.props"
-          :ripple="false"
-          :width="props.width"
-          :height="props.height"
-          min-height="8.5rem"
-          @click="handleCardClick"
-          class="plugin-folder-card h-full"
-          :class="{
-            'plugin-folder-card--mobile': display.mobile,
-            'plugin-folder-card--hover': hover.isHovering && !props.sortable,
-            'plugin-folder-card--sortable': props.sortable,
-          }"
-        >
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <div v-bind="hover.props" class="plugin-folder-card-hover-area h-full">
+          <VCard
+            :ripple="false"
+            :width="props.width"
+            :height="props.height"
+            min-height="8.5rem"
+            @click="handleCardClick"
+            class="plugin-folder-card app-hover-lift-card h-full"
+            :class="{
+              'plugin-folder-card--mobile': display.mobile,
+              'plugin-folder-card--hover': hover.isHovering && !props.sortable,
+              'plugin-folder-card--sortable': props.sortable,
+            }"
+          >
           <template v-if="backgroundImage" #image>
             <VImg :src="backgroundImage" cover position="top"> </VImg>
           </template>
@@ -288,25 +289,29 @@ const dropdownItems = ref([
               </VMenu>
             </div>
           </div>
-        </VCard>
+          </VCard>
+        </div>
       </template>
     </VHover>
   </div>
 </template>
 
 <style lang="scss" scoped>
+.plugin-folder-card-hover-area {
+  inline-size: 100%;
+}
+
 .plugin-folder-card {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &--sortable {
     cursor: move;
   }
 
   &--hover {
-    transform: translateY(-4px);
+    transform: translate3d(0, -0.25rem, 0);
   }
 
   &__bg {

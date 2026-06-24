@@ -93,16 +93,17 @@ function doDelete() {
   <div class="h-full">
     <VHover>
       <template #default="hover">
-        <div
-          class="w-full h-full overflow-hidden"
-          :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering,
-          }"
-        >
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <div v-bind="hover.props" class="subscribe-share-card-hover-area w-full h-full">
+          <div
+            class="app-hover-lift-card w-full h-full overflow-hidden"
+            :class="{
+              'app-hover-lift-card--hovering': hover.isHovering,
+            }"
+          >
           <VCard
-            v-bind="hover.props"
             :key="props.media?.id"
-            class="flex flex-col h-full"
+            class="app-hover-lift-card flex flex-col h-full"
             min-height="150"
             @click="showForkSubscribe"
           >
@@ -155,13 +156,18 @@ function doDelete() {
                 {{ dateText }}
               </VCardText>
             </div>
-          </VCard>
+            </VCard>
+          </div>
         </div>
       </template>
     </VHover>
   </div>
 </template>
 <style lang="scss" scoped>
+.subscribe-share-card-hover-area {
+  inline-size: 100%;
+}
+
 .subscribe-card-background {
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
 }

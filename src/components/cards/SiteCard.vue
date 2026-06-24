@@ -239,25 +239,27 @@ onMounted(() => {
 
 <template>
   <div>
-    <VCard
-      class="site-card relative h-full flex flex-col overflow-hidden group transition-all duration-300"
-      :class="[
-        cardProps.site?.is_active ? '' : 'opacity-70',
-        {
-          'border-error': statColor === 'error',
-          'border-warning': statColor === 'warning',
-          'border-success': statColor === 'success',
-          'cursor-pointer hover:-translate-y-1': !cardProps.sortable,
-          'cursor-move': cardProps.sortable,
-          'site-card--sortable': cardProps.sortable,
-        },
-      ]"
-      :ripple="false"
-      variant="flat"
-      elevation="0"
-      :hover="!cardProps.sortable"
-      @click="handleCardClick"
-    >
+    <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+    <div class="site-card-hover-area h-full">
+      <VCard
+        class="site-card app-hover-lift-card relative h-full flex flex-col overflow-hidden group"
+        :class="[
+          cardProps.site?.is_active ? '' : 'opacity-70',
+          {
+            'border-error': statColor === 'error',
+            'border-warning': statColor === 'warning',
+            'border-success': statColor === 'success',
+            'cursor-pointer site-card--hoverable': !cardProps.sortable,
+            'cursor-move': cardProps.sortable,
+            'site-card--sortable': cardProps.sortable,
+          },
+        ]"
+        :ripple="false"
+        variant="flat"
+        elevation="0"
+        :hover="!cardProps.sortable"
+        @click="handleCardClick"
+      >
       <!-- 装饰性状态指示器 -->
       <div v-if="cardProps.site?.is_active" class="site-status-indicator" :class="statColor"></div>
 
@@ -419,11 +421,20 @@ onMounted(() => {
           </VMenu>
         </VBtn>
       </VSheet>
-    </VCard>
+      </VCard>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.site-card-hover-area {
+  inline-size: 100%;
+}
+
+.site-card-hover-area:hover .site-card--hoverable {
+  transform: translate3d(0, -0.25rem, 0);
+}
+
 .site-status-indicator {
   position: absolute;
   z-index: 1;
@@ -455,7 +466,7 @@ onMounted(() => {
 }
 
 /* 站点卡片悬停时状态指示器变化 */
-.site-card:not(.site-card--sortable):hover .site-status-indicator {
+.site-card-hover-area:hover .site-card:not(.site-card--sortable) .site-status-indicator {
   block-size: 2px;
   opacity: 0.8;
 }
@@ -644,7 +655,7 @@ onMounted(() => {
   visibility: hidden;
 }
 
-.site-card:hover .site-card-actions {
+.site-card-hover-area:hover .site-card-actions {
   opacity: 1;
   transform: translateX(0);
   visibility: visible;

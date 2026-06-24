@@ -404,26 +404,27 @@ function handleCardClick() {
   <div>
     <VHover>
       <template #default="hover">
-        <div
-          class="subscribe-card-shell w-full h-full relative"
-          :class="{
-            'transition transform-cpu duration-300 -translate-y-1': hover.isHovering && !props.sortable,
-            'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
-          }"
-        >
-          <VCard
-            v-bind="hover.props"
-            :key="props.media?.id"
-            class="flex flex-col h-full overflow-hidden"
+        <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+        <div v-bind="hover.props" class="subscribe-card-hover-area w-full h-full">
+          <div
+            class="subscribe-card-shell app-hover-lift-card w-full h-full relative"
             :class="{
-              'subscribe-card-paused': subscribeState === 'S',
-              'subscribe-card-pending-tint': subscribeState === 'P',
-              'cursor-move': props.sortable,
+              'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
+              'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
             }"
-            min-height="150"
-            @click="handleCardClick"
-            :ripple="!props.batchMode && !props.sortable"
           >
+            <VCard
+              :key="props.media?.id"
+              class="flex flex-col h-full overflow-hidden"
+              :class="{
+                'subscribe-card-paused': subscribeState === 'S',
+                'subscribe-card-pending-tint': subscribeState === 'P',
+                'cursor-move': props.sortable,
+              }"
+              min-height="150"
+              @click="handleCardClick"
+              :ripple="!props.batchMode && !props.sortable"
+            >
             <div
               v-if="bestVersionBadge && imageLoaded"
               class="best-version-badge"
@@ -568,13 +569,18 @@ function handleCardClick() {
                 />
               </div>
             </div>
-          </VCard>
+            </VCard>
+          </div>
         </div>
       </template>
     </VHover>
   </div>
 </template>
 <style lang="scss" scoped>
+.subscribe-card-hover-area {
+  inline-size: 100%;
+}
+
 .subscribe-card-background {
   background-image: linear-gradient(180deg, rgba(31, 41, 55, 47%) 0%, rgb(31, 41, 55) 100%);
 }

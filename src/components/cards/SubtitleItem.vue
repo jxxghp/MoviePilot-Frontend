@@ -99,10 +99,11 @@ watch(
 </script>
 
 <template>
-  <div class="w-100">
+  <!-- Hover 命中区域保持静止，避免列表项上浮后底边反复触发 mouseleave。 -->
+  <div class="subtitle-item-hover-area w-100">
     <VListItem
       :value="subtitle?.enclosure"
-      class="pa-3 mb-2 rounded subtitle-item transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+      class="app-hover-lift-card pa-3 mb-2 rounded subtitle-item overflow-hidden"
       :class="{ 'border-start border-success border-3 opacity-85': isDownloaded }"
       @click="handleAddDownload"
     >
@@ -206,11 +207,19 @@ watch(
 </template>
 
 <style scoped>
+.subtitle-item-hover-area {
+  inline-size: 100%;
+}
+
+.subtitle-item-hover-area:hover .subtitle-item {
+  transform: translate3d(0, -0.25rem, 0);
+}
+
 .subtitle-item {
   border: 1px solid transparent;
 }
 
-.subtitle-item:hover {
+.subtitle-item-hover-area:hover .subtitle-item {
   border-color: rgba(var(--v-theme-primary), 0.3);
 }
 </style>
