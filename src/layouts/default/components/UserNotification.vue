@@ -308,6 +308,46 @@ async function clearNotifications(scope: NotificationClearScope) {
   }
 }
 
+/** 按页请求历史通知，并合并到当前虚拟列表。 */
+async function fetchNotificationPage() {
+  const items = (await api.get('message/notification', {
+    params: {
+      page: page.value,
+      count: PAGE_SIZE,
+    },
+  })) as SystemNotification[]
+
+  if (items.length === 0) {
+    hasMore.value = false
+    return items
+  }
+
+  mergeNotifications(items, { read: true })
+  page.value += 1
+  hasMore.value = items.length >= PAGE_SIZE
+
+  return items
+}
+
+/** 刷新通知中心首屏数据，确保点开红点时能立即看到后端已有的新消息。 */
+async function refreshNotificationsOnOpen() {
+  if (loading.value) return
+
+  try {
+    loading.value = true
+    page.value = 1
+    hasMore.value = true
+    notificationKeys.clear()
+    notificationList.value = compactNotifications(notificationList.value)
+    rebuildNotificationKeys()
+    await fetchNotificationPage()
+  } catch (error) {
+    console.error('刷新通知失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
 /** 按页加载历史通知，并合并到当前虚拟列表。 */
 async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'error') => void }) {
   if (loading.value) {
@@ -323,22 +363,11 @@ async function loadNotifications({ done }: { done: (status: 'ok' | 'empty' | 'er
   try {
     loading.value = true
 
-    const items = (await api.get('message/notification', {
-      params: {
-        page: page.value,
-        count: PAGE_SIZE,
-      },
-    })) as SystemNotification[]
-
+    const items = await fetchNotificationPage()
     if (items.length === 0) {
-      hasMore.value = false
       done('empty')
       return
     }
-
-    mergeNotifications(items, { read: true })
-    page.value += 1
-    hasMore.value = items.length >= PAGE_SIZE
 
     done(hasMore.value ? 'ok' : 'empty')
   } catch (error) {
@@ -472,6 +501,13 @@ useDelayedSSE(
     maxReconnectAttempts: 3,
   },
 )
+
+/** 监听通知中心展开状态，展开时主动刷新首屏通知。 */
+function handleNotificationMenuVisibleChange(open: boolean) {
+  if (open) void refreshNotificationsOnOpen()
+}
+
+watch(appsMenu, handleNotificationMenuVisibleChange)
 </script>
 
 <template>
@@ -558,10 +594,7 @@ useDelayedSSE(
             </div>
           </template>
           <template #empty>
-            <div v-if="notificationList.length > 0" class="py-3 text-center text-caption text-medium-emphasis">
-              {{ t('message.noMoreData') }}
-            </div>
-            <div v-else class="notification-empty">
+            <div v-if="notificationList.length === 0" class="notification-empty">
               <div class="notification-empty__icon">
                 <VIcon icon="mdi-bell-sleep-outline" size="22" />
               </div>
