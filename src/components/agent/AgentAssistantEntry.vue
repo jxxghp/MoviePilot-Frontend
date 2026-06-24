@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import {
-  onAgentAssistantNotificationBubble,
+  onAgentAssistantBubble,
+  setAgentAssistantBubbleEntryActive,
+  type AgentAssistantBubbleKind,
+  type AgentAssistantBubblePayload,
+  type AgentAssistantBubbleVariant,
   type AgentAssistantNotificationBubblePayload,
 } from '@/utils/agentAssistantBubble'
 import { useI18n } from 'vue-i18n'
 
-type AgentAssistantEntryBubbleKind = 'assistant' | 'custom' | 'notification'
-
 interface AgentAssistantEntryBubble {
   id: string
-  kind: AgentAssistantEntryBubbleKind
+  kind: AgentAssistantBubbleKind
+  variant: AgentAssistantBubbleVariant
   title?: string
   text: string
   keepOpen?: boolean
@@ -17,7 +20,8 @@ interface AgentAssistantEntryBubble {
 
 interface AgentAssistantEntryBubbleInput {
   id?: string
-  kind?: AgentAssistantEntryBubbleKind
+  kind?: AgentAssistantBubbleKind
+  variant?: AgentAssistantBubbleVariant
   title?: string
   text: string
   autoClose?: boolean
@@ -45,6 +49,7 @@ const { t } = useI18n()
 const FAB_IDLE_DOCK_DELAY = 4200
 const FAB_RIGHT_EDGE_DOCK_DISTANCE = 88
 const FAB_NOTIFICATION_BUBBLE_DURATION = 7000
+const FAB_TOAST_BUBBLE_DURATION = 4500
 const FAB_MAX_BUBBLES = 4
 const FAB_DEFAULT_RIGHT_OFFSET = 18
 const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
@@ -128,7 +133,7 @@ let fabPendingPointerPoint: FabPointerPoint | null = null
 let fabLastRandomAction: FabRandomAction | null = null
 let fabRandomActionTimer: number | null = null
 let fabRandomActionEndTimer: number | null = null
-let stopNotificationBubbleListener: (() => void) | null = null
+let stopBubbleListener: (() => void) | null = null
 
 const fabBubbleTimers = new Map<string, number>()
 
@@ -483,6 +488,36 @@ function buildNotificationBubbleText(payload: AgentAssistantNotificationBubblePa
   return stripMarkdownPreview(payload.text || payload.title || payload.source || payload.mtype || '')
 }
 
+function getBubbleVariant(payload: AgentAssistantBubblePayload): AgentAssistantBubbleVariant {
+  return payload.variant || 'default'
+}
+
+function getBubbleIcon(variant: AgentAssistantBubbleVariant) {
+  const icons: Record<AgentAssistantBubbleVariant, string> = {
+    default: 'mdi-bell-outline',
+    error: 'mdi-alert-circle-outline',
+    info: 'mdi-information-outline',
+    success: 'mdi-check-circle-outline',
+    warning: 'mdi-alert-outline',
+  }
+
+  return icons[variant]
+}
+
+function getToastBubbleTitle(payload: AgentAssistantBubblePayload) {
+  if (payload.title) return payload.title
+
+  const titles: Record<AgentAssistantBubbleVariant, string> = {
+    default: t('common.notice'),
+    error: t('common.error'),
+    info: t('common.notice'),
+    success: t('common.success'),
+    warning: t('common.notice'),
+  }
+
+  return titles[getBubbleVariant(payload)]
+}
+
 function clearFabBubbleTimer(id: string) {
   const timer = fabBubbleTimers.get(id)
   if (!timer) return
@@ -525,6 +560,7 @@ function showBubble(input: AgentAssistantEntryBubbleInput) {
     {
       id: input.id || createBubbleId(input.kind || 'custom'),
       kind: input.kind || 'custom',
+      variant: input.variant || 'default',
       title: input.title,
       text,
       keepOpen: input.keepOpen,
@@ -551,11 +587,37 @@ function showNotificationBubble(payload: AgentAssistantNotificationBubblePayload
   showBubble({
     id: payload.id,
     kind: 'notification',
+    variant: getBubbleVariant(payload),
     title: buildNotificationBubbleTitle(payload),
     text,
     autoClose: true,
     keepOpen: true,
   })
+}
+
+function showToastBubble(payload: AgentAssistantBubblePayload) {
+  const text = stripMarkdownPreview(payload.text || payload.title || '')
+  if (!text) return
+
+  showBubble({
+    id: payload.id,
+    kind: 'toast',
+    variant: getBubbleVariant(payload),
+    title: getToastBubbleTitle(payload),
+    text,
+    autoClose: true,
+    duration: payload.duration || FAB_TOAST_BUBBLE_DURATION,
+    keepOpen: payload.keepOpen,
+  })
+}
+
+function showAgentAssistantBubble(payload: AgentAssistantBubblePayload) {
+  if ((payload.kind || 'notification') === 'toast') {
+    showToastBubble(payload)
+    return
+  }
+
+  showNotificationBubble(payload as AgentAssistantNotificationBubblePayload)
 }
 
 function closeBubble(id?: string) {
@@ -684,16 +746,19 @@ function handleFabPointerEnter() {
 
 onMounted(() => {
   nextTick(resetFabPosition)
+  setAgentAssistantBubbleEntryActive(props.active)
   window.addEventListener('resize', handleWindowResize)
   window.addEventListener('pointermove', handleGlobalFabPointer, { passive: true })
   window.addEventListener('pointerdown', handleGlobalFabPointer, { passive: true })
-  stopNotificationBubbleListener = onAgentAssistantNotificationBubble(showNotificationBubble)
+  stopBubbleListener = onAgentAssistantBubble(showAgentAssistantBubble)
   scheduleFabRandomAction()
 })
 
 watch(
   () => props.active,
   active => {
+    setAgentAssistantBubbleEntryActive(active)
+
     if (active) {
       if (isFabNearRightEdge()) scheduleFabAutoDock()
       return
@@ -712,8 +777,9 @@ onScopeDispose(clearFabIdleTimer)
 onScopeDispose(clearFabRandomAction)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(() => {
-  stopNotificationBubbleListener?.()
-  stopNotificationBubbleListener = null
+  setAgentAssistantBubbleEntryActive(false)
+  stopBubbleListener?.()
+  stopBubbleListener = null
   window.removeEventListener('resize', handleWindowResize)
   teardownFabPointerTracking()
 })
@@ -725,6 +791,7 @@ defineExpose({
   showAssistantReplyPreview,
   showBubble,
   showNotificationBubble,
+  showToastBubble,
 })
 </script>
 
@@ -750,10 +817,16 @@ defineExpose({
         v-for="bubble in fabBubbles"
         :key="bubble.id"
         class="agent-assistant-fab__bubble"
-        :class="`agent-assistant-fab__bubble--${bubble.kind}`"
+        :class="[
+          `agent-assistant-fab__bubble--${bubble.kind}`,
+          `agent-assistant-fab__bubble--${bubble.variant}`,
+        ]"
         role="status"
       >
-        <strong v-if="bubble.title">{{ bubble.title }}</strong>
+        <strong v-if="bubble.title" class="agent-assistant-fab__bubble-title">
+          <VIcon class="agent-assistant-fab__bubble-icon" :icon="getBubbleIcon(bubble.variant)" size="18" />
+          <span>{{ bubble.title }}</span>
+        </strong>
         <span>{{ bubble.text }}</span>
         <button
           class="agent-assistant-fab__bubble-close"
@@ -886,12 +959,12 @@ defineExpose({
 .agent-assistant-fab__bubbles {
   position: absolute;
   display: grid;
-  overflow: visible;
+  overflow-y: auto;
   gap: 0.45rem;
-  inline-size: 13.2rem;
+  inline-size: clamp(15.5rem, 22vw, 19rem);
   inset-block-end: 4.45rem;
   inset-inline-end: 2.75rem;
-  max-block-size: min(22rem, calc(100vh - 8rem));
+  max-block-size: min(34rem, calc(100vh - 8rem));
   max-inline-size: calc(100vw - 6.4rem);
   opacity: 0;
   pointer-events: none;
@@ -905,6 +978,8 @@ defineExpose({
 .agent-assistant-fab__bubble {
   position: relative;
   display: grid;
+  --agent-assistant-bubble-accent: var(--v-theme-primary);
+  --agent-assistant-bubble-accent-rgb: var(--v-theme-primary);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 18px;
   backdrop-filter: blur(12px);
@@ -921,25 +996,59 @@ defineExpose({
     linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), transparent 48%), rgba(var(--v-theme-surface), 0.94);
 }
 
-.agent-assistant-fab__bubble strong {
+.agent-assistant-fab__bubble--success {
+  --agent-assistant-bubble-accent-rgb: var(--v-theme-success);
+}
+
+.agent-assistant-fab__bubble--error {
+  --agent-assistant-bubble-accent-rgb: var(--v-theme-error);
+}
+
+.agent-assistant-fab__bubble--warning {
+  --agent-assistant-bubble-accent-rgb: 245, 158, 11;
+}
+
+.agent-assistant-fab__bubble--info {
+  --agent-assistant-bubble-accent-rgb: 14, 165, 233;
+}
+
+.agent-assistant-fab__bubble--toast {
+  border-color: rgba(var(--agent-assistant-bubble-accent-rgb), 0.3);
+  background:
+    linear-gradient(135deg, rgba(var(--agent-assistant-bubble-accent-rgb), 0.12), transparent 54%),
+    rgba(var(--v-theme-surface), 0.95);
+}
+
+.agent-assistant-fab__bubble-title {
   overflow: hidden;
-  color: rgba(var(--v-theme-primary), 0.92);
-  font-size: 0.72rem;
+  display: inline-grid;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  color: rgba(var(--agent-assistant-bubble-accent-rgb), 0.92);
+  column-gap: 0.32rem;
+  font-size: 0.92rem;
   font-weight: 700;
   line-height: 1.25;
   margin-block-end: 0.22rem;
+}
+
+.agent-assistant-fab__bubble-title span {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.agent-assistant-fab__bubble span {
+.agent-assistant-fab__bubble-icon {
+  color: rgba(var(--agent-assistant-bubble-accent-rgb), 0.92) !important;
+}
+
+.agent-assistant-fab__bubble > span {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   color: rgba(var(--v-theme-on-surface), 0.9);
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 8;
   line-height: 1.42;
   text-align: start;
   white-space: normal;
