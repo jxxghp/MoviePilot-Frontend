@@ -56,7 +56,7 @@ const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint', 'disassemble', '
 type FabRandomAction = (typeof FAB_RANDOM_ACTIONS)[number]
 
 const FAB_RANDOM_ACTION_DURATIONS: Record<FabRandomAction, number> = {
-  wave: 2300,
+  wave: 2450,
   sit: 4200,
   'eye-roll': 1900,
   faint: 4800,
@@ -1351,9 +1351,6 @@ defineExpose({
 
 .agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--left {
   z-index: 6;
-  block-size: 1.16rem;
-  inset-block-start: 3.08rem;
-  inset-inline-start: 0.66rem;
   animation: agent-fab-action-wave-arm-left 2.3s ease-in-out both;
   transform-origin: top center;
 }
@@ -1612,27 +1609,31 @@ defineExpose({
 @keyframes agent-fab-action-wave-arm-left {
   0%,
   100% {
-    transform: translateX(-0.04rem) rotate(18deg);
+    transform: rotate(17deg);
   }
 
   16% {
-    transform: translateX(-0.08rem) rotate(64deg);
+    transform: translate(-0.08rem, -0.06rem) rotate(64deg);
   }
 
   30% {
-    transform: translateX(-0.14rem) rotate(132deg);
+    transform: translate(-0.26rem, -0.28rem) rotate(132deg);
   }
 
   44% {
-    transform: translateX(-0.1rem) rotate(92deg);
+    transform: translate(-0.18rem, -0.2rem) rotate(92deg);
   }
 
   58% {
-    transform: translateX(-0.14rem) rotate(132deg);
+    transform: translate(-0.26rem, -0.28rem) rotate(132deg);
   }
 
   72% {
-    transform: translateX(-0.08rem) rotate(64deg);
+    transform: translate(-0.1rem, -0.08rem) rotate(64deg);
+  }
+
+  88% {
+    transform: translate(-0.02rem, -0.02rem) rotate(28deg);
   }
 }
 

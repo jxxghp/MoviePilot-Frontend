@@ -37,3 +37,4 @@ src/@iconify/*.js
 public/plugin_icon/**
 docs-lock/
 .trae/
+output/
