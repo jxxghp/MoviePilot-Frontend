@@ -1,3 +1,5 @@
+import { readonly, ref } from 'vue'
+
 /**
  * PWA 徽章管理工具
  */
@@ -7,9 +9,27 @@ interface UnreadMessageEvent extends CustomEvent {
   detail: { count: number }
 }
 
+const unreadMessageCount = ref(0)
+
+// 暴露只读未读计数，供通知中心等组件直接判断应用角标状态。
+export const appUnreadMessageCount = readonly(unreadMessageCount)
+
+function normalizeUnreadMessageCount(count: unknown) {
+  const normalizedCount = Number(count)
+  if (!Number.isFinite(normalizedCount) || normalizedCount <= 0) return 0
+
+  return Math.floor(normalizedCount)
+}
+
+function setUnreadMessageCount(count: unknown) {
+  unreadMessageCount.value = normalizeUnreadMessageCount(count)
+  return unreadMessageCount.value
+}
+
 // 发送全局未读消息事件
 export function emitUnreadMessageEvent(count: number) {
-  const event = new CustomEvent('unreadMessage', { detail: { count } }) as UnreadMessageEvent
+  const normalizedCount = setUnreadMessageCount(count)
+  const event = new CustomEvent('unreadMessage', { detail: { count: normalizedCount } }) as UnreadMessageEvent
   window.dispatchEvent(event)
 }
 
@@ -88,9 +108,8 @@ export async function checkUnreadOnStartup(): Promise<number> {
 export async function checkAndEmitUnreadMessages() {
   try {
     const count = await checkUnreadOnStartup()
-    if (count > 0) {
-      emitUnreadMessageEvent(count)
-    }
+    // 启动时同步 0 值，避免组件复用上一轮角标状态。
+    emitUnreadMessageEvent(count)
   } catch (error) {
     // 静默处理错误
   }
@@ -139,11 +158,13 @@ export async function clearAppBadge(): Promise<boolean> {
 
 // 更新桌面图标徽章数量
 export async function updateAppBadge(count: number): Promise<boolean> {
+  const normalizedCount = normalizeUnreadMessageCount(count)
+
   try {
     // 如果浏览器支持原生Badge API，直接调用
     if ('setAppBadge' in navigator) {
-      if (count > 0) {
-        await navigator.setAppBadge(count)
+      if (normalizedCount > 0) {
+        await navigator.setAppBadge(normalizedCount)
       } else {
         await navigator.clearAppBadge()
       }
@@ -155,13 +176,18 @@ export async function updateAppBadge(count: number): Promise<boolean> {
 
       return new Promise(resolve => {
         messageChannel.port1.onmessage = event => {
-          resolve(event.data.success)
+          const success = Boolean(event.data.success)
+          if (success) emitUnreadMessageEvent(normalizedCount)
+          resolve(success)
         }
 
-        navigator.serviceWorker.controller?.postMessage({ type: 'UPDATE_BADGE', count }, [messageChannel.port2])
+        navigator.serviceWorker.controller?.postMessage({ type: 'UPDATE_BADGE', count: normalizedCount }, [
+          messageChannel.port2,
+        ])
       })
     }
 
+    emitUnreadMessageEvent(normalizedCount)
     return true
   } catch (error) {
     console.error('Failed to update app badge:', error)
@@ -194,4 +220,12 @@ export async function getUnreadCount(): Promise<number> {
 // 检查浏览器是否支持Badge API
 export function supportsBadgeAPI(): boolean {
   return 'setAppBadge' in navigator && 'clearAppBadge' in navigator
+}
+
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'UNREAD_COUNT_UPDATE') {
+      emitUnreadMessageEvent(event.data.count || 0)
+    }
+  })
 }

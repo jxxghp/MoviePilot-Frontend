@@ -283,6 +283,17 @@ async function setStoredUnreadCount(count: number): Promise<void> {
   await set(UNREAD_COUNT_KEY, count)
 }
 
+// 通知已打开的页面同步未读计数，保证前台通知中心能感知 PWA badge 的变化。
+async function broadcastUnreadCount(count: number) {
+  const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
+  clients.forEach(client => {
+    client.postMessage({
+      type: 'UNREAD_COUNT_UPDATE',
+      count,
+    })
+  })
+}
+
 async function updateBadge(count: number) {
   if ('setAppBadge' in self.navigator) {
     try {
@@ -309,6 +320,7 @@ async function clearBadge() {
 
   try {
     await setStoredUnreadCount(0)
+    await broadcastUnreadCount(0)
   } catch (error) {
     console.error('Failed to clear unread count:', error)
   }
@@ -422,7 +434,11 @@ self.addEventListener('push', function (event) {
         const currentCount = await getStoredUnreadCount()
         const newCount = currentCount + 1
         await setStoredUnreadCount(newCount)
-        await Promise.all([self.registration.showNotification(payload.title, content), updateBadge(newCount)])
+        await Promise.all([
+          self.registration.showNotification(payload.title, content),
+          updateBadge(newCount),
+          broadcastUnreadCount(newCount),
+        ])
       })(),
     )
   } catch (e) {
@@ -454,6 +470,7 @@ self.addEventListener('message', function (event) {
     const count = event.data.count || 0
     setStoredUnreadCount(count)
       .then(() => updateBadge(count))
+      .then(() => broadcastUnreadCount(count))
       .then(() => {
         event.ports[0]?.postMessage({ success: true })
       })
