@@ -382,7 +382,10 @@ function pauseFabAutoDock() {
 
 // 返回下一次趣味动作的随机等待时间，让动作出现节奏更自然。
 function getFabRandomActionDelay() {
-  return FAB_RANDOM_ACTION_MIN_DELAY + Math.round(Math.random() * (FAB_RANDOM_ACTION_MAX_DELAY - FAB_RANDOM_ACTION_MIN_DELAY))
+  return (
+    FAB_RANDOM_ACTION_MIN_DELAY +
+    Math.round(Math.random() * (FAB_RANDOM_ACTION_MAX_DELAY - FAB_RANDOM_ACTION_MIN_DELAY))
+  )
 }
 
 // 判断当前交互状态是否适合播放随机动作，避免干扰半隐藏、拖拽和思考态。
@@ -461,7 +464,8 @@ function runFabRandomAction() {
 // 根据当前显示和交互状态同步随机动作队列。
 function syncFabRandomActionSchedule() {
   if (canRunFabRandomAction()) {
-    if (!fabRandomAction.value && fabRandomActionTimer === null && fabRandomActionEndTimer === null) scheduleFabRandomAction()
+    if (!fabRandomAction.value && fabRandomActionTimer === null && fabRandomActionEndTimer === null)
+      scheduleFabRandomAction()
     return
   }
 
@@ -658,7 +662,10 @@ function setFabDocked(docked: boolean) {
 
   updateFabPosition({
     ...currentPosition,
-    x: Math.min(currentPosition.x, Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET)),
+    x: Math.min(
+      currentPosition.x,
+      Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET),
+    ),
   })
   scheduleFabAutoDock()
 }
@@ -676,7 +683,6 @@ function handleFabTriggerPointerDown(event: PointerEvent) {
     startY: currentPosition.y,
     moved: false,
   }
-
   ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
 }
 
@@ -817,10 +823,7 @@ defineExpose({
         v-for="bubble in fabBubbles"
         :key="bubble.id"
         class="agent-assistant-fab__bubble"
-        :class="[
-          `agent-assistant-fab__bubble--${bubble.kind}`,
-          `agent-assistant-fab__bubble--${bubble.variant}`,
-        ]"
+        :class="[`agent-assistant-fab__bubble--${bubble.kind}`, `agent-assistant-fab__bubble--${bubble.variant}`]"
         role="status"
       >
         <strong v-if="bubble.title" class="agent-assistant-fab__bubble-title">
@@ -874,6 +877,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 /* stylelint-disable no-descending-specificity */
+/* stylelint-disable no-duplicate-selectors */
 
 .agent-assistant-fab {
   position: fixed;
@@ -959,7 +963,6 @@ defineExpose({
 .agent-assistant-fab__bubbles {
   position: absolute;
   display: grid;
-  overflow-y: auto;
   gap: 0.45rem;
   inline-size: clamp(15.5rem, 22vw, 19rem);
   inset-block-end: 4.45rem;
@@ -967,6 +970,7 @@ defineExpose({
   max-block-size: min(34rem, calc(100vh - 8rem));
   max-inline-size: calc(100vw - 6.4rem);
   opacity: 0;
+  overflow-y: auto;
   pointer-events: none;
   transform: translateY(0.22rem) scale(0.96);
   transform-origin: 100% 100%;
@@ -978,8 +982,10 @@ defineExpose({
 .agent-assistant-fab__bubble {
   position: relative;
   display: grid;
+
   --agent-assistant-bubble-accent: var(--v-theme-primary);
   --agent-assistant-bubble-accent-rgb: var(--v-theme-primary);
+
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 18px;
   backdrop-filter: blur(12px);
@@ -1020,14 +1026,14 @@ defineExpose({
 }
 
 .agent-assistant-fab__bubble-title {
-  overflow: hidden;
   display: inline-grid;
+  overflow: hidden;
   align-items: center;
-  grid-template-columns: auto minmax(0, 1fr);
   color: rgba(var(--agent-assistant-bubble-accent-rgb), 0.92);
   column-gap: 0.32rem;
   font-size: 1.05rem;
   font-weight: 800;
+  grid-template-columns: auto minmax(0, 1fr);
   line-height: 1.25;
   margin-block-end: 0.22rem;
 }
@@ -1143,12 +1149,12 @@ defineExpose({
   z-index: 3;
   display: block;
   border-radius: 999px;
+  animation: agent-fab-antenna-idle 3.9s ease-in-out infinite;
   background: var(--agent-assistant-robot-outline);
   block-size: 0.66rem;
   inline-size: 0.18rem;
   inset-block-start: 0.72rem;
   inset-inline-start: 2.62rem;
-  animation: agent-fab-antenna-idle 3.9s ease-in-out infinite;
   transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
   transform-origin: bottom center;
   transition:
@@ -1174,6 +1180,7 @@ defineExpose({
   display: block;
   border: 2px solid var(--agent-assistant-robot-outline);
   border-radius: 11px;
+  animation: agent-fab-head-idle 4.6s ease-in-out infinite;
   background: linear-gradient(
     145deg,
     var(--agent-assistant-robot-shell-start) 0%,
@@ -1186,7 +1193,6 @@ defineExpose({
   inline-size: 2.82rem;
   inset-block-start: 1.42rem;
   inset-inline-start: 0.88rem;
-  animation: agent-fab-head-idle 4.6s ease-in-out infinite;
   transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y));
   transform-origin: 50% 85%;
 }
@@ -1194,6 +1200,7 @@ defineExpose({
 .agent-assistant-fab__face {
   position: absolute;
   display: block;
+  overflow: hidden;
   border: 2px solid var(--agent-assistant-robot-outline-soft);
   border-radius: 8px;
   background: linear-gradient(
@@ -1206,7 +1213,6 @@ defineExpose({
   inline-size: 2.1rem;
   inset-block-start: 0.33rem;
   inset-inline-start: 0.25rem;
-  overflow: hidden;
 }
 
 .agent-assistant-fab__eye {
@@ -1219,6 +1225,7 @@ defineExpose({
   inline-size: 0.42rem;
   inset-block-start: 0.36rem;
   transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
+
   /* 触屏设备没有连续 hover 轨迹，给眼神位移补过渡避免点按时瞬移。 */
   transition: transform 0.2s ease-out;
 }
@@ -1234,9 +1241,9 @@ defineExpose({
 .agent-assistant-fab__smile {
   position: absolute;
   display: block;
-  border-block-end: 0.13rem solid var(--agent-assistant-robot-eye);
   border-radius: 0 0 999px 999px;
   block-size: 0.32rem;
+  border-block-end: 0.13rem solid var(--agent-assistant-robot-eye);
   inline-size: 0.7rem;
   inset-block-start: 0.75rem;
   inset-inline-start: 50%;
@@ -1251,6 +1258,7 @@ defineExpose({
   display: block;
   border: 2px solid var(--agent-assistant-robot-outline);
   border-radius: 0.65rem 0.65rem 0.55rem 0.55rem;
+  animation: agent-fab-body-idle 4.2s ease-in-out infinite;
   background: linear-gradient(
     145deg,
     var(--agent-assistant-robot-shell-mid) 0%,
@@ -1263,7 +1271,6 @@ defineExpose({
   inline-size: 1.88rem;
   inset-block-start: 3.24rem;
   inset-inline-start: 1.32rem;
-  animation: agent-fab-body-idle 4.2s ease-in-out infinite;
   transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
   transform-origin: 50% 18%;
   transition:
@@ -1380,10 +1387,7 @@ defineExpose({
 }
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__eye {
-  transform: translate(
-    calc(var(--agent-assistant-eye-x) * 0.24 - 0.22rem),
-    calc(var(--agent-assistant-eye-y) * 0.24)
-  );
+  transform: translate(calc(var(--agent-assistant-eye-x) * 0.24 - 0.22rem), calc(var(--agent-assistant-eye-y) * 0.24));
 }
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__body,
@@ -2155,23 +2159,27 @@ defineExpose({
   9%,
   37%,
   65% {
-    transform: translateY(0.22rem) scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) - 3deg));
+    transform: translateY(0.22rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 3deg));
   }
 
   20%,
   48%,
   76% {
-    transform: translateY(-0.76rem) scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) + 4deg));
+    transform: translateY(-0.76rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 4deg));
   }
 
   29%,
   57%,
   85% {
-    transform: translateY(0.1rem) scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) - 2deg));
+    transform: translateY(0.1rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 2deg));
   }
 
   92% {
-    transform: translateY(-0.1rem) scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) + 1deg));
+    transform: translateY(-0.1rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 1deg));
   }
 }
 
@@ -2287,19 +2295,22 @@ defineExpose({
   9%,
   37%,
   65% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.18rem)) scaleY(0.84) rotate(-2deg);
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.18rem)) scaleY(0.84)
+      rotate(-2deg);
   }
 
   20%,
   48%,
   76% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) - 0.1rem)) scaleY(1.08) rotate(4deg);
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) - 0.1rem)) scaleY(1.08)
+      rotate(4deg);
   }
 
   29%,
   57%,
   85% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.08rem)) scaleY(0.94) rotate(-3deg);
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.08rem)) scaleY(0.94)
+      rotate(-3deg);
   }
 }
 
@@ -2443,9 +2454,9 @@ defineExpose({
 
   .agent-assistant-fab__bubbles {
     gap: 0.38rem;
-    inline-size: min(9.6rem, calc(100vw - 5.6rem));
+    inline-size: min(16.5rem, calc(100vw - 5.6rem));
     inset-inline-end: 2.35rem;
-    max-block-size: min(18rem, calc(100vh - 9.2rem));
+    max-block-size: min(30rem, calc(100vh - 9.2rem));
   }
 
   .agent-assistant-fab__bubble {
@@ -2453,12 +2464,12 @@ defineExpose({
     padding-inline: 0.72rem 1.62rem;
   }
 
-  .agent-assistant-fab__bubble strong {
-    font-size: 0.8rem;
+  .agent-assistant-fab__bubble-title {
+    font-size: 1.05rem;
   }
 
-  .agent-assistant-fab__bubble span {
-    font-size: 0.68rem;
+  .agent-assistant-fab__bubble > span {
+    font-size: 1rem;
   }
 
   .agent-assistant-fab__trigger {
