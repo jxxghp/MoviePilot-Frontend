@@ -279,6 +279,7 @@ export default {
   login: {
     wallpapers: 'Wallpapers',
     tagline: 'Your smart media library',
+    welcomeBack: 'Welcome Back',
     copyright: '© {year} MoviePilot',
     username: 'Username',
     password: 'Password',

@@ -719,6 +719,13 @@ onUnmounted(() => {
 <template>
   <!-- 登录页面容器 -->
   <div class="login-root">
+    <!-- 装饰性背景光晕 -->
+    <div class="login-bg-decor" aria-hidden="true">
+      <div class="login-orb login-orb--1" />
+      <div class="login-orb login-orb--2" />
+      <div class="login-orb login-orb--3" />
+    </div>
+
     <!-- 顶部漂浮语言切换 -->
     <VMenu v-model="langMenu" :close-on-content-click="false">
       <template #activator="{ props }">
@@ -728,7 +735,7 @@ onUnmounted(() => {
           <span class="ms-1">{{ SUPPORTED_LOCALES[currentLocale].title }}</span>
         </VBtn>
       </template>
-      <VCard min-width="180">
+      <VCard min-width="180" class="lang-menu-card">
         <VList>
           <VListItem
             v-for="locale in locales"
@@ -749,15 +756,18 @@ onUnmounted(() => {
     <!-- 登录表单 -->
     <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card login-card pa-7 pa-sm-8 w-full h-full login-card--enter"
+        class="auth-card login-card pa-7 pa-sm-9 w-full h-full login-card--enter"
         :class="{ 'glass-effect': !isTransparentTheme }"
-        max-width="23rem"
+        max-width="24rem"
         flat
       >
-        <!-- 卡片头部：Logo + 标题 + 标语 -->
+        <!-- 卡片头部：Logo + 标题 + 欢迎语 -->
         <div class="login-head">
-          <VImg :src="logo" width="68" height="68" class="login-logo" />
+          <div class="login-logo-wrapper">
+            <VImg :src="logo" width="72" height="72" class="login-logo" />
+          </div>
           <h1 class="login-title">MoviePilot</h1>
+          <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
         </div>
 
         <VCardText class="login-body">
@@ -777,6 +787,8 @@ onUnmounted(() => {
                   hide-details
                   variant="outlined"
                   density="comfortable"
+                  prepend-inner-icon="mdi-account-outline"
+                  class="login-input"
                   @input="scheduleLoginAutofillSync"
                   @change="scheduleLoginAutofillSync"
                 />
@@ -790,11 +802,13 @@ onUnmounted(() => {
                   name="password"
                   id="password"
                   autocomplete="current-password"
+                  prepend-inner-icon="mdi-lock-outline"
                   :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
                   :rules="[requiredValidator]"
                   hide-details
                   variant="outlined"
                   density="comfortable"
+                  class="login-input"
                   @click:append-inner="isPasswordVisible = !isPasswordVisible"
                   @input="scheduleLoginAutofillSync"
                   @change="scheduleLoginAutofillSync"
@@ -809,6 +823,7 @@ onUnmounted(() => {
                     required
                     hide-details
                     density="compact"
+                    class="login-checkbox"
                   />
                 </div>
               </VCol>
@@ -842,14 +857,15 @@ onUnmounted(() => {
                   block
                   variant="outlined"
                   color="primary"
-                  class="mt-3"
+                  class="mt-3 plugin-auth-btn"
                   :prepend-icon="provider.icon || 'mdi-login-variant'"
                   :loading="pluginAuthLoading && selectedAuthProvider?.id === provider.id"
+                  rounded="lg"
                   @click="openPluginAuth(provider)"
                 >
                   {{ provider.name }}
                 </VBtn>
-                <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-3">
+                <VAlert v-if="errorMessage" type="error" variant="tonal" class="mt-4 login-alert">
                   {{ errorMessage }}
                 </VAlert>
               </VCol>
@@ -865,7 +881,7 @@ onUnmounted(() => {
       </VCard>
     </div>
     <VDialog v-model="pluginAuthDialog" max-width="520" persistent>
-      <VCard>
+      <VCard class="plugin-auth-card">
         <VCardItem>
           <VCardTitle>{{ selectedAuthProvider?.name }}</VCardTitle>
           <template #append>
@@ -894,12 +910,15 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 @use '@core/scss/pages/page-auth';
 
 /* ===================== 布局根容器 ===================== */
 .login-root {
   position: relative;
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -908,16 +927,99 @@ onUnmounted(() => {
   min-block-size: 100dvh;
 }
 
+/* ===================== 装饰性背景光晕 ===================== */
+.login-bg-decor {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  inset: 0;
+  pointer-events: none;
+}
+
+.login-orb {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.login-orb--1 {
+  animation: orb-float-1 12s ease-in-out infinite alternate;
+  background: rgba(var(--v-theme-primary), 0.35);
+  block-size: 360px;
+  filter: blur(60px);
+  inline-size: 360px;
+  inset-block-start: -15%;
+  inset-inline-end: -12%;
+}
+
+.login-orb--2 {
+  animation: orb-float-2 15s ease-in-out infinite alternate;
+  background: rgba(var(--v-theme-primary), 0.25);
+  block-size: 300px;
+  filter: blur(55px);
+  inline-size: 300px;
+  inset-block-end: -10%;
+  inset-inline-start: -15%;
+}
+
+.login-orb--3 {
+  animation: orb-float-3 10s ease-in-out infinite alternate;
+  background: rgba(var(--v-theme-primary), 0.15);
+  block-size: 220px;
+  filter: blur(50px);
+  inline-size: 220px;
+  inset-block-start: 50%;
+  inset-inline-end: 15%;
+}
+
+@keyframes orb-float-1 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(-30px, 40px) scale(1.1);
+  }
+}
+
+@keyframes orb-float-2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(25px, -30px) scale(1.08);
+  }
+}
+
+@keyframes orb-float-3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(-20px, 20px) scale(0.92);
+  }
+}
+
 /* ===================== 浮动语言切换 ===================== */
 .lang-switch-btn {
   position: absolute;
   z-index: 3;
   border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.6));
   border-radius: 999px;
-  backdrop-filter: blur(10px);
-  background: rgba(var(--v-theme-surface), 0.55);
+  backdrop-filter: blur(12px) saturate(140%);
+  background: rgba(var(--v-theme-surface), 0.6);
   inset-block-start: calc(env(safe-area-inset-top, 0px) + 16px);
   inset-inline-end: calc(env(safe-area-inset-right, 0px) + 16px);
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
+
+  &:hover {
+    border-color: rgba(var(--v-theme-primary), 0.3);
+    background: rgba(var(--v-theme-surface), 0.85);
+  }
 }
 
 /* ===================== 表单容器 ===================== */
@@ -935,17 +1037,19 @@ onUnmounted(() => {
   position: relative;
   z-index: 1;
   border: none !important;
-  border-radius: var(--app-surface-radius, 16px) !important;
-  box-shadow: var(
-    --app-overlay-shadow,
-    0 18px 42px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.14),
-    0 6px 18px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.08)
-  ) !important;
+  border-radius: var(--app-surface-radius, 20px) !important;
+  box-shadow:
+    0 20px 50px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.12),
+    0 8px 20px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.06),
+    0 0 0 1px rgba(var(--v-theme-primary), 0.04) !important;
+  transition: box-shadow 300ms ease;
 
   /* 顶部高光线，营造立体感 */
   &::before {
     position: absolute;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 40%), transparent);
+    z-index: 1;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent 10%, rgba(255, 255, 255, 35%) 50%, transparent 90%);
     block-size: 1px;
     content: '';
     inset-block-start: 0;
@@ -956,8 +1060,8 @@ onUnmounted(() => {
 
 /* 非透明主题：磨砂玻璃卡片 */
 .glass-effect {
-  backdrop-filter: blur(24px) saturate(160%) !important;
-  background: rgba(var(--v-theme-surface), 0.72) !important;
+  backdrop-filter: blur(28px) saturate(170%) !important;
+  background: rgba(var(--v-theme-surface), 0.75) !important;
 }
 
 /* 深色主题上叠一条更亮的描边，区分背景 */
@@ -976,34 +1080,80 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  margin-block-end: 6px;
+  gap: 4px;
+  margin-block-end: 12px;
   text-align: center;
 }
 
+.login-logo-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-block-end: 8px;
+
+  /* Logo 背后的柔光环 */
+  &::before {
+    position: absolute;
+    z-index: -1;
+    border-radius: 50%;
+    animation: logo-pulse 4s ease-in-out infinite;
+    background: radial-gradient(circle, rgba(var(--v-theme-primary), 0.2) 0%, transparent 70%);
+    block-size: 120px;
+    content: '';
+    inline-size: 120px;
+  }
+}
+
 .login-logo {
-  filter: drop-shadow(0 6px 16px rgba(var(--v-theme-primary), 0.35));
-  margin-block-end: 4px;
+  animation: logo-float 6s ease-in-out infinite;
+  filter: drop-shadow(0 8px 20px rgba(var(--v-theme-primary), 0.3));
+}
+
+@keyframes logo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes logo-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
 }
 
 .login-title {
   margin: 0;
-  background: linear-gradient(120deg, rgb(var(--v-theme-on-surface)), rgba(var(--v-theme-primary), 1));
+  background: linear-gradient(135deg, rgb(var(--v-theme-on-surface)) 30%, rgba(var(--v-theme-primary), 1) 100%);
   background-clip: text;
-  font-size: 1.8rem;
+  font-size: 1.85rem;
   font-weight: 800;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.03em;
   line-height: 1.2;
   -webkit-text-fill-color: transparent;
   text-transform: uppercase;
 }
 
-.login-tagline {
-  margin: 0;
+.login-subtitle {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 400;
   letter-spacing: 0.01em;
+  margin-block: 4px 0;
+  margin-inline: 0;
+  opacity: 0.8;
 }
 
 /* ===================== 卡片主体 ===================== */
@@ -1011,26 +1161,107 @@ onUnmounted(() => {
   padding-block: 8px !important;
 }
 
-/* 输入框聚焦时增加主色光晕 */
-:deep(.login-body .v-field.v-field--focused) {
-  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.18);
+/* 输入框增强样式 */
+:deep(.login-input .v-field) {
+  border-radius: 12px;
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease;
 }
 
-/* 登录按钮：主色 + 悬浮抬升 */
-.login-submit {
-  box-shadow: 0 8px 20px rgba(var(--v-theme-primary), 0.35);
-  letter-spacing: 0.02em;
-  transition:
-    transform var(--mp-motion-duration-overlay, 160ms) var(--mp-motion-ease-standard, ease),
-    box-shadow var(--mp-motion-duration-overlay, 160ms) var(--mp-motion-ease-standard, ease);
+/* 输入框聚焦时增加主色光晕 */
+:deep(.login-body .v-field.v-field--focused) {
+  box-shadow:
+    0 0 0 3px rgba(var(--v-theme-primary), 0.12),
+    0 4px 12px rgba(var(--v-theme-primary), 0.08);
+}
+
+/* 输入框悬停 */
+:deep(.login-input .v-field:hover:not(.v-field--focused)) {
+  border-color: rgba(var(--v-theme-primary), 0.4);
+}
+
+/* Remember me 复选框样式优化 */
+.login-checkbox {
+  opacity: 0.85;
+  transition: opacity 150ms ease;
 
   &:hover {
-    box-shadow: 0 12px 26px rgba(var(--v-theme-primary), 0.42);
-    transform: translateY(-1px);
+    opacity: 1;
+  }
+}
+
+/* 登录按钮：渐变 + 悬浮抬升 + 光泽 */
+.login-submit {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(var(--v-theme-primary), 0.35);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0 12px 32px rgba(var(--v-theme-primary), 0.45);
+    transform: translateY(-2px);
   }
 
   &:active {
+    box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.3);
     transform: translateY(0);
+  }
+}
+
+/* 登录按钮内部光泽扫描层 */
+.login-submit :deep(.v-btn__content)::after {
+  position: absolute;
+  z-index: 10;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 30%) 43%,
+    rgba(255, 255, 255, 40%) 50%,
+    rgba(255, 255, 255, 30%) 57%,
+    transparent 65%
+  );
+  content: '';
+  inset-block: -50%;
+  inset-inline: -50%;
+  pointer-events: none;
+  transform: translateX(-120%);
+  transition: transform 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-submit:hover :deep(.v-btn__content)::after {
+  transform: translateX(120%);
+}
+
+/* Passkey 按钮 */
+.passkey-btn {
+  border-radius: 12px;
+  font-weight: 500;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 150ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* 插件认证按钮 */
+.plugin-auth-btn {
+  border-radius: 12px;
+  font-weight: 500;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 150ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
   }
 }
 
@@ -1044,19 +1275,24 @@ onUnmounted(() => {
   &::before,
   &::after {
     flex: 1;
-    border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-block-end: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7));
     content: '';
   }
 
   .or-divider-text {
     color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    padding-inline: 14px;
+    letter-spacing: 0.1em;
+    padding-inline: 16px;
     text-transform: uppercase;
     white-space: nowrap;
   }
+}
+
+/* 错误提示 */
+.login-alert {
+  border-radius: 12px;
 }
 
 /* 浅色主题下 passkey 按钮保持绿色辨识度 */
@@ -1070,42 +1306,102 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: rgba(var(--v-theme-on-surface), calc(var(--v-disabled-opacity) * 1.4));
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   gap: 8px;
-  letter-spacing: 0.02em;
-  margin-block-start: 8px;
+  letter-spacing: 0.03em;
+  margin-block-start: 14px;
+  opacity: 0.75;
 }
 
 .login-version {
-  border-inline-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-inline-start: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.6));
   padding-inline: 6px;
 }
 
 /* ===================== 入场动画 ===================== */
 .login-card--enter {
-  animation: login-enter 520ms var(--mp-motion-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+  animation: login-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes login-enter {
   0% {
+    filter: blur(4px);
     opacity: 0;
-    transform: translateY(14px) scale(0.985);
+    transform: translateY(20px) scale(0.97);
   }
 
   100% {
+    filter: blur(0);
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
 
+/* Logo 入场 */
+.login-logo-wrapper {
+  animation: logo-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+@keyframes logo-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 标题入场 */
+.login-title {
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+}
+
+.login-subtitle {
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+}
+
+@keyframes text-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ===================== 无障碍：尊重减少动态偏好 ===================== */
 @media (prefers-reduced-motion: reduce) {
-  .login-card--enter {
+  .login-card--enter,
+  .login-logo-wrapper,
+  .login-title,
+  .login-subtitle {
     animation-duration: 1ms !important;
   }
 
   .login-submit {
     transition: none !important;
+  }
+
+  .login-submit :deep(.v-btn__content)::after {
+    display: none !important;
+  }
+
+  .login-logo {
+    animation: none !important;
+  }
+
+  .login-orb {
+    animation: none !important;
+  }
+
+  .login-logo-wrapper::before {
+    animation: none !important;
   }
 }
 
@@ -1121,6 +1417,21 @@ onUnmounted(() => {
 
   .login-card {
     padding: 1.5rem !important;
+    border-radius: 16px !important;
+  }
+
+  .login-orb--1 {
+    block-size: 220px;
+    inline-size: 220px;
+  }
+
+  .login-orb--2 {
+    block-size: 180px;
+    inline-size: 180px;
+  }
+
+  .login-orb--3 {
+    display: none;
   }
 }
 </style>

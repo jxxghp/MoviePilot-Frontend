@@ -278,6 +278,7 @@ export default {
   login: {
     wallpapers: '壁纸',
     tagline: '你的智能影视媒体库',
+    welcomeBack: '欢迎回来',
     copyright: '© {year} MoviePilot',
     username: '用户名',
     password: '密码',
