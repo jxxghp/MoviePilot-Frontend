@@ -53,12 +53,17 @@ const FAB_TOAST_BUBBLE_DURATION = 4500
 const FAB_MAX_BUBBLES = 4
 const FAB_DEFAULT_RIGHT_OFFSET = 18
 const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
+const FAB_BUBBLE_GAP = 12
+const FAB_BUBBLE_SAFE_MARGIN = 12
+const FAB_BUBBLE_ARROW_MARGIN = 28
+const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
 const FAB_RANDOM_ACTION_MIN_DELAY = 8000
 const FAB_RANDOM_ACTION_MAX_DELAY = 18000
 
 const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint', 'disassemble', 'happy-jump'] as const
 
 type FabRandomAction = (typeof FAB_RANDOM_ACTIONS)[number]
+type FabBubblePlacement = 'bottom' | 'left' | 'right' | 'top'
 
 const FAB_RANDOM_ACTION_DURATIONS: Record<FabRandomAction, number> = {
   wave: 2450,
@@ -98,6 +103,23 @@ interface FabPointerPoint {
   clientY: number
 }
 
+interface FabBubbleCandidate {
+  placement: FabBubblePlacement
+  idealX: number
+  idealY: number
+  weight: number
+}
+
+interface FabBubbleLayout {
+  arrowX: number
+  arrowY: number
+  placement: FabBubblePlacement
+  x: number
+  y: number
+}
+
+const fabRootRef = ref<HTMLElement | null>(null)
+const fabBubbleRef = ref<HTMLElement | null>(null)
 const fabDocked = ref(false)
 const fabPosition = ref<FabPosition | null>(null)
 const fabPointerStyle = ref({
@@ -120,6 +142,14 @@ const fabPositionStyle = computed(() => {
     '--agent-assistant-fab-y': `${position.y}px`,
   }
 })
+const fabBubblePlacement = ref<FabBubblePlacement>('top')
+const fabBubblePositionStyle = ref({
+  '--agent-assistant-bubble-arrow-x': `${FAB_BUBBLE_EDGE_ARROW_OFFSET}px`,
+  '--agent-assistant-bubble-arrow-y': '50%',
+  '--agent-assistant-bubbles-x': '0px',
+  '--agent-assistant-bubbles-y': '0px',
+})
+const fabBubblePositioned = ref(false)
 const fabPressed = ref(false)
 const fabBubbles = ref<AgentAssistantEntryBubble[]>([])
 const fabDragging = ref(false)
@@ -130,6 +160,8 @@ let fabDragState: FabDragState | null = null
 let fabSuppressNextClick = false
 let fabPointerFrame = 0
 let fabPendingPointerPoint: FabPointerPoint | null = null
+let fabBubblePositionFrame = 0
+let fabBubbleResizeObserver: ResizeObserver | null = null
 let fabLastRandomAction: FabRandomAction | null = null
 let fabRandomActionTimer: number | null = null
 let fabRandomActionEndTimer: number | null = null
@@ -181,7 +213,7 @@ function getDockedFabX() {
 }
 
 function getFabInteractiveBounds(): FabInteractiveBounds {
-  const root = document.querySelector('.agent-assistant-fab') as HTMLElement | null
+  const root = getFabRootElement()
   const trigger = root?.querySelector('.agent-assistant-fab__trigger') as HTMLElement | null
   const rootRect = root?.getBoundingClientRect()
   const triggerRect = trigger?.getBoundingClientRect()
@@ -202,7 +234,7 @@ function getFabInteractiveBounds(): FabInteractiveBounds {
 }
 
 function getFabSize() {
-  const root = document.querySelector('.agent-assistant-fab') as HTMLElement | null
+  const root = getFabRootElement()
   const rect = root?.getBoundingClientRect()
 
   return {
@@ -253,6 +285,7 @@ function isFabNearRightEdge(position = getCurrentFabPosition()) {
 
 function updateFabPosition(position: FabPosition) {
   fabPosition.value = clampFabPosition(position)
+  scheduleFabBubblePositionUpdate()
 }
 
 // 将数值限制在指定范围内，避免指针和随机动作计算产生过大的位移。
@@ -260,8 +293,189 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+function getFabRootElement() {
+  return fabRootRef.value || (document.querySelector('.agent-assistant-fab') as HTMLElement | null)
+}
+
+function getFabAnchorRect() {
+  const root = getFabRootElement()
+  const bot = root?.querySelector('.agent-assistant-fab__bot') as HTMLElement | null
+  const trigger = root?.querySelector('.agent-assistant-fab__trigger') as HTMLElement | null
+  const botRect = bot?.getBoundingClientRect()
+  const triggerRect = trigger?.getBoundingClientRect()
+
+  if (botRect && botRect.width > 0 && botRect.height > 0) return botRect
+  if (triggerRect && triggerRect.width > 0 && triggerRect.height > 0) return triggerRect
+
+  return null
+}
+
+function getFabBubbleSize() {
+  const viewport = getViewportSize()
+  const rect = fabBubbleRef.value?.getBoundingClientRect()
+  const fallbackWidth = Math.min(viewport.width - FAB_BUBBLE_SAFE_MARGIN * 2, viewport.width <= 600 ? 264 : 304)
+
+  return {
+    height: rect && rect.height > 0 ? rect.height : 160,
+    width: rect && rect.width > 0 ? rect.width : Math.max(0, fallbackWidth),
+  }
+}
+
+function clampBubbleAxis(value: number, size: number, viewportSize: number) {
+  const min = FAB_BUBBLE_SAFE_MARGIN
+  const max = Math.max(min, viewportSize - size - FAB_BUBBLE_SAFE_MARGIN)
+
+  return clampNumber(value, min, max)
+}
+
+function clampBubbleArrow(value: number, size: number) {
+  const margin = Math.min(FAB_BUBBLE_ARROW_MARGIN, size / 2)
+
+  return clampNumber(value, margin, Math.max(margin, size - margin))
+}
+
+function getBubbleCandidatePenalty(
+  candidate: FabBubbleCandidate,
+  bubbleSize: { height: number; width: number },
+  anchorRect: DOMRect,
+  viewport: { height: number; width: number },
+) {
+  const x = clampBubbleAxis(candidate.idealX, bubbleSize.width, viewport.width)
+  const y = clampBubbleAxis(candidate.idealY, bubbleSize.height, viewport.height)
+  const primaryAvailable = {
+    bottom: viewport.height - anchorRect.bottom - FAB_BUBBLE_SAFE_MARGIN,
+    left: anchorRect.left - FAB_BUBBLE_SAFE_MARGIN,
+    right: viewport.width - anchorRect.right - FAB_BUBBLE_SAFE_MARGIN,
+    top: anchorRect.top - FAB_BUBBLE_SAFE_MARGIN,
+  }[candidate.placement]
+  const primaryRequired =
+    candidate.placement === 'left' || candidate.placement === 'right'
+      ? bubbleSize.width + FAB_BUBBLE_GAP
+      : bubbleSize.height + FAB_BUBBLE_GAP
+  const fitPenalty = Math.max(0, primaryRequired - primaryAvailable) * 8
+  const alignmentPenalty = Math.abs(x - candidate.idealX) + Math.abs(y - candidate.idealY)
+
+  return {
+    ...candidate,
+    score: fitPenalty + alignmentPenalty + candidate.weight,
+    x,
+    y,
+  }
+}
+
+function calculateFabBubbleLayout(): FabBubbleLayout | null {
+  const rootRect = getFabRootElement()?.getBoundingClientRect()
+  const anchorRect = getFabAnchorRect()
+  if (!rootRect || !anchorRect) return null
+
+  const viewport = getViewportSize()
+  const bubbleSize = getFabBubbleSize()
+  const anchorCenterX = anchorRect.left + anchorRect.width / 2
+  const anchorCenterY = anchorRect.top + anchorRect.height / 2
+  const candidates: FabBubbleCandidate[] = [
+    {
+      idealX: anchorCenterX - bubbleSize.width / 2,
+      idealY: anchorRect.top - bubbleSize.height - FAB_BUBBLE_GAP,
+      placement: 'top',
+      weight: 0,
+    },
+    {
+      idealX: anchorCenterX - bubbleSize.width / 2,
+      idealY: anchorRect.bottom + FAB_BUBBLE_GAP,
+      placement: 'bottom',
+      weight: 4,
+    },
+    {
+      idealX: anchorRect.right + FAB_BUBBLE_GAP,
+      idealY: anchorCenterY - bubbleSize.height / 2,
+      placement: 'right',
+      weight: 8,
+    },
+    {
+      idealX: anchorRect.left - bubbleSize.width - FAB_BUBBLE_GAP,
+      idealY: anchorCenterY - bubbleSize.height / 2,
+      placement: 'left',
+      weight: 8,
+    },
+  ]
+  const bestCandidate = candidates
+    .map(candidate => getBubbleCandidatePenalty(candidate, bubbleSize, anchorRect, viewport))
+    .sort((a, b) => a.score - b.score)[0]
+
+  if (!bestCandidate) return null
+
+  const arrowX =
+    bestCandidate.placement === 'left'
+      ? bubbleSize.width
+      : bestCandidate.placement === 'right'
+        ? 0
+        : clampBubbleArrow(anchorCenterX - bestCandidate.x, bubbleSize.width)
+  const arrowY =
+    bestCandidate.placement === 'top'
+      ? bubbleSize.height
+      : bestCandidate.placement === 'bottom'
+        ? 0
+        : clampBubbleArrow(anchorCenterY - bestCandidate.y, bubbleSize.height)
+
+  return {
+    arrowX,
+    arrowY,
+    placement: bestCandidate.placement,
+    x: bestCandidate.x - rootRect.left,
+    y: bestCandidate.y - rootRect.top,
+  }
+}
+
+function syncFabBubblePosition() {
+  if (!hasFabBubbles.value || !props.active) return
+
+  const layout = calculateFabBubbleLayout()
+  if (!layout) return
+
+  fabBubblePlacement.value = layout.placement
+  fabBubblePositionStyle.value = {
+    '--agent-assistant-bubble-arrow-x': `${Math.round(layout.arrowX)}px`,
+    '--agent-assistant-bubble-arrow-y': `${Math.round(layout.arrowY)}px`,
+    '--agent-assistant-bubbles-x': `${Math.round(layout.x)}px`,
+    '--agent-assistant-bubbles-y': `${Math.round(layout.y)}px`,
+  }
+  fabBubblePositioned.value = true
+}
+
+function scheduleFabBubblePositionUpdate() {
+  if (fabBubblePositionFrame || !hasFabBubbles.value) return
+
+  fabBubblePositionFrame = window.requestAnimationFrame(() => {
+    fabBubblePositionFrame = 0
+    syncFabBubblePosition()
+  })
+}
+
+function syncFabBubbleResizeObserver() {
+  fabBubbleResizeObserver?.disconnect()
+  fabBubbleResizeObserver = null
+
+  if (!fabBubbleRef.value || typeof ResizeObserver === 'undefined') return
+
+  fabBubbleResizeObserver = new ResizeObserver(() => {
+    scheduleFabBubblePositionUpdate()
+  })
+  fabBubbleResizeObserver.observe(fabBubbleRef.value)
+}
+
+function teardownFabBubblePositioning() {
+  if (fabBubblePositionFrame) {
+    window.cancelAnimationFrame(fabBubblePositionFrame)
+    fabBubblePositionFrame = 0
+  }
+
+  fabBubbleResizeObserver?.disconnect()
+  fabBubbleResizeObserver = null
+}
+
 function resetFabPosition() {
   fabPosition.value = getDefaultFabPosition()
+  scheduleFabBubblePositionUpdate()
   if (isFabNearRightEdge()) scheduleFabAutoDock()
 }
 
@@ -273,6 +487,7 @@ function handleWindowResize() {
       x: getDockedFabX(),
     }
   }
+  scheduleFabBubblePositionUpdate()
 }
 
 function stripMarkdownPreview(value: string) {
@@ -543,8 +758,14 @@ function scheduleFabBubbleRemoval(id: string, duration = FAB_NOTIFICATION_BUBBLE
 function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose?: boolean; duration?: number } = {}) {
   if (!props.active || !bubble.text) return
 
+  const hadBubbles = hasFabBubbles.value
   const existingBubbles = fabBubbles.value.filter(item => item.id !== bubble.id)
+  if (!hadBubbles) fabBubblePositioned.value = false
   fabBubbles.value = [bubble, ...existingBubbles].slice(0, FAB_MAX_BUBBLES)
+  nextTick(() => {
+    syncFabBubbleResizeObserver()
+    syncFabBubblePosition()
+  })
 
   // 超出堆叠上限的气泡需要同步清理计时器，避免后续 timer 访问过期项。
   const visibleIds = new Set(fabBubbles.value.map(item => item.id))
@@ -633,7 +854,13 @@ function closeBubble(id?: string) {
     fabBubbles.value = []
   }
 
+  if (!fabBubbles.value.length) fabBubblePositioned.value = false
+
   if (!hasKeepOpenFabBubbles.value) scheduleFabAutoDock()
+  nextTick(() => {
+    syncFabBubbleResizeObserver()
+    syncFabBubblePosition()
+  })
 }
 
 function clearBubbles() {
@@ -643,6 +870,8 @@ function clearBubbles() {
 function resetFabBubbles() {
   fabBubbles.value.forEach(item => clearFabBubbleTimer(item.id))
   fabBubbles.value = []
+  fabBubblePositioned.value = false
+  nextTick(syncFabBubbleResizeObserver)
 }
 
 function setFabDocked(docked: boolean) {
@@ -657,6 +886,7 @@ function setFabDocked(docked: boolean) {
       ...currentPosition,
       x: getDockedFabX(),
     }
+    scheduleFabBubblePositionUpdate()
     return
   }
 
@@ -667,6 +897,7 @@ function setFabDocked(docked: boolean) {
       Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET),
     ),
   })
+  scheduleFabBubblePositionUpdate()
   scheduleFabAutoDock()
 }
 
@@ -767,6 +998,10 @@ watch(
 
     if (active) {
       if (isFabNearRightEdge()) scheduleFabAutoDock()
+      nextTick(() => {
+        syncFabBubbleResizeObserver()
+        syncFabBubblePosition()
+      })
       return
     }
 
@@ -782,6 +1017,7 @@ watch([() => props.active, () => props.thinking, fabDocked, fabDragging, fabPres
 onScopeDispose(clearFabIdleTimer)
 onScopeDispose(clearFabRandomAction)
 onScopeDispose(resetFabBubbles)
+onScopeDispose(teardownFabBubblePositioning)
 onScopeDispose(() => {
   setAgentAssistantBubbleEntryActive(false)
   stopBubbleListener?.()
@@ -804,6 +1040,7 @@ defineExpose({
 <template>
   <div
     v-show="props.active"
+    ref="fabRootRef"
     class="agent-assistant-fab"
     :class="{
       'is-docked': fabDocked,
@@ -811,6 +1048,7 @@ defineExpose({
       'is-pressed': fabPressed,
       'is-thinking': props.thinking,
       'is-bubble-visible': hasFabBubbles,
+      'is-bubble-positioned': fabBubblePositioned,
       [`is-action-${fabRandomAction}`]: fabRandomAction,
     }"
     :style="fabPositionStyle"
@@ -818,28 +1056,37 @@ defineExpose({
     @pointerenter="handleFabPointerEnter"
     @pointerleave="handleFabPointerLeave"
   >
-    <div v-if="hasFabBubbles" class="agent-assistant-fab__bubbles" aria-live="polite">
-      <div
-        v-for="bubble in fabBubbles"
-        :key="bubble.id"
-        class="agent-assistant-fab__bubble"
-        :class="[`agent-assistant-fab__bubble--${bubble.kind}`, `agent-assistant-fab__bubble--${bubble.variant}`]"
-        role="status"
-      >
-        <strong v-if="bubble.title" class="agent-assistant-fab__bubble-title">
-          <VIcon class="agent-assistant-fab__bubble-icon" :icon="getBubbleIcon(bubble.variant)" size="20" />
-          <span>{{ bubble.title }}</span>
-        </strong>
-        <span>{{ bubble.text }}</span>
-        <button
-          class="agent-assistant-fab__bubble-close"
-          type="button"
-          :aria-label="t('common.close')"
-          :title="t('common.close')"
-          @click.stop="closeBubble(bubble.id)"
+    <div
+      v-if="hasFabBubbles"
+      ref="fabBubbleRef"
+      class="agent-assistant-fab__bubbles"
+      :class="`agent-assistant-fab__bubbles--${fabBubblePlacement}`"
+      :style="fabBubblePositionStyle"
+      aria-live="polite"
+    >
+      <div class="agent-assistant-fab__bubble-stack">
+        <div
+          v-for="bubble in fabBubbles"
+          :key="bubble.id"
+          class="agent-assistant-fab__bubble"
+          :class="[`agent-assistant-fab__bubble--${bubble.kind}`, `agent-assistant-fab__bubble--${bubble.variant}`]"
+          role="status"
         >
-          <VIcon icon="mdi-close" size="14" />
-        </button>
+          <strong v-if="bubble.title" class="agent-assistant-fab__bubble-title">
+            <VIcon class="agent-assistant-fab__bubble-icon" :icon="getBubbleIcon(bubble.variant)" size="20" />
+            <span>{{ bubble.title }}</span>
+          </strong>
+          <span>{{ bubble.text }}</span>
+          <button
+            class="agent-assistant-fab__bubble-close"
+            type="button"
+            :aria-label="t('common.close')"
+            :title="t('common.close')"
+            @click.stop="closeBubble(bubble.id)"
+          >
+            <VIcon icon="mdi-close" size="14" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -896,6 +1143,7 @@ defineExpose({
   --agent-assistant-robot-play: #fff;
   --agent-assistant-robot-shadow: rgba(54, 0, 126, 28%);
   --agent-assistant-robot-shadow-strong: rgba(54, 0, 126, 34%);
+  --agent-assistant-bubble-bg: rgba(var(--v-theme-surface), 0.92);
   --agent-assistant-bot-scale: 1;
   --agent-assistant-bot-pressed-scale: 0.96;
   --agent-assistant-fab-x: calc(100vw - 14.3rem);
@@ -962,21 +1210,33 @@ defineExpose({
 
 .agent-assistant-fab__bubbles {
   position: absolute;
-  display: grid;
-  gap: 0.45rem;
+  display: block;
   inline-size: clamp(15.5rem, 22vw, 19rem);
-  inset-block-end: 4.45rem;
-  inset-inline-end: 2.75rem;
+  inset-block-start: 0;
+  inset-inline-start: 0;
   max-block-size: min(34rem, calc(100vh - 8rem));
-  max-inline-size: calc(100vw - 6.4rem);
+  max-inline-size: calc(100vw - 1.5rem);
   opacity: 0;
-  overflow-y: auto;
   pointer-events: none;
-  transform: translateY(0.22rem) scale(0.96);
-  transform-origin: 100% 100%;
+  transform: translate3d(var(--agent-assistant-bubbles-x), var(--agent-assistant-bubbles-y), 0) scale(0.96);
+  transform-origin: var(--agent-assistant-bubble-arrow-x) var(--agent-assistant-bubble-arrow-y);
   transition:
     opacity 0.2s ease,
     transform 0.24s ease;
+}
+
+.agent-assistant-fab__bubble-stack {
+  display: grid;
+  gap: 0.45rem;
+  max-block-size: inherit;
+  overflow-y: auto;
+  padding: 0.12rem;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.agent-assistant-fab__bubble-stack::-webkit-scrollbar {
+  display: none;
 }
 
 .agent-assistant-fab__bubble {
@@ -989,7 +1249,7 @@ defineExpose({
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 18px;
   backdrop-filter: blur(12px);
-  background: rgba(var(--v-theme-surface), 0.92);
+  background: var(--agent-assistant-bubble-bg);
   box-shadow: var(--app-surface-shadow);
   padding-block: 0.7rem;
   padding-inline: 0.85rem 1.85rem;
@@ -1060,18 +1320,47 @@ defineExpose({
   white-space: normal;
 }
 
-.agent-assistant-fab__bubble::before {
+.agent-assistant-fab__bubbles::before {
   position: absolute;
+  z-index: 2;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background: inherit;
+  background: var(--agent-assistant-bubble-bg);
   block-size: 0.62rem;
   border-block-start: 0;
   border-inline-start: 0;
   content: '';
   inline-size: 0.62rem;
-  inset-block-end: -0.34rem;
-  inset-inline-end: 1.85rem;
+  inset-block-start: var(--agent-assistant-bubble-arrow-y);
+  inset-inline-start: var(--agent-assistant-bubble-arrow-x);
   transform: rotate(45deg);
+}
+
+.agent-assistant-fab__bubbles--top::before {
+  margin-block-start: -0.31rem;
+  margin-inline-start: -0.31rem;
+  border-block-start: 0;
+  border-inline-start: 0;
+}
+
+.agent-assistant-fab__bubbles--bottom::before {
+  margin-block-start: -0.31rem;
+  margin-inline-start: -0.31rem;
+  border-block-end: 0;
+  border-inline-end: 0;
+}
+
+.agent-assistant-fab__bubbles--left::before {
+  margin-block-start: -0.31rem;
+  margin-inline-start: -0.31rem;
+  border-block-end: 0;
+  border-inline-start: 0;
+}
+
+.agent-assistant-fab__bubbles--right::before {
+  margin-block-start: -0.31rem;
+  margin-inline-start: -0.31rem;
+  border-block-start: 0;
+  border-inline-end: 0;
 }
 
 .agent-assistant-fab__bubble-close {
@@ -1107,20 +1396,20 @@ defineExpose({
   color: rgba(var(--v-theme-on-surface), 0.86) !important;
 }
 
-.agent-assistant-fab.is-bubble-visible:not(.is-docked) .agent-assistant-fab__bubble {
+.agent-assistant-fab.is-bubble-visible.is-bubble-positioned:not(.is-docked) .agent-assistant-fab__bubble {
   pointer-events: auto;
 }
 
-.agent-assistant-fab.is-bubble-visible:not(.is-docked) .agent-assistant-fab__bubbles {
+.agent-assistant-fab.is-bubble-visible.is-bubble-positioned:not(.is-docked) .agent-assistant-fab__bubbles {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
+  transform: translate3d(var(--agent-assistant-bubbles-x), var(--agent-assistant-bubbles-y), 0) scale(1);
 }
 
 .agent-assistant-fab.is-docked .agent-assistant-fab__bubbles {
   opacity: 0;
   pointer-events: none;
-  transform: translateX(1.4rem) scale(0.9);
+  transform: translate3d(var(--agent-assistant-bubbles-x), var(--agent-assistant-bubbles-y), 0) scale(0.9);
 }
 
 .agent-assistant-fab__bot,
@@ -2453,10 +2742,12 @@ defineExpose({
   }
 
   .agent-assistant-fab__bubbles {
-    gap: 0.38rem;
     inline-size: min(16.5rem, calc(100vw - 5.6rem));
-    inset-inline-end: 2.35rem;
     max-block-size: min(30rem, calc(100vh - 9.2rem));
+  }
+
+  .agent-assistant-fab__bubble-stack {
+    gap: 0.38rem;
   }
 
   .agent-assistant-fab__bubble {
