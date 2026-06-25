@@ -2814,6 +2814,13 @@ export default {
       processing: 'Processing ...',
       successMessage: 'File {name} has been added to the organization queue!',
     },
+    subscribeMode: {
+      title: 'Choose Subscription Type',
+      normal: 'Subscribe',
+      bestVersion: 'Version Upgrade',
+      bestVersionEpisode: 'Episode Upgrade',
+      bestVersionFull: 'Full Season Upgrade',
+    },
     subscribeEdit: {
       titleDefault: 'Default Subscription Rules',
       titleEdit: 'Edit Subscription',

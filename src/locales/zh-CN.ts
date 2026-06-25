@@ -2763,6 +2763,13 @@ export default {
       processing: '正在处理 ...',
       successMessage: '文件 {name} 已加入整理队列！',
     },
+    subscribeMode: {
+      title: '选择订阅方式',
+      normal: '普通订阅',
+      bestVersion: '洗版',
+      bestVersionEpisode: '分集洗版',
+      bestVersionFull: '全集洗版',
+    },
     subscribeEdit: {
       titleDefault: '默认订阅规则',
       titleEdit: '编辑订阅',

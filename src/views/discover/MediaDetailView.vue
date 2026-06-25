@@ -14,6 +14,7 @@ import { useUserStore } from '@/stores'
 import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { useConfirm } from '@/composables/useConfirm'
 import { useGlobalSettingsStore } from '@/stores'
 import { openMediaServerItem, openDoubanApp } from '@/utils/appDeepLink'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -21,6 +22,7 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
 const SubscribeEditDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeEditDialog.vue'))
+const SubscribeModeDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeModeDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -46,6 +48,7 @@ const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscr
 
 // 提示框
 const $toast = useToast()
+const createConfirm = useConfirm()
 
 // 获取主题信息
 const theme = useTheme()
@@ -293,15 +296,10 @@ async function checkSeasonsSubscribed() {
 }
 
 // 调用API添加订阅，电视剧的话需要指定季
-async function addSubscribe(season: number | null) {
+async function addSubscribe(season: number | null, payload: { best_version?: number; best_version_full?: number } = {}) {
   // 开始处理
   startNProgress()
   try {
-    // 是否洗版
-    let best_version = existsItemId.value ? 1 : 0
-    if (season !== null)
-      // 全部存在时洗版
-      best_version = !seasonsNotExisted.value[season] ? 1 : 0
     // 请求API
     const result: { [key: string]: any } = await api.post('subscribe/', {
       name: mediaDetail.value?.title,
@@ -311,7 +309,7 @@ async function addSubscribe(season: number | null) {
       doubanid: mediaDetail.value?.douban_id,
       bangumiid: mediaDetail.value?.bangumi_id,
       season: mediaDetail.value?.type === '电影' ? null : season,
-      best_version,
+      ...payload,
     })
 
     // 订阅状态
@@ -322,7 +320,7 @@ async function addSubscribe(season: number | null) {
     }
 
     // 提示
-    showSubscribeAddToast(result.success, mediaDetail.value?.title ?? '', season, result.message, best_version)
+    showSubscribeAddToast(result.success, mediaDetail.value?.title ?? '', season, result.message, payload.best_version ?? 0)
 
     // 显示编辑弹窗
     if (result.success) {
@@ -350,6 +348,12 @@ function showSubscribeAddToast(result: boolean, title: string, season: number | 
 
 // 调用API取消订阅
 async function removeSubscribe(season: number | null) {
+  const confirmed = await createConfirm({
+    title: t('common.confirm'),
+    content: t('dialog.subscribeEdit.cancelSubscribeConfirm'),
+  })
+  if (!confirmed) return
+
   // 开始处理
   startNProgress()
   try {
@@ -360,13 +364,15 @@ async function removeSubscribe(season: number | null) {
         season,
       },
     })
+    let title = mediaDetail.value?.title ?? ''
+    if (season !== null) title = `${title} ${formatSeason(season.toString())}`
 
     if (result.success) {
       isSubscribed.value = false
       if (season !== null) seasonsSubscribed.value[season] = false
-      $toast.success(`${mediaDetail.value?.title} ${t('media.subscribe.canceled')}`)
+      $toast.success(`${title} ${t('media.subscribe.canceled')}`)
     } else {
-      $toast.error(`${mediaDetail.value?.title} ${t('media.subscribe.cancelFailed', { reason: result.message })}`)
+      $toast.error(`${title} ${t('media.subscribe.cancelFailed', { reason: result.message })}`)
     }
   } catch (error) {
     console.error(error)
@@ -376,8 +382,54 @@ async function removeSubscribe(season: number | null) {
 
 // 订阅按钮响应
 function handleSubscribe(season: number | null = null) {
-  if (isSubscribed.value) removeSubscribe(season)
-  else addSubscribe(season)
+  if (season !== null) {
+    if (seasonsSubscribed.value[season]) {
+      removeSubscribe(season)
+      return
+    }
+
+    if (!seasonsNotExisted.value[season]) {
+      openSharedDialog(
+        SubscribeModeDialog,
+        { modes: ['normal', 'best_version', 'best_version_full'], type: mediaDetail.value?.type },
+        {
+          choose: (mode: string) =>
+            addSubscribe(season, {
+              best_version: mode === 'normal' ? 0 : 1,
+              best_version_full: mode === 'best_version_full' ? 1 : 0,
+            }),
+        },
+        { closeOn: ['close', 'choose'] },
+      )
+      return
+    }
+
+    addSubscribe(season)
+    return
+  }
+
+  if (isSubscribed.value) {
+    removeSubscribe(season)
+    return
+  }
+
+  if (mediaDetail.value?.type === '电影' && existsItemId.value) {
+    openSharedDialog(
+      SubscribeModeDialog,
+      { modes: ['normal', 'best_version'], type: mediaDetail.value?.type },
+      {
+        choose: (mode: string) =>
+          addSubscribe(season, {
+            best_version: mode === 'normal' ? 0 : 1,
+            best_version_full: 0,
+          }),
+      },
+      { closeOn: ['close', 'choose'] },
+    )
+    return
+  }
+
+  addSubscribe(season)
 }
 
 // 从genres中获取name，使用、分隔
