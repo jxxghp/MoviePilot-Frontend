@@ -264,6 +264,15 @@ const {
   config: PULL_CONFIG,
 } = usePullDownGesture({
   enabled: true,
+  config: {
+    START_THRESHOLD: 28,
+    SHOW_INDICATOR: 80,
+    TRIGGER_THRESHOLD: 140,
+    MAX_PULL_DISTANCE: 220,
+    PULL_RESISTANCE: 0.7,
+    CONTENT_FOLLOW_RATIO: 0.35,
+    TOLERANCE: 96,
+  },
   canUsePullGesture,
   onTrigger: () => {
     showPluginQuickAccess.value = true

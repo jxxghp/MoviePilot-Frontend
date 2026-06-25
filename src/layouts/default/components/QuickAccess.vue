@@ -51,10 +51,11 @@ const pluginBackgroundColors = ref<Record<string, string>>({})
 
 // 上滑关闭配置常量
 const SWIPE_CONFIG = {
-  START_THRESHOLD: 10, // 开始检测上滑的最小距离
-  CLOSE_THRESHOLD: 100, // 触发关闭的距离
+  START_THRESHOLD: 16, // 开始检测上滑的最小距离
+  CLOSE_THRESHOLD: 144, // 触发关闭的距离
+  QUICK_CLOSE_MIN_DISTANCE: 56, // 快速关闭所需的最小位移
   MAX_DRAG_DISTANCE: 1000, // 最大拖拽距离
-  VELOCITY_THRESHOLD: 0.8, // 快速滑动速度阈值 (px/ms)
+  VELOCITY_THRESHOLD: 1.15, // 快速滑动速度阈值 (px/ms)
 }
 
 // 上滑关闭相关状态
@@ -367,7 +368,8 @@ function handleTouchEnd() {
   if (isDraggingToClose.value) {
     // 判断是否应该关闭：距离超过阈值或者快速上滑
     const shouldClose =
-      dragOffset.value >= SWIPE_CONFIG.CLOSE_THRESHOLD || velocity.value >= SWIPE_CONFIG.VELOCITY_THRESHOLD
+      dragOffset.value >= SWIPE_CONFIG.CLOSE_THRESHOLD ||
+      (dragOffset.value >= SWIPE_CONFIG.QUICK_CLOSE_MIN_DISTANCE && velocity.value >= SWIPE_CONFIG.VELOCITY_THRESHOLD)
 
     if (shouldClose) {
       emit('close')
