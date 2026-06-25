@@ -161,12 +161,13 @@ function clearLoginAutofillSyncTimers() {
   autofillSyncTimerIds.length = 0
 }
 
-// 延迟多次同步自动填充值，兼容只对聚焦字段派发事件的密码管理器。
+// 延迟多次同步自动填充值，兼容浏览器或密码管理器不派发事件的自动填充。
 function scheduleLoginAutofillSync() {
   clearLoginAutofillSyncTimers()
   syncLoginCredentialValues()
   autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 50))
   autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 250))
+  autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 1000))
 }
 
 // 生成 MFA 共享弹窗使用的最新 props。
@@ -568,6 +569,7 @@ async function handleLoginSuccess(response: any) {
 // 登录获取token事件
 async function login() {
   errorMessage.value = ''
+  syncLoginCredentialValues()
 
   // 进行表单校验
   if (!form.value.username || !form.value.password) {
@@ -668,6 +670,10 @@ onMounted(async () => {
 
   // 加载系统和插件声明的未登录认证入口
   await loadAuthProviders()
+
+  // 捕获页面加载后由浏览器或密码管理器写入的静默自动填充值。
+  await nextTick()
+  scheduleLoginAutofillSync()
 
   // 初始化 Conditional UI 的 PassKey 自动填充
   await initConditionalPasskey()
