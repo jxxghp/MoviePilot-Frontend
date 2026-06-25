@@ -2764,6 +2764,13 @@ export default {
       processing: '正在處理 ...',
       successMessage: '文件 {name} 已加入整理隊列！',
     },
+    subscribeMode: {
+      title: '選擇訂閱方式',
+      normal: '普通訂閱',
+      bestVersion: '洗版',
+      bestVersionEpisode: '分集洗版',
+      bestVersionFull: '全集洗版',
+    },
     subscribeEdit: {
       titleDefault: '默認訂閱規則',
       titleEdit: '編輯訂閱',

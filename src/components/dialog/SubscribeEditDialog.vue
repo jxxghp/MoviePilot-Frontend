@@ -9,6 +9,7 @@ import { useI18n } from 'vue-i18n'
 import { qualityOptions, resolutionOptions, effectOptions } from '@/api/constants'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { formatSeason } from '@/@core/utils/formatters'
 // i18n
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -96,6 +97,13 @@ const seasonItems = ref(
   })),
 )
 
+function getSubscribeDisplayName() {
+  const name = subscribeForm.value.name || ''
+  const season = subscribeForm.value.season
+  if (season === null || season === undefined) return name
+  return `${name} ${formatSeason(season.toString())}`
+}
+
 // 剧集组选项属性
 function episodeGroupItemProps(item: { title: string; subtitle: string }) {
   return {
@@ -158,11 +166,11 @@ async function updateSubscribeInfo() {
     const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm.value)
     // 提示
     if (result.success) {
-      $toast.success(`${subscribeForm.value.name} 更新成功！`)
+      $toast.success(`${getSubscribeDisplayName()} 更新成功！`)
       // 通知父组件刷新
       emit('save')
     } else {
-      $toast.error(`${subscribeForm.value.name} 更新失败：${result.message}！`)
+      $toast.error(`${getSubscribeDisplayName()} 更新失败：${result.message}！`)
     }
   } catch (e) {
     console.log(e)
@@ -258,7 +266,7 @@ async function removeSubscribe() {
     const result: { [key: string]: any } = await api.delete(`subscribe/${props.subid}`)
 
     if (result.success) {
-      $toast.success(`订阅 ${subscribeForm.value.name} 已取消！`)
+      $toast.success(`订阅 ${getSubscribeDisplayName()} 已取消！`)
       // 通知父组件刷新
       emit('remove')
     }
@@ -317,10 +325,7 @@ onMounted(() => {
           {{ props.default ? t('dialog.subscribeEdit.titleDefault') : t('dialog.subscribeEdit.titleEdit') }}
         </VCardTitle>
         <VCardSubtitle v-if="!props.default">
-          {{ subscribeForm.name }}
-          <span v-if="subscribeForm.season">
-            {{ t('dialog.subscribeEdit.seasonFormat', { number: subscribeForm.season }) }}
-          </span>
+          {{ getSubscribeDisplayName() }}
         </VCardSubtitle>
         <VCardSubtitle v-else>
           {{ props.type }}

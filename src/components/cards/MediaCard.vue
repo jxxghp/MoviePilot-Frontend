@@ -12,6 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { mediaTypeDict } from '@/api/constants'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useConfirm } from '@/composables/useConfirm'
 import {
   getCachedMediaExistsStatus,
   getCachedMediaSubscribeStatus,
@@ -21,6 +22,7 @@ import {
 
 const SearchSiteDialog = defineAsyncComponent(() => import('@/components/dialog/SearchSiteDialog.vue'))
 const SubscribeEditDialog = defineAsyncComponent(() => import('../dialog/SubscribeEditDialog.vue'))
+const SubscribeModeDialog = defineAsyncComponent(() => import('../dialog/SubscribeModeDialog.vue'))
 const SubscribeSeasonDialog = defineAsyncComponent(() => import('../dialog/SubscribeSeasonDialog.vue'))
 
 // 国际化
@@ -51,6 +53,7 @@ const canSubscribe = computed(() => hasPermission(userPermissions.value, 'subscr
 
 // 提示框
 const $toast = useToast()
+const createConfirm = useConfirm()
 
 // 图片加载状态
 const isImageLoaded = ref(false)
@@ -191,18 +194,30 @@ async function handleAddSubscribe() {
     seasonsSelected.value = []
     openSubscribeSeasonDialog()
   } else {
-    // 电影
-    addSubscribe()
+    if (isExists.value) {
+      openSharedDialog(
+        SubscribeModeDialog,
+        { modes: ['normal', 'best_version'], type: props.media?.type },
+        {
+          choose: (mode: string) =>
+            addSubscribe(null, {
+              best_version: mode === 'normal' ? 0 : 1,
+              best_version_full: 0,
+            }),
+        },
+        { closeOn: ['close', 'choose'] },
+      )
+    } else {
+      addSubscribe()
+    }
   }
 }
 
 // 调用API添加订阅，电视剧的话需要指定季
-async function addSubscribe(season: number | null = null, best_version: number = 0) {
+async function addSubscribe(season: number | null = null, payload: { best_version?: number; best_version_full?: number } = {}) {
   // 开始处理
   startNProgress()
   try {
-    // 是否洗版
-    if (!best_version && props.media?.type == '电影') best_version = isExists.value ? 1 : 0
     // 请求API
     const result: { [key: string]: any } = await api.post('subscribe/', {
       name: props.media?.title,
@@ -213,7 +228,7 @@ async function addSubscribe(season: number | null = null, best_version: number =
       bangumiid: props.media?.bangumi_id,
       mediaid: props.media?.media_id ? `${props.media?.mediaid_prefix}:${props.media?.media_id}` : '',
       season: props.media?.type === '电影' ? null : season,
-      best_version,
+      ...payload,
       episode_group: episodeGroup.value,
     })
 
@@ -225,7 +240,7 @@ async function addSubscribe(season: number | null = null, best_version: number =
     }
 
     // 提示
-    showSubscribeAddToast(result.success, props.media?.title ?? '', season, result.message, best_version)
+    showSubscribeAddToast(result.success, props.media?.title ?? '', season, result.message, payload.best_version ?? 0)
 
     // 弹出订阅编辑弹窗
     if (result.success && seasonsSelected.value.length <= 1) {
@@ -254,6 +269,12 @@ function showSubscribeAddToast(result: boolean, title: string, season: number | 
 
 // 调用API取消订阅
 async function removeSubscribe() {
+  const confirmed = await createConfirm({
+    title: t('common.confirm'),
+    content: t('dialog.subscribeEdit.cancelSubscribeConfirm'),
+  })
+  if (!confirmed) return
+
   // 开始处理
   startNProgress()
   try {
@@ -264,13 +285,16 @@ async function removeSubscribe() {
         season: props.media?.season,
       },
     })
+    let title = props.media?.title ?? ''
+    if (props.media?.season !== null && props.media?.season !== undefined)
+      title = `${title} ${formatSeason(props.media.season.toString())}`
 
     if (result.success) {
       isSubscribed.value = false
       setCachedMediaSubscribeStatus(getSubscribeStatusKey(props.media?.season ?? null), false)
-      $toast.success(`${props.media?.title} ${t('subscribe.cancelSuccess')}`)
+      $toast.success(`${title} ${t('subscribe.cancelSuccess')}`)
     } else {
-      $toast.error(`${props.media?.title} ${t('subscribe.cancelFailed', { message: result.message })}`)
+      $toast.error(`${title} ${t('subscribe.cancelFailed', { message: result.message })}`)
     }
   } catch (error) {
     console.error(error)
@@ -362,12 +386,29 @@ function handleSubscribe() {
 function subscribeSeasons(seasons: MediaSeason[], seasonNoExists: { [key: number]: number }, groudId: string) {
   episodeGroup.value = groudId
   seasonsSelected.value = seasons || []
+  if (seasonsSelected.value.length === 1) {
+    const seasonNumber = seasonsSelected.value[0]?.season_number ?? null
+    if (seasonNumber !== null && !seasonNoExists[seasonNumber]) {
+      openSharedDialog(
+        SubscribeModeDialog,
+        { modes: ['normal', 'best_version', 'best_version_full'], type: props.media?.type },
+        {
+          choose: (mode: string) =>
+            addSubscribe(seasonNumber, {
+              best_version: mode === 'normal' ? 0 : 1,
+              best_version_full: mode === 'best_version_full' ? 1 : 0,
+            }),
+        },
+        { closeOn: ['close', 'choose'] },
+      )
+      return
+    }
+  }
   seasonsSelected.value.forEach(season => {
-    let best_version = 0
-    if (season && props.media?.tmdb_id)
-      // 全部存在时洗版
-      best_version = !seasonNoExists[season.season_number || 0] ? 1 : 0
-    addSubscribe(season.season_number ?? null, best_version)
+    const seasonNumber = season.season_number ?? null
+    const payload =
+      seasonNumber !== null && !seasonNoExists[seasonNumber] ? { best_version: 1, best_version_full: 1 } : {}
+    addSubscribe(seasonNumber, payload)
   })
 }
 
