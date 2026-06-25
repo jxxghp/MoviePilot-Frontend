@@ -9,7 +9,7 @@ let mediaCardIdSeed = 0
 import noImage from '@images/no-image.jpeg'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
 import api from '@/api'
-import { formatRating, formatSeason } from '@/@core/utils/formatters'
+import { formatRating } from '@/@core/utils/formatters'
 import type { MediaInfo, Site, Subscribe } from '@/api/types'
 import router from '@/router'
 import { useUserStore, useGlobalSettingsStore } from '@/stores'
@@ -164,14 +164,6 @@ function getExistsStatusKey() {
     props.media?.media_id ?? '',
   ].join('::')
 }
-
-const subscribedSeasonText = computed(() => {
-  if (props.media?.type !== '电视剧') return ''
-  if (subscribedSeasonsLoading.value) return t('common.loadingText')
-  if (!subscribedSeasons.value.length) return t('media.status.subscribed')
-
-  return subscribedSeasons.value.map(season => formatSeason(season.toString())).join('、')
-})
 
 function isSameSubscribeMedia(subscribe: Subscribe) {
   if (props.media?.tmdb_id && subscribe.tmdbid) return props.media.tmdb_id === subscribe.tmdbid
@@ -498,12 +490,6 @@ onBeforeUnmount(() => {
             <p class="media-card-overview line-clamp-3 overflow-hidden text-ellipsis ...">
               {{ props.media?.overview }}
             </p>
-            <div v-if="isSubscribed" class="media-card-subscribe-summary mb-2">
-              <VIcon icon="mdi-heart" color="error" size="small" />
-              <span>
-                {{ props.media?.type === '电视剧' ? subscribedSeasonText : t('media.status.subscribed') }}
-              </span>
-            </div>
             <div v-if="props.media?.collection_id" class="mb-3" @click.stop=""></div>
             <div v-else class="flex align-center justify-between">
               <IconBtn v-if="canSearch" icon="mdi-magnify" color="white" size="small" @click.stop="clickSearch" />
