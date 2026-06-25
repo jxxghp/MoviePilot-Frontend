@@ -57,6 +57,7 @@ const FAB_BUBBLE_GAP = 12
 const FAB_BUBBLE_SAFE_MARGIN = 12
 const FAB_BUBBLE_ARROW_MARGIN = 28
 const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
+const FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY = 260
 const FAB_RANDOM_ACTION_MIN_DELAY = 8000
 const FAB_RANDOM_ACTION_MAX_DELAY = 18000
 
@@ -171,6 +172,7 @@ let fabPointerFrame = 0
 let fabPendingPointerPoint: FabPointerPoint | null = null
 let fabBubblePositionFrame = 0
 let fabBubbleResizeObserver: ResizeObserver | null = null
+let fabBubbleUndockPositionTimer: number | null = null
 let fabLastRandomAction: FabRandomAction | null = null
 let fabRandomActionTimer: number | null = null
 let fabRandomActionEndTimer: number | null = null
@@ -318,8 +320,8 @@ function getFabAnchorRect() {
   const botRect = bot?.getBoundingClientRect()
   const triggerRect = trigger?.getBoundingClientRect()
 
-  if (botRect && botRect.width > 0 && botRect.height > 0) return botRect
   if (triggerRect && triggerRect.width > 0 && triggerRect.height > 0) return triggerRect
+  if (botRect && botRect.width > 0 && botRect.height > 0) return botRect
 
   return null
 }
@@ -524,6 +526,21 @@ function scheduleFabBubblePositionUpdate() {
   })
 }
 
+function clearFabBubbleUndockPositionTimer() {
+  if (fabBubbleUndockPositionTimer === null) return
+
+  window.clearTimeout(fabBubbleUndockPositionTimer)
+  fabBubbleUndockPositionTimer = null
+}
+
+function scheduleFabBubblePostUndockPositionUpdate() {
+  clearFabBubbleUndockPositionTimer()
+  fabBubbleUndockPositionTimer = window.setTimeout(() => {
+    fabBubbleUndockPositionTimer = null
+    syncFabBubblePosition()
+  }, FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY)
+}
+
 function syncFabBubbleResizeObserver() {
   fabBubbleResizeObserver?.disconnect()
   fabBubbleResizeObserver = null
@@ -544,6 +561,7 @@ function teardownFabBubblePositioning() {
 
   fabBubbleResizeObserver?.disconnect()
   fabBubbleResizeObserver = null
+  clearFabBubbleUndockPositionTimer()
 }
 
 function resetFabPosition() {
@@ -832,12 +850,15 @@ function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose
   if (!props.active || !bubble.text) return
 
   const hadBubbles = hasFabBubbles.value
+  const wasDocked = fabDocked.value
   const existingBubbles = fabBubbles.value.filter(item => item.id !== bubble.id)
   if (!hadBubbles) fabBubblePositioned.value = false
   fabBubbles.value = [bubble, ...existingBubbles].slice(0, FAB_MAX_BUBBLES)
+  setFabDocked(false)
   nextTick(() => {
     syncFabBubbleResizeObserver()
     syncFabBubblePosition()
+    if (wasDocked) scheduleFabBubblePostUndockPositionUpdate()
   })
 
   // 超出堆叠上限的气泡需要同步清理计时器，避免后续 timer 访问过期项。
@@ -847,7 +868,6 @@ function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose
   })
 
   if (options.autoClose) scheduleFabBubbleRemoval(bubble.id, options.duration)
-  setFabDocked(false)
 }
 
 function showBubble(input: AgentAssistantEntryBubbleInput) {
@@ -1091,6 +1111,7 @@ onScopeDispose(clearFabIdleTimer)
 onScopeDispose(clearFabRandomAction)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(teardownFabBubblePositioning)
+onScopeDispose(clearFabBubbleUndockPositionTimer)
 onScopeDispose(() => {
   setAgentAssistantBubbleEntryActive(false)
   stopBubbleListener?.()
