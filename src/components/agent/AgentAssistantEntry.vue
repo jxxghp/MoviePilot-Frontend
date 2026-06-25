@@ -118,6 +118,11 @@ interface FabBubbleLayout {
   y: number
 }
 
+interface FabBubbleArrowSource {
+  kind: AgentAssistantBubbleKind
+  variant: AgentAssistantBubbleVariant
+}
+
 const fabRootRef = ref<HTMLElement | null>(null)
 const fabBubbleRef = ref<HTMLElement | null>(null)
 const fabDocked = ref(false)
@@ -150,6 +155,10 @@ const fabBubblePositionStyle = ref({
   '--agent-assistant-bubbles-y': '0px',
 })
 const fabBubblePositioned = ref(false)
+const fabBubbleArrowSource = ref<FabBubbleArrowSource>({
+  kind: 'custom',
+  variant: 'default',
+})
 const fabPressed = ref(false)
 const fabBubbles = ref<AgentAssistantEntryBubble[]>([])
 const fabDragging = ref(false)
@@ -171,6 +180,11 @@ const fabBubbleTimers = new Map<string, number>()
 
 const hasFabBubbles = computed(() => fabBubbles.value.length > 0)
 const hasKeepOpenFabBubbles = computed(() => fabBubbles.value.some(item => item.keepOpen))
+const fabBubbleClassList = computed(() => [
+  `agent-assistant-fab__bubbles--${fabBubblePlacement.value}`,
+  `agent-assistant-fab__bubbles--arrow-${fabBubbleArrowSource.value.kind}`,
+  `agent-assistant-fab__bubbles--arrow-${fabBubbleArrowSource.value.variant}`,
+])
 
 function createBubbleId(prefix = 'bubble') {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -426,11 +440,69 @@ function calculateFabBubbleLayout(): FabBubbleLayout | null {
   }
 }
 
+function getFallbackFabBubbleArrowSource(placement: FabBubblePlacement): FabBubbleArrowSource {
+  const fallbackBubble =
+    placement === 'bottom' || placement === 'right'
+      ? fabBubbles.value[0]
+      : fabBubbles.value.at(-1) || fabBubbles.value[0]
+
+  return {
+    kind: fallbackBubble?.kind || 'custom',
+    variant: fallbackBubble?.variant || 'default',
+  }
+}
+
+function getBubbleDistanceToArrow(rect: DOMRect, arrowX: number, arrowY: number, placement: FabBubblePlacement) {
+  if (placement === 'left' || placement === 'right') {
+    if (arrowY >= rect.top && arrowY <= rect.bottom) return 0
+
+    return Math.min(Math.abs(arrowY - rect.top), Math.abs(arrowY - rect.bottom))
+  }
+
+  if (arrowX >= rect.left && arrowX <= rect.right) return 0
+
+  return Math.min(Math.abs(arrowX - rect.left), Math.abs(arrowX - rect.right))
+}
+
+function syncFabBubbleArrowSource(layout: FabBubbleLayout, rootRect: DOMRect) {
+  const bubbleElements = Array.from(
+    fabBubbleRef.value?.querySelectorAll<HTMLElement>('.agent-assistant-fab__bubble') || [],
+  )
+  if (!bubbleElements.length) {
+    fabBubbleArrowSource.value = getFallbackFabBubbleArrowSource(layout.placement)
+    return
+  }
+
+  const arrowClientX = rootRect.left + layout.x + layout.arrowX
+  const arrowClientY = rootRect.top + layout.y + layout.arrowY
+  let matchedBubbleId = ''
+  let matchedDistance = Number.POSITIVE_INFINITY
+
+  for (const element of bubbleElements) {
+    const rect = element.getBoundingClientRect()
+    const distance = getBubbleDistanceToArrow(rect, arrowClientX, arrowClientY, layout.placement)
+
+    if (distance < matchedDistance) {
+      matchedDistance = distance
+      matchedBubbleId = element.dataset.bubbleId || ''
+    }
+  }
+
+  const matchedBubble = fabBubbles.value.find(item => item.id === matchedBubbleId)
+  fabBubbleArrowSource.value = matchedBubble
+    ? {
+        kind: matchedBubble.kind,
+        variant: matchedBubble.variant,
+      }
+    : getFallbackFabBubbleArrowSource(layout.placement)
+}
+
 function syncFabBubblePosition() {
   if (!hasFabBubbles.value || !props.active) return
 
+  const rootRect = getFabRootElement()?.getBoundingClientRect()
   const layout = calculateFabBubbleLayout()
-  if (!layout) return
+  if (!layout || !rootRect) return
 
   fabBubblePlacement.value = layout.placement
   fabBubblePositionStyle.value = {
@@ -439,6 +511,7 @@ function syncFabBubblePosition() {
     '--agent-assistant-bubbles-x': `${Math.round(layout.x)}px`,
     '--agent-assistant-bubbles-y': `${Math.round(layout.y)}px`,
   }
+  syncFabBubbleArrowSource(layout, rootRect)
   fabBubblePositioned.value = true
 }
 
@@ -1060,7 +1133,7 @@ defineExpose({
       v-if="hasFabBubbles"
       ref="fabBubbleRef"
       class="agent-assistant-fab__bubbles"
-      :class="`agent-assistant-fab__bubbles--${fabBubblePlacement}`"
+      :class="fabBubbleClassList"
       :style="fabBubblePositionStyle"
       aria-live="polite"
     >
@@ -1070,6 +1143,7 @@ defineExpose({
           :key="bubble.id"
           class="agent-assistant-fab__bubble"
           :class="[`agent-assistant-fab__bubble--${bubble.kind}`, `agent-assistant-fab__bubble--${bubble.variant}`]"
+          :data-bubble-id="bubble.id"
           role="status"
         >
           <strong v-if="bubble.title" class="agent-assistant-fab__bubble-title">
@@ -1323,8 +1397,12 @@ defineExpose({
 .agent-assistant-fab__bubbles::before {
   position: absolute;
   z-index: 2;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  background: var(--agent-assistant-bubble-bg);
+  --agent-assistant-bubble-arrow-accent-rgb: var(--v-theme-primary);
+  --agent-assistant-bubble-arrow-border: rgba(var(--v-theme-on-surface), 0.08);
+  --agent-assistant-bubble-arrow-bg: var(--agent-assistant-bubble-bg);
+
+  border: 1px solid var(--agent-assistant-bubble-arrow-border);
+  background: var(--agent-assistant-bubble-arrow-bg);
   block-size: 0.62rem;
   border-block-start: 0;
   border-inline-start: 0;
@@ -1333,6 +1411,42 @@ defineExpose({
   inset-block-start: var(--agent-assistant-bubble-arrow-y);
   inset-inline-start: var(--agent-assistant-bubble-arrow-x);
   transform: rotate(45deg);
+}
+
+.agent-assistant-fab__bubbles--arrow-notification::before {
+  --agent-assistant-bubble-arrow-border: rgba(var(--v-theme-primary), 0.22);
+  --agent-assistant-bubble-arrow-bg: linear-gradient(
+      135deg,
+      rgba(var(--v-theme-primary), 0.1),
+      transparent 48%
+    ),
+    rgba(var(--v-theme-surface), 0.94);
+}
+
+.agent-assistant-fab__bubbles--arrow-success::before {
+  --agent-assistant-bubble-arrow-accent-rgb: var(--v-theme-success);
+}
+
+.agent-assistant-fab__bubbles--arrow-error::before {
+  --agent-assistant-bubble-arrow-accent-rgb: var(--v-theme-error);
+}
+
+.agent-assistant-fab__bubbles--arrow-warning::before {
+  --agent-assistant-bubble-arrow-accent-rgb: 245, 158, 11;
+}
+
+.agent-assistant-fab__bubbles--arrow-info::before {
+  --agent-assistant-bubble-arrow-accent-rgb: 14, 165, 233;
+}
+
+.agent-assistant-fab__bubbles--arrow-toast::before {
+  --agent-assistant-bubble-arrow-border: rgba(var(--agent-assistant-bubble-arrow-accent-rgb), 0.3);
+  --agent-assistant-bubble-arrow-bg: linear-gradient(
+      135deg,
+      rgba(var(--agent-assistant-bubble-arrow-accent-rgb), 0.12),
+      transparent 54%
+    ),
+    rgba(var(--v-theme-surface), 0.95);
 }
 
 .agent-assistant-fab__bubbles--top::before {
