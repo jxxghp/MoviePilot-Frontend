@@ -125,19 +125,19 @@ const submitButtonText = computed(() => {
 
 // 剧集组选项
 const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
-  const options = (episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]).map(
-    item => {
-      return {
-        title: item.name,
-        subtitle: `${t('dialog.subscribeSeason.seasonCount', { count: item.group_count })} • ${t(
-          'dialog.subscribeSeason.episodeCount',
-          { count: item.episode_count },
-        )}`,
-        value: item.id,
-        icon: 'mdi-folder-play-outline',
-      }
-    },
-  )
+  const options = (
+    episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]
+  ).map(item => {
+    return {
+      title: item.name,
+      subtitle: `${t('dialog.subscribeSeason.seasonCount', { count: item.group_count })} • ${t(
+        'dialog.subscribeSeason.episodeCount',
+        { count: item.episode_count },
+      )}`,
+      value: item.id,
+      icon: 'mdi-folder-play-outline',
+    }
+  })
   // 添加不使用选项
   options.unshift({
     title: t('dialog.subscribeSeason.defaultGroup'),
@@ -354,20 +354,11 @@ watchEffect(() => {
 
 watch(seasonInfos, syncSelectedSeason)
 
-watch(
-  () => props.selectedSeason,
-  syncSelectedSeason,
-)
+watch(() => props.selectedSeason, syncSelectedSeason)
 
-watch(
-  () => props.subscribedSeasons,
-  syncSelectedSeason,
-)
+watch(() => props.subscribedSeasons, syncSelectedSeason)
 
-watch(
-  () => props.subscribedSeasonModes,
-  syncSelectedSeason,
-)
+watch(() => props.subscribedSeasonModes, syncSelectedSeason)
 
 onMounted(async () => {
   getMediaSeasons()
@@ -455,12 +446,7 @@ onMounted(async () => {
                 >
                   {{ getExistText(item.season_number || 0) }}
                 </VChip>
-                <VChip
-                  v-if="isSeasonSubscribed(item.season_number || 0)"
-                  class="mt-2 ms-2"
-                  size="small"
-                  color="error"
-                >
+                <VChip v-if="isSeasonSubscribed(item.season_number || 0)" class="mt-2 ms-2" size="small" color="error">
                   {{ t('media.status.subscribed') }}
                 </VChip>
               </VListItemSubtitle>
@@ -523,19 +509,21 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .subscribe-season-dialog {
   inline-size: min(46rem, calc(100vw - 2rem));
-  max-block-size: min(42rem, calc(100vh - 4rem));
   margin-inline: auto;
+  max-block-size: min(42rem, calc(100vh - 4rem));
 }
 
 .subscribe-season-actions {
   display: grid;
-  gap: 0.5rem;
-  justify-items: end;
   align-content: end;
   align-self: stretch;
   block-size: 100%;
+  gap: 0.5rem;
+  justify-items: end;
   min-inline-size: 18rem;
 }
 
@@ -561,16 +549,17 @@ onMounted(async () => {
 
 .subscribe-season-group-option {
   display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
   flex: 0 0 auto;
-  min-inline-size: 11rem;
-  max-inline-size: 16rem;
+  align-items: center;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 0.72);
   color: rgb(var(--v-theme-on-surface));
-  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+  max-inline-size: 16rem;
+  min-inline-size: 11rem;
+  padding-block: 0.5rem;
+  padding-inline: 0.75rem;
   text-align: start;
   transition:
     border-color 0.16s ease,
@@ -627,8 +616,8 @@ onMounted(async () => {
 }
 
 .subscribe-season-list-item :deep(.v-list-item__append) {
-  align-self: stretch;
   align-items: stretch;
+  align-self: stretch;
 }
 
 .subscribe-season-mode-toggle {
@@ -642,18 +631,19 @@ onMounted(async () => {
 }
 
 .subscribe-season-mode-button span {
-  margin-inline-start: 0.25rem;
   font-size: 0.75rem;
   line-height: 1rem;
+  margin-inline-start: 0.25rem;
   white-space: nowrap;
 }
 
 @media (width <= 960px) {
   .subscribe-season-dialog {
-    inline-size: 100vw;
-    max-block-size: min(42rem, 100vh);
-    border-end-start-radius: 0;
     border-end-end-radius: 0;
+    border-end-start-radius: 0;
+    inline-size: 100vw;
+    max-block-size: min(42rem, calc(100dvh - env(safe-area-inset-top, 0px)));
+    padding-block-start: env(safe-area-inset-top, 0);
   }
 
   .subscribe-season-actions {
@@ -686,9 +676,8 @@ onMounted(async () => {
   }
 
   .subscribe-season-group-option {
-    min-inline-size: 9.5rem;
     max-inline-size: 12rem;
+    min-inline-size: 9.5rem;
   }
-
 }
 </style>
