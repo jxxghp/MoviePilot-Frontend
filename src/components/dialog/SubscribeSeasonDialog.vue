@@ -6,6 +6,7 @@ import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 import type { SeasonSubscribeModes, SubscribeMode } from '@/composables/useMediaSubscribe'
+import { useDisplay } from 'vuetify'
 
 type SubscribeModeOption = {
   icon: string
@@ -22,6 +23,7 @@ type EpisodeGroupOption = {
 
 // 国际化
 const { t } = useI18n()
+const { mdAndUp } = useDisplay()
 
 // 定义事件
 const emit = defineEmits(['subscribe', 'close'])
@@ -375,7 +377,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <VBottomSheet inset scrollable content-class="subscribe-season-sheet">
+  <VBottomSheet :inset="mdAndUp" scrollable content-class="subscribe-season-sheet">
     <VCard class="subscribe-season-dialog">
       <VDialogCloseBtn @click="emit('close')" />
       <VCardItem>
@@ -647,6 +649,13 @@ onMounted(async () => {
 }
 
 @media (width <= 960px) {
+  .subscribe-season-dialog {
+    inline-size: 100vw;
+    max-block-size: min(42rem, 100vh);
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+  }
+
   .subscribe-season-actions {
     gap: 0.375rem;
     min-inline-size: 6.75rem;
