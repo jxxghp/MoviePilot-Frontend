@@ -32,7 +32,8 @@ const optionMeta: Record<SubscribeMode, { icon: string; title: string }> = {
   },
   best_version: {
     icon: 'mdi-refresh',
-    title: props.type === '电视剧' ? t('dialog.subscribeMode.bestVersionEpisode') : t('dialog.subscribeMode.bestVersion'),
+    title:
+      props.type === '电视剧' ? t('dialog.subscribeMode.bestVersionEpisode') : t('dialog.subscribeMode.bestVersion'),
   },
   best_version_full: {
     icon: 'mdi-shimmer',
@@ -47,6 +48,7 @@ const optionMeta: Record<SubscribeMode, { icon: string; title: string }> = {
       <VCardTitle class="text-lg font-weight-bold px-5 pt-5">
         {{ t('dialog.subscribeMode.title') }}
       </VCardTitle>
+      <VDivider />
       <VList class="py-2">
         <VListItem
           v-for="mode in modeItems"
