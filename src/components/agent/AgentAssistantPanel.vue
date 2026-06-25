@@ -2038,8 +2038,12 @@ onScopeDispose(() => {
   padding-block: 1rem;
   padding-inline: 1rem;
   scroll-behavior: auto;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .agent-assistant-messages__content {
