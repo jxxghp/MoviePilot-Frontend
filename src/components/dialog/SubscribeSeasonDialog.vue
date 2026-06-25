@@ -5,6 +5,20 @@ import { PropType } from 'vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
+import type { SeasonSubscribeModes, SubscribeMode } from '@/composables/useMediaSubscribe'
+
+type SubscribeModeOption = {
+  icon: string
+  title: string
+  value: SubscribeMode
+}
+
+type EpisodeGroupOption = {
+  title: string
+  subtitle: string
+  value: string
+  icon: string
+}
 
 // 国际化
 const { t } = useI18n()
@@ -15,6 +29,9 @@ const emit = defineEmits(['subscribe', 'close'])
 // 定义输入
 const props = defineProps({
   media: Object as PropType<MediaInfo>,
+  selectedSeason: Number,
+  subscribedSeasons: Array as PropType<number[]>,
+  subscribedSeasonModes: Object as PropType<SeasonSubscribeModes>,
 })
 
 // 从 provide 中获取全局设置
@@ -25,8 +42,11 @@ const globalSettings = globalSettingsStore.globalSettings
 // 季详情
 const seasonInfos = ref<MediaSeason[]>([])
 
-// 选中的订阅季
-const seasonsSelected = ref<MediaSeason[]>([])
+// 选中的订阅季号
+const seasonsSelected = ref<number[]>([])
+
+// 各季订阅方式
+const seasonModes = ref<Record<number, SubscribeMode>>({})
 
 // 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
@@ -40,17 +60,70 @@ const episodeGroups = ref<{ [key: string]: any }[]>([])
 // 当前选择剧集组
 const episodeGroup = ref('')
 
-// 剧集组选项属性
-function episodeGroupItemProps(item: { title: string; subtitle: string }) {
-  return {
-    title: item.title,
-    subtitle: item.subtitle,
-  }
+const subscribeModeOptions = computed<SubscribeModeOption[]>(() => [
+  {
+    title: t('dialog.subscribeMode.normal'),
+    value: 'normal',
+    icon: 'mdi-plus-circle-outline',
+  },
+  {
+    title: t('dialog.subscribeMode.bestVersionEpisode'),
+    value: 'best_version',
+    icon: 'mdi-refresh',
+  },
+  {
+    title: t('dialog.subscribeMode.bestVersionFull'),
+    value: 'best_version_full',
+    icon: 'mdi-shimmer',
+  },
+])
+
+function getSubscribeModeColor(mode: SubscribeMode) {
+  if (mode === 'normal') return 'primary'
+  if (mode === 'best_version') return 'warning'
+  return 'success'
 }
 
+function isSubscribeMode(value: unknown): value is SubscribeMode {
+  return value === 'normal' || value === 'best_version' || value === 'best_version_full'
+}
+
+const subscribedSeasonSet = computed(() => new Set(props.subscribedSeasons ?? []))
+
+const selectedSeasonSet = computed(() => new Set(seasonsSelected.value))
+
+const visibleSeasonNumbers = computed(() =>
+  seasonInfos.value
+    .map(item => item.season_number)
+    .filter((season): season is number => season !== null && season !== undefined),
+)
+
+const hasSelectionChanges = computed(() => {
+  const visibleSeasons = new Set(visibleSeasonNumbers.value)
+
+  for (const season of visibleSeasons) {
+    if (subscribedSeasonSet.value.has(season) !== selectedSeasonSet.value.has(season)) return true
+    if (
+      subscribedSeasonSet.value.has(season) &&
+      selectedSeasonSet.value.has(season) &&
+      (props.subscribedSeasonModes?.[season] ?? 'normal') !== (seasonModes.value[season] ?? 'normal')
+    ) {
+      return true
+    }
+  }
+
+  return false
+})
+
+const submitButtonText = computed(() => {
+  if (!hasSelectionChanges.value && seasonsSelected.value.length === 0) return t('dialog.subscribeSeason.selectSeasons')
+
+  return t('dialog.subscribeSeason.submit')
+})
+
 // 剧集组选项
-const episodeGroupOptions = computed(() => {
-  let options = (episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]).map(
+const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
+  const options = (episodeGroups.value as { id: string; name: string; group_count: number; episode_count: number }[]).map(
     item => {
       return {
         title: item.name,
@@ -59,6 +132,7 @@ const episodeGroupOptions = computed(() => {
           { count: item.episode_count },
         )}`,
         value: item.id,
+        icon: 'mdi-folder-play-outline',
       }
     },
   )
@@ -67,6 +141,7 @@ const episodeGroupOptions = computed(() => {
     title: t('dialog.subscribeSeason.defaultGroup'),
     subtitle: t('dialog.subscribeSeason.seasonCount', { count: seasonInfos.value.length }),
     value: '',
+    icon: 'mdi-layers-outline',
   })
   return options
 })
@@ -125,9 +200,10 @@ async function getGroupSeasons() {
 async function checkSeasonsNotExists() {
   // 开始处理
   try {
-    let tmpMedia = props.media ?? { episode_group: '' }
-    if (episodeGroup.value) tmpMedia.episode_group = episodeGroup.value
-    else tmpMedia.episode_group = ''
+    const tmpMedia = {
+      ...(props.media ?? {}),
+      episode_group: episodeGroup.value || '',
+    }
     const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', tmpMedia)
     if (result) {
       result.forEach(item => {
@@ -183,8 +259,89 @@ function getYear(airDate: string) {
   return date.getFullYear()
 }
 
+function setEpisodeGroup(value: string) {
+  if (episodeGroup.value === value) return
+
+  seasonsNotExisted.value = {}
+  seasonInfos.value = []
+  episodeGroup.value = value
+}
+
 function subscribeSeasons() {
-  emit('subscribe', seasonsSelected.value, seasonsNotExisted.value, episodeGroup.value)
+  const selectedSeasons = seasonInfos.value.filter(item => {
+    const seasonNumber = item.season_number ?? null
+    return seasonNumber !== null && selectedSeasonSet.value.has(seasonNumber)
+  })
+
+  emit(
+    'subscribe',
+    selectedSeasons,
+    seasonsNotExisted.value,
+    episodeGroup.value,
+    { ...seasonModes.value },
+    visibleSeasonNumbers.value,
+  )
+}
+
+function setSeasonMode(season: number, mode: SubscribeMode) {
+  seasonModes.value = {
+    ...seasonModes.value,
+    [season]: mode,
+  }
+}
+
+function updateSeasonMode(season: number, mode: unknown) {
+  if (!isSubscribeMode(mode)) return
+  setSeasonMode(season, mode)
+}
+
+function ensureSeasonMode(season: number) {
+  if (!seasonModes.value[season]) setSeasonMode(season, props.subscribedSeasonModes?.[season] ?? 'normal')
+}
+
+function isSeasonSubscribed(season: number) {
+  return subscribedSeasonSet.value.has(season)
+}
+
+function isSeasonSelected(season: number) {
+  return selectedSeasonSet.value.has(season)
+}
+
+function setSeasonSelected(season: number, selected: boolean | null) {
+  const nextSeasons = new Set(seasonsSelected.value)
+  if (selected) {
+    nextSeasons.add(season)
+    ensureSeasonMode(season)
+  } else {
+    nextSeasons.delete(season)
+  }
+  seasonsSelected.value = [...nextSeasons].sort((a, b) => a - b)
+}
+
+function toggleSeasonSelected(season: number) {
+  setSeasonSelected(season, !isSeasonSelected(season))
+}
+
+function syncSelectedSeason() {
+  if (!seasonInfos.value.length) return
+
+  const seasonNumbers = new Set<number>()
+  props.subscribedSeasons?.forEach(season => seasonNumbers.add(season))
+  if (props.selectedSeason !== undefined) seasonNumbers.add(props.selectedSeason)
+
+  const validSeasonNumbers = new Set(
+    seasonInfos.value
+      .map(item => item.season_number)
+      .filter((season): season is number => season !== null && season !== undefined),
+  )
+
+  seasonsSelected.value = [...seasonNumbers].filter(season => validSeasonNumbers.has(season)).sort((a, b) => a - b)
+  seasonsSelected.value.forEach(ensureSeasonMode)
+  Object.entries(props.subscribedSeasonModes ?? {}).forEach(([season, mode]) => {
+    const seasonNumber = Number(season)
+    if (!validSeasonNumbers.has(seasonNumber)) return
+    setSeasonMode(seasonNumber, mode)
+  })
 }
 
 watchEffect(() => {
@@ -192,6 +349,23 @@ watchEffect(() => {
   else getMediaSeasons()
   checkSeasonsNotExists()
 })
+
+watch(seasonInfos, syncSelectedSeason)
+
+watch(
+  () => props.selectedSeason,
+  syncSelectedSeason,
+)
+
+watch(
+  () => props.subscribedSeasons,
+  syncSelectedSeason,
+)
+
+watch(
+  () => props.subscribedSeasonModes,
+  syncSelectedSeason,
+)
 
 onMounted(async () => {
   getMediaSeasons()
@@ -201,25 +375,46 @@ onMounted(async () => {
 </script>
 
 <template>
-  <VBottomSheet inset scrollable>
-    <VCard>
+  <VBottomSheet inset scrollable content-class="subscribe-season-sheet">
+    <VCard class="subscribe-season-dialog">
       <VDialogCloseBtn @click="emit('close')" />
       <VCardItem>
         <VCardTitle class="pe-10"> {{ t('dialog.subscribeSeason.title', { title: props.media?.title }) }} </VCardTitle>
       </VCardItem>
       <VDivider />
       <VCardText>
-        <VSelect
-          v-model="episodeGroup"
-          :items="episodeGroupOptions"
-          :item-props="episodeGroupItemProps"
-          :label="t('dialog.subscribeSeason.selectGroup')"
-          persistent-hint
-        />
+        <div class="subscribe-season-group-selector">
+          <div class="subscribe-season-group-label">
+            {{ t('dialog.subscribeSeason.selectGroup') }}
+          </div>
+          <div class="subscribe-season-group-options">
+            <button
+              v-for="group in episodeGroupOptions"
+              :key="group.value || 'default'"
+              type="button"
+              class="subscribe-season-group-option"
+              :class="{ 'subscribe-season-group-option--active': episodeGroup === group.value }"
+              @click="setEpisodeGroup(group.value)"
+            >
+              <VIcon :icon="group.icon" size="small" />
+              <span class="subscribe-season-group-text">
+                <span class="subscribe-season-group-title">{{ group.title }}</span>
+                <span class="subscribe-season-group-subtitle">{{ group.subtitle }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
         <LoadingBanner v-if="!isRefreshed" class="mt-5" />
         <div v-else-if="seasonInfos.length > 0">
-          <VList v-model:selected="seasonsSelected" lines="three" select-strategy="classic">
-            <VListItem v-for="(item, i) in seasonInfos" :key="i" :value="item">
+          <VList lines="three" class="subscribe-season-list">
+            <VListItem
+              v-for="(item, i) in seasonInfos"
+              :key="i"
+              :active="isSeasonSelected(item.season_number || 0)"
+              rounded="lg"
+              class="subscribe-season-list-item"
+              @click="toggleSeasonSelected(item.season_number || 0)"
+            >
               <template #prepend>
                 <VImg
                   height="90"
@@ -258,10 +453,46 @@ onMounted(async () => {
                 >
                   {{ getExistText(item.season_number || 0) }}
                 </VChip>
+                <VChip
+                  v-if="isSeasonSubscribed(item.season_number || 0)"
+                  class="mt-2 ms-2"
+                  size="small"
+                  color="error"
+                >
+                  {{ t('media.status.subscribed') }}
+                </VChip>
               </VListItemSubtitle>
-              <template #append="{ isSelected }">
-                <VListItemAction start>
-                  <VSwitch :model-value="isSelected" />
+              <template #append>
+                <VListItemAction start class="subscribe-season-actions">
+                  <VSwitch
+                    :model-value="isSeasonSelected(item.season_number || 0)"
+                    hide-details
+                    @click.stop
+                    @update:model-value="setSeasonSelected(item.season_number || 0, $event)"
+                  />
+                  <VBtnToggle
+                    v-if="isSeasonSelected(item.season_number || 0)"
+                    :model-value="seasonModes[item.season_number || 0] || 'normal'"
+                    density="compact"
+                    divided
+                    mandatory
+                    variant="outlined"
+                    class="subscribe-season-mode-toggle"
+                    @click.stop
+                    @update:model-value="updateSeasonMode(item.season_number || 0, $event)"
+                  >
+                    <VBtn
+                      v-for="mode in subscribeModeOptions"
+                      :key="mode.value"
+                      :value="mode.value"
+                      :color="getSubscribeModeColor(mode.value)"
+                      size="small"
+                      class="subscribe-season-mode-button"
+                    >
+                      <VIcon :icon="mode.icon" size="small" />
+                      <span>{{ mode.title }}</span>
+                    </VBtn>
+                  </VBtnToggle>
                 </VListItemAction>
               </template>
             </VListItem>
@@ -269,15 +500,186 @@ onMounted(async () => {
         </div>
         <NoDataFound v-else errorTitle="出错啦！" :errorDescription="`${props.media?.title} 未查询到季集信息`" />
       </VCardText>
-      <div class="my-2 text-center">
-        <VBtn :disabled="seasonsSelected.length === 0" width="30%" @click="subscribeSeasons">
-          {{
-            seasonsSelected.length === 0
-              ? t('dialog.subscribeSeason.selectSeasons')
-              : t('dialog.subscribeSeason.submit')
-          }}
+      <VCardActions class="justify-center py-3">
+        <VBtn
+          :disabled="!hasSelectionChanges"
+          width="30%"
+          min-width="8rem"
+          color="primary"
+          variant="elevated"
+          class="subscribe-season-submit"
+          @click="subscribeSeasons"
+        >
+          <template #prepend>
+            <VIcon icon="mdi-check" />
+          </template>
+          {{ submitButtonText }}
         </VBtn>
-      </div>
+      </VCardActions>
     </VCard>
   </VBottomSheet>
 </template>
+
+<style scoped>
+.subscribe-season-dialog {
+  inline-size: min(46rem, calc(100vw - 2rem));
+  max-block-size: min(42rem, calc(100vh - 4rem));
+  margin-inline: auto;
+}
+
+.subscribe-season-actions {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+  align-content: end;
+  align-self: stretch;
+  block-size: 100%;
+  min-inline-size: 18rem;
+}
+
+.subscribe-season-group-selector {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-end: 1rem;
+}
+
+.subscribe-season-group-label {
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.subscribe-season-group-options {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-block: 0.125rem 0.375rem;
+  scrollbar-width: thin;
+}
+
+.subscribe-season-group-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  min-inline-size: 11rem;
+  max-inline-size: 16rem;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 0.72);
+  color: rgb(var(--v-theme-on-surface));
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.subscribe-season-group-option:hover {
+  border-color: rgba(var(--v-theme-primary), 0.45);
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.subscribe-season-group-option--active {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.14);
+  color: rgb(var(--v-theme-primary));
+}
+
+.subscribe-season-group-text {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.subscribe-season-group-title,
+.subscribe-season-group-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscribe-season-group-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}
+
+.subscribe-season-group-subtitle {
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.subscribe-season-group-option--active .subscribe-season-group-subtitle {
+  color: rgba(var(--v-theme-primary), 0.82);
+}
+
+.subscribe-season-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.subscribe-season-list-item {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.subscribe-season-list-item :deep(.v-list-item__append) {
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.subscribe-season-mode-toggle {
+  block-size: 2rem;
+  max-inline-size: 16rem;
+}
+
+.subscribe-season-mode-button {
+  min-inline-size: 0;
+  padding-inline: 0.5rem;
+}
+
+.subscribe-season-mode-button span {
+  margin-inline-start: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+
+@media (width <= 960px) {
+  .subscribe-season-actions {
+    gap: 0.375rem;
+    min-inline-size: 6.75rem;
+  }
+
+  .subscribe-season-mode-toggle {
+    inline-size: 6.75rem;
+    max-inline-size: 6.75rem;
+  }
+
+  .subscribe-season-mode-button {
+    flex: 1 1 0;
+    padding-inline: 0.25rem;
+  }
+
+  .subscribe-season-mode-button span {
+    display: none;
+  }
+}
+
+@media (width <= 640px) {
+  .subscribe-season-submit {
+    inline-size: 100% !important;
+  }
+
+  .subscribe-season-list-item :deep(.v-list-item__content) {
+    min-inline-size: 0;
+  }
+
+  .subscribe-season-group-option {
+    min-inline-size: 9.5rem;
+    max-inline-size: 12rem;
+  }
+
+}
+</style>
