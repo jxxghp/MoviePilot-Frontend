@@ -368,11 +368,19 @@ onMounted(async () => {
 </script>
 
 <template>
-  <VBottomSheet :inset="mdAndUp" scrollable content-class="subscribe-season-sheet">
+  <VDialog max-width="45rem" scrollable :fullscreen="!mdAndUp">
     <VCard class="subscribe-season-dialog">
-      <VDialogCloseBtn @click="emit('close')" />
-      <VCardItem>
-        <VCardTitle class="pe-10"> {{ t('dialog.subscribeSeason.title', { title: props.media?.title }) }} </VCardTitle>
+      <VCardItem class="py-2">
+        <template #prepend>
+          <VIcon icon="mdi-clipboard-list-outline" class="me-2" />
+        </template>
+        <VCardTitle class="pe-10">
+          {{ t('dialog.subscribeSeason.selectSeasons') }}
+        </VCardTitle>
+        <VCardSubtitle>
+          {{ props.media?.title }}
+        </VCardSubtitle>
+        <VDialogCloseBtn @click="emit('close')" />
       </VCardItem>
       <VDivider />
       <VCardText>
@@ -505,21 +513,15 @@ onMounted(async () => {
         </VBtn>
       </VCardActions>
     </VCard>
-  </VBottomSheet>
+  </VDialog>
 </template>
 
 <style scoped>
 /* stylelint-disable selector-pseudo-class-no-unknown */
 
-.subscribe-season-dialog {
-  inline-size: min(46rem, calc(100vw - 2rem));
-  margin-inline: auto;
-  max-block-size: min(42rem, calc(100vh - 4rem));
-}
-
 .subscribe-season-actions {
   display: grid;
-  align-content: end;
+  align-content: space-between;
   align-self: stretch;
   block-size: 100%;
   gap: 0.5rem;
@@ -638,17 +640,6 @@ onMounted(async () => {
 }
 
 @media (width <= 960px) {
-  :deep(.subscribe-season-sheet) {
-    margin-block-start: env(safe-area-inset-top, 0px);
-  }
-
-  .subscribe-season-dialog {
-    border-end-end-radius: 0;
-    border-end-start-radius: 0;
-    inline-size: 100vw;
-    max-block-size: min(42rem, calc(100dvh - env(safe-area-inset-top, 0px)));
-  }
-
   .subscribe-season-actions {
     gap: 0.375rem;
     min-inline-size: 6.75rem;
