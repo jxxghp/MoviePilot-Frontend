@@ -1,3 +1,10 @@
+<script lang="ts">
+import { ref } from 'vue'
+
+const activeTouchMediaCardId = ref<number | null>(null)
+let mediaCardIdSeed = 0
+</script>
+
 <script lang="ts" setup>
 import noImage from '@images/no-image.jpeg'
 import { getDisplayImageUrl, getLogoUrl } from '@/utils/imageUtils'
@@ -93,8 +100,7 @@ const selectedSites = ref<number[]>([])
 // 搜索菜单显示状态
 const searchMenuShow = ref(false)
 
-// 触摸设备没有稳定 hover，单独保存详情层的展开状态。
-const touchDetailVisible = ref(false)
+const mediaCardId = ++mediaCardIdSeed
 
 // 粗指针设备使用点击展开详情，避免 iOS 返回后沿用 VHover 的触摸态。
 const isTouchLikePointer = ref(
@@ -196,7 +202,12 @@ async function handleCheckSubscribe() {
 }
 
 async function querySubscribedSeasons() {
-  if (props.media?.type !== '电视剧' || !isSubscribed.value || subscribedSeasonsLoaded.value || subscribedSeasonsLoading.value) {
+  if (
+    props.media?.type !== '电视剧' ||
+    !isSubscribed.value ||
+    subscribedSeasonsLoaded.value ||
+    subscribedSeasonsLoading.value
+  ) {
     return
   }
 
@@ -285,7 +296,7 @@ function goMediaDetail(isHovering = false) {
 
 // 当前卡片是否进入可操作详情态，桌面使用 hover，触摸端使用显式点击态。
 function isMediaCardActive(isHovering: boolean | null | undefined) {
-  return touchDetailVisible.value || (!isTouchLikePointer.value && Boolean(isHovering))
+  return activeTouchMediaCardId.value === mediaCardId || (!isTouchLikePointer.value && Boolean(isHovering))
 }
 
 // 当前卡片详情层是否显示，保留图片错误和站点选择时的强制显示。
@@ -295,18 +306,28 @@ function isMediaCardDetailVisible(isHovering: boolean | null | undefined) {
 
 // 清理移动端详情层展开态，避免路由返回后继续显示上一次的详情层。
 function resetMediaCardDetailState() {
-  touchDetailVisible.value = false
+  if (activeTouchMediaCardId.value === mediaCardId) {
+    activeTouchMediaCardId.value = null
+  }
 }
 
 // 处理媒体卡片点击：触摸端第一次点击展开，展开后再次点击进入详情。
 function handleMediaCardClick(isHovering: boolean | null | undefined) {
   if (isTouchLikePointer.value && !isMediaCardDetailVisible(isHovering)) {
-    touchDetailVisible.value = true
+    activeTouchMediaCardId.value = mediaCardId
     querySubscribedSeasons()
     return
   }
 
   goMediaDetail(isMediaCardActive(isHovering) || isMediaCardDetailVisible(isHovering))
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!isTouchLikePointer.value || activeTouchMediaCardId.value !== mediaCardId) return
+  if (!(event.target instanceof Node)) return
+  if (mediaCardRef.value?.contains(event.target)) return
+
+  resetMediaCardDetailState()
 }
 
 // 点击搜索
@@ -418,6 +439,9 @@ watch(
 
 onMounted(() => {
   setupIntersectionObserver()
+  if (isTouchLikePointer.value) {
+    document.addEventListener('pointerdown', handleDocumentPointerDown)
+  }
 })
 
 onActivated(resetMediaCardDetailState)
@@ -425,6 +449,7 @@ onDeactivated(resetMediaCardDetailState)
 
 onBeforeUnmount(() => {
   resetMediaCardDetailState()
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
   observer.value?.disconnect()
   observer.value = null
 })
@@ -434,12 +459,7 @@ onBeforeUnmount(() => {
   <VHover>
     <template #default="hover">
       <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
-      <div
-        ref="mediaCardRef"
-        v-bind="hover.props"
-        class="media-card-hover-area"
-        @mouseenter="querySubscribedSeasons"
-      >
+      <div ref="mediaCardRef" v-bind="hover.props" class="media-card-hover-area" @mouseenter="querySubscribedSeasons">
         <VCard
           :height="props.height"
           :width="props.width"
@@ -486,13 +506,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="props.media?.collection_id" class="mb-3" @click.stop=""></div>
             <div v-else class="flex align-center justify-between">
-              <IconBtn
-                v-if="canSearch"
-                icon="mdi-magnify"
-                color="white"
-                size="small"
-                @click.stop="clickSearch"
-              />
+              <IconBtn v-if="canSearch" icon="mdi-magnify" color="white" size="small" @click.stop="clickSearch" />
               <VSpacer />
               <IconBtn
                 v-if="canSubscribe"
@@ -543,7 +557,7 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .media-card-hover-area {
-  width: 100%;
+  inline-size: 100%;
 }
 
 .media-card-title {
@@ -559,11 +573,11 @@ onBeforeUnmount(() => {
 .media-card-subscribe-summary {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  min-block-size: 1.25rem;
   color: white;
   font-size: 0.75rem;
+  gap: 0.25rem;
   line-height: 1rem;
+  min-block-size: 1.25rem;
 }
 
 .media-card-subscribe-summary span {
