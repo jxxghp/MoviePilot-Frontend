@@ -386,6 +386,24 @@ function handleSubscribe() {
 function subscribeSeasons(seasons: MediaSeason[], seasonNoExists: { [key: number]: number }, groudId: string) {
   episodeGroup.value = groudId
   seasonsSelected.value = seasons || []
+  if (seasonsSelected.value.length === 1) {
+    const seasonNumber = seasonsSelected.value[0]?.season_number ?? null
+    if (seasonNumber !== null && !seasonNoExists[seasonNumber]) {
+      openSharedDialog(
+        SubscribeModeDialog,
+        { modes: ['normal', 'best_version', 'best_version_full'], type: props.media?.type },
+        {
+          choose: (mode: string) =>
+            addSubscribe(seasonNumber, {
+              best_version: mode === 'normal' ? 0 : 1,
+              best_version_full: mode === 'best_version_full' ? 1 : 0,
+            }),
+        },
+        { closeOn: ['close', 'choose'] },
+      )
+      return
+    }
+  }
   seasonsSelected.value.forEach(season => {
     const seasonNumber = season.season_number ?? null
     const payload =
