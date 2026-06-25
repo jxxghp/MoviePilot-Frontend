@@ -455,6 +455,7 @@ onBeforeUnmount(() => {
         <VCard
           :height="props.height"
           :width="props.width"
+          :ripple="false"
           class="app-hover-lift-card outline-none ring-gray-500 media-card"
           :class="{
             'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
