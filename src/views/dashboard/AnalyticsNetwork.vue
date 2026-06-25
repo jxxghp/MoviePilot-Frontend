@@ -2,6 +2,7 @@
 import { useTheme } from 'vuetify'
 import { hexToRgb } from '@layouts/utils'
 import api from '@/api'
+import { formatDashboardFileSize, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
@@ -45,15 +46,16 @@ const series = ref([
 // 当前值
 const currentUpload = ref(0)
 const currentDownload = ref(0)
-
-// 格式化流量显示
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B/s'
-  const k = 1024
-  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+const animatedCurrentUpload = useAnimatedDashboardNumber(currentUpload, {
+  duration: 520,
+})
+const animatedCurrentDownload = useAnimatedDashboardNumber(currentDownload, {
+  duration: 520,
+})
+const animatedCurrentUploadText = computed(() => `${formatDashboardFileSize(animatedCurrentUpload.value, 2, currentUpload.value)}/s`)
+const animatedCurrentDownloadText = computed(
+  () => `${formatDashboardFileSize(animatedCurrentDownload.value, 2, currentDownload.value)}/s`,
+)
 
 const chartOptions = controlledComputed(
   () => vuetifyTheme.name.value,
@@ -139,8 +141,8 @@ async function getNetworkUsage() {
   try {
     // 请求数据 - 接口返回 [上行流量, 下行流量]
     const data: [number, number] = (await api.get('dashboard/network')) ?? [0, 0]
-    currentUpload.value = data[0] || 0
-    currentDownload.value = data[1] || 0
+    currentUpload.value = Number(data[0]) || 0
+    currentDownload.value = Number(data[1]) || 0
 
     // 使用nextTick确保DOM更新完成后再更新图表数据
     await nextTick()
@@ -180,13 +182,13 @@ useKeepAliveRefresh(refresh)
         <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
       </div>
       <div class="d-flex justify-space-between">
-        <p class="text-center font-weight-medium mb-0">
+        <p class="dashboard-chart-value text-center font-weight-medium mb-0">
           <span class="text-warning">{{ t('dashboard.upload') }}</span
-          >：{{ formatBytes(currentUpload) }}
+          >：{{ animatedCurrentUploadText }}
         </p>
-        <p class="text-center font-weight-medium mb-0">
+        <p class="dashboard-chart-value text-center font-weight-medium mb-0">
           <span class="text-info">{{ t('dashboard.download') }}</span
-          >：{{ formatBytes(currentDownload) }}
+          >：{{ animatedCurrentDownloadText }}
         </p>
       </div>
     </VCardText>
@@ -204,6 +206,10 @@ useKeepAliveRefresh(refresh)
 .dashboard-chart-plot {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+.dashboard-chart-value {
+  font-variant-numeric: tabular-nums;
 }
 
 </style>

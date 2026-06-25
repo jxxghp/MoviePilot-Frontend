@@ -25,6 +25,12 @@ const imageLoaded = ref(false)
 // 图片是否加载错误
 const imageError = ref(false)
 
+const cardStyle = computed(() => ({
+  aspectRatio: props.height ? undefined : '3 / 2',
+  blockSize: props.height,
+  inlineSize: props.width || '100%',
+}))
+
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
@@ -159,8 +165,7 @@ onMounted(async () => {
       <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
       <div v-bind="hover.props" class="library-card-hover-area">
         <VCard
-          :height="props.height"
-          :width="props.width"
+          :style="cardStyle"
           class="app-hover-lift-card"
           :class="{
             'app-hover-lift-card--hovering': hover.isHovering,
@@ -169,10 +174,18 @@ onMounted(async () => {
         >
         <template #image>
           <canvas ref="canvasRef" width="640" height="360" class="w-full h-full hidden" />
-          <VImg :src="imgUrl" aspect-ratio="2/3" cover @load="imageLoadHandler" @error="imageErrorHandler">
+          <VImg
+            :src="imgUrl"
+            aspect-ratio="2/3"
+            class="library-card-image"
+            :class="{ 'library-card-image--loaded': imageLoaded }"
+            cover
+            @load="imageLoadHandler"
+            @error="imageErrorHandler"
+          >
             <template #placeholder>
-              <div class="w-full h-full">
-                <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+              <div class="library-card-placeholder">
+                <VSkeletonLoader class="library-card-skeleton" />
               </div>
             </template>
             <template #default>
@@ -193,7 +206,36 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .library-card-hover-area {
+  block-size: 100%;
   inline-size: 100%;
+}
+
+.library-card-image {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.library-card-placeholder,
+.library-card-skeleton {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.library-card-image :deep(.v-img__img) {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.library-card-image--loaded :deep(.v-img__img) {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-card-image :deep(.v-img__img) {
+    transition: none;
+  }
 }
 </style>

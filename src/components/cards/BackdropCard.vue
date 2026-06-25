@@ -13,6 +13,12 @@ const props = defineProps({
 const imageLoaded = ref(false)
 const imageLoadError = ref(false)
 
+const cardStyle = computed(() => ({
+  aspectRatio: props.height ? undefined : '3 / 2',
+  blockSize: props.height,
+  inlineSize: props.width || '100%',
+}))
+
 // 图片加载完成响应
 function imageLoadHandler() {
   imageLoaded.value = true
@@ -49,8 +55,7 @@ const getImgUrl = computed(() => {
       <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
       <div v-bind="hover.props" class="backdrop-card-hover-area">
         <VCard
-          :height="props.height"
-          :width="props.width"
+          :style="cardStyle"
           class="app-hover-lift-card ring-gray-500"
           :class="{
             'app-hover-lift-card--hovering': hover.isHovering,
@@ -59,10 +64,18 @@ const getImgUrl = computed(() => {
           @click="goPlay"
         >
         <template #image>
-          <VImg :src="getImgUrl" aspect-ratio="2/3" cover @load="imageLoadHandler" @error="imageErrorHandler">
+          <VImg
+            :src="getImgUrl"
+            aspect-ratio="2/3"
+            class="backdrop-card-image"
+            :class="{ 'backdrop-card-image--loaded': imageLoaded }"
+            cover
+            @load="imageLoadHandler"
+            @error="imageErrorHandler"
+          >
             <template #placeholder>
-              <div class="w-full h-full">
-                <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+              <div class="backdrop-card-placeholder">
+                <VSkeletonLoader class="backdrop-card-skeleton" />
               </div>
             </template>
             <template #default>
@@ -94,7 +107,36 @@ const getImgUrl = computed(() => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .backdrop-card-hover-area {
+  block-size: 100%;
   inline-size: 100%;
+}
+
+.backdrop-card-image {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.backdrop-card-placeholder,
+.backdrop-card-skeleton {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.backdrop-card-image :deep(.v-img__img) {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.backdrop-card-image--loaded :deep(.v-img__img) {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop-card-image :deep(.v-img__img) {
+    transition: none;
+  }
 }
 </style>

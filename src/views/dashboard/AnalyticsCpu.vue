@@ -2,6 +2,7 @@
 import { useTheme } from 'vuetify'
 import { hexToRgb } from '@layouts/utils'
 import api from '@/api'
+import { useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
@@ -39,6 +40,10 @@ const series = ref([
 
 // 当前值
 const current = ref(0)
+const animatedCurrent = useAnimatedDashboardNumber(current, {
+  duration: 520,
+})
+const animatedCurrentText = computed(() => Math.round(animatedCurrent.value).toLocaleString())
 
 const chartOptions = controlledComputed(
   () => vuetifyTheme.name.value,
@@ -109,7 +114,7 @@ async function loadCpuData() {
   if (!props.allowRefresh) return
   try {
     // 请求数据
-    current.value = (await api.get('dashboard/cpu')) ?? 0
+    current.value = Number(await api.get('dashboard/cpu')) || 0
     // 使用nextTick确保DOM更新完成后再更新图表数据
     await nextTick()
     // 添加到序列
@@ -141,7 +146,9 @@ useKeepAliveRefresh(refresh)
       <div class="dashboard-chart-plot">
         <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
       </div>
-      <p class="text-center font-weight-medium mb-0">{{ t('dashboard.current') }}：{{ current }}%</p>
+      <p class="dashboard-chart-value text-center font-weight-medium mb-0">
+        {{ t('dashboard.current') }}：{{ animatedCurrentText }}%
+      </p>
     </VCardText>
   </VCard>
 </template>
@@ -157,6 +164,10 @@ useKeepAliveRefresh(refresh)
 .dashboard-chart-plot {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+.dashboard-chart-value {
+  font-variant-numeric: tabular-nums;
 }
 
 </style>

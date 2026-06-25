@@ -2,6 +2,7 @@
 import { useTheme } from 'vuetify'
 import api from '@/api'
 import { hexToRgb } from '@layouts/utils'
+import { formatDashboardCount, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
@@ -27,6 +28,7 @@ const options = controlledComputed(
       chart: {
         parentHeightOffset: 0,
         toolbar: { show: false },
+        animations: { enabled: false },
       },
       plotOptions: {
         bar: {
@@ -97,6 +99,11 @@ const series = ref([{ data: [0, 0, 0, 0, 0, 0, 0] }])
 
 // 总数
 const totalCount = computed(() => series.value[0].data.reduce((a, b) => a + b, 0))
+const animatedTotalCount = useAnimatedDashboardNumber(totalCount, {
+  delay: 100,
+  duration: 850,
+})
+const animatedTotalCountText = computed(() => formatDashboardCount(animatedTotalCount.value))
 
 // 调用API接口获取数据近7天数据
 async function getWeeklyData() {
@@ -136,10 +143,10 @@ onActivated(() => {
         <VApexChart type="bar" :options="options" :series="series" height="100%" />
       </div>
       <div class="d-flex align-center mb-3">
-        <h5 class="text-h5 me-4">
-          {{ totalCount }}
+        <h5 class="dashboard-weekly-count text-h5 me-4">
+          {{ animatedTotalCountText }}
         </h5>
-        <p>{{ t('dashboard.weeklyOverviewDescription', { count: totalCount }) }} 😎</p>
+        <p>{{ t('dashboard.weeklyOverviewDescription', { count: animatedTotalCountText }) }} 😎</p>
       </div>
       <div>
         <VBtn block to="/history"> {{ t('common.viewDetails') }} </VBtn>
@@ -159,5 +166,9 @@ onActivated(() => {
 .dashboard-work-chart {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+.dashboard-weekly-count {
+  font-variant-numeric: tabular-nums;
 }
 </style>

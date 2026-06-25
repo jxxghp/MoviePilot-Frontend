@@ -101,4 +101,5 @@ useDataRefresh(
 .card-list::-webkit-scrollbar {
   display: none;
 }
+
 </style>

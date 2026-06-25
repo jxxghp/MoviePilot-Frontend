@@ -2,7 +2,7 @@
 import { useTheme } from 'vuetify'
 import { hexToRgb } from '@layouts/utils'
 import api from '@/api'
-import { formatBytes } from '@/@core/utils/formatters'
+import { formatDashboardFileSize, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
@@ -42,6 +42,10 @@ const series = ref([
 const usedMemory = ref(0)
 // 内存使用百分比
 const memoryUsage = ref(0)
+const animatedUsedMemory = useAnimatedDashboardNumber(usedMemory, {
+  duration: 650,
+})
+const animatedUsedMemoryText = computed(() => formatDashboardFileSize(animatedUsedMemory.value, 2, usedMemory.value))
 
 const chartOptions = controlledComputed(
   () => vuetifyTheme.name.value,
@@ -115,7 +119,9 @@ async function loadMemoryData() {
   if (!props.allowRefresh) return
   try {
     // 请求数据
-    ;[usedMemory.value, memoryUsage.value] = await api.get('dashboard/memory')
+    const [memory, usage]: [number, number] = await api.get('dashboard/memory')
+    usedMemory.value = Number(memory) || 0
+    memoryUsage.value = Number(usage) || 0
     // 使用nextTick确保DOM更新完成后再更新图表数据
     await nextTick()
     series.value[0].data.push(memoryUsage.value)
@@ -146,7 +152,9 @@ useKeepAliveRefresh(refresh)
       <div class="dashboard-chart-plot">
         <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
-      <p class="text-center font-weight-medium mb-0">{{ t('dashboard.current') }}：{{ formatBytes(usedMemory) }}</p>
+      <p class="dashboard-chart-value text-center font-weight-medium mb-0">
+        {{ t('dashboard.current') }}：{{ animatedUsedMemoryText }}
+      </p>
     </VCardText>
   </VCard>
 </template>
@@ -162,5 +170,9 @@ useKeepAliveRefresh(refresh)
 .dashboard-chart-plot {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+.dashboard-chart-value {
+  font-variant-numeric: tabular-nums;
 }
 </style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { formatFileSize } from '@/@core/utils/formatters'
 import api from '@/api'
 import type { DownloaderInfo } from '@/api/types'
+import { formatDashboardFileSize, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 
@@ -36,12 +36,48 @@ const downloadInfo = ref<DownloaderInfo>({
   free_space: 0,
 })
 
+const animatedUploadSpeed = useAnimatedDashboardNumber(computed(() => downloadInfo.value.upload_speed), {
+  duration: 520,
+})
+
+const animatedDownloadSpeed = useAnimatedDashboardNumber(computed(() => downloadInfo.value.download_speed), {
+  duration: 520,
+})
+
+const animatedUploadSize = useAnimatedDashboardNumber(computed(() => downloadInfo.value.upload_size), {
+  delay: 80,
+  duration: 760,
+})
+
+const animatedDownloadSize = useAnimatedDashboardNumber(computed(() => downloadInfo.value.download_size), {
+  delay: 130,
+  duration: 760,
+})
+
+const animatedFreeSpace = useAnimatedDashboardNumber(computed(() => downloadInfo.value.free_space), {
+  delay: 180,
+  duration: 760,
+})
+
+const uploadSpeedText = computed(() => `${formatDashboardFileSize(animatedUploadSpeed.value, 2, downloadInfo.value.upload_speed)}/s`)
+const downloadSpeedText = computed(() => `${formatDashboardFileSize(animatedDownloadSpeed.value, 2, downloadInfo.value.download_speed)}/s`)
+
 // 显示项
-const infoItems = ref([
+const infoItems = computed(() => [
   {
-    avatar: '',
-    title: '',
-    amount: '',
+    avatar: 'mdi-cloud-upload',
+    title: t('dashboard.speed.totalUpload'),
+    amount: formatDashboardFileSize(animatedUploadSize.value, 2, downloadInfo.value.upload_size),
+  },
+  {
+    avatar: 'mdi-download-box',
+    title: t('dashboard.speed.totalDownload'),
+    amount: formatDashboardFileSize(animatedDownloadSize.value, 2, downloadInfo.value.download_size),
+  },
+  {
+    avatar: 'mdi-content-save',
+    title: t('dashboard.speed.freeSpace'),
+    amount: formatDashboardFileSize(animatedFreeSpace.value, 2, downloadInfo.value.free_space),
   },
 ])
 
@@ -54,24 +90,13 @@ async function loadDownloaderInfo() {
   try {
     const res: DownloaderInfo = await api.get('dashboard/downloader')
 
-    downloadInfo.value = res
-    infoItems.value = [
-      {
-        avatar: 'mdi-cloud-upload',
-        title: t('dashboard.speed.totalUpload'),
-        amount: formatFileSize(res.upload_size),
-      },
-      {
-        avatar: 'mdi-download-box',
-        title: t('dashboard.speed.totalDownload'),
-        amount: formatFileSize(res.download_size),
-      },
-      {
-        avatar: 'mdi-content-save',
-        title: t('dashboard.speed.freeSpace'),
-        amount: formatFileSize(res.free_space),
-      },
-    ]
+    downloadInfo.value = {
+      download_speed: Number(res.download_speed) || 0,
+      upload_speed: Number(res.upload_speed) || 0,
+      download_size: Number(res.download_size) || 0,
+      upload_size: Number(res.upload_size) || 0,
+      free_space: Number(res.free_space) || 0,
+    }
   } catch (e) {
     console.log(e)
   }
@@ -94,8 +119,8 @@ const { loading } = useDataRefresh(
 
     <VCardText class="dashboard-work-content pt-4">
       <div>
-        <p class="text-h5 me-2">↑{{ formatFileSize(downloadInfo.upload_speed) }}/s</p>
-        <p class="text-h4 me-2">↓{{ formatFileSize(downloadInfo.download_speed) }}/s</p>
+        <p class="dashboard-speed-number text-h5 me-2">↑{{ uploadSpeedText }}</p>
+        <p class="dashboard-speed-number text-h4 me-2">↓{{ downloadSpeedText }}</p>
       </div>
       <VList class="card-list mt-9">
         <VListItem v-for="item in infoItems" :key="item.title">
@@ -109,7 +134,7 @@ const { loading } = useDataRefresh(
 
           <template #append>
             <div>
-              <h6 class="text-sm font-weight-medium mb-2">
+              <h6 class="dashboard-speed-number text-sm font-weight-medium mb-2">
                 {{ item.amount }}
               </h6>
             </div>
@@ -135,4 +160,9 @@ const { loading } = useDataRefresh(
   flex-direction: column;
   min-block-size: 0;
 }
+
+.dashboard-speed-number {
+  font-variant-numeric: tabular-nums;
+}
+
 </style>
