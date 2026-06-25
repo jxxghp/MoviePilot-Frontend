@@ -53,7 +53,9 @@ const FAB_TOAST_BUBBLE_DURATION = 4500
 const FAB_MAX_BUBBLES = 4
 const FAB_DEFAULT_RIGHT_OFFSET = 18
 const FAB_DEFAULT_VERTICAL_RATIO = 2 / 3
+const FAB_MOBILE_VIEWPORT_WIDTH = 600
 const FAB_BUBBLE_GAP = 12
+const FAB_MOBILE_BUBBLE_GAP = 6
 const FAB_BUBBLE_SAFE_MARGIN = 12
 const FAB_BUBBLE_ARROW_MARGIN = 28
 const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
@@ -199,9 +201,19 @@ function getViewportSize() {
   }
 }
 
+// 判断当前 FAB 是否处于移动端布局，用于同步 JS 布局和 CSS 媒体查询。
+function isMobileFabViewport() {
+  return getViewportSize().width <= FAB_MOBILE_VIEWPORT_WIDTH
+}
+
+// 移动端气泡与机器人距离更短，避免 iOS 触摸视图里气泡显得过远。
+function getFabBubbleGap() {
+  return isMobileFabViewport() ? FAB_MOBILE_BUBBLE_GAP : FAB_BUBBLE_GAP
+}
+
 function getOpenFabSize() {
   const viewport = getViewportSize()
-  const isMobile = viewport.width <= 600
+  const isMobile = isMobileFabViewport()
 
   return {
     height: isMobile ? 106 : 115,
@@ -210,9 +222,8 @@ function getOpenFabSize() {
 }
 
 function getFallbackFabInteractiveBounds(): FabInteractiveBounds {
-  const viewport = getViewportSize()
   const rootSize = getOpenFabSize()
-  const triggerSize = viewport.width <= 600 ? { height: 77, width: 80 } : { height: 82, width: 86 }
+  const triggerSize = isMobileFabViewport() ? { height: 77, width: 80 } : { height: 82, width: 86 }
 
   return {
     height: triggerSize.height,
@@ -355,6 +366,7 @@ function getBubbleCandidatePenalty(
   bubbleSize: { height: number; width: number },
   anchorRect: DOMRect,
   viewport: { height: number; width: number },
+  bubbleGap: number,
 ) {
   const x = clampBubbleAxis(candidate.idealX, bubbleSize.width, viewport.width)
   const y = clampBubbleAxis(candidate.idealY, bubbleSize.height, viewport.height)
@@ -366,8 +378,8 @@ function getBubbleCandidatePenalty(
   }[candidate.placement]
   const primaryRequired =
     candidate.placement === 'left' || candidate.placement === 'right'
-      ? bubbleSize.width + FAB_BUBBLE_GAP
-      : bubbleSize.height + FAB_BUBBLE_GAP
+      ? bubbleSize.width + bubbleGap
+      : bubbleSize.height + bubbleGap
   const fitPenalty = Math.max(0, primaryRequired - primaryAvailable) * 8
   const alignmentPenalty = Math.abs(x - candidate.idealX) + Math.abs(y - candidate.idealY)
 
@@ -386,36 +398,39 @@ function calculateFabBubbleLayout(): FabBubbleLayout | null {
 
   const viewport = getViewportSize()
   const bubbleSize = getFabBubbleSize()
+  const bubbleGap = getFabBubbleGap()
   const anchorCenterX = anchorRect.left + anchorRect.width / 2
   const anchorCenterY = anchorRect.top + anchorRect.height / 2
+  const mobileSidePlacement = anchorCenterX >= viewport.width / 2 ? 'left' : 'right'
+  const preferMobileSideBubble = isMobileFabViewport()
   const candidates: FabBubbleCandidate[] = [
     {
       idealX: anchorCenterX - bubbleSize.width / 2,
-      idealY: anchorRect.top - bubbleSize.height - FAB_BUBBLE_GAP,
+      idealY: anchorRect.top - bubbleSize.height - bubbleGap,
       placement: 'top',
-      weight: 0,
+      weight: preferMobileSideBubble ? 18 : 0,
     },
     {
       idealX: anchorCenterX - bubbleSize.width / 2,
-      idealY: anchorRect.bottom + FAB_BUBBLE_GAP,
+      idealY: anchorRect.bottom + bubbleGap,
       placement: 'bottom',
-      weight: 4,
+      weight: preferMobileSideBubble ? 22 : 4,
     },
     {
-      idealX: anchorRect.right + FAB_BUBBLE_GAP,
+      idealX: anchorRect.right + bubbleGap,
       idealY: anchorCenterY - bubbleSize.height / 2,
       placement: 'right',
-      weight: 8,
+      weight: preferMobileSideBubble && mobileSidePlacement === 'right' ? -4 : 8,
     },
     {
-      idealX: anchorRect.left - bubbleSize.width - FAB_BUBBLE_GAP,
+      idealX: anchorRect.left - bubbleSize.width - bubbleGap,
       idealY: anchorCenterY - bubbleSize.height / 2,
       placement: 'left',
-      weight: 8,
+      weight: preferMobileSideBubble && mobileSidePlacement === 'left' ? -4 : 8,
     },
   ]
   const bestCandidate = candidates
-    .map(candidate => getBubbleCandidatePenalty(candidate, bubbleSize, anchorRect, viewport))
+    .map(candidate => getBubbleCandidatePenalty(candidate, bubbleSize, anchorRect, viewport, bubbleGap))
     .sort((a, b) => a.score - b.score)[0]
 
   if (!bestCandidate) return null

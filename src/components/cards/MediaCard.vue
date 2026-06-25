@@ -93,6 +93,14 @@ const selectedSites = ref<number[]>([])
 // 搜索菜单显示状态
 const searchMenuShow = ref(false)
 
+// 触摸设备没有稳定 hover，单独保存详情层的展开状态。
+const touchDetailVisible = ref(false)
+
+// 粗指针设备使用点击展开详情，避免 iOS 返回后沿用 VHover 的触摸态。
+const isTouchLikePointer = ref(
+  typeof window !== 'undefined' && Boolean(window.matchMedia?.('(hover: none), (pointer: coarse)').matches),
+)
+
 // 打开站点选择弹窗，并把选择结果交回当前媒体卡片继续搜索。
 function openSearchSiteDialog() {
   openSharedDialog(
@@ -250,6 +258,8 @@ async function handleSubscribe() {
 // 打开详情页
 function goMediaDetail(isHovering = false) {
   if (isHovering) {
+    resetMediaCardDetailState()
+
     if (props.media?.collection_id) {
       // 跳转到合集列表
       router.push({
@@ -271,6 +281,32 @@ function goMediaDetail(isHovering = false) {
       })
     }
   }
+}
+
+// 当前卡片是否进入可操作详情态，桌面使用 hover，触摸端使用显式点击态。
+function isMediaCardActive(isHovering: boolean | null | undefined) {
+  return touchDetailVisible.value || (!isTouchLikePointer.value && Boolean(isHovering))
+}
+
+// 当前卡片详情层是否显示，保留图片错误和站点选择时的强制显示。
+function isMediaCardDetailVisible(isHovering: boolean | null | undefined) {
+  return isMediaCardActive(isHovering) || imageLoadError.value || searchMenuShow.value
+}
+
+// 清理移动端详情层展开态，避免路由返回后继续显示上一次的详情层。
+function resetMediaCardDetailState() {
+  touchDetailVisible.value = false
+}
+
+// 处理媒体卡片点击：触摸端第一次点击展开，展开后再次点击进入详情。
+function handleMediaCardClick(isHovering: boolean | null | undefined) {
+  if (isTouchLikePointer.value && !isMediaCardDetailVisible(isHovering)) {
+    touchDetailVisible.value = true
+    querySubscribedSeasons()
+    return
+  }
+
+  goMediaDetail(isMediaCardActive(isHovering) || isMediaCardDetailVisible(isHovering))
 }
 
 // 点击搜索
@@ -373,6 +409,7 @@ watch(isSubscribed, subscribed => {
 watch(
   () => props.media,
   () => {
+    resetMediaCardDetailState()
     subscribedSeasons.value = []
     subscribedSeasonModes.value = {}
     subscribedSeasonsLoaded.value = false
@@ -383,7 +420,11 @@ onMounted(() => {
   setupIntersectionObserver()
 })
 
+onActivated(resetMediaCardDetailState)
+onDeactivated(resetMediaCardDetailState)
+
 onBeforeUnmount(() => {
+  resetMediaCardDetailState()
   observer.value?.disconnect()
   observer.value = null
 })
@@ -404,10 +445,10 @@ onBeforeUnmount(() => {
           :width="props.width"
           class="app-hover-lift-card outline-none ring-gray-500 media-card"
           :class="{
-            'app-hover-lift-card--hovering': hover.isHovering,
+            'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
             'ring-1': isImageLoaded,
           }"
-          @click.stop="goMediaDetail(hover.isHovering ?? false)"
+          @click.stop="handleMediaCardClick(hover.isHovering)"
         >
           <VImg
             aspect-ratio="2/3"
@@ -426,7 +467,7 @@ onBeforeUnmount(() => {
 
           <!-- 详情 -->
           <VCardText
-            v-show="hover.isHovering || imageLoadError || searchMenuShow"
+            v-show="isMediaCardDetailVisible(hover.isHovering)"
             class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2"
             style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
           >
@@ -473,10 +514,10 @@ onBeforeUnmount(() => {
             {{ getMediaTypeText(props.media?.type) }}
           </VChip>
           <!-- 本地存在标识 -->
-          <ExistIcon v-if="isExists && !hover.isHovering" />
+          <ExistIcon v-if="isExists && !isMediaCardActive(hover.isHovering)" />
           <!-- 评分角标 -->
           <VChip
-            v-if="isImageLoaded && props.media?.vote_average && !(isExists && !hover.isHovering)"
+            v-if="isImageLoaded && props.media?.vote_average && !(isExists && !isMediaCardActive(hover.isHovering))"
             variant="elevated"
             size="small"
             :class="getChipColor('rating')"
@@ -491,7 +532,7 @@ onBeforeUnmount(() => {
             density="compact"
             class="absolute bottom-1 right-1"
             tile
-            v-if="!hover.isHovering && isImageLoaded && props.media?.source && !imageLoadError"
+            v-if="!isMediaCardActive(hover.isHovering) && isImageLoaded && props.media?.source && !imageLoadError"
           >
             <VImg cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />
           </VAvatar>
