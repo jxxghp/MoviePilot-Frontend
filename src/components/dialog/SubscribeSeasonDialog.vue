@@ -638,12 +638,15 @@ onMounted(async () => {
 }
 
 @media (width <= 960px) {
+  :deep(.subscribe-season-sheet) {
+    margin-block-start: env(safe-area-inset-top, 0px);
+  }
+
   .subscribe-season-dialog {
     border-end-end-radius: 0;
     border-end-start-radius: 0;
     inline-size: 100vw;
     max-block-size: min(42rem, calc(100dvh - env(safe-area-inset-top, 0px)));
-    padding-block-start: env(safe-area-inset-top, 0);
   }
 
   .subscribe-season-actions {
