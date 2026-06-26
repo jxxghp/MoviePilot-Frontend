@@ -31,6 +31,7 @@ interface AgentMessageAttachment {
 interface AgentChoiceButton {
   label: string
   callback_data: string
+  description?: string
 }
 
 interface AgentChoiceCard {
@@ -38,9 +39,22 @@ interface AgentChoiceCard {
   title?: string
   prompt: string
   buttons: AgentChoiceButton[]
+  button_rows?: AgentChoiceButton[][]
   status: AgentChoiceStatus
   selected_label?: string
   selected_value?: string
+  selected_description?: string
+}
+
+interface AgentChoiceSelection {
+  choice_id: string
+  title?: string
+  prompt: string
+  buttons: AgentChoiceButton[]
+  button_rows?: AgentChoiceButton[][]
+  selected_label?: string
+  selected_value?: string
+  selected_description?: string
 }
 
 interface AgentChatMessage {
@@ -52,6 +66,7 @@ interface AgentChatMessage {
   tools: AgentToolCall[]
   attachments: AgentMessageAttachment[]
   choices: AgentChoiceCard[]
+  choice_selection?: AgentChoiceSelection
 }
 
 interface AgentSessionHistoryItem {
@@ -67,11 +82,13 @@ interface AgentSessionHistoryItem {
 }
 
 interface AgentStreamEvent {
-  type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'done' | 'error'
+  type: 'start' | 'delta' | 'tool' | 'attachment' | 'choice' | 'message_update' | 'done' | 'error'
   attachment?: AgentMessageAttachment
   choice?: Omit<AgentChoiceCard, 'status'>
   content?: string
   message?: string
+  message_id?: string
+  target_message?: Partial<AgentChatMessage> & { id?: string }
   session_id?: string
 }
 
@@ -99,6 +116,22 @@ interface PreparedAgentAttachments {
   files: AgentOutgoingFile[]
   audioRefs: string[]
   userAttachments: AgentMessageAttachment[]
+}
+
+interface AgentStreamMessageOptions {
+  echoUser?: boolean
+  displayText?: string
+  choiceSelection?: AgentChoiceSelection
+  originalMessageId?: string
+  originalChatId?: string
+}
+
+interface AgentSlashCommand {
+  command: string
+  description: string
+  category?: string
+  type?: string
+  pid?: string
 }
 
 interface AgentServerSession {
@@ -161,6 +194,9 @@ const historyLoading = ref(false)
 const historyLoadingMore = ref(false)
 const historyPage = ref(1)
 const historyHasMore = ref(true)
+const slashCommands = ref<AgentSlashCommand[]>([])
+const slashCommandsLoading = ref(false)
+const slashCommandsLoaded = ref(false)
 let abortController: AbortController | null = null
 let mediaRecorder: MediaRecorder | null = null
 let mediaRecorderStream: MediaStream | null = null
@@ -189,6 +225,34 @@ const canSend = computed(
     (inputText.value.trim().length > 0 || pendingAttachments.value.length > 0) && !sending.value && !recording.value,
 )
 const canRecord = computed(() => !sending.value && !recording.value)
+// 获取当前输入对应的斜杠命令查询词。
+const slashCommandQuery = computed(() => {
+  const text = inputText.value.trimStart()
+  if (!text.startsWith('/')) return ''
+
+  return text.slice(1).toLowerCase()
+})
+// 根据输入内容过滤可用斜杠命令。
+const filteredSlashCommands = computed(() => {
+  const query = slashCommandQuery.value
+  if (!query) return slashCommands.value.slice(0, 8)
+
+  return slashCommands.value
+    .filter(command => {
+      const haystack = `${command.command} ${command.description} ${command.category || ''}`.toLowerCase()
+
+      return haystack.includes(query)
+    })
+    .slice(0, 8)
+})
+// 判断是否展示命令建议浮层。
+const showSlashCommandMenu = computed(
+  () =>
+    inputText.value.trimStart().startsWith('/') &&
+    !sending.value &&
+    !recording.value &&
+    (filteredSlashCommands.value.length > 0 || slashCommandsLoading.value),
+)
 const recordingTimeText = computed(() => {
   const seconds = Math.max(0, recordingDuration.value)
   const minutes = Math.floor(seconds / 60)
@@ -209,25 +273,251 @@ const drawerStyle = computed(() => ({
   '--agent-assistant-panel-width': drawerWidth.value,
 }))
 
+// 创建前端展示用的临时 ID。
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+// 创建 Web 智能助手本地会话 ID。
 function createSessionId() {
   return `web-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+// 将未知字段安全转换为可展示文本。
+function stringifyChoiceField(value: unknown) {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+
+  return ''
+}
+
+// 规范化消息状态，避免历史脏数据影响渲染。
+function normalizeMessageStatus(value: unknown): AgentMessageStatus {
+  const status = stringifyChoiceField(value)
+
+  return ['idle', 'streaming', 'done', 'error'].includes(status) ? (status as AgentMessageStatus) : 'done'
+}
+
+// 规范化选择卡片状态，兼容旧版本本地历史。
+function normalizeChoiceStatus(value: unknown): AgentChoiceStatus {
+  const status = stringifyChoiceField(value)
+
+  return ['pending', 'selected', 'expired'].includes(status) ? (status as AgentChoiceStatus) : 'pending'
+}
+
+// 规范化单个选择按钮，兼容后端与旧历史的不同字段名。
+function normalizeChoiceButton(value: unknown): AgentChoiceButton | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const item = value as Record<string, unknown>
+  const callbackData =
+    stringifyChoiceField(item.callback_data) ||
+    stringifyChoiceField(item.callbackData) ||
+    stringifyChoiceField(item.value) ||
+    stringifyChoiceField(item.id)
+  const label =
+    stringifyChoiceField(item.label) ||
+    stringifyChoiceField(item.text) ||
+    stringifyChoiceField(item.title) ||
+    callbackData
+  const description = stringifyChoiceField(item.description) || stringifyChoiceField(item.desc)
+
+  if (!label && !callbackData) return null
+
+  return {
+    label: label || callbackData,
+    callback_data: callbackData || label,
+    ...(description ? { description } : {}),
+  }
+}
+
+// 规范化选择按钮行，保留 Telegram 式二维键盘布局。
+function normalizeChoiceButtonRows(value: unknown): AgentChoiceButton[][] {
+  if (!Array.isArray(value)) return []
+
+  const rawRows = value.some(Array.isArray) ? value : value.map(item => [item])
+
+  return rawRows
+    .map(row => {
+      const rowItems = Array.isArray(row) ? row : [row]
+
+      return rowItems.map(normalizeChoiceButton).filter(Boolean) as AgentChoiceButton[]
+    })
+    .filter(row => row.length > 0)
+}
+
+// 规范化选择卡片，保证历史数据和 SSE 新事件使用同一结构。
+function normalizeChoiceCard(value: unknown): AgentChoiceCard | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const item = value as Record<string, unknown>
+  const snakeCaseRows = normalizeChoiceButtonRows(item.button_rows)
+  const camelCaseRows = normalizeChoiceButtonRows(item.buttonRows)
+  const flatButtonRows = normalizeChoiceButtonRows(item.buttons)
+  const buttonRows =
+    snakeCaseRows.length > 0 ? snakeCaseRows : camelCaseRows.length > 0 ? camelCaseRows : flatButtonRows
+  const buttons = buttonRows.flat()
+  const prompt =
+    stringifyChoiceField(item.prompt) || stringifyChoiceField(item.message) || stringifyChoiceField(item.text)
+  const id = stringifyChoiceField(item.id) || createId('choice')
+
+  if (!prompt && buttons.length === 0) return null
+
+  return {
+    id,
+    title: stringifyChoiceField(item.title) || undefined,
+    prompt,
+    buttons,
+    button_rows: buttonRows,
+    status: normalizeChoiceStatus(item.status),
+    selected_label: stringifyChoiceField(item.selected_label) || stringifyChoiceField(item.selectedLabel) || undefined,
+    selected_value: stringifyChoiceField(item.selected_value) || stringifyChoiceField(item.selectedValue) || undefined,
+    selected_description:
+      stringifyChoiceField(item.selected_description) || stringifyChoiceField(item.selectedDescription) || undefined,
+  }
+}
+
+// 获取选择按钮行，旧历史只有一维按钮时回退为单列布局。
+function getChoiceButtonRows(choice: AgentChoiceCard | AgentChoiceSelection) {
+  if (Array.isArray(choice.button_rows) && choice.button_rows.length) return choice.button_rows
+
+  return choice.buttons.map(button => [button])
+}
+
+// 获取用户消息中应展示的选项文字。
+function getChoiceButtonSelectionText(button: AgentChoiceButton) {
+  return button.label || button.description || button.callback_data
+}
+
+// 构建用户选择快照，用于历史存储和刷新后恢复上下文。
+function buildChoiceSelection(choice: AgentChoiceCard, button: AgentChoiceButton): AgentChoiceSelection {
+  return {
+    choice_id: choice.id,
+    title: choice.title,
+    prompt: choice.prompt,
+    buttons: [...choice.buttons],
+    button_rows: getChoiceButtonRows(choice).map(row => [...row]),
+    selected_label: button.label,
+    selected_value: button.callback_data,
+    selected_description: getChoiceButtonSelectionText(button),
+  }
+}
+
+// 规范化用户选择快照，兼容后端返回和本地历史。
+function normalizeChoiceSelection(value: unknown): AgentChoiceSelection | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+
+  const item = value as Record<string, unknown>
+  const choice = normalizeChoiceCard({
+    id: item.choice_id || item.choiceId || item.id,
+    title: item.title,
+    prompt: item.prompt,
+    buttons: item.button_rows || item.buttonRows || item.buttons,
+    button_rows: item.button_rows || item.buttonRows,
+    status: 'selected',
+    selected_label: item.selected_label || item.selectedLabel,
+    selected_value: item.selected_value || item.selectedValue,
+    selected_description: item.selected_description || item.selectedDescription,
+  })
+
+  if (!choice) return undefined
+
+  return {
+    choice_id: choice.id,
+    title: choice.title,
+    prompt: choice.prompt,
+    buttons: choice.buttons,
+    button_rows: getChoiceButtonRows(choice),
+    selected_label: choice.selected_label,
+    selected_value: choice.selected_value,
+    selected_description: choice.selected_description,
+  }
+}
+
+// 将选择卡片标记为已选择，并写入可读选择文字。
+function markChoiceSelected(choice: AgentChoiceCard, button: AgentChoiceButton, selection?: AgentChoiceSelection) {
+  choice.status = 'selected'
+  choice.selected_label = selection?.selected_label || button.label
+  choice.selected_value = selection?.selected_value || button.callback_data
+  choice.selected_description = selection?.selected_description || getChoiceButtonSelectionText(button)
+}
+
+// 将旧历史中保存成 callback_data 的用户选择消息修正为可读选项文字。
+function normalizeChoiceSelectionMessages(sessionMessages: AgentChatMessage[]) {
+  const choiceLookup = new Map<string, { choice: AgentChoiceCard; button: AgentChoiceButton }>()
+
+  // 选中后清理同一组按钮索引，避免后续普通文本误判为旧选择。
+  const forgetChoice = (choice: AgentChoiceCard) => {
+    choice.buttons.forEach(button => {
+      choiceLookup.delete(button.callback_data)
+      choiceLookup.delete(button.label)
+      if (button.description) choiceLookup.delete(button.description)
+    })
+  }
+
+  sessionMessages.forEach(message => {
+    if (message.role === 'assistant') {
+      message.choices.forEach(choice => {
+        choice.buttons.forEach(button => {
+          choiceLookup.set(button.callback_data, { choice, button })
+          choiceLookup.set(button.label, { choice, button })
+          if (button.description) choiceLookup.set(button.description, { choice, button })
+        })
+      })
+
+      return
+    }
+
+    const content = message.content.trim()
+    const selectedText =
+      message.choice_selection?.selected_label || message.choice_selection?.selected_description || ''
+
+    if (message.choice_selection && selectedText && choiceLookup.has(content)) {
+      message.content = selectedText
+      forgetChoice(choiceLookup.get(content)!.choice)
+      return
+    }
+
+    const matchedChoice = choiceLookup.get(content)
+    if (!matchedChoice) return
+
+    message.content = getChoiceButtonSelectionText(matchedChoice.button)
+    message.choice_selection = buildChoiceSelection(matchedChoice.choice, matchedChoice.button)
+    markChoiceSelected(matchedChoice.choice, matchedChoice.button)
+    forgetChoice(matchedChoice.choice)
+  })
+
+  return sessionMessages
+}
+
+// 规范化历史消息，补齐附件、工具和选择项等可选数组。
 function normalizeStoredMessages(value: unknown) {
   if (!Array.isArray(value)) return []
 
-  return value.slice(-MAX_PERSISTED_MESSAGES).map(message => ({
-    ...message,
-    attachments: Array.isArray(message.attachments) ? message.attachments : [],
-    choices: Array.isArray(message.choices) ? message.choices : [],
-    tools: Array.isArray(message.tools) ? message.tools : [],
-  })) as AgentChatMessage[]
+  const normalizedMessages = value.slice(-MAX_PERSISTED_MESSAGES).map(rawMessage => {
+    const message = rawMessage && typeof rawMessage === 'object' ? (rawMessage as Record<string, unknown>) : {}
+    const role = message.role === 'assistant' ? 'assistant' : 'user'
+
+    return {
+      ...message,
+      id: stringifyChoiceField(message.id) || createId(role),
+      role,
+      content: typeof message.content === 'string' ? message.content : stringifyChoiceField(message.content),
+      createdAt: Number(message.createdAt) || Number(message.created_at) || Date.now(),
+      status: normalizeMessageStatus(message.status),
+      attachments: Array.isArray(message.attachments) ? message.attachments : [],
+      choices: Array.isArray(message.choices)
+        ? (message.choices.map(normalizeChoiceCard).filter(Boolean) as AgentChoiceCard[])
+        : [],
+      tools: Array.isArray(message.tools) ? message.tools : [],
+      choice_selection: normalizeChoiceSelection(message.choice_selection || message.choiceSelection),
+    } as AgentChatMessage
+  })
+
+  return normalizeChoiceSelectionMessages(normalizedMessages)
 }
 
+// 解析服务端时间字符串，失败时回退到当前时间。
 function parseServerTime(value?: string) {
   if (!value) return Date.now()
   const parsed = Date.parse(value.replace(' ', 'T'))
@@ -266,6 +556,7 @@ function normalizeHistorySessions(value: unknown) {
     .slice(0, MAX_LOCAL_HISTORY_SESSIONS) as AgentSessionHistoryItem[]
 }
 
+// 规范化服务端历史会话摘要或详情。
 function normalizeServerSession(item: AgentServerSession, withMessages = false): AgentSessionHistoryItem | null {
   const sessionIdValue = typeof item?.session_id === 'string' ? item.session_id : ''
   if (!sessionIdValue) return null
@@ -289,10 +580,12 @@ function normalizeServerSession(item: AgentServerSession, withMessages = false):
   }
 }
 
+// 获取历史会话去重使用的稳定标识。
 function getHistoryIdentity(session: AgentSessionHistoryItem) {
   return session.clientSessionId || session.sessionId
 }
 
+// 合并本地和服务端历史会话，优先保留服务端记录。
 function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
   const serverSessions = sessions.filter(item => item.sessionId.startsWith('web-agent:'))
   const serverClientIds = new Set(serverSessions.map(getHistoryIdentity))
@@ -311,6 +604,7 @@ function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
   return deduped.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+// 调用智能助手接口，并统一处理鉴权和标准响应格式。
 async function fetchAgentApi(path: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers || {})
   if (authStore.token) headers.set('Authorization', `Bearer ${authStore.token}`)
@@ -338,6 +632,7 @@ function restoreHistorySessions() {
   }
 }
 
+// 加载第一页服务端历史会话。
 async function loadServerHistorySessions() {
   historyPage.value = 1
   historyHasMore.value = true
@@ -360,6 +655,7 @@ async function loadServerHistorySessions() {
   }
 }
 
+// 加载下一页服务端历史会话。
 async function loadMoreServerHistorySessions(options?: { done?: (status: InfiniteScrollStatus) => void }) {
   if (historyLoading.value || historyLoadingMore.value || !historyHasMore.value) {
     options?.done?.(historyHasMore.value ? 'ok' : 'empty')
@@ -391,6 +687,48 @@ async function loadMoreServerHistorySessions(options?: { done?: (status: Infinit
   }
 }
 
+// 加载 Web 智能助手可补全的斜杠命令列表。
+async function loadSlashCommands() {
+  if (slashCommandsLoaded.value || slashCommandsLoading.value) return
+
+  slashCommandsLoading.value = true
+  try {
+    const data = await fetchAgentApi('message/agent/commands')
+    slashCommands.value = Array.isArray(data)
+      ? data
+          .map(item => ({
+            command: stringifyChoiceField(item?.command),
+            description: stringifyChoiceField(item?.description),
+            category: stringifyChoiceField(item?.category) || undefined,
+            type: stringifyChoiceField(item?.type) || undefined,
+            pid: stringifyChoiceField(item?.pid) || undefined,
+          }))
+          .filter(item => item.command.startsWith('/'))
+      : []
+    slashCommandsLoaded.value = true
+  } catch (error: any) {
+    streamError.value = error?.message || t('agentAssistant.commandLoadFailed')
+  } finally {
+    slashCommandsLoading.value = false
+  }
+}
+
+// 选择命令建议并写入输入框。
+function selectSlashCommand(command: AgentSlashCommand) {
+  inputText.value = `${command.command} `
+  nextTick(() => {
+    syncInputHeight()
+    inputRef.value?.focus()
+  })
+}
+
+// 输入内容变化时同步高度，并按需预加载命令建议。
+function handleInputChange() {
+  syncInputHeight()
+  if (inputText.value.trimStart().startsWith('/')) loadSlashCommands()
+}
+
+// 处理历史菜单的无限滚动加载事件。
 async function handleHistoryInfiniteLoad({
   done,
 }: {
@@ -400,6 +738,7 @@ async function handleHistoryInfiniteLoad({
   await loadMoreServerHistorySessions({ done })
 }
 
+// 加载服务端历史会话详情，并更新本地缓存。
 async function loadServerHistorySession(targetSessionId: string) {
   const data = await fetchAgentApi(`message/agent/sessions/${encodeURIComponent(targetSessionId)}`)
   const session = normalizeServerSession(data as AgentServerSession, true)
@@ -414,6 +753,7 @@ async function loadServerHistorySession(targetSessionId: string) {
   return session
 }
 
+// 恢复当前会话状态，优先使用本地状态，缺失时使用最近历史。
 function restoreState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -466,6 +806,7 @@ function buildSessionHistoryTitle(sessionMessages: AgentChatMessage[]) {
   return truncateHistoryText(title || t('agentAssistant.untitledSession'), HISTORY_TITLE_LENGTH)
 }
 
+// 获取历史会话来源展示文本。
 function getSessionChannelLabel(session: AgentSessionHistoryItem) {
   if (session.channel === 'WebAgent') return t('agentAssistant.webAgentChannel')
 
@@ -521,6 +862,7 @@ function upsertCurrentSessionHistory() {
   persistHistorySessions()
 }
 
+// 将当前会话展示消息保存到服务端历史。
 async function saveCurrentSessionToServer() {
   if (!sessionId.value || messages.value.length === 0) return
 
@@ -555,11 +897,13 @@ function persistState(options: { syncHistory?: boolean } = {}) {
   if (syncHistory) upsertCurrentSessionHistory()
 }
 
+// 渲染助手消息中的 Markdown 文本。
 function renderMarkdown(value: string) {
   if (!value) return ''
   return md.render(value)
 }
 
+// 拼接后端 API 地址。
 function resolveApiUrl(path: string) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/'
   return `${baseUrl.replace(/\/?$/, '/')}${path.replace(/^\//, '')}`
@@ -570,6 +914,7 @@ function getMessageScrollerElement() {
   return messageListRef.value
 }
 
+// 判断消息列表是否停留在底部附近，用于流式输出自动跟随。
 function isMessageScrollerNearBottom() {
   const scroller = getMessageScrollerElement()
   if (!scroller) return true
@@ -577,6 +922,7 @@ function isMessageScrollerNearBottom() {
   return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= MESSAGE_SCROLL_FOLLOW_THRESHOLD
 }
 
+// 合并滚动更新请求，降低流式输出时的布局测量频率。
 function scheduleMessageScrollerUpdate(options: { toBottom?: boolean } = {}) {
   const { toBottom = false } = options
   pendingMessageScrollToBottom ||= toBottom
@@ -592,6 +938,7 @@ function scheduleMessageScrollerUpdate(options: { toBottom?: boolean } = {}) {
   })
 }
 
+// 将消息列表滚动到底部。
 function scrollToBottom(options: { smooth?: boolean } = {}) {
   const { smooth = false } = options
   nextTick(() => {
@@ -620,6 +967,7 @@ function scrollToTop() {
   })
 }
 
+// 清理流式消息延迟持久化计时器。
 function clearStreamPersistTimer() {
   if (streamPersistTimer === null) return
 
@@ -627,6 +975,7 @@ function clearStreamPersistTimer() {
   streamPersistTimer = null
 }
 
+// 清理等待执行的消息滚动动画帧。
 function clearMessageScrollFrame() {
   if (messageScrollFrame === null) return
 
@@ -635,6 +984,7 @@ function clearMessageScrollFrame() {
   pendingMessageScrollToBottom = false
 }
 
+// 延迟持久化流式消息，避免每个 token 都写入本地存储。
 function scheduleStreamPersist() {
   clearStreamPersistTimer()
   streamPersistTimer = window.setTimeout(() => {
@@ -643,6 +993,7 @@ function scheduleStreamPersist() {
   }, STREAM_STATE_PERSIST_DELAY)
 }
 
+// 同步输入框高度，使多行输入不撑破底部布局。
 function syncInputHeight() {
   nextTick(() => {
     const input = inputRef.value
@@ -664,6 +1015,7 @@ function addMessage(
   content: string,
   status: AgentMessageStatus = 'idle',
   attachments: AgentMessageAttachment[] = [],
+  choiceSelection?: AgentChoiceSelection,
 ) {
   const message: AgentChatMessage = {
     id: createId(role),
@@ -674,6 +1026,7 @@ function addMessage(
     attachments,
     choices: [],
     tools: [],
+    choice_selection: choiceSelection,
   }
   messages.value.push(message)
   const reactiveMessage = messages.value[messages.value.length - 1]
@@ -683,16 +1036,51 @@ function addMessage(
   return reactiveMessage
 }
 
+// 清理后端工具提示前缀。
 function normalizeToolMessage(message: string) {
   return message.replace(/^=>\s*/, '').trim()
 }
 
+// 将当前消息里的运行中工具标记为完成。
 function markToolsDone(message: AgentChatMessage) {
   message.tools.forEach(tool => {
     tool.status = 'done'
   })
 }
 
+// 判断消息是否没有任何可展示内容，可用于清理编辑回调产生的占位回复。
+function isEmptyAssistantMessage(message: AgentChatMessage) {
+  return (
+    message.role === 'assistant' &&
+    !message.content &&
+    message.attachments.length === 0 &&
+    message.choices.length === 0 &&
+    message.tools.length === 0
+  )
+}
+
+// 将服务端编辑事件应用到原助手消息卡片。
+function applyMessageUpdate(event: AgentStreamEvent) {
+  const target = event.target_message
+  const targetId = String(target?.id || event.message_id || '')
+  if (!targetId) return false
+
+  const message = messages.value.find(item => item.id === targetId)
+  if (!message || message.role !== 'assistant') return false
+
+  message.content = typeof target?.content === 'string' ? target.content : ''
+  message.attachments = Array.isArray(target?.attachments) ? target.attachments : []
+  message.tools = Array.isArray(target?.tools) ? target.tools : []
+  message.choices = Array.isArray(target?.choices)
+    ? (target.choices.map(normalizeChoiceCard).filter(Boolean) as AgentChoiceCard[])
+    : []
+  message.status = normalizeMessageStatus(target?.status || 'done')
+  refreshMessageList()
+  persistState()
+  return true
+}
+
+// 将单个 SSE 事件应用到正在流式输出的助手消息。
 function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMessage) {
   const shouldFollowBottom = isMessageScrollerNearBottom()
 
@@ -722,6 +1110,9 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
         })
       }
       break
+    case 'message_update':
+      applyMessageUpdate(event)
+      break
     case 'done':
       if (assistantMessage.status !== 'error') {
         assistantMessage.status = 'done'
@@ -748,6 +1139,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
   })
 }
 
+// 解析一个 SSE 数据块。
 function parseSseBlock(block: string) {
   const data = block
     .split('\n')
@@ -759,6 +1151,7 @@ function parseSseBlock(block: string) {
   return JSON.parse(data) as AgentStreamEvent
 }
 
+// 读取并应用智能助手 SSE 响应流。
 async function readAgentStream(response: Response, assistantMessage: AgentChatMessage) {
   if (!response.body) {
     throw new Error(t('agentAssistant.noStream'))
@@ -789,6 +1182,7 @@ async function readAgentStream(response: Response, assistantMessage: AgentChatMe
   }
 }
 
+// 解析附件地址，支持相对 API 路径。
 function resolveAttachmentUrl(url?: string) {
   if (!url) return ''
   if (/^(https?:|data:|blob:|\/)/.test(url)) return url
@@ -796,20 +1190,24 @@ function resolveAttachmentUrl(url?: string) {
   return resolveApiUrl(url)
 }
 
+// 获取附件下载地址。
 function getAttachmentDownloadUrl(attachment: AgentMessageAttachment) {
   return resolveAttachmentUrl(attachment.download_url || attachment.url)
 }
 
+// 获取附件展示名称。
 function getAttachmentName(attachment: AgentMessageAttachment) {
   return attachment.name || (attachment.kind === 'image' ? 'image' : 'attachment')
 }
 
+// 获取附件类型图标。
 function getAttachmentIcon(attachment: { kind: AgentAttachmentKind }) {
   if (attachment.kind === 'audio') return 'mdi-volume-high'
   if (attachment.kind === 'image') return 'mdi-image-outline'
   return 'mdi-file-outline'
 }
 
+// 格式化附件大小。
 function formatAttachmentSize(size?: number) {
   if (!size) return ''
   if (size < 1024) return `${size} B`
@@ -817,16 +1215,19 @@ function formatAttachmentSize(size?: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
+// 根据浏览器文件 MIME 类型判断附件类别。
 function getFileKind(file: File): AgentAttachmentKind {
   if (file.type.startsWith('image/')) return 'image'
   if (file.type.startsWith('audio/')) return 'audio'
   return 'file'
 }
 
+// 打开系统文件选择器。
 function openFilePicker() {
   fileInputRef.value?.click()
 }
 
+// 处理文件选择并生成待发送附件预览。
 function handleFileSelection(event: Event) {
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
@@ -848,12 +1249,14 @@ function handleFileSelection(event: Event) {
   input.value = ''
 }
 
+// 移除一条待发送附件。
 function removePendingAttachment(id: string) {
   const attachment = pendingAttachments.value.find(item => item.id === id)
   if (attachment?.preview_url) URL.revokeObjectURL(attachment.preview_url)
   pendingAttachments.value = pendingAttachments.value.filter(item => item.id !== id)
 }
 
+// 清理全部待发送附件和临时预览地址。
 function clearPendingAttachments() {
   pendingAttachments.value.forEach(item => {
     if (item.preview_url) URL.revokeObjectURL(item.preview_url)
@@ -861,6 +1264,7 @@ function clearPendingAttachments() {
   pendingAttachments.value = []
 }
 
+// 将图片文件读取为 data URL，供多模态输入和本地展示使用。
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -870,6 +1274,7 @@ function readFileAsDataUrl(file: File) {
   })
 }
 
+// 上传智能助手附件，返回后端可引用的附件描述。
 async function uploadAgentAttachment(file: File) {
   const formData = new FormData()
   formData.append('file', file)
@@ -892,6 +1297,7 @@ async function uploadAgentAttachment(file: File) {
   return result.data as AgentMessageAttachment & AgentOutgoingFile
 }
 
+// 准备本轮发送给 Agent 的图片、文件、音频和展示附件。
 async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise<PreparedAgentAttachments> {
   const images: string[] = []
   const files: AgentOutgoingFile[] = []
@@ -931,18 +1337,22 @@ async function prepareAgentAttachments(items: AgentPendingAttachment[]): Promise
   return { images, files, audioRefs, userAttachments }
 }
 
+// 发送一轮智能助手消息，并处理本地展示、SSE 回复和历史同步。
 async function streamAgentMessage(
   text: string,
   images: string[] = [],
   files: AgentOutgoingFile[] = [],
   audioRefs: string[] = [],
   userAttachments: AgentMessageAttachment[] = [],
-  echoUser = true,
+  options: AgentStreamMessageOptions | boolean = {},
 ) {
   const content = text.trim()
+  const streamOptions = typeof options === 'boolean' ? { echoUser: options } : options
+  const { echoUser = true, displayText, choiceSelection, originalMessageId, originalChatId } = streamOptions
+  const displayContent = (displayText ?? content).trim()
   if (!content && !images.length && !files.length && !audioRefs.length) return
 
-  if (echoUser) addMessage('user', content, 'done', userAttachments)
+  if (echoUser) addMessage('user', displayContent || content, 'done', userAttachments, choiceSelection)
   const assistantMessage = addMessage('assistant', '', 'streaming')
 
   abortController = new AbortController()
@@ -957,10 +1367,14 @@ async function streamAgentMessage(
       },
       body: JSON.stringify({
         text: content,
+        display_text: displayContent || content,
         session_id: sessionId.value,
         images,
         files,
         audio_refs: audioRefs,
+        choice_selection: choiceSelection,
+        original_message_id: originalMessageId,
+        original_chat_id: originalChatId,
         echo_user: echoUser,
       }),
       credentials: 'include',
@@ -973,6 +1387,11 @@ async function streamAgentMessage(
 
     await readAgentStream(response, assistantMessage)
     shouldFollowBottomAfterStream = isMessageScrollerNearBottom()
+    if (isEmptyAssistantMessage(assistantMessage)) {
+      messages.value = messages.value.filter(message => message.id !== assistantMessage.id)
+      refreshMessageList()
+      return
+    }
     if (assistantMessage.status === 'streaming') {
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
@@ -1004,6 +1423,7 @@ async function streamAgentMessage(
   }
 }
 
+// 发送输入框中的文本和附件。
 async function sendMessage() {
   const text = inputText.value.trim()
   const attachments = [...pendingAttachments.value]
@@ -1026,22 +1446,26 @@ async function sendMessage() {
   }
 }
 
+// 获取当前浏览器支持的录音 MIME 类型。
 function getRecorderMimeType() {
   const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
   return candidates.find(type => MediaRecorder.isTypeSupported(type)) || ''
 }
 
+// 根据录音 MIME 类型推断文件扩展名。
 function getRecordingFileExtension(mimeType: string) {
   if (mimeType.includes('mp4')) return 'm4a'
   if (mimeType.includes('ogg')) return 'ogg'
   return 'webm'
 }
 
+// 停止录音媒体流，释放麦克风。
 function stopRecordingStream() {
   mediaRecorderStream?.getTracks().forEach(track => track.stop())
   mediaRecorderStream = null
 }
 
+// 清理录音计时器。
 function clearRecordingTimer() {
   if (recordingTimer === null) return
 
@@ -1049,6 +1473,7 @@ function clearRecordingTimer() {
   recordingTimer = null
 }
 
+// 结束录音状态并释放相关资源。
 function finishRecordingState() {
   recording.value = false
   recordingStartedAt.value = 0
@@ -1058,6 +1483,7 @@ function finishRecordingState() {
   stopRecordingStream()
 }
 
+// 开始录制语音消息。
 async function startVoiceRecording() {
   if (!canRecord.value) return
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
@@ -1121,6 +1547,7 @@ async function startVoiceRecording() {
   }
 }
 
+// 停止当前录音并触发文件生成。
 function stopVoiceRecording() {
   if (!mediaRecorder || mediaRecorder.state === 'inactive') {
     finishRecordingState()
@@ -1130,6 +1557,7 @@ function stopVoiceRecording() {
   mediaRecorder.stop()
 }
 
+// 取消当前录音并丢弃已录制内容。
 function cancelVoiceRecording() {
   if (mediaRecorder) {
     mediaRecorder.ondataavailable = null
@@ -1142,6 +1570,7 @@ function cancelVoiceRecording() {
   finishRecordingState()
 }
 
+// 切换语音录制状态。
 function toggleVoiceRecording() {
   if (recording.value) {
     stopVoiceRecording()
@@ -1151,7 +1580,8 @@ function toggleVoiceRecording() {
   startVoiceRecording()
 }
 
-async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceButton) {
+// 处理选择按钮点击，保存可读选择描述并把真实值发给 Agent。
+async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceCard, button: AgentChoiceButton) {
   if (sending.value || choice.status !== 'pending') return
 
   sending.value = true
@@ -1167,6 +1597,8 @@ async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceBut
       body: JSON.stringify({
         session_id: sessionId.value,
         callback_data: button.callback_data,
+        original_message_id: message.id,
+        original_chat_id: sessionId.value,
       }),
       credentials: 'include',
     })
@@ -1176,13 +1608,42 @@ async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceBut
     const result = await response.json()
     if (!result?.success) throw new Error(result?.message || t('agentAssistant.choiceExpired'))
 
-    choice.status = 'selected'
-    choice.selected_label = result.data?.feedback?.selected_label || button.label
-    choice.selected_value = result.data?.feedback?.selected_value || result.data?.message
+    const agentMessage = String(result.data?.message || '')
+    if (result.data?.traditional) {
+      const choiceSelection = buildChoiceSelection(choice, button)
+      choiceSelection.selected_description = getChoiceButtonSelectionText(button)
+      markChoiceSelected(choice, button, choiceSelection)
+      refreshMessageList()
+      persistState()
+      await streamAgentMessage(agentMessage, [], [], [], [], {
+        displayText: choiceSelection.selected_label || choiceSelection.selected_description,
+        choiceSelection,
+        originalMessageId: String(result.data?.original_message_id || message.id),
+        originalChatId: String(result.data?.original_chat_id || sessionId.value),
+      })
+      return
+    }
+
+    const backendSelection = normalizeChoiceSelection(result.data?.choice_selection)
+    const choiceSelection = backendSelection || buildChoiceSelection(choice, button)
+    choiceSelection.selected_label =
+      result.data?.feedback?.selected_label || choiceSelection.selected_label || button.label
+    choiceSelection.selected_value =
+      result.data?.feedback?.selected_value || choiceSelection.selected_value || agentMessage
+    choiceSelection.selected_description =
+      result.data?.display_message ||
+      result.data?.feedback?.selected_description ||
+      choiceSelection.selected_description ||
+      getChoiceButtonSelectionText(button)
+
+    markChoiceSelected(choice, button, choiceSelection)
     refreshMessageList()
     persistState()
 
-    await streamAgentMessage(String(result.data?.message || ''), [], [], [], [], false)
+    await streamAgentMessage(agentMessage, [], [], [], [], {
+      displayText: choiceSelection.selected_label || choiceSelection.selected_description,
+      choiceSelection,
+    })
   } catch (error: any) {
     choice.status = 'expired'
     streamError.value = error?.message || t('agentAssistant.choiceExpired')
@@ -1193,10 +1654,12 @@ async function handleChoiceClick(choice: AgentChoiceCard, button: AgentChoiceBut
   }
 }
 
+// 中止当前流式回复。
 function stopGeneration() {
   abortController?.abort()
 }
 
+// 开始新的空白会话。
 function startNewSession() {
   stopGeneration()
   sessionId.value = createSessionId()
@@ -1267,10 +1730,12 @@ function formatHistoryTime(timestamp: number) {
   }).format(new Date(timestamp))
 }
 
+// 关闭智能助手面板。
 function closeDrawer() {
   isOpen.value = false
 }
 
+// 同步面板打开状态到全局 DOM，供悬浮入口避让面板宽度。
 function syncAgentAssistantOpenState(isOpen: boolean) {
   if (typeof document === 'undefined') return
 
@@ -1291,14 +1756,17 @@ function syncAgentAssistantOpenState(isOpen: boolean) {
   }
 }
 
+// 清理面板打开状态的全局 DOM 标记。
 function clearAgentAssistantOpenState() {
   syncAgentAssistantOpenState(false)
 }
 
+// 处理全局快捷键。
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && isOpen.value) closeDrawer()
 }
 
+// 处理输入框回车发送。
 function handleInputKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey) return
   event.preventDefault()
@@ -1507,26 +1975,31 @@ onScopeDispose(() => {
 
             <div v-if="message.choices.length" class="agent-assistant-choices">
               <div v-for="choice in message.choices" :key="choice.id" class="agent-assistant-choice">
-                <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
-                <div class="agent-assistant-choice__prompt">{{ choice.prompt }}</div>
-                <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
-                  <VIcon icon="mdi-check-circle-outline" size="16" />
-                  <span>{{ t('agentAssistant.choiceSelected', { option: choice.selected_label }) }}</span>
-                </div>
-                <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
-                  <VIcon icon="mdi-alert-circle-outline" size="16" />
-                  <span>{{ t('agentAssistant.choiceExpired') }}</span>
+                <div class="agent-assistant-choice__bubble">
+                  <div v-if="choice.title" class="agent-assistant-choice__title">{{ choice.title }}</div>
+                  <div class="agent-assistant-choice__prompt markdown-body" v-html="renderMarkdown(choice.prompt)" />
+                  <div v-if="choice.status === 'selected'" class="agent-assistant-choice__selected">
+                    <VIcon icon="mdi-check-circle-outline" size="16" />
+                    <span>{{
+                      t('agentAssistant.choiceSelected', {
+                        option: choice.selected_label || choice.selected_description,
+                      })
+                    }}</span>
+                  </div>
+                  <div v-else-if="choice.status === 'expired'" class="agent-assistant-choice__selected is-expired">
+                    <VIcon icon="mdi-alert-circle-outline" size="16" />
+                    <span>{{ t('agentAssistant.choiceExpired') }}</span>
+                  </div>
                 </div>
                 <div class="agent-assistant-choice__buttons">
                   <VBtn
                     v-for="button in choice.buttons"
                     :key="button.callback_data"
+                    class="agent-assistant-choice__button"
                     size="small"
-                    rounded="lg"
-                    variant="tonal"
-                    color="primary"
+                    variant="flat"
                     :disabled="sending || choice.status !== 'pending'"
-                    @click="handleChoiceClick(choice, button)"
+                    @click="handleChoiceClick(message, choice, button)"
                   >
                     {{ button.label }}
                   </VBtn>
@@ -1645,6 +2118,23 @@ onScopeDispose(() => {
             </IconBtn>
           </div>
         </PerfectScrollbar>
+        <div v-if="showSlashCommandMenu" class="agent-assistant-command-menu">
+          <div
+            v-for="command in filteredSlashCommands"
+            :key="command.command"
+            class="agent-assistant-command"
+            role="button"
+            tabindex="0"
+            @click="selectSlashCommand(command)"
+            @keydown.enter.prevent="selectSlashCommand(command)"
+          >
+            <span class="agent-assistant-command__name">{{ command.command }}</span>
+            <span class="agent-assistant-command__desc">{{ command.description }}</span>
+          </div>
+          <div v-if="slashCommandsLoading" class="agent-assistant-command is-loading">
+            {{ t('agentAssistant.commandLoading') }}
+          </div>
+        </div>
         <div class="agent-assistant-input">
           <input
             ref="fileInputRef"
@@ -1670,7 +2160,7 @@ onScopeDispose(() => {
             rows="1"
             :disabled="sending || recording"
             :placeholder="t('agentAssistant.placeholder')"
-            @input="syncInputHeight"
+            @input="handleInputChange"
             @keydown="handleInputKeydown"
           />
           <IconBtn
@@ -1775,7 +2265,8 @@ onScopeDispose(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: var(--app-control-radius);
+
   --agent-assistant-mini-robot-outline: #5b00c5;
   --agent-assistant-mini-robot-outline-soft: #7432df;
   --agent-assistant-mini-robot-shell-start: #d3bbff;
@@ -1784,6 +2275,7 @@ onScopeDispose(() => {
   --agent-assistant-mini-robot-face-start: #24124e;
   --agent-assistant-mini-robot-face-end: #100525;
   --agent-assistant-mini-robot-eye: #f1dcff;
+
   background: rgba(var(--v-theme-primary), 0.12);
   block-size: 2.5rem;
   color: rgb(var(--v-theme-primary));
@@ -1839,8 +2331,8 @@ onScopeDispose(() => {
   );
   block-size: 1.04rem;
   box-shadow:
-    inset 0 -0.12rem 0 rgba(54, 0, 126, 0.22),
-    inset 0.08rem 0.08rem 0 rgba(255, 255, 255, 0.22);
+    inset 0 -0.12rem 0 rgba(54, 0, 126, 22%),
+    inset 0.08rem 0.08rem 0 rgba(255, 255, 255, 22%);
   inline-size: 1.45rem;
   inset-block-start: 0.42rem;
   inset-inline-start: 0.2rem;
@@ -1851,7 +2343,11 @@ onScopeDispose(() => {
   display: block;
   border: 1.5px solid var(--agent-assistant-mini-robot-outline-soft);
   border-radius: 6px;
-  background: linear-gradient(180deg, var(--agent-assistant-mini-robot-face-start) 0%, var(--agent-assistant-mini-robot-face-end) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--agent-assistant-mini-robot-face-start) 0%,
+    var(--agent-assistant-mini-robot-face-end) 100%
+  );
   block-size: 0.62rem;
   inline-size: 1rem;
   inset-block-start: 0.18rem;
@@ -1861,10 +2357,10 @@ onScopeDispose(() => {
 .agent-assistant-mini-bot__eye {
   position: absolute;
   display: block;
-  animation: agent-fab-blink 4.8s ease-in-out infinite;
   border-radius: 0 0 999px 999px;
-  border-block-end: 0.1rem solid var(--agent-assistant-mini-robot-eye);
+  animation: agent-fab-blink 4.8s ease-in-out infinite;
   block-size: 0.24rem;
+  border-block-end: 0.1rem solid var(--agent-assistant-mini-robot-eye);
   inline-size: 0.22rem;
   inset-block-start: 0.16rem;
 }
@@ -1901,7 +2397,7 @@ onScopeDispose(() => {
 .agent-assistant-history-menu {
   overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 12px;
+  border-radius: var(--app-overlay-radius);
   inline-size: min(22rem, calc(100vw - 2rem));
 }
 
@@ -1966,7 +2462,7 @@ onScopeDispose(() => {
   display: grid;
   align-items: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--app-control-radius);
   background: transparent;
   color: inherit;
   column-gap: 0.4rem;
@@ -2032,13 +2528,13 @@ onScopeDispose(() => {
   box-sizing: border-box;
   block-size: 100%;
   min-block-size: 0;
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding-block: 1rem;
   padding-inline: 1rem;
   scroll-behavior: auto;
-  -ms-overflow-style: none;
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
@@ -2120,7 +2616,7 @@ onScopeDispose(() => {
 
 .agent-assistant-message__bubble {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 16px;
+  border-radius: var(--app-surface-radius);
   font-size: 0.92rem;
   line-height: 1.55;
   max-inline-size: min(100%, 34rem);
@@ -2151,7 +2647,7 @@ onScopeDispose(() => {
   display: flex;
   align-items: center;
   border: 1px solid rgba(25, 178, 160, 28%);
-  border-radius: 10px;
+  border-radius: var(--app-control-radius);
   background: rgba(25, 178, 160, 8%);
   color: rgba(var(--v-theme-on-surface), 0.78);
   column-gap: 0.45rem;
@@ -2163,17 +2659,22 @@ onScopeDispose(() => {
 
 .agent-assistant-choices {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.35rem;
   inline-size: min(100%, 34rem);
   margin-block-start: 0.5rem;
 }
 
 .agent-assistant-choice {
   display: grid;
-  border: 1px solid rgba(25, 178, 160, 28%);
-  border-radius: 14px;
+  gap: 0.35rem;
+}
+
+.agent-assistant-choice__bubble {
+  display: grid;
+  border: 1px solid var(--agent-assistant-assistant-border);
+  border-radius: var(--app-surface-radius);
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
-  background: rgba(25, 178, 160, 8%);
+  background: var(--agent-assistant-assistant-bg);
   gap: 0.65rem;
   padding-block: 0.75rem;
   padding-inline: 0.8rem;
@@ -2195,23 +2696,31 @@ onScopeDispose(() => {
 
 .agent-assistant-choice__selected {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   border: 1px solid rgba(25, 178, 160, 28%);
-  border-radius: 10px;
+  border-radius: var(--app-control-radius);
   background: rgba(25, 178, 160, 10%);
   color: rgba(var(--v-theme-on-surface), 0.78);
   column-gap: 0.4rem;
   font-size: 0.8rem;
   inline-size: fit-content;
   max-inline-size: 100%;
+  min-inline-size: 0;
   padding-block: 0.35rem;
   padding-inline: 0.5rem;
+  white-space: normal;
+}
+
+.agent-assistant-choice__selected .v-icon {
+  flex: 0 0 auto;
+  margin-block-start: 0.08rem;
 }
 
 .agent-assistant-choice__selected span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .agent-assistant-choice__selected.is-expired {
@@ -2222,17 +2731,31 @@ onScopeDispose(() => {
 .agent-assistant-choice__buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.35rem;
+}
 
-  :deep(.v-btn) {
-    max-inline-size: 100%;
-  }
+.agent-assistant-choice__button {
+  flex: 1 1 max-content;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08) !important;
+  border-radius: var(--app-control-radius) !important;
+  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  background: rgba(var(--v-theme-surface), 0.9) !important;
+  box-shadow: none !important;
+  color: rgb(var(--v-theme-primary)) !important;
+  max-inline-size: 100%;
+  min-block-size: 2.7rem;
+  min-inline-size: max-content;
+}
 
-  :deep(.v-btn__content) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.agent-assistant-choice__button:disabled {
+  color: rgba(var(--v-theme-on-surface), 0.46) !important;
+}
+
+.agent-assistant-choice__button :deep(.v-btn__content) {
+  overflow: hidden;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-assistant-typing {
@@ -2278,7 +2801,7 @@ onScopeDispose(() => {
   display: grid;
   padding: 0.55rem;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 14px;
+  border-radius: var(--app-surface-radius);
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
@@ -2293,7 +2816,7 @@ onScopeDispose(() => {
 .agent-assistant-pending-file {
   display: grid;
   align-items: center;
-  border-radius: 10px;
+  border-radius: var(--app-control-radius);
   column-gap: 0.55rem;
   grid-template-columns: auto 1fr auto;
   min-inline-size: 0;
@@ -2302,7 +2825,7 @@ onScopeDispose(() => {
 }
 
 .agent-assistant-pending-file__preview {
-  border-radius: 8px;
+  border-radius: var(--app-control-radius);
   block-size: 2.1rem;
   inline-size: 2.1rem;
   object-fit: cover;
@@ -2325,11 +2848,69 @@ onScopeDispose(() => {
   font-size: 0.72rem;
 }
 
+.agent-assistant-command-menu {
+  display: grid;
+  padding: 0.35rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border-radius: var(--app-overlay-radius);
+  backdrop-filter: blur(var(--agent-assistant-panel-blur));
+  background: var(--agent-assistant-panel-bg);
+  box-shadow: var(--app-surface-shadow);
+  gap: 0.25rem;
+  margin-block-end: 0.55rem;
+  max-block-size: 15rem;
+  overflow-y: auto;
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+
+.agent-assistant-command {
+  display: grid;
+  align-items: center;
+  border-radius: var(--app-control-radius);
+  column-gap: 0.7rem;
+  cursor: pointer;
+  grid-template-columns: minmax(6.8rem, auto) minmax(0, 1fr);
+  min-block-size: 2.45rem;
+  padding-block: 0.35rem;
+  padding-inline: 0.55rem;
+}
+
+.agent-assistant-command:hover,
+.agent-assistant-command:focus-visible {
+  background: rgba(var(--v-theme-primary), 0.1);
+  outline: none;
+}
+
+.agent-assistant-command.is-loading {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  cursor: default;
+  grid-template-columns: 1fr;
+}
+
+.agent-assistant-command__name {
+  overflow: hidden;
+  color: rgb(var(--v-theme-primary));
+  font-family: var(--v-font-family-monospace, monospace);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-assistant-command__desc {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-assistant-input {
   display: grid;
   align-items: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: 16px;
+  border-radius: var(--app-field-radius);
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
   background: var(--agent-assistant-panel-bg);
   box-shadow: var(--app-surface-shadow);
@@ -2338,6 +2919,9 @@ onScopeDispose(() => {
   min-block-size: 3.25rem;
   padding-inline: 0.35rem;
   pointer-events: auto;
+  transition:
+    border-radius 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .agent-assistant-file-input {
@@ -2346,14 +2930,7 @@ onScopeDispose(() => {
 
 // 面板内文件下载、附件和发送按钮使用全局阴影 token，跟随主题阴影设置即时变化。
 .agent-assistant-surface-btn {
-  box-shadow: var(--app-surface-shadow) !important;
   transition: box-shadow 0.2s ease;
-}
-
-@media (hover: hover) {
-  .agent-assistant-surface-btn:hover {
-    box-shadow: var(--app-surface-hover-shadow) !important;
-  }
 }
 
 .agent-assistant-attach {
@@ -2405,7 +2982,7 @@ onScopeDispose(() => {
 .agent-assistant-attachment {
   overflow: hidden;
   border: 1px solid var(--agent-assistant-assistant-border);
-  border-radius: 14px;
+  border-radius: var(--app-surface-radius);
   backdrop-filter: blur(var(--agent-assistant-panel-blur));
   background: var(--agent-assistant-assistant-bg);
 }
@@ -2507,7 +3084,7 @@ onScopeDispose(() => {
   }
 
   :deep(code) {
-    border-radius: 4px;
+    border-radius: var(--app-control-radius);
     background: rgba(var(--v-theme-on-surface), 0.08);
     font-family: monospace;
     padding-block: 0.1rem;
@@ -2517,7 +3094,7 @@ onScopeDispose(() => {
   :deep(pre) {
     overflow: auto;
     padding: 0.75rem;
-    border-radius: 10px;
+    border-radius: var(--app-surface-radius);
     background: rgba(var(--v-theme-on-surface), 0.08);
     margin-block: 0.5rem;
     max-inline-size: 100%;
@@ -2602,7 +3179,6 @@ onScopeDispose(() => {
     transform: translateY(-0.18rem);
   }
 }
-
 
 @keyframes agent-fab-blink {
   0%,
