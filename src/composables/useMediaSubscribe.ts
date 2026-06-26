@@ -16,6 +16,12 @@ interface SubscribePayload {
   best_version_full?: number
 }
 
+interface SubscribeConfig {
+  show_edit_dialog?: boolean
+  best_version?: unknown
+  best_version_full?: unknown
+}
+
 interface AddSubscribeOptions {
   openEditDialog?: boolean
 }
@@ -65,6 +71,13 @@ export function getSubscribeMode(subscribe: { best_version?: unknown; best_versi
   if (!isEnabledFlag(subscribe.best_version)) return 'normal'
 
   return isEnabledFlag(subscribe.best_version_full) ? 'best_version_full' : 'best_version'
+}
+
+function getSubscribeConfigMode(config?: SubscribeConfig): SubscribeMode {
+  return getSubscribeMode({
+    best_version: config?.best_version,
+    best_version_full: config?.best_version_full,
+  })
 }
 
 function getModeName(t: ReturnType<typeof useI18n>['t'], mode: SubscribeMode) {
@@ -161,9 +174,10 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     )
   }
 
-  function openSubscribeSeasonDialog(selectedSeason?: number | null) {
+  async function openSubscribeSeasonDialog(selectedSeason?: number | null) {
     const media = currentMedia()
     if (!media) return
+    const defaultSubscribeConfig = await queryDefaultSubscribeConfig()
 
     openSharedDialog(
       SubscribeSeasonDialog,
@@ -172,6 +186,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         selectedSeason,
         subscribedSeasons: options.subscribedSeasons?.value ?? [],
         subscribedSeasonModes: options.subscribedSeasonModes?.value ?? {},
+        defaultSubscribeMode: getSubscribeConfigMode(defaultSubscribeConfig),
       },
       {
         subscribe: subscribeSeasons,
@@ -180,8 +195,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     )
   }
 
-  async function queryDefaultSubscribeConfig() {
-    if (!options.canSubscribe()) return false
+  async function queryDefaultSubscribeConfig(): Promise<SubscribeConfig | undefined> {
+    if (!options.canSubscribe()) return undefined
 
     try {
       const media = currentMedia()
@@ -191,12 +206,12 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
           : 'system/setting/public/DefaultTvSubscribeConfig'
       const result: { [key: string]: any } = await api.get(subscribeConfigUrl)
 
-      if (result.data?.value) return result.data.value.show_edit_dialog
+      return result.data?.value
     } catch (error) {
       console.log(error)
     }
 
-    return false
+    return undefined
   }
 
   function showSubscribeAddToast(
@@ -242,8 +257,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       showSubscribeAddToast(result.success, media.title ?? '', season, result.message, payload.best_version ?? 0)
 
       if (result.success && (addOptions.openEditDialog ?? true)) {
-        const showEditDialog = await queryDefaultSubscribeConfig()
-        if (showEditDialog) openSubscribeEditDialog(result.data.id)
+        const subscribeConfig = await queryDefaultSubscribeConfig()
+        if (subscribeConfig?.show_edit_dialog) openSubscribeEditDialog(result.data.id)
       }
     } catch (error) {
       console.error(error)

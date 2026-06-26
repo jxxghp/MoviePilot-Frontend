@@ -34,6 +34,7 @@ const props = defineProps({
   selectedSeason: Number,
   subscribedSeasons: Array as PropType<number[]>,
   subscribedSeasonModes: Object as PropType<SeasonSubscribeModes>,
+  defaultSubscribeMode: String as PropType<SubscribeMode>,
 })
 
 // 从 provide 中获取全局设置
@@ -49,6 +50,9 @@ const seasonsSelected = ref<number[]>([])
 
 // 各季订阅方式
 const seasonModes = ref<Record<number, SubscribeMode>>({})
+
+// 用户已手动选择过模式的季号，入库状态异步刷新时不再覆盖。
+const manuallySelectedModeSeasons = ref(new Set<number>())
 
 // 各季缺失状态：0-已入库 1-部分缺失 2-全部缺失，没有数据也是已入库
 const seasonsNotExisted = ref<{ [key: number]: number }>({})
@@ -294,11 +298,25 @@ function setSeasonMode(season: number, mode: SubscribeMode) {
 
 function updateSeasonMode(season: number, mode: unknown) {
   if (!isSubscribeMode(mode)) return
+  manuallySelectedModeSeasons.value.add(season)
   setSeasonMode(season, mode)
 }
 
+function getDefaultSeasonMode(season: number) {
+  if (!seasonsNotExisted.value[season]) return 'best_version_full'
+
+  return props.defaultSubscribeMode ?? 'normal'
+}
+
 function ensureSeasonMode(season: number) {
-  if (!seasonModes.value[season]) setSeasonMode(season, props.subscribedSeasonModes?.[season] ?? 'normal')
+  if (!seasonModes.value[season]) setSeasonMode(season, props.subscribedSeasonModes?.[season] ?? getDefaultSeasonMode(season))
+}
+
+function syncDefaultSeasonModes() {
+  seasonsSelected.value.forEach(season => {
+    if (subscribedSeasonSet.value.has(season) || manuallySelectedModeSeasons.value.has(season)) return
+    setSeasonMode(season, getDefaultSeasonMode(season))
+  })
 }
 
 function isSeasonSubscribed(season: number) {
@@ -353,6 +371,8 @@ watchEffect(() => {
 })
 
 watch(seasonInfos, syncSelectedSeason)
+
+watch(seasonsNotExisted, syncDefaultSeasonModes, { deep: true })
 
 watch(() => props.selectedSeason, syncSelectedSeason)
 
@@ -624,7 +644,7 @@ onMounted(async () => {
 
 .subscribe-season-mode-toggle {
   block-size: 2rem;
-  max-inline-size: 16rem;
+  max-inline-size: 18rem;
 }
 
 .subscribe-season-mode-button {

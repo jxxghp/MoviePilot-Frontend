@@ -2824,10 +2824,10 @@ export default {
     },
     subscribeMode: {
       title: 'Choose Subscription Type',
-      normal: 'Subscribe',
+      normal: 'Normal',
       bestVersion: 'Version Upgrade',
-      bestVersionEpisode: 'Episode Upgrade',
-      bestVersionFull: 'Full Season Upgrade',
+      bestVersionEpisode: 'Episode',
+      bestVersionFull: 'Full',
     },
     subscribeEdit: {
       titleDefault: 'Default Subscription Rules',
