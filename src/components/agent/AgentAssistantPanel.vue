@@ -235,7 +235,7 @@ const slashCommandQuery = computed(() => {
 // 根据输入内容过滤可用斜杠命令。
 const filteredSlashCommands = computed(() => {
   const query = slashCommandQuery.value
-  if (!query) return slashCommands.value.slice(0, 8)
+  if (!query) return slashCommands.value
 
   return slashCommands.value
     .filter(command => {
@@ -243,7 +243,6 @@ const filteredSlashCommands = computed(() => {
 
       return haystack.includes(query)
     })
-    .slice(0, 8)
 })
 // 判断是否展示命令建议浮层。
 const showSlashCommandMenu = computed(
@@ -252,6 +251,10 @@ const showSlashCommandMenu = computed(
     !sending.value &&
     !recording.value &&
     (filteredSlashCommands.value.length > 0 || slashCommandsLoading.value),
+)
+// 根据智能体处理状态切换输入框背景提示。
+const inputPlaceholder = computed(() =>
+  sending.value ? t('agentAssistant.processingPlaceholder') : t('agentAssistant.placeholder'),
 )
 const recordingTimeText = computed(() => {
   const seconds = Math.max(0, recordingDuration.value)
@@ -1616,6 +1619,7 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
       refreshMessageList()
       persistState()
       await streamAgentMessage(agentMessage, [], [], [], [], {
+        echoUser: false,
         displayText: choiceSelection.selected_label || choiceSelection.selected_description,
         choiceSelection,
         originalMessageId: String(result.data?.original_message_id || message.id),
@@ -1641,6 +1645,7 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
     persistState()
 
     await streamAgentMessage(agentMessage, [], [], [], [], {
+      echoUser: false,
       displayText: choiceSelection.selected_label || choiceSelection.selected_description,
       choiceSelection,
     })
@@ -2159,7 +2164,7 @@ onScopeDispose(() => {
             class="agent-assistant-textarea"
             rows="1"
             :disabled="sending || recording"
-            :placeholder="t('agentAssistant.placeholder')"
+            :placeholder="inputPlaceholder"
             @input="handleInputChange"
             @keydown="handleInputKeydown"
           />

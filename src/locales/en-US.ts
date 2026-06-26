@@ -723,6 +723,7 @@ export default {
     emptyTitle: 'What should we handle today?',
     emptySubtitle: 'Ask about sites, subscriptions, downloads, or organization tasks.',
     placeholder: 'Ask MoviePilot, Type / for commands',
+    processingPlaceholder: 'MoviePilot is working, please wait...',
     commandLoading: 'Loading commands...',
     commandLoadFailed: 'Failed to load commands',
     stop: 'Stop generating',
