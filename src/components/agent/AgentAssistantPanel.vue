@@ -76,6 +76,7 @@ interface AgentSessionHistoryItem {
   preview?: string
   channel?: string
   source?: string
+  isProcessing?: boolean
   createdAt: number
   updatedAt: number
   messages: AgentChatMessage[]
@@ -143,6 +144,7 @@ interface AgentServerSession {
   source?: string
   created_at?: string
   updated_at?: string
+  is_processing?: boolean
   messages?: AgentChatMessage[]
 }
 
@@ -205,6 +207,15 @@ let recordingChunks: BlobPart[] = []
 let messageScrollFrame: number | null = null
 let pendingMessageScrollToBottom = false
 let streamPersistTimer: number | null = null
+let userAbortRequested = false
+let streamRecoveryTimer: number | null = null
+let pendingStreamRecovery:
+  | {
+      sessionId: string
+      startedAt: number
+      attempts: number
+    }
+  | null = null
 
 const md = new MarkdownIt({
   html: true,
@@ -549,6 +560,7 @@ function normalizeHistorySessions(value: unknown) {
         preview: typeof item?.preview === 'string' ? item.preview : undefined,
         channel: typeof item?.channel === 'string' ? item.channel : undefined,
         source: typeof item?.source === 'string' ? item.source : undefined,
+        isProcessing: Boolean(item?.isProcessing),
         createdAt: Number(item?.createdAt) || firstMessageTime,
         updatedAt: Number(item?.updatedAt) || lastMessageTime,
         messages,
@@ -577,6 +589,7 @@ function normalizeServerSession(item: AgentServerSession, withMessages = false):
     preview: item.preview,
     channel: item.channel,
     source: item.source,
+    isProcessing: Boolean(item.is_processing),
     createdAt,
     updatedAt,
     messages: withMessages ? messages : [],
@@ -754,6 +767,62 @@ async function loadServerHistorySession(targetSessionId: string) {
   persistHistorySessions()
 
   return session
+}
+
+// 清理等待中的 WebAgent 断流恢复轮询。
+function clearStreamRecoveryTimer() {
+  if (streamRecoveryTimer === null) return
+
+  window.clearTimeout(streamRecoveryTimer)
+  streamRecoveryTimer = null
+}
+
+// 从服务端拉取当前会话展示快照，用于移动端后台断开 SSE 后恢复最终结果。
+async function restoreCurrentSessionFromServer(targetSessionId: string, startedAt: number) {
+  const session = await loadServerHistorySession(targetSessionId)
+  const activeSessionIds = new Set([sessionId.value, targetSessionId, session.clientSessionId].filter(Boolean))
+  if (!activeSessionIds.has(session.sessionId)) return { restored: false, pending: false }
+  if (session.updatedAt < startedAt - 1000) return { restored: false, pending: Boolean(session.isProcessing) }
+  if (!session.messages.length) return { restored: false, pending: Boolean(session.isProcessing) }
+
+  messages.value = normalizeStoredMessages(session.messages)
+  pendingStreamRecovery = null
+  persistState({ syncHistory: false })
+  scrollToBottom()
+  return { restored: true, pending: false }
+}
+
+// WebAgent SSE 断流后，后台任务仍会完成并保存快照；前端回到前台后轮询拉取。
+function scheduleStreamRecovery(delay = 1200) {
+  if (!pendingStreamRecovery || typeof window === 'undefined') return
+
+  clearStreamRecoveryTimer()
+  streamRecoveryTimer = window.setTimeout(async () => {
+    streamRecoveryTimer = null
+    if (!pendingStreamRecovery) return
+    if (document.visibilityState === 'hidden') return
+
+    const recovery = pendingStreamRecovery
+    try {
+      const result = await restoreCurrentSessionFromServer(recovery.sessionId, recovery.startedAt)
+      if (result.restored) return
+      if (result.pending) {
+        scheduleStreamRecovery(Math.min(8000, 1200 + recovery.attempts * 900))
+        return
+      }
+    } catch (error) {
+      // 会话快照可能还未写入，继续按退避间隔等待。
+    }
+
+    if (!pendingStreamRecovery || pendingStreamRecovery.sessionId !== recovery.sessionId) return
+    pendingStreamRecovery.attempts += 1
+    if (pendingStreamRecovery.attempts > 8) {
+      pendingStreamRecovery = null
+      return
+    }
+
+    scheduleStreamRecovery(Math.min(8000, 1200 + pendingStreamRecovery.attempts * 900))
+  }, delay)
 }
 
 // 恢复当前会话状态，优先使用本地状态，缺失时使用最近历史。
@@ -1185,6 +1254,22 @@ async function readAgentStream(response: Response, assistantMessage: AgentChatMe
   }
 }
 
+// 移动端浏览器退到后台时，SSE/fetch 可能以 TypeError: Load failed 等形式被动断开。
+function isRecoverableStreamDisconnect(error: any) {
+  if (userAbortRequested) return false
+
+  const message = String(error?.message || error || '').toLowerCase()
+  if (document.visibilityState === 'hidden') return true
+
+  return (
+    error?.name === 'AbortError' ||
+    message.includes('load failed') ||
+    message.includes('failed to fetch') ||
+    message.includes('networkerror') ||
+    message.includes('network error')
+  )
+}
+
 // 解析附件地址，支持相对 API 路径。
 function resolveAttachmentUrl(url?: string) {
   if (!url) return ''
@@ -1359,7 +1444,10 @@ async function streamAgentMessage(
   const assistantMessage = addMessage('assistant', '', 'streaming')
 
   abortController = new AbortController()
+  userAbortRequested = false
+  const streamStartedAt = Date.now()
   let shouldFollowBottomAfterStream = true
+  let shouldSaveClientSnapshot = true
 
   try {
     const response = await fetch(resolveApiUrl('message/agent/stream'), {
@@ -1401,10 +1489,24 @@ async function streamAgentMessage(
       refreshMessageList()
     }
   } catch (error: any) {
-    if (error?.name === 'AbortError') {
+    if (error?.name === 'AbortError' && userAbortRequested) {
       assistantMessage.status = 'done'
       markToolsDone(assistantMessage)
       refreshMessageList()
+      return
+    }
+
+    if (isRecoverableStreamDisconnect(error)) {
+      shouldSaveClientSnapshot = false
+      pendingStreamRecovery = {
+        sessionId: sessionId.value,
+        startedAt: streamStartedAt,
+        attempts: 0,
+      }
+      assistantMessage.status = 'done'
+      markToolsDone(assistantMessage)
+      refreshMessageList()
+      if (document.visibilityState === 'visible') scheduleStreamRecovery(1200)
       return
     }
 
@@ -1414,13 +1516,16 @@ async function streamAgentMessage(
     refreshMessageList()
   } finally {
     abortController = null
+    userAbortRequested = false
     clearStreamPersistTimer()
     persistState()
-    try {
-      await saveCurrentSessionToServer()
-      await loadServerHistorySessions()
-    } catch (error) {
-      // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
+    if (shouldSaveClientSnapshot) {
+      try {
+        await saveCurrentSessionToServer()
+        await loadServerHistorySessions()
+      } catch (error) {
+        // 服务端历史保存失败时保留本地兜底历史，不影响当前会话继续交互。
+      }
     }
     if (shouldFollowBottomAfterStream) scrollToBottom()
   }
@@ -1661,6 +1766,16 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
 
 // 中止当前流式回复。
 function stopGeneration() {
+  userAbortRequested = true
+  pendingStreamRecovery = null
+  clearStreamRecoveryTimer()
+  if (sessionId.value) {
+    fetchAgentApi(`message/agent/sessions/${encodeURIComponent(sessionId.value)}/stop`, {
+      method: 'POST',
+    }).catch(() => {
+      // 本地中止优先，停止接口失败不阻塞用户操作。
+    })
+  }
   abortController?.abort()
 }
 
@@ -1771,6 +1886,11 @@ function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && isOpen.value) closeDrawer()
 }
 
+// 页面从后台恢复时尝试拉取 WebAgent 后台完成后的会话快照。
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') scheduleStreamRecovery(0)
+}
+
 // 处理输入框回车发送。
 function handleInputKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey) return
@@ -1795,6 +1915,7 @@ onMounted(() => {
   loadServerHistorySessions()
   syncInputHeight()
   window.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onScopeDispose(clearAgentAssistantOpenState)
@@ -1802,10 +1923,12 @@ onScopeDispose(clearPendingAttachments)
 onScopeDispose(cancelVoiceRecording)
 onScopeDispose(clearMessageScrollFrame)
 onScopeDispose(clearStreamPersistTimer)
+onScopeDispose(clearStreamRecoveryTimer)
 onScopeDispose(() => {
   if (typeof window === 'undefined') return
 
   window.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
