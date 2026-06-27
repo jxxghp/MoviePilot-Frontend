@@ -557,11 +557,6 @@ async function handleSubtitleSearch() {
   await clickSearch('title', 'subtitle')
 }
 
-// 搜索单集字幕
-async function handleEpisodeSubtitleSearch(season: number | null, episode: number | null) {
-  await clickSearch('title', 'subtitle', { season, episode })
-}
-
 onBeforeMount(() => {
   getMediaDetail()
 })
@@ -823,25 +818,6 @@ onBeforeMount(() => {
                               class="ms-2"
                               size="small"
                             />
-                            <VTooltip v-if="canSearch" location="top">
-                              <template #activator="{ props }">
-                                <IconBtn
-                                  class="ms-1"
-                                  color="info"
-                                  variant="text"
-                                  v-bind="props"
-                                  @click.stop="
-                                    handleEpisodeSubtitleSearch(
-                                      season.season_number ?? null,
-                                      episode.episode_number ?? null,
-                                    )
-                                  "
-                                >
-                                  <VIcon icon="mdi-subtitles-outline" size="small" />
-                                </IconBtn>
-                              </template>
-                              <span>{{ t('media.actions.searchSubtitle') }}</span>
-                            </VTooltip>
                           </div>
                           <p>{{ episode.overview }}</p>
                         </div>
