@@ -590,7 +590,7 @@ function resetFabPosition() {
 
 function handleWindowResize() {
   updateFabPosition(getCurrentFabPosition())
-  if (fabDocked.value && isFabNearRightEdge()) {
+  if (fabDocked.value) {
     fabPosition.value = {
       ...getCurrentFabPosition(),
       x: getDockedFabX(),
