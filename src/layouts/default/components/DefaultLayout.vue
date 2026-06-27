@@ -540,6 +540,9 @@ onMounted(async () => {
           :model-value="openHorizontalNavGroup === group.title"
           location="bottom start"
           offset="8"
+          open-on-hover
+          :open-delay="0"
+          :close-delay="120"
           :close-on-content-click="false"
           @update:model-value="openHorizontalNavGroup = $event ? group.title : null"
         >
@@ -569,7 +572,11 @@ onMounted(async () => {
                 :close-on-content-click="true"
               >
                 <template #activator="{ props: subMenuProps }">
-                  <VListItem v-bind="subMenuProps" :active="isHorizontalNavActive(item)">
+                  <VListItem
+                    v-bind="subMenuProps"
+                    :active="isHorizontalNavActive(item)"
+                    class="theme-horizontal-nav__submenu-activator"
+                  >
                     <template #prepend>
                       <VIcon :icon="String(item.icon || '')" />
                     </template>
@@ -827,6 +834,10 @@ onMounted(async () => {
 .theme-horizontal-nav__menu,
 .theme-horizontal-nav__submenu {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.theme-horizontal-nav__submenu-activator {
+  cursor: pointer;
 }
 
 .theme-horizontal-nav__actions {
