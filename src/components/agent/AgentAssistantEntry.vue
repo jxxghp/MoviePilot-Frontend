@@ -331,6 +331,9 @@ function getFabAnchorRect() {
   const botRect = bot?.getBoundingClientRect()
   const triggerRect = trigger?.getBoundingClientRect()
 
+  // 小屏下触发热区留白更明显，气泡按机器人可见图形定位会更贴近。
+  if (isMobileFabViewport() && botRect && botRect.width > 0 && botRect.height > 0) return botRect
+
   if (triggerRect && triggerRect.width > 0 && triggerRect.height > 0) return triggerRect
   if (botRect && botRect.width > 0 && botRect.height > 0) return botRect
 
