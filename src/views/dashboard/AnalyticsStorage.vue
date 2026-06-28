@@ -73,8 +73,8 @@ onActivated(() => {
       <h5 class="animated-storage-value text-2xl font-weight-medium text-primary">
         {{ animatedStorageText }}
       </h5>
-      <p class="mt-2">{{ t('storage.usedPercent', { percent: animatedUsedPercentText }) }} 🚀</p>
-      <p class="mt-1">
+      <div class="mt-2">{{ t('storage.usedPercent', { percent: animatedUsedPercentText }) }} 🚀</div>
+      <div class="mt-1">
         <VProgressLinear
           :model-value="animatedUsedPercentValue"
           class="animated-storage-progress"
@@ -82,7 +82,7 @@ onActivated(() => {
           height="6"
           rounded
         />
-      </p>
+      </div>
     </VCardText>
     <!-- Trophy -->
     <VImg :src="trophy" class="trophy" />
