@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { useDisplay } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 
 // 显示器宽度
 const display = useDisplay()
+const theme = useTheme()
 
 // 输入参数
 const props = withDefaults(
@@ -41,6 +42,17 @@ const visible = computed({
 })
 
 const isFullscreen = computed(() => !display.mdAndUp.value)
+const isTransparentTheme = computed(() => theme.name.value === 'transparent')
+const isSchedulerDialog = computed(() => props.cardClass.split(/\s+/).includes('scheduler-shortcut-dialog-card'))
+
+// 透明主题下仅定时服务全屏弹窗取消外层 VCard 的背景和模糊，避免整屏磨砂遮住界面。
+const cardClasses = computed(() => [
+  props.cardClass,
+  {
+    'scheduler-shortcut-dialog-card--transparent':
+      isFullscreen.value && isTransparentTheme.value && isSchedulerDialog.value,
+  },
+])
 
 // 仅系统健康检查弹窗需要在全屏时取消固定高度，避免其它快捷弹窗被误伤。
 const bodyClasses = computed(() => [
@@ -50,11 +62,12 @@ const bodyClasses = computed(() => [
       isFullscreen.value && props.bodyClass.split(/\s+/).includes('system-health-dialog-body'),
   },
 ])
+
 </script>
 
 <template>
   <VDialog v-if="visible" v-model="visible" :max-width="props.maxWidth" scrollable :fullscreen="isFullscreen">
-    <VCard :class="props.cardClass">
+    <VCard :class="cardClasses">
       <VCardItem>
         <VCardTitle>
           <VIcon :icon="props.icon" class="me-2" />
@@ -89,5 +102,35 @@ const bodyClasses = computed(() => [
 
 .system-health-dialog-body--fullscreen {
   block-size: auto;
+}
+
+@media (max-width: 959.98px) {
+  .scheduler-shortcut-dialog-card--transparent {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  .cache-shortcut-dialog-card {
+    display: flex;
+    overflow: hidden;
+    flex-direction: column;
+    background: rgb(var(--v-theme-surface));
+  }
+
+  html[data-theme='transparent'] .cache-shortcut-dialog-card,
+  .v-theme--transparent .cache-shortcut-dialog-card {
+    backdrop-filter: blur(var(--transparent-blur, 10px));
+    background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
+  }
+
+  .cache-shortcut-dialog-body {
+    display: flex;
+    overflow: hidden !important;
+    flex: 1 1 auto;
+    inline-size: 100%;
+    min-block-size: 0;
+    padding: 0 !important;
+  }
 }
 </style>

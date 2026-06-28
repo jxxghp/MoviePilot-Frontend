@@ -2214,6 +2214,8 @@ export default {
       stopped: 'Stopped',
       waiting: 'Waiting',
       executeSuccess: 'Scheduled job execution request submitted successfully!',
+      mobileWaitingAfter: 'In {time}',
+      mobileNoNextRun: 'No schedule',
     },
     subscribe: {
       basicSettings: 'Basic Settings',
@@ -2265,6 +2267,7 @@ export default {
       filterByTitle: 'Filter by Title',
       filterBySite: 'Filter by Site',
       selectSite: 'Select Site',
+      loadingMore: 'Loading...',
       refresh: 'Refresh Cache',
       deleteSelected: 'Delete Selected',
       clearAll: 'Clear All Cache',

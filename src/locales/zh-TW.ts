@@ -2173,6 +2173,8 @@ export default {
       stopped: '已停止',
       waiting: '等待',
       executeSuccess: '定時作業執行請求提交成功！',
+      mobileWaitingAfter: '{time}之後',
+      mobileNoNextRun: '暫無排程',
     },
     subscribe: {
       basicSettings: '基礎設置',
@@ -2221,6 +2223,7 @@ export default {
       filterByTitle: '按標題篩選',
       filterBySite: '按站點篩選',
       selectSite: '選擇站點',
+      loadingMore: '加載中...',
       refresh: '刷新緩存',
       deleteSelected: '刪除選中',
       clearAll: '清空緩存',

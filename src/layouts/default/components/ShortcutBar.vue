@@ -90,6 +90,8 @@ const shortcuts: ShortcutItem[] = [
     subtitle: t('shortcut.cache.subtitle'),
     icon: 'mdi-database',
     dialog: 'cache',
+    bodyClass: 'cache-shortcut-dialog-body',
+    cardClass: 'cache-shortcut-dialog-card',
     component: CacheView,
     maxWidth: '90rem',
     titleText: t('shortcut.cache.subtitle'),
@@ -99,7 +101,8 @@ const shortcuts: ShortcutItem[] = [
     subtitle: t('shortcut.scheduler.subtitle'),
     icon: 'mdi-list-box',
     dialog: 'scheduler',
-    bodyClass: 'pa-0',
+    bodyClass: 'scheduler-shortcut-dialog-body pa-0',
+    cardClass: 'scheduler-shortcut-dialog-card',
     component: AccountSettingService,
     maxWidth: '60rem',
     titleText: t('shortcut.scheduler.subtitle'),
@@ -192,23 +195,35 @@ onMounted(() => {
         <div class="grid grid-cols-2 gap-3">
           <!-- 循环渲染快捷方式 -->
           <div v-for="(item, index) in visibleShortcuts" :key="index">
-            <VCard
-              flat
-              class="pa-2 d-flex align-center cursor-pointer transition-transform duration-300 hover:-translate-y-1 border h-full w-100"
-              hover
-              @click="openShortcutDialog(item)"
-            >
-              <VAvatar variant="text" size="48" rounded="lg">
-                <VIcon color="primary" :icon="item.icon" size="24" />
-              </VAvatar>
-              <div>
-                <div class="text-body-1 text-high-emphasis font-weight-medium">{{ item.title }}</div>
-                <div class="text-caption text-medium-emphasis">{{ item.subtitle }}</div>
+            <VHover v-slot="hover">
+              <!-- Hover 命中区域保持静止，避免卡片上浮后底边反复触发 mouseleave。 -->
+              <div v-bind="hover.props" class="shortcut-card-hover-area h-full">
+                <VCard
+                  flat
+                  :ripple="false"
+                  class="app-hover-lift-card pa-2 d-flex align-center cursor-pointer border h-full w-100"
+                  :class="{ 'app-hover-lift-card--hovering': hover.isHovering }"
+                  @click="openShortcutDialog(item)"
+                >
+                  <VAvatar variant="text" size="48" rounded="lg">
+                    <VIcon color="primary" :icon="item.icon" size="24" />
+                  </VAvatar>
+                  <div>
+                    <div class="text-body-1 text-high-emphasis font-weight-medium">{{ item.title }}</div>
+                    <div class="text-caption text-medium-emphasis">{{ item.subtitle }}</div>
+                  </div>
+                </VCard>
               </div>
-            </VCard>
+            </VHover>
           </div>
         </div>
       </div>
     </VCard>
   </VMenu>
 </template>
+
+<style scoped>
+.shortcut-card-hover-area {
+  inline-size: 100%;
+}
+</style>
