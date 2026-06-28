@@ -87,7 +87,7 @@ onActivated(() => {
       <VCardTitle>{{ t('dashboard.mediaStatistic') }}</VCardTitle>
     </VCardItem>
 
-    <VCardText>
+    <VCardText class="dashboard-summary-content">
       <VRow>
         <VCol v-for="item in statistics" :key="item.title" cols="6" sm="3">
           <div class="d-flex align-center">
@@ -111,6 +111,25 @@ onActivated(() => {
 </template>
 
 <style lang="scss" scoped>
+.dashboard-summary-card {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.dashboard-summary-content {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-block-size: 0;
+}
+
+.dashboard-summary-content :deep(.v-row) {
+  flex: 1 1 auto;
+  align-items: center;
+}
+
 .dashboard-number {
   font-variant-numeric: tabular-nums;
 }

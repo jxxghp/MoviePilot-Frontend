@@ -69,7 +69,7 @@ onActivated(() => {
     <VCardItem>
       <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
     </VCardItem>
-    <VCardText>
+    <VCardText class="dashboard-summary-content">
       <h5 class="animated-storage-value text-2xl font-weight-medium text-primary">
         {{ animatedStorageText }}
       </h5>
@@ -104,6 +104,20 @@ onActivated(() => {
   inline-size: 4.9375rem;
   inset-block-end: 2rem;
   inset-inline-end: 2rem;
+}
+
+.dashboard-summary-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.dashboard-summary-content {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 .animated-storage-value {

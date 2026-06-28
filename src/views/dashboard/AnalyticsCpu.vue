@@ -154,11 +154,19 @@ useKeepAliveRefresh(refresh)
 </template>
 
 <style scoped>
+.dashboard-chart-card {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
 .dashboard-chart-content {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  overflow: hidden;
 }
 
 .dashboard-chart-plot {

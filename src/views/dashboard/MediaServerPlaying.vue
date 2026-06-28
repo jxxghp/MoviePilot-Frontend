@@ -66,7 +66,7 @@ onActivated(() => {
       <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
     </VCardItem>
 
-    <div class="px-5 pb-3">
+    <div class="dashboard-media-content px-5 pb-3">
       <ProgressiveCardGrid
         class="dashboard-media-grid"
         :items="playingList"
@@ -89,5 +89,24 @@ onActivated(() => {
 .dashboard-media-grid {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+.dashboard-media-card {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.dashboard-media-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.dashboard-media-content::-webkit-scrollbar {
+  display: none;
 }
 </style>

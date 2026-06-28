@@ -156,11 +156,19 @@ onActivated(() => {
 </template>
 
 <style scoped>
+.dashboard-work-card {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
 .dashboard-work-content {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  overflow: hidden;
 }
 
 .dashboard-work-chart {

@@ -130,6 +130,18 @@ const enableConfig = ref<{ [key: string]: boolean }>({
   latest: true,
 })
 
+// 仅声明了默认行高的内置仪表盘组件使用固定 grid 高度，插件和空媒体组件继续按内容自适应。
+const fixedHeightDashboardIds = new Set([
+  'storage',
+  'mediaStatistic',
+  'weeklyOverview',
+  'speed',
+  'scheduler',
+  'cpu',
+  'memory',
+  'network',
+])
+
 // 仪表板顺序配置
 const orderConfig = ref<{ id: string; key: string }[]>([])
 
@@ -141,7 +153,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 5,
+    rows: 11,
     elements: [],
   },
   {
@@ -150,7 +162,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 8 },
-    rows: 5,
+    rows: 11,
     elements: [],
   },
   {
@@ -159,7 +171,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 11,
+    rows: 23,
     elements: [],
   },
   {
@@ -168,7 +180,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 11,
+    rows: 23,
     elements: [],
   },
   {
@@ -177,7 +189,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 11,
+    rows: 23,
     elements: [],
   },
   {
@@ -186,7 +198,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 6 },
-    rows: 8,
+    rows: 17,
     elements: [],
   },
   {
@@ -195,7 +207,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 6 },
-    rows: 8,
+    rows: 17,
     elements: [],
   },
   {
@@ -204,7 +216,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 6 },
-    rows: 8,
+    rows: 17,
     elements: [],
   },
   {
@@ -396,7 +408,8 @@ function buildRemoteDashboardGridLayout(layout: DashboardGridLayoutConfig) {
 
 // 根据当前视口判断仪表板布局档位，避免手机和桌面共用 Grid 坐标。
 function resolveDashboardLayoutProfile(): DashboardLayoutProfile {
-  const width = display.width.value || (typeof window === 'undefined' ? DASHBOARD_GRID_DESKTOP_BREAKPOINT : window.innerWidth)
+  const width =
+    display.width.value || (typeof window === 'undefined' ? DASHBOARD_GRID_DESKTOP_BREAKPOINT : window.innerWidth)
 
   if (width <= DASHBOARD_GRID_MOBILE_BREAKPOINT) return 'mobile'
   if (width <= DASHBOARD_GRID_TABLET_BREAKPOINT) return 'tablet'
@@ -1123,7 +1136,10 @@ watch(
 
     dashboardLayoutProfile.value = nextProfile
     dashboardGridLayout.value = (await loadDashboardGridLayoutConfig(nextProfile)) ?? {}
-    dashboardGrid.value?.column(getDashboardGridColumnsForProfile(nextProfile), getDashboardGridColumnLayout(nextProfile))
+    dashboardGrid.value?.column(
+      getDashboardGridColumnsForProfile(nextProfile),
+      getDashboardGridColumnLayout(nextProfile),
+    )
     dashboardGrid.value?.removeAll(false, false)
     await syncDashboardGrid()
     notifyDashboardContentResize()
@@ -1184,7 +1200,10 @@ onBeforeUnmount(() => {
       v-for="gridItem in dashboardGridItems"
       :key="gridItem.id"
       class="grid-stack-item dashboard-grid-item"
-      :class="{ 'is-manual-height': hasManualDashboardGridHeight(gridItem.id) }"
+      :class="{
+        'is-manual-height': hasManualDashboardGridHeight(gridItem.id),
+        'is-fixed-height': fixedHeightDashboardIds.has(gridItem.config.id) && !gridItem.config.key,
+      }"
       :gs-id="gridItem.id"
       :gs-x="gridItem.widget.x"
       :gs-y="gridItem.widget.y"
@@ -1270,6 +1289,8 @@ onBeforeUnmount(() => {
   inline-size: 100%;
 }
 
+.dashboard-grid-item.is-fixed-height .dashboard-grid-auto-size,
+.dashboard-grid-item.is-fixed-height .dashboard-grid-content-measure,
 .dashboard-grid-item.is-manual-height .dashboard-grid-auto-size,
 .dashboard-grid-item.is-manual-height .dashboard-grid-content-measure,
 .dashboard-grid.is-editing .dashboard-grid-auto-size,
@@ -1279,34 +1300,6 @@ onBeforeUnmount(() => {
 
 .dashboard-grid.is-editing :deep(.v-card) {
   block-size: 100%;
-}
-
-.dashboard-grid :deep(.dashboard-chart-card),
-.dashboard-grid :deep(.dashboard-summary-card),
-.dashboard-grid :deep(.dashboard-work-card),
-.dashboard-grid :deep(.dashboard-media-card) {
-  display: flex;
-  flex-direction: column;
-  min-block-size: 0;
-}
-
-.dashboard-grid :deep(.dashboard-chart-card .v-card-text),
-.dashboard-grid :deep(.dashboard-work-card .v-card-text),
-.dashboard-grid :deep(.dashboard-card-grid-wrap) {
-  flex: 1 1 auto;
-  min-block-size: 0;
-}
-
-.dashboard-grid:not(.is-editing) .dashboard-grid-item:not(.is-manual-height) :deep(.dashboard-summary-card) {
-  min-block-size: 160px;
-}
-
-.dashboard-grid:not(.is-editing) .dashboard-grid-item:not(.is-manual-height) :deep(.dashboard-chart-card) {
-  min-block-size: 256px;
-}
-
-.dashboard-grid:not(.is-editing) .dashboard-grid-item:not(.is-manual-height) :deep(.dashboard-work-card) {
-  min-block-size: 352px;
 }
 
 .dashboard-grid.is-editing :deep(.v-card-text),

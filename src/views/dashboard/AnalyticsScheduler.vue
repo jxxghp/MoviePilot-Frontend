@@ -83,6 +83,13 @@ useDataRefresh(
 </template>
 
 <style lang="scss" scoped>
+.dashboard-work-card {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
 .card-list {
   --v-card-list-gap: 1.5rem;
 
@@ -96,6 +103,7 @@ useDataRefresh(
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
+  overflow: hidden;
 }
 
 .card-list::-webkit-scrollbar {
