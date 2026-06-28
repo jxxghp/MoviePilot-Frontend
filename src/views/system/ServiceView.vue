@@ -5,20 +5,7 @@ import type { ScheduleInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
-
-// 移动端任务卡片视觉配置。
-type SchedulerMobileVisual = {
-  color: string
-  icon: string
-  rgb: string
-}
-
-// 已知定时服务的移动端视觉配置。
-type SchedulerMobileVisualRule = SchedulerMobileVisual & {
-  ids?: string[]
-  names?: string[]
-  providers?: string[]
-}
+import { getSchedulerVisual } from '@/utils/schedulerVisual'
 
 // 国际化
 const { t } = useI18n()
@@ -33,38 +20,6 @@ const { getScheduleProgressText, getScheduleProgressValue } = useScheduleProgres
   schedulerList,
   'scheduler-service-progress',
 )
-
-// 移动端任务图标按后端 job id 优先匹配，避免列表顺序变化导致图标看起来随机。
-const schedulerMobileVisualRules: SchedulerMobileVisualRule[] = [
-  { ids: ['cookiecloud'], names: ['CookieCloud'], icon: 'mdi-cloud-sync-outline', color: '#3f8cff', rgb: '63, 140, 255' },
-  { ids: ['mediaserver_sync'], names: ['媒体服务器'], icon: 'mdi-television-play', color: '#42c336', rgb: '66, 195, 54' },
-  { ids: ['new_subscribe_search', 'subscribe_search'], names: ['订阅搜索', '新增订阅搜索'], icon: 'mdi-magnify', color: '#e91e63', rgb: '233, 30, 99' },
-  { ids: ['subscribe_tmdb'], names: ['订阅元数据'], icon: 'mdi-database-search-outline', color: '#9b6cf3', rgb: '155, 108, 243' },
-  { ids: ['subscribe_refresh'], names: ['订阅刷新'], icon: 'mdi-refresh', color: '#25b6c8', rgb: '37, 182, 200' },
-  { ids: ['subscribe_follow'], names: ['订阅分享'], icon: 'mdi-share-variant-outline', color: '#ff704d', rgb: '255, 112, 77' },
-  { ids: ['transfer'], names: ['下载文件整理', '文件整理'], icon: 'mdi-folder-move-outline', color: '#3f8cff', rgb: '63, 140, 255' },
-  { ids: ['random_wallpager'], names: ['壁纸'], icon: 'mdi-image-outline', color: '#9b6cf3', rgb: '155, 108, 243' },
-  { ids: ['scheduler_job'], names: ['公共定时服务'], icon: 'mdi-clock-outline', color: '#42c336', rgb: '66, 195, 54' },
-  { ids: ['clear_cache'], names: ['缓存清理'], icon: 'mdi-delete-sweep-outline', color: '#ffad1f', rgb: '255, 173, 31' },
-  { ids: ['data_cleanup'], names: ['数据表清理'], icon: 'mdi-database-remove-outline', color: '#ff704d', rgb: '255, 112, 77' },
-  { ids: ['user_auth'], names: ['用户认证'], icon: 'mdi-account-check-outline', color: '#9b6cf3', rgb: '155, 108, 243' },
-  { ids: ['sitedata_refresh'], names: ['站点数据'], icon: 'mdi-web-refresh', color: '#25b6c8', rgb: '37, 182, 200' },
-  { ids: ['recommend_refresh'], names: ['推荐缓存'], icon: 'mdi-star-outline', color: '#ffad1f', rgb: '255, 173, 31' },
-  { ids: ['plugin_market_refresh'], names: ['插件市场'], icon: 'mdi-puzzle-outline', color: '#ff704d', rgb: '255, 112, 77' },
-  { ids: ['subscribe_calendar_cache'], names: ['订阅日历'], icon: 'mdi-calendar-refresh-outline', color: '#3f8cff', rgb: '63, 140, 255' },
-  { ids: ['full_gc'], names: ['内存回收'], icon: 'mdi-memory', color: '#25b6c8', rgb: '37, 182, 200' },
-  { ids: ['agent_heartbeat'], names: ['智能体'], icon: 'mdi-robot-outline', color: '#9b6cf3', rgb: '155, 108, 243' },
-  { ids: ['usage_report'], names: ['统计上报'], icon: 'mdi-chart-line', color: '#42c336', rgb: '66, 195, 54' },
-  { ids: ['workflow'], providers: ['工作流'], icon: 'mdi-source-branch', color: '#3f8cff', rgb: '63, 140, 255' },
-  { ids: ['plugin'], icon: 'mdi-puzzle-outline', color: '#ff704d', rgb: '255, 112, 77' },
-]
-
-// 未知服务使用固定兜底视觉，避免用户误以为图标按列表顺序乱跳。
-const schedulerMobileFallbackVisual: SchedulerMobileVisual = {
-  icon: 'mdi-timer-cog-outline',
-  color: '#25b6c8',
-  rgb: '37, 182, 200',
-}
 
 /** 调用 API 加载定时服务列表。 */
 async function loadSchedulerList() {
@@ -103,29 +58,6 @@ function getSchedulerStatusVariant(status: string) {
     default:
       return 'default'
   }
-}
-
-/** 判断规则列表是否命中指定文本。 */
-function hasSchedulerRuleMatch(values: string[] | undefined, target: string) {
-  if (!values?.length) return false
-
-  return values.some(value => target.includes(value.toLocaleLowerCase()))
-}
-
-/** 使用后端 job id、服务名和提供者为移动端任务卡片选择图标和主题色。 */
-function getMobileSchedulerVisual(scheduler: ScheduleInfo): SchedulerMobileVisual {
-  const schedulerId = (scheduler.id || '').toLocaleLowerCase()
-  const schedulerName = (scheduler.name || '').toLocaleLowerCase()
-  const schedulerProvider = (scheduler.provider || '').toLocaleLowerCase()
-  const matchedRule = schedulerMobileVisualRules.find(rule => {
-    const matchedId = hasSchedulerRuleMatch(rule.ids, schedulerId)
-    const matchedName = hasSchedulerRuleMatch(rule.names, schedulerName)
-    const matchedProvider = hasSchedulerRuleMatch(rule.providers, schedulerProvider)
-
-    return matchedId || matchedName || matchedProvider
-  })
-
-  return matchedRule ?? schedulerMobileFallbackVisual
 }
 
 /** 将后端返回的紧凑时间差转换为更适合移动端展示的文本。 */
@@ -177,7 +109,7 @@ const mobileSchedulerCards = computed(() =>
       scheduler,
       statusText: getMobileSchedulerStatusText(scheduler),
       statusVariant: getSchedulerStatusVariant(scheduler.status),
-      visual: getMobileSchedulerVisual(scheduler),
+      visual: getSchedulerVisual(scheduler),
     }
   }),
 )

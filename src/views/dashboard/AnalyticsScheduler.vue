@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
 import { SCHEDULER_SHORTCUT_ICON } from '@/composables/useShortcutTools'
 import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
+import { getSchedulerVisual } from '@/utils/schedulerVisual'
 
 // 国际化
 const { t } = useI18n()
@@ -43,14 +44,15 @@ const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
   const waitingSchedulers = schedulerList.value.filter(item => !isScheduleRunning(item))
   const schedulerTasks = [...runningSchedulers, ...waitingSchedulers].map(item => {
     const isRunning = isScheduleRunning(item)
+    const visual = getSchedulerVisual(item)
 
     return {
       id: `schedule-${item.id}`,
       title: item.name || t('dashboard.scheduler'),
       subtitle: (isRunning && getScheduleProgressText(item)) || item.provider || item.next_run || '',
       status: item.status || t('dashboard.taskWaiting'),
-      icon: isRunning ? 'mdi-progress-clock' : 'mdi-clock-outline',
-      color: isRunning ? 'primary' : 'info',
+      icon: visual.icon,
+      color: visual.color,
       progress: isRunning ? getScheduleProgressValue(item) : undefined,
     }
   })

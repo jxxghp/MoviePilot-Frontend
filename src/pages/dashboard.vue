@@ -217,8 +217,8 @@ const dashboardConfigs = ref<DashboardItem[]>([
     name: t('dashboard.network'),
     key: '',
     attrs: {},
-    cols: { cols: 12, md: 6 },
-    rows: 17,
+    cols: { cols: 12, sm: 3, md: 4 },
+    rows: DASHBOARD_RESOURCE_CHART_ROWS,
     elements: [],
   },
   {

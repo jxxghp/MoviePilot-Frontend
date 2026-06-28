@@ -34,11 +34,11 @@ const variableTheme = controlledComputed(
 // 时间序列 - 上行和下行流量
 const series = ref([
   {
-    name: '上行流量',
+    name: t('dashboard.upload'),
     data: [0],
   },
   {
-    name: '下行流量',
+    name: t('dashboard.download'),
     data: [0],
   },
 ])
@@ -57,14 +57,27 @@ const animatedCurrentDownloadText = computed(
   () => `${formatDashboardFileSize(animatedCurrentDownload.value, 2, currentDownload.value)}/s`,
 )
 
+// 根据最近上、下行峰值自动选择图表刻度，低流量时仍保留可读的区域高度。
+const networkChartMax = computed(() => {
+  const peak = Math.max(...series.value.flatMap(item => item.data), currentUpload.value, currentDownload.value)
+  if (peak <= 0) return 1024
+
+  const unit = 1024 ** Math.max(0, Math.floor(Math.log(peak) / Math.log(1024)))
+
+  return Math.max(unit, Math.ceil(peak / unit) * unit)
+})
+
 const chartOptions = controlledComputed(
-  () => vuetifyTheme.name.value,
+  () => `${vuetifyTheme.name.value}:${networkChartMax.value}`,
   () => {
+    const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
+
     return {
       chart: {
         parentHeightOffset: 0,
         toolbar: { show: false },
         animations: { enabled: false },
+        foreColor: axisLabelColor,
       },
       tooltip: {
         enabled: false,
@@ -82,7 +95,7 @@ const chartOptions = controlledComputed(
         },
         padding: {
           top: -10,
-          left: -7,
+          left: 8,
           right: 5,
           bottom: 5,
         },
@@ -93,10 +106,13 @@ const chartOptions = controlledComputed(
         curve: 'smooth',
       },
       colors: [currentTheme.value.warning, currentTheme.value.info],
+      fill: {
+        opacity: [0.2, 0.12],
+      },
       markers: {
         size: 6,
         offsetY: 4,
-        offsetX: -2,
+        offsetX: 4,
         strokeWidth: 3,
         colors: ['transparent'],
         strokeColors: 'transparent',
@@ -116,20 +132,31 @@ const chartOptions = controlledComputed(
         ],
         hover: { size: 7 },
       },
+      dataLabels: {
+        enabled: false,
+      },
       xaxis: {
         labels: { show: false },
         axisTicks: { show: false },
         axisBorder: { show: false },
       },
       yaxis: {
-        labels: { show: false },
+        labels: {
+          show: true,
+          minWidth: 52,
+          formatter: (value: number) =>
+            `${formatDashboardFileSize(value, value >= 1024 ** 2 ? 1 : 0, networkChartMax.value)}/s`,
+          style: {
+            colors: axisLabelColor,
+            fontSize: '10px',
+          },
+        },
+        tickAmount: 2,
+        max: networkChartMax.value,
+        min: 0,
       },
       legend: {
-        show: true,
-        position: 'top',
-        horizontalAlign: 'left',
-        fontSize: '12px',
-        fontFamily: 'inherit',
+        show: false,
       },
     }
   },
@@ -175,21 +202,16 @@ useKeepAliveRefresh(refresh)
 <template>
   <VCard class="dashboard-chart-card dashboard-grid-fill">
     <VCardItem>
+      <template #prepend><VIcon icon="mdi-swap-vertical-bold" size="20" class="me-2" /></template>
       <VCardTitle>{{ t('dashboard.network') }}</VCardTitle>
     </VCardItem>
     <VCardText class="dashboard-chart-content">
       <div class="dashboard-chart-plot">
-        <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
+        <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
-      <div class="d-flex justify-space-between">
-        <p class="dashboard-chart-value text-center font-weight-medium mb-0">
-          <span class="text-warning">{{ t('dashboard.upload') }}</span
-          >：{{ animatedCurrentUploadText }}
-        </p>
-        <p class="dashboard-chart-value text-center font-weight-medium mb-0">
-          <span class="text-info">{{ t('dashboard.download') }}</span
-          >：{{ animatedCurrentDownloadText }}
-        </p>
+      <div class="dashboard-chart-footer">
+        <span><i class="network-dot network-dot--upload" />{{ t('dashboard.upload') }} {{ animatedCurrentUploadText }}</span>
+        <span><i class="network-dot network-dot--download" />{{ t('dashboard.download') }} {{ animatedCurrentDownloadText }}</span>
       </div>
     </VCardText>
   </VCard>
@@ -200,7 +222,7 @@ useKeepAliveRefresh(refresh)
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  min-block-size: 0;
+  min-block-size: 270px;
 }
 
 .dashboard-chart-content {
@@ -213,11 +235,34 @@ useKeepAliveRefresh(refresh)
 
 .dashboard-chart-plot {
   flex: 1 1 auto;
-  min-block-size: 0;
+  min-block-size: 120px;
 }
 
-.dashboard-chart-value {
+.dashboard-chart-footer {
+  display: flex;
+  justify-content: space-between;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.68rem;
+  gap: 0.6rem;
   font-variant-numeric: tabular-nums;
+  padding-block-start: 0.55rem;
+}
+
+.network-dot {
+  display: inline-block;
+  border-radius: 50%;
+  block-size: 6px;
+  inline-size: 6px;
+  margin-inline-end: 0.3rem;
+}
+
+.network-dot--upload {
+  background: rgb(var(--v-theme-warning));
+}
+
+.network-dot--download {
+  background: rgb(var(--v-theme-info));
 }
 
 </style>
