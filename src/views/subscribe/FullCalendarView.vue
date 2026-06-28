@@ -642,7 +642,7 @@ async function eventsHander(subscribe: Subscribe) {
 
 // 调用API查询所有订阅
 async function getSubscribes() {
-  if (!isLoaded.value) openProgressDialog()
+  if (!isLoaded.value && display.mdAndUp.value) openProgressDialog()
   try {
     // 订阅
     loading.value = true
@@ -767,7 +767,10 @@ onActivated(() => {
   </FullCalendar>
 
   <div v-else class="mobile-subscribe-calendar">
-    <section class="mobile-calendar-filter-card">
+    <LoadingBanner v-if="!isLoaded" class="mt-12" />
+
+    <template v-else>
+      <section class="mobile-calendar-filter-card">
       <div class="mobile-calendar-filter-head">
         <div class="mobile-calendar-filter-copy">
           <h2>{{ t('calendar.mobileFilterTitle') }}</h2>
@@ -799,9 +802,9 @@ onActivated(() => {
           {{ option.label }}
         </button>
       </div>
-    </section>
+      </section>
 
-    <div v-if="mobileCalendarDayGroups.length" class="mobile-calendar-timeline">
+      <div v-if="mobileCalendarDayGroups.length" class="mobile-calendar-timeline">
       <section v-for="group in mobileCalendarDayGroups" :key="group.dateKey" class="mobile-calendar-day">
         <div class="mobile-calendar-day-marker">
           <span class="mobile-calendar-day-dot" :class="{ 'mobile-calendar-day-dot--today': isDateToday(group.date) }" />
@@ -887,13 +890,14 @@ onActivated(() => {
           </div>
         </div>
       </section>
-    </div>
+      </div>
 
-    <div v-else class="mobile-calendar-empty">
+      <div v-else class="mobile-calendar-empty">
       <VIcon icon="mdi-calendar-blank-outline" size="44" />
       <h2>{{ t('common.noData') }}</h2>
       <p>{{ t('calendar.noMatchingEvents') }}</p>
-    </div>
+      </div>
+    </template>
   </div>
 </template>
 
