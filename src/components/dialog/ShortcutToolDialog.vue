@@ -73,7 +73,6 @@ const bodyClasses = computed(() => [
           <VIcon :icon="props.icon" class="me-2" />
           {{ props.title }}
         </VCardTitle>
-        <VCardSubtitle v-if="props.subtitle">{{ props.subtitle }}</VCardSubtitle>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
       <VDivider />

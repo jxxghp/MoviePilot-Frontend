@@ -287,6 +287,20 @@ function getMediaTypeColor(type: string): string {
   }
 }
 
+/** 获取移动端类型角标使用的 MediaCard 同款颜色类。 */
+function getMobileMediaTypeChipClass(type: string): string {
+  switch (type) {
+    case 'movie':
+    case t('setting.cache.mediaType.movie'):
+      return 'border-blue-500 bg-blue-600'
+    case 'tv':
+    case t('setting.cache.mediaType.tv'):
+      return 'bg-indigo-500 border-indigo-600'
+    default:
+      return 'border-purple-600 bg-purple-600'
+  }
+}
+
 /** 生成移动端缓存卡片的稳定渲染键。 */
 function getMobileCacheItemKey(item: TorrentCacheItem, index: number): string {
   return item.hash || [item.domain, item.title, index].join('-')
@@ -401,6 +415,21 @@ watch([titleFilter, siteFilter], () => {
         <template #default="{ item, index, itemRef }">
           <article :ref="itemRef" :key="getMobileCacheItemKey(item, index)" class="cache-mobile-card">
             <div class="cache-mobile-card__poster">
+              <VChip
+                v-if="item.media_type"
+                variant="elevated"
+                size="small"
+                :class="getMobileMediaTypeChipClass(item.media_type)"
+                class="cache-mobile-card__type bg-opacity-80 text-white font-bold"
+              >
+                {{
+                  item.media_type === 'movie'
+                    ? t('setting.cache.mediaType.movie')
+                    : item.media_type === 'tv'
+                      ? t('setting.cache.mediaType.tv')
+                      : item.media_type
+                }}
+              </VChip>
               <VImg
                 v-if="item.poster_path"
                 :src="item.poster_path"
@@ -423,18 +452,6 @@ watch([titleFilter, siteFilter], () => {
               <div class="cache-mobile-card__main">
                 {{ getMobileMediaTitle(item) }}
                 <span v-if="getMobileMediaMeta(item)">{{ getMobileMediaMeta(item) }}</span>
-              </div>
-
-              <div class="cache-mobile-card__chips">
-                <VChip v-if="item.media_type" :color="getMediaTypeColor(item.media_type)" size="x-small" variant="tonal">
-                  {{
-                    item.media_type === 'movie'
-                      ? t('setting.cache.mediaType.movie')
-                      : item.media_type === 'tv'
-                        ? t('setting.cache.mediaType.tv')
-                        : item.media_type
-                  }}
-                </VChip>
               </div>
 
               <div class="cache-mobile-card__meta">
@@ -714,7 +731,7 @@ watch([titleFilter, siteFilter], () => {
   block-size: 100%;
   inline-size: 100%;
   min-block-size: 0;
-  padding: calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
+  padding: calc(8px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
   background: var(--cache-mobile-page-bg);
   gap: 16px;
 }
@@ -820,12 +837,13 @@ watch([titleFilter, siteFilter], () => {
   background: var(--cache-mobile-surface-bg);
   box-shadow: 0 10px 30px rgba(var(--v-theme-on-surface), 0.07);
   gap: 14px;
-  grid-template-columns: 72px minmax(0, 1fr) 32px;
+  grid-template-columns: 72px minmax(0, 1fr);
   margin-block-end: 12px;
   padding: 14px;
 }
 
 .cache-mobile-card__poster {
+  position: relative;
   display: flex;
   overflow: hidden;
   align-items: center;
@@ -835,6 +853,14 @@ watch([titleFilter, siteFilter], () => {
   block-size: 104px;
   color: rgba(var(--v-theme-on-surface), 0.34);
   inline-size: 72px;
+}
+
+.cache-mobile-card__type {
+  position: absolute;
+  z-index: 1;
+  inset-block-end: 5px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
 }
 
 .cache-mobile-card__content {
@@ -847,6 +873,7 @@ watch([titleFilter, siteFilter], () => {
   font-weight: 700;
   line-height: 1.35;
   overflow-wrap: anywhere;
+  padding-inline-end: 34px;
   white-space: normal;
   word-break: break-word;
 }
@@ -854,8 +881,8 @@ watch([titleFilter, siteFilter], () => {
 .cache-mobile-card__main {
   margin-block-start: 6px;
   color: rgba(var(--v-theme-on-surface), 0.88);
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.32;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -865,25 +892,14 @@ watch([titleFilter, siteFilter], () => {
 .cache-mobile-card__main span {
   margin-inline-start: 6px;
   color: rgba(var(--v-theme-on-surface), 0.58);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.cache-mobile-card__chips {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-block-start: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 14px;
-  font-weight: 600;
-  gap: 8px;
+  font-weight: 500;
 }
 
 .cache-mobile-card__meta {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
   margin-block-start: 8px;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 14px;
@@ -898,17 +914,18 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-card__meta strong {
-  flex: 0 0 auto;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 14px;
   font-weight: 700;
+  text-align: end;
   white-space: nowrap;
 }
 
 .cache-mobile-card__menu {
-  align-self: center;
+  position: absolute;
   color: rgba(var(--v-theme-on-surface), 0.5);
-  justify-self: end;
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
 }
 
 .cache-mobile-load-state,
@@ -960,7 +977,7 @@ html[data-theme='transparent'] .cache-mobile-page,
   }
 
   .cache-mobile-card {
-    grid-template-columns: 64px minmax(0, 1fr) 28px;
+    grid-template-columns: 64px minmax(0, 1fr);
     padding: 12px;
   }
 

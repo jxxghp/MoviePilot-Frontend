@@ -4,7 +4,6 @@ import api from '@/api'
 import type { ScheduleInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
-import { useTheme } from 'vuetify'
 
 // 移动端任务卡片视觉配置。
 type SchedulerMobileVisual = {
@@ -23,17 +22,12 @@ type SchedulerMobileVisualRule = SchedulerMobileVisual & {
 // 国际化
 const { t } = useI18n()
 const { useDataRefresh } = useBackground()
-const theme = useTheme()
 
 // 提示框
 const $toast = useToast()
 
 // 定时服务列表
 const schedulerList = ref<ScheduleInfo[]>([])
-
-// 当前是否为透明主题，用于限制透明适配只作用于本组件内部节点。
-const isTransparentTheme = computed(() => theme.name.value === 'transparent')
-const isDarkTheme = computed(() => theme.current.value.dark && !isTransparentTheme.value)
 
 // 移动端任务图标按后端 job id 优先匹配，避免列表顺序变化导致图标看起来随机。
 const schedulerMobileVisualRules: SchedulerMobileVisualRule[] = [
@@ -229,32 +223,18 @@ const { loading: schedulerLoading } = useDataRefresh(
       </tbody>
     </VTable>
 
-    <div
-      v-else-if="!schedulerLoading"
-      class="desktop-scheduler-empty"
-      :class="{ 'scheduler-empty--transparent': isTransparentTheme }"
-    >
+    <div v-else-if="!schedulerLoading" class="desktop-scheduler-empty">
       <VIcon icon="mdi-timer-off-outline" size="48" />
       <p>{{ t('setting.scheduler.noService') }}</p>
     </div>
 
-    <div
-      v-else
-      class="desktop-scheduler-empty"
-      :class="{ 'scheduler-empty--transparent': isTransparentTheme }"
-    >
+    <div v-else class="desktop-scheduler-empty">
       <VProgressCircular indeterminate color="primary" size="22" width="2" />
       <p>{{ t('common.loadingText') }}</p>
     </div>
   </VCard>
 
-  <div
-    class="mobile-scheduler-view d-md-none"
-    :class="{
-      'mobile-scheduler-view--dark': isDarkTheme,
-      'mobile-scheduler-view--transparent': isTransparentTheme,
-    }"
-  >
+  <div class="mobile-scheduler-view d-md-none">
     <div v-if="mobileSchedulerCards.length" class="mobile-scheduler-list">
       <article
         v-for="{ scheduler, visual, statusText, statusVariant } in mobileSchedulerCards"
@@ -291,11 +271,7 @@ const { loading: schedulerLoading } = useDataRefresh(
       </article>
     </div>
 
-    <div
-      v-else-if="!schedulerLoading"
-      class="mobile-scheduler-empty"
-      :class="{ 'scheduler-empty--transparent': isTransparentTheme }"
-    >
+    <div v-else-if="!schedulerLoading" class="mobile-scheduler-empty">
       <VIcon icon="mdi-timer-off-outline" size="44" />
       <p>{{ t('setting.scheduler.noService') }}</p>
     </div>
@@ -325,18 +301,10 @@ const { loading: schedulerLoading } = useDataRefresh(
   font-size: 15px;
 }
 
-.scheduler-empty--transparent {
-  background: transparent;
-}
-
 .mobile-scheduler-view {
-  --scheduler-mobile-card-bg: rgba(var(--v-theme-surface), 0.94);
-  --scheduler-mobile-card-shadow: none;
-  --scheduler-mobile-view-bg: transparent;
-
   min-block-size: 100%;
   padding: 12px 18px calc(22px + env(safe-area-inset-bottom));
-  background: var(--scheduler-mobile-view-bg);
+  background: transparent;
 }
 
 .mobile-scheduler-list {
@@ -351,8 +319,9 @@ const { loading: schedulerLoading } = useDataRefresh(
   padding: 18px;
   border: 0;
   border-radius: var(--app-surface-radius);
-  background: var(--scheduler-mobile-card-bg);
-  box-shadow: var(--scheduler-mobile-card-shadow);
+  background: rgb(var(--v-theme-surface));
+  backdrop-filter: none;
+  box-shadow: none;
   column-gap: 14px;
   grid-template-columns: 62px minmax(0, 1fr) auto;
 }
@@ -405,11 +374,11 @@ const { loading: schedulerLoading } = useDataRefresh(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 14px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: rgba(var(--v-theme-on-surface), 0.06);
   color: rgba(var(--v-theme-on-surface), 0.62);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -475,19 +444,10 @@ const { loading: schedulerLoading } = useDataRefresh(
   gap: 10px;
 }
 
-.mobile-scheduler-view--transparent {
-  --scheduler-mobile-card-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-  --scheduler-mobile-card-shadow: none;
-  --scheduler-mobile-view-bg: transparent;
-}
-
-.mobile-scheduler-view--transparent .mobile-scheduler-card {
+html[data-theme='transparent'] .mobile-scheduler-card,
+.v-theme--transparent .mobile-scheduler-card {
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
   backdrop-filter: blur(var(--transparent-blur, 10px));
-  box-shadow: none;
-}
-
-.mobile-scheduler-view--dark {
-  --scheduler-mobile-card-bg: rgba(var(--v-theme-surface), 0.82);
 }
 
 @media (max-width: 480px) {
@@ -519,8 +479,8 @@ const { loading: schedulerLoading } = useDataRefresh(
   }
 
   .mobile-scheduler-status {
-    padding: 6px 11px;
-    font-size: 13px;
+    padding: 5px 9px;
+    font-size: 12px;
   }
 
   .mobile-scheduler-run-btn {
