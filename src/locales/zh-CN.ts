@@ -1228,7 +1228,7 @@ export default {
     today: '今天',
     todayUpdated: '今天更新',
     upcoming: '即将播出',
-    expired: '已过期',
+    expired: '已播出',
     episodeCount: '{count} 集',
     mobileEpisodeTitle: '第 {number} 集',
     runtimeMinutes: '{minutes} 分钟',

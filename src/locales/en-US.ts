@@ -1233,7 +1233,7 @@ export default {
     today: 'Today',
     todayUpdated: 'Updated today',
     upcoming: 'Upcoming',
-    expired: 'Expired',
+    expired: 'Aired',
     episodeCount: '{count} episodes',
     mobileEpisodeTitle: 'Episode {number}',
     runtimeMinutes: '{minutes} min',
