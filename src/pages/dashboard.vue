@@ -130,18 +130,6 @@ const enableConfig = ref<{ [key: string]: boolean }>({
   latest: true,
 })
 
-// 仅声明了默认行高的内置仪表盘组件使用固定 grid 高度，插件和空媒体组件继续按内容自适应。
-const fixedHeightDashboardIds = new Set([
-  'storage',
-  'mediaStatistic',
-  'weeklyOverview',
-  'speed',
-  'scheduler',
-  'cpu',
-  'memory',
-  'network',
-])
-
 // 仪表板顺序配置
 const orderConfig = ref<{ id: string; key: string }[]>([])
 
@@ -313,6 +301,7 @@ function scheduleDashboardReveal() {
       return
     }
 
+    syncDashboardFillContentState()
     resizeAutoDashboardItemsToContent()
 
     if (typeof window === 'undefined') {
@@ -332,6 +321,7 @@ function markDashboardGridItemLoaded(id: string) {
 
   loadedDashboardGridItemIds.value = new Set([...loadedDashboardGridItemIds.value, id])
   scheduleDashboardReveal()
+  void nextTick(syncDashboardFillContentState)
 }
 
 // 将未知数值限制到 GridStack 可接受的整数区间。
@@ -604,6 +594,11 @@ function exitDashboardLayoutEditing() {
   }
 
   isLayoutEditing.value = false
+  nextTick(() => {
+    syncDashboardFillContentState()
+    resizeAutoDashboardItemsToContent()
+    notifyDashboardContentResize()
+  })
 }
 
 // 清除用户本地布局覆盖，并恢复内置组件和插件声明的默认占位，然后退出编辑模式。
@@ -615,6 +610,11 @@ async function resetDashboardGridLayout() {
   await syncDashboardGrid()
   if (isLayoutEditing.value) {
     exitDashboardLayoutEditing()
+  } else {
+    await nextTick()
+    syncDashboardFillContentState()
+    resizeAutoDashboardItemsToContent()
+    notifyDashboardContentResize()
   }
 }
 
@@ -768,6 +768,7 @@ async function getPluginDashboardMeta() {
   }
 }
 
+// 清理指定插件仪表板的定时刷新任务。
 function clearPluginDashboardTimer(pluginDashboardId: string) {
   if (!refreshTimers.value[pluginDashboardId]) return
 
@@ -775,6 +776,7 @@ function clearPluginDashboardTimer(pluginDashboardId: string) {
   delete refreshTimers.value[pluginDashboardId]
 }
 
+// 根据插件刷新配置安排下一次仪表板数据刷新。
 function schedulePluginDashboardRefresh(item: DashboardItem) {
   const pluginDashboardId = buildPluginDashboardId(item.id, item.key)
   clearPluginDashboardTimer(pluginDashboardId)
@@ -791,6 +793,7 @@ function schedulePluginDashboardRefresh(item: DashboardItem) {
   }
 }
 
+// 重新拉取当前启用的插件仪表板数据。
 function refreshEnabledPluginDashboards() {
   if (isNullOrEmptyObject(pluginDashboardMeta.value)) return
 
@@ -895,6 +898,7 @@ async function syncDashboardGrid() {
 
   isSyncingDashboardGrid.value = true
   await nextTick()
+  syncDashboardFillContentState()
 
   const items = dashboardGridItems.value
   const itemMap = new Map(items.map(item => [item.id, item]))
@@ -937,8 +941,10 @@ async function syncDashboardGrid() {
 
     grid.batchUpdate(false)
     updateDashboardGridEditableState(isLayoutEditing.value)
+    syncDashboardFillContentState()
     observeDashboardGridContent()
     nextTick(() => {
+      syncDashboardFillContentState()
       resizeAutoDashboardItemsToContent()
       scheduleDashboardReveal()
     })
@@ -952,11 +958,24 @@ function hasManualDashboardGridHeight(id: string) {
   return dashboardGridLayout.value[id]?.h !== undefined
 }
 
+// 根据子组件声明的填充标记，同步 GridStack 外层测高节点的填充状态。
+function syncDashboardFillContentState(element?: GridItemHTMLElement) {
+  const gridElement = dashboardGridRef.value
+  const itemElements = element
+    ? [element]
+    : Array.from(gridElement?.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item') ?? [])
+
+  itemElements.forEach(itemElement => {
+    itemElement.classList.toggle('has-fill-content', Boolean(itemElement.querySelector('.dashboard-grid-fill')))
+  })
+}
+
 // 监听仪表板组件内容尺寸变化，让未手动调高的组件按内容高度自适应。
 function observeDashboardGridContent() {
   const gridElement = dashboardGridRef.value
   if (!gridElement || typeof ResizeObserver === 'undefined') return
 
+  syncDashboardFillContentState()
   dashboardGridContentObserver?.disconnect()
   dashboardGridPendingContentResize.clear()
   dashboardGridObservedContentHeights.clear()
@@ -1005,7 +1024,19 @@ function resizeDashboardItemToContent(element: GridItemHTMLElement) {
   const id = element.getAttribute('gs-id') ?? ''
   if (!grid || !id || isLayoutEditing.value || isDashboardGridResizing.value || hasManualDashboardGridHeight(id)) return
 
-  grid.resizeToContent(element)
+  syncDashboardFillContentState(element)
+  const shouldMeasureFillContent = element.classList.contains('has-fill-content')
+  if (shouldMeasureFillContent) {
+    element.classList.add('is-measuring-content')
+  }
+
+  try {
+    grid.resizeToContent(element)
+  } finally {
+    if (shouldMeasureFillContent) {
+      element.classList.remove('is-measuring-content')
+    }
+  }
 }
 
 // 将所有未手动固定高度的组件高度调整到内容实际高度。
@@ -1013,6 +1044,7 @@ function resizeAutoDashboardItemsToContent() {
   const gridElement = dashboardGridRef.value
   if (!gridElement) return
 
+  syncDashboardFillContentState()
   gridElement.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item').forEach(element => {
     resizeDashboardItemToContent(element)
   })
@@ -1200,10 +1232,7 @@ onBeforeUnmount(() => {
       v-for="gridItem in dashboardGridItems"
       :key="gridItem.id"
       class="grid-stack-item dashboard-grid-item"
-      :class="{
-        'is-manual-height': hasManualDashboardGridHeight(gridItem.id),
-        'is-fixed-height': fixedHeightDashboardIds.has(gridItem.config.id) && !gridItem.config.key,
-      }"
+      :class="{ 'is-manual-height': hasManualDashboardGridHeight(gridItem.id) }"
       :gs-id="gridItem.id"
       :gs-x="gridItem.widget.x"
       :gs-y="gridItem.widget.y"
@@ -1289,13 +1318,22 @@ onBeforeUnmount(() => {
   inline-size: 100%;
 }
 
-.dashboard-grid-item.is-fixed-height .dashboard-grid-auto-size,
-.dashboard-grid-item.is-fixed-height .dashboard-grid-content-measure,
 .dashboard-grid-item.is-manual-height .dashboard-grid-auto-size,
 .dashboard-grid-item.is-manual-height .dashboard-grid-content-measure,
 .dashboard-grid.is-editing .dashboard-grid-auto-size,
 .dashboard-grid.is-editing .dashboard-grid-content-measure {
   block-size: 100%;
+}
+
+.dashboard-grid-item.has-fill-content .dashboard-grid-auto-size,
+.dashboard-grid-item.has-fill-content .dashboard-grid-content-measure {
+  block-size: 100%;
+  min-block-size: 100%;
+}
+
+.dashboard-grid-item.has-fill-content.is-measuring-content .dashboard-grid-auto-size,
+.dashboard-grid-item.has-fill-content.is-measuring-content .dashboard-grid-content-measure {
+  block-size: auto;
 }
 
 .dashboard-grid.is-editing :deep(.v-card) {

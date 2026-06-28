@@ -61,7 +61,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <VCard v-if="libraryList.length > 0" class="dashboard-media-card">
+  <VCard v-if="libraryList.length > 0" class="dashboard-media-card dashboard-grid-fill">
     <VCardItem>
       <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
     </VCardItem>

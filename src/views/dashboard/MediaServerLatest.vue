@@ -56,7 +56,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <div class="dashboard-media-stack">
+  <div class="dashboard-media-stack" :class="{ 'dashboard-grid-fill': Object.keys(latestList).length > 0 }">
     <VCard v-for="(data, name) in latestList" :key="name" class="dashboard-work-card dashboard-media-card">
       <VCardItem>
         <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>

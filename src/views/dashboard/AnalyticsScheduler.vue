@@ -44,7 +44,7 @@ useDataRefresh(
 </script>
 
 <template>
-  <VCard class="dashboard-work-card">
+  <VCard class="dashboard-work-card dashboard-grid-fill">
     <VCardItem>
       <VCardTitle>{{ t('dashboard.scheduler') }}</VCardTitle>
     </VCardItem>

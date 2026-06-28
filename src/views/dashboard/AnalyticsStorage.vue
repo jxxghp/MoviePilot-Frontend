@@ -63,7 +63,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <VCard class="dashboard-summary-card">
+  <VCard class="dashboard-summary-card dashboard-grid-fill">
     <!-- Triangle Background -->
     <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
     <VCardItem>

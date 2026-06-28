@@ -144,7 +144,7 @@ useKeepAliveRefresh(refresh)
 </script>
 
 <template>
-  <VCard class="dashboard-chart-card">
+  <VCard class="dashboard-chart-card dashboard-grid-fill">
     <VCardItem>
       <VCardTitle>{{ t('dashboard.memory') }}</VCardTitle>
     </VCardItem>

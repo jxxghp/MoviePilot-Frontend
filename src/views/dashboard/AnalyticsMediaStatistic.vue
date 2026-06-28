@@ -82,7 +82,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <VCard class="dashboard-summary-card">
+  <VCard class="dashboard-summary-card dashboard-grid-fill">
     <VCardItem>
       <VCardTitle>{{ t('dashboard.mediaStatistic') }}</VCardTitle>
     </VCardItem>
