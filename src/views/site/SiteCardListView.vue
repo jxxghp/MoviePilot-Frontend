@@ -382,7 +382,7 @@ useDynamicButton({
 <template>
   <div class="card-list-container">
     <!-- 页面标题和筛选/排序按钮 -->
-    <div class="d-flex justify-space-between align-center mb-4">
+    <div class="d-flex justify-space-between align-center mb-3">
       <VPageContentTitle :title="t('navItems.siteManager')" class="my-0" style="margin-block: 0" />
       <!-- 右侧按钮组：保留筛选和排序，其他页面动作移到 FAB -->
       <div class="d-flex align-center gap-1">

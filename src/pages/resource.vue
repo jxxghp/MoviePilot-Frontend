@@ -1353,7 +1353,7 @@ onUnmounted(() => {
     </VFadeTransition>
 
     <!-- 结果抬头：保持和站点管理一致的页面标题结构，筛选控制交给下方工具条。 -->
-    <div v-if="showResultHeader" class="resource-page-header d-flex justify-space-between align-center mb-4">
+    <div v-if="showResultHeader" class="resource-page-header d-flex justify-space-between align-center mb-3">
       <div class="resource-page-header__copy">
         <VPageContentTitle
           :title="isSubtitleSearch ? t('resource.subtitleSearchResults') : t('resource.searchResults')"

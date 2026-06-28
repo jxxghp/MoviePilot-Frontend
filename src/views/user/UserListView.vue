@@ -91,7 +91,9 @@ useDynamicButton({
 
 <template>
   <!-- 页面标题 -->
-  <VPageContentTitle :title="t('user.management')" />
+  <div class="d-flex justify-space-between align-center mb-3">
+    <VPageContentTitle :title="t('user.management')" />
+  </div>
   <div class="card-list-container">
     <!-- 加载中提示 -->
     <LoadingBanner v-if="!isRefreshed" class="mt-12" />
@@ -127,6 +129,5 @@ useDynamicButton({
         />
       </div>
     </Teleport>
-
   </div>
 </template>

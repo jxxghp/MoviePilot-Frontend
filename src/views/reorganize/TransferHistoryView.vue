@@ -31,6 +31,8 @@ const globalSettingsStore = useGlobalSettingsStore()
 
 // APP
 const display = useDisplay()
+const isDesktop = computed(() => display.mdAndUp.value)
+const isMobile = computed(() => display.smAndDown.value)
 // PWA模式检测
 const { appMode } = usePWA()
 const { useProgressSSE } = useBackground()
@@ -49,6 +51,7 @@ const canManage = computed(() =>
 )
 let syncingRouteQuery = false
 let fetchDataRequestSeed = 0
+let mobileFetchDataRequestSeed = 0
 
 // 组合式输入法状态
 const isComposing = ref(false)
@@ -75,8 +78,10 @@ const redoTargetStorage = ref<string>()
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
 
+// 从季集字符串中提取可排序的数字。
 const getNum = (s?: string) => (s ? parseInt(s.replace(/[^0-9]/g, ''), 10) || 0 : 0)
 
+// 按媒体类型、标题和剧集序号排序历史记录。
 function sortByTitle(a: TransferHistory, b: TransferHistory) {
   if (a.type !== b.type) {
     return (a.type ?? '').localeCompare(b.type ?? '')
@@ -95,6 +100,7 @@ function sortByTitle(a: TransferHistory, b: TransferHistory) {
   return 0
 }
 
+// 按源文件体积排序历史记录。
 function sortBySourceSize(a: TransferHistory, b: TransferHistory) {
   return (a.src_fileitem?.size ?? 0) - (b.src_fileitem?.size ?? 0)
 }
@@ -193,6 +199,27 @@ const pageRangeValues = pageRange.map(item => item.value)
 
 // 数据列表
 const dataList = ref<TransferHistory[]>([])
+
+// 移动端历史记录列表，独立于桌面分页表格。
+const mobileDataList = ref<TransferHistory[]>([])
+
+// 移动端每次触底加载的记录数。
+const mobilePageSize = 25
+
+// 移动端触底加载页码。
+const mobileCurrentPage = ref(1)
+
+// 移动端是否还有下一页。
+const mobileHasMore = ref(true)
+
+// 移动端无限滚动组件重置键。
+const mobileInfiniteKey = ref(0)
+
+// 移动端加载状态。
+const mobileLoading = ref(false)
+
+// 移动端已展开完整路径的记录 ID。
+const mobileExpandedPathIds = ref<number[]>([])
 
 // 搜索
 const search = ref(getRouteQueryString(route.query.search))
@@ -363,9 +390,14 @@ const debouncedReloadSearchPage = debounce(() => {
   void reloadPage(true)
 }, 1000)
 
+// 延迟刷新移动端无限列表，输入完成后再从第一页重新加载。
+const debouncedReloadMobileSearchPage = debounce(() => {
+  resetMobileHistory()
+}, 600)
+
 // 切换页签
 watch([() => currentPage.value, () => itemsPerPage.value], () => {
-  if (syncingRouteQuery) return
+  if (syncingRouteQuery || !isDesktop.value) return
 
   debouncedReloadPage()
 })
@@ -374,6 +406,11 @@ watch([() => currentPage.value, () => itemsPerPage.value], () => {
 watch([() => search.value, () => isComposing.value], () => {
   if (syncingRouteQuery || isComposing.value) return
 
+  if (isMobile.value) {
+    debouncedReloadMobileSearchPage()
+    return
+  }
+
   debouncedReloadSearchPage()
 })
 
@@ -381,7 +418,7 @@ watch([() => search.value, () => isComposing.value], () => {
 watch(
   () => group.value,
   () => {
-    if (syncingRouteQuery) return
+    if (syncingRouteQuery || !isDesktop.value) return
 
     void reloadPage()
   },
@@ -391,10 +428,24 @@ watch(
 watch(
   () => route.query,
   () => {
-    void refreshDataFromRouteQuery()
+    if (isDesktop.value) {
+      void refreshDataFromRouteQuery()
+    } else {
+      syncMobileSearchFromRouteQuery()
+      resetMobileHistory()
+    }
   },
   { deep: true },
 )
+
+// 响应桌面与移动端断点切换，进入对应布局后刷新对应数据源。
+watch(isDesktop, desktop => {
+  if (desktop) {
+    void refreshDataFromRouteQuery()
+  } else {
+    resetMobileHistory()
+  }
+})
 
 // 获取历史记录数据，keep-alive 重新进入时可静默刷新，避免表格出现重新加载感。
 async function fetchData(page = currentPage.value, count = itemsPerPage.value, options: { silent?: boolean } = {}) {
@@ -419,9 +470,7 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     isRefreshed.value = true
     dataList.value = list
     totalItems.value = ensureNumber(result.data?.total, 0)
-    searchHintList.value = ['失败', '成功', ...new Set(list.map((item: TransferHistory) => item.title || ''))].filter(
-      (title): title is string => title !== '',
-    )
+    updateSearchHintList(list)
 
     return {
       list,
@@ -433,6 +482,98 @@ async function fetchData(page = currentPage.value, count = itemsPerPage.value, o
     // 静默刷新可能会接管前一个可见请求，也需要负责清掉遗留的表格加载态。
     if (requestSeed === fetchDataRequestSeed && (shouldShowLoading || loading.value)) {
       loading.value = false
+    }
+  }
+}
+
+// 更新搜索建议，移动端追加加载时会合并已加载记录的标题。
+function updateSearchHintList(list: TransferHistory[]) {
+  searchHintList.value = ['失败', '成功', ...new Set(list.map((item: TransferHistory) => item.title || ''))].filter(
+    (title): title is string => title !== '',
+  )
+}
+
+// 重置移动端无限列表，让 VInfiniteScroll 从第一页重新触发加载。
+function resetMobileHistory() {
+  mobileFetchDataRequestSeed++
+  mobileDataList.value = []
+  mobileCurrentPage.value = 1
+  mobileHasMore.value = true
+  mobileLoading.value = false
+  isRefreshed.value = false
+  totalItems.value = 0
+  mobileExpandedPathIds.value = []
+  selected.value = []
+  mobileInfiniteKey.value++
+}
+
+// 移动端只从路由同步搜索词，不接收桌面分页和分组状态。
+function syncMobileSearchFromRouteQuery() {
+  syncingRouteQuery = true
+  try {
+    search.value = getRouteQueryString(route.query.search)
+  } finally {
+    void nextTick(() => {
+      syncingRouteQuery = false
+    })
+  }
+}
+
+// 移动端触底加载历史记录，并将新页追加到虚拟列表数据源。
+async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'error') => void }) {
+  if (mobileLoading.value) {
+    done('ok')
+    return
+  }
+
+  if (!mobileHasMore.value) {
+    done('empty')
+    return
+  }
+
+  const requestSeed = ++mobileFetchDataRequestSeed
+
+  try {
+    mobileLoading.value = true
+    const result: { [key: string]: any } = await api.get('history/transfer', {
+      params: {
+        page: mobileCurrentPage.value,
+        count: mobilePageSize,
+        title: search.value ?? '',
+      },
+    })
+    if (requestSeed !== mobileFetchDataRequestSeed) {
+      done('ok')
+      return
+    }
+
+    const list: TransferHistory[] = Array.isArray(result.data?.list) ? result.data.list : []
+    const total = ensureNumber(result.data?.total, 0)
+
+    isRefreshed.value = true
+    totalItems.value = total
+
+    if (list.length === 0) {
+      mobileHasMore.value = false
+      updateSearchHintList(mobileDataList.value)
+      done('empty')
+      return
+    }
+
+    const existingIds = new Set(mobileDataList.value.map(item => item.id))
+    const newItems = list.filter(item => !existingIds.has(item.id))
+
+    mobileDataList.value = [...mobileDataList.value, ...newItems]
+    mobileCurrentPage.value++
+    mobileHasMore.value = mobileDataList.value.length < total && list.length >= mobilePageSize
+    updateSearchHintList(mobileDataList.value)
+    done(mobileHasMore.value ? 'ok' : 'empty')
+  } catch (error) {
+    console.error(error)
+    done('error')
+  } finally {
+    if (requestSeed === mobileFetchDataRequestSeed) {
+      mobileLoading.value = false
     }
   }
 }
@@ -468,6 +609,11 @@ async function refreshDataFromRouteQuery(options: { silent?: boolean } = {}) {
 
 // 操作完成后刷新列表；如果当前页被删空，则跳回最后一个有效页。
 async function refreshDataAfterOperation() {
+  if (isMobile.value) {
+    resetMobileHistory()
+    return
+  }
+
   const result = await fetchData()
   if (!result) return
 
@@ -825,9 +971,107 @@ function ensureNumber(value: any, defaultValue: number = 0) {
   return value
 }
 
+// 校验分页条数，避免地址栏参数超出可选范围。
 function ensurePageSize(value: any, defaultValue: number = 50) {
   const pageSize = ensureNumber(value, defaultValue)
   return pageRangeValues.includes(pageSize) ? pageSize : defaultValue
+}
+
+// 已选历史记录 ID 集合，供移动端卡片和分组选择状态复用。
+const selectedIdSet = computed(() => new Set(selected.value.map(item => item.id)))
+
+// 拼接移动端展示用的季集文本。
+function getHistoryEpisodeText(item: TransferHistory) {
+  return `${item.seasons || ''}${item.episodes || ''}`
+}
+
+// 获取移动端卡片标题，剧集记录会追加季集信息。
+function getHistoryDisplayTitle(item: TransferHistory) {
+  const title = item.title || t('common.unknown')
+  const episodeText = getHistoryEpisodeText(item)
+
+  return item.type === '电视剧' && episodeText ? `${title} ${episodeText}` : title
+}
+
+// 获取移动端卡片副标题，优先展示二级分类和年份。
+function getHistorySubtitle(item: TransferHistory) {
+  return [item.category, item.year].filter(Boolean).join(' / ')
+}
+
+// 获取存储展示名称，配置缺失时回退到原始存储标识。
+function getHistoryStorageName(storage?: string) {
+  if (!storage) return t('common.unknown')
+
+  return storageDict.value[storage] || storage
+}
+
+// 获取移动端卡片状态对应的主题色。
+function getHistoryStatusColor(item: TransferHistory) {
+  return item.status ? 'success' : 'error'
+}
+
+// 获取移动端卡片状态文本。
+function getHistoryStatusText(item: TransferHistory) {
+  return item.status ? t('transferHistory.status.success') : t('transferHistory.status.failed')
+}
+
+// 将历史记录时间压缩成移动端卡片展示文本。
+function getHistoryDateText(date?: string) {
+  if (!date) return ''
+
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
+  if (!match) return date
+
+  const [, year, month, day, hour, minute] = match
+  const recordDate = new Date(Number(year), Number(month) - 1, Number(day))
+  const today = new Date()
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diffDays = Math.round((todayDate.getTime() - recordDate.getTime()) / 86400000)
+  const time = `${hour}:${minute}`
+
+  if (diffDays === 0) return `今天 ${time}`
+  if (diffDays === 1) return `昨天 ${time}`
+
+  return `${month}-${day} ${time}`
+}
+
+// 判断移动端路径是否已展开。
+function isMobilePathExpanded(item: TransferHistory) {
+  return mobileExpandedPathIds.value.includes(item.id)
+}
+
+// 切换移动端路径完整展示状态。
+function toggleMobilePathExpanded(item: TransferHistory) {
+  if (isMobilePathExpanded(item)) {
+    mobileExpandedPathIds.value = mobileExpandedPathIds.value.filter(id => id !== item.id)
+    return
+  }
+
+  mobileExpandedPathIds.value = [...mobileExpandedPathIds.value, item.id]
+}
+
+// 判断指定历史记录是否已被选中。
+function isHistorySelected(item: TransferHistory) {
+  return selectedIdSet.value.has(item.id)
+}
+
+// 批量设置历史记录选中状态，并按 ID 去重。
+function updateHistorySelection(items: readonly TransferHistory[], checked: boolean | null) {
+  const itemIds = new Set(items.map(item => item.id))
+
+  if (checked) {
+    const selectedIds = new Set(selected.value.map(item => item.id))
+
+    selected.value = [...selected.value, ...items.filter(item => !selectedIds.has(item.id))]
+    return
+  }
+
+  selected.value = selected.value.filter(item => !itemIds.has(item.id))
+}
+
+// 切换单条历史记录的选中状态。
+function toggleHistorySelection(item: TransferHistory, checked: boolean | null) {
+  updateHistorySelection([item], checked)
 }
 
 // 按标题分组后的选中数量统计，键为标题，值为对应分组的选中数
@@ -845,12 +1089,7 @@ const selectedCountsGroupedByTitle = computed(() => {
 // 控制分组内所有子项的选中状态
 const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) => {
   const values = items.map(item => item.value)
-  if (checked) {
-    selected.value = [...new Set([...selected.value, ...values])]
-  } else {
-    const itemsSet = new Set(values)
-    selected.value = selected.value.filter(item => !itemsSet.has(item))
-  }
+  updateHistorySelection(values, checked)
 }
 
 const historyDynamicIcon = computed(() => (selected.value.length > 0 ? 'mdi-chevron-up' : 'mdi-timer-sand-paused'))
@@ -910,7 +1149,11 @@ useDynamicButton({
 // 初始加载数据
 onMounted(() => {
   void loadStorages()
-  void refreshDataFromRouteQuery()
+  if (isDesktop.value) {
+    void refreshDataFromRouteQuery()
+  } else {
+    resetMobileHistory()
+  }
 })
 
 onActivated(() => {
@@ -919,14 +1162,17 @@ onActivated(() => {
     return
   }
 
-  if (!loading.value) {
+  if (isDesktop.value && !loading.value) {
     void refreshDataFromRouteQuery({ silent: true })
+  } else if (isMobile.value && !mobileLoading.value) {
+    resetMobileHistory()
   }
 })
 
 onUnmounted(() => {
   debouncedReloadPage.cancel()
   debouncedReloadSearchPage.cancel()
+  debouncedReloadMobileSearchPage.cancel()
   stopAiRedoProgress()
   closeProgressDialog()
   aiRedoProgressDialogController?.close()
@@ -934,7 +1180,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <VCard>
+  <VCard v-if="isDesktop">
     <VCardItem>
       <VCardTitle>
         <VRow>
@@ -1165,15 +1411,17 @@ onUnmounted(() => {
     </VDataTableVirtual>
     <VDivider />
     <div class="flex items-center justify-between">
-      <div class="w-auto">
+      <div class="transfer-history-pagination__size w-auto">
         <VSelect v-model="itemsPerPage" :items="pageRange" density="compact" flat class="ms-1" />
       </div>
-      <div class="w-auto text-sm">{{ t('transferHistory.pageInfo', pageTip) }} {{ totalItems }}</div>
+      <div class="transfer-history-pagination__info w-auto text-sm">
+        {{ t('transferHistory.pageInfo', pageTip) }} {{ totalItems }}
+      </div>
       <VPagination
         v-model="currentPage"
         show-first-last-page
         :length="totalPage"
-        :total-visible="display.mdAndUp.value ? 7 : 0"
+        :total-visible="7"
         @next="currentPage + 1"
         @prev="currentPage - 1"
       >
@@ -1181,8 +1429,149 @@ onUnmounted(() => {
     </div>
   </VCard>
 
+  <section v-else class="transfer-history-mobile-page">
+    <div class="transfer-history-mobile-titlebar">
+      <VPageContentTitle :title="t('navItems.mediaOrganize')" class="transfer-history-mobile-title my-0" style="margin-block: 0" />
+    </div>
+
+    <VCombobox
+      key="search_mobile"
+      :model-value="search"
+      @update:model-value="setSearchValue"
+      :items="searchHintList"
+      @compositionstart="isComposing = true"
+      @compositionend="isComposing = false"
+      class="transfer-history-mobile-search"
+      density="comfortable"
+      :placeholder="t('transferHistory.searchPlaceholder')"
+      :aria-label="t('transferHistory.searchPlaceholder')"
+      prepend-inner-icon="mdi-magnify"
+      variant="solo-filled"
+      single-line
+      hide-details
+      flat
+      rounded="pill"
+      clearable
+    />
+
+    <VInfiniteScroll
+      :key="mobileInfiniteKey"
+      mode="intersect"
+      side="end"
+      :items="mobileDataList"
+      class="transfer-history-mobile-scroll"
+      @load="loadMobileHistory"
+    >
+      <template #loading>
+        <div class="transfer-history-mobile-state transfer-history-mobile-state--loading">
+          <VProgressCircular indeterminate color="primary" size="26" width="3" />
+        </div>
+      </template>
+      <template #empty />
+
+      <VVirtualScroll
+        v-if="mobileDataList.length > 0"
+        renderless
+        :items="mobileDataList"
+        :item-height="264"
+      >
+        <template #default="{ item, itemRef }">
+          <article
+            :ref="itemRef"
+            class="transfer-history-mobile-record"
+            :class="{
+              'transfer-history-mobile-record--selected': isHistorySelected(item),
+              'transfer-history-mobile-record--failed': !item.status,
+            }"
+          >
+            <header class="transfer-history-mobile-record__header">
+              <VAvatar class="transfer-history-mobile-record__avatar" size="40">
+                <VIcon :icon="getIcon(item.type || '')" />
+              </VAvatar>
+
+              <div class="transfer-history-mobile-record__heading">
+                <div class="transfer-history-mobile-record__title">
+                  {{ getHistoryDisplayTitle(item) }}
+                </div>
+                <div class="transfer-history-mobile-record__subtitle">
+                  {{ getHistorySubtitle(item) || item.type || t('common.unknown') }}
+                </div>
+              </div>
+
+              <VChip class="transfer-history-mobile-record__status" variant="tonal" :color="getHistoryStatusColor(item)" size="small">
+                {{ getHistoryStatusText(item) }}
+              </VChip>
+
+              <IconBtn class="transfer-history-mobile-record__menu" size="small">
+                <VIcon icon="mdi-dots-vertical" />
+                <VMenu activator="parent" close-on-content-click>
+                  <VList>
+                    <VListItem
+                      v-for="(menu, i) in getDropdownItems(item)"
+                      :key="i"
+                      :base-color="menu.props.color"
+                      :disabled="menu.props.disabled"
+                      @click="menu.props.click()"
+                    >
+                      <template #prepend>
+                        <VIcon :icon="menu.props.prependIcon" />
+                      </template>
+                      <VListItemTitle v-text="menu.title" />
+                    </VListItem>
+                  </VList>
+                </VMenu>
+              </IconBtn>
+            </header>
+
+            <div class="transfer-history-mobile-record__meta">
+              <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
+                {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
+              </VChip>
+              <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
+              <span class="transfer-history-mobile-record__dot">·</span>
+              <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
+            </div>
+
+            <button
+              type="button"
+              class="transfer-history-mobile-record__paths"
+              :class="{ 'transfer-history-mobile-record__paths--expanded': isMobilePathExpanded(item) }"
+              @click="toggleMobilePathExpanded(item)"
+            >
+              <div class="transfer-history-mobile-record__path-row">
+                <span class="transfer-history-mobile-record__storage">
+                  {{ getHistoryStorageName(item?.src_storage) }}
+                </span>
+                <p>{{ item?.src || t('common.unknown') }}</p>
+              </div>
+              <div v-if="item?.dest" class="transfer-history-mobile-record__path-arrow">
+                <VIcon icon="mdi-arrow-down" size="18" />
+              </div>
+              <div v-if="item?.dest" class="transfer-history-mobile-record__path-row">
+                <span class="transfer-history-mobile-record__storage">
+                  {{ getHistoryStorageName(item?.dest_storage) }}
+                </span>
+                <p>{{ item.dest }}</p>
+              </div>
+            </button>
+
+            <div v-if="!item?.status && item?.errmsg" class="transfer-history-mobile-record__error">
+              <VIcon icon="mdi-alert-circle" size="18" />
+              {{ item.errmsg }}
+            </div>
+          </article>
+        </template>
+      </VVirtualScroll>
+    </VInfiniteScroll>
+
+    <div v-if="mobileDataList.length === 0 && isRefreshed && !mobileLoading" class="transfer-history-mobile-empty">
+      <VIcon icon="mdi-history" size="32" />
+      <span>{{ t('transferHistory.noData') }}</span>
+    </div>
+  </section>
+
   <!-- 非 app 模式下的 FAB 按钮 -->
-  <Teleport to="body" v-if="!appMode && route.path === '/history'">
+  <Teleport to="body" v-if="!appMode && route.path === '/history' && isDesktop">
     <div v-if="isRefreshed && canManage" class="compact-fab-stack compact-fab-stack--history">
       <VFab
         v-if="selected.length > 0 && !hasRunningAiRedo"
@@ -1229,5 +1618,256 @@ onUnmounted(() => {
 
 .v-table__wrapper {
   border-radius: 0;
+}
+
+.transfer-history-mobile-page {
+  --transfer-history-mobile-surface-opacity: 0.92;
+  --transfer-history-mobile-search-opacity: 0.72;
+  --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
+  --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.1);
+  --transfer-history-mobile-storage-width: 4.85rem;
+  --transfer-history-mobile-surface-blur: none;
+
+  display: flex;
+  min-block-size: 100%;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0.35rem 1.25rem;
+}
+
+.transfer-history-mobile-titlebar {
+  display: flex;
+  align-items: center;
+}
+
+.transfer-history-mobile-title {
+  min-inline-size: 0;
+}
+
+.transfer-history-mobile-title :deep(h2) {
+  font-size: 1.875rem;
+  line-height: 1.15;
+}
+
+.transfer-history-mobile-search {
+  min-inline-size: 0;
+}
+
+.transfer-history-mobile-search :deep(.v-field) {
+  border: 1px solid var(--transfer-history-mobile-border);
+  background: rgba(var(--v-theme-surface), var(--transfer-history-mobile-search-opacity));
+  min-block-size: 3.75rem;
+}
+
+.transfer-history-mobile-search :deep(.v-field__input) {
+  font-size: 1rem;
+}
+
+.transfer-history-mobile-scroll {
+  min-block-size: 22rem;
+}
+
+.transfer-history-mobile-scroll :deep(.v-infinite-scroll__side) {
+  padding-block: 0.75rem;
+}
+
+.transfer-history-mobile-state,
+.transfer-history-mobile-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.transfer-history-mobile-state {
+  min-block-size: 4rem;
+}
+
+.transfer-history-mobile-empty {
+  min-block-size: 18rem;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.transfer-history-mobile-record {
+  overflow: hidden;
+  border-radius: 10px;
+  backdrop-filter: var(--transfer-history-mobile-surface-blur);
+  background: rgba(var(--v-theme-surface), var(--transfer-history-mobile-surface-opacity));
+  box-shadow: var(--app-card-rest-shadow);
+}
+
+.transfer-history-mobile-record + .transfer-history-mobile-record {
+  margin-block-start: 0.875rem;
+}
+
+.transfer-history-mobile-record__header {
+  display: grid;
+  align-items: start;
+  gap: 0.75rem;
+  grid-template-columns: 3rem minmax(0, 1fr) auto 2rem;
+  padding: 1rem 0.85rem 0.75rem 1rem;
+}
+
+.transfer-history-mobile-record__avatar {
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.transfer-history-mobile-record__avatar :deep(.v-icon) {
+  font-size: 2rem;
+}
+
+.transfer-history-mobile-record__heading {
+  min-inline-size: 0;
+}
+
+.transfer-history-mobile-record__title {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-history-mobile-record__subtitle {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-history-mobile-record__status {
+  align-self: start;
+  border-radius: 999px !important;
+  font-weight: 650;
+  padding-inline: 0.65rem !important;
+}
+
+.transfer-history-mobile-record__menu {
+  align-self: start;
+  justify-self: end;
+}
+
+.transfer-history-mobile-record__meta {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem 0.85rem 1rem;
+  gap: 0.65rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.transfer-history-mobile-record__meta::-webkit-scrollbar {
+  display: none;
+}
+
+.transfer-history-mobile-record__meta > span {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+}
+
+.transfer-history-mobile-record__mode {
+  border-color: rgb(var(--v-theme-primary)) !important;
+  border-radius: 999px !important;
+  color: rgb(var(--v-theme-primary)) !important;
+  font-weight: 650;
+}
+
+.transfer-history-mobile-record__dot {
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity)) !important;
+}
+
+.transfer-history-mobile-record__paths {
+  display: grid;
+  border: 0;
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  gap: 0.45rem;
+  grid-template-columns: 1fr;
+  inline-size: 100%;
+  padding: 0.85rem 1rem 0.95rem;
+  text-align: start;
+}
+
+.transfer-history-mobile-record__path-row {
+  display: grid;
+  align-items: center;
+  gap: 0.75rem;
+  grid-template-columns: var(--transfer-history-mobile-storage-width) minmax(0, 1fr);
+}
+
+.transfer-history-mobile-record__path-arrow {
+  display: flex;
+  align-items: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  inline-size: var(--transfer-history-mobile-storage-width);
+  justify-content: center;
+  padding-inline-start: 0.5rem;
+}
+
+.transfer-history-mobile-record__storage {
+  display: inline-flex;
+  max-inline-size: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--transfer-history-mobile-muted-bg);
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  line-height: 1.4;
+  min-block-size: 1.55rem;
+  overflow: hidden;
+  padding-block: 0.125rem;
+  padding-inline: 0.425rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-history-mobile-record__path-row p {
+  overflow: hidden;
+  margin: 0;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-history-mobile-record__paths--expanded .transfer-history-mobile-record__path-row p {
+  white-space: normal;
+}
+
+.transfer-history-mobile-record__error {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(var(--v-theme-error), 0.2);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-error), 0.08);
+  color: rgb(var(--v-theme-error));
+  font-size: 0.875rem;
+  font-weight: 650;
+  gap: 0.5rem;
+  line-height: 1.45;
+  margin: 0 1rem 1rem;
+  overflow-wrap: anywhere;
+  padding: 0.65rem 0.75rem;
+}
+
+html[data-theme='transparent'] .transfer-history-mobile-page,
+.v-theme--transparent .transfer-history-mobile-page {
+  --transfer-history-mobile-surface-opacity: var(--transparent-opacity-light, 0.2);
+  --transfer-history-mobile-search-opacity: var(--transparent-opacity-light, 0.2);
+  --transfer-history-mobile-muted-bg: rgba(var(--v-theme-surface), var(--transparent-opacity, 0.3));
+  --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.14);
+  --transfer-history-mobile-surface-blur: blur(var(--transparent-blur, 10px));
 }
 </style>
