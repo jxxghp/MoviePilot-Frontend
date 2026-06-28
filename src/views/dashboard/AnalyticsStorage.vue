@@ -1,19 +1,12 @@
 <script setup lang="ts">
-import { useTheme } from 'vuetify'
 import api from '@/api'
 import type { Storage } from '@/api/types'
-import trophy from '@images/misc/storage.png'
-import triangleDark from '@images/misc/triangle-dark.png'
-import triangleLight from '@images/misc/triangle-light.png'
+import storageImage from '@images/misc/storage.png'
 import { formatDashboardFileSize, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
-
-const { global } = useTheme()
-
-const triangleBg = computed(() => (global.name.value === 'light' ? triangleLight : triangleDark))
 
 // 总存储空间
 const storage = ref(0)
@@ -31,6 +24,10 @@ const usedPercent = computed(() => {
 const animatedStorage = useAnimatedDashboardNumber(storage, {
   duration: 900,
 })
+const animatedUsed = useAnimatedDashboardNumber(used, {
+  delay: 60,
+  duration: 820,
+})
 
 const animatedUsedPercent = useAnimatedDashboardNumber(usedPercent, {
   delay: 80,
@@ -38,6 +35,9 @@ const animatedUsedPercent = useAnimatedDashboardNumber(usedPercent, {
 })
 
 const animatedStorageText = computed(() => formatDashboardFileSize(animatedStorage.value, 2, storage.value))
+const animatedUsedText = computed(() => formatDashboardFileSize(animatedUsed.value, 2, used.value))
+const available = computed(() => Math.max(0, storage.value - used.value))
+const availableText = computed(() => formatDashboardFileSize(available.value, 2, available.value))
 const animatedUsedPercentValue = computed(() => Math.round(animatedUsedPercent.value * 10) / 10)
 const animatedUsedPercentText = computed(() => animatedUsedPercentValue.value.toFixed(1))
 
@@ -64,16 +64,14 @@ onActivated(() => {
 
 <template>
   <VCard class="dashboard-summary-card dashboard-grid-fill">
-    <!-- Triangle Background -->
-    <VImg :src="triangleBg" class="triangle-bg flip-in-rtl" />
     <VCardItem>
       <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
     </VCardItem>
     <VCardText class="dashboard-summary-content">
-      <h5 class="animated-storage-value font-weight-medium text-primary">
+      <h5 class="animated-storage-value">
         {{ animatedStorageText }}
       </h5>
-      <div class="animated-storage-meta">{{ t('storage.usedPercent', { percent: animatedUsedPercentText }) }} 🚀</div>
+      <div class="animated-storage-meta">{{ t('storage.usedPercent', { percent: animatedUsedPercentText }) }}</div>
       <div class="animated-storage-progress-wrap">
         <VProgressLinear
           :model-value="animatedUsedPercentValue"
@@ -83,27 +81,23 @@ onActivated(() => {
           rounded
         />
       </div>
+      <div class="animated-storage-caption">
+        {{ t('dashboard.storageSummary', { available: availableText, total: animatedStorageText, used: animatedUsedText }) }}
+      </div>
     </VCardText>
-    <!-- Trophy -->
-    <VImg :src="trophy" class="trophy" />
+    <VImg :src="storageImage" class="storage-image" />
   </VCard>
 </template>
 
 <style lang="scss" scoped>
 @use '@layouts/styles/mixins' as layoutsMixins;
 
-.v-card .triangle-bg {
+.v-card .storage-image {
   position: absolute;
-  inline-size: clamp(7rem, 36%, 8.75rem);
-  inset-block-end: 0;
-  inset-inline-end: 0;
-}
-
-.v-card .trophy {
-  position: absolute;
-  inline-size: clamp(3.75rem, 18%, 4.5rem);
-  inset-block-end: 2.75rem;
-  inset-inline-end: 2rem;
+  inline-size: clamp(4.6rem, 22%, 5.8rem);
+  filter: hue-rotate(225deg) saturate(0.72);
+  inset-block-start: 2.4rem;
+  inset-inline-end: 1.5rem;
 }
 
 .dashboard-summary-card {
@@ -111,18 +105,21 @@ onActivated(() => {
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  min-block-size: 0;
+  min-block-size: 190px;
   overflow: hidden;
 }
 
 .dashboard-summary-content {
   flex: 1 1 auto;
   min-block-size: 0;
-  padding-block: 0.25rem 1rem;
+  padding-block: 0.1rem 0.85rem;
+  padding-inline-end: 7rem;
 }
 
 .animated-storage-value {
-  font-size: clamp(1.375rem, 1.8vw, 1.5rem);
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  font-size: clamp(1.65rem, 2vw, 1.9rem);
+  font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
@@ -135,11 +132,18 @@ onActivated(() => {
 }
 
 .animated-storage-progress-wrap {
-  margin-block-start: 0.35rem;
+  margin-block-start: 0.55rem;
 }
 
 .animated-storage-progress {
   overflow: hidden;
+}
+
+.animated-storage-caption {
+  margin-block-start: 0.45rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 </style>

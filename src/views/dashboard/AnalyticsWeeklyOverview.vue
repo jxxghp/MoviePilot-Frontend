@@ -17,7 +17,7 @@ const options = controlledComputed(
     const variableTheme = ref(vuetifyTheme.current.value.variables)
 
     const disabledColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${
-      variableTheme.value['disabled-opacity']
+      variableTheme.value['medium-emphasis-opacity']
     })`
 
     const borderColor = `rgba(${hexToRgb(String(variableTheme.value['border-color']))},${

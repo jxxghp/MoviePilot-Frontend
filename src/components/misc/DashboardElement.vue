@@ -33,6 +33,9 @@ const builtInDashboardComponentLoaders: Record<string, DashboardComponentLoader>
   library: () => import('@/views/dashboard/MediaServerLibrary.vue'),
   playing: () => import('@/views/dashboard/MediaServerPlaying.vue'),
   latest: () => import('@/views/dashboard/MediaServerLatest.vue'),
+  recentImports: () => import('@/views/dashboard/DashboardRecentImports.vue'),
+  quickActions: () => import('@/views/dashboard/DashboardQuickActions.vue'),
+  systemInfo: () => import('@/views/dashboard/DashboardSystemInfo.vue'),
 }
 
 const builtInDashboardComponentPromises = new Map<string, Promise<any>>()
@@ -74,6 +77,9 @@ const AnalyticsNetwork = createAsyncDashboardComponent('network')
 const MediaServerLibrary = createAsyncDashboardComponent('library')
 const MediaServerPlaying = createAsyncDashboardComponent('playing')
 const MediaServerLatest = createAsyncDashboardComponent('latest')
+const DashboardRecentImports = createAsyncDashboardComponent('recentImports')
+const DashboardQuickActions = createAsyncDashboardComponent('quickActions')
+const DashboardSystemInfo = createAsyncDashboardComponent('systemInfo')
 
 // 输入参数
 const props = defineProps({
@@ -205,6 +211,9 @@ onUnmounted(() => {
   <MediaServerLibrary v-else-if="config?.id === 'library'" />
   <MediaServerPlaying v-else-if="config?.id === 'playing'" />
   <MediaServerLatest v-else-if="config?.id === 'latest'" />
+  <DashboardRecentImports v-else-if="config?.id === 'recentImports'" />
+  <DashboardQuickActions v-else-if="config?.id === 'quickActions'" />
+  <DashboardSystemInfo v-else-if="config?.id === 'systemInfo'" :allow-refresh="props.allowRefresh" />
   <!-- 插件仪表板 -->
   <template v-else-if="!isNullOrEmptyObject(props.config)">
     <!-- Vue 渲染模式 -->

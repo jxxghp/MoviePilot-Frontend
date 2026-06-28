@@ -1000,6 +1000,12 @@ export interface MediaStatistic {
   episode_count: number | null
   // 用户数量
   user_count: number
+  // 本月新增电影数量
+  movie_count_month: number
+  // 本月新增电视剧数量
+  tv_count_month: number
+  // 本月新增剧集数量
+  episode_count_month: number
 }
 
 // 后台进程
@@ -1018,6 +1024,18 @@ export interface Process {
   cpu: number
   // 进程内存占用
   memory: number
+}
+
+// 仪表板系统摘要
+export interface DashboardSystemInfo {
+  // 主机名称
+  hostname: string
+  // 操作系统名称
+  operating_system: string
+  // MoviePilot 运行时间，单位秒
+  runtime: number
+  // MoviePilot 后端版本
+  version: string
 }
 
 // 下载器信息

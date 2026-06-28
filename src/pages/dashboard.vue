@@ -63,6 +63,19 @@ interface DashboardGridLayoutItem {
   h?: number
 }
 
+// 参考桌面端设计稿定义默认排布；用户保存过的布局仍优先于这里的初始值。
+const DASHBOARD_DESKTOP_DEFAULT_LAYOUT: DashboardGridLayoutConfig = {
+  storage: { x: 0, y: 0, w: 4, h: 8 },
+  mediaStatistic: { x: 4, y: 0, w: 8, h: 8 },
+  speed: { x: 0, y: 8, w: 4, h: 15 },
+  recentImports: { x: 4, y: 8, w: 4, h: 15 },
+  scheduler: { x: 8, y: 8, w: 4, h: 15 },
+  memory: { x: 0, y: 23, w: 4, h: 11 },
+  cpu: { x: 4, y: 23, w: 4, h: 11 },
+  quickActions: { x: 8, y: 23, w: 4, h: 5 },
+  systemInfo: { x: 8, y: 28, w: 4, h: 6 },
+}
+
 // 单个设备档位的仪表盘配置，将布局与显示项绑定到同一份持久化数据。
 interface DashboardProfileConfig {
   enabled?: DashboardEnableConfig
@@ -139,7 +152,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 9,
+    rows: 8,
     elements: [],
   },
   {
@@ -148,7 +161,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 8 },
-    rows: 11,
+    rows: 8,
     elements: [],
   },
   {
@@ -166,7 +179,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 23,
+    rows: 15,
     elements: [],
   },
   {
@@ -175,7 +188,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 23,
+    rows: 15,
     elements: [],
   },
   {
@@ -183,8 +196,8 @@ const dashboardConfigs = ref<DashboardItem[]>([
     name: t('dashboard.cpu'),
     key: '',
     attrs: {},
-    cols: { cols: 12, md: 6 },
-    rows: 17,
+    cols: { cols: 12, sm: 3, md: 4 },
+    rows: 11,
     elements: [],
   },
   {
@@ -192,8 +205,8 @@ const dashboardConfigs = ref<DashboardItem[]>([
     name: t('dashboard.memory'),
     key: '',
     attrs: {},
-    cols: { cols: 12, md: 6 },
-    rows: 17,
+    cols: { cols: 12, sm: 3, md: 4 },
+    rows: 11,
     elements: [],
   },
   {
@@ -227,6 +240,33 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12 },
+    elements: [],
+  },
+  {
+    id: 'recentImports',
+    name: t('dashboard.recentImports'),
+    key: '',
+    attrs: {},
+    cols: { cols: 12, sm: 2, md: 4 },
+    rows: 15,
+    elements: [],
+  },
+  {
+    id: 'quickActions',
+    name: t('dashboard.quickActions.title'),
+    key: '',
+    attrs: {},
+    cols: { cols: 12, sm: 3, md: 4 },
+    rows: 5,
+    elements: [],
+  },
+  {
+    id: 'systemInfo',
+    name: t('dashboard.systemInfo.title'),
+    key: '',
+    attrs: {},
+    cols: { cols: 12, sm: 3, md: 4 },
+    rows: 6,
     elements: [],
   },
 ])
@@ -334,16 +374,27 @@ function clampGridNumber(value: unknown, min: number, max: number, fallback: num
 function getDefaultDashboardEnableConfig(): DashboardEnableConfig {
   return {
     mediaStatistic: true,
-    scheduler: false,
-    speed: false,
+    scheduler: true,
+    speed: true,
     storage: true,
     weeklyOverview: false,
-    cpu: false,
-    memory: false,
+    cpu: true,
+    memory: true,
     network: false,
-    library: true,
-    playing: true,
-    latest: true,
+    library: false,
+    playing: false,
+    latest: false,
+    recentImports: true,
+    quickActions: true,
+    systemInfo: true,
+  }
+}
+
+// 用默认开关补齐旧配置中新出现的组件，同时保留用户已有选择。
+function mergeDashboardEnableConfig(config?: DashboardEnableConfig): DashboardEnableConfig {
+  return {
+    ...getDefaultDashboardEnableConfig(),
+    ...config,
   }
 }
 
@@ -625,7 +676,13 @@ function saveDashboardGridLayout(layout: DashboardGridLayoutConfig) {
 
 // 获取仪表板组件的默认宽度，优先兼容插件旧版 cols.md / cols.cols 配置。
 function getDefaultDashboardGridWidth(item: DashboardItem) {
-  return clampGridNumber(item.cols?.md ?? item.cols?.cols, 1, DASHBOARD_GRID_COLUMNS, DASHBOARD_GRID_COLUMNS)
+  const profile = dashboardLayoutProfile.value
+  if (profile === 'mobile') return 1
+
+  const columns = getDashboardGridColumnsForProfile(profile)
+  const requestedWidth = profile === 'tablet' ? item.cols?.sm ?? item.cols?.md : item.cols?.md ?? item.cols?.cols
+
+  return clampGridNumber(requestedWidth, 1, columns, columns)
 }
 
 // 获取仪表板组件测量前的兜底高度，兼容未来 rows 字段和插件 attrs.rows。
@@ -636,9 +693,10 @@ function getDefaultDashboardGridRows(item?: DashboardItem) {
 // 合并插件/内置组件默认尺寸与用户本地布局覆盖。
 function buildDashboardGridWidget(item: DashboardItem, id: string): GridStackWidget {
   const savedLayout = dashboardGridLayout.value[id]
+  const defaultLayout = dashboardLayoutProfile.value === 'desktop' ? DASHBOARD_DESKTOP_DEFAULT_LAYOUT[id] : undefined
   const gridColumns = getDashboardGridColumnsForProfile(dashboardLayoutProfile.value)
-  const width = savedLayout?.w ?? getDefaultDashboardGridWidth(item)
-  const height = savedLayout?.h ?? getDefaultDashboardGridRows(item)
+  const width = savedLayout?.w ?? defaultLayout?.w ?? getDefaultDashboardGridWidth(item)
+  const height = savedLayout?.h ?? defaultLayout?.h ?? getDefaultDashboardGridRows(item)
   const normalizedWidth = clampGridNumber(width, 1, gridColumns, gridColumns)
   const widget: GridStackWidget = {
     id,
@@ -648,9 +706,11 @@ function buildDashboardGridWidget(item: DashboardItem, id: string): GridStackWid
     minH: 1,
   }
 
-  if (savedLayout?.x !== undefined && savedLayout?.y !== undefined) {
-    widget.x = clampGridNumber(savedLayout.x, 0, gridColumns - normalizedWidth, 0)
-    widget.y = clampGridNumber(savedLayout.y, 0, 999, 0)
+  const x = savedLayout?.x ?? defaultLayout?.x
+  const y = savedLayout?.y ?? defaultLayout?.y
+  if (x !== undefined && y !== undefined) {
+    widget.x = clampGridNumber(x, 0, gridColumns - normalizedWidth, 0)
+    widget.y = clampGridNumber(y, 0, 999, 0)
   } else {
     widget.autoPosition = true
   }
@@ -808,7 +868,7 @@ async function loadDashboardConfig() {
   const profileConfig = await loadDashboardProfileConfig(dashboardLayoutProfile.value)
   const legacyEnable = profileConfig?.enabled === undefined ? await loadLegacyDashboardEnableConfig() : undefined
   dashboardGridLayout.value = profileConfig?.items ?? {}
-  enableConfig.value = profileConfig?.enabled ?? legacyEnable ?? getDefaultDashboardEnableConfig()
+  enableConfig.value = mergeDashboardEnableConfig(profileConfig?.enabled ?? legacyEnable)
   if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
     saveDashboardProfileConfig()
   }
@@ -1282,7 +1342,7 @@ watch(
     const profileConfig = await loadDashboardProfileConfig(nextProfile)
     const legacyEnable = profileConfig?.enabled === undefined ? await loadLegacyDashboardEnableConfig() : undefined
     dashboardGridLayout.value = profileConfig?.items ?? {}
-    enableConfig.value = profileConfig?.enabled ?? legacyEnable ?? getDefaultDashboardEnableConfig()
+    enableConfig.value = mergeDashboardEnableConfig(profileConfig?.enabled ?? legacyEnable)
     if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
       saveDashboardProfileConfig()
     }
@@ -1420,8 +1480,29 @@ onBeforeUnmount(() => {
   will-change: opacity, transform;
 }
 
+.dashboard-grid :deep(.v-card) {
+  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.72));
+  border-radius: 12px;
+  box-shadow: 0 3px 14px rgba(15, 23, 42, 0.035);
+}
+
+.dashboard-grid :deep(.v-card-title) {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+/* 媒体卡片上浮 4px 时保留安全区，避免被标题栏或滚动容器顶边裁切。 */
+.dashboard-grid :deep(.dashboard-media-content) {
+  padding-block-start: 0.5rem;
+}
+
 .dashboard-grid-item.is-manual-height :deep(.v-card) {
   block-size: 100%;
+}
+
+.dashboard-grid-item.is-manual-height :deep(.dashboard-work-card),
+.dashboard-grid.is-editing :deep(.dashboard-work-card) {
+  max-block-size: none;
 }
 
 .dashboard-grid-item-content {

@@ -117,12 +117,21 @@ const { loading } = useDataRefresh(
       <VCardTitle>{{ t('dashboard.realTimeSpeed') }}</VCardTitle>
     </VCardItem>
 
-    <VCardText class="dashboard-work-content pt-4">
-      <div>
-        <p class="dashboard-speed-number text-h5 me-2">↑{{ uploadSpeedText }}</p>
-        <p class="dashboard-speed-number text-h4 me-2">↓{{ downloadSpeedText }}</p>
+    <VCardText class="dashboard-work-content">
+      <div class="dashboard-speed-overview">
+        <div class="dashboard-speed-rate">
+          <VIcon icon="mdi-arrow-up" color="primary" size="26" />
+          <strong class="dashboard-speed-number">{{ uploadSpeedText }}</strong>
+          <span>{{ t('dashboard.uploadSpeed') }}</span>
+        </div>
+        <div class="dashboard-speed-rate">
+          <VIcon icon="mdi-arrow-down" color="primary" size="26" />
+          <strong class="dashboard-speed-number">{{ downloadSpeedText }}</strong>
+          <span>{{ t('dashboard.downloadSpeed') }}</span>
+        </div>
       </div>
-      <VList class="card-list mt-9">
+      <VDivider class="my-3" />
+      <VList class="card-list">
         <VListItem v-for="item in infoItems" :key="item.title">
           <template #prepend>
             <VIcon rounded :icon="item.avatar" />
@@ -150,11 +159,11 @@ const { loading } = useDataRefresh(
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  min-block-size: 0;
+  min-block-size: 350px;
 }
 
 .card-list {
-  --v-card-list-gap: 1rem;
+  --v-card-list-gap: 0.15rem;
 
   flex: 1 1 auto;
   min-block-size: 0;
@@ -171,6 +180,28 @@ const { loading } = useDataRefresh(
 
 .dashboard-speed-number {
   font-variant-numeric: tabular-nums;
+}
+
+.dashboard-speed-overview {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.dashboard-speed-rate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dashboard-speed-rate strong {
+  font-size: 1.35rem;
+  line-height: 1.5;
+}
+
+.dashboard-speed-rate span {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.72rem;
 }
 
 </style>

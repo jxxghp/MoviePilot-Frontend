@@ -46,15 +46,22 @@ const animatedUsedMemory = useAnimatedDashboardNumber(usedMemory, {
   duration: 650,
 })
 const animatedUsedMemoryText = computed(() => formatDashboardFileSize(animatedUsedMemory.value, 2, usedMemory.value))
+const totalMemory = computed(() => (memoryUsage.value > 0 ? usedMemory.value / (memoryUsage.value / 100) : 0))
+const availableMemory = computed(() => Math.max(0, totalMemory.value - usedMemory.value))
+const totalMemoryText = computed(() => formatDashboardFileSize(totalMemory.value, 2, totalMemory.value))
+const availableMemoryText = computed(() => formatDashboardFileSize(availableMemory.value, 2, availableMemory.value))
 
 const chartOptions = controlledComputed(
   () => vuetifyTheme.name.value,
   () => {
+    const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
+
     return {
       chart: {
         parentHeightOffset: 0,
         toolbar: { show: false },
         animations: { enabled: false },
+        foreColor: axisLabelColor,
       },
       tooltip: { enabled: false },
       grid: {
@@ -107,8 +114,17 @@ const chartOptions = controlledComputed(
         axisBorder: { show: false },
       },
       yaxis: {
-        labels: { show: false },
+        labels: {
+          show: true,
+          formatter: (value: number) => `${Math.round(value)}%`,
+          style: {
+            colors: axisLabelColor,
+            fontSize: '10px',
+          },
+        },
+        tickAmount: 2,
         max: 100,
+        min: 0,
       },
     }
   },
@@ -146,15 +162,22 @@ useKeepAliveRefresh(refresh)
 <template>
   <VCard class="dashboard-chart-card dashboard-grid-fill">
     <VCardItem>
-      <VCardTitle>{{ t('dashboard.memory') }}</VCardTitle>
+      <template #prepend><VIcon icon="mdi-memory" size="20" class="me-2" /></template>
+      <VCardTitle>{{ t('dashboard.memoryUsage') }}</VCardTitle>
+      <template #append><strong class="dashboard-chart-current">{{ memoryUsage.toFixed(1) }}%</strong></template>
     </VCardItem>
     <VCardText class="dashboard-chart-content">
+      <div class="dashboard-memory-value">
+        <strong>{{ animatedUsedMemoryText }}</strong>
+        <span>/ {{ totalMemoryText }}</span>
+      </div>
       <div class="dashboard-chart-plot">
         <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
-      <p class="dashboard-chart-value text-center font-weight-medium mb-0">
-        {{ t('dashboard.current') }}：{{ animatedUsedMemoryText }}
-      </p>
+      <div class="dashboard-chart-footer">
+        <span><i class="memory-dot memory-dot--used" />{{ t('dashboard.memoryUsed') }} {{ animatedUsedMemoryText }}</span>
+        <span><i class="memory-dot memory-dot--available" />{{ t('dashboard.memoryAvailable') }} {{ availableMemoryText }}</span>
+      </div>
     </VCardText>
   </VCard>
 </template>
@@ -164,7 +187,7 @@ useKeepAliveRefresh(refresh)
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  min-block-size: 0;
+  min-block-size: 270px;
 }
 
 .dashboard-chart-content {
@@ -177,10 +200,57 @@ useKeepAliveRefresh(refresh)
 
 .dashboard-chart-plot {
   flex: 1 1 auto;
-  min-block-size: 0;
+  min-block-size: 120px;
 }
 
-.dashboard-chart-value {
+.dashboard-chart-current,
+.dashboard-memory-value strong,
+.dashboard-chart-footer {
   font-variant-numeric: tabular-nums;
+}
+
+.dashboard-chart-current {
+  font-size: 0.9rem;
+}
+
+.dashboard-memory-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin-block-end: 0.15rem;
+}
+
+.dashboard-memory-value strong {
+  font-size: 1.05rem;
+}
+
+.dashboard-memory-value span,
+.dashboard-chart-footer {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.68rem;
+}
+
+.dashboard-chart-footer {
+  display: flex;
+  justify-content: space-between;
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  gap: 0.6rem;
+  padding-block-start: 0.55rem;
+}
+
+.memory-dot {
+  display: inline-block;
+  border-radius: 50%;
+  block-size: 6px;
+  inline-size: 6px;
+  margin-inline-end: 0.3rem;
+}
+
+.memory-dot--used {
+  background: rgb(var(--v-theme-primary));
+}
+
+.memory-dot--available {
+  background: rgb(var(--v-theme-info));
 }
 </style>
