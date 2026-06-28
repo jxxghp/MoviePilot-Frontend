@@ -3,6 +3,8 @@ import api from '@/api'
 import type { ScheduleInfo, TransferQueue } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
+import { SCHEDULER_SHORTCUT_ICON } from '@/composables/useShortcutTools'
+import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
 
 // 国际化
 const { t } = useI18n()
@@ -20,6 +22,10 @@ const props = defineProps({
 // 定时服务列表
 const schedulerList = ref<ScheduleInfo[]>([])
 const transferQueue = ref<TransferQueue[]>([])
+const { getScheduleProgressText, getScheduleProgressValue } = useScheduleProgress(
+  schedulerList,
+  'dashboard-scheduler-progress',
+)
 
 interface BackgroundTaskItem {
   color: string
@@ -33,30 +39,35 @@ interface BackgroundTaskItem {
 
 // 将正在运行的服务和整理队列排在前面，再补充最近即将执行的定时任务。
 const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
-  const runningSchedulers = schedulerList.value.filter(item => item.status === '正在运行')
-  const waitingSchedulers = schedulerList.value.filter(item => item.status !== '正在运行')
-  const schedulerTasks = [...runningSchedulers, ...waitingSchedulers].map(item => ({
-    id: `schedule-${item.id}`,
-    title: item.name || t('dashboard.scheduler'),
-    subtitle: item.provider || item.next_run || '',
-    status: item.status || t('dashboard.taskWaiting'),
-    icon: item.status === '正在运行' ? 'mdi-progress-clock' : 'mdi-clock-outline',
-    color: item.status === '正在运行' ? 'primary' : 'info',
-    progress: item.status === '正在运行' ? undefined : 0,
-  }))
+  const runningSchedulers = schedulerList.value.filter(isScheduleRunning)
+  const waitingSchedulers = schedulerList.value.filter(item => !isScheduleRunning(item))
+  const schedulerTasks = [...runningSchedulers, ...waitingSchedulers].map(item => {
+    const isRunning = isScheduleRunning(item)
+
+    return {
+      id: `schedule-${item.id}`,
+      title: item.name || t('dashboard.scheduler'),
+      subtitle: (isRunning && getScheduleProgressText(item)) || item.provider || item.next_run || '',
+      status: item.status || t('dashboard.taskWaiting'),
+      icon: isRunning ? 'mdi-progress-clock' : 'mdi-clock-outline',
+      color: isRunning ? 'primary' : 'info',
+      progress: isRunning ? getScheduleProgressValue(item) : undefined,
+    }
+  })
   const transferTasks = transferQueue.value.map((item, index) => {
     const tasks = item.tasks ?? []
     const completed = tasks.filter(task => task.state === 'completed').length
     const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0
+    const isRunning = tasks.some(task => task.state === 'running')
 
     return {
       id: `transfer-${item.media?.tmdb_id ?? index}-${item.season ?? ''}`,
       title: item.media?.title_year || item.media?.title || t('dashboard.transferQueue'),
       subtitle: t('dashboard.transferProgress', { completed, total: tasks.length }),
-      status: tasks.some(task => task.state === 'running') ? t('dashboard.taskRunning') : t('dashboard.taskWaiting'),
+      status: isRunning ? t('dashboard.taskRunning') : t('dashboard.taskWaiting'),
       icon: 'mdi-folder-sync-outline',
       color: 'warning',
-      progress,
+      progress: isRunning ? progress : undefined,
     }
   })
 
@@ -84,7 +95,7 @@ async function loadSchedulerList() {
 useDataRefresh(
   'dashboard-scheduler',
   loadSchedulerList,
-  10000, // 10秒间隔，及时反映整理队列和运行状态
+  3000, // 3秒间隔，及时发现任务启停；运行中进度由独立轮询每秒刷新
   true // 立即执行
 )
 </script>
@@ -92,10 +103,8 @@ useDataRefresh(
 <template>
   <VCard class="dashboard-work-card dashboard-grid-fill">
     <VCardItem>
+      <template #prepend><VIcon :icon="SCHEDULER_SHORTCUT_ICON" size="20" class="me-2" /></template>
       <VCardTitle>{{ t('dashboard.scheduler') }}</VCardTitle>
-      <template #append>
-        <VBtn size="small" variant="outlined" to="/history">{{ t('dashboard.viewAll') }}</VBtn>
-      </template>
     </VCardItem>
 
     <VCardText class="dashboard-work-content">

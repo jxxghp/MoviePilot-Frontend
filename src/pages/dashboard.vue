@@ -56,6 +56,9 @@ type DashboardConfigNormalizer<T> = (value: unknown) => T | undefined
 type DashboardConfigRemoteValueBuilder<T> = (value: T) => unknown
 type DashboardLayoutProfile = 'desktop' | 'tablet' | 'mobile'
 
+// CPU 与内存组件共用默认行高，确保两张资源趋势卡片始终等高。
+const DASHBOARD_RESOURCE_CHART_ROWS = 11
+
 interface DashboardGridLayoutItem {
   x?: number
   y?: number
@@ -65,15 +68,15 @@ interface DashboardGridLayoutItem {
 
 // 参考桌面端设计稿定义默认排布；用户保存过的布局仍优先于这里的初始值。
 const DASHBOARD_DESKTOP_DEFAULT_LAYOUT: DashboardGridLayoutConfig = {
-  storage: { x: 0, y: 0, w: 4, h: 8 },
-  mediaStatistic: { x: 4, y: 0, w: 8, h: 8 },
-  speed: { x: 0, y: 8, w: 4, h: 15 },
-  recentImports: { x: 4, y: 8, w: 4, h: 15 },
-  scheduler: { x: 8, y: 8, w: 4, h: 15 },
-  memory: { x: 0, y: 23, w: 4, h: 11 },
-  cpu: { x: 4, y: 23, w: 4, h: 11 },
-  quickActions: { x: 8, y: 23, w: 4, h: 5 },
-  systemInfo: { x: 8, y: 28, w: 4, h: 6 },
+  storage: { x: 0, y: 0, w: 4, h: 7 },
+  mediaStatistic: { x: 4, y: 0, w: 8, h: 7 },
+  speed: { x: 0, y: 7, w: 4, h: 12 },
+  recentImports: { x: 4, y: 7, w: 4, h: 15 },
+  scheduler: { x: 8, y: 7, w: 4, h: 15 },
+  memory: { x: 0, y: 22, w: 4, h: DASHBOARD_RESOURCE_CHART_ROWS },
+  cpu: { x: 4, y: 22, w: 4, h: DASHBOARD_RESOURCE_CHART_ROWS },
+  quickActions: { x: 8, y: 22, w: 4, h: 5 },
+  systemInfo: { x: 8, y: 27, w: 4, h: 6 },
 }
 
 // 单个设备档位的仪表盘配置，将布局与显示项绑定到同一份持久化数据。
@@ -152,7 +155,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 8,
+    rows: 7,
     elements: [],
   },
   {
@@ -161,7 +164,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 8 },
-    rows: 8,
+    rows: 7,
     elements: [],
   },
   {
@@ -179,7 +182,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 15,
+    rows: 12,
     elements: [],
   },
   {
@@ -197,7 +200,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, sm: 3, md: 4 },
-    rows: 11,
+    rows: DASHBOARD_RESOURCE_CHART_ROWS,
     elements: [],
   },
   {
@@ -206,7 +209,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, sm: 3, md: 4 },
-    rows: 11,
+    rows: DASHBOARD_RESOURCE_CHART_ROWS,
     elements: [],
   },
   {

@@ -94,10 +94,10 @@ onActivated(() => {
 
 .v-card .storage-image {
   position: absolute;
-  inline-size: clamp(4.6rem, 22%, 5.8rem);
+  inline-size: clamp(3.6rem, 18%, 4.5rem);
   filter: hue-rotate(225deg) saturate(0.72);
-  inset-block-start: 2.4rem;
-  inset-inline-end: 1.5rem;
+  inset-block-start: 2.7rem;
+  inset-inline-end: 1.35rem;
 }
 
 .dashboard-summary-card {
@@ -105,34 +105,39 @@ onActivated(() => {
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  min-block-size: 190px;
+  min-block-size: 160px;
   overflow: hidden;
 }
 
 .dashboard-summary-content {
   flex: 1 1 auto;
   min-block-size: 0;
-  padding-block: 0.1rem 0.85rem;
-  padding-inline-end: 7rem;
+  padding-block: 0 0.7rem;
+}
+
+.animated-storage-value,
+.animated-storage-meta,
+.animated-storage-caption {
+  padding-inline-end: 4.75rem;
 }
 
 .animated-storage-value {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
-  font-size: clamp(1.65rem, 2vw, 1.9rem);
+  font-size: clamp(1.5rem, 1.8vw, 1.75rem);
   font-weight: 700;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 
 .animated-storage-meta {
-  margin-block-start: 0.5rem;
+  margin-block-start: 0.3rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   line-height: 1.2;
 }
 
 .animated-storage-progress-wrap {
-  margin-block-start: 0.55rem;
+  margin-block-start: 0.4rem;
 }
 
 .animated-storage-progress {
@@ -140,7 +145,7 @@ onActivated(() => {
 }
 
 .animated-storage-caption {
-  margin-block-start: 0.45rem;
+  margin-block-start: 0.35rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.68rem;
   white-space: nowrap;

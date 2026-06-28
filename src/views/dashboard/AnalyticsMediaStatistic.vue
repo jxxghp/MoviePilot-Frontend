@@ -122,7 +122,7 @@ onActivated(() => {
   display: flex;
   flex-direction: column;
   block-size: 100%;
-  min-block-size: 190px;
+  min-block-size: 160px;
 }
 
 .dashboard-summary-content {
@@ -142,8 +142,8 @@ onActivated(() => {
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.85rem;
-  padding-inline: 1.35rem;
+  gap: 0.7rem;
+  padding-inline: 1.1rem;
 }
 
 .dashboard-stat-item:first-child {

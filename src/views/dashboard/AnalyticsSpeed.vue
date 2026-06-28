@@ -158,8 +158,8 @@ const { loading } = useDataRefresh(
 .dashboard-work-card {
   display: flex;
   flex-direction: column;
-  block-size: 100%;
-  min-block-size: 350px;
+  block-size: auto;
+  min-block-size: 0;
 }
 
 .card-list {

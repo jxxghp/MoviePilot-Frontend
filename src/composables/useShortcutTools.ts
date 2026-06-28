@@ -19,6 +19,9 @@ const AccountSettingService = defineAsyncComponent(() => import('@/views/system/
 const ShortcutLogDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutLogDialog.vue'))
 const ShortcutToolDialog = defineAsyncComponent(() => import('@/components/dialog/ShortcutToolDialog.vue'))
 
+// 定时服务在捷径与仪表板中共用的图标，避免两个入口的视觉语义漂移。
+export const SCHEDULER_SHORTCUT_ICON = 'mdi-list-box'
+
 export type ShortcutToolItem = PermissionProtectedItem & {
   bodyClass?: string
   cardClass?: string
@@ -95,7 +98,7 @@ export function useShortcutTools() {
     {
       title: t('shortcut.scheduler.title'),
       subtitle: t('shortcut.scheduler.subtitle'),
-      icon: 'mdi-list-box',
+      icon: SCHEDULER_SHORTCUT_ICON,
       dialog: 'scheduler',
       bodyClass: 'scheduler-shortcut-dialog-body pa-0',
       cardClass: 'scheduler-shortcut-dialog-card',

@@ -59,8 +59,15 @@ const averageUsages = computed(() => [
   { label: '15m', value: getAverageUsage(30) },
 ])
 
+// 根据最近采样动态收紧纵轴，低负载时仍能看清区域图变化。
+const cpuChartMax = computed(() => {
+  const peak = Math.max(current.value, ...series.value[0].data)
+
+  return Math.min(100, Math.max(10, Math.ceil(peak / 10) * 10))
+})
+
 const chartOptions = controlledComputed(
-  () => vuetifyTheme.name.value,
+  () => `${vuetifyTheme.name.value}:${cpuChartMax.value}`,
   () => {
     const axisLabelColor = `rgba(${hexToRgb(currentTheme.value['on-surface'])},${variableTheme.value['medium-emphasis-opacity']})`
 
@@ -85,7 +92,7 @@ const chartOptions = controlledComputed(
         },
         padding: {
           top: -10,
-          left: -7,
+          left: 8,
           right: 5,
           bottom: 5,
         },
@@ -95,11 +102,14 @@ const chartOptions = controlledComputed(
         lineCap: 'butt',
         curve: 'smooth',
       },
-      colors: [currentTheme.value.primary],
+      colors: [currentTheme.value.success],
+      fill: {
+        opacity: 0.24,
+      },
       markers: {
         size: 6,
         offsetY: 4,
-        offsetX: -2,
+        offsetX: 4,
         strokeWidth: 3,
         colors: ['transparent'],
         strokeColors: 'transparent',
@@ -107,11 +117,14 @@ const chartOptions = controlledComputed(
           {
             size: 5.5,
             seriesIndex: 0,
-            strokeColor: currentTheme.value.primary,
+            strokeColor: currentTheme.value.success,
             fillColor: currentTheme.value.surface,
           },
         ],
         hover: { size: 7 },
+      },
+      dataLabels: {
+        enabled: false,
       },
       xaxis: {
         labels: { show: false },
@@ -121,6 +134,7 @@ const chartOptions = controlledComputed(
       yaxis: {
         labels: {
           show: true,
+          minWidth: 32,
           formatter: (value: number) => `${Math.round(value)}%`,
           style: {
             colors: axisLabelColor,
@@ -128,7 +142,7 @@ const chartOptions = controlledComputed(
           },
         },
         tickAmount: 2,
-        max: 100,
+        max: cpuChartMax.value,
         min: 0,
       },
     }
@@ -172,7 +186,7 @@ useKeepAliveRefresh(refresh)
     </VCardItem>
     <VCardText class="dashboard-chart-content">
       <div class="dashboard-chart-plot">
-        <VApexChart type="line" :options="chartOptions" :series="series" height="100%" />
+        <VApexChart type="area" :options="chartOptions" :series="series" height="100%" />
       </div>
       <div class="dashboard-chart-footer">
         <span>{{ t('dashboard.averageUsage') }}</span>
@@ -200,7 +214,7 @@ useKeepAliveRefresh(refresh)
 
 .dashboard-chart-plot {
   flex: 1 1 auto;
-  min-block-size: 135px;
+  min-block-size: 120px;
 }
 
 .dashboard-chart-current,

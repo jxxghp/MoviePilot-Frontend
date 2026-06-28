@@ -1052,6 +1052,48 @@ export interface DownloaderInfo {
   free_space: number
 }
 
+// 仪表板系统内存信息
+export interface DashboardMemoryInfo {
+  // 总内存字节数
+  total: number
+  // 已使用内存字节数，不包含缓存
+  used: number
+  // 缓存与缓冲区占用字节数
+  cached: number
+  // 可用内存字节数
+  available: number
+  // 已使用内存占总内存百分比，不包含缓存
+  usage: number
+}
+
+// 定时服务进度信息
+export interface ScheduleProgress {
+  // ID
+  id?: string
+  // 名称
+  name?: string
+  // 提供者
+  provider?: string
+  // 是否正在执行
+  enable?: boolean
+  // 当前完成百分比
+  value?: number
+  // 当前进度文本
+  text?: string
+  // 执行状态
+  status?: string
+  // 最近一次执行是否成功
+  success?: boolean
+  // 最近一次开始时间
+  started_at?: string
+  // 最近一次结束时间
+  finished_at?: string
+  // 最近一次错误信息
+  error?: string
+  // 扩展数据
+  data?: Record<string, unknown>
+}
+
 // 定时服务信息
 export interface ScheduleInfo {
   // ID
@@ -1064,6 +1106,14 @@ export interface ScheduleInfo {
   status: string
   // 下次运行时间
   next_run: string
+  // 当前完成百分比
+  progress?: number
+  // 进度文本
+  progress_text?: string
+  // 是否正在更新进度
+  progress_enable?: boolean
+  // 进度详情
+  progress_detail?: ScheduleProgress
 }
 
 // 消息通知

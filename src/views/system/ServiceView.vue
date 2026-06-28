@@ -4,6 +4,7 @@ import api from '@/api'
 import type { ScheduleInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
+import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
 
 // 移动端任务卡片视觉配置。
 type SchedulerMobileVisual = {
@@ -28,6 +29,10 @@ const $toast = useToast()
 
 // 定时服务列表
 const schedulerList = ref<ScheduleInfo[]>([])
+const { getScheduleProgressText, getScheduleProgressValue } = useScheduleProgress(
+  schedulerList,
+  'scheduler-service-progress',
+)
 
 // 移动端任务图标按后端 job id 优先匹配，避免列表顺序变化导致图标看起来随机。
 const schedulerMobileVisualRules: SchedulerMobileVisualRule[] = [
@@ -162,19 +167,26 @@ function runCommand(id: string) {
 
 // 移动端任务卡片展示模型。
 const mobileSchedulerCards = computed(() =>
-  schedulerList.value.map(scheduler => ({
-    scheduler,
-    statusText: getMobileSchedulerStatusText(scheduler),
-    statusVariant: getSchedulerStatusVariant(scheduler.status),
-    visual: getMobileSchedulerVisual(scheduler),
-  })),
+  schedulerList.value.map(scheduler => {
+    const isRunning = isScheduleRunning(scheduler)
+
+    return {
+      isRunning,
+      progressText: isRunning ? getScheduleProgressText(scheduler) : '',
+      progressValue: isRunning ? getScheduleProgressValue(scheduler) : 0,
+      scheduler,
+      statusText: getMobileSchedulerStatusText(scheduler),
+      statusVariant: getSchedulerStatusVariant(scheduler.status),
+      visual: getMobileSchedulerVisual(scheduler),
+    }
+  }),
 )
 
 // 使用数据刷新定时器
 const { loading: schedulerLoading } = useDataRefresh(
   'scheduler-list',
   loadSchedulerList,
-  5000, // 5秒间隔
+  3000, // 3秒间隔，及时发现任务启停；运行中进度由独立轮询每秒刷新
   true // 立即执行
 )
 </script>
@@ -196,8 +208,20 @@ const { loading: schedulerLoading } = useDataRefresh(
           <td>
             {{ scheduler.provider }}
           </td>
-          <td>
-            {{ scheduler.name }}
+          <td class="scheduler-task-cell">
+            <div>{{ scheduler.name }}</div>
+            <div v-if="isScheduleRunning(scheduler)" class="scheduler-progress">
+              <VProgressLinear
+                :model-value="getScheduleProgressValue(scheduler)"
+                color="primary"
+                height="4"
+                rounded
+              />
+              <div class="scheduler-progress-meta">
+                <span>{{ getScheduleProgressText(scheduler) || scheduler.status }}</span>
+                <strong>{{ Math.round(getScheduleProgressValue(scheduler)) }}%</strong>
+              </div>
+            </div>
           </td>
           <td>
             <VChip :color="getSchedulerColor(scheduler.status)">
@@ -210,7 +234,7 @@ const { loading: schedulerLoading } = useDataRefresh(
           <td>
             <VBtn
               size="small"
-              :disabled="scheduler.status === t('setting.scheduler.running')"
+              :disabled="isScheduleRunning(scheduler)"
               @click="runCommand(scheduler.id)"
             >
               <template #prepend>
@@ -237,7 +261,15 @@ const { loading: schedulerLoading } = useDataRefresh(
   <div class="mobile-scheduler-view d-md-none">
     <div v-if="mobileSchedulerCards.length" class="mobile-scheduler-list">
       <article
-        v-for="{ scheduler, visual, statusText, statusVariant } in mobileSchedulerCards"
+        v-for="{
+          scheduler,
+          visual,
+          statusText,
+          statusVariant,
+          isRunning,
+          progressText,
+          progressValue,
+        } in mobileSchedulerCards"
         :key="scheduler.id"
         class="mobile-scheduler-card"
         :style="{
@@ -262,11 +294,19 @@ const { loading: schedulerLoading } = useDataRefresh(
             icon
             class="mobile-scheduler-run-btn"
             :aria-label="t('setting.scheduler.execute')"
-            :disabled="scheduler.status === t('setting.scheduler.running')"
+            :disabled="isRunning"
             @click="runCommand(scheduler.id)"
           >
             <VIcon icon="mdi-play" size="24" />
           </VBtn>
+        </div>
+
+        <div v-if="isRunning" class="mobile-scheduler-progress">
+          <VProgressLinear :model-value="progressValue" color="primary" height="4" rounded />
+          <div class="scheduler-progress-meta">
+            <span>{{ progressText || scheduler.status }}</span>
+            <strong>{{ Math.round(progressValue) }}%</strong>
+          </div>
         </div>
       </article>
     </div>
@@ -299,6 +339,35 @@ const { loading: schedulerLoading } = useDataRefresh(
 .desktop-scheduler-empty p {
   margin: 0;
   font-size: 15px;
+}
+
+.scheduler-task-cell {
+  min-inline-size: 220px;
+}
+
+.scheduler-progress {
+  margin-block-start: 8px;
+  max-inline-size: 320px;
+}
+
+.scheduler-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-block-start: 4px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 11px;
+  gap: 12px;
+}
+
+.scheduler-progress-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scheduler-progress-meta strong {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .mobile-scheduler-view {
@@ -368,6 +437,12 @@ const { loading: schedulerLoading } = useDataRefresh(
   display: inline-flex;
   align-items: center;
   gap: 14px;
+}
+
+.mobile-scheduler-progress {
+  min-inline-size: 0;
+  margin-block-start: 2px;
+  grid-column: 2 / -1;
 }
 
 .mobile-scheduler-status {
