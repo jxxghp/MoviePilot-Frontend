@@ -591,7 +591,7 @@ function handleCardClick() {
 .subscribe-card-shell--selected::after {
   position: absolute;
   z-index: 5;
-  border: 2px dotted #ec4899;
+  border: 2px solid rgb(var(--v-theme-primary));
   border-radius: inherit;
   content: '';
   inset: 0;
