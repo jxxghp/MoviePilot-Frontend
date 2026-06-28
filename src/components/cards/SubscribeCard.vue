@@ -410,7 +410,7 @@ function handleCardClick() {
             class="subscribe-card-shell app-hover-lift-card w-full h-full relative"
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
-              'outline-dotted outline-pink-500 outline-2': props.batchMode && props.selected,
+              'subscribe-card-shell--selected': props.batchMode && props.selected,
             }"
           >
             <VCard
@@ -579,6 +579,23 @@ function handleCardClick() {
 <style lang="scss" scoped>
 .subscribe-card-hover-area {
   inline-size: 100%;
+}
+
+/**
+ * 订阅卡片外壳：选中态虚线框复用同一圆角，避免 outline 在圆角卡片外形成直角。
+ */
+.subscribe-card-shell {
+  border-radius: var(--app-surface-radius);
+}
+
+.subscribe-card-shell--selected::after {
+  position: absolute;
+  z-index: 5;
+  border: 2px dotted #ec4899;
+  border-radius: inherit;
+  content: '';
+  inset: 0;
+  pointer-events: none;
 }
 
 .subscribe-card-background {
