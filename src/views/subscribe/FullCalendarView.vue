@@ -20,6 +20,7 @@ const COLLAPSED_VISIBLE_CARD_LIMIT = COLLAPSED_DAY_CARD_LIMIT
 const DAY_GROUP_EVENT_PREFIX = 'calendar-day-group-'
 const ALL_MOBILE_FILTER_VALUE = '__all__'
 const DAY_TIME = 24 * 60 * 60 * 1000
+const MOBILE_HISTORY_DAY_LIMIT = 30
 
 // 国际化
 const { t } = useI18n()
@@ -178,6 +179,10 @@ const mobileSeriesFilterOptions = computed<MobileCalendarFilterOption[]>(() => {
 const mobileFilteredCalendarEvents = computed(() => {
   return rawCalendarEvents.value.filter(event => {
     if (mobileSelectedFilterValue.value !== ALL_MOBILE_FILTER_VALUE && event.title !== mobileSelectedFilterValue.value) {
+      return false
+    }
+
+    if (isDateBeforeMobileHistoryWindow(event.start)) {
       return false
     }
 
@@ -471,6 +476,13 @@ function isDateBeforeToday(date: Date | null) {
   return date.getTime() < getTodayStart().getTime()
 }
 
+// 判断日期是否早于移动端允许展示的历史窗口。
+function isDateBeforeMobileHistoryWindow(date: Date | null) {
+  if (!date) return false
+
+  return date.getTime() < getTodayStart().getTime() - MOBILE_HISTORY_DAY_LIMIT * DAY_TIME
+}
+
 // 判断日期是否是今天。
 function isDateToday(date: Date | null) {
   if (!date) return false
@@ -529,6 +541,13 @@ function getMobileEventEpisodeTag(event: CalendarEventInfo) {
   if (!event.episodeNumbers.length && !event.season) return ''
 
   return formatSeasonEpisode(event.season, event.episodeNumbers)
+}
+
+// 获取移动端海报角标集号。
+function getMobilePosterEpisodeTag(event: CalendarEventInfo) {
+  if (event.mediaType === '电影' || !event.episodeNumbers.length) return ''
+
+  return formatSeasonEpisode(undefined, event.episodeNumbers)
 }
 
 // 获取移动端时长标识。
@@ -826,8 +845,8 @@ onActivated(() => {
                   </template>
                 </VImg>
 
-                <span v-if="getMobileEventEpisodeTag(calendarEvent)" class="mobile-calendar-poster-episode">
-                  {{ getMobileEventEpisodeTag(calendarEvent) }}
+                <span v-if="getMobilePosterEpisodeTag(calendarEvent)" class="mobile-calendar-poster-episode">
+                  {{ getMobilePosterEpisodeTag(calendarEvent) }}
                 </span>
               </div>
 

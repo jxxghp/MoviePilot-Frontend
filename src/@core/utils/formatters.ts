@@ -92,15 +92,15 @@ export function formatSeasonEpisode(
     if (currentNumber === end + 1) {
       end = currentNumber
     } else {
-      ranges.push(start === end ? `${seasonText}${formatEpisode(start)}` : `${seasonText}${formatEpisode(start)}-${formatEpisode(end)}`)
+      ranges.push(start === end ? formatEpisode(start) : `${formatEpisode(start)}-${formatEpisode(end)}`)
       start = currentNumber
       end = currentNumber
     }
   }
 
-  ranges.push(start === end ? `${seasonText}${formatEpisode(start)}` : `${seasonText}${formatEpisode(start)}-${formatEpisode(end)}`)
+  ranges.push(start === end ? formatEpisode(start) : `${formatEpisode(start)}-${formatEpisode(end)}`)
 
-  return ranges.join('、')
+  return `${seasonText}${ranges.join('、')}`
 }
 
 // 格式化为xx[TGMK]B
