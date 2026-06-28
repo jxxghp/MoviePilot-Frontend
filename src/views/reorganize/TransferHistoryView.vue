@@ -550,23 +550,7 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
     const list: TransferHistory[] = Array.isArray(result.data?.list) ? result.data.list : []
     const total = ensureNumber(result.data?.total, 0)
 
-    isRefreshed.value = true
-    totalItems.value = total
-
-    if (list.length === 0) {
-      mobileHasMore.value = false
-      updateSearchHintList(mobileDataList.value)
-      done('empty')
-      return
-    }
-
-    const existingIds = new Set(mobileDataList.value.map(item => item.id))
-    const newItems = list.filter(item => !existingIds.has(item.id))
-
-    mobileDataList.value = [...mobileDataList.value, ...newItems]
-    mobileCurrentPage.value++
-    mobileHasMore.value = mobileDataList.value.length < total && list.length >= mobilePageSize
-    updateSearchHintList(mobileDataList.value)
+    appendMobileHistory(list, total)
     done(mobileHasMore.value ? 'ok' : 'empty')
   } catch (error) {
     console.error(error)
@@ -576,6 +560,26 @@ async function loadMobileHistory({ done }: { done: (status: 'ok' | 'empty' | 'er
       mobileLoading.value = false
     }
   }
+}
+
+// 将移动端新页数据合并到列表，并维护下一页状态。
+function appendMobileHistory(list: TransferHistory[], total: number) {
+  isRefreshed.value = true
+  totalItems.value = total
+
+  if (list.length === 0) {
+    mobileHasMore.value = false
+    updateSearchHintList(mobileDataList.value)
+    return
+  }
+
+  const existingIds = new Set(mobileDataList.value.map(item => item.id))
+  const newItems = list.filter(item => !existingIds.has(item.id))
+
+  mobileDataList.value = [...mobileDataList.value, ...newItems]
+  mobileCurrentPage.value++
+  mobileHasMore.value = mobileDataList.value.length < total && list.length >= mobilePageSize
+  updateSearchHintList(mobileDataList.value)
 }
 
 // 从路由查询参数中取出单值字符串，空搜索统一返回 null 以保持输入框 placeholder 可见。
@@ -1002,7 +1006,14 @@ function getHistorySubtitle(item: TransferHistory) {
 function getHistoryStorageName(storage?: string) {
   if (!storage) return t('common.unknown')
 
-  return storageDict.value[storage] || storage
+  const fallbackNames: Record<string, string> = {
+    local: '本地',
+    downloads: '下载',
+    library: '媒体库',
+    smb: 'SMB',
+  }
+
+  return storageDict.value[storage] || fallbackNames[storage] || storage
 }
 
 // 获取移动端卡片状态对应的主题色。
@@ -1446,7 +1457,7 @@ onUnmounted(() => {
       :placeholder="t('transferHistory.searchPlaceholder')"
       :aria-label="t('transferHistory.searchPlaceholder')"
       prepend-inner-icon="mdi-magnify"
-      variant="solo-filled"
+      variant="outlined"
       single-line
       hide-details
       flat
@@ -1622,7 +1633,7 @@ onUnmounted(() => {
 
 .transfer-history-mobile-page {
   --transfer-history-mobile-surface-opacity: 0.92;
-  --transfer-history-mobile-search-opacity: 0.72;
+  --transfer-history-mobile-search-bg: rgba(var(--v-theme-on-surface), 0.045);
   --transfer-history-mobile-muted-bg: rgba(var(--v-theme-on-surface), 0.06);
   --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.1);
   --transfer-history-mobile-storage-width: 4.85rem;
@@ -1654,8 +1665,7 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-search :deep(.v-field) {
-  border: 1px solid var(--transfer-history-mobile-border);
-  background: rgba(var(--v-theme-surface), var(--transfer-history-mobile-search-opacity));
+  background: var(--transfer-history-mobile-search-bg);
   min-block-size: 3.75rem;
 }
 
@@ -1665,6 +1675,13 @@ onUnmounted(() => {
 
 .transfer-history-mobile-scroll {
   min-block-size: 22rem;
+  overflow: visible !important;
+}
+
+.transfer-history-mobile-scroll :deep(.v-infinite-scroll__container),
+.transfer-history-mobile-scroll :deep(.v-virtual-scroll),
+.transfer-history-mobile-scroll :deep(.v-virtual-scroll__container) {
+  overflow: visible !important;
 }
 
 .transfer-history-mobile-scroll :deep(.v-infinite-scroll__side) {
@@ -1865,7 +1882,7 @@ onUnmounted(() => {
 html[data-theme='transparent'] .transfer-history-mobile-page,
 .v-theme--transparent .transfer-history-mobile-page {
   --transfer-history-mobile-surface-opacity: var(--transparent-opacity-light, 0.2);
-  --transfer-history-mobile-search-opacity: var(--transparent-opacity-light, 0.2);
+  --transfer-history-mobile-search-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
   --transfer-history-mobile-muted-bg: rgba(var(--v-theme-surface), var(--transparent-opacity, 0.3));
   --transfer-history-mobile-border: rgba(var(--v-theme-on-surface), 0.14);
   --transfer-history-mobile-surface-blur: blur(var(--transparent-blur, 10px));
