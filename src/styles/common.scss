@@ -82,6 +82,8 @@ html {
   --app-overlay-radius: var(--app-vuetify-rounded-lg);
   --app-surface-border-opacity: 0.06;
   --app-surface-border: 1px solid rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
+  --app-card-light-border-opacity: 0.12;
+  --app-card-light-border: 1px solid rgba(var(--v-theme-on-surface), var(--app-card-light-border-opacity));
   --app-card-rest-shadow: var(--app-elevation-0);
   --app-card-hover-shadow: var(--app-elevation-0);
   --app-fab-shadow: var(--app-elevation-0);
@@ -100,6 +102,7 @@ html {
 
 html[data-theme-skin='bordered'] {
   --app-surface-border-opacity: 0.1;
+  --app-card-light-border-opacity: 0.16;
 }
 
 // 默认档位保留按钮等 control 的 Vuetify 原始圆角，同时让卡片、列表、弹窗和输入区使用更舒展的大圆角。
@@ -193,6 +196,11 @@ html[data-theme-radius='extra'] {
 }
 
 // 统一卡片上浮反馈；hover 命中区域应放在静止外层，避免上浮后底边反复触发 mouseleave。
+.v-card.app-hover-lift-card,
+.subscribe-card-shell {
+  border: var(--app-card-light-border);
+}
+
 .app-hover-lift-card {
   transition: transform 0.3s ease, box-shadow 0.2s ease;
   transform: translateZ(0);
@@ -517,6 +525,7 @@ html[data-theme-skin='bordered'] {
 // 应用类信息卡片：固定右侧媒体槽位，避免图片被左侧文字挤压变形。
 .app-card-shell {
   position: relative;
+  border: var(--app-card-light-border);
   block-size: 100%;
 }
 

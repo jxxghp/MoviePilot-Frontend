@@ -211,15 +211,12 @@ watch(
   inline-size: 100%;
 }
 
-.subtitle-item-hover-area:hover .subtitle-item {
-  transform: translate3d(0, -0.25rem, 0);
-}
-
 .subtitle-item {
-  border: 1px solid transparent;
+  border: var(--app-card-light-border);
 }
 
 .subtitle-item-hover-area:hover .subtitle-item {
   border-color: rgba(var(--v-theme-primary), 0.3);
+  transform: translate3d(0, -0.25rem, 0);
 }
 </style>

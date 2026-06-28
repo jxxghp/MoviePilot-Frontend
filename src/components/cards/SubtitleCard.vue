@@ -208,15 +208,12 @@ watch(
   inline-size: 100%;
 }
 
-.subtitle-card-hover-area:hover .subtitle-card {
-  transform: translate3d(0, -0.25rem, 0);
-}
-
 .subtitle-card {
-  border: 1px solid transparent;
+  border: var(--app-card-light-border);
 }
 
 .subtitle-card-hover-area:hover .subtitle-card {
   border-color: rgba(var(--v-theme-primary), 0.3);
+  transform: translate3d(0, -0.25rem, 0);
 }
 </style>

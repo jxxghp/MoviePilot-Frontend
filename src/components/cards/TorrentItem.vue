@@ -267,16 +267,13 @@ watch(
   inline-size: 100%;
 }
 
-.torrent-item-hover-area:hover .torrent-item {
-  transform: translate3d(0, -0.25rem, 0);
-}
-
 .torrent-item {
-  border: 1px solid transparent;
+  border: var(--app-card-light-border);
 }
 
 .torrent-item-hover-area:hover .torrent-item {
   border-color: rgba(var(--v-theme-primary), 0.3);
+  transform: translate3d(0, -0.25rem, 0);
 }
 
 .chip-season {

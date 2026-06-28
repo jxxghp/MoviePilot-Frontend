@@ -321,17 +321,14 @@ watch(
   inline-size: 100%;
 }
 
-.torrent-card-hover-area:hover .torrent-card {
-  transform: translate3d(0, -0.25rem, 0);
-}
-
 /* 卡片悬停效果 */
 .torrent-card {
-  border: 1px solid transparent;
+  border: var(--app-card-light-border);
 }
 
 .torrent-card-hover-area:hover .torrent-card {
   border-color: rgba(var(--v-theme-primary), 0.3);
+  transform: translate3d(0, -0.25rem, 0);
 }
 
 /* 优惠标签样式 */
