@@ -135,7 +135,17 @@ useDataRefresh(
 
           <template #append>
             <span class="background-task-status">{{ item.status }}</span>
-            <VIcon icon="mdi-check-circle" :color="item.progress === 100 ? 'success' : item.color" size="15" />
+            <VIcon
+              :icon="
+                item.progress === undefined
+                  ? 'mdi-clock-outline'
+                  : item.progress === 100
+                    ? 'mdi-check-circle'
+                    : 'mdi-progress-clock'
+              "
+              :color="item.progress === 100 ? 'success' : item.color"
+              size="15"
+            />
           </template>
         </VListItem>
         <VListItem v-if="backgroundTasks.length === 0">
@@ -156,7 +166,7 @@ useDataRefresh(
 }
 
 .card-list {
-  --v-card-list-gap: 0.2rem;
+  --v-card-list-gap: 0;
 
   flex: 1 1 auto;
   min-block-size: 0;
@@ -166,11 +176,21 @@ useDataRefresh(
 }
 
 .background-task-item {
-  min-block-size: 58px;
+  position: relative;
+  min-block-size: 68px;
+  padding-block: 0.35rem;
+  border-radius: 0;
 }
 
-.background-task-item + .background-task-item {
-  border-block-start: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7));
+.background-task-item + .background-task-item::before {
+  position: absolute;
+  z-index: 1;
+  block-size: 1px;
+  background: rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7));
+  content: '';
+  inset-block-start: 0;
+  inset-inline: 0.75rem;
+  pointer-events: none;
 }
 
 .background-task-title {
