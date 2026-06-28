@@ -742,23 +742,28 @@ async function handleResetSettings() {
   inline-size: 100%;
   min-inline-size: 0;
 
-  --theme-customizer-preview-radius: var(--app-vuetify-rounded);
+  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded);
+  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-lg);
 }
 
 .theme-customizer-radius-scene--none {
-  --theme-customizer-preview-radius: var(--app-vuetify-rounded-0);
+  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded-sm);
+  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-sm);
 }
 
 .theme-customizer-radius-scene--small {
-  --theme-customizer-preview-radius: var(--app-vuetify-rounded-sm);
+  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded);
+  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded);
 }
 
 .theme-customizer-radius-scene--large {
-  --theme-customizer-preview-radius: var(--app-vuetify-rounded-lg);
+  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded-lg);
+  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-lg);
 }
 
 .theme-customizer-radius-scene--extra {
-  --theme-customizer-preview-radius: var(--app-vuetify-rounded-xl);
+  --theme-customizer-preview-control-radius: var(--app-vuetify-rounded-xl);
+  --theme-customizer-preview-surface-radius: var(--app-vuetify-rounded-xl);
 }
 
 .theme-customizer-radius-scene__card {
@@ -766,7 +771,7 @@ async function handleResetSettings() {
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: var(--theme-customizer-preview-radius);
+  border-radius: var(--theme-customizer-preview-surface-radius);
   background: rgb(var(--v-theme-surface));
   gap: 8px;
   inset: 16px;
@@ -781,14 +786,14 @@ async function handleResetSettings() {
 }
 
 .theme-customizer-radius-scene__badge {
-  border-radius: var(--theme-customizer-preview-radius);
+  border-radius: var(--theme-customizer-preview-control-radius);
   block-size: 8px;
   inline-size: 42%;
   min-inline-size: 28px;
 }
 
 .theme-customizer-radius-scene__line {
-  border-radius: var(--theme-customizer-preview-radius);
+  border-radius: var(--theme-customizer-preview-control-radius);
   block-size: 7px;
 }
 

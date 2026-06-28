@@ -75,11 +75,11 @@ html {
     --app-elevation-#{$level}: #{app-vuetify-elevation($level)};
   }
 
-  --app-theme-surface-radius: var(--app-vuetify-rounded);
+  --app-theme-surface-radius: var(--app-vuetify-rounded-lg);
   --app-surface-radius: var(--app-theme-surface-radius);
-  --app-field-radius: var(--app-vuetify-rounded);
+  --app-field-radius: var(--app-vuetify-rounded-lg);
   --app-control-radius: var(--app-vuetify-rounded);
-  --app-overlay-radius: var(--app-vuetify-rounded);
+  --app-overlay-radius: var(--app-vuetify-rounded-lg);
   --app-surface-border-opacity: 0.06;
   --app-surface-border: 1px solid rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
   --app-card-rest-shadow: var(--app-elevation-0);
@@ -102,18 +102,26 @@ html[data-theme-skin='bordered'] {
   --app-surface-border-opacity: 0.1;
 }
 
-html[data-theme-radius='none'] {
-  --app-theme-surface-radius: var(--app-vuetify-rounded-0);
-  --app-field-radius: var(--app-vuetify-rounded-0);
-  --app-control-radius: var(--app-vuetify-rounded-0);
-  --app-overlay-radius: var(--app-vuetify-rounded-0);
+// 默认档位保留按钮等 control 的 Vuetify 原始圆角，同时让卡片、列表、弹窗和输入区使用更舒展的大圆角。
+html[data-theme-radius='default'] {
+  --app-theme-surface-radius: var(--app-vuetify-rounded-lg);
+  --app-field-radius: var(--app-vuetify-rounded-lg);
+  --app-control-radius: var(--app-vuetify-rounded);
+  --app-overlay-radius: var(--app-vuetify-rounded-lg);
 }
 
-html[data-theme-radius='small'] {
+html[data-theme-radius='none'] {
   --app-theme-surface-radius: var(--app-vuetify-rounded-sm);
   --app-field-radius: var(--app-vuetify-rounded-sm);
   --app-control-radius: var(--app-vuetify-rounded-sm);
   --app-overlay-radius: var(--app-vuetify-rounded-sm);
+}
+
+html[data-theme-radius='small'] {
+  --app-theme-surface-radius: var(--app-vuetify-rounded);
+  --app-field-radius: var(--app-vuetify-rounded);
+  --app-control-radius: var(--app-vuetify-rounded);
+  --app-overlay-radius: var(--app-vuetify-rounded);
 }
 
 html[data-theme-radius='large'] {

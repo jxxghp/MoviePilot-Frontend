@@ -63,6 +63,12 @@ interface DashboardGridLayoutItem {
   h?: number
 }
 
+// 单个设备档位的仪表盘配置，将布局与显示项绑定到同一份持久化数据。
+interface DashboardProfileConfig {
+  enabled?: DashboardEnableConfig
+  items: DashboardGridLayoutConfig
+}
+
 interface DashboardGridItem {
   config: DashboardItem
   id: string
@@ -91,13 +97,17 @@ const loadedDashboardGridItemIds = ref<Set<string>>(new Set())
 const isSyncingDashboardGrid = ref(false)
 
 // 仪表板本地布局覆盖配置
-const dashboardGridLayout = ref<Record<string, DashboardGridLayoutItem>>({})
+const dashboardGridLayout = ref<DashboardGridLayoutConfig>({})
 
 // 当前仪表板布局档位，按 GridStack 响应式列数拆分跨端配置。
 const dashboardLayoutProfile = ref<DashboardLayoutProfile>('desktop')
 
 // 是否刚恢复过默认布局，用于避免退出编辑时立即把默认布局写回本地覆盖。
 const isDashboardGridLayoutResetPending = ref(false)
+
+// 旧版跨设备显示项配置，仅用于首次迁移到按设备拆分的仪表盘配置。
+let legacyDashboardEnableConfig: DashboardEnableConfig | undefined
+let isLegacyDashboardEnableConfigLoaded = false
 
 const dashboardGridResizeStartHeights = new Map<string, number | undefined>()
 const dashboardGridPendingContentResize = new Set<GridItemHTMLElement>()
@@ -116,22 +126,10 @@ const isDashboardGridResizing = ref(false)
 const refreshTimers = ref<{ [key: string]: NodeJS.Timeout }>({})
 
 // 仪表板启用配置
-const enableConfig = ref<{ [key: string]: boolean }>({
-  mediaStatistic: true,
-  scheduler: false,
-  speed: false,
-  storage: true,
-  weeklyOverview: false,
-  cpu: false,
-  memory: false,
-  network: false,
-  library: true,
-  playing: true,
-  latest: true,
-})
+const enableConfig = ref<DashboardEnableConfig>(getDefaultDashboardEnableConfig())
 
 // 仪表板顺序配置
-const orderConfig = ref<{ id: string; key: string }[]>([])
+const orderConfig = ref<DashboardOrderConfig>([])
 
 // 仪表板配置
 const dashboardConfigs = ref<DashboardItem[]>([
@@ -332,6 +330,23 @@ function clampGridNumber(value: unknown, min: number, max: number, fallback: num
   return Math.min(max, Math.max(min, Math.round(numericValue)))
 }
 
+// 获取仪表盘内置组件的默认显示配置。
+function getDefaultDashboardEnableConfig(): DashboardEnableConfig {
+  return {
+    mediaStatistic: true,
+    scheduler: false,
+    speed: false,
+    storage: true,
+    weeklyOverview: false,
+    cpu: false,
+    memory: false,
+    network: false,
+    library: true,
+    playing: true,
+    latest: true,
+  }
+}
+
 // 校验并归一化仪表板显示配置，避免异常用户配置影响页面渲染。
 function normalizeDashboardEnableConfig(value: unknown): DashboardEnableConfig | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
@@ -362,12 +377,17 @@ function normalizeDashboardOrderConfig(value: unknown): DashboardOrderConfig | u
   }, [])
 }
 
-// 校验并归一化仪表板 Grid 布局覆盖配置，兼容旧版裸布局和新版服务端包装结构。
+// 校验并归一化仪表板 Grid 布局覆盖配置，兼容旧版裸布局和新版 profile 包装结构。
 function normalizeDashboardGridLayout(value: unknown): DashboardGridLayoutConfig | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
 
   const configValue = value as { items?: unknown }
-  const layoutValue = configValue.items && typeof configValue.items === 'object' ? configValue.items : value
+  const hasWrappedLayout = Object.prototype.hasOwnProperty.call(configValue, 'items')
+  const layoutValue = hasWrappedLayout ? configValue.items : value
+  if (!layoutValue || typeof layoutValue !== 'object' || Array.isArray(layoutValue)) {
+    return hasWrappedLayout ? {} : undefined
+  }
+
   const normalizedLayout: DashboardGridLayoutConfig = {}
 
   Object.entries(layoutValue).forEach(([id, layout]) => {
@@ -391,9 +411,47 @@ function normalizeDashboardGridLayout(value: unknown): DashboardGridLayoutConfig
   return normalizedLayout
 }
 
-// 构造服务端 Grid 布局配置，避免空布局被后端按空值删除后又被其他浏览器旧缓存回填。
-function buildRemoteDashboardGridLayout(layout: DashboardGridLayoutConfig) {
-  return { items: layout }
+// 校验并归一化单个设备档位的仪表盘配置，兼容旧版只保存 Grid 布局的数据。
+function normalizeDashboardProfileConfig(value: unknown): DashboardProfileConfig | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+
+  const configValue = value as { enabled?: unknown; items?: unknown }
+  const hasProfileField =
+    Object.prototype.hasOwnProperty.call(configValue, 'items') ||
+    Object.prototype.hasOwnProperty.call(configValue, 'enabled')
+  const items = normalizeDashboardGridLayout(hasProfileField ? { items: configValue.items ?? {} } : value)
+  if (items === undefined) return undefined
+
+  const enabled = normalizeDashboardEnableConfig(configValue.enabled)
+  const profileConfig: DashboardProfileConfig = { items }
+
+  if (enabled !== undefined) {
+    profileConfig.enabled = enabled
+  }
+
+  return profileConfig
+}
+
+// 构造设备档位仪表盘配置，让显示项和 Grid 布局始终作为一个整体持久化。
+function buildDashboardProfileConfig(
+  layout: DashboardGridLayoutConfig = dashboardGridLayout.value,
+  enabled: DashboardEnableConfig = enableConfig.value,
+): DashboardProfileConfig {
+  return {
+    enabled,
+    items: layout,
+  }
+}
+
+// 构造服务端设备档位配置，避免空布局被后端按空值删除后又被其他浏览器旧缓存回填。
+function buildRemoteDashboardProfileConfig(config: DashboardProfileConfig) {
+  const remoteConfig: DashboardProfileConfig = { items: config.items }
+
+  if (config.enabled !== undefined) {
+    remoteConfig.enabled = config.enabled
+  }
+
+  return remoteConfig
 }
 
 // 根据当前视口判断仪表板布局档位，避免手机和桌面共用 Grid 坐标。
@@ -439,14 +497,41 @@ function getDashboardGridLayoutConfigKey(profile: DashboardLayoutProfile) {
   return `${DASHBOARD_GRID_LAYOUT_CONFIG_KEY_PREFIX}${profile === 'mobile' ? 'Mobile' : 'Tablet'}`
 }
 
-// 加载指定布局档位的 Grid 布局配置。
-async function loadDashboardGridLayoutConfig(profile: DashboardLayoutProfile) {
-  return await loadSharedDashboardConfig(
-    getDashboardGridLayoutConfigKey(profile),
-    getDashboardGridLayoutStorageKey(profile),
-    normalizeDashboardGridLayout,
-    buildRemoteDashboardGridLayout,
-  )
+// 加载指定设备档位的仪表盘配置，远端旧布局缺少显示项时保留本地新版显示项。
+async function loadDashboardProfileConfig(profile: DashboardLayoutProfile) {
+  const configKey = getDashboardGridLayoutConfigKey(profile)
+  const storageKey = getDashboardGridLayoutStorageKey(profile)
+  const localConfig = readLocalDashboardConfig(storageKey, normalizeDashboardProfileConfig)
+
+  try {
+    const response = await api.get(`/user/config/${configKey}`)
+    const remoteConfig = normalizeDashboardProfileConfig(response?.data?.value)
+
+    if (remoteConfig !== undefined) {
+      const profileConfig: DashboardProfileConfig = { items: remoteConfig.items }
+      const enabled = remoteConfig.enabled ?? localConfig?.enabled
+
+      if (enabled !== undefined) {
+        profileConfig.enabled = enabled
+      }
+
+      saveLocalDashboardConfig(storageKey, profileConfig)
+
+      if (remoteConfig.enabled === undefined && localConfig?.enabled !== undefined) {
+        await saveUserDashboardConfig(configKey, buildRemoteDashboardProfileConfig(profileConfig))
+      }
+
+      return profileConfig
+    }
+
+    if (localConfig !== undefined) {
+      await saveUserDashboardConfig(configKey, buildRemoteDashboardProfileConfig(localConfig))
+    }
+  } catch (error) {
+    console.error(error)
+  }
+
+  return localConfig
 }
 
 // 从本地存储读取并归一化指定的仪表板配置。
@@ -471,6 +556,25 @@ function saveLocalDashboardConfig(storageKey: string, value: unknown) {
 // 将仪表板配置写入用户配置，用于跨浏览器共享。
 async function saveUserDashboardConfig(configKey: string, value: unknown) {
   await api.post(`/user/config/${configKey}`, value)
+}
+
+// 读取旧版全局显示项配置，用于设备档位配置还没有 enabled 字段时迁移。
+async function loadLegacyDashboardEnableConfig() {
+  if (isLegacyDashboardEnableConfigLoaded) return legacyDashboardEnableConfig
+
+  const localConfig = readLocalDashboardConfig(DASHBOARD_ENABLE_STORAGE_KEY, normalizeDashboardEnableConfig)
+
+  try {
+    const response = await api.get(`/user/config/${DASHBOARD_ENABLE_CONFIG_KEY}`)
+    legacyDashboardEnableConfig = normalizeDashboardEnableConfig(response?.data?.value) ?? localConfig
+  } catch (error) {
+    console.error(error)
+    legacyDashboardEnableConfig = localConfig
+  }
+
+  isLegacyDashboardEnableConfigLoaded = true
+
+  return legacyDashboardEnableConfig
 }
 
 // 优先加载用户配置；服务端缺失时使用本地历史配置并回填到用户配置。
@@ -503,12 +607,20 @@ async function loadSharedDashboardConfig<T>(
 }
 
 // 将当前仪表板布局覆盖配置保存到本地和用户配置。
-function saveDashboardGridLayout(layout: Record<string, DashboardGridLayoutItem>) {
+function saveDashboardProfileConfig(layout = dashboardGridLayout.value, enabled = enableConfig.value) {
   const profile = dashboardLayoutProfile.value
-  saveLocalDashboardConfig(getDashboardGridLayoutStorageKey(profile), layout)
-  void saveUserDashboardConfig(getDashboardGridLayoutConfigKey(profile), buildRemoteDashboardGridLayout(layout)).catch(
-    error => console.error(error),
-  )
+  const profileConfig = buildDashboardProfileConfig(layout, enabled)
+
+  saveLocalDashboardConfig(getDashboardGridLayoutStorageKey(profile), profileConfig)
+  void saveUserDashboardConfig(
+    getDashboardGridLayoutConfigKey(profile),
+    buildRemoteDashboardProfileConfig(profileConfig),
+  ).catch(error => console.error(error))
+}
+
+// 将当前仪表板布局覆盖配置保存到本地和用户配置。
+function saveDashboardGridLayout(layout: DashboardGridLayoutConfig) {
+  saveDashboardProfileConfig(layout)
 }
 
 // 获取仪表板组件的默认宽度，优先兼容插件旧版 cols.md / cols.cols 配置。
@@ -583,6 +695,14 @@ function openDashboardSettings() {
     },
     { closeOn: ['close', 'update:modelValue'] },
   )
+}
+
+// 同步已打开的仪表盘设置弹窗，避免设备档位切换后继续显示旧档位的开关副本。
+function updateDashboardSettingsDialog() {
+  settingsDialogController?.updateProps({
+    enabled: enableConfig.value,
+    items: dashboardConfigs.value,
+  })
 }
 
 // 退出仪表板布局编辑模式；如果刚恢复默认布局，则跳过本次本地持久化。
@@ -675,15 +795,6 @@ function toggleDashboardLayoutEditing() {
 // 加载用户监控面板配置，优先使用服务端用户配置以支持跨浏览器同步。
 async function loadDashboardConfig() {
   dashboardLayoutProfile.value = resolveDashboardLayoutProfile()
-  // 显示配置
-  const enable = await loadSharedDashboardConfig(
-    DASHBOARD_ENABLE_CONFIG_KEY,
-    DASHBOARD_ENABLE_STORAGE_KEY,
-    normalizeDashboardEnableConfig,
-  )
-  if (enable !== undefined) {
-    enableConfig.value = enable
-  }
   // 顺序配置
   const order = await loadSharedDashboardConfig(
     DASHBOARD_ORDER_CONFIG_KEY,
@@ -693,10 +804,14 @@ async function loadDashboardConfig() {
   if (order !== undefined) {
     orderConfig.value = order
   }
-  // Grid 布局覆盖
-  const gridLayoutProfile = dashboardLayoutProfile.value
-  const gridLayout = await loadDashboardGridLayoutConfig(gridLayoutProfile)
-  dashboardGridLayout.value = gridLayout ?? {}
+  // 设备档位配置同时承载 Grid 布局和显示项，显示项缺失时从旧版全局配置迁移。
+  const profileConfig = await loadDashboardProfileConfig(dashboardLayoutProfile.value)
+  const legacyEnable = profileConfig?.enabled === undefined ? await loadLegacyDashboardEnableConfig() : undefined
+  dashboardGridLayout.value = profileConfig?.items ?? {}
+  enableConfig.value = profileConfig?.enabled ?? legacyEnable ?? getDefaultDashboardEnableConfig()
+  if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
+    saveDashboardProfileConfig()
+  }
   // 排序
   if (orderConfig.value) {
     sortDashboardConfigs()
@@ -722,16 +837,13 @@ async function saveDashboardConfig(payload?: { enabled?: Record<string, boolean>
     enableConfig.value = payload.enabled
   }
 
-  // 启用配置
-  saveLocalDashboardConfig(DASHBOARD_ENABLE_STORAGE_KEY, enableConfig.value)
-
   // 顺序配置，从dashboardConfigs中提取
   const orderObj = dashboardConfigs.value.map(item => ({ id: item.id, key: item.key }))
   saveLocalDashboardConfig(DASHBOARD_ORDER_STORAGE_KEY, orderObj)
+  saveDashboardProfileConfig()
 
   // 保存到服务端
   try {
-    await saveUserDashboardConfig(DASHBOARD_ENABLE_CONFIG_KEY, enableConfig.value)
     await saveUserDashboardConfig(DASHBOARD_ORDER_CONFIG_KEY, orderObj)
   } catch (error) {
     console.error(error)
@@ -1167,7 +1279,14 @@ watch(
     }
 
     dashboardLayoutProfile.value = nextProfile
-    dashboardGridLayout.value = (await loadDashboardGridLayoutConfig(nextProfile)) ?? {}
+    const profileConfig = await loadDashboardProfileConfig(nextProfile)
+    const legacyEnable = profileConfig?.enabled === undefined ? await loadLegacyDashboardEnableConfig() : undefined
+    dashboardGridLayout.value = profileConfig?.items ?? {}
+    enableConfig.value = profileConfig?.enabled ?? legacyEnable ?? getDefaultDashboardEnableConfig()
+    if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
+      saveDashboardProfileConfig()
+    }
+    updateDashboardSettingsDialog()
     dashboardGrid.value?.column(
       getDashboardGridColumnsForProfile(nextProfile),
       getDashboardGridColumnLayout(nextProfile),
