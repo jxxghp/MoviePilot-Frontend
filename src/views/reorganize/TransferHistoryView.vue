@@ -78,6 +78,9 @@ const redoTargetStorage = ref<string>()
 // 已选中的数据
 const selected = ref<TransferHistory[]>([])
 
+// 移动端批量选择模式
+const mobileBatchMode = ref(false)
+
 // 从季集字符串中提取可排序的数字。
 const getNum = (s?: string) => (s ? parseInt(s.replace(/[^0-9]/g, ''), 10) || 0 : 0)
 
@@ -504,6 +507,7 @@ function resetMobileHistory() {
   totalItems.value = 0
   mobileExpandedPathIds.value = []
   selected.value = []
+  mobileBatchMode.value = false
   mobileInfiniteKey.value++
 }
 
@@ -699,6 +703,9 @@ async function removeBatch(deleteSrc: boolean, deleteDest: boolean) {
   }
   // 清空选中项
   selected.value = []
+  if (isMobile.value) {
+    mobileBatchMode.value = false
+  }
   // 隐藏进度条
   closeProgressDialog()
   // 重新获取数据
@@ -742,6 +749,9 @@ async function transferDone() {
   // 清空当前操作记录
   currentHistory.value = undefined
   selected.value = []
+  if (isMobile.value) {
+    mobileBatchMode.value = false
+  }
   // 刷新
   await refreshDataAfterOperation()
 }
@@ -886,6 +896,9 @@ async function triggerBatchAiRedo() {
     }
     startAiRedoProgressBatch(acceptedIds, progressKey)
     selected.value = selected.value.filter(item => !acceptedIds.includes(item.id))
+    if (isMobile.value && selected.value.length === 0) {
+      mobileBatchMode.value = false
+    }
     progressStarted = true
   } catch (error) {
     console.error(error)
@@ -983,6 +996,19 @@ function ensurePageSize(value: any, defaultValue: number = 50) {
 
 // 已选历史记录 ID 集合，供移动端卡片和分组选择状态复用。
 const selectedIdSet = computed(() => new Set(selected.value.map(item => item.id)))
+
+// 移动端当前已加载记录数量，用于批量菜单展示选择进度。
+const mobileBatchTotalCount = computed(() => mobileDataList.value.length)
+
+// 移动端当前已加载记录中的已选数量。
+const mobileBatchSelectedCount = computed(() => {
+  return mobileDataList.value.filter(item => selectedIdSet.value.has(item.id)).length
+})
+
+// 移动端当前已加载记录是否已全部选中。
+const isAllMobileHistorySelected = computed(() => {
+  return mobileBatchTotalCount.value > 0 && mobileBatchSelectedCount.value === mobileBatchTotalCount.value
+})
 
 // 拼接移动端展示用的季集文本。
 function getHistoryEpisodeText(item: TransferHistory) {
@@ -1085,6 +1111,50 @@ function toggleHistorySelection(item: TransferHistory, checked: boolean | null) 
   updateHistorySelection([item], checked)
 }
 
+// 切换移动端批量选择模式，退出时清空移动端选择状态。
+function toggleMobileBatchMode() {
+  if (mobileBatchMode.value) {
+    exitMobileBatchMode()
+    return
+  }
+
+  selected.value = []
+  mobileBatchMode.value = true
+}
+
+// 退出移动端批量选择模式并清空选择状态。
+function exitMobileBatchMode() {
+  mobileBatchMode.value = false
+  selected.value = []
+}
+
+// 批量模式下点击移动端记录卡片时切换该记录的选择状态。
+function handleMobileRecordClick(item: TransferHistory) {
+  if (!mobileBatchMode.value) return
+
+  toggleHistorySelection(item, !isHistorySelected(item))
+}
+
+// 移动端路径点击在批量模式下转为选择记录，普通模式下展开路径。
+function handleMobilePathClick(item: TransferHistory) {
+  if (mobileBatchMode.value) {
+    handleMobileRecordClick(item)
+    return
+  }
+
+  toggleMobilePathExpanded(item)
+}
+
+// 选中移动端当前已加载的全部历史记录。
+function selectAllMobileHistory() {
+  updateHistorySelection(mobileDataList.value, true)
+}
+
+// 取消移动端历史记录的全部选择。
+function deselectAllMobileHistory() {
+  updateHistorySelection(mobileDataList.value, false)
+}
+
 // 按标题分组后的选中数量统计，键为标题，值为对应分组的选中数
 const selectedCountsGroupedByTitle = computed(() => {
   return selected.value.reduce(
@@ -1103,14 +1173,95 @@ const toggleGroupSelection = (checked: boolean | null, items: readonly any[]) =>
   updateHistorySelection(values, checked)
 }
 
-const historyDynamicIcon = computed(() => (selected.value.length > 0 ? 'mdi-chevron-up' : 'mdi-timer-sand-paused'))
+const historyDynamicIcon = computed(() => 'mdi-timer-sand-paused')
 const historyDynamicMenuItems = computed(() => {
+  if (!appMode.value) return undefined
+
+  if (mobileBatchMode.value) {
+    const hasSelectedHistory = mobileBatchSelectedCount.value > 0
+
+    const items: DynamicButtonMenuItem[] = [
+      {
+        titleKey: 'transferHistory.selectedCount',
+        titleParams: {
+          count: mobileBatchSelectedCount.value,
+          total: mobileBatchTotalCount.value,
+        },
+        icon: 'mdi-checkbox-multiple-marked-outline',
+        permission: 'manage',
+        disabled: true,
+        action: () => {},
+      },
+      {
+        titleKey: isAllMobileHistorySelected.value
+          ? 'transferHistory.actions.deselectAll'
+          : 'transferHistory.actions.selectAll',
+        icon: isAllMobileHistorySelected.value ? 'mdi-checkbox-blank-outline' : 'mdi-checkbox-multiple-marked',
+        permission: 'manage',
+        disabled: mobileBatchTotalCount.value === 0,
+        action: () => {
+          if (isAllMobileHistorySelected.value) {
+            deselectAllMobileHistory()
+            return
+          }
+
+          selectAllMobileHistory()
+        },
+      },
+    ]
+
+    if (!hasRunningAiRedo.value) {
+      items.push(
+        {
+          titleKey: 'transferHistory.actions.batchAiRedo',
+          icon: 'mdi-robot-outline',
+          color: 'info',
+          permission: 'manage',
+          disabled: !hasSelectedHistory,
+          action: () => {
+            triggerBatchAiRedo()
+          },
+        },
+        {
+          titleKey: 'transferHistory.actions.batchRedo',
+          icon: 'mdi-redo-variant',
+          color: 'success',
+          permission: 'manage',
+          disabled: !hasSelectedHistory,
+          action: () => {
+            retransferBatch()
+          },
+        },
+        {
+          titleKey: 'transferHistory.actions.batchDelete',
+          icon: 'mdi-trash-can-outline',
+          color: 'error',
+          permission: 'manage',
+          disabled: !hasSelectedHistory,
+          action: () => {
+            removeHistoryBatch()
+          },
+        },
+      )
+    }
+
+    items.push({
+      titleKey: 'transferHistory.actions.exitBatchMode',
+      icon: 'mdi-close',
+      permission: 'manage',
+      action: exitMobileBatchMode,
+    })
+
+    return items
+  }
+
   if (selected.value.length === 0) return undefined
 
   const items: DynamicButtonMenuItem[] = [
     {
       titleKey: 'dialog.transferQueue.title',
       icon: 'mdi-timer-sand-paused',
+      color: 'primary',
       permission: 'manage',
       action: openTransferQueueDialog,
     },
@@ -1121,6 +1272,7 @@ const historyDynamicMenuItems = computed(() => {
       {
         titleKey: 'transferHistory.actions.batchAiRedo',
         icon: 'mdi-robot-outline',
+        color: 'info',
         permission: 'manage',
         action: () => {
           triggerBatchAiRedo()
@@ -1129,6 +1281,7 @@ const historyDynamicMenuItems = computed(() => {
       {
         titleKey: 'transferHistory.actions.batchRedo',
         icon: 'mdi-redo-variant',
+        color: 'success',
         permission: 'manage',
         action: () => {
           retransferBatch()
@@ -1442,7 +1595,23 @@ onUnmounted(() => {
 
   <section v-else class="transfer-history-mobile-page">
     <div class="transfer-history-mobile-titlebar">
-      <VPageContentTitle :title="t('navItems.mediaOrganize')" class="transfer-history-mobile-title my-0" style="margin-block: 0" />
+      <VPageContentTitle
+        :title="t('navItems.mediaOrganize')"
+        class="transfer-history-mobile-title my-0"
+        style="margin-block: 0"
+      />
+      <VBtn
+        v-if="canManage"
+        icon="mdi-checkbox-multiple-marked-outline"
+        :color="mobileBatchMode ? 'primary' : 'gray'"
+        :aria-label="
+          mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
+        "
+        :title="mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')"
+        variant="text"
+        class="settings-icon-button transfer-history-mobile-titlebar__batch"
+        @click="toggleMobileBatchMode"
+      />
     </div>
 
     <VCombobox
@@ -1491,9 +1660,11 @@ onUnmounted(() => {
             :ref="itemRef"
             class="transfer-history-mobile-record"
             :class="{
-              'transfer-history-mobile-record--selected': isHistorySelected(item),
+              'transfer-history-mobile-record--batch': mobileBatchMode,
+              'transfer-history-mobile-record--selected': mobileBatchMode && isHistorySelected(item),
               'transfer-history-mobile-record--failed': !item.status,
             }"
+            @click="handleMobileRecordClick(item)"
           >
             <header class="transfer-history-mobile-record__header">
               <VAvatar class="transfer-history-mobile-record__avatar" size="40">
@@ -1513,7 +1684,17 @@ onUnmounted(() => {
                 {{ getHistoryStatusText(item) }}
               </VChip>
 
-              <IconBtn class="transfer-history-mobile-record__menu" size="small">
+              <VCheckbox
+                v-if="mobileBatchMode"
+                class="transfer-history-mobile-record__checkbox"
+                :model-value="isHistorySelected(item)"
+                density="compact"
+                hide-details
+                @click.stop
+                @update:model-value="checked => toggleHistorySelection(item, checked)"
+              />
+
+              <IconBtn v-else class="transfer-history-mobile-record__menu" size="small">
                 <VIcon icon="mdi-dots-vertical" />
                 <VMenu activator="parent" close-on-content-click>
                   <VList>
@@ -1547,7 +1728,7 @@ onUnmounted(() => {
               type="button"
               class="transfer-history-mobile-record__paths"
               :class="{ 'transfer-history-mobile-record__paths--expanded': isMobilePathExpanded(item) }"
-              @click="toggleMobilePathExpanded(item)"
+              @click.stop="handleMobilePathClick(item)"
             >
               <div class="transfer-history-mobile-record__path-row">
                 <span class="transfer-history-mobile-record__storage">
@@ -1582,7 +1763,7 @@ onUnmounted(() => {
   </section>
 
   <!-- 非 app 模式下的 FAB 按钮 -->
-  <Teleport to="body" v-if="!appMode && route.path === '/history' && isDesktop">
+  <Teleport to="body" v-if="!appMode && route.path === '/history'">
     <div v-if="isRefreshed && canManage" class="compact-fab-stack compact-fab-stack--history">
       <VFab
         v-if="selected.length > 0 && !hasRunningAiRedo"
@@ -1649,10 +1830,17 @@ onUnmounted(() => {
 .transfer-history-mobile-titlebar {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
 }
 
 .transfer-history-mobile-title {
+  flex: 1;
   min-inline-size: 0;
+}
+
+.transfer-history-mobile-titlebar__batch {
+  flex: 0 0 auto;
 }
 
 .transfer-history-mobile-title :deep(h2) {
@@ -1714,6 +1902,15 @@ onUnmounted(() => {
   box-shadow: var(--app-card-rest-shadow);
 }
 
+.transfer-history-mobile-record--batch {
+  cursor: pointer;
+}
+
+.transfer-history-mobile-record--selected {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
 .transfer-history-mobile-record + .transfer-history-mobile-record {
   margin-block-start: 0.875rem;
 }
@@ -1768,6 +1965,17 @@ onUnmounted(() => {
 .transfer-history-mobile-record__menu {
   align-self: start;
   justify-self: end;
+}
+
+.transfer-history-mobile-record__checkbox {
+  align-self: start;
+  justify-self: end;
+  margin-block-start: -0.35rem;
+  margin-inline-end: -0.35rem;
+}
+
+.transfer-history-mobile-record__checkbox :deep(.v-selection-control) {
+  min-block-size: 2rem;
 }
 
 .transfer-history-mobile-record__meta {

@@ -187,6 +187,7 @@ const legacyDynamicMenuTitleKeyMap: Record<string, string> = {
   'components.pluginMarketSetting.title': 'dialog.pluginMarketSetting.title',
 }
 
+// 解析动态按钮菜单项标题，兼容旧版直接传入 i18n key 的写法。
 function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   if (item.titleKey) {
     return t(item.titleKey, item.titleParams as any)
@@ -202,14 +203,16 @@ function resolveDynamicMenuItemTitle(item: DynamicButtonMenuItem) {
   return looksLikeI18nKey ? t(normalizedTitleKey, item.titleParams as any) : item.title
 }
 
+// 处理页面注册的动态按钮主操作点击。
 function handleDynamicButtonClick() {
   if (!dynamicButton.value || !hasItemPermission(dynamicButton.value, userPermissions.value)) return
 
   dynamicButton.value.action()
 }
 
+// 处理页面注册的动态按钮菜单项点击。
 function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
-  if (!hasItemPermission(item, userPermissions.value)) return
+  if (item.disabled || !hasItemPermission(item, userPermissions.value)) return
 
   item.action()
 }
@@ -292,6 +295,7 @@ function handleDynamicMenuItemClick(item: DynamicButtonMenuItem) {
                     v-for="(item, index) in visibleDynamicButtonMenuItems"
                     :key="item.titleKey || item.title || index"
                     :base-color="item.color"
+                    :disabled="item.disabled"
                     @click="handleDynamicMenuItemClick(item)"
                   >
                     <template #prepend>

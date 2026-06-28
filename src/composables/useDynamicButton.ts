@@ -31,6 +31,7 @@ export interface DynamicButtonMenuItem {
   icon?: string
   color?: string
   permission?: UserPermissionKey
+  disabled?: boolean
   action: () => void
 }
 

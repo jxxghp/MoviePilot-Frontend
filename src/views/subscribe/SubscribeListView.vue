@@ -53,9 +53,18 @@ const props = defineProps({
 const emit = defineEmits<{
   'update:sortMode': [value: boolean]
   'update:sortBy': [value: SubscribeSortBy]
+  'batch-state-change': [state: SubscribeBatchState]
 }>()
 
 type SubscribeSortBy = 'custom' | 'last_update' | 'date' | 'lack_episode'
+
+// 订阅批量模式状态快照，供父页面渲染外部批量操作按钮。
+interface SubscribeBatchState {
+  enabled: boolean
+  selectedCount: number
+  totalCount: number
+  allSelected: boolean
+}
 
 // 是否刷新过
 let isRefreshed = ref(false)
@@ -79,6 +88,9 @@ const selectedSubscribes = ref<number[]>([])
 const normalizedKeyword = computed(() => props.keyword?.trim().toLowerCase() || '')
 const selectedSubscribesSet = computed(() => new Set(selectedSubscribes.value))
 const hasCustomOrder = computed(() => orderConfig.value.length > 0)
+const isAllSubscribesSelected = computed(
+  () => displayList.value.length > 0 && selectedSubscribes.value.length === displayList.value.length,
+)
 
 // 归一化订阅排序方式，电影订阅不使用缺失集数排序。
 const normalizedSortBy = computed<SubscribeSortBy | ''>(() => {
@@ -248,6 +260,12 @@ watch(
   { immediate: true },
 )
 
+watch(
+  [isBatchMode, () => selectedSubscribes.value.length, () => displayList.value.length, isAllSubscribesSelected],
+  emitBatchStateChange,
+  { immediate: true },
+)
+
 // 加载顺序
 async function loadSubscribeOrderConfig() {
   try {
@@ -313,25 +331,47 @@ function openHistoryDialog() {
   )
 }
 
-// 批量管理相关函数
-// 切换批量模式
-function toggleBatchMode() {
-  isBatchMode.value = !isBatchMode.value
-  if (!isBatchMode.value) {
-    selectedSubscribes.value = []
-  }
+// 向父组件同步批量操作状态，供 Footer/FAB 动态按钮渲染。
+function emitBatchStateChange() {
+  emit('batch-state-change', {
+    enabled: isBatchMode.value,
+    selectedCount: selectedSubscribes.value.length,
+    totalCount: displayList.value.length,
+    allSelected: isAllSubscribesSelected.value,
+  })
 }
 
-// 全选/取消全选
+// 进入批量模式。
+function enterBatchMode() {
+  isBatchMode.value = true
+}
+
+// 退出批量模式并清空已选择的订阅。
+function exitBatchMode() {
+  isBatchMode.value = false
+  selectedSubscribes.value = []
+}
+
+// 切换批量模式。
+function toggleBatchMode() {
+  if (isBatchMode.value) {
+    exitBatchMode()
+    return
+  }
+
+  enterBatchMode()
+}
+
+// 全选或取消全选当前显示的订阅。
 function toggleSelectAll() {
-  if (selectedSubscribes.value.length === displayList.value.length) {
+  if (isAllSubscribesSelected.value) {
     selectedSubscribes.value = []
   } else {
     selectedSubscribes.value = displayList.value.map(item => item.id)
   }
 }
 
-// 选择单个订阅
+// 切换单个订阅的选中状态。
 function toggleSelectSubscribe(id: number) {
   const index = selectedSubscribes.value.indexOf(id)
   if (index > -1) {
@@ -341,7 +381,7 @@ function toggleSelectSubscribe(id: number) {
   }
 }
 
-// 批量删除订阅
+// 批量删除已选中的订阅。
 async function batchDeleteSubscribes() {
   if (selectedSubscribes.value.length === 0) {
     $toast.warning(t('subscribe.noSelectedItems'))
@@ -370,11 +410,8 @@ async function batchDeleteSubscribes() {
       $toast.error(t('subscribe.batchDeleteFailed', { count: failedCount }))
     }
 
-    // 刷新数据
     await fetchData()
-    // 退出批量模式
-    isBatchMode.value = false
-    selectedSubscribes.value = []
+    exitBatchMode()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.batchDeleteError'))
@@ -383,7 +420,7 @@ async function batchDeleteSubscribes() {
   }
 }
 
-// 批量启用订阅
+// 批量启用已选中的订阅。
 async function batchEnableSubscribes() {
   if (selectedSubscribes.value.length === 0) {
     $toast.warning(t('subscribe.noSelectedItems'))
@@ -412,11 +449,8 @@ async function batchEnableSubscribes() {
       $toast.error(t('subscribe.batchEnableFailed', { count: failedCount }))
     }
 
-    // 刷新数据
     await fetchData()
-    // 退出批量模式
-    isBatchMode.value = false
-    selectedSubscribes.value = []
+    exitBatchMode()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.batchEnableError'))
@@ -425,7 +459,7 @@ async function batchEnableSubscribes() {
   }
 }
 
-// 批量暂停订阅
+// 批量暂停已选中的订阅。
 async function batchPauseSubscribes() {
   if (selectedSubscribes.value.length === 0) {
     $toast.warning(t('subscribe.noSelectedItems'))
@@ -454,11 +488,8 @@ async function batchPauseSubscribes() {
       $toast.error(t('subscribe.batchPauseFailed', { count: failedCount }))
     }
 
-    // 刷新数据
     await fetchData()
-    // 退出批量模式
-    isBatchMode.value = false
-    selectedSubscribes.value = []
+    exitBatchMode()
   } catch (error) {
     console.error(error)
     $toast.error(t('subscribe.batchPauseError'))
@@ -495,13 +526,6 @@ onMounted(async () => {
     }
   }
 
-  // 监听批量管理模式切换事件
-  window.addEventListener('toggle-batch-mode', toggleBatchMode)
-})
-
-onUnmounted(() => {
-  // 移除事件监听器
-  window.removeEventListener('toggle-batch-mode', toggleBatchMode)
 })
 
 useKeepAliveRefresh(fetchData, {
@@ -510,67 +534,18 @@ useKeepAliveRefresh(fetchData, {
 
 defineExpose({
   openHistoryDialog,
+  enterBatchMode,
+  exitBatchMode,
+  toggleBatchMode,
+  toggleSelectAll,
+  batchEnableSubscribes,
+  batchPauseSubscribes,
+  batchDeleteSubscribes,
 })
 </script>
 
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-
-  <!-- 批量管理工具栏 -->
-  <div v-if="isBatchMode" class="mb-4 px-2">
-    <VCard class="pa-4">
-      <div class="d-flex align-center justify-space-between">
-        <div class="d-flex align-center">
-          <VCheckbox
-            :model-value="selectedSubscribes.length === displayList.length"
-            :indeterminate="selectedSubscribes.length > 0 && selectedSubscribes.length < displayList.length"
-            @update:model-value="toggleSelectAll"
-            hide-details
-            class="me-4"
-          />
-          <span class="text-body-1 font-weight-medium">
-            {{ t('subscribe.selectedCount', { count: selectedSubscribes.length, total: displayList.length }) }}
-          </span>
-        </div>
-        <div class="d-flex gap-2">
-          <VBtn
-            color="success"
-            variant="outlined"
-            size="small"
-            :disabled="selectedSubscribes.length === 0"
-            @click="batchEnableSubscribes"
-          >
-            <VIcon icon="mdi-play" class="me-sm-1" />
-            <span class="d-none d-sm-inline">{{ t('subscribe.batchEnable') }}</span>
-          </VBtn>
-          <VBtn
-            color="info"
-            variant="outlined"
-            size="small"
-            :disabled="selectedSubscribes.length === 0"
-            @click="batchPauseSubscribes"
-          >
-            <VIcon icon="mdi-pause" class="me-sm-1" />
-            <span class="d-none d-sm-inline">{{ t('subscribe.batchPause') }}</span>
-          </VBtn>
-          <VBtn
-            color="error"
-            variant="outlined"
-            size="small"
-            :disabled="selectedSubscribes.length === 0"
-            @click="batchDeleteSubscribes"
-          >
-            <VIcon icon="mdi-delete" class="me-sm-1" />
-            <span class="d-none d-sm-inline">{{ t('subscribe.batchDelete') }}</span>
-          </VBtn>
-          <VBtn color="secondary" variant="outlined" size="small" @click="toggleBatchMode">
-            <VIcon icon="mdi-close" class="me-sm-1" />
-            <span class="d-none d-sm-inline">{{ t('common.cancel') }}</span>
-          </VBtn>
-        </div>
-      </div>
-    </VCard>
-  </div>
 
   <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 mx-2 py-0 app-surface-static">
     <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">

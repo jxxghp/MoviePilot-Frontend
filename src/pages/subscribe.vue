@@ -3,7 +3,7 @@ import { debounce } from 'lodash-es'
 import SubscribeListView from '@/views/subscribe/SubscribeListView.vue'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
-import { useDynamicButton } from '@/composables/useDynamicButton'
+import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -30,6 +30,21 @@ const subType = route.meta.subType?.toString()
 const subId = ref(route.query.id as string)
 const activeTab = ref((route.query.tab as string) || '')
 const subscribeListViewRef = ref<InstanceType<typeof SubscribeListView> | null>(null)
+
+// 订阅批量模式状态快照，来源于订阅列表组件。
+interface SubscribeBatchState {
+  enabled: boolean
+  selectedCount: number
+  totalCount: number
+  allSelected: boolean
+}
+
+const subscribeBatchState = ref<SubscribeBatchState>({
+  enabled: false,
+  selectedCount: 0,
+  totalCount: 0,
+  allSelected: false,
+})
 
 // 获取标签页
 const subscribeTabs = computed(() => {
@@ -221,6 +236,52 @@ function openShareStatisticsDialog() {
   openSharedDialog(SubscribeShareStatisticsDialog, {}, {}, { closeOn: ['close'] })
 }
 
+// 订阅列表批量状态变化响应，用于驱动移动端 Footer 和桌面 FAB 操作按钮。
+function handleSubscribeBatchStateChange(state: SubscribeBatchState) {
+  subscribeBatchState.value = state
+}
+
+// 重置父页面保存的订阅批量操作状态。
+function resetSubscribeBatchState() {
+  subscribeBatchState.value = {
+    enabled: false,
+    selectedCount: 0,
+    totalCount: 0,
+    allSelected: false,
+  }
+}
+
+// 进入订阅批量操作模式。
+function enterSubscribeBatchMode() {
+  subscribeListViewRef.value?.enterBatchMode()
+}
+
+// 退出订阅批量操作模式。
+function exitSubscribeBatchMode() {
+  resetSubscribeBatchState()
+  subscribeListViewRef.value?.exitBatchMode()
+}
+
+// 切换当前订阅列表全选状态。
+function toggleSubscribeBatchSelectAll() {
+  subscribeListViewRef.value?.toggleSelectAll()
+}
+
+// 批量启用已选订阅。
+function batchEnableSelectedSubscribes() {
+  subscribeListViewRef.value?.batchEnableSubscribes()
+}
+
+// 批量暂停已选订阅。
+function batchPauseSelectedSubscribes() {
+  subscribeListViewRef.value?.batchPauseSubscribes()
+}
+
+// 批量删除已选订阅。
+function batchDeleteSelectedSubscribes() {
+  subscribeListViewRef.value?.batchDeleteSubscribes()
+}
+
 // 切换订阅拖拽排序模式，进入时固定使用自定义排序。
 function toggleSubscribeSortMode() {
   if (!subscribeSortMode.value) {
@@ -241,6 +302,10 @@ watch(activeTab, newTab => {
   if (newTab !== 'share') {
     searchShareDialog.value = false
   }
+
+  if (newTab !== 'mysub' && subscribeBatchState.value.enabled) {
+    exitSubscribeBatchMode()
+  }
 })
 
 watch(subscribeSortBy, newSortBy => {
@@ -251,17 +316,68 @@ onUnmounted(() => {
   shareKeywordUpdater.cancel()
 })
 
-const subscribeDynamicMenuItems = computed(() => {
+const subscribeDynamicMenuItems = computed<DynamicButtonMenuItem[] | undefined>(() => {
   if (!appMode.value) return undefined
 
   if (activeTab.value === 'mysub') {
-    const items: Array<{
-      titleKey: string
-      titleParams?: Record<string, unknown>
-      icon: string
-      permission: 'admin'
-      action: () => void
-    }> = []
+    if (subscribeBatchState.value.enabled) {
+      const hasSelectedSubscribes = subscribeBatchState.value.selectedCount > 0
+
+      return [
+        {
+          titleKey: 'subscribe.selectedCount',
+          titleParams: {
+            count: subscribeBatchState.value.selectedCount,
+            total: subscribeBatchState.value.totalCount,
+          },
+          icon: 'mdi-checkbox-multiple-marked-outline',
+          permission: 'subscribe',
+          disabled: true,
+          action: () => {},
+        },
+        {
+          titleKey: subscribeBatchState.value.allSelected
+            ? 'subscribe.batchDeselectAll'
+            : 'subscribe.batchSelectAll',
+          icon: subscribeBatchState.value.allSelected ? 'mdi-checkbox-blank-outline' : 'mdi-checkbox-multiple-marked',
+          permission: 'subscribe',
+          disabled: subscribeBatchState.value.totalCount === 0,
+          action: toggleSubscribeBatchSelectAll,
+        },
+        {
+          titleKey: 'subscribe.batchEnable',
+          icon: 'mdi-play',
+          color: 'success',
+          permission: 'subscribe',
+          disabled: !hasSelectedSubscribes,
+          action: batchEnableSelectedSubscribes,
+        },
+        {
+          titleKey: 'subscribe.batchPause',
+          icon: 'mdi-pause',
+          color: 'info',
+          permission: 'subscribe',
+          disabled: !hasSelectedSubscribes,
+          action: batchPauseSelectedSubscribes,
+        },
+        {
+          titleKey: 'subscribe.batchDelete',
+          icon: 'mdi-delete',
+          color: 'error',
+          permission: 'subscribe',
+          disabled: !hasSelectedSubscribes,
+          action: batchDeleteSelectedSubscribes,
+        },
+        {
+          titleKey: 'subscribe.exitBatchMode',
+          icon: 'mdi-close',
+          permission: 'subscribe',
+          action: exitSubscribeBatchMode,
+        },
+      ]
+    }
+
+    const items: DynamicButtonMenuItem[] = []
 
     if (showSubscribeHistoryAction.value) {
       items.push({
@@ -287,12 +403,18 @@ const subscribeDynamicMenuItems = computed(() => {
 })
 
 const subscribeDynamicIcon = computed(() => {
+  if (subscribeBatchState.value.enabled) return 'mdi-checkbox-multiple-marked-outline'
   if (showShareStatisticsAction.value) return 'mdi-chart-line'
   if (showSubscribeHistoryAction.value) return 'mdi-history'
   return 'mdi-clipboard-edit-outline'
 })
 
 function handleSubscribeDynamicAction() {
+  if (subscribeBatchState.value.enabled) {
+    exitSubscribeBatchMode()
+    return
+  }
+
   if (showShareStatisticsAction.value) {
     openShareStatisticsDialog()
     return
@@ -313,7 +435,9 @@ useDynamicButton({
   onClick: handleSubscribeDynamicAction,
   menuItems: subscribeDynamicMenuItems,
   permission: 'subscribe',
-  show: computed(() => appMode.value && (showDefaultRuleAction.value || showShareStatisticsAction.value)),
+  show: computed(
+    () => appMode.value && (subscribeBatchState.value.enabled || showDefaultRuleAction.value || showShareStatisticsAction.value),
+  ),
 })
 
 // 使用动态标签页
@@ -348,13 +472,16 @@ registerHeaderTab({
     {
       icon: 'mdi-checkbox-multiple-marked-outline',
       variant: 'text',
-      color: 'gray',
+      color: computed(() => (subscribeBatchState.value.enabled ? 'primary' : 'gray')),
       class: 'settings-icon-button',
       permission: 'subscribe',
       action: () => {
-        // 触发批量管理模式
-        const event = new CustomEvent('toggle-batch-mode')
-        window.dispatchEvent(event)
+        if (subscribeBatchState.value.enabled) {
+          exitSubscribeBatchMode()
+          return
+        }
+
+        enterSubscribeBatchMode()
       },
       show: computed(() => activeTab.value === 'mysub'),
     },
@@ -399,6 +526,7 @@ onMounted(() => {
               :active="activeTab === 'mysub'"
               @update:sort-mode="subscribeSortMode = $event"
               @update:sort-by="subscribeSortBy = $event"
+              @batch-state-change="handleSubscribeBatchStateChange"
             />
           </div>
         </transition>
@@ -513,7 +641,56 @@ onMounted(() => {
     <Teleport to="body" v-if="!appMode && route.path.startsWith(`/subscribe/${subType === '电影' ? 'movie' : 'tv'}`)">
       <div class="compact-fab-stack">
         <VFab
-          v-if="showSubscribeHistoryAction"
+          v-if="subscribeBatchState.enabled"
+          icon="mdi-close"
+          color="secondary"
+          variant="tonal"
+          appear
+          class="compact-fab compact-fab--secondary"
+          @click="exitSubscribeBatchMode"
+        />
+        <VFab
+          v-if="subscribeBatchState.enabled"
+          :icon="subscribeBatchState.allSelected ? 'mdi-checkbox-blank-outline' : 'mdi-checkbox-multiple-marked'"
+          color="primary"
+          variant="tonal"
+          appear
+          class="compact-fab compact-fab--secondary"
+          :disabled="subscribeBatchState.totalCount === 0"
+          @click="toggleSubscribeBatchSelectAll"
+        />
+        <VFab
+          v-if="subscribeBatchState.enabled"
+          icon="mdi-delete"
+          color="error"
+          variant="tonal"
+          appear
+          class="compact-fab compact-fab--secondary"
+          :disabled="subscribeBatchState.selectedCount === 0"
+          @click="batchDeleteSelectedSubscribes"
+        />
+        <VFab
+          v-if="subscribeBatchState.enabled"
+          icon="mdi-pause"
+          color="info"
+          variant="tonal"
+          appear
+          class="compact-fab compact-fab--secondary"
+          :disabled="subscribeBatchState.selectedCount === 0"
+          @click="batchPauseSelectedSubscribes"
+        />
+        <VFab
+          v-if="subscribeBatchState.enabled"
+          icon="mdi-play"
+          color="success"
+          variant="tonal"
+          appear
+          class="compact-fab compact-fab--secondary"
+          :disabled="subscribeBatchState.selectedCount === 0"
+          @click="batchEnableSelectedSubscribes"
+        />
+        <VFab
+          v-if="!subscribeBatchState.enabled && showSubscribeHistoryAction"
           icon="mdi-history"
           color="info"
           variant="tonal"
@@ -522,7 +699,7 @@ onMounted(() => {
           @click="openSubscribeHistoryDialog"
         />
         <VFab
-          v-if="showDefaultRuleAction"
+          v-if="!subscribeBatchState.enabled && showDefaultRuleAction"
           icon="mdi-clipboard-edit-outline"
           color="primary"
           appear
@@ -530,7 +707,7 @@ onMounted(() => {
           @click="openDefaultRuleDialog"
         />
         <VFab
-          v-if="showShareStatisticsAction"
+          v-if="!subscribeBatchState.enabled && showShareStatisticsAction"
           icon="mdi-chart-line"
           color="primary"
           appear
