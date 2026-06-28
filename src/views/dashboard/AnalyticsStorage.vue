@@ -70,11 +70,11 @@ onActivated(() => {
       <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
     </VCardItem>
     <VCardText class="dashboard-summary-content">
-      <h5 class="animated-storage-value text-2xl font-weight-medium text-primary">
+      <h5 class="animated-storage-value font-weight-medium text-primary">
         {{ animatedStorageText }}
       </h5>
-      <div class="mt-2">{{ t('storage.usedPercent', { percent: animatedUsedPercentText }) }} 🚀</div>
-      <div class="mt-1">
+      <div class="animated-storage-meta">{{ t('storage.usedPercent', { percent: animatedUsedPercentText }) }} 🚀</div>
+      <div class="animated-storage-progress-wrap">
         <VProgressLinear
           :model-value="animatedUsedPercentValue"
           class="animated-storage-progress"
@@ -94,15 +94,15 @@ onActivated(() => {
 
 .v-card .triangle-bg {
   position: absolute;
-  inline-size: 8.75rem;
+  inline-size: clamp(7rem, 36%, 8.75rem);
   inset-block-end: 0;
   inset-inline-end: 0;
 }
 
 .v-card .trophy {
   position: absolute;
-  inline-size: 4.9375rem;
-  inset-block-end: 2rem;
+  inline-size: clamp(3.75rem, 18%, 4.5rem);
+  inset-block-end: 2.75rem;
   inset-inline-end: 2rem;
 }
 
@@ -118,10 +118,24 @@ onActivated(() => {
 .dashboard-summary-content {
   flex: 1 1 auto;
   min-block-size: 0;
+  padding-block: 0.25rem 1rem;
 }
 
 .animated-storage-value {
+  font-size: clamp(1.375rem, 1.8vw, 1.5rem);
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
+}
+
+.animated-storage-meta {
+  margin-block-start: 0.5rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.875rem;
+  line-height: 1.2;
+}
+
+.animated-storage-progress-wrap {
+  margin-block-start: 0.35rem;
 }
 
 .animated-storage-progress {

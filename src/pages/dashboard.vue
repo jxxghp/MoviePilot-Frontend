@@ -141,7 +141,7 @@ const dashboardConfigs = ref<DashboardItem[]>([
     key: '',
     attrs: {},
     cols: { cols: 12, md: 4 },
-    rows: 11,
+    rows: 9,
     elements: [],
   },
   {
