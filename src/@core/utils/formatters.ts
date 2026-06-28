@@ -66,6 +66,43 @@ export const prefixWithPlus = (value: number) => (value > 0 ? `+${value}` : valu
 // 格式化为Sxx
 export const formatSeason = (value: string) => (value ? `S${value.padStart(2, '0')}` : '')
 
+/**
+ * 格式化为 SxxExx 季集标识，多个连续集会合并为范围。
+ */
+export function formatSeasonEpisode(
+  season: number | string | null | undefined,
+  episodeNumbers: number[],
+): string {
+  const seasonText = season === null || season === undefined || season === '' ? '' : formatSeason(String(season))
+  const normalizedNumbers = [...new Set(episodeNumbers)]
+    .map(number => Number(number))
+    .filter(number => Number.isFinite(number) && number > 0)
+    .sort((first, second) => first - second)
+
+  if (!normalizedNumbers.length) return seasonText
+
+  const formatEpisode = (number: number) => `E${String(number).padStart(2, '0')}`
+  const ranges: string[] = []
+  let start = normalizedNumbers[0]
+  let end = normalizedNumbers[0]
+
+  for (let index = 1; index < normalizedNumbers.length; index++) {
+    const currentNumber = normalizedNumbers[index]
+
+    if (currentNumber === end + 1) {
+      end = currentNumber
+    } else {
+      ranges.push(start === end ? `${seasonText}${formatEpisode(start)}` : `${seasonText}${formatEpisode(start)}-${formatEpisode(end)}`)
+      start = currentNumber
+      end = currentNumber
+    }
+  }
+
+  ranges.push(start === end ? `${seasonText}${formatEpisode(start)}` : `${seasonText}${formatEpisode(start)}-${formatEpisode(end)}`)
+
+  return ranges.join('、')
+}
+
 // 格式化为xx[TGMK]B
 export function formatFileSize(bytes: number, decimals = 2, prefix = false) {
   // 负数标记

@@ -7,7 +7,7 @@ import FullCalendar from '@fullcalendar/vue3'
 import type { Ref } from 'vue'
 import type { MediaInfo, Subscribe, TmdbEpisode } from '@/api/types'
 import api from '@/api'
-import { formatDateDifference, formatEp, parseDate } from '@/@core/utils/formatters'
+import { formatDateDifference, formatEp, formatSeasonEpisode, parseDate } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
 import { getCurrentLocale } from '@/plugins/i18n'
@@ -526,12 +526,9 @@ function getMobileEventSubtitle(event: CalendarEventInfo) {
 // 获取移动端集季标识。
 function getMobileEventEpisodeTag(event: CalendarEventInfo) {
   if (event.mediaType === '电影') return t('calendar.movie')
-  if (!event.subtitle && !event.season) return ''
+  if (!event.episodeNumbers.length && !event.season) return ''
 
-  const seasonText = event.season ? `S${event.season}` : ''
-  const episodeText = event.subtitle ? `E${event.subtitle}` : ''
-
-  return `${seasonText}${episodeText}`
+  return formatSeasonEpisode(event.season, event.episodeNumbers)
 }
 
 // 获取移动端时长标识。
@@ -829,8 +826,8 @@ onActivated(() => {
                   </template>
                 </VImg>
 
-                <span v-if="calendarEvent.subtitle" class="mobile-calendar-poster-episode">
-                  EP {{ calendarEvent.subtitle }}
+                <span v-if="getMobileEventEpisodeTag(calendarEvent)" class="mobile-calendar-poster-episode">
+                  {{ getMobileEventEpisodeTag(calendarEvent) }}
                 </span>
               </div>
 
