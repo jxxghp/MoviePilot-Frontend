@@ -64,8 +64,10 @@ const historyChartOptions = computed(() => {
         enabled: true,
       },
       zoom: {
-        autoScaleYaxis: true,
+        enabled: false,
+        allowMouseWheelZoom: false,
       },
+      selection: { enabled: false },
     },
     theme: {
       mode: vuetifyTheme.global.current.value.dark ? 'dark' : 'light', // 同步主题模式
@@ -156,8 +158,10 @@ const seedingChartOptions = computed(() => {
       background: currentTheme.value.surface, // 新增背景色同步
       foreColor: currentTheme.value.onSurface, // 新增文字颜色同步
       zoom: {
-        autoScaleYaxis: true,
+        enabled: false,
+        allowMouseWheelZoom: false,
       },
+      selection: { enabled: false },
     },
     theme: {
       mode: vuetifyTheme.global.current.value.dark ? 'dark' : 'light', // 同步主题模式

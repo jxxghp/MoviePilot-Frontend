@@ -76,6 +76,8 @@ const chartOptions = controlledComputed(
       chart: {
         parentHeightOffset: 0,
         toolbar: { show: false },
+        zoom: { enabled: false, allowMouseWheelZoom: false },
+        selection: { enabled: false },
         animations: { enabled: false },
         foreColor: axisLabelColor,
       },

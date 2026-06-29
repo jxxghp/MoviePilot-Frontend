@@ -3,6 +3,9 @@
 
 // 👉 Apex chart
 .apexcharts-canvas {
+  // 图表仅保留纵向页面滚动，禁止双指缩放等触摸手势。
+  touch-action: pan-y;
+
   // For RTL alignment
   .apexcharts-yaxis-texts-g {
     text-align: start;
