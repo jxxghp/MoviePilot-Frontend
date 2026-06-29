@@ -111,6 +111,9 @@ const loadedDashboardGridItemIds = ref<Set<string>>(new Set())
 // 是否正在由 Vue 同步 GridStack，避免初始化写入覆盖用户布局
 const isSyncingDashboardGrid = ref(false)
 
+// 是否正在把 GridStack 当前布局写回 Vue 状态，避免同源变更再次反向同步到 GridStack。
+const isPersistingDashboardGridLayoutFromGrid = ref(false)
+
 // 仪表板本地布局覆盖配置
 const dashboardGridLayout = ref<DashboardGridLayoutConfig>({})
 
@@ -757,19 +760,18 @@ function updateDashboardSettingsDialog() {
 }
 
 // 退出仪表板布局编辑模式；如果刚恢复默认布局，则跳过本次本地持久化。
-function exitDashboardLayoutEditing() {
+async function exitDashboardLayoutEditing() {
   if (isDashboardGridLayoutResetPending.value) {
     isDashboardGridLayoutResetPending.value = false
   } else {
-    compactAndPersistDashboardGrid()
+    await persistCurrentDashboardGridLayout()
   }
 
   isLayoutEditing.value = false
-  nextTick(() => {
-    syncDashboardFillContentState()
-    resizeAutoDashboardItemsToContent()
-    notifyDashboardContentResize()
-  })
+  await nextTick()
+  syncDashboardFillContentState()
+  resizeAutoDashboardItemsToContent()
+  notifyDashboardContentResize()
 }
 
 // 清除用户本地布局覆盖，并恢复内置组件和插件声明的默认占位，然后退出编辑模式。
@@ -780,7 +782,7 @@ async function resetDashboardGridLayout() {
   isDashboardGridLayoutResetPending.value = true
   await syncDashboardGrid()
   if (isLayoutEditing.value) {
-    exitDashboardLayoutEditing()
+    await exitDashboardLayoutEditing()
   } else {
     await nextTick()
     syncDashboardFillContentState()
@@ -831,10 +833,10 @@ useDynamicButton({
   show: computed(() => appMode.value && route.path === '/dashboard'),
 })
 
-// 切换仪表板布局编辑模式，退出编辑时压实并保存当前布局。
+// 切换仪表板布局编辑模式，退出编辑时保存当前布局。
 function toggleDashboardLayoutEditing() {
   if (isLayoutEditing.value) {
-    exitDashboardLayoutEditing()
+    void exitDashboardLayoutEditing()
     return
   }
 
@@ -1225,7 +1227,7 @@ function handleDashboardGridResize() {
 
 // 保存用户拖动后的位置，并保持未手动调高组件继续按内容自适应。
 function handleDashboardGridDragStop() {
-  compactAndPersistDashboardGrid(false)
+  void persistCurrentDashboardGridLayout(false)
 }
 
 // 保存用户缩放后的布局，只有高度发生变化时才把高度标记为手动固定。
@@ -1238,7 +1240,7 @@ function handleDashboardGridResizeStop(_event: Event, element: GridItemHTMLEleme
   dashboardGridResizeStartHeights.delete(id)
   isDashboardGridResizing.value = false
   notifyDashboardContentResize()
-  compactAndPersistDashboardGrid(heightChanged ? id : false)
+  void persistCurrentDashboardGridLayout(heightChanged ? id : false)
 }
 
 // 合并连续 resize 通知，模拟浏览器窗口变化让组件内部内容自适配新尺寸。
@@ -1279,9 +1281,13 @@ function persistDashboardGridLayout(manualHeightId: string | false = false) {
     nextLayout[id] = nextItemLayout
   })
 
+  isPersistingDashboardGridLayoutFromGrid.value = true
   dashboardGridLayout.value = nextLayout
   saveDashboardGridLayout(nextLayout)
-  nextTick(resizeAutoDashboardItemsToContent)
+  nextTick(() => {
+    isPersistingDashboardGridLayoutFromGrid.value = false
+    resizeAutoDashboardItemsToContent()
+  })
 }
 
 // 根据组件 ID 查找默认宽度，保存布局时用于兜底。
@@ -1291,13 +1297,13 @@ function getDefaultDashboardGridWidthById(id: string, maxColumns = DASHBOARD_GRI
   return item ? Math.min(getDefaultDashboardGridWidth(item), maxColumns) : maxColumns
 }
 
-// 压实 GridStack 布局并保存本地占位信息。
-function compactAndPersistDashboardGrid(manualHeightId: string | false = false) {
+// 等待 GridStack 当前拖拽/缩放事件收尾后，保存用户当前看到的布局。
+async function persistCurrentDashboardGridLayout(manualHeightId: string | false = false) {
   if (!dashboardGrid.value || isSyncingDashboardGrid.value) return
 
   isDashboardGridLayoutResetPending.value = false
-  dashboardGrid.value.compact('compact')
-  nextTick(() => persistDashboardGridLayout(manualHeightId))
+  await nextTick()
+  persistDashboardGridLayout(manualHeightId)
 }
 
 watch(isLayoutEditing, value => {
@@ -1308,7 +1314,9 @@ watch(
   dashboardGridItems,
   () => {
     syncDashboardLoadedItemIds()
-    syncDashboardGrid()
+    if (!isPersistingDashboardGridLayoutFromGrid.value) {
+      syncDashboardGrid()
+    }
     scheduleDashboardReveal()
   },
   { deep: true },

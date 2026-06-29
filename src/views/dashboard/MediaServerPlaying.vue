@@ -3,16 +3,35 @@ import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import PlayingBackdropCard from '@/components/cards/PlayingBackdropCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { useDashboardMediaGridCapacity } from '@/composables/useDashboardMediaGridCapacity'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
+
+const PLAYING_CARD_MIN_WIDTH = 240
+const MEDIA_GRID_HORIZONTAL_PADDING = 40
 
 // 继续播放列表
 const playingList = ref<MediaServerPlayItem[]>([])
 
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
+
+// 继续观看两行网格容量
+const {
+  containerRef: mediaGridContainerRef,
+  itemCount: playingItemCount,
+  refreshCapacity,
+} = useDashboardMediaGridCapacity({
+  contentSelector: '.dashboard-media-content',
+  horizontalPadding: MEDIA_GRID_HORIZONTAL_PADDING,
+  minItemWidth: PLAYING_CARD_MIN_WIDTH,
+})
+
+const displayedPlayingList = computed(() => playingList.value.slice(0, playingItemCount.value))
+
+let playingLoadId = 0
 
 /**
  * 查询媒体服务器设置。
@@ -29,21 +48,17 @@ async function loadMediaServerSetting() {
 /**
  * 查询指定媒体服务器的继续观看列表。
  * @param server 媒体服务器名称
+ * @param count 需要返回的条目数量
  */
-async function loadPlayingList(server: string) {
+async function loadPlayingList(server: string, count: number) {
   try {
-    const result: MediaServerPlayItem[] = await api.get('mediaserver/playing', { params: { server } })
-    if (result && result.length > 0) {
-      // 不存在时添加
-      for (const item of result) {
-        const index = playingList.value.findIndex(i => i.id === item.id)
-        if (index === -1) {
-          playingList.value.push(item)
-        }
-      }
-    }
+    const result: MediaServerPlayItem[] = await api.get('mediaserver/playing', { params: { count, server } })
+
+    return result ?? []
   } catch (e) {
     console.log(e)
+
+    return []
   }
 }
 
@@ -51,43 +66,70 @@ async function loadPlayingList(server: string) {
  * 加载已启用媒体服务器的继续观看数据。
  */
 async function loadData() {
+  const count = playingItemCount.value
+  if (count <= 0) return
+
+  const loadId = ++playingLoadId
+
   await loadMediaServerSetting()
+  if (loadId !== playingLoadId) return
+
   const enabledServers = mediaServers.value.filter(server => server.enabled)
-  for (const server of enabledServers) {
-    loadPlayingList(server.name)
-  }
+  const serverItems = await Promise.all(enabledServers.map(server => loadPlayingList(server.name, count)))
+
+  if (loadId !== playingLoadId) return
+
+  const itemMap = new Map<string, MediaServerPlayItem>()
+
+  serverItems.flat().forEach((item, index) => {
+    const key = String(item.id || item.link || `${item.server_type || 'server'}-${item.title}-${index}`)
+    if (!itemMap.has(key)) {
+      itemMap.set(key, item)
+    }
+  })
+
+  playingList.value = Array.from(itemMap.values()).slice(0, count)
 }
 
-onMounted(() => {
+watch(playingItemCount, count => {
+  if (count <= 0) return
+
   loadData()
 })
 
 onActivated(() => {
+  refreshCapacity()
   loadData()
 })
 </script>
 
 <template>
-  <VCard v-if="playingList.length > 0" class="dashboard-media-card dashboard-grid-fill">
-    <VCardItem class="dashboard-media-header">
-      <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
-    </VCardItem>
+  <div
+    ref="mediaGridContainerRef"
+    class="dashboard-media-shell"
+    :class="{ 'dashboard-grid-fill': displayedPlayingList.length > 0 }"
+  >
+    <VCard v-if="displayedPlayingList.length > 0" class="dashboard-media-card">
+      <VCardItem class="dashboard-media-header">
+        <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
+      </VCardItem>
 
-    <div class="dashboard-media-content px-5 pb-3">
-      <ProgressiveCardGrid
-        class="dashboard-media-grid"
-        :items="playingList"
-        :get-item-key="item => item.id || item.link || item.title"
-        :min-item-width="240"
-        :estimated-item-height="174"
-        tabindex="0"
-      >
-        <template #default="{ item }">
-          <PlayingBackdropCard :media="item" height="10.875rem" />
-        </template>
-      </ProgressiveCardGrid>
-    </div>
-  </VCard>
+      <div class="dashboard-media-content px-5 pb-3">
+        <ProgressiveCardGrid
+          class="dashboard-media-grid"
+          :items="displayedPlayingList"
+          :get-item-key="item => item.id || item.link || item.title"
+          :min-item-width="PLAYING_CARD_MIN_WIDTH"
+          :estimated-item-height="174"
+          tabindex="0"
+        >
+          <template #default="{ item }">
+            <PlayingBackdropCard :media="item" height="10.875rem" />
+          </template>
+        </ProgressiveCardGrid>
+      </div>
+    </VCard>
+  </div>
 </template>
 
 <style scoped>
@@ -95,6 +137,11 @@ onActivated(() => {
 
 .dashboard-media-grid {
   flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.dashboard-media-shell {
+  block-size: 100%;
   min-block-size: 0;
 }
 

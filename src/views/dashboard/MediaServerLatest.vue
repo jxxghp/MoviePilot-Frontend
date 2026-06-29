@@ -3,16 +3,33 @@ import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import PosterCard from '@/components/cards/PosterCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
+import { useDashboardMediaGridCapacity } from '@/composables/useDashboardMediaGridCapacity'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
+
+const LATEST_CARD_MIN_WIDTH = 144
+const MEDIA_GRID_HORIZONTAL_PADDING = 40
 
 // 最近入库列表
 const latestList = ref<{ [key: string]: MediaServerPlayItem[] }>({})
 
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
+
+// 最近入库两行网格容量
+const {
+  containerRef: mediaGridContainerRef,
+  itemCount: latestItemCount,
+  refreshCapacity,
+} = useDashboardMediaGridCapacity({
+  contentSelector: '.dashboard-media-content',
+  horizontalPadding: MEDIA_GRID_HORIZONTAL_PADDING,
+  minItemWidth: LATEST_CARD_MIN_WIDTH,
+})
+
+let latestLoadId = 0
 
 /**
  * 查询媒体服务器设置。
@@ -29,16 +46,17 @@ async function loadMediaServerSetting() {
 /**
  * 查询指定媒体服务器的最近入库列表。
  * @param server 媒体服务器名称
+ * @param count 需要返回的条目数量
  */
-async function loadLatest(server: string) {
+async function loadLatest(server: string, count: number) {
   try {
-    const response: MediaServerPlayItem[] = await api.get('mediaserver/latest', { params: { server } })
-    // 仅在有数据时赋值
-    if (response && response.length > 0) {
-      latestList.value[server] = response
-    }
+    const response: MediaServerPlayItem[] = await api.get('mediaserver/latest', { params: { count, server } })
+
+    return response ?? []
   } catch (e) {
     console.log(t('dashboard.errors.loadLatest', { server }), e)
+
+    return []
   }
 }
 
@@ -46,24 +64,48 @@ async function loadLatest(server: string) {
  * 加载已启用媒体服务器的最近入库数据。
  */
 async function loadData() {
+  const count = latestItemCount.value
+  if (count <= 0) return
+
+  const loadId = ++latestLoadId
+
   await loadMediaServerSetting()
+  if (loadId !== latestLoadId) return
+
   const enabledServers = mediaServers.value.filter(server => server.enabled)
-  for (const server of enabledServers) {
-    loadLatest(server.name)
-  }
+  const entries = await Promise.all(
+    enabledServers.map(async server => [server.name, await loadLatest(server.name, count)] as const),
+  )
+
+  if (loadId !== latestLoadId) return
+
+  latestList.value = entries.reduce<{ [key: string]: MediaServerPlayItem[] }>((result, [name, data]) => {
+    if (data.length > 0) {
+      result[name] = data.slice(0, count)
+    }
+
+    return result
+  }, {})
 }
 
-onMounted(() => {
+watch(latestItemCount, count => {
+  if (count <= 0) return
+
   loadData()
 })
 
 onActivated(() => {
+  refreshCapacity()
   loadData()
 })
 </script>
 
 <template>
-  <div class="dashboard-media-stack" :class="{ 'dashboard-grid-fill': Object.keys(latestList).length > 0 }">
+  <div
+    ref="mediaGridContainerRef"
+    class="dashboard-media-stack"
+    :class="{ 'dashboard-grid-fill': Object.keys(latestList).length > 0 }"
+  >
     <VCard v-for="(data, name) in latestList" :key="name" class="dashboard-work-card dashboard-media-card">
       <VCardItem class="dashboard-media-header">
         <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
@@ -72,9 +114,9 @@ onActivated(() => {
       <div class="dashboard-media-content px-5 pb-3">
         <ProgressiveCardGrid
           class="dashboard-media-grid"
-          :items="data"
+          :items="data.slice(0, latestItemCount)"
           :get-item-key="item => item.id || item.link || item.title"
-          :min-item-width="144"
+          :min-item-width="LATEST_CARD_MIN_WIDTH"
           :item-aspect-ratio="1.5"
           tabindex="0"
         >
