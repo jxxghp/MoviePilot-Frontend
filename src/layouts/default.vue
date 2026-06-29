@@ -4,7 +4,14 @@ import DefaultLayout from './default/components/DefaultLayout.vue'
 const route = useRoute()
 
 // keep-alive 缓存按页面身份命中，避免 query 变化导致同一页面反复新建实例。
-const routeCacheKey = computed(() => route.meta.keepAliveKey?.toString() || route.path)
+const routeCacheKey = computed(() => {
+  if (route.meta.keepAliveKey) return route.meta.keepAliveKey.toString()
+
+  // 部分列表页的 query 会参与接口参数，缓存 key 需要保留完整路由避免串用旧数据。
+  if (route.meta.keepAliveByFullPath) return route.fullPath
+
+  return route.path
+})
 
 // 页面过渡按实际页面身份触发；keep-alive 页面避免 query 变化时反复入场。
 const routeTransitionKey = computed(() => (route.meta.keepAlive ? routeCacheKey.value : route.fullPath))

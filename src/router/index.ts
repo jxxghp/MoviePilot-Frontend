@@ -189,6 +189,8 @@ const router = createRouter({
           component: () => import('../pages/browse.vue'),
           props: true,
           meta: {
+            keepAlive: true,
+            keepAliveByFullPath: true,
             requiresAuth: true,
             permission: 'discovery',
           },
