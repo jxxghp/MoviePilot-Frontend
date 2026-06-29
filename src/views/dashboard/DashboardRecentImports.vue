@@ -14,7 +14,7 @@ const recentImports = ref<TransferHistory[]>([])
 async function loadRecentImports() {
   try {
     const response: { data?: { list?: TransferHistory[] } } = await api.get('history/transfer', {
-      params: { page: 1, count: 4, status: true },
+      params: { page: 1, count: 5, status: true },
     })
     recentImports.value = response.data?.list ?? []
   } catch (error) {

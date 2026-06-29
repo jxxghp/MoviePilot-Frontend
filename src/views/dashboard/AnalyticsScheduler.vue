@@ -49,7 +49,7 @@ const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
       id: `schedule-${item.id}`,
       title: item.name || t('dashboard.scheduler'),
       subtitle: (isRunning && getScheduleProgressText(item)) || item.provider || item.next_run || '',
-      status: item.status || t('dashboard.taskWaiting'),
+      status: isRunning ? t('dashboard.taskRunning') : item.status || t('dashboard.taskWaiting'),
       icon: visual.icon,
       color: visual.color,
       progress: isRunning ? getScheduleProgressValue(item) : undefined,
