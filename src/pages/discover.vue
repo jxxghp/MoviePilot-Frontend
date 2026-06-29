@@ -8,7 +8,6 @@ import { DiscoverSource } from '@/api/types'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
-import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 
 const DiscoverTabOrderDialog = defineAsyncComponent(() => import('@/components/dialog/DiscoverTabOrderDialog.vue'))
@@ -41,9 +40,6 @@ const discoverTabItems = computed(() => {
 // 额外的数据源
 const extraDiscoverSources = ref<DiscoverSource[]>([])
 
-// 为每个项目生成随机颜色
-const itemColors = ref<{ [key: string]: string }>({})
-
 let orderDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 打开发现页标签排序共享弹窗。
@@ -52,7 +48,6 @@ function openOrderConfigDialog() {
   orderDialogController = openSharedDialog(
     DiscoverTabOrderDialog,
     {
-      colors: itemColors.value,
       tabs: discoverTabs.value,
     },
     {
@@ -72,14 +67,6 @@ function openOrderConfigDialog() {
 function closeOrderConfigDialog() {
   orderDialogController?.close()
   orderDialogController = null
-}
-
-// 初始化颜色
-function initializeColors() {
-  initializeItemColors(discoverTabs.value, item => item.mediaid_prefix)
-  discoverTabs.value.forEach(item => {
-    itemColors.value[item.mediaid_prefix] = getItemColor(item.mediaid_prefix)
-  })
 }
 
 // 初始化发现标签
@@ -108,10 +95,6 @@ async function loadExtraDiscoverSources() {
         continue
       }
       discoverTabs.value.push(source)
-      // 为新增的数据源生成颜色
-      if (!itemColors.value[source.mediaid_prefix]) {
-        itemColors.value[source.mediaid_prefix] = getItemColor(source.mediaid_prefix)
-      }
     }
   } catch (error) {
     console.log(error)
@@ -187,7 +170,6 @@ registerHeaderTab({
 
 onBeforeMount(async () => {
   initDiscoverTabs()
-  initializeColors()
   await loadOrderConfig()
   await loadExtraDiscoverSources()
   sortSubscribeOrder()
