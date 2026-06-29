@@ -62,6 +62,8 @@ const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
 const FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY = 260
 const FAB_RANDOM_ACTION_MIN_DELAY = 8000
 const FAB_RANDOM_ACTION_MAX_DELAY = 18000
+const FAB_RIGHT_EDGE_RESIZE_FOLLOW_DISTANCE = 128
+const FAB_DRAG_SUPPRESS_CLICK_DELAY = 450
 
 const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint', 'disassemble', 'happy-jump'] as const
 
@@ -82,6 +84,27 @@ interface FabPosition {
   x: number
   y: number
 }
+
+interface FabPositionRangeOptions {
+  useOpenBounds?: boolean
+}
+
+interface FabPositionRatio {
+  x: number
+  y: number
+}
+
+type FabPositionAnchor =
+  | {
+      mode: 'right'
+      rightOffset: number
+      yRatio: number
+    }
+  | {
+      mode: 'free'
+      xRatio: number
+      yRatio: number
+    }
 
 interface FabInteractiveBounds {
   height: number
@@ -170,6 +193,7 @@ const fabRandomAction = ref<FabRandomAction | null>(null)
 let fabIdleTimer: number | null = null
 let fabDragState: FabDragState | null = null
 let fabSuppressNextClick = false
+let fabSuppressNextClickTimer: number | null = null
 let fabPointerFrame = 0
 let fabPendingPointerPoint: FabPointerPoint | null = null
 let fabBubblePositionFrame = 0
@@ -179,6 +203,8 @@ let fabLastRandomAction: FabRandomAction | null = null
 let fabRandomActionTimer: number | null = null
 let fabRandomActionEndTimer: number | null = null
 let stopBubbleListener: (() => void) | null = null
+let fabPositionAnchor: FabPositionAnchor | null = null
+let stopFabTouchMoveGuard: (() => void) | null = null
 
 const fabBubbleTimers = new Map<string, number>()
 
@@ -195,9 +221,16 @@ function createBubbleId(prefix = 'bubble') {
 }
 
 function getViewportSize() {
+  const layoutWidth = window.innerWidth || document.documentElement.clientWidth || 0
+  const layoutHeight = window.innerHeight || document.documentElement.clientHeight || 0
+  const visualWidth = window.visualViewport?.width || 0
+  const visualHeight = window.visualViewport?.height || 0
+
+  // 取布局视口和可见视口的较小值，避免两者短暂不同步时把入口计算到屏幕外。
   return {
-    height: window.innerHeight || document.documentElement.clientHeight || 0,
-    width: window.innerWidth || document.documentElement.clientWidth || 0,
+    height:
+      visualHeight > 0 && layoutHeight > 0 ? Math.min(visualHeight, layoutHeight) : visualHeight || layoutHeight,
+    width: visualWidth > 0 && layoutWidth > 0 ? Math.min(visualWidth, layoutWidth) : visualWidth || layoutWidth,
   }
 }
 
@@ -260,16 +293,6 @@ function getFabInteractiveBounds(): FabInteractiveBounds {
   return getFallbackFabInteractiveBounds()
 }
 
-function getFabSize() {
-  const root = getFabRootElement()
-  const rect = root?.getBoundingClientRect()
-
-  return {
-    height: rect?.height || 115,
-    width: rect?.width || 211,
-  }
-}
-
 function getDefaultFabPosition() {
   if (typeof window === 'undefined') return { x: 0, y: 0 }
 
@@ -283,35 +306,146 @@ function getDefaultFabPosition() {
   })
 }
 
-function clampFabPosition(position: FabPosition) {
-  if (typeof window === 'undefined') return position
-
+function getFabPositionRange(options: FabPositionRangeOptions = {}) {
   const viewport = getViewportSize()
-  const bounds = getFabInteractiveBounds()
+  const bounds = options.useOpenBounds ? getFallbackFabInteractiveBounds() : getFabInteractiveBounds()
   const minX = -bounds.offsetX
   const minY = -bounds.offsetY
   const maxX = Math.max(minX, viewport.width - bounds.offsetX - bounds.width)
   const maxY = Math.max(minY, viewport.height - bounds.offsetY - bounds.height)
 
+  return { maxX, maxY, minX, minY }
+}
+
+function clampFabPosition(position: FabPosition, options: FabPositionRangeOptions = {}) {
+  if (typeof window === 'undefined') return position
+
+  const range = getFabPositionRange(options)
+
   return {
-    x: Math.min(maxX, Math.max(minX, position.x)),
-    y: Math.min(maxY, Math.max(minY, position.y)),
+    x: Math.min(range.maxX, Math.max(range.minX, position.x)),
+    y: Math.min(range.maxY, Math.max(range.minY, position.y)),
   }
+}
+
+function clampFabY(y: number, options: FabPositionRangeOptions = {}) {
+  const range = getFabPositionRange(options)
+
+  return Math.min(range.maxY, Math.max(range.minY, y))
 }
 
 function getCurrentFabPosition() {
   return fabPosition.value || getDefaultFabPosition()
 }
 
-function isFabNearRightEdge(position = getCurrentFabPosition()) {
+function getFabRightEdgeOffset(position = getCurrentFabPosition()) {
   const viewport = getViewportSize()
-  const size = getFabSize()
+  const size = getOpenFabSize()
 
-  return viewport.width - (position.x + size.width) <= FAB_RIGHT_EDGE_DOCK_DISTANCE
+  return viewport.width - (position.x + size.width)
 }
 
-function updateFabPosition(position: FabPosition) {
-  fabPosition.value = clampFabPosition(position)
+function getFabYRatio(position: FabPosition, options: FabPositionRangeOptions = {}) {
+  return getFabFreePositionRatio(position, options).y
+}
+
+// 只在用户定位意图变化时更新锚点，窗口缩放时只消费该锚点重新计算位置。
+function updateFabAnchorFromPosition(position = getCurrentFabPosition(), options: FabPositionRangeOptions = {}) {
+  const rangeOptions = { useOpenBounds: options.useOpenBounds ?? fabDragging.value }
+  const offset = getFabRightEdgeOffset(position)
+  if (offset <= FAB_RIGHT_EDGE_RESIZE_FOLLOW_DISTANCE) {
+    fabPositionAnchor = {
+      mode: 'right',
+      rightOffset: Math.max(0, offset),
+      yRatio: getFabYRatio(position, rangeOptions),
+    }
+    return
+  }
+
+  const ratio = getFabFreePositionRatio(position, rangeOptions)
+  fabPositionAnchor = {
+    mode: 'free',
+    xRatio: ratio.x,
+    yRatio: ratio.y,
+  }
+}
+
+function shouldFabAutoDock() {
+  return fabPositionAnchor?.mode === 'right' && fabPositionAnchor.rightOffset <= FAB_RIGHT_EDGE_DOCK_DISTANCE
+}
+
+function getFabFreePositionRatio(position: FabPosition, options: FabPositionRangeOptions = {}): FabPositionRatio {
+  const range = getFabPositionRange(options)
+  const xRange = range.maxX - range.minX
+  const yRange = range.maxY - range.minY
+
+  return {
+    x: xRange > 0 ? (position.x - range.minX) / xRange : 0,
+    y: yRange > 0 ? (position.y - range.minY) / yRange : 0,
+  }
+}
+
+function getFabPositionFromRatio(ratio: FabPositionRatio, options: FabPositionRangeOptions = {}) {
+  const range = getFabPositionRange(options)
+
+  return clampFabPosition(
+    {
+      x: range.minX + (range.maxX - range.minX) * ratio.x,
+      y: range.minY + (range.maxY - range.minY) * ratio.y,
+    },
+    options,
+  )
+}
+
+function getFabYFromRatio(yRatio: number, options: FabPositionRangeOptions = {}) {
+  const range = getFabPositionRange(options)
+
+  return range.minY + (range.maxY - range.minY) * yRatio
+}
+
+function getFabPositionFromAnchor(anchor: FabPositionAnchor) {
+  if (anchor.mode === 'right') {
+    const viewport = getViewportSize()
+    const size = getOpenFabSize()
+
+    return clampFabPosition(
+      {
+        x: viewport.width - size.width - anchor.rightOffset,
+        y: getFabYFromRatio(anchor.yRatio, { useOpenBounds: true }),
+      },
+      { useOpenBounds: true },
+    )
+  }
+
+  return getFabPositionFromRatio(
+    {
+      x: anchor.xRatio,
+      y: anchor.yRatio,
+    },
+    { useOpenBounds: true },
+  )
+}
+
+function getOpenFabPositionForDrag(currentPosition: FabPosition) {
+  if (fabPositionAnchor) return getFabPositionFromAnchor(fabPositionAnchor)
+
+  return clampFabPosition(
+    {
+      ...currentPosition,
+      x: Math.min(
+        currentPosition.x,
+        Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET),
+      ),
+    },
+    { useOpenBounds: true },
+  )
+}
+
+function updateFabPosition(position: FabPosition, options: FabPositionRangeOptions & { syncAnchor?: boolean } = {}) {
+  const rangeOptions = { useOpenBounds: options.useOpenBounds ?? fabDragging.value }
+
+  fabPosition.value = clampFabPosition(position, rangeOptions)
+  if (options.syncAnchor !== false) updateFabAnchorFromPosition(fabPosition.value, rangeOptions)
   scheduleFabBubblePositionUpdate()
 }
 
@@ -584,17 +718,24 @@ function teardownFabBubblePositioning() {
 
 function resetFabPosition() {
   fabPosition.value = getDefaultFabPosition()
+  updateFabAnchorFromPosition(fabPosition.value)
   scheduleFabBubblePositionUpdate()
-  if (isFabNearRightEdge()) scheduleFabAutoDock()
+  if (shouldFabAutoDock()) scheduleFabAutoDock()
 }
 
 function handleWindowResize() {
-  updateFabPosition(getCurrentFabPosition())
+  const currentPosition = getCurrentFabPosition()
   if (fabDocked.value) {
+    const y = fabPositionAnchor ? getFabYFromRatio(fabPositionAnchor.yRatio) : currentPosition.y
     fabPosition.value = {
-      ...getCurrentFabPosition(),
+      ...currentPosition,
       x: getDockedFabX(),
+      y: clampFabY(y),
     }
+  } else if (fabPositionAnchor) {
+    updateFabPosition(getFabPositionFromAnchor(fabPositionAnchor), { syncAnchor: false })
+  } else {
+    updateFabPosition(currentPosition)
   }
   scheduleFabBubblePositionUpdate()
 }
@@ -685,18 +826,36 @@ function clearFabIdleTimer() {
   fabIdleTimer = null
 }
 
+function clearFabSuppressNextClickTimer() {
+  if (fabSuppressNextClickTimer === null) return
+
+  window.clearTimeout(fabSuppressNextClickTimer)
+  fabSuppressNextClickTimer = null
+}
+
+function suppressNextFabClick() {
+  fabSuppressNextClick = true
+  clearFabSuppressNextClickTimer()
+  fabSuppressNextClickTimer = window.setTimeout(() => {
+    fabSuppressNextClick = false
+    fabSuppressNextClickTimer = null
+  }, FAB_DRAG_SUPPRESS_CLICK_DELAY)
+}
+
 function scheduleFabAutoDock() {
   clearFabIdleTimer()
-  if (fabDocked.value || hasKeepOpenFabBubbles.value || fabRandomAction.value || !isFabNearRightEdge()) return
+  if (fabDocked.value || hasKeepOpenFabBubbles.value || fabRandomAction.value || !shouldFabAutoDock()) return
 
   fabIdleTimer = window.setTimeout(() => {
+    fabIdleTimer = null
+    if (fabDocked.value || hasKeepOpenFabBubbles.value || !shouldFabAutoDock()) return
+
     if (fabRandomAction.value) {
       scheduleFabAutoDock()
       return
     }
 
     setFabDocked(true)
-    fabIdleTimer = null
   }, FAB_IDLE_DOCK_DELAY)
 }
 
@@ -765,7 +924,7 @@ function finishFabRandomAction() {
   clearFabRandomActionEndTimer()
   fabRandomAction.value = null
 
-  const shouldAutoDock = !fabDocked.value && isFabNearRightEdge()
+  const shouldAutoDock = !fabDocked.value && shouldFabAutoDock()
 
   if (shouldAutoDock) {
     scheduleFabAutoDock()
@@ -993,44 +1152,145 @@ function setFabDocked(docked: boolean) {
 
   if (docked) {
     clearFabIdleTimer()
-    fabPosition.value = {
+    const dockedPosition = {
       ...currentPosition,
       x: getDockedFabX(),
+      y: clampFabY(currentPosition.y),
     }
+    fabPosition.value = dockedPosition
     scheduleFabBubblePositionUpdate()
     return
   }
 
-  updateFabPosition({
-    ...currentPosition,
-    x: Math.min(
-      currentPosition.x,
-      Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET),
-    ),
-  })
+  fabPosition.value = fabPositionAnchor
+    ? getFabPositionFromAnchor(fabPositionAnchor)
+    : clampFabPosition({
+        ...currentPosition,
+        x: Math.min(
+          currentPosition.x,
+          Math.max(0, getViewportSize().width - getOpenFabSize().width - FAB_DEFAULT_RIGHT_OFFSET),
+        ),
+      })
   scheduleFabBubblePositionUpdate()
-  scheduleFabAutoDock()
+  nextTick(() => {
+    if (fabPositionAnchor) {
+      updateFabPosition(getFabPositionFromAnchor(fabPositionAnchor), { syncAnchor: false })
+      scheduleFabAutoDock()
+      return
+    }
+
+    updateFabAnchorFromPosition()
+    scheduleFabAutoDock()
+  })
+}
+
+function clearFabDragState() {
+  fabDragState = null
+  fabDragging.value = false
+  fabPressed.value = false
+  teardownFabTouchMoveGuard()
+}
+
+function releaseFabPointerCapture(event: PointerEvent) {
+  try {
+    ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
+  } catch {
+    // 指针捕获可能已被浏览器或 DevTools 中断，状态以组件内清理为准。
+  }
+}
+
+function cancelFabDrag() {
+  const wasDragging = fabDragging.value
+
+  clearFabDragState()
+  if (!wasDragging) {
+    scheduleFabAutoDock()
+    return
+  }
+
+  if (shouldFabAutoDock()) {
+    scheduleFabAutoDock()
+  } else {
+    clearFabIdleTimer()
+  }
+}
+
+function guardFabPointerEvent(event: PointerEvent, options: { preventTouchDefault?: boolean } = {}) {
+  event.stopPropagation()
+  if (
+    options.preventTouchDefault &&
+    (event.pointerType === 'touch' || event.pointerType === 'pen') &&
+    event.cancelable
+  ) {
+    event.preventDefault()
+  }
+}
+
+function setupFabTouchMoveGuard() {
+  if (stopFabTouchMoveGuard) return
+
+  const handleTouchMove = (event: TouchEvent) => {
+    if (!fabDragState) return
+
+    event.stopPropagation()
+    if (event.cancelable) event.preventDefault()
+  }
+
+  document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false })
+  stopFabTouchMoveGuard = () => {
+    document.removeEventListener('touchmove', handleTouchMove, { capture: true })
+    stopFabTouchMoveGuard = null
+  }
+}
+
+function teardownFabTouchMoveGuard() {
+  stopFabTouchMoveGuard?.()
+}
+
+function isPressedDragPointer(event: PointerEvent) {
+  if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+    return event.buttons !== 0 || event.pressure > 0
+  }
+
+  return event.buttons !== 0
 }
 
 function handleFabTriggerPointerDown(event: PointerEvent) {
+  guardFabPointerEvent(event)
+  if (fabSuppressNextClick) {
+    fabSuppressNextClick = false
+    clearFabSuppressNextClickTimer()
+  }
   fabPressed.value = true
   pauseFabAutoDock()
+  if (event.pointerType === 'touch' || event.pointerType === 'pen') setupFabTouchMoveGuard()
 
   const currentPosition = getCurrentFabPosition()
+  const dragStartPosition = fabDocked.value ? getOpenFabPositionForDrag(currentPosition) : currentPosition
   fabDragState = {
     pointerId: event.pointerId,
     startClientX: event.clientX,
     startClientY: event.clientY,
-    startX: currentPosition.x,
-    startY: currentPosition.y,
+    startX: dragStartPosition.x,
+    startY: dragStartPosition.y,
     moved: false,
   }
-  ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
+  try {
+    ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
+  } catch {
+    // 指针可能已被浏览器取消，拖拽状态仍按后续 pointermove/pointerup 收敛。
+  }
 }
 
 function handleFabTriggerPointerMove(event: PointerEvent) {
+  guardFabPointerEvent(event, { preventTouchDefault: true })
   updateFabPointer(event)
   if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
+  if (!isPressedDragPointer(event)) {
+    releaseFabPointerCapture(event)
+    cancelFabDrag()
+    return
+  }
 
   const deltaX = event.clientX - fabDragState.startClientX
   const deltaY = event.clientY - fabDragState.startClientY
@@ -1040,8 +1300,17 @@ function handleFabTriggerPointerMove(event: PointerEvent) {
 
   fabDragState.moved = true
   fabDragging.value = true
-  fabSuppressNextClick = true
-  fabDocked.value = false
+  if (fabDocked.value) {
+    fabDocked.value = false
+    fabPosition.value = clampFabPosition(
+      {
+        x: fabDragState.startX,
+        y: fabDragState.startY,
+      },
+      { useOpenBounds: true },
+    )
+    scheduleFabBubblePositionUpdate()
+  }
   updateFabPosition({
     x: fabDragState.startX + deltaX,
     y: fabDragState.startY + deltaY,
@@ -1049,19 +1318,30 @@ function handleFabTriggerPointerMove(event: PointerEvent) {
 }
 
 function handleFabTriggerPointerUp(event: PointerEvent) {
+  guardFabPointerEvent(event)
   fabPressed.value = false
+  const dragState = fabDragState
   const wasDragging = fabDragging.value
+
+  if (wasDragging && dragState?.pointerId === event.pointerId) {
+    updateFabPosition({
+      x: dragState.startX + event.clientX - dragState.startClientX,
+      y: dragState.startY + event.clientY - dragState.startClientY,
+    })
+  }
 
   fabDragging.value = false
   fabDragState = null
-  ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
+  teardownFabTouchMoveGuard()
+  releaseFabPointerCapture(event)
 
   if (!wasDragging) {
     scheduleFabAutoDock()
     return
   }
 
-  if (isFabNearRightEdge()) {
+  suppressNextFabClick()
+  if (shouldFabAutoDock()) {
     scheduleFabAutoDock()
   } else {
     clearFabIdleTimer()
@@ -1069,11 +1349,39 @@ function handleFabTriggerPointerUp(event: PointerEvent) {
   }
 }
 
-function handleFabTriggerClick() {
-  if (fabSuppressNextClick) {
+function handleFabTriggerPointerCancel(event: PointerEvent) {
+  guardFabPointerEvent(event)
+  fabPressed.value = false
+
+  if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
+
+  releaseFabPointerCapture(event)
+
+  cancelFabDrag()
+}
+
+function handleFabTriggerLostPointerCapture(event: PointerEvent) {
+  if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
+
+  cancelFabDrag()
+}
+
+function handleWindowFabPointerEnd(event: PointerEvent) {
+  if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
+
+  cancelFabDrag()
+}
+
+function handleFabTriggerClick(event: MouseEvent) {
+  event.stopPropagation()
+  if (fabSuppressNextClick && event.detail !== 0) {
     fabSuppressNextClick = false
+    clearFabSuppressNextClickTimer()
     return
   }
+
+  fabSuppressNextClick = false
+  clearFabSuppressNextClickTimer()
 
   if (fabDocked.value) {
     setFabDocked(false)
@@ -1085,7 +1393,7 @@ function handleFabTriggerClick() {
 }
 
 function handleFabPointerLeave() {
-  if (!fabDocked.value && isFabNearRightEdge()) scheduleFabAutoDock()
+  if (!fabDocked.value && shouldFabAutoDock()) scheduleFabAutoDock()
 }
 
 function handleFabPointerEnter() {
@@ -1096,6 +1404,9 @@ onMounted(() => {
   nextTick(resetFabPosition)
   setAgentAssistantBubbleEntryActive(props.active)
   window.addEventListener('resize', handleWindowResize)
+  window.visualViewport?.addEventListener('resize', handleWindowResize)
+  window.addEventListener('pointerup', handleWindowFabPointerEnd, { passive: true })
+  window.addEventListener('pointercancel', handleWindowFabPointerEnd, { passive: true })
   window.addEventListener('pointermove', handleGlobalFabPointer, { passive: true })
   window.addEventListener('pointerdown', handleGlobalFabPointer, { passive: true })
   stopBubbleListener = onAgentAssistantBubble(showAgentAssistantBubble)
@@ -1108,7 +1419,7 @@ watch(
     setAgentAssistantBubbleEntryActive(active)
 
     if (active) {
-      if (isFabNearRightEdge()) scheduleFabAutoDock()
+      if (shouldFabAutoDock()) scheduleFabAutoDock()
       nextTick(() => {
         syncFabBubbleResizeObserver()
         syncFabBubblePosition()
@@ -1126,15 +1437,20 @@ watch(
 watch([() => props.active, () => props.thinking, fabDocked, fabDragging, fabPressed], syncFabRandomActionSchedule)
 
 onScopeDispose(clearFabIdleTimer)
+onScopeDispose(clearFabSuppressNextClickTimer)
 onScopeDispose(clearFabRandomAction)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(teardownFabBubblePositioning)
 onScopeDispose(clearFabBubbleUndockPositionTimer)
+onScopeDispose(teardownFabTouchMoveGuard)
 onScopeDispose(() => {
   setAgentAssistantBubbleEntryActive(false)
   stopBubbleListener?.()
   stopBubbleListener = null
   window.removeEventListener('resize', handleWindowResize)
+  window.visualViewport?.removeEventListener('resize', handleWindowResize)
+  window.removeEventListener('pointerup', handleWindowFabPointerEnd)
+  window.removeEventListener('pointercancel', handleWindowFabPointerEnd)
   teardownFabPointerTracking()
 })
 
@@ -1211,7 +1527,8 @@ defineExpose({
       @pointerdown="handleFabTriggerPointerDown"
       @pointermove="handleFabTriggerPointerMove"
       @pointerup="handleFabTriggerPointerUp"
-      @pointercancel="handleFabTriggerPointerUp"
+      @pointercancel="handleFabTriggerPointerCancel"
+      @lostpointercapture="handleFabTriggerLostPointerCapture"
       @click="handleFabTriggerClick"
     >
       <span class="agent-assistant-fab__bot" aria-hidden="true">
@@ -1294,6 +1611,7 @@ defineExpose({
   inline-size: 5.4rem;
   inset-block: auto 0;
   inset-inline: auto 0;
+  outline: none;
   pointer-events: auto;
   text-align: start;
   touch-action: none;
@@ -1539,7 +1857,6 @@ defineExpose({
     opacity 0.18s ease;
 }
 
-.agent-assistant-fab__bubble:hover .agent-assistant-fab__bubble-close,
 .agent-assistant-fab__bubble-close:focus-visible {
   opacity: 1;
 }
@@ -1800,12 +2117,30 @@ defineExpose({
   transform-origin: top center;
 }
 
-.agent-assistant-fab.is-bubble-visible .agent-assistant-fab__bubble:hover {
-  box-shadow: var(--app-surface-hover-shadow);
+@media (hover: hover) and (pointer: fine) {
+  .agent-assistant-fab.is-bubble-visible .agent-assistant-fab__bubble:hover {
+    box-shadow: var(--app-surface-hover-shadow);
+  }
+
+  .agent-assistant-fab__bubble:hover .agent-assistant-fab__bubble-close {
+    opacity: 1;
+  }
+
+  .agent-assistant-fab__trigger:hover .agent-assistant-fab__bot {
+    filter: drop-shadow(0 0.7rem 0.7rem var(--agent-assistant-robot-shadow-strong));
+  }
 }
 
-.agent-assistant-fab__trigger:hover .agent-assistant-fab__bot {
-  filter: drop-shadow(0 0.7rem 0.7rem var(--agent-assistant-robot-shadow-strong));
+@media (hover: none), (pointer: coarse) {
+  .agent-assistant-fab__bubble-close {
+    opacity: 1;
+  }
+}
+
+.agent-assistant-fab__trigger:focus-visible .agent-assistant-fab__bot {
+  filter:
+    drop-shadow(0 0.55rem 0.55rem var(--agent-assistant-robot-shadow))
+    drop-shadow(0 0 0.34rem rgba(var(--v-theme-primary), 0.55));
 }
 
 .agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
