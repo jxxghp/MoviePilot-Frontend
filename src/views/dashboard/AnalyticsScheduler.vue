@@ -3,7 +3,6 @@ import api from '@/api'
 import type { ScheduleInfo, TransferQueue } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
-import { SCHEDULER_SHORTCUT_ICON } from '@/composables/useShortcutTools'
 import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
 import { getSchedulerVisual } from '@/utils/schedulerVisual'
 
@@ -105,7 +104,6 @@ useDataRefresh(
 <template>
   <VCard class="dashboard-work-card dashboard-grid-fill">
     <VCardItem>
-      <template #prepend><VIcon :icon="SCHEDULER_SHORTCUT_ICON" size="20" class="me-2" /></template>
       <VCardTitle>{{ t('dashboard.scheduler') }}</VCardTitle>
     </VCardItem>
 
@@ -118,35 +116,37 @@ useDataRefresh(
             </VAvatar>
           </template>
 
-          <VListItemTitle class="background-task-title">
-            {{ item.title }}
-          </VListItemTitle>
-          <VListItemSubtitle class="background-task-subtitle">
-            {{ item.subtitle }}
-          </VListItemSubtitle>
-          <VProgressLinear
-            v-if="item.progress !== undefined"
-            :model-value="item.progress"
-            :color="item.color"
-            height="2"
-            rounded
-            class="mt-2"
-          />
+          <div class="background-task-body">
+            <div class="background-task-summary">
+              <div class="background-task-copy">
+                <VListItemTitle class="background-task-title">
+                  {{ item.title }}
+                </VListItemTitle>
+                <VListItemSubtitle class="background-task-subtitle">
+                  {{ item.subtitle }}
+                </VListItemSubtitle>
+              </div>
 
-          <template #append>
-            <span class="background-task-status">{{ item.status }}</span>
-            <VIcon
-              :icon="
-                item.progress === undefined
-                  ? 'mdi-clock-outline'
-                  : item.progress === 100
-                    ? 'mdi-check-circle'
-                    : 'mdi-progress-clock'
-              "
-              :color="item.progress === 100 ? 'success' : item.color"
-              size="15"
+              <div class="background-task-state">
+                <span class="background-task-status">{{ item.status }}</span>
+                <VIcon
+                  :icon="item.progress === undefined ? 'mdi-clock-outline' : 'mdi-progress-clock'"
+                  :color="item.progress === undefined ? undefined : 'primary'"
+                  :class="{ 'text-medium-emphasis': item.progress === undefined }"
+                  size="15"
+                />
+              </div>
+            </div>
+
+            <VProgressLinear
+              v-if="item.progress !== undefined"
+              :model-value="item.progress"
+              :color="item.color"
+              height="2"
+              rounded
+              class="background-task-progress"
             />
-          </template>
+          </div>
         </VListItem>
         <VListItem v-if="backgroundTasks.length === 0">
           <VListItemTitle class="text-center"> {{ t('dashboard.noSchedulers') }} </VListItemTitle>
@@ -166,7 +166,7 @@ useDataRefresh(
 }
 
 .card-list {
-  --v-card-list-gap: 0;
+  --v-card-list-gap: 0.45rem;
 
   flex: 1 1 auto;
   min-block-size: 0;
@@ -176,21 +176,28 @@ useDataRefresh(
 }
 
 .background-task-item {
-  position: relative;
-  min-block-size: 68px;
-  padding-block: 0.35rem;
   border-radius: 0;
 }
 
-.background-task-item + .background-task-item::before {
-  position: absolute;
-  z-index: 1;
-  block-size: 1px;
-  background: rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.7));
-  content: '';
-  inset-block-start: 0;
-  inset-inline: 0.75rem;
-  pointer-events: none;
+.background-task-body,
+.background-task-copy {
+  min-inline-size: 0;
+}
+
+.background-task-body {
+  inline-size: 100%;
+}
+
+.background-task-summary {
+  display: grid;
+  align-items: center;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.background-task-state {
+  display: flex;
+  align-items: center;
 }
 
 .background-task-title {
@@ -207,6 +214,10 @@ useDataRefresh(
 .background-task-status {
   margin-inline-end: 0.35rem;
   white-space: nowrap;
+}
+
+.background-task-progress {
+  margin-block-start: 0.4rem;
 }
 
 .dashboard-work-content {
