@@ -14,7 +14,9 @@ const libraryList = ref<MediaServerLibrary[]>([])
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
 
-// 调用API查询媒体服务器设置
+/**
+ * 查询媒体服务器设置。
+ */
 async function loadMediaServerSetting() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
@@ -24,7 +26,10 @@ async function loadMediaServerSetting() {
   }
 }
 
-// 调用API查询
+/**
+ * 查询指定媒体服务器的媒体库。
+ * @param server 媒体服务器名称
+ */
 async function loadLibrary(server: string) {
   try {
     const result: MediaServerLibrary[] = await api.get('mediaserver/library', {
@@ -42,7 +47,9 @@ async function loadLibrary(server: string) {
   }
 }
 
-// 加载数据
+/**
+ * 加载已启用媒体服务器的媒体库数据。
+ */
 async function loadData() {
   await loadMediaServerSetting()
   const enabledServers = mediaServers.value.filter(server => server.enabled)
@@ -62,7 +69,7 @@ onActivated(() => {
 
 <template>
   <VCard v-if="libraryList.length > 0" class="dashboard-media-card dashboard-grid-fill">
-    <VCardItem>
+    <VCardItem class="dashboard-media-header">
       <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
     </VCardItem>
     <div class="dashboard-media-content px-5 pb-3">
@@ -95,6 +102,10 @@ onActivated(() => {
   flex-direction: column;
   block-size: 100%;
   min-block-size: 0;
+}
+
+.dashboard-media-header {
+  padding-block-end: 0.375rem;
 }
 
 .dashboard-media-content {

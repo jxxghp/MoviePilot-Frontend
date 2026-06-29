@@ -2666,6 +2666,7 @@ onScopeDispose(() => {
   -ms-overflow-style: none;
   overflow-y: auto;
   overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   padding-block: 1rem;
   padding-inline: 1rem;
   scroll-behavior: auto;

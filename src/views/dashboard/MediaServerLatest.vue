@@ -14,7 +14,9 @@ const latestList = ref<{ [key: string]: MediaServerPlayItem[] }>({})
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
 
-// 调用API查询媒体服务器设置
+/**
+ * 查询媒体服务器设置。
+ */
 async function loadMediaServerSetting() {
   try {
     const response: { data: { value: MediaServerConf[] } } = await api.get('system/setting/MediaServers')
@@ -24,7 +26,10 @@ async function loadMediaServerSetting() {
   }
 }
 
-// 调用API查询最近入库
+/**
+ * 查询指定媒体服务器的最近入库列表。
+ * @param server 媒体服务器名称
+ */
 async function loadLatest(server: string) {
   try {
     const response: MediaServerPlayItem[] = await api.get('mediaserver/latest', { params: { server } })
@@ -37,7 +42,9 @@ async function loadLatest(server: string) {
   }
 }
 
-// 加载数据
+/**
+ * 加载已启用媒体服务器的最近入库数据。
+ */
 async function loadData() {
   await loadMediaServerSetting()
   const enabledServers = mediaServers.value.filter(server => server.enabled)
@@ -58,7 +65,7 @@ onActivated(() => {
 <template>
   <div class="dashboard-media-stack" :class="{ 'dashboard-grid-fill': Object.keys(latestList).length > 0 }">
     <VCard v-for="(data, name) in latestList" :key="name" class="dashboard-work-card dashboard-media-card">
-      <VCardItem>
+      <VCardItem class="dashboard-media-header">
         <VCardTitle>{{ t('dashboard.latest') }} - {{ name }}</VCardTitle>
       </VCardItem>
 
@@ -101,6 +108,10 @@ onActivated(() => {
 .dashboard-media-grid {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+.dashboard-media-header {
+  padding-block-end: 0.375rem;
 }
 
 .dashboard-media-content {

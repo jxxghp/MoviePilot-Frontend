@@ -895,6 +895,7 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 .search-content {
   max-block-size: 600px;
   min-block-size: 150px;
+  overscroll-behavior-y: contain;
   overflow-y: auto;
 }
 

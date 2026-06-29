@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
-import BackdropCard from '@/components/cards/BackdropCard.vue'
+import PlayingBackdropCard from '@/components/cards/PlayingBackdropCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -14,7 +14,9 @@ const playingList = ref<MediaServerPlayItem[]>([])
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
 
-// 调用API查询媒体服务器设置
+/**
+ * 查询媒体服务器设置。
+ */
 async function loadMediaServerSetting() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/MediaServers')
@@ -24,7 +26,10 @@ async function loadMediaServerSetting() {
   }
 }
 
-// 调用API查询
+/**
+ * 查询指定媒体服务器的继续观看列表。
+ * @param server 媒体服务器名称
+ */
 async function loadPlayingList(server: string) {
   try {
     const result: MediaServerPlayItem[] = await api.get('mediaserver/playing', { params: { server } })
@@ -42,7 +47,9 @@ async function loadPlayingList(server: string) {
   }
 }
 
-// 加载数据
+/**
+ * 加载已启用媒体服务器的继续观看数据。
+ */
 async function loadData() {
   await loadMediaServerSetting()
   const enabledServers = mediaServers.value.filter(server => server.enabled)
@@ -62,7 +69,7 @@ onActivated(() => {
 
 <template>
   <VCard v-if="playingList.length > 0" class="dashboard-media-card dashboard-grid-fill">
-    <VCardItem>
+    <VCardItem class="dashboard-media-header">
       <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
     </VCardItem>
 
@@ -72,11 +79,11 @@ onActivated(() => {
         :items="playingList"
         :get-item-key="item => item.id || item.link || item.title"
         :min-item-width="240"
-        :estimated-item-height="160"
+        :estimated-item-height="174"
         tabindex="0"
       >
         <template #default="{ item }">
-          <BackdropCard :media="item" height="10rem" />
+          <PlayingBackdropCard :media="item" height="10.875rem" />
         </template>
       </ProgressiveCardGrid>
     </div>
@@ -96,6 +103,10 @@ onActivated(() => {
   flex-direction: column;
   block-size: 100%;
   min-block-size: 0;
+}
+
+.dashboard-media-header {
+  padding-block-end: 0.375rem;
 }
 
 .dashboard-media-content {
