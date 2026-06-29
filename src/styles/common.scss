@@ -1100,6 +1100,11 @@ html[data-theme="transparent"] .app-card-colorful,
   pointer-events: auto;
 }
 
+.compact-fab-stack > :last-child {
+  position: relative;
+  z-index: 1;
+}
+
 .compact-fab-stack--history {
   inset-block-end: max(4.5rem, calc(env(safe-area-inset-bottom) + 4.5rem));
 }
@@ -1159,6 +1164,136 @@ html[data-theme="transparent"] .app-card-colorful,
 
   .compact-fab--primary .v-btn:hover {
     box-shadow: var(--app-fab-shadow-strong-hover);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (width > 768px) {
+  .compact-fab-stack:has(> :nth-child(2)) {
+    --compact-fab-step: 3.75rem;
+
+    padding-block-start: calc((var(--compact-fab-count, 8) - 1) * var(--compact-fab-step));
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):hover,
+  .compact-fab-stack:has(> :nth-child(2)):focus-within {
+    pointer-events: auto;
+  }
+
+  .compact-fab-stack:has(> :nth-child(2):last-child) {
+    --compact-fab-count: 2;
+  }
+
+  .compact-fab-stack:has(> :nth-child(3):last-child) {
+    --compact-fab-count: 3;
+  }
+
+  .compact-fab-stack:has(> :nth-child(4):last-child) {
+    --compact-fab-count: 4;
+  }
+
+  .compact-fab-stack:has(> :nth-child(5):last-child) {
+    --compact-fab-count: 5;
+  }
+
+  .compact-fab-stack:has(> :nth-child(6):last-child) {
+    --compact-fab-count: 6;
+  }
+
+  .compact-fab-stack:has(> :nth-child(7):last-child) {
+    --compact-fab-count: 7;
+  }
+
+  .compact-fab-stack:has(> :nth-child(8):last-child) {
+    --compact-fab-count: 8;
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)) > :not(:last-child) {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(calc(var(--compact-fab-order, 1) * var(--compact-fab-step)));
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s ease;
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)) > :last-child .v-btn {
+    opacity: 0.78;
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-icon {
+    opacity: 0;
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn__content {
+    position: relative;
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn__content::before {
+    position: absolute;
+    display: block;
+    block-size: 0.94rem;
+    background:
+      radial-gradient(circle, currentcolor 0 38%, transparent 42%) center 0 / 0.32rem 0.32rem no-repeat,
+      radial-gradient(circle, currentcolor 0 38%, transparent 42%) center 50% / 0.32rem 0.32rem no-repeat,
+      radial-gradient(circle, currentcolor 0 38%, transparent 42%) center 100% / 0.32rem 0.32rem no-repeat;
+    content: '';
+    inline-size: 0.94rem;
+    inset-block-start: 55%;
+    inset-inline-start: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn__content::after {
+    position: absolute;
+    display: block;
+    block-size: 0.46rem;
+    border-block-start: 0.15rem solid currentcolor;
+    border-inline-start: 0.15rem solid currentcolor;
+    content: '';
+    inline-size: 0.46rem;
+    inset-block-start: 17%;
+    inset-inline-start: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):hover > :not(:last-child),
+  .compact-fab-stack:has(> :nth-child(2)):focus-within > :not(:last-child) {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .compact-fab-stack:has(> :nth-child(2)):hover > :last-child .v-btn,
+  .compact-fab-stack:has(> :nth-child(2)):focus-within > :last-child .v-btn {
+    opacity: 0.98;
+  }
+
+  .compact-fab-stack > :nth-last-child(2) {
+    --compact-fab-order: 1;
+  }
+
+  .compact-fab-stack > :nth-last-child(3) {
+    --compact-fab-order: 2;
+  }
+
+  .compact-fab-stack > :nth-last-child(4) {
+    --compact-fab-order: 3;
+  }
+
+  .compact-fab-stack > :nth-last-child(5) {
+    --compact-fab-order: 4;
+  }
+
+  .compact-fab-stack > :nth-last-child(6) {
+    --compact-fab-order: 5;
+  }
+
+  .compact-fab-stack > :nth-last-child(7) {
+    --compact-fab-order: 6;
+  }
+
+  .compact-fab-stack > :nth-last-child(8) {
+    --compact-fab-order: 7;
   }
 }
 

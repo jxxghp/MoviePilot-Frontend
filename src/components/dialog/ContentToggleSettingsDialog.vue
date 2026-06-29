@@ -61,17 +61,42 @@ const elevatedValue = computed({
 })
 
 watch(
-  () => [props.enabled, props.elevated, props.items],
+  () => props.enabled,
   () => {
     resetLocalSettings()
   },
   { deep: true, immediate: true },
 )
 
+watch(
+  () => props.elevated,
+  value => {
+    localElevated.value = value
+  },
+)
+
+watch(
+  () => props.items.map(item => getItemValue(item)).join('\u0000'),
+  () => {
+    syncLocalEnabledItems()
+  },
+)
+
 // 重置弹窗内部设置副本，避免直接修改父级 props。
 function resetLocalSettings() {
   localEnabled.value = { ...props.enabled }
   localElevated.value = props.elevated
+  syncLocalEnabledItems()
+}
+
+// 同步新增设置项的默认状态，避免刷新列表时覆盖用户正在编辑的本地选择。
+function syncLocalEnabledItems() {
+  props.items.forEach(item => {
+    const key = getItemValue(item)
+    if (key && !(key in localEnabled.value)) {
+      localEnabled.value[key] = Boolean(props.enabled[key])
+    }
+  })
 }
 
 // 获取设置项的稳定键值。
