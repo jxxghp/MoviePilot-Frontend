@@ -105,9 +105,9 @@ function submitTemplate() {
 <style scoped>
 .notification-template-editor-dialog {
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   max-block-size: calc(100dvh - 2rem);
-  overflow: hidden;
 }
 
 .template-editor-header {
@@ -147,8 +147,8 @@ function submitTemplate() {
 
   .template-ace-editor {
     flex: 1 1 auto;
-    min-block-size: 0;
     block-size: auto;
+    min-block-size: 0;
   }
 
   .template-editor-actions {

@@ -433,18 +433,18 @@ useSilentSettingRefresh(loadPageData, {
                 <VIcon icon="mdi-plus" />
                 <VMenu :activator="'parent'" :close-on-content-click="true">
                   <VList>
-                     <VListItem @click="addNotification('wechat')">
-                       <VListItemTitle>{{ t('setting.notification.wechat') }}</VListItemTitle>
-                     </VListItem>
-                     <VListItem @click="addNotification('wechatclawbot')">
-                       <VListItemTitle>{{ t('setting.notification.wechatClawBot') }}</VListItemTitle>
-                     </VListItem>
-                     <VListItem @click="addNotification('feishu')">
-                       <VListItemTitle>{{ t('setting.notification.feishu') }}</VListItemTitle>
-                     </VListItem>
-                      <VListItem @click="addNotification('telegram')">
-                        <VListItemTitle>{{ t('setting.notification.telegram') }}</VListItemTitle>
-                      </VListItem>
+                    <VListItem @click="addNotification('wechat')">
+                      <VListItemTitle>{{ t('setting.notification.wechat') }}</VListItemTitle>
+                    </VListItem>
+                    <VListItem @click="addNotification('wechatclawbot')">
+                      <VListItemTitle>{{ t('setting.notification.wechatClawBot') }}</VListItemTitle>
+                    </VListItem>
+                    <VListItem @click="addNotification('feishu')">
+                      <VListItemTitle>{{ t('setting.notification.feishu') }}</VListItemTitle>
+                    </VListItem>
+                    <VListItem @click="addNotification('telegram')">
+                      <VListItemTitle>{{ t('setting.notification.telegram') }}</VListItemTitle>
+                    </VListItem>
                     <VListItem @click="addNotification('slack')">
                       <VListItemTitle>{{ t('setting.notification.slack') }}</VListItemTitle>
                     </VListItem>
@@ -600,11 +600,11 @@ useSilentSettingRefresh(loadPageData, {
   position: relative;
   display: flex;
   align-items: center;
+  padding: 1rem;
   cursor: pointer;
   gap: 0.875rem;
   inline-size: 100%;
   min-block-size: 5.25rem;
-  padding: 1rem;
   text-align: start;
 }
 
@@ -638,16 +638,18 @@ useSilentSettingRefresh(loadPageData, {
 }
 
 .template-card-subtitle {
-  margin-block-start: 0.25rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
   line-height: 1.25;
+  margin-block-start: 0.25rem;
 }
 
 .template-card-arrow {
   flex: 0 0 auto;
   color: rgba(var(--v-theme-on-surface), 0.42);
-  transition: color 0.2s ease, transform 0.2s ease;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .notification-template-card:hover .template-card-arrow {
@@ -661,8 +663,8 @@ useSilentSettingRefresh(loadPageData, {
   }
 
   .notification-template-card {
-    min-block-size: 4.75rem;
     padding: 0.875rem;
+    min-block-size: 4.75rem;
   }
 }
 </style>

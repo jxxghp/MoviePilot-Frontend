@@ -466,7 +466,7 @@ onMounted(() => {
       <!-- 弹窗模式保留原有搜索输入区。 -->
       <div v-if="!display.mdAndUp.value" class="search-header">
         <div class="search-input-wrapper">
-          <VIcon icon="mdi-magnify" size="22" class="search-input-icon" />
+          <VIcon icon="mdi-text" size="22" class="search-input-icon" />
           <input
             ref="searchWordInput"
             v-model="searchWord"
@@ -795,7 +795,7 @@ onMounted(() => {
 
 .search-dialog--dropdown {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  inline-size: min(40rem, calc(100vw - 2rem));
+  inline-size: min(32rem, calc(100vw - 2rem));
   max-block-size: min(72vh, 42rem);
 }
 
@@ -809,7 +809,6 @@ onMounted(() => {
   border-color: rgba(var(--v-theme-on-surface), 0.12);
   background: rgba(var(--v-theme-surface), 0.72);
   block-size: 42px;
-  box-shadow: var(--app-surface-shadow);
   padding-inline: 14px 8px;
 }
 
@@ -849,7 +848,6 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 
 .search-input-wrapper:focus-within {
   border-color: rgb(var(--v-theme-primary));
-  box-shadow: var(--app-surface-shadow);
 }
 
 .search-input-icon {
@@ -948,6 +946,7 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 
 .recent-searches-section {
   inline-size: 100%;
+  padding-block-start: 1rem;
 }
 
 .empty-hint {

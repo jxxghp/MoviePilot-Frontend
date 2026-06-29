@@ -202,8 +202,8 @@ html[data-theme-radius='extra'] {
 }
 
 .app-hover-lift-card {
-  transition: transform 0.3s ease, box-shadow 0.2s ease;
   transform: translateZ(0);
+  transition: transform 0.3s ease, box-shadow 0.2s ease;
 }
 
 .app-hover-lift-card--hovering {
@@ -475,27 +475,133 @@ html[data-theme-radius='extra'] {
   transition: box-shadow 0.2s ease, border-radius 0.2s ease;
 }
 
-// 只给外层 surface 加边框和阴影，卡片内部的列表、表格等子组件保持平面，避免层级噪声。
-.v-card .v-list:not(.app-surface),
-.v-card .v-sheet:not(.app-surface),
-.v-card .v-table:not(.app-surface),
-.v-card .v-expansion-panel:not(.app-surface),
-.v-card .v-window:not(.app-surface),
-.v-card .v-toolbar:not(.app-surface),
-.v-card .v-navigation-drawer:not(.app-surface),
-.v-card .v-stepper:not(.app-surface),
-.v-card .v-alert:not(.app-surface),
-.v-card .v-avatar,
-.v-card .v-chip {
+// 只给外层卡片和弹窗外壳保留阴影，内部 surface / control / elevation 工具类统一保持平面，避免多层阴影叠加。
+.v-card :where(
+  .app-surface,
+  .app-surface-static,
+  .v-alert,
+  .v-avatar,
+  .v-btn,
+  .v-btn-group,
+  .v-card,
+  .v-chip,
+  .v-expansion-panel,
+  .v-expansion-panel__shadow,
+  .v-list,
+  .v-navigation-drawer,
+  .v-sheet,
+  .v-stepper,
+  .v-table,
+  .v-toolbar,
+  .v-window,
+  [class^='elevation-'],
+  [class*=' elevation-'],
+  [class^='shadow-'],
+  [class*=' shadow-']
+),
+.v-overlay__content > .v-card :where(
+  .app-surface,
+  .app-surface-static,
+  .v-alert,
+  .v-avatar,
+  .v-btn,
+  .v-btn-group,
+  .v-card,
+  .v-chip,
+  .v-expansion-panel,
+  .v-expansion-panel__shadow,
+  .v-list,
+  .v-navigation-drawer,
+  .v-sheet,
+  .v-stepper,
+  .v-table,
+  .v-toolbar,
+  .v-window,
+  [class^='elevation-'],
+  [class*=' elevation-'],
+  [class^='shadow-'],
+  [class*=' shadow-']
+),
+.v-overlay__content > .v-sheet :where(
+  .app-surface,
+  .app-surface-static,
+  .v-alert,
+  .v-avatar,
+  .v-btn,
+  .v-btn-group,
+  .v-card,
+  .v-chip,
+  .v-expansion-panel,
+  .v-expansion-panel__shadow,
+  .v-list,
+  .v-navigation-drawer,
+  .v-sheet,
+  .v-stepper,
+  .v-table,
+  .v-toolbar,
+  .v-window,
+  [class^='elevation-'],
+  [class*=' elevation-'],
+  [class^='shadow-'],
+  [class*=' shadow-']
+),
+.v-overlay__content > form > .v-card :where(
+  .app-surface,
+  .app-surface-static,
+  .v-alert,
+  .v-avatar,
+  .v-btn,
+  .v-btn-group,
+  .v-card,
+  .v-chip,
+  .v-expansion-panel,
+  .v-expansion-panel__shadow,
+  .v-list,
+  .v-navigation-drawer,
+  .v-sheet,
+  .v-stepper,
+  .v-table,
+  .v-toolbar,
+  .v-window,
+  [class^='elevation-'],
+  [class*=' elevation-'],
+  [class^='shadow-'],
+  [class*=' shadow-']
+),
+.v-overlay__content > form > .v-sheet :where(
+  .app-surface,
+  .app-surface-static,
+  .v-alert,
+  .v-avatar,
+  .v-btn,
+  .v-btn-group,
+  .v-card,
+  .v-chip,
+  .v-expansion-panel,
+  .v-expansion-panel__shadow,
+  .v-list,
+  .v-navigation-drawer,
+  .v-sheet,
+  .v-stepper,
+  .v-table,
+  .v-toolbar,
+  .v-window,
+  [class^='elevation-'],
+  [class*=' elevation-'],
+  [class^='shadow-'],
+  [class*=' shadow-']
+) {
+  --app-card-hover-shadow: none;
+  --app-card-rest-shadow: none;
+  --app-fab-shadow: none;
+  --app-fab-shadow-active: none;
+  --app-fab-shadow-hover: none;
+  --app-fab-shadow-strong: none;
+  --app-fab-shadow-strong-hover: none;
   --app-surface-hover-shadow: none;
   --app-surface-shadow: none;
-}
 
-// 弹窗内容里的嵌套卡片默认保持平面；弹窗自身仍由 overlay 规则控制阴影和圆角。
-.v-dialog > .v-overlay__content > .v-card :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful),
-.v-dialog > .v-overlay__content > .v-sheet :where(.v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel):not(.app-card-colorful) {
-  --app-surface-hover-shadow: none;
-  --app-surface-shadow: none;
+  box-shadow: none !important;
 }
 
 // 主题定制器的 bordered 皮肤：保持原布局密度，只给非 Vuetify 外壳增加清晰边界。
@@ -541,7 +647,6 @@ html[data-theme-skin='bordered'] {
       rgba(var(--v-theme-surface), 0) 76%
     ),
     rgba(var(--v-theme-surface), var(--app-card-surface-opacity));
-  box-shadow: var(--app-surface-shadow);
   color: rgb(var(--v-theme-on-surface));
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 
@@ -1188,12 +1293,12 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 .v-dialog--fullscreen > .v-overlay__content {
+  display: flex;
+  justify-content: center;
   border-radius: 0 !important;
   box-shadow: none !important;
-  display: flex;
   inline-size: 100%;
   inset-inline: 0 !important;
-  justify-content: center;
   margin-inline: auto;
 }
 
