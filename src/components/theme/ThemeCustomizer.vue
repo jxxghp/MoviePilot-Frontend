@@ -222,7 +222,7 @@ async function handleResetSettings() {
 
       <VDivider />
 
-      <PerfectScrollbar class="theme-customizer-body" :options="{ wheelPropagation: false }">
+      <div class="theme-customizer-body">
         <section class="theme-customizer-section">
           <h3 class="theme-customizer-section-title">{{ t('theme.customizer.primaryColor') }}</h3>
           <div class="theme-customizer-color-grid">
@@ -405,7 +405,7 @@ async function handleResetSettings() {
             </div>
           </div>
         </section>
-      </PerfectScrollbar>
+      </div>
     </div>
   </aside>
 </template>
@@ -448,9 +448,9 @@ async function handleResetSettings() {
   min-block-size: 0;
 }
 
-@supports (block-size: 100dvh) {
+@supports (block-size: 100svh) {
   .theme-customizer-panel {
-    block-size: 100dvh;
+    block-size: 100svh;
   }
 }
 
@@ -498,17 +498,14 @@ async function handleResetSettings() {
 .theme-customizer-body {
   flex: 1 1 auto;
   min-block-size: 0;
+  -webkit-overflow-scrolling: touch;
   -ms-overflow-style: none;
+  overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
     display: none;
-  }
-
-  :deep(.ps__rail-x),
-  :deep(.ps__rail-y) {
-    display: none !important;
   }
 }
 

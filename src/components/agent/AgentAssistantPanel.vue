@@ -2372,9 +2372,9 @@ onScopeDispose(() => {
   --agent-assistant-panel-blur: 10px;
 }
 
-@supports (block-size: 100dvh) {
+@supports (block-size: 100svh) {
   .agent-assistant-shell {
-    block-size: 100dvh;
+    block-size: 100svh;
   }
 }
 
