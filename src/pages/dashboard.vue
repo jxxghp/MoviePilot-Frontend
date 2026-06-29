@@ -769,6 +769,7 @@ async function exitDashboardLayoutEditing() {
 
   isLayoutEditing.value = false
   await nextTick()
+  await reloadDashboardGridWidgetsFromLayout()
   syncDashboardFillContentState()
   resizeAutoDashboardItemsToContent()
   notifyDashboardContentResize()
@@ -1304,6 +1305,14 @@ async function persistCurrentDashboardGridLayout(manualHeightId: string | false 
   isDashboardGridLayoutResetPending.value = false
   await nextTick()
   persistDashboardGridLayout(manualHeightId)
+}
+
+// 清理 GridStack 内部响应式布局缓存，并用当前 Vue 布局状态重新注册已有 DOM 节点。
+async function reloadDashboardGridWidgetsFromLayout() {
+  if (!dashboardGrid.value) return
+
+  dashboardGrid.value.removeAll(false, false)
+  await syncDashboardGrid()
 }
 
 watch(isLayoutEditing, value => {
