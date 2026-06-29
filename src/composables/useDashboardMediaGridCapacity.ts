@@ -1,4 +1,16 @@
-import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onMounted,
+  onUnmounted,
+  ref,
+  toValue,
+  watch,
+  type ComputedRef,
+  type MaybeRefOrGetter,
+  type Ref,
+} from 'vue'
 
 interface DashboardMediaGridCapacityOptions {
   contentSelector?: string
@@ -6,7 +18,7 @@ interface DashboardMediaGridCapacityOptions {
   horizontalPadding?: number
   maxCount?: number
   minItemWidth: number
-  rows?: number
+  rows?: MaybeRefOrGetter<number>
 }
 
 interface DashboardMediaGridCapacityState {
@@ -20,7 +32,7 @@ const DEFAULT_DASHBOARD_MEDIA_GRID_GAP = 16
 const DEFAULT_DASHBOARD_MEDIA_GRID_ROWS = 2
 
 /**
- * 根据仪表盘媒体卡片容器宽度计算可铺满指定行数的请求数量。
+ * 根据仪表盘媒体卡片容器宽度和响应式行数计算请求数量。
  *
  * @param options 网格尺寸参数，需要与实际 ProgressiveCardGrid 参数保持一致
  * @returns 容器引用、列数、请求数量和手动刷新方法
@@ -36,7 +48,11 @@ export function useDashboardMediaGridCapacity(options: DashboardMediaGridCapacit
   const safeHorizontalPadding = computed(() => Math.max(0, options.horizontalPadding ?? 0))
   const safeMaxCount = computed(() => Math.max(0, Math.floor(options.maxCount ?? Number.POSITIVE_INFINITY)))
   const safeMinItemWidth = computed(() => Math.max(1, options.minItemWidth))
-  const safeRows = computed(() => Math.max(1, Math.floor(options.rows ?? DEFAULT_DASHBOARD_MEDIA_GRID_ROWS)))
+  const safeRows = computed(() => {
+    const rows = options.rows === undefined ? DEFAULT_DASHBOARD_MEDIA_GRID_ROWS : toValue(options.rows)
+
+    return Math.max(1, Math.floor(rows))
+  })
 
   const columnCount = computed(() => {
     if (measuredWidth.value <= 0) return 0

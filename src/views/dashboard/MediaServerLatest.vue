@@ -5,9 +5,11 @@ import PosterCard from '@/components/cards/PosterCard.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDashboardMediaGridCapacity } from '@/composables/useDashboardMediaGridCapacity'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 
 // 国际化
 const { t } = useI18n()
+const display = useDisplay()
 
 const LATEST_CARD_MIN_WIDTH = 144
 const MEDIA_GRID_HORIZONTAL_PADDING = 40
@@ -18,7 +20,10 @@ const latestList = ref<{ [key: string]: MediaServerPlayItem[] }>({})
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
 
-// 最近入库两行网格容量
+// 小屏幕纵向空间更紧凑，展示三行；桌面端保持两行横向铺满。
+const mediaGridRows = computed(() => (display.smAndDown.value ? 3 : 2))
+
+// 最近入库网格容量
 const {
   containerRef: mediaGridContainerRef,
   itemCount: latestItemCount,
@@ -27,6 +32,7 @@ const {
   contentSelector: '.dashboard-media-content',
   horizontalPadding: MEDIA_GRID_HORIZONTAL_PADDING,
   minItemWidth: LATEST_CARD_MIN_WIDTH,
+  rows: mediaGridRows,
 })
 
 let latestLoadId = 0
