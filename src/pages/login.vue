@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { VForm } from 'vuetify/components/VForm'
 import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
-import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import router from '@/router'
 import logo from '@images/logo.png'
@@ -43,7 +41,7 @@ const form = ref({
   remember: true,
 })
 
-const refForm = ref<InstanceType<typeof VForm> | null>(null)
+const refForm = ref<HTMLFormElement | null>(null)
 
 // 密码输入
 const isPasswordVisible = ref(false)
@@ -60,12 +58,6 @@ const mfaDialog = ref(false)
 // MFA PassKey loading
 const mfaPasskeyLoading = ref(false)
 let mfaDialogController: ReturnType<typeof openSharedDialog> | null = null
-
-// 用户名称输入框
-const usernameInput = ref()
-
-// 登录自动填充同步的延时任务
-const autofillSyncTimerIds: number[] = []
 
 // 语言选择菜单
 const langMenu = ref(false)
@@ -133,8 +125,7 @@ const showPasskeyLogin = computed(() => !!systemPasskeyProvider.value?.enabled)
 
 // 获取登录表单中的原生账号和密码输入框。
 function getLoginCredentialInputs() {
-  const formElement = refForm.value?.$el as HTMLFormElement | undefined
-  const root = formElement || document
+  const root = refForm.value || document
 
   return {
     username: root.querySelector<HTMLInputElement>('input[name="username"]'),
@@ -153,21 +144,6 @@ function syncLoginCredentialValues() {
   if (password && password.value !== form.value.password) {
     form.value.password = password.value
   }
-}
-
-// 清理尚未执行的登录自动填充同步任务。
-function clearLoginAutofillSyncTimers() {
-  autofillSyncTimerIds.forEach(timerId => window.clearTimeout(timerId))
-  autofillSyncTimerIds.length = 0
-}
-
-// 延迟多次同步自动填充值，兼容浏览器或密码管理器不派发事件的自动填充。
-function scheduleLoginAutofillSync() {
-  clearLoginAutofillSyncTimers()
-  syncLoginCredentialValues()
-  autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 50))
-  autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 250))
-  autofillSyncTimerIds.push(window.setTimeout(syncLoginCredentialValues, 1000))
 }
 
 // 生成 MFA 共享弹窗使用的最新 props。
@@ -671,10 +647,6 @@ onMounted(async () => {
   // 加载系统和插件声明的未登录认证入口
   await loadAuthProviders()
 
-  // 捕获页面加载后由浏览器或密码管理器写入的静默自动填充值。
-  await nextTick()
-  scheduleLoginAutofillSync()
-
   // 初始化 Conditional UI 的 PassKey 自动填充
   await initConditionalPasskey()
 })
@@ -718,7 +690,6 @@ onUnmounted(() => {
     manualAbortController.abort()
     manualAbortController = null
   }
-  clearLoginAutofillSyncTimers()
 })
 </script>
 
@@ -777,48 +748,59 @@ onUnmounted(() => {
         </div>
 
         <VCardText class="login-body">
-          <VForm ref="refForm" autocomplete="on" @submit.prevent="login">
+          <form
+            ref="refForm"
+            class="login-form"
+            method="post"
+            action="/login/access-token"
+            autocomplete="on"
+            @submit.prevent="login"
+          >
             <VRow>
               <!-- username -->
               <VCol cols="12">
-                <VTextField
-                  ref="usernameInput"
-                  v-model="form.username"
-                  :label="t('login.username')"
-                  type="text"
-                  name="username"
-                  id="username"
-                  autocomplete="username"
-                  :rules="[requiredValidator]"
-                  hide-details
-                  variant="outlined"
-                  density="comfortable"
-                  prepend-inner-icon="mdi-account-outline"
-                  class="login-input"
-                  @input="scheduleLoginAutofillSync"
-                  @change="scheduleLoginAutofillSync"
-                />
+                <div class="native-login-field login-input">
+                  <VIcon icon="mdi-account-outline" class="native-login-field__icon" aria-hidden="true" />
+                  <input
+                    id="username"
+                    v-model="form.username"
+                    class="native-login-field__input"
+                    type="text"
+                    name="username"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    enterkeyhint="next"
+                    :placeholder="t('login.username')"
+                    :aria-label="t('login.username')"
+                    required
+                  />
+                </div>
               </VCol>
               <!-- password -->
               <VCol cols="12">
-                <VTextField
-                  v-model="form.password"
-                  :label="t('login.password')"
-                  :type="isPasswordVisible ? 'text' : 'password'"
-                  name="password"
-                  id="password"
-                  autocomplete="current-password"
-                  prepend-inner-icon="mdi-lock-outline"
-                  :append-inner-icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
-                  :rules="[requiredValidator]"
-                  hide-details
-                  variant="outlined"
-                  density="comfortable"
-                  class="login-input"
-                  @click:append-inner="isPasswordVisible = !isPasswordVisible"
-                  @input="scheduleLoginAutofillSync"
-                  @change="scheduleLoginAutofillSync"
-                />
+                <div class="native-login-field native-login-field--password login-input">
+                  <VIcon icon="mdi-lock-outline" class="native-login-field__icon" aria-hidden="true" />
+                  <input
+                    id="password"
+                    v-model="form.password"
+                    class="native-login-field__input"
+                    :type="isPasswordVisible ? 'text' : 'password'"
+                    name="password"
+                    autocomplete="current-password"
+                    :placeholder="t('login.password')"
+                    :aria-label="t('login.password')"
+                    required
+                  />
+                  <button
+                    class="native-login-field__toggle"
+                    type="button"
+                    :aria-label="isPasswordVisible ? t('login.hidePassword') : t('login.showPassword')"
+                    @click="isPasswordVisible = !isPasswordVisible"
+                  >
+                    <VIcon :icon="isPasswordVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="20" />
+                  </button>
+                </div>
               </VCol>
               <VCol cols="12" class="py-0">
                 <!-- remember me checkbox -->
@@ -876,7 +858,7 @@ onUnmounted(() => {
                 </VAlert>
               </VCol>
             </VRow>
-          </VForm>
+          </form>
         </VCardText>
 
         <!-- 卡片页脚：版权 + 版本 -->
@@ -1167,24 +1149,92 @@ onUnmounted(() => {
   padding-block: 8px !important;
 }
 
-/* 输入框增强样式 */
-:deep(.login-input .v-field) {
+/* 原生登录输入框：保留标准 input DOM，便于密码管理器识别。 */
+.native-login-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(var(--v-border-color), 0.38);
+  min-block-size: 56px;
   border-radius: 12px;
+  background: transparent;
   transition:
-    box-shadow 200ms ease,
-    border-color 200ms ease;
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
-/* 输入框聚焦时增加主色光晕 */
-:deep(.login-body .v-field.v-field--focused) {
-  box-shadow:
-    0 0 0 3px rgba(var(--v-theme-primary), 0.12),
-    0 4px 12px rgba(var(--v-theme-primary), 0.08);
+.native-login-field:focus-within {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: inset 0 0 0 1px rgb(var(--v-theme-primary));
 }
 
-/* 输入框悬停 */
-:deep(.login-input .v-field:hover:not(.v-field--focused)) {
-  border-color: rgba(var(--v-theme-primary), 0.4);
+.native-login-field__icon {
+  position: absolute;
+  z-index: 1;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  inset-block-start: 16px;
+  inset-inline-start: 16px;
+  pointer-events: none;
+}
+
+.native-login-field__input {
+  display: block;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  block-size: 54px;
+  color: rgb(var(--v-theme-on-surface));
+  font: inherit;
+  inline-size: 100%;
+  line-height: 1.5;
+  outline: none;
+  padding-block: 0;
+  padding-inline: 48px 16px;
+}
+
+.native-login-field__input::placeholder {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  opacity: 1;
+}
+
+.native-login-field--password .native-login-field__input {
+  padding-inline-end: 48px;
+}
+
+.native-login-field__input:-webkit-autofill,
+.native-login-field__input:-webkit-autofill:hover,
+.native-login-field__input:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(var(--v-theme-on-surface));
+  caret-color: rgb(var(--v-theme-on-surface));
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.native-login-field__toggle {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  block-size: 40px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  cursor: pointer;
+  inline-size: 40px;
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
+  padding: 0;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.native-login-field__toggle:hover,
+.native-login-field__toggle:focus-visible {
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  outline: none;
 }
 
 /* Remember me 复选框样式优化 */

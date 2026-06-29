@@ -282,6 +282,8 @@ export default {
     copyright: '© {year} MoviePilot',
     username: '用戶名',
     password: '密碼',
+    showPassword: '顯示密碼',
+    hidePassword: '隱藏密碼',
     otpCode: '驗證碼',
     stayLoggedIn: '保持登錄',
     login: '登錄',
