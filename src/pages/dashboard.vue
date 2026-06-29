@@ -9,7 +9,6 @@ import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
-import { getItemColor, initializeItemColors } from '@/utils/colorUtils'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
@@ -281,9 +280,6 @@ const pluginDashboardMeta = ref<any[]>([])
 
 // 插件仪表板的刷新状态
 const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
-
-// 为每个项目生成随机颜色
-const itemColors = ref<{ [key: string]: string }>({})
 
 // 当前启用且可渲染的仪表板 Grid 项。
 const dashboardGridItems = computed<DashboardGridItem[]>(() =>
@@ -723,15 +719,6 @@ function buildDashboardGridWidget(item: DashboardItem, id: string): GridStackWid
   return widget
 }
 
-// 初始化颜色。
-function initializeColors() {
-  initializeItemColors(dashboardConfigs.value, item => buildPluginDashboardId(item.id, item.key))
-  dashboardConfigs.value.forEach(item => {
-    const itemId = buildPluginDashboardId(item.id, item.key)
-    itemColors.value[itemId] = getItemColor(itemId)
-  })
-}
-
 // 使用动态按钮钩子
 let settingsDialogController: ReturnType<typeof openSharedDialog> | null = null
 
@@ -741,7 +728,6 @@ function openDashboardSettings() {
   settingsDialogController = openSharedDialog(
     ContentToggleSettingsDialog,
     {
-      colors: itemColors.value,
       enabled: enableConfig.value,
       hint: t('dashboard.chooseContent'),
       items: dashboardConfigs.value,
@@ -1001,11 +987,6 @@ async function getPluginDashboard(id: string, key: string) {
         dashboardConfigs.value[index] = res
       } else {
         dashboardConfigs.value.push(res)
-        // 为新增的插件仪表板生成颜色
-        const pluginDashboardId = buildPluginDashboardId(id, key)
-        if (!itemColors.value[pluginDashboardId]) {
-          itemColors.value[pluginDashboardId] = getItemColor(pluginDashboardId)
-        }
         // 排序
         sortDashboardConfigs()
       }
@@ -1366,7 +1347,6 @@ watch(
 
 onBeforeMount(async () => {
   await loadDashboardConfig()
-  initializeColors()
   await getPluginDashboardMeta()
   isDashboardConfigLoaded.value = true
   scheduleDashboardReveal()

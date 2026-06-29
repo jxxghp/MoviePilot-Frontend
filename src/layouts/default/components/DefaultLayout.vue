@@ -523,8 +523,8 @@ onMounted(async () => {
           class="theme-navbar-actions d-flex align-center"
           :class="{ 'theme-navbar-actions--horizontal': showHorizontalThemeNav }"
         >
-          <!-- 👉 Horizontal Search Icon -->
-          <SearchBar v-if="showHorizontalThemeNav" icon-only />
+          <!-- 👉 Horizontal Search Bar -->
+          <SearchBar v-if="showHorizontalThemeNav" />
           <!-- 👉 Shortcuts -->
           <ShortcutBar v-if="canAdmin" />
           <!-- 👉 Notification -->

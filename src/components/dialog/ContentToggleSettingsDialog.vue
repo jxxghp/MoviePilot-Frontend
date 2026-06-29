@@ -9,7 +9,6 @@ type UnknownRecord = Record<string, any>
 
 const props = withDefaults(
   defineProps<{
-    colors?: Record<string, string>
     enabled: Record<string, boolean>
     elevated?: boolean
     hint: string
@@ -24,7 +23,6 @@ const props = withDefaults(
     valueGetter?: (item: UnknownRecord) => string
   }>(),
   {
-    colors: () => ({}),
     elevated: false,
     labelGetter: undefined,
     modelValue: true,
@@ -129,12 +127,13 @@ function submitSettings() {
       <VCardText>
         <p class="settings-hint">{{ props.hint }}</p>
         <div class="settings-grid">
-          <div
+          <button
             v-for="item in props.items"
             :key="getItemValue(item)"
+            type="button"
             class="setting-item"
             :class="{ 'enabled': localEnabled[getItemValue(item)] }"
-            :style="{ '--item-color': props.colors[getItemValue(item)] }"
+            :aria-pressed="Boolean(localEnabled[getItemValue(item)])"
             @click="toggleItem(item)"
           >
             <div class="setting-item-inner">
@@ -147,7 +146,7 @@ function submitSettings() {
               </div>
               <span class="setting-label">{{ getItemLabel(item) }}</span>
             </div>
-          </div>
+          </button>
         </div>
         <p v-if="props.switchLabel" class="mt-3">
           <VSwitch v-model="elevatedValue" :label="props.switchLabel" />
@@ -186,48 +185,71 @@ function submitSettings() {
 
 .settings-grid {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .setting-label {
   flex: 1;
-  color: rgba(var(--v-theme-on-surface), 0.8);
+  color: rgba(var(--v-theme-on-surface), 0.72);
   font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.2;
+  font-weight: 550;
+  line-height: 1.35;
+  text-align: start;
   transition: color 0.2s ease;
 }
 
 .setting-item {
+  appearance: none;
   position: relative;
   overflow: hidden;
-  border-radius: var(--app-surface-radius);
-  background-color: rgba(var(--v-theme-surface-variant), 0.3);
+  min-block-size: 48px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  border-radius: 10px;
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
   cursor: pointer;
+  font: inherit;
   padding-block: 10px;
   padding-inline: 12px;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 }
 
 .setting-item::before {
   position: absolute;
-  background: linear-gradient(90deg, var(--item-color, rgb(var(--v-theme-primary))) 0%, transparent 100%);
+  background: rgb(var(--v-theme-primary));
   content: '';
   inline-size: 3px;
   inset-block: 0;
   inset-inline-start: 0;
-  opacity: 0.3;
+  opacity: 0;
   transition: opacity 0.2s ease;
 }
 
 .setting-item.enabled {
-  border-color: rgba(var(--v-theme-primary), 0.4);
+  border-color: rgba(var(--v-theme-primary), 0.3);
   background-color: rgba(var(--v-theme-primary), 0.08);
 }
 
 .setting-item.enabled::before {
   opacity: 1;
+}
+
+.setting-item:hover {
+  border-color: rgba(var(--v-theme-primary), 0.32);
+  background-color: rgba(var(--v-theme-primary), 0.06);
+}
+
+.setting-item:active {
+  transform: scale(0.99);
+}
+
+.setting-item:focus-visible {
+  outline: 3px solid rgba(var(--v-theme-primary), 0.28);
+  outline-offset: 2px;
+}
+
+.setting-item.enabled .setting-label {
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .setting-item-inner {
@@ -240,4 +262,11 @@ function submitSettings() {
   display: flex;
   flex-shrink: 0;
 }
+
+@media (width <= 760px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 </style>

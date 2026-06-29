@@ -7,6 +7,7 @@ import { useUserStore, useGlobalSettingsStore } from '@/stores'
 import SearchSiteDialog from '@/components/dialog/SearchSiteDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { VDialog, VMenu } from 'vuetify/components'
 import { buildUserPermissionContext, hasPermission, filterMenusByPermission } from '@/utils/permission'
 
 // 显示器宽度
@@ -15,10 +16,16 @@ const display = useDisplay()
 // 多语言支持
 const { t } = useI18n()
 
-// 定义props，接收modelValue
-const props = defineProps<{
-  modelValue: boolean
-}>()
+// 定义 props，接收浮层状态及是否显示响应式入口。
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    showActivator?: boolean
+  }>(),
+  {
+    showActivator: false,
+  },
+)
 
 // 路由
 const router = useRouter()
@@ -78,16 +85,33 @@ const dialog = computed({
   set: val => emit('update:modelValue', val),
 })
 
+// 桌面使用锚定下拉，小屏继续使用原有搜索弹窗。
+const searchOverlay = computed(() => (display.mdAndUp.value ? VMenu : VDialog))
+const searchOverlayProps = computed(() =>
+  display.mdAndUp.value
+    ? {
+        closeOnContentClick: false,
+        location: 'bottom start' as const,
+        offset: 8,
+        scrollStrategy: 'reposition' as const,
+      }
+    : {
+        fullscreen: true,
+        maxWidth: '40rem',
+        scrollable: true,
+      },
+)
+
 // 搜索词
 const searchWord = ref<string | null>(null)
 
-// ref
-const searchWordInput = ref<HTMLElement | null>(null)
+// 当前尺寸下可见的搜索输入框。
+const searchWordInput = ref<HTMLInputElement | null>(null)
 
 // 近期搜索词条
 const recentSearches = ref<string[]>([])
 
-// 检测操作系统是否是Mac
+/** 检测操作系统是否为 macOS。 */
 function isMac() {
   return navigator.platform.toUpperCase().indexOf('MAC') >= 0
 }
@@ -95,7 +119,7 @@ function isMac() {
 // 计算属性：根据操作系统显示不同的按键提示
 const metaKey = computed(() => (isMac() ? '⌘+K' : 'Ctrl+K'))
 
-// 保存近期搜索到本地
+/** 将有效关键词保存到近期搜索记录。 */
 function saveRecentSearches(keyword: string) {
   if (!keyword) return
   if (recentSearches.value.includes(keyword)) return
@@ -103,7 +127,7 @@ function saveRecentSearches(keyword: string) {
   localStorage.setItem('MP_RecentSearches', JSON.stringify(recentSearches.value))
 }
 
-// 从本地加载近期搜索
+/** 从本地存储加载并裁剪近期搜索记录。 */
 function loadRecentSearches() {
   const recentSearchesStr = localStorage.getItem('MP_RecentSearches')
   if (recentSearchesStr) {
@@ -115,7 +139,7 @@ function loadRecentSearches() {
   }
 }
 
-// 所有菜单功能
+/** 获取可参与全局搜索的导航菜单和设置入口。 */
 function getMenus(): NavMenu[] {
   let menus: NavMenu[] = []
   // 导航菜单
@@ -170,7 +194,7 @@ const matchedMenuItems = computed(() => {
 // 所有插件（已安装）
 const pluginItems = ref<Plugin[]>([])
 
-// 获取插件列表数据
+/** 加载已安装插件，供搜索结果匹配。 */
 async function fetchInstalledPlugins() {
   try {
     pluginItems.value = await api.get('plugin/', {
@@ -194,7 +218,7 @@ const matchedPluginItems = computed(() => {
   })
 })
 
-// 获取订阅列表数据
+/** 加载订阅列表，供搜索结果匹配。 */
 async function fetchSubscribes() {
   try {
     SubscribeItems.value = await api.get('subscribe/')
@@ -203,7 +227,7 @@ async function fetchSubscribes() {
   }
 }
 
-// 从接口加载用户站点偏好设置
+/** 从接口加载用户的站点搜索偏好。 */
 const loadUserSitePreferences = async () => {
   try {
     const result = await api.get('system/setting/public/IndexerSites')
@@ -216,7 +240,7 @@ const loadUserSitePreferences = async () => {
   }
 }
 
-// 查询所有站点
+/** 查询所有启用站点，并初始化默认选择。 */
 async function queryAllSites() {
   try {
     const data: Site[] = await api.get('site/')
@@ -231,7 +255,7 @@ async function queryAllSites() {
   }
 }
 
-// 打开站点选择对话框
+/** 打开指定资源类型的站点选择对话框。 */
 const openSiteDialog = (type: 'torrent' | 'subtitle' = 'torrent') => {
   siteSearchType.value = type
   chooseSiteDialog.value = true
@@ -247,7 +271,7 @@ const matchedSubscribeItems = computed(() => {
   })
 })
 
-// 搜索多站点
+/** 使用选中的站点执行当前资源类型搜索。 */
 function searchSites(sites: number[]) {
   chooseSiteDialog.value = false
   selectedSites.value = sites
@@ -258,7 +282,7 @@ function searchSites(sites: number[]) {
   searchTorrent()
 }
 
-// 搜索资源
+/** 使用当前关键词搜索站点资源。 */
 function searchTorrent() {
   if (!searchWord.value || !hasSearchPermission.value) return
   // 记录搜索词
@@ -273,12 +297,10 @@ function searchTorrent() {
       sites: selectedSites.value.join(','),
     },
   })
-  // 关闭搜索对话框
-  dialog.value = false
-  emit('close')
+  closeSearch()
 }
 
-// 搜索字幕资源
+/** 使用当前关键词搜索字幕资源。 */
 function searchSubtitle() {
   if (!searchWord.value || !hasSearchPermission.value) return
   saveRecentSearches(searchWord.value)
@@ -291,11 +313,10 @@ function searchSubtitle() {
       sites: selectedSites.value.join(','),
     },
   })
-  dialog.value = false
-  emit('close')
+  closeSearch()
 }
 
-// 跳转媒体搜索页面
+/** 跳转到指定类型的媒体搜索结果页。 */
 function searchMedia(searchType: string) {
   // 搜索类型 media/person
   if (!searchWord.value || !hasDiscoveryPermission.value) return
@@ -307,10 +328,10 @@ function searchMedia(searchType: string) {
       type: searchType,
     },
   })
-  emit('close')
+  closeSearch()
 }
 
-// 跳转到历史记录页面
+/** 跳转到包含当前关键词的历史记录页。 */
 function searchHistory() {
   if (!searchWord.value) return
   saveRecentSearches(searchWord.value)
@@ -320,10 +341,10 @@ function searchHistory() {
       search: searchWord.value,
     },
   })
-  emit('close')
+  closeSearch()
 }
 
-// 跳转到订阅分享页面
+/** 跳转到包含当前关键词的订阅分享页。 */
 function searchSubscribeShares() {
   if (!searchWord.value) return
   saveRecentSearches(searchWord.value)
@@ -333,10 +354,10 @@ function searchSubscribeShares() {
       keyword: searchWord.value,
     },
   })
-  emit('close')
+  closeSearch()
 }
 
-// 跳转插件页面
+/** 打开匹配插件的已安装详情。 */
 function showPlugin(pluginId: string) {
   router.push({
     path: `/plugins/`,
@@ -345,16 +366,16 @@ function showPlugin(pluginId: string) {
       id: pluginId,
     },
   })
-  emit('close')
+  closeSearch()
 }
 
-// 跳转菜单页面
+/** 跳转到匹配的功能菜单。 */
 function goPage(to: string) {
   router.push(to)
-  emit('close')
+  closeSearch()
 }
 
-// 跳转订阅页面
+/** 根据订阅类型跳转到对应订阅详情。 */
 function goSubscribe(subscribe: Subscribe) {
   if (subscribe.type === '电影') {
     router.push({
@@ -371,13 +392,29 @@ function goSubscribe(subscribe: Subscribe) {
       },
     })
   }
+  closeSearch()
+}
+
+/** 关闭搜索浮层并通知外层入口同步状态。 */
+function closeSearch() {
+  dialog.value = false
   emit('close')
 }
 
+/** 聚焦当前可见输入框，供快捷键入口复用。 */
+function focusSearchInput() {
+  searchWordInput.value?.focus()
+}
+
+watch(dialog, async isOpen => {
+  if (!isOpen) return
+  await nextTick()
+  focusSearchInput()
+})
+
+defineExpose({ focusSearchInput })
+
 onMounted(() => {
-  setTimeout(() => {
-    searchWordInput.value?.focus()
-  }, 500)
   // 根据权限加载不同的数据
   if (hasAdminPermission.value) {
     fetchInstalledPlugins()
@@ -395,10 +432,20 @@ onMounted(() => {
 })
 </script>
 <template>
-  <VDialog v-model="dialog" max-width="40rem" scrollable :fullscreen="!display.mdAndUp.value">
-    <VCard class="search-dialog">
-      <!-- 搜索输入框区域 -->
-      <div class="search-header">
+  <component :is="searchOverlay" v-model="dialog" v-bind="searchOverlayProps">
+    <template v-if="showActivator" #activator="{ props: activatorProps }">
+      <!-- 小屏入口保持图标形态，点击后打开全屏搜索弹窗。 -->
+      <IconBtn
+        v-if="!display.mdAndUp.value"
+        v-bind="activatorProps"
+        class="search-icon-trigger"
+        :aria-label="t('dialog.searchBar.openSearch')"
+      >
+        <VIcon class="search-icon-trigger__icon" icon="mdi-magnify" />
+      </IconBtn>
+
+      <!-- 中屏及以上常驻搜索输入框，输入时直接在下方展示同一组选项。 -->
+      <div v-else v-bind="activatorProps" class="search-desktop-activator">
         <div class="search-input-wrapper">
           <VIcon icon="mdi-magnify" size="22" class="search-input-icon" />
           <input
@@ -408,7 +455,26 @@ onMounted(() => {
             class="search-native-input"
             :placeholder="t('dialog.searchBar.searchPlaceholder')"
             @keydown.enter="searchMedia('media')"
-            @keydown.escape="emit('close')"
+            @keydown.escape.stop="closeSearch"
+          />
+          <kbd class="search-shortcut-badge">{{ metaKey }}</kbd>
+        </div>
+      </div>
+    </template>
+
+    <VCard class="search-dialog" :class="{ 'search-dialog--dropdown': display.mdAndUp.value }">
+      <!-- 弹窗模式保留原有搜索输入区。 -->
+      <div v-if="!display.mdAndUp.value" class="search-header">
+        <div class="search-input-wrapper">
+          <VIcon icon="mdi-magnify" size="22" class="search-input-icon" />
+          <input
+            ref="searchWordInput"
+            v-model="searchWord"
+            type="text"
+            class="search-native-input"
+            :placeholder="t('dialog.searchBar.searchPlaceholder')"
+            @keydown.enter="searchMedia('media')"
+            @keydown.escape.stop="closeSearch"
           />
           <VBtn icon size="small" variant="text" class="search-submit-btn" @click="searchMedia('media')">
             <VIcon icon="mdi-magnify" size="20" />
@@ -697,26 +763,14 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 底部区域 -->
-      <!-- 桌面端：快捷键提示 -->
-      <div v-if="display.mdAndUp.value" class="search-footer">
-        <div class="shortcut-group">
-          <kbd>Esc</kbd>
-          <span class="shortcut-label">{{ t('dialog.searchBar.escClose') }}</span>
-        </div>
-        <div class="shortcut-group">
-          <kbd>{{ metaKey }}</kbd>
-          <span class="shortcut-label">{{ t('dialog.searchBar.openSearch') }}</span>
-        </div>
-      </div>
-      <!-- 移动端：关闭图标 -->
-      <div v-else class="search-footer-mobile">
-        <VBtn icon variant="tonal" @click="emit('close')">
+      <!-- 弹窗形态保留底部关闭按钮，桌面下拉不显示页脚。 -->
+      <div v-if="!display.mdAndUp.value" class="search-footer-mobile">
+        <VBtn icon variant="tonal" @click="closeSearch">
           <VIcon icon="mdi-close" size="20" />
         </VBtn>
       </div>
     </VCard>
-  </VDialog>
+  </component>
 
   <!-- 站点选择对话框 -->
   <SearchSiteDialog
@@ -737,6 +791,39 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.search-dialog--dropdown {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  inline-size: min(40rem, calc(100vw - 2rem));
+  max-block-size: min(72vh, 42rem);
+}
+
+.search-desktop-activator {
+  flex: 0 1 32rem;
+  inline-size: clamp(18rem, 32vw, 32rem);
+  max-inline-size: calc(100vw - 10rem);
+}
+
+.search-desktop-activator .search-input-wrapper {
+  border-color: rgba(var(--v-theme-on-surface), 0.12);
+  background: rgba(var(--v-theme-surface), 0.72);
+  block-size: 42px;
+  box-shadow: var(--app-surface-shadow);
+  padding-inline: 14px 8px;
+}
+
+html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
+.v-theme--transparent .search-desktop-activator .search-input-wrapper {
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
+}
+
+.search-icon-trigger {
+  flex: 0 0 auto;
+}
+
+.search-icon-trigger__icon {
+  transform: scaleX(-1);
+}
+
 /* 搜索头部区域 */
 .search-header {
   padding-block: 16px 12px;
@@ -748,18 +835,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   border: 1.5px solid rgba(var(--v-theme-primary), 0.4);
-  border-radius: 28px;
+  border-radius: var(--app-vuetify-rounded-pill);
   background-color: rgba(var(--v-theme-surface-variant), 0.04);
   block-size: 48px;
   padding-inline: 14px 6px;
   transition:
     border-color 0.2s ease,
+    border-radius 0.2s ease,
     box-shadow 0.2s ease;
 }
 
 .search-input-wrapper:focus-within {
   border-color: rgb(var(--v-theme-primary));
-  box-shadow: 0 0 0 3px rgba(var(--v-theme-on-surface), 0.04);
+  box-shadow: var(--app-surface-shadow);
 }
 
 .search-input-icon {
@@ -797,11 +885,21 @@ onMounted(() => {
   background-color: rgba(var(--v-theme-on-surface), 0.12) !important;
 }
 
+.search-shortcut-badge {
+  flex-shrink: 0;
+  margin-inline-start: 10px;
+  white-space: nowrap;
+}
+
 /* 主内容区域 */
 .search-content {
   max-block-size: 600px;
   min-block-size: 150px;
   overflow-y: auto;
+}
+
+.search-dialog--dropdown .search-content {
+  max-block-size: min(58vh, 34rem);
 }
 
 .search-list {
@@ -854,22 +952,6 @@ onMounted(() => {
   text-align: center;
 }
 
-/* 底部快捷键提示 */
-.search-footer {
-  display: flex;
-  align-items: center;
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  gap: 16px;
-  padding-block: 10px;
-  padding-inline: 16px;
-}
-
-.shortcut-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 kbd {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.15);
   border-radius: 5px;
@@ -881,11 +963,6 @@ kbd {
   line-height: 1;
   padding-block: 3px;
   padding-inline: 6px;
-}
-
-.shortcut-label {
-  color: rgba(var(--v-theme-on-surface), 0.45);
-  font-size: 12px;
 }
 
 /* 移动端底部关闭图标 */
@@ -911,11 +988,6 @@ kbd {
 
   .search-native-input {
     font-size: 14px;
-  }
-
-  .search-footer {
-    padding-block: 8px;
-    padding-inline: 12px;
   }
 }
 </style>
