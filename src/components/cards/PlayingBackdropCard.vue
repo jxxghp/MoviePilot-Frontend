@@ -175,16 +175,10 @@ async function goPlay() {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), 0.16);
-  border-radius: 16px;
   background: rgb(var(--v-theme-surface));
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 12%);
   color: #fff;
   cursor: pointer;
   isolation: isolate;
-}
-
-.playing-card--hovering {
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 20%);
 }
 
 .playing-card__image {
@@ -378,10 +372,6 @@ async function goPlay() {
 }
 
 @media (max-width: 600px) {
-  .playing-card {
-    border-radius: 14px;
-  }
-
   .playing-card__content {
     inset-inline-end: 58px;
   }

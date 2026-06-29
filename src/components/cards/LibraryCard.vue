@@ -31,18 +31,45 @@ const cardStyle = computed(() => ({
   inlineSize: props.width || '100%',
 }))
 
-// 图片加载完成响应
+// 媒体库内条目数量，兼容不同后端字段。
+const libraryItemCount = computed(() => props.media?.item_count)
+
+// 是否展示右上角数量折角。
+const showCountCorner = computed(() => typeof libraryItemCount.value === 'number' && libraryItemCount.value >= 0)
+
+// 右上角数量文案。
+const countLabel = computed(() => {
+  if (!showCountCorner.value) return ''
+  return formatLibraryCount(libraryItemCount.value || 0)
+})
+
+/**
+ * 格式化右上角媒体库数量。
+ * @param count 媒体库内媒体数量
+ */
+function formatLibraryCount(count: number) {
+  if (count >= 10000) return `${(count / 10000).toFixed(1).replace(/\.0$/, '')}万`
+  return `${count}`
+}
+
+/**
+ * 标记封面加载完成。
+ */
 function imageLoadHandler() {
   imageLoaded.value = true
 }
 
-// 图片加载错误
+/**
+ * 标记封面加载失败并切换默认图。
+ */
 function imageErrorHandler() {
   imageError.value = true
   imgUrl.value = getDefaultImage()
 }
 
-// 默认图片
+/**
+ * 获取媒体服务器默认封面图。
+ */
 function getDefaultImage() {
   if (props.media?.server_type === 'plex') return plex
   else if (props.media?.server_type === 'emby') return emby
@@ -53,14 +80,20 @@ function getDefaultImage() {
   else return plex
 }
 
-// 跳转播放
+/**
+ * 跳转到媒体服务器媒体库页面。
+ */
 async function goPlay() {
   if (props.media) {
     await openMediaServerItem(props.media)
   }
 }
 
-// 生成图片代理路径
+/**
+ * 生成图片代理路径。
+ * @param url 原始图片地址
+ * @param use_cookies 是否携带 Cookie 代理图片
+ */
 function getImgUrl(url: string, use_cookies?: boolean) {
   if (!url || imageError.value) return getDefaultImage()
   let imgurl = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(url)}`
@@ -70,7 +103,11 @@ function getImgUrl(url: string, use_cookies?: boolean) {
   return imgurl
 }
 
-// 根据多张图片生成媒体库封面
+/**
+ * 根据多张图片生成媒体库封面。
+ * @param imageList 媒体库封面候选图列表
+ * @param use_cookies 是否携带 Cookie 代理图片
+ */
 async function drawImages(imageList: string[], use_cookies?: boolean) {
   // 图片
   const IMAGES = [...imageList]
@@ -102,7 +139,11 @@ async function drawImages(imageList: string[], use_cookies?: boolean) {
   // 设置背景色为透明
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  // 绘制图片
+  /**
+   * 绘制单张海报及其倒影。
+   * @param imgSrc 海报图片地址
+   * @param index 海报位置
+   */
   async function drawImageWithReflection(imgSrc: string, index: number) {
     if (!canvas) return
 
@@ -189,13 +230,13 @@ onMounted(async () => {
               </div>
             </template>
             <template #default>
-              <VCardText
-                class="w-full flex flex-col flex-wrap justify-end align-center text-white absolute bottom-0 cursor-pointer pa-2"
-              >
-                <h1 class="mb-1 text-white text-shadow font-bold line-clamp-2 overflow-hidden text-ellipsis ...">
-                  {{ props.media?.name }}
-                </h1>
-              </VCardText>
+              <div class="library-card-shade" aria-hidden="true" />
+              <div v-if="showCountCorner" class="library-card-count-corner">
+                <span>{{ countLabel }}</span>
+              </div>
+              <div class="library-card-label">
+                <span>{{ props.media?.name }}</span>
+              </div>
             </template>
           </VImg>
         </template>
@@ -216,6 +257,88 @@ onMounted(async () => {
 .library-card-image {
   block-size: 100%;
   inline-size: 100%;
+}
+
+.library-card-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0%) 0%, rgba(2, 6, 23, 2%) 56%, rgba(2, 6, 23, 28%) 100%),
+    linear-gradient(90deg, rgba(2, 6, 23, 8%) 0%, rgba(2, 6, 23, 0%) 42%, rgba(2, 6, 23, 10%) 100%);
+  pointer-events: none;
+}
+
+.library-card-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 10, 17, 58%);
+  block-size: 1.75rem;
+  border-block-start: 1px solid rgba(255, 255, 255, 12%);
+  border-end-end-radius: var(--app-surface-radius);
+  border-end-start-radius: var(--app-surface-radius);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  inset-block-end: 0;
+  inset-inline: 0;
+  line-height: 1;
+  padding-inline: 0.75rem;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 48%);
+}
+
+.library-card-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-card-count-corner {
+  position: absolute;
+  block-size: 3.35rem;
+  color: #fff;
+  inline-size: 3.35rem;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  pointer-events: none;
+}
+
+.library-card-count-corner::before {
+  position: absolute;
+  background: rgba(8, 13, 22, 72%);
+  block-size: 100%;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  content: "";
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 100%;
+}
+
+.library-card-count-corner::after {
+  position: absolute;
+  background: rgba(var(--v-theme-primary), 62%);
+  block-size: 100%;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  content: "";
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 100%;
+}
+
+.library-card-count-corner span {
+  position: absolute;
+  inset-block-start: 0.63rem;
+  inset-inline-end: 0.18rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 44%);
+  transform: rotate(45deg);
+  transform-origin: center;
+  white-space: nowrap;
+  z-index: 1;
 }
 
 .library-card-placeholder,

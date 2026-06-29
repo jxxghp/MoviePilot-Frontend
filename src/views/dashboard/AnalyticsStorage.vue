@@ -64,7 +64,7 @@ onActivated(() => {
 
 <template>
   <VCard class="dashboard-summary-card dashboard-grid-fill">
-    <VCardItem>
+    <VCardItem class="pb-2">
       <VCardTitle>{{ t('dashboard.storage') }}</VCardTitle>
     </VCardItem>
     <VCardText class="dashboard-summary-content">
@@ -82,7 +82,13 @@ onActivated(() => {
         />
       </div>
       <div class="animated-storage-caption">
-        {{ t('dashboard.storageSummary', { available: availableText, total: animatedStorageText, used: animatedUsedText }) }}
+        {{
+          t('dashboard.storageSummary', {
+            available: availableText,
+            total: animatedStorageText,
+            used: animatedUsedText,
+          })
+        }}
       </div>
     </VCardText>
     <VImg :src="storageImage" class="storage-image" />
@@ -94,8 +100,8 @@ onActivated(() => {
 
 .v-card .storage-image {
   position: absolute;
-  inline-size: clamp(3.6rem, 18%, 4.5rem);
   filter: hue-rotate(225deg) saturate(0.72);
+  inline-size: clamp(3.6rem, 18%, 4.5rem);
   inset-block-start: 2.7rem;
   inset-inline-end: 1.35rem;
 }
@@ -103,10 +109,10 @@ onActivated(() => {
 .dashboard-summary-card {
   position: relative;
   display: flex;
+  overflow: hidden;
   flex-direction: column;
   block-size: 100%;
   min-block-size: 160px;
-  overflow: hidden;
 }
 
 .dashboard-summary-content {
@@ -124,16 +130,16 @@ onActivated(() => {
 .animated-storage-value {
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   font-size: clamp(1.5rem, 1.8vw, 1.75rem);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   line-height: 1.2;
-  font-variant-numeric: tabular-nums;
 }
 
 .animated-storage-meta {
-  margin-block-start: 0.3rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   line-height: 1.2;
+  margin-block-start: 0.3rem;
 }
 
 .animated-storage-progress-wrap {
@@ -145,10 +151,9 @@ onActivated(() => {
 }
 
 .animated-storage-caption {
-  margin-block-start: 0.35rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.68rem;
+  margin-block-start: 0.35rem;
   white-space: nowrap;
 }
-
 </style>

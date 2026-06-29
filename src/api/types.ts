@@ -1219,6 +1219,8 @@ export interface MediaServerLibrary {
   path?: string
   // 类型
   type?: string
+  // 库内媒体数量
+  item_count?: number
   // 图片
   image?: string
   // 图片列表
