@@ -134,6 +134,8 @@ let dashboardGridContentResizeFrame: number | null = null
 let dashboardGridResizeRefreshFrame: number | null = null
 let dashboardRevealFrame: number | null = null
 let isDashboardRevealPending = false
+// 标记最近一次响应式档位切换，避免快速缩放时较早的异步配置覆盖最新档位。
+let dashboardLayoutProfileSwitchId = 0
 
 // 是否正在手动缩放组件，避免自动测高抢回用户拖动中的高度。
 const isDashboardGridResizing = ref(false)
@@ -1337,13 +1339,15 @@ watch(
     const nextProfile = resolveDashboardLayoutProfile()
     if (nextProfile === dashboardLayoutProfile.value) return
 
-    if (dashboardGrid.value && !isSyncingDashboardGrid.value && !isDashboardGridLayoutResetPending.value) {
-      persistDashboardGridLayout(false)
-    }
-
+    // GridStack 可能已先完成列数压缩；档位切换只读取目标配置，不能保存当前自动重排结果。
+    const profileSwitchId = ++dashboardLayoutProfileSwitchId
     dashboardLayoutProfile.value = nextProfile
     const profileConfig = await loadDashboardProfileConfig(nextProfile)
+    if (profileSwitchId !== dashboardLayoutProfileSwitchId || dashboardLayoutProfile.value !== nextProfile) return
+
     const legacyEnable = profileConfig?.enabled === undefined ? await loadLegacyDashboardEnableConfig() : undefined
+    if (profileSwitchId !== dashboardLayoutProfileSwitchId || dashboardLayoutProfile.value !== nextProfile) return
+
     dashboardGridLayout.value = profileConfig?.items ?? {}
     enableConfig.value = mergeDashboardEnableConfig(profileConfig?.enabled ?? legacyEnable)
     if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {

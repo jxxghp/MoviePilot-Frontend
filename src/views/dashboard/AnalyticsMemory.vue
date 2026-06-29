@@ -101,7 +101,7 @@ const chartOptions = controlledComputed(
         },
         padding: {
           top: -10,
-          left: 8,
+          left: 0,
           right: 5,
           bottom: 5,
         },
@@ -143,7 +143,6 @@ const chartOptions = controlledComputed(
       yaxis: {
         labels: {
           show: true,
-          minWidth: 40,
           formatter: (value: number) => formatDashboardFileSize(value, 0, totalMemory.value || value),
           style: {
             colors: axisLabelColor,

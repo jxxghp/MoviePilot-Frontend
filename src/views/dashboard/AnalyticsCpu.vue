@@ -94,7 +94,7 @@ const chartOptions = controlledComputed(
         },
         padding: {
           top: -10,
-          left: 8,
+          left: 0,
           right: 5,
           bottom: 5,
         },
@@ -136,7 +136,6 @@ const chartOptions = controlledComputed(
       yaxis: {
         labels: {
           show: true,
-          minWidth: 32,
           formatter: (value: number) => `${Math.round(value)}%`,
           style: {
             colors: axisLabelColor,
