@@ -56,6 +56,7 @@ function clearThemeCustomizerOpenState() {
   syncThemeCustomizerOpenState(false)
 }
 
+// 处理固定面板的全局 Esc 关闭快捷键。
 function handleGlobalKeydown(event: KeyboardEvent) {
   // 固定侧栏不再依赖 Vuetify overlay，手动补上常见的 Esc 关闭行为。
   if (event.key === 'Escape') emit('close')
@@ -146,16 +147,19 @@ const showSemiDarkMenuOption = computed(() => {
   )
 })
 
+// 打开原生颜色选择器。
 function openColorPicker() {
   customColorInput.value?.click()
 }
 
+// 处理原生颜色选择器的自定义主色输入。
 function handleCustomColorInput(event: Event) {
   const color = (event.target as HTMLInputElement).value
 
   setPrimaryColor(color)
 }
 
+// 切换布局类型，App 模式下保留移动端固定布局。
 function handleLayoutChange(layout: ThemeCustomizerLayout) {
   // App 模式固定使用移动端导航，避免切换桌面布局后破坏底部导航体验。
   if (appMode.value) return
@@ -176,6 +180,7 @@ function handleShadowSliderChange(value: unknown) {
   if (themeCustomizerShadowLevels.includes(shadow)) setShadow(shadow)
 }
 
+// 重置主题定制设置，App 模式只恢复可调整的外观项。
 async function handleResetSettings() {
   if (!appMode.value) {
     await resetSettings()
@@ -438,9 +443,15 @@ async function handleResetSettings() {
   position: relative;
   display: flex;
   flex-direction: column;
-  block-size: 100%;
+  block-size: 100vh;
   inline-size: 100%;
   min-block-size: 0;
+}
+
+@supports (block-size: 100dvh) {
+  .theme-customizer-panel {
+    block-size: 100dvh;
+  }
 }
 
 .theme-customizer-panel--dialog {

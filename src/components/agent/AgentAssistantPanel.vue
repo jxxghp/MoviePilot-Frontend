@@ -2362,7 +2362,7 @@ onScopeDispose(() => {
 .agent-assistant-shell {
   position: relative;
   display: grid;
-  block-size: 100%;
+  block-size: 100vh;
   grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 0;
 
@@ -2370,6 +2370,12 @@ onScopeDispose(() => {
   --agent-assistant-assistant-border: rgba(var(--v-theme-on-surface), 0.08);
   --agent-assistant-panel-bg: rgba(var(--v-theme-surface), 0.94);
   --agent-assistant-panel-blur: 10px;
+}
+
+@supports (block-size: 100dvh) {
+  .agent-assistant-shell {
+    block-size: 100dvh;
+  }
 }
 
 .agent-assistant-header {
