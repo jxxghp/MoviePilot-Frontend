@@ -785,6 +785,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* stylelint-disable no-descending-specificity */
+
 .search-dialog {
   display: flex;
   overflow: hidden;
@@ -798,8 +800,8 @@ onMounted(() => {
 }
 
 .search-desktop-activator {
-  flex: 0 1 32rem;
-  inline-size: clamp(18rem, 32vw, 32rem);
+  flex: 0 1 22rem;
+  inline-size: clamp(15rem, 32vw, 22rem);
   max-inline-size: calc(100vw - 10rem);
 }
 
