@@ -448,9 +448,9 @@ async function handleResetSettings() {
   min-block-size: 0;
 }
 
-@supports (block-size: 100svh) {
+@supports (block-size: 100dvh) {
   .theme-customizer-panel {
-    block-size: 100svh;
+    block-size: 100dvh;
   }
 }
 
