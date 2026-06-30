@@ -392,26 +392,6 @@ onBeforeMount(() => {
                 <p class="subscribe-files-hero__description">
                   {{ selectedEpisode?.description || subscribe?.description || t('dialog.subscribeFiles.noOverview') }}
                 </p>
-
-                <div class="subscribe-files-progress">
-                  <div
-                    v-for="item in statItems.slice(1)"
-                    :key="item.key"
-                    class="subscribe-files-progress__item"
-                  >
-                    <div class="subscribe-files-progress__label">
-                      <VIcon :icon="item.icon" size="18" :color="item.color" />
-                      <span>{{ item.label }}</span>
-                      <strong>{{ item.value }}/{{ item.total }}</strong>
-                    </div>
-                    <VProgressLinear
-                      :model-value="calcPercent(item.value, item.total)"
-                      :color="item.color"
-                      height="5"
-                      rounded
-                    />
-                  </div>
-                </div>
               </div>
 
               <div class="subscribe-files-stats">
@@ -818,38 +798,6 @@ onBeforeMount(() => {
   line-height: 1.75;
   margin-block: 1rem 0;
   max-inline-size: 42rem;
-}
-
-.subscribe-files-progress {
-  display: grid;
-  gap: 0.85rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-block-start: 1.5rem;
-  max-inline-size: 34rem;
-}
-
-.subscribe-files-progress__item {
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
-}
-
-.subscribe-files-progress__label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-block-end: 0.55rem;
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.subscribe-files-progress__label strong {
-  margin-inline-start: auto;
-}
-
-.subscribe-files-progress__label :deep(.v-icon) {
-  flex: 0 0 auto;
 }
 
 .subscribe-files-stats {
@@ -1322,12 +1270,6 @@ onBeforeMount(() => {
     display: none;
   }
 
-  .subscribe-files-progress {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-block-start: 0.75rem;
-  }
-
   .subscribe-files-stats {
     grid-column: 1 / -1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1389,7 +1331,6 @@ onBeforeMount(() => {
     grid-template-columns: 6.5rem minmax(0, 1fr);
   }
 
-  .subscribe-files-progress,
   .subscribe-files-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
