@@ -36,9 +36,10 @@ const containerRef = ref<HTMLElement | null>(null)
 
 // 获取订阅列表数据
 async function fetchData() {
+  if (loadingStarted.value) return
+
+  loadingStarted.value = true
   try {
-    if (loadingStarted.value) return
-    loadingStarted.value = true
     if (!props.apipath) return
     dataList.value = await api.get(props.apipath)
     if (dataList.value.length > 0) {
