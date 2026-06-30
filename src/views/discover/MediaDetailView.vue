@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
-import type { MediaInfo, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
+import type { MediaInfo, MediaRelease, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { formatSeasonLabel } from '@/@core/utils/season'
 import router from '@/router'
@@ -147,6 +147,7 @@ function getMediaId() {
   return getMediaSubscribeId(mediaDetail.value)
 }
 
+// 生成当前媒体指定季的订阅状态缓存键
 function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season ?? null) {
   return `${getMediaId()}::${season ?? 'all'}`
 }
@@ -230,6 +231,7 @@ async function checkSubscribe(season: number | null = null) {
   return false
 }
 
+// 判断订阅记录是否属于当前媒体
 function isSameSubscribeMedia(subscribe: Subscribe) {
   if (mediaDetail.value?.tmdb_id && subscribe.tmdbid) return mediaDetail.value.tmdb_id === subscribe.tmdbid
   if (mediaDetail.value?.douban_id && subscribe.doubanid) return mediaDetail.value.douban_id === subscribe.doubanid
@@ -404,16 +406,22 @@ const getProductionCompanies = computed(() => {
   return mediaDetail.value.production_companies?.map(company => company.name)
 })
 
-// 获取最早实体/数字发行日期
-const getEarliestReleaseDate = computed(() => {
-  const filteredDates = mediaDetail.value.release_dates?.filter(date => [4, 5].includes(date.type))
+// 获取指定类型的最早发行日期
+function getEarliestReleaseDateByType(type: number): MediaRelease | null {
+  const filteredDates = mediaDetail.value.release_dates?.filter(date => date.type === type)
   if (!filteredDates || filteredDates.length === 0)
     return null
 
   return filteredDates.reduce((earliest, current) =>
     new Date(current.date) < new Date(earliest.date) ? current : earliest,
   )
-})
+}
+
+// 获取最早数字发行日期
+const getEarliestDigitalReleaseDate = computed(() => getEarliestReleaseDateByType(4))
+
+// 获取最早实体发行日期
+const getEarliestPhysicalReleaseDate = computed(() => getEarliestReleaseDateByType(5))
 
 // 计算存在状态的颜色
 function getExistColor(season: number) {
@@ -876,14 +884,25 @@ onBeforeMount(() => {
                 </span>
               </span>
             </div>
-            <div v-if="mediaDetail.type === '电影' && getEarliestReleaseDate" class="media-fact">
-              <span>{{ t(getEarliestReleaseDate.type === 4 ? 'media.info.digitalRelease' : 'media.info.physicalRelease') }}</span>
+            <div v-if="mediaDetail.type === '电影' && getEarliestDigitalReleaseDate" class="media-fact">
+              <span>{{ t('media.info.digitalRelease') }}</span>
               <span class="media-fact-value">
                 <span class="flex items-center justify-end">
                   <span class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none">
-                    {{ getEarliestReleaseDate.iso_code }}
+                    {{ getEarliestDigitalReleaseDate.iso_code }}
                   </span>
-                  <span class="ml-1.5">{{ getEarliestReleaseDate.date.slice(0, 10) }}</span>
+                  <span class="ml-1.5">{{ getEarliestDigitalReleaseDate.date.slice(0, 10) }}</span>
+                </span>
+              </span>
+            </div>
+            <div v-if="mediaDetail.type === '电影' && getEarliestPhysicalReleaseDate" class="media-fact">
+              <span>{{ t('media.info.physicalRelease') }}</span>
+              <span class="media-fact-value">
+                <span class="flex items-center justify-end">
+                  <span class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none">
+                    {{ getEarliestPhysicalReleaseDate.iso_code }}
+                  </span>
+                  <span class="ml-1.5">{{ getEarliestPhysicalReleaseDate.date.slice(0, 10) }}</span>
                 </span>
               </span>
             </div>
@@ -1122,9 +1141,10 @@ onBeforeMount(() => {
 
 .media-poster {
   overflow: hidden;
-  border-radius: 0.25rem;
+  border-radius: var(--app-surface-radius);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
   inline-size: 8rem;
+  transition: border-radius 0.2s ease;
 
   --tw-shadow: 0 1px 3px 0 rgba(0, 0, 0, 10%), 0 1px 2px -1px rgba(0, 0, 0, 10%);
   --tw-shadow-colored: 0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);
@@ -1139,7 +1159,6 @@ onBeforeMount(() => {
 
 @media (width >= 768px) {
   .media-poster {
-    border-radius: 0.5rem;
     box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
     inline-size: 11rem;
 
