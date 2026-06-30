@@ -1,12 +1,15 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { formatFileSize } from '@/@core/utils/formatters'
-import api from '@/api'
-import { FileItem, TransferQueue } from '@/api/types'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import CryptoJS from 'crypto-js'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import noImage from '@images/no-image.jpeg'
+import { formatFileSize } from '@/@core/utils/formatters'
+import api from '@/api'
+import type { FileItem, MediaInfo, TransferQueue } from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
-import CryptoJS from 'crypto-js'
+import { useGlobalSettingsStore } from '@/stores'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 type TransferTask = TransferQueue['tasks'][number]
 
@@ -24,17 +27,16 @@ const { useProgressSSE } = useBackground()
 
 // 显示器宽度
 const display = useDisplay()
+
+// 全局图片设置
+const globalSettingsStore = useGlobalSettingsStore()
+const globalSettings = globalSettingsStore.globalSettings
+
 // 定义触发的自定义事件
 const emit = defineEmits(['close'])
 
 // 数据列表
 const dataList = ref<TransferQueue[]>([])
-
-// 整体进度相关 - 根据完成的文件计算
-const overallProgress = ref({
-  value: 0,
-  text: t('dialog.transferQueue.processing'),
-})
 
 // 文件进度映射
 const fileProgressMap = ref<Map<string, { enable: boolean; value: number }>>(new Map())
@@ -42,30 +44,25 @@ const fileProgressMap = ref<Map<string, { enable: boolean; value: number }>>(new
 // 进度是否激活
 const progressActive = ref(false)
 
-// 活动标签
+// 活动媒体
 const activeTab = ref('')
 
 // 定时器引用
 const queueTimer = ref<NodeJS.Timeout | null>(null)
 
+// 文件进度SSE连接映射
+const fileProgressSSEMap = ref<Map<string, any>>(new Map())
+
 // 状态标签
-const stateDict: { [key: string]: string } = {
-  'waiting': t('dialog.transferQueue.waitingState'),
-  'running': t('dialog.transferQueue.runningState'),
-  'completed': t('dialog.transferQueue.finishedState'),
-  'failed': t('dialog.transferQueue.failedState'),
-  'cancelled': t('dialog.transferQueue.cancelledState'),
-}
+const stateDict = computed<Record<string, string>>(() => ({
+  waiting: t('dialog.transferQueue.waitingState'),
+  running: t('dialog.transferQueue.runningState'),
+  completed: t('dialog.transferQueue.finishedState'),
+  failed: t('dialog.transferQueue.failedState'),
+  cancelled: t('dialog.transferQueue.cancelledState'),
+}))
 
-// 获取状态颜色
-function getStateColor(state: string) {
-  if (state === 'waiting') return 'gray'
-  else if (state === 'running') return 'primary'
-  else if (state === 'completed') return 'success'
-  else return 'error'
-}
-
-// 按媒体聚合队列，避免模板中按 tab 重复扫描 dataList
+// 按媒体聚合队列，避免模板中重复扫描 dataList
 const mediaTaskGroups = computed<MediaTaskGroup[]>(() => {
   const groupMap = new Map<string, MediaTaskGroup>()
 
@@ -92,75 +89,133 @@ const mediaTaskGroups = computed<MediaTaskGroup[]>(() => {
   return Array.from(groupMap.values())
 })
 
-// 从dataList中提取所有的媒体信息，合并相同title_year的记录
-const mediaList = computed(() => {
-  return mediaTaskGroups.value.map(group => group.media)
+// 当前选中的媒体分组
+const activeMediaGroup = computed(() => {
+  return mediaTaskGroups.value.find(item => item.titleYear === activeTab.value)
 })
 
-// 按media计算总数和完成数，返回 x/x
-function getMediaCount(title_year: string) {
-  const group = mediaTaskGroups.value.find(item => item.titleYear === title_year)
-  return `${group?.completed ?? 0} / ${group?.total ?? 0}`
-}
+// 当前媒体的文件任务
+const activeTasks = computed(() => activeMediaGroup.value?.tasks ?? [])
 
-// 根据媒体信息获取对应的整理任务，合并相同title_year的所有任务
-const activeTasks = computed(() => {
-  return mediaTaskGroups.value.find(item => item.titleYear === activeTab.value)?.tasks ?? []
+// 队列任务总数
+const totalTaskCount = computed(() => {
+  return mediaTaskGroups.value.reduce((total, group) => total + group.total, 0)
 })
 
-// 根据媒体title_year获取对应的任务列表
-function getTasksByMedia(title_year: string) {
-  return mediaTaskGroups.value.find(item => item.titleYear === title_year)?.tasks ?? []
-}
+// 已完成任务总数
+const completedTaskCount = computed(() => {
+  return mediaTaskGroups.value.reduce((total, group) => total + group.completed, 0)
+})
+
+// 当前媒体文件总大小
+const activeMediaSize = computed(() => {
+  return activeTasks.value.reduce((total, task) => total + (task.fileitem.size || 0), 0)
+})
 
 // 计算整体进度
 const overallProgressComputed = computed(() => {
-  const totalTasks = mediaTaskGroups.value.reduce((total, group) => total + group.total, 0)
-  const completedTasks = mediaTaskGroups.value.reduce((total, group) => total + group.completed, 0)
-
-  return totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+  return totalTaskCount.value > 0 ? (completedTaskCount.value / totalTaskCount.value) * 100 : 0
 })
 
-// 获取文件进度
+// 整体进度整数显示
+const overallProgressDisplay = computed(() => Math.round(overallProgressComputed.value))
+
+// 获取状态颜色。
+function getStateColor(state: string) {
+  if (state === 'running') return 'info'
+  if (state === 'completed') return 'success'
+  if (state === 'failed') return 'error'
+  if (state === 'cancelled') return 'warning'
+  return 'secondary'
+}
+
+// 获取状态图标。
+function getStateIcon(state: string) {
+  if (state === 'running') return 'mdi-progress-clock'
+  if (state === 'completed') return 'mdi-check-circle-outline'
+  if (state === 'failed') return 'mdi-alert-outline'
+  if (state === 'cancelled') return 'mdi-cancel'
+  return 'mdi-clock-outline'
+}
+
+// 获取媒体显示标题。
+function getMediaTitle(media?: MediaInfo) {
+  if (!media) return '-'
+  if (media.title_year) return media.title_year
+  return [media.title, media.year ? `（${media.year}）` : ''].filter(Boolean).join('') || '-'
+}
+
+// 获取适配全局图片设置的媒体海报地址。
+function getPosterUrl(media?: MediaInfo) {
+  const posterPath = media?.poster_path
+  if (!posterPath) return noImage
+
+  let posterUrl = posterPath
+  if (posterPath.startsWith('/')) {
+    posterUrl = `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${posterPath}`
+  } else {
+    posterUrl = posterPath.replace('original', 'w500')
+  }
+
+  return getDisplayImageUrl(posterUrl, globalSettings.GLOBAL_IMAGE_CACHE)
+}
+
+// 获取媒体完成数量文本。
+function getMediaCount(group: MediaTaskGroup) {
+  return t('dialog.transferQueue.mediaProgressCount', {
+    completed: group.completed,
+    total: group.total,
+  })
+}
+
+// 获取媒体完成进度。
+function getMediaProgress(group: MediaTaskGroup) {
+  return group.total > 0 ? (group.completed / group.total) * 100 : 0
+}
+
+// 获取文件实时进度信息。
 function getFileProgress(filePath: string) {
   return fileProgressMap.value.get(filePath) || { enable: false, value: 0 }
 }
 
-// 调用API获取队列信息
+// 获取文件任务的展示进度。
+function getTaskProgress(task: TransferTask) {
+  if (task.state === 'completed') return 100
+  if (task.state !== 'running') return 0
+  return getFileProgress(task.fileitem.path).value
+}
+
+// 调用API获取队列信息。
 async function get_transfer_queue() {
   try {
     dataList.value = await api.get('transfer/queue')
     if (dataList.value.length > 0) {
-      if (!activeTab.value || activeTasks.value?.length == 0) activeTab.value = dataList.value[0].media.title_year || ''
+      if (!activeTab.value || activeTasks.value.length === 0)
+        activeTab.value = dataList.value[0].media.title_year || ''
 
-      // 如果有数据且SSE未启动，则启动SSE监听
-      if (!progressActive.value) {
-        startLoadingProgress()
-      }
-    } else {
-      // 如果没有数据，停止SSE监听
-      if (progressActive.value) {
-        stopLoadingProgress()
-      }
+      if (!progressActive.value) startLoadingProgress()
+    } else if (progressActive.value) {
+      stopLoadingProgress()
     }
   } catch (error) {
     console.error(error)
   }
 }
 
-// 移除队列任务
+// 移除队列任务。
 async function remove_queue_task(fileitem: FileItem) {
   try {
-    await api.delete(`transfer/queue`, { data: fileitem })
+    await api.delete('transfer/queue', { data: fileitem })
     get_transfer_queue()
   } catch (error) {
     console.error(error)
   }
 }
 
-// 文件进度SSE消息处理函数
+// 创建文件进度SSE消息处理函数。
 function createFileProgressHandler(filePath: string) {
-  return function handleFileProgressMessage(event: MessageEvent) {
+  // 处理单个文件的进度消息。
+  function handleFileProgressMessage(event: MessageEvent) {
     try {
       const progress = JSON.parse(event.data)
       if (progress) {
@@ -173,23 +228,17 @@ function createFileProgressHandler(filePath: string) {
       console.error('解析文件进度消息失败:', error)
     }
   }
+
+  return handleFileProgressMessage
 }
 
-// 文件进度SSE连接映射
-const fileProgressSSEMap = ref<Map<string, any>>(new Map())
-
-// 启动文件进度监听
+// 启动文件进度监听。
 function startFileProgress(filePath: string) {
-  if (fileProgressSSEMap.value.has(filePath)) {
-    return // 已经存在连接
-  }
+  if (fileProgressSSEMap.value.has(filePath)) return
 
-  // filePath计算md5
   const filePathMd5 = CryptoJS.MD5(filePath).toString()
-  // 使用包含文件路径的唯一监听器ID
   const uniqueListenerId = `transfer-queue-file-progress-${filePathMd5}`
   const fileProgressUrl = `${import.meta.env.VITE_API_BASE_URL}system/progress/${filePathMd5}`
-
   const fileProgressSSE = useProgressSSE(
     fileProgressUrl,
     createFileProgressHandler(filePath),
@@ -201,11 +250,9 @@ function startFileProgress(filePath: string) {
   fileProgressSSEMap.value.set(filePath, fileProgressSSE)
 }
 
-// 停止所有文件进度监听
+// 停止所有文件进度监听。
 function stopAllFileProgress() {
-  fileProgressSSEMap.value.forEach((sse, filePath) => {
-    sse.stop()
-  })
+  fileProgressSSEMap.value.forEach(sse => sse.stop())
   fileProgressSSEMap.value.clear()
   fileProgressMap.value.clear()
 }
@@ -214,74 +261,49 @@ function stopAllFileProgress() {
 watch(
   dataList,
   newDataList => {
-    // 获取当前正在运行的文件路径集合
     const currentRunningFiles = new Set<string>()
     newDataList.forEach(item => {
       item.tasks.forEach(task => {
-        if (task.state === 'running') {
-          currentRunningFiles.add(task.fileitem.path)
-        }
+        if (task.state === 'running') currentRunningFiles.add(task.fileitem.path)
       })
     })
 
-    // 获取当前已建立SSE连接的文件路径集合
     const currentSSEFiles = new Set(fileProgressSSEMap.value.keys())
-
-    // 停止不再需要的SSE连接
     currentSSEFiles.forEach(filePath => {
       if (!currentRunningFiles.has(filePath)) {
-        const sse = fileProgressSSEMap.value.get(filePath)
-        if (sse) {
-          sse.stop()
-          fileProgressSSEMap.value.delete(filePath)
-        }
-        // 清除对应的进度数据
+        fileProgressSSEMap.value.get(filePath)?.stop()
+        fileProgressSSEMap.value.delete(filePath)
         fileProgressMap.value.delete(filePath)
       }
     })
 
-    // 为新的运行中文件建立SSE连接
     currentRunningFiles.forEach(filePath => {
-      if (!fileProgressSSEMap.value.has(filePath)) {
-        startFileProgress(filePath)
-      }
+      if (!fileProgressSSEMap.value.has(filePath)) startFileProgress(filePath)
     })
   },
   { deep: true },
 )
 
-// 使用SSE监听加载进度
+// 使用SSE监听加载进度。
 function startLoadingProgress() {
-  overallProgress.value.text = t('dialog.transferQueue.processing')
   progressActive.value = true
 }
 
-// 停止监听加载进度
+// 停止监听加载进度。
 function stopLoadingProgress() {
   progressActive.value = false
-  // 只有在没有数据时才停止所有文件进度监听
-  if (dataList.value.length === 0) {
-    stopAllFileProgress()
-  }
+  if (dataList.value.length === 0) stopAllFileProgress()
 }
 
-// 启动定时获取队列
+// 启动定时获取队列。
 function startQueueTimer() {
-  // 清除可能存在的定时器
-  if (queueTimer.value) {
-    clearInterval(queueTimer.value)
-  }
+  if (queueTimer.value) clearInterval(queueTimer.value)
 
-  // 立即执行一次
   get_transfer_queue()
-
-  // 设置3秒定时器
-  queueTimer.value = setInterval(() => {
-    get_transfer_queue()
-  }, 3000)
+  queueTimer.value = setInterval(() => get_transfer_queue(), 3000)
 }
 
-// 停止定时获取队列
+// 停止定时获取队列。
 function stopQueueTimer() {
   if (queueTimer.value) {
     clearInterval(queueTimer.value)
@@ -289,9 +311,7 @@ function stopQueueTimer() {
   }
 }
 
-onMounted(() => {
-  startQueueTimer()
-})
+onMounted(() => startQueueTimer())
 
 onUnmounted(() => {
   stopQueueTimer()
@@ -302,80 +322,439 @@ onUnmounted(() => {
 <template>
   <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="mx-auto" width="100%">
-      <VCardItem>
+      <VCardItem class="transfer-queue-header">
+        <template #prepend>
+          <VIcon icon="mdi-menu" color="primary" size="28" />
+        </template>
         <VCardTitle>{{ t('dialog.transferQueue.title') }}</VCardTitle>
+        <VCardSubtitle v-if="dataList.length > 0" class="mt-1">
+          {{
+            t('dialog.transferQueue.queueSummary', {
+              media: mediaTaskGroups.length,
+              tasks: totalTaskCount,
+            })
+          }}
+        </VCardSubtitle>
       </VCardItem>
       <VDialogCloseBtn @click="emit('close')" />
 
-      <!-- 整体进度显示 -->
-      <VProgressLinear v-if="dataList.length > 0" :model-value="overallProgressComputed" color="primary" />
-      <VDivider v-else />
+      <VDivider />
 
       <VCardText v-if="dataList.length === 0" class="transfer-queue-empty">
         <VIcon class="transfer-queue-empty__icon" icon="mdi-sync" size="30" />
-
         <div class="transfer-queue-empty__headline">
           {{ t('dialog.transferQueue.noTasks') }}
         </div>
-
         <div class="transfer-queue-empty__description">
           {{ t('dialog.transferQueue.noTasksHint') }}
         </div>
       </VCardText>
 
-      <VCardText v-if="dataList.length > 0">
-        <VTabs v-model="activeTab" show-arrows class="v-tabs-pill" stacked>
-          <VTab
-            v-for="media in mediaList"
-            :value="media.title_year"
-            selected-class="v-slide-group-item--active v-tab--selected"
-          >
-            <div class="font-bold text-lg">{{ media.title }}</div>
-            <div>({{ getMediaCount(media.title_year || '') }})</div>
-          </VTab>
-        </VTabs>
-        <VWindow v-model="activeTab" class="mt-5 disable-tab-transition" :touch="false">
-          <VWindowItem v-for="media in mediaList" :value="media.title_year">
-            <VList>
-              <VListItem v-for="task in getTasksByMedia(media.title_year || '')" :key="task.fileitem.path">
-                <VListItemTitle>{{ task.fileitem.name }}</VListItemTitle>
-                <VListItemSubtitle class="py-1">
-                  {{ t('dialog.transferQueue.sizeTitle') }}：{{ formatFileSize(task.fileitem.size || 0) }}
-                  <VChip size="small" :color="getStateColor(task.state)" class="mx-2">
-                    {{ stateDict[task.state] }}
-                  </VChip>
-                </VListItemSubtitle>
+      <VCardText v-else class="transfer-queue-content">
+        <section class="queue-overall app-surface-shape" :aria-label="t('dialog.transferQueue.overallProgress')">
+          <div class="queue-overall__label">{{ t('dialog.transferQueue.overallProgress') }}</div>
+          <div class="queue-overall__count">
+            {{
+              t('dialog.transferQueue.overallCount', {
+                completed: completedTaskCount,
+                total: totalTaskCount,
+              })
+            }}
+          </div>
+          <div class="queue-overall__value">{{ overallProgressDisplay }}%</div>
+          <VProgressLinear
+            class="queue-overall__progress"
+            :model-value="overallProgressComputed"
+            color="primary"
+            bg-color="secondary"
+            :height="6"
+            rounded
+          />
+        </section>
 
-                <!-- 文件进度显示 -->
-                <div v-if="task.state === 'running' && getFileProgress(task.fileitem.path).enable" class="mt-2">
-                  <VProgressLinear
-                    :model-value="getFileProgress(task.fileitem.path).value"
-                    color="success"
-                    class="mb-1"
-                    :height="3"
-                  />
-                  <div class="text-xs text-medium-emphasis text-center">
-                    {{ getFileProgress(task.fileitem.path).value.toFixed(1) }}%
+        <div class="queue-main">
+          <nav class="media-selector" :aria-label="t('dialog.transferQueue.mediaList')">
+            <button
+              v-for="group in mediaTaskGroups"
+              :key="group.titleYear"
+              type="button"
+              class="media-selector__item app-surface-shape"
+              :class="{ 'media-selector__item--active': activeTab === group.titleYear }"
+              :aria-current="activeTab === group.titleYear ? 'true' : undefined"
+              @click="activeTab = group.titleYear"
+            >
+              <VImg
+                class="media-selector__poster"
+                :src="getPosterUrl(group.media)"
+                :alt="getMediaTitle(group.media)"
+                cover
+              />
+              <div class="media-selector__info">
+                <div class="media-selector__title">{{ getMediaTitle(group.media) }}</div>
+                <div class="media-selector__meta">
+                  <span>{{ getMediaCount(group) }}</span>
+                  <span class="media-selector__percent">{{ Math.round(getMediaProgress(group)) }}%</span>
+                </div>
+                <VProgressLinear
+                  :model-value="getMediaProgress(group)"
+                  color="primary"
+                  bg-color="secondary"
+                  :height="4"
+                  rounded
+                />
+              </div>
+            </button>
+          </nav>
+
+          <section class="queue-detail">
+            <header class="active-media">
+              <VImg
+                class="active-media__poster"
+                :src="getPosterUrl(activeMediaGroup?.media)"
+                :alt="getMediaTitle(activeMediaGroup?.media)"
+                cover
+              />
+              <div class="active-media__info">
+                <h3 class="active-media__title">{{ getMediaTitle(activeMediaGroup?.media) }}</h3>
+                <p class="active-media__meta">
+                  {{
+                    t('dialog.transferQueue.mediaFileSummary', {
+                      count: activeTasks.length,
+                      size: formatFileSize(activeMediaSize),
+                    })
+                  }}
+                </p>
+              </div>
+            </header>
+
+            <div class="queue-task-header" aria-hidden="true">
+              <span></span>
+              <span>{{ t('dialog.transferQueue.fileName') }}</span>
+              <span>{{ t('dialog.transferQueue.sizeTitle') }}</span>
+              <span>{{ t('dialog.transferQueue.state') }}</span>
+              <span>{{ t('dialog.transferQueue.progress') }}</span>
+              <span>{{ t('dialog.transferQueue.operation') }}</span>
+            </div>
+
+            <div class="queue-task-list">
+              <div v-for="task in activeTasks" :key="task.fileitem.path" class="queue-task">
+                <VIcon
+                  class="queue-task__state-icon"
+                  :icon="getStateIcon(task.state)"
+                  :color="getStateColor(task.state)"
+                  size="22"
+                />
+                <div class="queue-task__content">
+                  <div class="queue-task__name" :title="task.fileitem.name">
+                    {{ task.fileitem.name }}
+                  </div>
+                  <div class="queue-task__size">{{ formatFileSize(task.fileitem.size || 0) }}</div>
+                  <div class="queue-task__status">
+                    <VChip size="small" :color="getStateColor(task.state)" variant="tonal">
+                      {{ stateDict[task.state] }}
+                    </VChip>
+                  </div>
+                  <div
+                    class="queue-task__progress"
+                    :class="{ 'queue-task__progress--completed': task.state === 'completed' }"
+                  >
+                    <VProgressLinear
+                      v-if="task.state !== 'completed'"
+                      :model-value="getTaskProgress(task)"
+                      color="primary"
+                      bg-color="secondary"
+                      :height="5"
+                      rounded
+                    />
+                    <span>{{ Math.round(getTaskProgress(task)) }}%</span>
                   </div>
                 </div>
-                <template #append>
-                  <IconBtn
-                    size="small"
-                    icon="mdi-cancel"
-                    @click="remove_queue_task(task.fileitem)"
-                    :disabled="task.state === 'completed'"
-                  />
-                </template>
-              </VListItem>
-            </VList>
-          </VWindowItem>
-        </VWindow>
+                <IconBtn
+                  class="queue-task__action"
+                  size="small"
+                  icon="mdi-close-circle-outline"
+                  :aria-label="t('dialog.transferQueue.cancelTask')"
+                  :disabled="task.state === 'completed'"
+                  @click="remove_queue_task(task.fileitem)"
+                />
+              </div>
+            </div>
+          </section>
+        </div>
       </VCardText>
+
+      <VCardActions v-if="dataList.length > 0" class="transfer-queue-actions app-dialog-actions">
+        <VSpacer />
+        <VBtn variant="outlined" color="secondary" @click="emit('close')">
+          {{ t('dialog.transferQueue.close') }}
+        </VBtn>
+      </VCardActions>
     </VCard>
   </VDialog>
 </template>
 
 <style scoped>
+.transfer-queue-header {
+  padding-inline-end: 4rem;
+}
+
+.transfer-queue-content {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  min-block-size: 34rem;
+  padding: 1.5rem !important;
+  scrollbar-width: none;
+}
+
+.transfer-queue-content::-webkit-scrollbar,
+.media-selector::-webkit-scrollbar,
+.queue-task-list::-webkit-scrollbar {
+  display: none;
+}
+
+.queue-overall {
+  display: grid;
+  align-items: center;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  gap: 1.25rem;
+  grid-template-columns: auto auto auto minmax(8rem, 1fr);
+  padding-block: 1.15rem;
+  padding-inline: 1.25rem;
+}
+
+.queue-overall__label {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.queue-overall__count {
+  color: rgba(var(--v-theme-on-surface), 0.65);
+  font-size: 0.875rem;
+}
+
+.queue-overall__value {
+  color: rgb(var(--v-theme-primary));
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.queue-overall__progress {
+  min-inline-size: 0;
+}
+
+.queue-main {
+  display: grid;
+  overflow: hidden;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(14rem, 19rem) minmax(0, 1fr);
+  margin-block-start: 1.5rem;
+  min-block-size: 0;
+}
+
+.media-selector {
+  overflow-y: auto;
+  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  padding-inline-end: 1rem;
+  scrollbar-width: none;
+}
+
+.media-selector__item {
+  position: relative;
+  display: grid;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  gap: 0.9rem;
+  grid-template-columns: 4.25rem minmax(0, 1fr);
+  inline-size: 100%;
+  padding: 0.9rem;
+  text-align: start;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.media-selector__item + .media-selector__item {
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.media-selector__item::before {
+  position: absolute;
+  background: rgb(var(--v-theme-primary));
+  block-size: 0;
+  content: '';
+  inline-size: 3px;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  transition: block-size 0.18s ease, inset-block-start 0.18s ease;
+}
+
+.media-selector__item:hover {
+  background: rgba(var(--v-theme-on-surface), var(--v-hover-opacity));
+}
+
+.media-selector__item--active {
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.media-selector__item--active::before {
+  block-size: 100%;
+  inset-block-start: 0;
+}
+
+.media-selector__poster,
+.active-media__poster {
+  border-radius: var(--app-control-radius);
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.media-selector__poster {
+  aspect-ratio: 2 / 3;
+  flex: 0 0 4.25rem;
+  inline-size: 4.25rem;
+  max-inline-size: 4.25rem;
+}
+
+.media-selector__info {
+  min-inline-size: 0;
+}
+
+.media-selector__title {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.92);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-selector__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.78rem;
+  gap: 0.75rem;
+  margin-block: 0.65rem 0.4rem;
+}
+
+.media-selector__percent {
+  color: rgb(var(--v-theme-primary));
+}
+
+.queue-detail {
+  overflow: hidden;
+  min-inline-size: 0;
+  padding-inline-start: 1.5rem;
+}
+
+.active-media {
+  display: flex;
+  align-items: center;
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  gap: 1rem;
+  min-block-size: 7rem;
+  padding-block: 0 1rem;
+}
+
+.active-media__poster {
+  aspect-ratio: 2 / 3;
+  flex: 0 0 4rem;
+  inline-size: 4rem !important;
+  max-inline-size: 4rem;
+}
+
+.active-media__info {
+  min-inline-size: 0;
+}
+
+.active-media__title {
+  color: rgba(var(--v-theme-on-surface), 0.95);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.active-media__meta {
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  font-size: 0.86rem;
+  margin-block: 0.5rem 0;
+}
+
+.queue-task-header,
+.queue-task {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 2rem minmax(0, 1fr) 5.75rem 6.75rem 8.75rem 2.5rem;
+}
+
+.queue-task-header {
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 0.75rem;
+  gap: 0.5rem;
+  min-block-size: 3rem;
+}
+
+.queue-task-list {
+  overflow-y: auto;
+  max-block-size: 23rem;
+  scrollbar-width: none;
+}
+
+.queue-task {
+  border-block-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  gap: 0.5rem;
+  min-block-size: 4.15rem;
+}
+
+.queue-task__content {
+  display: contents;
+}
+
+.queue-task__name {
+  overflow: hidden;
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-task__size {
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.75rem;
+}
+
+.queue-task__status :deep(.v-chip) {
+  max-inline-size: 100%;
+}
+
+.queue-task__progress {
+  display: grid;
+  align-items: center;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.75rem;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.queue-task__progress--completed {
+  display: block;
+  text-align: end;
+}
+
+.queue-task__action {
+  justify-self: end;
+}
+
+.transfer-queue-actions {
+  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .transfer-queue-empty {
   display: flex;
   flex-direction: column;
@@ -404,6 +783,173 @@ onUnmounted(() => {
   font-size: 0.92rem;
   line-height: 1.65;
   max-inline-size: 25rem;
+}
+
+@media (width <= 959.98px) {
+  .transfer-queue-header {
+    flex: 0 0 auto;
+    padding-block: calc(0.75rem + env(safe-area-inset-top)) 0.75rem;
+    padding-inline: 1rem 3.75rem;
+  }
+
+  .transfer-queue-content {
+    overflow-y: auto;
+    min-block-size: 0;
+    padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    padding-inline: 1rem !important;
+  }
+
+  .queue-overall {
+    flex: 0 0 auto;
+    gap: 0.5rem 0.75rem;
+    grid-template-columns: auto 1fr auto;
+    padding: 0.75rem 1rem;
+  }
+
+  .queue-overall__count {
+    justify-self: center;
+  }
+
+  .queue-overall__progress {
+    grid-column: 1 / -1;
+    margin-block-start: 0.35rem;
+  }
+
+  .queue-main {
+    display: block;
+    overflow: visible;
+    margin-block-start: 1rem;
+  }
+
+  .media-selector {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-inline-end: 0;
+    gap: 0.75rem;
+    margin-inline: -1rem;
+    padding-block: 0.25rem 0.75rem;
+    padding-inline: 1rem;
+    scroll-snap-type: inline mandatory;
+  }
+
+  .media-selector__item {
+    flex: 0 0 10rem;
+    border: 1px solid transparent;
+    gap: 0.5rem;
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    padding: 0.5rem;
+    scroll-snap-align: start;
+  }
+
+  .media-selector__item + .media-selector__item {
+    border-block-start-color: transparent;
+  }
+
+  .media-selector__item--active {
+    border-color: rgba(var(--v-theme-primary), 0.2);
+  }
+
+  .media-selector__poster {
+    flex-basis: 3.25rem;
+    inline-size: 3.25rem;
+    max-inline-size: 3.25rem;
+  }
+
+  .media-selector__title {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+
+  .media-selector__meta {
+    font-size: 0.68rem;
+    gap: 0.25rem;
+  }
+
+  .media-selector__meta > span {
+    white-space: nowrap;
+  }
+
+  .queue-detail {
+    overflow: visible;
+    padding-inline-start: 0;
+  }
+
+  .active-media {
+    min-block-size: 7rem;
+    padding-block: 0.75rem;
+  }
+
+  .active-media__poster {
+    flex-basis: 3.25rem;
+    inline-size: 3.25rem !important;
+    max-inline-size: 3.25rem;
+  }
+
+  .active-media__title {
+    font-size: 1.1rem;
+  }
+
+  .queue-task-header {
+    display: none;
+  }
+
+  .queue-task-list {
+    overflow: visible;
+    max-block-size: none;
+  }
+
+  .queue-task {
+    align-items: start;
+    gap: 0.75rem;
+    grid-template-columns: 2rem minmax(0, 1fr) 2.75rem;
+    min-block-size: 0;
+    padding-block: 1rem;
+  }
+
+  .queue-task__state-icon {
+    margin-block-start: 0.15rem;
+  }
+
+  .queue-task__content {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  .queue-task__name {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .queue-task__size {
+    font-size: 0.8rem;
+    margin-block-start: 0.55rem;
+  }
+
+  .queue-task__status {
+    margin-block-start: 0.45rem;
+  }
+
+  .queue-task__progress {
+    margin-block-start: 0.75rem;
+  }
+
+  .queue-task__progress--completed {
+    display: none;
+  }
+
+  .queue-task__action {
+    align-self: start;
+    margin-block-start: -0.35rem;
+  }
+
+  .transfer-queue-actions {
+    display: none;
+  }
 }
 
 @media (width <= 600px) {
