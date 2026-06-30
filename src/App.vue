@@ -25,6 +25,7 @@ import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
+const BACKGROUND_CROSSFADE_DURATION_MS = 1500
 
 // 生效主题
 const vuetifyTheme = useTheme()
@@ -64,6 +65,7 @@ const loginStateKey = computed(() => (isLogin.value ? 'logged-in' : 'logged-out'
 // 背景图片
 const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
+const previousImageIndex = ref<number | null>(null)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const shouldUseTransparentBackgroundTreatment = computed(
@@ -84,6 +86,7 @@ const shouldRenderGlobalBlurLayer = computed(
 )
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
+let backgroundCrossfadeTimer: number | null = null
 let authenticatedStateTimer: number | null = null
 
 function applyTransparentBackgroundSettings() {
@@ -179,6 +182,31 @@ function handlePageShowThemeSync() {
   syncThemePreferenceFromStorage()
 }
 
+function clearBackgroundCrossfadeTimer() {
+  if (backgroundCrossfadeTimer) {
+    window.clearTimeout(backgroundCrossfadeTimer)
+    backgroundCrossfadeTimer = null
+  }
+}
+
+function resetBackgroundCrossfade() {
+  clearBackgroundCrossfadeTimer()
+  previousImageIndex.value = null
+}
+
+// 切换期保留上一张背景的渲染状态，避免图片合成层重建时露出透明底。
+function activateBackgroundImage(nextIndex: number) {
+  if (nextIndex === activeImageIndex.value) return
+
+  clearBackgroundCrossfadeTimer()
+  previousImageIndex.value = activeImageIndex.value
+  activeImageIndex.value = nextIndex
+  backgroundCrossfadeTimer = window.setTimeout(() => {
+    previousImageIndex.value = null
+    backgroundCrossfadeTimer = null
+  }, BACKGROUND_CROSSFADE_DURATION_MS)
+}
+
 // 获取背景图片
 async function fetchBackgroundImages() {
   try {
@@ -187,6 +215,7 @@ async function fetchBackgroundImages() {
     backgroundImages.value = await api.get(`/login/wallpapers`, {
       signal: backgroundRequestController.signal,
     })
+    resetBackgroundCrossfade()
     activeImageIndex.value = 0
   } catch (e) {
     throw e
@@ -202,7 +231,7 @@ function rotateBackgroundImage() {
     preloadImage(backgroundImages.value[nextIndex]).then(success => {
       // 只有图片成功加载才切换
       if (success) {
-        activeImageIndex.value = nextIndex
+        activateBackgroundImage(nextIndex)
       }
     })
   }
@@ -236,6 +265,7 @@ function stopBackgroundLoading() {
     backgroundRetryTimer = null
   }
 
+  resetBackgroundCrossfade()
   removeBackgroundTimer('background-rotation')
 }
 
@@ -449,7 +479,7 @@ onUnmounted(() => {
         v-for="(imageUrl, index) in backgroundImages"
         :key="`bg-${index}-${loginStateKey}`"
         class="background-image"
-        :class="{ 'active': index === activeImageIndex }"
+        :class="{ 'active': index === activeImageIndex, 'previous': index === previousImageIndex }"
         :style="{ 'backgroundImage': `url(${imageUrl})` }"
       />
       <!-- 全局磨砂层 -->
@@ -507,7 +537,12 @@ onUnmounted(() => {
   }
 
   &.active {
+    z-index: 2;
     opacity: 1;
+  }
+
+  &.previous {
+    z-index: 1;
   }
 }
 
@@ -515,12 +550,14 @@ onUnmounted(() => {
   opacity: var(--transparent-background-poster-opacity, 1);
 }
 
-.background-container.is-transparent-glass-lightweight .background-image.active {
+.background-container.is-transparent-glass-lightweight .background-image.active,
+.background-container.is-transparent-glass-lightweight .background-image.previous {
   filter: blur(var(--transparent-background-blur, 16px));
   transform: scale(1.03);
 }
 
-.background-container.is-transparent-glass-lightweight .background-image.active::after {
+.background-container.is-transparent-glass-lightweight .background-image.active::after,
+.background-container.is-transparent-glass-lightweight .background-image.previous::after {
   background:
     linear-gradient(rgba(0, 0, 0, 30%) 0%, rgba(0, 0, 0, 60%) 100%),
     rgba(128, 128, 128, 30%);
@@ -529,7 +566,7 @@ onUnmounted(() => {
 /* 全局磨砂层 */
 .global-blur-layer {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   backdrop-filter: blur(var(--transparent-background-blur, 16px));
   background-color: rgba(128, 128, 128, 30%);
   block-size: 100%;
