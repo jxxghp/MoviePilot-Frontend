@@ -322,12 +322,13 @@ onUnmounted(() => {
 <template>
   <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="mx-auto" width="100%">
-      <VCardItem class="transfer-queue-header">
+      <VCardItem class="py-2">
+        <VDialogCloseBtn @click="emit('close')" />
         <template #prepend>
-          <VIcon icon="mdi-menu" color="primary" size="28" />
+          <VIcon icon="mdi-menu" color="primary" size="28" class="me-2" />
         </template>
         <VCardTitle>{{ t('dialog.transferQueue.title') }}</VCardTitle>
-        <VCardSubtitle v-if="dataList.length > 0" class="transfer-queue-header__subtitle">
+        <VCardSubtitle v-if="dataList.length > 0">
           {{
             t('dialog.transferQueue.queueSummary', {
               media: mediaTaskGroups.length,
@@ -336,7 +337,6 @@ onUnmounted(() => {
           }}
         </VCardSubtitle>
       </VCardItem>
-      <VDialogCloseBtn @click="emit('close')" />
 
       <VDivider />
 
@@ -487,21 +487,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.transfer-queue-header {
-  padding-block: 0.5rem !important;
-  padding-inline-end: 4rem;
-}
-
-.transfer-queue-header :deep(.v-card-title) {
-  font-size: 1.1rem;
-  line-height: 1.3;
-}
-
-.transfer-queue-header__subtitle {
-  line-height: 1.25;
-  margin-block-start: 0.1rem;
-}
-
 .transfer-queue-content {
   display: flex;
   overflow: hidden;
@@ -791,12 +776,6 @@ onUnmounted(() => {
 }
 
 @media (width <= 959.98px) {
-  .transfer-queue-header {
-    flex: 0 0 auto;
-    padding-block: calc(0.5rem + env(safe-area-inset-top)) 0.5rem !important;
-    padding-inline: 1rem 3.75rem;
-  }
-
   .transfer-queue-content {
     overflow-y: auto;
     min-block-size: 0;
