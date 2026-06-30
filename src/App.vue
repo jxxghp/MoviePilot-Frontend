@@ -26,6 +26,7 @@ import { configureApexChartsTheme } from '@/utils/apexCharts'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
+const WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS = 180_000
 
 // 生效主题
 const vuetifyTheme = useTheme()
@@ -82,10 +83,12 @@ const shouldRenderGlobalBlurLayer = computed(
     transparentBackgroundBlur.value > 0 &&
     transparencyGlassQuality.value === 'realtime',
 )
+const isRenderThrottled = ref(document.visibilityState === 'hidden')
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
 let authenticatedStateTimer: number | null = null
+let windowBlurRenderThrottleTimer: number | null = null
 
 // 读取并同步透明主题背景设置到根组件响应式状态。
 function applyTransparentBackgroundSettings() {
@@ -104,6 +107,52 @@ function handleTransparencySettingsChanged(event: Event) {
 }
 
 applyTransparentBackgroundSettings()
+
+function clearWindowBlurRenderThrottleTimer() {
+  if (windowBlurRenderThrottleTimer) {
+    window.clearTimeout(windowBlurRenderThrottleTimer)
+    windowBlurRenderThrottleTimer = null
+  }
+}
+
+function restoreForegroundRendering() {
+  const wasRenderThrottled = isRenderThrottled.value
+
+  clearWindowBlurRenderThrottleTimer()
+  isRenderThrottled.value = false
+
+  if (wasRenderThrottled && backgroundImages.value.length > 1) {
+    startBackgroundRotation()
+    rotateBackgroundImage()
+  }
+}
+
+function throttleBackgroundRendering() {
+  clearWindowBlurRenderThrottleTimer()
+  resetBackgroundCrossfade()
+  isRenderThrottled.value = true
+}
+
+function handleWindowBlurRenderThrottle() {
+  clearWindowBlurRenderThrottleTimer()
+  if (document.visibilityState === 'hidden') {
+    throttleBackgroundRendering()
+    return
+  }
+
+  windowBlurRenderThrottleTimer = window.setTimeout(() => {
+    if (document.visibilityState === 'visible' && !document.hasFocus()) {
+      isRenderThrottled.value = true
+    }
+    windowBlurRenderThrottleTimer = null
+  }, WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS)
+}
+
+function handleWindowFocusRenderThrottle() {
+  if (document.visibilityState === 'visible') {
+    restoreForegroundRendering()
+  }
+}
 
 // 心跳检测
 let heartbeatInterval: number | null = null
@@ -177,12 +226,18 @@ function handleSystemThemeChange() {
 // 页面重新可见时同步主题，修复后台期间设置被外部修改后的外观漂移。
 function handleVisibilityThemeSync() {
   if (document.visibilityState === 'visible') {
+    restoreForegroundRendering()
     syncThemePreferenceFromStorage()
+  } else {
+    throttleBackgroundRendering()
   }
 }
 
 // 页面从缓存或重新聚焦恢复时刷新主题偏好。
 function handlePageShowThemeSync() {
+  if (document.visibilityState === 'visible') {
+    restoreForegroundRendering()
+  }
   syncThemePreferenceFromStorage()
 }
 
@@ -230,6 +285,8 @@ async function fetchBackgroundImages() {
 
 // 背景图片轮换函数
 function rotateBackgroundImage() {
+  if (isRenderThrottled.value) return
+
   if (backgroundImages.value.length > 1) {
     // 计算下一个图片索引
     const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
@@ -414,6 +471,8 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleVisibilityThemeSync)
   window.addEventListener('pageshow', handlePageShowThemeSync)
   window.addEventListener('focus', handlePageShowThemeSync)
+  window.addEventListener('focus', handleWindowFocusRenderThrottle)
+  window.addEventListener('blur', handleWindowBlurRenderThrottle)
   window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 
   // 登录页壁纸仅在未登录登录页需要，避免其他首屏额外发起图片列表请求。
@@ -461,6 +520,7 @@ onUnmounted(() => {
     window.clearTimeout(authenticatedStateTimer)
     authenticatedStateTimer = null
   }
+  clearWindowBlurRenderThrottleTimer()
   // 停止心跳
   stopHeartbeat()
   prefersColorSchemeMediaQuery?.removeEventListener('change', handleSystemThemeChange)
@@ -468,12 +528,14 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityThemeSync)
   window.removeEventListener('pageshow', handlePageShowThemeSync)
   window.removeEventListener('focus', handlePageShowThemeSync)
+  window.removeEventListener('focus', handleWindowFocusRenderThrottle)
+  window.removeEventListener('blur', handleWindowBlurRenderThrottle)
   window.removeEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 })
 </script>
 
 <template>
-  <div class="app-wrapper">
+  <div class="app-wrapper" :class="{ 'app-wrapper--render-throttled': isRenderThrottled }">
     <!-- 透明主题背景 -->
     <div
       v-if="backgroundImages.length > 0 && (isTransparentTheme || !isLogin)"
@@ -582,6 +644,22 @@ onUnmounted(() => {
   inline-size: 100%;
   inset-block-start: 0;
   inset-inline-start: 0;
+}
+
+.app-wrapper--render-throttled {
+  .global-blur-layer {
+    backdrop-filter: none;
+  }
+
+  .login-bg-decor *,
+  .login-logo,
+  .login-logo-wrapper,
+  .login-logo-wrapper::before,
+  .login-title,
+  .login-subtitle,
+  .agent-assistant-fab * {
+    animation-play-state: paused !important;
+  }
 }
 
 /* 登录页壁纸在 VApp 外层渲染，登录页 VApp 需要透明才能露出壁纸。 */
