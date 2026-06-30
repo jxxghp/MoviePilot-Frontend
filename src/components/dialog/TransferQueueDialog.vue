@@ -190,8 +190,7 @@ async function get_transfer_queue() {
   try {
     dataList.value = await api.get('transfer/queue')
     if (dataList.value.length > 0) {
-      if (!activeTab.value || activeTasks.value.length === 0)
-        activeTab.value = dataList.value[0].media.title_year || ''
+      if (!activeTab.value || activeTasks.value.length === 0) activeTab.value = dataList.value[0].media.title_year || ''
 
       if (!progressActive.value) startLoadingProgress()
     } else if (progressActive.value) {
@@ -322,7 +321,7 @@ onUnmounted(() => {
 <template>
   <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
     <VCard class="mx-auto" width="100%">
-      <VCardItem class="py-2">
+      <VCardItem :class="{'py-2': dataList.length > 0}">
         <VDialogCloseBtn @click="emit('close')" />
         <template #prepend>
           <VIcon icon="mdi-menu" color="primary" size="28" class="me-2" />
@@ -487,12 +486,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .transfer-queue-content {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  min-block-size: 34rem;
   padding: 1.5rem !important;
+  min-block-size: 34rem;
   scrollbar-width: none;
 }
 
@@ -544,10 +545,10 @@ onUnmounted(() => {
 
 .media-selector {
   display: flex;
-  overflow-y: auto;
-  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   flex-direction: column;
+  border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   gap: 0.75rem;
+  overflow-y: auto;
   padding-block: 0.25rem;
   padding-inline: 0.25rem 1rem;
   scrollbar-width: none;
@@ -557,6 +558,7 @@ onUnmounted(() => {
   position: relative;
   display: grid;
   align-items: center;
+  padding: 0.9rem;
   border: 0;
   background: transparent;
   color: inherit;
@@ -564,9 +566,10 @@ onUnmounted(() => {
   gap: 0.9rem;
   grid-template-columns: 4.25rem minmax(0, 1fr);
   inline-size: 100%;
-  padding: 0.9rem;
   text-align: start;
-  transition: background-color 0.18s ease, color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .media-selector__item + .media-selector__item {
@@ -582,7 +585,9 @@ onUnmounted(() => {
   inline-size: 3px;
   inset-block-start: 50%;
   inset-inline-start: 0.25rem;
-  transition: block-size 0.18s ease, inset-block-start 0.18s ease;
+  transition:
+    block-size 0.18s ease,
+    inset-block-start 0.18s ease;
 }
 
 .media-selector__item:hover {
@@ -605,8 +610,8 @@ onUnmounted(() => {
 }
 
 .media-selector__poster {
-  aspect-ratio: 2 / 3;
   flex: 0 0 4.25rem;
+  aspect-ratio: 2 / 3;
   inline-size: 4.25rem;
   max-inline-size: 4.25rem;
 }
@@ -655,8 +660,8 @@ onUnmounted(() => {
 }
 
 .active-media__poster {
-  aspect-ratio: 2 / 3;
   flex: 0 0 4rem;
+  aspect-ratio: 2 / 3;
   inline-size: 4rem !important;
   max-inline-size: 4rem;
 }
@@ -666,11 +671,11 @@ onUnmounted(() => {
 }
 
 .active-media__title {
+  margin: 0;
   color: rgba(var(--v-theme-on-surface), 0.95);
   font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.45;
-  margin: 0;
 }
 
 .active-media__meta {
@@ -695,8 +700,8 @@ onUnmounted(() => {
 }
 
 .queue-task-list {
-  overflow-y: auto;
   max-block-size: 23rem;
+  overflow-y: auto;
   scrollbar-width: none;
 }
 
@@ -777,8 +782,8 @@ onUnmounted(() => {
 
 @media (width <= 959.98px) {
   .transfer-queue-content {
-    overflow-y: auto;
     min-block-size: 0;
+    overflow-y: auto;
     padding-block: 0.75rem calc(0.75rem + env(safe-area-inset-bottom)) !important;
     padding-inline: 1rem !important;
   }
@@ -787,7 +792,8 @@ onUnmounted(() => {
     flex: 0 0 auto;
     gap: 0.5rem 0.75rem;
     grid-template-columns: auto 1fr auto;
-    padding: 0.75rem 1rem;
+    padding-block: 0.75rem;
+    padding-inline: 1rem;
   }
 
   .queue-overall__count {
@@ -806,12 +812,11 @@ onUnmounted(() => {
   }
 
   .media-selector {
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-inline-end: 0;
     flex-direction: row;
+    border-inline-end: 0;
     gap: 0.75rem;
     margin-inline: -1rem;
+    overflow: auto hidden;
     padding-block: 0.5rem 1rem;
     padding-inline: 1.25rem;
     scroll-snap-type: inline mandatory;
@@ -819,10 +824,10 @@ onUnmounted(() => {
 
   .media-selector__item {
     flex: 0 0 10rem;
+    padding: 0.5rem;
     border: 1px solid transparent;
     gap: 0.5rem;
     grid-template-columns: 3.5rem minmax(0, 1fr);
-    padding: 0.5rem;
     scroll-snap-align: start;
   }
 
