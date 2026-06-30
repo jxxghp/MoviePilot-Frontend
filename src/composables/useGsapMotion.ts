@@ -17,14 +17,7 @@ function isMotionDisabled(disabled?: MaybeRefOrGetter<boolean>) {
 }
 
 function showWithoutMotion(target: Element | Element[], onComplete?: () => void) {
-  gsap.killTweensOf(target)
-  gsap.set(target, {
-    autoAlpha: 1,
-    clearProps: motionClearProps,
-    x: 0,
-    y: 0,
-    scale: 1,
-  })
+  killGsapMotion(target)
   onComplete?.()
 }
 
@@ -47,6 +40,13 @@ export function useGsapMotionDisabled() {
 
 export function killGsapMotion(target: Element | Element[]) {
   gsap.killTweensOf(target)
+  gsap.set(target, {
+    autoAlpha: 1,
+    clearProps: motionClearProps,
+    scale: 1,
+    x: 0,
+    y: 0,
+  })
 }
 
 export function animateGsapPageEnter(element: Element, options: GsapMotionOptions = {}) {
