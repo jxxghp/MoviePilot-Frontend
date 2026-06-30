@@ -472,16 +472,22 @@ onBeforeMount(() => {
 
             <main class="subscribe-files-main">
               <div class="subscribe-files-tabs">
-                <VTabs v-model="activeTab" show-arrows class="v-tabs-pill subscribe-files-tabs__control">
-                  <VTab value="download" selected-class="v-slide-group-item--active v-tab--selected">
+                <VBtnToggle
+                  v-model="activeTab"
+                  mandatory
+                  divided
+                  class="subscribe-files-tab-group"
+                  selected-class="subscribe-files-tab-group__button--active"
+                >
+                  <VBtn value="download" class="subscribe-files-tab-group__button">
                     <VIcon size="20" start icon="mdi-download" />
                     {{ t('dialog.subscribeFiles.downloadTab') }}
-                  </VTab>
-                  <VTab value="library" selected-class="v-slide-group-item--active v-tab--selected">
+                  </VBtn>
+                  <VBtn value="library" class="subscribe-files-tab-group__button">
                     <VIcon size="20" start icon="mdi-filmstrip-box-multiple" />
                     {{ t('dialog.subscribeFiles.libraryTab') }}
-                  </VTab>
-                </VTabs>
+                  </VBtn>
+                </VBtnToggle>
               </div>
 
               <div v-if="display.mdAndUp.value" class="subscribe-files-detail">
@@ -978,10 +984,32 @@ onBeforeMount(() => {
   padding: 1rem 1rem 0;
 }
 
-.subscribe-files-tabs__control {
+.subscribe-files-tab-group {
+  display: grid;
+  overflow: hidden;
+  inline-size: min(28rem, 100%);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
+  gap: 0.35rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.25rem;
+}
+
+.subscribe-files-tab-group :deep(.v-btn) {
+  min-inline-size: 0;
+}
+
+.subscribe-files-tab-group__button {
+  border-radius: calc(var(--app-control-radius) - 0.15rem) !important;
+  color: rgba(var(--v-theme-on-surface), 0.72) !important;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.subscribe-files-tab-group__button--active {
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.92), rgba(var(--v-theme-primary), 0.68)) !important;
+  color: rgb(var(--v-theme-on-primary)) !important;
 }
 
 .subscribe-files-detail {
@@ -1238,10 +1266,6 @@ onBeforeMount(() => {
   --sfd-code-opacity: 0.14;
 }
 
-:deep(.v-tab) {
-  min-inline-size: 12rem;
-}
-
 @media (width <= 960px) {
   .subscribe-files-dialog {
     border: 0;
@@ -1324,8 +1348,8 @@ onBeforeMount(() => {
     padding: 0.9rem 1rem 0;
   }
 
-  :deep(.v-tab) {
-    min-inline-size: 9.5rem;
+  .subscribe-files-tab-group {
+    inline-size: 100%;
   }
 }
 
