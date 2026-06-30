@@ -708,7 +708,9 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 html[data-theme="transparent"].transparent-glass-lightweight .app-card-colorful,
-html[data-theme="transparent"].transparent-glass-lightweight .v-theme--transparent .app-card-colorful {
+html[data-theme="transparent"].transparent-glass-lightweight .v-theme--transparent .app-card-colorful,
+html[data-theme="transparent"].transparent-glass-realtime .app-card-colorful,
+html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent .app-card-colorful {
   backdrop-filter: none;
 }
 

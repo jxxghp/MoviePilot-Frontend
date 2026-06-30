@@ -234,6 +234,34 @@ html[data-theme="transparent"].transparent-glass-realtime {
     filter: none;
     transform: none;
   }
+
+  .v-list,
+  .v-card:not(.no-blur, .bg-primary),
+  .v-sheet,
+  .v-expansion-panel {
+    backdrop-filter: none;
+  }
+
+  .layout-vertical-nav,
+  .v-toolbar,
+  .v-footer,
+  .theme-customizer-panel-host,
+  .theme-customizer-panel,
+  .agent-assistant-panel,
+  .agent-assistant-fab__bubble,
+  .nav-button,
+  .layout-navbar,
+  .v-overlay__content,
+  .v-overlay__content .v-card:not(.bg-primary),
+  .v-overlay__content .v-list {
+    backdrop-filter: blur(var(--transparent-blur));
+  }
+
+  .layout-vertical-nav,
+  .theme-customizer-panel-host,
+  .agent-assistant-panel {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
+  }
 }
 
 html[data-theme="transparent"].transparent-blur-disabled {
