@@ -190,8 +190,7 @@ html[data-theme="transparent"].transparent-glass-lightweight {
   .theme-customizer-panel,
   .agent-assistant-panel,
   .agent-assistant-fab__bubble,
-  .nav-button,
-  .layout-navbar {
+  .nav-button {
     backdrop-filter: blur(var(--transparent-blur));
   }
 
@@ -213,6 +212,15 @@ html[data-theme="transparent"].transparent-glass-lightweight {
   .v-expansion-panel,
   .v-list {
     background-color: rgba(var(--v-theme-surface), var(--transparent-opacity));
+  }
+
+  .footer-nav-card.v-card {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
+  }
+
+  .plugin-quick-access.v-card {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
   }
 
   .v-overlay__content,
@@ -256,6 +264,15 @@ html[data-theme="transparent"].transparent-glass-realtime {
   .v-overlay__content .v-card:not(.bg-primary),
   .v-overlay__content .v-list {
     backdrop-filter: blur(var(--transparent-blur));
+  }
+
+  .footer-nav-card.v-card {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
+  }
+
+  .plugin-quick-access.v-card {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
   }
 
   .layout-vertical-nav,
