@@ -419,7 +419,7 @@ onBeforeMount(() => {
                   <div class="subscribe-files-stat-card__icon">
                     <VIcon :icon="item.icon" :color="item.color" size="22" />
                   </div>
-                  <div>
+                  <div class="subscribe-files-stat-card__content">
                     <div class="subscribe-files-stat-card__label">{{ item.label }}</div>
                     <div class="subscribe-files-stat-card__value">{{ item.value }}</div>
                   </div>
@@ -870,6 +870,10 @@ onBeforeMount(() => {
 
 .subscribe-files-stat-card > .v-progress-linear {
   grid-column: 1 / -1;
+}
+
+.subscribe-files-stat-card__content {
+  min-inline-size: 0;
 }
 
 .subscribe-files-stat-card__icon {
@@ -1332,7 +1336,19 @@ onBeforeMount(() => {
   .subscribe-files-stat-card {
     padding: 0.75rem;
     gap: 0.45rem;
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .subscribe-files-stat-card__content {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .subscribe-files-stat-card__label,
+  .subscribe-files-stat-card__value {
+    white-space: nowrap;
   }
 
   .subscribe-files-stat-card__icon {
