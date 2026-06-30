@@ -687,6 +687,10 @@ onBeforeMount(() => {
   --sfd-blur: 18px;
   --sfd-border-opacity: 0.14;
   --sfd-dialog-opacity: 0.9;
+  --sfd-hero-end-opacity: 0.88;
+  --sfd-hero-mid-opacity: 0.62;
+  --sfd-hero-shade-opacity: 0.92;
+  --sfd-hero-start-opacity: 0.98;
   --sfd-panel-opacity: 0.12;
   --sfd-panel-strong-opacity: 0.18;
   --sfd-code-opacity: 0.16;
@@ -718,7 +722,12 @@ onBeforeMount(() => {
   overflow: hidden;
   min-block-size: 21rem;
   background:
-    linear-gradient(90deg, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.62) 48%, rgba(var(--v-theme-surface), 0.88)),
+    linear-gradient(
+      90deg,
+      rgba(var(--v-theme-surface), var(--sfd-hero-start-opacity)),
+      rgba(var(--v-theme-surface), var(--sfd-hero-mid-opacity)) 48%,
+      rgba(var(--v-theme-surface), var(--sfd-hero-end-opacity))
+    ),
     var(--subscribe-files-backdrop) center / cover;
 }
 
@@ -726,7 +735,7 @@ onBeforeMount(() => {
   position: absolute;
   background:
     radial-gradient(circle at 24% 8%, rgba(var(--v-theme-primary), 0.24), transparent 34%),
-    linear-gradient(180deg, transparent, rgba(var(--v-theme-surface), 0.92) 94%);
+    linear-gradient(180deg, transparent, rgba(var(--v-theme-surface), var(--sfd-hero-shade-opacity)) 94%);
   inset: 0;
 }
 
@@ -1261,9 +1270,20 @@ onBeforeMount(() => {
   --sfd-accent-opacity: 0.12;
   --sfd-blur: var(--transparent-blur-heavy, 18px);
   --sfd-dialog-opacity: var(--transparent-opacity-heavy, 0.5);
-  --sfd-panel-opacity: var(--transparent-opacity-light, 0.2);
+  --sfd-hero-end-opacity: 0.42;
+  --sfd-hero-mid-opacity: 0.2;
+  --sfd-hero-shade-opacity: 0.48;
+  --sfd-hero-start-opacity: 0.52;
+  --sfd-panel-opacity: 0.14;
   --sfd-panel-strong-opacity: var(--transparent-opacity, 0.3);
   --sfd-code-opacity: 0.14;
+}
+
+:global(html[data-theme='transparent']) .subscribe-files-progress__item,
+:global(html[data-theme='transparent']) .subscribe-files-stat-card,
+:global(html[data-theme='transparent']) .subscribe-files-tab-group {
+  backdrop-filter: blur(var(--transparent-blur-light, 6px));
+  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
 }
 
 @media (width <= 960px) {
@@ -1284,7 +1304,7 @@ onBeforeMount(() => {
     display: grid;
     gap: 1rem;
     grid-template-columns: 8rem minmax(0, 1fr);
-    padding: calc(env(safe-area-inset-top) + 4rem) 1rem 1rem;
+    padding: 1rem;
   }
 
   .subscribe-files-poster-card {
