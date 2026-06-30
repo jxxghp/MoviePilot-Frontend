@@ -156,7 +156,7 @@ export default {
     backgroundBlur: 'Background Frosted Blur',
     transparencyGlassQuality: 'Glass Effect Quality',
     transparencyGlassQualityLightweight: 'Lightweight',
-    transparencyGlassQualityRealtime: 'Live Glass',
+    transparencyGlassQualityRealtime: 'Realtime',
     transparencyGlassQualityLightweightHint:
       'Keeps a similar translucent glass look while reducing live background sampling on dense pages.',
     transparencyGlassQualityRealtimeHint:

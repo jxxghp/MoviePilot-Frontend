@@ -12,9 +12,9 @@ export interface TransparencySettings {
 }
 
 export const transparencyPresets = {
-  low: { opacity: 0.1, blur: 5 },
+  low: { opacity: 0.6, blur: 5 },
   medium: { opacity: 0.3, blur: 10 },
-  high: { opacity: 0.6, blur: 15 },
+  high: { opacity: 0.1, blur: 15 },
 }
 
 export const TRANSPARENCY_SETTINGS_CHANGED_EVENT = 'transparency-settings-changed'

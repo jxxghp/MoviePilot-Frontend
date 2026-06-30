@@ -154,7 +154,7 @@ export default {
     backgroundBlur: '背景磨砂效果',
     transparencyGlassQuality: '玻璃效果品質',
     transparencyGlassQualityLightweight: '輕量',
-    transparencyGlassQualityRealtime: '即時毛玻璃',
+    transparencyGlassQualityRealtime: '即時',
     transparencyGlassQualityLightweightHint: '保持接近即時毛玻璃的透明觀感，減少密集頁面的背景即時取樣。',
     transparencyGlassQualityRealtimeHint: '使用完整即時毛玻璃路徑，視覺品質更高，但可能增加 GPU 佔用。',
     transparencyReset: '重置',
