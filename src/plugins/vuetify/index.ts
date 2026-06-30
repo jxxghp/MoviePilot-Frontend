@@ -2,6 +2,7 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import { VBtn } from 'vuetify/components/VBtn'
 import * as labsComponents from 'vuetify/labs/components'
+import AppDialog from '@/components/dialog/AppDialog'
 import defaults from './defaults'
 import { icons } from './icons'
 import theme from './theme'
@@ -15,6 +16,7 @@ export default createVuetify({
   theme,
   components: {
     ...components,
+    VDialog: AppDialog,
     ...labsComponents,
   },
 })
