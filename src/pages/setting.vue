@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import router from '@/router'
 import { getSettingTabs } from '@/router/i18n-menu'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
+import GsapFadeSlideTransition from '@/components/motion/GsapFadeSlideTransition.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -64,7 +65,7 @@ watch(activeTab, markTabVisited, { immediate: true })
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
       <VWindowItem v-for="item in settingTabComponents" :key="item.value" :value="item.value">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <component
               :is="item.component"
@@ -72,7 +73,7 @@ watch(activeTab, markTabVisited, { immediate: true })
               :active="activeTab === item.value"
             />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
     </VWindow>
   </div>

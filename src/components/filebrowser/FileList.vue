@@ -13,6 +13,12 @@ import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import {
+  animateGsapStaggerReveal,
+  killGsapMotion,
+  prepareGsapRevealElement,
+  useGsapMotionDisabled,
+} from '@/composables/useGsapMotion'
 
 const FileRenameDialog = defineAsyncComponent(() => import('../dialog/FileRenameDialog.vue'))
 const MediaInfoDialog = defineAsyncComponent(() => import('../dialog/MediaInfoDialog.vue'))
@@ -86,6 +92,9 @@ const progressValue = ref(0)
 
 // 内容列表
 const items = ref<FileItem[]>([])
+
+const fileListMotionRootRef = ref<HTMLElement | null>(null)
+const motionDisabled = useGsapMotionDisabled()
 
 // 过滤条件
 const filter = ref('')
@@ -212,6 +221,26 @@ const files = computed(() => filteredItems.value.filter(item => item.type === 'f
 const displayItems = computed(() => [...dirs.value, ...files.value])
 // 是否文件
 const isFile = computed(() => inProps.item.type == 'file')
+
+function getVisibleFileListMotionItems() {
+  const root = fileListMotionRootRef.value
+  if (!root) return []
+
+  return Array.from(root.querySelectorAll<HTMLElement>('.file-list-motion-item')).filter(element => element.isConnected)
+}
+
+function playFileListReveal() {
+  if (loading.value || isFile.value || displayItems.value.length === 0) return
+
+  const elements = getVisibleFileListMotionItems().slice(0, 28)
+  elements.forEach(element => prepareGsapRevealElement(element, { disabled: motionDisabled, y: 8, scale: 0.995 }))
+  animateGsapStaggerReveal(elements, { disabled: motionDisabled, duration: 0.26, stagger: 0.018, y: 8, scale: 0.995 })
+}
+
+function cleanupFileListMotion() {
+  const elements = getVisibleFileListMotionItems()
+  if (elements.length) killGsapMotion(elements)
+}
 
 // 需要整理的文件项
 const transferItems = ref<FileItem[]>([])
@@ -421,6 +450,17 @@ watch(
     revokeCurrentImgLink()
   },
   { immediate: true },
+)
+
+watch(
+  () => [loading.value, items.value] as const,
+  async ([isLoading]) => {
+    if (isLoading) return
+
+    await nextTick()
+    playFileListReveal()
+  },
+  { flush: 'post' },
 )
 
 // 显示重命名弹窗
@@ -759,7 +799,12 @@ useKeepAliveRefresh(list_files, {
   active: computed(() => inProps.active),
 })
 
+onActivated(() => {
+  if (!loading.value) void nextTick(playFileListReveal)
+})
+
 onUnmounted(() => {
+  cleanupFileListMotion()
   revokeCurrentImgLink()
   stopLoadingProgress()
   closeProgressDialog()
@@ -838,80 +883,86 @@ onUnmounted(() => {
       </VCardText>
       <!-- 目录和文件列表 -->
       <VCardText v-else-if="dirs.length || files.length" class="p-0 flex-grow-1 overflow-hidden">
-        <VList
-          class="text-high-emphasis file-list-container"
-          :style="{ height: `${listAvailableHeight}px`, maxHeight: `${listAvailableHeight}px` }"
-        >
-          <VVirtualScroll :items="displayItems" style="block-size: 100%">
-            <template #default="{ item }">
-              <VHover>
-                <template #default="hover">
-                  <VListItem v-bind="hover.props" class="px-3 pe-1" @click="listItemClick(item)">
-                    <template #prepend>
-                      <VListItemAction v-if="selectMode">
-                        <VCheckbox
-                          :model-value="isSelected(item)"
-                          @update:model-value="setItemSelected(item, !!$event)"
-                          @click.stop
-                        />
-                      </VListItemAction>
-                      <template v-else>
-                        <VIcon
-                          v-if="inProps.icons && item.extension"
-                          :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
-                        />
-                        <VIcon v-else-if="item.type == 'dir'" icon="mdi-folder" />
-                        <VIcon v-else icon="mdi-file-outline" />
+        <div ref="fileListMotionRootRef" class="file-list-motion-root">
+          <VList
+            class="text-high-emphasis file-list-container"
+            :style="{ height: `${listAvailableHeight}px`, maxHeight: `${listAvailableHeight}px` }"
+          >
+            <VVirtualScroll :items="displayItems" style="block-size: 100%">
+              <template #default="{ item }">
+                <VHover>
+                  <template #default="hover">
+                    <VListItem
+                      v-bind="hover.props"
+                      class="px-3 pe-1 file-list-motion-item"
+                      @click="listItemClick(item)"
+                    >
+                      <template #prepend>
+                        <VListItemAction v-if="selectMode">
+                          <VCheckbox
+                            :model-value="isSelected(item)"
+                            @update:model-value="setItemSelected(item, !!$event)"
+                            @click.stop
+                          />
+                        </VListItemAction>
+                        <template v-else>
+                          <VIcon
+                            v-if="inProps.icons && item.extension"
+                            :icon="inProps.icons[item.extension.toLowerCase()] || inProps.icons?.other"
+                          />
+                          <VIcon v-else-if="item.type == 'dir'" icon="mdi-folder" />
+                          <VIcon v-else icon="mdi-file-outline" />
+                        </template>
                       </template>
-                    </template>
-                    <VListItemTitle v-text="item.name" />
-                    <VListItemSubtitle v-if="item.size">
-                      {{ formatBytes(item.size) }}
-                    </VListItemSubtitle>
-                    <template #append>
-                      <IconBtn v-if="display.smAndDown.value && !selectMode">
-                        <VIcon icon="mdi-dots-vertical" />
-                        <VMenu activator="parent" close-on-content-click>
-                          <VList>
-                            <template v-for="(menu, i) in dropdownItems" :key="i">
-                              <VListItem
-                                v-if="menu.show"
-                                :base-color="menu.props.color"
-                                @click="menu.props.click(item)"
-                              >
-                                <template #prepend>
-                                  <VIcon :icon="menu.props.prependIcon" />
-                                </template>
-                                <VListItemTitle v-text="menu.title" />
-                              </VListItem>
-                            </template>
-                          </VList>
-                        </VMenu>
-                      </IconBtn>
-                      <span v-if="hover.isHovering && display.mdAndUp.value && !selectMode" class="flex">
-                        <IconBtn @click.stop="recognize(item.path)">
-                          <VIcon icon="mdi-text-recognition" />
+                      <VListItemTitle v-text="item.name" />
+                      <VListItemSubtitle v-if="item.size">
+                        {{ formatBytes(item.size) }}
+                      </VListItemSubtitle>
+                      <template #append>
+                        <IconBtn v-if="display.smAndDown.value && !selectMode">
+                          <VIcon icon="mdi-dots-vertical" />
+                          <VMenu activator="parent" close-on-content-click>
+                            <VList>
+                              <template v-for="(menu, i) in dropdownItems" :key="i">
+                                <VListItem
+                                  v-if="menu.show"
+                                  :base-color="menu.props.color"
+                                  @click="menu.props.click(item)"
+                                >
+                                  <template #prepend>
+                                    <VIcon :icon="menu.props.prependIcon" />
+                                  </template>
+                                  <VListItemTitle v-text="menu.title" />
+                                </VListItem>
+                              </template>
+                            </VList>
+                          </VMenu>
                         </IconBtn>
-                        <IconBtn @click.stop="scrape(item)">
-                          <VIcon icon="mdi-auto-fix" />
-                        </IconBtn>
-                        <IconBtn @click.stop="showRenmae(item)">
-                          <VIcon icon="mdi-rename" />
-                        </IconBtn>
-                        <IconBtn @click.stop="showTransfer(item)">
-                          <VIcon icon="mdi-folder-arrow-right" />
-                        </IconBtn>
-                        <IconBtn @click.stop="deleteItem(item)">
-                          <VIcon icon="mdi-delete-outline" color="error" />
-                        </IconBtn>
-                      </span>
-                    </template>
-                  </VListItem>
-                </template>
-              </VHover>
-            </template>
-          </VVirtualScroll>
-        </VList>
+                        <span v-if="hover.isHovering && display.mdAndUp.value && !selectMode" class="flex">
+                          <IconBtn @click.stop="recognize(item.path)">
+                            <VIcon icon="mdi-text-recognition" />
+                          </IconBtn>
+                          <IconBtn @click.stop="scrape(item)">
+                            <VIcon icon="mdi-auto-fix" />
+                          </IconBtn>
+                          <IconBtn @click.stop="showRenmae(item)">
+                            <VIcon icon="mdi-rename" />
+                          </IconBtn>
+                          <IconBtn @click.stop="showTransfer(item)">
+                            <VIcon icon="mdi-folder-arrow-right" />
+                          </IconBtn>
+                          <IconBtn @click.stop="deleteItem(item)">
+                            <VIcon icon="mdi-delete-outline" color="error" />
+                          </IconBtn>
+                        </span>
+                      </template>
+                    </VListItem>
+                  </template>
+                </VHover>
+              </template>
+            </VVirtualScroll>
+          </VList>
+        </div>
       </VCardText>
       <VCardText v-else-if="filter" class="grow d-flex justify-center align-center grey--text py-5">
         {{ t('file.noFiles') }}
@@ -934,5 +985,9 @@ onUnmounted(() => {
   border-radius: 0 !important;
   block-size: 100%;
   max-block-size: 100%;
+}
+
+.file-list-motion-root {
+  min-block-size: 0;
 }
 </style>

@@ -1,7 +1,10 @@
 <script lang="ts" setup>
+import { animateGsapPageEnter, killGsapMotion, useGsapMotionDisabled } from '@/composables/useGsapMotion'
 import DefaultLayout from './default/components/DefaultLayout.vue'
 
 const route = useRoute()
+const routeContainerRef = ref<HTMLElement | null>(null)
+const motionDisabled = useGsapMotionDisabled()
 
 // keep-alive 缓存按页面身份命中，避免 query 变化导致同一页面反复新建实例。
 const routeCacheKey = computed(() => {
@@ -15,30 +18,23 @@ const routeCacheKey = computed(() => {
 
 // 页面过渡按实际页面身份触发；keep-alive 页面避免 query 变化时反复入场。
 const routeTransitionKey = computed(() => (route.meta.keepAlive ? routeCacheKey.value : route.fullPath))
-const isPageEntering = ref(false)
-let pageMotionTimer: number | null = null
 let pageMotionFrame: number | null = null
 
 // 使用稳定容器触发轻量入场动画，避免重建 keep-alive 导致页面缓存失效。
 function playPageEnterMotion() {
-  if (pageMotionTimer) {
-    window.clearTimeout(pageMotionTimer)
-    pageMotionTimer = null
-  }
-
   if (pageMotionFrame) {
     window.cancelAnimationFrame(pageMotionFrame)
     pageMotionFrame = null
   }
 
-  isPageEntering.value = false
   pageMotionFrame = window.requestAnimationFrame(() => {
-    isPageEntering.value = true
     pageMotionFrame = null
-    pageMotionTimer = window.setTimeout(() => {
-      isPageEntering.value = false
-      pageMotionTimer = null
-    }, 220)
+
+    if (routeContainerRef.value) {
+      animateGsapPageEnter(routeContainerRef.value, {
+        disabled: motionDisabled,
+      })
+    }
   })
 }
 
@@ -47,15 +43,15 @@ watch(routeTransitionKey, playPageEnterMotion, { flush: 'post' })
 onMounted(playPageEnterMotion)
 
 onBeforeUnmount(() => {
-  if (pageMotionTimer) window.clearTimeout(pageMotionTimer)
   if (pageMotionFrame) window.cancelAnimationFrame(pageMotionFrame)
+  if (routeContainerRef.value) killGsapMotion(routeContainerRef.value)
 })
 </script>
 
 <template>
   <DefaultLayout>
     <router-view v-slot="{ Component }">
-      <div class="mp-page-route" :class="{ 'mp-page-route--entering': isPageEntering }">
+      <div ref="routeContainerRef" class="mp-page-route">
         <keep-alive :max="24">
           <component :is="Component" v-if="route.meta.keepAlive" :key="routeCacheKey" />
         </keep-alive>

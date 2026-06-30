@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance, Ref } from 'vue'
 import { debounce } from 'lodash-es'
 import { useToast } from 'vue-toastification'
 import api from '@/api'
@@ -18,6 +19,12 @@ import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import {
+  animateGsapStaggerReveal,
+  killGsapMotion,
+  prepareGsapRevealElement,
+  useGsapMotionDisabled,
+} from '@/composables/useGsapMotion'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -223,6 +230,14 @@ const mobileLoading = ref(false)
 
 // 移动端已展开完整路径的记录 ID。
 const mobileExpandedPathIds = ref<number[]>([])
+
+const motionDisabled = useGsapMotionDisabled()
+const mobileRecordMotionElements = new Map<number, HTMLElement>()
+const pendingMobileRecordMotionElements = new Map<number, HTMLElement>()
+const revealedMobileHistoryIds = new Set<number>()
+let mobileRecordMotionFrame: number | null = null
+
+type MobileVirtualItemRef = Ref<HTMLElement | undefined> | ((element: Element | ComponentPublicInstance | null) => void)
 
 // 搜索
 const search = ref(getRouteQueryString(route.query.search))
@@ -496,9 +511,96 @@ function updateSearchHintList(list: TransferHistory[]) {
   )
 }
 
+function resolveMobileRecordElement(element: Element | ComponentPublicInstance | null) {
+  if (!element) return null
+  if (element instanceof HTMLElement) return element
+
+  const componentElement = (element as ComponentPublicInstance).$el
+  return componentElement instanceof HTMLElement ? componentElement : null
+}
+
+function syncMobileVirtualItemRef(
+  itemRef: MobileVirtualItemRef,
+  element: Element | ComponentPublicInstance | null,
+  htmlElement: HTMLElement | null,
+) {
+  if (typeof itemRef === 'function') {
+    itemRef(element)
+    return
+  }
+
+  itemRef.value = htmlElement ?? undefined
+}
+
+function cancelMobileRecordMotionFrame() {
+  if (mobileRecordMotionFrame === null || typeof window === 'undefined') return
+
+  window.cancelAnimationFrame(mobileRecordMotionFrame)
+  mobileRecordMotionFrame = null
+}
+
+function flushMobileRecordReveal() {
+  mobileRecordMotionFrame = null
+
+  const elements = Array.from(pendingMobileRecordMotionElements.values()).filter(element => element.isConnected)
+  pendingMobileRecordMotionElements.clear()
+
+  animateGsapStaggerReveal(elements, { disabled: motionDisabled, duration: 0.3, stagger: 0.02, y: 10, scale: 0.99 })
+}
+
+function queueMobileRecordReveal(id: number, element: HTMLElement) {
+  if (!isMobile.value || revealedMobileHistoryIds.has(id)) return
+
+  revealedMobileHistoryIds.add(id)
+  pendingMobileRecordMotionElements.set(id, element)
+  prepareGsapRevealElement(element, { disabled: motionDisabled, y: 10, scale: 0.99 })
+
+  if (typeof window === 'undefined') {
+    flushMobileRecordReveal()
+    return
+  }
+
+  if (mobileRecordMotionFrame !== null) return
+
+  mobileRecordMotionFrame = window.requestAnimationFrame(flushMobileRecordReveal)
+}
+
+function cleanupMobileRecordMotion(options: { clearRevealed?: boolean } = {}) {
+  cancelMobileRecordMotionFrame()
+  pendingMobileRecordMotionElements.clear()
+
+  const elements = Array.from(mobileRecordMotionElements.values()).filter(element => element.isConnected)
+  if (elements.length) killGsapMotion(elements)
+
+  mobileRecordMotionElements.clear()
+  if (options.clearRevealed) revealedMobileHistoryIds.clear()
+}
+
+function setMobileRecordRef(
+  item: TransferHistory,
+  itemRef: MobileVirtualItemRef,
+  element: Element | ComponentPublicInstance | null,
+) {
+  const htmlElement = resolveMobileRecordElement(element)
+  syncMobileVirtualItemRef(itemRef, element, htmlElement)
+
+  if (!htmlElement) {
+    const previousElement = mobileRecordMotionElements.get(item.id)
+    if (previousElement) killGsapMotion(previousElement)
+
+    mobileRecordMotionElements.delete(item.id)
+    pendingMobileRecordMotionElements.delete(item.id)
+    return
+  }
+
+  mobileRecordMotionElements.set(item.id, htmlElement)
+  queueMobileRecordReveal(item.id, htmlElement)
+}
+
 // 重置移动端无限列表，让 VInfiniteScroll 从第一页重新触发加载。
 function resetMobileHistory() {
   mobileFetchDataRequestSeed++
+  cleanupMobileRecordMotion({ clearRevealed: true })
   mobileDataList.value = []
   mobileCurrentPage.value = 1
   mobileHasMore.value = true
@@ -1337,6 +1439,7 @@ onUnmounted(() => {
   debouncedReloadPage.cancel()
   debouncedReloadSearchPage.cancel()
   debouncedReloadMobileSearchPage.cancel()
+  cleanupMobileRecordMotion({ clearRevealed: true })
   stopAiRedoProgress()
   closeProgressDialog()
   aiRedoProgressDialogController?.close()
@@ -1657,7 +1760,7 @@ onUnmounted(() => {
       >
         <template #default="{ item, itemRef }">
           <article
-            :ref="itemRef"
+            :ref="element => setMobileRecordRef(item, itemRef, element)"
             class="transfer-history-mobile-record"
             :class="{
               'transfer-history-mobile-record--batch': mobileBatchMode,

@@ -1,12 +1,42 @@
 <script lang="ts" setup>
+import {
+  animateGsapStaggerReveal,
+  killGsapMotion,
+  prepareGsapRevealElement,
+  useGsapMotionDisabled,
+} from '@/composables/useGsapMotion'
+
 // 定义输入参数
 const props = defineProps({
   text: String,
 })
+
+const loadingRootRef = ref<HTMLElement | null>(null)
+const motionDisabled = useGsapMotionDisabled()
+
+function getLoadingMotionElements() {
+  const root = loadingRootRef.value
+  if (!root) return []
+
+  return Array.from(root.querySelectorAll<HTMLElement>('.wave-loader, .initial-loading-text'))
+}
+
+onMounted(async () => {
+  await nextTick()
+
+  const elements = getLoadingMotionElements()
+  elements.forEach(element => prepareGsapRevealElement(element, { disabled: motionDisabled, y: 10, scale: 0.99 }))
+  animateGsapStaggerReveal(elements, { disabled: motionDisabled, duration: 0.28, stagger: 0.04, y: 10, scale: 0.99 })
+})
+
+onUnmounted(() => {
+  const elements = getLoadingMotionElements()
+  if (elements.length) killGsapMotion(elements)
+})
 </script>
 
 <template>
-  <div class="w-full text-center text-gray-500 text-sm flex flex-col items-center my-5">
+  <div ref="loadingRootRef" class="w-full text-center text-gray-500 text-sm flex flex-col items-center my-5">
     <div class="initial-loading-container">
       <div class="initial-loading-content">
         <div class="wave-loader">

@@ -16,6 +16,7 @@ import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import GsapFadeSlideTransition from '@/components/motion/GsapFadeSlideTransition.vue'
 
 // 国际化
 const { t } = useI18n()
@@ -1702,7 +1703,7 @@ function onDragStartPlugin(evt: any) {
     <VWindow v-model="activeTab" class="disable-tab-transition px-2" :touch="false">
       <!-- 我的插件 -->
       <VWindowItem value="installed">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
             <LoadingBanner v-if="!isRefreshed" class="mt-12" />
@@ -1845,11 +1846,11 @@ function onDragStartPlugin(evt: any) {
               "
             />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <!-- 插件市场 -->
       <VWindowItem value="market">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <LoadingBanner
               v-if="!isAppMarketLoaded || (isMarketRefreshing && displayUninstalledList.length === 0)"
@@ -1885,7 +1886,7 @@ function onDragStartPlugin(evt: any) {
               :error-description="t('plugin.allPluginsInstalled')"
             />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
     </VWindow>
   </div>

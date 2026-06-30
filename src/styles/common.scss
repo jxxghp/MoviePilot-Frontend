@@ -226,25 +226,6 @@ html[data-theme-radius='extra'] {
   min-block-size: 100%;
 }
 
-.mp-page-route--entering {
-  animation: mp-page-route-enter var(--mp-motion-duration-page) var(--mp-motion-ease-standard) both;
-  will-change: opacity, transform;
-}
-
-@keyframes mp-page-route-enter {
-  from {
-    filter: blur(1px);
-    opacity: 0;
-    transform: translate3d(0, 0.5rem, 0) scale(0.992);
-  }
-
-  to {
-    filter: blur(0);
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
 .mp-page-enter-active,
 .mp-page-leave-active {
   backface-visibility: hidden;
@@ -368,10 +349,6 @@ html[data-theme-radius='extra'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mp-page-route--entering {
-    animation-duration: 1ms !important;
-  }
-
   .mp-page-enter-active,
   .mp-page-leave-active,
   .mp-dialog-transition-enter-active,

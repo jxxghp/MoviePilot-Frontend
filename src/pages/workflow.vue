@@ -9,6 +9,7 @@ import { usePWA } from '@/composables/usePWA'
 import { getWorkflowTabs } from '@/router/i18n-menu'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import GsapFadeSlideTransition from '@/components/motion/GsapFadeSlideTransition.vue'
 
 // 国际化
 const { t } = useI18n()
@@ -107,18 +108,18 @@ onMounted(() => {
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition content-window" :touch="false">
       <VWindowItem value="list">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <WorkflowListView ref="workflowListViewRef" />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <VWindowItem value="share">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <WorkflowShareView :keyword="shareKeyword" @update="refreshWorkflowList" />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
     </VWindow>
 

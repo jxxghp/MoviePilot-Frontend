@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  animateGsapStaggerReveal,
+  killGsapMotion,
+  prepareGsapRevealElement,
+  useGsapMotionDisabled,
+} from '@/composables/useGsapMotion'
 import type { ComponentPublicInstance } from 'vue'
 
 type ItemKey = string | number
@@ -16,6 +22,7 @@ const props = withDefaults(
     initialCount?: number
     batchSize?: number
     overscanRows?: number
+    enableMotion?: boolean
     getItemKey?: (item: any, index: number) => string | number
   }>(),
   {
@@ -28,6 +35,7 @@ const props = withDefaults(
     initialCount: 24,
     batchSize: 24,
     overscanRows: 4,
+    enableMotion: true,
     getItemKey: undefined,
   },
 )
@@ -47,6 +55,7 @@ interface VirtualRange {
 
 const containerRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
+const motionDisabled = useGsapMotionDisabled()
 
 const layoutWidth = ref(0)
 const viewportTop = ref(0)
@@ -59,6 +68,8 @@ const itemHeights = new Map<ItemKey, number>()
 const observedElements = new Map<HTMLElement, ItemKey>()
 const keyElements = new Map<ItemKey, HTMLElement>()
 const itemRefCallbacks = new Map<ItemKey, (element: Element | ComponentPublicInstance | null) => void>()
+const revealedItemKeys = new Set<ItemKey>()
+const pendingRevealElements = new Map<ItemKey, HTMLElement>()
 
 let resizeObserver: ResizeObserver | null = null
 let itemResizeObserver: ResizeObserver | null = null
@@ -66,6 +77,7 @@ let overlayLockObserver: MutationObserver | null = null
 let scrollTarget: ScrollTarget | null = null
 let layoutFrameId: number | null = null
 let scrollFrameId: number | null = null
+let revealFrameId: number | null = null
 let mounted = false
 let pendingRevealIndex: number | null = null
 let lastMeasuredColumnCount = 0
@@ -475,6 +487,7 @@ function setItemRef(element: Element | ComponentPublicInstance | null, key: Item
 
   if (!htmlElement) {
     if (previousElement) {
+      killGsapMotion(previousElement)
       itemResizeObserver?.unobserve(previousElement)
       observedElements.delete(previousElement)
       keyElements.delete(key)
@@ -497,6 +510,7 @@ function setItemRef(element: Element | ComponentPublicInstance | null, key: Item
   observedElements.set(htmlElement, key)
   keyElements.set(key, htmlElement)
   itemResizeObserver?.observe(htmlElement)
+  queueItemReveal(key, htmlElement)
 }
 
 function getItemRef(key: ItemKey) {
@@ -768,12 +782,69 @@ function didKeysAppend(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
 }
 
 function syncMeasurementsForItems(nextKeys: ItemKey[], previousKeys: ItemKey[] = []) {
-  if (!didKeysAppend(nextKeys, previousKeys) && itemHeights.size) {
+  const isAppend = didKeysAppend(nextKeys, previousKeys)
+
+  if (!isAppend && itemHeights.size) {
     itemHeights.clear()
     heightVersion.value += 1
   }
 
+  if (!isAppend && revealedItemKeys.size) {
+    revealedItemKeys.clear()
+    void nextTick(queueVisibleItemReveals)
+  }
+
   pruneMeasurements()
+}
+
+function queueVisibleItemReveals() {
+  keyElements.forEach((element, key) => {
+    queueItemReveal(key, element)
+  })
+}
+
+function queueItemReveal(key: ItemKey, element: HTMLElement) {
+  if (
+    !props.enableMotion ||
+    motionDisabled.value ||
+    revealedItemKeys.has(key) ||
+    typeof window === 'undefined'
+  ) {
+    return
+  }
+
+  revealedItemKeys.add(key)
+  pendingRevealElements.set(key, element)
+  prepareGsapRevealElement(element, {
+    disabled: motionDisabled,
+  })
+
+  if (revealFrameId !== null) {
+    return
+  }
+
+  revealFrameId = window.requestAnimationFrame(() => {
+    revealFrameId = null
+    flushItemReveals()
+  })
+}
+
+function flushItemReveals() {
+  const elements = Array.from(pendingRevealElements.values())
+  pendingRevealElements.clear()
+
+  animateGsapStaggerReveal(elements, {
+    disabled: motionDisabled,
+  })
+}
+
+function cancelPendingItemReveals() {
+  if (revealFrameId !== null) {
+    window.cancelAnimationFrame(revealFrameId)
+    revealFrameId = null
+  }
+
+  pendingRevealElements.clear()
 }
 
 function invalidateMeasurementsForLayoutChange() {
@@ -833,6 +904,7 @@ onDeactivated(() => {
   mounted = false
   removeScrollListener(scrollTarget)
   scrollTarget = null
+  cancelPendingItemReveals()
 })
 
 onUnmounted(() => {
@@ -857,6 +929,9 @@ onUnmounted(() => {
     window.cancelAnimationFrame(scrollFrameId)
     scrollFrameId = null
   }
+
+  cancelPendingItemReveals()
+  keyElements.forEach(element => killGsapMotion(element))
 })
 
 watch(

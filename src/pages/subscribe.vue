@@ -8,6 +8,7 @@ import { usePWA } from '@/composables/usePWA'
 import { useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import GsapFadeSlideTransition from '@/components/motion/GsapFadeSlideTransition.vue'
 
 import { getSubscribeMovieTabs, getSubscribeTvTabs } from '@/router/i18n-menu'
 
@@ -513,7 +514,7 @@ onMounted(() => {
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition content-window" :touch="false">
       <VWindowItem value="mysub">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <SubscribeListView
               ref="subscribeListViewRef"
@@ -529,21 +530,21 @@ onMounted(() => {
               @batch-state-change="handleSubscribeBatchStateChange"
             />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <VWindowItem value="popular">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <SubscribePopularView :type="subType" />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <VWindowItem value="share">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <SubscribeShareView :keyword="shareKeyword" />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
     </VWindow>
 

@@ -9,6 +9,7 @@ import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useDynamicHeaderTab } from '@/composables/useDynamicHeaderTab'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import GsapFadeSlideTransition from '@/components/motion/GsapFadeSlideTransition.vue'
 
 const DiscoverTabOrderDialog = defineAsyncComponent(() => import('@/components/dialog/DiscoverTabOrderDialog.vue'))
 
@@ -195,32 +196,32 @@ onActivated(async () => {
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
       <VWindowItem value="themoviedb">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <TheMovieDbView />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <VWindowItem value="douban">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <DoubanView />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <VWindowItem value="bangumi">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <BangumiView />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
       <VWindowItem v-for="item in extraDiscoverSources" :key="item.mediaid_prefix" :value="item.mediaid_prefix">
-        <transition name="fade-slide" appear>
+        <GsapFadeSlideTransition appear>
           <div>
             <ExtraSourceView :source="item" />
           </div>
-        </transition>
+        </GsapFadeSlideTransition>
       </VWindowItem>
     </VWindow>
     <!-- 快速滚动到顶部按钮 -->

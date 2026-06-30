@@ -7,6 +7,12 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import type { DashboardItem } from '@/api/types'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
+import {
+  animateGsapStaggerReveal,
+  killGsapMotion,
+  prepareGsapRevealElement,
+  useGsapMotionDisabled,
+} from '@/composables/useGsapMotion'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -25,6 +31,7 @@ const { t } = useI18n()
 const { appMode } = usePWA()
 const display = useDisplay()
 const userStore = useUserStore()
+const dashboardMotionDisabled = useGsapMotionDisabled()
 const canAdmin = computed(() =>
   hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
 )
@@ -130,6 +137,7 @@ let isLegacyDashboardEnableConfigLoaded = false
 const dashboardGridResizeStartHeights = new Map<string, number | undefined>()
 const dashboardGridPendingContentResize = new Set<GridItemHTMLElement>()
 const dashboardGridObservedContentHeights = new Map<string, number>()
+const revealedDashboardGridItemIds = new Set<string>()
 
 let dashboardGridContentObserver: ResizeObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
@@ -324,6 +332,51 @@ function isDashboardGridReadyForReveal() {
   return getDashboardGridItemIds().length === 0 || !!dashboardGrid.value
 }
 
+// 只动画卡片内容层，避免覆盖 GridStack 写入的布局定位。
+function playDashboardGridRevealMotion() {
+  const gridElement = dashboardGridRef.value
+  if (!gridElement) return
+
+  const currentIds = new Set(getDashboardGridItemIds())
+  Array.from(revealedDashboardGridItemIds).forEach(id => {
+    if (!currentIds.has(id)) {
+      revealedDashboardGridItemIds.delete(id)
+    }
+  })
+
+  const elements = Array.from(gridElement.querySelectorAll<HTMLElement>('.dashboard-grid-item'))
+  const revealElements: HTMLElement[] = []
+
+  elements.forEach(element => {
+    const id = element.getAttribute('gs-id')
+    if (!id || revealedDashboardGridItemIds.has(id)) return
+
+    revealedDashboardGridItemIds.add(id)
+
+    if (dashboardMotionDisabled.value) return
+
+    const contentElement = element.querySelector<HTMLElement>('.dashboard-grid-item-content')
+    if (!contentElement) return
+
+    prepareGsapRevealElement(contentElement, {
+      disabled: dashboardMotionDisabled,
+      scale: 0.99,
+      y: 12,
+    })
+    revealElements.push(contentElement)
+  })
+
+  if (!revealElements.length) return
+
+  animateGsapStaggerReveal(revealElements, {
+    disabled: dashboardMotionDisabled,
+    duration: 0.42,
+    scale: 0.99,
+    stagger: 0.035,
+    y: 12,
+  })
+}
+
 // 在配置、组件和 GridStack 都就绪后安排仪表板整体渐现。
 function scheduleDashboardReveal() {
   if (
@@ -352,6 +405,7 @@ function scheduleDashboardReveal() {
 
     dashboardRevealFrame = window.requestAnimationFrame(() => {
       dashboardRevealFrame = null
+      playDashboardGridRevealMotion()
       notifyDashboardContentResize()
     })
   })
@@ -1403,6 +1457,10 @@ onBeforeUnmount(() => {
   dashboardGridPendingContentResize.clear()
   dashboardGridObservedContentHeights.clear()
   dashboardGridResizeStartHeights.clear()
+  dashboardGridRef.value?.querySelectorAll<HTMLElement>('.dashboard-grid-item-content').forEach(element => {
+    killGsapMotion(element)
+  })
+  revealedDashboardGridItemIds.clear()
   dashboardGrid.value?.destroy(false)
   dashboardGrid.value = null
 })
@@ -1478,10 +1536,6 @@ onBeforeUnmount(() => {
 
 .dashboard-grid {
   pointer-events: auto;
-  transition:
-    opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1),
-    transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: opacity, transform;
 }
 
 .dashboard-grid :deep(.v-card) {
@@ -1599,10 +1653,4 @@ onBeforeUnmount(() => {
   inset-inline-end: -4px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dashboard-grid {
-    transform: none;
-    transition: none;
-  }
-}
 </style>
