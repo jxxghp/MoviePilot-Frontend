@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { useTransparencySettings } from '@/composables/useTransparencySettings'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 
 // 国际化
 const { t } = useI18n()
+
+// 显示器宽度
+const display = useDisplay()
 
 // 输入参数
 const props = withDefaults(
@@ -48,7 +52,7 @@ const {
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" max-width="30rem">
+  <VDialog v-if="visible" v-model="visible" max-width="30rem" scrollable :fullscreen="!display.mdAndUp.value">
     <VCard>
       <VCardItem>
         <VCardTitle>

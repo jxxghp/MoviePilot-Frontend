@@ -1,3 +1,5 @@
+/* stylelint-disable no-duplicate-selectors */
+/* stylelint-disable no-descending-specificity */
 /* stylelint-disable scss/at-rule-no-unknown */
 
 // 透明主题专用样式
@@ -250,7 +252,6 @@ html[data-theme="transparent"].transparent-glass-realtime {
   .agent-assistant-panel,
   .agent-assistant-fab__bubble,
   .nav-button,
-  .layout-navbar,
   .v-overlay__content,
   .v-overlay__content .v-card:not(.bg-primary),
   .v-overlay__content .v-list {
