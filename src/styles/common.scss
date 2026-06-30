@@ -707,6 +707,13 @@ html[data-theme="transparent"] .app-card-colorful,
   --app-surface-border: 0 solid transparent;
 }
 
+html[data-theme="transparent"].transparent-glass-lightweight .app-card-colorful,
+html[data-theme="transparent"].transparent-glass-lightweight .v-theme--transparent .app-card-colorful,
+html[data-theme="transparent"].transparent-glass-realtime .app-card-colorful,
+html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent .app-card-colorful {
+  backdrop-filter: none;
+}
+
 // 保证卡片右上角的浮动操作区始终高于可点击的卡片内容层，避免误触发详情打开。
 .app-card-top-action {
   z-index: 2;

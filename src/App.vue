@@ -12,6 +12,12 @@ import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundMan
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
 import { applyStoredThemeCustomizerAppearance } from '@/composables/useThemeCustomizer'
+import {
+  applyStoredTransparencySettings,
+  TRANSPARENCY_SETTINGS_CHANGED_EVENT,
+  type TransparencyGlassQuality,
+  type TransparencySettings,
+} from '@/composables/useTransparencySettings'
 import { completeLaunchLoading } from '@/composables/useLaunchLoading'
 import { usePWA } from '@/composables/usePWA'
 import { themeManager } from '@/utils/themeManager'
@@ -60,29 +66,38 @@ const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
+const shouldUseTransparentBackgroundTreatment = computed(
+  () => (Boolean(isLogin.value) && isTransparentTheme.value) || isLoginWallpaperRoute.value,
+)
 const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isTransparentTheme.value),
+)
+const transparentBackgroundBlur = ref(16)
+const transparencyGlassQuality = ref<TransparencyGlassQuality>(
+  localStorage.getItem('transparency-glass-quality') === 'realtime' ? 'realtime' : 'lightweight',
+)
+const shouldRenderGlobalBlurLayer = computed(
+  () =>
+    shouldUseTransparentBackgroundTreatment.value &&
+    transparentBackgroundBlur.value > 0 &&
+    transparencyGlassQuality.value === 'realtime',
 )
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let authenticatedStateTimer: number | null = null
 
-function getStoredNumber(key: string, fallback: number, min: number, max: number) {
-  const parsed = Number.parseFloat(localStorage.getItem(key) || '')
-  if (!Number.isFinite(parsed)) return fallback
+function applyTransparentBackgroundSettings() {
+  const settings = applyStoredTransparencySettings()
 
-  return Math.min(max, Math.max(min, parsed))
+  transparentBackgroundBlur.value = settings.backgroundBlur
+  transparencyGlassQuality.value = settings.glassQuality
 }
 
-function applyTransparentBackgroundSettings() {
-  document.documentElement.style.setProperty(
-    '--transparent-background-poster-opacity',
-    (1 - getStoredNumber('transparency-background-poster-opacity', 0, 0, 1)).toString(),
-  )
-  document.documentElement.style.setProperty(
-    '--transparent-background-blur',
-    `${getStoredNumber('transparency-background-blur', 16, 0, 30)}px`,
-  )
+function handleTransparencySettingsChanged(event: Event) {
+  const { backgroundBlur, glassQuality } = (event as CustomEvent<TransparencySettings>).detail
+
+  transparentBackgroundBlur.value = backgroundBlur
+  transparencyGlassQuality.value = glassQuality
 }
 
 applyTransparentBackgroundSettings()
@@ -360,6 +375,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleVisibilityThemeSync)
   window.addEventListener('pageshow', handlePageShowThemeSync)
   window.addEventListener('focus', handlePageShowThemeSync)
+  window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 
   // 登录页壁纸仅在未登录登录页需要，避免其他首屏额外发起图片列表请求。
   watch(
@@ -413,6 +429,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityThemeSync)
   window.removeEventListener('pageshow', handlePageShowThemeSync)
   window.removeEventListener('focus', handlePageShowThemeSync)
+  window.removeEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 })
 </script>
 
@@ -422,7 +439,11 @@ onUnmounted(() => {
     <div
       v-if="backgroundImages.length > 0 && (isTransparentTheme || !isLogin)"
       class="background-container"
-      :class="{ 'is-transparent-theme': isTransparentTheme && isLogin }"
+      :class="{
+        'is-transparent-theme': shouldUseTransparentBackgroundTreatment,
+        'is-transparent-glass-lightweight':
+          shouldUseTransparentBackgroundTreatment && transparencyGlassQuality === 'lightweight',
+      }"
     >
       <div
         v-for="(imageUrl, index) in backgroundImages"
@@ -432,7 +453,7 @@ onUnmounted(() => {
         :style="{ 'backgroundImage': `url(${imageUrl})` }"
       />
       <!-- 全局磨砂层 -->
-      <div v-if="isLogin && isTransparentTheme" class="global-blur-layer"></div>
+      <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
     </div>
     <!-- 页面内容 -->
     <VApp :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }">
@@ -492,6 +513,17 @@ onUnmounted(() => {
 
 .background-container.is-transparent-theme .background-image.active {
   opacity: var(--transparent-background-poster-opacity, 1);
+}
+
+.background-container.is-transparent-glass-lightweight .background-image.active {
+  filter: blur(var(--transparent-background-blur, 16px));
+  transform: scale(1.03);
+}
+
+.background-container.is-transparent-glass-lightweight .background-image.active::after {
+  background:
+    linear-gradient(rgba(0, 0, 0, 30%) 0%, rgba(0, 0, 0, 60%) 100%),
+    rgba(128, 128, 128, 30%);
 }
 
 /* 全局磨砂层 */

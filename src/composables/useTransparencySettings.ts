@@ -1,22 +1,34 @@
 import { computed, ref } from 'vue'
 
+export type TransparencyGlassQuality = 'lightweight' | 'realtime'
+
 export interface TransparencySettings {
   backgroundBlur: number
   backgroundPosterOpacity: number
   blur: number
+  glassQuality: TransparencyGlassQuality
   level: string
   opacity: number
 }
 
 export const transparencyPresets = {
-  low: { opacity: 0.1, blur: 5 },
+  low: { opacity: 0.6, blur: 5 },
   medium: { opacity: 0.3, blur: 10 },
-  high: { opacity: 0.6, blur: 15 },
+  high: { opacity: 0.1, blur: 15 },
 }
+
+export const TRANSPARENCY_SETTINGS_CHANGED_EVENT = 'transparency-settings-changed'
 
 /** 将数值限制在指定范围内。 */
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+/** 读取玻璃质量档位，未知值回落到默认的轻量玻璃路径。 */
+function readGlassQuality(): TransparencyGlassQuality {
+  const storedQuality = localStorage.getItem('transparency-glass-quality')
+
+  return storedQuality === 'realtime' ? 'realtime' : 'lightweight'
 }
 
 /** 从本地存储读取透明主题设置。 */
@@ -26,6 +38,7 @@ export function readTransparencySettings(): TransparencySettings {
     blur: parseFloat(localStorage.getItem('transparency-blur') || '10'),
     backgroundPosterOpacity: parseFloat(localStorage.getItem('transparency-background-poster-opacity') || '0'),
     backgroundBlur: parseFloat(localStorage.getItem('transparency-background-blur') || '16'),
+    glassQuality: readGlassQuality(),
     level: localStorage.getItem('transparency-level') || 'medium',
   }
 }
@@ -39,6 +52,7 @@ export function applyTransparencySettings(settings: TransparencySettings) {
       ? clamp(settings.backgroundPosterOpacity, 0, 1)
       : 0,
     backgroundBlur: Number.isFinite(settings.backgroundBlur) ? clamp(settings.backgroundBlur, 0, 30) : 16,
+    glassQuality: settings.glassQuality === 'realtime' ? 'realtime' : 'lightweight',
     level: settings.level,
   }
 
@@ -51,12 +65,19 @@ export function applyTransparencySettings(settings: TransparencySettings) {
   root.style.setProperty('--transparent-blur-heavy', `${normalized.blur * 1.6}px`)
   root.style.setProperty('--transparent-background-poster-opacity', (1 - normalized.backgroundPosterOpacity).toString())
   root.style.setProperty('--transparent-background-blur', `${normalized.backgroundBlur}px`)
+  root.classList.toggle('transparent-blur-disabled', normalized.blur <= 0)
+  root.classList.toggle('transparent-background-blur-disabled', normalized.backgroundBlur <= 0)
+  root.classList.toggle('transparent-glass-lightweight', normalized.glassQuality === 'lightweight')
+  root.classList.toggle('transparent-glass-realtime', normalized.glassQuality === 'realtime')
 
   localStorage.setItem('transparency-opacity', normalized.opacity.toString())
   localStorage.setItem('transparency-blur', normalized.blur.toString())
   localStorage.setItem('transparency-background-poster-opacity', normalized.backgroundPosterOpacity.toString())
   localStorage.setItem('transparency-background-blur', normalized.backgroundBlur.toString())
+  localStorage.setItem('transparency-glass-quality', normalized.glassQuality)
   localStorage.setItem('transparency-level', normalized.level)
+
+  window.dispatchEvent(new CustomEvent<TransparencySettings>(TRANSPARENCY_SETTINGS_CHANGED_EVENT, { detail: normalized }))
 
   return normalized
 }
@@ -73,6 +94,7 @@ export function useTransparencySettings() {
   const transparencyBlur = ref(storedSettings.blur)
   const backgroundPosterOpacity = ref(storedSettings.backgroundPosterOpacity)
   const backgroundBlur = ref(storedSettings.backgroundBlur)
+  const transparencyGlassQuality = ref<TransparencyGlassQuality>(storedSettings.glassQuality)
   const transparencyLevel = ref(storedSettings.level)
 
   const currentPresetLevel = computed(() => {
@@ -95,6 +117,7 @@ export function useTransparencySettings() {
       blur: transparencyBlur.value,
       backgroundPosterOpacity: backgroundPosterOpacity.value,
       backgroundBlur: backgroundBlur.value,
+      glassQuality: transparencyGlassQuality.value,
       level: transparencyLevel.value,
     })
 
@@ -102,6 +125,7 @@ export function useTransparencySettings() {
     transparencyBlur.value = normalized.blur
     backgroundPosterOpacity.value = normalized.backgroundPosterOpacity
     backgroundBlur.value = normalized.backgroundBlur
+    transparencyGlassQuality.value = normalized.glassQuality
     transparencyLevel.value = normalized.level
   }
 
@@ -149,12 +173,18 @@ export function useTransparencySettings() {
     syncTransparencySettings()
   }
 
+  /** 处理玻璃质量档位变化。 */
+  function onGlassQualityChange() {
+    syncTransparencySettings()
+  }
+
   /** 重置透明主题设置为默认值。 */
   function resetTransparencySettings() {
     transparencyOpacity.value = transparencyPresets.medium.opacity
     transparencyBlur.value = transparencyPresets.medium.blur
     backgroundPosterOpacity.value = 0
     backgroundBlur.value = 16
+    transparencyGlassQuality.value = 'lightweight'
     transparencyLevel.value = 'medium'
     syncTransparencySettings()
   }
@@ -167,10 +197,12 @@ export function useTransparencySettings() {
     onBackgroundBlurChange,
     onBackgroundPosterOpacityChange,
     onBlurChange,
+    onGlassQualityChange,
     onOpacityChange,
     resetTransparencySettings,
     syncTransparencySettings,
     transparencyBlur,
+    transparencyGlassQuality,
     transparencyOpacity,
     transparencyLevel,
   }
