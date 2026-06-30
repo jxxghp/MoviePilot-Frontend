@@ -1134,6 +1134,8 @@ export default {
     paused: '暂停',
     cardStatePaused: '已暂停',
     cardStatePending: '待定中',
+    mediaDetail: '媒体详情',
+    fileStatistics: '文件统计',
     sortTitle: '排序',
     sort: {
       custom: '自定义',

@@ -1141,6 +1141,8 @@ export default {
     paused: 'Paused',
     cardStatePaused: 'Paused',
     cardStatePending: 'Pending',
+    mediaDetail: 'Media Details',
+    fileStatistics: 'File Statistics',
     sortTitle: 'Sort',
     sort: {
       custom: 'Custom',

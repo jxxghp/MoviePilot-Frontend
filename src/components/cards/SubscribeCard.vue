@@ -291,22 +291,6 @@ const dropdownItems = computed(() => [
     },
   },
   {
-    title: t('common.details'),
-    value: 3,
-    props: {
-      prependIcon: 'mdi-information-outline',
-      click: viewMediaDetail,
-    },
-  },
-  {
-    title: t('common.files'),
-    value: 4,
-    props: {
-      prependIcon: 'mdi-file-document-outline',
-      click: viewSubscribeFiles,
-    },
-  },
-  {
     title: subscribeState.value === 'S' ? t('common.enable') : t('common.pause'),
     value: 5,
     props: {
@@ -333,6 +317,22 @@ const dropdownItems = computed(() => [
       color: 'success',
     },
     show: props.media?.type === '电视剧',
+  },
+  {
+    title: t('subscribe.mediaDetail'),
+    value: 3,
+    props: {
+      prependIcon: 'mdi-information-outline',
+      click: viewMediaDetail,
+    },
+  },
+  {
+    title: t('subscribe.fileStatistics'),
+    value: 4,
+    props: {
+      prependIcon: 'mdi-file-document-outline',
+      click: viewSubscribeFiles,
+    },
   },
   {
     title: t('common.unsubscribe'),
