@@ -121,7 +121,7 @@ onMounted(() => {
   transition: background-color 0.2s;
 
   &:not(:last-child) {
-    border-block-end: var(--app-surface-border-width) solid rgba(var(--v-border-color), 0.12);
+    border-block-end: 1px solid rgba(var(--v-border-color), 0.12);
   }
 
   &:hover {

@@ -145,7 +145,8 @@ html[data-theme="transparent"] {
     background-color: transparent;
   }
 
-  // 主题定制器的圆角/阴影示例沿用框架预览的透明玻璃底，避免透明主题下出现实色黑块。
+  // 主题定制器的边框/圆角/阴影示例沿用框架预览的透明玻璃底，避免透明主题下出现实色黑块。
+  .theme-customizer-border-scene,
   .theme-customizer-radius-scene,
   .theme-customizer-shadow-slider,
   .theme-customizer-shadow-slider__sample {
@@ -158,10 +159,14 @@ html[data-theme="transparent"] {
       rgba(var(--v-theme-surface), var(--transparent-opacity-light));
   }
 
+  .theme-customizer-preview-option.is-active .theme-customizer-border-scene,
   .theme-customizer-preview-option.is-active .theme-customizer-radius-scene {
     background: rgba(var(--v-theme-primary), 0.04);
   }
 
+  .theme-customizer-border-scene__card,
+  .theme-customizer-border-scene__dialog,
+  .theme-customizer-border-scene__menu,
   .theme-customizer-radius-scene__card {
     background: rgba(var(--v-theme-surface), var(--transparent-opacity));
   }

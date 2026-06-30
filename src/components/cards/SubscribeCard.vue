@@ -415,7 +415,7 @@ function handleCardClick() {
           >
             <VCard
               :key="props.media?.id"
-              class="flex flex-col h-full overflow-hidden"
+              class="subscribe-card flex flex-col h-full overflow-hidden"
               :class="{
                 'subscribe-card-paused': subscribeState === 'S',
                 'subscribe-card-pending-tint': subscribeState === 'P',
@@ -586,6 +586,10 @@ function handleCardClick() {
  */
 .subscribe-card-shell {
   border-radius: var(--app-surface-radius);
+}
+
+.subscribe-card {
+  border: var(--app-card-light-border);
 }
 
 .subscribe-card-shell--selected::after {

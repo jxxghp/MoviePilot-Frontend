@@ -207,8 +207,7 @@ html[data-theme-radius='extra'] {
 }
 
 // 统一卡片上浮反馈；hover 命中区域应放在静止外层，避免上浮后底边反复触发 mouseleave。
-.v-card.app-hover-lift-card,
-.subscribe-card-shell {
+.v-card.app-hover-lift-card {
   border: var(--app-card-light-border);
 }
 
