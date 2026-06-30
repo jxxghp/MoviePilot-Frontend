@@ -143,7 +143,7 @@ const dynamicHeaderTab = ref<DynamicHeaderTab | null>(null)
 const openHorizontalNavGroup = ref<string | null>(null)
 const pendingHorizontalTab = ref<{ path: string; tab: string } | null>(null)
 
-// 提供一个方法让其他组件注册动态标签页
+/** 注册页面动态标签页，并在页面可用后应用待切换的水平导航标签。 */
 const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
   // 保存注册标签页的路由路径
   tab.routePath = route.path
@@ -152,12 +152,12 @@ const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
   applyPendingHorizontalTab()
 }
 
-// 提供一个方法让其他组件取消注册动态标签页
+/** 取消当前页面注册的动态标签页。 */
 const unregisterDynamicHeaderTab = () => {
   dynamicHeaderTab.value = null
 }
 
-// 标签页值更新处理
+/** 更新当前动态标签页选中值，并通知注册页面同步状态。 */
 const handleTabChange = (newValue: string) => {
   if (dynamicHeaderTab.value) {
     dynamicHeaderTab.value.modelValue = newValue
@@ -227,7 +227,7 @@ onUnmounted(() => {
   }
 })
 
-// 监听Service Worker消息
+/** 处理 Service Worker 推送的离线状态消息。 */
 const handleServiceWorkerMessage = (event: MessageEvent) => {
   if (event.data && event.data.type === 'OFFLINE_STATUS') {
     if (event.data.offline) {
@@ -238,7 +238,7 @@ const handleServiceWorkerMessage = (event: MessageEvent) => {
   }
 }
 
-// 检查是否可以使用下拉手势
+/** 判断当前页面状态是否允许使用主界面下拉快捷入口手势。 */
 const canUsePullGesture = () => {
   // 检查是否在dashboard页面
   const isDashboard = route.path === '/dashboard' || route.path === '/'
@@ -279,7 +279,7 @@ const {
   },
 })
 
-// 根据分类获取菜单列表
+/** 根据菜单分组标题获取当前用户可见的菜单项。 */
 const getMenuList = (header: string) => {
   // 使用国际化菜单
   const menus = getNavMenus(t)
@@ -287,19 +287,22 @@ const getMenuList = (header: string) => {
   return filteredMenus.filter((item: NavMenu) => item.header === header)
 }
 
-// 返回上一页
+/** 返回浏览历史中的上一页。 */
 function goBack() {
   history.back()
 }
 
+/** 同步主题定制器变更后的布局模式。 */
 function handleThemeCustomizerChange(event: Event) {
   themeLayout.value = (event as CustomEvent<ThemeCustomizerSettings>).detail.layout
 }
 
+/** 打开主题定制器面板。 */
 function handleThemeCustomizerOpen() {
   showThemeCustomizer.value = true
 }
 
+/** 判断水平导航菜单项是否匹配当前路由。 */
 function isHorizontalNavActive(item: NavMenu) {
   const targetPath = normalizeMenuPath(item.to)
   if (!targetPath) return false
@@ -309,18 +312,22 @@ function isHorizontalNavActive(item: NavMenu) {
   return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`)
 }
 
+/** 判断水平导航分组内是否存在当前路由激活项。 */
 function isHorizontalNavGroupActive(group: { items: NavMenu[] }) {
   return group.items.some(isHorizontalNavActive)
 }
 
+/** 判断菜单项是否存在可在水平导航中展示的动态标签。 */
 function hasHorizontalDynamicTabs(item: NavMenu) {
   return showHorizontalThemeNav.value && getHorizontalNavTabs(item).length > 0
 }
 
+/** 判断水平导航动态标签是否为当前选中项。 */
 function isHorizontalDynamicTabActive(tab: DynamicHeaderTabItem) {
   return dynamicHeaderTab.value?.modelValue === tab.tab
 }
 
+/** 切换水平导航中的动态标签，必要时先跳转到目标页面。 */
 async function handleHorizontalDynamicTabSelect(item: NavMenu, tab: DynamicHeaderTabItem) {
   const targetPath = normalizeMenuPath(item.to)
   const currentPath = normalizeMenuPath(route.path)
@@ -336,28 +343,34 @@ async function handleHorizontalDynamicTabSelect(item: NavMenu, tab: DynamicHeade
   openHorizontalNavGroup.value = null
 }
 
+/** 关闭当前展开的水平导航分组菜单。 */
 function closeHorizontalNavGroup() {
   openHorizontalNavGroup.value = null
 }
 
+/** 读取可能是 Ref 的值，空值时回落到默认值。 */
 function resolveMaybeRefValue<T>(value: T | ComputedRef<T> | undefined, fallback: T): T {
   return isRef(value) ? value.value : (value ?? fallback)
 }
 
+/** 解析动态头部按钮颜色。 */
 function resolveHeaderButtonColor(button: DynamicHeaderTabButton) {
   return resolveMaybeRefValue(button.color, 'gray')
 }
 
+/** 解析动态头部按钮加载状态。 */
 function resolveHeaderButtonLoading(button: DynamicHeaderTabButton) {
   return resolveMaybeRefValue(button.loading, false)
 }
 
+/** 校验权限后执行动态头部按钮动作。 */
 function handleHeaderButtonClick(button: DynamicHeaderTabButton) {
   if (!hasItemPermission(button, userPermissions.value)) return
 
   button.action?.()
 }
 
+/** 获取水平导航动态标签图标，不可渲染时使用默认圆点图标。 */
 function getHorizontalTabIcon(tab: DynamicHeaderTabItem) {
   const icon = tab.icon?.trim()
 
@@ -370,12 +383,14 @@ function getHorizontalTabIcon(tab: DynamicHeaderTabItem) {
   return icon
 }
 
+/** 标准化菜单路径，移除末尾斜杠并保留根路径。 */
 function normalizeMenuPath(value: unknown) {
   if (typeof value !== 'string') return ''
 
   return value.replace(/\/$/, '') || '/'
 }
 
+/** 获取水平导航菜单项可展示的标签列表。 */
 function getHorizontalNavTabs(item: NavMenu): DynamicHeaderTabItem[] {
   const targetPath = normalizeMenuPath(item.to)
 
@@ -386,6 +401,7 @@ function getHorizontalNavTabs(item: NavMenu): DynamicHeaderTabItem[] {
   return item.tabs ?? []
 }
 
+/** 在目标页面注册动态标签后应用此前暂存的标签切换。 */
 function applyPendingHorizontalTab() {
   if (!pendingHorizontalTab.value || !hasDynamicHeaderTab.value) return
 
@@ -399,16 +415,17 @@ function applyPendingHorizontalTab() {
   pendingHorizontalTab.value = null
 }
 
-// 关闭插件快速访问
+/** 关闭插件快速访问面板。 */
 function handleClosePluginQuickAccess() {
   showPluginQuickAccess.value = false
 }
 
-// 点击插件后关闭
+/** 点击插件入口后关闭插件快速访问面板。 */
 function handlePluginClick() {
   showPluginQuickAccess.value = false
 }
 
+/** 将插件侧边栏菜单合并到对应的导航分组中。 */
 function appendPluginSidebarMenus() {
   for (const { navMenu, section } of filterPluginSidebarNavEntries(
     pluginSidebarNavStore.items,
@@ -474,15 +491,15 @@ onMounted(async () => {
   <!-- 👉 Pull Down Indicator -->
   <div
     v-if="appMode && showPullIndicator"
-    class="pull-indicator"
+    class="app-pull-indicator"
     :style="{
-      '--pull-indicator-navbar-extra-height': navbarExtraHeight,
+      '--app-pull-indicator-navbar-extra-height': navbarExtraHeight,
       opacity: indicatorOpacity,
       transform: indicatorTransform,
     }"
   >
     <div
-      class="indicator-icon"
+      class="app-pull-indicator__icon"
       :style="{
         transform: `scale(${
           1 + Math.min((pullDistance - PULL_CONFIG.SHOW_INDICATOR) / PULL_CONFIG.MAX_PULL_DISTANCE, 0.5) * 0.3
@@ -847,72 +864,4 @@ onMounted(async () => {
   margin-inline-start: auto;
 }
 
-.pull-indicator {
-  position: fixed;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  border-radius: 50%;
-  backdrop-filter: blur(20px);
-  background: rgba(var(--v-theme-surface), 0.3);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 10%),
-    0 1px 3px rgba(0, 0, 0, 6%);
-  inset-block-start: calc(
-    env(safe-area-inset-top, 0px) + 4rem + var(--pull-indicator-navbar-extra-height, 0rem) + 0.75rem
-  );
-  inset-inline-start: 50%;
-  pointer-events: none;
-  transform: translate3d(-50%, 0, 0);
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity, transform;
-}
-
-.indicator-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(var(--v-theme-primary), 0.08);
-  block-size: 40px;
-  inline-size: 40px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* 透明主题适配 */
-html[class*='transparent'] .pull-indicator,
-html[class*='mica'] .pull-indicator,
-html[class*='acrylic'] .pull-indicator {
-  border: 1px solid rgba(255, 255, 255, 20%);
-  background: rgba(255, 255, 255, 95%);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 12%),
-    0 4px 16px rgba(0, 0, 0, 8%);
-}
-
-html[class*='transparent'] .indicator-icon,
-html[class*='mica'] .indicator-icon,
-html[class*='acrylic'] .indicator-icon {
-  background: rgba(var(--v-theme-primary), 0.12);
-}
-
-html[data-theme='dark'][class*='transparent'] .pull-indicator,
-html[data-theme='dark'][class*='mica'] .pull-indicator,
-html[data-theme='dark'][class*='acrylic'] .pull-indicator {
-  border: 1px solid rgba(255, 255, 255, 10%);
-  background: rgba(18, 18, 18, 95%);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 30%),
-    0 4px 16px rgba(0, 0, 0, 20%);
-}
-
-html[data-theme='dark'][class*='transparent'] .indicator-icon,
-html[data-theme='dark'][class*='mica'] .indicator-icon,
-html[data-theme='dark'][class*='acrylic'] .indicator-icon {
-  background: rgba(var(--v-theme-primary), 0.15);
-}
 </style>
