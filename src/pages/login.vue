@@ -469,26 +469,27 @@ async function switchLanguage(locale: SupportedLocale) {
 
 // 订阅推送通知
 async function subscribeForPushNotifications() {
-  if ('serviceWorker' in navigator && 'PushManager' in window) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+
+  try {
     const registration = await navigator.serviceWorker.ready
-    // 获取订阅信息
-    const subscription = await registration.pushManager.getSubscription().then(function (subscription) {
-      if (subscription === null) {
-        const convertedVapidKey = urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY)
-        return registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: convertedVapidKey,
-        })
-      } else {
-        return subscription
-      }
-    })
-    // 发送订阅请求
-    try {
-      await api.post('/message/webpush/subscribe', subscription)
-    } catch (e) {
-      console.error(e)
+    let subscription = await registration.pushManager.getSubscription()
+
+    if (!subscription) {
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return
+
+      const convertedVapidKey = urlBase64ToUint8Array(import.meta.env.VITE_PUBLIC_VAPID_KEY)
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey,
+      })
     }
+
+    if (subscription) {
+      await api.post('/message/webpush/subscribe', subscription)
+    }
+  } catch (error) {
+    console.warn('WebPush subscription failed:', error)
   }
 }
 
@@ -508,7 +509,7 @@ async function afterLogin(superuser: boolean, userPayload: userState, filteredMe
   }
 
   // 订阅推送通知
-  if (superuser) await subscribeForPushNotifications()
+  if (superuser) void subscribeForPushNotifications()
 }
 
 // 处理登录成功
