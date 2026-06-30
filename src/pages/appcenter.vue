@@ -104,9 +104,11 @@ onMounted(() => {
 
 .settings-section-card {
   overflow: hidden;
+  border: var(--app-surface-border);
   backdrop-filter: blur(10px);
   background-color: rgb(var(--v-theme-surface));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 8%);
+  box-shadow: var(--app-surface-shadow);
+  transition: border-color 0.2s ease, border-width 0.2s ease, box-shadow 0.2s ease;
 }
 
 .settings-list {
@@ -119,7 +121,7 @@ onMounted(() => {
   transition: background-color 0.2s;
 
   &:not(:last-child) {
-    border-block-end: 1px solid rgba(var(--v-border-color), 0.12);
+    border-block-end: var(--app-surface-border-width) solid rgba(var(--v-border-color), 0.12);
   }
 
   &:hover {

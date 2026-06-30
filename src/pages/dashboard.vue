@@ -1485,9 +1485,9 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-grid :deep(.v-card) {
-  border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.72));
-  border-radius: 12px;
-  box-shadow: 0 3px 14px rgba(15, 23, 42, 0.035);
+  border: var(--app-surface-border);
+  border-radius: var(--app-surface-radius);
+  box-shadow: var(--app-surface-shadow);
 }
 
 .dashboard-grid :deep(.v-card-title) {

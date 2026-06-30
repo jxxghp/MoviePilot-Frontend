@@ -282,14 +282,15 @@ async function handleResetSettings() {
               :class="{ 'is-active': settings.skin === skin.value }"
               @click="setSkin(skin.value)"
             >
-              <span class="theme-customizer-mini-layout" :class="`theme-customizer-mini-layout--${skin.value}`">
-                <span class="mini-sidebar">
-                  <i />
-                  <i />
+              <span class="theme-customizer-border-scene" :class="`theme-customizer-border-scene--${skin.value}`">
+                <span class="theme-customizer-border-scene__card">
                   <i />
                   <i />
                 </span>
-                <span class="mini-content">
+                <span class="theme-customizer-border-scene__dialog">
+                  <i />
+                </span>
+                <span class="theme-customizer-border-scene__menu">
                   <i />
                   <i />
                   <i />
@@ -649,6 +650,7 @@ async function handleResetSettings() {
     box-shadow: none !important;
 
     .theme-customizer-mini-layout,
+    .theme-customizer-border-scene,
     .theme-customizer-radius-scene {
       border-width: 2px;
       border-color: rgb(var(--v-theme-primary));
@@ -704,6 +706,72 @@ async function handleResetSettings() {
   }
 }
 
+.theme-customizer-border-scene {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(var(--v-theme-on-surface), 0.02), rgba(var(--v-theme-on-surface), 0.05)),
+    rgb(var(--v-theme-surface));
+  block-size: 74px;
+  inline-size: 100%;
+  min-inline-size: 92px;
+}
+
+.theme-customizer-border-scene__card,
+.theme-customizer-border-scene__dialog,
+.theme-customizer-border-scene__menu {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 0 solid rgba(var(--v-theme-on-surface), 0.14);
+  border-radius: 6px;
+  background: rgba(var(--v-theme-surface), 0.92);
+  gap: 5px;
+  padding: 7px;
+  box-shadow: var(--app-elevation-0);
+}
+
+.theme-customizer-border-scene__card {
+  block-size: 36px;
+  inline-size: 46%;
+  inset-block-start: 12px;
+  inset-inline-start: 10px;
+}
+
+.theme-customizer-border-scene__dialog {
+  block-size: 42px;
+  inline-size: 38%;
+  inset-block-start: 18px;
+  inset-inline-end: 13px;
+}
+
+.theme-customizer-border-scene__menu {
+  block-size: 30px;
+  inline-size: 30%;
+  inset-block-end: 10px;
+  inset-inline-start: 34%;
+}
+
+.theme-customizer-border-scene__card i,
+.theme-customizer-border-scene__dialog i,
+.theme-customizer-border-scene__menu i {
+  display: block;
+  border-radius: 3px;
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  block-size: 5px;
+}
+
+.theme-customizer-border-scene--bordered {
+  .theme-customizer-border-scene__card,
+  .theme-customizer-border-scene__dialog,
+  .theme-customizer-border-scene__menu {
+    border-width: 1px;
+  }
+}
+
 .mini-sidebar,
 .mini-content {
   display: flex;
@@ -727,14 +795,6 @@ async function handleResetSettings() {
 .mini-content i {
   background: rgba(var(--v-theme-on-surface), 0.06);
   block-size: 18px;
-}
-
-.theme-customizer-mini-layout--bordered {
-  .mini-content i,
-  .mini-sidebar i {
-    border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-    background: transparent;
-  }
 }
 
 .theme-customizer-radius-scene {
