@@ -9,6 +9,28 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const vuetifyTheme = useTheme()
+const WEEKLY_BAR_RADIUS = 8
+
+/**
+ * 将入库统计柱形重绘为仅顶部圆角，规避 Safari 下 ApexCharts 禁用柱形圆角的问题。
+ */
+function roundWeeklyBarTops(chartContext: { el: HTMLElement }) {
+  const barPaths = chartContext.el.querySelectorAll<SVGPathElement>('.apexcharts-bar-area')
+
+  barPaths.forEach(barPath => {
+    const { x, y, width, height } = barPath.getBBox()
+    if (width <= 0 || height <= 0) return
+
+    const radius = Math.min(WEEKLY_BAR_RADIUS, width / 2, height / 2)
+    const right = x + width
+    const bottom = y + height
+
+    barPath.setAttribute(
+      'd',
+      `M ${x} ${bottom} L ${x} ${y + radius} Q ${x} ${y} ${x + radius} ${y} L ${right - radius} ${y} Q ${right} ${y} ${right} ${y + radius} L ${right} ${bottom} Z`,
+    )
+  })
+}
 
 const options = controlledComputed(
   () => vuetifyTheme.name.value,
@@ -31,14 +53,17 @@ const options = controlledComputed(
         zoom: { enabled: false, allowMouseWheelZoom: false },
         selection: { enabled: false },
         animations: { enabled: false },
+        events: {
+          mounted: roundWeeklyBarTops,
+          updated: roundWeeklyBarTops,
+        },
       },
       plotOptions: {
         bar: {
-          borderRadius: 9,
+          borderRadius: WEEKLY_BAR_RADIUS,
+          borderRadiusApplication: 'end',
           distributed: true,
           columnWidth: '40%',
-          endingShape: 'rounded',
-          startingShape: 'rounded',
         },
       },
       stroke: {
@@ -107,7 +132,9 @@ const animatedTotalCount = useAnimatedDashboardNumber(totalCount, {
 })
 const animatedTotalCountText = computed(() => formatDashboardCount(animatedTotalCount.value))
 
-// 调用API接口获取数据近7天数据
+/**
+ * 调用 API 接口获取近 7 天入库数据。
+ */
 async function getWeeklyData() {
   try {
     const res: number[] = await api.get('dashboard/transfer')
