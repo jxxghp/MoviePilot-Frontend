@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   animateGsapStaggerReveal,
+  gsap,
   killGsapMotion,
   prepareGsapRevealElement,
   useGsapMotionDisabled,
@@ -56,6 +57,7 @@ interface VirtualRange {
 const containerRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
 const motionDisabled = useGsapMotionDisabled()
+const revealMotionClearProps = 'opacity,visibility,transform,willChange'
 
 const layoutWidth = ref(0)
 const viewportTop = ref(0)
@@ -807,13 +809,18 @@ function queueItemReveal(key: ItemKey, element: HTMLElement) {
   if (
     !props.enableMotion ||
     motionDisabled.value ||
+    pendingRevealElements.get(key) === element ||
     revealedItemKeys.has(key) ||
     typeof window === 'undefined'
   ) {
     return
   }
 
-  revealedItemKeys.add(key)
+  const previousPendingElement = pendingRevealElements.get(key)
+  if (previousPendingElement) {
+    resetItemRevealElement(previousPendingElement)
+  }
+
   pendingRevealElements.set(key, element)
   prepareGsapRevealElement(element, {
     disabled: motionDisabled,
@@ -830,11 +837,26 @@ function queueItemReveal(key: ItemKey, element: HTMLElement) {
 }
 
 function flushItemReveals() {
-  const elements = Array.from(pendingRevealElements.values())
+  const pendingEntries = Array.from(pendingRevealElements.entries()).filter(([, element]) => element.isConnected)
   pendingRevealElements.clear()
 
+  pendingEntries.forEach(([key]) => {
+    revealedItemKeys.add(key)
+  })
+
+  const elements = pendingEntries.map(([, element]) => element)
   animateGsapStaggerReveal(elements, {
     disabled: motionDisabled,
+  })
+}
+
+function resetItemRevealElement(element: HTMLElement) {
+  killGsapMotion(element)
+  gsap.set(element, {
+    autoAlpha: 1,
+    clearProps: revealMotionClearProps,
+    scale: 1,
+    y: 0,
   })
 }
 
@@ -844,6 +866,10 @@ function cancelPendingItemReveals() {
     revealFrameId = null
   }
 
+  pendingRevealElements.forEach((element, key) => {
+    revealedItemKeys.delete(key)
+    resetItemRevealElement(element)
+  })
   pendingRevealElements.clear()
 }
 

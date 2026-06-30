@@ -94,6 +94,17 @@ const previewData = ref<ManualTransferPreviewData>()
 const reorganizeDialogCardRef = ref<HTMLElement | ComponentPublicInstance | null>(null)
 const reorganizePreviewPaneRef = ref<HTMLElement | null>(null)
 const reorganizeMotionClearProps = 'opacity,visibility,transform,willChange'
+const reorganizePreviewMotionTargetSelector = [
+  '.reorganize-preview-pane__loading',
+  '.preview-note',
+  '.preview-overview-card',
+  '.preview-custom-words__item',
+  '.preview-file-row',
+  '.preview-file-row__card',
+  '.preview-file-row__arrow',
+  '.reorganize-preview-list__empty',
+  '.reorganize-preview-pane__pagination',
+].join(', ')
 
 let reorganizeIntroTimeline: ReturnType<typeof gsap.timeline> | null = null
 let reorganizePreviewPaneTimeline: ReturnType<typeof gsap.timeline> | null = null
@@ -803,6 +814,19 @@ function clearMotionTargets(targets: Element[]) {
   gsap.set(targets, { clearProps: reorganizeMotionClearProps })
 }
 
+function getPreviewMotionTargets(previewPaneElement: HTMLElement) {
+  return Array.from(previewPaneElement.querySelectorAll<HTMLElement>(reorganizePreviewMotionTargetSelector))
+}
+
+function resetPreviewMotionTargets() {
+  const previewPaneElement = reorganizePreviewPaneRef.value
+  if (!previewPaneElement) return
+
+  const motionTargets = [previewPaneElement, ...getPreviewMotionTargets(previewPaneElement)]
+  gsap.killTweensOf(motionTargets)
+  clearMotionTargets(motionTargets)
+}
+
 function playReorganizeIntroMotion() {
   const cardElement = getReorganizeDialogCardElement()
   if (!cardElement) return
@@ -1147,15 +1171,7 @@ function killReorganizeMotion() {
           '.reorganize-motion-field',
           '.reorganize-motion-actions',
           '.reorganize-preview-pane',
-          '.reorganize-preview-pane__loading',
-          '.preview-note',
-          '.preview-overview-card',
-          '.preview-custom-words__item',
-          '.preview-file-row',
-          '.preview-file-row__card',
-          '.preview-file-row__arrow',
-          '.reorganize-preview-list__empty',
-          '.reorganize-preview-pane__pagination',
+          reorganizePreviewMotionTargetSelector,
         ].join(', '),
       ),
     ),
@@ -1706,15 +1722,14 @@ watch(previewVisible, visible => {
     reorganizePreviewPaneTimeline = null
     reorganizePreviewContentTimeline?.kill()
     reorganizePreviewContentTimeline = null
-    if (reorganizePreviewPaneRef.value) {
-      clearMotionTargets([reorganizePreviewPaneRef.value])
-    }
+    resetPreviewMotionTargets()
     return
   }
 
   void nextTick(() => {
     playPreviewPaneMotion()
     playPreviewLoadingMotion()
+    playPreviewRowsMotion()
   })
 })
 
