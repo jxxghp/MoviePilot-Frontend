@@ -327,7 +327,7 @@ onUnmounted(() => {
           <VIcon icon="mdi-menu" color="primary" size="28" />
         </template>
         <VCardTitle>{{ t('dialog.transferQueue.title') }}</VCardTitle>
-        <VCardSubtitle v-if="dataList.length > 0" class="mt-1">
+        <VCardSubtitle v-if="dataList.length > 0" class="transfer-queue-header__subtitle">
           {{
             t('dialog.transferQueue.queueSummary', {
               media: mediaTaskGroups.length,
@@ -482,20 +482,24 @@ onUnmounted(() => {
           </section>
         </div>
       </VCardText>
-
-      <VCardActions v-if="dataList.length > 0" class="transfer-queue-actions app-dialog-actions">
-        <VSpacer />
-        <VBtn variant="outlined" color="secondary" @click="emit('close')">
-          {{ t('dialog.transferQueue.close') }}
-        </VBtn>
-      </VCardActions>
     </VCard>
   </VDialog>
 </template>
 
 <style scoped>
 .transfer-queue-header {
+  padding-block: 0.5rem !important;
   padding-inline-end: 4rem;
+}
+
+.transfer-queue-header :deep(.v-card-title) {
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.transfer-queue-header__subtitle {
+  line-height: 1.25;
+  margin-block-start: 0.1rem;
 }
 
 .transfer-queue-content {
@@ -554,9 +558,13 @@ onUnmounted(() => {
 }
 
 .media-selector {
+  display: flex;
   overflow-y: auto;
   border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  padding-inline-end: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.25rem 1rem;
   scrollbar-width: none;
 }
 
@@ -577,17 +585,18 @@ onUnmounted(() => {
 }
 
 .media-selector__item + .media-selector__item {
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-block-start: 0;
 }
 
 .media-selector__item::before {
   position: absolute;
+  border-radius: var(--app-vuetify-rounded-pill);
   background: rgb(var(--v-theme-primary));
   block-size: 0;
   content: '';
   inline-size: 3px;
   inset-block-start: 50%;
-  inset-inline-start: 0;
+  inset-inline-start: 0.25rem;
   transition: block-size 0.18s ease, inset-block-start 0.18s ease;
 }
 
@@ -600,8 +609,8 @@ onUnmounted(() => {
 }
 
 .media-selector__item--active::before {
-  block-size: 100%;
-  inset-block-start: 0;
+  block-size: calc(100% - 1rem);
+  inset-block-start: 0.5rem;
 }
 
 .media-selector__poster,
@@ -751,10 +760,6 @@ onUnmounted(() => {
   justify-self: end;
 }
 
-.transfer-queue-actions {
-  border-block-start: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
 .transfer-queue-empty {
   display: flex;
   flex-direction: column;
@@ -788,7 +793,7 @@ onUnmounted(() => {
 @media (width <= 959.98px) {
   .transfer-queue-header {
     flex: 0 0 auto;
-    padding-block: calc(0.75rem + env(safe-area-inset-top)) 0.75rem;
+    padding-block: calc(0.5rem + env(safe-area-inset-top)) 0.5rem !important;
     padding-inline: 1rem 3.75rem;
   }
 
@@ -822,14 +827,14 @@ onUnmounted(() => {
   }
 
   .media-selector {
-    display: flex;
     overflow-x: auto;
     overflow-y: hidden;
     border-inline-end: 0;
+    flex-direction: row;
     gap: 0.75rem;
     margin-inline: -1rem;
-    padding-block: 0.25rem 0.75rem;
-    padding-inline: 1rem;
+    padding-block: 0.5rem 1rem;
+    padding-inline: 1.25rem;
     scroll-snap-type: inline mandatory;
   }
 
@@ -945,10 +950,6 @@ onUnmounted(() => {
   .queue-task__action {
     align-self: start;
     margin-block-start: -0.35rem;
-  }
-
-  .transfer-queue-actions {
-    display: none;
   }
 }
 
