@@ -836,12 +836,20 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-progress__label {
-  display: grid;
+  display: flex;
   align-items: center;
   gap: 0.4rem;
-  grid-template-columns: auto 1fr auto;
   margin-block-end: 0.55rem;
   font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.subscribe-files-progress__label strong {
+  margin-inline-start: auto;
+}
+
+.subscribe-files-progress__label :deep(.v-icon) {
+  flex: 0 0 auto;
 }
 
 .subscribe-files-stats {
@@ -1007,6 +1015,15 @@ onBeforeMount(() => {
 
 .subscribe-files-tab-group :deep(.v-btn) {
   min-inline-size: 0;
+}
+
+.subscribe-files-tab-group :deep(.v-btn__content) {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.subscribe-files-tab-group :deep(.v-icon) {
+  flex: 0 0 auto;
 }
 
 .subscribe-files-tab-group__button {
@@ -1254,7 +1271,6 @@ onBeforeMount(() => {
   transform: translateY(0.25rem);
 }
 
-:global(html[data-theme='light']) .subscribe-files-dialog,
 .subscribe-files-dialog.v-theme--light {
   --sfd-accent-opacity: 0.08;
   --sfd-border-opacity: 0.11;
@@ -1263,27 +1279,6 @@ onBeforeMount(() => {
   --sfd-panel-strong-opacity: 0.76;
   --sfd-code-opacity: 0.05;
   --sfd-muted-opacity: 0.68;
-}
-
-:global(html[data-theme='transparent']) .subscribe-files-dialog,
-.subscribe-files-dialog.v-theme--transparent {
-  --sfd-accent-opacity: 0.12;
-  --sfd-blur: var(--transparent-blur-heavy, 18px);
-  --sfd-dialog-opacity: var(--transparent-opacity-heavy, 0.5);
-  --sfd-hero-end-opacity: 0.42;
-  --sfd-hero-mid-opacity: 0.2;
-  --sfd-hero-shade-opacity: 0.48;
-  --sfd-hero-start-opacity: 0.52;
-  --sfd-panel-opacity: 0.14;
-  --sfd-panel-strong-opacity: var(--transparent-opacity, 0.3);
-  --sfd-code-opacity: 0.14;
-}
-
-:global(html[data-theme='transparent']) .subscribe-files-progress__item,
-:global(html[data-theme='transparent']) .subscribe-files-stat-card,
-:global(html[data-theme='transparent']) .subscribe-files-tab-group {
-  backdrop-filter: blur(var(--transparent-blur-light, 6px));
-  background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
 }
 
 @media (width <= 960px) {
@@ -1326,7 +1321,7 @@ onBeforeMount(() => {
   .subscribe-files-progress {
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-block-start: 0;
+    margin-block-start: 0.75rem;
   }
 
   .subscribe-files-stats {
