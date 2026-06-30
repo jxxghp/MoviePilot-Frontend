@@ -1158,8 +1158,6 @@ html[data-theme="transparent"] .app-card-colorful,
 @media (hover: hover) {
   .compact-fab .v-btn:hover {
     box-shadow: var(--app-fab-shadow-hover);
-    filter: saturate(1.03);
-    transform: translateY(-2px);
   }
 
   .compact-fab--primary .v-btn:hover {
@@ -1168,6 +1166,21 @@ html[data-theme="transparent"] .app-card-colorful,
 }
 
 @media (hover: hover) and (pointer: fine) and (width > 768px) {
+  .compact-fab .v-btn {
+    backdrop-filter: blur(18px) saturate(1.12);
+    opacity: 1;
+  }
+
+  .compact-fab-stack:not(:has(> :nth-child(2))) .compact-fab--primary .v-btn {
+    background-color: rgba(var(--v-theme-primary), 0.82) !important;
+    color: rgb(var(--v-theme-on-primary)) !important;
+  }
+
+  .compact-fab-stack:not(:has(> :nth-child(2))):hover .compact-fab--primary .v-btn,
+  .compact-fab-stack:not(:has(> :nth-child(2))):focus-within .compact-fab--primary .v-btn {
+    background-color: rgb(var(--v-theme-primary)) !important;
+  }
+
   .compact-fab-stack:has(> :nth-child(2)) {
     --compact-fab-step: 3.75rem;
 
@@ -1216,47 +1229,31 @@ html[data-theme="transparent"] .app-card-colorful,
       transform 0.12s ease;
   }
 
-  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-icon {
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover, :focus-within) > :last-child .v-icon {
     opacity: 0;
   }
 
-  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn {
-    border-color: rgba(var(--v-theme-primary), 0.28);
-    background-color: rgba(var(--v-theme-primary), 0.18) !important;
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover, :focus-within) > :last-child .v-btn {
+    border-color: transparent;
+    background-color: rgba(var(--v-theme-primary), 0.82) !important;
     box-shadow: var(--app-fab-shadow-strong);
-    color: rgb(var(--v-theme-primary)) !important;
+    color: rgb(var(--v-theme-on-primary)) !important;
   }
 
-  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn__content {
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover, :focus-within) > :last-child .v-btn__content {
     position: relative;
   }
 
-  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn__content::before {
+  .compact-fab-stack:has(> :nth-child(2)):not(:hover, :focus-within) > :last-child .v-btn__content::before {
     position: absolute;
     display: block;
-    block-size: 0.94rem;
-    background:
-      radial-gradient(circle, currentcolor 0 38%, transparent 42%) center 0 / 0.32rem 0.32rem no-repeat,
-      radial-gradient(circle, currentcolor 0 38%, transparent 42%) center 50% / 0.32rem 0.32rem no-repeat,
-      radial-gradient(circle, currentcolor 0 38%, transparent 42%) center 100% / 0.32rem 0.32rem no-repeat;
+    background: radial-gradient(circle, currentcolor 0 34%, transparent 40%) 0 0 / 0.35rem 0.35rem;
+    block-size: 1.05rem;
     content: '';
-    inline-size: 0.94rem;
-    inset-block-start: 55%;
+    inline-size: 1.05rem;
+    inset-block-start: 50%;
     inset-inline-start: 50%;
     transform: translate(-50%, -50%);
-  }
-
-  .compact-fab-stack:has(> :nth-child(2)):not(:hover):not(:focus-within) > :last-child .v-btn__content::after {
-    position: absolute;
-    display: block;
-    block-size: 0.46rem;
-    border-block-start: 0.15rem solid currentcolor;
-    border-inline-start: 0.15rem solid currentcolor;
-    content: '';
-    inline-size: 0.46rem;
-    inset-block-start: 17%;
-    inset-inline-start: 50%;
-    transform: translate(-50%, -50%) rotate(45deg);
   }
 
   .compact-fab-stack:has(> :nth-child(2)):hover > :not(:last-child),
