@@ -68,9 +68,7 @@ const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
-const shouldUseTransparentBackgroundTreatment = computed(
-  () => (Boolean(isLogin.value) && isTransparentTheme.value) || isLoginWallpaperRoute.value,
-)
+const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
 const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isTransparentTheme.value),
 )
@@ -89,6 +87,7 @@ let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
 let authenticatedStateTimer: number | null = null
 
+// 读取并同步透明主题背景设置到根组件响应式状态。
 function applyTransparentBackgroundSettings() {
   const settings = applyStoredTransparencySettings()
 
@@ -96,6 +95,7 @@ function applyTransparentBackgroundSettings() {
   transparencyGlassQuality.value = settings.glassQuality
 }
 
+// 响应透明主题设置变更事件，刷新背景模糊和玻璃质量。
 function handleTransparencySettingsChanged(event: Event) {
   const { backgroundBlur, glassQuality } = (event as CustomEvent<TransparencySettings>).detail
 
@@ -143,6 +143,7 @@ function updateHtmlThemeAttribute(themeName: string) {
   syncRootLaunchPalette()
 }
 
+// 从本地存储重新同步主题偏好、DOM 主题属性和相关外观配置。
 function syncThemePreferenceFromStorage() {
   themeValue = localStorage.getItem('theme') || 'auto'
 
@@ -166,22 +167,26 @@ function syncThemePreferenceFromStorage() {
     })
 }
 
+// 系统配色变化时，在自动主题模式下刷新当前实际主题。
 function handleSystemThemeChange() {
   if ((localStorage.getItem('theme') || 'auto') === 'auto') {
     syncThemePreferenceFromStorage()
   }
 }
 
+// 页面重新可见时同步主题，修复后台期间设置被外部修改后的外观漂移。
 function handleVisibilityThemeSync() {
   if (document.visibilityState === 'visible') {
     syncThemePreferenceFromStorage()
   }
 }
 
+// 页面从缓存或重新聚焦恢复时刷新主题偏好。
 function handlePageShowThemeSync() {
   syncThemePreferenceFromStorage()
 }
 
+// 清理背景图交叉淡入淡出定时器。
 function clearBackgroundCrossfadeTimer() {
   if (backgroundCrossfadeTimer) {
     window.clearTimeout(backgroundCrossfadeTimer)
@@ -189,6 +194,7 @@ function clearBackgroundCrossfadeTimer() {
   }
 }
 
+// 重置背景图交叉淡入淡出状态。
 function resetBackgroundCrossfade() {
   clearBackgroundCrossfadeTimer()
   previousImageIndex.value = null
@@ -256,6 +262,7 @@ function startBackgroundRotation() {
   }
 }
 
+// 停止登录页或透明主题背景图加载、重试和轮播。
 function stopBackgroundLoading() {
   backgroundRequestController?.abort()
   backgroundRequestController = null
@@ -269,6 +276,7 @@ function stopBackgroundLoading() {
   removeBackgroundTimer('background-rotation')
 }
 
+// 初始化登录后的全局设置和用户设置状态。
 async function initializeAuthenticatedState() {
   if (!isLogin.value) return
 
@@ -281,6 +289,7 @@ async function initializeAuthenticatedState() {
   }
 }
 
+// 延迟初始化登录态数据，避开登录成功后的即时路由跳转窗口。
 function scheduleAuthenticatedStateInitialization() {
   if (authenticatedStateTimer) {
     window.clearTimeout(authenticatedStateTimer)

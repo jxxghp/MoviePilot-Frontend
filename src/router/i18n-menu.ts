@@ -115,7 +115,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     },
     {
       title: t('navItems.pluginManager'),
-      icon: 'mdi-apps',
+      icon: 'mdi-puzzle-outline',
       to: '/plugins',
       header: t('menu.system'),
       admin: true,

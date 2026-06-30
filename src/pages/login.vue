@@ -8,7 +8,6 @@ import logo from '@images/logo.png'
 import { bufferToBase64Url, base64UrlToUint8Array, urlBase64ToUint8Array } from '@/@core/utils/navigator'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
-import { useTheme } from 'vuetify'
 import { getNavMenus } from '@/router/i18n-menu'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 import type { ApiResponse } from '@/api/types'
@@ -64,14 +63,6 @@ const langMenu = ref(false)
 
 // 当前语言
 const currentLocale = ref(getCurrentLocale())
-
-// 当前主题
-const vuetifyTheme = useTheme()
-
-// 判断是否为透明主题
-const isTransparentTheme = computed(() => {
-  return vuetifyTheme.name.value === 'transparent'
-})
 
 // 可用的语言列表
 const locales = Object.values(SUPPORTED_LOCALES)
@@ -279,6 +270,7 @@ interface PassKeyFinishResponse {
   wizard: boolean
 }
 
+// 执行 PassKey WebAuthn 认证并返回登录完成信息。
 async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promise<PassKeyFinishResponse> {
   const { username, isConditional = false, signal } = options
 
@@ -734,8 +726,7 @@ onUnmounted(() => {
     <!-- 登录表单 -->
     <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card login-card pa-7 pa-sm-9 w-full h-full login-card--enter"
-        :class="{ 'glass-effect': !isTransparentTheme }"
+        class="auth-card login-card glass-effect pa-7 pa-sm-9 w-full h-full login-card--enter"
         max-width="24rem"
         flat
       >
@@ -997,7 +988,6 @@ onUnmounted(() => {
   z-index: 3;
   border: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.6));
   border-radius: 999px;
-  backdrop-filter: blur(12px) saturate(140%);
   background: rgba(var(--v-theme-surface), 0.6);
   inset-block-start: calc(env(safe-area-inset-top, 0px) + 16px);
   inset-inline-end: calc(env(safe-area-inset-right, 0px) + 16px);
@@ -1047,7 +1037,7 @@ onUnmounted(() => {
   }
 }
 
-/* 非透明主题：磨砂玻璃卡片 */
+/* 登录卡片自身承载固定磨砂效果，避免跟随透明主题设置变化。 */
 .glass-effect {
   backdrop-filter: blur(28px) saturate(170%) !important;
   background: rgba(var(--v-theme-surface), 0.75) !important;
