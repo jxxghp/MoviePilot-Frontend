@@ -1538,6 +1538,19 @@ onBeforeUnmount(() => {
 .dashboard-grid-item.has-fill-content.is-measuring-content .dashboard-grid-auto-size,
 .dashboard-grid-item.has-fill-content.is-measuring-content .dashboard-grid-content-measure {
   block-size: auto;
+  min-block-size: 0;
+}
+
+/* 自动测高时解除填充卡片的百分比高度，避免浏览器缩放取整后把当前格子高度继续写回内容高度。 */
+.dashboard-grid-item.has-fill-content.is-measuring-content :deep(.dashboard-grid-fill) {
+  block-size: auto;
+}
+
+/* ApexCharts 会保留上一次容器高度；测高时只用最小绘图区参与计算，切断 resize 后高度逐轮放大的反馈。 */
+.dashboard-grid-item.has-fill-content.is-measuring-content :deep(.dashboard-chart-plot) {
+  flex: 0 0 auto;
+  block-size: 120px;
+  overflow: hidden;
 }
 
 .dashboard-grid.is-editing :deep(.v-card) {
