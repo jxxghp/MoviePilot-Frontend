@@ -38,9 +38,11 @@ const {
   onBackgroundBlurChange,
   onBackgroundPosterOpacityChange,
   onBlurChange,
+  onGlassQualityChange,
   onOpacityChange,
   resetTransparencySettings,
   transparencyBlur,
+  transparencyGlassQuality,
   transparencyOpacity,
 } = useTransparencySettings()
 </script>
@@ -116,6 +118,34 @@ const {
               color="primary"
               @update:model-value="onBackgroundBlurChange"
             />
+          </div>
+
+          <div>
+            <span class="text-body-2 d-block mb-2">{{ t('theme.transparencyGlassQuality') }}</span>
+            <VBtnToggle
+              v-model="transparencyGlassQuality"
+              mandatory
+              divided
+              density="comfortable"
+              variant="outlined"
+              color="primary"
+              class="w-full"
+              @update:model-value="onGlassQualityChange"
+            >
+              <VBtn value="lightweight" class="flex-1">
+                {{ t('theme.transparencyGlassQualityLightweight') }}
+              </VBtn>
+              <VBtn value="realtime" class="flex-1">
+                {{ t('theme.transparencyGlassQualityRealtime') }}
+              </VBtn>
+            </VBtnToggle>
+            <p class="text-caption text-medium-emphasis mt-2 mb-0">
+              {{
+                transparencyGlassQuality === 'realtime'
+                  ? t('theme.transparencyGlassQualityRealtimeHint')
+                  : t('theme.transparencyGlassQualityLightweightHint')
+              }}
+            </p>
           </div>
 
           <div>

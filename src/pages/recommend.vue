@@ -348,6 +348,11 @@ onActivated(async () => {
   transition: opacity 0.3s ease;
 }
 
+.content-group :deep(.slider-content-wrapper) {
+  content-visibility: auto;
+  contain-intrinsic-block-size: 16rem;
+}
+
 .empty-category {
   display: flex;
   flex-direction: column;

@@ -154,6 +154,13 @@ export default {
     transparencyBlur: 'Blur',
     backgroundPosterOpacity: 'Background Opacity',
     backgroundBlur: 'Background Frosted Blur',
+    transparencyGlassQuality: 'Glass Effect Quality',
+    transparencyGlassQualityLightweight: 'Lightweight',
+    transparencyGlassQualityRealtime: 'Live Glass',
+    transparencyGlassQualityLightweightHint:
+      'Keeps a similar translucent glass look while reducing live background sampling on dense pages.',
+    transparencyGlassQualityRealtimeHint:
+      'Uses the full live glass rendering path for higher visual quality, but may increase GPU usage.',
     transparencyReset: 'Reset',
     transparencyLow: 'Low Transparency',
     transparencyMedium: 'Medium Transparency',

@@ -26,6 +26,7 @@ provide('rankingPropsKey', reactive({ ...props }))
 const componentLoaded = ref(false)
 // 是否已尝试加载
 const hasTriedLoading = ref(false)
+const loadingStarted = ref(false)
 
 // 使用 shallowRef 避免横向卡片区的大数组深层代理
 const dataList = shallowRef<MediaInfo[]>([])
@@ -36,6 +37,8 @@ const containerRef = ref<HTMLElement | null>(null)
 // 获取订阅列表数据
 async function fetchData() {
   try {
+    if (loadingStarted.value) return
+    loadingStarted.value = true
     if (!props.apipath) return
     dataList.value = await api.get(props.apipath)
     if (dataList.value.length > 0) {
@@ -47,7 +50,26 @@ async function fetchData() {
     console.error(error)
     componentLoaded.value = true
   } finally {
+    loadingStarted.value = false
     hasTriedLoading.value = true
+  }
+}
+
+function isNearViewport(element: HTMLElement, rootMargin = 300) {
+  const rect = element.getBoundingClientRect()
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+
+  return rect.bottom >= -rootMargin && rect.top <= viewportHeight + rootMargin
+}
+
+/** IntersectionObserver 未及时回调时，首屏附近内容仍需主动发起数据请求。 */
+function loadIfNearViewport() {
+  const element = containerRef.value
+  if (!element || loadingStarted.value || hasTriedLoading.value) return
+
+  if (isNearViewport(element)) {
+    fetchData()
+    stop()
   }
 }
 
@@ -65,7 +87,13 @@ const { stop } = useIntersectionObserver(
   },
 )
 
+onMounted(() => {
+  requestAnimationFrame(loadIfNearViewport)
+  window.setTimeout(loadIfNearViewport, 600)
+})
+
 onActivated(() => {
+  loadIfNearViewport()
   if (dataList.value.length == 0 && hasTriedLoading.value) {
     fetchData()
   }

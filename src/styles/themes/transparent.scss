@@ -165,3 +165,94 @@ html[data-theme="transparent"] {
     background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
   }
 } 
+
+html[data-theme="transparent"].transparent-background-blur-disabled {
+  .global-blur-layer,
+  .background-image.active {
+    backdrop-filter: none;
+    filter: none;
+    transform: none;
+  }
+}
+
+html[data-theme="transparent"].transparent-glass-lightweight {
+  .global-blur-layer {
+    display: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .layout-vertical-nav,
+  .v-toolbar,
+  .v-footer,
+  .theme-customizer-panel-host,
+  .theme-customizer-panel,
+  .agent-assistant-panel,
+  .agent-assistant-fab__bubble,
+  .nav-button,
+  .layout-navbar {
+    backdrop-filter: blur(var(--transparent-blur));
+  }
+
+  .layout-vertical-nav,
+  .theme-customizer-panel-host,
+  .agent-assistant-panel {
+    backdrop-filter: blur(var(--transparent-blur-heavy));
+  }
+
+  .v-list,
+  .v-card:not(.no-blur, .bg-primary),
+  .v-sheet,
+  .v-expansion-panel {
+    backdrop-filter: none;
+  }
+
+  .v-card:not(.no-blur, .bg-primary),
+  .v-sheet,
+  .v-expansion-panel,
+  .v-list {
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity));
+  }
+
+  .v-overlay__content,
+  .v-overlay__content .v-card:not(.bg-primary),
+  .v-overlay__content .v-list {
+    backdrop-filter: blur(var(--transparent-blur));
+  }
+
+  .v-overlay__content .v-card:not(.bg-primary),
+  .v-overlay__content .v-list {
+    background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
+  }
+
+  .app-card-colorful {
+    backdrop-filter: none;
+  }
+}
+
+html[data-theme="transparent"].transparent-glass-realtime {
+  .background-image.active {
+    filter: none;
+    transform: none;
+  }
+}
+
+html[data-theme="transparent"].transparent-blur-disabled {
+  .layout-vertical-nav,
+  .v-list,
+  .v-card:not(.no-blur),
+  .v-toolbar,
+  .v-footer,
+  .v-sheet,
+  .v-expansion-panel,
+  .v-overlay__content,
+  .v-overlay__content .v-card:not(.bg-primary),
+  .v-overlay__content .v-list,
+  .theme-customizer-panel-host,
+  .theme-customizer-panel,
+  .agent-assistant-panel,
+  .agent-assistant-fab__bubble,
+  .nav-button,
+  .layout-navbar {
+    backdrop-filter: none !important;
+  }
+}
