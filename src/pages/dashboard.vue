@@ -7,12 +7,8 @@ import { isNullOrEmptyObject } from '@/@core/utils'
 import type { DashboardItem } from '@/api/types'
 import DashboardElement from '@/components/misc/DashboardElement.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
-import {
-  animateGsapStaggerReveal,
-  killGsapMotion,
-  prepareGsapRevealElement,
-  useGsapMotionDisabled,
-} from '@/composables/useGsapMotion'
+import { useGsapMotionDisabled } from '@/composables/useGsapMotion'
+import { useIncrementalReveal } from '@/composables/useIncrementalReveal'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
@@ -137,7 +133,15 @@ let isLegacyDashboardEnableConfigLoaded = false
 const dashboardGridResizeStartHeights = new Map<string, number | undefined>()
 const dashboardGridPendingContentResize = new Set<GridItemHTMLElement>()
 const dashboardGridObservedContentHeights = new Map<string, number>()
-const revealedDashboardGridItemIds = new Set<string>()
+// 记录已安排进场的卡片 gs-id，用于卡片移除后释放并允许重新进场。
+const dashboardRevealedItemIds = new Set<string>()
+const dashboardGridReveal = useIncrementalReveal({
+  disabled: dashboardMotionDisabled,
+  duration: 0.42,
+  scale: 0.99,
+  stagger: 0.035,
+  y: 12,
+})
 
 let dashboardGridContentObserver: ResizeObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
@@ -337,43 +341,27 @@ function playDashboardGridRevealMotion() {
   const gridElement = dashboardGridRef.value
   if (!gridElement) return
 
+  // 释放已不在网格中的卡片，使其重新加入时可再次进场。
   const currentIds = new Set(getDashboardGridItemIds())
-  Array.from(revealedDashboardGridItemIds).forEach(id => {
+  Array.from(dashboardRevealedItemIds).forEach(id => {
     if (!currentIds.has(id)) {
-      revealedDashboardGridItemIds.delete(id)
+      dashboardGridReveal.release(id)
+      dashboardRevealedItemIds.delete(id)
     }
   })
 
   const elements = Array.from(gridElement.querySelectorAll<HTMLElement>('.dashboard-grid-item'))
-  const revealElements: HTMLElement[] = []
 
   elements.forEach(element => {
     const id = element.getAttribute('gs-id')
-    if (!id || revealedDashboardGridItemIds.has(id)) return
-
-    revealedDashboardGridItemIds.add(id)
-
-    if (dashboardMotionDisabled.value) return
+    if (!id) return
 
     const contentElement = element.querySelector<HTMLElement>('.dashboard-grid-item-content')
     if (!contentElement) return
 
-    prepareGsapRevealElement(contentElement, {
-      disabled: dashboardMotionDisabled,
-      scale: 0.99,
-      y: 12,
-    })
-    revealElements.push(contentElement)
-  })
-
-  if (!revealElements.length) return
-
-  animateGsapStaggerReveal(revealElements, {
-    disabled: dashboardMotionDisabled,
-    duration: 0.42,
-    scale: 0.99,
-    stagger: 0.035,
-    y: 12,
+    dashboardRevealedItemIds.add(id)
+    // 进场动画只作用于卡片内容层，按 gs-id 去重交由 useIncrementalReveal 处理。
+    dashboardGridReveal.queue(id, contentElement)
   })
 }
 
@@ -1457,10 +1445,8 @@ onBeforeUnmount(() => {
   dashboardGridPendingContentResize.clear()
   dashboardGridObservedContentHeights.clear()
   dashboardGridResizeStartHeights.clear()
-  dashboardGridRef.value?.querySelectorAll<HTMLElement>('.dashboard-grid-item-content').forEach(element => {
-    killGsapMotion(element)
-  })
-  revealedDashboardGridItemIds.clear()
+  dashboardGridReveal.cleanup({ clearRevealed: true })
+  dashboardRevealedItemIds.clear()
   dashboardGrid.value?.destroy(false)
   dashboardGrid.value = null
 })

@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import page404 from '@images/pages/404.svg'
-import {
-  animateGsapStaggerReveal,
-  killGsapMotion,
-  prepareGsapRevealElement,
-  useGsapMotionDisabled,
-} from '@/composables/useGsapMotion'
 
 // 国际化
 const { t } = useI18n()
@@ -20,35 +14,13 @@ interface Props {
   icon?: string
   iconColor?: string
 }
-
-const noDataRootRef = ref<HTMLElement | null>(null)
-const motionDisabled = useGsapMotionDisabled()
-
-function getNoDataMotionElements() {
-  const root = noDataRootRef.value
-  if (!root) return []
-
-  return Array.from(
-    root.querySelectorAll<HTMLElement>('.icon-wrapper, .error-title, .error-description, .actions-container'),
-  )
-}
-
-onMounted(async () => {
-  await nextTick()
-
-  const elements = getNoDataMotionElements()
-  elements.forEach(element => prepareGsapRevealElement(element, { disabled: motionDisabled, y: 12, scale: 0.985 }))
-  animateGsapStaggerReveal(elements, { disabled: motionDisabled, duration: 0.32, stagger: 0.035, y: 12, scale: 0.985 })
-})
-
-onUnmounted(() => {
-  const elements = getNoDataMotionElements()
-  if (elements.length) killGsapMotion(elements)
-})
 </script>
 
 <template>
-  <div ref="noDataRootRef" class="no-data-container">
+  <div
+    v-reveal="{ selector: '.icon-wrapper, .error-title, .error-description, .actions-container', y: 12, scale: 0.985, duration: 0.32, stagger: 0.035 }"
+    class="no-data-container"
+  >
     <!-- 图标容器 -->
     <div class="icon-wrapper">
       <img :src="page404" alt="404" />

@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import {
-  animateGsapStaggerReveal,
-  gsap,
-  killGsapMotion,
-  prepareGsapRevealElement,
-  useGsapMotionDisabled,
-} from '@/composables/useGsapMotion'
+import { killGsapMotion, useGsapMotionDisabled } from '@/composables/useGsapMotion'
+import { useIncrementalReveal } from '@/composables/useIncrementalReveal'
 import type { ComponentPublicInstance } from 'vue'
 
 type ItemKey = string | number
@@ -57,7 +52,10 @@ interface VirtualRange {
 const containerRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
 const motionDisabled = useGsapMotionDisabled()
-const revealMotionClearProps = 'opacity,visibility,transform,willChange'
+// 进场动画在 reduce-motion 或外部关闭 enableMotion 时禁用。
+const itemReveal = useIncrementalReveal({
+  disabled: () => motionDisabled.value || !props.enableMotion,
+})
 
 const layoutWidth = ref(0)
 const viewportTop = ref(0)
@@ -70,8 +68,6 @@ const itemHeights = new Map<ItemKey, number>()
 const observedElements = new Map<HTMLElement, ItemKey>()
 const keyElements = new Map<ItemKey, HTMLElement>()
 const itemRefCallbacks = new Map<ItemKey, (element: Element | ComponentPublicInstance | null) => void>()
-const revealedItemKeys = new Set<ItemKey>()
-const pendingRevealElements = new Map<ItemKey, HTMLElement>()
 
 let resizeObserver: ResizeObserver | null = null
 let itemResizeObserver: ResizeObserver | null = null
@@ -79,7 +75,6 @@ let overlayLockObserver: MutationObserver | null = null
 let scrollTarget: ScrollTarget | null = null
 let layoutFrameId: number | null = null
 let scrollFrameId: number | null = null
-let revealFrameId: number | null = null
 let mounted = false
 let pendingRevealIndex: number | null = null
 let lastMeasuredColumnCount = 0
@@ -489,7 +484,7 @@ function setItemRef(element: Element | ComponentPublicInstance | null, key: Item
 
   if (!htmlElement) {
     if (previousElement) {
-      killGsapMotion(previousElement)
+      itemReveal.release(key)
       itemResizeObserver?.unobserve(previousElement)
       observedElements.delete(previousElement)
       keyElements.delete(key)
@@ -758,6 +753,7 @@ function pruneMeasurements() {
 
   Array.from(keyElements.entries()).forEach(([key, element]) => {
     if (!keys.has(key)) {
+      itemReveal.release(key)
       itemResizeObserver?.unobserve(element)
       observedElements.delete(element)
       keyElements.delete(key)
@@ -791,8 +787,9 @@ function syncMeasurementsForItems(nextKeys: ItemKey[], previousKeys: ItemKey[] =
     heightVersion.value += 1
   }
 
-  if (!isAppend && revealedItemKeys.size) {
-    revealedItemKeys.clear()
+  if (!isAppend) {
+    // 列表整体替换时重置进场记录，让可见项重新参与动画。
+    itemReveal.reset()
     void nextTick(queueVisibleItemReveals)
   }
 
@@ -801,76 +798,16 @@ function syncMeasurementsForItems(nextKeys: ItemKey[], previousKeys: ItemKey[] =
 
 function queueVisibleItemReveals() {
   keyElements.forEach((element, key) => {
-    queueItemReveal(key, element)
+    itemReveal.queue(key, element)
   })
 }
 
 function queueItemReveal(key: ItemKey, element: HTMLElement) {
-  if (
-    !props.enableMotion ||
-    motionDisabled.value ||
-    pendingRevealElements.get(key) === element ||
-    revealedItemKeys.has(key) ||
-    typeof window === 'undefined'
-  ) {
-    return
-  }
-
-  const previousPendingElement = pendingRevealElements.get(key)
-  if (previousPendingElement) {
-    resetItemRevealElement(previousPendingElement)
-  }
-
-  pendingRevealElements.set(key, element)
-  prepareGsapRevealElement(element, {
-    disabled: motionDisabled,
-  })
-
-  if (revealFrameId !== null) {
-    return
-  }
-
-  revealFrameId = window.requestAnimationFrame(() => {
-    revealFrameId = null
-    flushItemReveals()
-  })
-}
-
-function flushItemReveals() {
-  const pendingEntries = Array.from(pendingRevealElements.entries()).filter(([, element]) => element.isConnected)
-  pendingRevealElements.clear()
-
-  pendingEntries.forEach(([key]) => {
-    revealedItemKeys.add(key)
-  })
-
-  const elements = pendingEntries.map(([, element]) => element)
-  animateGsapStaggerReveal(elements, {
-    disabled: motionDisabled,
-  })
-}
-
-function resetItemRevealElement(element: HTMLElement) {
-  killGsapMotion(element)
-  gsap.set(element, {
-    autoAlpha: 1,
-    clearProps: revealMotionClearProps,
-    scale: 1,
-    y: 0,
-  })
+  itemReveal.queue(key, element)
 }
 
 function cancelPendingItemReveals() {
-  if (revealFrameId !== null) {
-    window.cancelAnimationFrame(revealFrameId)
-    revealFrameId = null
-  }
-
-  pendingRevealElements.forEach((element, key) => {
-    revealedItemKeys.delete(key)
-    resetItemRevealElement(element)
-  })
-  pendingRevealElements.clear()
+  itemReveal.cleanup()
 }
 
 function invalidateMeasurementsForLayoutChange() {
@@ -956,7 +893,7 @@ onUnmounted(() => {
     scrollFrameId = null
   }
 
-  cancelPendingItemReveals()
+  itemReveal.cleanup({ clearRevealed: true })
   keyElements.forEach(element => killGsapMotion(element))
 })
 

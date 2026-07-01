@@ -16,7 +16,7 @@ import {
   TransferForm,
 } from '@/api/types'
 import { useBackground } from '@/composables/useBackground'
-import { gsap, useGsapMotionDisabled } from '@/composables/useGsapMotion'
+import { useReorganizeDialogMotion } from '@/composables/useReorganizeDialogMotion'
 import MediaIdSelector from '../misc/MediaIdSelector.vue'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
@@ -29,7 +29,6 @@ const { useProgressSSE } = useBackground()
 
 // 显示器宽度
 const display = useDisplay()
-const motionDisabled = useGsapMotionDisabled()
 
 // 输入参数
 const props = defineProps({
@@ -93,22 +92,16 @@ const previewData = ref<ManualTransferPreviewData>()
 
 const reorganizeDialogCardRef = ref<HTMLElement | ComponentPublicInstance | null>(null)
 const reorganizePreviewPaneRef = ref<HTMLElement | null>(null)
-const reorganizeMotionClearProps = 'opacity,visibility,transform,willChange'
-const reorganizePreviewMotionTargetSelector = [
-  '.reorganize-preview-pane__loading',
-  '.preview-note',
-  '.preview-overview-card',
-  '.preview-custom-words__item',
-  '.preview-file-row',
-  '.preview-file-row__card',
-  '.preview-file-row__arrow',
-  '.reorganize-preview-list__empty',
-  '.reorganize-preview-pane__pagination',
-].join(', ')
 
-let reorganizeIntroTimeline: ReturnType<typeof gsap.timeline> | null = null
-let reorganizePreviewPaneTimeline: ReturnType<typeof gsap.timeline> | null = null
-let reorganizePreviewContentTimeline: ReturnType<typeof gsap.timeline> | null = null
+// 弹窗动画编排统一由 composable 管理，组件只保留 refs 与调用点接线。
+const motion = useReorganizeDialogMotion({
+  cardRef: reorganizeDialogCardRef,
+  previewPaneRef: reorganizePreviewPaneRef,
+  previewVisible,
+  previewLoading,
+  previewLoaded,
+  isDesktop: () => display.mdAndUp.value,
+})
 
 interface EpisodeFormatRecommendData {
   rule_name?: string
@@ -778,409 +771,6 @@ const previewToggleIcon = computed(() => {
   return previewVisible.value ? 'mdi-eye-off-outline' : 'mdi-eye-outline'
 })
 
-function resolveMotionElement(element: HTMLElement | ComponentPublicInstance | null) {
-  if (!element || typeof HTMLElement === 'undefined') return null
-  if (element instanceof HTMLElement) return element
-
-  return element.$el instanceof HTMLElement ? element.$el : null
-}
-
-function getReorganizeDialogCardElement() {
-  return resolveMotionElement(reorganizeDialogCardRef.value)
-}
-
-function isVisibleMotionElement(element: HTMLElement) {
-  return element.offsetParent !== null || element.getClientRects().length > 0
-}
-
-function getVisibleMotionElements(root: HTMLElement, selector: string) {
-  return Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(isVisibleMotionElement)
-}
-
-function setMotionTargetsVisible(targets: Element[]) {
-  if (!targets.length) return
-
-  gsap.set(targets, {
-    autoAlpha: 1,
-    clearProps: reorganizeMotionClearProps,
-    scale: 1,
-    x: 0,
-    y: 0,
-  })
-}
-
-function clearMotionTargets(targets: Element[]) {
-  if (!targets.length) return
-  gsap.set(targets, { clearProps: reorganizeMotionClearProps })
-}
-
-function getPreviewMotionTargets(previewPaneElement: HTMLElement) {
-  return Array.from(previewPaneElement.querySelectorAll<HTMLElement>(reorganizePreviewMotionTargetSelector))
-}
-
-function resetPreviewMotionTargets() {
-  const previewPaneElement = reorganizePreviewPaneRef.value
-  if (!previewPaneElement) return
-
-  const motionTargets = [previewPaneElement, ...getPreviewMotionTargets(previewPaneElement)]
-  gsap.killTweensOf(motionTargets)
-  clearMotionTargets(motionTargets)
-}
-
-function playReorganizeIntroMotion() {
-  const cardElement = getReorganizeDialogCardElement()
-  if (!cardElement) return
-
-  const headerElement = cardElement.querySelector<HTMLElement>('.reorganize-motion-header')
-  const stepElements = getVisibleMotionElements(cardElement, '.reorganize-motion-step')
-  const actionElement = cardElement.querySelector<HTMLElement>('.reorganize-motion-actions')
-  const contentTargets = [headerElement, ...stepElements, actionElement].filter(Boolean) as HTMLElement[]
-  const motionTargets = [cardElement, ...contentTargets]
-
-  reorganizeIntroTimeline?.kill()
-  gsap.killTweensOf(motionTargets)
-
-  if (motionDisabled.value) {
-    setMotionTargetsVisible(motionTargets)
-    return
-  }
-
-  gsap.set(cardElement, {
-    autoAlpha: 0,
-    scale: 0.992,
-    transformOrigin: '50% 0%',
-    willChange: 'opacity, transform',
-    y: 10,
-  })
-  gsap.set(contentTargets, {
-    autoAlpha: 0,
-    scale: 0.99,
-    willChange: 'opacity, transform',
-    y: 14,
-  })
-
-  reorganizeIntroTimeline = gsap.timeline({
-    defaults: { ease: 'power3.out' },
-    onComplete: () => {
-      clearMotionTargets(motionTargets)
-      reorganizeIntroTimeline = null
-    },
-  })
-
-  reorganizeIntroTimeline
-    .to(cardElement, {
-      autoAlpha: 1,
-      duration: 0.24,
-      scale: 1,
-      y: 0,
-    })
-    .to(
-      contentTargets,
-      {
-        autoAlpha: 1,
-        duration: 0.32,
-        scale: 1,
-        stagger: {
-          each: 0.045,
-          from: 'start',
-        },
-        y: 0,
-      },
-      '<0.04',
-    )
-}
-
-function playEpisodeFieldsMotion() {
-  const cardElement = getReorganizeDialogCardElement()
-  const episodeStepElement = cardElement?.querySelector<HTMLElement>('.reorganize-motion-step--episode')
-  if (!episodeStepElement || !isVisibleMotionElement(episodeStepElement)) return
-
-  const fieldElements = getVisibleMotionElements(episodeStepElement, '.reorganize-motion-field')
-  const targets = fieldElements.length ? fieldElements : [episodeStepElement]
-
-  gsap.killTweensOf(targets)
-
-  if (motionDisabled.value) {
-    setMotionTargetsVisible(targets)
-    return
-  }
-
-  gsap.fromTo(
-    targets,
-    {
-      autoAlpha: 0,
-      scale: 0.99,
-      willChange: 'opacity, transform',
-      y: 8,
-    },
-    {
-      autoAlpha: 1,
-      clearProps: reorganizeMotionClearProps,
-      duration: 0.24,
-      ease: 'power3.out',
-      overwrite: true,
-      scale: 1,
-      stagger: {
-        each: 0.035,
-        from: 'start',
-      },
-      y: 0,
-    },
-  )
-}
-
-function playPreviewPaneMotion() {
-  const previewPaneElement = reorganizePreviewPaneRef.value
-  if (!previewPaneElement || !previewVisible.value || !isVisibleMotionElement(previewPaneElement)) return
-
-  reorganizePreviewPaneTimeline?.kill()
-  gsap.killTweensOf(previewPaneElement)
-
-  if (motionDisabled.value) {
-    setMotionTargetsVisible([previewPaneElement])
-    return
-  }
-
-  reorganizePreviewPaneTimeline = gsap.timeline({
-    defaults: { ease: 'power3.out' },
-    onComplete: () => {
-      clearMotionTargets([previewPaneElement])
-      reorganizePreviewPaneTimeline = null
-    },
-  })
-
-  reorganizePreviewPaneTimeline.fromTo(
-    previewPaneElement,
-    {
-      autoAlpha: 0,
-      scale: 0.992,
-      willChange: 'opacity, transform',
-      x: display.mdAndUp.value ? 22 : 0,
-      y: display.mdAndUp.value ? 0 : 12,
-    },
-    {
-      autoAlpha: 1,
-      duration: 0.28,
-      scale: 1,
-      x: 0,
-      y: 0,
-    },
-  )
-}
-
-function getPreviewFlowPartOffset(element: HTMLElement) {
-  if (element.classList.contains('preview-file-row__card--source')) return -10
-  if (element.classList.contains('preview-file-row__card--target')) return 10
-  return 0
-}
-
-function playPreviewLoadingMotion() {
-  const previewPaneElement = reorganizePreviewPaneRef.value
-  const loadingElement = previewPaneElement?.querySelector<HTMLElement>('.reorganize-preview-pane__loading')
-  if (!loadingElement || !previewVisible.value || !previewLoading.value) return
-
-  gsap.killTweensOf(loadingElement)
-
-  if (motionDisabled.value) {
-    setMotionTargetsVisible([loadingElement])
-    return
-  }
-
-  gsap.fromTo(
-    loadingElement,
-    {
-      autoAlpha: 0,
-      willChange: 'opacity, transform',
-      y: 8,
-    },
-    {
-      autoAlpha: 1,
-      clearProps: reorganizeMotionClearProps,
-      duration: 0.22,
-      ease: 'power3.out',
-      overwrite: true,
-      y: 0,
-    },
-  )
-}
-
-function playPreviewRowsMotion() {
-  const previewPaneElement = reorganizePreviewPaneRef.value
-  if (!previewPaneElement || !previewVisible.value || !previewLoaded.value) return
-
-  const summaryTargets = getVisibleMotionElements(
-    previewPaneElement,
-    '.preview-note, .preview-overview-card, .preview-custom-words__item',
-  )
-  const rowElements = getVisibleMotionElements(previewPaneElement, '.preview-file-row')
-  const emptyElement = previewPaneElement.querySelector<HTMLElement>('.reorganize-preview-list__empty')
-  const paginationElement = previewPaneElement.querySelector<HTMLElement>('.reorganize-preview-pane__pagination')
-  const visibleEmptyTargets = emptyElement && isVisibleMotionElement(emptyElement) ? [emptyElement] : []
-  const visiblePaginationTargets =
-    paginationElement && isVisibleMotionElement(paginationElement) ? [paginationElement] : []
-  const flowPartElements = rowElements.flatMap(row =>
-    Array.from(
-      row.querySelectorAll<HTMLElement>(
-        '.preview-file-row__card--source, .preview-file-row__arrow, .preview-file-row__card--target',
-      ),
-    ),
-  )
-  const motionTargets = [
-    ...summaryTargets,
-    ...rowElements,
-    ...flowPartElements,
-    ...visibleEmptyTargets,
-    ...visiblePaginationTargets,
-  ]
-  if (!motionTargets.length) return
-
-  reorganizePreviewContentTimeline?.kill()
-  gsap.killTweensOf(motionTargets)
-
-  if (motionDisabled.value) {
-    setMotionTargetsVisible(motionTargets)
-    return
-  }
-
-  reorganizePreviewContentTimeline = gsap.timeline({
-    defaults: { ease: 'power3.out' },
-    onComplete: () => {
-      clearMotionTargets(motionTargets)
-      reorganizePreviewContentTimeline = null
-    },
-  })
-
-  if (summaryTargets.length) {
-    reorganizePreviewContentTimeline.fromTo(
-      summaryTargets,
-      {
-        autoAlpha: 0,
-        scale: 0.99,
-        willChange: 'opacity, transform',
-        y: 8,
-      },
-      {
-        autoAlpha: 1,
-        duration: 0.24,
-        scale: 1,
-        stagger: {
-          each: 0.025,
-          from: 'start',
-        },
-        y: 0,
-      },
-    )
-  }
-
-  if (rowElements.length) {
-    gsap.set(rowElements, {
-      autoAlpha: 0,
-      scale: 0.995,
-      willChange: 'opacity, transform',
-      y: 10,
-    })
-    gsap.set(flowPartElements, {
-      autoAlpha: 0,
-      willChange: 'opacity, transform',
-      x: (_index, target) => getPreviewFlowPartOffset(target as HTMLElement),
-    })
-
-    reorganizePreviewContentTimeline
-      .to(
-        rowElements,
-        {
-          autoAlpha: 1,
-          duration: 0.3,
-          scale: 1,
-          stagger: {
-            each: 0.04,
-            from: 'start',
-          },
-          y: 0,
-        },
-        summaryTargets.length ? '<0.08' : 0,
-      )
-      .to(
-        flowPartElements,
-        {
-          autoAlpha: 1,
-          duration: 0.22,
-          stagger: {
-            each: 0.018,
-            from: 'start',
-          },
-          x: 0,
-        },
-        '<0.02',
-      )
-  } else if (visibleEmptyTargets.length) {
-    reorganizePreviewContentTimeline.fromTo(
-      visibleEmptyTargets,
-      {
-        autoAlpha: 0,
-        scale: 0.99,
-        willChange: 'opacity, transform',
-        y: 8,
-      },
-      {
-        autoAlpha: 1,
-        duration: 0.24,
-        scale: 1,
-        y: 0,
-      },
-      summaryTargets.length ? '<0.08' : 0,
-    )
-  }
-
-  if (visiblePaginationTargets.length) {
-    reorganizePreviewContentTimeline.fromTo(
-      visiblePaginationTargets,
-      {
-        autoAlpha: 0,
-        willChange: 'opacity, transform',
-        y: 6,
-      },
-      {
-        autoAlpha: 1,
-        duration: 0.2,
-        y: 0,
-      },
-      '<0.08',
-    )
-  }
-}
-
-function killReorganizeMotion() {
-  reorganizeIntroTimeline?.kill()
-  reorganizeIntroTimeline = null
-  reorganizePreviewPaneTimeline?.kill()
-  reorganizePreviewPaneTimeline = null
-  reorganizePreviewContentTimeline?.kill()
-  reorganizePreviewContentTimeline = null
-
-  const cardElement = getReorganizeDialogCardElement()
-  if (!cardElement) return
-
-  const motionTargets = [
-    cardElement,
-    ...Array.from(
-      cardElement.querySelectorAll<HTMLElement>(
-        [
-          '.reorganize-motion-header',
-          '.reorganize-motion-step',
-          '.reorganize-motion-field',
-          '.reorganize-motion-actions',
-          '.reorganize-preview-pane',
-          reorganizePreviewMotionTargetSelector,
-        ].join(', '),
-      ),
-    ),
-  ]
-
-  gsap.killTweensOf(motionTargets)
-  clearMotionTargets(motionTargets)
-}
-
 // 获取文件父目录键，用于判断多文件是否来自同一目录。
 function getFileParentKey(item?: FileItem) {
   if (!item?.path) return ''
@@ -1712,39 +1302,35 @@ watch(
   () => transferForm.type_name,
   typeName => {
     if (typeName !== '电视剧') return
-    void nextTick(playEpisodeFieldsMotion)
+    void nextTick(motion.playEpisodeFields)
   },
 )
 
 watch(previewVisible, visible => {
   if (!visible) {
-    reorganizePreviewPaneTimeline?.kill()
-    reorganizePreviewPaneTimeline = null
-    reorganizePreviewContentTimeline?.kill()
-    reorganizePreviewContentTimeline = null
-    resetPreviewMotionTargets()
+    motion.resetPreview()
     return
   }
 
   void nextTick(() => {
-    playPreviewPaneMotion()
-    playPreviewLoadingMotion()
-    playPreviewRowsMotion()
+    motion.playPreviewPane()
+    motion.playPreviewLoading()
+    motion.playPreviewRows()
   })
 })
 
 watch(previewLoading, loading => {
   if (!loading) return
-  void nextTick(playPreviewLoadingMotion)
+  void nextTick(motion.playPreviewLoading)
 })
 
 watch([previewLoaded, previewRowsMotionKey], ([loaded]) => {
   if (!loaded) return
-  void nextTick(playPreviewRowsMotion)
+  void nextTick(motion.playPreviewRows)
 })
 
 onMounted(async () => {
-  const introMotionPromise = nextTick().then(playReorganizeIntroMotion)
+  const introMotionPromise = nextTick().then(motion.playIntro)
   await loadDirectories()
   loadStorages()
   loadEpisodeFormatRuleConfiguration()
@@ -1752,7 +1338,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  killReorganizeMotion()
+  motion.kill()
   stopLoadingProgress()
   if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
 })

@@ -6,6 +6,24 @@ const motionClearProps = 'opacity,visibility,transform,filter,willChange'
 
 export { gsap }
 
+// 页面级入场动画进行中的时间窗口标记。容器级 page-enter 期间，页面内
+// GsapFadeSlideTransition 的首帧 appear 直接跳过动画，避免整页入场与子级
+// appear 在同一次导航上重复叠加，减轻大页面切换卡顿。
+let pageEnterMotionWindowExpiry = 0
+
+// 标记一段页面入场窗口期（毫秒），期间子级 appear 视为已在播放整页动画。
+export function markPageEnterMotionWindow(durationMs = 240) {
+  if (typeof performance === 'undefined') return
+
+  pageEnterMotionWindowExpiry = performance.now() + durationMs
+}
+
+export function isPageEnterMotionActive() {
+  if (typeof performance === 'undefined') return false
+
+  return performance.now() < pageEnterMotionWindowExpiry
+}
+
 export interface GsapMotionOptions {
   disabled?: MaybeRefOrGetter<boolean>
   duration?: number
@@ -38,6 +56,13 @@ export function useGsapMotionDisabled() {
   return computed(() => preferredMotion.value === 'reduce')
 }
 
+// 供指令等无组件上下文的场景同步读取 reduce-motion 偏好。
+export function prefersReducedMotion() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 export function killGsapMotion(target: Element | Element[]) {
   gsap.killTweensOf(target)
   gsap.set(target, {
@@ -57,23 +82,20 @@ export function animateGsapPageEnter(element: Element, options: GsapMotionOption
 
   gsap.killTweensOf(element)
 
+  // 整页入场只动 opacity 和 translateY，避免 filter:blur / scale 触发整页重栅格化导致大页面切换卡顿。
   return gsap.fromTo(
     element,
     {
       autoAlpha: 0,
-      filter: 'blur(1px)',
-      scale: 0.992,
       y: 8,
     },
     {
       autoAlpha: 1,
       clearProps: motionClearProps,
-      duration: options.duration ?? 0.22,
+      duration: options.duration ?? 0.18,
       ease: 'power2.out',
-      filter: 'blur(0px)',
       onComplete: options.onComplete,
       overwrite: true,
-      scale: 1,
       y: 0,
     },
   )

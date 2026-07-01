@@ -13,12 +13,6 @@ import { usePWA } from '@/composables/usePWA'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import {
-  animateGsapStaggerReveal,
-  killGsapMotion,
-  prepareGsapRevealElement,
-  useGsapMotionDisabled,
-} from '@/composables/useGsapMotion'
 
 const FileRenameDialog = defineAsyncComponent(() => import('../dialog/FileRenameDialog.vue'))
 const MediaInfoDialog = defineAsyncComponent(() => import('../dialog/MediaInfoDialog.vue'))
@@ -93,8 +87,8 @@ const progressValue = ref(0)
 // 内容列表
 const items = ref<FileItem[]>([])
 
-const fileListMotionRootRef = ref<HTMLElement | null>(null)
-const motionDisabled = useGsapMotionDisabled()
+// keep-alive 激活等 binding 值不变的场景下手动自增以触发 v-reveal 重新播放。
+const fileListRevealTrigger = ref(0)
 
 // 过滤条件
 const filter = ref('')
@@ -222,25 +216,8 @@ const displayItems = computed(() => [...dirs.value, ...files.value])
 // 是否文件
 const isFile = computed(() => inProps.item.type == 'file')
 
-function getVisibleFileListMotionItems() {
-  const root = fileListMotionRootRef.value
-  if (!root) return []
-
-  return Array.from(root.querySelectorAll<HTMLElement>('.file-list-motion-item')).filter(element => element.isConnected)
-}
-
-function playFileListReveal() {
-  if (loading.value || isFile.value || displayItems.value.length === 0) return
-
-  const elements = getVisibleFileListMotionItems().slice(0, 28)
-  elements.forEach(element => prepareGsapRevealElement(element, { disabled: motionDisabled, y: 8, scale: 0.995 }))
-  animateGsapStaggerReveal(elements, { disabled: motionDisabled, duration: 0.26, stagger: 0.018, y: 8, scale: 0.995 })
-}
-
-function cleanupFileListMotion() {
-  const elements = getVisibleFileListMotionItems()
-  if (elements.length) killGsapMotion(elements)
-}
+// v-reveal 进场动画的启用条件：非文件、非加载中且有内容。
+const fileListRevealEnabled = computed(() => !loading.value && !isFile.value && displayItems.value.length > 0)
 
 // 需要整理的文件项
 const transferItems = ref<FileItem[]>([])
@@ -454,11 +431,11 @@ watch(
 
 watch(
   () => [loading.value, items.value] as const,
-  async ([isLoading]) => {
+  ([isLoading]) => {
     if (isLoading) return
 
-    await nextTick()
-    playFileListReveal()
+    // 数据落定后自增 trigger，驱动 v-reveal 重新播放进场动画。
+    fileListRevealTrigger.value += 1
   },
   { flush: 'post' },
 )
@@ -800,11 +777,10 @@ useKeepAliveRefresh(list_files, {
 })
 
 onActivated(() => {
-  if (!loading.value) void nextTick(playFileListReveal)
+  if (!loading.value) fileListRevealTrigger.value += 1
 })
 
 onUnmounted(() => {
-  cleanupFileListMotion()
   revokeCurrentImgLink()
   stopLoadingProgress()
   closeProgressDialog()
@@ -883,7 +859,19 @@ onUnmounted(() => {
       </VCardText>
       <!-- 目录和文件列表 -->
       <VCardText v-else-if="dirs.length || files.length" class="p-0 flex-grow-1 overflow-hidden">
-        <div ref="fileListMotionRootRef" class="file-list-motion-root">
+        <div
+          v-reveal="{
+            selector: '.file-list-motion-item',
+            y: 8,
+            scale: 0.995,
+            duration: 0.26,
+            stagger: 0.018,
+            limit: 28,
+            enabled: fileListRevealEnabled,
+            trigger: fileListRevealTrigger,
+          }"
+          class="file-list-motion-root"
+        >
           <VList
             class="text-high-emphasis file-list-container"
             :style="{ height: `${listAvailableHeight}px`, maxHeight: `${listAvailableHeight}px` }"

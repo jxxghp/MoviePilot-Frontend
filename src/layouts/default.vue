@@ -1,5 +1,10 @@
 <script lang="ts" setup>
-import { animateGsapPageEnter, killGsapMotion, useGsapMotionDisabled } from '@/composables/useGsapMotion'
+import {
+  animateGsapPageEnter,
+  killGsapMotion,
+  markPageEnterMotionWindow,
+  useGsapMotionDisabled,
+} from '@/composables/useGsapMotion'
 import DefaultLayout from './default/components/DefaultLayout.vue'
 
 const route = useRoute()
@@ -31,6 +36,8 @@ function playPageEnterMotion() {
     pageMotionFrame = null
 
     if (routeContainerRef.value) {
+      // 标记入场窗口，使页面内子级 appear 在整页入场期间跳过自身动画，避免叠加。
+      if (!motionDisabled.value) markPageEnterMotionWindow()
       animateGsapPageEnter(routeContainerRef.value, {
         disabled: motionDisabled,
       })

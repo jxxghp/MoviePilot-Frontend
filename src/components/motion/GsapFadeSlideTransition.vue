@@ -2,6 +2,8 @@
 import {
   animateGsapFadeSlideEnter,
   animateGsapFadeSlideLeave,
+  isPageEnterMotionActive,
+  killGsapMotion,
   useGsapMotionDisabled,
 } from '@/composables/useGsapMotion'
 
@@ -27,6 +29,13 @@ const props = withDefaults(
 const motionDisabled = useGsapMotionDisabled()
 
 function handleEnter(element: Element, done: () => void) {
+  // 容器级整页入场进行中时，子级直接显示，避免与 page-enter 在同一次导航上叠加动画。
+  if (isPageEnterMotionActive()) {
+    killGsapMotion(element)
+    done()
+    return
+  }
+
   animateGsapFadeSlideEnter(element, {
     disabled: motionDisabled,
     duration: props.duration,

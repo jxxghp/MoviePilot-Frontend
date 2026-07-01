@@ -28,6 +28,9 @@ import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
 import ScrollToTopBtn from '@/@core/components/ScrollToTopBtn.vue'
 import PageContentTitle from './@core/components/PageContentTitle.vue'
 
+// 8. 全局指令
+import { vReveal } from '@/directives/reveal'
+
 // 6. 样式文件 - 合并为单一导入
 import '@/styles/main.scss'
 
@@ -167,7 +170,10 @@ app
   .component('VPathField', AsyncPathField)
   .component('VPageContentTitle', PageContentTitle)
 
-// 6. 注册其他插件
+// 6. 注册全局指令
+app.directive('reveal', vReveal)
+
+// 7. 注册其他插件
 app
   .use(PerfectScrollbarPlugin)
   .use(Toast, {

@@ -19,12 +19,8 @@ import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
-import {
-  animateGsapStaggerReveal,
-  killGsapMotion,
-  prepareGsapRevealElement,
-  useGsapMotionDisabled,
-} from '@/composables/useGsapMotion'
+import { useGsapMotionDisabled } from '@/composables/useGsapMotion'
+import { useIncrementalReveal } from '@/composables/useIncrementalReveal'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -232,10 +228,13 @@ const mobileLoading = ref(false)
 const mobileExpandedPathIds = ref<number[]>([])
 
 const motionDisabled = useGsapMotionDisabled()
-const mobileRecordMotionElements = new Map<number, HTMLElement>()
-const pendingMobileRecordMotionElements = new Map<number, HTMLElement>()
-const revealedMobileHistoryIds = new Set<number>()
-let mobileRecordMotionFrame: number | null = null
+const mobileRecordReveal = useIncrementalReveal({
+  disabled: motionDisabled,
+  duration: 0.3,
+  scale: 0.99,
+  stagger: 0.02,
+  y: 10,
+})
 
 type MobileVirtualItemRef = Ref<HTMLElement | undefined> | ((element: Element | ComponentPublicInstance | null) => void)
 
@@ -532,48 +531,15 @@ function syncMobileVirtualItemRef(
   itemRef.value = htmlElement ?? undefined
 }
 
-function cancelMobileRecordMotionFrame() {
-  if (mobileRecordMotionFrame === null || typeof window === 'undefined') return
-
-  window.cancelAnimationFrame(mobileRecordMotionFrame)
-  mobileRecordMotionFrame = null
-}
-
-function flushMobileRecordReveal() {
-  mobileRecordMotionFrame = null
-
-  const elements = Array.from(pendingMobileRecordMotionElements.values()).filter(element => element.isConnected)
-  pendingMobileRecordMotionElements.clear()
-
-  animateGsapStaggerReveal(elements, { disabled: motionDisabled, duration: 0.3, stagger: 0.02, y: 10, scale: 0.99 })
-}
-
+// 仅移动端虚拟列表项参与进场动画。
 function queueMobileRecordReveal(id: number, element: HTMLElement) {
-  if (!isMobile.value || revealedMobileHistoryIds.has(id)) return
+  if (!isMobile.value) return
 
-  revealedMobileHistoryIds.add(id)
-  pendingMobileRecordMotionElements.set(id, element)
-  prepareGsapRevealElement(element, { disabled: motionDisabled, y: 10, scale: 0.99 })
-
-  if (typeof window === 'undefined') {
-    flushMobileRecordReveal()
-    return
-  }
-
-  if (mobileRecordMotionFrame !== null) return
-
-  mobileRecordMotionFrame = window.requestAnimationFrame(flushMobileRecordReveal)
+  mobileRecordReveal.queue(id, element)
 }
 
 function cleanupMobileRecordMotion(options: { clearRevealed?: boolean } = {}) {
-  cancelMobileRecordMotionFrame()
-  pendingMobileRecordMotionElements.clear()
-
-  const elements = Array.from(mobileRecordMotionElements.values()).filter(element => element.isConnected)
-  if (elements.length) killGsapMotion(elements)
-
-  mobileRecordMotionElements.clear()
-  if (options.clearRevealed) revealedMobileHistoryIds.clear()
+  mobileRecordReveal.cleanup(options)
 }
 
 function setMobileRecordRef(
@@ -585,15 +551,10 @@ function setMobileRecordRef(
   syncMobileVirtualItemRef(itemRef, element, htmlElement)
 
   if (!htmlElement) {
-    const previousElement = mobileRecordMotionElements.get(item.id)
-    if (previousElement) killGsapMotion(previousElement)
-
-    mobileRecordMotionElements.delete(item.id)
-    pendingMobileRecordMotionElements.delete(item.id)
+    mobileRecordReveal.release(item.id)
     return
   }
 
-  mobileRecordMotionElements.set(item.id, htmlElement)
   queueMobileRecordReveal(item.id, htmlElement)
 }
 
