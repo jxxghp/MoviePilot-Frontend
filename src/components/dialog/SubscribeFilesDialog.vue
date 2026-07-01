@@ -86,6 +86,14 @@ function resolveImageUrl(url?: string) {
 }
 
 /**
+ * 将 TMDB 缩略背景图切换为原始尺寸后生成可展示地址。
+ */
+function resolveHeroImageUrl(url?: string) {
+  const originalUrl = (url || '').replace(/\/t\/p\/w\d+\//i, '/t/p/original/')
+  return resolveImageUrl(originalUrl)
+}
+
+/**
  * 根据订阅媒体类型生成集数展示文案。
  */
 function formatEpisodeLabel(episodeNumber: number) {
@@ -252,14 +260,6 @@ const missingCount = computed(() => Math.max(totalCount.value - libraryCount.val
 // 顶部统计卡片
 const statItems = computed<FileStatItem[]>(() => [
   {
-    key: 'total',
-    label: t('dialog.subscribeFiles.totalEpisodes'),
-    value: totalCount.value,
-    total: totalCount.value,
-    icon: 'mdi-view-grid-outline',
-    color: 'primary',
-  },
-  {
     key: 'download',
     label: t('dialog.subscribeFiles.downloadedCount'),
     value: downloadedCount.value,
@@ -290,7 +290,7 @@ const selectedFiles = computed(() => {
 
 // 顶部主背景图
 const heroBackdropUrl = computed(() => {
-  return resolveImageUrl(selectedEpisode.value?.backdrop || subscribe.value?.backdrop || subscribe.value?.poster)
+  return resolveHeroImageUrl(selectedEpisode.value?.backdrop || subscribe.value?.backdrop || subscribe.value?.poster)
 })
 
 // 顶部海报图
@@ -392,23 +392,22 @@ onBeforeMount(() => {
                 <p class="subscribe-files-hero__description">
                   {{ selectedEpisode?.description || subscribe?.description || t('dialog.subscribeFiles.noOverview') }}
                 </p>
-              </div>
-
-              <div class="subscribe-files-stats">
-                <div v-for="item in statItems" :key="item.key" class="subscribe-files-stat-card">
-                  <div class="subscribe-files-stat-card__icon">
-                    <VIcon :icon="item.icon" :color="item.color" size="22" />
+                <div class="subscribe-files-stats">
+                  <div v-for="item in statItems" :key="item.key" class="subscribe-files-stat-card">
+                    <div class="subscribe-files-stat-card__icon">
+                      <VIcon :icon="item.icon" :color="item.color" size="22" />
+                    </div>
+                    <div class="subscribe-files-stat-card__content">
+                      <div class="subscribe-files-stat-card__label">{{ item.label }}</div>
+                      <div class="subscribe-files-stat-card__value">{{ item.value }}/{{ item.total }}</div>
+                    </div>
+                    <VProgressLinear
+                      :model-value="calcPercent(item.value, item.total)"
+                      :color="item.color"
+                      height="3"
+                      rounded
+                    />
                   </div>
-                  <div class="subscribe-files-stat-card__content">
-                    <div class="subscribe-files-stat-card__label">{{ item.label }}</div>
-                    <div class="subscribe-files-stat-card__value">{{ item.value }}</div>
-                  </div>
-                  <VProgressLinear
-                    :model-value="calcPercent(item.value, item.total)"
-                    :color="item.color"
-                    height="3"
-                    rounded
-                  />
                 </div>
               </div>
             </div>
@@ -725,7 +724,7 @@ onBeforeMount(() => {
   display: grid;
   align-items: end;
   gap: 2rem;
-  grid-template-columns: 15rem minmax(0, 1fr) 14rem;
+  grid-template-columns: 15rem minmax(0, 1fr);
   padding: 3.5rem 2.25rem 2rem;
 }
 
@@ -803,6 +802,9 @@ onBeforeMount(() => {
 .subscribe-files-stats {
   display: grid;
   gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block-start: 1rem;
+  max-inline-size: 42rem;
 }
 
 .subscribe-files-stat-card {
@@ -1271,8 +1273,8 @@ onBeforeMount(() => {
   }
 
   .subscribe-files-stats {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-block-start: 0.75rem;
   }
 
   .subscribe-files-stat-card {
@@ -1282,10 +1284,7 @@ onBeforeMount(() => {
   }
 
   .subscribe-files-stat-card__content {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
+    display: block;
   }
 
   .subscribe-files-stat-card__label,
@@ -1329,14 +1328,6 @@ onBeforeMount(() => {
 @media (width <= 560px) {
   .subscribe-files-hero__content {
     grid-template-columns: 6.5rem minmax(0, 1fr);
-  }
-
-  .subscribe-files-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .subscribe-files-stat-card:first-child {
-    grid-column: 1 / -1;
   }
 
   .subscribe-files-mobile-card__header {
