@@ -11,6 +11,11 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getRecommendTabs } from '@/router/i18n-menu'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import {
+  createBuiltInRecommendSources,
+  mergeExtraRecommendSources,
+  type RecommendViewSource,
+} from '@/utils/recommendSources'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/ContentToggleSettingsDialog.vue'))
 
@@ -63,86 +68,7 @@ function openRecommendSettings() {
   )
 }
 
-const viewList = reactive<{ apipath: string; linkurl: string; title: string; type: string }[]>([
-  {
-    apipath: 'recommend/tmdb_trending',
-    linkurl: '/browse/recommend/tmdb_trending?title=' + t('recommend.trendingNow'),
-    title: t('recommend.trendingNow'),
-    type: t('recommend.categoryRankings'),
-  },
-  {
-    apipath: 'recommend/douban_showing',
-    linkurl: '/browse/recommend/douban_showing?title=' + t('recommend.nowShowing'),
-    title: t('recommend.nowShowing'),
-    type: t('recommend.categoryMovie'),
-  },
-  {
-    apipath: 'recommend/bangumi_calendar',
-    linkurl: '/browse/recommend/bangumi_calendar?title=' + t('recommend.bangumiDaily'),
-    title: t('recommend.bangumiDaily'),
-    type: t('recommend.categoryAnime'),
-  },
-  {
-    apipath: 'recommend/tmdb_movies',
-    linkurl: '/browse/recommend/tmdb_movies?title=' + t('recommend.tmdbHotMovies'),
-    title: t('recommend.tmdbHotMovies'),
-    type: t('recommend.categoryMovie'),
-  },
-  {
-    apipath: 'recommend/tmdb_tvs?with_original_language=zh|en|ja|ko',
-    linkurl: '/browse/recommend/tmdb_tvs??with_original_language=zh|en|ja|ko&title=' + t('recommend.tmdbHotTVShows'),
-    title: t('recommend.tmdbHotTVShows'),
-    type: t('recommend.categoryTV'),
-  },
-  {
-    apipath: 'recommend/douban_movie_hot',
-    linkurl: '/browse/recommend/douban_movie_hot?title=' + t('recommend.doubanHotMovies'),
-    title: t('recommend.doubanHotMovies'),
-    type: t('recommend.categoryMovie'),
-  },
-  {
-    apipath: 'recommend/douban_tv_hot',
-    linkurl: '/browse/recommend/douban_tv_hot?title=' + t('recommend.doubanHotTVShows'),
-    title: t('recommend.doubanHotTVShows'),
-    type: t('recommend.categoryTV'),
-  },
-  {
-    apipath: 'recommend/douban_tv_animation',
-    linkurl: '/browse/recommend/douban_tv_animation?title=' + t('recommend.doubanHotAnime'),
-    title: t('recommend.doubanHotAnime'),
-    type: t('recommend.categoryAnime'),
-  },
-  {
-    apipath: 'recommend/douban_movies',
-    linkurl: '/browse/recommend/douban_movies?title=' + t('recommend.doubanNewMovies'),
-    title: t('recommend.doubanNewMovies'),
-    type: t('recommend.categoryMovie'),
-  },
-  {
-    apipath: 'recommend/douban_tvs',
-    linkurl: '/browse/recommend/douban_tvs?title=' + t('recommend.doubanNewTVShows'),
-    title: t('recommend.doubanNewTVShows'),
-    type: t('recommend.categoryTV'),
-  },
-  {
-    apipath: 'recommend/douban_movie_top250',
-    linkurl: '/browse/recommend/douban_movie_top250?title=' + t('recommend.doubanTop250'),
-    title: t('recommend.doubanTop250'),
-    type: t('recommend.categoryRankings'),
-  },
-  {
-    apipath: 'recommend/douban_tv_weekly_chinese',
-    linkurl: '/browse/recommend/douban_tv_weekly_chinese?title=' + t('recommend.doubanChineseTVRankings'),
-    title: t('recommend.doubanChineseTVRankings'),
-    type: t('recommend.categoryRankings'),
-  },
-  {
-    apipath: 'recommend/douban_tv_weekly_global',
-    linkurl: '/browse/recommend/douban_tv_weekly_global?title=' + t('recommend.doubanGlobalTVRankings'),
-    title: t('recommend.doubanGlobalTVRankings'),
-    type: t('recommend.categoryRankings'),
-  },
-])
+const viewList = reactive<RecommendViewSource[]>(createBuiltInRecommendSources(t))
 
 // 计算当前分类下显示的视图
 const filteredViews = computed(() => {
@@ -175,20 +101,7 @@ const extraRecommendSources = ref<RecommendSource[]>([])
 async function loadExtraRecommendSources() {
   try {
     extraRecommendSources.value = await api.get('recommend/source')
-    if (extraRecommendSources.value.length > 0) {
-      extraRecommendSources.value.map(source => {
-        if (!viewList.some(item => item.apipath === source.api_path)) {
-          const querySeparator = source.api_path.includes('?') ? '&' : '?'
-          const linkUrl = `/browse/${source.api_path}${querySeparator}title=${encodeURIComponent(source.name)}`
-          viewList.push({
-            apipath: source.api_path,
-            linkurl: linkUrl,
-            title: source.name,
-            type: source.type,
-          })
-        }
-      })
-    }
+    mergeExtraRecommendSources(viewList, extraRecommendSources.value)
   } catch (error) {
     console.log(error)
   }

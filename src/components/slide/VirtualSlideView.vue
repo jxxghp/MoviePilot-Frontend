@@ -60,6 +60,9 @@ const trailingSpaceWidth = computed(() => {
   return Math.max(totalContentWidth.value - leadingSpaceWidth.value - visibleItemsWidth.value, 0)
 })
 
+/**
+ * 获取容器宽度不可用时的兜底视口宽度。
+ */
 function getFallbackViewportWidth() {
   if (typeof window === 'undefined') {
     return itemStep.value * Math.max(props.overscanItems, 1)
@@ -69,6 +72,9 @@ function getFallbackViewportWidth() {
   return Math.max(window.innerWidth, itemStep.value * Math.max(props.overscanItems, 1))
 }
 
+/**
+ * 解析虚拟列表项的稳定 key。
+ */
 function resolveItemKey(item: any, index: number) {
   if (props.getItemKey) {
     return props.getItemKey(item, startIndex.value + index)
@@ -77,6 +83,9 @@ function resolveItemKey(item: any, index: number) {
   return startIndex.value + index
 }
 
+/**
+ * 重置滚动状态指示计时器。
+ */
 function resetScrollIndicatorTimer() {
   isScrolling.value = true
   if (scrollTimeout) {
@@ -88,6 +97,9 @@ function resetScrollIndicatorTimer() {
   }, scrollTimeoutDuration)
 }
 
+/**
+ * 根据当前滚动位置更新虚拟渲染范围。
+ */
 function updateVisibleRange() {
   const element = slideContentRef.value
   if (!element) {
@@ -113,6 +125,9 @@ function updateVisibleRange() {
   endIndex.value = Math.max(firstVisible + 1, lastVisible)
 }
 
+/**
+ * 同步左右导航按钮的可用状态。
+ */
 function updateDisabledState() {
   const element = slideContentRef.value
   if (!element) return
@@ -130,11 +145,17 @@ function updateDisabledState() {
   }
 }
 
+/**
+ * 同步虚拟列表布局与导航状态。
+ */
 function syncLayoutState() {
   updateVisibleRange()
   updateDisabledState()
 }
 
+/**
+ * 按当前可视范围向左或向右滚动一屏。
+ */
 function slideNext(next: boolean) {
   const element = slideContentRef.value
   if (!element) return
@@ -159,6 +180,9 @@ function slideNext(next: boolean) {
   resetScrollIndicatorTimer()
 }
 
+/**
+ * 处理内容滚动并刷新滚动指示状态。
+ */
 function handleContentScroll() {
   syncLayoutState()
   resetScrollIndicatorTimer()
@@ -257,28 +281,20 @@ watch(
       <VBtn
         v-show="disabled !== 0 && disabled !== 3 && !isTouch"
         class="nav-button nav-button-left"
-        variant="text"
-        icon
-        color="secondary"
+        variant="tonal"
+        icon="mdi-chevron-left"
+        color="white"
         @click.stop="slideNext(false)"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" />
-        </svg>
-      </VBtn>
+      />
 
       <VBtn
         v-show="disabled !== 2 && disabled !== 3 && !isTouch"
         class="nav-button nav-button-right"
-        variant="text"
-        icon
-        color="secondary"
+        variant="tonal"
+        icon="mdi-chevron-right"
+        color="white"
         @click.stop="slideNext(true)"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24">
-          <path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" />
-        </svg>
-      </VBtn>
+      />
     </div>
   </div>
 </template>
@@ -402,17 +418,18 @@ watch(
   align-items: center;
   justify-content: center;
   padding: 0;
+  border: 1px solid rgba(255, 255, 255, 14%);
   border-radius: 50%;
   backdrop-filter: blur(8px);
-  background-color: rgba(var(--v-theme-background), 0.3);
-  block-size: 36px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 8%);
+  background: rgba(8, 18, 28, 52%) !important;
+  block-size: 40px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 22%);
+  color: rgb(255, 255, 255);
   cursor: pointer;
-  inline-size: 36px;
+  inline-size: 40px;
   inset-block-start: 50%;
   opacity: 0;
   pointer-events: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 10%);
   transform: translateY(-50%);
   transition:
     opacity 0.3s ease,
@@ -421,21 +438,22 @@ watch(
     box-shadow 0.3s ease,
     border-color 0.3s ease;
 
-  svg {
-    block-size: 22px;
-    fill: currentcolor;
-    filter: none;
-    inline-size: 22px;
-    opacity: 0.7;
-    transition: all 0.3s ease;
+  :deep(.v-icon) {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 55%));
+    font-size: 28px;
+    opacity: 1;
+    transition: transform 0.3s ease;
   }
 
   &:hover {
-    color: rgb(var(--v-theme-primary));
+    border-color: rgba(255, 255, 255, 28%);
+    background: rgba(8, 18, 28, 68%) !important;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 28%);
+    color: rgb(255, 255, 255);
     transform: translateY(-50%) scale(1.05);
 
-    svg {
-      opacity: 1;
+    :deep(.v-icon) {
+      transform: scale(1.08);
     }
   }
 }

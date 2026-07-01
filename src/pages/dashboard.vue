@@ -25,9 +25,11 @@ const { t } = useI18n()
 const { appMode } = usePWA()
 const display = useDisplay()
 const userStore = useUserStore()
-const canAdmin = computed(() =>
-  hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
+const userPermissionContext = computed(() =>
+  buildUserPermissionContext(userStore.superUser, userStore.permissions),
 )
+const canAdmin = computed(() => hasPermission(userPermissionContext.value, 'admin'))
+const canDiscovery = computed(() => hasPermission(userPermissionContext.value, 'discovery'))
 
 // 路由
 const route = useRoute()
@@ -76,6 +78,7 @@ const DASHBOARD_DESKTOP_DEFAULT_LAYOUT: DashboardGridLayoutConfig = {
   cpu: { x: 4, y: 22, w: 4, h: DASHBOARD_RESOURCE_CHART_ROWS },
   quickActions: { x: 8, y: 22, w: 4, h: 5 },
   systemInfo: { x: 8, y: 27, w: 4, h: 6 },
+  mediaRecommend: { x: 0, y: 33, w: 12, h: 23 },
 }
 
 // 单个设备档位的仪表盘配置，将布局与显示项绑定到同一份持久化数据。
@@ -169,6 +172,15 @@ const dashboardConfigs = ref<DashboardItem[]>([
     attrs: {},
     cols: { cols: 12, md: 8 },
     rows: 7,
+    elements: [],
+  },
+  {
+    id: 'mediaRecommend',
+    name: t('dashboard.recommendedMedia'),
+    key: '',
+    attrs: {},
+    cols: { cols: 12 },
+    rows: 23,
     elements: [],
   },
   {
@@ -287,7 +299,12 @@ const pluginDashboardRefreshStatus = ref<{ [key: string]: boolean }>({})
 // 当前启用且可渲染的仪表板 Grid 项。
 const dashboardGridItems = computed<DashboardGridItem[]>(() =>
   dashboardConfigs.value
-    .filter(item => enableConfig.value[buildPluginDashboardId(item.id, item.key)] && item.cols)
+    .filter(
+      item =>
+        enableConfig.value[buildPluginDashboardId(item.id, item.key)] &&
+        item.cols &&
+        (item.id !== 'mediaRecommend' || canDiscovery.value),
+    )
     .map(item => {
       const id = buildPluginDashboardId(item.id, item.key)
 
@@ -378,6 +395,7 @@ function clampGridNumber(value: unknown, min: number, max: number, fallback: num
 function getDefaultDashboardEnableConfig(): DashboardEnableConfig {
   return {
     mediaStatistic: true,
+    mediaRecommend: true,
     scheduler: true,
     speed: true,
     storage: true,

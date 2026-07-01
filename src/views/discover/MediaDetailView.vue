@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
-import type { MediaInfo, MediaRelease, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
+import type { MediaInfo, MediaRelease, MediaSeason, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { formatSeasonLabel } from '@/@core/utils/season'
 import router from '@/router'
@@ -93,11 +93,49 @@ interface MediaSearchOptions {
   episode?: number | null
 }
 
+interface EpisodeGroupInfo {
+  id: string
+  name: string
+  group_count: number
+  episode_count: number
+}
+
+interface EpisodeGroupOption extends EpisodeGroupInfo {
+  icon: string
+}
+
 // 站点选择后待执行的搜索类型
 const pendingSearchResultType = ref<'torrent' | 'subtitle'>('torrent')
 
 // 站点选择后待执行的季集参数
 const pendingSearchOptions = ref<MediaSearchOptions>({})
+
+// 可用剧集组
+const episodeGroups = ref<EpisodeGroupInfo[]>([])
+
+// 当前选中的剧集组，空字符串表示 TMDB 默认排序
+const selectedEpisodeGroup = ref('')
+
+// 当前自定义剧集组的季信息
+const episodeGroupSeasons = ref<MediaSeason[]>([])
+
+// 剧集组列表加载状态
+const episodeGroupsLoading = ref(false)
+
+// 自定义剧集组季信息加载状态
+const episodeGroupSeasonsLoading = ref(false)
+
+// 剧集组横向轨道
+const episodeGroupRail = ref<HTMLElement | null>(null)
+
+// 剧集组轨道左右滚动状态
+const canScrollEpisodeGroupsBackward = ref(false)
+const canScrollEpisodeGroupsForward = ref(false)
+
+// 防止快速切换剧集组时旧请求覆盖新结果
+let episodeGroupSeasonRequestId = 0
+let seasonNotExistsRequestId = 0
+let episodeExistsRequestId = 0
 
 // 计算主题是否为透明
 const isTransparentTheme = computed(() => {
@@ -165,6 +203,12 @@ async function getMediaDetail() {
     isRefreshed.value = true
     if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id && !mediaDetail.value.bangumi_id) return
 
+    selectedEpisodeGroup.value = mediaDetail.value.episode_group || ''
+    if (mediaDetail.value.type === '电视剧' && mediaDetail.value.tmdb_id) {
+      getEpisodeGroups()
+      if (selectedEpisodeGroup.value) loadEpisodeGroupSeasons(selectedEpisodeGroup.value)
+    }
+
     // 检查存在状态
     checkExists()
     if (mediaDetail.value.type === '电视剧') checkSeasonsNotExists()
@@ -181,7 +225,7 @@ async function loadSeasonEpisodes(season: number) {
   // 加载季集信息
   if (seasonEpisodesInfo.value[season]) return
   try {
-    const params = mediaDetail.value.episode_group ? { episode_group: mediaDetail.value.episode_group } : undefined
+    const params = selectedEpisodeGroup.value ? { episode_group: selectedEpisodeGroup.value } : undefined
     const result: TmdbEpisode[] = await api.get(`tmdb/${mediaDetail.value.tmdb_id}/${season}`, params ? { params } : undefined)
     seasonEpisodesInfo.value[season] = result || []
   } catch (error) {
@@ -193,9 +237,14 @@ async function loadSeasonEpisodes(season: number) {
 async function loadEpisodeExists() {
   // 查询季集存在状态
   if (!isNullOrEmptyObject(existsEpisodes.value)) return
+  const requestId = ++episodeExistsRequestId
   try {
-    const result: { [key: number]: number[] } = await api.post(`mediaserver/exists_remote`, mediaDetail.value)
-    existsEpisodes.value = result || {}
+    const media = {
+      ...mediaDetail.value,
+      episode_group: selectedEpisodeGroup.value || '',
+    }
+    const result: { [key: number]: number[] } = await api.post(`mediaserver/exists_remote`, media)
+    if (requestId === episodeExistsRequestId) existsEpisodes.value = result || {}
   } catch (error) {
     console.error(error)
   }
@@ -246,9 +295,15 @@ function isSameSubscribeMedia(subscribe: Subscribe) {
 // 检查所有季的缺失状态
 async function checkSeasonsNotExists() {
   if (mediaDetail.value.type !== '电视剧') return
+  const requestId = ++seasonNotExistsRequestId
+  seasonsNotExisted.value = {}
   try {
-    const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', mediaDetail.value)
-    if (result) {
+    const media = {
+      ...mediaDetail.value,
+      episode_group: selectedEpisodeGroup.value || '',
+    }
+    const result: NotExistMediaInfo[] = await api.post('mediaserver/notexists', media)
+    if (requestId === seasonNotExistsRequestId && result) {
       result.forEach(item => {
         // 0-已入库 1-部分缺失 2-全部缺失
         let state = 0
@@ -268,15 +323,118 @@ async function checkMovieSubscribed() {
   isSubscribed.value = await checkSubscribe()
 }
 
+// 默认排序的总集数
+const defaultEpisodeCount = computed(() =>
+  (mediaDetail.value?.season_info ?? []).reduce((total, season) => total + (season.episode_count ?? 0), 0),
+)
+
+// 剧集组选项，首项固定为 TMDB 默认排序
+const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => [
+  {
+    id: '',
+    name: t('media.episodeGroups.default'),
+    group_count: mediaDetail.value?.season_info?.length ?? 0,
+    episode_count: defaultEpisodeCount.value,
+    icon: 'mdi-layers-outline',
+  },
+  ...episodeGroups.value.map(group => ({
+    ...group,
+    icon: 'mdi-folder-play-outline',
+  })),
+])
+
+// 当前选中的剧集组选项
+const selectedEpisodeGroupOption = computed(
+  () => episodeGroupOptions.value.find(group => group.id === selectedEpisodeGroup.value) ?? episodeGroupOptions.value[0]!,
+)
+
 // 季列表，第0季排在最后
 const getMediaSeasons = computed(() => {
-  if (!mediaDetail.value?.season_info) return []
-  return [...mediaDetail.value.season_info].sort((a, b) => {
+  const seasons = selectedEpisodeGroup.value ? episodeGroupSeasons.value : mediaDetail.value?.season_info
+  if (!seasons) return []
+  return [...seasons].sort((a, b) => {
     if (a.season_number === 0) return 1
     if (b.season_number === 0) return -1
     return (a.season_number || 0) - (b.season_number || 0)
   })
 })
+
+// 查询当前媒体可用的剧集组
+async function getEpisodeGroups() {
+  if (!mediaDetail.value.tmdb_id) return
+
+  episodeGroupsLoading.value = true
+  try {
+    const result: EpisodeGroupInfo[] = await api.get(`media/groups/${mediaDetail.value.tmdb_id}`)
+    episodeGroups.value = result || []
+  } catch (error) {
+    console.error(error)
+    episodeGroups.value = []
+  } finally {
+    episodeGroupsLoading.value = false
+    nextTick(updateEpisodeGroupScrollState)
+  }
+}
+
+// 查询指定剧集组的季信息，并忽略过期响应
+async function loadEpisodeGroupSeasons(groupId: string) {
+  if (!groupId) {
+    episodeGroupSeasons.value = []
+    episodeGroupSeasonsLoading.value = false
+    return
+  }
+
+  const requestId = ++episodeGroupSeasonRequestId
+  episodeGroupSeasonsLoading.value = true
+  try {
+    const result: MediaSeason[] = await api.get(`media/group/seasons/${groupId}`)
+    if (requestId === episodeGroupSeasonRequestId) episodeGroupSeasons.value = result || []
+  } catch (error) {
+    console.error(error)
+    if (requestId === episodeGroupSeasonRequestId) episodeGroupSeasons.value = []
+  } finally {
+    if (requestId === episodeGroupSeasonRequestId) episodeGroupSeasonsLoading.value = false
+  }
+}
+
+// 切换详情页当前浏览的剧集组
+async function setEpisodeGroup(groupId: string) {
+  if (selectedEpisodeGroup.value === groupId) return
+
+  selectedEpisodeGroup.value = groupId
+  seasonEpisodesInfo.value = {}
+  existsEpisodes.value = {}
+  episodeGroupSeasons.value = []
+  episodeGroupSeasonRequestId += 1
+  episodeExistsRequestId += 1
+
+  await Promise.all([loadEpisodeGroupSeasons(groupId), checkSeasonsNotExists()])
+}
+
+// 刷新剧集组横向轨道的左右滚动按钮状态
+function updateEpisodeGroupScrollState() {
+  const rail = episodeGroupRail.value
+  if (!rail) {
+    canScrollEpisodeGroupsBackward.value = false
+    canScrollEpisodeGroupsForward.value = false
+    return
+  }
+
+  const maxScrollLeft = Math.max(rail.scrollWidth - rail.clientWidth, 0)
+  canScrollEpisodeGroupsBackward.value = rail.scrollLeft > 4
+  canScrollEpisodeGroupsForward.value = rail.scrollLeft < maxScrollLeft - 4
+}
+
+// 按一屏内可辨识的距离横向滚动剧集组轨道
+function scrollEpisodeGroups(direction: 'backward' | 'forward') {
+  const rail = episodeGroupRail.value
+  if (!rail) return
+
+  rail.scrollBy({
+    behavior: 'smooth',
+    left: direction === 'backward' ? -Math.max(rail.clientWidth * 0.72, 240) : Math.max(rail.clientWidth * 0.72, 240),
+  })
+}
 
 // 检查所有季的订阅状态
 async function checkSeasonsSubscribed() {
@@ -307,6 +465,7 @@ async function checkSeasonsSubscribed() {
   }
 }
 
+// 已订阅季号列表
 const subscribedSeasonNumbers = computed(() =>
   Object.entries(seasonsSubscribed.value)
     .filter(([, subscribed]) => subscribed)
@@ -314,8 +473,10 @@ const subscribedSeasonNumbers = computed(() =>
     .sort((a, b) => a - b),
 )
 
-const subscribeSeasonTotal = computed(() => getMediaSeasons.value.length)
+// 默认季结构中的可订阅季总数
+const subscribeSeasonTotal = computed(() => mediaDetail.value?.season_info?.length ?? 0)
 
+// 当前媒体是否已订阅默认季结构中的全部季
 const isAllSeasonsSubscribed = computed(
   () =>
     mediaDetail.value.type === '电视剧' &&
@@ -461,6 +622,7 @@ const getSubscribeColor = computed(() => {
   else return 'warning'
 })
 
+// 计算订阅按钮文案
 const getSubscribeText = computed(() => {
   if (mediaDetail.value.type === '电视剧') {
     if (isAllSeasonsSubscribed.value) return t('media.status.allSeasonsSubscribed')
@@ -567,6 +729,14 @@ async function handleSubtitleSearch() {
 
 onBeforeMount(() => {
   getMediaDetail()
+})
+
+onMounted(() => {
+  window.addEventListener('resize', updateEpisodeGroupScrollState)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateEpisodeGroupScrollState)
 })
 </script>
 
@@ -761,7 +931,67 @@ onBeforeMount(() => {
           </div>
           <h2 v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="py-4">{{ t('media.seasons') }}</h2>
           <div v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="flex w-full flex-col space-y-2">
-            <VExpansionPanels>
+            <div v-if="episodeGroupsLoading || episodeGroupOptions.length > 1" class="episode-group-selector">
+              <div class="episode-group-label">{{ t('media.episodeGroups.select') }}</div>
+              <VProgressLinear v-if="episodeGroupsLoading" color="primary" indeterminate rounded />
+              <template v-else>
+                <div class="episode-group-rail-shell">
+                  <button
+                    v-if="canScrollEpisodeGroupsBackward"
+                    type="button"
+                    class="episode-group-nav episode-group-nav--backward"
+                    :aria-label="t('media.episodeGroups.previous')"
+                    @click="scrollEpisodeGroups('backward')"
+                  >
+                    <VIcon icon="mdi-chevron-left" />
+                  </button>
+                  <div ref="episodeGroupRail" class="episode-group-rail" @scroll.passive="updateEpisodeGroupScrollState">
+                    <button
+                      v-for="group in episodeGroupOptions"
+                      :key="group.id || 'default'"
+                      type="button"
+                      class="episode-group-option"
+                      :class="{ 'episode-group-option--active': selectedEpisodeGroup === group.id }"
+                      :aria-pressed="selectedEpisodeGroup === group.id"
+                      @click="setEpisodeGroup(group.id)"
+                    >
+                      <VIcon :icon="group.icon" size="small" class="episode-group-option__icon" />
+                      <span class="episode-group-option__text">
+                        <span class="episode-group-option__title">{{ group.name }}</span>
+                        <span class="episode-group-option__meta">
+                          {{
+                            t('media.episodeGroups.summary', {
+                              seasons: group.group_count,
+                              episodes: group.episode_count,
+                            })
+                          }}
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                  <button
+                    v-if="canScrollEpisodeGroupsForward"
+                    type="button"
+                    class="episode-group-nav episode-group-nav--forward"
+                    :aria-label="t('media.episodeGroups.next')"
+                    @click="scrollEpisodeGroups('forward')"
+                  >
+                    <VIcon icon="mdi-chevron-right" />
+                  </button>
+                </div>
+                <div class="episode-group-current">
+                  {{
+                    t('media.episodeGroups.current', {
+                      name: selectedEpisodeGroupOption.name,
+                      seasons: selectedEpisodeGroupOption.group_count,
+                      episodes: selectedEpisodeGroupOption.episode_count,
+                    })
+                  }}
+                </div>
+              </template>
+            </div>
+            <LoadingBanner v-if="episodeGroupSeasonsLoading" class="mt-3" />
+            <VExpansionPanels v-else :key="selectedEpisodeGroup || 'default'">
               <VExpansionPanel
                 v-for="season in getMediaSeasons"
                 :key="season.season_number"
@@ -1273,11 +1503,193 @@ a.crew-name {
 
 .media-overview-left {
   flex: 1 1 0%;
+  min-inline-size: 0;
 }
 
 @media (width >= 1024px) {
   .media-overview-left {
     margin-inline-end: 2rem;
+  }
+}
+
+.episode-group-selector {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-end: 0.5rem;
+  min-inline-size: 0;
+}
+
+.episode-group-label {
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.episode-group-rail-shell {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.episode-group-rail {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-block: 0.125rem 0.375rem;
+  scroll-behavior: smooth;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+}
+
+.episode-group-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.episode-group-option {
+  display: inline-flex;
+  flex: 0 0 12rem;
+  align-items: center;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: var(--app-control-radius);
+  background: rgba(var(--v-theme-surface), 0.72);
+  color: rgb(var(--v-theme-on-surface));
+  gap: 0.625rem;
+  min-inline-size: 0;
+  padding-block: 0.625rem;
+  padding-inline: 0.75rem;
+  scroll-snap-align: start;
+  text-align: start;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.episode-group-option:hover {
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+
+.episode-group-option--active {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.14);
+  color: rgb(var(--v-theme-primary));
+}
+
+.episode-group-option:focus-visible,
+.episode-group-nav:focus-visible {
+  outline: 2px solid rgba(var(--v-theme-primary), 0.45);
+  outline-offset: 2px;
+}
+
+.episode-group-option__icon {
+  flex: 0 0 auto;
+}
+
+.episode-group-option__text {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.episode-group-option__title,
+.episode-group-option__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.episode-group-option__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}
+
+.episode-group-option__meta {
+  color: rgba(var(--v-theme-on-surface), 0.62);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.episode-group-option--active .episode-group-option__meta {
+  color: rgba(var(--v-theme-primary), 0.82);
+}
+
+.episode-group-nav {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 9999px;
+  background: rgba(var(--v-theme-surface), 0.92);
+  block-size: 2.5rem;
+  color: rgb(var(--v-theme-on-surface));
+  inline-size: 2.5rem;
+  inset-block-start: 50%;
+  transform: translateY(-55%);
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.episode-group-nav:hover {
+  border-color: rgba(var(--v-theme-primary), 0.45);
+  background: rgba(var(--v-theme-primary), 0.12);
+  color: rgb(var(--v-theme-primary));
+}
+
+.episode-group-nav--backward {
+  inset-inline-start: -0.5rem;
+}
+
+.episode-group-nav--forward {
+  inset-inline-end: -0.5rem;
+}
+
+.episode-group-current {
+  color: rgba(var(--v-theme-on-surface), 0.66);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.media-detail-transparent .episode-group-option {
+  backdrop-filter: blur(var(--transparent-blur-light, 6px));
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
+}
+
+.media-detail-transparent .episode-group-option:hover {
+  background: rgba(var(--v-theme-primary), 0.1);
+}
+
+.media-detail-transparent .episode-group-option--active {
+  background: rgba(var(--v-theme-primary), 0.16);
+}
+
+.media-detail-transparent .episode-group-nav {
+  backdrop-filter: blur(var(--transparent-blur, 10px));
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
+}
+
+@media (width <= 640px) {
+  .episode-group-option {
+    flex-basis: 9.75rem;
+    padding-block: 0.5625rem;
+    padding-inline: 0.625rem;
+  }
+
+  .episode-group-nav {
+    display: none;
+  }
+
+  .episode-group-current {
+    font-size: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .episode-group-rail {
+    scroll-behavior: auto;
   }
 }
 
