@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import type { Site } from '@/api/types'
 import { useI18n } from 'vue-i18n'
+import { useDisplay } from 'vuetify'
 
 // 多语言支持
 const { t } = useI18n()
+
+// 显示器宽度
+const display = useDisplay()
 
 const props = defineProps({
   sites: {
@@ -84,7 +88,7 @@ const filteredSites = computed(() => {
 </script>
 <template>
   <!-- Site Selection Dialog -->
-  <VDialog max-width="40rem" fullscreen-mobile>
+  <VDialog max-width="40rem" :fullscreen="!display.smAndUp.value">
     <VCard class="site-dialog">
       <VCardItem>
         <template #prepend>
