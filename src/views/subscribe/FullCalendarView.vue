@@ -903,17 +903,12 @@ onActivated(() => {
 
 <style lang="scss">
 .v-application .fc {
-  --fc-today-bg-color: rgba(var(--v-theme-on-surface), 0.04);
+  --fc-today-bg-color: rgba(var(--v-theme-primary), 0.06);
   --fc-border-color: rgba(var(--v-border-color), var(--v-border-opacity));
   --fc-neutral-bg-color: rgb(var(--v-theme-background), 0.3);
   --fc-list-event-hover-bg-color: rgba(var(--v-theme-on-surface), 0.02);
   --fc-page-bg-color: rgb(var(--v-theme-background), 0.3);
   --fc-event-border-color: currentcolor;
-}
-
-// 当天背景渐变
-.fc-day-today {
-  background-image: linear-gradient(to bottom, #af85fd, rgba(var(--v-theme-on-surface), 0.04));
 }
 
 .v-application .fc a {
