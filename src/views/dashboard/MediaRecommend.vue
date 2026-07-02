@@ -201,7 +201,7 @@ onBeforeUnmount(stopAutoplay)
 
 <template>
   <VCard
-    class="dashboard-recommend dashboard-grid-fill dashboard-grid-no-drag"
+    class="dashboard-recommend dashboard-grid-adaptive-size dashboard-grid-fill dashboard-grid-no-drag"
     :class="{ 'is-loading': loading }"
     @mouseenter="isPaused = true"
     @mouseleave="isPaused = false"
@@ -334,8 +334,9 @@ onBeforeUnmount(stopAutoplay)
 .dashboard-recommend {
   position: relative;
   overflow: hidden;
-  block-size: 100%;
-  min-block-size: 520px;
+  aspect-ratio: 2 / 1;
+  block-size: auto;
+  min-block-size: 0;
   background: rgb(8, 18, 28);
   color: white;
   isolation: isolate;
@@ -510,12 +511,41 @@ onBeforeUnmount(stopAutoplay)
 .dashboard-recommend-empty {
   display: flex;
   block-size: 100%;
-  min-block-size: 520px;
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.68);
   flex-direction: column;
   gap: 0.75rem;
+}
+
+@media (min-width: 741px) and (hover: hover) {
+  .dashboard-recommend-topbar,
+  .dashboard-recommend-arrow {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .dashboard-recommend-topbar {
+    transform: translateY(-4px);
+  }
+
+  .dashboard-recommend-arrow--previous {
+    transform: translateX(-4px);
+  }
+
+  .dashboard-recommend-arrow--next {
+    transform: translateX(4px);
+  }
+
+  .dashboard-recommend:hover .dashboard-recommend-topbar,
+  .dashboard-recommend:focus-within .dashboard-recommend-topbar,
+  .dashboard-recommend:hover .dashboard-recommend-arrow,
+  .dashboard-recommend:focus-within .dashboard-recommend-arrow {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
 }
 
 @media (max-width: 740px) {
@@ -555,23 +585,16 @@ onBeforeUnmount(stopAutoplay)
   }
 
   .dashboard-recommend-detail {
+    justify-content: center;
+    inline-size: max-content;
     min-inline-size: 124px;
     inset-block-end: 3.8rem;
-    inset-inline-end: 0.85rem;
+    inset-inline: 50% auto;
+    transform: translateX(-50%);
   }
 
   .dashboard-recommend-arrow {
-    block-size: 36px;
-    inline-size: 36px;
-    inset-block-end: 0.75rem;
-  }
-
-  .dashboard-recommend-arrow--previous {
-    inset-inline-start: 0.85rem;
-  }
-
-  .dashboard-recommend-arrow--next {
-    inset-inline-end: 0.85rem;
+    display: none;
   }
 
   .dashboard-recommend-pagination {
@@ -605,13 +628,11 @@ onBeforeUnmount(stopAutoplay)
     max-inline-size: 68vw;
   }
 
-  .dashboard-recommend-detail {
-    inset-inline: 0.85rem;
-    inline-size: calc(100% - 1.7rem);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dashboard-recommend-topbar,
+  .dashboard-recommend-arrow,
   .dashboard-recommend-page {
     transition: none;
   }

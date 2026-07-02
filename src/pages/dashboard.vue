@@ -78,7 +78,7 @@ const DASHBOARD_DESKTOP_DEFAULT_LAYOUT: DashboardGridLayoutConfig = {
   cpu: { x: 4, y: 22, w: 4, h: DASHBOARD_RESOURCE_CHART_ROWS },
   quickActions: { x: 8, y: 22, w: 4, h: 5 },
   systemInfo: { x: 8, y: 27, w: 4, h: 6 },
-  mediaRecommend: { x: 0, y: 33, w: 12, h: 23 },
+  mediaRecommend: { x: 0, y: 33, w: 8, h: 17 },
 }
 
 // 单个设备档位的仪表盘配置，将布局与显示项绑定到同一份持久化数据。
@@ -179,8 +179,8 @@ const dashboardConfigs = ref<DashboardItem[]>([
     name: t('dashboard.recommendedMedia'),
     key: '',
     attrs: {},
-    cols: { cols: 12 },
-    rows: 23,
+    cols: { cols: 12, md: 8 },
+    rows: 17,
     elements: [],
   },
   {
@@ -1520,6 +1520,13 @@ onBeforeUnmount(() => {
 
 .dashboard-grid-item.is-manual-height :deep(.v-card) {
   block-size: 100%;
+}
+
+/* 需要默认尺寸约束的组件可挂载此类，用户编辑后统一解除比例和最小高度。 */
+.dashboard-grid-item.is-manual-height :deep(.dashboard-grid-adaptive-size),
+.dashboard-grid.is-editing :deep(.dashboard-grid-adaptive-size) {
+  aspect-ratio: auto;
+  min-block-size: 0;
 }
 
 .dashboard-grid-item.is-manual-height :deep(.dashboard-work-card),

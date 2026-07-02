@@ -2,7 +2,7 @@
 import api from '@/api'
 import type { Site, TorrentInfo, SiteCategory } from '@/api/types'
 import { formatFileSize } from '@core/utils/formatters'
-import { useDisplay } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 import AddDownloadDialog from '../dialog/AddDownloadDialog.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +12,9 @@ const { t, locale } = useI18n()
 
 // 响应式断点
 const display = useDisplay()
+
+// 当前主题
+const theme = useTheme()
 
 // 输入参数
 const props = defineProps({
@@ -92,9 +95,13 @@ const resultSummaryText = computed(() => {
 // 是否小屏幕
 const isMobileLayout = computed(() => display.smAndDown.value)
 
+// 是否透明主题
+const isTransparentTheme = computed(() => theme.name.value === 'transparent')
+
 // 移动端分页数据
 const mobileResourceList = computed(() => resourceDataList.value)
 
+// 获取资源项唯一标识
 function getResourceItemKey(item: TorrentInfo, index: number) {
   return item.page_url || item.enclosure || `${item.title}-${item.pubdate || ''}-${index}`
 }
@@ -188,10 +195,12 @@ watch(
   },
 )
 
+// 切换移动端搜索栏
 function toggleMobileSearch() {
   mobileSearchExpanded.value = !mobileSearchExpanded.value
 }
 
+// 关闭移动端搜索栏
 function closeMobileSearch() {
   mobileSearchExpanded.value = false
 }
@@ -480,7 +489,11 @@ onMounted(() => {
               :get-item-key="getResourceItemKey"
             >
               <template #default="{ item }">
-                <VCard class="site-resource-card" variant="flat">
+                <VCard
+                  class="site-resource-card"
+                  :class="{ 'site-resource-card--transparent': isTransparentTheme }"
+                  variant="flat"
+                >
                   <VCardText class="pa-3">
                     <button type="button" class="site-resource-title-btn text-start" @click="addDownload(item)">
                       <div class="site-resource-card__title text-body-1 font-weight-medium text-high-emphasis">
@@ -746,7 +759,7 @@ onMounted(() => {
   background: var(--site-resource-card-bg);
 }
 
-:global(html[data-theme="transparent"]) .site-resource-card {
+.site-resource-card--transparent {
   --site-resource-card-bg: rgba(var(--v-theme-surface), var(--transparent-opacity));
 
   backdrop-filter: blur(var(--transparent-blur));
