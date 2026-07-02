@@ -30,11 +30,11 @@ const progressValue = computed(() => {
   return Math.min(Math.max(percent, 0), 100)
 })
 
-// 是否展示继续播放状态。
+// 是否存在可续播进度。
 const hasProgress = computed(() => progressValue.value > 0)
 
-// 顶部状态标签。
-const statusLabel = computed(() => (hasProgress.value ? '正在播放' : '待播放'))
+// 顶部状态标签，接口返回的是继续观看列表而非实时播放会话。
+const statusLabel = computed(() => (hasProgress.value ? '继续观看' : '待播放'))
 
 // 右上角进度标签。
 const progressLabel = computed(() => (hasProgress.value ? `${Math.round(progressValue.value)}%` : 'NEW'))
