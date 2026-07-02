@@ -1,15 +1,11 @@
 <script setup lang="ts">
 import api from '@/api'
-import type { MediaInfo, RecommendSource } from '@/api/types'
+import type { MediaInfo } from '@/api/types'
 import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
 import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
-import {
-  createBuiltInRecommendSources,
-  mergeExtraRecommendSources,
-  type RecommendViewSource,
-} from '@/utils/recommendSources'
+import { createBuiltInRecommendSources, type RecommendViewSource } from '@/utils/recommendSources'
 import noImage from '@images/no-image.jpeg'
 import { useI18n } from 'vue-i18n'
 
@@ -19,8 +15,15 @@ const RECOMMEND_SOURCE_STORAGE_KEY = 'MP_DASHBOARD_RECOMMEND_SOURCE'
 const RECOMMEND_SLIDE_COUNT = 5
 const RECOMMEND_AUTOPLAY_INTERVAL = 8000
 
-const sources = ref<RecommendViewSource[]>(createBuiltInRecommendSources(t))
-const selectedSourcePath = ref(localStorage.getItem(RECOMMEND_SOURCE_STORAGE_KEY) || sources.value[0].apipath)
+const sources = ref<RecommendViewSource[]>(
+  createBuiltInRecommendSources(t).filter(source => source.apipath.startsWith('recommend/tmdb_')),
+)
+const storedSourcePath = localStorage.getItem(RECOMMEND_SOURCE_STORAGE_KEY)
+const selectedSourcePath = ref(
+  storedSourcePath && sources.value.some(source => source.apipath === storedSourcePath)
+    ? storedSourcePath
+    : sources.value[0].apipath,
+)
 const mediaItems = shallowRef<MediaInfo[]>([])
 const mediaCache = new Map<string, MediaInfo[]>()
 const activeIndex = ref(0)
@@ -37,14 +40,6 @@ const selectedSource = computed(
 
 const activeMedia = computed(() => mediaItems.value[activeIndex.value])
 
-/** 返回与媒体来源匹配的 Material Design 图标。 */
-function getSourceIcon(source: RecommendViewSource) {
-  if (source.apipath.includes('bangumi')) return 'mdi-television-play'
-  if (source.apipath.includes('douban')) return 'mdi-star-circle-outline'
-  if (source.apipath.includes('tmdb')) return 'mdi-movie-open-star-outline'
-  return 'mdi-compass-outline'
-}
-
 /** 将不同接口包装格式归一化为媒体数组。 */
 function normalizeMediaResponse(response: unknown): MediaInfo[] {
   if (Array.isArray(response)) return response
@@ -60,17 +55,11 @@ function normalizeMediaResponse(response: unknown): MediaInfo[] {
 
 /** 判断媒体是否具备可展示图片和可进入详情页的标识。 */
 function isUsableMedia(item: MediaInfo) {
-  const hasMediaId = Boolean(
-    item.tmdb_id ||
-      item.douban_id ||
-      item.bangumi_id ||
-      item.collection_id ||
-      (item.mediaid_prefix && item.media_id),
-  )
+  const hasMediaId = Boolean(item.tmdb_id || item.collection_id)
   return Boolean(item.title && (item.backdrop_path || item.poster_path) && hasMediaId)
 }
 
-/** 构造轮播项稳定键，兼容合集与扩展媒体来源。 */
+/** 构造轮播项稳定键，兼容 TMDB 媒体与合集。 */
 function getMediaKey(item: MediaInfo) {
   if (item.collection_id) return `collection:${item.collection_id}`
   return getMediaSubscribeId(item)
@@ -108,16 +97,6 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
   }
 }
 
-/** 加载后端扩展的推荐来源。 */
-async function loadExtraSources() {
-  try {
-    const extraSources: RecommendSource[] = (await api.get('recommend/source')) ?? []
-    mergeExtraRecommendSources(sources.value, extraSources)
-  } catch (error) {
-    console.error(error)
-  }
-}
-
 /** 切换当前推荐来源并持久化用户选择。 */
 function selectSource(source: RecommendViewSource) {
   if (selectedSourcePath.value === source.apipath) return
@@ -129,7 +108,7 @@ function selectSource(source: RecommendViewSource) {
 
 /** 返回经过全局图片缓存与代理设置处理的背景图地址。 */
 function getBackdropUrl(item: MediaInfo) {
-  const sourceUrl = (item.backdrop_path || item.poster_path || noImage).replace('original', 'w1280')
+  const sourceUrl = item.backdrop_path || item.poster_path || noImage
   return getDisplayImageUrl(sourceUrl, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
@@ -210,10 +189,8 @@ function stopAutoplay() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadExtraSources(), loadMedia()])
-  if (!sources.value.some(source => source.apipath === selectedSourcePath.value)) {
-    selectSource(sources.value[0])
-  }
+  localStorage.setItem(RECOMMEND_SOURCE_STORAGE_KEY, selectedSourcePath.value)
+  await loadMedia()
   startAutoplay()
 })
 
@@ -269,7 +246,7 @@ onBeforeUnmount(stopAutoplay)
               rounded="pill"
               append-icon="mdi-chevron-down"
             >
-              <VIcon :icon="getSourceIcon(selectedSource)" color="primary" start />
+              <VIcon icon="mdi-movie-open-star-outline" color="primary" start />
               <span>{{ selectedSource.title }}</span>
             </VBtn>
           </template>
@@ -278,7 +255,7 @@ onBeforeUnmount(stopAutoplay)
               v-for="source in sources"
               :key="source.apipath"
               :active="source.apipath === selectedSourcePath"
-              :prepend-icon="getSourceIcon(source)"
+              prepend-icon="mdi-movie-open-star-outline"
               :title="source.title"
               @click="selectSource(source)"
             />
@@ -352,6 +329,8 @@ onBeforeUnmount(stopAutoplay)
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .dashboard-recommend {
   position: relative;
   overflow: hidden;
