@@ -32,6 +32,7 @@ const emit = defineEmits(['subscribe', 'close'])
 const props = defineProps({
   media: Object as PropType<MediaInfo>,
   selectedSeason: Number,
+  initialEpisodeGroup: String,
   subscribedSeasons: Array as PropType<number[]>,
   subscribedSeasonModes: Object as PropType<SeasonSubscribeModes>,
   defaultSubscribeMode: String as PropType<SubscribeMode>,
@@ -64,7 +65,7 @@ const isRefreshed = ref(false)
 const episodeGroups = ref<{ [key: string]: any }[]>([])
 
 // 当前选择剧集组
-const episodeGroup = ref('')
+const episodeGroup = ref(props.initialEpisodeGroup ?? '')
 
 const subscribeModeOptions = computed<SubscribeModeOption[]>(() => [
   {
@@ -84,12 +85,14 @@ const subscribeModeOptions = computed<SubscribeModeOption[]>(() => [
   },
 ])
 
+// 获取订阅模式的主题色。
 function getSubscribeModeColor(mode: SubscribeMode) {
   if (mode === 'normal') return 'primary'
   if (mode === 'best_version') return 'warning'
   return 'success'
 }
 
+// 校验弹窗输入是否为支持的订阅模式。
 function isSubscribeMode(value: unknown): value is SubscribeMode {
   return value === 'normal' || value === 'best_version' || value === 'best_version_full'
 }
@@ -265,6 +268,7 @@ function getYear(airDate: string) {
   return date.getFullYear()
 }
 
+// 切换当前剧集组并清空上一组的派生数据。
 function setEpisodeGroup(value: string) {
   if (episodeGroup.value === value) return
 
@@ -273,6 +277,7 @@ function setEpisodeGroup(value: string) {
   episodeGroup.value = value
 }
 
+// 提交当前剧集组下选中的季及其订阅模式。
 function subscribeSeasons() {
   const selectedSeasons = seasonInfos.value.filter(item => {
     const seasonNumber = item.season_number ?? null
@@ -289,6 +294,7 @@ function subscribeSeasons() {
   )
 }
 
+// 写入指定季的订阅模式。
 function setSeasonMode(season: number, mode: SubscribeMode) {
   seasonModes.value = {
     ...seasonModes.value,
@@ -296,22 +302,26 @@ function setSeasonMode(season: number, mode: SubscribeMode) {
   }
 }
 
+// 处理用户手动切换指定季的订阅模式。
 function updateSeasonMode(season: number, mode: unknown) {
   if (!isSubscribeMode(mode)) return
   manuallySelectedModeSeasons.value.add(season)
   setSeasonMode(season, mode)
 }
 
+// 根据入库状态和系统配置计算指定季的默认订阅模式。
 function getDefaultSeasonMode(season: number) {
   if (!seasonsNotExisted.value[season]) return 'best_version_full'
 
   return props.defaultSubscribeMode ?? 'normal'
 }
 
+// 确保指定季已初始化订阅模式。
 function ensureSeasonMode(season: number) {
   if (!seasonModes.value[season]) setSeasonMode(season, props.subscribedSeasonModes?.[season] ?? getDefaultSeasonMode(season))
 }
 
+// 在入库状态刷新后同步尚未手动修改的默认模式。
 function syncDefaultSeasonModes() {
   seasonsSelected.value.forEach(season => {
     if (subscribedSeasonSet.value.has(season) || manuallySelectedModeSeasons.value.has(season)) return
@@ -319,14 +329,17 @@ function syncDefaultSeasonModes() {
   })
 }
 
+// 判断指定季是否已有订阅。
 function isSeasonSubscribed(season: number) {
   return subscribedSeasonSet.value.has(season)
 }
 
+// 判断指定季是否在本次提交选择中。
 function isSeasonSelected(season: number) {
   return selectedSeasonSet.value.has(season)
 }
 
+// 设置指定季的选择状态并同步其订阅模式。
 function setSeasonSelected(season: number, selected: boolean | null) {
   const nextSeasons = new Set(seasonsSelected.value)
   if (selected) {
@@ -338,10 +351,12 @@ function setSeasonSelected(season: number, selected: boolean | null) {
   seasonsSelected.value = [...nextSeasons].sort((a, b) => a - b)
 }
 
+// 切换指定季的选择状态。
 function toggleSeasonSelected(season: number) {
   setSeasonSelected(season, !isSeasonSelected(season))
 }
 
+// 将入口预选季和已有订阅同步到当前剧集组的可见季列表。
 function syncSelectedSeason() {
   if (!seasonInfos.value.length) return
 
@@ -381,7 +396,8 @@ watch(() => props.subscribedSeasons, syncSelectedSeason)
 watch(() => props.subscribedSeasonModes, syncSelectedSeason)
 
 onMounted(async () => {
-  getMediaSeasons()
+  // 自定义剧集组由 watchEffect 首次加载，避免默认季数据异步覆盖它。
+  if (!episodeGroup.value) getMediaSeasons()
   getEpisodeGroups()
   checkSeasonsNotExists()
 })

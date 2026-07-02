@@ -49,6 +49,7 @@ const SubscribeSeasonDialog = defineAsyncComponent(() => import('@/components/di
 
 export type SeasonSubscribeModes = Record<number, SubscribeMode>
 
+// 生成跨媒体源稳定的订阅媒体标识。
 export function getMediaSubscribeId(media?: MediaInfo) {
   if (media?.tmdb_id) return `tmdb:${media.tmdb_id}`
   if (media?.douban_id) return `douban:${media.douban_id}`
@@ -56,6 +57,7 @@ export function getMediaSubscribeId(media?: MediaInfo) {
   return `${media?.mediaid_prefix}:${media?.media_id}`
 }
 
+// 将订阅模式转换为后端订阅字段。
 function getSubscribePayload(mode: SubscribeMode): SubscribePayload {
   return {
     best_version: mode === 'normal' ? 0 : 1,
@@ -63,16 +65,19 @@ function getSubscribePayload(mode: SubscribeMode): SubscribePayload {
   }
 }
 
+// 兼容布尔值和数字、字符串形式的开关值。
 function isEnabledFlag(value: unknown) {
   return value === true || value === 1 || value === '1'
 }
 
+// 从订阅字段解析统一的订阅模式。
 export function getSubscribeMode(subscribe: { best_version?: unknown; best_version_full?: unknown }): SubscribeMode {
   if (!isEnabledFlag(subscribe.best_version)) return 'normal'
 
   return isEnabledFlag(subscribe.best_version_full) ? 'best_version_full' : 'best_version'
 }
 
+// 从默认订阅配置解析订阅模式。
 function getSubscribeConfigMode(config?: SubscribeConfig): SubscribeMode {
   return getSubscribeMode({
     best_version: config?.best_version,
@@ -80,30 +85,36 @@ function getSubscribeConfigMode(config?: SubscribeConfig): SubscribeMode {
   })
 }
 
+// 获取订阅模式的本地化名称。
 function getModeName(t: ReturnType<typeof useI18n>['t'], mode: SubscribeMode) {
   if (mode === 'normal') return t('dialog.subscribeMode.normal')
   if (mode === 'best_version') return t('dialog.subscribeMode.bestVersionEpisode')
   return t('dialog.subscribeMode.bestVersionFull')
 }
 
+// 封装媒体卡片与详情页共用的订阅交互。
 export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   const { t } = useI18n()
   const $toast = useToast()
   const createConfirm = useConfirm()
   const episodeGroup = ref('')
 
+  // 获取调用方当前媒体，避免在异步流程中持有旧对象。
   function currentMedia() {
     return options.media()
   }
 
+  // 获取当前媒体的统一订阅标识。
   function getMediaId() {
     return getMediaSubscribeId(currentMedia())
   }
 
+  // 获取主订阅入口默认对应的季号。
   function getPrimarySeason() {
     return options.primarySeason?.() ?? currentMedia()?.season ?? null
   }
 
+  // 同步调用方状态和订阅状态缓存。
   function updateSubscribeStatus(season: number | null, subscribed: boolean, mode: SubscribeMode = 'normal') {
     const media = currentMedia()
 
@@ -143,6 +154,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
+  // 打开已创建订阅的编辑弹窗。
   function openSubscribeEditDialog(subid: number) {
     openSharedDialog(
       SubscribeEditDialog,
@@ -160,6 +172,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     )
   }
 
+  // 打开订阅模式选择弹窗并转换选择结果。
   function openSubscribeModeDialog(
     modes: SubscribeMode[],
     choose: (payload: SubscribePayload, mode: SubscribeMode) => void,
@@ -174,7 +187,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     )
   }
 
-  async function openSubscribeSeasonDialog(selectedSeason?: number | null) {
+  // 打开季订阅弹窗，并保留发起入口当前使用的剧集组。
+  async function openSubscribeSeasonDialog(selectedSeason?: number | null, initialEpisodeGroup = '') {
     const media = currentMedia()
     if (!media) return
     const defaultSubscribeConfig = await queryDefaultSubscribeConfig()
@@ -184,6 +198,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       {
         media,
         selectedSeason,
+        initialEpisodeGroup,
         subscribedSeasons: options.subscribedSeasons?.value ?? [],
         subscribedSeasonModes: options.subscribedSeasonModes?.value ?? {},
         defaultSubscribeMode: getSubscribeConfigMode(defaultSubscribeConfig),
@@ -195,6 +210,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     )
   }
 
+  // 查询系统默认订阅配置。
   async function queryDefaultSubscribeConfig(): Promise<SubscribeConfig | undefined> {
     if (!options.canSubscribe()) return undefined
 
@@ -214,6 +230,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     return undefined
   }
 
+  // 展示订阅新增结果通知。
   function showSubscribeAddToast(
     result: boolean,
     title: string,
@@ -229,6 +246,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     else $toast.error(`${title} ${t('subscribe.addFailed', { name: subname, message })}`)
   }
 
+  // 创建指定季和模式的订阅。
   async function addSubscribe(
     season: number | null = null,
     payload: SubscribePayload = {},
@@ -267,6 +285,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
+  // 删除指定季的订阅。
   async function removeSubscribe(season: number | null = null, removeOptions: RemoveSubscribeOptions = {}) {
     if (removeOptions.confirm ?? true) {
       const confirmed = await createConfirm({
@@ -302,6 +321,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
+  // 检查当前媒体指定季是否已订阅。
   async function checkSubscribe(season: number | null = null) {
     try {
       const result: Subscribe = await api.get(`subscribe/media/${getMediaId()}`, {
@@ -319,6 +339,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
+  // 查询当前媒体指定季的订阅记录。
   async function querySubscribe(season: number | null = null) {
     try {
       const result: Subscribe = await api.get(`subscribe/media/${getMediaId()}`, {
@@ -336,6 +357,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
+  // 更新已有单季订阅的模式。
   async function updateSubscribeMode(season: number, mode: SubscribeMode) {
     const media = currentMedia()
     if (!media) return
@@ -368,15 +390,17 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     }
   }
 
-  function handleSeasonSubscribe(season: number) {
+  // 处理单季订阅入口，未订阅时将当前剧集组带入季选择弹窗。
+  function handleSeasonSubscribe(season: number, initialEpisodeGroup = '') {
     if (options.seasonsSubscribed?.value[season]) {
       removeSubscribe(season)
       return
     }
 
-    openSubscribeSeasonDialog(season)
+    openSubscribeSeasonDialog(season, initialEpisodeGroup)
   }
 
+  // 处理媒体主订阅入口，电视剧统一进入季选择弹窗。
   function handlePrimarySubscribe() {
     const media = currentMedia()
     if (!media) return
@@ -401,15 +425,17 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     addSubscribe(null)
   }
 
-  function handleSubscribe(season?: number | null) {
+  // 根据是否指定季号分发主订阅或单季订阅操作。
+  function handleSubscribe(season?: number | null, initialEpisodeGroup = '') {
     if (season !== undefined && season !== null) {
-      handleSeasonSubscribe(season)
+      handleSeasonSubscribe(season, initialEpisodeGroup)
       return
     }
 
     handlePrimarySubscribe()
   }
 
+  // 批量对齐弹窗中选择的季、订阅模式和当前订阅状态。
   function subscribeSeasons(
     seasons: MediaSeason[] = [],
     seasonExistsStates: { [key: number]: number } = {},

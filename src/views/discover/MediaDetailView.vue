@@ -484,9 +484,9 @@ const isAllSeasonsSubscribed = computed(
     subscribedSeasonNumbers.value.length >= subscribeSeasonTotal.value,
 )
 
-// 订阅按钮响应
-function handleSubscribe(season: number | null = null) {
-  subscribeActions.handleSubscribe(season)
+// 订阅按钮响应；单季入口同时传递详情页当前选择的剧集组。
+function handleSubscribe(season: number | null = null, episodeGroup = '') {
+  subscribeActions.handleSubscribe(season, episodeGroup)
 }
 
 // 从genres中获取name，使用、分隔
@@ -1017,7 +1017,7 @@ onUnmounted(() => {
                           class="ms-1"
                           :color="seasonsSubscribed[season.season_number || 0] ? 'error' : 'warning'"
                           variant="text"
-                          @click.stop="handleSubscribe(season.season_number ?? null)"
+                          @click.stop="handleSubscribe(season.season_number ?? null, selectedEpisodeGroup)"
                         >
                           <VIcon
                             :icon="seasonsSubscribed[season.season_number || 0] ? 'mdi-heart' : 'mdi-heart-outline'"

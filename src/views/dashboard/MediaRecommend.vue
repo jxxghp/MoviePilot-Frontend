@@ -550,6 +550,10 @@ onBeforeUnmount(stopAutoplay)
 
 @media (max-width: 740px) {
   .dashboard-recommend {
+    aspect-ratio: auto;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-inline-size: 0;
     min-block-size: 460px;
   }
 
