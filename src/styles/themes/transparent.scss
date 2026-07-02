@@ -221,6 +221,18 @@ html[data-theme="transparent"] {
     backdrop-filter: blur(var(--transparent-blur));
     background-color: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy));
   }
+
+  .Vue-Toastification__toast {
+    backdrop-filter: blur(var(--transparent-blur));
+    background:
+      linear-gradient(
+        135deg,
+        rgba(var(--mp-toast-accent-rgb), 0.16),
+        rgba(var(--mp-toast-accent-rgb), 0.06) 44%,
+        rgba(var(--v-theme-surface), var(--transparent-opacity-heavy))
+      ),
+      rgba(var(--v-theme-surface), var(--transparent-opacity-heavy)) !important;
+  }
 } 
 
 html[data-theme="transparent"].transparent-background-blur-disabled {

@@ -847,8 +847,52 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 }
 
 .Vue-Toastification__toast {
+  --mp-toast-accent-rgb: var(--v-theme-primary);
+
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-inline-start: 0.25rem solid rgba(var(--mp-toast-accent-rgb), 0.88);
   border-radius: var(--app-overlay-radius);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--mp-toast-accent-rgb), 0.14),
+      rgba(var(--mp-toast-accent-rgb), 0.05) 42%,
+      rgba(var(--v-theme-surface), 0.96)
+    ),
+    rgb(var(--v-theme-surface)) !important;
   box-shadow: var(--app-overlay-shadow);
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)) !important;
+  font-family: inherit;
+}
+
+.Vue-Toastification__toast--default,
+.Vue-Toastification__toast--info {
+  --mp-toast-accent-rgb: var(--v-theme-info);
+}
+
+.Vue-Toastification__toast--success {
+  --mp-toast-accent-rgb: var(--v-theme-success);
+}
+
+.Vue-Toastification__toast--error {
+  --mp-toast-accent-rgb: var(--v-theme-error);
+}
+
+.Vue-Toastification__toast--warning {
+  --mp-toast-accent-rgb: var(--v-theme-warning);
+}
+
+.Vue-Toastification__icon,
+.Vue-Toastification__close-button {
+  color: rgba(var(--mp-toast-accent-rgb), 0.95);
+}
+
+.Vue-Toastification__close-button {
+  opacity: 0.65;
+}
+
+.Vue-Toastification__progress-bar {
+  background-color: rgba(var(--mp-toast-accent-rgb), 0.35);
 }
 
 // 对话框样式

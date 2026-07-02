@@ -467,7 +467,7 @@ onMounted(async () => {
 
 <template>
   <!-- 👉 Offline Page -->
-  <OfflinePage :navbar-extra-height="navbarExtraHeight" />
+  <OfflinePage />
 
   <!-- 👉 Pull Down Indicator -->
   <div
