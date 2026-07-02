@@ -92,6 +92,17 @@ const rightBottomStateDisplay = computed(() => {
   return null
 })
 
+// 移动端紧凑卡片的状态展示，颜色统一映射到 Vuetify 全局主题 token。
+const compactStateDisplay = computed(() => {
+  if (subscribeState.value === 'S') {
+    return { color: 'secondary', icon: 'mdi-pause-circle-outline', label: t('subscribe.cardStatePaused') }
+  }
+  if (subscribeState.value === 'P') {
+    return { color: 'info', icon: 'mdi-timer-sand', label: t('subscribe.cardStatePending') }
+  }
+  return { color: 'primary', icon: 'mdi-rss', label: t('subscribe.subscribing') }
+})
+
 // 洗版徽标：共用 mdi-shimmer 图标，分集 / 全集 由 full 标记区分背景
 const bestVersionBadge = computed(() => {
   if (!isEnabledFlag(props.media?.best_version)) return null
@@ -423,45 +434,143 @@ function handleCardClick() {
               }"
               min-height="150"
               @click="handleCardClick"
-              :ripple="!props.batchMode && !props.sortable"
+              :ripple="display.smAndUp.value && !props.batchMode && !props.sortable"
             >
-            <div
-              v-if="bestVersionBadge && imageLoaded"
-              class="best-version-badge"
-              :class="{ 'best-version-badge-full': bestVersionBadge.full }"
-            >
-              <VIcon :icon="bestVersionBadge.icon" color="white" size="16" />
-            </div>
-            <div v-if="!props.sortable" class="me-n3 absolute top-1 right-4">
-              <IconBtn @click.stop>
-                <VIcon icon="mdi-dots-vertical" color="white" />
-                <VMenu activator="parent" close-on-content-click>
-                  <VList>
-                    <template v-for="(item, i) in dropdownItems" :key="i">
-                      <VListItem v-if="item.show !== false" :base-color="item.props.color" @click="item.props.click">
-                        <template #prepend>
-                          <VIcon :icon="item.props.prependIcon" />
-                        </template>
-                        <VListItemTitle v-text="item.title" />
-                      </VListItem>
+              <div
+                v-if="bestVersionBadge && imageLoaded"
+                class="best-version-badge"
+                :class="{ 'best-version-badge-full': bestVersionBadge.full }"
+              >
+                <VIcon :icon="bestVersionBadge.icon" color="white" size="16" />
+              </div>
+              <div v-if="!props.sortable && display.smAndUp.value" class="me-n3 absolute top-1 right-4">
+                <IconBtn @click.stop>
+                  <VIcon icon="mdi-dots-vertical" color="white" />
+                  <VMenu activator="parent" close-on-content-click>
+                    <VList>
+                      <template v-for="(item, i) in dropdownItems" :key="i">
+                        <VListItem v-if="item.show !== false" :base-color="item.props.color" @click="item.props.click">
+                          <template #prepend>
+                            <VIcon :icon="item.props.prependIcon" />
+                          </template>
+                          <VListItemTitle v-text="item.title" />
+                        </VListItem>
+                      </template>
+                    </VList>
+                  </VMenu>
+                </IconBtn>
+              </div>
+              <template #image v-if="display.smAndUp.value">
+                <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
+                  <template #placeholder>
+                    <div class="w-full h-full">
+                      <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+                    </div>
+                  </template>
+                  <template #default>
+                    <div class="absolute inset-0 outline-none subscribe-card-background"></div>
+                  </template>
+                </VImg>
+              </template>
+
+              <template v-if="display.xs.value">
+                <div class="subscribe-card-mobile-media">
+                  <VImg
+                    :src="backdropUrl || posterUrl"
+                    :aspect-ratio="2"
+                    cover
+                    position="top"
+                    @load="imageLoadHandler"
+                  >
+                    <template #placeholder>
+                      <VSkeletonLoader class="h-full w-full" />
                     </template>
-                  </VList>
-                </VMenu>
-              </IconBtn>
-            </div>
-            <template #image>
-              <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
-                <template #placeholder>
-                  <div class="w-full h-full">
-                    <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+                  </VImg>
+
+                  <div
+                    v-if="props.media?.username || lastUpdateText"
+                    class="subscribe-card-mobile-image-meta"
+                    :class="{ 'subscribe-card-mobile-image-meta--with-badge': bestVersionBadge }"
+                  >
+                    <div
+                      v-if="props.media?.username"
+                      class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__user"
+                      :title="props.media?.username"
+                    >
+                      <VIcon icon="mdi-account" size="14" />
+                      <span>{{ props.media?.username }}</span>
+                    </div>
+                    <div
+                      v-if="lastUpdateText"
+                      class="subscribe-card-mobile-image-meta__item subscribe-card-mobile-image-meta__updated"
+                    >
+                      <VIcon icon="mdi-download" size="14" />
+                      <span>{{ lastUpdateText }}</span>
+                    </div>
                   </div>
-                </template>
-                <template #default>
-                  <div class="absolute inset-0 outline-none subscribe-card-background"></div>
-                </template>
-              </VImg>
-            </template>
-            <div>
+                </div>
+
+                <div class="subscribe-card-mobile-body">
+                  <div class="subscribe-card-mobile-title">
+                    {{ props.media?.name }}
+                    {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
+                  </div>
+
+                  <div class="subscribe-card-mobile-footer">
+                    <div class="subscribe-card-mobile-meta">
+                      <div
+                        class="subscribe-card-mobile-state"
+                        :style="{ color: `rgb(var(--v-theme-${compactStateDisplay.color}))` }"
+                        :title="compactStateDisplay.label"
+                        :aria-label="compactStateDisplay.label"
+                      >
+                        <VIcon :icon="compactStateDisplay.icon" size="18" />
+                        <span v-if="subscribeProgressText" class="subscribe-card-mobile-progress-text">
+                          {{ subscribeProgressText }}
+                        </span>
+                      </div>
+
+                      <IconBtn
+                        v-if="!props.sortable"
+                        class="subscribe-card-mobile-menu"
+                        size="small"
+                        @click.stop
+                      >
+                        <VIcon icon="mdi-dots-horizontal" size="20" />
+                        <VMenu activator="parent" close-on-content-click>
+                          <VList>
+                            <template v-for="(item, i) in dropdownItems" :key="i">
+                              <VListItem
+                                v-if="item.show !== false"
+                                :base-color="item.props.color"
+                                @click="item.props.click"
+                              >
+                                <template #prepend>
+                                  <VIcon :icon="item.props.prependIcon" />
+                                </template>
+                                <VListItemTitle v-text="item.title" />
+                              </VListItem>
+                            </template>
+                          </VList>
+                        </VMenu>
+                      </IconBtn>
+                    </div>
+
+                    <div v-if="props.media?.total_episode" class="subscribe-card-mobile-progress">
+                      <VProgressLinear
+                        :model-value="getPercentage()"
+                        :bg-color="compactStateDisplay.color"
+                        :color="compactStateDisplay.color"
+                        bg-opacity="0.18"
+                        height="4"
+                        rounded
+                      />
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <div v-else>
               <VCardText class="flex items-center pt-3 pb-2">
                 <div
                   class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
@@ -568,7 +677,7 @@ function handleCardClick() {
                   color="success"
                 />
               </div>
-            </div>
+              </div>
             </VCard>
           </div>
         </div>
@@ -590,6 +699,151 @@ function handleCardClick() {
 
 .subscribe-card {
   border: var(--app-card-light-border);
+}
+
+.subscribe-card-mobile-media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 2 / 1;
+  flex-shrink: 0;
+  inline-size: 100%;
+}
+
+.subscribe-card-mobile-media .v-img {
+  block-size: 100%;
+}
+
+.subscribe-card-mobile-image-meta {
+  position: absolute;
+  z-index: 2;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  inset: 0;
+  pointer-events: none;
+}
+
+.subscribe-card-mobile-image-meta__item {
+  position: absolute;
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.25rem;
+  color: rgba(255, 255, 255, 0.88);
+  isolation: isolate;
+  line-height: 1.2;
+  padding-block: 0.0625rem;
+  padding-inline: 0.125rem;
+}
+
+.subscribe-card-mobile-image-meta__item::before {
+  position: absolute;
+  z-index: -1;
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.36);
+  content: '';
+  filter: blur(3px);
+  inset: -0.25rem -0.55rem;
+}
+
+.subscribe-card-mobile-image-meta__user {
+  max-inline-size: calc(100% - 1rem);
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  transition: inset-block-start 0.2s ease;
+}
+
+.subscribe-card-mobile-image-meta--with-badge .subscribe-card-mobile-image-meta__user {
+  max-inline-size: calc(100% - 4.25rem);
+  inset-block-start: 0.5rem;
+}
+
+.subscribe-card-mobile-image-meta__user span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subscribe-card-mobile-image-meta__updated {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.76);
+  inset-block-end: 0.5rem;
+  inset-inline-end: 0.5rem;
+}
+
+.subscribe-card-mobile-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
+
+.subscribe-card-mobile-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.subscribe-card-mobile-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block-start: auto;
+}
+
+.subscribe-card-mobile-meta {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  align-items: center;
+  gap: 0.25rem;
+  justify-content: space-between;
+}
+
+.subscribe-card-mobile-state {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.subscribe-card-mobile-state span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subscribe-card-mobile-progress-text {
+  flex-shrink: 0;
+}
+
+.subscribe-card-mobile-menu {
+  block-size: 2rem;
+  min-block-size: 2rem;
+  inline-size: 2rem;
+  min-inline-size: 2rem;
+  flex: 0 0 2rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
+
+.subscribe-card-mobile-progress {
+  display: flex;
+  block-size: 4px;
+  inline-size: 100%;
+}
+
+.subscribe-card-mobile-progress .v-progress-linear {
+  flex: 1 1 auto;
 }
 
 .subscribe-card-shell--selected::after {
@@ -625,7 +879,7 @@ function handleCardClick() {
   position: absolute;
   z-index: 3;
   border-radius: inherit;
-  box-shadow: inset 0 0 48px rgba(56, 189, 248, 40%); // sky-400
+  box-shadow: inset 0 0 48px rgba(var(--v-theme-info), 0.28);
   content: '';
   inset: 0;
   pointer-events: none;
@@ -656,5 +910,31 @@ function handleCardClick() {
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 22%);
   box-shadow: 0 2px 8px rgba(255, 255, 255, 15%);
+}
+
+@media (width <= 599px) {
+  .subscribe-card {
+    min-block-size: 0 !important;
+  }
+
+  .subscribe-card-paused {
+    opacity: 1;
+  }
+
+  .subscribe-card-paused .subscribe-card-mobile-media {
+    filter: saturate(0.65);
+    opacity: 0.58;
+  }
+
+  .best-version-badge {
+    inset-inline-start: auto;
+    inset-inline-end: 0.5rem;
+  }
+
+  .subscribe-card-pending-tint::after {
+    box-shadow:
+      inset 0 0 0 1px rgba(var(--v-theme-info), 0.28),
+      inset 0 -4rem 5rem rgba(var(--v-theme-info), 0.08);
+  }
 }
 </style>

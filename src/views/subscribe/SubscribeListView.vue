@@ -11,11 +11,15 @@ import { useToast } from 'vue-toastification'
 import { useConfirm } from '@/composables/useConfirm'
 import { useKeepAliveRefresh, type KeepAliveRefreshContext } from '@/composables/useKeepAliveRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
+import { useDisplay } from 'vuetify'
 
 const SubscribeHistoryDialog = defineAsyncComponent(() => import('@/components/dialog/SubscribeHistoryDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
+
+// 响应式断点用于切换订阅卡片网格密度。
+const display = useDisplay()
 
 // 用户 Store
 const userStore = useUserStore()
@@ -117,6 +121,9 @@ const sortMode = computed({
 })
 const canDragSort = computed(() => sortMode.value && canSortContext.value)
 const shouldVirtualizeList = computed(() => !sortMode.value)
+const subscribeGridMinItemWidth = computed(() => (display.xs.value ? 144 : 240))
+const subscribeGridEstimatedItemHeight = computed(() => (display.xs.value ? 190 : 300))
+const subscribeGridGap = computed(() => (display.xs.value ? 12 : 16))
 const scrollToIndex = computed(() => {
   if (!props.subid || sortMode.value) {
     return undefined
@@ -581,8 +588,9 @@ defineExpose({
     v-else-if="displayList.length > 0 && shouldVirtualizeList"
     :items="displayList"
     :get-item-key="item => item.id"
-    :min-item-width="240"
-    :estimated-item-height="300"
+    :min-item-width="subscribeGridMinItemWidth"
+    :estimated-item-height="subscribeGridEstimatedItemHeight"
+    :gap="subscribeGridGap"
     :scroll-to-index="scrollToIndex"
     class="px-2"
   >

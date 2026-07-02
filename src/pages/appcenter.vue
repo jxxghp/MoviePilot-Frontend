@@ -209,7 +209,7 @@ onMounted(() => {
     background-color: var(--app-grouped-list-separator-color);
     block-size: 1px;
     inset-block-end: 0;
-    inset-inline: 58px 0;
+    inset-inline: var(--app-grouped-list-content-offset) 0;
     pointer-events: none;
     z-index: 2;
   }
@@ -221,6 +221,8 @@ onMounted(() => {
   .settings-list-icon {
     --app-grouped-list-icon-rgb: var(--app-grouped-list-icon-primary-rgb);
 
+    block-size: var(--app-grouped-list-icon-size) !important;
+    inline-size: var(--app-grouped-list-icon-size) !important;
     border-radius: max(var(--app-control-radius), 8px) !important;
     background: rgba(var(--app-grouped-list-icon-rgb), var(--app-grouped-list-icon-opacity)) !important;
     color: var(--app-grouped-list-icon-foreground) !important;
@@ -248,7 +250,7 @@ onMounted(() => {
   }
 
   .settings-list-icon :deep(.v-icon) {
-    font-size: 1.375rem !important;
+    font-size: var(--app-grouped-list-icon-glyph-size) !important;
   }
 
   .settings-list-title {

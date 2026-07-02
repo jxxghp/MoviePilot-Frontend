@@ -108,6 +108,9 @@ html {
   --app-grouped-list-active-background: rgba(var(--v-theme-primary), 0.1);
   --app-grouped-list-icon-foreground: rgb(var(--v-theme-on-primary));
   --app-grouped-list-icon-opacity: 0.92;
+  --app-grouped-list-icon-size: 36px;
+  --app-grouped-list-icon-glyph-size: 1.25rem;
+  --app-grouped-list-content-offset: calc(24px + var(--app-grouped-list-icon-size));
   --app-grouped-list-icon-primary-rgb: var(--v-theme-primary);
   --app-grouped-list-icon-info-rgb: var(--v-theme-info);
   --app-grouped-list-icon-success-rgb: var(--v-theme-success);
@@ -1035,6 +1038,13 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 
 .grid-subscribe-card {
   grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+
+@media (width <= 599px) {
+  .grid-subscribe-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
 }
 
 .grid-user-card {
