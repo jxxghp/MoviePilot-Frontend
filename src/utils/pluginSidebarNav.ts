@@ -21,6 +21,7 @@ export function navMenuFromPluginSidebarItem(
   return {
     title: item.title,
     icon: item.icon,
+    iconColor: 'primary',
     to: {
       name: 'plugin-app',
       params: {

@@ -97,6 +97,22 @@ html {
   --app-overlay-shadow: var(--app-elevation-0);
   --app-surface-shadow: var(--app-elevation-0);
   --app-surface-hover-shadow: var(--app-elevation-0);
+  --app-grouped-list-background: rgb(var(--v-theme-surface));
+  --app-grouped-list-backdrop-filter: none;
+  --app-grouped-list-border: var(--app-surface-border);
+  --app-grouped-list-radius: var(--app-theme-surface-radius);
+  --app-grouped-list-separator-color: rgba(var(--v-theme-on-surface), 0.14);
+  --app-grouped-list-header-color: rgba(var(--v-theme-on-surface), 0.58);
+  --app-grouped-list-chevron-color: rgba(var(--v-theme-on-surface), 0.42);
+  --app-grouped-list-hover-background: rgba(var(--v-theme-primary), 0.05);
+  --app-grouped-list-active-background: rgba(var(--v-theme-primary), 0.1);
+  --app-grouped-list-icon-foreground: rgb(var(--v-theme-on-primary));
+  --app-grouped-list-icon-opacity: 0.92;
+  --app-grouped-list-icon-primary-rgb: var(--v-theme-primary);
+  --app-grouped-list-icon-info-rgb: var(--v-theme-info);
+  --app-grouped-list-icon-success-rgb: var(--v-theme-success);
+  --app-grouped-list-icon-warning-rgb: var(--v-theme-warning);
+  --app-grouped-list-icon-secondary-rgb: var(--v-theme-secondary);
   --mp-motion-duration-page: 180ms;
   --mp-motion-duration-overlay: 160ms;
   --mp-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -204,6 +220,17 @@ html[data-theme-radius='extra'] {
 
 .app-surface-static:hover {
   box-shadow: var(--app-surface-shadow) !important;
+}
+
+@media (width <= 768px) {
+  // iOS 式分组菜单的共享表面，主题只需覆盖 token 即可适配实色或玻璃背景。
+  .app-grouped-list.v-card {
+    --app-surface-radius: var(--app-grouped-list-radius);
+
+    border: var(--app-grouped-list-border);
+    backdrop-filter: var(--app-grouped-list-backdrop-filter) !important;
+    background-color: var(--app-grouped-list-background) !important;
+  }
 }
 
 // 统一卡片上浮反馈；hover 命中区域应放在静止外层，避免上浮后底边反复触发 mouseleave。

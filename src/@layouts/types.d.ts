@@ -113,10 +113,13 @@ export interface NavLinkProps {
   rel?: ATagRelAttrValues
 }
 
+export type NavMenuIconColor = 'primary' | 'info' | 'success' | 'warning' | 'secondary'
+
 export interface NavLink extends NavLinkProps, Partial<AclProperties> {
   title: string
   full_title?: string
   icon?: unknown
+  iconColor?: NavMenuIconColor
   badgeContent?: string
   badgeClass?: string
   disable?: boolean

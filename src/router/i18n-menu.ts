@@ -2,7 +2,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import type { NavMenu, NavMenuTabItem } from '@/@layouts/types'
 import type { Composer } from 'vue-i18n'
 
-// 构建路由菜单，每次调用时使用当前的语言环境
+/** 构建当前语言与全局模式对应的主导航菜单。 */
 export function getNavMenus(t: Composer['t']): NavMenu[] {
   const globalSettingsStore = useGlobalSettingsStore()
 
@@ -13,6 +13,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.dashboard'),
       icon: 'mdi-home-outline',
+      iconColor: 'primary',
       to: '/dashboard',
       header: t('menu.start'),
       admin: false,
@@ -22,6 +23,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.searchResult'),
       icon: 'mdi-magnify',
+      iconColor: 'info',
       to: '/resource',
       header: t('menu.start'),
       admin: false,
@@ -30,6 +32,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.recommend'),
       icon: 'mdi-star-outline',
+      iconColor: 'primary',
       to: '/recommend',
       header: t('menu.discovery'),
       admin: false,
@@ -40,6 +43,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.explore'),
       icon: 'mdi-apple-safari',
+      iconColor: 'info',
       to: '/discover',
       header: t('menu.discovery'),
       admin: false,
@@ -51,6 +55,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       title: t('navItems.movie'),
       full_title: t('navItems.movieSubscribe'),
       icon: 'mdi-movie-open-outline',
+      iconColor: 'success',
       to: '/subscribe/movie',
       header: t('menu.subscribe'),
       admin: false,
@@ -62,6 +67,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       title: t('navItems.tv'),
       full_title: t('navItems.tvSubscribe'),
       icon: 'mdi-television',
+      iconColor: 'warning',
       to: '/subscribe/tv',
       header: t('menu.subscribe'),
       admin: false,
@@ -73,6 +79,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       title: t('navItems.workflow'),
       full_title: t('navItems.workflow'),
       icon: 'mdi-state-machine',
+      iconColor: 'primary',
       to: '/workflow',
       header: t('menu.subscribe'),
       admin: true,
@@ -84,6 +91,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       title: t('navItems.calendar'),
       full_title: t('navItems.calendar'),
       icon: 'mdi-calendar',
+      iconColor: 'info',
       to: '/calendar',
       header: t('menu.subscribe'),
       admin: false,
@@ -92,6 +100,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.downloadManager'),
       icon: 'mdi-download-outline',
+      iconColor: 'info',
       to: '/downloading',
       header: t('menu.organize'),
       admin: false,
@@ -100,6 +109,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.mediaOrganize'),
       icon: 'mdi-folder-play-outline',
+      iconColor: 'warning',
       to: '/history',
       header: t('menu.organize'),
       admin: true,
@@ -108,6 +118,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.fileManager'),
       icon: 'mdi-folder-multiple-outline',
+      iconColor: 'success',
       to: '/filemanager',
       header: t('menu.organize'),
       admin: true,
@@ -116,6 +127,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.pluginManager'),
       icon: 'mdi-puzzle-outline',
+      iconColor: 'primary',
       to: '/plugins',
       header: t('menu.system'),
       admin: true,
@@ -125,6 +137,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.siteManager'),
       icon: 'mdi-web',
+      iconColor: 'info',
       to: '/site',
       header: t('menu.system'),
       admin: true,
@@ -133,6 +146,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
     {
       title: t('navItems.userManager'),
       icon: 'mdi-account-group-outline',
+      iconColor: 'success',
       to: '/user',
       header: t('menu.system'),
       admin: true,
@@ -143,6 +157,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
           {
             title: t('navItems.settings'),
             icon: 'mdi-cog-outline',
+            iconColor: 'secondary',
             to: '/setting',
             header: t('menu.system'),
             admin: true,
@@ -154,7 +169,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
   ]
 }
 
-// 获取推荐标签页
+/** 返回推荐页可用的分类标签。 */
 export function getRecommendTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     { title: t('recommend.all'), icon: 'mdi-filmstrip-box-multiple', tab: t('recommend.all') },
@@ -165,7 +180,7 @@ export function getRecommendTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
-// 获取设置标签页
+/** 返回系统设置页的配置标签。 */
 export function getSettingTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
@@ -213,7 +228,7 @@ export function getSettingTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
-// 获取电影订阅标签页
+/** 返回电影订阅页的业务标签。 */
 export function getSubscribeMovieTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
@@ -229,7 +244,7 @@ export function getSubscribeMovieTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
-// 获取电视剧订阅标签页
+/** 返回电视剧订阅页的业务标签。 */
 export function getSubscribeTvTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
@@ -250,7 +265,7 @@ export function getSubscribeTvTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
-// 获取插件标签页
+/** 返回插件管理页的业务标签。 */
 export function getPluginTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
@@ -266,7 +281,7 @@ export function getPluginTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
-// 获取发现标签页
+/** 返回发现页的媒体来源标签。 */
 export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {
@@ -287,7 +302,7 @@ export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
   ]
 }
 
-// 获取工作流标签页
+/** 返回工作流页的业务标签。 */
 export function getWorkflowTabs(t: Composer['t']): NavMenuTabItem[] {
   return [
     {

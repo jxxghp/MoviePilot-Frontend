@@ -11,6 +11,14 @@ html[data-theme="transparent"] {
   --transparent-blur: 10px;
   --transparent-blur-light: 6px;
   --transparent-blur-heavy: 16px;
+  --app-grouped-list-background: rgba(var(--v-theme-surface), var(--transparent-opacity-light));
+  --app-grouped-list-backdrop-filter: blur(var(--transparent-blur));
+  --app-grouped-list-separator-color: rgba(var(--v-theme-on-surface), 0.18);
+  --app-grouped-list-header-color: rgba(var(--v-theme-on-surface), 0.64);
+  --app-grouped-list-chevron-color: rgba(var(--v-theme-on-surface), 0.5);
+  --app-grouped-list-hover-background: rgba(var(--v-theme-primary), 0.08);
+  --app-grouped-list-active-background: rgba(var(--v-theme-primary), 0.14);
+  --app-grouped-list-icon-opacity: 0.88;
 
   // 应用、布局、主内容区域
   .v-application, .v-layout, .v-main, .layout-page-content {
@@ -245,6 +253,8 @@ html[data-theme="transparent"].transparent-background-blur-disabled {
 }
 
 html[data-theme="transparent"].transparent-glass-lightweight {
+  --app-grouped-list-backdrop-filter: none;
+
   .global-blur-layer {
     display: none !important;
     backdrop-filter: none !important;
@@ -307,6 +317,8 @@ html[data-theme="transparent"].transparent-glass-lightweight {
 }
 
 html[data-theme="transparent"].transparent-glass-realtime {
+  --app-grouped-list-backdrop-filter: none;
+
   .background-image.active {
     filter: none;
     transform: none;
@@ -350,6 +362,8 @@ html[data-theme="transparent"].transparent-glass-realtime {
 }
 
 html[data-theme="transparent"].transparent-blur-disabled {
+  --app-grouped-list-backdrop-filter: none;
+
   .layout-vertical-nav,
   .v-list,
   .v-card:not(.no-blur),
