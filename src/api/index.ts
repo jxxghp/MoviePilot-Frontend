@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import router from '@/router'
 import { useAuthStore } from '@/stores'
 import { initializeRequestOptimizer } from '@/utils/requestOptimizer'
@@ -8,6 +8,10 @@ import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 })
+
+export interface ConnectionAwareRequestConfig extends AxiosRequestConfig {
+  skipConnectionTracking?: boolean
+}
 
 // 声明全局变量类型
 declare global {
@@ -36,36 +40,38 @@ api.interceptors.request.use(config => {
 // 离线状态管理
 const globalOfflineStatus = useGlobalOfflineStatus()
 
+/** 将 Axios 连接错误归类为全局服务探测可识别的原因。 */
+function resolveConnectionFailureReason(error: AxiosError): 'network-error' | 'timeout' | null {
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return 'timeout'
+
+  if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK' || error.name === 'NetworkError') {
+    return 'network-error'
+  }
+
+  return null
+}
+
 // 添加响应拦截器
 api.interceptors.response.use(
   response => {
-    // 成功响应时，清除应用离线状态并重置连续错误计数
-    globalOfflineStatus.setAppOffline(false)
-    globalOfflineStatus.resetConsecutiveErrors()
+    // 任意 API 成功响应都可以证明 MoviePilot 服务当前可达。
+    globalOfflineStatus.markServerOnline()
     return response.data
   },
-  error => {
+  (error: AxiosError) => {
     if (!error.response) {
-      // 网络错误或请求超时 - 通知离线状态管理系统
-      const isNetworkError =
-        error.code === 'NETWORK_ERROR' ||
-        error.code === 'ERR_NETWORK' ||
-        error.code === 'ECONNABORTED' ||
-        error.name === 'NetworkError'
+      const requestConfig = error.config as ConnectionAwareRequestConfig | undefined
+      const failureReason = resolveConnectionFailureReason(error)
 
-      if (isNetworkError) {
-        let reason = 'Network connection failed'
-        if (error.code === 'ECONNABORTED') {
-          reason = 'Request timeout'
-        }
-        // 记录网络错误，只有连续三次才会设置为离线模式
-        globalOfflineStatus.recordNetworkError(reason)
+      // 普通请求失败只触发权威探测；探测请求自身失败由心跳管理器处理，避免递归。
+      if (!requestConfig?.skipConnectionTracking && failureReason) {
+        globalOfflineStatus.reportNetworkError(failureReason)
       }
 
       if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
         // 网络连接问题
         return Promise.reject(new Error('Network connection failed, please check your network status'))
-      } else if (error.code === 'ECONNABORTED') {
+      } else if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
         // 请求超时
         return Promise.reject(new Error('Request timeout, please try again later'))
       } else if (error.name === 'AbortError') {

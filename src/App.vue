@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useTheme } from 'vuetify'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
-import api from '@/api'
+import api, { type ConnectionAwareRequestConfig } from '@/api'
 import { useAuthStore, useGlobalSettingsStore } from '@/stores'
 import { getBrowserLocale, setI18nLanguage } from './plugins/i18n'
 import { SupportedLocale } from '@/types/i18n'
@@ -23,6 +23,10 @@ import { usePWA } from '@/composables/usePWA'
 import { themeManager } from '@/utils/themeManager'
 import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
+import {
+  useGlobalOfflineStatus,
+  type ConnectionFailureReason,
+} from '@/composables/useOfflineStatus'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
@@ -56,6 +60,7 @@ const authStore = useAuthStore()
 const isLogin = computed(() => authStore.token)
 const route = useRoute()
 const { initializePWA } = usePWA()
+const offlineStatus = useGlobalOfflineStatus()
 
 // 全局设置store
 const globalSettingsStore = useGlobalSettingsStore()
@@ -154,36 +159,144 @@ function handleWindowFocusRenderThrottle() {
   }
 }
 
-// 心跳检测
 let heartbeatInterval: number | null = null
+let connectionRetryTimer: number | null = null
+let connectionProbePromise: Promise<boolean> | null = null
+let connectionProbeFailures = 0
 let prefersColorSchemeMediaQuery: MediaQueryList | null = null
 
-// 启动心跳
-const startHeartbeat = () => {
-  // 如果已经有心跳，则先停止
-  if (heartbeatInterval) {
-    stopHeartbeat()
-  }
+const SERVER_PROBE_TIMEOUT_MS = 8_000
+const SERVER_PROBE_FAILURE_THRESHOLD = 2
+const SERVER_RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000] as const
 
-  // 开始心跳任务
-  heartbeatInterval = window.setInterval(async () => {
+/** 清除等待中的服务重连任务。 */
+function clearConnectionRetryTimer() {
+  if (!connectionRetryTimer) return
+
+  window.clearTimeout(connectionRetryTimer)
+  connectionRetryTimer = null
+}
+
+/** 根据浏览器状态和请求错误判断本次探测失败原因。 */
+function resolveProbeFailureReason(error: unknown): ConnectionFailureReason {
+  if (!offlineStatus.browserOnline.value) return 'browser-offline'
+
+  const errorCode = (error as { code?: string } | null)?.code
+  if (errorCode === 'ECONNABORTED' || errorCode === 'ETIMEDOUT') return 'timeout'
+
+  return 'server-unreachable'
+}
+
+/** 按退避间隔安排下一次 MoviePilot 服务探测。 */
+function scheduleConnectionRetry() {
+  clearConnectionRetryTimer()
+
+  const retryIndex = Math.min(Math.max(connectionProbeFailures - 1, 0), SERVER_RETRY_DELAYS_MS.length - 1)
+  connectionRetryTimer = window.setTimeout(() => {
+    connectionRetryTimer = null
+    void probeServerConnection()
+  }, SERVER_RETRY_DELAYS_MS[retryIndex])
+}
+
+/** 使用后端 ping 接口执行去重后的权威服务连通性探测。 */
+async function probeServerConnection(showChecking = false): Promise<boolean> {
+  if (!isLogin.value) return false
+  if (connectionProbePromise) return connectionProbePromise
+
+  clearConnectionRetryTimer()
+  if (showChecking) offlineStatus.markConnectionChecking(offlineStatus.connectionReason.value ?? undefined)
+
+  const successSequenceAtProbeStart = offlineStatus.serverSuccessSequence.value
+  const probePromise = (async () => {
     try {
-      if (isLogin.value) {
-        await api.get('system/ping')
-      }
+      await api.get(
+        'system/ping',
+        {
+          skipConnectionTracking: true,
+          timeout: SERVER_PROBE_TIMEOUT_MS,
+        } as ConnectionAwareRequestConfig,
+      )
+      connectionProbeFailures = 0
+      return true
     } catch (error) {
-      console.warn('Heartbeat request failed:', error)
+      if (!isLogin.value) {
+        offlineStatus.markServerOnline()
+        return false
+      }
+
+      // 探测期间若已有其他接口成功，则以更新的成功响应为准，避免旧失败覆盖新状态。
+      if (offlineStatus.serverSuccessSequence.value > successSequenceAtProbeStart) {
+        connectionProbeFailures = 0
+        return true
+      }
+
+      connectionProbeFailures += 1
+      const failureReason = resolveProbeFailureReason(error)
+
+      if (connectionProbeFailures >= SERVER_PROBE_FAILURE_THRESHOLD) {
+        offlineStatus.markServerOffline(failureReason)
+      } else {
+        offlineStatus.markConnectionChecking(failureReason)
+      }
+
+      scheduleConnectionRetry()
+      return false
     }
+  })()
+
+  connectionProbePromise = probePromise
+  try {
+    return await probePromise
+  } finally {
+    if (connectionProbePromise === probePromise) connectionProbePromise = null
+  }
+}
+
+/** 启动即时服务探测和五分钟在线心跳。 */
+function startHeartbeat() {
+  if (heartbeatInterval) window.clearInterval(heartbeatInterval)
+
+  void probeServerConnection()
+
+  heartbeatInterval = window.setInterval(async () => {
+    if (isLogin.value) await probeServerConnection()
   }, 5 * 60 * 1000)
 }
 
-// 停止心跳
-const stopHeartbeat = () => {
+/** 停止心跳和等待中的自动重连任务。 */
+function stopHeartbeat() {
   if (heartbeatInterval) {
     window.clearInterval(heartbeatInterval)
     heartbeatInterval = null
   }
+
+  clearConnectionRetryTimer()
+  connectionProbeFailures = 0
 }
+
+watch(
+  () => offlineStatus.connectionCheckRequestId.value,
+  () => {
+    if (isLogin.value) void probeServerConnection(true)
+  },
+)
+
+watch(
+  () => offlineStatus.connectionStatus.value,
+  status => {
+    if (status !== 'online') return
+    connectionProbeFailures = 0
+    clearConnectionRetryTimer()
+  },
+)
+
+watch(
+  () => offlineStatus.browserOnline.value,
+  browserIsOnline => {
+    if (!isLogin.value) return
+    offlineStatus.requestConnectionCheck(browserIsOnline ? undefined : 'browser-offline')
+  },
+)
 
 // 更新data-theme属性以便CSS选择器能正确匹配
 function updateHtmlThemeAttribute(themeName: string) {
@@ -223,20 +336,22 @@ function handleSystemThemeChange() {
   }
 }
 
-// 页面重新可见时同步主题，修复后台期间设置被外部修改后的外观漂移。
+/** 页面重新可见时同步主题，并在连接异常时立即重新探测服务。 */
 function handleVisibilityThemeSync() {
   if (document.visibilityState === 'visible') {
     restoreForegroundRendering()
     syncThemePreferenceFromStorage()
+    if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   } else {
     throttleBackgroundRendering()
   }
 }
 
-// 页面从缓存或重新聚焦恢复时刷新主题偏好。
+/** 页面从缓存或重新聚焦恢复时刷新主题偏好和异常连接状态。 */
 function handlePageShowThemeSync() {
   if (document.visibilityState === 'visible') {
     restoreForegroundRendering()
+    if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   }
   syncThemePreferenceFromStorage()
 }
@@ -509,6 +624,7 @@ onMounted(async () => {
         authenticatedStateTimer = null
       }
       stopHeartbeat()
+      offlineStatus.markServerOnline()
     }
   })
 })

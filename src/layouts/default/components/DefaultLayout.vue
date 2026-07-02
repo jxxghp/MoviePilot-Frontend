@@ -107,7 +107,7 @@ const mainContentPaddingTop = computed(() => {
 const showPluginQuickAccess = ref(false)
 
 // 离线状态管理
-const { setAppOffline, isOffline } = useGlobalOfflineStatus()
+const { isOffline } = useGlobalOfflineStatus()
 
 // 动态标签页相关
 // 定义动态标签页类型
@@ -226,17 +226,6 @@ onUnmounted(() => {
     delete (window as any).__VUE_INJECT_DYNAMIC_HEADER_TAB__
   }
 })
-
-/** 处理 Service Worker 推送的离线状态消息。 */
-const handleServiceWorkerMessage = (event: MessageEvent) => {
-  if (event.data && event.data.type === 'OFFLINE_STATUS') {
-    if (event.data.offline) {
-      setAppOffline(true, t('common.serverConnectionFailed'))
-    } else {
-      setAppOffline(false)
-    }
-  }
-}
 
 /** 判断当前页面状态是否允许使用主界面下拉快捷入口手势。 */
 const canUsePullGesture = () => {
@@ -468,25 +457,17 @@ onMounted(async () => {
   await pluginSidebarNavStore.ensureSidebarNav()
   appendPluginSidebarMenus()
 
-  // 监听Service Worker消息
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
-  }
-
   // 组件卸载时清理监听
   onBeforeUnmount(() => {
     window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
     window.removeEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
-    }
   })
 })
 </script>
 
 <template>
   <!-- 👉 Offline Page -->
-  <OfflinePage />
+  <OfflinePage :navbar-extra-height="navbarExtraHeight" />
 
   <!-- 👉 Pull Down Indicator -->
   <div
