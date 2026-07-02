@@ -589,12 +589,7 @@ onBeforeUnmount(stopAutoplay)
   }
 
   .dashboard-recommend-detail {
-    justify-content: center;
-    inline-size: max-content;
-    min-inline-size: 124px;
-    inset-block-end: 3.8rem;
-    inset-inline: 50% auto;
-    transform: translateX(-50%);
+    display: none;
   }
 
   .dashboard-recommend-arrow {
