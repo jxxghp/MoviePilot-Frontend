@@ -973,7 +973,9 @@ onMounted(() => {
 
 @media (width <= 959.98px) {
   .words-view {
-    block-size: calc(100dvh - 4rem - env(safe-area-inset-top));
+    flex: 1 1 auto;
+    block-size: 100%;
+    min-block-size: 0;
   }
 
   .words-workspace {

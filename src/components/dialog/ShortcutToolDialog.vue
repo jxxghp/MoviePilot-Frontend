@@ -104,6 +104,21 @@ const bodyClasses = computed(() => [
 }
 
 @media (max-width: 959.98px) {
+  .words-shortcut-dialog-card {
+    display: flex;
+    overflow: hidden !important;
+    flex-direction: column;
+  }
+
+  .words-shortcut-dialog-body {
+    display: flex;
+    overflow: hidden !important;
+    flex: 1 1 auto;
+    inline-size: 100%;
+    min-block-size: 0;
+    padding: 0 !important;
+  }
+
   .scheduler-shortcut-dialog-card--transparent {
     background: transparent !important;
     background-color: transparent !important;
