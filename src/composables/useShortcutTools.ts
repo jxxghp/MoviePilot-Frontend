@@ -80,6 +80,7 @@ export function useShortcutTools() {
       subtitle: t('shortcut.words.subtitle'),
       icon: 'mdi-file-word-box',
       dialog: 'words',
+      bodyClass: 'words-shortcut-dialog-body pa-0',
       component: WordsView,
       maxWidth: '60rem',
       titleText: t('shortcut.words.subtitle'),
