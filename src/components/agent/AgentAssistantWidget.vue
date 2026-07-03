@@ -8,11 +8,13 @@ const panelOpen = ref(false)
 const thinking = ref(false)
 const entryRef = ref<AgentAssistantEntryRef | null>(null)
 
+// 打开 Agent 面板并清空入口预览气泡。
 function openPanel() {
   panelOpen.value = true
   entryRef.value?.clearBubbles()
 }
 
+// 在面板关闭时展示助手回复预览。
 function handleAssistantPreview(value: string) {
   if (panelOpen.value) return
 

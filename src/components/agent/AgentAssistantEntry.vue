@@ -8,6 +8,9 @@ import {
   type AgentAssistantNotificationBubblePayload,
 } from '@/utils/agentAssistantBubble'
 import { useI18n } from 'vue-i18n'
+import AgentPetStage from './pet/AgentPetStage.vue'
+import type { AgentPetActionName, AgentPetIntent } from './pet/types'
+import { useAgentPetMachine } from './pet/useAgentPetMachine'
 
 interface AgentAssistantEntryBubble {
   id: string
@@ -60,24 +63,10 @@ const FAB_BUBBLE_SAFE_MARGIN = 12
 const FAB_BUBBLE_ARROW_MARGIN = 28
 const FAB_BUBBLE_EDGE_ARROW_OFFSET = 38
 const FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY = 260
-const FAB_RANDOM_ACTION_MIN_DELAY = 8000
-const FAB_RANDOM_ACTION_MAX_DELAY = 18000
 const FAB_RIGHT_EDGE_RESIZE_FOLLOW_DISTANCE = 128
 const FAB_DRAG_SUPPRESS_CLICK_DELAY = 450
 
-const FAB_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint', 'disassemble', 'happy-jump'] as const
-
-type FabRandomAction = (typeof FAB_RANDOM_ACTIONS)[number]
 type FabBubblePlacement = 'bottom' | 'left' | 'right' | 'top'
-
-const FAB_RANDOM_ACTION_DURATIONS: Record<FabRandomAction, number> = {
-  wave: 2450,
-  sit: 4200,
-  'eye-roll': 1900,
-  faint: 4800,
-  disassemble: 6200,
-  'happy-jump': 5200,
-}
 
 // 入口位置只保存在当前页面生命周期内，刷新后回到默认位置。
 interface FabPosition {
@@ -188,7 +177,6 @@ const fabBubbleArrowSource = ref<FabBubbleArrowSource>({
 const fabPressed = ref(false)
 const fabBubbles = ref<AgentAssistantEntryBubble[]>([])
 const fabDragging = ref(false)
-const fabRandomAction = ref<FabRandomAction | null>(null)
 
 let fabIdleTimer: number | null = null
 let fabDragState: FabDragState | null = null
@@ -199,9 +187,6 @@ let fabPendingPointerPoint: FabPointerPoint | null = null
 let fabBubblePositionFrame = 0
 let fabBubbleResizeObserver: ResizeObserver | null = null
 let fabBubbleUndockPositionTimer: number | null = null
-let fabLastRandomAction: FabRandomAction | null = null
-let fabRandomActionTimer: number | null = null
-let fabRandomActionEndTimer: number | null = null
 let stopBubbleListener: (() => void) | null = null
 let fabPositionAnchor: FabPositionAnchor | null = null
 let stopFabTouchMoveGuard: (() => void) | null = null
@@ -215,11 +200,35 @@ const fabBubbleClassList = computed(() => [
   `agent-assistant-fab__bubbles--arrow-${fabBubbleArrowSource.value.kind}`,
   `agent-assistant-fab__bubbles--arrow-${fabBubbleArrowSource.value.variant}`,
 ])
+const agentPetIntent = computed<AgentPetIntent>(() => {
+  if (fabDragging.value) return 'dragging'
+  if (fabDocked.value) return 'docked'
+  if (props.thinking) return 'thinking'
+  if (hasFabBubbles.value) return 'notify'
 
+  return 'idle'
+})
+const {
+  clearAction: clearFabRandomAction,
+  currentAction: fabRandomAction,
+  playAction: playAgentPetAction,
+  scheduleRandomAction: scheduleFabRandomAction,
+} = useAgentPetMachine({
+  active: () => props.active,
+  docked: fabDocked,
+  dragging: fabDragging,
+  pressed: fabPressed,
+  scheduleAutoDock: scheduleFabAutoDock,
+  shouldAutoDock: shouldFabAutoDock,
+  thinking: () => props.thinking,
+})
+
+// 生成气泡唯一 ID，避免通知、toast 和预览气泡在堆叠中冲突。
 function createBubbleId(prefix = 'bubble') {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+// 获取当前可用视口尺寸，兼容布局视口和可视视口短暂不同步的场景。
 function getViewportSize() {
   const layoutWidth = window.innerWidth || document.documentElement.clientWidth || 0
   const layoutHeight = window.innerHeight || document.documentElement.clientHeight || 0
@@ -244,6 +253,7 @@ function getFabBubbleGap() {
   return isMobileFabViewport() ? FAB_MOBILE_BUBBLE_GAP : FAB_BUBBLE_GAP
 }
 
+// 获取展开状态下入口外层容器尺寸，用于默认定位和拖拽边界计算。
 function getOpenFabSize() {
   const viewport = getViewportSize()
   const isMobile = isMobileFabViewport()
@@ -254,6 +264,7 @@ function getOpenFabSize() {
   }
 }
 
+// 在 DOM 尺寸不可用时返回入口触发热区的兜底边界。
 function getFallbackFabInteractiveBounds(): FabInteractiveBounds {
   const rootSize = getOpenFabSize()
   const triggerSize = isMobileFabViewport() ? { height: 77, width: 80 } : { height: 82, width: 86 }
@@ -268,10 +279,12 @@ function getFallbackFabInteractiveBounds(): FabInteractiveBounds {
   }
 }
 
+// 计算入口贴到右侧边缘时的横向坐标。
 function getDockedFabX() {
   return Math.max(0, getViewportSize().width - 42)
 }
 
+// 获取实际机器人触发热区边界，避免外层空白影响拖拽贴边。
 function getFabInteractiveBounds(): FabInteractiveBounds {
   const root = getFabRootElement()
   const trigger = root?.querySelector('.agent-assistant-fab__trigger') as HTMLElement | null
@@ -293,6 +306,7 @@ function getFabInteractiveBounds(): FabInteractiveBounds {
   return getFallbackFabInteractiveBounds()
 }
 
+// 计算入口默认落点，刷新后回到右侧约三分之二高度。
 function getDefaultFabPosition() {
   if (typeof window === 'undefined') return { x: 0, y: 0 }
 
@@ -306,6 +320,7 @@ function getDefaultFabPosition() {
   })
 }
 
+// 计算入口在当前视口内允许移动的坐标范围。
 function getFabPositionRange(options: FabPositionRangeOptions = {}) {
   const viewport = getViewportSize()
   const bounds = options.useOpenBounds ? getFallbackFabInteractiveBounds() : getFabInteractiveBounds()
@@ -317,6 +332,7 @@ function getFabPositionRange(options: FabPositionRangeOptions = {}) {
   return { maxX, maxY, minX, minY }
 }
 
+// 把入口位置限制在允许移动范围内。
 function clampFabPosition(position: FabPosition, options: FabPositionRangeOptions = {}) {
   if (typeof window === 'undefined') return position
 
@@ -328,16 +344,19 @@ function clampFabPosition(position: FabPosition, options: FabPositionRangeOption
   }
 }
 
+// 把入口纵向位置限制在允许移动范围内。
 function clampFabY(y: number, options: FabPositionRangeOptions = {}) {
   const range = getFabPositionRange(options)
 
   return Math.min(range.maxY, Math.max(range.minY, y))
 }
 
+// 获取当前入口位置，未初始化时回退到默认位置。
 function getCurrentFabPosition() {
   return fabPosition.value || getDefaultFabPosition()
 }
 
+// 计算入口右侧与视口右边缘之间的距离。
 function getFabRightEdgeOffset(position = getCurrentFabPosition()) {
   const viewport = getViewportSize()
   const size = getOpenFabSize()
@@ -345,6 +364,7 @@ function getFabRightEdgeOffset(position = getCurrentFabPosition()) {
   return viewport.width - (position.x + size.width)
 }
 
+// 计算入口纵向位置在可移动范围内的比例。
 function getFabYRatio(position: FabPosition, options: FabPositionRangeOptions = {}) {
   return getFabFreePositionRatio(position, options).y
 }
@@ -370,10 +390,12 @@ function updateFabAnchorFromPosition(position = getCurrentFabPosition(), options
   }
 }
 
+// 判断当前锚点是否满足自动贴边收起条件。
 function shouldFabAutoDock() {
   return fabPositionAnchor?.mode === 'right' && fabPositionAnchor.rightOffset <= FAB_RIGHT_EDGE_DOCK_DISTANCE
 }
 
+// 把自由拖拽坐标转换成可随视口缩放恢复的比例坐标。
 function getFabFreePositionRatio(position: FabPosition, options: FabPositionRangeOptions = {}): FabPositionRatio {
   const range = getFabPositionRange(options)
   const xRange = range.maxX - range.minX
@@ -385,6 +407,7 @@ function getFabFreePositionRatio(position: FabPosition, options: FabPositionRang
   }
 }
 
+// 根据比例坐标还原入口位置。
 function getFabPositionFromRatio(ratio: FabPositionRatio, options: FabPositionRangeOptions = {}) {
   const range = getFabPositionRange(options)
 
@@ -397,12 +420,14 @@ function getFabPositionFromRatio(ratio: FabPositionRatio, options: FabPositionRa
   )
 }
 
+// 根据纵向比例还原入口 Y 坐标。
 function getFabYFromRatio(yRatio: number, options: FabPositionRangeOptions = {}) {
   const range = getFabPositionRange(options)
 
   return range.minY + (range.maxY - range.minY) * yRatio
 }
 
+// 根据右侧贴边或自由位置锚点还原入口坐标。
 function getFabPositionFromAnchor(anchor: FabPositionAnchor) {
   if (anchor.mode === 'right') {
     const viewport = getViewportSize()
@@ -426,6 +451,7 @@ function getFabPositionFromAnchor(anchor: FabPositionAnchor) {
   )
 }
 
+// 获取从贴边状态开始拖拽时应恢复的展开位置。
 function getOpenFabPositionForDrag(currentPosition: FabPosition) {
   if (fabPositionAnchor) return getFabPositionFromAnchor(fabPositionAnchor)
 
@@ -441,6 +467,7 @@ function getOpenFabPositionForDrag(currentPosition: FabPosition) {
   )
 }
 
+// 更新入口位置并按需同步锚点和气泡位置。
 function updateFabPosition(position: FabPosition, options: FabPositionRangeOptions & { syncAnchor?: boolean } = {}) {
   const rangeOptions = { useOpenBounds: options.useOpenBounds ?? fabDragging.value }
 
@@ -454,10 +481,12 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+// 获取入口根节点，优先使用组件 ref，兜底查询 DOM。
 function getFabRootElement() {
   return fabRootRef.value || (document.querySelector('.agent-assistant-fab') as HTMLElement | null)
 }
 
+// 获取气泡定位使用的机器人锚点区域。
 function getFabAnchorRect() {
   const root = getFabRootElement()
   const bot = root?.querySelector('.agent-assistant-fab__bot') as HTMLElement | null
@@ -474,6 +503,7 @@ function getFabAnchorRect() {
   return null
 }
 
+// 获取气泡容器尺寸，未渲染完成时使用响应式兜底宽高。
 function getFabBubbleSize() {
   const viewport = getViewportSize()
   const rect = fabBubbleRef.value?.getBoundingClientRect()
@@ -485,6 +515,7 @@ function getFabBubbleSize() {
   }
 }
 
+// 把气泡单轴坐标限制在视口安全边距内。
 function clampBubbleAxis(value: number, size: number, viewportSize: number) {
   const min = FAB_BUBBLE_SAFE_MARGIN
   const max = Math.max(min, viewportSize - size - FAB_BUBBLE_SAFE_MARGIN)
@@ -492,12 +523,14 @@ function clampBubbleAxis(value: number, size: number, viewportSize: number) {
   return clampNumber(value, min, max)
 }
 
+// 把气泡箭头位置限制在气泡边缘安全范围内。
 function clampBubbleArrow(value: number, size: number) {
   const margin = Math.min(FAB_BUBBLE_ARROW_MARGIN, size / 2)
 
   return clampNumber(value, margin, Math.max(margin, size - margin))
 }
 
+// 计算某个气泡候选位置的空间不足和偏移惩罚。
 function getBubbleCandidatePenalty(
   candidate: FabBubbleCandidate,
   bubbleSize: { height: number; width: number },
@@ -528,6 +561,7 @@ function getBubbleCandidatePenalty(
   }
 }
 
+// 根据机器人位置、气泡尺寸和视口空间选择最佳气泡布局。
 function calculateFabBubbleLayout(): FabBubbleLayout | null {
   const rootRect = getFabRootElement()?.getBoundingClientRect()
   const anchorRect = getFabAnchorRect()
@@ -594,6 +628,7 @@ function calculateFabBubbleLayout(): FabBubbleLayout | null {
   }
 }
 
+// 在无法匹配具体气泡元素时推断箭头颜色来源。
 function getFallbackFabBubbleArrowSource(placement: FabBubblePlacement): FabBubbleArrowSource {
   const fallbackBubble =
     placement === 'bottom' || placement === 'right'
@@ -606,6 +641,7 @@ function getFallbackFabBubbleArrowSource(placement: FabBubblePlacement): FabBubb
   }
 }
 
+// 计算气泡元素到箭头落点的距离，用于匹配箭头来源。
 function getBubbleDistanceToArrow(rect: DOMRect, arrowX: number, arrowY: number, placement: FabBubblePlacement) {
   if (placement === 'left' || placement === 'right') {
     if (arrowY >= rect.top && arrowY <= rect.bottom) return 0
@@ -618,6 +654,7 @@ function getBubbleDistanceToArrow(rect: DOMRect, arrowX: number, arrowY: number,
   return Math.min(Math.abs(arrowX - rect.left), Math.abs(arrowX - rect.right))
 }
 
+// 同步当前箭头指向的气泡类型和状态颜色。
 function syncFabBubbleArrowSource(layout: FabBubbleLayout, rootRect: DOMRect) {
   const bubbleElements = Array.from(
     fabBubbleRef.value?.querySelectorAll<HTMLElement>('.agent-assistant-fab__bubble') || [],
@@ -651,6 +688,7 @@ function syncFabBubbleArrowSource(layout: FabBubbleLayout, rootRect: DOMRect) {
     : getFallbackFabBubbleArrowSource(layout.placement)
 }
 
+// 把计算出的气泡位置和箭头位置写入 CSS 变量。
 function syncFabBubblePosition() {
   if (!hasFabBubbles.value || !props.active) return
 
@@ -669,6 +707,7 @@ function syncFabBubblePosition() {
   fabBubblePositioned.value = true
 }
 
+// 使用 requestAnimationFrame 合并气泡位置更新。
 function scheduleFabBubblePositionUpdate() {
   if (fabBubblePositionFrame || !hasFabBubbles.value) return
 
@@ -678,6 +717,7 @@ function scheduleFabBubblePositionUpdate() {
   })
 }
 
+// 清理贴边展开后的延迟气泡定位计时器。
 function clearFabBubbleUndockPositionTimer() {
   if (fabBubbleUndockPositionTimer === null) return
 
@@ -685,6 +725,7 @@ function clearFabBubbleUndockPositionTimer() {
   fabBubbleUndockPositionTimer = null
 }
 
+// 安排贴边展开动画后的气泡位置复算。
 function scheduleFabBubblePostUndockPositionUpdate() {
   clearFabBubbleUndockPositionTimer()
   fabBubbleUndockPositionTimer = window.setTimeout(() => {
@@ -693,6 +734,7 @@ function scheduleFabBubblePostUndockPositionUpdate() {
   }, FAB_BUBBLE_UNDOCK_POSITION_SYNC_DELAY)
 }
 
+// 同步气泡 ResizeObserver，让内容高度变化后重新定位。
 function syncFabBubbleResizeObserver() {
   fabBubbleResizeObserver?.disconnect()
   fabBubbleResizeObserver = null
@@ -705,6 +747,7 @@ function syncFabBubbleResizeObserver() {
   fabBubbleResizeObserver.observe(fabBubbleRef.value)
 }
 
+// 清理气泡定位相关的动画帧、观察器和计时器。
 function teardownFabBubblePositioning() {
   if (fabBubblePositionFrame) {
     window.cancelAnimationFrame(fabBubblePositionFrame)
@@ -716,6 +759,7 @@ function teardownFabBubblePositioning() {
   clearFabBubbleUndockPositionTimer()
 }
 
+// 重置入口到默认位置并同步锚点和气泡位置。
 function resetFabPosition() {
   fabPosition.value = getDefaultFabPosition()
   updateFabAnchorFromPosition(fabPosition.value)
@@ -723,6 +767,7 @@ function resetFabPosition() {
   if (shouldFabAutoDock()) scheduleFabAutoDock()
 }
 
+// 在窗口或可视视口变化时按锚点恢复入口位置。
 function handleWindowResize() {
   const currentPosition = getCurrentFabPosition()
   if (fabDocked.value) {
@@ -740,6 +785,7 @@ function handleWindowResize() {
   scheduleFabBubblePositionUpdate()
 }
 
+// 把 Markdown 内容压缩成适合气泡预览的纯文本。
 function stripMarkdownPreview(value: string) {
   return value
     .replace(/```[\s\S]*?```/g, ' ')
@@ -804,6 +850,7 @@ function updateFabPointer(event: PointerEvent) {
   queueFabPointerUpdate(event.clientX, event.clientY)
 }
 
+// 重置机器人按压状态和眼神跟随位移。
 function resetFabPointer() {
   fabPressed.value = false
   fabPointerStyle.value = {
@@ -819,6 +866,7 @@ function resetFabPointer() {
   }
 }
 
+// 清理入口自动贴边计时器。
 function clearFabIdleTimer() {
   if (fabIdleTimer === null) return
 
@@ -826,6 +874,7 @@ function clearFabIdleTimer() {
   fabIdleTimer = null
 }
 
+// 清理拖拽后抑制点击的恢复计时器。
 function clearFabSuppressNextClickTimer() {
   if (fabSuppressNextClickTimer === null) return
 
@@ -833,6 +882,7 @@ function clearFabSuppressNextClickTimer() {
   fabSuppressNextClickTimer = null
 }
 
+// 拖拽结束后短暂抑制下一次点击，避免误打开面板。
 function suppressNextFabClick() {
   fabSuppressNextClick = true
   clearFabSuppressNextClickTimer()
@@ -842,6 +892,7 @@ function suppressNextFabClick() {
   }, FAB_DRAG_SUPPRESS_CLICK_DELAY)
 }
 
+// 在入口靠近右侧边缘且空闲时安排自动贴边收起。
 function scheduleFabAutoDock() {
   clearFabIdleTimer()
   if (fabDocked.value || hasKeepOpenFabBubbles.value || fabRandomAction.value || !shouldFabAutoDock()) return
@@ -859,100 +910,9 @@ function scheduleFabAutoDock() {
   }, FAB_IDLE_DOCK_DELAY)
 }
 
+// 暂停入口自动贴边收起。
 function pauseFabAutoDock() {
   clearFabIdleTimer()
-}
-
-// 返回下一次趣味动作的随机等待时间，让动作出现节奏更自然。
-function getFabRandomActionDelay() {
-  return (
-    FAB_RANDOM_ACTION_MIN_DELAY +
-    Math.round(Math.random() * (FAB_RANDOM_ACTION_MAX_DELAY - FAB_RANDOM_ACTION_MIN_DELAY))
-  )
-}
-
-// 判断当前交互状态是否适合播放随机动作，避免干扰半隐藏、拖拽和思考态。
-function canRunFabRandomAction() {
-  return props.active && !fabDocked.value && !fabDragging.value && !fabPressed.value && !props.thinking
-}
-
-// 随机选择一个不同于上一次的趣味动作，减少连续重复带来的机械感。
-function pickFabRandomAction(): FabRandomAction {
-  const candidates = FAB_RANDOM_ACTIONS.filter(action => action !== fabLastRandomAction)
-  const action = candidates[Math.floor(Math.random() * candidates.length)] || FAB_RANDOM_ACTIONS[0]
-
-  fabLastRandomAction = action
-  return action
-}
-
-// 清理等待中的随机动作计时器。
-function clearFabRandomActionTimer() {
-  if (fabRandomActionTimer === null) return
-
-  window.clearTimeout(fabRandomActionTimer)
-  fabRandomActionTimer = null
-}
-
-// 清理正在播放动作的结束计时器。
-function clearFabRandomActionEndTimer() {
-  if (fabRandomActionEndTimer === null) return
-
-  window.clearTimeout(fabRandomActionEndTimer)
-  fabRandomActionEndTimer = null
-}
-
-// 停止当前随机动作并清理相关计时器。
-function clearFabRandomAction() {
-  clearFabRandomActionTimer()
-  clearFabRandomActionEndTimer()
-  fabRandomAction.value = null
-}
-
-// 安排下一次随机动作，只在机器人完全可见且空闲时生效。
-function scheduleFabRandomAction() {
-  clearFabRandomActionTimer()
-  if (!canRunFabRandomAction() || fabRandomAction.value || fabRandomActionEndTimer !== null) return
-
-  fabRandomActionTimer = window.setTimeout(() => {
-    fabRandomActionTimer = null
-    runFabRandomAction()
-  }, getFabRandomActionDelay())
-}
-
-// 完成当前随机动作后恢复空闲态，并继续排队下一次动作。
-function finishFabRandomAction() {
-  clearFabRandomActionEndTimer()
-  fabRandomAction.value = null
-
-  const shouldAutoDock = !fabDocked.value && shouldFabAutoDock()
-
-  if (shouldAutoDock) {
-    scheduleFabAutoDock()
-    return
-  }
-
-  scheduleFabRandomAction()
-}
-
-// 播放一个随机趣味动作，动作期间由 CSS 类驱动部件动画。
-function runFabRandomAction() {
-  if (!canRunFabRandomAction()) return
-
-  const action = pickFabRandomAction()
-
-  fabRandomAction.value = action
-  fabRandomActionEndTimer = window.setTimeout(finishFabRandomAction, FAB_RANDOM_ACTION_DURATIONS[action])
-}
-
-// 根据当前显示和交互状态同步随机动作队列。
-function syncFabRandomActionSchedule() {
-  if (canRunFabRandomAction()) {
-    if (!fabRandomAction.value && fabRandomActionTimer === null && fabRandomActionEndTimer === null)
-      scheduleFabRandomAction()
-    return
-  }
-
-  clearFabRandomAction()
 }
 
 // 取消挂起的全局指针帧并移除监听器。
@@ -967,18 +927,22 @@ function teardownFabPointerTracking() {
   window.removeEventListener('pointerdown', handleGlobalFabPointer)
 }
 
+// 构建通知气泡标题，缺省时回退到来源或通知中心文案。
 function buildNotificationBubbleTitle(payload: AgentAssistantNotificationBubblePayload) {
   return payload.title || payload.source || payload.mtype || t('notification.center')
 }
 
+// 构建通知气泡正文，并清理 Markdown 标记。
 function buildNotificationBubbleText(payload: AgentAssistantNotificationBubblePayload) {
   return stripMarkdownPreview(payload.text || payload.title || payload.source || payload.mtype || '')
 }
 
+// 获取气泡视觉状态，缺省使用默认状态。
 function getBubbleVariant(payload: AgentAssistantBubblePayload): AgentAssistantBubbleVariant {
   return payload.variant || 'default'
 }
 
+// 根据气泡状态选择标题图标。
 function getBubbleIcon(variant: AgentAssistantBubbleVariant) {
   const icons: Record<AgentAssistantBubbleVariant, string> = {
     default: 'mdi-bell-outline',
@@ -991,6 +955,7 @@ function getBubbleIcon(variant: AgentAssistantBubbleVariant) {
   return icons[variant]
 }
 
+// 根据 toast 类型构建 Agent 气泡标题。
 function getToastBubbleTitle(payload: AgentAssistantBubblePayload) {
   if (payload.title) return payload.title
 
@@ -1005,6 +970,7 @@ function getToastBubbleTitle(payload: AgentAssistantBubblePayload) {
   return titles[getBubbleVariant(payload)]
 }
 
+// 清理指定气泡的自动关闭计时器。
 function clearFabBubbleTimer(id: string) {
   const timer = fabBubbleTimers.get(id)
   if (!timer) return
@@ -1013,6 +979,7 @@ function clearFabBubbleTimer(id: string) {
   fabBubbleTimers.delete(id)
 }
 
+// 安排气泡在指定时长后自动移除。
 function scheduleFabBubbleRemoval(id: string, duration = FAB_NOTIFICATION_BUBBLE_DURATION) {
   clearFabBubbleTimer(id)
   fabBubbleTimers.set(
@@ -1023,6 +990,7 @@ function scheduleFabBubbleRemoval(id: string, duration = FAB_NOTIFICATION_BUBBLE
   )
 }
 
+// 新增或更新气泡，并维护堆叠上限和定位。
 function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose?: boolean; duration?: number } = {}) {
   if (!props.active || !bubble.text) return
 
@@ -1047,6 +1015,7 @@ function upsertFabBubble(bubble: AgentAssistantEntryBubble, options: { autoClose
   if (options.autoClose) scheduleFabBubbleRemoval(bubble.id, options.duration)
 }
 
+// 规范化气泡输入并展示到入口气泡堆叠。
 function showBubble(input: AgentAssistantEntryBubbleInput) {
   const text = stripMarkdownPreview(input.text)
   if (!text) return
@@ -1067,6 +1036,7 @@ function showBubble(input: AgentAssistantEntryBubbleInput) {
   )
 }
 
+// 展示助手回复预览气泡。
 function showAssistantReplyPreview(value: string) {
   showBubble({
     id: 'assistant-preview',
@@ -1075,6 +1045,7 @@ function showAssistantReplyPreview(value: string) {
   })
 }
 
+// 展示通知中心推送过来的气泡。
 function showNotificationBubble(payload: AgentAssistantNotificationBubblePayload) {
   const text = buildNotificationBubbleText(payload)
   if (!text) return
@@ -1090,6 +1061,7 @@ function showNotificationBubble(payload: AgentAssistantNotificationBubblePayload
   })
 }
 
+// 展示全局 toast 路由过来的气泡。
 function showToastBubble(payload: AgentAssistantBubblePayload) {
   const text = stripMarkdownPreview(payload.text || payload.title || '')
   if (!text) return
@@ -1106,6 +1078,7 @@ function showToastBubble(payload: AgentAssistantBubblePayload) {
   })
 }
 
+// 根据全局气泡事件类型分发到通知或 toast 展示逻辑。
 function showAgentAssistantBubble(payload: AgentAssistantBubblePayload) {
   if ((payload.kind || 'notification') === 'toast') {
     showToastBubble(payload)
@@ -1115,6 +1088,12 @@ function showAgentAssistantBubble(payload: AgentAssistantBubblePayload) {
   showNotificationBubble(payload as AgentAssistantNotificationBubblePayload)
 }
 
+// 主动播放一个宠物动作，供外部入口或后续复杂动画事件复用。
+function playPetAction(action: AgentPetActionName) {
+  playAgentPetAction(action)
+}
+
+// 关闭指定气泡，未传 ID 时关闭全部气泡。
 function closeBubble(id?: string) {
   if (id) {
     clearFabBubbleTimer(id)
@@ -1133,10 +1112,12 @@ function closeBubble(id?: string) {
   })
 }
 
+// 清空入口上的全部气泡。
 function clearBubbles() {
   closeBubble()
 }
 
+// 清理所有气泡和自动关闭计时器。
 function resetFabBubbles() {
   fabBubbles.value.forEach(item => clearFabBubbleTimer(item.id))
   fabBubbles.value = []
@@ -1144,6 +1125,7 @@ function resetFabBubbles() {
   nextTick(syncFabBubbleResizeObserver)
 }
 
+// 切换入口贴边收起状态并恢复对应位置。
 function setFabDocked(docked: boolean) {
   const currentPosition = getCurrentFabPosition()
 
@@ -1184,6 +1166,7 @@ function setFabDocked(docked: boolean) {
   })
 }
 
+// 清理拖拽状态和触摸移动拦截。
 function clearFabDragState() {
   fabDragState = null
   fabDragging.value = false
@@ -1191,6 +1174,7 @@ function clearFabDragState() {
   teardownFabTouchMoveGuard()
 }
 
+// 释放指针捕获，容忍浏览器提前中断捕获的情况。
 function releaseFabPointerCapture(event: PointerEvent) {
   try {
     ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
@@ -1199,6 +1183,7 @@ function releaseFabPointerCapture(event: PointerEvent) {
   }
 }
 
+// 取消当前拖拽并根据位置恢复自动贴边策略。
 function cancelFabDrag() {
   const wasDragging = fabDragging.value
 
@@ -1215,6 +1200,7 @@ function cancelFabDrag() {
   }
 }
 
+// 拦截入口指针事件，按需阻止触摸默认滚动。
 function guardFabPointerEvent(event: PointerEvent, options: { preventTouchDefault?: boolean } = {}) {
   event.stopPropagation()
   if (
@@ -1226,6 +1212,7 @@ function guardFabPointerEvent(event: PointerEvent, options: { preventTouchDefaul
   }
 }
 
+// 在触摸拖拽期间拦截页面滚动。
 function setupFabTouchMoveGuard() {
   if (stopFabTouchMoveGuard) return
 
@@ -1243,10 +1230,12 @@ function setupFabTouchMoveGuard() {
   }
 }
 
+// 移除触摸拖拽滚动拦截。
 function teardownFabTouchMoveGuard() {
   stopFabTouchMoveGuard?.()
 }
 
+// 判断当前指针事件是否仍处于按压拖拽状态。
 function isPressedDragPointer(event: PointerEvent) {
   if (event.pointerType === 'touch' || event.pointerType === 'pen') {
     return event.buttons !== 0 || event.pressure > 0
@@ -1255,6 +1244,7 @@ function isPressedDragPointer(event: PointerEvent) {
   return event.buttons !== 0
 }
 
+// 处理入口触发区按下事件并初始化拖拽状态。
 function handleFabTriggerPointerDown(event: PointerEvent) {
   guardFabPointerEvent(event)
   if (fabSuppressNextClick) {
@@ -1282,6 +1272,7 @@ function handleFabTriggerPointerDown(event: PointerEvent) {
   }
 }
 
+// 处理入口拖拽移动并同步位置和眼神跟随。
 function handleFabTriggerPointerMove(event: PointerEvent) {
   guardFabPointerEvent(event, { preventTouchDefault: true })
   updateFabPointer(event)
@@ -1317,6 +1308,7 @@ function handleFabTriggerPointerMove(event: PointerEvent) {
   })
 }
 
+// 处理入口拖拽释放并决定是否贴边收起。
 function handleFabTriggerPointerUp(event: PointerEvent) {
   guardFabPointerEvent(event)
   fabPressed.value = false
@@ -1349,6 +1341,7 @@ function handleFabTriggerPointerUp(event: PointerEvent) {
   }
 }
 
+// 处理指针取消事件并终止拖拽。
 function handleFabTriggerPointerCancel(event: PointerEvent) {
   guardFabPointerEvent(event)
   fabPressed.value = false
@@ -1360,18 +1353,21 @@ function handleFabTriggerPointerCancel(event: PointerEvent) {
   cancelFabDrag()
 }
 
+// 处理指针捕获丢失时的拖拽收敛。
 function handleFabTriggerLostPointerCapture(event: PointerEvent) {
   if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
 
   cancelFabDrag()
 }
 
+// 兜底处理窗口级指针结束事件。
 function handleWindowFabPointerEnd(event: PointerEvent) {
   if (!fabDragState || fabDragState.pointerId !== event.pointerId) return
 
   cancelFabDrag()
 }
 
+// 处理入口点击，贴边时先展开，否则打开助手面板。
 function handleFabTriggerClick(event: MouseEvent) {
   event.stopPropagation()
   if (fabSuppressNextClick && event.detail !== 0) {
@@ -1392,10 +1388,12 @@ function handleFabTriggerClick(event: MouseEvent) {
   emit('open')
 }
 
+// 处理指针离开入口时的自动贴边排队。
 function handleFabPointerLeave() {
   if (!fabDocked.value && shouldFabAutoDock()) scheduleFabAutoDock()
 }
 
+// 处理指针进入入口时暂停自动贴边。
 function handleFabPointerEnter() {
   pauseFabAutoDock()
 }
@@ -1434,11 +1432,8 @@ watch(
   },
 )
 
-watch([() => props.active, () => props.thinking, fabDocked, fabDragging, fabPressed], syncFabRandomActionSchedule)
-
 onScopeDispose(clearFabIdleTimer)
 onScopeDispose(clearFabSuppressNextClickTimer)
-onScopeDispose(clearFabRandomAction)
 onScopeDispose(resetFabBubbles)
 onScopeDispose(teardownFabBubblePositioning)
 onScopeDispose(clearFabBubbleUndockPositionTimer)
@@ -1457,6 +1452,7 @@ onScopeDispose(() => {
 defineExpose({
   clearBubbles,
   closeBubble,
+  playPetAction,
   setDocked: setFabDocked,
   showAssistantReplyPreview,
   showBubble,
@@ -1531,23 +1527,7 @@ defineExpose({
       @lostpointercapture="handleFabTriggerLostPointerCapture"
       @click="handleFabTriggerClick"
     >
-      <span class="agent-assistant-fab__bot" aria-hidden="true">
-        <span class="agent-assistant-fab__antenna" />
-        <span class="agent-assistant-fab__head">
-          <span class="agent-assistant-fab__face">
-            <span class="agent-assistant-fab__eye agent-assistant-fab__eye--left" />
-            <span class="agent-assistant-fab__eye agent-assistant-fab__eye--right" />
-            <span class="agent-assistant-fab__smile" />
-          </span>
-        </span>
-        <span class="agent-assistant-fab__body">
-          <span class="agent-assistant-fab__core" />
-        </span>
-        <span class="agent-assistant-fab__arm agent-assistant-fab__arm--left" />
-        <span class="agent-assistant-fab__arm agent-assistant-fab__arm--right" />
-        <span class="agent-assistant-fab__leg agent-assistant-fab__leg--left" />
-        <span class="agent-assistant-fab__leg agent-assistant-fab__leg--right" />
-      </span>
+      <AgentPetStage :action="fabRandomAction" :intent="agentPetIntent" :thinking="props.thinking" />
     </button>
   </div>
 </template>
@@ -1880,1405 +1860,5 @@ defineExpose({
   opacity: 0;
   pointer-events: none;
   transform: translate3d(var(--agent-assistant-bubbles-x), var(--agent-assistant-bubbles-y), 0) scale(0.9);
-}
-
-.agent-assistant-fab__bot,
-.agent-assistant-fab__bot span {
-  box-sizing: border-box;
-}
-
-.agent-assistant-fab__bot {
-  position: absolute;
-  display: block;
-  block-size: 4.7rem;
-  filter: drop-shadow(0 0.55rem 0.55rem var(--agent-assistant-robot-shadow));
-  inline-size: 3.85rem;
-  inset-block-end: 0.1rem;
-  inset-inline-end: 1.42rem;
-  transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  transform-origin: 50% 72%;
-  transition:
-    inset-inline-end 0.24s ease,
-    filter 0.18s ease,
-    transform 0.14s ease;
-}
-
-.agent-assistant-fab__antenna {
-  position: absolute;
-  z-index: 3;
-  display: block;
-  border-radius: 999px;
-  animation: agent-fab-antenna-idle 3.9s ease-in-out infinite;
-  background: var(--agent-assistant-robot-outline);
-  block-size: 0.66rem;
-  inline-size: 0.18rem;
-  inset-block-start: 0.72rem;
-  inset-inline-start: 2.62rem;
-  transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
-  transform-origin: bottom center;
-  transition:
-    opacity 0.2s ease,
-    transform 0.22s ease;
-}
-
-.agent-assistant-fab__antenna::after {
-  position: absolute;
-  border: 2px solid var(--agent-assistant-robot-outline);
-  border-radius: 999px;
-  background: var(--agent-assistant-robot-shell-start);
-  block-size: 0.38rem;
-  content: '';
-  inline-size: 0.38rem;
-  inset-block-start: -0.34rem;
-  inset-inline-start: -0.13rem;
-}
-
-.agent-assistant-fab__head {
-  position: absolute;
-  z-index: 4;
-  display: block;
-  border: 2px solid var(--agent-assistant-robot-outline);
-  border-radius: 11px;
-  animation: agent-fab-head-idle 4.6s ease-in-out infinite;
-  background: linear-gradient(
-    145deg,
-    var(--agent-assistant-robot-shell-start) 0%,
-    var(--agent-assistant-robot-shell-end) 100%
-  );
-  block-size: 2.05rem;
-  box-shadow:
-    inset 0 -0.2rem 0 rgba(54, 0, 126, 26%),
-    inset 0.15rem 0.14rem 0 rgba(255, 255, 255, 24%);
-  inline-size: 2.82rem;
-  inset-block-start: 1.42rem;
-  inset-inline-start: 0.88rem;
-  transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y));
-  transform-origin: 50% 85%;
-}
-
-.agent-assistant-fab__face {
-  position: absolute;
-  display: block;
-  overflow: hidden;
-  border: 2px solid var(--agent-assistant-robot-outline-soft);
-  border-radius: 8px;
-  background: linear-gradient(
-    180deg,
-    var(--agent-assistant-robot-face-start) 0%,
-    var(--agent-assistant-robot-face-end) 100%
-  );
-  block-size: 1.28rem;
-  box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 8%);
-  inline-size: 2.1rem;
-  inset-block-start: 0.33rem;
-  inset-inline-start: 0.25rem;
-}
-
-.agent-assistant-fab__eye {
-  position: absolute;
-  display: block;
-  border-radius: 0 0 999px 999px;
-  animation: agent-fab-blink 4.8s ease-in-out infinite;
-  block-size: 0.42rem;
-  border-block-end: 0.15rem solid var(--agent-assistant-robot-eye);
-  inline-size: 0.42rem;
-  inset-block-start: 0.36rem;
-  transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
-
-  /* 触屏设备没有连续 hover 轨迹，给眼神位移补过渡避免点按时瞬移。 */
-  transition: transform 0.2s ease-out;
-}
-
-.agent-assistant-fab__eye--left {
-  inset-inline-start: 0.43rem;
-}
-
-.agent-assistant-fab__eye--right {
-  inset-inline-end: 0.43rem;
-}
-
-.agent-assistant-fab__smile {
-  position: absolute;
-  display: block;
-  border-radius: 0 0 999px 999px;
-  block-size: 0.32rem;
-  border-block-end: 0.13rem solid var(--agent-assistant-robot-eye);
-  inline-size: 0.7rem;
-  inset-block-start: 0.75rem;
-  inset-inline-start: 50%;
-  opacity: 0;
-  transform: translateX(-50%) scale(0.72);
-  transform-origin: center top;
-}
-
-.agent-assistant-fab__body {
-  position: absolute;
-  z-index: 3;
-  display: block;
-  border: 2px solid var(--agent-assistant-robot-outline);
-  border-radius: 0.65rem 0.65rem 0.55rem 0.55rem;
-  animation: agent-fab-body-idle 4.2s ease-in-out infinite;
-  background: linear-gradient(
-    145deg,
-    var(--agent-assistant-robot-shell-mid) 0%,
-    var(--agent-assistant-robot-shell-end) 82%
-  );
-  block-size: 1.34rem;
-  box-shadow:
-    inset 0 -0.18rem 0 rgba(54, 0, 126, 24%),
-    inset 0.16rem 0.12rem 0 rgba(255, 255, 255, 24%);
-  inline-size: 1.88rem;
-  inset-block-start: 3.24rem;
-  inset-inline-start: 1.32rem;
-  transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
-  transform-origin: 50% 18%;
-  transition:
-    opacity 0.2s ease,
-    transform 0.22s ease;
-}
-
-.agent-assistant-fab__core {
-  position: absolute;
-  display: block;
-  background: transparent;
-  block-size: 100%;
-  box-shadow: none;
-  inline-size: 100%;
-  inset: 0;
-  pointer-events: none;
-}
-
-.agent-assistant-fab__core::before {
-  position: absolute;
-  background: var(--agent-assistant-robot-play);
-  block-size: 0.46rem;
-  clip-path: polygon(18% 8%, 18% 92%, 90% 50%);
-  content: '';
-  inline-size: 0.48rem;
-  inset-block-start: 50%;
-  inset-inline-start: 50%;
-  transform: translate(-42%, -50%);
-}
-
-.agent-assistant-fab__arm,
-.agent-assistant-fab__leg {
-  position: absolute;
-  z-index: 2;
-  display: block;
-  border: 2px solid var(--agent-assistant-robot-outline);
-  background: linear-gradient(
-    160deg,
-    var(--agent-assistant-robot-shell-mid) 0%,
-    var(--agent-assistant-robot-outline-soft) 100%
-  );
-  box-shadow: inset 0 -0.12rem 0 rgba(54, 0, 126, 24%);
-  transition:
-    opacity 0.2s ease,
-    transform 0.22s ease;
-}
-
-.agent-assistant-fab__arm {
-  border-radius: 999px;
-  block-size: 1rem;
-  inline-size: 0.46rem;
-  inset-block-start: 3.3rem;
-}
-
-.agent-assistant-fab__arm--left {
-  animation: agent-fab-arm-left-idle 3.8s ease-in-out infinite;
-  inset-inline-start: 0.9rem;
-  transform: rotate(17deg);
-  transform-origin: top center;
-}
-
-.agent-assistant-fab__arm--right {
-  animation: agent-fab-arm-right-idle 4.1s ease-in-out infinite;
-  inset-inline-start: 3.08rem;
-  transform: rotate(-17deg);
-  transform-origin: top center;
-}
-
-.agent-assistant-fab__leg {
-  border-radius: 0.35rem;
-  block-size: 0.66rem;
-  inline-size: 0.48rem;
-  inset-block-start: 4.36rem;
-}
-
-.agent-assistant-fab__leg--left {
-  animation: agent-fab-leg-left-idle 4.8s ease-in-out infinite;
-  inset-inline-start: 1.48rem;
-  transform-origin: top center;
-}
-
-.agent-assistant-fab__leg--right {
-  animation: agent-fab-leg-right-idle 4.8s ease-in-out 0.35s infinite;
-  inset-inline-start: 2.46rem;
-  transform-origin: top center;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .agent-assistant-fab.is-bubble-visible .agent-assistant-fab__bubble:hover {
-    box-shadow: var(--app-surface-hover-shadow);
-  }
-
-  .agent-assistant-fab__bubble:hover .agent-assistant-fab__bubble-close {
-    opacity: 1;
-  }
-
-  .agent-assistant-fab__trigger:hover .agent-assistant-fab__bot {
-    filter: drop-shadow(0 0.7rem 0.7rem var(--agent-assistant-robot-shadow-strong));
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .agent-assistant-fab__bubble-close {
-    opacity: 1;
-  }
-}
-
-.agent-assistant-fab__trigger:focus-visible .agent-assistant-fab__bot {
-  filter:
-    drop-shadow(0 0.55rem 0.55rem var(--agent-assistant-robot-shadow))
-    drop-shadow(0 0 0.34rem rgba(var(--v-theme-primary), 0.55));
-}
-
-.agent-assistant-fab.is-pressed .agent-assistant-fab__bot {
-  transform: translateY(0.22rem) scale(var(--agent-assistant-bot-pressed-scale))
-    rotate(var(--agent-assistant-robot-tilt));
-}
-
-.agent-assistant-fab.is-thinking .agent-assistant-fab__face {
-  box-shadow:
-    inset 0 0.1rem 0 rgba(255, 255, 255, 8%),
-    0 0 0.65rem rgba(114, 255, 240, 50%);
-}
-
-.agent-assistant-fab.is-thinking .agent-assistant-fab__core {
-  animation: agent-fab-core-pulse 0.9s ease-in-out infinite;
-}
-
-.agent-assistant-fab.is-docked .agent-assistant-fab__bot {
-  inset-inline-end: -0.42rem;
-  transform: translateY(-0.2rem) scale(var(--agent-assistant-bot-scale)) rotate(-19deg);
-}
-
-.agent-assistant-fab.is-docked .agent-assistant-fab__eye {
-  transform: translate(calc(var(--agent-assistant-eye-x) * 0.24 - 0.22rem), calc(var(--agent-assistant-eye-y) * 0.24));
-}
-
-.agent-assistant-fab.is-docked .agent-assistant-fab__body,
-.agent-assistant-fab.is-docked .agent-assistant-fab__leg {
-  opacity: 0;
-  transform: translateX(0.8rem) scale(0.72);
-}
-
-.agent-assistant-fab.is-docked .agent-assistant-fab__arm--left,
-.agent-assistant-fab.is-docked .agent-assistant-fab__arm--right {
-  animation: none;
-  opacity: 0;
-  transform: translateX(0.8rem) scale(0.72);
-}
-
-.agent-assistant-fab.is-docked .agent-assistant-fab__arm--left {
-  z-index: 5;
-  block-size: 0.95rem;
-  inline-size: 0.42rem;
-  inset-block-start: 3.62rem;
-  inset-inline-start: 1.86rem;
-  opacity: 1;
-  transform: rotate(78deg) scale(0.9);
-}
-
-.agent-assistant-fab.is-docked .agent-assistant-fab__antenna {
-  animation: none;
-  opacity: 0.75;
-  transform: translate(0.34rem, 0.02rem) rotate(2deg) scale(0.82);
-}
-
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__eye,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__smile {
-  transition: none;
-}
-
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__bot {
-  animation: agent-fab-action-wave-bot 2.3s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__head {
-  animation: agent-fab-action-wave-head 2.3s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--left {
-  z-index: 6;
-  animation: agent-fab-action-wave-arm-left 2.3s ease-in-out both;
-  transform-origin: top center;
-}
-
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-wave-arm-right 2.3s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__bot {
-  animation: agent-fab-action-sit-bot 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__head {
-  animation: agent-fab-action-sit-head 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__body {
-  animation: agent-fab-action-sit-body 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-sit-arm-left 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-sit-arm-right 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg--left {
-  z-index: 5;
-  animation: agent-fab-action-sit-leg-left 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg--right {
-  z-index: 5;
-  animation: agent-fab-action-sit-leg-right 4.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head {
-  animation: agent-fab-action-eye-roll-head 1.9s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__eye {
-  animation:
-    agent-fab-blink 4.8s ease-in-out infinite,
-    agent-fab-action-eye-roll 0.95s ease-in-out 2;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__bot {
-  animation: agent-fab-action-faint-bot 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna {
-  animation: agent-fab-action-faint-antenna 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__head {
-  animation: agent-fab-action-faint-head 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__body {
-  animation: agent-fab-action-faint-body 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-faint-arm-left 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-faint-arm-right 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-faint-leg-left 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-faint-leg-right 4.8s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__bot {
-  animation: agent-fab-action-disassemble-bot 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__antenna {
-  animation: agent-fab-action-disassemble-antenna 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__head {
-  animation: agent-fab-action-disassemble-head 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__body {
-  animation: agent-fab-action-disassemble-body 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm--left {
-  animation: agent-fab-action-disassemble-arm-left 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm--right {
-  animation: agent-fab-action-disassemble-arm-right 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-disassemble-leg-left 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-disassemble-leg-right 6.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__bot {
-  animation: agent-fab-action-happy-jump-bot 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__antenna {
-  animation: agent-fab-action-happy-jump-antenna 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__head {
-  animation: agent-fab-action-happy-jump-head 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__eye {
-  animation: agent-fab-action-happy-jump-eye 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__smile {
-  animation: agent-fab-action-happy-jump-smile 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__body {
-  animation: agent-fab-action-happy-jump-body 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__arm--left {
-  z-index: 6;
-  animation: agent-fab-action-happy-jump-arm-left 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__arm--right {
-  z-index: 6;
-  animation: agent-fab-action-happy-jump-arm-right 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg--left {
-  animation: agent-fab-action-happy-jump-leg-left 5.2s ease-in-out both;
-}
-
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg--right {
-  animation: agent-fab-action-happy-jump-leg-right 5.2s ease-in-out both;
-}
-
-@keyframes agent-fab-head-idle {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  50% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.06rem)) rotate(-1.8deg);
-  }
-}
-
-@keyframes agent-fab-body-idle {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
-  }
-
-  50% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.04rem)) scaleY(0.97);
-  }
-}
-
-@keyframes agent-fab-antenna-idle {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
-  }
-
-  50% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(15deg);
-  }
-}
-
-@keyframes agent-fab-arm-left-idle {
-  0%,
-  100% {
-    transform: rotate(17deg);
-  }
-
-  50% {
-    transform: rotate(12deg) translateY(0.05rem);
-  }
-}
-
-@keyframes agent-fab-arm-right-idle {
-  0%,
-  100% {
-    transform: rotate(-17deg);
-  }
-
-  50% {
-    transform: rotate(-11deg) translateY(0.05rem);
-  }
-}
-
-@keyframes agent-fab-leg-left-idle {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  50% {
-    transform: rotate(4deg) translateY(0.03rem);
-  }
-}
-
-@keyframes agent-fab-leg-right-idle {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  50% {
-    transform: rotate(-4deg) translateY(0.03rem);
-  }
-}
-
-@keyframes agent-fab-action-wave-bot {
-  0%,
-  100% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-
-  22%,
-  66% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(calc(var(--agent-assistant-robot-tilt) - 4deg));
-  }
-}
-
-@keyframes agent-fab-action-wave-head {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  30%,
-  66% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.1rem)) rotate(-4deg);
-  }
-}
-
-@keyframes agent-fab-action-wave-arm-left {
-  0%,
-  100% {
-    transform: rotate(17deg);
-  }
-
-  16% {
-    transform: translate(-0.08rem, -0.06rem) rotate(64deg);
-  }
-
-  30% {
-    transform: translate(-0.26rem, -0.28rem) rotate(132deg);
-  }
-
-  44% {
-    transform: translate(-0.18rem, -0.2rem) rotate(92deg);
-  }
-
-  58% {
-    transform: translate(-0.26rem, -0.28rem) rotate(132deg);
-  }
-
-  72% {
-    transform: translate(-0.1rem, -0.08rem) rotate(64deg);
-  }
-
-  88% {
-    transform: translate(-0.02rem, -0.02rem) rotate(28deg);
-  }
-}
-
-@keyframes agent-fab-action-wave-arm-right {
-  0%,
-  100% {
-    transform: rotate(-17deg);
-  }
-
-  30%,
-  70% {
-    transform: rotate(-28deg) translateY(0.06rem);
-  }
-}
-
-@keyframes agent-fab-action-sit-bot {
-  0%,
-  100% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-
-  22%,
-  84% {
-    transform: translateY(0.36rem) scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-}
-
-@keyframes agent-fab-action-sit-head {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  22%,
-  84% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.1rem)) rotate(2deg);
-  }
-}
-
-@keyframes agent-fab-action-sit-body {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
-  }
-
-  22%,
-  84% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.22rem)) scaleY(0.82);
-  }
-}
-
-@keyframes agent-fab-action-sit-arm-left {
-  0%,
-  100% {
-    transform: rotate(17deg);
-  }
-
-  22%,
-  84% {
-    transform: translate(0.08rem, 0.22rem) rotate(76deg);
-  }
-}
-
-@keyframes agent-fab-action-sit-arm-right {
-  0%,
-  100% {
-    transform: rotate(-17deg);
-  }
-
-  22%,
-  84% {
-    transform: translate(-0.08rem, 0.22rem) rotate(-76deg);
-  }
-}
-
-@keyframes agent-fab-action-sit-leg-left {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  22%,
-  84% {
-    transform: translate(0.18rem, -0.18rem) rotate(94deg);
-  }
-}
-
-@keyframes agent-fab-action-sit-leg-right {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  22%,
-  84% {
-    transform: translate(-0.18rem, -0.18rem) rotate(-94deg);
-  }
-}
-
-@keyframes agent-fab-action-eye-roll-head {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  24% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.06rem)) rotate(-6deg);
-  }
-
-  52% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(5deg);
-  }
-
-  78% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.03rem)) rotate(-3deg);
-  }
-}
-
-@keyframes agent-fab-action-eye-roll {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
-  }
-
-  22% {
-    transform: translate(0.22rem, -0.2rem);
-  }
-
-  48% {
-    transform: translate(0, -0.3rem);
-  }
-
-  72% {
-    transform: translate(-0.22rem, -0.2rem);
-  }
-}
-
-@keyframes agent-fab-action-faint-bot {
-  0%,
-  100% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-
-  26% {
-    transform: translateY(-0.1rem) scale(var(--agent-assistant-bot-scale)) rotate(12deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(0.58rem, 1.08rem) scale(var(--agent-assistant-bot-scale)) rotate(98deg);
-  }
-}
-
-@keyframes agent-fab-action-faint-antenna {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(0.08rem, 0.02rem) rotate(-18deg);
-  }
-}
-
-@keyframes agent-fab-action-faint-head {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  28% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.04rem)) rotate(9deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(0.04rem, 0.02rem) rotate(-3deg);
-  }
-}
-
-@keyframes agent-fab-action-faint-body {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
-  }
-
-  34%,
-  86% {
-    transform: translate(0.04rem, 0.02rem) scaleY(0.9);
-  }
-}
-
-@keyframes agent-fab-action-faint-arm-left {
-  0%,
-  100% {
-    transform: rotate(17deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(-0.12rem, 0.16rem) rotate(118deg);
-  }
-}
-
-@keyframes agent-fab-action-faint-arm-right {
-  0%,
-  100% {
-    transform: rotate(-17deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(0.12rem, 0.16rem) rotate(-118deg);
-  }
-}
-
-@keyframes agent-fab-action-faint-leg-left {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(-0.24rem, -0.02rem) rotate(82deg);
-  }
-}
-
-@keyframes agent-fab-action-faint-leg-right {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  34%,
-  86% {
-    transform: translate(0.24rem, -0.02rem) rotate(-82deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-bot {
-  /* 34%-70% 让散落状态停留片刻，再用 84% 的轻微过冲表现回装吸附感。 */
-  0%,
-  100% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-
-  12% {
-    transform: translateY(-0.08rem) scale(var(--agent-assistant-bot-scale)) rotate(-5deg);
-  }
-
-  24%,
-  72% {
-    transform: translateY(0.18rem) scale(var(--agent-assistant-bot-scale)) rotate(0deg);
-  }
-
-  86% {
-    transform: translateY(-0.04rem) scale(var(--agent-assistant-bot-scale)) rotate(3deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-antenna {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
-  }
-
-  16% {
-    transform: translate(0.02rem, -0.14rem) rotate(44deg);
-  }
-
-  32%,
-  70% {
-    transform: translate(0.96rem, 3.42rem) rotate(268deg);
-  }
-
-  84% {
-    transform: translate(-0.05rem, -0.08rem) rotate(8deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-head {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  16% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.24rem)) rotate(-8deg);
-  }
-
-  32%,
-  70% {
-    transform: translate(-1.18rem, 2.72rem) rotate(-46deg);
-  }
-
-  84% {
-    transform: translate(0.08rem, -0.1rem) rotate(6deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-body {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y));
-  }
-
-  18% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.08rem)) rotate(4deg);
-  }
-
-  34%,
-  70% {
-    transform: translate(0.26rem, 1.56rem) rotate(18deg);
-  }
-
-  84% {
-    transform: translate(-0.05rem, -0.08rem) rotate(-5deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-arm-left {
-  0%,
-  100% {
-    transform: rotate(17deg);
-  }
-
-  18% {
-    transform: translate(-0.16rem, -0.08rem) rotate(78deg);
-  }
-
-  34%,
-  70% {
-    transform: translate(-1.72rem, 1.84rem) rotate(248deg);
-  }
-
-  84% {
-    transform: translate(0.08rem, -0.04rem) rotate(-4deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-arm-right {
-  0%,
-  100% {
-    transform: rotate(-17deg);
-  }
-
-  18% {
-    transform: translate(0.16rem, -0.08rem) rotate(-78deg);
-  }
-
-  34%,
-  70% {
-    transform: translate(1.58rem, 1.72rem) rotate(-238deg);
-  }
-
-  84% {
-    transform: translate(-0.08rem, -0.04rem) rotate(4deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-leg-left {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  20% {
-    transform: translate(-0.12rem, 0.18rem) rotate(34deg);
-  }
-
-  34%,
-  70% {
-    transform: translate(-0.98rem, 0.96rem) rotate(112deg);
-  }
-
-  84% {
-    transform: translate(0.07rem, -0.08rem) rotate(-8deg);
-  }
-}
-
-@keyframes agent-fab-action-disassemble-leg-right {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  20% {
-    transform: translate(0.12rem, 0.18rem) rotate(-34deg);
-  }
-
-  34%,
-  70% {
-    transform: translate(0.92rem, 1.04rem) rotate(-118deg);
-  }
-
-  84% {
-    transform: translate(-0.07rem, -0.08rem) rotate(8deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-bot {
-  /* 三段蓄力、起跳、落地，让开心连跳比单纯上下移动更像真人动作。 */
-  0%,
-  100% {
-    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translateY(0.22rem) scale(var(--agent-assistant-bot-scale))
-      rotate(calc(var(--agent-assistant-robot-tilt) - 3deg));
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translateY(-0.76rem) scale(var(--agent-assistant-bot-scale))
-      rotate(calc(var(--agent-assistant-robot-tilt) + 4deg));
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translateY(0.1rem) scale(var(--agent-assistant-bot-scale))
-      rotate(calc(var(--agent-assistant-robot-tilt) - 2deg));
-  }
-
-  92% {
-    transform: translateY(-0.1rem) scale(var(--agent-assistant-bot-scale))
-      rotate(calc(var(--agent-assistant-robot-tilt) + 1deg));
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-antenna {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.1rem)) rotate(34deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.2rem)) rotate(-18deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.04rem)) rotate(38deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-head {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.1rem)) rotate(-4deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.16rem)) rotate(7deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) + 0.04rem)) rotate(-5deg);
-  }
-
-  92% {
-    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.04rem)) rotate(2deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-eye {
-  0%,
-  100% {
-    border-block-end-width: 0.15rem;
-    opacity: 1;
-    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y)) scale(1, 1);
-  }
-
-  8%,
-  36%,
-  64%,
-  92% {
-    border-block-end-width: 0.18rem;
-    transform: translate(0, -0.06rem) scale(1.08, 0.72);
-  }
-
-  20%,
-  48%,
-  76% {
-    border-block-end-width: 0.19rem;
-    transform: translate(0, -0.12rem) scale(1.16, 0.58);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-smile {
-  0%,
-  100% {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.72);
-  }
-
-  6%,
-  90% {
-    opacity: 1;
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translateX(-50%) translateY(0.02rem) scale(0.92, 0.82);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translateX(-50%) translateY(-0.04rem) scale(1.22, 1.08);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-body {
-  0%,
-  100% {
-    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.18rem)) scaleY(0.84)
-      rotate(-2deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) - 0.1rem)) scaleY(1.08)
-      rotate(4deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.08rem)) scaleY(0.94)
-      rotate(-3deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-arm-left {
-  0%,
-  100% {
-    transform: rotate(17deg);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(-0.08rem, 0.06rem) rotate(54deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(-0.24rem, -0.38rem) rotate(152deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(-0.1rem, -0.02rem) rotate(96deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-arm-right {
-  0%,
-  100% {
-    transform: rotate(-17deg);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(0.08rem, 0.06rem) rotate(-54deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(0.24rem, -0.38rem) rotate(-152deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(0.1rem, -0.02rem) rotate(-96deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-leg-left {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(0.08rem, -0.22rem) rotate(82deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(-0.18rem, 0.08rem) rotate(-32deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(0.12rem, -0.08rem) rotate(44deg);
-  }
-}
-
-@keyframes agent-fab-action-happy-jump-leg-right {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  9%,
-  37%,
-  65% {
-    transform: translate(-0.08rem, -0.22rem) rotate(-82deg);
-  }
-
-  20%,
-  48%,
-  76% {
-    transform: translate(0.18rem, 0.08rem) rotate(32deg);
-  }
-
-  29%,
-  57%,
-  85% {
-    transform: translate(-0.12rem, -0.08rem) rotate(-44deg);
-  }
-}
-
-@keyframes agent-fab-core-pulse {
-  0%,
-  100% {
-    opacity: 0.78;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.18);
-  }
-}
-
-@keyframes agent-fab-blink {
-  0%,
-  4%,
-  8%,
-  100% {
-    opacity: 1;
-    scale: 1 1;
-  }
-
-  6% {
-    opacity: 0.45;
-    scale: 1 0.15;
-  }
-}
-
-@media (width <= 600px) {
-  .agent-assistant-fab {
-    block-size: 6.65rem;
-    inline-size: min(12.4rem, calc(100vw - 1rem));
-  }
-
-  .agent-assistant-fab.is-docked {
-    inline-size: 3.45rem;
-  }
-
-  .agent-assistant-fab__bubbles {
-    inline-size: min(16.5rem, calc(100vw - 5.6rem));
-    max-block-size: min(30rem, calc(100vh - 9.2rem));
-  }
-
-  .agent-assistant-fab__bubble-stack {
-    gap: 0.38rem;
-  }
-
-  .agent-assistant-fab__bubble {
-    padding-block: 0.56rem;
-    padding-inline: 0.72rem 1.62rem;
-  }
-
-  .agent-assistant-fab__bubble-title {
-    font-size: 1.05rem;
-  }
-
-  .agent-assistant-fab__bubble > span {
-    font-size: 1rem;
-  }
-
-  .agent-assistant-fab__trigger {
-    block-size: 4.8rem;
-    inline-size: 5rem;
-  }
-
-  .agent-assistant-fab__bot {
-    inset-inline-end: 1.02rem;
-    transform-origin: 70% 78%;
-  }
-
-  .agent-assistant-fab {
-    --agent-assistant-bot-scale: 0.82;
-    --agent-assistant-bot-pressed-scale: 0.78;
-  }
-
-  .agent-assistant-fab.is-docked .agent-assistant-fab__bot {
-    inset-inline-end: -0.72rem;
-    transform: translateY(-0.16rem) scale(var(--agent-assistant-bot-scale)) rotate(-19deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .agent-assistant-fab,
-  .agent-assistant-fab * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-  }
 }
 </style>
