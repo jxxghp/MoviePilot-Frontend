@@ -48,7 +48,8 @@ const theme = useTheme()
 const display = useDisplay()
 const { useSSE } = useBackground()
 
-const DEFAULT_LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+const DEFAULT_LEVELS = ['DEBUG', 'INFO', 'WARNING', 'ERROR']
+const HIDDEN_LEVELS = ['TRACE', 'CRITICAL']
 const MAX_LOG_LINES = 600
 const FLUSH_DELAY = 80
 const GROUP_GAP_MS = 100
@@ -86,12 +87,12 @@ const isTransparentTheme = computed(() => theme.name.value === 'transparent')
 const normalizedSearchQuery = computed(() => (searchQuery.value ?? '').trim().toLowerCase())
 const { availableHeight } = useAvailableHeight(96, 320)
 
-const loggingViewStyle = computed(() => ({
-  blockSize: display.mdAndUp.value ? `${availableHeight.value}px` : '100%',
-}))
+const loggingViewStyle = computed(() => (display.mdAndUp.value ? { blockSize: `${availableHeight.value}px` } : {}))
 
 const levelOptions = computed(() => {
-  const extraLevels = parsedLogs.value.map(item => item.level).filter(level => level && !DEFAULT_LEVELS.includes(level))
+  const extraLevels = parsedLogs.value
+    .map(item => item.level)
+    .filter(level => level && !DEFAULT_LEVELS.includes(level) && !HIDDEN_LEVELS.includes(level))
 
   return ['ALL', ...DEFAULT_LEVELS, ...new Set(extraLevels)]
 })
@@ -700,6 +701,7 @@ onUnmounted(() => {
   --logging-record-bg-even: rgba(var(--v-theme-surface-variant), 0.01);
   --logging-record-bg-odd: rgba(var(--v-theme-surface-variant), 0.005);
   --logging-text: rgba(var(--v-theme-on-surface), 0.88);
+  --logging-toolbar-control-size: 2rem;
   --logging-muted: rgba(var(--v-theme-on-surface), 0.56);
 
   display: flex;
@@ -770,7 +772,7 @@ onUnmounted(() => {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
   border-radius: var(--app-control-radius);
   background: transparent;
-  block-size: 2rem;
+  block-size: var(--logging-toolbar-control-size);
   box-shadow: none !important;
 }
 
@@ -787,7 +789,6 @@ onUnmounted(() => {
   text-transform: none;
 }
 
-.logging-level-toggle :deep(.logging-level-toggle__button--trace),
 .logging-level-toggle :deep(.logging-level-toggle__button--debug) {
   color: rgb(var(--v-theme-secondary));
 }
@@ -800,8 +801,7 @@ onUnmounted(() => {
   color: rgb(var(--v-theme-warning));
 }
 
-.logging-level-toggle :deep(.logging-level-toggle__button--error),
-.logging-level-toggle :deep(.logging-level-toggle__button--critical) {
+.logging-level-toggle :deep(.logging-level-toggle__button--error) {
   color: rgb(var(--v-theme-error));
 }
 
@@ -823,6 +823,46 @@ onUnmounted(() => {
 
 .logging-level-select :deep(.v-field__input) {
   padding-inline: 0;
+}
+
+@media (width >= 960px) {
+  .logging-toolbar {
+    padding-block-start: 0.25rem;
+  }
+
+  .logging-search,
+  .logging-stream-action {
+    align-self: center;
+  }
+
+  .logging-search :deep(.v-field) {
+    display: flex;
+    align-items: center;
+    block-size: var(--logging-toolbar-control-size);
+    min-block-size: var(--logging-toolbar-control-size);
+  }
+
+  .logging-search :deep(.v-field__field),
+  .logging-search :deep(.v-field__input),
+  .logging-search :deep(.v-field__prepend-inner),
+  .logging-search :deep(.v-field__clearable) {
+    align-items: center;
+    min-block-size: var(--logging-toolbar-control-size);
+  }
+
+  .logging-search :deep(.v-field__input) {
+    padding-block: 0;
+  }
+
+  .logging-search :deep(.v-field__prepend-inner),
+  .logging-search :deep(.v-field__clearable) {
+    padding-block: 0;
+  }
+
+  .logging-stream-action {
+    block-size: var(--logging-toolbar-control-size);
+    inline-size: var(--logging-toolbar-control-size);
+  }
 }
 
 .logging-shell {
@@ -1055,6 +1095,12 @@ onUnmounted(() => {
 }
 
 @media (width <= 960px) {
+  .logging-view {
+    flex: 1 1 auto;
+    block-size: auto;
+    min-block-size: 0;
+  }
+
   .logging-record {
     gap: 0.375rem;
     grid-template-columns: 9.5rem minmax(0, 1fr);

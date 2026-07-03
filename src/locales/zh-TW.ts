@@ -2072,7 +2072,7 @@ export default {
       episodeFormatRuleShort: '集數規則',
       customIdentifiers: '自定義識別詞',
       identifiersDesc: '添加規則對種子名或者文件名進行預處理以校正識別',
-      identifiersPlaceholder: '支持正則表達式，特殊字符需要\\轉義，一行為一組',
+      identifiersPlaceholder: '每行輸入一組識別規則',
       identifiersHint: '支持正則表達式，特殊字符需要\\轉義，一行為一組',
       formatTitle: '支持的配置格式（注意空格）：',
       formatContent:
@@ -2086,21 +2086,21 @@ export default {
 
       customReleaseGroups: '自定義製作組/字幕組',
       releaseGroupsDesc: '添加無法識別的製作組/字幕組。',
-      releaseGroupsPlaceholder: '支持正則表達式，特殊字符需要\\轉義，一行代表一個製作組/字幕組',
+      releaseGroupsPlaceholder: '每行輸入一個製作組/字幕組',
       releaseGroupsHint: '支持正則表達式，特殊字符需要\\轉義，一行代表一個製作組/字幕組',
       releaseGroupSaveSuccess: '自定義製作組/字幕組保存成功',
       releaseGroupSaveFailed: '自定義製作組/字幕組保存失敗！',
 
       customization: '自定義占位符',
       customizationDesc: '添加自定義占位符識別正則，重命名格式中添加{customization}使用。',
-      customizationPlaceholder: '支持正則表達式，特殊字符需要\\轉義，多個匹配對象請換行分隔',
+      customizationPlaceholder: '每行輸入一個占位符識別正則',
       customizationHint: '支持正則表達式，特殊字符需要\\轉義，多個匹配對象請換行分隔',
       customizationSaveSuccess: '自定義占位符保存成功',
       customizationSaveFailed: '自定義占位符保存失敗！',
 
       transferExcludeWords: '文件整理屏蔽詞',
       excludeWordsDesc: '目錄名或文件名中包含屏蔽詞時不進行整理。',
-      excludeWordsPlaceholder: '支持正則表達式，特殊字符需要\\轉義，一行代表一個屏蔽詞',
+      excludeWordsPlaceholder: '每行輸入一個屏蔽詞',
       excludeWordsHint: '支持正則表達式，特殊字符需要\\轉義，一行代表一個屏蔽詞',
       excludeWordsSaveSuccess: '文件整理屏蔽詞保存成功',
       excludeWordsSaveFailed: '文件整理屏蔽詞保存失敗！',

@@ -2109,7 +2109,7 @@ export default {
       episodeFormatRuleShort: 'Episode rules',
       customIdentifiers: 'Custom Identifiers',
       identifiersDesc: 'Add rules to preprocess torrent names or file names to correct identification',
-      identifiersPlaceholder: 'Support regular expressions, special characters need \\ escape, one line for each rule',
+      identifiersPlaceholder: 'Enter one identifier rule per line',
       identifiersHint: 'Support regular expressions, special characters need \\ escape, one line for each rule',
       formatTitle: 'Supported configuration formats (mind the spaces):',
       formatContent:
@@ -2123,16 +2123,14 @@ export default {
 
       customReleaseGroups: 'Custom Release/Subtitle Groups',
       releaseGroupsDesc: 'Add release/subtitle groups that cannot be identified.',
-      releaseGroupsPlaceholder:
-        'Support regular expressions, special characters need \\ escape, one line for each group',
+      releaseGroupsPlaceholder: 'Enter one release/subtitle group per line',
       releaseGroupsHint: 'Support regular expressions, special characters need \\ escape, one line for each group',
       releaseGroupSaveSuccess: 'Custom release/subtitle groups saved successfully',
       releaseGroupSaveFailed: 'Failed to save custom release/subtitle groups!',
 
       customization: 'Custom Placeholders',
       customizationDesc: 'Add custom placeholder regex patterns, use {customization} in rename format.',
-      customizationPlaceholder:
-        'Support regular expressions, special characters need \\ escape, separate multiple matches with new lines',
+      customizationPlaceholder: 'Enter one placeholder regex per line',
       customizationHint:
         'Support regular expressions, special characters need \\ escape, separate multiple matches with new lines',
       customizationSaveSuccess: 'Custom placeholders saved successfully',
@@ -2140,8 +2138,7 @@ export default {
 
       transferExcludeWords: 'File Organization Block Words',
       excludeWordsDesc: 'Files or directories containing block words will not be organized.',
-      excludeWordsPlaceholder:
-        'Support regular expressions, special characters need \\ escape, one line for each block word',
+      excludeWordsPlaceholder: 'Enter one block word per line',
       excludeWordsHint: 'Support regular expressions, special characters need \\ escape, one line for each block word',
       excludeWordsSaveSuccess: 'File organization block words saved successfully',
       excludeWordsSaveFailed: 'Failed to save file organization block words!',

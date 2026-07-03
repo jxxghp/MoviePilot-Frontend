@@ -182,6 +182,11 @@ const activeGuideContent = computed(() => {
   return activeTextHint.value
 })
 
+// 仅在提示内容能补充行内说明时展示折叠面板，避免捷径弹窗内重复出现相同文案。
+const shouldShowGuidePanel = computed(
+  () => activeSection.value === 'identifiers' || activeSection.value === 'episodeRules',
+)
+
 /** 生成仅供前端拖拽列表使用的稳定规则标识。 */
 function createEpisodeRuleLocalId() {
   return `episode-rule-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -519,16 +524,6 @@ onMounted(() => {
                       :label="t('common.enable')"
                       class="episode-rule-enabled"
                     />
-                    <IconBtn
-                      variant="text"
-                      color="error"
-                      class="episode-rule-delete"
-                      :aria-label="t('common.delete')"
-                      @click.stop="deleteEpisodeRule(index)"
-                    >
-                      <VIcon icon="mdi-delete-outline" />
-                      <VTooltip activator="parent" location="top">{{ t('common.delete') }}</VTooltip>
-                    </IconBtn>
                   </div>
 
                   <VTextField
@@ -557,6 +552,16 @@ onMounted(() => {
                     required
                     class="episode-rule-size"
                   />
+                  <IconBtn
+                    variant="text"
+                    color="error"
+                    class="episode-rule-delete"
+                    :aria-label="t('common.delete')"
+                    @click.stop="deleteEpisodeRule(index)"
+                  >
+                    <VIcon icon="mdi-delete-outline" />
+                    <VTooltip activator="parent" location="top">{{ t('common.delete') }}</VTooltip>
+                  </IconBtn>
                 </article>
               </template>
             </Draggable>
@@ -567,7 +572,12 @@ onMounted(() => {
             </div>
           </template>
 
-          <VExpansionPanels v-model="expandedHelp" class="words-help-panels" variant="accordion">
+          <VExpansionPanels
+            v-if="shouldShowGuidePanel"
+            v-model="expandedHelp"
+            class="words-help-panels"
+            variant="accordion"
+          >
             <VExpansionPanel value="guide" elevation="0">
               <VExpansionPanelTitle>
                 <template #default>
@@ -908,8 +918,10 @@ onMounted(() => {
   border-radius: var(--app-surface-radius);
   background: transparent;
   gap: 0.75rem;
-  grid-template-areas: 'toolbar name pattern size';
-  grid-template-columns: max-content minmax(7rem, 0.8fr) minmax(13rem, 2fr) minmax(7rem, 0.65fr);
+  grid-template-areas:
+    'toolbar name size delete'
+    'pattern pattern pattern pattern';
+  grid-template-columns: max-content minmax(10rem, 1fr) minmax(9rem, 11rem) max-content;
   padding: 0.85rem;
 }
 
@@ -917,7 +929,7 @@ onMounted(() => {
   display: flex;
   min-block-size: 3.5rem;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.3rem;
   grid-area: toolbar;
 }
 
@@ -939,6 +951,12 @@ onMounted(() => {
 
 .episode-rule-size {
   grid-area: size;
+}
+
+.episode-rule-delete {
+  align-self: center;
+  grid-area: delete;
+  justify-self: end;
 }
 
 .words-empty-state {
@@ -1072,11 +1090,11 @@ onMounted(() => {
 
   .episode-rule-card {
     grid-template-areas:
-      'toolbar'
-      'name'
-      'pattern'
-      'size';
-    grid-template-columns: minmax(0, 1fr);
+      'toolbar delete'
+      'name name'
+      'pattern pattern'
+      'size size';
+    grid-template-columns: minmax(0, 1fr) max-content;
     gap: 0.75rem;
     padding: 0.95rem;
   }
@@ -1086,7 +1104,7 @@ onMounted(() => {
   }
 
   .episode-rule-delete {
-    margin-inline-start: auto;
+    margin-inline-start: 0;
   }
 
   .episode-rule-enabled :deep(.v-label) {

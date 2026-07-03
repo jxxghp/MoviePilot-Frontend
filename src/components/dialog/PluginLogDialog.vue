@@ -51,8 +51,14 @@ function downloadLogger() {
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" scrollable max-width="72rem" :fullscreen="!display.mdAndUp.value">
-    <VCard>
+  <VDialog
+    v-if="visible"
+    v-model="visible"
+    :scrollable="display.mdAndUp.value"
+    max-width="72rem"
+    :fullscreen="!display.mdAndUp.value"
+  >
+    <VCard class="logging-dialog-card">
       <VDialogCloseBtn v-model="visible" />
       <VCardItem>
         <VCardTitle class="d-inline-flex">
@@ -75,9 +81,29 @@ function downloadLogger() {
         </VCardTitle>
       </VCardItem>
       <VDivider />
-      <VCardText class="pa-0">
+      <VCardText class="logging-dialog-content pa-0">
         <LoggingView :logfile="`plugins/${props.plugin?.id?.toLowerCase()}.log`" />
       </VCardText>
     </VCard>
   </VDialog>
 </template>
+
+<style scoped>
+@media (width <= 960px) {
+  .logging-dialog-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    block-size: 100%;
+  }
+
+  .logging-dialog-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    inline-size: 100%;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+}
+</style>
