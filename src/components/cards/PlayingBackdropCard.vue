@@ -33,9 +33,6 @@ const progressValue = computed(() => {
 // 是否存在可续播进度。
 const hasProgress = computed(() => progressValue.value > 0)
 
-// 顶部状态标签，接口返回的是继续观看列表而非实时播放会话。
-const statusLabel = computed(() => (hasProgress.value ? '继续观看' : '待播放'))
-
 // 右上角进度标签。
 const progressLabel = computed(() => (hasProgress.value ? `${Math.round(progressValue.value)}%` : 'NEW'))
 
@@ -123,11 +120,6 @@ async function goPlay() {
 
           <div class="playing-card__scrim" />
           <div class="playing-card__bottom-scrim" />
-
-          <div class="playing-card__status">
-            <span class="playing-card__status-dot" />
-            <span class="playing-card__status-text">{{ statusLabel }}</span>
-          </div>
 
           <div class="playing-card__percent">
             {{ progressLabel }}
@@ -228,41 +220,12 @@ async function goPlay() {
     linear-gradient(180deg, rgba(2, 6, 12, 0%) 24%, rgba(2, 6, 12, 72%) 68%, rgba(2, 6, 12, 96%) 100%);
 }
 
-.playing-card__status,
 .playing-card__percent,
 .playing-card__play,
 .playing-card__content,
 .playing-card__progress {
   position: absolute;
   z-index: 2;
-}
-
-.playing-card__status {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(255, 255, 255, 22%);
-  border-radius: 999px;
-  backdrop-filter: blur(12px);
-  background: rgba(5, 10, 16, 72%);
-  block-size: 26px;
-  gap: 8px;
-  inset-block-start: 12px;
-  inset-inline-start: 12px;
-  padding: 0 12px;
-}
-
-.playing-card__status-dot {
-  border-radius: 999px;
-  background: rgb(var(--v-theme-success));
-  block-size: 8px;
-  box-shadow: 0 0 0 4px rgba(var(--v-theme-success), 16%);
-  inline-size: 8px;
-}
-
-.playing-card__status-text {
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1;
 }
 
 .playing-card__percent {
