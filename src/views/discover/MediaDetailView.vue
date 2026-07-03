@@ -1046,16 +1046,6 @@ onUnmounted(() => {
                                 {{ episode.air_date }}
                               </span>
                             </div>
-                            <VIcon
-                              v-if="
-                                existsEpisodes[season.season_number || 0] &&
-                                existsEpisodes[season.season_number || 0].includes(episode.episode_number || 0)
-                              "
-                              color="success"
-                              icon="mdi-check-circle"
-                              class="ms-2"
-                              size="small"
-                            />
                           </div>
                           <p>{{ episode.overview }}</p>
                         </div>
