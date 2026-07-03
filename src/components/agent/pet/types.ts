@@ -1,4 +1,18 @@
-export type AgentPetActionName = 'wave' | 'sit' | 'eye-roll' | 'faint' | 'disassemble' | 'happy-jump'
+export type AgentPetActionName =
+  | 'wave'
+  | 'sit'
+  | 'eye-roll'
+  | 'faint'
+  | 'disassemble'
+  | 'happy-jump'
+  | 'sleep'
+  | 'stretch'
+  | 'peek'
+  | 'scan'
+  | 'charge'
+  | 'spin-cheer'
+  | 'shy'
+  | 'confused'
 
 export type AgentPetIntent =
   | 'idle'

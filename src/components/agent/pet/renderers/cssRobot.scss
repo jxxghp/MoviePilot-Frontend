@@ -315,38 +315,15 @@
   transform: translate(0.34rem, 0.02rem) rotate(2deg) scale(0.82);
 }
 
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__antenna,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__head,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__body,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__arm,
-.agent-assistant-fab.is-action-wave .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-sit .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-eye-roll .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-faint .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-disassemble .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__eye,
-.agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__smile {
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__antenna,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__head,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__face,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__body,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__core,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__arm,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__leg,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__eye,
+.agent-assistant-fab[class*='is-action-'] .agent-assistant-fab__smile {
   transition: none;
 }
 
@@ -512,6 +489,208 @@
 
 .agent-assistant-fab.is-action-happy-jump .agent-assistant-fab__leg--right {
   animation: agent-fab-action-happy-jump-leg-right 5.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__bot {
+  animation: agent-fab-action-sleep-bot 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__antenna {
+  animation: agent-fab-action-sleep-antenna 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__head {
+  animation: agent-fab-action-sleep-head 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__eye {
+  animation: agent-fab-action-sleep-eye 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__body {
+  animation: agent-fab-action-sleep-body 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__arm--left {
+  animation: agent-fab-action-sleep-arm-left 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-sleep-arm-right 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-sleep .agent-assistant-fab__leg {
+  animation: agent-fab-action-sleep-leg 5.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__bot {
+  animation: agent-fab-action-stretch-bot 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__antenna {
+  animation: agent-fab-action-stretch-antenna 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__head {
+  animation: agent-fab-action-stretch-head 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__body {
+  animation: agent-fab-action-stretch-body 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__arm--left {
+  z-index: 6;
+  animation: agent-fab-action-stretch-arm-left 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__arm--right {
+  z-index: 6;
+  animation: agent-fab-action-stretch-arm-right 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__leg--left {
+  animation: agent-fab-action-stretch-leg-left 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-stretch .agent-assistant-fab__leg--right {
+  animation: agent-fab-action-stretch-leg-right 4.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-peek .agent-assistant-fab__bot {
+  animation: agent-fab-action-peek-bot 2.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-peek .agent-assistant-fab__antenna {
+  animation: agent-fab-action-peek-antenna 2.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-peek .agent-assistant-fab__head {
+  animation: agent-fab-action-peek-head 2.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-peek .agent-assistant-fab__eye {
+  animation: agent-fab-action-peek-eye 2.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-peek .agent-assistant-fab__arm--left {
+  z-index: 6;
+  animation: agent-fab-action-peek-arm-left 2.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-peek .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-peek-arm-right 2.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-scan .agent-assistant-fab__head {
+  animation: agent-fab-action-scan-head 3.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-scan .agent-assistant-fab__face {
+  animation: agent-fab-action-scan-face 3.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-scan .agent-assistant-fab__eye {
+  animation: agent-fab-action-scan-eye 3.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-scan .agent-assistant-fab__core {
+  animation: agent-fab-action-scan-core 3.2s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-charge .agent-assistant-fab__bot {
+  animation: agent-fab-action-charge-bot 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-charge .agent-assistant-fab__antenna {
+  animation: agent-fab-action-charge-antenna 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-charge .agent-assistant-fab__face {
+  animation: agent-fab-action-charge-face 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-charge .agent-assistant-fab__core {
+  animation: agent-fab-action-charge-core 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-charge .agent-assistant-fab__arm--left,
+.agent-assistant-fab.is-action-charge .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-charge-arm 4.8s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__bot {
+  animation: agent-fab-action-spin-cheer-bot 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__antenna {
+  animation: agent-fab-action-spin-cheer-antenna 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__head {
+  animation: agent-fab-action-spin-cheer-head 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__eye {
+  animation: agent-fab-action-spin-cheer-eye 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__smile {
+  animation: agent-fab-action-spin-cheer-smile 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__arm--left {
+  z-index: 6;
+  animation: agent-fab-action-spin-cheer-arm-left 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-spin-cheer .agent-assistant-fab__arm--right {
+  z-index: 6;
+  animation: agent-fab-action-spin-cheer-arm-right 3.6s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-shy .agent-assistant-fab__bot {
+  animation: agent-fab-action-shy-bot 3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-shy .agent-assistant-fab__head {
+  animation: agent-fab-action-shy-head 3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-shy .agent-assistant-fab__eye {
+  animation: agent-fab-action-shy-eye 3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-shy .agent-assistant-fab__arm--left {
+  z-index: 6;
+  animation: agent-fab-action-shy-arm-left 3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-shy .agent-assistant-fab__arm--right {
+  z-index: 6;
+  animation: agent-fab-action-shy-arm-right 3s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-confused .agent-assistant-fab__antenna {
+  animation: agent-fab-action-confused-antenna 3.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-confused .agent-assistant-fab__head {
+  animation: agent-fab-action-confused-head 3.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-confused .agent-assistant-fab__eye {
+  animation:
+    agent-fab-blink 4.8s ease-in-out infinite,
+    agent-fab-action-confused-eye 0.85s ease-in-out 4;
+}
+
+.agent-assistant-fab.is-action-confused .agent-assistant-fab__arm--left {
+  animation: agent-fab-action-confused-arm-left 3.4s ease-in-out both;
+}
+
+.agent-assistant-fab.is-action-confused .agent-assistant-fab__arm--right {
+  animation: agent-fab-action-confused-arm-right 3.4s ease-in-out both;
 }
 
 @keyframes agent-fab-head-idle {
@@ -1307,6 +1486,687 @@
   57%,
   85% {
     transform: translate(-0.12rem, -0.08rem) rotate(-44deg);
+  }
+}
+
+@keyframes agent-fab-action-sleep-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  22%,
+  82% {
+    transform: translateY(0.42rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 8deg));
+  }
+
+  46%,
+  64% {
+    transform: translateY(0.36rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 10deg));
+  }
+}
+
+@keyframes agent-fab-action-sleep-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  22%,
+  82% {
+    opacity: 0.62;
+    transform: translate(0.1rem, 0.16rem) rotate(78deg) scale(0.78);
+  }
+}
+
+@keyframes agent-fab-action-sleep-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  22%,
+  82% {
+    transform: translate(calc(var(--agent-assistant-head-x) - 0.12rem), calc(var(--agent-assistant-head-y) + 0.22rem))
+      rotate(-12deg);
+  }
+}
+
+@keyframes agent-fab-action-sleep-eye {
+  0%,
+  100% {
+    border-block-end-width: 0.15rem;
+    opacity: 1;
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y)) scale(1);
+  }
+
+  18%,
+  86% {
+    border-block-end-width: 0.1rem;
+    opacity: 0.62;
+    transform: translate(0, 0.1rem) scale(1.18, 0.24);
+  }
+}
+
+@keyframes agent-fab-action-sleep-body {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
+  }
+
+  22%,
+  82% {
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.26rem)) scaleY(0.78);
+  }
+}
+
+@keyframes agent-fab-action-sleep-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  22%,
+  82% {
+    transform: translate(0.12rem, 0.2rem) rotate(92deg);
+  }
+}
+
+@keyframes agent-fab-action-sleep-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  22%,
+  82% {
+    transform: translate(-0.12rem, 0.2rem) rotate(-92deg);
+  }
+}
+
+@keyframes agent-fab-action-sleep-leg {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  22%,
+  82% {
+    opacity: 0.35;
+    transform: translateY(-0.16rem) scale(0.76);
+  }
+}
+
+@keyframes agent-fab-action-stretch-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  18% {
+    transform: translateY(0.18rem) scale(var(--agent-assistant-bot-scale)) scaleY(0.92)
+      rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  44%,
+  70% {
+    transform: translateY(-0.34rem) scale(var(--agent-assistant-bot-scale)) scaleY(1.06)
+      rotate(calc(var(--agent-assistant-robot-tilt) + 2deg));
+  }
+
+  86% {
+    transform: translateY(0.08rem) scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+}
+
+@keyframes agent-fab-action-stretch-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  44%,
+  70% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.2rem)) rotate(-24deg);
+  }
+}
+
+@keyframes agent-fab-action-stretch-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  44%,
+  70% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.28rem)) rotate(5deg);
+  }
+}
+
+@keyframes agent-fab-action-stretch-body {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-body-x), var(--agent-assistant-body-y)) scaleY(1);
+  }
+
+  18% {
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) + 0.12rem)) scaleY(0.88);
+  }
+
+  44%,
+  70% {
+    transform: translate(var(--agent-assistant-body-x), calc(var(--agent-assistant-body-y) - 0.08rem)) scaleY(1.12);
+  }
+}
+
+@keyframes agent-fab-action-stretch-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  44%,
+  70% {
+    transform: translate(-0.24rem, -0.7rem) rotate(168deg);
+  }
+}
+
+@keyframes agent-fab-action-stretch-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  44%,
+  70% {
+    transform: translate(0.24rem, -0.7rem) rotate(-168deg);
+  }
+}
+
+@keyframes agent-fab-action-stretch-leg-left {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  44%,
+  70% {
+    transform: translate(-0.18rem, 0.02rem) rotate(-18deg);
+  }
+}
+
+@keyframes agent-fab-action-stretch-leg-right {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  44%,
+  70% {
+    transform: translate(0.18rem, 0.02rem) rotate(18deg);
+  }
+}
+
+@keyframes agent-fab-action-peek-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  26%,
+  78% {
+    transform: translateX(-0.48rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 8deg));
+  }
+
+  48% {
+    transform: translateX(-0.58rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 11deg));
+  }
+}
+
+@keyframes agent-fab-action-peek-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  26%,
+  78% {
+    transform: translate(-0.12rem, -0.06rem) rotate(-12deg);
+  }
+}
+
+@keyframes agent-fab-action-peek-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  26%,
+  78% {
+    transform: translate(calc(var(--agent-assistant-head-x) - 0.18rem), calc(var(--agent-assistant-head-y) - 0.04rem))
+      rotate(-10deg);
+  }
+}
+
+@keyframes agent-fab-action-peek-eye {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
+  }
+
+  26%,
+  78% {
+    transform: translate(-0.18rem, -0.02rem) scale(1.12, 1);
+  }
+}
+
+@keyframes agent-fab-action-peek-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  26%,
+  78% {
+    transform: translate(-0.24rem, -0.12rem) rotate(116deg);
+  }
+}
+
+@keyframes agent-fab-action-peek-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  26%,
+  78% {
+    transform: translate(0.04rem, 0.06rem) rotate(-34deg);
+  }
+}
+
+@keyframes agent-fab-action-scan-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  24% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(-8deg);
+  }
+
+  52% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(8deg);
+  }
+
+  78% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.04rem)) rotate(-4deg);
+  }
+}
+
+@keyframes agent-fab-action-scan-face {
+  0%,
+  100% {
+    box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 8%);
+  }
+
+  18%,
+  78% {
+    box-shadow:
+      inset 0 0.1rem 0 rgba(255, 255, 255, 8%),
+      0 0 0.72rem rgba(114, 255, 240, 48%);
+  }
+}
+
+@keyframes agent-fab-action-scan-eye {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
+  }
+
+  18% {
+    transform: translate(-0.28rem, -0.02rem) scale(1.1, 0.9);
+  }
+
+  46% {
+    transform: translate(0.28rem, -0.02rem) scale(1.1, 0.9);
+  }
+
+  74% {
+    transform: translate(0, -0.18rem) scale(1.18, 0.72);
+  }
+}
+
+@keyframes agent-fab-action-scan-core {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+
+  25%,
+  75% {
+    opacity: 1;
+    transform: scale(1.24);
+  }
+}
+
+@keyframes agent-fab-action-charge-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  18%,
+  42%,
+  66% {
+    transform: translateY(0.1rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 2deg));
+  }
+
+  30%,
+  54%,
+  78% {
+    transform: translateY(-0.12rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 2deg));
+  }
+}
+
+@keyframes agent-fab-action-charge-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  30%,
+  54%,
+  78% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.16rem)) rotate(-20deg)
+      scale(1.12);
+  }
+}
+
+@keyframes agent-fab-action-charge-face {
+  0%,
+  100% {
+    box-shadow: inset 0 0.1rem 0 rgba(255, 255, 255, 8%);
+  }
+
+  20%,
+  84% {
+    box-shadow:
+      inset 0 0.1rem 0 rgba(255, 255, 255, 8%),
+      0 0 0.9rem rgba(166, 118, 255, 56%);
+  }
+}
+
+@keyframes agent-fab-action-charge-core {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: scale(1);
+  }
+
+  20%,
+  40%,
+  60%,
+  80% {
+    opacity: 1;
+    transform: scale(1.32);
+  }
+}
+
+@keyframes agent-fab-action-charge-arm {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  22%,
+  82% {
+    transform: translateY(0.12rem) scaleY(0.9);
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  18% {
+    transform: translateY(0.18rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) - 7deg));
+  }
+
+  48% {
+    transform: translateY(-0.58rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 184deg));
+  }
+
+  78% {
+    transform: translateY(-0.14rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 356deg));
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  22%,
+  78% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.18rem)) rotate(-28deg);
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  22%,
+  78% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.12rem)) rotate(8deg);
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-eye {
+  0%,
+  100% {
+    border-block-end-width: 0.15rem;
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y)) scale(1);
+  }
+
+  20%,
+  80% {
+    border-block-end-width: 0.19rem;
+    transform: translate(0, -0.12rem) scale(1.18, 0.58);
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-smile {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.72);
+  }
+
+  16%,
+  84% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-0.03rem) scale(1.24, 1.08);
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  20%,
+  80% {
+    transform: translate(-0.28rem, -0.44rem) rotate(148deg);
+  }
+}
+
+@keyframes agent-fab-action-spin-cheer-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  20%,
+  80% {
+    transform: translate(0.28rem, -0.44rem) rotate(-148deg);
+  }
+}
+
+@keyframes agent-fab-action-shy-bot {
+  0%,
+  100% {
+    transform: scale(var(--agent-assistant-bot-scale)) rotate(var(--agent-assistant-robot-tilt));
+  }
+
+  24%,
+  78% {
+    transform: translateX(0.16rem) scale(var(--agent-assistant-bot-scale))
+      rotate(calc(var(--agent-assistant-robot-tilt) + 7deg));
+  }
+}
+
+@keyframes agent-fab-action-shy-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  24%,
+  78% {
+    transform: translate(calc(var(--agent-assistant-head-x) + 0.08rem), calc(var(--agent-assistant-head-y) + 0.14rem))
+      rotate(10deg);
+  }
+}
+
+@keyframes agent-fab-action-shy-eye {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y)) scale(1);
+  }
+
+  24%,
+  78% {
+    opacity: 0.78;
+    transform: translate(0, 0.08rem) scale(0.86, 0.48);
+  }
+}
+
+@keyframes agent-fab-action-shy-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  24%,
+  78% {
+    transform: translate(0.02rem, -0.16rem) rotate(118deg);
+  }
+}
+
+@keyframes agent-fab-action-shy-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  24%,
+  78% {
+    transform: translate(-0.02rem, -0.16rem) rotate(-118deg);
+  }
+}
+
+@keyframes agent-fab-action-confused-antenna {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(22deg);
+  }
+
+  20% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(58deg);
+  }
+
+  48% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(-28deg);
+  }
+
+  74% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.06rem)) rotate(42deg);
+  }
+}
+
+@keyframes agent-fab-action-confused-head {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(0deg);
+  }
+
+  20% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.06rem)) rotate(-10deg);
+  }
+
+  48% {
+    transform: translate(var(--agent-assistant-head-x), var(--agent-assistant-head-y)) rotate(10deg);
+  }
+
+  74% {
+    transform: translate(var(--agent-assistant-head-x), calc(var(--agent-assistant-head-y) - 0.03rem)) rotate(-6deg);
+  }
+}
+
+@keyframes agent-fab-action-confused-eye {
+  0%,
+  100% {
+    transform: translate(var(--agent-assistant-eye-x), var(--agent-assistant-eye-y));
+  }
+
+  30% {
+    transform: translate(0.22rem, -0.16rem);
+  }
+
+  60% {
+    transform: translate(-0.22rem, 0.08rem);
+  }
+}
+
+@keyframes agent-fab-action-confused-arm-left {
+  0%,
+  100% {
+    transform: rotate(17deg);
+  }
+
+  24%,
+  74% {
+    transform: translate(-0.12rem, -0.12rem) rotate(88deg);
+  }
+}
+
+@keyframes agent-fab-action-confused-arm-right {
+  0%,
+  100% {
+    transform: rotate(-17deg);
+  }
+
+  24%,
+  74% {
+    transform: translate(0.16rem, -0.08rem) rotate(-42deg);
   }
 }
 

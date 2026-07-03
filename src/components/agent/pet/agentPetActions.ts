@@ -3,7 +3,22 @@ import type { AgentPetActionDefinition, AgentPetActionName } from './types'
 export const AGENT_PET_RANDOM_ACTION_MIN_DELAY = 8000
 export const AGENT_PET_RANDOM_ACTION_MAX_DELAY = 18000
 
-export const AGENT_PET_RANDOM_ACTIONS = ['wave', 'sit', 'eye-roll', 'faint', 'disassemble', 'happy-jump'] as const
+export const AGENT_PET_RANDOM_ACTIONS = [
+  'wave',
+  'sit',
+  'eye-roll',
+  'faint',
+  'disassemble',
+  'happy-jump',
+  'sleep',
+  'stretch',
+  'peek',
+  'scan',
+  'charge',
+  'spin-cheer',
+  'shy',
+  'confused',
+] as const
 
 export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinition> = {
   wave: {
@@ -51,6 +66,70 @@ export const AGENT_PET_ACTIONS: Record<AgentPetActionName, AgentPetActionDefinit
     intent: 'success',
     clip: 'agent-fab-action-happy-jump',
     duration: 5200,
+    priority: 1,
+    interruptible: true,
+  },
+  sleep: {
+    name: 'sleep',
+    intent: 'sleeping',
+    clip: 'agent-fab-action-sleep',
+    duration: 5800,
+    priority: 1,
+    interruptible: true,
+  },
+  stretch: {
+    name: 'stretch',
+    intent: 'idle',
+    clip: 'agent-fab-action-stretch',
+    duration: 4400,
+    priority: 1,
+    interruptible: true,
+  },
+  peek: {
+    name: 'peek',
+    intent: 'reaction',
+    clip: 'agent-fab-action-peek',
+    duration: 2800,
+    priority: 1,
+    interruptible: true,
+  },
+  scan: {
+    name: 'scan',
+    intent: 'thinking',
+    clip: 'agent-fab-action-scan',
+    duration: 3200,
+    priority: 1,
+    interruptible: true,
+  },
+  charge: {
+    name: 'charge',
+    intent: 'thinking',
+    clip: 'agent-fab-action-charge',
+    duration: 4800,
+    priority: 1,
+    interruptible: true,
+  },
+  'spin-cheer': {
+    name: 'spin-cheer',
+    intent: 'success',
+    clip: 'agent-fab-action-spin-cheer',
+    duration: 3600,
+    priority: 1,
+    interruptible: true,
+  },
+  shy: {
+    name: 'shy',
+    intent: 'reaction',
+    clip: 'agent-fab-action-shy',
+    duration: 3000,
+    priority: 1,
+    interruptible: true,
+  },
+  confused: {
+    name: 'confused',
+    intent: 'reaction',
+    clip: 'agent-fab-action-confused',
+    duration: 3400,
     priority: 1,
     interruptible: true,
   },
