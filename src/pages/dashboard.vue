@@ -85,6 +85,7 @@ const DASHBOARD_DESKTOP_DEFAULT_LAYOUT: DashboardGridLayoutConfig = {
 interface DashboardProfileConfig {
   enabled?: DashboardEnableConfig
   items: DashboardGridLayoutConfig
+  updatedAt?: number
 }
 
 interface DashboardGridItem {
@@ -139,6 +140,7 @@ let dashboardGridContentResizeFrame: number | null = null
 let dashboardGridResizeRefreshFrame: number | null = null
 let dashboardRevealFrame: number | null = null
 let isDashboardRevealPending = false
+let dashboardProfileSaveQueue = Promise.resolve()
 // 标记最近一次响应式档位切换，避免快速缩放时较早的异步配置覆盖最新档位。
 let dashboardLayoutProfileSwitchId = 0
 
@@ -488,7 +490,7 @@ function normalizeDashboardGridLayout(value: unknown): DashboardGridLayoutConfig
 function normalizeDashboardProfileConfig(value: unknown): DashboardProfileConfig | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
 
-  const configValue = value as { enabled?: unknown; items?: unknown }
+  const configValue = value as { enabled?: unknown; items?: unknown; updatedAt?: unknown }
   const hasProfileField =
     Object.prototype.hasOwnProperty.call(configValue, 'items') ||
     Object.prototype.hasOwnProperty.call(configValue, 'enabled')
@@ -502,6 +504,11 @@ function normalizeDashboardProfileConfig(value: unknown): DashboardProfileConfig
     profileConfig.enabled = enabled
   }
 
+  const updatedAt = Number(configValue.updatedAt)
+  if (Number.isFinite(updatedAt) && updatedAt > 0) {
+    profileConfig.updatedAt = updatedAt
+  }
+
   return profileConfig
 }
 
@@ -509,10 +516,12 @@ function normalizeDashboardProfileConfig(value: unknown): DashboardProfileConfig
 function buildDashboardProfileConfig(
   layout: DashboardGridLayoutConfig = dashboardGridLayout.value,
   enabled: DashboardEnableConfig = enableConfig.value,
+  updatedAt = Date.now(),
 ): DashboardProfileConfig {
   return {
     enabled,
     items: layout,
+    updatedAt,
   }
 }
 
@@ -524,7 +533,33 @@ function buildRemoteDashboardProfileConfig(config: DashboardProfileConfig) {
     remoteConfig.enabled = config.enabled
   }
 
+  if (config.updatedAt !== undefined) {
+    remoteConfig.updatedAt = config.updatedAt
+  }
+
   return remoteConfig
+}
+
+// 判断本地仪表盘配置是否比服务端配置更新，用于保护刚保存但尚未同步成功的布局。
+function isLocalDashboardProfileConfigNewer(
+  localConfig: DashboardProfileConfig | undefined,
+  remoteConfig: DashboardProfileConfig | undefined,
+) {
+  return (
+    localConfig?.updatedAt !== undefined &&
+    (remoteConfig?.updatedAt === undefined || localConfig.updatedAt > remoteConfig.updatedAt)
+  )
+}
+
+// 串行写入仪表盘布局配置，避免较早的异步保存请求后完成并覆盖较新的布局。
+function queueDashboardProfileRemoteSave(configKey: string, profileConfig: DashboardProfileConfig) {
+  const remoteConfig = buildRemoteDashboardProfileConfig(profileConfig)
+
+  dashboardProfileSaveQueue = dashboardProfileSaveQueue
+    .catch(error => console.error(error))
+    .then(() => saveUserDashboardConfig(configKey, remoteConfig))
+
+  return dashboardProfileSaveQueue
 }
 
 // 根据当前视口判断仪表板布局档位，避免手机和桌面共用 Grid 坐标。
@@ -581,7 +616,13 @@ async function loadDashboardProfileConfig(profile: DashboardLayoutProfile) {
     const remoteConfig = normalizeDashboardProfileConfig(response?.data?.value)
 
     if (remoteConfig !== undefined) {
-      const profileConfig: DashboardProfileConfig = { items: remoteConfig.items }
+      if (localConfig && isLocalDashboardProfileConfigNewer(localConfig, remoteConfig)) {
+        await queueDashboardProfileRemoteSave(configKey, localConfig)
+
+        return localConfig
+      }
+
+      const profileConfig: DashboardProfileConfig = { items: remoteConfig.items, updatedAt: remoteConfig.updatedAt }
       const enabled = remoteConfig.enabled ?? localConfig?.enabled
 
       if (enabled !== undefined) {
@@ -591,14 +632,14 @@ async function loadDashboardProfileConfig(profile: DashboardLayoutProfile) {
       saveLocalDashboardConfig(storageKey, profileConfig)
 
       if (remoteConfig.enabled === undefined && localConfig?.enabled !== undefined) {
-        await saveUserDashboardConfig(configKey, buildRemoteDashboardProfileConfig(profileConfig))
+        await queueDashboardProfileRemoteSave(configKey, profileConfig)
       }
 
       return profileConfig
     }
 
     if (localConfig !== undefined) {
-      await saveUserDashboardConfig(configKey, buildRemoteDashboardProfileConfig(localConfig))
+      await queueDashboardProfileRemoteSave(configKey, localConfig)
     }
   } catch (error) {
     console.error(error)
@@ -685,15 +726,15 @@ function saveDashboardProfileConfig(layout = dashboardGridLayout.value, enabled 
   const profileConfig = buildDashboardProfileConfig(layout, enabled)
 
   saveLocalDashboardConfig(getDashboardGridLayoutStorageKey(profile), profileConfig)
-  void saveUserDashboardConfig(
-    getDashboardGridLayoutConfigKey(profile),
-    buildRemoteDashboardProfileConfig(profileConfig),
-  ).catch(error => console.error(error))
+
+  return queueDashboardProfileRemoteSave(getDashboardGridLayoutConfigKey(profile), profileConfig).catch(error =>
+    console.error(error),
+  )
 }
 
 // 将当前仪表板布局覆盖配置保存到本地和用户配置。
 function saveDashboardGridLayout(layout: DashboardGridLayoutConfig) {
-  saveDashboardProfileConfig(layout)
+  return saveDashboardProfileConfig(layout)
 }
 
 // 获取仪表板组件的默认宽度，优先兼容插件旧版 cols.md / cols.cols 配置。
@@ -796,7 +837,7 @@ async function exitDashboardLayoutEditing() {
 // 清除用户本地布局覆盖，并恢复内置组件和插件声明的默认占位，然后退出编辑模式。
 async function resetDashboardGridLayout() {
   dashboardGridLayout.value = {}
-  saveDashboardGridLayout({})
+  await saveDashboardGridLayout({})
   dashboardGrid.value?.removeAll(false, false)
   isDashboardGridLayoutResetPending.value = true
   await syncDashboardGrid()
@@ -882,7 +923,7 @@ async function loadDashboardConfig() {
   dashboardGridLayout.value = profileConfig?.items ?? {}
   enableConfig.value = mergeDashboardEnableConfig(profileConfig?.enabled ?? legacyEnable)
   if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
-    saveDashboardProfileConfig()
+    await saveDashboardProfileConfig()
   }
   // 排序
   if (orderConfig.value) {
@@ -912,7 +953,7 @@ async function saveDashboardConfig(payload?: { enabled?: Record<string, boolean>
   // 顺序配置，从dashboardConfigs中提取
   const orderObj = dashboardConfigs.value.map(item => ({ id: item.id, key: item.key }))
   saveLocalDashboardConfig(DASHBOARD_ORDER_STORAGE_KEY, orderObj)
-  saveDashboardProfileConfig()
+  await saveDashboardProfileConfig()
 
   // 保存到服务端
   try {
@@ -1029,6 +1070,7 @@ function initializeDashboardGrid() {
       cellHeight: DASHBOARD_GRID_CELL_HEIGHT,
       column: DASHBOARD_GRID_COLUMNS,
       columnOpts: {
+        breakpointForWindow: true,
         breakpoints: [
           { w: DASHBOARD_GRID_MOBILE_BREAKPOINT, c: 1, layout: 'list' },
           { w: DASHBOARD_GRID_TABLET_BREAKPOINT, c: 6, layout: 'moveScale' },
@@ -1273,7 +1315,7 @@ function notifyDashboardContentResize() {
 }
 
 // 将 GridStack 保存结果归一化为本地布局覆盖表。
-function persistDashboardGridLayout(manualHeightId: string | false = false) {
+async function persistDashboardGridLayout(manualHeightId: string | false = false) {
   if (!dashboardGrid.value || isSyncingDashboardGrid.value) return
 
   const gridColumns = getCurrentDashboardGridColumns()
@@ -1302,11 +1344,13 @@ function persistDashboardGridLayout(manualHeightId: string | false = false) {
 
   isPersistingDashboardGridLayoutFromGrid.value = true
   dashboardGridLayout.value = nextLayout
-  saveDashboardGridLayout(nextLayout)
+  const savePromise = saveDashboardGridLayout(nextLayout)
   nextTick(() => {
     isPersistingDashboardGridLayoutFromGrid.value = false
     resizeAutoDashboardItemsToContent()
   })
+
+  await savePromise
 }
 
 // 根据组件 ID 查找默认宽度，保存布局时用于兜底。
@@ -1322,7 +1366,7 @@ async function persistCurrentDashboardGridLayout(manualHeightId: string | false 
 
   isDashboardGridLayoutResetPending.value = false
   await nextTick()
-  persistDashboardGridLayout(manualHeightId)
+  await persistDashboardGridLayout(manualHeightId)
 }
 
 // 清理 GridStack 内部响应式布局缓存，并用当前 Vue 布局状态重新注册已有 DOM 节点。
@@ -1367,7 +1411,7 @@ watch(
     dashboardGridLayout.value = profileConfig?.items ?? {}
     enableConfig.value = mergeDashboardEnableConfig(profileConfig?.enabled ?? legacyEnable)
     if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
-      saveDashboardProfileConfig()
+      await saveDashboardProfileConfig()
     }
     updateDashboardSettingsDialog()
     dashboardGrid.value?.column(
