@@ -28,12 +28,15 @@ const resetSitesDisabled = ref(false)
 
 const isPasswordVisible = ref(false)
 
+const isCookieCloudAuthHeaderVisible = ref(false)
+
 // 站点设置默认值
 const siteSetting = ref<any>({
   CookieCloud: {
     COOKIECLOUD_HOST: '',
     COOKIECLOUD_KEY: '',
     COOKIECLOUD_PASSWORD: '',
+    COOKIECLOUD_AUTH_HEADER: '',
     COOKIECLOUD_INTERVAL: 0,
     COOKIECLOUD_ENABLE_LOCAL: false,
     COOKIECLOUD_BLACKLIST: '',
@@ -184,6 +187,18 @@ useSilentSettingRefresh(loadSiteSettings, {
                   :hint="t('setting.site.e2ePasswordHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-lock"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="siteSetting.CookieCloud.COOKIECLOUD_AUTH_HEADER"
+                  :type="isCookieCloudAuthHeaderVisible ? 'text' : 'password'"
+                  :append-inner-icon="isCookieCloudAuthHeaderVisible ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                  @click:append-inner="isCookieCloudAuthHeaderVisible = !isCookieCloudAuthHeaderVisible"
+                  :label="t('setting.site.cookieCloudAuthHeader')"
+                  :hint="t('setting.site.cookieCloudAuthHeaderHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-shield-key"
                 />
               </VCol>
               <VCol cols="12" md="6">
