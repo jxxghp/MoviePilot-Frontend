@@ -1671,6 +1671,9 @@ export default {
         'When enabled, Agent connections to the current LLM provider use the system proxy from advanced settings.',
       llmUserAgent: 'User-Agent',
       llmUserAgentHint: 'User-Agent sent to OpenAI-compatible APIs. Leave empty to use the SDK default.',
+      llmTemperature: 'Temperature',
+      llmTemperatureHint:
+        'Controls response randomness. Lower values are steadier and higher values are more varied. Backend default is 0.3; 0-2 is usually recommended.',
       llmProviderAuth: 'Provider Authorization',
       llmProviderAuthHint:
         'Providers that support account authorization can complete sign-in here and reuse the saved auth state.',

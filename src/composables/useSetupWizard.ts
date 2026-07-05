@@ -65,6 +65,7 @@ export interface WizardData {
     baseUrlPreset: string
     maxContextTokens: number
     userAgent: string
+    temperature: number
     audioInputProvider: string
     audioInputApiKey: string
     audioInputBaseUrl: string
@@ -253,6 +254,7 @@ const wizardData = ref<WizardData>({
     baseUrlPreset: '',
     maxContextTokens: 64,
     userAgent: '',
+    temperature: 0.3,
     audioInputProvider: 'openai',
     audioInputApiKey: '',
     audioInputBaseUrl: '',
@@ -1436,6 +1438,7 @@ export function useSetupWizard() {
   // 保存智能助手设置
   async function saveAgentSettings() {
     try {
+      const agentTemperature = Number(wizardData.value.agent.temperature ?? 0.3)
       const agentSettings = {
         AI_AGENT_ENABLE: wizardData.value.agent.enabled,
         AI_AGENT_GLOBAL: wizardData.value.agent.enabled ? wizardData.value.agent.global : false,
@@ -1452,6 +1455,7 @@ export function useSetupWizard() {
         LLM_BASE_URL_PRESET: wizardData.value.agent.baseUrlPreset || null,
         LLM_MAX_CONTEXT_TOKENS: wizardData.value.agent.maxContextTokens,
         LLM_USER_AGENT: wizardData.value.agent.userAgent || null,
+        LLM_TEMPERATURE: Number.isFinite(agentTemperature) ? agentTemperature : 0.3,
         AUDIO_INPUT_PROVIDER: wizardData.value.agent.audioInputProvider || 'openai',
         AUDIO_INPUT_API_KEY: wizardData.value.agent.audioInputApiKey || null,
         AUDIO_INPUT_BASE_URL: wizardData.value.agent.audioInputBaseUrl || null,
@@ -1567,6 +1571,8 @@ export function useSetupWizard() {
         wizardData.value.agent.baseUrlPreset = result.data.LLM_BASE_URL_PRESET || ''
         wizardData.value.agent.maxContextTokens = result.data.LLM_MAX_CONTEXT_TOKENS || 64
         wizardData.value.agent.userAgent = result.data.LLM_USER_AGENT || ''
+        const agentTemperature = Number(result.data.LLM_TEMPERATURE ?? 0.3)
+        wizardData.value.agent.temperature = Number.isFinite(agentTemperature) ? agentTemperature : 0.3
         wizardData.value.agent.audioInputProvider = result.data.AUDIO_INPUT_PROVIDER || 'openai'
         wizardData.value.agent.audioInputApiKey = result.data.AUDIO_INPUT_API_KEY || ''
         wizardData.value.agent.audioInputBaseUrl = result.data.AUDIO_INPUT_BASE_URL || ''

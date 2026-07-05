@@ -1660,6 +1660,8 @@ export default {
       llmUseProxyHint: '启用后，Agent 连接当前 LLM 提供商时会应用高级设置中的系统代理',
       llmUserAgent: 'User-Agent',
       llmUserAgentHint: 'OpenAI 兼容接口请求使用的 User-Agent，留空则使用 SDK 默认值',
+      llmTemperature: '温度参数',
+      llmTemperatureHint: '控制回复随机性，数值越低越稳定，越高越发散；后端默认 0.3，通常建议 0-2',
       llmProviderAuth: '提供商授权',
       llmProviderAuthHint: '支持账号登录授权的提供商，可以直接在这里完成登录并复用授权状态。',
       llmProviderConnectedAs: '当前已连接：{label}',

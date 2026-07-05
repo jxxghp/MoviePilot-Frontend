@@ -475,6 +475,20 @@ onMounted(async () => {
           </VCol>
 
           <VCol cols="12" md="6">
+            <VTextField
+              v-model.number="wizardData.agent.temperature"
+              :label="t('setting.system.llmTemperature')"
+              :hint="t('setting.system.llmTemperatureHint')"
+              persistent-hint
+              prepend-inner-icon="mdi-thermometer"
+              type="number"
+              min="0"
+              max="2"
+              step="0.1"
+            />
+          </VCol>
+
+          <VCol cols="12" md="6">
             <VSelect
               v-model="wizardData.agent.thinkingLevel"
               :label="t('setting.system.llmThinking')"

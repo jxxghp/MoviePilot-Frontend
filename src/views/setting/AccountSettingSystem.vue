@@ -64,6 +64,7 @@ const SystemSettings = ref<any>({
     LLM_BASE_URL_PRESET: null,
     LLM_MAX_CONTEXT_TOKENS: 128,
     LLM_USER_AGENT: null,
+    LLM_TEMPERATURE: 0.3,
     AUDIO_INPUT_PROVIDER: 'openai',
     AUDIO_INPUT_API_KEY: null,
     AUDIO_INPUT_BASE_URL: null,
@@ -221,6 +222,7 @@ type LlmSettingsSnapshot = {
   LLM_USE_PROXY: boolean
   LLM_BASE_URL_PRESET: string
   LLM_USER_AGENT: string
+  LLM_TEMPERATURE: number
 }
 
 let llmTestRequestId = 0
@@ -378,6 +380,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_USE_PROXY: Boolean(SystemSettings.value.Basic.LLM_USE_PROXY),
     LLM_BASE_URL_PRESET: String(SystemSettings.value.Basic.LLM_BASE_URL_PRESET ?? ''),
     LLM_USER_AGENT: String(SystemSettings.value.Basic.LLM_USER_AGENT ?? ''),
+    LLM_TEMPERATURE: Number(SystemSettings.value.Basic.LLM_TEMPERATURE ?? 0.3),
   }
 }
 
@@ -396,6 +399,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     use_proxy: snapshot.LLM_USE_PROXY,
     base_url_preset: snapshot.LLM_BASE_URL_PRESET.trim(),
     user_agent: snapshot.LLM_USER_AGENT.trim(),
+    temperature: Number.isFinite(snapshot.LLM_TEMPERATURE) ? snapshot.LLM_TEMPERATURE : 0.3,
   }
 }
 
@@ -700,6 +704,8 @@ async function saveSystemSetting(value: { [key: string]: any }) {
 async function saveBasicSettings() {
   savingBasic.value = true
   try {
+    const llmTemperature = Number(SystemSettings.value.Basic.LLM_TEMPERATURE ?? 0.3)
+    SystemSettings.value.Basic.LLM_TEMPERATURE = Number.isFinite(llmTemperature) ? llmTemperature : 0.3
     if (await saveSystemSetting(SystemSettings.value.Basic)) {
       // 更新全局设置store，使Web Agent图标实时生效
       globalSettingsStore.setData({ ...globalSettingsStore.getData, ...SystemSettings.value.Basic })
@@ -1351,6 +1357,19 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         persistent-hint
                         type="number"
                         prepend-inner-icon="mdi-counter"
+                      />
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="6">
+                      <VTextField
+                        v-model.number="SystemSettings.Basic.LLM_TEMPERATURE"
+                        :label="t('setting.system.llmTemperature')"
+                        :hint="t('setting.system.llmTemperatureHint')"
+                        persistent-hint
+                        type="number"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        prepend-inner-icon="mdi-thermometer"
                       />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
