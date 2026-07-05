@@ -848,7 +848,7 @@ onUnmounted(() => {
             </template>
             {{ getSubscribeText }}
           </VBtn>
-          <VBtn v-if="existsItemId" class="media-action-button" variant="tonal" @click="handlePlay()">
+          <VBtn v-if="existsItemId" class="media-action-button" variant="tonal" @click="handlePlay()" color="success">
             <template #prepend>
               <VIcon icon="mdi-play" />
             </template>
@@ -1561,9 +1561,10 @@ a.crew-name {
   display: inline-flex;
   flex: 0 0 12rem;
   align-items: center;
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-surface), 0.72);
+  background: rgba(var(--v-theme-surface), 0.82);
   color: rgb(var(--v-theme-on-surface));
   gap: 0.625rem;
   min-inline-size: 0;
@@ -1579,13 +1580,18 @@ a.crew-name {
 
 .episode-group-option:hover {
   border-color: rgba(var(--v-theme-primary), 0.5);
-  background: rgba(var(--v-theme-primary), 0.08);
+  background: rgba(var(--v-theme-surface), 0.9);
+  box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .episode-group-option--active {
   border-color: rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.14);
+  background: rgba(var(--v-theme-primary), 0.18);
   color: rgb(var(--v-theme-primary));
+}
+
+.episode-group-option--active:hover {
+  background: rgba(var(--v-theme-primary), 0.24);
 }
 
 .episode-group-option:focus-visible,
@@ -1632,9 +1638,10 @@ a.crew-name {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 9999px;
-  background: rgba(var(--v-theme-surface), 0.92);
+  background: rgba(var(--v-theme-surface), 0.96);
   block-size: 2.5rem;
   color: rgb(var(--v-theme-on-surface));
   inline-size: 2.5rem;
@@ -1648,7 +1655,8 @@ a.crew-name {
 
 .episode-group-nav:hover {
   border-color: rgba(var(--v-theme-primary), 0.45);
-  background: rgba(var(--v-theme-primary), 0.12);
+  background: rgba(var(--v-theme-surface), 0.96);
+  box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.12);
   color: rgb(var(--v-theme-primary));
 }
 
@@ -1667,16 +1675,20 @@ a.crew-name {
 }
 
 .media-detail-transparent .episode-group-option {
-  backdrop-filter: blur(var(--transparent-blur-light, 6px));
-  background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
+  backdrop-filter: blur(var(--transparent-blur, 10px));
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity, 0.3));
 }
 
 .media-detail-transparent .episode-group-option:hover {
-  background: rgba(var(--v-theme-primary), 0.1);
+  background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
 }
 
 .media-detail-transparent .episode-group-option--active {
-  background: rgba(var(--v-theme-primary), 0.16);
+  background: rgba(var(--v-theme-primary), 0.22);
+}
+
+.media-detail-transparent .episode-group-option--active:hover {
+  background: rgba(var(--v-theme-primary), 0.28);
 }
 
 .media-detail-transparent .episode-group-nav {

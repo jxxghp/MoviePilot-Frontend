@@ -67,6 +67,13 @@ const episodeGroups = ref<{ [key: string]: any }[]>([])
 // 当前选择剧集组
 const episodeGroup = ref(props.initialEpisodeGroup ?? '')
 
+// 剧集组横向轨道
+const episodeGroupRail = ref<HTMLElement | null>(null)
+
+// 剧集组轨道左右滚动状态
+const canScrollEpisodeGroupsBackward = ref(false)
+const canScrollEpisodeGroupsForward = ref(false)
+
 const subscribeModeOptions = computed<SubscribeModeOption[]>(() => [
   {
     title: t('dialog.subscribeMode.normal'),
@@ -173,6 +180,8 @@ async function getEpisodeGroups() {
     episodeGroups.value = await api.get(`media/groups/${props.media?.tmdb_id}`)
   } catch (error) {
     console.error(error)
+  } finally {
+    nextTick(updateEpisodeGroupScrollState)
   }
 }
 
@@ -275,6 +284,32 @@ function setEpisodeGroup(value: string) {
   seasonsNotExisted.value = {}
   seasonInfos.value = []
   episodeGroup.value = value
+  nextTick(updateEpisodeGroupScrollState)
+}
+
+// 刷新剧集组横向轨道的左右滚动按钮状态。
+function updateEpisodeGroupScrollState() {
+  const rail = episodeGroupRail.value
+  if (!rail) {
+    canScrollEpisodeGroupsBackward.value = false
+    canScrollEpisodeGroupsForward.value = false
+    return
+  }
+
+  const maxScrollLeft = Math.max(rail.scrollWidth - rail.clientWidth, 0)
+  canScrollEpisodeGroupsBackward.value = rail.scrollLeft > 4
+  canScrollEpisodeGroupsForward.value = rail.scrollLeft < maxScrollLeft - 4
+}
+
+// 按一屏内可辨识的距离横向滚动剧集组轨道。
+function scrollEpisodeGroups(direction: 'backward' | 'forward') {
+  const rail = episodeGroupRail.value
+  if (!rail) return
+
+  rail.scrollBy({
+    behavior: 'smooth',
+    left: direction === 'backward' ? -Math.max(rail.clientWidth * 0.72, 240) : Math.max(rail.clientWidth * 0.72, 240),
+  })
 }
 
 // 提交当前剧集组下选中的季及其订阅模式。
@@ -395,11 +430,18 @@ watch(() => props.subscribedSeasons, syncSelectedSeason)
 
 watch(() => props.subscribedSeasonModes, syncSelectedSeason)
 
+watch(episodeGroupOptions, () => nextTick(updateEpisodeGroupScrollState), { flush: 'post' })
+
 onMounted(async () => {
+  window.addEventListener('resize', updateEpisodeGroupScrollState)
   // 自定义剧集组由 watchEffect 首次加载，避免默认季数据异步覆盖它。
   if (!episodeGroup.value) getMediaSeasons()
   getEpisodeGroups()
   checkSeasonsNotExists()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateEpisodeGroupScrollState)
 })
 </script>
 
@@ -424,20 +466,44 @@ onMounted(async () => {
           <div class="subscribe-season-group-label">
             {{ t('dialog.subscribeSeason.selectGroup') }}
           </div>
-          <div class="subscribe-season-group-options">
+          <div class="subscribe-season-group-rail-shell">
             <button
-              v-for="group in episodeGroupOptions"
-              :key="group.value || 'default'"
+              v-if="mdAndUp && canScrollEpisodeGroupsBackward"
               type="button"
-              class="subscribe-season-group-option"
-              :class="{ 'subscribe-season-group-option--active': episodeGroup === group.value }"
-              @click="setEpisodeGroup(group.value)"
+              class="subscribe-season-group-nav subscribe-season-group-nav--backward"
+              :aria-label="t('media.episodeGroups.previous')"
+              @click="scrollEpisodeGroups('backward')"
             >
-              <VIcon :icon="group.icon" size="small" />
-              <span class="subscribe-season-group-text">
-                <span class="subscribe-season-group-title">{{ group.title }}</span>
-                <span class="subscribe-season-group-subtitle">{{ group.subtitle }}</span>
-              </span>
+              <VIcon icon="mdi-chevron-left" />
+            </button>
+            <div
+              ref="episodeGroupRail"
+              class="subscribe-season-group-options"
+              @scroll.passive="updateEpisodeGroupScrollState"
+            >
+              <button
+                v-for="group in episodeGroupOptions"
+                :key="group.value || 'default'"
+                type="button"
+                class="subscribe-season-group-option"
+                :class="{ 'subscribe-season-group-option--active': episodeGroup === group.value }"
+                @click="setEpisodeGroup(group.value)"
+              >
+                <VIcon :icon="group.icon" size="small" />
+                <span class="subscribe-season-group-text">
+                  <span class="subscribe-season-group-title">{{ group.title }}</span>
+                  <span class="subscribe-season-group-subtitle">{{ group.subtitle }}</span>
+                </span>
+              </button>
+            </div>
+            <button
+              v-if="mdAndUp && canScrollEpisodeGroupsForward"
+              type="button"
+              class="subscribe-season-group-nav subscribe-season-group-nav--forward"
+              :aria-label="t('media.episodeGroups.next')"
+              @click="scrollEpisodeGroups('forward')"
+            >
+              <VIcon icon="mdi-chevron-right" />
             </button>
           </div>
         </div>
@@ -577,27 +643,39 @@ onMounted(async () => {
   line-height: 1rem;
 }
 
+.subscribe-season-group-rail-shell {
+  position: relative;
+  min-inline-size: 0;
+}
+
 .subscribe-season-group-options {
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
   padding-block: 0.125rem 0.375rem;
-  scrollbar-width: thin;
+  scroll-behavior: smooth;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+}
+
+.subscribe-season-group-options::-webkit-scrollbar {
+  display: none;
 }
 
 .subscribe-season-group-option {
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 0 12rem;
   align-items: center;
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 0.72);
+  background: rgba(var(--v-theme-surface), 0.82);
   color: rgb(var(--v-theme-on-surface));
   gap: 0.5rem;
-  max-inline-size: 16rem;
-  min-inline-size: 11rem;
+  min-inline-size: 0;
   padding-block: 0.5rem;
   padding-inline: 0.75rem;
+  scroll-snap-align: start;
   text-align: start;
   transition:
     border-color 0.16s ease,
@@ -607,13 +685,24 @@ onMounted(async () => {
 
 .subscribe-season-group-option:hover {
   border-color: rgba(var(--v-theme-primary), 0.45);
-  background: rgba(var(--v-theme-primary), 0.08);
+  background: rgba(var(--v-theme-surface), 0.9);
+  box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .subscribe-season-group-option--active {
   border-color: rgb(var(--v-theme-primary));
-  background: rgba(var(--v-theme-primary), 0.14);
+  background: rgba(var(--v-theme-primary), 0.18);
   color: rgb(var(--v-theme-primary));
+}
+
+.subscribe-season-group-option--active:hover {
+  background: rgba(var(--v-theme-primary), 0.24);
+}
+
+.subscribe-season-group-option:focus-visible,
+.subscribe-season-group-nav:focus-visible {
+  outline: 2px solid rgba(var(--v-theme-primary), 0.45);
+  outline-offset: 2px;
 }
 
 .subscribe-season-group-text {
@@ -642,6 +731,42 @@ onMounted(async () => {
 
 .subscribe-season-group-option--active .subscribe-season-group-subtitle {
   color: rgba(var(--v-theme-primary), 0.82);
+}
+
+.subscribe-season-group-nav {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: var(--app-grouped-list-backdrop-filter, blur(var(--transparent-blur-light, 6px)));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 9999px;
+  background: rgba(var(--v-theme-surface), 0.96);
+  block-size: 2.5rem;
+  color: rgb(var(--v-theme-on-surface));
+  inline-size: 2.5rem;
+  inset-block-start: 50%;
+  transform: translateY(-55%);
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.subscribe-season-group-nav:hover {
+  border-color: rgba(var(--v-theme-primary), 0.45);
+  background: rgba(var(--v-theme-surface), 0.96);
+  box-shadow: 0 6px 18px rgba(var(--v-theme-on-surface), 0.12);
+  color: rgb(var(--v-theme-primary));
+}
+
+.subscribe-season-group-nav--backward {
+  inset-inline-start: -0.5rem;
+}
+
+.subscribe-season-group-nav--forward {
+  inset-inline-end: -0.5rem;
 }
 
 .subscribe-season-list {
@@ -706,8 +831,13 @@ onMounted(async () => {
   }
 
   .subscribe-season-group-option {
-    max-inline-size: 12rem;
-    min-inline-size: 9.5rem;
+    flex-basis: 10rem;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .subscribe-season-group-nav {
+    display: none;
   }
 }
 </style>
