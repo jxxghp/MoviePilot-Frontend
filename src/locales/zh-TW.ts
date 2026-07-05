@@ -1964,6 +1964,9 @@ export default {
       userKeyHint: 'CookieCloud瀏覽器插件生成的用戶KEY',
       e2ePassword: '端對端加密密碼',
       e2ePasswordHint: 'CookieCloud瀏覽器插件生成的端對端加密密碼',
+      cookieCloudAuthHeader: '上傳認證 Header',
+      cookieCloudAuthHeaderHint:
+        '留空表示關閉上傳認證並保持原 CookieCloud 相容；啟用後上傳端或反向代理需要發送 X-CookieCloud-Auth。',
       autoSyncInterval: '自動同步間隔',
       autoSyncIntervalHint: '從CookieCloud服務器自動同步站點Cookie到MoviePilot的時間間隔',
       syncBlacklist: '同步域名黑名單',
