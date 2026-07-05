@@ -1267,6 +1267,14 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
     pointer-events: auto;
   }
 
+  // 展开后的页面操作栈应优先接收指针，避免被停靠的智能助手入口截走 hover。
+  html:not([data-agent-assistant-open='true']):not([data-theme-customizer-open='true'])
+    .compact-fab-stack:has(> :nth-child(2)):hover,
+  html:not([data-agent-assistant-open='true']):not([data-theme-customizer-open='true'])
+    .compact-fab-stack:has(> :nth-child(2)):focus-within {
+    z-index: 2101;
+  }
+
   .compact-fab-stack:has(> :nth-child(2):last-child) {
     --compact-fab-count: 2;
   }
