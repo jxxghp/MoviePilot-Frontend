@@ -804,7 +804,7 @@ onUnmounted(() => {
             "
             variant="tonal"
             color="primary"
-            class="mb-2"
+            class="media-action-button"
           >
             <template #prepend>
               <VIcon icon="mdi-magnify" />
@@ -828,7 +828,7 @@ onUnmounted(() => {
             "
             variant="tonal"
             color="info"
-            class="ms-2 mb-2"
+            class="media-action-button"
             @click="handleSubtitleSearch"
           >
             <template #prepend>
@@ -838,7 +838,7 @@ onUnmounted(() => {
           </VBtn>
           <VBtn
             v-if="canSubscribe && (mediaDetail.type === '电影' || mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id)"
-            class="ms-2 mb-2"
+            class="media-action-button"
             :color="getSubscribeColor"
             variant="tonal"
             @click="handleSubscribe()"
@@ -848,7 +848,7 @@ onUnmounted(() => {
             </template>
             {{ getSubscribeText }}
           </VBtn>
-          <VBtn v-if="existsItemId" class="ms-2 mb-2" variant="tonal" @click="handlePlay()">
+          <VBtn v-if="existsItemId" class="media-action-button" variant="tonal" @click="handlePlay()">
             <template #prepend>
               <VIcon icon="mdi-play" />
             </template>
@@ -1469,13 +1469,28 @@ a.crew-name {
 }
 
 .media-actions {
+  --media-action-gap: 0.75rem;
+
   position: relative;
-  display: flex;
+  display: grid;
   flex-shrink: 0;
-  flex-wrap: wrap;
-  align-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--media-action-gap);
+  inline-size: min(100%, 22rem);
   justify-content: center;
   margin-block-start: 1rem;
+}
+
+.media-action-button {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.media-actions > .media-action-button:only-child,
+.media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
+  grid-column: 1 / -1;
+  inline-size: calc((100% - var(--media-action-gap)) / 2);
+  justify-self: center;
 }
 
 @media (width >= 1280px) {
@@ -1486,8 +1501,16 @@ a.crew-name {
 
 @media (width >= 640px) {
   .media-actions {
-    flex-wrap: nowrap;
+    display: flex;
+    gap: 0.5rem;
+    inline-size: auto;
     justify-content: flex-end;
+  }
+
+  .media-action-button,
+  .media-actions > .media-action-button:only-child,
+  .media-actions > .media-action-button:last-child:nth-child(odd):not(:first-child) {
+    inline-size: auto;
   }
 }
 
