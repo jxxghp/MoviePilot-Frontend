@@ -800,7 +800,6 @@ onUnmounted(() => {
                   <VCheckbox
                     v-model="form.remember"
                     :label="t('login.stayLoggedIn')"
-                    required
                     hide-details
                     density="compact"
                     class="login-checkbox"
