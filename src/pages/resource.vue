@@ -19,6 +19,7 @@ import { useToast } from 'vue-toastification'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { getCurrentLocale } from '@/plugins/i18n'
 
 // 国际化
 const { t } = useI18n()
@@ -575,6 +576,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
   if (requestToken) {
     setSearchParam(url.searchParams, '_ts', requestToken)
   }
+  setSearchParam(url.searchParams, 'locale', getCurrentLocale())
 
   return url.toString()
 }
@@ -605,8 +607,9 @@ function hasLoadedEmptySearchResult() {
 
 // 更新搜索进度
 function updateSearchProgress(eventData: { [key: string]: any }, flushNow: boolean = false) {
-  if (eventData.text) {
-    pendingProgressText = eventData.text
+  const text = eventData.text_i18n || eventData.text
+  if (text) {
+    pendingProgressText = text
   }
   if (typeof eventData.value === 'number') {
     pendingProgressValue = eventData.value
@@ -707,7 +710,7 @@ function getSubtitleItemKey(item: SubtitleInfo, index: number) {
 function handleSearchStreamMessage(eventData: { [key: string]: any }) {
   if (eventData.type === 'error') {
     updateSearchProgress(eventData, true)
-    errorDescription.value = eventData.message || t('resource.noResourceFound')
+    errorDescription.value = eventData.message_i18n || eventData.message || t('resource.noResourceFound')
     return
   }
 
@@ -1116,7 +1119,14 @@ async function pollAiRecommend() {
       console.error('AI功能未启用')
     } else {
       // 错误情况（status === 'error' 或 success 为 false）
-      const errMsg = result.message || data?.error || data?.message || 'Unknown error'
+      const errMsg =
+        result.message_i18n ||
+        result.message ||
+        data?.error_i18n ||
+        data?.error ||
+        data?.message_i18n ||
+        data?.message ||
+        'Unknown error'
       console.error('智能推荐错误:', errMsg)
       toast.error(`${t('resource.aiRecommendError')}: ${errMsg}`)
     }

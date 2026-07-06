@@ -4,6 +4,7 @@ import mdLinkAttributes from 'markdown-it-link-attributes'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useUserStore } from '@/stores'
+import { getCurrentLocale } from '@/plugins/i18n'
 
 type AgentMessageRole = 'user' | 'assistant'
 type AgentMessageStatus = 'idle' | 'streaming' | 'done' | 'error'
@@ -88,6 +89,7 @@ interface AgentStreamEvent {
   choice?: Omit<AgentChoiceCard, 'status'>
   content?: string
   message?: string
+  message_i18n?: string
   message_id?: string
   target_message?: Partial<AgentChatMessage> & { id?: string }
   session_id?: string
@@ -622,19 +624,16 @@ function dedupeHistorySessions(sessions: AgentSessionHistoryItem[]) {
 
 // 调用智能助手接口，并统一处理鉴权和标准响应格式。
 async function fetchAgentApi(path: string, options: RequestInit = {}) {
-  const headers = new Headers(options.headers || {})
-  if (authStore.token) headers.set('Authorization', `Bearer ${authStore.token}`)
-
   const response = await fetch(resolveApiUrl(path), {
     ...options,
-    headers,
+    headers: buildAgentRequestHeaders(options.headers),
     credentials: 'include',
   })
 
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+  if (!response.ok) throw new Error(await resolveAgentResponseErrorMessage(response))
 
   const result = await response.json()
-  if (!result?.success) throw new Error(result?.message || t('agentAssistant.error'))
+  if (!result?.success) throw new Error(result?.message_i18n || result?.message || t('agentAssistant.error'))
 
   return result.data
 }
@@ -981,6 +980,31 @@ function resolveApiUrl(path: string) {
   return `${baseUrl.replace(/\/?$/, '/')}${path.replace(/^\//, '')}`
 }
 
+// 构造智能助手 fetch 请求头，补齐 Axios 拦截器无法覆盖的鉴权和语言信息。
+function buildAgentRequestHeaders(headers?: HeadersInit) {
+  const requestHeaders = new Headers(headers || {})
+  const locale = getCurrentLocale()
+
+  if (authStore.token) requestHeaders.set('Authorization', `Bearer ${authStore.token}`)
+  requestHeaders.set('X-MoviePilot-Locale', locale)
+  requestHeaders.set('Accept-Language', locale)
+
+  return requestHeaders
+}
+
+// 解析智能助手 fetch 失败响应，优先使用后端返回的本地化错误文本。
+async function resolveAgentResponseErrorMessage(response: Response) {
+  try {
+    const payload = await response.clone().json()
+    const message = payload?.detail_i18n || payload?.message_i18n || payload?.detail || payload?.message
+    if (typeof message === 'string' && message) return message
+  } catch {
+    // 非 JSON 错误响应保留 HTTP 状态文本，避免吞掉原始错误。
+  }
+
+  return `${response.status} ${response.statusText}`.trim()
+}
+
 // 消息主列表使用原生滚动，避免流式回复时 JS 滚动库频繁测量影响手感。
 function getMessageScrollerElement() {
   return messageListRef.value
@@ -1194,7 +1218,7 @@ function applyStreamEvent(event: AgentStreamEvent, assistantMessage: AgentChatMe
     case 'error':
       assistantMessage.status = 'error'
       // 后端流式错误已经以 AI 消息展示，避免底部提示条重复且持续占位。
-      assistantMessage.content ||= event.message || t('agentAssistant.error')
+      assistantMessage.content ||= event.message_i18n || event.message || t('agentAssistant.error')
       emit('assistant-preview', assistantMessage.content)
       markToolsDone(assistantMessage)
       break
@@ -1370,17 +1394,15 @@ async function uploadAgentAttachment(file: File) {
 
   const response = await fetch(resolveApiUrl('message/agent/upload'), {
     method: 'POST',
-    headers: {
-      ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
-    },
+    headers: buildAgentRequestHeaders(),
     body: formData,
     credentials: 'include',
   })
 
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+  if (!response.ok) throw new Error(await resolveAgentResponseErrorMessage(response))
 
   const result = await response.json()
-  if (!result?.success) throw new Error(result?.message || t('agentAssistant.uploadFailed'))
+  if (!result?.success) throw new Error(result?.message_i18n || result?.message || t('agentAssistant.uploadFailed'))
 
   return result.data as AgentMessageAttachment & AgentOutgoingFile
 }
@@ -1452,10 +1474,9 @@ async function streamAgentMessage(
   try {
     const response = await fetch(resolveApiUrl('message/agent/stream'), {
       method: 'POST',
-      headers: {
+      headers: buildAgentRequestHeaders({
         'Content-Type': 'application/json',
-        ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
-      },
+      }),
       body: JSON.stringify({
         text: content,
         display_text: displayContent || content,
@@ -1473,7 +1494,7 @@ async function streamAgentMessage(
     })
 
     if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`.trim())
+      throw new Error(await resolveAgentResponseErrorMessage(response))
     }
 
     await readAgentStream(response, assistantMessage)
@@ -1698,10 +1719,9 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
   try {
     const response = await fetch(resolveApiUrl('message/agent/callback'), {
       method: 'POST',
-      headers: {
+      headers: buildAgentRequestHeaders({
         'Content-Type': 'application/json',
-        ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
-      },
+      }),
       body: JSON.stringify({
         session_id: sessionId.value,
         callback_data: button.callback_data,
@@ -1711,10 +1731,10 @@ async function handleChoiceClick(message: AgentChatMessage, choice: AgentChoiceC
       credentials: 'include',
     })
 
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
+    if (!response.ok) throw new Error(await resolveAgentResponseErrorMessage(response))
 
     const result = await response.json()
-    if (!result?.success) throw new Error(result?.message || t('agentAssistant.choiceExpired'))
+    if (!result?.success) throw new Error(result?.message_i18n || result?.message || t('agentAssistant.choiceExpired'))
 
     const agentMessage = String(result.data?.message || '')
     if (result.data?.traditional) {

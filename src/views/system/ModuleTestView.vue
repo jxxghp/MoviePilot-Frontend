@@ -9,6 +9,19 @@ const { t } = useI18n()
 // 主题
 const theme = useTheme()
 
+interface ModuleListItem {
+  id: string
+  name: string
+  name_i18n?: string
+  name_key?: string
+}
+
+interface ModuleTestResponse {
+  success: boolean
+  message?: string
+  message_i18n?: string
+}
+
 // 定义所有的模块ID、名称列表
 const modules = ref<
   {
@@ -38,9 +51,9 @@ async function getModules() {
       const moduleList = result.data?.modules
       if (moduleList) {
         // 初始化模块列表
-        modules.value = moduleList.map((module: { id: string; name: string }, index: number) => ({
+        modules.value = moduleList.map((module: ModuleListItem, index: number) => ({
           id: module.id,
-          name: module.name,
+          name: module.name_i18n || module.name,
           state: undefined,
           errmsg: '',
           loading: false,
@@ -91,7 +104,7 @@ async function moduleTest(index: number) {
     const moduleid = target.id
     target.loading = true
 
-    const result: { [key: string]: any } = await api.get(`system/moduletest/${moduleid}`)
+    const result = (await api.get(`system/moduletest/${moduleid}`)) as ModuleTestResponse
     target.loading = false
 
     if (result.success) {
@@ -103,14 +116,14 @@ async function moduleTest(index: number) {
     } else {
       target.state = 'error'
       target.name = `${target.name} - ${t('moduleTest.error')}！`
-      target.errmsg = result.message
+      target.errmsg = result.message_i18n || result.message || ''
     }
   } catch (error) {
     console.error(error)
     const target = modules.value[index]
     target.loading = false
     target.state = 'error'
-    target.errmsg = '网络请求失败'
+    target.errmsg = t('moduleTest.requestFailed')
   }
 }
 

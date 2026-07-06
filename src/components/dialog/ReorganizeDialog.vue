@@ -1019,6 +1019,19 @@ function mergePreviewData(target: ManualTransferPreviewData, incoming?: ManualTr
   }
 }
 
+// 从标准响应中提取可展示的整理预览数据，优先保留顶层本地化消息。
+function resolvePreviewResponseData(result: ApiResponse<ManualTransferPreviewData>) {
+  if (!result.data) return result.data
+
+  const message = result.message_i18n || result.message || result.data.message
+  if (!message || message === result.data.message) return result.data
+
+  return {
+    ...result.data,
+    message,
+  }
+}
+
 // 预览整理结果
 async function previewTransfer() {
   if (!props.logids && !normalizedItems.value.length) return
@@ -1046,7 +1059,7 @@ async function previewTransfer() {
               }),
             )
           } else {
-            mergePreviewData(mergedPreviewData, result.data)
+            mergePreviewData(mergedPreviewData, resolvePreviewResponseData(result))
           }
         } catch (err: any) {
           console.warn(`预览请求异常: ${err?.message}`)
@@ -1078,7 +1091,7 @@ async function previewTransfer() {
                 return
               }
 
-              mergePreviewData(mergedPreviewData, result.data)
+              mergePreviewData(mergedPreviewData, resolvePreviewResponseData(result))
             } catch (err: any) {
               console.warn(`预览请求异常: ${err?.message}`)
               mergePreviewData(
@@ -1114,7 +1127,7 @@ async function previewTransfer() {
               return
             }
 
-            mergePreviewData(mergedPreviewData, result.data)
+            mergePreviewData(mergedPreviewData, resolvePreviewResponseData(result))
           } catch (err: any) {
             console.warn(`预览请求异常: ${err?.message}`)
             mergePreviewData(
@@ -1196,7 +1209,7 @@ async function handleTransferLog(logid: number, background: boolean = false) {
 function handleProgressMessage(event: MessageEvent) {
   const progress = JSON.parse(event.data)
   if (progress) {
-    progressText.value = progress.text
+    progressText.value = progress.text_i18n || progress.text
     progressValue.value = progress.value
   }
 }

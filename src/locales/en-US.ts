@@ -1528,6 +1528,7 @@ export default {
     preparing: 'Preparing...',
     totalModules: 'Total Modules',
     recheck: 'Recheck',
+    requestFailed: 'Network request failed',
   },
   nameTest: {
     recognize: 'Recognize',

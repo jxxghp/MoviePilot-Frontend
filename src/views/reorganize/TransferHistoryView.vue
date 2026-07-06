@@ -799,11 +799,11 @@ async function handleAiRedoProgressMessage(event: MessageEvent) {
   const progress = JSON.parse(event.data)
   if (!progress) return
 
-  aiRedoProgressText.value = progress.text || t('transferHistory.actions.aiRedoPending')
+  aiRedoProgressText.value = progress.text_i18n || progress.text || t('transferHistory.actions.aiRedoPending')
   aiRedoProgressDialogController?.updateProps({ text: aiRedoProgressText.value })
 
   if (progress.enable === false) {
-    await finishAiRedo(progress.data?.success !== false, progress.data?.error)
+    await finishAiRedo(progress.data?.success !== false, progress.data?.error_i18n || progress.data?.error)
   }
 }
 

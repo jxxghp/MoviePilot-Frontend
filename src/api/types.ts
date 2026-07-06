@@ -1072,14 +1072,20 @@ export interface ScheduleProgress {
   id?: string
   // 名称
   name?: string
+  // 多语言名称
+  name_i18n?: string
   // 提供者
   provider?: string
+  // 多语言提供者
+  provider_i18n?: string
   // 是否正在执行
   enable?: boolean
   // 当前完成百分比
   value?: number
   // 当前进度文本
   text?: string
+  // 多语言进度文本
+  text_i18n?: string
   // 执行状态
   status?: string
   // 最近一次执行是否成功
@@ -1090,6 +1096,8 @@ export interface ScheduleProgress {
   finished_at?: string
   // 最近一次错误信息
   error?: string
+  // 多语言错误信息
+  error_i18n?: string
   // 扩展数据
   data?: Record<string, unknown>
 }
@@ -1100,16 +1108,26 @@ export interface ScheduleInfo {
   id: string
   // 名称
   name: string
+  // 多语言名称
+  name_i18n?: string
   // 提供者
   provider: string
+  // 多语言提供者
+  provider_i18n?: string
   // 状态
   status: string
+  // 多语言状态
+  status_i18n?: string
   // 下次运行时间
   next_run: string
+  // 多语言下次运行时间
+  next_run_i18n?: string
   // 当前完成百分比
   progress?: number
   // 进度文本
   progress_text?: string
+  // 多语言进度文本
+  progress_text_i18n?: string
   // 是否正在更新进度
   progress_enable?: boolean
   // 进度详情
@@ -1719,6 +1737,7 @@ export interface SubscribeShareStatistics {
 export interface ApiResponse<T = any> {
   success: boolean
   message?: string
+  message_i18n?: string
   data: T
 }
 

@@ -4,7 +4,15 @@ import api from '@/api'
 import type { ScheduleInfo } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
-import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
+import {
+  getScheduleName,
+  getScheduleNextRunText,
+  getScheduleProvider,
+  getScheduleStatusText,
+  isScheduleRunning,
+  isScheduleWaiting,
+  useScheduleProgress,
+} from '@/composables/useScheduleProgress'
 import { getSchedulerVisual } from '@/utils/schedulerVisual'
 
 // 国际化
@@ -33,31 +41,17 @@ async function loadSchedulerList() {
 }
 
 /** 根据任务状态返回桌面端状态标签颜色。 */
-function getSchedulerColor(status: string) {
-  switch (status) {
-    case t('setting.scheduler.running'):
-      return 'success'
-    case t('setting.scheduler.stopped'):
-      return 'error'
-    case t('setting.scheduler.waiting'):
-      return ''
-    default:
-      return ''
-  }
+function getSchedulerColor(scheduler: ScheduleInfo) {
+  if (isScheduleRunning(scheduler)) return 'success'
+  if (isScheduleWaiting(scheduler)) return ''
+  return ''
 }
 
 /** 根据任务状态返回移动端状态胶囊的语义样式。 */
-function getSchedulerStatusVariant(status: string) {
-  switch (status) {
-    case t('setting.scheduler.running'):
-      return 'running'
-    case t('setting.scheduler.stopped'):
-      return 'stopped'
-    case t('setting.scheduler.waiting'):
-      return 'waiting'
-    default:
-      return 'default'
-  }
+function getSchedulerStatusVariant(scheduler: ScheduleInfo) {
+  if (isScheduleRunning(scheduler)) return 'running'
+  if (isScheduleWaiting(scheduler)) return 'waiting'
+  return 'default'
 }
 
 /** 将后端返回的紧凑时间差转换为更适合移动端展示的文本。 */
@@ -67,15 +61,15 @@ function formatMobileNextRunTime(nextRun?: string) {
 
 /** 获取移动端状态胶囊文案；等待状态展示为下次运行倒计时。 */
 function getMobileSchedulerStatusText(scheduler: ScheduleInfo) {
-  if (scheduler.status === t('setting.scheduler.waiting')) {
-    const readableNextRun = formatMobileNextRunTime(scheduler.next_run)
+  if (isScheduleWaiting(scheduler)) {
+    const readableNextRun = formatMobileNextRunTime(getScheduleNextRunText(scheduler))
 
     return readableNextRun
       ? t('setting.scheduler.mobileWaitingAfter', { time: readableNextRun })
       : t('setting.scheduler.mobileNoNextRun')
   }
 
-  return scheduler.status
+  return getScheduleStatusText(scheduler)
 }
 
 /** 执行指定定时服务，并在短延迟后刷新列表。 */
@@ -108,7 +102,7 @@ const mobileSchedulerCards = computed(() =>
       progressValue: isRunning ? getScheduleProgressValue(scheduler) : 0,
       scheduler,
       statusText: getMobileSchedulerStatusText(scheduler),
-      statusVariant: getSchedulerStatusVariant(scheduler.status),
+      statusVariant: getSchedulerStatusVariant(scheduler),
       visual: getSchedulerVisual(scheduler),
     }
   }),
@@ -138,10 +132,10 @@ const { loading: schedulerLoading } = useDataRefresh(
       <tbody>
         <tr v-for="scheduler in schedulerList" :key="scheduler.id">
           <td>
-            {{ scheduler.provider }}
+            {{ getScheduleProvider(scheduler) }}
           </td>
           <td class="scheduler-task-cell">
-            <div>{{ scheduler.name }}</div>
+            <div>{{ getScheduleName(scheduler) }}</div>
             <div v-if="isScheduleRunning(scheduler)" class="scheduler-progress">
               <VProgressLinear
                 :model-value="getScheduleProgressValue(scheduler)"
@@ -150,18 +144,18 @@ const { loading: schedulerLoading } = useDataRefresh(
                 rounded
               />
               <div class="scheduler-progress-meta">
-                <span>{{ getScheduleProgressText(scheduler) || scheduler.status }}</span>
+                <span>{{ getScheduleProgressText(scheduler) || getScheduleStatusText(scheduler) }}</span>
                 <strong>{{ Math.round(getScheduleProgressValue(scheduler)) }}%</strong>
               </div>
             </div>
           </td>
           <td>
-            <VChip :color="getSchedulerColor(scheduler.status)">
-              {{ scheduler.status }}
+            <VChip :color="getSchedulerColor(scheduler)">
+              {{ getScheduleStatusText(scheduler) }}
             </VChip>
           </td>
           <td>
-            {{ scheduler.next_run }}
+            {{ getScheduleNextRunText(scheduler) }}
           </td>
           <td>
             <VBtn
@@ -214,8 +208,8 @@ const { loading: schedulerLoading } = useDataRefresh(
         </div>
 
         <div class="mobile-scheduler-content">
-          <h3>{{ scheduler.name }}</h3>
-          <p>{{ scheduler.provider }}</p>
+          <h3>{{ getScheduleName(scheduler) }}</h3>
+          <p>{{ getScheduleProvider(scheduler) }}</p>
         </div>
 
         <div class="mobile-scheduler-actions">
@@ -236,7 +230,7 @@ const { loading: schedulerLoading } = useDataRefresh(
         <div v-if="isRunning" class="mobile-scheduler-progress">
           <VProgressLinear :model-value="progressValue" color="primary" height="4" rounded />
           <div class="scheduler-progress-meta">
-            <span>{{ progressText || scheduler.status }}</span>
+            <span>{{ progressText || getScheduleStatusText(scheduler) }}</span>
             <strong>{{ Math.round(progressValue) }}%</strong>
           </div>
         </div>

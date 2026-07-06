@@ -1520,6 +1520,7 @@ export default {
     preparing: '準備檢查...',
     totalModules: '總模組數',
     recheck: '重新檢查',
+    requestFailed: '網路請求失敗',
   },
   nameTest: {
     recognize: '識別',

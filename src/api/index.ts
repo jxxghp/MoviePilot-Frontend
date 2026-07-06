@@ -3,6 +3,7 @@ import router from '@/router'
 import { useAuthStore } from '@/stores'
 import { initializeRequestOptimizer } from '@/utils/requestOptimizer'
 import { useGlobalOfflineStatus } from '@/composables/useOfflineStatus'
+import { getCurrentLocale } from '@/plugins/i18n'
 
 // 创建axios实例
 const api = axios.create({
@@ -34,6 +35,9 @@ api.interceptors.request.use(config => {
   if (authStore.token) {
     config.headers.Authorization = `Bearer ${authStore.token}`
   }
+  const locale = getCurrentLocale()
+  config.headers['X-MoviePilot-Locale'] = locale
+  config.headers['Accept-Language'] = locale
   return config
 })
 
@@ -51,12 +55,33 @@ function resolveConnectionFailureReason(error: AxiosError): 'network-error' | 't
   return null
 }
 
+interface LocalizedApiPayload {
+  detail?: unknown
+  detail_i18n?: unknown
+  message?: unknown
+  message_i18n?: unknown
+}
+
+/** 前端展示默认使用后端提供的多语言消息，同时不改变后端接口兼容字段。 */
+function normalizeLocalizedMessage(payload: any): any {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload
+
+  const localizedPayload = payload as LocalizedApiPayload
+  if (typeof localizedPayload.message_i18n === 'string' && localizedPayload.message_i18n) {
+    localizedPayload.message = localizedPayload.message_i18n
+  }
+  if (typeof localizedPayload.detail_i18n === 'string' && localizedPayload.detail_i18n) {
+    localizedPayload.detail = localizedPayload.detail_i18n
+  }
+  return payload
+}
+
 // 添加响应拦截器
 api.interceptors.response.use(
   response => {
     // 任意 API 成功响应都可以证明 MoviePilot 服务当前可达。
     globalOfflineStatus.markServerOnline()
-    return response.data
+    return normalizeLocalizedMessage(response.data)
   },
   (error: AxiosError) => {
     if (!error.response) {
@@ -81,12 +106,15 @@ api.interceptors.response.use(
       // 其他网络错误
       return Promise.reject(new Error(error.message || 'Network error'))
     } else if (error.response.status === 403) {
+      normalizeLocalizedMessage(error.response.data)
       // 认证 Store
       const authStore = useAuthStore()
       // 清除登录状态信息
       authStore.logout()
       // token验证失败，跳转到登录页面
       router.push('/login')
+    } else {
+      normalizeLocalizedMessage(error.response.data)
     }
 
     return Promise.reject(error)

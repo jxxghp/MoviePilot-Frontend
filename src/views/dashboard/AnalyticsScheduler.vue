@@ -3,7 +3,14 @@ import api from '@/api'
 import type { ScheduleInfo, TransferQueue } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 import { useBackground } from '@/composables/useBackground'
-import { isScheduleRunning, useScheduleProgress } from '@/composables/useScheduleProgress'
+import {
+  getScheduleName,
+  getScheduleNextRunText,
+  getScheduleProvider,
+  getScheduleStatusText,
+  isScheduleRunning,
+  useScheduleProgress,
+} from '@/composables/useScheduleProgress'
 import { getSchedulerVisual } from '@/utils/schedulerVisual'
 
 // 国际化
@@ -47,9 +54,14 @@ const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
 
     return {
       id: `schedule-${item.id}`,
-      title: item.name || t('dashboard.scheduler'),
-      subtitle: (isRunning && getScheduleProgressText(item)) || item.provider || item.next_run || '',
-      status: isRunning ? t('dashboard.taskRunning') : item.status || t('dashboard.taskWaiting'),
+      title: getScheduleName(item) || t('dashboard.scheduler'),
+      subtitle:
+        (isRunning && getScheduleProgressText(item)) ||
+        getScheduleProvider(item) ||
+        getScheduleNextRunText(item),
+      status: isRunning
+        ? t('dashboard.taskRunning')
+        : getScheduleStatusText(item) || t('dashboard.taskWaiting'),
       icon: visual.icon,
       color: visual.color,
       progress: isRunning ? getScheduleProgressValue(item) : undefined,

@@ -1,9 +1,24 @@
 import { getCurrentInstance, onMounted, onUnmounted, ref, type Ref } from 'vue'
 import { sseManagerSingleton, type SSEManagerOptions } from '@/utils/sseManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
+import { getCurrentLocale } from '@/plugins/i18n'
 
 type UseSSEOptions = Partial<SSEManagerOptions> & {
   connectDelay?: number
+}
+
+/** 为 SSE 请求补充当前前端语言，弥补 EventSource 不能设置自定义请求头的问题。 */
+function appendLocaleParam(url: string) {
+  const locale = getCurrentLocale()
+
+  try {
+    const parsedUrl = new URL(url, window.location.origin)
+    parsedUrl.searchParams.set('locale', locale)
+    return parsedUrl.toString()
+  } catch {
+    const separator = url.includes('?') ? '&' : '?'
+    return `${url}${separator}locale=${encodeURIComponent(locale)}`
+  }
 }
 
 /**
@@ -180,12 +195,15 @@ export function useBackground() {
     listenerId: string,
     isActive: Ref<boolean>,
   ) => {
-    const getManager = () =>
-      sseManagerSingleton.getIndependentManager(url, listenerId, {
+    let managerUrl = ''
+    const getManager = () => {
+      managerUrl = appendLocaleParam(url)
+      return sseManagerSingleton.getIndependentManager(managerUrl, listenerId, {
         backgroundCloseDelay: 1000, // 进度SSE更快关闭
         reconnectDelay: 1000,
         maxReconnectAttempts: 5,
       })
+    }
 
     let manager: ReturnType<typeof getManager> | null = null
     let isListening = false
@@ -207,8 +225,9 @@ export function useBackground() {
       manager.removeMessageListener(listenerId)
 
       if (destroyManager) {
-        sseManagerSingleton.closeIndependentManager(url, listenerId)
+        sseManagerSingleton.closeIndependentManager(managerUrl || appendLocaleParam(url), listenerId)
         manager = null
+        managerUrl = ''
       }
 
       isListening = false

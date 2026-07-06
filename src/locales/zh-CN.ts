@@ -1521,6 +1521,7 @@ export default {
     preparing: '准备检查...',
     totalModules: '总模块数',
     recheck: '重新检查',
+    requestFailed: '网络请求失败',
   },
   nameTest: {
     recognize: '识别',
