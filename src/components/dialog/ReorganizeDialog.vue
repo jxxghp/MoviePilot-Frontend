@@ -10,6 +10,7 @@ import {
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
+  MediaInfo,
   StorageConf,
   TransferDirectoryConf,
   TransferForm,
@@ -122,6 +123,20 @@ interface TargetDirectoryOption {
 }
 
 const AUTO_TARGET_PATH_VALUE = '__moviepilot_auto_target_path__'
+
+// 媒体类型映射到手动整理接口接受的类型名。
+function resolveTransferMediaType(type?: string) {
+  const normalizedType = type?.trim().toLowerCase()
+  if (!normalizedType) return undefined
+
+  const movieTypes = ['电影', 'movie']
+  if (movieTypes.includes(normalizedType)) return '电影'
+
+  const tvTypes = ['电视剧', 'tv', 'series']
+  if (tvTypes.includes(normalizedType)) return '电视剧'
+
+  return undefined
+}
 
 // 生成文件项稳定键，用于去重和状态同步。
 function getFileItemKey(item?: FileItem) {
@@ -297,6 +312,14 @@ const transferForm = reactive<TransferForm>({
   library_category_folder: null,
   episode_group: null,
 })
+
+// 处理媒体搜索结果选择，同步搜索结果中已识别的媒体类型。
+function handleMediaSelected(item: Pick<MediaInfo, 'type'>) {
+  const typeName = resolveTransferMediaType(item.type)
+  if (!typeName) return
+
+  transferForm.type_name = typeName
+}
 
 // 所有媒体库目录
 const directories = ref<TransferDirectoryConf[]>([])
@@ -1727,12 +1750,14 @@ onUnmounted(() => {
         v-if="mediaSource === 'themoviedb'"
         v-model="transferForm.tmdbid"
         @close="mediaSelectorDialog = false"
+        @select="handleMediaSelected"
         :type="mediaSource"
       />
       <MediaIdSelector
         v-else
         v-model="transferForm.doubanid"
         @close="mediaSelectorDialog = false"
+        @select="handleMediaSelected"
         :type="mediaSource"
       />
     </VDialog>

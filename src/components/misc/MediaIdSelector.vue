@@ -8,15 +8,22 @@ const props = defineProps({
 })
 
 interface TmdbItem {
+  // 媒体标题
   title: string
+  // 媒体简介，包含类型标签
   overview: string
+  // TMDB ID
   tmdbid: number
+  // 豆瓣 ID
   doubanid: string
+  // 海报地址
   poster: string
+  // 媒体类型
+  type?: string
 }
 
 // update:modelValue 事件
-const emit = defineEmits(['update:modelValue', 'close'])
+const emit = defineEmits(['update:modelValue', 'select', 'close'])
 
 const items = ref<TmdbItem[]>([])
 
@@ -29,9 +36,10 @@ const loading = ref(false)
 // ref
 const inputKeyword = ref<HTMLElement | null>(null)
 
-// 选中条目
+// 选中条目并通知父组件同步额外媒体信息。
 function selectMedia(item: TmdbItem) {
   emit('update:modelValue', item.tmdbid || item.doubanid)
+  emit('select', item)
   emit('close')
 }
 
@@ -66,6 +74,7 @@ async function searchMedias() {
         tmdbid: item.tmdb_id || 0,
         doubanid: item.douban_id || '',
         poster: getW500Image(item.poster_path),
+        type: item.type,
         title: `${item.title}（${item.year}）`,
         overview: `<span class="text-primary">${item.type}</span> ${item.overview}`,
       })
