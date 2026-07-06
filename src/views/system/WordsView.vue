@@ -853,6 +853,7 @@ onMounted(() => {
 }
 
 .words-help-panels {
+  min-inline-size: 0;
   margin-block-start: 1rem;
 }
 
@@ -876,9 +877,13 @@ onMounted(() => {
 }
 
 .words-help-content {
+  min-inline-size: 0;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.78rem;
   line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .words-editor-footer {
