@@ -1238,6 +1238,13 @@ export default {
     reRecommend: '重新生成推薦',
     aiRecommendError: '智能推薦失敗',
     refreshSearch: '重新搜尋',
+    probeResources: '探測 {count} 個資源',
+    noProbeNeeded: '無需探測',
+    probing: '探測 {done}/{total}',
+    probeStopping: '終止中 {done}/{total}',
+    noProbeCandidates: '當前篩選結果沒有需要探測的磁力鏈接',
+    probeFinished: '探測完成：{done}/{total}',
+    probeStopped: '探測已終止：{done}/{total}',
   },
   browse: {
     actor: '演員',

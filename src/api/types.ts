@@ -800,6 +800,14 @@ export interface TorrentInfo {
   freedate_diff: string
   // 种子类型
   category: string
+  // 磁力探测状态
+  probe_state?: string
+  // 磁力探测是否拿到元数据
+  probe_has_metadata?: boolean
+  // 磁力探测是否超时
+  probe_timed_out?: boolean
+  // 磁力探测可用性
+  probe_availability?: number
 }
 
 // 字幕信息

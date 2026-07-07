@@ -1247,6 +1247,13 @@ export default {
     reRecommend: 'Regenerate Recommendation',
     aiRecommendError: 'AI Recommendation Failed',
     refreshSearch: 'Re-search',
+    probeResources: 'Probe {count} resources',
+    noProbeNeeded: 'No probe needed',
+    probing: 'Probing {done}/{total}',
+    probeStopping: 'Stopping {done}/{total}',
+    noProbeCandidates: 'No magnet links need probing in the current filtered results',
+    probeFinished: 'Probe completed: {done}/{total}',
+    probeStopped: 'Probe stopped: {done}/{total}',
   },
   browse: {
     actor: 'Actor',

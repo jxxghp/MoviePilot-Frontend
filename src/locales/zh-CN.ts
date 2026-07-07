@@ -1240,6 +1240,13 @@ export default {
     reRecommend: '重新生成推荐',
     aiRecommendError: '智能推荐失败',
     refreshSearch: '重新搜索',
+    probeResources: '探测 {count} 个资源',
+    noProbeNeeded: '无需探测',
+    probing: '探测 {done}/{total}',
+    probeStopping: '终止中 {done}/{total}',
+    noProbeCandidates: '当前筛选结果没有需要探测的磁力链接',
+    probeFinished: '探测完成：{done}/{total}',
+    probeStopped: '探测已终止：{done}/{total}',
   },
   browse: {
     actor: '演员',

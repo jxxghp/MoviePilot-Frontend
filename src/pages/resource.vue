@@ -2,7 +2,7 @@
 import { debounce } from 'lodash-es'
 import type { LocationQuery } from 'vue-router'
 import NoDataFound from '@/components/states/NoDataFound.vue'
-import api from '@/api'
+import api, { type ConnectionAwareRequestConfig } from '@/api'
 import type { Context, SubtitleInfo } from '@/api/types'
 import TorrentCard from '@/components/cards/TorrentCard.vue'
 import TorrentItem from '@/components/cards/TorrentItem.vue'
@@ -20,6 +20,7 @@ import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { getCurrentLocale } from '@/plugins/i18n'
+import { applyTorrentProbeResult, needsTorrentProbe, type TorrentProbeResult } from '@/utils/torrentProbe'
 
 // 国际化
 const { t } = useI18n()
@@ -61,6 +62,11 @@ interface LastSearchContextResponse {
     params?: Partial<SearchParams>
     results?: Array<Context | SubtitleInfo>
   }
+}
+
+interface TorrentProbeResponse {
+  success?: boolean
+  data?: TorrentProbeResult
 }
 
 const resourceSearchParamsStorageKey = 'MP_ResourceSearchParams'
@@ -271,6 +277,15 @@ useDynamicButton({
 // 是否正在重新搜索
 const isRefreshing = ref(false)
 
+// 磁力探测
+const probeConcurrency = 16
+const probeTimeoutSeconds = 30
+const probeLoading = ref(false)
+const probeStopRequested = ref(false)
+const probeDone = ref(0)
+const probeTotal = ref(0)
+const probeAbortControllers = new Set<AbortController>()
+
 // 加载进度文本
 const progressText = ref(t('common.pleaseWait'))
 
@@ -365,6 +380,156 @@ function applyFilter() {
     filteredRowDataList.value = torrentFilter.filterRowData(rawDataList.value)
   } else {
     filteredCardDataList.value = torrentFilter.filterCardData(rawDataList.value)
+  }
+}
+
+function flattenProbeCandidates(items: Array<Context | SearchTorrent>): Array<Context> {
+  const candidates: Array<Context> = []
+  const seen = new Set<string>()
+
+  for (const item of items || []) {
+    const itemCandidates = [item, ...((item as SearchTorrent).more || [])]
+    for (const candidate of itemCandidates) {
+      const enclosure = candidate?.torrent_info?.enclosure
+      if (!needsTorrentProbe(candidate?.torrent_info) || !enclosure || seen.has(enclosure)) continue
+
+      seen.add(enclosure)
+      candidates.push(candidate)
+    }
+  }
+
+  return candidates
+}
+
+function collectProbeItems() {
+  const sourceItems = viewType.value === 'row' ? filteredRowDataList.value : filteredCardDataList.value
+  return flattenProbeCandidates(sourceItems)
+}
+
+const probeCount = computed(() => collectProbeItems().length)
+const canShowProbeButton = computed(() => !isSubtitleSearch.value && isRefreshed.value && !progressActive.value)
+
+const probeButtonText = computed(() => {
+  if (probeLoading.value) {
+    return probeStopRequested.value
+      ? t('resource.probeStopping', { done: probeDone.value, total: probeTotal.value })
+      : t('resource.probing', { done: probeDone.value, total: probeTotal.value })
+  }
+
+  return probeCount.value > 0
+    ? t('resource.probeResources', { count: probeCount.value })
+    : t('resource.noProbeNeeded')
+})
+
+function patchProbeContext(item: Context | SearchTorrent, enclosure: string, result: TorrentProbeResult) {
+  const torrentInfo = item?.torrent_info
+  if (torrentInfo?.enclosure === enclosure) {
+    applyTorrentProbeResult(torrentInfo, result)
+  }
+
+  const moreItems = (item as SearchTorrent).more
+  if (Array.isArray(moreItems)) {
+    moreItems.forEach(moreItem => patchProbeContext(moreItem, enclosure, result))
+  }
+}
+
+function applyProbeResult(enclosure: string, result: TorrentProbeResult) {
+  const collections: Array<Array<Context | SearchTorrent>> = [
+    rawDataList.value,
+    originalDataList.value,
+    aiRecommendedList.value,
+    filteredRowDataList.value,
+    filteredCardDataList.value,
+    streamPreviewDataList.value,
+  ]
+
+  collections.forEach(items => {
+    items.forEach(item => patchProbeContext(item, enclosure, result))
+  })
+}
+
+function stopTorrentProbe() {
+  probeStopRequested.value = true
+  probeAbortControllers.forEach(controller => controller.abort())
+  probeAbortControllers.clear()
+}
+
+async function probeTorrentItem(item: Context) {
+  const torrentInfo = item.torrent_info
+  const enclosure = torrentInfo?.enclosure
+  if (!enclosure) return
+
+  const controller = new AbortController()
+  const config: ConnectionAwareRequestConfig = {
+    signal: controller.signal,
+    skipConnectionTracking: true,
+  }
+  probeAbortControllers.add(controller)
+
+  try {
+    const result = (await api.post(
+      'search/probe',
+      {
+        enclosure,
+        downloader: torrentInfo.site_downloader,
+        timeout: probeTimeoutSeconds,
+      },
+      config,
+    )) as TorrentProbeResponse
+    if (!probeStopRequested.value && result?.success && result.data) {
+      applyProbeResult(enclosure, result.data as TorrentProbeResult)
+    }
+  } catch (error) {
+    if (!probeStopRequested.value) {
+      console.warn('磁力探测失败:', error)
+    }
+  } finally {
+    probeAbortControllers.delete(controller)
+  }
+}
+
+async function probeFilteredResults() {
+  if (probeLoading.value) {
+    stopTorrentProbe()
+    return
+  }
+
+  const items = collectProbeItems()
+  if (!items.length) {
+    toast.info(t('resource.noProbeCandidates'))
+    return
+  }
+
+  probeStopRequested.value = false
+  probeLoading.value = true
+  probeDone.value = 0
+  probeTotal.value = items.length
+
+  let cursor = 0
+  let done = 0
+  const worker = async () => {
+    while (!probeStopRequested.value) {
+      const currentIndex = cursor
+      cursor += 1
+      if (currentIndex >= items.length) return
+
+      await probeTorrentItem(items[currentIndex])
+      done += 1
+      probeDone.value = done
+    }
+  }
+
+  try {
+    await Promise.all(Array.from({ length: Math.min(probeConcurrency, items.length) }, worker))
+    applyFilter()
+    const messageKey = probeStopRequested.value ? 'resource.probeStopped' : 'resource.probeFinished'
+    const message = t(messageKey, { done, total: items.length })
+    if (probeStopRequested.value) toast.info(message)
+    else toast.success(message)
+  } finally {
+    probeAbortControllers.clear()
+    probeLoading.value = false
+    probeStopRequested.value = false
   }
 }
 
@@ -583,6 +748,7 @@ function buildSearchStreamUrl(params: SearchParams, requestToken?: string) {
 
 // 重置搜索结果
 function resetSearchResults() {
+  stopTorrentProbe()
   clearStreamPreviewState(true)
   // 新搜索开始时先回到未完成态，避免上一轮空态在 SSE 返回前抢先显示。
   isRefreshed.value = false
@@ -1289,6 +1455,7 @@ useKeepAliveRefresh(async () => {
 
 // 卸载时停止轮询
 onUnmounted(() => {
+  stopTorrentProbe()
   closeSearchEventSource()
   stopLoadingProgress()
   clearProgressResetTimer()
@@ -1386,6 +1553,25 @@ onUnmounted(() => {
             {{ t('resource.refreshSearch') }}
           </VTooltip>
         </IconBtn>
+
+        <VBtn
+          v-if="canShowProbeButton"
+          variant="tonal"
+          :color="probeLoading ? 'error' : 'secondary'"
+          :disabled="!probeLoading && probeCount <= 0"
+          size="small"
+          height="40"
+          class="ai-action-group__primary"
+          @click="probeFilteredResults"
+        >
+          <template #prepend>
+            <VIcon :icon="probeLoading ? 'mdi-stop' : 'mdi-radar'" size="18" />
+          </template>
+          <span class="ai-action-group__label">{{ probeButtonText }}</span>
+          <VTooltip activator="parent" location="top">
+            {{ probeButtonText }}
+          </VTooltip>
+        </VBtn>
 
         <!-- AI操作按钮组 -->
         <div
