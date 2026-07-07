@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import { useTabStateRestore } from '@/composables/useStateRestore'
-import type { UserPermissionKey } from '@/utils/permission'
+import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
 
 // 动态标签页相关类型
 interface DynamicHeaderTabButton {
@@ -11,6 +11,7 @@ interface DynamicHeaderTabButton {
   class?: string
   action?: () => void
   permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
   show?: boolean | ComputedRef<boolean>
   loading?: boolean | ComputedRef<boolean>
   dataAttr?: string // 用于VMenu定位的data属性
@@ -20,6 +21,8 @@ interface DynamicHeaderTabItem {
   title: string
   icon?: string
   tab: string
+  permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
 }
 
 interface DynamicHeaderTabConfig {
@@ -30,6 +33,7 @@ interface DynamicHeaderTabConfig {
   onUpdateModelValue?: (value: string) => void
 }
 
+/** 提供页面动态头部标签的注册、状态恢复和注销能力。 */
 export function useDynamicHeaderTab() {
   const route = useRoute()
 
@@ -37,7 +41,7 @@ export function useDynamicHeaderTab() {
   const registerDynamicHeaderTab = inject<(tab: DynamicHeaderTabConfig) => void>('registerDynamicHeaderTab')
   const unregisterDynamicHeaderTab = inject<() => void>('unregisterDynamicHeaderTab')
 
-  // 注册动态标签页
+  /** 注册当前页面的动态头部标签配置。 */
   const registerHeaderTab = (config: {
     items: DynamicHeaderTabItem[] | ComputedRef<DynamicHeaderTabItem[]> | Ref<DynamicHeaderTabItem[]>
     modelValue: Ref<string>
@@ -184,7 +188,7 @@ export function useDynamicHeaderTab() {
     })
   }
 
-  // 取消注册
+  /** 取消当前页面注册的动态头部标签。 */
   const unregisterHeaderTab = () => {
     if (unregisterDynamicHeaderTab) {
       unregisterDynamicHeaderTab()

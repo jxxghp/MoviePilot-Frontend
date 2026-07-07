@@ -1,6 +1,7 @@
 import { useGlobalSettingsStore } from '@/stores'
 import type { NavMenu, NavMenuTabItem } from '@/@layouts/types'
 import type { Composer } from 'vue-i18n'
+import { PERMISSION_FEATURE } from '@/utils/permission'
 
 /** 构建当前语言与全局模式对应的主导航菜单。 */
 export function getNavMenus(t: Composer['t']): NavMenu[] {
@@ -28,6 +29,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       header: t('menu.start'),
       admin: false,
       permission: 'search',
+      feature: PERMISSION_FEATURE.SEARCH_RESOURCE,
     },
     {
       title: t('navItems.recommend'),
@@ -38,6 +40,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       admin: false,
       footer: true,
       permission: 'discovery',
+      feature: PERMISSION_FEATURE.DISCOVERY_RECOMMEND,
       tabs: getRecommendTabs(t),
     },
     {
@@ -49,6 +52,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       admin: false,
       footer: true,
       permission: 'discovery',
+      feature: PERMISSION_FEATURE.DISCOVERY_EXPLORE,
       tabs: getDiscoverTabs(t),
     },
     {
@@ -61,6 +65,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       admin: false,
       footer: false,
       permission: 'subscribe',
+      feature: PERMISSION_FEATURE.SUBSCRIBE_MOVIE,
       tabs: getSubscribeMovieTabs(t),
     },
     {
@@ -73,6 +78,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       admin: false,
       footer: false,
       permission: 'subscribe',
+      feature: PERMISSION_FEATURE.SUBSCRIBE_TV,
       tabs: getSubscribeTvTabs(t),
     },
     {
@@ -85,6 +91,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       admin: true,
       footer: false,
       permission: 'manage',
+      feature: PERMISSION_FEATURE.MANAGE_WORKFLOW,
       tabs: getWorkflowTabs(t),
     },
     {
@@ -96,6 +103,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       header: t('menu.subscribe'),
       admin: false,
       permission: 'subscribe',
+      feature: PERMISSION_FEATURE.SUBSCRIBE_CALENDAR,
     },
     {
       title: t('navItems.downloadManager'),
@@ -105,6 +113,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       header: t('menu.organize'),
       admin: false,
       permission: 'manage',
+      feature: PERMISSION_FEATURE.MANAGE_DOWNLOADING,
     },
     {
       title: t('navItems.mediaOrganize'),
@@ -114,6 +123,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       header: t('menu.organize'),
       admin: true,
       permission: 'manage',
+      feature: PERMISSION_FEATURE.MANAGE_HISTORY,
     },
     {
       title: t('navItems.fileManager'),
@@ -123,6 +133,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       header: t('menu.organize'),
       admin: true,
       permission: 'manage',
+      feature: PERMISSION_FEATURE.MANAGE_FILEMANAGER,
     },
     {
       title: t('navItems.pluginManager'),
@@ -142,6 +153,7 @@ export function getNavMenus(t: Composer['t']): NavMenu[] {
       header: t('menu.system'),
       admin: true,
       permission: 'manage',
+      feature: PERMISSION_FEATURE.MANAGE_SITE,
     },
     {
       title: t('navItems.userManager'),

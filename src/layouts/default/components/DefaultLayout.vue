@@ -24,6 +24,7 @@ import {
   filterMenusByPermission,
   hasItemPermission,
   hasPermission,
+  type UserPermissionFeatureKey,
   type UserPermissionKey,
 } from '@/utils/permission'
 import { usePullDownGesture } from '@/composables/usePullDownGesture'
@@ -119,6 +120,7 @@ interface DynamicHeaderTabButton {
   class?: string
   action?: () => void
   permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
   show?: boolean | ComputedRef<boolean>
   loading?: boolean | ComputedRef<boolean>
   dataAttr?: string
@@ -128,6 +130,8 @@ interface DynamicHeaderTabItem {
   title: string
   icon?: string
   tab: string
+  permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
 }
 
 interface DynamicHeaderTab {
@@ -160,6 +164,8 @@ const unregisterDynamicHeaderTab = () => {
 /** 更新当前动态标签页选中值，并通知注册页面同步状态。 */
 const handleTabChange = (newValue: string) => {
   if (dynamicHeaderTab.value) {
+    if (!visibleDynamicHeaderTabItems.value.some(item => item.tab === newValue)) return
+
     dynamicHeaderTab.value.modelValue = newValue
     // 通知注册的页面更新值
     if (dynamicHeaderTab.value.onUpdateModelValue) {
@@ -193,12 +199,14 @@ watch(
   { immediate: false },
 )
 
-// 当前路由是否注册了动态标签页。
-const hasDynamicHeaderTab = computed(() => {
-  return (
-    dynamicHeaderTab.value && dynamicHeaderTab.value.items.length > 0 && dynamicHeaderTab.value.routePath === route.path
-  )
+const visibleDynamicHeaderTabItems = computed(() => {
+  if (!dynamicHeaderTab.value || dynamicHeaderTab.value.routePath !== route.path) return []
+
+  return filterItemsByPermission(dynamicHeaderTab.value.items, userPermissions.value)
 })
+
+// 当前路由是否注册了动态标签页。
+const hasDynamicHeaderTab = computed(() => visibleDynamicHeaderTabItems.value.length > 0)
 
 // 水平布局下动态标签页会并入顶部导航三级菜单，不再额外显示标签页栏。
 const showDynamicHeaderTab = computed(() => hasDynamicHeaderTab.value && !showHorizontalThemeNav.value)
@@ -384,10 +392,10 @@ function getHorizontalNavTabs(item: NavMenu): DynamicHeaderTabItem[] {
   const targetPath = normalizeMenuPath(item.to)
 
   if (targetPath && isHorizontalNavActive(item) && hasDynamicHeaderTab.value) {
-    return dynamicHeaderTab.value?.items ?? []
+    return visibleDynamicHeaderTabItems.value
   }
 
-  return item.tabs ?? []
+  return filterItemsByPermission(item.tabs ?? [], userPermissions.value)
 }
 
 /** 在目标页面注册动态标签后应用此前暂存的标签切换。 */
@@ -397,7 +405,7 @@ function applyPendingHorizontalTab() {
   const pending = pendingHorizontalTab.value
   if (normalizeMenuPath(route.path) !== pending.path) return
 
-  const tabExists = dynamicHeaderTab.value?.items.some(item => item.tab === pending.tab)
+  const tabExists = visibleDynamicHeaderTabItems.value.some(item => item.tab === pending.tab)
   if (!tabExists) return
 
   handleTabChange(pending.tab)
@@ -673,7 +681,7 @@ onMounted(async () => {
     <template #dynamic-header-tab>
       <div v-if="showDynamicHeaderTab">
         <HeaderTab
-          :items="dynamicHeaderTab!.items"
+          :items="visibleDynamicHeaderTabItems"
           :model-value="dynamicHeaderTab!.modelValue"
           @update:model-value="handleTabChange"
         >

@@ -12,7 +12,7 @@ import {
   type ComputedRef,
   type Ref,
 } from 'vue'
-import type { UserPermissionKey } from '@/utils/permission'
+import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
 
 // 声明全局变量类型
 declare global {
@@ -31,6 +31,7 @@ export interface DynamicButtonMenuItem {
   icon?: string
   color?: string
   permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
   disabled?: boolean
   action: () => void
 }
@@ -61,11 +62,12 @@ export function useDynamicButton(options: {
   onClick?: () => void
   menuItems?: MaybeRefValue<DynamicButtonMenuItem[] | undefined>
   permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
   show?: MaybeRefValue<boolean>
   autoRegister?: boolean // 是否自动注册，默认为true
 }) {
   // 提取配置
-  const { icon, onClick, menuItems, permission, show, autoRegister = true } = options
+  const { icon, onClick, menuItems, permission, feature, show, autoRegister = true } = options
 
   // 动态按钮相关
   const registerDynamicButton = inject<((button: any) => void) | null>('registerDynamicButton', null)
@@ -79,6 +81,7 @@ export function useDynamicButton(options: {
   const resolvedShow = computed(() => resolveMaybeRef(show, true))
   const resolvedMenuItems = computed(() => resolveMaybeRef(menuItems))
 
+  /** 根据当前响应式配置生成可注册的动态按钮对象。 */
   function buildDynamicButton() {
     const buttonMenuItems = resolvedMenuItems.value
 
@@ -86,12 +89,13 @@ export function useDynamicButton(options: {
       icon: resolvedIcon.value,
       action: onClick || (() => {}),
       permission,
+      feature,
       show: resolvedShow.value,
       menuItems: buttonMenuItems && buttonMenuItems.length > 0 ? buttonMenuItems : undefined,
     }
   }
 
-  // 注册动态按钮
+  /** 在当前页面激活时注册动态按钮。 */
   function setupDynamicButton() {
     if (!componentActive.value) return
 
@@ -133,7 +137,7 @@ export function useDynamicButton(options: {
     })
   }
 
-  // 取消注册动态按钮
+  /** 清理当前页面注册过的动态按钮。 */
   function cleanupDynamicButton() {
     if (unregisterDynamicButton && dynamicButtonRegistered.value) {
       unregisterDynamicButton()
@@ -147,7 +151,7 @@ export function useDynamicButton(options: {
     }
   }
 
-  // 暴露方法：手动打开对话框
+  /** 手动触发动态按钮主操作。 */
   function openDialog() {
     onClick?.()
   }

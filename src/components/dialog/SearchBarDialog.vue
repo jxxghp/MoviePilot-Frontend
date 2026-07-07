@@ -153,6 +153,7 @@ function getMenus(): NavMenu[] {
         header: item.header,
         admin: item.admin,
         permission: item.permission,
+        feature: item.feature,
       }),
   )
   // 设置标签页

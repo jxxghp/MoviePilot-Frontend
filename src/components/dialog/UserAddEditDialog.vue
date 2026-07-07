@@ -7,6 +7,14 @@ import { useDisplay } from 'vuetify'
 import avatar1 from '@images/avatars/avatar-1.png'
 import { useUserStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
+import {
+  USER_PERMISSION_FEATURES,
+  buildDefaultFeaturePermissions,
+  normalizeUserPermissions,
+  type UserPermissionCategoryKey,
+  type UserPermissionFeatureKey,
+  type UserPermissions,
+} from '@/utils/permission'
 
 // 多语言支持
 const { t } = useI18n()
@@ -65,14 +73,6 @@ interface ExtendedUser extends User {
   nickname?: string
 }
 
-// 权限类型定义
-interface UserPermissions {
-  discovery: boolean // 发现权限
-  search: boolean // 搜索权限
-  subscribe: boolean // 订阅权限
-  manage: boolean // 管理权限
-}
-
 // 用户编辑表单数据
 const userForm = ref<ExtendedUser>({
   id: 0,
@@ -88,6 +88,7 @@ const userForm = ref<ExtendedUser>({
     search: true,
     subscribe: true,
     manage: false,
+    features: buildDefaultFeaturePermissions(),
   },
   settings: {
     wechat_userid: null,
@@ -127,34 +128,115 @@ const permissionOptions = [
     description: t('dialog.userAddEdit.permissions.manageDesc'),
     icon: 'mdi-cog-outline',
   },
-]
+] as const
+
+const activePermissionCategory = ref<UserPermissionCategoryKey>('discovery')
 
 // 权限状态计算属性
 const userPermissions = computed({
   get: () => {
-    const permissions = userForm.value.permissions as UserPermissions
-    return {
-      discovery: permissions?.discovery ?? true,
-      search: permissions?.search ?? true,
-      subscribe: permissions?.subscribe ?? true,
-      manage: permissions?.manage ?? false,
-    }
+    return normalizeUserPermissions(userForm.value.permissions as Partial<UserPermissions>)
   },
   set: (value: UserPermissions) => {
     userForm.value.permissions = value
   },
 })
 
-// 切换权限状态
-function togglePermission(key: keyof UserPermissions) {
+const permissionFeatureOptions = computed(() =>
+  USER_PERMISSION_FEATURES.map(feature => ({
+    ...feature,
+    title: t(feature.titleKey),
+    description: t(feature.descriptionKey),
+  })),
+)
+
+const activePermissionOption = computed(() =>
+  permissionOptions.find(option => option.key === activePermissionCategory.value) ?? permissionOptions[0],
+)
+
+const activePermissionFeatures = computed(() =>
+  permissionFeatureOptions.value.filter(feature => feature.permission === activePermissionCategory.value),
+)
+
+const enabledCategoryCount = computed(
+  () => permissionOptions.filter(option => userPermissions.value[option.key]).length,
+)
+
+const enabledFeatureCount = computed(
+  () =>
+    permissionFeatureOptions.value.filter(
+      feature => userPermissions.value[feature.permission] && isFeatureEnabled(feature.key),
+    ).length,
+)
+
+/** 切换当前查看的权限分类。 */
+function selectPermissionCategory(key: UserPermissionCategoryKey) {
+  activePermissionCategory.value = key
+}
+
+/** 切换权限分类启用状态，并聚焦到该分类的功能列表。 */
+function togglePermission(key: UserPermissionCategoryKey) {
   const currentPermissions = userPermissions.value
   userPermissions.value = {
     ...currentPermissions,
     [key]: !currentPermissions[key],
   }
+  activePermissionCategory.value = key
 }
 
-// 更新头像
+/** 判断功能项是否已启用，缺省功能按启用处理以兼容旧权限数据。 */
+function isFeatureEnabled(key: UserPermissionFeatureKey) {
+  return userPermissions.value.features?.[key] !== false
+}
+
+/** 切换单个功能项的启用状态。 */
+function togglePermissionFeature(key: UserPermissionFeatureKey) {
+  userPermissions.value = {
+    ...userPermissions.value,
+    features: {
+      ...(userPermissions.value.features ?? {}),
+      [key]: !isFeatureEnabled(key),
+    },
+  }
+}
+
+/** 统计指定分类下已经勾选的功能数量。 */
+function getEnabledFeatureCount(permission: UserPermissionCategoryKey) {
+  return permissionFeatureOptions.value.filter(
+    feature => feature.permission === permission && isFeatureEnabled(feature.key),
+  ).length
+}
+
+/** 返回指定分类下的功能总数。 */
+function getFeatureTotalCount(permission: UserPermissionCategoryKey) {
+  return permissionFeatureOptions.value.filter(feature => feature.permission === permission).length
+}
+
+/** 判断指定分类是否处于功能部分勾选状态。 */
+function isPermissionPartiallySelected(permission: UserPermissionCategoryKey) {
+  const enabledCount = getEnabledFeatureCount(permission)
+  const totalCount = getFeatureTotalCount(permission)
+  return enabledCount > 0 && enabledCount < totalCount
+}
+
+/** 批量设置当前分类下的所有功能项。 */
+function setCategoryFeatures(permission: UserPermissionCategoryKey, enabled: boolean) {
+  const nextFeatures = { ...(userPermissions.value.features ?? {}) }
+  for (const feature of permissionFeatureOptions.value.filter(item => item.permission === permission)) {
+    nextFeatures[feature.key] = enabled
+  }
+  userPermissions.value = {
+    ...userPermissions.value,
+    features: nextFeatures,
+  }
+}
+
+/** 将当前分类下的功能项恢复为默认全选状态。 */
+function resetCategoryFeatures(permission: UserPermissionCategoryKey) {
+  setCategoryFeatures(permission, true)
+}
+
+/** 校验并读取用户上传的新头像。 */
 function changeAvatar(file: Event) {
   const fileReader = new FileReader()
   const { files } = file.target as HTMLInputElement
@@ -182,19 +264,19 @@ function changeAvatar(file: Event) {
   }
 }
 
-// 重置默认头像
+/** 将头像恢复为系统默认头像。 */
 function resetDefaultAvatar() {
   currentAvatar.value = avatar1
   $toast.success(t('dialog.userAddEdit.resetAvatarSuccess'))
 }
 
-// 还原当前头像
+/** 还原为用户当前已保存的头像。 */
 function restoreCurrentAvatar() {
   currentAvatar.value = userForm.value.avatar
   $toast.success(t('dialog.userAddEdit.restoreAvatarSuccess'))
 }
 
-// 查询用户信息
+/** 从接口查询当前编辑用户的信息并回填表单。 */
 async function fetchUserInfo() {
   try {
     userForm.value = await api.get(`user/${props.username}`)
@@ -210,7 +292,7 @@ async function fetchUserInfo() {
   }
 }
 
-// 调用API 新增用户
+/** 调用接口创建新用户。 */
 async function addUser() {
   if (isAdding.value) {
     $toast.error(t('dialog.userAddEdit.creatingUser', { name: userForm.value.name }))
@@ -256,7 +338,7 @@ async function addUser() {
   isAdding.value = false
 }
 
-// 调用API更新用户信息
+/** 调用接口更新当前用户信息。 */
 async function updateUser() {
   if (isUpdating.value) {
     $toast.error(t('dialog.userAddEdit.updatingUser', { name: userForm.value.name }))
@@ -367,7 +449,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <VDialog scrollable max-width="40rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable max-width="64rem" :fullscreen="!display.mdAndUp.value">
     <VCard>
       <VCardItem :class="props.oper === 'add' ? 'py-3' : 'py-2'">
         <template #prepend>
@@ -572,43 +654,144 @@ onMounted(() => {
             <span>{{ t('dialog.userAddEdit.permissions.title') }}</span>
           </VDivider>
           <!-- 权限设置 -->
-          <div v-if="canControl">
-            <VRow>
-              <VCol v-for="option in permissionOptions" :key="option.key" cols="6">
-                <VCard
-                  :color="userPermissions[option.key as keyof UserPermissions] ? 'primary' : 'surface'"
-                  :variant="userPermissions[option.key as keyof UserPermissions] ? 'tonal' : 'outlined'"
-                  class="cursor-pointer transition-all h-full"
-                  @click="togglePermission(option.key as keyof UserPermissions)"
-                  hover
+          <div v-if="canControl" class="user-permission-editor">
+            <div class="permission-section-header">
+              <div>
+                <div class="text-subtitle-1 font-weight-medium">
+                  {{ t('dialog.userAddEdit.permissions.categoryTitle') }}
+                </div>
+                <div class="text-caption text-medium-emphasis">
+                  {{ t('dialog.userAddEdit.permissions.categoryHint') }}
+                </div>
+              </div>
+              <VChip size="small" color="primary" variant="tonal">
+                {{
+                  t('dialog.userAddEdit.permissions.summary', {
+                    categories: enabledCategoryCount,
+                    features: enabledFeatureCount,
+                  })
+                }}
+              </VChip>
+            </div>
+
+            <div class="permission-category-grid">
+              <div
+                v-for="option in permissionOptions"
+                :key="option.key"
+                role="button"
+                tabindex="0"
+                class="permission-category-option"
+                :class="{
+                  'is-active': activePermissionCategory === option.key,
+                  'is-enabled': userPermissions[option.key],
+                  'is-partial': isPermissionPartiallySelected(option.key),
+                }"
+                @click="selectPermissionCategory(option.key)"
+                @keydown.enter="selectPermissionCategory(option.key)"
+                @keydown.space.prevent="selectPermissionCategory(option.key)"
+              >
+                <span class="permission-category-option__icon">
+                  <VIcon :icon="option.icon" size="20" />
+                </span>
+                <span class="permission-category-option__body">
+                  <span class="permission-category-option__title-row">
+                    <span class="permission-category-option__title">{{ option.title }}</span>
+                    <span class="permission-category-option__count">
+                      {{ getEnabledFeatureCount(option.key) }}/{{ getFeatureTotalCount(option.key) }}
+                    </span>
+                  </span>
+                  <span class="permission-category-option__desc">{{ option.description }}</span>
+                </span>
+                <VBtn
+                  :icon="userPermissions[option.key] ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                  :color="userPermissions[option.key] ? 'primary' : 'secondary'"
+                  variant="text"
+                  size="small"
+                  class="permission-category-option__toggle"
+                  @click.stop="togglePermission(option.key)"
+                />
+              </div>
+            </div>
+
+            <div class="permission-feature-panel">
+              <div class="permission-feature-panel__header">
+                <div>
+                  <div class="text-subtitle-1 font-weight-medium">
+                    {{ activePermissionOption.title }}{{ t('dialog.userAddEdit.permissions.featureTitleSuffix') }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">
+                    {{
+                      userPermissions[activePermissionCategory]
+                        ? t('dialog.userAddEdit.permissions.featureHint')
+                        : t('dialog.userAddEdit.permissions.disabledCategoryHint')
+                    }}
+                  </div>
+                </div>
+                <div class="permission-feature-panel__actions">
+                  <VBtn
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    :disabled="!userPermissions[activePermissionCategory]"
+                    @click="setCategoryFeatures(activePermissionCategory, true)"
+                  >
+                    {{ t('dialog.userAddEdit.permissions.selectAll') }}
+                  </VBtn>
+                  <VBtn
+                    size="small"
+                    variant="outlined"
+                    :disabled="!userPermissions[activePermissionCategory]"
+                    @click="setCategoryFeatures(activePermissionCategory, false)"
+                  >
+                    {{ t('dialog.userAddEdit.permissions.clear') }}
+                  </VBtn>
+                  <VBtn
+                    size="small"
+                    variant="outlined"
+                    :disabled="!userPermissions[activePermissionCategory]"
+                    @click="resetCategoryFeatures(activePermissionCategory)"
+                  >
+                    {{ t('dialog.userAddEdit.permissions.default') }}
+                  </VBtn>
+                </div>
+              </div>
+
+              <div class="permission-feature-list">
+                <div
+                  v-for="feature in activePermissionFeatures"
+                  :key="feature.key"
+                  role="checkbox"
+                  :aria-checked="isFeatureEnabled(feature.key)"
+                  :aria-disabled="!userPermissions[activePermissionCategory]"
+                  :tabindex="userPermissions[activePermissionCategory] ? 0 : -1"
+                  class="permission-feature-item"
+                  :class="{
+                    'is-enabled': isFeatureEnabled(feature.key),
+                    'is-disabled': !userPermissions[activePermissionCategory],
+                  }"
+                  @click="userPermissions[activePermissionCategory] && togglePermissionFeature(feature.key)"
+                  @keydown.enter="userPermissions[activePermissionCategory] && togglePermissionFeature(feature.key)"
+                  @keydown.space.prevent="userPermissions[activePermissionCategory] && togglePermissionFeature(feature.key)"
                 >
-                  <VCardText class="d-flex align-center pa-4">
-                    <VAvatar
-                      :color="userPermissions[option.key as keyof UserPermissions] ? 'primary' : 'surface-variant'"
-                      size="40"
-                      class="me-3"
-                    >
-                      <VIcon :icon="option.icon" />
-                    </VAvatar>
-                    <div class="flex-grow-1">
-                      <div class="text-subtitle-1 font-weight-medium d-flex align-center">
-                        {{ option.title }}
-                        <VIcon
-                          v-if="userPermissions[option.key as keyof UserPermissions]"
-                          icon="mdi-check-circle"
-                          color="primary"
-                          size="small"
-                          class="ms-2"
-                        />
-                      </div>
-                      <div class="text-caption text-medium-emphasis">
-                        {{ option.description }}
-                      </div>
-                    </div>
-                  </VCardText>
-                </VCard>
-              </VCol>
-            </VRow>
+                  <VCheckboxBtn
+                    :model-value="isFeatureEnabled(feature.key)"
+                    :disabled="!userPermissions[activePermissionCategory]"
+                    color="primary"
+                    density="compact"
+                    class="permission-feature-item__check"
+                    @click.stop
+                    @update:model-value="togglePermissionFeature(feature.key)"
+                  />
+                  <span class="permission-feature-item__icon">
+                    <VIcon :icon="feature.icon" size="20" />
+                  </span>
+                  <span class="permission-feature-item__body">
+                    <span class="permission-feature-item__title">{{ feature.title }}</span>
+                    <span class="permission-feature-item__desc">{{ feature.description }}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </VForm>
       </VCardText>
@@ -642,3 +825,273 @@ onMounted(() => {
     </VCard>
   </VDialog>
 </template>
+
+<style scoped lang="scss">
+.user-permission-editor {
+  --permission-editor-radius: min(var(--app-surface-radius, 8px), 8px);
+  --permission-editor-border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  --permission-editor-muted-border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  --permission-editor-panel-bg: rgb(var(--v-theme-surface));
+  --permission-editor-hover-bg: rgba(var(--v-theme-primary), 0.04);
+  --permission-editor-active-bg: rgba(var(--v-theme-primary), 0.1);
+  --permission-editor-selected-bg: rgba(var(--v-theme-primary), 0.08);
+
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.permission-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.permission-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+  gap: 0.75rem;
+}
+
+.permission-category-option,
+.permission-feature-item {
+  border: var(--permission-editor-muted-border);
+  border-radius: var(--permission-editor-radius);
+  background: var(--permission-editor-panel-bg);
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+  cursor: pointer;
+  transition: border-color 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
+}
+
+.permission-category-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: flex-start;
+  min-block-size: 5.75rem;
+  padding: 0.875rem;
+  text-align: start;
+}
+
+.permission-category-option:hover,
+.permission-feature-item:hover:not(.is-disabled) {
+  border-color: rgba(var(--v-theme-primary), 0.36);
+  background: var(--permission-editor-hover-bg);
+}
+
+.permission-category-option:focus-visible,
+.permission-feature-item:focus-visible {
+  outline: 2px solid rgba(var(--v-theme-primary), 0.72);
+  outline-offset: 2px;
+}
+
+.permission-category-option.is-active {
+  border-color: rgba(var(--v-theme-primary), 0.72);
+  background: var(--permission-editor-active-bg);
+}
+
+.permission-category-option.is-enabled {
+  border-color: rgba(var(--v-theme-primary), 0.34);
+}
+
+.permission-category-option.is-partial .permission-category-option__count {
+  color: rgb(var(--v-theme-warning));
+  background: rgba(var(--v-theme-warning), 0.12);
+}
+
+.permission-category-option__icon,
+.permission-feature-item__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: var(--app-control-radius, 6px);
+  background: rgba(var(--v-theme-primary), 0.1);
+  color: rgb(var(--v-theme-primary));
+}
+
+.permission-category-option__icon {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  margin-inline-end: 0.75rem;
+}
+
+.permission-category-option__body,
+.permission-feature-item__body {
+  min-inline-size: 0;
+}
+
+.permission-category-option__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+
+.permission-category-option__title,
+.permission-feature-item__title {
+  display: block;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permission-category-option__count {
+  flex: 0 0 auto;
+  border-radius: var(--app-control-radius, 6px);
+  padding: 0.125rem 0.5rem;
+  background: rgba(var(--v-theme-primary), 0.1);
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.permission-category-option__desc,
+.permission-feature-item__desc,
+.permission-feature-item__scope {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+.permission-category-option__desc,
+.permission-feature-item__desc {
+  display: block;
+  overflow: visible;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.permission-category-option__toggle {
+  margin-inline-start: 0.25rem;
+}
+
+.permission-feature-panel {
+  overflow: hidden;
+  border: var(--permission-editor-border);
+  border-radius: var(--permission-editor-radius);
+  background: rgb(var(--v-theme-surface));
+}
+
+.permission-feature-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-block-end: var(--permission-editor-muted-border);
+}
+
+.permission-feature-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.permission-feature-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
+  padding: 1rem;
+}
+
+.permission-feature-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: flex-start;
+  min-block-size: 4rem;
+  padding: 0.625rem 0.875rem;
+  text-align: start;
+}
+
+.permission-feature-item.is-disabled {
+  cursor: not-allowed;
+}
+
+.permission-feature-item.is-disabled .permission-feature-item__icon {
+  opacity: 0.72;
+}
+
+.permission-feature-item.is-disabled .permission-feature-item__title,
+.permission-feature-item.is-disabled .permission-feature-item__desc {
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.permission-feature-item.is-enabled {
+  background: var(--permission-editor-selected-bg);
+}
+
+.permission-feature-item__check {
+  margin-inline-end: 0.5rem;
+}
+
+.permission-feature-item__icon {
+  inline-size: 2rem;
+  block-size: 2rem;
+  margin-inline-end: 0.75rem;
+}
+
+.permission-feature-item__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.permission-feature-item__scope {
+  max-inline-size: 8rem;
+  margin-inline-start: 1rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+}
+
+@media (width <= 960px) {
+  .permission-category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .permission-feature-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .permission-section-header,
+  .permission-feature-panel__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .permission-feature-panel__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (width <= 600px) {
+  .user-permission-editor {
+    gap: 0.875rem;
+  }
+
+  .permission-category-option {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-block-size: 3.75rem;
+    padding: 0.75rem;
+  }
+
+  .permission-category-option__icon,
+  .permission-category-option__desc {
+    display: none;
+  }
+
+  .permission-category-option__toggle {
+    margin-inline-start: 0.5rem;
+  }
+
+  .permission-feature-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .permission-feature-item__icon {
+    display: none;
+  }
+}
+</style>

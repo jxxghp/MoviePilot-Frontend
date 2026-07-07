@@ -1,6 +1,6 @@
 import type { Component, Ref, VNode } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import type { UserPermissionKey } from '@/utils/permission'
+import type { UserPermissionFeatureKey, UserPermissionKey } from '@/utils/permission'
 import { ContentWidth, FooterType, NavbarType } from './enums'
 
 export interface UserConfig {
@@ -124,6 +124,7 @@ export interface NavLink extends NavLinkProps, Partial<AclProperties> {
   badgeClass?: string
   disable?: boolean
   permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
 }
 
 export interface NavMenuTabItem {
@@ -131,6 +132,8 @@ export interface NavMenuTabItem {
   icon?: string
   tab: string
   description?: string
+  permission?: UserPermissionKey
+  feature?: UserPermissionFeatureKey
 }
 
 export interface NavMenu extends NavLink {

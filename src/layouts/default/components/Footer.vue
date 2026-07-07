@@ -119,6 +119,7 @@ interface DynamicButton {
   icon: string
   action: () => void
   permission?: DynamicButtonMenuItem['permission']
+  feature?: DynamicButtonMenuItem['feature']
   show: boolean
   routePath?: string // 添加路径属性，用于标识哪个路由注册的
   menuItems?: DynamicButtonMenuItem[]

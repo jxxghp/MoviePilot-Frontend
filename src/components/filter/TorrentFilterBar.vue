@@ -722,7 +722,7 @@ onMounted(() => {
 .filter-buttons-grid {
   display: grid;
   gap: 4px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .filter-btn-mobile {
@@ -732,10 +732,23 @@ onMounted(() => {
   justify-content: center;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: 8px;
-  block-size: auto;
-  min-block-size: 48px;
+  block-size: 56px;
+  min-block-size: 56px;
+  min-inline-size: 0;
   padding-block: 4px;
-  padding-inline: 0;
+  padding-inline: 4px;
+}
+
+.filter-btn-mobile :deep(.v-btn__content) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  line-height: 1.15;
+  white-space: normal;
 }
 
 .filter-icon {
@@ -744,20 +757,20 @@ onMounted(() => {
 }
 
 .filter-label {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 0.8rem;
+  line-height: 1.15;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
   text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 @media (width <= 600px) {
   .filter-buttons-grid {
     gap: 6px;
-  }
-
-  .filter-label {
-    overflow: hidden;
-    max-inline-size: 100%;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 </style>
