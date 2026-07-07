@@ -66,6 +66,7 @@ interface LastSearchContextResponse {
 
 interface TorrentProbeResponse {
   success?: boolean
+  message?: string
   data?: TorrentProbeResult
 }
 
@@ -423,7 +424,7 @@ const probeButtonText = computed(() => {
 
 function patchProbeContext(item: Context | SearchTorrent, enclosure: string, result: TorrentProbeResult) {
   const torrentInfo = item?.torrent_info
-  if (torrentInfo?.enclosure === enclosure) {
+  if (torrentInfo?.enclosure === enclosure && needsTorrentProbe(torrentInfo)) {
     applyTorrentProbeResult(torrentInfo, result)
   }
 
@@ -454,10 +455,10 @@ function stopTorrentProbe() {
   probeAbortControllers.clear()
 }
 
-async function probeTorrentItem(item: Context) {
+async function probeTorrentItem(item: Context): Promise<boolean> {
   const torrentInfo = item.torrent_info
   const enclosure = torrentInfo?.enclosure
-  if (!enclosure) return
+  if (!enclosure) return false
 
   const controller = new AbortController()
   const config: ConnectionAwareRequestConfig = {
@@ -478,6 +479,10 @@ async function probeTorrentItem(item: Context) {
     )) as TorrentProbeResponse
     if (!probeStopRequested.value && result?.success && result.data) {
       applyProbeResult(enclosure, result.data as TorrentProbeResult)
+      return true
+    }
+    if (!probeStopRequested.value) {
+      console.warn('磁力探测失败:', result?.message || result)
     }
   } catch (error) {
     if (!probeStopRequested.value) {
@@ -486,6 +491,7 @@ async function probeTorrentItem(item: Context) {
   } finally {
     probeAbortControllers.delete(controller)
   }
+  return false
 }
 
 async function probeFilteredResults() {
@@ -507,14 +513,16 @@ async function probeFilteredResults() {
 
   let cursor = 0
   let done = 0
+  let failed = 0
   const worker = async () => {
     while (!probeStopRequested.value) {
       const currentIndex = cursor
       cursor += 1
       if (currentIndex >= items.length) return
 
-      await probeTorrentItem(items[currentIndex])
+      const succeeded = await probeTorrentItem(items[currentIndex])
       done += 1
+      if (!succeeded && !probeStopRequested.value) failed += 1
       probeDone.value = done
     }
   }
@@ -522,10 +530,13 @@ async function probeFilteredResults() {
   try {
     await Promise.all(Array.from({ length: Math.min(probeConcurrency, items.length) }, worker))
     applyFilter()
-    const messageKey = probeStopRequested.value ? 'resource.probeStopped' : 'resource.probeFinished'
-    const message = t(messageKey, { done, total: items.length })
-    if (probeStopRequested.value) toast.info(message)
-    else toast.success(message)
+    if (probeStopRequested.value) {
+      toast.info(t('resource.probeStopped', { done, total: items.length }))
+    } else if (failed > 0) {
+      toast.warning(t('resource.probeFinishedWithFailed', { done, total: items.length, failed }))
+    } else {
+      toast.success(t('resource.probeFinished', { done, total: items.length }))
+    }
   } finally {
     probeAbortControllers.clear()
     probeLoading.value = false

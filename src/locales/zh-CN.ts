@@ -1246,6 +1246,7 @@ export default {
     probeStopping: '终止中 {done}/{total}',
     noProbeCandidates: '当前筛选结果没有需要探测的磁力链接',
     probeFinished: '探测完成：{done}/{total}',
+    probeFinishedWithFailed: '探测完成：{done}/{total}，失败 {failed} 个',
     probeStopped: '探测已终止：{done}/{total}',
   },
   browse: {

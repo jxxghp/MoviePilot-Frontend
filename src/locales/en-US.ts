@@ -1253,6 +1253,7 @@ export default {
     probeStopping: 'Stopping {done}/{total}',
     noProbeCandidates: 'No magnet links need probing in the current filtered results',
     probeFinished: 'Probe completed: {done}/{total}',
+    probeFinishedWithFailed: 'Probe completed: {done}/{total}, {failed} failed',
     probeStopped: 'Probe stopped: {done}/{total}',
   },
   browse: {

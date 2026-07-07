@@ -1244,6 +1244,7 @@ export default {
     probeStopping: '終止中 {done}/{total}',
     noProbeCandidates: '當前篩選結果沒有需要探測的磁力鏈接',
     probeFinished: '探測完成：{done}/{total}',
+    probeFinishedWithFailed: '探測完成：{done}/{total}，失敗 {failed} 個',
     probeStopped: '探測已終止：{done}/{total}',
   },
   browse: {
