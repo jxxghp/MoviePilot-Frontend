@@ -68,6 +68,14 @@ const buttonText = computed(() =>
   loading.value ? t('dialog.addDownload.downloading') : t('dialog.addDownload.startDownload'),
 )
 
+// 下载确认副标题，未传媒体标题时回退到种子标题。
+const dialogSubtitle = computed(() => {
+  const siteName = props.torrent?.site_name?.trim()
+  const displayTitle = props.title?.trim() || props.torrent?.title?.trim()
+
+  return [siteName, displayTitle].filter(Boolean).join(' - ')
+})
+
 // 加载目录设置
 async function loadDirectories() {
   try {
@@ -78,6 +86,7 @@ async function loadDirectories() {
   }
 }
 
+// 将下载目录配置转换为下载器可识别的存储路径。
 function convertToUri(item: TransferDirectoryConf) {
   if (!item.download_path) {
     return undefined
@@ -181,7 +190,7 @@ onMounted(() => {
           <VIcon icon="mdi-monitor-arrow-down-variant" class="me-2" />
         </template>
         <VCardTitle>{{ t('dialog.addDownload.confirmDownload') }}</VCardTitle>
-        <VCardSubtitle>{{ torrent?.site_name }} - {{ title }}</VCardSubtitle>
+        <VCardSubtitle>{{ dialogSubtitle }}</VCardSubtitle>
       </VCardItem>
       <VDialogCloseBtn @click="emit('close')" />
       <VDivider />
