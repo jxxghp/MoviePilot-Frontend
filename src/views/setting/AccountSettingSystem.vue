@@ -33,6 +33,7 @@ const props = defineProps({
 // 下载器/媒体服务器排序按需加载，降低系统设置页入口解析量。
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 const LlmProviderAuthDialog = defineAsyncComponent(() => import('@/components/dialog/LlmProviderAuthDialog.vue'))
+const AgentMcpSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/AgentMcpSettingsDialog.vue'))
 
 // 系统设置项
 const SystemSettings = ref<any>({
@@ -208,6 +209,9 @@ const advancedDialog = ref(false)
 const savingBasic = ref(false)
 const testingLlm = ref(false)
 const rustAccelAvailable = ref(false)
+const agentMcpDialog = ref(false)
+const agentMcpServers = ref<AgentMcpServer[]>([])
+const loadingAgentMcpServers = ref(false)
 
 // 智能助手配置项较多，默认收起以降低基础设置页的视觉占用。
 const aiAgentSettingsCollapsed = ref(true)
@@ -223,6 +227,24 @@ type LlmSettingsSnapshot = {
   LLM_BASE_URL_PRESET: string
   LLM_USER_AGENT: string
   LLM_TEMPERATURE: number
+}
+
+type AgentMcpTransport = 'stdio' | 'sse' | 'http' | 'streamable_http'
+
+interface AgentMcpServer {
+  id: string
+  name: string
+  enabled: boolean
+  transport: AgentMcpTransport
+  description?: string | null
+  command?: string | null
+  args: string[]
+  env: Record<string, string>
+  url?: string | null
+  headers: Record<string, string>
+  timeout: number
+  tool_prefix?: string | null
+  require_admin: boolean
 }
 
 let llmTestRequestId = 0
@@ -461,6 +483,8 @@ const selectedLlmModelInfo = computed(() => {
     source: selectedLlmModel.value.source || 'models.dev',
   })
 })
+const agentMcpEnabledCount = computed(() => agentMcpServers.value.filter(server => server.enabled).length)
+const agentMcpServerPreview = computed(() => agentMcpServers.value.slice(0, 3))
 
 const canTestLlm = computed(() => {
   const snapshot = currentLlmSnapshot.value
@@ -682,6 +706,23 @@ async function loadSystemSettings() {
   } catch (error) {
     console.log(error)
   }
+  await loadAgentMcpServers()
+}
+
+async function loadAgentMcpServers() {
+  loadingAgentMcpServers.value = true
+  try {
+    const result: { [key: string]: any } = await api.get('message/agent/mcp/servers')
+    if (result.success) agentMcpServers.value = result.data?.servers || []
+  } catch (error) {
+    console.log(error)
+  } finally {
+    loadingAgentMcpServers.value = false
+  }
+}
+
+function handleAgentMcpSaved(servers: AgentMcpServer[]) {
+  agentMcpServers.value = servers
 }
 
 // 调用API保存设置
@@ -1409,6 +1450,46 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         prepend-inner-icon="mdi-timer-outline"
                       />
                     </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12">
+                      <VAlert type="info" variant="tonal" class="agent-mcp-summary">
+                        <div class="agent-mcp-summary__content">
+                          <div>
+                            <div class="text-subtitle-2">{{ t('setting.system.aiAgentMcpTitle') }}</div>
+                            <div class="text-body-2">
+                              {{
+                                t('setting.system.aiAgentMcpSummary', {
+                                  enabled: agentMcpEnabledCount,
+                                  total: agentMcpServers.length,
+                                })
+                              }}
+                            </div>
+                            <div v-if="agentMcpServers.length" class="agent-mcp-summary__chips mt-2">
+                              <VChip
+                                v-for="server in agentMcpServerPreview"
+                                :key="server.id"
+                                size="small"
+                                variant="tonal"
+                                :color="server.enabled ? 'success' : 'default'"
+                              >
+                                {{ server.name }}
+                              </VChip>
+                              <VChip v-if="agentMcpServers.length > 3" size="small" variant="tonal">
+                                +{{ agentMcpServers.length - 3 }}
+                              </VChip>
+                            </div>
+                          </div>
+                          <VBtn
+                            color="primary"
+                            variant="tonal"
+                            prepend-icon="mdi-server-network"
+                            :loading="loadingAgentMcpServers"
+                            @click="agentMcpDialog = true"
+                          >
+                            {{ t('setting.system.aiAgentMcpSettings') }}
+                          </VBtn>
+                        </div>
+                      </VAlert>
+                    </VCol>
                   </VRow>
                   <VRow>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE" cols="12" md="4">
@@ -1767,6 +1848,13 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
       </VCard>
     </VCol>
   </VRow>
+
+  <AgentMcpSettingsDialog
+    v-if="agentMcpDialog"
+    v-model="agentMcpDialog"
+    :servers="agentMcpServers"
+    @saved="handleAgentMcpSaved"
+  />
 
   <!-- 高级系统设置 -->
   <VDialog
@@ -2476,5 +2564,25 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
 
 .llm-test-trigger {
   min-inline-size: 0;
+}
+
+.agent-mcp-summary__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agent-mcp-summary__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .agent-mcp-summary__content {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>
