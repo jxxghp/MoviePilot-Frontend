@@ -5,7 +5,7 @@ import { useToast } from 'vue-toastification'
 const { t } = useI18n()
 const toast = useToast()
 const { connectionStatus, connectionReason } = useGlobalOfflineStatus()
-const lastConnectionPromptKey = ref('')
+const shownConnectionPromptKeys = new Set<string>()
 
 const isChecking = computed(() => connectionStatus.value === 'checking')
 const statusTitle = computed(() => (isChecking.value ? t('app.connectionChecking') : t('app.serviceUnavailable')))
@@ -36,17 +36,21 @@ function showConnectionPrompt() {
   toast.error(message, options)
 }
 
-/** 在连接状态变化时发出一次离线提示，并在恢复在线后允许下一轮提示重新出现。 */
+/** 在同一轮连接异常内按状态去重提示，并在恢复在线后允许下一轮提示重新出现。 */
 function handleConnectionStatusChange() {
   if (connectionStatus.value === 'online') {
-    lastConnectionPromptKey.value = ''
+    shownConnectionPromptKeys.clear()
     return
   }
 
-  const promptKey = `${connectionStatus.value}:${connectionReason.value || 'unknown'}`
-  if (promptKey === lastConnectionPromptKey.value) return
+  const promptKey =
+    connectionStatus.value === 'checking'
+      ? connectionStatus.value
+      : `${connectionStatus.value}:${connectionReason.value || 'unknown'}`
 
-  lastConnectionPromptKey.value = promptKey
+  if (shownConnectionPromptKeys.has(promptKey)) return
+
+  shownConnectionPromptKeys.add(promptKey)
   showConnectionPrompt()
 }
 
