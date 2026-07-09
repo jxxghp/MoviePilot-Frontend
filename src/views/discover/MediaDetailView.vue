@@ -604,6 +604,11 @@ function getExistText(season: number) {
   else return t('media.status.inLibrary')
 }
 
+// 判断指定季集是否已存在于媒体服务器
+function isEpisodeExists(season: number, episode: number) {
+  return existsEpisodes.value[season]?.includes(episode) ?? false
+}
+
 // 计算订阅图标
 const getSubscribeIcon = computed(() => {
   if (mediaDetail.value.type === '电视剧') return subscribedSeasonNumbers.value.length > 0 ? 'mdi-heart' : 'mdi-heart-outline'
@@ -1036,7 +1041,14 @@ onUnmounted(() => {
                         :key="episode.episode_number"
                         class="flex flex-col space-y-4 py-4 xl:flex-row xl:space-y-4 xl:space-x-4"
                       >
-                        <div class="flex-1">
+                        <div class="episode-info flex-1">
+                          <VIcon
+                            v-if="isEpisodeExists(season.season_number || 0, episode.episode_number || 0)"
+                            color="success"
+                            icon="mdi-check-circle"
+                            class="episode-exists-badge"
+                            size="small"
+                          />
                           <div class="flex flex-col space-y-2 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-2">
                             <h3 class="text-lg">{{ episode.episode_number }} - {{ episode.name }}</h3>
                             <div class="flex items-center space-x-2">
@@ -1530,6 +1542,18 @@ a.crew-name {
   gap: 0.5rem;
   margin-block-end: 0.5rem;
   min-inline-size: 0;
+}
+
+.episode-info {
+  position: relative;
+  min-inline-size: 0;
+  padding-inline-end: 2rem;
+}
+
+.episode-exists-badge {
+  position: absolute;
+  inset-block-start: 0.125rem;
+  inset-inline-end: 0;
 }
 
 .episode-group-label {
