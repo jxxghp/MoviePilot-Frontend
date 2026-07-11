@@ -46,6 +46,9 @@ const isRefreshed = ref(false)
 // 渲染模式: 'vuetify' 或 'vue'
 const renderMode = ref('vuetify')
 
+// 联邦配置需要容纳分组导航和预览区，传统表单继续保持默认宽度。
+const dialogMaxWidth = computed(() => renderMode.value === 'vue' ? '68rem' : '60rem')
+
 // Vue 模式：动态加载的组件
 const dynamicComponent = defineAsyncComponent({
   // 工厂函数
@@ -148,7 +151,7 @@ onBeforeMount(async () => {
 })
 </script>
 <template>
-  <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
     <!-- Vuetify 渲染模式 -->
     <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`">
       <VDialogCloseBtn @click="emit('close')" />

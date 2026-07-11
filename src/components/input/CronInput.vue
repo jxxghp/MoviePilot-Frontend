@@ -7,6 +7,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue'])
+const { locale } = useI18n()
 
 const menu = ref(false)
 const currentCron = ref(props.modelValue)
@@ -14,6 +15,26 @@ const menuRoot = ref<HTMLElement>()
 const instance = getCurrentInstance()
 const menuContentClass = `cron-input-menu-${instance?.uid ?? 'default'}`
 const menuContentSelector = `.${menuContentClass}`
+const cronLocale = computed(() => locale.value === 'en-US' ? 'en' : 'zh-cn')
+// vue-js-cron 没有内置繁体中文，只需覆盖简体词典中会显示的 Cron 专有字词。
+const cronCustomLocale = computed(() => locale.value === 'zh-TW' ? {
+  '*': {
+    day: {
+      value: { text: '{{value.alt}}號' },
+      range: { text: '{{start.alt}}號-{{end.alt}}號' },
+    },
+    dayOfWeek: { empty: { text: '一週的每一天' } },
+    hour: { empty: { text: '每小時' } },
+    minute: { empty: { text: '每分鐘' } },
+  },
+  hour: {
+    text: '小時',
+    minute: { '*': { suffix: '分鐘' } },
+  },
+  week: { text: '週' },
+  'q-minute': { text: '分鐘' },
+  'q-hour': { text: '小時' },
+} : undefined)
 
 function isCronMenuTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
@@ -72,7 +93,14 @@ watch(
       </template>
       <VList>
         <VListItem>
-          <VCronVuetify v-model="currentCron" locale="zh-CN" :chip-props="{ color: 'success' }" class="mt-1" />
+          <VCronVuetify
+            :key="locale"
+            v-model="currentCron"
+            :chip-props="{ color: 'success' }"
+            class="mt-1"
+            :custom-locale="cronCustomLocale"
+            :locale="cronLocale"
+          />
         </VListItem>
       </VList>
     </VMenu>
