@@ -449,20 +449,15 @@ shared: {
 }
 ```
 
-### 8.3 开发环境测试
+### 8.3 本地监听构建
 
-开发期间可以使用以下配置在本地测试：
+插件前端可使用 Vite 的监听构建模式：
 
-```typescript
-// vite.config.ts
-export default defineConfig({
-  server: {
-    port: 5001,   // 使用不同于主应用的端口
-    cors: true,   // 启用CORS
-    origin: 'http://localhost:5001'
-  }
-})
+```bash
+yarn dev
 ```
+
+将 `dev` 脚本配置为 `vite build --watch` 后，源码变化会自动重新构建。使用本地插件仓并启用 `DEV` 或 `PLUGIN_AUTO_RELOAD` 时，MoviePilot 会同步新的构建产物；刷新页面即可看到修改。
 
 ## 9. 示例代码
 
