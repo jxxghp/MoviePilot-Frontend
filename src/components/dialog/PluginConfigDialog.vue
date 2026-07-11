@@ -133,8 +133,9 @@ function handleVueComponentSave(newConfig: Record<string, any>) {
 }
 
 // 联邦配置组件可按自身布局密度覆盖宿主弹窗宽度。
-function handleVueComponentLayout(layout: PluginConfigLayout) {
-  dialogMaxWidth.value = layout.maxWidth || '60rem'
+function handleVueComponentLayout(layout?: PluginConfigLayout | null) {
+  const maxWidth = typeof layout?.maxWidth === 'string' ? layout.maxWidth.trim() : ''
+  dialogMaxWidth.value = maxWidth || '60rem'
 }
 
 // 调用API保存配置数据

@@ -15,9 +15,10 @@ const menuRoot = ref<HTMLElement>()
 const instance = getCurrentInstance()
 const menuContentClass = `cron-input-menu-${instance?.uid ?? 'default'}`
 const menuContentSelector = `.${menuContentClass}`
-const cronLocale = computed(() => locale.value === 'en-US' ? 'en' : 'zh-cn')
+const normalizedLocale = computed(() => locale.value.toLowerCase().replace(/_/g, '-'))
+const cronLocale = computed(() => normalizedLocale.value.startsWith('zh') ? 'zh-cn' : 'en')
 // vue-js-cron 没有内置繁体中文，只需覆盖简体词典中会显示的 Cron 专有字词。
-const cronCustomLocale = computed(() => locale.value === 'zh-TW' ? {
+const cronCustomLocale = computed(() => normalizedLocale.value === 'zh-tw' ? {
   '*': {
     day: {
       value: { text: '{{value.alt}}號' },
