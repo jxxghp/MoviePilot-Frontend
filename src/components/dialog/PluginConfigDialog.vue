@@ -46,8 +46,8 @@ const isRefreshed = ref(false)
 // 渲染模式: 'vuetify' 或 'vue'
 const renderMode = ref('vuetify')
 
-// 插件配置统一使用标准对话框宽度，联邦组件在容器内自行响应式调整布局。
-const dialogMaxWidth = '60rem'
+// 联邦配置为导航、表单和摘要保留三栏空间，传统表单继续使用标准宽度。
+const dialogMaxWidth = computed(() => renderMode.value === 'vue' ? '68rem' : '60rem')
 
 // Vue 模式：动态加载的组件
 const dynamicComponent = defineAsyncComponent({
