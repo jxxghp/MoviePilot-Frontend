@@ -8,6 +8,11 @@ const props = defineProps({
     type: String,
     default: '* * * * *',
   },
+  /** 是否允许直接清空 CRON。 */
+  clearable: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -39,7 +44,6 @@ function updateModelValue(value: string) {
         :modelValue="innerValue"
         @update:modelValue="updateModelValue"
         v-bind="{ ...menuprops, ...propsWithoutModelValue }"
-        clearable
       />
     </template>
   </CronInput>

@@ -46,6 +46,14 @@ const isRefreshed = ref(false)
 // 渲染模式: 'vuetify' 或 'vue'
 const renderMode = ref('vuetify')
 
+// 插件未声明布局偏好时沿用标准配置弹窗宽度。
+const dialogMaxWidth = ref('60rem')
+
+interface PluginConfigLayout {
+  /** 插件配置界面期望的最大宽度，使用合法 CSS 尺寸。 */
+  maxWidth?: string
+}
+
 // Vue 模式：动态加载的组件
 const dynamicComponent = defineAsyncComponent({
   // 工厂函数
@@ -89,6 +97,7 @@ async function loadPluginUIData() {
   pluginFormItems = []
   pluginConfigForm.value = {}
   renderMode.value = 'vuetify'
+  dialogMaxWidth.value = '60rem'
 
   try {
     // 获取UI定义
@@ -123,6 +132,12 @@ function handleVueComponentSave(newConfig: Record<string, any>) {
   savePluginConf()
 }
 
+// 联邦配置组件可按自身布局密度覆盖宿主弹窗宽度。
+function handleVueComponentLayout(layout?: PluginConfigLayout | null) {
+  const maxWidth = typeof layout?.maxWidth === 'string' ? layout.maxWidth.trim() : ''
+  dialogMaxWidth.value = maxWidth || '60rem'
+}
+
 // 调用API保存配置数据
 async function savePluginConf() {
   // 显示等待提示框
@@ -148,7 +163,7 @@ onBeforeMount(async () => {
 })
 </script>
 <template>
-  <VDialog scrollable max-width="60rem" :fullscreen="!display.mdAndUp.value">
+  <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
     <!-- Vuetify 渲染模式 -->
     <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`">
       <VDialogCloseBtn @click="emit('close')" />
@@ -192,6 +207,7 @@ onBeforeMount(async () => {
           :initial-config="pluginConfigForm"
           :api="api"
           @save="handleVueComponentSave"
+          @layout="handleVueComponentLayout"
           @switch="emit('switch')"
           @close="emit('close')"
         />
