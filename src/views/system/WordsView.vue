@@ -2,11 +2,13 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
+import { useTheme } from 'vuetify'
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 
 const { t } = useI18n()
 const $toast = useToast()
+const { global: globalTheme } = useTheme()
 
 type TextSectionKey = 'identifiers' | 'releaseGroups' | 'customization' | 'excludeWords'
 type WordSectionKey = TextSectionKey | 'episodeRules'
@@ -43,6 +45,16 @@ const episodeFormatRules = ref<EpisodeFormatRule[]>([])
 const activeSection = ref<WordSectionKey>('identifiers')
 const expandedHelp = ref<string | null>(null)
 const saving = ref(false)
+
+const textEditorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
+const textEditorOptions = {
+  fontSize: 13.6,
+  highlightActiveLine: false,
+  scrollPastEnd: 0,
+  showGutter: false,
+  showPrintMargin: false,
+  tabSize: 2,
+}
 
 const savedTextValues = reactive<Record<TextSectionKey, string>>({
   identifiers: '',
@@ -474,7 +486,21 @@ onMounted(() => {
               <span>{{ t('setting.words.entryCount', { count: activeSectionCount }) }}</span>
             </div>
 
+            <VAceEditor
+              v-if="activeSection === 'identifiers'"
+              v-model:value="activeTextValue"
+              lang="word_list"
+              :theme="textEditorTheme"
+              :options="textEditorOptions"
+              :placeholder="activeTextPlaceholder"
+              :print-margin="false"
+              :min-lines="11"
+              :max-lines="11"
+              wrap
+              class="words-text-editor"
+            />
             <VTextarea
+              v-else
               v-model="activeTextValue"
               class="words-textarea"
               :placeholder="activeTextPlaceholder"
@@ -842,6 +868,18 @@ onMounted(() => {
   background: transparent;
 }
 
+.words-text-editor {
+  overflow: hidden;
+  min-block-size: 15.8rem;
+  border: 1px solid rgba(var(--v-theme-on-surface), var(--v-border-opacity));
+  border-radius: var(--app-surface-radius);
+}
+
+.words-text-editor :deep(.ace_comment) {
+  color: rgb(var(--v-theme-success)) !important;
+  font-style: normal;
+}
+
 .words-inline-hint {
   display: flex;
   align-items: flex-start;
@@ -1082,6 +1120,10 @@ onMounted(() => {
   }
 
   .words-textarea :deep(.v-field__input) {
+    min-block-size: 18rem;
+  }
+
+  .words-text-editor {
     min-block-size: 18rem;
   }
 
