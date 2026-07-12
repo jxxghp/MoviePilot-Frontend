@@ -530,6 +530,56 @@ function registerJinja2Mode() {
   )
 }
 
+function registerWordListMode() {
+  aceModule.define?.(
+    'ace/mode/word_list_highlight_rules',
+    ['require', 'exports', 'module', 'ace/lib/oop', 'ace/mode/text_highlight_rules'],
+    (require: any, exports: any) => {
+      const oop = require('../lib/oop')
+      const TextHighlightRules = require('./text_highlight_rules').TextHighlightRules
+
+      const WordListHighlightRules = function (this: any) {
+        this.$rules = {
+          start: [
+            {
+              token: 'comment.word-list',
+              regex: /^#.*/,
+            },
+          ],
+        }
+
+        this.normalizeRules()
+      }
+
+      oop.inherits(WordListHighlightRules, TextHighlightRules)
+      exports.WordListHighlightRules = WordListHighlightRules
+    },
+  )
+
+  aceModule.define?.(
+    'ace/mode/word_list',
+    ['require', 'exports', 'module', 'ace/lib/oop', 'ace/mode/text', 'ace/mode/word_list_highlight_rules'],
+    (require: any, exports: any) => {
+      const oop = require('../lib/oop')
+      const TextMode = require('./text').Mode
+      const WordListHighlightRules = require('./word_list_highlight_rules').WordListHighlightRules
+
+      const Mode = function (this: any) {
+        TextMode.call(this)
+        this.HighlightRules = WordListHighlightRules
+      }
+
+      oop.inherits(Mode, TextMode)
+
+      ;(function (this: any) {
+        this.$id = 'ace/mode/word_list'
+      }).call(Mode.prototype)
+
+      exports.Mode = Mode
+    },
+  )
+}
+
 ace.config.setModuleUrl('ace/mode/json', modeJsonUrl)
 ace.config.setModuleUrl('ace/mode/javascript', modeJavascriptUrl)
 ace.config.setModuleUrl('ace/mode/html', modeHtmlUrl)
@@ -555,4 +605,5 @@ ace.config.setModuleUrl('ace/snippets/css', snippertsCssUrl)
 ace.config.setModuleUrl('ace/snippets/ini', snippertsIniUrl)
 
 registerJinja2Mode()
+registerWordListMode()
 ace.require('ace/ext/language_tools')
