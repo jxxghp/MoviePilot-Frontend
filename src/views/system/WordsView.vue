@@ -494,8 +494,6 @@ onMounted(() => {
               :options="textEditorOptions"
               :placeholder="activeTextPlaceholder"
               :print-margin="false"
-              :min-lines="11"
-              :max-lines="11"
               wrap
               class="words-text-editor"
             />
@@ -870,9 +868,19 @@ onMounted(() => {
 
 .words-text-editor {
   overflow: hidden;
-  min-block-size: 15.8rem;
+  block-size: 15.8rem;
   border: 1px solid rgba(var(--v-theme-on-surface), var(--v-border-opacity));
   border-radius: var(--app-surface-radius);
+  contain: paint;
+  overscroll-behavior: contain;
+  transform: translateZ(0);
+}
+
+.words-text-editor :deep(.ace_scroller),
+.words-text-editor :deep(.ace_content),
+.words-text-editor :deep(.ace_text-layer) {
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .words-text-editor :deep(.ace_comment) {
@@ -1124,7 +1132,7 @@ onMounted(() => {
   }
 
   .words-text-editor {
-    min-block-size: 18rem;
+    block-size: 18rem;
   }
 
   .words-rule-toolbar {
