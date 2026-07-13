@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/api'
 import type { ApiResponse, RecognitionCacheData, RecognitionCacheItem } from '@/api/types'
 import { useConfirm } from '@/composables/useConfirm'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 
@@ -13,7 +14,6 @@ type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
 type RecognitionCacheSource = 'tmdb' | 'douban'
 
 const MOBILE_CACHE_PAGE_SIZE = 20
-const MOBILE_CACHE_ITEM_HEIGHT = 144
 
 const { t } = useI18n()
 const display = useDisplay()
@@ -74,8 +74,7 @@ const filteredData = computed(() => {
       !keyword ||
       [item.key, item.title, item.year, getRecognitionId(item)].some(value => value.toLowerCase().includes(keyword))
     const matchesStatus =
-      statusFilter.value === 'all' ||
-      (statusFilter.value === 'recognized' ? isRecognized(item) : !isRecognized(item))
+      statusFilter.value === 'all' || (statusFilter.value === 'recognized' ? isRecognized(item) : !isRecognized(item))
     return matchesKeyword && matchesStatus
   })
 })
@@ -155,7 +154,9 @@ async function clearAllCache() {
 
 /** 请求当前识别数据源接口删除指定识别缓存。 */
 async function deleteCacheItem(key: string) {
-  const response = (await api.delete(`${recognitionCacheEndpoint.value}/${encodeURIComponent(key)}`)) as unknown as ApiResponse
+  const response = (await api.delete(
+    `${recognitionCacheEndpoint.value}/${encodeURIComponent(key)}`,
+  )) as unknown as ApiResponse
   if (!response.success) throw new Error(response.message)
 }
 
@@ -215,6 +216,11 @@ function getRecognitionId(item: RecognitionCacheItem): string {
 function isRecognized(item: RecognitionCacheItem): boolean {
   const recognitionId = getRecognitionId(item)
   return Boolean(recognitionId && recognitionId !== '0')
+}
+
+/** 获取移动端识别缓存卡片的稳定渲染 key。 */
+function getRecognitionCacheItemKey(item: RecognitionCacheItem): string {
+  return item.key
 }
 
 /** 获取本地化的媒体类型名称。 */
@@ -359,14 +365,17 @@ watch(recognitionSource, () => {
 
         <template #empty />
 
-        <VVirtualScroll
+        <ProgressiveCardGrid
           v-if="mobileVisibleData.length > 0"
-          renderless
           :items="mobileVisibleData"
-          :item-height="MOBILE_CACHE_ITEM_HEIGHT"
+          :columns="1"
+          :gap="10"
+          :estimated-item-height="152"
+          :overscan-rows="5"
+          :get-item-key="getRecognitionCacheItemKey"
         >
-          <template #default="{ item, itemRef }">
-            <article :ref="itemRef" :key="item.key" class="recognition-cache-mobile-item">
+          <template #default="{ item }">
+            <article class="recognition-cache-mobile-item">
               <div class="recognition-cache-poster">
                 <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
                 <VIcon v-else icon="mdi-image-off-outline" size="28" />
@@ -398,7 +407,7 @@ watch(recognitionSource, () => {
               </VBtn>
             </article>
           </template>
-        </VVirtualScroll>
+        </ProgressiveCardGrid>
       </VInfiniteScroll>
 
       <div v-else class="cache-panel-empty">
@@ -478,9 +487,9 @@ watch(recognitionSource, () => {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  min-block-size: 0;
   padding: 20px;
   gap: 16px;
+  min-block-size: 0;
 }
 
 .cache-panel-toolbar {
@@ -503,10 +512,11 @@ watch(recognitionSource, () => {
   border-radius: var(--app-surface-radius);
   background: var(--app-grouped-list-background);
   box-shadow: var(--app-surface-shadow);
+  gap: 10px;
   min-block-size: 58px;
   min-inline-size: 126px;
-  padding: 10px 14px;
-  gap: 10px;
+  padding-block: 10px;
+  padding-inline: 14px;
 }
 
 .cache-panel-stat strong,
@@ -521,9 +531,9 @@ watch(recognitionSource, () => {
 }
 
 .cache-panel-stat span {
-  margin-block-start: 3px;
   color: rgba(var(--v-theme-on-surface), 0.58);
   font-size: 12px;
+  margin-block-start: 3px;
 }
 
 .cache-panel-stat--primary {
@@ -597,23 +607,23 @@ watch(recognitionSource, () => {
 }
 
 .recognition-cache-table__key {
-  max-inline-size: 36rem;
   color: rgba(var(--v-theme-on-surface), 0.68);
   font-family: monospace;
   font-size: 12px;
+  max-inline-size: 36rem;
   overflow-wrap: anywhere;
 }
 
 .recognition-cache-result {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
 .recognition-cache-result strong {
-  inline-size: 100%;
   color: rgba(var(--v-theme-on-surface), 0.88);
+  inline-size: 100%;
 }
 
 .recognition-cache-result span {
@@ -623,14 +633,14 @@ watch(recognitionSource, () => {
 
 .cache-panel-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
-  min-block-size: 14rem;
   padding: 24px;
   color: rgba(var(--v-theme-on-surface), 0.48);
-  text-align: center;
   gap: 8px;
+  min-block-size: 14rem;
+  text-align: center;
 }
 
 .cache-panel-empty strong {
@@ -639,15 +649,16 @@ watch(recognitionSource, () => {
 }
 
 .cache-panel-empty span {
-  max-inline-size: 30rem;
   font-size: 13px;
+  max-inline-size: 30rem;
 }
 
-@media (max-width: 959.98px) {
+@media (width <= 959.98px) {
   .recognition-cache-panel {
-    overflow-y: auto;
     block-size: 100%;
-    padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    padding-block: 14px calc(18px + env(safe-area-inset-bottom));
+    padding-inline: 16px;
   }
 
   .cache-panel-toolbar {
@@ -662,12 +673,12 @@ watch(recognitionSource, () => {
   }
 
   .cache-panel-stat {
-    align-items: center;
     flex-direction: row;
-    min-block-size: 92px;
-    min-inline-size: 0;
+    align-items: center;
     padding: 18px;
     gap: 14px;
+    min-block-size: 92px;
+    min-inline-size: 0;
   }
 
   .cache-panel-stat strong {
@@ -678,9 +689,9 @@ watch(recognitionSource, () => {
   }
 
   .cache-panel-stat span {
-    margin-block-start: 8px;
     font-size: 14px;
     font-weight: 600;
+    margin-block-start: 8px;
   }
 
   .cache-panel-filters {
@@ -693,9 +704,9 @@ watch(recognitionSource, () => {
   }
 
   .cache-panel-filter :deep(.v-field__input) {
-    min-block-size: 54px;
     color: rgba(var(--v-theme-on-surface), 0.72);
     font-size: 16px;
+    min-block-size: 54px;
   }
 
   .recognition-cache-mobile-scroll {
@@ -704,8 +715,8 @@ watch(recognitionSource, () => {
   }
 
   .recognition-cache-mobile-scroll :deep(.v-infinite-scroll__container),
-  .recognition-cache-mobile-scroll :deep(.v-virtual-scroll),
-  .recognition-cache-mobile-scroll :deep(.v-virtual-scroll__container) {
+  .recognition-cache-mobile-scroll :deep(.progressive-card-grid),
+  .recognition-cache-mobile-scroll :deep(.progressive-card-grid__track) {
     overflow: visible !important;
   }
 
@@ -715,28 +726,27 @@ watch(recognitionSource, () => {
 
   .cache-panel-load-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-direction: column;
-    min-block-size: 70px;
     color: rgba(var(--v-theme-on-surface), 0.58);
     font-size: 15px;
     font-weight: 700;
     gap: 8px;
+    min-block-size: 70px;
   }
 
   .recognition-cache-mobile-item {
     display: grid;
     align-items: start;
+    padding: 12px;
     border: var(--app-surface-border);
     border-radius: var(--app-surface-radius);
     backdrop-filter: var(--app-grouped-list-backdrop-filter);
     background: var(--app-grouped-list-background);
     box-shadow: var(--app-surface-shadow);
-    grid-template-columns: 54px minmax(0, 1fr) 36px;
-    margin-block-end: 10px;
-    padding: 12px;
     gap: 12px;
+    grid-template-columns: 54px minmax(0, 1fr) 36px;
   }
 
   .recognition-cache-poster {
@@ -757,25 +767,25 @@ watch(recognitionSource, () => {
 
   .recognition-cache-mobile-item__meta {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
-    margin-block-start: 7px;
+    align-items: center;
     color: rgba(var(--v-theme-on-surface), 0.58);
     font-size: 12px;
     gap: 7px;
+    margin-block-start: 7px;
   }
 
   .recognition-cache-mobile-item__key {
-    margin-block-start: 8px;
     color: rgba(var(--v-theme-on-surface), 0.48);
     font-family: monospace;
     font-size: 11px;
     line-height: 1.35;
+    margin-block-start: 8px;
     overflow-wrap: anywhere;
   }
 }
 
-@media (max-width: 374.98px) {
+@media (width <= 374.98px) {
   .recognition-cache-panel {
     padding-inline: 12px;
   }

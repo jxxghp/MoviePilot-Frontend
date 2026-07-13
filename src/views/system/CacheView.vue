@@ -9,6 +9,7 @@ import { useGlobalSettingsStore } from '@/stores'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import RecognitionCachePanel from '@/components/cache/RecognitionCachePanel.vue'
 
 const CacheReidentifyDialog = defineAsyncComponent(() => import('@/components/dialog/CacheReidentifyDialog.vue'))
@@ -446,14 +447,17 @@ watch([titleFilter, siteFilter], () => {
 
             <template #empty />
 
-            <VVirtualScroll
+            <ProgressiveCardGrid
               v-if="mobileVisibleData.length > 0"
-              renderless
               :items="mobileVisibleData"
-              :item-height="156"
+              :columns="1"
+              :gap="12"
+              :estimated-item-height="168"
+              :overscan-rows="5"
+              :get-item-key="getMobileCacheItemKey"
             >
-              <template #default="{ item, index, itemRef }">
-                <article :ref="itemRef" :key="getMobileCacheItemKey(item, index)" class="cache-mobile-card">
+              <template #default="{ item }">
+                <article class="cache-mobile-card">
                   <div class="cache-mobile-card__poster">
                     <VChip
                       v-if="item.media_type"
@@ -540,7 +544,7 @@ watch([titleFilter, siteFilter], () => {
                   </VMenu>
                 </article>
               </template>
-            </VVirtualScroll>
+            </ProgressiveCardGrid>
           </VInfiniteScroll>
 
           <div v-else class="cache-mobile-empty">
@@ -1015,8 +1019,8 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-scroll :deep(.v-infinite-scroll__container),
-.cache-mobile-scroll :deep(.v-virtual-scroll),
-.cache-mobile-scroll :deep(.v-virtual-scroll__container) {
+.cache-mobile-scroll :deep(.progressive-card-grid),
+.cache-mobile-scroll :deep(.progressive-card-grid__track) {
   overflow: visible !important;
 }
 
@@ -1037,7 +1041,6 @@ watch([titleFilter, siteFilter], () => {
   box-shadow: var(--app-surface-shadow);
   gap: 14px;
   grid-template-columns: 72px minmax(0, 1fr);
-  margin-block-end: 12px;
 }
 
 .cache-mobile-card__poster {

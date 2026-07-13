@@ -12,6 +12,7 @@ import { useDisplay } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useI18n } from 'vue-i18n'
 import { usePWA } from '@/composables/usePWA'
+import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDynamicButton, type DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { useAvailableHeight } from '@/composables/useAvailableHeight'
 import { useBackground } from '@/composables/useBackground'
@@ -1092,6 +1093,11 @@ function isHistorySelected(item: TransferHistory) {
   return selectedIdSet.value.has(item.id)
 }
 
+// 获取移动端历史记录卡片的稳定渲染 key。
+function getMobileHistoryItemKey(item: TransferHistory) {
+  return item.id
+}
+
 // 批量设置历史记录选中状态，并按 ID 去重。
 function updateHistorySelection(items: readonly TransferHistory[], checked: boolean | null) {
   const itemIds = new Set(items.map(item => item.id))
@@ -1607,7 +1613,9 @@ onUnmounted(() => {
         :aria-label="
           mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
         "
-        :title="mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')"
+        :title="
+          mobileBatchMode ? t('transferHistory.actions.exitBatchSelect') : t('transferHistory.actions.batchSelect')
+        "
         variant="text"
         class="settings-icon-button transfer-history-mobile-titlebar__batch"
         @click="toggleMobileBatchMode"
@@ -1649,15 +1657,17 @@ onUnmounted(() => {
       </template>
       <template #empty />
 
-      <VVirtualScroll
+      <ProgressiveCardGrid
         v-if="mobileDataList.length > 0"
-        renderless
         :items="mobileDataList"
-        :item-height="264"
+        :columns="1"
+        :gap="14"
+        :estimated-item-height="280"
+        :overscan-rows="5"
+        :get-item-key="getMobileHistoryItemKey"
       >
-        <template #default="{ item, itemRef }">
+        <template #default="{ item }">
           <article
-            :ref="itemRef"
             class="transfer-history-mobile-record"
             :class="{
               'transfer-history-mobile-record--batch': mobileBatchMode,
@@ -1680,7 +1690,12 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <VChip class="transfer-history-mobile-record__status" variant="tonal" :color="getHistoryStatusColor(item)" size="small">
+              <VChip
+                class="transfer-history-mobile-record__status"
+                variant="tonal"
+                :color="getHistoryStatusColor(item)"
+                size="small"
+              >
                 {{ getHistoryStatusText(item) }}
               </VChip>
 
@@ -1753,7 +1768,7 @@ onUnmounted(() => {
             </div>
           </article>
         </template>
-      </VVirtualScroll>
+      </ProgressiveCardGrid>
     </VInfiniteScroll>
 
     <div v-if="mobileDataList.length === 0 && isRefreshed && !mobileLoading" class="transfer-history-mobile-empty">
@@ -1821,17 +1836,18 @@ onUnmounted(() => {
   --transfer-history-mobile-surface-blur: none;
 
   display: flex;
-  min-block-size: 100%;
   flex-direction: column;
   gap: 1rem;
-  padding: 0.25rem 0.35rem 1.25rem;
+  min-block-size: 100%;
+  padding-block: 0.25rem 1.25rem;
+  padding-inline: 0.35rem;
 }
 
 .transfer-history-mobile-titlebar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .transfer-history-mobile-title {
@@ -1862,13 +1878,13 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-scroll {
-  min-block-size: 22rem;
   overflow: visible !important;
+  min-block-size: 22rem;
 }
 
 .transfer-history-mobile-scroll :deep(.v-infinite-scroll__container),
-.transfer-history-mobile-scroll :deep(.v-virtual-scroll),
-.transfer-history-mobile-scroll :deep(.v-virtual-scroll__container) {
+.transfer-history-mobile-scroll :deep(.progressive-card-grid),
+.transfer-history-mobile-scroll :deep(.progressive-card-grid__track) {
   overflow: visible !important;
 }
 
@@ -1889,9 +1905,9 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-empty {
-  min-block-size: 18rem;
   flex-direction: column;
   gap: 0.75rem;
+  min-block-size: 18rem;
 }
 
 .transfer-history-mobile-record {
@@ -1911,16 +1927,13 @@ onUnmounted(() => {
   outline-offset: -2px;
 }
 
-.transfer-history-mobile-record + .transfer-history-mobile-record {
-  margin-block-start: 0.875rem;
-}
-
 .transfer-history-mobile-record__header {
   display: grid;
   align-items: start;
   gap: 0.75rem;
   grid-template-columns: 3rem minmax(0, 1fr) auto 2rem;
-  padding: 1rem 0.85rem 0.75rem 1rem;
+  padding-block: 1rem 0.75rem;
+  padding-inline: 1rem 0.85rem;
 }
 
 .transfer-history-mobile-record__avatar {
@@ -1963,13 +1976,11 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-record__menu {
-  align-self: start;
-  justify-self: end;
+  place-self: start end;
 }
 
 .transfer-history-mobile-record__checkbox {
-  align-self: start;
-  justify-self: end;
+  place-self: start end;
   margin-block-start: -0.35rem;
   margin-inline-end: -0.35rem;
 }
@@ -1981,9 +1992,10 @@ onUnmounted(() => {
 .transfer-history-mobile-record__meta {
   display: flex;
   align-items: center;
-  padding: 0 1rem 0.85rem 1rem;
   gap: 0.65rem;
   overflow-x: auto;
+  padding-block: 0 0.85rem;
+  padding-inline: 1rem;
   scrollbar-width: none;
   white-space: nowrap;
 }
@@ -2011,14 +2023,15 @@ onUnmounted(() => {
 .transfer-history-mobile-record__paths {
   display: grid;
   border: 0;
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   background: transparent;
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   color: inherit;
   cursor: pointer;
   gap: 0.45rem;
   grid-template-columns: 1fr;
   inline-size: 100%;
-  padding: 0.85rem 1rem 0.95rem;
+  padding-block: 0.85rem 0.95rem;
+  padding-inline: 1rem;
   text-align: start;
 }
 
@@ -2032,15 +2045,15 @@ onUnmounted(() => {
 .transfer-history-mobile-record__path-arrow {
   display: flex;
   align-items: center;
+  justify-content: center;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   inline-size: var(--transfer-history-mobile-storage-width);
-  justify-content: center;
   padding-inline-start: 0.5rem;
 }
 
 .transfer-history-mobile-record__storage {
   display: inline-flex;
-  max-inline-size: 100%;
+  overflow: hidden;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
@@ -2048,8 +2061,8 @@ onUnmounted(() => {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.75rem;
   line-height: 1.4;
+  max-inline-size: 100%;
   min-block-size: 1.55rem;
-  overflow: hidden;
   padding-block: 0.125rem;
   padding-inline: 0.425rem;
   text-overflow: ellipsis;
@@ -2082,9 +2095,11 @@ onUnmounted(() => {
   font-weight: 650;
   gap: 0.5rem;
   line-height: 1.45;
-  margin: 0 1rem 1rem;
+  margin-block: 0 1rem;
+  margin-inline: 1rem;
   overflow-wrap: anywhere;
-  padding: 0.65rem 0.75rem;
+  padding-block: 0.65rem;
+  padding-inline: 0.75rem;
 }
 
 html[data-theme='transparent'] .transfer-history-mobile-page,
