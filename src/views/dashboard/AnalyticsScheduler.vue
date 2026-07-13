@@ -61,7 +61,7 @@ const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
       subtitle:
         (isRunning && getScheduleProgressText(item)) || getScheduleProvider(item) || getScheduleNextRunText(item),
       status: isRunning ? t('dashboard.taskRunning') : getScheduleStatusText(item) || t('dashboard.taskWaiting'),
-      icon: isRunning ? BACKGROUND_TASK_RUNNING_ICON : visual.icon,
+      icon: visual.icon,
       color: visual.color,
       progress: isRunning ? getScheduleProgressValue(item) : undefined,
     }
@@ -77,7 +77,7 @@ const backgroundTasks = computed<BackgroundTaskItem[]>(() => {
       title: item.media?.title_year || item.media?.title || t('dashboard.transferQueue'),
       subtitle: t('dashboard.transferProgress', { completed, total: tasks.length }),
       status: isRunning ? t('dashboard.taskRunning') : t('dashboard.taskWaiting'),
-      icon: isRunning ? BACKGROUND_TASK_RUNNING_ICON : 'mdi-folder-sync-outline',
+      icon: 'mdi-folder-sync-outline',
       color: 'warning',
       progress: isRunning ? progress : undefined,
     }
@@ -120,11 +120,7 @@ useDataRefresh(
         <VListItem v-for="item in backgroundTasks" :key="item.id" class="background-task-item">
           <template #prepend>
             <VAvatar size="38" variant="tonal" :color="item.color" class="me-3">
-              <VIcon
-                :icon="item.icon"
-                :class="{ 'background-task-running-icon': item.progress !== undefined }"
-                size="20"
-              />
+              <VIcon :icon="item.icon" size="20" />
             </VAvatar>
           </template>
 
