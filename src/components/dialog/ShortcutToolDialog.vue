@@ -129,13 +129,8 @@ const bodyClasses = computed(() => [
     display: flex;
     overflow: hidden;
     flex-direction: column;
-    background: rgb(var(--v-theme-surface));
-  }
-
-  html[data-theme='transparent'] .cache-shortcut-dialog-card,
-  .v-theme--transparent .cache-shortcut-dialog-card {
-    backdrop-filter: blur(var(--transparent-blur, 10px));
-    background: rgba(var(--v-theme-surface), var(--transparent-opacity-heavy, 0.5));
+    backdrop-filter: var(--app-grouped-list-backdrop-filter);
+    background: var(--app-grouped-list-background);
   }
 
   .cache-shortcut-dialog-body {

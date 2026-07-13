@@ -9,12 +9,16 @@ import { useGlobalSettingsStore } from '@/stores'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
+import TmdbRecognitionCachePanel from '@/components/cache/TmdbRecognitionCachePanel.vue'
 
 const CacheReidentifyDialog = defineAsyncComponent(() => import('@/components/dialog/CacheReidentifyDialog.vue'))
 
 type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
+type CacheManagerType = 'torrent' | 'tmdb'
 
 const MOBILE_CACHE_PAGE_SIZE = 20
+
+const activeCacheType = ref<CacheManagerType>('torrent')
 
 // 国际化
 const { t } = useI18n()
@@ -336,7 +340,32 @@ watch([titleFilter, siteFilter], () => {
 </script>
 
 <template>
-  <section v-if="isMobile" class="cache-mobile-page">
+  <section class="cache-manager">
+    <header class="cache-manager__header">
+      <VBtnToggle
+        v-model="activeCacheType"
+        mandatory
+        divided
+        density="comfortable"
+        variant="text"
+        color="primary"
+        class="cache-manager__switcher"
+        :aria-label="t('setting.cache.cacheType')"
+      >
+        <VBtn value="torrent" prepend-icon="mdi-download-box-outline">
+          {{ t('setting.cache.torrentCache') }}
+        </VBtn>
+        <VBtn value="tmdb" prepend-icon="mdi-movie-search-outline">
+          {{ t('setting.cache.tmdbRecognitionCache') }}
+        </VBtn>
+      </VBtnToggle>
+    </header>
+
+    <div class="cache-manager__content">
+      <TmdbRecognitionCachePanel v-if="activeCacheType === 'tmdb'" />
+
+      <template v-else>
+        <section v-if="isMobile" class="cache-mobile-page">
     <div class="cache-mobile-stats">
       <div class="cache-mobile-stat cache-mobile-stat--primary">
         <VIcon icon="mdi-database" size="32" />
@@ -500,70 +529,55 @@ watch([titleFilter, siteFilter], () => {
     </div>
   </section>
 
-  <div v-else>
-    <!-- 工具栏统计信息和操作按钮 -->
-    <VCard class="mb-4">
-      <VCardItem>
-        <!-- 移动端垂直布局，桌面端水平布局 -->
-        <div class="d-flex flex-column flex-md-row align-center justify-space-between w-100 gap-4">
-          <!-- 左侧统计信息 -->
-          <div class="d-flex align-center justify-center justify-md-start gap-2 gap-md-6 w-100 w-md-auto">
-            <!-- 统计信息卡片 -->
-            <div class="d-flex gap-2 gap-md-4 flex-wrap justify-center justify-md-start">
-              <VCard variant="tonal" color="primary" class="pa-2 pa-md-3 flex-grow-1 flex-md-grow-0" style="min-width: 120px;">
-                <div class="d-flex align-center gap-2">
-                  <VIcon color="primary" size="small">mdi-database</VIcon>
-                  <div>
-                    <div class="text-h6 text-md-h6 font-weight-bold">{{ cacheData.count }}</div>
-                    <div class="text-caption text-medium-emphasis">{{ t('setting.cache.totalCount') }}</div>
-                  </div>
-                </div>
-              </VCard>
-
-              <VCard variant="tonal" color="success" class="pa-2 pa-md-3 flex-grow-1 flex-md-grow-0" style="min-width: 120px;">
-                <div class="d-flex align-center gap-2">
-                  <VIcon color="success" size="small">mdi-web</VIcon>
-                  <div>
-                    <div class="text-h6 text-md-h6 font-weight-bold">{{ cacheData.sites }}</div>
-                    <div class="text-caption text-medium-emphasis">{{ t('setting.cache.siteCount') }}</div>
-                  </div>
-                </div>
-              </VCard>
-            </div>
-          </div>
-
-          <!-- 右侧操作按钮 -->
-          <div class="d-flex gap-1 gap-md-2 flex-wrap justify-center justify-md-end">
-            <VBtn icon color="primary" :loading="loading" @click="refreshCache" size="small">
-              <VIcon size="small">mdi-refresh</VIcon>
-              <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refresh') }}</VTooltip>
-            </VBtn>
-
-            <VBtn
-              icon
-              color="warning"
-              :loading="loading"
-              :disabled="selectedItems.length === 0"
-              @click="deleteSelectedItems"
-              size="small"
-            >
-              <VIcon size="small">mdi-delete-sweep</VIcon>
-              <VTooltip activator="parent" location="bottom"
-                >{{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})</VTooltip
-              >
-            </VBtn>
-
-            <VBtn icon color="error" :loading="loading" @click="clearAllCache" size="small">
-              <VIcon size="small">mdi-delete-variant</VIcon>
-              <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
-            </VBtn>
+        <div v-else class="cache-desktop-page">
+    <div class="cache-desktop-toolbar">
+      <div class="cache-desktop-stats">
+        <div class="cache-desktop-stat cache-desktop-stat--primary">
+          <VIcon icon="mdi-database-outline" size="22" />
+          <div>
+            <strong>{{ cacheData.count }}</strong>
+            <span>{{ t('setting.cache.totalCount') }}</span>
           </div>
         </div>
-      </VCardItem>
-    </VCard>
+
+        <div class="cache-desktop-stat cache-desktop-stat--success">
+          <VIcon icon="mdi-web" size="22" />
+          <div>
+            <strong>{{ cacheData.sites }}</strong>
+            <span>{{ t('setting.cache.siteCount') }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cache-desktop-actions">
+        <VBtn icon variant="text" color="primary" :loading="loading" @click="refreshCache">
+          <VIcon icon="mdi-refresh" />
+          <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refresh') }}</VTooltip>
+        </VBtn>
+
+        <VBtn
+          icon
+          variant="text"
+          color="warning"
+          :loading="loading"
+          :disabled="selectedItems.length === 0"
+          @click="deleteSelectedItems"
+        >
+          <VIcon icon="mdi-delete-sweep-outline" />
+          <VTooltip activator="parent" location="bottom">
+            {{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})
+          </VTooltip>
+        </VBtn>
+
+        <VBtn icon variant="text" color="error" :loading="loading" @click="clearAllCache">
+          <VIcon icon="mdi-delete-variant" />
+          <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
+        </VBtn>
+      </div>
+    </div>
 
     <!-- 筛选框 -->
-    <VRow class="mb-4">
+    <VRow class="cache-desktop-filters">
       <VCol cols="6">
         <VTextField
           v-model="titleFilter"
@@ -571,6 +585,8 @@ watch([titleFilter, siteFilter], () => {
           prepend-inner-icon="mdi-magnify"
           clearable
           density="compact"
+          variant="outlined"
+          hide-details
         />
       </VCol>
       <VCol cols="6">
@@ -581,6 +597,8 @@ watch([titleFilter, siteFilter], () => {
           prepend-inner-icon="mdi-web"
           clearable
           density="compact"
+          variant="outlined"
+          hide-details
           :placeholder="t('setting.cache.selectSite')"
         />
       </VCol>
@@ -714,15 +732,157 @@ watch([titleFilter, siteFilter], () => {
         </div>
       </template>
     </VDataTable>
-  </div>
+        </div>
+      </template>
+    </div>
+  </section>
 </template>
 
 <style scoped>
+.cache-manager {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  block-size: 100%;
+  inline-size: 100%;
+  min-block-size: 0;
+}
+
+.cache-manager__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-block-end: var(--app-surface-border);
+  padding: 12px 20px;
+}
+
+.cache-manager__switcher {
+  overflow: hidden;
+  border: var(--app-surface-border);
+  border-radius: var(--app-control-radius);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-surface-shadow);
+}
+
+.cache-manager__switcher :deep(.v-btn) {
+  min-inline-size: 180px;
+}
+
+.cache-manager__switcher :deep(.v-btn__content) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.cache-manager__content {
+  display: flex;
+  overflow: hidden;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.cache-desktop-page {
+  padding: 20px;
+}
+
+.cache-desktop-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cache-desktop-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cache-desktop-stat {
+  display: flex;
+  align-items: center;
+  border: var(--app-surface-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--app-grouped-list-background);
+  box-shadow: var(--app-surface-shadow);
+  min-block-size: 58px;
+  min-inline-size: 126px;
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.cache-desktop-stat strong,
+.cache-desktop-stat span {
+  display: block;
+}
+
+.cache-desktop-stat strong {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.cache-desktop-stat span {
+  margin-block-start: 3px;
+  color: rgba(var(--v-theme-on-surface), 0.58);
+  font-size: 12px;
+}
+
+.cache-desktop-stat--primary {
+  color: rgb(var(--v-theme-primary));
+}
+
+.cache-desktop-stat--success {
+  color: rgb(var(--v-theme-success));
+}
+
+.cache-desktop-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.cache-desktop-filters {
+  margin-block: 16px;
+}
+
+.cache-desktop-filters :deep(.v-field) {
+  border-radius: var(--app-field-radius);
+  background: var(--app-grouped-list-background);
+}
+
+.cache-desktop-page :deep(.v-data-table) {
+  overflow: hidden;
+  border: var(--app-surface-border);
+  border-radius: var(--app-surface-radius);
+  box-shadow: var(--app-surface-shadow);
+}
+
+@media (max-width: 959.98px) {
+  .cache-manager__header {
+    padding-inline: 16px;
+  }
+
+  .cache-manager__switcher {
+    inline-size: 100%;
+  }
+
+  .cache-manager__switcher :deep(.v-btn) {
+    flex: 1 1 0;
+    block-size: auto;
+    min-block-size: 48px;
+    min-inline-size: 0;
+    padding-block: 6px;
+    padding-inline: 10px;
+  }
+}
+
 .cache-mobile-page {
-  --cache-mobile-control-bg: rgba(var(--v-theme-surface), 0.82);
-  --cache-mobile-page-bg: rgb(var(--v-theme-surface));
-  --cache-mobile-surface-bg: rgba(var(--v-theme-surface), 0.94);
-  --cache-mobile-surface-blur: none;
+  --cache-mobile-control-bg: var(--app-grouped-list-background);
+  --cache-mobile-page-bg: transparent;
+  --cache-mobile-surface-bg: var(--app-grouped-list-background);
+  --cache-mobile-surface-blur: var(--app-grouped-list-backdrop-filter);
 
   display: flex;
   overflow-y: auto;
@@ -731,7 +891,7 @@ watch([titleFilter, siteFilter], () => {
   block-size: 100%;
   inline-size: 100%;
   min-block-size: 0;
-  padding: calc(8px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
   background: var(--cache-mobile-page-bg);
   gap: 16px;
 }
@@ -746,7 +906,10 @@ watch([titleFilter, siteFilter], () => {
   display: flex;
   align-items: center;
   backdrop-filter: var(--cache-mobile-surface-blur);
-  border-radius: 18px;
+  border: var(--app-surface-border);
+  border-radius: var(--app-surface-radius);
+  background: var(--cache-mobile-surface-bg);
+  box-shadow: var(--app-surface-shadow);
   min-block-size: 92px;
   padding: 18px;
   gap: 14px;
@@ -769,13 +932,11 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-stat--primary {
-  background: linear-gradient(135deg, rgba(233, 30, 99, 0.14), rgba(233, 30, 99, 0.04));
-  color: #e91e63;
+  color: rgb(var(--v-theme-primary));
 }
 
 .cache-mobile-stat--success {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.14), rgba(76, 175, 80, 0.04));
-  color: #16b52b;
+  color: rgb(var(--v-theme-success));
 }
 
 .cache-mobile-filters {
@@ -786,9 +947,9 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-mobile-filter :deep(.v-field) {
   backdrop-filter: var(--cache-mobile-surface-blur);
-  border-radius: 16px;
+  border-radius: var(--app-field-radius);
   background: var(--cache-mobile-control-bg);
-  box-shadow: 0 6px 20px rgba(var(--v-theme-on-surface), 0.04);
+  box-shadow: var(--app-surface-shadow);
 }
 
 .cache-mobile-filter :deep(.v-field__outline) {
@@ -832,10 +993,10 @@ watch([titleFilter, siteFilter], () => {
   overflow: visible;
   align-items: start;
   backdrop-filter: var(--cache-mobile-surface-blur);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.05);
-  border-radius: 16px;
+  border: var(--app-surface-border);
+  border-radius: var(--app-surface-radius);
   background: var(--cache-mobile-surface-bg);
-  box-shadow: 0 10px 30px rgba(var(--v-theme-on-surface), 0.07);
+  box-shadow: var(--app-surface-shadow);
   gap: 14px;
   grid-template-columns: 72px minmax(0, 1fr);
   margin-block-end: 12px;
@@ -848,7 +1009,7 @@ watch([titleFilter, siteFilter], () => {
   overflow: hidden;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-on-surface), 0.06);
   block-size: 104px;
   color: rgba(var(--v-theme-on-surface), 0.34);
@@ -963,15 +1124,11 @@ watch([titleFilter, siteFilter], () => {
   font-size: 13px;
 }
 
-html[data-theme='transparent'] .cache-mobile-page,
-.v-theme--transparent .cache-mobile-page {
-  --cache-mobile-control-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-  --cache-mobile-page-bg: transparent;
-  --cache-mobile-surface-bg: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
-  --cache-mobile-surface-blur: blur(var(--transparent-blur, 10px));
-}
-
 @media (max-width: 374.98px) {
+  .cache-manager__header {
+    padding-inline: 12px;
+  }
+
   .cache-mobile-page {
     padding-inline: 12px;
   }

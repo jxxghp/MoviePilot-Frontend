@@ -1723,6 +1723,36 @@ export interface TorrentCacheData {
   data: TorrentCacheItem[]
 }
 
+// TheMovieDb 识别缓存项
+export interface TmdbRecognitionCacheItem {
+  // 缓存键
+  key: string
+  // TMDB ID，0 表示未识别
+  tmdb_id: number
+  // 识别后的标题
+  title: string
+  // 识别后的年份
+  year: string
+  // 媒体类型
+  media_type: string
+  // TMDB 海报相对路径
+  poster_path?: string
+  // TMDB 背景图相对路径
+  backdrop_path?: string
+}
+
+// TheMovieDb 识别缓存数据
+export interface TmdbRecognitionCacheData {
+  // 缓存总数
+  count: number
+  // 已识别数量
+  recognized: number
+  // 未识别数量
+  unrecognized: number
+  // 缓存数据
+  data: TmdbRecognitionCacheItem[]
+}
+
 // 订阅分享统计
 export interface SubscribeShareStatistics {
   // 分享人
