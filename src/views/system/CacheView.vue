@@ -366,372 +366,393 @@ watch([titleFilter, siteFilter], () => {
 
       <template v-else>
         <section v-if="isMobile" class="cache-mobile-page">
-    <div class="cache-mobile-stats">
-      <div class="cache-mobile-stat cache-mobile-stat--primary">
-        <VIcon icon="mdi-database" size="32" />
-        <div>
-          <strong>{{ cacheData.count }}</strong>
-          <span>{{ t('setting.cache.totalCount') }}</span>
-        </div>
-      </div>
-
-      <div class="cache-mobile-stat cache-mobile-stat--success">
-        <VIcon icon="mdi-web" size="32" />
-        <div>
-          <strong>{{ cacheData.sites }}</strong>
-          <span>{{ t('setting.cache.siteCount') }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="cache-mobile-filters">
-      <VTextField
-        v-model="titleFilter"
-        class="cache-mobile-filter"
-        :placeholder="t('setting.cache.filterByTitle')"
-        :aria-label="t('setting.cache.filterByTitle')"
-        prepend-inner-icon="mdi-magnify"
-        clearable
-        density="comfortable"
-        variant="outlined"
-        single-line
-        hide-details
-      />
-
-      <VAutocomplete
-        v-model="siteFilter"
-        class="cache-mobile-filter"
-        :placeholder="t('setting.cache.filterBySite')"
-        :aria-label="t('setting.cache.filterBySite')"
-        :items="siteOptions"
-        prepend-inner-icon="mdi-web"
-        clearable
-        density="comfortable"
-        variant="outlined"
-        single-line
-        hide-details
-      />
-    </div>
-
-    <div class="cache-mobile-actions">
-      <VBtn variant="tonal" color="primary" :loading="loading" prepend-icon="mdi-refresh" @click="refreshCache">
-        {{ t('setting.cache.refresh') }}
-      </VBtn>
-      <VBtn variant="tonal" color="error" :loading="loading" prepend-icon="mdi-delete-variant" @click="clearAllCache">
-        {{ t('setting.cache.clearAll') }}
-      </VBtn>
-    </div>
-
-    <VInfiniteScroll
-      v-if="mobileVisibleData.length > 0 || loading"
-      :key="mobileInfiniteKey"
-      mode="intersect"
-      side="end"
-      :items="mobileVisibleData"
-      class="cache-mobile-scroll"
-      @load="loadMoreMobileCache"
-    >
-      <template #loading>
-        <div class="cache-mobile-load-state">
-          <VProgressCircular indeterminate color="primary" size="22" width="3" />
-          <span>{{ t('setting.cache.loadingMore') }}</span>
-        </div>
-      </template>
-
-      <template #empty />
-
-      <VVirtualScroll v-if="mobileVisibleData.length > 0" renderless :items="mobileVisibleData" :item-height="156">
-        <template #default="{ item, index, itemRef }">
-          <article :ref="itemRef" :key="getMobileCacheItemKey(item, index)" class="cache-mobile-card">
-            <div class="cache-mobile-card__poster">
-              <VChip
-                v-if="item.media_type"
-                variant="elevated"
-                size="small"
-                :class="getMobileMediaTypeChipClass(item.media_type)"
-                class="cache-mobile-card__type bg-opacity-80 text-white font-bold"
-              >
-                {{
-                  item.media_type === 'movie'
-                    ? t('setting.cache.mediaType.movie')
-                    : item.media_type === 'tv'
-                      ? t('setting.cache.mediaType.tv')
-                      : item.media_type
-                }}
-              </VChip>
-              <VImg
-                v-if="item.poster_path"
-                :src="item.poster_path"
-                :alt="item.media_name || item.title"
-                cover
-                class="h-100 w-100"
-              >
-                <template #placeholder>
-                  <VSkeletonLoader class="h-100 w-100" />
-                </template>
-              </VImg>
-              <VIcon v-else :icon="item.media_type === 'movie' ? 'mdi-movie-open' : 'mdi-television-play'" size="34" />
-            </div>
-
-            <div class="cache-mobile-card__content">
-              <div class="cache-mobile-card__torrent">
-                {{ item.title }}
-              </div>
-
-              <div class="cache-mobile-card__main">
-                {{ getMobileMediaTitle(item) }}
-                <span v-if="getMobileMediaMeta(item)">{{ getMobileMediaMeta(item) }}</span>
-              </div>
-
-              <div class="cache-mobile-card__meta">
-                <span>{{ getMobileResourceMeta(item) }}</span>
-                <strong>{{ formatFileSize(item.size) }}</strong>
+          <div class="cache-mobile-stats">
+            <div class="cache-mobile-stat cache-mobile-stat--primary">
+              <VIcon icon="mdi-database" size="32" />
+              <div>
+                <strong>{{ cacheData.count }}</strong>
+                <span>{{ t('setting.cache.totalCount') }}</span>
               </div>
             </div>
 
-            <VMenu location="bottom end">
-              <template #activator="{ props: menuProps }">
-                <VBtn v-bind="menuProps" icon variant="text" class="cache-mobile-card__menu" :aria-label="t('setting.cache.actions')">
-                  <VIcon icon="mdi-dots-vertical" />
-                </VBtn>
+            <div class="cache-mobile-stat cache-mobile-stat--success">
+              <VIcon icon="mdi-web" size="32" />
+              <div>
+                <strong>{{ cacheData.sites }}</strong>
+                <span>{{ t('setting.cache.siteCount') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cache-mobile-filters">
+            <VTextField
+              v-model="titleFilter"
+              class="cache-mobile-filter"
+              :placeholder="t('setting.cache.filterByTitle')"
+              :aria-label="t('setting.cache.filterByTitle')"
+              prepend-inner-icon="mdi-magnify"
+              clearable
+              density="comfortable"
+              variant="outlined"
+              single-line
+              hide-details
+            />
+
+            <VAutocomplete
+              v-model="siteFilter"
+              class="cache-mobile-filter"
+              :placeholder="t('setting.cache.filterBySite')"
+              :aria-label="t('setting.cache.filterBySite')"
+              :items="siteOptions"
+              prepend-inner-icon="mdi-web"
+              clearable
+              density="comfortable"
+              variant="outlined"
+              single-line
+              hide-details
+            />
+          </div>
+
+          <div class="cache-mobile-actions">
+            <VBtn variant="tonal" color="primary" :loading="loading" prepend-icon="mdi-refresh" @click="refreshCache">
+              {{ t('setting.cache.refresh') }}
+            </VBtn>
+            <VBtn
+              variant="tonal"
+              color="error"
+              :loading="loading"
+              prepend-icon="mdi-delete-variant"
+              @click="clearAllCache"
+            >
+              {{ t('setting.cache.clearAll') }}
+            </VBtn>
+          </div>
+
+          <VInfiniteScroll
+            v-if="mobileVisibleData.length > 0 || loading"
+            :key="mobileInfiniteKey"
+            mode="intersect"
+            side="end"
+            :items="mobileVisibleData"
+            class="cache-mobile-scroll"
+            @load="loadMoreMobileCache"
+          >
+            <template #loading>
+              <div class="cache-mobile-load-state">
+                <VProgressCircular indeterminate color="primary" size="22" width="3" />
+                <span>{{ t('setting.cache.loadingMore') }}</span>
+              </div>
+            </template>
+
+            <template #empty />
+
+            <VVirtualScroll
+              v-if="mobileVisibleData.length > 0"
+              renderless
+              :items="mobileVisibleData"
+              :item-height="156"
+            >
+              <template #default="{ item, index, itemRef }">
+                <article :ref="itemRef" :key="getMobileCacheItemKey(item, index)" class="cache-mobile-card">
+                  <div class="cache-mobile-card__poster">
+                    <VChip
+                      v-if="item.media_type"
+                      variant="elevated"
+                      size="small"
+                      :class="getMobileMediaTypeChipClass(item.media_type)"
+                      class="cache-mobile-card__type bg-opacity-80 text-white font-bold"
+                    >
+                      {{
+                        item.media_type === 'movie'
+                          ? t('setting.cache.mediaType.movie')
+                          : item.media_type === 'tv'
+                            ? t('setting.cache.mediaType.tv')
+                            : item.media_type
+                      }}
+                    </VChip>
+                    <VImg
+                      v-if="item.poster_path"
+                      :src="item.poster_path"
+                      :alt="item.media_name || item.title"
+                      cover
+                      class="h-100 w-100"
+                    >
+                      <template #placeholder>
+                        <VSkeletonLoader class="h-100 w-100" />
+                      </template>
+                    </VImg>
+                    <VIcon
+                      v-else
+                      :icon="item.media_type === 'movie' ? 'mdi-movie-open' : 'mdi-television-play'"
+                      size="34"
+                    />
+                  </div>
+
+                  <div class="cache-mobile-card__content">
+                    <div class="cache-mobile-card__torrent">
+                      {{ item.title }}
+                    </div>
+
+                    <div class="cache-mobile-card__main">
+                      {{ getMobileMediaTitle(item) }}
+                      <span v-if="getMobileMediaMeta(item)">{{ getMobileMediaMeta(item) }}</span>
+                    </div>
+
+                    <div class="cache-mobile-card__meta">
+                      <span>{{ getMobileResourceMeta(item) }}</span>
+                      <strong>{{ formatFileSize(item.size) }}</strong>
+                    </div>
+                  </div>
+
+                  <VMenu location="bottom end">
+                    <template #activator="{ props: menuProps }">
+                      <VBtn
+                        v-bind="menuProps"
+                        icon
+                        variant="text"
+                        class="cache-mobile-card__menu"
+                        :aria-label="t('setting.cache.actions')"
+                      >
+                        <VIcon icon="mdi-dots-vertical" />
+                      </VBtn>
+                    </template>
+
+                    <VList density="compact">
+                      <VListItem @click="openReidentifyDialog(item)">
+                        <template #prepend>
+                          <VIcon icon="mdi-text-recognition" color="primary" />
+                        </template>
+                        <VListItemTitle>{{ t('setting.cache.reidentify') }}</VListItemTitle>
+                      </VListItem>
+                      <VListItem v-if="item.page_url" @click="openPageUrl(item.page_url || '')">
+                        <template #prepend>
+                          <VIcon icon="mdi-open-in-new" color="info" />
+                        </template>
+                        <VListItemTitle>{{ t('common.openInNewWindow') }}</VListItemTitle>
+                      </VListItem>
+                      <VListItem @click="deleteSingleItem(item)">
+                        <template #prepend>
+                          <VIcon icon="mdi-delete" color="error" />
+                        </template>
+                        <VListItemTitle>{{ t('common.delete') }}</VListItemTitle>
+                      </VListItem>
+                    </VList>
+                  </VMenu>
+                </article>
               </template>
+            </VVirtualScroll>
+          </VInfiniteScroll>
 
-              <VList density="compact">
-                <VListItem @click="openReidentifyDialog(item)">
-                  <template #prepend>
-                    <VIcon icon="mdi-text-recognition" color="primary" />
-                  </template>
-                  <VListItemTitle>{{ t('setting.cache.reidentify') }}</VListItemTitle>
-                </VListItem>
-                <VListItem v-if="item.page_url" @click="openPageUrl(item.page_url || '')">
-                  <template #prepend>
-                    <VIcon icon="mdi-open-in-new" color="info" />
-                  </template>
-                  <VListItemTitle>{{ t('common.openInNewWindow') }}</VListItemTitle>
-                </VListItem>
-                <VListItem @click="deleteSingleItem(item)">
-                  <template #prepend>
-                    <VIcon icon="mdi-delete" color="error" />
-                  </template>
-                  <VListItemTitle>{{ t('common.delete') }}</VListItemTitle>
-                </VListItem>
-              </VList>
-            </VMenu>
-          </article>
-        </template>
-      </VVirtualScroll>
-    </VInfiniteScroll>
-
-    <div v-else class="cache-mobile-empty">
-      <VIcon icon="mdi-database-off" size="42" />
-      <span>{{ t('setting.cache.noData') }}</span>
-      <small>{{ t('setting.cache.noDataHint') }}</small>
-    </div>
-  </section>
+          <div v-else class="cache-mobile-empty">
+            <VIcon icon="mdi-database-off" size="42" />
+            <span>{{ t('setting.cache.noData') }}</span>
+            <small>{{ t('setting.cache.noDataHint') }}</small>
+          </div>
+        </section>
 
         <div v-else class="cache-desktop-page">
-    <div class="cache-desktop-toolbar">
-      <div class="cache-desktop-stats">
-        <div class="cache-desktop-stat cache-desktop-stat--primary">
-          <VIcon icon="mdi-database-outline" size="22" />
-          <div>
-            <strong>{{ cacheData.count }}</strong>
-            <span>{{ t('setting.cache.totalCount') }}</span>
+          <div class="cache-desktop-toolbar">
+            <div class="cache-desktop-stats">
+              <div class="cache-desktop-stat cache-desktop-stat--primary">
+                <VIcon icon="mdi-database-outline" size="22" />
+                <div>
+                  <strong>{{ cacheData.count }}</strong>
+                  <span>{{ t('setting.cache.totalCount') }}</span>
+                </div>
+              </div>
+
+              <div class="cache-desktop-stat cache-desktop-stat--success">
+                <VIcon icon="mdi-web" size="22" />
+                <div>
+                  <strong>{{ cacheData.sites }}</strong>
+                  <span>{{ t('setting.cache.siteCount') }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cache-desktop-actions">
+              <VBtn icon variant="text" color="primary" :loading="loading" @click="refreshCache">
+                <VIcon icon="mdi-refresh" />
+                <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refresh') }}</VTooltip>
+              </VBtn>
+
+              <VBtn
+                icon
+                variant="text"
+                color="warning"
+                :loading="loading"
+                :disabled="selectedItems.length === 0"
+                @click="deleteSelectedItems"
+              >
+                <VIcon icon="mdi-delete-sweep-outline" />
+                <VTooltip activator="parent" location="bottom">
+                  {{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})
+                </VTooltip>
+              </VBtn>
+
+              <VBtn icon variant="text" color="error" :loading="loading" @click="clearAllCache">
+                <VIcon icon="mdi-delete-variant" />
+                <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
+              </VBtn>
+            </div>
           </div>
-        </div>
 
-        <div class="cache-desktop-stat cache-desktop-stat--success">
-          <VIcon icon="mdi-web" size="22" />
-          <div>
-            <strong>{{ cacheData.sites }}</strong>
-            <span>{{ t('setting.cache.siteCount') }}</span>
-          </div>
-        </div>
-      </div>
+          <!-- 筛选框 -->
+          <VRow class="cache-desktop-filters">
+            <VCol cols="6">
+              <VTextField
+                v-model="titleFilter"
+                :label="t('setting.cache.filterByTitle')"
+                prepend-inner-icon="mdi-magnify"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+              />
+            </VCol>
+            <VCol cols="6">
+              <VAutocomplete
+                v-model="siteFilter"
+                :label="t('setting.cache.filterBySite')"
+                :items="siteOptions"
+                prepend-inner-icon="mdi-web"
+                clearable
+                density="compact"
+                variant="outlined"
+                hide-details
+                :placeholder="t('setting.cache.selectSite')"
+              />
+            </VCol>
+          </VRow>
 
-      <div class="cache-desktop-actions">
-        <VBtn icon variant="text" color="primary" :loading="loading" @click="refreshCache">
-          <VIcon icon="mdi-refresh" />
-          <VTooltip activator="parent" location="bottom">{{ t('setting.cache.refresh') }}</VTooltip>
-        </VBtn>
-
-        <VBtn
-          icon
-          variant="text"
-          color="warning"
-          :loading="loading"
-          :disabled="selectedItems.length === 0"
-          @click="deleteSelectedItems"
-        >
-          <VIcon icon="mdi-delete-sweep-outline" />
-          <VTooltip activator="parent" location="bottom">
-            {{ t('setting.cache.deleteSelected') }} ({{ selectedItems.length }})
-          </VTooltip>
-        </VBtn>
-
-        <VBtn icon variant="text" color="error" :loading="loading" @click="clearAllCache">
-          <VIcon icon="mdi-delete-variant" />
-          <VTooltip activator="parent" location="bottom">{{ t('setting.cache.clearAll') }}</VTooltip>
-        </VBtn>
-      </div>
-    </div>
-
-    <!-- 筛选框 -->
-    <VRow class="cache-desktop-filters">
-      <VCol cols="6">
-        <VTextField
-          v-model="titleFilter"
-          :label="t('setting.cache.filterByTitle')"
-          prepend-inner-icon="mdi-magnify"
-          clearable
-          density="compact"
-          variant="outlined"
-          hide-details
-        />
-      </VCol>
-      <VCol cols="6">
-        <VAutocomplete
-          v-model="siteFilter"
-          :label="t('setting.cache.filterBySite')"
-          :items="siteOptions"
-          prepend-inner-icon="mdi-web"
-          clearable
-          density="compact"
-          variant="outlined"
-          hide-details
-          :placeholder="t('setting.cache.selectSite')"
-        />
-      </VCol>
-    </VRow>
-
-    <!-- 缓存列表 -->
-    <VDataTable
-      v-model="selectedItems"
-      :headers="[
-        { title: '', key: 'data-table-select', sortable: false, width: '48px' },
-        { title: t('setting.cache.poster'), key: 'poster', sortable: false, width: '80px' },
-        { title: t('setting.cache.torrentTitle'), key: 'title', sortable: true },
-        { title: t('setting.cache.site'), key: 'site_name', sortable: true, width: '120px' },
-        { title: t('setting.cache.size'), key: 'size', sortable: true, width: '100px' },
-        { title: t('setting.cache.publishTime'), key: 'pubdate', sortable: true, width: '150px' },
-        { title: t('setting.cache.recognitionResult'), key: 'media_info', sortable: false, width: '200px' },
-        { title: t('setting.cache.actions'), key: 'actions', sortable: false, width: '150px' },
-      ]"
-      :items="filteredData"
-      :loading="loading"
-      item-value="hash"
-      show-select
-      hover
-      fixed-header
-      :items-per-page-text="t('common.itemsPerPage')"
-      :no-data-text="t('common.noDataText')"
-      :loading-text="t('common.loadingText')"
-      :style="tableStyle"
-    >
-      <!-- 全选复选框 -->
-      <template #header.data-table-select="{ allSelected, selectAll, someSelected }">
-        <VCheckbox
-          :indeterminate="someSelected && !allSelected"
-          :model-value="allSelected"
-          @update:model-value="(value: boolean | null) => selectAll(value as boolean)"
-        />
-      </template>
-
-      <!-- 海报列 -->
-      <template #item.poster="{ item }">
-        <div class="text-center">
-          <VImg
-            v-if="item.poster_path"
-            :src="item.poster_path"
-            :alt="item.media_name || item.title"
-            cover
-            rounded="md"
-            class="w-12 my-1 ms-auto"
-          />
-          <VIcon v-else size="x-large" color="grey-lighten-1">
-            {{ item.media_type === 'movie' ? 'mdi-movie-open' : 'mdi-television-play' }}
-          </VIcon>
-        </div>
-      </template>
-
-      <!-- 标题列 -->
-      <template #item.title="{ item }">
-        <div class="d-flex flex-column min-w-40">
-          <div class="text-subtitle-2 font-weight-bold">
-            {{ item.title }}
-          </div>
-          <div v-if="item.description" class="text-caption text-grey">
-            {{ item.description }}
-          </div>
-          <div v-if="item.season_episode || item.resource_term" class="text-caption text-primary mt-1">
-            {{ item.season_episode }} {{ item.resource_term }}
-          </div>
-        </div>
-      </template>
-
-      <!-- 大小列 -->
-      <template #item.size="{ item }">
-        {{ formatFileSize(item.size) }}
-      </template>
-
-      <!-- 发布时间列 -->
-      <template #item.pubdate="{ item }">
-        {{ formatDateDifference(item.pubdate || '') }}
-      </template>
-
-      <!-- 识别结果列 -->
-      <template #item.media_info="{ item }">
-        <div v-if="item.media_name" class="d-flex flex-column">
-          <div class="text-subtitle-2">
-            {{ item.media_name }}
-            <span v-if="item.media_year" class="text-caption text-grey"> ({{ item.media_year }}) </span>
-          </div>
-          <div>
-            <VChip v-if="item.media_type" :color="getMediaTypeColor(item.media_type)" size="x-small">
-              {{ item.media_type }}
-            </VChip>
-          </div>
-        </div>
-        <div v-else class="text-caption text-grey">
-          {{ t('setting.cache.unrecognized') }}
-        </div>
-      </template>
-
-      <!-- 操作列 -->
-      <template #item.actions="{ item }">
-        <div class="d-flex gap-1">
-          <VBtn icon size="small" color="primary" variant="text" @click="openReidentifyDialog(item)">
-            <VIcon size="16">mdi-text-recognition</VIcon>
-          </VBtn>
-
-          <VBtn icon size="small" color="error" variant="text" @click="deleteSingleItem(item)">
-            <VIcon size="16">mdi-delete</VIcon>
-          </VBtn>
-
-          <VBtn
-            v-if="item.page_url"
-            icon
-            size="small"
-            color="info"
-            variant="text"
-            @click="openPageUrl(item.page_url || '')"
-            target="_blank"
+          <!-- 缓存列表 -->
+          <VDataTable
+            v-model="selectedItems"
+            :headers="[
+              { title: '', key: 'data-table-select', sortable: false, width: '48px' },
+              { title: t('setting.cache.poster'), key: 'poster', sortable: false, width: '80px' },
+              { title: t('setting.cache.torrentTitle'), key: 'title', sortable: true },
+              { title: t('setting.cache.site'), key: 'site_name', sortable: true, width: '120px' },
+              { title: t('setting.cache.size'), key: 'size', sortable: true, width: '100px' },
+              { title: t('setting.cache.publishTime'), key: 'pubdate', sortable: true, width: '150px' },
+              { title: t('setting.cache.recognitionResult'), key: 'media_info', sortable: false, width: '200px' },
+              { title: t('setting.cache.actions'), key: 'actions', sortable: false, width: '150px' },
+            ]"
+            :items="filteredData"
+            :loading="loading"
+            item-value="hash"
+            show-select
+            hover
+            fixed-header
+            :items-per-page-text="t('common.itemsPerPage')"
+            :no-data-text="t('common.noDataText')"
+            :loading-text="t('common.loadingText')"
+            :style="tableStyle"
           >
-            <VIcon size="16">mdi-open-in-new</VIcon>
-          </VBtn>
-        </div>
-      </template>
+            <!-- 全选复选框 -->
+            <template #header.data-table-select="{ allSelected, selectAll, someSelected }">
+              <VCheckbox
+                :indeterminate="someSelected && !allSelected"
+                :model-value="allSelected"
+                @update:model-value="(value: boolean | null) => selectAll(value as boolean)"
+              />
+            </template>
 
-      <!-- 空状态 -->
-      <template #no-data>
-        <div class="text-center pa-4">
-          <VIcon size="64" class="mb-4"> mdi-database-off </VIcon>
-          <div class="text-body-2 text-grey">
-            {{ t('setting.cache.noData') }}
-          </div>
-        </div>
-      </template>
-    </VDataTable>
+            <!-- 海报列 -->
+            <template #item.poster="{ item }">
+              <div class="text-center">
+                <VImg
+                  v-if="item.poster_path"
+                  :src="item.poster_path"
+                  :alt="item.media_name || item.title"
+                  cover
+                  rounded="md"
+                  class="w-12 my-1 ms-auto"
+                />
+                <VIcon v-else size="x-large" color="grey-lighten-1">
+                  {{ item.media_type === 'movie' ? 'mdi-movie-open' : 'mdi-television-play' }}
+                </VIcon>
+              </div>
+            </template>
+
+            <!-- 标题列 -->
+            <template #item.title="{ item }">
+              <div class="d-flex flex-column min-w-40">
+                <div class="text-subtitle-2 font-weight-bold">
+                  {{ item.title }}
+                </div>
+                <div v-if="item.description" class="text-caption text-grey">
+                  {{ item.description }}
+                </div>
+                <div v-if="item.season_episode || item.resource_term" class="text-caption text-primary mt-1">
+                  {{ item.season_episode }} {{ item.resource_term }}
+                </div>
+              </div>
+            </template>
+
+            <!-- 大小列 -->
+            <template #item.size="{ item }">
+              {{ formatFileSize(item.size) }}
+            </template>
+
+            <!-- 发布时间列 -->
+            <template #item.pubdate="{ item }">
+              {{ formatDateDifference(item.pubdate || '') }}
+            </template>
+
+            <!-- 识别结果列 -->
+            <template #item.media_info="{ item }">
+              <div v-if="item.media_name" class="d-flex flex-column">
+                <div class="text-subtitle-2">
+                  {{ item.media_name }}
+                  <span v-if="item.media_year" class="text-caption text-grey"> ({{ item.media_year }}) </span>
+                </div>
+                <div>
+                  <VChip v-if="item.media_type" :color="getMediaTypeColor(item.media_type)" size="x-small">
+                    {{ item.media_type }}
+                  </VChip>
+                </div>
+              </div>
+              <div v-else class="text-caption text-grey">
+                {{ t('setting.cache.unrecognized') }}
+              </div>
+            </template>
+
+            <!-- 操作列 -->
+            <template #item.actions="{ item }">
+              <div class="d-flex gap-1">
+                <VBtn icon size="small" color="primary" variant="text" @click="openReidentifyDialog(item)">
+                  <VIcon size="16">mdi-text-recognition</VIcon>
+                </VBtn>
+
+                <VBtn icon size="small" color="error" variant="text" @click="deleteSingleItem(item)">
+                  <VIcon size="16">mdi-delete</VIcon>
+                </VBtn>
+
+                <VBtn
+                  v-if="item.page_url"
+                  icon
+                  size="small"
+                  color="info"
+                  variant="text"
+                  @click="openPageUrl(item.page_url || '')"
+                  target="_blank"
+                >
+                  <VIcon size="16">mdi-open-in-new</VIcon>
+                </VBtn>
+              </div>
+            </template>
+
+            <!-- 空状态 -->
+            <template #no-data>
+              <div class="text-center pa-4">
+                <VIcon size="64" class="mb-4"> mdi-database-off </VIcon>
+                <div class="text-body-2 text-grey">
+                  {{ t('setting.cache.noData') }}
+                </div>
+              </div>
+            </template>
+          </VDataTable>
         </div>
       </template>
     </div>
@@ -739,6 +760,8 @@ watch([titleFilter, siteFilter], () => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .cache-manager {
   display: flex;
   flex: 1 1 auto;
@@ -750,11 +773,12 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-manager__header {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
   border-block-end: var(--app-surface-border);
-  padding: 12px 20px;
+  padding-block: 12px;
+  padding-inline: 20px;
 }
 
 .cache-manager__switcher {
@@ -807,10 +831,11 @@ watch([titleFilter, siteFilter], () => {
   border-radius: var(--app-surface-radius);
   background: var(--app-grouped-list-background);
   box-shadow: var(--app-surface-shadow);
+  gap: 10px;
   min-block-size: 58px;
   min-inline-size: 126px;
-  padding: 10px 14px;
-  gap: 10px;
+  padding-block: 10px;
+  padding-inline: 14px;
 }
 
 .cache-desktop-stat strong,
@@ -825,9 +850,9 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-desktop-stat span {
-  margin-block-start: 3px;
   color: rgba(var(--v-theme-on-surface), 0.58);
   font-size: 12px;
+  margin-block-start: 3px;
 }
 
 .cache-desktop-stat--primary {
@@ -859,7 +884,7 @@ watch([titleFilter, siteFilter], () => {
   box-shadow: var(--app-surface-shadow);
 }
 
-@media (max-width: 959.98px) {
+@media (width <= 959.98px) {
   .cache-manager__header {
     padding-inline: 16px;
   }
@@ -869,10 +894,9 @@ watch([titleFilter, siteFilter], () => {
   }
 
   .cache-manager__switcher :deep(.v-btn) {
-    align-items: center;
     flex: 1 1 0;
+    align-items: center;
     block-size: auto;
-    min-block-size: 48px;
     min-inline-size: 0;
     padding-block: 6px;
     padding-inline: 10px;
@@ -886,7 +910,6 @@ watch([titleFilter, siteFilter], () => {
   .cache-manager__switcher :deep(.v-btn__content) {
     display: flex;
     align-items: center;
-    min-block-size: 36px;
     line-height: 1.25;
   }
 }
@@ -898,15 +921,16 @@ watch([titleFilter, siteFilter], () => {
   --cache-mobile-surface-blur: var(--app-grouped-list-backdrop-filter);
 
   display: flex;
-  overflow-y: auto;
   flex: 1 1 auto;
   flex-direction: column;
+  background: var(--cache-mobile-page-bg);
   block-size: 100%;
+  gap: 16px;
   inline-size: 100%;
   min-block-size: 0;
-  padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
-  background: var(--cache-mobile-page-bg);
-  gap: 16px;
+  overflow-y: auto;
+  padding-block: 14px calc(18px + env(safe-area-inset-bottom));
+  padding-inline: 16px;
 }
 
 .cache-mobile-stats {
@@ -918,14 +942,14 @@ watch([titleFilter, siteFilter], () => {
 .cache-mobile-stat {
   display: flex;
   align-items: center;
-  backdrop-filter: var(--cache-mobile-surface-blur);
+  padding: 18px;
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius);
+  backdrop-filter: var(--cache-mobile-surface-blur);
   background: var(--cache-mobile-surface-bg);
   box-shadow: var(--app-surface-shadow);
-  min-block-size: 92px;
-  padding: 18px;
   gap: 14px;
+  min-block-size: 92px;
 }
 
 .cache-mobile-stat strong {
@@ -938,10 +962,10 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-mobile-stat span {
   display: block;
-  margin-block-start: 8px;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 14px;
   font-weight: 600;
+  margin-block-start: 8px;
 }
 
 .cache-mobile-stat--primary {
@@ -959,8 +983,8 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-filter :deep(.v-field) {
-  backdrop-filter: var(--cache-mobile-surface-blur);
   border-radius: var(--app-field-radius);
+  backdrop-filter: var(--cache-mobile-surface-blur);
   background: var(--cache-mobile-control-bg);
   box-shadow: var(--app-surface-shadow);
 }
@@ -970,9 +994,9 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-filter :deep(.v-field__input) {
-  min-block-size: 54px;
   color: rgba(var(--v-theme-on-surface), 0.72);
   font-size: 16px;
+  min-block-size: 54px;
 }
 
 .cache-mobile-actions {
@@ -1005,15 +1029,15 @@ watch([titleFilter, siteFilter], () => {
   display: grid;
   overflow: visible;
   align-items: start;
-  backdrop-filter: var(--cache-mobile-surface-blur);
+  padding: 14px;
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius);
+  backdrop-filter: var(--cache-mobile-surface-blur);
   background: var(--cache-mobile-surface-bg);
   box-shadow: var(--app-surface-shadow);
   gap: 14px;
   grid-template-columns: 72px minmax(0, 1fr);
   margin-block-end: 12px;
-  padding: 14px;
 }
 
 .cache-mobile-card__poster {
@@ -1053,32 +1077,32 @@ watch([titleFilter, siteFilter], () => {
 }
 
 .cache-mobile-card__main {
-  margin-block-start: 6px;
   color: rgba(var(--v-theme-on-surface), 0.88);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.32;
+  margin-block-start: 6px;
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
 }
 
 .cache-mobile-card__main span {
-  margin-inline-start: 6px;
   color: rgba(var(--v-theme-on-surface), 0.58);
   font-size: 14px;
   font-weight: 500;
+  margin-inline-start: 6px;
 }
 
 .cache-mobile-card__meta {
   display: grid;
   align-items: end;
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin-block-start: 8px;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 14px;
   gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
   line-height: 1.35;
+  margin-block-start: 8px;
 }
 
 .cache-mobile-card__meta span {
@@ -1113,17 +1137,17 @@ watch([titleFilter, siteFilter], () => {
 
 .cache-mobile-load-state {
   flex-direction: column;
-  min-block-size: 70px;
   font-size: 15px;
   font-weight: 700;
   gap: 8px;
+  min-block-size: 70px;
 }
 
 .cache-mobile-empty {
   flex: 1 1 auto;
   flex-direction: column;
-  min-block-size: 16rem;
   gap: 8px;
+  min-block-size: 16rem;
 }
 
 .cache-mobile-empty span {
@@ -1137,7 +1161,7 @@ watch([titleFilter, siteFilter], () => {
   font-size: 13px;
 }
 
-@media (max-width: 374.98px) {
+@media (width <= 374.98px) {
   .cache-manager__header {
     padding-inline: 12px;
   }
@@ -1147,8 +1171,8 @@ watch([titleFilter, siteFilter], () => {
   }
 
   .cache-mobile-card {
-    grid-template-columns: 64px minmax(0, 1fr);
     padding: 12px;
+    grid-template-columns: 64px minmax(0, 1fr);
   }
 
   .cache-mobile-card__poster {
