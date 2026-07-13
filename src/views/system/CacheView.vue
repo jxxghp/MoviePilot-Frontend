@@ -9,12 +9,12 @@ import { useGlobalSettingsStore } from '@/stores'
 import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useDisplay } from 'vuetify'
-import TmdbRecognitionCachePanel from '@/components/cache/TmdbRecognitionCachePanel.vue'
+import RecognitionCachePanel from '@/components/cache/RecognitionCachePanel.vue'
 
 const CacheReidentifyDialog = defineAsyncComponent(() => import('@/components/dialog/CacheReidentifyDialog.vue'))
 
 type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
-type CacheManagerType = 'torrent' | 'tmdb'
+type CacheManagerType = 'torrent' | 'recognition'
 
 const MOBILE_CACHE_PAGE_SIZE = 20
 
@@ -355,14 +355,14 @@ watch([titleFilter, siteFilter], () => {
         <VBtn value="torrent" prepend-icon="mdi-download-box-outline">
           {{ t('setting.cache.torrentCache') }}
         </VBtn>
-        <VBtn value="tmdb" prepend-icon="mdi-movie-search-outline">
-          {{ t('setting.cache.tmdbRecognitionCache') }}
+        <VBtn value="recognition" prepend-icon="mdi-movie-search-outline">
+          {{ t('setting.cache.recognitionCache') }}
         </VBtn>
       </VBtnToggle>
     </header>
 
     <div class="cache-manager__content">
-      <TmdbRecognitionCachePanel v-if="activeCacheType === 'tmdb'" />
+      <RecognitionCachePanel v-if="activeCacheType === 'recognition'" />
 
       <template v-else>
         <section v-if="isMobile" class="cache-mobile-page">
@@ -869,12 +869,25 @@ watch([titleFilter, siteFilter], () => {
   }
 
   .cache-manager__switcher :deep(.v-btn) {
+    align-items: center;
     flex: 1 1 0;
     block-size: auto;
     min-block-size: 48px;
     min-inline-size: 0;
     padding-block: 6px;
     padding-inline: 10px;
+  }
+
+  .cache-manager__switcher :deep(.v-btn__prepend),
+  .cache-manager__switcher :deep(.v-btn__content) {
+    align-self: center;
+  }
+
+  .cache-manager__switcher :deep(.v-btn__content) {
+    display: flex;
+    align-items: center;
+    min-block-size: 36px;
+    line-height: 1.25;
   }
 }
 

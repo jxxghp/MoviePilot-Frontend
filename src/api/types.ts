@@ -1723,12 +1723,16 @@ export interface TorrentCacheData {
   data: TorrentCacheItem[]
 }
 
-// TheMovieDb 识别缓存项
-export interface TmdbRecognitionCacheItem {
+// 媒体识别缓存项
+export interface RecognitionCacheItem {
   // 缓存键
   key: string
   // TMDB ID，0 表示未识别
-  tmdb_id: number
+  tmdb_id?: number
+  // 豆瓣 ID，0 表示未识别
+  douban_id?: string | number
+  // 当前识别数据源对应的统一 ID
+  recognition_id?: string
   // 识别后的标题
   title: string
   // 识别后的年份
@@ -1741,8 +1745,8 @@ export interface TmdbRecognitionCacheItem {
   backdrop_path?: string
 }
 
-// TheMovieDb 识别缓存数据
-export interface TmdbRecognitionCacheData {
+// 媒体识别缓存数据
+export interface RecognitionCacheData {
   // 缓存总数
   count: number
   // 已识别数量
@@ -1750,7 +1754,7 @@ export interface TmdbRecognitionCacheData {
   // 未识别数量
   unrecognized: number
   // 缓存数据
-  data: TmdbRecognitionCacheItem[]
+  data: RecognitionCacheItem[]
 }
 
 // 订阅分享统计
