@@ -427,7 +427,6 @@ watch(recognitionSource, () => {
       item-value="key"
       show-select
       hover
-      fixed-header
       :items-per-page-text="t('common.itemsPerPage')"
       :no-data-text="t('common.noDataText')"
       :loading-text="t('common.loadingText')"
@@ -483,6 +482,8 @@ watch(recognitionSource, () => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .recognition-cache-panel {
   display: flex;
   flex: 1 1 auto;
@@ -490,6 +491,7 @@ watch(recognitionSource, () => {
   padding: 20px;
   gap: 16px;
   min-block-size: 0;
+  overflow-y: auto;
 }
 
 .cache-panel-toolbar {
@@ -580,7 +582,6 @@ watch(recognitionSource, () => {
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius);
   box-shadow: var(--app-surface-shadow);
-  max-block-size: calc(100dvh - 23rem);
 }
 
 .recognition-cache-table__poster,
@@ -656,7 +657,6 @@ watch(recognitionSource, () => {
 @media (width <= 959.98px) {
   .recognition-cache-panel {
     block-size: 100%;
-    overflow-y: auto;
     padding-block: 14px calc(18px + env(safe-area-inset-bottom));
     padding-inline: 16px;
   }
