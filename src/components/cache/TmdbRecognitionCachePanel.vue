@@ -9,6 +9,10 @@ import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 
 type RecognitionStatusFilter = 'all' | 'recognized' | 'unrecognized'
+type InfiniteScrollStatus = 'ok' | 'empty' | 'loading' | 'error'
+
+const MOBILE_CACHE_PAGE_SIZE = 20
+const MOBILE_CACHE_ITEM_HEIGHT = 144
 
 const { t } = useI18n()
 const display = useDisplay()
@@ -28,6 +32,8 @@ const cacheData = ref<TmdbRecognitionCacheData>({
   unrecognized: 0,
   data: [],
 })
+const mobileVisibleCount = ref(MOBILE_CACHE_PAGE_SIZE)
+const mobileInfiniteKey = ref(0)
 
 const statusOptions = computed(() => [
   { title: t('setting.cache.allStatuses'), value: 'all' },
@@ -58,6 +64,31 @@ const filteredData = computed(() => {
   })
 })
 
+const mobileVisibleData = computed(() => filteredData.value.slice(0, mobileVisibleCount.value))
+const mobileHasMore = computed(() => mobileVisibleData.value.length < filteredData.value.length)
+
+/** 重置移动端分页，让筛选或刷新后的识别缓存从第一页开始展示。 */
+function resetMobilePagination() {
+  mobileVisibleCount.value = MOBILE_CACHE_PAGE_SIZE
+  mobileInfiniteKey.value++
+}
+
+/** 追加移动端下一页识别缓存，并由虚拟滚动限制实际渲染节点。 */
+function loadMoreMobileCache({ done }: { done: (status: InfiniteScrollStatus) => void }) {
+  if (loading.value) {
+    done('ok')
+    return
+  }
+
+  if (!mobileHasMore.value) {
+    done('empty')
+    return
+  }
+
+  mobileVisibleCount.value = Math.min(mobileVisibleCount.value + MOBILE_CACHE_PAGE_SIZE, filteredData.value.length)
+  done(mobileHasMore.value ? 'ok' : 'empty')
+}
+
 /** 加载 TheMovieDb 识别缓存列表。 */
 async function loadCacheData(showSuccess = false) {
   try {
@@ -65,6 +96,7 @@ async function loadCacheData(showSuccess = false) {
     const response = (await api.get('tmdb/cache')) as unknown as ApiResponse<TmdbRecognitionCacheData>
     cacheData.value = response.data ?? { count: 0, recognized: 0, unrecognized: 0, data: [] }
     selectedItems.value = selectedItems.value.filter(key => cacheData.value.data.some(item => item.key === key))
+    resetMobilePagination()
     if (showSuccess) $toast.success(t('setting.cache.listRefreshSuccess'))
   } catch (error) {
     console.error(error)
@@ -172,6 +204,10 @@ function getRecognitionStatusLabel(item: TmdbRecognitionCacheItem): string {
 onMounted(() => {
   void loadCacheData()
 })
+
+watch([searchFilter, statusFilter], () => {
+  resetMobilePagination()
+})
 </script>
 
 <template>
@@ -262,45 +298,73 @@ onMounted(() => {
       </VBtn>
     </div>
 
-    <div v-if="isMobile" class="tmdb-cache-mobile-list">
-      <article v-for="item in filteredData" :key="item.key" class="tmdb-cache-mobile-item">
-        <div class="tmdb-cache-poster">
-          <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
-          <VIcon v-else icon="mdi-image-off-outline" size="28" />
-        </div>
-
-        <div class="tmdb-cache-mobile-item__content">
-          <div class="tmdb-cache-mobile-item__title">
-            {{ item.title || t('setting.cache.unrecognized') }}
+    <template v-if="isMobile">
+      <VInfiniteScroll
+        v-if="mobileVisibleData.length > 0 || loading"
+        :key="mobileInfiniteKey"
+        mode="intersect"
+        side="end"
+        :items="mobileVisibleData"
+        class="tmdb-cache-mobile-scroll"
+        @load="loadMoreMobileCache"
+      >
+        <template #loading>
+          <div class="cache-panel-load-state">
+            <VProgressCircular indeterminate color="primary" size="22" width="3" />
+            <span>{{ t('setting.cache.loadingMore') }}</span>
           </div>
-          <div class="tmdb-cache-mobile-item__meta">
-            <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
-              {{ getMediaTypeLabel(item.media_type) }}
-            </VChip>
-            <span v-if="item.year">{{ item.year }}</span>
-            <span v-if="item.tmdb_id">TMDB #{{ item.tmdb_id }}</span>
-          </div>
-          <div class="tmdb-cache-mobile-item__key">{{ item.key }}</div>
-        </div>
+        </template>
 
-        <VBtn
-          icon
-          size="small"
-          variant="text"
-          color="error"
-          :aria-label="t('common.delete')"
-          @click="deleteSingleItem(item)"
+        <template #empty />
+
+        <VVirtualScroll
+          v-if="mobileVisibleData.length > 0"
+          renderless
+          :items="mobileVisibleData"
+          :item-height="MOBILE_CACHE_ITEM_HEIGHT"
         >
-          <VIcon icon="mdi-delete-outline" size="20" />
-        </VBtn>
-      </article>
+          <template #default="{ item, itemRef }">
+            <article :ref="itemRef" :key="item.key" class="tmdb-cache-mobile-item">
+              <div class="tmdb-cache-poster">
+                <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
+                <VIcon v-else icon="mdi-image-off-outline" size="28" />
+              </div>
 
-      <div v-if="filteredData.length === 0 && !loading" class="cache-panel-empty">
+              <div class="tmdb-cache-mobile-item__content">
+                <div class="tmdb-cache-mobile-item__title">
+                  {{ item.title || t('setting.cache.unrecognized') }}
+                </div>
+                <div class="tmdb-cache-mobile-item__meta">
+                  <VChip size="x-small" variant="tonal" :color="getMediaTypeColor(item.media_type)">
+                    {{ getMediaTypeLabel(item.media_type) }}
+                  </VChip>
+                  <span v-if="item.year">{{ item.year }}</span>
+                  <span v-if="item.tmdb_id">TMDB #{{ item.tmdb_id }}</span>
+                </div>
+                <div class="tmdb-cache-mobile-item__key">{{ item.key }}</div>
+              </div>
+
+              <VBtn
+                icon
+                size="small"
+                variant="text"
+                color="error"
+                :aria-label="t('common.delete')"
+                @click="deleteSingleItem(item)"
+              >
+                <VIcon icon="mdi-delete-outline" size="20" />
+              </VBtn>
+            </article>
+          </template>
+        </VVirtualScroll>
+      </VInfiniteScroll>
+
+      <div v-else class="cache-panel-empty">
         <VIcon icon="mdi-database-search-outline" size="42" />
         <strong>{{ t('setting.cache.noRecognitionCache') }}</strong>
         <span>{{ t('setting.cache.noRecognitionCacheHint') }}</span>
       </div>
-    </div>
+    </template>
 
     <VDataTable
       v-else
@@ -592,10 +656,31 @@ onMounted(() => {
     font-size: 16px;
   }
 
-  .tmdb-cache-mobile-list {
+  .tmdb-cache-mobile-scroll {
+    overflow: visible !important;
+    min-block-size: 20rem;
+  }
+
+  .tmdb-cache-mobile-scroll :deep(.v-infinite-scroll__container),
+  .tmdb-cache-mobile-scroll :deep(.v-virtual-scroll),
+  .tmdb-cache-mobile-scroll :deep(.v-virtual-scroll__container) {
+    overflow: visible !important;
+  }
+
+  .tmdb-cache-mobile-scroll :deep(.v-infinite-scroll__side) {
+    padding-block: 14px 2px;
+  }
+
+  .cache-panel-load-state {
     display: flex;
+    align-items: center;
+    justify-content: center;
     flex-direction: column;
-    gap: 10px;
+    min-block-size: 70px;
+    color: rgba(var(--v-theme-on-surface), 0.58);
+    font-size: 15px;
+    font-weight: 700;
+    gap: 8px;
   }
 
   .tmdb-cache-mobile-item {
@@ -607,6 +692,7 @@ onMounted(() => {
     background: var(--app-grouped-list-background);
     box-shadow: var(--app-surface-shadow);
     grid-template-columns: 54px minmax(0, 1fr) 36px;
+    margin-block-end: 10px;
     padding: 12px;
     gap: 12px;
   }
