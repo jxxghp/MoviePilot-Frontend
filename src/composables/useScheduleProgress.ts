@@ -19,7 +19,7 @@ export function isScheduleRunning(schedule: ScheduleInfo) {
 
 /** 判断定时服务是否处于等待执行状态。 */
 export function isScheduleWaiting(schedule: ScheduleInfo) {
-  return schedule.status === SCHEDULE_WAITING_STATUS
+  return !isScheduleRunning(schedule) && schedule.status === SCHEDULE_WAITING_STATUS
 }
 
 /** 获取定时服务展示名称，优先使用后端按当前语言生成的文本。 */
@@ -58,13 +58,9 @@ export function useScheduleProgress(schedules: Ref<ScheduleInfo[]>, refreshId: s
 
   /** 刷新所有运行中任务的进度，并清理已经停止任务的缓存。 */
   async function refreshRunningProgress() {
-    const runningSchedules = schedules.value.filter(
-      schedule => schedule.id && isScheduleRunning(schedule),
-    )
+    const runningSchedules = schedules.value.filter(schedule => schedule.id && isScheduleRunning(schedule))
     const runningIds = new Set(runningSchedules.map(schedule => schedule.id))
-    const nextProgress = Object.fromEntries(
-      Object.entries(progressById.value).filter(([id]) => runningIds.has(id)),
-    )
+    const nextProgress = Object.fromEntries(Object.entries(progressById.value).filter(([id]) => runningIds.has(id)))
 
     if (!runningSchedules.length) {
       progressById.value = {}
@@ -73,9 +69,7 @@ export function useScheduleProgress(schedules: Ref<ScheduleInfo[]>, refreshId: s
 
     const results = await Promise.allSettled(runningSchedules.map(loadScheduleProgress))
     const currentRunningIds = new Set(
-      schedules.value
-        .filter(schedule => schedule.id && isScheduleRunning(schedule))
-        .map(schedule => schedule.id),
+      schedules.value.filter(schedule => schedule.id && isScheduleRunning(schedule)).map(schedule => schedule.id),
     )
 
     results.forEach((result, index) => {
@@ -85,9 +79,7 @@ export function useScheduleProgress(schedules: Ref<ScheduleInfo[]>, refreshId: s
       }
     })
 
-    progressById.value = Object.fromEntries(
-      Object.entries(nextProgress).filter(([id]) => currentRunningIds.has(id)),
-    )
+    progressById.value = Object.fromEntries(Object.entries(nextProgress).filter(([id]) => currentRunningIds.has(id)))
   }
 
   /** 获取任务当前应展示的百分比，并限制在合法范围内。 */
