@@ -589,6 +589,28 @@ html[data-theme-radius='extra'] {
   line-height: 1.4;
 }
 
+// 移动端单行字段内容超出可视宽度时保持一行并显示省略号。
+.app-responsive-input--field .v-field__input {
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.app-responsive-input--field :is(
+  input.v-field__input,
+  .v-field__input > input,
+  .v-select__selection,
+  .v-select__selection-text,
+  .v-autocomplete__selection,
+  .v-autocomplete__selection-text,
+  .v-combobox__selection,
+  .v-combobox__selection-text
+) {
+  overflow: hidden;
+  min-inline-size: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-responsive-input--field .v-field--focused,
 .app-responsive-input--multiline .v-field--focused {
   background-color: rgba(var(--v-theme-primary), 0.08);
