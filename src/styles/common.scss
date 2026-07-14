@@ -653,16 +653,6 @@ html[data-theme-radius='extra'] {
     padding-block: 0;
   }
 
-  // 当前输入行后面还有可见输入行时才显示分隔线，避免跨 VRow 断线或最后一行多出底线。
-  .v-row > :is(.v-col, [class*='v-col-']):has(> .app-responsive-input):has(
-    ~ :is(.v-col, [class*='v-col-']):has(> .app-responsive-input)
-  ) > .app-responsive-input,
-  .v-row:has(
-    ~ .v-row:not([style*='display: none']) > :is(.v-col, [class*='v-col-']):has(> .app-responsive-input)
-  ) > :is(.v-col, [class*='v-col-']):has(> .app-responsive-input) > .app-responsive-input {
-    border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  }
-
   // 桌面也占满 12 格的字段在移动端改为上下两行，避免长输入只挤在右侧。
   .v-row > :is(
     .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
