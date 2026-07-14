@@ -648,6 +648,11 @@ html[data-theme-radius='extra'] {
     max-width: 100%;
   }
 
+  // 移动录入行自身已经提供纵向留白，移除 VCol 纵向 gutter 避免堆叠字段间距过大。
+  .v-row > :is(.v-col, [class*='v-col-']):has(> .app-responsive-input) {
+    padding-block: 0;
+  }
+
   // 只在相邻移动录入行之间显示分隔线，避免表单最后一行出现多余底线。
   .v-row > :is(.v-col, [class*='v-col-']) + :is(.v-col, [class*='v-col-']) > .app-responsive-input {
     border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
