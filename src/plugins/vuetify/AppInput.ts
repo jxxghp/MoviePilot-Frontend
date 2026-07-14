@@ -25,6 +25,15 @@ function hasDisplayText(value: unknown): value is string | number {
 }
 
 /**
+ * 判断录入控件模型中是否已有可展示的值。
+ */
+function hasInputValue(value: unknown) {
+  if (Array.isArray(value)) return value.length > 0
+
+  return value !== undefined && value !== null && value !== ''
+}
+
+/**
  * 解析包装组件尚未声明的 Vue 布尔属性值。
  */
 function isBooleanAttributeEnabled(value: unknown) {
@@ -127,12 +136,19 @@ export function createResponsiveInputAdapter(component: Component, options: Resp
         const { label: labelSlot, ...controlSlots } = slots
         const labelContent = labelSlot?.({ label, props: { for: controlId } }) ?? String(label)
         const disabled = isBooleanAttributeEnabled(attrs.disabled)
+        const isField = options.kind === 'field' || options.kind === 'multiline'
+        const isEmptyWithoutPlaceholder = isField
+          && !hasInputValue(attrs.modelValue ?? attrs['model-value'])
+          && !hasDisplayText(attrs.placeholder)
 
         return h('div', {
           class: [
             'app-responsive-input',
             `app-responsive-input--${options.kind}`,
-            { 'app-responsive-input--disabled': disabled },
+            {
+              'app-responsive-input--disabled': disabled,
+              'app-responsive-input--empty': isEmptyWithoutPlaceholder,
+            },
             rootClass,
           ],
           style: rootStyle,
