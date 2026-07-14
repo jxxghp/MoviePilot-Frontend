@@ -567,8 +567,12 @@ html[data-theme-radius='extra'] {
 }
 
 .app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field {
-  background-color: rgba(var(--v-theme-on-surface), 0.035);
-  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.14);
+  background-color: transparent;
+}
+
+.app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field__input::placeholder {
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  opacity: 1;
 }
 
 .app-responsive-input--field .v-field__outline,
@@ -643,6 +647,25 @@ html[data-theme-radius='extra'] {
   .v-row > :is(.v-col, [class*='v-col-']):has(.app-responsive-input) {
     flex: 0 0 100%;
     max-width: 100%;
+  }
+
+  // 桌面也占满 12 格的字段在移动端改为上下两行，避免长输入只挤在右侧。
+  .v-row > :is(
+    .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
+    .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
+    .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
+  ) > :is(.app-responsive-input--field, .app-responsive-input--range) {
+    row-gap: 0.5rem;
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v-row > :is(
+    .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
+    .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
+    .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
+  ) > :is(.app-responsive-input--field, .app-responsive-input--range) .app-responsive-input__control {
+    inline-size: 100%;
   }
 }
 

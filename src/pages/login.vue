@@ -797,13 +797,15 @@ onUnmounted(() => {
               <VCol cols="12" class="py-0">
                 <!-- remember me checkbox -->
                 <div class="d-flex align-center justify-space-between flex-wrap">
-                  <VCheckbox
-                    v-model="form.remember"
-                    :label="t('login.stayLoggedIn')"
-                    hide-details
-                    density="compact"
-                    class="login-checkbox"
-                  />
+                  <label class="native-login-checkbox login-checkbox">
+                    <input
+                      v-model="form.remember"
+                      class="native-login-checkbox__input"
+                      type="checkbox"
+                      name="remember"
+                    />
+                    <span class="native-login-checkbox__label">{{ t('login.stayLoggedIn') }}</span>
+                  </label>
                 </div>
               </VCol>
               <VCol cols="12">
@@ -1068,6 +1070,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: logo-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
   margin-block-end: 8px;
 
   /* Logo 背后的柔光环 */
@@ -1114,6 +1117,7 @@ onUnmounted(() => {
 
 .login-title {
   margin: 0;
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
   background: linear-gradient(135deg, rgb(var(--v-theme-on-surface)) 30%, rgba(var(--v-theme-primary), 1) 100%);
   background-clip: text;
   font-size: 1.85rem;
@@ -1125,6 +1129,7 @@ onUnmounted(() => {
 }
 
 .login-subtitle {
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   font-weight: 400;
@@ -1225,6 +1230,66 @@ onUnmounted(() => {
   background: rgba(var(--v-theme-on-surface), 0.08);
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   outline: none;
+}
+
+/* 原生保持登录复选框，避免使用全局 VCheckbox 小屏适配布局。 */
+.native-login-checkbox {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  cursor: pointer;
+  gap: 10px;
+  min-block-size: 40px;
+  user-select: none;
+}
+
+.native-login-checkbox__input {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 18px;
+  border: 2px solid rgba(var(--v-theme-on-surface), 0.54);
+  border-radius: 4px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  block-size: 18px;
+  cursor: pointer;
+  inline-size: 18px;
+  place-content: center;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.native-login-checkbox__input::before {
+  block-size: 5px;
+  border-block-end: 2px solid rgb(var(--v-theme-on-primary));
+  border-inline-start: 2px solid rgb(var(--v-theme-on-primary));
+  content: '';
+  inline-size: 9px;
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+  transform-origin: center;
+  transition: transform 120ms ease;
+}
+
+.native-login-checkbox__input:checked {
+  border-color: rgb(var(--v-theme-primary));
+  background-color: rgb(var(--v-theme-primary));
+}
+
+.native-login-checkbox__input:checked::before {
+  transform: translateY(-1px) rotate(-45deg) scale(1);
+}
+
+.native-login-checkbox__input:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.18);
+  outline: none;
+}
+
+.native-login-checkbox__label {
+  font-size: 0.9375rem;
+  line-height: 1.4;
 }
 
 /* Remember me 复选框样式优化 */
@@ -1383,11 +1448,6 @@ onUnmounted(() => {
   }
 }
 
-/* Logo 入场 */
-.login-logo-wrapper {
-  animation: logo-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
-}
-
 @keyframes logo-enter {
   0% {
     opacity: 0;
@@ -1398,15 +1458,6 @@ onUnmounted(() => {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
-}
-
-/* 标题入场 */
-.login-title {
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
-}
-
-.login-subtitle {
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
 }
 
 @keyframes text-enter {

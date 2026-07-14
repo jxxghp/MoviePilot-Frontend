@@ -4,6 +4,8 @@ import { useDisplay } from 'vuetify'
 
 type ResponsiveInputKind = 'choice' | 'field' | 'group' | 'multiline' | 'range'
 
+const MOBILE_EMPTY_PLACEHOLDER = '-'
+
 interface ResponsiveInputOptions {
   kind: ResponsiveInputKind
   name: string
@@ -123,6 +125,9 @@ export function createResponsiveInputAdapter(component: Component, options: Resp
         if (options.kind === 'field' || options.kind === 'multiline') {
           controlAttrs.variant = 'plain'
           controlAttrs.singleLine = true
+          if (!hasDisplayText(controlAttrs.placeholder)) {
+            controlAttrs.placeholder = MOBILE_EMPTY_PLACEHOLDER
+          }
         }
 
         if (showHint) {
