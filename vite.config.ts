@@ -11,6 +11,7 @@ import { resolve } from 'node:path'
 import federation from '@originjs/vite-plugin-federation'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import { readFileSync } from 'node:fs'
+import { responsiveInputCoreComponentNames } from './src/plugins/vuetify/responsiveInputNames'
 
 // 读取 package.json 获取版本号
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
@@ -23,6 +24,10 @@ export default defineConfig({
     vue(),
     vueJsx(),
     vuetify({
+      autoImport: {
+        // 这些录入控件由 Vuetify 全局适配器接管，避免模板局部导入绕过移动布局。
+        ignore: [...responsiveInputCoreComponentNames],
+      },
       styles: {
         configFile: 'src/styles/variables/_vuetify.scss',
       },
