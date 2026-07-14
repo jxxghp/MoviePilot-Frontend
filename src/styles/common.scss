@@ -506,7 +506,6 @@ html[data-theme-radius='extra'] {
   min-block-size: 4.5rem;
   min-inline-size: 0;
   padding-block: 0.75rem;
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   align-items: center;
   column-gap: 1rem;
   grid-template-columns: minmax(0, 1fr) minmax(7rem, 42%);
@@ -647,6 +646,11 @@ html[data-theme-radius='extra'] {
   .v-row > :is(.v-col, [class*='v-col-']):has(.app-responsive-input) {
     flex: 0 0 100%;
     max-width: 100%;
+  }
+
+  // 只在相邻移动录入行之间显示分隔线，避免表单最后一行出现多余底线。
+  .v-row > :is(.v-col, [class*='v-col-']) + :is(.v-col, [class*='v-col-']) > .app-responsive-input {
+    border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   }
 
   // 桌面也占满 12 格的字段在移动端改为上下两行，避免长输入只挤在右侧。
