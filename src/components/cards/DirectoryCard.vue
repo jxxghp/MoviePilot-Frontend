@@ -75,10 +75,12 @@ const transferSourceItems = computed(() => [
   { title: t('directory.manualTransfer'), value: 'manual' },
 ])
 
+/** 判断存储类型是否具备预设强调色。 */
 function hasKnownStorageType(storageType?: string): storageType is keyof typeof STORAGE_ACCENT_COLOR_MAP {
   return !!storageType && Object.prototype.hasOwnProperty.call(STORAGE_ACCENT_COLOR_MAP, storageType)
 }
 
+/** 将十六进制颜色转换为 CSS RGB 通道字符串。 */
 function hexToRgbString(hexColor: string) {
   const normalizedColor = hexColor.replace('#', '')
   const colorValue = Number.parseInt(normalizedColor, 16)
@@ -88,6 +90,7 @@ function hexToRgbString(hexColor: string) {
   return `${(colorValue >> 16) & 255}, ${(colorValue >> 8) & 255}, ${colorValue & 255}`
 }
 
+/** 根据自定义存储序号选取离散的强调色。 */
 function getCustomStoragePaletteColor(storageType?: string) {
   const customStorageIndex = Math.max(Number(storageType?.match(/\d+$/)?.[0] ?? 1) - 1, 0)
   const customStorageColors = ['#F97316', '#8B5CF6', '#06B6D4', '#84CC16', '#EC4899', '#14B8A6']
@@ -95,6 +98,7 @@ function getCustomStoragePaletteColor(storageType?: string) {
   return customStorageColors[customStorageIndex % customStorageColors.length]
 }
 
+/** 获取指定存储类型在目录卡片中使用的强调色。 */
 function getStorageAccentColor(storageType?: string) {
   if (hasKnownStorageType(storageType)) return STORAGE_ACCENT_COLOR_MAP[storageType]
 
@@ -108,6 +112,7 @@ const directoryAccentStyle = computed(() => ({
   '--app-card-accent-end-rgb': libraryAccentRgb.value,
 }))
 
+/** 根据目录两端的存储类型刷新卡片强调色。 */
 function updateDirectoryAccentColors() {
   const downloadStorage = props.directory.storage
   const libraryStorage = props.directory.library_storage || props.directory.storage
@@ -270,6 +275,7 @@ watch(
         v-model="props.directory.name"
         variant="underlined"
         :label="t('directory.alias')"
+        mobile-control-width="65%"
         class="me-20 text-high-emphasis font-weight-bold"
       />
       <span class="app-card-top-action absolute top-3 right-12">
@@ -287,6 +293,7 @@ watch(
               variant="underlined"
               :items="typeItems"
               :label="t('directory.mediaType')"
+              mobile-control-width="65%"
               @update:modelValue="props.directory.media_category = ''"
             />
           </VCol>
@@ -296,6 +303,7 @@ watch(
               variant="underlined"
               :items="getCategories"
               :label="t('directory.mediaCategory')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="4">
@@ -304,6 +312,7 @@ watch(
               variant="underlined"
               :items="resourceStorageOptions"
               :label="t('directory.resourceStorage')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="8">
@@ -312,6 +321,7 @@ watch(
               :storage="props.directory.storage"
               variant="underlined"
               :label="t('directory.resourceDirectory')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_type || props.directory.media_type === ''">
@@ -332,6 +342,7 @@ watch(
               variant="underlined"
               :items="transferSourceItems"
               :label="t('directory.autoTransfer')"
+              mobile-control-width="65%"
             />
           </VCol>
         </VRow>
@@ -342,6 +353,7 @@ watch(
               variant="underlined"
               :items="MonitorModeItems"
               :label="t('directory.monitorMode')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="4">
@@ -350,6 +362,7 @@ watch(
               variant="underlined"
               :items="libraryStorageOptions"
               :label="t('directory.libraryStorage')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="8">
@@ -358,6 +371,7 @@ watch(
               :storage="props.directory.library_storage"
               variant="underlined"
               :label="t('directory.libraryDirectory')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="4">
@@ -367,6 +381,7 @@ watch(
               :items="transferTypeItems"
               :label="t('directory.transferType')"
               :no-data-text="computedNoDataText"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="8">
@@ -375,6 +390,7 @@ watch(
               variant="underlined"
               :items="overwriteModeItems"
               :label="t('directory.overwriteMode')"
+              mobile-control-width="65%"
             />
           </VCol>
           <VCol cols="6" v-if="!props.directory.media_type || props.directory.media_type === ''">

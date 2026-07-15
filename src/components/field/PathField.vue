@@ -30,6 +30,7 @@ const propsWithoutModelValue = computed(() => {
   return { ...rest, ...attrs }
 })
 
+/** 同步路径输入值并向父组件派发更新。 */
 function updateModelValue(value: string) {
   innerValue.value = value
   emit('update:modelValue', value)

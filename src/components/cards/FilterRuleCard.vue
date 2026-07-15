@@ -17,12 +17,12 @@ const props = defineProps({
 // 定义触发的自定义事件
 const emit = defineEmits(['close', 'changed'])
 
-// 按钮点击
+/** 关闭当前优先级规则卡片。 */
 function onClose() {
   emit('close')
 }
 
-// 选项变化
+/** 将当前优先级的规则选择结果通知父组件。 */
 function filtersChanged(value: string[]) {
   emit('changed', props.pri, value)
 }
@@ -61,6 +61,7 @@ const selectFilterOptions = computed<{ [key: string]: string }[]>(() => {
             :items="selectFilterOptions"
             chips
             :label="t('filterRule.rules')"
+            mobile-control-width="80%"
             multiple
             clearable
             @update:modelValue="filtersChanged"

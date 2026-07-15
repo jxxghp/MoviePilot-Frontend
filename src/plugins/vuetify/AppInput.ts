@@ -55,6 +55,21 @@ function mergeDescribedBy(...values: unknown[]) {
 }
 
 /**
+ * 将移动端右栏宽度参数转换为可用的 CSS 长度。
+ */
+function normalizeMobileControlWidth(value: number | string | undefined) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return undefined
+
+    return `${Math.min(100, Math.max(0, value))}%`
+  }
+
+  if (typeof value !== 'string') return undefined
+
+  return value.trim() || undefined
+}
+
+/**
  * 为原生 Vuetify 录入组件创建小屏两栏适配器，桌面端保持原组件渲染路径。
  */
 export function createResponsiveInputAdapter(component: Component, options: ResponsiveInputOptions) {
@@ -65,6 +80,10 @@ export function createResponsiveInputAdapter(component: Component, options: Resp
       mobileLayout: {
         type: Boolean,
         default: true,
+      },
+      mobileControlWidth: {
+        type: [Number, String],
+        default: undefined,
       },
     },
     /**
@@ -107,6 +126,7 @@ export function createResponsiveInputAdapter(component: Component, options: Resp
         const hintId = `${controlId}-hint`
         const rootClass = attrs.class
         const rootStyle = attrs.style
+        const mobileControlWidth = normalizeMobileControlWidth(props.mobileControlWidth)
         const controlAttrs: Record<string, unknown> = { ...attrs }
 
         for (const key of ['class', 'hint', 'label', 'persistent-hint', 'persistentHint', 'style']) {
@@ -156,7 +176,12 @@ export function createResponsiveInputAdapter(component: Component, options: Resp
             },
             rootClass,
           ],
-          style: rootStyle,
+          style: [
+            rootStyle,
+            mobileControlWidth
+              ? { '--app-responsive-input-control-width': mobileControlWidth }
+              : undefined,
+          ],
         }, [
           h('div', { class: 'app-responsive-input__meta' }, [
             h('label', { class: 'app-responsive-input__label', for: controlId }, labelContent),

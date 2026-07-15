@@ -508,7 +508,7 @@ html[data-theme-radius='extra'] {
   padding-block: 0.75rem;
   align-items: center;
   column-gap: 1rem;
-  grid-template-columns: minmax(0, 1fr) minmax(7rem, 42%);
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, var(--app-responsive-input-control-width, 42%));
 }
 
 .app-responsive-input__meta,
@@ -611,23 +611,46 @@ html[data-theme-radius='extra'] {
   white-space: nowrap;
 }
 
-.app-responsive-input__native.v-select--multiple .v-field__input {
+.app-responsive-input__native:is(
+  .v-select--multiple,
+  .v-autocomplete--multiple,
+  .v-combobox--multiple
+) .v-field__input {
   overflow: visible;
   flex-wrap: wrap;
   row-gap: 0.25rem;
 }
 
-.app-responsive-input__native.v-select--multiple :is(.v-select__selection, .v-select__selection-text) {
+.app-responsive-input__native:is(
+  .v-select--multiple,
+  .v-autocomplete--multiple,
+  .v-combobox--multiple
+) :is(
+  .v-select__selection,
+  .v-select__selection-text,
+  .v-autocomplete__selection,
+  .v-autocomplete__selection-text,
+  .v-combobox__selection,
+  .v-combobox__selection-text
+) {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
 }
 
-.app-responsive-input__native.v-select--multiple .v-chip {
+.app-responsive-input__native:is(
+  .v-select--multiple,
+  .v-autocomplete--multiple,
+  .v-combobox--multiple
+) .v-chip {
   max-inline-size: 100%;
 }
 
-.app-responsive-input__native.v-select--multiple .v-chip__content {
+.app-responsive-input__native:is(
+  .v-select--multiple,
+  .v-autocomplete--multiple,
+  .v-combobox--multiple
+) .v-chip__content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -713,10 +736,12 @@ html[data-theme-radius='extra'] {
     padding-block: 0;
   }
 
-  // 从第二个录入项开始绘制顶部线，稳定形成项间分隔且不会产生末尾尾线。
+  // 从第二个录入项开始绘制顶部线；只匹配列直属输入或一层字段包装，避免穿透嵌套卡片。
   .app-responsive-input ~ .app-responsive-input,
-  .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) .app-responsive-input,
-  .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child .app-responsive-input {
+  .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > .app-responsive-input,
+  .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > * > .app-responsive-input,
+  .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > .app-responsive-input,
+  .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > * > .app-responsive-input {
     border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   }
 
