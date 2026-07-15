@@ -1528,6 +1528,39 @@ export default {
     recognizeAgain: '重新識別',
     title: '標題',
     subtitle: '副標題',
+    requestFailed: '識別請求失敗',
+    inputTitle: '測試輸入',
+    inputSubtitle: '輸入種子名或檔案名，查看媒體識別拆解結果',
+    unrecognized: '未識別到媒體',
+    waitingResult: '等待識別結果',
+    analysisTitle: '解析鏈路',
+    analysisSubtitle: '標題預處理、元資訊和媒體匹配結果',
+    summary: {
+      year: '年份',
+      episode: '季集',
+      type: '類型',
+      source: '資料源',
+    },
+    steps: {
+      original: {
+        title: '原始標題',
+        caption: '進入識別流程的原始字串',
+      },
+      words: {
+        title: '識別詞',
+        caption: '自訂識別詞應用情況',
+        value: '命中 {count} 條',
+        none: '未套用識別詞',
+      },
+      meta: {
+        title: '元資訊',
+        caption: '解析出的名稱、季集和資源資訊',
+      },
+      media: {
+        title: '媒體匹配',
+        caption: '最終匹配到的媒體資料源',
+      },
+    },
   },
   netTest: {
     notTested: '未測試',
@@ -1541,8 +1574,46 @@ export default {
     title: '標題',
     subtitle: '副標題',
     ruleGroup: '規則組',
+    ruleGroupPlaceholder: '請選擇',
     priority: '優先級：{value}',
     noPriorityRule: '未命中任何優先級規則！',
+    requestFailed: '規則測試請求失敗',
+    inputTitle: '規則測試',
+    inputSubtitle: '選擇規則組後，查看過濾命中和優先級結果',
+    waitingResult: '等待規則測試結果',
+    matched: '命中過濾規則',
+    priorityLabel: '優先級',
+    analysisTitle: '過濾鏈路',
+    analysisSubtitle: '規則組、媒體識別、過濾命中和優先級排序',
+    ruleCount: '{count} 條',
+    summary: {
+      priority: '優先級',
+      ruleGroup: '規則組',
+      ruleCount: '規則數',
+      media: '媒體',
+    },
+    steps: {
+      group: {
+        title: '規則組',
+        caption: '目前規則組包含 {count} 條優先級規則',
+        empty: '規則組暫無規則',
+      },
+      media: {
+        title: '媒體識別',
+        caption: '過濾前先識別媒體上下文',
+        none: '未識別到媒體',
+      },
+      filter: {
+        title: '過濾命中',
+        matched: '資源符合過濾規則',
+        pending: '未取得命中結果',
+      },
+      priority: {
+        title: '排序結果',
+        caption: '命中資源換算後的優先級',
+        empty: '未產生優先級',
+      },
+    },
   },
   setting: {
     about: {

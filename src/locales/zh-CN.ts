@@ -1529,6 +1529,39 @@ export default {
     recognizeAgain: '重新识别',
     title: '标题',
     subtitle: '副标题',
+    requestFailed: '识别请求失败',
+    inputTitle: '测试输入',
+    inputSubtitle: '输入种子名或文件名，查看媒体识别拆解结果',
+    unrecognized: '未识别到媒体',
+    waitingResult: '等待识别结果',
+    analysisTitle: '解析链路',
+    analysisSubtitle: '标题预处理、元信息和媒体匹配结果',
+    summary: {
+      year: '年份',
+      episode: '季集',
+      type: '类型',
+      source: '数据源',
+    },
+    steps: {
+      original: {
+        title: '原始标题',
+        caption: '进入识别流程的原始字符串',
+      },
+      words: {
+        title: '识别词',
+        caption: '自定义识别词应用情况',
+        value: '命中 {count} 条',
+        none: '未应用识别词',
+      },
+      meta: {
+        title: '元信息',
+        caption: '解析出的名称、季集和资源信息',
+      },
+      media: {
+        title: '媒体匹配',
+        caption: '最终匹配到的媒体数据源',
+      },
+    },
   },
   netTest: {
     notTested: '未测试',
@@ -1542,8 +1575,46 @@ export default {
     title: '标题',
     subtitle: '副标题',
     ruleGroup: '规则组',
+    ruleGroupPlaceholder: '请选择',
     priority: '优先级：{value}',
     noPriorityRule: '未命中任何优先级规则！',
+    requestFailed: '规则测试请求失败',
+    inputTitle: '规则测试',
+    inputSubtitle: '选择规则组后，查看过滤命中和优先级结果',
+    waitingResult: '等待规则测试结果',
+    matched: '命中过滤规则',
+    priorityLabel: '优先级',
+    analysisTitle: '过滤链路',
+    analysisSubtitle: '规则组、媒体识别、过滤命中和优先级排序',
+    ruleCount: '{count} 条',
+    summary: {
+      priority: '优先级',
+      ruleGroup: '规则组',
+      ruleCount: '规则数',
+      media: '媒体',
+    },
+    steps: {
+      group: {
+        title: '规则组',
+        caption: '当前规则组包含 {count} 条优先级规则',
+        empty: '规则组暂无规则',
+      },
+      media: {
+        title: '媒体识别',
+        caption: '过滤前先识别媒体上下文',
+        none: '未识别到媒体',
+      },
+      filter: {
+        title: '过滤命中',
+        matched: '资源符合过滤规则',
+        pending: '未得到命中结果',
+      },
+      priority: {
+        title: '排序结果',
+        caption: '命中资源换算后的优先级',
+        empty: '未生成优先级',
+      },
+    },
   },
   setting: {
     about: {

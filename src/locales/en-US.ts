@@ -1536,6 +1536,39 @@ export default {
     recognizeAgain: 'Recognize Again',
     title: 'Title',
     subtitle: 'Subtitle',
+    requestFailed: 'Recognition request failed',
+    inputTitle: 'Test Input',
+    inputSubtitle: 'Enter a torrent or file name to inspect the recognition breakdown',
+    unrecognized: 'No media recognized',
+    waitingResult: 'Waiting for recognition result',
+    analysisTitle: 'Analysis Flow',
+    analysisSubtitle: 'Title preprocessing, meta info, and media match',
+    summary: {
+      year: 'Year',
+      episode: 'Episode',
+      type: 'Type',
+      source: 'Source',
+    },
+    steps: {
+      original: {
+        title: 'Original Title',
+        caption: 'The raw string entering recognition',
+      },
+      words: {
+        title: 'Custom Words',
+        caption: 'Applied custom recognition words',
+        value: '{count} matched',
+        none: 'No custom words applied',
+      },
+      meta: {
+        title: 'Meta Info',
+        caption: 'Parsed name, episodes, and resource terms',
+      },
+      media: {
+        title: 'Media Match',
+        caption: 'Final matched media source',
+      },
+    },
   },
   netTest: {
     notTested: 'Not Tested',
@@ -1549,8 +1582,46 @@ export default {
     title: 'Title',
     subtitle: 'Subtitle',
     ruleGroup: 'Rule Group',
+    ruleGroupPlaceholder: 'Please select',
     priority: 'Priority: {value}',
     noPriorityRule: 'No priority rule matched!',
+    requestFailed: 'Rule test request failed',
+    inputTitle: 'Rule Test',
+    inputSubtitle: 'Select a rule group to inspect filter matching and priority',
+    waitingResult: 'Waiting for rule test result',
+    matched: 'Filter rule matched',
+    priorityLabel: 'Priority',
+    analysisTitle: 'Filter Flow',
+    analysisSubtitle: 'Rule group, media recognition, filter match, and priority order',
+    ruleCount: '{count} rules',
+    summary: {
+      priority: 'Priority',
+      ruleGroup: 'Rule Group',
+      ruleCount: 'Rules',
+      media: 'Media',
+    },
+    steps: {
+      group: {
+        title: 'Rule Group',
+        caption: 'Current group contains {count} priority rules',
+        empty: 'No rules in this group',
+      },
+      media: {
+        title: 'Media Recognition',
+        caption: 'Recognize media context before filtering',
+        none: 'No media recognized',
+      },
+      filter: {
+        title: 'Filter Match',
+        matched: 'Resource passes the filter rules',
+        pending: 'No match result returned',
+      },
+      priority: {
+        title: 'Priority Result',
+        caption: 'Converted priority for the matched resource',
+        empty: 'No priority generated',
+      },
+    },
   },
   setting: {
     about: {

@@ -1425,6 +1425,28 @@ export interface FilterRuleGroup {
   category?: string
 }
 
+// 规则测试结果
+export interface RuleTestData {
+  // 原始标题
+  title?: string
+  // 原始副标题
+  subtitle?: string
+  // 规则组名称
+  rulegroup_name?: string
+  // 规则组详情
+  rulegroup?: FilterRuleGroup | null
+  // 识别元数据
+  meta_info?: MetaInfo | null
+  // 媒体信息
+  media_info?: MediaInfo | null
+  // 种子信息
+  torrent_info?: TorrentInfo | null
+  // 优先级
+  priority?: number | null
+  // 是否命中过滤规则
+  matched?: boolean
+}
+
 // 订阅下载文件详情
 export interface SubscribeDownloadFileInfo {
   // 种子名称

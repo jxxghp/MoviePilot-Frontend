@@ -49,7 +49,7 @@ export function useShortcutTools() {
       icon: 'mdi-text-recognition',
       dialog: 'nameTest',
       component: NameTestView,
-      maxWidth: '45rem',
+      maxWidth: '65rem',
       titleText: t('shortcut.recognition.title'),
     },
     {
@@ -58,6 +58,7 @@ export function useShortcutTools() {
       icon: 'mdi-filter-cog',
       dialog: 'ruleTest',
       component: RuleTestView,
+      maxWidth: '65rem',
       titleText: t('shortcut.rule.subtitle'),
     },
     {
