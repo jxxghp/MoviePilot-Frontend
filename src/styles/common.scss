@@ -675,6 +675,13 @@ html[data-theme-radius='extra'] {
     padding-block: 0;
   }
 
+  // 从第二个录入项开始绘制顶部线，稳定形成项间分隔且不会产生末尾尾线。
+  .app-responsive-input ~ .app-responsive-input,
+  .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) .app-responsive-input,
+  .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child .app-responsive-input {
+    border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  }
+
   // 桌面也占满 12 格的字段在移动端改为上下两行，避免长输入只挤在右侧。
   .v-row > :is(
     .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
