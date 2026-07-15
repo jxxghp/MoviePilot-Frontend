@@ -40,6 +40,14 @@ const selectedSource = computed(
 
 const activeMedia = computed(() => mediaItems.value[activeIndex.value])
 
+/** 根据推荐来源返回便于快速识别的媒体类别图标。 */
+function getSourceIcon(source?: RecommendViewSource) {
+  if (source?.apipath === 'recommend/tmdb_trending') return 'mdi-trending-up'
+  if (source?.apipath === 'recommend/tmdb_movies') return 'mdi-movie-outline'
+  if (source?.apipath.startsWith('recommend/tmdb_tvs')) return 'mdi-television-classic'
+  return 'mdi-movie-open-star-outline'
+}
+
 /** 将不同接口包装格式归一化为媒体数组。 */
 function normalizeMediaResponse(response: unknown): MediaInfo[] {
   if (Array.isArray(response)) return response
@@ -245,9 +253,10 @@ onBeforeUnmount(stopAutoplay)
               color="white"
               rounded="pill"
               append-icon="mdi-chevron-down"
+              :aria-label="t('dashboard.selectRecommendSource')"
             >
-              <VIcon icon="mdi-movie-open-star-outline" color="primary" start />
-              <span>{{ selectedSource.title }}</span>
+              <VIcon :icon="getSourceIcon(selectedSource)" color="primary" size="20" start />
+              <span class="dashboard-recommend-source-title">{{ selectedSource.title }}</span>
             </VBtn>
           </template>
           <VList density="compact" max-height="360" :aria-label="t('dashboard.selectRecommendSource')">
@@ -255,7 +264,7 @@ onBeforeUnmount(stopAutoplay)
               v-for="source in sources"
               :key="source.apipath"
               :active="source.apipath === selectedSourcePath"
-              prepend-icon="mdi-movie-open-star-outline"
+              :prepend-icon="getSourceIcon(source)"
               :title="source.title"
               @click="selectSource(source)"
             />
@@ -404,7 +413,7 @@ onBeforeUnmount(stopAutoplay)
   text-transform: none;
 }
 
-.dashboard-recommend-source span {
+.dashboard-recommend-source-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -520,6 +529,7 @@ onBeforeUnmount(stopAutoplay)
 
 @media (min-width: 741px) and (hover: hover) {
   .dashboard-recommend-topbar,
+  .dashboard-recommend-detail,
   .dashboard-recommend-arrow {
     opacity: 0;
     pointer-events: none;
@@ -534,12 +544,15 @@ onBeforeUnmount(stopAutoplay)
     transform: translateX(-4px);
   }
 
+  .dashboard-recommend-detail,
   .dashboard-recommend-arrow--next {
     transform: translateX(4px);
   }
 
   .dashboard-recommend:hover .dashboard-recommend-topbar,
   .dashboard-recommend:focus-within .dashboard-recommend-topbar,
+  .dashboard-recommend:hover .dashboard-recommend-detail,
+  .dashboard-recommend:focus-within .dashboard-recommend-detail,
   .dashboard-recommend:hover .dashboard-recommend-arrow,
   .dashboard-recommend:focus-within .dashboard-recommend-arrow {
     opacity: 1;
@@ -558,18 +571,33 @@ onBeforeUnmount(stopAutoplay)
   }
 
   .dashboard-recommend-topbar {
+    justify-content: flex-end;
     inset-block-start: 0.85rem;
     inset-inline: 0.85rem;
   }
 
   .dashboard-recommend-label {
-    padding: 0.45rem 0.65rem;
+    display: none;
   }
 
   .dashboard-recommend-source {
-    max-inline-size: 50vw;
-    min-inline-size: 0;
-    padding-inline: 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    max-inline-size: none;
+    min-inline-size: 40px;
+    background: rgba(8, 18, 28, 0.24) !important;
+    backdrop-filter: blur(8px);
+    block-size: 40px;
+    inline-size: 40px;
+    padding: 0;
+  }
+
+  .dashboard-recommend-source-title,
+  .dashboard-recommend-source :deep(.v-btn__append) {
+    display: none;
+  }
+
+  .dashboard-recommend-source :deep(.v-icon--start) {
+    margin-inline-end: 0;
   }
 
   .dashboard-recommend-content {
@@ -609,24 +637,6 @@ onBeforeUnmount(stopAutoplay)
   .dashboard-recommend-page.is-active {
     inline-size: 32px;
   }
-}
-
-@media (max-width: 420px) {
-  .dashboard-recommend-label span {
-    display: none;
-  }
-
-  .dashboard-recommend-label {
-    block-size: 40px;
-    inline-size: 40px;
-    justify-content: center;
-    padding: 0;
-  }
-
-  .dashboard-recommend-source {
-    max-inline-size: 68vw;
-  }
-
 }
 
 @media (prefers-reduced-motion: reduce) {
