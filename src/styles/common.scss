@@ -736,8 +736,10 @@ html[data-theme-radius='extra'] {
     padding-block: 0;
   }
 
-  // 从第二个录入项开始绘制顶部线；只匹配列直属输入或一层字段包装，避免穿透嵌套卡片。
+  // 从第二个录入项开始绘制顶部线；表单内允许字段包装，表单外仅匹配浅层结构以避免穿透嵌套卡片。
   .app-responsive-input ~ .app-responsive-input,
+  .v-form .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) .app-responsive-input,
+  .v-form .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child .app-responsive-input,
   .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > .app-responsive-input,
   .v-row > :is(.v-col, [class*='v-col-']) ~ :is(.v-col, [class*='v-col-']) > * > .app-responsive-input,
   .v-row + .v-row > :is(.v-col, [class*='v-col-']):first-child > .app-responsive-input,
@@ -745,8 +747,8 @@ html[data-theme-radius='extra'] {
     border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   }
 
-  // 桌面也占满 12 格的字段在移动端改为上下两行，避免长输入只挤在右侧。
-  .v-row > :is(
+  // 表单顶层在桌面也占满 12 格的字段改为上下两行，避免把嵌套 md=12 字段误判为整行字段。
+  .v-form > .v-row > :is(
     .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
     .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
     .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
@@ -756,7 +758,7 @@ html[data-theme-radius='extra'] {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .v-row > :is(
+  .v-form > .v-row > :is(
     .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
     .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
     .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
