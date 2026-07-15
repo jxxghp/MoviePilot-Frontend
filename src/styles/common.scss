@@ -611,6 +611,28 @@ html[data-theme-radius='extra'] {
   white-space: nowrap;
 }
 
+.app-responsive-input__native.v-select--multiple .v-field__input {
+  overflow: visible;
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+}
+
+.app-responsive-input__native.v-select--multiple :is(.v-select__selection, .v-select__selection-text) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.app-responsive-input__native.v-select--multiple .v-chip {
+  max-inline-size: 100%;
+}
+
+.app-responsive-input__native.v-select--multiple .v-chip__content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-responsive-input--field .v-field--focused,
 .app-responsive-input--multiline .v-field--focused {
   background-color: rgba(var(--v-theme-primary), 0.08);
