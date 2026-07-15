@@ -903,7 +903,7 @@ onActivated(() => {
 
 <style lang="scss">
 .v-application .fc {
-  --fc-today-bg-color: rgba(var(--v-theme-primary), 0.06);
+  --fc-today-bg-color: rgba(var(--v-theme-primary), 0.12);
   --fc-border-color: rgba(var(--v-border-color), var(--v-border-opacity));
   --fc-neutral-bg-color: rgb(var(--v-theme-background), 0.3);
   --fc-list-event-hover-bg-color: rgba(var(--v-theme-on-surface), 0.02);
