@@ -165,7 +165,6 @@ async function nameTest() {
               v-model="nameTestForm.title"
               :label="t('nameTest.title')"
               :rules="[requiredValidator]"
-              hide-details
               prepend-inner-icon="mdi-movie-open"
             />
           </VCol>

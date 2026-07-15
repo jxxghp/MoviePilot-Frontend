@@ -659,6 +659,22 @@ html[data-theme-radius='extra'] {
   padding-inline: 0.5rem 0;
 }
 
+.app-responsive-input__native .v-messages__message:empty {
+  display: none;
+}
+
+.app-responsive-input__native
+  .v-input__details:has(> .v-messages > .v-messages__message:empty):not(
+    :has(> .v-messages > .v-messages__message:not(:empty))
+  ):not(:has(> :not(.v-messages))) {
+  display: none;
+}
+
+.app-responsive-input__native .v-field--error {
+  background-color: rgba(var(--v-theme-error), 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--v-theme-error));
+}
+
 .app-responsive-input--disabled .app-responsive-input__meta {
   opacity: var(--v-disabled-opacity);
 }

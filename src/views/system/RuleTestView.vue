@@ -219,7 +219,6 @@ onMounted(() => {
               v-model="ruleTestForm.title"
               :label="t('ruleTest.title')"
               :rules="[requiredValidator]"
-              hide-details
               prepend-inner-icon="mdi-movie-open"
             />
           </VCol>
@@ -230,7 +229,6 @@ onMounted(() => {
               :label="t('ruleTest.ruleGroup')"
               :loading="filterRuleGroupLoading"
               :rules="[requiredValidator]"
-              hide-details
               prepend-inner-icon="mdi-filter"
             />
           </VCol>
