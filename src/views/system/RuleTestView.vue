@@ -308,7 +308,7 @@ onMounted(() => {
         </div>
       </div>
       <div v-else class="empty-state">
-        <VIcon icon="mdi-filter-search-outline" size="36" />
+        <VIcon icon="mdi-filter-cog-outline" size="36" />
         <div class="text-body-2 text-medium-emphasis">
           {{ t('ruleTest.waitingResult') }}
         </div>
