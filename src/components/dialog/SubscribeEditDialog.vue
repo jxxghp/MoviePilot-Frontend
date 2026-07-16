@@ -10,6 +10,17 @@ import { qualityOptions, resolutionOptions, effectOptions } from '@/api/constant
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 import { formatSeason } from '@/@core/utils/formatters'
+
+// 从变更请求异常中提取可展示消息，并为非标准错误提供稳定兜底。
+function getRequestErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null) {
+    const responseMessage = (error as { response?: { data?: { message?: unknown } } }).response?.data?.message
+    if (typeof responseMessage === 'string' && responseMessage) return responseMessage
+  }
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
+
 // i18n
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -104,6 +115,12 @@ function getSubscribeDisplayName() {
   return `${name} ${formatSeason(season.toString())}`
 }
 
+function getDefaultSubscribeTypeName() {
+  if (props.type === '电影') return t('mediaType.movie')
+  if (props.type === '电视剧') return t('mediaType.tv')
+  return props.type ?? ''
+}
+
 // 剧集组选项属性
 function episodeGroupItemProps(item: { title: string; subtitle: string }) {
   return {
@@ -162,18 +179,30 @@ const filterRuleGroupOptions = computed(() => {
 
 // 调用API修改订阅
 async function updateSubscribeInfo() {
+  const displayName = getSubscribeDisplayName()
   try {
     const result: { [key: string]: any } = await api.put('subscribe/', subscribeForm.value)
     // 提示
     if (result.success) {
-      $toast.success(`${getSubscribeDisplayName()} 更新成功！`)
+      $toast.success(t('dialog.subscribeEdit.updateSuccess', { name: displayName }))
       // 通知父组件刷新
-      emit('save')
+      emit('save', subscribeForm.value)
     } else {
-      $toast.error(`${getSubscribeDisplayName()} 更新失败：${result.message}！`)
+      $toast.error(
+        t('dialog.subscribeEdit.updateFailed', {
+          name: displayName,
+          message: result.message ?? t('subscribe.requestFailed'),
+        }),
+      )
     }
   } catch (e) {
     console.log(e)
+    $toast.error(
+      t('dialog.subscribeEdit.updateFailed', {
+        name: displayName,
+        message: getRequestErrorMessage(e, t('subscribe.requestFailed')),
+      }),
+    )
   }
 }
 
@@ -181,19 +210,33 @@ async function updateSubscribeInfo() {
 async function saveDefaultSubscribeConfig() {
   if (!canAdmin.value) return
 
+  const typeName = getDefaultSubscribeTypeName()
   try {
     let subscribe_config_url = ''
     if (props.type === '电影') subscribe_config_url = 'system/setting/DefaultMovieSubscribeConfig'
     else subscribe_config_url = 'system/setting/DefaultTvSubscribeConfig'
 
     const result: { [key: string]: any } = await api.post(subscribe_config_url, subscribeForm.value)
-    if (result.success) $toast.success(`${props.type}订阅默认规则保存成功`)
-    else $toast.error(`${props.type}订阅默认规则保存失败！`)
-
-    // 通知父组件刷新
-    emit('save')
+    if (result.success) {
+      $toast.success(t('dialog.subscribeEdit.defaultSaveSuccess', { type: typeName }))
+      // 通知父组件刷新
+      emit('save', subscribeForm.value)
+    } else {
+      $toast.error(
+        t('dialog.subscribeEdit.defaultSaveFailed', {
+          type: typeName,
+          message: result.message ?? t('subscribe.requestFailed'),
+        }),
+      )
+    }
   } catch (error) {
     console.log(error)
+    $toast.error(
+      t('dialog.subscribeEdit.defaultSaveFailed', {
+        type: typeName,
+        message: getRequestErrorMessage(error, t('subscribe.requestFailed')),
+      }),
+    )
   }
 }
 
@@ -262,16 +305,28 @@ async function removeSubscribe() {
   })
 
   if (!isConfirmed) return
+  const displayName = getSubscribeDisplayName()
   try {
     const result: { [key: string]: any } = await api.delete(`subscribe/${props.subid}`)
 
     if (result.success) {
-      $toast.success(`订阅 ${getSubscribeDisplayName()} 已取消！`)
+      $toast.success(`${displayName} ${t('subscribe.cancelSuccess')}`)
       // 通知父组件刷新
       emit('remove')
+    } else {
+      $toast.error(
+        `${displayName} ${t('subscribe.cancelFailed', {
+          message: result.message ?? t('subscribe.requestFailed'),
+        })}`,
+      )
     }
   } catch (e) {
     console.log(e)
+    $toast.error(
+      `${displayName} ${t('subscribe.cancelFailed', {
+        message: getRequestErrorMessage(e, t('subscribe.requestFailed')),
+      })}`,
+    )
   }
 }
 
@@ -289,8 +344,10 @@ async function loadDownloadDirectories() {
 
 // 保存目录下拉框
 const targetDirectories = computed(() => {
-  // 去重后的下载目录
-  return downloadDirectories.value.map(item => item.download_path)
+  const paths = downloadDirectories.value
+    .map(item => item.download_path?.trim())
+    .filter((path): path is string => Boolean(path))
+  return [...new Set(paths)]
 })
 
 // 仅电视剧订阅支持全集洗版，电影保持原有洗版逻辑
