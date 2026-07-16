@@ -111,6 +111,41 @@ function resolveEpisodeStatus(download: SubscribeDownloadFileInfo[], library: Su
 }
 
 /**
+ * 入库条目的驱动器标签：服务器名或 local。
+ */
+function resolveLibraryStorageLabel(file: SubscribeLibraryFileInfo) {
+  if (file.server) return file.server
+  return file.storage || 'local'
+}
+
+/**
+ * 判断路径是否为可打开的详情链接。
+ */
+function isDetailUrl(path?: string) {
+  return !!path && /^https?:\/\//i.test(path)
+}
+
+/**
+ * 入库条目路径展示文案。
+ */
+function resolveLibraryPathText(file: SubscribeLibraryFileInfo) {
+  if (file.file_path) return file.file_path
+  return t('dialog.subscribeFiles.noPath')
+}
+
+/**
+ * 文件列表项稳定 key（媒体服务器条目可能无路径）。
+ */
+function resolveFileKey(tab: SubscribeFileTab, file: SubscribeDownloadFileInfo | SubscribeLibraryFileInfo, index: number, episodeNumber?: number) {
+  const prefix = episodeNumber == null ? tab : `${episodeNumber}-${tab}`
+  if (tab === 'library') {
+    const libraryFile = file as SubscribeLibraryFileInfo
+    return `${prefix}-${libraryFile.file_path || libraryFile.server || libraryFile.server_type || libraryFile.itemid || index}`
+  }
+  return `${prefix}-${(file as SubscribeDownloadFileInfo).file_path || index}`
+}
+
+/**
  * 返回集状态对应的本地化展示文案。
  */
 function getEpisodeStatusText(status: EpisodeStatus) {
@@ -183,9 +218,23 @@ function calcPercent(value: number, total: number) {
 
 /**
  * 从种子标题或文件路径中提取分辨率标签。
+ * 媒体服务器详情 URL 不参与解析。
  */
 function resolveResolutionLabel(file?: SubscribeDownloadFileInfo | SubscribeLibraryFileInfo) {
-  const text = 'torrent_title' in (file || {}) ? `${(file as SubscribeDownloadFileInfo).torrent_title || ''} ${file?.file_path || ''}` : file?.file_path || ''
+  if (!file) return undefined
+
+  const path = file.file_path || ''
+  if (isDetailUrl(path)) {
+    if ('torrent_title' in file) {
+      const matched = ((file as SubscribeDownloadFileInfo).torrent_title || '').match(/(?:2160|1080|720|480)p|4k|8k/i)
+      return matched?.[0]?.toUpperCase()
+    }
+    return undefined
+  }
+
+  const text = 'torrent_title' in file
+    ? `${(file as SubscribeDownloadFileInfo).torrent_title || ''} ${path}`
+    : path
   const matched = text.match(/(?:2160|1080|720|480)p|4k|8k/i)
   return matched?.[0]?.toUpperCase()
 }
@@ -336,7 +385,6 @@ onBeforeMount(() => {
 
 <template>
   <VDialog
-    scrollable
     max-width="74rem"
     :fullscreen="!display.mdAndUp.value"
     content-class="subscribe-files-overlay"
@@ -495,7 +543,7 @@ onBeforeMount(() => {
                     <template v-if="selectedFiles.length">
                       <article
                         v-for="(file, index) in selectedFiles"
-                        :key="`${activeTab}-${file.file_path || index}`"
+                        :key="resolveFileKey(activeTab, file, index)"
                         class="subscribe-files-file-card"
                       >
                         <div class="subscribe-files-file-card__media">
@@ -519,12 +567,12 @@ onBeforeMount(() => {
                               {{ (file as SubscribeDownloadFileInfo).site_name }}
                             </VChip>
                             <VChip
-                              v-if="activeTab === 'library' && (file as SubscribeLibraryFileInfo).storage"
+                              v-if="activeTab === 'library' && resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo)"
                               color="success"
                               variant="tonal"
                               size="x-small"
                             >
-                              {{ (file as SubscribeLibraryFileInfo).storage }}
+                              {{ resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo) }}
                             </VChip>
                             <VChip
                               :color="activeTab === 'download' ? 'info' : 'success'"
@@ -547,10 +595,25 @@ onBeforeMount(() => {
                           </div>
                           <div class="subscribe-files-path-block">
                             <div class="subscribe-files-path-block__label">
-                              <VIcon icon="mdi-folder-outline" size="16" />
+                              <VIcon :icon="activeTab === 'library' && isDetailUrl(file.file_path) ? 'mdi-open-in-new' : 'mdi-folder-outline'" size="16" />
                               {{ t('dialog.subscribeFiles.filePath') }}
                             </div>
-                            <code>{{ file.file_path || t('dialog.subscribeFiles.noPath') }}</code>
+                            <a
+                              v-if="activeTab === 'library' && isDetailUrl(file.file_path)"
+                              class="subscribe-files-path-link"
+                              :href="file.file_path"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {{ file.file_path }}
+                            </a>
+                            <code v-else>
+                              {{
+                                activeTab === 'library'
+                                  ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
+                                  : (file.file_path || t('dialog.subscribeFiles.noPath'))
+                              }}
+                            </code>
                             <VBtn
                               icon="mdi-content-copy"
                               variant="tonal"
@@ -593,7 +656,7 @@ onBeforeMount(() => {
                   <div v-if="episode.activeFiles.length" class="subscribe-files-mobile-card__files">
                     <div
                       v-for="(file, index) in episode.activeFiles"
-                      :key="`${episode.episodeNumber}-${activeTab}-${file.file_path || index}`"
+                      :key="resolveFileKey(activeTab, file, index, episode.episodeNumber)"
                       class="subscribe-files-mobile-file"
                     >
                       <div class="subscribe-files-mobile-file__chips">
@@ -609,19 +672,34 @@ onBeforeMount(() => {
                           {{ (file as SubscribeDownloadFileInfo).site_name }}
                         </VChip>
                         <VChip
-                          v-if="activeTab === 'library' && (file as SubscribeLibraryFileInfo).storage"
+                          v-if="activeTab === 'library' && resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo)"
                           color="success"
                           variant="tonal"
                           size="x-small"
                         >
-                          {{ (file as SubscribeLibraryFileInfo).storage }}
+                          {{ resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo) }}
                         </VChip>
                       </div>
                       <div v-if="activeTab === 'download'" class="subscribe-files-mobile-file__title">
                         {{ (file as SubscribeDownloadFileInfo).torrent_title || t('dialog.subscribeFiles.unknownTorrent') }}
                       </div>
                       <div class="subscribe-files-path-block subscribe-files-path-block--mobile">
-                        <code>{{ file.file_path || t('dialog.subscribeFiles.noPath') }}</code>
+                        <a
+                          v-if="activeTab === 'library' && isDetailUrl(file.file_path)"
+                          class="subscribe-files-path-link"
+                          :href="file.file_path"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {{ file.file_path }}
+                        </a>
+                        <code v-else>
+                          {{
+                            activeTab === 'library'
+                              ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
+                              : (file.file_path || t('dialog.subscribeFiles.noPath'))
+                          }}
+                        </code>
                         <VBtn
                           icon="mdi-content-copy"
                           variant="tonal"
@@ -652,9 +730,37 @@ onBeforeMount(() => {
   </VDialog>
 </template>
 
+<style lang="scss">
+.subscribe-files-overlay {
+  display: flex !important;
+  flex-direction: column !important;
+  inline-size: 100% !important;
+  max-inline-size: 74rem !important;
+  block-size: 80vh !important;
+  max-block-size: 80vh !important;
+  overflow: hidden !important;
+}
+
+.subscribe-files-overlay > .v-card {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+}
+</style>
+
 <style lang="scss" scoped>
 .subscribe-files-dialog {
+  display: flex;
   overflow: hidden;
+  flex: 1 1 auto;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
   border: 1px solid rgba(var(--v-theme-on-surface), var(--sfd-border-opacity));
   backdrop-filter: blur(var(--sfd-blur)) saturate(1.18);
   background:
@@ -686,20 +792,26 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-dialog__body {
+  display: flex;
   overflow: hidden;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-block-size: 0;
   padding: 0 !important;
 }
 
 .subscribe-files-shell {
   display: flex;
+  overflow: hidden;
+  flex: 1 1 0;
   flex-direction: column;
-  min-block-size: min(86vh, 56rem);
+  min-block-size: 0;
 }
 
 .subscribe-files-hero {
   position: relative;
   overflow: hidden;
-  min-block-size: 21rem;
+  flex: 0 0 auto;
   background:
     linear-gradient(
       90deg,
@@ -848,16 +960,20 @@ onBeforeMount(() => {
 
 .subscribe-files-content {
   display: grid;
-  flex: 1 1 auto;
+  overflow: hidden;
+  flex: 1 1 0;
   gap: 1rem;
   grid-template-columns: 19rem minmax(0, 1fr);
-  min-block-size: 0;
+  grid-template-rows: minmax(0, 1fr);
+  min-block-size: 12rem;
   padding: 0 1.25rem 1.25rem;
 }
 
 .subscribe-files-episode-rail,
 .subscribe-files-main {
   overflow: hidden;
+  block-size: 100%;
+  min-block-size: 0;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
@@ -1108,13 +1224,24 @@ onBeforeMount(() => {
   grid-column: 1 / -1;
 }
 
-.subscribe-files-path-block code {
+.subscribe-files-path-block code,
+.subscribe-files-path-link {
   overflow: hidden;
   color: rgba(var(--v-theme-on-surface), 0.88);
   font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
   font-size: 0.8rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
+}
+
+.subscribe-files-path-link {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.subscribe-files-path-link:hover {
+  opacity: 0.88;
 }
 
 .subscribe-files-empty {
@@ -1139,6 +1266,7 @@ onBeforeMount(() => {
   flex: 1 1 auto;
   flex-direction: column;
   gap: 0.85rem;
+  min-block-size: 0;
   padding: 1rem;
 }
 
@@ -1241,14 +1369,6 @@ onBeforeMount(() => {
     border-radius: 0 !important;
   }
 
-  .subscribe-files-shell {
-    min-block-size: 100dvh;
-  }
-
-  .subscribe-files-hero {
-    min-block-size: auto;
-  }
-
   .subscribe-files-hero__content {
     display: grid;
     gap: 1rem;
@@ -1303,14 +1423,19 @@ onBeforeMount(() => {
 
   .subscribe-files-content {
     display: flex;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     flex-direction: column;
     min-block-size: 0;
     padding: 0;
   }
 
   .subscribe-files-main {
-    flex: 1 1 auto;
+    display: flex;
+    overflow: hidden;
+    flex: 1 1 0;
+    flex-direction: column;
+    block-size: 100%;
+    min-block-size: 0;
     border: 0;
     border-radius: 0;
     background: transparent;

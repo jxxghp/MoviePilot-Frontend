@@ -1467,6 +1467,12 @@ export interface SubscribeLibraryFileInfo {
   storage?: string
   // 文件路径
   file_path?: string
+  // 媒体服务器名称
+  server?: string
+  // 媒体服务器类型：emby、jellyfin、plex 等
+  server_type?: string
+  // 媒体服务器条目 ID
+  itemid?: string
 }
 
 // 订阅集详情
