@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+
 import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
@@ -16,9 +18,10 @@ import { responsiveInputCoreComponentNames } from './src/plugins/vuetify/respons
 // 读取 package.json 获取版本号
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const buildTime = new Date().getTime().toString()
+const isTestMode = (mode: string) => mode === 'test' || process.env.VITEST === 'true'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: './',
   plugins: [
     vue(),
@@ -34,164 +37,168 @@ export default defineConfig({
     }),
     Components({
       dirs: ['src/@core/components'],
-      dts: true,
+      dts: !isTestMode(mode),
     }),
     AutoImport({
       imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'pinia', 'vue-i18n'],
       vueTemplate: true,
+      dts: !isTestMode(mode),
     }),
     VueI18n({
       include: [resolve(__dirname, 'src/locales/*.ts')],
     }),
-    federation({
-      name: 'MoviePilot',
-      filename: 'remoteEntry.js',
-      // @ts-ignore
-      remotes: {
-        // 动态remotes将在运行时注入
-        dummy: {
-          external: '',
-          format: 'var',
+    !isTestMode(mode) &&
+      federation({
+        name: 'MoviePilot',
+        filename: 'remoteEntry.js',
+        // @ts-ignore
+        remotes: {
+          // 动态remotes将在运行时注入
+          dummy: {
+            external: '',
+            format: 'var',
+          },
         },
-      },
-      shared: ['vue', 'vuetify'],
-    }),
-    VitePWA({
-      injectRegister: 'script',
-      registerType: 'autoUpdate',
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'service-worker.ts',
-      injectManifest: {
-        rollupFormat: 'iife',
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2,ttf,otf,eot}'],
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module',
-      },
-      manifest: {
-        'name': 'MoviePilot',
-        'short_name': 'MoviePilot',
-        'description': 'MoviePilot - 智能影视媒体库管理工具',
-        'start_url': './',
-        'scope': './',
-        'display': 'standalone',
-        'display_override': ['window-controls-overlay', 'standalone'],
-        'orientation': 'portrait-primary',
-        'lang': 'zh-CN',
-        'dir': 'ltr',
-        'categories': ['entertainment', 'multimedia', 'utilities'],
-        'icons': [
-          {
-            'src': './android-chrome-192x192.png',
-            'sizes': '192x192',
-            'type': 'image/png',
-            'purpose': 'any',
-          },
-          {
-            'src': './android-chrome-192x192_maskable.png',
-            'sizes': '192x192',
-            'type': 'image/png',
-            'purpose': 'maskable',
-          },
-          {
-            'src': './android-chrome-512x512.png',
-            'sizes': '512x512',
-            'type': 'image/png',
-            'purpose': 'any',
-          },
-          {
-            'src': './android-chrome-512x512_maskable.png',
-            'sizes': '512x512',
-            'type': 'image/png',
-            'purpose': 'maskable',
-          },
-        ],
-        'theme_color': '#0E1116',
-        'background_color': '#0E1116',
-        'edge_side_panel': {
-          'preferred_width': 320,
+        shared: ['vue', 'vuetify'],
+      }),
+    !isTestMode(mode) &&
+      VitePWA({
+        injectRegister: 'script',
+        registerType: 'autoUpdate',
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'service-worker.ts',
+        injectManifest: {
+          rollupFormat: 'iife',
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2,ttf,otf,eot}'],
         },
-        'launch_handler': {
-          'client_mode': 'navigate-existing',
+        devOptions: {
+          enabled: true,
+          type: 'module',
         },
-        'handle_links': 'preferred',
-        'id': 'moviepilot-app',
-        'shortcuts': [
-          {
-            'name': '推荐',
-            'short_name': '推荐',
-            'description': '查看推荐内容',
-            'url': './recommend',
-            'icons': [
-              {
-                'src': './sparkles-icon-192x192.png',
-                'sizes': '192x192',
-                'type': 'image/png',
-              },
-            ],
+        manifest: {
+          'name': 'MoviePilot',
+          'short_name': 'MoviePilot',
+          'description': 'MoviePilot - 智能影视媒体库管理工具',
+          'start_url': './',
+          'scope': './',
+          'display': 'standalone',
+          'display_override': ['window-controls-overlay', 'standalone'],
+          'orientation': 'portrait-primary',
+          'lang': 'zh-CN',
+          'dir': 'ltr',
+          'categories': ['entertainment', 'multimedia', 'utilities'],
+          'icons': [
+            {
+              'src': './android-chrome-192x192.png',
+              'sizes': '192x192',
+              'type': 'image/png',
+              'purpose': 'any',
+            },
+            {
+              'src': './android-chrome-192x192_maskable.png',
+              'sizes': '192x192',
+              'type': 'image/png',
+              'purpose': 'maskable',
+            },
+            {
+              'src': './android-chrome-512x512.png',
+              'sizes': '512x512',
+              'type': 'image/png',
+              'purpose': 'any',
+            },
+            {
+              'src': './android-chrome-512x512_maskable.png',
+              'sizes': '512x512',
+              'type': 'image/png',
+              'purpose': 'maskable',
+            },
+          ],
+          'theme_color': '#0E1116',
+          'background_color': '#0E1116',
+          'edge_side_panel': {
+            'preferred_width': 320,
           },
-          {
-            'name': '探索',
-            'short_name': '探索',
-            'description': '探索新内容',
-            'url': './discover',
-            'icons': [
-              {
-                'src': './clock-icon-192x192.png',
-                'sizes': '192x192',
-                'type': 'image/png',
-              },
-            ],
+          'launch_handler': {
+            'client_mode': 'navigate-existing',
           },
-          {
-            'name': '更多',
-            'short_name': '更多',
-            'description': '更多功能',
-            'url': './apps',
-            'icons': [
-              {
-                'src': './cog-icon-192x192.png',
-                'sizes': '192x192',
-                'type': 'image/png',
-              },
-            ],
-          },
-        ],
-        'screenshots': [
-          {
-            'src': './android-chrome-512x512.png',
-            'sizes': '512x512',
-            'type': 'image/png',
-            'form_factor': 'wide',
-            'label': 'MoviePilot 主界面',
-          },
-          {
-            'src': './android-chrome-192x192.png',
-            'sizes': '192x192',
-            'type': 'image/png',
-            'form_factor': 'narrow',
-            'label': 'MoviePilot 移动端',
-          },
-        ],
-        'protocol_handlers': [
-          {
-            'protocol': 'web+moviepilot',
-            'url': './?handler=%s',
-          },
-        ],
-        'prefer_related_applications': false,
-        'related_applications': [],
-      },
-    }),
-    topLevelAwait({
-      // The export name of top-level await promise for each chunk module
-      promiseExportName: '__mp_tla',
-      // The function to generate import names of top-level await promise in each chunk module
-      promiseImportName: i => `__mp_tla_${i}`,
-    }),
+          'handle_links': 'preferred',
+          'id': 'moviepilot-app',
+          'shortcuts': [
+            {
+              'name': '推荐',
+              'short_name': '推荐',
+              'description': '查看推荐内容',
+              'url': './recommend',
+              'icons': [
+                {
+                  'src': './sparkles-icon-192x192.png',
+                  'sizes': '192x192',
+                  'type': 'image/png',
+                },
+              ],
+            },
+            {
+              'name': '探索',
+              'short_name': '探索',
+              'description': '探索新内容',
+              'url': './discover',
+              'icons': [
+                {
+                  'src': './clock-icon-192x192.png',
+                  'sizes': '192x192',
+                  'type': 'image/png',
+                },
+              ],
+            },
+            {
+              'name': '更多',
+              'short_name': '更多',
+              'description': '更多功能',
+              'url': './apps',
+              'icons': [
+                {
+                  'src': './cog-icon-192x192.png',
+                  'sizes': '192x192',
+                  'type': 'image/png',
+                },
+              ],
+            },
+          ],
+          'screenshots': [
+            {
+              'src': './android-chrome-512x512.png',
+              'sizes': '512x512',
+              'type': 'image/png',
+              'form_factor': 'wide',
+              'label': 'MoviePilot 主界面',
+            },
+            {
+              'src': './android-chrome-192x192.png',
+              'sizes': '192x192',
+              'type': 'image/png',
+              'form_factor': 'narrow',
+              'label': 'MoviePilot 移动端',
+            },
+          ],
+          'protocol_handlers': [
+            {
+              'protocol': 'web+moviepilot',
+              'url': './?handler=%s',
+            },
+          ],
+          'prefer_related_applications': false,
+          'related_applications': [],
+        },
+      }),
+    !isTestMode(mode) &&
+      topLevelAwait({
+        // The export name of top-level await promise for each chunk module
+        promiseExportName: '__mp_tla',
+        // The function to generate import names of top-level await promise in each chunk module
+        promiseImportName: i => `__mp_tla_${i}`,
+      }),
   ],
   define: {
     'process.env': {},
@@ -205,6 +212,7 @@ export default defineConfig({
       '@layouts': fileURLToPath(new URL('./src/@layouts', import.meta.url)),
       '@images': fileURLToPath(new URL('./src/assets/images/', import.meta.url)),
       '@styles': fileURLToPath(new URL('./src/styles/', import.meta.url)),
+      '@tests': fileURLToPath(new URL('./tests', import.meta.url)),
       '@configured-variables': fileURLToPath(new URL('./src/styles/variables/_template.scss', import.meta.url)),
       'apexcharts': fileURLToPath(new URL('node_modules/apexcharts', import.meta.url)),
     },
@@ -243,4 +251,41 @@ export default defineConfig({
       },
     },
   },
-})
+  test: {
+    clearMocks: true,
+    environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        pretendToBeVisual: true,
+        url: 'http://localhost/',
+      },
+    },
+    include: ['src/**/__tests__/**/*.spec.ts'],
+    restoreMocks: true,
+    server: {
+      deps: {
+        inline: ['vuetify'],
+      },
+    },
+    setupFiles: ['./tests/setup.ts'],
+    unstubGlobals: true,
+    coverage: {
+      include: [
+        'src/utils/recommendSources.ts',
+        'src/utils/permission.ts',
+        'src/stores/auth.ts',
+        'src/pages/recommend.vue',
+        'src/views/dashboard/MediaRecommend.vue',
+      ],
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: 'coverage',
+      thresholds: {
+        branches: 75,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+      },
+    },
+  },
+}))
