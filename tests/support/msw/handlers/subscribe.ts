@@ -26,12 +26,64 @@ export const subscribeApiUrls = {
   episodeGroups: (tmdbId: number) => new URL(`media/groups/${tmdbId}`, API_BASE_URL).href,
   filterRuleGroups: new URL('system/setting/UserFilterRuleGroups', API_BASE_URL).href,
   queryByMedia: (mediaId: string) => new URL(`subscribe/media/${mediaId}`, API_BASE_URL).href,
+  list: new URL('subscribe/', API_BASE_URL).href,
+  orderConfig: (type: SubscribeMediaType) =>
+    new URL(`user/config/${type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'}`, API_BASE_URL).href,
   sites: new URL('site/rss', API_BASE_URL).href,
+  statusById: (id: number) => new URL(`subscribe/status/${id}`, API_BASE_URL).href,
   update: new URL('subscribe/', API_BASE_URL).href,
 }
 
 function jsonResponse(body: JsonBodyType, status: number) {
   return HttpResponse.json(body, { status })
+}
+
+export function subscribeListHandler(
+  response: JsonBodyType = [],
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(subscribeApiUrls.list, ({ request }) => {
+    onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function subscribeOrderConfigHandler(
+  type: SubscribeMediaType,
+  value: JsonBodyType = [],
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(subscribeApiUrls.orderConfig(type), ({ request }) => {
+    onRequest(new URL(request.url))
+    return jsonResponse({ data: { value }, success: status < 400 }, status)
+  })
+}
+
+export function saveSubscribeOrderConfigHandler(
+  type: SubscribeMediaType,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onSave: (payload: { id: number }[], url: URL) => void | Promise<void> = () => {},
+) {
+  return http.post(subscribeApiUrls.orderConfig(type), async ({ request }) => {
+    const payload = (await request.json()) as { id: number }[]
+    await onSave(payload, new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function updateSubscribeStatusHandler(
+  id: number,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.put(subscribeApiUrls.statusById(id), async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
 }
 
 export function createSubscribeHandler(

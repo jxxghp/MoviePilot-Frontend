@@ -12,6 +12,7 @@ type TestingLibraryRenderOptions = NonNullable<Parameters<typeof render>[1]>
 export interface RenderWithProvidersOptions extends Omit<TestingLibraryRenderOptions, 'global'> {
   global?: TestingLibraryRenderOptions['global']
   initialRoute?: RouteLocationRaw
+  initialRouteMeta?: { subType?: '电影' | '电视剧' }
   initialState?: Record<string, Record<string, unknown>>
   stubActions?: boolean
 }
@@ -26,13 +27,14 @@ export async function renderWithProviders(component: Component, options: RenderW
   const {
     global: globalOptions,
     initialRoute = '/',
+    initialRouteMeta = {},
     initialState = {},
     stubActions = true,
     ...renderOptions
   } = options
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/:pathMatch(.*)*', component: EmptyRoute }],
+    routes: [{ path: '/:pathMatch(.*)*', component: EmptyRoute, meta: initialRouteMeta }],
   })
   await router.push(initialRoute)
   i18n.global.locale.value = 'zh-CN'

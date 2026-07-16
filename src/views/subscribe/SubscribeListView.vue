@@ -62,6 +62,26 @@ const emit = defineEmits<{
 
 type SubscribeSortBy = 'custom' | 'last_update' | 'date' | 'lack_episode'
 
+// 自定义顺序的持久化条目，只允许有限数值 ID 参与排序。
+interface SubscribeOrderItem {
+  id: number
+}
+
+// 订阅写操作的业务结果；HTTP 成功不代表业务操作成功。
+interface SubscribeMutationResponse {
+  message?: string
+  success: boolean
+}
+
+// 批量操作的确认文案、请求执行器和结果文案契约。
+interface BatchOperationOptions {
+  confirmKey: string
+  errorKey: string
+  failedKey: string
+  request: (id: number) => Promise<unknown>
+  successKey: string
+}
+
 // 订阅批量模式状态快照，供父页面渲染外部批量操作按钮。
 interface SubscribeBatchState {
   enabled: boolean
@@ -76,11 +96,17 @@ let isRefreshed = ref(false)
 // 刷新状态
 const loading = ref(false)
 
+// 最近一次列表请求是否失败，用于保留旧数据时持续展示错误状态。
+const loadError = ref(false)
+
 // 数据列表
 const dataList = ref<Subscribe[]>([])
 
 // 订阅顺序配置
-const orderConfig = ref<{ id: number }[]>([])
+const orderConfig = ref<SubscribeOrderItem[]>([])
+
+// 顺序保存期间锁定拖拽，避免并发请求覆盖最后确认的顺序。
+const orderSaving = ref(false)
 
 // 显示的订阅列表
 const displayList = ref<Subscribe[]>([])
@@ -88,12 +114,14 @@ const displayList = ref<Subscribe[]>([])
 // 批量管理相关状态
 const isBatchMode = ref(false)
 const selectedSubscribes = ref<number[]>([])
+// 每次进入批量模式创建新会话，迟到请求不得修改后续会话的选择状态。
+let batchModeSessionId = 0
 
 const normalizedKeyword = computed(() => props.keyword?.trim().toLowerCase() || '')
 const selectedSubscribesSet = computed(() => new Set(selectedSubscribes.value))
 const hasCustomOrder = computed(() => orderConfig.value.length > 0)
 const isAllSubscribesSelected = computed(
-  () => displayList.value.length > 0 && selectedSubscribes.value.length === displayList.value.length,
+  () => displayList.value.length > 0 && displayList.value.every(item => selectedSubscribesSet.value.has(item.id)),
 )
 
 // 归一化订阅排序方式，电影订阅不使用缺失集数排序。
@@ -185,6 +213,25 @@ function getSubscribeTimeValue(value?: string) {
   return Number.isNaN(compatibleTime) ? 0 : compatibleTime
 }
 
+// 顺序配置属于通用 JSON 存储，只有完整的数值 ID 数组才能参与排序。
+function normalizeSubscribeOrderConfig(value: unknown): SubscribeOrderItem[] {
+  if (
+    !Array.isArray(value) ||
+    !value.every(
+      item =>
+        typeof item === 'object' &&
+        item !== null &&
+        'id' in item &&
+        typeof item.id === 'number' &&
+        Number.isFinite(item.id),
+    )
+  ) {
+    return []
+  }
+
+  return value.map(item => ({ id: item.id }))
+}
+
 // 按自定义顺序排序订阅，未配置顺序的订阅按添加时间倒序补齐。
 function sortByCustomOrder(a: Subscribe, b: Subscribe, orderIndexMap: Map<number, number>) {
   const aIndex = orderIndexMap.get(a.id) ?? Number.MAX_SAFE_INTEGER
@@ -253,6 +300,8 @@ watch(
     sortSubscribeList(nextDisplayList)
 
     displayList.value = nextDisplayList
+    const visibleIds = new Set(nextDisplayList.map(item => item.id))
+    selectedSubscribes.value = selectedSubscribes.value.filter(id => visibleIds.has(id))
   },
   { immediate: true },
 )
@@ -277,9 +326,7 @@ watch(
 async function loadSubscribeOrderConfig() {
   try {
     const response = await api.get(`/user/config/${orderRequestKey.value}`)
-    if (response && response.data && response.data.value) {
-      orderConfig.value = response.data.value
-    }
+    orderConfig.value = normalizeSubscribeOrderConfig(response?.data?.value)
     syncDefaultSortBy()
   } catch (error) {
     console.error('Failed to load subscribe order config:', error)
@@ -290,31 +337,64 @@ async function loadSubscribeOrderConfig() {
 
 // 保存顺序设置
 async function saveSubscribeOrder() {
-  // 顺序配置
-  const orderObj = displayList.value.map(item => ({ id: item.id }))
-  orderConfig.value = orderObj
-  emit('update:sortBy', 'custom')
+  if (orderSaving.value) {
+    const restoredDisplayList = [...displayList.value]
+    sortSubscribeList(restoredDisplayList)
+    displayList.value = restoredDisplayList
+    return
+  }
 
-  // 保存到服务端
+  const confirmedOrder = orderConfig.value.map(item => ({ ...item }))
+  const orderObj = displayList.value.map(item => ({ id: item.id }))
+  orderSaving.value = true
+
   try {
-    await api.post(`/user/config/${orderRequestKey.value}`, orderObj)
+    const response = (await api.post(
+      `/user/config/${orderRequestKey.value}`,
+      orderObj,
+    )) as unknown as SubscribeMutationResponse
+    if (response?.success !== true) {
+      throw new Error(response?.message || 'Failed to save subscribe order')
+    }
+
+    orderConfig.value = orderObj
+    // 保存响应不得覆盖请求期间由父页面选择的新排序方式。
+    if (effectiveSortBy.value === 'custom') {
+      emit('update:sortBy', 'custom')
+    }
   } catch (error) {
     console.error(error)
+    orderConfig.value = confirmedOrder
+    const restoredDisplayList = [...displayList.value]
+    sortSubscribeList(restoredDisplayList)
+    displayList.value = restoredDisplayList
+    $toast.error(t('subscribe.requestFailed'))
+  } finally {
+    orderSaving.value = false
   }
 }
 
 // 获取订阅列表数据
 async function fetchData(context: KeepAliveRefreshContext = {}) {
   const showLoading = !context.silent || !isRefreshed.value
+  const isInitialLoad = !isRefreshed.value
 
   try {
     if (showLoading) {
       loading.value = true
     }
     dataList.value = await api.get('subscribe/')
+    loadError.value = false
     isRefreshed.value = true
   } catch (error) {
     console.error(error)
+    loadError.value = true
+    if (isInitialLoad) {
+      isRefreshed.value = true
+    }
+    if (!context.silent || isInitialLoad) {
+      $toast.error(t('subscribe.requestFailed'))
+    }
   } finally {
     if (showLoading) {
       loading.value = false
@@ -350,6 +430,9 @@ function emitBatchStateChange() {
 
 // 进入批量模式。
 function enterBatchMode() {
+  if (!isBatchMode.value) {
+    batchModeSessionId += 1
+  }
   isBatchMode.value = true
 }
 
@@ -388,121 +471,96 @@ function toggleSelectSubscribe(id: number) {
   }
 }
 
-// 批量删除已选中的订阅。
-async function batchDeleteSubscribes() {
+function isSuccessfulMutationResult(result: PromiseSettledResult<unknown>) {
+  return (
+    result.status === 'fulfilled' &&
+    typeof result.value === 'object' &&
+    result.value !== null &&
+    'success' in result.value &&
+    result.value.success === true
+  )
+}
+
+// 批量结果必须与开始操作时的 ID 快照对应，避免异步期间筛选或选择变化造成目标错配。
+async function runBatchOperation(options: BatchOperationOptions) {
   if (selectedSubscribes.value.length === 0) {
     $toast.warning(t('subscribe.noSelectedItems'))
     return
   }
 
+  const targetIds = [...selectedSubscribes.value]
+  const operationBatchSessionId = batchModeSessionId
   const isConfirmed = await createConfirm({
     title: t('common.confirm'),
-    content: t('subscribe.batchDeleteConfirm', { count: selectedSubscribes.value.length }),
+    content: t(options.confirmKey, { count: targetIds.length }),
   })
 
-  if (!isConfirmed) return
+  if (!isConfirmed || !isBatchMode.value || batchModeSessionId !== operationBatchSessionId) return
 
   try {
     loading.value = true
-    const promises = selectedSubscribes.value.map(id => api.delete(`subscribe/${id}`))
-    const results = await Promise.allSettled(promises)
-
-    const successCount = results.filter(result => result.status === 'fulfilled').length
-    const failedCount = results.length - successCount
+    const results = await Promise.allSettled(targetIds.map(id => options.request(id)))
+    const failedIds = targetIds.filter((_id, index) => !isSuccessfulMutationResult(results[index]))
+    const successCount = targetIds.length - failedIds.length
 
     if (successCount > 0) {
-      $toast.success(t('subscribe.batchDeleteSuccess', { count: successCount }))
+      $toast.success(t(options.successKey, { count: successCount }))
     }
-    if (failedCount > 0) {
-      $toast.error(t('subscribe.batchDeleteFailed', { count: failedCount }))
+    if (failedIds.length > 0) {
+      $toast.error(t(options.failedKey, { count: failedIds.length }))
     }
 
     await fetchData()
-    exitBatchMode()
+    await nextTick()
+
+    if (!isBatchMode.value || batchModeSessionId !== operationBatchSessionId) return
+
+    if (failedIds.length === 0) {
+      exitBatchMode()
+      return
+    }
+
+    const visibleIds = new Set(displayList.value.map(item => item.id))
+    selectedSubscribes.value = failedIds.filter(id => visibleIds.has(id))
   } catch (error) {
     console.error(error)
-    $toast.error(t('subscribe.batchDeleteError'))
+    $toast.error(t(options.errorKey))
   } finally {
     loading.value = false
   }
+}
+
+// 批量删除已选中的订阅。
+async function batchDeleteSubscribes() {
+  await runBatchOperation({
+    confirmKey: 'subscribe.batchDeleteConfirm',
+    errorKey: 'subscribe.batchDeleteError',
+    failedKey: 'subscribe.batchDeleteFailed',
+    request: id => api.delete(`subscribe/${id}`),
+    successKey: 'subscribe.batchDeleteSuccess',
+  })
 }
 
 // 批量启用已选中的订阅。
 async function batchEnableSubscribes() {
-  if (selectedSubscribes.value.length === 0) {
-    $toast.warning(t('subscribe.noSelectedItems'))
-    return
-  }
-
-  const isConfirmed = await createConfirm({
-    title: t('common.confirm'),
-    content: t('subscribe.batchEnableConfirm', { count: selectedSubscribes.value.length }),
+  await runBatchOperation({
+    confirmKey: 'subscribe.batchEnableConfirm',
+    errorKey: 'subscribe.batchEnableError',
+    failedKey: 'subscribe.batchEnableFailed',
+    request: id => api.put(`subscribe/status/${id}?state=R`),
+    successKey: 'subscribe.batchEnableSuccess',
   })
-
-  if (!isConfirmed) return
-
-  try {
-    loading.value = true
-    const promises = selectedSubscribes.value.map(id => api.put(`subscribe/status/${id}?state=R`))
-    const results = await Promise.allSettled(promises)
-
-    const successCount = results.filter(result => result.status === 'fulfilled').length
-    const failedCount = results.length - successCount
-
-    if (successCount > 0) {
-      $toast.success(t('subscribe.batchEnableSuccess', { count: successCount }))
-    }
-    if (failedCount > 0) {
-      $toast.error(t('subscribe.batchEnableFailed', { count: failedCount }))
-    }
-
-    await fetchData()
-    exitBatchMode()
-  } catch (error) {
-    console.error(error)
-    $toast.error(t('subscribe.batchEnableError'))
-  } finally {
-    loading.value = false
-  }
 }
 
 // 批量暂停已选中的订阅。
 async function batchPauseSubscribes() {
-  if (selectedSubscribes.value.length === 0) {
-    $toast.warning(t('subscribe.noSelectedItems'))
-    return
-  }
-
-  const isConfirmed = await createConfirm({
-    title: t('common.confirm'),
-    content: t('subscribe.batchPauseConfirm', { count: selectedSubscribes.value.length }),
+  await runBatchOperation({
+    confirmKey: 'subscribe.batchPauseConfirm',
+    errorKey: 'subscribe.batchPauseError',
+    failedKey: 'subscribe.batchPauseFailed',
+    request: id => api.put(`subscribe/status/${id}?state=S`),
+    successKey: 'subscribe.batchPauseSuccess',
   })
-
-  if (!isConfirmed) return
-
-  try {
-    loading.value = true
-    const promises = selectedSubscribes.value.map(id => api.put(`subscribe/status/${id}?state=S`))
-    const results = await Promise.allSettled(promises)
-
-    const successCount = results.filter(result => result.status === 'fulfilled').length
-    const failedCount = results.length - successCount
-
-    if (successCount > 0) {
-      $toast.success(t('subscribe.batchPauseSuccess', { count: successCount }))
-    }
-    if (failedCount > 0) {
-      $toast.error(t('subscribe.batchPauseFailed', { count: failedCount }))
-    }
-
-    await fetchData()
-    exitBatchMode()
-  } catch (error) {
-    console.error(error)
-    $toast.error(t('subscribe.batchPauseError'))
-  } finally {
-    loading.value = false
-  }
 }
 
 // 错误描述
@@ -554,6 +612,10 @@ defineExpose({
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
 
+  <VAlert v-if="loadError" type="error" variant="tonal" class="mb-4 mx-2">
+    {{ t('subscribe.requestFailed') }}
+  </VAlert>
+
   <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 mx-2 py-0 app-surface-static">
     <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">
       <span>{{ t('common.sortModeHint') }}</span>
@@ -567,6 +629,7 @@ defineExpose({
     v-if="displayList.length > 0 && canDragSort"
     v-model="displayList"
     @end="saveSubscribeOrder"
+    :disabled="orderSaving"
     item-key="id"
     tag="div"
     :component-data="{ class: 'grid gap-4 grid-subscribe-card px-2' }"
@@ -608,7 +671,7 @@ defineExpose({
     </template>
   </ProgressiveCardGrid>
   <NoDataFound
-    v-if="displayList.length === 0 && isRefreshed"
+    v-if="displayList.length === 0 && isRefreshed && !loadError"
     error-code="404"
     :error-title="errorTitle"
     :error-description="errorDescription"
