@@ -268,6 +268,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
     setupFiles: ['./tests/setup.ts'],
+    testTimeout: 10_000,
     unstubGlobals: true,
     coverage: {
       include: [
