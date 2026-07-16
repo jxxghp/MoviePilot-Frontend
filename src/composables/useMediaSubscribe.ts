@@ -92,6 +92,16 @@ function getModeName(t: ReturnType<typeof useI18n>['t'], mode: SubscribeMode) {
   return t('dialog.subscribeMode.bestVersionFull')
 }
 
+// 从变更请求异常中提取可展示消息，并为非标准错误提供稳定兜底。
+function getRequestErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null) {
+    const responseMessage = (error as { response?: { data?: { message?: unknown } } }).response?.data?.message
+    if (typeof responseMessage === 'string' && responseMessage) return responseMessage
+  }
+  if (error instanceof Error && error.message) return error.message
+  return fallback
+}
+
 // 封装媒体卡片与详情页共用的订阅交互。
 export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   const { t } = useI18n()
@@ -155,17 +165,19 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   }
 
   // 打开已创建订阅的编辑弹窗。
-  function openSubscribeEditDialog(subid: number) {
+  function openSubscribeEditDialog(subid: number, season: number | null, mode: SubscribeMode) {
     openSharedDialog(
       SubscribeEditDialog,
       { subid },
       {
+        save: (subscribe?: Subscribe) => {
+          const savedSeason = currentMedia()?.type === '电影' ? null : (subscribe?.season ?? season)
+          if (savedSeason !== season) updateSubscribeStatus(season, false)
+          updateSubscribeStatus(savedSeason, true, subscribe ? getSubscribeMode(subscribe) : mode)
+        },
         remove: () => {
-          if (options.onEditRemove) {
-            options.onEditRemove()
-          } else if (options.isSubscribed) {
-            options.isSubscribed.value = false
-          }
+          updateSubscribeStatus(season, false)
+          options.onEditRemove?.()
         },
       },
       { closeOn: ['close', 'save', 'remove'] },
@@ -270,16 +282,33 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         episode_group: episodeGroup.value,
       })
 
-      if (result.success) updateSubscribeStatus(media.type === '电影' ? null : season, true, getSubscribeMode(payload))
+      const subscribeSeason = media.type === '电影' ? null : season
+      const subscribeMode = getSubscribeMode(payload)
+      if (result.success) updateSubscribeStatus(subscribeSeason, true, subscribeMode)
 
-      showSubscribeAddToast(result.success, media.title ?? '', season, result.message, payload.best_version ?? 0)
+      showSubscribeAddToast(
+        result.success,
+        media.title ?? '',
+        season,
+        result.message ?? t('subscribe.requestFailed'),
+        payload.best_version ?? 0,
+      )
 
       if (result.success && (addOptions.openEditDialog ?? true)) {
         const subscribeConfig = await queryDefaultSubscribeConfig()
-        if (subscribeConfig?.show_edit_dialog) openSubscribeEditDialog(result.data.id)
+        if (subscribeConfig?.show_edit_dialog && result.data?.id) {
+          openSubscribeEditDialog(result.data.id, subscribeSeason, subscribeMode)
+        }
       }
     } catch (error) {
       console.error(error)
+      showSubscribeAddToast(
+        false,
+        media.title ?? '',
+        season,
+        getRequestErrorMessage(error, t('subscribe.requestFailed')),
+        payload.best_version ?? 0,
+      )
     } finally {
       doneNProgress()
     }
@@ -297,6 +326,8 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
 
     const media = currentMedia()
     if (!media) return
+    let title = media.title ?? ''
+    if (media.type !== '电影' && season !== null) title = `${title} ${formatSeason(season.toString())}`
 
     startNProgress()
     try {
@@ -305,17 +336,20 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
           season: media.type === '电影' ? null : season,
         },
       })
-      let title = media.title ?? ''
-      if (media.type !== '电影' && season !== null) title = `${title} ${formatSeason(season.toString())}`
 
       if (result.success) {
         updateSubscribeStatus(media.type === '电影' ? null : season, false)
         $toast.success(`${title} ${t('subscribe.cancelSuccess')}`)
       } else {
-        $toast.error(`${title} ${t('subscribe.cancelFailed', { message: result.message })}`)
+        $toast.error(`${title} ${t('subscribe.cancelFailed', { message: result.message ?? t('subscribe.requestFailed') })}`)
       }
     } catch (error) {
       console.error(error)
+      $toast.error(
+        `${title} ${t('subscribe.cancelFailed', {
+          message: getRequestErrorMessage(error, t('subscribe.requestFailed')),
+        })}`,
+      )
     } finally {
       doneNProgress()
     }
@@ -361,6 +395,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   async function updateSubscribeMode(season: number, mode: SubscribeMode) {
     const media = currentMedia()
     if (!media) return
+    const title = `${media.title ?? ''} ${formatSeason(season.toString())}`
 
     startNProgress()
     try {
@@ -375,16 +410,26 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         ...subscribe,
         ...payload,
       })
-      const title = `${media.title ?? ''} ${formatSeason(season.toString())}`
 
       if (result.success) {
         updateSubscribeStatus(season, true, mode)
         $toast.success(`${title} ${t('subscribe.modeUpdateSuccess', { mode: getModeName(t, mode) })}`)
       } else {
-        $toast.error(`${title} ${t('subscribe.addFailed', { name: getModeName(t, mode), message: result.message })}`)
+        $toast.error(
+          `${title} ${t('subscribe.addFailed', {
+            name: getModeName(t, mode),
+            message: result.message ?? t('subscribe.requestFailed'),
+          })}`,
+        )
       }
     } catch (error) {
       console.error(error)
+      $toast.error(
+        `${title} ${t('subscribe.addFailed', {
+          name: getModeName(t, mode),
+          message: getRequestErrorMessage(error, t('subscribe.requestFailed')),
+        })}`,
+      )
     } finally {
       doneNProgress()
     }

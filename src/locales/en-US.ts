@@ -1125,6 +1125,7 @@ export default {
     cancelSuccess: 'Subscription cancelled!',
     cancelFailed: 'Failed to cancel subscription: {message}!',
     notFound: 'Subscription not found!',
+    requestFailed: 'Request failed. Please try again later.',
     filterSubscriptions: 'Filter Subscriptions',
     name: 'Name',
     searchShares: 'Search Subscription Shares',
@@ -3168,6 +3169,10 @@ export default {
       cancelSubscribe: 'Cancel Subscription',
       save: 'Save',
       cancelSubscribeConfirm: 'Are you sure you want to cancel the subscription?',
+      updateSuccess: '{name} updated successfully!',
+      updateFailed: 'Failed to update {name}: {message}!',
+      defaultSaveSuccess: 'Default {type} subscription rules saved successfully.',
+      defaultSaveFailed: 'Failed to save default {type} subscription rules: {message}!',
     },
     subscribeFiles: {
       title: 'Subscription Files',

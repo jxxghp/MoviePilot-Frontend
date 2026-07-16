@@ -78,7 +78,7 @@ tests/
 
 Vitest 只收集 `src/**/__tests__/**/*.spec.ts`。测试模式保留 Vue、Vue JSX、Vuetify、自动导入、自动组件和 i18n 插件，并禁用 PWA、模块联邦和 top-level-await 构建插件。
 
-当前核心覆盖范围在 `vite.config.ts` 的 `coverage.include` 中显式维护。聚合门槛为 Lines、Statements、Functions 不低于 80%，Branches 不低于 75%。覆盖率报告写入 `coverage/`。
+当前核心覆盖范围在 `vite.config.ts` 的 `coverage.include` 中显式维护。聚合门槛为 Lines、Statements、Functions 不低于 85%，Branches 不低于 80%；每个显式核心文件的 Lines、Statements、Functions 不低于 80%，Branches 不低于 75%。覆盖率报告写入 `coverage/`。
 
 ## 命令与 CI
 

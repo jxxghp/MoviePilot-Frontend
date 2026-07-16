@@ -49,7 +49,13 @@ const MediaCardSlideViewStub = defineComponent({
 })
 
 interface SharedDialogEvents {
+  close: () => void
   save: (payload?: { enabled?: Record<string, boolean> }) => Promise<void>
+  'update:modelValue': (value: boolean) => void
+}
+
+interface SharedDialogProps {
+  valueGetter: (item: { title: string }) => string
 }
 
 async function renderRecommend(options: { superUser?: boolean; discovery?: boolean } = {}) {
@@ -176,6 +182,36 @@ describe('recommend page', () => {
 
     expect(savedConfig).toHaveBeenCalledWith(nextConfig)
     expect(localStorage.getItem('MP_RECOMMEND')).toBe(JSON.stringify(nextConfig))
+    expect(mocks.closeDialog).toHaveBeenCalledOnce()
+  })
+
+  it('releases the shared settings controller through both close contracts', async () => {
+    const sourcesRequested = vi.fn()
+    const user = userEvent.setup()
+    localStorage.setItem('MP_RECOMMEND', JSON.stringify({ '流行趋势': true }))
+    server.use(recommendSourcesHandler([], 200, sourcesRequested))
+    await renderRecommend()
+    await waitFor(() => expect(sourcesRequested).toHaveBeenCalledOnce())
+    await waitFor(() => expect(document.querySelector('.compact-fab')).not.toBeNull())
+    const settingsButton = document.querySelector<HTMLButtonElement>('.compact-fab') as HTMLButtonElement
+
+    await user.click(settingsButton)
+    const dialogProps = mocks.openSharedDialog.mock.calls[0][1] as SharedDialogProps
+    const firstDialogEvents = mocks.openSharedDialog.mock.calls[0][2] as SharedDialogEvents
+    expect(dialogProps.valueGetter({ title: '流行趋势' })).toBe('流行趋势')
+
+    firstDialogEvents.close()
+    await user.click(settingsButton)
+    expect(mocks.closeDialog).not.toHaveBeenCalled()
+
+    const secondDialogEvents = mocks.openSharedDialog.mock.calls[1][2] as SharedDialogEvents
+    secondDialogEvents['update:modelValue'](true)
+    await user.click(settingsButton)
+    expect(mocks.closeDialog).toHaveBeenCalledOnce()
+
+    const thirdDialogEvents = mocks.openSharedDialog.mock.calls[2][2] as SharedDialogEvents
+    thirdDialogEvents['update:modelValue'](false)
+    await user.click(settingsButton)
     expect(mocks.closeDialog).toHaveBeenCalledOnce()
   })
 

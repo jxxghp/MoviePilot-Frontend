@@ -1119,6 +1119,7 @@ export default {
     cancelSuccess: '已取消订阅！',
     cancelFailed: '取消订阅失败：{message}！',
     notFound: '订阅不存在！',
+    requestFailed: '请求失败，请稍后重试',
     filterSubscriptions: '筛选订阅',
     name: '名称',
     searchShares: '搜索订阅分享',
@@ -3117,6 +3118,10 @@ export default {
       cancelSubscribe: '取消订阅',
       save: '保存',
       cancelSubscribeConfirm: '是否确认取消订阅？',
+      updateSuccess: '{name} 更新成功！',
+      updateFailed: '{name} 更新失败：{message}！',
+      defaultSaveSuccess: '{type}订阅默认规则保存成功',
+      defaultSaveFailed: '{type}订阅默认规则保存失败：{message}！',
     },
     subscribeFiles: {
       title: '订阅文件',
