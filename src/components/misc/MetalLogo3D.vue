@@ -24,8 +24,8 @@ interface LogoPieceDefinition {
 
 const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
-const LOGO_BEVEL_SIZE = 0.052
-const LOGO_BEVEL_THICKNESS = 0.032
+const LOGO_BEVEL_SIZE = 0.08 // 倒角水平扩张尺寸，增大以捕获更宽的高光带
+const LOGO_BEVEL_THICKNESS = 0.06 // 倒角绝对厚度
 const AUTO_ROTATION_SPEED = 0.3
 const MAX_TILT = 0.4
 const INITIAL_ROTATION_X = -0.09
@@ -218,16 +218,17 @@ function createRoundedLogoShape(points: readonly LogoPoint[], sourceCornerRadius
 function createFaceMaterial(color: number) {
   return new THREE.MeshPhysicalMaterial({
     color,
-    emissive: color,
-    emissiveIntensity: 0.045,
-    metalness: 0.66,
-    roughness: 0.18,
-    clearcoat: 1,
-    clearcoatRoughness: 0.09,
-    envMapIntensity: 1.5,
-    iridescence: 0.18,
-    iridescenceIOR: 1.3,
-    iridescenceThicknessRange: [110, 310],
+    metalness: 1.0, // 物理纯金属
+    roughness: 0.15, // 恰到好处的哑光丝滑，捕获细腻高光
+    clearcoat: 1.0, // 顶层覆盖清漆釉面
+    clearcoatRoughness: 0.04, // 极其光滑的漆面
+    envMapIntensity: 2.2, // 增强对周围环境贴图的反射强度，让金属更明亮亮丽
+    iridescence: 0.35, // 虹彩干涉，模拟高级阳极氧化膜
+    iridescenceIOR: 1.45, // 折射率
+    iridescenceThicknessRange: [100, 380], // 呈现紫红、深蓝至冰蓝的微弱折射虹彩
+    sheen: 0.2, // 边缘微弱绒光，增加金属边缘的漫反射质感
+    sheenColor: 0xd8c6ff,
+    sheenRoughness: 0.25,
   })
 }
 
@@ -235,22 +236,20 @@ function createFaceMaterial(color: number) {
 function createSideMaterial(color: number) {
   return new THREE.MeshPhysicalMaterial({
     color,
-    emissive: color,
-    emissiveIntensity: 0.16,
-    metalness: 0.6,
-    roughness: 0.24,
-    clearcoat: 0.9,
-    clearcoatRoughness: 0.12,
-    envMapIntensity: 1.65,
+    metalness: 0.95, // 纯粹侧边拉丝金属
+    roughness: 0.25, // 侧面稍微粗糙，与光洁正面形成强烈对比，提升层次感
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.1,
+    envMapIntensity: 2.5, // 增强侧面在旋转时对环境光的敏感度
+    iridescence: 0.2, // 侧面也有微弱虹彩
+    iridescenceIOR: 1.4,
+    iridescenceThicknessRange: [100, 300],
   })
 }
 
 /** 在挤出主体正面叠加略微内收的金属折面，复现设计图中的明暗分区。 */
 function createFacetMesh(definition: LogoFacetDefinition, frontZ: number) {
-  const geometry = new THREE.ShapeGeometry(
-    createRoundedLogoShape(definition.points, definition.cornerRadius ?? 1.8),
-    8,
-  )
+  const geometry = new THREE.ShapeGeometry(createRoundedLogoShape(definition.points, definition.cornerRadius ?? 1.8), 8)
   geometry.translate(0, 0, frontZ)
   const material = createFaceMaterial(definition.color)
   material.polygonOffset = true
@@ -264,19 +263,16 @@ function createFacetMesh(definition: LogoFacetDefinition, frontZ: number) {
 /** 创建一段带厚挤出、宽倒角和分区高光的紫色金属 Logo。 */
 function createLogoPiece(definition: LogoPieceDefinition) {
   const pieceGroup = new THREE.Group()
-  const geometry = new THREE.ExtrudeGeometry(
-    createRoundedLogoShape(definition.points, definition.cornerRadius),
-    {
-      depth: definition.depth,
-      steps: 1,
-      curveSegments: 10,
-      bevelEnabled: true,
-      bevelSegments: 7,
-      bevelSize: LOGO_BEVEL_SIZE,
-      bevelThickness: LOGO_BEVEL_THICKNESS,
-      bevelOffset: -0.012,
-    },
-  )
+  const geometry = new THREE.ExtrudeGeometry(createRoundedLogoShape(definition.points, definition.cornerRadius), {
+    depth: definition.depth,
+    steps: 1,
+    curveSegments: 12, // 提升折点平滑度
+    bevelEnabled: true,
+    bevelSegments: 12, // 大幅度提升倒角分段，打造极其圆润圆滑的边缘过渡
+    bevelSize: LOGO_BEVEL_SIZE,
+    bevelThickness: LOGO_BEVEL_THICKNESS,
+    bevelOffset: -0.016, // 微调倒角向内偏移，控制体积膨胀感
+  })
   geometry.translate(0, 0, definition.offsetZ - definition.depth / 2)
   geometry.computeVertexNormals()
 
@@ -347,27 +343,27 @@ function configureLighting(activeRenderer: THREE.WebGLRenderer, activeScene: THR
   const roomEnvironment = new RoomEnvironment()
   environmentTexture = pmremGenerator.fromScene(roomEnvironment, 0.035).texture
   activeScene.environment = environmentTexture
+  activeScene.environmentIntensity = 1.15
   roomEnvironment.dispose()
   pmremGenerator.dispose()
 
-  const keyLight = new THREE.DirectionalLight(0xfff5ff, 3)
-  keyLight.position.set(-3.8, 4.8, 5)
+  const keyLight = new THREE.DirectionalLight(0xfff8ef, 4.6)
+  keyLight.position.set(-3.6, 4.7, 5.4)
   activeScene.add(keyLight)
 
-  const purpleFillLight = new THREE.PointLight(0x7628ff, 12, 11, 2)
-  purpleFillLight.position.set(3.2, -1.7, 3.8)
-  activeScene.add(purpleFillLight)
+  const coolFillLight = new THREE.DirectionalLight(0x9bc7ff, 1.35)
+  coolFillLight.position.set(-4.4, -1.2, 3.2)
+  activeScene.add(coolFillLight)
 
-  const rimLight = new THREE.DirectionalLight(0xd6c4ff, 3.2)
-  rimLight.position.set(3.2, 3.4, -4.5)
+  const rimLight = new THREE.DirectionalLight(0xe6b7ff, 4.1)
+  rimLight.position.set(3.8, 2.8, -4.8)
   activeScene.add(rimLight)
 
-  const frontLight = new THREE.PointLight(0xe8d8ff, 5.5, 10, 2)
-  frontLight.position.set(-1.7, 1.6, 4.6)
-  activeScene.add(frontLight)
+  const violetBounceLight = new THREE.PointLight(0x6422c9, 3.2, 7, 2)
+  violetBounceLight.position.set(2.5, -2.4, 2.4)
+  activeScene.add(violetBounceLight)
 
-  activeScene.add(new THREE.HemisphereLight(0xd8c6ff, 0x3b1468, 1.7))
-  activeScene.add(new THREE.AmbientLight(0xa681d4, 0.85))
+  activeScene.add(new THREE.HemisphereLight(0xe9f2ff, 0x260441, 0.62))
 }
 
 /** 按容器实际尺寸与设备像素比同步渲染器。 */
@@ -424,7 +420,7 @@ function initializeScene() {
     renderer.setClearColor(0x000000, 0)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1
+    renderer.toneMappingExposure = 1.12
 
     scene = new THREE.Scene()
     camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100)
@@ -635,9 +631,7 @@ onBeforeUnmount(handleBeforeUnmount)
 }
 
 .metal-logo-3d__canvas {
-  filter:
-    drop-shadow(0 9px 9px rgba(16, 6, 34, 24%))
-    drop-shadow(0 0 7px rgba(132, 70, 255, 16%));
+  filter: drop-shadow(0 9px 9px rgba(16, 6, 34, 24%)) drop-shadow(0 0 7px rgba(132, 70, 255, 16%));
   opacity: 0;
   transition: opacity 350ms ease;
 }
@@ -647,8 +641,8 @@ onBeforeUnmount(handleBeforeUnmount)
 }
 
 .metal-logo-3d__fallback {
-  object-fit: contain;
   padding: 12px;
+  object-fit: contain;
 }
 
 @media (width <= 480px) {
