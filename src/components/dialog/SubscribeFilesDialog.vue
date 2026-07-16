@@ -735,29 +735,74 @@ onBeforeMount(() => {
   display: flex !important;
   flex-direction: column !important;
   inline-size: 100% !important;
+  width: 100% !important;
   max-inline-size: 74rem !important;
   overflow: hidden !important;
 }
 
-.subscribe-files-overlay:not(.v-dialog--fullscreen) {
+.v-dialog:not(.v-dialog--fullscreen) > .subscribe-files-overlay {
   block-size: 80vh !important;
+  height: 80vh !important;
   max-block-size: 80vh !important;
+  max-height: 80vh !important;
 }
 
-.subscribe-files-overlay.v-dialog--fullscreen {
+.v-dialog--fullscreen > .subscribe-files-overlay {
   block-size: 100% !important;
+  height: 100% !important;
   max-block-size: 100% !important;
+  max-height: 100% !important;
+  min-block-size: 100% !important;
+  min-height: 100% !important;
   max-inline-size: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+@media (width <= 960px) {
+  .v-dialog > .subscribe-files-overlay {
+    block-size: 100% !important;
+    height: 100% !important;
+    max-block-size: 100% !important;
+    max-height: 100% !important;
+    min-block-size: 100% !important;
+    min-height: 100% !important;
+    max-inline-size: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
 }
 
 .subscribe-files-overlay > .v-card {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-direction: column;
   inline-size: 100%;
+  width: 100%;
   block-size: 100%;
+  height: 100%;
   min-block-size: 0;
-  overflow: hidden;
+  overflow: hidden !important;
+}
+
+.v-dialog--fullscreen > .subscribe-files-overlay > .v-card {
+  min-block-size: 100% !important;
+  min-height: 100% !important;
+  block-size: 100% !important;
+  height: 100% !important;
+}
+
+@media (width <= 960px) {
+  .subscribe-files-overlay > .v-card {
+    min-block-size: 100% !important;
+    min-height: 100% !important;
+    block-size: 100% !important;
+    height: 100% !important;
+  }
 }
 </style>
 
@@ -1271,16 +1316,15 @@ onBeforeMount(() => {
 
 .subscribe-files-mobile-list {
   display: flex;
-  overflow: auto;
+  overflow: hidden auto;
   flex: 1 1 auto;
   flex-direction: column;
   gap: 0.85rem;
   min-block-size: 0;
-  padding: 1rem;
+  padding: 0.85rem 1rem 1rem;
 }
 
 .subscribe-files-mobile-card {
-  overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
@@ -1291,11 +1335,12 @@ onBeforeMount(() => {
   align-items: center;
   padding: 0.85rem;
   gap: 0.65rem;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
 }
 
 .subscribe-files-mobile-card__episode {
   display: grid;
+  flex-shrink: 0;
   border-radius: 0.8rem;
   background: rgba(var(--v-theme-primary), 0.18);
   block-size: 3rem;
@@ -1303,6 +1348,7 @@ onBeforeMount(() => {
   font-size: 1.05rem;
   font-weight: 800;
   inline-size: 3rem;
+  min-inline-size: 3rem;
   place-items: center;
 }
 
@@ -1376,10 +1422,29 @@ onBeforeMount(() => {
   .subscribe-files-dialog {
     border: 0;
     border-radius: 0 !important;
+    block-size: 100%;
+    min-block-size: 100%;
+  }
+
+  .subscribe-files-dialog__body {
+    flex: 1 1 auto;
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
+  .subscribe-files-shell {
+    flex: 1 1 auto;
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
+  .subscribe-files-hero {
+    flex: 0 0 auto;
   }
 
   .subscribe-files-hero__content {
     display: grid;
+    align-items: start;
     gap: 1rem;
     grid-template-columns: 8rem minmax(0, 1fr);
     padding: 1rem;
@@ -1432,7 +1497,7 @@ onBeforeMount(() => {
 
   .subscribe-files-content {
     display: flex;
-    flex: 1 1 0;
+    flex: 1 1 auto;
     flex-direction: column;
     min-block-size: 0;
     padding: 0;
@@ -1441,9 +1506,8 @@ onBeforeMount(() => {
   .subscribe-files-main {
     display: flex;
     overflow: hidden;
-    flex: 1 1 0;
+    flex: 1 1 auto;
     flex-direction: column;
-    block-size: 100%;
     min-block-size: 0;
     border: 0;
     border-radius: 0;
@@ -1451,26 +1515,41 @@ onBeforeMount(() => {
   }
 
   .subscribe-files-tabs {
-    padding: 0.9rem 1rem 0;
+    flex: 0 0 auto;
+    padding: 0.9rem 1rem 0.25rem;
   }
 
   .subscribe-files-tab-group {
     inline-size: 100%;
+  }
+
+  .subscribe-files-mobile-card__header {
+    align-items: start;
+    gap: 0.5rem 0.75rem;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .subscribe-files-mobile-card__episode {
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .subscribe-files-mobile-card__title {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .subscribe-files-mobile-card__header .v-chip {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
   }
 }
 
 @media (width <= 560px) {
   .subscribe-files-hero__content {
     grid-template-columns: 6.5rem minmax(0, 1fr);
-  }
-
-  .subscribe-files-mobile-card__header {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .subscribe-files-mobile-card__header .v-chip {
-    justify-self: start;
-    grid-column: 2;
   }
 }
 </style>
