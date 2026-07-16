@@ -140,7 +140,7 @@ function resolveFileKey(tab: SubscribeFileTab, file: SubscribeDownloadFileInfo |
   const prefix = episodeNumber == null ? tab : `${episodeNumber}-${tab}`
   if (tab === 'library') {
     const libraryFile = file as SubscribeLibraryFileInfo
-    return `${prefix}-${libraryFile.file_path || libraryFile.server || libraryFile.server_type || libraryFile.itemid || index}`
+    return `${prefix}-${libraryFile.file_path || libraryFile.itemid || libraryFile.server || libraryFile.server_type || index}`
   }
   return `${prefix}-${(file as SubscribeDownloadFileInfo).file_path || index}`
 }
@@ -736,9 +736,18 @@ onBeforeMount(() => {
   flex-direction: column !important;
   inline-size: 100% !important;
   max-inline-size: 74rem !important;
+  overflow: hidden !important;
+}
+
+.subscribe-files-overlay:not(.v-dialog--fullscreen) {
   block-size: 80vh !important;
   max-block-size: 80vh !important;
-  overflow: hidden !important;
+}
+
+.subscribe-files-overlay.v-dialog--fullscreen {
+  block-size: 100% !important;
+  max-block-size: 100% !important;
+  max-inline-size: 100% !important;
 }
 
 .subscribe-files-overlay > .v-card {
