@@ -6,19 +6,31 @@ import logoUrl from '@images/logo.png'
 
 type LogoPoint = readonly [number, number]
 
+interface LogoFacetDefinition {
+  points: readonly LogoPoint[]
+  color: number
+  cornerRadius?: number
+}
+
 interface LogoPieceDefinition {
   points: readonly LogoPoint[]
   faceColor: number
   sideColor: number
   depth: number
   offsetZ: number
+  cornerRadius: number
+  facets: readonly LogoFacetDefinition[]
 }
 
 const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
-const AUTO_ROTATION_SPEED = 0.68
-const AUTO_ROTATION_RANGE = 0.24
-const MAX_TILT = 0.58
+const LOGO_BEVEL_SIZE = 0.052
+const LOGO_BEVEL_THICKNESS = 0.058
+const AUTO_ROTATION_SPEED = 0.3
+const MAX_TILT = 0.4
+const INITIAL_ROTATION_X = -0.09
+const INITIAL_ROTATION_Y = -0.16
+const LOGO_BASE_Y = 0.1
 
 const LOGO_PIECES: readonly LogoPieceDefinition[] = [
   {
@@ -32,10 +44,35 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
       [120, 62],
       [120, 35],
     ],
-    faceColor: 0xa565ff,
-    sideColor: 0xdde3ec,
-    depth: 0.2,
+    faceColor: 0x9652e6,
+    sideColor: 0x5c27ae,
+    depth: 0.38,
     offsetZ: 0,
+    cornerRadius: 4.8,
+    facets: [
+      {
+        points: [
+          [96, 19],
+          [29, 58],
+          [48, 72],
+          [96, 44],
+          [116, 56],
+          [116, 38],
+        ],
+        color: 0xb978ff,
+        cornerRadius: 2.4,
+      },
+      {
+        points: [
+          [29, 61],
+          [29, 130],
+          [44, 139],
+          [44, 78],
+        ],
+        color: 0x7030ca,
+        cornerRadius: 2.2,
+      },
+    ],
   },
   {
     points: [
@@ -48,10 +85,35 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
       [96, 149],
       [144, 121],
     ],
-    faceColor: 0x7330dc,
-    sideColor: 0xaeb7c5,
-    depth: 0.22,
+    faceColor: 0x8140d5,
+    sideColor: 0x54229f,
+    depth: 0.4,
     offsetZ: 0.012,
+    cornerRadius: 4.8,
+    facets: [
+      {
+        points: [
+          [148, 49],
+          [163, 59],
+          [163, 130],
+          [148, 121],
+        ],
+        color: 0xa15cef,
+        cornerRadius: 2.2,
+      },
+      {
+        points: [
+          [162, 134],
+          [96, 171],
+          [77, 159],
+          [77, 141],
+          [96, 153],
+          [144, 125],
+        ],
+        color: 0x722bd0,
+        cornerRadius: 2.4,
+      },
+    ],
   },
   {
     points: [
@@ -59,10 +121,31 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
       [136, 96],
       [76, 128],
     ],
-    faceColor: 0xb879ff,
-    sideColor: 0xe7ebf2,
-    depth: 0.27,
-    offsetZ: 0.075,
+    faceColor: 0x9a50eb,
+    sideColor: 0x622cb4,
+    depth: 0.43,
+    offsetZ: 0.105,
+    cornerRadius: 3.6,
+    facets: [
+      {
+        points: [
+          [80, 70],
+          [130, 96],
+          [80, 94],
+        ],
+        color: 0xb978ff,
+        cornerRadius: 1.8,
+      },
+      {
+        points: [
+          [80, 98],
+          [130, 96],
+          [80, 122],
+        ],
+        color: 0x6f29d1,
+        cornerRadius: 1.8,
+      },
+    ],
   },
 ]
 
@@ -77,86 +160,188 @@ let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
 let logoGroup: THREE.Group | null = null
 let environmentTexture: THREE.Texture | null = null
+let glowTexture: THREE.CanvasTexture | null = null
+let glowMaterial: THREE.SpriteMaterial | null = null
 let resizeObserver: ResizeObserver | null = null
 let intersectionObserver: IntersectionObserver | null = null
 let reducedMotionQuery: MediaQueryList | null = null
 let animationFrameId = 0
 let previousFrameTime = 0
-let targetRotationX = -0.12
-let targetRotationY = -0.1
-let autoRotationPhase = -0.9
+let targetRotationX = INITIAL_ROTATION_X
+let targetRotationY = INITIAL_ROTATION_Y
 let dragVelocityY = 0
 let lastPointerX = 0
 let lastPointerY = 0
 let isIntersecting = true
 let prefersReducedMotion = false
 
-/** 将原 Logo 的二维坐标转换为以画布中心为原点的 Three.js 形状。 */
-function createLogoShape(points: readonly LogoPoint[]) {
-  const shape = new THREE.Shape()
+/** 将原 Logo 的二维坐标转换到以画布中心为原点的 Three.js 坐标系。 */
+function convertLogoPoint([sourceX, sourceY]: LogoPoint) {
+  return new THREE.Vector2(
+    (sourceX - LOGO_VIEWBOX_CENTER) * LOGO_COORDINATE_SCALE,
+    (LOGO_VIEWBOX_CENTER - sourceY) * LOGO_COORDINATE_SCALE,
+  )
+}
 
-  points.forEach(([sourceX, sourceY], index) => {
-    const x = (sourceX - LOGO_VIEWBOX_CENTER) * LOGO_COORDINATE_SCALE
-    const y = (LOGO_VIEWBOX_CENTER - sourceY) * LOGO_COORDINATE_SCALE
-    if (index === 0) shape.moveTo(x, y)
-    else shape.lineTo(x, y)
+/** 根据多边形轮廓生成带圆角的二维 Logo 形状。 */
+function createRoundedLogoShape(points: readonly LogoPoint[], sourceCornerRadius: number) {
+  const vertices = points.map(convertLogoPoint)
+  const cornerRadius = sourceCornerRadius * LOGO_COORDINATE_SCALE
+  const corners = vertices.map((current, index) => {
+    const previous = vertices[(index - 1 + vertices.length) % vertices.length]
+    const next = vertices[(index + 1) % vertices.length]
+    const incoming = previous.clone().sub(current)
+    const outgoing = next.clone().sub(current)
+    const entryDistance = Math.min(cornerRadius, incoming.length() * 0.32)
+    const exitDistance = Math.min(cornerRadius, outgoing.length() * 0.32)
+
+    return {
+      current,
+      entry: current.clone().add(incoming.normalize().multiplyScalar(entryDistance)),
+      exit: current.clone().add(outgoing.normalize().multiplyScalar(exitDistance)),
+    }
   })
-  shape.closePath()
+  const shape = new THREE.Shape()
+  shape.moveTo(corners[0].exit.x, corners[0].exit.y)
 
+  for (let step = 1; step <= corners.length; step += 1) {
+    const corner = corners[step % corners.length]
+    shape.lineTo(corner.entry.x, corner.entry.y)
+    shape.quadraticCurveTo(corner.current.x, corner.current.y, corner.exit.x, corner.exit.y)
+  }
+
+  shape.closePath()
   return shape
 }
 
-/** 创建一段带银色倒角侧面的紫色金属 Logo 几何体。 */
-function createLogoPiece(definition: LogoPieceDefinition) {
-  const geometry = new THREE.ExtrudeGeometry(createLogoShape(definition.points), {
-    depth: definition.depth,
-    steps: 1,
-    bevelEnabled: true,
-    bevelSegments: 5,
-    bevelSize: 0.032,
-    bevelThickness: 0.038,
-    bevelOffset: -0.006,
+/** 创建紫色镜面金属的正面材质。 */
+function createFaceMaterial(color: number) {
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.045,
+    metalness: 0.66,
+    roughness: 0.18,
+    clearcoat: 1,
+    clearcoatRoughness: 0.09,
+    envMapIntensity: 1.5,
+    iridescence: 0.18,
+    iridescenceIOR: 1.3,
+    iridescenceThicknessRange: [110, 310],
   })
+}
+
+/** 创建偏深紫的挤出侧面材质，让转到侧面时保留参考图的通透高光。 */
+function createSideMaterial(color: number) {
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.16,
+    metalness: 0.6,
+    roughness: 0.24,
+    clearcoat: 0.9,
+    clearcoatRoughness: 0.12,
+    envMapIntensity: 1.65,
+  })
+}
+
+/** 在挤出主体正面叠加略微内收的金属折面，复现设计图中的明暗分区。 */
+function createFacetMesh(definition: LogoFacetDefinition, frontZ: number) {
+  const geometry = new THREE.ShapeGeometry(
+    createRoundedLogoShape(definition.points, definition.cornerRadius ?? 1.8),
+    8,
+  )
+  geometry.translate(0, 0, frontZ)
+  const material = createFaceMaterial(definition.color)
+  material.polygonOffset = true
+  material.polygonOffsetFactor = -1
+  material.polygonOffsetUnits = -1
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.renderOrder = 2
+  return mesh
+}
+
+/** 创建一段带厚挤出、宽倒角和分区高光的紫色金属 Logo。 */
+function createLogoPiece(definition: LogoPieceDefinition) {
+  const pieceGroup = new THREE.Group()
+  const geometry = new THREE.ExtrudeGeometry(
+    createRoundedLogoShape(definition.points, definition.cornerRadius),
+    {
+      depth: definition.depth,
+      steps: 1,
+      curveSegments: 10,
+      bevelEnabled: true,
+      bevelSegments: 7,
+      bevelSize: LOGO_BEVEL_SIZE,
+      bevelThickness: LOGO_BEVEL_THICKNESS,
+      bevelOffset: -0.012,
+    },
+  )
   geometry.translate(0, 0, definition.offsetZ - definition.depth / 2)
   geometry.computeVertexNormals()
 
-  const faceMaterial = new THREE.MeshPhysicalMaterial({
-    color: definition.faceColor,
-    metalness: 0.9,
-    roughness: 0.16,
-    clearcoat: 1,
-    clearcoatRoughness: 0.1,
-    envMapIntensity: 1.45,
-    iridescence: 0.16,
-    iridescenceIOR: 1.25,
-    iridescenceThicknessRange: [120, 340],
-  })
-  const sideMaterial = new THREE.MeshPhysicalMaterial({
-    color: definition.sideColor,
-    metalness: 1,
-    roughness: 0.2,
-    clearcoat: 0.7,
-    clearcoatRoughness: 0.14,
-    envMapIntensity: 1.65,
-  })
+  const body = new THREE.Mesh(geometry, [
+    createFaceMaterial(definition.faceColor),
+    createSideMaterial(definition.sideColor),
+  ])
+  body.renderOrder = 1
+  pieceGroup.add(body)
 
-  return new THREE.Mesh(geometry, [faceMaterial, sideMaterial])
+  const frontZ = definition.offsetZ + definition.depth / 2 + LOGO_BEVEL_THICKNESS + 0.004
+  definition.facets.forEach(facet => pieceGroup.add(createFacetMesh(facet, frontZ)))
+  return pieceGroup
 }
 
-/** 组合 MoviePilot 外框与播放符号，形成完整立体 Logo。 */
+/** 组合断开六边形折带与双折面播放符号，形成完整 MoviePilot Logo。 */
 function createLogoModel() {
   const group = new THREE.Group()
   LOGO_PIECES.forEach(definition => group.add(createLogoPiece(definition)))
-  group.rotation.set(
-    targetRotationX,
-    targetRotationY + Math.sin(autoRotationPhase) * AUTO_ROTATION_RANGE,
-    0,
-  )
-
+  group.position.y = LOGO_BASE_Y
+  group.rotation.set(targetRotationX, targetRotationY, 0)
   return group
 }
 
-/** 配置突出金属反射与倒角轮廓的环境贴图和三点布光。 */
+/** 生成透明椭圆光斑纹理，作为 Logo 下方的紫色悬浮投影。 */
+function createGroundGlowTexture() {
+  const glowCanvas = document.createElement('canvas')
+  glowCanvas.width = 256
+  glowCanvas.height = 256
+  const context = glowCanvas.getContext('2d')
+  if (!context) return null
+
+  const gradient = context.createRadialGradient(128, 128, 0, 128, 128, 128)
+  gradient.addColorStop(0, 'rgba(177, 116, 255, 0.55)')
+  gradient.addColorStop(0.34, 'rgba(119, 48, 255, 0.28)')
+  gradient.addColorStop(1, 'rgba(65, 15, 132, 0)')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, 256, 256)
+
+  const texture = new THREE.CanvasTexture(glowCanvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+/** 在场景中添加始终位于模型下方的柔和紫色光斑。 */
+function addGroundGlow(activeScene: THREE.Scene) {
+  glowTexture = createGroundGlowTexture()
+  if (!glowTexture) return
+
+  glowMaterial = new THREE.SpriteMaterial({
+    map: glowTexture,
+    color: 0xb06dff,
+    opacity: 0.58,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const glow = new THREE.Sprite(glowMaterial)
+  glow.position.set(0, -1.08, -0.7)
+  glow.scale.set(2.25, 0.34, 1)
+  glow.renderOrder = 0
+  activeScene.add(glow)
+}
+
+/** 配置突出紫色镜面、银紫倒角与背部轮廓的摄影棚布光。 */
 function configureLighting(activeRenderer: THREE.WebGLRenderer, activeScene: THREE.Scene) {
   const pmremGenerator = new THREE.PMREMGenerator(activeRenderer)
   const roomEnvironment = new RoomEnvironment()
@@ -165,19 +350,24 @@ function configureLighting(activeRenderer: THREE.WebGLRenderer, activeScene: THR
   roomEnvironment.dispose()
   pmremGenerator.dispose()
 
-  const keyLight = new THREE.DirectionalLight(0xffffff, 3.4)
-  keyLight.position.set(-3.5, 4.5, 5)
+  const keyLight = new THREE.DirectionalLight(0xfff5ff, 3)
+  keyLight.position.set(-3.8, 4.8, 5)
   activeScene.add(keyLight)
 
-  const purpleFillLight = new THREE.DirectionalLight(0x8f5cff, 2.6)
-  purpleFillLight.position.set(4, -2, 3)
+  const purpleFillLight = new THREE.PointLight(0x7628ff, 12, 11, 2)
+  purpleFillLight.position.set(3.2, -1.7, 3.8)
   activeScene.add(purpleFillLight)
 
-  const rimLight = new THREE.DirectionalLight(0xdce8ff, 2.2)
-  rimLight.position.set(2.5, 4, -3)
+  const rimLight = new THREE.DirectionalLight(0xd6c4ff, 3.2)
+  rimLight.position.set(3.2, 3.4, -4.5)
   activeScene.add(rimLight)
 
-  activeScene.add(new THREE.AmbientLight(0xcbd3df, 0.78))
+  const frontLight = new THREE.PointLight(0xe8d8ff, 5.5, 10, 2)
+  frontLight.position.set(-1.7, 1.6, 4.6)
+  activeScene.add(frontLight)
+
+  activeScene.add(new THREE.HemisphereLight(0xd8c6ff, 0x3b1468, 1.7))
+  activeScene.add(new THREE.AmbientLight(0xa681d4, 0.85))
 }
 
 /** 按容器实际尺寸与设备像素比同步渲染器。 */
@@ -193,7 +383,7 @@ function resizeRenderer() {
   camera.updateProjectionMatrix()
 }
 
-/** 逐帧更新 Logo 的轻微摆转、拖拽惯性和金属反光。 */
+/** 逐帧更新完整转台旋转、拖拽惯性与轻微悬浮位移。 */
 function renderFrame(frameTime: number) {
   animationFrameId = window.requestAnimationFrame(renderFrame)
   if (!renderer || !scene || !camera || !logoGroup || !isIntersecting) return
@@ -202,19 +392,18 @@ function renderFrame(frameTime: number) {
   previousFrameTime = frameTime
 
   if (!isDragging.value && !prefersReducedMotion) {
-    autoRotationPhase += AUTO_ROTATION_SPEED * delta
-    targetRotationY += dragVelocityY * delta
-    dragVelocityY *= Math.exp(-5.5 * delta)
+    targetRotationY += (AUTO_ROTATION_SPEED + dragVelocityY) * delta
+    dragVelocityY *= Math.exp(-4.2 * delta)
   }
 
   if (prefersReducedMotion) {
     logoGroup.rotation.set(targetRotationX, targetRotationY, 0)
+    logoGroup.position.y = LOGO_BASE_Y
   } else {
-    const easing = 1 - Math.exp(-10 * delta)
-    const autoRotationOffset = isDragging.value ? 0 : Math.sin(autoRotationPhase) * AUTO_ROTATION_RANGE
+    const easing = 1 - Math.exp(-12 * delta)
     logoGroup.rotation.x += (targetRotationX - logoGroup.rotation.x) * easing
-    logoGroup.rotation.y += (targetRotationY + autoRotationOffset - logoGroup.rotation.y) * easing
-    logoGroup.rotation.z = Math.sin(frameTime * 0.0004) * 0.018
+    logoGroup.rotation.y += (targetRotationY - logoGroup.rotation.y) * easing
+    logoGroup.position.y = LOGO_BASE_Y + Math.sin(frameTime * 0.0011) * 0.018
   }
 
   renderer.render(scene, camera)
@@ -235,16 +424,19 @@ function initializeScene() {
     renderer.setClearColor(0x000000, 0)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.08
+    renderer.toneMappingExposure = 1
 
     scene = new THREE.Scene()
-    camera = new THREE.PerspectiveCamera(25, 1, 0.1, 100)
-    camera.position.set(0, 0, 5.7)
+    camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100)
+    camera.position.set(0, 0.02, 5.05)
+    camera.lookAt(0, 0, 0)
     configureLighting(renderer, scene)
+    addGroundGlow(scene)
 
     logoGroup = createLogoModel()
     scene.add(logoGroup)
     resizeRenderer()
+    renderer.render(scene, camera)
     isReady.value = true
     animationFrameId = window.requestAnimationFrame(renderFrame)
   } catch (error) {
@@ -271,9 +463,9 @@ function handlePointerMove(event: PointerEvent) {
 
   const deltaX = event.clientX - lastPointerX
   const deltaY = event.clientY - lastPointerY
-  targetRotationY += deltaX * 0.014
-  targetRotationX = THREE.MathUtils.clamp(targetRotationX + deltaY * 0.01, -MAX_TILT, MAX_TILT)
-  dragVelocityY = deltaX * 0.9
+  targetRotationY += deltaX * 0.012
+  targetRotationX = THREE.MathUtils.clamp(targetRotationX + deltaY * 0.008, -MAX_TILT, MAX_TILT)
+  dragVelocityY = THREE.MathUtils.clamp(deltaX * 0.08, -2.4, 2.4)
   lastPointerX = event.clientX
   lastPointerY = event.clientY
 }
@@ -297,7 +489,7 @@ function handleKeydown(event: KeyboardEvent) {
   event.preventDefault()
 }
 
-/** 同步系统减少动态偏好，关闭自动摆转但保留手动交互。 */
+/** 同步系统减少动态偏好，关闭自动旋转但保留手动交互。 */
 function handleReducedMotionChange(event?: MediaQueryListEvent) {
   prefersReducedMotion = event?.matches ?? reducedMotionQuery?.matches ?? false
 }
@@ -352,12 +544,16 @@ function disposeScene() {
 
   if (scene) disposeObjectResources(scene)
   environmentTexture?.dispose()
+  glowMaterial?.dispose()
+  glowTexture?.dispose()
   renderer?.dispose()
   scene = null
   camera = null
   logoGroup = null
   renderer = null
   environmentTexture = null
+  glowTexture = null
+  glowMaterial = null
 }
 
 /** 注册尺寸、可见性和动态偏好监听并启动场景。 */
@@ -414,9 +610,9 @@ onBeforeUnmount(handleBeforeUnmount)
   position: relative;
   display: block;
   overflow: visible;
-  block-size: 96px;
+  block-size: 112px;
   cursor: grab;
-  inline-size: 96px;
+  inline-size: 112px;
   outline: none;
   touch-action: none;
 
@@ -439,7 +635,9 @@ onBeforeUnmount(handleBeforeUnmount)
 }
 
 .metal-logo-3d__canvas {
-  filter: drop-shadow(0 11px 10px rgba(12, 10, 22, 34%));
+  filter:
+    drop-shadow(0 9px 9px rgba(16, 6, 34, 24%))
+    drop-shadow(0 0 7px rgba(132, 70, 255, 16%));
   opacity: 0;
   transition: opacity 350ms ease;
 }
@@ -450,7 +648,14 @@ onBeforeUnmount(handleBeforeUnmount)
 
 .metal-logo-3d__fallback {
   object-fit: contain;
-  padding: 11px;
+  padding: 12px;
+}
+
+@media (width <= 480px) {
+  .metal-logo-3d {
+    block-size: 104px;
+    inline-size: 104px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
