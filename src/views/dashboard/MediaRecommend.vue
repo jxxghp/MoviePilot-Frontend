@@ -85,6 +85,7 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
     activeIndex.value = 0
     loading.value = false
     loadFailed.value = false
+    resumeAutoplayIfReady()
     return
   }
 
@@ -104,7 +105,10 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
     mediaItems.value = []
     loadFailed.value = true
   } finally {
-    if (currentRequestId === requestId) loading.value = false
+    if (currentRequestId === requestId) {
+      loading.value = false
+      resumeAutoplayIfReady()
+    }
   }
 }
 
@@ -207,10 +211,15 @@ function stopAutoplay() {
   autoplayTimer = null
 }
 
-/** 组件活跃且媒体加载完成时恢复自动播放。 */
+/** 组件可见且媒体加载完成时确保轮播计时器存在。 */
+function resumeAutoplayIfReady() {
+  if (isComponentActive && !loading.value && autoplayTimer === null) startAutoplay()
+}
+
+/** 标记组件活跃并按当前加载状态恢复自动播放。 */
 function activateAutoplay() {
   isComponentActive = true
-  if (!loading.value && autoplayTimer === null) startAutoplay()
+  resumeAutoplayIfReady()
 }
 
 /** 停用组件时阻止异步加载续体重新创建定时器。 */
@@ -223,7 +232,7 @@ onMounted(async () => {
   activateAutoplay()
   localStorage.setItem(RECOMMEND_SOURCE_STORAGE_KEY, selectedSourcePath.value)
   await loadMedia()
-  if (isComponentActive && autoplayTimer === null) startAutoplay()
+  resumeAutoplayIfReady()
 })
 
 onActivated(activateAutoplay)

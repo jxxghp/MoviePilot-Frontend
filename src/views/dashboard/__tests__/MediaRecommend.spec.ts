@@ -289,6 +289,58 @@ describe('MediaRecommend', () => {
     expect(setInterval).not.toHaveBeenCalledWith(expect.any(Function), 8000)
   })
 
+  it('restarts autoplay when reactivated before a source request settles', async () => {
+    const autoplayTimer = {} as ReturnType<typeof globalThis.setInterval>
+    const requestOptimizerTimer = {} as ReturnType<typeof globalThis.setInterval>
+    const setInterval = vi
+      .spyOn(window, 'setInterval')
+      .mockImplementation((_handler: TimerHandler, timeout?: number) =>
+        timeout === 8000 ? autoplayTimer : requestOptimizerTimer,
+      )
+    let resolveMovies: ((response: Response) => void) | undefined
+    server.use(
+      recommendMediaHandler(DEFAULT_SOURCE, [createMediaInfo({ title: '初始推荐' })]),
+      http.get(recommendApiUrls.media(MOVIE_SOURCE), () => new Promise<Response>(resolve => {
+        resolveMovies = resolve
+      })),
+    )
+    const KeepAliveHarness = defineComponent({
+      components: { MediaRecommend },
+      setup() {
+        const active = ref(true)
+        return { active }
+      },
+      template:
+        '<button type="button" @click="active = !active">{{ active ? "停用切源推荐" : "恢复切源推荐" }}</button><KeepAlive><MediaRecommend v-if="active" /></KeepAlive>',
+    })
+    await renderWithProviders(KeepAliveHarness, {
+      initialRoute: '/dashboard',
+      initialState: {
+        globalSettings: {
+          data: { GLOBAL_IMAGE_CACHE: false },
+          initialized: true,
+          loading: false,
+        },
+      },
+    })
+    await screen.findByText('初始推荐')
+    const user = userEvent.setup()
+    await user.click(getSourceMenuButton())
+    await user.click(await screen.findByText('TMDB热门电影'))
+    await waitFor(() => expect(resolveMovies).toBeTypeOf('function'))
+
+    await fireEvent.click(screen.getByRole('button', { name: '停用切源推荐' }))
+    setInterval.mockClear()
+    await fireEvent.click(screen.getByRole('button', { name: '恢复切源推荐' }))
+    expect(setInterval).not.toHaveBeenCalledWith(expect.any(Function), 8000)
+
+    resolveMovies?.(HttpResponse.json([createMediaInfo({ title: '切源完成' })]))
+    await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
+    await screen.findByText('切源完成')
+
+    expect(setInterval).toHaveBeenCalledWith(expect.any(Function), 8000)
+  })
+
   it('shows empty data and retries a failed request', async () => {
     const user = userEvent.setup()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
