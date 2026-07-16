@@ -5,16 +5,11 @@ import api from '@/api'
 import type { ApiResponse, FilterRuleGroup, RuleTestData } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 
-interface SummaryItem {
-  icon: string
-  label: string
-  value: string
-}
-
-interface AnalysisStep {
+interface PipelineStep {
   icon: string
   title: string
   value: string
+  tone?: 'success' | 'warning' | 'primary'
 }
 
 interface FormValidationResult {
@@ -78,6 +73,7 @@ const priorityText = computed(() => {
   const priority = ruleTestData.value?.priority
   return typeof priority === 'number' ? priority.toString() : '-'
 })
+const hasPriority = computed(() => typeof ruleTestData.value?.priority === 'number')
 const resultTitle = computed(() => {
   if (isMatched.value) return t('ruleTest.matched')
   return ruleTestResponse.value?.message || t('ruleTest.noPriorityRule')
@@ -91,6 +87,11 @@ const resultSubtitle = computed(() => {
   return parts.filter(Boolean).join(' · ') || t('ruleTest.waitingResult')
 })
 const ruleCount = computed(() => countRules(ruleTestData.value?.rulegroup?.rule_string || selectedRuleGroup.value?.rule_string))
+const ruleCountLabel = computed(() => {
+  const count = ruleCount.value
+  if (!count) return t('ruleTest.steps.group.empty')
+  return t('ruleTest.ruleCount', { count })
+})
 const resourceChips = computed(() => {
   return [
     mediaInfo.value?.type || metaInfo.value?.type,
@@ -100,50 +101,29 @@ const resourceChips = computed(() => {
     metaInfo.value?.resource_team,
   ].filter(Boolean) as string[]
 })
-const summaryItems = computed<SummaryItem[]>(() => [
-  {
-    icon: 'mdi-sort-numeric-descending',
-    label: t('ruleTest.summary.priority'),
-    value: priorityText.value,
-  },
-  {
-    icon: 'mdi-filter-cog-outline',
-    label: t('ruleTest.summary.ruleGroup'),
-    value: ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup || '-',
-  },
-  {
-    icon: 'mdi-format-list-numbered',
-    label: t('ruleTest.summary.ruleCount'),
-    value: ruleCount.value ? t('ruleTest.ruleCount', { count: ruleCount.value }) : '-',
-  },
-  {
-    icon: 'mdi-movie-search-outline',
-    label: t('ruleTest.summary.media'),
-    value: mediaInfo.value?.title || metaInfo.value?.name || '-',
-  },
-])
-const analysisSteps = computed<AnalysisStep[]>(() => [
+const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-filter-settings-outline',
     title: t('ruleTest.steps.group.title'),
-    value: ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup || '-',
+    value: ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup
+      ? `${ruleTestData.value?.rulegroup_name || ruleTestForm.rulegroup} · ${ruleCountLabel.value}`
+      : '-',
+    tone: 'primary',
   },
   {
     icon: 'mdi-movie-search-outline',
     title: t('ruleTest.steps.media.title'),
     value: mediaInfo.value?.title || metaInfo.value?.name || t('ruleTest.steps.media.none'),
+    tone: mediaInfo.value?.title ? 'primary' : 'warning',
   },
   {
     icon: resultIcon.value,
     title: t('ruleTest.steps.filter.title'),
-    value:
-      ruleTestResponse.value?.message ||
-      (isMatched.value ? torrentInfo.value?.title || ruleTestForm.title : t('ruleTest.steps.filter.pending')),
-  },
-  {
-    icon: 'mdi-sort-numeric-descending',
-    title: t('ruleTest.steps.priority.title'),
-    value: priorityText.value,
+    value: ruleTestResponse.value?.message
+      || (isMatched.value
+        ? torrentInfo.value?.title || ruleTestForm.title
+        : t('ruleTest.steps.filter.pending')),
+    tone: isMatched.value ? 'success' : 'warning',
   },
 ])
 
@@ -266,26 +246,26 @@ onMounted(() => {
 
     <section class="shortcut-panel shortcut-result-panel">
       <div v-if="showResult" class="result-stack">
-        <div class="rule-result-card" :class="{ 'rule-result-card--matched': isMatched }">
-          <div class="priority-badge" :class="{ 'priority-badge--matched': isMatched }">
+        <div class="result-hero" :class="{ 'result-hero--matched': isMatched }">
+          <div class="priority-badge" :class="{ 'priority-badge--matched': isMatched, 'priority-badge--empty': !hasPriority }">
             <span class="text-caption text-medium-emphasis">{{ t('ruleTest.priorityLabel') }}</span>
             <span class="priority-value">{{ priorityText }}</span>
           </div>
-          <div class="min-w-0">
-            <div class="result-heading">
-              <VIcon :icon="resultIcon" :color="resultColor" />
-              <span class="result-title-text text-subtitle-1 font-weight-medium text-truncate">{{ resultTitle }}</span>
+          <div class="min-w-0 hero-body">
+            <div class="hero-heading">
+              <VIcon :icon="resultIcon" :color="resultColor" size="20" />
+              <span class="hero-title-text text-subtitle-1 font-weight-medium text-truncate">{{ resultTitle }}</span>
             </div>
             <div class="text-body-2 text-medium-emphasis mt-1">
               {{ resultSubtitle }}
             </div>
-            <div class="chip-row mt-3">
+            <div v-if="resourceChips.length" class="hero-chips mt-3">
               <VChip
                 v-for="chip in resourceChips"
                 :key="chip"
-                color="primary"
                 size="small"
                 variant="tonal"
+                :color="resultColor"
               >
                 {{ chip }}
               </VChip>
@@ -293,15 +273,18 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="summary-grid">
-          <div v-for="item in summaryItems" :key="item.label" class="summary-tile">
-            <VIcon :icon="item.icon" size="18" class="summary-icon" />
-            <div class="min-w-0">
-              <div class="text-caption text-medium-emphasis">
-                {{ item.label }}
+        <div class="pipeline">
+          <div v-for="(step, idx) in pipelineSteps" :key="step.title" class="pipeline-step">
+            <div class="pipeline-marker">
+              <VIcon :icon="step.icon" :color="step.tone || 'primary'" size="18" />
+              <span v-if="idx < pipelineSteps.length - 1" class="pipeline-connector" />
+            </div>
+            <div class="pipeline-body">
+              <div class="text-caption text-medium-emphasis pipeline-label">
+                {{ step.title }}
               </div>
-              <div class="text-body-2 font-weight-medium text-truncate">
-                {{ item.value }}
+              <div class="text-body-2 font-weight-medium pipeline-value">
+                {{ step.value }}
               </div>
             </div>
           </div>
@@ -315,33 +298,6 @@ onMounted(() => {
       </div>
     </section>
   </div>
-
-  <section v-if="showResult" class="shortcut-panel analysis-panel mt-4">
-    <div class="panel-heading">
-      <div>
-        <div class="text-subtitle-1 font-weight-medium">
-          {{ t('ruleTest.analysisTitle') }}
-        </div>
-        <div class="text-caption text-medium-emphasis">
-          {{ t('ruleTest.analysisSubtitle') }}
-        </div>
-      </div>
-    </div>
-
-    <div class="analysis-flow">
-      <div v-for="step in analysisSteps" :key="step.title" class="analysis-step">
-        <VIcon :icon="step.icon" color="primary" size="20" />
-        <div class="min-w-0">
-          <div class="text-body-2 font-weight-medium">
-            {{ step.title }}
-          </div>
-          <div class="text-body-2 step-value">
-            {{ step.value }}
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
 </template>
 
 <style scoped>
@@ -387,10 +343,10 @@ onMounted(() => {
 
 .result-stack {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
-.rule-result-card {
+.result-hero {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
   gap: 0.85rem;
@@ -401,7 +357,7 @@ onMounted(() => {
   padding: 0.75rem;
 }
 
-.rule-result-card--matched {
+.result-hero--matched {
   background: rgba(var(--v-theme-success), 0.08);
 }
 
@@ -412,11 +368,16 @@ onMounted(() => {
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface-variant), 0.32);
+  text-align: center;
 }
 
 .priority-badge--matched {
   border-color: rgba(var(--v-theme-success), 0.42);
   background: rgba(var(--v-theme-success), 0.1);
+}
+
+.priority-badge--empty {
+  opacity: 0.7;
 }
 
 .priority-value {
@@ -425,41 +386,68 @@ onMounted(() => {
   line-height: 1;
 }
 
-.chip-row {
+.hero-body {
+  min-inline-size: 0;
+}
+
+.hero-heading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.hero-title-text {
+  min-inline-size: 0;
+}
+
+.hero-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
 
-.result-heading {
+.pipeline {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  flex-direction: column;
 }
 
-.result-title-text {
+.pipeline-step {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.pipeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-block-size: 100%;
+}
+
+.pipeline-connector {
+  flex: 1;
+  inline-size: 2px;
+  margin-block-start: 0.3rem;
+  background: rgba(var(--v-theme-primary), 0.25);
+}
+
+.pipeline-body {
+  padding-block-end: 0.9rem;
   min-inline-size: 0;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+.pipeline-step:last-child .pipeline-body {
+  padding-block-end: 0;
 }
 
-.summary-tile {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: center;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface-variant), 0.22);
-  padding: 0.65rem;
+.pipeline-label {
+  letter-spacing: 0.02em;
 }
 
-.summary-icon {
-  color: rgb(var(--v-theme-primary));
+.pipeline-value {
+  margin-block-start: 0.2rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .empty-state {
@@ -472,47 +460,16 @@ onMounted(() => {
   text-align: center;
 }
 
-.analysis-flow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.analysis-step {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.55rem;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface-variant), 0.2);
-  padding: 0.7rem;
-}
-
-.step-value {
-  overflow: hidden;
-  margin-block-start: 0.35rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (max-width: 760px) {
-  .shortcut-workbench,
-  .analysis-flow {
+  .shortcut-workbench {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .summary-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .hero-heading {
+    flex-wrap: wrap;
   }
 
-  .result-heading {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.35rem;
-    align-items: start;
-  }
-
-  .result-title-text {
+  .hero-title-text {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
@@ -524,8 +481,20 @@ onMounted(() => {
     padding: 0.8rem;
   }
 
-  .rule-result-card {
+  .result-hero {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .priority-badge {
+    grid-auto-flow: column;
+    justify-content: start;
+    min-block-size: 0;
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .priority-value {
+    font-size: 1.35rem;
   }
 }
 </style>
