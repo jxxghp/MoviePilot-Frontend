@@ -25,7 +25,7 @@ interface LogoPieceDefinition {
 const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
 const LOGO_BEVEL_SIZE = 0.052
-const LOGO_BEVEL_THICKNESS = 0.058
+const LOGO_BEVEL_THICKNESS = 0.032
 const AUTO_ROTATION_SPEED = 0.3
 const MAX_TILT = 0.4
 const INITIAL_ROTATION_X = -0.09
@@ -46,7 +46,7 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
     ],
     faceColor: 0x9652e6,
     sideColor: 0x5c27ae,
-    depth: 0.38,
+    depth: 0.2,
     offsetZ: 0,
     cornerRadius: 4.8,
     facets: [
@@ -87,8 +87,8 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
     ],
     faceColor: 0x8140d5,
     sideColor: 0x54229f,
-    depth: 0.4,
-    offsetZ: 0.012,
+    depth: 0.21,
+    offsetZ: 0.006,
     cornerRadius: 4.8,
     facets: [
       {
@@ -123,8 +123,8 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
     ],
     faceColor: 0x9a50eb,
     sideColor: 0x622cb4,
-    depth: 0.43,
-    offsetZ: 0.105,
+    depth: 0.23,
+    offsetZ: 0.026,
     cornerRadius: 3.6,
     facets: [
       {
