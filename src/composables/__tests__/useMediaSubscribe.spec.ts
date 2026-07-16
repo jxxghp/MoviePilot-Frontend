@@ -234,6 +234,30 @@ describe('useMediaSubscribe entry flows', () => {
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
   })
 
+  it('keeps a successful creation successful when default configuration loading fails', async () => {
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const media = createSubscribeMovie({ title: '辅助查询失败电影', tmdb_id: 111 })
+    const created = vi.fn()
+    const configQueried = vi.fn()
+    server.use(
+      createSubscribeHandler({ data: { id: 511 }, success: true }, 200, created),
+      defaultSubscribeConfigHandler('电影', {}, 500, configQueried),
+    )
+    await renderSubscribeHarness({ media })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'primary' }))
+
+    await waitFor(() => expect(created).toHaveBeenCalledOnce())
+    await waitFor(() => expect(configQueried).toHaveBeenCalledOnce())
+    await waitFor(() => expect(mocks.doneProgress).toHaveBeenCalledOnce())
+    expect(screen.getByTestId('subscribed')).toHaveTextContent('true')
+    expect(mocks.cacheStatus).toHaveBeenCalledWith('status:all', true)
+    expect(mocks.toastSuccess).toHaveBeenCalledOnce()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(mocks.openSharedDialog).not.toHaveBeenCalled()
+    consoleLog.mockRestore()
+  })
+
   it('opens the mode chooser for an existing movie and creates the selected mode', async () => {
     const media = createSubscribeMovie({ title: '已入库电影', tmdb_id: 102 })
     const created = vi.fn()

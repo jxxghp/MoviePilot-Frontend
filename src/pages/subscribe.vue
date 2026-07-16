@@ -282,12 +282,18 @@ function batchDeleteSelectedSubscribes() {
   subscribeListViewRef.value?.batchDeleteSubscribes()
 }
 
-// 切换订阅拖拽排序模式，进入时固定使用自定义排序。
+// 批量选择与拖拽排序互斥，进入排序模式时清空批量选择。
 function toggleSubscribeSortMode() {
-  if (!subscribeSortMode.value) {
+  const nextSortMode = !subscribeSortMode.value
+
+  if (nextSortMode) {
+    if (subscribeBatchState.value.enabled) {
+      exitSubscribeBatchMode()
+    }
     subscribeSortBy.value = 'custom'
   }
-  subscribeSortMode.value = !subscribeSortMode.value
+
+  subscribeSortMode.value = nextSortMode
 }
 
 const shareKeywordUpdater = debounce((keyword: string) => {

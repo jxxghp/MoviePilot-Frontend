@@ -54,10 +54,6 @@ interface SharedDialogEvents {
   'update:modelValue': (value: boolean) => void
 }
 
-interface SharedDialogProps {
-  valueGetter: (item: { title: string }) => string
-}
-
 async function renderRecommend(options: { superUser?: boolean; discovery?: boolean } = {}) {
   return renderWithProviders(RecommendPage, {
     initialRoute: '/recommend',
@@ -196,7 +192,9 @@ describe('recommend page', () => {
     const settingsButton = document.querySelector<HTMLButtonElement>('.compact-fab') as HTMLButtonElement
 
     await user.click(settingsButton)
-    const dialogProps = mocks.openSharedDialog.mock.calls[0][1] as SharedDialogProps
+    const dialogProps = mocks.openSharedDialog.mock.calls[0][1] as {
+      valueGetter: (item: { title: string }) => string
+    }
     const firstDialogEvents = mocks.openSharedDialog.mock.calls[0][2] as SharedDialogEvents
     expect(dialogProps.valueGetter({ title: '流行趋势' })).toBe('流行趋势')
 

@@ -4,7 +4,7 @@ import { createTestingPinia } from '@pinia/testing'
 import { render } from '@testing-library/vue'
 import { setActivePinia } from 'pinia'
 import { defineComponent, h, type Component } from 'vue'
-import { createMemoryHistory, createRouter, type RouteLocationRaw } from 'vue-router'
+import { createMemoryHistory, createRouter, type RouteLocationRaw, type RouteMeta } from 'vue-router'
 import { vi } from 'vitest'
 
 type TestingLibraryRenderOptions = NonNullable<Parameters<typeof render>[1]>
@@ -12,6 +12,7 @@ type TestingLibraryRenderOptions = NonNullable<Parameters<typeof render>[1]>
 export interface RenderWithProvidersOptions extends Omit<TestingLibraryRenderOptions, 'global'> {
   global?: TestingLibraryRenderOptions['global']
   initialRoute?: RouteLocationRaw
+  initialRouteMeta?: RouteMeta
   initialState?: Record<string, Record<string, unknown>>
   stubActions?: boolean
 }
@@ -26,13 +27,14 @@ export async function renderWithProviders(component: Component, options: RenderW
   const {
     global: globalOptions,
     initialRoute = '/',
+    initialRouteMeta = {},
     initialState = {},
     stubActions = true,
     ...renderOptions
   } = options
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/:pathMatch(.*)*', component: EmptyRoute }],
+    routes: [{ path: '/:pathMatch(.*)*', component: EmptyRoute, meta: initialRouteMeta }],
   })
   await router.push(initialRoute)
   i18n.global.locale.value = 'zh-CN'
