@@ -12,6 +12,7 @@ node_modules
 dist
 dist-ssr
 dev-dist
+coverage
 *.local
 package-lock.json
 

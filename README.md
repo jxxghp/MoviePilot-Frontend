@@ -40,6 +40,15 @@ yarn dev
 yarn build
 ```
 
+### 单元测试
+
+```sh
+yarn test:run
+yarn test:coverage
+```
+
+测试文件组织、共享测试设施、HTTP mock、覆盖率门禁和新增用例规范见[单元测试架构](docs/testing.md)。
+
 ### 静态运行
 
 1. 使用 `nginx` 等Web服务器托管 `dist` 静态文件，nginx配置参考 `public/nginx.conf`。

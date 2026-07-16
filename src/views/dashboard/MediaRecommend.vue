@@ -2,14 +2,15 @@
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
 import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
-import router from '@/router'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { createBuiltInRecommendSources, type RecommendViewSource } from '@/utils/recommendSources'
 import noImage from '@images/no-image.jpeg'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
+const router = useRouter()
 const globalSettingsStore = useGlobalSettingsStore()
 const RECOMMEND_SOURCE_STORAGE_KEY = 'MP_DASHBOARD_RECOMMEND_SOURCE'
 const RECOMMEND_SLIDE_COUNT = 5
@@ -29,10 +30,12 @@ const mediaCache = new Map<string, MediaInfo[]>()
 const activeIndex = ref(0)
 const loading = ref(true)
 const loadFailed = ref(false)
-const isPaused = ref(false)
+const isHovered = ref(false)
+const isFocusWithin = ref(false)
 const touchStartX = ref<number | null>(null)
 let requestId = 0
 let autoplayTimer: number | null = null
+let isComponentActive = false
 
 const selectedSource = computed(
   () => sources.value.find(source => source.apipath === selectedSourcePath.value) ?? sources.value[0],
@@ -75,16 +78,17 @@ function getMediaKey(item: MediaInfo) {
 
 /** 加载指定推荐来源，并缓存当前会话已获取的数据。 */
 async function loadMedia(sourcePath = selectedSourcePath.value) {
+  const currentRequestId = ++requestId
   const cachedItems = mediaCache.get(sourcePath)
   if (cachedItems) {
     mediaItems.value = cachedItems
     activeIndex.value = 0
     loading.value = false
     loadFailed.value = false
+    resumeAutoplayIfReady()
     return
   }
 
-  const currentRequestId = ++requestId
   loading.value = true
   loadFailed.value = false
   try {
@@ -101,7 +105,10 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
     mediaItems.value = []
     loadFailed.value = true
   } finally {
-    if (currentRequestId === requestId) loading.value = false
+    if (currentRequestId === requestId) {
+      loading.value = false
+      resumeAutoplayIfReady()
+    }
   }
 }
 
@@ -179,13 +186,21 @@ function handleTouchEnd(event: TouchEvent) {
   else showNext()
 }
 
+/** 仅在焦点离开整个卡片时恢复自动播放。 */
+function handleFocusOut(event: FocusEvent) {
+  const card = event.currentTarget as HTMLElement | null
+  const nextTarget = event.relatedTarget as Node | null
+  if (card && nextTarget && card.contains(nextTarget)) return
+  isFocusWithin.value = false
+}
+
 /** 启动轮播自动播放，系统减少动态效果时保持静态。 */
 function startAutoplay() {
   stopAutoplay()
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
   autoplayTimer = window.setInterval(() => {
-    if (!isPaused.value) showNext()
+    if (!isHovered.value && !isFocusWithin.value) showNext()
   }, RECOMMEND_AUTOPLAY_INTERVAL)
 }
 
@@ -196,25 +211,46 @@ function stopAutoplay() {
   autoplayTimer = null
 }
 
+/** 组件可见且媒体加载完成时确保轮播计时器存在。 */
+function resumeAutoplayIfReady() {
+  if (isComponentActive && !loading.value && autoplayTimer === null) startAutoplay()
+}
+
+/** 标记组件活跃并按当前加载状态恢复自动播放。 */
+function activateAutoplay() {
+  isComponentActive = true
+  resumeAutoplayIfReady()
+}
+
+/** 停用组件时阻止异步加载续体重新创建定时器。 */
+function deactivateAutoplay() {
+  isComponentActive = false
+  stopAutoplay()
+}
+
 onMounted(async () => {
+  activateAutoplay()
   localStorage.setItem(RECOMMEND_SOURCE_STORAGE_KEY, selectedSourcePath.value)
   await loadMedia()
-  startAutoplay()
+  resumeAutoplayIfReady()
 })
 
-onActivated(startAutoplay)
-onDeactivated(stopAutoplay)
-onBeforeUnmount(stopAutoplay)
+onActivated(activateAutoplay)
+onDeactivated(deactivateAutoplay)
+onBeforeUnmount(() => {
+  requestId += 1
+  deactivateAutoplay()
+})
 </script>
 
 <template>
   <VCard
     class="dashboard-recommend dashboard-grid-adaptive-size dashboard-grid-fill dashboard-grid-no-drag"
     :class="{ 'is-loading': loading }"
-    @mouseenter="isPaused = true"
-    @mouseleave="isPaused = false"
-    @focusin="isPaused = true"
-    @focusout="isPaused = false"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+    @focusin="isFocusWithin = true"
+    @focusout="handleFocusOut"
     @touchstart.passive="handleTouchStart"
     @touchend.passive="handleTouchEnd"
   >
