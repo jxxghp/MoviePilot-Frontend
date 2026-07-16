@@ -1660,6 +1660,7 @@ function onDragStartPlugin(evt: any) {
               v-model="filterForm.author"
               :items="authorFilterOptions"
               :label="t('plugin.author')"
+              mobile-control-width="72%"
               multiple
               chips
               closable-chips
@@ -1673,6 +1674,7 @@ function onDragStartPlugin(evt: any) {
               v-model="filterForm.label"
               :items="labelFilterOptions"
               :label="t('plugin.label')"
+              mobile-control-width="72%"
               multiple
               chips
               closable-chips
@@ -1686,6 +1688,7 @@ function onDragStartPlugin(evt: any) {
               v-model="filterForm.repo"
               :items="repoFilterOptions"
               :label="t('plugin.repository')"
+              mobile-control-width="72%"
               multiple
               chips
               closable-chips
