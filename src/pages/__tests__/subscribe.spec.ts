@@ -1,4 +1,5 @@
 import SubscribePage from '@/pages/subscribe.vue'
+import type { DynamicButtonMenuItem } from '@/composables/useDynamicButton'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { renderWithProviders } from '@tests/support/render'
@@ -176,15 +177,9 @@ interface HeaderTabConfig {
   appendButtons: HeaderButtonConfig[]
 }
 
-interface DynamicMenuItem {
-  titleKey?: string
-  disabled?: boolean
-  action: () => void
-}
-
 interface DynamicButtonConfig {
   icon: MaybeRef<string>
-  menuItems?: MaybeRef<DynamicMenuItem[] | undefined>
+  menuItems?: MaybeRef<DynamicButtonMenuItem[] | undefined>
   onClick?: () => void
   show?: MaybeRef<boolean>
 }

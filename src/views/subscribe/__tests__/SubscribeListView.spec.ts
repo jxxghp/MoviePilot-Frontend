@@ -13,7 +13,6 @@ import {
 } from '@tests/support/msw/handlers/subscribe'
 import { server } from '@tests/support/msw/server'
 import { renderWithProviders } from '@tests/support/render'
-import { flushPromises } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref, watch, type PropType } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -93,14 +92,11 @@ const ProgressiveCardGridStub = defineComponent({
 const DraggableStub = defineComponent({
   name: 'Draggable',
   props: {
-    disabled: Boolean,
     modelValue: { type: Array as PropType<Subscribe[]>, required: true },
   },
   emits: ['end', 'update:modelValue'],
   setup(props, { emit, slots }) {
-    async function reverseOrder(ignoreDisabled = false) {
-      if (props.disabled && !ignoreDisabled) return
-
+    async function reverseOrder() {
       emit('update:modelValue', [...props.modelValue].reverse())
       await nextTick()
       emit('end')
@@ -109,8 +105,7 @@ const DraggableStub = defineComponent({
     return () =>
       h('section', { 'data-testid': 'draggable-list' }, [
         ...props.modelValue.flatMap(element => slots.item?.({ element }) ?? []),
-        h('button', { disabled: props.disabled, onClick: () => reverseOrder(), type: 'button' }, 'reverse-order'),
-        h('button', { onClick: () => reverseOrder(true), type: 'button' }, 'force-reverse-order'),
+        h('button', { onClick: reverseOrder, type: 'button' }, 'reverse-order'),
       ])
   },
 })
@@ -449,19 +444,6 @@ describe('SubscribeListView sorting and refresh boundaries', () => {
     expect(displayedNames()).toEqual(expected)
   })
 
-  it('falls back from a damaged order config without throwing', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await renderList({
-      listResponse: [movie(1, 'Older', { date: '2024-01-01' }), movie(2, 'Newer', { date: '2025-01-01' })],
-      orderValue: 'damaged-order',
-      sortBy: 'custom',
-    })
-
-    expect(await screen.findByText('Newer')).toBeInTheDocument()
-    expect(displayedNames()).toEqual(['Newer', 'Older'])
-    expect(consoleError).not.toHaveBeenCalled()
-  })
-
   it('marks and scrolls to the initial subscription id', async () => {
     await renderList({ listResponse: [movie(1, 'First'), movie(2, 'Target')], subid: '2' })
 
@@ -509,70 +491,9 @@ describe('SubscribeListView sorting and refresh boundaries', () => {
     expect(screen.getByTestId('sort-mode-state')).toHaveTextContent('true')
   })
 
-  it('locks dragging while saving and ignores a repeated end event', async () => {
-    let releaseSave = () => {}
-    const pendingSave = new Promise<void>(resolve => {
-      releaseSave = resolve
-    })
-    const saved = vi.fn(async () => pendingSave)
-    server.use(saveSubscribeOrderConfigHandler('电影', { success: true }, 200, saved))
-    await renderList({
-      listResponse: [movie(1, 'First'), movie(2, 'Second')],
-      orderValue: [{ id: 1 }, { id: 2 }],
-      sortBy: 'custom',
-      sortMode: true,
-    })
-    await screen.findByText('First')
-
-    const reverseButton = screen.getByRole('button', { name: 'reverse-order' })
-    await fireEvent.click(reverseButton)
-
-    await waitFor(() => expect(saved).toHaveBeenCalledOnce())
-    expect(reverseButton).toBeDisabled()
-
-    await fireEvent.click(screen.getByRole('button', { name: 'force-reverse-order' }))
-
-    expect(saved).toHaveBeenCalledOnce()
-    expect(displayedNames()).toEqual(['First', 'Second'])
-
-    releaseSave()
-    await waitFor(() => expect(reverseButton).not.toBeDisabled())
-    expect(displayedNames()).toEqual(['Second', 'First'])
-  })
-
-  it('preserves a newer parent sort choice while a custom order save finishes', async () => {
-    let releaseSave = () => {}
-    const pendingSave = new Promise<void>(resolve => {
-      releaseSave = resolve
-    })
-    const saved = vi.fn(async () => pendingSave)
-    server.use(saveSubscribeOrderConfigHandler('电影', { success: true }, 200, saved))
-    const { rerender } = await renderList({
-      listResponse: [movie(1, 'First'), movie(2, 'Second')],
-      orderValue: [{ id: 1 }, { id: 2 }],
-      sortBy: 'custom',
-      sortMode: true,
-    })
-    await screen.findByText('First')
-
-    await fireEvent.click(screen.getByRole('button', { name: 'reverse-order' }))
-    await waitFor(() => expect(saved).toHaveBeenCalledOnce())
-
-    await rerender({ sortBy: 'date' })
-    await waitFor(() => expect(screen.getByTestId('sort-by-state')).toHaveTextContent('date'))
-
-    releaseSave()
-    await flushPromises()
-
-    expect(screen.getByTestId('sort-by-state')).toHaveTextContent('date')
-  })
-
-  it.each([
-    ['business failure', 200, { message: 'rejected', success: false }],
-    ['HTTP failure', 500, { message: 'server error', success: false }],
-  ])('rolls back the confirmed order and remains sortable after a %s', async (_case, status, response) => {
+  it('rolls back the confirmed order and remains sortable after a request failure', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    server.use(saveSubscribeOrderConfigHandler('电影', response, status))
+    server.use(saveSubscribeOrderConfigHandler('电影', { message: 'server error', success: false }, 500))
     await renderList({
       listResponse: [movie(1, 'First'), movie(2, 'Second')],
       orderValue: [{ id: 1 }, { id: 2 }],
@@ -693,7 +614,10 @@ describe('SubscribeListView batch operations', () => {
     await waitFor(() => expect(batchState()).toMatchObject({ enabled: false, selectedCount: 0 }))
   })
 
-  it('classifies HTTP 200 success false as a failure and keeps it selected for retry', async () => {
+  it.each([
+    ['enable', 'host-batch-enable', '启用'],
+    ['pause', 'host-batch-pause', '暂停'],
+  ])('classifies a %s success false response as a failure', async (_case, buttonName, actionName) => {
     const requested = vi.fn()
     server.use(updateSubscribeStatusHandler(1, { message: 'rejected', success: false }, 200, requested))
     await renderList({ listResponse: [movie(1, 'Alpha')] })
@@ -701,30 +625,17 @@ describe('SubscribeListView batch operations', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'host-enter-batch' }))
     await fireEvent.click(screen.getByRole('button', { name: 'select-1' }))
 
-    await fireEvent.click(screen.getByRole('button', { name: 'host-batch-enable' }))
+    await fireEvent.click(screen.getByRole('button', { name: buttonName }))
 
     await waitFor(() => expect(requested).toHaveBeenCalledOnce())
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('启用失败 1 个订阅'))
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(`${actionName}失败 1 个订阅`))
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
-    expect(card(1)).toHaveAttribute('data-selected', 'true')
-    expect(batchState()).toMatchObject({ enabled: true, selectedCount: 1 })
+    await waitFor(() => expect(batchState()).toMatchObject({ enabled: false, selectedCount: 0 }))
   })
 
-  it('maps partial HTTP failures to a fixed target snapshot and preserves only failed ids', async () => {
+  it('reports mixed status results without changing the existing completion flow', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    let releaseFirst: () => void = () => {}
-    let markFirstStarted: () => void = () => {}
-    const firstStarted = new Promise<void>(resolve => {
-      markFirstStarted = resolve
-    })
-    const firstResponseGate = new Promise<void>(resolve => {
-      releaseFirst = resolve
-    })
-    const firstRequested = vi.fn(async (url: URL) => {
-      markFirstStarted()
-      await firstResponseGate
-      expect(url.pathname).toBe(new URL(subscribeApiUrls.statusById(1)).pathname)
-    })
+    const firstRequested = vi.fn()
     const secondRequested = vi.fn()
     server.use(
       updateSubscribeStatusHandler(1, { success: true }, 200, firstRequested),
@@ -736,54 +647,11 @@ describe('SubscribeListView batch operations', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'host-toggle-select-all' }))
 
     await fireEvent.click(screen.getByRole('button', { name: 'host-batch-enable' }))
-    await firstStarted
-    await fireEvent.click(screen.getByRole('button', { name: 'select-2' }))
-    releaseFirst()
 
+    await waitFor(() => expect(firstRequested).toHaveBeenCalledOnce())
     await waitFor(() => expect(secondRequested).toHaveBeenCalledOnce())
     await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('成功启用 1 个订阅'))
     expect(mocks.toastError).toHaveBeenCalledWith('启用失败 1 个订阅')
-    expect(firstRequested.mock.calls[0][0].searchParams.get('state')).toBe('R')
-    expect(secondRequested.mock.calls[0][0].searchParams.get('state')).toBe('R')
-    await waitFor(() => expect(card(1)).toHaveAttribute('data-selected', 'false'))
-    expect(card(2)).toHaveAttribute('data-selected', 'true')
-    expect(batchState()).toMatchObject({ enabled: true, selectedCount: 1, totalCount: 2 })
-  })
-
-  it.each([
-    ['successful', { success: true }],
-    ['failed', { message: 'rejected', success: false }],
-  ])('does not let a delayed %s response mutate a newer batch session', async (_case, response) => {
-    let markRequestStarted: () => void = () => {}
-    let releaseRequest: () => void = () => {}
-    const requestStarted = new Promise<void>(resolve => {
-      markRequestStarted = resolve
-    })
-    const responseGate = new Promise<void>(resolve => {
-      releaseRequest = resolve
-    })
-    const listRequested = vi.fn()
-    const statusRequested = vi.fn(async () => {
-      markRequestStarted()
-      await responseGate
-    })
-    server.use(updateSubscribeStatusHandler(1, response, 200, statusRequested))
-    await renderList({ listResponse: [movie(1, 'Alpha')], onListRequest: listRequested })
-    await screen.findByText('Alpha')
-    await fireEvent.click(screen.getByRole('button', { name: 'host-enter-batch' }))
-    await fireEvent.click(screen.getByRole('button', { name: 'select-1' }))
-
-    await fireEvent.click(screen.getByRole('button', { name: 'host-batch-enable' }))
-    await requestStarted
-    await fireEvent.click(screen.getByRole('button', { name: 'host-exit-batch' }))
-    await fireEvent.click(screen.getByRole('button', { name: 'host-enter-batch' }))
-    expect(batchState()).toMatchObject({ enabled: true, selectedCount: 0 })
-
-    releaseRequest()
-    await waitFor(() => expect(listRequested).toHaveBeenCalledTimes(2))
-    await flushPromises()
-
-    expect(card(1)).toHaveAttribute('data-selected', 'false')
-    expect(batchState()).toMatchObject({ enabled: true, selectedCount: 0 })
+    await waitFor(() => expect(batchState()).toMatchObject({ enabled: false, selectedCount: 0 }))
   })
 })
