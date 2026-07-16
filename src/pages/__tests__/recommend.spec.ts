@@ -2,15 +2,15 @@ import RecommendPage from '@/pages/recommend.vue'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
-import { defineComponent } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderWithProviders } from '../../tests/render'
+import { renderWithProviders } from '@tests/support/render'
 import {
   recommendConfigHandler,
   recommendSourcesHandler,
   saveRecommendConfigHandler,
-} from '../../tests/mocks/handlers/recommend'
-import { server } from '../../tests/mocks/server'
+} from '@tests/support/msw/handlers/recommend'
+import { server } from '@tests/support/msw/server'
+import { defineComponent } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   closeDialog: vi.fn(),

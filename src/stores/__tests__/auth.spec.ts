@@ -1,7 +1,7 @@
+import { useAuthStore } from '@/stores/auth'
+import { usePluginSidebarNavStore } from '@/stores/pluginSidebarNav'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useAuthStore } from './auth'
-import { usePluginSidebarNavStore } from './pluginSidebarNav'
 
 describe('auth store', () => {
   beforeEach(() => {

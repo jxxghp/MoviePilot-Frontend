@@ -1,10 +1,10 @@
 import type { RecommendSource } from '@/api/types'
-import { describe, expect, it } from 'vitest'
 import {
   createBuiltInRecommendSources,
   mergeExtraRecommendSources,
   type RecommendViewSource,
-} from './recommendSources'
+} from '@/utils/recommendSources'
+import { describe, expect, it } from 'vitest'
 
 const translate = (key: string) => `translated:${key}`
 

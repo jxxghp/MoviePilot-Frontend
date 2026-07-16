@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { abortAllRequests } from '@/utils/requestOptimizer'
 import { cleanup } from '@testing-library/vue'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
-import { server } from './mocks/server'
+import { server } from './support/msw/server'
 
 class ResizeObserverStub implements ResizeObserver {
   disconnect() {}

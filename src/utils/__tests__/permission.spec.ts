@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest'
 import {
   ADMIN_PERMISSIONS,
   buildDefaultFeaturePermissions,
@@ -16,7 +15,8 @@ import {
   PERMISSION_FEATURE,
   USER_PERMISSION_FEATURES,
   type UserPermissionFeatureMap,
-} from './permission'
+} from '@/utils/permission'
+import { describe, expect, it } from 'vitest'
 
 describe('permission utilities', () => {
   it('normalizes legacy permissions and filters invalid feature values', () => {
