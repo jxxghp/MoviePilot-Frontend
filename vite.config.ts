@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+
 import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
@@ -18,9 +20,12 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const buildTime = new Date().getTime().toString()
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  base: './',
-  plugins: [
+export default defineConfig(({ mode }) => {
+  const isTest = mode === 'test' || process.env.VITEST === 'true'
+
+  return {
+    base: './',
+    plugins: [
     vue(),
     vueJsx(),
     vuetify({
@@ -34,16 +39,17 @@ export default defineConfig({
     }),
     Components({
       dirs: ['src/@core/components'],
-      dts: true,
+      dts: !isTest,
     }),
     AutoImport({
       imports: ['vue', 'vue-router', '@vueuse/core', '@vueuse/math', 'pinia', 'vue-i18n'],
       vueTemplate: true,
+      dts: !isTest,
     }),
     VueI18n({
       include: [resolve(__dirname, 'src/locales/*.ts')],
     }),
-    federation({
+    !isTest && federation({
       name: 'MoviePilot',
       filename: 'remoteEntry.js',
       // @ts-ignore
@@ -56,7 +62,7 @@ export default defineConfig({
       },
       shared: ['vue', 'vuetify'],
     }),
-    VitePWA({
+    !isTest && VitePWA({
       injectRegister: 'script',
       registerType: 'autoUpdate',
       strategies: 'injectManifest',
@@ -186,19 +192,19 @@ export default defineConfig({
         'related_applications': [],
       },
     }),
-    topLevelAwait({
+    !isTest && topLevelAwait({
       // The export name of top-level await promise for each chunk module
       promiseExportName: '__mp_tla',
       // The function to generate import names of top-level await promise in each chunk module
       promiseImportName: i => `__mp_tla_${i}`,
     }),
-  ],
-  define: {
+    ],
+    define: {
     'process.env': {},
     '__APP_VERSION__': JSON.stringify(`v${packageJson.version}`),
     '__BUILD_TIME__': JSON.stringify(buildTime),
   },
-  resolve: {
+    resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@core': fileURLToPath(new URL('./src/@core', import.meta.url)),
@@ -209,7 +215,7 @@ export default defineConfig({
       'apexcharts': fileURLToPath(new URL('node_modules/apexcharts', import.meta.url)),
     },
   },
-  build: {
+    build: {
     target: 'esnext',
     minify: 'terser',
     terserOptions: {
@@ -221,11 +227,11 @@ export default defineConfig({
     chunkSizeWarningLimit: 5000,
     cssCodeSplit: false,
   },
-  optimizeDeps: {
+    optimizeDeps: {
     exclude: ['vuetify'],
     entries: ['./src/**/*.vue'],
   },
-  server: {
+    server: {
     proxy: {
       '/api/v1': {
         target: 'http://localhost:3001',
@@ -235,12 +241,50 @@ export default defineConfig({
       },
     },
   },
-  css: {
+    css: {
     preprocessorOptions: {
       scss: {
         api: 'modern-compiler',
         quietDeps: true,
       },
     },
-  },
+    },
+    test: {
+      clearMocks: true,
+      environment: 'jsdom',
+      environmentOptions: {
+        jsdom: {
+          pretendToBeVisual: true,
+          url: 'http://localhost/',
+        },
+      },
+      include: ['src/**/*.test.ts'],
+      restoreMocks: true,
+      server: {
+        deps: {
+          inline: ['vuetify'],
+        },
+      },
+      setupFiles: ['./tests/setup.ts'],
+      unstubGlobals: true,
+      coverage: {
+        include: [
+          'src/utils/recommendSources.ts',
+          'src/utils/permission.ts',
+          'src/stores/auth.ts',
+          'src/pages/recommend.vue',
+          'src/views/dashboard/MediaRecommend.vue',
+        ],
+        provider: 'v8',
+        reporter: ['text', 'json-summary', 'html'],
+        reportsDirectory: 'coverage',
+        thresholds: {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+      },
+    },
+  }
 })

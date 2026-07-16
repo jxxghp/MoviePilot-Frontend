@@ -97,6 +97,16 @@ function initializeColors() {
 // 额外的数据源
 const extraRecommendSources = ref<RecommendSource[]>([])
 
+/** 只接受以标题为键、布尔值为开关的推荐配置。 */
+function normalizeEnableConfig(value: unknown): Record<string, boolean> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const entries = Object.entries(value)
+  if (entries.some(([, enabled]) => typeof enabled !== 'boolean')) return null
+
+  return Object.fromEntries(entries)
+}
+
 // 加载额外的发现数据源
 async function loadExtraRecommendSources() {
   try {
@@ -109,16 +119,29 @@ async function loadExtraRecommendSources() {
 
 // 加载面板配置
 async function loadConfig() {
-  // 显示配置
-  const local_enable = localStorage.getItem('MP_RECOMMEND')
-  if (local_enable) {
-    enableConfig.value = JSON.parse(local_enable)
-  } else {
-    const response = await api.get('/user/config/Recommend')
-    if (response && response.data && response.data.value) {
-      enableConfig.value = response.data.value
-      localStorage.setItem('MP_RECOMMEND', JSON.stringify(response.data.value))
+  const localEnable = localStorage.getItem('MP_RECOMMEND')
+  if (localEnable) {
+    try {
+      const localConfig = normalizeEnableConfig(JSON.parse(localEnable))
+      if (localConfig) {
+        enableConfig.value = localConfig
+        return
+      }
+    } catch {
+      // 损坏的本地值按未配置处理，继续尝试服务端配置。
     }
+    localStorage.removeItem('MP_RECOMMEND')
+  }
+
+  try {
+    const response = await api.get('/user/config/Recommend')
+    const remoteConfig = normalizeEnableConfig(response?.data?.value)
+    if (remoteConfig) {
+      enableConfig.value = remoteConfig
+      localStorage.setItem('MP_RECOMMEND', JSON.stringify(remoteConfig))
+    }
+  } catch (error) {
+    console.error(error)
   }
 }
 

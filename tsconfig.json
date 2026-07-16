@@ -62,6 +62,7 @@
     "shims.d.ts",
     "src/**/*",
     "src/**/*.vue",
+    "tests/**/*.ts",
     "themeConfig.ts",
     "auto-imports.d.ts",
     "components.d.ts",
