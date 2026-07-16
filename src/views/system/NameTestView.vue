@@ -5,13 +5,7 @@ import api from '@/api'
 import type { Context } from '@/api/types'
 import { useI18n } from 'vue-i18n'
 
-interface SummaryItem {
-  icon: string
-  label: string
-  value: string
-}
-
-interface AnalysisStep {
+interface PipelineStep {
   icon: string
   title: string
   value: string
@@ -60,29 +54,7 @@ const resourceChips = computed(() => {
     metaInfo.value?.resource_team,
   ].filter(Boolean) as string[]
 })
-const summaryItems = computed<SummaryItem[]>(() => [
-  {
-    icon: 'mdi-calendar-range',
-    label: t('nameTest.summary.year'),
-    value: mediaInfo.value?.year || metaInfo.value?.year || '-',
-  },
-  {
-    icon: 'mdi-format-list-numbered',
-    label: t('nameTest.summary.episode'),
-    value: metaInfo.value?.season_episode || metaInfo.value?.episode || '-',
-  },
-  {
-    icon: 'mdi-shape-outline',
-    label: t('nameTest.summary.type'),
-    value: mediaInfo.value?.type || metaInfo.value?.type || '-',
-  },
-  {
-    icon: 'mdi-database-search',
-    label: t('nameTest.summary.source'),
-    value: mediaInfo.value?.source || mediaInfo.value?.tmdb_id?.toString() || mediaInfo.value?.douban_id || '-',
-  },
-])
-const analysisSteps = computed<AnalysisStep[]>(() => [
+const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-file-document-outline',
     title: t('nameTest.steps.original.title'),
@@ -91,12 +63,7 @@ const analysisSteps = computed<AnalysisStep[]>(() => [
   {
     icon: 'mdi-puzzle-check-outline',
     title: t('nameTest.steps.meta.title'),
-    value: [
-      metaInfo.value?.name,
-      metaInfo.value?.season_episode,
-      metaInfo.value?.resource_term,
-      metaInfo.value?.release_group,
-    ]
+    value: [metaInfo.value?.name, metaInfo.value?.resource_term, metaInfo.value?.release_group]
       .filter(Boolean)
       .join(' · ') || '-',
   },
@@ -107,7 +74,7 @@ const analysisSteps = computed<AnalysisStep[]>(() => [
       ? `TMDB ${mediaInfo.value.tmdb_id}`
       : mediaInfo.value?.douban_id
         ? `Douban ${mediaInfo.value.douban_id}`
-        : mediaInfo.value?.title || '-',
+        : mediaInfo.value?.title || t('nameTest.unrecognized'),
   },
 ])
 
@@ -202,31 +169,35 @@ async function nameTest() {
 
     <section class="shortcut-panel shortcut-result-panel">
       <div v-if="showResult" class="result-stack">
-        <div class="media-result-card" :class="{ 'media-result-card--failed': !isRecognized }">
-          <div v-if="mediaInfo?.poster_path" class="poster-frame">
+        <div class="result-hero" :class="{ 'result-hero--failed': !isRecognized }">
+          <div v-if="mediaInfo?.poster_path" class="hero-poster">
             <VImg :src="getPosterImage(mediaInfo.poster_path)" aspect-ratio="2/3" cover>
               <template #placeholder>
                 <VSkeletonLoader class="h-100 w-100" />
               </template>
             </VImg>
           </div>
-          <div v-else class="poster-frame poster-frame--empty">
+          <div v-else class="hero-poster hero-poster--empty">
             <VIcon :icon="isRecognized ? 'mdi-movie-open-check' : 'mdi-movie-open-remove'" size="32" />
           </div>
 
-          <div class="min-w-0">
-            <div class="result-heading">
-              <VIcon :icon="isRecognized ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline'" color="primary" />
-              <span class="result-title-text text-subtitle-1 font-weight-medium text-truncate">{{ resultTitle }}</span>
+          <div class="min-w-0 hero-body">
+            <div class="hero-heading">
+              <VIcon
+                :icon="isRecognized ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline'"
+                color="primary"
+                size="20"
+              />
+              <span class="hero-title-text text-subtitle-1 font-weight-medium text-truncate">{{ resultTitle }}</span>
             </div>
             <div class="text-body-2 text-medium-emphasis mt-1">
               {{ resultSubtitle }}
             </div>
-            <div class="chip-row mt-3">
+            <div v-if="resourceChips.length" class="hero-chips mt-3">
               <VChip
                 v-for="chip in resourceChips"
                 :key="chip"
-                class="result-chip"
+                class="hero-chip"
                 color="primary"
                 size="small"
                 variant="tonal"
@@ -237,17 +208,36 @@ async function nameTest() {
           </div>
         </div>
 
-        <div class="summary-grid">
-          <div v-for="item in summaryItems" :key="item.label" class="summary-tile">
-            <VIcon :icon="item.icon" size="18" class="summary-icon" />
-            <div class="min-w-0">
-              <div class="text-caption text-medium-emphasis">
-                {{ item.label }}
+        <div class="pipeline">
+          <div v-for="(step, idx) in pipelineSteps" :key="step.title" class="pipeline-step">
+            <div class="pipeline-marker">
+              <VIcon :icon="step.icon" color="primary" size="18" />
+              <span v-if="idx < pipelineSteps.length - 1" class="pipeline-connector" />
+            </div>
+            <div class="pipeline-body">
+              <div class="text-caption text-medium-emphasis pipeline-label">
+                {{ step.title }}
               </div>
-              <div class="text-body-2 font-weight-medium text-truncate">
-                {{ item.value }}
+              <div class="text-body-2 font-weight-medium pipeline-value">
+                {{ step.value }}
               </div>
             </div>
+          </div>
+        </div>
+
+        <div v-if="metaInfo?.apply_words?.length" class="applied-words">
+          <div class="text-caption text-medium-emphasis applied-words-label">
+            {{ t('nameTest.steps.words.title') }}
+          </div>
+          <div class="words-chips">
+            <VChip
+              v-for="word in metaInfo.apply_words"
+              :key="word"
+              size="small"
+              variant="tonal"
+            >
+              {{ word }}
+            </VChip>
           </div>
         </div>
       </div>
@@ -259,54 +249,6 @@ async function nameTest() {
       </div>
     </section>
   </div>
-
-  <section v-if="showResult" class="shortcut-panel analysis-panel mt-4">
-    <div class="panel-heading">
-      <div>
-        <div class="text-subtitle-1 font-weight-medium">
-          {{ t('nameTest.analysisTitle') }}
-        </div>
-        <div class="text-caption text-medium-emphasis">
-          {{ t('nameTest.analysisSubtitle') }}
-        </div>
-      </div>
-    </div>
-
-    <div class="analysis-flow">
-      <div v-for="step in analysisSteps" :key="step.title" class="analysis-step">
-        <VIcon :icon="step.icon" color="primary" size="20" />
-        <div class="min-w-0">
-          <div class="text-body-2 font-weight-medium">
-            {{ step.title }}
-          </div>
-          <div class="text-body-2 step-value">
-            {{ step.value }}
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </section>
-
-  <section v-if="showResult && metaInfo?.apply_words?.length" class="shortcut-panel applied-words-panel mt-4">
-    <div class="panel-heading">
-      <div>
-        <div class="text-subtitle-1 font-weight-medium">
-          {{ t('nameTest.steps.words.title') }}
-        </div>
-      </div>
-    </div>
-
-    <div class="words-list">
-      <div v-if="metaInfo.org_string" class="word-row word-row--source">
-        <span class="text-caption text-medium-emphasis">{{ t('nameTest.steps.original.title') }}</span>
-        <span class="word-text">{{ metaInfo.org_string }}</span>
-      </div>
-      <div v-for="word in metaInfo.apply_words" :key="word" class="word-row">
-        <span class="word-text">{{ word }}</span>
-      </div>
-    </div>
-  </section>
 </template>
 
 <style scoped>
@@ -352,10 +294,10 @@ async function nameTest() {
 
 .result-stack {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
-.media-result-card {
+.result-hero {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
   gap: 0.85rem;
@@ -366,11 +308,11 @@ async function nameTest() {
   padding: 0.75rem;
 }
 
-.media-result-card--failed {
+.result-hero--failed {
   background: rgba(var(--v-theme-error), 0.08);
 }
 
-.poster-frame {
+.hero-poster {
   overflow: hidden;
   border: var(--app-surface-border);
   border-radius: var(--app-control-radius);
@@ -378,50 +320,94 @@ async function nameTest() {
   background: rgba(var(--v-theme-surface-variant), 0.35);
 }
 
-.poster-frame--empty {
+.hero-poster--empty {
   display: grid;
   place-items: center;
 }
 
-.chip-row {
+.hero-body {
+  min-inline-size: 0;
+}
+
+.hero-heading {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.hero-title-text {
+  min-inline-size: 0;
+}
+
+.hero-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
 
-.result-chip {
+.hero-chip {
   max-inline-size: 100%;
 }
 
-.result-heading {
+.pipeline {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  flex-direction: column;
 }
 
-.result-title-text {
+.pipeline-step {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.pipeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-block-size: 100%;
+}
+
+.pipeline-connector {
+  flex: 1;
+  inline-size: 2px;
+  margin-block-start: 0.3rem;
+  background: rgba(var(--v-theme-primary), 0.25);
+}
+
+.pipeline-body {
+  padding-block-end: 0.9rem;
   min-inline-size: 0;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+.pipeline-step:last-child .pipeline-body {
+  padding-block-end: 0;
 }
 
-.summary-tile {
+.pipeline-label {
+  letter-spacing: 0.02em;
+}
+
+.pipeline-value {
+  margin-block-start: 0.2rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.applied-words {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.5rem;
-  align-items: center;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface-variant), 0.22);
-  padding: 0.65rem;
+  padding-block: 0.4rem;
+  border-block-start: var(--app-surface-border);
 }
 
-.summary-icon {
-  color: rgb(var(--v-theme-primary));
+.applied-words-label {
+  letter-spacing: 0.02em;
+}
+
+.words-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .empty-state {
@@ -434,70 +420,16 @@ async function nameTest() {
   text-align: center;
 }
 
-.analysis-flow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.analysis-step {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.55rem;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface-variant), 0.2);
-  padding: 0.7rem;
-}
-
-.step-value {
-  overflow: hidden;
-  margin-block-start: 0.35rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.words-list {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.word-row {
-  display: grid;
-  gap: 0.25rem;
-  border: var(--app-surface-border);
-  border-radius: var(--app-surface-radius);
-  background: rgba(var(--v-theme-surface-variant), 0.2);
-  padding: 0.65rem;
-}
-
-.word-row--source {
-  background: rgba(var(--v-theme-primary), 0.08);
-}
-
-.word-text {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
 @media (max-width: 760px) {
-  .shortcut-workbench,
-  .analysis-flow {
+  .shortcut-workbench {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .summary-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .hero-heading {
+    flex-wrap: wrap;
   }
 
-  .result-heading {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.35rem;
-    align-items: start;
-  }
-
-  .result-title-text {
+  .hero-title-text {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
@@ -509,7 +441,7 @@ async function nameTest() {
     padding: 0.8rem;
   }
 
-  .media-result-card {
+  .result-hero {
     grid-template-columns: 4.25rem minmax(0, 1fr);
   }
 }
