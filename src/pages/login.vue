@@ -4,7 +4,7 @@ import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
 import api from '@/api'
 import router from '@/router'
-import logo from '@images/logo.png'
+import MetalLogo3D from '@/components/misc/MetalLogo3D.vue'
 import { bufferToBase64Url, base64UrlToUint8Array, urlBase64ToUint8Array } from '@/@core/utils/navigator'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
@@ -733,7 +733,7 @@ onUnmounted(() => {
         <!-- 卡片头部：Logo + 标题 + 欢迎语 -->
         <div class="login-head">
           <div class="login-logo-wrapper">
-            <VImg :src="logo" width="72" height="72" class="login-logo" />
+            <MetalLogo3D class="login-logo" />
           </div>
           <h1 class="login-title">MoviePilot</h1>
           <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
@@ -1072,47 +1072,10 @@ onUnmounted(() => {
   justify-content: center;
   animation: logo-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
   margin-block-end: 8px;
-
-  /* Logo 背后的柔光环 */
-  &::before {
-    position: absolute;
-    z-index: -1;
-    border-radius: 50%;
-    animation: logo-pulse 4s ease-in-out infinite;
-    background: radial-gradient(circle, rgba(var(--v-theme-primary), 0.2) 0%, transparent 70%);
-    block-size: 120px;
-    content: '';
-    inline-size: 120px;
-  }
 }
 
 .login-logo {
-  animation: logo-float 6s ease-in-out infinite;
-  filter: drop-shadow(0 8px 20px rgba(var(--v-theme-primary), 0.3));
-}
-
-@keyframes logo-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-@keyframes logo-pulse {
-  0%,
-  100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
+  flex: none;
 }
 
 .login-title {
@@ -1489,15 +1452,7 @@ onUnmounted(() => {
     display: none !important;
   }
 
-  .login-logo {
-    animation: none !important;
-  }
-
   .login-orb {
-    animation: none !important;
-  }
-
-  .login-logo-wrapper::before {
     animation: none !important;
   }
 }
