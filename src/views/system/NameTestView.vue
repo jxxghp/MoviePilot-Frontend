@@ -280,12 +280,8 @@ async function saveCustomWords() {
 
           <div class="min-w-0 hero-body">
             <div class="hero-heading">
-              <VIcon
-                :icon="isRecognized ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline'"
-                color="primary"
-                size="20"
-              />
-              <span class="hero-title-text text-subtitle-1 font-weight-medium text-truncate">{{ resultTitle }}</span>
+              <VIcon v-if="!isRecognized" icon="mdi-alert-circle-outline" color="primary" size="20" />
+              <span class="hero-title-text text-subtitle-1 font-weight-bold text-truncate">{{ resultTitle }}</span>
             </div>
             <div class="text-body-2 text-medium-emphasis mt-1">
               {{ resultSubtitle }}
@@ -465,7 +461,7 @@ async function saveCustomWords() {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 2;
   line-height: 1.5;
 }
 
