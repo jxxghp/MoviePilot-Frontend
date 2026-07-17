@@ -280,6 +280,7 @@ export default defineConfig(({ mode }) => ({
         'src/views/dashboard/MediaRecommend.vue',
         'src/views/subscribe/SubscribeListView.vue',
         'src/composables/useMediaSubscribe.ts',
+        'src/components/cards/SubscribeCard.vue',
         'src/components/dialog/SubscribeEditDialog.vue',
       ],
       provider: 'v8',
@@ -290,6 +291,12 @@ export default defineConfig(({ mode }) => ({
         functions: 85,
         lines: 85,
         statements: 85,
+        'src/components/cards/SubscribeCard.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
         'src/components/dialog/SubscribeEditDialog.vue': {
           branches: 75,
           functions: 80,
