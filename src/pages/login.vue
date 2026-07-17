@@ -33,6 +33,7 @@ function renderCardLight() {
   root?.style.setProperty('--login-card-top-prism-alpha', (0.2 + pendingCardLightEnergy * 0.32).toFixed(3))
 }
 
+/** 根据指针在登录卡片中的位置更新光照目标。 */
 function handlePointerLight(event: PointerEvent) {
   if (event.pointerType === 'touch') return
   const bounds = loginRootRef.value?.querySelector<HTMLElement>('.login-card')?.getBoundingClientRect()
@@ -45,6 +46,7 @@ function handlePointerLight(event: PointerEvent) {
   if (cardLightFrame === null) cardLightFrame = window.requestAnimationFrame(renderCardLight)
 }
 
+/** 指针离开登录页后恢复卡片的默认光照位置。 */
 function resetPointerLight() {
   pendingCardLightX = 0.5
   pendingCardLightY = 0
@@ -1551,7 +1553,10 @@ onUnmounted(() => {
 
 /* ===================== 无障碍：尊重减少动态偏好 ===================== */
 @media (prefers-reduced-motion: reduce) {
-  .login-card--enter {
+  .login-card--enter,
+  .login-foot,
+  .login-title,
+  .login-subtitle {
     animation: none !important;
   }
 

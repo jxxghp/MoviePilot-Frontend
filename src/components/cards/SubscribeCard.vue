@@ -173,6 +173,7 @@ async function removeSubscribe() {
       emit('remove')
     }
   } catch (e) {
+    $toast.error(t('subscribe.requestFailed'))
     console.log(e)
   }
 }
@@ -184,7 +185,9 @@ async function searchSubscribe() {
 
     // 提示
     if (result.success) $toast.success(`${props.media?.name} 提交搜索请求成功！`)
+    else $toast.error(t('subscribe.requestFailed'))
   } catch (e) {
+    $toast.error(t('subscribe.requestFailed'))
     console.log(e)
   }
 }
@@ -211,6 +214,7 @@ async function toggleSubscribeStatus(state: 'R' | 'S') {
       $toast.error(t('subscribe.toggleFailed', { action, message: result.message }))
     }
   } catch (e) {
+    $toast.error(t('subscribe.requestFailed'))
     console.log(e)
   }
 }
@@ -233,6 +237,7 @@ async function resetSubscribe() {
       emit('save')
     } else $toast.error(t('subscribe.resetFailed', { name: props.media?.name, message: result.message }))
   } catch (e) {
+    $toast.error(t('subscribe.requestFailed'))
     console.log(e)
   }
 }

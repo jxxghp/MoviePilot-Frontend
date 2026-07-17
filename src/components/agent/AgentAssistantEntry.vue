@@ -1539,8 +1539,8 @@ defineExpose({
 .agent-assistant-fab {
   position: fixed;
 
-  /* 保持高于菜单浮层，但低于 agent 会话面板（2101）。 */
-  z-index: 2100;
+  /* 保持机器人和提示气泡高于 Vuetify 弹窗（2400）及全局 Toast（2500）。 */
+  z-index: 2600;
 
   --agent-assistant-robot-outline: #5b00c5;
   --agent-assistant-robot-outline-soft: #7432df;
