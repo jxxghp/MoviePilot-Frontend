@@ -19,7 +19,7 @@ interface ApplyDocumentThemeChromeOptions {
 export const themeRootPalettes: Record<ResolvedThemeName, ThemeRootPalette> = {
   light: {
     background: '#F4F5FA',
-    primary: '#9155FD',
+    primary: '#8D51F9',
   },
   dark: {
     background: '#0E1116',
@@ -27,7 +27,7 @@ export const themeRootPalettes: Record<ResolvedThemeName, ThemeRootPalette> = {
   },
   purple: {
     background: '#28243D',
-    primary: '#9155FD',
+    primary: '#8D51F9',
   },
   transparent: {
     background: '#1C1C1C',

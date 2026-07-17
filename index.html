@@ -4,7 +4,7 @@
     --safe-area-inset-bottom: env(safe-area-inset-bottom);
     --safe-area-inset-top: env(safe-area-inset-top);
     --initial-loader-bg: #0E1116;
-    --initial-loader-color: #9155FD;
+    --initial-loader-color: #8D51F9;
     --initial-loader-height: 100svh;
     --initial-loader-width: 100vw;
     --initial-color-scheme: dark;
@@ -171,30 +171,11 @@
       display: block;
       block-size: auto;
       inline-size: 100%;
+      opacity: 0;
     }
 
-    .loading-logo__mark {
-      display: none;
-    }
-
-    @supports ((-webkit-mask-image: url('/logo.svg')) or (mask-image: url('/logo.svg'))) {
-      .loading-logo img {
-        display: none;
-      }
-
-      .loading-logo__mark {
-        display: block;
-        background: linear-gradient(
-          145deg,
-          color-mix(in srgb, var(--initial-loader-color) 48%, white) 0%,
-          var(--initial-loader-color) 48%,
-          color-mix(in srgb, var(--initial-loader-color) 72%, black) 100%
-        );
-        block-size: min(160px, 36vw);
-        inline-size: min(160px, 36vw);
-        mask: url('/logo.svg') center / contain no-repeat;
-        -webkit-mask: url('/logo.svg') center / contain no-repeat;
-      }
+    .loading-logo img[data-theme-ready='true'] {
+      opacity: 1;
     }
 
     .loading-footer {
@@ -297,11 +278,11 @@
     }
 
     #timeout-btn {
-      color: var(--initial-loader-color, #9155FD);
+      color: var(--initial-loader-color, #8D51F9);
       text-decoration: none;
       font-weight: bold;
       margin-inline-start: 8px;
-      border-bottom: 1px solid var(--initial-loader-color, #9155FD);
+      border-bottom: 1px solid var(--initial-loader-color, #8D51F9);
     }
   </style>
 
@@ -327,7 +308,7 @@
     const launchThemePalettes = {
       light: {
         background: '#F4F5FA',
-        primary: '#9155FD',
+        primary: '#8D51F9',
       },
       dark: {
         background: '#0E1116',
@@ -335,7 +316,7 @@
       },
       purple: {
         background: '#28243D',
-        primary: '#9155FD',
+        primary: '#8D51F9',
       },
       transparent: {
         background: '#1C1C1C',
@@ -386,54 +367,188 @@
       document.head.appendChild(meta)
     }
 
-    let faviconSourceImage
-    let pendingFaviconColor = '#9155FD'
+    let logoSvgSourcePromise
+    let pendingFaviconColor = '#8D51F9'
+    const themeLogoCacheKey = 'moviepilot-themed-logo-cache'
 
-    function mixFaviconColor(hexColor, target, amount) {
-      const normalized = hexColor.replace('#', '')
-      const source = [0, 2, 4].map(offset => Number.parseInt(normalized.slice(offset, offset + 2), 16))
-
-      return `rgb(${source.map((channel, index) => Math.round(channel + (target[index] - channel) * amount)).join(', ')})`
+    const sourceLogoPalette = {
+      'rgb(141,81,249)': 'primary',
+      'rgb(165,118,255)': 'light',
+      'rgb(211,187,255)': 'highlight',
+      'rgb(116,50,223)': 'dark',
+      'rgb(110,38,217)': 'darker',
+      'rgb(104,0,197)': 'deep',
+      'rgb(91,0,197)': 'deepest',
     }
 
-    // Tab 图标使用小尺寸位图承载主题色，避免 favicon 内部 SVG 无法继承页面 CSS 变量。
+    const sourceLogoRgb = {
+      primary: [141, 81, 249],
+      light: [165, 118, 255],
+      highlight: [211, 187, 255],
+      dark: [116, 50, 223],
+      darker: [110, 38, 217],
+      deep: [104, 0, 197],
+      deepest: [91, 0, 197],
+    }
+
+    function clampLogoChannel(value, min = 0, max = 1) {
+      return Math.min(max, Math.max(min, value))
+    }
+
+    function logoRgbToHsl([red, green, blue]) {
+      const r = red / 255
+      const g = green / 255
+      const b = blue / 255
+      const max = Math.max(r, g, b)
+      const min = Math.min(r, g, b)
+      const delta = max - min
+      const l = (max + min) / 2
+
+      if (delta === 0) return { h: 0, l, s: 0 }
+
+      const s = delta / (1 - Math.abs(2 * l - 1))
+      let h = 0
+
+      if (max === r) h = ((g - b) / delta) % 6
+      else if (max === g) h = (b - r) / delta + 2
+      else h = (r - g) / delta + 4
+
+      return { h: (h * 60 + 360) % 360, l, s }
+    }
+
+    function logoHslToRgb({ h, l, s }) {
+      const chroma = (1 - Math.abs(2 * l - 1)) * s
+      const segment = h / 60
+      const secondary = chroma * (1 - Math.abs((segment % 2) - 1))
+      let channels
+
+      if (segment < 1) channels = [chroma, secondary, 0]
+      else if (segment < 2) channels = [secondary, chroma, 0]
+      else if (segment < 3) channels = [0, chroma, secondary]
+      else if (segment < 4) channels = [0, secondary, chroma]
+      else if (segment < 5) channels = [secondary, 0, chroma]
+      else channels = [chroma, 0, secondary]
+
+      const offset = l - chroma / 2
+      const rgb = channels.map(channel => Math.round((channel + offset) * 255))
+
+      return `rgb(${rgb.join(',')})`
+    }
+
+    function shiftLogoTone(color, hueOffset, lightnessOffset, saturationScale = 1) {
+      return logoHslToRgb({
+        h: (color.h + hueOffset + 360) % 360,
+        l: clampLogoChannel(color.l + lightnessOffset, 0.08, 0.92),
+        s: clampLogoChannel(color.s * saturationScale),
+      })
+    }
+
+    function createLaunchLogoPalette(primaryColor) {
+      const normalized = primaryColor.slice(1)
+      const rgb = [0, 2, 4].map(offset => Number.parseInt(normalized.slice(offset, offset + 2), 16))
+      const hsl = logoRgbToHsl(rgb)
+      const sourcePrimaryHsl = logoRgbToHsl(sourceLogoRgb.primary)
+      const lightDirection = hsl.l >= 0.78 ? -1 : 1
+      const darkDirection = hsl.l <= 0.22 ? 1 : -1
+
+      return Object.fromEntries(
+        Object.entries(sourceLogoRgb).map(([key, sourceRgb]) => {
+          if (key === 'primary') return [key, `rgb(${rgb.join(',')})`]
+
+          const sourceHsl = logoRgbToHsl(sourceRgb)
+          const hueOffset = sourceHsl.h - sourcePrimaryHsl.h
+          const sourceLightnessDelta = sourceHsl.l - sourcePrimaryHsl.l
+          const lightnessDelta =
+            Math.abs(sourceLightnessDelta) * (sourceLightnessDelta >= 0 ? lightDirection : darkDirection)
+          const saturationScale = sourcePrimaryHsl.s ? sourceHsl.s / sourcePrimaryHsl.s : 1
+
+          return [key, shiftLogoTone(hsl, hueOffset, lightnessDelta, saturationScale)]
+        }),
+      )
+    }
+
+    function createThemedLogoDataUrl(svgSource, primaryColor) {
+      const palette = createLaunchLogoPalette(primaryColor)
+      const themedSvg = Object.entries(sourceLogoPalette).reduce(
+        (svg, [sourceColor, paletteKey]) => svg.replaceAll(sourceColor, palette[paletteKey]),
+        svgSource,
+      )
+
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(themedSvg)}`
+    }
+
+    function withLoadingLogo(callback) {
+      const loadingLogo = document.querySelector('.loading-logo img')
+      if (loadingLogo) {
+        callback(loadingLogo)
+        return
+      }
+
+      if (document.readyState !== 'loading') return
+
+      const observer = new MutationObserver(() => {
+        const nextLoadingLogo = document.querySelector('.loading-logo img')
+        if (!nextLoadingLogo) return
+
+        observer.disconnect()
+        callback(nextLoadingLogo)
+      })
+      observer.observe(document.documentElement, { childList: true, subtree: true })
+    }
+
+    function applyThemedLogoUrl(themedLogoUrl) {
+      const faviconLink = document.querySelector('#theme-favicon')
+
+      faviconLink?.setAttribute('type', 'image/svg+xml')
+      faviconLink?.setAttribute('href', themedLogoUrl)
+
+      withLoadingLogo(loadingLogo => {
+        const revealLogo = () => loadingLogo.setAttribute('data-theme-ready', 'true')
+        loadingLogo.addEventListener('load', revealLogo, { once: true })
+        loadingLogo.setAttribute('src', themedLogoUrl)
+        if (loadingLogo.complete) revealLogo()
+      })
+    }
+
+    function revealOriginalLoadingLogo() {
+      withLoadingLogo(loadingLogo => loadingLogo.setAttribute('data-theme-ready', 'true'))
+    }
+
+    // 启动层和 Tab 图标共享原始矢量结构，主题切换只替换色阶，不破坏分面和透明高光。
     function syncThemeFavicon(primaryColor) {
       if (!/^#[0-9a-f]{6}$/i.test(primaryColor)) return
 
       pendingFaviconColor = primaryColor
 
-      const render = () => {
-        const faviconLink = document.querySelector('#theme-favicon')
-        if (!faviconLink || !faviconSourceImage?.naturalWidth) return
-
-        const canvas = document.createElement('canvas')
-        const context = canvas.getContext('2d')
-        if (!context) return
-
-        canvas.width = 64
-        canvas.height = 64
-        context.drawImage(faviconSourceImage, 0, 0, 64, 64)
-        context.globalCompositeOperation = 'source-in'
-
-        const gradient = context.createLinearGradient(10, 6, 54, 58)
-        gradient.addColorStop(0, mixFaviconColor(pendingFaviconColor, [255, 255, 255], 0.38))
-        gradient.addColorStop(0.48, pendingFaviconColor)
-        gradient.addColorStop(1, mixFaviconColor(pendingFaviconColor, [0, 0, 0], 0.28))
-        context.fillStyle = gradient
-        context.fillRect(0, 0, 64, 64)
-
-        faviconLink.setAttribute('type', 'image/png')
-        faviconLink.setAttribute('href', canvas.toDataURL('image/png'))
+      try {
+        const cachedLogo = JSON.parse(localStorage.getItem(themeLogoCacheKey) || 'null')
+        if (cachedLogo?.color === primaryColor && typeof cachedLogo.url === 'string') applyThemedLogoUrl(cachedLogo.url)
+      } catch {
+        // 缓存异常不影响根据品牌源文件重新生成主题标识。
       }
 
-      if (!faviconSourceImage) {
-        faviconSourceImage = new Image()
-        faviconSourceImage.onload = render
-        faviconSourceImage.src = '/logo.svg'
-        return
-      }
+      logoSvgSourcePromise ||= fetch('/logo.svg').then(response => {
+        if (!response.ok) throw new Error(`Logo SVG request failed: ${response.status}`)
+        return response.text()
+      })
 
-      if (faviconSourceImage.complete) render()
+      logoSvgSourcePromise
+        .then(svgSource => {
+          if (primaryColor !== pendingFaviconColor) return
+
+          const themedLogoUrl = createThemedLogoDataUrl(svgSource, primaryColor)
+          applyThemedLogoUrl(themedLogoUrl)
+
+          try {
+            localStorage.setItem(themeLogoCacheKey, JSON.stringify({ color: primaryColor, url: themedLogoUrl }))
+          } catch {
+            // 存储空间不可用时仍保留当前页面内的主题标识。
+          }
+        })
+        .catch(() => {
+          // 原始 SVG 始终保留为无网络或解析异常时的可见回退。
+          revealOriginalLoadingLogo()
+        })
     }
 
     window.addEventListener('moviepilot-theme-primary-color-change', event => {
@@ -630,7 +745,6 @@
         <div class="loading-logo">
           <!-- Logo -->
           <img src="/logo.svg" alt="MoviePilot" width="160" height="160" />
-          <span class="loading-logo__mark" role="img" aria-label="MoviePilot"></span>
         </div>
       </div>
       <div class="loading-footer">
