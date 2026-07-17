@@ -318,8 +318,8 @@ router.beforeEach(async (to: any, from: any, next: any) => {
 
   // 认证 Store
   const authStore = useAuthStore()
-  // 总是记录非login路由
-  if (to.fullPath != '/login') authStore.originalPath = to.fullPath
+  // 登录页的实验参数不是登录后可恢复的业务目标。
+  if (to.path !== '/login') authStore.originalPath = to.fullPath
   const isAuthenticated = authStore.token !== null
 
   if (to.meta.requiresAuth && !isAuthenticated) {

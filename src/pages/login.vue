@@ -4,7 +4,7 @@ import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
 import api from '@/api'
 import router from '@/router'
-import MetalLogo3D from '@/components/misc/MetalLogo3D.vue'
+import OpticalLogoLab from '@/components/misc/OpticalLogoLab.vue'
 import { bufferToBase64Url, base64UrlToUint8Array, urlBase64ToUint8Array } from '@/@core/utils/navigator'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
 import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
@@ -15,6 +15,42 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federationLoader'
 
 const LoginMfaDialog = defineAsyncComponent(() => import('@/components/dialog/LoginMfaDialog.vue'))
+
+const loginRootRef = ref<HTMLElement | null>(null)
+let cardLightFrame: number | null = null
+let pendingCardLightX = 0.5
+let pendingCardLightY = 0
+let pendingCardLightEnergy = 0
+
+/** 卡片顶部反射与指针共用光源位置，避免通过响应式状态触发页面重渲染。 */
+function renderCardLight() {
+  cardLightFrame = null
+  const root = loginRootRef.value
+  root?.style.setProperty('--login-card-light-x', `${(pendingCardLightX * 100).toFixed(2)}%`)
+  root?.style.setProperty('--login-card-light-y', `${(pendingCardLightY * 100).toFixed(2)}%`)
+  root?.style.setProperty('--login-card-highlight-alpha', (0.035 + pendingCardLightEnergy * 0.08).toFixed(3))
+  root?.style.setProperty('--login-card-primary-alpha', (0.018 + pendingCardLightEnergy * 0.04).toFixed(3))
+  root?.style.setProperty('--login-card-top-prism-alpha', (0.2 + pendingCardLightEnergy * 0.32).toFixed(3))
+}
+
+function handlePointerLight(event: PointerEvent) {
+  if (event.pointerType === 'touch') return
+  const bounds = loginRootRef.value?.querySelector<HTMLElement>('.login-card')?.getBoundingClientRect()
+  if (!bounds?.width || !bounds.height) return
+
+  pendingCardLightX = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width))
+  pendingCardLightY = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height))
+  const centerDistance = Math.hypot(pendingCardLightX - 0.5, pendingCardLightY - 0.5)
+  pendingCardLightEnergy = Math.max(0.16, 1 - centerDistance * 1.2)
+  if (cardLightFrame === null) cardLightFrame = window.requestAnimationFrame(renderCardLight)
+}
+
+function resetPointerLight() {
+  pendingCardLightX = 0.5
+  pendingCardLightY = 0
+  pendingCardLightEnergy = 0
+  if (cardLightFrame === null) cardLightFrame = window.requestAnimationFrame(renderCardLight)
+}
 
 // 国际化
 const { t, te } = useI18n()
@@ -487,16 +523,19 @@ async function subscribeForPushNotifications() {
 
 // 登录后处理
 async function afterLogin(superuser: boolean, userPayload: userState, filteredMenus: any[]) {
+  const originalPath = authStore.originalPath
+  authStore.setOriginalPath(null)
+
   // 如果需要显示设置向导，跳转到设置向导页面
   if (userPayload.wizard) {
-    router.push('/setup-wizard')
+    await router.push('/setup-wizard')
   } else {
-    // 如果有原始路径，优先跳转到原始路径
-    if (authStore.originalPath && authStore.originalPath !== '/') {
-      router.push(authStore.originalPath)
+    // 原始目标是一次性状态，持久化的旧登录页目标不得重新进入认证流程。
+    if (originalPath && originalPath !== '/' && router.resolve(originalPath).path !== '/login') {
+      await router.push(originalPath)
     } else {
       // 跳转到第一个有权限的菜单
-      router.push(filteredMenus[0].to)
+      await router.push(filteredMenus[0].to)
     }
   }
 
@@ -675,6 +714,8 @@ async function initConditionalPasskey() {
 
 // 组件卸载时清理
 onUnmounted(() => {
+  if (cardLightFrame !== null) window.cancelAnimationFrame(cardLightFrame)
+
   if (conditionalAbortController) {
     conditionalAbortController.abort()
     conditionalAbortController = null
@@ -688,7 +729,12 @@ onUnmounted(() => {
 
 <template>
   <!-- 登录页面容器 -->
-  <div class="login-root">
+  <div
+    ref="loginRootRef"
+    class="login-root"
+    @pointermove="handlePointerLight"
+    @pointerleave="resetPointerLight"
+  >
     <!-- 装饰性背景光晕 -->
     <div class="login-bg-decor" aria-hidden="true">
       <div class="login-orb login-orb--1" />
@@ -726,17 +772,20 @@ onUnmounted(() => {
     <!-- 登录表单 -->
     <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
       <VCard
-        class="auth-card login-card glass-effect pa-7 pa-sm-9 w-full h-full login-card--enter"
+        class="auth-card login-card glass-effect no-blur pa-7 pa-sm-9 w-full h-full login-card--enter"
         max-width="24rem"
         flat
       >
+        <div class="login-card__glass" aria-hidden="true">
+          <span class="login-card__glass-caustic" />
+        </div>
+
         <!-- 卡片头部：Logo + 标题 + 欢迎语 -->
         <div class="login-head">
-          <div class="login-logo-wrapper">
-            <MetalLogo3D class="login-logo" />
-          </div>
-          <h1 class="login-title">MoviePilot</h1>
-          <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
+          <OpticalLogoLab class="login-logo" :locale="currentLocale">
+            <h1 class="login-title">MoviePilot</h1>
+            <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
+          </OpticalLogoLab>
         </div>
 
         <VCardText class="login-body">
@@ -897,15 +946,38 @@ onUnmounted(() => {
 
 /* ===================== 布局根容器 ===================== */
 .login-root {
+  --login-card-light-x: 50%;
+  --login-card-light-y: 0%;
+  --login-card-highlight-alpha: 0.035;
+  --login-card-primary-alpha: 0.018;
+  --login-card-top-prism-alpha: 0.2;
+  --optical-glass-x: 50%;
+  --optical-glass-y: 22%;
+  --optical-glass-blur: 24px;
+  --optical-glass-saturate: 146%;
+  --optical-glass-contrast: 104%;
+  --optical-glass-glow-opacity: 0.36;
+  --optical-glass-caustic-opacity: 0.28;
+  --optical-glass-caustic-scale: 0.9;
+  --optical-glass-pulse-blur: 14px;
+  --optical-glass-shift-x: 0px;
+  --optical-glass-shift-y: 0px;
+  --optical-glass-rotation: -5deg;
+  --optical-glass-scale: 1;
+  --optical-glass-caustic-highlight-alpha: 0.16;
+  --optical-glass-caustic-primary-alpha: 0.12;
+
   position: relative;
   display: flex;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   isolation: isolate;
   min-block-size: 100vh;
   min-block-size: 100dvh;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px);
 }
 
 /* ===================== 装饰性背景光晕 ===================== */
@@ -1006,7 +1078,7 @@ onUnmounted(() => {
 .auth-wrapper {
   position: relative;
   z-index: 2;
-  overflow: hidden;
+  overflow: visible;
   block-size: auto;
   inline-size: 100%;
   padding-inline: 16px;
@@ -1016,43 +1088,115 @@ onUnmounted(() => {
 .login-card {
   position: relative;
   z-index: 1;
+  overflow: hidden;
   border: none !important;
   border-radius: var(--app-surface-radius, 20px) !important;
-  box-shadow:
-    0 20px 50px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.12),
-    0 8px 20px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.06),
-    0 0 0 1px rgba(var(--v-theme-primary), 0.04) !important;
-  transition: box-shadow 300ms ease;
+  box-shadow: 0 20px 54px rgba(var(--app-shadow-rgb, 0, 0, 0), 0.12) !important;
 
-  /* 顶部高光线，营造立体感 */
+  > :not(.login-card__glass) {
+    position: relative;
+    z-index: 2;
+  }
+
   &::before {
     position: absolute;
-    z-index: 1;
-    border-radius: inherit;
-    background: linear-gradient(90deg, transparent 10%, rgba(255, 255, 255, 35%) 50%, transparent 90%);
+    z-index: 4;
+    border-radius: 999px;
+    background:
+      radial-gradient(
+        ellipse at center,
+        rgba(255, 255, 255, 0.92),
+        rgba(232, 219, 255, 0.48) 28%,
+        transparent 72%
+      ),
+      linear-gradient(
+        90deg,
+        transparent,
+        rgba(117, 212, 255, 0.16) 30%,
+        rgba(177, 139, 255, 0.22) 50%,
+        rgba(255, 105, 210, 0.12) 70%,
+        transparent
+      );
     block-size: 1px;
     content: '';
+    filter: drop-shadow(0 1px 3px rgba(var(--v-theme-primary), 0.16));
     inset-block-start: 0;
-    inset-inline: 0;
+    inset-inline-start: clamp(44px, var(--login-card-light-x), calc(100% - 44px));
+    inline-size: 88px;
+    mix-blend-mode: screen;
+    opacity: var(--login-card-top-prism-alpha);
     pointer-events: none;
+    transform: translateX(-50%);
   }
 }
 
-/* 登录卡片自身承载固定磨砂效果，避免跟随透明主题设置变化。 */
+/* 登录卡片拥有独立光学表面，不跟随透明主题的全局模糊开关。 */
 .glass-effect {
-  backdrop-filter: blur(28px) saturate(170%) !important;
-  background: rgba(var(--v-theme-surface), 0.75) !important;
+  backdrop-filter: none !important;
+  background: transparent !important;
 }
 
-/* 深色主题上叠一条更亮的描边，区分背景 */
-:deep(.v-theme--dark) .login-card,
-:deep(.v-theme--purple) .login-card,
-:deep(.v-theme--transparent) .login-card {
-  border: 1px solid rgba(255, 255, 255, 8%) !important;
+.login-card__glass {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  backdrop-filter: blur(var(--optical-glass-blur)) saturate(var(--optical-glass-saturate))
+    contrast(var(--optical-glass-contrast));
+  background:
+    radial-gradient(
+      180px 150px at var(--login-card-light-x) var(--login-card-light-y),
+      rgba(255, 255, 255, var(--login-card-highlight-alpha)),
+      rgba(var(--v-theme-primary), var(--login-card-primary-alpha)) 44%,
+      transparent 76%
+    ),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 34%),
+    rgba(var(--v-theme-surface), 0.7);
+  inset: 0;
+  pointer-events: none;
+  transform: translateZ(0);
 }
 
-:deep(.v-theme--light) .login-card {
-  border: 1px solid rgba(255, 255, 255, 65%) !important;
+.login-card__glass::before {
+  position: absolute;
+  border-radius: 44% 56% 61% 39% / 42% 39% 61% 58%;
+  background:
+    radial-gradient(circle at 36% 32%, rgba(255, 255, 255, 0.2), transparent 24%),
+    conic-gradient(
+      from 218deg,
+      transparent,
+      rgba(var(--v-theme-primary), 0.13),
+      transparent 38%,
+      rgba(255, 255, 255, 0.09),
+      transparent 72%
+  );
+  content: '';
+  filter: blur(var(--optical-glass-pulse-blur));
+  inset: -28%;
+  opacity: var(--optical-glass-glow-opacity);
+  transform: translate(var(--optical-glass-shift-x), var(--optical-glass-shift-y))
+    rotate(var(--optical-glass-rotation)) scale(var(--optical-glass-scale));
+  transition: opacity 220ms ease;
+}
+
+.login-card__glass-caustic {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    rgba(255, 255, 255, var(--optical-glass-caustic-highlight-alpha)),
+    rgba(var(--v-theme-primary), var(--optical-glass-caustic-primary-alpha)) 34%,
+    transparent 72%
+  );
+  filter: blur(var(--optical-glass-pulse-blur));
+  inset-block-start: calc(var(--optical-glass-y) - 88px);
+  inset-inline-start: calc(var(--optical-glass-x) - 112px);
+  block-size: 176px;
+  inline-size: 224px;
+  opacity: var(--optical-glass-caustic-opacity);
+  pointer-events: none;
+  transform: scale(var(--optical-glass-caustic-scale));
 }
 
 /* ===================== 卡片头部 ===================== */
@@ -1060,22 +1204,13 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  inline-size: 100%;
   margin-block-end: 12px;
   text-align: center;
 }
 
-.login-logo-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: logo-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
-  margin-block-end: 8px;
-}
-
 .login-logo {
-  flex: none;
+  inline-size: 100%;
 }
 
 .login-title {
@@ -1089,6 +1224,8 @@ onUnmounted(() => {
   line-height: 1.2;
   -webkit-text-fill-color: transparent;
   text-transform: uppercase;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .login-subtitle {
@@ -1104,6 +1241,7 @@ onUnmounted(() => {
 
 /* ===================== 卡片主体 ===================== */
 .login-body {
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
   padding-block: 8px !important;
 }
 
@@ -1111,14 +1249,17 @@ onUnmounted(() => {
 .native-login-field {
   position: relative;
   display: flex;
+  overflow: hidden;
   align-items: center;
   border: 1px solid rgba(var(--v-border-color), 0.38);
   min-block-size: 56px;
   border-radius: 12px;
-  background: transparent;
+  background: rgba(var(--v-theme-surface), 0.13);
+  backdrop-filter: blur(10px) saturate(118%);
   transition:
     border-color 150ms ease,
-    box-shadow 150ms ease;
+    box-shadow 150ms ease,
+    background 220ms ease;
 }
 
 .native-login-field:focus-within {
@@ -1136,6 +1277,8 @@ onUnmounted(() => {
 }
 
 .native-login-field__input {
+  position: relative;
+  z-index: 1;
   display: block;
   border: 0;
   appearance: none;
@@ -1385,6 +1528,7 @@ onUnmounted(() => {
   letter-spacing: 0.03em;
   margin-block-start: 14px;
   opacity: 0.75;
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 520ms both;
 }
 
 .login-version {
@@ -1399,27 +1543,13 @@ onUnmounted(() => {
 
 @keyframes login-enter {
   0% {
-    filter: blur(4px);
     opacity: 0;
-    transform: translateY(20px) scale(0.97);
+    transform: translateY(12px) scale(0.985);
   }
 
   100% {
-    filter: blur(0);
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes logo-enter {
-  0% {
-    opacity: 0;
-    transform: scale(0.8) translateY(10px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
@@ -1438,10 +1568,11 @@ onUnmounted(() => {
 /* ===================== 无障碍：尊重减少动态偏好 ===================== */
 @media (prefers-reduced-motion: reduce) {
   .login-card--enter,
-  .login-logo-wrapper,
+  .login-body,
+  .login-foot,
   .login-title,
   .login-subtitle {
-    animation-duration: 1ms !important;
+    animation: none !important;
   }
 
   .login-submit {
@@ -1454,6 +1585,43 @@ onUnmounted(() => {
 
   .login-orb {
     animation: none !important;
+  }
+
+  .login-card__glass::before,
+  .login-card__glass-caustic {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .login-card__glass,
+  .native-login-field {
+    backdrop-filter: none !important;
+    background: rgb(var(--v-theme-surface)) !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .login-card__glass {
+    background: rgba(var(--v-theme-surface), 0.94);
+  }
+
+  .native-login-field {
+    border-color: rgba(var(--v-theme-on-surface), 0.68);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px))) {
+  .login-card__glass,
+  .native-login-field {
+    background: rgba(var(--v-theme-surface), 0.96) !important;
+  }
+}
+
+@media (height <= 760px) {
+  .login-root {
+    justify-content: flex-start;
   }
 }
 
