@@ -2177,6 +2177,8 @@ export default {
       entryCount: '{count} 条',
       ruleCount: '共 {count} 条规则',
       listLabel: '词表内容（每行一个规则）',
+      lineNumbers: '行号',
+      syntaxHighlighting: '语法高亮',
       saved: '已保存',
       unsaved: '有未保存修改',
       saveChanges: '保存更改',

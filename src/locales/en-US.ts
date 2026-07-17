@@ -2215,6 +2215,8 @@ export default {
       entryCount: '{count} entries',
       ruleCount: '{count} rules',
       listLabel: 'Word list content (one rule per line)',
+      lineNumbers: 'Line numbers',
+      syntaxHighlighting: 'Syntax highlighting',
       saved: 'Saved',
       unsaved: 'Unsaved changes',
       saveChanges: 'Save changes',
