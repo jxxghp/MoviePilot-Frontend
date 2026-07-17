@@ -971,6 +971,7 @@ onUnmounted(() => {
 
   position: relative;
   display: flex;
+  box-sizing: border-box;
   overflow-x: hidden;
   overflow-y: auto;
   flex-direction: column;
@@ -1083,6 +1084,7 @@ onUnmounted(() => {
   overflow: visible;
   block-size: auto;
   inline-size: 100%;
+  min-block-size: 0;
   padding-inline: 16px;
 }
 
@@ -1604,12 +1606,6 @@ onUnmounted(() => {
   }
 }
 
-@media (height <= 760px) {
-  .login-root {
-    justify-content: flex-start;
-  }
-}
-
 /* ===================== 小屏适配 ===================== */
 @media (width <= 480px) {
   .auth-wrapper {
@@ -1637,6 +1633,16 @@ onUnmounted(() => {
 
   .login-orb--3 {
     display: none;
+  }
+}
+
+@media (width <= 480px) and (height <= 600px) {
+  .lang-switch-btn {
+    inset-block-start: calc(env(safe-area-inset-top, 0px) + 4px);
+  }
+
+  .login-card {
+    padding-block: 0.75rem !important;
   }
 }
 </style>
