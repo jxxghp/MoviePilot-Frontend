@@ -185,8 +185,9 @@ async function getEpisodeGroups() {
   }
 }
 
-// 查询TMDB的所有季信息
+// 查询媒体的季信息
 async function getMediaSeasons() {
+  isRefreshed.value = false
   try {
     seasonInfos.value = await api.get('media/seasons', {
       params: {
@@ -196,9 +197,10 @@ async function getMediaSeasons() {
         season: props.media?.season,
       },
     })
-    isRefreshed.value = true
   } catch (error) {
     console.error(error)
+  } finally {
+    isRefreshed.value = true
   }
 }
 
@@ -414,6 +416,7 @@ function syncSelectedSeason() {
   })
 }
 
+// 季信息与缺失状态共享剧集组上下文，剧集组变化时统一刷新两者。
 watchEffect(() => {
   if (episodeGroup.value) getGroupSeasons()
   else getMediaSeasons()
@@ -434,10 +437,7 @@ watch(episodeGroupOptions, () => nextTick(updateEpisodeGroupScrollState), { flus
 
 onMounted(async () => {
   window.addEventListener('resize', updateEpisodeGroupScrollState)
-  // 自定义剧集组由 watchEffect 首次加载，避免默认季数据异步覆盖它。
-  if (!episodeGroup.value) getMediaSeasons()
   getEpisodeGroups()
-  checkSeasonsNotExists()
 })
 
 onBeforeUnmount(() => {
