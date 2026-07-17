@@ -2170,6 +2170,7 @@ export default {
       ruleCount: '共 {count} 條規則',
       listLabel: '詞表內容（每行一個規則）',
       lineNumbers: '行號',
+      syntaxHighlighting: '語法高亮',
       saved: '已保存',
       unsaved: '有未保存修改',
       saveChanges: '保存更改',

@@ -11,6 +11,7 @@ const $toast = useToast()
 const { global: globalTheme } = useTheme()
 
 const WORDS_LINE_NUMBERS_STORAGE_KEY = 'MP_WORDS_SHOW_LINE_NUMBERS'
+const WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY = 'MP_WORDS_SYNTAX_HIGHLIGHTING'
 
 type TextSectionKey = 'identifiers' | 'releaseGroups' | 'customization' | 'excludeWords'
 type WordSectionKey = TextSectionKey | 'episodeRules'
@@ -48,7 +49,9 @@ const activeSection = ref<WordSectionKey>('identifiers')
 const expandedHelp = ref<string | null>(null)
 const saving = ref(false)
 const showLineNumbers = ref(localStorage.getItem(WORDS_LINE_NUMBERS_STORAGE_KEY) === 'true')
+const showSyntaxHighlighting = ref(localStorage.getItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY) === 'true')
 
+const textEditorLanguage = computed(() => (showSyntaxHighlighting.value ? 'word_list_syntax' : 'word_list'))
 const textEditorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
 const textEditorOptions = computed(() => ({
   fontSize: 13.6,
@@ -63,6 +66,10 @@ const textEditorOptions = computed(() => ({
 
 watch(showLineNumbers, value => {
   localStorage.setItem(WORDS_LINE_NUMBERS_STORAGE_KEY, String(value))
+})
+
+watch(showSyntaxHighlighting, value => {
+  localStorage.setItem(WORDS_SYNTAX_HIGHLIGHTING_STORAGE_KEY, String(value))
 })
 
 const savedTextValues = reactive<Record<TextSectionKey, string>>({
@@ -497,11 +504,20 @@ onMounted(() => {
                 <VSwitch
                   v-if="activeSection === 'identifiers'"
                   v-model="showLineNumbers"
-                  class="words-line-number-switch"
+                  class="words-editor-switch"
                   color="primary"
                   density="compact"
                   hide-details
                   :label="t('setting.words.lineNumbers')"
+                />
+                <VSwitch
+                  v-if="activeSection === 'identifiers'"
+                  v-model="showSyntaxHighlighting"
+                  class="words-editor-switch"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  :label="t('setting.words.syntaxHighlighting')"
                 />
               </div>
             </div>
@@ -509,7 +525,7 @@ onMounted(() => {
             <VAceEditor
               v-if="activeSection === 'identifiers'"
               v-model:value="activeTextValue"
-              lang="word_list"
+              :lang="textEditorLanguage"
               :theme="textEditorTheme"
               :options="textEditorOptions"
               :placeholder="activeTextPlaceholder"
@@ -880,14 +896,16 @@ onMounted(() => {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.8rem;
 }
 
-.words-line-number-switch {
+.words-editor-switch {
   flex: 0 0 auto;
 }
 
-.words-line-number-switch :deep(.v-label) {
+.words-editor-switch :deep(.v-label) {
   font-size: 0.78rem;
 }
 
@@ -902,6 +920,15 @@ onMounted(() => {
 }
 
 .words-text-editor {
+  --words-token-block: #af00db;
+  --words-token-replaced: #001080;
+  --words-token-replacement: #a31515;
+  --words-token-front: #267f99;
+  --words-token-back: #795e26;
+  --words-token-offset: #098658;
+  --words-token-comment: #008000;
+  --words-token-operator: #000;
+
   overflow: hidden;
   block-size: 15.8rem;
   border: 1px solid rgba(var(--v-theme-on-surface), var(--v-border-opacity));
@@ -909,6 +936,17 @@ onMounted(() => {
   contain: paint;
   overscroll-behavior: contain;
   transform: translateZ(0);
+}
+
+.words-text-editor.ace-github-dark {
+  --words-token-block: #c586c0;
+  --words-token-replaced: #9cdcfe;
+  --words-token-replacement: #ce9178;
+  --words-token-front: #4ec9b0;
+  --words-token-back: #dcdcaa;
+  --words-token-offset: #b5cea8;
+  --words-token-comment: #6a9955;
+  --words-token-operator: #d4d4d4;
 }
 
 .words-text-editor :deep(.ace_scroller),
@@ -919,7 +957,7 @@ onMounted(() => {
 }
 
 .words-text-editor :deep(.ace_comment) {
-  color: rgb(var(--v-theme-success)) !important;
+  color: var(--words-token-comment) !important;
   font-style: normal;
 }
 
@@ -929,6 +967,34 @@ onMounted(() => {
 
 .words-text-editor :deep(.ace_gutter-cell) {
   padding-inline: 0.35rem 0.25rem;
+}
+
+.words-text-editor :deep(.ace_word_list_block) {
+  color: var(--words-token-block);
+}
+
+.words-text-editor :deep(.ace_word_list_replaced) {
+  color: var(--words-token-replaced);
+}
+
+.words-text-editor :deep(.ace_word_list_replacement) {
+  color: var(--words-token-replacement);
+}
+
+.words-text-editor :deep(.ace_word_list_front) {
+  color: var(--words-token-front);
+}
+
+.words-text-editor :deep(.ace_word_list_back) {
+  color: var(--words-token-back);
+}
+
+.words-text-editor :deep(.ace_word_list_offset) {
+  color: var(--words-token-offset);
+}
+
+.words-text-editor :deep(.ace_keyword.ace_operator.ace_word-list) {
+  color: var(--words-token-operator);
 }
 
 .words-inline-hint {
@@ -1167,6 +1233,8 @@ onMounted(() => {
   }
 
   .words-field-meta {
+    align-items: flex-start;
+    flex-wrap: wrap;
     gap: 0.75rem;
     min-block-size: 2.75rem;
   }
@@ -1177,6 +1245,7 @@ onMounted(() => {
 
   .words-field-actions {
     gap: 0.5rem;
+    inline-size: 100%;
   }
 
   .words-textarea :deep(.v-field__input) {

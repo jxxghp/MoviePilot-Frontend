@@ -29,12 +29,14 @@ vi.mock('vue-toastification', () => ({
 const AceEditorStub = defineComponent({
   name: 'VAceEditor',
   props: {
+    lang: { type: String, default: 'text' },
     options: { type: Object, default: () => ({}) },
     value: { type: String, default: '' },
   },
   template: `
     <div
       data-testid="words-ace-editor"
+      :data-lang="lang"
       :data-show-gutter="String(Boolean(options.showGutter))"
       :data-show-line-numbers="String(Boolean(options.showLineNumbers))"
       :data-value="value"
@@ -52,7 +54,7 @@ async function renderWordsView() {
   })
 }
 
-describe('WordsView line numbers', () => {
+describe('WordsView editor preferences', () => {
   beforeEach(() => {
     mocks.apiGet.mockImplementation((endpoint: string) => {
       if (endpoint.includes('EpisodeFormatRuleTable')) return Promise.resolve({ data: { value: [] } })
@@ -70,7 +72,10 @@ describe('WordsView line numbers', () => {
     expect(switchControl).not.toBeChecked()
     expect(editor).toHaveAttribute('data-show-gutter', 'false')
     expect(editor).toHaveAttribute('data-show-line-numbers', 'false')
+    expect(editor).toHaveAttribute('data-lang', 'word_list')
+    expect(screen.getByRole('checkbox', { name: '语法高亮' })).not.toBeChecked()
     expect(localStorage.getItem('MP_WORDS_SHOW_LINE_NUMBERS')).toBeNull()
+    expect(localStorage.getItem('MP_WORDS_SYNTAX_HIGHLIGHTING')).toBeNull()
   })
 
   it('restores the enabled preference from local storage', async () => {
@@ -95,6 +100,17 @@ describe('WordsView line numbers', () => {
     expect(screen.getByRole('checkbox', { name: '行号' })).not.toBeChecked()
     expect(editor).toHaveAttribute('data-show-gutter', 'false')
     expect(editor).toHaveAttribute('data-show-line-numbers', 'false')
+  })
+
+  it('restores the syntax highlighting preference from local storage', async () => {
+    localStorage.setItem('MP_WORDS_SYNTAX_HIGHLIGHTING', 'true')
+
+    await renderWordsView()
+
+    const editor = await screen.findByTestId('words-ace-editor')
+
+    expect(screen.getByRole('checkbox', { name: '语法高亮' })).toBeChecked()
+    expect(editor).toHaveAttribute('data-lang', 'word_list_syntax')
   })
 
   it('updates Ace options and persists the preference without changing content', async () => {
@@ -123,6 +139,30 @@ describe('WordsView line numbers', () => {
     })
   })
 
+  it('switches the Ace mode and persists syntax highlighting without changing content', async () => {
+    const user = userEvent.setup()
+    await renderWordsView()
+
+    const editor = await screen.findByTestId('words-ace-editor')
+    await waitFor(() => expect(editor).toHaveAttribute('data-value', 'alpha\nbeta'))
+
+    await user.click(screen.getByRole('checkbox', { name: '语法高亮' }))
+
+    await waitFor(() => {
+      expect(editor).toHaveAttribute('data-lang', 'word_list_syntax')
+      expect(localStorage.getItem('MP_WORDS_SYNTAX_HIGHLIGHTING')).toBe('true')
+    })
+    expect(editor).toHaveAttribute('data-value', 'alpha\nbeta')
+    expect(mocks.apiPost).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('checkbox', { name: '语法高亮' }))
+
+    await waitFor(() => {
+      expect(editor).toHaveAttribute('data-lang', 'word_list')
+      expect(localStorage.getItem('MP_WORDS_SYNTAX_HIGHLIGHTING')).toBe('false')
+    })
+  })
+
   it('shows the switch only for custom identifiers', async () => {
     const user = userEvent.setup()
     await renderWordsView()
@@ -132,6 +172,7 @@ describe('WordsView line numbers', () => {
     await user.click(releaseGroupButtons[0])
 
     expect(screen.queryByRole('checkbox', { name: '行号' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: '语法高亮' })).not.toBeInTheDocument()
     expect(screen.queryByTestId('words-ace-editor')).not.toBeInTheDocument()
     expect(mocks.apiPost).not.toHaveBeenCalled()
   })
