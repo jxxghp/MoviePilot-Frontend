@@ -68,6 +68,7 @@ interface PersistedState {
   pinnedCombination?: string
   lightIntensity: number
   soundEnabled: boolean
+  unifiedThemeFamily: boolean
   version: 1
 }
 
@@ -342,11 +343,11 @@ const stageRef = ref<HTMLButtonElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isReady = ref(false)
 const isDragging = ref(false)
-const reducedMotionActive = ref(false)
 const isPinned = ref(false)
 const soundEnabled = ref(false)
 const lightIntensity = ref(45)
 const logoSize = ref(DEFAULT_LOGO_SIZE)
+const unifiedThemeFamily = ref(true)
 const selectedMaterial = ref<MaterialMode>('crystal')
 const selectedEntrance = ref<EntranceMode>('emerge')
 const phase = ref<LabPhase>('loading')
@@ -370,10 +371,11 @@ const text = computed(() =>
         materialGroup: 'Logo 材质',
         mute: '关闭声音',
         pin: '固定当前组合',
-        replay: '重播进场',
         staticLogo: 'MoviePilot Logo',
         unmute: '开启声音',
         unpin: '取消固定组合',
+        useSplitPalette: '使用分色配色',
+        useUnifiedPalette: '统一主题色系',
       }
     : {
         assemble: 'Assemble',
@@ -390,10 +392,11 @@ const text = computed(() =>
         materialGroup: 'Logo material',
         mute: 'Mute sound',
         pin: 'Pin this combination',
-        replay: 'Replay entrance',
         staticLogo: 'MoviePilot logo',
         unmute: 'Enable sound',
         unpin: 'Unpin combination',
+        useSplitPalette: 'Use split palette',
+        useUnifiedPalette: 'Unify theme palette',
       },
 )
 
@@ -737,6 +740,7 @@ function readPersistedState(): PersistedState {
     logoSize: DEFAULT_LOGO_SIZE,
     pinned: false,
     soundEnabled: false,
+    unifiedThemeFamily: true,
     version: 1,
   }
   try {
@@ -760,6 +764,7 @@ function readPersistedState(): PersistedState {
         ? parsed.pinnedCombination
         : undefined,
       soundEnabled: parsed.soundEnabled === true,
+      unifiedThemeFamily: parsed.unifiedThemeFamily !== false,
       version: 1,
     }
   } catch {
@@ -789,6 +794,7 @@ function initializeSelection() {
   lightIntensity.value = persisted.lightIntensity
   logoSize.value = persisted.logoSize
   soundEnabled.value = persisted.soundEnabled
+  unifiedThemeFamily.value = persisted.unifiedThemeFamily
 
   if (persisted.pinned && persisted.pinnedCombination) {
     const pinned = parseCombination(persisted.pinnedCombination)
@@ -874,6 +880,17 @@ function getThemeColors() {
   const onSurface = new T.Color(colors['on-surface'] || '#FFFFFF')
   const hsl = { h: 0, l: 0, s: 0 }
   primary.getHSL(hsl)
+  if (!unifiedThemeFamily.value) {
+    const toneOffsets = [-0.045, 0.018, 0.075]
+    const tones = toneOffsets.map(offset =>
+      new T.Color().setHSL(
+        T.MathUtils.euclideanModulo(hsl.h + offset, 1),
+        T.MathUtils.clamp(hsl.s * 0.88 + 0.06, 0.38, 0.96),
+        T.MathUtils.clamp(hsl.l + offset * 0.6, 0.3, 0.76),
+      ),
+    )
+    return { onSurface, primary, surface, tones }
+  }
   // 三块共享主题色相；先将基础明度拉入可见区间，再建立不会因夹值而塌缩的分面层次。
   const baseLightness = T.MathUtils.clamp(hsl.l, 0.335, 0.715)
   const toneAdjustments = [
@@ -1842,6 +1859,13 @@ function togglePinned() {
   })
 }
 
+/** 在统一主题色家族与分色配色之间切换，并立即刷新所有预编译材质。 */
+function toggleThemeFamily() {
+  unifiedThemeFamily.value = !unifiedThemeFamily.value
+  writePersistedState({ unifiedThemeFamily: unifiedThemeFamily.value })
+  handleThemeRefresh()
+}
+
 function createAudioBuffer(context: AudioContext) {
   const duration = 0.7
   const length = Math.floor(context.sampleRate * duration)
@@ -2246,7 +2270,6 @@ function handleIntersection(entries: IntersectionObserverEntry[]) {
 
 function handleReducedMotionChange(event?: MediaQueryListEvent) {
   prefersReducedMotion = event?.matches ?? reducedMotionQuery?.matches ?? false
-  reducedMotionActive.value = prefersReducedMotion
   if (prefersReducedMotion) {
     killMotionTimelines()
     stopAutonomousTurn()
@@ -2772,17 +2795,21 @@ onBeforeUnmount(() => {
             </template>
           </VTooltip>
 
-          <VTooltip :text="text.replay" location="top">
+          <VTooltip
+            :text="unifiedThemeFamily ? text.useSplitPalette : text.useUnifiedPalette"
+            location="top"
+          >
             <template #activator="{ props: tooltipProps }">
               <button
                 v-bind="tooltipProps"
                 class="optical-logo-lab__tool"
                 type="button"
-                :aria-label="text.replay"
-                :disabled="!isReady || reducedMotionActive"
-                @click="replayEntrance"
+                :aria-label="unifiedThemeFamily ? text.useSplitPalette : text.useUnifiedPalette"
+                :aria-pressed="unifiedThemeFamily"
+                :disabled="!isReady"
+                @click="toggleThemeFamily"
               >
-                <VIcon icon="mdi-replay" size="17" />
+                <VIcon :icon="unifiedThemeFamily ? 'mdi-palette' : 'mdi-palette-outline'" size="17" />
               </button>
             </template>
           </VTooltip>
