@@ -97,7 +97,10 @@ const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
 const INITIAL_CAMERA_Z = 5.15
 const BLOOM_RENDER_PADDING = 24
-const MIN_RENDER_DPR = 1.5
+// MSAA 只覆盖几何边缘；小尺寸 Logo 需要额外超采样来稳定旋转中的镜面高光。
+const MIN_RENDER_DPR = 2
+const MAX_RENDER_DPR = 3
+const RENDER_SUPERSAMPLE_SCALE = 1.5
 const POST_PROCESS_MSAA_SAMPLES = 4
 const IDLE_RENDER_INTERVAL = 1000 / 60 - 0.75
 const AUTO_REPLAY_MIN_MS = 12_000
@@ -735,12 +738,18 @@ function getThemeColors() {
   const onSurface = new T.Color(colors['on-surface'] || '#FFFFFF')
   const hsl = { h: 0, l: 0, s: 0 }
   primary.getHSL(hsl)
-  const toneOffsets = [-0.045, 0.018, 0.075]
-  const tones = toneOffsets.map(offset =>
+  // 三块共享主题色相；先将基础明度拉入可见区间，再建立不会因夹值而塌缩的分面层次。
+  const baseLightness = T.MathUtils.clamp(hsl.l, 0.335, 0.715)
+  const toneAdjustments = [
+    { lightness: 0.045, saturationScale: 1.08 },
+    { lightness: -0.035, saturationScale: 0.92 },
+    { lightness: 0.025, saturationScale: 1.04 },
+  ] as const
+  const tones = toneAdjustments.map(({ lightness, saturationScale }) =>
     new T.Color().setHSL(
-      T.MathUtils.euclideanModulo(hsl.h + offset, 1),
-      T.MathUtils.clamp(hsl.s * 0.88 + 0.06, 0.38, 0.96),
-      T.MathUtils.clamp(hsl.l + offset * 0.6, 0.3, 0.76),
+      hsl.h,
+      T.MathUtils.clamp(hsl.s * saturationScale, 0, 0.96),
+      baseLightness + lightness,
     ),
   )
   return { onSurface, primary, surface, tones }
@@ -748,6 +757,15 @@ function getThemeColors() {
 
 function normalizedLightIntensity() {
   return Math.min(1, Math.max(0, lightIntensity.value / 100))
+}
+
+function preferredRenderDpr() {
+  const deviceDpr = Math.max(window.devicePixelRatio || 1, 1)
+  return Math.min(Math.max(deviceDpr * RENDER_SUPERSAMPLE_SCALE, MIN_RENDER_DPR), MAX_RENDER_DPR)
+}
+
+function transmissionResolutionScaleForDpr(dpr: number) {
+  return dpr >= 1.9 ? 0.78 : dpr >= 1.7 ? 0.62 : 0.5
 }
 
 /** 光效滑杆统一控制场景主光、轮廓光与补光，避免各层强度彼此失配。 */
@@ -798,7 +816,7 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
       attenuationColor: tone.clone().offsetHSL(0, -0.04, 0.04),
       attenuationDistance: side ? 0.9 : 1.1,
       clearcoat: 0.32,
-      clearcoatRoughness: 0.04,
+      clearcoatRoughness: 0.12,
       color: tone.clone().offsetHSL(0, -0.08, side ? -0.1 : -0.16),
       dispersion: side ? 0.18 : 0.22,
       envMapIntensity: side ? 1.28 : 1.18,
@@ -807,16 +825,16 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
       iridescenceIOR: 1.36,
       iridescenceThicknessRange: [120 + toneIndex * 28, 520 + toneIndex * 58],
       metalness: 0,
-      roughness: side ? 0.1 : 0.06,
+      roughness: side ? 0.16 : 0.12,
       specularColor: tone.clone().lerp(white, 0.82),
-      specularIntensity: 0.9,
+      specularIntensity: 0.82,
       thickness: side ? 0.36 : 0.44,
       transmission: side ? 0.78 : 0.84,
     })
   } else if (mode === 'chrome') {
     material = new T.MeshPhysicalMaterial({
       clearcoat: 0.62,
-      clearcoatRoughness: 0.04,
+      clearcoatRoughness: 0.11,
       color: new T.Color(0x596171).lerp(tone, side ? 0.34 : 0.26),
       envMapIntensity: 2.15,
       iridescence: side ? 0.22 : 0.34,
@@ -825,11 +843,12 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
       metalness: 1,
       normalMap: chromeFlowTexture,
       normalScale: new T.Vector2(side ? 0.055 : 0.035, side ? 0.055 : 0.035),
-      roughness: side ? 0.11 : 0.075,
+      roughness: side ? 0.16 : 0.12,
     })
   } else if (mode === 'energy') {
     material = new T.MeshPhysicalMaterial({
       clearcoat: 0.45,
+      clearcoatRoughness: 0.14,
       color: new T.Color(0x11131f).lerp(tone, 0.18),
       dispersion: 0.08,
       emissive: primary.clone().multiplyScalar(0.08 + toneIndex * 0.02),
@@ -837,7 +856,7 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
       ior: 1.32,
       iridescence: 0.24,
       metalness: 0.05,
-      roughness: side ? 0.17 : 0.1,
+      roughness: side ? 0.19 : 0.13,
       thickness: 0.2,
       transmission: side ? 0.68 : 0.76,
     })
@@ -977,10 +996,10 @@ function createPieceRigs() {
     const geometry = registerGeometry(
       new T.ExtrudeGeometry(createRoundedLogoShape(definition.points, definition.cornerRadius), {
         bevelEnabled: true,
-        bevelOffset: -0.008,
-        bevelSegments: 10,
-        bevelSize: 0.027,
-        bevelThickness: 0.022,
+        bevelOffset: -0.012,
+        bevelSegments: 12,
+        bevelSize: 0.055,
+        bevelThickness: 0.042,
         curveSegments: 12,
         depth: definition.depth,
         steps: 1,
@@ -1151,6 +1170,11 @@ function updateRendererSize() {
   if (!bounds?.width || !bounds.height) return
   const renderWidth = bounds.width + BLOOM_RENDER_PADDING * 2
   const renderHeight = bounds.height + BLOOM_RENDER_PADDING * 2
+  const maximumDpr = preferredRenderDpr()
+  if (currentDpr > maximumDpr) {
+    currentDpr = maximumDpr
+    renderer.transmissionResolutionScale = transmissionResolutionScaleForDpr(currentDpr)
+  }
   renderer.setPixelRatio(currentDpr)
   renderer.setSize(renderWidth, renderHeight, false)
   composer.setPixelRatio(currentDpr)
@@ -1162,29 +1186,45 @@ function updateRendererSize() {
 }
 
 function setQualityDpr(next: number) {
-  const maximumDpr = Math.min(Math.max(window.devicePixelRatio || 1, MIN_RENDER_DPR), 2)
+  const maximumDpr = preferredRenderDpr()
   const capped = Math.max(MIN_RENDER_DPR, Math.min(maximumDpr, next))
   if (Math.abs(capped - currentDpr) < 0.01) return
   currentDpr = capped
-  if (renderer) renderer.transmissionResolutionScale = currentDpr >= 1.9 ? 0.78 : currentDpr >= 1.7 ? 0.62 : 0.5
+  if (renderer) renderer.transmissionResolutionScale = transmissionResolutionScaleForDpr(currentDpr)
   updateRendererSize()
 }
 
 function updateAdaptiveQuality(deltaMs: number) {
   if (phase.value !== 'idle' || isPrewarming) return
-  if (deltaMs > 23) {
-    slowFrameCount += 1
-    fastFrameCount = 0
-  } else if (deltaMs < 18) {
-    fastFrameCount += 1
-    slowFrameCount = Math.max(0, slowFrameCount - 1)
-  }
-  if (slowFrameCount > 90 && currentDpr > 1.5) {
-    setQualityDpr(currentDpr - 0.25)
+  const maximumDpr = preferredRenderDpr()
+  if (currentDpr > maximumDpr) {
+    setQualityDpr(maximumDpr)
     slowFrameCount = 0
-  } else if (fastFrameCount > 360 && currentDpr < Math.min(Math.max(window.devicePixelRatio || 1, MIN_RENDER_DPR), 2)) {
-    setQualityDpr(currentDpr + 0.25)
     fastFrameCount = 0
+    return
+  }
+  if (deltaMs > 23) {
+    fastFrameCount = 0
+    if (currentDpr <= MIN_RENDER_DPR) {
+      slowFrameCount = 0
+      return
+    }
+    slowFrameCount += 1
+    if (slowFrameCount > 90) {
+      setQualityDpr(currentDpr - 0.25)
+      slowFrameCount = 0
+    }
+  } else if (deltaMs < 18) {
+    slowFrameCount = Math.max(0, slowFrameCount - 1)
+    if (currentDpr >= maximumDpr) {
+      fastFrameCount = 0
+      return
+    }
+    fastFrameCount += 1
+    if (fastFrameCount > 360) {
+      setQualityDpr(currentDpr + 0.25)
+      fastFrameCount = 0
+    }
   }
 }
 
@@ -1322,6 +1362,12 @@ function scheduleAutonomousTurn(now: number) {
 
 function renderTick(time: number, deltaMs: number) {
   if (!renderer || !composer || !scene || !camera || !isReady.value || !isIntersecting || !isDocumentVisible) return
+  const maximumDpr = preferredRenderDpr()
+  if (currentDpr > maximumDpr) {
+    setQualityDpr(maximumDpr)
+    slowFrameCount = 0
+    fastFrameCount = 0
+  }
   if (prefersReducedMotion && !isDragging.value && !reducedMotionRenderPending) return
   const now = performance.now()
   const interactive = phase.value !== 'idle' || isDragging.value || now < highRefreshUntil
@@ -2035,18 +2081,27 @@ function handleContextRestored() {
 
 async function loadRuntime() {
   if (THREE && gsapApi) return
-  const [threeModule, gsapModule, composerModule, renderPassModule, shaderPassModule, bloomModule, smaaModule, outputModule, roomModule] =
-    await Promise.all([
-      import('three'),
-      import('gsap'),
-      import('three/examples/jsm/postprocessing/EffectComposer.js'),
-      import('three/examples/jsm/postprocessing/RenderPass.js'),
-      import('three/examples/jsm/postprocessing/ShaderPass.js'),
-      import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
-      import('three/examples/jsm/postprocessing/SMAAPass.js'),
-      import('three/examples/jsm/postprocessing/OutputPass.js'),
-      import('three/examples/jsm/environments/RoomEnvironment.js'),
-    ])
+  const [
+    threeModule,
+    gsapModule,
+    composerModule,
+    renderPassModule,
+    shaderPassModule,
+    bloomModule,
+    smaaModule,
+    outputModule,
+    roomModule,
+  ] = await Promise.all([
+    import('three'),
+    import('gsap'),
+    import('three/examples/jsm/postprocessing/EffectComposer.js'),
+    import('three/examples/jsm/postprocessing/RenderPass.js'),
+    import('three/examples/jsm/postprocessing/ShaderPass.js'),
+    import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
+    import('three/examples/jsm/postprocessing/SMAAPass.js'),
+    import('three/examples/jsm/postprocessing/OutputPass.js'),
+    import('three/examples/jsm/environments/RoomEnvironment.js'),
+  ])
   THREE = threeModule
   gsapApi = gsapModule.gsap
   EffectComposerClass = composerModule.EffectComposer
@@ -2134,8 +2189,8 @@ async function initializeScene() {
     renderer.outputColorSpace = T.SRGBColorSpace
     renderer.toneMapping = T.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.08
-    currentDpr = Math.min(Math.max(window.devicePixelRatio || 1, MIN_RENDER_DPR), 2)
-    renderer.transmissionResolutionScale = currentDpr >= 1.9 ? 0.78 : currentDpr >= 1.7 ? 0.62 : 0.5
+    currentDpr = preferredRenderDpr()
+    renderer.transmissionResolutionScale = transmissionResolutionScaleForDpr(currentDpr)
 
     scene = new T.Scene()
     camera = new T.PerspectiveCamera(27, 1, 0.1, 100)
