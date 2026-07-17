@@ -25,6 +25,9 @@ export const subscribeApiUrls = {
   downloaders: new URL('download/clients', API_BASE_URL).href,
   episodeGroups: (tmdbId: number) => new URL(`media/groups/${tmdbId}`, API_BASE_URL).href,
   filterRuleGroups: new URL('system/setting/UserFilterRuleGroups', API_BASE_URL).href,
+  filesById: (id: number) => new URL(`subscribe/files/${id}`, API_BASE_URL).href,
+  historyById: (id: number) => new URL(`subscribe/history/${id}`, API_BASE_URL).href,
+  historyByType: (type: SubscribeMediaType) => new URL(`subscribe/history/${type}`, API_BASE_URL).href,
   queryByMedia: (mediaId: string) => new URL(`subscribe/media/${mediaId}`, API_BASE_URL).href,
   list: new URL('subscribe/', API_BASE_URL).href,
   orderConfig: (type: SubscribeMediaType) =>
@@ -47,6 +50,42 @@ export function subscribeListHandler(
 ) {
   return http.get(subscribeApiUrls.list, ({ request }) => {
     onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function subscribeFilesHandler(
+  id: number,
+  response: JsonBodyType = { episodes: {}, subscribe: null },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(subscribeApiUrls.filesById(id), async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function subscribeHistoryHandler(
+  type: SubscribeMediaType,
+  response: Subscribe[] = [],
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(subscribeApiUrls.historyByType(type), async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response as unknown as JsonBodyType, status)
+  })
+}
+
+export function deleteSubscribeHistoryHandler(
+  id: number,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.delete(subscribeApiUrls.historyById(id), async ({ request }) => {
+    await onRequest(new URL(request.url))
     return jsonResponse(response, status)
   })
 }
