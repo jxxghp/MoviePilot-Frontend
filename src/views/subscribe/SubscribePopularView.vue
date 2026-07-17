@@ -25,15 +25,18 @@ const apipath = 'subscribe/popular'
 // 当前页码
 const page = ref(1)
 
-// 是否加载中
-const loading = ref(false)
-
 // 是否加载完成
 const isRefreshed = ref(false)
 
+// 当前列表请求是否失败；合法空数组仍使用空数据状态。
+const loadError = ref(false)
+
 // 数据列表
 const dataList = ref<MediaInfo[]>([])
-const currData = ref<MediaInfo[]>([])
+
+// 筛选重置允许新旧请求短暂并行，只接纳当前代次的响应。
+let requestGeneration = 0
+const loadingGenerations = new Set<number>()
 
 // 筛选参数
 const filterParams = reactive({
@@ -48,9 +51,11 @@ const filterParams = reactive({
 const currentKey = ref(0)
 
 function resetData() {
+  requestGeneration++
   dataList.value = []
   page.value = 1
   isRefreshed.value = false
+  loadError.value = false
   currentKey.value++
 }
 
@@ -140,68 +145,61 @@ function getParams() {
 }
 
 // 获取列表数据
-async function fetchData({ done }: { done: any }) {
-  try {
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
-      return
-    }
+async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') => void }) {
+  const generation = requestGeneration
 
-    // 加载到满屏或者加载出错
-    if (!hasScroll()) {
-      // 加载多次
-      while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        currData.value = await api.get(apipath, {
-          params: getParams(),
-        })
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
-        isRefreshed.value = true
-        if (currData.value.length === 0) {
-          // 如果没有数据，跳出
-          done('empty')
-          return
-        }
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
-        await nextTick()
-      }
-    } else {
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      currData.value = await api.get(apipath, {
+  // 同一筛选条件只允许一个分页请求在途。
+  if (loadingGenerations.has(generation)) {
+    return
+  }
+
+  loadingGenerations.add(generation)
+  loadError.value = false
+
+  try {
+    while (generation === requestGeneration) {
+      const currentData: MediaInfo[] = await api.get(apipath, {
         params: getParams(),
       })
-      loading.value = false
-      // 标计为已请求完成
+
+      if (generation !== requestGeneration) return
+
       isRefreshed.value = true
-      if (currData.value.length === 0) {
-        // 如果没有数据，跳出
+      if (currentData.length === 0) {
         done('empty')
-      } else {
-        // 合并数据
-        dataList.value = [...dataList.value, ...currData.value]
-        // 页码+1
-        page.value++
-        // 返回加载成功
-        done('ok')
+        return
       }
+
+      dataList.value = [...dataList.value, ...currentData]
+      page.value++
+      done('ok')
+      await nextTick()
+
+      if (hasScroll()) return
     }
   } catch (error) {
+    if (generation !== requestGeneration) return
+
     console.error(error)
-    // 返回加载失败
+    isRefreshed.value = true
+    loadError.value = true
     done('error')
+  } finally {
+    loadingGenerations.delete(generation)
   }
+}
+
+/** 使用媒体来源、稳定 ID 与季号区分热门条目。 */
+function getMediaItemKey(item: MediaInfo) {
+  const mediaId = item.tmdb_id
+    ? `tmdb:${item.tmdb_id}`
+    : item.douban_id
+      ? `douban:${item.douban_id}`
+      : item.bangumi_id
+        ? `bangumi:${item.bangumi_id}`
+        : `${item.mediaid_prefix ?? 'media'}:${item.media_id ?? item.title ?? ''}`
+
+  return `${item.source ?? 'unknown'}:${mediaId}:season:${item.season ?? 'all'}`
 }
 </script>
 
@@ -278,11 +276,19 @@ async function fetchData({ done }: { done: any }) {
     :key="currentKey"
   >
     <template #loading />
+    <template #error="{ props: retryProps }">
+      <div class="d-flex flex-column align-center ga-2 py-4" role="alert">
+        <span class="text-medium-emphasis">{{ t('subscribe.requestFailed') }}</span>
+        <VBtn v-bind="retryProps" prepend-icon="mdi-refresh" size="small" variant="tonal">
+          {{ t('common.retry') }}
+        </VBtn>
+      </div>
+    </template>
     <template #empty />
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
-      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+      :get-item-key="getMediaItemKey"
       :min-item-width="144"
       :estimated-item-height="320"
       tabindex="0"
@@ -298,7 +304,7 @@ async function fetchData({ done }: { done: any }) {
       </template>
     </ProgressiveCardGrid>
     <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
+      v-if="dataList.length === 0 && isRefreshed && !loadError"
       error-code="404"
       :error-title="t('common.noData')"
       :error-description="t('subscribe.noPopularData')"

@@ -23,14 +23,19 @@ const statistics = ref<SubscribeShareStatistics[]>([])
 // 是否加载中
 const loading = ref(false)
 
+// 本地统计接口是否加载失败；合法空数组仍使用空数据状态。
+const loadError = ref(false)
+
 // 获取统计数据
 async function fetchStatistics() {
   try {
     loading.value = true
+    loadError.value = false
     const data: SubscribeShareStatistics[] = await api.get('subscribe/share/statistics')
     statistics.value = data
   } catch (error) {
     console.error('获取分享统计数据失败:', error)
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -130,6 +135,13 @@ onMounted(() => {
       <VDivider />
       <VCardText class="pa-0">
         <LoadingBanner v-if="loading" class="mt-4" />
+        <div v-else-if="loadError" class="text-center py-8">
+          <VIcon icon="mdi-alert-circle-outline" size="64" color="error" class="mb-4" />
+          <div class="text-h6 text-error mb-4">{{ t('subscribe.requestFailed') }}</div>
+          <VBtn color="primary" variant="tonal" prepend-icon="mdi-refresh" @click="fetchStatistics">
+            {{ t('common.retry') }}
+          </VBtn>
+        </div>
         <div v-else-if="rankedStatistics.length === 0" class="text-center py-8">
           <VIcon icon="mdi-chart-line" size="64" color="grey" class="mb-4" />
           <div class="text-h6 text-grey">{{ t('subscribe.noStatisticsData') }}</div>

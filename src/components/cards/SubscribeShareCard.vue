@@ -49,6 +49,7 @@ const posterUrl = computed(() => {
 function getMediaId() {
   if (props.media?.tmdbid) return `tmdb:${props.media?.tmdbid}`
   else if (props.media?.doubanid) return `douban:${props.media?.doubanid}`
+  else if (props.media?.bangumiid) return `bangumi:${props.media?.bangumiid}`
 }
 
 // 查看媒体详情
@@ -152,7 +153,7 @@ function doDelete() {
                 </div>
               </VCardText>
               <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
-                <VIcon icon="mdi-calcdar" class="me-1" />
+                <VIcon icon="mdi-calendar" class="me-1" />
                 {{ dateText }}
               </VCardText>
             </div>

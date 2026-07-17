@@ -1,4 +1,13 @@
-import type { DownloaderConf, FilterRuleGroup, Site, Subscribe, TransferDirectoryConf } from '@/api/types'
+import type {
+  DownloaderConf,
+  FilterRuleGroup,
+  MediaInfo,
+  Site,
+  Subscribe,
+  SubscribeShare,
+  SubscribeShareStatistics,
+  TransferDirectoryConf,
+} from '@/api/types'
 import { HttpResponse, http, type JsonBodyType, type RequestHandler } from 'msw'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
@@ -28,12 +37,20 @@ export const subscribeApiUrls = {
   filesById: (id: number) => new URL(`subscribe/files/${id}`, API_BASE_URL).href,
   historyById: (id: number) => new URL(`subscribe/history/${id}`, API_BASE_URL).href,
   historyByType: (type: SubscribeMediaType) => new URL(`subscribe/history/${type}`, API_BASE_URL).href,
+  follow: new URL('subscribe/follow', API_BASE_URL).href,
+  followSubscribers: new URL('system/setting/public/FollowSubscribers', API_BASE_URL).href,
+  fork: new URL('subscribe/fork', API_BASE_URL).href,
   queryByMedia: (mediaId: string) => new URL(`subscribe/media/${mediaId}`, API_BASE_URL).href,
   list: new URL('subscribe/', API_BASE_URL).href,
   orderConfig: (type: SubscribeMediaType) =>
     new URL(`user/config/${type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'}`, API_BASE_URL).href,
+  popular: new URL('subscribe/popular', API_BASE_URL).href,
   resetById: (id: number) => new URL(`subscribe/reset/${id}`, API_BASE_URL).href,
   searchById: (id: number) => new URL(`subscribe/search/${id}`, API_BASE_URL).href,
+  share: new URL('subscribe/share', API_BASE_URL).href,
+  shareById: (id: number) => new URL(`subscribe/share/${id}`, API_BASE_URL).href,
+  shareStatistics: new URL('subscribe/share/statistics', API_BASE_URL).href,
+  shares: new URL('subscribe/shares', API_BASE_URL).href,
   sites: new URL('site/rss', API_BASE_URL).href,
   statusById: (id: number) => new URL(`subscribe/status/${id}`, API_BASE_URL).href,
   update: new URL('subscribe/', API_BASE_URL).href,
@@ -51,6 +68,108 @@ export function subscribeListHandler(
   return http.get(subscribeApiUrls.list, ({ request }) => {
     onRequest(new URL(request.url))
     return jsonResponse(response, status)
+  })
+}
+
+export function popularSubscribesHandler(
+  response: MediaInfo[] = [],
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(subscribeApiUrls.popular, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response as unknown as JsonBodyType, status)
+  })
+}
+
+export function subscribeSharesHandler(
+  response: SubscribeShare[] = [],
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(subscribeApiUrls.shares, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response as unknown as JsonBodyType, status)
+  })
+}
+
+export function shareSubscribeHandler(
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onShare: (payload: SubscribeShare) => void | Promise<void> = () => {},
+) {
+  return http.post(subscribeApiUrls.share, async ({ request }) => {
+    const payload = (await request.json()) as SubscribeShare
+    await onShare(payload)
+    return jsonResponse(response, status)
+  })
+}
+
+export function forkSubscribeHandler(
+  response: SubscribeMutationResponse = { data: { id: 1 }, success: true },
+  status = 200,
+  onFork: (payload: SubscribeShare) => void | Promise<void> = () => {},
+) {
+  return http.post(subscribeApiUrls.fork, async ({ request }) => {
+    const payload = (await request.json()) as SubscribeShare
+    await onFork(payload)
+    return jsonResponse(response, status)
+  })
+}
+
+export function followSubscribersSettingHandler(
+  users: string[] = [],
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(subscribeApiUrls.followSubscribers, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse({ data: { value: users }, success: status < 400 }, status)
+  })
+}
+
+export function followSubscriberHandler(
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.post(subscribeApiUrls.follow, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function unfollowSubscriberHandler(
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.delete(subscribeApiUrls.follow, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function deleteSubscribeShareHandler(
+  id: number,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.delete(subscribeApiUrls.shareById(id), async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function subscribeShareStatisticsHandler(
+  response: SubscribeShareStatistics[] = [],
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(subscribeApiUrls.shareStatistics, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return jsonResponse(response as unknown as JsonBodyType, status)
   })
 }
 
