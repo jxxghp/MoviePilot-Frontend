@@ -3855,6 +3855,7 @@ export default {
     sortByCategory: '按分類排序',
     autoTransfer: '自動轉移',
     monitorMode: '監控模式',
+    deleteEmptyDirectories: '刪除空資料夾',
     libraryStorage: '媒體庫存儲',
     libraryDirectory: '媒體庫目錄',
     transferType: '轉移方式',

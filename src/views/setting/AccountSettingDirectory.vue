@@ -151,7 +151,10 @@ async function saveStorages() {
 async function loadDirectories() {
   try {
     const result: { [key: string]: any } = await api.get('system/setting/public/Directories')
-    directories.value = result.data?.value ?? []
+    directories.value = (result.data?.value ?? []).map((directory: TransferDirectoryConf) => ({
+      ...directory,
+      delete_empty_dirs: directory.delete_empty_dirs !== false,
+    }))
   } catch (error) {
     console.log(error)
   }
@@ -189,6 +192,7 @@ function addDirectory() {
     download_path: '',
     priority: -1,
     monitor_type: '',
+    delete_empty_dirs: true,
     media_type: '',
     media_category: '',
     transfer_type: '',

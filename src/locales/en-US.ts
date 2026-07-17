@@ -3917,6 +3917,7 @@ export default {
     sortByCategory: 'Sort by Category',
     autoTransfer: 'Auto Transfer',
     monitorMode: 'Monitor Mode',
+    deleteEmptyDirectories: 'Delete Empty Directories',
     libraryStorage: 'Library Storage',
     libraryDirectory: 'Library Directory',
     transferType: 'Transfer Type',

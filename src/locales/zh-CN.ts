@@ -3858,6 +3858,7 @@ export default {
     sortByCategory: '按类别分类',
     autoTransfer: '自动整理',
     monitorMode: '监控模式',
+    deleteEmptyDirectories: '删除空文件夹',
     libraryStorage: '媒体库存储',
     libraryDirectory: '媒体库目录',
     transferType: '整理方式',

@@ -347,13 +347,19 @@ watch(
           </VCol>
         </VRow>
         <VRow v-if="$props.directory.monitor_type">
-          <VCol cols="12" v-if="$props.directory.monitor_type == 'monitor'">
+          <VCol cols="12" md="6" v-if="$props.directory.monitor_type == 'monitor'">
             <VSelect
               v-model="props.directory.monitor_mode"
               variant="underlined"
               :items="MonitorModeItems"
               :label="t('directory.monitorMode')"
               mobile-control-width="65%"
+            />
+          </VCol>
+          <VCol cols="12" md="6" v-if="$props.directory.monitor_type == 'monitor'">
+            <VSwitch
+              v-model="props.directory.delete_empty_dirs"
+              :label="t('directory.deleteEmptyDirectories')"
             />
           </VCol>
           <VCol cols="4">

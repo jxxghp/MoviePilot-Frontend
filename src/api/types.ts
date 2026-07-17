@@ -1375,6 +1375,8 @@ export interface TransferDirectoryConf {
   monitor_type?: string
   // 监控模式 fast/compatibility
   monitor_mode?: string
+  // 是否删除源目录中的空文件夹
+  delete_empty_dirs?: boolean
   // 整理方式 move/copy/link/softlink
   transfer_type: string
   // 文件覆盖模式 always/size/never/latest
