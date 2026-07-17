@@ -37,7 +37,7 @@ import {
   THEME_CUSTOMIZER_OPEN_EVENT,
   type ThemeCustomizerSettings,
 } from '@/composables/useThemeCustomizer'
-import logo from '@images/logo.svg?raw'
+import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
 
 const display = useDisplay()
 // PWA模式检测
@@ -510,7 +510,7 @@ onMounted(async () => {
         :class="{ 'theme-navbar-row--horizontal': showHorizontalThemeNav }"
       >
         <RouterLink v-if="showHorizontalThemeNav" :to="canAdmin ? '/dashboard' : '/apps'" class="theme-horizontal-logo">
-          <span class="theme-horizontal-logo__mark" v-html="logo" />
+          <ThemeLogoMark class="theme-horizontal-logo__mark" />
           <span class="theme-horizontal-logo__text">MOVIEPILOT</span>
         </RouterLink>
         <!-- 👉 Vertical Nav Toggle -->
@@ -770,14 +770,6 @@ onMounted(async () => {
 }
 
 .theme-horizontal-logo__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  block-size: 2rem;
-  inline-size: 2rem;
-}
-
-.theme-horizontal-logo__mark :deep(svg) {
   display: block;
   block-size: 1.8rem;
   inline-size: 1.8rem;
