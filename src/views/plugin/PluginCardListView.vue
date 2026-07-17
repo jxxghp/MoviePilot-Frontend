@@ -688,7 +688,10 @@ function normalizeMarketText(value: unknown) {
 /** 将插件市场逗号分隔字段转换为去重前的文本数组。 */
 function splitMarketValues(value: unknown) {
   if (Array.isArray(value)) {
-    return value.map(normalizeMarketText).map(item => item.trim()).filter(Boolean)
+    return value
+      .map(normalizeMarketText)
+      .map(item => item.trim())
+      .filter(Boolean)
   }
 
   return normalizeMarketText(value)
@@ -933,7 +936,10 @@ watch([marketList, filterForm, activeSort, PluginStatistics], () => {
   marketList.value.forEach(value => {
     if (value) {
       if (
-        filterText(filterForm.name, `${normalizeMarketText(value.plugin_name)} ${normalizeMarketText(value.plugin_desc)}`) &&
+        filterText(
+          filterForm.name,
+          `${normalizeMarketText(value.plugin_name)} ${normalizeMarketText(value.plugin_desc)}`,
+        ) &&
         match(filterForm.author, value.plugin_author) &&
         matchMultiple(filterForm.label, value.plugin_label) &&
         match(filterForm.repo, handleRepoUrl(value))
@@ -1114,9 +1120,7 @@ const canAdmin = computed(() =>
   hasPermission(buildUserPermissionContext(userStore.superUser, userStore.permissions), 'admin'),
 )
 const showNewFolderAction = computed(() => activeTab.value === 'installed' && !currentFolder.value && canAdmin.value)
-const showMarketSettingAction = computed(
-  () => activeTab.value === 'market' && canAdmin.value,
-)
+const showMarketSettingAction = computed(() => activeTab.value === 'market' && canAdmin.value)
 
 const pluginDynamicMenuItems = computed(() => {
   if (!appMode.value) return undefined
@@ -1654,50 +1658,57 @@ function onDragStartPlugin(evt: any) {
           </VList>
           <!-- 下拉多选筛选项 -->
           <VDivider />
-          <div class="px-3 py-2 d-flex flex-column gap-2">
-            <VSelect
-              v-if="authorFilterOptions.length > 0"
-              v-model="filterForm.author"
-              :items="authorFilterOptions"
-              :label="t('plugin.author')"
-              mobile-control-width="72%"
-              multiple
-              chips
-              closable-chips
-              density="compact"
-              variant="outlined"
-              hide-details
-              clearable
-            />
-            <VSelect
-              v-if="labelFilterOptions.length > 0"
-              v-model="filterForm.label"
-              :items="labelFilterOptions"
-              :label="t('plugin.label')"
-              mobile-control-width="72%"
-              multiple
-              chips
-              closable-chips
-              density="compact"
-              variant="outlined"
-              hide-details
-              clearable
-            />
-            <VSelect
-              v-if="repoFilterOptions.length > 0"
-              v-model="filterForm.repo"
-              :items="repoFilterOptions"
-              :label="t('plugin.repository')"
-              mobile-control-width="72%"
-              multiple
-              chips
-              closable-chips
-              density="compact"
-              variant="outlined"
-              hide-details
-              clearable
-            />
-          </div>
+          <VList density="compact" class="market-filter-options-list px-2 py-1">
+            <VListSubheader>{{ t('common.filter') }}</VListSubheader>
+            <VListItem>
+              <VSelect
+                v-if="authorFilterOptions.length > 0"
+                v-model="filterForm.author"
+                :items="authorFilterOptions"
+                :label="t('plugin.author')"
+                mobile-control-width="75%"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                clearable
+              />
+            </VListItem>
+            <VListItem>
+              <VSelect
+                v-if="labelFilterOptions.length > 0"
+                v-model="filterForm.label"
+                :items="labelFilterOptions"
+                :label="t('plugin.label')"
+                mobile-control-width="75%"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                clearable
+              />
+            </VListItem>
+            <VListItem>
+              <VSelect
+                v-if="repoFilterOptions.length > 0"
+                v-model="filterForm.repo"
+                :items="repoFilterOptions"
+                :label="t('plugin.repository')"
+                mobile-control-width="75%"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                clearable
+              />
+            </VListItem>
+          </VList>
         </VCard>
       </VMenu>
     </Teleport>
@@ -1924,3 +1935,19 @@ function onDragStartPlugin(evt: any) {
     </div>
   </Teleport>
 </template>
+
+<style scoped lang="scss">
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
+@media (width < 960px) {
+  // 弹出菜单使用紧凑录入行，避免叠加全局移动表单高度与列表项纵向留白。
+  .market-filter-options-list :deep(.v-list-item) {
+    padding-block: 0;
+  }
+
+  .market-filter-options-list :deep(.app-responsive-input) {
+    min-block-size: 3rem;
+    padding-block: 0.125rem;
+  }
+}
+</style>
