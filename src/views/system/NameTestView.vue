@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { useToast } from 'vue-toastification'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Context } from '@/api/types'
@@ -16,6 +17,9 @@ interface PipelineStep {
 // 国际化
 const { t } = useI18n()
 
+// 提示
+const $toast = useToast()
+
 // 识别结果
 const nameTestResult = ref<Context>()
 
@@ -23,6 +27,7 @@ const nameTestResult = ref<Context>()
 const nameTestForm = reactive({
   title: '',
   subtitle: '',
+  customWords: '',
 })
 
 // 识别按钮状态
@@ -36,6 +41,9 @@ const showResult = ref(false)
 
 // 请求错误提示
 const nameTestError = ref('')
+
+// 识别词保存中状态
+const savingCustomWords = ref(false)
 
 const metaInfo = computed(() => nameTestResult.value?.meta_info)
 const mediaInfo = computed(() => nameTestResult.value?.media_info)
@@ -108,7 +116,7 @@ function viewMediaDetail() {
   })
 }
 
-/** 调用媒体识别接口并刷新解析工作台。 */
+/** 调用媒体识别接口并刷新解析工作台，输入的识别词会临时应用于本次识别测试。 */
 async function nameTest() {
   if (!nameTestForm.title) return
 
@@ -121,6 +129,7 @@ async function nameTest() {
       params: {
         title: nameTestForm.title,
         subtitle: nameTestForm.subtitle,
+        custom_words: nameTestForm.customWords || undefined,
       },
     })
     nameTestText.value = t('nameTest.recognizeAgain')
@@ -130,6 +139,44 @@ async function nameTest() {
     nameTestError.value = error instanceof Error ? error.message : t('nameTest.requestFailed')
   } finally {
     nameTestLoading.value = false
+  }
+}
+
+/** 将识别词文本拆分为按行的规则列表，过滤掉空白行。 */
+function parseCustomWordLines(text: string) {
+  return text.split('\n').filter(line => line.trim().length > 0)
+}
+
+/** 将当前输入的识别词追加保存到系统识别词表末尾。 */
+async function saveCustomWords() {
+  if (savingCustomWords.value) return
+
+  const newLines = parseCustomWordLines(nameTestForm.customWords)
+  if (!newLines.length) return
+
+  savingCustomWords.value = true
+  try {
+    const queryResult: { [key: string]: any } = await api.get('system/setting/CustomIdentifiers')
+    const existingLines: string[] = Array.isArray(queryResult?.data?.value) ? queryResult.data.value : []
+    const appendLines = newLines.filter(line => !existingLines.includes(line))
+
+    if (!appendLines.length) {
+      $toast.warning(t('nameTest.saveWordsNoChange'))
+      return
+    }
+
+    const saveResult: { [key: string]: any } = await api.post('system/setting/CustomIdentifiers', [
+      ...existingLines,
+      ...appendLines,
+    ])
+
+    if (saveResult.success) $toast.success(t('nameTest.saveWordsSuccess'))
+    else $toast.error(saveResult.message || t('nameTest.saveWordsFailed'))
+  } catch (error) {
+    console.error(error)
+    $toast.error(t('nameTest.saveWordsFailed'))
+  } finally {
+    savingCustomWords.value = false
   }
 }
 </script>
@@ -167,6 +214,32 @@ async function nameTest() {
               auto-grow
               prepend-inner-icon="mdi-subtitles"
             />
+          </VCol>
+          <VCol cols="12" class="shortcut-form-col">
+            <VTextarea
+              v-model="nameTestForm.customWords"
+              :label="t('nameTest.customWords')"
+              :placeholder="t('nameTest.customWordsPlaceholder')"
+              rows="3"
+              auto-grow
+              prepend-inner-icon="mdi-tag-text-outline"
+            />
+            <div class="custom-words-toolbar">
+              <VBtn
+                type="button"
+                size="small"
+                variant="tonal"
+                color="primary"
+                :disabled="!nameTestForm.customWords.trim()"
+                :loading="savingCustomWords"
+                @click="saveCustomWords"
+              >
+                <template #prepend>
+                  <VIcon icon="mdi-content-save-outline" />
+                </template>
+                {{ t('nameTest.saveWords') }}
+              </VBtn>
+            </div>
           </VCol>
           <VCol cols="12" class="shortcut-form-col">
             <VBtn block type="submit" :disabled="nameTestLoading" :loading="nameTestLoading">
@@ -323,6 +396,12 @@ async function nameTest() {
 
 .shortcut-form-col:last-child {
   padding-block-end: 0;
+}
+
+.custom-words-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: 0.5rem;
 }
 
 .result-stack {
