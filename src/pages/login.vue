@@ -1215,7 +1215,6 @@ onUnmounted(() => {
 
 .login-title {
   margin: 0;
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
   background: linear-gradient(135deg, rgb(var(--v-theme-on-surface)) 30%, rgba(var(--v-theme-primary), 1) 100%);
   background-clip: text;
   font-size: 1.85rem;
@@ -1229,7 +1228,6 @@ onUnmounted(() => {
 }
 
 .login-subtitle {
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   font-weight: 400;
@@ -1241,7 +1239,6 @@ onUnmounted(() => {
 
 /* ===================== 卡片主体 ===================== */
 .login-body {
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
   padding-block: 8px !important;
 }
 
@@ -1528,7 +1525,6 @@ onUnmounted(() => {
   letter-spacing: 0.03em;
   margin-block-start: 14px;
   opacity: 0.75;
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 520ms both;
 }
 
 .login-version {
@@ -1553,25 +1549,9 @@ onUnmounted(() => {
   }
 }
 
-@keyframes text-enter {
-  0% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* ===================== 无障碍：尊重减少动态偏好 ===================== */
 @media (prefers-reduced-motion: reduce) {
-  .login-card--enter,
-  .login-body,
-  .login-foot,
-  .login-title,
-  .login-subtitle {
+  .login-card--enter {
     animation: none !important;
   }
 
