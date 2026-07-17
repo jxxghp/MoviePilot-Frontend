@@ -523,16 +523,19 @@ async function subscribeForPushNotifications() {
 
 // 登录后处理
 async function afterLogin(superuser: boolean, userPayload: userState, filteredMenus: any[]) {
+  const originalPath = authStore.originalPath
+  authStore.setOriginalPath(null)
+
   // 如果需要显示设置向导，跳转到设置向导页面
   if (userPayload.wizard) {
-    router.push('/setup-wizard')
+    await router.push('/setup-wizard')
   } else {
-    // 如果有原始路径，优先跳转到原始路径
-    if (authStore.originalPath && authStore.originalPath !== '/') {
-      router.push(authStore.originalPath)
+    // 原始目标是一次性状态，持久化的旧登录页目标不得重新进入认证流程。
+    if (originalPath && originalPath !== '/' && router.resolve(originalPath).path !== '/login') {
+      await router.push(originalPath)
     } else {
       // 跳转到第一个有权限的菜单
-      router.push(filteredMenus[0].to)
+      await router.push(filteredMenus[0].to)
     }
   }
 
