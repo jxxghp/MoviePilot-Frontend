@@ -54,7 +54,8 @@ async function queryFollowUsers() {
     const result: { [key: string]: any } = await api.get('system/setting/public/FollowSubscribers')
     followUsers.value = result.data?.value ?? []
   } catch (error) {
-    console.log(error)
+    console.error(error)
+    $toast.error(t('subscribe.requestFailed'))
   }
 }
 
@@ -66,7 +67,8 @@ async function followUser() {
       queryFollowUsers()
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
+    $toast.error(t('subscribe.requestFailed'))
   }
 }
 
@@ -82,7 +84,8 @@ async function unfollowUser() {
       queryFollowUsers()
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
+    $toast.error(t('subscribe.requestFailed'))
   }
 }
 
@@ -96,6 +99,7 @@ const posterUrl = computed(() => {
 function getMediaId() {
   if (props.media?.tmdbid) return `tmdb:${props.media?.tmdbid}`
   else if (props.media?.doubanid) return `douban:${props.media?.doubanid}`
+  else if (props.media?.bangumiid) return `bangumi:${props.media?.bangumiid}`
 }
 
 // 查看媒体详情
@@ -129,6 +133,12 @@ async function doFork() {
     }
   } catch (error) {
     console.error(error)
+    $toast.error(
+      t('subscribe.addFailed', {
+        name: props.media?.share_title,
+        message: t('subscribe.requestFailed'),
+      }),
+    )
   } finally {
     processing.value = false
     doneNProgress()
@@ -151,12 +161,13 @@ async function doDelete() {
     if (result.success) {
       $toast.success(t('subscribe.cancelSuccess'))
       // 完成
-      emit('delete', result.data.id)
+      emit('delete')
     } else {
       $toast.error(t('subscribe.cancelFailed', { message: result.message }))
     }
   } catch (error) {
     console.error(error)
+    $toast.error(t('subscribe.cancelFailed', { message: t('subscribe.requestFailed') }))
   } finally {
     deleting.value = false
     doneNProgress()

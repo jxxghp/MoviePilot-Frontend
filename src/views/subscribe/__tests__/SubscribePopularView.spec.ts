@@ -1,0 +1,401 @@
+import type { MediaInfo } from '@/api/types'
+import SubscribePopularView from '@/views/subscribe/SubscribePopularView.vue'
+import { screen, waitFor } from '@testing-library/vue'
+import userEvent from '@testing-library/user-event'
+import { createSubscribeMovie, createSubscribeTv } from '@tests/support/factories/subscribe'
+import { popularSubscribesHandler, subscribeApiUrls } from '@tests/support/msw/handlers/subscribe'
+import { server } from '@tests/support/msw/server'
+import { renderWithProviders } from '@tests/support/render'
+import { flushPromises } from '@vue/test-utils'
+import { HttpResponse, http } from 'msw'
+import { defineComponent, h, onMounted, ref, type PropType } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+type InfiniteScrollStatus = 'empty' | 'error' | 'ok'
+
+const InfiniteScrollStub = defineComponent({
+  name: 'VInfiniteScroll',
+  emits: ['load'],
+  setup(_props, { emit, slots }) {
+    const status = ref<'empty' | 'error' | 'idle' | 'loading'>('idle')
+
+    function load() {
+      status.value = 'loading'
+      emit('load', {
+        done(nextStatus: InfiniteScrollStatus) {
+          status.value = nextStatus === 'ok' ? 'idle' : nextStatus
+        },
+      })
+    }
+
+    onMounted(load)
+
+    return () =>
+      h('section', { 'aria-label': '热门订阅无限列表' }, [
+        h('output', { 'aria-label': '热门订阅无限列表状态' }, status.value),
+        status.value === 'loading' ? slots.loading?.({}) : null,
+        status.value === 'error'
+          ? slots.error?.({
+              side: 'end',
+              props: { color: undefined, onClick: load },
+            })
+          : null,
+        status.value === 'empty' ? slots.empty?.({}) : null,
+        slots.default?.(),
+        h(
+          'button',
+          {
+            'aria-label': '触发热门订阅加载',
+            onClick: load,
+            type: 'button',
+          },
+          '触发热门订阅加载',
+        ),
+      ])
+  },
+})
+
+const ProgressiveCardGridStub = defineComponent({
+  name: 'ProgressiveCardGrid',
+  props: {
+    getItemKey: {
+      type: Function as PropType<(item: MediaInfo, index: number) => string | number>,
+      required: true,
+    },
+    items: {
+      type: Array as PropType<MediaInfo[]>,
+      required: true,
+    },
+  },
+  setup(props, { slots }) {
+    return () =>
+      h('section', { 'aria-label': '热门订阅渐进网格' }, [
+        h(
+          'output',
+          { 'aria-label': '热门订阅渐进网格键' },
+          props.items.map((item, index) => String(props.getItemKey(item, index))).join('|'),
+        ),
+        ...props.items.flatMap(item => slots.default?.({ item }) ?? []),
+      ])
+  },
+})
+
+const MediaCardStub = defineComponent({
+  name: 'MediaCard',
+  props: {
+    media: {
+      type: Object as PropType<MediaInfo>,
+      required: true,
+    },
+  },
+  setup(props) {
+    return () => h('article', props.media.title)
+  },
+})
+
+const LoadingBannerStub = defineComponent({
+  name: 'LoadingBanner',
+  template: '<div role="status">正在加载热门订阅</div>',
+})
+
+const NoDataFoundStub = defineComponent({
+  name: 'NoDataFound',
+  props: {
+    errorDescription: String,
+    errorTitle: String,
+  },
+  template: '<section aria-label="热门订阅空态">{{ errorTitle }} {{ errorDescription }}</section>',
+})
+
+interface Deferred {
+  promise: Promise<void>
+  resolve: () => void
+}
+
+function createDeferred(): Deferred {
+  let resolve!: () => void
+  const promise = new Promise<void>(done => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
+function setHasScroll(hasScroll: boolean) {
+  vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(600)
+  return vi.spyOn(document.body, 'scrollHeight', 'get').mockReturnValue(hasScroll ? 900 : 500)
+}
+
+async function renderPopular(type: '电影' | '电视剧' = '电影') {
+  return renderWithProviders(SubscribePopularView, {
+    props: { type },
+    global: {
+      stubs: {
+        LoadingBanner: LoadingBannerStub,
+        MediaCard: MediaCardStub,
+        NoDataFound: NoDataFoundStub,
+        ProgressiveCardGrid: ProgressiveCardGridStub,
+        VInfiniteScroll: InfiniteScrollStub,
+      },
+    },
+  })
+}
+
+describe('SubscribePopularView', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    setHasScroll(true)
+  })
+
+  it.each([
+    ['电影', () => createSubscribeMovie({ popularity: 18, title: '默认热门电影' })],
+    ['电视剧', () => createSubscribeTv({ popularity: 27, title: '默认热门剧集' })],
+  ] as const)('loads %s with the exact default query', async (type, createMedia) => {
+    const requests: URL[] = []
+    server.use(
+      popularSubscribesHandler([createMedia()], 200, url => {
+        requests.push(url)
+      }),
+    )
+
+    await renderPopular(type)
+
+    expect(await screen.findByText(type === '电影' ? '默认热门电影' : '默认热门剧集')).toBeInTheDocument()
+    expect(screen.getByText(type === '电影' ? '18' : '27')).toBeInTheDocument()
+    expect(requests).toHaveLength(1)
+    expect(requests[0].searchParams.get('stype')).toBe(type)
+    expect(requests[0].searchParams.get('page')).toBe('1')
+    expect(requests[0].searchParams.get('count')).toBe('30')
+    expect(requests[0].searchParams.get('sort_type')).toBe('count')
+    expect(requests[0].searchParams.get('genre_id')).toBeNull()
+    expect(requests[0].searchParams.get('min_rating')).toBeNull()
+    expect(requests[0].searchParams.get('max_rating')).toBeNull()
+    expect(requests[0].searchParams.get('min_sub')).toBeNull()
+  })
+
+  it('resets to page one with exact sort, genre and rating filters', async () => {
+    const requests: URL[] = []
+    server.use(
+      http.get(subscribeApiUrls.popular, ({ request }) => {
+        const url = new URL(request.url)
+        requests.push(url)
+        const title = url.searchParams.has('min_rating')
+          ? '高分热门结果'
+          : url.searchParams.has('genre_id')
+            ? '动作热门结果'
+            : url.searchParams.get('sort_type') === 'time'
+              ? '最新热门结果'
+              : '默认热门结果'
+        return HttpResponse.json([createSubscribeMovie({ title })])
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    expect(await screen.findByText('默认热门结果')).toBeInTheDocument()
+
+    await user.click(screen.getByText('最新'))
+    expect(await screen.findByText('最新热门结果')).toBeInTheDocument()
+    expect(screen.queryByText('默认热门结果')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('动作'))
+    expect(await screen.findByText('动作热门结果')).toBeInTheDocument()
+    expect(screen.queryByText('最新热门结果')).not.toBeInTheDocument()
+
+    screen.getByRole('slider').focus()
+    await user.keyboard('{ArrowRight}'.repeat(7))
+    expect(await screen.findByText('高分热门结果')).toBeInTheDocument()
+    expect(screen.queryByText('动作热门结果')).not.toBeInTheDocument()
+
+    expect(requests.length).toBeGreaterThanOrEqual(4)
+    expect(requests.slice(1).every(url => url.searchParams.get('page') === '1')).toBe(true)
+    expect(requests[1].searchParams.get('sort_type')).toBe('time')
+    expect(requests[2].searchParams.get('genre_id')).toBe('28')
+    expect(requests.at(-1)?.searchParams.get('min_rating')).toBe('7')
+  })
+
+  it('appends later pages and stops when a page is empty', async () => {
+    const first = createSubscribeMovie({ title: '热门第一页' })
+    const second = createSubscribeMovie({ title: '热门第二页' })
+    const requestedPages: string[] = []
+    server.use(
+      http.get(subscribeApiUrls.popular, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? ''
+        requestedPages.push(page)
+        if (page === '1') return HttpResponse.json([first])
+        if (page === '2') return HttpResponse.json([second])
+        return HttpResponse.json([])
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    expect(await screen.findByText('热门第一页')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+    expect(await screen.findByText('热门第二页')).toBeInTheDocument()
+    expect(screen.getByText('热门第一页')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+    await waitFor(() => expect(requestedPages).toEqual(['1', '2', '3']))
+    expect(screen.getByText('热门第一页')).toBeInTheDocument()
+    expect(screen.getByText('热门第二页')).toBeInTheDocument()
+  })
+
+  it('loads consecutive pages until an underfilled viewport becomes scrollable', async () => {
+    const first = createSubscribeMovie({ title: '未满屏第一页' })
+    const second = createSubscribeMovie({ title: '未满屏第二页' })
+    const requestedPages: string[] = []
+    const scrollHeight = vi.spyOn(document.body, 'scrollHeight', 'get').mockImplementation(() =>
+      requestedPages.length >= 2 ? 900 : 500,
+    )
+    server.use(
+      http.get(subscribeApiUrls.popular, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? ''
+        requestedPages.push(page)
+        return HttpResponse.json(page === '1' ? [first] : [second])
+      }),
+    )
+
+    await renderPopular()
+
+    expect(await screen.findByText('未满屏第一页')).toBeInTheDocument()
+    expect(await screen.findByText('未满屏第二页')).toBeInTheDocument()
+    expect(requestedPages).toEqual(['1', '2'])
+    scrollHeight.mockRestore()
+  })
+
+  it('shows the no-data state for an empty first page', async () => {
+    server.use(popularSubscribesHandler([]))
+
+    await renderPopular()
+
+    expect(await screen.findByRole('region', { name: '热门订阅空态' })).toBeInTheDocument()
+    expect(screen.queryByText('正在加载热门订阅')).not.toBeInTheDocument()
+  })
+
+  it('deduplicates concurrent load events while the request is pending', async () => {
+    const gate = createDeferred()
+    const requests: URL[] = []
+    server.use(
+      popularSubscribesHandler([createSubscribeMovie({ title: '并发加载结果' })], 200, async url => {
+        requests.push(url)
+        await gate.promise
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    await waitFor(() => expect(requests).toHaveLength(1))
+
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+    expect(requests).toHaveLength(1)
+    expect(screen.getByRole('status', { name: '热门订阅无限列表状态' })).toHaveTextContent('loading')
+
+    gate.resolve()
+    expect(await screen.findByText('并发加载结果')).toBeInTheDocument()
+  })
+
+  it('recovers from an initial HTTP failure by retrying page one', async () => {
+    const requestedPages: string[] = []
+    server.use(
+      http.get(subscribeApiUrls.popular, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? ''
+        requestedPages.push(page)
+        if (requestedPages.length === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
+        return HttpResponse.json([createSubscribeMovie({ title: '热门首载重试成功' })])
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    const retry = await screen.findByRole('button', { name: '重试' })
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+
+    await user.click(retry)
+
+    expect(await screen.findByText('热门首载重试成功')).toBeInTheDocument()
+    expect(requestedPages).toEqual(['1', '1'])
+  })
+
+  it('keeps existing cards and retries the failed later page', async () => {
+    const first = createSubscribeMovie({ title: '热门保留第一页' })
+    const second = createSubscribeMovie({ title: '热门第二页重试成功' })
+    const requestedPages: string[] = []
+    let pageTwoAttempts = 0
+    server.use(
+      http.get(subscribeApiUrls.popular, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page') ?? ''
+        requestedPages.push(page)
+        if (page === '1') return HttpResponse.json([first])
+        pageTwoAttempts += 1
+        if (pageTwoAttempts === 1) return HttpResponse.json({ detail: 'failed' }, { status: 500 })
+        return HttpResponse.json([second])
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    expect(await screen.findByText('热门保留第一页')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '触发热门订阅加载' }))
+
+    const retry = await screen.findByRole('button', { name: '重试' })
+    expect(screen.getByText('热门保留第一页')).toBeInTheDocument()
+    await user.click(retry)
+
+    expect(await screen.findByText('热门第二页重试成功')).toBeInTheDocument()
+    expect(screen.getByText('热门保留第一页')).toBeInTheDocument()
+    expect(requestedPages).toEqual(['1', '2', '2'])
+  })
+
+  it('ignores an obsolete response when filters reset a pending request', async () => {
+    const gate = createDeferred()
+    const requests: URL[] = []
+    const staleResponse = vi.fn()
+    server.use(
+      http.get(subscribeApiUrls.popular, async ({ request }) => {
+        const url = new URL(request.url)
+        requests.push(url)
+        if (!url.searchParams.has('genre_id')) {
+          await gate.promise
+          staleResponse()
+          return HttpResponse.json([createSubscribeMovie({ title: '过期热门结果' })])
+        }
+        return HttpResponse.json([createSubscribeMovie({ title: '新筛选热门结果' })])
+      }),
+    )
+    const user = userEvent.setup()
+
+    await renderPopular()
+    await waitFor(() => expect(requests).toHaveLength(1))
+
+    await user.click(screen.getByText('动作'))
+    expect(await screen.findByText('新筛选热门结果')).toBeInTheDocument()
+    expect(requests.filter(url => url.searchParams.get('genre_id') === '28')).toHaveLength(1)
+    expect(requests.at(-1)?.searchParams.get('page')).toBe('1')
+
+    gate.resolve()
+    await waitFor(() => expect(staleResponse).toHaveBeenCalledOnce())
+    await flushPromises()
+    await flushPromises()
+
+    expect(screen.getByText('新筛选热门结果')).toBeInTheDocument()
+    expect(screen.queryByText('过期热门结果')).not.toBeInTheDocument()
+  })
+
+  it('provides unique progressive-grid keys for different seasons of the same TMDB title', async () => {
+    server.use(
+      popularSubscribesHandler([
+        createSubscribeTv({ season: 1, source: undefined, title: '同剧第一季', tmdb_id: 880 }),
+        createSubscribeTv({ season: 2, source: undefined, title: '同剧第二季', tmdb_id: 880 }),
+      ]),
+    )
+
+    await renderPopular('电视剧')
+
+    expect(await screen.findByText('同剧第一季')).toBeInTheDocument()
+    expect(screen.getByText('同剧第二季')).toBeInTheDocument()
+    const keys = screen.getByRole('status', { name: '热门订阅渐进网格键' }).textContent?.split('|') ?? []
+    expect(keys).toEqual(['unknown:tmdb:880:season:1', 'unknown:tmdb:880:season:2'])
+  })
+})

@@ -27,7 +27,9 @@ const shareDoing = ref(false)
 // 订阅编辑表单
 const shareForm = ref<SubscribeShare>({
   subscribe_id: props.sub?.id ?? 0,
-  share_title: `${props.sub?.name} ${formatSeason(props.sub?.season ? props.sub?.season.toString() : '')}`,
+  share_title: `${props.sub?.name} ${formatSeason(
+    props.sub?.season === null || props.sub?.season === undefined ? '' : props.sub.season.toString(),
+  )}`,
 })
 
 // 分享订阅
@@ -36,7 +38,6 @@ async function doShare() {
   try {
     shareDoing.value = true
     const result: { [key: string]: any } = await api.post('subscribe/share', shareForm.value)
-    shareDoing.value = false
     // 提示
     if (result.success) {
       $toast.success(t('dialog.subscribeShare.shareSuccess', { name: props.sub?.name }))
@@ -46,7 +47,15 @@ async function doShare() {
       $toast.error(t('dialog.subscribeShare.shareFailed', { name: props.sub?.name, message: result.message }))
     }
   } catch (e) {
-    console.log(e)
+    console.error(e)
+    $toast.error(
+      t('dialog.subscribeShare.shareFailed', {
+        name: props.sub?.name,
+        message: t('subscribe.requestFailed'),
+      }),
+    )
+  } finally {
+    shareDoing.value = false
   }
 }
 
@@ -64,7 +73,11 @@ const $toast = useToast()
         <VCardTitle>{{ t('dialog.subscribeShare.shareSubscription') }}</VCardTitle>
         <VCardSubtitle>
           {{ props.sub?.name }}
-          {{ props.sub?.season ? t('dialog.subscribeShare.season', { number: props.sub?.season }) : '' }}
+          {{
+            props.sub?.season === null || props.sub?.season === undefined
+              ? ''
+              : t('dialog.subscribeShare.season', { number: props.sub.season })
+          }}
         </VCardSubtitle>
       </VCardItem>
       <VDivider />
