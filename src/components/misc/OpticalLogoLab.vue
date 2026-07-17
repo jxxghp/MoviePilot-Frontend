@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { THEME_CUSTOMIZER_CHANGE_EVENT } from '@/composables/useThemeCustomizer'
+import PrismaticLogo from '@/components/misc/PrismaticLogo.vue'
 
-type MaterialMode = 'crystal' | 'chrome' | 'energy' | 'ceramic' | 'matte'
-type EntranceMode = 'assemble' | 'emerge'
+type WebGlMaterialMode = 'crystal' | 'chrome' | 'energy' | 'ceramic' | 'matte'
+type LogoStyle = WebGlMaterialMode | 'prismatic'
+type EntranceMode = 'none' | 'assemble' | 'emerge'
+type StaticMotionMode = 'steady' | 'random'
 type LabPhase = 'loading' | 'idle' | 'charging' | 'playing' | 'dragging' | 'fallback'
 type LogoPoint = readonly [number, number]
 type ThreeApi = typeof import('three')
@@ -68,8 +72,20 @@ interface PersistedState {
   pinnedCombination?: string
   lightIntensity: number
   soundEnabled: boolean
+  staticMotion: StaticMotionMode
   unifiedThemeFamily: boolean
-  version: 1
+  version: 2
+}
+
+interface LogoPreset {
+  entrance: EntranceMode
+  lightIntensity: number
+  logoSize: number
+  pinned: boolean
+  soundEnabled: boolean
+  staticMotion: StaticMotionMode
+  style: LogoStyle
+  unifiedThemeFamily: boolean
 }
 
 interface OpticalState {
@@ -110,12 +126,12 @@ const props = withDefaults(
   },
 )
 
-const STORAGE_KEY = 'moviepilot-optical-logo-lab-v1'
+const STORAGE_KEY = 'moviepilot-optical-logo-lab-v2'
 const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
 const INITIAL_CAMERA_Z = 5.15
 const BLOOM_RENDER_PADDING = 24
-const DEFAULT_LOGO_SIZE = 144
+const DEFAULT_LOGO_SIZE = 112
 const MIN_LOGO_SIZE = 96
 const MAX_LOGO_SIZE = 160
 // MSAA 只覆盖几何边缘；小尺寸 Logo 需要额外超采样来稳定旋转中的镜面高光。
@@ -128,13 +144,28 @@ const AUTO_REPLAY_MIN_MS = 12_000
 const AUTO_REPLAY_MAX_MS = 18_000
 const CRUISE_REST_PITCH = -0.025
 const CRUISE_REST_YAW = -0.12
+const STEADY_ROTATION_SPEED = 0.3
 const DRAG_REST_PITCH = -0.06
 const DRAG_REST_YAW = -0.14
 const LOGO_BASE_Y = 0.4
-const MATERIAL_MODES: readonly MaterialMode[] = ['crystal', 'chrome', 'energy', 'ceramic', 'matte']
-const ENTRANCE_MODES: readonly EntranceMode[] = ['assemble', 'emerge']
+const MATERIAL_MODES: readonly WebGlMaterialMode[] = ['crystal', 'chrome', 'energy', 'ceramic', 'matte']
+const LOGO_STYLES: readonly LogoStyle[] = [...MATERIAL_MODES, 'prismatic']
+const ENTRANCE_MODES: readonly EntranceMode[] = ['none', 'assemble', 'emerge']
+const STATIC_MOTION_MODES: readonly StaticMotionMode[] = ['steady', 'random']
 
-const DRAG_AUDIO_PROFILES: Record<MaterialMode, DragAudioProfile> = {
+/** 代码默认值是清空本地预设后的稳定回退，Lab 面板可将新选择保存给普通登录页。 */
+const DEFAULT_LOGO_PRESET: Readonly<LogoPreset> = {
+  entrance: 'none',
+  lightIntensity: 10,
+  logoSize: DEFAULT_LOGO_SIZE,
+  pinned: true,
+  soundEnabled: false,
+  staticMotion: 'steady',
+  style: 'chrome',
+  unifiedThemeFamily: true,
+}
+
+const DRAG_AUDIO_PROFILES: Record<LogoStyle, DragAudioProfile> = {
   crystal: {
     baseFilter: 520,
     baseFrequency: 420,
@@ -190,15 +221,27 @@ const DRAG_AUDIO_PROFILES: Record<MaterialMode, DragAudioProfile> = {
     gainRange: 0.034,
     waveform: 'sine',
   },
+  prismatic: {
+    baseFilter: 640,
+    baseFrequency: 520,
+    filterQ: 0.62,
+    filterRange: 560,
+    filterType: 'highpass',
+    frequencyRange: 96,
+    gainBase: 0.006,
+    gainRange: 0.03,
+    waveform: 'sine',
+  },
 }
 
 /** 常驻 Bloom 只强调材质高光，避免浅色外壳整体泛白。 */
-const BLOOM_PROFILES: Record<MaterialMode, { strength: number; threshold: number }> = {
+const BLOOM_PROFILES: Record<LogoStyle, { strength: number; threshold: number }> = {
   crystal: { strength: 0.25, threshold: 1.08 },
   chrome: { strength: 0.32, threshold: 1.02 },
   energy: { strength: 0.5, threshold: 0.9 },
   ceramic: { strength: 0.06, threshold: 1.3 },
   matte: { strength: 0.08, threshold: 1.24 },
+  prismatic: { strength: 0, threshold: 1.4 },
 }
 
 const LOGO_PIECES: readonly LogoPieceDefinition[] = [
@@ -343,16 +386,20 @@ const stageRef = ref<HTMLButtonElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isReady = ref(false)
 const isDragging = ref(false)
-const isPinned = ref(false)
+const isPinned = ref(DEFAULT_LOGO_PRESET.pinned)
 const soundEnabled = ref(false)
 const lightIntensity = ref(45)
 const logoSize = ref(DEFAULT_LOGO_SIZE)
 const unifiedThemeFamily = ref(true)
-const selectedMaterial = ref<MaterialMode>('crystal')
-const selectedEntrance = ref<EntranceMode>('emerge')
+const selectedMaterial = ref<LogoStyle>(DEFAULT_LOGO_PRESET.style)
+const selectedEntrance = ref<EntranceMode>(DEFAULT_LOGO_PRESET.entrance)
+const selectedStaticMotion = ref<StaticMotionMode>(DEFAULT_LOGO_PRESET.staticMotion)
+const prismaticReplayKey = ref(0)
 const phase = ref<LabPhase>('loading')
 
 const vuetifyTheme = useTheme()
+const route = useRoute()
+const showLabControls = computed(() => route.path === '/login' && route.query.lab === '1')
 const isChinese = computed(() => props.locale.toLowerCase().startsWith('zh'))
 const text = computed(() =>
   isChinese.value
@@ -370,7 +417,13 @@ const text = computed(() =>
         matte: '哑光金属',
         materialGroup: 'Logo 材质',
         mute: '关闭声音',
+        none: '无动画',
         pin: '固定当前组合',
+        prismatic: '光谱棱镜',
+        random: '随机转向',
+        resetLab: '清空预设并恢复默认',
+        staticMotionGroup: '静态运动方式',
+        steady: '匀速旋转',
         staticLogo: 'MoviePilot Logo',
         unmute: '开启声音',
         unpin: '取消固定组合',
@@ -391,7 +444,13 @@ const text = computed(() =>
         matte: 'Matte metal',
         materialGroup: 'Logo material',
         mute: 'Mute sound',
+        none: 'None',
         pin: 'Pin this combination',
+        prismatic: 'Spectral prism',
+        random: 'Random turns',
+        resetLab: 'Clear preset and restore defaults',
+        staticMotionGroup: 'Idle motion',
+        steady: 'Steady rotation',
         staticLogo: 'MoviePilot logo',
         unmute: 'Enable sound',
         unpin: 'Unpin combination',
@@ -401,11 +460,15 @@ const text = computed(() =>
 )
 
 const materialOptions = computed(() =>
-  MATERIAL_MODES.map(value => ({
+  LOGO_STYLES.map(value => ({
     label: text.value[value],
     value,
   })),
 )
+
+function isStaticMotionMode(value: unknown): value is StaticMotionMode {
+  return typeof value === 'string' && STATIC_MOTION_MODES.includes(value as StaticMotionMode)
+}
 
 let THREE: ThreeApi | null = null
 let gsapApi: GsapApi | null = null
@@ -441,12 +504,12 @@ let rimLight: ThreeLight | null = null
 let fillLight: ThreeLight | null = null
 let bounceLight: ThreeLight | null = null
 let pieceRigs: PieceRig[] = []
-let materialRigs: Record<MaterialMode, MaterialRig> | null = null
+let materialRigs: Record<WebGlMaterialMode, MaterialRig> | null = null
 
 const geometries = new Set<ThreeBufferGeometry>()
 const materials = new Set<ThreeMaterial>()
 const textures = new Set<ThreeTexture>()
-const prewarmedMaterials = new Set<MaterialMode>()
+const prewarmedMaterials = new Set<WebGlMaterialMode>()
 const opticalState: OpticalState = { caustic: 0.25, focus: 0, membrane: 0, pulse: 0, spectral: 0 }
 const pointerState = { x: 0.5, y: 0.32, targetPitch: 0, targetYaw: 0 }
 const dragState = {
@@ -476,6 +539,7 @@ let resizeObserver: ResizeObserver | null = null
 let intersectionObserver: IntersectionObserver | null = null
 let reducedMotionQuery: MediaQueryList | null = null
 let canHoverQuery: MediaQueryList | null = null
+let presetPersistenceSuspended = false
 let cardElement: HTMLElement | null = null
 let idleTaskId: number | null = null
 let firstPaintFrameId: number | null = null
@@ -704,8 +768,8 @@ const CausticShader = {
   `,
 }
 
-function isMaterialMode(value: unknown): value is MaterialMode {
-  return typeof value === 'string' && MATERIAL_MODES.includes(value as MaterialMode)
+function isLogoStyle(value: unknown): value is LogoStyle {
+  return typeof value === 'string' && LOGO_STYLES.includes(value as LogoStyle)
 }
 
 function isEntranceMode(value: unknown): value is EntranceMode {
@@ -715,7 +779,7 @@ function isEntranceMode(value: unknown): value is EntranceMode {
 function parseCombination(value: unknown) {
   if (typeof value !== 'string') return null
   const [material, entrance] = value.split(':')
-  if (!isMaterialMode(material) || !isEntranceMode(entrance)) return null
+  if (!isLogoStyle(material) || !isEntranceMode(entrance)) return null
   return { entrance, material }
 }
 
@@ -724,7 +788,7 @@ function combinationKey(material = selectedMaterial.value, entrance = selectedEn
 }
 
 function createShuffledBag(previous?: string) {
-  const bag = MATERIAL_MODES.flatMap(material => ENTRANCE_MODES.map(entrance => `${material}:${entrance}`))
+  const bag = LOGO_STYLES.flatMap(style => ENTRANCE_MODES.map(entrance => `${style}:${entrance}`))
   for (let index = bag.length - 1; index > 0; index -= 1) {
     const target = Math.floor(Math.random() * (index + 1))
     ;[bag[index], bag[target]] = [bag[target], bag[index]]
@@ -736,16 +800,19 @@ function createShuffledBag(previous?: string) {
 function readPersistedState(): PersistedState {
   const fallback: PersistedState = {
     bag: [],
-    lightIntensity: 45,
-    logoSize: DEFAULT_LOGO_SIZE,
-    pinned: false,
-    soundEnabled: false,
-    unifiedThemeFamily: true,
-    version: 1,
+    lastCombination: combinationKey(DEFAULT_LOGO_PRESET.style, DEFAULT_LOGO_PRESET.entrance),
+    lightIntensity: DEFAULT_LOGO_PRESET.lightIntensity,
+    logoSize: DEFAULT_LOGO_PRESET.logoSize,
+    pinned: DEFAULT_LOGO_PRESET.pinned,
+    pinnedCombination: combinationKey(DEFAULT_LOGO_PRESET.style, DEFAULT_LOGO_PRESET.entrance),
+    soundEnabled: DEFAULT_LOGO_PRESET.soundEnabled,
+    staticMotion: DEFAULT_LOGO_PRESET.staticMotion,
+    unifiedThemeFamily: DEFAULT_LOGO_PRESET.unifiedThemeFamily,
+    version: 2,
   }
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<PersistedState> | null
-    if (!parsed || parsed.version !== 1) return fallback
+    if (!parsed || parsed.version !== 2) return fallback
     const persistedLightIntensity = Number(parsed.lightIntensity)
     const persistedLogoSize = Number(parsed.logoSize)
     return {
@@ -759,17 +826,29 @@ function readPersistedState(): PersistedState {
       logoSize: Number.isFinite(persistedLogoSize)
         ? Math.min(MAX_LOGO_SIZE, Math.max(MIN_LOGO_SIZE, persistedLogoSize))
         : fallback.logoSize,
-      pinned: parsed.pinned === true,
+      pinned: parsed.pinned !== false,
       pinnedCombination: parseCombination(parsed.pinnedCombination)?.material
         ? parsed.pinnedCombination
-        : undefined,
+        : fallback.pinnedCombination,
       soundEnabled: parsed.soundEnabled === true,
+      staticMotion: isStaticMotionMode(parsed.staticMotion) ? parsed.staticMotion : fallback.staticMotion,
       unifiedThemeFamily: parsed.unifiedThemeFamily !== false,
-      version: 1,
+      version: 2,
     }
   } catch {
     return fallback
   }
+}
+
+function applyPreset(preset: Readonly<LogoPreset>) {
+  selectedMaterial.value = preset.style
+  selectedEntrance.value = preset.entrance
+  lightIntensity.value = preset.lightIntensity
+  logoSize.value = preset.logoSize
+  isPinned.value = preset.pinned
+  soundEnabled.value = preset.soundEnabled
+  selectedStaticMotion.value = preset.staticMotion
+  unifiedThemeFamily.value = preset.unifiedThemeFamily
 }
 
 function writePersistedState(overrides: Partial<PersistedState> = {}) {
@@ -780,7 +859,7 @@ function writePersistedState(overrides: Partial<PersistedState> = {}) {
       JSON.stringify({
         ...current,
         ...overrides,
-        version: 1,
+        version: 2,
       } satisfies PersistedState),
     )
   } catch {
@@ -789,32 +868,42 @@ function writePersistedState(overrides: Partial<PersistedState> = {}) {
 }
 
 function initializeSelection() {
+  presetPersistenceSuspended = true
+  applyPreset(DEFAULT_LOGO_PRESET)
   const persisted = readPersistedState()
   isPinned.value = persisted.pinned
-  lightIntensity.value = persisted.lightIntensity
-  logoSize.value = persisted.logoSize
-  soundEnabled.value = persisted.soundEnabled
-  unifiedThemeFamily.value = persisted.unifiedThemeFamily
-
   if (persisted.pinned && persisted.pinnedCombination) {
     const pinned = parseCombination(persisted.pinnedCombination)
     if (pinned) {
       selectedMaterial.value = pinned.material
       selectedEntrance.value = pinned.entrance
-      return
     }
+  } else {
+    const bag = persisted.bag.length ? [...persisted.bag] : createShuffledBag(persisted.lastCombination)
+    const next = parseCombination(bag.shift()) || {
+      material: DEFAULT_LOGO_PRESET.style,
+      entrance: DEFAULT_LOGO_PRESET.entrance,
+    }
+    selectedMaterial.value = next.material
+    selectedEntrance.value = next.entrance
+    writePersistedState({ bag, lastCombination: combinationKey(next.material, next.entrance), pinned: false })
   }
-
-  const bag = persisted.bag.length ? [...persisted.bag] : createShuffledBag(persisted.lastCombination)
-  const next = parseCombination(bag.shift()) || { material: 'crystal' as const, entrance: 'emerge' as const }
-  selectedMaterial.value = next.material
-  selectedEntrance.value = next.entrance
-  writePersistedState({ bag, lastCombination: combinationKey(next.material, next.entrance), pinned: false })
+  lightIntensity.value = persisted.lightIntensity
+  logoSize.value = persisted.logoSize
+  soundEnabled.value = persisted.soundEnabled
+  selectedStaticMotion.value = persisted.staticMotion
+  unifiedThemeFamily.value = persisted.unifiedThemeFamily
+  void nextTick(() => {
+    presetPersistenceSuspended = false
+  })
 }
 
 function persistCurrentSelection() {
-  if (!isPinned.value) return
-  writePersistedState({ pinned: true, pinnedCombination: combinationKey() })
+  if (presetPersistenceSuspended) return
+  writePersistedState({
+    lastCombination: combinationKey(),
+    pinnedCombination: isPinned.value ? combinationKey() : undefined,
+  })
 }
 
 function requireThree() {
@@ -957,7 +1046,7 @@ function createChromeFlowTexture() {
   return texture
 }
 
-function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boolean, lightness = 0) {
+function createPhysicalMaterial(mode: WebGlMaterialMode, toneIndex: number, side: boolean, lightness = 0) {
   const T = requireThree()
   const { primary, tones } = getThemeColors()
   const tone = tones[toneIndex]
@@ -1048,7 +1137,7 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
   return registerMaterial(material)
 }
 
-function createCoreMaterial(mode: MaterialMode, toneIndex: number) {
+function createCoreMaterial(mode: WebGlMaterialMode, toneIndex: number) {
   const T = requireThree()
   const { primary, tones } = getThemeColors()
   if (mode === 'energy') {
@@ -1096,22 +1185,27 @@ function createMaterialLibrary() {
       side: LOGO_PIECES.map((_, index) => createPhysicalMaterial(mode, index, true)),
     },
   ])
-  materialRigs = Object.fromEntries(entries) as Record<MaterialMode, MaterialRig>
+  materialRigs = Object.fromEntries(entries) as Record<WebGlMaterialMode, MaterialRig>
 }
 
-function applyMaterial(mode: MaterialMode) {
+function applyMaterial(mode: LogoStyle) {
   if (!materialRigs) return
-  const rig = materialRigs[mode]
+  const webGlMode = mode === 'prismatic' ? null : mode
+  const rig = webGlMode ? materialRigs[webGlMode] : null
   pieceRigs.forEach((piece, index) => {
-    piece.body.material = [rig.face[index], rig.side[index]]
-    piece.core.material = rig.core[index]
-    piece.body.visible = mode !== 'matte'
-    piece.core.visible = mode !== 'chrome' && mode !== 'matte'
+    if (rig) {
+      piece.body.material = [rig.face[index], rig.side[index]]
+      piece.core.material = rig.core[index]
+    }
+    piece.body.visible = webGlMode !== null && mode !== 'matte'
+    piece.core.visible = webGlMode !== null && mode !== 'chrome' && mode !== 'matte'
     piece.matteBody.visible = mode === 'matte'
     piece.matteFacets.forEach(facet => {
       facet.visible = mode === 'matte'
     })
+    piece.spectral.visible = webGlMode !== null
   })
+  if (causticMesh) causticMesh.visible = webGlMode !== null
 }
 
 function updateThemeMaterials() {
@@ -1183,7 +1277,8 @@ function createPieceRigs() {
     geometry.computeVertexNormals()
 
     const group = new T.Group()
-    const rig = rigs[selectedMaterial.value]
+    const initialWebGlMode = selectedMaterial.value === 'prismatic' ? 'crystal' : selectedMaterial.value
+    const rig = rigs[initialWebGlMode]
     const body = new T.Mesh(geometry, [rig.face[index], rig.side[index]])
     body.renderOrder = 2
     body.visible = selectedMaterial.value !== 'matte'
@@ -1494,6 +1589,13 @@ function stopAutonomousTurn() {
   autonomousTween = null
 }
 
+/** 匀速旋转以最终合成姿态对齐上游俯仰边界，随机转向保留原有大角度交互。 */
+function clampDragPitch(pitch: number) {
+  const minimum = selectedStaticMotion.value === 'steady' ? -0.4 - CRUISE_REST_PITCH : -1.1
+  const maximum = selectedStaticMotion.value === 'steady' ? 0.4 - CRUISE_REST_PITCH : 1.1
+  return Math.max(minimum, Math.min(maximum, pitch))
+}
+
 /** 完整进场始终从品牌正面开始，避免自主转向或拖拽姿态削弱入场识别度。 */
 function resetViewingPoseForEntrance() {
   stopAutonomousTurn()
@@ -1517,7 +1619,7 @@ function pauseAutomaticReplay() {
 
 /** 自动重播以一次完整的空闲窗口计时，用户交互不会继承已经消耗的等待时间。 */
 function scheduleAutomaticReplay(now = performance.now()) {
-  if (!isReady.value || prefersReducedMotion) {
+  if (!isReady.value || prefersReducedMotion || selectedEntrance.value === 'none') {
     pauseAutomaticReplay()
     return
   }
@@ -1542,7 +1644,15 @@ function playAutomaticReplayIfDue(now: number) {
 }
 
 function scheduleAutonomousTurn(now: number) {
-  if (!gsapApi || prefersReducedMotion || isDragging.value || formFocused || phase.value !== 'idle') return
+  if (
+    selectedStaticMotion.value !== 'random' ||
+    !gsapApi ||
+    prefersReducedMotion ||
+    isDragging.value ||
+    formFocused ||
+    phase.value !== 'idle'
+  )
+    return
   if (now < nextTurnAt || autonomousTween?.isActive()) return
   const quickTurn = Math.random() < 0.6
   const duration = quickTurn ? 1.15 + Math.random() * 0.85 : 2.6 + Math.random() * 1.8
@@ -1585,17 +1695,25 @@ function renderTick(time: number, deltaMs: number) {
   const renderedIntervalMs = lastRenderTime > 0 ? now - lastRenderTime : deltaMs
   const delta = Math.min(renderedIntervalMs / 1000, 0.05)
   lastRenderTime = now
-  if (!playAutomaticReplayIfDue(now)) scheduleAutonomousTurn(now)
+  if (!playAutomaticReplayIfDue(now)) {
+    if (selectedStaticMotion.value === 'random') scheduleAutonomousTurn(now)
+    else {
+      if (autonomousTween) stopAutonomousTurn()
+      cruiseState.pitch = CRUISE_REST_PITCH
+      cruiseState.yaw += STEADY_ROTATION_SPEED * delta
+    }
+  }
 
   if (cruiseRig && dragRig && !prefersReducedMotion) {
     const focusDamping = formFocused ? 0.34 : 1
-    const pointerPitch = pointerState.targetPitch * focusDamping
-    const pointerYaw = pointerState.targetYaw * focusDamping
+    const pointerPitch = selectedStaticMotion.value === 'random' ? pointerState.targetPitch * focusDamping : 0
+    const pointerYaw = selectedStaticMotion.value === 'random' ? pointerState.targetYaw * focusDamping : 0
     pointerState.targetPitch += (0 - pointerState.targetPitch) * Math.min(1, delta * 0.4)
     pointerState.targetYaw += (0 - pointerState.targetYaw) * Math.min(1, delta * 0.4)
     cruiseRig.rotation.x += (cruiseState.pitch + pointerPitch - cruiseRig.rotation.x) * Math.min(1, delta * 3.4)
     cruiseRig.rotation.y += (cruiseState.yaw + pointerYaw - cruiseRig.rotation.y) * Math.min(1, delta * 3.4)
-    cruiseRig.position.y = Math.sin(time * 0.72) * (formFocused ? 0.012 : 0.032)
+    const floatAmplitude = selectedStaticMotion.value === 'steady' ? 0.018 : formFocused ? 0.012 : 0.032
+    cruiseRig.position.y = Math.sin(time * 0.72) * floatAmplitude
 
     if (!isDragging.value) {
       dragState.targetYaw += dragState.velocityYaw * delta
@@ -1605,6 +1723,9 @@ function renderTick(time: number, deltaMs: number) {
       if (Math.abs(dragState.velocityYaw) < 0.015 && Math.abs(dragState.velocityPitch) < 0.015) {
         dragState.targetYaw += (0 - dragState.targetYaw) * Math.min(1, delta * 0.16)
         dragState.targetPitch += (-0.06 - dragState.targetPitch) * Math.min(1, delta * 0.22)
+      }
+      if (selectedStaticMotion.value === 'steady') {
+        dragState.targetPitch = clampDragPitch(dragState.targetPitch)
       }
     } else {
       dragState.velocityYaw *= Math.exp(-7 * delta)
@@ -1718,6 +1839,12 @@ function playEntrance(mode: EntranceMode, fromPreview = false, userInitiated = f
   pauseAutomaticReplay()
   resetViewingPoseForEntrance()
   if (!fromPreview) resetEntrancePose()
+  if (mode === 'none') {
+    phase.value = 'idle'
+    highRefreshUntil = performance.now() + 300
+    scheduleMaterialPrewarm()
+    return
+  }
   phase.value = 'playing'
   highRefreshUntil = performance.now() + 2200
   if (userInitiated) playEntranceSound(mode)
@@ -1774,6 +1901,7 @@ function playEntrance(mode: EntranceMode, fromPreview = false, userInitiated = f
 
 function previewEntrance(mode: EntranceMode) {
   if (!gsapApi || !isReady.value || !canHoverQuery?.matches || prefersReducedMotion || phase.value === 'playing') return
+  if (mode === 'none') return
   previewTimeline?.kill()
   previewMode = mode
   phase.value = 'charging'
@@ -1813,7 +1941,20 @@ function handleEntranceSelection(mode: EntranceMode) {
   playEntrance(mode, fromPreview, true)
 }
 
-function handleMaterialSelection(mode: MaterialMode) {
+/** 在匀速水平转台与随机转向间切换，两者都保持 Logo 零滚转。 */
+function handleStaticMotionSelection(mode: StaticMotionMode) {
+  if (mode === selectedStaticMotion.value) return
+  selectedStaticMotion.value = mode
+  stopAutonomousTurn()
+  cruiseState.pitch = CRUISE_REST_PITCH
+  if (mode === 'steady') pointerState.targetPitch = 0
+  nextTurnAt = performance.now() + 500
+  if (!presetPersistenceSuspended) writePersistedState({ staticMotion: mode })
+  highRefreshUntil = performance.now() + 900
+  reducedMotionRenderPending = true
+}
+
+function handleMaterialSelection(mode: LogoStyle) {
   if (!gsapApi || !isReady.value || mode === selectedMaterial.value) return
   void unlockAudioFromGesture()
   killMotionTimelines()
@@ -1835,7 +1976,7 @@ function handleMaterialSelection(mode: MaterialMode) {
     onComplete: () => {
       opticalState.spectral = 0
       phase.value = 'idle'
-      prewarmedMaterials.add(mode)
+      if (mode !== 'prismatic') prewarmedMaterials.add(mode)
       materialTimeline = null
       scheduleAutomaticReplay()
       scheduleMaterialPrewarm()
@@ -1853,16 +1994,48 @@ function replayEntrance() {
 
 function togglePinned() {
   isPinned.value = !isPinned.value
+  if (presetPersistenceSuspended) return
   writePersistedState({
     pinned: isPinned.value,
     pinnedCombination: isPinned.value ? combinationKey() : undefined,
   })
 }
 
+/** 删除本地预设并还原代码默认值，不影响其他登录页偏好。 */
+function resetLabPreset() {
+  presetPersistenceSuspended = true
+  killMotionTimelines()
+  resetEntrancePose()
+  phase.value = 'idle'
+  stopAllAudio()
+  void audioContext?.suspend().catch(() => undefined)
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // 浏览器禁用存储时仍可在当前会话恢复默认值。
+  }
+  applyPreset(DEFAULT_LOGO_PRESET)
+  applyMaterial(selectedMaterial.value)
+  handleThemeRefresh()
+  applyLogoLightIntensity()
+  prismaticReplayKey.value += 1
+  void nextTick(() => {
+    updateRendererSize()
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // 同上，存储不可用时仅恢复当前会话。
+    }
+    presetPersistenceSuspended = false
+  })
+}
+
 /** 在统一主题色家族与分色配色之间切换，并立即刷新所有预编译材质。 */
 function toggleThemeFamily() {
   unifiedThemeFamily.value = !unifiedThemeFamily.value
-  writePersistedState({ unifiedThemeFamily: unifiedThemeFamily.value })
+  if (!presetPersistenceSuspended) {
+    writePersistedState({ unifiedThemeFamily: unifiedThemeFamily.value })
+  }
   handleThemeRefresh()
 }
 
@@ -1957,7 +2130,7 @@ function playNoise(duration: number, gainValue: number, frequency: number, delay
   source.stop(start + duration + 0.02)
 }
 
-function playMaterialSound(mode: MaterialMode) {
+function playMaterialSound(mode: LogoStyle) {
   if (!audioContext) return
   if (mode === 'crystal') {
     playTone(760, 0.58, 0.045, 0, 'sine', 920)
@@ -1973,6 +2146,9 @@ function playMaterialSound(mode: MaterialMode) {
   } else if (mode === 'matte') {
     playTone(168, 0.54, 0.042, 0, 'sine', 132)
     playNoise(0.34, 0.018, 720, 0.02)
+  } else if (mode === 'prismatic') {
+    playTone(680, 0.5, 0.032, 0, 'sine', 940)
+    playTone(1040, 0.42, 0.018, 0.06, 'sine', 1320)
   } else {
     playNoise(0.32, 0.022, 1600)
     playTone(520, 0.56, 0.045, 0.02, 'sine', 480)
@@ -1981,7 +2157,7 @@ function playMaterialSound(mode: MaterialMode) {
 }
 
 function playEntranceSound(mode: EntranceMode) {
-  if (!audioContext) return
+  if (!audioContext || mode === 'none') return
   playMaterialSound(selectedMaterial.value)
   if (mode === 'assemble') {
     ;[0, 0.09, 0.18].forEach((delay, index) => playTone(210 + index * 76, 0.26, 0.025, delay, 'sine', 320 + index * 96))
@@ -2051,7 +2227,7 @@ function stopDragAudio() {
 
 async function toggleSound() {
   soundEnabled.value = !soundEnabled.value
-  writePersistedState({ soundEnabled: soundEnabled.value })
+  if (!presetPersistenceSuspended) writePersistedState({ soundEnabled: soundEnabled.value })
   if (soundEnabled.value) {
     await unlockAudioFromGesture()
     playMaterialSound(selectedMaterial.value)
@@ -2110,7 +2286,7 @@ function handleCardFocusOut() {
 }
 
 function handlePointerDown(event: PointerEvent) {
-  if (event.button !== 0 || !isReady.value) return
+  if (event.button !== 0 || !isReady.value || selectedMaterial.value === 'prismatic') return
   void unlockAudioFromGesture()
   dragState.pointerId = event.pointerId
   dragState.pointerType = event.pointerType
@@ -2143,7 +2319,8 @@ function handlePointerMove(event: PointerEvent) {
   }
   if (!dragState.moved) return
   dragState.targetYaw += deltaX * 0.012
-  dragState.targetPitch = Math.max(-1.1, Math.min(1.1, dragState.targetPitch + deltaY * 0.009))
+  const nextPitch = dragState.targetPitch + deltaY * 0.009
+  dragState.targetPitch = clampDragPitch(nextPitch)
   dragState.velocityYaw = Math.max(-5, Math.min(5, deltaX * 0.085))
   dragState.velocityPitch = Math.max(-3, Math.min(3, deltaY * 0.055))
   dragState.lastX = event.clientX
@@ -2176,6 +2353,10 @@ function handleStageClick() {
     dragState.suppressClick = false
     return
   }
+  if (selectedMaterial.value === 'prismatic') {
+    if (selectedEntrance.value !== 'none') prismaticReplayKey.value += 1
+    return
+  }
   if (prefersReducedMotion) {
     dragState.targetYaw += Math.PI / 12
     reducedMotionRenderPending = true
@@ -2188,8 +2369,8 @@ function handleStageKeydown(event: KeyboardEvent) {
   const step = Math.PI / 12
   if (event.key === 'ArrowLeft') dragState.targetYaw -= step
   else if (event.key === 'ArrowRight') dragState.targetYaw += step
-  else if (event.key === 'ArrowUp') dragState.targetPitch = Math.max(-1.1, dragState.targetPitch - step / 2)
-  else if (event.key === 'ArrowDown') dragState.targetPitch = Math.min(1.1, dragState.targetPitch + step / 2)
+  else if (event.key === 'ArrowUp') dragState.targetPitch = clampDragPitch(dragState.targetPitch - step / 2)
+  else if (event.key === 'ArrowDown') dragState.targetPitch = clampDragPitch(dragState.targetPitch + step / 2)
   else return
   highRefreshUntil = performance.now() + 900
   reducedMotionRenderPending = true
@@ -2203,18 +2384,18 @@ function getRadioStep(event: KeyboardEvent) {
   return 0
 }
 
-function handleMaterialKeydown(event: KeyboardEvent, current: MaterialMode) {
+function handleMaterialKeydown(event: KeyboardEvent, current: LogoStyle) {
   const step = getRadioStep(event)
   if (!step && event.key !== 'Home' && event.key !== 'End') return
   event.preventDefault()
-  const currentIndex = MATERIAL_MODES.indexOf(current)
+  const currentIndex = LOGO_STYLES.indexOf(current)
   const nextIndex =
     event.key === 'Home'
       ? 0
       : event.key === 'End'
-        ? MATERIAL_MODES.length - 1
-        : (currentIndex + step + MATERIAL_MODES.length) % MATERIAL_MODES.length
-  const nextMode = MATERIAL_MODES[nextIndex]
+        ? LOGO_STYLES.length - 1
+        : (currentIndex + step + LOGO_STYLES.length) % LOGO_STYLES.length
+  const nextMode = LOGO_STYLES[nextIndex]
   handleMaterialSelection(nextMode)
   void nextTick(() => rootRef.value?.querySelector<HTMLButtonElement>(`[data-material="${nextMode}"]`)?.focus())
 }
@@ -2233,6 +2414,22 @@ function handleEntranceKeydown(event: KeyboardEvent, current: EntranceMode) {
   const nextMode = ENTRANCE_MODES[nextIndex]
   handleEntranceSelection(nextMode)
   void nextTick(() => rootRef.value?.querySelector<HTMLButtonElement>(`[data-entrance="${nextMode}"]`)?.focus())
+}
+
+function handleStaticMotionKeydown(event: KeyboardEvent, current: StaticMotionMode) {
+  const step = getRadioStep(event)
+  if (!step && event.key !== 'Home' && event.key !== 'End') return
+  event.preventDefault()
+  const currentIndex = STATIC_MOTION_MODES.indexOf(current)
+  const nextIndex =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? STATIC_MOTION_MODES.length - 1
+        : (currentIndex + step + STATIC_MOTION_MODES.length) % STATIC_MOTION_MODES.length
+  const nextMode = STATIC_MOTION_MODES[nextIndex]
+  handleStaticMotionSelection(nextMode)
+  void nextTick(() => rootRef.value?.querySelector<HTMLButtonElement>(`[data-static-motion="${nextMode}"]`)?.focus())
 }
 
 function suspendAudioForInvisibility() {
@@ -2431,7 +2628,7 @@ async function initializeScene() {
     updateThemeMaterials()
     await renderer.compileAsync(scene, camera)
     if (token !== generation) return
-    prewarmedMaterials.add(selectedMaterial.value)
+    if (selectedMaterial.value !== 'prismatic') prewarmedMaterials.add(selectedMaterial.value)
     isReady.value = true
     phase.value = 'idle'
     gsapApi?.ticker.remove(renderTick)
@@ -2510,7 +2707,7 @@ function handleLightIntensityChange(value: number) {
     return
   }
   applyLogoLightIntensity()
-  writePersistedState({ lightIntensity: clamped })
+  if (!presetPersistenceSuspended) writePersistedState({ lightIntensity: clamped })
   highRefreshUntil = performance.now() + 500
   reducedMotionRenderPending = true
 }
@@ -2522,7 +2719,7 @@ function handleLogoSizeChange(value: number) {
     logoSize.value = clamped
     return
   }
-  writePersistedState({ logoSize: clamped })
+  if (!presetPersistenceSuspended) writePersistedState({ logoSize: clamped })
   highRefreshUntil = performance.now() + 500
   reducedMotionRenderPending = true
   void nextTick(updateRendererSize)
@@ -2629,6 +2826,13 @@ onBeforeUnmount(() => {
       @pointerup="finishPointerInteraction"
     >
       <canvas ref="canvasRef" class="optical-logo-lab__canvas" aria-hidden="true" />
+      <span v-if="selectedMaterial === 'prismatic'" class="optical-logo-lab__prismatic-wrap">
+        <PrismaticLogo
+          :key="`${selectedEntrance}-${prismaticReplayKey}`"
+          :animate="selectedEntrance !== 'none'"
+          :intensity="lightIntensity"
+        />
+      </span>
       <svg
         class="optical-logo-lab__fallback"
         viewBox="0 0 192 192"
@@ -2661,7 +2865,7 @@ onBeforeUnmount(() => {
       <slot />
     </div>
 
-    <div class="optical-logo-lab__controls">
+    <div v-if="showLabControls" class="optical-logo-lab__controls">
       <div class="optical-logo-lab__materials" role="radiogroup" :aria-label="text.materialGroup">
         <VTooltip v-for="option in materialOptions" :key="option.value" :text="option.label" location="top">
           <template #activator="{ props: tooltipProps }">
@@ -2741,6 +2945,24 @@ onBeforeUnmount(() => {
         </output>
       </div>
 
+      <div class="optical-logo-lab__static-motions" role="radiogroup" :aria-label="text.staticMotionGroup">
+        <button
+          v-for="mode in STATIC_MOTION_MODES"
+          :key="mode"
+          class="optical-logo-lab__entrance optical-logo-lab__static-motion"
+          type="button"
+          role="radio"
+          :aria-checked="selectedStaticMotion === mode"
+          :data-static-motion="mode"
+          :disabled="!isReady"
+          :tabindex="selectedStaticMotion === mode ? 0 : -1"
+          @click="handleStaticMotionSelection(mode)"
+          @keydown="handleStaticMotionKeydown($event, mode)"
+        >
+          {{ text[mode] }}
+        </button>
+      </div>
+
       <div class="optical-logo-lab__command-row">
         <div class="optical-logo-lab__entrances" role="radiogroup" :aria-label="text.entranceGroup">
           <button
@@ -2763,6 +2985,21 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="optical-logo-lab__tools">
+          <VTooltip :text="text.resetLab" location="top">
+            <template #activator="{ props: tooltipProps }">
+              <button
+                v-bind="tooltipProps"
+                class="optical-logo-lab__tool"
+                type="button"
+                :aria-label="text.resetLab"
+                :disabled="!isReady"
+                @click="resetLabPreset"
+              >
+                <VIcon icon="mdi-restore" size="17" />
+              </button>
+            </template>
+          </VTooltip>
+
           <VTooltip :text="isPinned ? text.unpin : text.pin" location="top">
             <template #activator="{ props: tooltipProps }">
               <button
@@ -2879,6 +3116,19 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
+.optical-logo-lab--prismatic .optical-logo-lab__canvas {
+  opacity: 0;
+}
+
+.optical-logo-lab__prismatic-wrap {
+  position: absolute;
+  display: block;
+  block-size: var(--optical-logo-size, 144px);
+  inline-size: var(--optical-logo-size, 144px);
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+}
+
 .optical-logo-lab__fallback {
   position: absolute;
   display: block;
@@ -2977,7 +3227,8 @@ onBeforeUnmount(() => {
 .optical-logo-lab__materials,
 .optical-logo-lab__command-row,
 .optical-logo-lab__tools,
-.optical-logo-lab__entrances {
+.optical-logo-lab__entrances,
+.optical-logo-lab__static-motions {
   display: flex;
   align-items: center;
 }
@@ -3114,10 +3365,37 @@ onBeforeUnmount(() => {
   filter: brightness(0.82) saturate(0.88);
 }
 
+.optical-logo-lab__swatch--prismatic > span {
+  background:
+    radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.96), transparent 27%),
+    conic-gradient(
+      from 215deg,
+      rgba(var(--v-theme-primary), 0.86),
+      #77d4ff,
+      #b18bff,
+      #ff69d2,
+      rgba(var(--v-theme-primary), 0.86)
+    );
+  filter: saturate(1.12);
+}
+
 .optical-logo-lab__command-row {
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
   inline-size: 100%;
+}
+
+.optical-logo-lab__static-motions {
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-border-color), 0.24);
+  border-radius: 6px;
+  background: rgba(var(--v-theme-surface), 0.18);
+  padding: 2px;
+}
+
+.optical-logo-lab__static-motion {
+  inline-size: 104px;
 }
 
 .optical-logo-lab__entrances {
@@ -3216,10 +3494,8 @@ onBeforeUnmount(() => {
 }
 
 @media (width <= 360px) {
-  .optical-logo-lab__command-row {
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
+  .optical-logo-lab__static-motion {
+    inline-size: 96px;
   }
 }
 

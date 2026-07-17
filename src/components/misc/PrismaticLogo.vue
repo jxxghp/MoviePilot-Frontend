@@ -1,9 +1,23 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import logoUrl from '@images/logo.svg'
 
-const rootRef = ref<HTMLDivElement | null>(null)
-const logoMaskStyle = { '--logo-mask': `url("${logoUrl}")` }
+const props = withDefaults(
+  defineProps<{
+    animate?: boolean
+    intensity?: number
+  }>(),
+  {
+    animate: true,
+    intensity: 45,
+  },
+)
+
+const rootRef = ref<HTMLSpanElement | null>(null)
+const logoMaskStyle = computed(() => ({
+  '--logo-mask': `url("${logoUrl}")`,
+  '--prism-intensity': Math.min(1, Math.max(0, props.intensity / 100)),
+}))
 
 let pointerFrame: number | null = null
 let pendingPointerX = 0.5
@@ -47,9 +61,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
+  <span
     ref="rootRef"
     class="prismatic-logo"
+    :class="{ 'prismatic-logo--animated': props.animate }"
     :style="logoMaskStyle"
     role="img"
     aria-label="MoviePilot"
@@ -60,7 +75,7 @@ onBeforeUnmount(() => {
     <span class="prismatic-logo__spectrum" aria-hidden="true" />
     <span class="prismatic-logo__specular" aria-hidden="true" />
     <span class="prismatic-logo__reveal" aria-hidden="true" />
-  </div>
+  </span>
 </template>
 
 <style scoped lang="scss">
@@ -73,12 +88,15 @@ onBeforeUnmount(() => {
   position: relative;
   display: grid;
   isolation: isolate;
-  block-size: 108px;
-  inline-size: 108px;
+  block-size: 100%;
+  inline-size: 100%;
   place-items: center;
   transform: perspective(520px) rotateX(var(--logo-tilt-x)) rotateY(var(--logo-tilt-y));
   transform-style: preserve-3d;
   transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.prismatic-logo--animated {
   animation: prismatic-logo-enter 620ms cubic-bezier(0.16, 1, 0.3, 1) 80ms backwards;
 }
 
@@ -86,11 +104,16 @@ onBeforeUnmount(() => {
   position: absolute;
   z-index: -1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(142, 85, 255, 0.3), rgba(77, 36, 145, 0.1) 44%, transparent 72%);
+  background: radial-gradient(
+    circle,
+    rgba(var(--v-theme-primary), 0.34),
+    rgba(var(--v-theme-primary), 0.1) 44%,
+    transparent 72%
+  );
   content: '';
   filter: blur(13px);
   inset: 17%;
-  opacity: 0.74;
+  opacity: calc(0.36 + var(--prism-intensity) * 0.56);
   transform: translate3d(0, 8px, -16px) scaleX(1.18);
 }
 
@@ -140,7 +163,7 @@ onBeforeUnmount(() => {
       rgba(255, 105, 210, 0.72)
     );
   mix-blend-mode: screen;
-  opacity: 0.58;
+  opacity: calc(0.22 + var(--prism-intensity) * 0.58);
   transform: translateZ(14px);
 }
 
@@ -152,7 +175,7 @@ onBeforeUnmount(() => {
     transparent 72%
   );
   mix-blend-mode: screen;
-  opacity: 0.76;
+  opacity: calc(0.3 + var(--prism-intensity) * 0.66);
   transform: translateZ(18px);
 }
 
@@ -168,7 +191,11 @@ onBeforeUnmount(() => {
   background-position: 100% 50%;
   background-size: 300% 100%;
   mix-blend-mode: screen;
+  opacity: 0;
   transform: translateZ(20px);
+}
+
+.prismatic-logo--animated .prismatic-logo__reveal {
   animation: prismatic-logo-reveal 840ms cubic-bezier(0.2, 0.76, 0.18, 1) 160ms both;
 }
 
@@ -202,13 +229,6 @@ onBeforeUnmount(() => {
   100% {
     background-position: 0% 50%;
     opacity: 0;
-  }
-}
-
-@media (width <= 480px) {
-  .prismatic-logo {
-    block-size: 92px;
-    inline-size: 92px;
   }
 }
 
