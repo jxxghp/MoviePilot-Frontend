@@ -643,11 +643,10 @@ async function eventsHander(subscribe: Subscribe) {
 // 调用API查询所有订阅
 async function getSubscribes() {
   if (!isLoaded.value && display.mdAndUp.value) openProgressDialog()
+  loading.value = true
   try {
     // 订阅
-    loading.value = true
     const subscribes: Subscribe[] = await api.get('subscribe/')
-    loading.value = false
     const subEvents = await Promise.allSettled(subscribes.map(async sub => eventsHander(sub)))
     const succEvents = subEvents.filter(result => result.status === 'fulfilled').map(result => result.value)
     rawCalendarEvents.value = normalizeCalendarEventOrder(succEvents.flat().filter(event => event.start))
@@ -656,6 +655,7 @@ async function getSubscribes() {
   } catch (error) {
     console.error(error)
   } finally {
+    loading.value = false
     closeProgressDialog()
   }
 }

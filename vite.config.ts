@@ -278,6 +278,7 @@ export default defineConfig(({ mode }) => ({
         'src/pages/recommend.vue',
         'src/pages/subscribe.vue',
         'src/views/dashboard/MediaRecommend.vue',
+        'src/views/subscribe/FullCalendarView.vue',
         'src/views/subscribe/SubscribeListView.vue',
         'src/composables/useMediaSubscribe.ts',
         'src/components/cards/SubscribeCard.vue',
@@ -344,6 +345,12 @@ export default defineConfig(({ mode }) => ({
           functions: 80,
           lines: 80,
           statements: 80,
+        },
+        'src/views/subscribe/FullCalendarView.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/views/subscribe/SubscribeListView.vue': {
           branches: 75,
