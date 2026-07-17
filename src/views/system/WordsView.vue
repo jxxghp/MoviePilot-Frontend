@@ -10,6 +10,8 @@ const { t } = useI18n()
 const $toast = useToast()
 const { global: globalTheme } = useTheme()
 
+const WORDS_LINE_NUMBERS_STORAGE_KEY = 'MP_WORDS_SHOW_LINE_NUMBERS'
+
 type TextSectionKey = 'identifiers' | 'releaseGroups' | 'customization' | 'excludeWords'
 type WordSectionKey = TextSectionKey | 'episodeRules'
 
@@ -45,16 +47,23 @@ const episodeFormatRules = ref<EpisodeFormatRule[]>([])
 const activeSection = ref<WordSectionKey>('identifiers')
 const expandedHelp = ref<string | null>(null)
 const saving = ref(false)
+const showLineNumbers = ref(localStorage.getItem(WORDS_LINE_NUMBERS_STORAGE_KEY) === 'true')
 
 const textEditorTheme = computed(() => (globalTheme.current.value.dark ? 'github_dark' : 'github_light_default'))
-const textEditorOptions = {
+const textEditorOptions = computed(() => ({
   fontSize: 13.6,
   highlightActiveLine: false,
   scrollPastEnd: 0,
-  showGutter: false,
+  showFoldWidgets: false,
+  showGutter: showLineNumbers.value,
+  showLineNumbers: showLineNumbers.value,
   showPrintMargin: false,
   tabSize: 2,
-}
+}))
+
+watch(showLineNumbers, value => {
+  localStorage.setItem(WORDS_LINE_NUMBERS_STORAGE_KEY, String(value))
+})
 
 const savedTextValues = reactive<Record<TextSectionKey, string>>({
   identifiers: '',
@@ -483,7 +492,18 @@ onMounted(() => {
           <template v-if="isTextSection">
             <div class="words-field-meta">
               <strong>{{ t('setting.words.listLabel') }}</strong>
-              <span>{{ t('setting.words.entryCount', { count: activeSectionCount }) }}</span>
+              <div class="words-field-actions">
+                <span>{{ t('setting.words.entryCount', { count: activeSectionCount }) }}</span>
+                <VSwitch
+                  v-if="activeSection === 'identifiers'"
+                  v-model="showLineNumbers"
+                  class="words-line-number-switch"
+                  color="primary"
+                  density="compact"
+                  hide-details
+                  :label="t('setting.words.lineNumbers')"
+                />
+              </div>
             </div>
 
             <VAceEditor
@@ -856,6 +876,21 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.words-field-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.words-line-number-switch {
+  flex: 0 0 auto;
+}
+
+.words-line-number-switch :deep(.v-label) {
+  font-size: 0.78rem;
+}
+
 .words-textarea :deep(textarea) {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   font-size: 0.85rem;
@@ -886,6 +921,14 @@ onMounted(() => {
 .words-text-editor :deep(.ace_comment) {
   color: rgb(var(--v-theme-success)) !important;
   font-style: normal;
+}
+
+.words-text-editor :deep(.ace_gutter-layer) {
+  text-align: start;
+}
+
+.words-text-editor :deep(.ace_gutter-cell) {
+  padding-inline: 0.35rem 0.25rem;
 }
 
 .words-inline-hint {
@@ -1124,7 +1167,16 @@ onMounted(() => {
   }
 
   .words-field-meta {
+    gap: 0.75rem;
     min-block-size: 2.75rem;
+  }
+
+  .words-field-meta strong {
+    min-inline-size: 0;
+  }
+
+  .words-field-actions {
+    gap: 0.5rem;
   }
 
   .words-textarea :deep(.v-field__input) {
