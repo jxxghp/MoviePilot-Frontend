@@ -33,6 +33,7 @@ function renderCardLight() {
   root?.style.setProperty('--login-card-top-prism-alpha', (0.2 + pendingCardLightEnergy * 0.32).toFixed(3))
 }
 
+/** 根据指针在登录卡片中的位置更新光照目标。 */
 function handlePointerLight(event: PointerEvent) {
   if (event.pointerType === 'touch') return
   const bounds = loginRootRef.value?.querySelector<HTMLElement>('.login-card')?.getBoundingClientRect()
@@ -45,6 +46,7 @@ function handlePointerLight(event: PointerEvent) {
   if (cardLightFrame === null) cardLightFrame = window.requestAnimationFrame(renderCardLight)
 }
 
+/** 指针离开登录页后恢复卡片的默认光照位置。 */
 function resetPointerLight() {
   pendingCardLightX = 0.5
   pendingCardLightY = 0
@@ -1241,7 +1243,7 @@ onUnmounted(() => {
 
 /* ===================== 卡片主体 ===================== */
 .login-body {
-  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
+  /* 表单控件必须首帧可见，卡片自身的入场动画已提供整体过渡。 */
   padding-block: 8px !important;
 }
 
@@ -1568,7 +1570,6 @@ onUnmounted(() => {
 /* ===================== 无障碍：尊重减少动态偏好 ===================== */
 @media (prefers-reduced-motion: reduce) {
   .login-card--enter,
-  .login-body,
   .login-foot,
   .login-title,
   .login-subtitle {

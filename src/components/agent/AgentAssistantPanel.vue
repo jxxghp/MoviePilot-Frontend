@@ -1959,6 +1959,7 @@ onScopeDispose(() => {
     :style="drawerStyle"
     role="dialog"
     :aria-label="t('agentAssistant.title')"
+    @focusin.stop
   >
     <div class="agent-assistant-shell">
       <header class="agent-assistant-header">
@@ -1990,7 +1991,7 @@ onScopeDispose(() => {
             location="bottom end"
             offset="8"
             max-width="360"
-            :z-index="2103"
+            :z-index="2603"
           >
             <template #activator="{ props }">
               <IconBtn v-bind="props" :title="t('agentAssistant.history')" :aria-label="t('agentAssistant.history')">
@@ -2346,7 +2347,7 @@ onScopeDispose(() => {
 
 <style lang="scss">
 .agent-assistant-history-overlay {
-  z-index: 2103 !important;
+  z-index: 2603 !important;
 }
 </style>
 
@@ -2356,7 +2357,9 @@ onScopeDispose(() => {
 
 .agent-assistant-panel {
   position: fixed;
-  z-index: 2101;
+
+  /* Agent 会话层保持高于入口（2600）和业务弹窗，同时低于自身弹出菜单。 */
+  z-index: 2601;
   overflow: hidden;
   background: rgb(var(--v-theme-surface));
 
