@@ -422,6 +422,12 @@ function handlePluginClick() {
   showPluginQuickAccess.value = false
 }
 
+// 组件卸载时清理监听
+onBeforeUnmount(() => {
+  window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
+  window.removeEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
+})
+
 /** 将插件侧边栏菜单合并到对应的导航分组中。 */
 function appendPluginSidebarMenus() {
   for (const { navMenu, section } of filterPluginSidebarNavEntries(
@@ -464,12 +470,6 @@ onMounted(async () => {
 
   await pluginSidebarNavStore.ensureSidebarNav()
   appendPluginSidebarMenus()
-
-  // 组件卸载时清理监听
-  onBeforeUnmount(() => {
-    window.removeEventListener(THEME_CUSTOMIZER_CHANGE_EVENT, handleThemeCustomizerChange)
-    window.removeEventListener(THEME_CUSTOMIZER_OPEN_EVENT, handleThemeCustomizerOpen)
-  })
 })
 </script>
 
