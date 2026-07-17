@@ -2827,11 +2827,13 @@ onBeforeUnmount(() => {
     >
       <canvas ref="canvasRef" class="optical-logo-lab__canvas" aria-hidden="true" />
       <span v-if="selectedMaterial === 'prismatic'" class="optical-logo-lab__prismatic-wrap">
-        <PrismaticLogo
-          :key="`${selectedEntrance}-${prismaticReplayKey}`"
-          :animate="selectedEntrance !== 'none'"
-          :intensity="lightIntensity"
-        />
+        <span class="optical-logo-lab__prismatic-float">
+          <PrismaticLogo
+            :key="`${selectedEntrance}-${prismaticReplayKey}`"
+            :animate="selectedEntrance !== 'none'"
+            :intensity="lightIntensity"
+          />
+        </span>
       </span>
       <svg
         class="optical-logo-lab__fallback"
@@ -3127,6 +3129,26 @@ onBeforeUnmount(() => {
   inline-size: var(--optical-logo-size, 144px);
   inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
+}
+
+/** 静态悬浮与入场、指针倾角分层，避免多组 transform 动画相互覆盖。 */
+.optical-logo-lab__prismatic-float {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  animation: optical-logo-prismatic-float 5.7s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes optical-logo-prismatic-float {
+  0%,
+  100% {
+    transform: translate3d(0, 1.5px, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -1.5px, 0);
+  }
 }
 
 .optical-logo-lab__fallback {
@@ -3506,6 +3528,11 @@ onBeforeUnmount(() => {
   .optical-logo-lab__entrance,
   .optical-logo-lab__tool {
     transition: none !important;
+  }
+
+  .optical-logo-lab__prismatic-float {
+    animation: none !important;
+    transform: none !important;
   }
 }
 </style>
