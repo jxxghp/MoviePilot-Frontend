@@ -214,36 +214,23 @@ function createRoundedLogoShape(points: readonly LogoPoint[], sourceCornerRadius
   return shape
 }
 
-/** 创建紫色镜面金属的正面材质。 */
+/** 创建紫色哑光金属的正面材质：去除清漆与虹彩等“油润感”因素，仅依靠适中的粗糙度与环境反射呈现哑光滞面金属质感。 */
 function createFaceMaterial(color: number) {
   return new THREE.MeshPhysicalMaterial({
     color,
     metalness: 1.0, // 物理纯金属
-    roughness: 0.15, // 恰到好处的哑光丝滑，捕获细腻高光
-    clearcoat: 1.0, // 顶层覆盖清漆釉面
-    clearcoatRoughness: 0.04, // 极其光滑的漆面
-    envMapIntensity: 2.2, // 增强对周围环境贴图的反射强度，让金属更明亮亮丽
-    iridescence: 0.35, // 虹彩干涉，模拟高级阳极氧化膜
-    iridescenceIOR: 1.45, // 折射率
-    iridescenceThicknessRange: [100, 380], // 呈现紫红、深蓝至冰蓝的微弱折射虹彩
-    sheen: 0.2, // 边缘微弱绒光，增加金属边缘的漫反射质感
-    sheenColor: 0xd8c6ff,
-    sheenRoughness: 0.25,
+    roughness: 0.32, // 哑光滞面，避免镜面般的过亮高光
+    envMapIntensity: 1.6, // 适度的环境反射强度，避免出现过曝的大面积亮班
   })
 }
 
-/** 创建偏深紫的挤出侧面材质，让转到侧面时保留参考图的通透高光。 */
+/** 创建偏深紫的挤出侧面材质，比正面稍粗糙，与光洁正面形成自然层次对比。 */
 function createSideMaterial(color: number) {
   return new THREE.MeshPhysicalMaterial({
     color,
-    metalness: 0.95, // 纯粹侧边拉丝金属
-    roughness: 0.25, // 侧面稍微粗糙，与光洁正面形成强烈对比，提升层次感
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.1,
-    envMapIntensity: 2.5, // 增强侧面在旋转时对环境光的敏感度
-    iridescence: 0.2, // 侧面也有微弱虹彩
-    iridescenceIOR: 1.4,
-    iridescenceThicknessRange: [100, 300],
+    metalness: 0.95, // 纯粹侧边金属
+    roughness: 0.42, // 侧面比正面更哑光，提升层次感
+    envMapIntensity: 1.8, // 增强侧面在旋转时对环境光的敏感度
   })
 }
 
