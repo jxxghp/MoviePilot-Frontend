@@ -3,6 +3,8 @@ import { computed, reactive, ref } from 'vue'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
 import type { Context } from '@/api/types'
+import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
+import router from '@/router'
 import { useI18n } from 'vue-i18n'
 
 interface PipelineStep {
@@ -54,6 +56,12 @@ const resourceChips = computed(() => {
     metaInfo.value?.resource_team,
   ].filter(Boolean) as string[]
 })
+// 是否已匹配到具体媒体，决定是否展示查看详情入口
+const canViewMediaDetail = computed(() =>
+  Boolean(
+    mediaInfo.value?.tmdb_id || mediaInfo.value?.douban_id || mediaInfo.value?.bangumi_id || mediaInfo.value?.media_id,
+  ),
+)
 const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-file-document-outline',
@@ -63,9 +71,10 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-puzzle-check-outline',
     title: t('nameTest.steps.meta.title'),
-    value: [metaInfo.value?.name, metaInfo.value?.resource_term, metaInfo.value?.release_group]
-      .filter(Boolean)
-      .join(' · ') || '-',
+    value:
+      [metaInfo.value?.name, metaInfo.value?.resource_term, metaInfo.value?.release_group]
+        .filter(Boolean)
+        .join(' · ') || '-',
   },
   {
     icon: 'mdi-movie-search-outline',
@@ -82,6 +91,21 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
 function getPosterImage(url = '') {
   if (!url) return ''
   return url.replace('original', 'w500')
+}
+
+/** 跳转查看当前识别结果匹配到的媒体详情。 */
+function viewMediaDetail() {
+  if (!canViewMediaDetail.value || !mediaInfo.value) return
+
+  router.push({
+    path: '/media',
+    query: {
+      mediaid: getMediaSubscribeId(mediaInfo.value),
+      title: mediaInfo.value.title,
+      year: mediaInfo.value.year,
+      type: mediaInfo.value.type,
+    },
+  })
 }
 
 /** 调用媒体识别接口并刷新解析工作台。 */
@@ -205,6 +229,20 @@ async function nameTest() {
                 {{ chip }}
               </VChip>
             </div>
+            <p v-if="mediaInfo?.overview" class="hero-overview text-body-2 text-medium-emphasis mt-3">
+              {{ mediaInfo.overview }}
+            </p>
+            <VBtn
+              v-if="canViewMediaDetail"
+              class="mt-3"
+              size="small"
+              variant="tonal"
+              color="primary"
+              append-icon="mdi-chevron-right"
+              @click="viewMediaDetail"
+            >
+              {{ t('common.viewDetails') }}
+            </VBtn>
           </div>
         </div>
 
@@ -230,12 +268,7 @@ async function nameTest() {
             {{ t('nameTest.steps.words.title') }}
           </div>
           <div class="words-chips">
-            <VChip
-              v-for="word in metaInfo.apply_words"
-              :key="word"
-              size="small"
-              variant="tonal"
-            >
+            <VChip v-for="word in metaInfo.apply_words" :key="word" size="small" variant="tonal">
               {{ word }}
             </VChip>
           </div>
@@ -254,25 +287,25 @@ async function nameTest() {
 <style scoped>
 .shortcut-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 1rem;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   padding-block-start: 0.5rem;
 }
 
 .shortcut-panel {
+  padding: 1rem;
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius);
   backdrop-filter: var(--app-grouped-list-backdrop-filter);
   background: var(--app-grouped-list-background);
   box-shadow: var(--app-surface-shadow);
-  padding: 1rem;
 }
 
 .panel-heading {
   display: flex;
-  gap: 0.75rem;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 0.75rem;
   margin-block-end: 1rem;
 }
 
@@ -299,13 +332,13 @@ async function nameTest() {
 
 .result-hero {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
-  gap: 0.85rem;
   align-items: center;
+  padding: 0.75rem;
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-primary), 0.08);
-  padding: 0.75rem;
+  gap: 0.85rem;
+  grid-template-columns: 5rem minmax(0, 1fr);
 }
 
 .result-hero--failed {
@@ -331,8 +364,8 @@ async function nameTest() {
 
 .hero-heading {
   display: flex;
-  gap: 0.5rem;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .hero-title-text {
@@ -349,6 +382,14 @@ async function nameTest() {
   max-inline-size: 100%;
 }
 
+.hero-overview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-height: 1.5;
+}
+
 .pipeline {
   display: flex;
   flex-direction: column;
@@ -356,8 +397,8 @@ async function nameTest() {
 
 .pipeline-step {
   display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr);
   gap: 0.75rem;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
 }
 
 .pipeline-marker {
@@ -369,14 +410,14 @@ async function nameTest() {
 
 .pipeline-connector {
   flex: 1;
+  background: rgba(var(--v-theme-primary), 0.25);
   inline-size: 2px;
   margin-block-start: 0.3rem;
-  background: rgba(var(--v-theme-primary), 0.25);
 }
 
 .pipeline-body {
-  padding-block-end: 0.9rem;
   min-inline-size: 0;
+  padding-block-end: 0.9rem;
 }
 
 .pipeline-step:last-child .pipeline-body {
@@ -395,9 +436,9 @@ async function nameTest() {
 
 .applied-words {
   display: grid;
+  border-block-start: var(--app-surface-border);
   gap: 0.5rem;
   padding-block: 0.4rem;
-  border-block-start: var(--app-surface-border);
 }
 
 .applied-words-label {
@@ -412,15 +453,15 @@ async function nameTest() {
 
 .empty-state {
   display: grid;
+  align-content: center;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  gap: 0.75rem;
   min-block-size: 14rem;
   place-items: center;
-  align-content: center;
-  gap: 0.75rem;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   text-align: center;
 }
 
-@media (max-width: 760px) {
+@media (width <= 760px) {
   .shortcut-workbench {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -436,7 +477,7 @@ async function nameTest() {
   }
 }
 
-@media (max-width: 420px) {
+@media (width <= 420px) {
   .shortcut-panel {
     padding: 0.8rem;
   }
