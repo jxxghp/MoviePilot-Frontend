@@ -80,6 +80,15 @@ function ensureThemeColorMeta(themeColor: string) {
   document.head.appendChild(meta)
 }
 
+/** 通知启动层刷新浏览器 Tab 图标，图标颜色与当前主题主色保持一致。 */
+export function syncThemeFavicon(primaryColor: string) {
+  window.dispatchEvent(
+    new CustomEvent('moviepilot-theme-primary-color-change', {
+      detail: { color: primaryColor },
+    }),
+  )
+}
+
 /**
  * 同步浏览器首帧会使用的根节点底色和系统控件配色。
  * iOS PWA 从后台恢复时可能先绘制 WebView 外壳，再等 Vue 响应式主题更新。
@@ -110,6 +119,7 @@ export function applyDocumentThemeChrome(
 
   setMetaContent('meta[name="color-scheme"]', colorScheme === 'dark' ? 'dark light' : 'light dark')
   ensureThemeColorMeta(background)
+  syncThemeFavicon(primary)
 
   if (options.persistLoaderColors) {
     localStorage.setItem('materio-initial-loader-bg', background)

@@ -4,6 +4,7 @@ import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { saveLocalTheme } from '@/@core/utils/theme'
 import vuetify from '@/plugins/vuetify'
 import { themeManager } from '@/utils/themeManager'
+import { syncThemeFavicon } from '@/utils/themePalette'
 
 export const THEME_CUSTOMIZER_STORAGE_KEY = 'moviepilot-theme-customizer'
 export const THEME_CUSTOMIZER_CHANGE_EVENT = 'moviepilot-theme-customizer-change'
@@ -209,6 +210,7 @@ export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyTheme
 
   document.documentElement.style.setProperty('--initial-loader-color', color)
   localStorage.setItem('materio-initial-loader-color', color)
+  syncThemeFavicon(color)
 }
 
 /** 布局、圆角、阴影、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */

@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
     @pointermove="handlePointerMove"
     @pointerleave="resetPointerResponse"
   >
-    <img :src="logoUrl" class="prismatic-logo__base" alt="" draggable="false" aria-hidden="true" />
+    <span class="prismatic-logo__base" aria-hidden="true" />
     <span class="prismatic-logo__spectrum" aria-hidden="true" />
     <span class="prismatic-logo__specular" aria-hidden="true" />
     <span class="prismatic-logo__reveal" aria-hidden="true" />
@@ -131,14 +131,19 @@ onBeforeUnmount(() => {
 }
 
 .prismatic-logo__base {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, rgb(var(--v-theme-primary)) 46%, white) 0%,
+    rgb(var(--v-theme-primary)) 48%,
+    color-mix(in srgb, rgb(var(--v-theme-primary)) 74%, black) 100%
+  );
   filter:
     drop-shadow(0 8px 12px rgba(24, 8, 52, 0.3))
-    drop-shadow(0 0 10px rgba(139, 92, 246, 0.22));
-  object-fit: contain;
-  padding: 7px;
+    drop-shadow(0 0 10px rgba(var(--v-theme-primary), 0.22));
   transform: translateZ(10px);
 }
 
+.prismatic-logo__base,
 .prismatic-logo__spectrum,
 .prismatic-logo__specular,
 .prismatic-logo__reveal {
@@ -151,16 +156,15 @@ onBeforeUnmount(() => {
     radial-gradient(
       circle at var(--logo-light-x) var(--logo-light-y),
       rgba(255, 255, 255, 0.95),
-      rgba(210, 188, 255, 0.66) 13%,
+      color-mix(in srgb, rgb(var(--v-theme-primary)) 68%, white 32%) 13%,
       transparent 36%
     ),
     conic-gradient(
       from 218deg at var(--logo-light-x) var(--logo-light-y),
-      rgba(255, 105, 210, 0.72),
-      rgba(117, 212, 255, 0.72),
-      rgba(177, 139, 255, 0.82),
-      rgba(255, 214, 246, 0.7),
-      rgba(255, 105, 210, 0.72)
+      color-mix(in srgb, rgb(var(--v-theme-primary)) 64%, #ff69d2 36%),
+      color-mix(in srgb, rgb(var(--v-theme-primary)) 64%, #75d4ff 36%),
+      color-mix(in srgb, rgb(var(--v-theme-primary)) 78%, white 22%),
+      color-mix(in srgb, rgb(var(--v-theme-primary)) 64%, #ff69d2 36%)
     );
   mix-blend-mode: screen;
   opacity: calc(0.22 + var(--prism-intensity) * 0.58);
@@ -171,7 +175,7 @@ onBeforeUnmount(() => {
   background: radial-gradient(
     ellipse 28% 20% at var(--logo-light-x) var(--logo-light-y),
     rgba(255, 255, 255, 0.96),
-    rgba(232, 219, 255, 0.52) 28%,
+    color-mix(in srgb, rgb(var(--v-theme-primary)) 54%, white 46%) 28%,
     transparent 72%
   );
   mix-blend-mode: screen;
@@ -185,7 +189,7 @@ onBeforeUnmount(() => {
     transparent 30%,
     rgba(255, 255, 255, 0.18) 39%,
     rgba(255, 255, 255, 0.98) 48%,
-    rgba(125, 211, 252, 0.62) 54%,
+    color-mix(in srgb, rgb(var(--v-theme-primary)) 62%, #7dd3fc 38%) 54%,
     transparent 66%
   );
   background-position: 100% 50%;

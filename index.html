@@ -33,9 +33,9 @@
   <meta name="referrer" content="no-referrer" />
 
   <!-- PWA - 基础图标 -->
-  <link rel="icon" type="image/png" href="/favicon.ico" />
-  <link rel="icon" type="image/png" href="/logo.png" sizes="any" />
-  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="64x64" />
+  <link rel="icon" type="image/png" href="/logo.png" sizes="192x192" />
+  <link id="theme-favicon" rel="icon" type="image/svg+xml" href="/logo.svg" sizes="any" />
 
   <!-- iOS Safari PWA 优化 -->
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -171,6 +171,30 @@
       display: block;
       block-size: auto;
       inline-size: 100%;
+    }
+
+    .loading-logo__mark {
+      display: none;
+    }
+
+    @supports ((-webkit-mask-image: url('/logo.svg')) or (mask-image: url('/logo.svg'))) {
+      .loading-logo img {
+        display: none;
+      }
+
+      .loading-logo__mark {
+        display: block;
+        background: linear-gradient(
+          145deg,
+          color-mix(in srgb, var(--initial-loader-color) 48%, white) 0%,
+          var(--initial-loader-color) 48%,
+          color-mix(in srgb, var(--initial-loader-color) 72%, black) 100%
+        );
+        block-size: min(160px, 36vw);
+        inline-size: min(160px, 36vw);
+        mask: url('/logo.svg') center / contain no-repeat;
+        -webkit-mask: url('/logo.svg') center / contain no-repeat;
+      }
     }
 
     .loading-footer {
@@ -362,6 +386,60 @@
       document.head.appendChild(meta)
     }
 
+    let faviconSourceImage
+    let pendingFaviconColor = '#9155FD'
+
+    function mixFaviconColor(hexColor, target, amount) {
+      const normalized = hexColor.replace('#', '')
+      const source = [0, 2, 4].map(offset => Number.parseInt(normalized.slice(offset, offset + 2), 16))
+
+      return `rgb(${source.map((channel, index) => Math.round(channel + (target[index] - channel) * amount)).join(', ')})`
+    }
+
+    // Tab 图标使用小尺寸位图承载主题色，避免 favicon 内部 SVG 无法继承页面 CSS 变量。
+    function syncThemeFavicon(primaryColor) {
+      if (!/^#[0-9a-f]{6}$/i.test(primaryColor)) return
+
+      pendingFaviconColor = primaryColor
+
+      const render = () => {
+        const faviconLink = document.querySelector('#theme-favicon')
+        if (!faviconLink || !faviconSourceImage?.naturalWidth) return
+
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+        if (!context) return
+
+        canvas.width = 64
+        canvas.height = 64
+        context.drawImage(faviconSourceImage, 0, 0, 64, 64)
+        context.globalCompositeOperation = 'source-in'
+
+        const gradient = context.createLinearGradient(10, 6, 54, 58)
+        gradient.addColorStop(0, mixFaviconColor(pendingFaviconColor, [255, 255, 255], 0.38))
+        gradient.addColorStop(0.48, pendingFaviconColor)
+        gradient.addColorStop(1, mixFaviconColor(pendingFaviconColor, [0, 0, 0], 0.28))
+        context.fillStyle = gradient
+        context.fillRect(0, 0, 64, 64)
+
+        faviconLink.setAttribute('type', 'image/png')
+        faviconLink.setAttribute('href', canvas.toDataURL('image/png'))
+      }
+
+      if (!faviconSourceImage) {
+        faviconSourceImage = new Image()
+        faviconSourceImage.onload = render
+        faviconSourceImage.src = '/logo.svg'
+        return
+      }
+
+      if (faviconSourceImage.complete) render()
+    }
+
+    window.addEventListener('moviepilot-theme-primary-color-change', event => {
+      syncThemeFavicon(event.detail?.color)
+    })
+
     function applyLaunchThemeChrome() {
       const themePreference = getSavedThemePreference()
       const resolvedLaunchTheme = resolveLaunchTheme(themePreference)
@@ -391,6 +469,7 @@
 
       setMetaContent('meta[name="color-scheme"]', colorScheme === 'dark' ? 'dark light' : 'light dark')
       syncThemeColorMeta(loaderColor)
+      syncThemeFavicon(primaryColor)
 
       return {
         background: loaderColor,
@@ -551,6 +630,7 @@
         <div class="loading-logo">
           <!-- Logo -->
           <img src="/logo.svg" alt="MoviePilot" width="160" height="160" />
+          <span class="loading-logo__mark" role="img" aria-label="MoviePilot"></span>
         </div>
       </div>
       <div class="loading-footer">

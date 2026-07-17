@@ -273,16 +273,7 @@ export default defineComponent({
       transform: none !important;
     }
 
-    .app-logo > div {
-      display: flex;
-      overflow: hidden;
-      align-items: center;
-      justify-content: center;
-      block-size: 2.75rem;
-      inline-size: 2.75rem;
-    }
-
-    .app-logo svg {
+    .app-logo .theme-logo-mark {
       block-size: 2.5rem;
       inline-size: 2.5rem;
     }
