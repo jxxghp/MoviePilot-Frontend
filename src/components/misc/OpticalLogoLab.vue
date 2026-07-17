@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useTheme } from 'vuetify'
 import { THEME_CUSTOMIZER_CHANGE_EVENT } from '@/composables/useThemeCustomizer'
 
-type MaterialMode = 'crystal' | 'chrome' | 'energy' | 'ceramic'
+type MaterialMode = 'crystal' | 'chrome' | 'energy' | 'ceramic' | 'matte'
 type EntranceMode = 'assemble' | 'emerge'
 type LabPhase = 'loading' | 'idle' | 'charging' | 'playing' | 'dragging' | 'fallback'
 type LogoPoint = readonly [number, number]
@@ -31,22 +31,39 @@ interface LogoPieceDefinition {
   cornerRadius: number
 }
 
+interface MatteFacetDefinition {
+  points: readonly LogoPoint[]
+  cornerRadius: number
+  lightness: number
+}
+
+interface MattePieceDefinition {
+  cornerRadius: number
+  depth: number
+  facets: readonly MatteFacetDefinition[]
+  offsetZ: number
+}
+
 interface PieceRig {
   body: ThreeMesh
   core: ThreeMesh
   group: ThreeGroup
+  matteBody: ThreeMesh
+  matteFacets: ThreeMesh[]
   spectral: ThreeMesh
 }
 
 interface MaterialRig {
   core: ThreeMaterial[]
   face: ThreeMaterial[]
+  facets: ThreeMaterial[][]
   side: ThreeMaterial[]
 }
 
 interface PersistedState {
   bag: string[]
   lastCombination?: string
+  logoSize: number
   pinned: boolean
   pinnedCombination?: string
   lightIntensity: number
@@ -97,6 +114,9 @@ const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
 const INITIAL_CAMERA_Z = 5.15
 const BLOOM_RENDER_PADDING = 24
+const DEFAULT_LOGO_SIZE = 144
+const MIN_LOGO_SIZE = 96
+const MAX_LOGO_SIZE = 160
 // MSAA 只覆盖几何边缘；小尺寸 Logo 需要额外超采样来稳定旋转中的镜面高光。
 const MIN_RENDER_DPR = 2
 const MAX_RENDER_DPR = 3
@@ -110,7 +130,7 @@ const CRUISE_REST_YAW = -0.12
 const DRAG_REST_PITCH = -0.06
 const DRAG_REST_YAW = -0.14
 const LOGO_BASE_Y = 0.4
-const MATERIAL_MODES: readonly MaterialMode[] = ['crystal', 'chrome', 'energy', 'ceramic']
+const MATERIAL_MODES: readonly MaterialMode[] = ['crystal', 'chrome', 'energy', 'ceramic', 'matte']
 const ENTRANCE_MODES: readonly EntranceMode[] = ['assemble', 'emerge']
 
 const DRAG_AUDIO_PROFILES: Record<MaterialMode, DragAudioProfile> = {
@@ -158,6 +178,17 @@ const DRAG_AUDIO_PROFILES: Record<MaterialMode, DragAudioProfile> = {
     gainRange: 0.04,
     waveform: 'triangle',
   },
+  matte: {
+    baseFilter: 420,
+    baseFrequency: 154,
+    filterQ: 0.72,
+    filterRange: 520,
+    filterType: 'lowpass',
+    frequencyRange: 42,
+    gainBase: 0.008,
+    gainRange: 0.034,
+    waveform: 'sine',
+  },
 }
 
 /** 常驻 Bloom 只强调材质高光，避免浅色外壳整体泛白。 */
@@ -166,6 +197,7 @@ const BLOOM_PROFILES: Record<MaterialMode, { strength: number; threshold: number
   chrome: { strength: 0.32, threshold: 1.02 },
   energy: { strength: 0.5, threshold: 0.9 },
   ceramic: { strength: 0.06, threshold: 1.3 },
+  matte: { strength: 0.08, threshold: 1.24 },
 }
 
 const LOGO_PIECES: readonly LogoPieceDefinition[] = [
@@ -208,6 +240,93 @@ const LOGO_PIECES: readonly LogoPieceDefinition[] = [
   },
 ]
 
+/** 哑光金属使用更宽的倒角与独立折面，保留材质固有的明暗层次。 */
+const MATTE_LOGO_PIECES: readonly MattePieceDefinition[] = [
+  {
+    cornerRadius: 4.8,
+    depth: 0.2,
+    offsetZ: 0,
+    facets: [
+      {
+        points: [
+          [96, 19],
+          [29, 58],
+          [48, 72],
+          [96, 44],
+          [116, 56],
+          [116, 38],
+        ],
+        cornerRadius: 2.4,
+        lightness: 0.1,
+      },
+      {
+        points: [
+          [29, 61],
+          [29, 130],
+          [44, 139],
+          [44, 78],
+        ],
+        cornerRadius: 2.2,
+        lightness: -0.09,
+      },
+    ],
+  },
+  {
+    cornerRadius: 4.8,
+    depth: 0.21,
+    offsetZ: 0.006,
+    facets: [
+      {
+        points: [
+          [148, 49],
+          [163, 59],
+          [163, 130],
+          [148, 121],
+        ],
+        cornerRadius: 2.2,
+        lightness: 0.09,
+      },
+      {
+        points: [
+          [162, 134],
+          [96, 171],
+          [77, 159],
+          [77, 141],
+          [96, 153],
+          [144, 125],
+        ],
+        cornerRadius: 2.4,
+        lightness: -0.08,
+      },
+    ],
+  },
+  {
+    cornerRadius: 3.6,
+    depth: 0.23,
+    offsetZ: 0.026,
+    facets: [
+      {
+        points: [
+          [80, 70],
+          [130, 96],
+          [80, 94],
+        ],
+        cornerRadius: 1.8,
+        lightness: 0.1,
+      },
+      {
+        points: [
+          [80, 98],
+          [130, 96],
+          [80, 122],
+        ],
+        cornerRadius: 1.8,
+        lightness: -0.1,
+      },
+    ],
+  },
+]
+
 const STATIC_LOGO_PATHS = LOGO_PIECES.map(
   ({ points }) => `M ${points.map(([x, y]) => `${x} ${y}`).join(' L ')} Z`,
 )
@@ -227,6 +346,7 @@ const reducedMotionActive = ref(false)
 const isPinned = ref(false)
 const soundEnabled = ref(false)
 const lightIntensity = ref(45)
+const logoSize = ref(DEFAULT_LOGO_SIZE)
 const selectedMaterial = ref<MaterialMode>('crystal')
 const selectedEntrance = ref<EntranceMode>('emerge')
 const phase = ref<LabPhase>('loading')
@@ -245,6 +365,8 @@ const text = computed(() =>
         entranceGroup: '进场方式',
         lightIntensity: 'Logo 光效强度',
         logo: '可交互的 MoviePilot 3D 光学 Logo',
+        logoSize: 'Logo 尺寸',
+        matte: '哑光金属',
         materialGroup: 'Logo 材质',
         mute: '关闭声音',
         pin: '固定当前组合',
@@ -263,6 +385,8 @@ const text = computed(() =>
         entranceGroup: 'Entrance mode',
         lightIntensity: 'Logo light intensity',
         logo: 'Interactive MoviePilot 3D optical logo',
+        logoSize: 'Logo size',
+        matte: 'Matte metal',
         materialGroup: 'Logo material',
         mute: 'Mute sound',
         pin: 'Pin this combination',
@@ -607,11 +731,19 @@ function createShuffledBag(previous?: string) {
 }
 
 function readPersistedState(): PersistedState {
-  const fallback: PersistedState = { bag: [], lightIntensity: 45, pinned: false, soundEnabled: false, version: 1 }
+  const fallback: PersistedState = {
+    bag: [],
+    lightIntensity: 45,
+    logoSize: DEFAULT_LOGO_SIZE,
+    pinned: false,
+    soundEnabled: false,
+    version: 1,
+  }
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<PersistedState> | null
     if (!parsed || parsed.version !== 1) return fallback
     const persistedLightIntensity = Number(parsed.lightIntensity)
+    const persistedLogoSize = Number(parsed.logoSize)
     return {
       bag: Array.isArray(parsed.bag) ? parsed.bag.filter(item => parseCombination(item)) : [],
       lastCombination: parseCombination(parsed.lastCombination)?.material
@@ -620,6 +752,9 @@ function readPersistedState(): PersistedState {
       lightIntensity: Number.isFinite(persistedLightIntensity)
         ? Math.min(100, Math.max(0, persistedLightIntensity))
         : fallback.lightIntensity,
+      logoSize: Number.isFinite(persistedLogoSize)
+        ? Math.min(MAX_LOGO_SIZE, Math.max(MIN_LOGO_SIZE, persistedLogoSize))
+        : fallback.logoSize,
       pinned: parsed.pinned === true,
       pinnedCombination: parseCombination(parsed.pinnedCombination)?.material
         ? parsed.pinnedCombination
@@ -652,6 +787,7 @@ function initializeSelection() {
   const persisted = readPersistedState()
   isPinned.value = persisted.pinned
   lightIntensity.value = persisted.lightIntensity
+  logoSize.value = persisted.logoSize
   soundEnabled.value = persisted.soundEnabled
 
   if (persisted.pinned && persisted.pinnedCombination) {
@@ -804,7 +940,7 @@ function createChromeFlowTexture() {
   return texture
 }
 
-function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boolean) {
+function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boolean, lightness = 0) {
   const T = requireThree()
   const { primary, tones } = getThemeColors()
   const tone = tones[toneIndex]
@@ -860,6 +996,13 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
       thickness: 0.2,
       transmission: side ? 0.68 : 0.76,
     })
+  } else if (mode === 'matte') {
+    material = new T.MeshPhysicalMaterial({
+      color: tone.clone().offsetHSL(0, side ? -0.04 : 0, side ? -0.12 : lightness),
+      envMapIntensity: side ? 1.8 : 1.6,
+      metalness: side ? 0.95 : 1,
+      roughness: side ? 0.42 : 0.32,
+    })
   } else if (side) {
     material = new T.MeshPhysicalMaterial({
       clearcoat: 0.16,
@@ -882,6 +1025,7 @@ function createPhysicalMaterial(mode: MaterialMode, toneIndex: number, side: boo
   }
 
   material.userData.opticalMode = mode
+  material.userData.lightness = lightness
   material.userData.toneIndex = toneIndex
   material.userData.side = side
   return registerMaterial(material)
@@ -927,6 +1071,11 @@ function createMaterialLibrary() {
     {
       core: LOGO_PIECES.map((_, index) => createCoreMaterial(mode, index)),
       face: LOGO_PIECES.map((_, index) => createPhysicalMaterial(mode, index, false)),
+      facets: MATTE_LOGO_PIECES.map((piece, index) =>
+        mode === 'matte'
+          ? piece.facets.map(facet => createPhysicalMaterial(mode, index, false, facet.lightness))
+          : [],
+      ),
       side: LOGO_PIECES.map((_, index) => createPhysicalMaterial(mode, index, true)),
     },
   ])
@@ -939,7 +1088,12 @@ function applyMaterial(mode: MaterialMode) {
   pieceRigs.forEach((piece, index) => {
     piece.body.material = [rig.face[index], rig.side[index]]
     piece.core.material = rig.core[index]
-    piece.core.visible = mode !== 'chrome'
+    piece.body.visible = mode !== 'matte'
+    piece.core.visible = mode !== 'chrome' && mode !== 'matte'
+    piece.matteBody.visible = mode === 'matte'
+    piece.matteFacets.forEach(facet => {
+      facet.visible = mode === 'matte'
+    })
   })
 }
 
@@ -950,9 +1104,10 @@ function updateThemeMaterials() {
   const white = new T.Color(0xffffff)
   MATERIAL_MODES.forEach(mode => {
     const rig = materialRigs?.[mode]
-    rig?.face.concat(rig.side).forEach(material => {
+    rig?.face.concat(rig.side, ...rig.facets).forEach(material => {
       if (!(material instanceof T.MeshPhysicalMaterial)) return
       const toneIndex = Number(material.userData.toneIndex || 0)
+      const lightness = Number(material.userData.lightness || 0)
       const side = material.userData.side === true
       const tone = tones[toneIndex]
       if (mode === 'crystal') {
@@ -963,6 +1118,8 @@ function updateThemeMaterials() {
       else if (mode === 'energy') {
         material.color.copy(new T.Color(0x11131f).lerp(tone, 0.18))
         material.emissive.copy(primary).multiplyScalar(0.08 + toneIndex * 0.02)
+      } else if (mode === 'matte') {
+        material.color.copy(tone).offsetHSL(0, side ? -0.04 : 0, side ? -0.12 : lightness)
       } else if (side) {
         material.color.copy(tone).offsetHSL(0, -0.12, -0.24)
       } else {
@@ -1012,17 +1169,53 @@ function createPieceRigs() {
     const rig = rigs[selectedMaterial.value]
     const body = new T.Mesh(geometry, [rig.face[index], rig.side[index]])
     body.renderOrder = 2
+    body.visible = selectedMaterial.value !== 'matte'
     const core = new T.Mesh(geometry, rig.core[index])
     core.renderOrder = 1
     core.scale.set(0.91, 0.91, 0.78)
-    core.visible = selectedMaterial.value !== 'chrome'
+    core.visible = selectedMaterial.value !== 'chrome' && selectedMaterial.value !== 'matte'
+
+    const matteDefinition = MATTE_LOGO_PIECES[index]
+    const matteRig = rigs.matte
+    const matteGeometry = registerGeometry(
+      new T.ExtrudeGeometry(createRoundedLogoShape(definition.points, matteDefinition.cornerRadius), {
+        bevelEnabled: true,
+        bevelOffset: -0.016,
+        bevelSegments: 12,
+        bevelSize: 0.08,
+        bevelThickness: 0.06,
+        curveSegments: 12,
+        depth: matteDefinition.depth,
+        steps: 1,
+      }),
+    )
+    matteGeometry.translate(0, 0, matteDefinition.offsetZ - matteDefinition.depth / 2)
+    matteGeometry.computeVertexNormals()
+    const matteBody = new T.Mesh(matteGeometry, [matteRig.face[index], matteRig.side[index]])
+    matteBody.renderOrder = 2
+    matteBody.visible = selectedMaterial.value === 'matte'
+    const matteFrontZ = matteDefinition.offsetZ + matteDefinition.depth / 2 + 0.064
+    const matteFacets = matteDefinition.facets.map((facet, facetIndex) => {
+      const facetGeometry = registerGeometry(
+        new T.ShapeGeometry(createRoundedLogoShape(facet.points, facet.cornerRadius), 8),
+      )
+      facetGeometry.translate(0, 0, matteFrontZ)
+      const facetMaterial = matteRig.facets[index][facetIndex]
+      facetMaterial.polygonOffset = true
+      facetMaterial.polygonOffsetFactor = -1
+      facetMaterial.polygonOffsetUnits = -1
+      const facetMesh = new T.Mesh(facetGeometry, facetMaterial)
+      facetMesh.renderOrder = 3
+      facetMesh.visible = selectedMaterial.value === 'matte'
+      return facetMesh
+    })
     const spectral = new T.Mesh(geometry, spectralShell)
     spectral.renderOrder = 4
     spectral.scale.setScalar(1)
 
-    group.add(core, body, spectral)
+    group.add(core, body, matteBody, ...matteFacets, spectral)
     logoModel?.add(group)
-    return { body, core, group, spectral }
+    return { body, core, group, matteBody, matteFacets, spectral }
   })
 }
 
@@ -1753,6 +1946,9 @@ function playMaterialSound(mode: MaterialMode) {
     playTone(164, 0.62, 0.075, 0, 'sawtooth', 292)
     playTone(420, 0.5, 0.04, 0.08, 'sine', 620)
     playNoise(0.35, 0.03, 1700, 0.04)
+  } else if (mode === 'matte') {
+    playTone(168, 0.54, 0.042, 0, 'sine', 132)
+    playNoise(0.34, 0.018, 720, 0.02)
   } else {
     playNoise(0.32, 0.022, 1600)
     playTone(520, 0.56, 0.045, 0.02, 'sine', 480)
@@ -2137,10 +2333,16 @@ async function prewarmRemainingMaterials() {
       const rig = materialRigs[mode]
       const prewarmGroup = new T.Group()
       pieceRigs.forEach((piece, index) => {
-        const body = new T.Mesh(piece.body.geometry, [rig.face[index], rig.side[index]])
+        const bodyGeometry = mode === 'matte' ? piece.matteBody.geometry : piece.body.geometry
+        const body = new T.Mesh(bodyGeometry, [rig.face[index], rig.side[index]])
         const core = new T.Mesh(piece.core.geometry, rig.core[index])
-        core.visible = mode !== 'chrome'
+        core.visible = mode !== 'chrome' && mode !== 'matte'
         prewarmGroup.add(body, core)
+        if (mode === 'matte') {
+          piece.matteFacets.forEach((facet, facetIndex) => {
+            prewarmGroup.add(new T.Mesh(facet.geometry, rig.facets[index][facetIndex]))
+          })
+        }
       })
       await renderer.compileAsync(prewarmGroup, camera, scene)
       prewarmGroup.clear()
@@ -2290,6 +2492,19 @@ function handleLightIntensityChange(value: number) {
   reducedMotionRenderPending = true
 }
 
+/** Logo 尺寸变化后同步画布与后处理目标，避免仅放大 CSS 导致画面变糊。 */
+function handleLogoSizeChange(value: number) {
+  const clamped = Math.min(MAX_LOGO_SIZE, Math.max(MIN_LOGO_SIZE, Number(value) || DEFAULT_LOGO_SIZE))
+  if (clamped !== value) {
+    logoSize.value = clamped
+    return
+  }
+  writePersistedState({ logoSize: clamped })
+  highRefreshUntil = performance.now() + 500
+  reducedMotionRenderPending = true
+  void nextTick(updateRendererSize)
+}
+
 watch(
   () => [
     vuetifyTheme.global.name.value,
@@ -2301,6 +2516,7 @@ watch(
 )
 
 watch(lightIntensity, handleLightIntensityChange)
+watch(logoSize, handleLogoSizeChange)
 
 onMounted(async () => {
   initializeSelection()
@@ -2368,6 +2584,7 @@ onBeforeUnmount(() => {
   <div
     ref="rootRef"
     class="optical-logo-lab"
+    :style="{ '--optical-logo-size': `${logoSize}px` }"
     :class="[
       `optical-logo-lab--${selectedMaterial}`,
       `optical-logo-lab--${phase}`,
@@ -2473,6 +2690,34 @@ onBeforeUnmount(() => {
         </output>
       </div>
 
+      <div class="optical-logo-lab__size-control">
+        <VIcon icon="mdi-resize" size="16" aria-hidden="true" />
+        <VSlider
+          id="optical-logo-size"
+          v-model="logoSize"
+          class="optical-logo-lab__size-slider"
+          :aria-label="text.logoSize"
+          color="primary"
+          density="compact"
+          :disabled="!isReady"
+          hide-details
+          :max="MAX_LOGO_SIZE"
+          :min="MIN_LOGO_SIZE"
+          :step="4"
+          thumb-label
+          :thumb-size="12"
+          track-color="on-surface"
+          :track-size="2"
+        />
+        <output
+          class="optical-logo-lab__size-value"
+          for="optical-logo-size"
+          :aria-label="text.logoSize"
+        >
+          {{ logoSize }}
+        </output>
+      </div>
+
       <div class="optical-logo-lab__command-row">
         <div class="optical-logo-lab__entrances" role="radiogroup" :aria-label="text.entranceGroup">
           <button
@@ -2564,9 +2809,9 @@ onBeforeUnmount(() => {
   border: 0;
   appearance: none;
   background: transparent;
-  block-size: 112px;
+  block-size: var(--optical-logo-size, 144px);
   cursor: default;
-  inline-size: 112px;
+  inline-size: var(--optical-logo-size, 144px);
   padding: 0;
   place-items: center;
   touch-action: pan-y;
@@ -2610,11 +2855,11 @@ onBeforeUnmount(() => {
 .optical-logo-lab__fallback {
   position: absolute;
   display: block;
-  block-size: 112px;
+  block-size: var(--optical-logo-size, 144px);
   filter:
     drop-shadow(0 9px 15px rgba(16, 8, 38, 0.26))
     drop-shadow(0 0 14px rgba(var(--v-theme-primary), 0.2));
-  inline-size: 112px;
+  inline-size: var(--optical-logo-size, 144px);
   inset: 50% auto auto 50%;
   opacity: 0;
   pointer-events: none;
@@ -2715,7 +2960,8 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.optical-logo-lab__light-control {
+.optical-logo-lab__light-control,
+.optical-logo-lab__size-control {
   display: flex;
   align-items: center;
   block-size: 22px;
@@ -2725,20 +2971,24 @@ onBeforeUnmount(() => {
   padding-inline: 2px;
 }
 
-.optical-logo-lab__light-slider {
+.optical-logo-lab__light-slider,
+.optical-logo-lab__size-slider {
   flex: 1 1 auto;
   min-inline-size: 0;
 }
 
-:deep(.optical-logo-lab__light-slider .v-input__control) {
+:deep(.optical-logo-lab__light-slider .v-input__control),
+:deep(.optical-logo-lab__size-slider .v-input__control) {
   min-block-size: 22px;
 }
 
-:deep(.optical-logo-lab__light-slider .v-slider-track__background) {
+:deep(.optical-logo-lab__light-slider .v-slider-track__background),
+:deep(.optical-logo-lab__size-slider .v-slider-track__background) {
   opacity: 0.24;
 }
 
-.optical-logo-lab__light-value {
+.optical-logo-lab__light-value,
+.optical-logo-lab__size-value {
   flex: 0 0 24px;
   color: rgba(var(--v-theme-on-surface), 0.62);
   font-size: 0.65rem;
@@ -2827,6 +3077,14 @@ onBeforeUnmount(() => {
     linear-gradient(135deg, rgb(var(--v-theme-primary)), rgba(var(--v-theme-primary), 0.66));
   box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.16);
   filter: brightness(0.72) saturate(0.9);
+}
+
+.optical-logo-lab__swatch--matte > span {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.28), transparent 34%),
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.92), rgba(var(--v-theme-primary), 0.48));
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.1);
+  filter: brightness(0.82) saturate(0.88);
 }
 
 .optical-logo-lab__command-row {
@@ -2919,11 +3177,6 @@ onBeforeUnmount(() => {
 }
 
 @media (width <= 480px) {
-  .optical-logo-lab__stage {
-    block-size: 104px;
-    inline-size: 104px;
-  }
-
   .optical-logo-lab__controls {
     inline-size: min(100%, 278px);
   }
