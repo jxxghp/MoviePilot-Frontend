@@ -17,10 +17,41 @@ import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federa
 const LoginMfaDialog = defineAsyncComponent(() => import('@/components/dialog/LoginMfaDialog.vue'))
 
 const loginRootRef = ref<HTMLElement | null>(null)
+type LabTapTarget = 'logo' | 'title'
+
+const LAB_TAP_COUNT = 5
+const LAB_TAP_WINDOW_MS = 2000
+const labTapSequences: Record<LabTapTarget, { count: number; startedAt: number }> = {
+  logo: { count: 0, startedAt: 0 },
+  title: { count: 0, startedAt: 0 },
+}
 let cardLightFrame: number | null = null
 let pendingCardLightX = 0.5
 let pendingCardLightY = 0
 let pendingCardLightEnergy = 0
+
+/** 在指定区域连续点击五次时进入隐藏的 Logo 实验室。 */
+function handleLabTap(target: LabTapTarget) {
+  if (router.currentRoute.value.query.lab === '1') return
+
+  const now = performance.now()
+  const sequence = labTapSequences[target]
+  if (sequence.count === 0 || now - sequence.startedAt > LAB_TAP_WINDOW_MS) {
+    sequence.count = 1
+    sequence.startedAt = now
+    return
+  }
+
+  sequence.count += 1
+  if (sequence.count < LAB_TAP_COUNT) return
+
+  labTapSequences.logo.count = 0
+  labTapSequences.title.count = 0
+  void router.push({
+    path: '/login',
+    query: { ...router.currentRoute.value.query, lab: '1' },
+  })
+}
 
 /** 卡片顶部反射与指针共用光源位置，避免通过响应式状态触发页面重渲染。 */
 function renderCardLight() {
@@ -784,8 +815,12 @@ onUnmounted(() => {
 
         <!-- 卡片头部：Logo + 标题 + 欢迎语 -->
         <div class="login-head">
-          <OpticalLogoLab class="login-logo" :locale="currentLocale">
-            <h1 class="login-title">MoviePilot</h1>
+          <OpticalLogoLab
+            class="login-logo"
+            :locale="currentLocale"
+            @logo-click="handleLabTap('logo')"
+          >
+            <h1 class="login-title" @click="handleLabTap('title')">MoviePilot</h1>
             <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
           </OpticalLogoLab>
         </div>
@@ -1219,6 +1254,7 @@ onUnmounted(() => {
 
 .login-title {
   margin: 0;
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
   background: linear-gradient(135deg, rgb(var(--v-theme-on-surface)) 30%, rgba(var(--v-theme-primary), 1) 100%);
   background-clip: text;
   font-size: 1.85rem;
@@ -1227,11 +1263,13 @@ onUnmounted(() => {
   line-height: 1.2;
   -webkit-text-fill-color: transparent;
   text-transform: uppercase;
+  touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .login-subtitle {
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.875rem;
   font-weight: 400;
@@ -1529,6 +1567,7 @@ onUnmounted(() => {
   letter-spacing: 0.03em;
   margin-block-start: 14px;
   opacity: 0.75;
+  animation: text-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) 520ms both;
 }
 
 .login-version {
@@ -1550,6 +1589,18 @@ onUnmounted(() => {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes text-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

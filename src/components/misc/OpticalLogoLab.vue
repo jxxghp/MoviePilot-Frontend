@@ -126,6 +126,10 @@ const props = withDefaults(
   },
 )
 
+const emit = defineEmits<{
+  'logo-click': []
+}>()
+
 const STORAGE_KEY = 'moviepilot-optical-logo-lab-v2'
 const LOGO_VIEWBOX_CENTER = 96
 const LOGO_COORDINATE_SCALE = 1 / 80
@@ -2353,6 +2357,7 @@ function handleStageClick() {
     dragState.suppressClick = false
     return
   }
+  emit('logo-click')
   if (selectedMaterial.value === 'prismatic') {
     if (selectedEntrance.value !== 'none') prismaticReplayKey.value += 1
     return
