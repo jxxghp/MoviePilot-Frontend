@@ -6,9 +6,12 @@ import { useDisplay } from 'vuetify'
 import ProgressDialog from './ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { mediaTypeDict } from '@/api/constants'
+import { useToast } from 'vue-toastification'
 
 // 国际化
 const { t } = useI18n()
+
+const $toast = useToast()
 
 // 显示器宽度
 const display = useDisplay()
@@ -97,9 +100,12 @@ async function reSubscribe(item: Subscribe) {
     const result: { [key: string]: any } = await api.post('subscribe/', item)
     if (result.success) {
       emit('save')
+    } else {
+      $toast.error(t('subscribe.requestFailed'))
     }
   } catch (e) {
     console.error(e)
+    $toast.error(t('subscribe.requestFailed'))
   }
   progressDialog.value = false
 }
@@ -113,6 +119,7 @@ async function deleteHistory(item: Subscribe) {
     }
   } catch (e) {
     console.error(e)
+    $toast.error(t('subscribe.requestFailed'))
   }
 }
 
@@ -157,6 +164,14 @@ function getMediaTypeText(type: string | undefined) {
         <VInfiniteScroll mode="intersect" side="end" :items="historyList" class="h-100" @load="loadHistory">
           <template #loading>
             <LoadingBanner />
+          </template>
+          <template #error="{ props: retryProps }">
+            <div class="d-flex flex-column align-center ga-2 py-4" role="alert">
+              <span class="text-medium-emphasis">{{ t('subscribe.requestFailed') }}</span>
+              <VBtn v-bind="retryProps" prepend-icon="mdi-refresh" size="small" variant="tonal">
+                {{ t('common.retry') }}
+              </VBtn>
+            </div>
           </template>
           <template #empty />
           <VVirtualScroll v-if="historyList.length > 0" renderless :items="historyList" :item-height="104">

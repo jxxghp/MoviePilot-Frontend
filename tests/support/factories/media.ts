@@ -1,7 +1,8 @@
-import type { MediaInfo, TmdbEpisode } from '@/api/types'
+import type { MediaInfo, MediaSeason, NotExistMediaInfo, TmdbEpisode } from '@/api/types'
 
 let episodeSeed = 0
 let mediaSeed = 0
+let seasonSeed = 0
 
 export function createTmdbEpisode(overrides: Partial<TmdbEpisode> = {}): TmdbEpisode {
   episodeSeed += 1
@@ -29,6 +30,31 @@ export function createMediaInfo(overrides: Partial<MediaInfo> = {}): MediaInfo {
     tmdb_id: mediaSeed,
     type: '电影',
     year: '2026',
+    ...overrides,
+  }
+}
+
+/** 构造季选择弹窗使用的最小季信息。 */
+export function createMediaSeason(overrides: Partial<MediaSeason> = {}): MediaSeason {
+  seasonSeed += 1
+  return {
+    air_date: `202${seasonSeed % 10}-01-01`,
+    episode_count: 12,
+    name: `第 ${seasonSeed} 季`,
+    poster_path: `/images/season-${seasonSeed}.jpg`,
+    season_number: seasonSeed,
+    vote_average: 8,
+    ...overrides,
+  }
+}
+
+/** 构造媒体服务器返回的单季缺失状态。 */
+export function createNotExistMediaInfo(overrides: Partial<NotExistMediaInfo> = {}): NotExistMediaInfo {
+  return {
+    episodes: [],
+    season: 1,
+    start_episode: 1,
+    total_episode: 12,
     ...overrides,
   }
 }

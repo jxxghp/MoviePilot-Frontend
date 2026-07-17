@@ -64,15 +64,19 @@ const subScribeInfo = ref<SubscrbieInfo>()
 // 是否加载中
 const loading = ref(false)
 
+const loadError = ref(false)
+
 /**
  * 调用 API 查询订阅文件信息。
  */
 async function loadSubscribeFilesInfo() {
   try {
     loading.value = true
+    loadError.value = false
     subScribeInfo.value = await api.get(`subscribe/files/${props.subid}`)
   } catch (e) {
     console.log(e)
+    loadError.value = true
   } finally {
     loading.value = false
   }
@@ -294,7 +298,11 @@ const episodeGroups = computed<SubscribeEpisodeGroup[]>(() => {
 const totalCount = computed(() => {
   const subscribeTotal = subscribe.value?.total_episode ?? 0
   if (subscribe.value?.type === '电影') return Math.max(episodeGroups.value.length, 1)
-  return Math.max(subscribeTotal, episodeGroups.value.length)
+
+  // 电视剧以起始集到总集数作为目标范围，自定义起始集需要换算为实际集数。
+  const startEpisode = subscribe.value?.start_episode || 1
+  const targetCount = subscribeTotal >= startEpisode ? subscribeTotal - startEpisode + 1 : 0
+  return Math.max(targetCount, episodeGroups.value.length)
 })
 
 // 已下载集数
@@ -402,7 +410,15 @@ onBeforeMount(() => {
       <LoadingBanner v-if="loading" />
 
       <VCardText v-else class="subscribe-files-dialog__body">
-        <div v-if="subScribeInfo?.subscribe" class="subscribe-files-shell">
+        <div v-if="loadError" class="subscribe-files-empty subscribe-files-empty--standalone">
+          <VIcon icon="mdi-folder-alert-outline" size="40" />
+          <div>{{ t('error.serverError') }}</div>
+          <VBtn color="primary" prepend-icon="mdi-refresh" @click="loadSubscribeFilesInfo">
+            {{ t('common.retry') }}
+          </VBtn>
+        </div>
+
+        <div v-else-if="subScribeInfo?.subscribe" class="subscribe-files-shell">
           <section class="subscribe-files-hero" :style="heroStyle">
             <div class="subscribe-files-hero__shade" />
             <div class="subscribe-files-hero__content">
@@ -424,7 +440,7 @@ onBeforeMount(() => {
                 </div>
                 <h2 class="subscribe-files-hero__title">{{ subscribe?.name }}</h2>
                 <div class="subscribe-files-hero__chips">
-                  <VChip v-if="subscribe?.season" color="primary" variant="flat" size="small">
+                  <VChip v-if="subscribe?.season != null" color="primary" variant="flat" size="small">
                     {{ t('dialog.subscribeFiles.season', { number: subscribe.season }) }}
                   </VChip>
                   <VChip v-if="subscribe?.year" variant="tonal" size="small">{{ subscribe.year }}</VChip>
