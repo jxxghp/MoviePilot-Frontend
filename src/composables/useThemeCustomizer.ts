@@ -11,7 +11,7 @@ export const THEME_CUSTOMIZER_CHANGE_EVENT = 'moviepilot-theme-customizer-change
 export const THEME_CUSTOMIZER_OPEN_EVENT = 'moviepilot-theme-customizer-open'
 
 export const themeCustomizerPrimaryColors = [
-  { name: 'Purple', value: '#9155FD' },
+  { name: 'Purple', value: '#8D51F9' },
   { name: 'Indigo', value: '#3F51B5' },
   { name: 'Blue', value: '#1976D2' },
   { name: 'Cyan', value: '#00BCD4' },
@@ -126,12 +126,13 @@ function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSetti
   const fallback = getDefaultThemeCustomizerSettings()
   const storedRadius = settings.radius as string | undefined
   const radius = storedRadius === 'huge' ? 'extra' : storedRadius
+  const primaryColor = isHexColor(settings.primaryColor) ? settings.primaryColor.toUpperCase() : fallback.primaryColor
 
   return {
     layout: validLayouts.includes(settings.layout as ThemeCustomizerLayout)
       ? (settings.layout as ThemeCustomizerLayout)
       : fallback.layout,
-    primaryColor: isHexColor(settings.primaryColor) ? settings.primaryColor.toUpperCase() : fallback.primaryColor,
+    primaryColor,
     radius: validRadii.includes(radius as ThemeCustomizerRadius)
       ? (radius as ThemeCustomizerRadius)
       : fallback.radius,
@@ -155,7 +156,6 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
   try {
     const stored = localStorage.getItem(THEME_CUSTOMIZER_STORAGE_KEY)
     const parsed = stored ? JSON.parse(stored) : {}
-
     return normalizeThemeCustomizerSettings({
       ...fallback,
       ...parsed,

@@ -964,7 +964,7 @@ function registerTexture<T extends ThreeTexture>(texture: T) {
 function getThemeColors() {
   const T = requireThree()
   const colors = vuetifyTheme.global.current.value.colors
-  const primary = new T.Color(colors.primary || '#9155FD')
+  const primary = new T.Color(colors.primary || '#8D51F9')
   const surface = new T.Color(colors.surface || colors.background || '#14161F')
   const onSurface = new T.Color(colors['on-surface'] || '#FFFFFF')
   const hsl = { h: 0, l: 0, s: 0 }

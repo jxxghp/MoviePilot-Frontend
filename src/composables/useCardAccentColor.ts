@@ -1,6 +1,6 @@
 import { getDominantColor } from '@/@core/utils/image'
 
-const DEFAULT_ACCENT_RGB = '145, 85, 253'
+const DEFAULT_ACCENT_RGB = '141, 81, 249'
 
 /** 将图标主色转换为卡片 CSS 变量可直接使用的 RGB 字符串。 */
 function hexToRgbString(hexColor: string) {
@@ -13,14 +13,14 @@ function hexToRgbString(hexColor: string) {
 }
 
 /** 从指定图片中提取卡片强调色，返回 CSS 变量可直接使用的 RGB 字符串。 */
-export async function getCardAccentRgbFromImage(image: HTMLImageElement | undefined | null, fallback = '#9155FD') {
+export async function getCardAccentRgbFromImage(image: HTMLImageElement | undefined | null, fallback = '#8D51F9') {
   const dominantColor = await getDominantColor(image, { fallback })
 
   return hexToRgbString(dominantColor)
 }
 
 /** 从卡片图标中提取强调色，保证设置页卡片颜色跟随各自图标。 */
-export function useCardAccentColor(fallback = '#9155FD') {
+export function useCardAccentColor(fallback = '#8D51F9') {
   const accentRgb = ref(DEFAULT_ACCENT_RGB)
   const imageRef = ref<any>()
 

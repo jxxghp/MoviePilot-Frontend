@@ -5,7 +5,7 @@ import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storageRemoteDict } from '@/api/constants'
 
-const DEFAULT_DIRECTORY_ACCENT_RGB = '145, 85, 253'
+const DEFAULT_DIRECTORY_ACCENT_RGB = '141, 81, 249'
 const STORAGE_ACCENT_COLOR_MAP = {
   local: '#FFB400',
   alipan: '#00A7F2',

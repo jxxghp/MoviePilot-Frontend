@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import logoUrl from '@images/logo.svg'
+import ThemeLogoMark from '@/components/misc/ThemeLogoMark.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -71,7 +72,7 @@ onBeforeUnmount(() => {
     @pointermove="handlePointerMove"
     @pointerleave="resetPointerResponse"
   >
-    <span class="prismatic-logo__base" aria-hidden="true" />
+    <ThemeLogoMark class="prismatic-logo__base" decorative />
     <span class="prismatic-logo__spectrum" aria-hidden="true" />
     <span class="prismatic-logo__specular" aria-hidden="true" />
     <span class="prismatic-logo__reveal" aria-hidden="true" />
@@ -117,7 +118,6 @@ onBeforeUnmount(() => {
   transform: translate3d(0, 8px, -16px) scaleX(1.18);
 }
 
-.prismatic-logo__base,
 .prismatic-logo__spectrum,
 .prismatic-logo__specular,
 .prismatic-logo__reveal {
@@ -131,19 +131,19 @@ onBeforeUnmount(() => {
 }
 
 .prismatic-logo__base {
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, rgb(var(--v-theme-primary)) 46%, white) 0%,
-    rgb(var(--v-theme-primary)) 48%,
-    color-mix(in srgb, rgb(var(--v-theme-primary)) 74%, black) 100%
-  );
+  position: absolute;
+  display: block;
+  block-size: calc(100% - 14px);
   filter:
     drop-shadow(0 8px 12px rgba(24, 8, 52, 0.3))
     drop-shadow(0 0 10px rgba(var(--v-theme-primary), 0.22));
+  inline-size: calc(100% - 14px);
+  inset: 7px;
+  pointer-events: none;
   transform: translateZ(10px);
+  user-select: none;
 }
 
-.prismatic-logo__base,
 .prismatic-logo__spectrum,
 .prismatic-logo__specular,
 .prismatic-logo__reveal {
