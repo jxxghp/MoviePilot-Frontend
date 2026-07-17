@@ -29,6 +29,8 @@ export const subscribeApiUrls = {
   list: new URL('subscribe/', API_BASE_URL).href,
   orderConfig: (type: SubscribeMediaType) =>
     new URL(`user/config/${type === '电影' ? 'SubscribeMovieOrder' : 'SubscribeTvOrder'}`, API_BASE_URL).href,
+  resetById: (id: number) => new URL(`subscribe/reset/${id}`, API_BASE_URL).href,
+  searchById: (id: number) => new URL(`subscribe/search/${id}`, API_BASE_URL).href,
   sites: new URL('site/rss', API_BASE_URL).href,
   statusById: (id: number) => new URL(`subscribe/status/${id}`, API_BASE_URL).href,
   update: new URL('subscribe/', API_BASE_URL).href,
@@ -82,6 +84,30 @@ export function updateSubscribeStatusHandler(
 ) {
   return http.put(subscribeApiUrls.statusById(id), async ({ request }) => {
     await onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function searchSubscribeByIdHandler(
+  id: number,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(subscribeApiUrls.searchById(id), ({ request }) => {
+    onRequest(new URL(request.url))
+    return jsonResponse(response, status)
+  })
+}
+
+export function resetSubscribeByIdHandler(
+  id: number,
+  response: SubscribeMutationResponse = { success: true },
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(subscribeApiUrls.resetById(id), ({ request }) => {
+    onRequest(new URL(request.url))
     return jsonResponse(response, status)
   })
 }
