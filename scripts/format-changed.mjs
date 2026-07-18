@@ -5,7 +5,8 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as prettier from 'prettier'
 
-const DEFAULT_BASE_REFS = ['upstream/v2', 'origin/v2', 'v2']
+const DEFAULT_BASE_REFS = ['refs/remotes/upstream/v2', 'refs/remotes/origin/v2', 'refs/heads/v2']
+const GIT_OUTPUT_MAX_BUFFER = 64 * 1024 * 1024
 const PRETTIER_ARGUMENT_BUDGET = 24_000
 const prettierCliPath = fileURLToPath(new URL('../node_modules/prettier/bin/prettier.cjs', import.meta.url))
 
@@ -16,39 +17,44 @@ function parseNullDelimited(output) {
 
 /** 运行只返回仓库相对路径的 Git 查询。 */
 function gitPaths(cwd, args) {
-  return parseNullDelimited(execFileSync('git', args, { cwd, encoding: 'buffer' }))
+  return parseNullDelimited(
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'buffer',
+      maxBuffer: GIT_OUTPUT_MAX_BUFFER,
+    }),
+  )
 }
 
-/** 判断本地仓库是否存在可用于三点 diff 的提交引用。 */
-function hasCommitRef(cwd, ref) {
-  return (
-    spawnSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], {
-      cwd,
-      stdio: 'ignore',
-    }).status === 0
-  )
+/** 尝试把引用解析为提交 SHA；完整引用可避免分支与标签同名时产生歧义。 */
+function tryResolveCommit(cwd, ref) {
+  const result = spawnSync('git', ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], {
+    cwd,
+    encoding: 'utf8',
+  })
+  return result.status === 0 ? result.stdout.trim() : undefined
 }
 
 /** 把外部引用解析为提交 SHA，后续 Git diff 不再解释用户提供的选项样式字符串。 */
 function resolveCommit(cwd, ref) {
-  try {
-    return execFileSync('git', ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`], {
-      cwd,
-      encoding: 'utf8',
-    }).trim()
-  } catch {
-    throw new Error(`无法解析 Git 提交引用：${ref}`)
-  }
+  const commit = tryResolveCommit(cwd, ref)
+  if (commit) return commit
+  throw new Error(`无法解析 Git 提交引用：${ref}`)
 }
 
-/** 为本地命令选择现有 v2 基线；CI 应显式传入事件中的 base/head SHA。 */
-function resolveDefaultBase(cwd) {
-  const base = DEFAULT_BASE_REFS.find(ref => hasCommitRef(cwd, ref))
-  if (!base) {
-    throw new Error('无法定位 v2 基线，请通过 --base <ref> 显式指定比较起点。')
+/** 判断两个提交能否进行三点比较。 */
+function hasMergeBase(cwd, baseCommit, headCommit) {
+  return spawnSync('git', ['merge-base', baseCommit, headCommit], { cwd, stdio: 'ignore' }).status === 0
+}
+
+/** 为本地命令选择与当前提交具有共同祖先的 v2 基线。 */
+function resolveDefaultBase(cwd, headCommit) {
+  for (const ref of DEFAULT_BASE_REFS) {
+    const commit = tryResolveCommit(cwd, ref)
+    if (commit && hasMergeBase(cwd, commit, headCommit)) return commit
   }
 
-  return base
+  throw new Error('无法定位可比较的 v2 基线，请通过 --base <ref> 显式指定比较起点。')
 }
 
 /**
@@ -61,16 +67,17 @@ function collectChangedPaths({ cwd, base, head }) {
   }
 
   const explicitRange = Boolean(base)
-  const resolvedBase = base ?? resolveDefaultBase(cwd)
-  const resolvedHead = head ?? 'HEAD'
-  const baseCommit = resolveCommit(cwd, resolvedBase)
-  const headCommit = resolveCommit(cwd, resolvedHead)
+  const headCommit = resolveCommit(cwd, head ?? 'HEAD')
+  const baseCommit = base ? resolveCommit(cwd, base) : resolveDefaultBase(cwd, headCommit)
+  if (!hasMergeBase(cwd, baseCommit, headCommit)) {
+    throw new Error('Git 比较起点与终点没有共同祖先，无法执行三点比较。')
+  }
   const paths = new Set(
-    gitPaths(cwd, ['diff', '--name-only', '--diff-filter=ACMR', '-z', `${baseCommit}...${headCommit}`]),
+    gitPaths(cwd, ['diff', '--name-only', '--diff-filter=ACMRT', '-z', `${baseCommit}...${headCommit}`]),
   )
 
   if (!explicitRange) {
-    for (const filePath of gitPaths(cwd, ['diff', '--name-only', '--diff-filter=ACMR', '-z', 'HEAD'])) {
+    for (const filePath of gitPaths(cwd, ['diff', '--name-only', '--diff-filter=ACMRT', '-z', 'HEAD'])) {
       paths.add(filePath)
     }
     for (const filePath of gitPaths(cwd, ['ls-files', '--others', '--exclude-standard', '-z'])) {
@@ -178,7 +185,7 @@ function parseArguments(args) {
   return options
 }
 
-/** 执行变更文件选择与格式化；显式引用模式为后续 PR workflow 提供确定输入。 */
+/** 执行变更文件选择与格式化；显式引用模式为 CI 提供确定输入。 */
 async function main() {
   const cwd = process.cwd()
   const { action, base, head } = parseArguments(process.argv.slice(2))

@@ -105,7 +105,7 @@ Prettier 初始 CI 只检查 Pull Request 新增或修改的受支持文件，�
 3. 仅把 Prettier 支持且由仓库管理的文件传给 `prettier --check`。
 4. 文件集合为空时正常通过。
 
-本地直接运行 `yarn format` 或 `yarn format:check` 时，脚本以可用的 `upstream/v2`、`origin/v2` 或本地 `v2` 为基线，并合并当前工作区与未跟踪文件。CI 使用显式引用保证输入可复现：
+本地直接运行 `yarn format` 或 `yarn format:check` 时，脚本按 `refs/remotes/upstream/v2`、`refs/remotes/origin/v2`、`refs/heads/v2` 的顺序选择与当前提交具有共同祖先的基线，并合并当前工作区与未跟踪文件。完整引用可避免同名标签造成歧义；CI 使用显式提交 SHA 保证输入可复现：
 
 ```sh
 yarn format:check --base <base-sha> --head <head-sha>
@@ -120,7 +120,7 @@ yarn format:check --base <base-sha> --head <head-sha>
 具体交付拆分为：
 
 1. Prettier 基础设施 PR：安装项目 CLI，定义配置、命令、变更文件选择脚本和回归测试，不修改 workflow。
-2. 变更文件门禁 PR：复用已合并脚本接入 Pull Request workflow；验证 fork PR、文件重命名、删除文件、空文件集和特殊文件名后，将该稳定 check 配置为 required。
+2. 变更文件门禁 PR：复用已合并脚本接入 Pull Request workflow；验证 fork PR、文件重命名、删除文件、空文件集和特殊文件名。初期作为普通 check 观察，稳定后再由维护者通过仓库规则独立配置为 required。
 3. 全仓门禁 PR：仅在存量收敛条件满足后择机实施，不与变更文件门禁绑定。
 
 ## 全仓格式门禁的启用条件
@@ -128,6 +128,8 @@ yarn format:check --base <base-sha> --head <head-sha>
 不单独安排大爆炸式格式化阶段。存量通过日常“改到即格式化”逐步收敛，并定期执行全仓 `yarn format:all:check` 观察剩余范围。
 
 Prettier 3.9.5 基础设施接入时，全仓只读检查在 `v2` 基线报告 203 个存量文件需要格式化。该数字是收敛起点而不是忽略白名单；变更文件仍必须完整通过检查，存量数量随日常修改逐步下降。
+
+变更文件 CI 接入前在 `v2` 再次测量为 206 个文件，较基础设施合并后的 201 个文件出现回升。这说明仅提供本地命令不足以阻止新改动扩大存量；变更文件 check 用于守住新增 diff，不因此要求在本阶段批量格式化已有文件。
 
 变更文件 required check 不需要等待全仓收敛。只有同时满足以下条件，才把 Prettier 从变更文件 required check 切换为全仓 required check：
 
