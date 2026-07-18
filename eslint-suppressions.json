@@ -1161,11 +1161,6 @@
       "count": 2
     }
   },
-  "src/views/site/SiteCardListView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "src/views/subscribe/FullCalendarView.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1

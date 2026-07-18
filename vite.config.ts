@@ -279,6 +279,7 @@ export default defineConfig(({ mode }) => ({
         'src/pages/discover.vue',
         'src/pages/browse.vue',
         'src/pages/media.vue',
+        'src/pages/site.vue',
         'src/pages/subscribe.vue',
         'src/views/dashboard/MediaRecommend.vue',
         'src/views/discover/MediaCardSlideView.vue',
@@ -307,6 +308,7 @@ export default defineConfig(({ mode }) => ({
         'src/components/slide/VirtualSlideView.vue',
         'src/views/discover/PersonCardSlideView.vue',
         'src/utils/mediaStatusCache.ts',
+        'src/views/site/SiteCardListView.vue',
       ],
       provider: 'v8',
       reporter: ['text', 'json-summary', 'html'],
@@ -383,6 +385,12 @@ export default defineConfig(({ mode }) => ({
           statements: 80,
         },
         'src/pages/media.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/pages/site.vue': {
           branches: 75,
           functions: 80,
           lines: 80,
@@ -497,6 +505,12 @@ export default defineConfig(({ mode }) => ({
           statements: 80,
         },
         'src/utils/mediaStatusCache.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/views/site/SiteCardListView.vue': {
           branches: 85,
           functions: 90,
           lines: 90,
