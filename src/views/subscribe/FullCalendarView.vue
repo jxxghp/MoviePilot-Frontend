@@ -523,7 +523,6 @@ function getMobileDateSubtitle(date: Date) {
 // 获取移动端单条事件主标题。
 function getMobileEventMainTitle(event: CalendarEventInfo) {
   if (event.episodeTitle) return event.episodeTitle
-  if (event.subtitle) return t('calendar.mobileEpisodeTitle', { number: event.subtitle })
 
   return event.title
 }
@@ -531,8 +530,10 @@ function getMobileEventMainTitle(event: CalendarEventInfo) {
 // 获取移动端单条事件副标题。
 function getMobileEventSubtitle(event: CalendarEventInfo) {
   if (event.mediaType === '电影') return event.year || event.mediaType
+  // 主标题已是订阅名时，副标题不再重复订阅名。
+  if (event.episodeTitle) return event.title
 
-  return event.title
+  return ''
 }
 
 // 获取移动端集季标识。
@@ -543,13 +544,6 @@ function getMobileEventEpisodeTag(event: CalendarEventInfo) {
   return formatSeasonEpisode(event.season, event.episodeNumbers)
 }
 
-// 获取移动端海报角标集号。
-function getMobilePosterEpisodeTag(event: CalendarEventInfo) {
-  if (event.mediaType === '电影' || !event.episodeNumbers.length) return ''
-
-  return formatSeasonEpisode(undefined, event.episodeNumbers)
-}
-
 // 获取移动端时长标识。
 function getMobileEventRuntimeTag(event: CalendarEventInfo) {
   if (!event.runtime) return ''
@@ -557,11 +551,11 @@ function getMobileEventRuntimeTag(event: CalendarEventInfo) {
   return t('calendar.runtimeMinutes', { minutes: event.runtime })
 }
 
-// 获取移动端卡片右侧日期标识。
-function getMobileEventDateBadge(event: CalendarEventInfo) {
-  if (isDateToday(event.start)) return t('calendar.today')
-  if (isDateAfterToday(event.start)) return t('calendar.upcoming')
-  if (isDateBeforeToday(event.start)) return t('calendar.expired')
+// 获取移动端单日状态标识（今天已在日期标题中体现，不再重复展示）。
+function getMobileDayStatus(date: Date) {
+  if (isDateToday(date)) return ''
+  if (isDateAfterToday(date)) return t('calendar.upcoming')
+  if (isDateBeforeToday(date)) return t('calendar.expired')
 
   return ''
 }
@@ -817,7 +811,19 @@ onActivated(() => {
               <span>{{ group.subtitle }}</span>
             </div>
 
-            <span class="mobile-calendar-day-count">{{ t('calendar.episodeCount', { count: group.count }) }}</span>
+            <div class="mobile-calendar-day-meta">
+              <span
+                v-if="getMobileDayStatus(group.date)"
+                class="mobile-calendar-day-status"
+                :class="{
+                  'mobile-calendar-day-status--upcoming': isDateAfterToday(group.date),
+                  'mobile-calendar-day-status--expired': isDateBeforeToday(group.date),
+                }"
+              >
+                {{ getMobileDayStatus(group.date) }}
+              </span>
+              <span class="mobile-calendar-day-count">{{ t('calendar.episodeCount', { count: group.count }) }}</span>
+            </div>
           </header>
 
           <div class="mobile-calendar-event-list">
@@ -847,29 +853,11 @@ onActivated(() => {
                     </div>
                   </template>
                 </VImg>
-
-                <span v-if="getMobilePosterEpisodeTag(calendarEvent)" class="mobile-calendar-poster-episode">
-                  {{ getMobilePosterEpisodeTag(calendarEvent) }}
-                </span>
               </div>
 
               <div class="mobile-calendar-event-content">
-                <div class="mobile-calendar-event-title-row">
-                  <h3>{{ getMobileEventMainTitle(calendarEvent) }}</h3>
-                  <span
-                    v-if="getMobileEventDateBadge(calendarEvent)"
-                    class="mobile-calendar-date-badge"
-                    :class="{
-                      'mobile-calendar-date-badge--today': isDateToday(calendarEvent.start),
-                      'mobile-calendar-date-badge--upcoming': isDateAfterToday(calendarEvent.start),
-                      'mobile-calendar-date-badge--expired': isDateBeforeToday(calendarEvent.start),
-                    }"
-                  >
-                    {{ getMobileEventDateBadge(calendarEvent) }}
-                  </span>
-                </div>
-
-                <p>{{ getMobileEventSubtitle(calendarEvent) }}</p>
+                <h3>{{ getMobileEventMainTitle(calendarEvent) }}</h3>
+                <p v-if="getMobileEventSubtitle(calendarEvent)">{{ getMobileEventSubtitle(calendarEvent) }}</p>
 
                 <div class="mobile-calendar-event-tags">
                   <span v-if="getMobileEventEpisodeTag(calendarEvent)" class="mobile-calendar-event-tag mobile-calendar-event-tag--primary">
@@ -1607,6 +1595,36 @@ onActivated(() => {
   line-height: 1.25;
 }
 
+.mobile-calendar-day-meta {
+  display: flex;
+  align-items: center;
+  column-gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mobile-calendar-day-status {
+  border-radius: var(--app-control-radius);
+  background: rgba(var(--v-theme-primary), 0.14);
+  color: rgb(var(--v-theme-primary));
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  padding-block: 0.32rem;
+  padding-inline: 0.5rem;
+  white-space: nowrap;
+}
+
+.mobile-calendar-day-status--upcoming {
+  background: rgba(var(--v-theme-warning), 0.16);
+  color: rgb(var(--v-theme-warning));
+}
+
+.mobile-calendar-day-status--expired {
+  background: rgba(var(--v-theme-error), 0.16);
+  color: rgb(var(--v-theme-error));
+}
+
 .mobile-calendar-day-count {
   flex: 0 0 auto;
   padding-block-end: 0.12rem;
@@ -1664,25 +1682,6 @@ onActivated(() => {
   gap: 0.3rem;
 }
 
-.mobile-calendar-poster-episode {
-  position: absolute;
-  overflow: hidden;
-  border-end-end-radius: var(--app-control-radius);
-  border-end-start-radius: var(--app-control-radius);
-  background: rgba(0, 0, 0, 68%);
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 900;
-  inset-block-end: 0;
-  inset-inline: 0;
-  line-height: 1.1;
-  padding-block: 0.28rem;
-  padding-inline: 0.35rem;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .mobile-calendar-event-content {
   display: flex;
   flex-direction: column;
@@ -1691,17 +1690,9 @@ onActivated(() => {
   min-inline-size: 0;
 }
 
-.mobile-calendar-event-title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  min-inline-size: 0;
-}
-
-.mobile-calendar-event-title-row h3 {
+.mobile-calendar-event-content h3 {
   display: -webkit-box;
   overflow: hidden;
-  flex: 1 1 auto;
   -webkit-box-orient: vertical;
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
   font-size: 1.05rem;
@@ -1711,34 +1702,6 @@ onActivated(() => {
   line-height: 1.28;
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-.mobile-calendar-date-badge {
-  flex: 0 0 auto;
-  border-radius: var(--app-control-radius);
-  background: rgba(var(--v-theme-primary), 0.14);
-  color: rgb(var(--v-theme-primary));
-  font-size: 0.78rem;
-  font-weight: 900;
-  line-height: 1;
-  padding-block: 0.38rem;
-  padding-inline: 0.58rem;
-  white-space: nowrap;
-}
-
-.mobile-calendar-date-badge--today {
-  background: rgba(var(--v-theme-success), 0.16);
-  color: rgb(var(--v-theme-success));
-}
-
-.mobile-calendar-date-badge--upcoming {
-  background: rgba(var(--v-theme-warning), 0.16);
-  color: rgb(var(--v-theme-warning));
-}
-
-.mobile-calendar-date-badge--expired {
-  background: rgba(var(--v-theme-error), 0.16);
-  color: rgb(var(--v-theme-error));
 }
 
 .mobile-calendar-event-content p {
@@ -1845,7 +1808,7 @@ html[data-theme='transparent'] .mobile-subscribe-calendar,
     padding: 0.75rem;
   }
 
-  .mobile-calendar-event-title-row h3 {
+  .mobile-calendar-event-content h3 {
     font-size: 1rem;
   }
 

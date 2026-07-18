@@ -376,7 +376,7 @@ describe('FullCalendarView', () => {
     const completeCard = (await screen.findByRole('heading', { name: '跨年首集' })).closest(
       '.mobile-calendar-event-card',
     )
-    const noneCard = screen.getByRole('heading', { name: '第 2 集' }).closest('.mobile-calendar-event-card')
+    const noneCard = screen.getByRole('heading', { name: '年度剧集' }).closest('.mobile-calendar-event-card')
     const partialCard = screen
       .getByRole('heading', { name: '第一集 / 第二集' })
       .closest('.mobile-calendar-event-card')
