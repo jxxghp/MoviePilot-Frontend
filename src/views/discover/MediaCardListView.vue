@@ -8,10 +8,12 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-// 输入参数
 const props = defineProps({
-  apipath: String,
-  params: Object as PropType<{ [key: string]: any }>,
+  apipath: {
+    type: String,
+    required: true,
+  },
+  params: Object as PropType<Record<string, unknown>>,
 })
 
 // 判断是否有滚动条
@@ -25,6 +27,9 @@ const page = ref(1)
 // 是否加载中
 const loading = ref(false)
 
+// 首次成功响应前，请求失败只展示错误和重试入口。
+const loadFailed = ref(false)
+
 // 是否加载完成
 const isRefreshed = ref(false)
 
@@ -34,14 +39,15 @@ const dataList = shallowRef<MediaInfo[]>([])
 // 用于保存已处理过的 key
 const seenKeys = new Set<string>()
 
+// 保存本次列表生命周期内已经处理过的原始页签名。
+const seenPageSignatures = new Set<string>()
+
 // 拼装参数
 function getParams() {
-  let params = {
+  return {
+    ...props.params,
     page: page.value,
   }
-  if (props.params) params = { ...params, ...props.params }
-
-  return params
 }
 
 // MediaInfo 去重的字段
@@ -58,9 +64,14 @@ const dedupFields = [
   'media_id',
 ] as const
 
+// 去重、分页终止和渲染必须共用同一媒体身份，避免状态与 DOM key 分叉。
+function getMediaIdentity(item: MediaInfo) {
+  return JSON.stringify(dedupFields.map(field => item[field] ?? null))
+}
+
 function deduplicate(items: MediaInfo[]): MediaInfo[] {
   return items.filter(item => {
-    const key = dedupFields.map(field => String(item[field])).join('~')
+    const key = getMediaIdentity(item)
     if (seenKeys.has(key)) {
       return false
     }
@@ -74,92 +85,87 @@ function appendData(items: MediaInfo[]) {
 }
 
 async function loadPageData() {
-  const rawData: MediaInfo[] = await api.get(props.apipath!, {
+  const rawData: MediaInfo[] = await api.get(props.apipath, {
     params: getParams(),
   })
+  const pageSignature = [...new Set(rawData.map(getMediaIdentity))].sort().join('\n')
+  const isTerminal = rawData.length === 0 || seenPageSignatures.has(pageSignature)
+
+  if (!isTerminal) seenPageSignatures.add(pageSignature)
 
   return {
-    rawCount: rawData.length,
-    uniqueData: deduplicate(rawData),
+    isTerminal,
+    uniqueData: isTerminal ? [] : deduplicate(rawData),
   }
 }
 
 // 获取列表数据
-async function fetchData({ done }: { done: any }) {
+async function fetchData({
+  done,
+}: {
+  done: (status: 'empty' | 'error' | 'loading' | 'ok') => void
+}) {
+  if (loading.value) {
+    done('ok')
+    return
+  }
+
+  loading.value = true
+  loadFailed.value = false
   try {
-    if (!props.apipath) return
-
-    // 如果正在加载中，直接返回
-    if (loading.value) {
-      done('ok')
-      return
-    }
-
-    // 加载到满屏或者加载出错
+    // 未形成滚动区域时连续填页；已有滚动区域时每次只消费一页。
     if (!hasScroll()) {
-      // 加载多次
       while (!hasScroll()) {
-        // 设置加载中
-        loading.value = true
-        // 请求API
-        const { rawCount, uniqueData } = await loadPageData()
-        // 取消加载中
-        loading.value = false
-        // 标计为已请求完成
+        const { isTerminal, uniqueData } = await loadPageData()
         isRefreshed.value = true
-        if (rawCount === 0) {
-          // 如果没有数据，跳出
+        if (isTerminal) {
           done('empty')
           return
         }
-        // 合并数据
         appendData(uniqueData)
-        // 页码+1
         page.value++
-        // 返回加载成功
-        done('ok')
         await nextTick()
       }
     } else {
-      // 加载一次
-      // 设置加载中
-      loading.value = true
-      // 请求API
-      const { rawCount, uniqueData } = await loadPageData()
-      // 标计为已请求完成
+      const { isTerminal, uniqueData } = await loadPageData()
       isRefreshed.value = true
-      if (rawCount === 0) {
-        // 如果没有数据，跳出
+      if (isTerminal) {
         done('empty')
+        return
       } else {
-        // 合并数据
         appendData(uniqueData)
-        // 页码+1
         page.value++
-        // 返回加载成功
-        done('ok')
       }
     }
-    // 取消加载中
-    loading.value = false
+    done('ok')
   } catch (error) {
     console.error(error)
-    // 返回加载失败
+    loadFailed.value = true
     done('error')
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <template>
-  <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+  <LoadingBanner v-if="!isRefreshed && !loadFailed" class="mt-12" />
   <VInfiniteScroll mode="intersect" side="end" :items="dataList" class="overflow-visible pt-3 px-2" @load="fetchData">
     <template #loading />
     <template #empty />
+    <template #error="{ props: retryProps }">
+      <div class="d-flex flex-column align-center ga-2 py-4">
+        <span class="text-body-2 text-medium-emphasis">{{ t('error.networkError') }}</span>
+        <VBtn v-bind="retryProps" prepend-icon="mdi-refresh" size="small" variant="tonal">
+          {{ t('common.retry') }}
+        </VBtn>
+      </div>
+    </template>
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
       :item-aspect-ratio="1.5"
-      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+      :get-item-key="getMediaIdentity"
       tabindex="0"
     >
       <template #default="{ item }">
@@ -170,7 +176,6 @@ async function fetchData({ done }: { done: any }) {
       v-if="dataList.length === 0 && isRefreshed"
       error-code="404"
       :error-title="t('common.noData')"
-      :error-description="t('error.networkError')"
     />
   </VInfiniteScroll>
 </template>

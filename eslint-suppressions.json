@@ -1020,11 +1020,6 @@
       "count": 1
     }
   },
-  "src/views/discover/MediaCardListView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/views/discover/MediaCardSlideView.vue": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
