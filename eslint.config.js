@@ -107,6 +107,7 @@ export default defineConfig([
     '**/dist/**',
     '**/coverage/**',
     '**/.worktrees/**',
+    '**/vite.config.*.timestamp-*.mjs',
     'public/plugin_icon/**',
     'src/@iconify/**',
     '**/*.d.ts',
@@ -157,6 +158,10 @@ export default defineConfig([
     files: nodeFiles,
     languageOptions: {
       globals: globals.node,
+    },
+    // Node 配置可能位于浏览器源码目录；显式覆盖浏览器专用限制，避免 flat config 合并后误报。
+    rules: {
+      'no-restricted-globals': 'off',
     },
   },
   {

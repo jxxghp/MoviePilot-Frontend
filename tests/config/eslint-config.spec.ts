@@ -188,6 +188,13 @@ const cases = [
     shouldReport: false,
   },
   {
+    name: '允许浏览器目录中的 Node 配置使用 Node 全局变量',
+    code: 'const runtime: string | undefined = process.env.NODE_ENV; console.log(runtime)',
+    filePath: 'src/tool.config.ts',
+    ruleId: restrictedGlobalsRule,
+    shouldReport: false,
+  },
+  {
     name: '拒绝 MTS 脚本保留 debugger',
     code: 'const value: string = "x"; console.log(value); debugger',
     filePath: 'scripts/invalid-debugger.mts',
@@ -245,4 +252,16 @@ it.each([
   const ruleIds = await lintRuleIds('const value: string = "x"; console.log(value)', filePath)
 
   expect(ruleIds).not.toContain(null)
+})
+
+it('忽略 Vite 生成的临时配置模块', async () => {
+  await expect(eslint.isPathIgnored('vite.config.ts.timestamp-1784340502076-0129cef6d3bbd8.mjs')).resolves.toBe(true)
+})
+
+it('不忽略普通 MJS 源码', async () => {
+  await expect(eslint.isPathIgnored('scripts/example.mjs')).resolves.toBe(false)
+})
+
+it('不忽略名称包含 timestamp 的普通 MJS 源码', async () => {
+  await expect(eslint.isPathIgnored('scripts/feature.timestamp-parser.mjs')).resolves.toBe(false)
 })
