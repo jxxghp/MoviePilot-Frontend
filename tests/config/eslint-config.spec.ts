@@ -243,19 +243,21 @@ it.each(nodeOnlyGlobalNames)('拒绝浏览器 TypeScript 使用 Node 全局变�
   expect(ruleIds).toContain(restrictedGlobalsRule)
 })
 
-it.each([
-  'example.config.mts',
-  'example.config.cts',
-  'scripts/example.mts',
-  'scripts/example.cts',
-])('使用 TypeScript parser 解析 %s', async filePath => {
-  const ruleIds = await lintRuleIds('const value: string = "x"; console.log(value)', filePath)
+it.each(['example.config.mts', 'example.config.cts', 'scripts/example.mts', 'scripts/example.cts'])(
+  '使用 TypeScript parser 解析 %s',
+  async filePath => {
+    const ruleIds = await lintRuleIds('const value: string = "x"; console.log(value)', filePath)
 
-  expect(ruleIds).not.toContain(null)
-})
+    expect(ruleIds).not.toContain(null)
+  },
+)
 
 it('忽略 Vite 生成的临时配置模块', async () => {
   await expect(eslint.isPathIgnored('vite.config.ts.timestamp-1784340502076-0129cef6d3bbd8.mjs')).resolves.toBe(true)
+})
+
+it('忽略 Vite PWA 开发构建产物', async () => {
+  await expect(eslint.isPathIgnored('dev-dist/registerSW.js')).resolves.toBe(true)
 })
 
 it('不忽略普通 MJS 源码', async () => {

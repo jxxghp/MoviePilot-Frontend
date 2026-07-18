@@ -4,13 +4,13 @@
 
 ## 工具职责
 
-| 工具 | 职责 | 不负责 |
-| --- | --- | --- |
-| ESLint | JavaScript、TypeScript、Vue 代码质量，框架约束和项目模块边界 | 缩进、换行、引号、属性布局等代码格式 |
-| Prettier | 可确定、可重复的代码格式 | 未使用变量、Vue 规则、复杂度和模块边界 |
-| TypeScript / `vue-tsc` | TypeScript 与 Vue 模板类型检查 | 代码格式和业务行为测试 |
-| Vitest | 单元测试、组件测试和覆盖率门槛 | 生产构建与真实浏览器行为 |
-| Vite | 生产构建和构建期集成验证 | 类型完整性和代码质量规则 |
+| 工具                   | 职责                                                         | 不负责                                 |
+| ---------------------- | ------------------------------------------------------------ | -------------------------------------- |
+| ESLint                 | JavaScript、TypeScript、Vue 代码质量，框架约束和项目模块边界 | 缩进、换行、引号、属性布局等代码格式   |
+| Prettier               | 可确定、可重复的代码格式                                     | 未使用变量、Vue 规则、复杂度和模块边界 |
+| TypeScript / `vue-tsc` | TypeScript 与 Vue 模板类型检查                               | 代码格式和业务行为测试                 |
+| Vitest                 | 单元测试、组件测试和覆盖率门槛                               | 生产构建与真实浏览器行为               |
+| Vite                   | 生产构建和构建期集成验证                                     | 类型完整性和代码质量规则               |
 
 ESLint 配置由仓库显式维护，不继承 Antfu 等覆盖面较大的个人风格预设。JavaScript、TypeScript 与 Vue 使用各自面向正确性的 recommended/essential 基线；SonarJS 不整包展开 recommended，而只显式启用安全和正确性的高信号规则，避免插件升级隐式扩大检查范围。
 
@@ -36,8 +36,9 @@ Prettier 独立运行，ESLint 中与格式重叠的规则保持关闭。任何�
 yarn lint          # 只读 ESLint 检查，不修改文件
 yarn lint:fix      # 显式执行 ESLint 安全修复
 yarn lint:suppressions:prune  # 修复存量问题后裁剪过期 baseline
-yarn format        # 使用 Prettier 格式化目标文件
-yarn format:check  # 检查目标文件格式，不修改文件
+yarn format            # 格式化当前分支、暂存区、工作区和未跟踪文件中的受支持变更文件
+yarn format:check      # 检查相同变更文件，不修改文件
+yarn format:all:check  # 只读测量全仓格式收敛情况
 yarn typecheck
 yarn test:run
 yarn test:coverage
@@ -104,9 +105,17 @@ Prettier 初始 CI 只检查 Pull Request 新增或修改的受支持文件，�
 3. 仅把 Prettier 支持且由仓库管理的文件传给 `prettier --check`。
 4. 文件集合为空时正常通过。
 
+本地直接运行 `yarn format` 或 `yarn format:check` 时，脚本以可用的 `upstream/v2`、`origin/v2` 或本地 `v2` 为基线，并合并当前工作区与未跟踪文件。CI 使用显式引用保证输入可复现：
+
+```sh
+yarn format:check --base <base-sha> --head <head-sha>
+```
+
+文件名通过 Git 的 NUL 分隔输出和 Node 参数数组传递，不经过 shell 字符串拼接；重命名只检查新路径，删除文件、ignore 文件和 Prettier 无法推断 parser 的文件不进入格式检查。
+
 该门禁不要求未修改的存量文件通过 Prettier，但所有进入 PR diff 的受支持文件都必须通过。Prettier 是文件级格式化工具，因此修改存量文件时检查的是整个文件，而不是仅检查变更行。Agent 或开发者应在提交前运行同一项目脚本完成格式化；CI 只验证结果，不自动提交修改。
 
-禁止在普通业务 PR 中运行全仓 `yarn format`。触及文件格式化仍可能重排整个文件；差异过大时应拆分 commit，便于 reviewer 区分机械格式与业务逻辑。
+禁止在普通业务 PR 中直接运行 `prettier . --write` 或其他全仓格式写入命令。`yarn format` 只处理选择器返回的变更文件；单个存量文件被触及时仍可能整体重排，差异过大时应拆分 commit，便于 reviewer 区分机械格式与业务逻辑。
 
 具体交付拆分为：
 
@@ -116,11 +125,13 @@ Prettier 初始 CI 只检查 Pull Request 新增或修改的受支持文件，�
 
 ## 全仓格式门禁的启用条件
 
-不单独安排大爆炸式格式化阶段。存量通过日常“改到即格式化”逐步收敛，并定期执行全仓 `yarn format:check` 观察剩余范围。
+不单独安排大爆炸式格式化阶段。存量通过日常“改到即格式化”逐步收敛，并定期执行全仓 `yarn format:all:check` 观察剩余范围。
+
+Prettier 3.9.5 基础设施接入时，全仓只读检查在 `v2` 基线报告 203 个存量文件需要格式化。该数字是收敛起点而不是忽略白名单；变更文件仍必须完整通过检查，存量数量随日常修改逐步下降。
 
 变更文件 required check 不需要等待全仓收敛。只有同时满足以下条件，才把 Prettier 从变更文件 required check 切换为全仓 required check：
 
-- 全仓 `yarn format:check` 已通过，或仅剩少量可在独立机械提交中安全处理的文件。
+- 全仓 `yarn format:all:check` 已通过，或仅剩少量可在独立机械提交中安全处理的文件。
 - 最近的活跃分支已合并或完成同步，避免集中格式变化制造冲突。
 - `yarn lint`、`yarn typecheck`、`yarn test:coverage` 和 `yarn build` 在格式收敛后全部通过。
 - Prettier 与 ESLint 不存在反复改写同一文件的规则冲突。
@@ -130,7 +141,7 @@ Prettier 初始 CI 只检查 Pull Request 新增或修改的受支持文件，�
 
 ```sh
 yarn --frozen-lockfile
-yarn format:check
+yarn format:all:check
 yarn lint
 yarn typecheck
 yarn test:coverage
@@ -153,14 +164,14 @@ PR-Agent、编辑器诊断和人工 review 可以补充判断，但不能替代�
 
 ## 风险与回滚
 
-| 风险 | 控制方式 | 回滚边界 |
-| --- | --- | --- |
-| ESLint 自动修复改变语义 | 默认 lint 只读；基础设施迁移不批量 fix | 独立回退规则或依赖提交 |
-| 格式化制造大面积冲突 | 改到即格式化；大型文件拆分机械 commit | 回退单文件格式 commit |
-| 新规则让所有 PR 变红 | 先测量、再启用；使用受控基线 | 暂停单条规则，不回退整套工具链 |
-| 检查范围扩展到生成物或文档 | 首阶段限制文件类型并显式 ignore | 收窄 flat config 文件匹配 |
-| Node 最低版本阻断安装 | 最低保持 20.19，Node 24 作为推荐和主 CI | 保持兼容 job，版本提升独立处理 |
-| 全仓 required check 配置过早 | 先强制变更文件，持续观察全仓剩余范围 | 保留变更文件门禁，暂缓全仓切换 |
-| ESLint 与 Prettier 循环改写 | ESLint 关闭格式规则，Prettier 单独负责格式 | 关闭冲突规则并增加回归样例 |
+| 风险                         | 控制方式                                   | 回滚边界                       |
+| ---------------------------- | ------------------------------------------ | ------------------------------ |
+| ESLint 自动修复改变语义      | 默认 lint 只读；基础设施迁移不批量 fix     | 独立回退规则或依赖提交         |
+| 格式化制造大面积冲突         | 改到即格式化；大型文件拆分机械 commit      | 回退单文件格式 commit          |
+| 新规则让所有 PR 变红         | 先测量、再启用；使用受控基线               | 暂停单条规则，不回退整套工具链 |
+| 检查范围扩展到生成物或文档   | 首阶段限制文件类型并显式 ignore            | 收窄 flat config 文件匹配      |
+| Node 最低版本阻断安装        | 最低保持 20.19，Node 24 作为推荐和主 CI    | 保持兼容 job，版本提升独立处理 |
+| 全仓 required check 配置过早 | 先强制变更文件，持续观察全仓剩余范围       | 保留变更文件门禁，暂缓全仓切换 |
+| ESLint 与 Prettier 循环改写  | ESLint 关闭格式规则，Prettier 单独负责格式 | 关闭冲突规则并增加回归样例     |
 
 依赖迁移、规则迁移、存量代码修复、格式化和 GitHub required checks 应保持可独立评审、验证和回退，禁止合并成一个难以定位风险的大型变更。
