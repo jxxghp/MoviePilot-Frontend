@@ -1852,6 +1852,8 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss">
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .v-table th {
   white-space: nowrap;
 }
@@ -1972,6 +1974,7 @@ onUnmounted(() => {
 
 .transfer-history-mobile-record__poster-wrapper {
   position: relative;
+  grid-row: 1 / span 2;
   inline-size: 3.5rem;
   block-size: 5.25rem;
   border-radius: 8px;
@@ -2062,12 +2065,14 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-record__meta {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   grid-row: 2;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.65rem;
   margin-block-start: 0;
+  min-inline-size: 0;
   overflow: hidden;
   white-space: nowrap;
 }
