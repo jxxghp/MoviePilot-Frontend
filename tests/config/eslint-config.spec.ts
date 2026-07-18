@@ -1,9 +1,15 @@
 import { ESLint } from 'eslint'
+import globals from 'globals'
 import { expect, it } from 'vitest'
 
 const eslint = new ESLint()
 const restrictedSyntaxRule = 'no-restricted-syntax'
+const restrictedGlobalsRule = 'no-restricted-globals'
 const unusedVariablesRule = '@typescript-eslint/no-unused-vars'
+const browserGlobalNames = new Set(Object.keys(globals.browser))
+const nodeOnlyGlobalNames = Object.keys(globals.node)
+  .filter(name => !browserGlobalNames.has(name))
+  .sort()
 
 /** 使用真实 flat config 检查虚拟源码，避免项目边界和新增问题门禁在依赖升级时静默丢失。 */
 async function lintRuleIds(code: string, filePath: string) {
@@ -161,11 +167,46 @@ const cases = [
     shouldReport: true,
   },
   {
+    name: '拒绝浏览器 Vue 脚本使用 Node 全局变量',
+    code: '<script setup lang="ts">const bytes = Buffer.from("x")</script><template>{{ bytes }}</template>',
+    filePath: 'src/components/invalid-node-global.vue',
+    ruleId: restrictedGlobalsRule,
+    shouldReport: true,
+  },
+  {
     name: '允许构建配置使用 Node 全局变量',
     code: 'process.env.NODE_ENV',
     filePath: 'example.config.js',
     ruleId: 'no-undef',
     shouldReport: false,
+  },
+  {
+    name: '允许 TypeScript 构建配置使用 Node 全局变量',
+    code: 'const runtime: string | undefined = process.env.NODE_ENV; console.log(runtime)',
+    filePath: 'example.config.mts',
+    ruleId: restrictedGlobalsRule,
+    shouldReport: false,
+  },
+  {
+    name: '允许浏览器目录中的 Node 配置使用 Node 全局变量',
+    code: 'const runtime: string | undefined = process.env.NODE_ENV; console.log(runtime)',
+    filePath: 'src/tool.config.ts',
+    ruleId: restrictedGlobalsRule,
+    shouldReport: false,
+  },
+  {
+    name: '拒绝 MTS 脚本保留 debugger',
+    code: 'const value: string = "x"; console.log(value); debugger',
+    filePath: 'scripts/invalid-debugger.mts',
+    ruleId: 'no-debugger',
+    shouldReport: true,
+  },
+  {
+    name: '拒绝 CTS 脚本保留 debugger',
+    code: 'const value: string = "x"; console.log(value); debugger',
+    filePath: 'scripts/invalid-debugger.cts',
+    ruleId: 'no-debugger',
+    shouldReport: true,
   },
   {
     name: '允许 Vuetify 点号 slot 名称',
@@ -194,4 +235,33 @@ it.each(cases)('$name', async ({ code, filePath, ruleId, shouldReport }) => {
   const ruleIds = await lintRuleIds(code, filePath)
 
   expect(ruleIds.includes(ruleId)).toBe(shouldReport)
+})
+
+it.each(nodeOnlyGlobalNames)('拒绝浏览器 TypeScript 使用 Node 全局变量 %s', async globalName => {
+  const ruleIds = await lintRuleIds(`console.log(${globalName})`, `src/components/invalid-${globalName}.ts`)
+
+  expect(ruleIds).toContain(restrictedGlobalsRule)
+})
+
+it.each([
+  'example.config.mts',
+  'example.config.cts',
+  'scripts/example.mts',
+  'scripts/example.cts',
+])('使用 TypeScript parser 解析 %s', async filePath => {
+  const ruleIds = await lintRuleIds('const value: string = "x"; console.log(value)', filePath)
+
+  expect(ruleIds).not.toContain(null)
+})
+
+it('忽略 Vite 生成的临时配置模块', async () => {
+  await expect(eslint.isPathIgnored('vite.config.ts.timestamp-1784340502076-0129cef6d3bbd8.mjs')).resolves.toBe(true)
+})
+
+it('不忽略普通 MJS 源码', async () => {
+  await expect(eslint.isPathIgnored('scripts/example.mjs')).resolves.toBe(false)
+})
+
+it('不忽略名称包含 timestamp 的普通 MJS 源码', async () => {
+  await expect(eslint.isPathIgnored('scripts/feature.timestamp-parser.mjs')).resolves.toBe(false)
 })

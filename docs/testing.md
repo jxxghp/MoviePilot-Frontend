@@ -92,4 +92,4 @@ yarn lint
 yarn build
 ```
 
-Pull Request 测试工作流使用 Node 24 LTS 和 frozen lockfile，依次执行类型检查和覆盖率门禁。ESLint、Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)渐进接入，新增测试代码不得引入新的 lint 或格式问题。
+Pull Request 工作流使用 Node 24 LTS 和 frozen lockfile。`unit-tests` job 依次执行类型检查和覆盖率门禁；独立的 `lint` job 执行全仓只读 ESLint 检查，当前处于普通 check 观察阶段，不改变既有 required checks。Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)继续渐进接入，新增测试代码不得引入新的 lint 或格式问题。

@@ -10,9 +10,11 @@ const javascriptFiles = [
 ]
 
 const typescriptFiles = [
-  '**/*.{ts,tsx}',
+  '**/*.{ts,tsx,mts,cts}',
   '**/*.vue',
 ]
+
+const managedScriptExtensions = 'js,mjs,cjs,jsx,ts,tsx,mts,cts'
 
 const managedFiles = [
   ...javascriptFiles,
@@ -20,8 +22,8 @@ const managedFiles = [
 ]
 
 const browserFiles = [
-  'src/**/*.{js,jsx,ts,tsx,vue}',
-  'examples/**/src/**/*.{js,jsx,ts,tsx,vue}',
+  `src/**/*.{${managedScriptExtensions},vue}`,
+  `examples/**/src/**/*.{${managedScriptExtensions},vue}`,
 ]
 
 const nodeFiles = [
@@ -29,6 +31,16 @@ const nodeFiles = [
   'public/service.js',
   'scripts/**/*.{js,mjs,cjs,ts,mts,cts}',
 ]
+
+// TypeScript 关闭核心 no-undef；显式禁止浏览器域中的 Node-only globals，保证 JS、TS 与 Vue 使用同一运行时边界。
+const browserGlobalNames = new Set(Object.keys(globals.browser))
+const nodeOnlyGlobalRestrictions = Object.keys(globals.node)
+  .filter(name => !browserGlobalNames.has(name))
+  .sort()
+  .map(name => ({
+    name,
+    message: `'${name}' is only available in Node.js code.`,
+  }))
 
 const restrictedCoreSourcePattern = '/(?:^|\\/)@core(?:\\/|$)/'
 
@@ -95,6 +107,7 @@ export default defineConfig([
     '**/dist/**',
     '**/coverage/**',
     '**/.worktrees/**',
+    '**/vite.config.*.timestamp-*.mjs',
     'public/plugin_icon/**',
     'src/@iconify/**',
     '**/*.d.ts',
@@ -136,12 +149,19 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      'no-restricted-globals': ['error', ...nodeOnlyGlobalRestrictions],
+    },
   },
   {
     name: 'moviepilot/node-globals',
     files: nodeFiles,
     languageOptions: {
       globals: globals.node,
+    },
+    // Node 配置可能位于浏览器源码目录；显式覆盖浏览器专用限制，避免 flat config 合并后误报。
+    rules: {
+      'no-restricted-globals': 'off',
     },
   },
   {
@@ -154,7 +174,7 @@ export default defineConfig([
   },
   {
     name: 'moviepilot/sonarjs-locales',
-    files: ['src/locales/**/*.{js,jsx,ts,tsx}'],
+    files: [`src/locales/**/*.{${managedScriptExtensions}}`],
     rules: {
       'sonarjs/no-hardcoded-passwords': 'off',
       'sonarjs/no-hardcoded-secrets': 'off',
@@ -169,7 +189,7 @@ export default defineConfig([
   },
   {
     name: 'moviepilot/layout-boundary',
-    files: ['src/@layouts/**/*.{js,jsx,ts,tsx,vue}'],
+    files: [`src/@layouts/**/*.{${managedScriptExtensions},vue}`],
     rules: {
       'no-restricted-syntax': [
         'error',
