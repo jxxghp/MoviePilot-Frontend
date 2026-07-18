@@ -19,6 +19,8 @@ import { useBackground } from '@/composables/useBackground'
 import { useGlobalSettingsStore, useUserStore } from '@/stores'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
+import noImage from '@images/no-image.jpeg'
 
 const TransferHistoryDeleteDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransferHistoryDeleteDialog.vue'),
@@ -638,6 +640,18 @@ function getIcon(type: string) {
   if (type === '电影') return 'mdi-movie'
   else if (type === '电视剧') return 'mdi-television-classic'
   else return 'mdi-help-circle'
+}
+
+// 计算移动端卡片海报地址，优先使用后端图片代理并兼顾全局缓存设置。
+function getHistoryPosterUrl(item: TransferHistory) {
+  const image = item.image
+  if (!image) return noImage
+
+  if (!/^https?:\/\//i.test(image)) {
+    return `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
+  }
+
+  return getDisplayImageUrl(image, globalSettingsStore.globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
 // 删除历史记录
@@ -1662,7 +1676,7 @@ onUnmounted(() => {
         :items="mobileDataList"
         :columns="1"
         :gap="14"
-        :estimated-item-height="280"
+        :estimated-item-height="324"
         :overscan-rows="5"
         :get-item-key="getMobileHistoryItemKey"
       >
@@ -1677,9 +1691,28 @@ onUnmounted(() => {
             @click="handleMobileRecordClick(item)"
           >
             <header class="transfer-history-mobile-record__header">
-              <VAvatar class="transfer-history-mobile-record__avatar" size="40">
-                <VIcon :icon="getIcon(item.type || '')" />
-              </VAvatar>
+              <div class="transfer-history-mobile-record__poster-wrapper">
+                <VImg
+                  class="transfer-history-mobile-record__poster"
+                  :src="getHistoryPosterUrl(item)"
+                  :alt="item.title"
+                  cover
+                >
+                  <template #placeholder>
+                    <div class="transfer-history-mobile-record__poster-skeleton">
+                      <VSkeletonLoader class="h-full" />
+                    </div>
+                  </template>
+                  <template #error>
+                    <VImg :src="noImage" cover :alt="item.title" class="transfer-history-mobile-record__poster-fallback" />
+                  </template>
+                </VImg>
+                <VIcon
+                  class="transfer-history-mobile-record__poster-type"
+                  :icon="getIcon(item.type || '')"
+                  size="14"
+                />
+              </div>
 
               <div class="transfer-history-mobile-record__heading">
                 <div class="transfer-history-mobile-record__title">
@@ -1931,21 +1964,59 @@ onUnmounted(() => {
   display: grid;
   align-items: start;
   gap: 0.75rem;
-  grid-template-columns: 3rem minmax(0, 1fr) auto 2rem;
-  padding-block: 1rem 0.75rem;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto 2rem;
+  padding-block: 0.85rem 0.75rem;
   padding-inline: 1rem 0.85rem;
 }
 
-.transfer-history-mobile-record__avatar {
-  background: transparent;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+.transfer-history-mobile-record__poster-wrapper {
+  position: relative;
+  inline-size: 3.5rem;
+  block-size: 5.25rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--transfer-history-mobile-muted-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
-.transfer-history-mobile-record__avatar :deep(.v-icon) {
-  font-size: 2rem;
+.transfer-history-mobile-record__poster {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 8px;
+}
+
+.transfer-history-mobile-record__poster :deep(.v-img__img) {
+  transition: opacity 0.2s ease;
+}
+
+.transfer-history-mobile-record__poster-skeleton {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.transfer-history-mobile-record__poster-skeleton :deep(.v-skeleton-loader) {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.transfer-history-mobile-record__poster-fallback {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.transfer-history-mobile-record__poster-type {
+  position: absolute;
+  inset-block-end: 4px;
+  inset-inline-start: 4px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgb(255, 255, 255);
+  opacity: 0.92;
 }
 
 .transfer-history-mobile-record__heading {
+  align-self: center;
   min-inline-size: 0;
 }
 
