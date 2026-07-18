@@ -5,9 +5,21 @@ const API_BASE_URL = 'http://localhost/api/v1/'
 
 export const mediaApiUrls = {
   episodeGroups: (tmdbId: number) => new URL(`media/groups/${tmdbId}`, API_BASE_URL).href,
+  exists: new URL('mediaserver/exists', API_BASE_URL).href,
   groupSeasons: (episodeGroup: string) => new URL(`media/group/seasons/${episodeGroup}`, API_BASE_URL).href,
   notExists: new URL('mediaserver/notexists', API_BASE_URL).href,
   seasons: new URL('media/seasons', API_BASE_URL).href,
+}
+
+export function mediaExistsHandler(
+  response: { data?: Record<string, unknown>; message?: string; success: boolean },
+  status = 200,
+  onRequest: (url: URL) => void | Promise<void> = () => {},
+) {
+  return http.get(mediaApiUrls.exists, async ({ request }) => {
+    await onRequest(new URL(request.url))
+    return HttpResponse.json(response as JsonBodyType, { status })
+  })
 }
 
 export function mediaDetailsHandler(
