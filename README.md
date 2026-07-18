@@ -2,7 +2,7 @@
 
 *中文 | [English](README_EN.md)*
 
-[MoviePilot](https://github.com/jxxghp/MoviePilot) 的前端项目，NodeJS版本：>= `v20.12.1`。
+[MoviePilot](https://github.com/jxxghp/MoviePilot) 的前端项目，最低支持 Node.js `20.19`，推荐使用 Node.js `24`。
 
 ## 特性
 
@@ -48,6 +48,8 @@ yarn test:coverage
 ```
 
 测试文件组织、共享测试设施、HTTP mock、覆盖率门禁和新增用例规范见[单元测试架构](docs/testing.md)。
+
+ESLint、Prettier、Node 兼容范围及渐进式 CI 门禁见[前端代码质量工具链演进](docs/code-quality.md)。
 
 ### 静态运行
 
