@@ -20,7 +20,7 @@
     "format": "node scripts/format-changed.mjs --write",
     "format:check": "node scripts/format-changed.mjs --check",
     "format:all:check": "prettier . --check",
-    "test:format-config": "vitest run tests/config/format-changed.spec.ts",
+    "test:format-config": "vitest run tests/config/format-changed.spec.ts tests/config/frontend-workflow.spec.ts",
     "build:icons": "tsc -b src/@iconify && node src/@iconify/build-icons.js",
     "postinstall": "npm run build:icons",
     "pkg": "pkg . -t node18-win-x64 -o MoviePilot-Frontend.exe"

@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, resolve } from 'node:path'
+import { delimiter, dirname, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const selectorScript = resolve(process.cwd(), 'scripts/format-changed.mjs')
@@ -36,13 +36,19 @@ function createRepository() {
   return repository
 }
 
-function listSelected(repository: string, ...args: string[]) {
+function runSelector(repository: string, args: string[], env = process.env) {
   const output = execFileSync(process.execPath, [selectorScript, '--list', ...args], {
     cwd: repository,
     encoding: 'utf8',
+    env,
+    maxBuffer: 128 * 1024 * 1024,
   })
 
   return JSON.parse(output) as string[]
+}
+
+function listSelected(repository: string, ...args: string[]) {
+  return runSelector(repository, args)
 }
 
 afterEach(() => {
@@ -123,5 +129,86 @@ describe('Prettier 变更文件选择器', () => {
     execFileSync(process.execPath, [selectorScript, '--write'], { cwd: repository })
 
     expect(readFileSync(resolve(repository, '--special [file].ts'), 'utf8')).toBe('export const special = true;\n')
+  })
+
+  it('本地基线使用完整分支引用，不受同名标签影响', () => {
+    const repository = createRepository()
+    git(repository, 'switch', '-c', 'feature')
+    write(repository, 'src/modified.ts', "export const value='feature'\n")
+    git(repository, 'add', 'src/modified.ts')
+    git(repository, 'commit', '-m', 'feature')
+    git(repository, 'tag', 'v2', 'HEAD')
+
+    expect(listSelected(repository)).toEqual(['src/modified.ts'])
+  })
+
+  it('首个候选没有 merge base 时回退到后续可比较分支', () => {
+    const repository = createRepository()
+    const baseCommit = git(repository, 'rev-parse', 'HEAD')
+    git(repository, 'switch', '-c', 'feature')
+    write(repository, 'src/modified.ts', "export const value='feature'\n")
+    git(repository, 'add', 'src/modified.ts')
+    git(repository, 'commit', '-m', 'feature')
+    const tree = git(repository, 'rev-parse', `${baseCommit}^{tree}`)
+    const unrelatedCommit = execFileSync('git', ['commit-tree', tree, '-m', 'unrelated'], {
+      cwd: repository,
+      encoding: 'utf8',
+    }).trim()
+    git(repository, 'update-ref', 'refs/remotes/upstream/v2', unrelatedCommit)
+    git(repository, 'update-ref', 'refs/remotes/origin/v2', baseCommit)
+
+    expect(listSelected(repository)).toEqual(['src/modified.ts'])
+  })
+
+  it('纳入转为普通文件的类型变更，并继续排除最终为符号链接的路径', () => {
+    const repository = createRepository()
+    symlinkSync('modified.ts', resolve(repository, 'src/to-regular.ts'))
+    write(repository, 'src/to-link.ts', 'export const link = false\n')
+    git(repository, 'add', 'src/to-regular.ts', 'src/to-link.ts')
+    git(repository, 'commit', '-m', 'type-change base')
+    git(repository, 'switch', '-c', 'feature')
+    rmSync(resolve(repository, 'src/to-regular.ts'))
+    write(repository, 'src/to-regular.ts', 'export const regular=true\n')
+    rmSync(resolve(repository, 'src/to-link.ts'))
+    symlinkSync('modified.ts', resolve(repository, 'src/to-link.ts'))
+    git(repository, 'add', '-A')
+    git(repository, 'commit', '-m', 'type changes')
+
+    expect(listSelected(repository, '--base', 'v2', '--head', 'HEAD')).toEqual(['src/to-regular.ts'])
+  })
+
+  it('Git 路径输出超过默认缓冲区时仍能完成选择', () => {
+    const repository = createRepository()
+    const wrapperDirectory = resolve(repository, '.test-bin')
+    const wrapperPath = resolve(wrapperDirectory, 'git')
+    write(
+      repository,
+      '.test-bin/git',
+      `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process')
+const { writeSync } = require('node:fs')
+const args = process.argv.slice(2)
+if (args[0] === 'ls-files') {
+  const output = Buffer.from('src/modified.ts\\0'.repeat(300_000))
+  let offset = 0
+  while (offset < output.length) offset += writeSync(1, output, offset)
+  process.exit(0)
+}
+const result = spawnSync('git', args, {
+  env: { ...process.env, PATH: process.env.REAL_GIT_PATH },
+  stdio: 'inherit',
+})
+process.exit(result.status ?? 1)
+`,
+    )
+    chmodSync(wrapperPath, 0o755)
+
+    expect(
+      runSelector(repository, [], {
+        ...process.env,
+        PATH: `${wrapperDirectory}${delimiter}${process.env.PATH ?? ''}`,
+        REAL_GIT_PATH: process.env.PATH ?? '',
+      }),
+    ).toEqual(['src/modified.ts'])
   })
 })
