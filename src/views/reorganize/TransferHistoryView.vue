@@ -1721,14 +1721,6 @@ onUnmounted(() => {
                 <div class="transfer-history-mobile-record__subtitle">
                   {{ getHistorySubtitle(item) || item.type || t('common.unknown') }}
                 </div>
-                <div class="transfer-history-mobile-record__meta">
-                  <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
-                    {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
-                  </VChip>
-                  <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
-                  <span class="transfer-history-mobile-record__dot">·</span>
-                  <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
-                </div>
               </div>
 
               <VChip
@@ -1769,6 +1761,15 @@ onUnmounted(() => {
                   </VList>
                 </VMenu>
               </IconBtn>
+
+              <div class="transfer-history-mobile-record__meta">
+                <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
+                  {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
+                </VChip>
+                <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
+                <span class="transfer-history-mobile-record__dot">·</span>
+                <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
+              </div>
             </header>
 
             <button
@@ -1964,6 +1965,7 @@ onUnmounted(() => {
   align-items: start;
   gap: 0.75rem;
   grid-template-columns: 3.5rem minmax(0, 1fr) auto 2rem;
+  grid-template-rows: auto auto;
   padding-block: 0.85rem 0.75rem;
   padding-inline: 1rem 0.85rem;
 }
@@ -2060,17 +2062,19 @@ onUnmounted(() => {
 }
 
 .transfer-history-mobile-record__meta {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-block-start: 0.3rem;
+  gap: 0.65rem;
+  margin-block-start: 0;
   overflow: hidden;
   white-space: nowrap;
 }
 
 .transfer-history-mobile-record__meta > span {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
