@@ -2062,16 +2062,18 @@ onUnmounted(() => {
 .transfer-history-mobile-record__meta {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 0.4rem;
   margin-block-start: 0.3rem;
   overflow: hidden;
+  white-space: nowrap;
 }
 
 .transfer-history-mobile-record__meta > span {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.8rem;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .transfer-history-mobile-record__mode {
