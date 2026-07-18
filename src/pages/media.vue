@@ -1,9 +1,5 @@
 <script setup lang="ts">
 import MediaDetailView from '@/views/discover/MediaDetailView.vue'
-import { useI18n } from 'vue-i18n'
-
-// 国际化
-const { t } = useI18n()
 
 // 路由参数
 const route = useRoute()

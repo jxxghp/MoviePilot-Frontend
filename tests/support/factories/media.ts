@@ -34,6 +34,14 @@ export function createMediaInfo(overrides: Partial<MediaInfo> = {}): MediaInfo {
   }
 }
 
+/** 构造后端无法识别媒体时返回的空详情。 */
+export function createEmptyMediaInfo(): MediaInfo {
+  return {
+    episode_run_time: [],
+    origin_country: [],
+  }
+}
+
 /** 构造季选择弹窗使用的最小季信息。 */
 export function createMediaSeason(overrides: Partial<MediaSeason> = {}): MediaSeason {
   seasonSeed += 1

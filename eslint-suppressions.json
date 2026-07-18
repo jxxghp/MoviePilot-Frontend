@@ -832,11 +832,6 @@
       "count": 1
     }
   },
-  "src/pages/media.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/pages/resource.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 6
@@ -1021,14 +1016,6 @@
     }
   },
   "src/views/discover/MediaCardSlideView.vue": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
-  "src/views/discover/MediaDetailView.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
