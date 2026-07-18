@@ -68,7 +68,8 @@ function openRecommendSettings() {
   )
 }
 
-const viewList = reactive<RecommendViewSource[]>(createBuiltInRecommendSources(t))
+const builtInRecommendSources = createBuiltInRecommendSources(t)
+const viewList = reactive<RecommendViewSource[]>([...builtInRecommendSources])
 
 // 计算当前分类下显示的视图
 const filteredViews = computed(() => {
@@ -96,6 +97,7 @@ function initializeColors() {
 
 // 额外的数据源
 const extraRecommendSources = ref<RecommendSource[]>([])
+let extraSourcesRequest: Promise<void> | null = null
 
 /** 只接受以标题为键、布尔值为开关的推荐配置。 */
 function normalizeEnableConfig(value: unknown): Record<string, boolean> | null {
@@ -107,14 +109,24 @@ function normalizeEnableConfig(value: unknown): Record<string, boolean> | null {
   return Object.fromEntries(entries)
 }
 
-// 加载额外的发现数据源
-async function loadExtraRecommendSources() {
-  try {
-    extraRecommendSources.value = await api.get('recommend/source')
-    mergeExtraRecommendSources(viewList, extraRecommendSources.value)
-  } catch (error) {
-    console.log(error)
-  }
+/** 刷新扩展推荐源；并发生命周期入口共享请求，成功响应按当前服务端快照替换列表。 */
+function loadExtraRecommendSources() {
+  if (extraSourcesRequest) return extraSourcesRequest
+
+  extraSourcesRequest = (async () => {
+    try {
+      extraRecommendSources.value = await api.get('recommend/source')
+      const nextViewList = [...builtInRecommendSources]
+      mergeExtraRecommendSources(nextViewList, extraRecommendSources.value)
+      viewList.splice(0, viewList.length, ...nextViewList)
+    } catch (error) {
+      console.log(error)
+    }
+  })().finally(() => {
+    extraSourcesRequest = null
+  })
+
+  return extraSourcesRequest
 }
 
 // 加载面板配置
