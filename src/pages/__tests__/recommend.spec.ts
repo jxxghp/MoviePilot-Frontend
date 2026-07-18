@@ -1,15 +1,18 @@
 import RecommendPage from '@/pages/recommend.vue'
+import type { RecommendSource } from '@/api/types'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@tests/support/render'
 import {
+  recommendApiUrls,
   recommendConfigHandler,
   recommendSourcesHandler,
   saveRecommendConfigHandler,
 } from '@tests/support/msw/handlers/recommend'
 import { server } from '@tests/support/msw/server'
-import { defineComponent } from 'vue'
+import { HttpResponse, http } from 'msw'
+import { defineComponent, nextTick, ref, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -72,6 +75,46 @@ async function renderRecommend(options: { superUser?: boolean; discovery?: boole
   })
 }
 
+function keepAliveHarness() {
+  return defineComponent({
+    components: { RecommendPage },
+    setup() {
+      const active = ref(true)
+      return { active }
+    },
+    template: `
+      <button type="button" @click="active = false">停用推荐页</button>
+      <button type="button" @click="active = true">启用推荐页</button>
+      <KeepAlive><RecommendPage v-if="active" /></KeepAlive>
+    `,
+  })
+}
+
+async function renderKeptAliveRecommend() {
+  return renderWithProviders(keepAliveHarness(), {
+    initialRoute: '/recommend',
+    initialState: {
+      user: {
+        permissions: { ...DEFAULT_PERMISSIONS, discovery: true },
+        superUser: false,
+      },
+    },
+    global: {
+      stubs: {
+        MediaCardSlideView: MediaCardSlideViewStub,
+        VScrollToTopBtn: true,
+      },
+    },
+  })
+}
+
+function dynamicRecommendSources(getSources: () => RecommendSource[], onRequest = vi.fn()) {
+  return http.get(recommendApiUrls.sources, () => {
+    onRequest()
+    return HttpResponse.json(getSources())
+  })
+}
+
 describe('recommend page', () => {
   beforeEach(() => {
     mocks.openSharedDialog.mockReturnValue({
@@ -99,6 +142,73 @@ describe('recommend page', () => {
     expect(screen.getAllByTestId('recommend-view')).toHaveLength(2)
     expect(screen.queryByText('重复来源')).not.toBeInTheDocument()
     expect(remoteConfigRequests).toBe(0)
+  })
+
+  it('filters by the registered category and waits until ready before showing its empty state', async () => {
+    const setTimeout = vi.spyOn(window, 'setTimeout')
+    const sourcesRequested = vi.fn()
+    localStorage.setItem('MP_RECOMMEND', JSON.stringify({ '流行趋势': true }))
+    server.use(recommendSourcesHandler([], 200, sourcesRequested))
+
+    await renderRecommend()
+    await waitFor(() => expect(sourcesRequested).toHaveBeenCalledOnce())
+    const headerTab = mocks.registerHeaderTab.mock.calls[0][0] as { modelValue: Ref<string> }
+    headerTab.modelValue.value = '电视剧'
+    await nextTick()
+
+    expect(screen.queryByText('当前分类下没有可显示的内容')).not.toBeInTheDocument()
+    const readyTimer = setTimeout.mock.calls.find(([, delay]) => delay === 400)?.[0]
+    expect(typeof readyTimer).toBe('function')
+    ;(readyTimer as () => void)()
+    await nextTick()
+
+    expect(screen.getByText('当前分类下没有可显示的内容')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '设置显示内容' })).toBeInTheDocument()
+  })
+
+  it('loads extra sources only once during the initial KeepAlive activation', async () => {
+    const requested = vi.fn()
+    let releaseResponse = () => {}
+    const responseGate = new Promise<void>(resolve => {
+      releaseResponse = resolve
+    })
+    localStorage.setItem('MP_RECOMMEND', JSON.stringify({ '流行趋势': true, '请求完成来源': true }))
+    server.use(
+      http.get(recommendApiUrls.sources, async () => {
+        requested()
+        await responseGate
+        return HttpResponse.json([{ api_path: 'recommend/completed', name: '请求完成来源', type: '扩展' }])
+      }),
+    )
+
+    await renderKeptAliveRecommend()
+    await waitFor(() => expect(requested).toHaveBeenCalled())
+    await new Promise(resolve => window.setTimeout(resolve, 25))
+
+    try {
+      expect(requested).toHaveBeenCalledOnce()
+    } finally {
+      releaseResponse()
+    }
+    expect(await screen.findByText('请求完成来源')).toBeInTheDocument()
+  })
+
+  it('removes an extra source withdrawn while the kept-alive page is inactive', async () => {
+    let sources: RecommendSource[] = [{ api_path: 'recommend/custom', name: '已撤销来源', type: '扩展' }]
+    const requested = vi.fn()
+    localStorage.setItem('MP_RECOMMEND', JSON.stringify({ '流行趋势': true, '已撤销来源': true }))
+    server.use(dynamicRecommendSources(() => sources, requested))
+
+    await renderKeptAliveRecommend()
+    expect(await screen.findByText('已撤销来源')).toBeInTheDocument()
+    const requestsBeforeReactivation = requested.mock.calls.length
+    sources = []
+
+    await fireEvent.click(screen.getByRole('button', { name: '停用推荐页' }))
+    await fireEvent.click(screen.getByRole('button', { name: '启用推荐页' }))
+
+    await waitFor(() => expect(requested).toHaveBeenCalledTimes(requestsBeforeReactivation + 1))
+    await waitFor(() => expect(screen.queryByText('已撤销来源')).not.toBeInTheDocument())
   })
 
   it('loads remote configuration when local configuration is absent', async () => {
