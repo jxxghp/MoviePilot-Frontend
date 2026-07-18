@@ -260,10 +260,7 @@ export default defineConfig(({ mode }) => ({
         url: 'http://localhost/',
       },
     },
-    include: [
-      'src/**/__tests__/**/*.spec.ts',
-      'tests/config/**/*.spec.ts',
-    ],
+    include: ['src/**/__tests__/**/*.spec.ts', 'tests/config/**/*.spec.ts'],
     restoreMocks: true,
     server: {
       deps: {
@@ -304,6 +301,10 @@ export default defineConfig(({ mode }) => ({
         'src/views/discover/BangumiView.vue',
         'src/views/discover/ExtraSourceView.vue',
         'src/views/discover/MediaCardListView.vue',
+        'src/components/cards/MediaCard.vue',
+        'src/components/slide/VirtualSlideView.vue',
+        'src/views/discover/PersonCardSlideView.vue',
+        'src/utils/mediaStatusCache.ts',
       ],
       provider: 'v8',
       reporter: ['text', 'json-summary', 'html'],
@@ -462,6 +463,30 @@ export default defineConfig(({ mode }) => ({
           functions: 80,
           lines: 80,
           statements: 80,
+        },
+        'src/components/cards/MediaCard.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/components/slide/VirtualSlideView.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/views/discover/PersonCardSlideView.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
+        'src/utils/mediaStatusCache.ts': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/views/subscribe/FullCalendarView.vue': {
           branches: 85,
