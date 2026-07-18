@@ -1676,7 +1676,7 @@ onUnmounted(() => {
         :items="mobileDataList"
         :columns="1"
         :gap="14"
-        :estimated-item-height="324"
+        :estimated-item-height="296"
         :overscan-rows="5"
         :get-item-key="getMobileHistoryItemKey"
       >
@@ -1721,6 +1721,14 @@ onUnmounted(() => {
                 <div class="transfer-history-mobile-record__subtitle">
                   {{ getHistorySubtitle(item) || item.type || t('common.unknown') }}
                 </div>
+                <div class="transfer-history-mobile-record__meta">
+                  <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
+                    {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
+                  </VChip>
+                  <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
+                  <span class="transfer-history-mobile-record__dot">·</span>
+                  <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
+                </div>
               </div>
 
               <VChip
@@ -1762,15 +1770,6 @@ onUnmounted(() => {
                 </VMenu>
               </IconBtn>
             </header>
-
-            <div class="transfer-history-mobile-record__meta">
-              <VChip class="transfer-history-mobile-record__mode" variant="outlined" color="primary" size="small">
-                {{ TransferDict[item?.mode ?? ''] || t('common.unknown') }}
-              </VChip>
-              <span>{{ formatFileSize(item?.src_fileitem?.size || 0) }}</span>
-              <span class="transfer-history-mobile-record__dot">·</span>
-              <span v-if="item?.date">{{ getHistoryDateText(item.date) }}</span>
-            </div>
 
             <button
               type="button"
@@ -2063,21 +2062,16 @@ onUnmounted(() => {
 .transfer-history-mobile-record__meta {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  overflow-x: auto;
-  padding-block: 0 0.85rem;
-  padding-inline: 1rem;
-  scrollbar-width: none;
-  white-space: nowrap;
-}
-
-.transfer-history-mobile-record__meta::-webkit-scrollbar {
-  display: none;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-block-start: 0.3rem;
+  overflow: hidden;
 }
 
 .transfer-history-mobile-record__meta > span {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .transfer-history-mobile-record__mode {
