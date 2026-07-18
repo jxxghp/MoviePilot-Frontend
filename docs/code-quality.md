@@ -77,11 +77,13 @@ yarn build
 
 ## ESLint CI：先观察，再强制
 
-ESLint 本地检查稳定后，Pull Request workflow 增加全仓 `yarn lint`：
+第二阶段在 Pull Request workflow 中增加独立的全仓 `yarn lint` job：
 
-1. 初始阶段作为普通 check 运行，不立即配置 required check。
-2. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。
-3. 连续多个 PR 稳定通过后，再由维护者决定是否设为 required。
+1. lint 与既有 `unit-tests` 使用不同 job，避免改变现有测试 check 的名称和职责。
+2. 初始阶段作为普通 check 运行，不立即配置 required check。
+3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint`，不执行自动修复或更新 baseline。
+4. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。
+5. 连续多个 PR 稳定通过后，再由维护者决定是否设为 required。
 
 ESLint CI 必须检查全仓受管源码，而不是只检查 PR 变更文件。已有问题通过规则选择或受控基线管理，保证新问题不能借由“只检查改动行”绕过项目约束。
 
