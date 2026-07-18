@@ -278,6 +278,7 @@ export default defineConfig(({ mode }) => ({
         'src/pages/recommend.vue',
         'src/pages/discover.vue',
         'src/pages/browse.vue',
+        'src/pages/media.vue',
         'src/pages/subscribe.vue',
         'src/views/dashboard/MediaRecommend.vue',
         'src/views/discover/MediaCardSlideView.vue',
@@ -301,6 +302,7 @@ export default defineConfig(({ mode }) => ({
         'src/views/discover/BangumiView.vue',
         'src/views/discover/ExtraSourceView.vue',
         'src/views/discover/MediaCardListView.vue',
+        'src/views/discover/MediaDetailView.vue',
         'src/components/cards/MediaCard.vue',
         'src/components/slide/VirtualSlideView.vue',
         'src/views/discover/PersonCardSlideView.vue',
@@ -380,6 +382,12 @@ export default defineConfig(({ mode }) => ({
           lines: 80,
           statements: 80,
         },
+        'src/pages/media.vue': {
+          branches: 75,
+          functions: 80,
+          lines: 80,
+          statements: 80,
+        },
         'src/pages/subscribe.vue': {
           branches: 75,
           functions: 80,
@@ -423,6 +431,12 @@ export default defineConfig(({ mode }) => ({
           statements: 90,
         },
         'src/views/discover/MediaCardListView.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
+        },
+        'src/views/discover/MediaDetailView.vue': {
           branches: 85,
           functions: 90,
           lines: 90,

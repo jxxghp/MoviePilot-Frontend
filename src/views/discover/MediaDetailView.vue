@@ -3,7 +3,16 @@ import { useToast } from 'vue-toastification'
 import PersonCardSlideView from './PersonCardSlideView.vue'
 import MediaCardSlideView from './MediaCardSlideView.vue'
 import api from '@/api'
-import type { MediaInfo, MediaRelease, MediaSeason, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
+import type {
+  ApiResponse,
+  MediaInfo,
+  MediaRelease,
+  MediaSeason,
+  NotExistMediaInfo,
+  Site,
+  Subscribe,
+  TmdbEpisode,
+} from '@/api/types'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { formatSeasonLabel } from '@/@core/utils/season'
 import router from '@/router'
@@ -63,6 +72,9 @@ const isSubscribed = ref(false)
 
 // 是否已加载完成
 const isRefreshed = ref(false)
+
+// 主详情请求失败时与合法空媒体分开展示，并允许用户重试。
+const detailLoadFailed = ref(false)
 
 // 存储每一季的集信息
 const seasonEpisodesInfo = ref({} as { [key: number]: TmdbEpisode[] })
@@ -136,6 +148,7 @@ const canScrollEpisodeGroupsForward = ref(false)
 let episodeGroupSeasonRequestId = 0
 let seasonNotExistsRequestId = 0
 let episodeExistsRequestId = 0
+let seasonEpisodesRequestGeneration = 0
 
 // 计算主题是否为透明
 const isTransparentTheme = computed(() => {
@@ -172,7 +185,7 @@ async function querySites() {
 // 查询用户选中的站点
 async function querySelectedSites() {
   try {
-    const result: { [key: string]: any } = await api.get('system/setting/public/IndexerSites')
+    const result: ApiResponse<{ value?: number[] }> = await api.get('system/setting/public/IndexerSites')
 
     selectedSites.value = result.data?.value ?? []
   } catch (error) {
@@ -193,28 +206,36 @@ function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season
 // 调用API查询详情
 async function getMediaDetail() {
   if (mediaProps.mediaid && mediaProps.type) {
-    mediaDetail.value = await api.get(`media/${mediaProps.mediaid}`, {
-      params: {
-        title: mediaProps.title,
-        year: mediaProps.year,
-        type_name: mediaProps.type,
-      },
-    })
-    isRefreshed.value = true
-    if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id && !mediaDetail.value.bangumi_id) return
+    detailLoadFailed.value = false
+    isRefreshed.value = false
+    try {
+      mediaDetail.value = await api.get(`media/${mediaProps.mediaid}`, {
+        params: {
+          title: mediaProps.title,
+          year: mediaProps.year,
+          type_name: mediaProps.type,
+        },
+      })
+      if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id && !mediaDetail.value.bangumi_id) return
 
-    selectedEpisodeGroup.value = mediaDetail.value.episode_group || ''
-    if (mediaDetail.value.type === '电视剧' && mediaDetail.value.tmdb_id) {
-      getEpisodeGroups()
-      if (selectedEpisodeGroup.value) loadEpisodeGroupSeasons(selectedEpisodeGroup.value)
+      selectedEpisodeGroup.value = mediaDetail.value.episode_group || ''
+      if (mediaDetail.value.type === '电视剧' && mediaDetail.value.tmdb_id) {
+        getEpisodeGroups()
+        if (selectedEpisodeGroup.value) loadEpisodeGroupSeasons(selectedEpisodeGroup.value)
+      }
+
+      // 检查存在状态
+      checkExists()
+      if (mediaDetail.value.type === '电视剧') checkSeasonsNotExists()
+      // 检查订阅状态
+      if (mediaDetail.value.type === '电影') checkMovieSubscribed()
+      else checkSeasonsSubscribed()
+    } catch (error) {
+      console.error(error)
+      detailLoadFailed.value = true
+    } finally {
+      isRefreshed.value = true
     }
-
-    // 检查存在状态
-    checkExists()
-    if (mediaDetail.value.type === '电视剧') checkSeasonsNotExists()
-    // 检查订阅状态
-    if (mediaDetail.value.type === '电影') checkMovieSubscribed()
-    else checkSeasonsSubscribed()
   }
 }
 
@@ -224,10 +245,14 @@ async function loadSeasonEpisodes(season: number) {
   loadEpisodeExists()
   // 加载季集信息
   if (seasonEpisodesInfo.value[season]) return
+  const requestGeneration = seasonEpisodesRequestGeneration
   try {
     const params = selectedEpisodeGroup.value ? { episode_group: selectedEpisodeGroup.value } : undefined
-    const result: TmdbEpisode[] = await api.get(`tmdb/${mediaDetail.value.tmdb_id}/${season}`, params ? { params } : undefined)
-    seasonEpisodesInfo.value[season] = result || []
+    const result: TmdbEpisode[] = await api.get(
+      `tmdb/${mediaDetail.value.tmdb_id}/${season}`,
+      params ? { params } : undefined,
+    )
+    if (requestGeneration === seasonEpisodesRequestGeneration) seasonEpisodesInfo.value[season] = result || []
   } catch (error) {
     console.error(error)
   }
@@ -253,7 +278,7 @@ async function loadEpisodeExists() {
 // 查询当前媒体是否已入库（数据库）
 async function checkExists() {
   try {
-    const result: { [key: string]: any } = await api.get('mediaserver/exists', {
+    const result: ApiResponse<{ item: { id: string } }> = await api.get('mediaserver/exists', {
       params: {
         tmdbid: mediaDetail.value.tmdb_id,
         title: mediaDetail.value.title,
@@ -286,9 +311,7 @@ function isSameSubscribeMedia(subscribe: Subscribe) {
   if (mediaDetail.value?.douban_id && subscribe.doubanid) return mediaDetail.value.douban_id === subscribe.doubanid
   if (mediaDetail.value?.bangumi_id && subscribe.bangumiid) return mediaDetail.value.bangumi_id === subscribe.bangumiid
 
-  const mediaId = mediaDetail.value?.media_id
-    ? `${mediaDetail.value.mediaid_prefix}:${mediaDetail.value.media_id}`
-    : ''
+  const mediaId = mediaDetail.value?.media_id ? `${mediaDetail.value.mediaid_prefix}:${mediaDetail.value.media_id}` : ''
   return Boolean(mediaId && subscribe.mediaid === mediaId)
 }
 
@@ -345,7 +368,8 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => [
 
 // 当前选中的剧集组选项
 const selectedEpisodeGroupOption = computed(
-  () => episodeGroupOptions.value.find(group => group.id === selectedEpisodeGroup.value) ?? episodeGroupOptions.value[0]!,
+  () =>
+    episodeGroupOptions.value.find(group => group.id === selectedEpisodeGroup.value) ?? episodeGroupOptions.value[0]!,
 )
 
 // 季列表，第0季排在最后
@@ -407,6 +431,7 @@ async function setEpisodeGroup(groupId: string) {
   episodeGroupSeasons.value = []
   episodeGroupSeasonRequestId += 1
   episodeExistsRequestId += 1
+  seasonEpisodesRequestGeneration += 1
 
   await Promise.all([loadEpisodeGroupSeasons(groupId), checkSeasonsNotExists()])
 }
@@ -473,15 +498,17 @@ const subscribedSeasonNumbers = computed(() =>
     .sort((a, b) => a - b),
 )
 
-// 默认季结构中的可订阅季总数
-const subscribeSeasonTotal = computed(() => mediaDetail.value?.season_info?.length ?? 0)
+// 默认季结构中的季号集合
+const defaultSubscribeSeasonNumbers = computed(() =>
+  (mediaDetail.value?.season_info ?? []).map(season => season.season_number ?? 0),
+)
 
 // 当前媒体是否已订阅默认季结构中的全部季
 const isAllSeasonsSubscribed = computed(
   () =>
     mediaDetail.value.type === '电视剧' &&
-    subscribeSeasonTotal.value > 0 &&
-    subscribedSeasonNumbers.value.length >= subscribeSeasonTotal.value,
+    defaultSubscribeSeasonNumbers.value.length > 0 &&
+    defaultSubscribeSeasonNumbers.value.every(season => seasonsSubscribed.value[season]),
 )
 
 // 订阅按钮响应；单季入口同时传递详情页当前选择的剧集组。
@@ -490,19 +517,14 @@ function handleSubscribe(season: number | null = null, episodeGroup = '') {
 }
 
 // 从genres中获取name，使用、分隔
-function getGenresName(genres: any[]) {
-  return genres.map(genre => genre.name).join('、')
+function getGenresName(genres: Array<string | { name: string }>) {
+  return genres.map(genre => (typeof genre === 'string' ? genre : genre.name)).join('、')
 }
 
 // 拼装TheMovieDb地址
 function getTheMovieDbLink() {
   const mtype = mediaProps.type === '电影' ? 'movie' : 'tv'
   return `https://www.themoviedb.org/${mtype}/${mediaDetail.value.tmdb_id}`
-}
-
-// 拼装豆瓣地址
-function getDoubanLink() {
-  return `https://movie.douban.com/subject/${mediaDetail.value.douban_id}`
 }
 
 // 处理豆瓣链接点击
@@ -570,8 +592,7 @@ const getProductionCompanies = computed(() => {
 // 获取指定类型的最早发行日期
 function getEarliestReleaseDateByType(type: number): MediaRelease | null {
   const filteredDates = mediaDetail.value.release_dates?.filter(date => date.type === type)
-  if (!filteredDates || filteredDates.length === 0)
-    return null
+  if (!filteredDates || filteredDates.length === 0) return null
 
   return filteredDates.reduce((earliest, current) =>
     new Date(current.date) < new Date(earliest.date) ? current : earliest,
@@ -611,7 +632,8 @@ function isEpisodeExists(season: number, episode: number) {
 
 // 计算订阅图标
 const getSubscribeIcon = computed(() => {
-  if (mediaDetail.value.type === '电视剧') return subscribedSeasonNumbers.value.length > 0 ? 'mdi-heart' : 'mdi-heart-outline'
+  if (mediaDetail.value.type === '电视剧')
+    return subscribedSeasonNumbers.value.length > 0 ? 'mdi-heart' : 'mdi-heart-outline'
   if (isSubscribed.value) return 'mdi-heart'
   else return 'mdi-heart-outline'
 })
@@ -669,7 +691,9 @@ function handleSearch(resultType: 'torrent' | 'subtitle' = 'torrent', options: M
 async function handlePlay() {
   // 获取播放链接地址
   try {
-    const result: { [key: string]: any } = await api.get(`mediaserver/play/${existsItemId.value}`)
+    const result: ApiResponse<{ item_id: string; server_id: string; server_type: string; url: string }> = await api.get(
+      `mediaserver/play/${existsItemId.value}`,
+    )
     if (result?.success) {
       // 使用深度链接工具，优先跳转到APP，失败后跳转到网页
       await openMediaServerItem({
@@ -683,6 +707,7 @@ async function handlePlay() {
     }
   } catch (error) {
     console.error(error)
+    $toast.error('获取播放链接失败！')
   }
 }
 
@@ -706,7 +731,11 @@ const subscribeActions = useMediaSubscribe({
 })
 
 // 搜索前弹出站点选择框，确认后执行资源或字幕搜索。
-async function clickSearch(type: string, resultType: 'torrent' | 'subtitle' = 'torrent', options: MediaSearchOptions = {}) {
+async function clickSearch(
+  type: string,
+  resultType: 'torrent' | 'subtitle' = 'torrent',
+  options: MediaSearchOptions = {},
+) {
   searchType.value = type
   pendingSearchResultType.value = resultType
   pendingSearchOptions.value = options
@@ -803,10 +832,7 @@ onUnmounted(() => {
         </div>
         <div class="media-actions">
           <VBtn
-            v-if="
-              (mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) &&
-              canSearch
-            "
+            v-if="(mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) && canSearch"
             variant="tonal"
             color="primary"
             class="media-action-button"
@@ -827,10 +853,7 @@ onUnmounted(() => {
             </VMenu>
           </VBtn>
           <VBtn
-            v-if="
-              (mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) &&
-              canSearch
-            "
+            v-if="(mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) && canSearch"
             variant="tonal"
             color="info"
             class="media-action-button"
@@ -842,7 +865,10 @@ onUnmounted(() => {
             {{ t('media.actions.searchSubtitle') }}
           </VBtn>
           <VBtn
-            v-if="canSubscribe && (mediaDetail.type === '电影' || mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id)"
+            v-if="
+              canSubscribe &&
+              (mediaDetail.type === '电影' || mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id)
+            "
             class="media-action-button"
             :color="getSubscribeColor"
             variant="tonal"
@@ -950,7 +976,11 @@ onUnmounted(() => {
                   >
                     <VIcon icon="mdi-chevron-left" />
                   </button>
-                  <div ref="episodeGroupRail" class="episode-group-rail" @scroll.passive="updateEpisodeGroupScrollState">
+                  <div
+                    ref="episodeGroupRail"
+                    class="episode-group-rail"
+                    @scroll.passive="updateEpisodeGroupScrollState"
+                  >
                     <button
                       v-for="group in episodeGroupOptions"
                       :key="group.id || 'default'"
@@ -1009,7 +1039,7 @@ onUnmounted(() => {
                         season.season_number === 0
                           ? season.name || formatSeasonLabel(0, t('media.specials'))
                           : t('media.seasonNumber', { number: season.season_number })
-                        }}</span>
+                      }}</span>
                       <VChip size="small" class="ms-1">
                         {{ t('media.episodeCount', { count: season.episode_count }) }}
                       </VChip>
@@ -1120,7 +1150,9 @@ onUnmounted(() => {
               <span>{{ t('media.info.digitalRelease') }}</span>
               <span class="media-fact-value">
                 <span class="flex items-center justify-end">
-                  <span class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none">
+                  <span
+                    class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none"
+                  >
                     {{ getEarliestDigitalReleaseDate.iso_code }}
                   </span>
                   <span class="ml-1.5">{{ getEarliestDigitalReleaseDate.date.slice(0, 10) }}</span>
@@ -1131,7 +1163,9 @@ onUnmounted(() => {
               <span>{{ t('media.info.physicalRelease') }}</span>
               <span class="media-fact-value">
                 <span class="flex items-center justify-end">
-                  <span class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none">
+                  <span
+                    class="inline-flex items-center justify-center h-4 w-4 text-[0.6rem] font-bold text-current border border-current leading-none"
+                  >
                     {{ getEarliestPhysicalReleaseDate.iso_code }}
                   </span>
                   <span class="ml-1.5">{{ getEarliestPhysicalReleaseDate.date.slice(0, 10) }}</span>
@@ -1280,7 +1314,17 @@ onUnmounted(() => {
     </div>
   </div>
   <NoDataFound
-    v-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && !mediaDetail.bangumi_id && isRefreshed"
+    v-if="detailLoadFailed"
+    error-code="500"
+    :error-title="t('media.error.title')"
+    :error-description="t('error.networkError')"
+  >
+    <template #button>
+      <VBtn prepend-icon="mdi-refresh" variant="tonal" @click="getMediaDetail">{{ t('common.retry') }}</VBtn>
+    </template>
+  </NoDataFound>
+  <NoDataFound
+    v-else-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && !mediaDetail.bangumi_id && isRefreshed"
     error-code="500"
     :error-title="t('media.error.title')"
     :error-description="t('media.error.noMediaInfo')"
@@ -1293,7 +1337,8 @@ onUnmounted(() => {
 
   z-index: 0;
   pointer-events: none;
-  background-image: linear-gradient(
+  background-image:
+    linear-gradient(
       180deg,
       rgba(var(--v-theme-background), 0) 50%,
       rgba(var(--v-theme-background), var(--media-backdrop-edge-opacity)) 100%
@@ -1326,10 +1371,12 @@ onUnmounted(() => {
 
 .media-detail-transparent .vue-media-back-image {
   opacity: 0.78;
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
   mask-composite: intersect;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
   -webkit-mask-composite: source-in;
 }
