@@ -1,2 +1,8 @@
 dist
 node_modules
+
+# 自动生成文件的格式由各自生成器决定。
+auto-imports.d.ts
+components.d.ts
+eslint-suppressions.json
+/vite.config.*.timestamp-*.mjs

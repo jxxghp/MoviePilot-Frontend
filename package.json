@@ -17,6 +17,10 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "lint:suppressions:prune": "eslint . --prune-suppressions",
+    "format": "node scripts/format-changed.mjs --write",
+    "format:check": "node scripts/format-changed.mjs --check",
+    "format:all:check": "prettier . --check",
+    "test:format-config": "vitest run tests/config/format-changed.spec.ts",
     "build:icons": "tsc -b src/@iconify && node src/@iconify/build-icons.js",
     "postinstall": "npm run build:icons",
     "pkg": "pkg . -t node18-win-x64 -o MoviePilot-Frontend.exe"
@@ -125,6 +129,7 @@
     "msw": "2.15.0",
     "postcss": "^8.5.1",
     "postcss-html": "^1.5.0",
+    "prettier": "^3.9.5",
     "stylelint": "^16.13.2",
     "stylelint-config-idiomatic-order": "^10.0.0",
     "stylelint-config-standard-scss": "^14.0.0",

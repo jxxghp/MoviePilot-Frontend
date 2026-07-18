@@ -5,32 +5,20 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
-const javascriptFiles = [
-  '**/*.{js,mjs,cjs,jsx}',
-]
+const javascriptFiles = ['**/*.{js,mjs,cjs,jsx}']
 
-const typescriptFiles = [
-  '**/*.{ts,tsx,mts,cts}',
-  '**/*.vue',
-]
+const typescriptFiles = ['**/*.{ts,tsx,mts,cts}', '**/*.vue']
 
 const managedScriptExtensions = 'js,mjs,cjs,jsx,ts,tsx,mts,cts'
 
-const managedFiles = [
-  ...javascriptFiles,
-  ...typescriptFiles,
-]
+const managedFiles = [...javascriptFiles, ...typescriptFiles]
 
 const browserFiles = [
   `src/**/*.{${managedScriptExtensions},vue}`,
   `examples/**/src/**/*.{${managedScriptExtensions},vue}`,
 ]
 
-const nodeFiles = [
-  '**/*.config.{js,mjs,cjs,ts,mts,cts}',
-  'public/service.js',
-  'scripts/**/*.{js,mjs,cjs,ts,mts,cts}',
-]
+const nodeFiles = ['**/*.config.{js,mjs,cjs,ts,mts,cts}', 'public/service.js', 'scripts/**/*.{js,mjs,cjs,ts,mts,cts}']
 
 // TypeScript 关闭核心 no-undef；显式禁止浏览器域中的 Node-only globals，保证 JS、TS 与 Vue 使用同一运行时边界。
 const browserGlobalNames = new Set(Object.keys(globals.browser))
@@ -67,7 +55,8 @@ const viteGlobCallSelectors = [
 
 const layoutGlobRestrictions = viteGlobCallSelectors.map(callSelector => ({
   selector: callSelector,
-  message: 'import.meta.glob is not allowed in @layouts because wildcard targets cannot be proven to stay within the module boundary.',
+  message:
+    'import.meta.glob is not allowed in @layouts because wildcard targets cannot be proven to stay within the module boundary.',
 }))
 
 const sonarRules = {
@@ -105,6 +94,7 @@ export default defineConfig([
   globalIgnores([
     '**/node_modules/**',
     '**/dist/**',
+    '**/dev-dist/**',
     '**/coverage/**',
     '**/.worktrees/**',
     '**/vite.config.*.timestamp-*.mjs',
@@ -124,9 +114,12 @@ export default defineConfig([
     files: ['**/*.vue'],
     rules: {
       'vue/multi-word-component-names': 'off',
-      'vue/valid-v-slot': ['error', {
-        allowModifiers: true,
-      }],
+      'vue/valid-v-slot': [
+        'error',
+        {
+          allowModifiers: true,
+        },
+      ],
     },
   },
   {
