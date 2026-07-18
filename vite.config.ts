@@ -260,7 +260,10 @@ export default defineConfig(({ mode }) => ({
         url: 'http://localhost/',
       },
     },
-    include: ['src/**/__tests__/**/*.spec.ts'],
+    include: [
+      'src/**/__tests__/**/*.spec.ts',
+      'tests/config/**/*.spec.ts',
+    ],
     restoreMocks: true,
     server: {
       deps: {

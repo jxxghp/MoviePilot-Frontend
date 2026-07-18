@@ -67,7 +67,7 @@ tests/
 
 ## 新增测试
 
-1. 在被测源码所在目录的 `__tests__/` 中创建同名 `*.spec.ts`。
+1. 业务测试在被测源码所在目录的 `__tests__/` 中创建同名 `*.spec.ts`；工具链配置契约测试放在 `tests/config/`。
 2. 纯函数、store 和无渲染模块直接使用 Vitest；Vue 组件使用标准渲染入口。
 3. 需要 HTTP 请求时，在 `tests/support/msw/handlers/<domain>.ts` 增加对应 handler。
 4. 需要结构化业务数据时，在 `tests/support/factories/` 增加最小工厂。
@@ -76,7 +76,7 @@ tests/
 
 ## 配置边界
 
-Vitest 只收集 `src/**/__tests__/**/*.spec.ts`。测试模式保留 Vue、Vue JSX、Vuetify、自动导入、自动组件和 i18n 插件，并禁用 PWA、模块联邦和 top-level-await 构建插件。
+Vitest 收集 `src/**/__tests__/**/*.spec.ts` 和 `tests/config/**/*.spec.ts`。测试模式保留 Vue、Vue JSX、Vuetify、自动导入、自动组件和 i18n 插件，并禁用 PWA、模块联邦和 top-level-await 构建插件。配置契约测试随全量测试执行，但不加入业务源码覆盖率统计范围。
 
 当前核心覆盖范围在 `vite.config.ts` 的 `coverage.include` 中显式维护。聚合门槛为 Lines、Statements、Functions 不低于 85%，Branches 不低于 80%；每个显式核心文件的 Lines、Statements、Functions 不低于 80%，Branches 不低于 75%。覆盖率报告写入 `coverage/`。
 
@@ -86,9 +86,10 @@ Vitest 只收集 `src/**/__tests__/**/*.spec.ts`。测试模式保留 Vue、Vue 
 yarn test          # watch 模式
 yarn test:run      # 单次运行
 yarn test:coverage # 单次运行并检查覆盖率
+yarn test:lint-config # 聚焦执行 ESLint 配置契约测试
 yarn typecheck
 yarn lint
 yarn build
 ```
 
-Pull Request 测试工作流使用 Node 24 LTS 和 frozen lockfile，依次执行类型检查和覆盖率门禁。现有 lint 基线问题按仓库当前维护约定单独处理，新增测试代码不得引入新的 lint 错误。
+Pull Request 测试工作流使用 Node 24 LTS 和 frozen lockfile，依次执行类型检查和覆盖率门禁。ESLint、Prettier 和 Node 兼容范围按[前端代码质量工具链演进](code-quality.md)渐进接入，新增测试代码不得引入新的 lint 或格式问题。
