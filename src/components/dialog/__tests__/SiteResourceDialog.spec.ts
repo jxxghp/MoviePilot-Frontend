@@ -188,6 +188,41 @@ describe('SiteResourceDialog', () => {
     expect(attempts).toBe(2)
   })
 
+  it.each([
+    ['desktop', 1280],
+    ['mobile', 390],
+  ] as const)('does not show the empty state with an initial resource error on %s', async (_layout, width) => {
+    setViewport(width)
+    server.use(siteCategoriesHandler(501, []), siteResourcesHandler(501, [], 500))
+
+    await renderDialog(undefined, { VDataTable: DataTableStub })
+
+    expect(await screen.findByText('资源加载失败，请重试')).toBeInTheDocument()
+    expect(screen.queryByText('没有数据')).not.toBeInTheDocument()
+  })
+
+  it('keeps existing resources visible when a repeated search fails', async () => {
+    let attempts = 0
+    server.use(
+      siteCategoriesHandler(501, []),
+      http.get(siteApiUrls.resources(501), () => {
+        attempts += 1
+        if (attempts === 1) return HttpResponse.json([createTorrentInfo({ title: '已有资源' })])
+
+        return HttpResponse.json({ detail: 'temporary failure' }, { status: 500 })
+      }),
+    )
+    const user = userEvent.setup()
+    await renderDialog()
+    expect(await screen.findByText('已有资源')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /搜索/ }))
+
+    expect(await screen.findByText('资源加载失败，请重试')).toBeInTheDocument()
+    expect(screen.getByText('已有资源')).toBeInTheDocument()
+    expect(screen.queryByText('没有数据')).not.toBeInTheDocument()
+  })
+
   it('loads categories and resources from their direct-array endpoints', async () => {
     const categoryRequests: URL[] = []
     const resourceRequests: URL[] = []

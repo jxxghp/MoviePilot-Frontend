@@ -36,8 +36,8 @@ const currentTheme = controlledComputed(
 // 站点数据列表
 const siteDatas = ref<SiteUserData[]>([])
 
-// 只有最近一次读取可以更新弹窗状态，避免首载慢响应覆盖手动刷新结果。
-let fetchGeneration = 0
+// 只有最近一次加载或刷新操作可以更新弹窗状态，避免异步响应覆盖较新的操作结果。
+let operationGeneration = 0
 
 // 最新一天的数据
 const siteData = computed(() => siteDatas.value[siteDatas.value.length - 1])
@@ -261,24 +261,27 @@ function getDiffClass(diff: number | undefined) {
 }
 
 // 查询站点用户数据
-async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load') {
-  const generation = ++fetchGeneration
+async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load', generation?: number) {
+  const activeGeneration = generation ?? ++operationGeneration
 
   try {
     const result = await api.get<ApiResponse<SiteUserData[]>, ApiResponse<SiteUserData[]>>(
       `site/userdata/${props.site?.id}`,
     )
-    if (generation !== fetchGeneration) return false
+    if (activeGeneration !== operationGeneration) return false
 
     if (result.success) {
       // 使用nextTick确保DOM更新完成后再更新图表数据
       await nextTick()
+      if (activeGeneration !== operationGeneration) return false
+
       siteDatas.value = result.data.sort((a, b) => (a.updated_day || '').localeCompare(b.updated_day || ''))
-      failedOperation.value = undefined
-      return true
     }
+
+    failedOperation.value = undefined
+    return true
   } catch (error) {
-    if (generation !== fetchGeneration) return false
+    if (activeGeneration !== operationGeneration) return false
 
     console.error(error)
     failedOperation.value = failureOperation
@@ -289,19 +292,26 @@ async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load') 
 
 // 刷新站点数据
 async function refreshSiteData() {
+  const generation = ++operationGeneration
   progressDialog.value = true
   try {
     const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>(`site/userdata/${props.site?.id}`)
+    if (generation !== operationGeneration) return
+
     if (result.success) {
-      await fetchSiteUserData('refresh')
+      await fetchSiteUserData('refresh', generation)
     } else {
       failedOperation.value = 'refresh'
     }
   } catch (error) {
+    if (generation !== operationGeneration) return
+
     console.error(error)
     failedOperation.value = 'refresh'
   } finally {
-    progressDialog.value = false
+    if (generation === operationGeneration) {
+      progressDialog.value = false
+    }
   }
 }
 

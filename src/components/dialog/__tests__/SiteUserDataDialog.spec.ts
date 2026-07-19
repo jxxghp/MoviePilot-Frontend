@@ -290,6 +290,44 @@ describe('SiteUserDataDialog refresh and recovery', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('keeps a refresh failure visible when the initial request settles afterwards', async () => {
+    const initialRequest = deferred<void>()
+    const initialRequested = vi.fn()
+    const initialReleased = vi.fn()
+    const refreshRequested = vi.fn()
+    const { site } = await renderDialog({ data: [createSiteUserData({ bonus: 1 })], success: true }, 200, async () => {
+      initialRequested()
+      await initialRequest.promise
+      initialReleased()
+    })
+    await waitFor(() => expect(initialRequested).toHaveBeenCalledOnce())
+    server.use(
+      refreshSiteUserDataHandler(
+        site.id,
+        { data: {}, message: '站点不支持刷新', success: false },
+        200,
+        refreshRequested,
+      ),
+    )
+
+    await fireEvent.click(getRefreshButton())
+    expect(await screen.findByText(/刷新站点数据失败/)).toBeInTheDocument()
+
+    initialRequest.resolve()
+    await waitFor(() => expect(initialReleased).toHaveBeenCalledOnce())
+    await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
+    await flushPromises()
+
+    expect(screen.getByText(/刷新站点数据失败/)).toBeInTheDocument()
+    expect(refreshRequested).toHaveBeenCalledOnce()
+
+    server.use(refreshSiteUserDataHandler(site.id, { data: {}, success: true }, 200, refreshRequested))
+    await fireEvent.click(getRetryButton())
+
+    await waitFor(() => expect(refreshRequested).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByText(/刷新站点数据失败/)).not.toBeInTheDocument())
+  })
+
   it.each([
     ['business failure', 200, { data: {}, message: '站点不支持刷新', success: false }],
     ['HTTP failure', 500, { data: {}, message: 'server down', success: false }],
@@ -330,6 +368,18 @@ describe('SiteUserDataDialog refresh and recovery', () => {
     await screen.findByText('88')
     expect(attempt).toBe(2)
     expect(screen.queryByText(/加载站点数据失败/)).not.toBeInTheDocument()
+  })
+
+  it('clears an initial HTTP error when retry returns the legal empty state', async () => {
+    const { site } = await renderDialog({ data: [], success: false }, 500)
+    expect(await screen.findByText(/加载站点数据失败/)).toBeInTheDocument()
+    server.use(siteUserDataHandler(site.id, { data: [], success: false }))
+
+    await fireEvent.click(getRetryButton())
+
+    await waitFor(() => expect(getActiveRequestsCount()).toBe(0))
+    await waitFor(() => expect(screen.queryByText(/加载站点数据失败/)).not.toBeInTheDocument())
+    expect(screen.getByText('无')).toBeInTheDocument()
   })
 
   it('emits close without mutating loaded user data', async () => {
