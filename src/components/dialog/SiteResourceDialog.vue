@@ -401,7 +401,7 @@ onMounted(() => {
         </VAlert>
 
         <VDataTable
-          v-if="display.mdAndUp.value"
+          v-if="display.mdAndUp.value && (!resourceError || resourceDataList.length > 0)"
           v-model:page="resourcePage"
           v-model:items-per-page="resourceItemsPerPage"
           :headers="resourceHeaders"
@@ -663,7 +663,7 @@ onMounted(() => {
             </ProgressiveCardGrid>
           </div>
 
-          <div v-else class="px-4 py-10 text-center text-medium-emphasis">
+          <div v-else-if="!resourceError" class="px-4 py-10 text-center text-medium-emphasis">
             {{ t('dialog.siteResource.noData') }}
           </div>
         </div>
