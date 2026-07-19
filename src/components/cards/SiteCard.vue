@@ -4,7 +4,7 @@ import { getLogoUrl } from '@/utils/imageUtils'
 import { useToast } from 'vue-toastification'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
-import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
+import type { ApiResponse, Site, SiteStatistic, SiteUserData } from '@/api/types'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { useConfirm } from '@/composables/useConfirm'
@@ -79,17 +79,17 @@ async function testSite() {
     testButtonText.value = t('site.testing')
     testButtonDisable.value = true
 
-    const result: { [key: string]: any } = await api.get(`site/test/${cardProps.site?.id}`)
+    const result = (await api.get(`site/test/${cardProps.site?.id}`)) as ApiResponse<unknown>
     if (result.success) $toast.success(t('site.testSuccess', { name: cardProps.site?.name }))
     else $toast.error(t('site.testFailed', { name: cardProps.site?.name, message: result.message }))
-
-    testButtonText.value = t('site.testConnectivity')
-    testButtonDisable.value = false
 
     // 测试完成后刷新统计数据
     emit('refresh-stats', cardProps.site?.domain)
   } catch (error) {
     console.error(error)
+  } finally {
+    testButtonText.value = t('site.testConnectivity')
+    testButtonDisable.value = false
   }
 }
 
@@ -166,7 +166,7 @@ async function deleteSiteInfo() {
   if (!isConfirmed) return
 
   try {
-    const result: { [key: string]: any } = await api.delete(`site/${cardProps.site?.id}`)
+    const result = (await api.delete(`site/${cardProps.site?.id}`)) as ApiResponse<unknown>
     if (result.success) emit('remove')
     else $toast.error(t('site.deleteFailed', { name: cardProps.site?.name, message: result.message }))
   } catch (error) {
@@ -260,167 +260,182 @@ onMounted(() => {
         :hover="!cardProps.sortable"
         @click="handleCardClick"
       >
-      <!-- 装饰性状态指示器 -->
-      <div v-if="cardProps.site?.is_active" class="site-status-indicator" :class="statColor"></div>
+        <!-- 装饰性状态指示器 -->
+        <div v-if="cardProps.site?.is_active" class="site-status-indicator" :class="statColor"></div>
 
-      <!-- 主体部分 -->
-      <div class="relative z-1 flex flex-1 flex-col p-3 pr-12">
-        <!-- 顶部：图标和站点名称 -->
-        <div class="mb-1 flex min-w-0 items-center gap-2">
-          <!-- 站点图标 -->
-          <VAvatar
-            tile
-            rounded="lg"
-            size="32"
-            class="shrink-0"
-            :class="{ 'cursor-move': cardProps.sortable && display.mdAndUp.value }"
-          >
-            <VImg :src="siteIcon" class="w-full h-full" :alt="cardProps.site?.name" cover>
-              <template #placeholder>
-                <div class="w-full h-full">
-                  <VSkeletonLoader class="object-cover aspect-square" />
+        <!-- 主体部分 -->
+        <div class="relative z-1 flex flex-1 flex-col p-3 pr-12">
+          <!-- 顶部：图标和站点名称 -->
+          <div class="mb-1 flex min-w-0 items-center gap-2">
+            <!-- 站点图标 -->
+            <VAvatar
+              tile
+              rounded="lg"
+              size="32"
+              class="shrink-0"
+              :class="{ 'cursor-move': cardProps.sortable && display.mdAndUp.value }"
+            >
+              <VImg :src="siteIcon" class="w-full h-full" :alt="cardProps.site?.name" cover>
+                <template #placeholder>
+                  <div class="w-full h-full">
+                    <VSkeletonLoader class="object-cover aspect-square" />
+                  </div>
+                </template>
+              </VImg>
+            </VAvatar>
+
+            <!-- 站点名称和特性图标 -->
+            <div class="flex min-w-0 flex-1 items-center gap-2">
+              <h3 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight">{{ cardProps.site?.name }}</h3>
+
+              <!-- 站点特性图标 -->
+              <div class="ml-auto flex shrink-0 items-center gap-2">
+                <div
+                  v-if="cardProps.site?.limit_interval"
+                  :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'"
+                >
+                  <VIcon
+                    icon="mdi-speedometer"
+                    size="16"
+                    color="primary"
+                    :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                  />
                 </div>
-              </template>
-            </VImg>
-          </VAvatar>
-
-          <!-- 站点名称和特性图标 -->
-          <div class="flex min-w-0 flex-1 items-center gap-2">
-            <h3 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight">{{ cardProps.site?.name }}</h3>
-
-            <!-- 站点特性图标 -->
-            <div class="ml-auto flex shrink-0 items-center gap-2">
-              <div v-if="cardProps.site?.limit_interval" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
-                <VIcon
-                  icon="mdi-speedometer"
-                  size="16"
-                  color="primary"
-                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
-                />
-              </div>
-              <div v-if="cardProps.site?.proxy" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
-                <VIcon
-                  icon="mdi-network-outline"
-                  size="16"
-                  color="primary"
-                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
-                />
-              </div>
-              <div v-if="cardProps.site?.render" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
-                <VIcon
-                  icon="mdi-apple-safari"
-                  size="16"
-                  color="primary"
-                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
-                />
-              </div>
-              <div v-if="cardProps.site?.filter" :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'">
-                <VIcon
-                  icon="mdi-filter-cog-outline"
-                  size="16"
-                  color="primary"
-                  :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
-                />
+                <div
+                  v-if="cardProps.site?.proxy"
+                  :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'"
+                >
+                  <VIcon
+                    icon="mdi-network-outline"
+                    size="16"
+                    color="primary"
+                    :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                  />
+                </div>
+                <div
+                  v-if="cardProps.site?.render"
+                  :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'"
+                >
+                  <VIcon
+                    icon="mdi-apple-safari"
+                    size="16"
+                    color="primary"
+                    :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                  />
+                </div>
+                <div
+                  v-if="cardProps.site?.filter"
+                  :class="cardProps.sortable ? '' : 'hover:bg-primary/8 transition-colors'"
+                >
+                  <VIcon
+                    icon="mdi-filter-cog-outline"
+                    size="16"
+                    color="primary"
+                    :class="cardProps.sortable ? 'opacity-85' : 'opacity-85 hover:opacity-100'"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 中间部分：网址 -->
-        <div class="my-3">
+          <!-- 中间部分：网址 -->
+          <div class="my-3">
             <div class="min-w-0 truncate text-sm text-medium-emphasis" @click.stop="handleSiteUrlClick">
               {{ cardProps.site?.url }}
             </div>
           </div>
 
-        <!-- 底部：数据统计 -->
-        <div class="flex-1 flex flex-col justify-end">
-          <!-- 更直观的上传下载数据条 -->
-          <div class="border-t mt-1.5 pt-1.5">
-            <!-- 上传数据 -->
-            <div class="flex items-center justify-between gap-3 mb-1.5">
-              <div class="text-sm text-medium-emphasis min-w-[70px]">
-                <VIcon icon="mdi-arrow-up" size="14" color="info" class="mr-1" />
-                <span>{{ formatFileSize(cardProps.data?.upload || 0) }}</span>
+          <!-- 底部：数据统计 -->
+          <div class="flex-1 flex flex-col justify-end">
+            <!-- 更直观的上传下载数据条 -->
+            <div class="border-t mt-1.5 pt-1.5">
+              <!-- 上传数据 -->
+              <div class="flex items-center justify-between gap-3 mb-1.5">
+                <div class="text-sm text-medium-emphasis min-w-[70px]">
+                  <VIcon icon="mdi-arrow-up" size="14" color="info" class="mr-1" />
+                  <span>{{ formatFileSize(cardProps.data?.upload || 0) }}</span>
+                </div>
+                <div class="flex-grow h-1 rounded bg-on-surface/8 relative overflow-hidden">
+                  <VProgressLinear :model-value="getUploadPercent" color="info" height="4" rounded="lg" />
+                </div>
               </div>
-              <div class="flex-grow h-1 rounded bg-on-surface/8 relative overflow-hidden">
-                <VProgressLinear :model-value="getUploadPercent" color="info" height="4" rounded="lg" />
-              </div>
-            </div>
 
-            <!-- 下载数据 -->
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center text-[0.8rem] text-medium-emphasis min-w-[70px]">
-                <VIcon icon="mdi-arrow-down" size="14" color="success" class="mr-1" />
-                <span>{{ formatFileSize(cardProps.data?.download || 0) }}</span>
-              </div>
-              <div class="flex-grow h-1 rounded bg-on-surface/8 relative overflow-hidden">
-                <VProgressLinear :model-value="getDownloadPercent" color="warning" height="4" rounded="lg" />
+              <!-- 下载数据 -->
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center text-[0.8rem] text-medium-emphasis min-w-[70px]">
+                  <VIcon icon="mdi-arrow-down" size="14" color="success" class="mr-1" />
+                  <span>{{ formatFileSize(cardProps.data?.download || 0) }}</span>
+                </div>
+                <div class="flex-grow h-1 rounded bg-on-surface/8 relative overflow-hidden">
+                  <VProgressLinear :model-value="getDownloadPercent" color="warning" height="4" rounded="lg" />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 右侧操作按钮区 -->
-      <VSheet v-if="!cardProps.sortable" class="site-card-actions absolute inset-y-0 right-0 z-20 flex flex-col py-2 px-1">
-        <!-- 测试按钮 -->
-        <VBtn
-          icon
-          variant="text"
-          density="comfortable"
-          class="mb-1 relative flex items-center justify-center rounded-full mx-auto"
-          :disabled="testButtonDisable"
-          @click.stop="testSite"
-          size="36"
+        <!-- 右侧操作按钮区 -->
+        <VSheet
+          v-if="!cardProps.sortable"
+          class="site-card-actions absolute inset-y-0 right-0 z-20 flex flex-col py-2 px-1"
         >
-          <div class="relative flex items-center justify-center w-full h-full">
-            <div
-              class="w-[20px] h-[20px] rounded-full shadow-[inset_0_0_0_2px_rgba(var(--v-theme-on-surface),0.1)] pulse-dot"
-              :class="statColor"
-            ></div>
-          </div>
-          <div
-            v-if="testButtonDisable"
-            class="absolute inset-0 flex flex-col items-center justify-center bg-surface/95 rounded-full shadow-md animate-fade-in"
+          <!-- 测试按钮 -->
+          <VBtn
+            icon
+            variant="text"
+            density="comfortable"
+            class="mb-1 relative flex items-center justify-center rounded-full mx-auto"
+            :disabled="testButtonDisable"
+            @click.stop="testSite"
+            size="36"
           >
-            <div class="relative w-6 h-6">
-              <div class="spinner-circle"></div>
+            <div class="relative flex items-center justify-center w-full h-full">
+              <div
+                class="w-[20px] h-[20px] rounded-full shadow-[inset_0_0_0_2px_rgba(var(--v-theme-on-surface),0.1)] pulse-dot"
+                :class="statColor"
+              ></div>
             </div>
-          </div>
-        </VBtn>
+            <div
+              v-if="testButtonDisable"
+              class="absolute inset-0 flex flex-col items-center justify-center bg-surface/95 rounded-full shadow-md animate-fade-in"
+            >
+              <div class="relative w-6 h-6">
+                <div class="spinner-circle"></div>
+              </div>
+            </div>
+          </VBtn>
 
-        <!-- 用户数据按钮 -->
-        <VBtn icon variant="text" @click.stop="handleSiteUserData" size="36">
-          <VIcon icon="mdi-chart-bell-curve" size="20" />
-        </VBtn>
+          <!-- 用户数据按钮 -->
+          <VBtn icon variant="text" @click.stop="handleSiteUserData" size="36">
+            <VIcon icon="mdi-chart-bell-curve" size="20" />
+          </VBtn>
 
-        <!-- 更新按钮 -->
-        <VBtn icon variant="text" @click.stop="handleSiteUpdate" size="36">
-          <VIcon icon="mdi-refresh" size="20" />
-        </VBtn>
+          <!-- 更新按钮 -->
+          <VBtn icon variant="text" @click.stop="handleSiteUpdate" size="36">
+            <VIcon icon="mdi-refresh" size="20" />
+          </VBtn>
 
-        <!-- 更多选项按钮 -->
-        <VBtn icon variant="text" class="mt-auto" size="36" @click.stop>
-          <VIcon icon="mdi-dots-vertical" size="20" />
-          <VMenu :activator="'parent'" :close-on-content-click="true" :location="'left'">
-            <VList>
-              <VListItem @click="handleSiteEdit" base-color="info">
-                <template #prepend>
-                  <VIcon icon="mdi-file-edit-outline" size="20" />
-                </template>
-                <VListItemTitle>{{ t('site.actions.edit') }}</VListItemTitle>
-              </VListItem>
-              <VListItem @click="deleteSiteInfo">
-                <template #prepend>
-                  <VIcon icon="mdi-delete-outline" size="20" color="error" />
-                </template>
-                <VListItemTitle class="text-error">{{ t('site.deleteSite') }}</VListItemTitle>
-              </VListItem>
-            </VList>
-          </VMenu>
-        </VBtn>
-      </VSheet>
+          <!-- 更多选项按钮 -->
+          <VBtn icon variant="text" class="mt-auto" size="36" @click.stop>
+            <VIcon icon="mdi-dots-vertical" size="20" />
+            <VMenu :activator="'parent'" :close-on-content-click="true" :location="'left'">
+              <VList>
+                <VListItem @click="handleSiteEdit" base-color="info">
+                  <template #prepend>
+                    <VIcon icon="mdi-file-edit-outline" size="20" />
+                  </template>
+                  <VListItemTitle>{{ t('site.actions.edit') }}</VListItemTitle>
+                </VListItem>
+                <VListItem @click="deleteSiteInfo">
+                  <template #prepend>
+                    <VIcon icon="mdi-delete-outline" size="20" color="error" />
+                  </template>
+                  <VListItemTitle class="text-error">{{ t('site.deleteSite') }}</VListItemTitle>
+                </VListItem>
+              </VList>
+            </VMenu>
+          </VBtn>
+        </VSheet>
       </VCard>
     </div>
   </div>
@@ -442,7 +457,9 @@ onMounted(() => {
   inset-block-start: 0;
   inset-inline: 0;
   opacity: 0.5;
-  transition: block-size 0.3s ease, opacity 0.3s ease;
+  transition:
+    block-size 0.3s ease,
+    opacity 0.3s ease;
 }
 
 .site-status-indicator.error {
