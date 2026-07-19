@@ -3264,6 +3264,7 @@ export default {
       itemsPerPage: 'Items Per Page',
       noData: 'No Data',
       loading: 'Loading...',
+      loadFailed: 'Failed to load resources. Please retry.',
       titleColumn: 'Title',
       timeColumn: 'Time',
       sizeColumn: 'Size',

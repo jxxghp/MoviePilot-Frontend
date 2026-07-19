@@ -45,6 +45,11 @@ const resourcePage = ref(1)
 // 加载状态
 const resourceLoading = ref(false)
 
+const resourceError = ref(false)
+
+// 只有最后发起的搜索可以更新资源数据、请求状态和移动端搜索面板。
+let resourceRequestId = 0
+
 // 移动端搜索栏是否展开
 const mobileSearchExpanded = ref(false)
 
@@ -134,35 +139,46 @@ async function addDownload(_torrent: TorrentInfo) {
 }
 
 // 添加下载成功
-function addDownloadSuccess(_url: string) {
+function addDownloadSuccess() {
   addDownloadDialog.value = false
 }
 
 // 添加下载失败
-function addDownloadError(_error: string) {
+function addDownloadError() {
   addDownloadDialog.value = false
 }
 
 // 调用API，查询站点资源
 async function getResourceList() {
+  const requestId = ++resourceRequestId
   resourceLoading.value = true
+  resourceError.value = false
   resourcePage.value = 1
 
   try {
-    resourceDataList.value = await api.get(`site/resource/${props.site?.id}`, {
+    const resources: TorrentInfo[] = await api.get(`site/resource/${props.site?.id}`, {
       params: {
         keyword: keyword.value,
         cat: selectCategory.value?.join(','),
       },
     })
+
+    if (requestId === resourceRequestId) {
+      resourceDataList.value = resources
+    }
   } catch (error) {
-    console.error(error)
-  }
+    if (requestId === resourceRequestId) {
+      console.error(error)
+      resourceError.value = true
+    }
+  } finally {
+    if (requestId === resourceRequestId) {
+      resourceLoading.value = false
 
-  resourceLoading.value = false
-
-  if (isMobileLayout.value) {
-    mobileSearchExpanded.value = false
+      if (isMobileLayout.value) {
+        mobileSearchExpanded.value = false
+      }
+    }
   }
 }
 
@@ -280,10 +296,7 @@ onMounted(() => {
                 </VCol>
               </VRow>
 
-              <div
-                v-if="resourceTotalItems > 0"
-                class="d-flex justify-space-between align-center flex-wrap gap-2 mt-3"
-              >
+              <div v-if="resourceTotalItems > 0" class="d-flex justify-space-between align-center flex-wrap gap-2 mt-3">
                 <div class="text-body-2 text-medium-emphasis">
                   {{ resultSummaryText }}
                 </div>
@@ -350,7 +363,14 @@ onMounted(() => {
                       />
                     </VCol>
                     <VCol cols="12" class="d-flex gap-2">
-                      <VBtn color="primary" variant="flat" block rounded="lg" class="site-resource-search-btn" @click="getResourceList">
+                      <VBtn
+                        color="primary"
+                        variant="flat"
+                        block
+                        rounded="lg"
+                        class="site-resource-search-btn"
+                        @click="getResourceList"
+                      >
                         {{ t('dialog.siteResource.search') }}
                       </VBtn>
                       <VBtn variant="text" rounded="lg" @click="closeMobileSearch">
@@ -366,6 +386,20 @@ onMounted(() => {
       </div>
 
       <VCardText class="site-resource-content px-0 py-0 my-0">
+        <VAlert
+          v-if="resourceError && !resourceLoading"
+          type="error"
+          variant="tonal"
+          class="mx-3 mb-3"
+          :text="t('dialog.siteResource.loadFailed')"
+        >
+          <template #append>
+            <VBtn variant="text" color="error" @click="getResourceList">
+              {{ t('common.retry') }}
+            </VBtn>
+          </template>
+        </VAlert>
+
         <VDataTable
           v-if="display.mdAndUp.value"
           v-model:page="resourcePage"

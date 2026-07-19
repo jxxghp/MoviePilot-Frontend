@@ -3212,6 +3212,7 @@ export default {
       pageText: '{0}-{1} 共 {2} 條',
       noData: '沒有數據',
       loading: '加載中...',
+      loadFailed: '資源加載失敗，請重試',
       titleColumn: '標題',
       timeColumn: '時間',
       sizeColumn: '大小',
