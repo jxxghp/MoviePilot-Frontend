@@ -301,6 +301,7 @@ export default defineConfig(({ mode }) => ({
         'src/components/dialog/SubscribeShareDialog.vue',
         'src/components/dialog/SubscribeShareStatisticsDialog.vue',
         'src/components/dialog/DiscoverTabOrderDialog.vue',
+        'src/components/dialog/SiteResourceDialog.vue',
         'src/views/discover/TheMovieDbView.vue',
         'src/views/discover/DoubanView.vue',
         'src/views/discover/BangumiView.vue',
@@ -484,6 +485,12 @@ export default defineConfig(({ mode }) => ({
           functions: 80,
           lines: 80,
           statements: 80,
+        },
+        'src/components/dialog/SiteResourceDialog.vue': {
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
         'src/views/discover/TheMovieDbView.vue': {
           branches: 75,

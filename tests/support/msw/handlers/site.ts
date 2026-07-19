@@ -1,4 +1,12 @@
-import type { ApiResponse, DownloaderConf, Site, SiteStatistic, SiteUserData } from '@/api/types'
+import type {
+  ApiResponse,
+  DownloaderConf,
+  Site,
+  SiteCategory,
+  SiteStatistic,
+  SiteUserData,
+  TorrentInfo,
+} from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
@@ -10,6 +18,7 @@ interface SiteMutationResponse {
 }
 
 export const siteApiUrls = {
+  categories: (siteId: number) => new URL(`site/category/${siteId}`, API_BASE_URL).href,
   cookie: (id: number) => new URL(`site/cookie/${id}`, API_BASE_URL).href,
   delete: (id: number) => new URL(`site/${id}`, API_BASE_URL).href,
   details: (id: number) => new URL(`site/${id}`, API_BASE_URL).href,
@@ -17,6 +26,7 @@ export const siteApiUrls = {
   icon: (id: number) => new URL(`site/icon/${id}`, API_BASE_URL).href,
   list: new URL('site/', API_BASE_URL).href,
   priorities: new URL('site/priorities', API_BASE_URL).href,
+  resources: (siteId: number) => new URL(`site/resource/${siteId}`, API_BASE_URL).href,
   statistic: (domain: string) => new URL(`site/statistic/${domain}`, API_BASE_URL).href,
   statistics: new URL('site/statistic', API_BASE_URL).href,
   test: (id: number) => new URL(`site/test/${id}`, API_BASE_URL).href,
@@ -177,6 +187,30 @@ export function updateSiteCookieHandler(
 ) {
   return http.post(siteApiUrls.cookie(id), async ({ request }) => {
     await onRequest((await request.json()) as { code: string; password: string; username: string })
+    return HttpResponse.json(response, { status })
+  })
+}
+
+export function siteCategoriesHandler(
+  siteId: number,
+  response: SiteCategory[],
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(siteApiUrls.categories(siteId), ({ request }) => {
+    onRequest(new URL(request.url))
+    return HttpResponse.json(response, { status })
+  })
+}
+
+export function siteResourcesHandler(
+  siteId: number,
+  response: TorrentInfo[],
+  status = 200,
+  onRequest: (url: URL) => void = () => {},
+) {
+  return http.get(siteApiUrls.resources(siteId), ({ request }) => {
+    onRequest(new URL(request.url))
     return HttpResponse.json(response, { status })
   })
 }

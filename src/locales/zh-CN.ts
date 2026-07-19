@@ -3212,6 +3212,7 @@ export default {
       itemsPerPage: '每页条数',
       noData: '没有数据',
       loading: '加载中...',
+      loadFailed: '资源加载失败，请重试',
       titleColumn: '标题',
       timeColumn: '时间',
       sizeColumn: '大小',
