@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { Site, SiteUserData } from '@/api/types'
+import type { ApiResponse, Site, SiteStatistic, SiteUserData } from '@/api/types'
 import SiteCard from '@/components/cards/SiteCard.vue'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
@@ -38,11 +38,14 @@ const SiteImportDialog = defineAsyncComponent(() => import('@/components/dialog/
 // 站点列表
 const siteList = ref<Site[]>([])
 
+// 排序失败时只能回退到最近一次由服务端确认的列表，不能保留未保存的拖拽结果。
+const confirmedSiteList = ref<Site[]>([])
+
 // 站点数据列表
 const userDataList = ref<SiteUserData[]>([])
 
 // 站点统计数据列表
-const siteStatsList = ref<{ [domain: string]: any }>({})
+const siteStatsList = ref<Record<string, SiteStatistic>>({})
 
 // 是否刷新过
 const isRefreshed = ref(false)
@@ -50,7 +53,13 @@ const isRefreshed = ref(false)
 // 是否加载中
 const loading = ref(false)
 
+// 首次加载失败时保留独立错误态，避免把网络异常显示成空站点。
+const loadError = ref(false)
+
 const sortMode = ref(false)
+
+// 排序保存期间锁定拖拽，确保一次请求只确认它实际提交的顺序快照。
+const savingPriority = ref(false)
 
 // 筛选相关
 const filterMenu = ref(false)
@@ -124,6 +133,7 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
   try {
     if (showLoading) {
       loading.value = true
+      loadError.value = false
     }
 
     const [sites] = await Promise.all([
@@ -132,9 +142,14 @@ async function fetchData(context: KeepAliveRefreshContext = {}) {
       fetchSiteStats(),
     ])
     siteList.value = sites
+    confirmedSiteList.value = [...sites]
     isRefreshed.value = true
+    loadError.value = false
   } catch (error) {
     console.error(error)
+    if (!isRefreshed.value) {
+      loadError.value = true
+    }
   } finally {
     if (showLoading) {
       loading.value = false
@@ -155,18 +170,15 @@ async function fetchUserData() {
 async function fetchSiteStats() {
   try {
     // 使用批量接口一次性获取所有站点统计数据
-    const response = await api.get('site/statistic')
-    const stats = response.data || response
+    const stats: SiteStatistic[] = await api.get('site/statistic')
 
     // 将数组转换为以domain为键的对象
-    const statsMap: { [domain: string]: any } = {}
-    if (Array.isArray(stats)) {
-      stats.forEach((stat: any) => {
-        if (stat.domain) {
-          statsMap[stat.domain] = stat
-        }
-      })
-    }
+    const statsMap: Record<string, SiteStatistic> = {}
+    stats.forEach(stat => {
+      if (stat.domain) {
+        statsMap[stat.domain] = stat
+      }
+    })
     siteStatsList.value = statsMap
   } catch (error) {
     console.error('Failed to fetch site statistics:', error)
@@ -193,19 +205,28 @@ function getConnectionStatus(domain: string) {
 // 保存站点排序
 async function savaSitesPriority() {
   // 只在显示全部站点时允许排序
-  if (filterOption.value !== 'all') {
+  if (filterOption.value !== 'all' || savingPriority.value) {
     return
   }
 
-  // 重新排序
-  const priorities = draggableSiteList.value.map((site, index) => ({ id: site.id, pri: index + 1 }))
+  const submittedSiteList = [...draggableSiteList.value]
+  const priorities = submittedSiteList.map((site, index) => ({ id: site.id, pri: index + 1 }))
+  savingPriority.value = true
   try {
-    const result: { [key: string]: any } = await api.post('site/priorities', priorities)
+    const result: ApiResponse<unknown> = await api.post('site/priorities', priorities)
     if (!result.success) {
-      fetchData()
+      siteList.value = [...confirmedSiteList.value]
+      await fetchData()
+    } else {
+      siteList.value = [...submittedSiteList]
+      confirmedSiteList.value = [...submittedSiteList]
     }
   } catch (error) {
     console.error(error)
+    siteList.value = [...confirmedSiteList.value]
+    await fetchData()
+  } finally {
+    savingPriority.value = false
   }
 }
 
@@ -214,7 +235,7 @@ async function handleRefreshStats(domain?: string) {
   if (domain) {
     // 刷新特定站点的统计数据
     try {
-      const stats = await api.get(`site/statistic/${domain}`)
+      const stats = await api.get<SiteStatistic, SiteStatistic>(`site/statistic/${domain}`)
       siteStatsList.value[domain] = stats
     } catch (error) {
       console.error(`Failed to refresh stats for ${domain}:`, error)
@@ -430,10 +451,11 @@ useDynamicButton({
       </div>
     </VAlert>
 
-    <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+    <LoadingBanner v-if="!isRefreshed && !loadError" class="mt-12" />
     <Draggable
       v-if="draggableSiteList.length > 0 && canDragSort"
       v-model="draggableSiteList"
+      :disabled="savingPriority"
       @end="savaSitesPriority"
       item-key="id"
       tag="div"
@@ -472,6 +494,18 @@ useDynamicButton({
       </template>
     </ProgressiveCardGrid>
   </div>
+  <NoDataFound
+    v-if="loadError && !isRefreshed"
+    error-code="500"
+    :error-title="t('common.serverConnectionFailed')"
+    :error-description="t('common.troubleshooting')"
+  >
+    <template #button>
+      <VBtn color="primary" variant="tonal" @click="fetchData()">
+        {{ t('common.retry') }}
+      </VBtn>
+    </template>
+  </NoDataFound>
   <NoDataFound
     v-if="draggableSiteList.length === 0 && isRefreshed"
     error-code="404"
