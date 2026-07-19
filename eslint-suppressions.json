@@ -179,11 +179,6 @@
       "count": 2
     }
   },
-  "src/components/cards/SiteCard.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "src/components/cards/SubscribeCard.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
