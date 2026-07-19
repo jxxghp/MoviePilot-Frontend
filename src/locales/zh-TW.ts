@@ -3201,6 +3201,8 @@ export default {
       countTitle: '數量：',
       noData: '無',
       refreshing: '正在刷新站點數據...',
+      loadFailed: '載入站點數據失敗',
+      refreshFailed: '刷新站點數據失敗',
       close: '關閉',
     },
     siteResource: {

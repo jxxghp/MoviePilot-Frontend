@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Site, SiteUserData } from '@/api/types'
+import type { ApiResponse, Site, SiteUserData } from '@/api/types'
 import api from '@/api'
 import { useDisplay, useTheme } from 'vuetify'
 import { formatFileSize } from '@/@core/utils/formatters'
@@ -23,6 +23,9 @@ const emit = defineEmits(['close'])
 // 进度框
 const progressDialog = ref(false)
 
+// 失败状态保留对应操作，重试时不改变已展示的站点数据。
+const failedOperation = ref<'load' | 'refresh'>()
+
 const vuetifyTheme = useTheme()
 
 const currentTheme = controlledComputed(
@@ -32,6 +35,9 @@ const currentTheme = controlledComputed(
 
 // 站点数据列表
 const siteDatas = ref<SiteUserData[]>([])
+
+// 只有最近一次读取可以更新弹窗状态，避免首载慢响应覆盖手动刷新结果。
+let fetchGeneration = 0
 
 // 最新一天的数据
 const siteData = computed(() => siteDatas.value[siteDatas.value.length - 1])
@@ -58,8 +64,8 @@ const historyChartOptions = computed(() => {
       parentHeightOffset: 0,
       toolbar: { show: false },
       animations: { enabled: true },
-      background: currentTheme.value.surface, // 新增背景色同步
-      foreColor: currentTheme.value.onSurface, // 新增文字颜色同步
+      background: currentTheme.value.surface, // 图表背景随应用主题切换
+      foreColor: currentTheme.value.onSurface, // 图表文字随应用主题切换
       dataLabels: {
         enabled: true,
       },
@@ -139,10 +145,12 @@ const historyChartOptions = computed(() => {
 
 // 做种分布列，seeding_info的格式为[[x, y], [x, y], ...]，x为做种数，y为做种体积，做种体积需要转换为GB
 const seedingSeries = computed(() => {
+  const seedingInfo = siteData.value?.seeding_info as [number?, number?][] | undefined
+
   return [
     {
       name: t('dialog.siteUserData.volumeTitle'),
-      data: siteData.value?.seeding_info?.map(item => [item[0] ?? 0, Math.round((item[1] ?? 0) / 1024 / 1024 / 1024)]),
+      data: seedingInfo?.map(item => [item[0] ?? 0, Math.round((item[1] ?? 0) / 1024 / 1024 / 1024)]) ?? [],
     },
   ]
 })
@@ -155,8 +163,8 @@ const seedingChartOptions = computed(() => {
       parentHeightOffset: 0,
       toolbar: { show: false },
       animations: { enabled: true },
-      background: currentTheme.value.surface, // 新增背景色同步
-      foreColor: currentTheme.value.onSurface, // 新增文字颜色同步
+      background: currentTheme.value.surface, // 图表背景随应用主题切换
+      foreColor: currentTheme.value.onSurface, // 图表文字随应用主题切换
       zoom: {
         enabled: false,
         allowMouseWheelZoom: false,
@@ -214,7 +222,7 @@ const seedingChartOptions = computed(() => {
 })
 
 // 根据传入属性，计算列表数据中第一条与第二条的差值，如果没有第二条则差值为全部
-const diffData: { [key: string]: any } = computed(() => {
+const diffData = computed(() => {
   if (siteDatas.value.length < 2) {
     return siteData.value
   }
@@ -253,33 +261,57 @@ function getDiffClass(diff: number | undefined) {
 }
 
 // 查询站点用户数据
-async function fetchSiteUserData() {
+async function fetchSiteUserData(failureOperation: 'load' | 'refresh' = 'load') {
+  const generation = ++fetchGeneration
+
   try {
-    const result: { [key: string]: any } = await api.get(`site/userdata/${props.site?.id}`)
+    const result = await api.get<ApiResponse<SiteUserData[]>, ApiResponse<SiteUserData[]>>(
+      `site/userdata/${props.site?.id}`,
+    )
+    if (generation !== fetchGeneration) return false
+
     if (result.success) {
       // 使用nextTick确保DOM更新完成后再更新图表数据
       await nextTick()
-      siteDatas.value = result.data.sort((a: { updated_day: any }, b: { updated_day: any }) =>
-        (a.updated_day || '').localeCompare(b.updated_day || ''),
-      )
+      siteDatas.value = result.data.sort((a, b) => (a.updated_day || '').localeCompare(b.updated_day || ''))
+      failedOperation.value = undefined
+      return true
     }
   } catch (error) {
+    if (generation !== fetchGeneration) return false
+
     console.error(error)
+    failedOperation.value = failureOperation
   }
+
+  return false
 }
 
 // 刷新站点数据
 async function refreshSiteData() {
   progressDialog.value = true
   try {
-    const result: { [key: string]: any } = await api.post(`site/userdata/${props.site?.id}`)
+    const result = await api.post<ApiResponse<unknown>, ApiResponse<unknown>>(`site/userdata/${props.site?.id}`)
     if (result.success) {
-      await fetchSiteUserData()
+      await fetchSiteUserData('refresh')
+    } else {
+      failedOperation.value = 'refresh'
     }
   } catch (error) {
-    console.log(error)
+    console.error(error)
+    failedOperation.value = 'refresh'
+  } finally {
+    progressDialog.value = false
   }
-  progressDialog.value = false
+}
+
+// 重试最近失败的请求，刷新失败时继续保留当前数据。
+function retryFailedOperation() {
+  if (failedOperation.value === 'refresh') {
+    refreshSiteData()
+  } else {
+    fetchSiteUserData()
+  }
 }
 
 onBeforeMount(() => {
@@ -302,6 +334,20 @@ onBeforeMount(() => {
       </VCardItem>
       <VDivider />
       <VCardText class="pt-5">
+        <VAlert v-if="failedOperation" type="error" variant="tonal" class="mb-5">
+          <div class="d-flex flex-wrap align-center justify-space-between gap-3">
+            <span>
+              {{
+                failedOperation === 'refresh'
+                  ? t('dialog.siteUserData.refreshFailed')
+                  : t('dialog.siteUserData.loadFailed')
+              }}
+            </span>
+            <VBtn size="small" variant="tonal" prepend-icon="mdi-refresh" @click="retryFailedOperation">
+              {{ t('common.retry') }}
+            </VBtn>
+          </div>
+        </VAlert>
         <VRow class="match-height">
           <!-- 用户信息 -->
           <VCol cols="12" md="3">

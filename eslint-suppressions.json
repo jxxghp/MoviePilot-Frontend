@@ -385,11 +385,6 @@
       "count": 1
     }
   },
-  "src/components/dialog/SiteUserDataDialog.vue": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    }
-  },
   "src/components/dialog/SmbConfigDialog.vue": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2

@@ -3254,6 +3254,8 @@ export default {
       countTitle: 'Count:',
       noData: 'None',
       refreshing: 'Refreshing site data...',
+      loadFailed: 'Failed to load site data',
+      refreshFailed: 'Failed to refresh site data',
       close: 'Close',
     },
     siteResource: {
