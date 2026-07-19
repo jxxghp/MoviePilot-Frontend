@@ -30,6 +30,7 @@ export const siteApiUrls = {
   statistic: (domain: string) => new URL(`site/statistic/${domain}`, API_BASE_URL).href,
   statistics: new URL('site/statistic', API_BASE_URL).href,
   test: (id: number) => new URL(`site/test/${id}`, API_BASE_URL).href,
+  userData: (id: number) => new URL(`site/userdata/${id}`, API_BASE_URL).href,
   userDataLatest: new URL('site/userdata/latest', API_BASE_URL).href,
 }
 
@@ -77,6 +78,30 @@ export function siteUserDataLatestHandler(
   return http.get(siteApiUrls.userDataLatest, async () => {
     await onRequest()
     return HttpResponse.json(userData as unknown as JsonBodyType, { status })
+  })
+}
+
+export function siteUserDataHandler(
+  id: number,
+  result: Pick<ApiResponse<SiteUserData[]>, 'data' | 'message' | 'success'>,
+  status = 200,
+  onRequest: () => void | Promise<void> = () => {},
+) {
+  return http.get(siteApiUrls.userData(id), async () => {
+    await onRequest()
+    return response(result as unknown as JsonBodyType, status)
+  })
+}
+
+export function refreshSiteUserDataHandler(
+  id: number,
+  result: Pick<ApiResponse<Record<string, unknown>>, 'data' | 'message' | 'success'>,
+  status = 200,
+  onRequest: () => void | Promise<void> = () => {},
+) {
+  return http.post(siteApiUrls.userData(id), async () => {
+    await onRequest()
+    return response(result as unknown as JsonBodyType, status)
   })
 }
 

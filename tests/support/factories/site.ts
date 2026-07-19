@@ -31,9 +31,14 @@ export function createSiteUserData(overrides: Partial<SiteUserData> = {}): SiteU
   return {
     bonus: 100,
     download: 1024,
+    join_at: '2024-01-02 10:00:00',
     ratio: 2,
     seeding: 3,
+    seeding_info: [],
+    seeding_size: 4 * 1024 ** 3,
+    updated_day: '2026-07-18',
     upload: 2048,
+    user_level: 'Elite',
     username: 'site-user',
     ...overrides,
   }
