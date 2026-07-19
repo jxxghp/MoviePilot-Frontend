@@ -1,10 +1,19 @@
-import type { ApiResponse, Site, SiteStatistic, SiteUserData } from '@/api/types'
+import type { ApiResponse, DownloaderConf, Site, SiteStatistic, SiteUserData } from '@/api/types'
 import { HttpResponse, http, type JsonBodyType } from 'msw'
 
 const API_BASE_URL = 'http://localhost/api/v1/'
 
+interface SiteMutationResponse {
+  success: boolean
+  data?: Record<string, unknown>
+  message?: string
+}
+
 export const siteApiUrls = {
+  cookie: (id: number) => new URL(`site/cookie/${id}`, API_BASE_URL).href,
   delete: (id: number) => new URL(`site/${id}`, API_BASE_URL).href,
+  details: (id: number) => new URL(`site/${id}`, API_BASE_URL).href,
+  downloaders: new URL('download/clients', API_BASE_URL).href,
   icon: (id: number) => new URL(`site/icon/${id}`, API_BASE_URL).href,
   list: new URL('site/', API_BASE_URL).href,
   priorities: new URL('site/priorities', API_BASE_URL).href,
@@ -112,5 +121,62 @@ export function deleteSiteHandler(
   return http.delete(siteApiUrls.delete(id), async () => {
     await onRequest()
     return response(result, status)
+  })
+}
+
+export function siteDownloadersHandler(
+  response: DownloaderConf[] = [],
+  status = 200,
+  onRequest: () => void | Promise<void> = () => {},
+) {
+  return http.get(siteApiUrls.downloaders, async () => {
+    await onRequest()
+    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+  })
+}
+
+export function siteDetailsHandler(
+  id: number,
+  response: Site,
+  status = 200,
+  onRequest: () => void | Promise<void> = () => {},
+) {
+  return http.get(siteApiUrls.details(id), async () => {
+    await onRequest()
+    return HttpResponse.json(response as unknown as JsonBodyType, { status })
+  })
+}
+
+export function addSiteHandler(
+  response: SiteMutationResponse = { success: true },
+  status = 200,
+  onRequest: (payload: Site) => void | Promise<void> = () => {},
+) {
+  return http.post(siteApiUrls.list, async ({ request }) => {
+    await onRequest((await request.json()) as Site)
+    return HttpResponse.json(response, { status })
+  })
+}
+
+export function updateSiteHandler(
+  response: SiteMutationResponse = { success: true },
+  status = 200,
+  onRequest: (payload: Site) => void | Promise<void> = () => {},
+) {
+  return http.put(siteApiUrls.list, async ({ request }) => {
+    await onRequest((await request.json()) as Site)
+    return HttpResponse.json(response, { status })
+  })
+}
+
+export function updateSiteCookieHandler(
+  id: number,
+  response: SiteMutationResponse = { success: true },
+  status = 200,
+  onRequest: (payload: { code: string; password: string; username: string }) => void | Promise<void> = () => {},
+) {
+  return http.post(siteApiUrls.cookie(id), async ({ request }) => {
+    await onRequest((await request.json()) as { code: string; password: string; username: string })
+    return HttpResponse.json(response, { status })
   })
 }

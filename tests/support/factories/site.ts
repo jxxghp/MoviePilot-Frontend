@@ -1,4 +1,4 @@
-import type { Site, SiteStatistic, SiteUserData } from '@/api/types'
+import type { DownloaderConf, Site, SiteStatistic, SiteUserData } from '@/api/types'
 
 let siteSeed = 0
 
@@ -34,6 +34,18 @@ export function createSiteUserData(overrides: Partial<SiteUserData> = {}): SiteU
     seeding: 3,
     upload: 2048,
     username: 'site-user',
+    ...overrides,
+  }
+}
+
+/** 构造可用的下载器配置测试记录。 */
+export function createSiteDownloader(overrides: Partial<DownloaderConf> = {}): DownloaderConf {
+  return {
+    config: {},
+    default: false,
+    enabled: true,
+    name: '测试下载器',
+    type: 'qbittorrent',
     ...overrides,
   }
 }
