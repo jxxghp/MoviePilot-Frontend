@@ -1,4 +1,5 @@
 import api from '@/api'
+import { resolveFederationRemoteUrl } from '@/utils/federationUrl'
 import {
   __federation_method_setRemote,
   __federation_method_getRemote,
@@ -144,18 +145,7 @@ async function fetchRemoteModules(): Promise<RemoteModule[]> {
  * @param modules 远程模块列表
  */
 export function injectRemoteModule(module: RemoteModule): void {
-  // 与 API 请求一致：使用 origin + pathname 作为前缀，子路径代理时 pathname 含 /mp 等
-  const baseUrl = new URL(window.location.href)
-  const pathBase = baseUrl.pathname.replace(/\/$/, '') || ''
-  let apiBase = import.meta.env.VITE_API_BASE_URL
-  if (apiBase.startsWith('/')) {
-    apiBase = apiBase.slice(1)
-  }
-  if (apiBase.endsWith('/')) {
-    apiBase = apiBase.slice(0, -1)
-  }
-  const pathWithoutLeadingSlash = module.url.startsWith('/') ? module.url.slice(1) : module.url
-  const remoteEntryUrl = `${baseUrl.origin}${pathBase}/${apiBase}/${pathWithoutLeadingSlash}`
+  const remoteEntryUrl = resolveFederationRemoteUrl(module.url, import.meta.env.VITE_API_BASE_URL, document.baseURI)
   __federation_method_setRemote(module.id, {
     url: () => Promise.resolve(remoteEntryUrl),
     format: 'esm',
