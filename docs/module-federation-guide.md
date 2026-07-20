@@ -6,7 +6,6 @@ MoviePilot前端采用模块联邦(Module Federation)技术实现插件的动态
 
 关联阅读后端插件开发文档：[第三方插件开发说明](https://github.com/jxxghp/MoviePilot-Plugins/blob/main/README.md)
 
-
 ## 2. 技术要求
 
 - Node.js 20+
@@ -18,13 +17,13 @@ MoviePilot前端采用模块联邦(Module Federation)技术实现插件的动态
 
 每个 Vue 联邦插件需要提供下列标准组件（`AppPage` 为可选，用于主界面侧栏全页入口）：
 
-| 组件名称 | 暴露名 | 文件名 | 用途 |
-|---------|--------|--------|------|
-| Page | `./Page` | Page.vue | 插件管理中的详情弹窗 |
-| Config | `./Config` | Config.vue | 插件配置页面 |
-| Dashboard | `./Dashboard` | Dashboard.vue | 仪表盘小组件 |
-| AppPage | `./AppPage` | AppPage.vue | 主界面侧栏独立全页（主内容区由插件完全绘制） |
-| （可选） | `./AppPage{Xxx}` | 如 AppPageSettings.vue | 多 `nav_key` 时按名优先加载，见下文「多界面」 |
+| 组件名称  | 暴露名           | 文件名                 | 用途                                          |
+| --------- | ---------------- | ---------------------- | --------------------------------------------- |
+| Page      | `./Page`         | Page.vue               | 插件管理中的详情弹窗                          |
+| Config    | `./Config`       | Config.vue             | 插件配置页面                                  |
+| Dashboard | `./Dashboard`    | Dashboard.vue          | 仪表盘小组件                                  |
+| AppPage   | `./AppPage`      | AppPage.vue            | 主界面侧栏独立全页（主内容区由插件完全绘制）  |
+| （可选）  | `./AppPage{Xxx}` | 如 AppPageSettings.vue | 多 `nav_key` 时按名优先加载，见下文「多界面」 |
 
 主应用在侧栏全页路由中按 `nav_key` 解析暴露名（如 `AppPageSettings`），再回退 `AppPage` → `Page`；`nav_key` 为 `main` 时仅尝试 `AppPage` → `Page`。
 
@@ -79,55 +78,52 @@ export default defineConfig({
           singleton: true,
         },
       },
-      format: 'esm'
-    })
+      format: 'esm',
+    }),
   ],
   build: {
-    target: 'esnext',   // 必须设置为esnext以支持顶层await
-    minify: false,      // 开发阶段建议关闭混淆
+    target: 'esnext', // 必须设置为esnext以支持顶层await
+    minify: false, // 开发阶段建议关闭混淆
     cssCodeSplit: true, // 改为true以便能分离样式文件
   },
   css: {
     preprocessorOptions: {
       scss: {
         additionalData: '/* 覆盖vuetify样式 */',
-      }
+      },
     },
     postcss: {
       plugins: [
         {
           postcssPlugin: 'internal:charset-removal',
           AtRule: {
-            charset: (atRule) => {
+            charset: atRule => {
               if (atRule.name === 'charset') {
-                atRule.remove();
+                atRule.remove()
               }
-            }
-          }
+            },
+          },
         },
         {
           postcssPlugin: 'vuetify-filter',
           Root(root) {
             // 过滤掉所有vuetify相关的CSS
             root.walkRules(rule => {
-              if (rule.selector && (
-                  rule.selector.includes('.v-') || 
-                  rule.selector.includes('.mdi-'))) {
-                rule.remove();
+              if (rule.selector && (rule.selector.includes('.v-') || rule.selector.includes('.mdi-'))) {
+                rule.remove()
               }
-            });
-          }
-        }
-      ]
-    }
+            })
+          },
+        },
+      ],
+    },
   },
   server: {
-    port: 5001,   // 使用不同于主应用的端口
-    cors: true,   // 启用CORS
-    origin: 'http://localhost:5001'
+    port: 5001, // 使用不同于主应用的端口
+    cors: true, // 启用CORS
+    origin: 'http://localhost:5001',
   },
-}) 
-
+})
 ```
 
 ## 5. 组件开发规范
@@ -143,8 +139,8 @@ const emit = defineEmits(['action', 'switch', 'close'])
 const props = defineProps({
   api: {
     type: Object,
-    default: () => {}
-  }
+    default: () => {},
+  },
 })
 
 // 页面逻辑代码...
@@ -183,16 +179,16 @@ function notifyClose() {
 const props = defineProps({
   initialConfig: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   api: {
     type: Object,
-    default: () => {}
-  }
+    default: () => {},
+  },
 })
 
 // 配置数据
-const config = ref({...props.initialConfig})
+const config = ref({ ...props.initialConfig })
 
 // 自定义事件，用于保存配置
 const emit = defineEmits(['save', 'close', 'switch'])
@@ -217,7 +213,7 @@ function notifyClose() {
   <div class="plugin-config">
     <!-- 配置表单示例 -->
     <v-text-field v-model="config.someField" label="配置项"></v-text-field>
-    
+
     <!-- 保存按钮示例 -->
     <v-btn color="primary" @click="saveConfig">保存配置</v-btn>
 
@@ -238,12 +234,12 @@ function notifyClose() {
 const props = defineProps({
   config: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   allowRefresh: {
     type: Boolean,
-    default: true
-  }
+    default: true,
+  },
 })
 
 // 仪表板逻辑...
@@ -276,11 +272,11 @@ const props = defineProps({
 
 主应用传入的 props：
 
-| 属性 | 说明 |
-|------|------|
-| `api` | 与 `Page` 相同，用于 `bear` 认证的插件 HTTP 调用 |
-| `navKey` | 与侧栏声明的 `nav_key` 一致，同一插件多入口时用于区分 |
-| `pluginId` | 当前插件 ID |
+| 属性       | 说明                                                  |
+| ---------- | ----------------------------------------------------- |
+| `api`      | 与 `Page` 相同，用于 `bear` 认证的插件 HTTP 调用      |
+| `navKey`   | 与侧栏声明的 `nav_key` 一致，同一插件多入口时用于区分 |
+| `pluginId` | 当前插件 ID                                           |
 
 ```vue
 <script setup lang="ts">
@@ -300,18 +296,37 @@ const emit = defineEmits(['action'])
 </template>
 ```
 
+### 5.5 调用主应用 Toast
+
+`Page`、`Config`、`Dashboard` 与 `AppPage` 的宿主容器会通过固定键提供主应用 Toast。远程组件应复用该实例，不要自行渲染 `VSnackbar` 或创建另一套 Toast 容器：
+
+```vue
+<script setup lang="ts">
+import { inject } from 'vue'
+
+const toast = inject<any>('moviepilot:toast', null)
+
+// 保存完成后调用主应用的统一通知。
+function saveComplete() {
+  toast?.success('保存成功')
+}
+</script>
+```
+
+可用方法与主项目 `vue-toastification` 一致，包括 `success`、`info`、`warning` 和 `error`。注入不存在时应静默降级，关键错误仍需保留页面内状态提示。
+
 #### 后端：注册侧栏入口
 
 插件需为 **Vue** 渲染模式（`get_render_mode` 返回 `vue`），并实现 `get_sidebar_nav`，返回列表项字段与主应用 `GET /api/v1/plugin/sidebar_nav` 一致：
 
-| 字段 | 说明 |
-|------|------|
-| `nav_key` | URL 路径段，唯一标识本入口（同一插件可多入口） |
-| `title` | 侧栏显示标题 |
-| `icon` | MDI 图标名，如 `mdi-rss` |
-| `section` | 分组：`start` / `discovery` / `subscribe` / `organize` / `system` |
+| 字段         | 说明                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `nav_key`    | URL 路径段，唯一标识本入口（同一插件可多入口）                                        |
+| `title`      | 侧栏显示标题                                                                          |
+| `icon`       | MDI 图标名，如 `mdi-rss`                                                              |
+| `section`    | 分组：`start` / `discovery` / `subscribe` / `organize` / `system`                     |
 | `permission` | 可选：`subscribe` / `discovery` / `search` / `manage` / `admin`，与主应用菜单权限一致 |
-| `order` | 可选：同组内排序，数值越小越靠前 |
+| `order`      | 可选：同组内排序，数值越小越靠前                                                      |
 
 ```python
 def get_sidebar_nav(self) -> List[Dict[str, Any]]:
@@ -333,16 +348,16 @@ def get_sidebar_nav(self) -> List[Dict[str, Any]]:
 
 前端加载远程组件的顺序为：
 
-| `nav_key` | 依次尝试的联邦暴露名 |
-|-----------|----------------------|
-| `main` 或省略 | `./AppPage` → `./Page` |
+| `nav_key`                        | 依次尝试的联邦暴露名                             |
+| -------------------------------- | ------------------------------------------------ |
+| `main` 或省略                    | `./AppPage` → `./Page`                           |
 | 其它（如 `settings`、`my_tool`） | `./AppPage{PascalCase}` → `./AppPage` → `./Page` |
 
 `PascalCase` 规则：按 `-`、`_`、空格分段后首字母大写并拼接。例如 `nav_key=settings` → 先试 `./AppPageSettings`；`my_tool` → `./AppPageMyTool`。
 
 **两种实现方式（二选一或混用）：**
 
-1. **单文件分支**：只暴露 `./AppPage`，在组件内根据 `navKey` prop 用 `v-if` / `<component>` 切换子界面。  
+1. **单文件分支**：只暴露 `./AppPage`，在组件内根据 `navKey` prop 用 `v-if` / `<component>` 切换子界面。
 2. **多文件**：为某个入口单独暴露 `./AppPageSettings.vue` 等，主应用会优先加载对应模块，失败再回退到 `AppPage`。
 
 `vite.config` 多暴露示例：
@@ -365,8 +380,7 @@ yarn build
 
 - 将生成的dist文件夹上传到插件后端目录下（默认为`dist/assets`）
 
- **注意： `__federation_shared_vuetify` 目录以及 `index-`、`date-`、`runtime-` 开头的文件不需要上传**，只需要上传以下命名格式文件：`__federation_*`、`_plugin-vue_export-helper-*`、`remoteEntry.js`
-
+**注意： `__federation_shared_vuetify` 目录以及 `index-`、`date-`、`runtime-` 开头的文件不需要上传**，只需要上传以下命名格式文件：`__federation_*`、`_plugin-vue_export-helper-*`、`remoteEntry.js`
 
 - 在插件的后端python代码中，实现以下方法来集成远程组件：
 
@@ -380,7 +394,8 @@ def get_render_mode() -> Tuple[str, str]:
     return "vue", "dist/assets"
 ```
 
--  需要在插件前端页面调用后端接口时，通过传入的api模块发起调用，后端api接口声明认证类型为：`bear`
+- 需要在插件前端页面调用后端接口时，通过传入的api模块发起调用，后端api接口声明认证类型为：`bear`
+
 ```typescript
 // 演示使用api模块调用插件接口
 recentItems.value = await props.api.get(`plugin/MyPlugin/history`)
@@ -401,7 +416,6 @@ def get_api(self) -> List[Dict[str, Any]]:
         }
     ]
 ```
-
 
 ## 7. 调试与排错
 
@@ -461,7 +475,7 @@ yarn dev
 
 ## 9. 示例代码
 
-- [插件远程组件示例](../examples/plugin-component/) - 开发插件组件的完整示例项目 
+- [插件远程组件示例](../examples/plugin-component/) - 开发插件组件的完整示例项目
 - [模块联邦问题排查指南](./federation-troubleshooting.md) - 常见问题排查
 
 ## 10. 参考资料
@@ -471,4 +485,4 @@ yarn dev
 
 ---
 
-如有问题，请提交Issue。 
+如有问题，请提交Issue。

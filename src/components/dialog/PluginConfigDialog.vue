@@ -40,6 +40,9 @@ const progressText = ref('')
 // 提示框
 const $toast = useToast()
 
+// 向联邦插件提供主应用 Toast，避免远程组件自行创建通知容器。
+provide('moviepilot:toast', $toast)
+
 // 是否刷新
 const isRefreshed = ref(false)
 

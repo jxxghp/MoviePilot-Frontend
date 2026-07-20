@@ -2,6 +2,7 @@
 import type { Component } from 'vue'
 import api from '@/api'
 import { loadRemoteAppPageComponent } from '@/utils/federationLoader'
+import { useToast } from 'vue-toastification'
 
 const route = useRoute()
 
@@ -10,6 +11,10 @@ const navKey = computed(() => (route.params.navKey as string) || 'main')
 
 const RemoteView = shallowRef<Component | null>(null)
 const loadError = ref(false)
+
+// 侧栏联邦页面复用主应用 Toast 实例。
+const $toast = useToast()
+provide('moviepilot:toast', $toast)
 
 watch(
   [pluginId, navKey],

@@ -5,6 +5,7 @@ import PageRender from '@/components/render/PageRender.vue'
 import api from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
+import { useToast } from 'vue-toastification'
 
 // 输入参数
 const props = defineProps({
@@ -25,6 +26,10 @@ const display = useDisplay()
 // APP
 // PWA模式检测
 const { appMode } = usePWA()
+
+// 向联邦插件提供主应用 Toast，确保通知沿用统一主题和路由逻辑。
+const $toast = useToast()
+provide('moviepilot:toast', $toast)
 
 // 是否刷新
 const isRefreshed = ref(false)

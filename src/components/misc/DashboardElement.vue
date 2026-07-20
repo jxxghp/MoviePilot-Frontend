@@ -5,8 +5,13 @@ import { DashboardItem } from '@/api/types'
 import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
+import { useToast } from 'vue-toastification'
 
 type DashboardComponentLoader = () => Promise<any>
+
+// 仪表板联邦组件复用主应用 Toast 实例。
+const $toast = useToast()
+provide('moviepilot:toast', $toast)
 
 const DashboardSkeleton = {
   setup() {
