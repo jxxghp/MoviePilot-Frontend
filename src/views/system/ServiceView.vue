@@ -207,13 +207,15 @@ const { loading: schedulerLoading } = useDataRefresh(
 
         <div class="mobile-scheduler-content">
           <h3>{{ getScheduleName(scheduler) }}</h3>
-          <p>{{ getScheduleProvider(scheduler) }}</p>
+          <div class="mobile-scheduler-meta">
+            <p>{{ getScheduleProvider(scheduler) }}</p>
+            <span class="mobile-scheduler-status" :class="`mobile-scheduler-status--${statusVariant}`">
+              {{ statusText }}
+            </span>
+          </div>
         </div>
 
         <div class="mobile-scheduler-actions">
-          <span class="mobile-scheduler-status" :class="`mobile-scheduler-status--${statusVariant}`">
-            {{ statusText }}
-          </span>
           <VBtn
             icon
             class="mobile-scheduler-run-btn"
@@ -349,20 +351,29 @@ const { loading: schedulerLoading } = useDataRefresh(
 
 .mobile-scheduler-content p {
   overflow: hidden;
+  min-inline-size: 0;
   color: rgba(var(--v-theme-on-surface), 0.58);
   font-size: 14px;
   font-weight: 500;
-  line-height: 1.35;
-  margin-block: 6px 0;
+  line-height: 1;
+  margin-block: 0;
   margin-inline: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.mobile-scheduler-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-start: 6px;
+  min-inline-size: 0;
+}
+
 .mobile-scheduler-actions {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
 }
 
 .mobile-scheduler-progress {
@@ -474,10 +485,6 @@ html[data-theme='transparent'] .mobile-scheduler-card,
 
   .mobile-scheduler-content p {
     font-size: 13px;
-  }
-
-  .mobile-scheduler-actions {
-    gap: 8px;
   }
 
   .mobile-scheduler-status {
