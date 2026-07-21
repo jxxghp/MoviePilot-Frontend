@@ -696,7 +696,8 @@ async function loadDashboardProfileConfig(profile: DashboardLayoutProfile) {
       saveLocalDashboardConfig(storageKey, profileConfig)
 
       if (remoteConfig.enabled === undefined && localConfig?.enabled !== undefined) {
-        await queueDashboardProfileRemoteSave(configKey, profileConfig)
+        // 远端布局已是当前权威结果；兼容字段回填失败不能让本次加载退回旧的本地布局。
+        void queueDashboardProfileRemoteSave(configKey, profileConfig).catch(error => console.error(error))
       }
 
       return profileConfig
@@ -1600,7 +1601,8 @@ watch(
       isSwitchingDashboardLayoutProfile = true
       applyDashboardConfig(profileConfig, legacyEnable, undefined)
       if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
-        await saveDashboardProfileConfig()
+        // 兼容配置的远端回填不得阻塞当前档位重建，否则慢请求会让 Vue 状态和 GridStack 节点暂时分离。
+        void saveDashboardProfileConfig()
       }
       updateDashboardSettingsDialog()
       pauseDashboardGridAnimation()

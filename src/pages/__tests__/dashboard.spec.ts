@@ -758,4 +758,148 @@ describe('dashboard page initial layout', () => {
       'mediaRecommend',
     ])
   })
+
+  it('rebuilds a legacy responsive profile before its migration save settles', async () => {
+    const mobileProfile = deferred<unknown>()
+    const migrationSave = deferred<unknown>()
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({
+        enabled: enabledOnlySystemInfo,
+        items: { systemInfo: { x: 8, y: 0, w: 4, h: 6 } },
+        updatedAt: 10,
+      }),
+    )
+    localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify([{ id: 'systemInfo', key: '' }]))
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') {
+        return { data: { value: [{ id: 'systemInfo', key: '' }] } }
+      }
+      if (url === '/user/config/DashboardGridLayout') {
+        return {
+          data: {
+            value: {
+              enabled: enabledOnlySystemInfo,
+              items: { systemInfo: { x: 8, y: 0, w: 4, h: 6 } },
+              updatedAt: 20,
+            },
+          },
+        }
+      }
+      if (url === '/user/config/DashboardGridLayoutMobile') return mobileProfile.promise
+      if (url === '/user/config/Dashboard') return { data: { value: enabledOnlyLibrary } }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+    mocks.apiPost.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardGridLayoutMobile') return migrationSave.promise
+      throw new Error('Unexpected POST ' + url)
+    })
+
+    await renderDashboard()
+    await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(1))
+
+    mocks.displayWidth.value = 390
+    await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledWith('/user/config/DashboardGridLayoutMobile'))
+    await waitFor(() => expect(mocks.grid.removeAll).toHaveBeenCalledTimes(1))
+    mocks.grid.removeAll.mockClear()
+    mocks.grid.load.mockClear()
+
+    mobileProfile.resolve({
+      data: {
+        value: {
+          items: { library: { x: 0, y: 0, w: 1, h: 20 } },
+          updatedAt: 30,
+        },
+      },
+    })
+
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        '/user/config/DashboardGridLayoutMobile',
+        expect.objectContaining({ enabled: enabledOnlyLibrary }),
+      ),
+    )
+    await waitFor(() => expect(mocks.grid.removeAll).toHaveBeenCalledTimes(1))
+    expect(mocks.grid.load.mock.calls.at(-1)?.[0]).toEqual([
+      expect.objectContaining({ id: 'library', x: 0, y: 0, w: 1, h: 20 }),
+    ])
+
+    migrationSave.resolve({ data: {} })
+  })
+
+  it('keeps a newer remote legacy layout when its merged migration save fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({
+        enabled: enabledOnlySystemInfo,
+        items: { systemInfo: { x: 8, y: 0, w: 4, h: 6 } },
+        updatedAt: 10,
+      }),
+    )
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT_MOBILE',
+      JSON.stringify({
+        enabled: enabledOnlyLibrary,
+        items: { library: { x: 0, y: 0, w: 1, h: 10 } },
+        updatedAt: 10,
+      }),
+    )
+    localStorage.setItem('MP_DASHBOARD_ORDER', JSON.stringify([{ id: 'systemInfo', key: '' }]))
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') {
+        return { data: { value: [{ id: 'systemInfo', key: '' }] } }
+      }
+      if (url === '/user/config/DashboardGridLayout') {
+        return {
+          data: {
+            value: {
+              enabled: enabledOnlySystemInfo,
+              items: { systemInfo: { x: 8, y: 0, w: 4, h: 6 } },
+              updatedAt: 20,
+            },
+          },
+        }
+      }
+      if (url === '/user/config/DashboardGridLayoutMobile') {
+        return {
+          data: {
+            value: {
+              items: { library: { x: 0, y: 5, w: 1, h: 20 } },
+              updatedAt: 30,
+            },
+          },
+        }
+      }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+    mocks.apiPost.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardGridLayoutMobile') {
+        return Promise.reject(new Error('migration save failed'))
+      }
+      throw new Error('Unexpected POST ' + url)
+    })
+
+    await renderDashboard()
+    await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(1))
+
+    mocks.displayWidth.value = 390
+    await waitFor(() =>
+      expect(mocks.apiPost).toHaveBeenCalledWith(
+        '/user/config/DashboardGridLayoutMobile',
+        expect.objectContaining({ enabled: enabledOnlyLibrary, updatedAt: 30 }),
+      ),
+    )
+    await waitFor(() => {
+      const loadedWidgets = mocks.grid.load.mock.calls.at(-1)?.[0] as Array<Record<string, unknown>> | undefined
+
+      expect(loadedWidgets?.find(widget => widget.id === 'library')).toEqual(
+        expect.objectContaining({ x: 0, y: 5, w: 1, h: 20 }),
+      )
+    })
+    await waitFor(() => expect(consoleError).toHaveBeenCalledWith(expect.any(Error)))
+    consoleError.mockRestore()
+  })
 })
