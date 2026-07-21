@@ -70,8 +70,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
       }),
     !isTestMode(mode) &&
       VitePWA({
-        injectRegister: 'script',
-        registerType: 'autoUpdate',
+        injectRegister: false,
         strategies: 'injectManifest',
         srcDir: 'src',
         filename: 'service-worker.ts',
@@ -211,6 +210,7 @@ export default defineConfig(({ command, mode, isPreview }) => ({
     'process.env': {},
     '__APP_VERSION__': JSON.stringify(`v${packageJson.version}`),
     '__BUILD_TIME__': JSON.stringify(buildTime),
+    '__PWA_DEVELOPMENT__': JSON.stringify(isPwaDevelopmentEnabled(mode, process.env.npm_lifecycle_event)),
   },
   resolve: {
     alias: {

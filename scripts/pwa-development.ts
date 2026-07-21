@@ -62,6 +62,12 @@ export async function retryMoviePilotIdentityVerification(
   return false
 }
 
+/** 删除当前 origin 的全部 Cache Storage；调用方必须先确认该 dev origin 由 MoviePilot Worker 管理。 */
+export async function deleteCurrentOriginCaches(cacheStorage: Pick<CacheStorage, 'delete' | 'keys'>): Promise<void> {
+  const cacheNames = await cacheStorage.keys()
+  await Promise.all(cacheNames.map(cacheName => cacheStorage.delete(cacheName)))
+}
+
 /** 清理完成后只允许返回当前 origin，避免开发中间页形成开放重定向。 */
 export function resolveDevCleanupReturnUrl(requested: string | null, origin: string): URL {
   if (!requested) return new URL('/', origin)
@@ -78,6 +84,7 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   const identityTimeoutMs = JSON.stringify(moviePilotIdentityTimeoutMs)
   const identityAttempts = JSON.stringify(moviePilotIdentityAttempts)
   const retryIdentityVerification = retryMoviePilotIdentityVerification.toString()
+  const deleteOriginCaches = deleteCurrentOriginCaches.toString()
   const entryScriptUrl = JSON.stringify(devEntryScriptUrl)
   const cleanupPath = JSON.stringify(DEV_SW_CLEANUP_PATH)
   const cleanupAttemptKeyPrefix = JSON.stringify('moviepilot:dev-sw-cleanup')
@@ -85,6 +92,7 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   const redirectScript = `
 (() => {
   const entryScriptUrl = ${entryScriptUrl}
+  const deleteCurrentOriginCaches = ${deleteOriginCaches}
   let appStarted = false
   const startApp = () => {
     if (appStarted) return
@@ -150,8 +158,15 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
 
   // unregister 不会立即解除当前 document 的 controller；应用模块加载前需再导航一次以脱离旧 Worker。
   if (cleanupState === 'complete') {
-    sessionStorage.removeItem(cleanupAttemptKey)
-    location.reload()
+    void (async () => {
+      // 旧 Worker 可能在注销后的首次导航中重新创建缓存；脱离控制后再清理一次。
+      if ('caches' in window) await deleteCurrentOriginCaches(caches)
+      sessionStorage.removeItem(cleanupAttemptKey)
+      location.reload()
+    })().catch(error => {
+      console.error('[PWA] Failed to finish stale development cache cleanup', error)
+      document.body.textContent = 'Failed to finish stale development cache cleanup. Reload to retry.'
+    })
     return
   }
 
@@ -180,6 +195,7 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
         const identityTimeoutMs = ${identityTimeoutMs}
         const identityAttempts = ${identityAttempts}
         const retryIdentityVerification = ${retryIdentityVerification}
+        const deleteCurrentOriginCaches = ${deleteOriginCaches}
         const appScope = new URL('./', location.href)
         const cleanupAttemptKey = ${cleanupAttemptKeyPrefix} + ':' + encodeURIComponent(appScope.pathname)
         const resolveReturnUrl = () => {
@@ -226,6 +242,9 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
           }
           if (!managedRegistrations.length) throw new Error('MoviePilot Service Worker identity verification failed')
           await Promise.allSettled(managedRegistrations.map(registration => registration.unregister()))
+
+          // Vite dev server 使用独立 origin；仅在确认 MoviePilot Worker 后清除其遗留模块响应。
+          if ('caches' in window) await deleteCurrentOriginCaches(caches)
 
           // 回跳入口后由 head-prepend 脚本完成第二次导航，避免同一 client 继续复用旧模块响应。
           sessionStorage.setItem(cleanupAttemptKey, 'complete')
