@@ -14,6 +14,11 @@ import federation from '@originjs/vite-plugin-federation'
 import topLevelAwait from 'vite-plugin-top-level-await'
 import { readFileSync } from 'node:fs'
 import { responsiveInputCoreComponentNames } from './src/plugins/vuetify/responsiveInputNames'
+import {
+  createDevServiceWorkerCleanupPlugin,
+  isPwaDevelopmentEnabled,
+  shouldEnableDevServiceWorkerCleanup,
+} from './scripts/pwa-development'
 
 // 读取 package.json 获取版本号
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
@@ -21,9 +26,11 @@ const buildTime = new Date().getTime().toString()
 const isTestMode = (mode: string) => mode === 'test' || process.env.VITEST === 'true'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ command, mode, isPreview }) => ({
   base: './',
   plugins: [
+    shouldEnableDevServiceWorkerCleanup(command, mode, isPreview, process.env.npm_lifecycle_event) &&
+      createDevServiceWorkerCleanupPlugin(),
     vue(),
     vueJsx(),
     vuetify({
@@ -74,7 +81,7 @@ export default defineConfig(({ mode }) => ({
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2,ttf,otf,eot}'],
         },
         devOptions: {
-          enabled: true,
+          enabled: isPwaDevelopmentEnabled(mode, process.env.npm_lifecycle_event),
           type: 'module',
         },
         manifest: {

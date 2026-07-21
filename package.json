@@ -6,6 +6,7 @@
   "bin": "dist/service.js",
   "scripts": {
     "dev": "vite --host",
+    "dev:pwa": "vite --host --port 5174",
     "prebuild": "npm run build:icons",
     "build": "vite build",
     "preview": "vite preview --port 5050",
