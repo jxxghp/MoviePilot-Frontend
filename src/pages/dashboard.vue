@@ -154,6 +154,8 @@ let isDashboardRevealPending = false
 let dashboardProfileSaveQueue = Promise.resolve()
 // 档位切换必须等目标配置就绪后一次性重建，避免响应式列变化与 Vue 深度监听交叉改写节点。
 let isSwitchingDashboardLayoutProfile = false
+// 应用档位配置后的首次同步必须恢复缺失覆盖项的默认位置，不能沿用上一份配置的节点坐标。
+let shouldRestoreDashboardGridProfileDefaults = false
 // 标记最近一次响应式档位切换，避免快速缩放时较早的异步配置覆盖最新档位。
 let dashboardLayoutProfileSwitchId = 0
 
@@ -735,6 +737,7 @@ function applyDashboardConfig(
   legacyEnable: DashboardEnableConfig | undefined,
   order: DashboardOrderConfig | undefined,
 ) {
+  shouldRestoreDashboardGridProfileDefaults = true
   if (order !== undefined) {
     orderConfig.value = order
   }
@@ -1224,6 +1227,8 @@ async function syncDashboardGrid(resumeAnimation = true) {
   const gridElement = dashboardGridRef.value
   if (!grid || !gridElement) return
 
+  const restoreProfileDefaults = shouldRestoreDashboardGridProfileDefaults
+  shouldRestoreDashboardGridProfileDefaults = false
   pauseDashboardGridAnimation()
   isSyncingDashboardGrid.value = true
   await nextTick()
@@ -1263,16 +1268,12 @@ async function syncDashboardGrid(resumeAnimation = true) {
       if (!item) return
 
       const widget = { ...item.widget }
-      if (element.gridstackNode && !dashboardGridLayout.value[id]) {
+      if (element.gridstackNode && !dashboardGridLayout.value[id] && !restoreProfileDefaults) {
         delete widget.autoPosition
-        delete widget.x
-        delete widget.y
+        widget.x = element.gridstackNode.x
+        widget.y = element.gridstackNode.y
       }
-      if (
-        element.gridstackNode &&
-        !hasManualDashboardGridHeight(id) &&
-        Object.keys(dashboardGridLayout.value).length > 0
-      ) {
+      if (element.gridstackNode && !hasManualDashboardGridHeight(id)) {
         widget.h = element.gridstackNode.h
       }
       synchronizedWidgets.set(id, widget)
