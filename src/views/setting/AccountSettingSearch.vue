@@ -48,6 +48,10 @@ const mediaSourcesDict = [
     title: 'Bangumi',
     value: 'bangumi',
   },
+  {
+    title: 'AniList',
+    value: 'anilist',
+  },
 ]
 
 // 当前选中的媒体信息数据源

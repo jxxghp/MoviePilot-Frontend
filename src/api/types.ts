@@ -1,3 +1,5 @@
+export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist'
+
 // 订阅
 export interface Subscribe {
   // 订阅ID
@@ -218,6 +220,10 @@ export interface TransferHistory {
   tvdbid?: number
   // 豆瓣ID
   doubanid?: string
+  // 媒体数据源
+  media_source?: MediaDataSource
+  // 数据源原生ID
+  media_id?: string
   // 季Sxx
   seasons?: string
   // 集Exx
@@ -238,7 +244,7 @@ export interface TransferHistory {
 
 // 媒体信息
 export interface MediaInfo {
-  // 来源：themoviedb、douban、bangumi
+  // 来源：themoviedb、douban、bangumi、anilist
   source?: string
   // 类型 电影、电视剧、合集
   type?: string
@@ -259,7 +265,11 @@ export interface MediaInfo {
   // 豆瓣ID
   douban_id?: string
   // Bangumi ID
-  bangumi_id?: string
+  bangumi_id?: string | number
+  // AniList ID
+  anilist_id?: number
+  // AniDB ID
+  anidb_id?: number
   // 合集ID
   collection_id?: number
   // 其它媒体ID前缀
@@ -1353,6 +1363,8 @@ export interface MediaServerConf {
   enabled: boolean
   // 同步媒体体库列表
   sync_libraries?: string[]
+  // 自动同步间隔（小时），为空时使用旧全局配置
+  sync_interval?: number | null
 }
 
 // 文件整理目录配置
@@ -1513,6 +1525,10 @@ export interface TransferForm {
   tmdbid?: number
   // 豆瓣 ID
   doubanid?: string
+  // 媒体数据源
+  media_source?: MediaDataSource
+  // 数据源原生ID
+  media_id?: string | null
   // 季号
   season?: number
   // 类型

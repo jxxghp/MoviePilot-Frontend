@@ -25,6 +25,11 @@ const props = defineProps({
     type: Array as PropType<MediaServerConf[]>,
     required: true,
   },
+  // 旧版全局同步间隔，用作服务器未单独设置时的默认值
+  defaultSyncInterval: {
+    type: Number,
+    default: null,
+  },
 })
 
 // 定义触发的自定义事件
@@ -56,6 +61,7 @@ function openMediaServerInfoDialog() {
     {
       mediaserver: props.mediaserver,
       mediaservers: props.mediaservers,
+      defaultSyncInterval: props.defaultSyncInterval,
     },
     {
       change: (...args: unknown[]) => emit('change', ...args),

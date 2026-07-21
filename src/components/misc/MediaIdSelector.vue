@@ -1,21 +1,22 @@
 <script lang="ts" setup>
 import api from '@/api'
-import type { MediaInfo } from '@/api/types'
+import type { MediaDataSource, MediaInfo } from '@/api/types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // 定义输入变量
-const props = defineProps({
-  type: String, // 来源 themoviedb | douban
-})
+const props = defineProps<{
+  type?: MediaDataSource
+}>()
 
-interface TmdbItem {
+interface MediaSelectorItem {
+  // 数据源原生ID
+  id: string
   // 媒体标题
   title: string
   // 媒体简介，包含类型标签
   overview: string
-  // TMDB ID
-  tmdbid: number
-  // 豆瓣 ID
-  doubanid: string
   // 海报地址
   poster: string
   // 媒体类型
@@ -25,7 +26,7 @@ interface TmdbItem {
 // update:modelValue 事件
 const emit = defineEmits(['update:modelValue', 'select', 'close'])
 
-const items = ref<TmdbItem[]>([])
+const items = ref<MediaSelectorItem[]>([])
 
 // 搜索词
 const keyword = ref('')
@@ -37,8 +38,8 @@ const loading = ref(false)
 const inputKeyword = ref<HTMLElement | null>(null)
 
 // 选中条目并通知父组件同步额外媒体信息。
-function selectMedia(item: TmdbItem) {
-  emit('update:modelValue', item.tmdbid || item.doubanid)
+function selectMedia(item: MediaSelectorItem) {
+  emit('update:modelValue', item.id)
   emit('select', item)
   emit('close')
 }
@@ -51,16 +52,18 @@ function getW500Image(url = '') {
 
 // 搜索词条
 async function searchMedias() {
-  if (!keyword) return
+  const searchKeyword = keyword.value.trim()
+  if (!searchKeyword) return
 
   // 调用API搜索词条
   try {
     loading.value = true
     const result: MediaInfo[] = await api.get('media/search', {
       params: {
-        title: keyword.value,
+        title: searchKeyword,
         page: 1,
         count: 20,
+        source: props.type,
       },
     })
 
@@ -69,19 +72,25 @@ async function searchMedias() {
 
     // 赋值
     for (const item of result) {
-      if (props.type && props.type !== item.source) continue
+      const mediaId =
+        item.media_id ||
+        item.tmdb_id?.toString() ||
+        item.douban_id ||
+        item.bangumi_id?.toString() ||
+        item.anilist_id?.toString()
+      if (!mediaId) continue
       items.value.push({
-        tmdbid: item.tmdb_id || 0,
-        doubanid: item.douban_id || '',
+        id: mediaId,
         poster: getW500Image(item.poster_path),
         type: item.type,
-        title: `${item.title}（${item.year}）`,
+        title: item.year ? `${item.title}（${item.year}）` : item.title || '',
         overview: `<span class="text-primary">${item.type}</span> ${item.overview}`,
       })
     }
-    loading.value = false
   } catch (e) {
     console.error(e)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -100,9 +109,9 @@ onMounted(() => {
       <VTextField
         ref="inputKeyword"
         v-model="keyword"
-        label="输入名称搜索"
+        :label="t('dialog.reorganize.mediaSearchInput')"
         single-line
-        placeholder="电影或电视剧名称"
+        :placeholder="t('dialog.reorganize.mediaSearchPlaceholder')"
         variant="solo"
         prepend-inner-icon="mdi-magnify"
         flat

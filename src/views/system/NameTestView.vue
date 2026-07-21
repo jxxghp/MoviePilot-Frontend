@@ -3,9 +3,10 @@ import { computed, reactive, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import { requiredValidator } from '@/@validators'
 import api from '@/api'
-import type { Context } from '@/api/types'
+import type { Context, MediaDataSource, MediaInfo } from '@/api/types'
 import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
 import router from '@/router'
+import { useGlobalSettingsStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 
 interface PipelineStep {
@@ -16,6 +17,20 @@ interface PipelineStep {
 
 // 国际化
 const { t } = useI18n()
+const globalSettingsStore = useGlobalSettingsStore()
+
+const mediaSourceItems: { title: string; value: MediaDataSource }[] = [
+  { title: 'TheMovieDb', value: 'themoviedb' },
+  { title: '豆瓣', value: 'douban' },
+  { title: 'Bangumi', value: 'bangumi' },
+  { title: 'AniList', value: 'anilist' },
+]
+
+// 获取后台默认识别数据源，未知值兼容回退到TheMovieDb。
+function getDefaultMediaSource(): MediaDataSource {
+  const configuredSource = globalSettingsStore.globalSettings.RECOGNIZE_SOURCE as MediaDataSource
+  return mediaSourceItems.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
+}
 
 // 提示
 const $toast = useToast()
@@ -28,6 +43,7 @@ const nameTestForm = reactive({
   title: '',
   subtitle: '',
   customWords: '',
+  source: getDefaultMediaSource(),
 })
 
 // 识别按钮状态
@@ -67,9 +83,25 @@ const resourceChips = computed(() => {
 // 是否已匹配到具体媒体，决定是否展示查看详情入口
 const canViewMediaDetail = computed(() =>
   Boolean(
-    mediaInfo.value?.tmdb_id || mediaInfo.value?.douban_id || mediaInfo.value?.bangumi_id || mediaInfo.value?.media_id,
+    mediaInfo.value?.tmdb_id ||
+      mediaInfo.value?.douban_id ||
+      mediaInfo.value?.bangumi_id ||
+      mediaInfo.value?.anilist_id ||
+      mediaInfo.value?.media_id,
   ),
 )
+
+/** 生成识别结果中的数据源原生ID摘要，并兼容旧接口字段。 */
+function getMediaIdentityLabel(media?: MediaInfo) {
+  if (!media) return t('nameTest.unrecognized')
+  if (media.media_id) return `${media.source || media.mediaid_prefix} ${media.media_id}`
+  if (media.tmdb_id) return `TMDB ${media.tmdb_id}`
+  if (media.douban_id) return `Douban ${media.douban_id}`
+  if (media.bangumi_id) return `Bangumi ${media.bangumi_id}`
+  if (media.anilist_id) return `AniList ${media.anilist_id}`
+  return media.title || t('nameTest.unrecognized')
+}
+
 const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-file-document-outline',
@@ -87,11 +119,7 @@ const pipelineSteps = computed<PipelineStep[]>(() => [
   {
     icon: 'mdi-movie-search-outline',
     title: t('nameTest.steps.media.title'),
-    value: mediaInfo.value?.tmdb_id
-      ? `TMDB ${mediaInfo.value.tmdb_id}`
-      : mediaInfo.value?.douban_id
-        ? `Douban ${mediaInfo.value.douban_id}`
-        : mediaInfo.value?.title || t('nameTest.unrecognized'),
+    value: getMediaIdentityLabel(mediaInfo.value),
   },
 ])
 
@@ -130,6 +158,7 @@ async function nameTest() {
         title: nameTestForm.title,
         subtitle: nameTestForm.subtitle,
         custom_words: nameTestForm.customWords || undefined,
+        source: nameTestForm.source,
       },
     })
     nameTestText.value = t('nameTest.recognizeAgain')
@@ -184,32 +213,34 @@ async function saveCustomWords() {
 <template>
   <div class="shortcut-workbench">
     <section class="shortcut-panel shortcut-input-panel">
-      <div class="panel-heading">
-        <div>
-          <div class="text-subtitle-1 font-weight-medium">
-            {{ t('nameTest.inputTitle') }}
-          </div>
-          <div class="text-caption text-medium-emphasis">
-            {{ t('nameTest.inputSubtitle') }}
-          </div>
-        </div>
-        <VIcon icon="mdi-text-recognition" color="primary" />
-      </div>
-
       <VForm validate-on="submit lazy" @submit.prevent="nameTest">
         <VRow class="shortcut-form">
           <VCol cols="12" class="shortcut-form-col">
             <VTextField
               v-model="nameTestForm.title"
               :label="t('nameTest.title')"
+              :hint="t('nameTest.titleHint')"
+              persistent-hint
               :rules="[requiredValidator]"
               prepend-inner-icon="mdi-movie-open"
+            />
+          </VCol>
+          <VCol cols="12" class="shortcut-form-col">
+            <VSelect
+              v-model="nameTestForm.source"
+              :items="mediaSourceItems"
+              :label="t('nameTest.source')"
+              :hint="t('nameTest.sourceHint')"
+              persistent-hint
+              prepend-inner-icon="mdi-database-search"
             />
           </VCol>
           <VCol cols="12" class="shortcut-form-col">
             <VTextarea
               v-model="nameTestForm.subtitle"
               :label="t('nameTest.subtitle')"
+              :hint="t('nameTest.subtitleHint')"
+              persistent-hint
               rows="2"
               auto-grow
               prepend-inner-icon="mdi-subtitles"
@@ -220,6 +251,8 @@ async function saveCustomWords() {
               v-model="nameTestForm.customWords"
               :label="t('nameTest.customWords')"
               :placeholder="t('nameTest.customWordsPlaceholder')"
+              :hint="t('nameTest.customWordsHint')"
+              persistent-hint
               rows="3"
               auto-grow
               prepend-inner-icon="mdi-tag-text-outline"
@@ -368,14 +401,6 @@ async function saveCustomWords() {
   backdrop-filter: var(--app-grouped-list-backdrop-filter);
   background: var(--app-grouped-list-background);
   box-shadow: var(--app-surface-shadow);
-}
-
-.panel-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-block-end: 1rem;
 }
 
 .shortcut-form {

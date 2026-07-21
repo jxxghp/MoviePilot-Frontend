@@ -46,6 +46,7 @@ const siteSetting = ref<any>({
     SITE_MESSAGE: false,
     SEARCH_RESOURCE_PAGES: 1,
     BROWSER_EMULATION: 'cloakbrowser',
+    OCR_HOST: '',
     FLARESOLVERR_URL: '',
   },
 })
@@ -274,6 +275,16 @@ useSilentSettingRefresh(loadSiteSettings, {
                   :hint="t('setting.site.browserEmulationHint')"
                   persistent-hint
                   prepend-inner-icon="mdi-web"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
+                  v-model="siteSetting.Site.OCR_HOST"
+                  :label="t('setting.site.ocrHost')"
+                  placeholder="https://movie-pilot.org"
+                  :hint="t('setting.site.ocrHostHint')"
+                  persistent-hint
+                  prepend-inner-icon="mdi-text-recognition"
                 />
               </VCol>
               <VCol cols="12" md="6" v-if="siteSetting.Site.BROWSER_EMULATION == 'flaresolverr'">

@@ -180,24 +180,14 @@ onMounted(() => {
 <template>
   <div class="shortcut-workbench">
     <section class="shortcut-panel shortcut-input-panel">
-      <div class="panel-heading">
-        <div>
-          <div class="text-subtitle-1 font-weight-medium">
-            {{ t('ruleTest.inputTitle') }}
-          </div>
-          <div class="text-caption text-medium-emphasis">
-            {{ t('ruleTest.inputSubtitle') }}
-          </div>
-        </div>
-        <VIcon icon="mdi-filter-cog" color="primary" />
-      </div>
-
       <VForm ref="ruleTestFormRef" validate-on="submit lazy" @submit.prevent="ruleTest">
         <VRow class="shortcut-form">
           <VCol cols="12" class="shortcut-form-col">
             <VTextField
               v-model="ruleTestForm.title"
               :label="t('ruleTest.title')"
+              :hint="t('ruleTest.titleHint')"
+              persistent-hint
               :rules="[requiredValidator]"
               prepend-inner-icon="mdi-movie-open"
             />
@@ -207,6 +197,8 @@ onMounted(() => {
               v-model="ruleTestForm.rulegroup"
               :items="filterRuleGroupItems"
               :label="t('ruleTest.ruleGroup')"
+              :hint="t('ruleTest.ruleGroupHint')"
+              persistent-hint
               :loading="filterRuleGroupLoading"
               :rules="[requiredValidator]"
               prepend-inner-icon="mdi-filter"
@@ -216,6 +208,8 @@ onMounted(() => {
             <VTextarea
               v-model="ruleTestForm.subtitle"
               :label="t('ruleTest.subtitle')"
+              :hint="t('ruleTest.subtitleHint')"
+              persistent-hint
               rows="2"
               auto-grow
               prepend-inner-icon="mdi-subtitles"
@@ -315,14 +309,6 @@ onMounted(() => {
   background: var(--app-grouped-list-background);
   box-shadow: var(--app-surface-shadow);
   padding: 1rem;
-}
-
-.panel-heading {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-block-end: 1rem;
 }
 
 .shortcut-form {

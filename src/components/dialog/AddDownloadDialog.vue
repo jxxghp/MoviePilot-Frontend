@@ -2,7 +2,7 @@
 import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { doneNProgress, startNProgress } from '@/api/nprogress'
-import type { DownloaderConf, MediaInfo, TorrentInfo, TransferDirectoryConf } from '@/api/types'
+import type { DownloaderConf, MediaDataSource, MediaInfo, TorrentInfo, TransferDirectoryConf } from '@/api/types'
 import { formatFileSize } from '@/@core/utils/formatters'
 import { VCardTitle, VChip } from 'vuetify/lib/components/index.mjs'
 import { useI18n } from 'vue-i18n'
@@ -18,7 +18,11 @@ const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
 // 当前识别类型
-const mediaSource = ref(globalSettings.RECOGNIZE_SOURCE || 'themoviedb')
+const mediaSource = ref<MediaDataSource>(
+  ['themoviedb', 'douban', 'bangumi', 'anilist'].includes(globalSettings.RECOGNIZE_SOURCE)
+    ? globalSettings.RECOGNIZE_SOURCE
+    : 'themoviedb',
+)
 
 // 输入参数
 const props = defineProps({
@@ -51,11 +55,19 @@ const loading = ref(false)
 // 是否显示高级选项
 const showAdvancedOptions = ref(false)
 
-// TMDB ID
-const tmdbid = ref<number | undefined>(undefined)
+// 当前数据源的原生媒体ID
+const mediaId = ref<string | undefined>(undefined)
 
-// 豆瓣ID
-const doubanId = ref<string | undefined>(undefined)
+// 当前数据源对应的原生ID标签。
+const mediaIdLabel = computed(() => {
+  const labels: Record<MediaDataSource, string> = {
+    themoviedb: t('dialog.reorganize.tmdbId'),
+    douban: t('dialog.reorganize.doubanId'),
+    bangumi: t('dialog.reorganize.bangumiId'),
+    anilist: t('dialog.reorganize.anilistId'),
+  }
+  return labels[mediaSource.value]
+})
 
 // TMDB选择对话框
 const mediaSelectorDialog = ref(false)
@@ -140,11 +152,9 @@ async function addDownload() {
     }
 
     // 添加媒体ID辅助识别
-    if (tmdbid.value) {
-      payload.tmdbid = tmdbid.value
-    }
-    if (doubanId.value) {
-      payload.doubanid = doubanId.value
+    if (mediaId.value) {
+      payload.media_source = mediaSource.value
+      payload.media_id = mediaId.value
     }
 
     const endpoint = props.media ? 'download/' : 'download/add'
@@ -269,23 +279,8 @@ onMounted(() => {
         <VRow v-show="showAdvancedOptions" class="px-5">
           <VCol cols="12">
             <VTextField
-              v-if="mediaSource === 'themoviedb'"
-              v-model="tmdbid"
-              :label="t('dialog.reorganize.tmdbId')"
-              :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
-              :rules="[numberValidator]"
-              append-inner-icon="mdi-magnify"
-              :hint="t('dialog.reorganize.mediaIdHint')"
-              persistent-hint
-              prepend-inner-icon="mdi-identifier"
-              variant="underlined"
-              density="comfortable"
-              @click:append-inner="mediaSelectorDialog = true"
-            />
-            <VTextField
-              v-else
-              v-model="doubanId"
-              :label="t('dialog.reorganize.doubanId')"
+              v-model="mediaId"
+              :label="mediaIdLabel"
               :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
               :rules="[numberValidator]"
               append-inner-icon="mdi-magnify"
@@ -307,13 +302,7 @@ onMounted(() => {
     </VCard>
     <!-- 媒体ID选择器 -->
     <VDialog v-model="mediaSelectorDialog" width="40rem" scrollable max-height="85vh">
-      <MediaIdSelector
-        v-if="mediaSource === 'themoviedb'"
-        v-model="tmdbid"
-        @close="mediaSelectorDialog = false"
-        :type="mediaSource"
-      />
-      <MediaIdSelector v-else v-model="doubanId" @close="mediaSelectorDialog = false" :type="mediaSource" />
+      <MediaIdSelector v-model="mediaId" @close="mediaSelectorDialog = false" :type="mediaSource" />
     </VDialog>
   </VDialog>
 </template>

@@ -10,6 +10,7 @@ import {
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
+  MediaDataSource,
   MediaInfo,
   StorageConf,
   TransferDirectoryConf,
@@ -37,13 +38,22 @@ const props = defineProps({
   target_path: String,
 })
 
-// 从 provide 中获取全局设置
 // 全局设置
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
-// 当前识别类型
-const mediaSource = ref(globalSettings.RECOGNIZE_SOURCE || 'themoviedb')
+const mediaSourceItems: { title: string; value: MediaDataSource }[] = [
+  { title: 'TheMovieDb', value: 'themoviedb' },
+  { title: '豆瓣', value: 'douban' },
+  { title: 'Bangumi', value: 'bangumi' },
+  { title: 'AniList', value: 'anilist' },
+]
+
+// 获取后台设置中的默认识别数据源，未知值兼容回退到TheMovieDb。
+function getDefaultMediaSource(): MediaDataSource {
+  const configuredSource = globalSettings.RECOGNIZE_SOURCE as MediaDataSource
+  return mediaSourceItems.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
+}
 
 // 定义事件
 const emit = defineEmits(['done', 'close'])
@@ -304,6 +314,8 @@ const transferForm = reactive<TransferForm>({
   logid: 0,
   target_storage: initialTargetPath ? (props.target_storage ?? 'local') : null,
   target_path: initialTargetPath,
+  media_source: getDefaultMediaSource(),
+  media_id: null,
   transfer_type: null,
   min_filesize: 0,
   scrape: initialTargetPath ? false : null,
@@ -311,6 +323,20 @@ const transferForm = reactive<TransferForm>({
   library_type_folder: null,
   library_category_folder: null,
   episode_group: null,
+})
+
+// 当前手动识别与刮削数据源。
+const mediaSource = computed(() => transferForm.media_source ?? 'themoviedb')
+
+// 当前数据源对应的原生ID标签。
+const mediaIdLabel = computed(() => {
+  const labels: Record<MediaDataSource, string> = {
+    themoviedb: t('dialog.reorganize.tmdbId'),
+    douban: t('dialog.reorganize.doubanId'),
+    bangumi: t('dialog.reorganize.bangumiId'),
+    anilist: t('dialog.reorganize.anilistId'),
+  }
+  return labels[mediaSource.value]
 })
 
 // 处理媒体搜索结果选择，同步搜索结果中已识别的媒体类型。
@@ -403,27 +429,38 @@ watch(
   },
 )
 
-// 监听 TMDB 编号变化，自动加载可用剧集组并清空旧选择。
+// 监听媒体编号变化，仅在TMDB电视剧场景加载剧集组。
 watch(
-  () => transferForm.tmdbid,
-  tmdbid => {
+  () => transferForm.media_id,
+  mediaId => {
     transferForm.episode_group = null
     episodeGroups.value = []
     if (episodeGroupQueryTimer) clearTimeout(episodeGroupQueryTimer)
     if (transferForm.type_name !== '电视剧' || mediaSource.value !== 'themoviedb') return
-    episodeGroupQueryTimer = setTimeout(() => getEpisodeGroups(tmdbid), 400)
+    episodeGroupQueryTimer = setTimeout(() => getEpisodeGroups(mediaId ?? undefined), 400)
   },
 )
 
 // 切换媒体类型或识别源时，非 TMDB 电视剧不保留剧集组选择。
 watch([() => transferForm.type_name, () => mediaSource.value], ([typeName, source]) => {
-  if (typeName === '电视剧' && source === 'themoviedb' && transferForm.tmdbid) {
-    getEpisodeGroups(transferForm.tmdbid)
+  if (typeName === '电视剧' && source === 'themoviedb' && transferForm.media_id) {
+    getEpisodeGroups(transferForm.media_id)
     return
   }
   transferForm.episode_group = null
   episodeGroups.value = []
 })
+
+// 切换数据源时清空上一来源的原生ID，避免把同一数字误传给新来源。
+watch(
+  () => transferForm.media_source,
+  (source, previousSource) => {
+    if (previousSource && source !== previousSource) {
+      transferForm.media_id = null
+      mediaSelectorDialog.value = false
+    }
+  },
+)
 
 watch(
   () => transferForm.episode_group,
@@ -859,6 +896,8 @@ function createTransferPayload(options: { item?: FileItem; items?: FileItem[]; l
     target_storage: normalizeOptionalText(transferForm.target_storage),
     target_path: normalizeTargetPath(transferForm.target_path),
     transfer_type: normalizeOptionalText(transferForm.transfer_type),
+    media_source: mediaSource.value,
+    media_id: normalizeOptionalText(transferForm.media_id),
     episode_group: normalizeEpisodeGroup(transferForm.episode_group),
   }
 
@@ -1385,7 +1424,7 @@ onUnmounted(() => {
                   </VCol>
                 </VRow>
                 <VRow>
-                  <VCol cols="12" md="6">
+                  <VCol cols="12" md="4">
                     <VSelect
                       v-model="transferForm.type_name"
                       :label="t('dialog.reorganize.mediaType')"
@@ -1399,25 +1438,21 @@ onUnmounted(() => {
                       prepend-inner-icon="mdi-movie-open"
                     />
                   </VCol>
-                  <VCol cols="12" md="6">
-                    <VTextField
-                      v-if="mediaSource === 'themoviedb'"
-                      v-model="transferForm.tmdbid"
-                      :disabled="transferForm.type_name === ''"
-                      :label="t('dialog.reorganize.tmdbId')"
-                      :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
-                      :rules="[numberValidator]"
-                      append-inner-icon="mdi-magnify"
-                      :hint="t('dialog.reorganize.mediaIdHint')"
+                  <VCol cols="12" md="4">
+                    <VSelect
+                      v-model="transferForm.media_source"
+                      :items="mediaSourceItems"
+                      :label="t('dialog.reorganize.mediaSource')"
+                      :hint="t('dialog.reorganize.mediaSourceHint')"
                       persistent-hint
-                      prepend-inner-icon="mdi-identifier"
-                      @click:append-inner="mediaSelectorDialog = true"
+                      prepend-inner-icon="mdi-database-search"
                     />
+                  </VCol>
+                  <VCol cols="12" md="4">
                     <VTextField
-                      v-else
-                      v-model="transferForm.doubanid"
+                      v-model="transferForm.media_id"
                       :disabled="transferForm.type_name === ''"
-                      :label="t('dialog.reorganize.doubanId')"
+                      :label="mediaIdLabel"
                       :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
                       :rules="[numberValidator]"
                       append-inner-icon="mdi-magnify"
@@ -1437,7 +1472,7 @@ onUnmounted(() => {
                       item-value="value"
                       :item-props="episodeGroupItemProps"
                       :loading="episodeGroupLoading"
-                      :disabled="!transferForm.tmdbid"
+                      :disabled="!transferForm.media_id"
                       clearable
                       :label="t('dialog.reorganize.episodeGroup')"
                       :placeholder="t('dialog.reorganize.episodeGroupPlaceholder')"
@@ -1744,18 +1779,10 @@ onUnmounted(() => {
     </VCard>
     <!-- 手动整理进度框 -->
     <ProgressDialog v-if="progressDialog" v-model="progressDialog" :text="progressText" :value="progressValue" />
-    <!-- TMDB ID搜索框 -->
+    <!-- 媒体数据源ID搜索框 -->
     <VDialog v-model="mediaSelectorDialog" width="40rem" scrollable max-height="85vh">
       <MediaIdSelector
-        v-if="mediaSource === 'themoviedb'"
-        v-model="transferForm.tmdbid"
-        @close="mediaSelectorDialog = false"
-        @select="handleMediaSelected"
-        :type="mediaSource"
-      />
-      <MediaIdSelector
-        v-else
-        v-model="transferForm.doubanid"
+        v-model="transferForm.media_id"
         @close="mediaSelectorDialog = false"
         @select="handleMediaSelected"
         :type="mediaSource"

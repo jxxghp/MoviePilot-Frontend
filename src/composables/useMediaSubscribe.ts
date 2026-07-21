@@ -54,6 +54,7 @@ export function getMediaSubscribeId(media?: MediaInfo) {
   if (media?.tmdb_id) return `tmdb:${media.tmdb_id}`
   if (media?.douban_id) return `douban:${media.douban_id}`
   if (media?.bangumi_id) return `bangumi:${media.bangumi_id}`
+  if (media?.anilist_id) return `anilist:${media.anilist_id}`
   return `${media?.mediaid_prefix}:${media?.media_id}`
 }
 

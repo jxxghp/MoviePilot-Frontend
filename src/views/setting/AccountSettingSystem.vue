@@ -43,10 +43,7 @@ const SystemSettings = ref<any>({
     APP_DOMAIN: null,
     API_TOKEN: null,
     WALLPAPER: 'tmdb',
-    MEDIASERVER_SYNC_INTERVAL: null,
-    RECOGNIZE_SOURCE: 'themoviedb',
     GITHUB_TOKEN: null,
-    OCR_HOST: null,
     CUSTOMIZE_WALLPAPER_API_URL: null,
     AI_AGENT_ENABLE: false,
     AI_AGENT_GLOBAL: false,
@@ -196,6 +193,9 @@ const isRequest = ref(true)
 
 // 选中的媒体服务器
 const mediaServers = ref<MediaServerConf[]>([])
+
+// 旧版全局媒体服务器同步间隔，仅用于未单独设置时的默认值提示
+const legacyMediaServerSyncInterval = ref<number | null>(null)
 
 // 下载器
 const downloaders = ref<DownloaderConf[]>([])
@@ -691,6 +691,8 @@ async function loadSystemSettings() {
   try {
     const result: { [key: string]: any } = await api.get('system/env')
     if (result.success) {
+      const defaultSyncInterval = Number(result.data.MEDIASERVER_SYNC_INTERVAL ?? Number.NaN)
+      legacyMediaServerSyncInterval.value = Number.isFinite(defaultSyncInterval) ? defaultSyncInterval : null
       // 将API返回的值赋值给SystemSettings
       for (const sectionKey of Object.keys(SystemSettings.value) as Array<keyof typeof SystemSettings.value>) {
         Object.keys(SystemSettings.value[sectionKey]).forEach((key: string) => {
@@ -1101,36 +1103,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                 </VRow>
               </VCol>
               <VCol cols="12" md="6">
-                <VSelect
-                  v-model="SystemSettings.Basic.RECOGNIZE_SOURCE"
-                  :label="t('setting.system.recognizeSource')"
-                  :hint="t('setting.system.recognizeSourceHint')"
-                  persistent-hint
-                  :items="[
-                    { title: 'TheMovieDb', value: 'themoviedb' },
-                    { title: '豆瓣', value: 'douban' },
-                  ]"
-                  prepend-inner-icon="mdi-database"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="SystemSettings.Basic.MEDIASERVER_SYNC_INTERVAL"
-                  :label="t('setting.system.mediaServerSyncInterval')"
-                  :hint="t('setting.system.mediaServerSyncIntervalHint')"
-                  persistent-hint
-                  :suffix="t('setting.system.hours')"
-                  type="number"
-                  min="1"
-                  :rules="[
-                    (v: any) => !!v || t('setting.system.required'),
-                    (v: any) => !isNaN(v) || t('setting.system.numbersOnly'),
-                    (v: any) => v >= 1 || t('setting.system.minInterval'),
-                  ]"
-                  prepend-inner-icon="mdi-sync"
-                />
-              </VCol>
-              <VCol cols="12" md="6">
                 <VTextField
                   v-model="SystemSettings.Basic.API_TOKEN"
                   :label="t('setting.system.apiToken')"
@@ -1158,16 +1130,6 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                   prepend-inner-icon="mdi-github"
                 >
                 </VTextField>
-              </VCol>
-              <VCol cols="12" md="6">
-                <VTextField
-                  v-model="SystemSettings.Basic.OCR_HOST"
-                  :label="t('setting.system.ocrHost')"
-                  placeholder="https://movie-pilot.org"
-                  :hint="t('setting.system.ocrHostHint')"
-                  persistent-hint
-                  prepend-inner-icon="mdi-text-recognition"
-                />
               </VCol>
             </VRow>
             <VCard
@@ -1817,6 +1779,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
               <MediaServerCard
                 :mediaserver="element"
                 :mediaservers="mediaServers"
+                :default-sync-interval="legacyMediaServerSyncInterval ?? undefined"
                 @close="removeMediaServer(element)"
                 @change="onMediaServerChange"
               />
