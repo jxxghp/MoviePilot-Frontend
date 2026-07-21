@@ -63,6 +63,7 @@ const PosterStub = defineComponent({
 })
 
 interface MediaIdentifiers {
+  anilistid?: number
   bangumiid?: number
   doubanid?: string
   tmdbid?: number
@@ -72,6 +73,7 @@ const mediaDetailCases: Array<[string, MediaIdentifiers, string]> = [
   ['TMDB', { tmdbid: 6301 }, 'tmdb:6301'],
   ['Douban', { doubanid: 'db-6302', tmdbid: undefined }, 'douban:db-6302'],
   ['Bangumi', { bangumiid: 6303, doubanid: undefined, tmdbid: undefined }, 'bangumi:6303'],
+  ['AniList', { anilistid: 6304, bangumiid: undefined, tmdbid: undefined }, 'anilist:6304'],
 ]
 
 function createDeferred() {
@@ -82,10 +84,7 @@ function createDeferred() {
   return { promise, resolve }
 }
 
-async function renderDialog(
-  media: SubscribeShare = createSubscribeShare(),
-  settings: Record<string, unknown> = {},
-) {
+async function renderDialog(media: SubscribeShare = createSubscribeShare(), settings: Record<string, unknown> = {}) {
   const events = {
     close: vi.fn(),
     delete: vi.fn(),
@@ -149,10 +148,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
     const writeRequest = vi.fn((url: URL) => {
       users.push(url.searchParams.get('share_uid') || '')
     })
-    server.use(
-      followSubscribersSettingHandler(users),
-      followSubscriberHandler({ success: true }, 200, writeRequest),
-    )
+    server.use(followSubscribersSettingHandler(users), followSubscriberHandler({ success: true }, 200, writeRequest))
     const user = userEvent.setup()
     await renderDialog(media)
 
@@ -170,10 +166,7 @@ describe('ForkSubscribeDialog follow behavior', () => {
     const writeRequest = vi.fn((url: URL) => {
       users.splice(users.indexOf(url.searchParams.get('share_uid') || ''), 1)
     })
-    server.use(
-      followSubscribersSettingHandler(users),
-      unfollowSubscriberHandler({ success: true }, 200, writeRequest),
-    )
+    server.use(followSubscribersSettingHandler(users), unfollowSubscriberHandler({ success: true }, 200, writeRequest))
     const user = userEvent.setup()
     await renderDialog(media)
 
@@ -263,10 +256,7 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
   })
 
   it('reports a fork business failure and does not emit', async () => {
-    server.use(
-      followSubscribersSettingHandler([]),
-      forkSubscribeHandler({ message: '订阅已存在', success: false }),
-    )
+    server.use(followSubscribersSettingHandler([]), forkSubscribeHandler({ message: '订阅已存在', success: false }))
     const user = userEvent.setup()
     const { events } = await renderDialog(createSubscribeShare({ share_title: '冲突分享' }))
 
@@ -368,28 +358,32 @@ describe('ForkSubscribeDialog fork, delete, and navigation behavior', () => {
     expect(events.close).toHaveBeenCalledOnce()
   })
 
-  it.each(mediaDetailCases)('routes %s shares to their media details', async (_source, identifiers, expectedMediaId) => {
-    const media: SubscribeShare = {
-      ...createSubscribeShare({
-        doubanid: identifiers.doubanid,
-        tmdbid: identifiers.tmdbid,
-      }),
-      bangumiid: identifiers.bangumiid,
-    }
-    server.use(followSubscribersSettingHandler([]))
-    const user = userEvent.setup()
-    await renderDialog(media)
+  it.each(mediaDetailCases)(
+    'routes %s shares to their media details',
+    async (_source, identifiers, expectedMediaId) => {
+      const media: SubscribeShare = {
+        ...createSubscribeShare({
+          anilistid: identifiers.anilistid,
+          doubanid: identifiers.doubanid,
+          tmdbid: identifiers.tmdbid,
+        }),
+        bangumiid: identifiers.bangumiid,
+      }
+      server.use(followSubscribersSettingHandler([]))
+      const user = userEvent.setup()
+      await renderDialog(media)
 
-    await user.click(screen.getByRole('button', { name: '查看媒体详情' }))
+      await user.click(screen.getByRole('button', { name: '查看媒体详情' }))
 
-    expect(mocks.routerPush).toHaveBeenCalledWith({
-      path: '/media',
-      query: {
-        mediaid: expectedMediaId,
-        title: media.name,
-        type: media.type,
-        year: media.year,
-      },
-    })
-  })
+      expect(mocks.routerPush).toHaveBeenCalledWith({
+        path: '/media',
+        query: {
+          mediaid: expectedMediaId,
+          title: media.name,
+          type: media.type,
+          year: media.year,
+        },
+      })
+    },
+  )
 })

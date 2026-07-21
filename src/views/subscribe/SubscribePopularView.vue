@@ -191,13 +191,18 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
 
 /** 使用媒体来源、稳定 ID 与季号区分热门条目。 */
 function getMediaItemKey(item: MediaInfo) {
-  const mediaId = item.tmdb_id
-    ? `tmdb:${item.tmdb_id}`
-    : item.douban_id
-      ? `douban:${item.douban_id}`
-      : item.bangumi_id
-        ? `bangumi:${item.bangumi_id}`
-        : `${item.mediaid_prefix ?? 'media'}:${item.media_id ?? item.title ?? ''}`
+  const mediaId =
+    item.media_id && (item.source || item.mediaid_prefix)
+      ? `${(item.mediaid_prefix || item.source) === 'themoviedb' ? 'tmdb' : item.mediaid_prefix || item.source}:${item.media_id}`
+      : item.tmdb_id
+        ? `tmdb:${item.tmdb_id}`
+        : item.douban_id
+          ? `douban:${item.douban_id}`
+          : item.bangumi_id
+            ? `bangumi:${item.bangumi_id}`
+            : item.anilist_id
+              ? `anilist:${item.anilist_id}`
+              : `${item.mediaid_prefix ?? 'media'}:${item.title ?? ''}`
 
   return `${item.source ?? 'unknown'}:${mediaId}:season:${item.season ?? 'all'}`
 }
@@ -228,12 +233,7 @@ function getMediaItemKey(item: MediaInfo) {
         <VLabel>{{ t('tmdb.genre') }}</VLabel>
       </div>
       <VChipGroup v-model="filterParams.genre_id">
-        <VChip
-          :color="filterParams.genre_id == '' ? 'primary' : ''"
-          filter
-          tile
-          value=""
-        >
+        <VChip :color="filterParams.genre_id == '' ? 'primary' : ''" filter tile value="">
           {{ t('common.all') }}
         </VChip>
         <VChip

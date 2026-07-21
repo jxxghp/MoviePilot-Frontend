@@ -196,7 +196,7 @@ async function renderDetail(options: RenderDetailOptions = {}) {
     },
   })
 
-  const recognized = Boolean(media.tmdb_id || media.douban_id || media.bangumi_id)
+  const recognized = Boolean(media.media_id || media.tmdb_id || media.douban_id || media.bangumi_id || media.anilist_id)
   if (recognized && (options.detailStatus ?? 200) < 400) {
     await waitFor(() => {
       expect(existsRequest).toHaveBeenCalledOnce()
@@ -227,6 +227,7 @@ describe('MediaDetailView detail and actions', () => {
     ['TMDB', 'tmdb:8201', createMediaInfo({ tmdb_id: 8201, type: '电影' })],
     ['Douban', 'douban:db-8202', createMediaInfo({ douban_id: 'db-8202', tmdb_id: undefined, type: '电影' })],
     ['Bangumi', 'bangumi:8203', createMediaInfo({ bangumi_id: '8203', tmdb_id: undefined, type: '电视剧' })],
+    ['AniList', 'anilist:154587', createMediaInfo({ anilist_id: 154587, tmdb_id: undefined, type: '电视剧' })],
     [
       'extension',
       'custom:item-8204',

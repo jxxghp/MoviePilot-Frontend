@@ -4,11 +4,7 @@ import SubscribeSeasonDialog from '@/components/dialog/SubscribeSeasonDialog.vue
 import type { SubscribeMode } from '@/composables/useMediaSubscribe'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import userEvent from '@testing-library/user-event'
-import {
-  createMediaInfo,
-  createMediaSeason,
-  createNotExistMediaInfo,
-} from '@tests/support/factories/media'
+import { createMediaInfo, createMediaSeason, createNotExistMediaInfo } from '@tests/support/factories/media'
 import {
   mediaEpisodeGroupsHandler,
   mediaGroupSeasonsHandler,
@@ -141,15 +137,21 @@ describe('SubscribeSeasonDialog', () => {
     expect(seasonRequests[0].searchParams.get('year')).toBe(media.year)
     expect(seasonRequests[0].searchParams.get('season')).toBe('0')
     expect(missingPayloads[0]).toMatchObject({ episode_group: '', season: 0, tmdb_id: media.tmdb_id })
-
   })
 
   it.each([
     ['Douban', { douban_id: 'db-7303', tmdb_id: undefined }, 'douban:db-7303'],
     ['Bangumi', { bangumi_id: 'bgm-7304', douban_id: undefined, tmdb_id: undefined }, 'bangumi:bgm-7304'],
+    ['AniList', { anilist_id: 154587, bangumi_id: undefined, tmdb_id: undefined }, 'anilist:154587'],
     [
       'custom source',
-      { bangumi_id: undefined, douban_id: undefined, media_id: 'custom-7305', mediaid_prefix: 'custom', tmdb_id: undefined },
+      {
+        bangumi_id: undefined,
+        douban_id: undefined,
+        media_id: 'custom-7305',
+        mediaid_prefix: 'custom',
+        tmdb_id: undefined,
+      },
       'custom:custom-7305',
     ],
   ] as const)('uses the %s media identifier without requesting TMDB groups', async (_label, overrides, mediaId) => {
@@ -269,14 +271,10 @@ describe('SubscribeSeasonDialog', () => {
         { episode_count: 8, group_count: 1, id: 'group-a', name: '自定义排序 A' },
       ]),
       mediaGroupSeasonsHandler('group-a', [createMediaSeason({ season_number: 5 })]),
-      mediaSeasonsHandler(
-        [createMediaSeason({ season_number: 1 })],
-        200,
-        async () => {
-          defaultRequestStarted.resolve()
-          await defaultResponseGate.promise
-        },
-      ),
+      mediaSeasonsHandler([createMediaSeason({ season_number: 1 })], 200, async () => {
+        defaultRequestStarted.resolve()
+        await defaultResponseGate.promise
+      }),
       mediaNotExistsHandler([]),
     )
     const user = userEvent.setup()
@@ -355,11 +353,7 @@ describe('SubscribeSeasonDialog', () => {
 
   it('renders the successful empty state and emits close without submitting', async () => {
     const media = createTvMedia({ tmdb_id: 7311 })
-    server.use(
-      mediaSeasonsHandler([]),
-      mediaNotExistsHandler([]),
-      mediaEpisodeGroupsHandler(media.tmdb_id!, []),
-    )
+    server.use(mediaSeasonsHandler([]), mediaNotExistsHandler([]), mediaEpisodeGroupsHandler(media.tmdb_id!, []))
     const { events } = await renderDialog({ media })
 
     expect(await screen.findByText(`${media.title} 未查询到季集信息`)).toBeInTheDocument()

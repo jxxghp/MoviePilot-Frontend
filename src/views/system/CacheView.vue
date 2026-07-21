@@ -247,15 +247,15 @@ function openReidentifyDialog(item: TorrentCacheItem) {
 }
 
 /** 执行缓存项重新识别。 */
-async function performReidentify(payload: { doubanId?: string; tmdbId?: number } = {}) {
+async function performReidentify(payload: { mediaSource?: string; mediaId?: string } = {}) {
   if (!currentReidentifyItem.value) return
 
   try {
     loading.value = true
     reidentifyDialogController?.updateProps({ loading: true })
     const params: any = {}
-    if (payload.tmdbId) params.tmdbid = payload.tmdbId
-    if (payload.doubanId) params.doubanid = payload.doubanId
+    if (payload.mediaSource) params.media_source = payload.mediaSource
+    if (payload.mediaId) params.media_id = payload.mediaId
 
     const res: any = await api.post(
       `torrent/cache/reidentify/${currentReidentifyItem.value.domain}/${currentReidentifyItem.value.hash}`,

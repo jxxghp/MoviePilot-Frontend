@@ -230,12 +230,7 @@ function removeData(id: number) {
         <VLabel>{{ t('tmdb.genre') }}</VLabel>
       </div>
       <VChipGroup v-model="filterParams.genre_id">
-        <VChip
-          :color="filterParams.genre_id == '' ? 'primary' : ''"
-          filter
-          tile
-          value=""
-        >
+        <VChip :color="filterParams.genre_id == '' ? 'primary' : ''" filter tile value="">
           {{ t('common.all') }}
         </VChip>
         <VChip
@@ -291,7 +286,11 @@ function removeData(id: number) {
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
-      :get-item-key="item => item.id || `${item.tmdbid || item.doubanid || item.name}-${item.share_user}`"
+      :get-item-key="
+        item =>
+          item.id ||
+          `${item.media_id || item.tmdbid || item.doubanid || item.bangumiid || item.anilistid || item.name}-${item.share_user}`
+      "
       :min-item-width="240"
       :estimated-item-height="260"
       tabindex="0"

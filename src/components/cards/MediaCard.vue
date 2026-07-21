@@ -166,12 +166,17 @@ function getExistsStatusKey() {
 }
 
 function isSameSubscribeMedia(subscribe: Subscribe) {
+  const mediaId = getMediaId()
+  if (subscribe.media_source && subscribe.media_id) {
+    const prefix = subscribe.media_source === 'themoviedb' ? 'tmdb' : subscribe.media_source
+    return mediaId === `${prefix}:${subscribe.media_id}`
+  }
+  if (subscribe.mediaid) return mediaId === subscribe.mediaid
   if (props.media?.tmdb_id && subscribe.tmdbid) return props.media.tmdb_id === subscribe.tmdbid
   if (props.media?.douban_id && subscribe.doubanid) return props.media.douban_id === subscribe.doubanid
   if (props.media?.bangumi_id && subscribe.bangumiid) return props.media.bangumi_id === subscribe.bangumiid
-
-  const mediaId = props.media?.media_id ? `${props.media.mediaid_prefix}:${props.media.media_id}` : ''
-  return Boolean(mediaId && subscribe.mediaid === mediaId)
+  if (props.media?.anilist_id && subscribe.anilistid) return props.media.anilist_id === subscribe.anilistid
+  return false
 }
 
 // 角标颜色

@@ -7,11 +7,7 @@ import {
   useMediaSubscribe,
 } from '@/composables/useMediaSubscribe'
 import { fireEvent, screen, waitFor } from '@testing-library/vue'
-import {
-  createSubscribe,
-  createSubscribeMovie,
-  createSubscribeTv,
-} from '@tests/support/factories/subscribe'
+import { createSubscribe, createSubscribeMovie, createSubscribeTv } from '@tests/support/factories/subscribe'
 import {
   createSubscribeHandler,
   defaultSubscribeConfigHandler,
@@ -78,7 +74,7 @@ interface HarnessOptions {
 
 async function renderSubscribeHarness(options: HarnessOptions = {}) {
   const media = options.media
-  const actionSeason = options.actionSeason ?? (media?.type === '电视剧' ? media.season ?? 1 : null)
+  const actionSeason = options.actionSeason ?? (media?.type === '电视剧' ? (media.season ?? 1) : null)
   const Harness = defineComponent({
     name: 'MediaSubscribeHarness',
     setup() {
@@ -174,8 +170,17 @@ function getDialogCall(index = 0) {
 describe('media subscribe identifiers and modes', () => {
   it.each([
     ['TMDB before all fallback identifiers', { bangumi_id: '30', douban_id: '20', tmdb_id: 10 }, 'tmdb:10'],
-    ['Douban before Bangumi and generic identifiers', { bangumi_id: '30', douban_id: '20', tmdb_id: undefined }, 'douban:20'],
-    ['Bangumi before a generic identifier', { bangumi_id: '30', douban_id: undefined, tmdb_id: undefined }, 'bangumi:30'],
+    [
+      'Douban before Bangumi and generic identifiers',
+      { bangumi_id: '30', douban_id: '20', tmdb_id: undefined },
+      'douban:20',
+    ],
+    [
+      'Bangumi before a generic identifier',
+      { bangumi_id: '30', douban_id: undefined, tmdb_id: undefined },
+      'bangumi:30',
+    ],
+    ['AniList after Bangumi', { anilist_id: 40, bangumi_id: undefined, tmdb_id: undefined }, 'anilist:40'],
     [
       'generic identifiers when provider ids are absent',
       { bangumi_id: undefined, douban_id: undefined, media_id: 'abc', mediaid_prefix: 'custom', tmdb_id: undefined },
@@ -217,9 +222,8 @@ describe('useMediaSubscribe entry flows', () => {
     await waitFor(() => expect(created).toHaveBeenCalledOnce())
     await waitFor(() => expect(mocks.doneProgress).toHaveBeenCalledOnce())
     expect(created).toHaveBeenCalledWith({
-      bangumiid: undefined,
-      doubanid: undefined,
       episode_group: '',
+      media_source: 'themoviedb',
       mediaid: '',
       name: '普通电影',
       season: null,
@@ -367,7 +371,13 @@ describe('useMediaSubscribe entry flows', () => {
       label: 'Bangumi',
       media: createSubscribeTv({ bangumi_id: '42', tmdb_id: undefined }),
       mediaId: 'bangumi:42',
-      record: createSubscribe({ bangumiid: 42 as unknown as string, season: 2, tmdbid: 0, type: '电视剧' }),
+      record: createSubscribe({ bangumiid: 42, season: 2, tmdbid: 0, type: '电视剧' }),
+    },
+    {
+      label: 'AniList',
+      media: createSubscribeTv({ anilist_id: 154587, tmdb_id: undefined }),
+      mediaId: 'anilist:154587',
+      record: createSubscribe({ anilistid: 154587, season: 2, tmdbid: 0, type: '电视剧' }),
     },
     {
       label: 'generic provider',
@@ -474,7 +484,9 @@ describe('useMediaSubscribe entry flows', () => {
     const editDialog = getDialogCall()
     expect(editDialog.props).toEqual({ subid: 701 })
 
-    editDialog.events.save(createSubscribe({ best_version: 1, best_version_full: 0, id: 701, season: 2, type: '电视剧' }))
+    editDialog.events.save(
+      createSubscribe({ best_version: 1, best_version_full: 0, id: 701, season: 2, type: '电视剧' }),
+    )
     await waitFor(() => expect(screen.getByTestId('modes')).toHaveTextContent('"2":"best_version"'))
 
     editDialog.events.remove()
@@ -542,10 +554,7 @@ describe('useMediaSubscribe entry flows', () => {
     const media = createSubscribeTv({ title: '模式更新失败剧集', tmdb_id: 110 })
     const updated = vi.fn()
     server.use(
-      querySubscribeByMediaHandler(
-        'tmdb:110',
-        createSubscribe({ id: 710, season: 2, tmdbid: 110, type: '电视剧' }),
-      ),
+      querySubscribeByMediaHandler('tmdb:110', createSubscribe({ id: 710, season: 2, tmdbid: 110, type: '电视剧' })),
       updateSubscribeHandler(response, status, updated),
     )
     await renderSubscribeHarness({

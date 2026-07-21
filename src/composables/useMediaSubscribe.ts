@@ -51,11 +51,15 @@ export type SeasonSubscribeModes = Record<number, SubscribeMode>
 
 // 生成跨媒体源稳定的订阅媒体标识。
 export function getMediaSubscribeId(media?: MediaInfo) {
+  if (media?.media_id && (media.source || media.mediaid_prefix)) {
+    const source = media.mediaid_prefix || media.source
+    return `${source === 'themoviedb' ? 'tmdb' : source}:${media.media_id}`
+  }
   if (media?.tmdb_id) return `tmdb:${media.tmdb_id}`
   if (media?.douban_id) return `douban:${media.douban_id}`
   if (media?.bangumi_id) return `bangumi:${media.bangumi_id}`
   if (media?.anilist_id) return `anilist:${media.anilist_id}`
-  return `${media?.mediaid_prefix}:${media?.media_id}`
+  return ''
 }
 
 // 将订阅模式转换为后端订阅字段。
@@ -277,7 +281,12 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         tmdbid: media.tmdb_id,
         doubanid: media.douban_id,
         bangumiid: media.bangumi_id,
-        mediaid: media.media_id ? `${media.mediaid_prefix}:${media.media_id}` : '',
+        anilistid: media.anilist_id,
+        media_source: media.source || media.mediaid_prefix,
+        media_id: media.media_id,
+        mediaid: media.media_id
+          ? `${(media.mediaid_prefix || media.source) === 'themoviedb' ? 'tmdb' : media.mediaid_prefix || media.source}:${media.media_id}`
+          : '',
         season: media.type === '电影' ? null : season,
         ...payload,
         episode_group: episodeGroup.value,
@@ -342,7 +351,9 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         updateSubscribeStatus(media.type === '电影' ? null : season, false)
         $toast.success(`${title} ${t('subscribe.cancelSuccess')}`)
       } else {
-        $toast.error(`${title} ${t('subscribe.cancelFailed', { message: result.message ?? t('subscribe.requestFailed') })}`)
+        $toast.error(
+          `${title} ${t('subscribe.cancelFailed', { message: result.message ?? t('subscribe.requestFailed') })}`,
+        )
       }
     } catch (error) {
       console.error(error)
@@ -492,7 +503,9 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
     episodeGroup.value = groupId
     const subscribedSeasonSet = new Set(options.subscribedSeasons?.value ?? [])
     const selectedSeasonSet = new Set(
-      seasons.map(season => season.season_number).filter((season): season is number => season !== null && season !== undefined),
+      seasons
+        .map(season => season.season_number)
+        .filter((season): season is number => season !== null && season !== undefined),
     )
     const visibleSeasonSet = new Set(visibleSeasonNumbers)
     const seasonsToSubscribe = seasons.filter(season => {
@@ -506,7 +519,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       const seasonNumber = season.season_number ?? null
       if (seasonNumber === null || !subscribedSeasonSet.has(seasonNumber)) return false
 
-      const nextMode = typeof seasonModes === 'string' ? seasonModes : seasonModes[seasonNumber] ?? 'normal'
+      const nextMode = typeof seasonModes === 'string' ? seasonModes : (seasonModes[seasonNumber] ?? 'normal')
       return (options.subscribedSeasonModes?.value[seasonNumber] ?? 'normal') !== nextMode
     })
 
@@ -518,7 +531,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       const seasonNumber = season.season_number ?? null
       if (seasonNumber === null) return
 
-      const mode = typeof seasonModes === 'string' ? seasonModes : seasonModes[seasonNumber] ?? 'normal'
+      const mode = typeof seasonModes === 'string' ? seasonModes : (seasonModes[seasonNumber] ?? 'normal')
       updateSubscribeMode(seasonNumber, mode)
     })
 
@@ -526,15 +539,11 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
       const seasonNumber = season.season_number ?? null
       if (seasonNumber === null) return
 
-      const mode = typeof seasonModes === 'string' ? seasonModes : seasonModes[seasonNumber] ?? 'normal'
+      const mode = typeof seasonModes === 'string' ? seasonModes : (seasonModes[seasonNumber] ?? 'normal')
       const payload = getSubscribePayload(mode)
-      addSubscribe(
-        seasonNumber,
-        payload,
-        {
-          openEditDialog: seasonsToSubscribe.length === 1 && seasonsToUnsubscribe.length === 0,
-        },
-      )
+      addSubscribe(seasonNumber, payload, {
+        openEditDialog: seasonsToSubscribe.length === 1 && seasonsToUnsubscribe.length === 0,
+      })
     })
   }
 

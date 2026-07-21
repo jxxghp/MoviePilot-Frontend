@@ -198,6 +198,11 @@ function getMediaId() {
   return getMediaSubscribeId(mediaDetail.value)
 }
 
+// 判断详情是否包含可用于后续操作的稳定媒体身份。
+function hasMediaIdentity() {
+  return Boolean(getMediaId())
+}
+
 // 生成当前媒体指定季的订阅状态缓存键
 function getSubscribeStatusKey(season: number | null = mediaDetail.value?.season ?? null) {
   return `${getMediaId()}::${season ?? 'all'}`
@@ -216,7 +221,7 @@ async function getMediaDetail() {
           type_name: mediaProps.type,
         },
       })
-      if (!mediaDetail.value.tmdb_id && !mediaDetail.value.douban_id && !mediaDetail.value.bangumi_id) return
+      if (!hasMediaIdentity()) return
 
       selectedEpisodeGroup.value = mediaDetail.value.episode_group || ''
       if (mediaDetail.value.type === '电视剧' && mediaDetail.value.tmdb_id) {
@@ -307,12 +312,19 @@ async function checkSubscribe(season: number | null = null) {
 
 // 判断订阅记录是否属于当前媒体
 function isSameSubscribeMedia(subscribe: Subscribe) {
+  const mediaId = getMediaId()
+  if (subscribe.media_source && subscribe.media_id) {
+    const prefix = subscribe.media_source === 'themoviedb' ? 'tmdb' : subscribe.media_source
+    return mediaId === `${prefix}:${subscribe.media_id}`
+  }
+  if (subscribe.mediaid) return mediaId === subscribe.mediaid
   if (mediaDetail.value?.tmdb_id && subscribe.tmdbid) return mediaDetail.value.tmdb_id === subscribe.tmdbid
   if (mediaDetail.value?.douban_id && subscribe.doubanid) return mediaDetail.value.douban_id === subscribe.doubanid
   if (mediaDetail.value?.bangumi_id && subscribe.bangumiid) return mediaDetail.value.bangumi_id === subscribe.bangumiid
-
-  const mediaId = mediaDetail.value?.media_id ? `${mediaDetail.value.mediaid_prefix}:${mediaDetail.value.media_id}` : ''
-  return Boolean(mediaId && subscribe.mediaid === mediaId)
+  if (mediaDetail.value?.anilist_id && subscribe.anilistid) {
+    return mediaDetail.value.anilist_id === subscribe.anilistid
+  }
+  return false
 }
 
 // 检查所有季的缺失状态
@@ -777,7 +789,7 @@ onUnmounted(() => {
 <template>
   <LoadingBanner v-if="!isRefreshed" class="mt-12" />
   <div
-    v-if="mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id"
+    v-if="hasMediaIdentity()"
     class="max-w-8xl mx-auto px-4"
     :class="{ 'media-detail-transparent': isTransparentTheme }"
   >
@@ -831,12 +843,7 @@ onUnmounted(() => {
           </span>
         </div>
         <div class="media-actions">
-          <VBtn
-            v-if="(mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) && canSearch"
-            variant="tonal"
-            color="primary"
-            class="media-action-button"
-          >
+          <VBtn v-if="hasMediaIdentity() && canSearch" variant="tonal" color="primary" class="media-action-button">
             <template #prepend>
               <VIcon icon="mdi-magnify" />
             </template>
@@ -853,7 +860,7 @@ onUnmounted(() => {
             </VMenu>
           </VBtn>
           <VBtn
-            v-if="(mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id) && canSearch"
+            v-if="hasMediaIdentity() && canSearch"
             variant="tonal"
             color="info"
             class="media-action-button"
@@ -865,10 +872,7 @@ onUnmounted(() => {
             {{ t('media.actions.searchSubtitle') }}
           </VBtn>
           <VBtn
-            v-if="
-              canSubscribe &&
-              (mediaDetail.type === '电影' || mediaDetail.tmdb_id || mediaDetail.douban_id || mediaDetail.bangumi_id)
-            "
+            v-if="canSubscribe && (mediaDetail.type === '电影' || hasMediaIdentity())"
             class="media-action-button"
             :color="getSubscribeColor"
             variant="tonal"
@@ -1324,7 +1328,7 @@ onUnmounted(() => {
     </template>
   </NoDataFound>
   <NoDataFound
-    v-else-if="!mediaDetail.tmdb_id && !mediaDetail.douban_id && !mediaDetail.bangumi_id && isRefreshed"
+    v-else-if="!hasMediaIdentity() && isRefreshed"
     error-code="500"
     :error-title="t('media.error.title')"
     :error-description="t('media.error.noMediaInfo')"

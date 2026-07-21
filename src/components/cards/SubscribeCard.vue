@@ -264,9 +264,14 @@ async function editSubscribeDialog() {
 
 // 获得mediaid
 function getMediaId() {
+  if (props.media?.media_source && props.media?.media_id) {
+    const prefix = props.media.media_source === 'themoviedb' ? 'tmdb' : props.media.media_source
+    return `${prefix}:${props.media.media_id}`
+  }
   if (props.media?.tmdbid) return `tmdb:${props.media?.tmdbid}`
   else if (props.media?.doubanid) return `douban:${props.media?.doubanid}`
   else if (props.media?.bangumiid) return `bangumi:${props.media?.bangumiid}`
+  else if (props.media?.anilistid) return `anilist:${props.media?.anilistid}`
   else return props.media?.mediaid
 }
 
@@ -480,13 +485,7 @@ function handleCardClick() {
 
               <template v-if="display.xs.value">
                 <div class="subscribe-card-mobile-media">
-                  <VImg
-                    :src="backdropUrl || posterUrl"
-                    :aspect-ratio="2"
-                    cover
-                    position="top"
-                    @load="imageLoadHandler"
-                  >
+                  <VImg :src="backdropUrl || posterUrl" :aspect-ratio="2" cover position="top" @load="imageLoadHandler">
                     <template #placeholder>
                       <VSkeletonLoader class="h-full w-full" />
                     </template>
@@ -535,12 +534,7 @@ function handleCardClick() {
                         </span>
                       </div>
 
-                      <IconBtn
-                        v-if="!props.sortable"
-                        class="subscribe-card-mobile-menu"
-                        size="small"
-                        @click.stop
-                      >
+                      <IconBtn v-if="!props.sortable" class="subscribe-card-mobile-menu" size="small" @click.stop>
                         <VIcon icon="mdi-dots-horizontal" size="20" />
                         <VMenu activator="parent" close-on-content-click>
                           <VList>
@@ -576,112 +570,114 @@ function handleCardClick() {
               </template>
 
               <div v-else>
-              <VCardText class="flex items-center pt-3 pb-2">
-                <div
-                  class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
-                  v-if="imageLoaded"
-                  :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
-                >
-                  <VImg :src="posterUrl" aspect-ratio="2/3" cover>
-                    <template #placeholder>
-                      <div class="w-full h-full">
-                        <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                      </div>
-                    </template>
-                  </VImg>
-                </div>
-                <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
-                  <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
-                  <div class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden line-clamp-2 ...">
-                    {{ props.media?.name }}
-                    {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
-                  </div>
-                </div>
-              </VCardText>
-              <VCardText class="flex min-w-0 justify-space-between align-center flex-wrap px-3">
-                <div class="flex min-w-0 max-w-full align-center">
-                  <VIcon
-                    v-if="props.media?.total_episode && props.sortable"
-                    icon="mdi-progress-download"
-                    size="small"
-                    color="white"
-                    class="me-1"
-                  />
-                  <IconBtn
-                    v-else-if="props.media?.total_episode"
-                    size="small"
-                    v-bind="props"
-                    icon="mdi-progress-download"
-                    color="white"
-                  />
-                  <!-- 守卫改用 total_episode：电视剧订阅可能不带 season 字段（旧数据或自定义来源），仍应展示集数进度 -->
-                  <div v-if="props.media?.total_episode" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
-                    {{ subscribeProgressText }}
-                    <VTooltip v-if="subscribeProgressTooltip" activator="parent" location="top">
-                      {{ subscribeProgressTooltip }}
-                    </VTooltip>
-                  </div>
-                  <VIcon
-                    v-if="props.media?.username && props.sortable"
-                    icon="mdi-account"
-                    size="small"
-                    color="white"
-                    class="flex-shrink-0 me-1"
-                  />
-                  <IconBtn
-                    v-else-if="props.media?.username"
-                    icon="mdi-account"
-                    size="small"
-                    color="white"
-                    class="flex-shrink-0"
-                  />
-                  <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
-                  <span
-                    v-if="props.media?.username"
-                    class="min-w-0 truncate text-subtitle-2 text-white"
-                    :title="props.media?.username"
+                <VCardText class="flex items-center pt-3 pb-2">
+                  <div
+                    class="h-auto w-12 flex-shrink-0 overflow-hidden rounded-md relative"
+                    v-if="imageLoaded"
+                    :class="{ 'cursor-move': props.sortable && display.mdAndUp.value }"
                   >
-                    {{ props.media?.username }}
-                  </span>
-                </div>
-              </VCardText>
-              <!-- 右下角元数据：暂停 / 待定时替换"x 天前"为状态文案 -->
-              <VCardText
-                v-if="rightBottomStateDisplay"
-                class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-              >
-                <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
-                {{ rightBottomStateDisplay.label }}
-              </VCardText>
-              <VCardText
-                v-else-if="lastUpdateText"
-                class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
-              >
-                <VIcon icon="mdi-download" class="me-1" />
-                {{ lastUpdateText }}
-              </VCardText>
-              <div class="w-full absolute bottom-0">
-                <!--
+                    <VImg :src="posterUrl" aspect-ratio="2/3" cover>
+                      <template #placeholder>
+                        <div class="w-full h-full">
+                          <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                        </div>
+                      </template>
+                    </VImg>
+                  </div>
+                  <div class="flex flex-col justify-center overflow-hidden pl-2 xl:pl-4">
+                    <div class="text-sm font-medium text-white sm:pt-1">{{ props.media?.year }}</div>
+                    <div
+                      class="mr-2 min-w-0 text-lg font-bold text-white text-ellipsis overflow-hidden line-clamp-2 ..."
+                    >
+                      {{ props.media?.name }}
+                      {{ formatSeasonLabel(props.media?.season, t('media.specials')) }}
+                    </div>
+                  </div>
+                </VCardText>
+                <VCardText class="flex min-w-0 justify-space-between align-center flex-wrap px-3">
+                  <div class="flex min-w-0 max-w-full align-center">
+                    <VIcon
+                      v-if="props.media?.total_episode && props.sortable"
+                      icon="mdi-progress-download"
+                      size="small"
+                      color="white"
+                      class="me-1"
+                    />
+                    <IconBtn
+                      v-else-if="props.media?.total_episode"
+                      size="small"
+                      v-bind="props"
+                      icon="mdi-progress-download"
+                      color="white"
+                    />
+                    <!-- 守卫改用 total_episode：电视剧订阅可能不带 season 字段（旧数据或自定义来源），仍应展示集数进度 -->
+                    <div v-if="props.media?.total_episode" class="flex-shrink-0 text-subtitle-2 me-2 text-white">
+                      {{ subscribeProgressText }}
+                      <VTooltip v-if="subscribeProgressTooltip" activator="parent" location="top">
+                        {{ subscribeProgressTooltip }}
+                      </VTooltip>
+                    </div>
+                    <VIcon
+                      v-if="props.media?.username && props.sortable"
+                      icon="mdi-account"
+                      size="small"
+                      color="white"
+                      class="flex-shrink-0 me-1"
+                    />
+                    <IconBtn
+                      v-else-if="props.media?.username"
+                      icon="mdi-account"
+                      size="small"
+                      color="white"
+                      class="flex-shrink-0"
+                    />
+                    <!-- 用户名过长时限制在卡片宽度内，并用省略号展示剩余内容 -->
+                    <span
+                      v-if="props.media?.username"
+                      class="min-w-0 truncate text-subtitle-2 text-white"
+                      :title="props.media?.username"
+                    >
+                      {{ props.media?.username }}
+                    </span>
+                  </div>
+                </VCardText>
+                <!-- 右下角元数据：暂停 / 待定时替换"x 天前"为状态文案 -->
+                <VCardText
+                  v-if="rightBottomStateDisplay"
+                  class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
+                >
+                  <VIcon :icon="rightBottomStateDisplay.icon" class="me-1" />
+                  {{ rightBottomStateDisplay.label }}
+                </VCardText>
+                <VCardText
+                  v-else-if="lastUpdateText"
+                  class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300 text-xs"
+                >
+                  <VIcon icon="mdi-download" class="me-1" />
+                  {{ lastUpdateText }}
+                </VCardText>
+                <div class="w-full absolute bottom-0">
+                  <!--
                   分集洗版模式：底色保持深绿、buffer 段显示"已下载未洗版"为浅绿、model 段显示"已洗版完成"为亮绿，
                   形成两段语义；其余订阅维持原有单段进度条
                 -->
-                <VProgressLinear
-                  v-if="isBestVersion && getBufferPercentage() > 0"
-                  :model-value="getPercentage()"
-                  :buffer-value="getBufferPercentage()"
-                  bg-color="success"
-                  bg-opacity="0.25"
-                  color="success"
-                  buffer-color="success"
-                  buffer-opacity="0.55"
-                />
-                <VProgressLinear
-                  v-else-if="getPercentage() > 0"
-                  :model-value="getPercentage()"
-                  bg-color="success"
-                  color="success"
-                />
-              </div>
+                  <VProgressLinear
+                    v-if="isBestVersion && getBufferPercentage() > 0"
+                    :model-value="getPercentage()"
+                    :buffer-value="getBufferPercentage()"
+                    bg-color="success"
+                    bg-opacity="0.25"
+                    color="success"
+                    buffer-color="success"
+                    buffer-opacity="0.55"
+                  />
+                  <VProgressLinear
+                    v-else-if="getPercentage() > 0"
+                    :model-value="getPercentage()"
+                    bg-color="success"
+                    color="success"
+                  />
+                </div>
               </div>
             </VCard>
           </div>

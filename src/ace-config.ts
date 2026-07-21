@@ -70,7 +70,7 @@ function registerJinja2Mode() {
           'boolean|defined|divisibleby|eq|escaped|even|false|filter|float|ge|gt|in|integer|iterable|le|lower|lt|mapping|ne|none|number|odd|sameas|sequence|string|test|true|undefined|upper'
         const operators = 'and|in|is|not|or'
         const contextVariables =
-          'title|en_title|original_title|season|season_fmt|year|title_year|type|category|vote_average|poster|backdrop|season_year|actors|overview|tmdbid|imdbid|doubanid|episode_title|episode_date|original_name|name|en_name|episode|season_episode|part|customization|fps|resourceType|effect|edition|videoFormat|resource_term|releaseGroup|videoCodec|audioCodec|webSource|torrent_title|pubdate|freedate|seeders|volume_factor|hit_and_run|labels|description|site_name|size|transfer_type|file_count|total_size|err_msg|fileExt|__meta__|__mediainfo__|__torrentinfo__|__transferinfo__|__episodes_info__'
+          'title|en_title|original_title|season|season_fmt|year|title_year|type|category|vote_average|poster|backdrop|season_year|actors|overview|tmdbid|imdbid|doubanid|bangumiid|anilistid|media_source|media_id|episode_title|episode_date|original_name|name|en_name|episode|season_episode|part|customization|fps|resourceType|effect|edition|videoFormat|resource_term|releaseGroup|videoCodec|audioCodec|webSource|torrent_title|pubdate|freedate|seeders|volume_factor|hit_and_run|labels|description|site_name|size|transfer_type|file_count|total_size|err_msg|fileExt|__meta__|__mediainfo__|__torrentinfo__|__transferinfo__|__episodes_info__'
 
         const keywordMapper = this.createKeywordMapper(
           {
@@ -282,7 +282,7 @@ function registerJinja2Mode() {
           'boolean|defined|divisibleby|eq|escaped|even|false|filter|float|ge|gt|in|integer|iterable|le|lower|lt|mapping|ne|none|number|odd|sameas|sequence|string|test|true|undefined|upper'
         const operators = 'and|in|is|not|or'
         const contextVariables =
-          'title|en_title|original_title|season|season_fmt|year|title_year|type|category|vote_average|poster|backdrop|season_year|actors|overview|tmdbid|imdbid|doubanid|episode_title|episode_date|original_name|name|en_name|episode|season_episode|part|customization|fps|resourceType|effect|edition|videoFormat|resource_term|releaseGroup|videoCodec|audioCodec|webSource|torrent_title|pubdate|freedate|seeders|volume_factor|hit_and_run|labels|description|site_name|size|transfer_type|file_count|total_size|err_msg|fileExt|__meta__|__mediainfo__|__torrentinfo__|__transferinfo__|__episodes_info__'
+          'title|en_title|original_title|season|season_fmt|year|title_year|type|category|vote_average|poster|backdrop|season_year|actors|overview|tmdbid|imdbid|doubanid|bangumiid|anilistid|media_source|media_id|episode_title|episode_date|original_name|name|en_name|episode|season_episode|part|customization|fps|resourceType|effect|edition|videoFormat|resource_term|releaseGroup|videoCodec|audioCodec|webSource|torrent_title|pubdate|freedate|seeders|volume_factor|hit_and_run|labels|description|site_name|size|transfer_type|file_count|total_size|err_msg|fileExt|__meta__|__mediainfo__|__torrentinfo__|__transferinfo__|__episodes_info__'
 
         const keywordMapper = this.createKeywordMapper(
           {

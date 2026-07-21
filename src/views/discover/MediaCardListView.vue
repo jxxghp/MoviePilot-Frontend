@@ -60,6 +60,7 @@ const dedupFields = [
   'tvdb_id',
   'douban_id',
   'bangumi_id',
+  'anilist_id',
   'mediaid_prefix',
   'media_id',
 ] as const
@@ -100,11 +101,7 @@ async function loadPageData() {
 }
 
 // 获取列表数据
-async function fetchData({
-  done,
-}: {
-  done: (status: 'empty' | 'error' | 'loading' | 'ok') => void
-}) {
+async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'loading' | 'ok') => void }) {
   if (loading.value) {
     done('ok')
     return
@@ -172,10 +169,6 @@ async function fetchData({
         <MediaCard :media="item" />
       </template>
     </ProgressiveCardGrid>
-    <NoDataFound
-      v-if="dataList.length === 0 && isRefreshed"
-      error-code="404"
-      :error-title="t('common.noData')"
-    />
+    <NoDataFound v-if="dataList.length === 0 && isRefreshed" error-code="404" :error-title="t('common.noData')" />
   </VInfiniteScroll>
 </template>

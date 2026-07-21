@@ -207,9 +207,7 @@ describe('MediaCardListView', () => {
       http.get(LIST_URL, ({ request }) => {
         const page = new URL(request.url).searchParams.get('page') ?? ''
         requestedPages.push(page)
-        return HttpResponse.json([
-          createMediaInfo({ title: page === '1' ? '未满屏第一页' : '未满屏第二页' }),
-        ])
+        return HttpResponse.json([createMediaInfo({ title: page === '1' ? '未满屏第一页' : '未满屏第二页' })])
       }),
     )
 
@@ -223,6 +221,7 @@ describe('MediaCardListView', () => {
   it('deduplicates the complete composite identity and uses it for stable render keys', async () => {
     setScrollHeight(() => 900)
     const base = createMediaInfo({
+      anilist_id: 4200,
       bangumi_id: 'bangumi-42',
       douban_id: 'douban-42',
       imdb_id: 'tt0000042',
@@ -244,14 +243,11 @@ describe('MediaCardListView', () => {
       { tvdb_id: 'tvdb-43', title: '不同 tvdb_id' },
       { douban_id: 'douban-43', title: '不同 douban_id' },
       { bangumi_id: 'bangumi-43', title: '不同 bangumi_id' },
+      { anilist_id: 4300, title: '不同 anilist_id' },
       { mediaid_prefix: 'fixture-v2', title: '不同 mediaid_prefix' },
       { media_id: 'media-43', title: '不同 media_id' },
     ]
-    const response = [
-      base,
-      { ...base, title: '完全重复项' },
-      ...variants.map(variant => ({ ...base, ...variant })),
-    ]
+    const response = [base, { ...base, title: '完全重复项' }, ...variants.map(variant => ({ ...base, ...variant }))]
     server.use(http.get(LIST_URL, () => HttpResponse.json(response as unknown as JsonBodyType)))
 
     await renderList()
@@ -268,6 +264,7 @@ describe('MediaCardListView', () => {
       'tvdb_id',
       'douban_id',
       'bangumi_id',
+      'anilist_id',
       'mediaid_prefix',
       'media_id',
     ] as const
@@ -321,9 +318,7 @@ describe('MediaCardListView', () => {
     await renderList()
 
     expect(await screen.findByRole('article', { name: '媒体卡片 中间签名 C' })).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.getByRole('status', { name: '媒体无限列表状态' })).toHaveTextContent('empty'),
-    )
+    await waitFor(() => expect(screen.getByRole('status', { name: '媒体无限列表状态' })).toHaveTextContent('empty'))
     expect(requestedPages).toEqual(['1', '2', '3'])
     expect(screen.getAllByRole('article')).toHaveLength(3)
   })
@@ -334,9 +329,7 @@ describe('MediaCardListView', () => {
 
     await renderList()
 
-    await waitFor(() =>
-      expect(screen.getByRole('status', { name: '媒体无限列表状态' })).toHaveTextContent('empty'),
-    )
+    await waitFor(() => expect(screen.getByRole('status', { name: '媒体无限列表状态' })).toHaveTextContent('empty'))
     expect(screen.queryByText('正在加载媒体列表')).not.toBeInTheDocument()
   })
 

@@ -106,7 +106,9 @@ onActivated(() => {
     <VirtualSlideView
       :items="dataList"
       :loading="!componentLoaded"
-      :get-item-key="item => item.tmdb_id || item.douban_id || item.bangumi_id || item.media_id || item.title"
+      :get-item-key="
+        item => item.media_id || item.tmdb_id || item.douban_id || item.bangumi_id || item.anilist_id || item.title
+      "
     >
       <template #item="{ item }">
         <MediaCard :media="item" width="9rem" />

@@ -24,12 +24,12 @@ const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void
 }>()
 
-const mediaSourceItems: { title: string; value: MediaDataSource }[] = [
-  { title: 'TheMovieDb', value: 'themoviedb' },
-  { title: '豆瓣', value: 'douban' },
-  { title: 'Bangumi', value: 'bangumi' },
-  { title: 'AniList', value: 'anilist' },
-]
+const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
+  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
+  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
+  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
+  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+])
 
 const globalSettingsStore = useGlobalSettingsStore()
 const mediaType = ref('')
@@ -67,7 +67,7 @@ const canSubmit = computed(() => {
 // 获取后台设置中的默认识别数据源，未知值兼容回退到 TheMovieDb。
 function getDefaultMediaSource(): MediaDataSource {
   const configuredSource = globalSettingsStore.globalSettings.RECOGNIZE_SOURCE as MediaDataSource
-  return mediaSourceItems.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
+  return mediaSourceItems.value.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
 }
 
 // 将搜索结果媒体类型映射为手动刮削接口接受的类型名。

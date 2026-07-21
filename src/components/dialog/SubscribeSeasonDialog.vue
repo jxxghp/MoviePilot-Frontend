@@ -164,10 +164,15 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
 
 // 获得mediaid
 function getMediaId() {
+  if (props.media?.media_id && (props.media?.source || props.media?.mediaid_prefix)) {
+    const source = props.media.mediaid_prefix || props.media.source
+    return `${source === 'themoviedb' ? 'tmdb' : source}:${props.media.media_id}`
+  }
   if (props.media?.tmdb_id) return `tmdb:${props.media?.tmdb_id}`
   else if (props.media?.douban_id) return `douban:${props.media?.douban_id}`
   else if (props.media?.bangumi_id) return `bangumi:${props.media?.bangumi_id}`
-  else return `${props.media?.mediaid_prefix}:${props.media?.media_id}`
+  else if (props.media?.anilist_id) return `anilist:${props.media?.anilist_id}`
+  return ''
 }
 
 // 查询所有剧集组
@@ -355,7 +360,8 @@ function getDefaultSeasonMode(season: number) {
 
 // 确保指定季已初始化订阅模式。
 function ensureSeasonMode(season: number) {
-  if (!seasonModes.value[season]) setSeasonMode(season, props.subscribedSeasonModes?.[season] ?? getDefaultSeasonMode(season))
+  if (!seasonModes.value[season])
+    setSeasonMode(season, props.subscribedSeasonModes?.[season] ?? getDefaultSeasonMode(season))
 }
 
 // 在入库状态刷新后同步尚未手动修改的默认模式。

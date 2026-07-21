@@ -47,9 +47,14 @@ const posterUrl = computed(() => {
 
 // 获得mediaid
 function getMediaId() {
+  if (props.media?.media_source && props.media?.media_id) {
+    const prefix = props.media.media_source === 'themoviedb' ? 'tmdb' : props.media.media_source
+    return `${prefix}:${props.media.media_id}`
+  }
   if (props.media?.tmdbid) return `tmdb:${props.media?.tmdbid}`
   else if (props.media?.doubanid) return `douban:${props.media?.doubanid}`
   else if (props.media?.bangumiid) return `bangumi:${props.media?.bangumiid}`
+  else if (props.media?.anilistid) return `anilist:${props.media?.anilistid}`
 }
 
 // 查看媒体详情
@@ -102,61 +107,65 @@ function doDelete() {
               'app-hover-lift-card--hovering': hover.isHovering,
             }"
           >
-          <VCard
-            :key="props.media?.id"
-            class="app-hover-lift-card flex flex-col h-full"
-            min-height="150"
-            @click="showForkSubscribe"
-          >
-            <template #image>
-              <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
-                <template #placeholder>
-                  <div class="w-full h-full">
-                    <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+            <VCard
+              :key="props.media?.id"
+              class="app-hover-lift-card flex flex-col h-full"
+              min-height="150"
+              @click="showForkSubscribe"
+            >
+              <template #image>
+                <VImg :src="backdropUrl || posterUrl" aspect-ratio="3/2" cover @load="imageLoadHandler" position="top">
+                  <template #placeholder>
+                    <div class="w-full h-full">
+                      <VSkeletonLoader class="object-cover aspect-w-3 aspect-h-2" />
+                    </div>
+                  </template>
+                  <template #default>
+                    <div class="absolute inset-0 subscribe-card-background"></div>
+                  </template>
+                </VImg>
+              </template>
+              <div class="h-full flex flex-col">
+                <VCardText class="flex items-center pa-3 pb-1 grow">
+                  <div class="h-auto w-16 flex-shrink-0 overflow-hidden rounded-md" v-if="imageLoaded">
+                    <VImg :src="posterUrl" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
+                      <template #placeholder>
+                        <div class="w-full h-full">
+                          <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+                        </div>
+                      </template>
+                    </VImg>
                   </div>
-                </template>
-                <template #default>
-                  <div class="absolute inset-0 subscribe-card-background"></div>
-                </template>
-              </VImg>
-            </template>
-            <div class="h-full flex flex-col">
-              <VCardText class="flex items-center pa-3 pb-1 grow">
-                <div class="h-auto w-16 flex-shrink-0 overflow-hidden rounded-md" v-if="imageLoaded">
-                  <VImg :src="posterUrl" aspect-ratio="2/3" cover @click.stop="viewMediaDetail">
-                    <template #placeholder>
-                      <div class="w-full h-full">
-                        <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-                      </div>
-                    </template>
-                  </VImg>
-                </div>
-                <div class="flex flex-col justify-center pl-2 xl:pl-4">
-                  <div class="mr-2 min-w-0 text-lg font-bold text-white line-clamp-2 overflow-hidden text-ellipsis ...">
-                    {{ props.media?.share_title }}
+                  <div class="flex flex-col justify-center pl-2 xl:pl-4">
+                    <div
+                      class="mr-2 min-w-0 text-lg font-bold text-white line-clamp-2 overflow-hidden text-ellipsis ..."
+                    >
+                      {{ props.media?.share_title }}
+                    </div>
+                    <div
+                      class="text-sm font-medium text-gray-200 sm:pt-1 line-clamp-3 overflow-hidden text-ellipsis ..."
+                    >
+                      {{ props.media?.share_comment }}
+                    </div>
                   </div>
-                  <div class="text-sm font-medium text-gray-200 sm:pt-1 line-clamp-3 overflow-hidden text-ellipsis ...">
-                    {{ props.media?.share_comment }}
+                </VCardText>
+                <VCardText class="flex justify-space-between align-center flex-wrap py-2">
+                  <div class="flex align-center">
+                    <IconBtn v-bind="props" icon="mdi-account" color="white" class="me-1" />
+                    <div class="text-subtitle-2 me-4 text-white">
+                      {{ props.media?.share_user }}
+                    </div>
+                    <IconBtn v-if="props.media?.count" icon="mdi-fire" color="white" class="me-1" />
+                    <span v-if="props.media?.count" class="text-subtitle-2 me-4 text-white">
+                      {{ props.media?.count.toLocaleString() }}
+                    </span>
                   </div>
-                </div>
-              </VCardText>
-              <VCardText class="flex justify-space-between align-center flex-wrap py-2">
-                <div class="flex align-center">
-                  <IconBtn v-bind="props" icon="mdi-account" color="white" class="me-1" />
-                  <div class="text-subtitle-2 me-4 text-white">
-                    {{ props.media?.share_user }}
-                  </div>
-                  <IconBtn v-if="props.media?.count" icon="mdi-fire" color="white" class="me-1" />
-                  <span v-if="props.media?.count" class="text-subtitle-2 me-4 text-white">
-                    {{ props.media?.count.toLocaleString() }}
-                  </span>
-                </div>
-              </VCardText>
-              <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
-                <VIcon icon="mdi-calendar" class="me-1" />
-                {{ dateText }}
-              </VCardText>
-            </div>
+                </VCardText>
+                <VCardText class="absolute right-0 bottom-0 d-flex align-center p-2 text-gray-300">
+                  <VIcon icon="mdi-calendar" class="me-1" />
+                  {{ dateText }}
+                </VCardText>
+              </div>
             </VCard>
           </div>
         </div>

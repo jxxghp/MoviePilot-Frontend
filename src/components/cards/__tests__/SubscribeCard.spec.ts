@@ -164,7 +164,16 @@ describe('SubscribeCard display and progress', () => {
     ['disabled flag', false, true, 3, '电视剧', 80, false, false],
   ])(
     'normalizes %s for wash progress and badges',
-    async (_case, bestVersion, bestVersionFull, completedEpisode, type, expectedProgress, expectedWash, expectedFull) => {
+    async (
+      _case,
+      bestVersion,
+      bestVersionFull,
+      completedEpisode,
+      type,
+      expectedProgress,
+      expectedWash,
+      expectedFull,
+    ) => {
       const { container } = await renderCard({
         best_version: bestVersion,
         best_version_full: bestVersionFull,
@@ -291,10 +300,20 @@ describe('SubscribeCard interaction boundaries', () => {
   })
 
   it.each([
-    ['TMDB before all fallbacks', { bangumiid: '33', doubanid: '22', mediaid: 'custom:44', tmdbid: 11 }, 'tmdb:11'],
-    ['Douban before Bangumi', { bangumiid: '33', doubanid: '22', mediaid: 'custom:44', tmdbid: 0 }, 'douban:22'],
-    ['Bangumi before custom', { bangumiid: '33', doubanid: undefined, mediaid: 'custom:44', tmdbid: 0 }, 'bangumi:33'],
-    ['custom media ID last', { bangumiid: undefined, doubanid: undefined, mediaid: 'custom:44', tmdbid: 0 }, 'custom:44'],
+    ['TMDB before all fallbacks', { bangumiid: 33, doubanid: '22', mediaid: 'custom:44', tmdbid: 11 }, 'tmdb:11'],
+    ['Douban before Bangumi', { bangumiid: 33, doubanid: '22', mediaid: 'custom:44', tmdbid: 0 }, 'douban:22'],
+    ['Bangumi before custom', { bangumiid: 33, doubanid: undefined, mediaid: 'custom:44', tmdbid: 0 }, 'bangumi:33'],
+    [
+      'AniList before legacy custom',
+      { anilistid: 55, bangumiid: undefined, mediaid: 'custom:44', tmdbid: 0 },
+      'anilist:55',
+    ],
+    ['selected primary identity', { media_id: '66', media_source: 'anilist', tmdbid: 11 }, 'anilist:66'],
+    [
+      'custom media ID last',
+      { bangumiid: undefined, doubanid: undefined, mediaid: 'custom:44', tmdbid: 0 },
+      'custom:44',
+    ],
   ])('routes media details with %s', async (_case, identifiers, expectedMediaId) => {
     const { container, media } = await renderCard(identifiers)
 
@@ -364,30 +383,34 @@ describe('SubscribeCard item operations', () => {
     ['confirmation cancellation', false, 200, { success: true }, null],
     ['business failure', true, 200, { message: 'rejected', success: false }, '暂停失败：rejected'],
     ['HTTP failure', true, 500, { message: 'server down', success: false }, '请求失败，请稍后重试'],
-  ] as const)(
-    'keeps status unchanged after %s',
-    async (_case, confirmed, status, response, expectedError) => {
-      const requested = vi.fn()
-      mocks.confirm.mockResolvedValue(confirmed)
-      const { container, emitted, media } = await renderCard({ state: 'R' })
-      server.use(updateSubscribeStatusHandler(media.id, response, status, requested))
+  ] as const)('keeps status unchanged after %s', async (_case, confirmed, status, response, expectedError) => {
+    const requested = vi.fn()
+    mocks.confirm.mockResolvedValue(confirmed)
+    const { container, emitted, media } = await renderCard({ state: 'R' })
+    server.use(updateSubscribeStatusHandler(media.id, response, status, requested))
 
-      await chooseMenuItem(container, '暂停')
-      await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
+    await chooseMenuItem(container, '暂停')
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce())
 
-      if (confirmed) await waitFor(() => expect(requested).toHaveBeenCalledOnce())
-      else expect(requested).not.toHaveBeenCalled()
-      if (expectedError) await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expectedError))
-      else expect(mocks.toastError).not.toHaveBeenCalled()
-      expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-paused')
-      expect(emitted('save') ?? []).toHaveLength(0)
-    },
-  )
+    if (confirmed) await waitFor(() => expect(requested).toHaveBeenCalledOnce())
+    else expect(requested).not.toHaveBeenCalled()
+    if (expectedError) await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expectedError))
+    else expect(mocks.toastError).not.toHaveBeenCalled()
+    expect(container.querySelector('.subscribe-card')).not.toHaveClass('subscribe-card-paused')
+    expect(emitted('save') ?? []).toHaveLength(0)
+  })
 
   it.each([
     ['success', true, 200, { success: true }, 'success', '卡片测试媒体 重置成功！'],
     ['confirmation cancellation', false, 200, { success: true }, null, null],
-    ['business failure', true, 200, { message: 'rejected', success: false }, 'error', '卡片测试媒体 重置失败：rejected'],
+    [
+      'business failure',
+      true,
+      200,
+      { message: 'rejected', success: false },
+      'error',
+      '卡片测试媒体 重置失败：rejected',
+    ],
     ['HTTP failure', true, 500, { message: 'server down', success: false }, 'error', '请求失败，请稍后重试'],
   ] as const)(
     'handles reset %s without speculative state',
@@ -423,16 +446,19 @@ describe('SubscribeCard item operations', () => {
   it.each([
     ['success', 200, { success: true }, true, null],
     ['HTTP failure', 500, { message: 'server down', success: false }, false, '请求失败，请稍后重试'],
-  ] as const)('handles delete %s without a synthetic business-failure branch', async (_case, status, response, removed, error) => {
-    const requested = vi.fn()
-    const { container, emitted, media } = await renderCard()
-    server.use(deleteSubscribeByIdHandler(media.id, response, status, requested))
+  ] as const)(
+    'handles delete %s without a synthetic business-failure branch',
+    async (_case, status, response, removed, error) => {
+      const requested = vi.fn()
+      const { container, emitted, media } = await renderCard()
+      server.use(deleteSubscribeByIdHandler(media.id, response, status, requested))
 
-    await chooseMenuItem(container, '取消订阅')
+      await chooseMenuItem(container, '取消订阅')
 
-    await waitFor(() => expect(requested).toHaveBeenCalledOnce())
-    expect(emitted('remove') ?? []).toHaveLength(removed ? 1 : 0)
-    if (error) await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(error))
-    else expect(mocks.toastError).not.toHaveBeenCalled()
-  })
+      await waitFor(() => expect(requested).toHaveBeenCalledOnce())
+      expect(emitted('remove') ?? []).toHaveLength(removed ? 1 : 0)
+      if (error) await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(error))
+      else expect(mocks.toastError).not.toHaveBeenCalled()
+    },
+  )
 })

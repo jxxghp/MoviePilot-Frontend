@@ -127,6 +127,7 @@ describe('SubscribeShareCard', () => {
     ['TMDB before Douban', { doubanid: '2202', tmdbid: 1101 }, 'tmdb:1101'],
     ['Douban without TMDB', { doubanid: '2202', tmdbid: undefined }, 'douban:2202'],
     ['Bangumi without TMDB or Douban', { bangumiid: 3303, doubanid: undefined, tmdbid: undefined }, 'bangumi:3303'],
+    ['AniList without other IDs', { anilistid: 4404, bangumiid: undefined, tmdbid: undefined }, 'anilist:4404'],
   ] as const)('routes media details with %s while keeping the fork dialog closed', async (_case, ids, mediaid) => {
     const { container, media } = await renderCard(ids)
     const poster = await loadPoster(container)

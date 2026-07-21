@@ -19,17 +19,17 @@ interface PipelineStep {
 const { t } = useI18n()
 const globalSettingsStore = useGlobalSettingsStore()
 
-const mediaSourceItems: { title: string; value: MediaDataSource }[] = [
-  { title: 'TheMovieDb', value: 'themoviedb' },
-  { title: '豆瓣', value: 'douban' },
-  { title: 'Bangumi', value: 'bangumi' },
-  { title: 'AniList', value: 'anilist' },
-]
+const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
+  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
+  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
+  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
+  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+])
 
 // 获取后台默认识别数据源，未知值兼容回退到TheMovieDb。
 function getDefaultMediaSource(): MediaDataSource {
   const configuredSource = globalSettingsStore.globalSettings.RECOGNIZE_SOURCE as MediaDataSource
-  return mediaSourceItems.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
+  return mediaSourceItems.value.some(item => item.value === configuredSource) ? configuredSource : 'themoviedb'
 }
 
 // 提示
@@ -84,10 +84,10 @@ const resourceChips = computed(() => {
 const canViewMediaDetail = computed(() =>
   Boolean(
     mediaInfo.value?.tmdb_id ||
-      mediaInfo.value?.douban_id ||
-      mediaInfo.value?.bangumi_id ||
-      mediaInfo.value?.anilist_id ||
-      mediaInfo.value?.media_id,
+    mediaInfo.value?.douban_id ||
+    mediaInfo.value?.bangumi_id ||
+    mediaInfo.value?.anilist_id ||
+    mediaInfo.value?.media_id,
   ),
 )
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import type { MediaDataSource } from '@/api/types'
 
 const { t } = useI18n()
 
@@ -20,12 +21,28 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: 'close'): void
-  (event: 'confirm', payload: { doubanId?: string; tmdbId?: number }): void
+  (event: 'confirm', payload: { mediaSource?: MediaDataSource; mediaId?: string }): void
   (event: 'update:modelValue', value: boolean): void
 }>()
 
-const tmdbId = ref<number | undefined>()
-const doubanId = ref<string | undefined>()
+const mediaSource = ref<MediaDataSource>((props.recognizeSource as MediaDataSource) || 'themoviedb')
+const mediaId = ref<string>()
+const mediaSourceItems = computed<{ title: string; value: MediaDataSource }[]>(() => [
+  { title: t('setting.cache.recognitionSource.themoviedb'), value: 'themoviedb' },
+  { title: t('setting.cache.recognitionSource.douban'), value: 'douban' },
+  { title: t('setting.cache.recognitionSource.bangumi'), value: 'bangumi' },
+  { title: t('setting.cache.recognitionSource.anilist'), value: 'anilist' },
+])
+
+const mediaIdLabel = computed(() => {
+  const labels: Record<string, string> = {
+    themoviedb: t('setting.cache.reidentifyDialog.tmdbId'),
+    douban: t('setting.cache.reidentifyDialog.doubanId'),
+    bangumi: t('setting.cache.reidentifyDialog.bangumiId'),
+    anilist: t('setting.cache.reidentifyDialog.anilistId'),
+  }
+  return labels[mediaSource.value] || t('setting.cache.reidentifyDialog.mediaId')
+})
 
 const visible = computed({
   get: () => props.modelValue,
@@ -38,8 +55,8 @@ const visible = computed({
 // 提交重新识别参数给缓存页执行接口调用。
 function submitReidentify() {
   emit('confirm', {
-    doubanId: doubanId.value,
-    tmdbId: tmdbId.value,
+    mediaSource: mediaSource.value,
+    mediaId: mediaId.value?.trim() || undefined,
   })
 }
 </script>
@@ -59,20 +76,20 @@ function submitReidentify() {
       <VCardText>
         <VRow>
           <VCol cols="12">
-            <VTextField
-              v-if="props.recognizeSource === 'themoviedb'"
-              v-model="tmdbId"
-              :label="t('setting.cache.reidentifyDialog.tmdbId')"
-              :hint="t('setting.cache.reidentifyDialog.tmdbIdHint')"
-              clearable
-              prepend-inner-icon="mdi-id-card"
+            <VSelect
+              v-model="mediaSource"
+              :items="mediaSourceItems"
+              :label="t('setting.cache.reidentifyDialog.mediaSource')"
+              :hint="t('setting.cache.reidentifyDialog.mediaSourceHint')"
+              prepend-inner-icon="mdi-database-search"
               persistent-hint
             />
+          </VCol>
+          <VCol cols="12">
             <VTextField
-              v-else
-              v-model="doubanId"
-              :label="t('setting.cache.reidentifyDialog.doubanId')"
-              :hint="t('setting.cache.reidentifyDialog.doubanIdHint')"
+              v-model="mediaId"
+              :label="mediaIdLabel"
+              :hint="t('setting.cache.reidentifyDialog.mediaIdHint')"
               clearable
               prepend-inner-icon="mdi-id-card"
               persistent-hint

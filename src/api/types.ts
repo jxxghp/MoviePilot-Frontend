@@ -1,4 +1,4 @@
-export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist'
+export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist' | (string & {})
 
 // 手动刮削选项
 export interface ManualScrapeOptions {
@@ -27,7 +27,13 @@ export interface Subscribe {
   // 豆瓣ID
   doubanid?: string
   // Bangumi ID
-  bangumiid?: string
+  bangumiid?: number
+  // AniList ID
+  anilistid?: number
+  // 主媒体数据源
+  media_source?: MediaDataSource
+  // 数据源原生ID
+  media_id?: string
   // 其它媒体ID
   mediaid?: string
   // 季号
@@ -128,6 +134,12 @@ export interface SubscribeShare {
   doubanid?: string
   // Bangumi ID
   bangumiid?: number
+  // AniList ID
+  anilistid?: number
+  // 主媒体数据源
+  media_source?: MediaDataSource
+  // 数据源原生ID
+  media_id?: string
   // 季号
   season?: number
   // 海报
@@ -230,6 +242,10 @@ export interface TransferHistory {
   tvdbid?: number
   // 豆瓣ID
   doubanid?: string
+  // Bangumi ID
+  bangumiid?: number
+  // AniList ID
+  anilistid?: number
   // 媒体数据源
   media_source?: MediaDataSource
   // 数据源原生ID
@@ -1535,6 +1551,10 @@ export interface TransferForm {
   tmdbid?: number
   // 豆瓣 ID
   doubanid?: string
+  // Bangumi ID
+  bangumiid?: number
+  // AniList ID
+  anilistid?: number
   // 媒体数据源
   media_source?: MediaDataSource
   // 数据源原生ID
