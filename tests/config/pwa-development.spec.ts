@@ -110,6 +110,8 @@ describe('PWA 开发模式', () => {
     expect(scriptContent).toContain('verifyMoviePilotWorkerOnce')
     expect(scriptContent).toContain('verifyMoviePilotWorker')
     expect(scriptContent).toContain("cleanupState === 'complete'")
+    expect(scriptContent).toContain("sessionStorage.setItem(cleanupAttemptKey, 'pending')")
+    expect(scriptContent).toContain('encodeURIComponent(appScope.pathname)')
     expect(scriptContent).toContain('location.reload()')
     expect(scriptContent).not.toContain('caches.delete')
   })
@@ -148,6 +150,11 @@ describe('PWA 开发模式', () => {
     expect(response.end).toHaveBeenCalledWith(expect.stringContaining('verifyMoviePilotWorker'))
     expect(response.end).toHaveBeenCalledWith(expect.stringContaining('const identityTimeoutMs = 1500'))
     expect(response.end).toHaveBeenCalledWith(expect.stringContaining('const identityAttempts = 2'))
+    expect(response.end).toHaveBeenCalledWith(
+      expect.stringContaining("sessionStorage.getItem(cleanupAttemptKey) !== 'pending'"),
+    )
+    expect(response.end).toHaveBeenCalledWith(expect.stringContaining("const appScope = new URL('./', location.href)"))
+    expect(response.end).not.toHaveBeenCalledWith(expect.stringContaining("new URL('./', returnUrl)"))
     expect(response.end).toHaveBeenCalledWith(
       expect.stringContaining("sessionStorage.setItem(cleanupAttemptKey, 'complete')"),
     )

@@ -80,7 +80,7 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   const retryIdentityVerification = retryMoviePilotIdentityVerification.toString()
   const entryScriptUrl = JSON.stringify(devEntryScriptUrl)
   const cleanupPath = JSON.stringify(DEV_SW_CLEANUP_PATH)
-  const cleanupAttemptKey = JSON.stringify('moviepilot:dev-sw-cleanup-attempted')
+  const cleanupAttemptKeyPrefix = JSON.stringify('moviepilot:dev-sw-cleanup')
 
   const redirectScript = `
 (() => {
@@ -105,9 +105,9 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   const identityAttempts = ${identityAttempts}
   const retryIdentityVerification = ${retryIdentityVerification}
   const cleanupPath = ${cleanupPath}
-  const cleanupAttemptKey = ${cleanupAttemptKey}
-  const cleanupState = sessionStorage.getItem(cleanupAttemptKey)
   const appScope = new URL('./', location.href)
+  const cleanupAttemptKey = ${cleanupAttemptKeyPrefix} + ':' + encodeURIComponent(appScope.pathname)
+  const cleanupState = sessionStorage.getItem(cleanupAttemptKey)
   const getCandidateWorker = registration => {
     if (new URL(registration.scope).href !== appScope.href) return null
     return [registration.active, registration.waiting, registration.installing].find(worker => {
@@ -142,12 +142,10 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
     return false
   }
   const redirectToCleanup = () => {
-    if (cleanupState) return false
-    sessionStorage.setItem(cleanupAttemptKey, '1')
+    sessionStorage.setItem(cleanupAttemptKey, 'pending')
     const target = new URL(cleanupPath.slice(1), appScope)
     target.searchParams.set('return', location.href)
     location.replace(target.href)
-    return true
   }
 
   // unregister 不会立即解除当前 document 的 controller；应用模块加载前需再导航一次以脱离旧 Worker。
@@ -158,7 +156,11 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   }
 
   void hasVerifiedRegistration().then(hasRegistration => {
-    if (hasRegistration && redirectToCleanup()) return
+    if (hasRegistration) {
+      redirectToCleanup()
+      return
+    }
+    sessionStorage.removeItem(cleanupAttemptKey)
     startApp()
   }).catch(error => {
     console.warn('[PWA] Failed to inspect historical Service Worker state', error)
@@ -178,15 +180,15 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
         const identityTimeoutMs = ${identityTimeoutMs}
         const identityAttempts = ${identityAttempts}
         const retryIdentityVerification = ${retryIdentityVerification}
-        const cleanupAttemptKey = ${cleanupAttemptKey}
+        const appScope = new URL('./', location.href)
+        const cleanupAttemptKey = ${cleanupAttemptKeyPrefix} + ':' + encodeURIComponent(appScope.pathname)
         const resolveReturnUrl = () => {
           const requested = new URLSearchParams(location.search).get('return')
-          if (!requested) return new URL('/', location.origin)
-          const target = new URL(requested, location.origin)
-          return target.origin === location.origin ? target : new URL('/', location.origin)
+          if (!requested) return appScope
+          const target = new URL(requested, appScope)
+          return target.href.startsWith(appScope.href) ? target : appScope
         }
         const returnUrl = resolveReturnUrl()
-        const appScope = new URL('./', returnUrl)
         const getCandidateWorker = registration => {
           if (new URL(registration.scope).href !== appScope.href) return null
           return [registration.active, registration.waiting, registration.installing].find(worker => {
@@ -213,6 +215,9 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
         const verifyMoviePilotWorker = worker =>
           retryIdentityVerification(() => verifyMoviePilotWorkerOnce(worker), identityAttempts)
         const cleanup = async () => {
+          if (sessionStorage.getItem(cleanupAttemptKey) !== 'pending') {
+            throw new Error('Missing Service Worker cleanup context for current application scope')
+          }
           const registrations = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistrations() : []
           const managedRegistrations = []
           for (const registration of registrations) {
