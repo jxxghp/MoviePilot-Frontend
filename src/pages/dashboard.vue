@@ -1231,6 +1231,7 @@ async function syncDashboardGrid(resumeAnimation = true) {
 
   const items = dashboardGridItems.value
   const itemMap = new Map(items.map(item => [item.id, item]))
+  const synchronizedWidgets = new Map<string, GridStackWidget>()
   const elements = Array.from(gridElement.querySelectorAll<GridItemHTMLElement>('.dashboard-grid-item')).sort(
     (a, b) => {
       const aWidget = itemMap.get(a.getAttribute('gs-id') ?? '')?.widget
@@ -1274,6 +1275,7 @@ async function syncDashboardGrid(resumeAnimation = true) {
       ) {
         widget.h = element.gridstackNode.h
       }
+      synchronizedWidgets.set(id, widget)
 
       if (element.gridstackNode) {
         grid.update(element, widget)
@@ -1283,9 +1285,9 @@ async function syncDashboardGrid(resumeAnimation = true) {
     })
 
     grid.batchUpdate(false)
-    // 完整 profile 由 GridStack 按坐标统一恢复，避免逐个注册时的 DOM 顺序污染跨列和响应式布局。
+    // 完整档位布局由 GridStack 按坐标统一恢复，避免逐个注册时的页面节点顺序污染跨列和响应式布局。
     grid.load(
-      items.map(item => ({ ...item.widget })),
+      items.map(item => ({ ...(synchronizedWidgets.get(item.id) ?? item.widget) })),
       false,
     )
     updateDashboardGridEditableState(isLayoutEditing.value)

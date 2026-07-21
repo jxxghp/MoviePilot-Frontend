@@ -1,7 +1,7 @@
 import DashboardPage from '@/pages/dashboard.vue'
 import { DEFAULT_PERMISSIONS } from '@/utils/permission'
 import { renderWithProviders } from '@tests/support/render'
-import { screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
@@ -434,6 +434,41 @@ describe('dashboard page initial layout', () => {
       expect(widgets.speed.h).toBe(19)
       expect(widgets.scheduler.h).toBe(23)
     })
+  })
+
+  it('keeps a live automatic height when entering layout editing', async () => {
+    const remoteOrder = deferred<unknown>()
+    const remoteProfile = deferred<unknown>()
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({
+        enabled: enabledOnlySystemInfo,
+        items: { systemInfo: { x: 8, y: 0, w: 4 } },
+        updatedAt: 10,
+      }),
+    )
+    localStorage.setItem('MP_DASHBOARD_GRID_AUTO_HEIGHTS', JSON.stringify({ systemInfo: 6 }))
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return remoteOrder.promise
+      if (url === '/user/config/DashboardGridLayout') return remoteProfile.promise
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    const { container } = await renderDashboard()
+    await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(1))
+    const element = container.querySelector<HTMLElement & { gridstackNode?: Record<string, unknown> }>(
+      '.dashboard-grid-item[gs-id="systemInfo"]',
+    )
+    expect(element?.gridstackNode?.h).toBe(6)
+
+    if (element?.gridstackNode) element.gridstackNode.h = 13
+    mocks.grid.load.mockClear()
+    await fireEvent.click(document.querySelector('.compact-fab--primary') as HTMLElement)
+    await waitFor(() => expect(mocks.grid.load).toHaveBeenCalled())
+
+    const loadedWidgets = mocks.grid.load.mock.calls.at(-1)?.[0] as Array<Record<string, unknown>>
+    expect(loadedWidgets.find(widget => widget.id === 'systemInfo')).toEqual(expect.objectContaining({ h: 13 }))
   })
 
   it('registers an arbitrary saved layout by position instead of settings order', async () => {
