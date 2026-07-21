@@ -257,6 +257,63 @@ describe('dashboard page initial layout', () => {
     expect(await screen.findByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'systemInfo')
   })
 
+  it('applies the shared remote order before profile validation settles', async () => {
+    const remoteOrder = deferred<unknown>()
+    const remoteProfile = deferred<unknown>()
+    const enabled = {
+      ...enabledOnlySystemInfo,
+      quickActions: true,
+      recentImports: true,
+    }
+    localStorage.setItem(
+      'MP_DASHBOARD_GRID_LAYOUT',
+      JSON.stringify({
+        enabled,
+        items: {},
+        updatedAt: 10,
+      }),
+    )
+    localStorage.setItem(
+      'MP_DASHBOARD_ORDER',
+      JSON.stringify([
+        { id: 'systemInfo', key: '' },
+        { id: 'recentImports', key: '' },
+        { id: 'quickActions', key: '' },
+      ]),
+    )
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder') return remoteOrder.promise
+      if (url === '/user/config/DashboardGridLayout') return remoteProfile.promise
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    await renderDashboard()
+    expect(screen.getAllByTestId('dashboard-item').map(item => item.getAttribute('data-dashboard-id'))).toEqual([
+      'systemInfo',
+      'recentImports',
+      'quickActions',
+    ])
+
+    remoteOrder.resolve({
+      data: {
+        value: [
+          { id: 'quickActions', key: '' },
+          { id: 'recentImports', key: '' },
+          { id: 'systemInfo', key: '' },
+        ],
+      },
+    })
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId('dashboard-item').map(item => item.getAttribute('data-dashboard-id'))).toEqual([
+        'quickActions',
+        'recentImports',
+        'systemInfo',
+      ]),
+    )
+  })
+
   it('prepares an automatic card with its last measured profile height without making it manual', async () => {
     const remoteOrder = deferred<unknown>()
     const remoteProfile = deferred<unknown>()
@@ -296,6 +353,7 @@ describe('dashboard page initial layout', () => {
   })
 
   it('applies a newer remote profile and refreshes the local first-frame cache', async () => {
+    const remoteProfile = deferred<unknown>()
     localStorage.setItem(
       'MP_DASHBOARD_GRID_LAYOUT',
       JSON.stringify({
@@ -308,17 +366,7 @@ describe('dashboard page initial layout', () => {
       if (url === '/user/config/DashboardOrder') {
         return { data: { value: [{ id: 'quickActions', key: '' }] } }
       }
-      if (url === '/user/config/DashboardGridLayout') {
-        return {
-          data: {
-            value: {
-              enabled: { ...enabledOnlySystemInfo, quickActions: true, systemInfo: false },
-              items: { quickActions: { x: 8, y: 0, w: 4, h: 5 } },
-              updatedAt: 20,
-            },
-          },
-        }
-      }
+      if (url === '/user/config/DashboardGridLayout') return remoteProfile.promise
       if (url === '/plugin/dashboard/meta') return []
       throw new Error('Unexpected GET ' + url)
     })
@@ -326,6 +374,15 @@ describe('dashboard page initial layout', () => {
     await renderDashboard()
 
     expect(screen.getByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'systemInfo')
+    remoteProfile.resolve({
+      data: {
+        value: {
+          enabled: { ...enabledOnlySystemInfo, quickActions: true, systemInfo: false },
+          items: { quickActions: { x: 8, y: 0, w: 4, h: 5 } },
+          updatedAt: 20,
+        },
+      },
+    })
     await waitFor(() =>
       expect(screen.getByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'quickActions'),
     )

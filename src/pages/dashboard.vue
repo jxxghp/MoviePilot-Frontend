@@ -1030,22 +1030,28 @@ async function loadDashboardConfig() {
   const profileSwitchId = dashboardLayoutProfileSwitchId
   dashboardLayoutProfile.value = profile
   // 顺序和当前设备档位互不依赖，并行校验可缩短无本地缓存时的首屏等待时间。
-  const [order, profileConfig] = await Promise.all([
-    loadSharedDashboardConfig(DASHBOARD_ORDER_CONFIG_KEY, DASHBOARD_ORDER_STORAGE_KEY, normalizeDashboardOrderConfig),
-    loadDashboardProfileConfig(profile),
-  ])
+  const orderPromise = loadSharedDashboardConfig(
+    DASHBOARD_ORDER_CONFIG_KEY,
+    DASHBOARD_ORDER_STORAGE_KEY,
+    normalizeDashboardOrderConfig,
+  )
+  const profileConfigPromise = loadDashboardProfileConfig(profile)
+  // 共享顺序不得等待单个档位请求，否则设置保存可能把尚未应用的旧顺序写回服务端。
+  void orderPromise.then(order => {
+    if (order === undefined) return
+
+    orderConfig.value = order
+    sortDashboardConfigs()
+  })
+  const profileConfig = await profileConfigPromise
   if (profileSwitchId !== dashboardLayoutProfileSwitchId || dashboardLayoutProfile.value !== profile) {
-    if (order !== undefined) {
-      orderConfig.value = order
-      sortDashboardConfigs()
-    }
     return
   }
 
   const legacyEnable = profileConfig?.enabled === undefined ? await loadLegacyDashboardEnableConfig() : undefined
   if (profileSwitchId !== dashboardLayoutProfileSwitchId || dashboardLayoutProfile.value !== profile) return
 
-  applyDashboardConfig(profileConfig, legacyEnable, order)
+  applyDashboardConfig(profileConfig, legacyEnable, undefined)
   if (profileConfig?.enabled === undefined && legacyEnable !== undefined) {
     await saveDashboardProfileConfig()
   }
