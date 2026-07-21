@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { copyToClipboard } from '@/@core/utils/navigator'
 import api from '@/api'
-import type { SubscribeDownloadFileInfo, SubscribeEpisodeInfo, SubscribeLibraryFileInfo, SubscrbieInfo } from '@/api/types'
+import type {
+  SubscribeDownloadFileInfo,
+  SubscribeEpisodeInfo,
+  SubscribeLibraryFileInfo,
+  SubscrbieInfo,
+} from '@/api/types'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
@@ -108,7 +113,10 @@ function formatEpisodeLabel(episodeNumber: number) {
 /**
  * 根据单集文件命中情况判断当前集状态。
  */
-function resolveEpisodeStatus(download: SubscribeDownloadFileInfo[], library: SubscribeLibraryFileInfo[]): EpisodeStatus {
+function resolveEpisodeStatus(
+  download: SubscribeDownloadFileInfo[],
+  library: SubscribeLibraryFileInfo[],
+): EpisodeStatus {
   if (library.length) return 'library'
   if (download.length) return 'download'
   return 'missing'
@@ -140,7 +148,12 @@ function resolveLibraryPathText(file: SubscribeLibraryFileInfo) {
 /**
  * 文件列表项稳定 key（媒体服务器条目可能无路径）。
  */
-function resolveFileKey(tab: SubscribeFileTab, file: SubscribeDownloadFileInfo | SubscribeLibraryFileInfo, index: number, episodeNumber?: number) {
+function resolveFileKey(
+  tab: SubscribeFileTab,
+  file: SubscribeDownloadFileInfo | SubscribeLibraryFileInfo,
+  index: number,
+  episodeNumber?: number,
+) {
   const prefix = episodeNumber == null ? tab : `${episodeNumber}-${tab}`
   if (tab === 'library') {
     const libraryFile = file as SubscribeLibraryFileInfo
@@ -236,9 +249,7 @@ function resolveResolutionLabel(file?: SubscribeDownloadFileInfo | SubscribeLibr
     return undefined
   }
 
-  const text = 'torrent_title' in file
-    ? `${(file as SubscribeDownloadFileInfo).torrent_title || ''} ${path}`
-    : path
+  const text = 'torrent_title' in file ? `${(file as SubscribeDownloadFileInfo).torrent_title || ''} ${path}` : path
   const matched = text.match(/(?:2160|1080|720|480)p|4k|8k/i)
   return matched?.[0]?.toUpperCase()
 }
@@ -393,11 +404,12 @@ onBeforeMount(() => {
 
 <template>
   <VDialog
+    scrollable
     max-width="74rem"
+    :height="display.mdAndUp.value ? '90vh' : undefined"
     :fullscreen="!display.mdAndUp.value"
-    content-class="subscribe-files-overlay"
   >
-    <VCard class="subscribe-files-dialog">
+    <VCard class="subscribe-files-dialog no-blur">
       <VBtn
         class="subscribe-files-dialog__close"
         icon="mdi-close"
@@ -409,7 +421,7 @@ onBeforeMount(() => {
 
       <LoadingBanner v-if="loading" />
 
-      <VCardText v-else class="subscribe-files-dialog__body">
+      <div v-else class="subscribe-files-dialog__body">
         <div v-if="loadError" class="subscribe-files-empty subscribe-files-empty--standalone">
           <VIcon icon="mdi-folder-alert-outline" size="40" />
           <div>{{ t('error.serverError') }}</div>
@@ -494,7 +506,9 @@ onBeforeMount(() => {
                   v-for="episode in episodeGroups"
                   :key="episode.episodeNumber"
                   class="subscribe-files-episode-item"
-                  :class="{ 'subscribe-files-episode-item--active': selectedEpisode?.episodeNumber === episode.episodeNumber }"
+                  :class="{
+                    'subscribe-files-episode-item--active': selectedEpisode?.episodeNumber === episode.episodeNumber,
+                  }"
                   type="button"
                   @click="selectEpisode(episode.episodeNumber)"
                 >
@@ -583,27 +597,36 @@ onBeforeMount(() => {
                               {{ (file as SubscribeDownloadFileInfo).site_name }}
                             </VChip>
                             <VChip
-                              v-if="activeTab === 'library' && resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo)"
+                              v-if="
+                                activeTab === 'library' && resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo)
+                              "
                               color="success"
                               variant="tonal"
                               size="x-small"
                             >
                               {{ resolveLibraryStorageLabel(file as SubscribeLibraryFileInfo) }}
                             </VChip>
-                            <VChip
-                              :color="activeTab === 'download' ? 'info' : 'success'"
-                              variant="flat"
-                              size="x-small"
-                            >
-                              {{ activeTab === 'download' ? t('dialog.subscribeFiles.statusDownloaded') : t('dialog.subscribeFiles.statusInLibrary') }}
+                            <VChip :color="activeTab === 'download' ? 'info' : 'success'" variant="flat" size="x-small">
+                              {{
+                                activeTab === 'download'
+                                  ? t('dialog.subscribeFiles.statusDownloaded')
+                                  : t('dialog.subscribeFiles.statusInLibrary')
+                              }}
                             </VChip>
                           </div>
                           <h3 class="subscribe-files-file-card__title">
-                            {{ activeTab === 'download' ? ((file as SubscribeDownloadFileInfo).torrent_title || t('dialog.subscribeFiles.unknownTorrent')) : activeSectionTitle }}
+                            {{
+                              activeTab === 'download'
+                                ? (file as SubscribeDownloadFileInfo).torrent_title ||
+                                  t('dialog.subscribeFiles.unknownTorrent')
+                                : activeSectionTitle
+                            }}
                           </h3>
                           <div v-if="activeTab === 'download'" class="subscribe-files-file-card__meta">
                             <span v-if="(file as SubscribeDownloadFileInfo).downloader">
-                              {{ t('dialog.subscribeFiles.downloader') }}：{{ (file as SubscribeDownloadFileInfo).downloader }}
+                              {{ t('dialog.subscribeFiles.downloader') }}：{{
+                                (file as SubscribeDownloadFileInfo).downloader
+                              }}
                             </span>
                             <span v-if="(file as SubscribeDownloadFileInfo).hash">
                               Hash：{{ (file as SubscribeDownloadFileInfo).hash }}
@@ -611,7 +634,14 @@ onBeforeMount(() => {
                           </div>
                           <div class="subscribe-files-path-block">
                             <div class="subscribe-files-path-block__label">
-                              <VIcon :icon="activeTab === 'library' && isDetailUrl(file.file_path) ? 'mdi-open-in-new' : 'mdi-folder-outline'" size="16" />
+                              <VIcon
+                                :icon="
+                                  activeTab === 'library' && isDetailUrl(file.file_path)
+                                    ? 'mdi-open-in-new'
+                                    : 'mdi-folder-outline'
+                                "
+                                size="16"
+                              />
                               {{ t('dialog.subscribeFiles.filePath') }}
                             </div>
                             <a
@@ -627,7 +657,7 @@ onBeforeMount(() => {
                               {{
                                 activeTab === 'library'
                                   ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
-                                  : (file.file_path || t('dialog.subscribeFiles.noPath'))
+                                  : file.file_path || t('dialog.subscribeFiles.noPath')
                               }}
                             </code>
                             <VBtn
@@ -697,7 +727,9 @@ onBeforeMount(() => {
                         </VChip>
                       </div>
                       <div v-if="activeTab === 'download'" class="subscribe-files-mobile-file__title">
-                        {{ (file as SubscribeDownloadFileInfo).torrent_title || t('dialog.subscribeFiles.unknownTorrent') }}
+                        {{
+                          (file as SubscribeDownloadFileInfo).torrent_title || t('dialog.subscribeFiles.unknownTorrent')
+                        }}
                       </div>
                       <div class="subscribe-files-path-block subscribe-files-path-block--mobile">
                         <a
@@ -713,7 +745,7 @@ onBeforeMount(() => {
                           {{
                             activeTab === 'library'
                               ? resolveLibraryPathText(file as SubscribeLibraryFileInfo)
-                              : (file.file_path || t('dialog.subscribeFiles.noPath'))
+                              : file.file_path || t('dialog.subscribeFiles.noPath')
                           }}
                         </code>
                         <VBtn
@@ -741,86 +773,10 @@ onBeforeMount(() => {
           <VIcon icon="mdi-folder-alert-outline" size="40" />
           <div>{{ t('dialog.subscribeFiles.noData') }}</div>
         </div>
-      </VCardText>
+      </div>
     </VCard>
   </VDialog>
 </template>
-
-<style lang="scss">
-.subscribe-files-overlay {
-  display: flex !important;
-  flex-direction: column !important;
-  inline-size: 100% !important;
-  width: 100% !important;
-  max-inline-size: 74rem !important;
-  overflow: hidden !important;
-}
-
-.v-dialog:not(.v-dialog--fullscreen) > .subscribe-files-overlay {
-  block-size: 80vh !important;
-  height: 80vh !important;
-  max-block-size: 80vh !important;
-  max-height: 80vh !important;
-}
-
-.v-dialog--fullscreen > .subscribe-files-overlay {
-  block-size: 100% !important;
-  height: 100% !important;
-  max-block-size: 100% !important;
-  max-height: 100% !important;
-  min-block-size: 100% !important;
-  min-height: 100% !important;
-  max-inline-size: 100% !important;
-  max-width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-}
-
-@media (width <= 960px) {
-  .v-dialog > .subscribe-files-overlay {
-    block-size: 100% !important;
-    height: 100% !important;
-    max-block-size: 100% !important;
-    max-height: 100% !important;
-    min-block-size: 100% !important;
-    min-height: 100% !important;
-    max-inline-size: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border-radius: 0 !important;
-  }
-}
-
-.subscribe-files-overlay > .v-card {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  inline-size: 100%;
-  width: 100%;
-  block-size: 100%;
-  height: 100%;
-  min-block-size: 0;
-  overflow: hidden !important;
-}
-
-.v-dialog--fullscreen > .subscribe-files-overlay > .v-card {
-  min-block-size: 100% !important;
-  min-height: 100% !important;
-  block-size: 100% !important;
-  height: 100% !important;
-}
-
-@media (width <= 960px) {
-  .subscribe-files-overlay > .v-card {
-    min-block-size: 100% !important;
-    min-height: 100% !important;
-    block-size: 100% !important;
-    height: 100% !important;
-  }
-}
-</style>
 
 <style lang="scss" scoped>
 .subscribe-files-dialog {
@@ -828,15 +784,15 @@ onBeforeMount(() => {
   overflow: hidden;
   flex: 1 1 auto;
   flex-direction: column;
-  inline-size: 100%;
-  block-size: 100%;
-  min-block-size: 0;
   border: 1px solid rgba(var(--v-theme-on-surface), var(--sfd-border-opacity));
   backdrop-filter: blur(var(--sfd-blur)) saturate(1.18);
   background:
     linear-gradient(145deg, rgba(var(--v-theme-primary), var(--sfd-accent-opacity)), transparent 42%),
-    rgba(var(--v-theme-surface), var(--sfd-dialog-opacity)) !important;
+    rgba(var(--v-theme-surface), var(--sfd-dialog-opacity));
+  block-size: 100%;
   color: rgb(var(--v-theme-on-surface));
+  inline-size: 100%;
+  min-block-size: 0;
 
   --sfd-accent-opacity: 0.1;
   --sfd-blur: 18px;
@@ -857,8 +813,8 @@ onBeforeMount(() => {
   z-index: 8;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   background: rgba(var(--v-theme-surface), 0.22);
-  inset-block-start: 1rem;
-  inset-inline-end: 1rem;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
 }
 
 .subscribe-files-dialog__body {
@@ -867,7 +823,6 @@ onBeforeMount(() => {
   flex: 1 1 0;
   flex-direction: column;
   min-block-size: 0;
-  padding: 0 !important;
 }
 
 .subscribe-files-shell {
@@ -904,10 +859,11 @@ onBeforeMount(() => {
   position: relative;
   z-index: 1;
   display: grid;
-  align-items: end;
-  gap: 2rem;
-  grid-template-columns: 15rem minmax(0, 1fr);
-  padding: 3.5rem 2.25rem 2rem;
+  align-items: center;
+  gap: 1.5rem;
+  grid-template-columns: 7.25rem minmax(0, 1fr);
+  padding-block: 1.25rem;
+  padding-inline: 1.5rem;
 }
 
 .subscribe-files-poster-card {
@@ -927,19 +883,21 @@ onBeforeMount(() => {
   position: absolute;
   display: flex;
   align-items: flex-end;
-  padding: 1.25rem 1rem 1rem;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72));
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 72%));
   color: white;
-  font-size: 1.35rem;
+  font-size: 0.85rem;
   font-weight: 700;
   inset-block-end: 0;
   inset-inline: 0;
   line-height: 1.25;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  padding-block: 1rem 0.65rem;
+  padding-inline: 0.65rem;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 45%);
 }
 
 .subscribe-files-hero__meta {
   min-inline-size: 0;
+  padding-inline-end: 2.5rem;
 }
 
 .subscribe-files-hero__eyebrow {
@@ -954,11 +912,11 @@ onBeforeMount(() => {
 
 .subscribe-files-hero__title {
   overflow: hidden;
-  margin-block: 0.75rem 0.5rem;
-  font-size: clamp(2.1rem, 4vw, 3.25rem);
+  font-size: 1.85rem;
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.08;
+  letter-spacing: 0;
+  line-height: 1.15;
+  margin-block: 0.45rem 0.4rem;
   text-overflow: ellipsis;
 }
 
@@ -971,32 +929,32 @@ onBeforeMount(() => {
 .subscribe-files-hero__description {
   display: -webkit-box;
   overflow: hidden;
-  color: rgba(var(--v-theme-on-surface), 0.76);
-  font-size: 0.95rem;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  line-height: 1.75;
-  margin-block: 1rem 0;
-  max-inline-size: 42rem;
+  color: rgba(var(--v-theme-on-surface), 0.76);
+  font-size: 0.86rem;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.5;
+  margin-block: 0.55rem 0;
+  max-inline-size: 40rem;
 }
 
 .subscribe-files-stats {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.6rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-block-start: 1rem;
-  max-inline-size: 42rem;
+  margin-block-start: 0.65rem;
+  max-inline-size: 36rem;
 }
 
 .subscribe-files-stat-card {
   display: grid;
   align-items: center;
-  padding: 0.9rem;
+  padding: 0.55rem 0.65rem;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
-  gap: 0.65rem;
+  gap: 0.5rem;
   grid-template-columns: auto 1fr;
 }
 
@@ -1012,18 +970,18 @@ onBeforeMount(() => {
   display: grid;
   border-radius: 50%;
   background: rgba(var(--v-theme-on-surface), 0.06);
-  block-size: 2.4rem;
-  inline-size: 2.4rem;
+  block-size: 2rem;
+  inline-size: 2rem;
   place-items: center;
 }
 
 .subscribe-files-stat-card__label {
   color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .subscribe-files-stat-card__value {
-  font-size: 1.45rem;
+  font-size: 1.1rem;
   font-weight: 800;
   line-height: 1.15;
 }
@@ -1032,21 +990,22 @@ onBeforeMount(() => {
   display: grid;
   overflow: hidden;
   flex: 1 1 0;
-  gap: 1rem;
-  grid-template-columns: 19rem minmax(0, 1fr);
+  gap: 0.75rem;
+  grid-template-columns: 17rem minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   min-block-size: 12rem;
-  padding: 0 1.25rem 1.25rem;
+  padding-block: 0 1rem;
+  padding-inline: 1rem;
 }
 
 .subscribe-files-episode-rail,
 .subscribe-files-main {
   overflow: hidden;
-  block-size: 100%;
-  min-block-size: 0;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.1);
   border-radius: var(--app-surface-radius);
   background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
+  block-size: 100%;
+  min-block-size: 0;
 }
 
 .subscribe-files-episode-rail {
@@ -1059,7 +1018,7 @@ onBeforeMount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  padding: 0.75rem;
   border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   gap: 0.75rem;
 }
@@ -1079,15 +1038,15 @@ onBeforeMount(() => {
   overflow: auto;
   flex: 1 1 auto;
   flex-direction: column;
+  padding: 0.6rem;
   gap: 0.35rem;
   min-block-size: 0;
-  padding: 0.75rem;
 }
 
 .subscribe-files-episode-item {
   display: grid;
   align-items: center;
-  padding: 0.75rem;
+  padding: 0.65rem;
   border: 1px solid transparent;
   border-radius: calc(var(--app-surface-radius) - 0.25rem);
   background: transparent;
@@ -1096,7 +1055,10 @@ onBeforeMount(() => {
   cursor: pointer;
   grid-template-columns: 2.75rem minmax(0, 1fr) auto auto;
   text-align: start;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .subscribe-files-episode-item:hover,
@@ -1138,19 +1100,20 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-tabs {
-  padding: 1rem 1rem 0;
+  padding-block: 0.75rem 0;
+  padding-inline: 0.75rem;
 }
 
 .subscribe-files-tab-group {
   display: grid;
   overflow: hidden;
-  inline-size: min(28rem, 100%);
+  padding: 0.25rem;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-surface), var(--sfd-panel-opacity));
   gap: 0.35rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 0.25rem;
+  inline-size: min(28rem, 100%);
 }
 
 .subscribe-files-tab-group :deep(.v-btn) {
@@ -1167,31 +1130,31 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-tab-group__button {
-  border-radius: calc(var(--app-control-radius) - 0.15rem) !important;
-  color: rgba(var(--v-theme-on-surface), 0.72) !important;
+  border-radius: calc(var(--app-control-radius) - 0.15rem);
+  color: rgba(var(--v-theme-on-surface), 0.72);
   font-weight: 700;
   letter-spacing: 0;
 }
 
 .subscribe-files-tab-group__button--active {
-  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.92), rgba(var(--v-theme-primary), 0.68)) !important;
-  color: rgb(var(--v-theme-on-primary)) !important;
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.92), rgba(var(--v-theme-primary), 0.68));
+  color: rgb(var(--v-theme-on-primary));
 }
 
 .subscribe-files-detail {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
+  padding: 0.75rem;
   min-block-size: 0;
-  padding: 1rem;
 }
 
 .subscribe-files-detail__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-block-end: 1rem;
   gap: 1rem;
+  margin-block-end: 0.75rem;
 }
 
 .subscribe-files-detail__title {
@@ -1257,10 +1220,10 @@ onBeforeMount(() => {
 
 .subscribe-files-file-card__title {
   overflow: hidden;
-  margin-block: 0.6rem 0.35rem;
   font-size: 0.96rem;
   font-weight: 700;
   line-height: 1.5;
+  margin-block: 0.6rem 0.35rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1298,7 +1261,7 @@ onBeforeMount(() => {
 .subscribe-files-path-link {
   overflow: hidden;
   color: rgba(var(--v-theme-on-surface), 0.88);
-  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  font-family: 'JetBrains Mono', SFMono-Regular, Consolas, monospace;
   font-size: 0.8rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -1317,17 +1280,17 @@ onBeforeMount(() => {
 .subscribe-files-empty {
   display: grid;
   align-content: center;
-  justify-items: center;
-  min-block-size: 12rem;
   border: 1px dashed rgba(var(--v-theme-on-surface), 0.16);
   border-radius: var(--app-surface-radius);
   color: rgba(var(--v-theme-on-surface), var(--sfd-muted-opacity));
   gap: 0.5rem;
+  justify-items: center;
+  min-block-size: 12rem;
 }
 
 .subscribe-files-empty--standalone {
-  min-block-size: 24rem;
   margin: 1.5rem;
+  min-block-size: 24rem;
 }
 
 .subscribe-files-mobile-list {
@@ -1337,7 +1300,8 @@ onBeforeMount(() => {
   flex-direction: column;
   gap: 0.85rem;
   min-block-size: 0;
-  padding: 0.85rem 1rem 1rem;
+  padding-block: 0.85rem 1rem;
+  padding-inline: 1rem;
 }
 
 .subscribe-files-mobile-card {
@@ -1387,9 +1351,9 @@ onBeforeMount(() => {
 
 .subscribe-files-mobile-card__files {
   display: grid;
+  padding: 0.85rem;
   border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   gap: 0.75rem;
-  padding: 0.85rem;
 }
 
 .subscribe-files-mobile-file {
@@ -1410,12 +1374,15 @@ onBeforeMount(() => {
 }
 
 .subscribe-files-mobile-card__empty {
-  padding: 0 0.85rem 0.85rem;
+  padding-block: 0 0.85rem;
+  padding-inline: 0.85rem;
 }
 
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 
 .fade-slide-enter-from,
@@ -1437,7 +1404,6 @@ onBeforeMount(() => {
 @media (width <= 960px) {
   .subscribe-files-dialog {
     border: 0;
-    border-radius: 0 !important;
     block-size: 100%;
     min-block-size: 100%;
   }
@@ -1460,10 +1426,11 @@ onBeforeMount(() => {
 
   .subscribe-files-hero__content {
     display: grid;
-    align-items: start;
-    gap: 1rem;
-    grid-template-columns: 8rem minmax(0, 1fr);
-    padding: 1rem;
+    align-items: center;
+    padding-block: 0.75rem;
+    padding-inline: 1rem;
+    gap: 0.875rem;
+    grid-template-columns: 6rem minmax(0, 1fr);
   }
 
   .subscribe-files-poster-card {
@@ -1474,8 +1441,17 @@ onBeforeMount(() => {
     display: none;
   }
 
+  .subscribe-files-hero__meta {
+    padding-inline-end: 2.25rem;
+  }
+
+  .subscribe-files-hero__eyebrow {
+    display: none;
+  }
+
   .subscribe-files-hero__title {
-    font-size: 1.55rem;
+    font-size: 1.35rem;
+    margin-block: 0 0.35rem;
   }
 
   .subscribe-files-hero__description {
@@ -1484,17 +1460,21 @@ onBeforeMount(() => {
 
   .subscribe-files-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-block-start: 0.75rem;
+    gap: 0.5rem;
+    margin-block-start: 0.5rem;
   }
 
   .subscribe-files-stat-card {
-    padding: 0.75rem;
-    gap: 0.45rem;
-    grid-template-columns: auto minmax(0, 1fr);
+    padding: 0.5rem 0.6rem;
+    gap: 0.4rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .subscribe-files-stat-card__content {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem;
   }
 
   .subscribe-files-stat-card__label,
@@ -1503,20 +1483,19 @@ onBeforeMount(() => {
   }
 
   .subscribe-files-stat-card__icon {
-    block-size: 2rem;
-    inline-size: 2rem;
+    display: none;
   }
 
   .subscribe-files-stat-card__value {
-    font-size: 1.2rem;
+    font-size: 1rem;
   }
 
   .subscribe-files-content {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    min-block-size: 0;
     padding: 0;
+    min-block-size: 0;
   }
 
   .subscribe-files-main {
@@ -1524,15 +1503,16 @@ onBeforeMount(() => {
     overflow: hidden;
     flex: 1 1 auto;
     flex-direction: column;
-    min-block-size: 0;
     border: 0;
     border-radius: 0;
     background: transparent;
+    min-block-size: 0;
   }
 
   .subscribe-files-tabs {
     flex: 0 0 auto;
-    padding: 0.9rem 1rem 0.25rem;
+    padding-block: 0.75rem 0.25rem;
+    padding-inline: 0.75rem;
   }
 
   .subscribe-files-tab-group {
@@ -1547,8 +1527,8 @@ onBeforeMount(() => {
   }
 
   .subscribe-files-mobile-card__episode {
-    grid-row: 1 / span 2;
     align-self: start;
+    grid-row: 1 / span 2;
   }
 
   .subscribe-files-mobile-card__title {
@@ -1565,7 +1545,7 @@ onBeforeMount(() => {
 
 @media (width <= 560px) {
   .subscribe-files-hero__content {
-    grid-template-columns: 6.5rem minmax(0, 1fr);
+    grid-template-columns: 5.25rem minmax(0, 1fr);
   }
 }
 </style>
