@@ -22,6 +22,7 @@ import {
   emitAgentAssistantToastBubble,
   type AgentAssistantBubbleVariant,
 } from '@/utils/agentAssistantBubble'
+import { initializeServiceWorker } from '@/composables/useVersionChecker'
 
 // 5. 注册自定义组件
 import DialogCloseBtn from '@/@core/components/DialogCloseBtn.vue'
@@ -177,6 +178,9 @@ app
   })
   .use(ConfirmDialog)
   .use(i18n)
+
+// UI 通知依赖安装完成后立即绑定更新监听并启动唯一的 Service Worker 注册。
+void initializeServiceWorker()
 
 app.mount('#app')
 

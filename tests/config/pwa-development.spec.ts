@@ -2,6 +2,7 @@ import type { IndexHtmlTransformContext, IndexHtmlTransformResult, ViteDevServer
 import { describe, expect, it, vi } from 'vitest'
 import {
   createDevServiceWorkerCleanupPlugin,
+  deleteCurrentOriginCaches,
   DEV_SW_CLEANUP_PATH,
   isManagedServiceWorkerRegistration,
   isMoviePilotServiceWorkerIdentityResponse,
@@ -67,6 +68,19 @@ describe('PWA 开发模式', () => {
     expect(alwaysFails).toHaveBeenCalledTimes(2)
   })
 
+  it('删除当前 dev origin 的全部 Cache Storage', async () => {
+    const keys = vi.fn().mockResolvedValue(['precache', 'static-resources', 'api-cache'])
+    const deleteCache = vi.fn().mockResolvedValue(true)
+
+    await deleteCurrentOriginCaches({ keys, delete: deleteCache })
+
+    expect(keys).toHaveBeenCalledOnce()
+    expect(deleteCache).toHaveBeenCalledTimes(3)
+    expect(deleteCache).toHaveBeenNthCalledWith(1, 'precache')
+    expect(deleteCache).toHaveBeenNthCalledWith(2, 'static-resources')
+    expect(deleteCache).toHaveBeenNthCalledWith(3, 'api-cache')
+  })
+
   it('清理完成后只返回当前 origin', () => {
     const origin = 'http://localhost:5173'
 
@@ -112,8 +126,11 @@ describe('PWA 开发模式', () => {
     expect(scriptContent).toContain("cleanupState === 'complete'")
     expect(scriptContent).toContain("sessionStorage.setItem(cleanupAttemptKey, 'pending')")
     expect(scriptContent).toContain('encodeURIComponent(appScope.pathname)')
+    expect(scriptContent).toContain('deleteCurrentOriginCaches(caches)')
     expect(scriptContent).toContain('location.reload()')
-    expect(scriptContent).not.toContain('caches.delete')
+    expect(scriptContent.indexOf('deleteCurrentOriginCaches(caches)')).toBeLessThan(
+      scriptContent.indexOf('sessionStorage.removeItem(cleanupAttemptKey)'),
+    )
   })
 
   it('开发入口标签缺失时立即失败，避免普通 dev 静默白屏', () => {
@@ -158,8 +175,17 @@ describe('PWA 开发模式', () => {
     expect(response.end).toHaveBeenCalledWith(
       expect.stringContaining("sessionStorage.setItem(cleanupAttemptKey, 'complete')"),
     )
-    expect(response.end).not.toHaveBeenCalledWith(expect.stringContaining('caches.delete'))
+    expect(response.end).toHaveBeenCalledWith(expect.stringContaining('deleteCurrentOriginCaches(caches)'))
     expect(response.end).not.toHaveBeenCalledWith(expect.stringContaining('localStorage.clear'))
+
+    const cleanupDocument = vi.mocked(response.end).mock.calls[0]?.[0]
+    if (typeof cleanupDocument !== 'string') throw new TypeError('Expected cleanup document')
+    expect(cleanupDocument.indexOf("sessionStorage.getItem(cleanupAttemptKey) !== 'pending'")).toBeLessThan(
+      cleanupDocument.indexOf('deleteCurrentOriginCaches(caches)'),
+    )
+    expect(cleanupDocument.indexOf('if (!managedRegistrations.length) throw new Error')).toBeLessThan(
+      cleanupDocument.indexOf('deleteCurrentOriginCaches(caches)'),
+    )
   })
 })
 
