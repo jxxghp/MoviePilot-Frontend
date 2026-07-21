@@ -892,6 +892,39 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     expect(container.querySelector('.v-expansion-panel')).toHaveTextContent('第 2 季')
   })
 
+  it('scrolls the episode-group rail in both directions', async () => {
+    const media = createSubscribeTv({
+      season_info: [createMediaSeason({ season_number: 1 })],
+      title: '剧集组滚动剧',
+      tmdb_id: 8718,
+    })
+    const groups = Array.from({ length: 5 }, (_, index) => ({
+      episode_count: 8 + index,
+      group_count: 1,
+      id: `group-${index}`,
+      name: `剧集组 ${index}`,
+    }))
+    const user = userEvent.setup()
+    const { container } = await renderDetail({ episodeGroups: groups, media, type: '电视剧' })
+    const rail = container.querySelector<HTMLElement>('.episode-group-rail')
+    expect(rail).not.toBeNull()
+    Object.defineProperties(rail, {
+      clientWidth: { configurable: true, value: 400 },
+      scrollLeft: { configurable: true, value: 0, writable: true },
+      scrollWidth: { configurable: true, value: 1000 },
+    })
+    rail!.scrollBy = vi.fn()
+    await fireEvent.scroll(rail as HTMLElement)
+
+    await user.click(screen.getByRole('button', { name: '查看更多剧集组' }))
+    expect(rail!.scrollBy).toHaveBeenCalledWith({ behavior: 'smooth', left: 288 })
+
+    rail!.scrollLeft = 300
+    await fireEvent.scroll(rail as HTMLElement)
+    await user.click(screen.getByRole('button', { name: '查看上一组剧集组' }))
+    expect(rail!.scrollBy).toHaveBeenCalledWith({ behavior: 'smooth', left: -288 })
+  })
+
   it('ignores stale episode-group seasons after a newer group is selected', async () => {
     const media = createSubscribeTv({
       season_info: [createMediaSeason({ season_number: 1 })],

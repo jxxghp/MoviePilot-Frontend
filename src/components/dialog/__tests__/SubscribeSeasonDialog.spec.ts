@@ -154,6 +154,18 @@ describe('SubscribeSeasonDialog', () => {
       },
       'custom:custom-7305',
     ],
+    [
+      'source-only TMDB',
+      {
+        bangumi_id: undefined,
+        douban_id: undefined,
+        media_id: 'source-7306',
+        mediaid_prefix: undefined,
+        source: 'themoviedb',
+        tmdb_id: undefined,
+      },
+      'tmdb:source-7306',
+    ],
   ] as const)('uses the %s media identifier without requesting TMDB groups', async (_label, overrides, mediaId) => {
     const media = createTvMedia(overrides)
     const requested = vi.fn()

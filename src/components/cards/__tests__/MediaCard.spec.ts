@@ -461,6 +461,55 @@ describe('MediaCard', () => {
     expect(dialogProps).toMatchObject({ subscribedSeasons: [2] })
   })
 
+  it.each([
+    [
+      'structured TMDB identity',
+      createMediaInfo({
+        media_id: 'series-9554',
+        mediaid_prefix: undefined,
+        season: 2,
+        source: 'themoviedb',
+        tmdb_id: undefined,
+        type: '电视剧',
+      }),
+      'tmdb:series-9554',
+      [
+        { id: 93, media_id: 'series-9554', media_source: 'themoviedb', season: 4, type: '电视剧' },
+        { id: 94, media_id: 'other', media_source: 'themoviedb', season: 5, type: '电视剧' },
+      ],
+      [4],
+    ],
+    [
+      'legacy AniList identity',
+      createMediaInfo({ anilist_id: 154588, season: 2, source: 'anilist', tmdb_id: undefined, type: '电视剧' }),
+      'anilist:154588',
+      [
+        { anilistid: 154588, id: 95, season: 1, type: '电视剧' },
+        { anilistid: 154589, id: 96, season: 3, type: '电视剧' },
+      ],
+      [1],
+    ],
+  ])('matches %s when collecting subscribed TV seasons', async (_label, media, mediaId, subscribes, expected) => {
+    server.use(
+      querySubscribeByMediaHandler(mediaId, { id: 93, season: 2 }),
+      mediaExistsHandler({ data: { item: {} }, success: false }),
+      subscribeListHandler(subscribes),
+      http.get(new URL('system/setting/public/DefaultTvSubscribeConfig', API_BASE_URL).href, () =>
+        HttpResponse.json({ data: { value: {} }, success: true }),
+      ),
+    )
+    const { container } = await renderCard(media)
+    getStatusObservers()[0]?.trigger()
+    await waitFor(() => expect(getActionButtons(container).at(-1)).toHaveClass('text-error'))
+
+    await fireEvent.mouseEnter(getHoverArea(container))
+    await fireEvent.click(getActionButtons(container).at(-1) as HTMLButtonElement)
+
+    await waitFor(() => expect(mocks.openSharedDialog).toHaveBeenCalledOnce())
+    const [, dialogProps] = mocks.openSharedDialog.mock.calls[0] as [unknown, Record<string, unknown>]
+    expect(dialogProps).toMatchObject({ subscribedSeasons: expected })
+  })
+
   it('updates image badges on load and falls back after an image error', async () => {
     const media = createMediaInfo({
       poster_path: '/original/poster.jpg',
