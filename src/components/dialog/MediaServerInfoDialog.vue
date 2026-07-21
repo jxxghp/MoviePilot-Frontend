@@ -287,6 +287,7 @@ onMounted(() => {
                   type="password"
                   v-model="mediaServerInfo.config.password"
                   :label="t('mediaserver.password')"
+                  :hint="t('mediaserver.passwordHint')"
                   persistent-hint
                   active
                   prepend-inner-icon="mdi-lock"
@@ -436,6 +437,8 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaServerInfo.config.username"
                   :label="t('mediaserver.username')"
+                  :hint="t('mediaserver.usernameHint')"
+                  persistent-hint
                   active
                   prepend-inner-icon="mdi-account"
                 />
@@ -445,6 +448,8 @@ onMounted(() => {
                   type="password"
                   v-model="mediaServerInfo.config.password"
                   :label="t('mediaserver.password')"
+                  :hint="t('mediaserver.passwordHint')"
+                  persistent-hint
                   active
                   prepend-inner-icon="mdi-lock"
                 />
@@ -518,6 +523,8 @@ onMounted(() => {
                 <VTextField
                   v-model="mediaServerInfo.config.username"
                   :label="t('mediaserver.username')"
+                  :hint="t('mediaserver.usernameHint')"
+                  persistent-hint
                   active
                   prepend-inner-icon="mdi-account"
                 />
@@ -527,6 +534,8 @@ onMounted(() => {
                   type="password"
                   v-model="mediaServerInfo.config.password"
                   :label="t('mediaserver.password')"
+                  :hint="t('mediaserver.passwordHint')"
+                  persistent-hint
                   active
                   prepend-inner-icon="mdi-lock"
                 />

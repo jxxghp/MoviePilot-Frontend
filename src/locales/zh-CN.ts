@@ -3692,6 +3692,7 @@ export default {
     username: '用户名',
     usernameHint: '登录用户名',
     password: '密码',
+    passwordHint: '登录密码',
     syncLibraries: '同步媒体库',
     syncLibrariesHint: '只有选中的媒体库才会被同步',
     scanMode: '扫描模式',

@@ -3752,6 +3752,7 @@ export default {
     username: 'Username',
     usernameHint: 'Login username',
     password: 'Password',
+    passwordHint: 'Login password',
     syncLibraries: 'Sync Libraries',
     syncLibrariesHint: 'Only selected libraries will be synchronized',
     scanMode: 'Scan Mode',

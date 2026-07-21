@@ -3694,6 +3694,7 @@ export default {
     username: '用戶名',
     usernameHint: '登錄用戶名',
     password: '密碼',
+    passwordHint: '登錄密碼',
     syncLibraries: '同步媒體庫',
     syncLibrariesHint: '只有選中的媒體庫才會被同步',
     scanMode: '掃描模式',
