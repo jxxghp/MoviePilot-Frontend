@@ -4,7 +4,7 @@ import type { PropType } from 'vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from 'vue-toastification'
 import { formatBytes } from '@core/utils/formatters'
-import type { Context, EndPoints, FileItem } from '@/api/types'
+import type { Context, EndPoints, FileItem, ManualScrapeOptions } from '@/api/types'
 import api from '@/api'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -18,6 +18,7 @@ const FileRenameDialog = defineAsyncComponent(() => import('../dialog/FileRename
 const MediaInfoDialog = defineAsyncComponent(() => import('../dialog/MediaInfoDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('../dialog/ProgressDialog.vue'))
 const ReorganizeDialog = defineAsyncComponent(() => import('../dialog/ReorganizeDialog.vue'))
+const ScrapeDialog = defineAsyncComponent(() => import('../dialog/ScrapeDialog.vue'))
 
 // 国际化
 const { t } = useI18n()
@@ -105,10 +106,12 @@ const currentItem = ref<FileItem>()
 // 选中的项目
 const selected = ref<FileItem[]>([])
 
+// 生成文件项稳定键，用于去重和状态同步。
 function getFileItemKey(item?: FileItem) {
   return [item?.storage ?? inProps.item.storage ?? '', item?.type ?? '', item?.path ?? ''].join('|')
 }
 
+// 按存储、类型和路径去重文件项。
 function dedupeFileItems(fileItems: FileItem[]) {
   const uniqueItems = new Map<string, FileItem>()
   fileItems.forEach(item => {
@@ -118,6 +121,7 @@ function dedupeFileItems(fileItems: FileItem[]) {
   return Array.from(uniqueItems.values())
 }
 
+// 列表刷新后将选中项同步为最新文件对象。
 function syncSelectedItems(nextItems: FileItem[] = items.value) {
   if (!selected.value.length) return
 
@@ -129,10 +133,12 @@ function syncSelectedItems(nextItems: FileItem[] = items.value) {
 
 const selectedKeys = computed(() => new Set(selected.value.map(item => getFileItemKey(item))))
 
+// 判断文件项当前是否已选中。
 function isSelected(item: FileItem) {
   return selectedKeys.value.has(getFileItemKey(item))
 }
 
+// 更新单个文件项的选中状态。
 function setItemSelected(item: FileItem, checked: boolean) {
   const itemKey = getFileItemKey(item)
 
@@ -219,6 +225,7 @@ const transferItems = ref<FileItem[]>([])
 // 当前图片地址
 const currentImgLink = ref('')
 
+// 释放当前图片预览使用的临时对象地址。
 function revokeCurrentImgLink() {
   if (!currentImgLink.value) return
 
@@ -610,7 +617,7 @@ watch(
         props: {
           prependIcon: 'mdi-auto-fix',
           click: (_item: FileItem) => {
-            scrape(_item)
+            showScrape(_item)
           },
         },
       },
@@ -672,56 +679,65 @@ async function recognize(path: string) {
   }
 }
 
-// 调用API刮削
-async function scrape(item: FileItem, confirm: boolean = true) {
+// 调用 API 按请求级媒体条件刮削单个文件项。
+async function scrape(item: FileItem, options: ManualScrapeOptions) {
   try {
-    if (confirm) {
-      // 确认
-      const confirmed = await createConfirm({
-        title: t('common.confirm'),
-        content: t('file.confirmScrape', { path: item.path }),
-      })
-      if (!confirmed) return
-    }
-
-    // 显示进度条
     progressText.value = t('file.scraping', { path: item.path })
-    openProgressDialog(progressText.value)
+    progressDialogController?.updateProps({ text: progressText.value })
 
-    const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.item.storage}`, item)
+    const result: { [key: string]: any } = await api.post(`media/scrape/${inProps.item.storage}`, item, {
+      params: options,
+    })
 
-    // 关闭进度条
-    closeProgressDialog()
     if (!result.success) $toast.error(result.message)
     else $toast.success(t('file.scrapeCompleted', { path: item.path }))
   } catch (error) {
-    closeProgressDialog()
     console.error(error)
   }
 }
 
-// 批量刮削
-async function batchScrape() {
-  if (!selected.value.length) return
+// 按同一媒体条件依次刮削选中的文件项。
+async function scrapeItems(itemsToScrape: FileItem[], options: ManualScrapeOptions) {
+  const normalizedItems = dedupeFileItems(itemsToScrape)
+  if (!normalizedItems.length) return
 
-  // 确认
-  const confirmed = await createConfirm({
-    title: t('common.confirm'),
-    content: t('file.confirmBatchScrape', { count: selected.value.length }),
-  })
-  if (!confirmed) return
-
+  progressText.value = t('file.scraping', { path: normalizedItems[0].path })
+  progressValue.value = 0
+  openProgressDialog(progressText.value, progressValue.value)
   try {
-    const selectedItems = dedupeFileItems(selected.value)
-
-    for (const item of selectedItems) {
-      await scrape(item, false)
+    for (const [index, item] of normalizedItems.entries()) {
+      await scrape(item, options)
+      progressValue.value = Math.round(((index + 1) / normalizedItems.length) * 100)
+      progressDialogController?.updateProps({ value: progressValue.value })
     }
-
-    exitSelectMode()
   } finally {
+    closeProgressDialog()
+    if (selectMode.value) exitSelectMode()
     list_files({ silent: true })
   }
+}
+
+// 打开单项手动刮削弹窗。
+function showScrape(item: FileItem) {
+  openScrapeDialog([item])
+}
+
+// 打开批量手动刮削弹窗。
+function showBatchScrape() {
+  openScrapeDialog(dedupeFileItems(selected.value))
+}
+
+// 打开手动刮削弹窗，并将确认结果交给文件列表执行。
+function openScrapeDialog(itemsToScrape: FileItem[]) {
+  if (!itemsToScrape.length) return
+  openSharedDialog(
+    ScrapeDialog,
+    { items: itemsToScrape },
+    {
+      scrape: (options: ManualScrapeOptions) => scrapeItems(itemsToScrape, options),
+    },
+    { closeOn: ['close', 'scrape'] },
+  )
 }
 
 // 进度SSE消息处理函数
@@ -802,7 +818,7 @@ onUnmounted(() => {
         </IconBtn>
         <!-- 批量操作按钮 -->
         <span v-if="selected.length > 0">
-          <IconBtn @click.stop="batchScrape">
+          <IconBtn @click.stop="showBatchScrape">
             <VIcon color="primary" icon="mdi-auto-fix" />
           </IconBtn>
           <IconBtn @click.stop="showBatchTransfer">
@@ -892,7 +908,7 @@ onUnmounted(() => {
                         <IconBtn @click.stop="recognize(item.path)">
                           <VIcon icon="mdi-text-recognition" />
                         </IconBtn>
-                        <IconBtn @click.stop="scrape(item)">
+                        <IconBtn @click.stop="showScrape(item)">
                           <VIcon icon="mdi-auto-fix" />
                         </IconBtn>
                         <IconBtn @click.stop="showRenmae(item)">

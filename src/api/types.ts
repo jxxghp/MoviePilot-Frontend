@@ -1,5 +1,15 @@
 export type MediaDataSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist'
 
+// 手动刮削选项
+export interface ManualScrapeOptions {
+  // 媒体数据源
+  media_source: MediaDataSource
+  // 数据源原生ID
+  media_id?: string
+  // 媒体类型
+  type_name?: string
+}
+
 // 订阅
 export interface Subscribe {
   // 订阅ID

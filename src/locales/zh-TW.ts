@@ -3279,6 +3279,7 @@ export default {
     recognizing: '正在識別 {path}...',
     recognizeFailed: '{path} 識別失敗！',
     scrape: '刮削',
+    manualScrape: '手動刮削',
     scraping: '正在刮削 {path}...',
     scrapeCompleted: '{path} 削刮完成！',
     confirmScrape: '是否確認刮削 {path}？',

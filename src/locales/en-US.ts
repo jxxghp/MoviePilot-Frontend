@@ -3332,6 +3332,7 @@ export default {
     recognizing: 'Recognizing {path}...',
     recognizeFailed: '{path} recognition failed!',
     scrape: 'Scrape',
+    manualScrape: 'Manual Scrape',
     scraping: 'Scraping {path}...',
     scrapeCompleted: '{path} scraping completed!',
     confirmScrape: 'Are you sure you want to scrape {path}?',
