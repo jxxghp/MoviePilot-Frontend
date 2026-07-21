@@ -80,7 +80,7 @@ yarn build
 
 第二阶段在 Pull Request workflow 中增加独立的全仓 `yarn lint` job：
 
-1. lint 与既有 `unit-tests` 使用不同 job，避免改变现有测试 check 的名称和职责。
+1. lint 与 `typecheck-and-coverage` 使用不同 job，保持静态检查和测试覆盖率职责独立。
 2. 初始阶段作为普通 check 运行，不立即配置 required check。
 3. workflow 使用 Node 24、frozen lockfile 和只读 `yarn lint`，不执行自动修复或更新 baseline。
 4. 观察 fork PR、依赖缓存、执行时间、误报和路径范围。
