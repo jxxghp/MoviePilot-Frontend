@@ -3,6 +3,8 @@ import type { Plugin } from 'vite'
 const PWA_DEVELOPMENT_SCRIPT = 'dev:pwa'
 export const DEV_SW_CLEANUP_PATH = '/__moviepilot_dev_sw_cleanup__'
 
+const devEntryScriptTag = '<script type="module" src="/src/main.ts"></script>'
+const devEntryScriptUrl = '/src/main.ts'
 const moviePilotWorkerScripts = ['dev-sw.js?dev-sw', 'service-worker.js']
 const moviePilotIdentityMessage = 'GET_UNREAD_COUNT'
 const moviePilotIdentityTimeoutMs = 1500
@@ -76,12 +78,26 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   const identityTimeoutMs = JSON.stringify(moviePilotIdentityTimeoutMs)
   const identityAttempts = JSON.stringify(moviePilotIdentityAttempts)
   const retryIdentityVerification = retryMoviePilotIdentityVerification.toString()
+  const entryScriptUrl = JSON.stringify(devEntryScriptUrl)
   const cleanupPath = JSON.stringify(DEV_SW_CLEANUP_PATH)
   const cleanupAttemptKey = JSON.stringify('moviepilot:dev-sw-cleanup-attempted')
 
   const redirectScript = `
 (() => {
-  if (!('serviceWorker' in navigator)) return
+  const entryScriptUrl = ${entryScriptUrl}
+  let appStarted = false
+  const startApp = () => {
+    if (appStarted) return
+    appStarted = true
+    const entry = document.createElement('script')
+    entry.type = 'module'
+    entry.src = entryScriptUrl
+    document.head.appendChild(entry)
+  }
+  if (!('serviceWorker' in navigator)) {
+    startApp()
+    return
+  }
 
   const workerScripts = ${workerScripts}
   const identityMessage = ${identityMessage}
@@ -126,11 +142,12 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
     return false
   }
   const redirectToCleanup = () => {
-    if (cleanupState) return
+    if (cleanupState) return false
     sessionStorage.setItem(cleanupAttemptKey, '1')
     const target = new URL(cleanupPath.slice(1), appScope)
     target.searchParams.set('return', location.href)
     location.replace(target.href)
+    return true
   }
 
   // unregister 不会立即解除当前 document 的 controller；应用模块加载前需再导航一次以脱离旧 Worker。
@@ -141,7 +158,11 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   }
 
   void hasVerifiedRegistration().then(hasRegistration => {
-    if (hasRegistration) redirectToCleanup()
+    if (hasRegistration && redirectToCleanup()) return
+    startApp()
+  }).catch(error => {
+    console.warn('[PWA] Failed to inspect historical Service Worker state', error)
+    startApp()
   })
 })()
 `
@@ -234,8 +255,15 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
     },
     transformIndexHtml: {
       order: 'pre',
-      handler() {
-        return [{ tag: 'script', children: redirectScript, injectTo: 'head-prepend' }]
+      handler(html) {
+        if (!html.includes(devEntryScriptTag)) {
+          throw new Error(`Expected development entry tag: ${devEntryScriptTag}`)
+        }
+
+        return {
+          html: html.replace(devEntryScriptTag, ''),
+          tags: [{ tag: 'script', children: redirectScript, injectTo: 'head-prepend' }],
+        }
       },
     },
   }

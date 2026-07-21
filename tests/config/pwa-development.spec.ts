@@ -80,14 +80,18 @@ describe('PWA 开发模式', () => {
     const transform = plugin.transformIndexHtml
 
     expect(transform).toBeTypeOf('object')
+    const entryTag = '<script type="module" src="/src/main.ts"></script>'
     const result = await (
       transform as {
         handler: (html: string, context: IndexHtmlTransformContext) => IndexHtmlTransformResult
       }
-    ).handler('', {} as IndexHtmlTransformContext)
-    if (!Array.isArray(result)) throw new Error('Expected transformIndexHtml to return injected tags')
-    const [script] = result
+    ).handler(`<main>loading</main>${entryTag}`, {} as IndexHtmlTransformContext)
+    if (!result || Array.isArray(result) || typeof result === 'string') {
+      throw new Error('Expected transformIndexHtml to gate the development entry')
+    }
+    const [script] = result.tags ?? []
 
+    expect(result.html).toBe('<main>loading</main>')
     expect(script.injectTo).toBe('head-prepend')
     if (typeof script.children !== 'string') throw new TypeError('Expected an inline cleanup script')
     const scriptContent = script.children
@@ -101,11 +105,25 @@ describe('PWA 开发模式', () => {
     expect(scriptContent).toContain('const identityTimeoutMs = 1500')
     expect(scriptContent).toContain('const identityAttempts = 2')
     expect(scriptContent).toContain('retryMoviePilotIdentityVerification')
+    expect(scriptContent).toContain('entry.src = entryScriptUrl')
+    expect(scriptContent).toContain('startApp()')
     expect(scriptContent).toContain('verifyMoviePilotWorkerOnce')
     expect(scriptContent).toContain('verifyMoviePilotWorker')
     expect(scriptContent).toContain("cleanupState === 'complete'")
     expect(scriptContent).toContain('location.reload()')
     expect(scriptContent).not.toContain('caches.delete')
+  })
+
+  it('开发入口标签缺失时立即失败，避免普通 dev 静默白屏', () => {
+    const transform = createDevServiceWorkerCleanupPlugin().transformIndexHtml
+
+    expect(() =>
+      (
+        transform as {
+          handler: (html: string, context: IndexHtmlTransformContext) => IndexHtmlTransformResult
+        }
+      ).handler('<main>missing entry</main>', {} as IndexHtmlTransformContext),
+    ).toThrow('Expected development entry tag')
   })
 
   it('提供不缓存的清理页面并只清理 MoviePilot 管理的浏览器状态', () => {
