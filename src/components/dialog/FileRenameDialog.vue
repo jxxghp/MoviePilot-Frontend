@@ -74,6 +74,7 @@ function closeDialog() {
               :label="t('file.newName')"
               :loading="loading"
               prepend-inner-icon="mdi-format-text"
+              mobile-control-width="80%"
             />
           </VCol>
           <VCol v-if="item && item.type == 'dir'" cols="12">
