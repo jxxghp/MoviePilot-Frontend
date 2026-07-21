@@ -3,16 +3,10 @@ import type { Plugin } from 'vite'
 const PWA_DEVELOPMENT_SCRIPT = 'dev:pwa'
 export const DEV_SW_CLEANUP_PATH = '/__moviepilot_dev_sw_cleanup__'
 
-const moviePilotWorkerPaths = ['/dev-sw.js', '/service-worker.js']
-const moviePilotCachePrefixes = [
-  'app-shell-',
-  'static-resources-',
-  'image-cache-',
-  'font-cache-',
-  'api-cache-',
-  'tmdb-image-cache-',
-  'workbox-precache-',
-]
+const moviePilotWorkerScripts = ['dev-sw.js?dev-sw', 'service-worker.js']
+const moviePilotIdentityMessage = 'GET_UNREAD_COUNT'
+const moviePilotIdentityTimeoutMs = 1500
+const moviePilotIdentityAttempts = 2
 
 /** 普通 development mode 仅在显式 dev:pwa 脚本中启用开发 Service Worker。 */
 export const isPwaDevelopmentEnabled = (mode: string, lifecycleEvent?: string) =>
@@ -27,15 +21,44 @@ export const shouldEnableDevServiceWorkerCleanup = (
 ) =>
   command === 'serve' && mode === 'development' && isPreview !== true && !isPwaDevelopmentEnabled(mode, lifecycleEvent)
 
-/** 判断脚本 URL 是否属于当前 origin 的 MoviePilot Service Worker。 */
-export function isManagedServiceWorkerUrl(scriptUrl: string, origin: string): boolean {
-  const url = new URL(scriptUrl)
-  return url.origin === origin && moviePilotWorkerPaths.some(path => url.pathname.endsWith(path))
+/** 解析当前页面所属的应用根目录，兼容根路径和子路径部署。 */
+export function resolveDevAppScope(pageUrl: string): URL {
+  return new URL('./', new URL(pageUrl))
 }
 
-/** 判断 Cache Storage 名称是否属于 MoviePilot 管理的缓存。 */
-export const isManagedCacheName = (name: string): boolean =>
-  moviePilotCachePrefixes.some(prefix => name.startsWith(prefix))
+/** Worker 的 scope 和脚本 URL 都必须精确落在当前应用根目录。 */
+export function isManagedServiceWorkerRegistration(
+  scriptUrl: string,
+  registrationScope: string,
+  pageUrl: string,
+): boolean {
+  const appScope = resolveDevAppScope(pageUrl)
+  const scope = new URL(registrationScope)
+  const script = new URL(scriptUrl)
+
+  return (
+    scope.href === appScope.href &&
+    moviePilotWorkerScripts.some(workerScript => script.href === new URL(workerScript, appScope).href)
+  )
+}
+
+/** 复用现有轻量消息协议确认 Worker 确由 MoviePilot 提供。 */
+export function isMoviePilotServiceWorkerIdentityResponse(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+
+  return typeof (value as { count?: unknown }).count === 'number'
+}
+
+/** 身份探测允许有限次重试；持续失败时保持现有注册，避免误清理未知 Worker。 */
+export async function retryMoviePilotIdentityVerification(
+  verifyOnce: () => Promise<boolean>,
+  attempts: number,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (await verifyOnce()) return true
+  }
+  return false
+}
 
 /** 清理完成后只允许返回当前 origin，避免开发中间页形成开放重定向。 */
 export function resolveDevCleanupReturnUrl(requested: string | null, origin: string): URL {
@@ -48,8 +71,11 @@ export function resolveDevCleanupReturnUrl(requested: string | null, origin: str
  * 普通开发服务器不应被历史 Service Worker 控制；受控页面先进入独立清理页，避免旧缓存模块抢先执行。
  */
 export function createDevServiceWorkerCleanupPlugin(): Plugin {
-  const workerPaths = JSON.stringify(moviePilotWorkerPaths)
-  const cachePrefixes = JSON.stringify(moviePilotCachePrefixes)
+  const workerScripts = JSON.stringify(moviePilotWorkerScripts)
+  const identityMessage = JSON.stringify(moviePilotIdentityMessage)
+  const identityTimeoutMs = JSON.stringify(moviePilotIdentityTimeoutMs)
+  const identityAttempts = JSON.stringify(moviePilotIdentityAttempts)
+  const retryIdentityVerification = retryMoviePilotIdentityVerification.toString()
   const cleanupPath = JSON.stringify(DEV_SW_CLEANUP_PATH)
   const cleanupAttemptKey = JSON.stringify('moviepilot:dev-sw-cleanup-attempted')
 
@@ -57,20 +83,52 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
 (() => {
   if (!('serviceWorker' in navigator)) return
 
-  const workerPaths = ${workerPaths}
-  const cachePrefixes = ${cachePrefixes}
+  const workerScripts = ${workerScripts}
+  const identityMessage = ${identityMessage}
+  const identityTimeoutMs = ${identityTimeoutMs}
+  const identityAttempts = ${identityAttempts}
+  const retryIdentityVerification = ${retryIdentityVerification}
   const cleanupPath = ${cleanupPath}
   const cleanupAttemptKey = ${cleanupAttemptKey}
   const cleanupState = sessionStorage.getItem(cleanupAttemptKey)
-  const isManagedWorker = worker => {
-    if (!worker) return false
-    const url = new URL(worker.scriptURL)
-    return url.origin === location.origin && workerPaths.some(path => url.pathname.endsWith(path))
+  const appScope = new URL('./', location.href)
+  const getCandidateWorker = registration => {
+    if (new URL(registration.scope).href !== appScope.href) return null
+    return [registration.active, registration.waiting, registration.installing].find(worker => {
+      if (!worker) return false
+      const scriptUrl = new URL(worker.scriptURL).href
+      return workerScripts.some(workerScript => scriptUrl === new URL(workerScript, appScope).href)
+    }) || null
+  }
+  const verifyMoviePilotWorkerOnce = worker => new Promise(resolve => {
+    const channel = new MessageChannel()
+    const finish = result => {
+      window.clearTimeout(timeout)
+      channel.port1.close()
+      resolve(result)
+    }
+    const timeout = window.setTimeout(() => finish(false), identityTimeoutMs)
+    channel.port1.onmessage = event => finish(typeof event.data?.count === 'number')
+    try {
+      worker.postMessage({ type: identityMessage }, [channel.port2])
+    } catch {
+      finish(false)
+    }
+  })
+  const verifyMoviePilotWorker = worker =>
+    retryIdentityVerification(() => verifyMoviePilotWorkerOnce(worker), identityAttempts)
+  const hasVerifiedRegistration = async () => {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    for (const registration of registrations) {
+      const worker = getCandidateWorker(registration)
+      if (worker && await verifyMoviePilotWorker(worker)) return true
+    }
+    return false
   }
   const redirectToCleanup = () => {
     if (cleanupState) return
     sessionStorage.setItem(cleanupAttemptKey, '1')
-    const target = new URL(cleanupPath, location.origin)
+    const target = new URL(cleanupPath.slice(1), appScope)
     target.searchParams.set('return', location.href)
     location.replace(target.href)
   }
@@ -82,27 +140,8 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
     return
   }
 
-  if (isManagedWorker(navigator.serviceWorker.controller)) {
-    redirectToCleanup()
-    return
-  }
-
-  void navigator.serviceWorker.getRegistrations().then(registrations => {
-    const hasManagedRegistration = registrations.some(registration =>
-      [registration.installing, registration.waiting, registration.active].some(isManagedWorker),
-    )
-    if (hasManagedRegistration) {
-      redirectToCleanup()
-      return
-    }
-
-    if ('caches' in window) {
-      void caches.keys().then(cacheNames =>
-        Promise.allSettled(
-          cacheNames.filter(name => cachePrefixes.some(prefix => name.startsWith(prefix))).map(name => caches.delete(name)),
-        ),
-      )
-    }
+  void hasVerifiedRegistration().then(hasRegistration => {
+    if (hasRegistration) redirectToCleanup()
   })
 })()
 `
@@ -113,36 +152,58 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
   <body>
     <script>
       (() => {
-        const workerPaths = ${workerPaths}
-        const cachePrefixes = ${cachePrefixes}
+        const workerScripts = ${workerScripts}
+        const identityMessage = ${identityMessage}
+        const identityTimeoutMs = ${identityTimeoutMs}
+        const identityAttempts = ${identityAttempts}
+        const retryIdentityVerification = ${retryIdentityVerification}
         const cleanupAttemptKey = ${cleanupAttemptKey}
-        const isManagedWorker = worker => {
-          if (!worker) return false
-          const url = new URL(worker.scriptURL)
-          return url.origin === location.origin && workerPaths.some(path => url.pathname.endsWith(path))
-        }
         const resolveReturnUrl = () => {
           const requested = new URLSearchParams(location.search).get('return')
           if (!requested) return new URL('/', location.origin)
           const target = new URL(requested, location.origin)
           return target.origin === location.origin ? target : new URL('/', location.origin)
         }
+        const returnUrl = resolveReturnUrl()
+        const appScope = new URL('./', returnUrl)
+        const getCandidateWorker = registration => {
+          if (new URL(registration.scope).href !== appScope.href) return null
+          return [registration.active, registration.waiting, registration.installing].find(worker => {
+            if (!worker) return false
+            const scriptUrl = new URL(worker.scriptURL).href
+            return workerScripts.some(workerScript => scriptUrl === new URL(workerScript, appScope).href)
+          }) || null
+        }
+        const verifyMoviePilotWorkerOnce = worker => new Promise(resolve => {
+          const channel = new MessageChannel()
+          const finish = result => {
+            window.clearTimeout(timeout)
+            channel.port1.close()
+            resolve(result)
+          }
+          const timeout = window.setTimeout(() => finish(false), identityTimeoutMs)
+          channel.port1.onmessage = event => finish(typeof event.data?.count === 'number')
+          try {
+            worker.postMessage({ type: identityMessage }, [channel.port2])
+          } catch {
+            finish(false)
+          }
+        })
+        const verifyMoviePilotWorker = worker =>
+          retryIdentityVerification(() => verifyMoviePilotWorkerOnce(worker), identityAttempts)
         const cleanup = async () => {
           const registrations = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistrations() : []
-          const managedRegistrations = registrations.filter(registration =>
-            [registration.installing, registration.waiting, registration.active].some(isManagedWorker),
-          )
-          await Promise.allSettled(managedRegistrations.map(registration => registration.unregister()))
-
-          if ('caches' in window) {
-            const cacheNames = await caches.keys()
-            const managedCacheNames = cacheNames.filter(name => cachePrefixes.some(prefix => name.startsWith(prefix)))
-            await Promise.allSettled(managedCacheNames.map(name => caches.delete(name)))
+          const managedRegistrations = []
+          for (const registration of registrations) {
+            const worker = getCandidateWorker(registration)
+            if (worker && await verifyMoviePilotWorker(worker)) managedRegistrations.push(registration)
           }
+          if (!managedRegistrations.length) throw new Error('MoviePilot Service Worker identity verification failed')
+          await Promise.allSettled(managedRegistrations.map(registration => registration.unregister()))
 
           // 回跳入口后由 head-prepend 脚本完成第二次导航，避免同一 client 继续复用旧模块响应。
           sessionStorage.setItem(cleanupAttemptKey, 'complete')
-          location.replace(resolveReturnUrl().href)
+          location.replace(returnUrl.href)
         }
 
         void cleanup().catch(error => {
@@ -160,7 +221,7 @@ export function createDevServiceWorkerCleanupPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         const pathname = new URL(request.url || '/', 'http://localhost').pathname
-        if (pathname !== DEV_SW_CLEANUP_PATH) {
+        if (!pathname.endsWith(DEV_SW_CLEANUP_PATH)) {
           next()
           return
         }

@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createDevServiceWorkerCleanupPlugin,
   DEV_SW_CLEANUP_PATH,
-  isManagedCacheName,
-  isManagedServiceWorkerUrl,
+  isManagedServiceWorkerRegistration,
+  isMoviePilotServiceWorkerIdentityResponse,
   isPwaDevelopmentEnabled,
+  retryMoviePilotIdentityVerification,
+  resolveDevAppScope,
   resolveDevCleanupReturnUrl,
   shouldEnableDevServiceWorkerCleanup,
 } from '../../scripts/pwa-development'
@@ -24,16 +26,45 @@ describe('PWA 开发模式', () => {
     expect(shouldEnableDevServiceWorkerCleanup('build', 'production', false, 'build')).toBe(false)
   })
 
-  it('只匹配当前 origin 的 MoviePilot Service Worker 和缓存', () => {
-    const origin = 'http://localhost:5173'
+  it('只匹配当前应用 scope 下精确的 MoviePilot Worker URL', () => {
+    const pageUrl = 'http://localhost:5173/moviepilot/#/dashboard'
+    const scope = 'http://localhost:5173/moviepilot/'
 
-    expect(isManagedServiceWorkerUrl(`${origin}/dev-sw.js?dev-sw`, origin)).toBe(true)
-    expect(isManagedServiceWorkerUrl(`${origin}/service-worker.js`, origin)).toBe(true)
-    expect(isManagedServiceWorkerUrl(`${origin}/unrelated-sw.js`, origin)).toBe(false)
-    expect(isManagedServiceWorkerUrl('http://localhost:5174/dev-sw.js?dev-sw', origin)).toBe(false)
-    expect(isManagedCacheName('static-resources-dev-dev')).toBe(true)
-    expect(isManagedCacheName('workbox-precache-v2-http://localhost:5173/')).toBe(true)
-    expect(isManagedCacheName('unrelated-cache')).toBe(false)
+    expect(resolveDevAppScope(pageUrl).href).toBe(scope)
+    expect(isManagedServiceWorkerRegistration(`${scope}dev-sw.js?dev-sw`, scope, pageUrl)).toBe(true)
+    expect(isManagedServiceWorkerRegistration(`${scope}service-worker.js`, scope, pageUrl)).toBe(true)
+    expect(isManagedServiceWorkerRegistration(`${scope}unrelated-sw.js`, scope, pageUrl)).toBe(false)
+    expect(
+      isManagedServiceWorkerRegistration(
+        'http://localhost:5173/another-app/service-worker.js',
+        'http://localhost:5173/another-app/',
+        pageUrl,
+      ),
+    ).toBe(false)
+    expect(
+      isManagedServiceWorkerRegistration(
+        'http://localhost:5174/moviepilot/dev-sw.js?dev-sw',
+        'http://localhost:5174/moviepilot/',
+        pageUrl,
+      ),
+    ).toBe(false)
+  })
+
+  it('只有现有 MoviePilot 消息协议响应才能通过身份确认', () => {
+    expect(isMoviePilotServiceWorkerIdentityResponse({ count: 0 })).toBe(true)
+    expect(isMoviePilotServiceWorkerIdentityResponse({ count: 3 })).toBe(true)
+    expect(isMoviePilotServiceWorkerIdentityResponse({ success: true })).toBe(false)
+    expect(isMoviePilotServiceWorkerIdentityResponse(null)).toBe(false)
+  })
+
+  it('身份确认首次失败后重试，持续失败时保持 fail-closed', async () => {
+    const succeedsOnRetry = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const alwaysFails = vi.fn().mockResolvedValue(false)
+
+    await expect(retryMoviePilotIdentityVerification(succeedsOnRetry, 2)).resolves.toBe(true)
+    expect(succeedsOnRetry).toHaveBeenCalledTimes(2)
+    await expect(retryMoviePilotIdentityVerification(alwaysFails, 2)).resolves.toBe(false)
+    expect(alwaysFails).toHaveBeenCalledTimes(2)
   })
 
   it('清理完成后只返回当前 origin', () => {
@@ -58,12 +89,23 @@ describe('PWA 开发模式', () => {
     const [script] = result
 
     expect(script.injectTo).toBe('head-prepend')
-    expect(script.children).toContain('/dev-sw.js')
-    expect(script.children).toContain('/service-worker.js')
-    expect(script.children).toContain(DEV_SW_CLEANUP_PATH)
-    expect(script.children).toContain('static-resources-')
-    expect(script.children).toContain("cleanupState === 'complete'")
-    expect(script.children).toContain('location.reload()')
+    if (typeof script.children !== 'string') throw new TypeError('Expected an inline cleanup script')
+    const scriptContent = script.children
+
+    expect(scriptContent).toContain('cleanupPath.slice(1)')
+    expect(scriptContent).not.toContain("replace(/^//, '')")
+    expect(scriptContent).toContain('dev-sw.js?dev-sw')
+    expect(scriptContent).toContain('service-worker.js')
+    expect(scriptContent).toContain(DEV_SW_CLEANUP_PATH)
+    expect(scriptContent).toContain('GET_UNREAD_COUNT')
+    expect(scriptContent).toContain('const identityTimeoutMs = 1500')
+    expect(scriptContent).toContain('const identityAttempts = 2')
+    expect(scriptContent).toContain('retryMoviePilotIdentityVerification')
+    expect(scriptContent).toContain('verifyMoviePilotWorkerOnce')
+    expect(scriptContent).toContain('verifyMoviePilotWorker')
+    expect(scriptContent).toContain("cleanupState === 'complete'")
+    expect(scriptContent).toContain('location.reload()')
+    expect(scriptContent).not.toContain('caches.delete')
   })
 
   it('提供不缓存的清理页面并只清理 MoviePilot 管理的浏览器状态', () => {
@@ -85,10 +127,13 @@ describe('PWA 开发模式', () => {
     expect(response.statusCode).toBe(200)
     expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store')
     expect(response.end).toHaveBeenCalledWith(expect.stringContaining('registration.unregister()'))
-    expect(response.end).toHaveBeenCalledWith(expect.stringContaining('name.startsWith(prefix)'))
+    expect(response.end).toHaveBeenCalledWith(expect.stringContaining('verifyMoviePilotWorker'))
+    expect(response.end).toHaveBeenCalledWith(expect.stringContaining('const identityTimeoutMs = 1500'))
+    expect(response.end).toHaveBeenCalledWith(expect.stringContaining('const identityAttempts = 2'))
     expect(response.end).toHaveBeenCalledWith(
       expect.stringContaining("sessionStorage.setItem(cleanupAttemptKey, 'complete')"),
     )
+    expect(response.end).not.toHaveBeenCalledWith(expect.stringContaining('caches.delete'))
     expect(response.end).not.toHaveBeenCalledWith(expect.stringContaining('localStorage.clear'))
   })
 })
