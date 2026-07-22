@@ -182,6 +182,24 @@ html[data-theme='glass'] {
     box-shadow: none !important;
   }
 
+  :where(.search-desktop-activator, .search-header) .search-input-wrapper {
+    border-color: var(--glass-border) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background: rgba(255, 255, 255, 9%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 22%),
+      inset 0 -1px 0 rgba(2, 6, 16, 22%);
+  }
+
+  :where(.search-desktop-activator, .search-header) .search-input-wrapper:focus-within {
+    border-color: rgba(var(--v-theme-primary), 70%) !important;
+    background: rgba(255, 255, 255, 12%) !important;
+    box-shadow:
+      0 0 0 3px rgba(var(--v-theme-primary), 15%),
+      inset 0 1px 0 rgba(255, 255, 255, 28%);
+  }
+
   .theme-customizer-panel,
   .agent-assistant-shell {
     background-color: transparent !important;
