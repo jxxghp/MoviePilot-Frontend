@@ -19,9 +19,9 @@ html[data-theme='glass'] {
     inset 0 -1px 0 rgba(2, 6, 16, 28%);
   --glass-navbar-shadow:
     0 3px 12px rgba(3, 7, 18, 18%), inset 0 1px 0 rgba(255, 255, 255, 10%), inset 0 -1px 0 rgba(2, 6, 16, 12%);
-  --glass-blur: 40px;
-  --glass-blur-raised: 60px;
-  --glass-saturate: 180%;
+  --glass-blur: 24px;
+  --glass-blur-raised: 32px;
+  --glass-saturate: 150%;
   --glass-motion: 500ms cubic-bezier(0.16, 1, 0.3, 1);
   --app-card-rest-shadow: var(--glass-shadow);
   --app-card-hover-shadow: var(--glass-shadow-hover);
@@ -131,7 +131,8 @@ html[data-theme='glass'] {
     .fade-slide-enter-active,
     .fade-slide-leave-active,
     .fade-transition-enter-active,
-    .fade-transition-leave-active
+    .fade-transition-leave-active,
+    .module-item-enter-active
   ) {
     animation: none !important;
     transition: none !important;
@@ -146,11 +147,22 @@ html[data-theme='glass'] {
     .fade-slide-enter-from,
     .fade-slide-leave-to,
     .fade-transition-enter-from,
-    .fade-transition-leave-to
+    .fade-transition-leave-to,
+    .module-item-enter-from,
+    .module-item-enter-to
   ) {
     filter: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  // 异步卡片批次不再通过父层透明度或位移动画入场，避免整组玻璃表面重新合成。
+  .dashboard-grid,
+  .stream-result-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 
   // Overlay 的过渡类挂在玻璃表面的父层上，统一保持最终合成状态可覆盖菜单、选择器和弹窗。
@@ -162,6 +174,34 @@ html[data-theme='glass'] {
     transform: none !important;
     transition: none !important;
     will-change: auto !important;
+  }
+
+  // 提前为实际使用背景滤镜的表面建立合成提示，减少动态插入后的首帧材质延迟。
+  :where(
+    .app-surface:not(.no-blur),
+    .v-card:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+    .v-sheet:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+    .v-list,
+    .v-toolbar,
+    .v-footer,
+    .v-expansion-panel,
+    .v-stepper,
+    .v-table,
+    .layout-vertical-nav,
+    .layout-navbar,
+    .footer-nav-card,
+    .theme-customizer-panel-host,
+    .agent-assistant-panel,
+    .v-tooltip > .v-overlay__content,
+    .v-snackbar__wrapper,
+    .transfer-history-mobile-record,
+    .mobile-calendar-filter-card,
+    .mobile-calendar-event-card,
+    .mobile-scheduler-card,
+    .logging-shell,
+    .ai-agent-settings-card
+  ) {
+    will-change: backdrop-filter;
   }
 
   :where(
@@ -533,6 +573,7 @@ html[data-theme='glass'] {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     box-shadow: none !important;
+    will-change: auto;
   }
 
   :where(.v-card, .v-sheet)
