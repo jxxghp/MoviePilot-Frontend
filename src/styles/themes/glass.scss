@@ -841,6 +841,11 @@ html[data-theme='glass'] {
   opacity: 0 !important;
 }
 
+// 登录卡片的壁纸副本与外层背景共享切换时序，避免卡片内部提前显示下一张图片。
+html[data-theme='glass'] .app-wrapper--background-transition .login-card__wallpaper-refraction {
+  opacity: 0 !important;
+}
+
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   .glass-optical-layer {
   opacity: 1;

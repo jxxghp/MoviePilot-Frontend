@@ -713,7 +713,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-wrapper" :class="{ 'app-wrapper--render-throttled': isRenderThrottled }" :style="appWrapperStyle">
+  <div
+    class="app-wrapper"
+    :class="{
+      'app-wrapper--background-transition': isBackgroundCrossfading,
+      'app-wrapper--render-throttled': isRenderThrottled,
+    }"
+    :style="appWrapperStyle"
+  >
     <!-- 登录页、透明主题和玻璃主题共用动态壁纸场景。 -->
     <div
       v-if="backgroundImages.length > 0 && (isBackdropTheme || !isLogin)"

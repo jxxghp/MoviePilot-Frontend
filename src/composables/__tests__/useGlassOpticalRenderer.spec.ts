@@ -1,5 +1,14 @@
-import { containsGlassOpticalSurface } from '@/composables/useGlassOpticalRenderer'
-import { describe, expect, it } from 'vitest'
+import {
+  containsGlassOpticalSurface,
+  setGlassRendererState,
+  type GlassRendererState,
+} from '@/composables/useGlassOpticalRenderer'
+import { ref } from 'vue'
+import { afterEach, describe, expect, it } from 'vitest'
+
+afterEach(() => {
+  delete document.documentElement.dataset.glassRendererState
+})
 
 describe('glass optical surface discovery', () => {
   it('detects a target surface added directly', () => {
@@ -27,5 +36,14 @@ describe('glass optical surface discovery', () => {
     `
 
     expect(containsGlassOpticalSurface(overlayRoot)).toBe(true)
+  })
+
+  it('keeps the renderer state used by components and global CSS in sync', () => {
+    const state = ref<GlassRendererState>('ready')
+
+    setGlassRendererState(state, 'fallback')
+
+    expect(state.value).toBe('fallback')
+    expect(document.documentElement.dataset.glassRendererState).toBe('fallback')
   })
 })

@@ -25,7 +25,13 @@ import {
 import type { ThemeCustomizerGlassAppearance } from '@/composables/useThemeCustomizer'
 
 type ThreeModule = typeof import('three')
-type RendererState = 'fallback' | 'loading' | 'ready'
+export type GlassRendererState = 'fallback' | 'loading' | 'ready'
+
+/** 同步组件状态和根节点属性，确保 CSS 回退与 renderer 生命周期一致。 */
+export function setGlassRendererState(state: Ref<GlassRendererState>, value: GlassRendererState) {
+  state.value = value
+  document.documentElement.dataset.glassRendererState = value
+}
 
 interface GlassRendererUniforms extends Record<string, IUniform> {
   uAppearance: IUniform<number>
@@ -261,7 +267,7 @@ function getGlassAppearanceUniformValue(appearance: ThemeCustomizerGlassAppearan
 
 /** 管理玻璃主题唯一 renderer、事件驱动帧调度与完整 GPU 资源释放。 */
 export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions) {
-  const state = ref<RendererState>('loading')
+  const state = ref<GlassRendererState>('loading')
   const renderedFrames = ref(0)
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
@@ -427,7 +433,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function handleContextLost(event: Event) {
     event.preventDefault()
     cancelScheduledFrame()
-    state.value = 'fallback'
+    setGlassRendererState(state, 'fallback')
   }
 
   function handleContextRestored() {
@@ -534,8 +540,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     console.warn(message, error)
     disposeRenderer()
-    state.value = 'fallback'
-    document.documentElement.dataset.glassRendererState = 'fallback'
+    setGlassRendererState(state, 'fallback')
   }
 
   async function loadWallpaper(url: string, version: number) {
@@ -563,8 +568,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       await resources.renderer.compileAsync(resources.scene, resources.camera)
       if (version !== loadVersion || !resources) return
 
-      state.value = 'ready'
-      document.documentElement.dataset.glassRendererState = 'ready'
+      setGlassRendererState(state, 'ready')
       scheduleFrame()
       return
     }
@@ -615,8 +619,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     await resources.renderer.compileAsync(resources.scene, resources.camera)
     if (version !== loadVersion || !resources) return
 
-    state.value = 'ready'
-    document.documentElement.dataset.glassRendererState = 'ready'
+    setGlassRendererState(state, 'ready')
     scheduleFrame()
   }
 
@@ -625,13 +628,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!toValue(options.active) || !options.canvas.value) return
 
     if (!window.WebGLRenderingContext || reducedTransparencyQuery.matches || !toValue(options.wallpaperUrl)) {
-      state.value = 'fallback'
-      document.documentElement.dataset.glassRendererState = 'fallback'
+      setGlassRendererState(state, 'fallback')
       return
     }
 
-    state.value = 'loading'
-    document.documentElement.dataset.glassRendererState = 'loading'
+    setGlassRendererState(state, 'loading')
     const version = ++loadVersion
 
     try {
@@ -695,8 +696,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     if (event.matches) {
       disposeRenderer()
-      state.value = 'fallback'
-      document.documentElement.dataset.glassRendererState = 'fallback'
+      setGlassRendererState(state, 'fallback')
       return
     }
 
@@ -722,8 +722,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       if (wallpaperUrl !== previous?.[1]) {
         const version = ++loadVersion
-        state.value = 'loading'
-        document.documentElement.dataset.glassRendererState = 'loading'
+        setGlassRendererState(state, 'loading')
 
         try {
           await loadWallpaper(wallpaperUrl, version)
@@ -753,8 +752,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
       resizeRenderer()
       const version = ++loadVersion
-      state.value = 'loading'
-      document.documentElement.dataset.glassRendererState = 'loading'
+      setGlassRendererState(state, 'loading')
 
       try {
         await loadWallpaper(toValue(options.wallpaperUrl), version)
@@ -789,8 +787,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           previousProfile.textureSource !== nextProfile.textureSource
         ) {
           const version = ++loadVersion
-          state.value = 'loading'
-          document.documentElement.dataset.glassRendererState = 'loading'
+          setGlassRendererState(state, 'loading')
 
           try {
             await loadWallpaper(toValue(options.wallpaperUrl), version)
