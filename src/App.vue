@@ -743,18 +743,18 @@ onUnmounted(() => {
 
 .background-container.is-glass-theme .background-image.active,
 .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(0.78) saturate(0.9);
+  filter: brightness(0.9) saturate(0.96);
 }
 
 .background-container.is-glass-theme .background-image.active {
-  opacity: 0.88;
+  opacity: 0.94;
 }
 
 .background-container.is-glass-theme .background-image.active::after,
 .background-container.is-glass-theme .background-image.previous::after {
   background:
-    linear-gradient(rgba(6, 10, 19, 26%) 0%, rgba(6, 10, 19, 55%) 100%),
-    rgba(11, 19, 34, 8%);
+    linear-gradient(rgba(6, 10, 19, 18%) 0%, rgba(6, 10, 19, 42%) 100%),
+    rgba(11, 19, 34, 5%);
 }
 
 .background-container.is-transparent-glass-lightweight .background-image.active,
