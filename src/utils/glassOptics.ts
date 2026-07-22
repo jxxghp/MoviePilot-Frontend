@@ -106,17 +106,21 @@ export function selectGlassOpticalRects(
   const maxCount = mobile ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
   const maxArea = viewportArea * (mobile ? 0.68 : 0.82)
   const visible = candidates
+    .map(rect => {
+      const left = Math.max(0, rect.x)
+      const top = Math.max(0, rect.y)
+      const right = Math.min(viewportWidth, rect.x + rect.width)
+      const bottom = Math.min(viewportHeight, rect.y + rect.height)
+
+      return {
+        ...rect,
+        height: Math.max(0, bottom - top),
+        width: Math.max(0, right - left),
+        x: left,
+        y: top,
+      }
+    })
     .filter(rect => rect.width >= 24 && rect.height >= 24)
-    .filter(
-      rect => rect.x < viewportWidth && rect.y < viewportHeight && rect.x + rect.width > 0 && rect.y + rect.height > 0,
-    )
-    .map(rect => ({
-      ...rect,
-      height: Math.min(rect.height, viewportHeight - Math.max(0, rect.y)),
-      width: Math.min(rect.width, viewportWidth - Math.max(0, rect.x)),
-      x: Math.max(0, rect.x),
-      y: Math.max(0, rect.y),
-    }))
     .sort((left, right) => left.rank - right.rank || left.width * left.height - right.width * right.height)
 
   const selected: GlassOpticalRect[] = []

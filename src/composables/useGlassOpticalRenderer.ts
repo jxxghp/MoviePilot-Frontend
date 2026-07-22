@@ -250,6 +250,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
   let activeTexture: Texture | null = null
+  let activeTextureHeight = 1
+  let activeTextureWidth = 1
   let loadVersion = 0
   let animationFrame: number | null = null
   let surfaceUpdateFrame: number | null = null
@@ -341,6 +343,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }, 160)
   }
 
+  function syncCoverScale(viewportWidth = window.innerWidth, viewportHeight = window.innerHeight) {
+    if (!resources) return
+
+    const cover = getGlassCoverScale(viewportWidth, viewportHeight, activeTextureWidth, activeTextureHeight)
+    resources.uniforms.uCoverScale.value.set(cover.x, cover.y)
+  }
+
   function resizeRenderer() {
     if (!resources) return
 
@@ -349,6 +358,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const profile = getGlassOpticalRenderProfile(toValue(options.quality), toValue(options.routeKey))
     const buffer = getGlassOpticalBufferSize(viewportWidth, viewportHeight, viewportWidth <= 600, profile.bufferQuality)
     resources.renderer.setSize(buffer.width, buffer.height, false)
+    syncCoverScale(viewportWidth, viewportHeight)
     scheduleSurfaceUpdate()
   }
 
@@ -462,6 +472,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     tracksScrollingSurfaces = false
     activeTexture?.dispose()
     activeTexture = null
+    activeTextureHeight = 1
+    activeTextureWidth = 1
 
     if (resources) {
       resources.geometry.dispose()
@@ -472,6 +484,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
 
     delete document.documentElement.dataset.glassRendererState
+  }
+
+  /** 只有当前加载代次可以处置共享 renderer，过期请求的失败不会覆盖新状态。 */
+  function fallbackFromCurrentLoad(version: number, message: string, error: unknown) {
+    if (version !== loadVersion) return
+
+    console.warn(message, error)
+    disposeRenderer()
+    state.value = 'fallback'
+    document.documentElement.dataset.glassRendererState = 'fallback'
   }
 
   async function loadWallpaper(url: string, version: number) {
@@ -492,6 +514,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       texture.magFilter = three.LinearFilter
       activeTexture?.dispose()
       activeTexture = texture
+      activeTextureHeight = 1
+      activeTextureWidth = 1
       resources.uniforms.uTexture.value = texture
       resources.uniforms.uHasWallpaperTexture.value = 0
       await resources.renderer.compileAsync(resources.scene, resources.camera)
@@ -540,11 +564,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     texture.magFilter = three.LinearFilter
     activeTexture?.dispose()
     activeTexture = texture
+    activeTextureHeight = textureHeight
+    activeTextureWidth = textureWidth
     resources.uniforms.uTexture.value = texture
     resources.uniforms.uHasWallpaperTexture.value = 1
 
-    const cover = getGlassCoverScale(window.innerWidth, window.innerHeight, textureWidth, textureHeight)
-    resources.uniforms.uCoverScale.value.set(cover.x, cover.y)
+    syncCoverScale()
     await resources.renderer.compileAsync(resources.scene, resources.camera)
     if (version !== loadVersion || !resources) return
 
@@ -620,10 +645,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resizeRenderer()
       await loadWallpaper(toValue(options.wallpaperUrl), version)
     } catch (error) {
-      console.warn('玻璃光学渲染器初始化失败，已回退标准材质:', error)
-      disposeRenderer()
-      state.value = 'fallback'
-      document.documentElement.dataset.glassRendererState = 'fallback'
+      fallbackFromCurrentLoad(version, '玻璃光学渲染器初始化失败，已回退标准材质:', error)
     }
   }
 
@@ -649,10 +671,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         try {
           await loadWallpaper(wallpaperUrl, version)
         } catch (error) {
-          console.warn('玻璃光学壁纸纹理加载失败，已回退标准材质:', error)
-          disposeRenderer()
-          state.value = 'fallback'
-          document.documentElement.dataset.glassRendererState = 'fallback'
+          fallbackFromCurrentLoad(version, '玻璃光学壁纸纹理加载失败，已回退标准材质:', error)
         }
       }
     },
@@ -683,10 +702,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       try {
         await loadWallpaper(toValue(options.wallpaperUrl), version)
       } catch (error) {
-        console.warn('玻璃质量纹理切换失败，已回退标准材质:', error)
-        disposeRenderer()
-        state.value = 'fallback'
-        document.documentElement.dataset.glassRendererState = 'fallback'
+        fallbackFromCurrentLoad(version, '玻璃质量纹理切换失败，已回退标准材质:', error)
       }
     },
   )
@@ -712,10 +728,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           try {
             await loadWallpaper(toValue(options.wallpaperUrl), version)
           } catch (error) {
-            console.warn('玻璃场景纹理切换失败，已回退标准材质:', error)
-            disposeRenderer()
-            state.value = 'fallback'
-            document.documentElement.dataset.glassRendererState = 'fallback'
+            fallbackFromCurrentLoad(version, '玻璃场景纹理切换失败，已回退标准材质:', error)
           }
           return
         }

@@ -1679,11 +1679,7 @@ onUnmounted(() => {
   }
 }
 
-@supports not (
-  (
-    backdrop-filter: blur(1px),
-  )
-) {
+@supports not (backdrop-filter: blur(1px)) {
   .login-card__wallpaper-refraction {
     display: none !important;
   }

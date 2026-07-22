@@ -548,6 +548,34 @@ describe('MediaCard', () => {
     )
   })
 
+  it('renders the AniList source badge after the poster loads', async () => {
+    const media = createMediaInfo({
+      anilist_id: 154588,
+      poster_path: '/original/anilist.jpg',
+      source: 'anilist',
+      tmdb_id: undefined,
+      type: '电视剧',
+    })
+    const VImgStub = defineComponent({
+      name: 'VImg',
+      emits: ['load'],
+      props: { src: String },
+      setup(_props, { emit, slots }) {
+        return () =>
+          h('div', [h('button', { 'aria-label': '图片加载成功', onClick: () => emit('load') }), slots.default?.()])
+      },
+    })
+    const { container } = await renderWithProviders(MediaCard, {
+      props: { media, width: '9rem' },
+      initialState: { user: { superUser: true } },
+      global: { stubs: { VImg: VImgStub } },
+    })
+
+    await fireEvent.click(container.querySelector('[aria-label="图片加载成功"]') as HTMLElement)
+
+    await waitFor(() => expect(container.querySelector('.v-avatar .iconify--mdi')).not.toBeNull())
+  })
+
   it('hides search and subscribe actions when the user lacks both permissions', async () => {
     const { container } = await renderCard(createMediaInfo({ tmdb_id: 9601 }), {
       permissions: {

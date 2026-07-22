@@ -70,6 +70,17 @@ describe('glass optics geometry', () => {
     expect(selected.map(rect => rect.rank)).toEqual([1, 2, 4])
   })
 
+  it('clips partially visible surfaces to their viewport intersection', () => {
+    const selected = selectGlassOpticalRects(
+      [{ height: 160, radius: 20, rank: 1, width: 180, x: -30, y: -40 }],
+      320,
+      240,
+      false,
+    )
+
+    expect(selected).toEqual([{ height: 120, radius: 20, rank: 1, width: 150, x: 0, y: 0 }])
+  })
+
   it('converts DOM top-origin rectangles for shader uniforms', () => {
     expect(
       normalizeGlassOpticalRect({ height: 100, radius: 20, rank: 1, width: 200, x: 100, y: 50 }, 1000, 500),
