@@ -12,7 +12,12 @@ class ThemeManager {
   private currentTheme: string = 'default'
   private loadedLinks: Map<string, HTMLLinkElement> = new Map()
   private themeListeners: Map<(theme: string) => void, EventListener> = new Map()
+  private bundledThemeLoaders: Record<string, () => Promise<unknown>> = {
+    glass: () => import('@/styles/themes/glass.scss'),
+    transparent: () => import('@/styles/themes/transparent.scss'),
+  }
 
+  /** 注册内置主题及其按需加载的样式入口。 */
   constructor() {
     // 注册所有可用主题
     this.registerTheme('default', '')
@@ -20,8 +25,9 @@ class ThemeManager {
     this.registerTheme('dark', '')
     this.registerTheme('purple', '')
     this.registerTheme('auto', '')
-    // 只有透明主题有特定的CSS文件
+    // 透明和玻璃主题使用独立的按需样式文件。
     this.registerTheme('transparent', './src/styles/themes/transparent.css')
+    this.registerTheme('glass', './src/styles/themes/glass.css')
   }
 
   /**
@@ -80,9 +86,10 @@ class ThemeManager {
     }
 
     try {
-      // 动态导入CSS模块
-      if (themeName === 'transparent') {
-        await import('@/styles/themes/transparent.scss')
+      // 动态导入打包内置的主题样式模块。
+      const bundledThemeLoader = this.bundledThemeLoaders[themeName]
+      if (bundledThemeLoader) {
+        await bundledThemeLoader()
         this.themes.get(themeName)!.isLoaded = true
         return
       }
@@ -134,8 +141,8 @@ class ThemeManager {
     const theme = this.themes.get(themeName)
     if (!theme) return
 
-    // 对于动态导入的CSS，我们无法直接卸载，但可以标记为未加载
-    if (themeName === 'transparent') {
+    // 对于动态导入的 CSS，我们无法直接卸载，但可以标记为未加载。
+    if (this.bundledThemeLoaders[themeName]) {
       theme.isLoaded = false
       return
     }

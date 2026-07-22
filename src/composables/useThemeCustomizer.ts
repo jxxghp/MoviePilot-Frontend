@@ -57,7 +57,7 @@ export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
 export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'none' | 'small'
 export type ThemeCustomizerShadow = (typeof themeCustomizerShadowLevels)[number]
 export type ThemeCustomizerSkin = 'bordered' | 'default'
-export type ThemeCustomizerTheme = 'auto' | 'dark' | 'light' | 'purple' | 'transparent'
+export type ThemeCustomizerTheme = 'auto' | 'dark' | 'glass' | 'light' | 'purple' | 'transparent'
 
 export interface ThemeCustomizerSettings {
   layout: ThemeCustomizerLayout
@@ -72,11 +72,12 @@ export interface ThemeCustomizerSettings {
 type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
+const glassDefaultPrimaryColor = '#E4B863'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
 const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
 const validSkins: ThemeCustomizerSkin[] = ['default', 'bordered']
-const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent']
+const validThemes: ThemeCustomizerTheme[] = ['auto', 'light', 'dark', 'purple', 'transparent', 'glass']
 const legacyShadowMap: Record<string, ThemeCustomizerShadow> = {
   high: '24',
   low: '6',
@@ -86,14 +87,17 @@ const legacyShadowMap: Record<string, ThemeCustomizerShadow> = {
 
 let themeApplyVersion = 0
 
+/** 判断当前代码是否运行在浏览器环境。 */
 function isBrowser() {
   return typeof window !== 'undefined'
 }
 
+/** 校验主题主色是否为完整的六位十六进制颜色。 */
 function isHexColor(color: unknown): color is string {
   return typeof color === 'string' && /^#[\da-f]{6}$/i.test(color)
 }
 
+/** 读取并校验本地存储中的主题偏好。 */
 function readStoredThemePreference(): ThemeCustomizerTheme {
   if (!isBrowser()) return 'auto'
 
@@ -102,6 +106,7 @@ function readStoredThemePreference(): ThemeCustomizerTheme {
   return validThemes.includes(storedTheme as ThemeCustomizerTheme) ? (storedTheme as ThemeCustomizerTheme) : 'auto'
 }
 
+/** 生成与当前主题偏好一致的定制器默认设置。 */
 function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
   return {
     layout: 'vertical',
@@ -122,6 +127,7 @@ function normalizeThemeCustomizerShadow(shadow: unknown): ThemeCustomizerShadow 
   return getDefaultThemeCustomizerSettings().shadow
 }
 
+/** 规范化持久化的主题定制设置并迁移旧值。 */
 function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSettings>): ThemeCustomizerSettings {
   const fallback = getDefaultThemeCustomizerSettings()
   const storedRadius = settings.radius as string | undefined
@@ -171,12 +177,14 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
 // 生产构建会改写导出函数的声明形式，状态初始化必须放在读取函数定义之后，避免首屏执行时引用未完成赋值的函数。
 const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings())
 
+/** 将完整主题定制设置写入本地存储。 */
 function persistThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   if (!isBrowser()) return
 
   localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify(settings))
 }
 
+/** 广播主题定制设置变更，供布局与菜单同步响应。 */
 function dispatchThemeCustomizerChange(settings: ThemeCustomizerSettings) {
   if (!isBrowser()) return
 
@@ -187,6 +195,7 @@ function dispatchThemeCustomizerChange(settings: ThemeCustomizerSettings) {
   )
 }
 
+/** 根据背景亮度选择可读的前景色。 */
 function getTextColorForHex(backgroundColor: string) {
   const hex = backgroundColor.replace('#', '')
   const red = Number.parseInt(hex.slice(0, 2), 16)
@@ -197,20 +206,22 @@ function getTextColorForHex(backgroundColor: string) {
   return luminance > 0.68 ? '#3A3541' : '#FFFFFF'
 }
 
-/** 将主色写入 Vuetify 运行时主题，所有已注册主题会同步更新。 */
+/** 将主色写入 Vuetify 运行时主题，默认主色下保留玻璃主题的香槟强调色。 */
 export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyThemeApi) {
   if (!isHexColor(color)) return
 
-  const onPrimaryColor = getTextColorForHex(color)
+  for (const [themeName, themeDefinition] of Object.entries(themeApi.themes.value)) {
+    const themePrimaryColor = themeName === 'glass' && color === defaultPrimaryColor ? glassDefaultPrimaryColor : color
 
-  for (const themeDefinition of Object.values(themeApi.themes.value)) {
-    themeDefinition.colors.primary = color
-    themeDefinition.colors['on-primary'] = onPrimaryColor
+    themeDefinition.colors.primary = themePrimaryColor
+    themeDefinition.colors['on-primary'] = getTextColorForHex(themePrimaryColor)
   }
 
-  document.documentElement.style.setProperty('--initial-loader-color', color)
-  localStorage.setItem('materio-initial-loader-color', color)
-  syncThemeFavicon(color)
+  const activePrimaryColor = themeApi.current.value.colors.primary
+
+  document.documentElement.style.setProperty('--initial-loader-color', activePrimaryColor)
+  localStorage.setItem('materio-initial-loader-color', activePrimaryColor)
+  syncThemeFavicon(activePrimaryColor)
 }
 
 /** 布局、圆角、阴影、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */
@@ -231,6 +242,7 @@ export function applyThemeCustomizerRootSettings(
   document.body.setAttribute('data-theme-skin', settings.skin)
 }
 
+/** 将自动主题偏好解析为当前系统对应的实际主题。 */
 function getResolvedThemeName(themePreference: ThemeCustomizerTheme) {
   if (themePreference === 'auto') {
     return checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
@@ -239,11 +251,13 @@ function getResolvedThemeName(themePreference: ThemeCustomizerTheme) {
   return themePreference
 }
 
+/** 将实际主题名称同步到文档根节点和 body。 */
 function syncThemeAttribute(themeName: string) {
   document.documentElement.setAttribute('data-theme', themeName)
   document.body.setAttribute('data-theme', themeName)
 }
 
+/** 应用主题偏好并避免异步样式加载造成旧主题回写。 */
 async function applyThemePreference(themePreference: ThemeCustomizerTheme, themeApi: VuetifyThemeApi) {
   const currentVersion = ++themeApplyVersion
   const resolvedTheme = getResolvedThemeName(themePreference)
@@ -270,6 +284,7 @@ export function applyStoredThemeCustomizerAppearance(themeApi: VuetifyThemeApi) 
   return settings
 }
 
+/** 持久化部分主题定制设置并同步当前页面外观。 */
 export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustomizerSettings>) {
   const nextSettings = normalizeThemeCustomizerSettings({
     ...readThemeCustomizerSettings(),
@@ -285,6 +300,7 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
   return nextSettings
 }
 
+/** 判断当前主题定制设置是否仍为默认值。 */
 export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   const defaults = normalizeThemeCustomizerSettings({
     layout: 'vertical',
@@ -312,6 +328,7 @@ export function useThemeCustomizer() {
   const themeApi = useTheme()
   const settings = settingsState
 
+  /** 合并、保存并应用一组主题定制设置。 */
   async function updateSettings(patch: Partial<ThemeCustomizerSettings>) {
     const previousTheme = settings.value.theme
     const nextSettings = normalizeThemeCustomizerSettings({
@@ -334,34 +351,42 @@ export function useThemeCustomizer() {
     dispatchThemeCustomizerChange(nextSettings)
   }
 
+  /** 更新主题主色。 */
   function setPrimaryColor(color: string) {
     return updateSettings({ primaryColor: color })
   }
 
+  /** 更新全局圆角档位。 */
   function setRadius(radius: ThemeCustomizerRadius) {
     return updateSettings({ radius })
   }
 
+  /** 更新当前主题。 */
   function setTheme(theme: ThemeCustomizerTheme) {
     return updateSettings({ theme })
   }
 
+  /** 更新全局阴影档位。 */
   function setShadow(shadow: ThemeCustomizerShadow) {
     return updateSettings({ shadow })
   }
 
+  /** 更新表面皮肤。 */
   function setSkin(skin: ThemeCustomizerSkin) {
     return updateSettings({ skin })
   }
 
+  /** 更新桌面布局模式。 */
   function setLayout(layout: ThemeCustomizerLayout) {
     return updateSettings({ layout })
   }
 
+  /** 更新浅色主题的半深色侧栏设置。 */
   function setSemiDarkMenu(semiDarkMenu: boolean) {
     return updateSettings({ semiDarkMenu })
   }
 
+  /** 将主题定制器恢复到默认设置。 */
   async function resetSettings() {
     await updateSettings({
       layout: 'vertical',
@@ -374,6 +399,7 @@ export function useThemeCustomizer() {
     })
   }
 
+  /** 在自动主题模式下响应系统配色变化。 */
   function handleSystemThemeChange() {
     if (settings.value.theme === 'auto') {
       updateSettings({ theme: 'auto' })

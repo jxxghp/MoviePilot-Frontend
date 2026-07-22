@@ -296,6 +296,7 @@
       }
     }
 
+    // 安全读取本地存储，隐私模式或存储不可用时返回空值。
     function getLocalStorageValue(key) {
       try {
         return localStorage.getItem(key)
@@ -322,12 +323,18 @@
         background: '#1C1C1C',
         primary: '#A370F7',
       },
+      glass: {
+        background: '#0B1322',
+        primary: '#E4B863',
+      },
     }
 
+    // 读取已保存的主题偏好，缺省时跟随系统。
     function getSavedThemePreference() {
       return getLocalStorageValue('theme') || 'auto'
     }
 
+    // 将启动阶段的主题偏好解析为实际主题。
     function resolveLaunchTheme(themePreference) {
       if (themePreference === 'auto') {
         return checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
@@ -340,16 +347,19 @@
       return launchThemePalettes[themePreference] ? themePreference : 'light'
     }
 
+    // 返回启动阶段浏览器原生控件应使用的明暗配色。
     function getLaunchColorScheme(themeName) {
-      return ['dark', 'purple', 'transparent'].includes(themeName) ? 'dark' : 'light'
+      return ['dark', 'glass', 'purple', 'transparent'].includes(themeName) ? 'dark' : 'light'
     }
 
+    // 批量同步匹配选择器的 meta 内容。
     function setMetaContent(selector, content) {
       document.querySelectorAll(selector).forEach(meta => {
         meta.setAttribute('content', content)
       })
     }
 
+    // 更新或创建浏览器主题色 meta 标签。
     function syncThemeColorMeta(themeColor) {
       const metas = document.querySelectorAll('meta[name="theme-color"]')
 

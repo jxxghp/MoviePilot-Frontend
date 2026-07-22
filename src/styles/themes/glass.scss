@@ -1,0 +1,485 @@
+/* stylelint-disable no-descending-specificity */
+/* stylelint-disable scss/at-rule-no-unknown */
+
+// 玻璃主题通过 Vuetify 全局表面类统一塑造材质，业务页面无需逐个接入。
+html[data-theme='glass'] {
+  --glass-surface: rgba(255, 255, 255, 8%);
+  --glass-surface-soft: rgba(255, 255, 255, 5%);
+  --glass-surface-raised: rgba(255, 255, 255, 12%);
+  --glass-border: rgba(255, 255, 255, 15%);
+  --glass-border-hover: rgba(255, 255, 255, 28%);
+  --glass-highlight: rgba(255, 255, 255, 22%);
+  --glass-shadow:
+    0 16px 40px rgba(3, 7, 18, 50%), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 35%);
+  --glass-shadow-raised:
+    0 20px 52px rgba(3, 7, 18, 58%), 0 0 0 1px rgba(255, 255, 255, 5%), inset 0 1px 0 rgba(255, 255, 255, 25%),
+    inset 0 -1px 0 rgba(2, 6, 16, 38%);
+  --glass-shadow-hover:
+    0 22px 60px rgba(3, 7, 18, 64%), 0 0 0 1px rgba(255, 255, 255, 8%), inset 0 1px 0 rgba(255, 255, 255, 32%),
+    inset 0 -1px 0 rgba(2, 6, 16, 40%);
+  --glass-blur: 40px;
+  --glass-blur-raised: 60px;
+  --glass-saturate: 180%;
+  --glass-motion: 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  --app-card-rest-shadow: var(--glass-shadow);
+  --app-card-hover-shadow: var(--glass-shadow-hover);
+  --app-fab-shadow: var(--glass-shadow);
+  --app-fab-shadow-strong: var(--glass-shadow-raised);
+  --app-fab-shadow-hover: var(--glass-shadow-hover);
+  --app-fab-shadow-strong-hover: var(--glass-shadow-hover);
+  --app-fab-shadow-active: 0 8px 22px rgba(3, 7, 18, 48%), inset 0 1px 0 rgba(255, 255, 255, 18%);
+  --app-overlay-shadow: var(--glass-shadow-raised);
+  --app-surface-shadow: var(--glass-shadow);
+  --app-surface-hover-shadow: var(--glass-shadow-hover);
+  --app-surface-border-width: 1px;
+  --app-surface-border-opacity: 0.15;
+  --app-surface-border: 1px solid var(--glass-border);
+  --app-card-light-border-width: 1px;
+  --app-card-light-border-opacity: 0.15;
+  --app-card-light-border: 1px solid var(--glass-border);
+  --app-overlay-border: 1px solid var(--glass-border);
+  --app-grouped-list-background: var(--glass-surface);
+  --app-grouped-list-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  --app-grouped-list-border: 1px solid var(--glass-border);
+  --app-grouped-list-separator-color: rgba(255, 255, 255, 10%);
+  --app-grouped-list-header-color: rgba(242, 245, 250, 68%);
+  --app-grouped-list-chevron-color: rgba(242, 245, 250, 56%);
+  --app-grouped-list-hover-background: rgba(255, 255, 255, 8%);
+  --app-grouped-list-active-background: rgba(var(--v-theme-primary), 16%);
+  --mp-motion-duration-page: 500ms;
+  --mp-motion-duration-overlay: 500ms;
+  --mp-motion-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+
+  background-color: #0b1322;
+  color-scheme: dark;
+
+  body {
+    background-color: #0b1322;
+  }
+
+  &[data-theme-radius='none'] {
+    --app-theme-surface-radius: 8px;
+    --app-field-radius: 8px;
+    --app-control-radius: 8px;
+    --app-overlay-radius: 10px;
+  }
+
+  &[data-theme-radius='small'] {
+    --app-theme-surface-radius: 12px;
+    --app-field-radius: 12px;
+    --app-control-radius: 10px;
+    --app-overlay-radius: 14px;
+  }
+
+  &[data-theme-radius='default'] {
+    --app-theme-surface-radius: 20px;
+    --app-field-radius: 16px;
+    --app-control-radius: 14px;
+    --app-overlay-radius: 22px;
+  }
+
+  &[data-theme-radius='large'] {
+    --app-theme-surface-radius: 24px;
+    --app-field-radius: 20px;
+    --app-control-radius: 16px;
+    --app-overlay-radius: 26px;
+  }
+
+  &[data-theme-radius='extra'] {
+    --app-theme-surface-radius: 28px;
+    --app-field-radius: 24px;
+    --app-control-radius: 18px;
+    --app-overlay-radius: 30px;
+  }
+
+  .app-wrapper::before {
+    position: fixed;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='.7'/%3E%3C/svg%3E");
+    block-size: 100%;
+    content: '';
+    inline-size: 100%;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+  }
+
+  .v-application,
+  .v-layout,
+  .v-main,
+  .layout-wrapper,
+  .layout-page-content,
+  .layout-content-wrapper,
+  .page-content-container {
+    background: transparent;
+  }
+
+  .v-application {
+    position: relative;
+    z-index: 1;
+  }
+
+  .layout-page-content {
+    background-color: rgba(255, 255, 255, 2.5%);
+  }
+
+  :where(
+    .app-surface:not(.no-blur),
+    .v-card:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+    .v-sheet:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+    .v-expansion-panel,
+    .v-stepper,
+    .v-table
+  ) {
+    border-color: var(--glass-border) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+    background-color: var(--glass-surface) !important;
+    box-shadow: var(--glass-shadow) !important;
+  }
+
+  :where(.v-list, .v-toolbar, .v-footer) {
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background-color: var(--glass-surface) !important;
+  }
+
+  :where(
+    .layout-vertical-nav,
+    .layout-navbar,
+    .footer-nav-card,
+    .theme-customizer-panel-host,
+    .agent-assistant-panel,
+    .Vue-Toastification__toast
+  ) {
+    border-color: var(--glass-border) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+    background-color: var(--glass-surface-raised) !important;
+    box-shadow: var(--glass-shadow-raised) !important;
+  }
+
+  .layout-vertical-nav {
+    border-inline-end: 1px solid var(--glass-border);
+  }
+
+  .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
+  .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+    border-color: var(--glass-border) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate)) !important;
+    backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate)) !important;
+    background: var(--glass-surface-raised) !important;
+    box-shadow: var(--glass-shadow-raised) !important;
+  }
+
+  .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar .navbar-content-container,
+  .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed
+    .navbar-content-container {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .theme-customizer-panel,
+  .agent-assistant-shell {
+    background-color: transparent !important;
+  }
+
+  :where(.theme-customizer-border-scene, .theme-customizer-radius-scene) {
+    border-color: var(--glass-border) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 4%), rgba(255, 255, 255, 7%)),
+      rgba(255, 255, 255, 3%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 12%),
+      inset 0 -1px 0 rgba(2, 6, 16, 18%);
+  }
+
+  :where(
+    .theme-customizer-border-scene__card,
+    .theme-customizer-border-scene__dialog,
+    .theme-customizer-border-scene__menu,
+    .theme-customizer-radius-scene__card
+  ) {
+    border-color: rgba(255, 255, 255, 18%);
+    background: rgba(255, 255, 255, 7%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 14%),
+      inset 0 -1px 0 rgba(2, 6, 16, 20%);
+  }
+
+  .theme-customizer-preview-option.is-active
+    > :where(.theme-customizer-border-scene, .theme-customizer-radius-scene) {
+    border-color: rgb(var(--v-theme-primary)) !important;
+    background: rgba(var(--v-theme-primary), 8%) !important;
+  }
+
+  .agent-assistant-shell {
+    --agent-assistant-panel-bg: var(--glass-surface-raised);
+    --agent-assistant-panel-blur: var(--glass-blur-raised);
+    --agent-assistant-assistant-bg: var(--glass-surface);
+  }
+
+  .agent-assistant-fab__bubble,
+  .nav-button,
+  .compact-fab .v-btn,
+  .global-action-buttons .v-btn {
+    border: 1px solid var(--glass-border) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background-color: var(--glass-surface-raised) !important;
+    box-shadow: var(--glass-shadow) !important;
+  }
+
+  .v-overlay__scrim {
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
+    backdrop-filter: blur(12px) saturate(120%);
+    background: rgba(3, 7, 18, 62%);
+  }
+
+  .v-dialog--fullscreen {
+    background-color: transparent !important;
+  }
+
+  .v-overlay__content {
+    border-radius: var(--app-overlay-radius);
+
+    > :where(.v-card, .v-sheet, .v-list) {
+      -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+      backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+      background-color: var(--glass-surface-raised) !important;
+      box-shadow: var(--glass-shadow-raised) !important;
+    }
+  }
+
+  .v-tooltip > .v-overlay__content,
+  .v-snackbar__wrapper {
+    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background: rgba(11, 19, 34, 76%) !important;
+    box-shadow: var(--glass-shadow);
+  }
+
+  .v-field {
+    --v-field-border-opacity: 0.18;
+    --v-field-border-width: 1px;
+
+    border-radius: var(--app-field-radius);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background-color: var(--glass-surface-soft) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 15%),
+      inset 0 -1px 0 rgba(2, 6, 16, 30%);
+    transition:
+      background-color var(--glass-motion),
+      box-shadow var(--glass-motion);
+  }
+
+  .v-field--focused {
+    --v-field-border-opacity: 0.36;
+
+    background-color: rgba(255, 255, 255, 10%) !important;
+    box-shadow:
+      0 0 0 3px rgba(var(--v-theme-primary), 15%),
+      inset 0 1px 0 rgba(255, 255, 255, 25%);
+  }
+
+  .v-field.v-field--variant-underlined,
+  .v-field.v-field--variant-plain {
+    border-radius: 0;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .v-field.v-field--variant-underlined.v-field--focused,
+  .v-field.v-field--variant-plain.v-field--focused {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .v-field input::placeholder,
+  .v-field textarea::placeholder {
+    color: rgba(242, 245, 250, 38%);
+    opacity: 1;
+  }
+
+  .v-btn {
+    letter-spacing: 0;
+    transition:
+      background-color var(--glass-motion),
+      border-color var(--glass-motion),
+      box-shadow var(--glass-motion),
+      transform var(--glass-motion);
+  }
+
+  .v-btn:not(.v-btn--variant-text, .v-btn--variant-plain) {
+    border: 1px solid rgba(255, 255, 255, 20%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background-color: rgba(255, 255, 255, 10%) !important;
+    box-shadow:
+      0 4px 16px rgba(3, 7, 18, 45%),
+      inset 0 1px 0 rgba(255, 255, 255, 25%),
+      inset 0 -1px 0 rgba(2, 6, 16, 30%) !important;
+  }
+
+  .v-btn.bg-primary {
+    border-color: rgba(var(--v-theme-primary), 48%);
+    background-color: rgba(var(--v-theme-primary), 34%) !important;
+  }
+
+  .v-btn.bg-success {
+    border-color: rgba(var(--v-theme-success), 48%);
+    background-color: rgba(var(--v-theme-success), 34%) !important;
+  }
+
+  .v-btn.bg-info {
+    border-color: rgba(var(--v-theme-info), 48%);
+    background-color: rgba(var(--v-theme-info), 34%) !important;
+  }
+
+  .v-btn.bg-warning {
+    border-color: rgba(var(--v-theme-warning), 48%);
+    background-color: rgba(var(--v-theme-warning), 34%) !important;
+  }
+
+  .v-btn.bg-error {
+    border-color: rgba(var(--v-theme-error), 48%);
+    background-color: rgba(var(--v-theme-error), 34%) !important;
+  }
+
+  :where(.v-btn, .v-card--link, [role='button']):focus-visible {
+    outline: 0;
+    box-shadow:
+      0 0 0 3px rgba(var(--v-theme-primary), 18%),
+      var(--glass-shadow) !important;
+  }
+
+  .v-chip {
+    border-color: rgba(255, 255, 255, 16%);
+    background-color: rgba(255, 255, 255, 7%);
+  }
+
+  .v-table {
+    .v-table__wrapper > table > thead {
+      background-color: rgba(255, 255, 255, 6%);
+    }
+
+    .v-table__wrapper > table > tbody > tr:hover > td {
+      background-color: rgba(255, 255, 255, 6%);
+    }
+  }
+
+  .v-skeleton-loader {
+    background-color: var(--glass-surface-soft);
+  }
+
+  .app-card-colorful {
+    --app-card-accent-start-opacity: 0.018;
+    --app-card-accent-end-opacity: 0.008;
+    --app-card-border-opacity: 0.15;
+    --app-card-hover-border-opacity: 0.28;
+    --app-card-stripe-opacity: 0.12;
+    --app-card-surface-opacity: 0.08;
+
+    -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+  }
+
+  :where(.v-card, .v-sheet)
+    :where(.app-surface, .v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel, .v-stepper) {
+    border-color: transparent !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none !important;
+  }
+
+  :where(.v-card, .v-sheet)
+    :where(
+      .app-surface:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+      .v-card:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+      .v-sheet:not(.bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
+      .v-list,
+      .v-table,
+      .v-expansion-panel,
+      .v-stepper
+    ) {
+    background-color: transparent !important;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .v-btn:not(.v-btn--variant-text, .v-btn--variant-plain):hover {
+      border-color: var(--glass-border-hover);
+      background-color: rgba(255, 255, 255, 15%) !important;
+      box-shadow:
+        0 10px 32px rgba(3, 7, 18, 55%),
+        inset 0 1px 0 rgba(255, 255, 255, 35%) !important;
+    }
+
+    .v-btn.bg-primary:hover {
+      border-color: rgba(var(--v-theme-primary), 62%);
+      background-color: rgba(var(--v-theme-primary), 42%) !important;
+    }
+
+    .v-btn.bg-success:hover {
+      border-color: rgba(var(--v-theme-success), 62%);
+      background-color: rgba(var(--v-theme-success), 42%) !important;
+    }
+
+    .v-btn.bg-info:hover {
+      border-color: rgba(var(--v-theme-info), 62%);
+      background-color: rgba(var(--v-theme-info), 42%) !important;
+    }
+
+    .v-btn.bg-warning:hover {
+      border-color: rgba(var(--v-theme-warning), 62%);
+      background-color: rgba(var(--v-theme-warning), 42%) !important;
+    }
+
+    .v-btn.bg-error:hover {
+      border-color: rgba(var(--v-theme-error), 62%);
+      background-color: rgba(var(--v-theme-error), 42%) !important;
+    }
+
+    .v-card--link:hover {
+      border-color: var(--glass-border-hover) !important;
+      box-shadow: var(--glass-shadow-hover) !important;
+    }
+  }
+
+  .v-btn:active {
+    transform: scale(0.97);
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    :where(
+      .app-surface,
+      .v-card,
+      .v-sheet,
+      .v-list,
+      .v-toolbar,
+      .v-expansion-panel,
+      .layout-vertical-nav,
+      .layout-navbar,
+      .theme-customizer-panel-host,
+      .agent-assistant-panel
+    ) {
+      background-color: rgba(18, 28, 45, 94%) !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .v-btn,
+    .v-card,
+    .v-field,
+    .background-image {
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

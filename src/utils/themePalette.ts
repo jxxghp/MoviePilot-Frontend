@@ -1,7 +1,7 @@
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 
-export type ThemePreference = 'auto' | 'default' | 'light' | 'dark' | 'purple' | 'transparent'
-export type ResolvedThemeName = 'light' | 'dark' | 'purple' | 'transparent'
+export type ThemePreference = 'auto' | 'dark' | 'default' | 'glass' | 'light' | 'purple' | 'transparent'
+export type ResolvedThemeName = 'dark' | 'glass' | 'light' | 'purple' | 'transparent'
 export type ThemeColorScheme = 'light' | 'dark'
 
 interface ThemeRootPalette {
@@ -33,14 +33,20 @@ export const themeRootPalettes: Record<ResolvedThemeName, ThemeRootPalette> = {
     background: '#1C1C1C',
     primary: '#A370F7',
   },
+  glass: {
+    background: '#0B1322',
+    primary: '#E4B863',
+  },
 }
 
 const validResolvedThemes = new Set<string>(Object.keys(themeRootPalettes))
 
+/** 将任意主题名称收敛为应用支持的实际主题。 */
 function normalizeResolvedThemeName(themeName: string | null | undefined): ResolvedThemeName {
   return validResolvedThemes.has(themeName || '') ? (themeName as ResolvedThemeName) : 'light'
 }
 
+/** 将用户主题偏好解析为当前实际主题。 */
 export function resolveThemeName(themePreference: string | null | undefined): ResolvedThemeName {
   if (themePreference === 'auto') {
     return checkPrefersColorSchemeIsDark() ? 'dark' : 'light'
@@ -53,16 +59,19 @@ export function resolveThemeName(themePreference: string | null | undefined): Re
   return normalizeResolvedThemeName(themePreference)
 }
 
+/** 返回浏览器原生控件应使用的明暗配色。 */
 export function getThemeColorScheme(themeName: string | null | undefined): ThemeColorScheme {
-  return ['dark', 'purple', 'transparent'].includes(themeName || '') ? 'dark' : 'light'
+  return ['dark', 'glass', 'purple', 'transparent'].includes(themeName || '') ? 'dark' : 'light'
 }
 
+/** 批量同步匹配选择器的 meta 内容。 */
 function setMetaContent(selector: string, content: string) {
   document.querySelectorAll<HTMLMetaElement>(selector).forEach(meta => {
     meta.content = content
   })
 }
 
+/** 更新或创建浏览器主题色 meta 标签。 */
 function ensureThemeColorMeta(themeColor: string) {
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
 

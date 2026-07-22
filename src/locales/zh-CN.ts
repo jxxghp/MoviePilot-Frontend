@@ -144,6 +144,7 @@ export default {
     auto: '跟随系统',
     autoUI: '自动',
     transparent: '透明',
+    glass: '玻璃',
     purple: '幻紫',
     custom: '附加样式',
     transparency: '透明度',

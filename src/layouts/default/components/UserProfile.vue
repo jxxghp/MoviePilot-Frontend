@@ -315,6 +315,11 @@ const themes: ThemeSwitcherTheme[] = [
     title: t('theme.transparent'),
     icon: 'mdi-gradient-horizontal',
   },
+  {
+    name: 'glass',
+    title: t('theme.glass'),
+    icon: 'mdi-blur-radial',
+  },
 ]
 
 function getThemeLayoutTitle(layout: ThemeCustomizerSettings['layout']) {

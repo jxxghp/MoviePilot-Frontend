@@ -1,7 +1,22 @@
-import { applyDocumentThemeChrome } from '@/utils/themePalette'
+import {
+  applyDocumentThemeChrome,
+  getThemeColorScheme,
+  resolveThemeName,
+  themeRootPalettes,
+} from '@/utils/themePalette'
 import { describe, expect, it, vi } from 'vitest'
 
 describe('theme palette', () => {
+  // 玻璃主题在首屏与运行阶段都应保持深色外壳和夜航底色。
+  it('resolves glass as a dark theme with its dedicated launch palette', () => {
+    expect(resolveThemeName('glass')).toBe('glass')
+    expect(getThemeColorScheme('glass')).toBe('dark')
+    expect(themeRootPalettes.glass).toEqual({
+      background: '#0B1322',
+      primary: '#E4B863',
+    })
+  })
+
   it('notifies the favicon renderer with the applied primary color', () => {
     const handleFaviconChange = vi.fn()
 

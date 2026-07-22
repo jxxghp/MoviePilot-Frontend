@@ -73,10 +73,13 @@ const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
+const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
+const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
+const shouldUseGlassBackgroundTreatment = computed(() => Boolean(isLogin.value) && isGlassTheme.value)
 const shouldLoadBackgroundImages = computed(
-  () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isTransparentTheme.value),
+  () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
 )
 const transparentBackgroundBlur = ref(16)
 const transparencyGlassQuality = ref<TransparencyGlassQuality>(
@@ -434,7 +437,7 @@ function startBackgroundRotation() {
   }
 }
 
-// 停止登录页或透明主题背景图加载、重试和轮播。
+// 停止登录页、透明主题或玻璃主题背景图加载、重试和轮播。
 function stopBackgroundLoading() {
   backgroundRequestController?.abort()
   backgroundRequestController = null
@@ -597,7 +600,7 @@ onMounted(async () => {
       stopBackgroundLoading()
       if (shouldLoad) {
         loadBackgroundImages()
-      } else if (!isTransparentTheme.value) {
+      } else if (!isBackdropTheme.value) {
         backgroundImages.value = []
       }
     },
@@ -652,12 +655,13 @@ onUnmounted(() => {
 
 <template>
   <div class="app-wrapper" :class="{ 'app-wrapper--render-throttled': isRenderThrottled }">
-    <!-- 透明主题背景 -->
+    <!-- 登录页、透明主题和玻璃主题共用动态壁纸场景。 -->
     <div
-      v-if="backgroundImages.length > 0 && (isTransparentTheme || !isLogin)"
+      v-if="backgroundImages.length > 0 && (isBackdropTheme || !isLogin)"
       class="background-container"
       :class="{
         'is-transparent-theme': shouldUseTransparentBackgroundTreatment,
+        'is-glass-theme': shouldUseGlassBackgroundTreatment,
         'is-transparent-glass-lightweight':
           shouldUseTransparentBackgroundTreatment && transparencyGlassQuality === 'lightweight',
       }"
@@ -735,6 +739,22 @@ onUnmounted(() => {
 
 .background-container.is-transparent-theme .background-image.active {
   opacity: var(--transparent-background-poster-opacity, 1);
+}
+
+.background-container.is-glass-theme .background-image.active,
+.background-container.is-glass-theme .background-image.previous {
+  filter: brightness(0.78) saturate(0.9);
+}
+
+.background-container.is-glass-theme .background-image.active {
+  opacity: 0.88;
+}
+
+.background-container.is-glass-theme .background-image.active::after,
+.background-container.is-glass-theme .background-image.previous::after {
+  background:
+    linear-gradient(rgba(6, 10, 19, 26%) 0%, rgba(6, 10, 19, 55%) 100%),
+    rgba(11, 19, 34, 8%);
 }
 
 .background-container.is-transparent-glass-lightweight .background-image.active,

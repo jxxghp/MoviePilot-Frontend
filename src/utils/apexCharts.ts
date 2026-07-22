@@ -4,13 +4,14 @@ declare global {
   }
 }
 
+/** 根据当前 Vuetify 主题同步 ApexCharts 的全局明暗外观。 */
 export function configureApexChartsTheme(themeName: string) {
   if (typeof window === 'undefined' || !window.Apex) {
     return
   }
 
   try {
-    const isDark = themeName === 'dark' || themeName === 'transparent'
+    const isDark = ['dark', 'glass', 'transparent'].includes(themeName)
 
     window.Apex.dataLabels = {
       formatter: function (_: number, { seriesIndex, w }: { seriesIndex: number; w: any }) {

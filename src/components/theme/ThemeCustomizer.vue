@@ -81,6 +81,7 @@ const themeOptions = computed<Array<{ icon: string; title: string; value: ThemeC
   { title: t('theme.auto'), value: 'auto', icon: 'mdi-monitor' },
   { title: t('theme.purple'), value: 'purple', icon: 'mdi-theme-light-dark' },
   { title: t('theme.transparent'), value: 'transparent', icon: 'mdi-blur' },
+  { title: t('theme.glass'), value: 'glass', icon: 'mdi-blur-radial' },
 ])
 
 const skinOptions = computed<Array<{ title: string; value: ThemeCustomizerSkin }>>(() => [
@@ -126,6 +127,9 @@ const layoutOptions = computed<Array<{ icon: string; title: string; value: Theme
 ])
 
 const showLayoutSection = computed(() => !appMode.value)
+
+// 玻璃主题使用成套的外阴影与内高光，不提供不完整的 Vuetify elevation 调整。
+const showShadowSection = computed(() => globalTheme.name.value !== 'glass')
 
 const hasAppModeCustomization = computed(() => {
   return (
@@ -325,46 +329,48 @@ async function handleResetSettings() {
             </div>
           </div>
 
-          <VDivider class="mt-7" />
+          <template v-if="showShadowSection">
+            <VDivider class="mt-7" />
 
-          <h3 class="theme-customizer-section-title">{{ t('theme.customizer.shadow') }}</h3>
-          <div class="theme-customizer-shadow-slider">
-            <div class="theme-customizer-shadow-slider__header">
-              <span>{{ t('theme.customizer.shadowLevel', { level: settings.shadow }) }}</span>
-              <span>0 - 24</span>
-            </div>
-            <div class="theme-customizer-shadow-slider__control">
-              <span
-                class="theme-customizer-shadow-slider__sample"
-                :style="{ boxShadow: `var(--app-elevation-${settings.shadow})` }"
+            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.shadow') }}</h3>
+            <div class="theme-customizer-shadow-slider">
+              <div class="theme-customizer-shadow-slider__header">
+                <span>{{ t('theme.customizer.shadowLevel', { level: settings.shadow }) }}</span>
+                <span>0 - 24</span>
+              </div>
+              <div class="theme-customizer-shadow-slider__control">
+                <span
+                  class="theme-customizer-shadow-slider__sample"
+                  :style="{ boxShadow: `var(--app-elevation-${settings.shadow})` }"
+                >
+                  <span class="theme-customizer-shadow-slider__sample-accent" />
+                  <span class="theme-customizer-shadow-slider__sample-line" />
+                  <span class="theme-customizer-shadow-slider__sample-line theme-customizer-shadow-slider__sample-line--short" />
+                </span>
+                <VSlider
+                  :model-value="shadowSliderValue"
+                  :aria-label="t('theme.customizer.shadow')"
+                  :max="24"
+                  :min="0"
+                  :step="1"
+                  color="primary"
+                  density="comfortable"
+                  hide-details
+                  show-ticks="always"
+                  thumb-label
+                  tick-size="2"
+                  @update:model-value="handleShadowSliderChange"
+                />
+              </div>
+              <div
+                class="theme-customizer-shadow-slider__scale"
+                aria-hidden="true"
               >
-                <span class="theme-customizer-shadow-slider__sample-accent" />
-                <span class="theme-customizer-shadow-slider__sample-line" />
-                <span class="theme-customizer-shadow-slider__sample-line theme-customizer-shadow-slider__sample-line--short" />
-              </span>
-              <VSlider
-                :model-value="shadowSliderValue"
-                :aria-label="t('theme.customizer.shadow')"
-                :max="24"
-                :min="0"
-                :step="1"
-                color="primary"
-                density="comfortable"
-                hide-details
-                show-ticks="always"
-                thumb-label
-                tick-size="2"
-                @update:model-value="handleShadowSliderChange"
-              />
+                <span>0</span>
+                <span>24</span>
+              </div>
             </div>
-            <div
-              class="theme-customizer-shadow-slider__scale"
-              aria-hidden="true"
-            >
-              <span>0</span>
-              <span>24</span>
-            </div>
-          </div>
+          </template>
 
           <div v-if="showSemiDarkMenuOption" class="theme-customizer-semi-dark">
             <span>{{ t('theme.customizer.semiDarkMenu') }}</span>

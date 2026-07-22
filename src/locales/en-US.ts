@@ -146,6 +146,7 @@ export default {
     auto: 'Follow System',
     autoUI: 'Auto',
     transparent: 'Transparent',
+    glass: 'Glass',
     purple: 'Purple',
     custom: 'Custom Style',
     transparency: 'Transparency',
