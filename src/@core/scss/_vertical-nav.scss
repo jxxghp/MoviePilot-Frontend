@@ -96,7 +96,8 @@
 
     // 👉 Nav Link
     .nav-link {
-      overflow: hidden;
+      // 交互项已预留下边距承接激活阴影，父级不能再次裁切这段视觉溢出。
+      overflow: visible;
 
       > :first-child {
         @extend %vertical-nav-item;

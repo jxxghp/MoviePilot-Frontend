@@ -307,12 +307,7 @@ onActivated(async () => {
   transition: opacity 0.3s ease;
 }
 
-.content-group :deep(.slider-content-wrapper) {
-  content-visibility: auto;
-  contain-intrinsic-block-size: 16rem;
-  margin-block: calc(var(--slider-shadow-bleed-start) * -1) calc(var(--slider-shadow-bleed-end) * -1);
-  padding-block: var(--slider-shadow-bleed-start) var(--slider-shadow-bleed-end);
-}
+// 横向滚动层依靠纵向缓冲展示上浮与阴影，不可在外层启用会裁切溢出的 paint containment。
 
 .empty-category {
   display: flex;

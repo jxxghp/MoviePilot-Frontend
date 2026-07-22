@@ -835,6 +835,8 @@ onMounted(() => {
   --permission-editor-hover-bg: rgba(var(--v-theme-primary), 0.04);
   --permission-editor-active-bg: rgba(var(--v-theme-primary), 0.1);
   --permission-editor-selected-bg: rgba(var(--v-theme-primary), 0.08);
+  --permission-editor-backdrop-filter: none;
+  --permission-editor-shadow: none;
 
   display: flex;
   flex-direction: column;
@@ -852,6 +854,14 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
   gap: 0.75rem;
+}
+
+.permission-category-option,
+.permission-feature-item,
+.permission-feature-panel {
+  -webkit-backdrop-filter: var(--permission-editor-backdrop-filter);
+  backdrop-filter: var(--permission-editor-backdrop-filter);
+  box-shadow: var(--permission-editor-shadow);
 }
 
 .permission-category-option,
@@ -973,7 +983,7 @@ onMounted(() => {
   overflow: hidden;
   border: var(--permission-editor-border);
   border-radius: var(--permission-editor-radius);
-  background: rgb(var(--v-theme-surface));
+  background: var(--permission-editor-panel-bg);
 }
 
 .permission-feature-panel__header {

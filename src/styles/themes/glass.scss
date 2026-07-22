@@ -309,6 +309,11 @@ html[data-theme='glass'] {
       inset 0 1px 0 rgba(255, 255, 255, 25%);
   }
 
+  // Outlined 描边自身会为浮动标签留出缺口，移除贯穿整个顶部的 field 阴影线。
+  .v-field.v-field--variant-outlined {
+    box-shadow: inset 0 -1px 0 rgba(2, 6, 16, 22%);
+  }
+
   .v-field.v-field--variant-underlined,
   .v-field.v-field--variant-plain {
     border-radius: 0;
@@ -436,10 +441,32 @@ html[data-theme='glass'] {
     --mobile-calendar-surface-blur: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   }
 
+  // 用户权限编辑器由普通容器构成，通过主题变量接入玻璃表面材质。
+  .user-permission-editor {
+    --permission-editor-border: 1px solid var(--glass-border);
+    --permission-editor-muted-border: 1px solid rgba(255, 255, 255, 10%);
+    --permission-editor-panel-bg: var(--glass-surface-soft);
+    --permission-editor-hover-bg: rgba(255, 255, 255, 8%);
+    --permission-editor-active-bg: rgba(var(--v-theme-primary), 16%);
+    --permission-editor-selected-bg: rgba(var(--v-theme-primary), 12%);
+    --permission-editor-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    --permission-editor-shadow: inset 0 1px 0 rgba(255, 255, 255, 8%);
+  }
+
+  // 智能助手折叠区使用均匀的玻璃描边，替换普通主题渐变产生的顶部黑边。
+  .ai-agent-settings-card {
+    border: 1px solid rgba(255, 255, 255, 10%) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+    background: var(--glass-surface-soft) !important;
+    box-shadow: none !important;
+  }
+
   // 横向榜单的滚动容器需要完整容纳玻璃卡片向上下扩散的阴影。
   .slider-container {
-    --slider-shadow-bleed-start: 36px;
-    --slider-shadow-bleed-end: 64px;
+    --slider-shadow-bleed-start: 48px;
+    --slider-shadow-bleed-end: 96px;
+    --slider-shadow-bleed-inline: 32px;
   }
 
   :where(.v-card, .v-sheet)

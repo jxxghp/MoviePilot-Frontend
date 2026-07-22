@@ -300,6 +300,7 @@ watch(
 </template>
 
 <style lang="scss" scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
 .slider-container {
   position: relative;
   isolation: isolate;
@@ -307,6 +308,7 @@ watch(
 
   --slider-shadow-bleed-start: 28px;
   --slider-shadow-bleed-end: 56px;
+  --slider-shadow-bleed-inline: 12px;
 }
 
 .slider-header {
@@ -337,7 +339,7 @@ watch(
   font-size: 0.85rem;
   font-weight: 500;
   padding-block: 5px;
-  padding-inline: 12px;
+  padding-inline: var(--slider-shadow-bleed-inline);
   text-decoration: none;
   transition: all 0.25s ease;
 
