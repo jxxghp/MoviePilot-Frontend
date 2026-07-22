@@ -1307,6 +1307,10 @@ export default {
     movie: '电影',
     imageLoadFailed: '加载失败',
     noMatchingEvents: '暂无符合筛选条件的日历内容',
+    mediaTypeFilterTitle: '媒体类型筛选',
+    filterAll: '全部',
+    filterMovie: '电影',
+    filterTv: '电视剧',
   },
   storage: {
     name: '名称',

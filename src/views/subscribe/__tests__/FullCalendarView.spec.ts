@@ -434,6 +434,89 @@ describe('FullCalendarView', () => {
     expect(onListRequest).toHaveBeenCalledTimes(2)
   })
 
+  it('filters desktop calendar events by media type', async () => {
+    const movie = movieSubscribe(3801, '筛选电影')
+    const tv = tvSubscribe(3802, '筛选剧集')
+    server.use(
+      subscribeListHandler([movie, tv]),
+      mediaDetailsHandler(3801, createMediaInfo({ release_date: '2026-07-24', tmdb_id: 3801 })),
+      tmdbSeasonEpisodesHandler(3802, 1, [createTmdbEpisode({ air_date: '2026-07-24', episode_number: 1 })]),
+    )
+
+    await renderCalendar()
+
+    expect(await screen.findByText('筛选电影')).toBeInTheDocument()
+    expect(screen.getByText('筛选剧集')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '电视剧' }))
+    expect(screen.queryByText('筛选电影')).not.toBeInTheDocument()
+    expect(screen.getByText('筛选剧集')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '电影' }))
+    expect(screen.getByText('筛选电影')).toBeInTheDocument()
+    expect(screen.queryByText('筛选剧集')).not.toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '全部' }))
+    expect(screen.getByText('筛选电影')).toBeInTheDocument()
+    expect(screen.getByText('筛选剧集')).toBeInTheDocument()
+  })
+
+  it('re-collapses a previously expanded desktop day when the media type filter changes', async () => {
+    const sameDaySubscriptions = Array.from({ length: 6 }, (_, index) =>
+      tvSubscribe(4000 + index, `折叠项目 ${index + 1}`),
+    )
+    const sameDayEpisode = createTmdbEpisode({ air_date: '2026-08-05', episode_number: 1 })
+    server.use(
+      subscribeListHandler(sameDaySubscriptions),
+      ...sameDaySubscriptions.map(subscribe =>
+        tmdbSeasonEpisodesHandler(subscribe.tmdbid as number, 1, [sameDayEpisode]),
+      ),
+    )
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callback(0)
+      return 1
+    })
+
+    await renderCalendar()
+
+    expect(await screen.findByText('折叠项目 1')).toBeInTheDocument()
+    expect(screen.queryByText('折叠项目 6')).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '展开当天剩余 1 个条目' }))
+    expect(screen.getByText('折叠项目 6')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '电影' }))
+    await fireEvent.click(screen.getByRole('button', { name: '全部' }))
+
+    expect(await screen.findByText('折叠项目 1')).toBeInTheDocument()
+    expect(screen.queryByText('折叠项目 6')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '展开当天剩余 1 个条目' })).toBeInTheDocument()
+  })
+
+  it('filters mobile calendar events by media type', async () => {
+    setViewport(480)
+    const movie = movieSubscribe(3901, '移动筛选电影')
+    const tv = tvSubscribe(3902, '移动筛选剧集')
+    server.use(
+      subscribeListHandler([movie, tv]),
+      mediaDetailsHandler(3901, createMediaInfo({ release_date: '2026-07-24', tmdb_id: 3901 })),
+      tmdbSeasonEpisodesHandler(3902, 1, [createTmdbEpisode({ air_date: '2026-07-24', episode_number: 1 })]),
+    )
+
+    await renderCalendar()
+
+    await waitFor(() => expect(queryMobileCalendarEventCard('移动筛选电影')).toBeInTheDocument())
+    expect(queryMobileCalendarEventCard('移动筛选剧集')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '电视剧' }))
+    expect(queryMobileCalendarEventCard('移动筛选电影')).not.toBeInTheDocument()
+    expect(queryMobileCalendarEventCard('移动筛选剧集')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('button', { name: '全部' }))
+    expect(queryMobileCalendarEventCard('移动筛选电影')).toBeInTheDocument()
+    expect(queryMobileCalendarEventCard('移动筛选剧集')).toBeInTheDocument()
+  })
+
   it('shows the mobile empty state for an empty subscription list', async () => {
     setViewport(480)
     server.use(subscribeListHandler([]))

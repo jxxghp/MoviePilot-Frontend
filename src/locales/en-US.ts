@@ -1314,6 +1314,10 @@ export default {
     movie: 'Movie',
     imageLoadFailed: 'Failed',
     noMatchingEvents: 'No calendar items match the current filters',
+    mediaTypeFilterTitle: 'Media type filter',
+    filterAll: 'All',
+    filterMovie: 'Movie',
+    filterTv: 'TV Series',
   },
   storage: {
     name: 'Name',

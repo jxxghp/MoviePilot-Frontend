@@ -145,6 +145,28 @@ const mobileSelectedFilterValue = ref(ALL_MOBILE_FILTER_VALUE)
 // 移动端默认隐藏已经过期的日历项。
 const mobileHideExpired = ref(true)
 
+// 媒体类型筛选取值。
+type MediaTypeFilterValue = 'all' | 'movie' | 'tv'
+
+// 当前媒体类型筛选值，桌面端和移动端共用。
+const mediaTypeFilter = ref<MediaTypeFilterValue>('all')
+
+// 判断日历事件是否命中当前媒体类型筛选。
+function matchesMediaTypeFilter(event: CalendarEventInfo) {
+  if (mediaTypeFilter.value === 'all') return true
+
+  const isMovie = event.mediaType === '电影'
+
+  return mediaTypeFilter.value === 'movie' ? isMovie : !isMovie
+}
+
+// 媒体类型筛选选项，桌面端和移动端共用。
+const mediaTypeFilterOptions = computed<{ label: string; value: MediaTypeFilterValue }[]>(() => [
+  { label: t('calendar.filterAll'), value: 'all' },
+  { label: t('calendar.filterMovie'), value: 'movie' },
+  { label: t('calendar.filterTv'), value: 'tv' },
+])
+
 // 移动端剧集筛选项。
 const mobileSeriesFilterOptions = computed<MobileCalendarFilterOption[]>(() => {
   const optionMap = new Map<string, MobileCalendarFilterOption>()
@@ -178,6 +200,10 @@ const mobileSeriesFilterOptions = computed<MobileCalendarFilterOption[]>(() => {
 // 移动端筛选后的日历事件。
 const mobileFilteredCalendarEvents = computed(() => {
   return rawCalendarEvents.value.filter(event => {
+    if (!matchesMediaTypeFilter(event)) {
+      return false
+    }
+
     if (mobileSelectedFilterValue.value !== ALL_MOBILE_FILTER_VALUE && event.title !== mobileSelectedFilterValue.value) {
       return false
     }
@@ -217,6 +243,13 @@ const mobileCalendarDayGroups = computed<MobileCalendarDayGroup[]>(() => {
       events,
     }
   })
+})
+
+watch(mediaTypeFilter, () => {
+  // 切换筛选前先收起所有已展开日期，避免 expandCalendarDay 直接写入 FullCalendar
+  // 内部事件的 visibleEvents 残留旧筛选条件下的展开内容。
+  expandedDateKeys.value = new Set()
+  renderVisibleCalendarEvents()
 })
 
 watch(mobileSeriesFilterOptions, options => {
@@ -282,7 +315,7 @@ function normalizeCalendarEventOrder(events: CalendarEventInfo[]) {
 function renderVisibleCalendarEvents() {
   const groupedEvents = new Map<string, CalendarEventInfo[]>()
 
-  rawCalendarEvents.value.forEach(event => {
+  rawCalendarEvents.value.filter(matchesMediaTypeFilter).forEach(event => {
     const dateKey = getDateKey(event.start)
     if (!dateKey) return
 
@@ -297,7 +330,9 @@ function renderVisibleCalendarEvents() {
 // 展开指定日期在桌面日历中的折叠事件。
 function expandCalendarDay(dateKey: string) {
   const currentScrollY = window.scrollY
-  const events = rawCalendarEvents.value.filter(event => getDateKey(event.start) === dateKey)
+  const events = rawCalendarEvents.value
+    .filter(matchesMediaTypeFilter)
+    .filter(event => getDateKey(event.start) === dateKey)
   const calendarApi = calendarRef.value?.getApi()
 
   expandedDateKeys.value = new Set(expandedDateKeys.value).add(dateKey)
@@ -667,6 +702,20 @@ onActivated(() => {
 </script>
 
 <template>
+  <div v-if="display.mdAndUp.value" class="calendar-media-type-filter" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
+    <button
+      v-for="option in mediaTypeFilterOptions"
+      :key="option.value"
+      type="button"
+      class="calendar-media-type-chip"
+      :class="{ 'calendar-media-type-chip--active': mediaTypeFilter === option.value }"
+      :aria-pressed="mediaTypeFilter === option.value"
+      @click="mediaTypeFilter = option.value"
+    >
+      {{ option.label }}
+    </button>
+  </div>
+
   <FullCalendar v-if="display.mdAndUp.value" ref="calendarRef" :options="calendarOptions">
     <template #eventContent="arg">
       <div v-if="arg.event.extendedProps.isDayGroup" class="calendar-day-events">
@@ -779,6 +828,20 @@ onActivated(() => {
         >
           <VIcon :icon="mobileHideExpired ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" size="18" />
           <span>{{ mobileHideExpired ? t('calendar.hideExpired') : t('calendar.showExpired') }}</span>
+        </button>
+      </div>
+
+      <div class="mobile-calendar-mediatype-list" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
+        <button
+          v-for="option in mediaTypeFilterOptions"
+          :key="option.value"
+          type="button"
+          class="mobile-calendar-filter-chip mobile-calendar-mediatype-chip"
+          :class="{ 'mobile-calendar-filter-chip--active': mediaTypeFilter === option.value }"
+          :aria-pressed="mediaTypeFilter === option.value"
+          @click="mediaTypeFilter = option.value"
+        >
+          {{ option.label }}
         </button>
       </div>
 
@@ -1165,6 +1228,33 @@ onActivated(() => {
   background-color: transparent !important;
 }
 
+.calendar-media-type-filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-block-end: 0.75rem;
+}
+
+.calendar-media-type-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: 0.4rem;
+  padding-inline: 1rem;
+  border: 0;
+  border-radius: var(--app-control-radius);
+  background: rgba(var(--v-theme-on-surface), 0.08);
+  color: rgba(var(--v-theme-on-surface), 0.72);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.calendar-media-type-chip--active {
+  background: rgba(var(--v-theme-primary), 0.14);
+  color: rgb(var(--v-theme-primary));
+}
+
 .calendar-event-card {
   display: flex;
   overflow: hidden;
@@ -1450,6 +1540,16 @@ onActivated(() => {
 
 .mobile-calendar-expired-toggle--active {
   color: rgb(var(--v-theme-primary));
+}
+
+.mobile-calendar-mediatype-list {
+  display: flex;
+  gap: 0.5rem;
+  margin-block-end: 0.75rem;
+}
+
+.mobile-calendar-mediatype-chip {
+  flex: 1 1 0;
 }
 
 .mobile-calendar-filter-list {
