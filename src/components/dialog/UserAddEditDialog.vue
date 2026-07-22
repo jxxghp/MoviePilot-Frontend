@@ -501,7 +501,7 @@ onMounted(() => {
         </div>
       </VCardItem>
       <VCardText>
-        <VForm @submit.prevent="() => {}">
+        <VForm class="user-info-form" @submit.prevent="() => {}">
           <VDivider class="my-10">
             <span>{{ t('dialog.userAddEdit.saveUserInfo') }}</span>
           </VDivider>
@@ -1047,6 +1047,11 @@ onMounted(() => {
 }
 
 @media (width <= 960px) {
+  // 移动端响应式录入行提高右侧控件占比，给实际输入内容留出足够空间。
+  .user-info-form {
+    --app-responsive-input-control-width: 65%;
+  }
+
   .permission-category-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

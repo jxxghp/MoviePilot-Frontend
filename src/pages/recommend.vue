@@ -310,6 +310,8 @@ onActivated(async () => {
 .content-group :deep(.slider-content-wrapper) {
   content-visibility: auto;
   contain-intrinsic-block-size: 16rem;
+  margin-block: calc(var(--slider-shadow-bleed-start) * -1) calc(var(--slider-shadow-bleed-end) * -1);
+  padding-block: var(--slider-shadow-bleed-start) var(--slider-shadow-bleed-end);
 }
 
 .empty-category {

@@ -62,7 +62,7 @@ watch(activeTab, markTabVisited, { immediate: true })
 
 <template>
   <div>
-    <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
+    <VWindow v-model="activeTab" class="settings-content-window disable-tab-transition" :touch="false">
       <VWindowItem v-for="item in settingTabComponents" :key="item.value" :value="item.value">
         <transition name="fade-slide" appear>
           <div>

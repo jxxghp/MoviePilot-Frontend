@@ -10,13 +10,15 @@ html[data-theme='glass'] {
   --glass-border-hover: rgba(255, 255, 255, 28%);
   --glass-highlight: rgba(255, 255, 255, 22%);
   --glass-shadow:
-    0 16px 40px rgba(3, 7, 18, 50%), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 35%);
+    0 6px 18px rgba(3, 7, 18, 28%), inset 0 1px 0 rgba(255, 255, 255, 18%), inset 0 -1px 0 rgba(2, 6, 16, 22%);
   --glass-shadow-raised:
-    0 20px 52px rgba(3, 7, 18, 58%), 0 0 0 1px rgba(255, 255, 255, 5%), inset 0 1px 0 rgba(255, 255, 255, 25%),
-    inset 0 -1px 0 rgba(2, 6, 16, 38%);
+    0 10px 28px rgba(3, 7, 18, 34%), 0 0 0 1px rgba(255, 255, 255, 4%), inset 0 1px 0 rgba(255, 255, 255, 22%),
+    inset 0 -1px 0 rgba(2, 6, 16, 26%);
   --glass-shadow-hover:
-    0 22px 60px rgba(3, 7, 18, 64%), 0 0 0 1px rgba(255, 255, 255, 8%), inset 0 1px 0 rgba(255, 255, 255, 32%),
-    inset 0 -1px 0 rgba(2, 6, 16, 40%);
+    0 12px 32px rgba(3, 7, 18, 38%), 0 0 0 1px rgba(255, 255, 255, 6%), inset 0 1px 0 rgba(255, 255, 255, 27%),
+    inset 0 -1px 0 rgba(2, 6, 16, 28%);
+  --glass-navbar-shadow:
+    0 3px 12px rgba(3, 7, 18, 18%), inset 0 1px 0 rgba(255, 255, 255, 10%), inset 0 -1px 0 rgba(2, 6, 16, 12%);
   --glass-blur: 40px;
   --glass-blur-raised: 60px;
   --glass-saturate: 180%;
@@ -27,7 +29,7 @@ html[data-theme='glass'] {
   --app-fab-shadow-strong: var(--glass-shadow-raised);
   --app-fab-shadow-hover: var(--glass-shadow-hover);
   --app-fab-shadow-strong-hover: var(--glass-shadow-hover);
-  --app-fab-shadow-active: 0 8px 22px rgba(3, 7, 18, 48%), inset 0 1px 0 rgba(255, 255, 255, 18%);
+  --app-fab-shadow-active: 0 3px 10px rgba(3, 7, 18, 24%), inset 0 1px 0 rgba(255, 255, 255, 16%);
   --app-overlay-shadow: var(--glass-shadow-raised);
   --app-surface-shadow: var(--glass-shadow);
   --app-surface-hover-shadow: var(--glass-shadow-hover);
@@ -119,10 +121,6 @@ html[data-theme='glass'] {
     z-index: 1;
   }
 
-  .layout-page-content {
-    background-color: rgba(255, 255, 255, 2.5%);
-  }
-
   :where(
     .app-surface:not(.no-blur),
     .v-card:not(.no-blur, .bg-primary, .bg-success, .bg-info, .bg-warning, .bg-error),
@@ -160,6 +158,11 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-shadow-raised) !important;
   }
 
+  // 顶栏使用更轻的投影，避免与下方内容形成内陷感。
+  .layout-navbar {
+    box-shadow: var(--glass-navbar-shadow) !important;
+  }
+
   .layout-vertical-nav {
     border-inline-end: 1px solid var(--glass-border);
   }
@@ -170,7 +173,7 @@ html[data-theme='glass'] {
     -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate)) !important;
     backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate)) !important;
     background: var(--glass-surface-raised) !important;
-    box-shadow: var(--glass-shadow-raised) !important;
+    box-shadow: var(--glass-navbar-shadow) !important;
   }
 
   .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar .navbar-content-container,
@@ -342,9 +345,9 @@ html[data-theme='glass'] {
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     background-color: rgba(255, 255, 255, 10%) !important;
     box-shadow:
-      0 4px 16px rgba(3, 7, 18, 45%),
-      inset 0 1px 0 rgba(255, 255, 255, 25%),
-      inset 0 -1px 0 rgba(2, 6, 16, 30%) !important;
+      0 2px 8px rgba(3, 7, 18, 24%),
+      inset 0 1px 0 rgba(255, 255, 255, 20%),
+      inset 0 -1px 0 rgba(2, 6, 16, 18%) !important;
   }
 
   .v-btn.bg-primary {
@@ -410,6 +413,35 @@ html[data-theme='glass'] {
     backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
   }
 
+  // 移动端文件整理和日历使用自定义容器，需要显式接入玻璃表面材质。
+  .transfer-history-mobile-page {
+    --transfer-history-mobile-search-bg: var(--glass-surface-soft);
+    --transfer-history-mobile-muted-bg: var(--glass-surface-soft);
+    --transfer-history-mobile-border: var(--glass-border);
+    --transfer-history-mobile-surface-blur: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  .transfer-history-mobile-record,
+  .mobile-calendar-filter-card,
+  .mobile-calendar-event-card {
+    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background: var(--glass-surface);
+  }
+
+  .mobile-subscribe-calendar {
+    --mobile-calendar-control-bg: var(--glass-surface-soft);
+    --mobile-calendar-placeholder-bg: var(--glass-surface-soft);
+    --mobile-calendar-surface-blur: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  // 横向榜单的滚动容器需要完整容纳玻璃卡片向上下扩散的阴影。
+  .slider-container {
+    --slider-shadow-bleed-start: 36px;
+    --slider-shadow-bleed-end: 64px;
+  }
+
   :where(.v-card, .v-sheet)
     :where(.app-surface, .v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel, .v-stepper) {
     border-color: transparent !important;
@@ -436,8 +468,8 @@ html[data-theme='glass'] {
       border-color: var(--glass-border-hover);
       background-color: rgba(255, 255, 255, 15%) !important;
       box-shadow:
-        0 10px 32px rgba(3, 7, 18, 55%),
-        inset 0 1px 0 rgba(255, 255, 255, 35%) !important;
+        0 5px 16px rgba(3, 7, 18, 28%),
+        inset 0 1px 0 rgba(255, 255, 255, 26%) !important;
     }
 
     .v-btn.bg-primary:hover {
@@ -473,6 +505,13 @@ html[data-theme='glass'] {
 
   .v-btn:active {
     transform: scale(0.97);
+  }
+
+  @media (width <= 960px) {
+    // 设置页卡片与视口边缘保持阴影缓冲，避免页面横向裁切边界截断投影。
+    .settings-content-window {
+      padding-inline: 24px;
+    }
   }
 
   @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {

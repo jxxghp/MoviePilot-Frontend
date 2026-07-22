@@ -743,18 +743,19 @@ onUnmounted(() => {
 
 .background-container.is-glass-theme .background-image.active,
 .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(0.9) saturate(0.96);
+  filter: brightness(0.82) saturate(0.9);
 }
 
 .background-container.is-glass-theme .background-image.active {
-  opacity: 0.94;
+  opacity: 0.92;
 }
 
+// 玻璃主题用冷色暗幕压低壁纸对比度，避免轻阴影表面与背景直接冲突。
 .background-container.is-glass-theme .background-image.active::after,
 .background-container.is-glass-theme .background-image.previous::after {
   background:
-    linear-gradient(rgba(6, 10, 19, 18%) 0%, rgba(6, 10, 19, 42%) 100%),
-    rgba(11, 19, 34, 5%);
+    linear-gradient(rgba(6, 10, 19, 30%) 0%, rgba(6, 10, 19, 58%) 100%),
+    rgba(11, 19, 34, 10%);
 }
 
 .background-container.is-transparent-glass-lightweight .background-image.active,
