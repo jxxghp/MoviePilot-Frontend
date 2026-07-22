@@ -128,6 +128,9 @@ const layoutOptions = computed<Array<{ icon: string; title: string; value: Theme
 
 const showLayoutSection = computed(() => !appMode.value)
 
+// 玻璃表面依赖固定的高光描边维持轮廓，不提供与材质冲突的通用皮肤切换。
+const showSkinSection = computed(() => globalTheme.name.value !== 'glass')
+
 // 玻璃主题使用成套的外阴影与内高光，不提供不完整的 Vuetify elevation 调整。
 const showShadowSection = computed(() => globalTheme.name.value !== 'glass')
 
@@ -275,34 +278,36 @@ async function handleResetSettings() {
             </div>
           </div>
 
-          <VDivider class="mt-7" />
+          <template v-if="showSkinSection">
+            <VDivider class="mt-7" />
 
-          <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
-          <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
-            <div
-              v-for="skin in skinOptions"
-              :key="skin.value"
-              class="theme-customizer-preview-option"
-              :class="{ 'is-active': settings.skin === skin.value }"
-              @click="setSkin(skin.value)"
-            >
-              <span class="theme-customizer-border-scene" :class="`theme-customizer-border-scene--${skin.value}`">
-                <span class="theme-customizer-border-scene__card">
-                  <i />
-                  <i />
+            <h3 class="theme-customizer-section-title">{{ t('theme.customizer.skins') }}</h3>
+            <div class="theme-customizer-preview-grid theme-customizer-preview-grid--skins">
+              <div
+                v-for="skin in skinOptions"
+                :key="skin.value"
+                class="theme-customizer-preview-option"
+                :class="{ 'is-active': settings.skin === skin.value }"
+                @click="setSkin(skin.value)"
+              >
+                <span class="theme-customizer-border-scene" :class="`theme-customizer-border-scene--${skin.value}`">
+                  <span class="theme-customizer-border-scene__card">
+                    <i />
+                    <i />
+                  </span>
+                  <span class="theme-customizer-border-scene__dialog">
+                    <i />
+                  </span>
+                  <span class="theme-customizer-border-scene__menu">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
                 </span>
-                <span class="theme-customizer-border-scene__dialog">
-                  <i />
-                </span>
-                <span class="theme-customizer-border-scene__menu">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-              </span>
-              <span>{{ skin.title }}</span>
+                <span>{{ skin.title }}</span>
+              </div>
             </div>
-          </div>
+          </template>
 
           <VDivider class="mt-7" />
 
