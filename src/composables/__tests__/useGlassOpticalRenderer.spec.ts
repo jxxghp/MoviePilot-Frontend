@@ -1,12 +1,54 @@
 import {
   containsGlassOpticalSurface,
   setGlassRendererState,
+  useGlassOpticalRenderer,
   type GlassRendererState,
 } from '@/composables/useGlassOpticalRenderer'
-import { ref } from 'vue'
-import { afterEach, describe, expect, it } from 'vitest'
+import { effectScope, nextTick, ref } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('three', async importOriginal => {
+  const actual = await importOriginal<typeof import('three')>()
+  return {
+    ...actual,
+    TextureLoader: class {
+      loadAsync() {
+        const texture = new actual.Texture()
+        texture.image = { height: 1, naturalHeight: 1, naturalWidth: 1, width: 1 }
+        return Promise.resolve(texture)
+      }
+
+      setCrossOrigin() {}
+    },
+    WebGLRenderer: class {
+      compileAsync() {
+        return Promise.resolve()
+      }
+
+      dispose() {}
+      forceContextLoss() {}
+      render() {}
+      setClearColor() {}
+      setPixelRatio() {}
+      setSize() {}
+    },
+  }
+})
+
+class ResizeObserverMock {
+  disconnect() {}
+  observe() {}
+}
+
+beforeEach(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+  vi.stubGlobal('WebGLRenderingContext', class {})
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+})
 
 afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   delete document.documentElement.dataset.glassRendererState
 })
 
@@ -45,5 +87,34 @@ describe('glass optical surface discovery', () => {
 
     expect(state.value).toBe('fallback')
     expect(document.documentElement.dataset.glassRendererState).toBe('fallback')
+  })
+
+  it('recovers after consecutive WebGL context loss cycles', async () => {
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+      expect(renderer?.state.value).toBe('fallback')
+
+      canvas.dispatchEvent(new Event('webglcontextrestored'))
+      await nextTick()
+      await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    }
+
+    scope.stop()
   })
 })

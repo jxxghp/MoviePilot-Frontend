@@ -286,7 +286,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let observedSurfaces: HTMLElement[] = []
   let currentRects: GlassOpticalRect[] = []
   let tracksScrollingSurfaces = false
-  let contextRestoreAttempts = 0
+  let contextRecoveryPending = false
 
   function cancelScheduledFrame() {
     if (animationFrame === null) return
@@ -433,13 +433,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function handleContextLost(event: Event) {
     event.preventDefault()
     cancelScheduledFrame()
+    contextRecoveryPending = true
     setGlassRendererState(state, 'fallback')
   }
 
   function handleContextRestored() {
-    if (contextRestoreAttempts >= 1) return
+    if (!contextRecoveryPending) return
 
-    contextRestoreAttempts += 1
+    contextRecoveryPending = false
     void initializeRenderer(false)
   }
 
@@ -497,6 +498,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function disposeRenderer(releaseContext = true) {
     loadVersion += 1
+    contextRecoveryPending = false
     cancelScheduledFrame()
     if (surfaceUpdateFrame !== null) {
       cancelAnimationFrame(surfaceUpdateFrame)
