@@ -105,29 +105,32 @@ onMounted(() => {
 
 <template>
   <VCard class="mx-auto" width="100%">
-    <VToolbar flat class="p-0">
+    <VCardTitle class="d-flex align-center justify-space-between">
+      <span>{{ t('dialog.reorganize.mediaSearchInput') }}</span>
+      <VDialogCloseBtn
+        inner-class="static"
+        @click="
+          () => {
+            emit('close')
+          }
+        "
+      />
+    </VCardTitle>
+    <VCardText class="pt-0">
       <VTextField
         ref="inputKeyword"
         v-model="keyword"
-        :label="t('dialog.reorganize.mediaSearchInput')"
+        :mobile-layout="false"
         single-line
         :placeholder="t('dialog.reorganize.mediaSearchPlaceholder')"
         variant="solo"
-        prepend-inner-icon="mdi-magnify"
+        append-inner-icon="mdi-magnify"
         flat
-        class="mx-1"
         :loading="loading"
         @click:append-inner="searchMedias"
         @keydown.enter="searchMedias"
       />
-    </VToolbar>
-    <VDialogCloseBtn
-      @click="
-        () => {
-          emit('close')
-        }
-      "
-    />
+    </VCardText>
     <VDivider />
     <VList v-if="items.length > 0" lines="three">
       <template v-for="(item, i) in items" :key="i">
