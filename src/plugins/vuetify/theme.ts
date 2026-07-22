@@ -213,14 +213,14 @@ const theme: VuetifyOptions['theme'] = {
     glass: {
       dark: true,
       colors: {
-        'primary': '#E4B863',
+        'primary': '#8D51F9',
         'secondary': '#7C9CC4',
         'on-secondary': '#07101C',
         'success': '#69C59A',
         'info': '#7C9CC4',
         'warning': '#E4B863',
         'error': '#FF7B7B',
-        'on-primary': '#171106',
+        'on-primary': '#FFFFFF',
         'on-success': '#07150F',
         'on-warning': '#171106',
         'background': '#0B1322',

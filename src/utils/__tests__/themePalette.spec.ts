@@ -13,7 +13,7 @@ describe('theme palette', () => {
     expect(getThemeColorScheme('glass')).toBe('dark')
     expect(themeRootPalettes.glass).toEqual({
       background: '#0B1322',
-      primary: '#E4B863',
+      primary: '#8D51F9',
     })
   })
 

@@ -35,7 +35,7 @@ export const themeRootPalettes: Record<ResolvedThemeName, ThemeRootPalette> = {
   },
   glass: {
     background: '#0B1322',
-    primary: '#E4B863',
+    primary: '#8D51F9',
   },
 }
 

@@ -72,7 +72,6 @@ export interface ThemeCustomizerSettings {
 type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
-const glassDefaultPrimaryColor = '#E4B863'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
 const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
@@ -206,15 +205,15 @@ function getTextColorForHex(backgroundColor: string) {
   return luminance > 0.68 ? '#3A3541' : '#FFFFFF'
 }
 
-/** 将主色写入 Vuetify 运行时主题，默认主色下保留玻璃主题的香槟强调色。 */
+/** 将主色写入所有 Vuetify 运行时主题。 */
 export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyThemeApi) {
   if (!isHexColor(color)) return
 
-  for (const [themeName, themeDefinition] of Object.entries(themeApi.themes.value)) {
-    const themePrimaryColor = themeName === 'glass' && color === defaultPrimaryColor ? glassDefaultPrimaryColor : color
+  const onPrimaryColor = getTextColorForHex(color)
 
-    themeDefinition.colors.primary = themePrimaryColor
-    themeDefinition.colors['on-primary'] = getTextColorForHex(themePrimaryColor)
+  for (const themeDefinition of Object.values(themeApi.themes.value)) {
+    themeDefinition.colors.primary = color
+    themeDefinition.colors['on-primary'] = onPrimaryColor
   }
 
   const activePrimaryColor = themeApi.current.value.colors.primary
