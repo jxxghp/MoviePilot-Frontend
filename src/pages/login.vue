@@ -62,6 +62,8 @@ function renderCardLight() {
   root?.style.setProperty('--login-card-highlight-alpha', (0.035 + pendingCardLightEnergy * 0.08).toFixed(3))
   root?.style.setProperty('--login-card-primary-alpha', (0.018 + pendingCardLightEnergy * 0.04).toFixed(3))
   root?.style.setProperty('--login-card-top-prism-alpha', (0.2 + pendingCardLightEnergy * 0.32).toFixed(3))
+  root?.style.setProperty('--login-refraction-shift-x', `${((0.5 - pendingCardLightX) * 8).toFixed(2)}px`)
+  root?.style.setProperty('--login-refraction-shift-y', `${((0.5 - pendingCardLightY) * 6).toFixed(2)}px`)
 }
 
 /** 根据指针在登录卡片中的位置更新光照目标。 */
@@ -762,12 +764,25 @@ onUnmounted(() => {
 
 <template>
   <!-- 登录页面容器 -->
-  <div
-    ref="loginRootRef"
-    class="login-root"
-    @pointermove="handlePointerLight"
-    @pointerleave="resetPointerLight"
-  >
+  <div ref="loginRootRef" class="login-root" @pointermove="handlePointerLight" @pointerleave="resetPointerLight">
+    <!-- SVG 位移只处理卡片内重复绘制的壁纸，不读取跨域图片像素。 -->
+    <svg class="login-liquid-filter-defs" aria-hidden="true" focusable="false">
+      <defs>
+        <filter
+          id="login-liquid-refraction-clear"
+          x="-8%"
+          y="-8%"
+          width="116%"
+          height="116%"
+          color-interpolation-filters="sRGB"
+        >
+          <feTurbulence type="fractalNoise" baseFrequency="0.009 0.014" numOctaves="2" seed="7" result="noise" />
+          <feGaussianBlur in="noise" stdDeviation="1.2" result="soft-noise" />
+          <feDisplacementMap in="SourceGraphic" in2="soft-noise" scale="24" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
+
     <!-- 装饰性背景光晕 -->
     <div class="login-bg-decor" aria-hidden="true">
       <div class="login-orb login-orb--1" />
@@ -810,16 +825,13 @@ onUnmounted(() => {
         flat
       >
         <div class="login-card__glass" aria-hidden="true">
+          <span class="login-card__wallpaper-refraction" />
           <span class="login-card__glass-caustic" />
         </div>
 
         <!-- 卡片头部：Logo + 标题 + 欢迎语 -->
         <div class="login-head">
-          <OpticalLogoLab
-            class="login-logo"
-            :locale="currentLocale"
-            @logo-click="handleLabTap('logo')"
-          >
+          <OpticalLogoLab class="login-logo" :locale="currentLocale" @logo-click="handleLabTap('logo')">
             <h1 class="login-title" @click="handleLabTap('title')">MoviePilot</h1>
             <p class="login-subtitle">{{ t('login.welcomeBack') || 'Welcome Back' }}</p>
           </OpticalLogoLab>
@@ -988,6 +1000,8 @@ onUnmounted(() => {
   --login-card-highlight-alpha: 0.035;
   --login-card-primary-alpha: 0.018;
   --login-card-top-prism-alpha: 0.2;
+  --login-refraction-shift-x: 0px;
+  --login-refraction-shift-y: 3px;
   --optical-glass-x: 50%;
   --optical-glass-y: 22%;
   --optical-glass-blur: 24px;
@@ -1016,6 +1030,13 @@ onUnmounted(() => {
   min-block-size: 100vh;
   min-block-size: 100dvh;
   padding-block: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.login-liquid-filter-defs {
+  position: absolute;
+  block-size: 0;
+  inline-size: 0;
+  pointer-events: none;
 }
 
 /* ===================== 装饰性背景光晕 ===================== */
@@ -1142,12 +1163,7 @@ onUnmounted(() => {
     z-index: 4;
     border-radius: 999px;
     background:
-      radial-gradient(
-        ellipse at center,
-        rgba(255, 255, 255, 0.92),
-        rgba(232, 219, 255, 0.48) 28%,
-        transparent 72%
-      ),
+      radial-gradient(ellipse at center, rgba(255, 255, 255, 0.92), rgba(232, 219, 255, 0.48) 28%, transparent 72%),
       linear-gradient(
         90deg,
         transparent,
@@ -1189,8 +1205,7 @@ onUnmounted(() => {
       rgba(var(--v-theme-primary), var(--login-card-primary-alpha)) 44%,
       transparent 76%
     ),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 34%),
-    rgba(var(--v-theme-surface), 0.7);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 34%), rgba(var(--v-theme-surface), 0.7);
   inset: 0;
   pointer-events: none;
   transform: translateZ(0);
@@ -1198,6 +1213,7 @@ onUnmounted(() => {
 
 .login-card__glass::before {
   position: absolute;
+  z-index: 2;
   border-radius: 44% 56% 61% 39% / 42% 39% 61% 58%;
   background:
     radial-gradient(circle at 36% 32%, rgba(255, 255, 255, 0.2), transparent 24%),
@@ -1208,18 +1224,27 @@ onUnmounted(() => {
       transparent 38%,
       rgba(255, 255, 255, 0.09),
       transparent 72%
-  );
+    );
   content: '';
   filter: blur(var(--optical-glass-pulse-blur));
   inset: -28%;
   opacity: var(--optical-glass-glow-opacity);
-  transform: translate(var(--optical-glass-shift-x), var(--optical-glass-shift-y))
-    rotate(var(--optical-glass-rotation)) scale(var(--optical-glass-scale));
+  transform: translate(var(--optical-glass-shift-x), var(--optical-glass-shift-y)) rotate(var(--optical-glass-rotation))
+    scale(var(--optical-glass-scale));
   transition: opacity 220ms ease;
+}
+
+.login-card__wallpaper-refraction {
+  position: absolute;
+  z-index: 0;
+  display: none;
+  inset: -2%;
+  pointer-events: none;
 }
 
 .login-card__glass-caustic {
   position: absolute;
+  z-index: 3;
   display: block;
   border-radius: 50%;
   background: radial-gradient(
@@ -1633,6 +1658,10 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .login-card__wallpaper-refraction {
+    display: none !important;
+  }
+
   .login-card__glass,
   .native-login-field {
     backdrop-filter: none !important;
@@ -1650,7 +1679,11 @@ onUnmounted(() => {
   }
 }
 
-@supports not ((backdrop-filter: blur(1px))) {
+@supports not (backdrop-filter: blur(1px)) {
+  .login-card__wallpaper-refraction {
+    display: none !important;
+  }
+
   .login-card__glass,
   .native-login-field {
     background: rgba(var(--v-theme-surface), 0.96) !important;

@@ -22,6 +22,8 @@ const customColorInput = ref<HTMLInputElement | null>(null)
 const {
   isCustomized,
   resetSettings,
+  setGlassAppearance,
+  setGlassQuality,
   setLayout,
   setPrimaryColor,
   setRadius,
@@ -137,6 +139,8 @@ const showShadowSection = computed(() => globalTheme.name.value !== 'glass')
 const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
+    settings.value.glassAppearance !== 'clear' ||
+    settings.value.glassQuality !== 'css' ||
     settings.value.radius !== 'default' ||
     settings.value.shadow !== '0' ||
     settings.value.skin !== 'default' ||
@@ -197,6 +201,8 @@ async function handleResetSettings() {
 
   // App 模式共享定制器，但保留桌面导航相关偏好，只重置 App 侧可调整的外观设置。
   await setPrimaryColor(defaultPrimaryColor)
+  await setGlassAppearance('clear')
+  await setGlassQuality('css')
   await setRadius('default')
   await setShadow('0')
   await setSkin('default')
@@ -205,11 +211,7 @@ async function handleResetSettings() {
 </script>
 
 <template>
-  <aside
-    class="theme-customizer-panel-host"
-    role="dialog"
-    :aria-label="t('theme.customizer.title')"
-  >
+  <aside class="theme-customizer-panel-host" role="dialog" :aria-label="t('theme.customizer.title')">
     <div class="theme-customizer-panel" :class="{ 'theme-customizer-panel--dialog': appMode, 'app-surface': appMode }">
       <div class="theme-customizer-header py-5 px-4">
         <div>
@@ -320,10 +322,7 @@ async function handleResetSettings() {
               :class="{ 'is-active': settings.radius === radius.value }"
               @click="setRadius(radius.value)"
             >
-              <span
-                class="theme-customizer-radius-scene"
-                :class="`theme-customizer-radius-scene--${radius.value}`"
-              >
+              <span class="theme-customizer-radius-scene" :class="`theme-customizer-radius-scene--${radius.value}`">
                 <span class="theme-customizer-radius-scene__card">
                   <span class="theme-customizer-radius-scene__badge" />
                   <span class="theme-customizer-radius-scene__line" />
@@ -350,7 +349,9 @@ async function handleResetSettings() {
                 >
                   <span class="theme-customizer-shadow-slider__sample-accent" />
                   <span class="theme-customizer-shadow-slider__sample-line" />
-                  <span class="theme-customizer-shadow-slider__sample-line theme-customizer-shadow-slider__sample-line--short" />
+                  <span
+                    class="theme-customizer-shadow-slider__sample-line theme-customizer-shadow-slider__sample-line--short"
+                  />
                 </span>
                 <VSlider
                   :model-value="shadowSliderValue"
@@ -367,10 +368,7 @@ async function handleResetSettings() {
                   @update:model-value="handleShadowSliderChange"
                 />
               </div>
-              <div
-                class="theme-customizer-shadow-slider__scale"
-                aria-hidden="true"
-              >
+              <div class="theme-customizer-shadow-slider__scale" aria-hidden="true">
                 <span>0</span>
                 <span>24</span>
               </div>
