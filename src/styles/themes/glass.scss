@@ -40,6 +40,7 @@ html[data-theme='glass'] {
   --glass-raised-backdrop-filter: none;
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
+  --glass-clear-readable-background: rgba(11, 19, 34, 92%);
   --glass-control-icon-color: rgba(242, 245, 250, 70%);
   --glass-control-placeholder-color: rgba(242, 245, 250, 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
@@ -496,6 +497,13 @@ html[data-theme='glass'] {
     }
   }
 
+  // 透明材质没有模糊扩散，菜单使用与小屏弹窗相同的单层底色保证文字对比度。
+  &[data-glass-appearance='clear'] .v-menu > .v-overlay__content > :where(.v-card, .v-sheet, .v-list) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--glass-clear-readable-background) !important;
+  }
+
   .v-tooltip > .v-overlay__content,
   .v-snackbar__wrapper {
     border: 1px solid var(--glass-border);
@@ -633,6 +641,14 @@ html[data-theme='glass'] {
 
     -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
     backdrop-filter: var(--glass-surface-backdrop-filter);
+  }
+
+  // 捷径菜单的嵌套卡片会被通用弹层模糊覆盖，需要显式跟随玻璃材质。
+  .shortcut-card-hover-area > .v-card {
+    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
+    backdrop-filter: var(--glass-surface-backdrop-filter) !important;
+    background-color: var(--glass-surface) !important;
+    background-image: var(--glass-sheen) !important;
   }
 
   // 文件整理、日历和缓存使用自定义容器，需要同时覆盖桌面与移动端表面。
@@ -781,8 +797,27 @@ html[data-theme='glass'] {
   }
 
   @media (width <= 960px) {
+    // 透明材质没有背景模糊，小屏全屏弹窗需要更实的静态底色保证正文对比度。
+    &[data-glass-appearance='clear'] {
+      .theme-customizer-panel-host,
+      .agent-assistant-panel {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        background-color: var(--glass-clear-readable-background) !important;
+      }
+
+      .v-dialog--fullscreen > .v-overlay__content > .v-card,
+      .v-dialog--fullscreen > .v-overlay__content > .v-sheet,
+      .v-dialog--fullscreen > .v-overlay__content > form > .v-card,
+      .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        background-color: var(--glass-clear-readable-background) !important;
+      }
+    }
+
     // 全屏快捷弹窗释放外层玻璃背景，让定时服务卡片直接采样全局壁纸。
-    .scheduler-shortcut-dialog-card {
+    &[data-glass-appearance='frosted'] .scheduler-shortcut-dialog-card {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
       background: transparent !important;
