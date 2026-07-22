@@ -4,13 +4,13 @@ export const GLASS_OPTICAL_MAX_SURFACES_MOBILE = 5
 export type GlassOpticalQuality = 'balanced' | 'high'
 
 export interface GlassOpticalRect {
-  /** 元素在视口内的高度。 */
+  /** 元素的实际高度，元素可部分位于视口外。 */
   height: number
-  /** 元素圆角，按最短边折算后传入 shader。 */
+  /** 元素圆角的 CSS 像素值。 */
   radius: number
   /** 表面的场景优先级，数值越小越优先。 */
   rank: number
-  /** 元素在视口内的宽度。 */
+  /** 元素的实际宽度，元素可部分位于视口外。 */
   width: number
   /** 元素左边缘相对视口的位置。 */
   x: number
@@ -95,7 +95,7 @@ export function getGlassCoverScale(
     : { x: 1, y: imageAspect / viewportAspect }
 }
 
-/** 去除被更高价值表面包含的嵌套矩形，并按场景价值与像素成本裁剪预算。 */
+/** 用可见交集筛选和计费，但保留原始边界给 shader，避免在视口裁剪边生成伪圆角。 */
 export function selectGlassOpticalRects(
   candidates: GlassOpticalRect[],
   viewportWidth: number,
@@ -111,41 +111,42 @@ export function selectGlassOpticalRects(
       const top = Math.max(0, rect.y)
       const right = Math.min(viewportWidth, rect.x + rect.width)
       const bottom = Math.min(viewportHeight, rect.y + rect.height)
+      const visibleHeight = Math.max(0, bottom - top)
+      const visibleWidth = Math.max(0, right - left)
 
       return {
-        ...rect,
-        height: Math.max(0, bottom - top),
-        width: Math.max(0, right - left),
-        x: left,
-        y: top,
+        rect,
+        visibleArea: visibleWidth * visibleHeight,
+        visibleHeight,
+        visibleWidth,
       }
     })
-    .filter(rect => rect.width >= 24 && rect.height >= 24)
-    .sort((left, right) => left.rank - right.rank || left.width * left.height - right.width * right.height)
+    .filter(candidate => candidate.visibleWidth >= 24 && candidate.visibleHeight >= 24)
+    .sort((left, right) => left.rect.rank - right.rect.rank || left.visibleArea - right.visibleArea)
 
-  const selected: GlassOpticalRect[] = []
+  const selected: typeof visible = []
   let selectedArea = 0
 
-  for (const rect of visible) {
+  for (const candidate of visible) {
     if (selected.length >= maxCount) break
 
+    const { rect } = candidate
     const nested = selected.some(
       parent =>
-        rect.x >= parent.x &&
-        rect.y >= parent.y &&
-        rect.x + rect.width <= parent.x + parent.width &&
-        rect.y + rect.height <= parent.y + parent.height,
+        rect.x >= parent.rect.x &&
+        rect.y >= parent.rect.y &&
+        rect.x + rect.width <= parent.rect.x + parent.rect.width &&
+        rect.y + rect.height <= parent.rect.y + parent.rect.height,
     )
     if (nested) continue
 
-    const area = rect.width * rect.height
-    if (selected.length > 0 && selectedArea + area > maxArea) continue
+    if (selected.length > 0 && selectedArea + candidate.visibleArea > maxArea) continue
 
-    selected.push(rect)
-    selectedArea += area
+    selected.push(candidate)
+    selectedArea += candidate.visibleArea
   }
 
-  return selected
+  return selected.map(candidate => candidate.rect)
 }
 
 /** 将视口矩形转换为 WebGL 底部原点的归一化参数。 */
@@ -154,7 +155,7 @@ export function normalizeGlassOpticalRect(rect: GlassOpticalRect, viewportWidth:
   const safeHeight = Math.max(1, viewportHeight)
 
   return {
-    radius: Math.min(0.5, rect.radius / Math.max(1, Math.min(rect.width, rect.height))),
+    radius: Math.min(Math.max(0, rect.radius), Math.max(0, Math.min(rect.width, rect.height) / 2)),
     rect: [
       rect.x / safeWidth,
       1 - (rect.y + rect.height) / safeHeight,

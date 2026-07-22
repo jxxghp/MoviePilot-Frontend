@@ -37,6 +37,7 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uRects: IUniform<Vector4[]>
   uTexture: IUniform<Texture | null>
   uTime: IUniform<number>
+  uViewportSize: IUniform<Vector2>
 }
 
 interface GlassRendererResources {
@@ -90,12 +91,14 @@ uniform float uRadii[8];
 uniform int uRectCount;
 uniform float uAppearance;
 uniform float uTime;
+uniform vec2 uViewportSize;
 varying vec2 vUv;
 
-float roundedRectMask(vec2 local, float radius) {
-  vec2 centered = abs(local - 0.5) - vec2(0.5 - radius);
-  float distanceToEdge = length(max(centered, 0.0)) + min(max(centered.x, centered.y), 0.0) - radius;
-  return 1.0 - smoothstep(-0.008, 0.006, distanceToEdge);
+float roundedRectMask(vec2 local, vec2 rectSize, float radius) {
+  float safeRadius = min(max(radius, 0.0), min(rectSize.x, rectSize.y) * 0.5);
+  vec2 centered = abs(local - 0.5) * rectSize - (rectSize * 0.5 - vec2(safeRadius));
+  float distanceToEdge = length(max(centered, 0.0)) + min(max(centered.x, centered.y), 0.0) - safeRadius;
+  return 1.0 - smoothstep(-1.0, 1.0, distanceToEdge);
 }
 
 vec2 coverUv(vec2 uv) {
@@ -113,7 +116,7 @@ void main() {
 
     vec4 rect = uRects[i];
     vec2 local = (vUv - rect.xy) / rect.zw;
-    float rectMask = roundedRectMask(local, uRadii[i]);
+    float rectMask = roundedRectMask(local, rect.zw * uViewportSize, uRadii[i]);
     if (rectMask <= 0.0) continue;
 
     float edgeDistance = min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y));
@@ -358,6 +361,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const profile = getGlassOpticalRenderProfile(toValue(options.quality), toValue(options.routeKey))
     const buffer = getGlassOpticalBufferSize(viewportWidth, viewportHeight, viewportWidth <= 600, profile.bufferQuality)
     resources.renderer.setSize(buffer.width, buffer.height, false)
+    resources.uniforms.uViewportSize.value.set(viewportWidth, viewportHeight)
     syncCoverScale(viewportWidth, viewportHeight)
     scheduleSurfaceUpdate()
   }
@@ -624,6 +628,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uTexture: { value: null },
         uTime: { value: 0 },
+        uViewportSize: { value: new three.Vector2(window.innerWidth, window.innerHeight) },
       }
       const material = new three.ShaderMaterial({
         depthTest: false,

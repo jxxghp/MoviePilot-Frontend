@@ -72,6 +72,7 @@ const loginStateKey = computed(() => (isLogin.value ? 'logged-in' : 'logged-out'
 const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
+const isBackgroundCrossfading = ref(false)
 const isRenderThrottled = ref(document.visibilityState === 'hidden')
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
@@ -425,6 +426,7 @@ function clearBackgroundCrossfadeTimer() {
 function resetBackgroundCrossfade() {
   clearBackgroundCrossfadeTimer()
   previousImageIndex.value = null
+  isBackgroundCrossfading.value = false
 }
 
 // 切换期保留上一张背景的渲染状态，避免图片合成层重建时露出透明底。
@@ -433,9 +435,11 @@ function activateBackgroundImage(nextIndex: number) {
 
   clearBackgroundCrossfadeTimer()
   previousImageIndex.value = activeImageIndex.value
+  isBackgroundCrossfading.value = true
   activeImageIndex.value = nextIndex
   backgroundCrossfadeTimer = window.setTimeout(() => {
     previousImageIndex.value = null
+    isBackgroundCrossfading.value = false
     backgroundCrossfadeTimer = null
   }, BACKGROUND_CROSSFADE_DURATION_MS)
 }
@@ -734,6 +738,7 @@ onUnmounted(() => {
     <GlassOpticalLayer
       v-if="shouldRenderGlassOpticalLayer"
       :appearance="effectiveGlassSettings.glassAppearance"
+      :class="{ 'glass-optical-layer--background-transition': isBackgroundCrossfading }"
       :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
       :route-key="route.fullPath"
       :wallpaper-url="activeOpticalBackgroundImage"

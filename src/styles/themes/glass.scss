@@ -836,6 +836,11 @@ html[data-theme='glass'] {
   transition: opacity 180ms ease-out;
 }
 
+// 壁纸交叉淡入期间停用折射输出，避免新纹理采样仍在混合的背景。
+.glass-optical-layer--background-transition {
+  opacity: 0 !important;
+}
+
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   .glass-optical-layer {
   opacity: 1;

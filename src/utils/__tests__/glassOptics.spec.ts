@@ -70,7 +70,7 @@ describe('glass optics geometry', () => {
     expect(selected.map(rect => rect.rank)).toEqual([1, 2, 4])
   })
 
-  it('clips partially visible surfaces to their viewport intersection', () => {
+  it('keeps original geometry while using the viewport intersection for visibility', () => {
     const selected = selectGlassOpticalRects(
       [{ height: 160, radius: 20, rank: 1, width: 180, x: -30, y: -40 }],
       320,
@@ -78,12 +78,30 @@ describe('glass optics geometry', () => {
       false,
     )
 
-    expect(selected).toEqual([{ height: 120, radius: 20, rank: 1, width: 150, x: 0, y: 0 }])
+    expect(selected).toEqual([{ height: 160, radius: 20, rank: 1, width: 180, x: -30, y: -40 }])
   })
 
-  it('converts DOM top-origin rectangles for shader uniforms', () => {
+  it('budgets partially visible surfaces by their visible pixels', () => {
+    const selected = selectGlassOpticalRects(
+      [
+        { height: 1000, radius: 20, rank: 1, width: 1000, x: -950, y: -900 },
+        { height: 120, radius: 16, rank: 2, width: 200, x: 80, y: 80 },
+      ],
+      320,
+      240,
+      false,
+    )
+
+    expect(selected.map(rect => rect.rank)).toEqual([1, 2])
+  })
+
+  it('converts DOM top-origin rectangles while preserving pixel radius', () => {
     expect(
       normalizeGlassOpticalRect({ height: 100, radius: 20, rank: 1, width: 200, x: 100, y: 50 }, 1000, 500),
-    ).toEqual({ radius: 0.2, rect: [0.1, 0.7, 0.2, 0.2] })
+    ).toEqual({ radius: 20, rect: [0.1, 0.7, 0.2, 0.2] })
+
+    expect(
+      normalizeGlassOpticalRect({ height: 100, radius: 80, rank: 1, width: 200, x: -20, y: 50 }, 1000, 500),
+    ).toEqual({ radius: 50, rect: [-0.02, 0.7, 0.2, 0.2] })
   })
 })
