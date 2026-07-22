@@ -20,20 +20,16 @@ function getSourceMenuButton() {
 
 async function renderMediaRecommend(
   response: unknown,
-  options: { sourcePath?: string; status?: number; onRequest?: () => void } = {},
+  options: { sourcePath?: string; status?: number; onRequest?: () => void; userID?: number } = {},
 ) {
   const sourcePath = options.sourcePath ?? DEFAULT_SOURCE
   server.use(
-    recommendMediaHandler(
-      sourcePath,
-      response as Record<string, unknown>,
-      options.status ?? 200,
-      options.onRequest,
-    ),
+    recommendMediaHandler(sourcePath, response as Record<string, unknown>, options.status ?? 200, options.onRequest),
   )
   return renderWithProviders(MediaRecommend, {
     initialRoute: '/dashboard',
     initialState: {
+      user: { userID: options.userID ?? -1 },
       globalSettings: {
         data: { GLOBAL_IMAGE_CACHE: false },
         initialized: true,
@@ -107,14 +103,15 @@ describe('MediaRecommend', () => {
     expect(localStorage.getItem('MP_DASHBOARD_RECOMMEND_SOURCE')).toBe(DEFAULT_SOURCE)
   })
 
-  it('switches sources, persists the choice, and reuses the session cache', async () => {
+  it('switches sources, persists the choice, and revalidates restored snapshots', async () => {
     const user = userEvent.setup()
     const trendingRequested = vi.fn()
     const moviesRequested = vi.fn()
-    server.use(
-      recommendMediaHandler(MOVIE_SOURCE, [createMediaInfo({ title: '热门电影内容' })], 200, moviesRequested),
-    )
-    await renderMediaRecommend([createMediaInfo({ title: '趋势内容' })], { onRequest: trendingRequested })
+    server.use(recommendMediaHandler(MOVIE_SOURCE, [createMediaInfo({ title: '热门电影内容' })], 200, moviesRequested))
+    await renderMediaRecommend([createMediaInfo({ title: '趋势内容' })], {
+      onRequest: trendingRequested,
+      userID: 7,
+    })
     await waitFor(() => expect(trendingRequested).toHaveBeenCalledOnce())
 
     await user.click(getSourceMenuButton())
@@ -126,7 +123,42 @@ describe('MediaRecommend', () => {
     await user.click(getSourceMenuButton())
     await user.click(await screen.findByText('流行趋势'))
     expect(await screen.findByText('趋势内容')).toBeInTheDocument()
-    expect(trendingRequested).toHaveBeenCalledOnce()
+    await waitFor(() => expect(trendingRequested).toHaveBeenCalledTimes(2))
+  })
+
+  it('restores the selected source snapshot before F5 revalidation completes', async () => {
+    const renderOptions = {
+      initialRoute: '/dashboard',
+      initialState: {
+        user: { userID: 7 },
+        globalSettings: {
+          data: { GLOBAL_IMAGE_CACHE: false },
+          initialized: true,
+          loading: false,
+        },
+      },
+    }
+    const first = await renderMediaRecommend([createMediaInfo({ title: '快照推荐' })], { userID: 7 })
+    await screen.findByText('快照推荐')
+    first.unmount()
+
+    let resolveRequest: ((response: Response) => void) | undefined
+    const requested = vi.fn()
+    server.use(
+      http.get(recommendApiUrls.media(DEFAULT_SOURCE), () => {
+        requested()
+        return new Promise<Response>(resolve => {
+          resolveRequest = resolve
+        })
+      }),
+    )
+    const second = await renderWithProviders(MediaRecommend, renderOptions)
+
+    expect(await screen.findByText('快照推荐')).toBeInTheDocument()
+    await waitFor(() => expect(requested).toHaveBeenCalledOnce())
+    resolveRequest?.(HttpResponse.json([createMediaInfo({ title: '刷新推荐' })]))
+    expect(await screen.findByText('刷新推荐')).toBeInTheDocument()
+    second.unmount()
   })
 
   it('supports arrows, pagination, touch gestures, and detail routes', async () => {
@@ -254,9 +286,13 @@ describe('MediaRecommend', () => {
   it('does not restart autoplay when deactivated before the initial request settles', async () => {
     let resolveRequest: ((response: Response) => void) | undefined
     server.use(
-      http.get(recommendApiUrls.media(DEFAULT_SOURCE), () => new Promise<Response>(resolve => {
-        resolveRequest = resolve
-      })),
+      http.get(
+        recommendApiUrls.media(DEFAULT_SOURCE),
+        () =>
+          new Promise<Response>(resolve => {
+            resolveRequest = resolve
+          }),
+      ),
     )
     const KeepAliveHarness = defineComponent({
       components: { MediaRecommend },
@@ -300,9 +336,13 @@ describe('MediaRecommend', () => {
     let resolveMovies: ((response: Response) => void) | undefined
     server.use(
       recommendMediaHandler(DEFAULT_SOURCE, [createMediaInfo({ title: '初始推荐' })]),
-      http.get(recommendApiUrls.media(MOVIE_SOURCE), () => new Promise<Response>(resolve => {
-        resolveMovies = resolve
-      })),
+      http.get(
+        recommendApiUrls.media(MOVIE_SOURCE),
+        () =>
+          new Promise<Response>(resolve => {
+            resolveMovies = resolve
+          }),
+      ),
     )
     const KeepAliveHarness = defineComponent({
       components: { MediaRecommend },
@@ -363,14 +403,18 @@ describe('MediaRecommend', () => {
   })
 
   it('invalidates a pending request when switching back to a cached source', async () => {
-    await renderMediaRecommend([createMediaInfo({ title: '初始结果' })])
+    await renderMediaRecommend([createMediaInfo({ title: '初始结果' })], { userID: 7 })
     expect(await screen.findByText('初始结果')).toBeInTheDocument()
 
     let resolveMovies: ((response: Response) => void) | undefined
     server.use(
-      http.get(recommendApiUrls.media(MOVIE_SOURCE), () => new Promise<Response>(resolve => {
-        resolveMovies = resolve
-      })),
+      http.get(
+        recommendApiUrls.media(MOVIE_SOURCE),
+        () =>
+          new Promise<Response>(resolve => {
+            resolveMovies = resolve
+          }),
+      ),
     )
     const user = userEvent.setup()
     await user.click(getSourceMenuButton())
