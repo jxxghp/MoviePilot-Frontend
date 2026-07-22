@@ -2,18 +2,25 @@
 import api from '@/api'
 import type { MediaStatistic } from '@/api/types'
 import { formatDashboardCount, useAnimatedDashboardNumber } from '@/composables/useDashboardMotion'
+import { useDashboardSnapshot } from '@/composables/useDashboardSnapshot'
 import { useI18n } from 'vue-i18n'
 
 // 国际化
 const { t } = useI18n()
 
-const movieCount = ref(0)
-const tvCount = ref(0)
-const episodeCount = ref<number | null>(null)
-const userCount = ref(0)
-const movieCountMonth = ref(0)
-const tvCountMonth = ref(0)
-const episodeCountMonth = ref(0)
+const { readSnapshot, writeSnapshot } = useDashboardSnapshot<MediaStatistic>('media-statistic-v1')
+const currentSnapshot = readSnapshot()
+
+const movieCount = ref(Number(currentSnapshot?.value.movie_count) || 0)
+const tvCount = ref(Number(currentSnapshot?.value.tv_count) || 0)
+const episodeCount = ref<number | null>(
+  currentSnapshot?.value.episode_count == null ? null : Number(currentSnapshot.value.episode_count) || 0,
+)
+const userCount = ref(Number(currentSnapshot?.value.user_count) || 0)
+const movieCountMonth = ref(Number(currentSnapshot?.value.movie_count_month) || 0)
+const tvCountMonth = ref(Number(currentSnapshot?.value.tv_count_month) || 0)
+const episodeCountMonth = ref(Number(currentSnapshot?.value.episode_count_month) || 0)
+let statisticLoadId = 0
 
 const animatedMovieCount = useAnimatedDashboardNumber(movieCount, {
   duration: 720,
@@ -24,10 +31,13 @@ const animatedTvCount = useAnimatedDashboardNumber(tvCount, {
   duration: 720,
 })
 
-const animatedEpisodeCount = useAnimatedDashboardNumber(computed(() => episodeCount.value ?? 0), {
-  delay: 120,
-  duration: 720,
-})
+const animatedEpisodeCount = useAnimatedDashboardNumber(
+  computed(() => episodeCount.value ?? 0),
+  {
+    delay: 120,
+    duration: 720,
+  },
+)
 
 const animatedUserCount = useAnimatedDashboardNumber(userCount, {
   delay: 180,
@@ -67,16 +77,29 @@ const statistics = computed(() => [
 
 // 调用API加载媒体统计数据
 async function loadMediaStatistic() {
+  const loadId = ++statisticLoadId
   try {
     const res: MediaStatistic = await api.get('dashboard/statistic')
+    if (loadId !== statisticLoadId) return
 
-    movieCount.value = Number(res.movie_count) || 0
-    tvCount.value = Number(res.tv_count) || 0
-    episodeCount.value = res.episode_count == null ? null : Number(res.episode_count) || 0
-    userCount.value = Number(res.user_count) || 0
-    movieCountMonth.value = Number(res.movie_count_month) || 0
-    tvCountMonth.value = Number(res.tv_count_month) || 0
-    episodeCountMonth.value = Number(res.episode_count_month) || 0
+    const statistic: MediaStatistic = {
+      movie_count: Number(res.movie_count) || 0,
+      tv_count: Number(res.tv_count) || 0,
+      episode_count: res.episode_count == null ? null : Number(res.episode_count) || 0,
+      user_count: Number(res.user_count) || 0,
+      movie_count_month: Number(res.movie_count_month) || 0,
+      tv_count_month: Number(res.tv_count_month) || 0,
+      episode_count_month: Number(res.episode_count_month) || 0,
+    }
+
+    movieCount.value = statistic.movie_count
+    tvCount.value = statistic.tv_count
+    episodeCount.value = statistic.episode_count
+    userCount.value = statistic.user_count
+    movieCountMonth.value = statistic.movie_count_month
+    tvCountMonth.value = statistic.tv_count_month
+    episodeCountMonth.value = statistic.episode_count_month
+    writeSnapshot(statistic)
   } catch (e) {
     console.log(e)
   }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
+import { useDashboardSnapshot } from '@/composables/useDashboardSnapshot'
 import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
@@ -25,10 +26,16 @@ const selectedSourcePath = ref(
     ? storedSourcePath
     : sources.value[0].apipath,
 )
-const mediaItems = shallowRef<MediaInfo[]>([])
-const mediaCache = new Map<string, MediaInfo[]>()
+const mediaSnapshots = new Map(
+  sources.value.map(source => [
+    source.apipath,
+    useDashboardSnapshot<MediaInfo[]>(`media-recommend-v1:${source.apipath}`),
+  ]),
+)
+const initialSnapshot = mediaSnapshots.get(selectedSourcePath.value)?.readSnapshot()
+const mediaItems = shallowRef<MediaInfo[]>(initialSnapshot?.value ?? [])
 const activeIndex = ref(0)
-const loading = ref(true)
+const loading = ref(!initialSnapshot)
 const loadFailed = ref(false)
 const isHovered = ref(false)
 const isFocusWithin = ref(false)
@@ -76,34 +83,36 @@ function getMediaKey(item: MediaInfo) {
   return getMediaSubscribeId(item)
 }
 
-/** 加载指定推荐来源，并缓存当前会话已获取的数据。 */
+/** 加载指定推荐来源，持久快照只负责立即恢复，随后仍以成功响应更新内容。 */
 async function loadMedia(sourcePath = selectedSourcePath.value) {
   const currentRequestId = ++requestId
-  const cachedItems = mediaCache.get(sourcePath)
+  const cachedItems = mediaSnapshots.get(sourcePath)?.readSnapshot()?.value
+
   if (cachedItems) {
     mediaItems.value = cachedItems
     activeIndex.value = 0
     loading.value = false
     loadFailed.value = false
     resumeAutoplayIfReady()
-    return
   }
 
-  loading.value = true
+  loading.value = !cachedItems
   loadFailed.value = false
   try {
     const response = await api.get(sourcePath)
     if (currentRequestId !== requestId) return
 
     const items = normalizeMediaResponse(response).filter(isUsableMedia).slice(0, RECOMMEND_SLIDE_COUNT)
-    mediaCache.set(sourcePath, items)
+    mediaSnapshots.get(sourcePath)?.writeSnapshot(items)
     mediaItems.value = items
     activeIndex.value = 0
   } catch (error) {
     if (currentRequestId !== requestId) return
     console.error(error)
-    mediaItems.value = []
-    loadFailed.value = true
+    if (!cachedItems) {
+      mediaItems.value = []
+      loadFailed.value = true
+    }
   } finally {
     if (currentRequestId === requestId) {
       loading.value = false
@@ -477,7 +486,9 @@ onBeforeUnmount(() => {
   font-weight: 750;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  text-shadow: 0 3px 20px rgba(0, 0, 0, 0.82), 0 1px 2px rgba(0, 0, 0, 0.72);
+  text-shadow:
+    0 3px 20px rgba(0, 0, 0, 0.82),
+    0 1px 2px rgba(0, 0, 0, 0.72);
 }
 
 .dashboard-recommend-meta {
@@ -545,7 +556,9 @@ onBeforeUnmount(() => {
   cursor: pointer;
   inline-size: 54px;
   padding: 0;
-  transition: background-color 0.2s ease, inline-size 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    inline-size 0.2s ease;
 }
 
 .dashboard-recommend-page.is-active {
@@ -569,7 +582,9 @@ onBeforeUnmount(() => {
   .dashboard-recommend-arrow {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
   }
 
   .dashboard-recommend-topbar {
