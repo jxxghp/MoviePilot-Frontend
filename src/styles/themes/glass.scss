@@ -418,7 +418,7 @@ html[data-theme='glass'] {
     backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
   }
 
-  // 移动端文件整理和日历使用自定义容器，需要显式接入玻璃表面材质。
+  // 移动端文件整理、日历和定时服务使用自定义容器，需要显式接入玻璃表面材质。
   .transfer-history-mobile-page {
     --transfer-history-mobile-search-bg: var(--glass-surface-soft);
     --transfer-history-mobile-muted-bg: var(--glass-surface-soft);
@@ -428,7 +428,8 @@ html[data-theme='glass'] {
 
   .transfer-history-mobile-record,
   .mobile-calendar-filter-card,
-  .mobile-calendar-event-card {
+  .mobile-calendar-event-card,
+  .mobile-scheduler-card {
     border: 1px solid var(--glass-border);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
