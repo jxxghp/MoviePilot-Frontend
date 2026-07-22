@@ -40,6 +40,19 @@ const visible = computed({
   },
 })
 
+/** 父级控制弹窗生命周期时，同步结束旧预览并重建持久化草稿。 */
+watch(
+  () => props.modelValue,
+  (value, previous) => {
+    if (value) {
+      draftAppearance.value = settings.value.glassAppearance
+      draftQuality.value = settings.value.glassQuality
+    } else if (previous) {
+      cancelGlassPreview()
+    }
+  },
+)
+
 const appearanceOptions: Array<{
   label: string
   value: ThemeCustomizerGlassAppearance
