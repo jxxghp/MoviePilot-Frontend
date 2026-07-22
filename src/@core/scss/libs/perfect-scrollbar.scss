@@ -42,7 +42,7 @@ $ps-track-size: 0.5rem;
   opacity: 0 !important;
 }
 
-.ps--scrolling-x > .ps__rail-x,
-.ps--scrolling-y > .ps__rail-y {
+.ps.ps--scrolling-x > .ps__rail-x,
+.ps.ps--scrolling-y > .ps__rail-y {
   opacity: 0.6 !important;
 }

@@ -97,7 +97,7 @@ const appWrapperStyle = computed(() => ({
 const shouldRenderGlassOpticalLayer = computed(
   () =>
     isGlassTheme.value &&
-    (isLoginWallpaperRoute.value || effectiveGlassSettings.value.glassQuality !== 'css') &&
+    effectiveGlassSettings.value.glassQuality !== 'css' &&
     !isGlassOpticalLayerDeferred.value &&
     !isRenderThrottled.value &&
     Boolean(activeBackgroundImage.value),
@@ -734,9 +734,7 @@ onUnmounted(() => {
     <GlassOpticalLayer
       v-if="shouldRenderGlassOpticalLayer"
       :appearance="effectiveGlassSettings.glassAppearance"
-      :quality="
-        isLoginWallpaperRoute ? 'balanced' : effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'
-      "
+      :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
       :route-key="route.fullPath"
       :wallpaper-url="activeOpticalBackgroundImage"
     />
