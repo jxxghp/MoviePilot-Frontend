@@ -40,7 +40,9 @@ html[data-theme='glass'] {
   --glass-raised-backdrop-filter: none;
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
-  --glass-clear-readable-background: rgba(24, 34, 52, 90%);
+  --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
+  --glass-clear-overlay-surface: rgba(11, 19, 34, 72%);
+  --glass-clear-mobile-nav-surface: rgba(11, 19, 34, 68%);
   --glass-control-icon-color: rgba(242, 245, 250, 70%);
   --glass-control-placeholder-color: rgba(242, 245, 250, 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
@@ -377,11 +379,11 @@ html[data-theme='glass'] {
     box-shadow: var(--glass-nav-active-shadow) !important;
   }
 
-  .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
+  // 水平导航的基础样式会在滚动时被组件覆盖，需要显式恢复玻璃顶栏材质。
   .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
-    border-color: var(--glass-border) !important;
-    -webkit-backdrop-filter: var(--glass-raised-backdrop-filter) !important;
-    backdrop-filter: var(--glass-raised-backdrop-filter) !important;
+    border-color: var(--glass-border-raised) !important;
+    -webkit-backdrop-filter: var(--glass-navbar-backdrop-filter) !important;
+    backdrop-filter: var(--glass-navbar-backdrop-filter) !important;
     background-color: var(--glass-surface-raised) !important;
     background-image: var(--glass-sheen) !important;
     box-shadow: var(--glass-navbar-shadow) !important;
@@ -497,11 +499,16 @@ html[data-theme='glass'] {
     }
   }
 
-  // 透明材质没有模糊扩散，菜单使用与小屏弹窗相同的单层底色保证文字对比度。
-  &[data-glass-appearance='clear'] .v-menu > .v-overlay__content > :where(.v-card, .v-sheet, .v-list) {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-    background-color: var(--glass-clear-readable-background) !important;
+  // 透明弹层沿用普通玻璃的色相，只提高 alpha，不引入独立底色。
+  &[data-glass-appearance='clear'] {
+    .v-overlay__content > :where(.v-card, .v-sheet, .v-list),
+    .v-overlay__content > form > :where(.v-card, .v-sheet),
+    .theme-customizer-panel-host,
+    .agent-assistant-panel {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background-color: var(--glass-clear-overlay-surface) !important;
+    }
   }
 
   .v-tooltip > .v-overlay__content,
@@ -651,6 +658,12 @@ html[data-theme='glass'] {
     background-image: var(--glass-sheen) !important;
   }
 
+  // “更多”应用列表的分组卡片存在局部固定模糊，需要在完整小屏区间跟随玻璃材质。
+  .settings-section-card.app-grouped-list {
+    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
+    backdrop-filter: var(--glass-surface-backdrop-filter) !important;
+  }
+
   // 文件整理、日历和缓存使用自定义容器，需要同时覆盖桌面与移动端表面。
   .transfer-history-mobile-page {
     --transfer-history-mobile-search-bg: var(--glass-surface-soft);
@@ -797,22 +810,12 @@ html[data-theme='glass'] {
   }
 
   @media (width <= 960px) {
-    // 透明材质没有背景模糊，小屏全屏弹窗需要更实的静态底色保证正文对比度。
     &[data-glass-appearance='clear'] {
-      .theme-customizer-panel-host,
-      .agent-assistant-panel {
+      // 底部主导航和旁侧动态按钮共用 footer-nav-card，提高 alpha 后仍保持透明材质色相。
+      .footer-nav-card.v-card {
         -webkit-backdrop-filter: none !important;
         backdrop-filter: none !important;
-        background-color: var(--glass-clear-readable-background) !important;
-      }
-
-      .v-dialog--fullscreen > .v-overlay__content > .v-card,
-      .v-dialog--fullscreen > .v-overlay__content > .v-sheet,
-      .v-dialog--fullscreen > .v-overlay__content > form > .v-card,
-      .v-dialog--fullscreen > .v-overlay__content > form > .v-sheet {
-        -webkit-backdrop-filter: none !important;
-        backdrop-filter: none !important;
-        background-color: var(--glass-clear-readable-background) !important;
+        background-color: var(--glass-clear-mobile-nav-surface) !important;
       }
     }
 
@@ -894,6 +897,21 @@ html[data-theme='glass'] .app-wrapper--background-transition .login-card__wallpa
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   .glass-optical-layer {
   opacity: 1;
+}
+
+// 光学档位下顶栏滚动前后共用同一 filter，避免滚动态重新叠加高强度模糊。
+html[data-theme='glass']:is(
+    [data-glass-quality='balanced'],
+    [data-glass-quality='high']
+  )[data-glass-renderer-state='ready'] {
+  --glass-navbar-backdrop-filter: var(--glass-surface-backdrop-filter);
+}
+
+html[data-theme='glass'][data-glass-appearance='frosted']:is(
+    [data-glass-quality='balanced'],
+    [data-glass-quality='high']
+  )[data-glass-renderer-state='ready'] {
+  --glass-navbar-backdrop-filter: blur(18px) saturate(145%);
 }
 
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
