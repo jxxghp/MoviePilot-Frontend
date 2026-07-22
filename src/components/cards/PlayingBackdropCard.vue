@@ -105,6 +105,7 @@ async function goPlay() {
         >
           <VImg
             :src="imageUrl"
+            crossorigin="anonymous"
             class="playing-card__image"
             :class="{ 'playing-card__image--loaded': imageLoaded }"
             cover
@@ -216,8 +217,7 @@ async function goPlay() {
 }
 
 .playing-card__bottom-scrim {
-  background:
-    linear-gradient(180deg, rgba(2, 6, 12, 0%) 24%, rgba(2, 6, 12, 72%) 68%, rgba(2, 6, 12, 96%) 100%);
+  background: linear-gradient(180deg, rgba(2, 6, 12, 0%) 24%, rgba(2, 6, 12, 72%) 68%, rgba(2, 6, 12, 96%) 100%);
 }
 
 .playing-card__percent,

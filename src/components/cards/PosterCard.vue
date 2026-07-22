@@ -37,7 +37,7 @@ const getImgUrl = computed(() => {
   let url = `${import.meta.env.VITE_API_BASE_URL}system/img/0?imgurl=${encodeURIComponent(image)}`
   const use_cookies = props.media?.use_cookies
   if (use_cookies) {
-   url += `&use_cookies=${encodeURIComponent(use_cookies)}`
+    url += `&use_cookies=${encodeURIComponent(use_cookies)}`
   }
   return url
 })
@@ -63,43 +63,44 @@ async function goPlay(isHovering: boolean | null = false) {
             'ring-1': isImageLoaded,
           }"
         >
-        <VImg
-          aspect-ratio="2/3"
-          :src="getImgUrl"
-          class="poster-card-image object-cover aspect-w-2 aspect-h-3"
-          :class="{ 'poster-card-image--loaded': isImageLoaded }"
-          cover
-          @load="isImageLoaded = true"
-          @error="imageLoadError = true"
-        >
-          <template #placeholder>
-            <div class="w-full h-full">
-              <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
-            </div>
-          </template>
-        </VImg>
-        <!-- 类型角标 -->
-        <VChip
-          v-show="isImageLoaded"
-          variant="elevated"
-          size="small"
-          :class="getChipColor(props.media?.type || '')"
-          class="poster-card-chip absolute left-2 top-2 bg-opacity-80 text-white font-bold"
-        >
-          {{ props.media?.type }}
-        </VChip>
-        <!-- 详情 -->
-        <VCardText
-          v-show="hover.isHovering || imageLoadError"
-          class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2 pb-5"
-          style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
-          @click.stop="goPlay(hover.isHovering)"
-        >
-          <span class="font-semibold text-sm">{{ props.media?.subtitle }}</span>
-          <h1 class="mb-1 text-white font-bold text-lg line-clamp-2 overflow-hidden text-ellipsis ...">
-            {{ props.media?.title }}
-          </h1>
-        </VCardText>
+          <VImg
+            aspect-ratio="2/3"
+            :src="getImgUrl"
+            crossorigin="anonymous"
+            class="poster-card-image object-cover aspect-w-2 aspect-h-3"
+            :class="{ 'poster-card-image--loaded': isImageLoaded }"
+            cover
+            @load="isImageLoaded = true"
+            @error="imageLoadError = true"
+          >
+            <template #placeholder>
+              <div class="w-full h-full">
+                <VSkeletonLoader class="object-cover aspect-w-2 aspect-h-3" />
+              </div>
+            </template>
+          </VImg>
+          <!-- 类型角标 -->
+          <VChip
+            v-show="isImageLoaded"
+            variant="elevated"
+            size="small"
+            :class="getChipColor(props.media?.type || '')"
+            class="poster-card-chip absolute left-2 top-2 bg-opacity-80 text-white font-bold"
+          >
+            {{ props.media?.type }}
+          </VChip>
+          <!-- 详情 -->
+          <VCardText
+            v-show="hover.isHovering || imageLoadError"
+            class="w-full h-full flex flex-col flex-wrap justify-end align-left text-white absolute bottom-0 cursor-pointer pa-2 pb-5"
+            style="background: linear-gradient(rgba(45, 55, 72, 40%) 0%, rgba(45, 55, 72, 90%) 100%)"
+            @click.stop="goPlay(hover.isHovering)"
+          >
+            <span class="font-semibold text-sm">{{ props.media?.subtitle }}</span>
+            <h1 class="mb-1 text-white font-bold text-lg line-clamp-2 overflow-hidden text-ellipsis ...">
+              {{ props.media?.title }}
+            </h1>
+          </VCardText>
         </VCard>
       </div>
     </template>
