@@ -702,15 +702,14 @@ onActivated(() => {
 </script>
 
 <template>
-  <div v-if="display.mdAndUp.value" class="calendar-media-type-filter" role="tablist" :aria-label="t('calendar.mediaTypeFilterTitle')">
+  <div v-if="display.mdAndUp.value" class="calendar-media-type-filter" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
     <button
       v-for="option in mediaTypeFilterOptions"
       :key="option.value"
       type="button"
       class="calendar-media-type-chip"
       :class="{ 'calendar-media-type-chip--active': mediaTypeFilter === option.value }"
-      role="tab"
-      :aria-selected="mediaTypeFilter === option.value"
+      :aria-pressed="mediaTypeFilter === option.value"
       @click="mediaTypeFilter = option.value"
     >
       {{ option.label }}
@@ -832,15 +831,14 @@ onActivated(() => {
         </button>
       </div>
 
-      <div class="mobile-calendar-mediatype-list" role="tablist" :aria-label="t('calendar.mediaTypeFilterTitle')">
+      <div class="mobile-calendar-mediatype-list" role="group" :aria-label="t('calendar.mediaTypeFilterTitle')">
         <button
           v-for="option in mediaTypeFilterOptions"
           :key="option.value"
           type="button"
           class="mobile-calendar-filter-chip mobile-calendar-mediatype-chip"
           :class="{ 'mobile-calendar-filter-chip--active': mediaTypeFilter === option.value }"
-          role="tab"
-          :aria-selected="mediaTypeFilter === option.value"
+          :aria-pressed="mediaTypeFilter === option.value"
           @click="mediaTypeFilter = option.value"
         >
           {{ option.label }}

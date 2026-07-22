@@ -448,15 +448,15 @@ describe('FullCalendarView', () => {
     expect(await screen.findByText('筛选电影')).toBeInTheDocument()
     expect(screen.getByText('筛选剧集')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: '电视剧' }))
+    await fireEvent.click(screen.getByRole('button', { name: '电视剧' }))
     expect(screen.queryByText('筛选电影')).not.toBeInTheDocument()
     expect(screen.getByText('筛选剧集')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: '电影' }))
+    await fireEvent.click(screen.getByRole('button', { name: '电影' }))
     expect(screen.getByText('筛选电影')).toBeInTheDocument()
     expect(screen.queryByText('筛选剧集')).not.toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: '全部' }))
+    await fireEvent.click(screen.getByRole('button', { name: '全部' }))
     expect(screen.getByText('筛选电影')).toBeInTheDocument()
     expect(screen.getByText('筛选剧集')).toBeInTheDocument()
   })
@@ -485,8 +485,8 @@ describe('FullCalendarView', () => {
     await fireEvent.click(screen.getByRole('button', { name: '展开当天剩余 1 个条目' }))
     expect(screen.getByText('折叠项目 6')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: '电影' }))
-    await fireEvent.click(screen.getByRole('tab', { name: '全部' }))
+    await fireEvent.click(screen.getByRole('button', { name: '电影' }))
+    await fireEvent.click(screen.getByRole('button', { name: '全部' }))
 
     expect(await screen.findByText('折叠项目 1')).toBeInTheDocument()
     expect(screen.queryByText('折叠项目 6')).not.toBeInTheDocument()
@@ -508,11 +508,11 @@ describe('FullCalendarView', () => {
     await waitFor(() => expect(queryMobileCalendarEventCard('移动筛选电影')).toBeInTheDocument())
     expect(queryMobileCalendarEventCard('移动筛选剧集')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: '电视剧' }))
+    await fireEvent.click(screen.getByRole('button', { name: '电视剧' }))
     expect(queryMobileCalendarEventCard('移动筛选电影')).not.toBeInTheDocument()
     expect(queryMobileCalendarEventCard('移动筛选剧集')).toBeInTheDocument()
 
-    await fireEvent.click(screen.getByRole('tab', { name: '全部' }))
+    await fireEvent.click(screen.getByRole('button', { name: '全部' }))
     expect(queryMobileCalendarEventCard('移动筛选电影')).toBeInTheDocument()
     expect(queryMobileCalendarEventCard('移动筛选剧集')).toBeInTheDocument()
   })
