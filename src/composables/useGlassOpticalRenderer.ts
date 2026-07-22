@@ -68,6 +68,15 @@ const SURFACE_SELECTORS = [
   { rank: 2, selector: '.layout-navbar' },
   { rank: 3, selector: '.dashboard-grid-item-content' },
 ] as const
+const SURFACE_SELECTOR_QUERY = SURFACE_SELECTORS.map(({ selector }) => selector).join(',')
+
+/** 判断新增或移除的 DOM 子树是否会改变光学表面集合。 */
+export function containsGlassOpticalSurface(node: Node) {
+  return (
+    node instanceof Element &&
+    (node.matches(SURFACE_SELECTOR_QUERY) || Boolean(node.querySelector(SURFACE_SELECTOR_QUERY)))
+  )
+}
 
 const VERTEX_SHADER = `
 varying vec2 vUv;
@@ -263,7 +272,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let scrollSurfaceTimer: number | null = null
   let lastScrollSurfaceUpdateAt = 0
   let resizeObserver: ResizeObserver | null = null
-  let overlayObserver: MutationObserver | null = null
+  let surfaceMutationObserver: MutationObserver | null = null
   let observedSurfaces: HTMLElement[] = []
   let currentRects: GlassOpticalRect[] = []
   let tracksScrollingSurfaces = false
@@ -424,13 +433,32 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     void initializeRenderer(false)
   }
 
+  /** 只让可能改变目标表面集合的 DOM 变更触发重扫。 */
+  function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
+    return mutations.some(mutation =>
+      [...mutation.addedNodes, ...mutation.removedNodes].some(containsGlassOpticalSurface),
+    )
+  }
+
   function setupObservers() {
     resizeObserver = new ResizeObserver(scheduleSurfaceResizeUpdate)
-    const overlayContainer = document.querySelector('.v-overlay-container')
-    if (overlayContainer) {
-      overlayObserver = new MutationObserver(scheduleSurfaceUpdate)
-      overlayObserver.observe(overlayContainer, { childList: true })
+    const observedMutationRoots = new Set<Node>()
+
+    function observeMutationRoot(root: Node | null, subtree: boolean) {
+      if (!root || observedMutationRoots.has(root)) return
+
+      observedMutationRoots.add(root)
+      surfaceMutationObserver?.observe(root, { childList: true, subtree })
     }
+
+    surfaceMutationObserver = new MutationObserver(mutations => {
+      // Vuetify 可能在首个弹层打开时才创建容器，后续变更需要纳入同一个表面生命周期。
+      observeMutationRoot(document.querySelector('.v-overlay-container'), true)
+      if (mutationTouchesOpticalSurface(mutations)) scheduleSurfaceUpdate()
+    })
+    observeMutationRoot(document.querySelector('.app-wrapper'), true)
+    observeMutationRoot(document.querySelector('.v-overlay-container'), true)
+    observeMutationRoot(document.body, false)
   }
 
   function setupEvents() {
@@ -469,8 +497,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     removeEvents()
     resizeObserver?.disconnect()
     resizeObserver = null
-    overlayObserver?.disconnect()
-    overlayObserver = null
+    surfaceMutationObserver?.disconnect()
+    surfaceMutationObserver = null
     observedSurfaces = []
     currentRects = []
     tracksScrollingSurfaces = false
@@ -586,11 +614,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     disposeRenderer(releaseContext)
     if (!toValue(options.active) || !options.canvas.value) return
 
-    if (
-      !window.WebGLRenderingContext ||
-      matchMedia('(prefers-reduced-transparency: reduce)').matches ||
-      !toValue(options.wallpaperUrl)
-    ) {
+    if (!window.WebGLRenderingContext || reducedTransparencyQuery.matches || !toValue(options.wallpaperUrl)) {
       state.value = 'fallback'
       document.documentElement.dataset.glassRendererState = 'fallback'
       return
@@ -653,6 +677,23 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       fallbackFromCurrentLoad(version, '玻璃光学渲染器初始化失败，已回退标准材质:', error)
     }
   }
+
+  /** 运行中切换减少透明度时立即释放或恢复光学资源。 */
+  function handleReducedTransparencyChange(event: MediaQueryListEvent) {
+    if (!toValue(options.active)) return
+
+    if (event.matches) {
+      disposeRenderer()
+      state.value = 'fallback'
+      document.documentElement.dataset.glassRendererState = 'fallback'
+      return
+    }
+
+    void initializeRenderer()
+  }
+
+  const reducedTransparencyQuery = matchMedia('(prefers-reduced-transparency: reduce)')
+  reducedTransparencyQuery.addEventListener('change', handleReducedTransparencyChange)
 
   watch(
     () => [toValue(options.active), toValue(options.wallpaperUrl)] as const,
@@ -742,7 +783,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     },
   )
 
-  onScopeDispose(disposeRenderer)
+  onScopeDispose(() => {
+    reducedTransparencyQuery.removeEventListener('change', handleReducedTransparencyChange)
+    disposeRenderer()
+  })
 
   return {
     renderedFrames,
