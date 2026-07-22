@@ -558,6 +558,12 @@ html[data-theme-radius='extra'] {
   display: none;
 }
 
+// 少数字段的内嵌图标承担了唯一的交互入口（如按名称搜索媒体编号），
+// 不是纯装饰，移动端也需要保留可点击。
+.app-responsive-input--keep-append-action .app-responsive-input__native .v-field__append-inner {
+  display: inline-flex;
+}
+
 .app-responsive-input--field .v-field,
 .app-responsive-input--multiline .v-field {
   border-radius: var(--app-control-radius) !important;

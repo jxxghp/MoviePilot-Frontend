@@ -1451,6 +1451,7 @@ onUnmounted(() => {
                   <VCol cols="12" md="4">
                     <VTextField
                       v-model="transferForm.media_id"
+                      class="app-responsive-input--keep-append-action"
                       :disabled="transferForm.type_name === ''"
                       :label="mediaIdLabel"
                       :placeholder="t('dialog.reorganize.mediaIdPlaceholder')"
