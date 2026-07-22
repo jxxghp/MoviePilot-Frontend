@@ -139,7 +139,9 @@ describe('recommend page', () => {
     await renderRecommend()
 
     expect(await screen.findByText('自定义来源')).toBeInTheDocument()
-    expect(screen.getAllByTestId('recommend-view')).toHaveLength(2)
+    expect(screen.getAllByTestId('recommend-view')).toHaveLength(4)
+    expect(screen.getByText('AniList 当前趋势')).toBeInTheDocument()
+    expect(screen.getByText('AniList 本季热门')).toBeInTheDocument()
     expect(screen.queryByText('重复来源')).not.toBeInTheDocument()
     expect(remoteConfigRequests).toBe(0)
   })

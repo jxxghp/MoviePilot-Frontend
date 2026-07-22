@@ -3,7 +3,7 @@ import api from '@/api'
 import type { Site, Plugin, Subscribe } from '@/api/types'
 import { getNavMenus, getSettingTabs } from '@/router/i18n-menu'
 import { NavMenu } from '@/@layouts/types'
-import { useUserStore, useGlobalSettingsStore } from '@/stores'
+import { useUserStore } from '@/stores'
 import SearchSiteDialog from '@/components/dialog/SearchSiteDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -33,10 +33,6 @@ const router = useRouter()
 // 用户 Store
 const userStore = useUserStore()
 
-// 全局设置 Store
-const globalSettingsStore = useGlobalSettingsStore()
-const globalSettings = globalSettingsStore.globalSettings
-
 // 当前用户名
 const userName = userStore.userName
 const userPermissions = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
@@ -60,11 +56,6 @@ const hasManagePermission = computed(() => {
 
 const hasAdminPermission = computed(() => {
   return hasPermission(userPermissions.value, 'admin')
-})
-
-// 是否显示合集搜索项（当SEARCH_SOURCE包含themoviedb时显示）
-const showCollectionSearch = computed(() => {
-  return globalSettings.SEARCH_SOURCE?.includes('themoviedb') || false
 })
 
 // 所有订阅数据
@@ -104,6 +95,83 @@ const searchOverlayProps = computed(() =>
 
 // 搜索词
 const searchWord = ref<string | null>(null)
+
+type MediaSearchSource = 'themoviedb' | 'douban' | 'bangumi' | 'anilist'
+type MediaSearchType = 'media' | 'collection' | 'person'
+
+interface MediaSearchSourceOption {
+  label: string
+  name: string
+  value: MediaSearchSource
+}
+
+interface MediaSearchAction {
+  type: MediaSearchType
+  icon: string
+  title: string
+  description: string
+}
+
+// 三类搜索各自维护来源选择，首次使用均默认 TheMovieDB。
+const selectedMediaSearchSources = reactive<Record<MediaSearchType, MediaSearchSource>>({
+  media: 'themoviedb',
+  collection: 'themoviedb',
+  person: 'themoviedb',
+})
+
+// 按后端实际能力限定每类搜索可选的数据源。
+const mediaSearchSourceOptions = computed<Record<MediaSearchType, MediaSearchSourceOption[]>>(() => {
+  const themoviedb = {
+    label: 'TMDB',
+    name: t('discoverTabs.themoviedb'),
+    value: 'themoviedb' as const,
+  }
+  const douban = {
+    label: t('discoverTabs.douban'),
+    name: t('discoverTabs.douban'),
+    value: 'douban' as const,
+  }
+  const bangumi = {
+    label: 'Bangumi',
+    name: t('discoverTabs.bangumi'),
+    value: 'bangumi' as const,
+  }
+  const anilist = {
+    label: 'AniList',
+    name: t('discoverTabs.anilist'),
+    value: 'anilist' as const,
+  }
+
+  return {
+    media: [themoviedb, douban, bangumi, anilist],
+    collection: [themoviedb],
+    person: [themoviedb, douban],
+  }
+})
+
+// 搜索项及其来源组共用同一份声明，避免显示能力与请求类型不一致。
+const mediaSearchActions = computed(() => {
+  return [
+    {
+      type: 'media',
+      icon: 'mdi-movie-search',
+      title: `${t('recommend.categoryMovie')}、${t('recommend.categoryTV')}`,
+      description: t('resource.title'),
+    },
+    {
+      type: 'collection',
+      icon: 'mdi-movie-filter',
+      title: t('dialog.searchBar.collections'),
+      description: t('dialog.searchBar.collectionSearch'),
+    },
+    {
+      type: 'person',
+      icon: 'mdi-account-search',
+      title: t('browse.actor'),
+      description: t('dialog.searchBar.actorSearch'),
+    },
+  ] satisfies MediaSearchAction[]
+})
 
 // 当前尺寸下可见的搜索输入框。
 const searchWordInput = ref<HTMLInputElement | null>(null)
@@ -318,8 +386,7 @@ function searchSubtitle() {
 }
 
 /** 跳转到指定类型的媒体搜索结果页。 */
-function searchMedia(searchType: string) {
-  // 搜索类型 media/person
+function searchMedia(searchType: MediaSearchType) {
   if (!searchWord.value || !hasDiscoveryPermission.value) return
   saveRecentSearches(searchWord.value)
   router.push({
@@ -327,6 +394,7 @@ function searchMedia(searchType: string) {
     query: {
       title: searchWord.value,
       type: searchType,
+      source: selectedMediaSearchSources[searchType],
     },
   })
   closeSearch()
@@ -493,53 +561,52 @@ onMounted(() => {
               {{ t('common.media') }}
             </VListSubheader>
 
-            <VListItem density="comfortable" link @click="searchMedia('media')" class="search-result-item mx-2 my-1">
-              <template #prepend>
-                <div class="result-icon-wrapper">
-                  <VIcon icon="mdi-movie-search" size="small" color="medium-emphasis" />
-                </div>
-              </template>
-              <VListItemTitle class="font-weight-medium text-body-2">
-                {{ t('recommend.categoryMovie') }}、{{ t('recommend.categoryTV') }}
-              </VListItemTitle>
-              <VListItemSubtitle class="text-caption text-medium-emphasis">
-                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                {{ t('resource.title') }}
-              </VListItemSubtitle>
-            </VListItem>
-
             <VListItem
-              v-if="showCollectionSearch"
+              v-for="action in mediaSearchActions"
+              :key="action.type"
               density="comfortable"
               link
-              @click="searchMedia('collection')"
-              class="search-result-item mx-2 my-1"
+              class="search-result-item search-source-result-item mx-2 my-1"
+              @click="searchMedia(action.type)"
             >
               <template #prepend>
                 <div class="result-icon-wrapper">
-                  <VIcon icon="mdi-movie-filter" size="small" color="medium-emphasis" />
+                  <VIcon :icon="action.icon" size="small" color="medium-emphasis" />
                 </div>
               </template>
-              <VListItemTitle class="font-weight-medium text-body-2">{{
-                t('dialog.searchBar.collections')
-              }}</VListItemTitle>
+              <VListItemTitle class="font-weight-medium text-body-2">
+                {{ action.title }}
+              </VListItemTitle>
               <VListItemSubtitle class="text-caption text-medium-emphasis">
                 {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                {{ t('dialog.searchBar.collectionSearch') }}
+                {{ action.description }}
               </VListItemSubtitle>
-            </VListItem>
-
-            <VListItem density="comfortable" link @click="searchMedia('person')" class="search-result-item mx-2 my-1">
-              <template #prepend>
-                <div class="result-icon-wrapper">
-                  <VIcon icon="mdi-account-search" size="small" color="medium-emphasis" />
-                </div>
-              </template>
-              <VListItemTitle class="font-weight-medium text-body-2">{{ t('browse.actor') }}</VListItemTitle>
-              <VListItemSubtitle class="text-caption text-medium-emphasis">
-                {{ t('common.search') }} <span class="primary-text font-weight-medium">{{ searchWord }}</span>
-                {{ t('dialog.searchBar.actorSearch') }}
-              </VListItemSubtitle>
+              <div class="search-item-source-row">
+                <VBtnToggle
+                  v-model="selectedMediaSearchSources[action.type]"
+                  class="search-item-source-toggle"
+                  density="compact"
+                  mandatory
+                  role="group"
+                  selected-class="media-source-button--active"
+                  variant="text"
+                  :aria-label="t('dialog.searchBar.mediaSourceFor', { type: action.title })"
+                  @click.stop
+                  @keydown.stop
+                >
+                  <VBtn
+                    v-for="source in mediaSearchSourceOptions[action.type]"
+                    :key="source.value"
+                    class="media-source-button"
+                    size="x-small"
+                    :value="source.value"
+                    :aria-label="t('dialog.searchBar.searchWithSource', { source: source.name })"
+                    :title="t('dialog.searchBar.searchWithSource', { source: source.name })"
+                  >
+                    {{ source.label }}
+                  </VBtn>
+                </VBtnToggle>
+              </div>
             </VListItem>
           </template>
 
@@ -908,6 +975,69 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
   background: transparent !important;
 }
 
+.search-item-source-row {
+  display: flex;
+  align-items: center;
+  block-size: 0;
+  inline-size: 100%;
+  margin-block-start: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 0.15s ease,
+    margin-block-start 0.15s ease;
+}
+
+.search-source-result-item:hover .search-item-source-row,
+.search-source-result-item:focus-within .search-item-source-row {
+  block-size: 28px;
+  margin-block-start: 6px;
+}
+
+.search-item-source-toggle {
+  border: var(--app-grouped-list-border);
+  border-radius: var(--app-control-radius);
+  backdrop-filter: var(--app-grouped-list-backdrop-filter);
+  background: var(--app-grouped-list-background);
+  block-size: 28px;
+  max-inline-size: 100%;
+  opacity: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  pointer-events: none;
+  transform: scale(0.98);
+  transform-origin: center left;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.search-source-result-item:hover .search-item-source-toggle,
+.search-source-result-item:focus-within .search-item-source-toggle {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.media-source-button {
+  block-size: 100% !important;
+  color: rgba(var(--v-theme-on-surface), 0.72) !important;
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+  min-inline-size: 0 !important;
+  padding-inline: 7px !important;
+  white-space: nowrap;
+}
+
+.media-source-button:hover {
+  background: var(--app-grouped-list-hover-background) !important;
+}
+
+.media-source-button--active {
+  background: var(--app-grouped-list-active-background) !important;
+  color: rgb(var(--v-theme-primary)) !important;
+}
+
 .search-result-item {
   margin-block-end: 2px;
   transition: background-color 0.15s ease;
@@ -915,6 +1045,19 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 
 .search-result-item:hover {
   background-color: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+@media (hover: none) {
+  .search-item-source-row {
+    block-size: 28px;
+    margin-block-start: 6px;
+  }
+
+  .search-item-source-toggle {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
 }
 
 .result-icon-wrapper {

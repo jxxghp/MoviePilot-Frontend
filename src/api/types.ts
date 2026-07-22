@@ -452,7 +452,7 @@ export interface TmdbEpisode {
 
 // TMDB人物信息
 export interface Person {
-  // 来源：themoviedb、douban、bangumi
+  // 来源：themoviedb、douban、bangumi、anilist
   source?: string
   // ID
   id?: number

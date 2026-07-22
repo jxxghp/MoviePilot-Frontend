@@ -311,6 +311,11 @@ export function getDiscoverTabs(t: Composer['t']): NavMenuTabItem[] {
       tab: 'bangumi',
       icon: 'mdi-calendar-star-outline',
     },
+    {
+      title: t('discoverTabs.anilist'),
+      tab: 'anilist',
+      icon: 'mdi-alpha-a-circle-outline',
+    },
   ]
 }
 

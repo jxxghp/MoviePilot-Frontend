@@ -1,4 +1,5 @@
 import type { RecommendSource } from '@/api/types'
+import i18n from '@/plugins/i18n'
 import {
   createBuiltInRecommendSources,
   mergeExtraRecommendSources,
@@ -9,10 +10,31 @@ import { describe, expect, it } from 'vitest'
 const translate = (key: string) => `translated:${key}`
 
 describe('recommendSources', () => {
+  it('provides localized AniList ranking titles', () => {
+    const originalLocale = i18n.global.locale.value
+    const titles = {
+      'zh-CN': ['AniList 当前趋势', 'AniList 本季热门'],
+      'zh-TW': ['AniList 當前趨勢', 'AniList 本季熱門'],
+      'en-US': ['AniList TRENDING NOW', 'AniList POPULAR THIS SEASON'],
+    } as const
+    const locales = ['zh-CN', 'zh-TW', 'en-US'] as const
+
+    try {
+      locales.forEach(locale => {
+        const expected = titles[locale]
+        i18n.global.locale.value = locale
+        expect(i18n.global.t('recommend.anilistTrendingNow')).toBe(expected[0])
+        expect(i18n.global.t('recommend.anilistPopularThisSeason')).toBe(expected[1])
+      })
+    } finally {
+      i18n.global.locale.value = originalLocale
+    }
+  })
+
   it('creates the complete built-in source contract', () => {
     const sources = createBuiltInRecommendSources(translate)
 
-    expect(sources).toHaveLength(13)
+    expect(sources).toHaveLength(15)
     expect(sources[0]).toEqual({
       apipath: 'recommend/tmdb_trending',
       linkurl: '/browse/recommend/tmdb_trending?title=translated:recommend.trendingNow',
@@ -26,6 +48,26 @@ describe('recommendSources', () => {
           '/browse/recommend/tmdb_tvs?with_original_language=zh|en|ja|ko&title=translated:recommend.tmdbHotTVShows',
       }),
     )
+    expect(sources).toContainEqual({
+      apipath: 'anilist/trending',
+      linkurl: '/browse/anilist/trending?title=translated:recommend.anilistTrendingNow',
+      title: 'translated:recommend.anilistTrendingNow',
+      type: 'translated:recommend.categoryAnime',
+    })
+    expect(sources).toContainEqual({
+      apipath: 'anilist/popular-this-season',
+      linkurl: '/browse/anilist/popular-this-season?title=translated:recommend.anilistPopularThisSeason',
+      title: 'translated:recommend.anilistPopularThisSeason',
+      type: 'translated:recommend.categoryAnime',
+    })
+    expect(
+      sources.filter(source => source.type === 'translated:recommend.categoryAnime').map(source => source.apipath),
+    ).toEqual([
+      'recommend/bangumi_calendar',
+      'anilist/trending',
+      'anilist/popular-this-season',
+      'recommend/douban_tv_animation',
+    ])
   })
 
   it('appends extra sources in order and skips duplicate API paths', () => {

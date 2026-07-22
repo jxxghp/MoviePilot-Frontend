@@ -566,6 +566,11 @@ function getBangumiLink() {
   return `https://bgm.tv/subject/${mediaDetail.value.bangumi_id}`
 }
 
+// 拼装 AniList 地址
+function getAniListLink() {
+  return `https://anilist.co/anime/${mediaDetail.value.anilist_id}`
+}
+
 // 拼装集图片地址
 function getEpisodeImage(stillPath: string) {
   if (!stillPath) return ''
@@ -963,6 +968,19 @@ onUnmounted(() => {
                 <span class="ms-1">Bangumi</span>
               </div>
             </a>
+            <a
+              v-if="mediaDetail.anilist_id"
+              class="mb-2 mr-2 inline-flex last:mr-0"
+              :href="getAniListLink()"
+              target="_blank"
+            >
+              <div
+                class="inline-flex cursor-pointer items-center rounded-full bg-gray-600 px-2 py-1 text-sm text-gray-200 ring-1 ring-gray-500 transition hover:bg-gray-700"
+              >
+                <VIcon icon="mdi-link" />
+                <span class="ms-1">AniList</span>
+              </div>
+            </a>
           </div>
           <h2 v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="py-4">{{ t('media.seasons') }}</h2>
           <div v-if="mediaDetail.type === '电视剧' && mediaDetail.tmdb_id" class="flex w-full flex-col space-y-2">
@@ -1233,7 +1251,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <div v-else-if="mediaDetail.bangumi_id" class="media-overview-right">
+        <div v-else-if="mediaDetail.bangumi_id || mediaDetail.anilist_id" class="media-overview-right">
           <div class="media-facts">
             <div v-if="mediaDetail.vote_average" class="media-ratings">
               <VRating v-model="mediaDetail.vote_average" density="compact" length="10" class="ma-2" readonly />
@@ -1241,6 +1259,10 @@ onUnmounted(() => {
             <div v-if="mediaDetail.bangumi_id" class="media-fact">
               <span>ID</span>
               <span class="media-fact-value">{{ mediaDetail.bangumi_id }}</span>
+            </div>
+            <div v-if="mediaDetail.anilist_id" class="media-fact">
+              <span>ID</span>
+              <span class="media-fact-value">{{ mediaDetail.anilist_id }}</span>
             </div>
             <div v-if="mediaDetail.original_title" class="media-fact">
               <span>{{ t('media.info.originalTitle') }}</span>
@@ -1283,6 +1305,14 @@ onUnmounted(() => {
           type="bangumi"
         />
       </div>
+      <div v-else-if="mediaDetail.anilist_id">
+        <PersonCardSlideView
+          :apipath="`anilist/credits/${mediaDetail.anilist_id}`"
+          :linkurl="`/credits/anilist/credits/${mediaDetail.anilist_id}?title=${t('media.castAndCrew')}&type=anilist`"
+          :title="t('media.castAndCrew')"
+          type="anilist"
+        />
+      </div>
       <div v-if="mediaDetail.tmdb_id">
         <MediaCardSlideView
           :apipath="`tmdb/recommend/${mediaDetail.tmdb_id}/${mediaProps.type}`"
@@ -1305,6 +1335,13 @@ onUnmounted(() => {
         <MediaCardSlideView
           :apipath="`bangumi/recommend/${mediaDetail.bangumi_id}`"
           :linkurl="`/browse/bangumi/recommend/${mediaDetail.bangumi_id}?title=${t('media.recommendations')}`"
+          :title="t('media.recommendations')"
+        />
+      </div>
+      <div v-else-if="mediaDetail.anilist_id">
+        <MediaCardSlideView
+          :apipath="`anilist/recommend/${mediaDetail.anilist_id}`"
+          :linkurl="`/browse/anilist/recommend/${mediaDetail.anilist_id}?title=${t('media.recommendations')}`"
           :title="t('media.recommendations')"
         />
       </div>

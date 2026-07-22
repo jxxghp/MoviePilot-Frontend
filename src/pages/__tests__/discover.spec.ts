@@ -100,6 +100,7 @@ async function renderDiscover() {
         errorHandler: componentError,
       },
       stubs: {
+        AniListView: BuiltInViewStub,
         BangumiView: BuiltInViewStub,
         DoubanView: BuiltInViewStub,
         ExtraSourceView: ExtraSourceViewStub,
@@ -171,10 +172,16 @@ describe('discover page', () => {
     await renderDiscover()
 
     await waitFor(() =>
-      expect(getHeaderItems().map(item => item.title)).toEqual(['豆瓣', '自定义来源', 'TheMovieDb', 'Bangumi']),
+      expect(getHeaderItems().map(item => item.title)).toEqual([
+        '豆瓣',
+        '自定义来源',
+        'TheMovieDb',
+        'Bangumi',
+        'AniList',
+      ]),
     )
     expect(configRequested).not.toHaveBeenCalled()
-    expect(getHeaderItems().map(item => item.tab)).toEqual(['douban', 'custom', 'themoviedb', 'bangumi'])
+    expect(getHeaderItems().map(item => item.tab)).toEqual(['douban', 'custom', 'themoviedb', 'bangumi', 'anilist'])
   })
 
   it('loads remote order when local order is absent and backfills localStorage', async () => {
@@ -189,7 +196,13 @@ describe('discover page', () => {
 
     await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
     await waitFor(() =>
-      expect(getHeaderItems().map(item => item.title)).toEqual(['Bangumi', 'TheMovieDb', '豆瓣', '自定义来源']),
+      expect(getHeaderItems().map(item => item.title)).toEqual([
+        'Bangumi',
+        'TheMovieDb',
+        '豆瓣',
+        'AniList',
+        '自定义来源',
+      ]),
     )
     expect(localStorage.getItem('MP_DISCOVER_TAB_ORDER')).toBe(JSON.stringify(remoteOrder))
   })
@@ -203,7 +216,7 @@ describe('discover page', () => {
     const { componentError } = await renderDiscover()
 
     await waitFor(() => expect(configRequested).toHaveBeenCalledOnce())
-    await waitFor(() => expect(getHeaderItems().map(item => item.title)).toEqual(['Bangumi', 'TheMovieDb', '豆瓣']))
+    await waitFor(() => expect(getHeaderItems().map(item => item.title)).toEqual(['Bangumi', 'TheMovieDb', '豆瓣', 'AniList']))
     expect(localStorage.getItem('MP_DISCOVER_TAB_ORDER')).toBe(JSON.stringify(remoteOrder))
     expect(componentError).not.toHaveBeenCalled()
   })
@@ -219,7 +232,7 @@ describe('discover page', () => {
     await renderDiscover()
 
     await waitFor(() => expect(getHeaderItems().map(item => item.title)).toContain('可用扩展源'))
-    expect(getHeaderItems().map(item => item.title)).toEqual(['TheMovieDb', '豆瓣', 'Bangumi', '可用扩展源'])
+    expect(getHeaderItems().map(item => item.title)).toEqual(['TheMovieDb', '豆瓣', 'Bangumi', 'AniList', '可用扩展源'])
     expect(getHeaderConfig().modelValue.value).toBe('themoviedb')
   })
 
@@ -306,7 +319,7 @@ describe('discover page', () => {
 
     await waitFor(() => expect(requested).toHaveBeenCalledTimes(requestsBeforeReactivation + 1))
     expect(getHeaderItems().map(item => item.title)).toContain('缓存来源')
-    expect(getHeaderItems().map(item => item.title)).toEqual(['TheMovieDb', '豆瓣', 'Bangumi', '缓存来源'])
+    expect(getHeaderItems().map(item => item.title)).toEqual(['TheMovieDb', '豆瓣', 'Bangumi', 'AniList', '缓存来源'])
   })
 
   it('replaces the header metadata when a source with the same prefix changes', async () => {
@@ -341,11 +354,11 @@ describe('discover page', () => {
       }),
     )
     await renderDiscover()
-    await waitFor(() => expect(getHeaderItems()).toHaveLength(4))
+    await waitFor(() => expect(getHeaderItems()).toHaveLength(5))
 
     getHeaderConfig().appendButtons[0].action()
     const { events, tabs } = getDialogCall()
-    const reorderedTabs = [tabs[3], tabs[1], tabs[0], tabs[2]]
+    const reorderedTabs = [tabs[4], tabs[1], tabs[0], tabs[3], tabs[2]]
     await events.save(reorderedTabs)
 
     const expectedOrder = reorderedTabs.map(item => ({ name: item.name }))

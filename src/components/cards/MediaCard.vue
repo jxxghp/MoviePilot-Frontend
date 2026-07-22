@@ -540,7 +540,8 @@ onBeforeUnmount(() => {
             tile
             v-if="!isMediaCardActive(hover.isHovering) && isImageLoaded && props.media?.source && !imageLoadError"
           >
-            <VImg cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />
+            <VIcon v-if="props.media?.source === 'anilist'" color="#02a9ff" icon="mdi-alpha-a-circle" size="24" />
+            <VImg v-else cover :src="sourceIconDict[props.media?.source]" class="shadow-lg" />
           </VAvatar>
         </VCard>
       </div>

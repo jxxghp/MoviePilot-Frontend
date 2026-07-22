@@ -3,6 +3,7 @@ import { getDiscoverTabs } from '@/router/i18n-menu'
 import TheMovieDbView from '@/views/discover/TheMovieDbView.vue'
 import DoubanView from '@/views/discover/DoubanView.vue'
 import BangumiView from '@/views/discover/BangumiView.vue'
+import AniListView from '@/views/discover/AniListView.vue'
 import ExtraSourceView from '@/views/discover/ExtraSourceView.vue'
 import { DiscoverSource } from '@/api/types'
 import api from '@/api'
@@ -253,6 +254,13 @@ onActivated(async () => {
         <transition name="fade-slide" appear>
           <div>
             <BangumiView />
+          </div>
+        </transition>
+      </VWindowItem>
+      <VWindowItem value="anilist">
+        <transition name="fade-slide" appear>
+          <div>
+            <AniListView />
           </div>
         </transition>
       </VWindowItem>

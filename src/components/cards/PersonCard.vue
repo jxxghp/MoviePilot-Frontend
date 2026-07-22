@@ -38,6 +38,9 @@ function getPersonImage() {
   } else if (personProps.person?.source === 'bangumi') {
     if (!personInfo.value?.images) return personIcon
     url = personInfo.value?.images?.medium
+  } else if (personProps.person?.source === 'anilist') {
+    if (!personInfo.value?.images) return personIcon
+    url = personInfo.value?.images?.large || personInfo.value?.images?.medium
   } else {
     return personIcon
   }

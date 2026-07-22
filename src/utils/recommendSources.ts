@@ -31,6 +31,18 @@ export function createBuiltInRecommendSources(t: Translate): RecommendViewSource
       type: t('recommend.categoryAnime'),
     },
     {
+      apipath: 'anilist/trending',
+      linkurl: '/browse/anilist/trending?title=' + t('recommend.anilistTrendingNow'),
+      title: t('recommend.anilistTrendingNow'),
+      type: t('recommend.categoryAnime'),
+    },
+    {
+      apipath: 'anilist/popular-this-season',
+      linkurl: '/browse/anilist/popular-this-season?title=' + t('recommend.anilistPopularThisSeason'),
+      title: t('recommend.anilistPopularThisSeason'),
+      type: t('recommend.categoryAnime'),
+    },
+    {
       apipath: 'recommend/tmdb_movies',
       linkurl: '/browse/recommend/tmdb_movies?title=' + t('recommend.tmdbHotMovies'),
       title: t('recommend.tmdbHotMovies'),
@@ -38,8 +50,7 @@ export function createBuiltInRecommendSources(t: Translate): RecommendViewSource
     },
     {
       apipath: 'recommend/tmdb_tvs?with_original_language=zh|en|ja|ko',
-      linkurl:
-        '/browse/recommend/tmdb_tvs?with_original_language=zh|en|ja|ko&title=' + t('recommend.tmdbHotTVShows'),
+      linkurl: '/browse/recommend/tmdb_tvs?with_original_language=zh|en|ja|ko&title=' + t('recommend.tmdbHotTVShows'),
       title: t('recommend.tmdbHotTVShows'),
       type: t('recommend.categoryTV'),
     },

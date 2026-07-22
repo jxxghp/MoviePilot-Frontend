@@ -70,6 +70,7 @@ function openRecommendSettings() {
 
 const builtInRecommendSources = createBuiltInRecommendSources(t)
 const viewList = reactive<RecommendViewSource[]>([...builtInRecommendSources])
+const newlyAddedBuiltInPaths = new Set(['anilist/trending', 'anilist/popular-this-season'])
 
 // 计算当前分类下显示的视图
 const filteredViews = computed(() => {
@@ -107,6 +108,15 @@ function normalizeEnableConfig(value: unknown): Record<string, boolean> | null {
   if (entries.some(([, enabled]) => typeof enabled !== 'boolean')) return null
 
   return Object.fromEntries(entries)
+}
+
+/** 为旧版推荐配置补入新增内置榜单，同时保留用户已经明确保存的开关值。 */
+function enableMissingBuiltInSources() {
+  builtInRecommendSources.forEach(source => {
+    if (newlyAddedBuiltInPaths.has(source.apipath) && !(source.title in enableConfig.value)) {
+      enableConfig.value[source.title] = true
+    }
+  })
 }
 
 /** 刷新扩展推荐源；并发生命周期入口共享请求，成功响应按当前服务端快照替换列表。 */
@@ -201,6 +211,7 @@ let timer: ReturnType<typeof setTimeout>
 
 onBeforeMount(async () => {
   await loadConfig()
+  enableMissingBuiltInSources()
   initializeColors()
 })
 

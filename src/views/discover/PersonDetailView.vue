@@ -7,6 +7,8 @@ import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
+import MarkdownIt from 'markdown-it'
+import mdLinkAttributes from 'markdown-it-link-attributes'
 
 // 国际化
 const { t } = useI18n()
@@ -23,6 +25,20 @@ const personProps = defineProps({
 const globalSettingsStore = useGlobalSettingsStore()
 const globalSettings = globalSettingsStore.globalSettings
 
+// AniList 人物简介使用 Markdown；禁用原始 HTML，避免第三方内容注入标签或事件属性。
+const markdown = new MarkdownIt({
+  breaks: true,
+  html: false,
+  linkify: true,
+  typographer: true,
+})
+markdown.use(mdLinkAttributes, {
+  attrs: {
+    target: '_blank',
+    rel: 'noopener noreferrer',
+  },
+})
+
 // 媒体详情
 const personDetail = ref<Person>({} as Person)
 
@@ -31,6 +47,12 @@ const isRefreshed = ref(false)
 
 // 人物图片是否加载
 const isImageLoaded = ref(false)
+
+// 仅转换 AniList 的 Markdown 简介，其他数据源保持原有纯文本展示。
+const personBiographyHtml = computed(() => {
+  if (personProps.source !== 'anilist' || !personDetail.value.biography) return ''
+  return markdown.render(personDetail.value.biography)
+})
 
 // 调用API查询详情
 async function getPersonDetail() {
@@ -41,6 +63,8 @@ async function getPersonDetail() {
       personDetail.value = await api.get(`douban/person/${personProps.personid}`)
     } else if (personProps.source === 'bangumi') {
       personDetail.value = await api.get(`bangumi/person/${personProps.personid}`)
+    } else if (personProps.source === 'anilist') {
+      personDetail.value = await api.get(`anilist/person/${personProps.personid}`)
     }
     isRefreshed.value = true
   }
@@ -62,6 +86,9 @@ function getPersonImage() {
   } else if (personProps.source === 'bangumi') {
     if (!personDetail.value?.images) return personIcon
     url = personDetail.value?.images?.medium
+  } else if (personProps.source === 'anilist') {
+    if (!personDetail.value?.images) return personIcon
+    url = personDetail.value?.images?.large || personDetail.value?.images?.medium
   } else {
     return personIcon
   }
@@ -85,6 +112,8 @@ function getPersonCreditsPath() {
     apipath = 'douban'
   } else if (personProps.source === 'bangumi') {
     apipath = 'bangumi'
+  } else if (personProps.source === 'anilist') {
+    apipath = 'anilist'
   }
   return `/browse/${apipath}/person/credits/${personDetail.value.id}?title=${t('person.credits')}`
 }
@@ -96,6 +125,8 @@ function getPersonCreditsApiPath() {
     apipath = 'douban'
   } else if (personProps.source === 'bangumi') {
     apipath = 'bangumi'
+  } else if (personProps.source === 'anilist') {
+    apipath = 'anilist'
   }
   return `${apipath}/person/credits/${personDetail.value.id}`
 }
@@ -133,12 +164,17 @@ onBeforeMount(() => {
     </div>
     <div class="relative text-left">
       <div class="group outline-none ring-0" role="button" tabindex="-1">
-        <p class="pt-2 text-sm lg:text-base" style="overflow-wrap: break-word">
+        <div
+          v-if="personProps.source === 'anilist'"
+          class="person-biography pt-2 text-sm lg:text-base"
+          v-html="personBiographyHtml"
+        />
+        <p v-else class="pt-2 text-sm lg:text-base" style="overflow-wrap: break-word">
           {{ personDetail.biography }}
         </p>
       </div>
     </div>
-    <div>
+    <div class="person-credits-section">
       <div class="slider-header">
         <RouterLink :to="getPersonCreditsPath()" class="slider-title">
           <span>{{ t('person.credits') }}</span>
@@ -155,3 +191,44 @@ onBeforeMount(() => {
     :error-description="t('error.networkError')"
   />
 </template>
+
+<style scoped>
+.person-biography {
+  overflow-wrap: break-word;
+}
+
+.person-biography :deep(p),
+.person-biography :deep(ul),
+.person-biography :deep(ol),
+.person-biography :deep(blockquote) {
+  margin-block: 0 0.75rem;
+}
+
+.person-biography :deep(ul),
+.person-biography :deep(ol) {
+  padding-inline-start: 1.5rem;
+}
+
+.person-biography :deep(a) {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+}
+
+.person-biography :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.person-biography :deep(blockquote) {
+  border-inline-start: 3px solid rgba(var(--v-theme-on-surface), 0.25);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  padding-inline-start: 0.75rem;
+}
+
+.person-biography :deep(:last-child) {
+  margin-block-end: 0;
+}
+
+.person-credits-section {
+  margin-block-start: 2rem;
+}
+</style>

@@ -382,6 +382,26 @@ describe('MediaDetailView detail and actions', () => {
     expect(screen.queryByLabelText('媒体入口 类似')).not.toBeInTheDocument()
   })
 
+  it('renders AniList-only facts, external link, credits, and recommendations', async () => {
+    const media = createMediaInfo({
+      anilist_id: 154587,
+      original_title: '葬送のフリーレン',
+      release_date: '2023-09-29',
+      title: '葬送的芙莉莲',
+      tmdb_id: undefined,
+      type: '电视剧',
+    })
+    await renderDetail({ media, mediaId: 'anilist:154587', type: '电视剧' })
+
+    expect(await screen.findByRole('heading', { name: /葬送的芙莉莲/ })).toBeInTheDocument()
+    expect(screen.getByText('葬送のフリーレン')).toBeInTheDocument()
+    expect(screen.getByText('2023-09-29')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /AniList/ })).toHaveAttribute('href', 'https://anilist.co/anime/154587')
+    expect(screen.getByLabelText('人物入口 anilist')).toHaveAttribute('data-api-path', 'anilist/credits/154587')
+    expect(screen.getByLabelText('媒体入口 推荐')).toHaveAttribute('data-api-path', 'anilist/recommend/154587')
+    expect(screen.queryByLabelText('媒体入口 类似')).not.toBeInTheDocument()
+  })
+
   it('hides search and subscribe actions without permissions', async () => {
     await renderDetail({ permissions: { discovery: true, manage: false, search: false, subscribe: false } })
 
