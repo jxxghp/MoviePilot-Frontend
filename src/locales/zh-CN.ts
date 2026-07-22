@@ -1305,7 +1305,6 @@ export default {
     mobileEpisodeTitle: '第 {number} 集',
     runtimeMinutes: '{minutes} 分钟',
     movie: '电影',
-    tv: '电视剧',
     imageLoadFailed: '加载失败',
     noMatchingEvents: '暂无符合筛选条件的日历内容',
     mediaTypeFilterTitle: '媒体类型筛选',

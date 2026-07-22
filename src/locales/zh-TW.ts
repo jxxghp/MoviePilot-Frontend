@@ -1303,7 +1303,6 @@ export default {
     mobileEpisodeTitle: '第 {number} 集',
     runtimeMinutes: '{minutes} 分鐘',
     movie: '電影',
-    tv: '電視劇',
     imageLoadFailed: '載入失敗',
     noMatchingEvents: '暫無符合篩選條件的日曆內容',
     mediaTypeFilterTitle: '媒體類型篩選',

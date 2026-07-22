@@ -461,6 +461,38 @@ describe('FullCalendarView', () => {
     expect(screen.getByText('筛选剧集')).toBeInTheDocument()
   })
 
+  it('re-collapses a previously expanded desktop day when the media type filter changes', async () => {
+    const sameDaySubscriptions = Array.from({ length: 6 }, (_, index) =>
+      tvSubscribe(4000 + index, `折叠项目 ${index + 1}`),
+    )
+    const sameDayEpisode = createTmdbEpisode({ air_date: '2026-08-05', episode_number: 1 })
+    server.use(
+      subscribeListHandler(sameDaySubscriptions),
+      ...sameDaySubscriptions.map(subscribe =>
+        tmdbSeasonEpisodesHandler(subscribe.tmdbid as number, 1, [sameDayEpisode]),
+      ),
+    )
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      callback(0)
+      return 1
+    })
+
+    await renderCalendar()
+
+    expect(await screen.findByText('折叠项目 1')).toBeInTheDocument()
+    expect(screen.queryByText('折叠项目 6')).not.toBeInTheDocument()
+    await fireEvent.click(screen.getByRole('button', { name: '展开当天剩余 1 个条目' }))
+    expect(screen.getByText('折叠项目 6')).toBeInTheDocument()
+
+    await fireEvent.click(screen.getByRole('tab', { name: '电影' }))
+    await fireEvent.click(screen.getByRole('tab', { name: '全部' }))
+
+    expect(await screen.findByText('折叠项目 1')).toBeInTheDocument()
+    expect(screen.queryByText('折叠项目 6')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '展开当天剩余 1 个条目' })).toBeInTheDocument()
+  })
+
   it('filters mobile calendar events by media type', async () => {
     setViewport(480)
     const movie = movieSubscribe(3901, '移动筛选电影')

@@ -246,6 +246,9 @@ const mobileCalendarDayGroups = computed<MobileCalendarDayGroup[]>(() => {
 })
 
 watch(mediaTypeFilter, () => {
+  // 切换筛选前先收起所有已展开日期，避免 expandCalendarDay 直接写入 FullCalendar
+  // 内部事件的 visibleEvents 残留旧筛选条件下的展开内容。
+  expandedDateKeys.value = new Set()
   renderVisibleCalendarEvents()
 })
 

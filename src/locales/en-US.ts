@@ -1312,7 +1312,6 @@ export default {
     mobileEpisodeTitle: 'Episode {number}',
     runtimeMinutes: '{minutes} min',
     movie: 'Movie',
-    tv: 'TV Series',
     imageLoadFailed: 'Failed',
     noMatchingEvents: 'No calendar items match the current filters',
     mediaTypeFilterTitle: 'Media type filter',
