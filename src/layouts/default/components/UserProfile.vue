@@ -27,6 +27,7 @@ import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
 
 const AboutDialog = defineAsyncComponent(() => import('@/components/dialog/AboutDialog.vue'))
 const CustomCssDialog = defineAsyncComponent(() => import('@/components/dialog/CustomCssDialog.vue'))
+const GlassSettingsDialog = defineAsyncComponent(() => import('@/components/dialog/GlassSettingsDialog.vue'))
 const ProgressDialog = defineAsyncComponent(() => import('@/components/dialog/ProgressDialog.vue'))
 const TransparencySettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/TransparencySettingsDialog.vue'),
@@ -63,6 +64,7 @@ const showLanguageMenu = ref(false)
 const customCSS = ref('')
 
 const isTransparentTheme = computed(() => currentThemeName.value === 'transparent')
+const isGlassTheme = computed(() => currentThemeName.value === 'glass')
 
 // 重启轮询控制标识
 const restartPollingId = ref<number | null>(null)
@@ -445,6 +447,11 @@ function showTransparencySettingsDialog() {
   openSharedDialog(TransparencySettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
 }
 
+/** 打开玻璃主题的外观与质量设置共享弹窗。 */
+function showGlassSettingsDialog() {
+  openSharedDialog(GlassSettingsDialog, {}, {}, { closeOn: ['close', 'update:modelValue'] })
+}
+
 /** 从用户菜单打开主题定制器，App 模式会在面板内部隐藏布局设置。 */
 function showThemeCustomizerDrawer() {
   showUserMenu.value = false
@@ -699,6 +706,16 @@ onUnmounted(() => {
                   </template>
                 </VListItem>
               </template>
+
+              <VListItem v-else-if="isGlassTheme" @click="showGlassSettingsDialog">
+                <template #prepend>
+                  <VIcon icon="mdi-blur-radial" />
+                </template>
+                <VListItemTitle>{{ t('theme.glassSettings') }}</VListItemTitle>
+                <template #append>
+                  <VIcon icon="mdi-chevron-right" size="small" />
+                </template>
+              </VListItem>
 
               <VListItem v-if="canAdmin" @click="showCustomCssDialog">
                 <template #prepend>

@@ -54,24 +54,39 @@ export const themeCustomizerShadowLevels = [
 ] as const
 
 export type ThemeCustomizerLayout = 'collapsed' | 'horizontal' | 'vertical'
+export type ThemeCustomizerGlassAppearance = 'clear' | 'frosted' | 'tinted'
+export type ThemeCustomizerGlassQuality = 'balanced' | 'css' | 'high'
 export type ThemeCustomizerRadius = 'default' | 'extra' | 'large' | 'none' | 'small'
 export type ThemeCustomizerShadow = (typeof themeCustomizerShadowLevels)[number]
 export type ThemeCustomizerSkin = 'bordered' | 'default'
 export type ThemeCustomizerTheme = 'auto' | 'dark' | 'glass' | 'light' | 'purple' | 'transparent'
 
 export interface ThemeCustomizerSettings {
+  /** 玻璃主题的材质语义，与渲染质量保持独立。 */
+  glassAppearance: ThemeCustomizerGlassAppearance
+  /** 玻璃主题的渲染质量，决定使用标准 CSS 或共享光学渲染器。 */
+  glassQuality: ThemeCustomizerGlassQuality
+  /** 桌面导航布局。 */
   layout: ThemeCustomizerLayout
+  /** 主题强调色，也是色调玻璃的颜色来源。 */
   primaryColor: string
+  /** 全局表面圆角档位。 */
   radius: ThemeCustomizerRadius
+  /** 浅色主题是否使用半深色侧栏。 */
   semiDarkMenu: boolean
+  /** 非玻璃主题的表面阴影档位。 */
   shadow: ThemeCustomizerShadow
+  /** 非玻璃主题的边框皮肤。 */
   skin: ThemeCustomizerSkin
+  /** 用户选择的主题偏好。 */
   theme: ThemeCustomizerTheme
 }
 
 type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
+const validGlassAppearances: ThemeCustomizerGlassAppearance[] = ['clear', 'tinted', 'frosted']
+const validGlassQualities: ThemeCustomizerGlassQuality[] = ['css', 'balanced', 'high']
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
 const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
@@ -108,6 +123,8 @@ function readStoredThemePreference(): ThemeCustomizerTheme {
 /** 生成与当前主题偏好一致的定制器默认设置。 */
 function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
   return {
+    glassAppearance: 'clear',
+    glassQuality: 'css',
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -134,13 +151,17 @@ function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSetti
   const primaryColor = isHexColor(settings.primaryColor) ? settings.primaryColor.toUpperCase() : fallback.primaryColor
 
   return {
+    glassAppearance: validGlassAppearances.includes(settings.glassAppearance as ThemeCustomizerGlassAppearance)
+      ? (settings.glassAppearance as ThemeCustomizerGlassAppearance)
+      : fallback.glassAppearance,
+    glassQuality: validGlassQualities.includes(settings.glassQuality as ThemeCustomizerGlassQuality)
+      ? (settings.glassQuality as ThemeCustomizerGlassQuality)
+      : fallback.glassQuality,
     layout: validLayouts.includes(settings.layout as ThemeCustomizerLayout)
       ? (settings.layout as ThemeCustomizerLayout)
       : fallback.layout,
     primaryColor,
-    radius: validRadii.includes(radius as ThemeCustomizerRadius)
-      ? (radius as ThemeCustomizerRadius)
-      : fallback.radius,
+    radius: validRadii.includes(radius as ThemeCustomizerRadius) ? (radius as ThemeCustomizerRadius) : fallback.radius,
     semiDarkMenu: typeof settings.semiDarkMenu === 'boolean' ? settings.semiDarkMenu : fallback.semiDarkMenu,
     shadow: normalizeThemeCustomizerShadow(settings.shadow),
     skin: validSkins.includes(settings.skin as ThemeCustomizerSkin)
@@ -175,6 +196,16 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
 
 // 生产构建会改写导出函数的声明形式，状态初始化必须放在读取函数定义之后，避免首屏执行时引用未完成赋值的函数。
 const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings())
+const glassPreviewState = ref<Pick<ThemeCustomizerSettings, 'glassAppearance' | 'glassQuality'> | null>(null)
+const effectiveGlassSettings = computed(() => ({
+  glassAppearance: glassPreviewState.value?.glassAppearance ?? settingsState.value.glassAppearance,
+  glassQuality: glassPreviewState.value?.glassQuality ?? settingsState.value.glassQuality,
+}))
+
+/** 提供当前实际生效的玻璃外观；临时预览优先于已持久化设置。 */
+export function useEffectiveGlassSettings() {
+  return readonly(effectiveGlassSettings)
+}
 
 /** 将完整主题定制设置写入本地存储。 */
 function persistThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
@@ -223,17 +254,24 @@ export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyTheme
   syncThemeFavicon(activePrimaryColor)
 }
 
-/** 布局、圆角、阴影、皮肤和局部菜单风格只依赖根节点属性，CSS 可以在不刷新页面的情况下即时响应。 */
+/** 将外观设置同步为根节点属性，使主题 CSS 无需刷新即可响应。 */
 export function applyThemeCustomizerRootSettings(
-  settings: Pick<ThemeCustomizerSettings, 'layout' | 'radius' | 'semiDarkMenu' | 'shadow' | 'skin'>,
+  settings: Pick<
+    ThemeCustomizerSettings,
+    'glassAppearance' | 'glassQuality' | 'layout' | 'radius' | 'semiDarkMenu' | 'shadow' | 'skin'
+  >,
 ) {
   if (!isBrowser()) return
 
+  document.documentElement.setAttribute('data-glass-appearance', settings.glassAppearance)
+  document.documentElement.setAttribute('data-glass-quality', settings.glassQuality)
   document.documentElement.setAttribute('data-theme-layout', settings.layout)
   document.documentElement.setAttribute('data-theme-radius', settings.radius)
   document.documentElement.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
   document.documentElement.setAttribute('data-theme-shadow', settings.shadow)
   document.documentElement.setAttribute('data-theme-skin', settings.skin)
+  document.body.setAttribute('data-glass-appearance', settings.glassAppearance)
+  document.body.setAttribute('data-glass-quality', settings.glassQuality)
   document.body.setAttribute('data-theme-layout', settings.layout)
   document.body.setAttribute('data-theme-radius', settings.radius)
   document.body.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
@@ -276,6 +314,7 @@ async function applyThemePreference(themePreference: ThemeCustomizerTheme, theme
 export function applyStoredThemeCustomizerAppearance(themeApi: VuetifyThemeApi) {
   const settings = readThemeCustomizerSettings()
 
+  glassPreviewState.value = null
   settingsState.value = settings
   applyPrimaryColorToVuetify(settings.primaryColor, themeApi)
   applyThemeCustomizerRootSettings(settings)
@@ -290,6 +329,7 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
     ...patch,
   })
 
+  glassPreviewState.value = null
   settingsState.value = nextSettings
   persistThemeCustomizerSettings(nextSettings)
   applyPrimaryColorToVuetify(nextSettings.primaryColor, vuetify.theme)
@@ -299,9 +339,54 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
   return nextSettings
 }
 
+/** 临时应用玻璃外观，不写入存储或广播持久化变更。 */
+export function previewGlassSettings(
+  patch: Partial<Pick<ThemeCustomizerSettings, 'glassAppearance' | 'glassQuality'>>,
+) {
+  const previewSettings = normalizeThemeCustomizerSettings({
+    ...settingsState.value,
+    ...glassPreviewState.value,
+    ...patch,
+  })
+
+  glassPreviewState.value = {
+    glassAppearance: previewSettings.glassAppearance,
+    glassQuality: previewSettings.glassQuality,
+  }
+  applyThemeCustomizerRootSettings({
+    ...settingsState.value,
+    ...glassPreviewState.value,
+  })
+
+  return glassPreviewState.value
+}
+
+/** 将当前玻璃预览作为一个设置事务持久化，避免外观与质量分步提交。 */
+export function commitGlassPreview() {
+  const previewSettings = glassPreviewState.value
+
+  if (!previewSettings) return settingsState.value
+
+  glassPreviewState.value = null
+
+  return persistPartialThemeCustomizerSettings(previewSettings)
+}
+
+/** 丢弃临时玻璃预览并恢复已保存设置。 */
+export function cancelGlassPreview() {
+  if (!glassPreviewState.value) return settingsState.value
+
+  glassPreviewState.value = null
+  applyThemeCustomizerRootSettings(settingsState.value)
+
+  return settingsState.value
+}
+
 /** 判断当前主题定制设置是否仍为默认值。 */
 export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   const defaults = normalizeThemeCustomizerSettings({
+    glassAppearance: 'clear',
+    glassQuality: 'css',
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -312,6 +397,8 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
   })
 
   return (
+    settings.glassAppearance === defaults.glassAppearance &&
+    settings.glassQuality === defaults.glassQuality &&
     settings.layout === defaults.layout &&
     settings.primaryColor === defaults.primaryColor &&
     settings.radius === defaults.radius &&
@@ -335,6 +422,7 @@ export function useThemeCustomizer() {
       ...patch,
     })
 
+    glassPreviewState.value = null
     settings.value = nextSettings
     persistThemeCustomizerSettings(nextSettings)
     applyPrimaryColorToVuetify(nextSettings.primaryColor, themeApi)
@@ -353,6 +441,16 @@ export function useThemeCustomizer() {
   /** 更新主题主色。 */
   function setPrimaryColor(color: string) {
     return updateSettings({ primaryColor: color })
+  }
+
+  /** 更新玻璃主题材质，不隐式改变渲染质量。 */
+  function setGlassAppearance(glassAppearance: ThemeCustomizerGlassAppearance) {
+    return updateSettings({ glassAppearance })
+  }
+
+  /** 更新玻璃主题渲染质量档位。 */
+  function setGlassQuality(glassQuality: ThemeCustomizerGlassQuality) {
+    return updateSettings({ glassQuality })
   }
 
   /** 更新全局圆角档位。 */
@@ -388,6 +486,8 @@ export function useThemeCustomizer() {
   /** 将主题定制器恢复到默认设置。 */
   async function resetSettings() {
     await updateSettings({
+      glassAppearance: 'clear',
+      glassQuality: 'css',
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       radius: 'default',
@@ -423,6 +523,8 @@ export function useThemeCustomizer() {
   return {
     isCustomized: computed(() => !isDefaultThemeCustomizerSettings(settings.value)),
     resetSettings,
+    setGlassAppearance,
+    setGlassQuality,
     setLayout,
     setPrimaryColor,
     setRadius,

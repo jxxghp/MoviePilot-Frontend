@@ -11,7 +11,7 @@ import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
 import SharedDialogHost from '@/components/dialog/SharedDialogHost.vue'
-import { applyStoredThemeCustomizerAppearance } from '@/composables/useThemeCustomizer'
+import { applyStoredThemeCustomizerAppearance, useEffectiveGlassSettings } from '@/composables/useThemeCustomizer'
 import {
   applyStoredTransparencySettings,
   TRANSPARENCY_SETTINGS_CHANGED_EVENT,
@@ -22,15 +22,14 @@ import { completeLaunchLoading } from '@/composables/useLaunchLoading'
 import { usePWA } from '@/composables/usePWA'
 import { themeManager } from '@/utils/themeManager'
 import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
-import {
-  useGlobalOfflineStatus,
-  type ConnectionFailureReason,
-} from '@/composables/useOfflineStatus'
+import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
 const WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS = 180_000
+const MEDIA_DENSE_OPTICAL_DEFER_MS = 1_600
 
 // 生效主题
 const vuetifyTheme = useTheme()
@@ -59,6 +58,7 @@ setI18nLanguage(localeValue as SupportedLocale)
 const authStore = useAuthStore()
 const isLogin = computed(() => authStore.token)
 const route = useRoute()
+const router = useRouter()
 const { initializePWA } = usePWA()
 const offlineStatus = useGlobalOfflineStatus()
 
@@ -72,8 +72,13 @@ const loginStateKey = computed(() => (isLogin.value ? 'logged-in' : 'logged-out'
 const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
+const isRenderThrottled = ref(document.visibilityState === 'hidden')
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
+const effectiveGlassSettings = useEffectiveGlassSettings()
+const isInitialRouteReady = ref(false)
+const isGlassOpticalLayerDeferred = ref(true)
+let glassOpticalLayerDeferTimer: number | null = null
 const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
@@ -81,6 +86,23 @@ const shouldUseGlassBackgroundTreatment = computed(() => Boolean(isLogin.value) 
 const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
 )
+const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
+// 登录页的光学层只绘制程序化焦散，不会读取该跨域壁纸；登录后才通过同源缓存采样纹理。
+const activeOpticalBackgroundImage = computed(() =>
+  getDisplayImageUrl(activeBackgroundImage.value, Boolean(isLogin.value)),
+)
+const appWrapperStyle = computed(() => ({
+  '--login-wallpaper-image': activeBackgroundImage.value ? `url("${activeBackgroundImage.value}")` : 'none',
+}))
+const shouldRenderGlassOpticalLayer = computed(
+  () =>
+    isGlassTheme.value &&
+    (isLoginWallpaperRoute.value || effectiveGlassSettings.value.glassQuality !== 'css') &&
+    !isGlassOpticalLayerDeferred.value &&
+    !isRenderThrottled.value &&
+    Boolean(activeBackgroundImage.value),
+)
+const GlassOpticalLayer = defineAsyncComponent(() => import('@/components/theme/GlassOpticalLayer.vue'))
 const transparentBackgroundBlur = ref(16)
 const transparencyGlassQuality = ref<TransparencyGlassQuality>(
   localStorage.getItem('transparency-glass-quality') === 'realtime' ? 'realtime' : 'lightweight',
@@ -91,7 +113,6 @@ const shouldRenderGlobalBlurLayer = computed(
     transparentBackgroundBlur.value > 0 &&
     transparencyGlassQuality.value === 'realtime',
 )
-const isRenderThrottled = ref(document.visibilityState === 'hidden')
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
@@ -115,6 +136,39 @@ function handleTransparencySettingsChanged(event: Event) {
 }
 
 applyTransparentBackgroundSettings()
+
+/** 推荐页高质量光学层让首屏海报优先完成解码与合成。 */
+watch(
+  () => [route.path, effectiveGlassSettings.value.glassQuality, isInitialRouteReady.value] as const,
+  ([path, quality, routeReady]) => {
+    if (glassOpticalLayerDeferTimer !== null) {
+      window.clearTimeout(glassOpticalLayerDeferTimer)
+      glassOpticalLayerDeferTimer = null
+    }
+
+    // 首次导航完成前 route 仍可能是重定向来源，禁止 renderer 按错误页面短暂挂载。
+    if (!routeReady) {
+      isGlassOpticalLayerDeferred.value = true
+      return
+    }
+
+    if (path !== '/recommend' || quality !== 'high') {
+      isGlassOpticalLayerDeferred.value = false
+      return
+    }
+
+    isGlassOpticalLayerDeferred.value = true
+    glassOpticalLayerDeferTimer = window.setTimeout(() => {
+      isGlassOpticalLayerDeferred.value = false
+      glassOpticalLayerDeferTimer = null
+    }, MEDIA_DENSE_OPTICAL_DEFER_MS)
+  },
+  { immediate: true },
+)
+
+void router.isReady().then(() => {
+  isInitialRouteReady.value = true
+})
 
 function clearWindowBlurRenderThrottleTimer() {
   if (windowBlurRenderThrottleTimer) {
@@ -212,13 +266,10 @@ async function probeServerConnection(showChecking = false): Promise<boolean> {
   const successSequenceAtProbeStart = offlineStatus.serverSuccessSequence.value
   const probePromise = (async () => {
     try {
-      await api.get(
-        'system/ping',
-        {
-          skipConnectionTracking: true,
-          timeout: SERVER_PROBE_TIMEOUT_MS,
-        } as ConnectionAwareRequestConfig,
-      )
+      await api.get('system/ping', {
+        skipConnectionTracking: true,
+        timeout: SERVER_PROBE_TIMEOUT_MS,
+      } as ConnectionAwareRequestConfig)
       connectionProbeFailures = 0
       return true
     } catch (error) {
@@ -261,9 +312,12 @@ function startHeartbeat() {
 
   void probeServerConnection()
 
-  heartbeatInterval = window.setInterval(async () => {
-    if (isLogin.value) await probeServerConnection()
-  }, 5 * 60 * 1000)
+  heartbeatInterval = window.setInterval(
+    async () => {
+      if (isLogin.value) await probeServerConnection()
+    },
+    5 * 60 * 1000,
+  )
 }
 
 /** 停止心跳和等待中的自动重连任务。 */
@@ -633,6 +687,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (glassOpticalLayerDeferTimer !== null) window.clearTimeout(glassOpticalLayerDeferTimer)
   // 清除背景轮换定时器
   stopBackgroundLoading()
   if (authenticatedStateTimer) {
@@ -654,7 +709,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-wrapper" :class="{ 'app-wrapper--render-throttled': isRenderThrottled }">
+  <div class="app-wrapper" :class="{ 'app-wrapper--render-throttled': isRenderThrottled }" :style="appWrapperStyle">
     <!-- 登录页、透明主题和玻璃主题共用动态壁纸场景。 -->
     <div
       v-if="backgroundImages.length > 0 && (isBackdropTheme || !isLogin)"
@@ -676,6 +731,15 @@ onUnmounted(() => {
       <!-- 全局磨砂层 -->
       <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
     </div>
+    <GlassOpticalLayer
+      v-if="shouldRenderGlassOpticalLayer"
+      :appearance="effectiveGlassSettings.glassAppearance"
+      :quality="
+        isLoginWallpaperRoute ? 'balanced' : effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'
+      "
+      :route-key="route.fullPath"
+      :wallpaper-url="activeOpticalBackgroundImage"
+    />
     <!-- 页面内容 -->
     <VApp :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }">
       <RouterView />
@@ -743,19 +807,48 @@ onUnmounted(() => {
 
 .background-container.is-glass-theme .background-image.active,
 .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(0.82) saturate(0.9);
+  filter: brightness(0.86) saturate(0.95) contrast(1.02);
 }
 
 .background-container.is-glass-theme .background-image.active {
-  opacity: 0.92;
+  opacity: 0.94;
 }
 
-// 玻璃主题用冷色暗幕压低壁纸对比度，避免轻阴影表面与背景直接冲突。
 .background-container.is-glass-theme .background-image.active::after,
 .background-container.is-glass-theme .background-image.previous::after {
   background:
-    linear-gradient(rgba(6, 10, 19, 30%) 0%, rgba(6, 10, 19, 58%) 100%),
-    rgba(11, 19, 34, 10%);
+    radial-gradient(circle at 50% 18%, transparent 24%, rgba(6, 10, 19, 16%) 100%),
+    linear-gradient(rgba(6, 10, 19, 14%) 0%, rgba(6, 10, 19, 40%) 100%);
+}
+
+html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active,
+html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous {
+  filter: brightness(0.85) saturate(0.97) contrast(1.02);
+}
+
+html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active {
+  opacity: 0.93;
+}
+
+html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active::after,
+html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous::after {
+  background:
+    radial-gradient(circle at 50% 18%, transparent 22%, rgba(6, 10, 19, 18%) 100%),
+    linear-gradient(rgba(6, 10, 19, 14%) 0%, rgba(6, 10, 19, 42%) 100%), rgba(var(--v-theme-primary), 3%);
+}
+
+html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active,
+html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.previous {
+  filter: brightness(0.82) saturate(0.9);
+}
+
+html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active {
+  opacity: 0.92;
+}
+
+html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active::after,
+html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.previous::after {
+  background: linear-gradient(rgba(6, 10, 19, 30%) 0%, rgba(6, 10, 19, 58%) 100%), rgba(11, 19, 34, 10%);
 }
 
 .background-container.is-transparent-glass-lightweight .background-image.active,
@@ -766,9 +859,7 @@ onUnmounted(() => {
 
 .background-container.is-transparent-glass-lightweight .background-image.active::after,
 .background-container.is-transparent-glass-lightweight .background-image.previous::after {
-  background:
-    linear-gradient(rgba(0, 0, 0, 30%) 0%, rgba(0, 0, 0, 60%) 100%),
-    rgba(128, 128, 128, 30%);
+  background: linear-gradient(rgba(0, 0, 0, 30%) 0%, rgba(0, 0, 0, 60%) 100%), rgba(128, 128, 128, 30%);
 }
 
 /* 全局磨砂层 */
