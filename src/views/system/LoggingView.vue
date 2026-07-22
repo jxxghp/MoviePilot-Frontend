@@ -697,6 +697,8 @@ onUnmounted(() => {
 <style scoped>
 /* stylelint-disable selector-pseudo-class-no-unknown */
 .logging-view {
+  --logging-shell-backdrop-filter: none;
+  --logging-shell-background: linear-gradient(180deg, var(--logging-shell-bg), rgba(var(--v-theme-surface), 0.9));
   --logging-shell-bg: rgba(var(--v-theme-surface), 0.96);
   --logging-record-bg-even: rgba(var(--v-theme-surface-variant), 0.01);
   --logging-record-bg-odd: rgba(var(--v-theme-surface-variant), 0.005);
@@ -871,7 +873,9 @@ onUnmounted(() => {
   flex: 1 1 auto;
   padding: 0.875rem;
   border: 1px solid var(--logging-border);
-  background: linear-gradient(180deg, var(--logging-shell-bg), rgba(var(--v-theme-surface), 0.9));
+  -webkit-backdrop-filter: var(--logging-shell-backdrop-filter);
+  backdrop-filter: var(--logging-shell-backdrop-filter);
+  background: var(--logging-shell-background);
   box-shadow: var(--logging-shadow);
 }
 

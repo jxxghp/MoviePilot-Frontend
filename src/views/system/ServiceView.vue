@@ -297,6 +297,11 @@ const { loading: schedulerLoading } = useDataRefresh(
 }
 
 .mobile-scheduler-view {
+  --mobile-scheduler-card-backdrop-filter: none;
+  --mobile-scheduler-card-background: rgb(var(--v-theme-surface));
+  --mobile-scheduler-card-border: 0;
+  --mobile-scheduler-card-shadow: none;
+
   background: transparent;
   min-block-size: 100%;
   padding-block: 12px calc(22px + env(safe-area-inset-bottom));
@@ -313,11 +318,12 @@ const { loading: schedulerLoading } = useDataRefresh(
   display: grid;
   align-items: center;
   padding: 18px;
-  border: 0;
+  border: var(--mobile-scheduler-card-border);
   border-radius: var(--app-surface-radius);
-  backdrop-filter: none;
-  background: rgb(var(--v-theme-surface));
-  box-shadow: none;
+  -webkit-backdrop-filter: var(--mobile-scheduler-card-backdrop-filter);
+  backdrop-filter: var(--mobile-scheduler-card-backdrop-filter);
+  background: var(--mobile-scheduler-card-background);
+  box-shadow: var(--mobile-scheduler-card-shadow);
   column-gap: 14px;
   grid-template-columns: 62px minmax(0, 1fr) auto;
 }
@@ -457,8 +463,8 @@ const { loading: schedulerLoading } = useDataRefresh(
   gap: 10px;
 }
 
-html[data-theme='transparent'] .mobile-scheduler-card,
-.v-theme--transparent .mobile-scheduler-card {
+.v-theme--transparent .mobile-scheduler-card,
+html[data-theme='transparent'] .mobile-scheduler-card {
   backdrop-filter: blur(var(--transparent-blur, 10px));
   background: rgba(var(--v-theme-surface), var(--transparent-opacity-light, 0.2));
 }

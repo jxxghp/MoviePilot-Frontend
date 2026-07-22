@@ -459,7 +459,7 @@ html[data-theme='glass'] {
     backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
   }
 
-  // 移动端文件整理、日历和定时服务使用自定义容器，需要显式接入玻璃表面材质。
+  // 移动端文件整理和日历使用自定义容器，需要显式接入玻璃表面材质。
   .transfer-history-mobile-page {
     --transfer-history-mobile-search-bg: var(--glass-surface-soft);
     --transfer-history-mobile-muted-bg: var(--glass-surface-soft);
@@ -469,12 +469,29 @@ html[data-theme='glass'] {
 
   .transfer-history-mobile-record,
   .mobile-calendar-filter-card,
-  .mobile-calendar-event-card,
-  .mobile-scheduler-card {
+  .mobile-calendar-event-card {
     border: 1px solid var(--glass-border);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     background: var(--glass-surface);
+  }
+
+  // 日志和定时服务的自定义表面通过变量接入主题，避免组件局部样式覆盖玻璃材质。
+  .logging-view,
+  .logging-view.is-dark-theme {
+    --logging-border: var(--glass-border);
+    --logging-record-bg-even: rgba(255, 255, 255, 6%);
+    --logging-record-bg-odd: rgba(255, 255, 255, 3%);
+    --logging-shadow: inset 0 1px 0 rgba(255, 255, 255, 10%);
+    --logging-shell-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    --logging-shell-background: var(--glass-surface-soft);
+  }
+
+  .mobile-scheduler-view {
+    --mobile-scheduler-card-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    --mobile-scheduler-card-background: var(--glass-surface);
+    --mobile-scheduler-card-border: 1px solid var(--glass-border);
+    --mobile-scheduler-card-shadow: var(--glass-shadow);
   }
 
   .mobile-subscribe-calendar {
@@ -576,6 +593,14 @@ html[data-theme='glass'] {
   }
 
   @media (width <= 960px) {
+    // 全屏快捷弹窗释放外层玻璃背景，让定时服务卡片直接采样全局壁纸。
+    .scheduler-shortcut-dialog-card {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
     // 设置页卡片与视口边缘保持阴影缓冲，避免页面横向裁切边界截断投影。
     .settings-content-window {
       padding-inline: 24px;
