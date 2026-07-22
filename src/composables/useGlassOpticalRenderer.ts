@@ -1,6 +1,7 @@
 import { nextTick, onScopeDispose, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
 import type {
   BufferGeometry,
+  Color,
   IUniform,
   Mesh,
   OrthographicCamera,
@@ -36,6 +37,7 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uRectCount: IUniform<number>
   uRects: IUniform<Vector4[]>
   uTexture: IUniform<Texture | null>
+  uTintColor: IUniform<Color>
   uTime: IUniform<number>
   uViewportSize: IUniform<Vector2>
 }
@@ -56,6 +58,7 @@ interface UseGlassOpticalRendererOptions {
   canvas: Ref<HTMLCanvasElement | null>
   quality: MaybeRefOrGetter<GlassOpticalQuality>
   routeKey: MaybeRefOrGetter<string>
+  tintColor: MaybeRefOrGetter<string>
   wallpaperUrl: MaybeRefOrGetter<string>
 }
 
@@ -99,6 +102,7 @@ uniform vec4 uRects[8];
 uniform float uRadii[8];
 uniform int uRectCount;
 uniform float uAppearance;
+uniform vec3 uTintColor;
 uniform float uTime;
 uniform vec2 uViewportSize;
 varying vec2 vUv;
@@ -178,7 +182,7 @@ void main() {
     proceduralEdgeAlpha = 0.18;
     proceduralCausticAlpha = 0.08;
   } else if (uAppearance > 0.5) {
-    highlight = vec3(0.72, 0.66, 1.0);
+    highlight = mix(vec3(1.0), uTintColor, 0.72);
     edgeHighlightMix = 0.17;
     causticHighlightMix = 0.16;
     materialAlpha = 0.3;
@@ -433,10 +437,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     void initializeRenderer(false)
   }
 
-  /** 只让可能改变目标表面集合的 DOM 变更触发重扫。 */
+  /** 只让会改变目标表面集合或圆角几何的 DOM 变更触发重扫。 */
   function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
-    return mutations.some(mutation =>
-      [...mutation.addedNodes, ...mutation.removedNodes].some(containsGlassOpticalSurface),
+    return mutations.some(
+      mutation =>
+        mutation.type === 'attributes' ||
+        [...mutation.addedNodes, ...mutation.removedNodes].some(containsGlassOpticalSurface),
     )
   }
 
@@ -459,6 +465,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     observeMutationRoot(document.querySelector('.app-wrapper'), true)
     observeMutationRoot(document.querySelector('.v-overlay-container'), true)
     observeMutationRoot(document.body, false)
+    surfaceMutationObserver.observe(document.documentElement, {
+      attributeFilter: ['data-theme-radius'],
+      attributes: true,
+    })
   }
 
   function setupEvents() {
@@ -651,6 +661,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uRectCount: { value: 0 },
         uRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uTexture: { value: null },
+        uTintColor: { value: new three.Color(toValue(options.tintColor)) },
         uTime: { value: 0 },
         uViewportSize: { value: new three.Vector2(window.innerWidth, window.innerHeight) },
       }
@@ -750,6 +761,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       } catch (error) {
         fallbackFromCurrentLoad(version, '玻璃质量纹理切换失败，已回退标准材质:', error)
       }
+    },
+  )
+
+  watch(
+    () => toValue(options.tintColor),
+    tintColor => {
+      if (!resources) return
+
+      resources.uniforms.uTintColor.value.set(tintColor)
+      scheduleFrame()
     },
   )
 

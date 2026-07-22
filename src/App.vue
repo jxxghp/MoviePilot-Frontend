@@ -140,8 +140,8 @@ applyTransparentBackgroundSettings()
 
 /** 推荐页高质量光学层让首屏海报优先完成解码与合成。 */
 watch(
-  () => [route.path, effectiveGlassSettings.value.glassQuality, isInitialRouteReady.value] as const,
-  ([path, quality, routeReady]) => {
+  () => [route.fullPath, effectiveGlassSettings.value.glassQuality, isInitialRouteReady.value] as const,
+  ([, quality, routeReady]) => {
     if (glassOpticalLayerDeferTimer !== null) {
       window.clearTimeout(glassOpticalLayerDeferTimer)
       glassOpticalLayerDeferTimer = null
@@ -153,7 +153,7 @@ watch(
       return
     }
 
-    if (path !== '/recommend' || quality !== 'high') {
+    if (route.path !== '/recommend' || quality !== 'high') {
       isGlassOpticalLayerDeferred.value = false
       return
     }
@@ -741,6 +741,7 @@ onUnmounted(() => {
       :class="{ 'glass-optical-layer--background-transition': isBackgroundCrossfading }"
       :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
       :route-key="route.fullPath"
+      :tint-color="globalTheme.current.value.colors.primary"
       :wallpaper-url="activeOpticalBackgroundImage"
     />
     <!-- 页面内容 -->

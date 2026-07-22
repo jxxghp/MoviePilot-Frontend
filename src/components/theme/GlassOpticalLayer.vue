@@ -9,6 +9,8 @@ const props = defineProps<{
   quality: Exclude<ThemeCustomizerGlassQuality, 'css'>
   /** 路由变化标识，用于在页面内容稳定后重新发现高价值表面。 */
   routeKey: string
+  /** 当前主题主色，用于同步色调材质的光学高光。 */
+  tintColor: string
   /** 与 CSS 背景保持一致的活动壁纸。 */
   wallpaperUrl: string
 }>()
@@ -20,6 +22,7 @@ const { state } = useGlassOpticalRenderer({
   canvas,
   quality: () => props.quality,
   routeKey: () => props.routeKey,
+  tintColor: () => props.tintColor,
   wallpaperUrl: () => props.wallpaperUrl,
 })
 </script>
