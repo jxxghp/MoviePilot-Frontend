@@ -7,8 +7,7 @@
 
 // 返回 Vuetify 指定 elevation 的完整三层 box-shadow，供主题定制器映射全局阴影档位。
 @function app-vuetify-elevation($level) {
-  @return map.get(vuetify-settings.$shadow-key-umbra, $level),
-    map.get(vuetify-settings.$shadow-key-penumbra, $level),
+  @return map.get(vuetify-settings.$shadow-key-umbra, $level), map.get(vuetify-settings.$shadow-key-penumbra, $level),
     map.get(vuetify-settings.$shadow-key-ambient, $level);
 }
 
@@ -50,14 +49,15 @@ html.quick-access-scroll-locked body {
 @mixin hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-  
+
   &::-webkit-scrollbar {
     display: none;
   }
 }
 
 @media (width <= 768px) {
-  html,body {
+  html,
+  body {
     @include hide-scrollbar;
   }
 }
@@ -82,10 +82,12 @@ html {
   --app-overlay-radius: var(--app-vuetify-rounded-lg);
   --app-surface-border-width: 0;
   --app-surface-border-opacity: 0.06;
-  --app-surface-border: var(--app-surface-border-width) solid rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
+  --app-surface-border: var(--app-surface-border-width) solid
+    rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
   --app-card-light-border-width: var(--app-surface-border-width);
   --app-card-light-border-opacity: 0.12;
-  --app-card-light-border: var(--app-card-light-border-width) solid rgba(var(--v-theme-on-surface), var(--app-card-light-border-opacity));
+  --app-card-light-border: var(--app-card-light-border-width) solid
+    rgba(var(--v-theme-on-surface), var(--app-card-light-border-opacity));
   --app-overlay-border: var(--app-surface-border);
   --app-card-rest-shadow: var(--app-elevation-0);
   --app-card-hover-shadow: var(--app-elevation-0);
@@ -187,7 +189,9 @@ html[data-theme-radius='extra'] {
 }
 
 #nprogress .peg {
-  box-shadow: 0 0 10px rgb(var(--v-theme-primary)), 0 0 5px rgb(var(--v-theme-primary)) !important;
+  box-shadow:
+    0 0 10px rgb(var(--v-theme-primary)),
+    0 0 5px rgb(var(--v-theme-primary)) !important;
   inline-size: 5px;
   transform: rotate(0deg) translate(0, 0);
 }
@@ -207,13 +211,19 @@ html[data-theme-radius='extra'] {
   border: var(--app-surface-border);
   border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-surface-shadow) !important;
-  transition: border-color 0.2s ease, border-radius 0.2s ease, border-width 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    border-radius 0.2s ease,
+    border-width 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .v-list {
   border-radius: var(--app-surface-radius) !important;
   box-shadow: var(--app-surface-shadow) !important;
-  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-radius 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .app-surface-static {
@@ -243,7 +253,9 @@ html[data-theme-radius='extra'] {
 
 .app-hover-lift-card {
   transform: translateZ(0);
-  transition: transform 0.3s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.2s ease;
 }
 
 .app-hover-lift-card--hovering {
@@ -478,17 +490,19 @@ html[data-theme-radius='extra'] {
   [class*=' rounded-']
 ) {
   border-radius: var(--app-field-radius);
-  transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-radius 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 // 自定义字段圆角时，outlined 字段带左侧 inner icon 需要同步放大左侧描边弧度。
 .v-field:not(
-  .v-field--variant-plain,
-  .v-field--variant-underlined,
-  .v-field--rounded,
-  [class^='rounded-'],
-  [class*=' rounded-']
-).v-field--variant-outlined.v-field--prepended {
+    .v-field--variant-plain,
+    .v-field--variant-underlined,
+    .v-field--rounded,
+    [class^='rounded-'],
+    [class*=' rounded-']
+  ).v-field--variant-outlined.v-field--prepended {
   --app-field-outline-start-size: max(12px, calc(var(--app-field-radius) + 8px));
 
   .v-field__outline__start {
@@ -568,7 +582,9 @@ html[data-theme-radius='extra'] {
 .app-responsive-input--multiline .v-field {
   border-radius: var(--app-control-radius) !important;
   background-color: transparent;
-  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .app-responsive-input--empty:not(:has(.v-field--dirty)) .v-field {
@@ -601,62 +617,50 @@ html[data-theme-radius='extra'] {
   flex-wrap: nowrap;
 }
 
-.app-responsive-input--field :is(
-  input.v-field__input,
-  .v-field__input > input,
-  .v-select__selection,
-  .v-select__selection-text,
-  .v-autocomplete__selection,
-  .v-autocomplete__selection-text,
-  .v-combobox__selection,
-  .v-combobox__selection-text
-) {
+.app-responsive-input--field
+  :is(
+    input.v-field__input,
+    .v-field__input > input,
+    .v-select__selection,
+    .v-select__selection-text,
+    .v-autocomplete__selection,
+    .v-autocomplete__selection-text,
+    .v-combobox__selection,
+    .v-combobox__selection-text
+  ) {
   overflow: hidden;
   min-inline-size: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.app-responsive-input__native:is(
-  .v-select--multiple,
-  .v-autocomplete--multiple,
-  .v-combobox--multiple
-) .v-field__input {
+.app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
+  .v-field__input {
   overflow: visible;
   flex-wrap: wrap;
   row-gap: 0.25rem;
 }
 
-.app-responsive-input__native:is(
-  .v-select--multiple,
-  .v-autocomplete--multiple,
-  .v-combobox--multiple
-) :is(
-  .v-select__selection,
-  .v-select__selection-text,
-  .v-autocomplete__selection,
-  .v-autocomplete__selection-text,
-  .v-combobox__selection,
-  .v-combobox__selection-text
-) {
+.app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
+  :is(
+    .v-select__selection,
+    .v-select__selection-text,
+    .v-autocomplete__selection,
+    .v-autocomplete__selection-text,
+    .v-combobox__selection,
+    .v-combobox__selection-text
+  ) {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
 }
 
-.app-responsive-input__native:is(
-  .v-select--multiple,
-  .v-autocomplete--multiple,
-  .v-combobox--multiple
-) .v-chip {
+.app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple) .v-chip {
   max-inline-size: 100%;
 }
 
-.app-responsive-input__native:is(
-  .v-select--multiple,
-  .v-autocomplete--multiple,
-  .v-combobox--multiple
-) .v-chip__content {
+.app-responsive-input__native:is(.v-select--multiple, .v-autocomplete--multiple, .v-combobox--multiple)
+  .v-chip__content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -754,21 +758,36 @@ html[data-theme-radius='extra'] {
   }
 
   // 表单顶层在桌面也占满 12 格的字段改为上下两行，避免把嵌套 md=12 字段误判为整行字段。
-  .v-form > .v-row > :is(
-    .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
-    .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
-    .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
-  ) > :is(.app-responsive-input--field, .app-responsive-input--range) {
+  .v-form
+    > .v-row
+    > :is(
+      .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not(
+          [class*='v-col-xl-']
+        ):not([class*='v-col-xxl-']),
+      .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not(
+          [class*='v-col-xxl-']
+        ),
+      .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
+    )
+    > :is(.app-responsive-input--field, .app-responsive-input--range) {
     row-gap: 0.5rem;
     align-items: start;
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .v-form > .v-row > :is(
-    .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
-    .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-']),
-    .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
-  ) > :is(.app-responsive-input--field, .app-responsive-input--range) .app-responsive-input__control {
+  .v-form
+    > .v-row
+    > :is(
+      .v-col-12:not([class*='v-col-sm-']):not([class*='v-col-md-']):not([class*='v-col-lg-']):not(
+          [class*='v-col-xl-']
+        ):not([class*='v-col-xxl-']),
+      .v-col-sm-12:not([class*='v-col-md-']):not([class*='v-col-lg-']):not([class*='v-col-xl-']):not(
+          [class*='v-col-xxl-']
+        ),
+      .v-col-md-12:not([class*='v-col-lg-']):not([class*='v-col-xl-']):not([class*='v-col-xxl-'])
+    )
+    > :is(.app-responsive-input--field, .app-responsive-input--range)
+    .app-responsive-input__control {
     inline-size: 100%;
   }
 }
@@ -793,125 +812,138 @@ html[data-theme-radius='extra'] {
 .v-btn-group:not(.v-btn-group--variant-plain, .v-btn-group--variant-text) {
   border-radius: var(--app-control-radius);
   box-shadow: var(--app-surface-shadow) !important;
-  transition: box-shadow 0.2s ease, border-radius 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-radius 0.2s ease;
 }
 
 // 只给外层卡片和弹窗外壳保留阴影，内部 surface / control / elevation 工具类统一保持平面，避免多层阴影叠加。
-.v-card :where(
-  .app-surface,
-  .app-surface-static,
-  .v-alert,
-  .v-avatar,
-  .v-btn,
-  .v-btn-group,
-  .v-card,
-  .v-chip,
-  .v-expansion-panel,
-  .v-expansion-panel__shadow,
-  .v-list,
-  .v-navigation-drawer,
-  .v-sheet,
-  .v-stepper,
-  .v-table,
-  .v-toolbar,
-  .v-window,
-  [class^='elevation-'],
-  [class*=' elevation-'],
-  [class^='shadow-'],
-  [class*=' shadow-']
-),
-.v-overlay__content > .v-card :where(
-  .app-surface,
-  .app-surface-static,
-  .v-alert,
-  .v-avatar,
-  .v-btn,
-  .v-btn-group,
-  .v-card,
-  .v-chip,
-  .v-expansion-panel,
-  .v-expansion-panel__shadow,
-  .v-list,
-  .v-navigation-drawer,
-  .v-sheet,
-  .v-stepper,
-  .v-table,
-  .v-toolbar,
-  .v-window,
-  [class^='elevation-'],
-  [class*=' elevation-'],
-  [class^='shadow-'],
-  [class*=' shadow-']
-),
-.v-overlay__content > .v-sheet :where(
-  .app-surface,
-  .app-surface-static,
-  .v-alert,
-  .v-avatar,
-  .v-btn,
-  .v-btn-group,
-  .v-card,
-  .v-chip,
-  .v-expansion-panel,
-  .v-expansion-panel__shadow,
-  .v-list,
-  .v-navigation-drawer,
-  .v-sheet,
-  .v-stepper,
-  .v-table,
-  .v-toolbar,
-  .v-window,
-  [class^='elevation-'],
-  [class*=' elevation-'],
-  [class^='shadow-'],
-  [class*=' shadow-']
-),
-.v-overlay__content > form > .v-card :where(
-  .app-surface,
-  .app-surface-static,
-  .v-alert,
-  .v-avatar,
-  .v-btn,
-  .v-btn-group,
-  .v-card,
-  .v-chip,
-  .v-expansion-panel,
-  .v-expansion-panel__shadow,
-  .v-list,
-  .v-navigation-drawer,
-  .v-sheet,
-  .v-stepper,
-  .v-table,
-  .v-toolbar,
-  .v-window,
-  [class^='elevation-'],
-  [class*=' elevation-'],
-  [class^='shadow-'],
-  [class*=' shadow-']
-),
-.v-overlay__content > form > .v-sheet :where(
-  .app-surface,
-  .app-surface-static,
-  .v-alert,
-  .v-avatar,
-  .v-btn,
-  .v-btn-group,
-  .v-card,
-  .v-chip,
-  .v-expansion-panel,
-  .v-expansion-panel__shadow,
-  .v-list,
-  .v-navigation-drawer,
-  .v-sheet,
-  .v-stepper,
-  .v-table,
-  .v-toolbar,
-  .v-window,
-  [class^='elevation-'],
-  [class*=' elevation-'],
-  [class^='shadow-'],
-  [class*=' shadow-']
-) {
+.v-card
+  :where(
+    .app-surface,
+    .app-surface-static,
+    .v-alert,
+    .v-avatar,
+    .v-btn,
+    .v-btn-group,
+    .v-card,
+    .v-chip,
+    .v-expansion-panel,
+    .v-expansion-panel__shadow,
+    .v-list,
+    .v-navigation-drawer,
+    .v-sheet,
+    .v-stepper,
+    .v-table,
+    .v-toolbar,
+    .v-window,
+    [class^='elevation-'],
+    [class*=' elevation-'],
+    [class^='shadow-'],
+    [class*=' shadow-']
+  ),
+.v-overlay__content
+  > .v-card
+  :where(
+    .app-surface,
+    .app-surface-static,
+    .v-alert,
+    .v-avatar,
+    .v-btn,
+    .v-btn-group,
+    .v-card,
+    .v-chip,
+    .v-expansion-panel,
+    .v-expansion-panel__shadow,
+    .v-list,
+    .v-navigation-drawer,
+    .v-sheet,
+    .v-stepper,
+    .v-table,
+    .v-toolbar,
+    .v-window,
+    [class^='elevation-'],
+    [class*=' elevation-'],
+    [class^='shadow-'],
+    [class*=' shadow-']
+  ),
+.v-overlay__content
+  > .v-sheet
+  :where(
+    .app-surface,
+    .app-surface-static,
+    .v-alert,
+    .v-avatar,
+    .v-btn,
+    .v-btn-group,
+    .v-card,
+    .v-chip,
+    .v-expansion-panel,
+    .v-expansion-panel__shadow,
+    .v-list,
+    .v-navigation-drawer,
+    .v-sheet,
+    .v-stepper,
+    .v-table,
+    .v-toolbar,
+    .v-window,
+    [class^='elevation-'],
+    [class*=' elevation-'],
+    [class^='shadow-'],
+    [class*=' shadow-']
+  ),
+.v-overlay__content
+  > form
+  > .v-card
+  :where(
+    .app-surface,
+    .app-surface-static,
+    .v-alert,
+    .v-avatar,
+    .v-btn,
+    .v-btn-group,
+    .v-card,
+    .v-chip,
+    .v-expansion-panel,
+    .v-expansion-panel__shadow,
+    .v-list,
+    .v-navigation-drawer,
+    .v-sheet,
+    .v-stepper,
+    .v-table,
+    .v-toolbar,
+    .v-window,
+    [class^='elevation-'],
+    [class*=' elevation-'],
+    [class^='shadow-'],
+    [class*=' shadow-']
+  ),
+.v-overlay__content
+  > form
+  > .v-sheet
+  :where(
+    .app-surface,
+    .app-surface-static,
+    .v-alert,
+    .v-avatar,
+    .v-btn,
+    .v-btn-group,
+    .v-card,
+    .v-chip,
+    .v-expansion-panel,
+    .v-expansion-panel__shadow,
+    .v-list,
+    .v-navigation-drawer,
+    .v-sheet,
+    .v-stepper,
+    .v-table,
+    .v-toolbar,
+    .v-window,
+    [class^='elevation-'],
+    [class*=' elevation-'],
+    [class^='shadow-'],
+    [class*=' shadow-']
+  ) {
   --app-card-hover-shadow: none;
   --app-card-rest-shadow: none;
   --app-fab-shadow: none;
@@ -945,7 +977,10 @@ html[data-theme-radius='extra'] {
     ),
     rgba(var(--v-theme-surface), var(--app-card-surface-opacity));
   color: rgb(var(--v-theme-on-surface));
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 
   --app-card-accent-rgb: var(--v-theme-primary);
   --app-card-accent-end-rgb: var(--app-card-accent-rgb);
@@ -955,7 +990,8 @@ html[data-theme-radius='extra'] {
   --app-card-hover-border-opacity: 0.16;
   --app-card-stripe-opacity: 0.22;
   --app-card-surface-opacity: 0.92;
-  --app-surface-border: var(--app-surface-border-width) solid rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity));
+  --app-surface-border: var(--app-surface-border-width) solid
+    rgba(var(--app-card-accent-rgb), var(--app-card-border-opacity));
   --app-surface-hover-shadow: var(--app-card-hover-shadow);
   --app-surface-shadow: var(--app-card-rest-shadow);
 }
@@ -964,7 +1000,7 @@ html[data-theme-radius='extra'] {
   position: absolute;
   background: rgb(var(--app-card-accent-rgb));
   block-size: 100%;
-  content: "";
+  content: '';
   inline-size: 0.125rem;
   inset-block: 0;
   inset-inline-start: 0;
@@ -973,7 +1009,8 @@ html[data-theme-radius='extra'] {
 }
 
 .app-card-colorful:hover {
-  --app-surface-border: var(--app-surface-border-width) solid rgba(var(--app-card-accent-rgb), var(--app-card-hover-border-opacity));
+  --app-surface-border: var(--app-surface-border-width) solid
+    rgba(var(--app-card-accent-rgb), var(--app-card-hover-border-opacity));
 }
 
 .app-card-colorful:focus-visible {
@@ -991,7 +1028,7 @@ html[data-theme-radius='extra'] {
   pointer-events: none;
 }
 
-html[data-theme="transparent"] .app-card-colorful,
+html[data-theme='transparent'] .app-card-colorful,
 .v-theme--transparent .app-card-colorful {
   backdrop-filter: blur(var(--transparent-blur, 10px));
 
@@ -1001,13 +1038,14 @@ html[data-theme="transparent"] .app-card-colorful,
   --app-card-hover-border-opacity: var(--app-surface-border-opacity);
   --app-card-stripe-opacity: 0.16;
   --app-card-surface-opacity: var(--transparent-opacity-light, 0.2);
-  --app-surface-border: var(--app-surface-border-width) solid rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
+  --app-surface-border: var(--app-surface-border-width) solid
+    rgba(var(--v-theme-on-surface), var(--app-surface-border-opacity));
 }
 
-html[data-theme="transparent"].transparent-glass-lightweight .app-card-colorful,
-html[data-theme="transparent"].transparent-glass-lightweight .v-theme--transparent .app-card-colorful,
-html[data-theme="transparent"].transparent-glass-realtime .app-card-colorful,
-html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent .app-card-colorful {
+html[data-theme='transparent'].transparent-glass-lightweight .app-card-colorful,
+html[data-theme='transparent'].transparent-glass-lightweight .v-theme--transparent .app-card-colorful,
+html[data-theme='transparent'].transparent-glass-realtime .app-card-colorful,
+html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent .app-card-colorful {
   backdrop-filter: none;
 }
 
@@ -1148,7 +1186,7 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
   margin-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
 }
 
-@media only screen and (width <= 600px){
+@media only screen and (width <= 600px) {
   .Vue-Toastification__container {
     inline-size: 100vw;
     padding-block: 4.5rem;
@@ -1346,11 +1384,11 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 // 文本样式
 .text-moviepilot {
   background-clip: text;
-  background-image: linear-gradient(to bottom right,var(--tw-gradient-stops));
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
   color: transparent;
 
   --tw-gradient-from: #818cf8;
-  --tw-gradient-stops: var(--tw-gradient-from),var(--tw-gradient-to);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
   --tw-gradient-to: #c084fc;
 }
 
@@ -1372,7 +1410,7 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
   line-height: 1.75rem;
 }
 
-@media (width >= 640px){
+@media (width >= 640px) {
   .slider-title {
     overflow: hidden;
     font-size: 1.5rem;
@@ -1393,10 +1431,10 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 ::-webkit-scrollbar-thumb {
   border-radius: 2px;
   background: rgb(var(--v-theme-perfect-scrollbar-thumb));
-  box-shadow: inset 0 0 10px rgba(0,0,0,20%);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 20%);
 
-  @media(hover){
-    &:hover{
+  @media (hover) {
+    &:hover {
       background: #a1a1a1;
     }
   }
@@ -1411,25 +1449,28 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 }
 
 // 组件样式
-.v-alert--variant-elevated, .v-alert--variant-flat {
+.v-alert--variant-elevated,
+.v-alert--variant-flat {
   border-radius: var(--app-surface-radius);
   background: rgb(var(--v-table-header-background));
   color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
 }
 
 .backdrop-blur {
-  --tw-backdrop-blur: blur(8px)!important;
+  --tw-backdrop-blur: blur(8px) !important;
 
-  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)!important;
+  backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast)
+    var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity)
+    var(--tw-backdrop-saturate) var(--tw-backdrop-sepia) !important;
 }
 
-.v-toolbar{
+.v-toolbar {
   background: rgb(var(--v-table-header-background));
 }
 
 .v-divider {
   border-color: rgba(var(--v-theme-on-background), var(--v-selected-opacity));
-  opacity:0.75;
+  opacity: 0.75;
 }
 
 :root {
@@ -1677,8 +1718,8 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
   }
 
   .compact-fab--secondary .v-btn {
-    block-size: 3rem !important;
-    inline-size: 3rem !important;
+    block-size: 3.5rem !important;
+    inline-size: 3.5rem !important;
   }
 }
 
@@ -1735,7 +1776,7 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 }
 
 // 弹出层样式
-.v-overlay__content .v-list{
+.v-overlay__content .v-list {
   border: var(--app-overlay-border);
   border-radius: var(--app-surface-radius);
   backdrop-filter: blur(6px);
@@ -1744,14 +1785,15 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
   padding-inline: 0.5rem !important;
 }
 
-.v-overlay__content .v-card:not(.bg-primary){
+.v-overlay__content .v-card:not(.bg-primary) {
   border: var(--app-overlay-border);
   border-radius: var(--app-surface-radius);
   backdrop-filter: blur(8px);
   background-color: rgb(var(--v-theme-surface), 0.95);
   box-shadow: none;
 
-  .v-list, .v-table {
+  .v-list,
+  .v-table {
     backdrop-filter: none;
     background-color: transparent;
     box-shadow: none;
@@ -1776,7 +1818,9 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
   background: transparent;
   box-shadow: none;
   margin-block: env(safe-area-inset-top) env(safe-area-inset-bottom);
-  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .v-menu > .v-overlay__content {
@@ -1885,9 +1929,7 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
 
 .v-menu .v-overlay__content {
   box-shadow: none;
-} 
-
-
+}
 
 // 主界面下拉入口提示：放在公共样式中，避免 scoped 样式无法响应根节点主题属性。
 .app-pull-indicator {
@@ -1927,7 +1969,9 @@ html[data-theme="transparent"].transparent-glass-realtime .v-theme--transparent 
   background: rgba(var(--v-theme-primary), var(--app-pull-indicator-icon-surface-opacity));
   block-size: 40px;
   inline-size: 40px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s ease;
 }
 
 html[data-theme='light'] .app-pull-indicator {

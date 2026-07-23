@@ -8,7 +8,6 @@ import {
   type ThemeCustomizerGlassQuality,
 } from '@/composables/useThemeCustomizer'
 import { useI18n } from 'vue-i18n'
-import { useDisplay } from 'vuetify'
 
 const props = withDefaults(
   defineProps<{
@@ -25,7 +24,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const display = useDisplay()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
 const draftQuality = ref<ThemeCustomizerGlassQuality>(settings.value.glassQuality)
@@ -91,7 +89,7 @@ function updateQuality(value: unknown) {
 /** 将当前草稿恢复为玻璃主题默认值并立即预览。 */
 function resetSettings() {
   draftAppearance.value = 'clear'
-  draftQuality.value = 'css'
+  draftQuality.value = 'balanced'
   previewGlassSettings({
     glassAppearance: draftAppearance.value,
     glassQuality: draftQuality.value,
@@ -121,7 +119,7 @@ onScopeDispose(cancelGlassPreview)
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" max-width="30rem" scrollable :fullscreen="!display.mdAndUp.value">
+  <VDialog v-if="visible" v-model="visible" width="100%" max-width="30rem" scrollable>
     <VCard>
       <VCardItem>
         <VCardTitle>
