@@ -1000,7 +1000,7 @@ export interface User {
   is_superuser: boolean
   // 头像
   avatar: string
-  // 是否开启双重验证
+  // 是否开启二次验证
   is_otp: boolean
   // 用户权限 json
   permissions: { [key: string]: any }

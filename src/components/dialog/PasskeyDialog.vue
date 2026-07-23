@@ -6,11 +6,9 @@ import { useI18n } from 'vue-i18n'
 import { formatDateDifference } from '@core/utils/formatters'
 import api from '@/api'
 import type { ApiResponse, PassKey } from '@/api/types'
-import { useGlobalSettingsStore } from '@/stores'
 
 interface Props {
   modelValue: boolean
-  isOtp: boolean
 }
 
 // WebAuthn 相关接口定义
@@ -27,7 +25,6 @@ const emit = defineEmits(['update:modelValue', 'update:passkeyList', 'verifyPass
 const { t, locale } = useI18n()
 const display = useDisplay()
 const $toast = useToast()
-const globalSettingsStore = useGlobalSettingsStore()
 
 // 内部状态
 const show = computed({
@@ -44,11 +41,7 @@ const passkeyRegistering = ref(false)
 // PassKey名称
 const passkeyName = ref('')
 
-// PassKey challenge
-const passkeyChallenge = ref('')
-
-const allowPasskeyWithoutOtp = computed(() => globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP') === true)
-const canRegisterPasskey = computed(() => props.isOtp || allowPasskeyWithoutOtp.value)
+const passkeyTransactionToken = ref('')
 
 // 格式化日期
 function formatDate(dateStr: string) {
@@ -90,16 +83,16 @@ async function registerPassKey() {
     // 1. 开始注册
     const startResult = (await api.post('mfa/passkey/register/start', {
       name: passkeyName.value,
-    })) as ApiResponse<{ options: string; challenge: string }>
+    })) as ApiResponse<{ options: string; transaction_token: string }>
 
     if (!startResult.success) {
       $toast.error(startResult.message || t('profile.passkeyRegisterFailed'))
       return
     }
 
-    const { options, challenge } = startResult.data
+    const { options, transaction_token: transactionToken } = startResult.data
     const publicKeyOptions = JSON.parse(options)
-    passkeyChallenge.value = challenge
+    passkeyTransactionToken.value = transactionToken
 
     // 2. 调用WebAuthn API
     const credential = (await navigator.credentials.create({
@@ -138,7 +131,7 @@ async function registerPassKey() {
     // 4. 完成注册
     const finishResult = (await api.post('mfa/passkey/register/finish', {
       credential: credentialJSON,
-      challenge: passkeyChallenge.value,
+      transaction_token: passkeyTransactionToken.value,
       name: passkeyName.value,
     })) as ApiResponse
 
@@ -202,7 +195,7 @@ watch(
     } else {
       // 弹窗关闭时，清空数据
       passkeyName.value = ''
-      passkeyChallenge.value = ''
+      passkeyTransactionToken.value = ''
       passkeyList.value = []
     }
   },
@@ -236,7 +229,7 @@ watch(
         </VAlert>
 
         <!-- 注册新通行密钥 -->
-        <VCard v-if="canRegisterPasskey" variant="tonal" class="mb-6">
+        <VCard variant="tonal" class="mb-6">
           <VCardText>
             <h5 class="text-h5 font-weight-medium mb-2">{{ t('profile.registerNewPasskey') }}</h5>
             <p class="mb-4">{{ t('profile.passkeyDescription') }}</p>
@@ -255,15 +248,6 @@ watch(
             </VForm>
           </VCardText>
         </VCard>
-
-        <!-- 未启用 OTP 提示 -->
-        <VAlert v-else type="error" variant="tonal" class="mb-6" icon="mdi-shield-lock">
-          <i18n-t keypath="profile.otpRequiredForPasskey" tag="span">
-            <template #otp>
-              <b>{{ t('profile.otpAuthenticator') }}</b>
-            </template>
-          </i18n-t>
-        </VAlert>
 
         <!-- 已注册的通行密钥列表 -->
         <div v-if="passkeyList.length > 0" class="mt-6 px-4">
