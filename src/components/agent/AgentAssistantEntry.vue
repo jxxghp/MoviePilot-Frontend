@@ -35,10 +35,13 @@ interface AgentAssistantEntryBubbleInput {
 const props = withDefaults(
   defineProps<{
     active?: boolean
+    /** 是否允许入口的随机动作、指针跟随和自动贴边，不影响 thinking 等业务状态。 */
+    motionActive?: boolean
     thinking?: boolean
   }>(),
   {
     active: true,
+    motionActive: true,
     thinking: false,
   },
 )
@@ -214,7 +217,7 @@ const {
   playAction: playAgentPetAction,
   scheduleRandomAction: scheduleFabRandomAction,
 } = useAgentPetMachine({
-  active: () => props.active,
+  active: () => props.active && props.motionActive,
   docked: fabDocked,
   dragging: fabDragging,
   pressed: fabPressed,
@@ -237,8 +240,7 @@ function getViewportSize() {
 
   // 取布局视口和可见视口的较小值，避免两者短暂不同步时把入口计算到屏幕外。
   return {
-    height:
-      visualHeight > 0 && layoutHeight > 0 ? Math.min(visualHeight, layoutHeight) : visualHeight || layoutHeight,
+    height: visualHeight > 0 && layoutHeight > 0 ? Math.min(visualHeight, layoutHeight) : visualHeight || layoutHeight,
     width: visualWidth > 0 && layoutWidth > 0 ? Math.min(visualWidth, layoutWidth) : visualWidth || layoutWidth,
   }
 }
@@ -826,17 +828,18 @@ function updateFabPointerFromPoint(point: FabPointerPoint) {
 
 // 使用 requestAnimationFrame 合并高频指针事件，降低全局跟随的渲染开销。
 function queueFabPointerUpdate(clientX: number, clientY: number) {
-  if (!props.active) return
+  if (!props.active || !props.motionActive) return
 
   fabPendingPointerPoint = { clientX, clientY }
   if (fabPointerFrame) return
 
   fabPointerFrame = window.requestAnimationFrame(() => {
     fabPointerFrame = 0
-    if (!fabPendingPointerPoint) return
-
-    updateFabPointerFromPoint(fabPendingPointerPoint)
+    const point = fabPendingPointerPoint
     fabPendingPointerPoint = null
+    if (!point || !props.active || !props.motionActive) return
+
+    updateFabPointerFromPoint(point)
   })
 }
 
@@ -848,22 +851,6 @@ function handleGlobalFabPointer(event: PointerEvent) {
 // 在拖拽事件中同步眼神方向，保持捕获指针后的跟随连续性。
 function updateFabPointer(event: PointerEvent) {
   queueFabPointerUpdate(event.clientX, event.clientY)
-}
-
-// 重置机器人按压状态和眼神跟随位移。
-function resetFabPointer() {
-  fabPressed.value = false
-  fabPointerStyle.value = {
-    '--agent-assistant-body-x': '0px',
-    '--agent-assistant-body-y': '0px',
-    '--agent-assistant-eye-x': '0px',
-    '--agent-assistant-eye-y': '0px',
-    '--agent-assistant-head-x': '0px',
-    '--agent-assistant-head-y': '0px',
-    '--agent-assistant-pointer-x': '0px',
-    '--agent-assistant-pointer-y': '0px',
-    '--agent-assistant-robot-tilt': '0deg',
-  }
 }
 
 // 清理入口自动贴边计时器。
@@ -895,11 +882,20 @@ function suppressNextFabClick() {
 // 在入口靠近右侧边缘且空闲时安排自动贴边收起。
 function scheduleFabAutoDock() {
   clearFabIdleTimer()
-  if (fabDocked.value || hasKeepOpenFabBubbles.value || fabRandomAction.value || !shouldFabAutoDock()) return
+  if (
+    !props.active ||
+    !props.motionActive ||
+    fabDocked.value ||
+    hasKeepOpenFabBubbles.value ||
+    fabRandomAction.value ||
+    !shouldFabAutoDock()
+  )
+    return
 
   fabIdleTimer = window.setTimeout(() => {
     fabIdleTimer = null
-    if (fabDocked.value || hasKeepOpenFabBubbles.value || !shouldFabAutoDock()) return
+    if (!props.active || !props.motionActive || fabDocked.value || hasKeepOpenFabBubbles.value || !shouldFabAutoDock())
+      return
 
     if (fabRandomAction.value) {
       scheduleFabAutoDock()
@@ -915,14 +911,36 @@ function pauseFabAutoDock() {
   clearFabIdleTimer()
 }
 
-// 取消挂起的全局指针帧并移除监听器。
-function teardownFabPointerTracking() {
+// 取消挂起的全局指针帧，避免状态切换后迟到回调重新写入位移。
+function cancelFabPointerUpdate() {
   if (fabPointerFrame) {
     window.cancelAnimationFrame(fabPointerFrame)
     fabPointerFrame = 0
   }
 
   fabPendingPointerPoint = null
+}
+
+// 重置机器人按压状态和眼神跟随位移。
+function resetFabPointer() {
+  cancelFabPointerUpdate()
+  fabPressed.value = false
+  fabPointerStyle.value = {
+    '--agent-assistant-body-x': '0px',
+    '--agent-assistant-body-y': '0px',
+    '--agent-assistant-eye-x': '0px',
+    '--agent-assistant-eye-y': '0px',
+    '--agent-assistant-head-x': '0px',
+    '--agent-assistant-head-y': '0px',
+    '--agent-assistant-pointer-x': '0px',
+    '--agent-assistant-pointer-y': '0px',
+    '--agent-assistant-robot-tilt': '0deg',
+  }
+}
+
+// 取消挂起的全局指针帧并移除监听器。
+function teardownFabPointerTracking() {
+  cancelFabPointerUpdate()
   window.removeEventListener('pointermove', handleGlobalFabPointer)
   window.removeEventListener('pointerdown', handleGlobalFabPointer)
 }
@@ -1432,6 +1450,19 @@ watch(
   },
 )
 
+watch(
+  () => props.motionActive,
+  motionActive => {
+    if (motionActive) {
+      if (props.active && shouldFabAutoDock()) scheduleFabAutoDock()
+      return
+    }
+
+    clearFabIdleTimer()
+    resetFabPointer()
+  },
+)
+
 onScopeDispose(clearFabIdleTimer)
 onScopeDispose(clearFabSuppressNextClickTimer)
 onScopeDispose(resetFabBubbles)
@@ -1752,12 +1783,8 @@ defineExpose({
 
 .agent-assistant-fab__bubbles--arrow-notification::before {
   --agent-assistant-bubble-arrow-border: rgba(var(--v-theme-primary), 0.22);
-  --agent-assistant-bubble-arrow-bg: linear-gradient(
-      135deg,
-      rgba(var(--v-theme-primary), 0.1),
-      transparent 48%
-    ),
-    rgba(var(--v-theme-surface), 0.94);
+  --agent-assistant-bubble-arrow-bg:
+    linear-gradient(135deg, rgba(var(--v-theme-primary), 0.1), transparent 48%), rgba(var(--v-theme-surface), 0.94);
 }
 
 .agent-assistant-fab__bubbles--arrow-success::before {
@@ -1778,11 +1805,8 @@ defineExpose({
 
 .agent-assistant-fab__bubbles--arrow-toast::before {
   --agent-assistant-bubble-arrow-border: rgba(var(--agent-assistant-bubble-arrow-accent-rgb), 0.3);
-  --agent-assistant-bubble-arrow-bg: linear-gradient(
-      135deg,
-      rgba(var(--agent-assistant-bubble-arrow-accent-rgb), 0.12),
-      transparent 54%
-    ),
+  --agent-assistant-bubble-arrow-bg:
+    linear-gradient(135deg, rgba(var(--agent-assistant-bubble-arrow-accent-rgb), 0.12), transparent 54%),
     rgba(var(--v-theme-surface), 0.95);
 }
 

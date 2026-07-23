@@ -1,20 +1,24 @@
+import { appActivityLifecycle, type AppActivityState } from '@/utils/appActivityLifecycle'
+
 /**
  * 后台管理器
  * 统一管理定时器和后台活动，减少iOS系统杀掉应用的概率
  */
 export class BackgroundManager {
-  private timers: Map<string, {
-    callback: () => void
-    interval: number
-    timer: ReturnType<typeof setInterval> | null
-    pausedAt?: number
-    runInBackground?: boolean
-  }> = new Map()
-  
-  private readonly activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
-  private readonly handleVisibilityChange = () => {
+  private timers: Map<
+    string,
+    {
+      callback: () => void
+      interval: number
+      timer: ReturnType<typeof setInterval> | null
+      pausedAt?: number
+      runInBackground?: boolean
+    }
+  > = new Map()
+
+  private readonly handleActivityStateChange = (state: AppActivityState) => {
     const wasBackground = this.isBackground
-    this.isBackground = document.hidden
+    this.isBackground = state === 'suspended'
 
     if (this.isBackground && !wasBackground) {
       console.log('Background: 进入后台，暂停定时器')
@@ -27,44 +31,30 @@ export class BackgroundManager {
   private readonly handleBeforeUnload = () => {
     this.destroy()
   }
-  private readonly updateActivity = () => {
-    this.lastActivityTime = Date.now()
-  }
 
   private isBackground = false
   private isDestroyed = false
-  private lastActivityTime = Date.now()
   private isInitialized = false
+  private releaseActivityLifecycle: (() => void) | null = null
+  private stopActivityStateSubscription: (() => void) | null = null
 
   private ensureInitialized() {
     if (this.isInitialized || this.isDestroyed) return
 
     this.isInitialized = true
-    this.isBackground = document.hidden
-    this.setupVisibilityListener()
-    this.setupActivityTracking()
-  }
-
-  private setupVisibilityListener() {
-    document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    this.releaseActivityLifecycle = appActivityLifecycle.acquire()
+    this.stopActivityStateSubscription = appActivityLifecycle.subscribe(this.handleActivityStateChange)
     window.addEventListener('beforeunload', this.handleBeforeUnload)
-  }
-
-  private setupActivityTracking() {
-    // 按需跟踪用户活动，避免应用启动时就注册一批全局监听。
-    this.activityEvents.forEach(event => {
-      document.addEventListener(event, this.updateActivity, { passive: true })
-    })
   }
 
   private removeLifecycleListeners() {
     if (!this.isInitialized) return
 
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
     window.removeEventListener('beforeunload', this.handleBeforeUnload)
-    this.activityEvents.forEach(event => {
-      document.removeEventListener(event, this.updateActivity)
-    })
+    this.stopActivityStateSubscription?.()
+    this.stopActivityStateSubscription = null
+    this.releaseActivityLifecycle?.()
+    this.releaseActivityLifecycle = null
     this.isInitialized = false
   }
 
@@ -72,32 +62,32 @@ export class BackgroundManager {
    * 添加定时器
    */
   addTimer(
-    id: string, 
-    callback: () => void, 
-    interval: number, 
+    id: string,
+    callback: () => void,
+    interval: number,
     options: {
       runInBackground?: boolean
       skipInitialRun?: boolean
-    } = {}
+    } = {},
   ) {
     const { runInBackground = false, skipInitialRun = false } = options
 
     if (this.isDestroyed) return
     this.ensureInitialized()
-    
+
     this.removeTimer(id)
-    
+
     const timerConfig = {
       callback,
       interval,
       timer: null as ReturnType<typeof setInterval> | null,
-      runInBackground
+      runInBackground,
     }
 
     // 创建定时器
     const wrappedCallback = () => {
       if (this.isDestroyed) return
-      
+
       // 只有在前台运行，或者明确允许后台运行时才执行
       if (!this.isBackground || runInBackground) {
         try {
@@ -159,7 +149,7 @@ export class BackgroundManager {
       if (!timerConfig.timer) {
         const wrappedCallback = () => {
           if (this.isDestroyed) return
-          
+
           if (!this.isBackground || timerConfig.runInBackground) {
             try {
               timerConfig.callback()
@@ -199,7 +189,7 @@ export class BackgroundManager {
       interval: config.interval,
       status: config.timer ? 'running' : 'paused',
       runInBackground: config.runInBackground || false,
-      pausedAt: config.pausedAt
+      pausedAt: config.pausedAt,
     }))
   }
 
@@ -207,14 +197,14 @@ export class BackgroundManager {
    * 检查用户是否活跃
    */
   isUserActive(maxInactiveTime = 5 * 60 * 1000): boolean {
-    return Date.now() - this.lastActivityTime < maxInactiveTime
+    return Date.now() - appActivityLifecycle.getLastActivityAt() < maxInactiveTime
   }
 
   /**
    * 获取最后活动时间
    */
   getLastActivityTime(): number {
-    return this.lastActivityTime
+    return appActivityLifecycle.getLastActivityAt()
   }
 
   /**
@@ -231,8 +221,8 @@ export class BackgroundManager {
       isBackground: this.isBackground,
       isDestroyed: this.isDestroyed,
       timerCount: this.timers.size,
-      lastActivityTime: this.lastActivityTime,
-      isUserActive: this.isUserActive()
+      lastActivityTime: appActivityLifecycle.getLastActivityAt(),
+      isUserActive: this.isUserActive(),
     }
   }
 
@@ -241,7 +231,7 @@ export class BackgroundManager {
    */
   destroy() {
     this.isDestroyed = true
-    
+
     // 清理所有定时器
     this.timers.forEach((timerConfig, id) => {
       if (timerConfig.timer) {
@@ -266,13 +256,13 @@ export const backgroundManager = new BackgroundManager()
  * 便捷的定时器管理函数
  */
 export function addBackgroundTimer(
-  id: string, 
-  callback: () => void, 
-  interval: number, 
+  id: string,
+  callback: () => void,
+  interval: number,
   options?: {
     runInBackground?: boolean
     skipInitialRun?: boolean
-  }
+  },
 ) {
   backgroundManager.addTimer(id, callback, interval, options)
 }
