@@ -1131,6 +1131,13 @@ export default {
     cancelFailed: '取消订阅失败：{message}！',
     notFound: '订阅不存在！',
     requestFailed: '请求失败，请稍后重试',
+    native: {
+      invalidMedia: '无法打开原生订阅：媒体信息格式无效。',
+      missingId: '无法打开原生订阅：请提供有效的媒体数据源 ID。',
+      missingTitle: '无法打开原生订阅：请提供媒体标题。',
+      unsupportedType: '无法打开原生订阅：媒体类型必须是电影或电视剧。',
+      permissionDenied: '当前用户没有订阅权限。',
+    },
     filterSubscriptions: '筛选订阅',
     name: '名称',
     searchShares: '搜索订阅分享',

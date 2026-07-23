@@ -6,6 +6,7 @@ import DashboardRender from '@/components/render/DashboardRender.vue'
 import { isNullOrEmptyObject } from '@/@core/utils'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
+import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
 
 type DashboardComponentLoader = () => Promise<any>
 
@@ -13,7 +14,12 @@ type DashboardComponentLoader = () => Promise<any>
 const $toast = useToast()
 provide('moviepilot:toast', $toast)
 
+// 向仪表板联邦组件导出主程序原生订阅入口。
+const nativeSubscribe = usePluginNativeSubscribe()
+provide('moviepilot:nativeSubscribe', nativeSubscribe)
+
 const DashboardSkeleton = {
+  // 创建无需模板编译的仪表板加载骨架。
   setup() {
     const SkeletonLoader = resolveComponent('VSkeletonLoader')
 
@@ -226,7 +232,13 @@ onUnmounted(() => {
   <template v-else-if="!isNullOrEmptyObject(props.config)">
     <!-- Vue 渲染模式 -->
     <div v-if="pluginRenderMode === 'vue'" class="dashboard-plugin-vue-renderer">
-      <component :is="dynamicPluginComponent" :config="props.config" :allow-refresh="props.allowRefresh" :api="api" />
+      <component
+        :is="dynamicPluginComponent"
+        :config="props.config"
+        :allow-refresh="props.allowRefresh"
+        :api="api"
+        :native-subscribe="nativeSubscribe"
+      />
     </div>
     <!-- Vuetify 渲染模式 -->
     <template v-else-if="pluginRenderMode === 'vuetify'">

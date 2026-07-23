@@ -1137,6 +1137,13 @@ export default {
     cancelFailed: 'Failed to cancel subscription: {message}!',
     notFound: 'Subscription not found!',
     requestFailed: 'Request failed. Please try again later.',
+    native: {
+      invalidMedia: 'Unable to open native subscription: invalid media information.',
+      missingId: 'Unable to open native subscription: provide a valid media source ID.',
+      missingTitle: 'Unable to open native subscription: provide a media title.',
+      unsupportedType: 'Unable to open native subscription: media type must be movie or TV.',
+      permissionDenied: 'The current user does not have subscription permission.',
+    },
     filterSubscriptions: 'Filter Subscriptions',
     name: 'Name',
     searchShares: 'Search Subscription Shares',

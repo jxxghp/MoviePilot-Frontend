@@ -3,6 +3,7 @@ import type { Component } from 'vue'
 import api from '@/api'
 import { loadRemoteAppPageComponent } from '@/utils/federationLoader'
 import { useToast } from 'vue-toastification'
+import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
 
 const route = useRoute()
 
@@ -15,6 +16,10 @@ const loadError = ref(false)
 // 侧栏联邦页面复用主应用 Toast 实例。
 const $toast = useToast()
 provide('moviepilot:toast', $toast)
+
+// 向侧栏全页联邦组件导出主程序原生订阅入口。
+const nativeSubscribe = usePluginNativeSubscribe()
+provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
 watch(
   [pluginId, navKey],
@@ -47,6 +52,7 @@ watch(
       :is="RemoteView"
       :key="`${pluginId}-${navKey}`"
       :api="api"
+      :native-subscribe="nativeSubscribe"
       :nav-key="navKey"
       :plugin-id="pluginId"
       @action="() => {}"

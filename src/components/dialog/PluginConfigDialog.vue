@@ -8,6 +8,7 @@ import FormRender from '../render/FormRender.vue'
 import ProgressDialog from '../dialog/ProgressDialog.vue'
 import { useI18n } from 'vue-i18n'
 import { loadRemoteComponent } from '@/utils/federationLoader'
+import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
 
 // 国际化
 const { t } = useI18n()
@@ -42,6 +43,10 @@ const $toast = useToast()
 
 // 向联邦插件提供主应用 Toast，避免远程组件自行创建通知容器。
 provide('moviepilot:toast', $toast)
+
+// 配置联邦组件沿用与其它插件宿主一致的原生订阅能力。
+const nativeSubscribe = usePluginNativeSubscribe()
+provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
 // 是否刷新
 const isRefreshed = ref(false)
@@ -209,6 +214,7 @@ onBeforeMount(async () => {
           :is="dynamicComponent"
           :initial-config="pluginConfigForm"
           :api="api"
+          :native-subscribe="nativeSubscribe"
           @save="handleVueComponentSave"
           @layout="handleVueComponentLayout"
           @switch="emit('switch')"

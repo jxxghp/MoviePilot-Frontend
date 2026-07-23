@@ -135,11 +135,15 @@ export default defineConfig({
 // 自定义事件，用于通知主应用刷新数据
 const emit = defineEmits(['action', 'switch', 'close'])
 
-// 接收API对象
+// 接收主应用能力
 const props = defineProps({
   api: {
     type: Object,
     default: () => {},
+  },
+  nativeSubscribe: {
+    type: Function,
+    default: null,
   },
 })
 
@@ -175,7 +179,7 @@ function notifyClose() {
 
 ```vue
 <script setup lang="ts">
-// 接收初始配置和API对象
+// 接收初始配置和主应用能力
 const props = defineProps({
   initialConfig: {
     type: Object,
@@ -184,6 +188,10 @@ const props = defineProps({
   api: {
     type: Object,
     default: () => {},
+  },
+  nativeSubscribe: {
+    type: Function,
+    default: null,
   },
 })
 
@@ -230,7 +238,7 @@ function notifyClose() {
 
 ```vue
 <script setup lang="ts">
-// 接收配置和刷新控制
+// 接收配置、刷新控制和主应用能力
 const props = defineProps({
   config: {
     type: Object,
@@ -239,6 +247,10 @@ const props = defineProps({
   allowRefresh: {
     type: Boolean,
     default: true,
+  },
+  nativeSubscribe: {
+    type: Function,
+    default: null,
   },
 })
 
@@ -272,16 +284,18 @@ const props = defineProps({
 
 主应用传入的 props：
 
-| 属性       | 说明                                                  |
-| ---------- | ----------------------------------------------------- |
-| `api`      | 与 `Page` 相同，用于 `bear` 认证的插件 HTTP 调用      |
-| `navKey`   | 与侧栏声明的 `nav_key` 一致，同一插件多入口时用于区分 |
-| `pluginId` | 当前插件 ID                                           |
+| 属性              | 说明                                                  |
+| ----------------- | ----------------------------------------------------- |
+| `api`             | 与 `Page` 相同，用于 `bear` 认证的插件 HTTP 调用      |
+| `nativeSubscribe` | 打开主应用原生订阅交互                                |
+| `navKey`          | 与侧栏声明的 `nav_key` 一致，同一插件多入口时用于区分 |
+| `pluginId`        | 当前插件 ID                                           |
 
 ```vue
 <script setup lang="ts">
 const props = defineProps({
   api: { type: Object, default: () => ({}) },
+  nativeSubscribe: { type: Function, default: null },
   navKey: { type: String, default: 'main' },
   pluginId: { type: String, default: '' },
 })
@@ -296,7 +310,54 @@ const emit = defineEmits(['action'])
 </template>
 ```
 
-### 5.5 调用主应用 Toast
+### 5.5 主应用宿主能力
+
+登录后的联邦组件宿主会向插件开放以下能力：
+
+| 能力             | Page | Config | Dashboard | AppPage | 调用方式                                                         |
+| ---------------- | ---- | ------ | --------- | ------- | ---------------------------------------------------------------- |
+| 认证 API         | ✓    | ✓      | ✓         | ✓       | `api` prop                                                       |
+| 原生订阅交互     | ✓    | ✓      | ✓         | ✓       | `nativeSubscribe` prop 或 `inject('moviepilot:nativeSubscribe')` |
+| 主应用统一 Toast | ✓    | ✓      | ✓         | ✓       | `inject('moviepilot:toast')`                                     |
+
+`nativeSubscribe` 和 Toast 都由主应用宿主提供。插件不应复制主程序订阅弹窗，也不应自行创建另一套 Toast 容器。插件在旧版主程序或能力不存在的环境中运行时，应保留空值判断和必要的页面内 fallback。
+
+### 5.6 调用主应用原生订阅
+
+`Page`、`Config`、`Dashboard` 与 `AppPage` 都会收到 `nativeSubscribe(mediaInfo)` prop。插件传入媒体信息后，电视剧会打开主应用的选季抽屉，电影会进入现有电影订阅流程。宿主也会用 `moviepilot:nativeSubscribe` 键提供同一个方法，深层子组件可以使用 `inject`，无需逐层传递 prop。
+
+媒体信息必须包含：
+
+- `type`：`电影` / `电视剧`，也兼容 `movie` / `tv`；
+- `title`；
+- 至少一个有效媒体标识：`tmdb_id` / `tmdbid`、`douban_id` / `doubanid`、`bangumi_id` / `bangumiid`、`anilist_id` / `anilistid`，或者 `media_id` 与 `mediaid_prefix` / `source` / `media_source` 的组合。
+
+```vue
+<script setup lang="ts">
+import { inject } from 'vue'
+
+type NativeSubscribeResult =
+  { success: true } | { success: false; code: 'INVALID_MEDIA' | 'PERMISSION_DENIED'; message: string }
+
+const props = defineProps<{
+  nativeSubscribe?: (mediaInfo: Record<string, unknown>) => Promise<NativeSubscribeResult>
+}>()
+
+const nativeSubscribe = inject('moviepilot:nativeSubscribe', props.nativeSubscribe)
+
+/** 使用主应用订阅交互，宿主不接受时保留插件自己的 fallback。 */
+async function subscribeMedia(mediaInfo: Record<string, unknown>) {
+  const result = await nativeSubscribe?.(mediaInfo)
+  if (!result?.success) {
+    // 插件可在这里执行自己的 fallback；宿主已同时显示明确错误提示。
+  }
+}
+</script>
+```
+
+`success: true` 表示主应用已接受调用并启动原生交互，不表示用户已经完成订阅。字段无效或当前用户没有订阅权限时返回 `success: false`，插件可以依据 `code` 执行 fallback。
+
+### 5.7 调用主应用 Toast
 
 `Page`、`Config`、`Dashboard` 与 `AppPage` 的宿主容器会通过固定键提供主应用 Toast。远程组件应复用该实例，不要自行渲染 `VSnackbar` 或创建另一套 Toast 容器：
 
@@ -304,7 +365,14 @@ const emit = defineEmits(['action'])
 <script setup lang="ts">
 import { inject } from 'vue'
 
-const toast = inject<any>('moviepilot:toast', null)
+interface HostToast {
+  error(message: string): unknown
+  info(message: string): unknown
+  success(message: string): unknown
+  warning(message: string): unknown
+}
+
+const toast = inject<HostToast | null>('moviepilot:toast', null)
 
 // 保存完成后调用主应用的统一通知。
 function saveComplete() {

@@ -6,6 +6,7 @@ import api from '@/api'
 import { loadRemoteComponent } from '@/utils/federationLoader'
 import { usePWA } from '@/composables/usePWA'
 import { useToast } from 'vue-toastification'
+import { usePluginNativeSubscribe } from '@/composables/usePluginNativeSubscribe'
 
 // 输入参数
 const props = defineProps({
@@ -30,6 +31,10 @@ const { appMode } = usePWA()
 // 向联邦插件提供主应用 Toast，确保通知沿用统一主题和路由逻辑。
 const $toast = useToast()
 provide('moviepilot:toast', $toast)
+
+// 向联邦插件同时提供 prop 与 inject 形式的主程序原生订阅入口。
+const nativeSubscribe = usePluginNativeSubscribe()
+provide('moviepilot:nativeSubscribe', nativeSubscribe)
 
 // 是否刷新
 const isRefreshed = ref(false)
@@ -158,6 +163,7 @@ onMounted(() => {
         <component
           :is="dynamicComponent"
           :api="api"
+          :native-subscribe="nativeSubscribe"
           :show_switch="show_switch"
           @action="handleAction"
           @switch="emit('switch')"

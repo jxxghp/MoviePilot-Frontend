@@ -1131,6 +1131,13 @@ export default {
     cancelFailed: '取消訂閱失敗：{message}！',
     notFound: '訂閱不存在！',
     requestFailed: '請求失敗，請稍後重試',
+    native: {
+      invalidMedia: '無法開啟原生訂閱：媒體資訊格式無效。',
+      missingId: '無法開啟原生訂閱：請提供有效的媒體資料來源 ID。',
+      missingTitle: '無法開啟原生訂閱：請提供媒體標題。',
+      unsupportedType: '無法開啟原生訂閱：媒體類型必須是電影或電視劇。',
+      permissionDenied: '目前使用者沒有訂閱權限。',
+    },
     filterSubscriptions: '篩選訂閱',
     name: '名稱',
     searchShares: '搜索訂閱分享',
