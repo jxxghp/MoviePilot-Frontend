@@ -1,4 +1,5 @@
 import {
+  collectGlassOpticalRects,
   containsGlassOpticalSurface,
   setGlassRendererState,
   useGlassOpticalRenderer,
@@ -35,9 +36,31 @@ vi.mock('three', async importOriginal => {
   }
 })
 
+/** 提供 renderer 单元测试所需的最小 ResizeObserver 实现。 */
 class ResizeObserverMock {
+  /** 断开观察时无需执行额外逻辑。 */
   disconnect() {}
+
+  /** 测试不需要追踪具体被观察元素。 */
   observe() {}
+}
+
+/** 创建带稳定视口边界的光学表面元素。 */
+function appendOpticalSurface(className: string, bounds: Pick<DOMRect, 'height' | 'width' | 'x' | 'y'>) {
+  const surface = document.createElement('section')
+  surface.className = className
+  surface.getBoundingClientRect = () =>
+    ({
+      ...bounds,
+      bottom: bounds.y + bounds.height,
+      left: bounds.x,
+      right: bounds.x + bounds.width,
+      top: bounds.y,
+      toJSON: () => ({}),
+    }) as DOMRect
+  document.body.append(surface)
+
+  return surface
 }
 
 beforeEach(() => {
@@ -49,6 +72,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  document.body.replaceChildren()
   delete document.documentElement.dataset.glassRendererState
 })
 
@@ -87,6 +111,32 @@ describe('glass optical surface discovery', () => {
 
     expect(state.value).toBe('fallback')
     expect(document.documentElement.dataset.glassRendererState).toBe('fallback')
+  })
+
+  it('excludes the navbar from mobile clear optical surfaces', () => {
+    appendOpticalSurface('layout-navbar', { height: 64, width: 390, x: 0, y: 0 })
+    appendOpticalSurface('dashboard-grid-item-content', { height: 200, width: 350, x: 20, y: 120 })
+
+    const rects = collectGlassOpticalRects(390, 800, 'clear')
+
+    expect(rects).toHaveLength(1)
+    expect(rects[0]).toMatchObject({ height: 200, width: 350, x: 20, y: 120 })
+  })
+
+  it('keeps the navbar in mobile frosted optical surfaces', () => {
+    appendOpticalSurface('layout-navbar', { height: 64, width: 390, x: 0, y: 0 })
+
+    expect(collectGlassOpticalRects(390, 800, 'frosted')).toEqual([
+      expect.objectContaining({ height: 64, width: 390, x: 0, y: 0 }),
+    ])
+  })
+
+  it('keeps the navbar in desktop clear optical surfaces', () => {
+    appendOpticalSurface('layout-navbar', { height: 64, width: 1000, x: 0, y: 0 })
+
+    expect(collectGlassOpticalRects(1000, 800, 'clear')).toEqual([
+      expect.objectContaining({ height: 64, width: 1000, x: 0, y: 0 }),
+    ])
   })
 
   it('recovers after consecutive WebGL context loss cycles', async () => {

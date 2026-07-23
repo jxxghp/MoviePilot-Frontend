@@ -231,11 +231,18 @@ function isVisibleSurface(element: HTMLElement, bounds: DOMRect) {
 }
 
 /** 将活动界面中的高价值材质面集中转换为 renderer 矩形预算。 */
-export function collectGlassOpticalRects(viewportWidth: number, viewportHeight: number) {
+export function collectGlassOpticalRects(
+  viewportWidth: number,
+  viewportHeight: number,
+  appearance: ThemeCustomizerGlassAppearance,
+) {
   const candidates: GlassOpticalRect[] = []
   const seen = new Set<HTMLElement>()
 
   for (const { rank, selector } of SURFACE_SELECTORS) {
+    // 移动端透明顶栏只使用稳定的 CSS 表面，避免滚动重扫时再次叠加壁纸折射。
+    if (viewportWidth <= 600 && appearance === 'clear' && selector === '.layout-navbar') continue
+
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (seen.has(element)) continue
       seen.add(element)
@@ -315,7 +322,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
-    const rects = collectGlassOpticalRects(viewportWidth, viewportHeight)
+    const rects = collectGlassOpticalRects(viewportWidth, viewportHeight, toValue(options.appearance))
     currentRects = rects
     const normalized = rects.map(rect => normalizeGlassOpticalRect(rect, viewportWidth, viewportHeight))
     const uniformRects = resources.uniforms.uRects.value
@@ -742,7 +749,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (!resources) return
 
       resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(appearance)
-      scheduleFrame()
+      scheduleSurfaceUpdate()
     },
   )
 

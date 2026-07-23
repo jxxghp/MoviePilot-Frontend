@@ -41,8 +41,6 @@ html[data-theme='glass'] {
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
-  --glass-clear-overlay-surface: rgba(11, 19, 34, 72%);
-  --glass-clear-mobile-nav-surface: rgba(11, 19, 34, 68%);
   --glass-control-icon-color: rgba(242, 245, 250, 70%);
   --glass-control-placeholder-color: rgba(242, 245, 250, 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
@@ -490,7 +488,8 @@ html[data-theme='glass'] {
   .v-overlay__content {
     border-radius: var(--app-overlay-radius);
 
-    > :where(.v-card, .v-sheet, .v-list) {
+    > :where(.v-card, .v-sheet, .v-list),
+    > form > :where(.v-card, .v-sheet) {
       -webkit-backdrop-filter: var(--glass-raised-backdrop-filter) !important;
       backdrop-filter: var(--glass-raised-backdrop-filter) !important;
       background-color: var(--glass-surface-raised) !important;
@@ -499,7 +498,7 @@ html[data-theme='glass'] {
     }
   }
 
-  // 透明弹层沿用普通玻璃的色相，只提高 alpha，不引入独立底色。
+  // 透明弹层与顶栏共用同一静态表面，不额外增加模糊或深色覆盖。
   &[data-glass-appearance='clear'] {
     .v-overlay__content > :where(.v-card, .v-sheet, .v-list),
     .v-overlay__content > form > :where(.v-card, .v-sheet),
@@ -507,7 +506,7 @@ html[data-theme='glass'] {
     .agent-assistant-panel {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: var(--glass-clear-overlay-surface) !important;
+      background-color: var(--glass-surface-raised) !important;
     }
   }
 
@@ -810,15 +809,6 @@ html[data-theme='glass'] {
   }
 
   @media (width <= 960px) {
-    &[data-glass-appearance='clear'] {
-      // 底部主导航和旁侧动态按钮共用 footer-nav-card，提高 alpha 后仍保持透明材质色相。
-      .footer-nav-card.v-card {
-        -webkit-backdrop-filter: none !important;
-        backdrop-filter: none !important;
-        background-color: var(--glass-clear-mobile-nav-surface) !important;
-      }
-    }
-
     // 全屏快捷弹窗释放外层玻璃背景，让定时服务卡片直接采样全局壁纸。
     &[data-glass-appearance='frosted'] .scheduler-shortcut-dialog-card {
       -webkit-backdrop-filter: none !important;
