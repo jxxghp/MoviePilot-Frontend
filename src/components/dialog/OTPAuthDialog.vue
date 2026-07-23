@@ -4,25 +4,20 @@ import QRCode from 'qrcode'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
-import type { ApiResponse, PassKey } from '@/api/types'
-import { useGlobalSettingsStore } from '@/stores'
+import type { ApiResponse } from '@/api/types'
 
 interface Props {
   modelValue: boolean
   isOtp: boolean
-  passkeyList?: PassKey[]
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  passkeyList: () => [],
-})
+const props = defineProps<Props>()
 
 const emit = defineEmits(['update:modelValue', 'update:isOtp', 'verifyPassword'])
 
 const { t } = useI18n()
 const display = useDisplay()
 const $toast = useToast()
-const globalSettingsStore = useGlobalSettingsStore()
 
 // 内部状态
 const show = computed({
@@ -36,10 +31,8 @@ const otpUri = ref('')
 // otp secret
 const secret = ref('')
 
-// 确认双重验证密码
+// 当前二次验证设置流程中输入的 6 位验证码
 const otpPassword = ref('')
-
-const allowPasskeyWithoutOtp = computed(() => globalSettingsStore.get('PASSKEY_ALLOW_REGISTER_WITHOUT_OTP') === true)
 
 // OTP 初始化加载状态
 const otpLoading = ref(false)
@@ -132,14 +125,8 @@ async function judgeOtpPassword() {
   }
 }
 
-// 关闭当前用户的双重验证
+// 关闭当前用户的二次验证
 function disableOtp() {
-  // 如果已绑定PassKey，不允许关闭OTP
-  if (props.passkeyList && props.passkeyList.length > 0 && !allowPasskeyWithoutOtp.value) {
-    $toast.error(t('profile.disableOtpWithPasskeyError'))
-    return
-  }
-
   emit('verifyPassword', {
     title: t('profile.disableTwoFactor'),
     text: t('profile.confirmToDisableOtp'),
@@ -241,7 +228,14 @@ watch(
               </VBtn>
             </div>
           </div>
-          <VAlert v-if="secret" :title="secret" variant="tonal" type="warning" class="my-4" :text="t('profile.secretKeyTip')">
+          <VAlert
+            v-if="secret"
+            :title="secret"
+            variant="tonal"
+            type="warning"
+            class="my-4"
+            :text="t('profile.secretKeyTip')"
+          >
             <template #prepend />
           </VAlert>
           <VForm @submit.prevent="judgeOtpPassword">

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { AxiosError } from 'axios'
 import type { Component } from 'vue'
 import { useAuthStore, useUserStore } from '@/stores'
 import { authState, userState } from '@/stores/types'
 import api from '@/api'
 import router from '@/router'
+import LoginMfaStep from '@/components/auth/LoginMfaStep.vue'
 import OpticalLogoLab from '@/components/misc/OpticalLogoLab.vue'
 import { bufferToBase64Url, base64UrlToUint8Array, urlBase64ToUint8Array } from '@/@core/utils/navigator'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/types/i18n'
@@ -11,10 +13,8 @@ import { getCurrentLocale, setI18nLanguage } from '@/plugins/i18n'
 import { getNavMenus } from '@/router/i18n-menu'
 import { buildUserPermissionContext, filterMenusByPermission } from '@/utils/permission'
 import type { ApiResponse } from '@/api/types'
-import { openSharedDialog } from '@/composables/useSharedDialog'
 import { loadRemoteComponentFromModule, type RemoteModule } from '@/utils/federationLoader'
-
-const LoginMfaDialog = defineAsyncComponent(() => import('@/components/dialog/LoginMfaDialog.vue'))
+import type { MfaMethod } from '@/types/auth'
 
 const loginRootRef = ref<HTMLElement | null>(null)
 type LabTapTarget = 'logo' | 'title'
@@ -119,15 +119,11 @@ const isPasswordVisible = ref(false)
 // 错误信息
 const errorMessage = ref('')
 
-// 是否开启双重验证
-const isOTP = ref(false)
+const mfaStepActive = ref(false)
 
-// 二次验证对话框
-const mfaDialog = ref(false)
+const mfaOtpLoading = ref(false)
 
-// MFA PassKey loading
-const mfaPasskeyLoading = ref(false)
-let mfaDialogController: ReturnType<typeof openSharedDialog> | null = null
+const mfaMethods = ref<MfaMethod[]>([])
 
 // 语言选择菜单
 const langMenu = ref(false)
@@ -169,6 +165,32 @@ interface PluginAuthPayload {
   ticket?: string
 }
 
+interface ApiErrorPayload {
+  detail?: unknown
+  mfa_methods?: unknown
+}
+
+interface SerializedCredentialDescriptor extends Omit<PublicKeyCredentialDescriptor, 'id'> {
+  id: string
+}
+
+interface SerializedPublicKeyRequestOptions extends Omit<
+  PublicKeyCredentialRequestOptions,
+  'allowCredentials' | 'challenge'
+> {
+  allowCredentials?: SerializedCredentialDescriptor[]
+  challenge: string
+}
+
+function getErrorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined
+}
+
+// Axios 请求失败由响应状态和结构化响应体共同决定登录错误语义。
+function asApiError(error: unknown): AxiosError<ApiErrorPayload> {
+  return error as AxiosError<ApiErrorPayload>
+}
+
 // 登录认证提供方
 const authProviders = ref<LoginAuthProvider[]>([])
 const selectedAuthProvider = ref<LoginAuthProvider | null>(null)
@@ -208,44 +230,37 @@ function syncLoginCredentialValues() {
   }
 }
 
-// 生成 MFA 共享弹窗使用的最新 props。
-function getMfaDialogProps() {
-  return {
-    errorMessage: errorMessage.value,
-    otpPassword: form.value.otp_password,
-    passkeyLoading: mfaPasskeyLoading.value,
-  }
+// 只接受服务端明确声明的 MFA 方法，异常响应不得在客户端虚构认证能力。
+function normalizeMfaMethods(value: unknown): MfaMethod[] {
+  if (!Array.isArray(value)) return []
+
+  return [...new Set(value.filter((method): method is MfaMethod => method === 'otp'))]
 }
 
-// 打开 MFA 共享弹窗。
-function openMfaDialog() {
-  mfaDialog.value = true
-  const dialogProps = getMfaDialogProps()
-  if (mfaDialogController) {
-    mfaDialogController.updateProps(dialogProps)
+function enterMfaStep(methodsValue: unknown) {
+  conditionalAbortController?.abort()
+  conditionalAbortController = null
+  mfaMethods.value = normalizeMfaMethods(methodsValue)
+  form.value.otp_password = ''
+  if (!mfaMethods.value.length) {
+    errorMessage.value = t('login.mfa.methodsUnavailable')
+    mfaStepActive.value = false
     return
   }
 
-  mfaDialogController = openSharedDialog(
-    LoginMfaDialog,
-    dialogProps,
-    {
-      close: closeMfaDialog,
-      otp: loginWithOTP,
-      passkey: verifyWithPassKey,
-      'update:otpPassword': (value: string) => {
-        form.value.otp_password = value
-      },
-    },
-    { closeOn: ['close'] },
-  )
+  errorMessage.value = ''
+  mfaStepActive.value = true
 }
 
-// 关闭 MFA 共享弹窗。
-function closeMfaDialog() {
-  mfaDialog.value = false
-  mfaDialogController?.close()
-  mfaDialogController = null
+// 用户主动返回账号密码步骤时清理未完成的二次验证。
+function leaveMfaStep() {
+  manualAbortController?.abort()
+  manualAbortController = null
+  mfaOtpLoading.value = false
+  mfaMethods.value = []
+  form.value.otp_password = ''
+  errorMessage.value = ''
+  mfaStepActive.value = false
 }
 
 // 加载未登录可用的认证提供方。
@@ -272,9 +287,9 @@ async function openPluginAuth(provider: LoginAuthProvider) {
       provider.remote,
       provider.component || 'AuthPage',
     )) as Component
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('加载插件认证页面失败:', error)
-    pluginAuthError.value = error?.message || t('login.authFailure')
+    pluginAuthError.value = getErrorMessage(error) || t('login.authFailure')
   } finally {
     pluginAuthLoading.value = false
   }
@@ -292,12 +307,15 @@ function closePluginAuth() {
 async function exchangePluginAuthTicket(ticket: string) {
   pluginAuthLoading.value = true
   try {
-    const response: any = await api.post('auth/exchange', { ticket })
+    const response = (await api.post('auth/exchange', { ticket })) as PassKeyFinishResponse
     closePluginAuth()
     await handleLoginSuccess(response)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('插件认证票据兑换失败:', error)
-    pluginAuthError.value = error?.response?.data?.detail || error?.message || t('login.authFailure')
+    const apiError = asApiError(error)
+    const detail = apiError.response?.data?.detail
+    pluginAuthError.value =
+      (typeof detail === 'string' ? detail : undefined) || getErrorMessage(error) || t('login.authFailure')
   } finally {
     pluginAuthLoading.value = false
   }
@@ -313,13 +331,13 @@ async function handlePluginAuthenticated(payload: PluginAuthPayload) {
 }
 
 // 处理插件认证失败事件。
-function handlePluginAuthError(error: any) {
-  pluginAuthError.value = error?.message || String(error || '') || t('login.authFailure')
+function handlePluginAuthError(error: unknown) {
+  pluginAuthError.value = getErrorMessage(error) || String(error || '') || t('login.authFailure')
 }
 
 // PassKey 认证核心函数 - 处理 WebAuthn 认证流程
 interface PassKeyAuthOptions {
-  username?: string // 可选的用户名,用于 MFA 场景
+  username?: string // 可选用户名，用于限制当前直接登录可选择的凭证
   isConditional?: boolean // 是否为 Conditional UI 模式
   signal?: AbortSignal // AbortController 信号
 }
@@ -327,7 +345,7 @@ interface PassKeyAuthOptions {
 // PassKey API 响应类型
 interface PassKeyStartResponse {
   options: string // JSON 字符串
-  challenge: string
+  transaction_token: string
 }
 
 interface PassKeyFinishResponse {
@@ -355,15 +373,15 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
     throw new Error(startResponse.message || 'PassKey start failed')
   }
 
-  const { options: optionsStr, challenge } = startResponse.data
-  const publicKeyOptions = JSON.parse(optionsStr)
+  const { options: optionsStr, transaction_token: transactionToken } = startResponse.data
+  const publicKeyOptions = JSON.parse(optionsStr) as SerializedPublicKeyRequestOptions
 
   // 2. 调用WebAuthn API
   const credentialRequestOptions: CredentialRequestOptions = {
     publicKey: {
       ...publicKeyOptions,
       challenge: base64UrlToUint8Array(publicKeyOptions.challenge),
-      allowCredentials: publicKeyOptions.allowCredentials?.map((cred: any) => ({
+      allowCredentials: publicKeyOptions.allowCredentials?.map(cred => ({
         ...cred,
         id: base64UrlToUint8Array(cred.id),
       })),
@@ -407,7 +425,7 @@ async function authenticateWithPassKey(options: PassKeyAuthOptions = {}): Promis
   // 4. 完成认证
   const finishResponse = (await api.post('/mfa/passkey/authenticate/finish', {
     credential: credentialJSON,
-    challenge: challenge,
+    transaction_token: transactionToken,
   })) as PassKeyFinishResponse
 
   if (!finishResponse || !finishResponse.access_token) {
@@ -471,27 +489,30 @@ async function handlePassKeyAuth(
     })
 
     await onSuccess(finishResponse)
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorName = error instanceof Error ? error.name : ''
+    const message = getErrorMessage(error)
+
     // Conditional UI 模式下：
     // 1. 如果 loading 为 false，说明错误发生在用户选择密钥之前（如初始化失败、用户取消等），此时应静默
     // 2. 如果是 AbortError，始终静默
-    if (isConditional && (!passkeyLoading.value || error.name === 'AbortError')) {
+    if (isConditional && (!passkeyLoading.value || errorName === 'AbortError')) {
       console.warn('[PassKey] Conditional UI silenced error:', error)
       return
     }
 
     // 手动模式下的 AbortError 也应该静默（用户重复点击导致）
-    if (!isConditional && error.name === 'AbortError') {
+    if (!isConditional && errorName === 'AbortError') {
       console.warn('[PassKey] Manual request aborted (likely due to rapid clicking):', error)
       return
     }
 
     // 设置错误信息
-    if (error.name === 'NotAllowedError') {
+    if (errorName === 'NotAllowedError') {
       errorMessage.value = t('login.passkeyAuthCanceled')
-    } else if (error.name === 'NotSupportedError') {
+    } else if (errorName === 'NotSupportedError') {
       errorMessage.value = t('login.passkeyNotSupported')
-    } else if (error.message?.includes('start failed')) {
+    } else if (message?.includes('start failed')) {
       errorMessage.value = t('login.passkeyLoginStartFailed')
     } else {
       errorMessage.value = t('login.authFailure')
@@ -557,7 +578,11 @@ async function subscribeForPushNotifications() {
 }
 
 // 登录后处理
-async function afterLogin(superuser: boolean, userPayload: userState, filteredMenus: any[]) {
+async function afterLogin(
+  superuser: boolean,
+  userPayload: userState,
+  filteredMenus: ReturnType<typeof filterMenusByPermission>,
+) {
   const originalPath = authStore.originalPath
   authStore.setOriginalPath(null)
 
@@ -579,7 +604,7 @@ async function afterLogin(superuser: boolean, userPayload: userState, filteredMe
 }
 
 // 处理登录成功
-async function handleLoginSuccess(response: any) {
+async function handleLoginSuccess(response: PassKeyFinishResponse) {
   const userPayload: userState = {
     superUser: response.super_user,
     userID: response.user_id,
@@ -609,95 +634,87 @@ async function handleLoginSuccess(response: any) {
   await afterLogin(userPayload.superUser, userPayload, filteredMenus)
 }
 
-// 登录获取token事件
+async function requestPasswordLogin(): Promise<PassKeyFinishResponse> {
+  const formData = new FormData()
+  formData.append('username', form.value.username)
+  formData.append('password', form.value.password)
+  formData.append('otp_password', form.value.otp_password)
+
+  return (await api.post('/login/access-token', formData, {
+    headers: {
+      Accept: 'application/json',
+    },
+  })) as PassKeyFinishResponse
+}
+
+function setLoginError(error: unknown) {
+  const apiError = asApiError(error)
+  if (!apiError.response) {
+    errorMessage.value = t('login.networkError')
+    return
+  }
+
+  switch (apiError.response.status) {
+    case 401:
+      errorMessage.value = t('login.authFailure')
+      break
+    case 403:
+      errorMessage.value = t('login.permissionDenied')
+      break
+    case 500:
+      errorMessage.value = t('login.serverError')
+      break
+    default:
+      errorMessage.value = `${t('login.authFailure')} (Status: ${apiError.response.status})`
+  }
+}
+
 async function login() {
   errorMessage.value = ''
   syncLoginCredentialValues()
 
-  // 进行表单校验
-  if (!form.value.username || !form.value.password) {
-    return
-  }
+  if (!form.value.username || !form.value.password) return
 
-  // 登录按钮 loading
+  form.value.otp_password = ''
   loading.value = true
-
   try {
-    // 用户名密码
-    const formData = new FormData()
-
-    formData.append('username', form.value.username)
-    formData.append('password', form.value.password)
-    formData.append('otp_password', form.value.otp_password)
-
-    // 请求token
-    const response: any = await api.post('/login/access-token', formData, {
-      headers: {
-        Accept: 'application/json', // 设置 Accept 类型
-      },
-    })
-
+    const response = await requestPasswordLogin()
     await handleLoginSuccess(response)
-  } catch (error: any) {
-    // 登录失败，显示错误提示
-    if (!error.response) {
-      errorMessage.value = t('login.networkError')
+  } catch (error: unknown) {
+    const apiError = asApiError(error)
+    if (apiError.response?.headers?.['x-mfa-required'] === 'true') {
+      enterMfaStep(apiError.response.data?.mfa_methods)
       return
     }
-
-    switch (error.response.status) {
-      case 401:
-        // 401错误可能是需要MFA或者认证失败
-        // 检查响应头是否有MFA要求标识
-        if (error.response.headers?.['x-mfa-required'] === 'true' && !form.value.otp_password) {
-          // 需要MFA验证，弹出对话框
-          isOTP.value = true
-          openMfaDialog()
-          return
-        }
-        // 不需要MFA或已填写OTP但认证失败
-        errorMessage.value = t('login.authFailure')
-        // 认证失败后清空OTP密码，防止下次点击不弹出对话框
-        form.value.otp_password = ''
-        break
-      case 403:
-        errorMessage.value = t('login.permissionDenied')
-        break
-      case 500:
-        errorMessage.value = t('login.serverError')
-        break
-      default:
-        errorMessage.value = `${t('login.authFailure')} (Status: ${error.response.status})`
-    }
+    setLoginError(error)
   } finally {
     loading.value = false
   }
 }
 
-// 使用OTP码继续登录
-function loginWithOTP() {
-  closeMfaDialog()
-  login()
+// 在第二步提交 OTP；失败时保持当前步骤，避免登录表单闪回。
+async function loginWithOTP() {
+  if (!form.value.otp_password || mfaOtpLoading.value) return
+
+  errorMessage.value = ''
+  mfaOtpLoading.value = true
+  try {
+    const response = await requestPasswordLogin()
+    await handleLoginSuccess(response)
+  } catch (error: unknown) {
+    const apiError = asApiError(error)
+    if (!apiError.response) {
+      errorMessage.value = t('login.networkError')
+    } else if (apiError.response.status === 401) {
+      errorMessage.value = t('login.mfa.verificationFailed')
+    } else {
+      setLoginError(error)
+    }
+    form.value.otp_password = ''
+  } finally {
+    mfaOtpLoading.value = false
+  }
 }
-
-// 使用PassKey进行MFA验证
-async function verifyWithPassKey() {
-  if (!form.value.username) return
-
-  await handlePassKeyAuth(
-    { username: form.value.username },
-    val => (mfaPasskeyLoading.value = val),
-    async response => {
-      // 关闭MFA对话框
-      closeMfaDialog()
-      await handleLoginSuccess(response)
-    },
-  )
-}
-
-watch([mfaPasskeyLoading, errorMessage, () => form.value.otp_password], () => {
-  mfaDialogController?.updateProps(getMfaDialogProps())
-})
 
 // 自动登录
 onMounted(async () => {
@@ -818,7 +835,7 @@ onUnmounted(() => {
     </VMenu>
 
     <!-- 登录表单 -->
-    <div v-if="!mfaDialog" class="auth-wrapper d-flex align-center justify-center">
+    <div class="auth-wrapper d-flex align-center justify-center">
       <VCard
         class="auth-card login-card glass-effect no-blur pa-7 pa-sm-9 w-full h-full login-card--enter"
         max-width="24rem"
@@ -838,7 +855,18 @@ onUnmounted(() => {
         </div>
 
         <VCardText class="login-body">
+          <LoginMfaStep
+            v-if="mfaStepActive"
+            :methods="mfaMethods"
+            :otp-password="form.otp_password"
+            :otp-loading="mfaOtpLoading"
+            :error-message="errorMessage"
+            @update:otp-password="form.otp_password = $event"
+            @back="leaveMfaStep"
+            @otp="loginWithOTP"
+          />
           <form
+            v-else
             ref="refForm"
             class="login-form"
             method="post"

@@ -59,8 +59,7 @@ const accountInfo = ref<User>({
 // PassKey列表
 const passkeyList = ref<PassKey[]>([])
 
-// 双重验证菜单
-const mfaMenu = ref(false)
+const securityMenu = ref(false)
 
 // 验证密码
 const verifyPassword = ref('')
@@ -74,24 +73,18 @@ const verifyTitle = ref('')
 // 验证对话框提示
 const verifyText = ref('')
 
-// 检查是否已启用任何双重验证
-const hasMfaEnabled = computed(() => {
-  return accountInfo.value.is_otp || passkeyList.value.length > 0
-})
-
 let otpDialogController: ReturnType<typeof openSharedDialog> | null = null
 let passkeyDialogController: ReturnType<typeof openSharedDialog> | null = null
 let verifyPasswordDialogController: ReturnType<typeof openSharedDialog> | null = null
 
 // 打开共享 OTP 管理弹窗，并把状态变更回写到用户资料。
 function openOtpDialog() {
-  mfaMenu.value = false
+  securityMenu.value = false
   otpDialogController?.close()
   otpDialogController = openSharedDialog(
     OTPAuthDialog,
     {
       isOtp: accountInfo.value.is_otp,
-      passkeyList: passkeyList.value,
     },
     {
       'update:isOtp': (value: boolean) => {
@@ -108,13 +101,11 @@ function openOtpDialog() {
 
 // 打开共享 PassKey 管理弹窗，并同步最新 PassKey 列表。
 function openPasskeyDialog() {
-  mfaMenu.value = false
+  securityMenu.value = false
   passkeyDialogController?.close()
   passkeyDialogController = openSharedDialog(
     PasskeyDialog,
-    {
-      isOtp: accountInfo.value.is_otp,
-    },
+    {},
     {
       'update:modelValue': (value: boolean) => {
         if (!value) passkeyDialogController = null
@@ -381,13 +372,12 @@ watch(
                   <span v-if="display.mdAndUp.value" class="ms-2">{{ t('common.default') }}</span>
                 </VBtn>
 
-                <!-- 双重验证菜单按钮 -->
-                <VMenu v-model="mfaMenu" :close-on-content-click="false">
+                <VMenu v-model="securityMenu" :close-on-content-click="false">
                   <template #activator="{ props }">
-                    <VBtn :color="hasMfaEnabled ? 'warning' : 'success'" variant="tonal" v-bind="props">
+                    <VBtn color="primary" variant="tonal" v-bind="props" :aria-label="t('profile.accountSecurity')">
                       <VIcon icon="mdi-shield-key" />
                       <span v-if="display.mdAndUp.value" class="ms-2">
-                        {{ hasMfaEnabled ? t('profile.setupMfa') : t('profile.enableMfa') }}
+                        {{ t('profile.accountSecurity') }}
                       </span>
                       <VIcon icon="mdi-menu-down" class="ms-1" />
                     </VBtn>
@@ -397,19 +387,27 @@ watch(
                       <template #prepend>
                         <VIcon icon="mdi-cellphone-key" />
                       </template>
-                      <VListItemTitle>{{ t('profile.useAuthenticator') }}</VListItemTitle>
-                      <VListItemSubtitle v-if="accountInfo.is_otp" class="text-success">
-                        {{ t('profile.enabled') }}
+                      <VListItemTitle>{{ t('profile.authenticatorManagement') }}</VListItemTitle>
+                      <VListItemSubtitle>
+                        {{ t('profile.otpSecondFactor') }}
                       </VListItemSubtitle>
+                      <template #append>
+                        <VChip v-if="accountInfo.is_otp" color="success" size="small">{{ t('profile.enabled') }}</VChip>
+                      </template>
                     </VListItem>
                     <VListItem @click="openPasskeyDialog">
                       <template #prepend>
                         <VIcon icon="material-symbols:passkey" />
                       </template>
-                      <VListItemTitle>{{ t('profile.usePasskey') }}</VListItemTitle>
-                      <VListItemSubtitle v-if="passkeyList.length > 0" class="text-success">
-                        {{ t('profile.keysCount', { count: passkeyList.length }) }}
+                      <VListItemTitle>{{ t('profile.passkeyManagement') }}</VListItemTitle>
+                      <VListItemSubtitle>
+                        {{ t('profile.passkeyPasswordless') }}
                       </VListItemSubtitle>
+                      <template #append>
+                        <VChip v-if="passkeyList.length > 0" color="success" size="small">
+                          {{ t('profile.keysCount', { count: passkeyList.length }) }}
+                        </VChip>
+                      </template>
                     </VListItem>
                   </VList>
                 </VMenu>
