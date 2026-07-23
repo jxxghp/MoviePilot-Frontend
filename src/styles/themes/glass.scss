@@ -41,6 +41,7 @@ html[data-theme='glass'] {
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
+  --glass-overlay-surface: var(--glass-surface-raised);
   --glass-control-icon-color: rgba(242, 245, 250, 70%);
   --glass-control-placeholder-color: rgba(242, 245, 250, 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
@@ -492,21 +493,37 @@ html[data-theme='glass'] {
     > form > :where(.v-card, .v-sheet) {
       -webkit-backdrop-filter: var(--glass-raised-backdrop-filter) !important;
       backdrop-filter: var(--glass-raised-backdrop-filter) !important;
-      background-color: var(--glass-surface-raised) !important;
+      background-color: var(--glass-overlay-surface) !important;
       background-image: var(--glass-sheen) !important;
       box-shadow: var(--glass-shadow-raised) !important;
     }
   }
 
-  // 透明弹层与顶栏共用同一静态表面，不额外增加模糊或深色覆盖。
+  // 透明材质不使用实时模糊，弹层改用更深的独立底色保证文字对比度。
   &[data-glass-appearance='clear'] {
+    --glass-overlay-surface: rgba(11, 19, 34, 80%);
+
+    // contained navbar 会把 %blurry-bg 扩展到内部容器，透明材质不生成这层滚动磨砂。
+    .navbar-blur.layout-navbar .navbar-content-container::before {
+      display: none !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background: transparent !important;
+      content: none !important;
+    }
+
     .v-overlay__content > :where(.v-card, .v-sheet, .v-list),
     .v-overlay__content > form > :where(.v-card, .v-sheet),
     .theme-customizer-panel-host,
     .agent-assistant-panel {
       -webkit-backdrop-filter: none !important;
       backdrop-filter: none !important;
-      background-color: var(--glass-surface-raised) !important;
+      background-color: var(--glass-overlay-surface) !important;
+    }
+
+    // 移动端主导航抽屉属于弹出侧栏，桌面常驻导航继续沿用原透明表面。
+    .layout-vertical-nav.overlay-nav::before {
+      background-color: var(--glass-overlay-surface) !important;
     }
   }
 
