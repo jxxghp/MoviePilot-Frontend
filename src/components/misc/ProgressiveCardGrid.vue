@@ -70,6 +70,7 @@ let mounted = false
 let pendingRevealIndex: number | null = null
 let lastMeasuredColumnCount = 0
 let lastMeasuredColumnWidth = 0
+let documentOverlayLocked = false
 
 const safeGap = computed(() => Math.max(0, props.gap))
 const safeMinItemWidth = computed(() => Math.max(1, props.minItemWidth))
@@ -338,11 +339,20 @@ function releaseVisibleRange() {
 }
 
 function handleOverlayLockChange() {
+  const nextOverlayLocked = isDocumentOverlayLocked()
+
+  if (nextOverlayLocked === documentOverlayLocked) {
+    return
+  }
+
+  documentOverlayLocked = nextOverlayLocked
+
   if (shouldPauseVirtualSync()) {
     freezeVisibleRange()
     return
   }
 
+  invalidateScrollTargetCache()
   releaseVisibleRange()
   queueLayoutSync()
 }
@@ -790,6 +800,7 @@ function invalidateMeasurementsForLayoutChange() {
 
 onMounted(() => {
   mounted = true
+  documentOverlayLocked = isDocumentOverlayLocked()
   syncOverlayGridState()
   scrollTarget = findScrollTarget()
   addScrollListener(scrollTarget)
