@@ -158,9 +158,12 @@ const userStore = useUserStore()
 const props = withDefaults(
   defineProps<{
     modelValue?: boolean
+    /** 是否允许面板的装饰性动效，不影响消息流、thinking 或输入反馈。 */
+    motionActive?: boolean
   }>(),
   {
     modelValue: false,
+    motionActive: true,
   },
 )
 
@@ -211,13 +214,11 @@ let pendingMessageScrollToBottom = false
 let streamPersistTimer: number | null = null
 let userAbortRequested = false
 let streamRecoveryTimer: number | null = null
-let pendingStreamRecovery:
-  | {
-      sessionId: string
-      startedAt: number
-      attempts: number
-    }
-  | null = null
+let pendingStreamRecovery: {
+  sessionId: string
+  startedAt: number
+  attempts: number
+} | null = null
 
 const md = new MarkdownIt({
   html: true,
@@ -250,12 +251,11 @@ const filteredSlashCommands = computed(() => {
   const query = slashCommandQuery.value
   if (!query) return slashCommands.value
 
-  return slashCommands.value
-    .filter(command => {
-      const haystack = `${command.command} ${command.description} ${command.category || ''}`.toLowerCase()
+  return slashCommands.value.filter(command => {
+    const haystack = `${command.command} ${command.description} ${command.category || ''}`.toLowerCase()
 
-      return haystack.includes(query)
-    })
+    return haystack.includes(query)
+  })
 })
 // 判断是否展示命令建议浮层。
 const showSlashCommandMenu = computed(
@@ -1956,6 +1956,7 @@ onScopeDispose(() => {
   <aside
     v-show="isOpen"
     class="agent-assistant-panel"
+    :class="{ 'is-motion-paused': !props.motionActive, 'is-open': isOpen }"
     :style="drawerStyle"
     role="dialog"
     :aria-label="t('agentAssistant.title')"
@@ -2515,11 +2516,14 @@ onScopeDispose(() => {
   position: absolute;
   display: block;
   border-radius: 0 0 999px 999px;
-  animation: agent-fab-blink 4.8s ease-in-out infinite;
   block-size: 0.24rem;
   border-block-end: 0.1rem solid var(--agent-assistant-mini-robot-eye);
   inline-size: 0.22rem;
   inset-block-start: 0.16rem;
+}
+
+.agent-assistant-panel.is-open:not(.is-motion-paused) .agent-assistant-mini-bot__eye {
+  animation: agent-fab-blink 4.8s ease-in-out 1;
 }
 
 .agent-assistant-mini-bot__eye--left {

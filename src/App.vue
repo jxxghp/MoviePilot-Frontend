@@ -25,10 +25,11 @@ import { applyDocumentThemeChrome, resolveThemeName } from '@/utils/themePalette
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
+import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
+import { commitPreloadedBackgroundRotation } from '@/utils/backgroundRotation'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
-const WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS = 60_000
 const MEDIA_DENSE_OPTICAL_DEFER_MS = 1_600
 
 // 生效主题
@@ -73,7 +74,7 @@ const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
-const isRenderThrottled = ref(document.visibilityState === 'hidden')
+const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivityState } = useAppActivityLifecycle()
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
@@ -118,7 +119,7 @@ let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
 let authenticatedStateTimer: number | null = null
-let windowBlurRenderThrottleTimer: number | null = null
+let backgroundRotationVersion = 0
 
 // 读取并同步透明主题背景设置到根组件响应式状态。
 function applyTransparentBackgroundSettings() {
@@ -170,52 +171,6 @@ watch(
 void router.isReady().then(() => {
   isInitialRouteReady.value = true
 })
-
-function clearWindowBlurRenderThrottleTimer() {
-  if (windowBlurRenderThrottleTimer) {
-    window.clearTimeout(windowBlurRenderThrottleTimer)
-    windowBlurRenderThrottleTimer = null
-  }
-}
-
-function restoreForegroundRendering() {
-  const wasRenderThrottled = isRenderThrottled.value
-
-  clearWindowBlurRenderThrottleTimer()
-  isRenderThrottled.value = false
-
-  if (wasRenderThrottled && backgroundImages.value.length > 1) {
-    startBackgroundRotation()
-    rotateBackgroundImage()
-  }
-}
-
-function throttleBackgroundRendering() {
-  clearWindowBlurRenderThrottleTimer()
-  resetBackgroundCrossfade()
-  isRenderThrottled.value = true
-}
-
-function handleWindowBlurRenderThrottle() {
-  clearWindowBlurRenderThrottleTimer()
-  if (document.visibilityState === 'hidden') {
-    throttleBackgroundRendering()
-    return
-  }
-
-  windowBlurRenderThrottleTimer = window.setTimeout(() => {
-    if (document.visibilityState === 'visible' && !document.hasFocus()) {
-      isRenderThrottled.value = true
-    }
-    windowBlurRenderThrottleTimer = null
-  }, WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS)
-}
-
-function handleWindowFocusRenderThrottle() {
-  if (document.visibilityState === 'visible') {
-    restoreForegroundRendering()
-  }
-}
 
 let heartbeatInterval: number | null = null
 let connectionRetryTimer: number | null = null
@@ -397,18 +352,14 @@ function handleSystemThemeChange() {
 /** 页面重新可见时同步主题，并在连接异常时立即重新探测服务。 */
 function handleVisibilityThemeSync() {
   if (document.visibilityState === 'visible') {
-    restoreForegroundRendering()
     syncThemePreferenceFromStorage()
     if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
-  } else {
-    throttleBackgroundRendering()
   }
 }
 
 /** 页面从缓存或重新聚焦恢复时刷新主题偏好和异常连接状态。 */
 function handlePageShowThemeSync() {
   if (document.visibilityState === 'visible') {
-    restoreForegroundRendering()
     if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   }
   syncThemePreferenceFromStorage()
@@ -461,27 +412,32 @@ async function fetchBackgroundImages() {
 
 // 背景图片轮换函数
 function rotateBackgroundImage() {
-  if (isRenderThrottled.value) return
+  if (!allowsDecorativeMotion.value) return
 
   if (backgroundImages.value.length > 1) {
     // 计算下一个图片索引
     const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
-    // 预加载下一张图片
-    preloadImage(backgroundImages.value[nextIndex]).then(success => {
-      // 只有图片成功加载才切换
-      if (success) {
-        activateBackgroundImage(nextIndex)
-      }
+    const requestVersion = ++backgroundRotationVersion
+
+    void commitPreloadedBackgroundRotation({
+      canCommit: () => allowsDecorativeMotion.value && requestVersion === backgroundRotationVersion,
+      commit: () => activateBackgroundImage(nextIndex),
+      preload: () => preloadImage(backgroundImages.value[nextIndex]),
     })
   }
 }
 
+// 停止轮询并使已经发起的壁纸预加载失效，避免非活动状态收到迟到提交。
+function stopBackgroundRotation() {
+  backgroundRotationVersion += 1
+  removeBackgroundTimer('background-rotation')
+}
+
 // 开始背景图片轮换
 function startBackgroundRotation() {
-  // 清除现有定时器
-  removeBackgroundTimer('background-rotation')
+  stopBackgroundRotation()
 
-  if (backgroundImages.value.length > 1) {
+  if (allowsDecorativeMotion.value && backgroundImages.value.length > 1) {
     // 使用优化的定时器管理器，后台时自动暂停
     addBackgroundTimer(
       'background-rotation',
@@ -495,6 +451,16 @@ function startBackgroundRotation() {
   }
 }
 
+watch(appActivityState, state => {
+  resetBackgroundCrossfade()
+
+  if (state === 'active') {
+    startBackgroundRotation()
+  } else {
+    stopBackgroundRotation()
+  }
+})
+
 // 停止登录页、透明主题或玻璃主题背景图加载、重试和轮播。
 function stopBackgroundLoading() {
   backgroundRequestController?.abort()
@@ -506,7 +472,7 @@ function stopBackgroundLoading() {
   }
 
   resetBackgroundCrossfade()
-  removeBackgroundTimer('background-rotation')
+  stopBackgroundRotation()
 }
 
 // 初始化登录后的全局设置和用户设置状态。
@@ -647,8 +613,6 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleVisibilityThemeSync)
   window.addEventListener('pageshow', handlePageShowThemeSync)
   window.addEventListener('focus', handlePageShowThemeSync)
-  window.addEventListener('focus', handleWindowFocusRenderThrottle)
-  window.addEventListener('blur', handleWindowBlurRenderThrottle)
   window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 
   // 登录页壁纸仅在未登录登录页需要，避免其他首屏额外发起图片列表请求。
@@ -698,7 +662,6 @@ onUnmounted(() => {
     window.clearTimeout(authenticatedStateTimer)
     authenticatedStateTimer = null
   }
-  clearWindowBlurRenderThrottleTimer()
   // 停止心跳
   stopHeartbeat()
   prefersColorSchemeMediaQuery?.removeEventListener('change', handleSystemThemeChange)
@@ -706,8 +669,6 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', handleVisibilityThemeSync)
   window.removeEventListener('pageshow', handlePageShowThemeSync)
   window.removeEventListener('focus', handlePageShowThemeSync)
-  window.removeEventListener('focus', handleWindowFocusRenderThrottle)
-  window.removeEventListener('blur', handleWindowBlurRenderThrottle)
   window.removeEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 })
 </script>
@@ -717,8 +678,10 @@ onUnmounted(() => {
     class="app-wrapper"
     :class="{
       'app-wrapper--background-transition': isBackgroundCrossfading,
+      'app-wrapper--decorative-motion-paused': !allowsDecorativeMotion,
       'app-wrapper--render-throttled': isRenderThrottled,
     }"
+    :data-app-activity-state="appActivityState"
     :style="appWrapperStyle"
   >
     <!-- 登录页、透明主题和玻璃主题共用动态壁纸场景。 -->
@@ -889,14 +852,15 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
   .global-blur-layer {
     backdrop-filter: none;
   }
+}
 
+.app-wrapper--decorative-motion-paused {
   .login-bg-decor *,
   .login-logo,
   .login-logo-wrapper,
   .login-logo-wrapper::before,
   .login-title,
-  .login-subtitle,
-  .agent-assistant-fab * {
+  .login-subtitle {
     animation-play-state: paused !important;
   }
 }

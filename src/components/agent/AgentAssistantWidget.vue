@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import AgentAssistantEntry from './AgentAssistantEntry.vue'
 import AgentAssistantPanel from './AgentAssistantPanel.vue'
+import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 
 type AgentAssistantEntryRef = InstanceType<typeof AgentAssistantEntry>
 
 const panelOpen = ref(false)
 const thinking = ref(false)
 const entryRef = ref<AgentAssistantEntryRef | null>(null)
+const { allowsDecorativeMotion } = useAppActivityLifecycle()
 
 // 打开 Agent 面板并清空入口预览气泡。
 function openPanel() {
@@ -23,6 +25,17 @@ function handleAssistantPreview(value: string) {
 </script>
 
 <template>
-  <AgentAssistantEntry ref="entryRef" :active="!panelOpen" :thinking="thinking" @open="openPanel" />
-  <AgentAssistantPanel v-model="panelOpen" @assistant-preview="handleAssistantPreview" @thinking-change="thinking = $event" />
+  <AgentAssistantEntry
+    ref="entryRef"
+    :active="!panelOpen"
+    :motion-active="allowsDecorativeMotion"
+    :thinking="thinking"
+    @open="openPanel"
+  />
+  <AgentAssistantPanel
+    v-model="panelOpen"
+    :motion-active="allowsDecorativeMotion"
+    @assistant-preview="handleAssistantPreview"
+    @thinking-change="thinking = $event"
+  />
 </template>
