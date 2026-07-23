@@ -520,8 +520,10 @@ onMounted(() => {
           <input
             ref="searchWordInput"
             v-model="searchWord"
+            id="global-media-search"
             type="text"
             class="search-native-input"
+            :aria-label="t('dialog.searchBar.searchPlaceholder')"
             :placeholder="t('dialog.searchBar.searchPlaceholder')"
             @keydown.enter="searchMedia('media')"
             @keydown.escape.stop="closeSearch"
@@ -539,8 +541,10 @@ onMounted(() => {
           <input
             ref="searchWordInput"
             v-model="searchWord"
+            id="global-media-search"
             type="text"
             class="search-native-input"
+            :aria-label="t('dialog.searchBar.searchPlaceholder')"
             :placeholder="t('dialog.searchBar.searchPlaceholder')"
             @keydown.enter="searchMedia('media')"
             @keydown.escape.stop="closeSearch"

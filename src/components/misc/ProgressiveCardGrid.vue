@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { findNearestScrollTarget, invalidateScrollTargetCache, type ScrollTarget } from '@/utils/scrollTarget'
 import type { ComponentPublicInstance } from 'vue'
 
 type ItemKey = string | number
-type ScrollTarget = Window | HTMLElement
 
 const props = withDefaults(
   defineProps<{
@@ -513,19 +513,7 @@ function getItemRef(key: ItemKey) {
 }
 
 function findScrollTarget(): ScrollTarget {
-  let parent = containerRef.value?.parentElement ?? null
-
-  while (parent && parent !== document.body && parent !== document.documentElement) {
-    const overflowY = window.getComputedStyle(parent).overflowY
-
-    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
-      return parent
-    }
-
-    parent = parent.parentElement
-  }
-
-  return window
+  return findNearestScrollTarget(containerRef.value)
 }
 
 function addScrollListener(target: ScrollTarget) {
@@ -550,6 +538,11 @@ function refreshScrollTarget() {
   removeScrollListener(scrollTarget)
   scrollTarget = nextTarget
   addScrollListener(scrollTarget)
+}
+
+function handleWindowResize() {
+  invalidateScrollTargetCache()
+  queueLayoutSync()
 }
 
 function syncLayoutWidth() {
@@ -780,10 +773,7 @@ function invalidateMeasurementsForLayoutChange() {
   const nextColumnCount = columnCount.value
   const nextColumnWidth = columnWidth.value
 
-  if (
-    lastMeasuredColumnCount === nextColumnCount &&
-    Math.abs(lastMeasuredColumnWidth - nextColumnWidth) < 1
-  ) {
+  if (lastMeasuredColumnCount === nextColumnCount && Math.abs(lastMeasuredColumnWidth - nextColumnWidth) < 1) {
     return
   }
 
@@ -817,7 +807,7 @@ onMounted(() => {
     })
   }
 
-  window.addEventListener('resize', queueLayoutSync, { passive: true })
+  window.addEventListener('resize', handleWindowResize, { passive: true })
 
   queueLayoutSync()
 })
@@ -840,7 +830,7 @@ onUnmounted(() => {
   removeScrollListener(scrollTarget)
   scrollTarget = null
 
-  window.removeEventListener('resize', queueLayoutSync)
+  window.removeEventListener('resize', handleWindowResize)
   resizeObserver?.disconnect()
   resizeObserver = null
   itemResizeObserver?.disconnect()
@@ -881,13 +871,10 @@ watch(
   },
 )
 
-watch(
-  [columnCount, columnWidth],
-  () => {
-    invalidateMeasurementsForLayoutChange()
-    queueViewportSync()
-  },
-)
+watch([columnCount, columnWidth], () => {
+  invalidateMeasurementsForLayoutChange()
+  queueViewportSync()
+})
 
 watch(
   [() => props.scrollToIndex, () => props.items.length, columnCount],

@@ -167,4 +167,78 @@ describe('glass optical surface discovery', () => {
 
     scope.stop()
   })
+
+  it('releases renderer resources before restoring a single active instance', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    const active = ref(true)
+    const scope = effectScope()
+    let frameId = 0
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => ++frameId)
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame')
+    const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
+    const resizeDisconnect = vi.spyOn(ResizeObserverMock.prototype, 'disconnect')
+    const mutationDisconnect = vi.spyOn(MutationObserver.prototype, 'disconnect')
+    const addWindowListener = vi.spyOn(window, 'addEventListener')
+    const addDocumentListener = vi.spyOn(document, 'addEventListener')
+    const addCanvasListener = vi.spyOn(canvas, 'addEventListener')
+    const countListenerAdds = (calls: readonly (readonly unknown[])[], eventName: string) =>
+      calls.filter(([event]) => String(event) === eventName).length
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active,
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/recommend'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(requestFrame).toHaveBeenCalled()
+    expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(1)
+    expect(countListenerAdds(addDocumentListener.mock.calls, 'visibilitychange')).toBe(1)
+    expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextlost')).toBe(1)
+    expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
+
+    active.value = false
+    await nextTick()
+
+    expect(rendererDispose).toHaveBeenCalledTimes(1)
+    expect(contextLoss).toHaveBeenCalledTimes(1)
+    expect(resizeDisconnect).toHaveBeenCalledTimes(1)
+    expect(mutationDisconnect).toHaveBeenCalledTimes(1)
+    expect(cancelFrame).toHaveBeenCalledTimes(2)
+
+    addWindowListener.mockClear()
+    addDocumentListener.mockClear()
+    addCanvasListener.mockClear()
+    active.value = true
+    await nextTick()
+    await vi.waitFor(() => expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(1))
+
+    expect(renderer?.state.value).toBe('ready')
+    expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(1)
+    expect(countListenerAdds(addDocumentListener.mock.calls, 'visibilitychange')).toBe(1)
+    expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextlost')).toBe(1)
+    expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
+
+    active.value = false
+    await nextTick()
+
+    expect(rendererDispose).toHaveBeenCalledTimes(2)
+    expect(contextLoss).toHaveBeenCalledTimes(2)
+    expect(resizeDisconnect).toHaveBeenCalledTimes(2)
+    expect(mutationDisconnect).toHaveBeenCalledTimes(2)
+    expect(cancelFrame).toHaveBeenCalledTimes(4)
+
+    scope.stop()
+  })
 })

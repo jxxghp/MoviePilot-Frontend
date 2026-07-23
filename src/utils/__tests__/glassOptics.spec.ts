@@ -22,15 +22,20 @@ describe('glass optics geometry', () => {
     expect(getGlassCoverScale(900, 1600, 2400, 1600)).toEqual({ x: 0.375, y: 1 })
   })
 
-  it('keeps high quality optics while reducing the media-dense recommendation budget', () => {
+  it('keeps the selected optical quality on every route', () => {
     expect(getGlassOpticalRenderProfile('high', '/dashboard')).toEqual({
       bufferQuality: 'high',
       textureLimit: 3072,
       textureSource: 'wallpaper',
     })
     expect(getGlassOpticalRenderProfile('high', '/recommend?source=tmdb')).toEqual({
-      bufferQuality: 'balanced',
-      textureLimit: 2048,
+      bufferQuality: 'high',
+      textureLimit: 3072,
+      textureSource: 'wallpaper',
+    })
+    expect(getGlassOpticalRenderProfile('high', '/subscribe/movie')).toEqual({
+      bufferQuality: 'high',
+      textureLimit: 3072,
       textureSource: 'wallpaper',
     })
     expect(getGlassOpticalRenderProfile('balanced', '/dashboard')).toEqual({
