@@ -164,10 +164,6 @@ html[data-theme='glass'] {
     --glass-control-shortcut-color: rgba(242, 245, 250, 76%);
     --glass-button-surface: rgba(255, 255, 255, 10%);
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
-    --glass-nav-active-background: linear-gradient(270deg, rgb(var(--v-theme-primary)) 0%, rgb(255, 255, 255) 300%);
-    --glass-nav-active-border: 0 solid transparent;
-    --glass-nav-active-shadow:
-      0 4px 14px -4px rgba(3, 7, 18, 34%), 0 4px 8px -4px rgba(3, 7, 18, 24%), 0 4px 8px -4px rgba(3, 7, 18, 16%);
     --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate));
   }
 

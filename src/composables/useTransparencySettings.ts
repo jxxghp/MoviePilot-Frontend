@@ -19,6 +19,9 @@ export const transparencyPresets = {
 
 export const TRANSPARENCY_SETTINGS_CHANGED_EVENT = 'transparency-settings-changed'
 
+let transparencyPreviewSnapshot: TransparencySettings | null = null
+let transparencyPreviewState: TransparencySettings | null = null
+
 /** 将数值限制在指定范围内。 */
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -43,9 +46,9 @@ export function readTransparencySettings(): TransparencySettings {
   }
 }
 
-/** 应用透明主题设置并写入本地存储。 */
-export function applyTransparencySettings(settings: TransparencySettings) {
-  const normalized: TransparencySettings = {
+/** 校验透明主题设置并限制数值范围。 */
+function normalizeTransparencySettings(settings: TransparencySettings): TransparencySettings {
+  return {
     opacity: Number.isFinite(settings.opacity) ? clamp(settings.opacity, 0, 1) : 0.3,
     blur: Number.isFinite(settings.blur) ? clamp(settings.blur, 0, 30) : 10,
     backgroundPosterOpacity: Number.isFinite(settings.backgroundPosterOpacity)
@@ -55,6 +58,11 @@ export function applyTransparencySettings(settings: TransparencySettings) {
     glassQuality: settings.glassQuality === 'realtime' ? 'realtime' : 'lightweight',
     level: settings.level,
   }
+}
+
+/** 将透明主题设置应用到当前页面，不改变持久化状态。 */
+function applyTransparencyAppearance(settings: TransparencySettings) {
+  const normalized = normalizeTransparencySettings(settings)
 
   const root = document.documentElement
   root.style.setProperty('--transparent-opacity', normalized.opacity.toString())
@@ -70,6 +78,17 @@ export function applyTransparencySettings(settings: TransparencySettings) {
   root.classList.toggle('transparent-glass-lightweight', normalized.glassQuality === 'lightweight')
   root.classList.toggle('transparent-glass-realtime', normalized.glassQuality === 'realtime')
 
+  window.dispatchEvent(
+    new CustomEvent<TransparencySettings>(TRANSPARENCY_SETTINGS_CHANGED_EVENT, { detail: normalized }),
+  )
+
+  return normalized
+}
+
+/** 将透明主题设置写入本地存储。 */
+function persistTransparencySettings(settings: TransparencySettings) {
+  const normalized = normalizeTransparencySettings(settings)
+
   localStorage.setItem('transparency-opacity', normalized.opacity.toString())
   localStorage.setItem('transparency-blur', normalized.blur.toString())
   localStorage.setItem('transparency-background-poster-opacity', normalized.backgroundPosterOpacity.toString())
@@ -77,19 +96,64 @@ export function applyTransparencySettings(settings: TransparencySettings) {
   localStorage.setItem('transparency-glass-quality', normalized.glassQuality)
   localStorage.setItem('transparency-level', normalized.level)
 
-  window.dispatchEvent(new CustomEvent<TransparencySettings>(TRANSPARENCY_SETTINGS_CHANGED_EVENT, { detail: normalized }))
-
   return normalized
+}
+
+/** 应用透明主题设置并写入本地存储。 */
+export function applyTransparencySettings(settings: TransparencySettings) {
+  const normalized = persistTransparencySettings(settings)
+
+  return applyTransparencyAppearance(normalized)
 }
 
 /** 按本地存储中的最新值应用透明主题设置。 */
 export function applyStoredTransparencySettings() {
+  transparencyPreviewSnapshot = null
+  transparencyPreviewState = null
+
   return applyTransparencySettings(readTransparencySettings())
+}
+
+/** 临时预览透明主题设置，关闭设置面板时可恢复已保存快照。 */
+export function previewTransparencySettings(patch: Partial<TransparencySettings>) {
+  if (!transparencyPreviewSnapshot) {
+    transparencyPreviewSnapshot = normalizeTransparencySettings(readTransparencySettings())
+  }
+
+  transparencyPreviewState = applyTransparencyAppearance(
+    normalizeTransparencySettings({
+      ...transparencyPreviewSnapshot,
+      ...transparencyPreviewState,
+      ...patch,
+    }),
+  )
+
+  return transparencyPreviewState
+}
+
+/** 将当前透明主题预览作为一次设置事务持久化。 */
+export function commitTransparencyPreview() {
+  const settings = transparencyPreviewState
+
+  transparencyPreviewSnapshot = null
+  transparencyPreviewState = null
+
+  return settings ? applyTransparencySettings(settings) : normalizeTransparencySettings(readTransparencySettings())
+}
+
+/** 丢弃透明主题预览并恢复打开设置面板前的持久化快照。 */
+export function cancelTransparencyPreview() {
+  const snapshot = transparencyPreviewSnapshot
+
+  transparencyPreviewSnapshot = null
+  transparencyPreviewState = null
+
+  return snapshot ? applyTransparencyAppearance(snapshot) : normalizeTransparencySettings(readTransparencySettings())
 }
 
 /** 提供透明主题设置的响应式状态和操作方法。 */
 export function useTransparencySettings() {
-  const storedSettings = readTransparencySettings()
+  const storedSettings = normalizeTransparencySettings(readTransparencySettings())
   const transparencyOpacity = ref(storedSettings.opacity)
   const transparencyBlur = ref(storedSettings.blur)
   const backgroundPosterOpacity = ref(storedSettings.backgroundPosterOpacity)
@@ -110,9 +174,9 @@ export function useTransparencySettings() {
     return null
   })
 
-  /** 同步当前响应式状态到 CSS 变量和本地存储。 */
+  /** 将当前响应式状态同步为未持久化预览。 */
   function syncTransparencySettings() {
-    const normalized = applyTransparencySettings({
+    const normalized = previewTransparencySettings({
       opacity: transparencyOpacity.value,
       blur: transparencyBlur.value,
       backgroundPosterOpacity: backgroundPosterOpacity.value,
@@ -127,6 +191,30 @@ export function useTransparencySettings() {
     backgroundBlur.value = normalized.backgroundBlur
     transparencyGlassQuality.value = normalized.glassQuality
     transparencyLevel.value = normalized.level
+  }
+
+  /** 将当前预览写入本地存储。 */
+  function saveTransparencySettings() {
+    const normalized = commitTransparencyPreview()
+
+    syncReactiveState(normalized)
+  }
+
+  /** 丢弃当前预览并恢复持久化设置。 */
+  function cancelTransparencySettings() {
+    const normalized = cancelTransparencyPreview()
+
+    syncReactiveState(normalized)
+  }
+
+  /** 使用指定设置刷新面板草稿。 */
+  function syncReactiveState(settings: TransparencySettings) {
+    transparencyOpacity.value = settings.opacity
+    transparencyBlur.value = settings.blur
+    backgroundPosterOpacity.value = settings.backgroundPosterOpacity
+    backgroundBlur.value = settings.backgroundBlur
+    transparencyGlassQuality.value = settings.glassQuality
+    transparencyLevel.value = settings.level
   }
 
   /** 按预设级别调整透明度和模糊度。 */
@@ -193,6 +281,7 @@ export function useTransparencySettings() {
     adjustTransparency,
     backgroundBlur,
     backgroundPosterOpacity,
+    cancelTransparencySettings,
     currentPresetLevel,
     onBackgroundBlurChange,
     onBackgroundPosterOpacityChange,
@@ -200,6 +289,7 @@ export function useTransparencySettings() {
     onGlassQualityChange,
     onOpacityChange,
     resetTransparencySettings,
+    saveTransparencySettings,
     syncTransparencySettings,
     transparencyBlur,
     transparencyGlassQuality,
