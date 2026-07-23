@@ -464,6 +464,7 @@ onBeforeUnmount(() => {
           class="app-hover-lift-card outline-none ring-gray-500 media-card"
           :class="{
             'app-hover-lift-card--hovering': isMediaCardActive(hover.isHovering),
+            'media-card--image-loaded': isImageLoaded,
             'ring-1': isImageLoaded,
           }"
           @click.stop="handleMediaCardClick(hover.isHovering)"

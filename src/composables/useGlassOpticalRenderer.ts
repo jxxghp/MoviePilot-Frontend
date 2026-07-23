@@ -379,17 +379,31 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uCoverScale.value.set(cover.x, cover.y)
   }
 
+  function getRenderProfile(routeKey = toValue(options.routeKey)) {
+    return getGlassOpticalRenderProfile(toValue(options.quality), routeKey)
+  }
+
   function resizeRenderer() {
     if (!resources) return
 
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
-    const profile = getGlassOpticalRenderProfile(toValue(options.quality), toValue(options.routeKey))
+    const profile = getRenderProfile()
     const buffer = getGlassOpticalBufferSize(viewportWidth, viewportHeight, viewportWidth <= 600, profile.bufferQuality)
     resources.renderer.setSize(buffer.width, buffer.height, false)
     resources.uniforms.uViewportSize.value.set(viewportWidth, viewportHeight)
     syncCoverScale(viewportWidth, viewportHeight)
     scheduleSurfaceUpdate()
+  }
+
+  function profileRequiresTextureReload(
+    previousProfile: ReturnType<typeof getGlassOpticalRenderProfile>,
+    nextProfile: ReturnType<typeof getGlassOpticalRenderProfile>,
+  ) {
+    return (
+      previousProfile.textureLimit !== nextProfile.textureLimit ||
+      previousProfile.textureSource !== nextProfile.textureSource
+    )
   }
 
   function handlePointerMove(event: PointerEvent) {
@@ -555,7 +569,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   async function loadWallpaper(url: string, version: number) {
     if (!resources || !three || !url) return
 
-    const profile = getGlassOpticalRenderProfile(toValue(options.quality), toValue(options.routeKey))
+    const profile = getRenderProfile()
     const shouldUseProceduralTexture =
       profile.textureSource === 'procedural' ||
       (profile.textureSource === 'auto' && !canUseGlassWallpaperTexture(url, window.location.href))
@@ -784,17 +798,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   watch(
     () => toValue(options.routeKey),
     async (routeKey, previousRouteKey) => {
+      const previousProfile = getRenderProfile(previousRouteKey ?? '')
       await nextTick()
       if (resources) {
-        const previousProfile = getGlassOpticalRenderProfile(toValue(options.quality), previousRouteKey ?? '')
-        const nextProfile = getGlassOpticalRenderProfile(toValue(options.quality), routeKey)
+        const nextProfile = getRenderProfile(routeKey)
         resizeRenderer()
 
-        if (
-          previousProfile.bufferQuality !== nextProfile.bufferQuality ||
-          previousProfile.textureLimit !== nextProfile.textureLimit ||
-          previousProfile.textureSource !== nextProfile.textureSource
-        ) {
+        if (profileRequiresTextureReload(previousProfile, nextProfile)) {
           const version = ++loadVersion
           setGlassRendererState(state, 'loading')
 

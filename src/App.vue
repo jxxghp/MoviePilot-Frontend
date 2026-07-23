@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { usePreferredReducedMotion } from '@vueuse/core'
 import { useTheme } from 'vuetify'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
 import api, { type ConnectionAwareRequestConfig } from '@/api'
@@ -30,7 +31,6 @@ import { commitPreloadedBackgroundRotation } from '@/utils/backgroundRotation'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
-const MEDIA_DENSE_OPTICAL_DEFER_MS = 1_600
 
 // 生效主题
 const vuetifyTheme = useTheme()
@@ -75,12 +75,13 @@ const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
 const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivityState } = useAppActivityLifecycle()
+const preferredMotion = usePreferredReducedMotion()
+// 壁纸轮播同时服从应用活动状态与系统动态效果偏好。
+const allowsBackgroundRotation = computed(() => allowsDecorativeMotion.value && preferredMotion.value !== 'reduce')
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
-const isGlassOpticalLayerDeferred = ref(true)
-let glassOpticalLayerDeferTimer: number | null = null
 const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
 const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
@@ -100,7 +101,7 @@ const shouldRenderGlassOpticalLayer = computed(
   () =>
     isGlassTheme.value &&
     effectiveGlassSettings.value.glassQuality !== 'css' &&
-    !isGlassOpticalLayerDeferred.value &&
+    isInitialRouteReady.value &&
     !isRenderThrottled.value &&
     Boolean(activeBackgroundImage.value),
 )
@@ -138,35 +139,6 @@ function handleTransparencySettingsChanged(event: Event) {
 }
 
 applyTransparentBackgroundSettings()
-
-/** 推荐页高质量光学层让首屏海报优先完成解码与合成。 */
-watch(
-  () => [route.fullPath, effectiveGlassSettings.value.glassQuality, isInitialRouteReady.value] as const,
-  ([, quality, routeReady]) => {
-    if (glassOpticalLayerDeferTimer !== null) {
-      window.clearTimeout(glassOpticalLayerDeferTimer)
-      glassOpticalLayerDeferTimer = null
-    }
-
-    // 首次导航完成前 route 仍可能是重定向来源，禁止 renderer 按错误页面短暂挂载。
-    if (!routeReady) {
-      isGlassOpticalLayerDeferred.value = true
-      return
-    }
-
-    if (route.path !== '/recommend' || quality !== 'high') {
-      isGlassOpticalLayerDeferred.value = false
-      return
-    }
-
-    isGlassOpticalLayerDeferred.value = true
-    glassOpticalLayerDeferTimer = window.setTimeout(() => {
-      isGlassOpticalLayerDeferred.value = false
-      glassOpticalLayerDeferTimer = null
-    }, MEDIA_DENSE_OPTICAL_DEFER_MS)
-  },
-  { immediate: true },
-)
 
 void router.isReady().then(() => {
   isInitialRouteReady.value = true
@@ -412,7 +384,7 @@ async function fetchBackgroundImages() {
 
 // 背景图片轮换函数
 function rotateBackgroundImage() {
-  if (!allowsDecorativeMotion.value) return
+  if (!allowsBackgroundRotation.value) return
 
   if (backgroundImages.value.length > 1) {
     // 计算下一个图片索引
@@ -420,7 +392,7 @@ function rotateBackgroundImage() {
     const requestVersion = ++backgroundRotationVersion
 
     void commitPreloadedBackgroundRotation({
-      canCommit: () => allowsDecorativeMotion.value && requestVersion === backgroundRotationVersion,
+      canCommit: () => allowsBackgroundRotation.value && requestVersion === backgroundRotationVersion,
       commit: () => activateBackgroundImage(nextIndex),
       preload: () => preloadImage(backgroundImages.value[nextIndex]),
     })
@@ -437,7 +409,7 @@ function stopBackgroundRotation() {
 function startBackgroundRotation() {
   stopBackgroundRotation()
 
-  if (allowsDecorativeMotion.value && backgroundImages.value.length > 1) {
+  if (allowsBackgroundRotation.value && backgroundImages.value.length > 1) {
     // 使用优化的定时器管理器，后台时自动暂停
     addBackgroundTimer(
       'background-rotation',
@@ -451,10 +423,10 @@ function startBackgroundRotation() {
   }
 }
 
-watch(appActivityState, state => {
+watch(allowsBackgroundRotation, allowsRotation => {
   resetBackgroundCrossfade()
 
-  if (state === 'active') {
+  if (allowsRotation) {
     startBackgroundRotation()
   } else {
     stopBackgroundRotation()
@@ -655,7 +627,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (glassOpticalLayerDeferTimer !== null) window.clearTimeout(glassOpticalLayerDeferTimer)
   // 清除背景轮换定时器
   stopBackgroundLoading()
   if (authenticatedStateTimer) {

@@ -43,6 +43,9 @@ describe('SearchBarDialog media source selection', () => {
     const { router } = await renderSearchBar()
     const input = await screen.findByPlaceholderText('搜索电影、剧集以及更多...')
 
+    expect(input.getAttribute('id')).toBe('global-media-search')
+    expect(input.getAttribute('aria-label')).toBe('搜索电影、剧集以及更多...')
+
     await user.type(input, '流浪地球{Enter}')
 
     await waitFor(() => {

@@ -24,7 +24,7 @@ export interface GlassOpticalBufferSize {
 }
 
 export interface GlassOpticalRenderProfile {
-  /** 实际内部缓冲档位；媒体密集场景可保留高质量光学但降低合成分辨率。 */
+  /** 光学层内部缓冲使用的质量档位。 */
   bufferQuality: GlassOpticalQuality
   /** 活动壁纸进入 GPU 前的最长边限制。 */
   textureLimit: number
@@ -32,16 +32,14 @@ export interface GlassOpticalRenderProfile {
   textureSource: 'auto' | 'procedural' | 'wallpaper'
 }
 
-/** 按质量与场景分配合成预算，避免推荐页海报解码与高分辨率光学层争抢资源。 */
+/** 质量决定合成缓冲与纹理上限；路由只切换纹理来源，不改变质量档位。 */
 export function getGlassOpticalRenderProfile(
   quality: GlassOpticalQuality,
   routeKey: string,
 ): GlassOpticalRenderProfile {
-  const mediaDenseRoute = routeKey.startsWith('/recommend')
-
   return {
-    bufferQuality: quality === 'high' && !mediaDenseRoute ? 'high' : 'balanced',
-    textureLimit: quality === 'high' && !mediaDenseRoute ? 3072 : 2048,
+    bufferQuality: quality,
+    textureLimit: quality === 'high' ? 3072 : 2048,
     textureSource: routeKey.startsWith('/login') ? 'auto' : 'wallpaper',
   }
 }
