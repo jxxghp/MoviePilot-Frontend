@@ -1,5 +1,6 @@
 import type { MediaInfo, NotExistMediaInfo, Site, Subscribe, TmdbEpisode } from '@/api/types'
 import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
+import vuetify from '@/plugins/vuetify'
 import MediaDetailView from '@/views/discover/MediaDetailView.vue'
 import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { flushPromises } from '@vue/test-utils'
@@ -245,6 +246,21 @@ describe('MediaDetailView detail and actions', () => {
       type_name: media.type,
       year: media.year,
     })
+  })
+
+  it('applies the glass backdrop fade treatment in the glass theme', async () => {
+    const previousTheme = vuetify.theme.global.name.value
+
+    try {
+      vuetify.theme.global.name.value = 'glass'
+      const { container } = await renderDetail()
+
+      expect(await screen.findByRole('heading', { name: /详情测试电影/ })).toBeInTheDocument()
+      expect(container.querySelector('.media-detail-glass')).toBeInTheDocument()
+      expect(container.querySelector('.media-detail-transparent')).not.toBeInTheDocument()
+    } finally {
+      vuetify.theme.global.name.value = previousTheme
+    }
   })
 
   it('renders legal empty media separately from loading', async () => {

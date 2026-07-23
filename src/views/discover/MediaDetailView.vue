@@ -155,6 +155,11 @@ const isTransparentTheme = computed(() => {
   return theme.name.value === 'transparent'
 })
 
+// 计算主题是否为玻璃
+const isGlassTheme = computed(() => {
+  return theme.name.value === 'glass'
+})
+
 // 打开站点选择弹窗，并把站点选择结果交回详情页执行搜索。
 function openSearchSiteDialog() {
   openSharedDialog(
@@ -796,7 +801,10 @@ onUnmounted(() => {
   <div
     v-if="hasMediaIdentity()"
     class="max-w-8xl mx-auto px-4"
-    :class="{ 'media-detail-transparent': isTransparentTheme }"
+    :class="{
+      'media-detail-transparent': isTransparentTheme,
+      'media-detail-glass': isGlassTheme,
+    }"
   >
     <template v-if="getBackdropUrl || getPosterUrl">
       <div class="vue-media-back vue-media-back-image absolute left-0 top-0 w-full h-96">
@@ -1406,12 +1414,13 @@ onUnmounted(() => {
   background-image: none;
 }
 
-.media-detail-transparent .vue-media-back-overlay {
+.media-detail-transparent .vue-media-back-overlay,
+.media-detail-glass .vue-media-back-overlay {
   display: none;
 }
 
-.media-detail-transparent .vue-media-back-image {
-  opacity: 0.78;
+.media-detail-transparent .vue-media-back-image,
+.media-detail-glass .vue-media-back-image {
   mask-image:
     linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
@@ -1420,6 +1429,14 @@ onUnmounted(() => {
     linear-gradient(to bottom, transparent 0%, #000 16%, #000 58%, transparent 100%),
     linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%);
   -webkit-mask-composite: source-in;
+}
+
+.media-detail-transparent .vue-media-back-image {
+  opacity: 0.78;
+}
+
+.media-detail-glass .vue-media-back-image {
+  opacity: 0.88;
 }
 
 .media-page {
