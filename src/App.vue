@@ -28,7 +28,7 @@ import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composab
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
-const WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS = 180_000
+const WINDOW_BLUR_RENDER_THROTTLE_DELAY_MS = 60_000
 const MEDIA_DENSE_OPTICAL_DEFER_MS = 1_600
 
 // 生效主题

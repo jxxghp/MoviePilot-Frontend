@@ -88,6 +88,16 @@ function updateQuality(value: unknown) {
   previewGlassSettings({ glassQuality: option.value })
 }
 
+/** 将当前草稿恢复为玻璃主题默认值并立即预览。 */
+function resetSettings() {
+  draftAppearance.value = 'clear'
+  draftQuality.value = 'css'
+  previewGlassSettings({
+    glassAppearance: draftAppearance.value,
+    glassQuality: draftQuality.value,
+  })
+}
+
 /** 一次提交当前预览，持久化后关闭不会发生视觉回跳。 */
 async function saveSettings() {
   if (isSaving.value) return
@@ -111,19 +121,16 @@ onScopeDispose(cancelGlassPreview)
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" max-width="28rem" scrollable :fullscreen="display.xs.value">
-    <VCard class="glass-settings-dialog">
-      <VCardItem class="glass-settings-dialog__header py-3">
-        <template #prepend>
-          <VAvatar color="primary" variant="tonal" rounded size="40" class="me-2">
-            <VIcon icon="mdi-blur-radial" size="22" />
-          </VAvatar>
-        </template>
+  <VDialog v-if="visible" v-model="visible" max-width="30rem" scrollable :fullscreen="!display.mdAndUp.value">
+    <VCard>
+      <VCardItem>
         <VCardTitle>
+          <VIcon icon="mdi-blur-radial" class="me-2" />
           {{ t('theme.glassSettings') }}
         </VCardTitle>
         <VDialogCloseBtn v-model="visible" />
       </VCardItem>
+      <VDivider />
 
       <VCardText class="glass-settings-dialog__body">
         <section>
@@ -169,33 +176,20 @@ onScopeDispose(cancelGlassPreview)
         </section>
       </VCardText>
 
-      <VCardActions class="app-dialog-actions glass-settings-dialog__actions">
-        <VSpacer />
-        <VBtn
-          color="primary"
-          variant="flat"
-          prepend-icon="mdi-content-save"
-          class="px-5"
-          :loading="isSaving"
-          @click="saveSettings"
-        >
+      <VDivider />
+      <VCardText class="text-center">
+        <VBtn variant="outlined" prepend-icon="mdi-refresh" class="me-2" @click="resetSettings">
+          {{ t('common.reset') }}
+        </VBtn>
+        <VBtn color="primary" prepend-icon="mdi-content-save" :loading="isSaving" @click="saveSettings">
           {{ t('common.save') }}
         </VBtn>
-      </VCardActions>
+      </VCardText>
     </VCard>
   </VDialog>
 </template>
 
 <style scoped lang="scss">
-.glass-settings-dialog {
-  overflow: hidden;
-  max-block-size: calc(100dvh - 2rem);
-}
-
-.glass-settings-dialog__header {
-  border-block-end: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-}
-
 .glass-settings-dialog__body {
   display: grid;
   align-content: start;
@@ -259,26 +253,5 @@ onScopeDispose(cancelGlassPreview)
 .glass-settings-dialog__quality-option:deep(.v-btn--active) {
   background-color: rgba(var(--v-theme-primary), 0.14) !important;
   box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.38) !important;
-}
-
-.glass-settings-dialog__actions {
-  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  padding-block: 0.875rem;
-  padding-inline: 1rem;
-}
-
-@media (width <= 600px) {
-  .glass-settings-dialog {
-    block-size: 100dvh;
-    max-block-size: 100dvh;
-  }
-
-  .glass-settings-dialog__body {
-    padding-inline: 18px;
-  }
-
-  .glass-settings-dialog__actions {
-    padding-block-end: max(0.875rem, calc(env(safe-area-inset-bottom) + 0.75rem));
-  }
 }
 </style>
