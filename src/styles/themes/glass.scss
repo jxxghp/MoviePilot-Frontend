@@ -42,6 +42,9 @@ html[data-theme='glass'] {
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-overlay-surface: var(--glass-surface-raised);
+  --glass-overlay-blur: 3px;
+  --glass-overlay-saturate: 135%;
+  --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
   --glass-control-icon-color: rgba(242, 245, 250, 70%);
   --glass-control-placeholder-color: rgba(242, 245, 250, 54%);
   --glass-control-shortcut-background: rgba(255, 255, 255, 8%);
@@ -155,6 +158,9 @@ html[data-theme='glass'] {
     --glass-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate));
     --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
     --glass-control-prominent-backdrop-filter: blur(24px) saturate(150%);
+    --glass-overlay-surface: var(--glass-surface-raised);
+    --glass-overlay-blur: var(--glass-blur-raised);
+    --glass-overlay-saturate: var(--glass-saturate);
     --glass-blur-surface: 28px;
     --glass-saturate: 150%;
     --glass-control-icon-color: rgba(242, 245, 250, 78%);
@@ -311,9 +317,6 @@ html[data-theme='glass'] {
 
   :where(
     .layout-navbar,
-    .footer-nav-card,
-    .theme-customizer-panel-host,
-    .agent-assistant-panel,
     .Vue-Toastification__toast
   ) {
     border-color: var(--glass-border-raised) !important;
@@ -322,6 +325,24 @@ html[data-theme='glass'] {
     background-color: var(--glass-surface-raised) !important;
     background-image: var(--glass-sheen) !important;
     box-shadow: var(--glass-shadow-raised) !important;
+  }
+
+  // 固定浮层、移动底栏与 Vuetify 弹出层共用材质参数，避免各入口出现不同的模糊和底色。
+  :where(.theme-customizer-panel-host, .agent-assistant-panel, .footer-nav-card) {
+    border-color: var(--glass-border-raised) !important;
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    background-color: var(--glass-overlay-surface) !important;
+    background-image: var(--glass-sheen) !important;
+    box-shadow: var(--glass-shadow-raised) !important;
+  }
+
+  // 快速访问面板保留全屏无边框结构，但材质与其他弹出层完全一致。
+  .plugin-quick-access.v-card {
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    background-color: var(--glass-overlay-surface) !important;
+    background-image: var(--glass-sheen) !important;
   }
 
   // 顶栏使用更轻的投影，避免与下方内容形成内陷感。
@@ -459,8 +480,8 @@ html[data-theme='glass'] {
   }
 
   .agent-assistant-shell {
-    --agent-assistant-panel-bg: var(--glass-surface-raised);
-    --agent-assistant-panel-blur: var(--glass-blur-raised);
+    --agent-assistant-panel-bg: var(--glass-overlay-surface);
+    --agent-assistant-panel-blur: var(--glass-overlay-blur);
     --agent-assistant-assistant-bg: var(--glass-surface);
   }
 
@@ -491,18 +512,16 @@ html[data-theme='glass'] {
 
     > :where(.v-card, .v-sheet, .v-list),
     > form > :where(.v-card, .v-sheet) {
-      -webkit-backdrop-filter: var(--glass-raised-backdrop-filter) !important;
-      backdrop-filter: var(--glass-raised-backdrop-filter) !important;
+      -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+      backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
       background-color: var(--glass-overlay-surface) !important;
       background-image: var(--glass-sheen) !important;
       box-shadow: var(--glass-shadow-raised) !important;
     }
   }
 
-  // 透明材质不使用实时模糊，弹层改用更深的独立底色保证文字对比度。
+  // 透明材质不生成额外的 contained navbar 磨砂层，其他浮层继续消费共享弹层 token。
   &[data-glass-appearance='clear'] {
-    --glass-overlay-surface: rgba(11, 19, 34, 80%);
-
     // contained navbar 会把 %blurry-bg 扩展到内部容器，透明材质不生成这层滚动磨砂。
     .navbar-blur.layout-navbar .navbar-content-container::before {
       display: none !important;
@@ -510,15 +529,6 @@ html[data-theme='glass'] {
       backdrop-filter: none !important;
       background: transparent !important;
       content: none !important;
-    }
-
-    .v-overlay__content > :where(.v-card, .v-sheet, .v-list),
-    .v-overlay__content > form > :where(.v-card, .v-sheet),
-    .theme-customizer-panel-host,
-    .agent-assistant-panel {
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
-      background-color: var(--glass-overlay-surface) !important;
     }
 
     // 移动端主导航抽屉属于弹出侧栏，桌面常驻导航继续沿用原透明表面。
@@ -530,9 +540,9 @@ html[data-theme='glass'] {
   .v-tooltip > .v-overlay__content,
   .v-snackbar__wrapper {
     border: 1px solid var(--glass-border);
-    -webkit-backdrop-filter: var(--glass-raised-backdrop-filter);
-    backdrop-filter: var(--glass-raised-backdrop-filter);
-    background: rgba(11, 19, 34, 76%) !important;
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter);
+    backdrop-filter: var(--glass-overlay-backdrop-filter);
+    background: var(--glass-overlay-surface) !important;
     box-shadow: var(--glass-shadow);
   }
 
@@ -919,6 +929,8 @@ html[data-theme='glass'][data-glass-appearance='frosted']:is(
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready'] {
   --glass-navbar-backdrop-filter: blur(18px) saturate(145%);
+  --glass-overlay-blur: 18px;
+  --glass-overlay-saturate: 145%;
 }
 
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
@@ -930,8 +942,8 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
   }
 
   .v-overlay__content > :where(.v-card, .v-sheet, .v-list) {
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
-    backdrop-filter: var(--glass-surface-backdrop-filter) !important;
+    -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+    backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
   }
 
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
@@ -948,8 +960,7 @@ html[data-glass-appearance='frosted']:is(
   )[data-glass-renderer-state='ready']
   body[data-theme='glass'] {
   .layout-vertical-nav::before,
-  .layout-navbar,
-  .v-overlay__content > :where(.v-card, .v-sheet, .v-list) {
+  .layout-navbar {
     -webkit-backdrop-filter: blur(18px) saturate(145%) !important;
     backdrop-filter: blur(18px) saturate(145%) !important;
   }
