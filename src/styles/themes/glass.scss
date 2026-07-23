@@ -171,6 +171,31 @@ html[data-theme='glass'] {
     --glass-button-surface: rgba(255, 255, 255, 10%);
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
     --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate));
+
+    // 磨砂弹窗只由最外层表面采样背景，内部卡片与自定义分组表面保持扁平。
+    .v-overlay__content > :where(.v-card, .v-sheet),
+    .v-overlay__content > form > :where(.v-card, .v-sheet) {
+      --app-grouped-list-backdrop-filter: none;
+      --app-grouped-list-background: transparent;
+
+      :where(.app-surface, .v-card, .v-sheet, .v-list, .v-table, .v-expansion-panel, .v-stepper) {
+        border-color: transparent !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        will-change: auto;
+      }
+    }
+
+    .logging-dialog-card .logging-view {
+      --logging-record-bg-even: transparent;
+      --logging-record-bg-odd: transparent;
+      --logging-shadow: none;
+      --logging-shell-backdrop-filter: none;
+      --logging-shell-background: transparent;
+    }
   }
 
   &[data-theme-radius='none'] {
