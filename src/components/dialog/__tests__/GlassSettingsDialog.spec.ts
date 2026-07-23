@@ -76,7 +76,7 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'clear',
-      glassQuality: 'css',
+      glassQuality: 'balanced',
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })

@@ -17,11 +17,11 @@ describe('useThemeCustomizer glass settings', () => {
     localStorage.clear()
   })
 
-  it('uses clear appearance and CSS quality by default', () => {
+  it('uses clear appearance and balanced quality by default', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassQuality).toBe('css')
+    expect(settings.glassQuality).toBe('balanced')
   })
 
   it.each(['balanced', 'high'] as const)('preserves the %s quality contract', quality => {
@@ -45,7 +45,7 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassQuality).toBe('css')
+    expect(settings.glassQuality).toBe('balanced')
   })
 
   it('syncs glass settings to the document roots', () => {
@@ -88,7 +88,7 @@ describe('useThemeCustomizer glass settings', () => {
     previewGlassSettings({ glassAppearance: 'frosted' })
 
     expect(document.documentElement.dataset.glassAppearance).toBe('frosted')
-    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'clear', glassQuality: 'css' })
+    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'clear', glassQuality: 'balanced' })
 
     commitGlassPreview()
 

@@ -87,6 +87,7 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validGlassAppearances: ThemeCustomizerGlassAppearance[] = ['clear', 'tinted', 'frosted']
 const validGlassQualities: ThemeCustomizerGlassQuality[] = ['css', 'balanced', 'high']
+const defaultGlassQuality: ThemeCustomizerGlassQuality = 'balanced'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
 const validRadii: ThemeCustomizerRadius[] = ['none', 'small', 'default', 'large', 'extra']
 const validShadows: readonly ThemeCustomizerShadow[] = themeCustomizerShadowLevels
@@ -124,7 +125,7 @@ function readStoredThemePreference(): ThemeCustomizerTheme {
 function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
   return {
     glassAppearance: 'clear',
-    glassQuality: 'css',
+    glassQuality: defaultGlassQuality,
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -386,7 +387,7 @@ export function cancelGlassPreview() {
 export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   const defaults = normalizeThemeCustomizerSettings({
     glassAppearance: 'clear',
-    glassQuality: 'css',
+    glassQuality: defaultGlassQuality,
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -487,7 +488,7 @@ export function useThemeCustomizer() {
   async function resetSettings() {
     await updateSettings({
       glassAppearance: 'clear',
-      glassQuality: 'css',
+      glassQuality: defaultGlassQuality,
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       radius: 'default',
