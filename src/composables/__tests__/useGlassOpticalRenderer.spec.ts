@@ -600,6 +600,102 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('keeps local material response stable while moving from card A through a gap to card B', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(700)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const surfaces = [
+      { x: 100, name: 'A' },
+      { x: 400, name: 'B' },
+    ]
+    surfaces.forEach(({ name, x }) => {
+      const surface = appendOpticalSurface('app-hover-lift-card', {
+        height: 180,
+        width: 180,
+        x,
+        y: 100,
+      })
+      surface.dataset.testSurface = name
+    })
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now()))
+    }
+    render.mockClear()
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 160 }))
+    const [cardAFrame] = callbacks.values()
+    callbacks.clear()
+    cardAFrame(performance.now() + 16)
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uRects: { value: Array<{ x: number }> }
+            uSurfaceWeights: { value: number[] }
+          }
+          fragmentShader: string
+        }
+      }>
+    }
+    const uniforms = scene.children[0].material.uniforms
+    const cardAX = 100 / 1200
+    const cardBX = 400 / 1200
+    expect(uniforms.uRects.value.some(rect => Math.abs(rect.x - cardAX) < 0.001)).toBe(true)
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 330, clientY: 160 }))
+    expect(uniforms.uRects.value.some(rect => Math.abs(rect.x - cardAX) < 0.001)).toBe(true)
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 460, clientY: 160 }))
+    const cardAIndex = uniforms.uRects.value.findIndex(rect => Math.abs(rect.x - cardAX) < 0.001)
+    const cardBIndex = uniforms.uRects.value.findIndex(rect => Math.abs(rect.x - cardBX) < 0.001)
+    expect(cardAIndex).toBeGreaterThanOrEqual(0)
+    expect(cardBIndex).toBeGreaterThanOrEqual(0)
+    expect(uniforms.uSurfaceWeights.value[cardAIndex]).toBe(1)
+    expect(uniforms.uSurfaceWeights.value[cardBIndex]).toBe(1)
+    expect(scene.children[0].material.fragmentShader).not.toContain('clamp(uMotion +')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain('softLimitDynamicRefraction')
+    expect(scene.children[0].material.fragmentShader).toContain('getContentProtection')
+    expect(scene.children[0].material.fragmentShader).toContain('sampleHighQualityDiffuse')
+    expect(scene.children[0].material.fragmentShader).toContain('surfaceCurvature')
+    expect(scene.children[0].material.fragmentShader).toContain('mix(0.06, 0.12, liquidPresence)')
+    expect(scene.children[0].material.fragmentShader).not.toContain('mix(0.035, 0.4')
+    expect(scene.children[0].material.fragmentShader).not.toContain('sin(')
+
+    scope.stop()
+  })
+
   it('settles pointer feedback without leaving a continuous animation frame', async () => {
     const three = await import('three')
     const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')

@@ -5,8 +5,13 @@ import {
   getGlassOpticalBufferSize,
   getGlassOpticalMotionEnergy,
   getGlassOpticalRenderProfile,
+  getGlassOpticalSurfaceTransitionWeights,
+  getGlassOpticalWakeDirection,
+  getGlassOpticalWakeSample,
   normalizeGlassOpticalRect,
+  reconcileGlassOpticalSurfaceSlots,
   selectGlassOpticalRects,
+  stepGlassOpticalSpring,
   type GlassOpticalRect,
 } from '@/utils/glassOptics'
 import { describe, expect, it } from 'vitest'
@@ -27,59 +32,111 @@ describe('glass optics geometry', () => {
   it('keeps the selected optical quality on every route', () => {
     expect(getGlassOpticalRenderProfile('high', '/dashboard')).toEqual({
       bufferQuality: 'high',
+      contentProtection: true,
+      diffusionSamples: 9,
       flowField: true,
       flowHalfLife: 130,
-      motionDuration: 680,
-      motionHalfLife: 145,
+      maxRefractionPixels: 9,
+      motionDuration: 540,
+      motionHalfLife: 125,
       pixelRatioCap: 1.5,
+      pointerImmediateResponse: 0.58,
+      springDamping: 0.78,
+      springFrequency: 18,
       textureLimit: 4096,
       textureSource: 'wallpaper',
       trailCount: 4,
     })
     expect(getGlassOpticalRenderProfile('high', '/recommend?source=tmdb')).toEqual({
       bufferQuality: 'high',
+      contentProtection: true,
+      diffusionSamples: 9,
       flowField: true,
       flowHalfLife: 130,
-      motionDuration: 680,
-      motionHalfLife: 145,
+      maxRefractionPixels: 9,
+      motionDuration: 540,
+      motionHalfLife: 125,
       pixelRatioCap: 1.5,
+      pointerImmediateResponse: 0.58,
+      springDamping: 0.78,
+      springFrequency: 18,
       textureLimit: 4096,
       textureSource: 'wallpaper',
       trailCount: 4,
     })
     expect(getGlassOpticalRenderProfile('high', '/subscribe/movie')).toEqual({
       bufferQuality: 'high',
+      contentProtection: true,
+      diffusionSamples: 9,
       flowField: true,
       flowHalfLife: 130,
-      motionDuration: 680,
-      motionHalfLife: 145,
+      maxRefractionPixels: 9,
+      motionDuration: 540,
+      motionHalfLife: 125,
       pixelRatioCap: 1.5,
+      pointerImmediateResponse: 0.58,
+      springDamping: 0.78,
+      springFrequency: 18,
       textureLimit: 4096,
       textureSource: 'wallpaper',
       trailCount: 4,
     })
     expect(getGlassOpticalRenderProfile('balanced', '/dashboard')).toEqual({
       bufferQuality: 'balanced',
+      contentProtection: false,
+      diffusionSamples: 5,
       flowField: false,
       flowHalfLife: 0,
-      motionDuration: 420,
-      motionHalfLife: 90,
+      maxRefractionPixels: 6,
+      motionDuration: 360,
+      motionHalfLife: 82,
       pixelRatioCap: 1,
+      pointerImmediateResponse: 0.7,
+      springDamping: 0.9,
+      springFrequency: 24,
       textureLimit: 3072,
       textureSource: 'wallpaper',
       trailCount: 2,
     })
     expect(getGlassOpticalRenderProfile('high', '/login')).toEqual({
       bufferQuality: 'high',
+      contentProtection: true,
+      diffusionSamples: 9,
       flowField: true,
       flowHalfLife: 130,
-      motionDuration: 680,
-      motionHalfLife: 145,
+      maxRefractionPixels: 9,
+      motionDuration: 540,
+      motionHalfLife: 125,
       pixelRatioCap: 1.5,
+      pointerImmediateResponse: 0.58,
+      springDamping: 0.78,
+      springFrequency: 18,
       textureLimit: 4096,
       textureSource: 'auto',
       trailCount: 4,
     })
+  })
+
+  it('spends high-quality cost on visible detail and content protection', () => {
+    const balanced = getGlassOpticalRenderProfile('balanced', '/dashboard')
+    const high = getGlassOpticalRenderProfile('high', '/dashboard')
+
+    expect(balanced).toMatchObject({
+      contentProtection: false,
+      diffusionSamples: 5,
+      flowField: false,
+      maxRefractionPixels: 6,
+      trailCount: 2,
+    })
+    expect(high).toMatchObject({
+      contentProtection: true,
+      diffusionSamples: 9,
+      flowField: true,
+      maxRefractionPixels: 9,
+      trailCount: 4,
+    })
+    expect(high.motionDuration).toBeGreaterThan(balanced.motionDuration)
+    expect(high.pixelRatioCap).toBeGreaterThan(balanced.pixelRatioCap)
   })
 
   it('uses refresh-rate independent decay and reaches a deterministic static state', () => {
@@ -93,6 +150,117 @@ describe('glass optics geometry', () => {
 
     const samples = Array.from({ length: 29 }, (_, index) => getGlassOpticalMotionEnergy(index * 15, 420, 90))
     expect(samples.every((sample, index) => index === 0 || sample <= samples[index - 1])).toBe(true)
+  })
+
+  it('keeps one crest and one trough in the event-relative liquid wake', () => {
+    const samples = Array.from({ length: 161 }, (_, index) => getGlassOpticalWakeSample(-4 + index * 0.05))
+    const extrema = samples
+      .slice(1, -1)
+      .filter(
+        (sample, index) =>
+          (sample > samples[index] && sample > samples[index + 2]) ||
+          (sample < samples[index] && sample < samples[index + 2]),
+      )
+
+    expect(extrema).toHaveLength(2)
+    expect(Math.min(...samples)).toBeLessThan(0)
+    expect(Math.max(...samples)).toBeGreaterThan(0)
+    expect(getGlassOpticalWakeSample(0)).toBe(0)
+  })
+
+  it('locks wake direction until a deliberate turn starts a new impulse', () => {
+    expect(
+      getGlassOpticalWakeDirection({ x: 1, y: 0 }, { x: Math.cos(Math.PI / 8), y: Math.sin(Math.PI / 8) }, 0.04, false),
+    ).toEqual({ x: 1, y: 0 })
+    expect(getGlassOpticalWakeDirection({ x: 1, y: 0 }, { x: 0, y: 1 }, 0.04, false)).toEqual({ x: 0, y: 1 })
+    expect(getGlassOpticalWakeDirection({ x: 1, y: 0 }, { x: 0, y: 1 }, 0.002, false)).toEqual({ x: 1, y: 0 })
+    expect(getGlassOpticalWakeDirection({ x: 1, y: 0 }, { x: 0, y: 2 }, 0.04, true)).toEqual({ x: 0, y: 1 })
+  })
+
+  it('uses a frame-rate independent spring with at most one visible overshoot', () => {
+    const profile = getGlassOpticalRenderProfile('high', '/dashboard')
+    const simulate = (deltaMs: number) => {
+      let state = { position: 0, velocity: 0 }
+      const samples: number[] = []
+
+      for (let elapsed = 0; elapsed < profile.motionDuration; elapsed += deltaMs) {
+        state = stepGlassOpticalSpring(state, 1, deltaMs, profile.springFrequency, profile.springDamping)
+        samples.push(state.position)
+      }
+
+      return { samples, state }
+    }
+    const sixtyHertz = simulate(1000 / 60)
+    const oneTwentyHertz = simulate(1000 / 120)
+    const visibleCrossings = sixtyHertz.samples.slice(1).filter((sample, index) => {
+      const previousOffset = sixtyHertz.samples[index] - 1
+      const currentOffset = sample - 1
+
+      return previousOffset * currentOffset < 0 && Math.max(Math.abs(previousOffset), Math.abs(currentOffset)) > 0.002
+    })
+
+    expect(visibleCrossings.length).toBeLessThanOrEqual(1)
+    expect(Math.max(...sixtyHertz.samples)).toBeLessThan(1.04)
+    expect(sixtyHertz.state.position).toBeCloseTo(1, 2)
+    expect(sixtyHertz.state.position).toBeCloseTo(oneTwentyHertz.state.position, 3)
+  })
+
+  it('reconciles capped surface slots without reshuffling stable cards', () => {
+    const candidates = Array.from({ length: 10 }, (_, index) => ({
+      key: `card-${index}`,
+      rect: {
+        height: 80,
+        radii: [12, 12, 12, 12] as [number, number, number, number],
+        rank: index + 1,
+        width: 90,
+        x: index * 100,
+        y: 20,
+      },
+    }))
+    const initial = reconcileGlassOpticalSurfaceSlots([], candidates, 8)
+    const onCardA = reconcileGlassOpticalSurfaceSlots(initial, candidates, 8, 'card-8')
+    const throughGap = reconcileGlassOpticalSurfaceSlots(onCardA, candidates, 8, 'card-8')
+    const onCardB = reconcileGlassOpticalSurfaceSlots(throughGap, candidates, 8, 'card-9', 'card-8')
+
+    expect(initial.map(slot => slot.key)).toEqual([
+      'card-0',
+      'card-1',
+      'card-2',
+      'card-3',
+      'card-4',
+      'card-5',
+      'card-6',
+      'card-7',
+    ])
+    expect(onCardA.map(slot => slot.key)).toEqual([
+      'card-0',
+      'card-1',
+      'card-2',
+      'card-3',
+      'card-4',
+      'card-5',
+      'card-6',
+      'card-8',
+    ])
+    expect(throughGap.map(slot => slot.key)).toEqual(onCardA.map(slot => slot.key))
+    expect(onCardB.map(slot => slot.key)).toEqual([
+      'card-0',
+      'card-1',
+      'card-2',
+      'card-3',
+      'card-4',
+      'card-5',
+      'card-8',
+      'card-9',
+    ])
+    expect(onCardB.at(-2)?.role).toBe('outgoing')
+    expect(onCardB.at(-1)?.role).toBe('active')
+  })
+
+  it('crossfades active surface weights monotonically', () => {
+    expect(getGlassOpticalSurfaceTransitionWeights(0, 96)).toEqual({ incoming: 0.35, outgoing: 1 })
+    expect(getGlassOpticalSurfaceTransitionWeights(48, 96)).toEqual({ incoming: 0.675, outgoing: 0.5 })
+    expect(getGlassOpticalSurfaceTransitionWeights(96, 96)).toEqual({ incoming: 1, outgoing: 0 })
   })
 
   it('only uploads browser-readable login wallpapers to WebGL', () => {
