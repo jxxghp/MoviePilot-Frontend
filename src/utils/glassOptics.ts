@@ -1,5 +1,10 @@
 export const GLASS_OPTICAL_MAX_SURFACES_DESKTOP = 8
 export const GLASS_OPTICAL_MAX_SURFACES_MOBILE = 5
+export const GLASS_OPTICAL_MOTION_MAX_SCALE = 3.2
+export const GLASS_OPTICAL_REFLECTION_MAX_SCALE = 1.8
+export const GLASS_OPTICAL_STRENGTH_DEFAULT = 50
+export const GLASS_OPTICAL_STRENGTH_MAX = 100
+export const GLASS_OPTICAL_STRENGTH_MIN = 0
 
 export type GlassOpticalQuality = 'balanced' | 'high'
 export type GlassCornerRadii = [number, number, number, number]
@@ -88,6 +93,64 @@ export interface GlassOpticalRenderProfile {
   textureSource: 'auto' | 'procedural' | 'wallpaper'
   /** 参与液态方向计算的最近输入采样数量。 */
   trailCount: number
+}
+
+/** 将用户滑杆输入收敛到 renderer 支持的整数范围，非法存量值回落到默认视觉。 */
+export function normalizeGlassOpticalStrength(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return GLASS_OPTICAL_STRENGTH_DEFAULT
+
+  return Math.min(GLASS_OPTICAL_STRENGTH_MAX, Math.max(GLASS_OPTICAL_STRENGTH_MIN, Math.round(value)))
+}
+
+/**
+ * 流动强度使用感知曲线：中点保持既有视觉，高区间同时释放更大的形变幅度与空间范围。
+ * 最大值仍受质量档和内容保护共同约束，避免高梯度海报出现无界拉伸。
+ */
+export function getGlassOpticalMotionStrengthScale(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const normalizedRatio = normalized / GLASS_OPTICAL_STRENGTH_DEFAULT
+
+  return normalizedRatio ** Math.log2(GLASS_OPTICAL_MOTION_MAX_SCALE)
+}
+
+/** 高于默认值的流动强度逐步扩大作用范围，低区间不会意外改变既有空间尺度。 */
+export function getGlassOpticalMotionExpansion(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const highRangeProgress = Math.max(
+    0,
+    (normalized - GLASS_OPTICAL_STRENGTH_DEFAULT) / (GLASS_OPTICAL_STRENGTH_MAX - GLASS_OPTICAL_STRENGTH_DEFAULT),
+  )
+
+  return highRangeProgress ** 1.55
+}
+
+/** 最大几何形变只由质量档约束；流动滑杆改变覆盖与连续性，不继续拉伸背景内容。 */
+export function getGlassOpticalMaxRefractionPixels(basePixels: number, _value: unknown) {
+  void _value
+
+  return basePixels
+}
+
+/** 反射强度使用独立感知曲线，只控制光学亮度，不放大背景位移。 */
+export function getGlassOpticalReflectionStrengthScale(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const normalizedRatio = normalized / GLASS_OPTICAL_STRENGTH_DEFAULT
+
+  return normalizedRatio ** Math.log2(GLASS_OPTICAL_REFLECTION_MAX_SCALE)
+}
+
+/** 通透度独立控制真实背景与可读性遮罩的占比，高区间继续增强但逐步收敛。 */
+export function getGlassOpticalTransparency(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  if (normalized <= 80) {
+    const progress = normalized / 80
+
+    return 0.28 + 0.58 * progress ** 1.25
+  }
+
+  const highRangeProgress = (normalized - 80) / 20
+
+  return 0.86 + 0.1 * highRangeProgress ** 1.5
 }
 
 /** 质量决定合成缓冲与纹理上限；路由只切换纹理来源，不改变质量档位。 */

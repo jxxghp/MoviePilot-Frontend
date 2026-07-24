@@ -6,6 +6,7 @@ import {
   previewGlassSettings,
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_STORAGE_KEY,
+  useEffectiveGlassSettings,
 } from '@/composables/useThemeCustomizer'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -17,11 +18,14 @@ describe('useThemeCustomizer glass settings', () => {
     localStorage.clear()
   })
 
-  it('uses clear appearance and balanced quality by default', () => {
+  it('uses the checkpoint appearance, quality, and strength values by default', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
+    expect(settings.glassMotionStrength).toBe(50)
     expect(settings.glassQuality).toBe('balanced')
+    expect(settings.glassReflectionStrength).toBe(50)
+    expect(settings.glassTransparencyStrength).toBe(50)
   })
 
   it.each(['balanced', 'high'] as const)('preserves the %s quality contract', quality => {
@@ -48,6 +52,19 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassQuality).toBe('balanced')
   })
 
+  it('rounds and clamps persisted optical strength values', () => {
+    localStorage.setItem(
+      THEME_CUSTOMIZER_STORAGE_KEY,
+      JSON.stringify({ glassMotionStrength: -12, glassReflectionStrength: 140.6, glassTransparencyStrength: 83.7 }),
+    )
+
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassMotionStrength: 0,
+      glassReflectionStrength: 100,
+      glassTransparencyStrength: 84,
+    })
+  })
+
   it('syncs glass settings to the document roots', () => {
     const settings = readThemeCustomizerSettings()
 
@@ -61,6 +78,10 @@ describe('useThemeCustomizer glass settings', () => {
     expect(document.documentElement.dataset.glassQuality).toBe('high')
     expect(document.body.dataset.glassAppearance).toBe('tinted')
     expect(document.body.dataset.glassQuality).toBe('high')
+    expect(document.documentElement.style.getPropertyValue('--glass-reflection')).toBe('0.5')
+    expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.5')
+    expect(document.documentElement.style.getPropertyValue('--glass-transparency')).toBe('0.5')
+    expect(document.body.style.getPropertyValue('--glass-transparency')).toBe('0.5')
   })
 
   it('previews glass settings without persisting them', () => {
@@ -76,11 +97,23 @@ describe('useThemeCustomizer glass settings', () => {
   it('commits the latest glass preview as one persisted state', () => {
     previewGlassSettings({ glassAppearance: 'tinted' })
     previewGlassSettings({ glassAppearance: 'clear' })
-    previewGlassSettings({ glassAppearance: 'tinted', glassQuality: 'css' })
+    previewGlassSettings({
+      glassAppearance: 'tinted',
+      glassMotionStrength: 74,
+      glassQuality: 'css',
+      glassReflectionStrength: 81,
+      glassTransparencyStrength: 80,
+    })
 
     commitGlassPreview()
 
-    expect(readThemeCustomizerSettings()).toMatchObject({ glassAppearance: 'tinted', glassQuality: 'css' })
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassAppearance: 'tinted',
+      glassMotionStrength: 74,
+      glassQuality: 'css',
+      glassReflectionStrength: 81,
+      glassTransparencyStrength: 80,
+    })
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
   })
 
@@ -96,12 +129,34 @@ describe('useThemeCustomizer glass settings', () => {
   })
 
   it('restores persisted glass settings when a preview is cancelled', () => {
-    persistPartialThemeCustomizerSettings({ glassAppearance: 'tinted' })
-    previewGlassSettings({ glassAppearance: 'clear' })
+    const effective = useEffectiveGlassSettings()
+    persistPartialThemeCustomizerSettings({
+      glassAppearance: 'tinted',
+      glassMotionStrength: 42,
+      glassReflectionStrength: 66,
+      glassTransparencyStrength: 72,
+    })
+    previewGlassSettings({
+      glassAppearance: 'clear',
+      glassMotionStrength: 90,
+      glassReflectionStrength: 12,
+      glassTransparencyStrength: 94,
+    })
+    expect(effective.value).toMatchObject({
+      glassAppearance: 'clear',
+      glassMotionStrength: 90,
+      glassReflectionStrength: 12,
+      glassTransparencyStrength: 94,
+    })
 
     cancelGlassPreview()
 
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
-    expect(readThemeCustomizerSettings().glassAppearance).toBe('tinted')
+    expect(effective.value).toMatchObject({
+      glassAppearance: 'tinted',
+      glassMotionStrength: 42,
+      glassReflectionStrength: 66,
+      glassTransparencyStrength: 72,
+    })
   })
 })

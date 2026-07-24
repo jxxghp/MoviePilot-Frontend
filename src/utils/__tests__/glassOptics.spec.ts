@@ -1,14 +1,22 @@
 import {
   canUseGlassWallpaperTexture,
+  GLASS_OPTICAL_MOTION_MAX_SCALE,
+  GLASS_OPTICAL_REFLECTION_MAX_SCALE,
   getGlassCoverScale,
   getGlassOpticalDecay,
   getGlassOpticalBufferSize,
+  getGlassOpticalMaxRefractionPixels,
   getGlassOpticalMotionEnergy,
+  getGlassOpticalMotionExpansion,
+  getGlassOpticalMotionStrengthScale,
+  getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
+  getGlassOpticalTransparency,
   getGlassOpticalSurfaceTransitionWeights,
   getGlassOpticalWakeDirection,
   getGlassOpticalWakeSample,
   normalizeGlassOpticalRect,
+  normalizeGlassOpticalStrength,
   reconcileGlassOpticalSurfaceSlots,
   selectGlassOpticalRects,
   stepGlassOpticalSpring,
@@ -27,6 +35,36 @@ describe('glass optics geometry', () => {
   it('matches cover cropping on wide and tall images', () => {
     expect(getGlassCoverScale(1600, 900, 2400, 1600)).toEqual({ x: 1, y: 0.84375 })
     expect(getGlassCoverScale(900, 1600, 2400, 1600)).toEqual({ x: 0.375, y: 1 })
+  })
+
+  it('maps user strength sliders to accelerated high-range optical response', () => {
+    expect(normalizeGlassOpticalStrength(Number.NaN)).toBe(50)
+    expect(normalizeGlassOpticalStrength(-12)).toBe(0)
+    expect(normalizeGlassOpticalStrength(44.6)).toBe(45)
+    expect(normalizeGlassOpticalStrength(160)).toBe(100)
+    expect(getGlassOpticalMotionStrengthScale(0)).toBe(0)
+    expect(getGlassOpticalMotionStrengthScale(50)).toBe(1)
+    expect(getGlassOpticalMotionStrengthScale(80)).toBeGreaterThan(2)
+    expect(getGlassOpticalMotionStrengthScale(100)).toBeCloseTo(GLASS_OPTICAL_MOTION_MAX_SCALE)
+    expect(getGlassOpticalMotionStrengthScale(75) - getGlassOpticalMotionStrengthScale(50)).toBeGreaterThan(
+      getGlassOpticalMotionStrengthScale(50) - getGlassOpticalMotionStrengthScale(25),
+    )
+    expect(getGlassOpticalMotionExpansion(50)).toBe(0)
+    expect(getGlassOpticalMotionExpansion(80)).toBeGreaterThan(0.4)
+    expect(getGlassOpticalMotionExpansion(100)).toBe(1)
+    expect(getGlassOpticalMaxRefractionPixels(9, 50)).toBe(9)
+    expect(getGlassOpticalMaxRefractionPixels(9, 80)).toBe(9)
+    expect(getGlassOpticalMaxRefractionPixels(9, 100)).toBe(9)
+    expect(getGlassOpticalReflectionStrengthScale(0)).toBe(0)
+    expect(getGlassOpticalReflectionStrengthScale(50)).toBe(1)
+    expect(getGlassOpticalReflectionStrengthScale(100)).toBeCloseTo(GLASS_OPTICAL_REFLECTION_MAX_SCALE)
+    expect(getGlassOpticalTransparency(0)).toBeCloseTo(0.28)
+    expect(getGlassOpticalTransparency(50)).toBeGreaterThan(0.6)
+    expect(getGlassOpticalTransparency(80)).toBeCloseTo(0.86)
+    expect(getGlassOpticalTransparency(100)).toBeCloseTo(0.96)
+    expect(getGlassOpticalTransparency(100) - getGlassOpticalTransparency(80)).toBeLessThan(
+      getGlassOpticalTransparency(80) - getGlassOpticalTransparency(50),
+    )
   })
 
   it('keeps the selected optical quality on every route', () => {

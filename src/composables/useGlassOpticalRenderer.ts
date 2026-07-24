@@ -17,11 +17,17 @@ import {
   canUseGlassWallpaperTexture,
   GLASS_OPTICAL_MAX_SURFACES_DESKTOP,
   GLASS_OPTICAL_MAX_SURFACES_MOBILE,
+  GLASS_OPTICAL_STRENGTH_DEFAULT,
   getGlassCoverScale,
   getGlassOpticalBufferSize,
   getGlassOpticalDecay,
+  getGlassOpticalMaxRefractionPixels,
+  getGlassOpticalMotionExpansion,
+  getGlassOpticalMotionStrengthScale,
   getGlassOpticalMotionEnergy,
+  getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
+  getGlassOpticalTransparency,
   getGlassOpticalSurfaceTransitionWeights,
   getGlassOpticalWakeDirection,
   normalizeGlassOpticalRect,
@@ -52,16 +58,20 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uHasWallpaperTexture: IUniform<number>
   uHasFlowTexture: IUniform<number>
   uMotion: IUniform<number>
+  uMotionExpansion: IUniform<number>
+  uMotionStrength: IUniform<number>
   uMaxRefractionPixels: IUniform<number>
   uPointer: IUniform<Vector2>
   uPointerVelocity: IUniform<Vector2>
   uQuality: IUniform<number>
+  uReflectionStrength: IUniform<number>
   uRadii: IUniform<Vector4[]>
   uRectCount: IUniform<number>
   uRects: IUniform<Vector4[]>
   uSurfaceWeights: IUniform<number[]>
   uTexture: IUniform<Texture | null>
   uTintColor: IUniform<Color>
+  uTransparency: IUniform<number>
   uTrail: IUniform<Vector4[]>
   uTrailCount: IUniform<number>
   uViewportSize: IUniform<Vector2>
@@ -102,7 +112,10 @@ interface UseGlassOpticalRendererOptions {
   active: MaybeRefOrGetter<boolean>
   appearance: MaybeRefOrGetter<ThemeCustomizerGlassAppearance>
   canvas: Ref<HTMLCanvasElement | null>
+  motionStrength?: MaybeRefOrGetter<number>
   quality: MaybeRefOrGetter<GlassOpticalQuality>
+  reflectionStrength?: MaybeRefOrGetter<number>
+  transparencyStrength?: MaybeRefOrGetter<number>
   routeKey: MaybeRefOrGetter<string>
   tintColor: MaybeRefOrGetter<string>
   wallpaperUrl: MaybeRefOrGetter<string>
@@ -197,18 +210,22 @@ uniform vec2 uCoverScale;
 uniform float uHasWallpaperTexture;
 uniform float uHasFlowTexture;
 uniform float uMotion;
+uniform float uMotionExpansion;
+uniform float uMotionStrength;
 uniform float uMaxRefractionPixels;
 uniform vec2 uPointer;
 uniform vec2 uPointerVelocity;
 uniform vec2 uWakeDirection;
 uniform float uWakeProgress;
 uniform float uQuality;
+uniform float uReflectionStrength;
 uniform vec4 uRects[8];
 uniform vec4 uRadii[8];
 uniform float uSurfaceWeights[8];
 uniform int uRectCount;
 uniform float uAppearance;
 uniform vec3 uTintColor;
+uniform float uTransparency;
 uniform vec4 uTrail[4];
 uniform int uTrailCount;
 uniform vec2 uViewportSize;
@@ -315,15 +332,22 @@ void main() {
     trailDelta.x *= uViewportSize.x / max(uViewportSize.y, 1.0);
     float along = dot(trailDelta, wakeDirection);
     float across = dot(trailDelta, wakePerpendicular);
-    float lobe = exp(-(along * along * 42.0 + across * across * 210.0)) * trail.z * uMotion;
+    float trailAlongDensity = mix(42.0, 22.0, uMotionExpansion);
+    float trailAcrossDensity = mix(210.0, 86.0, uMotionExpansion);
+    float lobe =
+      exp(-(along * along * trailAlongDensity + across * across * trailAcrossDensity)) * trail.z * uMotion;
     float wake = mix(0.88, 0.58, float(trailIndex) / 3.0);
 
-    trailRefraction += (wakeDirection * 0.0048 + wakePerpendicular * across * 0.018) * lobe;
+    trailRefraction +=
+      (wakeDirection * 0.0048 + wakePerpendicular * across * 0.018) * lobe * uMotionStrength;
     trailEnergy += lobe * wake * mix(0.72, 0.42, float(trailIndex) / 3.0);
   }
 
   vec4 flowSample = uHasFlowTexture > 0.5 ? texture2D(uFlowTexture, vUv) : vec4(0.5, 0.5, 0.0, 1.0);
-  vec2 temporalFlow = uHasFlowTexture > 0.5 ? (flowSample.xy * 2.0 - 1.0) * flowSample.z * uMotion : vec2(0.0);
+  vec2 temporalFlow =
+    uHasFlowTexture > 0.5
+      ? (flowSample.xy * 2.0 - 1.0) * flowSample.z * uMotion * uMotionStrength
+      : vec2(0.0);
   float temporalEnergy = uHasFlowTexture > 0.5 ? flowSample.z * uMotion : 0.0;
   float flowSurfaceDetail = 0.0;
   if (uQuality > 0.5 && uHasFlowTexture > 0.5) {
@@ -354,39 +378,53 @@ void main() {
     vec2 pointerDeltaAspect = pointerDelta;
     pointerDeltaAspect.x *= uViewportSize.x / max(uViewportSize.y, 1.0);
     float pointerSpread = mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted);
-    float pointerEnergy = exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion;
+    pointerSpread *= mix(1.0, 0.46, uMotionExpansion);
+    float pointerEnergy =
+      clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);
     vec2 wakeDelta = vUv - uPointer;
     wakeDelta.x *= uViewportSize.x / max(uViewportSize.y, 1.0);
     float wakeAlong = dot(wakeDelta, wakeDirection);
     float wakeAcross = dot(wakeDelta, wakePerpendicular);
-    float wakeTravel = mix(0.014, 0.075, uWakeProgress) * mix(0.82, 1.18, uQuality);
-    float wakeWidth = mix(0.027, 0.044, uQuality);
+    float wakeTravel =
+      mix(0.014, 0.075, uWakeProgress) *
+      mix(0.82, 1.18, uQuality) *
+      mix(1.0, 1.45, uMotionExpansion);
+    float wakeWidth = mix(0.027, 0.044, uQuality) * mix(1.0, 1.72, uMotionExpansion);
     float wakeCoordinate = (wakeAlong + wakeTravel) / wakeWidth;
     float wakeShape = wakeCoordinate * exp(-0.5 * wakeCoordinate * wakeCoordinate);
-    float wakeEnvelope = exp(-wakeAcross * wakeAcross * mix(280.0, 145.0, uQuality));
+    float wakeEnvelope =
+      exp(-wakeAcross * wakeAcross * mix(280.0, 145.0, uQuality) * mix(1.0, 0.44, uMotionExpansion));
     vec2 wakeRefraction =
-      wakeDirection * wakeShape * wakeEnvelope * mix(0.0045, 0.0075, uQuality) * uMotion;
+      wakeDirection *
+      wakeShape *
+      wakeEnvelope *
+      mix(0.0045, 0.0075, uQuality) *
+      uMotion *
+      uMotionStrength;
     float wakeEnergy = abs(wakeShape) * wakeEnvelope * uMotion;
-    float liquidEnergy = max(
+    float liquidEnergy = clamp(max(
       pointerEnergy,
       max(min(1.0, trailEnergy) * 0.68, max(temporalEnergy * 0.76, wakeEnergy * 0.82))
-    );
-    float staticLens = 0.0007 + edgeResponse * mix(0.006, 0.0075, uQuality);
+    ), 0.0, 1.0);
+    float staticLens = 0.00018 + edgeResponse * mix(0.0011, 0.0017, uQuality);
     float pointerStrength = mix(mix(0.0055, 0.008, uQuality), mix(0.0085, 0.012, uQuality), frosted);
     float trailStrength = mix(mix(0.78, 1.08, uQuality), mix(0.96, 1.3, uQuality), frosted);
-    float temporalStrength = mix(0.032, 0.042, frosted) * uQuality;
-    float pointerCurvature = 4.0 * pointerEnergy * (1.0 - pointerEnergy);
-    float wakeCurvature =
-      abs((1.0 - wakeCoordinate * wakeCoordinate) * exp(-0.5 * wakeCoordinate * wakeCoordinate)) *
-      wakeEnvelope *
-      uMotion;
-    float surfaceCurvature = max(pointerCurvature * 0.68, wakeCurvature * 0.78);
-    surfaceCurvature = max(surfaceCurvature, flowSurfaceDetail * temporalEnergy * 0.9);
-    float localCaustic = surfaceCurvature * rectMask;
-
-    staticRefraction += lens * staticLens * mix(1.0, 0.82, frosted) * rectMask;
+    float temporalStrength = mix(0.032, 0.042, frosted) * uQuality * (1.0 + flowSurfaceDetail * 0.5);
+    vec2 specularDelta = vUv - (uPointer - wakeDirection * mix(0.006, 0.022, uMotionExpansion));
+    specularDelta.x *= uViewportSize.x / max(uViewportSize.y, 1.0);
+    float specularAlong = dot(specularDelta, wakeDirection);
+    float specularAcross = dot(specularDelta, wakePerpendicular);
+    float singleSpecular =
+      exp(-(
+        specularAlong * specularAlong * mix(58.0, 25.0, uMotionExpansion) +
+        specularAcross * specularAcross * mix(190.0, 78.0, uMotionExpansion)
+      )) *
+      uMotion *
+      mix(1.0, 1.24, uMotionExpansion);
+    float localCaustic = singleSpecular * rectMask;
+    staticRefraction += lens * staticLens * mix(1.0, 0.72, frosted) * rectMask;
     dynamicRefraction += (
-      pointerDelta * pointerEnergy * pointerStrength +
+      pointerDelta * pointerEnergy * pointerStrength * uMotionStrength +
       trailRefraction * trailStrength +
       temporalFlow * temporalStrength +
       wakeRefraction
@@ -410,7 +448,13 @@ void main() {
   vec3 detailed = sampleChromatic(sourceUv, detailSeparation);
   refracted = mix(refracted, detailed, mix(0.12, 0.32, uQuality) * (1.0 - frosted));
   vec2 diffusionAxis = length(refraction) > 0.00001 ? normalize(refraction) : wakePerpendicular;
-  float diffusionRadius = mix(0.0022, 0.0038, uQuality) * (0.82 + caustic * 0.32);
+  float diffusionRadius =
+    mix(0.0022, 0.0038, uQuality) *
+    (
+      0.82 +
+      materialEnergy * mix(0.28, 0.76, uMotionExpansion) +
+      flowSurfaceDetail * 0.38
+    );
   vec3 diffused;
   if (uQuality > 0.5) {
     diffused = sampleHighQualityDiffuse(sourceUv, diffusionAxis, diffusionRadius);
@@ -421,11 +465,17 @@ void main() {
   float refractedLuminance = dot(refracted, vec3(0.2126, 0.7152, 0.0722));
   float frostedBrightCompression = smoothstep(0.58, 0.94, refractedLuminance) * frosted;
   refracted *= 1.0 - frostedBrightCompression * mix(0.16, 0.22, uQuality);
+  vec3 frostedContrast = clamp((refracted - vec3(0.5)) * 1.16 + vec3(0.5), 0.0, 1.0);
+  refracted = mix(
+    refracted,
+    frostedContrast,
+    frosted * materialEnergy * mix(0.24, 0.58, uMotionExpansion)
+  );
   vec3 highlight = vec3(0.84, 0.92, 1.0);
   float edgeHighlightMix = 0.12;
   float causticHighlightMix = 0.075;
   float liquidPresence = clamp(materialEnergy, 0.0, 1.0);
-  float materialAlpha = 0.26 * liquidPresence;
+  float materialAlpha = uTransparency * mix(0.84, 1.0, liquidPresence);
   float proceduralEdgeAlpha = 0.14;
   float proceduralCausticAlpha = 0.075;
 
@@ -433,29 +483,38 @@ void main() {
     highlight = vec3(0.94, 0.97, 1.0);
     edgeHighlightMix = 0.15;
     causticHighlightMix = 0.042;
-    materialAlpha = mix(0.06, 0.12, liquidPresence);
+    materialAlpha = mix(0.78, 0.94, uTransparency) * mix(0.9, 1.0, liquidPresence);
     proceduralEdgeAlpha = 0.16;
     proceduralCausticAlpha = 0.045;
   } else if (uAppearance > 0.5) {
     highlight = mix(vec3(1.0), uTintColor, 0.72);
     edgeHighlightMix = 0.17;
     causticHighlightMix = 0.085;
-    materialAlpha = 0.28 * liquidPresence;
+    materialAlpha = uTransparency * mix(0.84, 1.0, liquidPresence);
   }
 
   if (uHasWallpaperTexture < 0.5) {
-    vec3 proceduralHighlight = highlight * (edge * 0.46 + caustic * 0.72);
-    float proceduralAlpha = mask * (edge * proceduralEdgeAlpha + caustic * proceduralCausticAlpha);
+    vec3 proceduralHighlight = highlight * (edge * 0.46 + caustic * 0.72) * uReflectionStrength;
+    float proceduralAlpha =
+      mask * (edge * proceduralEdgeAlpha + caustic * proceduralCausticAlpha) * uReflectionStrength;
     gl_FragColor = vec4(proceduralHighlight, proceduralAlpha);
     return;
   }
 
-  refracted = mix(refracted, highlight, edge * edgeHighlightMix);
-  refracted += highlight * caustic * causticHighlightMix;
+  refracted = mix(refracted, highlight, clamp(edge * edgeHighlightMix * uReflectionStrength, 0.0, 1.0));
+  refracted += highlight * caustic * causticHighlightMix * uReflectionStrength;
 
   gl_FragColor = vec4(
     refracted,
-    mask * (materialAlpha + edge * 0.2 + caustic * mix(0.038, 0.052, uQuality))
+    clamp(
+      mask *
+        (
+          materialAlpha +
+          (edge * 0.1 + caustic * mix(0.028, 0.04, uQuality)) * uReflectionStrength
+        ),
+      0.0,
+      0.94
+    )
   );
 }
 `
@@ -606,7 +665,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let pointerPositionY = 0.5
   let pointerSpringVelocityX = 0
   let pointerSpringVelocityY = 0
-  let lastTouchAt = Number.NEGATIVE_INFINITY
   let activeTouchIdentifier: number | null = null
   let pendingFlowInjection = 0
   let interactionAnimating = false
@@ -624,7 +682,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let wakeDirection = { x: 0, y: -1 }
   let tracksScrollingSurfaces = false
   let contextRecoveryPending = false
-  let scrollStates = new WeakMap<object, { position: number; timestamp: number }>()
 
   function cancelScheduledFrame() {
     if (animationFrame === null) return
@@ -831,6 +888,29 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function getRenderProfile(routeKey = toValue(options.routeKey)) {
     return getGlassOpticalRenderProfile(toValue(options.quality), routeKey)
+  }
+
+  function getMotionStrengthScale() {
+    return getGlassOpticalMotionStrengthScale(toValue(options.motionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT))
+  }
+
+  function getMotionExpansion() {
+    return getGlassOpticalMotionExpansion(toValue(options.motionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT))
+  }
+
+  function getMaxRefractionPixels() {
+    return getGlassOpticalMaxRefractionPixels(
+      getRenderProfile().maxRefractionPixels,
+      toValue(options.motionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+    )
+  }
+
+  function getReflectionStrengthScale() {
+    return getGlassOpticalReflectionStrengthScale(toValue(options.reflectionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT))
+  }
+
+  function getTransparency() {
+    return getGlassOpticalTransparency(toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT))
   }
 
   function resizeRenderer() {
@@ -1114,7 +1194,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uTrailCount.value = getRenderProfile().trailCount
     lastInteractionAt = timestamp
 
-    if (reducedMotion) {
+    if (reducedMotion || getMotionStrengthScale() <= 0) {
       resetInteractionState()
       scheduleFrame()
       return
@@ -1152,7 +1232,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     lastPointerX = touch.clientX
     lastPointerY = touch.clientY
     lastPointerAt = timestamp
-    lastTouchAt = timestamp
     const surface = findInteractionSurface(touch.clientX, touch.clientY)
     if (resources && surface) {
       activateInteractionSurface(surface.key, timestamp, matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -1166,60 +1245,17 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (!touch) return
 
     const timestamp = event.timeStamp || performance.now()
-    lastTouchAt = timestamp
     applyInteraction(touch.clientX, touch.clientY, timestamp)
   }
 
   function handleTouchEnd(event: TouchEvent) {
     if (!findTouch(event.changedTouches, activeTouchIdentifier)) return
 
-    lastTouchAt = event.timeStamp || performance.now()
     activeTouchIdentifier = null
   }
 
-  function getScrollPosition(target: EventTarget | null) {
-    if (target instanceof Element) return target.scrollTop
-    if (target instanceof Document) return target.scrollingElement?.scrollTop ?? window.scrollY
-
-    return window.scrollY
-  }
-
-  function driveTouchScrollFlow(event: Event, timestamp: number) {
-    if (!resources || !(window.innerWidth <= 600 || matchMedia('(pointer: coarse)').matches)) return
-
-    const target = (event.target ?? document) as object
-    const position = getScrollPosition(event.target)
-    const previous = scrollStates.get(target)
-    scrollStates.set(target, { position, timestamp })
-    if (!previous) return
-
-    const elapsed = Math.max(8, timestamp - previous.timestamp)
-    const delta = position - previous.position
-    if (Math.abs(delta) < 0.5) return
-    if (timestamp - lastTouchAt < 120) return
-
-    const currentPointIsVisible = surfaceSlots.some(slot => rectContainsPoint(slot.rect, lastPointerX, lastPointerY))
-    const fallbackSurface = surfaceSlots.find(
-      slot => slot.rect.y < window.innerHeight && slot.rect.y + slot.rect.height > 0 && slot.rect.x < window.innerWidth,
-    )
-    const clientX = currentPointIsVisible
-      ? lastPointerX
-      : fallbackSurface
-        ? Math.min(window.innerWidth - 1, Math.max(0, fallbackSurface.rect.x + fallbackSurface.rect.width * 0.5))
-        : window.innerWidth * 0.5
-    const clientY = currentPointIsVisible
-      ? lastPointerY
-      : fallbackSurface
-        ? Math.min(window.innerHeight - 1, Math.max(0, fallbackSurface.rect.y + fallbackSurface.rect.height * 0.5))
-        : window.innerHeight * 0.5
-    const normalizedVelocity = Math.max(-0.09, Math.min(0.09, -(delta / window.innerHeight) * (16.67 / elapsed)))
-
-    applyInteraction(clientX, clientY, timestamp, { x: 0, y: normalizedVelocity })
-  }
-
-  function handleScroll(event: Event) {
+  function handleScroll() {
     const timestamp = performance.now()
-    driveTouchScrollFlow(event, timestamp)
     if (!tracksScrollingSurfaces || scrollSurfaceTimer !== null) return
 
     const elapsed = timestamp - lastScrollSurfaceUpdateAt
@@ -1346,9 +1382,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceTransitionStartedAt = 0
     wakeDirection = { x: 0, y: -1 }
     tracksScrollingSurfaces = false
-    scrollStates = new WeakMap<object, { position: number; timestamp: number }>()
+    document.documentElement.removeAttribute('data-glass-wallpaper-loading')
     activeTouchIdentifier = null
-    lastTouchAt = Number.NEGATIVE_INFINITY
     lastPointerX = window.innerWidth * 0.5
     lastPointerY = window.innerHeight * 0.5
     pointerTargetX = 0.5
@@ -1390,6 +1425,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const version = ++loadVersion
     const retainsActiveTexture = Boolean(resources && activeTexture)
     if (!retainsActiveTexture) setGlassRendererState(state, 'loading')
+    document.documentElement.setAttribute('data-glass-wallpaper-loading', 'true')
 
     try {
       await loadWallpaper(toValue(options.wallpaperUrl), version)
@@ -1402,6 +1438,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         return
       }
       fallbackFromCurrentLoad(version, message, error)
+    } finally {
+      if (version === loadVersion) document.documentElement.removeAttribute('data-glass-wallpaper-loading')
     }
   }
 
@@ -1521,16 +1559,20 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uHasFlowTexture: { value: 0 },
         uHasWallpaperTexture: { value: 0 },
         uMotion: { value: 0 },
-        uMaxRefractionPixels: { value: getRenderProfile().maxRefractionPixels },
+        uMotionExpansion: { value: getMotionExpansion() },
+        uMotionStrength: { value: getMotionStrengthScale() },
+        uMaxRefractionPixels: { value: getMaxRefractionPixels() },
         uPointer: { value: new three.Vector2(0.5, 0.5) },
         uPointerVelocity: { value: new three.Vector2(0, 0) },
         uQuality: { value: toValue(options.quality) === 'high' ? 1 : 0 },
+        uReflectionStrength: { value: getReflectionStrengthScale() },
         uRadii: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uRectCount: { value: 0 },
         uRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uSurfaceWeights: { value: Array.from({ length: 8 }, () => 0) },
         uTexture: { value: null },
         uTintColor: { value: new three.Color(toValue(options.tintColor)) },
+        uTransparency: { value: getTransparency() },
         uTrail: { value: Array.from({ length: 4 }, () => new Vector4Class(0.5, 0.5, 0, 0)) },
         uTrailCount: { value: getRenderProfile().trailCount },
         uViewportSize: { value: new three.Vector2(window.innerWidth, window.innerHeight) },
@@ -1616,7 +1658,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       const previousProfile = getGlassOpticalRenderProfile(previousQuality, toValue(options.routeKey))
       const nextProfile = getGlassOpticalRenderProfile(quality, toValue(options.routeKey))
-      resources.uniforms.uMaxRefractionPixels.value = nextProfile.maxRefractionPixels
+      resources.uniforms.uMaxRefractionPixels.value = getGlassOpticalMaxRefractionPixels(
+        nextProfile.maxRefractionPixels,
+        toValue(options.motionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+      )
       resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
       resources.uniforms.uTrailCount.value = nextProfile.trailCount
       interactionAnimating = false
@@ -1640,6 +1685,33 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       if (!resources) return
 
       resources.uniforms.uTintColor.value.set(tintColor)
+      scheduleFrame()
+    },
+  )
+
+  watch(
+    () =>
+      [
+        toValue(options.motionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+        toValue(options.reflectionStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+        toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+      ] as const,
+    ([motionStrength, reflectionStrength, transparencyStrength]) => {
+      if (!resources) return
+
+      resources.uniforms.uMotionExpansion.value = getGlassOpticalMotionExpansion(motionStrength)
+      resources.uniforms.uMotionStrength.value = getGlassOpticalMotionStrengthScale(motionStrength)
+      resources.uniforms.uMaxRefractionPixels.value = getGlassOpticalMaxRefractionPixels(
+        getRenderProfile().maxRefractionPixels,
+        motionStrength,
+      )
+      resources.uniforms.uReflectionStrength.value = getGlassOpticalReflectionStrengthScale(reflectionStrength)
+      resources.uniforms.uTransparency.value = getGlassOpticalTransparency(transparencyStrength)
+      if (resources.uniforms.uMotionStrength.value <= 0 && interactionAnimating) {
+        interactionAnimating = false
+        cancelScheduledFrame()
+        resetInteractionState()
+      }
       scheduleFrame()
     },
   )

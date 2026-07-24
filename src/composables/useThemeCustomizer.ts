@@ -3,6 +3,11 @@ import { useTheme } from 'vuetify'
 import { checkPrefersColorSchemeIsDark } from '@/@core/utils'
 import { saveLocalTheme } from '@/@core/utils/theme'
 import vuetify from '@/plugins/vuetify'
+import {
+  GLASS_OPTICAL_STRENGTH_DEFAULT,
+  GLASS_OPTICAL_STRENGTH_MAX,
+  normalizeGlassOpticalStrength,
+} from '@/utils/glassOptics'
 import { themeManager } from '@/utils/themeManager'
 import { syncThemeFavicon } from '@/utils/themePalette'
 
@@ -64,8 +69,14 @@ export type ThemeCustomizerTheme = 'auto' | 'dark' | 'glass' | 'light' | 'purple
 export interface ThemeCustomizerSettings {
   /** 玻璃主题的材质语义，与渲染质量保持独立。 */
   glassAppearance: ThemeCustomizerGlassAppearance
+  /** 实时光学的流动反馈强度，范围 0 到 100。 */
+  glassMotionStrength: number
   /** 玻璃主题的渲染质量，决定使用标准 CSS 或共享光学渲染器。 */
   glassQuality: ThemeCustomizerGlassQuality
+  /** 玻璃亮边、镜面高光与焦散光照强度，范围 0 到 100。 */
+  glassReflectionStrength: number
+  /** 玻璃材质释放真实壁纸的程度，范围 0 到 100。 */
+  glassTransparencyStrength: number
   /** 桌面导航布局。 */
   layout: ThemeCustomizerLayout
   /** 主题强调色，也是色调玻璃的颜色来源。 */
@@ -125,7 +136,10 @@ function readStoredThemePreference(): ThemeCustomizerTheme {
 function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
   return {
     glassAppearance: 'clear',
+    glassMotionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
     glassQuality: defaultGlassQuality,
+    glassReflectionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
+    glassTransparencyStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -155,9 +169,12 @@ function normalizeThemeCustomizerSettings(settings: Partial<ThemeCustomizerSetti
     glassAppearance: validGlassAppearances.includes(settings.glassAppearance as ThemeCustomizerGlassAppearance)
       ? (settings.glassAppearance as ThemeCustomizerGlassAppearance)
       : fallback.glassAppearance,
+    glassMotionStrength: normalizeGlassOpticalStrength(settings.glassMotionStrength),
     glassQuality: validGlassQualities.includes(settings.glassQuality as ThemeCustomizerGlassQuality)
       ? (settings.glassQuality as ThemeCustomizerGlassQuality)
       : fallback.glassQuality,
+    glassReflectionStrength: normalizeGlassOpticalStrength(settings.glassReflectionStrength),
+    glassTransparencyStrength: normalizeGlassOpticalStrength(settings.glassTransparencyStrength),
     layout: validLayouts.includes(settings.layout as ThemeCustomizerLayout)
       ? (settings.layout as ThemeCustomizerLayout)
       : fallback.layout,
@@ -197,13 +214,22 @@ export function readThemeCustomizerSettings(): ThemeCustomizerSettings {
 
 // 生产构建会改写导出函数的声明形式，状态初始化必须放在读取函数定义之后，避免首屏执行时引用未完成赋值的函数。
 const settingsState = ref<ThemeCustomizerSettings>(readThemeCustomizerSettings())
-const glassPreviewState = ref<Pick<ThemeCustomizerSettings, 'glassAppearance' | 'glassQuality'> | null>(null)
+type ThemeCustomizerGlassSettings = Pick<
+  ThemeCustomizerSettings,
+  'glassAppearance' | 'glassMotionStrength' | 'glassQuality' | 'glassReflectionStrength' | 'glassTransparencyStrength'
+>
+const glassPreviewState = ref<ThemeCustomizerGlassSettings | null>(null)
 const effectiveGlassSettings = computed(() => ({
   glassAppearance: glassPreviewState.value?.glassAppearance ?? settingsState.value.glassAppearance,
+  glassMotionStrength: glassPreviewState.value?.glassMotionStrength ?? settingsState.value.glassMotionStrength,
   glassQuality: glassPreviewState.value?.glassQuality ?? settingsState.value.glassQuality,
+  glassReflectionStrength:
+    glassPreviewState.value?.glassReflectionStrength ?? settingsState.value.glassReflectionStrength,
+  glassTransparencyStrength:
+    glassPreviewState.value?.glassTransparencyStrength ?? settingsState.value.glassTransparencyStrength,
 }))
 
-/** 提供当前实际生效的玻璃外观；临时预览优先于已持久化设置。 */
+/** 提供当前实际生效的玻璃设置；临时预览优先于已持久化设置。 */
 export function useEffectiveGlassSettings() {
   return readonly(effectiveGlassSettings)
 }
@@ -259,13 +285,29 @@ export function applyPrimaryColorToVuetify(color: string, themeApi: VuetifyTheme
 export function applyThemeCustomizerRootSettings(
   settings: Pick<
     ThemeCustomizerSettings,
-    'glassAppearance' | 'glassQuality' | 'layout' | 'radius' | 'semiDarkMenu' | 'shadow' | 'skin'
+    | 'glassAppearance'
+    | 'glassQuality'
+    | 'glassReflectionStrength'
+    | 'glassTransparencyStrength'
+    | 'layout'
+    | 'radius'
+    | 'semiDarkMenu'
+    | 'shadow'
+    | 'skin'
   >,
 ) {
   if (!isBrowser()) return
 
   document.documentElement.setAttribute('data-glass-appearance', settings.glassAppearance)
   document.documentElement.setAttribute('data-glass-quality', settings.glassQuality)
+  document.documentElement.style.setProperty(
+    '--glass-reflection',
+    String(normalizeGlassOpticalStrength(settings.glassReflectionStrength) / GLASS_OPTICAL_STRENGTH_MAX),
+  )
+  document.documentElement.style.setProperty(
+    '--glass-transparency',
+    String(normalizeGlassOpticalStrength(settings.glassTransparencyStrength) / GLASS_OPTICAL_STRENGTH_MAX),
+  )
   document.documentElement.setAttribute('data-theme-layout', settings.layout)
   document.documentElement.setAttribute('data-theme-radius', settings.radius)
   document.documentElement.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
@@ -273,6 +315,14 @@ export function applyThemeCustomizerRootSettings(
   document.documentElement.setAttribute('data-theme-skin', settings.skin)
   document.body.setAttribute('data-glass-appearance', settings.glassAppearance)
   document.body.setAttribute('data-glass-quality', settings.glassQuality)
+  document.body.style.setProperty(
+    '--glass-reflection',
+    String(normalizeGlassOpticalStrength(settings.glassReflectionStrength) / GLASS_OPTICAL_STRENGTH_MAX),
+  )
+  document.body.style.setProperty(
+    '--glass-transparency',
+    String(normalizeGlassOpticalStrength(settings.glassTransparencyStrength) / GLASS_OPTICAL_STRENGTH_MAX),
+  )
   document.body.setAttribute('data-theme-layout', settings.layout)
   document.body.setAttribute('data-theme-radius', settings.radius)
   document.body.setAttribute('data-theme-semi-dark-menu', String(settings.semiDarkMenu))
@@ -340,10 +390,8 @@ export function persistPartialThemeCustomizerSettings(patch: Partial<ThemeCustom
   return nextSettings
 }
 
-/** 临时应用玻璃外观，不写入存储或广播持久化变更。 */
-export function previewGlassSettings(
-  patch: Partial<Pick<ThemeCustomizerSettings, 'glassAppearance' | 'glassQuality'>>,
-) {
+/** 临时应用玻璃设置，不写入存储或广播持久化变更。 */
+export function previewGlassSettings(patch: Partial<ThemeCustomizerGlassSettings>) {
   const previewSettings = normalizeThemeCustomizerSettings({
     ...settingsState.value,
     ...glassPreviewState.value,
@@ -352,7 +400,10 @@ export function previewGlassSettings(
 
   glassPreviewState.value = {
     glassAppearance: previewSettings.glassAppearance,
+    glassMotionStrength: previewSettings.glassMotionStrength,
     glassQuality: previewSettings.glassQuality,
+    glassReflectionStrength: previewSettings.glassReflectionStrength,
+    glassTransparencyStrength: previewSettings.glassTransparencyStrength,
   }
   applyThemeCustomizerRootSettings({
     ...settingsState.value,
@@ -387,7 +438,10 @@ export function cancelGlassPreview() {
 export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettings) {
   const defaults = normalizeThemeCustomizerSettings({
     glassAppearance: 'clear',
+    glassMotionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
     glassQuality: defaultGlassQuality,
+    glassReflectionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
+    glassTransparencyStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
     layout: 'vertical',
     primaryColor: defaultPrimaryColor,
     radius: 'default',
@@ -399,7 +453,10 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
 
   return (
     settings.glassAppearance === defaults.glassAppearance &&
+    settings.glassMotionStrength === defaults.glassMotionStrength &&
     settings.glassQuality === defaults.glassQuality &&
+    settings.glassReflectionStrength === defaults.glassReflectionStrength &&
+    settings.glassTransparencyStrength === defaults.glassTransparencyStrength &&
     settings.layout === defaults.layout &&
     settings.primaryColor === defaults.primaryColor &&
     settings.radius === defaults.radius &&
@@ -449,9 +506,24 @@ export function useThemeCustomizer() {
     return updateSettings({ glassAppearance })
   }
 
+  /** 更新实时玻璃流动反馈强度。 */
+  function setGlassMotionStrength(glassMotionStrength: number) {
+    return updateSettings({ glassMotionStrength })
+  }
+
   /** 更新玻璃主题渲染质量档位。 */
   function setGlassQuality(glassQuality: ThemeCustomizerGlassQuality) {
     return updateSettings({ glassQuality })
+  }
+
+  /** 更新玻璃表面反射亮度。 */
+  function setGlassReflectionStrength(glassReflectionStrength: number) {
+    return updateSettings({ glassReflectionStrength })
+  }
+
+  /** 更新玻璃材质的真实壁纸可见度。 */
+  function setGlassTransparencyStrength(glassTransparencyStrength: number) {
+    return updateSettings({ glassTransparencyStrength })
   }
 
   /** 更新全局圆角档位。 */
@@ -488,7 +560,10 @@ export function useThemeCustomizer() {
   async function resetSettings() {
     await updateSettings({
       glassAppearance: 'clear',
+      glassMotionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
       glassQuality: defaultGlassQuality,
+      glassReflectionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
+      glassTransparencyStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
       layout: 'vertical',
       primaryColor: defaultPrimaryColor,
       radius: 'default',
@@ -525,7 +600,10 @@ export function useThemeCustomizer() {
     isCustomized: computed(() => !isDefaultThemeCustomizerSettings(settings.value)),
     resetSettings,
     setGlassAppearance,
+    setGlassMotionStrength,
     setGlassQuality,
+    setGlassReflectionStrength,
+    setGlassTransparencyStrength,
     setLayout,
     setPrimaryColor,
     setRadius,

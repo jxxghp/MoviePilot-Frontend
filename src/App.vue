@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { usePreferredReducedMotion } from '@vueuse/core'
+import { useMediaQuery, usePreferredReducedMotion } from '@vueuse/core'
 import { useTheme } from 'vuetify'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
 import api, { type ConnectionAwareRequestConfig } from '@/api'
@@ -28,6 +28,7 @@ import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import { commitPreloadedBackgroundRotation } from '@/utils/backgroundRotation'
+import { GLASS_OPTICAL_STRENGTH_DEFAULT } from '@/utils/glassOptics'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
@@ -81,9 +82,20 @@ const allowsBackgroundRotation = computed(() => allowsDecorativeMotion.value && 
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
+const usesMobileGlassFallback = useMediaQuery('(max-width: 959px)')
 const isInitialRouteReady = ref(false)
 const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
+// 登录专题保持固定光学参数，避免全局用户偏好改变其独立视觉合成。
+const opticalMotionStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassMotionStrength,
+)
+const opticalReflectionStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassReflectionStrength,
+)
+const opticalTransparencyStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassTransparencyStrength,
+)
 const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
 const shouldUseGlassBackgroundTreatment = computed(() => Boolean(isLogin.value) && isGlassTheme.value)
 const shouldLoadBackgroundImages = computed(
@@ -100,6 +112,7 @@ const shouldRenderGlassOpticalLayer = computed(
   () =>
     isGlassTheme.value &&
     effectiveGlassSettings.value.glassQuality !== 'css' &&
+    !usesMobileGlassFallback.value &&
     isInitialRouteReady.value &&
     !isRenderThrottled.value &&
     Boolean(activeBackgroundImage.value),
@@ -682,7 +695,10 @@ onUnmounted(() => {
     <GlassOpticalLayer
       v-if="shouldRenderGlassOpticalLayer"
       :appearance="effectiveGlassSettings.glassAppearance"
+      :motion-strength="opticalMotionStrength"
       :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
+      :reflection-strength="opticalReflectionStrength"
+      :transparency-strength="opticalTransparencyStrength"
       :route-key="route.fullPath"
       :tint-color="globalTheme.current.value.colors.primary"
       :wallpaper-url="activeOpticalBackgroundImage"

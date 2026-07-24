@@ -3,11 +3,28 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GlassSettingsDialog from '@/components/dialog/GlassSettingsDialog.vue'
 
 const slotStub = { template: '<div><slot /></div>' }
+const sliderStub = {
+  emits: ['update:modelValue'],
+  name: 'VSlider',
+  props: ['disabled', 'modelValue'],
+  template:
+    '<input class="slider-stub" type="range" :data-disabled="String(disabled)" :value="modelValue" @input="$emit(\'update:modelValue\', Number($event.target.value))" />',
+}
 
 const mocks = vi.hoisted(() => ({
   cancelGlassPreview: vi.fn(),
   commitGlassPreview: vi.fn(),
   previewGlassSettings: vi.fn(),
+  mdAndUp: { value: true },
+  settings: {
+    value: {
+      glassAppearance: 'clear',
+      glassMotionStrength: 50,
+      glassQuality: 'css',
+      glassReflectionStrength: 50,
+      glassTransparencyStrength: 50,
+    },
+  },
 }))
 
 vi.mock('@/composables/useThemeCustomizer', () => ({
@@ -15,12 +32,7 @@ vi.mock('@/composables/useThemeCustomizer', () => ({
   commitGlassPreview: mocks.commitGlassPreview,
   previewGlassSettings: mocks.previewGlassSettings,
   useThemeCustomizer: () => ({
-    settings: {
-      value: {
-        glassAppearance: 'clear',
-        glassQuality: 'css',
-      },
-    },
+    settings: mocks.settings,
   }),
 }))
 
@@ -29,7 +41,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('vuetify', () => ({
-  useDisplay: () => ({ mdAndUp: { value: true } }),
+  useDisplay: () => ({ mdAndUp: mocks.mdAndUp }),
 }))
 
 describe('GlassSettingsDialog', () => {
@@ -37,16 +49,32 @@ describe('GlassSettingsDialog', () => {
     mocks.cancelGlassPreview.mockClear()
     mocks.commitGlassPreview.mockClear()
     mocks.previewGlassSettings.mockClear()
+    mocks.mdAndUp.value = true
+    mocks.settings.value.glassAppearance = 'clear'
+    mocks.settings.value.glassMotionStrength = 50
+    mocks.settings.value.glassQuality = 'css'
+    mocks.settings.value.glassReflectionStrength = 50
+    mocks.settings.value.glassTransparencyStrength = 50
   })
 
   it('cancels an active preview when the parent closes the dialog', async () => {
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
-        stubs: { VDialogCloseBtn: true },
+        stubs: {
+          VCard: slotStub,
+          VCardText: slotStub,
+          VDialog: slotStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
       },
       props: { modelValue: true },
     })
+    const sliders = wrapper.findAll('.slider-stub')
 
+    expect(sliders).toHaveLength(3)
+    expect(sliders[0].attributes('data-disabled')).toBe('undefined')
+    expect(sliders.slice(1).every(slider => slider.attributes('data-disabled') === 'true')).toBe(true)
     await wrapper.setProps({ modelValue: false })
 
     expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
@@ -66,6 +94,7 @@ describe('GlassSettingsDialog', () => {
           VDialog: slotStub,
           VDialogCloseBtn: true,
           VDivider: true,
+          VSlider: sliderStub,
         },
       },
       props: { modelValue: true },
@@ -76,8 +105,64 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'clear',
+      glassMotionStrength: 50,
       glassQuality: 'balanced',
+      glassReflectionStrength: 50,
+      glassTransparencyStrength: 50,
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
+  })
+
+  it('normalizes and previews both realtime slider values', async () => {
+    mocks.settings.value.glassQuality = 'balanced'
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardText: slotStub,
+          VDialog: slotStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const sliders = wrapper.findAll('.slider-stub')
+
+    expect(sliders).toHaveLength(3)
+    expect(sliders.every(slider => slider.attributes('data-disabled') !== 'true')).toBe(true)
+
+    await sliders[0].setValue('91.4')
+    await sliders[1].setValue('73.6')
+    await sliders[2].setValue('84.2')
+
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(1, { glassTransparencyStrength: 91 })
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(2, { glassMotionStrength: 74 })
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(3, { glassReflectionStrength: 84 })
+    expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
+  })
+
+  it('hides motion tuning on mobile while preserving transparency and reflection', () => {
+    mocks.mdAndUp.value = false
+    mocks.settings.value.glassQuality = 'high'
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardText: slotStub,
+          VDialog: slotStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const sliders = wrapper.findAll('.slider-stub')
+
+    expect(sliders).toHaveLength(2)
+    expect(sliders.map(slider => slider.attributes('aria-label'))).toEqual([
+      'theme.glassTransparencyStrength',
+      'theme.glassReflectionStrength',
+    ])
   })
 })
