@@ -16,6 +16,7 @@ import { renderWithProviders } from '@tests/support/render'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+/** 季订阅弹窗测试属性。 */
 interface SeasonDialogProps {
   defaultSubscribeMode?: SubscribeMode
   initialEpisodeGroup?: string
@@ -26,6 +27,7 @@ interface SeasonDialogProps {
   subscribedSeasons?: number[]
 }
 
+/** 创建可由测试主动完成的异步门闩。 */
 function createDeferred() {
   let resolve!: () => void
   const promise = new Promise<void>(done => {
@@ -34,6 +36,7 @@ function createDeferred() {
   return { promise, resolve }
 }
 
+/** 创建季订阅测试使用的电视剧媒体。 */
 function createTvMedia(overrides: Partial<MediaInfo> = {}) {
   return createMediaInfo({
     poster_path: '/images/fallback-poster.jpg',
@@ -46,6 +49,7 @@ function createTvMedia(overrides: Partial<MediaInfo> = {}) {
   })
 }
 
+/** 使用完整应用依赖渲染季订阅弹窗。 */
 async function renderDialog(props: SeasonDialogProps = {}) {
   const events = {
     close: vi.fn(),
@@ -55,6 +59,12 @@ async function renderDialog(props: SeasonDialogProps = {}) {
     global: {
       components: {
         VDialogCloseBtn: DialogCloseBtn,
+      },
+      stubs: {
+        VImg: {
+          props: ['alt', 'src'],
+          template: '<img :alt="alt" :src="src" />',
+        },
       },
     },
     initialState: {
@@ -77,6 +87,7 @@ async function renderDialog(props: SeasonDialogProps = {}) {
   return { ...result, events }
 }
 
+/** 获取指定季号对应的列表行。 */
 function seasonRow(number: number) {
   const title = screen.getByText(`第 ${number} 季`)
   const row = title.closest('.v-list-item')
@@ -84,6 +95,7 @@ function seasonRow(number: number) {
   return row as HTMLElement
 }
 
+/** 等待弹窗发起的并行请求全部结算。 */
 async function settleRequests() {
   await flushPromises()
   await flushPromises()
@@ -98,7 +110,7 @@ describe('SubscribeSeasonDialog', () => {
   it('loads the default TMDB seasons once with exact requests and renders season states', async () => {
     const media = createTvMedia({ season: 0, tmdb_id: 7302 })
     const seasons = [
-      createMediaSeason({ air_date: '2020-01-02', episode_count: 3, poster_path: '', season_number: 0 }),
+      createMediaSeason({ air_date: '2020-01-02', episode_count: 3, name: '', poster_path: '', season_number: 0 }),
       createMediaSeason({ air_date: '2021-02-03', episode_count: 4, season_number: 1 }),
       createMediaSeason({ air_date: '2022-03-04', episode_count: 5, season_number: 2 }),
     ]
@@ -127,6 +139,10 @@ describe('SubscribeSeasonDialog', () => {
     expect(screen.getByText('缺失')).toBeInTheDocument()
     expect(screen.getByText('首播于 2020年1月2日')).toBeInTheDocument()
     expect(seasonRow(0)).toHaveTextContent('3 集')
+    expect(within(seasonRow(0)).getByAltText('第 0 季')).toHaveAttribute(
+      'src',
+      'https://image.tmdb.org/t/p/w500/images/fallback-poster.jpg',
+    )
     await settleRequests()
 
     expect(seasonRequests).toHaveLength(1)
@@ -137,6 +153,39 @@ describe('SubscribeSeasonDialog', () => {
     expect(seasonRequests[0].searchParams.get('year')).toBe(media.year)
     expect(seasonRequests[0].searchParams.get('season')).toBe('0')
     expect(missingPayloads[0]).toMatchObject({ episode_group: '', season: 0, tmdb_id: media.tmdb_id })
+  })
+
+  it('preserves source image URLs and hides unavailable season metadata', async () => {
+    const media = createTvMedia({
+      poster_path: 'https://images.example.com/main-poster.jpg',
+      source: 'anilist',
+      tmdb_id: undefined,
+    })
+    server.use(
+      mediaSeasonsHandler([
+        createMediaSeason({
+          air_date: undefined,
+          episode_count: undefined,
+          name: '葬送的芙莉莲 第一部分',
+          poster_path: 'https://images.example.com/original/season-poster.jpg',
+          season_number: 1,
+          vote_average: undefined,
+        }),
+      ]),
+      mediaNotExistsHandler([]),
+    )
+
+    await renderDialog({ media })
+
+    await screen.findByText('第 1 季')
+    const row = seasonRow(1)
+    expect(row).toHaveTextContent('葬送的芙莉莲 第一部分')
+    expect(within(row).getByAltText('第 1 季 - 葬送的芙莉莲 第一部分')).toHaveAttribute(
+      'src',
+      'https://images.example.com/original/season-poster.jpg',
+    )
+    expect(row).not.toHaveTextContent('undefined')
+    expect(within(row).queryByText(/首播于/)).not.toBeInTheDocument()
   })
 
   it.each([

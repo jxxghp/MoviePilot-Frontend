@@ -2,10 +2,12 @@
 import api from '@/api'
 import { MediaInfo, MediaSeason, NotExistMediaInfo } from '@/api/types'
 import { PropType } from 'vue'
+import noImage from '@images/no-image.jpeg'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
 import type { SeasonSubscribeModes, SubscribeMode } from '@/composables/useMediaSubscribe'
+import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
 
 type SubscribeModeOption = {
@@ -22,7 +24,7 @@ type EpisodeGroupOption = {
 }
 
 // 国际化
-const { t } = useI18n()
+const { locale, t } = useI18n()
 const { mdAndUp } = useDisplay()
 
 // 定义事件
@@ -264,24 +266,60 @@ function getExistText(season: number) {
   else return t('dialog.subscribeSeason.status.exists')
 }
 
-// 拼装季图片地址
-function getSeasonPoster(posterPath: string) {
-  if (!posterPath) return props.media?.poster_path
-  return `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${posterPath}`
+// 获取季海报地址，数据源未提供季海报时使用主海报。
+function getSeasonPoster(posterPath?: string) {
+  const resolvedPosterPath = posterPath?.trim() || props.media?.poster_path?.trim()
+  if (!resolvedPosterPath) return noImage
+
+  const posterUrl = resolvedPosterPath.startsWith('/')
+    ? `https://${globalSettings.TMDB_IMAGE_DOMAIN}/t/p/w500${resolvedPosterPath}`
+    : resolvedPosterPath.replace('/t/p/original/', '/t/p/w500/')
+
+  return getDisplayImageUrl(posterUrl, globalSettings.GLOBAL_IMAGE_CACHE)
 }
 
-// 将yyyy-mm-dd转换为yyyy年mm月dd日
+// 按当前界面语言格式化数据源返回的首播日期。
 function formatAirDate(airDate: string) {
   if (!airDate) return ''
-  const date = new Date(airDate.replaceAll(/-/g, '/'))
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+  const dateParts = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(airDate)
+  if (!dateParts) return airDate
+
+  const date = new Date(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3]))
+  if (Number.isNaN(date.getTime())) return airDate
+
+  return new Intl.DateTimeFormat(locale.value, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
 }
 
-// 从yyyy-mm-dd中提取年份
-function getYear(airDate: string) {
-  if (!airDate) return ''
-  const date = new Date(airDate.replaceAll(/-/g, '/'))
-  return date.getFullYear()
+// 获取本地化季号标题，确保数据源未返回名称时仍有稳定文本。
+function getSeasonTitle(item: MediaSeason) {
+  return t('dialog.subscribeSeason.seasonNumber', { number: item.season_number ?? 0 })
+}
+
+// 获取数据源提供的非重复季名称，保留特别篇等来源语义。
+function getSeasonName(item: MediaSeason) {
+  const name = item.name?.trim()
+  if (!name || item.season_number === undefined) return ''
+
+  const number = item.season_number
+  const normalizedName = name.toLocaleLowerCase().replaceAll(/\s/g, '')
+  const genericNames = new Set([
+    `第${number}季`,
+    `season${number}`,
+    `season${String(number).padStart(2, '0')}`,
+    `s${number}`,
+    `s${String(number).padStart(2, '0')}`,
+  ])
+
+  return genericNames.has(normalizedName) ? '' : name
+}
+
+// 获取同时包含季号和来源季名称的海报替代文本。
+function getSeasonPosterAlt(item: MediaSeason) {
+  return [getSeasonTitle(item), getSeasonName(item)].filter(Boolean).join(' - ')
 }
 
 // 切换当前剧集组并清空上一组的派生数据。
@@ -518,19 +556,20 @@ onBeforeUnmount(() => {
           <VList lines="three" class="subscribe-season-list">
             <VListItem
               v-for="(item, i) in seasonInfos"
-              :key="i"
-              :active="isSeasonSelected(item.season_number || 0)"
+              :key="item.season_number ?? i"
+              :active="isSeasonSelected(item.season_number ?? 0)"
               rounded="lg"
               class="subscribe-season-list-item"
-              @click="toggleSeasonSelected(item.season_number || 0)"
+              @click="toggleSeasonSelected(item.season_number ?? 0)"
             >
               <template #prepend>
                 <VImg
                   height="90"
                   width="60"
-                  :src="getSeasonPoster(item.poster_path || '')"
+                  :src="getSeasonPoster(item.poster_path)"
+                  :alt="getSeasonPosterAlt(item)"
                   aspect-ratio="2/3"
-                  class="object-cover rounded ring-gray-500 me-3"
+                  class="subscribe-season-poster object-cover rounded ring-gray-500 me-3"
                   cover
                 >
                   <template #placeholder>
@@ -541,49 +580,59 @@ onBeforeUnmount(() => {
                 </VImg>
               </template>
               <VListItemTitle>
-                {{ t('dialog.subscribeSeason.seasonNumber', { number: item.season_number }) }}
+                <span>{{ getSeasonTitle(item) }}</span>
+                <span v-if="getSeasonName(item)" class="subscribe-season-name"> · {{ getSeasonName(item) }}</span>
               </VListItemTitle>
-              <VListItemSubtitle class="mt-1 me-2">
-                <VChip v-if="item.vote_average" color="primary" size="small" class="mb-1">
-                  <VIcon icon="mdi-star" /> {{ t('dialog.subscribeSeason.voteAverage', { score: item.vote_average }) }}
-                </VChip>
-                {{ getYear(item.air_date || '') }} •
-                {{ t('dialog.subscribeSeason.episodeCount', { count: item.episode_count }) }}
-              </VListItemSubtitle>
-              <VListItemSubtitle>
-                {{ t('dialog.subscribeSeason.airDate', { date: formatAirDate(item.air_date || '') }) }}
+              <VListItemSubtitle
+                v-if="item.vote_average || item.air_date || typeof item.episode_count === 'number'"
+                class="mt-1 me-2"
+              >
+                <div class="subscribe-season-meta">
+                  <VChip v-if="item.vote_average" color="primary" size="small" class="mb-1">
+                    <VIcon icon="mdi-star" />
+                    {{ t('dialog.subscribeSeason.voteAverage', { score: item.vote_average }) }}
+                  </VChip>
+                  <span v-if="item.air_date" class="subscribe-season-meta-item">
+                    <VIcon icon="mdi-calendar-blank-outline" size="x-small" />
+                    {{ t('dialog.subscribeSeason.airDate', { date: formatAirDate(item.air_date) }) }}
+                  </span>
+                  <span v-if="typeof item.episode_count === 'number'" class="subscribe-season-meta-item">
+                    <VIcon icon="mdi-play-box-multiple-outline" size="x-small" />
+                    {{ t('dialog.subscribeSeason.episodeCount', { count: item.episode_count }) }}
+                  </span>
+                </div>
               </VListItemSubtitle>
               <VListItemSubtitle>
                 <VChip
                   v-if="seasonsNotExisted"
                   class="mt-2"
                   size="small"
-                  :color="getExistColor(item.season_number || 0)"
+                  :color="getExistColor(item.season_number ?? 0)"
                 >
-                  {{ getExistText(item.season_number || 0) }}
+                  {{ getExistText(item.season_number ?? 0) }}
                 </VChip>
-                <VChip v-if="isSeasonSubscribed(item.season_number || 0)" class="mt-2 ms-2" size="small" color="error">
+                <VChip v-if="isSeasonSubscribed(item.season_number ?? 0)" class="mt-2 ms-2" size="small" color="error">
                   {{ t('media.status.subscribed') }}
                 </VChip>
               </VListItemSubtitle>
               <template #append>
                 <VListItemAction start class="subscribe-season-actions">
                   <VSwitch
-                    :model-value="isSeasonSelected(item.season_number || 0)"
+                    :model-value="isSeasonSelected(item.season_number ?? 0)"
                     hide-details
                     @click.stop
-                    @update:model-value="setSeasonSelected(item.season_number || 0, $event)"
+                    @update:model-value="setSeasonSelected(item.season_number ?? 0, $event)"
                   />
                   <VBtnToggle
-                    v-if="isSeasonSelected(item.season_number || 0)"
-                    :model-value="seasonModes[item.season_number || 0] || 'normal'"
+                    v-if="isSeasonSelected(item.season_number ?? 0)"
+                    :model-value="seasonModes[item.season_number ?? 0] || 'normal'"
                     density="compact"
                     divided
                     mandatory
                     variant="outlined"
                     class="subscribe-season-mode-toggle"
                     @click.stop
-                    @update:model-value="updateSeasonMode(item.season_number || 0, $event)"
+                    @update:model-value="updateSeasonMode(item.season_number ?? 0, $event)"
                   >
                     <VBtn
                       v-for="mode in subscribeModeOptions"
@@ -782,6 +831,29 @@ onBeforeUnmount(() => {
 
 .subscribe-season-list-item {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.subscribe-season-poster {
+  flex: 0 0 3.75rem;
+}
+
+.subscribe-season-name {
+  color: rgba(var(--v-theme-on-surface), 0.68);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.subscribe-season-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.subscribe-season-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .subscribe-season-list-item :deep(.v-list-item__append) {
