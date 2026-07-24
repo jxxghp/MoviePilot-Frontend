@@ -156,7 +156,7 @@ export default {
     glassQualityCss: 'Standard',
     glassQualityBalanced: 'Balanced',
     glassQualityHigh: 'High',
-    glassQualityCssHint: 'Static CSS material with the lowest resource use and no live flow.',
+    glassQualityCssHint: 'Static CSS material with the lowest resource use; clarity and reflection remain available.',
     glassQualityBalancedHint: 'Shared live refraction that balances liquid feedback and GPU use.',
     glassQualityHighHint: 'Full temporal flow, diffusion detail, and content protection at a higher GPU cost.',
     glassQualityMobileHint: 'Mobile always uses the stable material; quality selection applies on desktop.',
@@ -164,9 +164,9 @@ export default {
     glassReflectionStrength: 'Reflection Brightness',
     glassTransparencyStrength: 'Clarity',
     glassOpticalStrengthHint:
-      'Clarity controls the visible wallpaper; flow and reflection are live only in Balanced and High quality.',
+      'Clarity controls the visible wallpaper; flow drives refraction and reflection shapes light.',
     glassOpticalStrengthUnavailableHint:
-      'Standard quality keeps clarity, while flow and reflection return when live quality is selected.',
+      'Standard quality keeps clarity and static reflection; flow returns when live quality is selected.',
     purple: 'Purple',
     custom: 'Custom Style',
     transparency: 'Transparency',

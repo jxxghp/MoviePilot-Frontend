@@ -74,7 +74,8 @@ describe('GlassSettingsDialog', () => {
 
     expect(sliders).toHaveLength(3)
     expect(sliders[0].attributes('data-disabled')).toBe('undefined')
-    expect(sliders.slice(1).every(slider => slider.attributes('data-disabled') === 'true')).toBe(true)
+    expect(sliders[1].attributes('data-disabled')).toBe('true')
+    expect(sliders[2].attributes('data-disabled')).toBe('undefined')
     await wrapper.setProps({ modelValue: false })
 
     expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
@@ -111,6 +112,28 @@ describe('GlassSettingsDialog', () => {
       glassTransparencyStrength: 50,
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
+  })
+
+  it('keeps static reflection adjustable in standard quality', async () => {
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardText: slotStub,
+          VDialog: slotStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+    const sliders = wrapper.findAll('.slider-stub')
+
+    expect(sliders[1].attributes('data-disabled')).toBe('true')
+    expect(sliders[2].attributes('data-disabled')).toBe('undefined')
+    await sliders[2].setValue('86')
+
+    expect(mocks.previewGlassSettings).toHaveBeenCalledWith({ glassReflectionStrength: 86 })
   })
 
   it('normalizes and previews both realtime slider values', async () => {

@@ -241,25 +241,27 @@ onScopeDispose(cancelGlassPreview)
             @update:model-value="updateTransparencyStrength"
           />
 
-          <div class="glass-settings-dialog__live-controls" :class="{ 'is-disabled': !usesRealtimeOptics }">
+          <div class="glass-settings-dialog__live-controls">
             <template v-if="showsMotionTuning">
-              <div class="glass-settings-dialog__slider-header">
-                <h3 class="glass-settings-dialog__label">{{ t('theme.glassMotionStrength') }}</h3>
-                <output>{{ draftMotionStrength }}%</output>
+              <div class="glass-settings-dialog__motion-controls" :class="{ 'is-disabled': !usesRealtimeOptics }">
+                <div class="glass-settings-dialog__slider-header">
+                  <h3 class="glass-settings-dialog__label">{{ t('theme.glassMotionStrength') }}</h3>
+                  <output>{{ draftMotionStrength }}%</output>
+                </div>
+                <VSlider
+                  :model-value="draftMotionStrength"
+                  :aria-label="t('theme.glassMotionStrength')"
+                  :disabled="!usesRealtimeOptics"
+                  :min="GLASS_OPTICAL_STRENGTH_MIN"
+                  :max="GLASS_OPTICAL_STRENGTH_MAX"
+                  :step="1"
+                  color="primary"
+                  density="comfortable"
+                  hide-details
+                  thumb-label
+                  @update:model-value="updateMotionStrength"
+                />
               </div>
-              <VSlider
-                :model-value="draftMotionStrength"
-                :aria-label="t('theme.glassMotionStrength')"
-                :disabled="!usesRealtimeOptics"
-                :min="GLASS_OPTICAL_STRENGTH_MIN"
-                :max="GLASS_OPTICAL_STRENGTH_MAX"
-                :step="1"
-                color="primary"
-                density="comfortable"
-                hide-details
-                thumb-label
-                @update:model-value="updateMotionStrength"
-              />
             </template>
 
             <div
@@ -272,7 +274,6 @@ onScopeDispose(cancelGlassPreview)
             <VSlider
               :model-value="draftReflectionStrength"
               :aria-label="t('theme.glassReflectionStrength')"
-              :disabled="!usesRealtimeOptics"
               :min="GLASS_OPTICAL_STRENGTH_MIN"
               :max="GLASS_OPTICAL_STRENGTH_MAX"
               :step="1"
@@ -350,14 +351,17 @@ onScopeDispose(cancelGlassPreview)
 
 .glass-settings-dialog__live-controls {
   margin-block-start: 18px;
+
+  :deep(.v-slider) {
+    margin-block-start: 4px;
+  }
+}
+
+.glass-settings-dialog__motion-controls {
   transition: opacity 160ms ease;
 
   &.is-disabled {
     opacity: 0.58;
-  }
-
-  :deep(.v-slider) {
-    margin-block-start: 4px;
   }
 }
 
