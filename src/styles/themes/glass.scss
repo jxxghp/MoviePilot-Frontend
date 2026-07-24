@@ -554,8 +554,17 @@ html[data-theme='glass'] {
     }
   }
 
-  // 透明材质不生成额外的 contained navbar 磨砂层，其他浮层继续消费共享弹层 token。
+  // 透明材质在内容上滚后复用移动底栏材质，顶部时则保持原有透光感。
   &[data-glass-appearance='clear'] {
+    .layout-wrapper.window-scrolled.layout-navbar-fixed .layout-navbar,
+    .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+      border-color: var(--glass-border-raised) !important;
+      -webkit-backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+      backdrop-filter: var(--glass-overlay-backdrop-filter) !important;
+      background-color: var(--glass-overlay-surface) !important;
+      background-image: var(--glass-sheen) !important;
+    }
+
     // contained navbar 会把 %blurry-bg 扩展到内部容器，透明材质不生成这层滚动磨砂。
     .navbar-blur.layout-navbar .navbar-content-container::before {
       display: none !important;
