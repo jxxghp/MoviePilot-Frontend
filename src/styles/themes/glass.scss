@@ -23,6 +23,8 @@ html[data-theme='glass'] {
   );
   --glass-shadow:
     0 10px 28px rgba(3, 7, 18, 24%), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
+  --glass-dashboard-shadow: inset 0 1px 0 var(--glass-highlight);
+  --glass-dashboard-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, 28%), inset 0 -1px 0 rgba(255, 255, 255, 28%);
   --glass-shadow-raised:
     0 16px 40px rgba(3, 7, 18, 32%), inset 0 1px 0 rgba(255, 255, 255, 24%), inset 0 -1px 0 rgba(2, 6, 16, 18%);
   --glass-shadow-hover:
@@ -255,11 +257,8 @@ html[data-theme='glass'] {
     background: transparent;
   }
 
+  // 页面容器不承担玻璃材质，避免内容高度结束处与透明 footer 形成整宽明暗边界。
   .layout-page-content {
-    background-color: rgba(255, 255, 255, 2.5%);
-  }
-
-  &[data-glass-appearance='frosted'] .layout-page-content {
     background-color: transparent;
   }
 
@@ -350,6 +349,19 @@ html[data-theme='glass'] {
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card {
     -webkit-backdrop-filter: var(--glass-dashboard-backdrop-filter);
     backdrop-filter: var(--glass-dashboard-backdrop-filter);
+    box-shadow: var(--glass-dashboard-shadow) !important;
+  }
+
+  @media (hover: hover) {
+    // Dashboard 表面使用双侧内高光反馈悬停，避免外阴影越过卡片边界形成独立合成层。
+    .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card:hover,
+    .dashboard-grid-item-content
+      > .dashboard-grid-auto-size
+      > .dashboard-grid-content-measure
+      > :first-child
+      > .v-card:hover {
+      box-shadow: var(--glass-dashboard-shadow-hover) !important;
+    }
   }
 
   :where(.layout-navbar, .Vue-Toastification__toast) {
@@ -958,11 +970,6 @@ html[data-theme='glass'] {
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease-out;
-}
-
-// 壁纸交叉淡入期间停用折射输出，避免新纹理采样仍在混合的背景。
-.glass-optical-layer--background-transition {
-  opacity: 0 !important;
 }
 
 // 登录卡片的壁纸副本与外层背景共享切换时序，避免卡片内部提前显示下一张图片。

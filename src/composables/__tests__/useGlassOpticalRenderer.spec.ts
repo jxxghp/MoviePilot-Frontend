@@ -31,6 +31,7 @@ vi.mock('three', async importOriginal => {
       render() {}
       setClearColor() {}
       setPixelRatio() {}
+      setRenderTarget() {}
       setSize() {}
     },
   }
@@ -63,6 +64,34 @@ function appendOpticalSurface(className: string, bounds: Pick<DOMRect, 'height' 
   return surface
 }
 
+/** 为元素提供可由 renderer 读取的稳定视口边界。 */
+function setOpticalSurfaceBounds(element: HTMLElement, bounds: Pick<DOMRect, 'height' | 'width' | 'x' | 'y'>) {
+  element.getBoundingClientRect = () =>
+    ({
+      ...bounds,
+      bottom: bounds.y + bounds.height,
+      left: bounds.x,
+      right: bounds.x + bounds.width,
+      top: bounds.y,
+      toJSON: () => ({}),
+    }) as DOMRect
+}
+
+function stubMediaPreferences({ coarsePointer = false, reducedMotion = false, reducedTransparency = false } = {}) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      addEventListener: vi.fn(),
+      matches:
+        (query === '(pointer: coarse)' && coarsePointer) ||
+        (query === '(prefers-reduced-motion: reduce)' && reducedMotion) ||
+        (query === '(prefers-reduced-transparency: reduce)' && reducedTransparency),
+      media: query,
+      removeEventListener: vi.fn(),
+    })),
+  )
+}
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   vi.stubGlobal('WebGLRenderingContext', class {})
@@ -79,14 +108,14 @@ afterEach(() => {
 describe('glass optical surface discovery', () => {
   it('detects a target surface added directly', () => {
     const surface = document.createElement('section')
-    surface.className = 'dashboard-grid-item-content'
+    surface.dataset.glassOpticalSurface = ''
 
     expect(containsGlassOpticalSurface(surface)).toBe(true)
   })
 
   it('detects a target surface inside an asynchronously added subtree', () => {
     const wrapper = document.createElement('div')
-    wrapper.innerHTML = '<div><section class="dashboard-grid-item-content"></section></div>'
+    wrapper.innerHTML = '<div><section data-glass-optical-surface></section></div>'
 
     expect(containsGlassOpticalSurface(wrapper)).toBe(true)
     expect(containsGlassOpticalSurface(document.createElement('div'))).toBe(false)
@@ -115,7 +144,8 @@ describe('glass optical surface discovery', () => {
 
   it('excludes the navbar from mobile clear optical surfaces', () => {
     appendOpticalSurface('layout-navbar', { height: 64, width: 390, x: 0, y: 0 })
-    appendOpticalSurface('dashboard-grid-item-content', { height: 200, width: 350, x: 20, y: 120 })
+    const content = appendOpticalSurface('dashboard-content', { height: 200, width: 350, x: 20, y: 120 })
+    content.dataset.glassOpticalSurface = ''
 
     const rects = collectGlassOpticalRects(390, 800, 'clear')
 
@@ -136,6 +166,49 @@ describe('glass optical surface discovery', () => {
 
     expect(collectGlassOpticalRects(1000, 800, 'clear')).toEqual([
       expect.objectContaining({ height: 64, width: 1000, x: 0, y: 0 }),
+    ])
+  })
+
+  it('uses the actual dashboard card boundary and all four corner radii', () => {
+    const shell = document.createElement('section')
+    shell.className = 'dashboard-grid-item-content'
+    shell.innerHTML = `
+      <div class="dashboard-grid-auto-size">
+        <div class="dashboard-grid-content-measure">
+          <article class="v-card"></article>
+        </div>
+      </div>
+    `
+    const card = shell.querySelector<HTMLElement>('.v-card')!
+    card.style.borderTopLeftRadius = '24px'
+    card.style.borderTopRightRadius = '20px'
+    card.style.borderBottomRightRadius = '16px'
+    card.style.borderBottomLeftRadius = '12px'
+    setOpticalSurfaceBounds(shell, { height: 220, width: 360, x: 20, y: 100 })
+    setOpticalSurfaceBounds(card, { height: 200, width: 340, x: 30, y: 110 })
+    document.body.append(shell)
+
+    expect(collectGlassOpticalRects(390, 844, 'clear')).toEqual([
+      expect.objectContaining({
+        height: 200,
+        radii: [24, 20, 16, 12],
+        width: 340,
+        x: 30,
+        y: 110,
+      }),
+    ])
+  })
+
+  it('discovers explicit optical surfaces without component-specific selectors', () => {
+    const surface = appendOpticalSurface('custom-surface', { height: 180, width: 300, x: 40, y: 120 })
+    surface.dataset.glassOpticalSurface = ''
+    surface.style.borderTopLeftRadius = '18px'
+    surface.style.borderTopRightRadius = '18px'
+    surface.style.borderBottomRightRadius = '18px'
+    surface.style.borderBottomLeftRadius = '18px'
+
+    expect(collectGlassOpticalRects(390, 844, 'clear')).toEqual([
+      expect.objectContaining({ height: 180, radii: [18, 18, 18, 18], width: 300, x: 40, y: 120 }),
     ])
   })
 
@@ -177,6 +250,7 @@ describe('glass optical surface discovery', () => {
     const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => ++frameId)
     const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame')
     const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const renderTargetDispose = vi.spyOn(three.WebGLRenderTarget.prototype, 'dispose')
     const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
     const resizeDisconnect = vi.spyOn(ResizeObserverMock.prototype, 'disconnect')
     const mutationDisconnect = vi.spyOn(MutationObserver.prototype, 'disconnect')
@@ -206,10 +280,12 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextlost')).toBe(1)
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
 
+    const renderTargetDisposalsBeforeFirstRelease = renderTargetDispose.mock.calls.length
     active.value = false
     await nextTick()
 
     expect(rendererDispose).toHaveBeenCalledTimes(1)
+    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeFirstRelease + 2)
     expect(contextLoss).toHaveBeenCalledTimes(1)
     expect(resizeDisconnect).toHaveBeenCalledTimes(1)
     expect(mutationDisconnect).toHaveBeenCalledTimes(1)
@@ -230,15 +306,223 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextlost')).toBe(1)
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
 
+    const renderTargetDisposalsBeforeSecondRelease = renderTargetDispose.mock.calls.length
     active.value = false
     await nextTick()
 
     expect(rendererDispose).toHaveBeenCalledTimes(2)
+    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeSecondRelease + 2)
     expect(contextLoss).toHaveBeenCalledTimes(2)
     expect(resizeDisconnect).toHaveBeenCalledTimes(2)
     expect(mutationDisconnect).toHaveBeenCalledTimes(2)
     expect(cancelFrame).toHaveBeenCalledTimes(4)
 
+    scope.stop()
+  })
+
+  it('reuses the renderer context while switching quality profiles', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    const quality = ref<'balanced' | 'high'>('high')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality,
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
+    const renderTargetDispose = vi.spyOn(three.WebGLRenderTarget.prototype, 'dispose')
+
+    quality.value = 'balanced'
+    await nextTick()
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+
+    expect(rendererDispose).not.toHaveBeenCalled()
+    expect(contextLoss).not.toHaveBeenCalled()
+    expect(renderTargetDispose).toHaveBeenCalledTimes(2)
+
+    quality.value = 'high'
+    await nextTick()
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+
+    expect(rendererDispose).not.toHaveBeenCalled()
+    expect(contextLoss).not.toHaveBeenCalled()
+    expect(renderTargetDispose).toHaveBeenCalledTimes(4)
+
+    scope.stop()
+  })
+
+  it('keeps the active renderer visible while a replacement wallpaper loads', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    const wallpaperUrl = ref('https://example.com/wallpaper-1.jpg')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl,
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+
+    const replacementTexture = new three.Texture<HTMLImageElement>()
+    replacementTexture.image = {
+      height: 1,
+      naturalHeight: 1,
+      naturalWidth: 1,
+      width: 1,
+    } as HTMLImageElement
+    let resolveTexture!: (texture: typeof replacementTexture) => void
+    vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockReturnValueOnce(
+      new Promise<typeof replacementTexture>(resolve => {
+        resolveTexture = resolve
+      }),
+    )
+
+    wallpaperUrl.value = 'https://example.com/wallpaper-2.jpg'
+    await nextTick()
+
+    expect(renderer?.state.value).toBe('ready')
+
+    resolveTexture(replacementTexture)
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    scope.stop()
+  })
+
+  it('uses the CSS fallback when reduced transparency is active', async () => {
+    stubMediaPreferences({ reducedTransparency: true })
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('fallback'))
+    expect(document.documentElement.dataset.glassRendererState).toBe('fallback')
+    scope.stop()
+  })
+
+  it('drives and settles the mobile liquid response from scrolling', async () => {
+    stubMediaPreferences({ coarsePointer: true })
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const surface = appendOpticalSurface('test-surface', { height: 500, width: 350, x: 20, y: 100 })
+    surface.dataset.glassOpticalSurface = ''
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now()))
+    }
+    expect(callbacks.size).toBe(0)
+
+    surface.scrollTop = 0
+    surface.dispatchEvent(new Event('scroll', { bubbles: true }))
+    surface.scrollTop = 120
+    surface.dispatchEvent(new Event('scroll', { bubbles: true }))
+    expect(callbacks.size).toBeGreaterThanOrEqual(1)
+
+    const interactionFrames = [...callbacks.values()]
+    callbacks.clear()
+    interactionFrames.forEach(interactionFrame => interactionFrame(performance.now() + 1_000))
+
+    expect(callbacks.size).toBe(0)
+    scope.stop()
+  })
+
+  it('settles pointer feedback without leaving a continuous animation frame', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const surface = appendOpticalSurface('test-surface', { height: 240, width: 320, x: 20, y: 80 })
+    surface.dataset.glassOpticalSurface = ''
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now()))
+    }
+    expect(callbacks.size).toBe(0)
+
+    const pointerMove = new MouseEvent('pointermove', { clientX: 160, clientY: 160 })
+    window.dispatchEvent(pointerMove)
+    expect(callbacks.size).toBe(1)
+
+    const [interactionFrame] = callbacks.values()
+    callbacks.clear()
+    interactionFrame(pointerMove.timeStamp + 500)
+
+    expect(callbacks.size).toBe(0)
     scope.stop()
   })
 })

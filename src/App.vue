@@ -90,10 +90,9 @@ const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
 )
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
+const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
 // 登录页的光学层只绘制程序化焦散，不会读取该跨域壁纸；登录后才通过同源缓存采样纹理。
-const activeOpticalBackgroundImage = computed(() =>
-  getDisplayImageUrl(activeBackgroundImage.value, Boolean(isLogin.value)),
-)
+const activeOpticalBackgroundImage = computed(() => getOpticalBackgroundImage(activeBackgroundImage.value))
 const appWrapperStyle = computed(() => ({
   '--login-wallpaper-image': activeBackgroundImage.value ? `url("${activeBackgroundImage.value}")` : 'none',
 }))
@@ -394,7 +393,11 @@ function rotateBackgroundImage() {
     void commitPreloadedBackgroundRotation({
       canCommit: () => allowsBackgroundRotation.value && requestVersion === backgroundRotationVersion,
       commit: () => activateBackgroundImage(nextIndex),
-      preload: () => preloadImage(backgroundImages.value[nextIndex]),
+      preload: () =>
+        Promise.all([
+          preloadImage(backgroundImages.value[nextIndex]),
+          preloadImage(getOpticalBackgroundImage(backgroundImages.value[nextIndex])),
+        ]).then(results => results.every(Boolean)),
     })
   }
 }
@@ -679,7 +682,6 @@ onUnmounted(() => {
     <GlassOpticalLayer
       v-if="shouldRenderGlassOpticalLayer"
       :appearance="effectiveGlassSettings.glassAppearance"
-      :class="{ 'glass-optical-layer--background-transition': isBackgroundCrossfading }"
       :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
       :route-key="route.fullPath"
       :tint-color="globalTheme.current.value.colors.primary"

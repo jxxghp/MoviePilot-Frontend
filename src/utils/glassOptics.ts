@@ -2,12 +2,20 @@ export const GLASS_OPTICAL_MAX_SURFACES_DESKTOP = 8
 export const GLASS_OPTICAL_MAX_SURFACES_MOBILE = 5
 
 export type GlassOpticalQuality = 'balanced' | 'high'
+export type GlassCornerRadii = [number, number, number, number]
+
+export interface GlassInteractionPoint {
+  /** 指针或触点相对视口的横坐标。 */
+  x: number
+  /** 指针或触点相对视口的纵坐标。 */
+  y: number
+}
 
 export interface GlassOpticalRect {
   /** 元素的实际高度，元素可部分位于视口外。 */
   height: number
-  /** 元素圆角的 CSS 像素值。 */
-  radius: number
+  /** 按左上、右上、右下、左下排列的 CSS 圆角像素值。 */
+  radii: GlassCornerRadii
   /** 表面的场景优先级，数值越小越优先。 */
   rank: number
   /** 元素的实际宽度，元素可部分位于视口外。 */
@@ -26,10 +34,18 @@ export interface GlassOpticalBufferSize {
 export interface GlassOpticalRenderProfile {
   /** 光学层内部缓冲使用的质量档位。 */
   bufferQuality: GlassOpticalQuality
+  /** 是否使用带时序记忆的液态位移场。 */
+  flowField: boolean
+  /** 输入停止后液态形态收敛到静态所需的时间。 */
+  motionDuration: number
+  /** 高质量缓冲允许使用的设备像素比上限。 */
+  pixelRatioCap: number
   /** 活动壁纸进入 GPU 前的最长边限制。 */
   textureLimit: number
   /** 登录页优先使用可读纹理，跨域外链自动退回程序化高光。 */
   textureSource: 'auto' | 'procedural' | 'wallpaper'
+  /** 参与液态方向计算的最近输入采样数量。 */
+  trailCount: number
 }
 
 /** 质量决定合成缓冲与纹理上限；路由只切换纹理来源，不改变质量档位。 */
@@ -37,10 +53,16 @@ export function getGlassOpticalRenderProfile(
   quality: GlassOpticalQuality,
   routeKey: string,
 ): GlassOpticalRenderProfile {
+  const highQuality = quality === 'high'
+
   return {
     bufferQuality: quality,
-    textureLimit: quality === 'high' ? 3072 : 2048,
+    flowField: highQuality,
+    motionDuration: highQuality ? 900 : 480,
+    pixelRatioCap: highQuality ? 1.5 : 1,
+    textureLimit: highQuality ? 4096 : 3072,
     textureSource: routeKey.startsWith('/login') ? 'auto' : 'wallpaper',
+    trailCount: highQuality ? 4 : 2,
   }
 }
 
@@ -58,18 +80,20 @@ export function canUseGlassWallpaperTexture(url: string, documentUrl: string): b
   }
 }
 
-/** 按固定像素预算计算内部缓冲尺寸，避免高 DPI 屏幕线性放大 GPU 成本。 */
+/** 按质量档位的像素预算计算内部缓冲，高质量只使用受控的设备像素比增益。 */
 export function getGlassOpticalBufferSize(
   viewportWidth: number,
   viewportHeight: number,
   mobile: boolean,
   quality: GlassOpticalQuality = 'balanced',
+  devicePixelRatio = 1,
 ): GlassOpticalBufferSize {
-  const safeWidth = Math.max(1, viewportWidth)
-  const safeHeight = Math.max(1, viewportHeight)
   const highQuality = quality === 'high'
-  const maxWidth = mobile ? (highQuality ? 960 : 720) : highQuality ? 1440 : 960
-  const maxHeight = highQuality ? 960 : 720
+  const pixelRatio = highQuality ? Math.min(Math.max(1, devicePixelRatio), 1.5) : 1
+  const safeWidth = Math.max(1, viewportWidth) * pixelRatio
+  const safeHeight = Math.max(1, viewportHeight) * pixelRatio
+  const maxWidth = mobile ? (highQuality ? 1280 : 960) : highQuality ? 1920 : 1440
+  const maxHeight = mobile ? (highQuality ? 1440 : 960) : highQuality ? 1200 : 960
   const scale = Math.min(1, maxWidth / safeWidth, maxHeight / safeHeight)
 
   return {
@@ -99,10 +123,9 @@ export function selectGlassOpticalRects(
   viewportWidth: number,
   viewportHeight: number,
   mobile: boolean,
+  interactionPoint?: GlassInteractionPoint,
 ): GlassOpticalRect[] {
-  const viewportArea = Math.max(1, viewportWidth * viewportHeight)
   const maxCount = mobile ? GLASS_OPTICAL_MAX_SURFACES_MOBILE : GLASS_OPTICAL_MAX_SURFACES_DESKTOP
-  const maxArea = viewportArea * (mobile ? 0.68 : 0.82)
   const visible = candidates
     .map(rect => {
       const left = Math.max(0, rect.x)
@@ -120,10 +143,26 @@ export function selectGlassOpticalRects(
       }
     })
     .filter(candidate => candidate.visibleWidth >= 24 && candidate.visibleHeight >= 24)
-    .sort((left, right) => left.rect.rank - right.rect.rank || left.visibleArea - right.visibleArea)
+    .sort((left, right) => {
+      if (interactionPoint) {
+        const leftContainsInteraction =
+          interactionPoint.x >= left.rect.x &&
+          interactionPoint.x <= left.rect.x + left.rect.width &&
+          interactionPoint.y >= left.rect.y &&
+          interactionPoint.y <= left.rect.y + left.rect.height
+        const rightContainsInteraction =
+          interactionPoint.x >= right.rect.x &&
+          interactionPoint.x <= right.rect.x + right.rect.width &&
+          interactionPoint.y >= right.rect.y &&
+          interactionPoint.y <= right.rect.y + right.rect.height
+
+        if (leftContainsInteraction !== rightContainsInteraction) return leftContainsInteraction ? -1 : 1
+      }
+
+      return left.rect.rank - right.rect.rank || left.visibleArea - right.visibleArea
+    })
 
   const selected: typeof visible = []
-  let selectedArea = 0
 
   for (const candidate of visible) {
     if (selected.length >= maxCount) break
@@ -138,10 +177,7 @@ export function selectGlassOpticalRects(
     )
     if (nested) continue
 
-    if (selected.length > 0 && selectedArea + candidate.visibleArea > maxArea) continue
-
     selected.push(candidate)
-    selectedArea += candidate.visibleArea
   }
 
   return selected.map(candidate => candidate.rect)
@@ -151,9 +187,10 @@ export function selectGlassOpticalRects(
 export function normalizeGlassOpticalRect(rect: GlassOpticalRect, viewportWidth: number, viewportHeight: number) {
   const safeWidth = Math.max(1, viewportWidth)
   const safeHeight = Math.max(1, viewportHeight)
+  const maxRadius = Math.max(0, Math.min(rect.width, rect.height) / 2)
 
   return {
-    radius: Math.min(Math.max(0, rect.radius), Math.max(0, Math.min(rect.width, rect.height) / 2)),
+    radii: rect.radii.map(radius => Math.min(Math.max(0, radius), maxRadius)) as GlassCornerRadii,
     rect: [
       rect.x / safeWidth,
       1 - (rect.y + rect.height) / safeHeight,
