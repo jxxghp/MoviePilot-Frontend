@@ -1,7 +1,9 @@
 import {
   canUseGlassWallpaperTexture,
   getGlassCoverScale,
+  getGlassOpticalDecay,
   getGlassOpticalBufferSize,
+  getGlassOpticalMotionEnergy,
   getGlassOpticalRenderProfile,
   normalizeGlassOpticalRect,
   selectGlassOpticalRects,
@@ -26,7 +28,9 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalRenderProfile('high', '/dashboard')).toEqual({
       bufferQuality: 'high',
       flowField: true,
-      motionDuration: 900,
+      flowHalfLife: 130,
+      motionDuration: 680,
+      motionHalfLife: 145,
       pixelRatioCap: 1.5,
       textureLimit: 4096,
       textureSource: 'wallpaper',
@@ -35,7 +39,9 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalRenderProfile('high', '/recommend?source=tmdb')).toEqual({
       bufferQuality: 'high',
       flowField: true,
-      motionDuration: 900,
+      flowHalfLife: 130,
+      motionDuration: 680,
+      motionHalfLife: 145,
       pixelRatioCap: 1.5,
       textureLimit: 4096,
       textureSource: 'wallpaper',
@@ -44,7 +50,9 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalRenderProfile('high', '/subscribe/movie')).toEqual({
       bufferQuality: 'high',
       flowField: true,
-      motionDuration: 900,
+      flowHalfLife: 130,
+      motionDuration: 680,
+      motionHalfLife: 145,
       pixelRatioCap: 1.5,
       textureLimit: 4096,
       textureSource: 'wallpaper',
@@ -53,7 +61,9 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalRenderProfile('balanced', '/dashboard')).toEqual({
       bufferQuality: 'balanced',
       flowField: false,
-      motionDuration: 480,
+      flowHalfLife: 0,
+      motionDuration: 420,
+      motionHalfLife: 90,
       pixelRatioCap: 1,
       textureLimit: 3072,
       textureSource: 'wallpaper',
@@ -62,12 +72,27 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalRenderProfile('high', '/login')).toEqual({
       bufferQuality: 'high',
       flowField: true,
-      motionDuration: 900,
+      flowHalfLife: 130,
+      motionDuration: 680,
+      motionHalfLife: 145,
       pixelRatioCap: 1.5,
       textureLimit: 4096,
       textureSource: 'auto',
       trailCount: 4,
     })
+  })
+
+  it('uses refresh-rate independent decay and reaches a deterministic static state', () => {
+    expect(getGlassOpticalDecay(100, 100)).toBeCloseTo(0.5)
+    expect(getGlassOpticalDecay(100, 50) ** 2).toBeCloseTo(getGlassOpticalDecay(100, 100))
+    expect(getGlassOpticalMotionEnergy(0, 420, 90)).toBe(1)
+    expect(getGlassOpticalMotionEnergy(90, 420, 90)).toBeCloseTo(0.5)
+    expect(getGlassOpticalMotionEnergy(400, 420, 90)).toBeLessThan(0.005)
+    expect(getGlassOpticalMotionEnergy(410, 420, 90)).toBeLessThan(getGlassOpticalMotionEnergy(400, 420, 90))
+    expect(getGlassOpticalMotionEnergy(420, 420, 90)).toBe(0)
+
+    const samples = Array.from({ length: 29 }, (_, index) => getGlassOpticalMotionEnergy(index * 15, 420, 90))
+    expect(samples.every((sample, index) => index === 0 || sample <= samples[index - 1])).toBe(true)
   })
 
   it('only uploads browser-readable login wallpapers to WebGL', () => {

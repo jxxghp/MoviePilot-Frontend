@@ -36,8 +36,12 @@ export interface GlassOpticalRenderProfile {
   bufferQuality: GlassOpticalQuality
   /** 是否使用带时序记忆的液态位移场。 */
   flowField: boolean
+  /** 时序位移场能量衰减到一半所需的时间。 */
+  flowHalfLife: number
   /** 输入停止后液态形态收敛到静态所需的时间。 */
   motionDuration: number
+  /** 主液态反馈能量衰减到一半所需的时间。 */
+  motionHalfLife: number
   /** 高质量缓冲允许使用的设备像素比上限。 */
   pixelRatioCap: number
   /** 活动壁纸进入 GPU 前的最长边限制。 */
@@ -58,12 +62,34 @@ export function getGlassOpticalRenderProfile(
   return {
     bufferQuality: quality,
     flowField: highQuality,
-    motionDuration: highQuality ? 900 : 480,
+    flowHalfLife: highQuality ? 130 : 0,
+    motionDuration: highQuality ? 680 : 420,
+    motionHalfLife: highQuality ? 145 : 90,
     pixelRatioCap: highQuality ? 1.5 : 1,
     textureLimit: highQuality ? 4096 : 3072,
     textureSource: routeKey.startsWith('/login') ? 'auto' : 'wallpaper',
     trailCount: highQuality ? 4 : 2,
   }
+}
+
+/** 将时间常数转换为与刷新率无关的指数衰减。 */
+export function getGlassOpticalDecay(halfLife: number, delta: number) {
+  if (halfLife <= 0) return 0
+  if (delta <= 0) return 1
+
+  return 2 ** (-delta / halfLife)
+}
+
+/** 输入停止后按时间收敛，尾段平滑归零以恢复事件驱动静止状态。 */
+export function getGlassOpticalMotionEnergy(elapsed: number, duration: number, halfLife: number) {
+  if (elapsed >= duration) return 0
+
+  const safeElapsed = Math.max(0, elapsed)
+  const tailDuration = Math.max(1, duration * 0.25)
+  const tailProgress = Math.min(1, Math.max(0, (duration - safeElapsed) / tailDuration))
+  const tailTaper = tailProgress * tailProgress * (3 - 2 * tailProgress)
+
+  return getGlassOpticalDecay(halfLife, safeElapsed) * tailTaper
 }
 
 /** 只将同源及本地对象交给 WebGL，避免跨域纹理失败污染登录页控制台。 */

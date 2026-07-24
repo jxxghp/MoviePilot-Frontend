@@ -92,6 +92,31 @@ function stubMediaPreferences({ coarsePointer = false, reducedMotion = false, re
   )
 }
 
+function createTouchList(points: Array<{ clientX: number; clientY: number; identifier: number }>) {
+  const touches = points.map(point => point as Touch)
+
+  return Object.assign(touches, {
+    item(index: number) {
+      return touches[index] ?? null
+    },
+  }) as unknown as TouchList
+}
+
+function dispatchTouchEvent(
+  type: 'touchcancel' | 'touchend' | 'touchmove' | 'touchstart',
+  touches: Array<{ clientX: number; clientY: number; identifier: number }>,
+  changedTouches = touches,
+) {
+  const event = new Event(type) as TouchEvent
+  Object.defineProperties(event, {
+    changedTouches: { value: createTouchList(changedTouches) },
+    touches: { value: createTouchList(touches) },
+  })
+  window.dispatchEvent(event)
+
+  return event
+}
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   vi.stubGlobal('WebGLRenderingContext', class {})
@@ -212,6 +237,18 @@ describe('glass optical surface discovery', () => {
     ])
   })
 
+  it('discovers the shared interactive card contract used across routes', () => {
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 220, width: 150, x: 24, y: 96 })
+    surface.style.borderTopLeftRadius = '20px'
+    surface.style.borderTopRightRadius = '20px'
+    surface.style.borderBottomRightRadius = '20px'
+    surface.style.borderBottomLeftRadius = '20px'
+
+    expect(collectGlassOpticalRects(390, 844, 'clear')).toEqual([
+      expect.objectContaining({ height: 220, radii: [20, 20, 20, 20], width: 150, x: 24, y: 96 }),
+    ])
+  })
+
   it('recovers after consecutive WebGL context loss cycles', async () => {
     const canvas = document.createElement('canvas')
     const scope = effectScope()
@@ -274,6 +311,10 @@ describe('glass optical surface discovery', () => {
     await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
     expect(requestFrame).toHaveBeenCalled()
     expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchstart')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchmove')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchend')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchcancel')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(1)
     expect(countListenerAdds(addDocumentListener.mock.calls, 'visibilitychange')).toBe(1)
@@ -300,6 +341,10 @@ describe('glass optical surface discovery', () => {
 
     expect(renderer?.state.value).toBe('ready')
     expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchstart')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchmove')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchend')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'touchcancel')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(1)
     expect(countListenerAdds(addDocumentListener.mock.calls, 'visibilitychange')).toBe(1)
@@ -425,6 +470,83 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('tracks the actual passive touch coordinate without restoring press magnification', async () => {
+    stubMediaPreferences({ coarsePointer: true })
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 500, width: 350, x: 20, y: 100 })
+    surface.style.borderRadius = '20px'
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/recommend'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now()))
+    }
+    render.mockClear()
+
+    dispatchTouchEvent('touchstart', [{ clientX: 80, clientY: 180, identifier: 7 }])
+    const startFrames = [...callbacks.values()]
+    callbacks.clear()
+    startFrames.forEach(callback => callback(performance.now()))
+    render.mockClear()
+
+    const moveEvent = dispatchTouchEvent('touchmove', [{ clientX: 180, clientY: 320, identifier: 7 }])
+    const interactionFrames = [...callbacks.values()]
+    callbacks.clear()
+    interactionFrames.forEach(callback => callback(moveEvent.timeStamp + 16))
+
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uPointer: { value: { x: number; y: number } }
+            uTrail: { value: Array<{ x: number; y: number; z: number }> }
+          }
+        }
+      }>
+    }
+    const pointer = scene.children[0].material.uniforms.uPointer.value
+    const trail = scene.children[0].material.uniforms.uTrail.value
+    expect(pointer.x).toBeCloseTo(180 / 390)
+    expect(pointer.y).toBeCloseTo(1 - 320 / 844)
+    expect(trail[0]).toMatchObject({ z: 1 })
+    expect(trail[0].x).toBeCloseTo(180 / 390)
+    expect(trail[0].y).toBeCloseTo(1 - 320 / 844)
+    expect(trail[1]).toMatchObject({ z: 0.72 })
+    expect(trail[1].x).toBeCloseTo(80 / 390)
+    expect(trail[1].y).toBeCloseTo(1 - 180 / 844)
+
+    dispatchTouchEvent('touchend', [], [{ clientX: 180, clientY: 320, identifier: 7 }])
+    scope.stop()
+  })
+
   it('drives and settles the mobile liquid response from scrolling', async () => {
     stubMediaPreferences({ coarsePointer: true })
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
@@ -479,6 +601,8 @@ describe('glass optical surface discovery', () => {
   })
 
   it('settles pointer feedback without leaving a continuous animation frame', async () => {
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
     const callbacks = new Map<number, FrameRequestCallback>()
     let frameId = 0
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
@@ -513,16 +637,44 @@ describe('glass optical surface discovery', () => {
       scheduledCallbacks.forEach(callback => callback(performance.now()))
     }
     expect(callbacks.size).toBe(0)
+    render.mockClear()
 
     const pointerMove = new MouseEvent('pointermove', { clientX: 160, clientY: 160 })
     window.dispatchEvent(pointerMove)
     expect(callbacks.size).toBe(1)
 
-    const [interactionFrame] = callbacks.values()
+    const [firstInteractionFrame] = callbacks.values()
     callbacks.clear()
-    interactionFrame(pointerMove.timeStamp + 500)
+    firstInteractionFrame(pointerMove.timeStamp + 100)
+    const firstScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+      }>
+    }
+    const firstVelocity = firstScene.children[0].material.uniforms.uPointerVelocity.value
+    const stableDirection = { x: firstVelocity.x, y: firstVelocity.y }
+
+    const [secondInteractionFrame] = callbacks.values()
+    callbacks.clear()
+    secondInteractionFrame(pointerMove.timeStamp + 300)
+    const secondScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+      }>
+    }
+    expect(secondScene.children[0].material.uniforms.uPointerVelocity.value).toMatchObject(stableDirection)
+
+    const [finalInteractionFrame] = callbacks.values()
+    callbacks.clear()
+    finalInteractionFrame(pointerMove.timeStamp + 500)
+    const finalScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+      }>
+    }
 
     expect(callbacks.size).toBe(0)
+    expect(finalScene.children[0].material.uniforms.uPointerVelocity.value).toMatchObject({ x: 0, y: 0 })
     scope.stop()
   })
 })
