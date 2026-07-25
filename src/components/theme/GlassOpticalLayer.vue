@@ -93,6 +93,10 @@ watchEffect(() => {
 
   setGlassRendererState(rendererState, state)
 })
+
+onScopeDispose(() => {
+  setGlassRendererState(rendererState, 'fallback')
+})
 </script>
 
 <template>

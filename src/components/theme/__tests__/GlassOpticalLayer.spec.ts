@@ -5,11 +5,14 @@ import GlassOpticalLayer from '@/components/theme/GlassOpticalLayer.vue'
 
 const rendererCalls = vi.hoisted(() => [] as Array<Record<string, unknown>>)
 const interactionSource = vi.hoisted(() => ({ subscribe: vi.fn() }))
-
-vi.mock('@/composables/useGlassOpticalRenderer', () => ({
-  setGlassRendererState: vi.fn((state: { value: string }, value: string) => {
+const setRendererState = vi.hoisted(() =>
+  vi.fn((state: { value: string }, value: string) => {
     state.value = value
   }),
+)
+
+vi.mock('@/composables/useGlassOpticalRenderer', () => ({
+  setGlassRendererState: setRendererState,
   useGlassOpticalInteractionSource: vi.fn(() => interactionSource),
   useGlassOpticalRenderer: vi.fn((options: Record<string, unknown>) => {
     rendererCalls.push(options)
@@ -24,6 +27,7 @@ vi.mock('@/composables/useGlassOpticalRenderer', () => ({
 describe('GlassOpticalLayer', () => {
   it('uses exactly two visible presentation contexts with one interaction source', () => {
     rendererCalls.length = 0
+    setRendererState.mockClear()
     const wrapper = shallowMount(GlassOpticalLayer, {
       props: {
         appearance: 'clear',
@@ -48,5 +52,8 @@ describe('GlassOpticalLayer', () => {
     expect(rendererCalls.map(options => options.surfaceSpace)).toEqual(['fixed', 'scroll'])
     expect(rendererCalls.every(options => options.interactionSource === interactionSource)).toBe(true)
     expect(rendererCalls.every(options => options.syncDocumentState === false)).toBe(true)
+
+    wrapper.unmount()
+    expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')
   })
 })
