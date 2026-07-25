@@ -433,13 +433,14 @@ void main() {
   vec2 wakePerpendicular = vec2(-wakeDirection.y, wakeDirection.x);
   vec2 trailRefraction = vec2(0.0);
   float trailEnergy = 0.0;
+  float motionRangeCompression = mix(1.0, 1.34, uMotionExpansion);
 
   for (int trailIndex = 0; trailIndex < 4; trailIndex++) {
     if (trailIndex >= uTrailCount) break;
 
     vec4 trail = uTrail[trailIndex];
     vec2 trailDelta = vUv - trail.xy;
-    trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float along = dot(trailDelta, wakeDirection);
     float across = dot(trailDelta, wakePerpendicular);
     float trailAlongDensity = mix(42.0, 22.0, uMotionExpansion);
@@ -505,13 +506,13 @@ void main() {
     float localBacklightAbsorption = max(rightEdge * 0.72, bottomEdge * 0.46) * rectMask;
     vec2 pointerDelta = uPointer - vUv;
     vec2 pointerDeltaAspect = pointerDelta;
-    pointerDeltaAspect *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    pointerDeltaAspect *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float pointerSpread = mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted);
     pointerSpread *= mix(1.0, 0.46, uMotionExpansion);
     float pointerEnergy =
       clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);
     vec2 wakeDelta = vUv - uPointer;
-    wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float wakeAlong = dot(wakeDelta, wakeDirection);
     float wakeAcross = dot(wakeDelta, wakePerpendicular);
     float wakeTravel =
@@ -541,7 +542,7 @@ void main() {
     float trailStrength = mix(mix(0.78, 1.08, uQuality), mix(0.96, 1.3, uQuality), frosted);
     float temporalStrength = mix(0.032, 0.042, frosted) * uQuality * (1.0 + flowSurfaceDetail * 0.5);
     vec2 specularDelta = vUv - (uPointer - wakeDirection * mix(0.006, 0.022, uMotionExpansion));
-    specularDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    specularDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float specularAlong = dot(specularDelta, wakeDirection);
     float specularAcross = dot(specularDelta, wakePerpendicular);
     float singleSpecular =
@@ -686,6 +687,7 @@ void main() {
 `
 
 const SCROLL_SURFACE_UPDATE_INTERVAL_MS = 32
+const SCROLL_STABLE_TAIL_FRAMES = 2
 const FLOW_BUFFER_SCALE = 0.25
 const SURFACE_TRANSITION_DURATION_MS = 96
 
@@ -847,6 +849,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let pendingFlowInjection = 0
   let interactionAnimating = false
   let surfaceResizeTimer: number | null = null
+  let scrollAnimationFrame: number | null = null
+  let scrollDirty = false
+  let scrollSurfaceRefreshPending = false
+  let scrollStableFrameCount = 0
+  let lastRenderedScrollX = window.scrollX
+  let lastRenderedScrollY = window.scrollY
   let scrollSurfaceTimer: number | null = null
   let unsubscribeInteractionSource: (() => void) | null = null
   let lastScrollSurfaceUpdateAt = 0
@@ -896,6 +904,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     cancelAnimationFrame(animationFrame)
     animationFrame = null
+  }
+
+  function cancelScrollFrame() {
+    if (scrollAnimationFrame !== null) cancelAnimationFrame(scrollAnimationFrame)
+    scrollAnimationFrame = null
+    scrollDirty = false
+    scrollSurfaceRefreshPending = false
+    scrollStableFrameCount = 0
   }
 
   function cancelWallpaperTransitionFrame() {
@@ -1107,7 +1123,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uRectCount.value = normalized.length
   }
 
-  function updateSurfaceUniforms(timestamp = performance.now()) {
+  function updateSurfaceUniforms(timestamp = performance.now(), scheduleRender = true) {
     if (!resources) return
 
     const viewportWidth = window.innerWidth
@@ -1147,7 +1163,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       for (const element of observedSurfaces) resizeObserver?.observe(element)
     }
     tracksScrollingSurfaces = observedSurfaces.length > 0
-    scheduleFrame()
+    if (scheduleRender) scheduleFrame()
   }
 
   function scheduleSurfaceUpdate() {
@@ -1614,10 +1630,56 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     handleTouchEnd(event as TouchEvent)
   }
 
+  /**
+   * 滚动坐标连续稳定两帧后停止刷新，给 compositor 留出提交最终位置的机会。
+   * 滚动期间只更新采样坐标；稳定后同步一次可见表面，不改变交互能量或时序流场。
+   */
+  function renderScrollFrame(timestamp: number) {
+    scrollAnimationFrame = null
+    if (
+      presentationSpace !== 'scroll' ||
+      !resources ||
+      !toValue(options.active) ||
+      document.visibilityState === 'hidden'
+    ) {
+      scrollDirty = false
+      scrollStableFrameCount = 0
+      return
+    }
+
+    const receivedScrollEvent = scrollDirty
+    scrollDirty = false
+    const scrollX = window.scrollX
+    const scrollY = window.scrollY
+    const coordinatesChanged = scrollX !== lastRenderedScrollX || scrollY !== lastRenderedScrollY
+    lastRenderedScrollX = scrollX
+    lastRenderedScrollY = scrollY
+    resources.uniforms.uScrollOffset.value.set(scrollX, scrollY)
+
+    scrollStableFrameCount = receivedScrollEvent || coordinatesChanged ? 0 : scrollStableFrameCount + 1
+    if (scrollStableFrameCount >= SCROLL_STABLE_TAIL_FRAMES && scrollSurfaceRefreshPending) {
+      scrollSurfaceRefreshPending = false
+      updateSurfaceUniforms(timestamp, false)
+    }
+    if (!interactionAnimating) renderFrame(timestamp)
+
+    if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
+      scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
+    }
+  }
+
+  function scheduleScrollFrame() {
+    if (scrollAnimationFrame !== null || presentationSpace !== 'scroll' || !resources) return
+
+    scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
+  }
+
   function handleScroll() {
     if (presentationSpace === 'scroll' && resources) {
       resources.uniforms.uScrollOffset.value.set(window.scrollX, window.scrollY)
-      scheduleFrame()
+      scrollDirty = true
+      scrollSurfaceRefreshPending = true
+      scheduleScrollFrame()
       return
     }
 
@@ -1633,9 +1695,19 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }, delay)
   }
 
+  function handleScrollEnd() {
+    if (presentationSpace !== 'scroll' || !resources) return
+
+    scrollDirty = false
+    scrollSurfaceRefreshPending = true
+    scrollStableFrameCount = 0
+    scheduleScrollFrame()
+  }
+
   /** 暂停事件驱动帧但保留 WebGL context、纹理、流场和最后一张稳定画面。 */
   function pauseRenderer() {
     cancelScheduledFrame()
+    cancelScrollFrame()
     cancelWallpaperTransitionFrame()
     interactionAnimating = false
   }
@@ -1742,6 +1814,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
     window.addEventListener('resize', resizeRenderer, { passive: true })
     window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
+    if (presentationSpace === 'scroll') window.addEventListener('scrollend', handleScrollEnd, { passive: true })
     options.canvas.value?.addEventListener('webglcontextlost', handleContextLost)
     options.canvas.value?.addEventListener('webglcontextrestored', handleContextRestored)
   }
@@ -1758,6 +1831,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     }
     window.removeEventListener('resize', resizeRenderer)
     window.removeEventListener('scroll', handleScroll, true)
+    if (presentationSpace === 'scroll') window.removeEventListener('scrollend', handleScrollEnd)
     options.canvas.value?.removeEventListener('webglcontextlost', handleContextLost)
     options.canvas.value?.removeEventListener('webglcontextrestored', handleContextRestored)
   }
@@ -1767,6 +1841,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     contextRecoveryPending = false
     interactionAnimating = false
     cancelScheduledFrame()
+    cancelScrollFrame()
     cancelWallpaperTransitionFrame()
     clearBackgroundDisposeTimer()
     if (surfaceUpdateFrame !== null) {
