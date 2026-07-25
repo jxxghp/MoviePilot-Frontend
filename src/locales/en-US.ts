@@ -159,7 +159,6 @@ export default {
     glassQualityCssHint: 'Static CSS material with the lowest resource use; clarity and reflection remain available.',
     glassQualityBalancedHint: 'Shared live refraction that balances liquid feedback and GPU use.',
     glassQualityHighHint: 'Full temporal flow, diffusion detail, and content protection at a higher GPU cost.',
-    glassQualityMobileHint: 'Mobile always uses the stable material; quality selection applies on desktop.',
     glassPreset: 'Preset',
     glassPresetRecommended: 'Recommended',
     glassPresetGlide: 'Glide',

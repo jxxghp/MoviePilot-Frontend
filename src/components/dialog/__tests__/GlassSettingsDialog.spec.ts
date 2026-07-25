@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
   cancelGlassPreview: vi.fn(),
   commitGlassPreview: vi.fn(),
   previewGlassSettings: vi.fn(),
-  mdAndUp: { value: true },
   settings: {
     value: {
       glassAppearance: 'clear',
@@ -42,16 +41,11 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('vuetify', () => ({
-  useDisplay: () => ({ mdAndUp: mocks.mdAndUp }),
-}))
-
 describe('GlassSettingsDialog', () => {
   beforeEach(() => {
     mocks.cancelGlassPreview.mockClear()
     mocks.commitGlassPreview.mockClear()
     mocks.previewGlassSettings.mockClear()
-    mocks.mdAndUp.value = true
     mocks.settings.value.glassAppearance = 'clear'
     mocks.settings.value.glassDeformationStrength = 50
     mocks.settings.value.glassFlowStrength = 50
@@ -174,8 +168,7 @@ describe('GlassSettingsDialog', () => {
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })
 
-  it('hides motion tuning on mobile while preserving transparency and reflection', () => {
-    mocks.mdAndUp.value = false
+  it('keeps motion tuning available in high quality', () => {
     mocks.settings.value.glassQuality = 'high'
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
@@ -191,10 +184,13 @@ describe('GlassSettingsDialog', () => {
     })
     const sliders = wrapper.findAll('.slider-stub')
 
-    expect(sliders).toHaveLength(2)
+    expect(sliders).toHaveLength(5)
     expect(sliders.map(slider => slider.attributes('aria-label'))).toEqual([
       'theme.glassTransparencyStrength',
       'theme.glassReflectionStrength',
+      'theme.glassTranslationStrength',
+      'theme.glassDeformationStrength',
+      'theme.glassFlowStrength',
     ])
   })
 })

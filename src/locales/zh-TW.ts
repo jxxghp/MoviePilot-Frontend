@@ -157,7 +157,6 @@ export default {
     glassQualityCssHint: '靜態 CSS 材質，資源佔用最低，保留通透與反射，不啟用即時流動。',
     glassQualityBalancedHint: '共享即時折射，優先平衡流動回饋與 GPU 佔用。',
     glassQualityHighHint: '完整時序流場、擴散細節與內容保護，GPU 佔用更高。',
-    glassQualityMobileHint: '移動端始終使用穩定材質，品質選擇僅在桌面端生效。',
     glassPreset: '方案',
     glassPresetRecommended: '推薦',
     glassPresetGlide: '滑移',

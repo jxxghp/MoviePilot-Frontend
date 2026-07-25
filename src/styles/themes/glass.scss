@@ -575,8 +575,8 @@ html[data-theme='glass'] {
   }
 
   .v-overlay__scrim {
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
-    backdrop-filter: var(--glass-surface-backdrop-filter);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     background: rgba(3, 7, 18, 48%);
   }
 

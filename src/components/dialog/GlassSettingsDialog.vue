@@ -18,7 +18,6 @@ import {
   type GlassOpticalPresetState,
 } from '@/utils/glassOptics'
 import { useI18n } from 'vue-i18n'
-import { useDisplay } from 'vuetify'
 
 const props = withDefaults(
   defineProps<{
@@ -35,7 +34,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { mdAndUp } = useDisplay()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
 const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
@@ -46,7 +44,7 @@ const draftTranslationStrength = ref(settings.value.glassTranslationStrength)
 const draftTransparencyStrength = ref(settings.value.glassTransparencyStrength)
 const isSaving = ref(false)
 const usesRealtimeOptics = computed(() => draftQuality.value !== 'css')
-const showsDynamicTuning = computed(() => mdAndUp.value && usesRealtimeOptics.value)
+const showsDynamicTuning = computed(() => usesRealtimeOptics.value)
 const draftParameters = computed<GlassOpticalParameters>(() => ({
   deformation: draftDeformationStrength.value,
   flow: draftFlowStrength.value,
@@ -104,11 +102,7 @@ const qualityOptions: Array<{
   { hint: 'theme.glassQualityBalancedHint', label: 'theme.glassQualityBalanced', value: 'balanced' },
   { hint: 'theme.glassQualityHighHint', label: 'theme.glassQualityHigh', value: 'high' },
 ]
-const qualityHint = computed(() =>
-  mdAndUp.value
-    ? (qualityOptions.find(option => option.value === draftQuality.value)?.hint ?? '')
-    : 'theme.glassQualityMobileHint',
-)
+const qualityHint = computed(() => qualityOptions.find(option => option.value === draftQuality.value)?.hint ?? '')
 const presetOptions: Array<{ label: string; value: GlassOpticalPresetState }> = [
   { label: 'theme.glassPresetRecommended', value: 'recommended' },
   { label: 'theme.glassPresetGlide', value: 'glide' },

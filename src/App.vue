@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { useMediaQuery, usePreferredReducedMotion } from '@vueuse/core'
+import { usePreferredReducedMotion } from '@vueuse/core'
 import { useTheme } from 'vuetify'
 import { ensureRenderComplete, removeEl } from './@core/utils/dom'
 import api, { type ConnectionAwareRequestConfig } from '@/api'
@@ -83,7 +83,6 @@ const allowsBackgroundRotation = computed(() => allowsDecorativeMotion.value && 
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
-const usesMobileGlassFallback = useMediaQuery('(max-width: 959px)')
 const isInitialRouteReady = ref(false)
 const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
@@ -125,7 +124,6 @@ const shouldRenderGlassOpticalLayer = computed(
   () =>
     isGlassTheme.value &&
     effectiveGlassSettings.value.glassQuality !== 'css' &&
-    !usesMobileGlassFallback.value &&
     isInitialRouteReady.value &&
     Boolean(activeBackgroundImage.value),
 )
