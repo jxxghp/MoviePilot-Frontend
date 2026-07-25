@@ -433,13 +433,14 @@ void main() {
   vec2 wakePerpendicular = vec2(-wakeDirection.y, wakeDirection.x);
   vec2 trailRefraction = vec2(0.0);
   float trailEnergy = 0.0;
+  float motionRangeCompression = mix(1.0, 1.34, uMotionExpansion);
 
   for (int trailIndex = 0; trailIndex < 4; trailIndex++) {
     if (trailIndex >= uTrailCount) break;
 
     vec4 trail = uTrail[trailIndex];
     vec2 trailDelta = vUv - trail.xy;
-    trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float along = dot(trailDelta, wakeDirection);
     float across = dot(trailDelta, wakePerpendicular);
     float trailAlongDensity = mix(42.0, 22.0, uMotionExpansion);
@@ -505,13 +506,13 @@ void main() {
     float localBacklightAbsorption = max(rightEdge * 0.72, bottomEdge * 0.46) * rectMask;
     vec2 pointerDelta = uPointer - vUv;
     vec2 pointerDeltaAspect = pointerDelta;
-    pointerDeltaAspect *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    pointerDeltaAspect *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float pointerSpread = mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted);
     pointerSpread *= mix(1.0, 0.46, uMotionExpansion);
     float pointerEnergy =
       clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);
     vec2 wakeDelta = vUv - uPointer;
-    wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    wakeDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float wakeAlong = dot(wakeDelta, wakeDirection);
     float wakeAcross = dot(wakeDelta, wakePerpendicular);
     float wakeTravel =
@@ -541,7 +542,7 @@ void main() {
     float trailStrength = mix(mix(0.78, 1.08, uQuality), mix(0.96, 1.3, uQuality), frosted);
     float temporalStrength = mix(0.032, 0.042, frosted) * uQuality * (1.0 + flowSurfaceDetail * 0.5);
     vec2 specularDelta = vUv - (uPointer - wakeDirection * mix(0.006, 0.022, uMotionExpansion));
-    specularDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0);
+    specularDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
     float specularAlong = dot(specularDelta, wakeDirection);
     float specularAcross = dot(specularDelta, wakePerpendicular);
     float singleSpecular =

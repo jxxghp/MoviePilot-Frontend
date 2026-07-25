@@ -166,8 +166,9 @@ export default {
     glassFlowStrength: '流動強度',
     glassReflectionStrength: '反射亮度',
     glassTransparencyStrength: '通透度',
-    glassOpticalStrengthHint: '採樣平移、局部形變與流動記憶互相獨立；通透度和反射不代替動態參數。',
-    glassOpticalStrengthUnavailableHint: '目前環境保留通透度和靜態反射；三個動態參數會在桌面即時品質下恢復。',
+    glassOpticalStrengthHint: '採樣平移控制整體滑移，形變強度控制局部彎曲，流動強度控制軌跡範圍與慣性。',
+    glassOpticalStrengthUnavailableHint:
+      '標準品質僅提供通透度和靜態反射。切換到均衡或高品質後，可調整採樣平移、形變和流動。',
     purple: '幻紫',
     custom: '附加樣式',
     transparency: '透明度',

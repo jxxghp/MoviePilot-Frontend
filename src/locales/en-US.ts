@@ -169,9 +169,9 @@ export default {
     glassReflectionStrength: 'Reflection Brightness',
     glassTransparencyStrength: 'Clarity',
     glassOpticalStrengthHint:
-      'Sample translation, local deformation, and flow memory stay independent; clarity and reflection do not replace motion.',
+      'Sample Translation moves the shared wallpaper. Deformation controls local bending. Flow Strength controls trail range and inertia.',
     glassOpticalStrengthUnavailableHint:
-      'This environment keeps clarity and static reflection; the three dynamic controls return with desktop live quality.',
+      'Standard quality provides clarity and static reflection only. Switch to Balanced or High to adjust sample translation, deformation, and flow.',
     purple: 'Purple',
     custom: 'Custom Style',
     transparency: 'Transparency',

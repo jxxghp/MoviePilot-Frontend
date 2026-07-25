@@ -166,8 +166,9 @@ export default {
     glassFlowStrength: '流动强度',
     glassReflectionStrength: '反射亮度',
     glassTransparencyStrength: '通透度',
-    glassOpticalStrengthHint: '采样平移、局部形变与流动记忆互相独立；通透度和反射不代替动态参数。',
-    glassOpticalStrengthUnavailableHint: '当前环境保留通透度和静态反射；三个动态参数会在桌面实时质量下恢复。',
+    glassOpticalStrengthHint: '采样平移控制整体滑移，形变强度控制局部弯曲，流动强度控制轨迹范围与惯性。',
+    glassOpticalStrengthUnavailableHint:
+      '标准质量仅提供通透度和静态反射。切换到均衡或高质量后，可调整采样平移、形变和流动。',
     purple: '幻紫',
     custom: '附加样式',
     transparency: '透明度',
