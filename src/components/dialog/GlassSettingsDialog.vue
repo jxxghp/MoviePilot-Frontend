@@ -8,10 +8,14 @@ import {
   type ThemeCustomizerGlassQuality,
 } from '@/composables/useThemeCustomizer'
 import {
-  GLASS_OPTICAL_STRENGTH_DEFAULT,
   GLASS_OPTICAL_STRENGTH_MAX,
   GLASS_OPTICAL_STRENGTH_MIN,
+  getAvailableGlassOpticalPresets,
+  getGlassOpticalPresetParameters,
   normalizeGlassOpticalStrength,
+  resolveGlassOpticalPresetState,
+  type GlassOpticalParameters,
+  type GlassOpticalPresetState,
 } from '@/utils/glassOptics'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
@@ -34,13 +38,26 @@ const { t } = useI18n()
 const { mdAndUp } = useDisplay()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
-const draftMotionStrength = ref(settings.value.glassMotionStrength)
+const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
+const draftFlowStrength = ref(settings.value.glassFlowStrength)
 const draftQuality = ref<ThemeCustomizerGlassQuality>(settings.value.glassQuality)
 const draftReflectionStrength = ref(settings.value.glassReflectionStrength)
+const draftTranslationStrength = ref(settings.value.glassTranslationStrength)
 const draftTransparencyStrength = ref(settings.value.glassTransparencyStrength)
 const isSaving = ref(false)
 const usesRealtimeOptics = computed(() => draftQuality.value !== 'css')
-const showsMotionTuning = computed(() => mdAndUp.value)
+const showsDynamicTuning = computed(() => mdAndUp.value && usesRealtimeOptics.value)
+const draftParameters = computed<GlassOpticalParameters>(() => ({
+  deformation: draftDeformationStrength.value,
+  flow: draftFlowStrength.value,
+  reflection: draftReflectionStrength.value,
+  translation: draftTranslationStrength.value,
+  transparency: draftTransparencyStrength.value,
+}))
+const presetState = computed<GlassOpticalPresetState>(() =>
+  resolveGlassOpticalPresetState(draftAppearance.value, draftQuality.value, draftParameters.value),
+)
+const availablePresets = computed(() => getAvailableGlassOpticalPresets(draftQuality.value))
 
 const visible = computed({
   get: () => props.modelValue,
@@ -57,9 +74,11 @@ watch(
   (value, previous) => {
     if (value) {
       draftAppearance.value = settings.value.glassAppearance
-      draftMotionStrength.value = settings.value.glassMotionStrength
+      draftDeformationStrength.value = settings.value.glassDeformationStrength
+      draftFlowStrength.value = settings.value.glassFlowStrength
       draftQuality.value = settings.value.glassQuality
       draftReflectionStrength.value = settings.value.glassReflectionStrength
+      draftTranslationStrength.value = settings.value.glassTranslationStrength
       draftTransparencyStrength.value = settings.value.glassTransparencyStrength
     } else if (previous) {
       cancelGlassPreview()
@@ -86,9 +105,18 @@ const qualityOptions: Array<{
   { hint: 'theme.glassQualityHighHint', label: 'theme.glassQualityHigh', value: 'high' },
 ]
 const qualityHint = computed(() =>
-  showsMotionTuning.value
+  mdAndUp.value
     ? (qualityOptions.find(option => option.value === draftQuality.value)?.hint ?? '')
     : 'theme.glassQualityMobileHint',
+)
+const presetOptions: Array<{ label: string; value: GlassOpticalPresetState }> = [
+  { label: 'theme.glassPresetRecommended', value: 'recommended' },
+  { label: 'theme.glassPresetGlide', value: 'glide' },
+  { label: 'theme.glassPresetLiquid', value: 'liquid' },
+  { label: 'theme.glassPresetCustom', value: 'custom' },
+]
+const visiblePresetOptions = computed(() =>
+  presetOptions.filter(option => option.value === 'custom' || availablePresets.value.includes(option.value)),
 )
 
 /** 仅允许已实现的材质进入待保存设置。 */
@@ -108,10 +136,47 @@ function updateQuality(value: unknown) {
   previewGlassSettings({ glassQuality: option.value })
 }
 
-/** 将滑杆输入限制为 renderer 的稳定范围并即时预览流动强度。 */
-function updateMotionStrength(value: unknown) {
-  draftMotionStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassMotionStrength: draftMotionStrength.value })
+/** 将五个具体参数作为一个预览事务同步，预置只负责生成这些值。 */
+function previewDraftParameters() {
+  previewGlassSettings({
+    glassDeformationStrength: draftDeformationStrength.value,
+    glassFlowStrength: draftFlowStrength.value,
+    glassReflectionStrength: draftReflectionStrength.value,
+    glassTranslationStrength: draftTranslationStrength.value,
+    glassTransparencyStrength: draftTransparencyStrength.value,
+  })
+}
+
+/** 应用当前材质与质量下的预置参数；自定义仅是派生状态，不能主动应用。 */
+function applyPreset(value: unknown) {
+  if (value !== 'recommended' && value !== 'glide' && value !== 'liquid') return
+  if (!availablePresets.value.includes(value)) return
+
+  const parameters = getGlassOpticalPresetParameters(draftAppearance.value, draftQuality.value, value)
+  draftDeformationStrength.value = parameters.deformation
+  draftFlowStrength.value = parameters.flow
+  draftReflectionStrength.value = parameters.reflection
+  draftTranslationStrength.value = parameters.translation
+  draftTransparencyStrength.value = parameters.transparency
+  previewDraftParameters()
+}
+
+/** 将采样平移限制为 renderer 支持的稳定范围。 */
+function updateTranslationStrength(value: unknown) {
+  draftTranslationStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
+  previewGlassSettings({ glassTranslationStrength: draftTranslationStrength.value })
+}
+
+/** 将局部形变限制为质量档软上限所消费的用户范围。 */
+function updateDeformationStrength(value: unknown) {
+  draftDeformationStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
+  previewGlassSettings({ glassDeformationStrength: draftDeformationStrength.value })
+}
+
+/** 将尾波、惯性与收敛输入限制为 renderer 的稳定范围。 */
+function updateFlowStrength(value: unknown) {
+  draftFlowStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
+  previewGlassSettings({ glassFlowStrength: draftFlowStrength.value })
 }
 
 /** 将滑杆输入限制为 renderer 的稳定范围并即时预览反射亮度。 */
@@ -129,15 +194,20 @@ function updateTransparencyStrength(value: unknown) {
 /** 将当前草稿恢复为玻璃主题默认值并立即预览。 */
 function resetSettings() {
   draftAppearance.value = 'clear'
-  draftMotionStrength.value = GLASS_OPTICAL_STRENGTH_DEFAULT
   draftQuality.value = 'balanced'
-  draftReflectionStrength.value = GLASS_OPTICAL_STRENGTH_DEFAULT
-  draftTransparencyStrength.value = GLASS_OPTICAL_STRENGTH_DEFAULT
+  const parameters = getGlassOpticalPresetParameters(draftAppearance.value, draftQuality.value, 'recommended')
+  draftDeformationStrength.value = parameters.deformation
+  draftFlowStrength.value = parameters.flow
+  draftReflectionStrength.value = parameters.reflection
+  draftTranslationStrength.value = parameters.translation
+  draftTransparencyStrength.value = parameters.transparency
   previewGlassSettings({
     glassAppearance: draftAppearance.value,
-    glassMotionStrength: draftMotionStrength.value,
+    glassDeformationStrength: draftDeformationStrength.value,
+    glassFlowStrength: draftFlowStrength.value,
     glassQuality: draftQuality.value,
     glassReflectionStrength: draftReflectionStrength.value,
+    glassTranslationStrength: draftTranslationStrength.value,
     glassTransparencyStrength: draftTransparencyStrength.value,
   })
 }
@@ -151,9 +221,11 @@ async function saveSettings() {
   try {
     previewGlassSettings({
       glassAppearance: draftAppearance.value,
-      glassMotionStrength: draftMotionStrength.value,
+      glassDeformationStrength: draftDeformationStrength.value,
+      glassFlowStrength: draftFlowStrength.value,
       glassQuality: draftQuality.value,
       glassReflectionStrength: draftReflectionStrength.value,
+      glassTranslationStrength: draftTranslationStrength.value,
       glassTransparencyStrength: draftTransparencyStrength.value,
     })
     commitGlassPreview()
@@ -223,6 +295,33 @@ onScopeDispose(cancelGlassPreview)
           <p class="glass-settings-dialog__hint">{{ t(qualityHint) }}</p>
         </section>
 
+        <section>
+          <div class="glass-settings-dialog__preset-header">
+            <h3 class="glass-settings-dialog__label">{{ t('theme.glassPreset') }}</h3>
+            <VBtn size="small" variant="text" prepend-icon="mdi-auto-fix" @click="applyPreset('recommended')">
+              {{ t('theme.glassApplyRecommended') }}
+            </VBtn>
+          </div>
+          <VBtnToggle
+            :model-value="presetState"
+            mandatory
+            color="primary"
+            variant="text"
+            class="glass-settings-dialog__preset"
+            @update:model-value="applyPreset"
+          >
+            <VBtn
+              v-for="option in visiblePresetOptions"
+              :key="option.value"
+              :value="option.value"
+              :disabled="option.value === 'custom'"
+              class="glass-settings-dialog__preset-option"
+            >
+              {{ t(option.label) }}
+            </VBtn>
+          </VBtnToggle>
+        </section>
+
         <section class="glass-settings-dialog__tuning">
           <div class="glass-settings-dialog__slider-header">
             <h3 class="glass-settings-dialog__label">{{ t('theme.glassTransparencyStrength') }}</h3>
@@ -241,39 +340,31 @@ onScopeDispose(cancelGlassPreview)
             @update:model-value="updateTransparencyStrength"
           />
 
-          <div class="glass-settings-dialog__live-controls">
-            <template v-if="showsMotionTuning">
-              <div class="glass-settings-dialog__motion-controls" :class="{ 'is-disabled': !usesRealtimeOptics }">
-                <div class="glass-settings-dialog__slider-header">
-                  <h3 class="glass-settings-dialog__label">{{ t('theme.glassMotionStrength') }}</h3>
-                  <output>{{ draftMotionStrength }}%</output>
-                </div>
-                <VSlider
-                  :model-value="draftMotionStrength"
-                  :aria-label="t('theme.glassMotionStrength')"
-                  :disabled="!usesRealtimeOptics"
-                  :min="GLASS_OPTICAL_STRENGTH_MIN"
-                  :max="GLASS_OPTICAL_STRENGTH_MAX"
-                  :step="1"
-                  color="primary"
-                  density="comfortable"
-                  hide-details
-                  thumb-label
-                  @update:model-value="updateMotionStrength"
-                />
-              </div>
-            </template>
+          <div class="glass-settings-dialog__slider-header glass-settings-dialog__slider-header--spaced">
+            <h3 class="glass-settings-dialog__label">{{ t('theme.glassReflectionStrength') }}</h3>
+            <output>{{ draftReflectionStrength }}%</output>
+          </div>
+          <VSlider
+            :model-value="draftReflectionStrength"
+            :aria-label="t('theme.glassReflectionStrength')"
+            :min="GLASS_OPTICAL_STRENGTH_MIN"
+            :max="GLASS_OPTICAL_STRENGTH_MAX"
+            :step="1"
+            color="primary"
+            density="comfortable"
+            hide-details
+            thumb-label
+            @update:model-value="updateReflectionStrength"
+          />
 
-            <div
-              class="glass-settings-dialog__slider-header"
-              :class="{ 'glass-settings-dialog__slider-header--spaced': showsMotionTuning }"
-            >
-              <h3 class="glass-settings-dialog__label">{{ t('theme.glassReflectionStrength') }}</h3>
-              <output>{{ draftReflectionStrength }}%</output>
+          <div v-if="showsDynamicTuning" class="glass-settings-dialog__live-controls">
+            <div class="glass-settings-dialog__slider-header">
+              <h3 class="glass-settings-dialog__label">{{ t('theme.glassTranslationStrength') }}</h3>
+              <output>{{ draftTranslationStrength }}%</output>
             </div>
             <VSlider
-              :model-value="draftReflectionStrength"
-              :aria-label="t('theme.glassReflectionStrength')"
+              :model-value="draftTranslationStrength"
+              :aria-label="t('theme.glassTranslationStrength')"
               :min="GLASS_OPTICAL_STRENGTH_MIN"
               :max="GLASS_OPTICAL_STRENGTH_MAX"
               :step="1"
@@ -281,11 +372,45 @@ onScopeDispose(cancelGlassPreview)
               density="comfortable"
               hide-details
               thumb-label
-              @update:model-value="updateReflectionStrength"
+              @update:model-value="updateTranslationStrength"
+            />
+
+            <div class="glass-settings-dialog__slider-header glass-settings-dialog__slider-header--spaced">
+              <h3 class="glass-settings-dialog__label">{{ t('theme.glassDeformationStrength') }}</h3>
+              <output>{{ draftDeformationStrength }}%</output>
+            </div>
+            <VSlider
+              :model-value="draftDeformationStrength"
+              :aria-label="t('theme.glassDeformationStrength')"
+              :min="GLASS_OPTICAL_STRENGTH_MIN"
+              :max="GLASS_OPTICAL_STRENGTH_MAX"
+              :step="1"
+              color="primary"
+              density="comfortable"
+              hide-details
+              thumb-label
+              @update:model-value="updateDeformationStrength"
+            />
+
+            <div class="glass-settings-dialog__slider-header glass-settings-dialog__slider-header--spaced">
+              <h3 class="glass-settings-dialog__label">{{ t('theme.glassFlowStrength') }}</h3>
+              <output>{{ draftFlowStrength }}%</output>
+            </div>
+            <VSlider
+              :model-value="draftFlowStrength"
+              :aria-label="t('theme.glassFlowStrength')"
+              :min="GLASS_OPTICAL_STRENGTH_MIN"
+              :max="GLASS_OPTICAL_STRENGTH_MAX"
+              :step="1"
+              color="primary"
+              density="comfortable"
+              hide-details
+              thumb-label
+              @update:model-value="updateFlowStrength"
             />
           </div>
-          <p v-if="showsMotionTuning" class="glass-settings-dialog__hint">
-            {{ t(usesRealtimeOptics ? 'theme.glassOpticalStrengthHint' : 'theme.glassOpticalStrengthUnavailableHint') }}
+          <p class="glass-settings-dialog__hint">
+            {{ t(showsDynamicTuning ? 'theme.glassOpticalStrengthHint' : 'theme.glassOpticalStrengthUnavailableHint') }}
           </p>
         </section>
       </VCardText>
@@ -357,16 +482,20 @@ onScopeDispose(cancelGlassPreview)
   }
 }
 
-.glass-settings-dialog__motion-controls {
-  transition: opacity 160ms ease;
+.glass-settings-dialog__preset-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 
-  &.is-disabled {
-    opacity: 0.58;
+  .glass-settings-dialog__label {
+    margin-block-end: 0;
   }
 }
 
 .glass-settings-dialog__appearance,
-.glass-settings-dialog__quality {
+.glass-settings-dialog__quality,
+.glass-settings-dialog__preset {
   display: grid;
   overflow: hidden;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
@@ -387,6 +516,12 @@ onScopeDispose(cancelGlassPreview)
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.glass-settings-dialog__preset {
+  block-size: 42px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-block-start: 10px;
+}
+
 .glass-settings-dialog__appearance-option {
   block-size: 32px !important;
   inline-size: 100%;
@@ -394,7 +529,8 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__appearance-option,
-.glass-settings-dialog__quality-option {
+.glass-settings-dialog__quality-option,
+.glass-settings-dialog__preset-option {
   border: 0 !important;
   border-radius: 7px !important;
   box-shadow: none !important;
@@ -408,8 +544,17 @@ onScopeDispose(cancelGlassPreview)
   block-size: 32px !important;
 }
 
+.glass-settings-dialog__preset-option {
+  block-size: 32px !important;
+
+  &:disabled {
+    opacity: 1;
+  }
+}
+
 .glass-settings-dialog__appearance-option:deep(.v-btn--active),
-.glass-settings-dialog__quality-option:deep(.v-btn--active) {
+.glass-settings-dialog__quality-option:deep(.v-btn--active),
+.glass-settings-dialog__preset-option:deep(.v-btn--active) {
   background-color: rgba(var(--v-theme-primary), 0.14) !important;
   box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.38) !important;
 }

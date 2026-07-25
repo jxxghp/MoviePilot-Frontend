@@ -26,7 +26,8 @@ html[data-theme='glass'] {
   --glass-dashboard-shadow: inset 0 1px 0 var(--glass-highlight);
   --glass-dashboard-shadow-hover:
     inset 0 1px 0 rgba(255, 255, 255, calc(0.16 + var(--glass-reflection, 0.5) * 0.24)),
-    inset 0 -1px 0 rgba(255, 255, 255, calc(0.16 + var(--glass-reflection, 0.5) * 0.24));
+    inset -1px 0 0 rgba(2, 6, 16, calc(0.12 + var(--glass-reflection, 0.5) * 0.1)),
+    inset 0 -1px 0 rgba(2, 6, 16, calc(0.14 + var(--glass-reflection, 0.5) * 0.1));
   --glass-shadow-raised:
     0 16px 40px rgba(3, 7, 18, 32%), inset 0 1px 0 rgba(255, 255, 255, 24%), inset 0 -1px 0 rgba(2, 6, 16, 18%);
   --glass-shadow-hover:
@@ -383,7 +384,7 @@ html[data-theme='glass'] {
   }
 
   @media (hover: hover) {
-    // Dashboard 表面使用双侧内高光反馈悬停，避免外阴影越过卡片边界形成独立合成层。
+    // Dashboard 悬停沿左上来光增强顶部高光，并在右下背光面保留轻吸收。
     .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card:hover,
     .dashboard-grid-item-content
       > .dashboard-grid-auto-size
@@ -992,7 +993,6 @@ html[data-theme='glass'] {
 
 // 光学档位只在 renderer ready 后接管背景采样，加载与失败状态继续使用标准 CSS 材质。
 .glass-optical-layer {
-  position: fixed;
   z-index: 0;
   block-size: 100%;
   inline-size: 100%;
@@ -1000,6 +1000,15 @@ html[data-theme='glass'] {
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease-out;
+}
+
+.glass-optical-layer--fixed {
+  position: fixed;
+}
+
+// 文档表面与该呈现层共享滚动坐标，canvas backing buffer 仍由 renderer 的质量预算约束。
+.glass-optical-layer--scroll {
+  position: absolute;
 }
 
 // 登录卡片的壁纸副本与外层背景共享切换时序，避免卡片内部提前显示下一张图片。
@@ -1010,13 +1019,6 @@ html[data-theme='glass'] .app-wrapper--background-transition .login-card__wallpa
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   .glass-optical-layer {
   opacity: 1;
-}
-
-html[data-theme='glass'] {
-  &[data-glass-wallpaper-loading='true'] .glass-optical-layer,
-  .app-wrapper--background-transition .glass-optical-layer {
-    opacity: 0 !important;
-  }
 }
 
 // 光学档位下顶栏滚动前后共用同一 filter，避免滚动态重新叠加高强度模糊。

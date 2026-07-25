@@ -2,6 +2,7 @@ import {
   canUseGlassWallpaperTexture,
   GLASS_OPTICAL_MOTION_MAX_SCALE,
   GLASS_OPTICAL_REFLECTION_MAX_SCALE,
+  getAvailableGlassOpticalPresets,
   getGlassCoverScale,
   getGlassOpticalDecay,
   getGlassOpticalBufferSize,
@@ -9,15 +10,19 @@ import {
   getGlassOpticalMotionEnergy,
   getGlassOpticalMotionExpansion,
   getGlassOpticalMotionStrengthScale,
+  getGlassOpticalPresetParameters,
   getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
   getGlassOpticalTransparency,
   getGlassOpticalSurfaceTransitionWeights,
   getGlassOpticalWakeDirection,
   getGlassOpticalWakeSample,
+  getGlassScrollBufferSize,
+  getGlassWallpaperTransitionProgress,
   normalizeGlassOpticalRect,
   normalizeGlassOpticalStrength,
   reconcileGlassOpticalSurfaceSlots,
+  resolveGlassOpticalPresetState,
   selectGlassOpticalRects,
   stepGlassOpticalSpring,
   type GlassOpticalRect,
@@ -30,6 +35,8 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalBufferSize(390, 844, true)).toEqual({ height: 844, width: 390 })
     expect(getGlassOpticalBufferSize(1920, 1080, false, 'high', 2)).toEqual({ height: 1080, width: 1920 })
     expect(getGlassOpticalBufferSize(390, 844, true, 'high', 3)).toEqual({ height: 1266, width: 585 })
+    expect(getGlassScrollBufferSize(1440, 4200, 'balanced', 2)).toEqual({ height: 3072, width: 1440 })
+    expect(getGlassScrollBufferSize(1440, 4200, 'high', 2)).toEqual({ height: 4096, width: 1920 })
   })
 
   it('matches cover cropping on wide and tall images', () => {
@@ -65,6 +72,44 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalTransparency(100) - getGlassOpticalTransparency(80)).toBeLessThan(
       getGlassOpticalTransparency(80) - getGlassOpticalTransparency(50),
     )
+  })
+
+  it('keeps presets as concrete five-parameter values and derives custom state', () => {
+    const recommended = getGlassOpticalPresetParameters('clear', 'balanced', 'recommended')
+    const glide = getGlassOpticalPresetParameters('clear', 'balanced', 'glide')
+    const liquid = getGlassOpticalPresetParameters('frosted', 'high', 'liquid')
+
+    expect(recommended).toEqual({
+      deformation: 50,
+      flow: 50,
+      reflection: 50,
+      translation: 50,
+      transparency: 50,
+    })
+    expect(glide.translation).toBeGreaterThan(glide.deformation)
+    expect(liquid.deformation).toBeGreaterThan(glide.deformation)
+    expect(liquid.flow).toBeGreaterThan(glide.flow)
+    expect(getAvailableGlassOpticalPresets('css')).toEqual(['recommended'])
+    expect(getAvailableGlassOpticalPresets('balanced')).toEqual(['recommended', 'glide', 'liquid'])
+    expect(resolveGlassOpticalPresetState('clear', 'balanced', recommended)).toBe('recommended')
+    expect(resolveGlassOpticalPresetState('clear', 'balanced', { ...recommended, flow: 51 })).toBe('custom')
+    expect(resolveGlassOpticalPresetState('clear', 'css', glide)).toBe('custom')
+  })
+
+  it('returns preset copies so previews cannot mutate the shared matrix', () => {
+    const first = getGlassOpticalPresetParameters('tinted', 'high', 'glide')
+    first.translation = 0
+
+    expect(getGlassOpticalPresetParameters('tinted', 'high', 'glide').translation).toBe(72)
+  })
+
+  it('matches the monotonic CSS ease timeline used by wallpaper crossfades', () => {
+    const samples = [0, 250, 750, 1250, 1500].map(elapsed => getGlassWallpaperTransitionProgress(elapsed, 1500))
+
+    expect(samples[0]).toBe(0)
+    expect(samples.at(-1)).toBe(1)
+    expect(samples[2]).toBeGreaterThan(0.5)
+    expect(samples.every((sample, index) => index === 0 || sample > samples[index - 1])).toBe(true)
   })
 
   it('keeps the selected optical quality on every route', () => {

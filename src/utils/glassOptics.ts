@@ -1,13 +1,33 @@
 export const GLASS_OPTICAL_MAX_SURFACES_DESKTOP = 8
 export const GLASS_OPTICAL_MAX_SURFACES_MOBILE = 5
 export const GLASS_OPTICAL_MOTION_MAX_SCALE = 3.2
+export const GLASS_OPTICAL_DEFORMATION_MAX_SCALE = 1.55
+export const GLASS_OPTICAL_FLOW_MAX_SCALE = 1.45
 export const GLASS_OPTICAL_REFLECTION_MAX_SCALE = 1.8
+export const GLASS_OPTICAL_TRANSLATION_MAX_SCALE = 1.7
 export const GLASS_OPTICAL_STRENGTH_DEFAULT = 50
 export const GLASS_OPTICAL_STRENGTH_MAX = 100
 export const GLASS_OPTICAL_STRENGTH_MIN = 0
 
+export type GlassAppearance = 'clear' | 'frosted' | 'tinted'
+export type GlassOpticalCapability = 'balanced' | 'css' | 'high'
+export type GlassOpticalPreset = 'glide' | 'liquid' | 'recommended'
+export type GlassOpticalPresetState = GlassOpticalPreset | 'custom'
 export type GlassOpticalQuality = 'balanced' | 'high'
 export type GlassCornerRadii = [number, number, number, number]
+
+export interface GlassOpticalParameters {
+  /** 局部非均匀折射与内容弯曲强度。 */
+  deformation: number
+  /** 轨迹范围、尾波、惯性与收敛强度。 */
+  flow: number
+  /** 方向高光、迎光棱镜与背光吸收强度。 */
+  reflection: number
+  /** 共享壁纸采样在表面内的统一坐标平移强度。 */
+  translation: number
+  /** 壁纸可见度与材质遮罩强度。 */
+  transparency: number
+}
 
 export interface GlassInteractionPoint {
   /** 指针或触点相对视口的横坐标。 */
@@ -102,6 +122,123 @@ export function normalizeGlassOpticalStrength(value: unknown) {
   return Math.min(GLASS_OPTICAL_STRENGTH_MAX, Math.max(GLASS_OPTICAL_STRENGTH_MIN, Math.round(value)))
 }
 
+const GLASS_OPTICAL_PRESET_MATRIX: Record<
+  GlassAppearance,
+  Record<GlassOpticalCapability, Record<GlassOpticalPreset, GlassOpticalParameters>>
+> = {
+  clear: {
+    css: {
+      recommended: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
+      glide: { deformation: 28, flow: 42, reflection: 42, translation: 72, transparency: 58 },
+      liquid: { deformation: 72, flow: 78, reflection: 54, translation: 56, transparency: 52 },
+    },
+    balanced: {
+      recommended: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
+      glide: { deformation: 30, flow: 44, reflection: 42, translation: 72, transparency: 58 },
+      liquid: { deformation: 70, flow: 76, reflection: 52, translation: 56, transparency: 52 },
+    },
+    high: {
+      recommended: { deformation: 50, flow: 50, reflection: 46, translation: 50, transparency: 50 },
+      glide: { deformation: 32, flow: 46, reflection: 40, translation: 74, transparency: 60 },
+      liquid: { deformation: 74, flow: 80, reflection: 50, translation: 58, transparency: 54 },
+    },
+  },
+  tinted: {
+    css: {
+      recommended: { deformation: 50, flow: 50, reflection: 54, translation: 50, transparency: 46 },
+      glide: { deformation: 30, flow: 42, reflection: 48, translation: 70, transparency: 52 },
+      liquid: { deformation: 70, flow: 76, reflection: 58, translation: 54, transparency: 48 },
+    },
+    balanced: {
+      recommended: { deformation: 52, flow: 50, reflection: 54, translation: 50, transparency: 46 },
+      glide: { deformation: 32, flow: 44, reflection: 48, translation: 70, transparency: 52 },
+      liquid: { deformation: 72, flow: 76, reflection: 56, translation: 56, transparency: 48 },
+    },
+    high: {
+      recommended: { deformation: 52, flow: 50, reflection: 50, translation: 50, transparency: 48 },
+      glide: { deformation: 34, flow: 46, reflection: 46, translation: 72, transparency: 54 },
+      liquid: { deformation: 76, flow: 80, reflection: 54, translation: 58, transparency: 50 },
+    },
+  },
+  frosted: {
+    css: {
+      recommended: { deformation: 50, flow: 50, reflection: 44, translation: 50, transparency: 42 },
+      glide: { deformation: 34, flow: 42, reflection: 38, translation: 66, transparency: 46 },
+      liquid: { deformation: 76, flow: 74, reflection: 48, translation: 50, transparency: 44 },
+    },
+    balanced: {
+      recommended: { deformation: 58, flow: 52, reflection: 44, translation: 48, transparency: 42 },
+      glide: { deformation: 38, flow: 44, reflection: 38, translation: 68, transparency: 46 },
+      liquid: { deformation: 78, flow: 76, reflection: 46, translation: 52, transparency: 44 },
+    },
+    high: {
+      recommended: { deformation: 60, flow: 52, reflection: 42, translation: 48, transparency: 44 },
+      glide: { deformation: 40, flow: 46, reflection: 36, translation: 70, transparency: 48 },
+      liquid: { deformation: 82, flow: 80, reflection: 44, translation: 54, transparency: 46 },
+    },
+  },
+}
+
+/** 返回材质、质量与预置共同确定的五个具体参数，调用方可以安全修改返回值。 */
+export function getGlassOpticalPresetParameters(
+  appearance: GlassAppearance,
+  quality: GlassOpticalCapability,
+  preset: GlassOpticalPreset,
+): GlassOpticalParameters {
+  return { ...GLASS_OPTICAL_PRESET_MATRIX[appearance][quality][preset] }
+}
+
+/** 标准档只提供静态推荐；实时档同时开放滑移与液态方案。 */
+export function getAvailableGlassOpticalPresets(quality: GlassOpticalCapability): GlassOpticalPreset[] {
+  return quality === 'css' ? ['recommended'] : ['recommended', 'glide', 'liquid']
+}
+
+/** 根据五个实际值推导当前预置；任一参数偏离有效矩阵即进入自定义。 */
+export function resolveGlassOpticalPresetState(
+  appearance: GlassAppearance,
+  quality: GlassOpticalCapability,
+  parameters: GlassOpticalParameters,
+): GlassOpticalPresetState {
+  for (const preset of getAvailableGlassOpticalPresets(quality)) {
+    const expected = getGlassOpticalPresetParameters(appearance, quality, preset)
+    if (
+      expected.deformation === parameters.deformation &&
+      expected.flow === parameters.flow &&
+      expected.reflection === parameters.reflection &&
+      expected.translation === parameters.translation &&
+      expected.transparency === parameters.transparency
+    ) {
+      return preset
+    }
+  }
+
+  return 'custom'
+}
+
+/** 计算与 CSS `ease` 相同的交叉淡化进度，使 DOM 壁纸与 shader 双纹理保持同一时钟。 */
+export function getGlassWallpaperTransitionProgress(elapsed: number, duration: number) {
+  if (duration <= 0 || elapsed >= duration) return 1
+  if (elapsed <= 0) return 0
+
+  const target = elapsed / duration
+  const sample = (time: number, start: number, end: number) => {
+    const inverse = 1 - time
+
+    return 3 * inverse * inverse * time * start + 3 * inverse * time * time * end + time * time * time
+  }
+  let lower = 0
+  let upper = 1
+  let parameter = target
+
+  for (let iteration = 0; iteration < 10; iteration += 1) {
+    parameter = (lower + upper) * 0.5
+    if (sample(parameter, 0.25, 0.25) < target) lower = parameter
+    else upper = parameter
+  }
+
+  return sample(parameter, 0.1, 1)
+}
+
 /**
  * 流动强度使用感知曲线：中点保持既有视觉，高区间同时释放更大的形变幅度与空间范围。
  * 最大值仍受质量档和内容保护共同约束，避免高梯度海报出现无界拉伸。
@@ -111,6 +248,30 @@ export function getGlassOpticalMotionStrengthScale(value: unknown) {
   const normalizedRatio = normalized / GLASS_OPTICAL_STRENGTH_DEFAULT
 
   return normalizedRatio ** Math.log2(GLASS_OPTICAL_MOTION_MAX_SCALE)
+}
+
+/** 采样平移保持中点等于既有即时位移，并在高区间受控增长。 */
+export function getGlassOpticalTranslationStrengthScale(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const normalizedRatio = normalized / GLASS_OPTICAL_STRENGTH_DEFAULT
+
+  return normalizedRatio ** Math.log2(GLASS_OPTICAL_TRANSLATION_MAX_SCALE)
+}
+
+/** 非均匀形变独立缩放局部折射，最终像素位移仍受质量档软上限限制。 */
+export function getGlassOpticalDeformationStrengthScale(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const normalizedRatio = normalized / GLASS_OPTICAL_STRENGTH_DEFAULT
+
+  return normalizedRatio ** Math.log2(GLASS_OPTICAL_DEFORMATION_MAX_SCALE)
+}
+
+/** 流动维度只延展轨迹、尾波与惯性，中点保持当前时序手感。 */
+export function getGlassOpticalFlowStrengthScale(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const normalizedRatio = normalized / GLASS_OPTICAL_STRENGTH_DEFAULT
+
+  return normalizedRatio ** Math.log2(GLASS_OPTICAL_FLOW_MAX_SCALE)
 }
 
 /** 高于默认值的流动强度逐步扩大作用范围，低区间不会意外改变既有空间尺度。 */
@@ -359,6 +520,24 @@ export function getGlassOpticalBufferSize(
   return {
     height: Math.max(1, Math.round(safeHeight * scale)),
     width: Math.max(1, Math.round(safeWidth * scale)),
+  }
+}
+
+/** 文档空间画布独立限制横纵分辨率，避免长页面按纵横比连带降低横向清晰度。 */
+export function getGlassScrollBufferSize(
+  presentationWidth: number,
+  presentationHeight: number,
+  quality: GlassOpticalQuality,
+  devicePixelRatio = 1,
+): GlassOpticalBufferSize {
+  const highQuality = quality === 'high'
+  const pixelRatio = highQuality ? Math.min(Math.max(1, devicePixelRatio), 1.5) : 1
+  const maxWidth = highQuality ? 1920 : 1440
+  const maxHeight = highQuality ? 4096 : 3072
+
+  return {
+    height: Math.max(1, Math.round(Math.min(presentationHeight * pixelRatio, maxHeight))),
+    width: Math.max(1, Math.round(Math.min(presentationWidth * pixelRatio, maxWidth))),
   }
 }
 

@@ -141,9 +141,11 @@ const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
     settings.value.glassAppearance !== 'clear' ||
-    settings.value.glassMotionStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassDeformationStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassFlowStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
     settings.value.glassQuality !== 'css' ||
     settings.value.glassReflectionStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassTranslationStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
     settings.value.glassTransparencyStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
     settings.value.radius !== 'default' ||
     settings.value.shadow !== '0' ||

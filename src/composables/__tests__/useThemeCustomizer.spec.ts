@@ -22,9 +22,11 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassMotionStrength).toBe(50)
+    expect(settings.glassDeformationStrength).toBe(50)
+    expect(settings.glassFlowStrength).toBe(50)
     expect(settings.glassQuality).toBe('balanced')
     expect(settings.glassReflectionStrength).toBe(50)
+    expect(settings.glassTranslationStrength).toBe(50)
     expect(settings.glassTransparencyStrength).toBe(50)
   })
 
@@ -55,13 +57,31 @@ describe('useThemeCustomizer glass settings', () => {
   it('rounds and clamps persisted optical strength values', () => {
     localStorage.setItem(
       THEME_CUSTOMIZER_STORAGE_KEY,
-      JSON.stringify({ glassMotionStrength: -12, glassReflectionStrength: 140.6, glassTransparencyStrength: 83.7 }),
+      JSON.stringify({
+        glassDeformationStrength: -12,
+        glassFlowStrength: 42.6,
+        glassReflectionStrength: 140.6,
+        glassTranslationStrength: 101,
+        glassTransparencyStrength: 83.7,
+      }),
     )
 
     expect(readThemeCustomizerSettings()).toMatchObject({
-      glassMotionStrength: 0,
+      glassDeformationStrength: 0,
+      glassFlowStrength: 43,
       glassReflectionStrength: 100,
+      glassTranslationStrength: 100,
       glassTransparencyStrength: 84,
+    })
+  })
+
+  it('migrates the legacy motion value into translation, deformation, and flow', () => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassMotionStrength: 67 }))
+
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassDeformationStrength: 67,
+      glassFlowStrength: 67,
+      glassTranslationStrength: 67,
     })
   })
 
@@ -99,9 +119,11 @@ describe('useThemeCustomizer glass settings', () => {
     previewGlassSettings({ glassAppearance: 'clear' })
     previewGlassSettings({
       glassAppearance: 'tinted',
-      glassMotionStrength: 74,
+      glassDeformationStrength: 74,
+      glassFlowStrength: 63,
       glassQuality: 'css',
       glassReflectionStrength: 81,
+      glassTranslationStrength: 69,
       glassTransparencyStrength: 80,
     })
 
@@ -109,9 +131,11 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassAppearance: 'tinted',
-      glassMotionStrength: 74,
+      glassDeformationStrength: 74,
+      glassFlowStrength: 63,
       glassQuality: 'css',
       glassReflectionStrength: 81,
+      glassTranslationStrength: 69,
       glassTransparencyStrength: 80,
     })
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
@@ -132,20 +156,26 @@ describe('useThemeCustomizer glass settings', () => {
     const effective = useEffectiveGlassSettings()
     persistPartialThemeCustomizerSettings({
       glassAppearance: 'tinted',
-      glassMotionStrength: 42,
+      glassDeformationStrength: 42,
+      glassFlowStrength: 44,
       glassReflectionStrength: 66,
+      glassTranslationStrength: 46,
       glassTransparencyStrength: 72,
     })
     previewGlassSettings({
       glassAppearance: 'clear',
-      glassMotionStrength: 90,
+      glassDeformationStrength: 90,
+      glassFlowStrength: 88,
       glassReflectionStrength: 12,
+      glassTranslationStrength: 86,
       glassTransparencyStrength: 94,
     })
     expect(effective.value).toMatchObject({
       glassAppearance: 'clear',
-      glassMotionStrength: 90,
+      glassDeformationStrength: 90,
+      glassFlowStrength: 88,
       glassReflectionStrength: 12,
+      glassTranslationStrength: 86,
       glassTransparencyStrength: 94,
     })
 
@@ -154,8 +184,10 @@ describe('useThemeCustomizer glass settings', () => {
     expect(document.documentElement.dataset.glassAppearance).toBe('tinted')
     expect(effective.value).toMatchObject({
       glassAppearance: 'tinted',
-      glassMotionStrength: 42,
+      glassDeformationStrength: 42,
+      glassFlowStrength: 44,
       glassReflectionStrength: 66,
+      glassTranslationStrength: 46,
       glassTransparencyStrength: 72,
     })
   })

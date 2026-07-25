@@ -19,9 +19,11 @@ const mocks = vi.hoisted(() => ({
   settings: {
     value: {
       glassAppearance: 'clear',
-      glassMotionStrength: 50,
+      glassDeformationStrength: 50,
+      glassFlowStrength: 50,
       glassQuality: 'css',
       glassReflectionStrength: 50,
+      glassTranslationStrength: 50,
       glassTransparencyStrength: 50,
     },
   },
@@ -51,9 +53,11 @@ describe('GlassSettingsDialog', () => {
     mocks.previewGlassSettings.mockClear()
     mocks.mdAndUp.value = true
     mocks.settings.value.glassAppearance = 'clear'
-    mocks.settings.value.glassMotionStrength = 50
+    mocks.settings.value.glassDeformationStrength = 50
+    mocks.settings.value.glassFlowStrength = 50
     mocks.settings.value.glassQuality = 'css'
     mocks.settings.value.glassReflectionStrength = 50
+    mocks.settings.value.glassTranslationStrength = 50
     mocks.settings.value.glassTransparencyStrength = 50
   })
 
@@ -72,10 +76,9 @@ describe('GlassSettingsDialog', () => {
     })
     const sliders = wrapper.findAll('.slider-stub')
 
-    expect(sliders).toHaveLength(3)
+    expect(sliders).toHaveLength(2)
     expect(sliders[0].attributes('data-disabled')).toBe('undefined')
-    expect(sliders[1].attributes('data-disabled')).toBe('true')
-    expect(sliders[2].attributes('data-disabled')).toBe('undefined')
+    expect(sliders[1].attributes('data-disabled')).toBe('undefined')
     await wrapper.setProps({ modelValue: false })
 
     expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
@@ -106,9 +109,11 @@ describe('GlassSettingsDialog', () => {
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
       glassAppearance: 'clear',
-      glassMotionStrength: 50,
+      glassDeformationStrength: 50,
+      glassFlowStrength: 50,
       glassQuality: 'balanced',
       glassReflectionStrength: 50,
+      glassTranslationStrength: 50,
       glassTransparencyStrength: 50,
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
@@ -129,14 +134,14 @@ describe('GlassSettingsDialog', () => {
     })
     const sliders = wrapper.findAll('.slider-stub')
 
-    expect(sliders[1].attributes('data-disabled')).toBe('true')
-    expect(sliders[2].attributes('data-disabled')).toBe('undefined')
-    await sliders[2].setValue('86')
+    expect(sliders).toHaveLength(2)
+    expect(sliders[1].attributes('data-disabled')).toBe('undefined')
+    await sliders[1].setValue('86')
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({ glassReflectionStrength: 86 })
   })
 
-  it('normalizes and previews both realtime slider values', async () => {
+  it('normalizes and previews all five independent slider values', async () => {
     mocks.settings.value.glassQuality = 'balanced'
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
@@ -152,16 +157,20 @@ describe('GlassSettingsDialog', () => {
     })
     const sliders = wrapper.findAll('.slider-stub')
 
-    expect(sliders).toHaveLength(3)
+    expect(sliders).toHaveLength(5)
     expect(sliders.every(slider => slider.attributes('data-disabled') !== 'true')).toBe(true)
 
     await sliders[0].setValue('91.4')
     await sliders[1].setValue('73.6')
     await sliders[2].setValue('84.2')
+    await sliders[3].setValue('68.7')
+    await sliders[4].setValue('62.2')
 
     expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(1, { glassTransparencyStrength: 91 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(2, { glassMotionStrength: 74 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(3, { glassReflectionStrength: 84 })
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(2, { glassReflectionStrength: 74 })
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(3, { glassTranslationStrength: 84 })
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(4, { glassDeformationStrength: 69 })
+    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(5, { glassFlowStrength: 62 })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })
 
