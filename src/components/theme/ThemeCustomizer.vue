@@ -12,6 +12,7 @@ import {
 import { usePWA } from '@/composables/usePWA'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
+import { GLASS_OPTICAL_STRENGTH_DEFAULT } from '@/utils/glassOptics'
 
 const emit = defineEmits<{
   'close': []
@@ -140,7 +141,12 @@ const hasAppModeCustomization = computed(() => {
   return (
     settings.value.primaryColor !== defaultPrimaryColor ||
     settings.value.glassAppearance !== 'clear' ||
+    settings.value.glassDeformationStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassFlowStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
     settings.value.glassQuality !== 'css' ||
+    settings.value.glassReflectionStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassTranslationStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
+    settings.value.glassTransparencyStrength !== GLASS_OPTICAL_STRENGTH_DEFAULT ||
     settings.value.radius !== 'default' ||
     settings.value.shadow !== '0' ||
     settings.value.skin !== 'default' ||

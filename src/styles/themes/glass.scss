@@ -3,17 +3,17 @@
 
 // 材质只覆盖统一表面 token；质量档只替换光学层，不改变业务组件契约。
 html[data-theme='glass'] {
-  --glass-surface: rgba(11, 19, 34, 22%);
-  --glass-surface-soft: rgba(11, 19, 34, 28%);
-  --glass-surface-raised: rgba(11, 19, 34, 36%);
+  --glass-surface: rgba(11, 19, 34, calc(0.3 - var(--glass-transparency, 0.5) * 0.24));
+  --glass-surface-soft: rgba(11, 19, 34, calc(0.36 - var(--glass-transparency, 0.5) * 0.24));
+  --glass-surface-raised: rgba(11, 19, 34, calc(0.44 - var(--glass-transparency, 0.5) * 0.24));
   --glass-control: rgba(11, 19, 34, 52%);
   --glass-control-prominent: rgba(255, 255, 255, 7%);
   --glass-control-prominent-focus: color-mix(in srgb, rgba(255, 255, 255, 10%) 84%, rgba(var(--v-theme-primary), 24%));
-  --glass-border: rgba(255, 255, 255, 10%);
-  --glass-border-raised: rgba(255, 255, 255, 14%);
-  --glass-border-hover: rgba(255, 255, 255, 20%);
+  --glass-border: rgba(255, 255, 255, calc(0.04 + var(--glass-reflection, 0.5) * 0.12));
+  --glass-border-raised: rgba(255, 255, 255, calc(0.06 + var(--glass-reflection, 0.5) * 0.16));
+  --glass-border-hover: rgba(255, 255, 255, calc(0.1 + var(--glass-reflection, 0.5) * 0.2));
   --glass-control-prominent-border: rgba(255, 255, 255, 14%);
-  --glass-highlight: rgba(255, 255, 255, 14%);
+  --glass-highlight: rgba(255, 255, 255, calc(0.06 + var(--glass-reflection, 0.5) * 0.16));
   --glass-sheen: linear-gradient(
     135deg,
     rgba(255, 255, 255, 9%),
@@ -23,6 +23,11 @@ html[data-theme='glass'] {
   );
   --glass-shadow:
     0 10px 28px rgba(3, 7, 18, 24%), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(2, 6, 16, 14%);
+  --glass-dashboard-shadow: inset 0 1px 0 var(--glass-highlight);
+  --glass-dashboard-shadow-hover:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.16 + var(--glass-reflection, 0.5) * 0.24)),
+    inset -1px 0 0 rgba(2, 6, 16, calc(0.12 + var(--glass-reflection, 0.5) * 0.1)),
+    inset 0 -1px 0 rgba(2, 6, 16, calc(0.14 + var(--glass-reflection, 0.5) * 0.1));
   --glass-shadow-raised:
     0 16px 40px rgba(3, 7, 18, 32%), inset 0 1px 0 rgba(255, 255, 255, 24%), inset 0 -1px 0 rgba(2, 6, 16, 18%);
   --glass-shadow-hover:
@@ -104,9 +109,21 @@ html[data-theme='glass'] {
 
   // 色调保持与透明材质接近的透光度，只叠加主色语义。
   &[data-glass-appearance='tinted'] {
-    --glass-surface: color-mix(in srgb, rgba(11, 19, 34, 24%) 88%, rgba(var(--v-theme-primary), 28%));
-    --glass-surface-soft: color-mix(in srgb, rgba(11, 19, 34, 30%) 89%, rgba(var(--v-theme-primary), 26%));
-    --glass-surface-raised: color-mix(in srgb, rgba(11, 19, 34, 38%) 84%, rgba(var(--v-theme-primary), 32%));
+    --glass-surface: color-mix(
+      in srgb,
+      rgba(11, 19, 34, calc(0.3 - var(--glass-transparency, 0.5) * 0.24)) 88%,
+      rgba(var(--v-theme-primary), 28%)
+    );
+    --glass-surface-soft: color-mix(
+      in srgb,
+      rgba(11, 19, 34, calc(0.36 - var(--glass-transparency, 0.5) * 0.24)) 89%,
+      rgba(var(--v-theme-primary), 26%)
+    );
+    --glass-surface-raised: color-mix(
+      in srgb,
+      rgba(11, 19, 34, calc(0.44 - var(--glass-transparency, 0.5) * 0.24)) 84%,
+      rgba(var(--v-theme-primary), 32%)
+    );
     --glass-control: color-mix(in srgb, rgba(11, 19, 34, 52%) 88%, rgba(var(--v-theme-primary), 28%));
     --glass-control-prominent: color-mix(in srgb, rgba(255, 255, 255, 7%) 82%, rgba(var(--v-theme-primary), 24%));
     --glass-control-prominent-focus: color-mix(
@@ -114,15 +131,31 @@ html[data-theme='glass'] {
       rgba(255, 255, 255, 10%) 76%,
       rgba(var(--v-theme-primary), 32%)
     );
-    --glass-border: color-mix(in srgb, rgba(255, 255, 255, 10%) 82%, rgba(var(--v-theme-primary), 26%));
-    --glass-border-raised: color-mix(in srgb, rgba(255, 255, 255, 14%) 80%, rgba(var(--v-theme-primary), 30%));
-    --glass-border-hover: color-mix(in srgb, rgba(255, 255, 255, 20%) 78%, rgba(var(--v-theme-primary), 36%));
+    --glass-border: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(0.04 + var(--glass-reflection, 0.5) * 0.12)) 82%,
+      rgba(var(--v-theme-primary), 26%)
+    );
+    --glass-border-raised: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(0.06 + var(--glass-reflection, 0.5) * 0.16)) 80%,
+      rgba(var(--v-theme-primary), 30%)
+    );
+    --glass-border-hover: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(0.1 + var(--glass-reflection, 0.5) * 0.2)) 78%,
+      rgba(var(--v-theme-primary), 36%)
+    );
     --glass-control-prominent-border: color-mix(
       in srgb,
       rgba(255, 255, 255, 14%) 78%,
       rgba(var(--v-theme-primary), 32%)
     );
-    --glass-highlight: color-mix(in srgb, rgba(255, 255, 255, 14%) 86%, rgba(var(--v-theme-primary), 18%));
+    --glass-highlight: color-mix(
+      in srgb,
+      rgba(255, 255, 255, calc(0.06 + var(--glass-reflection, 0.5) * 0.16)) 86%,
+      rgba(var(--v-theme-primary), 18%)
+    );
     --glass-sheen: linear-gradient(
       135deg,
       rgba(255, 255, 255, 9%),
@@ -134,17 +167,17 @@ html[data-theme='glass'] {
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
   &[data-glass-appearance='frosted'] {
-    --glass-surface: rgba(255, 255, 255, 8%);
-    --glass-surface-soft: rgba(255, 255, 255, 7%);
-    --glass-surface-raised: rgba(255, 255, 255, 12%);
+    --glass-surface: rgba(255, 255, 255, calc(0.12 - var(--glass-transparency, 0.5) * 0.07));
+    --glass-surface-soft: rgba(255, 255, 255, calc(0.11 - var(--glass-transparency, 0.5) * 0.06));
+    --glass-surface-raised: rgba(255, 255, 255, calc(0.16 - var(--glass-transparency, 0.5) * 0.08));
     --glass-control: rgba(255, 255, 255, 9%);
     --glass-control-prominent: rgba(255, 255, 255, 10%);
     --glass-control-prominent-focus: rgba(255, 255, 255, 13%);
-    --glass-border: rgba(255, 255, 255, 15%);
-    --glass-border-raised: rgba(255, 255, 255, 18%);
-    --glass-border-hover: rgba(255, 255, 255, 28%);
+    --glass-border: rgba(255, 255, 255, calc(0.07 + var(--glass-reflection, 0.5) * 0.16));
+    --glass-border-raised: rgba(255, 255, 255, calc(0.08 + var(--glass-reflection, 0.5) * 0.2));
+    --glass-border-hover: rgba(255, 255, 255, calc(0.14 + var(--glass-reflection, 0.5) * 0.28));
     --glass-control-prominent-border: rgba(255, 255, 255, 18%);
-    --glass-highlight: rgba(255, 255, 255, 22%);
+    --glass-highlight: rgba(255, 255, 255, calc(0.1 + var(--glass-reflection, 0.5) * 0.24));
     --glass-sheen: linear-gradient(
       135deg,
       rgba(255, 255, 255, 7%),
@@ -255,11 +288,8 @@ html[data-theme='glass'] {
     background: transparent;
   }
 
+  // 页面容器不承担玻璃材质，避免内容高度结束处与透明 footer 形成整宽明暗边界。
   .layout-page-content {
-    background-color: rgba(255, 255, 255, 2.5%);
-  }
-
-  &[data-glass-appearance='frosted'] .layout-page-content {
     background-color: transparent;
   }
 
@@ -350,6 +380,19 @@ html[data-theme='glass'] {
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card {
     -webkit-backdrop-filter: var(--glass-dashboard-backdrop-filter);
     backdrop-filter: var(--glass-dashboard-backdrop-filter);
+    box-shadow: var(--glass-dashboard-shadow) !important;
+  }
+
+  @media (hover: hover) {
+    // Dashboard 悬停沿左上来光增强顶部高光，并在右下背光面保留轻吸收。
+    .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card:hover,
+    .dashboard-grid-item-content
+      > .dashboard-grid-auto-size
+      > .dashboard-grid-content-measure
+      > :first-child
+      > .v-card:hover {
+      box-shadow: var(--glass-dashboard-shadow-hover) !important;
+    }
   }
 
   :where(.layout-navbar, .Vue-Toastification__toast) {
@@ -532,8 +575,8 @@ html[data-theme='glass'] {
   }
 
   .v-overlay__scrim {
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter);
-    backdrop-filter: var(--glass-surface-backdrop-filter);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     background: rgba(3, 7, 18, 48%);
   }
 
@@ -950,7 +993,6 @@ html[data-theme='glass'] {
 
 // 光学档位只在 renderer ready 后接管背景采样，加载与失败状态继续使用标准 CSS 材质。
 .glass-optical-layer {
-  position: fixed;
   z-index: 0;
   block-size: 100%;
   inline-size: 100%;
@@ -960,9 +1002,13 @@ html[data-theme='glass'] {
   transition: opacity 180ms ease-out;
 }
 
-// 壁纸交叉淡入期间停用折射输出，避免新纹理采样仍在混合的背景。
-.glass-optical-layer--background-transition {
-  opacity: 0 !important;
+.glass-optical-layer--fixed {
+  position: fixed;
+}
+
+// 文档表面与该呈现层共享滚动坐标，canvas backing buffer 仍由 renderer 的质量预算约束。
+.glass-optical-layer--scroll {
+  position: absolute;
 }
 
 // 登录卡片的壁纸副本与外层背景共享切换时序，避免卡片内部提前显示下一张图片。
@@ -980,6 +1026,8 @@ html[data-theme='glass']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready'] {
+  --glass-surface-backdrop-filter: none;
+  --glass-raised-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-surface-backdrop-filter);
 }
 
@@ -987,8 +1035,8 @@ html[data-theme='glass'][data-glass-appearance='frosted']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready'] {
-  --glass-navbar-backdrop-filter: blur(18px) saturate(145%);
-  --glass-overlay-blur: 18px;
+  --glass-navbar-backdrop-filter: none;
+  --glass-overlay-blur: 8px;
   --glass-overlay-saturate: 145%;
 }
 
@@ -1012,7 +1060,7 @@ html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass
   }
 }
 
-// 磨砂材质的散射由 renderer 与有限的局部扩散共同构成。
+// 磨砂材质的散射由 renderer 统一完成，避免 CSS 再次模糊折射结果。
 html[data-glass-appearance='frosted']:is(
     [data-glass-quality='balanced'],
     [data-glass-quality='high']
@@ -1020,14 +1068,14 @@ html[data-glass-appearance='frosted']:is(
   body[data-theme='glass'] {
   .layout-vertical-nav::before,
   .layout-navbar {
-    -webkit-backdrop-filter: blur(18px) saturate(145%) !important;
-    backdrop-filter: blur(18px) saturate(145%) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card {
-    -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
-    backdrop-filter: blur(24px) saturate(150%) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 

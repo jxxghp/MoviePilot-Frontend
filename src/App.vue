@@ -27,7 +27,8 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
-import { commitPreloadedBackgroundRotation } from '@/utils/backgroundRotation'
+import { commitPreloadedBackgroundRotation, preloadBackgroundRotationImages } from '@/utils/backgroundRotation'
+import { GLASS_OPTICAL_STRENGTH_DEFAULT } from '@/utils/glassOptics'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
@@ -74,6 +75,7 @@ const backgroundImages = ref<string[]>([])
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
+const backgroundCrossfadeStartedAt = ref(0)
 const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivityState } = useAppActivityLifecycle()
 const preferredMotion = usePreferredReducedMotion()
 // 壁纸轮播同时服从应用活动状态与系统动态效果偏好。
@@ -84,16 +86,37 @@ const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
 const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
+// 登录专题保持固定光学参数，避免全局用户偏好改变其独立视觉合成。
+const opticalDeformationStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassDeformationStrength,
+)
+const opticalFlowStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassFlowStrength,
+)
+const opticalReflectionStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassReflectionStrength,
+)
+const opticalTransparencyStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassTransparencyStrength,
+)
+const opticalTranslationStrength = computed(() =>
+  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassTranslationStrength,
+)
 const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
 const shouldUseGlassBackgroundTreatment = computed(() => Boolean(isLogin.value) && isGlassTheme.value)
 const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
 )
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
+const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
 // 登录页的光学层只绘制程序化焦散，不会读取该跨域壁纸；登录后才通过同源缓存采样纹理。
-const activeOpticalBackgroundImage = computed(() =>
-  getDisplayImageUrl(activeBackgroundImage.value, Boolean(isLogin.value)),
-)
+const activeOpticalBackgroundImage = computed(() => getOpticalBackgroundImage(activeBackgroundImage.value))
+const previousOpticalBackgroundImage = computed(() => {
+  const previousIndex = previousImageIndex.value
+  if (previousIndex === null) return ''
+
+  return getOpticalBackgroundImage(backgroundImages.value[previousIndex] ?? '')
+})
 const appWrapperStyle = computed(() => ({
   '--login-wallpaper-image': activeBackgroundImage.value ? `url("${activeBackgroundImage.value}")` : 'none',
 }))
@@ -102,7 +125,6 @@ const shouldRenderGlassOpticalLayer = computed(
     isGlassTheme.value &&
     effectiveGlassSettings.value.glassQuality !== 'css' &&
     isInitialRouteReady.value &&
-    !isRenderThrottled.value &&
     Boolean(activeBackgroundImage.value),
 )
 const GlassOpticalLayer = defineAsyncComponent(() => import('@/components/theme/GlassOpticalLayer.vue'))
@@ -350,6 +372,7 @@ function resetBackgroundCrossfade() {
   clearBackgroundCrossfadeTimer()
   previousImageIndex.value = null
   isBackgroundCrossfading.value = false
+  backgroundCrossfadeStartedAt.value = 0
 }
 
 // 切换期保留上一张背景的渲染状态，避免图片合成层重建时露出透明底。
@@ -359,6 +382,7 @@ function activateBackgroundImage(nextIndex: number) {
   clearBackgroundCrossfadeTimer()
   previousImageIndex.value = activeImageIndex.value
   isBackgroundCrossfading.value = true
+  backgroundCrossfadeStartedAt.value = performance.now()
   activeImageIndex.value = nextIndex
   backgroundCrossfadeTimer = window.setTimeout(() => {
     previousImageIndex.value = null
@@ -390,11 +414,21 @@ function rotateBackgroundImage() {
     // 计算下一个图片索引
     const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
     const requestVersion = ++backgroundRotationVersion
+    const nextImage = backgroundImages.value[nextIndex]
+    const opticalImage =
+      shouldRenderGlassOpticalLayer.value && !isLoginWallpaperRoute.value
+        ? getOpticalBackgroundImage(nextImage)
+        : undefined
 
     void commitPreloadedBackgroundRotation({
       canCommit: () => allowsBackgroundRotation.value && requestVersion === backgroundRotationVersion,
       commit: () => activateBackgroundImage(nextIndex),
-      preload: () => preloadImage(backgroundImages.value[nextIndex]),
+      preload: () =>
+        preloadBackgroundRotationImages({
+          displayUrl: nextImage,
+          opticalUrl: opticalImage,
+          preload: preloadImage,
+        }),
     })
   }
 }
@@ -679,11 +713,18 @@ onUnmounted(() => {
     <GlassOpticalLayer
       v-if="shouldRenderGlassOpticalLayer"
       :appearance="effectiveGlassSettings.glassAppearance"
-      :class="{ 'glass-optical-layer--background-transition': isBackgroundCrossfading }"
+      :deformation-strength="opticalDeformationStrength"
+      :flow-strength="opticalFlowStrength"
       :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
+      :reflection-strength="opticalReflectionStrength"
+      :transparency-strength="opticalTransparencyStrength"
+      :translation-strength="opticalTranslationStrength"
       :route-key="route.fullPath"
       :tint-color="globalTheme.current.value.colors.primary"
+      :transition-duration="BACKGROUND_CROSSFADE_DURATION_MS"
+      :transition-started-at="backgroundCrossfadeStartedAt"
       :wallpaper-url="activeOpticalBackgroundImage"
+      :previous-wallpaper-url="previousOpticalBackgroundImage"
     />
     <!-- 页面内容 -->
     <VApp :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }">
