@@ -1,4 +1,4 @@
-import { commitPreloadedBackgroundRotation } from '@/utils/backgroundRotation'
+import { commitPreloadedBackgroundRotation, preloadBackgroundRotationImages } from '@/utils/backgroundRotation'
 import { describe, expect, it, vi } from 'vitest'
 
 function deferred<T>() {
@@ -57,5 +57,33 @@ describe('commitPreloadedBackgroundRotation', () => {
 
     await expect(result).resolves.toBe(false)
     expect(commit).not.toHaveBeenCalled()
+  })
+})
+
+describe('preloadBackgroundRotationImages', () => {
+  it('does not let an unused optical texture block the visible wallpaper', async () => {
+    const preload = vi.fn(async (url: string) => url === 'display.jpg')
+
+    await expect(
+      preloadBackgroundRotationImages({
+        displayUrl: 'display.jpg',
+        preload,
+      }),
+    ).resolves.toBe(true)
+    expect(preload).toHaveBeenCalledOnce()
+    expect(preload).toHaveBeenCalledWith('display.jpg')
+  })
+
+  it('requires both textures when the optical renderer consumes the derived wallpaper', async () => {
+    const preload = vi.fn(async (url: string) => url === 'display.jpg')
+
+    await expect(
+      preloadBackgroundRotationImages({
+        displayUrl: 'display.jpg',
+        opticalUrl: 'optical.jpg',
+        preload,
+      }),
+    ).resolves.toBe(false)
+    expect(preload).toHaveBeenCalledTimes(2)
   })
 })

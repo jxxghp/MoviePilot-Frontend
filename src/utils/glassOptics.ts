@@ -603,10 +603,20 @@ export function selectGlassOpticalRects(
 export function normalizeGlassOpticalRect(rect: GlassOpticalRect, viewportWidth: number, viewportHeight: number) {
   const safeWidth = Math.max(1, viewportWidth)
   const safeHeight = Math.max(1, viewportHeight)
-  const maxRadius = Math.max(0, Math.min(rect.width, rect.height) / 2)
+  const radii = rect.radii.map(radius => Math.max(0, radius)) as GlassCornerRadii
+  const [topLeft, topRight, bottomRight, bottomLeft] = radii
+  const fitScale = (side: number, radiusSum: number) => (radiusSum > 0 ? Math.max(0, side) / radiusSum : 1)
+  // CSS 会用同一个比例缩小全部圆角，保证任一边的相邻半径之和不超过该边长度。
+  const radiusScale = Math.min(
+    1,
+    fitScale(rect.width, topLeft + topRight),
+    fitScale(rect.width, bottomLeft + bottomRight),
+    fitScale(rect.height, topLeft + bottomLeft),
+    fitScale(rect.height, topRight + bottomRight),
+  )
 
   return {
-    radii: rect.radii.map(radius => Math.min(Math.max(0, radius), maxRadius)) as GlassCornerRadii,
+    radii: radii.map(radius => radius * radiusScale) as GlassCornerRadii,
     rect: [
       rect.x / safeWidth,
       1 - (rect.y + rect.height) / safeHeight,

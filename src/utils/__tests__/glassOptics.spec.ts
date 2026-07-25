@@ -407,7 +407,15 @@ describe('glass optics geometry', () => {
         1000,
         500,
       ),
-    ).toEqual({ radii: [50, 50, 50, 40], rect: [-0.02, 0.7, 0.2, 0.2] })
+    ).toEqual({
+      radii: [80 * (10 / 13), 70 * (10 / 13), 60 * (10 / 13), 40 * (10 / 13)],
+      rect: [-0.02, 0.7, 0.2, 0.2],
+    })
+
+    expect(
+      normalizeGlassOpticalRect({ height: 100, radii: [80, 30, 0, 0], rank: 1, width: 100, x: 0, y: 0 }, 100, 100)
+        .radii,
+    ).toEqual([80 * (10 / 11), 30 * (10 / 11), 0, 0])
   })
 
   it('keeps visible surfaces without an area-based hard cutoff', () => {

@@ -27,7 +27,7 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
-import { commitPreloadedBackgroundRotation } from '@/utils/backgroundRotation'
+import { commitPreloadedBackgroundRotation, preloadBackgroundRotationImages } from '@/utils/backgroundRotation'
 import { GLASS_OPTICAL_STRENGTH_DEFAULT } from '@/utils/glassOptics'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
@@ -414,15 +414,21 @@ function rotateBackgroundImage() {
     // 计算下一个图片索引
     const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
     const requestVersion = ++backgroundRotationVersion
+    const nextImage = backgroundImages.value[nextIndex]
+    const opticalImage =
+      shouldRenderGlassOpticalLayer.value && !isLoginWallpaperRoute.value
+        ? getOpticalBackgroundImage(nextImage)
+        : undefined
 
     void commitPreloadedBackgroundRotation({
       canCommit: () => allowsBackgroundRotation.value && requestVersion === backgroundRotationVersion,
       commit: () => activateBackgroundImage(nextIndex),
       preload: () =>
-        Promise.all([
-          preloadImage(backgroundImages.value[nextIndex]),
-          preloadImage(getOpticalBackgroundImage(backgroundImages.value[nextIndex])),
-        ]).then(results => results.every(Boolean)),
+        preloadBackgroundRotationImages({
+          displayUrl: nextImage,
+          opticalUrl: opticalImage,
+          preload: preloadImage,
+        }),
     })
   }
 }
