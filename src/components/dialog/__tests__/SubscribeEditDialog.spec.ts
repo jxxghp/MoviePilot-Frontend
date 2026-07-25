@@ -128,6 +128,27 @@ describe('SubscribeEditDialog', () => {
     expect(episodeGroupsRequested).not.toHaveBeenCalled()
   })
 
+  it('skips episode groups for a non-TMDB subscription with an auxiliary TMDB ID', async () => {
+    const record = createSubscribe({
+      anilistid: 154587,
+      id: 810,
+      media_id: '154587',
+      media_source: 'anilist',
+      name: 'AniList 编辑测试剧',
+      season: 1,
+      tmdbid: 8100,
+      type: '电视剧',
+    })
+    const episodeGroupsRequested = vi.fn()
+    server.use(subscribeDetailsHandler(810, record))
+    useDialogOptions({ onEpisodeGroups: episodeGroupsRequested, tmdbId: 8100 })
+
+    await renderDialog({ subid: 810 })
+
+    expect(await screen.findByText('AniList 编辑测试剧 S01')).toBeInTheDocument()
+    expect(episodeGroupsRequested).not.toHaveBeenCalled()
+  })
+
   it('shows enabled sites and stable downloader, directory, and rule options', async () => {
     const activeSite = createSubscribeSite({ id: 1, is_active: true, name: '启用站点' })
     const inactiveSite = createSubscribeSite({ id: 2, is_active: false, name: '停用站点' })
@@ -202,7 +223,12 @@ describe('SubscribeEditDialog', () => {
     const configRequested = vi.fn()
     const saved = vi.fn()
     server.use(
-      defaultSubscribeConfigHandler(type, createSubscribe({ id: 0, show_edit_dialog: false, type }), 200, configRequested),
+      defaultSubscribeConfigHandler(
+        type,
+        createSubscribe({ id: 0, show_edit_dialog: false, type }),
+        200,
+        configRequested,
+      ),
       saveDefaultSubscribeConfigHandler(type, { success: true }, 200, saved),
     )
     useDialogOptions()

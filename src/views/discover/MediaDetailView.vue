@@ -27,6 +27,7 @@ import { openSharedDialog } from '@/composables/useSharedDialog'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import {
   getMediaSubscribeId,
+  getMediaSubscribeIdentity,
   getSubscribeMode,
   useMediaSubscribe,
   type SeasonSubscribeModes,
@@ -228,8 +229,13 @@ async function getMediaDetail() {
       })
       if (!hasMediaIdentity()) return
 
-      selectedEpisodeGroup.value = mediaDetail.value.episode_group || ''
-      if (mediaDetail.value.type === '电视剧' && mediaDetail.value.tmdb_id) {
+      const supportsEpisodeGroups = getMediaSubscribeIdentity(mediaDetail.value)?.source === 'themoviedb'
+      selectedEpisodeGroup.value = supportsEpisodeGroups ? mediaDetail.value.episode_group || '' : ''
+      if (!supportsEpisodeGroups) {
+        episodeGroups.value = []
+        episodeGroupSeasons.value = []
+      }
+      if (mediaDetail.value.type === '电视剧' && supportsEpisodeGroups && mediaDetail.value.tmdb_id) {
         getEpisodeGroups()
         if (selectedEpisodeGroup.value) loadEpisodeGroupSeasons(selectedEpisodeGroup.value)
       }
@@ -402,7 +408,7 @@ const getMediaSeasons = computed(() => {
 
 // 查询当前媒体可用的剧集组
 async function getEpisodeGroups() {
-  if (!mediaDetail.value.tmdb_id) return
+  if (getMediaSubscribeIdentity(mediaDetail.value)?.source !== 'themoviedb' || !mediaDetail.value.tmdb_id) return
 
   episodeGroupsLoading.value = true
   try {
@@ -419,7 +425,7 @@ async function getEpisodeGroups() {
 
 // 查询指定剧集组的季信息，并忽略过期响应
 async function loadEpisodeGroupSeasons(groupId: string) {
-  if (!groupId) {
+  if (getMediaSubscribeIdentity(mediaDetail.value)?.source !== 'themoviedb' || !groupId) {
     episodeGroupSeasons.value = []
     episodeGroupSeasonsLoading.value = false
     return

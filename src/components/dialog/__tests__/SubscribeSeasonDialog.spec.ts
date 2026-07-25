@@ -189,9 +189,13 @@ describe('SubscribeSeasonDialog', () => {
   })
 
   it.each([
-    ['Douban', { douban_id: 'db-7303', tmdb_id: undefined }, 'douban:db-7303'],
-    ['Bangumi', { bangumi_id: 'bgm-7304', douban_id: undefined, tmdb_id: undefined }, 'bangumi:bgm-7304'],
-    ['AniList', { anilist_id: 154587, bangumi_id: undefined, tmdb_id: undefined }, 'anilist:154587'],
+    ['Douban', { douban_id: 'db-7303', source: 'douban', tmdb_id: undefined }, 'douban:db-7303'],
+    [
+      'Bangumi',
+      { bangumi_id: 'bgm-7304', douban_id: undefined, source: 'bangumi', tmdb_id: undefined },
+      'bangumi:bgm-7304',
+    ],
+    ['AniList', { anilist_id: 154587, bangumi_id: undefined, source: 'anilist', tmdb_id: undefined }, 'anilist:154587'],
     [
       'custom source',
       {
@@ -230,6 +234,34 @@ describe('SubscribeSeasonDialog', () => {
     expect(requested).toHaveBeenCalledOnce()
     expect(requested.mock.calls[0][0].searchParams.get('mediaid')).toBe(mediaId)
   })
+
+  it.each([
+    ['Douban', { douban_id: 'db-7310', source: 'douban' }, 'douban:db-7310'],
+    ['Bangumi', { bangumi_id: 'bgm-7310', source: 'bangumi' }, 'bangumi:bgm-7310'],
+    ['AniList', { anilist_id: 154587, source: 'anilist' }, 'anilist:154587'],
+  ] as const)(
+    'keeps the %s identity and skips episode groups when an auxiliary TMDB ID exists',
+    async (_label, overrides, mediaId) => {
+      const media = createTvMedia({ ...overrides, tmdb_id: 7310 })
+      const seasonRequest = vi.fn()
+      const groupRequest = vi.fn()
+      const groupSeasonsRequest = vi.fn()
+      server.use(
+        mediaSeasonsHandler([createMediaSeason({ season_number: 1 })], 200, seasonRequest),
+        mediaNotExistsHandler([]),
+        mediaEpisodeGroupsHandler(7310, [], 200, groupRequest),
+        mediaGroupSeasonsHandler('auxiliary-group', [], 200, groupSeasonsRequest),
+      )
+
+      await renderDialog({ initialEpisodeGroup: 'auxiliary-group', media })
+
+      expect(await screen.findByText('第 1 季')).toBeInTheDocument()
+      await settleRequests()
+      expect(seasonRequest.mock.calls[0][0].searchParams.get('mediaid')).toBe(mediaId)
+      expect(groupRequest).not.toHaveBeenCalled()
+      expect(groupSeasonsRequest).not.toHaveBeenCalled()
+    },
+  )
 
   it('synchronizes visible selections and modes, then emits the five-argument subscription payload', async () => {
     const media = createTvMedia({ tmdb_id: 7306 })

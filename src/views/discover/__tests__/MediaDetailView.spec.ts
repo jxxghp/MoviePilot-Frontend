@@ -116,6 +116,7 @@ interface RenderDetailOptions {
   detailRequest?: (url: URL) => void
   detailStatus?: number
   episodeGroups?: Record<string, unknown>[]
+  episodeGroupsRequest?: (url: URL) => void | Promise<void>
   episodeGroupsStatus?: number
   existsResponse?: { data?: Record<string, unknown>; message?: string; success: boolean }
   existsStatus?: number
@@ -158,7 +159,14 @@ async function renderDetail(options: RenderDetailOptions = {}) {
     querySubscribeByMediaHandler(getMediaSubscribeId(media), options.movieSubscribe ?? {}, 200, subscribeRequest),
   )
   if (media.tmdb_id) {
-    server.use(mediaEpisodeGroupsHandler(media.tmdb_id, options.episodeGroups ?? [], options.episodeGroupsStatus))
+    server.use(
+      mediaEpisodeGroupsHandler(
+        media.tmdb_id,
+        options.episodeGroups ?? [],
+        options.episodeGroupsStatus,
+        options.episodeGroupsRequest,
+      ),
+    )
   }
   options.setupHandlers?.()
   installSiteHandlers(options.sites, options.selectedSites)
@@ -579,6 +587,33 @@ describe('MediaDetailView subscriptions, seasons, and episode groups', () => {
     mocks.openSharedDialog.mockReturnValue({ close: vi.fn(), id: 1, updateProps: vi.fn() })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('does not query TMDB episode groups for an AniList detail with an auxiliary TMDB ID', async () => {
+    const episodeGroupsRequest = vi.fn()
+    const groupSeasonsRequest = vi.fn()
+    const media = createSubscribeTv({
+      anilist_id: 154587,
+      episode_group: 'auxiliary-group',
+      source: 'anilist',
+      title: 'AniList 主来源剧集',
+      tmdb_id: 8700,
+    })
+
+    await renderDetail({
+      episodeGroupsRequest,
+      media,
+      mediaId: 'anilist:154587',
+      setupHandlers: () => {
+        server.use(mediaGroupSeasonsHandler('auxiliary-group', [], 200, groupSeasonsRequest))
+      },
+      type: '电视剧',
+    })
+
+    expect(await screen.findByRole('heading', { name: /AniList 主来源剧集/ })).toBeInTheDocument()
+    await flushPromises()
+    expect(episodeGroupsRequest).not.toHaveBeenCalled()
+    expect(groupSeasonsRequest).not.toHaveBeenCalled()
   })
 
   it('shows the current movie subscription state returned by the media endpoint', async () => {

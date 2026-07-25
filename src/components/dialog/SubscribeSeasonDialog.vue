@@ -6,7 +6,12 @@ import noImage from '@images/no-image.jpeg'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalSettingsStore } from '@/stores'
-import type { SeasonSubscribeModes, SubscribeMode } from '@/composables/useMediaSubscribe'
+import {
+  getMediaSubscribeId,
+  getMediaSubscribeIdentity,
+  type SeasonSubscribeModes,
+  type SubscribeMode,
+} from '@/composables/useMediaSubscribe'
 import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { useDisplay } from 'vuetify'
 
@@ -67,7 +72,9 @@ const isRefreshed = ref(false)
 const episodeGroups = ref<{ [key: string]: any }[]>([])
 
 // 当前选择剧集组
-const episodeGroup = ref(props.initialEpisodeGroup ?? '')
+const episodeGroup = ref(
+  getMediaSubscribeIdentity(props.media)?.source === 'themoviedb' ? (props.initialEpisodeGroup ?? '') : '',
+)
 
 // 剧集组横向轨道
 const episodeGroupRail = ref<HTMLElement | null>(null)
@@ -166,19 +173,12 @@ const episodeGroupOptions = computed<EpisodeGroupOption[]>(() => {
 
 // 获得mediaid
 function getMediaId() {
-  if (props.media?.media_id && (props.media?.source || props.media?.mediaid_prefix)) {
-    const source = props.media.mediaid_prefix || props.media.source
-    return `${source === 'themoviedb' ? 'tmdb' : source}:${props.media.media_id}`
-  }
-  if (props.media?.tmdb_id) return `tmdb:${props.media?.tmdb_id}`
-  else if (props.media?.douban_id) return `douban:${props.media?.douban_id}`
-  else if (props.media?.bangumi_id) return `bangumi:${props.media?.bangumi_id}`
-  else if (props.media?.anilist_id) return `anilist:${props.media?.anilist_id}`
-  return ''
+  return getMediaSubscribeId(props.media)
 }
 
 // 查询所有剧集组
 async function getEpisodeGroups() {
+  if (getMediaSubscribeIdentity(props.media)?.source !== 'themoviedb') return
   if (!props.media?.tmdb_id) {
     console.warn('tmdbid is not set or is empty')
     return
@@ -213,7 +213,7 @@ async function getMediaSeasons() {
 
 // 查询剧集组的剧集
 async function getGroupSeasons() {
-  if (!episodeGroup.value) return
+  if (getMediaSubscribeIdentity(props.media)?.source !== 'themoviedb' || !episodeGroup.value) return
   isRefreshed.value = false
   try {
     seasonInfos.value = await api.get(`media/group/seasons/${episodeGroup.value}`)

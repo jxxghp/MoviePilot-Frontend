@@ -49,17 +49,55 @@ const SubscribeSeasonDialog = defineAsyncComponent(() => import('@/components/di
 
 export type SeasonSubscribeModes = Record<number, SubscribeMode>
 
+export interface MediaSubscribeIdentity {
+  mediaId: string
+  mediaKey: string
+  source: string
+}
+
+/** 按媒体声明的主来源解析订阅身份，避免辅助 ID 覆盖原始识别源。 */
+export function getMediaSubscribeIdentity(media?: MediaInfo): MediaSubscribeIdentity | undefined {
+  if (!media) return undefined
+
+  const normalizeSource = (value?: string) => {
+    const source = (value || '').trim().toLowerCase()
+    return source === 'tmdb' ? 'themoviedb' : source
+  }
+  const sourceIds: Record<string, unknown> = {
+    anilist: media.anilist_id,
+    bangumi: media.bangumi_id,
+    douban: media.douban_id,
+    themoviedb: media.tmdb_id,
+  }
+  const buildIdentity = (identitySource: string, value: unknown): MediaSubscribeIdentity | undefined => {
+    if (value === undefined || value === null || !String(value).trim()) return undefined
+    const mediaId = String(value).trim()
+    const prefix = identitySource === 'themoviedb' ? 'tmdb' : identitySource
+    return {
+      mediaId,
+      mediaKey: `${prefix}:${mediaId}`,
+      source: identitySource,
+    }
+  }
+
+  const declaredSources = [media.mediaid_prefix, media.source]
+    .map(normalizeSource)
+    .filter((source, index, sources) => source && sources.indexOf(source) === index)
+  for (const source of declaredSources) {
+    const declaredIdentity = buildIdentity(source, media.media_id ?? sourceIds[source])
+    if (declaredIdentity) return declaredIdentity
+  }
+
+  for (const fallbackSource of ['themoviedb', 'douban', 'bangumi', 'anilist']) {
+    const fallbackIdentity = buildIdentity(fallbackSource, sourceIds[fallbackSource])
+    if (fallbackIdentity) return fallbackIdentity
+  }
+  return undefined
+}
+
 // 生成跨媒体源稳定的订阅媒体标识。
 export function getMediaSubscribeId(media?: MediaInfo) {
-  if (media?.media_id && (media.source || media.mediaid_prefix)) {
-    const source = media.mediaid_prefix || media.source
-    return `${source === 'themoviedb' ? 'tmdb' : source}:${media.media_id}`
-  }
-  if (media?.tmdb_id) return `tmdb:${media.tmdb_id}`
-  if (media?.douban_id) return `douban:${media.douban_id}`
-  if (media?.bangumi_id) return `bangumi:${media.bangumi_id}`
-  if (media?.anilist_id) return `anilist:${media.anilist_id}`
-  return ''
+  return getMediaSubscribeIdentity(media)?.mediaKey ?? ''
 }
 
 // 将订阅模式转换为后端订阅字段。
@@ -271,6 +309,7 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
   ) {
     const media = currentMedia()
     if (!media) return
+    const identity = getMediaSubscribeIdentity(media)
 
     startNProgress()
     try {
@@ -282,11 +321,9 @@ export function useMediaSubscribe(options: UseMediaSubscribeOptions) {
         doubanid: media.douban_id,
         bangumiid: media.bangumi_id,
         anilistid: media.anilist_id,
-        media_source: media.source || media.mediaid_prefix,
-        media_id: media.media_id,
-        mediaid: media.media_id
-          ? `${(media.mediaid_prefix || media.source) === 'themoviedb' ? 'tmdb' : media.mediaid_prefix || media.source}:${media.media_id}`
-          : '',
+        media_source: identity?.source,
+        media_id: identity?.mediaId,
+        mediaid: identity?.mediaKey ?? '',
         season: media.type === '电影' ? null : season,
         ...payload,
         episode_group: episodeGroup.value,

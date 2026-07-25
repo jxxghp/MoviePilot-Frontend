@@ -1,6 +1,7 @@
 import type { MediaInfo, MediaSeason, Subscribe } from '@/api/types'
 import {
   getMediaSubscribeId,
+  getMediaSubscribeIdentity,
   getSubscribeMode,
   type SeasonSubscribeModes,
   type SubscribeMode,
@@ -190,6 +191,20 @@ describe('media subscribe identifiers and modes', () => {
     expect(getMediaSubscribeId(createSubscribeMovie(overrides))).toBe(expected)
   })
 
+  it('keeps the declared AniList identity when TMDB is only auxiliary data', () => {
+    const media = createSubscribeTv({
+      anilist_id: 154587,
+      source: 'anilist',
+      tmdb_id: 209867,
+    })
+
+    expect(getMediaSubscribeIdentity(media)).toEqual({
+      mediaId: '154587',
+      mediaKey: 'anilist:154587',
+      source: 'anilist',
+    })
+  })
+
   it.each([
     [{ best_version: false, best_version_full: true }, 'normal'],
     [{ best_version: 0, best_version_full: 1 }, 'normal'],
@@ -223,8 +238,9 @@ describe('useMediaSubscribe entry flows', () => {
     await waitFor(() => expect(mocks.doneProgress).toHaveBeenCalledOnce())
     expect(created).toHaveBeenCalledWith({
       episode_group: '',
+      media_id: '101',
       media_source: 'themoviedb',
-      mediaid: '',
+      mediaid: 'tmdb:101',
       name: '普通电影',
       season: null,
       tmdbid: 101,
@@ -236,6 +252,33 @@ describe('useMediaSubscribe entry flows', () => {
     expect(mocks.toastSuccess).toHaveBeenCalled()
     expect(mocks.startProgress).toHaveBeenCalledOnce()
     expect(mocks.doneProgress).toHaveBeenCalledOnce()
+  })
+
+  it('creates an AniList subscription without promoting its auxiliary TMDB ID', async () => {
+    const media = createSubscribeTv({
+      anilist_id: 154587,
+      source: 'anilist',
+      title: 'AniList 订阅剧集',
+      tmdb_id: 209867,
+    })
+    const created = vi.fn()
+    server.use(
+      createSubscribeHandler({ data: { id: 512 }, success: true }, 200, created),
+      defaultSubscribeConfigHandler('电视剧', { show_edit_dialog: false }),
+    )
+    await renderSubscribeHarness({ media })
+
+    await fireEvent.click(screen.getByRole('button', { name: 'add-normal' }))
+
+    await waitFor(() => expect(created).toHaveBeenCalledOnce())
+    expect(created.mock.calls[0][0]).toMatchObject({
+      anilistid: 154587,
+      media_id: '154587',
+      media_source: 'anilist',
+      mediaid: 'anilist:154587',
+      season: 1,
+      tmdbid: 209867,
+    })
   })
 
   it('keeps a successful creation successful when default configuration loading fails', async () => {
