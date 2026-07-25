@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import api from '@/api'
 import type { MediaInfo } from '@/api/types'
+import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
 import { useDashboardSnapshot } from '@/composables/useDashboardSnapshot'
 import { getMediaSubscribeId } from '@/composables/useMediaSubscribe'
 import { useGlobalSettingsStore } from '@/stores'
@@ -34,6 +35,7 @@ const mediaSnapshots = new Map(
 )
 const initialSnapshot = mediaSnapshots.get(selectedSourcePath.value)?.readSnapshot()
 const mediaItems = shallowRef<MediaInfo[]>(initialSnapshot?.value ?? [])
+const hasSnapshot = ref(Boolean(initialSnapshot))
 const activeIndex = ref(0)
 const loading = ref(!initialSnapshot)
 const loadFailed = ref(false)
@@ -90,12 +92,14 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
 
   if (cachedItems) {
     mediaItems.value = cachedItems
+    hasSnapshot.value = true
     activeIndex.value = 0
     loading.value = false
     loadFailed.value = false
     resumeAutoplayIfReady()
   }
 
+  if (!cachedItems) hasSnapshot.value = false
   loading.value = !cachedItems
   loadFailed.value = false
   try {
@@ -105,13 +109,14 @@ async function loadMedia(sourcePath = selectedSourcePath.value) {
     const items = normalizeMediaResponse(response).filter(isUsableMedia).slice(0, RECOMMEND_SLIDE_COUNT)
     mediaSnapshots.get(sourcePath)?.writeSnapshot(items)
     mediaItems.value = items
+    hasSnapshot.value = true
     activeIndex.value = 0
   } catch (error) {
     if (currentRequestId !== requestId) return
     console.error(error)
+    loadFailed.value = true
     if (!cachedItems) {
       mediaItems.value = []
-      loadFailed.value = true
     }
   } finally {
     if (currentRequestId === requestId) {
@@ -289,32 +294,35 @@ onBeforeUnmount(() => {
           <span>{{ t('dashboard.recommendedMedia') }}</span>
         </div>
 
-        <VMenu location="bottom end">
-          <template #activator="{ props: menuProps }">
-            <VBtn
-              v-bind="menuProps"
-              class="dashboard-recommend-source"
-              variant="tonal"
-              color="white"
-              rounded="pill"
-              append-icon="mdi-chevron-down"
-              :aria-label="t('dashboard.selectRecommendSource')"
-            >
-              <VIcon :icon="getSourceIcon(selectedSource)" color="primary" size="20" start />
-              <span class="dashboard-recommend-source-title">{{ selectedSource.title }}</span>
-            </VBtn>
-          </template>
-          <VList density="compact" max-height="360" :aria-label="t('dashboard.selectRecommendSource')">
-            <VListItem
-              v-for="source in sources"
-              :key="source.apipath"
-              :active="source.apipath === selectedSourcePath"
-              :prepend-icon="getSourceIcon(source)"
-              :title="source.title"
-              @click="selectSource(source)"
-            />
-          </VList>
-        </VMenu>
+        <div class="dashboard-recommend-actions">
+          <DashboardRetryButton v-if="loadFailed" deferred :label="t('dashboard.staleData')" @retry="loadMedia()" />
+          <VMenu location="bottom end">
+            <template #activator="{ props: menuProps }">
+              <VBtn
+                v-bind="menuProps"
+                class="dashboard-recommend-source"
+                variant="tonal"
+                color="white"
+                rounded="pill"
+                append-icon="mdi-chevron-down"
+                :aria-label="t('dashboard.selectRecommendSource')"
+              >
+                <VIcon :icon="getSourceIcon(selectedSource)" color="primary" size="20" start />
+                <span class="dashboard-recommend-source-title">{{ selectedSource.title }}</span>
+              </VBtn>
+            </template>
+            <VList density="compact" max-height="360" :aria-label="t('dashboard.selectRecommendSource')">
+              <VListItem
+                v-for="source in sources"
+                :key="source.apipath"
+                :active="source.apipath === selectedSourcePath"
+                :prepend-icon="getSourceIcon(source)"
+                :title="source.title"
+                @click="selectSource(source)"
+              />
+            </VList>
+          </VMenu>
+        </div>
       </div>
 
       <div
@@ -374,10 +382,23 @@ onBeforeUnmount(() => {
       />
     </template>
 
-    <div v-else class="dashboard-recommend-empty">
+    <div
+      v-else
+      class="dashboard-recommend-empty"
+      :role="loadFailed && !hasSnapshot ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <DashboardRetryButton
+        v-if="loadFailed"
+        class="dashboard-recommend-retry"
+        :deferred="hasSnapshot"
+        :label="hasSnapshot ? t('dashboard.staleData') : t('dashboard.recommendLoadFailed')"
+        @retry="loadMedia()"
+      />
       <VIcon icon="mdi-image-off-outline" size="38" />
-      <span>{{ loadFailed ? t('dashboard.recommendLoadFailed') : t('dashboard.noRecommendations') }}</span>
-      <VBtn v-if="loadFailed" variant="tonal" size="small" @click="loadMedia()">{{ t('common.retry') }}</VBtn>
+      <span>{{
+        loadFailed && !hasSnapshot ? t('dashboard.recommendLoadFailed') : t('dashboard.noRecommendations')
+      }}</span>
     </div>
   </VCard>
 </template>
@@ -449,6 +470,13 @@ onBeforeUnmount(() => {
   font-weight: 650;
   gap: 0.45rem;
   padding: 0.55rem 0.85rem;
+}
+
+.dashboard-recommend-actions {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  gap: 0.35rem;
 }
 
 .dashboard-recommend-source {
@@ -567,6 +595,7 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-recommend-empty {
+  position: relative;
   display: flex;
   block-size: 100%;
   align-items: center;
@@ -574,6 +603,12 @@ onBeforeUnmount(() => {
   color: rgba(255, 255, 255, 0.68);
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.dashboard-recommend-retry {
+  position: absolute;
+  inset-block-start: 1rem;
+  inset-inline-end: 1rem;
 }
 
 @media (min-width: 741px) and (hover: hover) {

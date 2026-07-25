@@ -2,6 +2,8 @@
 import api from '@/api'
 import type { MediaServerConf, MediaServerPlayItem } from '@/api/types'
 import PlayingBackdropCard from '@/components/cards/PlayingBackdropCard.vue'
+import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
+import DashboardMediaState from '@/components/misc/DashboardMediaState.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDashboardMediaGridCapacity } from '@/composables/useDashboardMediaGridCapacity'
 import { useDashboardSnapshot } from '@/composables/useDashboardSnapshot'
@@ -25,6 +27,10 @@ const currentSnapshot = readSnapshot()
 
 // 继续播放列表
 const playingList = ref<DashboardPlayingItem[]>(currentSnapshot?.value ?? [])
+// 空结果同样是成功快照；刷新失败不能把已确认的空状态改写成首次加载失败。
+const hasSnapshot = ref(currentSnapshot !== undefined)
+const isLoading = ref(!currentSnapshot)
+const loadFailed = ref(false)
 
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
@@ -89,15 +95,26 @@ async function loadData() {
   if (count <= 0) return
 
   const loadId = ++playingLoadId
+  if (!hasSnapshot.value) isLoading.value = true
 
-  if (!(await loadMediaServerSetting())) return
+  if (!(await loadMediaServerSetting())) {
+    if (loadId === playingLoadId) {
+      loadFailed.value = true
+      isLoading.value = false
+    }
+    return
+  }
   if (loadId !== playingLoadId) return
 
   const enabledServers = mediaServers.value.filter(server => server.enabled)
   const serverItems = await Promise.all(enabledServers.map(server => loadPlayingList(server.name, count)))
 
   if (loadId !== playingLoadId) return
-  if (serverItems.some(items => items === undefined)) return
+  if (serverItems.some(items => items === undefined)) {
+    loadFailed.value = true
+    isLoading.value = false
+    return
+  }
 
   const itemMap = new Map<string, DashboardPlayingItem>()
 
@@ -113,6 +130,9 @@ async function loadData() {
   const nextPlayingList = Array.from(itemMap.values()).slice(0, count)
   playingList.value = nextPlayingList
   writeSnapshot(nextPlayingList)
+  hasSnapshot.value = true
+  loadFailed.value = false
+  isLoading.value = false
 }
 
 watch(playingItemCount, count => {
@@ -136,9 +156,29 @@ onActivated(() => {
     class="dashboard-media-shell"
     :class="{ 'dashboard-grid-fill': displayedPlayingList.length > 0 }"
   >
+    <DashboardMediaState
+      v-if="playingList.length === 0"
+      :title="t('dashboard.playing')"
+      :empty-text="t('dashboard.noPlaying')"
+      empty-icon="mdi-play-circle-outline"
+      :loading="isLoading"
+      :failed="loadFailed && !hasSnapshot"
+    >
+      <template v-if="loadFailed" #append>
+        <DashboardRetryButton
+          :deferred="hasSnapshot"
+          :label="hasSnapshot ? t('dashboard.staleData') : t('dashboard.mediaServerLoadFailed')"
+          @retry="loadData"
+        />
+      </template>
+    </DashboardMediaState>
+
     <VCard v-if="displayedPlayingList.length > 0" class="dashboard-media-card">
       <VCardItem class="dashboard-media-header">
         <VCardTitle>{{ t('dashboard.playing') }}</VCardTitle>
+        <template v-if="loadFailed" #append>
+          <DashboardRetryButton deferred :label="t('dashboard.staleData')" @retry="loadData" />
+        </template>
       </VCardItem>
 
       <div class="dashboard-media-content px-5 pb-3">

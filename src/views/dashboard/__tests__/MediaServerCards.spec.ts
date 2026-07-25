@@ -2,7 +2,7 @@ import MediaServerLatest from '@/views/dashboard/MediaServerLatest.vue'
 import MediaServerLibrary from '@/views/dashboard/MediaServerLibrary.vue'
 import MediaServerPlaying from '@/views/dashboard/MediaServerPlaying.vue'
 import { renderWithProviders } from '@tests/support/render'
-import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { fireEvent, screen, waitFor, within } from '@testing-library/vue'
 import { defineComponent, ref, type Component } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -131,6 +131,79 @@ describe('dashboard media server cards', () => {
     })
   })
 
+  it.each([
+    [MediaServerLatest, 'mediaserver/latest', '暂无最近入库记录'],
+    [MediaServerPlaying, 'mediaserver/playing', '暂无继续观看记录'],
+    [MediaServerLibrary, 'mediaserver/library', '暂无媒体库数据'],
+  ])('shows the explicit empty state for %s', async (component, endpoint, emptyText) => {
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === endpoint) return []
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    await renderWithProviders(keepAliveHarness(component))
+
+    expect(await screen.findByText(emptyText)).toBeInTheDocument()
+  })
+
+  it.each([
+    [MediaServerLatest, 'mediaserver/latest', '暂无最近入库记录'],
+    [MediaServerPlaying, 'mediaserver/playing', '暂无继续观看记录'],
+    [MediaServerLibrary, 'mediaserver/library', '暂无媒体库数据'],
+  ])('keeps the successful empty snapshot when %s later fails', async (component, endpoint, emptyText) => {
+    let endpointReads = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === endpoint) {
+        endpointReads += 1
+        if (endpointReads === 1) return []
+        throw new Error('remote unavailable')
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    await renderWithProviders(keepAliveHarness(component))
+    expect(await screen.findByText(emptyText)).toBeInTheDocument()
+
+    await reactivateCard()
+
+    await waitFor(() => expect(endpointReads).toBe(2))
+    expect(screen.getByText(emptyText)).toBeInTheDocument()
+    expect(screen.queryByText('媒体服务器数据加载失败')).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+  })
+
+  it.each([
+    [MediaServerLatest, 'mediaserver/latest', '恢复的最近入库'],
+    [MediaServerPlaying, 'mediaserver/playing', '恢复的继续观看'],
+    [MediaServerLibrary, 'mediaserver/library', '恢复的媒体库'],
+  ])('shows a retry state when %s fails without a snapshot', async (component, endpoint, recoveredText) => {
+    let endpointReads = 0
+    let shouldFail = true
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === endpoint) {
+        endpointReads += 1
+        if (shouldFail) throw new Error('remote unavailable')
+
+        if (endpoint === 'mediaserver/library') return [{ id: 'library', name: recoveredText }]
+        return [{ id: 'media', title: recoveredText }]
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    await renderWithProviders(keepAliveHarness(component))
+
+    const failureAlert = await screen.findByRole('alert')
+    expect(within(failureAlert).getByText('媒体服务器数据加载失败')).toBeInTheDocument()
+    const failedReads = endpointReads
+    shouldFail = false
+    await fireEvent.click(screen.getByRole('button', { name: '媒体服务器数据加载失败' }))
+    expect(await screen.findByText(recoveredText)).toBeInTheDocument()
+    expect(endpointReads).toBe(failedReads + 1)
+  })
+
   it('restores the last successful library snapshot before F5 revalidation completes', async () => {
     const pendingSettings = deferred<{ data: { value: Array<{ enabled: boolean; name: string }> } }>()
     let reload = false
@@ -207,6 +280,7 @@ describe('dashboard media server cards', () => {
     await waitFor(() => expect(playingReads).toBe(2))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(screen.getByText('旧继续观看')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
   })
 
   it('keeps recent-library content when a warm refresh fails', async () => {
@@ -232,6 +306,30 @@ describe('dashboard media server cards', () => {
     await waitFor(() => expect(latestReads).toBe(2))
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(screen.getByText('旧最近入库')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+  })
+
+  it('keeps media-library content when a warm refresh fails', async () => {
+    const refresh = deferred<Array<{ id: string; name: string }>>()
+    let libraryReads = 0
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === 'system/setting/MediaServers') return { data: { value: [{ enabled: true, name: 'home' }] } }
+      if (url === 'mediaserver/library') {
+        libraryReads += 1
+        return libraryReads === 1 ? [{ id: 'old', name: '旧媒体库' }] : refresh.promise
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    await renderWithProviders(keepAliveHarness(MediaServerLibrary))
+    await screen.findByText('旧媒体库')
+
+    await reactivateCard()
+    refresh.reject(new Error('remote unavailable'))
+    await waitFor(() => expect(libraryReads).toBe(2))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(screen.getByText('旧媒体库')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
   })
 
   it('replaces the media-library snapshot atomically after a warm refresh', async () => {

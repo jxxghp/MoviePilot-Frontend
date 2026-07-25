@@ -161,6 +161,19 @@ describe('MediaRecommend', () => {
     second.unmount()
   })
 
+  it('keeps the selected source snapshot and shows the shared warning when revalidation fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const first = await renderMediaRecommend([createMediaInfo({ title: '上次推荐' })], { userID: 7 })
+    await screen.findByText('上次推荐')
+    first.unmount()
+
+    await renderMediaRecommend({}, { status: 502, userID: 7 })
+
+    expect(await screen.findByText('上次推荐')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '刷新失败，当前显示上次数据' })).toBeInTheDocument()
+    expect(consoleError).toHaveBeenCalled()
+  })
+
   it('supports arrows, pagination, touch gestures, and detail routes', async () => {
     const first = createMediaInfo({ title: '普通媒体', tmdb_id: 101, type: '电影', year: '2025' })
     const second = createMediaInfo({ collection_id: 202, title: '媒体合集', tmdb_id: undefined, type: '合集' })
@@ -386,10 +399,13 @@ describe('MediaRecommend', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     await renderMediaRecommend({}, { status: 500 })
 
-    expect(await screen.findByText('推荐媒体加载失败')).toBeInTheDocument()
+    const retryButton = await screen.findByRole('button', { name: '推荐媒体加载失败' })
+    const failureAlert = retryButton.closest<HTMLElement>('[role="alert"]')
+    if (!failureAlert) throw new Error('推荐媒体失败状态缺少 alert 容器')
+    expect(within(failureAlert).getByText('推荐媒体加载失败')).toBeInTheDocument()
     expect(consoleError).toHaveBeenCalled()
     server.use(recommendMediaHandler(DEFAULT_SOURCE, [createMediaInfo({ title: '重试成功' })]))
-    await user.click(screen.getByRole('button', { name: '重试' }))
+    await user.click(retryButton)
 
     expect(await screen.findByText('重试成功')).toBeInTheDocument()
   })
