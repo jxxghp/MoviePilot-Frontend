@@ -266,9 +266,7 @@ describe('FullCalendarView', () => {
       ...sameDaySubscriptions.map(subscribe =>
         tmdbSeasonEpisodesHandler(subscribe.tmdbid as number, 1, [sameDayEpisode]),
       ),
-      tmdbSeasonEpisodesHandler(3499, 1, [
-        createTmdbEpisode({ air_date: '2026-08-02', episode_number: 1 }),
-      ]),
+      tmdbSeasonEpisodesHandler(3499, 1, [createTmdbEpisode({ air_date: '2026-08-02', episode_number: 1 })]),
     )
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 240 })
     Object.defineProperty(window, 'scrollX', { configurable: true, value: 16 })
@@ -377,9 +375,7 @@ describe('FullCalendarView', () => {
       '.mobile-calendar-event-card',
     )
     const noneCard = screen.getByRole('heading', { name: '年度剧集' }).closest('.mobile-calendar-event-card')
-    const partialCard = screen
-      .getByRole('heading', { name: '第一集 / 第二集' })
-      .closest('.mobile-calendar-event-card')
+    const partialCard = screen.getByRole('heading', { name: '第一集 / 第二集' }).closest('.mobile-calendar-event-card')
     expect(completeCard).toHaveClass('mobile-calendar-event-card--complete')
     expect(noneCard).toHaveClass('mobile-calendar-event-card--none')
     expect(partialCard).toHaveClass('mobile-calendar-event-card--partial')
@@ -415,13 +411,7 @@ describe('FullCalendarView', () => {
     const recovered = movieSubscribe(3701, '恢复后的电影')
     const onListRequest = vi.fn()
     server.use(
-      sequenceSubscribeList(
-        [
-          { body: [], status: 500 },
-          { body: [recovered] },
-        ],
-        onListRequest,
-      ),
+      sequenceSubscribeList([{ body: [], status: 500 }, { body: [recovered] }], onListRequest),
       mediaDetailsHandler(3701, createMediaInfo({ release_date: '2026-08-12', tmdb_id: 3701 })),
     )
 
@@ -494,6 +484,8 @@ describe('FullCalendarView', () => {
   })
 
   it('filters mobile calendar events by media type', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-23T12:00:00+08:00'))
     setViewport(480)
     const movie = movieSubscribe(3901, '移动筛选电影')
     const tv = tvSubscribe(3902, '移动筛选剧集')
