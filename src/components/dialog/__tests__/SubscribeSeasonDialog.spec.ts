@@ -188,6 +188,37 @@ describe('SubscribeSeasonDialog', () => {
     expect(within(row).queryByText(/首播于/)).not.toBeInTheDocument()
   })
 
+  it('renders safe fallbacks for incomplete season metadata', async () => {
+    const media = createTvMedia({ poster_path: '' })
+    server.use(
+      mediaSeasonsHandler([
+        createMediaSeason({
+          air_date: 'unknown',
+          episode_count: 0,
+          name: '来源特别篇',
+          poster_path: '',
+          season_number: undefined,
+        }),
+        createMediaSeason({
+          air_date: '',
+          episode_count: undefined,
+          name: 'Season 01',
+          poster_path: '/images/season-one.jpg',
+          season_number: 1,
+        }),
+      ]),
+      mediaNotExistsHandler([]),
+      mediaEpisodeGroupsHandler(media.tmdb_id!, []),
+    )
+
+    await renderDialog({ media })
+
+    expect(await screen.findByText('第 0 季')).toBeInTheDocument()
+    expect(seasonRow(0)).toHaveTextContent('unknown')
+    expect(within(seasonRow(0)).getByAltText('第 0 季')).toHaveAttribute('src')
+    expect(seasonRow(1)).not.toHaveTextContent('Season 01')
+  })
+
   it.each([
     ['Douban', { douban_id: 'db-7303', source: 'douban', tmdb_id: undefined }, 'douban:db-7303'],
     [
