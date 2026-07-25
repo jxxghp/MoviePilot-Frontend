@@ -752,6 +752,184 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('coalesces scroll updates and renders two stable tail frames without injecting motion', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const surface = appendOpticalSurface('test-surface', { height: 300, width: 400, x: 40, y: 120 })
+    surface.dataset.glassOpticalSurface = ''
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+    render.mockClear()
+
+    scrollY = 80
+    window.dispatchEvent(new Event('scroll'))
+    scrollY = 160
+    window.dispatchEvent(new Event('scroll'))
+    expect(callbacks.size).toBe(1)
+
+    const renderedScrollOffsets: number[] = []
+    for (let pass = 0; pass < 3; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => {
+        callback(performance.now() + 100 + pass * 16)
+        const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+          children: Array<{
+            material: {
+              uniforms: {
+                uMotion: { value: number }
+                uScrollOffset: { value: { y: number } }
+                uTrail: { value: Array<{ z: number }> }
+              }
+            }
+          }>
+        }
+        const uniforms = scene.children[0].material.uniforms
+        renderedScrollOffsets.push(uniforms.uScrollOffset.value.y)
+        expect(uniforms.uMotion.value).toBe(0)
+        expect(uniforms.uTrail.value.every(trail => trail.z === 0)).toBe(true)
+      })
+    }
+
+    expect(renderedScrollOffsets).toEqual([160, 160, 160])
+    expect(callbacks.size).toBe(0)
+
+    render.mockClear()
+    window.dispatchEvent(new Event('scrollend'))
+    for (let pass = 0; pass < 2; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 200 + pass * 16))
+    }
+    expect(render).toHaveBeenCalledTimes(2)
+    expect(callbacks.size).toBe(0)
+
+    window.dispatchEvent(new Event('scroll'))
+    expect(callbacks.size).toBe(1)
+    scope.stop()
+    expect(callbacks.size).toBe(0)
+  })
+
+  it('refreshes visible surface slots after scrolling settles', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(2000)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      callbacks.delete(id)
+    })
+    const firstSurface = appendOpticalSurface('app-hover-lift-card', {
+      height: 240,
+      width: 360,
+      x: 80,
+      y: 100,
+    })
+    const secondSurface = appendOpticalSurface('app-hover-lift-card', {
+      height: 240,
+      width: 360,
+      x: 80,
+      y: 1100,
+    })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+
+    scrollY = 1000
+    setOpticalSurfaceBounds(firstSurface, { height: 240, width: 360, x: 80, y: -900 })
+    setOpticalSurfaceBounds(secondSurface, { height: 240, width: 360, x: 80, y: 100 })
+    window.dispatchEvent(new Event('scroll'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+
+    render.mockClear()
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 160 }))
+    const interactionFrames = [...callbacks.values()]
+    callbacks.clear()
+    interactionFrames.forEach(callback => callback(performance.now() + 200))
+
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uMotion: { value: number }
+            uRects: { value: Array<{ y: number }> }
+          }
+        }
+      }>
+    }
+    const uniforms = scene.children[0].material.uniforms
+    expect(uniforms.uMotion.value).toBeGreaterThan(0)
+    expect(uniforms.uRects.value[0].y).toBeCloseTo(1 - (1100 + 240) / 2000)
+    scope.stop()
+  })
+
   it('keeps local material response stable while moving from card A through a gap to card B', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(700)
