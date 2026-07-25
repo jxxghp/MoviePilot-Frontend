@@ -2,6 +2,8 @@
 import api from '@/api'
 import type { MediaServerConf, MediaServerLibrary } from '@/api/types'
 import LibraryCard from '@/components/cards/LibraryCard.vue'
+import DashboardRetryButton from '@/components/misc/DashboardRetryButton.vue'
+import DashboardMediaState from '@/components/misc/DashboardMediaState.vue'
 import ProgressiveCardGrid from '@/components/misc/ProgressiveCardGrid.vue'
 import { useDashboardSnapshot } from '@/composables/useDashboardSnapshot'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +21,10 @@ const currentSnapshot = readSnapshot()
 
 // 媒体库列表
 const libraryList = ref<DashboardMediaServerLibrary[]>(currentSnapshot?.value ?? [])
+// 空结果同样是成功快照；刷新失败不能把已确认的空状态改写成首次加载失败。
+const hasSnapshot = ref(currentSnapshot !== undefined)
+const isLoading = ref(!currentSnapshot)
+const loadFailed = ref(false)
 
 // 所有媒体服务器设置
 const mediaServers = ref<MediaServerConf[]>([])
@@ -60,13 +66,25 @@ async function loadLibrary(server: string) {
  */
 async function loadData() {
   const loadId = ++libraryLoadId
-  if (!(await loadMediaServerSetting())) return
+  if (!hasSnapshot.value) isLoading.value = true
+  if (!(await loadMediaServerSetting())) {
+    if (loadId === libraryLoadId) {
+      loadFailed.value = true
+      isLoading.value = false
+    }
+    return
+  }
   if (loadId !== libraryLoadId) return
 
   const enabledServers = mediaServers.value.filter(server => server.enabled)
   const serverLibraries = await Promise.all(enabledServers.map(server => loadLibrary(server.name)))
 
-  if (loadId !== libraryLoadId || serverLibraries.some(libraries => libraries === undefined)) return
+  if (loadId !== libraryLoadId) return
+  if (serverLibraries.some(libraries => libraries === undefined)) {
+    loadFailed.value = true
+    isLoading.value = false
+    return
+  }
 
   const libraryMap = new Map<string, DashboardMediaServerLibrary>()
   serverLibraries
@@ -79,6 +97,9 @@ async function loadData() {
   const nextLibraryList = Array.from(libraryMap.values())
   libraryList.value = nextLibraryList
   writeSnapshot(nextLibraryList)
+  hasSnapshot.value = true
+  loadFailed.value = false
+  isLoading.value = false
 }
 
 onMounted(() => {
@@ -98,9 +119,29 @@ onActivated(() => {
 </script>
 
 <template>
-  <VCard v-if="libraryList.length > 0" class="dashboard-media-card dashboard-grid-fill">
+  <DashboardMediaState
+    v-if="libraryList.length === 0"
+    :title="t('dashboard.library')"
+    :empty-text="t('dashboard.noLibrary')"
+    empty-icon="mdi-folder-multiple-outline"
+    :loading="isLoading"
+    :failed="loadFailed && !hasSnapshot"
+  >
+    <template v-if="loadFailed" #append>
+      <DashboardRetryButton
+        :deferred="hasSnapshot"
+        :label="hasSnapshot ? t('dashboard.staleData') : t('dashboard.mediaServerLoadFailed')"
+        @retry="loadData"
+      />
+    </template>
+  </DashboardMediaState>
+
+  <VCard v-else class="dashboard-media-card dashboard-grid-fill">
     <VCardItem class="dashboard-media-header">
       <VCardTitle>{{ t('dashboard.library') }}</VCardTitle>
+      <template v-if="loadFailed" #append>
+        <DashboardRetryButton deferred :label="t('dashboard.staleData')" @retry="loadData" />
+      </template>
     </VCardItem>
     <div class="dashboard-media-content px-5 pb-3">
       <ProgressiveCardGrid
