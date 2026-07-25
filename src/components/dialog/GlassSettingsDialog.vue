@@ -13,9 +13,7 @@ import {
   getAvailableGlassOpticalPresets,
   getGlassOpticalPresetParameters,
   normalizeGlassOpticalStrength,
-  resolveGlassOpticalPresetState,
-  type GlassOpticalParameters,
-  type GlassOpticalPresetState,
+  type GlassOpticalPreset,
 } from '@/utils/glassOptics'
 import { useI18n } from 'vue-i18n'
 
@@ -38,6 +36,7 @@ const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
 const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
 const draftFlowStrength = ref(settings.value.glassFlowStrength)
+const draftPreset = ref<GlassOpticalPreset>(settings.value.glassPreset)
 const draftQuality = ref<ThemeCustomizerGlassQuality>(settings.value.glassQuality)
 const draftReflectionStrength = ref(settings.value.glassReflectionStrength)
 const draftTranslationStrength = ref(settings.value.glassTranslationStrength)
@@ -45,17 +44,10 @@ const draftTransparencyStrength = ref(settings.value.glassTransparencyStrength)
 const isSaving = ref(false)
 const usesRealtimeOptics = computed(() => draftQuality.value !== 'css')
 const showsDynamicTuning = computed(() => usesRealtimeOptics.value)
-const draftParameters = computed<GlassOpticalParameters>(() => ({
-  deformation: draftDeformationStrength.value,
-  flow: draftFlowStrength.value,
-  reflection: draftReflectionStrength.value,
-  translation: draftTranslationStrength.value,
-  transparency: draftTransparencyStrength.value,
-}))
-const presetState = computed<GlassOpticalPresetState>(() =>
-  resolveGlassOpticalPresetState(draftAppearance.value, draftQuality.value, draftParameters.value),
-)
 const availablePresets = computed(() => getAvailableGlassOpticalPresets(draftQuality.value))
+const activePreset = computed<GlassOpticalPreset>(() =>
+  availablePresets.value.includes(draftPreset.value) ? draftPreset.value : 'natural',
+)
 
 const visible = computed({
   get: () => props.modelValue,
@@ -74,6 +66,7 @@ watch(
       draftAppearance.value = settings.value.glassAppearance
       draftDeformationStrength.value = settings.value.glassDeformationStrength
       draftFlowStrength.value = settings.value.glassFlowStrength
+      draftPreset.value = settings.value.glassPreset
       draftQuality.value = settings.value.glassQuality
       draftReflectionStrength.value = settings.value.glassReflectionStrength
       draftTranslationStrength.value = settings.value.glassTranslationStrength
@@ -103,14 +96,13 @@ const qualityOptions: Array<{
   { hint: 'theme.glassQualityHighHint', label: 'theme.glassQualityHigh', value: 'high' },
 ]
 const qualityHint = computed(() => qualityOptions.find(option => option.value === draftQuality.value)?.hint ?? '')
-const presetOptions: Array<{ label: string; value: GlassOpticalPresetState }> = [
-  { label: 'theme.glassPresetRecommended', value: 'recommended' },
+const presetOptions: Array<{ label: string; value: GlassOpticalPreset }> = [
+  { label: 'theme.glassPresetNatural', value: 'natural' },
   { label: 'theme.glassPresetGlide', value: 'glide' },
   { label: 'theme.glassPresetLiquid', value: 'liquid' },
-  { label: 'theme.glassPresetCustom', value: 'custom' },
 ]
 const visiblePresetOptions = computed(() =>
-  presetOptions.filter(option => option.value === 'custom' || availablePresets.value.includes(option.value)),
+  presetOptions.filter(option => availablePresets.value.includes(option.value)),
 )
 
 /** 仅允许已实现的材质进入待保存设置。 */
@@ -135,18 +127,20 @@ function previewDraftParameters() {
   previewGlassSettings({
     glassDeformationStrength: draftDeformationStrength.value,
     glassFlowStrength: draftFlowStrength.value,
+    glassPreset: draftPreset.value,
     glassReflectionStrength: draftReflectionStrength.value,
     glassTranslationStrength: draftTranslationStrength.value,
     glassTransparencyStrength: draftTransparencyStrength.value,
   })
 }
 
-/** 应用当前材质与质量下的预置参数；自定义仅是派生状态，不能主动应用。 */
+/** 应用当前材质与质量下的方案建议值，并将该方案作为后续重置目标。 */
 function applyPreset(value: unknown) {
-  if (value !== 'recommended' && value !== 'glide' && value !== 'liquid') return
+  if (value !== 'natural' && value !== 'glide' && value !== 'liquid') return
   if (!availablePresets.value.includes(value)) return
 
   const parameters = getGlassOpticalPresetParameters(draftAppearance.value, draftQuality.value, value)
+  draftPreset.value = value
   draftDeformationStrength.value = parameters.deformation
   draftFlowStrength.value = parameters.flow
   draftReflectionStrength.value = parameters.reflection
@@ -185,25 +179,9 @@ function updateTransparencyStrength(value: unknown) {
   previewGlassSettings({ glassTransparencyStrength: draftTransparencyStrength.value })
 }
 
-/** 将当前草稿恢复为玻璃主题默认值并立即预览。 */
+/** 保留当前材质与质量，将参数恢复为当前高亮方案的建议值。 */
 function resetSettings() {
-  draftAppearance.value = 'clear'
-  draftQuality.value = 'balanced'
-  const parameters = getGlassOpticalPresetParameters(draftAppearance.value, draftQuality.value, 'recommended')
-  draftDeformationStrength.value = parameters.deformation
-  draftFlowStrength.value = parameters.flow
-  draftReflectionStrength.value = parameters.reflection
-  draftTranslationStrength.value = parameters.translation
-  draftTransparencyStrength.value = parameters.transparency
-  previewGlassSettings({
-    glassAppearance: draftAppearance.value,
-    glassDeformationStrength: draftDeformationStrength.value,
-    glassFlowStrength: draftFlowStrength.value,
-    glassQuality: draftQuality.value,
-    glassReflectionStrength: draftReflectionStrength.value,
-    glassTranslationStrength: draftTranslationStrength.value,
-    glassTransparencyStrength: draftTransparencyStrength.value,
-  })
+  applyPreset(activePreset.value)
 }
 
 /** 一次提交当前预览，持久化后关闭不会发生视觉回跳。 */
@@ -217,6 +195,7 @@ async function saveSettings() {
       glassAppearance: draftAppearance.value,
       glassDeformationStrength: draftDeformationStrength.value,
       glassFlowStrength: draftFlowStrength.value,
+      glassPreset: draftPreset.value,
       glassQuality: draftQuality.value,
       glassReflectionStrength: draftReflectionStrength.value,
       glassTranslationStrength: draftTranslationStrength.value,
@@ -289,15 +268,12 @@ onScopeDispose(cancelGlassPreview)
           <p class="glass-settings-dialog__hint">{{ t(qualityHint) }}</p>
         </section>
 
-        <section>
+        <section v-if="usesRealtimeOptics">
           <div class="glass-settings-dialog__preset-header">
             <h3 class="glass-settings-dialog__label">{{ t('theme.glassPreset') }}</h3>
-            <VBtn size="small" variant="text" prepend-icon="mdi-auto-fix" @click="applyPreset('recommended')">
-              {{ t('theme.glassApplyRecommended') }}
-            </VBtn>
           </div>
           <VBtnToggle
-            :model-value="presetState"
+            :model-value="activePreset"
             mandatory
             color="primary"
             variant="text"
@@ -308,7 +284,6 @@ onScopeDispose(cancelGlassPreview)
               v-for="option in visiblePresetOptions"
               :key="option.value"
               :value="option.value"
-              :disabled="option.value === 'custom'"
               class="glass-settings-dialog__preset-option"
             >
               {{ t(option.label) }}
@@ -512,7 +487,7 @@ onScopeDispose(cancelGlassPreview)
 
 .glass-settings-dialog__preset {
   block-size: 42px !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-block-start: 10px;
 }
 
@@ -540,10 +515,6 @@ onScopeDispose(cancelGlassPreview)
 
 .glass-settings-dialog__preset-option {
   block-size: 32px !important;
-
-  &:disabled {
-    opacity: 1;
-  }
 }
 
 .glass-settings-dialog__appearance-option:deep(.v-btn--active),

@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GlassSettingsDialog from '@/components/dialog/GlassSettingsDialog.vue'
 
 const slotStub = { template: '<div><slot /></div>' }
+const toggleStub = {
+  props: ['modelValue'],
+  template: '<div :data-model-value="modelValue"><slot /></div>',
+}
 const sliderStub = {
   emits: ['update:modelValue'],
   name: 'VSlider',
@@ -20,6 +24,7 @@ const mocks = vi.hoisted(() => ({
       glassAppearance: 'clear',
       glassDeformationStrength: 50,
       glassFlowStrength: 50,
+      glassPreset: 'natural',
       glassQuality: 'css',
       glassReflectionStrength: 50,
       glassTranslationStrength: 50,
@@ -49,6 +54,7 @@ describe('GlassSettingsDialog', () => {
     mocks.settings.value.glassAppearance = 'clear'
     mocks.settings.value.glassDeformationStrength = 50
     mocks.settings.value.glassFlowStrength = 50
+    mocks.settings.value.glassPreset = 'natural'
     mocks.settings.value.glassQuality = 'css'
     mocks.settings.value.glassReflectionStrength = 50
     mocks.settings.value.glassTranslationStrength = 50
@@ -78,7 +84,15 @@ describe('GlassSettingsDialog', () => {
     expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
   })
 
-  it('resets the draft to the default glass settings without committing', async () => {
+  it('resets parameters to the current material, quality, and preset without committing', async () => {
+    mocks.settings.value.glassAppearance = 'frosted'
+    mocks.settings.value.glassPreset = 'liquid'
+    mocks.settings.value.glassQuality = 'high'
+    mocks.settings.value.glassDeformationStrength = 65
+    mocks.settings.value.glassFlowStrength = 61
+    mocks.settings.value.glassReflectionStrength = 58
+    mocks.settings.value.glassTranslationStrength = 57
+    mocks.settings.value.glassTransparencyStrength = 55
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
         stubs: {
@@ -102,13 +116,12 @@ describe('GlassSettingsDialog', () => {
     await resetButton.trigger('click')
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
-      glassAppearance: 'clear',
-      glassDeformationStrength: 50,
-      glassFlowStrength: 50,
-      glassQuality: 'balanced',
-      glassReflectionStrength: 50,
-      glassTranslationStrength: 50,
-      glassTransparencyStrength: 50,
+      glassDeformationStrength: 82,
+      glassFlowStrength: 80,
+      glassPreset: 'liquid',
+      glassReflectionStrength: 44,
+      glassTranslationStrength: 54,
+      glassTransparencyStrength: 46,
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })
@@ -133,6 +146,55 @@ describe('GlassSettingsDialog', () => {
     await sliders[1].setValue('86')
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({ glassReflectionStrength: 86 })
+  })
+
+  it('hides preset choices in standard quality', () => {
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardText: slotStub,
+          VDialog: slotStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+
+    expect(wrapper.find('.glass-settings-dialog__preset').exists()).toBe(false)
+    expect(wrapper.find('.glass-settings-dialog__preset-state').exists()).toBe(false)
+  })
+
+  it('keeps the selected preset highlighted after slider adjustments', async () => {
+    mocks.settings.value.glassQuality = 'balanced'
+    mocks.settings.value.glassPreset = 'glide'
+    mocks.settings.value.glassTransparencyStrength = 61
+    const wrapper = shallowMount(GlassSettingsDialog, {
+      global: {
+        stubs: {
+          VCard: slotStub,
+          VCardText: slotStub,
+          VBtn: slotStub,
+          VBtnToggle: toggleStub,
+          VDialog: slotStub,
+          VDialogCloseBtn: true,
+          VSlider: sliderStub,
+        },
+      },
+      props: { modelValue: true },
+    })
+
+    const preset = wrapper.find('.glass-settings-dialog__preset')
+    const sliders = wrapper.findAll('.slider-stub')
+
+    expect(preset.attributes('data-model-value')).toBe('glide')
+    expect(wrapper.findAll('.glass-settings-dialog__preset-option')).toHaveLength(3)
+    expect(wrapper.find('.glass-settings-dialog__preset-state').exists()).toBe(false)
+
+    await sliders[0].setValue('77')
+
+    expect(preset.attributes('data-model-value')).toBe('glide')
   })
 
   it('normalizes and previews all five independent slider values', async () => {

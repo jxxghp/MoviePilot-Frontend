@@ -11,8 +11,7 @@ export const GLASS_OPTICAL_STRENGTH_MIN = 0
 
 export type GlassAppearance = 'clear' | 'frosted' | 'tinted'
 export type GlassOpticalCapability = 'balanced' | 'css' | 'high'
-export type GlassOpticalPreset = 'glide' | 'liquid' | 'recommended'
-export type GlassOpticalPresetState = GlassOpticalPreset | 'custom'
+export type GlassOpticalPreset = 'glide' | 'liquid' | 'natural'
 export type GlassOpticalQuality = 'balanced' | 'high'
 export type GlassCornerRadii = [number, number, number, number]
 
@@ -128,51 +127,51 @@ const GLASS_OPTICAL_PRESET_MATRIX: Record<
 > = {
   clear: {
     css: {
-      recommended: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
+      natural: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
       glide: { deformation: 28, flow: 42, reflection: 42, translation: 72, transparency: 58 },
       liquid: { deformation: 72, flow: 78, reflection: 54, translation: 56, transparency: 52 },
     },
     balanced: {
-      recommended: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
+      natural: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
       glide: { deformation: 30, flow: 44, reflection: 42, translation: 72, transparency: 58 },
       liquid: { deformation: 70, flow: 76, reflection: 52, translation: 56, transparency: 52 },
     },
     high: {
-      recommended: { deformation: 50, flow: 50, reflection: 46, translation: 50, transparency: 50 },
+      natural: { deformation: 50, flow: 50, reflection: 46, translation: 50, transparency: 50 },
       glide: { deformation: 32, flow: 46, reflection: 40, translation: 74, transparency: 60 },
       liquid: { deformation: 74, flow: 80, reflection: 50, translation: 58, transparency: 54 },
     },
   },
   tinted: {
     css: {
-      recommended: { deformation: 50, flow: 50, reflection: 54, translation: 50, transparency: 46 },
+      natural: { deformation: 50, flow: 50, reflection: 54, translation: 50, transparency: 46 },
       glide: { deformation: 30, flow: 42, reflection: 48, translation: 70, transparency: 52 },
       liquid: { deformation: 70, flow: 76, reflection: 58, translation: 54, transparency: 48 },
     },
     balanced: {
-      recommended: { deformation: 52, flow: 50, reflection: 54, translation: 50, transparency: 46 },
+      natural: { deformation: 52, flow: 50, reflection: 54, translation: 50, transparency: 46 },
       glide: { deformation: 32, flow: 44, reflection: 48, translation: 70, transparency: 52 },
       liquid: { deformation: 72, flow: 76, reflection: 56, translation: 56, transparency: 48 },
     },
     high: {
-      recommended: { deformation: 52, flow: 50, reflection: 50, translation: 50, transparency: 48 },
+      natural: { deformation: 52, flow: 50, reflection: 50, translation: 50, transparency: 48 },
       glide: { deformation: 34, flow: 46, reflection: 46, translation: 72, transparency: 54 },
       liquid: { deformation: 76, flow: 80, reflection: 54, translation: 58, transparency: 50 },
     },
   },
   frosted: {
     css: {
-      recommended: { deformation: 50, flow: 50, reflection: 44, translation: 50, transparency: 42 },
+      natural: { deformation: 50, flow: 50, reflection: 44, translation: 50, transparency: 42 },
       glide: { deformation: 34, flow: 42, reflection: 38, translation: 66, transparency: 46 },
       liquid: { deformation: 76, flow: 74, reflection: 48, translation: 50, transparency: 44 },
     },
     balanced: {
-      recommended: { deformation: 58, flow: 52, reflection: 44, translation: 48, transparency: 42 },
+      natural: { deformation: 58, flow: 52, reflection: 44, translation: 48, transparency: 42 },
       glide: { deformation: 38, flow: 44, reflection: 38, translation: 68, transparency: 46 },
       liquid: { deformation: 78, flow: 76, reflection: 46, translation: 52, transparency: 44 },
     },
     high: {
-      recommended: { deformation: 60, flow: 52, reflection: 42, translation: 48, transparency: 44 },
+      natural: { deformation: 60, flow: 52, reflection: 42, translation: 48, transparency: 44 },
       glide: { deformation: 40, flow: 46, reflection: 36, translation: 70, transparency: 48 },
       liquid: { deformation: 82, flow: 80, reflection: 44, translation: 54, transparency: 46 },
     },
@@ -188,31 +187,9 @@ export function getGlassOpticalPresetParameters(
   return { ...GLASS_OPTICAL_PRESET_MATRIX[appearance][quality][preset] }
 }
 
-/** 标准档只提供静态推荐；实时档同时开放滑移与液态方案。 */
+/** 标准档只保留自然基线；实时档同时开放滑移与液态方案。 */
 export function getAvailableGlassOpticalPresets(quality: GlassOpticalCapability): GlassOpticalPreset[] {
-  return quality === 'css' ? ['recommended'] : ['recommended', 'glide', 'liquid']
-}
-
-/** 根据五个实际值推导当前预置；任一参数偏离有效矩阵即进入自定义。 */
-export function resolveGlassOpticalPresetState(
-  appearance: GlassAppearance,
-  quality: GlassOpticalCapability,
-  parameters: GlassOpticalParameters,
-): GlassOpticalPresetState {
-  for (const preset of getAvailableGlassOpticalPresets(quality)) {
-    const expected = getGlassOpticalPresetParameters(appearance, quality, preset)
-    if (
-      expected.deformation === parameters.deformation &&
-      expected.flow === parameters.flow &&
-      expected.reflection === parameters.reflection &&
-      expected.translation === parameters.translation &&
-      expected.transparency === parameters.transparency
-    ) {
-      return preset
-    }
-  }
-
-  return 'custom'
+  return quality === 'css' ? ['natural'] : ['natural', 'glide', 'liquid']
 }
 
 /** 计算与 CSS `ease` 相同的交叉淡化进度，使 DOM 壁纸与 shader 双纹理保持同一时钟。 */

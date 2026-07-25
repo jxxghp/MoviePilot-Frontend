@@ -22,7 +22,6 @@ import {
   normalizeGlassOpticalRect,
   normalizeGlassOpticalStrength,
   reconcileGlassOpticalSurfaceSlots,
-  resolveGlassOpticalPresetState,
   selectGlassOpticalRects,
   stepGlassOpticalSpring,
   type GlassOpticalRect,
@@ -74,12 +73,12 @@ describe('glass optics geometry', () => {
     )
   })
 
-  it('keeps presets as concrete five-parameter values and derives custom state', () => {
-    const recommended = getGlassOpticalPresetParameters('clear', 'balanced', 'recommended')
+  it('keeps presets as concrete five-parameter values', () => {
+    const natural = getGlassOpticalPresetParameters('clear', 'balanced', 'natural')
     const glide = getGlassOpticalPresetParameters('clear', 'balanced', 'glide')
     const liquid = getGlassOpticalPresetParameters('frosted', 'high', 'liquid')
 
-    expect(recommended).toEqual({
+    expect(natural).toEqual({
       deformation: 50,
       flow: 50,
       reflection: 50,
@@ -89,11 +88,8 @@ describe('glass optics geometry', () => {
     expect(glide.translation).toBeGreaterThan(glide.deformation)
     expect(liquid.deformation).toBeGreaterThan(glide.deformation)
     expect(liquid.flow).toBeGreaterThan(glide.flow)
-    expect(getAvailableGlassOpticalPresets('css')).toEqual(['recommended'])
-    expect(getAvailableGlassOpticalPresets('balanced')).toEqual(['recommended', 'glide', 'liquid'])
-    expect(resolveGlassOpticalPresetState('clear', 'balanced', recommended)).toBe('recommended')
-    expect(resolveGlassOpticalPresetState('clear', 'balanced', { ...recommended, flow: 51 })).toBe('custom')
-    expect(resolveGlassOpticalPresetState('clear', 'css', glide)).toBe('custom')
+    expect(getAvailableGlassOpticalPresets('css')).toEqual(['natural'])
+    expect(getAvailableGlassOpticalPresets('balanced')).toEqual(['natural', 'glide', 'liquid'])
   })
 
   it('returns preset copies so previews cannot mutate the shared matrix', () => {

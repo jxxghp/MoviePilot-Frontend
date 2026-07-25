@@ -24,6 +24,7 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassDeformationStrength).toBe(50)
     expect(settings.glassFlowStrength).toBe(50)
+    expect(settings.glassPreset).toBe('natural')
     expect(settings.glassQuality).toBe('balanced')
     expect(settings.glassReflectionStrength).toBe(50)
     expect(settings.glassTranslationStrength).toBe(50)
@@ -45,12 +46,13 @@ describe('useThemeCustomizer glass settings', () => {
   it('falls back when stored glass settings are invalid', () => {
     localStorage.setItem(
       THEME_CUSTOMIZER_STORAGE_KEY,
-      JSON.stringify({ glassAppearance: 'opaque', glassQuality: 'ultra' }),
+      JSON.stringify({ glassAppearance: 'opaque', glassPreset: 'elastic', glassQuality: 'ultra' }),
     )
 
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
+    expect(settings.glassPreset).toBe('natural')
     expect(settings.glassQuality).toBe('balanced')
   })
 
@@ -121,6 +123,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'tinted',
       glassDeformationStrength: 74,
       glassFlowStrength: 63,
+      glassPreset: 'glide',
       glassQuality: 'css',
       glassReflectionStrength: 81,
       glassTranslationStrength: 69,
@@ -133,6 +136,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'tinted',
       glassDeformationStrength: 74,
       glassFlowStrength: 63,
+      glassPreset: 'glide',
       glassQuality: 'css',
       glassReflectionStrength: 81,
       glassTranslationStrength: 69,

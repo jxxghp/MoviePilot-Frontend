@@ -8,6 +8,7 @@ import {
   GLASS_OPTICAL_STRENGTH_MAX,
   getGlassOpticalPresetParameters,
   normalizeGlassOpticalStrength,
+  type GlassOpticalPreset,
 } from '@/utils/glassOptics'
 import { themeManager } from '@/utils/themeManager'
 import { syncThemeFavicon } from '@/utils/themePalette'
@@ -74,6 +75,8 @@ export interface ThemeCustomizerSettings {
   glassDeformationStrength: number
   /** 轨迹、尾波、惯性与收敛强度，范围 0 到 100。 */
   glassFlowStrength: number
+  /** 当前玻璃方案；具体参数独立保存，滑杆调整不会丢失方案归属。 */
+  glassPreset: GlassOpticalPreset
   /** 玻璃主题的渲染质量，决定使用标准 CSS 或共享光学渲染器。 */
   glassQuality: ThemeCustomizerGlassQuality
   /** 玻璃亮边、镜面高光与焦散光照强度，范围 0 到 100。 */
@@ -102,6 +105,7 @@ type VuetifyThemeApi = ReturnType<typeof useTheme>
 
 const defaultPrimaryColor = themeCustomizerPrimaryColors[0].value
 const validGlassAppearances: ThemeCustomizerGlassAppearance[] = ['clear', 'tinted', 'frosted']
+const validGlassPresets: GlassOpticalPreset[] = ['natural', 'glide', 'liquid']
 const validGlassQualities: ThemeCustomizerGlassQuality[] = ['css', 'balanced', 'high']
 const defaultGlassQuality: ThemeCustomizerGlassQuality = 'balanced'
 const validLayouts: ThemeCustomizerLayout[] = ['vertical', 'collapsed', 'horizontal']
@@ -139,12 +143,13 @@ function readStoredThemePreference(): ThemeCustomizerTheme {
 
 /** 生成与当前主题偏好一致的定制器默认设置。 */
 function getDefaultThemeCustomizerSettings(): ThemeCustomizerSettings {
-  const glassParameters = getGlassOpticalPresetParameters('clear', defaultGlassQuality, 'recommended')
+  const glassParameters = getGlassOpticalPresetParameters('clear', defaultGlassQuality, 'natural')
 
   return {
     glassAppearance: 'clear',
     glassDeformationStrength: glassParameters.deformation,
     glassFlowStrength: glassParameters.flow,
+    glassPreset: 'natural',
     glassQuality: defaultGlassQuality,
     glassReflectionStrength: glassParameters.reflection,
     glassTranslationStrength: glassParameters.translation,
@@ -201,6 +206,9 @@ function normalizeThemeCustomizerSettings(settings: NormalizableThemeCustomizerS
       settings.glassMotionStrength,
       fallback.glassFlowStrength,
     ),
+    glassPreset: validGlassPresets.includes(settings.glassPreset as GlassOpticalPreset)
+      ? (settings.glassPreset as GlassOpticalPreset)
+      : fallback.glassPreset,
     glassQuality: validGlassQualities.includes(settings.glassQuality as ThemeCustomizerGlassQuality)
       ? (settings.glassQuality as ThemeCustomizerGlassQuality)
       : fallback.glassQuality,
@@ -251,6 +259,7 @@ type ThemeCustomizerGlassSettings = Pick<
   | 'glassAppearance'
   | 'glassDeformationStrength'
   | 'glassFlowStrength'
+  | 'glassPreset'
   | 'glassQuality'
   | 'glassReflectionStrength'
   | 'glassTranslationStrength'
@@ -262,6 +271,7 @@ const effectiveGlassSettings = computed(() => ({
   glassDeformationStrength:
     glassPreviewState.value?.glassDeformationStrength ?? settingsState.value.glassDeformationStrength,
   glassFlowStrength: glassPreviewState.value?.glassFlowStrength ?? settingsState.value.glassFlowStrength,
+  glassPreset: glassPreviewState.value?.glassPreset ?? settingsState.value.glassPreset,
   glassQuality: glassPreviewState.value?.glassQuality ?? settingsState.value.glassQuality,
   glassReflectionStrength:
     glassPreviewState.value?.glassReflectionStrength ?? settingsState.value.glassReflectionStrength,
@@ -444,6 +454,7 @@ export function previewGlassSettings(patch: Partial<ThemeCustomizerGlassSettings
     glassAppearance: previewSettings.glassAppearance,
     glassDeformationStrength: previewSettings.glassDeformationStrength,
     glassFlowStrength: previewSettings.glassFlowStrength,
+    glassPreset: previewSettings.glassPreset,
     glassQuality: previewSettings.glassQuality,
     glassReflectionStrength: previewSettings.glassReflectionStrength,
     glassTranslationStrength: previewSettings.glassTranslationStrength,
@@ -484,6 +495,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     glassAppearance: 'clear',
     glassDeformationStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
     glassFlowStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
+    glassPreset: 'natural',
     glassQuality: defaultGlassQuality,
     glassReflectionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
     glassTranslationStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
@@ -501,6 +513,7 @@ export function isDefaultThemeCustomizerSettings(settings: ThemeCustomizerSettin
     settings.glassAppearance === defaults.glassAppearance &&
     settings.glassDeformationStrength === defaults.glassDeformationStrength &&
     settings.glassFlowStrength === defaults.glassFlowStrength &&
+    settings.glassPreset === defaults.glassPreset &&
     settings.glassQuality === defaults.glassQuality &&
     settings.glassReflectionStrength === defaults.glassReflectionStrength &&
     settings.glassTranslationStrength === defaults.glassTranslationStrength &&
@@ -564,6 +577,11 @@ export function useThemeCustomizer() {
     return updateSettings({ glassFlowStrength })
   }
 
+  /** 更新当前玻璃方案，不隐式覆盖用户已保存的具体参数。 */
+  function setGlassPreset(glassPreset: GlassOpticalPreset) {
+    return updateSettings({ glassPreset })
+  }
+
   /** 更新玻璃主题渲染质量档位。 */
   function setGlassQuality(glassQuality: ThemeCustomizerGlassQuality) {
     return updateSettings({ glassQuality })
@@ -620,6 +638,7 @@ export function useThemeCustomizer() {
       glassAppearance: 'clear',
       glassDeformationStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
       glassFlowStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
+      glassPreset: 'natural',
       glassQuality: defaultGlassQuality,
       glassReflectionStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
       glassTranslationStrength: GLASS_OPTICAL_STRENGTH_DEFAULT,
@@ -662,6 +681,7 @@ export function useThemeCustomizer() {
     setGlassAppearance,
     setGlassDeformationStrength,
     setGlassFlowStrength,
+    setGlassPreset,
     setGlassQuality,
     setGlassReflectionStrength,
     setGlassTranslationStrength,
