@@ -1284,6 +1284,8 @@ export default {
     searching: 'Searching, please wait...',
     noData: 'No Data',
     noResourceFound: 'No resources found',
+    searchStreamTimeout: 'The search connection timed out. Please try again later.',
+    searchStreamDisconnected: 'The search connection was interrupted. Please try again later.',
     aiRecommend: 'AI Recommendation',
     reRecommend: 'Regenerate Recommendation',
     aiRecommendError: 'AI Recommendation Failed',

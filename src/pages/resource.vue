@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { debounce } from 'lodash-es'
 import type { LocationQuery } from 'vue-router'
 import NoDataFound from '@/components/states/NoDataFound.vue'
 import api from '@/api'
@@ -19,6 +18,7 @@ import { useToast } from 'vue-toastification'
 import { useKeepAliveRefresh } from '@/composables/useKeepAliveRefresh'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
+import { SearchReplaceBatchCollector, isSearchReplaceBatchEvent } from '@/utils/searchStream'
 import { getCurrentLocale } from '@/plugins/i18n'
 
 // 国际化
@@ -313,7 +313,8 @@ let searchStreamIdleTimer: ReturnType<typeof setTimeout> | null = null
 const streamPreviewLimit = 24
 const streamUiFlushDelay = 1000
 const streamPreviewBufferLimit = streamPreviewLimit * 4
-const searchStreamIdleTimeout = 90_000
+// 兼容尚未提供心跳的旧后端，同时保留异常半开连接的最终兜底。
+const searchStreamIdleTimeout = 5 * 60_000
 const searchStreamDoneCloseDelay = 1500
 
 const streamTotalCount = ref(0)
@@ -342,6 +343,8 @@ const showResultHeader = computed(() => isRefreshed.value && !progressActive.val
 
 let pendingStreamItems: Array<Context> = []
 let pendingSubtitleStreamItems: Array<SubtitleInfo> = []
+const streamReplaceBatchCollector = new SearchReplaceBatchCollector<Context>()
+const subtitleReplaceBatchCollector = new SearchReplaceBatchCollector<SubtitleInfo>()
 let streamFlushTimer: ReturnType<typeof setTimeout> | null = null
 let streamFinalResultApplied = false
 let pendingProgressText: string | null = null
@@ -393,21 +396,9 @@ function handleRemoveFilter(key: string, value: string) {
   torrentFilter.removeFilter(key, value)
 }
 
-// 添加安全超时，确保进度条不会永远卡住
-const watchProgressValue = watch(
-  progressValue,
-  debounce(async () => {
-    if (progressActive.value && progressValue.value < 100) {
-      console.warn('卡进度超时 关闭进度条')
-      stopLoadingProgress()
-    }
-  }, 60_000),
-)
-
 // 使用SSE监听加载进度
 function startLoadingProgress() {
   clearProgressResetTimer()
-  watchProgressValue.resume()
   progressText.value = t('resource.searching')
   progressValue.value = 0
   progressEnabled.value = true
@@ -416,7 +407,6 @@ function startLoadingProgress() {
 
 // 停止监听加载进度
 function stopLoadingProgress() {
-  watchProgressValue.pause()
   progressActive.value = false
 
   // 确保进度显示100%，然后再渐进清零
@@ -429,6 +419,7 @@ function stopLoadingProgress() {
   }, 1500)
 }
 
+// 清除延迟归零任务，避免新搜索继承上一轮的进度重置。
 function clearProgressResetTimer() {
   if (progressResetTimer) {
     clearTimeout(progressResetTimer)
@@ -451,6 +442,7 @@ function closeSearchEventSource(source?: EventSource) {
   clearSearchStreamIdleTimer()
 }
 
+// 清除搜索流空闲计时器。
 function clearSearchStreamIdleTimer() {
   if (searchStreamIdleTimer) {
     clearTimeout(searchStreamIdleTimer)
@@ -473,6 +465,8 @@ function clearStreamPreviewState(resetFinalState: boolean = false) {
   pendingProgressText = null
   pendingProgressValue = null
   pendingStreamTotalCount = null
+  streamReplaceBatchCollector.reset()
+  subtitleReplaceBatchCollector.reset()
   streamPreviewDataList.value = []
   streamPreviewSubtitleDataList.value = []
   if (resetFinalState) {
@@ -514,6 +508,7 @@ function flushBufferedStreamState() {
   isRefreshed.value = true
 }
 
+// 合并短时间内到达的预览和进度更新。
 function scheduleStreamFlush() {
   if (streamFlushTimer) return
   streamFlushTimer = setTimeout(() => {
@@ -673,6 +668,7 @@ function appendSubtitleStreamResults(items: SubtitleInfo[]) {
   scheduleStreamFlush()
 }
 
+// 完整最终结果到达后原子替换资源列表。
 function applyFinalStreamResults(items: Context[]) {
   streamFinalResultApplied = true
   flushBufferedStreamState()
@@ -708,9 +704,24 @@ function getSubtitleItemKey(item: SubtitleInfo, index: number) {
 
 // 处理搜索流消息
 function handleSearchStreamMessage(eventData: { [key: string]: any }) {
+  if (eventData.type === 'heartbeat') return
+
   if (eventData.type === 'error') {
     updateSearchProgress(eventData, true)
     errorDescription.value = eventData.message_i18n || eventData.message || t('resource.noResourceFound')
+    return
+  }
+
+  if (isSearchReplaceBatchEvent<Context | SubtitleInfo>(eventData)) {
+    if (isSubtitleSearch.value) {
+      const completedItems = subtitleReplaceBatchCollector.append(eventData)
+      updateSearchProgress(eventData, completedItems !== null)
+      if (completedItems) applyFinalSubtitleStreamResults(completedItems)
+    } else {
+      const completedItems = streamReplaceBatchCollector.append(eventData)
+      updateSearchProgress(eventData, completedItems !== null)
+      if (completedItems) applyFinalStreamResults(completedItems)
+    }
     return
   }
 
@@ -834,7 +845,8 @@ function searchByStream(params: SearchParams, requestToken?: string) {
     const resetIdleTimeout = () => {
       clearSearchStreamIdleTimer()
       searchStreamIdleTimer = setTimeout(() => {
-        settleSearchStream(() => reject(new Error(t('resource.noResourceFound'))))
+        errorDescription.value = t('resource.searchStreamTimeout')
+        settleSearchStream(() => reject(new Error(errorDescription.value)))
       }, searchStreamIdleTimeout)
     }
 
@@ -874,7 +886,8 @@ function searchByStream(params: SearchParams, requestToken?: string) {
         return
       }
 
-      settleSearchStream(() => reject(new Error(t('resource.noResourceFound'))))
+      errorDescription.value = t('resource.searchStreamDisconnected')
+      settleSearchStream(() => reject(new Error(errorDescription.value)))
     }
   })
 }
@@ -927,8 +940,14 @@ async function fetchData(options: { force?: boolean; params?: SearchParams; sile
       try {
         await searchByStream(currentSearchParams, requestToken)
       } catch (error) {
+        const streamErrorMessage = error instanceof Error ? error.message : t('resource.searchStreamDisconnected')
         console.warn('渐进式搜索连接失败，回退到普通搜索:', error)
-        await searchByRequest(currentSearchParams, requestToken)
+        try {
+          await searchByRequest(currentSearchParams, requestToken)
+        } catch (fallbackError) {
+          errorDescription.value = streamErrorMessage
+          throw fallbackError
+        }
       }
       stopLoadingProgress()
       // 搜索完成后移除地址栏参数，避免分享/刷新残留搜索条件

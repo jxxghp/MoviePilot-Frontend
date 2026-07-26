@@ -1276,6 +1276,8 @@ export default {
     searching: '正在搜索，请稍候...',
     noData: '没有数据',
     noResourceFound: '未搜索到任何资源',
+    searchStreamTimeout: '搜索连接长时间无响应，请稍后重试',
+    searchStreamDisconnected: '搜索连接已中断，请稍后重试',
     aiRecommend: '智能推荐',
     reRecommend: '重新生成推荐',
     aiRecommendError: '智能推荐失败',
