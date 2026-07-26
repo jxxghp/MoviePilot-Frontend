@@ -3122,6 +3122,8 @@ export default {
       copyFailed: '複製失敗',
       addToQueue: '加入整理隊列',
       reorganizeNow: '立即整理',
+      reorganizeAgain: '重新整理',
+      historyFound: '偵測到 {count} 筆成功整理記錄。重新整理會清理舊目標和歷史記錄；移動模式會保留目前來源檔案。',
       auto: '自動',
       processing: '正在處理 ...',
       successMessage: '文件 {name} 已加入整理隊列！',

@@ -3123,6 +3123,8 @@ export default {
       copyFailed: '复制失败',
       addToQueue: '加入整理队列',
       reorganizeNow: '立即整理',
+      reorganizeAgain: '重新整理',
+      historyFound: '检测到 {count} 条成功整理记录。重新整理会清理旧目标和历史记录；移动模式会保留当前源文件。',
       auto: '自动',
       processing: '正在处理 ...',
       successMessage: '文件 {name} 已加入整理队列！',

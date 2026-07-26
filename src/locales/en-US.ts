@@ -3176,6 +3176,9 @@ export default {
       copyFailed: 'Copy failed',
       addToQueue: 'Add to Organization Queue',
       reorganizeNow: 'Organize Now',
+      reorganizeAgain: 'Reorganize',
+      historyFound:
+        '{count} successful organization record(s) found. Reorganizing removes the old target and history; move mode keeps the current source file.',
       auto: 'Auto',
       processing: 'Processing ...',
       successMessage: 'File {name} has been added to the organization queue!',

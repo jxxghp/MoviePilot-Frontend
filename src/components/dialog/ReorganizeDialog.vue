@@ -7,6 +7,7 @@ import { transferTypeOptions } from '@/api/constants'
 import {
   ApiResponse,
   FileItem,
+  ManualTransferHistoryInfo,
   ManualTransferPayload,
   ManualTransferPreviewData,
   ManualTransferPreviewItem,
@@ -98,6 +99,10 @@ const previewLoaded = ref(false)
 
 // 预览数据
 const previewData = ref<ManualTransferPreviewData>()
+
+// 手动整理历史查询状态
+const manualHistoryLoading = ref(false)
+const manualHistoryCount = ref(0)
 
 interface EpisodeFormatRecommendData {
   rule_name?: string
@@ -323,7 +328,11 @@ const transferForm = reactive<TransferForm>({
   library_type_folder: null,
   library_category_folder: null,
   episode_group: null,
+  reorganize: Boolean(props.logids?.length),
 })
+
+// 历史记录入口和文件浏览器命中的成功历史都属于重新整理。
+const isReorganize = computed(() => Boolean(props.logids?.length || transferForm.reorganize))
 
 // 当前手动识别与刮削数据源。
 const mediaSource = computed(() => transferForm.media_source ?? 'themoviedb')
@@ -920,6 +929,29 @@ async function requestManualTransfer<T = any>(
   return await api.post<ApiResponse<T>, ApiResponse<T>>(`transfer/manual?background=${background}`, payload)
 }
 
+// 查询当前文件或目录是否存在成功整理历史，决定是否展示重新整理语义。
+async function loadManualTransferHistory() {
+  if (props.logids?.length || !normalizedItems.value.length) return
+
+  manualHistoryLoading.value = true
+  try {
+    const payload =
+      normalizedItems.value.length === 1 ? { fileitem: normalizedItems.value[0] } : { fileitems: normalizedItems.value }
+    const result = await api.post<ApiResponse<ManualTransferHistoryInfo>, ApiResponse<ManualTransferHistoryInfo>>(
+      'transfer/manual/history',
+      payload,
+    )
+    if (!result.success) return
+
+    manualHistoryCount.value = result.data?.history_count ?? 0
+    transferForm.reorganize = Boolean(result.data?.reorganize)
+  } catch (error) {
+    console.error(error)
+  } finally {
+    manualHistoryLoading.value = false
+  }
+}
+
 // 加载剧集格式规则配置状态，用于决定是否允许自动推荐。
 async function loadEpisodeFormatRuleConfiguration() {
   try {
@@ -1353,7 +1385,7 @@ async function transfer(background: boolean = false) {
 }
 
 onMounted(async () => {
-  await loadDirectories()
+  await Promise.all([loadDirectories(), loadManualTransferHistory()])
   loadStorages()
   loadEpisodeFormatRuleConfiguration()
 })
@@ -1386,6 +1418,16 @@ onUnmounted(() => {
           <div class="reorganize-form-pane">
             <div class="reorganize-form-pane__content pa-6">
               <VForm @submit.prevent="() => {}">
+                <VAlert
+                  v-if="manualHistoryCount > 0"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  icon="mdi-history"
+                  class="mb-4"
+                >
+                  {{ t('dialog.reorganize.historyFound', { count: manualHistoryCount }) }}
+                </VAlert>
                 <VRow>
                   <VCol cols="12" md="6">
                     <VSelect
@@ -1631,10 +1673,11 @@ onUnmounted(() => {
                 color="primary"
                 variant="flat"
                 @click="transfer(false)"
-                prepend-icon="mdi-arrow-right-bold"
+                :prepend-icon="isReorganize ? 'mdi-refresh' : 'mdi-arrow-right-bold'"
                 class="reorganize-action-btn reorganize-action-btn--primary"
+                :loading="manualHistoryLoading"
               >
-                {{ t('dialog.reorganize.reorganizeNow') }}
+                {{ isReorganize ? t('dialog.reorganize.reorganizeAgain') : t('dialog.reorganize.reorganizeNow') }}
               </VBtn>
             </VCardActions>
           </div>

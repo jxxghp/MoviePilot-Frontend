@@ -1587,6 +1587,8 @@ export interface TransferForm {
   episode_group?: string | null
   // 预览模式
   preview?: boolean
+  // 清理已有成功记录后重新整理
+  reorganize: boolean
 }
 
 // 手动整理请求
@@ -1611,6 +1613,14 @@ export interface ManualTransferTargetPathData {
   library_type_folder?: boolean | null
   // 媒体库类别子目录
   library_category_folder?: boolean | null
+}
+
+// 手动整理命中的成功历史摘要
+export interface ManualTransferHistoryInfo {
+  // 是否应执行重新整理
+  reorganize: boolean
+  // 命中的成功历史数量
+  history_count: number
 }
 
 // 手动整理预览统计
