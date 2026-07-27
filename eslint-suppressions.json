@@ -54,9 +54,6 @@
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     },
-    "no-useless-catch": {
-      "count": 1
-    },
     "sonarjs/no-ignored-exceptions": {
       "count": 1
     }

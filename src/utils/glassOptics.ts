@@ -111,7 +111,6 @@ export interface GlassOpticalRenderProfile {
   springFrequency: number
   /** 活动壁纸进入 GPU 前的最长边限制。 */
   textureLimit: number
-  /** 登录页优先使用可读纹理，跨域外链自动退回程序化高光。 */
   textureSource: 'auto' | 'procedural' | 'wallpaper'
   /** 参与液态方向计算的最近输入采样数量。 */
   trailCount: number

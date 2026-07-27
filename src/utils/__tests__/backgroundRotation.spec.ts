@@ -1,8 +1,7 @@
 import {
   BACKGROUND_ROTATION_GRACE_MS,
-  commitPreloadedBackgroundRotation,
+  findFirstAvailableBackground,
   preloadBackgroundRotationImages,
-  preloadBackgroundSequence,
   shouldAllowBackgroundRotation,
 } from '@/utils/backgroundRotation'
 import { describe, expect, it, vi } from 'vitest'
@@ -25,56 +24,6 @@ describe('background rotation lifecycle', () => {
     expect(shouldAllowBackgroundRotation('passive', false, false)).toBe(false)
     expect(shouldAllowBackgroundRotation('idle', false, false)).toBe(false)
     expect(shouldAllowBackgroundRotation('active', false, true)).toBe(false)
-  })
-})
-
-describe('commitPreloadedBackgroundRotation', () => {
-  it('drops a successful preload when the rotation becomes inactive before completion', async () => {
-    const preload = deferred<boolean>()
-    const commit = vi.fn()
-    let active = true
-    const result = commitPreloadedBackgroundRotation({
-      canCommit: () => active,
-      commit,
-      preload: () => preload.promise,
-    })
-
-    active = false
-    preload.resolve(true)
-
-    await expect(result).resolves.toBe(false)
-    expect(commit).not.toHaveBeenCalled()
-  })
-
-  it('commits a successful preload while the request remains current', async () => {
-    const commit = vi.fn()
-
-    await expect(
-      commitPreloadedBackgroundRotation({
-        canCommit: () => true,
-        commit,
-        preload: async () => true,
-      }),
-    ).resolves.toBe(true)
-    expect(commit).toHaveBeenCalledOnce()
-  })
-
-  it('drops an obsolete preload even when decorative motion becomes active again', async () => {
-    const preload = deferred<boolean>()
-    const commit = vi.fn()
-    const requestVersion = 1
-    let currentVersion = requestVersion
-    const result = commitPreloadedBackgroundRotation({
-      canCommit: () => requestVersion === currentVersion,
-      commit,
-      preload: () => preload.promise,
-    })
-
-    currentVersion += 1
-    preload.resolve(true)
-
-    await expect(result).resolves.toBe(false)
-    expect(commit).not.toHaveBeenCalled()
   })
 })
 
@@ -106,37 +55,34 @@ describe('preloadBackgroundRotationImages', () => {
   })
 })
 
-describe('preloadBackgroundSequence', () => {
-  it('preloads remaining wallpapers sequentially in rotation order', async () => {
-    const calls: string[] = []
+describe('findFirstAvailableBackground', () => {
+  it('skips invalid entries without changing the original sequence', async () => {
+    const preload = vi.fn(async (url: string) => url === 'two.jpg')
 
     await expect(
-      preloadBackgroundSequence({
-        canContinue: () => true,
-        preload: async url => {
-          calls.push(url)
-          return url !== 'two.jpg'
-        },
+      findFirstAvailableBackground({
         urls: ['one.jpg', 'two.jpg', 'three.jpg'],
+        canContinue: () => true,
+        preload,
       }),
-    ).resolves.toEqual([true, false, true])
-    expect(calls).toEqual(['one.jpg', 'two.jpg', 'three.jpg'])
+    ).resolves.toBe(1)
+    expect(preload.mock.calls.map(([url]) => url)).toEqual(['one.jpg', 'two.jpg'])
   })
 
-  it('stops an obsolete queue before starting the next image', async () => {
-    let active = true
-    const calls: string[] = []
-
-    await preloadBackgroundSequence({
-      canContinue: () => active,
-      preload: async url => {
-        calls.push(url)
-        active = false
-        return true
-      },
+  it('drops an obsolete batch before trying another image', async () => {
+    const pending = deferred<boolean>()
+    let current = true
+    const preload = vi.fn(() => pending.promise)
+    const result = findFirstAvailableBackground({
       urls: ['one.jpg', 'two.jpg'],
+      canContinue: () => current,
+      preload,
     })
 
-    expect(calls).toEqual(['one.jpg'])
+    current = false
+    pending.resolve(true)
+
+    await expect(result).resolves.toBeNull()
+    expect(preload).toHaveBeenCalledOnce()
   })
 })

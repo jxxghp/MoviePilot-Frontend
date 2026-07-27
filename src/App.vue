@@ -29,9 +29,8 @@ import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composab
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import {
   BACKGROUND_ROTATION_GRACE_MS,
-  commitPreloadedBackgroundRotation,
+  findFirstAvailableBackground,
   preloadBackgroundRotationImages,
-  preloadBackgroundSequence,
   shouldAllowBackgroundRotation,
 } from '@/utils/backgroundRotation'
 import {
@@ -163,7 +162,6 @@ const wallpaperRequestMode = computed(() => getLoginWallpaperRequestMode(loginVi
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
 const renderedBackgroundLayers = computed(() => backgroundLayers.value)
 const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
-// 玻璃 profile 使用同源 catalog；旧后端返回外链时仍由 renderer 的纹理失败路径安全回退。
 const activeOpticalBackgroundImage = computed(() => getOpticalBackgroundImage(activeBackgroundImage.value))
 const previousOpticalBackgroundImage = computed(() => {
   const previousIndex = previousImageIndex.value
@@ -195,8 +193,9 @@ let backgroundCrossfadeTimer: number | null = null
 let pendingOpticalWallpaperTimer: number | null = null
 let pendingOpticalWallpaperResolve: ((ready: boolean) => void) | null = null
 let authenticatedStateTimer: number | null = null
+let backgroundLoadVersion = 0
+let backgroundRecoveryAttemptedVersion = -1
 let backgroundRotationVersion = 0
-let backgroundPreloadVersion = 0
 
 // 读取并同步透明主题背景设置到根组件响应式状态。
 function applyTransparentBackgroundSettings() {
@@ -480,66 +479,65 @@ function activateBackgroundImage(nextIndex: number) {
   }, BACKGROUND_CROSSFADE_DURATION_MS)
 }
 
-// 获取背景图片
+// 获取背景图片列表；只有选出实际可用的首图后才提交到可见状态。
 async function fetchBackgroundImages(requestMode: LoginWallpaperRequestMode) {
+  backgroundRequestController?.abort()
+  const controller = new AbortController()
+  backgroundRequestController = controller
   try {
-    backgroundRequestController?.abort()
-    backgroundRequestController = new AbortController()
-    backgroundImages.value = await api.get(`/login/wallpapers`, {
+    return await api.get<string[], string[]>(`/login/wallpapers`, {
       params: requestMode === 'same-origin' ? { same_origin: true } : undefined,
-      signal: backgroundRequestController.signal,
+      signal: controller.signal,
     })
-    activeImageIndex.value = 0
-    resetBackgroundCrossfade()
-  } catch (e) {
-    throw e
+  } finally {
+    if (backgroundRequestController === controller) backgroundRequestController = null
   }
+}
+
+/** 仅提前加载当前图的下一项，不建立全目录预载队列。 */
+function preloadNextBackgroundImage() {
+  if (!allowsBackgroundRotation.value || backgroundImages.value.length <= 1) return
+  const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
+  void preloadImage(backgroundImages.value[nextIndex])
 }
 
 // 背景图片轮换函数
-function rotateBackgroundImage() {
-  if (!allowsBackgroundRotation.value) return
+async function rotateBackgroundImage() {
+  if (!allowsBackgroundRotation.value || backgroundImages.value.length <= 1) return
 
-  if (backgroundImages.value.length > 1) {
-    // 计算下一个图片索引
-    const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
-    const requestVersion = ++backgroundRotationVersion
+  const requestVersion = ++backgroundRotationVersion
+  const activeIndex = activeImageIndex.value
+  for (let offset = 1; offset < backgroundImages.value.length; offset += 1) {
+    if (!allowsBackgroundRotation.value || requestVersion !== backgroundRotationVersion) return
+
+    const nextIndex = (activeIndex + offset) % backgroundImages.value.length
     const nextImage = backgroundImages.value[nextIndex]
     const opticalImage = shouldRenderGlassOpticalLayer.value ? getOpticalBackgroundImage(nextImage) : undefined
-
-    void commitPreloadedBackgroundRotation({
-      canCommit: () => allowsBackgroundRotation.value && requestVersion === backgroundRotationVersion,
-      commit: () => activateBackgroundImage(nextIndex),
-      preload: () =>
-        preloadBackgroundRotationImages({
-          displayUrl: nextImage,
-          opticalUrl: opticalImage,
-          preload: preloadImage,
-        }).then(imagesReady => (imagesReady && opticalImage ? prepareOpticalWallpaper(opticalImage) : imagesReady)),
+    const imagesReady = await preloadBackgroundRotationImages({
+      displayUrl: nextImage,
+      opticalUrl: opticalImage,
+      preload: preloadImage,
     })
+    if (!imagesReady) continue
+    if (opticalImage && !(await prepareOpticalWallpaper(opticalImage))) continue
+    if (!allowsBackgroundRotation.value || requestVersion !== backgroundRotationVersion) return
+
+    activateBackgroundImage(nextIndex)
+    preloadNextBackgroundImage()
+    return
+  }
+
+  if (requestVersion === backgroundRotationVersion && backgroundRecoveryAttemptedVersion !== backgroundLoadVersion) {
+    stopBackgroundRotation()
+    const recoveryVersion = ++backgroundLoadVersion
+    backgroundRecoveryAttemptedVersion = recoveryVersion
+    void loadBackgroundImages(wallpaperRequestMode.value, recoveryVersion)
   }
 }
 
-/** 当前图稳定后按轮播顺序串行预加载其余壁纸，队列失效时不再发起新请求。 */
-async function preloadRemainingBackgroundImages() {
-  if (backgroundImages.value.length <= 1) return
-
-  const version = ++backgroundPreloadVersion
-  const orderedImages = backgroundImages.value
-    .slice(activeImageIndex.value + 1)
-    .concat(backgroundImages.value.slice(0, activeImageIndex.value))
-
-  await preloadBackgroundSequence({
-    canContinue: () => version === backgroundPreloadVersion && shouldLoadBackgroundImages.value,
-    preload: preloadImage,
-    urls: orderedImages,
-  })
-}
-
-// 停止轮询并使已经发起的壁纸预加载失效，避免非活动状态收到迟到提交。
+// 停止轮询并使已经发起的下一图准备失效，避免非活动状态收到迟到提交。
 function stopBackgroundRotation() {
   backgroundRotationVersion += 1
-  backgroundPreloadVersion += 1
   removeBackgroundTimer('background-rotation')
   settlePendingOpticalWallpaper(false)
 }
@@ -567,12 +565,11 @@ function startBackgroundRotation() {
   stopBackgroundRotation()
 
   if (allowsBackgroundRotation.value && backgroundImages.value.length > 1) {
-    // 宽限期结束会使预载队列失效；恢复活动状态时从当前图继续补齐剩余壁纸。
-    void preloadRemainingBackgroundImages()
+    preloadNextBackgroundImage()
     // 隐藏页面也允许在有界宽限期内轮换，回调自身会再次核对生命周期。
     addBackgroundTimer(
       'background-rotation',
-      rotateBackgroundImage,
+      () => void rotateBackgroundImage(),
       10000, // 每10秒切换一次
       {
         runInBackground: true,
@@ -614,6 +611,7 @@ watch(allowsBackgroundRotation, allowsRotation => {
 
 // 停止登录页、透明主题或玻璃主题背景图加载、重试和轮播。
 function stopBackgroundLoading() {
+  backgroundLoadVersion += 1
   backgroundRequestController?.abort()
   backgroundRequestController = null
 
@@ -710,21 +708,43 @@ async function removeLoadingWithStateCheck() {
 }
 
 // 加载背景图片
-async function loadBackgroundImages(requestMode: LoginWallpaperRequestMode, retryCount = 0) {
+async function loadBackgroundImages(requestMode: LoginWallpaperRequestMode, loadVersion: number, retryCount = 0) {
   const maxRetries = 3
   try {
-    await fetchBackgroundImages(requestMode)
-    const activeImage = activeBackgroundImage.value
-    if (activeImage && !(await preloadImage(activeImage))) throw new Error('登录壁纸首图预加载失败')
+    const images = await fetchBackgroundImages(requestMode)
+    if (loadVersion !== backgroundLoadVersion) return
+
+    const firstAvailableIndex = await findFirstAvailableBackground({
+      urls: images,
+      canContinue: () => loadVersion === backgroundLoadVersion,
+      preload: preloadImage,
+    })
+    if (firstAvailableIndex === null) throw new Error('没有可用的登录壁纸')
+    if (loadVersion !== backgroundLoadVersion) return
+
+    const currentImage = activeBackgroundImage.value
+    const currentIndex = images.indexOf(currentImage)
+    if (currentImage && currentIndex < 0) {
+      backgroundImages.value = [currentImage, ...images]
+      activeImageIndex.value = 0
+    } else {
+      backgroundImages.value = images
+      activeImageIndex.value = currentIndex >= 0 ? currentIndex : firstAvailableIndex
+    }
+    backgroundRecoveryAttemptedVersion = -1
+    resetBackgroundCrossfade()
     startBackgroundRotation()
   } catch (error: any) {
+    if (loadVersion !== backgroundLoadVersion) return
     const isAbortError = error.name === 'AbortError' || error.code === 'ERR_CANCELED'
     if (retryCount < maxRetries) {
       const baseDelay = isAbortError ? 1000 : 3000
       const retryDelay = Math.min(baseDelay * Math.pow(2, retryCount), 10000)
       backgroundRetryTimer = window.setTimeout(() => {
         backgroundRetryTimer = null
-        loadBackgroundImages(requestMode, retryCount + 1)
+        if (loadVersion === backgroundLoadVersion) {
+          void loadBackgroundImages(requestMode, loadVersion, retryCount + 1)
+        }
       }, retryDelay)
     }
   }
@@ -771,10 +791,12 @@ onMounted(async () => {
   // 背景范围或玻璃同源能力变化时重新加载；登录前后玻璃主题保持同一请求模式和活动壁纸。
   watch(
     () => [shouldLoadBackgroundImages.value, wallpaperRequestMode.value] as const,
-    ([shouldLoad, requestMode]) => {
+    ([shouldLoad, requestMode], previous) => {
+      if (previous && shouldLoad === previous[0] && requestMode === previous[1]) return
+
       stopBackgroundLoading()
       if (shouldLoad) {
-        loadBackgroundImages(requestMode)
+        void loadBackgroundImages(requestMode, backgroundLoadVersion)
       } else if (!isBackdropTheme.value) {
         backgroundImages.value = []
       }
