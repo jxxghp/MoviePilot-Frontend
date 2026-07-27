@@ -8,15 +8,6 @@ export function shouldAllowBackgroundRotation(state: AppActivityState, graceActi
   return !reducedMotion && (state === 'active' || graceActive)
 }
 
-interface PreloadedBackgroundRotationOptions {
-  /** 提交前重新判断当前生命周期和请求版本是否仍允许切换。 */
-  canCommit: () => boolean
-  /** 将已经完成预加载的壁纸切换为活动背景。 */
-  commit: () => void
-  /** 预加载目标壁纸，并以布尔值表示是否可安全显示。 */
-  preload: () => Promise<boolean>
-}
-
 interface BackgroundRotationImagePreloadOptions {
   /** 外层背景实际显示的壁纸地址。 */
   displayUrl: string
@@ -26,25 +17,25 @@ interface BackgroundRotationImagePreloadOptions {
   preload: (url: string) => Promise<boolean>
 }
 
-interface BackgroundSequencePreloadOptions {
-  /** 每张图片完成后重新判断队列是否仍属于当前页面与请求代次。 */
-  canContinue: () => boolean
-  /** 按实际轮播顺序排列的待预加载地址。 */
+interface FirstAvailableBackgroundOptions {
+  /** 保持后端返回顺序的候选壁纸。 */
   urls: string[]
+  /** 当前加载批次仍可提交时返回 true。 */
+  canContinue: () => boolean
   /** 执行单张图片预加载并返回可用状态。 */
   preload: (url: string) => Promise<boolean>
 }
 
-/**
- * 将壁纸预加载与最终提交分离，确保异步加载期间失效的轮换请求不会改变可见背景。
- */
-export async function commitPreloadedBackgroundRotation(options: PreloadedBackgroundRotationOptions) {
-  const succeeded = await options.preload()
+/** 按来源顺序寻找首张可用壁纸，单项失败或过期批次不会提交可见状态。 */
+export async function findFirstAvailableBackground(options: FirstAvailableBackgroundOptions) {
+  for (let index = 0; index < options.urls.length; index += 1) {
+    if (!options.canContinue()) return null
+    const available = await options.preload(options.urls[index])
+    if (!options.canContinue()) return null
+    if (available) return index
+  }
 
-  if (!succeeded || !options.canCommit()) return false
-
-  options.commit()
-  return true
+  return null
 }
 
 /**
@@ -58,16 +49,4 @@ export async function preloadBackgroundRotationImages(options: BackgroundRotatio
   const results = await Promise.all(urls.map(url => options.preload(url)))
 
   return results.every(Boolean)
-}
-
-/** 当前壁纸稳定后串行预加载剩余轮播项，避免并发争抢首屏带宽。 */
-export async function preloadBackgroundSequence(options: BackgroundSequencePreloadOptions) {
-  const results: boolean[] = []
-
-  for (const url of options.urls) {
-    if (!options.canContinue()) break
-    results.push(await options.preload(url))
-  }
-
-  return results
 }
