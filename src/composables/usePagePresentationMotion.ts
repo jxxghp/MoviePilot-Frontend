@@ -3,6 +3,8 @@ import { readonly, ref, type Ref } from 'vue'
 export const PAGE_PRESENTATION_MOTION_DURATION_MS = 180
 export const PAGE_PRESENTATION_MOTION_START_OPACITY = 0.88
 export const PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y = 4
+export const PAGE_PRESENTATION_LAYOUT_STABLE_MS = 120
+export const PAGE_PRESENTATION_LAYOUT_HOLD_MAX_MS = 480
 
 /** renderer 只读取同一帧已经提交到 DOM 的页面呈现状态。 */
 export interface PagePresentationMotionReader {
@@ -22,6 +24,9 @@ const revision = ref(0)
 const routeKey = ref('')
 const translateY = ref(0)
 let animationFrame: number | null = null
+let layoutHoldStartedAt = 0
+let layoutStableSince = 0
+let layoutSignature = ''
 let startedAt = 0
 
 function sampleBezier(time: number, start: number, end: number) {
@@ -72,6 +77,55 @@ function applyMotionFrame(nextProgress: number) {
   revision.value += 1
 }
 
+/** 布局门关闭时 DOM 与 renderer 都不暴露尚未稳定的页面几何。 */
+function applyLayoutHoldFrame() {
+  const root = document.documentElement
+
+  root.dataset.pagePresentationMotion = 'active'
+  root.style.setProperty('--mp-page-motion-opacity', '0')
+  root.style.setProperty('--mp-page-motion-translate-y', `${PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y}px`)
+  opacity.value = 0
+  progress.value = 0
+  translateY.value = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y
+  revision.value += 1
+}
+
+function getLayoutSignature(root: HTMLElement) {
+  return `${root.offsetWidth},${root.offsetHeight},${root.scrollWidth},${root.scrollHeight}`
+}
+
+function beginReveal(timestamp: number, motionEpoch: number) {
+  if (!active.value || epoch.value !== motionEpoch) return
+
+  startedAt = timestamp
+  applyMotionFrame(0)
+  animationFrame = window.requestAnimationFrame(nextTimestamp => renderFrame(nextTimestamp, motionEpoch))
+}
+
+/** 页面根持续稳定后才开始 reveal；上限避免持续布局页面永久不可见。 */
+function sampleLayoutHold(timestamp: number, motionEpoch: number, root: HTMLElement) {
+  if (!active.value || epoch.value !== motionEpoch) return
+  animationFrame = null
+
+  const nextSignature = getLayoutSignature(root)
+  if (nextSignature !== layoutSignature) {
+    layoutSignature = nextSignature
+    layoutStableSince = timestamp
+  }
+
+  if (
+    timestamp - layoutStableSince >= PAGE_PRESENTATION_LAYOUT_STABLE_MS ||
+    timestamp - layoutHoldStartedAt >= PAGE_PRESENTATION_LAYOUT_HOLD_MAX_MS
+  ) {
+    beginReveal(timestamp, motionEpoch)
+    return
+  }
+
+  animationFrame = window.requestAnimationFrame(nextTimestamp =>
+    sampleLayoutHold(nextTimestamp, motionEpoch, root),
+  )
+}
+
 function settleMotion() {
   active.value = false
   opacity.value = 1
@@ -112,7 +166,7 @@ function renderFrame(timestamp: number, motionEpoch: number) {
  * 玻璃主题由共享控制器接管页面入场；其他主题继续使用既有 CSS keyframe。
  * 返回 true 表示本次路由变化已经处理，包括 reduced-motion 的即时提交。
  */
-function start(nextRouteKey: string) {
+function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
   if (document.documentElement.dataset.theme !== 'glass') {
     cancel()
     return false
@@ -131,9 +185,18 @@ function start(nextRouteKey: string) {
   }
 
   active.value = true
-  startedAt = performance.now()
-  applyMotionFrame(0)
-  animationFrame = window.requestAnimationFrame(timestamp => renderFrame(timestamp, motionEpoch))
+  const timestamp = performance.now()
+  if (layoutRoot) {
+    layoutHoldStartedAt = timestamp
+    layoutStableSince = timestamp
+    layoutSignature = getLayoutSignature(layoutRoot)
+    applyLayoutHoldFrame()
+    animationFrame = window.requestAnimationFrame(nextTimestamp =>
+      sampleLayoutHold(nextTimestamp, motionEpoch, layoutRoot),
+    )
+  } else {
+    beginReveal(timestamp, motionEpoch)
+  }
 
   return true
 }

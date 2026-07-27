@@ -37,6 +37,36 @@ afterEach(() => {
 })
 
 describe('page presentation motion', () => {
+  it('holds a glass route until its shared layout geometry remains stable', () => {
+    const routeRoot = document.createElement('div')
+    let routeHeight = 2096
+    Object.defineProperties(routeRoot, {
+      offsetHeight: { configurable: true, get: () => routeHeight },
+      offsetWidth: { configurable: true, get: () => 1200 },
+      scrollHeight: { configurable: true, get: () => routeHeight },
+      scrollWidth: { configurable: true, get: () => 1200 },
+    })
+    document.body.append(routeRoot)
+
+    expect(motion.start('/dashboard', routeRoot)).toBe(true)
+    expect(motion.active.value).toBe(true)
+    expect(motion.opacity.value).toBe(0)
+    expect(document.documentElement.dataset.pagePresentationMotion).toBe('active')
+
+    ;[1016, 1080].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
+    expect(motion.opacity.value).toBe(0)
+
+    routeHeight = 1520
+    ;[1110, 1200].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
+    expect(motion.opacity.value).toBe(0)
+
+    ;[1231].forEach(timestamp => [...callbacks.values()].at(-1)!(timestamp))
+    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(motion.translateY.value).toBe(PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y)
+
+    routeRoot.remove()
+  })
+
   it('uses one eased timeline for the initial, intermediate, and settled states', () => {
     const initialRevision = motion.revision.value
 
