@@ -41,7 +41,13 @@ import {
   getLoginVisualProfile,
   prepareLoginBackgroundLayer,
   settleLoginBackgroundLayers,
+  type LoginBackgroundLayer,
 } from '@/utils/loginPresentation'
+import {
+  DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
+  loadGlassWallpaperToneProfile,
+  type GlassWallpaperToneProfile,
+} from '@/utils/glassWallpaperTone'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
@@ -83,6 +89,7 @@ const globalSettingsStore = useGlobalSettingsStore()
 // 背景图片
 const backgroundImages = ref<string[]>([])
 const backgroundLayers = ref(createLoginBackgroundLayers())
+const backgroundToneProfiles = ref<Record<string, GlassWallpaperToneProfile>>({})
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
@@ -210,6 +217,31 @@ function handleTransparencySettingsChanged(event: Event) {
 
   transparentBackgroundBlur.value = backgroundBlur
   transparencyGlassQuality.value = glassQuality
+}
+
+/** 在壁纸可见前准备稳健曝光；不可读跨域图片回落中性 profile，不阻断 CSS 背景。 */
+async function ensureBackgroundToneProfile(imageUrl: string) {
+  if (!imageUrl || !isGlassTheme.value) return DEFAULT_GLASS_WALLPAPER_TONE_PROFILE
+
+  const profile = await loadGlassWallpaperToneProfile(getOpticalBackgroundImage(imageUrl))
+  backgroundToneProfiles.value = {
+    ...backgroundToneProfiles.value,
+    [imageUrl]: profile,
+  }
+
+  return profile
+}
+
+/** 让稳定双槽位分别携带当前壁纸的曝光，交叉淡化期间不共享新图参数。 */
+function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
+  const profile = backgroundToneProfiles.value[layer.url] ?? DEFAULT_GLASS_WALLPAPER_TONE_PROFILE
+  const appearance = effectiveGlassSettings.value.glassAppearance
+  const materialExposure = appearance === 'frosted' ? 0.82 : appearance === 'tinted' ? 0.85 : 0.86
+
+  return {
+    'backgroundImage': layer.url ? `url(${layer.url})` : undefined,
+    '--glass-wallpaper-brightness': String(materialExposure * profile.exposure),
+  }
 }
 
 applyTransparentBackgroundSettings()
@@ -501,13 +533,29 @@ function preloadNextBackgroundImage() {
 
 /** 实时玻璃先建立可供 WebGL 读取的缓存，失败时仍允许 CSS 材质显示该壁纸。 */
 async function preloadBackgroundCandidate(imageUrl: string) {
-  if (!shouldRenderGlassOpticalLayer.value) return preloadImage(imageUrl)
+  const toneProfile = isGlassTheme.value
+    ? ensureBackgroundToneProfile(imageUrl)
+    : Promise.resolve(DEFAULT_GLASS_WALLPAPER_TONE_PROFILE)
+  if (!shouldRenderGlassOpticalLayer.value) {
+    const [available] = await Promise.all([preloadImage(imageUrl), toneProfile])
+
+    return available
+  }
 
   const opticalUrl = getOpticalBackgroundImage(imageUrl)
   const opticalReady = await preloadCorsImage(opticalUrl)
-  if (!opticalReady) return preloadImage(imageUrl)
+  if (!opticalReady) {
+    const [displayReady] = await Promise.all([preloadImage(imageUrl), toneProfile])
 
-  return opticalUrl === imageUrl ? true : preloadImage(imageUrl)
+    return displayReady
+  }
+
+  const [displayReady] = await Promise.all([
+    opticalUrl === imageUrl ? Promise.resolve(true) : preloadImage(imageUrl),
+    toneProfile,
+  ])
+
+  return displayReady
 }
 
 // 背景图片轮换函数
@@ -529,6 +577,7 @@ async function rotateBackgroundImage() {
       preload: preloadImage,
     })
     if (!imagesReady) continue
+    await ensureBackgroundToneProfile(nextImage)
     if (!allowsBackgroundRotation.value || requestVersion !== backgroundRotationVersion) return
 
     activateBackgroundImage(nextIndex)
@@ -811,6 +860,14 @@ onMounted(async () => {
     { immediate: true },
   )
 
+  watch(isGlassTheme, enabled => {
+    if (!enabled) return
+
+    void Promise.all(
+      renderedBackgroundLayers.value.filter(layer => layer.url).map(layer => ensureBackgroundToneProfile(layer.url)),
+    )
+  })
+
   // 使用优化后的加载界面移除逻辑
   ensureRenderComplete(() => {
     nextTick(removeLoadingWithStateCheck)
@@ -883,7 +940,7 @@ onUnmounted(() => {
         :key="layer.key"
         class="background-image"
         :class="layer.role"
-        :style="{ 'backgroundImage': layer.url ? `url(${layer.url})` : undefined }"
+        :style="getBackgroundLayerStyle(layer)"
       />
       <!-- 全局磨砂层 -->
       <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
@@ -985,7 +1042,7 @@ onUnmounted(() => {
 
 .background-container.is-glass-theme .background-image.active,
 .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(0.86) saturate(0.95) contrast(1.02);
+  filter: brightness(var(--glass-wallpaper-brightness, 0.86)) saturate(0.95) contrast(1.02);
 }
 
 .background-container.is-glass-theme .background-image.active {
@@ -1001,7 +1058,7 @@ onUnmounted(() => {
 
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active,
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(0.85) saturate(0.97) contrast(1.02);
+  filter: brightness(var(--glass-wallpaper-brightness, 0.85)) saturate(0.97) contrast(1.02);
 }
 
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active {
@@ -1017,7 +1074,7 @@ html[data-glass-appearance='tinted'] .background-container.is-glass-theme .backg
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active,
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.previous {
-  filter: brightness(0.82) saturate(0.9);
+  filter: brightness(var(--glass-wallpaper-brightness, 0.82)) saturate(0.9);
 }
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active {

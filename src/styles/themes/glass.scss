@@ -168,9 +168,25 @@ html[data-theme='glass'] {
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
   &[data-glass-appearance='frosted'] {
-    --glass-surface: rgba(255, 255, 255, calc(0.12 - var(--glass-transparency, 0.5) * 0.07));
-    --glass-surface-soft: rgba(255, 255, 255, calc(0.11 - var(--glass-transparency, 0.5) * 0.06));
-    --glass-surface-raised: rgba(255, 255, 255, calc(0.16 - var(--glass-transparency, 0.5) * 0.08));
+    --glass-frost-low-end-density: max(0, calc(0.28 - var(--glass-transparency, 0.5)));
+    --glass-surface: rgba(
+      255,
+      255,
+      255,
+      calc(0.12 - var(--glass-transparency, 0.5) * 0.07 + var(--glass-frost-low-end-density) * 1.29)
+    );
+    --glass-surface-soft: rgba(
+      255,
+      255,
+      255,
+      calc(0.11 - var(--glass-transparency, 0.5) * 0.06 + var(--glass-frost-low-end-density) * 1.39)
+    );
+    --glass-surface-raised: rgba(
+      255,
+      255,
+      255,
+      calc(0.16 - var(--glass-transparency, 0.5) * 0.08 + var(--glass-frost-low-end-density) * 1.36)
+    );
     --glass-control: rgba(255, 255, 255, 9%);
     --glass-control-prominent: rgba(255, 255, 255, 10%);
     --glass-control-prominent-focus: rgba(255, 255, 255, 13%);
@@ -300,38 +316,6 @@ html[data-theme='glass'] {
   .v-application {
     position: relative;
     z-index: 1;
-  }
-
-  // 页面路由只使用短距离透明度与位移反馈，避免触发整页滤镜重采样。
-  .mp-page-route--entering {
-    animation: glass-page-route-enter var(--mp-motion-duration-page) var(--mp-motion-ease-standard) both;
-    will-change: opacity, transform;
-  }
-
-  @keyframes glass-page-route-enter {
-    from {
-      opacity: 0.82;
-      transform: translate3d(0, 2px, 0);
-    }
-
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  .mp-page-enter-active,
-  .mp-page-leave-active {
-    filter: none !important;
-    transition:
-      opacity var(--mp-motion-duration-page) var(--mp-motion-ease-standard),
-      transform var(--mp-motion-duration-page) var(--mp-motion-ease-standard);
-  }
-
-  .mp-page-enter-from {
-    filter: none !important;
-    opacity: 0.82;
-    transform: translate3d(0, 2px, 0);
   }
 
   :where(
@@ -825,13 +809,6 @@ html[data-theme='glass'] {
     --mobile-calendar-control-bg: var(--glass-surface-soft);
     --mobile-calendar-placeholder-bg: var(--glass-surface-soft);
     --mobile-calendar-surface-blur: var(--glass-surface-backdrop-filter);
-  }
-
-  // 磨砂卡片不参与仪表板整体透明度入场，避免合成层切换造成先透明后模糊的闪变。
-  &[data-glass-appearance='frosted'] .dashboard-grid {
-    opacity: 1;
-    transform: none;
-    transition: none;
   }
 
   // 用户权限编辑器由普通容器构成，通过主题变量接入玻璃表面材质。

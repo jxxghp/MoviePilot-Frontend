@@ -688,8 +688,12 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uTextureMix.value).toBeGreaterThanOrEqual(0)
     expect(uniforms.uTextureMix.value).toBeLessThan(1)
     expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(toneMapWallpaper(previous, viewportUv), toneMapWallpaper(current, viewportUv), uTextureMix)',
+      'toneMapWallpaper(previous, viewportUv, uPreviousWallpaperExposure)',
     )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'toneMapWallpaper(current, viewportUv, uWallpaperExposure)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain('return mix(previousTone, currentTone, uTextureMix)')
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'toneMapWallpaper(mix(previous, current, uTextureMix), viewportUv)',
     )
@@ -734,7 +738,72 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
-  it('resizes a scroll buffer when an asynchronous page grows without optical surfaces', async () => {
+  it('keeps the route first frame while transient scroll presentation heights settle', async () => {
+    vi.useFakeTimers()
+    const three = await import('three')
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    let presentationHeight = 844
+    const root = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    Object.defineProperty(root, 'scrollHeight', {
+      configurable: true,
+      get: () => presentationHeight,
+    })
+    root.append(canvas)
+    document.body.append(root)
+    const routeKey = ref('/resource')
+    const setSize = vi.spyOn(three.WebGLRenderer.prototype, 'setSize')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey,
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const observer = ResizeObserverMock.instances.find(instance => instance.targets.has(root))
+    expect(observer).toBeDefined()
+    setSize.mockClear()
+    render.mockClear()
+
+    presentationHeight = 1744
+    routeKey.value = '/dashboard'
+    await nextTick()
+    await nextTick()
+    expect(setSize).toHaveBeenCalledOnce()
+    expect(setSize).toHaveBeenCalledWith(390, 1744, false)
+
+    setSize.mockClear()
+    presentationHeight = 2320
+    window.dispatchEvent(new Event('resize'))
+    expect(setSize).not.toHaveBeenCalled()
+
+    observer?.trigger()
+    presentationHeight = 2170
+    observer?.trigger()
+    presentationHeight = 1744
+    observer?.trigger()
+
+    expect(setSize).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(159)
+    expect(setSize).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+
+    expect(setSize).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('resizes a scroll buffer after an asynchronous page height becomes stable', async () => {
+    vi.useFakeTimers()
     const three = await import('three')
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
@@ -771,8 +840,47 @@ describe('glass optical surface discovery', () => {
 
     presentationHeight = 5000
     observer?.trigger()
+    vi.advanceTimersByTime(159)
+    expect(setSize).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
 
+    expect(setSize).toHaveBeenCalledOnce()
     expect(setSize).toHaveBeenCalledWith(390, 3072, false)
+    expect(render).toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('updates surface geometry when the presentation root shares a resize delivery', async () => {
+    const three = await import('three')
+    const root = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 220, width: 320, x: 40, y: 80 })
+    root.append(canvas)
+    document.body.append(root)
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const observer = ResizeObserverMock.instances.find(
+      instance => instance.targets.has(root) && instance.targets.has(surface),
+    )
+    expect(observer).toBeDefined()
+    render.mockClear()
+
+    observer?.trigger()
+
     expect(render).toHaveBeenCalled()
     scope.stop()
   })
@@ -1557,13 +1665,30 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransparency')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransmissionStrength')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uPreviousWallpaperExposure')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uWallpaperExposure')
+    expect(scene.children[0].material.fragmentShader).toContain('compressWallpaperLuminance')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'toneMapWallpaper(previous, viewportUv, uPreviousWallpaperExposure)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'toneMapWallpaper(current, viewportUv, uWallpaperExposure)',
+    )
     expect(scene.children[0].material.fragmentShader).toContain('float transmissionResponse')
+    expect(scene.children[0].material.fragmentShader).toContain('float referenceLiftProgress')
+    expect(scene.children[0].material.fragmentShader).toContain('float highTransmissionProgress')
+    expect(scene.children[0].material.fragmentShader).toContain('float frostedDensity')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'frosted * (1.0 - smoothstep(0.0, 0.28, uTransparency))',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain('1.0 + frostedDensity * mix(1.15, 1.55, uQuality)')
+    expect(scene.children[0].material.fragmentShader).toContain('mix(0.78, 0.94, uTransparency)')
     expect(scene.children[0].material.fragmentShader).toContain('vec3 transmissionReference')
-    expect(scene.children[0].material.fragmentShader).toContain('float shadowLiftGate')
-    expect(scene.children[0].material.fragmentShader).toContain('float shadowColorRetention')
+    expect(scene.children[0].material.fragmentShader).toContain('float referenceLift')
     expect(scene.children[0].material.fragmentShader).toContain('float highlightProtection')
     expect(scene.children[0].material.fragmentShader).toContain('protectedHighlightReference')
-    expect(scene.children[0].material.fragmentShader).toContain('mix(0.58, 0.92, uQuality)')
+    expect(scene.children[0].material.fragmentShader).toContain('float compressedLuminance')
+    expect(scene.children[0].material.fragmentShader).toContain('mix(0.58, 0.84, uQuality)')
     expect(scene.children[0].material.fragmentShader).toContain('uMotion *')
     expect(scene.children[0].material.fragmentShader).toContain('uTranslationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('vec2 lightDirection = normalize(vec2(-0.68, 0.74))')

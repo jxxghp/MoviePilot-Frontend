@@ -210,9 +210,9 @@ describe('dashboard page initial layout', () => {
 
     expect(screen.getAllByTestId('dashboard-item')).toHaveLength(1)
     expect(screen.getByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'systemInfo')
-    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: true }), expect.any(HTMLElement))
+    expect(container.querySelector('.dashboard-grid')).not.toHaveClass('is-revealed')
     await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true))
-    await waitFor(() => expect(container.querySelector('.dashboard-grid')).toHaveClass('is-revealed'))
 
     remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
     remoteProfile.resolve({
@@ -241,7 +241,7 @@ describe('dashboard page initial layout', () => {
     await renderDashboard()
 
     expect(screen.getAllByTestId('dashboard-item')).toHaveLength(10)
-    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: true }), expect.any(HTMLElement))
 
     remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
     remoteProfile.resolve({
@@ -746,7 +746,7 @@ describe('dashboard page initial layout', () => {
     await waitFor(() => expect(mocks.grid.column).toHaveBeenCalledWith(1, 'list'))
     await waitFor(() => expect(mocks.grid.removeAll).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(10))
-    expect(mocks.grid.setAnimation).toHaveBeenCalledWith(false)
+    expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true)
     expect(mocks.grid.makeWidget.mock.calls.map(([, widget]) => widget.id)).toEqual([
       'storage',
       'mediaStatistic',
