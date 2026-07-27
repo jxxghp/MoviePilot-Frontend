@@ -27,8 +27,23 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
-import { commitPreloadedBackgroundRotation, preloadBackgroundRotationImages } from '@/utils/backgroundRotation'
-import { GLASS_OPTICAL_STRENGTH_DEFAULT } from '@/utils/glassOptics'
+import {
+  BACKGROUND_ROTATION_GRACE_MS,
+  commitPreloadedBackgroundRotation,
+  preloadBackgroundRotationImages,
+  preloadBackgroundSequence,
+  shouldAllowBackgroundRotation,
+} from '@/utils/backgroundRotation'
+import {
+  activateLoginBackgroundLayer,
+  createLoginBackgroundLayers,
+  getLoginGlassOpticalSettings,
+  getLoginVisualProfile,
+  getLoginWallpaperRequestMode,
+  prepareLoginBackgroundLayer,
+  settleLoginBackgroundLayers,
+  type LoginWallpaperRequestMode,
+} from '@/utils/loginPresentation'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
@@ -67,49 +82,88 @@ const offlineStatus = useGlobalOfflineStatus()
 // 全局设置store
 const globalSettingsStore = useGlobalSettingsStore()
 
-// 生成背景图片key
-const loginStateKey = computed(() => (isLogin.value ? 'logged-in' : 'logged-out'))
-
 // 背景图片
 const backgroundImages = ref<string[]>([])
+const backgroundLayers = ref(createLoginBackgroundLayers())
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
 const backgroundCrossfadeStartedAt = ref(0)
+const pendingOpticalBackgroundImage = ref('')
 const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivityState } = useAppActivityLifecycle()
 const preferredMotion = usePreferredReducedMotion()
-// 壁纸轮播同时服从应用活动状态与系统动态效果偏好。
-const allowsBackgroundRotation = computed(() => allowsDecorativeMotion.value && preferredMotion.value !== 'reduce')
+const backgroundRotationGraceActive = ref(false)
+let backgroundRotationGraceTimer: number | null = null
+// 壁纸时钟允许短时后台续跑；指针、滚动和流场仍服从更严格的应用活动状态。
+const allowsBackgroundRotation = computed(() =>
+  shouldAllowBackgroundRotation(
+    appActivityState.value,
+    backgroundRotationGraceActive.value,
+    preferredMotion.value === 'reduce',
+  ),
+)
 const isTransparentTheme = computed(() => globalTheme.name.value === 'transparent')
 const isGlassTheme = computed(() => globalTheme.name.value === 'glass')
 const effectiveGlassSettings = useEffectiveGlassSettings()
 const isInitialRouteReady = ref(false)
 const isBackdropTheme = computed(() => isTransparentTheme.value || isGlassTheme.value)
 const isLoginWallpaperRoute = computed(() => !isLogin.value && route.path === LOGIN_WALLPAPER_ROUTE)
-// 登录专题保持固定光学参数，避免全局用户偏好改变其独立视觉合成。
+const loginVisualProfile = computed(() => getLoginVisualProfile(globalTheme.name.value))
+const loginGlassSettings = computed(() =>
+  getLoginGlassOpticalSettings({
+    appearance: effectiveGlassSettings.value.glassAppearance,
+    deformationStrength: effectiveGlassSettings.value.glassDeformationStrength,
+    flowStrength: effectiveGlassSettings.value.glassFlowStrength,
+    preset: effectiveGlassSettings.value.glassPreset,
+    reflectionStrength: effectiveGlassSettings.value.glassReflectionStrength,
+    transmissionStrength: effectiveGlassSettings.value.glassTransmissionStrength,
+    translationStrength: effectiveGlassSettings.value.glassTranslationStrength,
+    transparencyStrength: effectiveGlassSettings.value.glassTransparencyStrength,
+  }),
+)
 const opticalDeformationStrength = computed(() =>
-  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassDeformationStrength,
+  isLoginWallpaperRoute.value
+    ? loginGlassSettings.value.deformationStrength
+    : effectiveGlassSettings.value.glassDeformationStrength,
 )
 const opticalFlowStrength = computed(() =>
-  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassFlowStrength,
+  isLoginWallpaperRoute.value ? loginGlassSettings.value.flowStrength : effectiveGlassSettings.value.glassFlowStrength,
+)
+const opticalQuality = computed(() =>
+  isLoginWallpaperRoute.value ? loginGlassSettings.value.quality : effectiveGlassSettings.value.glassQuality,
 )
 const opticalReflectionStrength = computed(() =>
-  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassReflectionStrength,
+  isLoginWallpaperRoute.value
+    ? loginGlassSettings.value.reflectionStrength
+    : effectiveGlassSettings.value.glassReflectionStrength,
 )
 const opticalTransparencyStrength = computed(() =>
-  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassTransparencyStrength,
+  isLoginWallpaperRoute.value
+    ? loginGlassSettings.value.transparencyStrength
+    : effectiveGlassSettings.value.glassTransparencyStrength,
 )
 const opticalTranslationStrength = computed(() =>
-  isLoginWallpaperRoute.value ? GLASS_OPTICAL_STRENGTH_DEFAULT : effectiveGlassSettings.value.glassTranslationStrength,
+  isLoginWallpaperRoute.value
+    ? loginGlassSettings.value.translationStrength
+    : effectiveGlassSettings.value.glassTranslationStrength,
 )
-const shouldUseTransparentBackgroundTreatment = computed(() => Boolean(isLogin.value) && isTransparentTheme.value)
-const shouldUseGlassBackgroundTreatment = computed(() => Boolean(isLogin.value) && isGlassTheme.value)
+const opticalTransmissionStrength = computed(() =>
+  isLoginWallpaperRoute.value
+    ? loginGlassSettings.value.transmissionStrength
+    : effectiveGlassSettings.value.glassTransmissionStrength,
+)
+const shouldUseTransparentBackgroundTreatment = computed(() => isTransparentTheme.value && Boolean(isLogin.value))
+const shouldUseGlassBackgroundTreatment = computed(
+  () => isGlassTheme.value && (Boolean(isLogin.value) || isLoginWallpaperRoute.value),
+)
 const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
 )
+const wallpaperRequestMode = computed(() => getLoginWallpaperRequestMode(loginVisualProfile.value))
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
+const renderedBackgroundLayers = computed(() => backgroundLayers.value)
 const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
-// 登录页的光学层只绘制程序化焦散，不会读取该跨域壁纸；登录后才通过同源缓存采样纹理。
+// 玻璃 profile 使用同源 catalog；旧后端返回外链时仍由 renderer 的纹理失败路径安全回退。
 const activeOpticalBackgroundImage = computed(() => getOpticalBackgroundImage(activeBackgroundImage.value))
 const previousOpticalBackgroundImage = computed(() => {
   const previousIndex = previousImageIndex.value
@@ -117,13 +171,10 @@ const previousOpticalBackgroundImage = computed(() => {
 
   return getOpticalBackgroundImage(backgroundImages.value[previousIndex] ?? '')
 })
-const appWrapperStyle = computed(() => ({
-  '--login-wallpaper-image': activeBackgroundImage.value ? `url("${activeBackgroundImage.value}")` : 'none',
-}))
 const shouldRenderGlassOpticalLayer = computed(
   () =>
     isGlassTheme.value &&
-    effectiveGlassSettings.value.glassQuality !== 'css' &&
+    opticalQuality.value !== 'css' &&
     isInitialRouteReady.value &&
     Boolean(activeBackgroundImage.value),
 )
@@ -141,8 +192,11 @@ const shouldRenderGlobalBlurLayer = computed(
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
+let pendingOpticalWallpaperTimer: number | null = null
+let pendingOpticalWallpaperResolve: ((ready: boolean) => void) | null = null
 let authenticatedStateTimer: number | null = null
 let backgroundRotationVersion = 0
+let backgroundPreloadVersion = 0
 
 // 读取并同步透明主题背景设置到根组件响应式状态。
 function applyTransparentBackgroundSettings() {
@@ -367,12 +421,44 @@ function clearBackgroundCrossfadeTimer() {
   }
 }
 
+/** 结束当前 GPU 纹理预备等待，旧请求不得继续提交壁纸切换。 */
+function settlePendingOpticalWallpaper(ready: boolean) {
+  if (pendingOpticalWallpaperTimer !== null) {
+    window.clearTimeout(pendingOpticalWallpaperTimer)
+    pendingOpticalWallpaperTimer = null
+  }
+  pendingOpticalBackgroundImage.value = ''
+  pendingOpticalWallpaperResolve?.(ready)
+  pendingOpticalWallpaperResolve = null
+}
+
+/** 等待两个 WebGL 呈现 context 完成下一张纹理上传。 */
+function prepareOpticalWallpaper(url: string) {
+  if (!shouldRenderGlassOpticalLayer.value || !url || url === activeOpticalBackgroundImage.value) {
+    return Promise.resolve(true)
+  }
+
+  settlePendingOpticalWallpaper(false)
+  pendingOpticalBackgroundImage.value = url
+
+  return new Promise<boolean>(resolve => {
+    pendingOpticalWallpaperResolve = resolve
+    pendingOpticalWallpaperTimer = window.setTimeout(() => settlePendingOpticalWallpaper(false), 10000)
+  })
+}
+
+/** 只接受当前待切换 URL 的 renderer 就绪回执。 */
+function handleOpticalWallpaperPrepared(url: string) {
+  if (url === pendingOpticalBackgroundImage.value) settlePendingOpticalWallpaper(true)
+}
+
 // 重置背景图交叉淡入淡出状态。
 function resetBackgroundCrossfade() {
   clearBackgroundCrossfadeTimer()
   previousImageIndex.value = null
   isBackgroundCrossfading.value = false
   backgroundCrossfadeStartedAt.value = 0
+  backgroundLayers.value = createLoginBackgroundLayers(activeBackgroundImage.value)
 }
 
 // 切换期保留上一张背景的渲染状态，避免图片合成层重建时露出透明底。
@@ -380,27 +466,31 @@ function activateBackgroundImage(nextIndex: number) {
   if (nextIndex === activeImageIndex.value) return
 
   clearBackgroundCrossfadeTimer()
+  backgroundLayers.value = prepareLoginBackgroundLayer(backgroundLayers.value, backgroundImages.value[nextIndex] ?? '')
   previousImageIndex.value = activeImageIndex.value
   isBackgroundCrossfading.value = true
   backgroundCrossfadeStartedAt.value = performance.now()
   activeImageIndex.value = nextIndex
+  backgroundLayers.value = activateLoginBackgroundLayer(backgroundLayers.value)
   backgroundCrossfadeTimer = window.setTimeout(() => {
     previousImageIndex.value = null
     isBackgroundCrossfading.value = false
+    backgroundLayers.value = settleLoginBackgroundLayers(backgroundLayers.value)
     backgroundCrossfadeTimer = null
   }, BACKGROUND_CROSSFADE_DURATION_MS)
 }
 
 // 获取背景图片
-async function fetchBackgroundImages() {
+async function fetchBackgroundImages(requestMode: LoginWallpaperRequestMode) {
   try {
     backgroundRequestController?.abort()
     backgroundRequestController = new AbortController()
     backgroundImages.value = await api.get(`/login/wallpapers`, {
+      params: requestMode === 'same-origin' ? { same_origin: true } : undefined,
       signal: backgroundRequestController.signal,
     })
-    resetBackgroundCrossfade()
     activeImageIndex.value = 0
+    resetBackgroundCrossfade()
   } catch (e) {
     throw e
   }
@@ -415,10 +505,7 @@ function rotateBackgroundImage() {
     const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
     const requestVersion = ++backgroundRotationVersion
     const nextImage = backgroundImages.value[nextIndex]
-    const opticalImage =
-      shouldRenderGlassOpticalLayer.value && !isLoginWallpaperRoute.value
-        ? getOpticalBackgroundImage(nextImage)
-        : undefined
+    const opticalImage = shouldRenderGlassOpticalLayer.value ? getOpticalBackgroundImage(nextImage) : undefined
 
     void commitPreloadedBackgroundRotation({
       canCommit: () => allowsBackgroundRotation.value && requestVersion === backgroundRotationVersion,
@@ -428,15 +515,51 @@ function rotateBackgroundImage() {
           displayUrl: nextImage,
           opticalUrl: opticalImage,
           preload: preloadImage,
-        }),
+        }).then(imagesReady => (imagesReady && opticalImage ? prepareOpticalWallpaper(opticalImage) : imagesReady)),
     })
   }
+}
+
+/** 当前图稳定后按轮播顺序串行预加载其余壁纸，队列失效时不再发起新请求。 */
+async function preloadRemainingBackgroundImages() {
+  if (backgroundImages.value.length <= 1) return
+
+  const version = ++backgroundPreloadVersion
+  const orderedImages = backgroundImages.value
+    .slice(activeImageIndex.value + 1)
+    .concat(backgroundImages.value.slice(0, activeImageIndex.value))
+
+  await preloadBackgroundSequence({
+    canContinue: () => version === backgroundPreloadVersion && shouldLoadBackgroundImages.value,
+    preload: preloadImage,
+    urls: orderedImages,
+  })
 }
 
 // 停止轮询并使已经发起的壁纸预加载失效，避免非活动状态收到迟到提交。
 function stopBackgroundRotation() {
   backgroundRotationVersion += 1
+  backgroundPreloadVersion += 1
   removeBackgroundTimer('background-rotation')
+  settlePendingOpticalWallpaper(false)
+}
+
+function clearBackgroundRotationGrace() {
+  if (backgroundRotationGraceTimer !== null) {
+    window.clearTimeout(backgroundRotationGraceTimer)
+    backgroundRotationGraceTimer = null
+  }
+}
+
+function startBackgroundRotationGrace() {
+  if (backgroundRotationGraceActive.value) return
+
+  backgroundRotationGraceActive.value = true
+  clearBackgroundRotationGrace()
+  backgroundRotationGraceTimer = window.setTimeout(() => {
+    backgroundRotationGraceTimer = null
+    backgroundRotationGraceActive.value = false
+  }, BACKGROUND_ROTATION_GRACE_MS)
 }
 
 // 开始背景图片轮换
@@ -444,18 +567,40 @@ function startBackgroundRotation() {
   stopBackgroundRotation()
 
   if (allowsBackgroundRotation.value && backgroundImages.value.length > 1) {
-    // 使用优化的定时器管理器，后台时自动暂停
+    // 宽限期结束会使预载队列失效；恢复活动状态时从当前图继续补齐剩余壁纸。
+    void preloadRemainingBackgroundImages()
+    // 隐藏页面也允许在有界宽限期内轮换，回调自身会再次核对生命周期。
     addBackgroundTimer(
       'background-rotation',
       rotateBackgroundImage,
       10000, // 每10秒切换一次
       {
-        runInBackground: false, // 后台时不运行
+        runInBackground: true,
         skipInitialRun: true, // 不需要立即执行
       },
     )
   }
 }
+
+watch(
+  appActivityState,
+  (state, previousState) => {
+    if (state === 'active') {
+      clearBackgroundRotationGrace()
+      backgroundRotationGraceActive.value = false
+      return
+    }
+
+    if (state === 'idle') {
+      clearBackgroundRotationGrace()
+      backgroundRotationGraceActive.value = false
+      return
+    }
+
+    if (previousState === 'active') startBackgroundRotationGrace()
+  },
+  { flush: 'sync' },
+)
 
 watch(allowsBackgroundRotation, allowsRotation => {
   resetBackgroundCrossfade()
@@ -565,10 +710,12 @@ async function removeLoadingWithStateCheck() {
 }
 
 // 加载背景图片
-async function loadBackgroundImages(retryCount = 0) {
+async function loadBackgroundImages(requestMode: LoginWallpaperRequestMode, retryCount = 0) {
   const maxRetries = 3
   try {
-    await fetchBackgroundImages()
+    await fetchBackgroundImages(requestMode)
+    const activeImage = activeBackgroundImage.value
+    if (activeImage && !(await preloadImage(activeImage))) throw new Error('登录壁纸首图预加载失败')
     startBackgroundRotation()
   } catch (error: any) {
     const isAbortError = error.name === 'AbortError' || error.code === 'ERR_CANCELED'
@@ -577,7 +724,7 @@ async function loadBackgroundImages(retryCount = 0) {
       const retryDelay = Math.min(baseDelay * Math.pow(2, retryCount), 10000)
       backgroundRetryTimer = window.setTimeout(() => {
         backgroundRetryTimer = null
-        loadBackgroundImages(retryCount + 1)
+        loadBackgroundImages(requestMode, retryCount + 1)
       }, retryDelay)
     }
   }
@@ -621,13 +768,13 @@ onMounted(async () => {
   window.addEventListener('focus', handlePageShowThemeSync)
   window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 
-  // 登录页壁纸仅在未登录登录页需要，避免其他首屏额外发起图片列表请求。
+  // 背景范围或玻璃同源能力变化时重新加载；登录前后玻璃主题保持同一请求模式和活动壁纸。
   watch(
-    shouldLoadBackgroundImages,
-    shouldLoad => {
+    () => [shouldLoadBackgroundImages.value, wallpaperRequestMode.value] as const,
+    ([shouldLoad, requestMode]) => {
       stopBackgroundLoading()
       if (shouldLoad) {
-        loadBackgroundImages()
+        loadBackgroundImages(requestMode)
       } else if (!isBackdropTheme.value) {
         backgroundImages.value = []
       }
@@ -663,6 +810,7 @@ onMounted(async () => {
 onUnmounted(() => {
   // 清除背景轮换定时器
   stopBackgroundLoading()
+  clearBackgroundRotationGrace()
   if (authenticatedStateTimer) {
     window.clearTimeout(authenticatedStateTimer)
     authenticatedStateTimer = null
@@ -684,10 +832,11 @@ onUnmounted(() => {
     :class="{
       'app-wrapper--background-transition': isBackgroundCrossfading,
       'app-wrapper--decorative-motion-paused': !allowsDecorativeMotion,
+      'app-wrapper--login-glass-high': isLoginWallpaperRoute && loginVisualProfile === 'glass',
+      'app-wrapper--login-wallpaper': isLoginWallpaperRoute,
       'app-wrapper--render-throttled': isRenderThrottled,
     }"
     :data-app-activity-state="appActivityState"
-    :style="appWrapperStyle"
   >
     <!-- 登录页、透明主题和玻璃主题共用动态壁纸场景。 -->
     <div
@@ -701,11 +850,11 @@ onUnmounted(() => {
       }"
     >
       <div
-        v-for="(imageUrl, index) in backgroundImages"
-        :key="`bg-${index}-${loginStateKey}`"
+        v-for="layer in renderedBackgroundLayers"
+        :key="layer.key"
         class="background-image"
-        :class="{ 'active': index === activeImageIndex, 'previous': index === previousImageIndex }"
-        :style="{ 'backgroundImage': `url(${imageUrl})` }"
+        :class="layer.role"
+        :style="{ 'backgroundImage': layer.url ? `url(${layer.url})` : undefined }"
       />
       <!-- 全局磨砂层 -->
       <div v-if="shouldRenderGlobalBlurLayer" class="global-blur-layer"></div>
@@ -715,9 +864,10 @@ onUnmounted(() => {
       :appearance="effectiveGlassSettings.glassAppearance"
       :deformation-strength="opticalDeformationStrength"
       :flow-strength="opticalFlowStrength"
-      :quality="effectiveGlassSettings.glassQuality === 'high' ? 'high' : 'balanced'"
+      :quality="opticalQuality === 'high' ? 'high' : 'balanced'"
       :reflection-strength="opticalReflectionStrength"
       :transparency-strength="opticalTransparencyStrength"
+      :transmission-strength="opticalTransmissionStrength"
       :translation-strength="opticalTranslationStrength"
       :route-key="route.fullPath"
       :tint-color="globalTheme.current.value.colors.primary"
@@ -725,9 +875,14 @@ onUnmounted(() => {
       :transition-started-at="backgroundCrossfadeStartedAt"
       :wallpaper-url="activeOpticalBackgroundImage"
       :previous-wallpaper-url="previousOpticalBackgroundImage"
+      :pending-wallpaper-url="pendingOpticalBackgroundImage"
+      @wallpaper-prepared="handleOpticalWallpaperPrepared"
     />
     <!-- 页面内容 -->
-    <VApp :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }">
+    <VApp
+      :class="{ 'app-shell--login-wallpaper': isLoginWallpaperRoute }"
+      :data-login-visual-profile="isLoginWallpaperRoute ? loginVisualProfile : undefined"
+    >
       <RouterView />
       <!-- 全局共享弹窗入口，列表与卡片按需在这里挂载业务弹窗。 -->
       <SharedDialogHost />
@@ -753,6 +908,14 @@ onUnmounted(() => {
   inline-size: 100%;
   inset-block-start: 0;
   inset-inline-start: 0;
+}
+
+// 登录内容与壁纸进入同一文档弹性合成上下文；sticky 仍保持普通滚动时的 viewport 锁定。
+.app-wrapper--login-wallpaper .background-container {
+  position: sticky;
+  block-size: 100dvh;
+  margin-block-end: -100dvh;
+  inset-block-start: 0;
 }
 
 .background-image {
@@ -803,8 +966,8 @@ onUnmounted(() => {
 .background-container.is-glass-theme .background-image.active::after,
 .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, transparent 24%, rgba(6, 10, 19, 16%) 100%),
-    linear-gradient(rgba(6, 10, 19, 14%) 0%, rgba(6, 10, 19, 40%) 100%);
+    radial-gradient(circle at 50% 18%, transparent 24%, rgba(6, 10, 19, 12%) 100%),
+    linear-gradient(rgba(6, 10, 19, 10%) 0%, rgba(6, 10, 19, 30%) 100%);
 }
 
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active,
@@ -819,8 +982,8 @@ html[data-glass-appearance='tinted'] .background-container.is-glass-theme .backg
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-appearance='tinted'] .background-container.is-glass-theme .background-image.previous::after {
   background:
-    radial-gradient(circle at 50% 18%, transparent 22%, rgba(6, 10, 19, 18%) 100%),
-    linear-gradient(rgba(6, 10, 19, 14%) 0%, rgba(6, 10, 19, 42%) 100%), rgba(var(--v-theme-primary), 3%);
+    radial-gradient(circle at 50% 18%, transparent 22%, rgba(6, 10, 19, 14%) 100%),
+    linear-gradient(rgba(6, 10, 19, 10%) 0%, rgba(6, 10, 19, 32%) 100%), rgba(var(--v-theme-primary), 3%);
 }
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active,
@@ -834,7 +997,7 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
 
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.active::after,
 html[data-glass-appearance='frosted'] .background-container.is-glass-theme .background-image.previous::after {
-  background: linear-gradient(rgba(6, 10, 19, 30%) 0%, rgba(6, 10, 19, 58%) 100%), rgba(11, 19, 34, 10%);
+  background: linear-gradient(rgba(6, 10, 19, 24%) 0%, rgba(6, 10, 19, 48%) 100%), rgba(11, 19, 34, 8%);
 }
 
 .background-container.is-transparent-glass-lightweight .background-image.active,
@@ -867,7 +1030,7 @@ html[data-glass-appearance='frosted'] .background-container.is-glass-theme .back
 }
 
 .app-wrapper--decorative-motion-paused {
-  .login-bg-decor *,
+  .login-ambient-light *,
   .login-logo,
   .login-logo-wrapper,
   .login-logo-wrapper::before,

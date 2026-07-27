@@ -26,9 +26,10 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassFlowStrength).toBe(50)
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassQuality).toBe('balanced')
-    expect(settings.glassReflectionStrength).toBe(50)
+    expect(settings.glassReflectionStrength).toBe(35)
+    expect(settings.glassTransmissionStrength).toBe(70)
     expect(settings.glassTranslationStrength).toBe(50)
-    expect(settings.glassTransparencyStrength).toBe(50)
+    expect(settings.glassTransparencyStrength).toBe(70)
   })
 
   it.each(['balanced', 'high'] as const)('preserves the %s quality contract', quality => {
@@ -63,6 +64,7 @@ describe('useThemeCustomizer glass settings', () => {
         glassDeformationStrength: -12,
         glassFlowStrength: 42.6,
         glassReflectionStrength: 140.6,
+        glassTransmissionStrength: 78.4,
         glassTranslationStrength: 101,
         glassTransparencyStrength: 83.7,
       }),
@@ -72,6 +74,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassDeformationStrength: 0,
       glassFlowStrength: 43,
       glassReflectionStrength: 100,
+      glassTransmissionStrength: 78,
       glassTranslationStrength: 100,
       glassTransparencyStrength: 84,
     })
@@ -87,6 +90,12 @@ describe('useThemeCustomizer glass settings', () => {
     })
   })
 
+  it('keeps neutral transmission for stored settings created before the field existed', () => {
+    localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassAppearance: 'clear' }))
+
+    expect(readThemeCustomizerSettings().glassTransmissionStrength).toBe(50)
+  })
+
   it('syncs glass settings to the document roots', () => {
     const settings = readThemeCustomizerSettings()
 
@@ -100,10 +109,12 @@ describe('useThemeCustomizer glass settings', () => {
     expect(document.documentElement.dataset.glassQuality).toBe('high')
     expect(document.body.dataset.glassAppearance).toBe('tinted')
     expect(document.body.dataset.glassQuality).toBe('high')
-    expect(document.documentElement.style.getPropertyValue('--glass-reflection')).toBe('0.5')
-    expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.5')
-    expect(document.documentElement.style.getPropertyValue('--glass-transparency')).toBe('0.5')
-    expect(document.body.style.getPropertyValue('--glass-transparency')).toBe('0.5')
+    expect(document.documentElement.style.getPropertyValue('--glass-reflection')).toBe('0.35')
+    expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.35')
+    expect(Number(document.documentElement.style.getPropertyValue('--glass-transmission'))).toBe(1)
+    expect(document.body.style.getPropertyValue('--glass-transmission-brightness')).not.toBe('')
+    expect(Number(document.documentElement.style.getPropertyValue('--glass-transparency'))).toBeCloseTo(0.96, 2)
+    expect(Number(document.body.style.getPropertyValue('--glass-transparency'))).toBeCloseTo(0.96, 2)
   })
 
   it('previews glass settings without persisting them', () => {
@@ -126,6 +137,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassPreset: 'glide',
       glassQuality: 'css',
       glassReflectionStrength: 81,
+      glassTransmissionStrength: 76,
       glassTranslationStrength: 69,
       glassTransparencyStrength: 80,
     })
@@ -139,6 +151,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassPreset: 'glide',
       glassQuality: 'css',
       glassReflectionStrength: 81,
+      glassTransmissionStrength: 76,
       glassTranslationStrength: 69,
       glassTransparencyStrength: 80,
     })
@@ -163,6 +176,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassDeformationStrength: 42,
       glassFlowStrength: 44,
       glassReflectionStrength: 66,
+      glassTransmissionStrength: 64,
       glassTranslationStrength: 46,
       glassTransparencyStrength: 72,
     })
@@ -171,6 +185,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassDeformationStrength: 90,
       glassFlowStrength: 88,
       glassReflectionStrength: 12,
+      glassTransmissionStrength: 92,
       glassTranslationStrength: 86,
       glassTransparencyStrength: 94,
     })
@@ -179,6 +194,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassDeformationStrength: 90,
       glassFlowStrength: 88,
       glassReflectionStrength: 12,
+      glassTransmissionStrength: 92,
       glassTranslationStrength: 86,
       glassTransparencyStrength: 94,
     })
@@ -191,6 +207,7 @@ describe('useThemeCustomizer glass settings', () => {
       glassDeformationStrength: 42,
       glassFlowStrength: 44,
       glassReflectionStrength: 66,
+      glassTransmissionStrength: 64,
       glassTranslationStrength: 46,
       glassTransparencyStrength: 72,
     })

@@ -20,6 +20,8 @@ const props = defineProps<{
   reflectionStrength: number
   /** 用户选择的真实壁纸可见度。 */
   transparencyStrength: number
+  /** 玻璃内部壁纸采样的透射亮度；不会改变外层壁纸的曝光合同。 */
+  transmissionStrength: number
   /** 用户选择的共享壁纸采样平移强度。 */
   translationStrength: number
   /** 路由变化标识，用于在页面内容稳定后重新发现高价值表面。 */
@@ -34,6 +36,12 @@ const props = defineProps<{
   wallpaperUrl: string
   /** 切换期保留的上一张壁纸；空值表示当前没有交叉淡化。 */
   previousWallpaperUrl: string
+  /** 下一张同源壁纸；两个 context 均完成上传后才允许外层提交切换。 */
+  pendingWallpaperUrl?: string
+}>()
+const emit = defineEmits<{
+  /** fixed 与 scroll renderer 均已准备同一张待切换纹理。 */
+  wallpaperPrepared: [url: string]
 }>()
 
 const fixedCanvas = ref<HTMLCanvasElement | null>(null)
@@ -49,6 +57,7 @@ const fixedRenderer = useGlassOpticalRenderer({
   quality: () => props.quality,
   reflectionStrength: () => props.reflectionStrength,
   transparencyStrength: () => props.transparencyStrength,
+  transmissionStrength: () => props.transmissionStrength,
   translationStrength: () => props.translationStrength,
   routeKey: () => props.routeKey,
   tintColor: () => props.tintColor,
@@ -56,6 +65,7 @@ const fixedRenderer = useGlassOpticalRenderer({
   transitionStartedAt: () => props.transitionStartedAt,
   wallpaperUrl: () => props.wallpaperUrl,
   previousWallpaperUrl: () => props.previousWallpaperUrl,
+  pendingWallpaperUrl: () => props.pendingWallpaperUrl ?? '',
   surfaceSpace: 'fixed',
   syncDocumentState: false,
 })
@@ -69,6 +79,7 @@ const scrollRenderer = useGlassOpticalRenderer({
   quality: () => props.quality,
   reflectionStrength: () => props.reflectionStrength,
   transparencyStrength: () => props.transparencyStrength,
+  transmissionStrength: () => props.transmissionStrength,
   translationStrength: () => props.translationStrength,
   routeKey: () => props.routeKey,
   tintColor: () => props.tintColor,
@@ -76,6 +87,7 @@ const scrollRenderer = useGlassOpticalRenderer({
   transitionStartedAt: () => props.transitionStartedAt,
   wallpaperUrl: () => props.wallpaperUrl,
   previousWallpaperUrl: () => props.previousWallpaperUrl,
+  pendingWallpaperUrl: () => props.pendingWallpaperUrl ?? '',
   surfaceSpace: 'scroll',
   syncDocumentState: false,
 })
@@ -92,6 +104,13 @@ watchEffect(() => {
       : 'fallback'
 
   setGlassRendererState(rendererState, state)
+})
+
+watchEffect(() => {
+  const url = props.pendingWallpaperUrl
+  if (url && fixedRenderer.preparedWallpaperUrl.value === url && scrollRenderer.preparedWallpaperUrl.value === url) {
+    emit('wallpaperPrepared', url)
+  }
 })
 
 onScopeDispose(() => {

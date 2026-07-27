@@ -1,4 +1,10 @@
-import { commitPreloadedBackgroundRotation, preloadBackgroundRotationImages } from '@/utils/backgroundRotation'
+import {
+  BACKGROUND_ROTATION_GRACE_MS,
+  commitPreloadedBackgroundRotation,
+  preloadBackgroundRotationImages,
+  preloadBackgroundSequence,
+  shouldAllowBackgroundRotation,
+} from '@/utils/backgroundRotation'
 import { describe, expect, it, vi } from 'vitest'
 
 function deferred<T>() {
@@ -9,6 +15,18 @@ function deferred<T>() {
 
   return { promise, resolve }
 }
+
+describe('background rotation lifecycle', () => {
+  it('keeps wallpaper rotation independent from paused interaction effects during the bounded grace period', () => {
+    expect(BACKGROUND_ROTATION_GRACE_MS).toBe(60_000)
+    expect(shouldAllowBackgroundRotation('active', false, false)).toBe(true)
+    expect(shouldAllowBackgroundRotation('passive', true, false)).toBe(true)
+    expect(shouldAllowBackgroundRotation('suspended', true, false)).toBe(true)
+    expect(shouldAllowBackgroundRotation('passive', false, false)).toBe(false)
+    expect(shouldAllowBackgroundRotation('idle', false, false)).toBe(false)
+    expect(shouldAllowBackgroundRotation('active', false, true)).toBe(false)
+  })
+})
 
 describe('commitPreloadedBackgroundRotation', () => {
   it('drops a successful preload when the rotation becomes inactive before completion', async () => {
@@ -85,5 +103,40 @@ describe('preloadBackgroundRotationImages', () => {
       }),
     ).resolves.toBe(false)
     expect(preload).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('preloadBackgroundSequence', () => {
+  it('preloads remaining wallpapers sequentially in rotation order', async () => {
+    const calls: string[] = []
+
+    await expect(
+      preloadBackgroundSequence({
+        canContinue: () => true,
+        preload: async url => {
+          calls.push(url)
+          return url !== 'two.jpg'
+        },
+        urls: ['one.jpg', 'two.jpg', 'three.jpg'],
+      }),
+    ).resolves.toEqual([true, false, true])
+    expect(calls).toEqual(['one.jpg', 'two.jpg', 'three.jpg'])
+  })
+
+  it('stops an obsolete queue before starting the next image', async () => {
+    let active = true
+    const calls: string[] = []
+
+    await preloadBackgroundSequence({
+      canContinue: () => active,
+      preload: async url => {
+        calls.push(url)
+        active = false
+        return true
+      },
+      urls: ['one.jpg', 'two.jpg'],
+    })
+
+    expect(calls).toEqual(['one.jpg'])
   })
 })
