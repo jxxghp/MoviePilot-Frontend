@@ -1758,7 +1758,18 @@ describe('glass optical surface discovery', () => {
       'frosted * (1.0 - smoothstep(0.0, 0.28, uTransparency))',
     )
     expect(scene.children[0].material.fragmentShader).toContain('1.0 + frostedDensity * mix(1.15, 1.55, uQuality)')
-    expect(scene.children[0].material.fragmentShader).toContain('mix(0.78, 0.94, uTransparency)')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'smoothstep(0.02, 0.55, liquidPresence)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'mix(uTransparency * 0.26, 0.92, opticalCoverage)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'mix(frostedBaseAlpha, 0.94, opticalCoverage)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'mix(uTransparency * 0.44, 0.92, opticalCoverage)',
+    )
     expect(scene.children[0].material.fragmentShader).toContain('vec3 transmissionReference')
     expect(scene.children[0].material.fragmentShader).toContain('float referenceLift')
     expect(scene.children[0].material.fragmentShader).toContain('float highlightProtection')
@@ -1773,7 +1784,9 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain(
       'causticHighlightMix * uReflectionStrength * highlightBudget',
     )
-    expect(scene.children[0].material.fragmentShader).toContain('mix(0.78, 0.94, uTransparency)')
+    expect(scene.children[0].material.fragmentShader).not.toContain(
+      'materialAlpha = uTransparency * mix(',
+    )
     expect(scene.children[0].material.fragmentShader).not.toContain('mix(0.035, 0.4')
     expect(scene.children[0].material.fragmentShader).not.toContain('sin(')
 

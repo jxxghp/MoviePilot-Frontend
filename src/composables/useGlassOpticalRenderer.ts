@@ -780,7 +780,9 @@ void main() {
   float edgeHighlightMix = 0.12;
   float causticHighlightMix = 0.075;
   float liquidPresence = clamp(materialEnergy, 0.0, 1.0);
-  float materialAlpha = uTransparency * mix(0.26, 0.76, liquidPresence);
+  // 只有局部动态覆盖可以提高壁纸替换权，静止像素继续遵循用户设置的通透度。
+  float opticalCoverage = smoothstep(0.02, 0.55, liquidPresence);
+  float materialAlpha = mix(uTransparency * 0.26, 0.92, opticalCoverage);
   float proceduralEdgeAlpha = 0.14;
   float proceduralCausticAlpha = 0.075;
 
@@ -788,14 +790,15 @@ void main() {
     highlight = vec3(0.94, 0.97, 1.0);
     edgeHighlightMix = 0.15;
     causticHighlightMix = 0.042;
-    materialAlpha = mix(0.78, 0.94, uTransparency) * mix(0.9, 1.0, liquidPresence);
+    float frostedBaseAlpha = mix(0.78, 0.94, uTransparency) * 0.9;
+    materialAlpha = mix(frostedBaseAlpha, 0.94, opticalCoverage);
     proceduralEdgeAlpha = 0.16;
     proceduralCausticAlpha = 0.045;
   } else if (uAppearance > 0.5) {
     highlight = mix(vec3(1.0), uTintColor, 0.72);
     edgeHighlightMix = 0.17;
     causticHighlightMix = 0.085;
-    materialAlpha = uTransparency * mix(0.44, 0.84, liquidPresence);
+    materialAlpha = mix(uTransparency * 0.44, 0.92, opticalCoverage);
   }
 
   if (uHasWallpaperTexture < 0.5) {
