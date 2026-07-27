@@ -73,7 +73,7 @@ const ProgressiveCardGridStub = defineComponent({
         h(
           'output',
           { 'aria-label': '热门订阅渐进网格键' },
-          props.items.map((item, index) => String(props.getItemKey(item, index))).join('|'),
+          JSON.stringify(props.items.map((item, index) => props.getItemKey(item, index))),
         ),
         ...props.items.flatMap(item => slots.default?.({ item }) ?? []),
       ])
@@ -395,7 +395,19 @@ describe('SubscribePopularView', () => {
 
     expect(await screen.findByText('同剧第一季')).toBeInTheDocument()
     expect(screen.getByText('同剧第二季')).toBeInTheDocument()
-    const keys = screen.getByRole('status', { name: '热门订阅渐进网格键' }).textContent?.split('|') ?? []
-    expect(keys).toEqual(['unknown:tmdb:880:season:1', 'unknown:tmdb:880:season:2'])
+
+    // 新的 getMediaIdentity 使用 JSON.stringify(dedupFields.map(...))
+    // dedupFields: ['source', 'type', 'season', 'tmdb_id', 'imdb_id', 'tvdb_id', 'douban_id', 'bangumi_id', 'anilist_id', 'mediaid_prefix', 'media_id']
+    const identityFields = ['source', 'type', 'season', 'tmdb_id', 'imdb_id', 'tvdb_id', 'douban_id', 'bangumi_id', 'anilist_id', 'mediaid_prefix', 'media_id'] as const
+    const item1 = createSubscribeTv({ season: 1, source: undefined, title: '同剧第一季', tmdb_id: 880 })
+    const item2 = createSubscribeTv({ season: 2, source: undefined, title: '同剧第二季', tmdb_id: 880 })
+    const expectedKeys = [
+      JSON.stringify(identityFields.map(field => item1[field] ?? null)),
+      JSON.stringify(identityFields.map(field => item2[field] ?? null)),
+    ]
+
+    const keysText = screen.getByRole('status', { name: '热门订阅渐进网格键' }).textContent ?? ''
+    const keys = JSON.parse(keysText)
+    expect(keys).toEqual(expectedKeys)
   })
 })
