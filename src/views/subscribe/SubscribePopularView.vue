@@ -31,8 +31,14 @@ const isRefreshed = ref(false)
 // 当前列表请求是否失败；合法空数组仍使用空数据状态。
 const loadError = ref(false)
 
-// 数据列表
-const dataList = ref<MediaInfo[]>([])
+// 使用 shallowRef 避免长列表中的深层代理开销
+const dataList = shallowRef<MediaInfo[]>([])
+
+// 用于保存已处理过的 key（去重）
+const seenKeys = new Set<string>()
+
+// 保存本次列表生命周期内已经处理过的原始页签名（检测分页循环）
+const seenPageSignatures = new Set<string>()
 
 // 筛选重置允许新旧请求短暂并行，只接纳当前代次的响应。
 let requestGeneration = 0
@@ -53,6 +59,8 @@ const currentKey = ref(0)
 function resetData() {
   requestGeneration++
   dataList.value = []
+  seenKeys.clear()
+  seenPageSignatures.clear()
   page.value = 1
   isRefreshed.value = false
   loadError.value = false
@@ -144,6 +152,56 @@ function getParams() {
   return params
 }
 
+// MediaInfo 去重的字段
+const dedupFields = [
+  'source',
+  'type',
+  'season',
+  'tmdb_id',
+  'imdb_id',
+  'tvdb_id',
+  'douban_id',
+  'bangumi_id',
+  'anilist_id',
+  'mediaid_prefix',
+  'media_id',
+] as const
+
+// 去重、分页终止和渲染必须共用同一媒体身份，避免状态与 DOM key 分叉。
+function getMediaIdentity(item: MediaInfo) {
+  return JSON.stringify(dedupFields.map(field => item[field] ?? null))
+}
+
+function deduplicate(items: MediaInfo[]): MediaInfo[] {
+  return items.filter(item => {
+    const key = getMediaIdentity(item)
+    if (seenKeys.has(key)) {
+      return false
+    }
+    seenKeys.add(key)
+    return true
+  })
+}
+
+function appendData(items: MediaInfo[]) {
+  dataList.value = dataList.value.concat(items)
+}
+
+async function loadPageData() {
+  const rawData: MediaInfo[] = await api.get(apipath, {
+    params: getParams(),
+  })
+  const pageSignature = [...new Set(rawData.map(getMediaIdentity))].sort().join('\n')
+  const isTerminal = rawData.length === 0 || seenPageSignatures.has(pageSignature)
+
+  if (!isTerminal) seenPageSignatures.add(pageSignature)
+
+  return {
+    isTerminal,
+    uniqueData: isTerminal ? [] : deduplicate(rawData),
+  }
+}
+
 // 获取列表数据
 async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') => void }) {
   const generation = requestGeneration
@@ -158,19 +216,17 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
 
   try {
     while (generation === requestGeneration) {
-      const currentData: MediaInfo[] = await api.get(apipath, {
-        params: getParams(),
-      })
+      const { isTerminal, uniqueData } = await loadPageData()
 
       if (generation !== requestGeneration) return
 
       isRefreshed.value = true
-      if (currentData.length === 0) {
+      if (isTerminal) {
         done('empty')
         return
       }
 
-      dataList.value = [...dataList.value, ...currentData]
+      appendData(uniqueData)
       page.value++
       done('ok')
       await nextTick()
@@ -187,31 +243,6 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
   } finally {
     loadingGenerations.delete(generation)
   }
-}
-
-/** 使用媒体来源、稳定 ID 与季号区分热门条目。 */
-function getMediaItemKey(item: MediaInfo) {
-  // 优先使用明确的 ID 字段，按优先级顺序
-  let key = ''
-
-  if (item.tmdb_id) {
-    key = `tmdb:${item.tmdb_id}`
-  } else if (item.douban_id) {
-    key = `douban:${item.douban_id}`
-  } else if (item.bangumi_id) {
-    key = `bangumi:${item.bangumi_id}`
-  } else if (item.anilist_id) {
-    key = `anilist:${item.anilist_id}`
-  } else if (item.media_id && item.source) {
-    key = `${item.source}:${item.media_id}`
-  } else if (item.media_id && item.mediaid_prefix) {
-    key = `${item.mediaid_prefix}:${item.media_id}`
-  } else {
-    // 降级到标题
-    key = `title:${item.title ?? 'unknown'}`
-  }
-
-  return `${key}:season:${item.season ?? 'all'}`
 }
 </script>
 
@@ -295,7 +326,7 @@ function getMediaItemKey(item: MediaInfo) {
     <ProgressiveCardGrid
       v-if="dataList.length > 0"
       :items="dataList"
-      :get-item-key="getMediaItemKey"
+      :get-item-key="getMediaIdentity"
       :min-item-width="144"
       :estimated-item-height="320"
       tabindex="0"
