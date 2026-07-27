@@ -168,25 +168,9 @@ html[data-theme='glass'] {
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
   &[data-glass-appearance='frosted'] {
-    --glass-frost-low-end-density: max(0, calc(0.28 - var(--glass-transparency, 0.5)));
-    --glass-surface: rgba(
-      255,
-      255,
-      255,
-      calc(0.12 - var(--glass-transparency, 0.5) * 0.07 + var(--glass-frost-low-end-density) * 1.29)
-    );
-    --glass-surface-soft: rgba(
-      255,
-      255,
-      255,
-      calc(0.11 - var(--glass-transparency, 0.5) * 0.06 + var(--glass-frost-low-end-density) * 1.39)
-    );
-    --glass-surface-raised: rgba(
-      255,
-      255,
-      255,
-      calc(0.16 - var(--glass-transparency, 0.5) * 0.08 + var(--glass-frost-low-end-density) * 1.36)
-    );
+    --glass-surface: rgba(255, 255, 255, calc(0.14 - var(--glass-transparency, 0.5) * 0.1));
+    --glass-surface-soft: rgba(255, 255, 255, calc(0.13 - var(--glass-transparency, 0.5) * 0.08));
+    --glass-surface-raised: rgba(255, 255, 255, calc(0.18 - var(--glass-transparency, 0.5) * 0.11));
     --glass-control: rgba(255, 255, 255, 9%);
     --glass-control-prominent: rgba(255, 255, 255, 10%);
     --glass-control-prominent-focus: rgba(255, 255, 255, 13%);
@@ -211,11 +195,16 @@ html[data-theme='glass'] {
     --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     --glass-control-prominent-backdrop-filter: blur(24px) saturate(150%);
-    --glass-overlay-surface: var(--glass-surface-raised);
+    --glass-overlay-surface: rgba(
+      var(--v-theme-background),
+      calc(0.76 - var(--glass-transparency, 0.5) * 0.12)
+    );
     --glass-overlay-blur: var(--glass-blur-raised);
     --glass-overlay-saturate: var(--glass-saturate);
-    --glass-blur-surface: 28px;
-    --glass-saturate: 150%;
+    --glass-blur-surface: 40px;
+    --glass-blur: 40px;
+    --glass-blur-raised: 60px;
+    --glass-saturate: 180%;
     --glass-control-icon-color: rgba(242, 245, 250, 78%);
     --glass-control-placeholder-color: rgba(242, 245, 250, 62%);
     --glass-control-shortcut-background: rgba(255, 255, 255, 11%);
@@ -225,6 +214,10 @@ html[data-theme='glass'] {
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
     --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
+
+    .v-overlay__scrim {
+      background: rgba(3, 7, 18, 62%);
+    }
 
     // 磨砂弹窗只由最外层表面采样背景，内部卡片与自定义分组表面保持扁平。
     .v-overlay__content > :where(.v-card, .v-sheet),
@@ -1034,8 +1027,8 @@ html[data-theme='glass'][data-glass-appearance='frosted']:is(
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready'] {
   --glass-navbar-backdrop-filter: none;
-  --glass-overlay-blur: 8px;
-  --glass-overlay-saturate: 145%;
+  --glass-overlay-blur: 0px;
+  --glass-overlay-saturate: 100%;
 }
 
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']

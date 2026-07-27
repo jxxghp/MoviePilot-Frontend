@@ -32,6 +32,9 @@ vi.mock('three', async importOriginal => {
       clear() {}
       dispose() {}
       forceContextLoss() {}
+      getRenderTarget() {
+        return null
+      }
       render() {}
       setClearColor() {}
       setPixelRatio() {}
@@ -452,6 +455,36 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('keeps the renderer ready when the optional frosted prefilter fails', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    const compile = vi
+      .spyOn(three.WebGLRenderer.prototype, 'compileAsync')
+      .mockRejectedValueOnce(new Error('prefilter unavailable'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(compile).toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(
+      '玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:',
+      expect.any(Error),
+    )
+
+    scope.stop()
+  })
+
   it('releases renderer resources before restoring a single active instance', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
@@ -503,7 +536,7 @@ describe('glass optical surface discovery', () => {
     await nextTick()
 
     expect(rendererDispose).toHaveBeenCalledTimes(1)
-    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeFirstRelease + 2)
+    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeFirstRelease + 3)
     expect(contextLoss).toHaveBeenCalledTimes(1)
     expect(resizeDisconnect).toHaveBeenCalledTimes(1)
     expect(mutationDisconnect).toHaveBeenCalledTimes(1)
@@ -536,7 +569,7 @@ describe('glass optical surface discovery', () => {
     await nextTick()
 
     expect(rendererDispose).toHaveBeenCalledTimes(2)
-    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeSecondRelease + 2)
+    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeSecondRelease + 3)
     expect(contextLoss).toHaveBeenCalledTimes(2)
     expect(resizeDisconnect).toHaveBeenCalledTimes(2)
     expect(mutationDisconnect).toHaveBeenCalledTimes(2)
@@ -569,19 +602,17 @@ describe('glass optical surface discovery', () => {
 
     quality.value = 'balanced'
     await nextTick()
-    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(renderTargetDispose).toHaveBeenCalledTimes(4))
 
     expect(rendererDispose).not.toHaveBeenCalled()
     expect(contextLoss).not.toHaveBeenCalled()
-    expect(renderTargetDispose).toHaveBeenCalledTimes(2)
 
     quality.value = 'high'
     await nextTick()
-    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(renderTargetDispose).toHaveBeenCalledTimes(6))
 
     expect(rendererDispose).not.toHaveBeenCalled()
     expect(contextLoss).not.toHaveBeenCalled()
-    expect(renderTargetDispose).toHaveBeenCalledTimes(4)
 
     scope.stop()
   })
@@ -752,6 +783,9 @@ describe('glass optical surface discovery', () => {
         material: {
           fragmentShader: string
           uniforms: {
+            uFrostedTexture: { value: unknown }
+            uHasFrostedTexture: { value: number }
+            uPreviousFrostedTexture: { value: unknown }
             uPreviousTexture: { value: unknown }
             uTexture: { value: unknown }
             uTextureMix: { value: number }
@@ -761,6 +795,8 @@ describe('glass optical surface discovery', () => {
     }
     const uniforms = scene.children[0].material.uniforms
     expect(uniforms.uPreviousTexture.value).not.toBe(uniforms.uTexture.value)
+    expect(uniforms.uPreviousFrostedTexture.value).not.toBe(uniforms.uFrostedTexture.value)
+    expect(uniforms.uHasFrostedTexture.value).toBe(1)
     expect(uniforms.uTextureMix.value).toBeGreaterThanOrEqual(0)
     expect(uniforms.uTextureMix.value).toBeLessThan(1)
     expect(scene.children[0].material.fragmentShader).toContain(
@@ -1755,9 +1791,11 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('float highTransmissionProgress')
     expect(scene.children[0].material.fragmentShader).toContain('float frostedDensity')
     expect(scene.children[0].material.fragmentShader).toContain(
-      'frosted * (1.0 - smoothstep(0.0, 0.28, uTransparency))',
+      'frosted * (1.0 - smoothstep(0.25, 0.9, uTransparency))',
     )
-    expect(scene.children[0].material.fragmentShader).toContain('1.0 + frostedDensity * mix(1.15, 1.55, uQuality)')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      '1.0 + frostedDensity * mix(1.15, 1.55, uQuality)',
+    )
     expect(scene.children[0].material.fragmentShader).toContain(
       'smoothstep(0.02, 0.55, liquidPresence)',
     )
