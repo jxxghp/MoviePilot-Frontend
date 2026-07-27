@@ -191,20 +191,27 @@ async function fetchData({ done }: { done: (status: 'empty' | 'error' | 'ok') =>
 
 /** 使用媒体来源、稳定 ID 与季号区分热门条目。 */
 function getMediaItemKey(item: MediaInfo) {
-  const mediaId =
-    item.media_id && (item.source || item.mediaid_prefix)
-      ? `${(item.mediaid_prefix || item.source) === 'themoviedb' ? 'tmdb' : item.mediaid_prefix || item.source}:${item.media_id}`
-      : item.tmdb_id
-        ? `tmdb:${item.tmdb_id}`
-        : item.douban_id
-          ? `douban:${item.douban_id}`
-          : item.bangumi_id
-            ? `bangumi:${item.bangumi_id}`
-            : item.anilist_id
-              ? `anilist:${item.anilist_id}`
-              : `${item.mediaid_prefix ?? 'media'}:${item.title ?? ''}`
+  // 优先使用明确的 ID 字段，按优先级顺序
+  let key = ''
 
-  return `${item.source ?? 'unknown'}:${mediaId}:season:${item.season ?? 'all'}`
+  if (item.tmdb_id) {
+    key = `tmdb:${item.tmdb_id}`
+  } else if (item.douban_id) {
+    key = `douban:${item.douban_id}`
+  } else if (item.bangumi_id) {
+    key = `bangumi:${item.bangumi_id}`
+  } else if (item.anilist_id) {
+    key = `anilist:${item.anilist_id}`
+  } else if (item.media_id && item.source) {
+    key = `${item.source}:${item.media_id}`
+  } else if (item.media_id && item.mediaid_prefix) {
+    key = `${item.mediaid_prefix}:${item.media_id}`
+  } else {
+    // 降级到标题
+    key = `title:${item.title ?? 'unknown'}`
+  }
+
+  return `${key}:season:${item.season ?? 'all'}`
 }
 </script>
 
