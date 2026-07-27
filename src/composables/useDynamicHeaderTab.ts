@@ -39,7 +39,7 @@ export function useDynamicHeaderTab() {
 
   // 尝试从inject获取
   const registerDynamicHeaderTab = inject<(tab: DynamicHeaderTabConfig) => void>('registerDynamicHeaderTab')
-  const unregisterDynamicHeaderTab = inject<() => void>('unregisterDynamicHeaderTab')
+  const unregisterDynamicHeaderTab = inject<(routePath?: string) => void>('unregisterDynamicHeaderTab')
 
   /** 注册当前页面的动态头部标签配置。 */
   const registerHeaderTab = (config: {
@@ -153,12 +153,12 @@ export function useDynamicHeaderTab() {
     // 取消注册函数
     const doUnregister = () => {
       if (unregisterDynamicHeaderTab) {
-        unregisterDynamicHeaderTab()
+        unregisterDynamicHeaderTab(tabConfig.routePath)
       }
     }
 
-    // 初始注册（延迟到下个tick，确保路由已经完全切换）
-    nextTick(() => {
+    // 页签高度必须在页面首帧布局前确定，避免内容先渲染后再整体下移。
+    onBeforeMount(() => {
       doRegister()
     })
 
@@ -166,15 +166,13 @@ export function useDynamicHeaderTab() {
     onActivated(() => {
       // 页面激活时，优先使用当前页面的实际状态，而不是恢复的PWA状态
       // 这样可以避免从后台切换回来时显示错误的标签页
-      nextTick(() => {
-        // 确保使用当前页面的实际modelValue，不受PWA状态恢复影响
-        tabConfig.modelValue = config.modelValue.value
-        // 同步当前状态到PWA存储，确保状态一致性
-        if (pwaTabState && config.modelValue.value) {
-          pwaTabState.activeTab.value = config.modelValue.value
-        }
-        doRegister()
-      })
+      // 确保使用当前页面的实际modelValue，不受PWA状态恢复影响
+      tabConfig.modelValue = config.modelValue.value
+      // 同步当前状态到PWA存储，确保状态一致性
+      if (pwaTabState && config.modelValue.value) {
+        pwaTabState.activeTab.value = config.modelValue.value
+      }
+      doRegister()
     })
 
     // 处理页面失活时取消注册（支持keep-alive缓存的页面）

@@ -43,6 +43,7 @@ import {
   type GlassOpticalQuality,
   type GlassOpticalRect,
   type GlassOpticalSurfaceCandidate,
+  type GlassOpticalSurfaceMode,
   type GlassOpticalSurfaceSlot,
 } from '@/utils/glassOptics'
 import type { ThemeCustomizerGlassAppearance } from '@/composables/useThemeCustomizer'
@@ -166,6 +167,7 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uRectCount: IUniform<number>
   uRects: IUniform<Vector4[]>
   uSurfaceWeights: IUniform<number[]>
+  uSurfaceDynamics: IUniform<number[]>
   uPreviousTexture: IUniform<Texture | null>
   uTexture: IUniform<Texture | null>
   uTextureMix: IUniform<number>
@@ -237,7 +239,9 @@ interface UseGlassOpticalRendererOptions {
   wallpaperUrl: MaybeRefOrGetter<string>
 }
 
-type GlassOpticalSurfaceDescriptor = GlassOpticalSurfaceCandidate<HTMLElement>
+type GlassOpticalSurfaceDescriptor = GlassOpticalSurfaceCandidate<HTMLElement> & {
+  mode: GlassOpticalSurfaceMode
+}
 
 interface PreparedWallpaperTexture {
   /** 是否包含可采样的真实壁纸，而非程序化回退纹理。 */
@@ -367,6 +371,7 @@ uniform float uReflectionStrength;
 uniform vec4 uRects[8];
 uniform vec4 uRadii[8];
 uniform float uSurfaceWeights[8];
+uniform float uSurfaceDynamics[8];
 uniform int uRectCount;
 uniform float uAppearance;
 uniform vec3 uTintColor;
@@ -468,7 +473,10 @@ vec3 sampleWallpaper(vec2 uv) {
   vec3 previous = texture2D(uPreviousTexture, previousUv).rgb;
   vec3 current = texture2D(uTexture, uv).rgb;
 
-  return toneMapWallpaper(mix(previous, current, uTextureMix), viewportUv);
+  if (uTextureMix <= 0.001) return toneMapWallpaper(previous, viewportUv);
+  if (uTextureMix >= 0.999) return toneMapWallpaper(current, viewportUv);
+
+  return mix(toneMapWallpaper(previous, viewportUv), toneMapWallpaper(current, viewportUv), uTextureMix);
 }
 
 vec3 sampleChromatic(vec2 uv, float separation) {
@@ -541,6 +549,7 @@ void main() {
   float topPrism = 0.0;
   float backlightAbsorption = 0.0;
   float materialEnergy = 0.0;
+  float dynamicMask = 0.0;
   vec2 staticRefraction = vec2(0.0);
   vec2 dynamicRefraction = vec2(0.0);
   vec2 wakeDirection = length(uWakeDirection) > 0.0001 ? normalize(uWakeDirection) : vec2(0.0, -1.0);
@@ -598,6 +607,7 @@ void main() {
     if (i >= uRectCount) break;
 
     vec4 rect = uRects[i];
+    float surfaceDynamic = uSurfaceDynamics[i];
     vec2 local = (vUv - rect.xy) / rect.zw;
     float rectMask = roundedRectMask(local, rect.zw * uPresentationSize, uRadii[i]) * uSurfaceWeights[i];
     if (rectMask <= 0.0) continue;
@@ -666,8 +676,8 @@ void main() {
       )) *
       uMotion *
       mix(1.0, 1.24, uMotionExpansion);
-    float localCaustic = singleSpecular * rectMask;
-    staticRefraction += lens * staticLens * mix(1.0, 0.72, frosted) * rectMask;
+    float localCaustic = singleSpecular * rectMask * surfaceDynamic;
+    staticRefraction += lens * staticLens * mix(1.0, 0.72, frosted) * rectMask * surfaceDynamic;
     vec2 sampleTranslation =
       uPointerVelocity *
       mix(0.055, 0.075, uQuality) *
@@ -679,13 +689,14 @@ void main() {
       trailRefraction * trailStrength +
       temporalFlow * temporalStrength +
       wakeRefraction
-    ) * rectMask;
-    edge = max(edge, edgeResponse * rectMask);
+    ) * rectMask * surfaceDynamic;
+    edge = max(edge, edgeResponse * rectMask * surfaceDynamic);
     caustic = max(caustic, localCaustic);
     directionalReflection = max(directionalReflection, localDirectionalReflection);
     topPrism = max(topPrism, localTopPrism);
     backlightAbsorption = max(backlightAbsorption, localBacklightAbsorption);
-    materialEnergy = max(materialEnergy, liquidEnergy * rectMask);
+    materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic);
+    dynamicMask = max(dynamicMask, rectMask * surfaceDynamic);
     mask = max(mask, rectMask);
   }
 
@@ -707,7 +718,7 @@ void main() {
     (
       0.82 +
       materialEnergy * mix(0.28, 0.76, uMotionExpansion) +
-      flowSurfaceDetail * 0.38
+      flowSurfaceDetail * dynamicMask * 0.38
     );
   vec3 diffused;
   if (uQuality > 0.5) {
@@ -844,6 +855,13 @@ function isVisibleSurface(element: HTMLElement, bounds: DOMRect) {
   )
 }
 
+/** 从最近的组件边界读取模式；未声明的现有表面保持完整动态行为。 */
+export function resolveGlassOpticalSurfaceMode(element: HTMLElement): GlassOpticalSurfaceMode {
+  const value = element.closest<HTMLElement>('[data-glass-optical-mode]')?.dataset.glassOpticalMode
+
+  return value === 'static-material' ? 'static-material' : 'dynamic'
+}
+
 /** 读取全部可见视觉表面，并保留 DOM 元素作为 renderer 生命周期内的稳定身份。 */
 function collectGlassOpticalSurfaceDescriptors(
   viewportWidth: number,
@@ -879,6 +897,7 @@ function collectGlassOpticalSurfaceDescriptors(
 
       candidates.push({
         key: element,
+        mode: resolveGlassOpticalSurfaceMode(element),
         rect: {
           height: bounds.height,
           radii: [...readBorderRadii(element)] as GlassCornerRadii,
@@ -899,12 +918,13 @@ function collectGlassOpticalSurfaceDescriptors(
     const { rect } = candidate
     const nested = selected.some(
       parent =>
+        parent.mode === candidate.mode &&
         rect.x >= parent.rect.x &&
         rect.y >= parent.rect.y &&
         rect.x + rect.width <= parent.rect.x + parent.rect.width &&
         rect.y + rect.height <= parent.rect.y + parent.rect.height,
     )
-    if (!nested) selected.push({ key: candidate.key, rect })
+    if (!nested) selected.push({ key: candidate.key, mode: candidate.mode, rect })
   }
 
   return selected
@@ -979,7 +999,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let activeTouchIdentifier: number | null = null
   let pendingFlowInjection = 0
   let interactionAnimating = false
-  let surfaceResizeTimer: number | null = null
   let scrollAnimationFrame: number | null = null
   let scrollDirty = false
   let scrollSurfaceRefreshPending = false
@@ -1028,6 +1047,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (presentationSpace === 'fixed') return { x: clientX, y: clientY }
 
     return { x: clientX + window.scrollX, y: clientY + window.scrollY }
+  }
+
+  /** scroll 呈现层必须跟随页面异步撑高，即使页面内没有可发现的光学表面。 */
+  function observeResizeTargets(reset = true) {
+    if (reset) resizeObserver?.disconnect()
+    if (presentationSpace === 'scroll') {
+      const presentationRoot = options.canvas.value?.parentElement
+      if (presentationRoot) resizeObserver?.observe(presentationRoot)
+    }
+    for (const element of observedSurfaces) resizeObserver?.observe(element)
   }
 
   function cancelScheduledFrame() {
@@ -1237,6 +1266,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const uniformRects = resources.uniforms.uRects.value
     const uniformRadii = resources.uniforms.uRadii.value
     const uniformWeights = resources.uniforms.uSurfaceWeights.value
+    const uniformDynamics = resources.uniforms.uSurfaceDynamics.value
     const transitionWeights = outgoingSurface
       ? getGlassOpticalSurfaceTransitionWeights(timestamp - surfaceTransitionStartedAt, SURFACE_TRANSITION_DURATION_MS)
       : { incoming: 1, outgoing: 0 }
@@ -1256,6 +1286,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
             : slot
               ? 1
               : 0
+      uniformDynamics[index] = slot?.mode === 'static-material' ? 0 : 1
     }
 
     resources.uniforms.uRectCount.value = normalized.length
@@ -1296,9 +1327,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       nextObservedSurfaces.some((element, index) => element !== observedSurfaces[index])
 
     if (observedSurfacesChanged) {
-      resizeObserver?.disconnect()
       observedSurfaces = nextObservedSurfaces
-      for (const element of observedSurfaces) resizeObserver?.observe(element)
+      observeResizeTargets()
     }
     if (scheduleRender) scheduleFrame()
   }
@@ -1349,14 +1379,19 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceStabilityFrame = requestAnimationFrame(sample)
   }
 
-  function scheduleSurfaceResizeUpdate() {
-    if (surfaceResizeTimer !== null) window.clearTimeout(surfaceResizeTimer)
+  /** ResizeObserver 在浏览器绘制前提交新尺寸，避免 CSS 与 WebGL buffer 跨帧失配。 */
+  function handleSurfaceResize(entries: ResizeObserverEntry[]) {
+    if (!resources) return
 
-    surfaceResizeTimer = window.setTimeout(() => {
-      surfaceResizeTimer = null
-      if (presentationSpace === 'scroll') resizeRenderer()
-      else scheduleSurfaceUpdate()
-    }, 160)
+    const presentationRoot = presentationSpace === 'scroll' ? options.canvas.value?.parentElement : null
+    if (presentationRoot && entries.some(entry => entry.target === presentationRoot)) {
+      resizeRenderer()
+      return
+    }
+
+    const timestamp = performance.now()
+    updateSurfaceUniforms(timestamp, false)
+    renderFrame(timestamp, false)
   }
 
   /** CSS transform 不改变布局尺寸，过渡期间用有界帧同步真实几何并清除旧蒙版。 */
@@ -1488,9 +1523,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
             profile.bufferQuality,
             window.devicePixelRatio,
           )
+    const bufferChanged = presentationBufferWidth !== buffer.width || presentationBufferHeight !== buffer.height
+    const presentationChanged =
+      resources.uniforms.uPresentationSize.value.x !== presentation.width ||
+      resources.uniforms.uPresentationSize.value.y !== presentation.height
     presentationBufferHeight = buffer.height
     presentationBufferWidth = buffer.width
-    resources.renderer.setSize(buffer.width, buffer.height, false)
+    if (bufferChanged) resources.renderer.setSize(buffer.width, buffer.height, false)
     resources.uniforms.uVisibleViewportSize.value.set(viewportWidth, viewportHeight)
     resources.uniforms.uPresentationSize.value.set(presentation.width, presentation.height)
     resources.uniforms.uScrollOffset.value.set(
@@ -1500,13 +1539,20 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (flowResources) {
       const flowWidth = Math.max(96, Math.round(buffer.width * FLOW_BUFFER_SCALE))
       const flowHeight = Math.max(96, Math.round(buffer.height * FLOW_BUFFER_SCALE))
-      flowResources.readTarget.setSize(flowWidth, flowHeight)
-      flowResources.writeTarget.setSize(flowWidth, flowHeight)
+      const flowBufferChanged =
+        flowResources.readTarget.width !== flowWidth || flowResources.readTarget.height !== flowHeight
+      if (flowBufferChanged) {
+        flowResources.readTarget.setSize(flowWidth, flowHeight)
+        flowResources.writeTarget.setSize(flowWidth, flowHeight)
+      }
       flowResources.uniforms.uTexelSize.value.set(1 / flowWidth, 1 / flowHeight)
       flowResources.uniforms.uViewportAspect.value = viewportWidth / Math.max(viewportHeight, 1)
     }
     syncCoverScale(viewportWidth, viewportHeight)
-    scheduleSurfaceUpdate()
+    updateSurfaceUniforms(performance.now(), false)
+    // buffer 重分配或归一化呈现尺寸变化都必须在当前绘制周期提交稳定画面。
+    if (bufferChanged || presentationChanged) renderFrame(performance.now(), false)
+    else scheduleSurfaceUpdate()
   }
 
   function profileRequiresTextureReload(
@@ -1749,7 +1795,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     lastPointerX = clientX
     lastPointerY = clientY
     lastPointerAt = timestamp
-    if (!resources || !surface) return
+    if (!resources || !surface || surface.mode === 'static-material') return
 
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
     const surfaceChanged = activateInteractionSurface(surface.key, timestamp, reducedMotion)
@@ -1833,7 +1879,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const point = getPresentationPoint(touch.clientX, touch.clientY)
     const presentation = getPresentationSize()
     const surface = findInteractionSurface(point.x, point.y)
-    if (resources && surface) {
+    if (resources && surface?.mode === 'dynamic') {
       activateInteractionSurface(surface.key, timestamp, matchMedia('(prefers-reduced-motion: reduce)').matches)
       snapPointer(point.x / Math.max(presentation.width, 1), 1 - point.y / Math.max(presentation.height, 1))
       scheduleFrame()
@@ -2018,14 +2064,20 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function setupObservers() {
-    resizeObserver = new ResizeObserver(scheduleSurfaceResizeUpdate)
+    resizeObserver = new ResizeObserver(handleSurfaceResize)
+    observeResizeTargets(false)
     const observedMutationRoots = new Set<Node>()
 
     function observeMutationRoot(root: Node | null, subtree: boolean) {
       if (!root || observedMutationRoots.has(root)) return
 
       observedMutationRoots.add(root)
-      surfaceMutationObserver?.observe(root, { childList: true, subtree })
+      surfaceMutationObserver?.observe(root, {
+        attributeFilter: ['data-glass-optical-mode'],
+        attributes: true,
+        childList: true,
+        subtree,
+      })
     }
 
     surfaceMutationObserver = new MutationObserver(mutations => {
@@ -2103,10 +2155,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (surfaceStabilityFrame !== null) {
       cancelAnimationFrame(surfaceStabilityFrame)
       surfaceStabilityFrame = null
-    }
-    if (surfaceResizeTimer !== null) {
-      window.clearTimeout(surfaceResizeTimer)
-      surfaceResizeTimer = null
     }
     removeEvents()
     resizeObserver?.disconnect()
@@ -2393,6 +2441,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uRectCount: { value: 0 },
         uRects: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
         uSurfaceWeights: { value: Array.from({ length: 8 }, () => 0) },
+        uSurfaceDynamics: { value: Array.from({ length: 8 }, () => 1) },
         uPreviousTexture: { value: null },
         uTexture: { value: null },
         uTextureMix: { value: 1 },
@@ -2578,7 +2627,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     () => toValue(options.routeKey),
     async (routeKey, previousRouteKey) => {
       const previousProfile = getRenderProfile(previousRouteKey ?? '')
-      await nextTick()
       if (resources) {
         const nextProfile = getRenderProfile(routeKey)
         resizeRenderer()
@@ -2590,6 +2638,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       }
       scheduleSurfaceUpdate()
     },
+    { flush: 'post' },
   )
 
   onScopeDispose(() => {

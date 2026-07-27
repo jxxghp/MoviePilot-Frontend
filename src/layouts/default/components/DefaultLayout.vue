@@ -156,8 +156,10 @@ const registerDynamicHeaderTab = (tab: DynamicHeaderTab) => {
   applyPendingHorizontalTab()
 }
 
-/** 取消当前页面注册的动态标签页。 */
-const unregisterDynamicHeaderTab = () => {
+/** 仅注销仍由指定路由持有的动态标签，避免相邻页面生命周期互相覆盖。 */
+const unregisterDynamicHeaderTab = (routePath?: string) => {
+  if (routePath && dynamicHeaderTab.value?.routePath !== routePath) return
+
   dynamicHeaderTab.value = null
 }
 
@@ -844,5 +846,4 @@ onMounted(async () => {
   align-items: center;
   margin-inline-start: auto;
 }
-
 </style>

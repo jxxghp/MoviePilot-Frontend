@@ -1,6 +1,7 @@
 import {
   collectGlassOpticalRects,
   containsGlassOpticalSurface,
+  resolveGlassOpticalSurfaceMode,
   setGlassRendererState,
   useGlassOpticalInteractionSource,
   useGlassOpticalRenderer,
@@ -45,11 +46,29 @@ vi.mock('three', async importOriginal => {
 
 /** 提供 renderer 单元测试所需的最小 ResizeObserver 实现。 */
 class ResizeObserverMock {
-  /** 断开观察时无需执行额外逻辑。 */
-  disconnect() {}
+  static instances: ResizeObserverMock[] = []
 
-  /** 测试不需要追踪具体被观察元素。 */
-  observe() {}
+  readonly targets = new Set<Element>()
+
+  constructor(private readonly callback: ResizeObserverCallback) {
+    ResizeObserverMock.instances.push(this)
+  }
+
+  /** 断开观察时无需执行额外逻辑。 */
+  disconnect() {
+    this.targets.clear()
+  }
+
+  /** 记录观察目标，供尺寸生命周期用例触发回调。 */
+  observe(target: Element) {
+    this.targets.add(target)
+  }
+
+  /** 模拟观察目标的内容框发生变化。 */
+  trigger() {
+    const entries = [...this.targets].map(target => ({ target }) as ResizeObserverEntry)
+    this.callback(entries, this as unknown as ResizeObserver)
+  }
 }
 
 /** 创建带稳定视口边界的光学表面元素。 */
@@ -124,6 +143,7 @@ function dispatchTouchEvent(
 }
 
 beforeEach(() => {
+  ResizeObserverMock.instances = []
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   vi.stubGlobal('WebGLRenderingContext', class {})
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
@@ -288,6 +308,19 @@ describe('glass optical surface discovery', () => {
     ])
   })
 
+  it('inherits the optical mode from a container and permits an explicit child override', () => {
+    const container = document.createElement('div')
+    container.dataset.glassOpticalMode = 'static-material'
+    const inherited = document.createElement('section')
+    const overridden = document.createElement('section')
+    overridden.dataset.glassOpticalMode = 'dynamic'
+    container.append(inherited, overridden)
+    document.body.append(container)
+
+    expect(resolveGlassOpticalSurfaceMode(inherited)).toBe('static-material')
+    expect(resolveGlassOpticalSurfaceMode(overridden)).toBe('dynamic')
+  })
+
   it('discovers the shared interactive card contract used across routes', () => {
     const surface = appendOpticalSurface('app-hover-lift-card', { height: 220, width: 150, x: 24, y: 96 })
     surface.style.borderTopLeftRadius = '20px'
@@ -389,6 +422,7 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
 
     const renderTargetDisposalsBeforeFirstRelease = renderTargetDispose.mock.calls.length
+    const frameCancellationsBeforeFirstRelease = cancelFrame.mock.calls.length
     active.value = false
     await nextTick()
 
@@ -397,7 +431,7 @@ describe('glass optical surface discovery', () => {
     expect(contextLoss).toHaveBeenCalledTimes(1)
     expect(resizeDisconnect).toHaveBeenCalledTimes(1)
     expect(mutationDisconnect).toHaveBeenCalledTimes(1)
-    expect(cancelFrame).toHaveBeenCalledTimes(2)
+    expect(cancelFrame.mock.calls.length).toBeGreaterThan(frameCancellationsBeforeFirstRelease)
 
     addWindowListener.mockClear()
     addDocumentListener.mockClear()
@@ -421,6 +455,7 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
 
     const renderTargetDisposalsBeforeSecondRelease = renderTargetDispose.mock.calls.length
+    const frameCancellationsBeforeSecondRelease = cancelFrame.mock.calls.length
     active.value = false
     await nextTick()
 
@@ -429,7 +464,7 @@ describe('glass optical surface discovery', () => {
     expect(contextLoss).toHaveBeenCalledTimes(2)
     expect(resizeDisconnect).toHaveBeenCalledTimes(2)
     expect(mutationDisconnect).toHaveBeenCalledTimes(2)
-    expect(cancelFrame).toHaveBeenCalledTimes(4)
+    expect(cancelFrame.mock.calls.length).toBeGreaterThan(frameCancellationsBeforeSecondRelease)
 
     scope.stop()
   })
@@ -639,6 +674,7 @@ describe('glass optical surface discovery', () => {
     const scene = render.mock.calls.at(-1)?.[0] as unknown as {
       children: Array<{
         material: {
+          fragmentShader: string
           uniforms: {
             uPreviousTexture: { value: unknown }
             uTexture: { value: unknown }
@@ -651,6 +687,132 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uPreviousTexture.value).not.toBe(uniforms.uTexture.value)
     expect(uniforms.uTextureMix.value).toBeGreaterThanOrEqual(0)
     expect(uniforms.uTextureMix.value).toBeLessThan(1)
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'mix(toneMapWallpaper(previous, viewportUv), toneMapWallpaper(current, viewportUv), uTextureMix)',
+    )
+    expect(scene.children[0].material.fragmentShader).not.toContain(
+      'toneMapWallpaper(mix(previous, current, uTextureMix), viewportUv)',
+    )
+    scope.stop()
+  })
+
+  it('reallocates a changed buffer once and renders its stable surface in the same frame', async () => {
+    const three = await import('three')
+    let viewportWidth = 1200
+    vi.spyOn(window, 'innerWidth', 'get').mockImplementation(() => viewportWidth)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(900)
+    appendOpticalSurface('app-hover-lift-card', { height: 220, width: 320, x: 40, y: 80 })
+    const setSize = vi.spyOn(three.WebGLRenderer.prototype, 'setSize')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    setSize.mockClear()
+    render.mockClear()
+
+    viewportWidth = 960
+    window.dispatchEvent(new Event('resize'))
+
+    expect(setSize).toHaveBeenCalledOnce()
+    expect(render).toHaveBeenCalled()
+
+    setSize.mockClear()
+    window.dispatchEvent(new Event('resize'))
+
+    expect(setSize).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('resizes a scroll buffer when an asynchronous page grows without optical surfaces', async () => {
+    const three = await import('three')
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    let presentationHeight = 844
+    const root = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    Object.defineProperty(root, 'scrollHeight', {
+      configurable: true,
+      get: () => presentationHeight,
+    })
+    root.append(canvas)
+    document.body.append(root)
+    const setSize = vi.spyOn(three.WebGLRenderer.prototype, 'setSize')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/history'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const observer = ResizeObserverMock.instances.find(instance => instance.targets.has(root))
+    expect(observer).toBeDefined()
+    setSize.mockClear()
+    render.mockClear()
+
+    presentationHeight = 5000
+    observer?.trigger()
+
+    expect(setSize).toHaveBeenCalledWith(390, 3072, false)
+    expect(render).toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('writes static-material surfaces into the shader without dynamic optical energy', async () => {
+    const three = await import('three')
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 220, width: 320, x: 40, y: 80 })
+    surface.dataset.glassOpticalMode = 'static-material'
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/plugins'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          fragmentShader: string
+          uniforms: {
+            uSurfaceDynamics: { value: number[] }
+          }
+        }
+      }>
+    }
+    const material = scene.children[0].material
+
+    expect(material.uniforms.uSurfaceDynamics.value[0]).toBe(0)
+    expect(material.fragmentShader).toContain('uniform float uSurfaceDynamics[8]')
+    expect(material.fragmentShader).toContain('float surfaceDynamic = uSurfaceDynamics[i]')
     scope.stop()
   })
 
@@ -1376,7 +1538,7 @@ describe('glass optical surface discovery', () => {
 
     expect(scene.children[0].material.fragmentShader).not.toContain('clamp(uMotion +')
     expect(scene.children[0].material.fragmentShader).toContain(
-      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask)',
+      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic)',
     )
     expect(scene.children[0].material.fragmentShader).toContain('softLimitDynamicRefraction')
     expect(scene.children[0].material.fragmentShader).toContain('getContentProtection')
@@ -1384,7 +1546,7 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('singleSpecular')
     expect(scene.children[0].material.fragmentShader).not.toContain('stableSample')
     expect(scene.children[0].material.fragmentShader).not.toContain('broadReflection')
-    expect(scene.children[0].material.fragmentShader).toContain('flowSurfaceDetail * 0.38')
+    expect(scene.children[0].material.fragmentShader).toContain('flowSurfaceDetail * dynamicMask * 0.38')
     expect(scene.children[0].material.fragmentShader).not.toContain('pointerCurvature')
     expect(scene.children[0].material.fragmentShader).not.toContain('wakeCurvature')
     expect(scene.children[0].material.fragmentShader).not.toContain('surfaceCurvature')

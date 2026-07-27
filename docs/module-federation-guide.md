@@ -322,7 +322,21 @@ const emit = defineEmits(['action'])
 
 `nativeSubscribe` 和 Toast 都由主应用宿主提供。插件不应复制主程序订阅弹窗，也不应自行创建另一套 Toast 容器。插件在旧版主程序或能力不存在的环境中运行时，应保留空值判断和必要的页面内 fallback。
 
-### 5.6 调用主应用原生订阅
+### 5.6 玻璃光学表面
+
+主应用的 `Page`、`Config` 与 `AppPage` 宿主在玻璃主题下默认采用 `static-material` 光学模式：保留壁纸透射、材质色调和方向反射，但不响应指针流场、局部折射、拖尾或动态焦散。插件列表与 `Dashboard` 继续使用完整动态光学。视觉型插件可以在自己控制的 DOM 区域显式恢复完整动态光学：
+
+```html
+<div data-glass-optical-surface data-glass-optical-mode="dynamic">
+  <!-- 插件自己的视觉内容 -->
+</div>
+```
+
+使用时需同时声明 `data-glass-optical-surface` 和 `data-glass-optical-mode="dynamic"`。模式会从最近的祖先容器继承，因此显式声明的动态子表面不会沿用宿主的静态模式。该合同适用于插件在 `Page`、`Config` 或 `AppPage` 中自行渲染并控制的区域；主应用生成的插件列表、插件市场卡片、`Dashboard` 及其他宿主 DOM 不属于插件的修改边界。
+
+动态模式只在主应用启用玻璃主题和实时光学能力时生效。其他主题、降低动态效果或光学能力不可用时，插件必须保持内容与交互正常，不应依赖动态光学表达业务状态或必要反馈。
+
+### 5.7 调用主应用原生订阅
 
 `Page`、`Config`、`Dashboard` 与 `AppPage` 都会收到 `nativeSubscribe(mediaInfo)` prop。插件传入媒体信息后，电视剧会打开主应用的选季抽屉，电影会进入现有电影订阅流程。宿主也会用 `moviepilot:nativeSubscribe` 键提供同一个方法，深层子组件可以使用 `inject`，无需逐层传递 prop。
 
@@ -357,7 +371,7 @@ async function subscribeMedia(mediaInfo: Record<string, unknown>) {
 
 `success: true` 表示主应用已接受调用并启动原生交互，不表示用户已经完成订阅。字段无效或当前用户没有订阅权限时返回 `success: false`，插件可以依据 `code` 执行 fallback。
 
-### 5.7 调用主应用 Toast
+### 5.8 调用主应用 Toast
 
 `Page`、`Config`、`Dashboard` 与 `AppPage` 的宿主容器会通过固定键提供主应用 Toast。远程组件应复用该实例，不要自行渲染 `VSnackbar` 或创建另一套 Toast 容器：
 

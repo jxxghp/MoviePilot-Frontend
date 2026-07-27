@@ -72,9 +72,14 @@ export interface GlassOpticalSpringState {
   velocity: number
 }
 
+/** 光学表面在共享 renderer 中采用的动态响应合同。 */
+export type GlassOpticalSurfaceMode = 'dynamic' | 'static-material'
+
 export interface GlassOpticalSurfaceCandidate<TKey> {
   /** renderer 生命周期内稳定的表面身份。 */
   key: TKey
+  /** 表面使用完整动态光学，或只保留稳定材质能量。 */
+  mode?: GlassOpticalSurfaceMode
   /** 表面的当前视口几何。 */
   rect: GlassOpticalRect
 }
