@@ -47,6 +47,7 @@ import {
   type GlassOpticalSurfaceSlot,
 } from '@/utils/glassOptics'
 import type { ThemeCustomizerGlassAppearance } from '@/composables/useThemeCustomizer'
+import type { PagePresentationMotionReader } from '@/composables/usePagePresentationMotion'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
 import {
   analyzeGlassWallpaperTone,
@@ -228,6 +229,8 @@ interface UseGlassOpticalRendererOptions {
   interactionSource?: GlassOpticalInteractionSource
   /** 旧调用方的单一动态强度仅作为三个独立维度的兼容回退。 */
   motionStrength?: MaybeRefOrGetter<number>
+  /** scroll-space 页面表面与 DOM 共用的短时呈现状态；fixed-space 不参与路由入场。 */
+  pageMotion?: PagePresentationMotionReader
   quality: MaybeRefOrGetter<GlassOpticalQuality>
   reflectionStrength?: MaybeRefOrGetter<number>
   previousWallpaperUrl?: MaybeRefOrGetter<string>
@@ -1053,6 +1056,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let surfaceTransformFrame: number | null = null
   let surfaceTransformTrackingDeadline = 0
   const transformingSurfaces = new Set<HTMLElement>()
+  let pagePresentationGeometryReady = true
   let wakeDirection = { x: 0, y: -1 }
   let contextRecoveryPending = false
   const presentationSpace = options.surfaceSpace ?? 'fixed'
@@ -1308,6 +1312,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const transitionWeights = outgoingSurface
       ? getGlassOpticalSurfaceTransitionWeights(timestamp - surfaceTransitionStartedAt, SURFACE_TRANSITION_DURATION_MS)
       : { incoming: 1, outgoing: 0 }
+    const pageMotionOpacity =
+      presentationSpace === 'scroll' ? Math.min(1, Math.max(0, toValue(options.pageMotion?.opacity ?? 1))) : 1
+    const pagePresentationWeight = pagePresentationGeometryReady ? pageMotionOpacity : 0
 
     for (let index = 0; index < 8; index += 1) {
       const surface = normalized[index]
@@ -1316,7 +1323,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const radii = surface?.radii ?? [0, 0, 0, 0]
       uniformRects[index].set(rect[0], rect[1], rect[2], rect[3])
       uniformRadii[index].set(radii[0], radii[1], radii[2], radii[3])
-      uniformWeights[index] =
+      const surfaceWeight =
         slot?.role === 'outgoing'
           ? transitionWeights.outgoing
           : slot?.role === 'active'
@@ -1324,6 +1331,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
             : slot
               ? 1
               : 0
+      uniformWeights[index] = surfaceWeight * pagePresentationWeight
       uniformDynamics[index] = slot?.mode === 'static-material' ? 0 : 1
     }
 
@@ -1411,6 +1419,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         surfaceStabilityPass < SURFACE_STABILITY_MAX_FRAMES
       ) {
         surfaceStabilityFrame = requestAnimationFrame(sample)
+      } else if (!pagePresentationGeometryReady) {
+        pagePresentationGeometryReady = true
+        writeSurfaceUniforms(timestamp)
+        renderFrame(timestamp, false)
       }
     }
 
@@ -1448,12 +1460,33 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     presentationResizeTimer = window.setTimeout(sample, PRESENTATION_RESIZE_SAMPLE_MS)
   }
 
+  /** 共享页面 motion 活跃时，页面几何变化必须在浏览器绘制前完成一次完整 presentation 提交。 */
+  function commitActivePagePresentation(timestamp = performance.now()) {
+    if (
+      !resources ||
+      presentationSpace !== 'scroll' ||
+      !toValue(options.pageMotion?.active ?? false)
+    )
+      return false
+
+    if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
+    presentationResizeTimer = null
+    presentationResizeCandidate = ''
+    presentationResizeStableSamples = 0
+    resizeRenderer()
+    updateSurfaceUniforms(timestamp, false)
+    renderFrame(timestamp, false)
+
+    return true
+  }
+
   /** 普通表面尺寸即时更新；页面根尺寸在稳定后覆盖 presentation。 */
   function handleSurfaceResize(entries: ResizeObserverEntry[]) {
     if (!resources) return
 
     const presentationRoot = presentationSpace === 'scroll' ? options.canvas.value?.parentElement : null
     const presentationChanged = presentationRoot && entries.some(entry => entry.target === presentationRoot)
+    if (presentationChanged && commitActivePagePresentation()) return
     if (presentationChanged) schedulePresentationResizeUpdate()
     if (!entries.some(entry => entry.target !== presentationRoot)) return
 
@@ -2156,7 +2189,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceMutationObserver = new MutationObserver(mutations => {
       // Vuetify 可能在首个弹层打开时才创建容器，后续变更需要纳入同一个表面生命周期。
       observeMutationRoot(document.querySelector('.v-overlay-container'), true)
-      if (mutationTouchesOpticalSurface(mutations)) scheduleSurfaceStabilityUpdate()
+      if (!mutationTouchesOpticalSurface(mutations)) return
+
+      commitActivePagePresentation()
+      scheduleSurfaceStabilityUpdate()
     })
     observeMutationRoot(document.querySelector('.app-wrapper'), true)
     observeMutationRoot(document.querySelector('.v-overlay-container'), true)
@@ -2734,9 +2770,29 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   )
 
   watch(
+    () => toValue(options.pageMotion?.revision ?? 0),
+    () => {
+      if (!resources || presentationSpace !== 'scroll') return
+
+      const timestamp = performance.now()
+      // 页面入场期间内容高度与 canvas CSS 尺寸可能同帧变化；presentation 必须先于表面和清屏提交。
+      resizeRenderer()
+      updateSurfaceUniforms(timestamp, false)
+      renderFrame(timestamp, false)
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
     () => toValue(options.routeKey),
     async (routeKey, previousRouteKey) => {
       const previousProfile = getRenderProfile(previousRouteKey ?? '')
+      if (resources && presentationSpace === 'scroll' && options.pageMotion) {
+        pagePresentationGeometryReady = false
+        const timestamp = performance.now()
+        updateSurfaceUniforms(timestamp, false)
+        renderFrame(timestamp, false)
+      }
       await nextTick()
       if (resources) {
         const nextProfile = getRenderProfile(routeKey)
@@ -2747,7 +2803,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           return
         }
       }
-      scheduleSurfaceUpdate()
+      if (presentationSpace === 'scroll' && options.pageMotion) scheduleSurfaceStabilityUpdate()
+      else scheduleSurfaceUpdate()
     },
   )
 

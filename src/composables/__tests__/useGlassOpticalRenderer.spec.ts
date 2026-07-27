@@ -347,6 +347,82 @@ describe('glass optical surface discovery', () => {
     ])
   })
 
+  it('re-samples scroll surfaces and material weight on a shared page motion revision', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const root = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    let presentationHeight = 800
+    Object.defineProperty(root, 'scrollHeight', {
+      configurable: true,
+      get: () => presentationHeight,
+    })
+    root.append(canvas)
+    document.body.append(root)
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const setSize = vi.spyOn(three.WebGLRenderer.prototype, 'setSize')
+    const bounds = { height: 240, width: 360, x: 80, y: 100 }
+    appendOpticalSurface('app-hover-lift-card', bounds)
+    const active = ref(true)
+    const opacity = ref(1)
+    const revision = ref(0)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        pageMotion: { active, opacity, revision },
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const initialScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uRects: { value: Array<{ y: number }> }
+            uSurfaceWeights: { value: number[] }
+          }
+        }
+      }>
+    }
+    const initialY = initialScene.children[0].material.uniforms.uRects.value[0].y
+    render.mockClear()
+    setSize.mockClear()
+
+    bounds.y = 140
+    presentationHeight = 1200
+    opacity.value = 0.42
+    revision.value += 1
+
+    expect(setSize).toHaveBeenCalledOnce()
+    expect(setSize).toHaveBeenCalledWith(1200, 1200, false)
+    expect(render).toHaveBeenCalled()
+    const motionScene = render.mock.calls.at(-1)?.[0] as unknown as typeof initialScene
+    const uniforms = motionScene.children[0].material.uniforms
+    expect(uniforms.uRects.value[0].y).not.toBe(initialY)
+    expect(uniforms.uSurfaceWeights.value[0]).toBeCloseTo(0.42)
+
+    const observer = ResizeObserverMock.instances.find(instance => instance.targets.has(root))
+    expect(observer).toBeDefined()
+    setSize.mockClear()
+    render.mockClear()
+    presentationHeight = 1400
+    observer?.trigger()
+
+    expect(setSize).toHaveBeenCalledOnce()
+    expect(setSize).toHaveBeenCalledWith(1200, 1400, false)
+    expect(render).toHaveBeenCalled()
+    scope.stop()
+  })
+
   it('recovers after consecutive WebGL context loss cycles', async () => {
     const canvas = document.createElement('canvas')
     const scope = effectScope()

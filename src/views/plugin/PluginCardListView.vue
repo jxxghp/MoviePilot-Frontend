@@ -1716,190 +1716,186 @@ function onDragStartPlugin(evt: any) {
     <VWindow v-model="activeTab" class="disable-tab-transition px-2" :touch="false">
       <!-- 我的插件 -->
       <VWindowItem value="installed">
-        <transition name="fade-slide" appear>
-          <div>
-            <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
-            <LoadingBanner v-if="!isRefreshed" class="mt-12" />
-            <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 py-0 app-surface-static">
-              <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">
-                <span>{{ t('common.sortModeHint') }}</span>
-                <VBtn variant="tonal" color="error" @click="sortMode = false">
-                  {{ t('common.exit') }}
-                </VBtn>
-              </div>
-            </VAlert>
-
-            <!-- 文件夹和插件网格 -->
-            <div v-if="(mixedSortList.length > 0 || displayedPlugins.length > 0) && isRefreshed">
-              <!-- 混合排序列表（文件夹和插件） -->
-              <template v-if="!currentFolder">
-                <!-- 主列表：使用draggable进行混合排序 -->
-                <Draggable
-                  v-if="canDragSort"
-                  v-model="mixedSortList"
-                  @end="saveMixedSortOrder"
-                  @start="onDragStartPlugin"
-                  item-key="id"
-                  tag="div"
-                  class="grid gap-4 grid-plugin-card"
-                  group="mixed"
-                >
-                  <template #item="{ element }">
-                    <PluginMixedSortCard
-                      :item="element"
-                      :plugin-statistics="PluginStatistics"
-                      :plugin-actions="pluginActions"
-                      :sortable="true"
-                      @open-folder="openFolder"
-                      @delete-folder="deleteFolder"
-                      @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
-                      @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
-                      @refresh-data="refreshData"
-                      @action-done="
-                        pluginId => {
-                          pluginActions[pluginId] = false
-                        }
-                      "
-                      @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
-                    />
-                  </template>
-                </Draggable>
-                <ProgressiveCardGrid
-                  v-else-if="shouldVirtualizeInstalledMainList"
-                  :items="mixedSortList"
-                  :get-item-key="item => `${item.type}:${item.id}`"
-                  :min-item-width="256"
-                  :estimated-item-height="180"
-                  :scroll-to-index="installedScrollToIndex"
-                >
-                  <template #default="{ item }">
-                    <PluginMixedSortCard
-                      :item="item"
-                      :plugin-statistics="PluginStatistics"
-                      :plugin-actions="pluginActions"
-                      :sortable="false"
-                      @open-folder="openFolder"
-                      @delete-folder="deleteFolder"
-                      @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
-                      @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
-                      @refresh-data="refreshData"
-                      @action-done="
-                        pluginId => {
-                          pluginActions[pluginId] = false
-                        }
-                      "
-                      @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
-                    />
-                  </template>
-                </ProgressiveCardGrid>
-              </template>
-
-              <template v-else>
-                <!-- 文件夹内：使用draggable排序 + 移出按钮 -->
-                <Draggable
-                  v-if="canDragSort"
-                  v-model="draggableFolderPlugins"
-                  @end="saveFolderPluginOrder"
-                  @start="onDragStartPlugin"
-                  item-key="id"
-                  tag="div"
-                  class="grid gap-4 grid-plugin-card"
-                  group="plugins"
-                >
-                  <template #item="{ element }">
-                    <PluginMixedSortCard
-                      :item="{ type: 'plugin', id: element.id, data: element, order: 0 }"
-                      :plugin-statistics="PluginStatistics"
-                      :plugin-actions="pluginActions"
-                      :sortable="true"
-                      :show-remove-button="true"
-                      @refresh-data="refreshData"
-                      @action-done="
-                        pluginId => {
-                          pluginActions[pluginId] = false
-                        }
-                      "
-                      @remove-from-folder="removeFromFolder"
-                    />
-                  </template>
-                </Draggable>
-                <ProgressiveCardGrid
-                  v-else-if="shouldVirtualizeInstalledFolderList"
-                  :items="draggableFolderPlugins"
-                  :get-item-key="item => item.id"
-                  :min-item-width="256"
-                  :estimated-item-height="180"
-                >
-                  <template #default="{ item }">
-                    <PluginMixedSortCard
-                      :item="{ type: 'plugin', id: item.id, data: item, order: 0 }"
-                      :plugin-statistics="PluginStatistics"
-                      :plugin-actions="pluginActions"
-                      :sortable="false"
-                      :show-remove-button="true"
-                      @refresh-data="refreshData"
-                      @action-done="
-                        pluginId => {
-                          pluginActions[pluginId] = false
-                        }
-                      "
-                      @remove-from-folder="removeFromFolder"
-                    />
-                  </template>
-                </ProgressiveCardGrid>
-              </template>
+        <div>
+          <VPageContentTitle v-if="installedFilter" :title="t('plugin.filter', { name: installedFilter })" />
+          <LoadingBanner v-if="!isRefreshed" class="mt-12" />
+          <VAlert v-if="sortMode" color="warning" variant="tonal" class="mb-4 py-0 app-surface-static">
+            <div class="d-flex flex-wrap align-center justify-space-between gap-2 py-5">
+              <span>{{ t('common.sortModeHint') }}</span>
+              <VBtn variant="tonal" color="error" @click="sortMode = false">
+                {{ t('common.exit') }}
+              </VBtn>
             </div>
+          </VAlert>
 
-            <NoDataFound
-              v-if="displayedFolders.length === 0 && displayedPlugins.length === 0 && isRefreshed"
-              error-code="404"
-              :error-title="t('common.noData')"
-              :error-description="
-                installedFilter || hasUpdateFilter ? t('plugin.noMatchingContent') : t('plugin.pleaseInstallFromMarket')
-              "
-            />
+          <!-- 文件夹和插件网格 -->
+          <div v-if="(mixedSortList.length > 0 || displayedPlugins.length > 0) && isRefreshed">
+            <!-- 混合排序列表（文件夹和插件） -->
+            <template v-if="!currentFolder">
+              <!-- 主列表：使用draggable进行混合排序 -->
+              <Draggable
+                v-if="canDragSort"
+                v-model="mixedSortList"
+                @end="saveMixedSortOrder"
+                @start="onDragStartPlugin"
+                item-key="id"
+                tag="div"
+                class="grid gap-4 grid-plugin-card"
+                group="mixed"
+              >
+                <template #item="{ element }">
+                  <PluginMixedSortCard
+                    :item="element"
+                    :plugin-statistics="PluginStatistics"
+                    :plugin-actions="pluginActions"
+                    :sortable="true"
+                    @open-folder="openFolder"
+                    @delete-folder="deleteFolder"
+                    @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
+                    @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
+                    @refresh-data="refreshData"
+                    @action-done="
+                      pluginId => {
+                        pluginActions[pluginId] = false
+                      }
+                    "
+                    @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
+                  />
+                </template>
+              </Draggable>
+              <ProgressiveCardGrid
+                v-else-if="shouldVirtualizeInstalledMainList"
+                :items="mixedSortList"
+                :get-item-key="item => `${item.type}:${item.id}`"
+                :min-item-width="256"
+                :estimated-item-height="180"
+                :scroll-to-index="installedScrollToIndex"
+              >
+                <template #default="{ item }">
+                  <PluginMixedSortCard
+                    :item="item"
+                    :plugin-statistics="PluginStatistics"
+                    :plugin-actions="pluginActions"
+                    :sortable="false"
+                    @open-folder="openFolder"
+                    @delete-folder="deleteFolder"
+                    @rename-folder="(oldName, newName) => renameFolder(oldName, newName)"
+                    @update-folder-config="(folderName, config) => updateFolderConfig(folderName, config)"
+                    @refresh-data="refreshData"
+                    @action-done="
+                      pluginId => {
+                        pluginActions[pluginId] = false
+                      }
+                    "
+                    @drop-to-folder="(event, folderName) => handleDropToFolder(event, folderName)"
+                  />
+                </template>
+              </ProgressiveCardGrid>
+            </template>
+
+            <template v-else>
+              <!-- 文件夹内：使用draggable排序 + 移出按钮 -->
+              <Draggable
+                v-if="canDragSort"
+                v-model="draggableFolderPlugins"
+                @end="saveFolderPluginOrder"
+                @start="onDragStartPlugin"
+                item-key="id"
+                tag="div"
+                class="grid gap-4 grid-plugin-card"
+                group="plugins"
+              >
+                <template #item="{ element }">
+                  <PluginMixedSortCard
+                    :item="{ type: 'plugin', id: element.id, data: element, order: 0 }"
+                    :plugin-statistics="PluginStatistics"
+                    :plugin-actions="pluginActions"
+                    :sortable="true"
+                    :show-remove-button="true"
+                    @refresh-data="refreshData"
+                    @action-done="
+                      pluginId => {
+                        pluginActions[pluginId] = false
+                      }
+                    "
+                    @remove-from-folder="removeFromFolder"
+                  />
+                </template>
+              </Draggable>
+              <ProgressiveCardGrid
+                v-else-if="shouldVirtualizeInstalledFolderList"
+                :items="draggableFolderPlugins"
+                :get-item-key="item => item.id"
+                :min-item-width="256"
+                :estimated-item-height="180"
+              >
+                <template #default="{ item }">
+                  <PluginMixedSortCard
+                    :item="{ type: 'plugin', id: item.id, data: item, order: 0 }"
+                    :plugin-statistics="PluginStatistics"
+                    :plugin-actions="pluginActions"
+                    :sortable="false"
+                    :show-remove-button="true"
+                    @refresh-data="refreshData"
+                    @action-done="
+                      pluginId => {
+                        pluginActions[pluginId] = false
+                      }
+                    "
+                    @remove-from-folder="removeFromFolder"
+                  />
+                </template>
+              </ProgressiveCardGrid>
+            </template>
           </div>
-        </transition>
+
+          <NoDataFound
+            v-if="displayedFolders.length === 0 && displayedPlugins.length === 0 && isRefreshed"
+            error-code="404"
+            :error-title="t('common.noData')"
+            :error-description="
+              installedFilter || hasUpdateFilter ? t('plugin.noMatchingContent') : t('plugin.pleaseInstallFromMarket')
+            "
+          />
+        </div>
       </VWindowItem>
       <!-- 插件市场 -->
       <VWindowItem value="market">
-        <transition name="fade-slide" appear>
-          <div>
-            <LoadingBanner
-              v-if="!isAppMarketLoaded || (isMarketRefreshing && displayUninstalledList.length === 0)"
-              class="mt-12"
-            />
-            <!-- 资源列表 -->
-            <VInfiniteScroll
-              v-if="isAppMarketLoaded && !(isMarketRefreshing && displayUninstalledList.length === 0)"
-              mode="intersect"
-              side="end"
+        <div>
+          <LoadingBanner
+            v-if="!isAppMarketLoaded || (isMarketRefreshing && displayUninstalledList.length === 0)"
+            class="mt-12"
+          />
+          <!-- 资源列表 -->
+          <VInfiniteScroll
+            v-if="isAppMarketLoaded && !(isMarketRefreshing && displayUninstalledList.length === 0)"
+            mode="intersect"
+            side="end"
+            :items="displayUninstalledList"
+            @load="loadMarketMore"
+            class="overflow-visible"
+          >
+            <template #loading />
+            <template #empty />
+            <ProgressiveCardGrid
+              v-if="displayUninstalledList.length > 0"
               :items="displayUninstalledList"
-              @load="loadMarketMore"
-              class="overflow-visible"
+              :get-item-key="item => `${item.id}_v${item.plugin_version}`"
+              :min-item-width="256"
+              :estimated-item-height="260"
             >
-              <template #loading />
-              <template #empty />
-              <ProgressiveCardGrid
-                v-if="displayUninstalledList.length > 0"
-                :items="displayUninstalledList"
-                :get-item-key="item => `${item.id}_v${item.plugin_version}`"
-                :min-item-width="256"
-                :estimated-item-height="260"
-              >
-                <template #default="{ item }">
-                  <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
-                </template>
-              </ProgressiveCardGrid>
-            </VInfiniteScroll>
-            <NoDataFound
-              v-if="displayUninstalledList.length === 0 && isAppMarketLoaded"
-              error-code="404"
-              :error-title="t('common.noData')"
-              :error-description="t('plugin.allPluginsInstalled')"
-            />
-          </div>
-        </transition>
+              <template #default="{ item }">
+                <PluginAppCard :plugin="item" :count="PluginStatistics[item.id || '0']" @install="pluginInstalled" />
+              </template>
+            </ProgressiveCardGrid>
+          </VInfiniteScroll>
+          <NoDataFound
+            v-if="displayUninstalledList.length === 0 && isAppMarketLoaded"
+            error-code="404"
+            :error-title="t('common.noData')"
+            :error-description="t('plugin.allPluginsInstalled')"
+          />
+        </div>
       </VWindowItem>
     </VWindow>
   </div>

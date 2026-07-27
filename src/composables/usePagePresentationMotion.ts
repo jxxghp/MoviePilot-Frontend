@@ -1,0 +1,161 @@
+import { readonly, ref, type Ref } from 'vue'
+
+export const PAGE_PRESENTATION_MOTION_DURATION_MS = 180
+export const PAGE_PRESENTATION_MOTION_START_OPACITY = 0.88
+export const PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y = 4
+
+/** renderer 只读取同一帧已经提交到 DOM 的页面呈现状态。 */
+export interface PagePresentationMotionReader {
+  /** 页面是否处于共享呈现事务中。 */
+  active: Readonly<Ref<boolean>>
+  /** 当前页面材质与 DOM 共同使用的透明度。 */
+  opacity: Readonly<Ref<number>>
+  /** 每次 DOM motion 样式提交后递增，renderer 据此在同一帧刷新表面。 */
+  revision: Readonly<Ref<number>>
+}
+
+const active = ref(false)
+const epoch = ref(0)
+const opacity = ref(1)
+const progress = ref(1)
+const revision = ref(0)
+const routeKey = ref('')
+const translateY = ref(0)
+let animationFrame: number | null = null
+let startedAt = 0
+
+function sampleBezier(time: number, start: number, end: number) {
+  const inverse = 1 - time
+
+  return 3 * inverse * inverse * time * start + 3 * inverse * time * time * end + time * time * time
+}
+
+/** 计算玻璃页面统一使用的 `cubic-bezier(0.2, 0.8, 0.2, 1)` 进度。 */
+export function getPagePresentationMotionProgress(elapsed: number, duration = PAGE_PRESENTATION_MOTION_DURATION_MS) {
+  if (duration <= 0 || elapsed >= duration) return 1
+  if (elapsed <= 0) return 0
+
+  const target = elapsed / duration
+  let lower = 0
+  let upper = 1
+  let parameter = target
+
+  for (let iteration = 0; iteration < 10; iteration += 1) {
+    parameter = (lower + upper) * 0.5
+    if (sampleBezier(parameter, 0.2, 0.2) < target) lower = parameter
+    else upper = parameter
+  }
+
+  return sampleBezier(parameter, 0.8, 1)
+}
+
+function clearDocumentMotionState() {
+  const root = document.documentElement
+  delete root.dataset.pagePresentationMotion
+  root.style.removeProperty('--mp-page-motion-opacity')
+  root.style.removeProperty('--mp-page-motion-translate-y')
+}
+
+/** 先提交 DOM 样式，再发布 revision，保证 renderer 读取到同一帧的真实矩形。 */
+function applyMotionFrame(nextProgress: number) {
+  const root = document.documentElement
+  const nextOpacity =
+    PAGE_PRESENTATION_MOTION_START_OPACITY + (1 - PAGE_PRESENTATION_MOTION_START_OPACITY) * nextProgress
+  const nextTranslateY = PAGE_PRESENTATION_MOTION_START_TRANSLATE_Y * (1 - nextProgress)
+
+  root.dataset.pagePresentationMotion = 'active'
+  root.style.setProperty('--mp-page-motion-opacity', nextOpacity.toFixed(4))
+  root.style.setProperty('--mp-page-motion-translate-y', `${nextTranslateY.toFixed(3)}px`)
+  opacity.value = nextOpacity
+  progress.value = nextProgress
+  translateY.value = nextTranslateY
+  revision.value += 1
+}
+
+function settleMotion() {
+  active.value = false
+  opacity.value = 1
+  progress.value = 1
+  translateY.value = 0
+  clearDocumentMotionState()
+}
+
+function cancel() {
+  const needsRendererCommit =
+    active.value ||
+    opacity.value !== 1 ||
+    translateY.value !== 0 ||
+    document.documentElement.dataset.pagePresentationMotion === 'active'
+
+  if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
+  animationFrame = null
+  if (needsRendererCommit) epoch.value += 1
+  settleMotion()
+  if (needsRendererCommit) revision.value += 1
+}
+
+function renderFrame(timestamp: number, motionEpoch: number) {
+  if (!active.value || epoch.value !== motionEpoch) return
+  animationFrame = null
+
+  const nextProgress = getPagePresentationMotionProgress(timestamp - startedAt)
+  applyMotionFrame(nextProgress)
+  if (nextProgress < 1) {
+    animationFrame = window.requestAnimationFrame(nextTimestamp => renderFrame(nextTimestamp, motionEpoch))
+    return
+  }
+
+  settleMotion()
+}
+
+/**
+ * 玻璃主题由共享控制器接管页面入场；其他主题继续使用既有 CSS keyframe。
+ * 返回 true 表示本次路由变化已经处理，包括 reduced-motion 的即时提交。
+ */
+function start(nextRouteKey: string) {
+  if (document.documentElement.dataset.theme !== 'glass') {
+    cancel()
+    return false
+  }
+
+  if (animationFrame !== null) window.cancelAnimationFrame(animationFrame)
+  animationFrame = null
+  epoch.value += 1
+  const motionEpoch = epoch.value
+  routeKey.value = nextRouteKey
+
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    settleMotion()
+    revision.value += 1
+    return true
+  }
+
+  active.value = true
+  startedAt = performance.now()
+  applyMotionFrame(0)
+  animationFrame = window.requestAnimationFrame(timestamp => renderFrame(timestamp, motionEpoch))
+
+  return true
+}
+
+const reader: PagePresentationMotionReader = {
+  active: readonly(active),
+  opacity: readonly(opacity),
+  revision: readonly(revision),
+}
+
+/** 提供默认布局与 glass renderer 共享的短时页面呈现事务。 */
+export function usePagePresentationMotion() {
+  return {
+    active: readonly(active),
+    cancel,
+    epoch: readonly(epoch),
+    opacity: reader.opacity,
+    progress: readonly(progress),
+    reader,
+    revision: reader.revision,
+    routeKey: readonly(routeKey),
+    start,
+    translateY: readonly(translateY),
+  }
+}

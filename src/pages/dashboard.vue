@@ -12,7 +12,7 @@ import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
-import { useDisplay } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
@@ -24,6 +24,7 @@ const { t } = useI18n()
 // PWA模式检测
 const { appMode } = usePWA()
 const display = useDisplay()
+const vuetifyTheme = useTheme()
 const userStore = useUserStore()
 const userPermissionContext = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissionContext.value, 'admin'))
@@ -394,6 +395,13 @@ function pauseDashboardGridAnimation() {
   dashboardGrid.value?.setAnimation(false)
 }
 
+// 玻璃浏览态直接提交自动布局，普通主题和显式编辑交互保留 GridStack 过渡。
+function shouldAnimateDashboardGrid(editable = isLayoutEditing.value) {
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+
+  return !reduceMotion && (editable || vuetifyTheme.global.name.value !== 'glass')
+}
+
 // 批量布局同步期间暂停几何过渡，稳定后恢复浏览与编辑状态的卡片动画。
 function scheduleDashboardGridAnimationResume() {
   if (typeof window === 'undefined') return
@@ -401,8 +409,7 @@ function scheduleDashboardGridAnimationResume() {
 
   dashboardGridAnimationFrame = requestAnimationFrame(() => {
     dashboardGridAnimationFrame = null
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
-    dashboardGrid.value?.setAnimation(!reduceMotion)
+    dashboardGrid.value?.setAnimation(shouldAnimateDashboardGrid())
   })
 }
 
@@ -1178,7 +1185,7 @@ function initializeDashboardGrid() {
 
   dashboardGrid.value = GridStack.init(
     {
-      animate: true,
+      animate: shouldAnimateDashboardGrid(),
       cellHeight: DASHBOARD_GRID_CELL_HEIGHT,
       column: getDashboardGridColumnsForProfile(dashboardLayoutProfile.value),
       draggable: {
@@ -1208,6 +1215,7 @@ function updateDashboardGridEditableState(editable: boolean) {
   if (!dashboardGrid.value) return
 
   dashboardGrid.value.setStatic(!editable)
+  dashboardGrid.value.setAnimation(shouldAnimateDashboardGrid(editable))
   if (editable) {
     dashboardGrid.value.enableMove(true)
     dashboardGrid.value.enableResize(true)
@@ -1531,6 +1539,11 @@ async function reloadDashboardGridWidgetsFromLayout() {
 watch(isLayoutEditing, value => {
   updateDashboardGridEditableState(value)
 })
+
+watch(
+  () => vuetifyTheme.global.name.value,
+  () => updateDashboardGridEditableState(isLayoutEditing.value),
+)
 
 watch(
   dashboardGridItems,
