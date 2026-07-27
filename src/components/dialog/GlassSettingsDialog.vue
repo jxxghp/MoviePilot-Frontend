@@ -39,6 +39,7 @@ const draftFlowStrength = ref(settings.value.glassFlowStrength)
 const draftPreset = ref<GlassOpticalPreset>(settings.value.glassPreset)
 const draftQuality = ref<ThemeCustomizerGlassQuality>(settings.value.glassQuality)
 const draftReflectionStrength = ref(settings.value.glassReflectionStrength)
+const draftTransmissionStrength = ref(settings.value.glassTransmissionStrength)
 const draftTranslationStrength = ref(settings.value.glassTranslationStrength)
 const draftTransparencyStrength = ref(settings.value.glassTransparencyStrength)
 const isSaving = ref(false)
@@ -69,6 +70,7 @@ watch(
       draftPreset.value = settings.value.glassPreset
       draftQuality.value = settings.value.glassQuality
       draftReflectionStrength.value = settings.value.glassReflectionStrength
+      draftTransmissionStrength.value = settings.value.glassTransmissionStrength
       draftTranslationStrength.value = settings.value.glassTranslationStrength
       draftTransparencyStrength.value = settings.value.glassTransparencyStrength
     } else if (previous) {
@@ -122,13 +124,14 @@ function updateQuality(value: unknown) {
   previewGlassSettings({ glassQuality: option.value })
 }
 
-/** 将五个具体参数作为一个预览事务同步，预置只负责生成这些值。 */
+/** 将六个具体参数作为一个预览事务同步，预置只负责生成这些值。 */
 function previewDraftParameters() {
   previewGlassSettings({
     glassDeformationStrength: draftDeformationStrength.value,
     glassFlowStrength: draftFlowStrength.value,
     glassPreset: draftPreset.value,
     glassReflectionStrength: draftReflectionStrength.value,
+    glassTransmissionStrength: draftTransmissionStrength.value,
     glassTranslationStrength: draftTranslationStrength.value,
     glassTransparencyStrength: draftTransparencyStrength.value,
   })
@@ -144,6 +147,7 @@ function applyPreset(value: unknown) {
   draftDeformationStrength.value = parameters.deformation
   draftFlowStrength.value = parameters.flow
   draftReflectionStrength.value = parameters.reflection
+  draftTransmissionStrength.value = parameters.transmission
   draftTranslationStrength.value = parameters.translation
   draftTransparencyStrength.value = parameters.transparency
   previewDraftParameters()
@@ -173,6 +177,12 @@ function updateReflectionStrength(value: unknown) {
   previewGlassSettings({ glassReflectionStrength: draftReflectionStrength.value })
 }
 
+/** 将透射亮度限制为稳定范围并即时调整卡片内部壁纸的明暗。 */
+function updateTransmissionStrength(value: unknown) {
+  draftTransmissionStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
+  previewGlassSettings({ glassTransmissionStrength: draftTransmissionStrength.value })
+}
+
 /** 将通透度限制为稳定范围并即时调整材质与真实壁纸的占比。 */
 function updateTransparencyStrength(value: unknown) {
   draftTransparencyStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
@@ -198,6 +208,7 @@ async function saveSettings() {
       glassPreset: draftPreset.value,
       glassQuality: draftQuality.value,
       glassReflectionStrength: draftReflectionStrength.value,
+      glassTransmissionStrength: draftTransmissionStrength.value,
       glassTranslationStrength: draftTranslationStrength.value,
       glassTransparencyStrength: draftTransparencyStrength.value,
     })
@@ -292,6 +303,7 @@ onScopeDispose(cancelGlassPreview)
         </section>
 
         <section class="glass-settings-dialog__tuning">
+          <h3 class="glass-settings-dialog__group-label">{{ t('theme.glassMaterialTuning') }}</h3>
           <div class="glass-settings-dialog__slider-header">
             <h3 class="glass-settings-dialog__label">{{ t('theme.glassTransparencyStrength') }}</h3>
             <output>{{ draftTransparencyStrength }}%</output>
@@ -307,6 +319,23 @@ onScopeDispose(cancelGlassPreview)
             hide-details
             thumb-label
             @update:model-value="updateTransparencyStrength"
+          />
+
+          <div class="glass-settings-dialog__slider-header glass-settings-dialog__slider-header--spaced">
+            <h3 class="glass-settings-dialog__label">{{ t('theme.glassTransmissionStrength') }}</h3>
+            <output>{{ draftTransmissionStrength }}%</output>
+          </div>
+          <VSlider
+            :model-value="draftTransmissionStrength"
+            :aria-label="t('theme.glassTransmissionStrength')"
+            :min="GLASS_OPTICAL_STRENGTH_MIN"
+            :max="GLASS_OPTICAL_STRENGTH_MAX"
+            :step="1"
+            color="primary"
+            density="comfortable"
+            hide-details
+            thumb-label
+            @update:model-value="updateTransmissionStrength"
           />
 
           <div class="glass-settings-dialog__slider-header glass-settings-dialog__slider-header--spaced">
@@ -327,6 +356,7 @@ onScopeDispose(cancelGlassPreview)
           />
 
           <div v-if="showsDynamicTuning" class="glass-settings-dialog__live-controls">
+            <h3 class="glass-settings-dialog__group-label">{{ t('theme.glassDynamicTuning') }}</h3>
             <div class="glass-settings-dialog__slider-header">
               <h3 class="glass-settings-dialog__label">{{ t('theme.glassTranslationStrength') }}</h3>
               <output>{{ draftTranslationStrength }}%</output>
@@ -421,6 +451,14 @@ onScopeDispose(cancelGlassPreview)
   line-height: 1.45;
 }
 
+.glass-settings-dialog__group-label {
+  margin: 0 0 14px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .glass-settings-dialog__slider-header {
   display: flex;
   align-items: center;
@@ -444,7 +482,9 @@ onScopeDispose(cancelGlassPreview)
 }
 
 .glass-settings-dialog__live-controls {
-  margin-block-start: 18px;
+  border-block-start: 1px solid rgba(var(--v-theme-on-surface), 0.1);
+  margin-block-start: 24px;
+  padding-block-start: 20px;
 
   :deep(.v-slider) {
     margin-block-start: 4px;

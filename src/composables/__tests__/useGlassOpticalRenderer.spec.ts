@@ -2,6 +2,7 @@ import {
   collectGlassOpticalRects,
   containsGlassOpticalSurface,
   setGlassRendererState,
+  useGlassOpticalInteractionSource,
   useGlassOpticalRenderer,
   type GlassRendererState,
 } from '@/composables/useGlassOpticalRenderer'
@@ -33,6 +34,7 @@ vi.mock('three', async importOriginal => {
       render() {}
       setClearColor() {}
       setPixelRatio() {}
+      initTexture() {}
       setRenderTarget() {}
       setScissor() {}
       setScissorTest() {}
@@ -136,6 +138,50 @@ afterEach(() => {
 })
 
 describe('glass optical surface discovery', () => {
+  it('gives an active overlay exclusive ownership of shared pointer input', () => {
+    const overlay = document.createElement('div')
+    overlay.className = 'v-overlay v-overlay--active'
+    document.body.append(overlay)
+    const fixedListener = vi.fn()
+    const scrollListener = vi.fn()
+    const scope = effectScope()
+    scope.run(() => {
+      const source = useGlassOpticalInteractionSource()
+      source.subscribe('fixed', fixedListener)
+      source.subscribe('scroll', scrollListener)
+    })
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 400, clientY: 400 }))
+
+    expect(fixedListener).toHaveBeenCalledOnce()
+    expect(scrollListener).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('routes login-card input to the scroll presentation context', () => {
+    const loginRoot = document.createElement('div')
+    loginRoot.className = 'login-root'
+    const loginCard = document.createElement('section')
+    loginCard.className = 'login-card'
+    setOpticalSurfaceBounds(loginCard, { height: 600, width: 420, x: 200, y: 100 })
+    loginRoot.append(loginCard)
+    document.body.append(loginRoot)
+    const fixedListener = vi.fn()
+    const scrollListener = vi.fn()
+    const scope = effectScope()
+    scope.run(() => {
+      const source = useGlassOpticalInteractionSource()
+      source.subscribe('fixed', fixedListener)
+      source.subscribe('scroll', scrollListener)
+    })
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 400, clientY: 400 }))
+
+    expect(scrollListener).toHaveBeenCalledOnce()
+    expect(fixedListener).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
   it('detects a target surface added directly', () => {
     const surface = document.createElement('section')
     surface.dataset.glassOpticalSurface = ''
@@ -254,6 +300,20 @@ describe('glass optical surface discovery', () => {
     ])
   })
 
+  it('discovers top-level business cards without route-specific selectors', () => {
+    const main = document.createElement('main')
+    main.className = 'layout-page-content'
+    const surface = document.createElement('section')
+    surface.className = 'v-card'
+    setOpticalSurfaceBounds(surface, { height: 360, width: 720, x: 120, y: 140 })
+    main.append(surface)
+    document.body.append(main)
+
+    expect(collectGlassOpticalRects(1200, 900, 'clear')).toEqual([
+      expect.objectContaining({ height: 360, width: 720, x: 120, y: 140 }),
+    ])
+  })
+
   it('recovers after consecutive WebGL context loss cycles', async () => {
     const canvas = document.createElement('canvas')
     const scope = effectScope()
@@ -321,7 +381,7 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addWindowListener.mock.calls, 'touchend')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'touchcancel')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(1)
-    expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(0)
     expect(countListenerAdds(addWindowListener.mock.calls, 'focus')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'pageshow')).toBe(1)
     expect(countListenerAdds(addDocumentListener.mock.calls, 'visibilitychange')).toBe(1)
@@ -353,7 +413,7 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addWindowListener.mock.calls, 'touchend')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'touchcancel')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'resize')).toBe(1)
-    expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(1)
+    expect(countListenerAdds(addWindowListener.mock.calls, 'scroll')).toBe(0)
     expect(countListenerAdds(addWindowListener.mock.calls, 'focus')).toBe(0)
     expect(countListenerAdds(addWindowListener.mock.calls, 'pageshow')).toBe(0)
     expect(countListenerAdds(addDocumentListener.mock.calls, 'visibilitychange')).toBe(0)
@@ -412,6 +472,116 @@ describe('glass optical surface discovery', () => {
     expect(contextLoss).not.toHaveBeenCalled()
     expect(renderTargetDispose).toHaveBeenCalledTimes(4)
 
+    scope.stop()
+  })
+
+  it('keeps the loaded same-origin texture while leaving the login route', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    const routeKey = ref('/login')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey,
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+
+    routeKey.value = '/dashboard'
+    await nextTick()
+
+    expect(renderer?.state.value).toBe('ready')
+    expect(textureLoad).not.toHaveBeenCalled()
+    expect(rendererDispose).not.toHaveBeenCalled()
+
+    scope.stop()
+  })
+
+  it('clears a removed fixed surface during a route transition without waiting for pointer input', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1800)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(900)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const setRenderTarget = vi.spyOn(three.WebGLRenderer.prototype, 'setRenderTarget')
+    const renderedRectCounts: number[] = []
+    render.mockImplementation(scene => {
+      const uniforms = (
+        scene as unknown as {
+          children: Array<{
+            material?: {
+              uniforms?: {
+                uRectCount?: { value: number }
+              }
+            }
+          }>
+        }
+      ).children[0]?.material?.uniforms
+      if (uniforms?.uRectCount) renderedRectCounts.push(uniforms.uRectCount.value)
+    })
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const wrapper = document.createElement('div')
+    wrapper.className = 'app-wrapper'
+    const nav = document.createElement('aside')
+    nav.className = 'layout-vertical-nav'
+    setOpticalSurfaceBounds(nav, { height: 900, width: 260, x: 0, y: 0 })
+    wrapper.append(nav)
+    document.body.append(wrapper)
+    const routeKey = ref('/dashboard')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey,
+        surfaceSpace: 'fixed',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 5 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    render.mockClear()
+    setRenderTarget.mockClear()
+    renderedRectCounts.length = 0
+
+    nav.remove()
+    routeKey.value = '/login'
+    await nextTick()
+    await vi.waitFor(() => expect(callbacks.size).toBeGreaterThan(0))
+    for (let pass = 0; pass < 5 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+
+    expect(render).toHaveBeenCalled()
+    expect(renderedRectCounts.at(-1)).toBe(0)
+    expect(setRenderTarget).not.toHaveBeenCalled()
+    expect(callbacks.size).toBe(0)
     scope.stop()
   })
 
@@ -572,12 +742,55 @@ describe('glass optical surface discovery', () => {
 
     await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
     const dispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
     vi.useFakeTimers()
     visibilityState = 'hidden'
     document.dispatchEvent(new Event('visibilitychange'))
 
     await vi.advanceTimersByTimeAsync(APP_ACTIVITY_SUSPEND_DELAY_MS)
     expect(dispose).toHaveBeenCalledTimes(1)
+    expect(contextLoss).not.toHaveBeenCalled()
+
+    render.mockClear()
+    visibilityState = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+    await nextTick()
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    expect(renderer?.state.value).toBe('ready')
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(contextLoss).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('releases a paused renderer after the visible window remains unfocused', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const dispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
+    vi.useFakeTimers()
+    window.dispatchEvent(new Event('blur'))
+
+    await vi.advanceTimersByTimeAsync(APP_ACTIVITY_SUSPEND_DELAY_MS)
+
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(contextLoss).not.toHaveBeenCalled()
     scope.stop()
   })
 
@@ -844,6 +1057,114 @@ describe('glass optical surface discovery', () => {
     expect(callbacks.size).toBe(0)
   })
 
+  it('redraws a high-quality scroll layer without advancing its flow targets', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const setRenderTarget = vi.spyOn(three.WebGLRenderer.prototype, 'setRenderTarget')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    setRenderTarget.mockClear()
+
+    window.dispatchEvent(new Event('scroll'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+
+    expect(setRenderTarget).not.toHaveBeenCalled()
+    scope.stop()
+    surface.remove()
+  })
+
+  it('tracks transformed card geometry during a bounded hover transition without advancing flow', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const setRenderTarget = vi.spyOn(three.WebGLRenderer.prototype, 'setRenderTarget')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/plugins'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 6 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    render.mockClear()
+    setRenderTarget.mockClear()
+
+    setOpticalSurfaceBounds(surface, { height: 300, width: 400, x: 40, y: 116 })
+    const transitionRun = new Event('transitionrun', { bubbles: true }) as TransitionEvent
+    Object.defineProperty(transitionRun, 'propertyName', { value: 'transform' })
+    surface.dispatchEvent(transitionRun)
+    expect(callbacks.size).toBeGreaterThan(0)
+
+    const scheduledCallbacks = [...callbacks.values()]
+    callbacks.clear()
+    scheduledCallbacks.forEach(callback => callback(performance.now() + 100))
+
+    expect(render).toHaveBeenCalled()
+    expect(setRenderTarget).not.toHaveBeenCalled()
+
+    const transitionEnd = new Event('transitionend', { bubbles: true }) as TransitionEvent
+    Object.defineProperty(transitionEnd, 'propertyName', { value: 'transform' })
+    surface.dispatchEvent(transitionEnd)
+    scope.stop()
+    expect(callbacks.size).toBe(0)
+    surface.remove()
+  })
+
   it('refreshes visible surface slots after scrolling settles', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
@@ -963,6 +1284,7 @@ describe('glass optical surface discovery', () => {
     const deformationStrength = ref(50)
     const flowStrength = ref(50)
     const reflectionStrength = ref(50)
+    const transmissionStrength = ref(50)
     const translationStrength = ref(50)
     const scope = effectScope()
     const renderer = scope.run(() =>
@@ -977,6 +1299,7 @@ describe('glass optical surface discovery', () => {
         routeKey: ref('/dashboard'),
         surfaceSpace: 'scroll',
         tintColor: ref('#8D51F9'),
+        transmissionStrength,
         translationStrength,
         wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
       }),
@@ -1005,6 +1328,7 @@ describe('glass optical surface discovery', () => {
             uRects: { value: Array<{ x: number }> }
             uReflectionStrength: { value: number }
             uTransparency: { value: number }
+            uTransmissionStrength: { value: number }
             uTranslationStrength: { value: number }
             uSurfaceWeights: { value: number[] }
           }
@@ -1034,11 +1358,13 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uMaxRefractionPixels.value).toBe(6)
     expect(uniforms.uReflectionStrength.value).toBe(1)
     expect(uniforms.uTransparency.value).toBeGreaterThan(0.6)
+    expect(uniforms.uTransmissionStrength.value).toBeCloseTo(5 / 7)
 
     translationStrength.value = 100
     deformationStrength.value = 100
     flowStrength.value = 100
     reflectionStrength.value = 80
+    transmissionStrength.value = 100
     await nextTick()
     expect(uniforms.uTranslationStrength.value).toBeCloseTo(1.7)
     expect(uniforms.uDeformationStrength.value).toBeCloseTo(1.55)
@@ -1046,6 +1372,7 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uMotionExpansion.value).toBe(1)
     expect(uniforms.uMaxRefractionPixels.value).toBe(6)
     expect(uniforms.uReflectionStrength.value).toBeGreaterThan(1)
+    expect(uniforms.uTransmissionStrength.value).toBe(1.3)
 
     expect(scene.children[0].material.fragmentShader).not.toContain('clamp(uMotion +')
     expect(scene.children[0].material.fragmentShader).toContain(
@@ -1067,6 +1394,14 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFlowStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransparency')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransmissionStrength')
+    expect(scene.children[0].material.fragmentShader).toContain('float transmissionResponse')
+    expect(scene.children[0].material.fragmentShader).toContain('vec3 transmissionReference')
+    expect(scene.children[0].material.fragmentShader).toContain('float shadowLiftGate')
+    expect(scene.children[0].material.fragmentShader).toContain('float shadowColorRetention')
+    expect(scene.children[0].material.fragmentShader).toContain('float highlightProtection')
+    expect(scene.children[0].material.fragmentShader).toContain('protectedHighlightReference')
+    expect(scene.children[0].material.fragmentShader).toContain('mix(0.58, 0.92, uQuality)')
     expect(scene.children[0].material.fragmentShader).toContain('uMotion *')
     expect(scene.children[0].material.fragmentShader).toContain('uTranslationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('vec2 lightDirection = normalize(vec2(-0.68, 0.74))')

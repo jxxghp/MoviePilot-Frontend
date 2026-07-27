@@ -14,6 +14,7 @@ html[data-theme='glass'] {
   --glass-border-hover: rgba(255, 255, 255, calc(0.1 + var(--glass-reflection, 0.5) * 0.2));
   --glass-control-prominent-border: rgba(255, 255, 255, 14%);
   --glass-highlight: rgba(255, 255, 255, calc(0.06 + var(--glass-reflection, 0.5) * 0.16));
+  --glass-transmission-brightness: 1;
   --glass-sheen: linear-gradient(
     135deg,
     rgba(255, 255, 255, 9%),
@@ -41,8 +42,8 @@ html[data-theme='glass'] {
   --glass-control-prominent-focus-shadow:
     0 0 0 2px rgba(var(--v-theme-primary), 16%), inset 0 1px 0 rgba(255, 255, 255, 24%),
     inset 0 -1px 0 rgba(2, 6, 16, 16%);
-  --glass-surface-backdrop-filter: none;
-  --glass-raised-backdrop-filter: none;
+  --glass-surface-backdrop-filter: brightness(var(--glass-transmission-brightness));
+  --glass-raised-backdrop-filter: brightness(var(--glass-transmission-brightness));
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
@@ -189,8 +190,10 @@ html[data-theme='glass'] {
     --glass-control-prominent-focus-shadow:
       0 0 0 2px rgba(var(--v-theme-primary), 17%), inset 0 1px 0 rgba(255, 255, 255, 34%),
       inset 0 -1px 0 rgba(2, 6, 16, 18%);
-    --glass-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate));
-    --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate));
+    --glass-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
+      brightness(var(--glass-transmission-brightness));
+    --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
+      brightness(var(--glass-transmission-brightness));
     --glass-control-prominent-backdrop-filter: blur(24px) saturate(150%);
     --glass-overlay-surface: var(--glass-surface-raised);
     --glass-overlay-blur: var(--glass-blur-raised);
@@ -204,7 +207,8 @@ html[data-theme='glass'] {
     --glass-control-shortcut-color: rgba(242, 245, 250, 76%);
     --glass-button-surface: rgba(255, 255, 255, 10%);
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
-    --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate));
+    --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
+      brightness(var(--glass-transmission-brightness));
 
     // 磨砂弹窗只由最外层表面采样背景，内部卡片与自定义分组表面保持扁平。
     .v-overlay__content > :where(.v-card, .v-sheet),
@@ -1011,13 +1015,13 @@ html[data-theme='glass'] {
   position: absolute;
 }
 
-// 登录卡片的壁纸副本与外层背景共享切换时序，避免卡片内部提前显示下一张图片。
-html[data-theme='glass'] .app-wrapper--background-transition .login-card__wallpaper-refraction {
-  opacity: 0 !important;
-}
-
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']
   .glass-optical-layer {
+  opacity: 1;
+}
+
+// 登录页强制使用高质量能力，但不改写用户保存的全局质量属性。
+html[data-glass-renderer-state='ready'] .app-wrapper--login-glass-high .glass-optical-layer {
   opacity: 1;
 }
 
@@ -1079,54 +1083,21 @@ html[data-glass-appearance='frosted']:is(
   }
 }
 
-// 登录页只有一个高价值表面，三档质量共用局部实时材质，避免整屏 renderer 重复采样跨域壁纸。
+// 登录页只保留内容保护表面；折射、方向反射和唯一动态焦散均由共享 renderer 负责。
 html[data-theme='glass'] body[data-theme='glass'] {
   .login-card {
     box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
       0 24px 64px rgba(1, 6, 15, 0.22) !important;
   }
 
-  .login-card__glass {
-    -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
-    backdrop-filter: var(--glass-surface-backdrop-filter) !important;
+  .login-card__surface {
+    -webkit-backdrop-filter: brightness(var(--glass-transmission-brightness));
+    backdrop-filter: brightness(var(--glass-transmission-brightness));
     background:
-      radial-gradient(
-        220px 190px at var(--login-card-light-x) var(--login-card-light-y),
-        rgba(255, 255, 255, 0.13),
-        rgba(var(--v-theme-primary), 0.045) 42%,
-        transparent 76%
-      ),
-      linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 36%), rgba(var(--v-theme-surface), 0.28) !important;
-  }
-
-  .login-card__wallpaper-refraction {
-    display: block;
-    background-attachment: fixed;
-    background-image: var(--login-wallpaper-image);
-    background-position: calc(50% + var(--login-refraction-shift-x)) calc(50% + var(--login-refraction-shift-y));
-    background-repeat: no-repeat;
-    background-size: cover;
-    filter: url('#login-liquid-refraction-clear') saturate(1.22) contrast(1.06) brightness(1.04);
-    opacity: 0.48;
-    transform: scale(1.025);
-    transition:
-      background-position 90ms linear,
-      opacity 180ms ease-out;
-  }
-
-  .login-card__glass-caustic {
-    inset-block-start: calc(var(--login-card-light-y) - 88px);
-    inset-inline-start: calc(var(--login-card-light-x) - 112px);
-    mix-blend-mode: screen;
-    opacity: calc(var(--optical-glass-caustic-opacity) + 0.12);
-    transform: scale(calc(var(--optical-glass-caustic-scale) + 0.08));
-    transition:
-      inset-block-start 90ms linear,
-      inset-inline-start 90ms linear,
-      opacity 160ms ease-out,
-      transform 180ms ease-out;
+      linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 34%),
+      linear-gradient(rgba(7, 14, 25, 0.04), rgba(7, 14, 25, 0.1)) !important;
   }
 
   .native-login-field {
@@ -1138,22 +1109,11 @@ html[data-theme='glass'] body[data-theme='glass'] {
 }
 
 html[data-theme='glass'][data-glass-appearance='tinted'] body[data-theme='glass'] {
-  .login-card__glass {
+  .login-card__surface {
     background:
-      radial-gradient(
-        220px 190px at var(--login-card-light-x) var(--login-card-light-y),
-        rgba(255, 255, 255, 0.13),
-        rgba(var(--v-theme-primary), 0.1) 44%,
-        transparent 76%
-      ),
       linear-gradient(145deg, rgba(255, 255, 255, 0.1), transparent 36%),
-      linear-gradient(rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-primary), 0.04)),
-      rgba(var(--v-theme-surface), 0.28) !important;
-  }
-
-  .login-card__wallpaper-refraction {
-    filter: url('#login-liquid-refraction-clear') saturate(1.22) contrast(1.06) brightness(1.04);
-    opacity: 0.48;
+      linear-gradient(rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-primary), 0.03)),
+      linear-gradient(rgba(7, 14, 25, 0.16), rgba(7, 14, 25, 0.3)) !important;
   }
 
   .native-login-field {
@@ -1168,42 +1128,12 @@ html[data-theme='glass'][data-glass-appearance='frosted'] body[data-theme='glass
     box-shadow: var(--glass-shadow-raised) !important;
   }
 
-  .login-card__glass {
-    -webkit-backdrop-filter: var(--glass-raised-backdrop-filter) !important;
-    backdrop-filter: var(--glass-raised-backdrop-filter) !important;
-    background-color: var(--glass-surface-raised) !important;
-    background-image: var(--glass-sheen) !important;
-  }
-
-  .login-card__glass::after {
-    position: absolute;
-    z-index: 1;
-    background-color: rgba(255, 255, 255, 0.08);
-    background-image: var(--glass-sheen);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      inset 0 -1px 0 rgba(2, 6, 16, 0.16);
-    content: '';
-    inset: 0;
-  }
-
-  // 登录页位于独立合成边界，壁纸副本用于恢复导航表面的背景采样语义。
-  .login-card__wallpaper-refraction {
-    display: block;
-    background-image: linear-gradient(rgba(6, 10, 19, 0.3), rgba(6, 10, 19, 0.58)), var(--login-wallpaper-image);
-    background-attachment: fixed, fixed;
-    background-position:
-      center,
-      calc(50% + var(--login-refraction-shift-x)) calc(50% + var(--login-refraction-shift-y));
-    background-repeat: no-repeat;
-    background-size: cover;
-    filter: blur(52px) brightness(0.76) saturate(0.72);
-    opacity: 0.94;
-    transform: scale(1.24);
-  }
-
-  .login-card__glass-caustic {
-    opacity: calc(var(--optical-glass-caustic-opacity) + 0.08);
+  .login-card__surface {
+    -webkit-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
+      brightness(var(--glass-transmission-brightness));
+    backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
+      brightness(var(--glass-transmission-brightness));
+    background: var(--glass-sheen), linear-gradient(rgba(8, 15, 27, 0.34), rgba(8, 15, 27, 0.48)) !important;
   }
 
   .native-login-field {

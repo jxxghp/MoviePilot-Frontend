@@ -8,6 +8,7 @@ export const GLASS_OPTICAL_TRANSLATION_MAX_SCALE = 1.7
 export const GLASS_OPTICAL_STRENGTH_DEFAULT = 50
 export const GLASS_OPTICAL_STRENGTH_MAX = 100
 export const GLASS_OPTICAL_STRENGTH_MIN = 0
+export const GLASS_OPTICAL_REFERENCE_STRENGTH = 70
 
 export type GlassAppearance = 'clear' | 'frosted' | 'tinted'
 export type GlassOpticalCapability = 'balanced' | 'css' | 'high'
@@ -22,6 +23,8 @@ export interface GlassOpticalParameters {
   flow: number
   /** 方向高光、迎光棱镜与背光吸收强度。 */
   reflection: number
+  /** 玻璃内部壁纸采样的明暗与暗部展开强度。 */
+  transmission: number
   /** 共享壁纸采样在表面内的统一坐标平移强度。 */
   translation: number
   /** 壁纸可见度与材质遮罩强度。 */
@@ -127,58 +130,58 @@ const GLASS_OPTICAL_PRESET_MATRIX: Record<
 > = {
   clear: {
     css: {
-      natural: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
-      glide: { deformation: 28, flow: 42, reflection: 42, translation: 72, transparency: 58 },
-      liquid: { deformation: 72, flow: 78, reflection: 54, translation: 56, transparency: 52 },
+      natural: { deformation: 50, flow: 50, reflection: 35, transmission: 70, translation: 50, transparency: 70 },
+      glide: { deformation: 28, flow: 42, reflection: 29, transmission: 72, translation: 72, transparency: 78 },
+      liquid: { deformation: 72, flow: 78, reflection: 38, transmission: 66, translation: 56, transparency: 74 },
     },
     balanced: {
-      natural: { deformation: 50, flow: 50, reflection: 50, translation: 50, transparency: 50 },
-      glide: { deformation: 30, flow: 44, reflection: 42, translation: 72, transparency: 58 },
-      liquid: { deformation: 70, flow: 76, reflection: 52, translation: 56, transparency: 52 },
+      natural: { deformation: 50, flow: 50, reflection: 35, transmission: 70, translation: 50, transparency: 70 },
+      glide: { deformation: 30, flow: 44, reflection: 29, transmission: 72, translation: 72, transparency: 78 },
+      liquid: { deformation: 70, flow: 76, reflection: 36, transmission: 66, translation: 56, transparency: 74 },
     },
     high: {
-      natural: { deformation: 50, flow: 50, reflection: 46, translation: 50, transparency: 50 },
-      glide: { deformation: 32, flow: 46, reflection: 40, translation: 74, transparency: 60 },
-      liquid: { deformation: 74, flow: 80, reflection: 50, translation: 58, transparency: 54 },
+      natural: { deformation: 50, flow: 50, reflection: 32, transmission: 70, translation: 50, transparency: 70 },
+      glide: { deformation: 32, flow: 46, reflection: 28, transmission: 74, translation: 74, transparency: 80 },
+      liquid: { deformation: 74, flow: 80, reflection: 35, transmission: 68, translation: 58, transparency: 76 },
     },
   },
   tinted: {
     css: {
-      natural: { deformation: 50, flow: 50, reflection: 54, translation: 50, transparency: 46 },
-      glide: { deformation: 30, flow: 42, reflection: 48, translation: 70, transparency: 52 },
-      liquid: { deformation: 70, flow: 76, reflection: 58, translation: 54, transparency: 48 },
+      natural: { deformation: 50, flow: 50, reflection: 38, transmission: 68, translation: 50, transparency: 46 },
+      glide: { deformation: 30, flow: 42, reflection: 34, transmission: 74, translation: 70, transparency: 52 },
+      liquid: { deformation: 70, flow: 76, reflection: 41, transmission: 64, translation: 54, transparency: 48 },
     },
     balanced: {
-      natural: { deformation: 52, flow: 50, reflection: 54, translation: 50, transparency: 46 },
-      glide: { deformation: 32, flow: 44, reflection: 48, translation: 70, transparency: 52 },
-      liquid: { deformation: 72, flow: 76, reflection: 56, translation: 56, transparency: 48 },
+      natural: { deformation: 52, flow: 50, reflection: 38, transmission: 72, translation: 50, transparency: 46 },
+      glide: { deformation: 32, flow: 44, reflection: 34, transmission: 78, translation: 70, transparency: 52 },
+      liquid: { deformation: 72, flow: 76, reflection: 39, transmission: 68, translation: 56, transparency: 48 },
     },
     high: {
-      natural: { deformation: 52, flow: 50, reflection: 50, translation: 50, transparency: 48 },
-      glide: { deformation: 34, flow: 46, reflection: 46, translation: 72, transparency: 54 },
-      liquid: { deformation: 76, flow: 80, reflection: 54, translation: 58, transparency: 50 },
+      natural: { deformation: 52, flow: 50, reflection: 35, transmission: 76, translation: 50, transparency: 48 },
+      glide: { deformation: 34, flow: 46, reflection: 32, transmission: 82, translation: 72, transparency: 54 },
+      liquid: { deformation: 76, flow: 80, reflection: 38, transmission: 72, translation: 58, transparency: 50 },
     },
   },
   frosted: {
     css: {
-      natural: { deformation: 50, flow: 50, reflection: 44, translation: 50, transparency: 42 },
-      glide: { deformation: 34, flow: 42, reflection: 38, translation: 66, transparency: 46 },
-      liquid: { deformation: 76, flow: 74, reflection: 48, translation: 50, transparency: 44 },
+      natural: { deformation: 50, flow: 50, reflection: 31, transmission: 54, translation: 50, transparency: 42 },
+      glide: { deformation: 34, flow: 42, reflection: 27, transmission: 58, translation: 66, transparency: 46 },
+      liquid: { deformation: 76, flow: 74, reflection: 34, transmission: 50, translation: 50, transparency: 44 },
     },
     balanced: {
-      natural: { deformation: 58, flow: 52, reflection: 44, translation: 48, transparency: 42 },
-      glide: { deformation: 38, flow: 44, reflection: 38, translation: 68, transparency: 46 },
-      liquid: { deformation: 78, flow: 76, reflection: 46, translation: 52, transparency: 44 },
+      natural: { deformation: 58, flow: 52, reflection: 31, transmission: 58, translation: 48, transparency: 42 },
+      glide: { deformation: 38, flow: 44, reflection: 27, transmission: 62, translation: 68, transparency: 46 },
+      liquid: { deformation: 78, flow: 76, reflection: 32, transmission: 54, translation: 52, transparency: 44 },
     },
     high: {
-      natural: { deformation: 60, flow: 52, reflection: 42, translation: 48, transparency: 44 },
-      glide: { deformation: 40, flow: 46, reflection: 36, translation: 70, transparency: 48 },
-      liquid: { deformation: 82, flow: 80, reflection: 44, translation: 54, transparency: 46 },
+      natural: { deformation: 60, flow: 52, reflection: 29, transmission: 62, translation: 48, transparency: 44 },
+      glide: { deformation: 40, flow: 46, reflection: 25, transmission: 66, translation: 70, transparency: 48 },
+      liquid: { deformation: 82, flow: 80, reflection: 31, transmission: 58, translation: 54, transparency: 46 },
     },
   },
 }
 
-/** 返回材质、质量与预置共同确定的五个具体参数，调用方可以安全修改返回值。 */
+/** 返回材质、质量与预置共同确定的六个具体参数，调用方可以安全修改返回值。 */
 export function getGlassOpticalPresetParameters(
   appearance: GlassAppearance,
   quality: GlassOpticalCapability,
@@ -277,18 +280,44 @@ export function getGlassOpticalReflectionStrengthScale(value: unknown) {
   return normalizedRatio ** Math.log2(GLASS_OPTICAL_REFLECTION_MAX_SCALE)
 }
 
-/** 通透度独立控制真实背景与可读性遮罩的占比，高区间继续增强但逐步收敛。 */
+/** 通透度独立控制真实背景与可读性遮罩的占比，高区间仍受 shader 可读性上限保护。 */
 export function getGlassOpticalTransparency(value: unknown) {
   const normalized = normalizeGlassOpticalStrength(value)
-  if (normalized <= 80) {
-    const progress = normalized / 80
+  if (normalized <= GLASS_OPTICAL_REFERENCE_STRENGTH) {
+    const progress = normalized / GLASS_OPTICAL_REFERENCE_STRENGTH
 
-    return 0.28 + 0.58 * progress ** 1.25
+    return 0.28 + 0.68 * progress ** 1.25
   }
 
-  const highRangeProgress = (normalized - 80) / 20
+  const highRangeProgress =
+    (normalized - GLASS_OPTICAL_REFERENCE_STRENGTH) / (GLASS_OPTICAL_STRENGTH_MAX - GLASS_OPTICAL_REFERENCE_STRENGTH)
 
-  return 0.86 + 0.1 * highRangeProgress ** 1.5
+  return 0.96 + 0.14 * highRangeProgress ** 1.35
+}
+
+/** 标准 CSS 材质使用受控亮度曲线，并在高区间保留有限余量。 */
+export function getGlassOpticalCssTransmissionBrightness(value: unknown) {
+  const transmission = getGlassOpticalTransmissionStrength(value)
+  if (transmission <= 1) {
+    return 0.82 + 0.46 * transmission ** 1.1
+  }
+
+  const progress = (transmission - 1) / 0.3
+
+  return 1.28 + 0.2 * progress ** 1.2
+}
+
+/** 实时 renderer 接收透射响应，并在 shader 中按材质和质量执行高亮保护。 */
+export function getGlassOpticalTransmissionStrength(value: unknown) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  if (normalized <= GLASS_OPTICAL_REFERENCE_STRENGTH) {
+    return normalized / GLASS_OPTICAL_REFERENCE_STRENGTH
+  }
+
+  const highRangeProgress =
+    (normalized - GLASS_OPTICAL_REFERENCE_STRENGTH) / (GLASS_OPTICAL_STRENGTH_MAX - GLASS_OPTICAL_REFERENCE_STRENGTH)
+
+  return 1 + 0.3 * highRangeProgress ** 1.2
 }
 
 /** 质量决定合成缓冲与纹理上限；路由只切换纹理来源，不改变质量档位。 */

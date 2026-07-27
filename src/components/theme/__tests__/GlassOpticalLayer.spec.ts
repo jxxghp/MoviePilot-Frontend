@@ -40,6 +40,7 @@ describe('GlassOpticalLayer', () => {
         tintColor: '#8D51F9',
         transitionDuration: 1500,
         transitionStartedAt: 0,
+        transmissionStrength: 84,
         translationStrength: 50,
         transparencyStrength: 50,
         wallpaperUrl: '/wallpaper.jpg',

@@ -4,6 +4,7 @@ import {
   GLASS_OPTICAL_REFLECTION_MAX_SCALE,
   getAvailableGlassOpticalPresets,
   getGlassCoverScale,
+  getGlassOpticalCssTransmissionBrightness,
   getGlassOpticalDecay,
   getGlassOpticalBufferSize,
   getGlassOpticalMaxRefractionPixels,
@@ -14,6 +15,7 @@ import {
   getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
   getGlassOpticalTransparency,
+  getGlassOpticalTransmissionStrength,
   getGlassOpticalSurfaceTransitionWeights,
   getGlassOpticalWakeDirection,
   getGlassOpticalWakeSample,
@@ -66,14 +68,20 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalReflectionStrengthScale(100)).toBeCloseTo(GLASS_OPTICAL_REFLECTION_MAX_SCALE)
     expect(getGlassOpticalTransparency(0)).toBeCloseTo(0.28)
     expect(getGlassOpticalTransparency(50)).toBeGreaterThan(0.6)
-    expect(getGlassOpticalTransparency(80)).toBeCloseTo(0.86)
-    expect(getGlassOpticalTransparency(100)).toBeCloseTo(0.96)
-    expect(getGlassOpticalTransparency(100) - getGlassOpticalTransparency(80)).toBeLessThan(
-      getGlassOpticalTransparency(80) - getGlassOpticalTransparency(50),
+    expect(getGlassOpticalTransparency(70)).toBeCloseTo(0.96)
+    expect(getGlassOpticalTransparency(100)).toBeCloseTo(1.1)
+    expect(getGlassOpticalTransparency(100) - getGlassOpticalTransparency(70)).toBeLessThan(
+      getGlassOpticalTransparency(70) - getGlassOpticalTransparency(50),
     )
+    expect(getGlassOpticalTransmissionStrength(0)).toBe(0)
+    expect(getGlassOpticalTransmissionStrength(70)).toBe(1)
+    expect(getGlassOpticalTransmissionStrength(100)).toBe(1.3)
+    expect(getGlassOpticalCssTransmissionBrightness(0)).toBeCloseTo(0.82)
+    expect(getGlassOpticalCssTransmissionBrightness(70)).toBeCloseTo(1.28)
+    expect(getGlassOpticalCssTransmissionBrightness(100)).toBeCloseTo(1.48)
   })
 
-  it('keeps presets as concrete five-parameter values', () => {
+  it('keeps presets as concrete six-parameter values', () => {
     const natural = getGlassOpticalPresetParameters('clear', 'balanced', 'natural')
     const glide = getGlassOpticalPresetParameters('clear', 'balanced', 'glide')
     const liquid = getGlassOpticalPresetParameters('frosted', 'high', 'liquid')
@@ -81,9 +89,10 @@ describe('glass optics geometry', () => {
     expect(natural).toEqual({
       deformation: 50,
       flow: 50,
-      reflection: 50,
+      reflection: 35,
+      transmission: 70,
       translation: 50,
-      transparency: 50,
+      transparency: 70,
     })
     expect(glide.translation).toBeGreaterThan(glide.deformation)
     expect(liquid.deformation).toBeGreaterThan(glide.deformation)
