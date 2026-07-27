@@ -70,22 +70,57 @@ export async function getDominantColor(
 export async function preloadImage(url: string): Promise<boolean> {
   return new Promise(resolve => {
     const img = new Image()
+    let settled = false
+    const finish = (available: boolean) => {
+      if (settled) return
 
-    img.onload = () => resolve(true)
-    img.onerror = () => resolve(false)
+      settled = true
+      clearTimeout(timeout)
+      resolve(available)
+    }
+
+    img.onload = () => finish(true)
+    img.onerror = () => finish(false)
 
     // 设置超时，防止图片长时间加载
     const timeout = setTimeout(() => {
       img.src = ''
-      resolve(false)
+      finish(false)
     }, 5000) // 5秒超时
 
     img.src = url
 
     // 如果图片已经缓存，onload可能不会触发
     if (img.complete) {
-      clearTimeout(timeout)
-      resolve(true)
+      finish(img.naturalWidth > 0)
     }
   })
+}
+
+/** 在纹理加载前建立带 CORS 响应头的缓存，避免普通图片缓存污染 WebGL 读取。 */
+export async function preloadCorsImage(url: string): Promise<boolean> {
+  const request = async (cache: RequestCache) => {
+    const source = new URL(url, window.location.href)
+    const response = await fetch(source, {
+      cache,
+      credentials: source.origin === window.location.origin ? 'same-origin' : 'omit',
+      mode: 'cors',
+    })
+    if (!response.ok) return false
+
+    await response.blob()
+    return true
+  }
+
+  try {
+    if (await request('force-cache')) return true
+  } catch {
+    // 缓存中的非 CORS 响应可能使首次读取失败，重新验证后再决定是否回退。
+  }
+
+  try {
+    return await request('reload')
+  } catch {
+    return false
+  }
 }

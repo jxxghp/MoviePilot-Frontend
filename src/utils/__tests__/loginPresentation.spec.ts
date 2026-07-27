@@ -3,7 +3,6 @@ import {
   createLoginBackgroundLayers,
   getLoginGlassOpticalSettings,
   getLoginVisualProfile,
-  getLoginWallpaperRequestMode,
   prepareLoginBackgroundLayer,
   settleLoginBackgroundLayers,
 } from '@/utils/loginPresentation'
@@ -40,12 +39,6 @@ describe('login presentation', () => {
       translationStrength: 57,
       transparencyStrength: 46,
     })
-  })
-
-  it('requests same-origin wallpapers only for glass', () => {
-    expect(getLoginWallpaperRequestMode('glass')).toBe('same-origin')
-    expect(getLoginWallpaperRequestMode('classic')).toBe('default')
-    expect(getLoginWallpaperRequestMode('transparent')).toBe('default')
   })
 
   it('keeps two stable wallpaper slots while their transition roles change', () => {

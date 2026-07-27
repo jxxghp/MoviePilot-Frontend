@@ -492,7 +492,7 @@ export function reconcileGlassOpticalSurfaceSlots<TKey>(
   return [...stable, ...reserved].slice(0, maxCount)
 }
 
-/** 只将同源及本地对象交给 WebGL，避免跨域纹理失败污染登录页控制台。 */
+/** 过滤浏览器不会作为纹理读取的协议；跨域读取能力由实际纹理加载结果判定。 */
 export function canUseGlassWallpaperTexture(url: string, documentUrl: string): boolean {
   if (!url || !documentUrl) return false
 
@@ -500,7 +500,11 @@ export function canUseGlassWallpaperTexture(url: string, documentUrl: string): b
     const source = new URL(url, documentUrl)
     if (source.protocol === 'blob:' || source.protocol === 'data:') return true
 
-    return source.origin === new URL(documentUrl).origin
+    const document = new URL(documentUrl)
+    if (source.protocol !== 'http:' && source.protocol !== 'https:') return false
+    if (document.protocol === 'https:' && source.protocol === 'http:') return false
+
+    return true
   } catch {
     return false
   }
