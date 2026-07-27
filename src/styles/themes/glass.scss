@@ -1108,6 +1108,12 @@ html[data-theme='glass'] body[data-theme='glass'] {
   }
 }
 
+html[data-theme='glass'][data-glass-renderer-state='fallback'] body[data-theme='glass'] {
+  .app-wrapper--login-glass-high .login-card__surface {
+    filter: url('#login-glass-static-refraction');
+  }
+}
+
 html[data-theme='glass'][data-glass-appearance='tinted'] body[data-theme='glass'] {
   .login-card__surface {
     background:

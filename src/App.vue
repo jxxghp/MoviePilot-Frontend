@@ -7,7 +7,7 @@ import { useAuthStore, useGlobalSettingsStore } from '@/stores'
 import { getBrowserLocale, setI18nLanguage } from './plugins/i18n'
 import { SupportedLocale } from '@/types/i18n'
 import { checkAndEmitUnreadMessages } from '@/utils/badge'
-import { preloadImage } from './@core/utils/image'
+import { preloadCorsImage, preloadImage } from './@core/utils/image'
 import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
@@ -38,10 +38,8 @@ import {
   createLoginBackgroundLayers,
   getLoginGlassOpticalSettings,
   getLoginVisualProfile,
-  getLoginWallpaperRequestMode,
   prepareLoginBackgroundLayer,
   settleLoginBackgroundLayers,
-  type LoginWallpaperRequestMode,
 } from '@/utils/loginPresentation'
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
@@ -158,7 +156,6 @@ const shouldUseGlassBackgroundTreatment = computed(
 const shouldLoadBackgroundImages = computed(
   () => isLoginWallpaperRoute.value || (Boolean(isLogin.value) && isBackdropTheme.value),
 )
-const wallpaperRequestMode = computed(() => getLoginWallpaperRequestMode(loginVisualProfile.value))
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
 const renderedBackgroundLayers = computed(() => backgroundLayers.value)
 const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
@@ -480,13 +477,12 @@ function activateBackgroundImage(nextIndex: number) {
 }
 
 // 获取背景图片列表；只有选出实际可用的首图后才提交到可见状态。
-async function fetchBackgroundImages(requestMode: LoginWallpaperRequestMode) {
+async function fetchBackgroundImages() {
   backgroundRequestController?.abort()
   const controller = new AbortController()
   backgroundRequestController = controller
   try {
     return await api.get<string[], string[]>(`/login/wallpapers`, {
-      params: requestMode === 'same-origin' ? { same_origin: true } : undefined,
       signal: controller.signal,
     })
   } finally {
@@ -498,7 +494,18 @@ async function fetchBackgroundImages(requestMode: LoginWallpaperRequestMode) {
 function preloadNextBackgroundImage() {
   if (!allowsBackgroundRotation.value || backgroundImages.value.length <= 1) return
   const nextIndex = (activeImageIndex.value + 1) % backgroundImages.value.length
-  void preloadImage(backgroundImages.value[nextIndex])
+  void preloadBackgroundCandidate(backgroundImages.value[nextIndex])
+}
+
+/** 实时玻璃先建立可供 WebGL 读取的缓存，失败时仍允许 CSS 材质显示该壁纸。 */
+async function preloadBackgroundCandidate(imageUrl: string) {
+  if (!shouldRenderGlassOpticalLayer.value) return preloadImage(imageUrl)
+
+  const opticalUrl = getOpticalBackgroundImage(imageUrl)
+  const opticalReady = await preloadCorsImage(opticalUrl)
+  if (!opticalReady) return preloadImage(imageUrl)
+
+  return opticalUrl === imageUrl ? true : preloadImage(imageUrl)
 }
 
 // 背景图片轮换函数
@@ -513,13 +520,13 @@ async function rotateBackgroundImage() {
     const nextIndex = (activeIndex + offset) % backgroundImages.value.length
     const nextImage = backgroundImages.value[nextIndex]
     const opticalImage = shouldRenderGlassOpticalLayer.value ? getOpticalBackgroundImage(nextImage) : undefined
+    if (opticalImage && !(await prepareOpticalWallpaper(opticalImage))) continue
     const imagesReady = await preloadBackgroundRotationImages({
       displayUrl: nextImage,
       opticalUrl: opticalImage,
       preload: preloadImage,
     })
     if (!imagesReady) continue
-    if (opticalImage && !(await prepareOpticalWallpaper(opticalImage))) continue
     if (!allowsBackgroundRotation.value || requestVersion !== backgroundRotationVersion) return
 
     activateBackgroundImage(nextIndex)
@@ -531,7 +538,7 @@ async function rotateBackgroundImage() {
     stopBackgroundRotation()
     const recoveryVersion = ++backgroundLoadVersion
     backgroundRecoveryAttemptedVersion = recoveryVersion
-    void loadBackgroundImages(wallpaperRequestMode.value, recoveryVersion)
+    void loadBackgroundImages(recoveryVersion)
   }
 }
 
@@ -708,16 +715,16 @@ async function removeLoadingWithStateCheck() {
 }
 
 // 加载背景图片
-async function loadBackgroundImages(requestMode: LoginWallpaperRequestMode, loadVersion: number, retryCount = 0) {
+async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
   const maxRetries = 3
   try {
-    const images = await fetchBackgroundImages(requestMode)
+    const images = await fetchBackgroundImages()
     if (loadVersion !== backgroundLoadVersion) return
 
     const firstAvailableIndex = await findFirstAvailableBackground({
       urls: images,
       canContinue: () => loadVersion === backgroundLoadVersion,
-      preload: preloadImage,
+      preload: preloadBackgroundCandidate,
     })
     if (firstAvailableIndex === null) throw new Error('没有可用的登录壁纸')
     if (loadVersion !== backgroundLoadVersion) return
@@ -743,7 +750,7 @@ async function loadBackgroundImages(requestMode: LoginWallpaperRequestMode, load
       backgroundRetryTimer = window.setTimeout(() => {
         backgroundRetryTimer = null
         if (loadVersion === backgroundLoadVersion) {
-          void loadBackgroundImages(requestMode, loadVersion, retryCount + 1)
+          void loadBackgroundImages(loadVersion, retryCount + 1)
         }
       }, retryDelay)
     }
@@ -788,15 +795,13 @@ onMounted(async () => {
   window.addEventListener('focus', handlePageShowThemeSync)
   window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
 
-  // 背景范围或玻璃同源能力变化时重新加载；登录前后玻璃主题保持同一请求模式和活动壁纸。
+  // 登录前后复用同一壁纸列表和活动项，主题变化只改变呈现方式。
   watch(
-    () => [shouldLoadBackgroundImages.value, wallpaperRequestMode.value] as const,
-    ([shouldLoad, requestMode], previous) => {
-      if (previous && shouldLoad === previous[0] && requestMode === previous[1]) return
-
+    shouldLoadBackgroundImages,
+    shouldLoad => {
       stopBackgroundLoading()
       if (shouldLoad) {
-        void loadBackgroundImages(requestMode, backgroundLoadVersion)
+        void loadBackgroundImages(backgroundLoadVersion)
       } else if (!isBackdropTheme.value) {
         backgroundImages.value = []
       }

@@ -1,7 +1,6 @@
 import type { GlassAppearance, GlassOpticalPreset } from '@/utils/glassOptics'
 
 export type LoginVisualProfile = 'classic' | 'glass' | 'transparent'
-export type LoginWallpaperRequestMode = 'default' | 'same-origin'
 
 export interface LoginGlassPreference {
   /** 用户选择的玻璃材质。 */
@@ -51,11 +50,6 @@ export function getLoginGlassOpticalSettings(preference: LoginGlassPreference) {
     translationStrength: preference.translationStrength,
     transparencyStrength: preference.transparencyStrength,
   }
-}
-
-/** 玻璃主题需要同源纹理，其余主题保留现有外链返回行为。 */
-export function getLoginWallpaperRequestMode(profile: LoginVisualProfile): LoginWallpaperRequestMode {
-  return profile === 'glass' ? 'same-origin' : 'default'
 }
 
 /** 建立两个始终存在的背景槽位，避免角色变化时复用错误的 DOM 合成层。 */

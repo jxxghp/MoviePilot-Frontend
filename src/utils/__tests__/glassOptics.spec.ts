@@ -351,14 +351,16 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalSurfaceTransitionWeights(96, 96)).toEqual({ incoming: 1, outgoing: 0 })
   })
 
-  it('only uploads browser-readable login wallpapers to WebGL', () => {
+  it('attempts browser-supported wallpaper protocols without allowing mixed content', () => {
     const documentUrl = 'https://moviepilot.example/login'
 
     expect(canUseGlassWallpaperTexture('/api/v1/login/wallpaper/0', documentUrl)).toBe(true)
     expect(canUseGlassWallpaperTexture('https://moviepilot.example/assets/login.jpg', documentUrl)).toBe(true)
     expect(canUseGlassWallpaperTexture('blob:https://moviepilot.example/texture', documentUrl)).toBe(true)
     expect(canUseGlassWallpaperTexture('data:image/png;base64,AA==', documentUrl)).toBe(true)
-    expect(canUseGlassWallpaperTexture('https://image.tmdb.org/t/p/original/poster.jpg', documentUrl)).toBe(false)
+    expect(canUseGlassWallpaperTexture('https://image.tmdb.org/t/p/original/poster.jpg', documentUrl)).toBe(true)
+    expect(canUseGlassWallpaperTexture('http://image.tmdb.org/t/p/original/poster.jpg', documentUrl)).toBe(false)
+    expect(canUseGlassWallpaperTexture('ftp://image.tmdb.org/poster.jpg', documentUrl)).toBe(false)
     expect(canUseGlassWallpaperTexture('', documentUrl)).toBe(false)
   })
 

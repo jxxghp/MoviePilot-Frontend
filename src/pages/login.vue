@@ -745,6 +745,16 @@ onUnmounted(() => {
 <template>
   <!-- 登录页面容器 -->
   <div class="login-root" :data-login-visual-profile="loginVisualProfile">
+    <svg class="login-glass-filter-defs" aria-hidden="true">
+      <defs>
+        <filter id="login-glass-static-refraction" x="-12%" y="-12%" width="124%" height="124%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.008 0.014" numOctaves="2" seed="8" result="noise" />
+          <feGaussianBlur in="noise" stdDeviation="0.35" result="softNoise" />
+          <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="11" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+    </svg>
+
     <!-- 经典主题保留一层低频品牌环境光；透明与玻璃 profile 不挂载该装饰。 -->
     <div v-if="loginVisualProfile === 'classic'" class="login-ambient-light" aria-hidden="true">
       <span class="login-ambient-light__wash" />
@@ -1030,6 +1040,14 @@ onUnmounted(() => {
   inline-size: 100%;
   min-block-size: 0;
   padding-inline: 16px;
+}
+
+.login-glass-filter-defs {
+  position: absolute;
+  overflow: hidden;
+  block-size: 0;
+  inline-size: 0;
+  pointer-events: none;
 }
 
 /* ===================== 玻璃卡片 ===================== */
@@ -1469,6 +1487,7 @@ onUnmounted(() => {
   .native-login-field {
     backdrop-filter: none !important;
     background: rgb(var(--v-theme-surface)) !important;
+    filter: none !important;
   }
 }
 
