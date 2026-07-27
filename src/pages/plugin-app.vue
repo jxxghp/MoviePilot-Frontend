@@ -42,7 +42,7 @@ watch(
 </script>
 
 <template>
-  <div class="plugin-app-page">
+  <div class="plugin-app-page" data-glass-optical-mode="static-material">
     <VAlert v-if="loadError" type="error" class="ma-4" title="组件加载错误">
       无法加载插件全页组件。多入口时请暴露 AppPage 或 AppPage{Pascal}（见文档），并确认插件已启用。
     </VAlert>

@@ -173,7 +173,12 @@ onBeforeMount(async () => {
 <template>
   <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
     <!-- Vuetify 渲染模式 -->
-    <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`">
+    <VCard
+      v-if="renderMode === 'vuetify'"
+      :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`"
+      data-glass-optical-surface
+      data-glass-optical-mode="static-material"
+    >
       <VDialogCloseBtn @click="emit('close')" />
       <VDivider />
       <LoadingBanner v-if="!isRefreshed" class="mt-5" />
@@ -208,7 +213,7 @@ onBeforeMount(async () => {
       </VCardActions>
     </VCard>
     <!-- Vue 渲染模式 -->
-    <VCard v-else-if="renderMode === 'vue'">
+    <VCard v-else-if="renderMode === 'vue'" data-glass-optical-surface data-glass-optical-mode="static-material">
       <VCardText class="pa-0">
         <component
           :is="dynamicComponent"

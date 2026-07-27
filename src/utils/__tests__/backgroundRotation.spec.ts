@@ -1,5 +1,6 @@
 import {
   BACKGROUND_ROTATION_GRACE_MS,
+  createBackgroundCandidateOrderResolver,
   findFirstAvailableBackground,
   preloadBackgroundRotationImages,
   shouldAllowBackgroundRotation,
@@ -24,6 +25,27 @@ describe('background rotation lifecycle', () => {
     expect(shouldAllowBackgroundRotation('passive', false, false)).toBe(false)
     expect(shouldAllowBackgroundRotation('idle', false, false)).toBe(false)
     expect(shouldAllowBackgroundRotation('active', false, true)).toBe(false)
+  })
+})
+
+describe('createBackgroundCandidateOrderResolver', () => {
+  it('shuffles a source list without mutating the backend response', () => {
+    const urls = ['one.jpg', 'two.jpg', 'three.jpg']
+    const resolveOrder = createBackgroundCandidateOrderResolver(() => 0)
+
+    expect(resolveOrder(urls)).toEqual(['two.jpg', 'three.jpg', 'one.jpg'])
+    expect(urls).toEqual(['one.jpg', 'two.jpg', 'three.jpg'])
+  })
+
+  it('keeps the same order across retries and reshuffles only after the source list changes', () => {
+    const random = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0.5)
+    const resolveOrder = createBackgroundCandidateOrderResolver(random)
+    const firstOrder = resolveOrder(['one.jpg', 'two.jpg', 'three.jpg'])
+
+    expect(resolveOrder(['one.jpg', 'two.jpg', 'three.jpg'])).toEqual(firstOrder)
+    expect(random).toHaveBeenCalledTimes(2)
+    expect(resolveOrder(['one.jpg', 'two.jpg'])).toEqual(['one.jpg', 'two.jpg'])
+    expect(random).toHaveBeenCalledTimes(3)
   })
 })
 

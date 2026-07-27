@@ -26,6 +26,10 @@ const downloaderItems = computed(() => {
 
 // 使用动态标签页
 const { registerHeaderTab } = useDynamicHeaderTab()
+registerHeaderTab({
+  items: downloaderItems,
+  modelValue: activeTab,
+})
 
 // 调用API查询下载器设置
 async function loadDownloaderSetting() {
@@ -38,24 +42,12 @@ async function loadDownloaderSetting() {
   }
 }
 
-// 注册动态标签页
-const registerTabs = () => {
-  if (downloaderItems.value.length > 0) {
-    registerHeaderTab({
-      items: downloaderItems,
-      modelValue: activeTab,
-    })
-  }
-}
-
 onMounted(async () => {
   await loadDownloaderSetting()
-  registerTabs()
 })
 
 useKeepAliveRefresh(async () => {
   await loadDownloaderSetting()
-  registerTabs()
 })
 </script>
 

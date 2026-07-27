@@ -29,6 +29,7 @@ import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composab
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
 import {
   BACKGROUND_ROTATION_GRACE_MS,
+  createBackgroundCandidateOrderResolver,
   findFirstAvailableBackground,
   preloadBackgroundRotationImages,
   shouldAllowBackgroundRotation,
@@ -87,6 +88,7 @@ const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
 const backgroundCrossfadeStartedAt = ref(0)
 const pendingOpticalBackgroundImage = ref('')
+const resolveBackgroundCandidateOrder = createBackgroundCandidateOrderResolver()
 const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivityState } = useAppActivityLifecycle()
 const preferredMotion = usePreferredReducedMotion()
 const backgroundRotationGraceActive = ref(false)
@@ -718,7 +720,7 @@ async function removeLoadingWithStateCheck() {
 async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
   const maxRetries = 3
   try {
-    const images = await fetchBackgroundImages()
+    const images = resolveBackgroundCandidateOrder(await fetchBackgroundImages())
     if (loadVersion !== backgroundLoadVersion) return
 
     const firstAvailableIndex = await findFirstAvailableBackground({
