@@ -162,7 +162,6 @@ const wallpaperRequestMode = computed(() => getLoginWallpaperRequestMode(loginVi
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
 const renderedBackgroundLayers = computed(() => backgroundLayers.value)
 const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
-// 玻璃 profile 使用同源签名地址；旧后端返回外链时仍由 renderer 的纹理失败路径安全回退。
 const activeOpticalBackgroundImage = computed(() => getOpticalBackgroundImage(activeBackgroundImage.value))
 const previousOpticalBackgroundImage = computed(() => {
   const previousIndex = previousImageIndex.value
