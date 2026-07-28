@@ -835,12 +835,21 @@ html[data-theme='glass'] {
     );
   }
 
-  // 捷径菜单的嵌套卡片会被通用弹层模糊覆盖，需要显式跟随玻璃材质。
+  // 捷径菜单的嵌套卡片会被通用弹层折叠规则抹平描边与高光，需要完整补齐标准玻璃表面。
   .shortcut-card-hover-area > .v-card {
+    border-color: var(--glass-border) !important;
     -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
     backdrop-filter: var(--glass-surface-backdrop-filter) !important;
     background-color: var(--glass-surface) !important;
     background-image: var(--glass-sheen) !important;
+    box-shadow: var(--glass-shadow) !important;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .shortcut-card-hover-area:hover > .v-card {
+      border-color: var(--glass-border-hover) !important;
+      box-shadow: var(--glass-shadow-hover) !important;
+    }
   }
 
   // “更多”应用列表的分组卡片存在局部固定模糊，需要在完整小屏区间跟随玻璃材质。

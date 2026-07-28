@@ -209,7 +209,7 @@ function loadRecentSearches() {
 
 /** 获取可参与全局搜索的导航菜单和设置入口。 */
 function getMenus(): NavMenu[] {
-  let menus: NavMenu[] = []
+  const menus: NavMenu[] = []
   // 导航菜单
   getNavMenus(t).forEach(
     item =>
@@ -829,7 +829,7 @@ onMounted(() => {
           </div>
 
           <!-- 空状态提示 -->
-          <div v-else class="empty-hint">
+          <div v-else class="empty-hint pt-3">
             <span class="text-body-1 text-medium-emphasis">{{ t('dialog.searchBar.emptySearchHint') }}</span>
           </div>
         </div>
@@ -967,8 +967,8 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 .search-content {
   max-block-size: 600px;
   min-block-size: 150px;
-  overscroll-behavior-y: contain;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .search-dialog--dropdown .search-content {
@@ -981,12 +981,12 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 
 .search-item-source-row {
   display: flex;
+  overflow: hidden;
   align-items: center;
   block-size: 0;
   inline-size: 100%;
   margin-block-start: 0;
   min-inline-size: 0;
-  overflow: hidden;
   transition:
     block-size 0.15s ease,
     margin-block-start 0.15s ease;
@@ -999,6 +999,7 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
 }
 
 .search-item-source-toggle {
+  overflow: auto hidden;
   border: var(--app-grouped-list-border);
   border-radius: var(--app-control-radius);
   backdrop-filter: var(--app-grouped-list-backdrop-filter);
@@ -1006,8 +1007,6 @@ html[data-theme='transparent'] .search-desktop-activator .search-input-wrapper,
   block-size: 28px;
   max-inline-size: 100%;
   opacity: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
   pointer-events: none;
   transform: scale(0.98);
   transform-origin: center left;
