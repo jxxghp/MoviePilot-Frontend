@@ -51,16 +51,75 @@ import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
 import {
   analyzeGlassWallpaperTone,
   DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
+  loadGlassWallpaperTone,
+  takeGlassWallpaperDecodedSource,
   type GlassWallpaperToneProfile,
 } from '@/utils/glassWallpaperTone'
 
-type ThreeModule = typeof import('three')
 export type GlassRendererState = 'fallback' | 'loading' | 'ready'
 export type GlassPresentationSpace = 'fixed' | 'scroll'
+type ThreeModule = typeof import('three')
 
 export interface GlassOpticalInteractionSource {
   /** 按呈现空间订阅共享输入；同一事件只会交给一个空间。 */
   subscribe(space: GlassPresentationSpace, listener: (event: PointerEvent | TouchEvent) => void): () => void
+}
+
+export interface PreparedWallpaperSource {
+  /** 已完成 CPU 侧缩放的共享像素源；每个 WebGL context 仍独立创建纹理。 */
+  image: HTMLCanvasElement | HTMLImageElement
+  /** 共享像素源高度。 */
+  height: number
+  /** 与共享像素源同时计算的壁纸亮度 profile。 */
+  toneProfile: GlassWallpaperToneProfile
+  /** 共享像素源宽度。 */
+  width: number
+}
+
+/** fixed 与 scroll context 共用的有界 CPU 壁纸准备缓存。 */
+export interface GlassWallpaperSourceCache {
+  /** 相同键共享进行中或已完成的准备结果，并将缓存限制在三个壁纸槽。 */
+  get(key: string, prepare: () => Promise<PreparedWallpaperSource>): Promise<PreparedWallpaperSource>
+}
+
+function recordGlassRendererTiming(space: GlassPresentationSpace, stage: string) {
+  const timingWindow = window as typeof window & {
+    __glassPerformanceProbeEnabled?: boolean
+    __glassRendererTimings?: Array<{ space: GlassPresentationSpace; stage: string; time: number }>
+  }
+  if (!timingWindow.__glassPerformanceProbeEnabled) return
+
+  timingWindow.__glassRendererTimings ??= []
+  timingWindow.__glassRendererTimings.push({ space, stage, time: performance.now() })
+}
+
+/** 为同一个光学层实例创建 CPU 壁纸源缓存，GPU 纹理仍由各 context 独立管理。 */
+export function createGlassWallpaperSourceCache(): GlassWallpaperSourceCache {
+  const entries = new Map<string, Promise<PreparedWallpaperSource>>()
+
+  return {
+    get(key, prepare) {
+      const cached = entries.get(key)
+      if (cached) {
+        entries.delete(key)
+        entries.set(key, cached)
+
+        return cached
+      }
+
+      const source = prepare()
+      entries.set(key, source)
+      while (entries.size > 3) {
+        const oldestKey = entries.keys().next().value
+        if (oldestKey) entries.delete(oldestKey)
+      }
+      void source.catch(() => {
+        if (entries.get(key) === source) entries.delete(key)
+      })
+
+      return source
+    },
+  }
 }
 
 /** 同步组件状态和根节点属性，确保 CSS 回退与 renderer 生命周期一致。 */
@@ -255,6 +314,8 @@ interface UseGlassOpticalRendererOptions {
   previousWallpaperUrl?: MaybeRefOrGetter<string>
   /** 下一张壁纸可在提交切换前完成解码和 GPU 上传。 */
   pendingWallpaperUrl?: MaybeRefOrGetter<string>
+  /** 父层壁纸事务版本，用于隔离相同 URL 的取消、迟到回执和后续请求。 */
+  pendingWallpaperRevision?: MaybeRefOrGetter<number>
   transparencyStrength?: MaybeRefOrGetter<number>
   routeKey: MaybeRefOrGetter<string>
   syncDocumentState?: boolean
@@ -266,6 +327,8 @@ interface UseGlassOpticalRendererOptions {
   transmissionStrength?: MaybeRefOrGetter<number>
   translationStrength?: MaybeRefOrGetter<number>
   wallpaperUrl: MaybeRefOrGetter<string>
+  /** 同一光学层的 fixed 与 scroll context 共享 CPU 侧壁纸准备结果。 */
+  wallpaperSourceCache?: GlassWallpaperSourceCache
 }
 
 type GlassOpticalSurfaceDescriptor = GlassOpticalSurfaceCandidate<HTMLElement> & {
@@ -283,6 +346,8 @@ interface PreparedWallpaperTexture {
   texture: Texture
   /** 纹理自身的稳健整体曝光；双纹理过渡期间不可与另一张壁纸共用。 */
   toneProfile: GlassWallpaperToneProfile
+  /** 资源创建时的材质、质量和纹理来源能力键。 */
+  preparationKey: string
   /** 纹理像素宽度。 */
   width: number
 }
@@ -322,10 +387,10 @@ function getSurfacePresentationSpace(
 
 /** 判断新增或移除的 DOM 子树是否会改变光学表面集合。 */
 export function containsGlassOpticalSurface(node: Node) {
-  return (
-    node instanceof Element &&
-    (node.matches(SURFACE_SELECTOR_QUERY) || Boolean(node.querySelector(SURFACE_SELECTOR_QUERY)))
-  )
+  if (!(node instanceof Element)) return false
+  if (node.matches(SURFACE_SELECTOR_QUERY) && !node.closest('.v-overlay')) return true
+
+  return Array.from(node.querySelectorAll(SURFACE_SELECTOR_QUERY)).some(element => !element.closest('.v-overlay'))
 }
 
 const VERTEX_SHADER = `
@@ -337,7 +402,7 @@ void main() {
 }
 `
 
-const DYNAMIC_RANGE_SCALE = 0.45
+const DYNAMIC_RANGE_SCALE = 0.75
 const DYNAMIC_RANGE_DENSITY = 1 / DYNAMIC_RANGE_SCALE ** 2
 
 const FLOW_FRAGMENT_SHADER = `
@@ -400,6 +465,31 @@ void main() {
 `
 
 const FROST_PREFILTER_SCALE = 0.125
+const WALLPAPER_SOURCE_LIMIT_BALANCED = 1536
+const WALLPAPER_SOURCE_LIMIT_HIGH = 2048
+
+/**
+ * 返回 GPU 壁纸 bundle 的稳定能力键。
+ * 透明与色调共享普通纹理能力，磨砂、质量和实际纹理来源会改变资源形态。
+ */
+export function getGlassWallpaperPreparationKey(
+  appearance: ThemeCustomizerGlassAppearance,
+  quality: GlassOpticalQuality,
+  routeKey: string,
+  url: string,
+  locationHref = window.location.href,
+) {
+  const profile = getGlassOpticalRenderProfile(quality, routeKey)
+  const textureSource =
+    profile.textureSource === 'auto'
+      ? canUseGlassWallpaperTexture(url, locationHref)
+        ? 'wallpaper'
+        : 'procedural'
+      : profile.textureSource
+  const materialTexture = appearance === 'frosted' ? 'frosted' : 'plain'
+
+  return `${materialTexture}:${quality}:${profile.textureLimit}:${textureSource}`
+}
 
 const FRAGMENT_SHADER = `
 precision highp float;
@@ -462,7 +552,7 @@ float roundedRectMask(vec2 local, vec2 rectSize, vec4 radii) {
   float safeRadius = min(max(radius, 0.0), min(rectSize.x, rectSize.y) * 0.5);
   vec2 centered = abs(localPixels) - (rectSize * 0.5 - vec2(safeRadius));
   float distanceToEdge = length(max(centered, 0.0)) + min(max(centered.x, centered.y), 0.0) - safeRadius;
-  return 1.0 - smoothstep(-1.5, 0.0, distanceToEdge);
+  return 1.0 - smoothstep(0.0, 1.5, distanceToEdge);
 }
 
 vec2 coverUv(vec2 uv) {
@@ -1021,6 +1111,7 @@ function collectGlassOpticalSurfaceDescriptors(
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (seen.has(element)) continue
       seen.add(element)
+      if (element.closest('.v-overlay')) continue
 
       const bounds = element.getBoundingClientRect()
       if (!isVisibleSurface(element, bounds)) continue
@@ -1107,7 +1198,12 @@ function getGlassAppearanceUniformValue(appearance: ThemeCustomizerGlassAppearan
 export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions) {
   const state = ref<GlassRendererState>('loading')
   const renderedFrames = ref(0)
+  const activeWallpaperUrl = ref('')
+  const activeWallpaperRevision = ref(0)
+  const activeWallpaperPreparationKey = ref('')
   const preparedWallpaperUrl = ref('')
+  const preparedWallpaperRevision = ref(0)
+  const preparedWallpaperPreparationKey = ref('')
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
   let flowResources: GlassFlowResources | null = null
@@ -1122,6 +1218,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let previousTextureHeight = 1
   let previousTextureWidth = 1
   let previousWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
+  let wallpaperTransitionStartedAt = 0
+  let wallpaperActivationRollback: {
+    activatedRevision: number
+    activatedUrl: string
+    previousHasWallpaperTexture: boolean
+    previousPreparationKey: string
+    previousRevision: number
+    previousUrl: string
+  } | null = null
   let loadVersion = 0
   let prepareVersion = 0
   let preparedWallpaper: PreparedWallpaperTexture | null = null
@@ -1173,7 +1278,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let pagePresentationGeometryReady = true
   let wakeDirection = { x: 0, y: -1 }
   let contextRecoveryPending = false
+  let resumePromise: Promise<void> | null = null
+  let resumeVersion = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
+  const wallpaperSourceCache = options.wallpaperSourceCache ?? createGlassWallpaperSourceCache()
 
   function updateRendererState(value: GlassRendererState) {
     if (options.syncDocumentState === false) {
@@ -1298,6 +1406,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uPreviousCoverScale.value.copy(resources.uniforms.uCoverScale.value)
     resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uTextureMix.value = 1
+    wallpaperTransitionStartedAt = 0
+    wallpaperActivationRollback = null
     cancelWallpaperTransitionFrame()
   }
 
@@ -1305,9 +1415,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function updateWallpaperTransition(timestamp: number) {
     if (!resources || !previousTexture) return false
 
-    const startedAt = toValue(options.transitionStartedAt ?? 0)
     const duration = toValue(options.transitionDuration ?? 0)
-    const progress = getGlassWallpaperTransitionProgress(timestamp - startedAt, duration)
+    const progress = getGlassWallpaperTransitionProgress(timestamp - wallpaperTransitionStartedAt, duration)
     resources.uniforms.uTextureMix.value = progress
     if (progress >= 1) {
       finishWallpaperTransition()
@@ -1367,16 +1476,22 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     return frostPrefilterResources
   }
 
-  /** 壁纸上传时执行两次 separable blur，常态只保留最终 1/8 RenderTarget。 */
-  async function createFrostedWallpaperTarget(texture: Texture, width: number, height: number) {
+  /** 壁纸上传时执行两次 separable blur，常态只保留既定分辨率的低通 RenderTarget。 */
+  async function createFrostedWallpaperTarget(
+    texture: Texture,
+    width: number,
+    height: number,
+    targetLongEdge: number,
+  ) {
     if (!resources || !three) return null
 
     const ownerResources = resources
     const prefilter = getFrostPrefilterResources()
     if (!prefilter) return null
 
-    const targetWidth = Math.max(1, Math.round(width * FROST_PREFILTER_SCALE))
-    const targetHeight = Math.max(1, Math.round(height * FROST_PREFILTER_SCALE))
+    const targetScale = Math.min(1, targetLongEdge / Math.max(width, height))
+    const targetWidth = Math.max(1, Math.round(width * targetScale))
+    const targetHeight = Math.max(1, Math.round(height * targetScale))
     const createTarget = (generateMipmaps = false) =>
       new three!.WebGLRenderTarget(targetWidth, targetHeight, {
         depthBuffer: false,
@@ -1619,7 +1734,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       new Set(
         SURFACE_SELECTORS.filter(
           ({ selector, space }) => getSurfacePresentationSpace(selector, space) === presentationSpace,
-        ).flatMap(({ selector }) => Array.from(document.querySelectorAll<HTMLElement>(selector))),
+        ).flatMap(({ selector }) =>
+          Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(element => !element.closest('.v-overlay')),
+        ),
       ),
     )
     const observedSurfacesChanged =
@@ -1819,6 +1936,38 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function getRenderProfile(routeKey = toValue(options.routeKey)) {
     return getGlassOpticalRenderProfile(toValue(options.quality), routeKey)
+  }
+
+  function getWallpaperPreparationKey(url: string) {
+    return getGlassWallpaperPreparationKey(
+      toValue(options.appearance),
+      toValue(options.quality),
+      toValue(options.routeKey),
+      url,
+    )
+  }
+
+  /** 清理当前 context 的 prepared bundle，但不改变活动或上一张纹理。 */
+  function releasePreparedWallpaper() {
+    if (preparedWallpaper) {
+      disposeWallpaperResources(preparedWallpaper.texture, preparedWallpaper.frostedTarget)
+    }
+    preparedWallpaper = null
+    preparedWallpaperUrl.value = ''
+    preparedWallpaperRevision.value = 0
+    preparedWallpaperPreparationKey.value = ''
+  }
+
+  /** 使所有进行中的准备任务失效，迟到结果只能释放自身资源。 */
+  function invalidatePreparedWallpaper() {
+    prepareVersion += 1
+    releasePreparedWallpaper()
+  }
+
+  function preparePendingWallpaper() {
+    const url = toValue(options.pendingWallpaperUrl ?? '')
+    const revision = toValue(options.pendingWallpaperRevision ?? 0)
+    if (url && revision > 0) void prepareWallpaper(url, revision)
   }
 
   function getLegacyDynamicStrength() {
@@ -2283,8 +2432,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /**
-   * 滚动坐标连续稳定两帧后停止刷新，给 compositor 留出提交最终位置的机会。
-   * 滚动期间只更新采样坐标；稳定后同步一次可见表面，不改变交互能量或时序流场。
+   * 每个滚动帧原子提交采样坐标和可见表面；稳定尾帧只负责确认 compositor 已停止移动。
+   * 嵌套滚动容器不会改变 window scroll，因此表面几何不能延迟到 scrollend 才刷新。
    */
   function renderScrollFrame(timestamp: number) {
     scrollAnimationFrame = null
@@ -2307,12 +2456,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     lastRenderedScrollX = scrollX
     lastRenderedScrollY = scrollY
     resources.uniforms.uScrollOffset.value.set(scrollX, scrollY)
+    const shouldRefreshSurfaces = scrollSurfaceRefreshPending || receivedScrollEvent || coordinatesChanged
+    scrollSurfaceRefreshPending = false
+    if (shouldRefreshSurfaces) updateSurfaceUniforms(timestamp, false)
 
     scrollStableFrameCount = receivedScrollEvent || coordinatesChanged ? 0 : scrollStableFrameCount + 1
-    if (scrollStableFrameCount >= SCROLL_STABLE_TAIL_FRAMES && scrollSurfaceRefreshPending) {
-      scrollSurfaceRefreshPending = false
-      updateSurfaceUniforms(timestamp, false)
-    }
     if (!interactionAnimating) renderFrame(timestamp, false)
 
     if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
@@ -2328,7 +2476,6 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function handleScroll() {
     if (presentationSpace === 'scroll' && resources) {
-      resources.uniforms.uScrollOffset.value.set(window.scrollX, window.scrollY)
       scrollDirty = true
       scrollSurfaceRefreshPending = true
       scheduleScrollFrame()
@@ -2354,22 +2501,36 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     interactionAnimating = false
   }
 
-  /** 恢复时先同步尺寸和表面，再立即绘制不含旧惯性的稳定首帧。 */
-  async function resumeRenderer() {
-    clearBackgroundDisposeTimer()
-    if (!toValue(options.active) || document.visibilityState === 'hidden') return
+  /** 合并同一可见性事务的多个浏览器事件，只恢复一次稳定帧。 */
+  function resumeRenderer() {
+    if (resumePromise) return resumePromise
 
-    await nextTick()
-    if (!resources) {
-      await initializeRenderer()
-      return
-    }
+    const version = resumeVersion
+    const canResume = () => toValue(options.active) && document.visibilityState !== 'hidden'
+    const task = (async () => {
+      clearBackgroundDisposeTimer()
+      if (!canResume()) return
 
-    resizeRenderer()
-    updateSurfaceUniforms()
-    resetInteractionState()
-    renderFrame(performance.now())
-    scheduleWallpaperTransition()
+      await nextTick()
+      if (version !== resumeVersion || !canResume()) return
+      if (!resources) {
+        await initializeRenderer()
+        return
+      }
+
+      resizeRenderer()
+      updateSurfaceUniforms()
+      resetInteractionState()
+      renderFrame(performance.now())
+      scheduleWallpaperTransition()
+    })()
+
+    resumePromise = task
+    void task.finally(() => {
+      if (resumePromise === task) resumePromise = null
+    })
+
+    return task
   }
 
   /** 持续非活动才释放 GPU 资源，短时切换应用继续保留纹理与稳定画面。 */
@@ -2407,8 +2568,15 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function handleContextLost(event: Event) {
     event.preventDefault()
+    resumeVersion += 1
+    loadVersion += 1
+    invalidatePreparedWallpaper()
     cancelScheduledFrame()
+    cancelWallpaperTransitionFrame()
     contextRecoveryPending = true
+    activeWallpaperUrl.value = ''
+    activeWallpaperRevision.value = 0
+    activeWallpaperPreparationKey.value = ''
     updateRendererState('fallback')
   }
 
@@ -2512,6 +2680,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   function disposeRenderer(releaseContext = true) {
+    resumeVersion += 1
     loadVersion += 1
     prepareVersion += 1
     contextRecoveryPending = false
@@ -2566,17 +2735,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     previousTextureHeight = 1
     previousTextureWidth = 1
     previousWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
+    wallpaperTransitionStartedAt = 0
+    wallpaperActivationRollback = null
     disposeWallpaperResources(activeTexture, activeFrostedTarget)
     activeTexture = null
     activeFrostedTarget = null
     activeTextureHeight = 1
     activeTextureWidth = 1
     activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
-    if (preparedWallpaper) {
-      disposeWallpaperResources(preparedWallpaper.texture, preparedWallpaper.frostedTarget)
-    }
-    preparedWallpaper = null
-    preparedWallpaperUrl.value = ''
+    activeWallpaperUrl.value = ''
+    activeWallpaperRevision.value = 0
+    activeWallpaperPreparationKey.value = ''
+    releasePreparedWallpaper()
 
     disposeFlowResources()
     disposeFrostPrefilterResources()
@@ -2601,14 +2771,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /** 后台替换活动纹理；已有纹理在加载失败或完成前继续保持可交互。 */
-  async function refreshWallpaper(message: string) {
+  async function refreshWallpaper(message: string, beforeActivate?: () => void) {
     const version = ++loadVersion
     const retainsActiveTexture = Boolean(resources && activeTexture)
     if (!retainsActiveTexture) updateRendererState('loading')
     document.documentElement.setAttribute('data-glass-wallpaper-loading', 'true')
 
     try {
-      await loadWallpaper(toValue(options.wallpaperUrl), version)
+      await loadWallpaper(toValue(options.wallpaperUrl), version, beforeActivate)
     } catch (error) {
       if (version !== loadVersion) return
       if (retainsActiveTexture && resources && activeTexture) {
@@ -2631,6 +2801,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     height: number,
     hasWallpaperTexture: boolean,
     toneProfile: GlassWallpaperToneProfile,
+    transitionStartedAt = toValue(options.transitionStartedAt ?? 0),
+    forceTransition = false,
   ) {
     if (!resources) {
       disposeWallpaperResources(texture, frostedTarget)
@@ -2639,8 +2811,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     const hasActiveTransition =
       Boolean(activeTexture) &&
-      Boolean(toValue(options.previousWallpaperUrl ?? '')) &&
-      toValue(options.transitionStartedAt ?? 0) > 0
+      transitionStartedAt > 0 &&
+      (forceTransition || Boolean(toValue(options.previousWallpaperUrl ?? '')))
     cancelWallpaperTransitionFrame()
 
     if (hasActiveTransition && activeTexture) {
@@ -2663,10 +2835,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.uniforms.uFrostedTexture.value = activeFrostedTarget?.texture ?? activeTexture
       resources.uniforms.uPreviousWallpaperExposure.value = previousWallpaperExposure
       resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
-      resources.uniforms.uTextureMix.value = getGlassWallpaperTransitionProgress(
-        performance.now() - toValue(options.transitionStartedAt ?? 0),
-        toValue(options.transitionDuration ?? 0),
-      )
+      wallpaperTransitionStartedAt = transitionStartedAt
+      resources.uniforms.uTextureMix.value = forceTransition
+        ? 0
+        : getGlassWallpaperTransitionProgress(
+            performance.now() - wallpaperTransitionStartedAt,
+            toValue(options.transitionDuration ?? 0),
+          )
       syncCoverScale()
       scheduleWallpaperTransition()
     } else {
@@ -2691,6 +2866,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       resources.uniforms.uPreviousWallpaperExposure.value = toneProfile.exposure
       resources.uniforms.uWallpaperExposure.value = toneProfile.exposure
       resources.uniforms.uTextureMix.value = 1
+      wallpaperTransitionStartedAt = 0
+      wallpaperActivationRollback = null
       syncCoverScale()
     }
 
@@ -2701,7 +2878,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 解码并按当前质量预算缩放壁纸，不改变当前可见纹理。 */
   async function createWallpaperTexture(url: string): Promise<PreparedWallpaperTexture | null> {
     if (!resources || !three || !url) return null
-    const profile = getRenderProfile()
+    const appearance = toValue(options.appearance)
+    const quality = toValue(options.quality)
+    const routeKey = toValue(options.routeKey)
+    const profile = getGlassOpticalRenderProfile(quality, routeKey)
+    const preparationKey = getGlassWallpaperPreparationKey(appearance, quality, routeKey, url)
     const shouldUseProceduralTexture =
       profile.textureSource === 'procedural' ||
       (profile.textureSource === 'auto' && !canUseGlassWallpaperTexture(url, window.location.href))
@@ -2718,38 +2899,56 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         frostedTarget: null,
         hasWallpaperTexture: false,
         height: 1,
+        preparationKey,
         texture,
         toneProfile: { ...DEFAULT_GLASS_WALLPAPER_TONE_PROFILE },
         width: 1,
       }
     }
 
-    const loader = new three.TextureLoader()
-    loader.setCrossOrigin('anonymous')
-    const sourceTexture = await loader.loadAsync(url)
-
-    const image = sourceTexture.image as HTMLImageElement
-    const sourceWidth = image.naturalWidth || image.width
-    const sourceHeight = image.naturalHeight || image.height
     const { textureLimit } = profile
-    const scale = Math.min(1, textureLimit / Math.max(sourceWidth, sourceHeight))
-    const textureCanvas = document.createElement('canvas')
-    textureCanvas.width = Math.max(1, Math.round(sourceWidth * scale))
-    textureCanvas.height = Math.max(1, Math.round(sourceHeight * scale))
-    const textureContext = textureCanvas.getContext('2d')
-    let texture: Texture
-    let textureWidth = sourceWidth
-    let textureHeight = sourceHeight
+    const preparesFrostedTexture = appearance === 'frosted'
+    // 源纹理只需覆盖各质量档的最大有效输出足迹；更高分辨率会重复占用两个 context 的上传与显存。
+    const sourceLimit = quality === 'high' ? WALLPAPER_SOURCE_LIMIT_HIGH : WALLPAPER_SOURCE_LIMIT_BALANCED
+    const cacheKey = `${sourceLimit}:${url}`
+    recordGlassRendererTiming(presentationSpace, 'source-requested')
+    const source = await wallpaperSourceCache.get(cacheKey, async () => {
+      const tone = await loadGlassWallpaperTone(url)
+      const decodedSource = tone.corsReady ? takeGlassWallpaperDecodedSource(url) : undefined
+      let sourceTexture: Texture | null = null
+      let image = decodedSource?.image
+      if (!image) {
+        const loader = new three!.TextureLoader()
+        loader.setCrossOrigin('anonymous')
+        sourceTexture = await loader.loadAsync(url)
+        image = sourceTexture.image as HTMLImageElement
+      }
+      const sourceWidth = image.naturalWidth || image.width
+      const sourceHeight = image.naturalHeight || image.height
+      const sourceLongEdge = Math.max(sourceWidth, sourceHeight)
+      const uploadLongEdge = Math.min(sourceLongEdge, textureLimit, sourceLimit)
+      const scale = Math.min(1, uploadLongEdge / sourceLongEdge)
+      const textureCanvas = document.createElement('canvas')
+      textureCanvas.width = Math.max(1, Math.round(sourceWidth * scale))
+      textureCanvas.height = Math.max(1, Math.round(sourceHeight * scale))
+      const textureContext = textureCanvas.getContext('2d')
+      const preparedImage = textureContext ? textureCanvas : image
 
-    if (textureContext) {
-      textureContext.drawImage(image, 0, 0, textureCanvas.width, textureCanvas.height)
-      sourceTexture.dispose()
-      texture = new three.CanvasTexture(textureCanvas)
-      textureWidth = textureCanvas.width
-      textureHeight = textureCanvas.height
-    } else {
-      texture = sourceTexture
-    }
+      if (textureContext) textureContext.drawImage(image, 0, 0, textureCanvas.width, textureCanvas.height)
+      sourceTexture?.dispose()
+
+      return {
+        height: textureContext ? textureCanvas.height : sourceHeight,
+        image: preparedImage,
+        toneProfile: decodedSource?.profile ?? tone.profile ?? analyzeGlassWallpaperTone(image, sourceWidth, sourceHeight),
+        width: textureContext ? textureCanvas.width : sourceWidth,
+      }
+    })
+    recordGlassRendererTiming(presentationSpace, 'source-ready')
+    const texture = new three.Texture(source.image)
+    texture.needsUpdate = true
+    const textureWidth = source.width
+    const textureHeight = source.height
 
     texture.colorSpace = three.SRGBColorSpace
     texture.generateMipmaps = false
@@ -2757,7 +2956,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     texture.magFilter = three.LinearFilter
     let frostedTarget: WebGLRenderTarget | null = null
     try {
-      frostedTarget = await createFrostedWallpaperTarget(texture, textureWidth, textureHeight)
+      if (preparesFrostedTexture) {
+        recordGlassRendererTiming(presentationSpace, 'prefilter-start')
+        frostedTarget = await createFrostedWallpaperTarget(
+          texture,
+          textureWidth,
+          textureHeight,
+          Math.max(textureWidth, textureHeight) * FROST_PREFILTER_SCALE,
+        )
+        recordGlassRendererTiming(presentationSpace, 'prefilter-ready')
+      }
     } catch (error) {
       // 预滤属于磨砂优化；失败时保留源纹理并退回既有扩散采样，不能拖垮其他材质。
       console.warn('玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:', error)
@@ -2766,56 +2974,87 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       frostedTarget,
       hasWallpaperTexture: true,
       height: textureHeight,
+      preparationKey,
       texture,
-      toneProfile: analyzeGlassWallpaperTone(image, sourceWidth, sourceHeight),
+      toneProfile: source.toneProfile,
       width: textureWidth,
     }
   }
 
   /** 提前准备下一张纹理；失败不会影响当前活动纹理。 */
-  async function prepareWallpaper(url: string) {
+  async function prepareWallpaper(url: string, revision: number) {
     const version = ++prepareVersion
-    if (preparedWallpaper) {
-      disposeWallpaperResources(preparedWallpaper.texture, preparedWallpaper.frostedTarget)
-    }
-    preparedWallpaper = null
-    preparedWallpaperUrl.value = ''
-    if (!url || !resources || url === toValue(options.wallpaperUrl)) {
-      if (url && activeTexture) preparedWallpaperUrl.value = url
-      return
-    }
+    releasePreparedWallpaper()
+    if (!url || !resources || contextRecoveryPending || url === toValue(options.wallpaperUrl)) return
+    const preparationKey = getWallpaperPreparationKey(url)
 
     try {
       const prepared = await createWallpaperTexture(url)
       if (!prepared) return
-      if (version !== prepareVersion || !resources) {
+      if (
+        version !== prepareVersion ||
+        !resources ||
+        contextRecoveryPending ||
+        preparationKey !== prepared.preparationKey ||
+        preparationKey !== getWallpaperPreparationKey(url)
+      ) {
         disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
         return
       }
 
       resources.renderer.initTexture(prepared.texture)
+      recordGlassRendererTiming(presentationSpace, 'prepare-compile-start')
+      await resources.renderer.compileAsync(resources.scene, resources.camera)
+      recordGlassRendererTiming(presentationSpace, 'prepare-compile-ready')
+      if (
+        version !== prepareVersion ||
+        !resources ||
+        contextRecoveryPending ||
+        preparationKey !== getWallpaperPreparationKey(url)
+      ) {
+        disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
+        return
+      }
+
       preparedWallpaper = prepared
       preparedWallpaperUrl.value = url
+      preparedWallpaperRevision.value = revision
+      preparedWallpaperPreparationKey.value = preparationKey
     } catch (error) {
       if (version === prepareVersion) console.warn('玻璃光学壁纸预备失败，继续使用当前纹理:', error)
     }
   }
 
-  async function loadWallpaper(url: string, version: number) {
+  async function loadWallpaper(url: string, version: number, beforeActivate?: () => void) {
     if (!resources || !three || !url) return
 
-    const prepared =
-      preparedWallpaper && preparedWallpaperUrl.value === url ? preparedWallpaper : await createWallpaperTexture(url)
+    const prepared = await createWallpaperTexture(url)
     if (!prepared) return
-    if (preparedWallpaper === prepared) {
-      preparedWallpaper = null
-      preparedWallpaperUrl.value = ''
-    }
-    if (version !== loadVersion || !resources) {
+    if (
+      version !== loadVersion ||
+      !resources ||
+      contextRecoveryPending ||
+      prepared.preparationKey !== getWallpaperPreparationKey(url)
+    ) {
       disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
       return
     }
 
+    recordGlassRendererTiming(presentationSpace, 'compile-start')
+    await resources.renderer.compileAsync(resources.scene, resources.camera)
+    recordGlassRendererTiming(presentationSpace, 'compile-ready')
+    if (
+      version !== loadVersion ||
+      !resources ||
+      contextRecoveryPending ||
+      prepared.preparationKey !== getWallpaperPreparationKey(url)
+    ) {
+      disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
+      return
+    }
+
+    const timestamp = performance.now()
+    beforeActivate?.()
     activateLoadedTexture(
       prepared.texture,
       prepared.frostedTarget,
@@ -2824,14 +3063,130 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       prepared.hasWallpaperTexture,
       prepared.toneProfile,
     )
-    await resources.renderer.compileAsync(resources.scene, resources.camera)
-    if (version !== loadVersion || !resources) return
-
+    updateSurfaceUniforms(timestamp, false)
+    resetInteractionState()
+    renderFrame(timestamp, false)
+    activeWallpaperUrl.value = url
+    activeWallpaperRevision.value = 0
+    activeWallpaperPreparationKey.value = prepared.preparationKey
     updateRendererState('ready')
-    scheduleFrame()
+    recordGlassRendererTiming(presentationSpace, 'ready')
+    scheduleWallpaperTransition()
+  }
+
+  /** 只读校验由 Layer 执行，两个 context 均通过后才允许进入同一绘制帧提交。 */
+  function canActivatePreparedWallpaper(url: string, revision: number, preparationKey: string) {
+    return Boolean(
+      resources &&
+        !contextRecoveryPending &&
+        state.value === 'ready' &&
+        preparedWallpaper &&
+        preparedWallpaperUrl.value === url &&
+        preparedWallpaperRevision.value === revision &&
+        preparedWallpaperPreparationKey.value === preparationKey &&
+        preparationKey === getWallpaperPreparationKey(url),
+    )
+  }
+
+  /** 在共享 rAF 内同步消费当前 context 的 prepared bundle，并以统一时钟绘制首个过渡帧。 */
+  function activatePreparedWallpaper(url: string, revision: number, preparationKey: string, startedAt: number) {
+    if (!canActivatePreparedWallpaper(url, revision, preparationKey) || !preparedWallpaper) return false
+
+    const rollback = {
+      activatedRevision: revision,
+      activatedUrl: url,
+      previousHasWallpaperTexture: resources?.uniforms.uHasWallpaperTexture.value === 1,
+      previousPreparationKey: activeWallpaperPreparationKey.value,
+      previousRevision: activeWallpaperRevision.value,
+      previousUrl: activeWallpaperUrl.value,
+    }
+    const prepared = preparedWallpaper
+    preparedWallpaper = null
+    preparedWallpaperUrl.value = ''
+    preparedWallpaperRevision.value = 0
+    preparedWallpaperPreparationKey.value = ''
+    loadVersion += 1
+    activateLoadedTexture(
+      prepared.texture,
+      prepared.frostedTarget,
+      prepared.width,
+      prepared.height,
+      prepared.hasWallpaperTexture,
+      prepared.toneProfile,
+      startedAt,
+      true,
+    )
+    wallpaperActivationRollback = previousTexture ? rollback : null
+    activeWallpaperUrl.value = url
+    activeWallpaperRevision.value = revision
+    activeWallpaperPreparationKey.value = preparationKey
+    updateSurfaceUniforms(startedAt, false)
+    resetInteractionState()
+    renderFrame(startedAt, false)
+    updateRendererState('ready')
+    recordGlassRendererTiming(presentationSpace, 'active')
+    scheduleWallpaperTransition()
+
+    return true
+  }
+
+  /**
+   * 撤销刚完成但尚未由父层确认的 prepared 激活。
+   * 旧活动纹理仍在 previous 槽中，因此失败恢复不需要重新下载或上传。
+   */
+  function rollbackPreparedWallpaperActivation(url: string, revision: number) {
+    const rollback = wallpaperActivationRollback
+    if (
+      !resources ||
+      !activeTexture ||
+      !previousTexture ||
+      !rollback ||
+      rollback.activatedUrl !== url ||
+      rollback.activatedRevision !== revision ||
+      activeWallpaperUrl.value !== url ||
+      activeWallpaperRevision.value !== revision
+    ) {
+      return false
+    }
+
+    cancelWallpaperTransitionFrame()
+    const rejectedTexture = activeTexture
+    const rejectedFrostedTarget = activeFrostedTarget
+    activeTexture = previousTexture
+    activeFrostedTarget = previousFrostedTarget
+    activeTextureHeight = previousTextureHeight
+    activeTextureWidth = previousTextureWidth
+    activeWallpaperExposure = previousWallpaperExposure
+    previousTexture = null
+    previousFrostedTarget = null
+    previousTextureHeight = activeTextureHeight
+    previousTextureWidth = activeTextureWidth
+    previousWallpaperExposure = activeWallpaperExposure
+    wallpaperTransitionStartedAt = 0
+    wallpaperActivationRollback = null
+    activeWallpaperUrl.value = rollback.previousUrl
+    activeWallpaperRevision.value = rollback.previousRevision
+    activeWallpaperPreparationKey.value = rollback.previousPreparationKey
+    resources.uniforms.uTexture.value = activeTexture
+    resources.uniforms.uFrostedTexture.value = activeFrostedTarget?.texture ?? activeTexture
+    resources.uniforms.uPreviousTexture.value = activeTexture
+    resources.uniforms.uPreviousFrostedTexture.value = activeFrostedTarget?.texture ?? activeTexture
+    resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
+    resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
+    resources.uniforms.uTextureMix.value = 1
+    resources.uniforms.uHasWallpaperTexture.value = rollback.previousHasWallpaperTexture ? 1 : 0
+    resources.uniforms.uHasFrostedTexture.value =
+      rollback.previousHasWallpaperTexture && activeFrostedTarget ? 1 : 0
+    syncCoverScale()
+    resetInteractionState()
+    disposeWallpaperResources(rejectedTexture, rejectedFrostedTarget)
+    renderFrame(performance.now(), false)
+
+    return true
   }
 
   async function initializeRenderer(releaseContext = true) {
+    recordGlassRendererTiming(presentationSpace, 'initialize-start')
     disposeRenderer(releaseContext)
     if (!toValue(options.active) || !options.canvas.value) return
 
@@ -2845,6 +3200,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     try {
       three = await import('three')
+      recordGlassRendererTiming(presentationSpace, 'three-ready')
       if (version !== loadVersion || !options.canvas.value) return
       const Vector4Class = three.Vector4
 
@@ -2855,6 +3211,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         powerPreference: 'high-performance',
         premultipliedAlpha: true,
       })
+      recordGlassRendererTiming(presentationSpace, 'context-ready')
       renderer.setClearColor(0x000000, 0)
       renderer.setPixelRatio(1)
 
@@ -2931,6 +3288,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       setupEvents()
       resizeRenderer()
       await loadWallpaper(toValue(options.wallpaperUrl), version)
+      preparePendingWallpaper()
     } catch (error) {
       fallbackFromCurrentLoad(version, '玻璃光学渲染器初始化失败，已回退标准材质:', error)
     }
@@ -2965,6 +3323,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       }
 
       if (resources && wallpaperUrl !== previous?.[1]) {
+        if (
+          activeWallpaperUrl.value === wallpaperUrl &&
+          activeWallpaperPreparationKey.value === getWallpaperPreparationKey(wallpaperUrl)
+        ) {
+          scheduleWallpaperTransition()
+          return
+        }
         await refreshWallpaper('玻璃光学壁纸纹理加载失败，已保留当前材质:')
         return
       }
@@ -2978,9 +3343,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   )
 
   watch(
-    () => toValue(options.pendingWallpaperUrl ?? ''),
-    pendingWallpaperUrl => {
-      void prepareWallpaper(pendingWallpaperUrl)
+    () => [toValue(options.pendingWallpaperUrl ?? ''), toValue(options.pendingWallpaperRevision ?? 0)] as const,
+    ([pendingWallpaperUrl, pendingWallpaperRevision]) => {
+      void prepareWallpaper(pendingWallpaperUrl, pendingWallpaperRevision)
     },
     { immediate: true },
   )
@@ -2999,18 +3364,40 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   watch(
     () => toValue(options.appearance),
-    appearance => {
+    async (appearance, previousAppearance) => {
       if (!resources) return
 
-      const materialResponse = getGlassMaterialResponse(
-        appearance,
-        toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+      const applyAppearance = () => {
+        if (!resources || toValue(options.appearance) !== appearance) return
+
+        const materialResponse = getGlassMaterialResponse(
+          appearance,
+          toValue(options.transparencyStrength ?? GLASS_OPTICAL_STRENGTH_DEFAULT),
+        )
+        resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(appearance)
+        resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
+        resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
+        resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
+        resources.uniforms.uTintDensity.value = materialResponse.tintDensity
+      }
+      const wallpaperUrl = toValue(options.wallpaperUrl)
+      const quality = toValue(options.quality)
+      const routeKey = toValue(options.routeKey)
+      const previousKey = getGlassWallpaperPreparationKey(
+        previousAppearance ?? appearance,
+        quality,
+        routeKey,
+        wallpaperUrl,
       )
-      resources.uniforms.uAppearance.value = getGlassAppearanceUniformValue(appearance)
-      resources.uniforms.uBackgroundVisibility.value = materialResponse.backgroundVisibility
-      resources.uniforms.uFrostDetailLevel.value = materialResponse.frostDetailLevel
-      resources.uniforms.uSurfaceDensity.value = materialResponse.surfaceDensity
-      resources.uniforms.uTintDensity.value = materialResponse.tintDensity
+      const nextKey = getGlassWallpaperPreparationKey(appearance, quality, routeKey, wallpaperUrl)
+      if (previousKey !== nextKey) {
+        invalidatePreparedWallpaper()
+        await refreshWallpaper('玻璃材质纹理切换失败，已保留当前材质:', applyAppearance)
+        if (toValue(options.appearance) === appearance) preparePendingWallpaper()
+        return
+      }
+
+      applyAppearance()
       scheduleSurfaceStabilityUpdate()
     },
   )
@@ -3022,24 +3409,31 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
       const previousProfile = getGlassOpticalRenderProfile(previousQuality, toValue(options.routeKey))
       const nextProfile = getGlassOpticalRenderProfile(quality, toValue(options.routeKey))
-      resources.uniforms.uMaxRefractionPixels.value = getGlassOpticalMaxRefractionPixels(
-        nextProfile.maxRefractionPixels,
-        toValue(options.deformationStrength ?? getLegacyDynamicStrength()),
-      )
-      resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
-      resources.uniforms.uTrailCount.value = nextProfile.trailCount
-      interactionAnimating = false
-      cancelScheduledFrame()
-      resetInteractionState()
-      syncFlowResources()
-      resizeRenderer()
+      const applyQuality = () => {
+        if (!resources || toValue(options.quality) !== quality) return
+
+        resources.uniforms.uMaxRefractionPixels.value = getGlassOpticalMaxRefractionPixels(
+          nextProfile.maxRefractionPixels,
+          toValue(options.deformationStrength ?? getLegacyDynamicStrength()),
+        )
+        resources.uniforms.uQuality.value = quality === 'high' ? 1 : 0
+        resources.uniforms.uTrailCount.value = nextProfile.trailCount
+        interactionAnimating = false
+        cancelScheduledFrame()
+        resetInteractionState()
+        syncFlowResources()
+        resizeRenderer()
+      }
 
       if (!profileRequiresTextureReload(previousProfile, nextProfile)) {
+        applyQuality()
         scheduleFrame()
         return
       }
 
-      await refreshWallpaper('玻璃光学质量切换失败，已保留当前材质:')
+      invalidatePreparedWallpaper()
+      await refreshWallpaper('玻璃光学质量切换失败，已保留当前材质:', applyQuality)
+      if (toValue(options.quality) === quality) preparePendingWallpaper()
     },
   )
 
@@ -3116,6 +3510,17 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     () => toValue(options.routeKey),
     async (routeKey, previousRouteKey) => {
       const previousProfile = getRenderProfile(previousRouteKey ?? '')
+      const wallpaperUrl = toValue(options.wallpaperUrl)
+      const appearance = toValue(options.appearance)
+      const quality = toValue(options.quality)
+      const previousKey = getGlassWallpaperPreparationKey(
+        appearance,
+        quality,
+        previousRouteKey ?? '',
+        wallpaperUrl,
+      )
+      const nextKey = getGlassWallpaperPreparationKey(appearance, quality, routeKey, wallpaperUrl)
+      if (previousKey !== nextKey) invalidatePreparedWallpaper()
       if (resources && presentationSpace === 'scroll' && options.pageMotion) {
         pagePresentationGeometryReady = false
         const timestamp = performance.now()
@@ -3128,7 +3533,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         resizeRenderer()
 
         if (profileRequiresTextureReload(previousProfile, nextProfile)) {
-          await refreshWallpaper('玻璃场景纹理切换失败，已保留当前材质:')
+          await refreshWallpaper('玻璃场景纹理切换失败，已保留当前材质:', resizeRenderer)
+          if (toValue(options.routeKey) === routeKey) preparePendingWallpaper()
           return
         }
       }
@@ -3147,8 +3553,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   })
 
   return {
+    activatePreparedWallpaper,
+    activeWallpaperPreparationKey,
+    activeWallpaperRevision,
+    activeWallpaperUrl,
+    canActivatePreparedWallpaper,
+    preparedWallpaperPreparationKey,
     preparedWallpaperUrl,
+    preparedWallpaperRevision,
     renderedFrames,
+    rollbackPreparedWallpaperActivation,
     state,
   }
 }

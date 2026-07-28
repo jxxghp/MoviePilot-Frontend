@@ -38,4 +38,19 @@ describe('glass overlay material styles', () => {
       '.dashboard-grid-item-content .app-hover-lift-card:is(:hover, .app-hover-lift-card--hovering)',
     )
   })
+
+  it('hands the CSS fallback to an already rendered canvas without a second opacity transition', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+    const layerRuleStart = styles.indexOf('.glass-optical-layer {')
+    const layerRuleEnd = styles.indexOf('.glass-optical-layer--fixed', layerRuleStart)
+    const layerRule = styles.slice(layerRuleStart, layerRuleEnd)
+
+    expect(layerRuleStart).toBeGreaterThanOrEqual(0)
+    expect(layerRuleEnd).toBeGreaterThan(layerRuleStart)
+    expect(layerRule).toContain('opacity: 0')
+    expect(layerRule).not.toMatch(/transition\s*:/)
+    expect(styles).toMatch(
+      /\[data-glass-renderer-state='ready'\]\s*\.glass-optical-layer\s*\{\s*opacity:\s*1;/,
+    )
+  })
 })

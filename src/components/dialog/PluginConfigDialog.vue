@@ -176,8 +176,6 @@ onBeforeMount(async () => {
     <VCard
       v-if="renderMode === 'vuetify'"
       :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`"
-      data-glass-optical-surface
-      data-glass-optical-mode="static-material"
     >
       <VDialogCloseBtn @click="emit('close')" />
       <VDivider />
@@ -213,7 +211,7 @@ onBeforeMount(async () => {
       </VCardActions>
     </VCard>
     <!-- Vue 渲染模式 -->
-    <VCard v-else-if="renderMode === 'vue'" data-glass-optical-surface data-glass-optical-mode="static-material">
+    <VCard v-else-if="renderMode === 'vue'">
       <VCardText class="pa-0">
         <component
           :is="dynamicComponent"
