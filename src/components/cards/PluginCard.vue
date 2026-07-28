@@ -4,7 +4,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import api from '@/api'
 import type { Plugin } from '@/api/types'
 import { getLogoUrl } from '@/utils/imageUtils'
-import { getDominantColor } from '@/@core/utils/image'
+import { getCardAccentRgbFromImage } from '@/composables/useCardAccentColor'
 import { formatDownloadCount } from '@/@core/utils/formatters'
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
@@ -40,8 +40,8 @@ const { t } = useI18n()
 // 显示器宽度
 const display = useDisplay()
 
-// 背景颜色
-const backgroundColor = ref('#28A9E1')
+// 卡片头部染色所用的图标主色（CSS 变量可直接消费的 RGB 通道值）
+const accentRgb = ref('40, 169, 225')
 
 // 图片对象
 const imageRef = ref<any>()
@@ -98,8 +98,8 @@ watch(
 async function imageLoaded() {
   isImageLoaded.value = true
   const imageElement = imageRef.value?.$el.querySelector('img') as HTMLImageElement
-  // 从图片中提取背景色
-  backgroundColor.value = await getDominantColor(imageElement)
+  // 从图标中提取主色，作为卡片头部染色玻璃的色相来源
+  accentRgb.value = await getCardAccentRgbFromImage(imageElement, '#28A9E1')
 }
 
 // 显示更新日志
@@ -573,17 +573,15 @@ watch(
             :width="props.width"
             :height="props.height"
             @click="handleCardClick"
-            class="app-hover-lift-card flex flex-col h-full"
+            class="plugin-card app-hover-lift-card flex flex-col h-full"
             :class="{
               'app-hover-lift-card--hovering': hover.isHovering && !props.sortable,
               'cursor-move': props.sortable,
             }"
+            :style="{ '--plugin-card-accent-rgb': accentRgb }"
             :ripple="!props.sortable"
           >
-          <div
-            class="flex-grow"
-            :style="`background: linear-gradient(rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.5) 100%), linear-gradient(${backgroundColor} 0%, ${backgroundColor} 100%)`"
-          >
+          <div class="plugin-card__banner flex-grow">
             <VCardText class="px-2 pt-2 pb-0">
               <VCardTitle
                 class="text-white px-2 pb-0 text-lg text-shadow whitespace-nowrap overflow-hidden text-ellipsis"
