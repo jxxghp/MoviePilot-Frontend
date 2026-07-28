@@ -13,6 +13,8 @@ export const GLASS_OPTICAL_REFERENCE_STRENGTH = 70
 export type GlassAppearance = 'clear' | 'frosted' | 'tinted'
 export type GlassOpticalCapability = 'balanced' | 'css' | 'high'
 export type GlassOpticalPreset = 'glide' | 'liquid' | 'natural'
+export type GlassOpticalPresetKey = `${GlassAppearance}:${GlassOpticalCapability}:${GlassOpticalPreset}`
+export type GlassOpticalPresetOverrides = Partial<Record<GlassOpticalPresetKey, GlassOpticalParameters>>
 export type GlassOpticalQuality = 'balanced' | 'high'
 export type GlassCornerRadii = [number, number, number, number]
 
@@ -29,6 +31,19 @@ export interface GlassOpticalParameters {
   translation: number
   /** 壁纸可见度与材质遮罩强度。 */
   transparency: number
+}
+
+export interface GlassMaterialResponse {
+  /** 真实壁纸在表面材质后的感知可见程度。 */
+  backgroundVisibility: number
+  /** 磨砂预滤纹理允许保留的高频细节比例。 */
+  frostDetailLevel: number
+  /** 标准档 CSS 磨砂半径相对既有 40px 基线的缩放。 */
+  frostBlurScale: number
+  /** 表面遮罩对真实壁纸的覆盖密度。 */
+  surfaceDensity: number
+  /** 色调材质的主体染色密度。 */
+  tintDensity: number
 }
 
 export interface GlassInteractionPoint {
@@ -128,59 +143,57 @@ export function normalizeGlassOpticalStrength(value: unknown) {
   return Math.min(GLASS_OPTICAL_STRENGTH_MAX, Math.max(GLASS_OPTICAL_STRENGTH_MIN, Math.round(value)))
 }
 
-const GLASS_OPTICAL_PRESET_MATRIX: Record<
-  GlassAppearance,
-  Record<GlassOpticalCapability, Record<GlassOpticalPreset, GlassOpticalParameters>>
-> = {
+type GlassOpticalPresetSet = Record<GlassOpticalPreset, GlassOpticalParameters>
+type GlassOpticalCapabilityPresets = {
+  balanced: GlassOpticalPresetSet
+  css: Pick<GlassOpticalPresetSet, 'natural'>
+  high: GlassOpticalPresetSet
+}
+
+const GLASS_OPTICAL_PRESET_MATRIX: Record<GlassAppearance, GlassOpticalCapabilityPresets> = {
   clear: {
     css: {
-      natural: { deformation: 50, flow: 50, reflection: 35, transmission: 70, translation: 50, transparency: 70 },
-      glide: { deformation: 28, flow: 42, reflection: 29, transmission: 72, translation: 72, transparency: 78 },
-      liquid: { deformation: 72, flow: 78, reflection: 38, transmission: 66, translation: 56, transparency: 74 },
+      natural: { deformation: 50, flow: 50, reflection: 35, transmission: 56, translation: 50, transparency: 48 },
     },
     balanced: {
-      natural: { deformation: 50, flow: 50, reflection: 35, transmission: 70, translation: 50, transparency: 70 },
-      glide: { deformation: 30, flow: 44, reflection: 29, transmission: 72, translation: 72, transparency: 78 },
-      liquid: { deformation: 70, flow: 76, reflection: 36, transmission: 66, translation: 56, transparency: 74 },
+      natural: { deformation: 50, flow: 50, reflection: 35, transmission: 54, translation: 50, transparency: 46 },
+      glide: { deformation: 30, flow: 44, reflection: 29, transmission: 58, translation: 72, transparency: 56 },
+      liquid: { deformation: 70, flow: 76, reflection: 36, transmission: 51, translation: 56, transparency: 51 },
     },
     high: {
-      natural: { deformation: 50, flow: 50, reflection: 32, transmission: 70, translation: 50, transparency: 70 },
-      glide: { deformation: 32, flow: 46, reflection: 28, transmission: 74, translation: 74, transparency: 80 },
-      liquid: { deformation: 74, flow: 80, reflection: 35, transmission: 68, translation: 58, transparency: 76 },
+      natural: { deformation: 50, flow: 50, reflection: 32, transmission: 53, translation: 50, transparency: 45 },
+      glide: { deformation: 32, flow: 46, reflection: 28, transmission: 56, translation: 74, transparency: 54 },
+      liquid: { deformation: 74, flow: 80, reflection: 35, transmission: 50, translation: 58, transparency: 50 },
     },
   },
   tinted: {
     css: {
-      natural: { deformation: 50, flow: 50, reflection: 38, transmission: 68, translation: 50, transparency: 46 },
-      glide: { deformation: 30, flow: 42, reflection: 34, transmission: 74, translation: 70, transparency: 52 },
-      liquid: { deformation: 70, flow: 76, reflection: 41, transmission: 64, translation: 54, transparency: 48 },
+      natural: { deformation: 50, flow: 50, reflection: 38, transmission: 54, translation: 50, transparency: 34 },
     },
     balanced: {
-      natural: { deformation: 52, flow: 50, reflection: 38, transmission: 72, translation: 50, transparency: 46 },
-      glide: { deformation: 32, flow: 44, reflection: 34, transmission: 78, translation: 70, transparency: 52 },
-      liquid: { deformation: 72, flow: 76, reflection: 39, transmission: 68, translation: 56, transparency: 48 },
+      natural: { deformation: 52, flow: 50, reflection: 38, transmission: 56, translation: 50, transparency: 32 },
+      glide: { deformation: 32, flow: 44, reflection: 34, transmission: 61, translation: 70, transparency: 40 },
+      liquid: { deformation: 72, flow: 76, reflection: 39, transmission: 53, translation: 56, transparency: 36 },
     },
     high: {
-      natural: { deformation: 52, flow: 50, reflection: 35, transmission: 76, translation: 50, transparency: 48 },
-      glide: { deformation: 34, flow: 46, reflection: 32, transmission: 82, translation: 72, transparency: 54 },
-      liquid: { deformation: 76, flow: 80, reflection: 38, transmission: 72, translation: 58, transparency: 50 },
+      natural: { deformation: 52, flow: 50, reflection: 35, transmission: 54, translation: 50, transparency: 30 },
+      glide: { deformation: 34, flow: 46, reflection: 32, transmission: 59, translation: 72, transparency: 38 },
+      liquid: { deformation: 76, flow: 80, reflection: 38, transmission: 51, translation: 58, transparency: 34 },
     },
   },
   frosted: {
     css: {
-      natural: { deformation: 50, flow: 50, reflection: 31, transmission: 54, translation: 50, transparency: 42 },
-      glide: { deformation: 34, flow: 42, reflection: 27, transmission: 58, translation: 66, transparency: 46 },
-      liquid: { deformation: 76, flow: 74, reflection: 34, transmission: 50, translation: 50, transparency: 44 },
+      natural: { deformation: 50, flow: 50, reflection: 31, transmission: 50, translation: 50, transparency: 31 },
     },
     balanced: {
-      natural: { deformation: 58, flow: 52, reflection: 31, transmission: 58, translation: 48, transparency: 42 },
-      glide: { deformation: 38, flow: 44, reflection: 27, transmission: 62, translation: 68, transparency: 46 },
-      liquid: { deformation: 78, flow: 76, reflection: 32, transmission: 54, translation: 52, transparency: 44 },
+      natural: { deformation: 58, flow: 52, reflection: 31, transmission: 52, translation: 48, transparency: 29 },
+      glide: { deformation: 38, flow: 44, reflection: 27, transmission: 56, translation: 68, transparency: 40 },
+      liquid: { deformation: 78, flow: 76, reflection: 32, transmission: 49, translation: 52, transparency: 34 },
     },
     high: {
-      natural: { deformation: 60, flow: 52, reflection: 29, transmission: 62, translation: 48, transparency: 44 },
-      glide: { deformation: 40, flow: 46, reflection: 25, transmission: 66, translation: 70, transparency: 48 },
-      liquid: { deformation: 82, flow: 80, reflection: 31, transmission: 58, translation: 54, transparency: 46 },
+      natural: { deformation: 60, flow: 52, reflection: 29, transmission: 50, translation: 48, transparency: 27 },
+      glide: { deformation: 40, flow: 46, reflection: 25, transmission: 54, translation: 70, transparency: 38 },
+      liquid: { deformation: 82, flow: 80, reflection: 31, transmission: 47, translation: 54, transparency: 32 },
     },
   },
 }
@@ -191,12 +204,88 @@ export function getGlassOpticalPresetParameters(
   quality: GlassOpticalCapability,
   preset: GlassOpticalPreset,
 ): GlassOpticalParameters {
-  return { ...GLASS_OPTICAL_PRESET_MATRIX[appearance][quality][preset] }
+  const presets = GLASS_OPTICAL_PRESET_MATRIX[appearance][quality]
+  const parameters = 'natural' === preset ? presets.natural : (presets as Partial<GlassOpticalPresetSet>)[preset]
+
+  return { ...(parameters ?? presets.natural) }
 }
 
 /** 标准档只保留自然基线；实时档同时开放滑移与液态方案。 */
 export function getAvailableGlassOpticalPresets(quality: GlassOpticalCapability): GlassOpticalPreset[] {
   return quality === 'css' ? ['natural'] : ['natural', 'glide', 'liquid']
+}
+
+/** 生成持久化覆盖使用的稳定组合键；标准档始终归入自然方案。 */
+export function getGlassOpticalPresetKey(
+  appearance: GlassAppearance,
+  quality: GlassOpticalCapability,
+  preset: GlassOpticalPreset,
+): GlassOpticalPresetKey {
+  return `${appearance}:${quality}:${quality === 'css' ? 'natural' : preset}`
+}
+
+/** 切换组合时优先恢复用户覆盖，没有覆盖才返回预设矩阵副本。 */
+export function getGlassOpticalPresetParametersWithOverrides(
+  appearance: GlassAppearance,
+  quality: GlassOpticalCapability,
+  preset: GlassOpticalPreset,
+  overrides: GlassOpticalPresetOverrides,
+) {
+  const key = getGlassOpticalPresetKey(appearance, quality, preset)
+
+  return { ...(overrides[key] ?? getGlassOpticalPresetParameters(appearance, quality, preset)) }
+}
+
+const GLASS_RESPONSE_STOPS = [0, 20, 50, 70, 85, 100] as const
+const GLASS_BACKGROUND_VISIBILITY: Record<GlassAppearance, readonly number[]> = {
+  clear: [0.18, 0.3, 0.58, 0.77, 0.9, 0.96],
+  tinted: [0.08, 0.2, 0.48, 0.7, 0.84, 0.92],
+  frosted: [0.04, 0.14, 0.35, 0.6, 0.78, 0.88],
+}
+const GLASS_SURFACE_DENSITY: Record<GlassAppearance, readonly number[]> = {
+  clear: [1, 0.88, 0.62, 0.42, 0.26, 0.18],
+  tinted: [1, 0.92, 0.72, 0.52, 0.39, 0.3],
+  frosted: [1, 0.96, 0.86, 0.68, 0.5, 0.4],
+}
+const GLASS_TINT_DENSITY = [1, 0.9, 0.65, 0.48, 0.36, 0.28] as const
+const GLASS_FROST_DENSITY = [1, 0.9, 0.7, 0.4, 0.18, 0.1] as const
+
+/** 在相邻业务锚点之间使用零斜率边界插值，避免滑杆经过锚点时出现视觉折线。 */
+function interpolateGlassResponse(value: unknown, anchors: readonly number[]) {
+  const normalized = normalizeGlassOpticalStrength(value)
+  const upperIndex = GLASS_RESPONSE_STOPS.findIndex(stop => normalized <= stop)
+  if (upperIndex <= 0) return anchors[0]
+
+  const lowerIndex = upperIndex - 1
+  const lowerStop = GLASS_RESPONSE_STOPS[lowerIndex]
+  const upperStop = GLASS_RESPONSE_STOPS[upperIndex]
+  const linearProgress = (normalized - lowerStop) / (upperStop - lowerStop)
+  const smoothProgress = linearProgress * linearProgress * (3 - 2 * linearProgress)
+
+  return anchors[lowerIndex] + (anchors[upperIndex] - anchors[lowerIndex]) * smoothProgress
+}
+
+/**
+ * 一个通透度输入派生互不混用的材质响应；tone、曝光和透射亮度不在此处计算。
+ */
+export function getGlassMaterialResponse(appearance: GlassAppearance, value: unknown): GlassMaterialResponse {
+  const frostDensity = interpolateGlassResponse(value, GLASS_FROST_DENSITY)
+
+  return {
+    backgroundVisibility: interpolateGlassResponse(value, GLASS_BACKGROUND_VISIBILITY[appearance]),
+    frostBlurScale: 0.4 + frostDensity * 1.2,
+    frostDetailLevel: 1 - frostDensity,
+    surfaceDensity: interpolateGlassResponse(value, GLASS_SURFACE_DENSITY[appearance]),
+    tintDensity: interpolateGlassResponse(value, GLASS_TINT_DENSITY),
+  }
+}
+
+/** 标准档磨砂使用独立的 surface/raised 半径锚点，不借用背景亮度制造厚度。 */
+export function getGlassCssFrostBlur(value: unknown) {
+  return {
+    raised: interpolateGlassResponse(value, [84, 76, 62, 46, 34, 26]),
+    surface: interpolateGlassResponse(value, [64, 58, 44, 30, 22, 16]),
+  }
 }
 
 /** 计算与 CSS `ease` 相同的交叉淡化进度，使 DOM 壁纸与 shader 双纹理保持同一时钟。 */
@@ -258,15 +347,11 @@ export function getGlassOpticalFlowStrengthScale(value: unknown) {
   return normalizedRatio ** Math.log2(GLASS_OPTICAL_FLOW_MAX_SCALE)
 }
 
-/** 高于默认值的流动强度逐步扩大作用范围，低区间不会意外改变既有空间尺度。 */
+/** 流动强度在完整滑杆区间连续控制轨迹范围，低值也能明显收紧空间足迹。 */
 export function getGlassOpticalMotionExpansion(value: unknown) {
   const normalized = normalizeGlassOpticalStrength(value)
-  const highRangeProgress = Math.max(
-    0,
-    (normalized - GLASS_OPTICAL_STRENGTH_DEFAULT) / (GLASS_OPTICAL_STRENGTH_MAX - GLASS_OPTICAL_STRENGTH_DEFAULT),
-  )
 
-  return highRangeProgress ** 1.55
+  return (normalized / GLASS_OPTICAL_STRENGTH_MAX) ** 1.4
 }
 
 /** 最大几何形变只由质量档约束；流动滑杆改变覆盖与连续性，不继续拉伸背景内容。 */
@@ -442,13 +527,13 @@ export function getGlassOpticalWakeDirection(
   return directionDot < Math.cos((55 * Math.PI) / 180) ? nextDirection : currentDirection
 }
 
-/** 活动表面立即可感知，随后与离场表面完成短时单调交叉过渡。 */
+/** 新活动表面立即接管输入，离场表面只做短时单调淡出。 */
 export function getGlassOpticalSurfaceTransitionWeights(elapsed: number, duration: number) {
   const progress = Math.min(1, Math.max(0, elapsed / Math.max(1, duration)))
   const eased = progress * progress * (3 - 2 * progress)
 
   return {
-    incoming: 0.35 + eased * 0.65,
+    incoming: 1,
     outgoing: 1 - eased,
   }
 }

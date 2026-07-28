@@ -3,7 +3,9 @@ import {
   GLASS_OPTICAL_MOTION_MAX_SCALE,
   GLASS_OPTICAL_REFLECTION_MAX_SCALE,
   getAvailableGlassOpticalPresets,
+  getGlassCssFrostBlur,
   getGlassCoverScale,
+  getGlassMaterialResponse,
   getGlassOpticalCssTransmissionBrightness,
   getGlassOpticalDecay,
   getGlassOpticalBufferSize,
@@ -12,6 +14,8 @@ import {
   getGlassOpticalMotionExpansion,
   getGlassOpticalMotionStrengthScale,
   getGlassOpticalPresetParameters,
+  getGlassOpticalPresetParametersWithOverrides,
+  getGlassOpticalPresetKey,
   getGlassOpticalReflectionStrengthScale,
   getGlassOpticalRenderProfile,
   getGlassOpticalTransparency,
@@ -57,7 +61,9 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalMotionStrengthScale(75) - getGlassOpticalMotionStrengthScale(50)).toBeGreaterThan(
       getGlassOpticalMotionStrengthScale(50) - getGlassOpticalMotionStrengthScale(25),
     )
-    expect(getGlassOpticalMotionExpansion(50)).toBe(0)
+    expect(getGlassOpticalMotionExpansion(0)).toBe(0)
+    expect(getGlassOpticalMotionExpansion(50)).toBeGreaterThan(0.3)
+    expect(getGlassOpticalMotionExpansion(50)).toBeLessThan(0.4)
     expect(getGlassOpticalMotionExpansion(80)).toBeGreaterThan(0.4)
     expect(getGlassOpticalMotionExpansion(100)).toBe(1)
     expect(getGlassOpticalMaxRefractionPixels(9, 50)).toBe(9)
@@ -90,15 +96,170 @@ describe('glass optics geometry', () => {
       deformation: 50,
       flow: 50,
       reflection: 35,
-      transmission: 70,
+      transmission: 54,
       translation: 50,
-      transparency: 70,
+      transparency: 46,
     })
     expect(glide.translation).toBeGreaterThan(glide.deformation)
     expect(liquid.deformation).toBeGreaterThan(glide.deformation)
     expect(liquid.flow).toBeGreaterThan(glide.flow)
     expect(getAvailableGlassOpticalPresets('css')).toEqual(['natural'])
     expect(getAvailableGlassOpticalPresets('balanced')).toEqual(['natural', 'glide', 'liquid'])
+  })
+
+  it('keeps every preset dynamic parameter at the approved material calibration', () => {
+    const expected = {
+      clear: {
+        css: { natural: { deformation: 50, flow: 50, translation: 50 } },
+        balanced: {
+          natural: { deformation: 50, flow: 50, translation: 50 },
+          glide: { deformation: 30, flow: 44, translation: 72 },
+          liquid: { deformation: 70, flow: 76, translation: 56 },
+        },
+        high: {
+          natural: { deformation: 50, flow: 50, translation: 50 },
+          glide: { deformation: 32, flow: 46, translation: 74 },
+          liquid: { deformation: 74, flow: 80, translation: 58 },
+        },
+      },
+      tinted: {
+        css: { natural: { deformation: 50, flow: 50, translation: 50 } },
+        balanced: {
+          natural: { deformation: 52, flow: 50, translation: 50 },
+          glide: { deformation: 32, flow: 44, translation: 70 },
+          liquid: { deformation: 72, flow: 76, translation: 56 },
+        },
+        high: {
+          natural: { deformation: 52, flow: 50, translation: 50 },
+          glide: { deformation: 34, flow: 46, translation: 72 },
+          liquid: { deformation: 76, flow: 80, translation: 58 },
+        },
+      },
+      frosted: {
+        css: { natural: { deformation: 50, flow: 50, translation: 50 } },
+        balanced: {
+          natural: { deformation: 58, flow: 52, translation: 48 },
+          glide: { deformation: 38, flow: 44, translation: 68 },
+          liquid: { deformation: 78, flow: 76, translation: 52 },
+        },
+        high: {
+          natural: { deformation: 60, flow: 52, translation: 48 },
+          glide: { deformation: 40, flow: 46, translation: 70 },
+          liquid: { deformation: 82, flow: 80, translation: 54 },
+        },
+      },
+    } as const
+
+    for (const [appearance, qualities] of Object.entries(expected)) {
+      for (const [quality, presets] of Object.entries(qualities)) {
+        for (const [preset, parameters] of Object.entries(presets)) {
+          expect(
+            getGlassOpticalPresetParameters(
+              appearance as 'clear' | 'frosted' | 'tinted',
+              quality as 'balanced' | 'css' | 'high',
+              preset as 'glide' | 'liquid' | 'natural',
+            ),
+          ).toMatchObject(parameters as object)
+        }
+      }
+    }
+  })
+
+  it('restores per-combination overrides and keeps standard quality on natural', () => {
+    const key = getGlassOpticalPresetKey('tinted', 'high', 'glide')
+    const override = {
+      deformation: 11,
+      flow: 22,
+      reflection: 33,
+      transmission: 44,
+      translation: 55,
+      transparency: 66,
+    }
+
+    expect(key).toBe('tinted:high:glide')
+    expect(getGlassOpticalPresetKey('frosted', 'css', 'liquid')).toBe('frosted:css:natural')
+    expect(getGlassOpticalPresetParametersWithOverrides('tinted', 'high', 'glide', { [key]: override })).toEqual(
+      override,
+    )
+    expect(getGlassOpticalPresetParametersWithOverrides('clear', 'balanced', 'natural', {})).toEqual(
+      getGlassOpticalPresetParameters('clear', 'balanced', 'natural'),
+    )
+  })
+
+  it('uses the approved transparency and transmission matrix for all effective presets', () => {
+    const expected = {
+      clear: {
+        css: { natural: [48, 56] },
+        balanced: { natural: [46, 54], glide: [56, 58], liquid: [51, 51] },
+        high: { natural: [45, 53], glide: [54, 56], liquid: [50, 50] },
+      },
+      tinted: {
+        css: { natural: [34, 54] },
+        balanced: { natural: [32, 56], glide: [40, 61], liquid: [36, 53] },
+        high: { natural: [30, 54], glide: [38, 59], liquid: [34, 51] },
+      },
+      frosted: {
+        css: { natural: [31, 50] },
+        balanced: { natural: [29, 52], glide: [40, 56], liquid: [34, 49] },
+        high: { natural: [27, 50], glide: [38, 54], liquid: [32, 47] },
+      },
+    } as const
+
+    for (const [appearance, qualities] of Object.entries(expected)) {
+      for (const [quality, presets] of Object.entries(qualities)) {
+        for (const [preset, values] of Object.entries(presets)) {
+          const [transparency, transmission] = values as readonly [number, number]
+
+          expect(
+            getGlassOpticalPresetParameters(
+              appearance as 'clear' | 'frosted' | 'tinted',
+              quality as 'balanced' | 'css' | 'high',
+              preset as 'glide' | 'liquid' | 'natural',
+            ),
+          ).toMatchObject({ transmission, transparency })
+        }
+      }
+    }
+  })
+
+  it('derives independent material responses from piecewise smooth transparency anchors', () => {
+    expect(getGlassMaterialResponse('clear', 0)).toMatchObject({
+      backgroundVisibility: 0.18,
+      surfaceDensity: 1,
+    })
+    expect(getGlassMaterialResponse('tinted', 50)).toMatchObject({
+      backgroundVisibility: 0.48,
+      tintDensity: 0.65,
+    })
+    const frostedLow = getGlassMaterialResponse('frosted', 20)
+    expect(frostedLow).toMatchObject({
+      backgroundVisibility: 0.14,
+      frostBlurScale: 1.48,
+      surfaceDensity: 0.96,
+    })
+    expect(frostedLow.frostDetailLevel).toBeCloseTo(0.1)
+    expect(getGlassMaterialResponse('frosted', 100)).toMatchObject({
+      backgroundVisibility: 0.88,
+      frostBlurScale: 0.52,
+      frostDetailLevel: 0.9,
+      surfaceDensity: 0.4,
+    })
+    expect(getGlassCssFrostBlur(0)).toEqual({ raised: 84, surface: 64 })
+    expect(getGlassCssFrostBlur(50)).toEqual({ raised: 62, surface: 44 })
+    expect(getGlassCssFrostBlur(100)).toEqual({ raised: 26, surface: 16 })
+
+    const samples = [0, 10, 20, 35, 50, 60, 70, 78, 85, 92, 100].map(value =>
+      getGlassMaterialResponse('frosted', value),
+    )
+    expect(
+      samples.every(
+        (sample, index) =>
+          index === 0 ||
+          (sample.backgroundVisibility > samples[index - 1].backgroundVisibility &&
+            sample.frostDetailLevel > samples[index - 1].frostDetailLevel &&
+            sample.surfaceDensity < samples[index - 1].surfaceDensity),
+      ),
+    ).toBe(true)
   })
 
   it('returns preset copies so previews cannot mutate the shared matrix', () => {
@@ -346,8 +507,8 @@ describe('glass optics geometry', () => {
   })
 
   it('crossfades active surface weights monotonically', () => {
-    expect(getGlassOpticalSurfaceTransitionWeights(0, 96)).toEqual({ incoming: 0.35, outgoing: 1 })
-    expect(getGlassOpticalSurfaceTransitionWeights(48, 96)).toEqual({ incoming: 0.675, outgoing: 0.5 })
+    expect(getGlassOpticalSurfaceTransitionWeights(0, 96)).toEqual({ incoming: 1, outgoing: 1 })
+    expect(getGlassOpticalSurfaceTransitionWeights(48, 96)).toEqual({ incoming: 1, outgoing: 0.5 })
     expect(getGlassOpticalSurfaceTransitionWeights(96, 96)).toEqual({ incoming: 1, outgoing: 0 })
   })
 

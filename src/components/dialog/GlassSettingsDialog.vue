@@ -11,10 +11,15 @@ import {
   GLASS_OPTICAL_STRENGTH_MAX,
   GLASS_OPTICAL_STRENGTH_MIN,
   getAvailableGlassOpticalPresets,
+  getGlassOpticalPresetKey,
   getGlassOpticalPresetParameters,
+  getGlassOpticalPresetParametersWithOverrides,
   normalizeGlassOpticalStrength,
+  type GlassOpticalParameters,
   type GlassOpticalPreset,
+  type GlassOpticalPresetOverrides,
 } from '@/utils/glassOptics'
+import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(
@@ -32,11 +37,13 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const display = useDisplay()
 const { settings } = useThemeCustomizer()
 const draftAppearance = ref<ThemeCustomizerGlassAppearance>(settings.value.glassAppearance)
 const draftDeformationStrength = ref(settings.value.glassDeformationStrength)
 const draftFlowStrength = ref(settings.value.glassFlowStrength)
 const draftPreset = ref<GlassOpticalPreset>(settings.value.glassPreset)
+const draftPresetOverrides = ref<GlassOpticalPresetOverrides>({ ...settings.value.glassPresetOverrides })
 const draftQuality = ref<ThemeCustomizerGlassQuality>(settings.value.glassQuality)
 const draftReflectionStrength = ref(settings.value.glassReflectionStrength)
 const draftTransmissionStrength = ref(settings.value.glassTransmissionStrength)
@@ -68,6 +75,7 @@ watch(
       draftDeformationStrength.value = settings.value.glassDeformationStrength
       draftFlowStrength.value = settings.value.glassFlowStrength
       draftPreset.value = settings.value.glassPreset
+      draftPresetOverrides.value = { ...settings.value.glassPresetOverrides }
       draftQuality.value = settings.value.glassQuality
       draftReflectionStrength.value = settings.value.glassReflectionStrength
       draftTransmissionStrength.value = settings.value.glassTransmissionStrength
@@ -112,7 +120,7 @@ function updateAppearance(value: unknown) {
   if (value !== 'clear' && value !== 'tinted' && value !== 'frosted') return
 
   draftAppearance.value = value
-  previewGlassSettings({ glassAppearance: value })
+  applyPreset(activePreset.value)
 }
 
 /** 仅允许面板声明的质量档位进入待保存设置。 */
@@ -121,15 +129,18 @@ function updateQuality(value: unknown) {
   if (!option) return
 
   draftQuality.value = option.value
-  previewGlassSettings({ glassQuality: option.value })
+  applyPreset(activePreset.value)
 }
 
-/** 将六个具体参数作为一个预览事务同步，预置只负责生成这些值。 */
+/** 将材质、质量、预设归属与六个具体参数作为一个预览事务同步。 */
 function previewDraftParameters() {
   previewGlassSettings({
+    glassAppearance: draftAppearance.value,
     glassDeformationStrength: draftDeformationStrength.value,
     glassFlowStrength: draftFlowStrength.value,
     glassPreset: draftPreset.value,
+    glassPresetOverrides: draftPresetOverrides.value,
+    glassQuality: draftQuality.value,
     glassReflectionStrength: draftReflectionStrength.value,
     glassTransmissionStrength: draftTransmissionStrength.value,
     glassTranslationStrength: draftTranslationStrength.value,
@@ -137,13 +148,29 @@ function previewDraftParameters() {
   })
 }
 
-/** 应用当前材质与质量下的方案建议值，并将该方案作为后续重置目标。 */
+/** 读取草稿中当前显示的六参数。 */
+function getDraftParameters(): GlassOpticalParameters {
+  return {
+    deformation: draftDeformationStrength.value,
+    flow: draftFlowStrength.value,
+    reflection: draftReflectionStrength.value,
+    transmission: draftTransmissionStrength.value,
+    translation: draftTranslationStrength.value,
+    transparency: draftTransparencyStrength.value,
+  }
+}
+
+/** 切换方案时优先恢复该组合的草稿覆盖，没有覆盖才使用矩阵。 */
 function applyPreset(value: unknown) {
   if (value !== 'natural' && value !== 'glide' && value !== 'liquid') return
-  if (!availablePresets.value.includes(value)) return
-
-  const parameters = getGlassOpticalPresetParameters(draftAppearance.value, draftQuality.value, value)
-  draftPreset.value = value
+  const effectivePreset = availablePresets.value.includes(value) ? value : 'natural'
+  const parameters = getGlassOpticalPresetParametersWithOverrides(
+    draftAppearance.value,
+    draftQuality.value,
+    effectivePreset,
+    draftPresetOverrides.value,
+  )
+  draftPreset.value = effectivePreset
   draftDeformationStrength.value = parameters.deformation
   draftFlowStrength.value = parameters.flow
   draftReflectionStrength.value = parameters.reflection
@@ -153,45 +180,66 @@ function applyPreset(value: unknown) {
   previewDraftParameters()
 }
 
+/** 用调整后的当前六参数覆盖当前材质、质量与方案组合。 */
+function updateDraftPresetOverride() {
+  const key = getGlassOpticalPresetKey(draftAppearance.value, draftQuality.value, draftPreset.value)
+  draftPresetOverrides.value = {
+    ...draftPresetOverrides.value,
+    [key]: getDraftParameters(),
+  }
+  previewDraftParameters()
+}
+
 /** 将采样平移限制为 renderer 支持的稳定范围。 */
 function updateTranslationStrength(value: unknown) {
   draftTranslationStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassTranslationStrength: draftTranslationStrength.value })
+  updateDraftPresetOverride()
 }
 
 /** 将局部形变限制为质量档软上限所消费的用户范围。 */
 function updateDeformationStrength(value: unknown) {
   draftDeformationStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassDeformationStrength: draftDeformationStrength.value })
+  updateDraftPresetOverride()
 }
 
 /** 将尾波、惯性与收敛输入限制为 renderer 的稳定范围。 */
 function updateFlowStrength(value: unknown) {
   draftFlowStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassFlowStrength: draftFlowStrength.value })
+  updateDraftPresetOverride()
 }
 
 /** 将滑杆输入限制为 renderer 的稳定范围并即时预览反射亮度。 */
 function updateReflectionStrength(value: unknown) {
   draftReflectionStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassReflectionStrength: draftReflectionStrength.value })
+  updateDraftPresetOverride()
 }
 
 /** 将透射亮度限制为稳定范围并即时调整卡片内部壁纸的明暗。 */
 function updateTransmissionStrength(value: unknown) {
   draftTransmissionStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassTransmissionStrength: draftTransmissionStrength.value })
+  updateDraftPresetOverride()
 }
 
 /** 将通透度限制为稳定范围并即时调整材质与真实壁纸的占比。 */
 function updateTransparencyStrength(value: unknown) {
   draftTransparencyStrength.value = normalizeGlassOpticalStrength(Array.isArray(value) ? value[0] : value)
-  previewGlassSettings({ glassTransparencyStrength: draftTransparencyStrength.value })
+  updateDraftPresetOverride()
 }
 
-/** 保留当前材质与质量，将参数恢复为当前高亮方案的建议值。 */
+/** 删除当前组合覆盖并恢复该方案矩阵，不影响其他组合。 */
 function resetSettings() {
-  applyPreset(activePreset.value)
+  const key = getGlassOpticalPresetKey(draftAppearance.value, draftQuality.value, draftPreset.value)
+  const nextOverrides = { ...draftPresetOverrides.value }
+  delete nextOverrides[key]
+  draftPresetOverrides.value = nextOverrides
+  const parameters = getGlassOpticalPresetParameters(draftAppearance.value, draftQuality.value, draftPreset.value)
+  draftDeformationStrength.value = parameters.deformation
+  draftFlowStrength.value = parameters.flow
+  draftReflectionStrength.value = parameters.reflection
+  draftTransmissionStrength.value = parameters.transmission
+  draftTranslationStrength.value = parameters.translation
+  draftTransparencyStrength.value = parameters.transparency
+  previewDraftParameters()
 }
 
 /** 一次提交当前预览，持久化后关闭不会发生视觉回跳。 */
@@ -206,6 +254,7 @@ async function saveSettings() {
       glassDeformationStrength: draftDeformationStrength.value,
       glassFlowStrength: draftFlowStrength.value,
       glassPreset: draftPreset.value,
+      glassPresetOverrides: draftPresetOverrides.value,
       glassQuality: draftQuality.value,
       glassReflectionStrength: draftReflectionStrength.value,
       glassTransmissionStrength: draftTransmissionStrength.value,
@@ -224,7 +273,14 @@ onScopeDispose(cancelGlassPreview)
 </script>
 
 <template>
-  <VDialog v-if="visible" v-model="visible" width="100%" max-width="30rem" scrollable>
+  <VDialog
+    v-if="visible"
+    v-model="visible"
+    width="100%"
+    max-width="30rem"
+    scrollable
+    :fullscreen="display.smAndDown.value"
+  >
     <VCard>
       <VCardItem>
         <VCardTitle>
@@ -415,14 +471,21 @@ onScopeDispose(cancelGlassPreview)
       </VCardText>
 
       <VDivider />
-      <VCardText class="text-center">
-        <VBtn variant="outlined" prepend-icon="mdi-refresh" class="me-2" @click="resetSettings">
+      <VCardActions class="glass-settings-dialog__actions justify-center">
+        <VBtn :slim="false" variant="outlined" prepend-icon="mdi-refresh" class="me-2" @click="resetSettings">
           {{ t('common.reset') }}
         </VBtn>
-        <VBtn color="primary" prepend-icon="mdi-content-save" :loading="isSaving" @click="saveSettings">
+        <VBtn
+          :slim="false"
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-content-save"
+          :loading="isSaving"
+          @click="saveSettings"
+        >
           {{ t('common.save') }}
         </VBtn>
-      </VCardText>
+      </VCardActions>
     </VCard>
   </VDialog>
 </template>
@@ -434,6 +497,11 @@ onScopeDispose(cancelGlassPreview)
   gap: 24px;
   grid-auto-rows: max-content;
   padding: 20px 24px 24px;
+}
+
+.glass-settings-dialog__actions {
+  flex: none;
+  padding: 16px 24px;
 }
 
 .glass-settings-dialog__label {

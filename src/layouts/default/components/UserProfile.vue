@@ -631,7 +631,7 @@ onUnmounted(() => {
           </VListItem>
 
           <!-- 👉 UI模式设置 - 使用嵌套菜单 -->
-          <VMenu location="end" offset-x min-width="200" v-model="showUIModeMenu" :close-on-content-click="true">
+          <VMenu location="end" offset-x width="15rem" v-model="showUIModeMenu" :close-on-content-click="true">
             <template v-slot:activator="{ props: menuProps }">
               <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
                 <template #prepend>
@@ -666,7 +666,7 @@ onUnmounted(() => {
           </VMenu>
 
           <!-- 👉 主题设置 - 使用嵌套菜单 -->
-          <VMenu location="end" offset-x min-width="200" v-model="showThemeMenu" :close-on-content-click="true">
+          <VMenu location="end" offset-x width="15rem" v-model="showThemeMenu" :close-on-content-click="true">
             <template v-slot:activator="{ props: menuProps }">
               <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
                 <template #prepend>
@@ -730,7 +730,7 @@ onUnmounted(() => {
           </VMenu>
 
           <!-- 👉 语言设置 - 使用嵌套菜单 -->
-          <VMenu location="end" offset-x min-width="200" v-model="showLanguageMenu" :close-on-content-click="true">
+          <VMenu location="end" offset-x width="15rem" v-model="showLanguageMenu" :close-on-content-click="true">
             <template v-slot:activator="{ props: menuProps }">
               <VListItem v-bind="menuProps" class="mb-1 rounded-lg" hover>
                 <template #prepend>

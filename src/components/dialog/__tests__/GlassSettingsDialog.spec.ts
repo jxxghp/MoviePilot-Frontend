@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GlassSettingsDialog from '@/components/dialog/GlassSettingsDialog.vue'
 
 const slotStub = { template: '<div><slot /></div>' }
+const dialogStub = {
+  props: ['fullscreen'],
+  template: '<div class="dialog-stub" :data-fullscreen="String(fullscreen)"><slot /></div>',
+}
 const toggleStub = {
   props: ['modelValue'],
   template: '<div :data-model-value="modelValue"><slot /></div>',
@@ -25,6 +29,7 @@ const mocks = vi.hoisted(() => ({
       glassDeformationStrength: 50,
       glassFlowStrength: 50,
       glassPreset: 'natural',
+      glassPresetOverrides: {},
       glassQuality: 'css',
       glassReflectionStrength: 50,
       glassTransmissionStrength: 50,
@@ -47,6 +52,10 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
+vi.mock('vuetify', () => ({
+  useDisplay: () => ({ smAndDown: { value: true } }),
+}))
+
 describe('GlassSettingsDialog', () => {
   beforeEach(() => {
     mocks.cancelGlassPreview.mockClear()
@@ -56,6 +65,7 @@ describe('GlassSettingsDialog', () => {
     mocks.settings.value.glassDeformationStrength = 50
     mocks.settings.value.glassFlowStrength = 50
     mocks.settings.value.glassPreset = 'natural'
+    mocks.settings.value.glassPresetOverrides = {}
     mocks.settings.value.glassQuality = 'css'
     mocks.settings.value.glassReflectionStrength = 50
     mocks.settings.value.glassTransmissionStrength = 50
@@ -68,8 +78,9 @@ describe('GlassSettingsDialog', () => {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
         },
@@ -81,6 +92,8 @@ describe('GlassSettingsDialog', () => {
     expect(sliders).toHaveLength(3)
     expect(sliders[0].attributes('data-disabled')).toBe('undefined')
     expect(sliders[1].attributes('data-disabled')).toBe('undefined')
+    expect(wrapper.find('.dialog-stub').attributes('data-fullscreen')).toBe('true')
+    expect(wrapper.find('.glass-settings-dialog__actions').classes()).toContain('justify-center')
     await wrapper.setProps({ modelValue: false })
 
     expect(mocks.cancelGlassPreview).toHaveBeenCalledOnce()
@@ -96,17 +109,37 @@ describe('GlassSettingsDialog', () => {
     mocks.settings.value.glassTransmissionStrength = 57
     mocks.settings.value.glassTranslationStrength = 57
     mocks.settings.value.glassTransparencyStrength = 55
+    mocks.settings.value.glassPresetOverrides = {
+      'clear:balanced:glide': {
+        deformation: 24,
+        flow: 35,
+        reflection: 46,
+        transmission: 57,
+        translation: 68,
+        transparency: 79,
+      },
+      'frosted:high:liquid': {
+        deformation: 65,
+        flow: 61,
+        reflection: 58,
+        transmission: 57,
+        translation: 57,
+        transparency: 55,
+      },
+    }
     const wrapper = shallowMount(GlassSettingsDialog, {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
           VBtn: {
             emits: ['click'],
-            props: ['prependIcon'],
-            template: '<button :data-icon="prependIcon" @click="$emit(\'click\')"><slot /></button>',
+            props: ['prependIcon', 'slim', 'variant'],
+            template:
+              '<button :data-icon="prependIcon" :data-slim="String(slim)" :data-variant="variant" @click="$emit(\'click\')"><slot /></button>',
           },
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VDivider: true,
           VSlider: sliderStub,
@@ -115,17 +148,33 @@ describe('GlassSettingsDialog', () => {
       props: { modelValue: true },
     })
     const resetButton = wrapper.find('[data-icon="mdi-refresh"]')
+    const saveButton = wrapper.find('[data-icon="mdi-content-save"]')
 
+    expect(resetButton.attributes('data-slim')).toBe('false')
+    expect(saveButton.attributes('data-slim')).toBe('false')
+    expect(saveButton.attributes('data-variant')).toBe('elevated')
     await resetButton.trigger('click')
 
     expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
+      glassAppearance: 'frosted',
       glassDeformationStrength: 82,
       glassFlowStrength: 80,
       glassPreset: 'liquid',
+      glassPresetOverrides: {
+        'clear:balanced:glide': {
+          deformation: 24,
+          flow: 35,
+          reflection: 46,
+          transmission: 57,
+          translation: 68,
+          transparency: 79,
+        },
+      },
+      glassQuality: 'high',
       glassReflectionStrength: 31,
-      glassTransmissionStrength: 58,
+      glassTransmissionStrength: 47,
       glassTranslationStrength: 54,
-      glassTransparencyStrength: 46,
+      glassTransparencyStrength: 32,
     })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })
@@ -135,8 +184,9 @@ describe('GlassSettingsDialog', () => {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
         },
@@ -149,7 +199,27 @@ describe('GlassSettingsDialog', () => {
     expect(sliders[2].attributes('data-disabled')).toBe('undefined')
     await sliders[2].setValue('86')
 
-    expect(mocks.previewGlassSettings).toHaveBeenCalledWith({ glassReflectionStrength: 86 })
+    expect(mocks.previewGlassSettings).toHaveBeenCalledWith({
+      glassAppearance: 'clear',
+      glassDeformationStrength: 50,
+      glassFlowStrength: 50,
+      glassPreset: 'natural',
+      glassPresetOverrides: {
+        'clear:css:natural': {
+          deformation: 50,
+          flow: 50,
+          reflection: 86,
+          transmission: 50,
+          translation: 50,
+          transparency: 50,
+        },
+      },
+      glassQuality: 'css',
+      glassReflectionStrength: 86,
+      glassTransmissionStrength: 50,
+      glassTranslationStrength: 50,
+      glassTransparencyStrength: 50,
+    })
   })
 
   it('hides preset choices in standard quality', () => {
@@ -157,8 +227,9 @@ describe('GlassSettingsDialog', () => {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
         },
@@ -170,7 +241,7 @@ describe('GlassSettingsDialog', () => {
     expect(wrapper.find('.glass-settings-dialog__preset-state').exists()).toBe(false)
   })
 
-  it('keeps the selected preset highlighted after slider adjustments', async () => {
+  it('keeps the selected preset highlighted and records its combination override', async () => {
     mocks.settings.value.glassQuality = 'balanced'
     mocks.settings.value.glassPreset = 'glide'
     mocks.settings.value.glassTransparencyStrength = 61
@@ -178,10 +249,11 @@ describe('GlassSettingsDialog', () => {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
           VBtn: slotStub,
           VBtnToggle: toggleStub,
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
         },
@@ -199,6 +271,21 @@ describe('GlassSettingsDialog', () => {
     await sliders[0].setValue('77')
 
     expect(preset.attributes('data-model-value')).toBe('glide')
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        glassPreset: 'glide',
+        glassPresetOverrides: {
+          'clear:balanced:glide': {
+            deformation: 50,
+            flow: 50,
+            reflection: 50,
+            transmission: 50,
+            translation: 50,
+            transparency: 77,
+          },
+        },
+      }),
+    )
   })
 
   it('normalizes and previews all six independent slider values', async () => {
@@ -207,8 +294,9 @@ describe('GlassSettingsDialog', () => {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
         },
@@ -227,12 +315,28 @@ describe('GlassSettingsDialog', () => {
     await sliders[4].setValue('68.7')
     await sliders[5].setValue('62.2')
 
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(1, { glassTransparencyStrength: 91 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(2, { glassTransmissionStrength: 78 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(3, { glassReflectionStrength: 74 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(4, { glassTranslationStrength: 84 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(5, { glassDeformationStrength: 69 })
-    expect(mocks.previewGlassSettings).toHaveBeenNthCalledWith(6, { glassFlowStrength: 62 })
+    expect(mocks.previewGlassSettings).toHaveBeenCalledTimes(6)
+    expect(mocks.previewGlassSettings).toHaveBeenLastCalledWith({
+      glassAppearance: 'clear',
+      glassDeformationStrength: 69,
+      glassFlowStrength: 62,
+      glassPreset: 'natural',
+      glassPresetOverrides: {
+        'clear:balanced:natural': {
+          deformation: 69,
+          flow: 62,
+          reflection: 74,
+          transmission: 78,
+          translation: 84,
+          transparency: 91,
+        },
+      },
+      glassQuality: 'balanced',
+      glassReflectionStrength: 74,
+      glassTransmissionStrength: 78,
+      glassTranslationStrength: 84,
+      glassTransparencyStrength: 91,
+    })
     expect(mocks.commitGlassPreview).not.toHaveBeenCalled()
   })
 
@@ -242,8 +346,9 @@ describe('GlassSettingsDialog', () => {
       global: {
         stubs: {
           VCard: slotStub,
+          VCardActions: slotStub,
           VCardText: slotStub,
-          VDialog: slotStub,
+          VDialog: dialogStub,
           VDialogCloseBtn: true,
           VSlider: sliderStub,
         },

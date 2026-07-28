@@ -6,11 +6,33 @@ import {
   previewGlassSettings,
   readThemeCustomizerSettings,
   THEME_CUSTOMIZER_STORAGE_KEY,
+  useThemeCustomizer,
   useEffectiveGlassSettings,
 } from '@/composables/useThemeCustomizer'
+import vuetify from '@/plugins/vuetify'
+import { mount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 describe('useThemeCustomizer glass settings', () => {
+  function mountThemeCustomizer() {
+    let customizer: ReturnType<typeof useThemeCustomizer> | undefined
+    const wrapper = mount(
+      defineComponent({
+        setup() {
+          customizer = useThemeCustomizer()
+
+          return () => h('div')
+        },
+      }),
+      { global: { plugins: [vuetify] } },
+    )
+
+    if (!customizer) throw new Error('theme customizer setup failed')
+
+    return { customizer, wrapper }
+  }
+
   beforeEach(() => {
     cancelGlassPreview()
     localStorage.clear()
@@ -25,11 +47,12 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassDeformationStrength).toBe(50)
     expect(settings.glassFlowStrength).toBe(50)
     expect(settings.glassPreset).toBe('natural')
+    expect(settings.glassPresetOverrides).toEqual({})
     expect(settings.glassQuality).toBe('balanced')
     expect(settings.glassReflectionStrength).toBe(35)
-    expect(settings.glassTransmissionStrength).toBe(70)
+    expect(settings.glassTransmissionStrength).toBe(54)
     expect(settings.glassTranslationStrength).toBe(50)
-    expect(settings.glassTransparencyStrength).toBe(70)
+    expect(settings.glassTransparencyStrength).toBe(46)
   })
 
   it.each(['balanced', 'high'] as const)('preserves the %s quality contract', quality => {
@@ -54,6 +77,7 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(settings.glassAppearance).toBe('clear')
     expect(settings.glassPreset).toBe('natural')
+    expect(settings.glassPresetOverrides).toHaveProperty('clear:balanced:natural')
     expect(settings.glassQuality).toBe('balanced')
   })
 
@@ -94,6 +118,19 @@ describe('useThemeCustomizer glass settings', () => {
     localStorage.setItem(THEME_CUSTOMIZER_STORAGE_KEY, JSON.stringify({ glassAppearance: 'clear' }))
 
     expect(readThemeCustomizerSettings().glassTransmissionStrength).toBe(50)
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassPreset: 'natural',
+      glassPresetOverrides: {
+        'clear:balanced:natural': {
+          deformation: 50,
+          flow: 50,
+          reflection: 35,
+          transmission: 50,
+          translation: 50,
+          transparency: 46,
+        },
+      },
+    })
   })
 
   it('syncs glass settings to the document roots', () => {
@@ -111,10 +148,14 @@ describe('useThemeCustomizer glass settings', () => {
     expect(document.body.dataset.glassQuality).toBe('high')
     expect(document.documentElement.style.getPropertyValue('--glass-reflection')).toBe('0.35')
     expect(document.body.style.getPropertyValue('--glass-reflection')).toBe('0.35')
-    expect(Number(document.documentElement.style.getPropertyValue('--glass-transmission'))).toBe(1)
+    expect(Number(document.documentElement.style.getPropertyValue('--glass-transmission'))).toBeCloseTo(54 / 70)
     expect(document.body.style.getPropertyValue('--glass-transmission-brightness')).not.toBe('')
-    expect(Number(document.documentElement.style.getPropertyValue('--glass-transparency'))).toBeCloseTo(0.96, 2)
-    expect(Number(document.body.style.getPropertyValue('--glass-transparency'))).toBeCloseTo(0.96, 2)
+    expect(Number(document.documentElement.style.getPropertyValue('--glass-background-visibility'))).toBeCloseTo(
+      0.46639,
+    )
+    expect(Number(document.body.style.getPropertyValue('--glass-background-visibility'))).toBeCloseTo(0.46639)
+    expect(Number(document.documentElement.style.getPropertyValue('--glass-surface-density'))).toBeCloseTo(0.72972)
+    expect(Number(document.body.style.getPropertyValue('--glass-tint-density'))).toBeCloseTo(0.66215)
   })
 
   it('previews glass settings without persisting them', () => {
@@ -134,7 +175,17 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'tinted',
       glassDeformationStrength: 74,
       glassFlowStrength: 63,
-      glassPreset: 'glide',
+      glassPreset: 'natural',
+      glassPresetOverrides: {
+        'tinted:css:natural': {
+          deformation: 74,
+          flow: 63,
+          reflection: 81,
+          transmission: 76,
+          translation: 69,
+          transparency: 80,
+        },
+      },
       glassQuality: 'css',
       glassReflectionStrength: 81,
       glassTransmissionStrength: 76,
@@ -148,7 +199,17 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'tinted',
       glassDeformationStrength: 74,
       glassFlowStrength: 63,
-      glassPreset: 'glide',
+      glassPreset: 'natural',
+      glassPresetOverrides: {
+        'tinted:css:natural': {
+          deformation: 74,
+          flow: 63,
+          reflection: 81,
+          transmission: 76,
+          translation: 69,
+          transparency: 80,
+        },
+      },
       glassQuality: 'css',
       glassReflectionStrength: 81,
       glassTransmissionStrength: 76,
@@ -175,6 +236,16 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'tinted',
       glassDeformationStrength: 42,
       glassFlowStrength: 44,
+      glassPresetOverrides: {
+        'tinted:balanced:natural': {
+          deformation: 42,
+          flow: 44,
+          reflection: 66,
+          transmission: 64,
+          translation: 46,
+          transparency: 72,
+        },
+      },
       glassReflectionStrength: 66,
       glassTransmissionStrength: 64,
       glassTranslationStrength: 46,
@@ -184,6 +255,16 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'clear',
       glassDeformationStrength: 90,
       glassFlowStrength: 88,
+      glassPresetOverrides: {
+        'clear:balanced:natural': {
+          deformation: 90,
+          flow: 88,
+          reflection: 12,
+          transmission: 92,
+          translation: 86,
+          transparency: 94,
+        },
+      },
       glassReflectionStrength: 12,
       glassTransmissionStrength: 92,
       glassTranslationStrength: 86,
@@ -206,10 +287,150 @@ describe('useThemeCustomizer glass settings', () => {
       glassAppearance: 'tinted',
       glassDeformationStrength: 42,
       glassFlowStrength: 44,
+      glassPresetOverrides: {
+        'tinted:balanced:natural': {
+          deformation: 42,
+          flow: 44,
+          reflection: 66,
+          transmission: 64,
+          translation: 46,
+          transparency: 72,
+        },
+      },
       glassReflectionStrength: 66,
       glassTransmissionStrength: 64,
       glassTranslationStrength: 46,
       glassTransparencyStrength: 72,
     })
+  })
+
+  it('applies the same preset for a new material and quality while preset-managed', async () => {
+    persistPartialThemeCustomizerSettings({
+      glassAppearance: 'clear',
+      glassPreset: 'natural',
+      glassPresetOverrides: {},
+      glassQuality: 'balanced',
+    })
+    const { customizer, wrapper } = mountThemeCustomizer()
+    const { setGlassAppearance, setGlassPreset, setGlassQuality } = customizer
+
+    await setGlassPreset('glide')
+    await setGlassAppearance('frosted')
+    await setGlassQuality('high')
+
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassAppearance: 'frosted',
+      glassDeformationStrength: 40,
+      glassFlowStrength: 46,
+      glassPreset: 'glide',
+      glassQuality: 'high',
+      glassReflectionStrength: 25,
+      glassTransmissionStrength: 54,
+      glassTranslationStrength: 70,
+      glassTransparencyStrength: 38,
+    })
+    wrapper.unmount()
+  })
+
+  it('restores each combination override after material and quality changes', async () => {
+    persistPartialThemeCustomizerSettings({
+      glassAppearance: 'clear',
+      glassPreset: 'natural',
+      glassPresetOverrides: {},
+      glassQuality: 'balanced',
+    })
+    const { customizer, wrapper } = mountThemeCustomizer()
+    const {
+      setGlassAppearance,
+      setGlassDeformationStrength,
+      setGlassQuality,
+      setGlassTransparencyStrength,
+    } = customizer
+
+    await setGlassDeformationStrength(73)
+    await setGlassTransparencyStrength(27)
+    await setGlassAppearance('tinted')
+    await setGlassQuality('high')
+
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassAppearance: 'tinted',
+      glassDeformationStrength: 52,
+      glassPreset: 'natural',
+      glassPresetOverrides: {
+        'clear:balanced:natural': {
+          deformation: 73,
+          flow: 50,
+          reflection: 35,
+          transmission: 54,
+          translation: 50,
+          transparency: 27,
+        },
+      },
+      glassQuality: 'high',
+      glassTransparencyStrength: 30,
+    })
+    await setGlassQuality('balanced')
+    await setGlassAppearance('clear')
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassDeformationStrength: 73,
+      glassTransparencyStrength: 27,
+    })
+    wrapper.unmount()
+  })
+
+  it('maps preset-managed standard quality to natural without overwriting custom values', async () => {
+    persistPartialThemeCustomizerSettings({
+      glassAppearance: 'clear',
+      glassPreset: 'natural',
+      glassPresetOverrides: {},
+      glassQuality: 'balanced',
+    })
+    const { customizer, wrapper } = mountThemeCustomizer()
+    const { setGlassPreset, setGlassQuality, setGlassTransparencyStrength } = customizer
+
+    await setGlassPreset('liquid')
+    await setGlassQuality('css')
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassPreset: 'natural',
+      glassQuality: 'css',
+      glassTransparencyStrength: 48,
+    })
+
+    await setGlassTransparencyStrength(19)
+    await setGlassQuality('balanced')
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassPreset: 'natural',
+      glassQuality: 'balanced',
+      glassTransparencyStrength: 46,
+    })
+    await setGlassQuality('css')
+    expect(readThemeCustomizerSettings().glassTransparencyStrength).toBe(19)
+    wrapper.unmount()
+  })
+
+  it('keeps overrides independent for two presets of the same material and quality', async () => {
+    persistPartialThemeCustomizerSettings({
+      glassAppearance: 'tinted',
+      glassPreset: 'natural',
+      glassPresetOverrides: {},
+      glassQuality: 'balanced',
+    })
+    const { customizer, wrapper } = mountThemeCustomizer()
+    const { setGlassPreset, setGlassTransparencyStrength } = customizer
+
+    await setGlassPreset('glide')
+    await setGlassTransparencyStrength(61)
+    await setGlassPreset('liquid')
+    await setGlassTransparencyStrength(37)
+    await setGlassPreset('glide')
+    expect(readThemeCustomizerSettings()).toMatchObject({
+      glassPreset: 'glide',
+      glassPresetOverrides: {
+        'tinted:balanced:glide': expect.objectContaining({ transparency: 61 }),
+        'tinted:balanced:liquid': expect.objectContaining({ transparency: 37 }),
+      },
+      glassTransparencyStrength: 61,
+    })
+    wrapper.unmount()
   })
 })

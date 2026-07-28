@@ -175,7 +175,7 @@ export default {
     glassOpticalStrengthHint:
       'Sample Translation moves the shared wallpaper. Deformation controls local bending. Flow Strength controls trail range and inertia.',
     glassOpticalStrengthUnavailableHint:
-      'Standard quality keeps all three material controls. Switch to Balanced or High to adjust sample translation, deformation, and flow.',
+      'Standard quality keeps all three material controls; switch to Balanced or High to adjust sample translation, deformation, and flow.',
     purple: 'Purple',
     custom: 'Custom Style',
     transparency: 'Transparency',

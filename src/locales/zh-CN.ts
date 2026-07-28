@@ -170,7 +170,7 @@ export default {
     glassTransmissionStrength: '透射亮度',
     glassTransparencyStrength: '通透度',
     glassOpticalStrengthHint: '采样平移控制整体滑移，形变强度控制局部弯曲，流动强度控制轨迹范围与惯性。',
-    glassOpticalStrengthUnavailableHint: '标准质量保留三项材质参数。切换到均衡或高质量后，可调整采样平移、形变和流动。',
+    glassOpticalStrengthUnavailableHint: '标准质量保留三项材质参数，切换到均衡或高质量后，可调整采样平移、形变和流动。',
     purple: '幻紫',
     custom: '附加样式',
     transparency: '透明度',

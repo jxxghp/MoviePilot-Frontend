@@ -10,6 +10,7 @@ import {
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
+import type { ShaderMaterial, Vector2, WebGLRenderTarget } from 'three'
 
 vi.mock('three', async importOriginal => {
   const actual = await importOriginal<typeof import('three')>()
@@ -161,7 +162,7 @@ afterEach(() => {
 })
 
 describe('glass optical surface discovery', () => {
-  it('gives an active overlay exclusive ownership of shared pointer input', () => {
+  it('does not inject shared optical input while an overlay is active', () => {
     const overlay = document.createElement('div')
     overlay.className = 'v-overlay v-overlay--active'
     document.body.append(overlay)
@@ -176,7 +177,7 @@ describe('glass optical surface discovery', () => {
 
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 400, clientY: 400 }))
 
-    expect(fixedListener).toHaveBeenCalledOnce()
+    expect(fixedListener).not.toHaveBeenCalled()
     expect(scrollListener).not.toHaveBeenCalled()
     scope.stop()
   })
@@ -220,7 +221,7 @@ describe('glass optical surface discovery', () => {
     expect(containsGlassOpticalSurface(document.createElement('div'))).toBe(false)
   })
 
-  it('detects an optical surface when the overlay root is created lazily', () => {
+  it('does not treat a lazily created overlay as a wallpaper optical surface', () => {
     const overlayRoot = document.createElement('div')
     overlayRoot.className = 'v-overlay-container'
     overlayRoot.innerHTML = `
@@ -229,7 +230,23 @@ describe('glass optical surface discovery', () => {
       </div>
     `
 
-    expect(containsGlassOpticalSurface(overlayRoot)).toBe(true)
+    expect(containsGlassOpticalSurface(overlayRoot)).toBe(false)
+  })
+
+  it('keeps regular fixed surfaces and excludes overlay surfaces while an overlay is active', () => {
+    appendOpticalSurface('layout-navbar', { height: 64, width: 1200, x: 0, y: 0 })
+    const overlay = document.createElement('div')
+    overlay.className = 'v-overlay v-overlay--active'
+    const content = document.createElement('div')
+    content.className = 'v-overlay__content'
+    const card = appendOpticalSurface('v-card', { height: 480, width: 560, x: 320, y: 140 })
+    content.append(card)
+    overlay.append(content)
+    document.body.append(overlay)
+
+    expect(collectGlassOpticalRects(1200, 800, 'frosted', undefined, 'fixed')).toEqual([
+      expect.objectContaining({ height: 64, width: 1200, x: 0, y: 0 }),
+    ])
   })
 
   it('keeps the renderer state used by components and global CSS in sync', () => {
@@ -481,6 +498,67 @@ describe('glass optical surface discovery', () => {
       '玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:',
       expect.any(Error),
     )
+
+    scope.stop()
+  })
+
+  it('keeps both prefilter axes in source-pixel space and generates mipmaps only for the retained target', async () => {
+    const three = await import('three')
+    const texture = new three.Texture<HTMLImageElement>()
+    texture.image = {
+      height: 600,
+      naturalHeight: 600,
+      naturalWidth: 800,
+      width: 800,
+    } as HTMLImageElement
+    vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockResolvedValue(texture)
+    const prefilterPasses: Array<{
+      direction: [number, number]
+      textureSize: [number, number]
+    }> = []
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(scene => {
+      const material = (scene as unknown as { children?: Array<{ material?: ShaderMaterial }> }).children?.[0]?.material
+      if (!material?.fragmentShader.includes('uniform vec2 uDirection')) return
+
+      const direction = material.uniforms.uDirection.value as Vector2
+      const textureSize = material.uniforms.uTextureSize.value as Vector2
+      prefilterPasses.push({
+        direction: [direction.x, direction.y],
+        textureSize: [textureSize.x, textureSize.y],
+      })
+    })
+    const setRenderTarget = vi.spyOn(three.WebGLRenderer.prototype, 'setRenderTarget')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(prefilterPasses).toEqual([
+      { direction: [1, 0], textureSize: [800, 600] },
+      { direction: [0, 1], textureSize: [800, 600] },
+    ])
+
+    const targets = setRenderTarget.mock.calls
+      .map(([target]) => target)
+      .filter(
+        (target): target is WebGLRenderTarget =>
+          target instanceof three.WebGLRenderTarget && target.width === 100 && target.height === 75,
+      )
+    expect(targets).toHaveLength(2)
+    expect(targets[0].texture.generateMipmaps).toBe(false)
+    expect(targets[0].texture.minFilter).toBe(three.LinearFilter)
+    expect(targets[1].texture.generateMipmaps).toBe(true)
+    expect(targets[1].texture.minFilter).toBe(three.LinearMipmapLinearFilter)
+    expect(render).toHaveBeenCalled()
 
     scope.stop()
   })
@@ -787,8 +865,10 @@ describe('glass optical surface discovery', () => {
             uHasFrostedTexture: { value: number }
             uPreviousFrostedTexture: { value: unknown }
             uPreviousTexture: { value: unknown }
+            uPreviousWallpaperExposure: { value: number }
             uTexture: { value: unknown }
             uTextureMix: { value: number }
+            uWallpaperExposure: { value: number }
           }
         }
       }>
@@ -809,6 +889,14 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'toneMapWallpaper(mix(previous, current, uTextureMix), viewportUv)',
     )
+
+    previousWallpaperUrl.value = ''
+    await nextTick()
+
+    expect(uniforms.uPreviousTexture.value).toBe(uniforms.uTexture.value)
+    expect(uniforms.uPreviousFrostedTexture.value).toBe(uniforms.uFrostedTexture.value)
+    expect(uniforms.uPreviousWallpaperExposure.value).toBe(uniforms.uWallpaperExposure.value)
+    expect(uniforms.uTextureMix.value).toBe(1)
     scope.stop()
   })
 
@@ -1033,6 +1121,73 @@ describe('glass optical surface discovery', () => {
     expect(material.uniforms.uSurfaceDynamics.value[0]).toBe(0)
     expect(material.fragmentShader).toContain('uniform float uSurfaceDynamics[8]')
     expect(material.fragmentShader).toContain('float surfaceDynamic = uSurfaceDynamics[i]')
+    scope.stop()
+  })
+
+  it('clips nested hover-card dynamics on shared page surfaces without allocating another material slot', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const pageContent = document.createElement('main')
+    pageContent.className = 'layout-page-content'
+    const outerSurface = document.createElement('section')
+    outerSurface.className = 'v-card'
+    setOpticalSurfaceBounds(outerSurface, { height: 420, width: 900, x: 40, y: 80 })
+    const nestedCard = document.createElement('article')
+    nestedCard.className = 'app-hover-lift-card'
+    nestedCard.style.borderTopLeftRadius = '16px'
+    nestedCard.style.borderTopRightRadius = '16px'
+    nestedCard.style.borderBottomRightRadius = '16px'
+    nestedCard.style.borderBottomLeftRadius = '16px'
+    setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x: 80, y: 140 })
+    outerSurface.append(nestedCard)
+    pageContent.append(outerSurface)
+    document.body.append(pageContent)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/sites'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    render.mockClear()
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 200 }))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          fragmentShader: string
+          uniforms: {
+            uHasInteractionClip: { value: number }
+            uInteractionRadii: { value: { toArray: () => number[] } }
+            uInteractionRect: { value: { toArray: () => number[] } }
+            uRectCount: { value: number }
+          }
+        }
+      }>
+    }
+    const material = scene.children[0].material
+
+    expect(material.uniforms.uRectCount.value).toBe(1)
+    expect(material.uniforms.uHasInteractionClip.value).toBe(1)
+    expect(material.uniforms.uInteractionRect.value.toArray()).toEqual([
+      80 / 1200,
+      1 - (140 + 160) / 800,
+      280 / 1200,
+      160 / 800,
+    ])
+    expect(material.uniforms.uInteractionRadii.value.toArray()).toEqual([16, 16, 16, 16])
+    expect(material.fragmentShader).toContain('uniform vec4 uInteractionRect')
+    expect(material.fragmentShader).toContain('surfaceDynamic * interactionMask')
     scope.stop()
   })
 
@@ -1487,6 +1642,73 @@ describe('glass optical surface discovery', () => {
     surface.remove()
   })
 
+  it('reuses the committed presentation size throughout pointer animation frames', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let presentationReads = 0
+    const root = document.createElement('div')
+    Object.defineProperties(root, {
+      scrollHeight: {
+        configurable: true,
+        get: () => {
+          presentationReads += 1
+          return 1600
+        },
+      },
+      scrollWidth: {
+        configurable: true,
+        get: () => {
+          presentationReads += 1
+          return 1200
+        },
+      },
+    })
+    const canvas = document.createElement('canvas')
+    root.append(canvas)
+    document.body.append(root)
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/plugins'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 6 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    presentationReads = 0
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 180, clientY: 220 }))
+    for (let pass = 0; pass < 5 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+
+    expect(presentationReads).toBe(0)
+    scope.stop()
+    surface.remove()
+  })
+
   it('tracks transformed card geometry during a bounded hover transition without advancing flow', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
@@ -1709,7 +1931,10 @@ describe('glass optical surface discovery', () => {
             uMotionExpansion: { value: number }
             uRects: { value: Array<{ x: number }> }
             uReflectionStrength: { value: number }
-            uTransparency: { value: number }
+            uBackgroundVisibility: { value: number }
+            uFrostDetailLevel: { value: number }
+            uSurfaceDensity: { value: number }
+            uTintDensity: { value: number }
             uTransmissionStrength: { value: number }
             uTranslationStrength: { value: number }
             uSurfaceWeights: { value: number[] }
@@ -1736,10 +1961,13 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uTranslationStrength.value).toBe(1)
     expect(uniforms.uDeformationStrength.value).toBe(1)
     expect(uniforms.uFlowStrength.value).toBe(1)
-    expect(uniforms.uMotionExpansion.value).toBe(0)
+    expect(uniforms.uMotionExpansion.value).toBeCloseTo(0.5 ** 1.4)
     expect(uniforms.uMaxRefractionPixels.value).toBe(6)
     expect(uniforms.uReflectionStrength.value).toBe(1)
-    expect(uniforms.uTransparency.value).toBeGreaterThan(0.6)
+    expect(uniforms.uBackgroundVisibility.value).toBeCloseTo(0.58)
+    expect(uniforms.uFrostDetailLevel.value).toBeCloseTo(0.3)
+    expect(uniforms.uSurfaceDensity.value).toBeCloseTo(0.62)
+    expect(uniforms.uTintDensity.value).toBeCloseTo(0.65)
     expect(uniforms.uTransmissionStrength.value).toBeCloseTo(5 / 7)
 
     translationStrength.value = 100
@@ -1758,7 +1986,7 @@ describe('glass optical surface discovery', () => {
 
     expect(scene.children[0].material.fragmentShader).not.toContain('clamp(uMotion +')
     expect(scene.children[0].material.fragmentShader).toContain(
-      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic)',
+      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask)',
     )
     expect(scene.children[0].material.fragmentShader).toContain('softLimitDynamicRefraction')
     expect(scene.children[0].material.fragmentShader).toContain('getContentProtection')
@@ -1775,7 +2003,20 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uDeformationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFlowStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
-    expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransparency')
+    expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')
+    expect(scene.children[0].material.fragmentShader).not.toContain('temporalEnergy')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.45')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 4.938')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'float wakeTravel =\n      0.014 * dynamicRangeScale *',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uBackgroundVisibility')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uFrostDetailLevel')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uSurfaceDensity')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uTintDensity')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransmissionStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uPreviousWallpaperExposure')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uWallpaperExposure')
@@ -1790,24 +2031,28 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('float referenceLiftProgress')
     expect(scene.children[0].material.fragmentShader).toContain('float highTransmissionProgress')
     expect(scene.children[0].material.fragmentShader).toContain('float frostedDensity')
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'frosted * (1.0 - smoothstep(0.25, 0.9, uTransparency))',
-    )
+    expect(scene.children[0].material.fragmentShader).toContain('frosted * (1.0 - uFrostDetailLevel)')
     expect(scene.children[0].material.fragmentShader).toContain(
       '1.0 + frostedDensity * mix(1.15, 1.55, uQuality)',
     )
     expect(scene.children[0].material.fragmentShader).toContain(
-      'smoothstep(0.02, 0.55, liquidPresence)',
+      'clearBaseAlpha * mix(1.0, 2.5, liquidPresence)',
     )
     expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(uTransparency * 0.26, 0.92, opticalCoverage)',
+      'frostedBaseAlpha * mix(0.9, 1.0, liquidPresence)',
     )
     expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(frostedBaseAlpha, 0.94, opticalCoverage)',
+      'tintedBaseAlpha * mix(1.0, 1.8, liquidPresence)',
+    )
+    expect(scene.children[0].material.fragmentShader).not.toContain('opticalCoverage')
+    expect(scene.children[0].material.fragmentShader).toContain('texture2DGradEXT(')
+    expect(scene.children[0].material.fragmentShader).toContain(
+      'float frostLod = (1.0 - uFrostDetailLevel) * 6.0',
     )
     expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(uTransparency * 0.44, 0.92, opticalCoverage)',
+      'float frostGradientScale = exp2(frostLod)',
     )
+    expect(scene.children[0].material.fragmentShader).not.toContain('exp2(frostLod) / 0.125')
     expect(scene.children[0].material.fragmentShader).toContain('vec3 transmissionReference')
     expect(scene.children[0].material.fragmentShader).toContain('float referenceLift')
     expect(scene.children[0].material.fragmentShader).toContain('float highlightProtection')
@@ -1823,7 +2068,7 @@ describe('glass optical surface discovery', () => {
       'causticHighlightMix * uReflectionStrength * highlightBudget',
     )
     expect(scene.children[0].material.fragmentShader).not.toContain(
-      'materialAlpha = uTransparency * mix(',
+      'materialAlpha = uBackgroundVisibility * mix(',
     )
     expect(scene.children[0].material.fragmentShader).not.toContain('mix(0.035, 0.4')
     expect(scene.children[0].material.fragmentShader).not.toContain('sin(')
@@ -1880,9 +2125,16 @@ describe('glass optical surface discovery', () => {
     firstInteractionFrame(pointerMove.timeStamp + 100)
     const firstScene = render.mock.calls.at(-1)?.[0] as unknown as {
       children: Array<{
-        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+        material: {
+          uniforms: {
+            uPointer: { value: { x: number; y: number } }
+            uPointerVelocity: { value: { x: number; y: number } }
+          }
+        }
       }>
     }
+    const firstPointer = firstScene.children[0].material.uniforms.uPointer.value
+    const stablePointer = { x: firstPointer.x, y: firstPointer.y }
     const firstVelocity = firstScene.children[0].material.uniforms.uPointerVelocity.value
     const stableDirection = { x: firstVelocity.x, y: firstVelocity.y }
 
@@ -1891,9 +2143,15 @@ describe('glass optical surface discovery', () => {
     secondInteractionFrame(pointerMove.timeStamp + 300)
     const secondScene = render.mock.calls.at(-1)?.[0] as unknown as {
       children: Array<{
-        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+        material: {
+          uniforms: {
+            uPointer: { value: { x: number; y: number } }
+            uPointerVelocity: { value: { x: number; y: number } }
+          }
+        }
       }>
     }
+    expect(secondScene.children[0].material.uniforms.uPointer.value).toMatchObject(stablePointer)
     expect(secondScene.children[0].material.uniforms.uPointerVelocity.value).toMatchObject(stableDirection)
 
     const [finalInteractionFrame] = callbacks.values()

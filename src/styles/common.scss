@@ -1346,11 +1346,10 @@ html[data-theme='transparent'].transparent-glass-realtime .v-theme--transparent 
   background-image: var(--plugin-card-banner-scrim), var(--plugin-card-banner-tint);
   transition: background-image 0.2s ease;
 
-  --plugin-card-accent-rgb: 40, 169, 225;
   --plugin-card-banner-scrim: linear-gradient(rgba(0, 0, 0, 60%) 0%, rgba(0, 0, 0, 50%) 100%);
   --plugin-card-banner-tint: linear-gradient(
-    rgb(var(--plugin-card-accent-rgb)) 0%,
-    rgb(var(--plugin-card-accent-rgb)) 100%
+    rgb(var(--plugin-card-accent-rgb, 40, 169, 225)) 0%,
+    rgb(var(--plugin-card-accent-rgb, 40, 169, 225)) 100%
   );
 }
 
