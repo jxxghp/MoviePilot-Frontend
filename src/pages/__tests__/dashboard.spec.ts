@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => {
     grid,
     gridInit: vi.fn<(options: unknown, element: unknown) => unknown>(() => grid),
     openSharedDialog: vi.fn(),
+    themeName: undefined as unknown as { value: string },
     useDynamicButton: vi.fn(),
   }
 })
@@ -76,10 +77,12 @@ vi.mock('@/api', () => ({
 vi.mock('vuetify', async importOriginal => {
   const { ref } = await import('vue')
   mocks.displayWidth = ref(1512)
+  mocks.themeName = ref('light')
 
   return {
     ...(await importOriginal<typeof import('vuetify')>()),
     useDisplay: () => ({ width: mocks.displayWidth }),
+    useTheme: () => ({ global: { name: mocks.themeName } }),
   }
 })
 
@@ -184,6 +187,7 @@ describe('dashboard page initial layout', () => {
     mocks.apiGet.mockReset()
     mocks.apiPost.mockReset()
     mocks.displayWidth.value = 1512
+    mocks.themeName.value = 'light'
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   })
 
@@ -210,9 +214,9 @@ describe('dashboard page initial layout', () => {
 
     expect(screen.getAllByTestId('dashboard-item')).toHaveLength(1)
     expect(screen.getByTestId('dashboard-item')).toHaveAttribute('data-dashboard-id', 'systemInfo')
-    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: true }), expect.any(HTMLElement))
+    expect(container.querySelector('.dashboard-grid')).not.toHaveClass('is-revealed')
     await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true))
-    await waitFor(() => expect(container.querySelector('.dashboard-grid')).toHaveClass('is-revealed'))
 
     remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
     remoteProfile.resolve({
@@ -228,6 +232,26 @@ describe('dashboard page initial layout', () => {
     await waitFor(() => expect(mocks.grid.load).toHaveBeenCalled())
   })
 
+  it('disables automatic grid transitions only while browsing with the glass theme', async () => {
+    mocks.themeName.value = 'glass'
+    mocks.apiGet.mockImplementation((url: string) => {
+      if (url === '/user/config/DashboardOrder' || url === '/user/config/DashboardGridLayout') {
+        return { data: {} }
+      }
+      if (url === '/user/config/Dashboard') return { data: {} }
+      if (url === '/plugin/dashboard/meta') return []
+      throw new Error('Unexpected GET ' + url)
+    })
+
+    await renderDashboard()
+
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
+    await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(false))
+
+    await fireEvent.click(document.querySelector('.compact-fab--primary') as HTMLElement)
+    await waitFor(() => expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true))
+  })
+
   it('keeps the upstream progressive default while an uncached remote profile is loading', async () => {
     const remoteOrder = deferred<unknown>()
     const remoteProfile = deferred<unknown>()
@@ -241,7 +265,7 @@ describe('dashboard page initial layout', () => {
     await renderDashboard()
 
     expect(screen.getAllByTestId('dashboard-item')).toHaveLength(10)
-    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: false }), expect.any(HTMLElement))
+    expect(mocks.gridInit).toHaveBeenCalledWith(expect.objectContaining({ animate: true }), expect.any(HTMLElement))
 
     remoteOrder.resolve({ data: { value: [{ id: 'systemInfo', key: '' }] } })
     remoteProfile.resolve({
@@ -746,7 +770,7 @@ describe('dashboard page initial layout', () => {
     await waitFor(() => expect(mocks.grid.column).toHaveBeenCalledWith(1, 'list'))
     await waitFor(() => expect(mocks.grid.removeAll).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mocks.grid.makeWidget).toHaveBeenCalledTimes(10))
-    expect(mocks.grid.setAnimation).toHaveBeenCalledWith(false)
+    expect(mocks.grid.setAnimation).toHaveBeenCalledWith(true)
     expect(mocks.grid.makeWidget.mock.calls.map(([, widget]) => widget.id)).toEqual([
       'storage',
       'mediaStatistic',

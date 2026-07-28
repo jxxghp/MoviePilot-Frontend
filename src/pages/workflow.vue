@@ -107,18 +107,14 @@ onMounted(() => {
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition content-window" :touch="false">
       <VWindowItem value="list">
-        <transition name="fade-slide" appear>
-          <div>
-            <WorkflowListView ref="workflowListViewRef" />
-          </div>
-        </transition>
+        <div>
+          <WorkflowListView ref="workflowListViewRef" />
+        </div>
       </VWindowItem>
       <VWindowItem value="share">
-        <transition name="fade-slide" appear>
-          <div>
-            <WorkflowShareView :keyword="shareKeyword" @update="refreshWorkflowList" />
-          </div>
-        </transition>
+        <div>
+          <WorkflowShareView :keyword="shareKeyword" @update="refreshWorkflowList" />
+        </div>
       </VWindowItem>
     </VWindow>
 

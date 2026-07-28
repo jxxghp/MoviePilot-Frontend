@@ -168,9 +168,9 @@ html[data-theme='glass'] {
 
   // 磨砂材质使用更亮的散射表面，但仍只让高价值层执行实时背景采样。
   &[data-glass-appearance='frosted'] {
-    --glass-surface: rgba(255, 255, 255, calc(0.12 - var(--glass-transparency, 0.5) * 0.07));
-    --glass-surface-soft: rgba(255, 255, 255, calc(0.11 - var(--glass-transparency, 0.5) * 0.06));
-    --glass-surface-raised: rgba(255, 255, 255, calc(0.16 - var(--glass-transparency, 0.5) * 0.08));
+    --glass-surface: rgba(255, 255, 255, calc(0.14 - var(--glass-transparency, 0.5) * 0.1));
+    --glass-surface-soft: rgba(255, 255, 255, calc(0.13 - var(--glass-transparency, 0.5) * 0.08));
+    --glass-surface-raised: rgba(255, 255, 255, calc(0.18 - var(--glass-transparency, 0.5) * 0.11));
     --glass-control: rgba(255, 255, 255, 9%);
     --glass-control-prominent: rgba(255, 255, 255, 10%);
     --glass-control-prominent-focus: rgba(255, 255, 255, 13%);
@@ -195,11 +195,16 @@ html[data-theme='glass'] {
     --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     --glass-control-prominent-backdrop-filter: blur(24px) saturate(150%);
-    --glass-overlay-surface: var(--glass-surface-raised);
+    --glass-overlay-surface: rgba(
+      var(--v-theme-background),
+      calc(0.76 - var(--glass-transparency, 0.5) * 0.12)
+    );
     --glass-overlay-blur: var(--glass-blur-raised);
     --glass-overlay-saturate: var(--glass-saturate);
-    --glass-blur-surface: 28px;
-    --glass-saturate: 150%;
+    --glass-blur-surface: 40px;
+    --glass-blur: 40px;
+    --glass-blur-raised: 60px;
+    --glass-saturate: 180%;
     --glass-control-icon-color: rgba(242, 245, 250, 78%);
     --glass-control-placeholder-color: rgba(242, 245, 250, 62%);
     --glass-control-shortcut-background: rgba(255, 255, 255, 11%);
@@ -209,6 +214,10 @@ html[data-theme='glass'] {
     --glass-button-surface-hover: rgba(255, 255, 255, 14%);
     --glass-dashboard-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
+
+    .v-overlay__scrim {
+      background: rgba(3, 7, 18, 62%);
+    }
 
     // 磨砂弹窗只由最外层表面采样背景，内部卡片与自定义分组表面保持扁平。
     .v-overlay__content > :where(.v-card, .v-sheet),
@@ -302,36 +311,21 @@ html[data-theme='glass'] {
     z-index: 1;
   }
 
-  // 页面路由只使用短距离透明度与位移反馈，避免触发整页滤镜重采样。
+  // 页面 DOM 与 scroll renderer 共用同一 motion 时钟；canvas 本身保持壁纸坐标不动。
   .mp-page-route--entering {
-    animation: glass-page-route-enter var(--mp-motion-duration-page) var(--mp-motion-ease-standard) both;
+    animation: none;
+    filter: none;
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+
+  &[data-page-presentation-motion='active'] .mp-page-route {
+    filter: none;
+    opacity: var(--mp-page-motion-opacity, 1);
+    transform: translate3d(0, var(--mp-page-motion-translate-y, 0), 0);
+    transform-origin: center top;
     will-change: opacity, transform;
-  }
-
-  @keyframes glass-page-route-enter {
-    from {
-      opacity: 0.82;
-      transform: translate3d(0, 2px, 0);
-    }
-
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  .mp-page-enter-active,
-  .mp-page-leave-active {
-    filter: none !important;
-    transition:
-      opacity var(--mp-motion-duration-page) var(--mp-motion-ease-standard),
-      transform var(--mp-motion-duration-page) var(--mp-motion-ease-standard);
-  }
-
-  .mp-page-enter-from {
-    filter: none !important;
-    opacity: 0.82;
-    transform: translate3d(0, 2px, 0);
   }
 
   :where(
@@ -827,13 +821,6 @@ html[data-theme='glass'] {
     --mobile-calendar-surface-blur: var(--glass-surface-backdrop-filter);
   }
 
-  // 磨砂卡片不参与仪表板整体透明度入场，避免合成层切换造成先透明后模糊的闪变。
-  &[data-glass-appearance='frosted'] .dashboard-grid {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
   // 用户权限编辑器由普通容器构成，通过主题变量接入玻璃表面材质。
   .user-permission-editor {
     --permission-editor-border: 1px solid var(--glass-border);
@@ -1040,8 +1027,8 @@ html[data-theme='glass'][data-glass-appearance='frosted']:is(
     [data-glass-quality='high']
   )[data-glass-renderer-state='ready'] {
   --glass-navbar-backdrop-filter: none;
-  --glass-overlay-blur: 8px;
-  --glass-overlay-saturate: 145%;
+  --glass-overlay-blur: 0px;
+  --glass-overlay-saturate: 100%;
 }
 
 html:is([data-glass-quality='balanced'], [data-glass-quality='high'])[data-glass-renderer-state='ready']

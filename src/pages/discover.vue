@@ -237,39 +237,29 @@ onActivated(async () => {
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition" :touch="false">
       <VWindowItem value="themoviedb">
-        <transition name="fade-slide" appear>
-          <div>
-            <TheMovieDbView />
-          </div>
-        </transition>
+        <div>
+          <TheMovieDbView />
+        </div>
       </VWindowItem>
       <VWindowItem value="douban">
-        <transition name="fade-slide" appear>
-          <div>
-            <DoubanView />
-          </div>
-        </transition>
+        <div>
+          <DoubanView />
+        </div>
       </VWindowItem>
       <VWindowItem value="bangumi">
-        <transition name="fade-slide" appear>
-          <div>
-            <BangumiView />
-          </div>
-        </transition>
+        <div>
+          <BangumiView />
+        </div>
       </VWindowItem>
       <VWindowItem value="anilist">
-        <transition name="fade-slide" appear>
-          <div>
-            <AniListView />
-          </div>
-        </transition>
+        <div>
+          <AniListView />
+        </div>
       </VWindowItem>
       <VWindowItem v-for="item in extraDiscoverSources" :key="item.mediaid_prefix" :value="item.mediaid_prefix">
-        <transition name="fade-slide" appear>
-          <div>
-            <ExtraSourceView :source="item" />
-          </div>
-        </transition>
+        <div>
+          <ExtraSourceView :source="item" />
+        </div>
       </VWindowItem>
     </VWindow>
     <!-- 快速滚动到顶部按钮 -->

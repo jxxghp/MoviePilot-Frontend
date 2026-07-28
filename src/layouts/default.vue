@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import DefaultLayout from './default/components/DefaultLayout.vue'
+import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
 
 const route = useRoute()
+const pagePresentationMotion = usePagePresentationMotion()
 
 // keep-alive 缓存按页面身份命中，避免 query 变化导致同一页面反复新建实例。
 const routeCacheKey = computed(() => {
@@ -16,6 +18,7 @@ const routeCacheKey = computed(() => {
 // 页面过渡按实际页面身份触发；keep-alive 页面避免 query 变化时反复入场。
 const routeTransitionKey = computed(() => (route.meta.keepAlive ? routeCacheKey.value : route.fullPath))
 const isPageEntering = ref(false)
+const pageRouteRef = ref<HTMLElement | null>(null)
 let pageMotionTimer: number | null = null
 let pageMotionFrame: number | null = null
 
@@ -32,9 +35,11 @@ function playPageEnterMotion() {
   }
 
   isPageEntering.value = false
+  if (pagePresentationMotion.start(routeTransitionKey.value, pageRouteRef.value)) return
+
   pageMotionFrame = window.requestAnimationFrame(() => {
-    isPageEntering.value = true
     pageMotionFrame = null
+    isPageEntering.value = true
     pageMotionTimer = window.setTimeout(() => {
       isPageEntering.value = false
       pageMotionTimer = null
@@ -49,13 +54,14 @@ onMounted(playPageEnterMotion)
 onBeforeUnmount(() => {
   if (pageMotionTimer) window.clearTimeout(pageMotionTimer)
   if (pageMotionFrame) window.cancelAnimationFrame(pageMotionFrame)
+  pagePresentationMotion.cancel()
 })
 </script>
 
 <template>
   <DefaultLayout>
     <router-view v-slot="{ Component }">
-      <div class="mp-page-route" :class="{ 'mp-page-route--entering': isPageEntering }">
+      <div ref="pageRouteRef" class="mp-page-route" :class="{ 'mp-page-route--entering': isPageEntering }">
         <keep-alive :max="24">
           <component :is="Component" v-if="route.meta.keepAlive" :key="routeCacheKey" />
         </keep-alive>

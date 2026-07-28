@@ -1317,7 +1317,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div data-glass-optical-mode="static-material">
     <!-- 搜索加载状态 -->
     <VFadeTransition>
       <div

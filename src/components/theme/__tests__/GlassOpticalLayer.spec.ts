@@ -53,6 +53,13 @@ describe('GlassOpticalLayer', () => {
     expect(rendererCalls.map(options => options.surfaceSpace)).toEqual(['fixed', 'scroll'])
     expect(rendererCalls.every(options => options.interactionSource === interactionSource)).toBe(true)
     expect(rendererCalls.every(options => options.syncDocumentState === false)).toBe(true)
+    expect(rendererCalls[0].pageMotion).toBeUndefined()
+    expect(rendererCalls[1].pageMotion).toEqual(
+      expect.objectContaining({
+        opacity: expect.any(Object),
+        revision: expect.any(Object),
+      }),
+    )
 
     wrapper.unmount()
     expect(setRendererState).toHaveBeenLastCalledWith(expect.any(Object), 'fallback')

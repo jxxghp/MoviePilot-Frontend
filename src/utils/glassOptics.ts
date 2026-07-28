@@ -290,7 +290,7 @@ export function getGlassOpticalTransparency(value: unknown) {
   if (normalized <= GLASS_OPTICAL_REFERENCE_STRENGTH) {
     const progress = normalized / GLASS_OPTICAL_REFERENCE_STRENGTH
 
-    return 0.28 + 0.68 * progress ** 1.25
+    return 0.96 * progress ** 0.83
   }
 
   const highRangeProgress =
@@ -299,19 +299,19 @@ export function getGlassOpticalTransparency(value: unknown) {
   return 0.96 + 0.14 * highRangeProgress ** 1.35
 }
 
-/** 标准 CSS 材质使用受控亮度曲线，并在高区间保留有限余量。 */
+/** 标准 CSS 材质在壁纸归一化后只做窄幅目标亮度调整，避免重新放大原始明暗差异。 */
 export function getGlassOpticalCssTransmissionBrightness(value: unknown) {
   const transmission = getGlassOpticalTransmissionStrength(value)
   if (transmission <= 1) {
-    return 0.82 + 0.46 * transmission ** 1.1
+    return 0.84 + 0.16 * transmission ** 1.05
   }
 
   const progress = (transmission - 1) / 0.3
 
-  return 1.28 + 0.2 * progress ** 1.2
+  return 1 + 0.08 * progress ** 1.1
 }
 
-/** 实时 renderer 接收透射响应，并在 shader 中按材质和质量执行高亮保护。 */
+/** 实时 renderer 以 70 为归一化目标亮度参考，并在 shader 中按材质和质量执行高亮保护。 */
 export function getGlassOpticalTransmissionStrength(value: unknown) {
   const normalized = normalizeGlassOpticalStrength(value)
   if (normalized <= GLASS_OPTICAL_REFERENCE_STRENGTH) {

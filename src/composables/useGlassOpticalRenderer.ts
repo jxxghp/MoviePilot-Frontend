@@ -47,7 +47,13 @@ import {
   type GlassOpticalSurfaceSlot,
 } from '@/utils/glassOptics'
 import type { ThemeCustomizerGlassAppearance } from '@/composables/useThemeCustomizer'
+import type { PagePresentationMotionReader } from '@/composables/usePagePresentationMotion'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
+import {
+  analyzeGlassWallpaperTone,
+  DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
+  type GlassWallpaperToneProfile,
+} from '@/utils/glassWallpaperTone'
 
 type ThreeModule = typeof import('three')
 export type GlassRendererState = 'fallback' | 'loading' | 'ready'
@@ -154,6 +160,7 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uFlowStrength: IUniform<number>
   uHasWallpaperTexture: IUniform<number>
   uHasFlowTexture: IUniform<number>
+  uHasFrostedTexture: IUniform<number>
   uMotion: IUniform<number>
   uMotionExpansion: IUniform<number>
   uMaxRefractionPixels: IUniform<number>
@@ -161,6 +168,7 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uPointerVelocity: IUniform<Vector2>
   uPresentationSize: IUniform<Vector2>
   uPreviousCoverScale: IUniform<Vector2>
+  uPreviousWallpaperExposure: IUniform<number>
   uQuality: IUniform<number>
   uReflectionStrength: IUniform<number>
   uRadii: IUniform<Vector4[]>
@@ -169,8 +177,11 @@ interface GlassRendererUniforms extends Record<string, IUniform> {
   uSurfaceWeights: IUniform<number[]>
   uSurfaceDynamics: IUniform<number[]>
   uPreviousTexture: IUniform<Texture | null>
+  uPreviousFrostedTexture: IUniform<Texture | null>
   uTexture: IUniform<Texture | null>
+  uFrostedTexture: IUniform<Texture | null>
   uTextureMix: IUniform<number>
+  uWallpaperExposure: IUniform<number>
   uTintColor: IUniform<Color>
   uTransparency: IUniform<number>
   uTransmissionStrength: IUniform<number>
@@ -212,6 +223,17 @@ interface GlassFlowResources {
   writeTarget: WebGLRenderTarget
 }
 
+interface GlassFrostPrefilterResources {
+  material: ShaderMaterial
+  mesh: Mesh
+  scene: Scene
+  uniforms: {
+    uDirection: IUniform<Vector2>
+    uTexture: IUniform<Texture | null>
+    uTextureSize: IUniform<Vector2>
+  }
+}
+
 interface UseGlassOpticalRendererOptions {
   active: MaybeRefOrGetter<boolean>
   appearance: MaybeRefOrGetter<ThemeCustomizerGlassAppearance>
@@ -221,6 +243,8 @@ interface UseGlassOpticalRendererOptions {
   interactionSource?: GlassOpticalInteractionSource
   /** 旧调用方的单一动态强度仅作为三个独立维度的兼容回退。 */
   motionStrength?: MaybeRefOrGetter<number>
+  /** scroll-space 页面表面与 DOM 共用的短时呈现状态；fixed-space 不参与路由入场。 */
+  pageMotion?: PagePresentationMotionReader
   quality: MaybeRefOrGetter<GlassOpticalQuality>
   reflectionStrength?: MaybeRefOrGetter<number>
   previousWallpaperUrl?: MaybeRefOrGetter<string>
@@ -244,12 +268,16 @@ type GlassOpticalSurfaceDescriptor = GlassOpticalSurfaceCandidate<HTMLElement> &
 }
 
 interface PreparedWallpaperTexture {
+  /** 单次预滤后的低分辨率壁纸；中间 RenderTarget 不跨准备阶段保留。 */
+  frostedTarget: WebGLRenderTarget | null
   /** 是否包含可采样的真实壁纸，而非程序化回退纹理。 */
   hasWallpaperTexture: boolean
   /** 纹理像素高度。 */
   height: number
   /** 已完成当前 WebGL context 上传的纹理。 */
   texture: Texture
+  /** 纹理自身的稳健整体曝光；双纹理过渡期间不可与另一张壁纸共用。 */
+  toneProfile: GlassWallpaperToneProfile
   /** 纹理像素宽度。 */
   width: number
 }
@@ -344,11 +372,33 @@ void main() {
 }
 `
 
+const FROST_PREFILTER_FRAGMENT_SHADER = `
+precision highp float;
+
+uniform sampler2D uTexture;
+uniform vec2 uDirection;
+uniform vec2 uTextureSize;
+varying vec2 vUv;
+
+void main() {
+  vec2 texel = uDirection / max(uTextureSize, vec2(1.0));
+  vec3 color =
+    texture2D(uTexture, vUv).rgb * 0.227027 +
+    texture2D(uTexture, vUv + texel * 1.384615).rgb * 0.316216 +
+    texture2D(uTexture, vUv - texel * 1.384615).rgb * 0.316216 +
+    texture2D(uTexture, vUv + texel * 3.230769).rgb * 0.070270 +
+    texture2D(uTexture, vUv - texel * 3.230769).rgb * 0.070270;
+  gl_FragColor = vec4(color, 1.0);
+}
+`
+
 const FRAGMENT_SHADER = `
 precision highp float;
 
 uniform sampler2D uPreviousTexture;
 uniform sampler2D uTexture;
+uniform sampler2D uPreviousFrostedTexture;
+uniform sampler2D uFrostedTexture;
 uniform sampler2D uFlowTexture;
 uniform vec2 uCoverScale;
 uniform vec2 uPreviousCoverScale;
@@ -359,6 +409,7 @@ uniform float uDeformationStrength;
 uniform float uFlowStrength;
 uniform float uHasWallpaperTexture;
 uniform float uHasFlowTexture;
+uniform float uHasFrostedTexture;
 uniform float uMotion;
 uniform float uMotionExpansion;
 uniform float uMaxRefractionPixels;
@@ -379,6 +430,8 @@ uniform float uTransparency;
 uniform float uTransmissionStrength;
 uniform float uTranslationStrength;
 uniform float uTextureMix;
+uniform float uPreviousWallpaperExposure;
+uniform float uWallpaperExposure;
 uniform vec4 uTrail[4];
 uniform int uTrailCount;
 varying vec2 vUv;
@@ -409,16 +462,30 @@ vec2 coverUv(vec2 uv) {
   return vec2(0.5) + (viewportUv - vec2(0.5)) * uCoverScale;
 }
 
-vec3 toneMapWallpaper(vec3 color, vec2 uv) {
+vec3 compressWallpaperLuminance(vec3 color, float wallpaperExposure) {
+  vec3 exposed = max(color * wallpaperExposure, vec3(0.0));
+  float sourceLuminance = dot(exposed, vec3(0.2126, 0.7152, 0.0722));
+  if (sourceLuminance <= 0.0001) return exposed;
+
+  float shadowLift = (1.0 - smoothstep(0.06, 0.5, sourceLuminance)) * 0.22;
+  float highlightCompression = smoothstep(0.72, 0.98, sourceLuminance) * 0.08;
+  float compressedLuminance =
+    sourceLuminance * (1.0 + shadowLift) * (1.0 - highlightCompression);
+
+  return clamp(exposed * (compressedLuminance / sourceLuminance), 0.0, 1.0);
+}
+
+vec3 toneMapWallpaper(vec3 color, vec2 uv, float wallpaperExposure) {
   float tinted = step(0.5, uAppearance) * (1.0 - step(1.5, uAppearance));
   float frosted = step(1.5, uAppearance);
   float exposure = mix(0.86, 0.85, tinted);
   exposure = mix(exposure, 0.82, frosted);
-  float saturation = mix(0.95, 0.97, tinted);
+  float saturation = mix(0.82, 0.95, tinted);
   saturation = mix(saturation, 0.9, frosted);
   float contrast = mix(1.02, 1.0, frosted);
-  float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
-  vec3 mapped = mix(vec3(luminance), color, saturation);
+  vec3 normalized = compressWallpaperLuminance(color, wallpaperExposure);
+  float luminance = dot(normalized, vec3(0.2126, 0.7152, 0.0722));
+  vec3 mapped = mix(vec3(luminance), normalized, saturation);
   mapped = clamp((mapped - vec3(0.5)) * contrast + vec3(0.5), 0.0, 1.0) * exposure;
 
   float top = 1.0 - uv.y;
@@ -429,54 +496,63 @@ vec3 toneMapWallpaper(vec3 color, vec2 uv) {
   float radialAbsorption = smoothstep(0.24, 0.92, length(radialDelta)) * mix(0.12, 0.14, tinted);
   radialAbsorption *= 1.0 - frosted;
   vec3 absorbed = mapped * (1.0 - linearAbsorption) * (1.0 - radialAbsorption);
-  float transmissionExpansion = max(0.0, (uTransmissionStrength - 0.5) * 2.0);
-  float transmissionResponse = pow(transmissionExpansion, mix(0.8, 0.65, uQuality));
-  float transmissionMaterialScale = mix(1.0, 0.78, tinted);
+  float transmissionResponse =
+    pow(clamp(uTransmissionStrength, 0.0, 1.0), mix(0.9, 0.78, uQuality));
+  float referenceLiftProgress = smoothstep(0.7, 1.0, uTransmissionStrength);
+  float highTransmissionProgress =
+    clamp((uTransmissionStrength - 1.0) / 0.3, 0.0, 1.0);
+  float transmissionMaterialScale = mix(1.0, 0.9, tinted);
   transmissionMaterialScale = mix(transmissionMaterialScale, 0.42, frosted);
-  float shadowGamma =
-    1.0 -
-    transmissionResponse *
-      transmissionMaterialScale *
-      mix(0.28, 0.5, uQuality);
-  float shadowLiftGate = smoothstep(0.035, 0.2, luminance);
-  float highlightProtection = smoothstep(0.72, 0.96, luminance);
-  float protectedGamma = mix(max(shadowGamma, 0.72), shadowGamma, shadowLiftGate);
-  protectedGamma = mix(protectedGamma, 1.0, highlightProtection);
-  vec3 expandedSource = pow(max(color, vec3(0.0)), vec3(protectedGamma));
-  float sourceLuminance = dot(expandedSource, vec3(0.2126, 0.7152, 0.0722));
-  float shadowColorRetention = mix(0.42, 1.0, smoothstep(0.025, 0.18, luminance));
-  expandedSource = mix(vec3(sourceLuminance), expandedSource, shadowColorRetention);
-  sourceLuminance = dot(expandedSource, vec3(0.2126, 0.7152, 0.0722));
-  vec3 transmissionReference = mix(vec3(sourceLuminance), expandedSource, mix(1.16, 1.08, frosted));
-  transmissionReference =
-    clamp((transmissionReference - vec3(0.5)) * 1.06 + vec3(0.5), 0.0, 1.0) *
-    1.04;
-  vec3 protectedHighlightReference = min(color * 1.02, vec3(1.0));
+  float highlightProtection = smoothstep(0.68, 0.92, luminance);
+  vec3 transmissionReference = normalized;
+  float referenceLift =
+    transmissionMaterialScale *
+    (
+      referenceLiftProgress * mix(0.18, 0.25, uQuality) +
+      highTransmissionProgress * mix(0.1, 0.16, uQuality)
+    );
+  transmissionReference *= 1.0 + referenceLift * (1.0 - highlightProtection * 0.72);
+  transmissionReference = min(transmissionReference, vec3(0.96));
+  vec3 protectedHighlightReference = min(normalized, vec3(0.96));
   transmissionReference = mix(
     transmissionReference,
     protectedHighlightReference,
-    highlightProtection * 0.72
+    highlightProtection * 0.78
   );
   float transmissionMix = min(
     transmissionResponse *
       transmissionMaterialScale *
-      mix(0.58, 0.92, uQuality),
-    0.94
+      mix(0.58, 0.84, uQuality),
+    0.84
   );
 
-  return mix(absorbed, min(transmissionReference, vec3(1.0)), transmissionMix);
+  return mix(absorbed, transmissionReference, transmissionMix);
 }
 
 vec3 sampleWallpaper(vec2 uv) {
   vec2 viewportUv = vec2(0.5) + (uv - vec2(0.5)) / max(uCoverScale, vec2(0.0001));
   vec2 previousUv = vec2(0.5) + (viewportUv - vec2(0.5)) * uPreviousCoverScale;
-  vec3 previous = texture2D(uPreviousTexture, previousUv).rgb;
-  vec3 current = texture2D(uTexture, uv).rgb;
+  vec3 previous;
+  vec3 current;
+  if (uAppearance > 1.5 && uHasFrostedTexture > 0.5) {
+    previous = texture2D(uPreviousFrostedTexture, previousUv).rgb;
+    current = texture2D(uFrostedTexture, uv).rgb;
+  } else {
+    previous = texture2D(uPreviousTexture, previousUv).rgb;
+    current = texture2D(uTexture, uv).rgb;
+  }
 
-  if (uTextureMix <= 0.001) return toneMapWallpaper(previous, viewportUv);
-  if (uTextureMix >= 0.999) return toneMapWallpaper(current, viewportUv);
+  if (uTextureMix <= 0.001) {
+    return toneMapWallpaper(previous, viewportUv, uPreviousWallpaperExposure);
+  }
+  if (uTextureMix >= 0.999) {
+    return toneMapWallpaper(current, viewportUv, uWallpaperExposure);
+  }
 
-  return mix(toneMapWallpaper(previous, viewportUv), toneMapWallpaper(current, viewportUv), uTextureMix);
+  vec3 previousTone = toneMapWallpaper(previous, viewportUv, uPreviousWallpaperExposure);
+  vec3 currentTone = toneMapWallpaper(current, viewportUv, uWallpaperExposure);
+
+  return mix(previousTone, currentTone, uTextureMix);
 }
 
 vec3 sampleChromatic(vec2 uv, float separation) {
@@ -520,7 +596,7 @@ vec3 sampleHighQualityDiffuse(vec2 uv, vec2 axis, float radius) {
 }
 
 float getContentProtection(vec2 sourceUv) {
-  if (uQuality < 0.5 || uHasWallpaperTexture < 0.5) return 1.0;
+  if (uQuality < 0.5 || uHasWallpaperTexture < 0.5 || uAppearance > 1.5) return 1.0;
 
   vec2 sourceTexel = max(uCoverScale, vec2(0.0001)) / max(uVisibleViewportSize, vec2(1.0));
   vec3 horizontalStart = sampleWallpaper(sourceUv - vec2(sourceTexel.x * 2.5, 0.0));
@@ -661,7 +737,7 @@ void main() {
       pointerEnergy,
       max(min(1.0, trailEnergy) * 0.68, max(temporalEnergy * 0.76, wakeEnergy * 0.82))
     ), 0.0, 1.0);
-    float staticLens = 0.00018 + edgeResponse * mix(0.0011, 0.0017, uQuality);
+    float staticLens = 0.00008 + edgeResponse * mix(0.00045, 0.00072, uQuality);
     float pointerStrength = mix(mix(0.0055, 0.008, uQuality), mix(0.0085, 0.012, uQuality), frosted);
     float trailStrength = mix(mix(0.78, 1.08, uQuality), mix(0.96, 1.3, uQuality), frosted);
     float temporalStrength = mix(0.032, 0.042, frosted) * uQuality * (1.0 + flowSurfaceDetail * 0.5);
@@ -707,11 +783,16 @@ void main() {
   dynamicRefraction = softLimitDynamicRefraction(dynamicRefraction);
   vec2 refraction = staticRefraction + dynamicRefraction;
   vec2 sourceUv = coverUv(vUv + refraction);
-  float separation = edge * mix(0.00072, 0.0013, uQuality) * mix(1.0, 0.58, frosted);
-  vec3 refracted = sampleChromatic(sourceUv, separation);
+  float separation = edge * mix(0.00024, 0.00055, uQuality) * mix(1.0, 0.58, frosted);
+  float usesPrefilteredFrost = frosted * uHasFrostedTexture;
+  vec3 refracted = usesPrefilteredFrost > 0.5
+    ? sampleWallpaper(sourceUv)
+    : sampleChromatic(sourceUv, separation);
   float detailSeparation = separation * mix(1.45, 2.35, uQuality);
-  vec3 detailed = sampleChromatic(sourceUv, detailSeparation);
-  refracted = mix(refracted, detailed, mix(0.12, 0.32, uQuality) * (1.0 - frosted));
+  vec3 detailed = usesPrefilteredFrost > 0.5
+    ? refracted
+    : sampleChromatic(sourceUv, detailSeparation);
+  refracted = mix(refracted, detailed, mix(0.06, 0.16, uQuality) * (1.0 - frosted));
   vec2 diffusionAxis = length(refraction) > 0.00001 ? normalize(refraction) : wakePerpendicular;
   float diffusionRadius =
     mix(0.0022, 0.0038, uQuality) *
@@ -720,8 +801,12 @@ void main() {
       materialEnergy * mix(0.28, 0.76, uMotionExpansion) +
       flowSurfaceDetail * dynamicMask * 0.38
     );
+  float frostedDensity = frosted * (1.0 - smoothstep(0.25, 0.9, uTransparency));
+  diffusionRadius *= 1.0 + frostedDensity * mix(1.15, 1.55, uQuality);
   vec3 diffused;
-  if (uQuality > 0.5) {
+  if (usesPrefilteredFrost > 0.5) {
+    diffused = refracted;
+  } else if (uQuality > 0.5) {
     diffused = sampleHighQualityDiffuse(sourceUv, diffusionAxis, diffusionRadius);
   } else {
     diffused = sampleBalancedDiffuse(sourceUv, diffusionAxis, diffusionRadius);
@@ -729,9 +814,9 @@ void main() {
   refracted = mix(refracted, diffused, frosted);
   float refractedLuminance = dot(refracted, vec3(0.2126, 0.7152, 0.0722));
   float tinted = step(0.5, uAppearance) * (1.0 - step(1.5, uAppearance));
-  float transmissionOffset = (uTransmissionStrength - 0.5) * 2.0;
+  float transmissionOffset = min(uTransmissionStrength - 1.0, 0.0);
   if (transmissionOffset < 0.0) {
-    float dimming = mix(0.18, 0.22, uQuality) * mix(1.0, 0.65, frosted);
+    float dimming = mix(0.14, 0.18, uQuality) * mix(1.0, 0.65, frosted);
     refracted *= 1.0 + transmissionOffset * dimming;
   }
   refractedLuminance = dot(refracted, vec3(0.2126, 0.7152, 0.0722));
@@ -748,7 +833,9 @@ void main() {
   float edgeHighlightMix = 0.12;
   float causticHighlightMix = 0.075;
   float liquidPresence = clamp(materialEnergy, 0.0, 1.0);
-  float materialAlpha = uTransparency * mix(0.84, 1.0, liquidPresence);
+  // 只有局部动态覆盖可以提高壁纸替换权，静止像素继续遵循用户设置的通透度。
+  float opticalCoverage = smoothstep(0.02, 0.55, liquidPresence);
+  float materialAlpha = mix(uTransparency * 0.26, 0.92, opticalCoverage);
   float proceduralEdgeAlpha = 0.14;
   float proceduralCausticAlpha = 0.075;
 
@@ -756,14 +843,15 @@ void main() {
     highlight = vec3(0.94, 0.97, 1.0);
     edgeHighlightMix = 0.15;
     causticHighlightMix = 0.042;
-    materialAlpha = mix(0.78, 0.94, uTransparency) * mix(0.9, 1.0, liquidPresence);
+    float frostedBaseAlpha = mix(0.78, 0.94, uTransparency) * 0.9;
+    materialAlpha = mix(frostedBaseAlpha, 0.94, opticalCoverage);
     proceduralEdgeAlpha = 0.16;
     proceduralCausticAlpha = 0.045;
   } else if (uAppearance > 0.5) {
     highlight = mix(vec3(1.0), uTintColor, 0.72);
     edgeHighlightMix = 0.17;
     causticHighlightMix = 0.085;
-    materialAlpha = uTransparency * mix(0.84, 1.0, liquidPresence);
+    materialAlpha = mix(uTransparency * 0.44, 0.92, opticalCoverage);
   }
 
   if (uHasWallpaperTexture < 0.5) {
@@ -819,9 +907,12 @@ void main() {
 `
 
 const SCROLL_STABLE_TAIL_FRAMES = 2
+const PRESENTATION_RESIZE_SAMPLE_MS = 80
+const PRESENTATION_RESIZE_REQUIRED_SAMPLES = 2
 const SURFACE_STABILITY_MAX_FRAMES = 6
 const SURFACE_STABILITY_REQUIRED_FRAMES = 2
 const FLOW_BUFFER_SCALE = 0.25
+const FROST_PREFILTER_SCALE = 0.125
 const SURFACE_TRANSITION_DURATION_MS = 96
 const SURFACE_TRANSFORM_TRACKING_MAX_MS = 1000
 
@@ -965,12 +1056,17 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
   let flowResources: GlassFlowResources | null = null
+  let frostPrefilterResources: GlassFrostPrefilterResources | null = null
   let activeTexture: Texture | null = null
+  let activeFrostedTarget: WebGLRenderTarget | null = null
   let activeTextureHeight = 1
   let activeTextureWidth = 1
+  let activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
   let previousTexture: Texture | null = null
+  let previousFrostedTarget: WebGLRenderTarget | null = null
   let previousTextureHeight = 1
   let previousTextureWidth = 1
+  let previousWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
   let loadVersion = 0
   let prepareVersion = 0
   let preparedWallpaper: PreparedWallpaperTexture | null = null
@@ -999,6 +1095,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let activeTouchIdentifier: number | null = null
   let pendingFlowInjection = 0
   let interactionAnimating = false
+  let presentationResizeCandidate = ''
+  let presentationResizeStableSamples = 0
+  let presentationResizeTimer: number | null = null
   let scrollAnimationFrame: number | null = null
   let scrollDirty = false
   let scrollSurfaceRefreshPending = false
@@ -1017,6 +1116,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let surfaceTransformFrame: number | null = null
   let surfaceTransformTrackingDeadline = 0
   const transformingSurfaces = new Set<HTMLElement>()
+  let pagePresentationGeometryReady = true
   let wakeDirection = { x: 0, y: -1 }
   let contextRecoveryPending = false
   const presentationSpace = options.surfaceSpace ?? 'fixed'
@@ -1095,16 +1195,28 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     backgroundDisposeTimer = null
   }
 
+  /** 源纹理与磨砂预滤目标共享同一壁纸生命周期，必须成对释放。 */
+  function disposeWallpaperResources(texture: Texture | null, frostedTarget: WebGLRenderTarget | null) {
+    texture?.dispose()
+    frostedTarget?.dispose()
+  }
+
   /** 释放已完成过渡的旧纹理，并让两个采样槽继续指向同一稳定壁纸。 */
   function finishWallpaperTransition() {
     if (!resources || !activeTexture) return
 
-    if (previousTexture && previousTexture !== activeTexture) previousTexture.dispose()
+    if (previousTexture && previousTexture !== activeTexture) {
+      disposeWallpaperResources(previousTexture, previousFrostedTarget)
+    }
     previousTexture = null
+    previousFrostedTarget = null
     previousTextureHeight = activeTextureHeight
     previousTextureWidth = activeTextureWidth
+    previousWallpaperExposure = activeWallpaperExposure
     resources.uniforms.uPreviousTexture.value = activeTexture
+    resources.uniforms.uPreviousFrostedTexture.value = activeFrostedTarget?.texture ?? activeTexture
     resources.uniforms.uPreviousCoverScale.value.copy(resources.uniforms.uCoverScale.value)
+    resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uTextureMix.value = 1
     cancelWallpaperTransitionFrame()
   }
@@ -1139,6 +1251,91 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (wallpaperTransitionFrame !== null || !previousTexture || document.visibilityState === 'hidden') return
 
     wallpaperTransitionFrame = requestAnimationFrame(renderWallpaperTransitionFrame)
+  }
+
+  /** 释放壁纸准备阶段复用的预滤 shader；活动低通纹理由各自 RenderTarget 单独持有。 */
+  function disposeFrostPrefilterResources() {
+    if (!frostPrefilterResources) return
+
+    frostPrefilterResources.material.dispose()
+    frostPrefilterResources = null
+  }
+
+  /** 为当前 WebGL context 创建一次性低分辨率壁纸预滤管线。 */
+  function getFrostPrefilterResources() {
+    if (frostPrefilterResources) return frostPrefilterResources
+    if (!resources || !three) return null
+
+    const uniforms = {
+      uDirection: { value: new three.Vector2(1, 0) },
+      uTexture: { value: null },
+      uTextureSize: { value: new three.Vector2(1, 1) },
+    }
+    const material = new three.ShaderMaterial({
+      depthTest: false,
+      depthWrite: false,
+      fragmentShader: FROST_PREFILTER_FRAGMENT_SHADER,
+      uniforms,
+      vertexShader: VERTEX_SHADER,
+    })
+    const scene = new three.Scene()
+    const mesh = new three.Mesh(resources.geometry, material)
+    mesh.frustumCulled = false
+    scene.add(mesh)
+    frostPrefilterResources = { material, mesh, scene, uniforms }
+
+    return frostPrefilterResources
+  }
+
+  /** 壁纸上传时执行两次 separable blur，常态只保留最终 1/8 RenderTarget。 */
+  async function createFrostedWallpaperTarget(texture: Texture, width: number, height: number) {
+    if (!resources || !three) return null
+
+    const ownerResources = resources
+    const prefilter = getFrostPrefilterResources()
+    if (!prefilter) return null
+
+    const targetWidth = Math.max(1, Math.round(width * FROST_PREFILTER_SCALE))
+    const targetHeight = Math.max(1, Math.round(height * FROST_PREFILTER_SCALE))
+    const createTarget = () =>
+      new three!.WebGLRenderTarget(targetWidth, targetHeight, {
+        depthBuffer: false,
+        magFilter: three!.LinearFilter,
+        minFilter: three!.LinearFilter,
+        stencilBuffer: false,
+      })
+    const intermediateTarget = createTarget()
+    const outputTarget = createTarget()
+    const previousTarget = ownerResources.renderer.getRenderTarget()
+
+    try {
+      ownerResources.renderer.initTexture(texture)
+      await ownerResources.renderer.compileAsync(prefilter.scene, ownerResources.camera)
+      if (resources !== ownerResources) {
+        outputTarget.dispose()
+        return null
+      }
+
+      prefilter.uniforms.uDirection.value.set(1, 0)
+      prefilter.uniforms.uTexture.value = texture
+      prefilter.uniforms.uTextureSize.value.set(width, height)
+      ownerResources.renderer.setRenderTarget(intermediateTarget)
+      ownerResources.renderer.render(prefilter.scene, ownerResources.camera)
+
+      prefilter.uniforms.uDirection.value.set(0, 1)
+      prefilter.uniforms.uTexture.value = intermediateTarget.texture
+      prefilter.uniforms.uTextureSize.value.set(targetWidth, targetHeight)
+      ownerResources.renderer.setRenderTarget(outputTarget)
+      ownerResources.renderer.render(prefilter.scene, ownerResources.camera)
+
+      return outputTarget
+    } catch (error) {
+      outputTarget.dispose()
+      throw error
+    } finally {
+      if (resources === ownerResources) ownerResources.renderer.setRenderTarget(previousTarget)
+      intermediateTarget.dispose()
+    }
   }
 
   /** 释放仅由高质量档使用的短时液态位移场。 */
@@ -1270,6 +1467,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const transitionWeights = outgoingSurface
       ? getGlassOpticalSurfaceTransitionWeights(timestamp - surfaceTransitionStartedAt, SURFACE_TRANSITION_DURATION_MS)
       : { incoming: 1, outgoing: 0 }
+    const pageMotionOpacity =
+      presentationSpace === 'scroll' ? Math.min(1, Math.max(0, toValue(options.pageMotion?.opacity ?? 1))) : 1
+    const pagePresentationWeight = pagePresentationGeometryReady ? pageMotionOpacity : 0
 
     for (let index = 0; index < 8; index += 1) {
       const surface = normalized[index]
@@ -1278,7 +1478,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const radii = surface?.radii ?? [0, 0, 0, 0]
       uniformRects[index].set(rect[0], rect[1], rect[2], rect[3])
       uniformRadii[index].set(radii[0], radii[1], radii[2], radii[3])
-      uniformWeights[index] =
+      const surfaceWeight =
         slot?.role === 'outgoing'
           ? transitionWeights.outgoing
           : slot?.role === 'active'
@@ -1286,6 +1486,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
             : slot
               ? 1
               : 0
+      uniformWeights[index] = surfaceWeight * pagePresentationWeight
       uniformDynamics[index] = slot?.mode === 'static-material' ? 0 : 1
     }
 
@@ -1373,21 +1574,76 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         surfaceStabilityPass < SURFACE_STABILITY_MAX_FRAMES
       ) {
         surfaceStabilityFrame = requestAnimationFrame(sample)
+      } else if (!pagePresentationGeometryReady) {
+        pagePresentationGeometryReady = true
+        writeSurfaceUniforms(timestamp)
+        renderFrame(timestamp, false)
       }
     }
 
     surfaceStabilityFrame = requestAnimationFrame(sample)
   }
 
-  /** ResizeObserver 在浏览器绘制前提交新尺寸，避免 CSS 与 WebGL buffer 跨帧失配。 */
+  /**
+   * 页面根的 scrollHeight 可能在 content box 稳定后继续收敛。
+   * 连续两个 80ms 样本一致才允许覆盖已提交的 presentation 首帧。
+   */
+  function schedulePresentationResizeUpdate() {
+    if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
+    presentationResizeCandidate = ''
+    presentationResizeStableSamples = 0
+
+    const sample = () => {
+      presentationResizeTimer = null
+      if (!resources) return
+
+      const presentation = getPresentationSize()
+      const candidate = `${window.innerWidth},${window.innerHeight},${presentation.width},${presentation.height}`
+      presentationResizeStableSamples =
+        candidate === presentationResizeCandidate ? presentationResizeStableSamples + 1 : 1
+      presentationResizeCandidate = candidate
+      if (presentationResizeStableSamples >= PRESENTATION_RESIZE_REQUIRED_SAMPLES) {
+        resizeRenderer()
+        presentationResizeCandidate = ''
+        presentationResizeStableSamples = 0
+        return
+      }
+
+      presentationResizeTimer = window.setTimeout(sample, PRESENTATION_RESIZE_SAMPLE_MS)
+    }
+
+    presentationResizeTimer = window.setTimeout(sample, PRESENTATION_RESIZE_SAMPLE_MS)
+  }
+
+  /** 共享页面 motion 活跃时，页面几何变化必须在浏览器绘制前完成一次完整 presentation 提交。 */
+  function commitActivePagePresentation(timestamp = performance.now()) {
+    if (
+      !resources ||
+      presentationSpace !== 'scroll' ||
+      !toValue(options.pageMotion?.active ?? false)
+    )
+      return false
+
+    if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
+    presentationResizeTimer = null
+    presentationResizeCandidate = ''
+    presentationResizeStableSamples = 0
+    resizeRenderer()
+    updateSurfaceUniforms(timestamp, false)
+    renderFrame(timestamp, false)
+
+    return true
+  }
+
+  /** 普通表面尺寸即时更新；页面根尺寸在稳定后覆盖 presentation。 */
   function handleSurfaceResize(entries: ResizeObserverEntry[]) {
     if (!resources) return
 
     const presentationRoot = presentationSpace === 'scroll' ? options.canvas.value?.parentElement : null
-    if (presentationRoot && entries.some(entry => entry.target === presentationRoot)) {
-      resizeRenderer()
-      return
-    }
+    const presentationChanged = presentationRoot && entries.some(entry => entry.target === presentationRoot)
+    if (presentationChanged && commitActivePagePresentation()) return
+    if (presentationChanged) schedulePresentationResizeUpdate()
+    if (!entries.some(entry => entry.target !== presentationRoot)) return
 
     const timestamp = performance.now()
     updateSurfaceUniforms(timestamp, false)
@@ -2054,6 +2310,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     void initializeRenderer(false)
   }
 
+  function handleWindowResize() {
+    if (presentationSpace === 'scroll') schedulePresentationResizeUpdate()
+    else resizeRenderer()
+  }
+
   /** 只让会改变目标表面集合或圆角几何的 DOM 变更触发重扫。 */
   function mutationTouchesOpticalSurface(mutations: MutationRecord[]) {
     return mutations.some(
@@ -2083,7 +2344,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceMutationObserver = new MutationObserver(mutations => {
       // Vuetify 可能在首个弹层打开时才创建容器，后续变更需要纳入同一个表面生命周期。
       observeMutationRoot(document.querySelector('.v-overlay-container'), true)
-      if (mutationTouchesOpticalSurface(mutations)) scheduleSurfaceStabilityUpdate()
+      if (!mutationTouchesOpticalSurface(mutations)) return
+
+      commitActivePagePresentation()
+      scheduleSurfaceStabilityUpdate()
     })
     observeMutationRoot(document.querySelector('.app-wrapper'), true)
     observeMutationRoot(document.querySelector('.v-overlay-container'), true)
@@ -2104,7 +2368,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       window.addEventListener('touchend', handleTouchEnd, { passive: true })
       window.addEventListener('touchcancel', handleTouchEnd, { passive: true })
     }
-    window.addEventListener('resize', resizeRenderer, { passive: true })
+    window.addEventListener('resize', handleWindowResize, { passive: true })
     window.addEventListener('transitionrun', handleSurfaceTransitionRun, { capture: true, passive: true })
     window.addEventListener('transitionend', handleSurfaceTransitionEnd, { capture: true, passive: true })
     window.addEventListener('transitioncancel', handleSurfaceTransitionEnd, { capture: true, passive: true })
@@ -2126,7 +2390,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       window.removeEventListener('touchend', handleTouchEnd)
       window.removeEventListener('touchcancel', handleTouchEnd)
     }
-    window.removeEventListener('resize', resizeRenderer)
+    window.removeEventListener('resize', handleWindowResize)
     window.removeEventListener('transitionrun', handleSurfaceTransitionRun, true)
     window.removeEventListener('transitionend', handleSurfaceTransitionEnd, true)
     window.removeEventListener('transitioncancel', handleSurfaceTransitionEnd, true)
@@ -2156,6 +2420,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       cancelAnimationFrame(surfaceStabilityFrame)
       surfaceStabilityFrame = null
     }
+    if (presentationResizeTimer !== null) {
+      window.clearTimeout(presentationResizeTimer)
+      presentationResizeTimer = null
+    }
+    presentationResizeCandidate = ''
+    presentationResizeStableSamples = 0
     removeEvents()
     resizeObserver?.disconnect()
     resizeObserver = null
@@ -2180,19 +2450,28 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     pointerSpringVelocityY = 0
     pendingFlowInjection = 0
     lastInteractionFrameAt = 0
-    if (previousTexture && previousTexture !== activeTexture) previousTexture.dispose()
+    if (previousTexture && previousTexture !== activeTexture) {
+      disposeWallpaperResources(previousTexture, previousFrostedTarget)
+    }
     previousTexture = null
+    previousFrostedTarget = null
     previousTextureHeight = 1
     previousTextureWidth = 1
-    activeTexture?.dispose()
+    previousWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
+    disposeWallpaperResources(activeTexture, activeFrostedTarget)
     activeTexture = null
+    activeFrostedTarget = null
     activeTextureHeight = 1
     activeTextureWidth = 1
-    preparedWallpaper?.texture.dispose()
+    activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
+    if (preparedWallpaper) {
+      disposeWallpaperResources(preparedWallpaper.texture, preparedWallpaper.frostedTarget)
+    }
     preparedWallpaper = null
     preparedWallpaperUrl.value = ''
 
     disposeFlowResources()
+    disposeFrostPrefilterResources()
     if (resources) {
       resources.geometry.dispose()
       resources.material.dispose()
@@ -2237,9 +2516,16 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /** 在同一 renderer 内交接新旧纹理；只有真实壁纸轮换才启用双纹理时钟。 */
-  function activateLoadedTexture(texture: Texture, width: number, height: number, hasWallpaperTexture: boolean) {
+  function activateLoadedTexture(
+    texture: Texture,
+    frostedTarget: WebGLRenderTarget | null,
+    width: number,
+    height: number,
+    hasWallpaperTexture: boolean,
+    toneProfile: GlassWallpaperToneProfile,
+  ) {
     if (!resources) {
-      texture.dispose()
+      disposeWallpaperResources(texture, frostedTarget)
       return
     }
 
@@ -2250,15 +2536,25 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     cancelWallpaperTransitionFrame()
 
     if (hasActiveTransition && activeTexture) {
-      if (previousTexture && previousTexture !== activeTexture) previousTexture.dispose()
+      if (previousTexture && previousTexture !== activeTexture) {
+        disposeWallpaperResources(previousTexture, previousFrostedTarget)
+      }
       previousTexture = activeTexture
+      previousFrostedTarget = activeFrostedTarget
       previousTextureHeight = activeTextureHeight
       previousTextureWidth = activeTextureWidth
+      previousWallpaperExposure = activeWallpaperExposure
       activeTexture = texture
+      activeFrostedTarget = frostedTarget
       activeTextureHeight = height
       activeTextureWidth = width
+      activeWallpaperExposure = toneProfile.exposure
       resources.uniforms.uPreviousTexture.value = previousTexture
+      resources.uniforms.uPreviousFrostedTexture.value = previousFrostedTarget?.texture ?? previousTexture
       resources.uniforms.uTexture.value = activeTexture
+      resources.uniforms.uFrostedTexture.value = activeFrostedTarget?.texture ?? activeTexture
+      resources.uniforms.uPreviousWallpaperExposure.value = previousWallpaperExposure
+      resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
       resources.uniforms.uTextureMix.value = getGlassWallpaperTransitionProgress(
         performance.now() - toValue(options.transitionStartedAt ?? 0),
         toValue(options.transitionDuration ?? 0),
@@ -2266,21 +2562,32 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       syncCoverScale()
       scheduleWallpaperTransition()
     } else {
-      if (previousTexture && previousTexture !== activeTexture) previousTexture.dispose()
-      activeTexture?.dispose()
+      if (previousTexture && previousTexture !== activeTexture) {
+        disposeWallpaperResources(previousTexture, previousFrostedTarget)
+      }
+      disposeWallpaperResources(activeTexture, activeFrostedTarget)
       previousTexture = null
+      previousFrostedTarget = null
       activeTexture = texture
+      activeFrostedTarget = frostedTarget
       activeTextureHeight = height
       activeTextureWidth = width
+      activeWallpaperExposure = toneProfile.exposure
       previousTextureHeight = height
       previousTextureWidth = width
+      previousWallpaperExposure = toneProfile.exposure
       resources.uniforms.uPreviousTexture.value = texture
+      resources.uniforms.uPreviousFrostedTexture.value = frostedTarget?.texture ?? texture
       resources.uniforms.uTexture.value = texture
+      resources.uniforms.uFrostedTexture.value = frostedTarget?.texture ?? texture
+      resources.uniforms.uPreviousWallpaperExposure.value = toneProfile.exposure
+      resources.uniforms.uWallpaperExposure.value = toneProfile.exposure
       resources.uniforms.uTextureMix.value = 1
       syncCoverScale()
     }
 
     resources.uniforms.uHasWallpaperTexture.value = hasWallpaperTexture ? 1 : 0
+    resources.uniforms.uHasFrostedTexture.value = hasWallpaperTexture && frostedTarget ? 1 : 0
   }
 
   /** 解码并按当前质量预算缩放壁纸，不改变当前可见纹理。 */
@@ -2299,7 +2606,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       texture.generateMipmaps = false
       texture.minFilter = three.LinearFilter
       texture.magFilter = three.LinearFilter
-      return { hasWallpaperTexture: false, height: 1, texture, width: 1 }
+      return {
+        frostedTarget: null,
+        hasWallpaperTexture: false,
+        height: 1,
+        texture,
+        toneProfile: { ...DEFAULT_GLASS_WALLPAPER_TONE_PROFILE },
+        width: 1,
+      }
     }
 
     const loader = new three.TextureLoader()
@@ -2333,10 +2647,19 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     texture.generateMipmaps = false
     texture.minFilter = three.LinearFilter
     texture.magFilter = three.LinearFilter
+    let frostedTarget: WebGLRenderTarget | null = null
+    try {
+      frostedTarget = await createFrostedWallpaperTarget(texture, textureWidth, textureHeight)
+    } catch (error) {
+      // 预滤属于磨砂优化；失败时保留源纹理并退回既有扩散采样，不能拖垮其他材质。
+      console.warn('玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:', error)
+    }
     return {
+      frostedTarget,
       hasWallpaperTexture: true,
       height: textureHeight,
       texture,
+      toneProfile: analyzeGlassWallpaperTone(image, sourceWidth, sourceHeight),
       width: textureWidth,
     }
   }
@@ -2344,7 +2667,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 提前准备下一张纹理；失败不会影响当前活动纹理。 */
   async function prepareWallpaper(url: string) {
     const version = ++prepareVersion
-    preparedWallpaper?.texture.dispose()
+    if (preparedWallpaper) {
+      disposeWallpaperResources(preparedWallpaper.texture, preparedWallpaper.frostedTarget)
+    }
     preparedWallpaper = null
     preparedWallpaperUrl.value = ''
     if (!url || !resources || url === toValue(options.wallpaperUrl)) {
@@ -2356,7 +2681,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const prepared = await createWallpaperTexture(url)
       if (!prepared) return
       if (version !== prepareVersion || !resources) {
-        prepared.texture.dispose()
+        disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
         return
       }
 
@@ -2379,11 +2704,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       preparedWallpaperUrl.value = ''
     }
     if (version !== loadVersion || !resources) {
-      prepared.texture.dispose()
+      disposeWallpaperResources(prepared.texture, prepared.frostedTarget)
       return
     }
 
-    activateLoadedTexture(prepared.texture, prepared.width, prepared.height, prepared.hasWallpaperTexture)
+    activateLoadedTexture(
+      prepared.texture,
+      prepared.frostedTarget,
+      prepared.width,
+      prepared.height,
+      prepared.hasWallpaperTexture,
+      prepared.toneProfile,
+    )
     await resources.renderer.compileAsync(resources.scene, resources.camera)
     if (version !== loadVersion || !resources) return
 
@@ -2427,6 +2759,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uFlowTexture: { value: null },
         uFlowStrength: { value: getFlowStrengthScale() },
         uHasFlowTexture: { value: 0 },
+        uHasFrostedTexture: { value: 0 },
         uHasWallpaperTexture: { value: 0 },
         uMotion: { value: 0 },
         uMotionExpansion: { value: getMotionExpansion() },
@@ -2435,6 +2768,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uPointerVelocity: { value: new three.Vector2(0, 0) },
         uPresentationSize: { value: new three.Vector2(window.innerWidth, window.innerHeight) },
         uPreviousCoverScale: { value: new three.Vector2(1, 1) },
+        uPreviousWallpaperExposure: { value: DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure },
         uQuality: { value: toValue(options.quality) === 'high' ? 1 : 0 },
         uReflectionStrength: { value: getReflectionStrengthScale() },
         uRadii: { value: Array.from({ length: 8 }, () => new Vector4Class()) },
@@ -2443,8 +2777,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         uSurfaceWeights: { value: Array.from({ length: 8 }, () => 0) },
         uSurfaceDynamics: { value: Array.from({ length: 8 }, () => 1) },
         uPreviousTexture: { value: null },
+        uPreviousFrostedTexture: { value: null },
         uTexture: { value: null },
+        uFrostedTexture: { value: null },
         uTextureMix: { value: 1 },
+        uWallpaperExposure: { value: DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure },
         uTintColor: { value: new three.Color(toValue(options.tintColor)) },
         uTransparency: { value: getTransparency() },
         uTransmissionStrength: {
@@ -2624,9 +2961,30 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   )
 
   watch(
+    () => toValue(options.pageMotion?.revision ?? 0),
+    () => {
+      if (!resources || presentationSpace !== 'scroll') return
+
+      const timestamp = performance.now()
+      // 页面入场期间内容高度与 canvas CSS 尺寸可能同帧变化；presentation 必须先于表面和清屏提交。
+      resizeRenderer()
+      updateSurfaceUniforms(timestamp, false)
+      renderFrame(timestamp, false)
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
     () => toValue(options.routeKey),
     async (routeKey, previousRouteKey) => {
       const previousProfile = getRenderProfile(previousRouteKey ?? '')
+      if (resources && presentationSpace === 'scroll' && options.pageMotion) {
+        pagePresentationGeometryReady = false
+        const timestamp = performance.now()
+        updateSurfaceUniforms(timestamp, false)
+        renderFrame(timestamp, false)
+      }
+      await nextTick()
       if (resources) {
         const nextProfile = getRenderProfile(routeKey)
         resizeRenderer()
@@ -2636,9 +2994,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
           return
         }
       }
-      scheduleSurfaceUpdate()
+      if (presentationSpace === 'scroll' && options.pageMotion) scheduleSurfaceStabilityUpdate()
+      else scheduleSurfaceUpdate()
     },
-    { flush: 'post' },
   )
 
   onScopeDispose(() => {

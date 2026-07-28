@@ -12,7 +12,7 @@ import { usePWA } from '@/composables/usePWA'
 import { openSharedDialog } from '@/composables/useSharedDialog'
 import { useUserStore } from '@/stores'
 import { buildUserPermissionContext, hasPermission } from '@/utils/permission'
-import { useDisplay } from 'vuetify'
+import { useDisplay, useTheme } from 'vuetify'
 
 const ContentToggleSettingsDialog = defineAsyncComponent(
   () => import('@/components/dialog/ContentToggleSettingsDialog.vue'),
@@ -24,6 +24,7 @@ const { t } = useI18n()
 // PWA模式检测
 const { appMode } = usePWA()
 const display = useDisplay()
+const vuetifyTheme = useTheme()
 const userStore = useUserStore()
 const userPermissionContext = computed(() => buildUserPermissionContext(userStore.superUser, userStore.permissions))
 const canAdmin = computed(() => hasPermission(userPermissionContext.value, 'admin'))
@@ -97,9 +98,6 @@ interface DashboardGridItem {
 // 是否处于仪表板布局编辑模式
 const isLayoutEditing = ref(false)
 
-// 首次布局完成后触发轻量整体入场，不延迟或隐藏渐进渲染内容。
-const isDashboardGridRevealed = ref(false)
-
 // 是否发送请求的总开关
 const isRequest = ref(true)
 
@@ -148,7 +146,6 @@ let dashboardGridContentObserver: ResizeObserver | null = null
 let dashboardGridContentResizeFrame: number | null = null
 let dashboardGridResizeRefreshFrame: number | null = null
 let dashboardGridAnimationFrame: number | null = null
-let dashboardGridEntranceFrame: number | null = null
 let dashboardRevealFrame: number | null = null
 let isDashboardRevealPending = false
 let dashboardProfileSaveQueue = Promise.resolve()
@@ -389,16 +386,6 @@ function scheduleDashboardReveal() {
   })
 }
 
-// 首次 GridStack 坐标提交后的下一帧立即入场，不等待卡片内部异步数据。
-function scheduleDashboardGridEntrance() {
-  if (isDashboardGridRevealed.value || dashboardGridEntranceFrame !== null || typeof window === 'undefined') return
-
-  dashboardGridEntranceFrame = requestAnimationFrame(() => {
-    dashboardGridEntranceFrame = null
-    isDashboardGridRevealed.value = true
-  })
-}
-
 // 程序化批量布局不播放中间态；稳定后恢复用户拖拽、缩放和让位动画。
 function pauseDashboardGridAnimation() {
   if (dashboardGridAnimationFrame !== null) {
@@ -408,15 +395,21 @@ function pauseDashboardGridAnimation() {
   dashboardGrid.value?.setAnimation(false)
 }
 
-// 动画恢复延后一帧，确保 GridStack 已提交最终坐标后才重新响应交互。
+// 玻璃浏览态直接提交自动布局，普通主题和显式编辑交互保留 GridStack 过渡。
+function shouldAnimateDashboardGrid(editable = isLayoutEditing.value) {
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+
+  return !reduceMotion && (editable || vuetifyTheme.global.name.value !== 'glass')
+}
+
+// 批量布局同步期间暂停几何过渡，稳定后恢复浏览与编辑状态的卡片动画。
 function scheduleDashboardGridAnimationResume() {
   if (typeof window === 'undefined') return
   if (dashboardGridAnimationFrame !== null) cancelAnimationFrame(dashboardGridAnimationFrame)
 
   dashboardGridAnimationFrame = requestAnimationFrame(() => {
     dashboardGridAnimationFrame = null
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
-    dashboardGrid.value?.setAnimation(!reduceMotion)
+    dashboardGrid.value?.setAnimation(shouldAnimateDashboardGrid())
   })
 }
 
@@ -1192,7 +1185,7 @@ function initializeDashboardGrid() {
 
   dashboardGrid.value = GridStack.init(
     {
-      animate: false,
+      animate: shouldAnimateDashboardGrid(),
       cellHeight: DASHBOARD_GRID_CELL_HEIGHT,
       column: getDashboardGridColumnsForProfile(dashboardLayoutProfile.value),
       draggable: {
@@ -1222,6 +1215,7 @@ function updateDashboardGridEditableState(editable: boolean) {
   if (!dashboardGrid.value) return
 
   dashboardGrid.value.setStatic(!editable)
+  dashboardGrid.value.setAnimation(shouldAnimateDashboardGrid(editable))
   if (editable) {
     dashboardGrid.value.enableMove(true)
     dashboardGrid.value.enableResize(true)
@@ -1306,7 +1300,6 @@ async function syncDashboardGrid(resumeAnimation = true) {
       resizeAutoDashboardItemsToContent()
       scheduleDashboardReveal()
     })
-    scheduleDashboardGridEntrance()
   } finally {
     isSyncingDashboardGrid.value = false
     if (resumeAnimation) scheduleDashboardGridAnimationResume()
@@ -1548,6 +1541,11 @@ watch(isLayoutEditing, value => {
 })
 
 watch(
+  () => vuetifyTheme.global.name.value,
+  () => updateDashboardGridEditableState(isLayoutEditing.value),
+)
+
+watch(
   dashboardGridItems,
   () => {
     syncDashboardLoadedItemIds()
@@ -1664,10 +1662,6 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(dashboardGridAnimationFrame)
     dashboardGridAnimationFrame = null
   }
-  if (dashboardGridEntranceFrame !== null) {
-    cancelAnimationFrame(dashboardGridEntranceFrame)
-    dashboardGridEntranceFrame = null
-  }
   if (dashboardRevealFrame !== null) {
     cancelAnimationFrame(dashboardRevealFrame)
     dashboardRevealFrame = null
@@ -1685,7 +1679,7 @@ onBeforeUnmount(() => {
   <div
     ref="dashboardGridRef"
     class="grid-stack dashboard-grid"
-    :class="{ 'is-editing': isLayoutEditing, 'is-revealed': isDashboardGridRevealed }"
+    :class="{ 'is-editing': isLayoutEditing }"
   >
     <div
       v-for="gridItem in dashboardGridItems"
@@ -1753,17 +1747,7 @@ onBeforeUnmount(() => {
 /* stylelint-disable selector-pseudo-class-no-unknown */
 
 .dashboard-grid {
-  opacity: 0.92;
   pointer-events: auto;
-  transform: translateY(4px);
-  transition:
-    opacity 0.18s ease-out,
-    transform 0.18s ease-out;
-}
-
-.dashboard-grid.is-revealed {
-  opacity: 1;
-  transform: none;
 }
 
 .dashboard-grid :deep(.v-card) {
@@ -1893,11 +1877,4 @@ onBeforeUnmount(() => {
   inset-inline-end: -4px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dashboard-grid {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
 </style>

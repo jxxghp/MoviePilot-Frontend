@@ -342,9 +342,7 @@ const subscribeDynamicMenuItems = computed<DynamicButtonMenuItem[] | undefined>(
           action: () => {},
         },
         {
-          titleKey: subscribeBatchState.value.allSelected
-            ? 'subscribe.batchDeselectAll'
-            : 'subscribe.batchSelectAll',
+          titleKey: subscribeBatchState.value.allSelected ? 'subscribe.batchDeselectAll' : 'subscribe.batchSelectAll',
           icon: subscribeBatchState.value.allSelected ? 'mdi-checkbox-blank-outline' : 'mdi-checkbox-multiple-marked',
           permission: 'subscribe',
           disabled: subscribeBatchState.value.totalCount === 0,
@@ -442,7 +440,9 @@ useDynamicButton({
   menuItems: subscribeDynamicMenuItems,
   permission: 'subscribe',
   show: computed(
-    () => appMode.value && (subscribeBatchState.value.enabled || showDefaultRuleAction.value || showShareStatisticsAction.value),
+    () =>
+      appMode.value &&
+      (subscribeBatchState.value.enabled || showDefaultRuleAction.value || showShareStatisticsAction.value),
   ),
 })
 
@@ -519,37 +519,31 @@ onMounted(() => {
   <div>
     <VWindow v-model="activeTab" class="disable-tab-transition content-window" :touch="false">
       <VWindowItem value="mysub">
-        <transition name="fade-slide" appear>
-          <div>
-            <SubscribeListView
-              ref="subscribeListViewRef"
-              :type="subType"
-              :subid="subId"
-              :keyword="subscribeFilter"
-              :status-filter="subscribeStatusFilter ?? ''"
-              :sort-mode="subscribeSortMode"
-              :sort-by="subscribeSortBy"
-              :active="activeTab === 'mysub'"
-              @update:sort-mode="subscribeSortMode = $event"
-              @update:sort-by="subscribeSortBy = $event"
-              @batch-state-change="handleSubscribeBatchStateChange"
-            />
-          </div>
-        </transition>
+        <div>
+          <SubscribeListView
+            ref="subscribeListViewRef"
+            :type="subType"
+            :subid="subId"
+            :keyword="subscribeFilter"
+            :status-filter="subscribeStatusFilter ?? ''"
+            :sort-mode="subscribeSortMode"
+            :sort-by="subscribeSortBy"
+            :active="activeTab === 'mysub'"
+            @update:sort-mode="subscribeSortMode = $event"
+            @update:sort-by="subscribeSortBy = $event"
+            @batch-state-change="handleSubscribeBatchStateChange"
+          />
+        </div>
       </VWindowItem>
       <VWindowItem value="popular">
-        <transition name="fade-slide" appear>
-          <div>
-            <SubscribePopularView :type="subType" />
-          </div>
-        </transition>
+        <div>
+          <SubscribePopularView :type="subType" />
+        </div>
       </VWindowItem>
       <VWindowItem value="share">
-        <transition name="fade-slide" appear>
-          <div>
-            <SubscribeShareView :keyword="shareKeyword" />
-          </div>
-        </transition>
+        <div>
+          <SubscribeShareView :keyword="shareKeyword" />
+        </div>
       </VWindowItem>
     </VWindow>
 
@@ -722,7 +716,6 @@ onMounted(() => {
         />
       </div>
     </Teleport>
-
   </div>
 </template>
 

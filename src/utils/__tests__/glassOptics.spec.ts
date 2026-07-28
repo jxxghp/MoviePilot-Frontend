@@ -66,7 +66,7 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalReflectionStrengthScale(0)).toBe(0)
     expect(getGlassOpticalReflectionStrengthScale(50)).toBe(1)
     expect(getGlassOpticalReflectionStrengthScale(100)).toBeCloseTo(GLASS_OPTICAL_REFLECTION_MAX_SCALE)
-    expect(getGlassOpticalTransparency(0)).toBeCloseTo(0.28)
+    expect(getGlassOpticalTransparency(0)).toBe(0)
     expect(getGlassOpticalTransparency(50)).toBeGreaterThan(0.6)
     expect(getGlassOpticalTransparency(70)).toBeCloseTo(0.96)
     expect(getGlassOpticalTransparency(100)).toBeCloseTo(1.1)
@@ -76,9 +76,9 @@ describe('glass optics geometry', () => {
     expect(getGlassOpticalTransmissionStrength(0)).toBe(0)
     expect(getGlassOpticalTransmissionStrength(70)).toBe(1)
     expect(getGlassOpticalTransmissionStrength(100)).toBe(1.3)
-    expect(getGlassOpticalCssTransmissionBrightness(0)).toBeCloseTo(0.82)
-    expect(getGlassOpticalCssTransmissionBrightness(70)).toBeCloseTo(1.28)
-    expect(getGlassOpticalCssTransmissionBrightness(100)).toBeCloseTo(1.48)
+    expect(getGlassOpticalCssTransmissionBrightness(0)).toBeCloseTo(0.84)
+    expect(getGlassOpticalCssTransmissionBrightness(70)).toBeCloseTo(1)
+    expect(getGlassOpticalCssTransmissionBrightness(100)).toBeCloseTo(1.08)
   })
 
   it('keeps presets as concrete six-parameter values', () => {

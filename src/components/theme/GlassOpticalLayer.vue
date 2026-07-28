@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ThemeCustomizerGlassAppearance, ThemeCustomizerGlassQuality } from '@/composables/useThemeCustomizer'
+import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
 import {
   setGlassRendererState,
   useGlassOpticalInteractionSource,
@@ -47,6 +48,7 @@ const emit = defineEmits<{
 const fixedCanvas = ref<HTMLCanvasElement | null>(null)
 const scrollCanvas = ref<HTMLCanvasElement | null>(null)
 const interactionSource = useGlassOpticalInteractionSource()
+const pagePresentationMotion = usePagePresentationMotion()
 const fixedRenderer = useGlassOpticalRenderer({
   active: true,
   appearance: () => props.appearance,
@@ -76,6 +78,7 @@ const scrollRenderer = useGlassOpticalRenderer({
   deformationStrength: () => props.deformationStrength,
   flowStrength: () => props.flowStrength,
   interactionSource,
+  pageMotion: pagePresentationMotion.reader,
   quality: () => props.quality,
   reflectionStrength: () => props.reflectionStrength,
   transparencyStrength: () => props.transparencyStrength,
