@@ -760,6 +760,81 @@ html[data-theme='glass'] {
     backdrop-filter: var(--glass-surface-backdrop-filter);
   }
 
+  // 插件卡片头部改为染色玻璃：图标主色只作为透光色相，压暗遮罩换成玻璃吸收与高光。
+  .plugin-card__banner {
+    border-block-end: 1px solid var(--glass-border);
+
+    --plugin-card-banner-scrim: linear-gradient(
+      rgba(11, 19, 34, calc(0.34 - var(--glass-transparency, 0.5) * 0.14)) 0%,
+      rgba(11, 19, 34, calc(0.46 - var(--glass-transparency, 0.5) * 0.16)) 100%
+    );
+    --plugin-card-banner-tint: linear-gradient(
+      135deg,
+      rgba(var(--plugin-card-accent-rgb), 0.42) 0%,
+      rgba(var(--plugin-card-accent-rgb), 0.24) 58%,
+      rgba(var(--plugin-card-accent-rgb), 0.12) 100%
+    );
+  }
+
+  // 卡片主体已经承担实时背景采样，头部只叠加静态色层与镜面高光。
+  .plugin-card__banner::before {
+    position: absolute;
+    background-image: var(--glass-sheen);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+    content: '';
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .plugin-card__banner > * {
+    position: relative;
+  }
+
+  // 磨砂材质透光更强，染色需要同步减弱以免头部压过卡片本体。
+  &[data-glass-appearance='frosted'] .plugin-card__banner {
+    --plugin-card-banner-scrim: linear-gradient(
+      rgba(11, 19, 34, calc(0.24 - var(--glass-transparency, 0.5) * 0.12)) 0%,
+      rgba(11, 19, 34, calc(0.34 - var(--glass-transparency, 0.5) * 0.14)) 100%
+    );
+    --plugin-card-banner-tint: linear-gradient(
+      135deg,
+      rgba(var(--plugin-card-accent-rgb), 0.32) 0%,
+      rgba(var(--plugin-card-accent-rgb), 0.18) 58%,
+      rgba(var(--plugin-card-accent-rgb), 0.08) 100%
+    );
+  }
+
+  // 色调材质本身带主色语义，头部染色向主色收敛保持整页同一色温。
+  &[data-glass-appearance='tinted'] .plugin-card__banner {
+    --plugin-card-banner-tint: linear-gradient(
+      135deg,
+      color-mix(in srgb, rgba(var(--plugin-card-accent-rgb), 0.42) 74%, rgba(var(--v-theme-primary), 0.42)) 0%,
+      color-mix(in srgb, rgba(var(--plugin-card-accent-rgb), 0.24) 74%, rgba(var(--v-theme-primary), 0.24)) 58%,
+      rgba(var(--plugin-card-accent-rgb), 0.12) 100%
+    );
+  }
+
+  // 文件夹卡片保留用户自选渐变作为色相，只降低不透明度让卡片本体的玻璃透出来。
+  .plugin-folder-card__bg {
+    opacity: calc(0.5 - var(--glass-transparency, 0.5) * 0.14);
+  }
+
+  .plugin-folder-card__bg::after {
+    position: absolute;
+    background-image: var(--glass-sheen);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+    content: '';
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .plugin-folder-card__overlay {
+    background: linear-gradient(
+      rgba(11, 19, 34, calc(0.34 - var(--glass-transparency, 0.5) * 0.14)) 0%,
+      rgba(11, 19, 34, calc(0.46 - var(--glass-transparency, 0.5) * 0.16)) 100%
+    );
+  }
+
   // 捷径菜单的嵌套卡片会被通用弹层模糊覆盖，需要显式跟随玻璃材质。
   .shortcut-card-hover-area > .v-card {
     -webkit-backdrop-filter: var(--glass-surface-backdrop-filter) !important;
