@@ -490,9 +490,7 @@ function handleOpticalWallpaperActivated(url: string, revision: number, startedA
 }
 
 /** 任一 context 提交失败时取消整个 revision，禁止另一 context 继续持有半提交状态。 */
-function handleOpticalWallpaperActivationFailed(url: string, revision: number) {
-  if (url !== pendingOpticalBackgroundImage.value) return
-
+function handleOpticalWallpaperActivationFailed(_url: string, revision: number) {
   cancelOpticalWallpaperTransaction(revision)
 }
 
@@ -590,13 +588,7 @@ function scheduleNextBackgroundPreload() {
 /** 玻璃壁纸以一次匿名解码同时完成可读性和 tone 分析，失败时仍允许 CSS 回退。 */
 async function preloadBackgroundCandidate(imageUrl: string) {
   recordGlassLaunchTiming('wallpaper-source-requested', imageUrl)
-  if (!isGlassTheme.value) {
-    backgroundDisplayImages.value = {
-      ...backgroundDisplayImages.value,
-      [imageUrl]: imageUrl,
-    }
-    return preloadImage(imageUrl)
-  }
+  if (!isGlassTheme.value) return preloadImage(imageUrl)
 
   let opticalUrl = getOpticalBackgroundImage(imageUrl)
   let tone = await loadGlassWallpaperTone(opticalUrl)
