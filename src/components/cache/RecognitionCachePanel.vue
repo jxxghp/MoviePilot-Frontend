@@ -376,7 +376,7 @@ watch(recognitionSource, () => {
         >
           <template #default="{ item }">
             <article class="recognition-cache-mobile-item">
-              <div class="recognition-cache-poster">
+              <div class="recognition-cache-poster rounded-md">
                 <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
                 <VIcon v-else icon="mdi-image-off-outline" size="28" />
               </div>
@@ -432,7 +432,7 @@ watch(recognitionSource, () => {
       :loading-text="t('common.loadingText')"
     >
       <template #item.poster="{ item }">
-        <div class="recognition-cache-table__poster">
+        <div class="recognition-cache-table__poster rounded-md">
           <VImg v-if="getPosterUrl(item)" :src="getPosterUrl(item)" :alt="item.title || item.key" cover />
           <VIcon v-else icon="mdi-image-off-outline" />
         </div>
@@ -590,7 +590,6 @@ watch(recognitionSource, () => {
   overflow: hidden;
   align-items: center;
   justify-content: center;
-  border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-on-surface), 0.06);
   color: rgba(var(--v-theme-on-surface), 0.36);
 }
