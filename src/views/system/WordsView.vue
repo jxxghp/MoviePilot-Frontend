@@ -509,6 +509,7 @@ onMounted(() => {
                   density="compact"
                   hide-details
                   :label="t('setting.words.lineNumbers')"
+                  :mobile-layout="false"
                 />
                 <VSwitch
                   v-if="activeSection === 'identifiers'"
@@ -518,6 +519,7 @@ onMounted(() => {
                   density="compact"
                   hide-details
                   :label="t('setting.words.syntaxHighlighting')"
+                  :mobile-layout="false"
                 />
               </div>
             </div>
@@ -685,6 +687,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* stylelint-disable selector-pseudo-class-no-unknown */
+
 .words-view {
   --words-surface-background: var(--app-grouped-list-background);
   --words-surface-filter: var(--app-grouped-list-backdrop-filter);
