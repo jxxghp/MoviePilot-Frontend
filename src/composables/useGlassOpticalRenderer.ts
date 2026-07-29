@@ -1120,6 +1120,8 @@ function collectGlassOpticalSurfaceDescriptors(
   viewportHeight: number,
   appearance: ThemeCustomizerGlassAppearance,
   surfaceSpace: GlassPresentationSpace | 'all' = 'all',
+  includeOutsideViewport = false,
+  collectedElements?: HTMLElement[],
 ) {
   const candidates: Array<GlassOpticalSurfaceDescriptor & { visibleArea: number }> = []
   const seen = new Set<HTMLElement>()
@@ -1134,6 +1136,7 @@ function collectGlassOpticalSurfaceDescriptors(
       if (seen.has(element)) continue
       seen.add(element)
       if (element.closest('.v-overlay')) continue
+      collectedElements?.push(element)
 
       const bounds = element.getBoundingClientRect()
       if (!isVisibleSurface(element, bounds)) continue
@@ -1144,7 +1147,7 @@ function collectGlassOpticalSurfaceDescriptors(
       const bottom = Math.min(viewportHeight, bounds.bottom)
       const visibleHeight = Math.max(0, bottom - top)
       const visibleWidth = Math.max(0, right - left)
-      if (visibleWidth < 24 || visibleHeight < 24) continue
+      if (!includeOutsideViewport && (visibleWidth < 24 || visibleHeight < 24)) continue
       const coordinateOffsetX = resolvedSpace === 'scroll' ? window.scrollX : 0
       const coordinateOffsetY = resolvedSpace === 'scroll' ? window.scrollY : 0
 
@@ -1187,6 +1190,24 @@ function collectGlassOpticalSurfaceDescriptors(
   }
 
   return selected
+}
+
+/** 从已测量的 presentation 坐标中选择当前视口可见表面，不触发 DOM 布局读取。 */
+function selectVisibleGlassOpticalSurfaceDescriptors(
+  surfaces: GlassOpticalSurfaceDescriptor[],
+  viewportWidth: number,
+  viewportHeight: number,
+  surfaceSpace: GlassPresentationSpace,
+) {
+  const viewportX = surfaceSpace === 'scroll' ? window.scrollX : 0
+  const viewportY = surfaceSpace === 'scroll' ? window.scrollY : 0
+
+  return surfaces.filter(({ rect }) => {
+    const visibleWidth = Math.min(viewportX + viewportWidth, rect.x + rect.width) - Math.max(viewportX, rect.x)
+    const visibleHeight = Math.min(viewportY + viewportHeight, rect.y + rect.height) - Math.max(viewportY, rect.y)
+
+    return visibleWidth >= 24 && visibleHeight >= 24
+  })
 }
 
 /** 将活动界面中的高价值材质面集中转换为 renderer 矩形预算。 */
@@ -1283,7 +1304,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let presentationResizeTimer: number | null = null
   let scrollAnimationFrame: number | null = null
   let scrollDirty = false
-  let scrollSurfaceRefreshPending = false
+  let scrollGeometryRefreshPending = false
+  let scrollSurfaceStabilityPending = false
   let scrollStableFrameCount = 0
   let lastRenderedScrollX = window.scrollX
   let lastRenderedScrollY = window.scrollY
@@ -1291,6 +1313,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let resizeObserver: ResizeObserver | null = null
   let surfaceMutationObserver: MutationObserver | null = null
   let observedSurfaces: HTMLElement[] = []
+  let surfaceRegistry: GlassOpticalSurfaceDescriptor[] = []
   let availableSurfaces: GlassOpticalSurfaceDescriptor[] = []
   let surfaceSlots: GlassOpticalSurfaceSlot<HTMLElement>[] = []
   let activeSurface: HTMLElement | null = null
@@ -1383,7 +1406,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scrollAnimationFrame !== null) cancelAnimationFrame(scrollAnimationFrame)
     scrollAnimationFrame = null
     scrollDirty = false
-    scrollSurfaceRefreshPending = false
+    scrollGeometryRefreshPending = false
+    scrollSurfaceStabilityPending = false
     scrollStableFrameCount = 0
   }
 
@@ -1724,14 +1748,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uRectCount.value = normalized.length
   }
 
-  function updateSurfaceUniforms(timestamp = performance.now(), scheduleRender = true) {
-    if (!resources) return
-
+  /** 从缓存的 document-space 几何选择当前可见表面并提交 shader slot。 */
+  function updateVisibleSurfaceUniforms(timestamp: number) {
     const viewportWidth = window.innerWidth
-    availableSurfaces = collectGlassOpticalSurfaceDescriptors(
+    availableSurfaces = selectVisibleGlassOpticalSurfaceDescriptors(
+      surfaceRegistry,
       viewportWidth,
       window.innerHeight,
-      toValue(options.appearance),
       presentationSpace,
     )
     const availableKeys = new Set(availableSurfaces.map(surface => surface.key))
@@ -1749,18 +1772,23 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       outgoingSurface ?? undefined,
     )
     writeSurfaceUniforms(timestamp)
+  }
 
-    const nextObservedSurfaces = Array.from(
-      new Set(
-        SURFACE_SELECTORS.filter(
-          ({ selector, space }) => getSurfacePresentationSpace(selector, space) === presentationSpace,
-        ).flatMap(({ selector }) =>
-          Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(
-            element => !element.closest('.v-overlay'),
-          ),
-        ),
-      ),
+  function updateSurfaceUniforms(timestamp = performance.now(), scheduleRender = true) {
+    if (!resources) return
+
+    const viewportWidth = window.innerWidth
+    const nextObservedSurfaces: HTMLElement[] = []
+    surfaceRegistry = collectGlassOpticalSurfaceDescriptors(
+      viewportWidth,
+      window.innerHeight,
+      toValue(options.appearance),
+      presentationSpace,
+      true,
+      nextObservedSurfaces,
     )
+    updateVisibleSurfaceUniforms(timestamp)
+
     const observedSurfacesChanged =
       nextObservedSurfaces.length !== observedSurfaces.length ||
       nextObservedSurfaces.some((element, index) => element !== observedSurfaces[index])
@@ -1772,7 +1800,19 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scheduleRender) scheduleFrame()
   }
 
+  /** 滚动事务内的几何失效并入同一个 rAF，避免独立采样器重复扫描相同 DOM。 */
+  function queueScrollGeometryRefresh(stabilize: boolean) {
+    if (presentationSpace !== 'scroll' || scrollAnimationFrame === null || !resources) return false
+
+    scrollGeometryRefreshPending = true
+    scrollSurfaceStabilityPending ||= stabilize
+    scrollStableFrameCount = 0
+
+    return true
+  }
+
   function scheduleSurfaceUpdate() {
+    if (queueScrollGeometryRefresh(false)) return
     if (surfaceUpdateFrame !== null || !resources) return
 
     surfaceUpdateFrame = requestAnimationFrame(timestamp => {
@@ -1785,6 +1825,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** DOM 重排后连续采样少量帧，避免把虚拟列表的中间几何误认为最终表面。 */
   function scheduleSurfaceStabilityUpdate() {
+    if (queueScrollGeometryRefresh(true)) return
     surfaceStabilityPass = 0
     surfaceStableFrameCount = 0
     lastSurfaceGeometrySignature = ''
@@ -1877,6 +1918,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (presentationChanged && commitActivePagePresentation()) return
     if (presentationChanged) schedulePresentationResizeUpdate()
     if (!entries.some(entry => entry.target !== presentationRoot)) return
+    if (queueScrollGeometryRefresh(false)) return
 
     const timestamp = performance.now()
     updateSurfaceUniforms(timestamp, false)
@@ -1885,6 +1927,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** CSS transform 不改变布局尺寸，过渡期间用有界帧同步真实几何并清除旧蒙版。 */
   function scheduleSurfaceTransformFrame() {
+    if (queueScrollGeometryRefresh(false)) return
     if (surfaceTransformFrame !== null || !resources) return
 
     surfaceTransformFrame = requestAnimationFrame(timestamp => {
@@ -2456,10 +2499,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     handleTouchEnd(event as TouchEvent)
   }
 
-  /**
-   * 每个滚动帧原子提交采样坐标和可见表面；稳定尾帧只负责确认 compositor 已停止移动。
-   * 嵌套滚动容器不会改变 window scroll，因此表面几何不能延迟到 scrollend 才刷新。
-   */
+  /** 文档滚动只更新采样坐标和缓存可见性；嵌套滚动仍在首帧刷新受影响的表面几何。 */
   function renderScrollFrame(timestamp: number) {
     scrollAnimationFrame = null
     if (
@@ -2481,15 +2521,30 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     lastRenderedScrollX = scrollX
     lastRenderedScrollY = scrollY
     resources.uniforms.uScrollOffset.value.set(scrollX, scrollY)
-    const shouldRefreshSurfaces = scrollSurfaceRefreshPending || receivedScrollEvent || coordinatesChanged
-    scrollSurfaceRefreshPending = false
-    if (shouldRefreshSurfaces) updateSurfaceUniforms(timestamp, false)
+    if (scrollGeometryRefreshPending) {
+      scrollGeometryRefreshPending = false
+      updateSurfaceUniforms(timestamp, false)
+    } else if (receivedScrollEvent || coordinatesChanged) {
+      updateVisibleSurfaceUniforms(timestamp)
+    }
 
     scrollStableFrameCount = receivedScrollEvent || coordinatesChanged ? 0 : scrollStableFrameCount + 1
     if (!interactionAnimating) renderFrame(timestamp, false)
+    if (transformingSurfaces.size > 0) {
+      if (timestamp < surfaceTransformTrackingDeadline) {
+        scrollGeometryRefreshPending = true
+        scrollStableFrameCount = 0
+      } else {
+        transformingSurfaces.clear()
+        scrollSurfaceStabilityPending = true
+      }
+    }
 
     if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
       scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
+    } else if (scrollSurfaceStabilityPending) {
+      scrollSurfaceStabilityPending = false
+      scheduleSurfaceStabilityUpdate()
     }
   }
 
@@ -2499,20 +2554,51 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
   }
 
-  function handleScroll() {
-    if (presentationSpace === 'scroll' && resources) {
-      scrollDirty = true
-      scrollSurfaceRefreshPending = true
-      scheduleScrollFrame()
-      return
+  function handleScroll(event: Event) {
+    if (presentationSpace !== 'scroll' || !resources) return
+
+    const target = event.target
+    const isDocumentScroll =
+      !(target instanceof Element) || target === document.documentElement || target === document.body
+    if (!isDocumentScroll) {
+      if (!(target instanceof Element) || !observedSurfaces.some(surface => target.contains(surface))) return
+      scrollGeometryRefreshPending = true
+    } else {
+      resources.uniforms.uScrollOffset.value.set(window.scrollX, window.scrollY)
+    }
+
+    scrollDirty = true
+    scheduleScrollFrame()
+    if (surfaceUpdateFrame !== null) {
+      cancelAnimationFrame(surfaceUpdateFrame)
+      surfaceUpdateFrame = null
+      queueScrollGeometryRefresh(false)
+    }
+    if (surfaceStabilityFrame !== null) {
+      cancelAnimationFrame(surfaceStabilityFrame)
+      surfaceStabilityFrame = null
+      queueScrollGeometryRefresh(true)
+    }
+    if (surfaceTransformFrame !== null) {
+      cancelAnimationFrame(surfaceTransformFrame)
+      surfaceTransformFrame = null
+      queueScrollGeometryRefresh(false)
     }
   }
 
-  function handleScrollEnd() {
+  function handleScrollEnd(event: Event) {
     if (presentationSpace !== 'scroll' || !resources) return
 
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target !== document.documentElement &&
+      target !== document.body &&
+      observedSurfaces.some(surface => target.contains(surface))
+    ) {
+      scrollGeometryRefreshPending = true
+    }
     scrollDirty = false
-    scrollSurfaceRefreshPending = true
     scrollStableFrameCount = 0
     scheduleScrollFrame()
   }
@@ -2731,6 +2817,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     surfaceMutationObserver?.disconnect()
     surfaceMutationObserver = null
     observedSurfaces = []
+    surfaceRegistry = []
     availableSurfaces = []
     surfaceSlots = []
     activeSurface = null
