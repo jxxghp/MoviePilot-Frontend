@@ -48,9 +48,9 @@ html[data-theme='glass'] {
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
-  --glass-overlay-surface: rgba(11, 19, 34, calc(0.08 + var(--glass-surface-density, 0.62) * 0.2));
-  --glass-overlay-blur: 12px;
-  --glass-overlay-saturate: 125%;
+  --glass-overlay-surface: rgba(11, 19, 34, calc(0.1 + var(--glass-surface-density, 0.62) * 0.22));
+  --glass-overlay-blur: 3px;
+  --glass-overlay-saturate: 115%;
   --glass-overlay-scrim: rgba(3, 7, 18, 30%);
   --glass-overlay-backdrop-filter: blur(var(--glass-overlay-blur)) saturate(var(--glass-overlay-saturate));
   --glass-control-icon-color: rgba(242, 245, 250, 70%);
@@ -171,8 +171,8 @@ html[data-theme='glass'] {
       rgba(11, 19, 34, calc(0.09 + var(--glass-surface-density, 0.72) * 0.2)) 88%,
       rgba(var(--v-theme-primary), calc(var(--glass-tint-density, 0.65) * 0.22))
     );
-    --glass-overlay-blur: 18px;
-    --glass-overlay-saturate: 130%;
+    --glass-overlay-blur: 12px;
+    --glass-overlay-saturate: 120%;
     --glass-overlay-scrim: rgba(3, 7, 18, 32%);
   }
 
@@ -603,6 +603,25 @@ html[data-theme='glass'] {
       background-image: var(--glass-sheen) !important;
       box-shadow: var(--glass-shadow-raised) !important;
     }
+  }
+
+  // 弹层材质按最终几何一次合成，避免 transform/filter 动画反复重采样背景。
+  .v-overlay__content.mp-dialog-transition-enter-active,
+  .v-overlay__content.mp-dialog-transition-leave-active,
+  .v-overlay__content.dialog-transition-enter-active,
+  .v-overlay__content.dialog-transition-leave-active {
+    filter: none;
+    transform: none;
+    transition: opacity 120ms var(--mp-motion-ease-standard);
+    will-change: opacity;
+  }
+
+  .v-overlay__content.mp-dialog-transition-enter-from,
+  .v-overlay__content.mp-dialog-transition-leave-to,
+  .v-overlay__content.dialog-transition-enter-from,
+  .v-overlay__content.dialog-transition-leave-to {
+    filter: none;
+    transform: none;
   }
 
   // 透明材质在内容上滚后复用移动底栏材质，顶部时则保持原有透光感。

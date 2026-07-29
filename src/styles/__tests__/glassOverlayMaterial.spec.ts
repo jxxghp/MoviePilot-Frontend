@@ -7,15 +7,30 @@ describe('glass overlay material styles', () => {
   it('keeps overlays translucent enough for CSS backdrop compositing in every material', () => {
     const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
 
+    expect(styles).toContain('calc(0.1 + var(--glass-surface-density, 0.62) * 0.22)')
+    expect(styles).toContain('--glass-overlay-blur: 3px')
+    expect(styles).toContain('--glass-overlay-saturate: 115%')
     expect(styles).toContain('--glass-overlay-blur: 12px')
-    expect(styles).toContain('--glass-overlay-blur: 18px')
+    expect(styles).toContain('--glass-overlay-saturate: 120%')
     expect(styles).toContain('--glass-overlay-blur: min(var(--glass-blur-raised), 36px)')
+    expect(styles).toContain('--glass-overlay-saturate: 135%')
     expect(styles).toContain('--glass-overlay-scrim: rgba(3, 7, 18, 30%)')
     expect(styles).toContain('--glass-overlay-scrim: rgba(3, 7, 18, 32%)')
     expect(styles).toContain('--glass-overlay-scrim: rgba(3, 7, 18, 36%)')
     expect(styles).toContain('calc(0.24 + var(--glass-surface-density, 0.86) * 0.12)')
     expect(styles).not.toContain('calc(0.64 + var(--glass-surface-density, 0.86) * 0.16)')
     expect(styles).not.toContain('background: rgba(3, 7, 18, 62%)')
+  })
+
+  it('composites glass dialogs at their final geometry instead of resampling a scaled backdrop', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toMatch(
+      /\.v-overlay__content\.mp-dialog-transition-enter-active[\s\S]*?transition:\s*opacity 120ms var\(--mp-motion-ease-standard\);/,
+    )
+    expect(styles).toMatch(
+      /\.v-overlay__content\.mp-dialog-transition-enter-from[\s\S]*?filter:\s*none;[\s\S]*?transform:\s*none;/,
+    )
   })
 
   it('keeps the fixed navigation backdrop isolated from route content and its scrollbar', () => {
