@@ -930,7 +930,7 @@ onMounted(() => {
   --words-token-operator: #000;
 
   overflow: hidden;
-  block-size: 15.8rem;
+  block-size: 18.8rem;
   border: 1px solid rgba(var(--v-theme-on-surface), var(--v-border-opacity));
   border-radius: var(--app-surface-radius);
   contain: paint;

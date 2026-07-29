@@ -456,6 +456,17 @@ onMounted(() => {
               </VCol>
               <VCol cols="12" md="6">
                 <VTextField
+                  type="password"
+                  v-model="mediaServerInfo.config.access_code"
+                  :label="t('mediaserver.accessCode')"
+                  :hint="t('mediaserver.accessCodeHint')"
+                  persistent-hint
+                  active
+                  prepend-inner-icon="mdi-shield-key"
+                />
+              </VCol>
+              <VCol cols="12" md="6">
+                <VTextField
                   v-model.number="mediaServerInfo.sync_interval"
                   type="number"
                   min="0"

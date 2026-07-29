@@ -37,4 +37,29 @@ describe('theme palette', () => {
       window.removeEventListener('moviepilot-theme-primary-color-change', handleFaviconChange)
     }
   })
+
+  it('persists the resolved auto theme for the next PWA resume', () => {
+    applyDocumentThemeChrome('auto', {
+      background: '#0E1116',
+      persistLoaderColors: true,
+      primary: '#6E66ED',
+      resolvedTheme: 'dark',
+    })
+
+    expect(localStorage.getItem('materio-initial-loader-bg')).toBe('#0E1116')
+    expect(localStorage.getItem('materio-initial-resolved-theme')).toBe('dark')
+  })
+
+  it('updates the resolved theme cache when the actual theme is confirmed', () => {
+    localStorage.setItem('materio-initial-resolved-theme', 'dark')
+
+    applyDocumentThemeChrome('light', {
+      background: '#F4F5FA',
+      persistLoaderColors: true,
+      primary: '#8D51F9',
+      resolvedTheme: 'light',
+    })
+
+    expect(localStorage.getItem('materio-initial-resolved-theme')).toBe('light')
+  })
 })

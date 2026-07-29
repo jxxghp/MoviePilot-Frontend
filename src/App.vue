@@ -52,6 +52,51 @@ import {
 
 const LOGIN_WALLPAPER_ROUTE = '/login'
 const BACKGROUND_CROSSFADE_DURATION_MS = 1500
+const LAUNCH_MIN_VISIBLE_MS = 320
+const LAUNCH_MAX_WAIT_MS = 1200
+const LAUNCH_EXIT_DURATION_MS = 180
+
+function getLaunchNow() {
+  return globalThis.performance?.now?.() ?? Date.now()
+}
+
+const launchStartedAt = Number.parseFloat(document.documentElement.dataset.launchStartedAt || '') || getLaunchNow()
+
+function getRemainingLaunchBudget() {
+  return Math.max(0, LAUNCH_MAX_WAIT_MS - (getLaunchNow() - launchStartedAt))
+}
+
+async function waitForLaunchTask(task: Promise<unknown>, timeoutMs: number, label: string) {
+  if (timeoutMs <= 0) return
+
+  await Promise.race([
+    task.catch(error => {
+      console.warn(`[Launch] ${label} failed`, error)
+    }),
+    new Promise<void>(resolve => window.setTimeout(resolve, timeoutMs)),
+  ])
+}
+
+async function waitForMinimumLaunchVisibility() {
+  const remaining = LAUNCH_MIN_VISIBLE_MS - (getLaunchNow() - launchStartedAt)
+  if (remaining > 0) {
+    await new Promise<void>(resolve => window.setTimeout(resolve, remaining))
+  }
+}
+
+function getCachedAutoResolvedTheme() {
+  const cachedTheme = localStorage.getItem('materio-initial-resolved-theme')
+
+  return cachedTheme === 'dark' || cachedTheme === 'light' ? cachedTheme : null
+}
+
+function resolveInitialThemeName(themePreference: string) {
+  if (themePreference === 'auto') {
+    return getCachedAutoResolvedTheme() || resolveThemeName(themePreference)
+  }
+
+  return resolveThemeName(themePreference)
+}
 
 function recordGlassLaunchTiming(stage: string, detail?: string) {
   const timingWindow = window as typeof window & {
@@ -68,7 +113,8 @@ function recordGlassLaunchTiming(stage: string, detail?: string) {
 const vuetifyTheme = useTheme()
 const { global: globalTheme } = vuetifyTheme
 let themeValue = localStorage.getItem('theme') || 'auto'
-globalTheme.name.value = resolveThemeName(themeValue)
+let resumeThemeSyncTimer: number | null = null
+globalTheme.name.value = resolveInitialThemeName(themeValue)
 applyStoredThemeCustomizerAppearance(vuetifyTheme)
 
 // 启动屏和 iOS safe area 在同一层显示，根节点底色需要尽早和当前主题保持一致。
@@ -410,10 +456,18 @@ function updateHtmlThemeAttribute(themeName: string) {
 }
 
 // 从本地存储重新同步主题偏好、DOM 主题属性和相关外观配置。
-function syncThemePreferenceFromStorage() {
+function syncThemePreferenceFromStorage(preferCachedAuto = false) {
+  if (resumeThemeSyncTimer !== null) {
+    window.clearTimeout(resumeThemeSyncTimer)
+    resumeThemeSyncTimer = null
+  }
+
   themeValue = localStorage.getItem('theme') || 'auto'
 
-  const resolvedTheme = resolveThemeName(themeValue)
+  const resolvedTheme =
+    themeValue === 'auto' && preferCachedAuto
+      ? getCachedAutoResolvedTheme() || resolveThemeName(themeValue)
+      : resolveThemeName(themeValue)
   if (globalTheme.name.value !== resolvedTheme) {
     globalTheme.name.value = resolvedTheme
   }
@@ -424,13 +478,20 @@ function syncThemePreferenceFromStorage() {
 
   // 前台恢复时重新跑一次主题管理器，补齐 transparent CSS 和 auto 的实际 DOM 主题。
   void themeManager
-    .setTheme(themeValue)
+    .setTheme(themeValue === 'auto' ? resolvedTheme : themeValue)
     .then(() => {
       updateHtmlThemeAttribute(globalTheme.name.value)
     })
     .catch(error => {
       console.error('同步主题管理器失败:', error)
     })
+
+  if (preferCachedAuto && themeValue === 'auto') {
+    resumeThemeSyncTimer = window.setTimeout(() => {
+      resumeThemeSyncTimer = null
+      syncThemePreferenceFromStorage()
+    }, 180)
+  }
 }
 
 // 系统配色变化时，在自动主题模式下刷新当前实际主题。
@@ -443,7 +504,7 @@ function handleSystemThemeChange() {
 /** 页面重新可见时同步主题，并在连接异常时立即重新探测服务。 */
 function handleVisibilityThemeSync() {
   if (document.visibilityState === 'visible') {
-    syncThemePreferenceFromStorage()
+    syncThemePreferenceFromStorage(true)
     if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   }
 }
@@ -453,7 +514,7 @@ function handlePageShowThemeSync() {
   if (document.visibilityState === 'visible') {
     if (isLogin.value && !offlineStatus.isOnline.value) offlineStatus.requestConnectionCheck()
   }
-  syncThemePreferenceFromStorage()
+  syncThemePreferenceFromStorage(true)
 }
 
 // 清理背景图交叉淡入淡出定时器。
@@ -815,7 +876,7 @@ async function animateAndRemoveLoader() {
         recordGlassLaunchTiming('loader-removed')
         scheduleNextBackgroundPreload()
         resolve()
-      }, 120)
+      }, LAUNCH_EXIT_DURATION_MS)
     })
   } else {
     completeLaunchLoading()
@@ -830,19 +891,27 @@ async function removeLoadingWithStateCheck() {
     // 设置各个组件的加载状态
     globalLoadingStateManager.setLoadingState('pwa-state', true)
 
-    // 静默检查PWA状态恢复
+    // 静默检查PWA状态恢复，但不能让恢复异常或慢请求挡住应用外壳。
     const pwaController = (window as any).pwaStateController
-    if (pwaController) {
-      await pwaController.waitForStateRestore()
+    if (pwaController?.waitForStateRestore) {
+      await waitForLaunchTask(
+        Promise.resolve().then(() => pwaController.waitForStateRestore()),
+        getRemainingLaunchBudget(),
+        'PWA state restore',
+      )
     }
     globalLoadingStateManager.setLoadingState('pwa-state', false)
 
     // PWA/App 模式会影响布局和底部导航，必须在启动屏退场前稳定下来。
-    await initializePWA()
-    await initializeAuthenticatedState()
+    await waitForLaunchTask(initializePWA(), getRemainingLaunchBudget(), 'PWA detection')
 
-    // 等待所有加载完成
-    await globalLoadingStateManager.waitForAllComplete()
+    // 用户设置不影响首帧布局，交给应用外壳出现后继续加载。
+    void initializeAuthenticatedState().catch(error => {
+      console.warn('[Launch] Authenticated state initialization failed', error)
+    })
+
+    // 快速缓存命中时至少保留短暂的稳定画面，避免 iOS 只闪过一帧。
+    await waitForMinimumLaunchVisibility()
 
     // 移除加载界面
     await animateAndRemoveLoader()
@@ -938,7 +1007,7 @@ onMounted(async () => {
   updateHtmlThemeAttribute(globalTheme.name.value)
 
   // 初始化主题管理器 - 统一处理主题初始化
-  await themeManager.setTheme(themeValue)
+  await themeManager.setTheme(themeValue === 'auto' ? globalTheme.name.value : themeValue)
   applyStoredThemeCustomizerAppearance(vuetifyTheme)
   updateHtmlThemeAttribute(globalTheme.name.value)
 

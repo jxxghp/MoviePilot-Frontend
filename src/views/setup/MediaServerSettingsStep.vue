@@ -493,6 +493,17 @@ watch(
                     />
                   </VCol>
                   <VCol cols="12">
+                    <VTextField
+                      type="password"
+                      v-model="wizardData.mediaServer.config.access_code"
+                      :label="t('mediaserver.accessCode')"
+                      :hint="t('mediaserver.accessCodeHint')"
+                      persistent-hint
+                      active
+                      prepend-inner-icon="mdi-shield-key"
+                    />
+                  </VCol>
+                  <VCol cols="12">
                     <VAutocomplete
                       v-model="wizardData.mediaServer.sync_libraries"
                       :label="t('mediaserver.syncLibraries')"

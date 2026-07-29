@@ -458,7 +458,7 @@ watch([titleFilter, siteFilter], () => {
             >
               <template #default="{ item }">
                 <article class="cache-mobile-card">
-                  <div class="cache-mobile-card__poster">
+                  <div class="cache-mobile-card__poster rounded-md">
                     <VChip
                       v-if="item.media_type"
                       variant="elevated"
@@ -479,7 +479,7 @@ watch([titleFilter, siteFilter], () => {
                       :src="item.poster_path"
                       :alt="item.media_name || item.title"
                       cover
-                      class="h-100 w-100"
+                      class="h-100 w-100 rounded-md"
                     >
                       <template #placeholder>
                         <VSkeletonLoader class="h-100 w-100" />
@@ -670,8 +670,7 @@ watch([titleFilter, siteFilter], () => {
                   :src="item.poster_path"
                   :alt="item.media_name || item.title"
                   cover
-                  rounded="md"
-                  class="w-12 my-1 ms-auto"
+                  class="w-12 my-1 ms-auto rounded-md"
                 />
                 <VIcon v-else size="x-large" color="grey-lighten-1">
                   {{ item.media_type === 'movie' ? 'mdi-movie-open' : 'mdi-television-play' }}
@@ -1049,7 +1048,6 @@ watch([titleFilter, siteFilter], () => {
   overflow: hidden;
   align-items: center;
   justify-content: center;
-  border-radius: var(--app-control-radius);
   background: rgba(var(--v-theme-on-surface), 0.06);
   block-size: 104px;
   color: rgba(var(--v-theme-on-surface), 0.34);
