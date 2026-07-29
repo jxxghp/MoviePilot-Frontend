@@ -64,4 +64,13 @@ describe('glass overlay material styles', () => {
     expect(layerRule).not.toMatch(/transition\s*:/)
     expect(styles).toMatch(/\[data-glass-renderer-state='ready'\]\s*\.glass-optical-layer\s*\{\s*opacity:\s*1;/)
   })
+
+  it('uses native backdrop compositing only while scroll wallpaper sampling is suspended', () => {
+    const styles = readFileSync(resolve(cwd(), 'src/styles/themes/glass.scss'), 'utf8')
+
+    expect(styles).toContain('--glass-native-surface-backdrop-filter')
+    expect(styles).toMatch(
+      /\[data-glass-scroll-presentation='native'\][\s\S]*?\.app-hover-lift-card:not\(\.media-card--image-loaded\)[\s\S]*?backdrop-filter:\s*var\(--glass-native-surface-backdrop-filter\)\s*!important;/,
+    )
+  })
 })

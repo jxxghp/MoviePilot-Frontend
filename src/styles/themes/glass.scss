@@ -42,7 +42,8 @@ html[data-theme='glass'] {
   --glass-control-prominent-focus-shadow:
     0 0 0 2px rgba(var(--v-theme-primary), 16%), inset 0 1px 0 rgba(255, 255, 255, 24%),
     inset 0 -1px 0 rgba(2, 6, 16, 16%);
-  --glass-surface-backdrop-filter: brightness(var(--glass-transmission-brightness));
+  --glass-native-surface-backdrop-filter: brightness(var(--glass-transmission-brightness));
+  --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-raised-backdrop-filter: brightness(var(--glass-transmission-brightness));
   --glass-fixed-shell-backdrop-filter: var(--glass-raised-backdrop-filter);
   --glass-control-backdrop-filter: none;
@@ -200,8 +201,9 @@ html[data-theme='glass'] {
     --glass-control-prominent-focus-shadow:
       0 0 0 2px rgba(var(--v-theme-primary), 17%), inset 0 1px 0 rgba(255, 255, 255, 34%),
       inset 0 -1px 0 rgba(2, 6, 16, 18%);
-    --glass-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
+    --glass-native-surface-backdrop-filter: blur(var(--glass-blur-surface)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
+    --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
     --glass-raised-backdrop-filter: blur(var(--glass-blur-raised)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     // 固定全高导航限制采样半径，避免页面重绘扩大其 backdrop 栅格化区域。
@@ -1239,6 +1241,23 @@ html[data-glass-appearance='frosted']:is(
   .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+}
+
+// 异步滚动前由浏览器原生 backdrop 接管固定壁纸，稳定后同帧恢复完整 WebGL 折射。
+html[data-glass-scroll-presentation='native']:is(
+    [data-glass-quality='balanced'],
+    [data-glass-quality='high']
+  )[data-glass-renderer-state='ready']
+  body[data-theme='glass'] {
+  :where(
+    .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > .v-card,
+    .dashboard-grid-item-content > .dashboard-grid-auto-size > .dashboard-grid-content-measure > :first-child > .v-card,
+    [data-glass-optical-surface],
+    .app-hover-lift-card:not(.media-card--image-loaded)
+  ) {
+    -webkit-backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
+    backdrop-filter: var(--glass-native-surface-backdrop-filter) !important;
   }
 }
 

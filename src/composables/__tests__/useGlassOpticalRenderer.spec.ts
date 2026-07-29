@@ -2251,6 +2251,80 @@ describe('glass optical surface discovery', () => {
     expect(callbacks.size).toBe(0)
   })
 
+  it('hands wallpaper sampling to the native scroll material before wheel movement and restores it after settling', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const wallpaperSampling: number[] = []
+    render.mockImplementation(scene => {
+      const uniforms = (
+        scene as unknown as {
+          children: Array<{
+            material?: {
+              uniforms?: {
+                uHasWallpaperTexture?: { value: number }
+              }
+            }
+          }>
+        }
+      ).children[0]?.material?.uniforms
+      if (uniforms?.uHasWallpaperTexture) wallpaperSampling.push(uniforms.uHasWallpaperTexture.value)
+    })
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('/api/v1/login/wallpapers/opaque-id'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(wallpaperSampling.at(-1)).toBe(1)
+
+    window.dispatchEvent(new WheelEvent('wheel'))
+
+    expect(wallpaperSampling.at(-1)).toBe(0)
+    expect(document.documentElement.dataset.glassScrollPresentation).toBe('native')
+
+    scrollY = 240
+    window.dispatchEvent(new Event('scroll'))
+    for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+
+    expect(wallpaperSampling.at(-1)).toBe(1)
+    expect(document.documentElement).not.toHaveAttribute('data-glass-scroll-presentation')
+    expect(callbacks.size).toBe(0)
+
+    scope.stop()
+  })
+
   it('redraws a high-quality scroll layer without advancing its flow targets', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)

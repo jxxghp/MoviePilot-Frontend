@@ -1258,6 +1258,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let activeFrostedTarget: WebGLRenderTarget | null = null
   let activeTextureHeight = 1
   let activeTextureWidth = 1
+  let activeHasWallpaperTexture = false
   let activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
   let previousTexture: Texture | null = null
   let previousFrostedTarget: WebGLRenderTarget | null = null
@@ -1304,6 +1305,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let presentationResizeTimer: number | null = null
   let scrollAnimationFrame: number | null = null
   let scrollDirty = false
+  let scrollPresentationRestoreTimer: number | null = null
+  let scrollWallpaperSamplingSuppressed = false
   let scrollFrameCommitted = false
   let scrollGeometryRefreshPending = false
   let scrollLateGeometryCommitted = false
@@ -1332,6 +1335,59 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let resumeVersion = 0
   const presentationSpace = options.surfaceSpace ?? 'fixed'
   const wallpaperSourceCache = options.wallpaperSourceCache ?? createGlassWallpaperSourceCache()
+
+  /** 滚动期间由原生 backdrop 接管壁纸；稳定态恢复完整纹理折射与流体反馈。 */
+  function syncWallpaperSamplingMode() {
+    if (!resources) return
+
+    resources.uniforms.uHasWallpaperTexture.value =
+      activeHasWallpaperTexture && !(presentationSpace === 'scroll' && scrollWallpaperSamplingSuppressed) ? 1 : 0
+  }
+
+  function clearScrollPresentationRestoreTimer() {
+    if (scrollPresentationRestoreTimer === null) return
+
+    window.clearTimeout(scrollPresentationRestoreTimer)
+    scrollPresentationRestoreTimer = null
+  }
+
+  function finishNativeScrollPresentation(timestamp = performance.now()) {
+    clearScrollPresentationRestoreTimer()
+    if (presentationSpace !== 'scroll' || !scrollWallpaperSamplingSuppressed) return
+
+    scrollWallpaperSamplingSuppressed = false
+    syncWallpaperSamplingMode()
+    renderFrame(timestamp, false)
+    document.documentElement.removeAttribute('data-glass-scroll-presentation')
+  }
+
+  function beginNativeScrollPresentation() {
+    if (presentationSpace !== 'scroll' || !resources) return
+
+    clearScrollPresentationRestoreTimer()
+    scrollPresentationRestoreTimer = window.setTimeout(() => finishNativeScrollPresentation(), 180)
+    if (scrollWallpaperSamplingSuppressed) return
+
+    scrollWallpaperSamplingSuppressed = true
+    syncWallpaperSamplingMode()
+    document.documentElement.dataset.glassScrollPresentation = 'native'
+    renderFrame(performance.now(), false)
+  }
+
+  function handleScrollIntent(event: Event) {
+    if (event instanceof KeyboardEvent) {
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
+      ) {
+        return
+      }
+      if (!['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)) return
+    }
+
+    beginNativeScrollPresentation()
+  }
 
   function updateRendererState(value: GlassRendererState) {
     if (options.syncDocumentState === false) {
@@ -1413,6 +1469,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     scrollLateGeometryCommitted = false
     scrollSurfaceStabilityPending = false
     scrollStableFrameCount = 0
+    clearScrollPresentationRestoreTimer()
   }
 
   function cancelWallpaperTransitionFrame() {
@@ -2561,9 +2618,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     if (scrollStableFrameCount < SCROLL_STABLE_TAIL_FRAMES) {
       scrollAnimationFrame = requestAnimationFrame(renderScrollFrame)
-    } else if (scrollSurfaceStabilityPending) {
-      scrollSurfaceStabilityPending = false
-      scheduleSurfaceStabilityUpdate()
+    } else {
+      finishNativeScrollPresentation(timestamp)
+      if (scrollSurfaceStabilityPending) {
+        scrollSurfaceStabilityPending = false
+        scheduleSurfaceStabilityUpdate()
+      }
     }
   }
 
@@ -2576,6 +2636,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function handleScroll(event: Event) {
     if (presentationSpace !== 'scroll' || !resources) return
 
+    beginNativeScrollPresentation()
     scrollFrameCommitted = false
     scrollLateGeometryCommitted = false
     const target = event.target
@@ -2628,6 +2689,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function pauseRenderer() {
     cancelScheduledFrame()
     cancelScrollFrame()
+    finishNativeScrollPresentation()
     cancelWallpaperTransitionFrame()
     cancelSurfaceTransformFrame()
     interactionAnimating = false
@@ -2778,6 +2840,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     window.addEventListener('transitionend', handleSurfaceTransitionEnd, { capture: true, passive: true })
     window.addEventListener('transitioncancel', handleSurfaceTransitionEnd, { capture: true, passive: true })
     if (presentationSpace === 'scroll') {
+      window.addEventListener('wheel', handleScrollIntent, { capture: true, passive: true })
+      window.addEventListener('touchmove', handleScrollIntent, { capture: true, passive: true })
+      window.addEventListener('keydown', handleScrollIntent, { capture: true })
       window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
       window.addEventListener('scrollend', handleScrollEnd, { passive: true })
     }
@@ -2800,6 +2865,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     window.removeEventListener('transitionend', handleSurfaceTransitionEnd, true)
     window.removeEventListener('transitioncancel', handleSurfaceTransitionEnd, true)
     if (presentationSpace === 'scroll') {
+      window.removeEventListener('wheel', handleScrollIntent, true)
+      window.removeEventListener('touchmove', handleScrollIntent, true)
+      window.removeEventListener('keydown', handleScrollIntent, true)
       window.removeEventListener('scroll', handleScroll, true)
       window.removeEventListener('scrollend', handleScrollEnd)
     }
@@ -2848,6 +2916,10 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     wakeDirection = { x: 0, y: -1 }
     document.documentElement.removeAttribute('data-glass-wallpaper-loading')
     activeTouchIdentifier = null
+    if (presentationSpace === 'scroll') {
+      scrollWallpaperSamplingSuppressed = false
+      document.documentElement.removeAttribute('data-glass-scroll-presentation')
+    }
     lastPointerX = window.innerWidth * 0.5
     lastPointerY = window.innerHeight * 0.5
     pointerTargetX = 0.5
@@ -2871,6 +2943,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeFrostedTarget = null
     activeTextureHeight = 1
     activeTextureWidth = 1
+    activeHasWallpaperTexture = false
     activeWallpaperExposure = DEFAULT_GLASS_WALLPAPER_TONE_PROFILE.exposure
     activeWallpaperUrl.value = ''
     activeWallpaperRevision.value = 0
@@ -3001,7 +3074,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       syncCoverScale()
     }
 
-    resources.uniforms.uHasWallpaperTexture.value = hasWallpaperTexture ? 1 : 0
+    activeHasWallpaperTexture = hasWallpaperTexture
+    syncWallpaperSamplingMode()
     resources.uniforms.uHasFrostedTexture.value = hasWallpaperTexture && frostedTarget ? 1 : 0
   }
 
@@ -3232,7 +3306,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     const rollback = {
       activatedRevision: revision,
       activatedUrl: url,
-      previousHasWallpaperTexture: resources?.uniforms.uHasWallpaperTexture.value === 1,
+      previousHasWallpaperTexture: activeHasWallpaperTexture,
       previousPreparationKey: activeWallpaperPreparationKey.value,
       previousRevision: activeWallpaperRevision.value,
       previousUrl: activeWallpaperUrl.value,
@@ -3311,7 +3385,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uTextureMix.value = 1
-    resources.uniforms.uHasWallpaperTexture.value = rollback.previousHasWallpaperTexture ? 1 : 0
+    activeHasWallpaperTexture = rollback.previousHasWallpaperTexture
+    syncWallpaperSamplingMode()
     resources.uniforms.uHasFrostedTexture.value = rollback.previousHasWallpaperTexture && activeFrostedTarget ? 1 : 0
     syncCoverScale()
     resetInteractionState()
