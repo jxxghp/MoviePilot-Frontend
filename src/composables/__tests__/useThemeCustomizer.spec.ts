@@ -2,6 +2,8 @@ import {
   applyThemeCustomizerRootSettings,
   cancelGlassPreview,
   commitGlassPreview,
+  getDefaultGlassCustomizerSettings,
+  isDefaultThemeCustomizerSettings,
   persistPartialThemeCustomizerSettings,
   previewGlassSettings,
   readThemeCustomizerSettings,
@@ -53,6 +55,38 @@ describe('useThemeCustomizer glass settings', () => {
     expect(settings.glassTransmissionStrength).toBe(54)
     expect(settings.glassTranslationStrength).toBe(40)
     expect(settings.glassTransparencyStrength).toBe(46)
+  })
+
+  it('recognizes matrix-derived reset settings as the default state', async () => {
+    const { customizer, wrapper } = mountThemeCustomizer()
+
+    expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
+    expect(customizer.isCustomized.value).toBe(false)
+
+    await customizer.setGlassDeformationStrength(73)
+    expect(customizer.isCustomized.value).toBe(true)
+
+    await customizer.resetSettings()
+    expect(customizer.settings.value).toMatchObject(getDefaultGlassCustomizerSettings('balanced'))
+    expect(isDefaultThemeCustomizerSettings(customizer.settings.value)).toBe(true)
+    expect(customizer.isCustomized.value).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('derives app-mode glass reset values from the standard-quality matrix', () => {
+    expect(getDefaultGlassCustomizerSettings('css')).toEqual({
+      glassAppearance: 'clear',
+      glassDeformationStrength: 40,
+      glassFlowStrength: 40,
+      glassPreset: 'natural',
+      glassPresetOverrides: {},
+      glassQuality: 'css',
+      glassReflectionStrength: 35,
+      glassTransmissionStrength: 56,
+      glassTranslationStrength: 40,
+      glassTransparencyStrength: 48,
+    })
   })
 
   it.each(['balanced', 'high'] as const)('preserves the %s quality contract', quality => {
