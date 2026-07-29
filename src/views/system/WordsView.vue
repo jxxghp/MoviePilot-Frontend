@@ -3,6 +3,7 @@ import { useToast } from 'vue-toastification'
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
+import { configureAceEditorPadding } from '@/utils/aceEditor'
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable').then(module => module.default))
 
@@ -534,6 +535,7 @@ onMounted(() => {
               :print-margin="false"
               wrap
               class="words-text-editor"
+              @init="configureAceEditorPadding"
             />
             <VTextarea
               v-else
@@ -671,12 +673,7 @@ onMounted(() => {
             >
               {{ t('common.reset') }}
             </VBtn>
-            <VBtn
-              color="primary"
-              :loading="saving"
-              prepend-icon="mdi-content-save"
-              @click="saveActiveSection"
-            >
+            <VBtn color="primary" :loading="saving" prepend-icon="mdi-content-save" @click="saveActiveSection">
               {{ t('setting.words.saveChanges') }}
             </VBtn>
           </div>
@@ -1329,6 +1326,5 @@ onMounted(() => {
   .words-editor-footer {
     padding-inline: 1rem;
   }
-
 }
 </style>

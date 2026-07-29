@@ -10,7 +10,7 @@ import { useTheme } from 'vuetify'
 import { storageAttributes } from '@/api/constants'
 import { useSilentSettingRefresh } from '@/composables/useSilentSettingRefresh'
 import { openSharedDialog } from '@/composables/useSharedDialog'
-import type { Ace } from 'ace-builds'
+import { configureAceEditorPadding } from '@/utils/aceEditor'
 
 const { t } = useI18n()
 const { global: globalTheme } = useTheme()
@@ -75,12 +75,6 @@ const renameEditorOptions = {
   tabSize: 2,
   showLineNumbers: true,
   showGutter: true,
-}
-
-// Ace 的文本层为绝对定位，容器 padding 不会作用于内容，这里通过 renderer 补齐内边距。
-function handleRenameEditorInit(editor: Ace.Editor) {
-  editor.renderer.setPadding(12)
-  editor.renderer.setScrollMargin(8, 8, 0, 0)
 }
 
 // 打开共享分类编辑弹窗，保存后刷新本页分类配置。
@@ -417,7 +411,7 @@ useSilentSettingRefresh(loadPageData, {
                   :max-lines="12"
                   wrap
                   class="rename-format-editor__ace"
-                  @init="handleRenameEditorInit"
+                  @init="configureAceEditorPadding"
                 />
                 <div class="rename-format-editor__hint">
                   {{ t('setting.directory.movieRenameFormatHint') }}
@@ -440,7 +434,7 @@ useSilentSettingRefresh(loadPageData, {
                   :max-lines="12"
                   wrap
                   class="rename-format-editor__ace"
-                  @init="handleRenameEditorInit"
+                  @init="configureAceEditorPadding"
                 />
                 <div class="rename-format-editor__hint">
                   {{ t('setting.directory.tvRenameFormatHint') }}

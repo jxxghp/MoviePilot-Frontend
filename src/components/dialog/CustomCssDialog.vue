@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { configureAceEditorPadding } from '@/utils/aceEditor'
 
 // 国际化
 const { t } = useI18n()
@@ -84,6 +85,7 @@ function submitCustomCSS() {
           :options="editorOptions"
           wrap
           class="custom-css-editor"
+          @init="configureAceEditorPadding"
         />
       </div>
       <VCardActions class="app-dialog-actions custom-css-actions">

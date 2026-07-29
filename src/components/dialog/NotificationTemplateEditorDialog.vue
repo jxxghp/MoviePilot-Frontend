@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
 import { useI18n } from 'vue-i18n'
+import { configureAceEditorPadding } from '@/utils/aceEditor'
 
 const { t } = useI18n()
 const display = useDisplay()
@@ -90,6 +91,7 @@ function submitTemplate() {
           :options="editorOptions"
           wrap
           class="template-ace-editor"
+          @init="configureAceEditorPadding"
         />
       </div>
       <VCardActions class="app-dialog-actions template-editor-actions">

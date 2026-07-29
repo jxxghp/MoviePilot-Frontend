@@ -2,6 +2,7 @@
 import api from '@/api'
 import { useI18n } from 'vue-i18n'
 import { useDisplay } from 'vuetify'
+import { configureAceEditorPadding } from '@/utils/aceEditor'
 
 // 显示器宽度
 const display = useDisplay()
@@ -84,6 +85,7 @@ async function handleReset() {
               lang="ini"
               theme="monokai"
               class="rounded h-full min-h-[30rem]"
+              @init="configureAceEditorPadding"
             >
             </VAceEditor>
           </VCol>
