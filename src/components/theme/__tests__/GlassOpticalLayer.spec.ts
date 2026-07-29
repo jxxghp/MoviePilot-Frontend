@@ -12,6 +12,9 @@ const rendererResults = vi.hoisted(
       activeWallpaperRevision: { value: number }
       activeWallpaperUrl: { value: string }
       canActivatePreparedWallpaper: ReturnType<typeof vi.fn>
+      failedWallpaperPreparationKey: { value: string }
+      failedWallpaperRevision: { value: number }
+      failedWallpaperUrl: { value: string }
       preparedWallpaperPreparationKey: { value: string }
       preparedWallpaperRevision: { value: number }
       preparedWallpaperUrl: { value: string }
@@ -48,6 +51,9 @@ vi.mock('@/composables/useGlassOpticalRenderer', () => ({
       activeWallpaperPreparationKey: ref(''),
       activeWallpaperRevision: ref(0),
       activeWallpaperUrl: ref(''),
+      failedWallpaperPreparationKey: ref(''),
+      failedWallpaperRevision: ref(0),
+      failedWallpaperUrl: ref(''),
       preparedWallpaperPreparationKey: ref(''),
       preparedWallpaperRevision: ref(0),
       preparedWallpaperUrl: ref(''),
@@ -214,6 +220,52 @@ describe('GlassOpticalLayer', () => {
     expect(wrapper.emitted('wallpaperActivated')).toEqual([['/wallpaper-next.jpg', 7, 420]])
     expect(fixedRenderer.activeWallpaperRevision.value).toBe(7)
     expect(scrollRenderer.activeWallpaperRevision.value).toBe(7)
+    wrapper.unmount()
+  })
+
+  it('reports one matching preparation failure so the parent can cancel the pending revision', async () => {
+    rendererCalls.length = 0
+    rendererResults.length = 0
+    const wrapper = shallowMount(GlassOpticalLayer, {
+      props: {
+        appearance: 'frosted',
+        deformationStrength: 50,
+        flowStrength: 50,
+        pendingWallpaperRevision: 10,
+        pendingWallpaperUrl: '/wallpaper-next.jpg',
+        previousWallpaperUrl: '',
+        quality: 'balanced',
+        reflectionStrength: 50,
+        routeKey: '/dashboard',
+        tintColor: '#8D51F9',
+        transitionDuration: 1500,
+        transitionStartedAt: 0,
+        transmissionStrength: 50,
+        translationStrength: 50,
+        transparencyStrength: 50,
+        wallpaperUrl: '/wallpaper-current.jpg',
+      },
+    })
+    const [fixedRenderer, scrollRenderer] = rendererResults
+    const preparationKey = 'frosted:balanced:/dashboard:/wallpaper-next.jpg'
+
+    fixedRenderer.failedWallpaperUrl.value = '/wallpaper-next.jpg'
+    fixedRenderer.failedWallpaperRevision.value = 9
+    fixedRenderer.failedWallpaperPreparationKey.value = preparationKey
+    await nextTick()
+    expect(wrapper.emitted('wallpaperPreparationFailed')).toBeUndefined()
+
+    scrollRenderer.failedWallpaperUrl.value = '/wallpaper-next.jpg'
+    scrollRenderer.failedWallpaperRevision.value = 10
+    scrollRenderer.failedWallpaperPreparationKey.value = preparationKey
+    await nextTick()
+    expect(wrapper.emitted('wallpaperPreparationFailed')).toEqual([['/wallpaper-next.jpg', 10]])
+
+    fixedRenderer.failedWallpaperUrl.value = '/wallpaper-next.jpg'
+    fixedRenderer.failedWallpaperRevision.value = 10
+    fixedRenderer.failedWallpaperPreparationKey.value = preparationKey
+    await nextTick()
+    expect(wrapper.emitted('wallpaperPreparationFailed')).toEqual([['/wallpaper-next.jpg', 10]])
     wrapper.unmount()
   })
 

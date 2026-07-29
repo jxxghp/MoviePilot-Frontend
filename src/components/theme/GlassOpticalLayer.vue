@@ -51,7 +51,7 @@ const timingWindow = window as typeof window & {
   __glassPerformanceProbeEnabled?: boolean
   __glassLaunchTimings?: Array<{ detail?: string; stage: string; time: number }>
 }
-if (timingWindow.__glassPerformanceProbeEnabled) {
+if (import.meta.env.DEV && timingWindow.__glassPerformanceProbeEnabled) {
   timingWindow.__glassLaunchTimings ??= []
   timingWindow.__glassLaunchTimings.push({
     stage: 'optical-layer-setup',
@@ -62,6 +62,8 @@ if (timingWindow.__glassPerformanceProbeEnabled) {
 const emit = defineEmits<{
   /** fixed 与 scroll renderer 均已准备同一张待切换纹理。 */
   wallpaperPrepared: [url: string, revision: number]
+  /** 任一 context 无法准备当前 revision；父层必须立即取消整笔事务。 */
+  wallpaperPreparationFailed: [url: string, revision: number]
   /** fixed 与 scroll renderer 均已消费 prepared 纹理并切到活动槽。 */
   wallpaperActivated: [url: string, revision: number, startedAt: number]
   /** 任一 context 提交失败；父层必须取消该 revision。 */
@@ -135,7 +137,7 @@ watchEffect(() => {
       : 'fallback'
 
   setGlassRendererState(rendererState, state)
-  if (timingWindow.__glassPerformanceProbeEnabled) {
+  if (import.meta.env.DEV && timingWindow.__glassPerformanceProbeEnabled) {
     timingWindow.__glassLaunchTimings?.push({
       detail: state,
       stage: 'optical-layer-state',
@@ -169,6 +171,24 @@ watchEffect(() => {
   if (prepared && acknowledgement !== lastPreparedAcknowledgement) {
     lastPreparedAcknowledgement = acknowledgement
     emit('wallpaperPrepared', url, revision)
+  }
+})
+
+let lastPreparationFailedAcknowledgement = ''
+watchEffect(() => {
+  const url = props.pendingWallpaperUrl ?? ''
+  const revision = props.pendingWallpaperRevision ?? 0
+  const preparationKey = getGlassWallpaperPreparationKey(props.appearance, props.quality, props.routeKey, url)
+  const acknowledgement = `${revision}:${preparationKey}:${url}`
+  const failed = [fixedRenderer, scrollRenderer].some(
+    renderer =>
+      renderer.failedWallpaperUrl.value === url &&
+      renderer.failedWallpaperRevision.value === revision &&
+      renderer.failedWallpaperPreparationKey.value === preparationKey,
+  )
+  if (url && revision > 0 && failed && acknowledgement !== lastPreparationFailedAcknowledgement) {
+    lastPreparationFailedAcknowledgement = acknowledgement
+    emit('wallpaperPreparationFailed', url, revision)
   }
 })
 

@@ -58,7 +58,7 @@ function recordGlassLaunchTiming(stage: string, detail?: string) {
     __glassPerformanceProbeEnabled?: boolean
     __glassLaunchTimings?: Array<{ detail?: string; stage: string; time: number }>
   }
-  if (!timingWindow.__glassPerformanceProbeEnabled) return
+  if (!import.meta.env.DEV || !timingWindow.__glassPerformanceProbeEnabled) return
 
   timingWindow.__glassLaunchTimings ??= []
   timingWindow.__glassLaunchTimings.push({ detail, stage, time: performance.now() })
@@ -479,6 +479,11 @@ async function prepareOpticalWallpaper(url: string) {
 /** 只接受当前待切换 URL 的 renderer 就绪回执。 */
 function handleOpticalWallpaperPrepared(url: string, revision: number) {
   acknowledgeOpticalWallpaperPrepared(url, revision)
+}
+
+/** 任一 context 无法准备当前候选时取消 revision，禁止后续材质刷新重复加载失效 URL。 */
+function handleOpticalWallpaperPreparationFailed(_url: string, revision: number) {
+  cancelOpticalWallpaperTransaction(revision)
 }
 
 /** 两个 context 均已原子消费 prepared 资源后，以同一时钟提交 DOM 壁纸。 */
@@ -1053,6 +1058,7 @@ onUnmounted(() => {
       :activate-wallpaper-revision="activateOpticalWallpaperRevision"
       @wallpaper-activation-failed="handleOpticalWallpaperActivationFailed"
       @wallpaper-activated="handleOpticalWallpaperActivated"
+      @wallpaper-preparation-failed="handleOpticalWallpaperPreparationFailed"
       @wallpaper-prepared="handleOpticalWallpaperPrepared"
     />
     <!-- 页面内容 -->

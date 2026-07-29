@@ -87,10 +87,31 @@ function recordGlassRendererTiming(space: GlassPresentationSpace, stage: string)
     __glassPerformanceProbeEnabled?: boolean
     __glassRendererTimings?: Array<{ space: GlassPresentationSpace; stage: string; time: number }>
   }
-  if (!timingWindow.__glassPerformanceProbeEnabled) return
+  if (!import.meta.env.DEV || !timingWindow.__glassPerformanceProbeEnabled) return
 
   timingWindow.__glassRendererTimings ??= []
   timingWindow.__glassRendererTimings.push({ space, stage, time: performance.now() })
+}
+
+/** 复用 canvas context 前复位 Three.js 的 3D 占位纹理不接受的像素解包状态。 */
+export function prepareGlassWebGLContext(canvas: HTMLCanvasElement) {
+  if (typeof WebGL2RenderingContext === 'undefined') return null
+
+  const context = canvas.getContext('webgl2', {
+    alpha: true,
+    antialias: false,
+    depth: true,
+    failIfMajorPerformanceCaveat: false,
+    powerPreference: 'high-performance',
+    premultipliedAlpha: true,
+    preserveDrawingBuffer: false,
+    stencil: false,
+  })
+  if (!context || context.isContextLost()) return null
+
+  context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL, false)
+  context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+  return context
 }
 
 /** 为同一个光学层实例创建 CPU 壁纸源缓存，GPU 纹理仍由各 context 独立管理。 */
@@ -1204,6 +1225,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   const preparedWallpaperUrl = ref('')
   const preparedWallpaperRevision = ref(0)
   const preparedWallpaperPreparationKey = ref('')
+  const failedWallpaperUrl = ref('')
+  const failedWallpaperRevision = ref(0)
+  const failedWallpaperPreparationKey = ref('')
   let three: ThreeModule | null = null
   let resources: GlassRendererResources | null = null
   let flowResources: GlassFlowResources | null = null
@@ -1958,10 +1982,18 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     preparedWallpaperPreparationKey.value = ''
   }
 
+  /** 清除上一笔准备失败身份，避免旧错误取消后续 revision。 */
+  function clearPreparedWallpaperFailure() {
+    failedWallpaperUrl.value = ''
+    failedWallpaperRevision.value = 0
+    failedWallpaperPreparationKey.value = ''
+  }
+
   /** 使所有进行中的准备任务失效，迟到结果只能释放自身资源。 */
   function invalidatePreparedWallpaper() {
     prepareVersion += 1
     releasePreparedWallpaper()
+    clearPreparedWallpaperFailure()
   }
 
   function preparePendingWallpaper() {
@@ -2568,15 +2600,11 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   function handleContextLost(event: Event) {
     event.preventDefault()
-    resumeVersion += 1
-    loadVersion += 1
-    invalidatePreparedWallpaper()
-    cancelScheduledFrame()
-    cancelWallpaperTransitionFrame()
+    const canvas = options.canvas.value
+    disposeRenderer(false)
     contextRecoveryPending = true
-    activeWallpaperUrl.value = ''
-    activeWallpaperRevision.value = 0
-    activeWallpaperPreparationKey.value = ''
+    // 丢失的 context 已回收全部 GPU 对象；在恢复前释放旧 Three 状态，避免恢复后删除失效句柄。
+    canvas?.addEventListener('webglcontextrestored', handleContextRestored, { once: true })
     updateRendererState('fallback')
   }
 
@@ -2747,6 +2775,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeWallpaperRevision.value = 0
     activeWallpaperPreparationKey.value = ''
     releasePreparedWallpaper()
+    clearPreparedWallpaperFailure()
 
     disposeFlowResources()
     disposeFrostPrefilterResources()
@@ -2985,6 +3014,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   async function prepareWallpaper(url: string, revision: number) {
     const version = ++prepareVersion
     releasePreparedWallpaper()
+    clearPreparedWallpaperFailure()
     if (!url || !resources || contextRecoveryPending || url === toValue(options.wallpaperUrl)) return
     const preparationKey = getWallpaperPreparationKey(url)
 
@@ -3021,7 +3051,12 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       preparedWallpaperRevision.value = revision
       preparedWallpaperPreparationKey.value = preparationKey
     } catch (error) {
-      if (version === prepareVersion) console.warn('玻璃光学壁纸预备失败，继续使用当前纹理:', error)
+      if (version === prepareVersion) {
+        failedWallpaperUrl.value = url
+        failedWallpaperRevision.value = revision
+        failedWallpaperPreparationKey.value = preparationKey
+        console.warn('玻璃光学壁纸预备失败，继续使用当前纹理:', error)
+      }
     }
   }
 
@@ -3203,11 +3238,14 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       recordGlassRendererTiming(presentationSpace, 'three-ready')
       if (version !== loadVersion || !options.canvas.value) return
       const Vector4Class = three.Vector4
+      const canvas = options.canvas.value
+      const context = prepareGlassWebGLContext(canvas)
 
       const renderer = new three.WebGLRenderer({
         alpha: true,
         antialias: false,
-        canvas: options.canvas.value,
+        canvas,
+        ...(context ? { context } : {}),
         powerPreference: 'high-performance',
         premultipliedAlpha: true,
       })
@@ -3558,6 +3596,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     activeWallpaperRevision,
     activeWallpaperUrl,
     canActivatePreparedWallpaper,
+    failedWallpaperPreparationKey,
+    failedWallpaperRevision,
+    failedWallpaperUrl,
     preparedWallpaperPreparationKey,
     preparedWallpaperUrl,
     preparedWallpaperRevision,

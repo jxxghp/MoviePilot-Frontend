@@ -2,6 +2,7 @@ import {
   collectGlassOpticalRects,
   containsGlassOpticalSurface,
   createGlassWallpaperSourceCache,
+  prepareGlassWebGLContext,
   resolveGlassOpticalSurfaceMode,
   setGlassRendererState,
   useGlassOpticalInteractionSource,
@@ -189,6 +190,35 @@ afterEach(() => {
 })
 
 describe('glass optical surface discovery', () => {
+  it('resets incompatible unpack flags before Three initializes 3D placeholder textures', () => {
+    vi.stubGlobal('WebGL2RenderingContext', class {})
+    const pixelStorei = vi.fn()
+    const context = {
+      isContextLost: () => false,
+      pixelStorei,
+      UNPACK_FLIP_Y_WEBGL: 0x9240,
+      UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    } as unknown as WebGL2RenderingContext
+    const getContext = vi.fn().mockReturnValue(context)
+    const canvas = { getContext } as unknown as HTMLCanvasElement
+
+    expect(prepareGlassWebGLContext(canvas)).toBe(context)
+    expect(getContext).toHaveBeenCalledWith('webgl2', {
+      alpha: true,
+      antialias: false,
+      depth: true,
+      failIfMajorPerformanceCaveat: false,
+      powerPreference: 'high-performance',
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: false,
+      stencil: false,
+    })
+    expect(pixelStorei.mock.calls).toEqual([
+      [context.UNPACK_FLIP_Y_WEBGL, false],
+      [context.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false],
+    ])
+  })
+
   it('does not inject shared optical input while an overlay is active', () => {
     const overlay = document.createElement('div')
     overlay.className = 'v-overlay v-overlay--active'
@@ -472,7 +502,10 @@ describe('glass optical surface discovery', () => {
   })
 
   it('recovers after consecutive WebGL context loss cycles', async () => {
+    const three = await import('three')
     const canvas = document.createElement('canvas')
+    const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
@@ -491,6 +524,8 @@ describe('glass optical surface discovery', () => {
     for (let cycle = 0; cycle < 2; cycle += 1) {
       canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
       expect(renderer?.state.value).toBe('fallback')
+      expect(rendererDispose).toHaveBeenCalledTimes(cycle + 1)
+      expect(contextLoss).not.toHaveBeenCalled()
 
       canvas.dispatchEvent(new Event('webglcontextrestored'))
       await nextTick()
@@ -1365,6 +1400,43 @@ describe('glass optical surface discovery', () => {
         secondPreparationKey,
       ),
     ).toBe(true)
+    scope.stop()
+  })
+
+  it('publishes only the current pending preparation failure identity', async () => {
+    const three = await import('three')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper-current.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    textureLoad.mockRejectedValueOnce(new Error('pending source failed'))
+    pendingWallpaperRevision.value = 51
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-next.jpg'
+    await vi.waitFor(() => expect(renderer?.failedWallpaperRevision.value).toBe(51))
+
+    expect(renderer?.failedWallpaperUrl.value).toBe('https://example.com/wallpaper-next.jpg')
+    expect(renderer?.failedWallpaperPreparationKey.value).toContain('frosted:balanced:')
+
+    pendingWallpaperRevision.value = 0
+    pendingWallpaperUrl.value = ''
+    await vi.waitFor(() => expect(renderer?.failedWallpaperRevision.value).toBe(0))
+    expect(renderer?.failedWallpaperUrl.value).toBe('')
+    expect(renderer?.failedWallpaperPreparationKey.value).toBe('')
     scope.stop()
   })
 

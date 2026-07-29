@@ -178,6 +178,16 @@ function start(nextRouteKey: string, layoutRoot?: HTMLElement | null) {
   const motionEpoch = epoch.value
   routeKey.value = nextRouteKey
 
+  // 启动屏已完整遮罩页面；在其背后再等待布局稳定会把一次启动拆成两次可见揭示。
+  if (
+    document.documentElement.dataset.launchLoading === 'true' &&
+    document.getElementById('loading-bg')
+  ) {
+    settleMotion()
+    revision.value += 1
+    return true
+  }
+
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
     settleMotion()
     revision.value += 1

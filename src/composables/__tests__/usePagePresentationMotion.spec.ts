@@ -16,6 +16,7 @@ beforeEach(() => {
   callbacks = new Map()
   frameId = 0
   document.documentElement.dataset.theme = 'glass'
+  delete document.documentElement.dataset.launchLoading
   vi.spyOn(performance, 'now').mockReturnValue(1000)
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
     frameId += 1
@@ -30,13 +31,40 @@ beforeEach(() => {
 
 afterEach(() => {
   motion.cancel()
+  document.getElementById('loading-bg')?.remove()
   delete document.documentElement.dataset.theme
+  delete document.documentElement.dataset.launchLoading
   delete document.documentElement.dataset.pagePresentationMotion
   document.documentElement.style.removeProperty('--mp-page-motion-opacity')
   document.documentElement.style.removeProperty('--mp-page-motion-translate-y')
 })
 
 describe('page presentation motion', () => {
+  it('does not add a second reveal gate behind the initial launch screen', () => {
+    document.documentElement.dataset.launchLoading = 'true'
+    const launchScreen = document.createElement('div')
+    launchScreen.id = 'loading-bg'
+    document.body.append(launchScreen)
+    const initialRevision = motion.revision.value
+
+    expect(motion.start('/dashboard')).toBe(true)
+    expect(motion.active.value).toBe(false)
+    expect(motion.opacity.value).toBe(1)
+    expect(motion.revision.value).toBe(initialRevision + 1)
+    expect(callbacks.size).toBe(0)
+    expect(document.documentElement.dataset.pagePresentationMotion).toBeUndefined()
+  })
+
+  it('does not suppress normal route motion when only a stale launch attribute remains', () => {
+    document.documentElement.dataset.launchLoading = 'true'
+
+    expect(motion.start('/dashboard')).toBe(true)
+    expect(motion.active.value).toBe(true)
+    expect(motion.opacity.value).toBe(PAGE_PRESENTATION_MOTION_START_OPACITY)
+    expect(callbacks.size).toBe(1)
+    expect(document.documentElement.dataset.pagePresentationMotion).toBe('active')
+  })
+
   it('holds a glass route until its shared layout geometry remains stable', () => {
     const routeRoot = document.createElement('div')
     let routeHeight = 2096
