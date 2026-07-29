@@ -1304,7 +1304,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   let presentationResizeTimer: number | null = null
   let scrollAnimationFrame: number | null = null
   let scrollDirty = false
+  let scrollFrameCommitted = false
   let scrollGeometryRefreshPending = false
+  let scrollLateGeometryCommitted = false
   let scrollSurfaceStabilityPending = false
   let scrollStableFrameCount = 0
   let lastRenderedScrollX = window.scrollX
@@ -1406,7 +1408,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scrollAnimationFrame !== null) cancelAnimationFrame(scrollAnimationFrame)
     scrollAnimationFrame = null
     scrollDirty = false
+    scrollFrameCommitted = false
     scrollGeometryRefreshPending = false
+    scrollLateGeometryCommitted = false
     scrollSurfaceStabilityPending = false
     scrollStableFrameCount = 0
   }
@@ -1800,14 +1804,26 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     if (scheduleRender) scheduleFrame()
   }
 
-  /** 滚动事务内的几何失效并入同一个 rAF，避免独立采样器重复扫描相同 DOM。 */
+  /**
+   * 滚动事务内的几何失效共用一个稳定尾帧。
+   * 虚拟列表若在当前滚动帧提交后才挂载节点，必须在本次绘制前同步新蒙版。
+   */
   function queueScrollGeometryRefresh(stabilize: boolean) {
     if (presentationSpace !== 'scroll' || scrollAnimationFrame === null || !resources) return false
 
-    scrollGeometryRefreshPending = true
     scrollSurfaceStabilityPending ||= stabilize
     scrollStableFrameCount = 0
+    if (!scrollFrameCommitted) {
+      scrollGeometryRefreshPending = true
+      return true
+    }
+    if (scrollLateGeometryCommitted) return true
 
+    scrollLateGeometryCommitted = true
+    scrollGeometryRefreshPending = false
+    const timestamp = performance.now()
+    updateSurfaceUniforms(timestamp, false)
+    renderFrame(timestamp, false)
     return true
   }
 
@@ -2502,6 +2518,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   /** 文档滚动只更新采样坐标和缓存可见性；嵌套滚动仍在首帧刷新受影响的表面几何。 */
   function renderScrollFrame(timestamp: number) {
     scrollAnimationFrame = null
+    scrollFrameCommitted = false
+    scrollLateGeometryCommitted = false
     if (
       presentationSpace !== 'scroll' ||
       !resources ||
@@ -2530,6 +2548,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
     scrollStableFrameCount = receivedScrollEvent || coordinatesChanged ? 0 : scrollStableFrameCount + 1
     if (!interactionAnimating) renderFrame(timestamp, false)
+    scrollFrameCommitted = true
     if (transformingSurfaces.size > 0) {
       if (timestamp < surfaceTransformTrackingDeadline) {
         scrollGeometryRefreshPending = true
@@ -2557,6 +2576,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function handleScroll(event: Event) {
     if (presentationSpace !== 'scroll' || !resources) return
 
+    scrollFrameCommitted = false
+    scrollLateGeometryCommitted = false
     const target = event.target
     const isDocumentScroll =
       !(target instanceof Element) || target === document.documentElement || target === document.body

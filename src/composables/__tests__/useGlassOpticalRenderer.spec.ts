@@ -2674,6 +2674,73 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('commits a virtual-list replacement that lands after the scroll frame before the next paint', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let scrollY = 0
+    vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollY)
+    vi.spyOn(document.documentElement, 'scrollHeight', 'get').mockReturnValue(2400)
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    const querySelectorAll = vi.spyOn(document, 'querySelectorAll')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/resource'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 4 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    expect(callbacks.size).toBe(0)
+
+    scrollY = 400
+    window.dispatchEvent(new Event('scroll'))
+    const firstScrollFrame = [...callbacks.values()]
+    callbacks.clear()
+    firstScrollFrame.forEach(callback => callback(performance.now() + 100))
+    expect(callbacks.size).toBe(1)
+    querySelectorAll.mockClear()
+
+    surface.remove()
+    appendOpticalSurface('app-hover-lift-card', {
+      height: 300,
+      width: 400,
+      x: 40,
+      y: 100,
+    })
+    await nextTick()
+
+    expect(querySelectorAll).toHaveBeenCalledTimes(5)
+    expect(callbacks.size).toBe(1)
+
+    scope.stop()
+  })
+
   it('keeps local material response stable while moving from card A through a gap to card B', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(700)
