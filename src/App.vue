@@ -7,7 +7,7 @@ import { useAuthStore, useGlobalSettingsStore } from '@/stores'
 import { getBrowserLocale, setI18nLanguage } from './plugins/i18n'
 import { SupportedLocale } from '@/types/i18n'
 import { checkAndEmitUnreadMessages } from '@/utils/badge'
-import { preloadCorsImage, preloadImage } from './@core/utils/image'
+import { preloadImage } from './@core/utils/image'
 import { globalLoadingStateManager } from '@/utils/loadingStateManager'
 import { addBackgroundTimer, removeBackgroundTimer } from '@/utils/backgroundManager'
 import PWAInstallPrompt from '@/components/pwa/PWAInstallPrompt.vue'
@@ -27,6 +27,7 @@ import { getDisplayImageUrl } from '@/utils/imageUtils'
 import { configureApexChartsTheme } from '@/utils/apexCharts'
 import { useGlobalOfflineStatus, type ConnectionFailureReason } from '@/composables/useOfflineStatus'
 import { useAppActivityLifecycle } from '@/composables/useAppActivityLifecycle'
+import { useGlassWallpaperTransaction } from '@/composables/useGlassWallpaperTransaction'
 import {
   BACKGROUND_ROTATION_GRACE_MS,
   createBackgroundCandidateOrderResolver,
@@ -45,7 +46,7 @@ import {
 } from '@/utils/loginPresentation'
 import {
   DEFAULT_GLASS_WALLPAPER_TONE_PROFILE,
-  loadGlassWallpaperToneProfile,
+  loadGlassWallpaperTone,
   type GlassWallpaperToneProfile,
 } from '@/utils/glassWallpaperTone'
 
@@ -97,6 +98,17 @@ function resolveInitialThemeName(themePreference: string) {
   return resolveThemeName(themePreference)
 }
 
+function recordGlassLaunchTiming(stage: string, detail?: string) {
+  const timingWindow = window as typeof window & {
+    __glassPerformanceProbeEnabled?: boolean
+    __glassLaunchTimings?: Array<{ detail?: string; stage: string; time: number }>
+  }
+  if (!import.meta.env.DEV || !timingWindow.__glassPerformanceProbeEnabled) return
+
+  timingWindow.__glassLaunchTimings ??= []
+  timingWindow.__glassLaunchTimings.push({ detail, stage, time: performance.now() })
+}
+
 // 生效主题
 const vuetifyTheme = useTheme()
 const { global: globalTheme } = vuetifyTheme
@@ -135,12 +147,22 @@ const globalSettingsStore = useGlobalSettingsStore()
 // 背景图片
 const backgroundImages = ref<string[]>([])
 const backgroundLayers = ref(createLoginBackgroundLayers())
+const backgroundDisplayImages = ref<Record<string, string>>({})
 const backgroundToneProfiles = ref<Record<string, GlassWallpaperToneProfile>>({})
 const activeImageIndex = ref(0)
 const previousImageIndex = ref<number | null>(null)
 const isBackgroundCrossfading = ref(false)
 const backgroundCrossfadeStartedAt = ref(0)
-const pendingOpticalBackgroundImage = ref('')
+const {
+  acknowledgeActivated: acknowledgeOpticalWallpaperActivated,
+  acknowledgePrepared: acknowledgeOpticalWallpaperPrepared,
+  activationRevision: activateOpticalWallpaperRevision,
+  cancel: cancelOpticalWallpaperTransaction,
+  requestedRevision: pendingOpticalWallpaperRevision,
+  requestedUrl: pendingOpticalBackgroundImage,
+  requestActivation: requestOpticalWallpaperActivation,
+  requestPreparation: requestOpticalWallpaperPreparation,
+} = useGlassWallpaperTransaction<number>()
 const resolveBackgroundCandidateOrder = createBackgroundCandidateOrderResolver()
 const { allowsDecorativeMotion, isSuspended: isRenderThrottled, state: appActivityState } = useAppActivityLifecycle()
 const preferredMotion = usePreferredReducedMotion()
@@ -213,13 +235,16 @@ const shouldLoadBackgroundImages = computed(
 )
 const activeBackgroundImage = computed(() => backgroundImages.value[activeImageIndex.value] ?? '')
 const renderedBackgroundLayers = computed(() => backgroundLayers.value)
-const getOpticalBackgroundImage = (imageUrl: string) => getDisplayImageUrl(imageUrl, Boolean(isLogin.value))
-const activeOpticalBackgroundImage = computed(() => getOpticalBackgroundImage(activeBackgroundImage.value))
+const getOpticalBackgroundImage = (imageUrl: string) => imageUrl
+const getPreparedBackgroundImage = (imageUrl: string) => backgroundDisplayImages.value[imageUrl] ?? imageUrl
+const getPreparedOpticalBackgroundImage = (imageUrl: string) =>
+  backgroundDisplayImages.value[imageUrl] ?? getOpticalBackgroundImage(imageUrl)
+const activeOpticalBackgroundImage = computed(() => getPreparedOpticalBackgroundImage(activeBackgroundImage.value))
 const previousOpticalBackgroundImage = computed(() => {
   const previousIndex = previousImageIndex.value
   if (previousIndex === null) return ''
 
-  return getOpticalBackgroundImage(backgroundImages.value[previousIndex] ?? '')
+  return getPreparedOpticalBackgroundImage(backgroundImages.value[previousIndex] ?? '')
 })
 const shouldRenderGlassOpticalLayer = computed(
   () =>
@@ -242,12 +267,12 @@ const shouldRenderGlobalBlurLayer = computed(
 let backgroundRetryTimer: number | null = null
 let backgroundRequestController: AbortController | null = null
 let backgroundCrossfadeTimer: number | null = null
-let pendingOpticalWallpaperTimer: number | null = null
-let pendingOpticalWallpaperResolve: ((ready: boolean) => void) | null = null
 let authenticatedStateTimer: number | null = null
 let backgroundLoadVersion = 0
 let backgroundRecoveryAttemptedVersion = -1
 let backgroundRotationVersion = 0
+let backgroundPreloadIdleHandle: number | null = null
+let backgroundPreloadTimer: number | null = null
 
 // 读取并同步透明主题背景设置到根组件响应式状态。
 function applyTransparentBackgroundSettings() {
@@ -265,27 +290,15 @@ function handleTransparencySettingsChanged(event: Event) {
   transparencyGlassQuality.value = glassQuality
 }
 
-/** 在壁纸可见前准备稳健曝光；不可读跨域图片回落中性 profile，不阻断 CSS 背景。 */
-async function ensureBackgroundToneProfile(imageUrl: string) {
-  if (!imageUrl || !isGlassTheme.value) return DEFAULT_GLASS_WALLPAPER_TONE_PROFILE
-
-  const profile = await loadGlassWallpaperToneProfile(getOpticalBackgroundImage(imageUrl))
-  backgroundToneProfiles.value = {
-    ...backgroundToneProfiles.value,
-    [imageUrl]: profile,
-  }
-
-  return profile
-}
-
 /** 让稳定双槽位分别携带当前壁纸的曝光，交叉淡化期间不共享新图参数。 */
 function getBackgroundLayerStyle(layer: LoginBackgroundLayer) {
   const profile = backgroundToneProfiles.value[layer.url] ?? DEFAULT_GLASS_WALLPAPER_TONE_PROFILE
   const appearance = effectiveGlassSettings.value.glassAppearance
   const materialExposure = appearance === 'frosted' ? 0.82 : appearance === 'tinted' ? 0.85 : 0.86
+  const displayUrl = isGlassTheme.value ? getPreparedBackgroundImage(layer.url) : layer.url
 
   return {
-    'backgroundImage': layer.url ? `url(${layer.url})` : undefined,
+    'backgroundImage': displayUrl ? `url(${displayUrl})` : undefined,
     '--glass-wallpaper-brightness': String(materialExposure * profile.exposure),
   }
 }
@@ -512,35 +525,39 @@ function clearBackgroundCrossfadeTimer() {
   }
 }
 
-/** 结束当前 GPU 纹理预备等待，旧请求不得继续提交壁纸切换。 */
-function settlePendingOpticalWallpaper(ready: boolean) {
-  if (pendingOpticalWallpaperTimer !== null) {
-    window.clearTimeout(pendingOpticalWallpaperTimer)
-    pendingOpticalWallpaperTimer = null
-  }
-  pendingOpticalBackgroundImage.value = ''
-  pendingOpticalWallpaperResolve?.(ready)
-  pendingOpticalWallpaperResolve = null
-}
-
 /** 等待两个 WebGL 呈现 context 完成下一张纹理上传。 */
-function prepareOpticalWallpaper(url: string) {
+async function prepareOpticalWallpaper(url: string) {
   if (!shouldRenderGlassOpticalLayer.value || !url || url === activeOpticalBackgroundImage.value) {
-    return Promise.resolve(true)
+    return { ready: true, revision: 0 }
   }
 
-  settlePendingOpticalWallpaper(false)
-  pendingOpticalBackgroundImage.value = url
+  const ready = requestOpticalWallpaperPreparation(url)
+  const revision = pendingOpticalWallpaperRevision.value
 
-  return new Promise<boolean>(resolve => {
-    pendingOpticalWallpaperResolve = resolve
-    pendingOpticalWallpaperTimer = window.setTimeout(() => settlePendingOpticalWallpaper(false), 10000)
-  })
+  return { ready: await ready, revision }
 }
 
 /** 只接受当前待切换 URL 的 renderer 就绪回执。 */
-function handleOpticalWallpaperPrepared(url: string) {
-  if (url === pendingOpticalBackgroundImage.value) settlePendingOpticalWallpaper(true)
+function handleOpticalWallpaperPrepared(url: string, revision: number) {
+  acknowledgeOpticalWallpaperPrepared(url, revision)
+}
+
+/** 任一 context 无法准备当前候选时取消 revision，禁止后续材质刷新重复加载失效 URL。 */
+function handleOpticalWallpaperPreparationFailed(_url: string, revision: number) {
+  cancelOpticalWallpaperTransaction(revision)
+}
+
+/** 两个 context 均已原子消费 prepared 资源后，以同一时钟提交 DOM 壁纸。 */
+function handleOpticalWallpaperActivated(url: string, revision: number, startedAt: number) {
+  const activation = acknowledgeOpticalWallpaperActivated(url, revision, startedAt)
+  if (!activation) return
+
+  activateBackgroundImage(activation.payload, activation.startedAt)
+}
+
+/** 任一 context 提交失败时取消整个 revision，禁止另一 context 继续持有半提交状态。 */
+function handleOpticalWallpaperActivationFailed(_url: string, revision: number) {
+  cancelOpticalWallpaperTransaction(revision)
 }
 
 // 重置背景图交叉淡入淡出状态。
@@ -553,22 +570,23 @@ function resetBackgroundCrossfade() {
 }
 
 // 切换期保留上一张背景的渲染状态，避免图片合成层重建时露出透明底。
-function activateBackgroundImage(nextIndex: number) {
+function activateBackgroundImage(nextIndex: number, startedAt = performance.now()) {
   if (nextIndex === activeImageIndex.value) return
 
   clearBackgroundCrossfadeTimer()
   backgroundLayers.value = prepareLoginBackgroundLayer(backgroundLayers.value, backgroundImages.value[nextIndex] ?? '')
   previousImageIndex.value = activeImageIndex.value
   isBackgroundCrossfading.value = true
-  backgroundCrossfadeStartedAt.value = performance.now()
+  backgroundCrossfadeStartedAt.value = startedAt
   activeImageIndex.value = nextIndex
   backgroundLayers.value = activateLoginBackgroundLayer(backgroundLayers.value)
+  const remainingDuration = Math.max(0, BACKGROUND_CROSSFADE_DURATION_MS - (performance.now() - startedAt))
   backgroundCrossfadeTimer = window.setTimeout(() => {
     previousImageIndex.value = null
     isBackgroundCrossfading.value = false
     backgroundLayers.value = settleLoginBackgroundLayers(backgroundLayers.value)
     backgroundCrossfadeTimer = null
-  }, BACKGROUND_CROSSFADE_DURATION_MS)
+  }, remainingDuration)
 }
 
 // 获取背景图片列表；只有选出实际可用的首图后才提交到可见状态。
@@ -592,31 +610,86 @@ function preloadNextBackgroundImage() {
   void preloadBackgroundCandidate(backgroundImages.value[nextIndex])
 }
 
-/** 实时玻璃先建立可供 WebGL 读取的缓存，失败时仍允许 CSS 材质显示该壁纸。 */
+function cancelNextBackgroundPreload() {
+  const idleWindow = window as typeof window & {
+    cancelIdleCallback?: (handle: number) => void
+  }
+  if (backgroundPreloadIdleHandle !== null) {
+    idleWindow.cancelIdleCallback?.(backgroundPreloadIdleHandle)
+    backgroundPreloadIdleHandle = null
+  }
+  if (backgroundPreloadTimer !== null) {
+    window.clearTimeout(backgroundPreloadTimer)
+    backgroundPreloadTimer = null
+  }
+}
+
+/** 首屏稳定后才预备轮播候选，避免第二张完整壁纸与 Dashboard 和首张纹理争抢资源。 */
+function scheduleNextBackgroundPreload() {
+  cancelNextBackgroundPreload()
+  if (!allowsBackgroundRotation.value || backgroundImages.value.length <= 1 || document.getElementById('loading-bg')) {
+    return
+  }
+
+  const idleWindow = window as typeof window & {
+    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  }
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    backgroundPreloadIdleHandle = idleWindow.requestIdleCallback(
+      () => {
+        backgroundPreloadIdleHandle = null
+        preloadNextBackgroundImage()
+      },
+      { timeout: 3000 },
+    )
+    return
+  }
+
+  backgroundPreloadTimer = window.setTimeout(() => {
+    backgroundPreloadTimer = null
+    preloadNextBackgroundImage()
+  }, 1200)
+}
+
+/** 玻璃壁纸以一次匿名解码同时完成可读性和 tone 分析，失败时仍允许 CSS 回退。 */
 async function preloadBackgroundCandidate(imageUrl: string) {
-  const toneProfile = isGlassTheme.value
-    ? ensureBackgroundToneProfile(imageUrl)
-    : Promise.resolve(DEFAULT_GLASS_WALLPAPER_TONE_PROFILE)
-  if (!shouldRenderGlassOpticalLayer.value) {
-    const [available] = await Promise.all([preloadImage(imageUrl), toneProfile])
+  recordGlassLaunchTiming('wallpaper-source-requested', imageUrl)
+  if (!isGlassTheme.value) return preloadImage(imageUrl)
 
-    return available
+  let opticalUrl = getOpticalBackgroundImage(imageUrl)
+  let tone = await loadGlassWallpaperTone(opticalUrl)
+  if (!tone.corsReady && isLogin.value) {
+    const proxyUrl = getDisplayImageUrl(imageUrl, true)
+    if (proxyUrl !== opticalUrl) {
+      const proxyTone = await loadGlassWallpaperTone(proxyUrl)
+      if (proxyTone.corsReady) {
+        opticalUrl = proxyUrl
+        tone = proxyTone
+      }
+    }
+  }
+  backgroundToneProfiles.value = {
+    ...backgroundToneProfiles.value,
+    [imageUrl]: tone.profile,
+  }
+  if (tone.corsReady) {
+    // DOM、tone 与 renderer 共享完全相同的像素源，避免首屏重复下载和解码。
+    backgroundDisplayImages.value = {
+      ...backgroundDisplayImages.value,
+      [imageUrl]: opticalUrl,
+    }
+    recordGlassLaunchTiming('wallpaper-source-ready', imageUrl)
+    return true
   }
 
-  const opticalUrl = getOpticalBackgroundImage(imageUrl)
-  const opticalReady = await preloadCorsImage(opticalUrl)
-  if (!opticalReady) {
-    const [displayReady] = await Promise.all([preloadImage(imageUrl), toneProfile])
-
-    return displayReady
+  backgroundDisplayImages.value = {
+    ...backgroundDisplayImages.value,
+    [imageUrl]: imageUrl,
   }
 
-  const [displayReady] = await Promise.all([
-    opticalUrl === imageUrl ? Promise.resolve(true) : preloadImage(imageUrl),
-    toneProfile,
-  ])
-
-  return displayReady
+  const ready = await preloadImage(imageUrl)
+  recordGlassLaunchTiming(ready ? 'wallpaper-source-ready' : 'wallpaper-source-failed', imageUrl)
+  return ready
 }
 
 // 背景图片轮换函数
@@ -630,20 +703,35 @@ async function rotateBackgroundImage() {
 
     const nextIndex = (activeIndex + offset) % backgroundImages.value.length
     const nextImage = backgroundImages.value[nextIndex]
-    const opticalImage = shouldRenderGlassOpticalLayer.value ? getOpticalBackgroundImage(nextImage) : undefined
-    if (opticalImage && !(await prepareOpticalWallpaper(opticalImage))) continue
-    const imagesReady = await preloadBackgroundRotationImages({
-      displayUrl: nextImage,
-      opticalUrl: opticalImage,
-      preload: preloadImage,
-    })
-    if (!imagesReady) continue
-    await ensureBackgroundToneProfile(nextImage)
-    if (!allowsBackgroundRotation.value || requestVersion !== backgroundRotationVersion) return
+    let opticalRevision = 0
+    try {
+      if (!(await preloadBackgroundCandidate(nextImage))) continue
+      const opticalImage = shouldRenderGlassOpticalLayer.value
+        ? getPreparedOpticalBackgroundImage(nextImage)
+        : undefined
+      if (opticalImage) {
+        const preparation = await prepareOpticalWallpaper(opticalImage)
+        opticalRevision = preparation.revision
+        if (!preparation.ready) continue
+      }
+      const imagesReady = await preloadBackgroundRotationImages({
+        displayUrl: isGlassTheme.value ? getPreparedBackgroundImage(nextImage) : nextImage,
+        opticalUrl: opticalImage,
+        preload: preloadImage,
+      })
+      if (!imagesReady) continue
+      if (!allowsBackgroundRotation.value || requestVersion !== backgroundRotationVersion) return
 
-    activateBackgroundImage(nextIndex)
-    preloadNextBackgroundImage()
-    return
+      if (opticalImage) {
+        if (!(await requestOpticalWallpaperActivation(nextIndex, opticalRevision))) continue
+      } else {
+        activateBackgroundImage(nextIndex)
+      }
+      scheduleNextBackgroundPreload()
+      return
+    } finally {
+      if (opticalRevision > 0) cancelOpticalWallpaperTransaction(opticalRevision)
+    }
   }
 
   if (requestVersion === backgroundRotationVersion && backgroundRecoveryAttemptedVersion !== backgroundLoadVersion) {
@@ -657,8 +745,9 @@ async function rotateBackgroundImage() {
 // 停止轮询并使已经发起的下一图准备失效，避免非活动状态收到迟到提交。
 function stopBackgroundRotation() {
   backgroundRotationVersion += 1
+  cancelNextBackgroundPreload()
   removeBackgroundTimer('background-rotation')
-  settlePendingOpticalWallpaper(false)
+  cancelOpticalWallpaperTransaction()
 }
 
 function clearBackgroundRotationGrace() {
@@ -684,7 +773,7 @@ function startBackgroundRotation() {
   stopBackgroundRotation()
 
   if (allowsBackgroundRotation.value && backgroundImages.value.length > 1) {
-    preloadNextBackgroundImage()
+    scheduleNextBackgroundPreload()
     // 隐藏页面也允许在有界宽限期内轮换，回调自身会再次核对生命周期。
     addBackgroundTimer(
       'background-rotation',
@@ -784,11 +873,15 @@ async function animateAndRemoveLoader() {
         document.documentElement.style.removeProperty('overflow')
         document.body.style.removeProperty('overflow')
         completeLaunchLoading()
+        recordGlassLaunchTiming('loader-removed')
+        scheduleNextBackgroundPreload()
         resolve()
       }, LAUNCH_EXIT_DURATION_MS)
     })
   } else {
     completeLaunchLoading()
+    recordGlassLaunchTiming('loader-removed')
+    scheduleNextBackgroundPreload()
   }
 }
 
@@ -860,6 +953,7 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
     }
     backgroundRecoveryAttemptedVersion = -1
     resetBackgroundCrossfade()
+    recordGlassLaunchTiming('wallpaper-committed', activeBackgroundImage.value)
     startBackgroundRotation()
   } catch (error: any) {
     if (loadVersion !== backgroundLoadVersion) return
@@ -876,6 +970,28 @@ async function loadBackgroundImages(loadVersion: number, retryCount = 0) {
     }
   }
 }
+
+// 登录前后复用同一壁纸列表和活动项；请求与主题样式并行，避免玻璃 CSS 阻塞首张壁纸准备。
+watch(
+  shouldLoadBackgroundImages,
+  shouldLoad => {
+    stopBackgroundLoading()
+    if (shouldLoad) {
+      void loadBackgroundImages(backgroundLoadVersion)
+    } else if (!isBackdropTheme.value) {
+      backgroundImages.value = []
+    }
+  },
+  { immediate: true },
+)
+
+watch(isGlassTheme, enabled => {
+  if (!enabled) return
+
+  void Promise.all(
+    renderedBackgroundLayers.value.filter(layer => layer.url).map(layer => preloadBackgroundCandidate(layer.url)),
+  )
+})
 
 onMounted(async () => {
   // 移除URL中的时间戳参数
@@ -914,28 +1030,6 @@ onMounted(async () => {
   window.addEventListener('pageshow', handlePageShowThemeSync)
   window.addEventListener('focus', handlePageShowThemeSync)
   window.addEventListener(TRANSPARENCY_SETTINGS_CHANGED_EVENT, handleTransparencySettingsChanged)
-
-  // 登录前后复用同一壁纸列表和活动项，主题变化只改变呈现方式。
-  watch(
-    shouldLoadBackgroundImages,
-    shouldLoad => {
-      stopBackgroundLoading()
-      if (shouldLoad) {
-        void loadBackgroundImages(backgroundLoadVersion)
-      } else if (!isBackdropTheme.value) {
-        backgroundImages.value = []
-      }
-    },
-    { immediate: true },
-  )
-
-  watch(isGlassTheme, enabled => {
-    if (!enabled) return
-
-    void Promise.all(
-      renderedBackgroundLayers.value.filter(layer => layer.url).map(layer => ensureBackgroundToneProfile(layer.url)),
-    )
-  })
 
   // 使用优化后的加载界面移除逻辑
   ensureRenderComplete(() => {
@@ -1031,6 +1125,11 @@ onUnmounted(() => {
       :wallpaper-url="activeOpticalBackgroundImage"
       :previous-wallpaper-url="previousOpticalBackgroundImage"
       :pending-wallpaper-url="pendingOpticalBackgroundImage"
+      :pending-wallpaper-revision="pendingOpticalWallpaperRevision"
+      :activate-wallpaper-revision="activateOpticalWallpaperRevision"
+      @wallpaper-activation-failed="handleOpticalWallpaperActivationFailed"
+      @wallpaper-activated="handleOpticalWallpaperActivated"
+      @wallpaper-preparation-failed="handleOpticalWallpaperPreparationFailed"
       @wallpaper-prepared="handleOpticalWallpaperPrepared"
     />
     <!-- 页面内容 -->

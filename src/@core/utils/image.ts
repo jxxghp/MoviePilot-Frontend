@@ -1,4 +1,5 @@
 import ColorThief from 'colorthief'
+export { preloadCorsImage } from './corsImage'
 
 const DEFAULT_DOMINANT_COLOR = '#28A9E1'
 const DOMINANT_COLOR_CACHE_LIMIT = 100
@@ -95,32 +96,4 @@ export async function preloadImage(url: string): Promise<boolean> {
       finish(img.naturalWidth > 0)
     }
   })
-}
-
-/** 在纹理加载前建立带 CORS 响应头的缓存，避免普通图片缓存污染 WebGL 读取。 */
-export async function preloadCorsImage(url: string): Promise<boolean> {
-  const request = async (cache: RequestCache) => {
-    const source = new URL(url, window.location.href)
-    const response = await fetch(source, {
-      cache,
-      credentials: source.origin === window.location.origin ? 'same-origin' : 'omit',
-      mode: 'cors',
-    })
-    if (!response.ok) return false
-
-    await response.blob()
-    return true
-  }
-
-  try {
-    if (await request('force-cache')) return true
-  } catch {
-    // 缓存中的非 CORS 响应可能使首次读取失败，重新验证后再决定是否回退。
-  }
-
-  try {
-    return await request('reload')
-  } catch {
-    return false
-  }
 }

@@ -2,6 +2,8 @@
 import type { ThemeCustomizerGlassAppearance, ThemeCustomizerGlassQuality } from '@/composables/useThemeCustomizer'
 import { usePagePresentationMotion } from '@/composables/usePagePresentationMotion'
 import {
+  createGlassWallpaperSourceCache,
+  getGlassWallpaperPreparationKey,
   setGlassRendererState,
   useGlassOpticalInteractionSource,
   useGlassOpticalRenderer,
@@ -39,16 +41,40 @@ const props = defineProps<{
   previousWallpaperUrl: string
   /** 下一张同源壁纸；两个 context 均完成上传后才允许外层提交切换。 */
   pendingWallpaperUrl?: string
+  /** 单调递增的壁纸准备事务版本；相同 URL 的旧回执不得完成新事务。 */
+  pendingWallpaperRevision?: number
+  /** 父层已完成可见图片预载，允许两个 context 在同一绘制帧提交该 revision。 */
+  activateWallpaperRevision?: number
 }>()
+
+const timingWindow = window as typeof window & {
+  __glassPerformanceProbeEnabled?: boolean
+  __glassLaunchTimings?: Array<{ detail?: string; stage: string; time: number }>
+}
+if (import.meta.env.DEV && timingWindow.__glassPerformanceProbeEnabled) {
+  timingWindow.__glassLaunchTimings ??= []
+  timingWindow.__glassLaunchTimings.push({
+    stage: 'optical-layer-setup',
+    time: performance.now(),
+  })
+}
+
 const emit = defineEmits<{
   /** fixed 与 scroll renderer 均已准备同一张待切换纹理。 */
-  wallpaperPrepared: [url: string]
+  wallpaperPrepared: [url: string, revision: number]
+  /** 任一 context 无法准备当前 revision；父层必须立即取消整笔事务。 */
+  wallpaperPreparationFailed: [url: string, revision: number]
+  /** fixed 与 scroll renderer 均已消费 prepared 纹理并切到活动槽。 */
+  wallpaperActivated: [url: string, revision: number, startedAt: number]
+  /** 任一 context 提交失败；父层必须取消该 revision。 */
+  wallpaperActivationFailed: [url: string, revision: number]
 }>()
 
 const fixedCanvas = ref<HTMLCanvasElement | null>(null)
 const scrollCanvas = ref<HTMLCanvasElement | null>(null)
 const interactionSource = useGlassOpticalInteractionSource()
 const pagePresentationMotion = usePagePresentationMotion()
+const wallpaperSourceCache = createGlassWallpaperSourceCache()
 const fixedRenderer = useGlassOpticalRenderer({
   active: true,
   appearance: () => props.appearance,
@@ -66,8 +92,10 @@ const fixedRenderer = useGlassOpticalRenderer({
   transitionDuration: () => props.transitionDuration,
   transitionStartedAt: () => props.transitionStartedAt,
   wallpaperUrl: () => props.wallpaperUrl,
+  wallpaperSourceCache,
   previousWallpaperUrl: () => props.previousWallpaperUrl,
   pendingWallpaperUrl: () => props.pendingWallpaperUrl ?? '',
+  pendingWallpaperRevision: () => props.pendingWallpaperRevision ?? 0,
   surfaceSpace: 'fixed',
   syncDocumentState: false,
 })
@@ -89,8 +117,10 @@ const scrollRenderer = useGlassOpticalRenderer({
   transitionDuration: () => props.transitionDuration,
   transitionStartedAt: () => props.transitionStartedAt,
   wallpaperUrl: () => props.wallpaperUrl,
+  wallpaperSourceCache,
   previousWallpaperUrl: () => props.previousWallpaperUrl,
   pendingWallpaperUrl: () => props.pendingWallpaperUrl ?? '',
+  pendingWallpaperRevision: () => props.pendingWallpaperRevision ?? 0,
   surfaceSpace: 'scroll',
   syncDocumentState: false,
 })
@@ -107,16 +137,151 @@ watchEffect(() => {
       : 'fallback'
 
   setGlassRendererState(rendererState, state)
-})
-
-watchEffect(() => {
-  const url = props.pendingWallpaperUrl
-  if (url && fixedRenderer.preparedWallpaperUrl.value === url && scrollRenderer.preparedWallpaperUrl.value === url) {
-    emit('wallpaperPrepared', url)
+  if (import.meta.env.DEV && timingWindow.__glassPerformanceProbeEnabled) {
+    timingWindow.__glassLaunchTimings?.push({
+      detail: state,
+      stage: 'optical-layer-state',
+      time: performance.now(),
+    })
   }
 })
 
+let lastPreparedAcknowledgement = ''
+watchEffect(() => {
+  const url = props.pendingWallpaperUrl
+  const revision = props.pendingWallpaperRevision ?? 0
+  const preparationKey = getGlassWallpaperPreparationKey(props.appearance, props.quality, props.routeKey, url ?? '')
+  const acknowledgement = `${revision}:${preparationKey}:${url}`
+  const prepared =
+    Boolean(url) &&
+    revision > 0 &&
+    fixedRenderer.state.value === 'ready' &&
+    scrollRenderer.state.value === 'ready' &&
+    fixedRenderer.preparedWallpaperUrl.value === url &&
+    fixedRenderer.preparedWallpaperRevision.value === revision &&
+    fixedRenderer.preparedWallpaperPreparationKey.value === preparationKey &&
+    scrollRenderer.preparedWallpaperUrl.value === url &&
+    scrollRenderer.preparedWallpaperRevision.value === revision &&
+    scrollRenderer.preparedWallpaperPreparationKey.value === preparationKey
+  if (prepared && acknowledgement !== lastPreparedAcknowledgement) {
+    lastPreparedAcknowledgement = acknowledgement
+    emit('wallpaperPrepared', url, revision)
+  }
+})
+
+let lastPreparationFailedAcknowledgement = ''
+watchEffect(() => {
+  const url = props.pendingWallpaperUrl ?? ''
+  const revision = props.pendingWallpaperRevision ?? 0
+  const preparationKey = getGlassWallpaperPreparationKey(props.appearance, props.quality, props.routeKey, url)
+  const acknowledgement = `${revision}:${preparationKey}:${url}`
+  const failed = [fixedRenderer, scrollRenderer].some(
+    renderer =>
+      renderer.failedWallpaperUrl.value === url &&
+      renderer.failedWallpaperRevision.value === revision &&
+      renderer.failedWallpaperPreparationKey.value === preparationKey,
+  )
+  if (url && revision > 0 && failed && acknowledgement !== lastPreparationFailedAcknowledgement) {
+    lastPreparationFailedAcknowledgement = acknowledgement
+    emit('wallpaperPreparationFailed', url, revision)
+  }
+})
+
+let activationFrame: number | null = null
+let scheduledActivation = ''
+let lastActivatedAcknowledgement = ''
+let lastFailedAcknowledgement = ''
+
+function rollbackWallpaperActivation(url: string, revision: number) {
+  for (const renderer of [fixedRenderer, scrollRenderer]) {
+    try {
+      renderer.rollbackPreparedWallpaperActivation(url, revision)
+    } catch {
+      // 两个 context 独立回滚；一个异常不得阻止另一个恢复并通知父层取消。
+    }
+  }
+}
+
+watchEffect(() => {
+  const url = props.pendingWallpaperUrl
+  const revision = props.pendingWallpaperRevision ?? 0
+  const activationRevision = props.activateWallpaperRevision ?? 0
+  const preparationKey = getGlassWallpaperPreparationKey(props.appearance, props.quality, props.routeKey, url ?? '')
+  const acknowledgement = `${revision}:${preparationKey}:${url}`
+  const canActivate =
+    Boolean(url) &&
+    revision > 0 &&
+    activationRevision === revision &&
+    fixedRenderer.state.value === 'ready' &&
+    scrollRenderer.state.value === 'ready' &&
+    fixedRenderer.preparedWallpaperUrl.value === url &&
+    fixedRenderer.preparedWallpaperRevision.value === revision &&
+    fixedRenderer.preparedWallpaperPreparationKey.value === preparationKey &&
+    scrollRenderer.preparedWallpaperUrl.value === url &&
+    scrollRenderer.preparedWallpaperRevision.value === revision &&
+    scrollRenderer.preparedWallpaperPreparationKey.value === preparationKey
+  if (
+    !canActivate ||
+    acknowledgement === lastActivatedAcknowledgement ||
+    acknowledgement === lastFailedAcknowledgement ||
+    acknowledgement === scheduledActivation
+  ) {
+    return
+  }
+
+  if (activationFrame !== null) cancelAnimationFrame(activationFrame)
+  scheduledActivation = acknowledgement
+  activationFrame = requestAnimationFrame(startedAt => {
+    activationFrame = null
+    scheduledActivation = ''
+    const currentUrl = props.pendingWallpaperUrl ?? ''
+    const currentRevision = props.pendingWallpaperRevision ?? 0
+    const currentPreparationKey = getGlassWallpaperPreparationKey(
+      props.appearance,
+      props.quality,
+      props.routeKey,
+      currentUrl,
+    )
+    const currentAcknowledgement = `${currentRevision}:${currentPreparationKey}:${currentUrl}`
+    if (
+      currentAcknowledgement !== acknowledgement ||
+      props.activateWallpaperRevision !== currentRevision ||
+      !fixedRenderer.canActivatePreparedWallpaper(currentUrl, currentRevision, currentPreparationKey) ||
+      !scrollRenderer.canActivatePreparedWallpaper(currentUrl, currentRevision, currentPreparationKey)
+    ) {
+      return
+    }
+
+    try {
+      const fixedActivated = fixedRenderer.activatePreparedWallpaper(
+        currentUrl,
+        currentRevision,
+        currentPreparationKey,
+        startedAt,
+      )
+      const scrollActivated =
+        fixedActivated &&
+        scrollRenderer.activatePreparedWallpaper(currentUrl, currentRevision, currentPreparationKey, startedAt)
+      if (!fixedActivated || !scrollActivated) {
+        rollbackWallpaperActivation(currentUrl, currentRevision)
+        lastFailedAcknowledgement = acknowledgement
+        emit('wallpaperActivationFailed', currentUrl, currentRevision)
+        return
+      }
+    } catch {
+      rollbackWallpaperActivation(currentUrl, currentRevision)
+      lastFailedAcknowledgement = acknowledgement
+      emit('wallpaperActivationFailed', currentUrl, currentRevision)
+      return
+    }
+
+    lastActivatedAcknowledgement = acknowledgement
+    emit('wallpaperActivated', currentUrl, currentRevision, startedAt)
+  })
+})
+
 onScopeDispose(() => {
+  if (activationFrame !== null) cancelAnimationFrame(activationFrame)
   setGlassRendererState(rendererState, 'fallback')
 })
 </script>

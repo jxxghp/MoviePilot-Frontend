@@ -1,6 +1,8 @@
 import {
   collectGlassOpticalRects,
   containsGlassOpticalSurface,
+  createGlassWallpaperSourceCache,
+  prepareGlassWebGLContext,
   resolveGlassOpticalSurfaceMode,
   setGlassRendererState,
   useGlassOpticalInteractionSource,
@@ -10,6 +12,22 @@ import {
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { APP_ACTIVITY_SUSPEND_DELAY_MS } from '@/utils/appActivityLifecycle'
+import type { ShaderMaterial, Vector2, WebGLRenderTarget } from 'three'
+
+const wallpaperToneMocks = vi.hoisted(() => ({
+  load: vi.fn(),
+  takeDecodedSource: vi.fn(),
+}))
+
+vi.mock('@/utils/glassWallpaperTone', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/utils/glassWallpaperTone')>()
+
+  return {
+    ...actual,
+    loadGlassWallpaperTone: wallpaperToneMocks.load,
+    takeGlassWallpaperDecodedSource: wallpaperToneMocks.takeDecodedSource,
+  }
+})
 
 vi.mock('three', async importOriginal => {
   const actual = await importOriginal<typeof import('three')>()
@@ -147,6 +165,17 @@ function dispatchTouchEvent(
 
 beforeEach(() => {
   ResizeObserverMock.instances = []
+  wallpaperToneMocks.load.mockReset()
+  wallpaperToneMocks.load.mockResolvedValue({
+    corsReady: false,
+    profile: {
+      exposure: 1,
+      highlightLuminance: 0.82,
+      medianLuminance: 0.38,
+    },
+  })
+  wallpaperToneMocks.takeDecodedSource.mockReset()
+  wallpaperToneMocks.takeDecodedSource.mockReturnValue(undefined)
   vi.stubGlobal('ResizeObserver', ResizeObserverMock)
   vi.stubGlobal('WebGLRenderingContext', class {})
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
@@ -161,7 +190,36 @@ afterEach(() => {
 })
 
 describe('glass optical surface discovery', () => {
-  it('gives an active overlay exclusive ownership of shared pointer input', () => {
+  it('resets incompatible unpack flags before Three initializes 3D placeholder textures', () => {
+    vi.stubGlobal('WebGL2RenderingContext', class {})
+    const pixelStorei = vi.fn()
+    const context = {
+      isContextLost: () => false,
+      pixelStorei,
+      UNPACK_FLIP_Y_WEBGL: 0x9240,
+      UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    } as unknown as WebGL2RenderingContext
+    const getContext = vi.fn().mockReturnValue(context)
+    const canvas = { getContext } as unknown as HTMLCanvasElement
+
+    expect(prepareGlassWebGLContext(canvas)).toBe(context)
+    expect(getContext).toHaveBeenCalledWith('webgl2', {
+      alpha: true,
+      antialias: false,
+      depth: true,
+      failIfMajorPerformanceCaveat: false,
+      powerPreference: 'high-performance',
+      premultipliedAlpha: true,
+      preserveDrawingBuffer: false,
+      stencil: false,
+    })
+    expect(pixelStorei.mock.calls).toEqual([
+      [context.UNPACK_FLIP_Y_WEBGL, false],
+      [context.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false],
+    ])
+  })
+
+  it('does not inject shared optical input while an overlay is active', () => {
     const overlay = document.createElement('div')
     overlay.className = 'v-overlay v-overlay--active'
     document.body.append(overlay)
@@ -176,7 +234,7 @@ describe('glass optical surface discovery', () => {
 
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 400, clientY: 400 }))
 
-    expect(fixedListener).toHaveBeenCalledOnce()
+    expect(fixedListener).not.toHaveBeenCalled()
     expect(scrollListener).not.toHaveBeenCalled()
     scope.stop()
   })
@@ -220,16 +278,33 @@ describe('glass optical surface discovery', () => {
     expect(containsGlassOpticalSurface(document.createElement('div'))).toBe(false)
   })
 
-  it('detects an optical surface when the overlay root is created lazily', () => {
+  it('does not treat a lazily created overlay as a wallpaper optical surface', () => {
     const overlayRoot = document.createElement('div')
     overlayRoot.className = 'v-overlay-container'
     overlayRoot.innerHTML = `
       <div class="v-overlay v-overlay--active">
-        <div class="v-overlay__content"><div class="v-card"></div></div>
+        <div class="v-overlay__content"><div class="v-card" data-glass-optical-surface></div></div>
       </div>
     `
 
-    expect(containsGlassOpticalSurface(overlayRoot)).toBe(true)
+    expect(containsGlassOpticalSurface(overlayRoot)).toBe(false)
+  })
+
+  it('keeps regular fixed surfaces and excludes overlay surfaces while an overlay is active', () => {
+    appendOpticalSurface('layout-navbar', { height: 64, width: 1200, x: 0, y: 0 })
+    const overlay = document.createElement('div')
+    overlay.className = 'v-overlay v-overlay--active'
+    const content = document.createElement('div')
+    content.className = 'v-overlay__content'
+    const card = appendOpticalSurface('v-card', { height: 480, width: 560, x: 320, y: 140 })
+    content.append(card)
+    overlay.append(content)
+    document.body.append(overlay)
+
+    expect(collectGlassOpticalRects(1200, 800, 'frosted', undefined, 'fixed')).toEqual([
+      expect.objectContaining({ height: 64, width: 1200, x: 0, y: 0 }),
+    ])
+    expect(collectGlassOpticalRects(1200, 800, 'frosted', undefined, 'scroll')).toEqual([])
   })
 
   it('keeps the renderer state used by components and global CSS in sync', () => {
@@ -427,7 +502,10 @@ describe('glass optical surface discovery', () => {
   })
 
   it('recovers after consecutive WebGL context loss cycles', async () => {
+    const three = await import('three')
     const canvas = document.createElement('canvas')
+    const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
+    const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
     const scope = effectScope()
     const renderer = scope.run(() =>
       useGlassOpticalRenderer({
@@ -446,6 +524,8 @@ describe('glass optical surface discovery', () => {
     for (let cycle = 0; cycle < 2; cycle += 1) {
       canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
       expect(renderer?.state.value).toBe('fallback')
+      expect(rendererDispose).toHaveBeenCalledTimes(cycle + 1)
+      expect(contextLoss).not.toHaveBeenCalled()
 
       canvas.dispatchEvent(new Event('webglcontextrestored'))
       await nextTick()
@@ -477,11 +557,252 @@ describe('glass optical surface discovery', () => {
 
     await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
     expect(compile).toHaveBeenCalled()
-    expect(warn).toHaveBeenCalledWith(
-      '玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:',
-      expect.any(Error),
+    expect(warn).toHaveBeenCalledWith('玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:', expect.any(Error))
+
+    scope.stop()
+  })
+
+  it('draws the first stable frame before publishing the ready state', async () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
     )
 
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(renderer?.renderedFrames.value).toBeGreaterThan(0)
+
+    scope.stop()
+  })
+
+  it('keeps both prefilter axes in source-pixel space and generates mipmaps only for the retained target', async () => {
+    const three = await import('three')
+    const texture = new three.Texture<HTMLImageElement>()
+    texture.image = {
+      height: 600,
+      naturalHeight: 600,
+      naturalWidth: 800,
+      width: 800,
+    } as HTMLImageElement
+    vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockResolvedValue(texture)
+    const prefilterPasses: Array<{
+      direction: [number, number]
+      textureSize: [number, number]
+    }> = []
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(scene => {
+      const material = (scene as unknown as { children?: Array<{ material?: ShaderMaterial }> }).children?.[0]?.material
+      if (!material?.fragmentShader.includes('uniform vec2 uDirection')) return
+
+      const direction = material.uniforms.uDirection.value as Vector2
+      const textureSize = material.uniforms.uTextureSize.value as Vector2
+      prefilterPasses.push({
+        direction: [direction.x, direction.y],
+        textureSize: [textureSize.x, textureSize.y],
+      })
+    })
+    const setRenderTarget = vi.spyOn(three.WebGLRenderer.prototype, 'setRenderTarget')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(prefilterPasses).toEqual([
+      { direction: [1, 0], textureSize: [800, 600] },
+      { direction: [0, 1], textureSize: [800, 600] },
+    ])
+
+    const targets = setRenderTarget.mock.calls
+      .map(([target]) => target)
+      .filter(
+        (target): target is WebGLRenderTarget =>
+          target instanceof three.WebGLRenderTarget && target.width === 100 && target.height === 75,
+      )
+    expect(targets).toHaveLength(2)
+    expect(targets[0].texture.generateMipmaps).toBe(false)
+    expect(targets[0].texture.minFilter).toBe(three.LinearFilter)
+    expect(targets[1].texture.generateMipmaps).toBe(true)
+    expect(targets[1].texture.minFilter).toBe(three.LinearMipmapLinearFilter)
+    expect(render).toHaveBeenCalled()
+
+    scope.stop()
+  })
+
+  it('keeps frosted prefilter targets at one eighth of the bounded source', async () => {
+    const three = await import('three')
+    const texture = new three.Texture<HTMLImageElement>()
+    texture.image = {
+      height: 2160,
+      naturalHeight: 2160,
+      naturalWidth: 4096,
+      width: 4096,
+    } as HTMLImageElement
+    vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockResolvedValue(texture)
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
+    const prefilterTextureSizes: Array<[number, number]> = []
+    vi.spyOn(three.WebGLRenderer.prototype, 'render').mockImplementation(scene => {
+      const material = (scene as unknown as { children?: Array<{ material?: ShaderMaterial }> }).children?.[0]?.material
+      if (!material?.fragmentShader.includes('uniform vec2 uDirection')) return
+
+      const textureSize = material.uniforms.uTextureSize.value as Vector2
+      prefilterTextureSizes.push([textureSize.x, textureSize.y])
+    })
+    const setRenderTarget = vi.spyOn(three.WebGLRenderer.prototype, 'setRenderTarget')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(prefilterTextureSizes).toEqual([
+      [1536, 810],
+      [1536, 810],
+    ])
+    const retainedResolutionTargets = setRenderTarget.mock.calls
+      .map(([target]) => target)
+      .filter(
+        (target): target is WebGLRenderTarget =>
+          target instanceof three.WebGLRenderTarget && target.width === 192 && target.height === 101,
+      )
+    expect(retainedResolutionTargets).toHaveLength(2)
+
+    scope.stop()
+  })
+
+  it.each([
+    ['balanced', 1536, 810],
+    ['high', 2048, 1080],
+  ] as const)('limits %s wallpaper uploads to the renderer output footprint', async (quality, width, height) => {
+    const three = await import('three')
+    const texture = new three.Texture<HTMLImageElement>()
+    texture.image = {
+      height: 2160,
+      naturalHeight: 2160,
+      naturalWidth: 4096,
+      width: 4096,
+    } as HTMLImageElement
+    vi.spyOn(three.TextureLoader.prototype, 'loadAsync').mockResolvedValue(texture)
+    const textureCanvasSizes: Array<[number, number]> = []
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
+      if (this.width > 64 || this.height > 64) textureCanvasSizes.push([this.width, this.height])
+
+      return {
+        drawImage: vi.fn(),
+      } as unknown as CanvasRenderingContext2D
+    })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref(quality),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(textureCanvasSizes).toContainEqual([width, height])
+
+    scope.stop()
+  })
+
+  it('shares and bounds prepared wallpaper sources across renderer contexts', async () => {
+    const wallpaperSourceCache = createGlassWallpaperSourceCache()
+    const source = {
+      height: 810,
+      image: document.createElement('canvas'),
+      toneProfile: { exposure: 1, highlightLuminance: 0.82, medianLuminance: 0.38 },
+      width: 1536,
+    }
+    const prepare = vi.fn().mockResolvedValue(source)
+    const [fixedSource, scrollSource] = await Promise.all([
+      wallpaperSourceCache.get('1536:wallpaper-a', prepare),
+      wallpaperSourceCache.get('1536:wallpaper-a', prepare),
+    ])
+
+    expect(prepare).toHaveBeenCalledOnce()
+    expect(fixedSource).toBe(source)
+    expect(scrollSource).toBe(source)
+
+    for (const key of ['wallpaper-b', 'wallpaper-c', 'wallpaper-d']) {
+      await wallpaperSourceCache.get(key, vi.fn().mockResolvedValue(source))
+    }
+    await wallpaperSourceCache.get('1536:wallpaper-a', prepare)
+    expect(prepare).toHaveBeenCalledTimes(2)
+  })
+
+  it('reuses the tone decoder source without loading the wallpaper a second time', async () => {
+    const three = await import('three')
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const image = {
+      height: 1080,
+      naturalHeight: 1080,
+      naturalWidth: 1920,
+      width: 1920,
+    } as HTMLImageElement
+    wallpaperToneMocks.load.mockResolvedValueOnce({
+      corsReady: true,
+      profile: {
+        exposure: 0.96,
+        highlightLuminance: 0.76,
+        medianLuminance: 0.34,
+      },
+    })
+    wallpaperToneMocks.takeDecodedSource.mockReturnValueOnce({
+      image,
+      profile: {
+        exposure: 0.96,
+        highlightLuminance: 0.76,
+        medianLuminance: 0.34,
+      },
+    })
+    const canvas = document.createElement('canvas')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://image.example/decoded.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    expect(wallpaperToneMocks.takeDecodedSource).toHaveBeenCalledWith('https://image.example/decoded.jpg')
+    expect(textureLoad).not.toHaveBeenCalled()
     scope.stop()
   })
 
@@ -491,8 +812,7 @@ describe('glass optical surface discovery', () => {
     const active = ref(true)
     const scope = effectScope()
     let frameId = 0
-    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => ++frameId)
-    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame')
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => ++frameId)
     const rendererDispose = vi.spyOn(three.WebGLRenderer.prototype, 'dispose')
     const renderTargetDispose = vi.spyOn(three.WebGLRenderTarget.prototype, 'dispose')
     const contextLoss = vi.spyOn(three.WebGLRenderer.prototype, 'forceContextLoss')
@@ -516,7 +836,7 @@ describe('glass optical surface discovery', () => {
     )
 
     await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
-    expect(requestFrame).toHaveBeenCalled()
+    expect(renderer?.renderedFrames.value).toBeGreaterThan(0)
     expect(countListenerAdds(addWindowListener.mock.calls, 'pointermove')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'touchstart')).toBe(1)
     expect(countListenerAdds(addWindowListener.mock.calls, 'touchmove')).toBe(1)
@@ -531,16 +851,14 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
 
     const renderTargetDisposalsBeforeFirstRelease = renderTargetDispose.mock.calls.length
-    const frameCancellationsBeforeFirstRelease = cancelFrame.mock.calls.length
     active.value = false
     await nextTick()
 
     expect(rendererDispose).toHaveBeenCalledTimes(1)
-    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeFirstRelease + 3)
+    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeFirstRelease + 2)
     expect(contextLoss).toHaveBeenCalledTimes(1)
     expect(resizeDisconnect).toHaveBeenCalledTimes(1)
     expect(mutationDisconnect).toHaveBeenCalledTimes(1)
-    expect(cancelFrame.mock.calls.length).toBeGreaterThan(frameCancellationsBeforeFirstRelease)
 
     addWindowListener.mockClear()
     addDocumentListener.mockClear()
@@ -564,16 +882,14 @@ describe('glass optical surface discovery', () => {
     expect(countListenerAdds(addCanvasListener.mock.calls, 'webglcontextrestored')).toBe(1)
 
     const renderTargetDisposalsBeforeSecondRelease = renderTargetDispose.mock.calls.length
-    const frameCancellationsBeforeSecondRelease = cancelFrame.mock.calls.length
     active.value = false
     await nextTick()
 
     expect(rendererDispose).toHaveBeenCalledTimes(2)
-    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeSecondRelease + 3)
+    expect(renderTargetDispose).toHaveBeenCalledTimes(renderTargetDisposalsBeforeSecondRelease + 2)
     expect(contextLoss).toHaveBeenCalledTimes(2)
     expect(resizeDisconnect).toHaveBeenCalledTimes(2)
     expect(mutationDisconnect).toHaveBeenCalledTimes(2)
-    expect(cancelFrame.mock.calls.length).toBeGreaterThan(frameCancellationsBeforeSecondRelease)
 
     scope.stop()
   })
@@ -602,14 +918,14 @@ describe('glass optical surface discovery', () => {
 
     quality.value = 'balanced'
     await nextTick()
-    await vi.waitFor(() => expect(renderTargetDispose).toHaveBeenCalledTimes(4))
+    await vi.waitFor(() => expect(renderTargetDispose).toHaveBeenCalledTimes(2))
 
     expect(rendererDispose).not.toHaveBeenCalled()
     expect(contextLoss).not.toHaveBeenCalled()
 
     quality.value = 'high'
     await nextTick()
-    await vi.waitFor(() => expect(renderTargetDispose).toHaveBeenCalledTimes(6))
+    await vi.waitFor(() => expect(renderTargetDispose).toHaveBeenCalledTimes(4))
 
     expect(rendererDispose).not.toHaveBeenCalled()
     expect(contextLoss).not.toHaveBeenCalled()
@@ -787,8 +1103,10 @@ describe('glass optical surface discovery', () => {
             uHasFrostedTexture: { value: number }
             uPreviousFrostedTexture: { value: unknown }
             uPreviousTexture: { value: unknown }
+            uPreviousWallpaperExposure: { value: number }
             uTexture: { value: unknown }
             uTextureMix: { value: number }
+            uWallpaperExposure: { value: number }
           }
         }
       }>
@@ -808,6 +1126,398 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('return mix(previousTone, currentTone, uTextureMix)')
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'toneMapWallpaper(mix(previous, current, uTextureMix), viewportUv)',
+    )
+
+    previousWallpaperUrl.value = ''
+    await nextTick()
+
+    expect(uniforms.uPreviousTexture.value).toBe(uniforms.uTexture.value)
+    expect(uniforms.uPreviousFrostedTexture.value).toBe(uniforms.uFrostedTexture.value)
+    expect(uniforms.uPreviousWallpaperExposure.value).toBe(uniforms.uWallpaperExposure.value)
+    expect(uniforms.uTextureMix.value).toBe(1)
+    scope.stop()
+  })
+
+  it('retains a prepared transaction until it becomes the rendered active wallpaper', async () => {
+    const three = await import('three')
+    const wallpaperUrl = ref('https://example.com/wallpaper-1.jpg')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const previousWallpaperUrl = ref('')
+    const transitionStartedAt = ref(0)
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const initTexture = vi.spyOn(three.WebGLRenderer.prototype, 'initTexture')
+    const textureDispose = vi.spyOn(three.Texture.prototype, 'dispose')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        previousWallpaperUrl,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        transitionDuration: ref(1500),
+        transitionStartedAt,
+        wallpaperUrl,
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    textureLoad.mockClear()
+    initTexture.mockClear()
+    textureDispose.mockClear()
+
+    pendingWallpaperRevision.value = 11
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-2.jpg'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(11))
+    const preparedTexture = initTexture.mock.calls.at(-1)?.[0]
+
+    expect(renderer?.preparedWallpaperUrl.value).toBe('https://example.com/wallpaper-2.jpg')
+    expect(preparedTexture).toBeDefined()
+    expect(textureDispose.mock.contexts).not.toContain(preparedTexture)
+
+    const preparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
+    const startedAt = performance.now()
+    expect(renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-2.jpg', 11, preparationKey)).toBe(true)
+    expect(
+      renderer?.activatePreparedWallpaper('https://example.com/wallpaper-2.jpg', 11, preparationKey, startedAt),
+    ).toBe(true)
+    const activatedScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uPreviousTexture: { value: unknown }
+            uTexture: { value: unknown }
+            uTextureMix: { value: number }
+          }
+        }
+      }>
+    }
+    const activatedUniforms = activatedScene.children[0].material.uniforms
+    expect(activatedUniforms.uPreviousTexture.value).not.toBe(activatedUniforms.uTexture.value)
+    expect(activatedUniforms.uTextureMix.value).toBe(0)
+    expect(textureDispose.mock.contexts).not.toContain(activatedUniforms.uPreviousTexture.value)
+    previousWallpaperUrl.value = wallpaperUrl.value
+    transitionStartedAt.value = startedAt
+    wallpaperUrl.value = 'https://example.com/wallpaper-2.jpg'
+    pendingWallpaperUrl.value = ''
+    pendingWallpaperRevision.value = 0
+    await nextTick()
+
+    expect(renderer?.activeWallpaperUrl.value).toBe('https://example.com/wallpaper-2.jpg')
+    expect(renderer?.activeWallpaperRevision.value).toBe(11)
+    expect(textureLoad).toHaveBeenCalledOnce()
+    expect(textureDispose.mock.contexts).not.toContain(preparedTexture)
+
+    scope.stop()
+    expect(textureDispose.mock.contexts).toContain(preparedTexture)
+  })
+
+  it('rolls a partially committed prepared wallpaper back without reloading the previous texture', async () => {
+    const three = await import('three')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const initTexture = vi.spyOn(three.WebGLRenderer.prototype, 'initTexture')
+    const textureDispose = vi.spyOn(three.Texture.prototype, 'dispose')
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        transitionDuration: ref(1500),
+        transitionStartedAt: ref(0),
+        wallpaperUrl: ref('https://example.com/wallpaper-current.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const initialScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uTexture: { value: unknown }
+            uTextureMix: { value: number }
+          }
+        }
+      }>
+    }
+    const initialTexture = initialScene.children[0].material.uniforms.uTexture.value
+    initTexture.mockClear()
+    textureLoad.mockClear()
+    textureDispose.mockClear()
+    pendingWallpaperRevision.value = 13
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-next.jpg'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(13))
+    const preparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
+    const preparedTexture = initTexture.mock.calls.at(-1)?.[0]
+
+    expect(renderer?.activatePreparedWallpaper('https://example.com/wallpaper-next.jpg', 13, preparationKey, 400)).toBe(
+      true,
+    )
+    const activatedTexture = initialScene.children[0].material.uniforms.uTexture.value
+    expect(activatedTexture).toBe(preparedTexture)
+    expect(renderer?.rollbackPreparedWallpaperActivation('https://example.com/wallpaper-next.jpg', 13)).toBe(true)
+
+    expect(renderer?.activeWallpaperUrl.value).toBe('https://example.com/wallpaper-current.jpg')
+    expect(renderer?.activeWallpaperRevision.value).toBe(0)
+    expect(initialScene.children[0].material.uniforms.uTexture.value).toBe(initialTexture)
+    expect(initialScene.children[0].material.uniforms.uTextureMix.value).toBe(1)
+    expect(textureDispose.mock.contexts).toContain(activatedTexture)
+    expect(textureDispose.mock.contexts).not.toContain(initialTexture)
+    expect(textureLoad).toHaveBeenCalledOnce()
+    scope.stop()
+  })
+
+  it('releases a canceled prepared transaction without replacing the active wallpaper', async () => {
+    const three = await import('three')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const initTexture = vi.spyOn(three.WebGLRenderer.prototype, 'initTexture')
+    const textureDispose = vi.spyOn(three.Texture.prototype, 'dispose')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper-1.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    initTexture.mockClear()
+    textureDispose.mockClear()
+    pendingWallpaperRevision.value = 12
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-2.jpg'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(12))
+    const preparedTexture = initTexture.mock.calls.at(-1)?.[0]
+
+    pendingWallpaperUrl.value = ''
+    pendingWallpaperRevision.value = 0
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperUrl.value).toBe(''))
+
+    expect(renderer?.activeWallpaperUrl.value).toBe('https://example.com/wallpaper-1.jpg')
+    expect(textureDispose.mock.contexts.filter(context => context === preparedTexture)).toHaveLength(1)
+    scope.stop()
+  })
+
+  it('ignores a late prepared result after a newer wallpaper revision is ready', async () => {
+    const three = await import('three')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper-current.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    textureLoad.mockClear()
+    let resolveFirstTone: ((value: unknown) => void) | null = null
+    wallpaperToneMocks.load.mockImplementation((url: string) => {
+      if (url.endsWith('/wallpaper-a.jpg')) {
+        return new Promise(resolve => {
+          resolveFirstTone = resolve
+        })
+      }
+
+      return Promise.resolve({
+        corsReady: false,
+        profile: {
+          exposure: 1,
+          highlightLuminance: 0.82,
+          medianLuminance: 0.38,
+        },
+      })
+    })
+
+    pendingWallpaperRevision.value = 21
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-a.jpg'
+    await vi.waitFor(() => expect(wallpaperToneMocks.load).toHaveBeenCalledWith('https://example.com/wallpaper-a.jpg'))
+    pendingWallpaperRevision.value = 22
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-b.jpg'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(22))
+    const secondPreparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
+
+    ;(resolveFirstTone as ((value: unknown) => void) | null)?.({
+      corsReady: false,
+      profile: {
+        exposure: 1,
+        highlightLuminance: 0.82,
+        medianLuminance: 0.38,
+      },
+    })
+    await vi.waitFor(() => expect(textureLoad).toHaveBeenCalledTimes(2))
+
+    expect(renderer?.preparedWallpaperUrl.value).toBe('https://example.com/wallpaper-b.jpg')
+    expect(renderer?.preparedWallpaperRevision.value).toBe(22)
+    expect(
+      renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-a.jpg', 21, secondPreparationKey),
+    ).toBe(false)
+    expect(
+      renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-b.jpg', 22, secondPreparationKey),
+    ).toBe(true)
+    scope.stop()
+  })
+
+  it('publishes only the current pending preparation failure identity', async () => {
+    const three = await import('three')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper-current.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    textureLoad.mockRejectedValueOnce(new Error('pending source failed'))
+    pendingWallpaperRevision.value = 51
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-next.jpg'
+    await vi.waitFor(() => expect(renderer?.failedWallpaperRevision.value).toBe(51))
+
+    expect(renderer?.failedWallpaperUrl.value).toBe('https://example.com/wallpaper-next.jpg')
+    expect(renderer?.failedWallpaperPreparationKey.value).toContain('frosted:balanced:')
+
+    pendingWallpaperRevision.value = 0
+    pendingWallpaperUrl.value = ''
+    await vi.waitFor(() => expect(renderer?.failedWallpaperRevision.value).toBe(0))
+    expect(renderer?.failedWallpaperUrl.value).toBe('')
+    expect(renderer?.failedWallpaperPreparationKey.value).toBe('')
+    scope.stop()
+  })
+
+  it('retains plain prepared bundles but rebuilds them for frosted and quality capability changes', async () => {
+    const three = await import('three')
+    const appearance = ref<'clear' | 'frosted' | 'tinted'>('clear')
+    const quality = ref<'balanced' | 'high'>('balanced')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const initTexture = vi.spyOn(three.WebGLRenderer.prototype, 'initTexture')
+    const textureDispose = vi.spyOn(three.Texture.prototype, 'dispose')
+    const textureLoad = vi.spyOn(three.TextureLoader.prototype, 'loadAsync')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance,
+        canvas: ref(document.createElement('canvas')),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality,
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper-current.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    initTexture.mockClear()
+    textureDispose.mockClear()
+    textureLoad.mockClear()
+    pendingWallpaperRevision.value = 31
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-next.jpg'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(31))
+    const plainTexture = initTexture.mock.calls.at(-1)?.[0]
+    const plainPreparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
+    const loadsAfterPlainPreparation = textureLoad.mock.calls.length
+
+    appearance.value = 'tinted'
+    await nextTick()
+    expect(renderer?.preparedWallpaperPreparationKey.value).toBe(plainPreparationKey)
+    expect(textureLoad).toHaveBeenCalledTimes(loadsAfterPlainPreparation)
+    expect(textureDispose.mock.contexts).not.toContain(plainTexture)
+
+    appearance.value = 'frosted'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperPreparationKey.value).not.toBe(plainPreparationKey))
+    const frostedTexture = initTexture.mock.calls.at(-1)?.[0]
+    const frostedPreparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
+    expect(textureDispose.mock.contexts).toContain(plainTexture)
+    expect(frostedPreparationKey).toContain('frosted:balanced:')
+
+    quality.value = 'high'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperPreparationKey.value).not.toBe(frostedPreparationKey))
+    expect(textureDispose.mock.contexts).toContain(frostedTexture)
+    expect(renderer?.preparedWallpaperPreparationKey.value).toContain('frosted:high:')
+    expect(renderer?.preparedWallpaperRevision.value).toBe(31)
+    scope.stop()
+  })
+
+  it('re-prepares the same pending revision after WebGL context recovery', async () => {
+    const canvas = document.createElement('canvas')
+    const pendingWallpaperUrl = ref('')
+    const pendingWallpaperRevision = ref(0)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(canvas),
+        pendingWallpaperRevision,
+        pendingWallpaperUrl,
+        quality: ref('high'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper-current.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    pendingWallpaperRevision.value = 41
+    pendingWallpaperUrl.value = 'https://example.com/wallpaper-next.jpg'
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(41))
+    const preparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
+
+    canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }))
+    expect(renderer?.state.value).toBe('fallback')
+    expect(renderer?.preparedWallpaperRevision.value).toBe(0)
+    expect(renderer?.activeWallpaperRevision.value).toBe(0)
+
+    canvas.dispatchEvent(new Event('webglcontextrestored'))
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(41))
+
+    expect(renderer?.preparedWallpaperPreparationKey.value).toBe(preparationKey)
+    expect(renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-next.jpg', 41, preparationKey)).toBe(
+      true,
     )
     scope.stop()
   })
@@ -1036,6 +1746,73 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('clips nested hover-card dynamics on shared page surfaces without allocating another material slot', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const pageContent = document.createElement('main')
+    pageContent.className = 'layout-page-content'
+    const outerSurface = document.createElement('section')
+    outerSurface.className = 'v-card'
+    setOpticalSurfaceBounds(outerSurface, { height: 420, width: 900, x: 40, y: 80 })
+    const nestedCard = document.createElement('article')
+    nestedCard.className = 'app-hover-lift-card'
+    nestedCard.style.borderTopLeftRadius = '16px'
+    nestedCard.style.borderTopRightRadius = '16px'
+    nestedCard.style.borderBottomRightRadius = '16px'
+    nestedCard.style.borderBottomLeftRadius = '16px'
+    setOpticalSurfaceBounds(nestedCard, { height: 160, width: 280, x: 80, y: 140 })
+    outerSurface.append(nestedCard)
+    pageContent.append(outerSurface)
+    document.body.append(pageContent)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('frosted'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/sites'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    render.mockClear()
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 200 }))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          fragmentShader: string
+          uniforms: {
+            uHasInteractionClip: { value: number }
+            uInteractionRadii: { value: { toArray: () => number[] } }
+            uInteractionRect: { value: { toArray: () => number[] } }
+            uRectCount: { value: number }
+          }
+        }
+      }>
+    }
+    const material = scene.children[0].material
+
+    expect(material.uniforms.uRectCount.value).toBe(1)
+    expect(material.uniforms.uHasInteractionClip.value).toBe(1)
+    expect(material.uniforms.uInteractionRect.value.toArray()).toEqual([
+      80 / 1200,
+      1 - (140 + 160) / 800,
+      280 / 1200,
+      160 / 800,
+    ])
+    expect(material.uniforms.uInteractionRadii.value.toArray()).toEqual([16, 16, 16, 16])
+    expect(material.fragmentShader).toContain('uniform vec4 uInteractionRect')
+    expect(material.fragmentShader).toContain('surfaceDynamic * interactionMask')
+    scope.stop()
+  })
+
   it('keeps the active texture and ready state when a replacement wallpaper fails', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
@@ -1101,6 +1878,41 @@ describe('glass optical surface discovery', () => {
     await Promise.resolve()
     expect(dispose).not.toHaveBeenCalled()
     expect(render).toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('coalesces visibility, focus, and pageshow into one renderer resume', async () => {
+    const three = await import('three')
+    const canvas = document.createElement('canvas')
+    let visibilityState: DocumentVisibilityState = 'visible'
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState)
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    render.mockClear()
+
+    visibilityState = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+    visibilityState = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('focus'))
+    window.dispatchEvent(new Event('pageshow'))
+    await nextTick()
+    await Promise.resolve()
+
+    expect(render).toHaveBeenCalledTimes(1)
     scope.stop()
   })
 
@@ -1487,6 +2299,73 @@ describe('glass optical surface discovery', () => {
     surface.remove()
   })
 
+  it('reuses the committed presentation size throughout pointer animation frames', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    let presentationReads = 0
+    const root = document.createElement('div')
+    Object.defineProperties(root, {
+      scrollHeight: {
+        configurable: true,
+        get: () => {
+          presentationReads += 1
+          return 1600
+        },
+      },
+      scrollWidth: {
+        configurable: true,
+        get: () => {
+          presentationReads += 1
+          return 1200
+        },
+      },
+    })
+    const canvas = document.createElement('canvas')
+    root.append(canvas)
+    document.body.append(root)
+    const callbacks = new Map<number, FrameRequestCallback>()
+    let frameId = 0
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      frameId += 1
+      callbacks.set(frameId, callback)
+      return frameId
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => callbacks.delete(id))
+    const surface = appendOpticalSurface('app-hover-lift-card', { height: 300, width: 400, x: 40, y: 120 })
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(canvas),
+        quality: ref('high'),
+        routeKey: ref('/plugins'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    for (let pass = 0; pass < 6 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + pass * 16))
+    }
+    presentationReads = 0
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 180, clientY: 220 }))
+    for (let pass = 0; pass < 5 && callbacks.size > 0; pass += 1) {
+      const scheduledCallbacks = [...callbacks.values()]
+      callbacks.clear()
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+    }
+
+    expect(presentationReads).toBe(0)
+    scope.stop()
+    surface.remove()
+  })
+
   it('tracks transformed card geometry during a bounded hover transition without advancing flow', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
@@ -1547,7 +2426,7 @@ describe('glass optical surface discovery', () => {
     surface.remove()
   })
 
-  it('refreshes visible surface slots after scrolling settles', async () => {
+  it('refreshes visible surface slots in the first scroll frame', async () => {
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
     let scrollY = 0
@@ -1604,10 +2483,24 @@ describe('glass optical surface discovery', () => {
     setOpticalSurfaceBounds(firstSurface, { height: 240, width: 360, x: 80, y: -900 })
     setOpticalSurfaceBounds(secondSurface, { height: 240, width: 360, x: 80, y: 100 })
     window.dispatchEvent(new Event('scroll'))
+    const firstScrollFrame = [...callbacks.values()]
+    callbacks.clear()
+    firstScrollFrame.forEach(callback => callback(performance.now() + 100))
+    const firstScrollScene = render.mock.calls.at(-1)?.[0] as unknown as {
+      children: Array<{
+        material: {
+          uniforms: {
+            uRects: { value: Array<{ y: number }> }
+          }
+        }
+      }>
+    }
+    expect(firstScrollScene.children[0].material.uniforms.uRects.value[0].y).toBeCloseTo(1 - (1100 + 240) / 2000)
+
     for (let pass = 0; pass < 3 && callbacks.size > 0; pass += 1) {
       const scheduledCallbacks = [...callbacks.values()]
       callbacks.clear()
-      scheduledCallbacks.forEach(callback => callback(performance.now() + 100 + pass * 16))
+      scheduledCallbacks.forEach(callback => callback(performance.now() + 116 + pass * 16))
     }
     expect(callbacks.size).toBe(0)
 
@@ -1709,7 +2602,10 @@ describe('glass optical surface discovery', () => {
             uMotionExpansion: { value: number }
             uRects: { value: Array<{ x: number }> }
             uReflectionStrength: { value: number }
-            uTransparency: { value: number }
+            uBackgroundVisibility: { value: number }
+            uFrostDetailLevel: { value: number }
+            uSurfaceDensity: { value: number }
+            uTintDensity: { value: number }
             uTransmissionStrength: { value: number }
             uTranslationStrength: { value: number }
             uSurfaceWeights: { value: number[] }
@@ -1736,10 +2632,13 @@ describe('glass optical surface discovery', () => {
     expect(uniforms.uTranslationStrength.value).toBe(1)
     expect(uniforms.uDeformationStrength.value).toBe(1)
     expect(uniforms.uFlowStrength.value).toBe(1)
-    expect(uniforms.uMotionExpansion.value).toBe(0)
+    expect(uniforms.uMotionExpansion.value).toBeCloseTo(0.5 ** 1.4)
     expect(uniforms.uMaxRefractionPixels.value).toBe(6)
     expect(uniforms.uReflectionStrength.value).toBe(1)
-    expect(uniforms.uTransparency.value).toBeGreaterThan(0.6)
+    expect(uniforms.uBackgroundVisibility.value).toBeCloseTo(0.58)
+    expect(uniforms.uFrostDetailLevel.value).toBeCloseTo(0.3)
+    expect(uniforms.uSurfaceDensity.value).toBeCloseTo(0.62)
+    expect(uniforms.uTintDensity.value).toBeCloseTo(0.65)
     expect(uniforms.uTransmissionStrength.value).toBeCloseTo(5 / 7)
 
     translationStrength.value = 100
@@ -1758,7 +2657,7 @@ describe('glass optical surface discovery', () => {
 
     expect(scene.children[0].material.fragmentShader).not.toContain('clamp(uMotion +')
     expect(scene.children[0].material.fragmentShader).toContain(
-      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic)',
+      'materialEnergy = max(materialEnergy, liquidEnergy * rectMask * surfaceDynamic * interactionMask)',
     )
     expect(scene.children[0].material.fragmentShader).toContain('softLimitDynamicRefraction')
     expect(scene.children[0].material.fragmentShader).toContain('getContentProtection')
@@ -1775,7 +2674,20 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uDeformationStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFlowStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uReflectionStrength')
-    expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransparency')
+    expect(scene.children[0].material.fragmentShader).not.toContain('uWakeProgress')
+    expect(scene.children[0].material.fragmentShader).not.toContain('temporalEnergy')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeScale = 0.65')
+    expect(scene.children[0].material.fragmentShader).toContain('const float dynamicRangeDensity = 2.367')
+    expect(scene.children[0].material.fragmentShader).toContain('float pointerSpread = mix(26.0, 17.0, uQuality)')
+    expect(scene.children[0].material.fragmentShader).not.toContain(
+      'mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted)',
+    )
+    expect(scene.children[0].material.fragmentShader).toContain('float wakeTravel =\n      0.014 * dynamicRangeScale *')
+    expect(scene.children[0].material.fragmentShader).toContain('max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uBackgroundVisibility')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uFrostDetailLevel')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uSurfaceDensity')
+    expect(scene.children[0].material.fragmentShader).toContain('uniform float uTintDensity')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uTransmissionStrength')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uPreviousWallpaperExposure')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uWallpaperExposure')
@@ -1790,24 +2702,16 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('float referenceLiftProgress')
     expect(scene.children[0].material.fragmentShader).toContain('float highTransmissionProgress')
     expect(scene.children[0].material.fragmentShader).toContain('float frostedDensity')
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'frosted * (1.0 - smoothstep(0.25, 0.9, uTransparency))',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      '1.0 + frostedDensity * mix(1.15, 1.55, uQuality)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'smoothstep(0.02, 0.55, liquidPresence)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(uTransparency * 0.26, 0.92, opticalCoverage)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(frostedBaseAlpha, 0.94, opticalCoverage)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'mix(uTransparency * 0.44, 0.92, opticalCoverage)',
-    )
+    expect(scene.children[0].material.fragmentShader).toContain('frosted * (1.0 - uFrostDetailLevel)')
+    expect(scene.children[0].material.fragmentShader).toContain('1.0 + frostedDensity * mix(1.15, 1.55, uQuality)')
+    expect(scene.children[0].material.fragmentShader).toContain('clearBaseAlpha * mix(1.0, 2.5, liquidPresence)')
+    expect(scene.children[0].material.fragmentShader).toContain('frostedBaseAlpha * mix(0.9, 1.0, liquidPresence)')
+    expect(scene.children[0].material.fragmentShader).toContain('tintedBaseAlpha * mix(1.0, 1.8, liquidPresence)')
+    expect(scene.children[0].material.fragmentShader).not.toContain('opticalCoverage')
+    expect(scene.children[0].material.fragmentShader).toContain('texture2DGradEXT(')
+    expect(scene.children[0].material.fragmentShader).toContain('float frostLod = (1.0 - uFrostDetailLevel) * 6.0')
+    expect(scene.children[0].material.fragmentShader).toContain('float frostGradientScale = exp2(frostLod)')
+    expect(scene.children[0].material.fragmentShader).not.toContain('exp2(frostLod) / 0.125')
     expect(scene.children[0].material.fragmentShader).toContain('vec3 transmissionReference')
     expect(scene.children[0].material.fragmentShader).toContain('float referenceLift')
     expect(scene.children[0].material.fragmentShader).toContain('float highlightProtection')
@@ -1822,9 +2726,7 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain(
       'causticHighlightMix * uReflectionStrength * highlightBudget',
     )
-    expect(scene.children[0].material.fragmentShader).not.toContain(
-      'materialAlpha = uTransparency * mix(',
-    )
+    expect(scene.children[0].material.fragmentShader).not.toContain('materialAlpha = uBackgroundVisibility * mix(')
     expect(scene.children[0].material.fragmentShader).not.toContain('mix(0.035, 0.4')
     expect(scene.children[0].material.fragmentShader).not.toContain('sin(')
 
@@ -1880,9 +2782,16 @@ describe('glass optical surface discovery', () => {
     firstInteractionFrame(pointerMove.timeStamp + 100)
     const firstScene = render.mock.calls.at(-1)?.[0] as unknown as {
       children: Array<{
-        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+        material: {
+          uniforms: {
+            uPointer: { value: { x: number; y: number } }
+            uPointerVelocity: { value: { x: number; y: number } }
+          }
+        }
       }>
     }
+    const firstPointer = firstScene.children[0].material.uniforms.uPointer.value
+    const stablePointer = { x: firstPointer.x, y: firstPointer.y }
     const firstVelocity = firstScene.children[0].material.uniforms.uPointerVelocity.value
     const stableDirection = { x: firstVelocity.x, y: firstVelocity.y }
 
@@ -1891,9 +2800,15 @@ describe('glass optical surface discovery', () => {
     secondInteractionFrame(pointerMove.timeStamp + 300)
     const secondScene = render.mock.calls.at(-1)?.[0] as unknown as {
       children: Array<{
-        material: { uniforms: { uPointerVelocity: { value: { x: number; y: number } } } }
+        material: {
+          uniforms: {
+            uPointer: { value: { x: number; y: number } }
+            uPointerVelocity: { value: { x: number; y: number } }
+          }
+        }
       }>
     }
+    expect(secondScene.children[0].material.uniforms.uPointer.value).toMatchObject(stablePointer)
     expect(secondScene.children[0].material.uniforms.uPointerVelocity.value).toMatchObject(stableDirection)
 
     const [finalInteractionFrame] = callbacks.values()
