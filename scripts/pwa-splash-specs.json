@@ -1,0 +1,22 @@
+[
+  { "width": 2048, "height": 2732, "scaleFactor": 2 },
+  { "width": 1668, "height": 2388, "scaleFactor": 2 },
+  { "width": 1536, "height": 2048, "scaleFactor": 2 },
+  { "width": 1640, "height": 2360, "scaleFactor": 2 },
+  { "width": 1668, "height": 2224, "scaleFactor": 2 },
+  { "width": 1620, "height": 2160, "scaleFactor": 2 },
+  { "width": 1488, "height": 2266, "scaleFactor": 2 },
+  { "width": 1320, "height": 2868, "scaleFactor": 3 },
+  { "width": 1206, "height": 2622, "scaleFactor": 3 },
+  { "width": 1260, "height": 2736, "scaleFactor": 3 },
+  { "width": 1290, "height": 2796, "scaleFactor": 3 },
+  { "width": 1179, "height": 2556, "scaleFactor": 3 },
+  { "width": 1170, "height": 2532, "scaleFactor": 3 },
+  { "width": 1284, "height": 2778, "scaleFactor": 3 },
+  { "width": 1125, "height": 2436, "scaleFactor": 3 },
+  { "width": 1242, "height": 2688, "scaleFactor": 3 },
+  { "width": 828, "height": 1792, "scaleFactor": 2 },
+  { "width": 1242, "height": 2208, "scaleFactor": 3 },
+  { "width": 750, "height": 1334, "scaleFactor": 2 },
+  { "width": 640, "height": 1136, "scaleFactor": 2 }
+]

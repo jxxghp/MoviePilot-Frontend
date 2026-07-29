@@ -91,7 +91,6 @@ export default defineConfig(({ command, mode, isPreview }) => ({
           'scope': './',
           'display': 'standalone',
           'display_override': ['window-controls-overlay', 'standalone'],
-          'orientation': 'portrait-primary',
           'lang': 'zh-CN',
           'dir': 'ltr',
           'categories': ['entertainment', 'multimedia', 'utilities'],

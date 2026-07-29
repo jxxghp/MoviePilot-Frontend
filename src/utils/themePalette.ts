@@ -133,6 +133,7 @@ export function applyDocumentThemeChrome(
   if (options.persistLoaderColors) {
     localStorage.setItem('materio-initial-loader-bg', background)
     localStorage.setItem('materio-initial-loader-color', primary)
+    localStorage.setItem('materio-initial-resolved-theme', resolvedTheme)
   }
 
   return {
