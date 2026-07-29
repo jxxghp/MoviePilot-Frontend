@@ -443,10 +443,7 @@ export function applyThemeCustomizerRootSettings(
 ) {
   if (!isBrowser()) return
 
-  const materialResponse = getGlassMaterialResponse(
-    settings.glassAppearance,
-    settings.glassTransparencyStrength,
-  )
+  const materialResponse = getGlassMaterialResponse(settings.glassAppearance, settings.glassTransparencyStrength)
   const frostBlur = getGlassCssFrostBlur(settings.glassTransparencyStrength)
   const applyGlassResponse = (element: HTMLElement) => {
     element.style.setProperty('--glass-background-visibility', String(materialResponse.backgroundVisibility))

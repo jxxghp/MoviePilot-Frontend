@@ -173,10 +173,7 @@ onBeforeMount(async () => {
 <template>
   <VDialog scrollable :max-width="dialogMaxWidth" :fullscreen="!display.mdAndUp.value">
     <!-- Vuetify 渲染模式 -->
-    <VCard
-      v-if="renderMode === 'vuetify'"
-      :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`"
-    >
+    <VCard v-if="renderMode === 'vuetify'" :title="`${props.plugin?.plugin_name} - ${t('dialog.pluginConfig.title')}`">
       <VDialogCloseBtn @click="emit('close')" />
       <VDivider />
       <LoadingBanner v-if="!isRefreshed" class="mt-5" />

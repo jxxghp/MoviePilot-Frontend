@@ -988,7 +988,9 @@ watch(
 watch(isGlassTheme, enabled => {
   if (!enabled) return
 
-  void Promise.all(renderedBackgroundLayers.value.filter(layer => layer.url).map(layer => preloadBackgroundCandidate(layer.url)))
+  void Promise.all(
+    renderedBackgroundLayers.value.filter(layer => layer.url).map(layer => preloadBackgroundCandidate(layer.url)),
+  )
 })
 
 onMounted(async () => {

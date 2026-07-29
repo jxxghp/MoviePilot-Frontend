@@ -1502,12 +1502,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   }
 
   /** 壁纸上传时执行两次 separable blur，常态只保留既定分辨率的低通 RenderTarget。 */
-  async function createFrostedWallpaperTarget(
-    texture: Texture,
-    width: number,
-    height: number,
-    targetLongEdge: number,
-  ) {
+  async function createFrostedWallpaperTarget(texture: Texture, width: number, height: number, targetLongEdge: number) {
     if (!resources || !three) return null
 
     const ownerResources = resources
@@ -1760,7 +1755,9 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
         SURFACE_SELECTORS.filter(
           ({ selector, space }) => getSurfacePresentationSpace(selector, space) === presentationSpace,
         ).flatMap(({ selector }) =>
-          Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(element => !element.closest('.v-overlay')),
+          Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(
+            element => !element.closest('.v-overlay'),
+          ),
         ),
       ),
     )
@@ -1858,12 +1855,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
 
   /** 共享页面 motion 活跃时，页面几何变化必须在浏览器绘制前完成一次完整 presentation 提交。 */
   function commitActivePagePresentation(timestamp = performance.now()) {
-    if (
-      !resources ||
-      presentationSpace !== 'scroll' ||
-      !toValue(options.pageMotion?.active ?? false)
-    )
-      return false
+    if (!resources || presentationSpace !== 'scroll' || !toValue(options.pageMotion?.active ?? false)) return false
 
     if (presentationResizeTimer !== null) window.clearTimeout(presentationResizeTimer)
     presentationResizeTimer = null
@@ -2970,7 +2962,8 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       return {
         height: textureContext ? textureCanvas.height : sourceHeight,
         image: preparedImage,
-        toneProfile: decodedSource?.profile ?? tone.profile ?? analyzeGlassWallpaperTone(image, sourceWidth, sourceHeight),
+        toneProfile:
+          decodedSource?.profile ?? tone.profile ?? analyzeGlassWallpaperTone(image, sourceWidth, sourceHeight),
         width: textureContext ? textureCanvas.width : sourceWidth,
       }
     })
@@ -3114,13 +3107,13 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
   function canActivatePreparedWallpaper(url: string, revision: number, preparationKey: string) {
     return Boolean(
       resources &&
-        !contextRecoveryPending &&
-        state.value === 'ready' &&
-        preparedWallpaper &&
-        preparedWallpaperUrl.value === url &&
-        preparedWallpaperRevision.value === revision &&
-        preparedWallpaperPreparationKey.value === preparationKey &&
-        preparationKey === getWallpaperPreparationKey(url),
+      !contextRecoveryPending &&
+      state.value === 'ready' &&
+      preparedWallpaper &&
+      preparedWallpaperUrl.value === url &&
+      preparedWallpaperRevision.value === revision &&
+      preparedWallpaperPreparationKey.value === preparationKey &&
+      preparationKey === getWallpaperPreparationKey(url),
     )
   }
 
@@ -3211,8 +3204,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
     resources.uniforms.uPreviousWallpaperExposure.value = activeWallpaperExposure
     resources.uniforms.uTextureMix.value = 1
     resources.uniforms.uHasWallpaperTexture.value = rollback.previousHasWallpaperTexture ? 1 : 0
-    resources.uniforms.uHasFrostedTexture.value =
-      rollback.previousHasWallpaperTexture && activeFrostedTarget ? 1 : 0
+    resources.uniforms.uHasFrostedTexture.value = rollback.previousHasWallpaperTexture && activeFrostedTarget ? 1 : 0
     syncCoverScale()
     resetInteractionState()
     disposeWallpaperResources(rejectedTexture, rejectedFrostedTarget)
@@ -3552,12 +3544,7 @@ export function useGlassOpticalRenderer(options: UseGlassOpticalRendererOptions)
       const wallpaperUrl = toValue(options.wallpaperUrl)
       const appearance = toValue(options.appearance)
       const quality = toValue(options.quality)
-      const previousKey = getGlassWallpaperPreparationKey(
-        appearance,
-        quality,
-        previousRouteKey ?? '',
-        wallpaperUrl,
-      )
+      const previousKey = getGlassWallpaperPreparationKey(appearance, quality, previousRouteKey ?? '', wallpaperUrl)
       const nextKey = getGlassWallpaperPreparationKey(appearance, quality, routeKey, wallpaperUrl)
       if (previousKey !== nextKey) invalidatePreparedWallpaper()
       if (resources && presentationSpace === 'scroll' && options.pageMotion) {

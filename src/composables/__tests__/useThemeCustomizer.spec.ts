@@ -340,12 +340,8 @@ describe('useThemeCustomizer glass settings', () => {
       glassQuality: 'balanced',
     })
     const { customizer, wrapper } = mountThemeCustomizer()
-    const {
-      setGlassAppearance,
-      setGlassDeformationStrength,
-      setGlassQuality,
-      setGlassTransparencyStrength,
-    } = customizer
+    const { setGlassAppearance, setGlassDeformationStrength, setGlassQuality, setGlassTransparencyStrength } =
+      customizer
 
     await setGlassDeformationStrength(73)
     await setGlassTransparencyStrength(27)

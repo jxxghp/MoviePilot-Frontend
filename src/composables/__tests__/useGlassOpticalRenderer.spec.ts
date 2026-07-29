@@ -557,10 +557,7 @@ describe('glass optical surface discovery', () => {
 
     await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
     expect(compile).toHaveBeenCalled()
-    expect(warn).toHaveBeenCalledWith(
-      '玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:',
-      expect.any(Error),
-    )
+    expect(warn).toHaveBeenCalledWith('玻璃磨砂壁纸预滤失败，继续使用实时扩散采样:', expect.any(Error))
 
     scope.stop()
   })
@@ -1186,9 +1183,7 @@ describe('glass optical surface discovery', () => {
 
     const preparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
     const startedAt = performance.now()
-    expect(
-      renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-2.jpg', 11, preparationKey),
-    ).toBe(true)
+    expect(renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-2.jpg', 11, preparationKey)).toBe(true)
     expect(
       renderer?.activatePreparedWallpaper('https://example.com/wallpaper-2.jpg', 11, preparationKey, startedAt),
     ).toBe(true)
@@ -1269,9 +1264,9 @@ describe('glass optical surface discovery', () => {
     const preparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
     const preparedTexture = initTexture.mock.calls.at(-1)?.[0]
 
-    expect(
-      renderer?.activatePreparedWallpaper('https://example.com/wallpaper-next.jpg', 13, preparationKey, 400),
-    ).toBe(true)
+    expect(renderer?.activatePreparedWallpaper('https://example.com/wallpaper-next.jpg', 13, preparationKey, 400)).toBe(
+      true,
+    )
     const activatedTexture = initialScene.children[0].material.uniforms.uTexture.value
     expect(activatedTexture).toBe(preparedTexture)
     expect(renderer?.rollbackPreparedWallpaperActivation('https://example.com/wallpaper-next.jpg', 13)).toBe(true)
@@ -1366,9 +1361,7 @@ describe('glass optical surface discovery', () => {
 
     pendingWallpaperRevision.value = 21
     pendingWallpaperUrl.value = 'https://example.com/wallpaper-a.jpg'
-    await vi.waitFor(() =>
-      expect(wallpaperToneMocks.load).toHaveBeenCalledWith('https://example.com/wallpaper-a.jpg'),
-    )
+    await vi.waitFor(() => expect(wallpaperToneMocks.load).toHaveBeenCalledWith('https://example.com/wallpaper-a.jpg'))
     pendingWallpaperRevision.value = 22
     pendingWallpaperUrl.value = 'https://example.com/wallpaper-b.jpg'
     await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(22))
@@ -1387,18 +1380,10 @@ describe('glass optical surface discovery', () => {
     expect(renderer?.preparedWallpaperUrl.value).toBe('https://example.com/wallpaper-b.jpg')
     expect(renderer?.preparedWallpaperRevision.value).toBe(22)
     expect(
-      renderer?.canActivatePreparedWallpaper(
-        'https://example.com/wallpaper-a.jpg',
-        21,
-        secondPreparationKey,
-      ),
+      renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-a.jpg', 21, secondPreparationKey),
     ).toBe(false)
     expect(
-      renderer?.canActivatePreparedWallpaper(
-        'https://example.com/wallpaper-b.jpg',
-        22,
-        secondPreparationKey,
-      ),
+      renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-b.jpg', 22, secondPreparationKey),
     ).toBe(true)
     scope.stop()
   })
@@ -1482,18 +1467,14 @@ describe('glass optical surface discovery', () => {
     expect(textureDispose.mock.contexts).not.toContain(plainTexture)
 
     appearance.value = 'frosted'
-    await vi.waitFor(() =>
-      expect(renderer?.preparedWallpaperPreparationKey.value).not.toBe(plainPreparationKey),
-    )
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperPreparationKey.value).not.toBe(plainPreparationKey))
     const frostedTexture = initTexture.mock.calls.at(-1)?.[0]
     const frostedPreparationKey = renderer?.preparedWallpaperPreparationKey.value ?? ''
     expect(textureDispose.mock.contexts).toContain(plainTexture)
     expect(frostedPreparationKey).toContain('frosted:balanced:')
 
     quality.value = 'high'
-    await vi.waitFor(() =>
-      expect(renderer?.preparedWallpaperPreparationKey.value).not.toBe(frostedPreparationKey),
-    )
+    await vi.waitFor(() => expect(renderer?.preparedWallpaperPreparationKey.value).not.toBe(frostedPreparationKey))
     expect(textureDispose.mock.contexts).toContain(frostedTexture)
     expect(renderer?.preparedWallpaperPreparationKey.value).toContain('frosted:high:')
     expect(renderer?.preparedWallpaperRevision.value).toBe(31)
@@ -1535,13 +1516,9 @@ describe('glass optical surface discovery', () => {
     await vi.waitFor(() => expect(renderer?.preparedWallpaperRevision.value).toBe(41))
 
     expect(renderer?.preparedWallpaperPreparationKey.value).toBe(preparationKey)
-    expect(
-      renderer?.canActivatePreparedWallpaper(
-        'https://example.com/wallpaper-next.jpg',
-        41,
-        preparationKey,
-      ),
-    ).toBe(true)
+    expect(renderer?.canActivatePreparedWallpaper('https://example.com/wallpaper-next.jpg', 41, preparationKey)).toBe(
+      true,
+    )
     scope.stop()
   })
 
@@ -2705,12 +2682,8 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).not.toContain(
       'mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted)',
     )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'float wakeTravel =\n      0.014 * dynamicRangeScale *',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)',
-    )
+    expect(scene.children[0].material.fragmentShader).toContain('float wakeTravel =\n      0.014 * dynamicRangeScale *')
+    expect(scene.children[0].material.fragmentShader).toContain('max(min(1.0, trailEnergy) * 0.68, wakeEnergy * 0.82)')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uBackgroundVisibility')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uFrostDetailLevel')
     expect(scene.children[0].material.fragmentShader).toContain('uniform float uSurfaceDensity')
@@ -2730,26 +2703,14 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain('float highTransmissionProgress')
     expect(scene.children[0].material.fragmentShader).toContain('float frostedDensity')
     expect(scene.children[0].material.fragmentShader).toContain('frosted * (1.0 - uFrostDetailLevel)')
-    expect(scene.children[0].material.fragmentShader).toContain(
-      '1.0 + frostedDensity * mix(1.15, 1.55, uQuality)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'clearBaseAlpha * mix(1.0, 2.5, liquidPresence)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'frostedBaseAlpha * mix(0.9, 1.0, liquidPresence)',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'tintedBaseAlpha * mix(1.0, 1.8, liquidPresence)',
-    )
+    expect(scene.children[0].material.fragmentShader).toContain('1.0 + frostedDensity * mix(1.15, 1.55, uQuality)')
+    expect(scene.children[0].material.fragmentShader).toContain('clearBaseAlpha * mix(1.0, 2.5, liquidPresence)')
+    expect(scene.children[0].material.fragmentShader).toContain('frostedBaseAlpha * mix(0.9, 1.0, liquidPresence)')
+    expect(scene.children[0].material.fragmentShader).toContain('tintedBaseAlpha * mix(1.0, 1.8, liquidPresence)')
     expect(scene.children[0].material.fragmentShader).not.toContain('opticalCoverage')
     expect(scene.children[0].material.fragmentShader).toContain('texture2DGradEXT(')
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'float frostLod = (1.0 - uFrostDetailLevel) * 6.0',
-    )
-    expect(scene.children[0].material.fragmentShader).toContain(
-      'float frostGradientScale = exp2(frostLod)',
-    )
+    expect(scene.children[0].material.fragmentShader).toContain('float frostLod = (1.0 - uFrostDetailLevel) * 6.0')
+    expect(scene.children[0].material.fragmentShader).toContain('float frostGradientScale = exp2(frostLod)')
     expect(scene.children[0].material.fragmentShader).not.toContain('exp2(frostLod) / 0.125')
     expect(scene.children[0].material.fragmentShader).toContain('vec3 transmissionReference')
     expect(scene.children[0].material.fragmentShader).toContain('float referenceLift')
@@ -2765,9 +2726,7 @@ describe('glass optical surface discovery', () => {
     expect(scene.children[0].material.fragmentShader).toContain(
       'causticHighlightMix * uReflectionStrength * highlightBudget',
     )
-    expect(scene.children[0].material.fragmentShader).not.toContain(
-      'materialAlpha = uBackgroundVisibility * mix(',
-    )
+    expect(scene.children[0].material.fragmentShader).not.toContain('materialAlpha = uBackgroundVisibility * mix(')
     expect(scene.children[0].material.fragmentShader).not.toContain('mix(0.035, 0.4')
     expect(scene.children[0].material.fragmentShader).not.toContain('sin(')
 

@@ -208,10 +208,7 @@ html[data-theme='glass'] {
     --glass-fixed-shell-backdrop-filter: blur(min(var(--glass-blur-raised), 60px)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     --glass-control-prominent-backdrop-filter: blur(24px) saturate(150%);
-    --glass-overlay-surface: rgba(
-      var(--v-theme-background),
-      calc(0.24 + var(--glass-surface-density, 0.86) * 0.12)
-    );
+    --glass-overlay-surface: rgba(var(--v-theme-background), calc(0.24 + var(--glass-surface-density, 0.86) * 0.12));
     --glass-overlay-blur: min(var(--glass-blur-raised), 36px);
     --glass-overlay-saturate: 135%;
     --glass-overlay-scrim: rgba(3, 7, 18, 36%);

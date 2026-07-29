@@ -3810,8 +3810,7 @@ export default {
     password: 'Password',
     passwordHint: 'Login password',
     accessCode: 'Access Code',
-    accessCodeHint:
-      'Access code enabled in fnOS Settings -> Security -> Access Settings. Leave empty if not enabled',
+    accessCodeHint: 'Access code enabled in fnOS Settings -> Security -> Access Settings. Leave empty if not enabled',
     syncLibraries: 'Sync Libraries',
     syncLibrariesHint: 'Only selected libraries will be synchronized',
     scanMode: 'Scan Mode',

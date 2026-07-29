@@ -205,18 +205,8 @@ describe('GlassOpticalLayer', () => {
 
     ;(activationCallback as FrameRequestCallback | null)?.(420)
     await nextTick()
-    expect(fixedRenderer.activatePreparedWallpaper).toHaveBeenCalledWith(
-      '/wallpaper-next.jpg',
-      7,
-      preparationKey,
-      420,
-    )
-    expect(scrollRenderer.activatePreparedWallpaper).toHaveBeenCalledWith(
-      '/wallpaper-next.jpg',
-      7,
-      preparationKey,
-      420,
-    )
+    expect(fixedRenderer.activatePreparedWallpaper).toHaveBeenCalledWith('/wallpaper-next.jpg', 7, preparationKey, 420)
+    expect(scrollRenderer.activatePreparedWallpaper).toHaveBeenCalledWith('/wallpaper-next.jpg', 7, preparationKey, 420)
     expect(wrapper.emitted('wallpaperActivated')).toEqual([['/wallpaper-next.jpg', 7, 420]])
     expect(fixedRenderer.activeWallpaperRevision.value).toBe(7)
     expect(scrollRenderer.activeWallpaperRevision.value).toBe(7)
@@ -329,7 +319,10 @@ describe('GlassOpticalLayer', () => {
   })
 
   it.each([
-    ['returns false', (renderer: (typeof rendererResults)[number]) => renderer.activatePreparedWallpaper.mockReturnValueOnce(false)],
+    [
+      'returns false',
+      (renderer: (typeof rendererResults)[number]) => renderer.activatePreparedWallpaper.mockReturnValueOnce(false),
+    ],
     [
       'throws',
       (renderer: (typeof rendererResults)[number]) =>

@@ -150,12 +150,7 @@ let lastPreparedAcknowledgement = ''
 watchEffect(() => {
   const url = props.pendingWallpaperUrl
   const revision = props.pendingWallpaperRevision ?? 0
-  const preparationKey = getGlassWallpaperPreparationKey(
-    props.appearance,
-    props.quality,
-    props.routeKey,
-    url ?? '',
-  )
+  const preparationKey = getGlassWallpaperPreparationKey(props.appearance, props.quality, props.routeKey, url ?? '')
   const acknowledgement = `${revision}:${preparationKey}:${url}`
   const prepared =
     Boolean(url) &&
@@ -211,12 +206,7 @@ watchEffect(() => {
   const url = props.pendingWallpaperUrl
   const revision = props.pendingWallpaperRevision ?? 0
   const activationRevision = props.activateWallpaperRevision ?? 0
-  const preparationKey = getGlassWallpaperPreparationKey(
-    props.appearance,
-    props.quality,
-    props.routeKey,
-    url ?? '',
-  )
+  const preparationKey = getGlassWallpaperPreparationKey(props.appearance, props.quality, props.routeKey, url ?? '')
   const acknowledgement = `${revision}:${preparationKey}:${url}`
   const canActivate =
     Boolean(url) &&
@@ -271,12 +261,7 @@ watchEffect(() => {
       )
       const scrollActivated =
         fixedActivated &&
-        scrollRenderer.activatePreparedWallpaper(
-          currentUrl,
-          currentRevision,
-          currentPreparationKey,
-          startedAt,
-      )
+        scrollRenderer.activatePreparedWallpaper(currentUrl, currentRevision, currentPreparationKey, startedAt)
       if (!fixedActivated || !scrollActivated) {
         rollbackWallpaperActivation(currentUrl, currentRevision)
         lastFailedAcknowledgement = acknowledgement

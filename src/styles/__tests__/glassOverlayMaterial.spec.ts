@@ -40,9 +40,7 @@ describe('glass overlay material styles', () => {
     expect(styles).toMatch(
       /\.layout-vertical-nav\s*\{[\s\S]*?isolation:\s*isolate;[\s\S]*?backdrop-filter:\s*none;[\s\S]*?&::before\s*\{[\s\S]*?backdrop-filter:\s*var\(--glass-fixed-shell-backdrop-filter\);/,
     )
-    expect(styles).toMatch(
-      /\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/,
-    )
+    expect(styles).toMatch(/\.layout-vertical-nav \.ps__rail-y\s*\{[\s\S]*?inset-inline-end:\s*0\.5rem !important;/)
   })
 
   it('uses the shared hover-card contract instead of a Dashboard-specific shadow rule', () => {
@@ -64,8 +62,6 @@ describe('glass overlay material styles', () => {
     expect(layerRuleEnd).toBeGreaterThan(layerRuleStart)
     expect(layerRule).toContain('opacity: 0')
     expect(layerRule).not.toMatch(/transition\s*:/)
-    expect(styles).toMatch(
-      /\[data-glass-renderer-state='ready'\]\s*\.glass-optical-layer\s*\{\s*opacity:\s*1;/,
-    )
+    expect(styles).toMatch(/\[data-glass-renderer-state='ready'\]\s*\.glass-optical-layer\s*\{\s*opacity:\s*1;/)
   })
 })
