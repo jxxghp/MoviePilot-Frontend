@@ -44,14 +44,14 @@ describe('useThemeCustomizer glass settings', () => {
     const settings = readThemeCustomizerSettings()
 
     expect(settings.glassAppearance).toBe('clear')
-    expect(settings.glassDeformationStrength).toBe(50)
-    expect(settings.glassFlowStrength).toBe(50)
+    expect(settings.glassDeformationStrength).toBe(40)
+    expect(settings.glassFlowStrength).toBe(40)
     expect(settings.glassPreset).toBe('natural')
     expect(settings.glassPresetOverrides).toEqual({})
     expect(settings.glassQuality).toBe('balanced')
     expect(settings.glassReflectionStrength).toBe(35)
     expect(settings.glassTransmissionStrength).toBe(54)
-    expect(settings.glassTranslationStrength).toBe(50)
+    expect(settings.glassTranslationStrength).toBe(40)
     expect(settings.glassTransparencyStrength).toBe(46)
   })
 
@@ -122,11 +122,11 @@ describe('useThemeCustomizer glass settings', () => {
       glassPreset: 'natural',
       glassPresetOverrides: {
         'clear:balanced:natural': {
-          deformation: 50,
-          flow: 50,
+          deformation: 40,
+          flow: 40,
           reflection: 35,
           transmission: 50,
-          translation: 50,
+          translation: 40,
           transparency: 46,
         },
       },
@@ -320,13 +320,13 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassAppearance: 'frosted',
-      glassDeformationStrength: 40,
-      glassFlowStrength: 46,
+      glassDeformationStrength: 32,
+      glassFlowStrength: 37,
       glassPreset: 'glide',
       glassQuality: 'high',
       glassReflectionStrength: 25,
       glassTransmissionStrength: 54,
-      glassTranslationStrength: 70,
+      glassTranslationStrength: 56,
       glassTransparencyStrength: 38,
     })
     wrapper.unmount()
@@ -354,15 +354,15 @@ describe('useThemeCustomizer glass settings', () => {
 
     expect(readThemeCustomizerSettings()).toMatchObject({
       glassAppearance: 'tinted',
-      glassDeformationStrength: 52,
+      glassDeformationStrength: 42,
       glassPreset: 'natural',
       glassPresetOverrides: {
         'clear:balanced:natural': {
           deformation: 73,
-          flow: 50,
+          flow: 40,
           reflection: 35,
           transmission: 54,
-          translation: 50,
+          translation: 40,
           transparency: 27,
         },
       },

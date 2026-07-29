@@ -423,7 +423,7 @@ void main() {
 }
 `
 
-const DYNAMIC_RANGE_SCALE = 0.75
+const DYNAMIC_RANGE_SCALE = 0.65
 const DYNAMIC_RANGE_DENSITY = 1 / DYNAMIC_RANGE_SCALE ** 2
 
 const FLOW_FRAGMENT_SHADER = `
@@ -855,7 +855,8 @@ void main() {
     vec2 pointerDelta = uPointer - vUv;
     vec2 pointerDeltaAspect = pointerDelta;
     pointerDeltaAspect *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
-    float pointerSpread = mix(mix(26.0, 17.0, uQuality), mix(12.0, 8.0, uQuality), frosted);
+    // 三材质共享指针几何足迹；磨砂身份由位移幅度、低通扩散和材质合成表达。
+    float pointerSpread = mix(26.0, 17.0, uQuality);
     pointerSpread *= dynamicRangeDensity * mix(1.0, 0.46, uMotionExpansion);
     float pointerEnergy =
       clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);

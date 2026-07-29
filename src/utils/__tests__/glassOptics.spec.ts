@@ -93,11 +93,11 @@ describe('glass optics geometry', () => {
     const liquid = getGlassOpticalPresetParameters('frosted', 'high', 'liquid')
 
     expect(natural).toEqual({
-      deformation: 50,
-      flow: 50,
+      deformation: 40,
+      flow: 40,
       reflection: 35,
       transmission: 54,
-      translation: 50,
+      translation: 40,
       transparency: 46,
     })
     expect(glide.translation).toBeGreaterThan(glide.deformation)
@@ -110,42 +110,42 @@ describe('glass optics geometry', () => {
   it('keeps every preset dynamic parameter at the approved material calibration', () => {
     const expected = {
       clear: {
-        css: { natural: { deformation: 50, flow: 50, translation: 50 } },
+        css: { natural: { deformation: 40, flow: 40, translation: 40 } },
         balanced: {
-          natural: { deformation: 50, flow: 50, translation: 50 },
-          glide: { deformation: 30, flow: 44, translation: 72 },
-          liquid: { deformation: 70, flow: 76, translation: 56 },
+          natural: { deformation: 40, flow: 40, translation: 40 },
+          glide: { deformation: 24, flow: 35, translation: 58 },
+          liquid: { deformation: 56, flow: 61, translation: 45 },
         },
         high: {
-          natural: { deformation: 50, flow: 50, translation: 50 },
-          glide: { deformation: 32, flow: 46, translation: 74 },
-          liquid: { deformation: 74, flow: 80, translation: 58 },
+          natural: { deformation: 40, flow: 40, translation: 40 },
+          glide: { deformation: 26, flow: 37, translation: 59 },
+          liquid: { deformation: 59, flow: 64, translation: 46 },
         },
       },
       tinted: {
-        css: { natural: { deformation: 50, flow: 50, translation: 50 } },
+        css: { natural: { deformation: 40, flow: 40, translation: 40 } },
         balanced: {
-          natural: { deformation: 52, flow: 50, translation: 50 },
-          glide: { deformation: 32, flow: 44, translation: 70 },
-          liquid: { deformation: 72, flow: 76, translation: 56 },
+          natural: { deformation: 42, flow: 40, translation: 40 },
+          glide: { deformation: 26, flow: 35, translation: 56 },
+          liquid: { deformation: 58, flow: 61, translation: 45 },
         },
         high: {
-          natural: { deformation: 52, flow: 50, translation: 50 },
-          glide: { deformation: 34, flow: 46, translation: 72 },
-          liquid: { deformation: 76, flow: 80, translation: 58 },
+          natural: { deformation: 42, flow: 40, translation: 40 },
+          glide: { deformation: 27, flow: 37, translation: 58 },
+          liquid: { deformation: 61, flow: 64, translation: 46 },
         },
       },
       frosted: {
-        css: { natural: { deformation: 50, flow: 50, translation: 50 } },
+        css: { natural: { deformation: 40, flow: 40, translation: 40 } },
         balanced: {
-          natural: { deformation: 58, flow: 52, translation: 48 },
-          glide: { deformation: 38, flow: 44, translation: 68 },
-          liquid: { deformation: 78, flow: 76, translation: 52 },
+          natural: { deformation: 46, flow: 42, translation: 38 },
+          glide: { deformation: 30, flow: 35, translation: 54 },
+          liquid: { deformation: 62, flow: 61, translation: 42 },
         },
         high: {
-          natural: { deformation: 60, flow: 52, translation: 48 },
-          glide: { deformation: 40, flow: 46, translation: 70 },
-          liquid: { deformation: 82, flow: 80, translation: 54 },
+          natural: { deformation: 48, flow: 42, translation: 38 },
+          glide: { deformation: 32, flow: 37, translation: 56 },
+          liquid: { deformation: 66, flow: 64, translation: 43 },
         },
       },
     } as const
@@ -266,7 +266,7 @@ describe('glass optics geometry', () => {
     const first = getGlassOpticalPresetParameters('tinted', 'high', 'glide')
     first.translation = 0
 
-    expect(getGlassOpticalPresetParameters('tinted', 'high', 'glide').translation).toBe(72)
+    expect(getGlassOpticalPresetParameters('tinted', 'high', 'glide').translation).toBe(58)
   })
 
   it('matches the monotonic CSS ease timeline used by wallpaper crossfades', () => {
