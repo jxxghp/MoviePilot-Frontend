@@ -54,6 +54,13 @@ const userAgentRef = computed({
   },
 })
 
+const apiProtocolRef = computed({
+  get: () => wizardData.value.agent.apiProtocol,
+  set: value => {
+    wizardData.value.agent.apiProtocol = value || 'auto'
+  },
+})
+
 const modelRef = computed({
   get: () => wizardData.value.agent.model,
   set: value => {
@@ -86,6 +93,7 @@ const {
   providerConnected,
   showBaseUrlField,
   showApiKeyField,
+  showApiProtocolField,
   canRefreshModels,
   setBaseUrlPreset,
   authDialogVisible,
@@ -108,6 +116,7 @@ const {
   baseUrlPreset: baseUrlPresetRef,
   useProxy: useProxyRef,
   userAgent: userAgentRef,
+  apiProtocol: apiProtocolRef,
   model: modelRef,
   maxContextTokens: maxContextTokensRef,
   authConnected: authConnectedRef,
@@ -181,6 +190,12 @@ const thinkingLevelItems = computed(() => [
   { title: t('setting.system.llmThinkingLevelHigh'), value: 'high' },
   { title: t('setting.system.llmThinkingLevelMax'), value: 'max' },
   { title: t('setting.system.llmThinkingLevelXhigh'), value: 'xhigh' },
+])
+
+const apiProtocolItems = computed(() => [
+  { title: t('setting.system.llmApiProtocolAuto'), value: 'auto' },
+  { title: t('setting.system.llmApiProtocolChatCompletions'), value: 'chat_completions' },
+  { title: t('setting.system.llmApiProtocolResponses'), value: 'responses' },
 ])
 
 const audioProviderItems = computed(() => [
@@ -324,16 +339,30 @@ onMounted(async () => {
             />
           </VCol>
 
+          <VCol v-if="showApiProtocolField" cols="12" md="6">
+            <VSelect
+              v-model="wizardData.agent.apiProtocol"
+              :label="t('setting.system.llmApiProtocol')"
+              :hint="t('setting.system.llmApiProtocolHint')"
+              :items="apiProtocolItems"
+              persistent-hint
+              prepend-inner-icon="mdi-swap-horizontal"
+              color="primary"
+            />
+          </VCol>
+
           <VCol v-if="showBaseUrlField" cols="12" md="6">
             <VCombobox
               :model-value="wizardData.agent.baseUrl"
-              @update:model-value="(value: any) => {
-                if (typeof value === 'object' && value !== null) {
-                  setBaseUrlPreset(value.id, value.value);
-                } else {
-                  setBaseUrlPreset('', value || '');
+              @update:model-value="
+                (value: any) => {
+                  if (typeof value === 'object' && value !== null) {
+                    setBaseUrlPreset(value.id, value.value)
+                  } else {
+                    setBaseUrlPreset('', value || '')
+                  }
                 }
-              }"
+              "
               :label="t('setting.system.llmBaseUrl')"
               :hint="t('setting.system.llmBaseUrlHint')"
               :placeholder="selectedProvider?.default_base_url || 'https://api.deepseek.com'"
@@ -366,9 +395,7 @@ onMounted(async () => {
               :hint="selectedProvider?.api_key_hint || t('setting.system.llmApiKeyHint')"
               :placeholder="t('setting.system.llmApiKeyPlaceholder')"
               :error="validationErrors.agent.apiKey"
-              :error-messages="
-                validationErrors.agent.apiKey ? [t('setupWizard.agent.authOrApiKeyRequired')] : []
-              "
+              :error-messages="validationErrors.agent.apiKey ? [t('setupWizard.agent.authOrApiKeyRequired')] : []"
               persistent-hint
               prepend-inner-icon="mdi-key-variant"
               type="password"
@@ -384,7 +411,9 @@ onMounted(async () => {
                     {{ selectedProvider?.description || t('setting.system.llmProviderAuthHint') }}
                   </div>
                   <div v-if="providerConnected" class="text-body-2 mt-2">
-                    {{ t('setting.system.llmProviderConnectedAs', { label: providerAuthLabel || selectedProvider?.name }) }}
+                    {{
+                      t('setting.system.llmProviderConnectedAs', { label: providerAuthLabel || selectedProvider?.name })
+                    }}
                   </div>
                 </div>
 
@@ -417,10 +446,12 @@ onMounted(async () => {
           <VCol cols="12" md="6">
             <VCombobox
               :model-value="wizardData.agent.model"
-              @update:model-value="(val: any) => {
-                wizardData.agent.model = typeof val === 'object' && val !== null ? val.id : val;
-                handleModelChanged();
-              }"
+              @update:model-value="
+                (val: any) => {
+                  wizardData.agent.model = typeof val === 'object' && val !== null ? val.id : val
+                  handleModelChanged()
+                }
+              "
               :label="t('setting.system.llmModel')"
               :hint="t('setting.system.llmModelHint')"
               :items="llmModels"

@@ -1799,6 +1799,12 @@ export default {
         'When enabled, Agent connections to the current LLM provider use the system proxy from advanced settings.',
       llmUserAgent: 'User-Agent',
       llmUserAgentHint: 'User-Agent sent to OpenAI-compatible APIs. Leave empty to use the SDK default.',
+      llmApiProtocol: 'API Protocol',
+      llmApiProtocolHint:
+        'Request protocol for OpenAI-compatible APIs: auto-select by model capability, or force Chat Completions / Responses.',
+      llmApiProtocolAuto: 'Auto (auto)',
+      llmApiProtocolChatCompletions: 'Chat Completions',
+      llmApiProtocolResponses: 'Responses',
       llmTemperature: 'Temperature',
       llmTemperatureHint:
         'Controls response randomness. Lower values are steadier and higher values are more varied. Backend default is 0.3; 0-2 is usually recommended.',

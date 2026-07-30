@@ -53,6 +53,7 @@ const SystemSettings = ref<any>({
     LLM_PROVIDER: 'deepseek',
     LLM_MODEL: 'deepseek-chat',
     LLM_THINKING_LEVEL: 'off',
+    LLM_API_PROTOCOL: 'auto',
     LLM_SUPPORT_IMAGE_INPUT: false,
     LLM_SUPPORT_AUDIO_INPUT: false,
     LLM_SUPPORT_AUDIO_OUTPUT: false,
@@ -221,6 +222,7 @@ type LlmSettingsSnapshot = {
   LLM_PROVIDER: string
   LLM_MODEL: string
   LLM_THINKING_LEVEL: string
+  LLM_API_PROTOCOL: string
   LLM_API_KEY: string
   LLM_BASE_URL: string
   LLM_USE_PROXY: boolean
@@ -292,6 +294,13 @@ const llmUserAgentRef = computed({
   },
 })
 
+const llmApiProtocolRef = computed({
+  get: () => String(SystemSettings.value.Basic.LLM_API_PROTOCOL ?? 'auto'),
+  set: value => {
+    SystemSettings.value.Basic.LLM_API_PROTOCOL = value || 'auto'
+  },
+})
+
 const llmModelRef = computed({
   get: () => String(SystemSettings.value.Basic.LLM_MODEL ?? ''),
   set: value => {
@@ -317,6 +326,7 @@ const {
   providerConnected,
   showBaseUrlField,
   showApiKeyField,
+  showApiProtocolField: showLlmApiProtocolField,
   canRefreshModels,
   setBaseUrlPreset,
   authDialogVisible,
@@ -339,6 +349,7 @@ const {
   baseUrlPreset: llmBaseUrlPresetRef,
   useProxy: llmUseProxyRef,
   userAgent: llmUserAgentRef,
+  apiProtocol: llmApiProtocolRef,
   model: llmModelRef,
   maxContextTokens: llmMaxContextRef,
 })
@@ -397,6 +408,7 @@ function buildLlmSnapshot(): LlmSettingsSnapshot {
     LLM_PROVIDER: String(SystemSettings.value.Basic.LLM_PROVIDER ?? ''),
     LLM_MODEL: String(SystemSettings.value.Basic.LLM_MODEL ?? ''),
     LLM_THINKING_LEVEL: String(SystemSettings.value.Basic.LLM_THINKING_LEVEL ?? 'off'),
+    LLM_API_PROTOCOL: String(SystemSettings.value.Basic.LLM_API_PROTOCOL ?? 'auto'),
     LLM_API_KEY: String(SystemSettings.value.Basic.LLM_API_KEY ?? ''),
     LLM_BASE_URL: String(SystemSettings.value.Basic.LLM_BASE_URL ?? ''),
     LLM_USE_PROXY: Boolean(SystemSettings.value.Basic.LLM_USE_PROXY),
@@ -416,6 +428,7 @@ function buildLlmTestPayload(snapshot: LlmSettingsSnapshot) {
     provider: snapshot.LLM_PROVIDER.trim(),
     model: snapshot.LLM_MODEL.trim(),
     thinking_level: snapshot.LLM_THINKING_LEVEL.trim(),
+    api_protocol: snapshot.LLM_API_PROTOCOL.trim() || 'auto',
     api_key: snapshot.LLM_API_KEY.trim(),
     base_url: snapshot.LLM_BASE_URL.trim(),
     use_proxy: snapshot.LLM_USE_PROXY,
@@ -513,6 +526,12 @@ const thinkingLevelItems = computed(() => [
   { title: t('setting.system.llmThinkingLevelXhigh'), value: 'xhigh' },
 ])
 
+const apiProtocolItems = computed(() => [
+  { title: t('setting.system.llmApiProtocolAuto'), value: 'auto' },
+  { title: t('setting.system.llmApiProtocolChatCompletions'), value: 'chat_completions' },
+  { title: t('setting.system.llmApiProtocolResponses'), value: 'responses' },
+])
+
 const activeTab = ref('system')
 
 // 元数据语言
@@ -608,9 +627,7 @@ function addSecurityDomain() {
 function addImageProxyAllowedPrivateRange() {
   if (
     newImageProxyAllowedPrivateRange.value &&
-    !SystemSettings.value.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.includes(
-      newImageProxyAllowedPrivateRange.value,
-    )
+    !SystemSettings.value.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.includes(newImageProxyAllowedPrivateRange.value)
   ) {
     SystemSettings.value.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.push(newImageProxyAllowedPrivateRange.value)
     newImageProxyAllowedPrivateRange.value = ''
@@ -1212,6 +1229,16 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                         :loading="loadingLlmProviders"
                         prepend-inner-icon="mdi-robot"
                         @update:model-value="handleLlmProviderChanged"
+                      />
+                    </VCol>
+                    <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showLlmApiProtocolField" cols="12" md="6">
+                      <VSelect
+                        v-model="SystemSettings.Basic.LLM_API_PROTOCOL"
+                        :label="t('setting.system.llmApiProtocol')"
+                        :hint="t('setting.system.llmApiProtocolHint')"
+                        persistent-hint
+                        :items="apiProtocolItems"
+                        prepend-inner-icon="mdi-swap-horizontal"
                       />
                     </VCol>
                     <VCol v-if="SystemSettings.Basic.AI_AGENT_ENABLE && showBaseUrlField" cols="12" md="6">
@@ -2265,9 +2292,7 @@ watch(currentLlmSnapshotKey, (snapshotKey, previousSnapshotKey) => {
                             v-for="(range, index) in SystemSettings.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES"
                             :key="index"
                             closable
-                            @click:close="
-                              SystemSettings.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.splice(index, 1)
-                            "
+                            @click:close="SystemSettings.Advanced.IMAGE_PROXY_ALLOWED_PRIVATE_RANGES.splice(index, 1)"
                           >
                             {{ range }}
                           </VChip>
