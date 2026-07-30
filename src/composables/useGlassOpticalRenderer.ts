@@ -773,6 +773,7 @@ void main() {
   vec2 wakePerpendicular = vec2(-wakeDirection.y, wakeDirection.x);
   vec2 trailRefraction = vec2(0.0);
   float trailEnergy = 0.0;
+  float trailSpatialSpan = 0.0;
   float motionRangeCompression = mix(1.0, 1.34, uMotionExpansion);
   const float dynamicRangeScale = ${DYNAMIC_RANGE_SCALE.toFixed(2)};
   const float dynamicRangeDensity = ${DYNAMIC_RANGE_DENSITY.toFixed(3)};
@@ -798,6 +799,9 @@ void main() {
     vec4 trail = uTrail[trailIndex];
     vec2 trailDelta = vUv - trail.xy;
     trailDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
+    vec2 trailSpanDelta = trail.xy - uPointer;
+    trailSpanDelta *= uPresentationSize / max(uVisibleViewportSize.y, 1.0) * motionRangeCompression;
+    trailSpatialSpan = max(trailSpatialSpan, length(trailSpanDelta) * trail.z);
     float along = dot(trailDelta, wakeDirection);
     float across = dot(trailDelta, wakePerpendicular);
     float trailAlongDensity = mix(42.0, 22.0, uMotionExpansion) * dynamicRangeDensity;
@@ -867,12 +871,31 @@ void main() {
     // 三材质共享指针几何足迹；磨砂身份由位移幅度、低通扩散和材质合成表达。
     float pointerSpread = mix(26.0, 17.0, uQuality);
     pointerSpread *= dynamicRangeDensity * mix(1.0, 0.46, uMotionExpansion);
+    float sharedDirectionality = smoothstep(0.015, 0.18, trailSpatialSpan);
+    float pointerAlong = dot(-pointerDeltaAspect, wakeDirection);
+    float pointerAcross = dot(-pointerDeltaAspect, wakePerpendicular);
+    float sharedWakeTravel =
+      0.08 * sharedDirectionality * mix(0.86, 1.18, uMotionExpansion);
+    float radialPointerShape = exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread);
+    float directionalPointerShape =
+      exp(-(
+        pow(pointerAlong + sharedWakeTravel * 0.45, 2.0) * pointerSpread * 0.72 +
+        pointerAcross * pointerAcross * pointerSpread * 1.35
+      ));
     float pointerEnergy =
-      clamp(exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * pointerSpread) * uMotion, 0.0, 1.0);
+      clamp(mix(radialPointerShape, directionalPointerShape, sharedDirectionality) * uMotion, 0.0, 1.0);
     float sharedWaveDensity = mix(2.81, 1.63, uMotionExpansion);
+    float radialSharedWave =
+      exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * sharedWaveDensity);
+    float directionalSharedWave =
+      exp(-(
+        pow(pointerAlong + sharedWakeTravel, 2.0) * sharedWaveDensity * 0.62 +
+        pointerAcross * pointerAcross * sharedWaveDensity * 2.2
+      ));
     float sharedWaveEnergy =
-      exp(-dot(pointerDeltaAspect, pointerDeltaAspect) * sharedWaveDensity) *
+      mix(radialSharedWave, directionalSharedWave, sharedDirectionality) *
       clamp(length(uPointerVelocity) * 14.0 * uTranslationStrength, 0.0, 1.0) *
+      mix(1.0, 0.78, sharedDirectionality) *
       uMotion *
       uMotion;
     vec2 wakeDelta = vUv - uPointer;
