@@ -1960,6 +1960,64 @@ describe('glass optical surface discovery', () => {
     scope.stop()
   })
 
+  it('restores a temporarily collapsed interaction clip without rebuilding registry membership', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1200)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(800)
+    const three = await import('three')
+    const render = vi.spyOn(three.WebGLRenderer.prototype, 'render')
+    const outerSurface = appendOpticalSurface('v-card', { height: 500, width: 900, x: 80, y: 100 })
+    outerSurface.dataset.glassOpticalSurface = ''
+    const card = document.createElement('article')
+    card.className = 'app-hover-lift-card'
+    setOpticalSurfaceBounds(card, { height: 180, width: 360, x: 100, y: 140 })
+    outerSurface.append(card)
+    const querySelectorAll = vi.spyOn(outerSurface, 'querySelectorAll')
+    const scope = effectScope()
+    const renderer = scope.run(() =>
+      useGlassOpticalRenderer({
+        active: ref(true),
+        appearance: ref('clear'),
+        canvas: ref(document.createElement('canvas')),
+        quality: ref('balanced'),
+        routeKey: ref('/dashboard'),
+        surfaceSpace: 'scroll',
+        tintColor: ref('#8D51F9'),
+        wallpaperUrl: ref('https://example.com/wallpaper.jpg'),
+      }),
+    )
+
+    await vi.waitFor(() => expect(renderer?.state.value).toBe('ready'))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 160, clientY: 180 }))
+    await vi.waitFor(() => expect(render).toHaveBeenCalled())
+    const getInteractionRectCount = () => {
+      const scene = render.mock.calls.at(-1)?.[0] as unknown as {
+        children: Array<{
+          material: {
+            uniforms: {
+              uInteractionRectCount: { value: number }
+            }
+          }
+        }>
+      }
+
+      return scene.children[0].material.uniforms.uInteractionRectCount.value
+    }
+
+    expect(getInteractionRectCount()).toBe(1)
+    querySelectorAll.mockClear()
+
+    setOpticalSurfaceBounds(card, { height: 12, width: 12, x: 100, y: 140 })
+    ResizeObserverMock.instances.forEach(observer => observer.trigger())
+    await vi.waitFor(() => expect(getInteractionRectCount()).toBe(0))
+
+    setOpticalSurfaceBounds(card, { height: 180, width: 360, x: 100, y: 140 })
+    ResizeObserverMock.instances.forEach(observer => observer.trigger())
+    await vi.waitFor(() => expect(getInteractionRectCount()).toBe(1))
+
+    expect(querySelectorAll).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
   it('keeps the active texture and ready state when a replacement wallpaper fails', async () => {
     const three = await import('three')
     const canvas = document.createElement('canvas')
