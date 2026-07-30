@@ -46,6 +46,7 @@ html[data-theme='glass'] {
   --glass-surface-backdrop-filter: var(--glass-native-surface-backdrop-filter);
   --glass-raised-backdrop-filter: brightness(var(--glass-transmission-brightness));
   --glass-fixed-shell-backdrop-filter: var(--glass-raised-backdrop-filter);
+  --glass-fixed-shell-backplate-filter: brightness(var(--glass-transmission-brightness));
   --glass-control-backdrop-filter: none;
   --glass-control-prominent-backdrop-filter: none;
   --glass-navbar-backdrop-filter: var(--glass-raised-backdrop-filter);
@@ -209,6 +210,8 @@ html[data-theme='glass'] {
       brightness(var(--glass-transmission-brightness));
     // 固定全高导航限制采样半径，避免页面重绘扩大其 backdrop 栅格化区域。
     --glass-fixed-shell-backdrop-filter: blur(min(var(--glass-blur-raised), 60px)) saturate(var(--glass-saturate))
+      brightness(var(--glass-transmission-brightness));
+    --glass-fixed-shell-backplate-filter: blur(min(var(--glass-blur-raised), 60px)) saturate(var(--glass-saturate))
       brightness(var(--glass-transmission-brightness));
     --glass-control-prominent-backdrop-filter: blur(24px) saturate(150%);
     --glass-overlay-surface: rgba(var(--v-theme-background), calc(0.24 + var(--glass-surface-density, 0.86) * 0.12));
@@ -443,7 +446,7 @@ html[data-theme='glass'] {
     background: transparent !important;
     box-shadow: none !important;
 
-    // 导航材质与可变菜单内容分层，路由激活态切换不应重栅格化整块全高背板。
+    // 导航色层与可变菜单内容分离，路由激活态切换不应重建整块材质。
     &::before {
       position: absolute;
       z-index: -1;
@@ -456,6 +459,16 @@ html[data-theme='glass'] {
       content: '';
       inset: 0;
       pointer-events: none;
+    }
+  }
+
+  // 磨砂标准直接渲染稳定壁纸背板，固定功能层不得读取随页面重绘的 document backdrop。
+  &[data-glass-appearance='frosted'][data-glass-quality='css'] body[data-theme='glass'] {
+    .layout-vertical-nav::before,
+    .layout-navbar,
+    .layout-wrapper.layout-horizontal-nav-active.layout-horizontal-nav-scrolled.layout-navbar-fixed .layout-navbar {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
     }
   }
 
