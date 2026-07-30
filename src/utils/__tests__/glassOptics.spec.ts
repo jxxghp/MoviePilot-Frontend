@@ -98,7 +98,7 @@ describe('glass optics geometry', () => {
       reflection: 42,
       transmission: 65,
       translation: 48,
-      transparency: 55,
+      transparency: 50,
     })
     expect(glide.translation).toBeGreaterThan(glide.deformation)
     expect(liquid.deformation).toBeGreaterThan(glide.deformation)
